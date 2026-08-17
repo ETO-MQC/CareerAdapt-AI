@@ -5,6 +5,7 @@ import { createRuleRequirementMatches } from "@/domain/match/matcher";
 import { mapBranchToResumeDocument } from "@/domain/resumeDocument/mapper";
 import { mapBranchToResumeRenderModel } from "@/domain/resumeRender/mapper";
 import { ResumePresentationConfigSchema, type ResumePresentationConfig, type ResumeRenderSectionType } from "@/domain/schemas";
+import { sourceVisibleCoverage } from "@/services/export/renderCoverage";
 import { CareerAdaptDb } from "@/services/storage/db";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
 
@@ -274,6 +275,8 @@ describe("V2 G1a resume presentation config", () => {
     });
     expect(renderModel.sections.flatMap((section) => section.blocks).some((block) => block.sourceItemId === first.contentItemId)).toBe(false);
     expect(renderModel.safety.excludedItemIds).toContain(first.contentItemId);
+    expect(sourceVisibleCoverage({ branch, document: configuredDocument }).some((entry) => entry.itemId === first.contentItemId)).toBe(false);
+    expect(sourceVisibleCoverage({ branch, document: configuredDocument }).some((entry) => entry.itemId === second.contentItemId)).toBe(true);
   });
   it("recovers from corrupt stored presentation config without crashing", async () => {
     const { repository, branch } = await createBranchFixture("CareerAdaptG1aCorruptDb");

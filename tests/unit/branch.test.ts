@@ -81,6 +81,41 @@ describe("D1 resume branch domain", () => {
     expect(blank.firstRevision.snapshot.resumeBasics?.name).toBe("");
   });
 
+  it("removes profile-backed content only from the resume branch and can undo it", async () => {
+    db = new CareerAdaptDb(`CareerAdaptG7b5VisibilityDb-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    await repository.saveProfile(demoCareerProfile);
+    const created = await repository.createGeneralResumeBranch({
+      profileId: demoCareerProfile.id,
+      operationId: "g7b5-create-profile-backed",
+      name: "资料库同步简历",
+      includeProfileFacts: true,
+      includeProfileBasics: true
+    });
+    const target = created.branch.contentItems.find((item) => item.itemType === "skill" && item.visible);
+    if (!target) {
+      throw new Error("profile-backed fixture requires a visible skill");
+    }
+    const profileBefore = await repository.getProfile(demoCareerProfile.id);
+
+    const removed = await repository.editResumeBranch({
+      branchId: created.branch.id,
+      expectedRevision: created.branch.revision,
+      operationId: "g7b5-remove-profile-backed-skill",
+      edits: [{ itemId: target.id, visible: false }]
+    });
+    expect(removed.branch.contentItems.find((item) => item.id === target.id)?.visible).toBe(false);
+    expect((await repository.getProfile(demoCareerProfile.id))?.version).toBe(profileBefore?.version);
+
+    const undone = await repository.undoResumeBranch({
+      branchId: removed.branch.id,
+      expectedRevision: removed.branch.revision,
+      operationId: "g7b5-undo-remove-profile-backed-skill"
+    });
+    expect(undone.branch.contentItems.find((item) => item.id === target.id)?.visible).toBe(true);
+    expect((await repository.getProfile(demoCareerProfile.id))?.version).toBe(profileBefore?.version);
+  });
+
   it("persists blank resume basics and keeps newly confirmed content resume-only by default", async () => {
     db = new CareerAdaptDb(`CareerAdaptG7b5Db-${crypto.randomUUID()}`);
     const repository = new WorkspaceRepository(db);

@@ -44,6 +44,7 @@ export type TemplateRenderContext = {
   selectedSectionTitleId?: string;
   presentationConfig?: ResumePresentationConfig;
   thumbnail?: boolean;
+  measurement?: boolean;
   pagination?: {
     pageNumber: number;
     pageCount: number;
@@ -508,22 +509,34 @@ function RenderSkillPresentation({ items, context }: { items: ResumePresentation
       <div className="resume-skill-group" key={label || "uncategorized"}>
         {label ? <strong>{label}</strong> : null}
         <div className="resume-skill-values">
-          <div {...presentationItemAttrs(groupItems[0], context, "resume-skill-item")} data-pagination-unit="content">
-            <span className="resume-skill-heading">
-              <strong className="resume-skill-name">{groupItems.map((item) => item.primaryTitle).filter(Boolean).join(" · ")}</strong>
-              {groupItems.some((item) => item.secondaryTitle) ? <span className="resume-skill-level">（{groupItems.map((item) => item.secondaryTitle).filter(Boolean).join(" · ")}）</span> : null}
-            </span>
-            {groupItems.map((item) => item.description).filter(Boolean).length ? <span className="resume-skill-description">{groupItems.map((item) => item.description).filter(Boolean).join("；")}</span> : null}
-            {groupItems.slice(1).map((item) => (
-              <span
-                aria-hidden="true"
-                className="resume-skill-coverage-marker"
-                data-coverage-item-id={item.sourceItemId ?? item.id}
-                data-render-fragment-index={item.fragmentIndex ?? 0}
-                key={`coverage:${item.id}`}
-              />
-            ))}
-          </div>
+          {context?.measurement
+            ? groupItems.map((item) => (
+                <div {...presentationItemAttrs(item, context, "resume-skill-item")} data-pagination-unit="content" key={item.id}>
+                  <span className="resume-skill-heading">
+                    <strong className="resume-skill-name">{item.primaryTitle}</strong>
+                    {item.secondaryTitle ? <span className="resume-skill-level">（{item.secondaryTitle}）</span> : null}
+                  </span>
+                  {item.description ? <span className="resume-skill-description">{item.description}</span> : null}
+                </div>
+              ))
+            : (
+                <div {...presentationItemAttrs(groupItems[0], context, "resume-skill-item")} data-pagination-unit="content">
+                  <span className="resume-skill-heading">
+                    <strong className="resume-skill-name">{groupItems.map((item) => item.primaryTitle).filter(Boolean).join(" · ")}</strong>
+                    {groupItems.some((item) => item.secondaryTitle) ? <span className="resume-skill-level">（{groupItems.map((item) => item.secondaryTitle).filter(Boolean).join(" · ")}）</span> : null}
+                  </span>
+                  {groupItems.map((item) => item.description).filter(Boolean).length ? <span className="resume-skill-description">{groupItems.map((item) => item.description).filter(Boolean).join("；")}</span> : null}
+                  {groupItems.slice(1).map((item) => (
+                    <span
+                      aria-hidden="true"
+                      className="resume-skill-coverage-marker"
+                      data-coverage-item-id={item.sourceItemId ?? item.id}
+                      data-render-fragment-index={item.fragmentIndex ?? 0}
+                      key={`coverage:${item.id}`}
+                    />
+                  ))}
+                </div>
+              )}
         </div>
       </div>
     ))}

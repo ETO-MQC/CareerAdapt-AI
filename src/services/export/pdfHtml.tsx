@@ -28,7 +28,7 @@ export async function renderResumePdfHtml(
           data-resume-pagination-measurement="true"
           aria-hidden="true"
         >
-          {template.render(snapshot.renderModel, { presentationConfig })}
+          {template.render(snapshot.renderModel, { presentationConfig, measurement: true })}
         </article>
       ) : null}
       <div className="resume-preview-pages">

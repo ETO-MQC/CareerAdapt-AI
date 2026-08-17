@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { CustomFieldValue, ResumeContentItemV2, ResumeItemV2 } from "@/domain/schemas";
+import type { ResumeDocumentBlock } from "@/domain/resumeDocument/mapper";
 import { normalizeAwardedAt } from "@/domain/migrations/resumeV2";
 import { resumeFieldCatalog, type ResumeFieldDefinition, type ResumeSectionTypeV2 } from "@/domain/resumeFields";
 import { resolveCareerAssetDisplayIdentity } from "@/domain/resumeComposition/CareerAssetDisplayIdentity";
@@ -13,6 +14,7 @@ type CanonicalSectionPageProps = {
   sectionType: Exclude<ResumeSectionTypeV2, "basics">;
   sectionLabel: string;
   items: ResumeContentItemV2[];
+  blocks: ResumeDocumentBlock[];
   selectedItemId?: string;
   onSave: (itemId: string, item: ResumeItemV2, options?: { origin?: "manual" | "auto" }) => Promise<void> | void;
   onSetPresentationVisibility: (itemId: string, visible: boolean) => void;
@@ -31,33 +33,43 @@ export function CanonicalSectionPage(props: CanonicalSectionPageProps) {
   );
   const prev = prevSection(props.nav.activeSection);
   const next = nextSection(props.nav.activeSection);
-  const accordionItems = props.items.map((item, index) => ({
-    id: item.id,
-    title: itemTitle(item.data, props.sectionLabel, index),
-    subtitle: item.data.sectionType,
-    badge: item.visible ? undefined : "已隐藏",
-    defaultOpen: props.selectedItemId ? props.selectedItemId === item.id : index === 0,
-    content: (
-      <CanonicalItemForm
-        key={`${item.id}:${JSON.stringify(item.data)}`}
-        item={item.data}
-        fields={fields}
-        visible={item.visible}
-        onSave={(draft) => props.onSave(item.id, draft)}
-        onSetPresentationVisibility={(visible) => props.onSetPresentationVisibility(item.id, visible)}
-        onDelete={() => props.onDelete(item.id)}
-        onDuplicate={() => props.onDuplicate(item.id)}
-        onMoveUp={() => props.onMoveUp(item.id)}
-        onMoveDown={() => props.onMoveDown(item.id)}
-      />
-    )
-  }));
+  const blocksByItemId = useMemo(
+    () => new Map(props.blocks.map((block) => [block.contentItemId, block])),
+    [props.blocks]
+  );
+  const accordionItems = props.items.map((item, index) => {
+    const title = itemTitle(item.data, props.sectionLabel, index);
+    const block = blocksByItemId.get(item.id);
+    const presentationVisible = block?.visible ?? item.visible;
+    return {
+      id: item.id,
+      title,
+      subtitle: item.data.sectionType,
+      badge: presentationVisible ? undefined : "已隐藏",
+      defaultOpen: props.selectedItemId ? props.selectedItemId === item.id : index === 0,
+      content: (
+        <CanonicalItemForm
+          key={`${item.id}:${JSON.stringify(item.data)}:${presentationVisible}`}
+          item={item.data}
+          fields={fields}
+          visible={presentationVisible}
+          visibilityLabel={title}
+          onSave={(draft) => props.onSave(item.id, draft)}
+          onSetPresentationVisibility={(visible) => props.onSetPresentationVisibility(item.id, visible)}
+          onDelete={() => props.onDelete(item.id)}
+          onDuplicate={() => props.onDuplicate(item.id)}
+          onMoveUp={() => props.onMoveUp(item.id)}
+          onMoveDown={() => props.onMoveDown(item.id)}
+        />
+      )
+    };
+  });
 
   return (
     <SectionShell
       icon={<span className="section-shell-icon-svg" aria-hidden="true">项</span>}
       title={props.sectionLabel}
-      description={`按字段编辑${props.sectionLabel}，未被模板专门支持的字段仍会保留。`}
+      description={`按字段编辑${props.sectionLabel}，未被模板专门支持的字段仍会保留。隐藏只影响当前预览；删除只移出当前简历，不会删除资料库内容。`}
       saved
       canUndo={props.nav.canUndo}
       canRedo={props.nav.canRedo}
@@ -78,6 +90,7 @@ function CanonicalItemForm(props: {
   item: ResumeItemV2;
   fields: readonly ResumeFieldDefinition[];
   visible: boolean;
+  visibilityLabel: string;
   onSave: (item: ResumeItemV2) => Promise<void> | void;
   onSetPresentationVisibility: (visible: boolean) => void;
   onDelete: () => void;
@@ -99,7 +112,7 @@ function CanonicalItemForm(props: {
   }
 
   return (
-    <div className="section-fields canonical-item-fields">
+    <div className="section-fields canonical-item-fields" data-content-item-id={props.item.id}>
       {props.fields.map((field) => {
         const name = field.id.split(".").at(-1)!;
         return (
@@ -137,11 +150,23 @@ function CanonicalItemForm(props: {
         <button type="button" className="section-action-button" aria-label="上移" onClick={props.onMoveUp}>↑</button>
         <button type="button" className="section-action-button" aria-label="下移" onClick={props.onMoveDown}>↓</button>
         <label className="field-input-checkbox-label field-inline-toggle">
-          <input type="checkbox" checked={props.visible} onChange={(event) => props.onSetPresentationVisibility(event.target.checked)} />
+          <input
+            type="checkbox"
+            aria-label={`在简历中显示：${props.visibilityLabel}`}
+            checked={props.visible}
+            onChange={(event) => props.onSetPresentationVisibility(event.target.checked)}
+          />
           <span>显示</span>
         </label>
         <button type="button" className="section-action-button" onClick={props.onDuplicate}>复制</button>
-        <button type="button" className="section-action-button section-action-button-danger" onClick={props.onDelete}>删除</button>
+        <button
+          type="button"
+          className="section-action-button section-action-button-danger"
+          title="只从当前简历移除，不删除个人资料库内容；可用工作栏“撤销”恢复。"
+          onClick={props.onDelete}
+        >
+          删除
+        </button>
       </div>
     </div>
   );

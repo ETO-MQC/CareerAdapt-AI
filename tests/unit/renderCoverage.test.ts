@@ -49,6 +49,16 @@ describe("render coverage", () => {
     }
   });
 
+  it("measures every skill item independently when categories are grouped for the visible page", () => {
+    const model = completeModel();
+    const host = document.createElement("div");
+    host.innerHTML = renderToStaticMarkup(resumeTemplates[0].render(model, { measurement: true }));
+
+    expect(Array.from(host.querySelectorAll<HTMLElement>('[data-render-section="skills"] [data-pagination-item-id]'))
+      .map((item) => item.dataset.paginationItemId))
+      .toEqual(Array.from({ length: EXPECTED_COUNTS.skills }, (_, index) => `skills-${index + 1}`));
+  });
+
   it("reports the first exact stage and identifiers for dropped entries", () => {
     const model = completeModel();
     const source = presentationCoverage(model);

@@ -78,6 +78,7 @@ import {
   renderedCoverage,
   renderCoverageHasBlockingFailure,
   sourceVisibleCoverage,
+  type RenderCoverageStage,
   type RenderCoverageDiagnostics,
   type RenderCoverageReport
 } from "@/services/export/renderCoverage";
@@ -481,7 +482,7 @@ export function ResumeWorkspace() {
   const activeStructuredItems = useMemo(() => activeResumeSection === "basics" || activeResumeSection === "add" || activeResumeSection.startsWith("custom:")
     ? []
     : (selectedBranch?.structuredContentItems ?? [])
-      .filter((item) => item.data.sectionType === activeResumeSection)
+      .filter((item) => item.visible && item.data.sectionType === activeResumeSection)
       .sort((left, right) => left.order - right.order),
   [activeResumeSection, selectedBranch]);
   const visibleSectionTypes = useMemo(() => {
@@ -554,6 +555,17 @@ export function ResumeWorkspace() {
     warningIssueCount: diagnosticSnapshot.summary.warning,
     requirementCoverageSummary: diagnosticSnapshot.summary.requirementCoverage
   } : undefined;
+  const exportCoverageDiagnostics = pdfExportState.coverageDiagnostics;
+  const exportCoverageIssueEntries = [
+    ...(exportCoverageDiagnostics?.droppedItems ?? []).map((entry) => ({ kind: "未保留" as const, entry })),
+    ...(exportCoverageDiagnostics?.duplicateItems ?? []).map((entry) => ({ kind: "重复" as const, entry })),
+    ...(exportCoverageDiagnostics?.droppedSections ?? []).map((entry) => ({ kind: "栏目未保留" as const, entry })),
+    ...(exportCoverageDiagnostics?.duplicateSections ?? []).map((entry) => ({ kind: "栏目重复" as const, entry }))
+  ].slice(0, 3);
+  const exportCoverageFailure = pdfExportState.status === "failed"
+    && (pdfExportState.errorCode === "render_coverage_failed" || Boolean(exportCoverageDiagnostics));
+  const exportRecoveryAvailable = pdfExportState.status === "failed"
+    && (exportCoverageFailure || Boolean(pdfExportState.canUseFallback));
   const sortedBranches = useMemo(() => {
     return [...branches].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }, [branches]);
@@ -1065,6 +1077,35 @@ export function ResumeWorkspace() {
     notify({ type: "info", title: "诊断项", message: "该诊断项没有更细粒度定位目标。" });
   }
 
+  function locateExportCoverageIssue() {
+    const target = exportCoverageIssueEntries[0]?.entry;
+    const itemId = target?.itemId;
+    const block = itemId ? resumeDocumentBlocksById.get(itemId) : undefined;
+    if (itemId && block) {
+      setStudioMode("edit");
+      setIsStudioEditMode(true);
+      setActiveResumeSection(studioSectionForBlock(block));
+      setSelectedStudioItemId(itemId);
+      setEditingStudioItemId(undefined);
+      setStudioDraftText("");
+      setActivePropertyTab("block");
+      window.requestAnimationFrame(() => scrollCanvasItemIntoView(itemId));
+      notify({ type: "info", title: "已定位导出问题", message: "已选中受影响内容；当前版本未被覆盖，可以检查后再重试。" });
+      return;
+    }
+
+    setStudioMode("style");
+    setStyleInspectorTab("page");
+    window.requestAnimationFrame(() => {
+      const sectionId = target?.sectionId;
+      const section = sectionId
+        ? previewStageRef.current?.querySelector(`[data-render-section-id="${cssEscape(sectionId)}"]`)
+        : undefined;
+      (section ?? previewStageRef.current)?.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
+    notify({ type: "info", title: "已打开导出检查", message: "预览中没有可直接选中的缺失条目，请先重新检查页面布局后再重试。" });
+  }
+
   async function applyDiagnosticAction(issue: ResumeDiagnosticIssue, action: ResumeDiagnosticAction) {
     const payload = actionPayload(action);
     if (action.kind === "ignore_issue") {
@@ -1480,7 +1521,9 @@ export function ResumeWorkspace() {
       });
       replaceBranch(result.branch);
       setSelectedStudioItemId(visible ? itemId : undefined);
-      notify({ type: "success", title: visible ? "已恢复" : "已删除", message: visible ? "内容已恢复到当前简历，并创建新的内容版本。" : "内容已删除，可使用撤销恢复。" });
+      notify({ type: "success", title: visible ? "已恢复" : "已从本简历移除", message: visible
+        ? "内容已恢复到当前简历，并创建新的内容版本。"
+        : "内容已删除（仅从当前简历移除），资料库内容未改变；可点击工作栏“撤销”恢复到当前简历。" });
     } catch {
       notify({ type: "error", title: "操作失败", message: "版本冲突、引用失效或当前简历不可编辑。" });
     }
@@ -3018,7 +3061,7 @@ export function ResumeWorkspace() {
           paginationPlan: exportPaginationPlan,
           renderCoverageDiagnostics: exportCoverageDiagnostics
         });
-        notify({ type: "warning", title: "导出已停止", message: "刚才的导出覆盖检查没有通过。已保留当前简历版本，请选择“修复并重试导出”或回到预览定位问题。" });
+        notify({ type: "warning", title: "导出已停止", message: "刚才的导出覆盖检查没有通过。当前简历版本已保留，请使用页面上方的“重新检查并重试导出”或“查看预览中的问题”。" });
         setPdfExportState({
           status: "failed",
           exportId,
@@ -3261,7 +3304,14 @@ export function ResumeWorkspace() {
       return;
     }
     if (!renderCoverageReport || renderCoverageHasBlockingFailure(renderCoverageReport)) {
-      notify({ type: "warning", title: "导出已停止", message: "检测到简历栏目或条目在渲染链路中丢失或重复，请等待预览刷新后重试。" });
+      notify({ type: "warning", title: "导出已停止", message: "检测到预览与导出渲染链路不一致。当前版本已保留，请使用页面上方的“重新检查并重试导出”或“查看预览中的问题”。" });
+      setPdfExportState({
+        status: "failed",
+        message: "预览覆盖检查未通过，已保留当前版本。",
+        errorCode: "render_coverage_failed",
+        canUseFallback: false,
+        coverageDiagnostics: renderCoverageReport?.diagnostics
+      });
       return;
     }
     const startedAt = new Date().toISOString();
@@ -3455,6 +3505,16 @@ export function ResumeWorkspace() {
     void repository.listResumeRevisions(branch.id).then(setRevisions);
   }
 
+  const canUndoBranch = Boolean(selectedBranch && selectedBranch.revision > 0);
+  const canUndoAny = canUndoBranch || presentationHistory.undoStack.length > 0;
+  const undoLatestChange = () => {
+    if (presentationHistory.undoStack.length > 0) {
+      void undoPresentationChange();
+      return;
+    }
+    void undo();
+  };
+
   if (workspace.status === "loading") {
     return (
       <main className="page-shell">
@@ -3492,9 +3552,9 @@ export function ResumeWorkspace() {
       }
       setActiveResumeSection(section);
     },
-    canUndo: Boolean(presentationHistory.undoStack.length),
+    canUndo: canUndoAny,
     canRedo: Boolean(presentationHistory.redoStack.length),
-    onUndo: undo,
+    onUndo: undoLatestChange,
     onRedo: () => { void redoPresentationChange(); }
   };
 
@@ -3848,7 +3908,7 @@ export function ResumeWorkspace() {
                   </div>
                 </details>
               ) : null}
-              <button className="secondary-button compact" onClick={undo} disabled={!selectedBranchEditable}>撤销</button>
+              <button className="secondary-button compact" onClick={undoLatestChange} disabled={!selectedBranchEditable || !canUndoAny}>撤销</button>
               <button className="secondary-button compact" disabled={!presentationHistory.redoStack.length || !presentationConfig} onClick={() => { void redoPresentationChange(); }}>重做</button>
               {selectedBranch.branchPurpose === "job_specific" ? (
                 <button type="button" className="secondary-button compact" data-testid="open-or-create-application" onClick={openOrCreateApplication} disabled={!selectedBranchEditable}>
@@ -3912,6 +3972,69 @@ export function ResumeWorkspace() {
               </div>
             </div>
           ) : null}
+        </section>
+      ) : null}
+
+      {selectedBranch && exportRecoveryAvailable ? (
+        <section className="warning-box resume-export-recovery no-print" data-testid="pdf-export-recovery" role="alert">
+          <div className="resume-export-recovery-copy">
+            <div className="resume-export-recovery-heading">
+              <span>PDF 导出</span>
+              <strong>{exportCoverageFailure ? "未完成" : "失败"}</strong>
+            </div>
+            <p>
+              {exportCoverageFailure
+                ? "这是预览与正式 PDF 的完整性检查，不是对简历内容的评分；当前版本已保留，没有被覆盖。"
+                : pdfExportState.message ?? "当前版本已保留，可以重新尝试导出。"}
+            </p>
+            {exportCoverageFailure && exportCoverageDiagnostics ? (
+              <>
+                <p>
+                  检查阶段：{renderCoverageStageLabel(exportCoverageDiagnostics.failedStage)} · 当前简历纳入检查 {exportCoverageDiagnostics.sourceCounts.items} 项
+                  {exportCoverageDiagnostics.renderedCounts ? ` · 预览 ${exportCoverageDiagnostics.renderedCounts.items} 项` : " · 尚未取得最终预览计数"}
+                </p>
+                <p className="resume-export-recovery-scope">这里只核验当前简历中已选并设为显示的内容；资料库中未加入或已隐藏的内容不会要求出现在 PDF。</p>
+                {exportCoverageIssueEntries.length > 0 ? (
+                  <ul className="resume-export-recovery-issues">
+                    {exportCoverageIssueEntries.map(({ kind, entry }) => {
+                      const blockText = entry.itemId ? resumeDocumentBlocksById.get(entry.itemId)?.text.trim() : undefined;
+                      const detail = blockText ? blockText.slice(0, 48) : entry.label;
+                      return <li key={`${kind}-${entry.sectionId}-${entry.itemId ?? "section"}`}>{kind}：{resumeCoverageSectionLabel(entry.sectionType)} · {detail}</li>;
+                    })}
+                  </ul>
+                ) : null}
+              </>
+            ) : null}
+            {exportCoverageFailure && !exportCoverageDiagnostics ? (
+              <p>本次没有拿到具体条目明细，通常是预览尚未稳定；先重新检查一次即可继续判断。</p>
+            ) : null}
+          </div>
+          <div className="resume-export-recovery-actions">
+            <button
+              type="button"
+              className="primary-button compact resume-export-recovery-primary"
+              data-testid="pdf-export-retry"
+              onClick={() => { void downloadPdf(); }}
+              disabled={isPdfExportBusy}
+            >
+              {exportCoverageFailure ? "重新检查并重试导出" : "重新尝试导出"}
+            </button>
+            {exportCoverageFailure ? (
+              <button
+                type="button"
+                className="secondary-button compact resume-export-recovery-secondary"
+                data-testid="pdf-export-locate"
+                onClick={locateExportCoverageIssue}
+              >
+                查看预览中的问题
+              </button>
+            ) : null}
+            {pdfExportState.canUseFallback ? (
+              <button type="button" className="secondary-button compact resume-export-recovery-secondary" data-testid="pdf-export-fallback" onClick={() => { void exportPdf(); }}>
+                打印 / 保存 PDF
+              </button>
+            ) : null}
+          </div>
         </section>
       ) : null}
 
@@ -4140,6 +4263,7 @@ export function ResumeWorkspace() {
                   sectionType={activeResumeSection as Exclude<ResumeSectionTypeV2, "basics">}
                   sectionLabel={activeSectionItem?.label ?? "内容"}
                   items={activeStructuredItems}
+                  blocks={activeSectionBlocks}
                   selectedItemId={selectedStudioItemId}
                   onSave={saveStructuredItem}
                   onSetPresentationVisibility={(itemId, visible) => { void setPresentationItemVisibility(itemId, visible); }}
@@ -4458,15 +4582,15 @@ export function ResumeWorkspace() {
                   </span>
                 </div>
                 ) : null}
-                {styleInspectorTab === "page" && renderCoverageReport && renderCoverageHasBlockingFailure(renderCoverageReport) ? (
+                {styleInspectorTab === "page" && renderCoverageReport && renderCoverageHasBlockingFailure(renderCoverageReport) && !exportRecoveryAvailable ? (
                   <div className="warning-box" data-testid="render-coverage-warning">
                     <p>
-                      检测到内容在{renderCoverageReport.diagnostics.failedStage === "presentation" ? "展示" : renderCoverageReport.diagnostics.failedStage === "pagination" ? "分页" : "模板渲染"}阶段丢失或重复，已停止正式导出。
+                      检测到内容在{renderCoverageStageLabel(renderCoverageReport.diagnostics.failedStage)}阶段丢失或重复，已停止正式导出。
                     </p>
                     {renderCoverageReport.diagnostics.droppedItems.length > 0 ? (
                       <p>受影响条目：{renderCoverageReport.diagnostics.droppedItems.slice(0, 3).map((item) => item.label).join("、")}。</p>
                     ) : null}
-                    <p>已保留当前版本；请先刷新预览后重试，必要时回到预览定位具体条目。</p>
+                    <p>已保留当前版本；请使用工作区上方的恢复操作重新检查，或查看预览中的问题。</p>
                   </div>
                 ) : null}
                 {styleInspectorTab === "page" && renderModel?.safety.ruleOnlyItemIds.length ? (
@@ -4510,19 +4634,6 @@ export function ResumeWorkspace() {
                   </p>
                   {pdfExportState.status === "failed" && pdfExportState.canUseFallback ? (
                     <p className="save-status">可重试下载，或使用浏览器打印 fallback。</p>
-                  ) : null}
-                  {pdfExportState.status === "failed" && pdfExportState.coverageDiagnostics ? (
-                    <div className="export-control-actions">
-                      <button type="button" className="primary-button compact" onClick={() => { void downloadPdf(); }} disabled={isPdfExportBusy}>
-                        修复并重试导出
-                      </button>
-                      <button type="button" className="secondary-button compact" onClick={() => {
-                        setStyleInspectorTab("page");
-                        previewStageRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-                      }}>
-                        回到预览定位问题
-                      </button>
-                    </div>
                   ) : null}
                 </div>
                 ) : null}
@@ -5623,6 +5734,19 @@ function sectionTypeLabel(value: string) {
     return "证书";
   }
   return "项目与经历";
+}
+
+function renderCoverageStageLabel(stage?: RenderCoverageStage) {
+  if (stage === "presentation") return "展示整理";
+  if (stage === "pagination") return "分页整理";
+  if (stage === "rendered") return "模板渲染";
+  return "预览稳定性检查";
+}
+
+function resumeCoverageSectionLabel(value: string) {
+  if (value === "experience") return "经历";
+  if (value === "custom") return "自定义栏目";
+  return resumeSectionCatalog.find((section) => section.id === value)?.label ?? value;
 }
 
 function diagnosticTemplateInfo(template: ReturnType<typeof getResumeTemplate>): ResumeDiagnosticTemplateInfo {

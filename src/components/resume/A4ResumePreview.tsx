@@ -384,7 +384,7 @@ export function A4ResumePreview({
         data-resume-pagination-measurement="true"
         aria-hidden="true"
       >
-        {template.render(model, { presentationConfig })}
+        {template.render(model, { presentationConfig, measurement: true })}
       </article>
       <div className="resume-preview-pages" style={previewZoomStyle}>
         {visiblePageModels.map((pageModel, index) => (

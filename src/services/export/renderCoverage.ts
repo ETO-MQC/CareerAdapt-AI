@@ -77,6 +77,9 @@ export function sourceVisibleCoverage(input: {
   document: ResumeDocument;
   derivedSummary?: string;
 }): RenderCoverageEntry[] {
+  // The coverage baseline is the current resume's selected, presentation-visible
+  // content. Items that remain only in the profile library, or that the user hid
+  // from this resume, are intentionally outside the export completeness check.
   const runtimeBranch = migrateResumeBranchToV2(input.branch);
   const hasPersistedSummaryItem = input.document.blocks.some((block) => !block.derivedFrom && block.itemType === "summary");
   const visibleIds = new Set(input.document.blocks
