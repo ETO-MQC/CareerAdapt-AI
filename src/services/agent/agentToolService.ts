@@ -1120,7 +1120,7 @@ export class BrowserAgentToolService implements AgentToolServices {
     assertNotAborted(signal);
     const profiles = await this.repository.listProfiles();
     return {
-      profiles: profiles.map((profile) => ({
+      profiles: profiles.filter((profile) => !profile.archivedAt && !profile.trashedAt).map((profile) => ({
         ...profileSummaryCounts(profile),
         id: profile.id,
         personId: profile.personId,

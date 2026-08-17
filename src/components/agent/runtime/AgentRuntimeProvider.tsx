@@ -38,6 +38,7 @@ import {
 } from "@/agent/runtime/hermes/hermesRunReliability";
 import { hermesProductionToolNames } from "@/agent/runtime/hermes/HermesCareerToolCatalog";
 import { isReadOnlyCareerQuestion } from "@/agent/runtime/AgentTurnIntent";
+import { isCareerDomainPreconditionCode } from "@/agent/runtime/careerContextBindingResolver";
 import { createIncidentTraceId, createRunStopReason, type RuntimeFailureSnapshot, type RunStopReason } from "@/agent/runtime/hermes/hermesIncidentTrace";
 
 function createAgentHost() {
@@ -390,7 +391,6 @@ function createAgentHost() {
                   : [])
               ]
             : [],
-        ...(runtime.id === "hermes" ? { requireCareerSessionBinding: true } : {}),
         ...(runtimeShell ? {
           runtimeShellMessageId: runtimeShell.assistantMessageId,
           runtimeShellUserMessageId: runtimeShell.userMessageId
@@ -469,7 +469,7 @@ function createAgentHost() {
         runtimeEventBus.emit(observedEvent);
         if (event.type === "turn_completed" || event.type === "turn_failed") {
           runtimeStatus.recordTurn({ runtimeId: runtime.id, turnId: event.turnId, data: observedEvent.data });
-          if (isHermesRuntimeFailureCode(runtimeFailureCode)) {
+          if (isHermesRuntimeFailureCode(runtimeFailureCode) && !isCareerDomainPreconditionCode(runtimeFailureCode)) {
             runtimeStatus.recordRunFailure({
               code: runtimeFailureCode,
               message: event.error?.message,
@@ -483,6 +483,7 @@ function createAgentHost() {
           if (
             runtime.id === "hermes"
             && event.type === "turn_failed"
+            && !isCareerDomainPreconditionCode(runtimeFailureCode)
             && !input.metadata?.runtimeRecoveryAttempted
             && !input.metadata?.semanticRetryAttempted
             && !toolsExecuted
@@ -497,7 +498,9 @@ function createAgentHost() {
                   recoveryInput = {
                     ...runtimeInput,
                     session: current,
-                    userMessage: "",
+                    userMessage: current.messages.find((message) =>
+                      message.role === "user" && message.id === current.activeTurn?.userMessageId
+                    )?.content ?? runtimeInput.userMessage,
                     metadata: {
                       ...(runtimeInput.metadata ?? {}),
                       runtimeUserEvent: { type: "retry", action: { type: "retry_current_step" } },

@@ -214,6 +214,77 @@ describe("P4.5c.1.6 Hermes-first tailoring continuation and failure closure", ()
     expect(save).toHaveBeenCalled();
   });
 
+  it("uses retry-current-turn and preserves the failed turn message and logical turn", async () => {
+    const base = AgentRuntime.create("tailor_existing_resume", "generate_plan");
+    const turnId = "tailoring-retry-turn-1";
+    const userMessageId = "tailoring-retry-user-1";
+    const assistantMessageId = "tailoring-retry-assistant-1";
+    const now = new Date().toISOString();
+    const session = AgentSessionSchema.parse({
+      ...base,
+      taskState: tailoringState("generate_plan"),
+      messages: [
+        {
+          id: userMessageId,
+          turnId,
+          role: "user",
+          content: "请根据当前岗位继续生成",
+          kind: "text",
+          type: "text",
+          status: "complete",
+          createdAt: now
+        },
+        {
+          id: assistantMessageId,
+          turnId,
+          role: "assistant",
+          content: "正在生成岗位简历…",
+          kind: "assistant_thinking",
+          type: "assistant_thinking",
+          status: "thinking",
+          createdAt: now
+        }
+      ],
+      activeTurn: {
+        id: turnId,
+        sessionId: base.id,
+        userMessageId,
+        runtimeId: "hermes",
+        status: "running",
+        startedAt: now
+      }
+    });
+    const save = vi.fn(async (value: AgentSession) => value);
+    const host = new AgentHostStore({
+      kernel: {} as never,
+      executor: {} as never,
+      persistence: { save } as never
+    });
+    host.adopt(session);
+    const failed = await host.applyRuntimeEvent({
+      type: "turn_failed",
+      sessionId: session.id,
+      turnId,
+      timestamp: now,
+      error: { code: "hermes_run_failed_after_start", message: "provider failure", recoverable: true }
+    }, assistantMessageId);
+
+    expect(failed?.messages.find((message) => message.id === assistantMessageId)?.options).toEqual([
+      expect.objectContaining({ id: "retry-current-turn", action: { type: "retry_current_step" } })
+    ]);
+    host.adopt(failed!);
+    const prepared = await host.prepareRuntimeUserEvent({
+      session: failed!,
+      event: { type: "option_selected", action: { type: "retry_current_step" } },
+      pageContext
+    });
+    expect(prepared).toMatchObject({
+      turnId,
+      userMessage: "请根据当前岗位继续生成",
+      session: { activeTurn: { id: turnId, userMessageId }, taskState: { stage: "generate_plan", completionStatus: "active" } }
+    });
+  });
+
   it("keeps candidate names in option sets, not narrative, and supersedes stale choices", async () => {
     const resumeModel = scriptedModel({ stopReason: "final", text: "模型不应接管简历选择。" });
     const resumeRegistry = createAgentToolRegistry(baseServices());

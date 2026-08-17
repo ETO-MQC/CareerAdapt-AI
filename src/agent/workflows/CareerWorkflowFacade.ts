@@ -15,6 +15,12 @@ import {
 import { isTailoringQuestionPaused, normalizeTailoringStage, type TailoringStage } from "./tailoringStage";
 import { JobRequirementGraphV4Schema, JobTargetPersistenceSchema, JobTargetSnapshotSchema } from "@/domain/schemas";
 import { createPastedJobTargetSnapshot, jobTargetSnapshotHash } from "@/domain/jobTarget/jobTargetSnapshot";
+import {
+  careerContextBindingResolver,
+  profileHasSufficientFacts,
+  type CareerProfileCandidate,
+  type CareerResumeCandidate
+} from "../runtime/careerContextBindingResolver";
 
 export const CareerWorkflowStatusSchema = z.enum([
   "completed",
@@ -153,8 +159,14 @@ export async function executeCareerWorkflowFacade(
   const definition = CAREER_WORKFLOW_FACADE_DEFINITIONS.find((candidate) => candidate.name === name);
   if (!definition) throw Object.assign(new Error("unknown_career_workflow"), { code: "unknown_career_workflow" });
   const input = definition.inputSchema.parse(rawInput) as Record<string, unknown>;
-  const call = async (toolName: string, value: unknown, index = 0) => executeAtomic(toolName, value, {
+  const call = async (
+    toolName: string,
+    value: unknown,
+    index = 0,
+    contextPatch: Partial<CareerToolExecutionContext> = {}
+  ) => executeAtomic(toolName, value, {
     ...context,
+    ...contextPatch,
     operationId: `${operationId}-${index + 1}`
   });
 
@@ -303,7 +315,12 @@ export async function executeCareerWorkflowFacade(
   }, context);
 }
 
-type TailoringFacadeCall = (toolName: string, value: unknown, index?: number) => Promise<CareerToolResult>;
+type TailoringFacadeCall = (
+  toolName: string,
+  value: unknown,
+  index?: number,
+  contextPatch?: Partial<CareerToolExecutionContext>
+) => Promise<CareerToolResult>;
 
 async function executeTailoringResumeFacade(
   input: Record<string, unknown>,
@@ -325,9 +342,11 @@ async function executeTailoringResumeFacade(
       : undefined);
   if (targetInput) input.target = targetInput;
   const sourceResumeId = stringValue(input.sourceResumeId) ?? stringValue(input.resumeId);
-  const profileId = stringValue(input.profileId)
+  let profileId = stringValue(input.profileId)
     ?? context.authoritativeTaskState?.selectedEntities.profileId
     ?? context.careerSessionBinding?.profileId;
+  let resolvedBinding = context.careerSessionBinding;
+  let resolvedProfile: CareerProfileCandidate | undefined;
   let resolvedSourceResumeId = sourceResumeId;
   let jobId = stringValue(input.jobId)
     ?? (targetInput?.type === "saved_job" ? targetInput.jobId : undefined)
@@ -342,56 +361,150 @@ async function executeTailoringResumeFacade(
     ? JobTargetSnapshotSchema.parse(persistedTargetSnapshot)
     : undefined;
   let fitAnalysis = targetSnapshot ? undefined : context.authoritativeTaskState?.knownSlots.fitAnalysis;
+  const persistedJobPersistenceDecision = stringValue(context.authoritativeTaskState?.knownSlots.jobPersistenceDecision);
+  if (!input.jobPersistenceDecision && persistedJobPersistenceDecision) input.jobPersistenceDecision = persistedJobPersistenceDecision;
 
   if (checkpointId && (!persistedSessionId || persistedSessionId !== checkpointId)) {
     const failure = syntheticTailoringResult(operationId, "tailoring_checkpoint_not_found", "当前定制 checkpoint 不存在或已变化，已保留当前岗位和简历选择。", false);
     return tailoringFacadeProgress(operationId, input, context, results.concat(failure), {}, undefined, "failed");
   }
 
+  let callIndex = 0;
+  if (!checkpointId && targetInput?.type === "pasted_jd") {
+    const parsed = await call("career.job.parse", {
+      rawText: targetInput.text,
+      ...(targetInput.title ? { title: targetInput.title } : {}),
+      ...(targetInput.company ? { company: targetInput.company } : {})
+    }, callIndex++);
+    results.push(parsed);
+    if (!parsed.ok) {
+      return tailoringFacadeProgress(operationId, input, context, results, {
+        kind: "tailoring_target",
+        workflowStage: "clarify_target",
+        targetSourceType: "pasted_jd",
+        jobPersistenceDecision: targetInput.persistence
+      }, undefined, "recoverable_failure");
+    }
+    const parsedData = objectValue(parsed.data);
+    const graph = JobRequirementGraphV4Schema.parse(parsedData.graph);
+    targetSnapshot = JobTargetSnapshotSchema.parse({
+      ...createPastedJobTargetSnapshot({
+        rawText: targetInput.text,
+        graph,
+        title: stringValue(parsedData.candidateTitle) ?? targetInput.title,
+        company: stringValue(parsedData.candidateCompany) ?? targetInput.company
+      }),
+      ...(targetInput.sourceUrl ? { sourceUrl: targetInput.sourceUrl } : {})
+    });
+    jobId = undefined;
+    fitAnalysis = undefined;
+  }
+
+  if (!checkpointId && (context.availableCareerToolNames?.has("career.profile.list") !== false)) {
+    const activeProfileResult = context.availableCareerToolNames?.has("career.profile.active") === false
+      ? undefined
+      : await call("career.profile.active", {}, callIndex++);
+    if (activeProfileResult) results.push(activeProfileResult);
+    const listedProfiles = await call("career.profile.list", {}, callIndex++);
+    results.push(listedProfiles);
+    if (!listedProfiles.ok || activeProfileResult && !activeProfileResult.ok) {
+      return tailoringFacadeProgress(operationId, input, context, results, {
+        kind: "career_context",
+        workflowStage: "choose_resume_source",
+        contextBindingState: "partially_bound",
+        profileId,
+        ...(jobId ? { jobId } : {}),
+        ...(targetSnapshot ? {
+          targetSourceType: targetSnapshot.sourceType,
+          targetSnapshotId: targetSnapshot.id,
+          targetSnapshotVersion: targetSnapshot.version,
+          targetSnapshotHash: jobTargetSnapshotHash(targetSnapshot),
+          targetSnapshot,
+          jobPersistenceDecision: targetInput?.type === "pasted_jd" ? targetInput.persistence : undefined
+        } : {}),
+        userPrompt: "读取个人资料时遇到临时问题。当前岗位和原始输入已保留，请稍后重试当前对话。"
+      }, undefined, "recoverable_failure");
+    }
+    const profileValues = arrayValue(objectValue(listedProfiles.data).profiles)
+      .map((value) => objectValue(value)) as CareerProfileCandidate[];
+    const activeValue = activeProfileResult ? objectValue(activeProfileResult.data) : {};
+    const activeCandidate = activeValue.selected === true && stringValue(activeValue.profileId)
+      ? {
+          ...activeValue,
+          id: stringValue(activeValue.profileId)!,
+          version: activeValue.version
+        } as CareerProfileCandidate
+      : undefined;
+    const profileResolution = careerContextBindingResolver.resolveProfile({
+      sessionId: context.agentSessionId ?? context.careerSessionBinding?.agentSessionId,
+      pinnedBinding: resolvedBinding,
+      requestedProfileId: profileId,
+      activeProfile: activeCandidate,
+      profiles: profileValues
+    });
+    if (profileResolution.state !== "bound") {
+      return tailoringFacadeProgress(operationId, input, context, results, {
+        kind: "career_context",
+        workflowStage: "choose_resume_source",
+        contextBindingState: profileResolution.state,
+        profileId,
+        ...(jobId ? { jobId } : {}),
+        profileCandidates: profileResolution.candidates,
+        ...(targetSnapshot ? {
+          targetSourceType: targetSnapshot.sourceType,
+          targetSnapshotId: targetSnapshot.id,
+          targetSnapshotVersion: targetSnapshot.version,
+          targetSnapshotHash: jobTargetSnapshotHash(targetSnapshot),
+          targetSnapshot,
+          jobPersistenceDecision: targetInput?.type === "pasted_jd" ? targetInput.persistence : undefined
+        } : {}),
+        userPrompt: profileResolution.userPrompt
+      }, undefined, "waiting_for_user");
+    }
+    resolvedProfile = profileResolution.profile;
+    profileId = profileResolution.profile.id;
+    input.profileId = profileId;
+    resolvedBinding = profileResolution.binding ?? resolvedBinding;
+  }
+
+  const internalContext = resolvedBinding
+    ? { careerSessionBinding: resolvedBinding, requireSessionBinding: true }
+    : {};
+
   if (!checkpointId) {
     if (!profileId || (!resolvedSourceResumeId && !targetInput)) {
-      const failure = syntheticTailoringResult(operationId, "tailoring_selection_required", "开始岗位定制需要当前选中的岗位、简历和资料版本。", false);
-      return tailoringFacadeProgress(operationId, input, context, results.concat(failure), {}, undefined, "failed");
-    }
-    let callIndex = 0;
-    if (targetInput?.type === "pasted_jd") {
-      const parsed = await call("career.job.parse", {
-        rawText: targetInput.text,
-        ...(targetInput.title ? { title: targetInput.title } : {}),
-        ...(targetInput.company ? { company: targetInput.company } : {})
-      }, callIndex++);
-      results.push(parsed);
-      if (!parsed.ok) {
-        return tailoringFacadeProgress(operationId, input, context, results, {
-          kind: "tailoring_target",
-          workflowStage: "parse_target",
-          profileId,
-          targetSourceType: "pasted_jd",
-          jobPersistenceDecision: targetInput.persistence
-        }, undefined, "recoverable_failure");
-      }
-      const parsedData = objectValue(parsed.data);
-      const graph = JobRequirementGraphV4Schema.parse(parsedData.graph);
-      targetSnapshot = JobTargetSnapshotSchema.parse({
-        ...createPastedJobTargetSnapshot({
-          rawText: targetInput.text,
-          graph,
-          title: stringValue(parsedData.candidateTitle) ?? targetInput.title,
-          company: stringValue(parsedData.candidateCompany) ?? targetInput.company
-        }),
-        ...(targetInput.sourceUrl ? { sourceUrl: targetInput.sourceUrl } : {})
-      });
-      jobId = undefined;
-      fitAnalysis = undefined;
+      return tailoringFacadeProgress(operationId, input, context, results, {
+        kind: "career_context",
+        workflowStage: "choose_resume_source",
+        contextBindingState: "unbound",
+        ...(profileId ? { profileId } : {}),
+        ...(jobId ? { jobId } : {}),
+        ...(targetSnapshot ? {
+          targetSourceType: targetSnapshot.sourceType,
+          targetSnapshotId: targetSnapshot.id,
+          targetSnapshotVersion: targetSnapshot.version,
+          targetSnapshotHash: jobTargetSnapshotHash(targetSnapshot),
+          targetSnapshot,
+          jobPersistenceDecision: targetInput?.type === "pasted_jd" ? targetInput.persistence : undefined
+        } : {}),
+        userPrompt: "当前还没有可用于定制的个人资料。你可以选择已有资料，或先导入一份简历。"
+      }, undefined, "waiting_for_user");
     }
     if (!resolvedSourceResumeId) {
-      const listed = await call("career.resume.list", {}, callIndex++);
+      const listed = await call("career.resume.list", {}, callIndex++, internalContext);
       results.push(listed);
       const resumeValues = listed.ok ? arrayValue(objectValue(listed.data).resumes) : [];
-      const resumes = resumeValues
-        .map((value: unknown) => objectValue(value))
-        .filter((resume: Record<string, unknown>) => resume.branchPurpose === "general" && resume.lifecycleStatus === "active");
-      if (resumes.length !== 1) {
+      const resumes = resumeValues.map((value: unknown) => objectValue(value)) as CareerResumeCandidate[];
+      const profileSufficient = resolvedProfile
+        ? profileHasSufficientFacts(resolvedProfile)
+        : Boolean(resolvedBinding);
+      const sourceResolution = careerContextBindingResolver.resolveResumeSource({
+        profileId,
+        requestedResumeId: sourceResumeId,
+        resumes,
+        profileSufficient
+      });
+      if (sourceResolution.kind === "choice") {
         return tailoringFacadeProgress(operationId, input, context, results, {
           kind: "tailoring_source_selection",
           workflowStage: "choose_resume_source",
@@ -401,13 +514,39 @@ async function executeTailoringResumeFacade(
             targetSnapshotId: targetSnapshot.id,
             targetSnapshotVersion: targetSnapshot.version,
             targetSnapshotHash: jobTargetSnapshotHash(targetSnapshot),
-            targetSnapshot
+            targetSnapshot,
+            jobPersistenceDecision: targetInput?.type === "pasted_jd"
+              ? targetInput.persistence
+              : persistedJobPersistenceDecision
           } : {}),
-          resumeCandidates: resumes.slice(0, 12),
+          contextBindingState: resolvedBinding ? "bound" : "partially_bound",
+          resumeCandidates: sourceResolution.candidates,
           sourceResumeId: undefined
-        }, undefined, "waiting_for_user");
+        }, undefined, "waiting_for_user", sourceResolution.userPrompt);
       }
-      resolvedSourceResumeId = stringValue(resumes[0].id);
+      if (sourceResolution.kind === "profile_route" || sourceResolution.kind === "needs_profile_facts") {
+        return tailoringFacadeProgress(operationId, input, context, results, {
+          kind: "tailoring_source_selection",
+          workflowStage: "choose_resume_source",
+          profileId,
+          contextBindingState: resolvedBinding ? "bound" : "partially_bound",
+          sourceRoute: "profile",
+          profileRoute: sourceResolution.kind === "profile_route" ? "profile_to_resume" : "profile_intake_or_resume_import",
+          profileSufficient,
+          ...(targetSnapshot ? {
+            targetSourceType: targetSnapshot.sourceType,
+            targetSnapshotId: targetSnapshot.id,
+            targetSnapshotVersion: targetSnapshot.version,
+            targetSnapshotHash: jobTargetSnapshotHash(targetSnapshot),
+            targetSnapshot,
+            jobPersistenceDecision: targetInput?.type === "pasted_jd"
+              ? targetInput.persistence
+              : persistedJobPersistenceDecision
+          } : {}),
+          userPrompt: sourceResolution.userPrompt
+        }, undefined, "waiting_for_user", sourceResolution.userPrompt);
+      }
+      resolvedSourceResumeId = sourceResolution.resume.id;
     }
     if (!resolvedSourceResumeId || (!jobId && !targetSnapshot)) {
       const failure = syntheticTailoringResult(operationId, "tailoring_selection_required", "开始岗位定制需要当前选中的岗位、简历和资料版本。", false);
@@ -419,7 +558,7 @@ async function executeTailoringResumeFacade(
         resumeId: resolvedSourceResumeId,
         ...(jobId ? { jobId } : {}),
         ...(targetSnapshot ? { targetSnapshot } : {})
-      }, callIndex++);
+      }, callIndex++, internalContext);
       results.push(fit);
       if (!fit.ok) {
         return tailoringFacadeProgress(operationId, input, context, results, {
@@ -447,7 +586,7 @@ async function executeTailoringResumeFacade(
       ...(jobId ? { jobId } : {}),
       ...(targetSnapshot ? { targetSnapshot } : {}),
       ...(input.intensity ? { intensity: input.intensity } : {})
-    }, callIndex++);
+    }, callIndex++, internalContext);
     results.push(created);
     session = objectValue(objectValue(created.data).session);
   }
@@ -480,7 +619,7 @@ async function executeTailoringResumeFacade(
         session,
         questionId: activeQuestionId,
         answer: input.userAnswer
-      }, results.length);
+      }, results.length, internalContext);
       results.push(answered);
       if (!answered.ok) {
         return tailoringFacadeProgress(operationId, input, context, results, tailoringCheckpoint(input, session, fitAnalysis), session, "recoverable_failure");
@@ -505,7 +644,7 @@ async function executeTailoringResumeFacade(
       results.length ? [] : [checkpointOnlyTailoringResult(operationId, session)]
     ), checkpoint, session, "review_ready");
   }
-  const generated = await call("career.tailoring.generate_changes", { session }, results.length);
+  const generated = await call("career.tailoring.generate_changes", { session }, results.length, internalContext);
   results.push(generated);
   const generatedSession = objectValue(objectValue(generated.data).session);
   return tailoringFacadeProgress(
@@ -526,7 +665,8 @@ function tailoringFacadeProgress(
   results: CareerToolResult[],
   checkpoint: Record<string, unknown>,
   session: Record<string, unknown> | undefined,
-  requestedStatus: CareerWorkflowFacadeResult["status"]
+  requestedStatus: CareerWorkflowFacadeResult["status"],
+  userPromptOverride?: string
 ) {
   const last = results.at(-1) ?? checkpointOnlyTailoringResult(operationId, session ?? {});
   const workflowStage = facadeWorkflowStage("career.workflow.tailor_resume", last, checkpoint);
@@ -550,7 +690,9 @@ function tailoringFacadeProgress(
   };
   const artifactRefs = [...new Map(results.flatMap((result) => result.artifacts).map((artifact) => [artifact.id, artifact])).values()];
   const receipts = [...results.map((result) => result.receipt), facadeReceipt];
-  const prompt = stringValue(interactionPlan?.recommendedNextQuestion?.question)
+  const prompt = userPromptOverride
+    ?? stringValue(checkpoint.userPrompt)
+    ?? stringValue(interactionPlan?.recommendedNextQuestion?.question)
     ?? (workflowStage === "generate_changes" ? "澄清已完成，可以生成定制修改建议。" : undefined);
   const review = tailoringReviewProjection(session ?? objectValue(checkpoint.session));
   const data = CareerWorkflowFacadeResultSchema.parse({
@@ -808,6 +950,38 @@ function buildFacadeInteractionPlan(input: {
       });
     }
   } else if (input.facadeName === "career.workflow.tailor_resume") {
+    const contextState = stringValue(checkpoint.contextBindingState);
+    const contextPrompt = stringValue(checkpoint.userPrompt);
+    const profileCandidates = arrayValue(checkpoint.profileCandidates);
+    const resumeCandidates = arrayValue(checkpoint.resumeCandidates);
+    if (contextState === "unbound" || contextState === "partially_bound" || contextPrompt) {
+      const needsProfileChoice = profileCandidates.length > 1;
+      const needsResumeChoice = resumeCandidates.length > 1;
+      const needId = needsProfileChoice
+        ? "career-context:profile-choice"
+        : needsResumeChoice
+          ? "career-context:resume-choice"
+          : "career-context:profile";
+      const question = contextPrompt
+        ?? (needsProfileChoice
+          ? "请选择要用于这次岗位定制的个人资料。"
+          : needsResumeChoice
+            ? "请选择要作为这次岗位定制基础的通用简历。"
+            : undefined);
+      if (question) {
+        needs.push({
+          id: needId,
+          type: "target_selection",
+          importance: 0.95,
+          reason: question,
+          answerChangesOutcome: true,
+          required: true,
+          alreadyAsked: false,
+          priorityFactors: { expectedArtifactImpact: 1, currentReadinessGap: 1, jobRelevance: 0.9 }
+        });
+        recommendedNextQuestion = { needId, question };
+      }
+    }
     const session = objectValue(data.session ?? checkpoint.session);
     const plan = objectValue(session.plan);
     const questions = arrayValue(plan.clarificationQuestions);

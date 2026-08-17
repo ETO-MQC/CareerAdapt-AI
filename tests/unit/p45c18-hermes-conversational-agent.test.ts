@@ -88,7 +88,7 @@ describe("P4.5c.1.8 Hermes conversational career agent", () => {
       expect(classifyTurnIntent({ text }).taskMutation).toBe("preserve");
       expect(classifyCareerTask({ text }).taskClass).toBe("ConversationalCareerTask");
     }
-    expect(classifyTurnIntent({ text: "用我的资料库生成一份岗位简历" }).newTask?.workflowId).toBe("compose_resume");
+    expect(classifyTurnIntent({ text: "用我的资料库生成一份岗位简历" }).newTask?.workflowId).toBe("tailor_existing_resume");
     expect(classifyCareerTask({ text: "上传一份简历并导入资料库" }).taskClass).toBe("TransactionalCareerWorkflow");
   });
 

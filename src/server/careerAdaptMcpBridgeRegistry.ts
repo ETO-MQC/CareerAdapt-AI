@@ -20,6 +20,7 @@ type BridgeRequest = {
   logicalTurnId?: string;
   taskId?: string;
   incidentTraceId?: string;
+  agentSessionId?: string;
   careerSessionBinding?: CareerSessionBinding;
   requireSessionBinding?: boolean;
   createdAt: number;
@@ -150,6 +151,7 @@ export function pollCareerAdaptMcpBridge(bridgeId: string, token: string, limit 
     logicalTurnId: request.logicalTurnId,
     taskId: request.taskId,
     incidentTraceId: request.incidentTraceId,
+    agentSessionId: request.agentSessionId,
     careerSessionBinding: request.careerSessionBinding,
     requireSessionBinding: request.requireSessionBinding
   }));
@@ -237,6 +239,7 @@ function enqueueCall(name: string, input: unknown, context: CareerToolExecutionC
     logicalTurnId: context.logicalTurnId,
     taskId: context.taskId,
     incidentTraceId: context.incidentTraceId,
+    agentSessionId: context.agentSessionId,
     careerSessionBinding: context.careerSessionBinding ?? bridge.careerSessionBinding,
     requireSessionBinding: context.requireSessionBinding,
     createdAt: Date.now()

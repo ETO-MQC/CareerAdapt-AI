@@ -22,6 +22,7 @@ import {
   TransactionalWorkflowLeaseManager,
   type TransactionalWorkflowLease
 } from "../workflows/TransactionalWorkflowLease";
+import { isCareerDomainPreconditionCode } from "../runtime/careerContextBindingResolver";
 
 export type CareerToolReadWrite = "read" | "write";
 export type CareerToolConfirmationPolicy = "none" | "user_confirmation" | "destructive_confirmation";
@@ -100,6 +101,8 @@ export type CareerToolExecutionContext = {
   taskId?: string;
   /** Observability-only trace shared by one LogicalTurn. */
   incidentTraceId?: string;
+  /** Runtime session identity used when a facade resolves an unbound profile. */
+  agentSessionId?: string;
   signal?: AbortSignal;
   confirmed?: boolean;
   confirmationCount?: number;
@@ -472,10 +475,10 @@ export class CareerToolGateway {
     context: CareerToolExecutionContext
   ): Promise<{ code: string; message: string } | undefined> {
     const binding = context.careerSessionBinding;
-    if (context.requireSessionBinding && !binding) {
+    if (context.requireSessionBinding && !binding && contract.personProfileBinding === "required") {
       return {
-        code: "career_session_binding_required",
-        message: "当前 Hermes 任务缺少固定的人物与资料版本，未执行 Career 工具。"
+        code: "needs_profile",
+        message: "当前还没有可用于定制的个人资料。你可以选择已有资料，或先导入一份简历。"
       };
     }
     if (!binding) return undefined;
@@ -497,7 +500,16 @@ export class CareerToolGateway {
     if (!state || state.workflowId !== "tailor_existing_resume") return undefined;
     if (name === "career.workflow.tailor_resume") {
       const stage = normalizeTailoringStage(state.stage);
-      return stage && ["analyze_fit", "generate_plan", "clarify_unsupported_facts", "generate_changes", "preview_changes"].includes(stage)
+      return stage && [
+        "clarify_target",
+        "choose_resume_source",
+        "choose_job",
+        "analyze_fit",
+        "generate_plan",
+        "clarify_unsupported_facts",
+        "generate_changes",
+        "preview_changes"
+      ].includes(stage)
         ? undefined
         : {
             code: "agent_tool_not_allowed_current_stage",
@@ -890,7 +902,7 @@ function finishTrace(
   const completedAt = new Date().toISOString();
   return CareerToolFailureDiagnosticsSchema.parse({
     toolFailureLayer: layer,
-    failureScope: scopeForLayer(layer),
+    failureScope: isCareerDomainPreconditionCode(code) ? "career_context" : scopeForLayer(layer),
     safeDomainErrorCode: code,
     toolResultIsError,
     failedStage: toolResultIsError ? failedStageForLayer(layer) : "completed",

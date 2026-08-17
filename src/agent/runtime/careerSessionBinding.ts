@@ -116,7 +116,7 @@ function assertOptionalContextMatch(
     ["profileRevision", pageContext.profileRevision, binding.profileRevision]
   ];
   const mismatch = pairs.find(([, pageValue, sessionValue]) =>
-    pageValue !== undefined && pageValue !== sessionValue
+    pageValue !== undefined && sessionValue !== undefined && pageValue !== sessionValue
   );
   if (mismatch) {
     throw bindingError(

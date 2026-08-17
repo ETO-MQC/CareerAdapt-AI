@@ -106,7 +106,11 @@ describe("P4.4d Hermes runtime closure", () => {
       operationId: "p44d-binding-missing",
       requireSessionBinding: true
     });
-    expect(missing).toMatchObject({ ok: false, error: { code: "career_session_binding_required" } });
+    expect(missing).toMatchObject({
+      ok: false,
+      error: { code: "needs_profile" },
+      diagnostics: { failureScope: "career_context" }
+    });
 
     const mismatched = await gateway.execute("career.profile.commit_intake", { profileId: "profile-2" }, {
       operationId: "p44d-binding-mismatch",
@@ -262,7 +266,7 @@ describe("P4.4d Hermes runtime closure", () => {
     expect(second).toMatchObject({ ok: false, error: { code: "operation_id_binding_conflict" } });
   });
 
-  it("requires a binding on the production MCP route and reports the six workflow contract matrix", async () => {
+  it("keeps unbound read discovery available on the production MCP route and reports the six workflow contract matrix", async () => {
     const gateway = new CareerToolGateway(new AgentToolRegistry([
       tool("list_profiles", false, async () => ({ profiles: [] }))
     ]));
@@ -273,7 +277,10 @@ describe("P4.4d Hermes runtime closure", () => {
       method: "tools/call",
       params: { name: "career.profile.list", arguments: {}, _meta: {} }
     });
-    expect(called).toMatchObject({ id: 1, result: { isError: true, structuredContent: { error: { code: "career_session_binding_required" } } } });
+    expect(called).toMatchObject({
+      id: 1,
+      result: { structuredContent: { ok: true, data: { profiles: [] } } }
+    });
     expect(HERMES_WORKFLOW_MATRIX).toHaveLength(6);
     const contracts = HERMES_WORKFLOW_MATRIX.flatMap((workflow) => workflow.requiredTools)
       .map((name) => ({ name })) as never;

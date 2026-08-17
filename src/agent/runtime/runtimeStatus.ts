@@ -2,6 +2,7 @@ import { runtimeHealthStatus, type RuntimeHealth } from "./runtimeHealth";
 import { classifyHermesRunFailure, type HermesRunFailureInput } from "./hermes/hermesRunReliability";
 import type { HermesSupervisorSnapshot } from "@/services/agent/hermesControl";
 import type { AbortTrace, BridgeRequestTrace, RuntimeFailureSnapshot } from "./hermes/hermesIncidentTrace";
+import { isCareerDomainPreconditionCode } from "./careerContextBindingResolver";
 
 export type RuntimeStatus = "ready" | "starting" | "degraded" | "unavailable";
 
@@ -153,6 +154,7 @@ export class RuntimeStatusStore {
 
   recordRunFailure(input: HermesRunFailureInput & { safeErrorCode?: string; safeErrorMessage?: string }) {
     const requestedCode = input.code ?? input.safeErrorCode;
+    if (isCareerDomainPreconditionCode(requestedCode)) return;
     const activeRunId = input.hermesRunId ?? this.snapshot.activeRunId ?? this.snapshot.health?.activeRunId;
     const normalizedCode = activeRunId
       && (requestedCode === "hermes_unavailable_before_turn" || requestedCode === "mcp_unavailable_before_turn")

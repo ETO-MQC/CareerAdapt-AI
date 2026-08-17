@@ -15,6 +15,7 @@ import type { AgentPageContext } from "@/agent/contracts/agentContext";
 import type { AgentStreamEvent } from "@/agent/runtime/agentSse";
 import type { AgentRuntimeEvent } from "@/agent/runtime/agentRuntime";
 import { isHermesRuntimeFailureCode } from "@/agent/runtime/hermes/hermesRunReliability";
+import { isCareerDomainPreconditionCode } from "@/agent/runtime/careerContextBindingResolver";
 import {
   abortSourceForReason,
   createIncidentTraceId,
@@ -874,11 +875,14 @@ export class AgentHostStore {
       }
       if (action.type === "retry_current_step") {
         const prepared = await this.prepareRetryWorkflowStep(current);
+        const retryMessage = prepared.session.messages.find((message) =>
+          message.role === "user" && message.id === prepared.session.activeTurn?.userMessageId
+        )?.content ?? "继续当前步骤";
         return {
           session: prepared.session,
           event: { type: "retry", action },
           turnId: prepared.turnId,
-          userMessage: "",
+          userMessage: retryMessage,
           executionOwner: "deterministic_transition",
           deterministicTransitionApplied: prepared.applied
         };
@@ -1142,8 +1146,8 @@ export class AgentHostStore {
     if (!binding) {
       return {
         kind: "stale",
-        code: "career_session_binding_required",
-        message: "当前任务缺少固定的人物与资料版本绑定，未写入简历；请重新打开当前资料后重试。",
+        code: "needs_profile",
+        message: "当前还没有可用于生成简历的个人资料。你可以选择已有资料，或先导入一份简历。",
         refreshable: false
       };
     }
@@ -1923,11 +1927,15 @@ export class AgentHostStore {
       };
     }
     if (event.type === "turn_completed" || event.type === "turn_failed") {
+      const domainFailureWaiting = isCareerDomainPreconditionCode(event.error?.code)
+        || objectValue(event.data).domainFailure === true
+        && objectValue(event.data).waitingForUser === true;
       const completionDecision = next.taskState ? new AgentGoalCompletionGuard().evaluate(next.taskState) : undefined;
       const completionNeedsRecovery = event.type === "turn_completed"
         && Boolean(completionDecision && !completionDecision.canFinish);
-      const completionBlocked = completionDecision?.reason === "blocked";
-      const completionWaiting = completionNeedsRecovery
+      const completionBlocked = !domainFailureWaiting && completionDecision?.reason === "blocked";
+      const completionWaiting = domainFailureWaiting
+        || completionNeedsRecovery
         || completionDecision?.reason === "waiting_for_user"
         || completionDecision?.reason === "waiting_for_confirmation";
       const completionWaitingForConfirmation = completionDecision?.reason === "waiting_for_confirmation";
@@ -1954,7 +1962,7 @@ export class AgentHostStore {
       const terminalWaiting = !terminalFailed && (tailoringRecovery || tailoringQuestionRecovery || completionWaiting);
       const text = blocked ? grounding.recoveryText : candidate;
       next = replaceRuntimeShellMessage(next, assistantMessageId, text, event, false, terminalFailed);
-      if (terminalFailed || terminalWaiting || tailoringRecovery) next = withRetryCurrentStepOption(next, assistantMessageId);
+      if ((terminalFailed || terminalWaiting || tailoringRecovery) && !domainFailureWaiting) next = withRetryCurrentStepOption(next, assistantMessageId);
       if (next.taskState) next = attachTaskStateOptions(next, next.taskState);
       next = {
         ...next,
@@ -2953,14 +2961,19 @@ export class AgentHostStore {
   }
 
   private async retryCurrentWorkflowStep(session: AgentSession, pageContext: AgentPageContext) {
-    const journal = await this.dependencies.persistence.listProfileIntakeSourceTurns?.(session.id) ?? [];
+    const isProfileIntake = session.taskState?.workflowId === "guided_profile_intake";
+    const journal = isProfileIntake
+      ? await this.dependencies.persistence.listProfileIntakeSourceTurns?.(session.id) ?? []
+      : [];
     const recoverableJournal = journal
       .filter((turn) => turn.processingStatus !== "superseded")
       .findLast((turn) => ["failed", "partial", "structuring", "journaled"].includes(turn.processingStatus));
+    const safe = resolveLastSafeWorkflowCheckpoint(session);
+    const originalTurnId = session.activeTurn?.id ?? safe?.checkpoint?.turnId;
     const sourceMessage = recoverableJournal
       ? session.messages.find((message) => message.id === recoverableJournal.messageId)
-      : [...session.messages].reverse().find((message) => message.role === "user" && message.content.trim());
-    const safe = resolveLastSafeWorkflowCheckpoint(session);
+      : [...session.messages].reverse().find((message) => message.role === "user" && message.content.trim() && (!originalTurnId || message.turnId === originalTurnId))
+        ?? [...session.messages].reverse().find((message) => message.role === "user" && message.content.trim());
     if (!sourceMessage && !safe) return session;
     const checkpoint = sourceMessage
       ? session.turnCheckpoints.findLast((item) => item.userMessageId === sourceMessage.id)
@@ -3020,6 +3033,9 @@ export class AgentHostStore {
     return this.startTurn({
       session: restored,
       userMessage: recoverableJournal?.exactSourceText ?? sourceMessage?.content ?? "继续当前步骤",
+      turnId: originalTurnId,
+      userMessageId: sourceMessage?.id,
+      appendUserMessage: false,
       pageContext,
       supersede: true,
       retryWorkflowStep: true
@@ -4275,6 +4291,8 @@ export class AgentHostStore {
     const compositionRetryInitialInstruction = input.retryWorkflowStep
       && input.session.taskState?.workflowId === "compose_resume"
       && /(?:个人资料库|资料库).*(?:通用)?简历|(?:整理|生成|创建|组装).*(?:通用)?简历/iu.test(input.userMessage);
+    const tailoringRetryInitialInstruction = input.retryWorkflowStep
+      && input.session.taskState?.workflowId === "tailor_existing_resume";
     const turnDecision: TurnIntentDecision = input.typedTask
       ? {
           intent: "new_domain_task",
@@ -4287,7 +4305,14 @@ export class AgentHostStore {
             stage: input.typedTask.stage
           }
         }
-      : compositionRetryInitialInstruction
+      : tailoringRetryInitialInstruction
+        ? {
+            intent: "continue_current_task",
+            confidence: "high",
+            taskMutation: "recover",
+            toolScope: "domain"
+          }
+        : compositionRetryInitialInstruction
         ? {
             intent: "new_domain_task",
             confidence: "high",
@@ -5488,9 +5513,12 @@ export class AgentHostStore {
 
   private async prepareRetryWorkflowStep(session: AgentSession) {
     const safe = resolveLastSafeWorkflowCheckpoint(session);
-    const turnId = `agent-retry-${crypto.randomUUID()}`;
+    const turnId = session.activeTurn?.id ?? safe?.checkpoint?.turnId ?? `agent-retry-${crypto.randomUUID()}`;
     if (!safe) return { session, turnId, applied: false };
-    const userMessageId = `agent-user-${crypto.randomUUID()}`;
+    const userMessageId = session.activeTurn?.userMessageId
+      ?? safe.checkpoint?.userMessageId
+      ?? [...session.messages].reverse().find((message) => message.role === "user" && message.turnId === turnId)?.id
+      ?? `agent-user-${crypto.randomUUID()}`;
     const now = new Date().toISOString();
     const restoredTask = {
       ...structuredClone(safe.taskState),
@@ -9444,6 +9472,26 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
         : "reviewed"
     } : {})
   };
+  if (checkpoint.kind === "career_context" || checkpoint.kind === "tailoring_source_selection") {
+    const profileCandidates = Array.isArray(checkpoint.profileCandidates) ? checkpoint.profileCandidates : [];
+    const resumeCandidates = Array.isArray(checkpoint.resumeCandidates) ? checkpoint.resumeCandidates : [];
+    const contextBindingState = stringRecordValue(checkpoint.contextBindingState);
+    if (contextBindingState) knownSlots.careerContextBindingState = contextBindingState;
+    if (profileCandidates.length) knownSlots.profileCandidates = profileCandidates;
+    if (resumeCandidates.length) {
+      knownSlots.resumeCandidates = resumeCandidates;
+      knownSlots.resumeSelectionRequired = true;
+      knownSlots.resumeCandidateSetRevision = stableHashText(JSON.stringify(resumeCandidates));
+    } else if (checkpoint.kind === "tailoring_source_selection") {
+      delete knownSlots.resumeCandidates;
+      delete knownSlots.resumeSelectionRequired;
+      delete knownSlots.resumeCandidateSetRevision;
+    }
+    const sourceRoute = stringRecordValue(checkpoint.sourceRoute);
+    if (sourceRoute) knownSlots.sourceRoute = sourceRoute === "profile" ? "profile_to_job_resume" : sourceRoute;
+    const profileRoute = stringRecordValue(checkpoint.profileRoute);
+    if (profileRoute) knownSlots.profileRoute = profileRoute;
+  }
   if (checkpoint.kind === "resume_composition" && completionStatus === "completed") {
     delete knownSlots.resumeCompositionPendingInformationNeed;
   } else if (checkpoint.kind === "resume_composition") {
@@ -10058,6 +10106,14 @@ function runtimeAttemptStatus(
 
 function runtimeFailureRecoveryText(code?: string, taskState?: AgentTaskState, diagnostics?: Record<string, unknown>) {
   const failureLayer = stringValue(diagnostics?.toolFailureLayer);
+  if (isCareerDomainPreconditionCode(code)) {
+    if (code === "needs_profile" || code === "career_session_binding_required") {
+      return "当前还没有可用于定制的个人资料。你可以选择已有资料，或先导入一份简历。";
+    }
+    if (code === "needs_profile_choice") return "当前有多份可用的个人资料，请先选择一份。";
+    if (code === "needs_resume_choice") return "当前有多份可用的通用简历，请先选择一份。";
+    return "当前步骤需要你的选择或补充信息后才能继续。";
+  }
   if (failureLayer === "mcp_transport" || /mcp_(?:bridge_)?(?:transport|unavailable|timeout)/i.test(code ?? "")) {
     return "CareerAdapt MCP 边界这次没有返回工具结果；Hermes 任务本身没有被判定为不可用。已保留当前任务 checkpoint，确认工作区连接后可从当前步骤重试。";
   }
@@ -10353,7 +10409,7 @@ function withRetryCurrentStepOption(session: AgentSession, messageId?: string) {
     : session.messages.findLastIndex((message) => message.role === "assistant");
   if (index < 0) return session;
   const option: AgentOption = {
-    id: "retry-current-profile-intake-step",
+    id: "retry-current-turn",
     label: "重新执行当前步骤",
     action: { type: "retry_current_step" }
   };
@@ -10363,7 +10419,7 @@ function withRetryCurrentStepOption(session: AgentSession, messageId?: string) {
       ? {
           ...message,
           options: [
-            ...(message.options ?? []).filter((candidate) => candidate.id !== option.id),
+            ...(message.options ?? []).filter((candidate) => ![option.id, "retry-current-profile-intake-step"].includes(candidate.id)),
             option
           ],
           optionSet: activeOptionSetForMessage(session, message.id, "recovery")

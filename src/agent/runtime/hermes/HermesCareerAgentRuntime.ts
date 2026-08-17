@@ -282,10 +282,10 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         session: input.session,
         pageContext: input.pageContext
       });
-      const requireSessionBinding = input.metadata?.requireCareerSessionBinding === true || Boolean(input.session);
-      if (requireSessionBinding && !binding) {
-        throw hermesError("career_session_binding_required", "当前 Hermes 任务缺少固定的人物与资料版本。");
-      }
+      // A Career Session may be unbound while Hermes determines the semantic
+      // capability and its deterministic facade resolves the profile/source.
+      // Binding remains enforced at the required atomic/write boundary.
+      const requireSessionBinding = Boolean(binding);
       const health = await this.dependencies.transport.health(input.signal);
       const runtimeAvailable = health.runtimeHealth?.runtimeAvailable ?? health.available;
       if (!runtimeAvailable) throw hermesError("hermes_unavailable_before_turn", health.reason ?? "Hermes runtime is unavailable.");
@@ -887,7 +887,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
   ): AsyncGenerator<AgentRuntimeEvent> {
     input = { ...input, metadata: { ...(input.metadata ?? {}), hermesProtocol: "legacy" } };
     const binding = resolveCareerSessionBinding({ sessionId: input.sessionId, session: input.session, pageContext: input.pageContext });
-    const requireSessionBinding = input.metadata?.requireCareerSessionBinding === true || Boolean(input.session);
+    const requireSessionBinding = Boolean(binding);
     const health = await this.dependencies.transport.health(input.signal);
     if (!(health.runtimeHealth?.runtimeAvailable ?? health.available)) {
       throw hermesError("hermes_unavailable_before_turn", health.reason ?? "Hermes runtime is unavailable.");
@@ -1198,6 +1198,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       logicalTurnId: input.turnId,
       taskId: typeof input.metadata?.taskId === "string" ? input.metadata.taskId : undefined,
       incidentTraceId: typeof input.metadata?.incidentTraceId === "string" ? input.metadata.incidentTraceId : undefined,
+      agentSessionId: input.sessionId,
       signal: input.signal,
       confirmed,
       confirmationCount,
@@ -1212,6 +1213,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         logicalTurnId: input.turnId,
         taskId: typeof input.metadata?.taskId === "string" ? input.metadata.taskId : undefined,
         incidentTraceId: typeof input.metadata?.incidentTraceId === "string" ? input.metadata.incidentTraceId : undefined,
+        agentSessionId: input.sessionId,
         signal: input.signal,
         confirmed,
         confirmationCount,

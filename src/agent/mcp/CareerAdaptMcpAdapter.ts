@@ -53,6 +53,7 @@ export type CareerAdaptMcpCallMeta = {
   logicalTurnId?: string;
   taskId?: string;
   incidentTraceId?: string;
+  agentSessionId?: string;
   careerSessionBinding?: CareerSessionBinding;
   requireSessionBinding?: boolean;
   /**
@@ -102,6 +103,7 @@ export class CareerAdaptMcpAdapter {
       logicalTurnId: meta.logicalTurnId,
       taskId: meta.taskId,
       incidentTraceId: meta.incidentTraceId,
+      agentSessionId: meta.agentSessionId,
       signal,
       // MCP clients must never autonomously bypass a CareerAdapt
       // confirmation boundary. Safe reads and explicitly safe writes still

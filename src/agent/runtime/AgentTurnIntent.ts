@@ -183,7 +183,7 @@ export function classifyTurnIntent(input: {
   ) {
     return decision("casual_side_turn", "preserve", "domain", profileIntakeTurnKind, activeQuestionResolution);
   }
-  if (isExplicitProfileToResumeIntent(text)) {
+  if (isExplicitProfileToResumeIntent(text) && !looksLikeJobSpecificResumeRequest(text)) {
     return {
       ...decision("new_domain_task", "replace", "domain", profileIntakeTurnKind, activeQuestionResolution),
       newTask: { goal: "compose_resume", workflowId: "compose_resume", stage: "select_profile_scope" }
@@ -514,6 +514,9 @@ function expectedProfileIntakeAnswerDimension(taskState: AgentTaskState) {
 }
 
 function newDomainTask(text: string): NonNullable<TurnIntentDecision["newTask"]> {
+  if (looksLikeJobSpecificResumeRequest(text)) {
+    return { goal: "generate_job_specific_resume", workflowId: "tailor_existing_resume", stage: "choose_resume_source" };
+  }
   if (looksLikeExternalTargetRequest(text)) {
     return { goal: "apply_to_external_job", workflowId: "tailor_existing_resume", stage: "choose_resume_source" };
   }
@@ -614,6 +617,10 @@ function isGeneralCareerQuestion(text: string) {
 
 function isExplicitProfileToResumeIntent(text: string) {
   return /(?:从|基于|使用|用).*(?:个人资料库|资料库).*(?:整理|生成|创建|组装|编写).*(?:通用)?简历|通用简历.*(?:生成|整理|创建|组装|编写)/iu.test(text);
+}
+
+function looksLikeJobSpecificResumeRequest(text: string) {
+  return /岗位简历|职位简历|对应的?(?:岗位|职位).*简历|(?:岗位|职位).*(?:定制|投递|申请|应聘)|生成.*(?:岗位|职位).*(?:简历|版本)/iu.test(text);
 }
 
 function referenceToolScope(text: string): TurnToolScope {

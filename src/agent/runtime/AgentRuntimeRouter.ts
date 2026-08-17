@@ -3,6 +3,7 @@ import type { AgentRuntime, AgentRuntimeEvent, AgentRuntimeRecoveryPlan, AgentRu
 import type { RuntimeUserEvent } from "./RuntimeUserEvent";
 import { isRetryableHermesRunFailure } from "./hermes/hermesRunReliability";
 import type { RunStopReason } from "./hermes/hermesIncidentTrace";
+import { isCareerDomainPreconditionCode } from "./careerContextBindingResolver";
 
 export type { RuntimeUserEvent } from "./RuntimeUserEvent";
 
@@ -127,6 +128,17 @@ class RoutedAgentRuntime implements AgentRuntime {
       if (emitted) {
         const runtimeFailureAt = new Date().toISOString();
         const failureCode = postStartRuntimeErrorCode(errorCode(error));
+        if (isCareerDomainPreconditionCode(errorCode(error))) {
+          yield {
+            type: "turn_completed",
+            sessionId: input.sessionId,
+            turnId: input.turnId ?? "runtime-turn-unknown",
+            timestamp: runtimeFailureAt,
+            message: careerDomainWaitingMessage(errorCode(error)),
+            data: { safeErrorCode: errorCode(error), waitingForUser: true, domainFailure: true }
+          };
+          return;
+        }
         yield {
           type: "turn_failed",
           sessionId: input.sessionId,
@@ -156,6 +168,31 @@ class RoutedAgentRuntime implements AgentRuntime {
       const fallbackReasonCode = errorCode(error);
       const runtimeFailureAt = new Date().toISOString();
       const initialFailureDiagnostics = diagnosticsFromError(error);
+      if (isCareerDomainPreconditionCode(fallbackReasonCode)) {
+        yield {
+          type: "turn_completed",
+          sessionId: input.sessionId,
+          turnId: input.turnId ?? "runtime-turn-unknown",
+          timestamp: runtimeFailureAt,
+          message: careerDomainWaitingMessage(fallbackReasonCode),
+          data: {
+            safeErrorCode: fallbackReasonCode,
+            waitingForUser: true,
+            domainFailure: true,
+            diagnostics: initialFailureDiagnostics,
+            telemetry: {
+              preferredRuntime: this.preferred.id,
+              attemptedRuntime: this.preferred.id,
+              finalRuntime: this.preferred.id,
+              fallbackUsed: false,
+              incidentTraceId: stringMetadata(input.metadata?.incidentTraceId),
+              attemptTraceId: stringMetadata(input.metadata?.attemptTraceId),
+              firstEventAt
+            }
+          }
+        };
+        return;
+      }
       if (!isRetryableHermesRunFailure(error)) {
         yield {
           type: "turn_failed",
@@ -362,6 +399,15 @@ function safeErrorMessage(error: unknown) {
     return error.message.replace(/[\u0000-\u001f\u007f]/gu, " ").replace(/\s+/gu, " ").trim().slice(0, 360);
   }
   return "Hermes 当前不可用，已保留任务 checkpoint。";
+}
+
+function careerDomainWaitingMessage(code: string) {
+  if (code === "needs_profile" || code === "career_session_binding_required") {
+    return "当前还没有可用于定制的个人资料。你可以选择已有资料，或先导入一份简历。";
+  }
+  if (code === "needs_profile_choice") return "当前有多份可用的个人资料，请先选择一份。";
+  if (code === "needs_resume_choice") return "当前有多份可用的通用简历，请先选择一份。";
+  return "当前步骤需要你的选择或补充信息后才能继续。";
 }
 
 function diagnosticsFromError(error: unknown) {

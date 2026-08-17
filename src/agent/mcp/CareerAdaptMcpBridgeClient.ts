@@ -16,6 +16,7 @@ type BridgeRequest = {
   logicalTurnId?: string;
   taskId?: string;
   incidentTraceId?: string;
+  agentSessionId?: string;
   careerSessionBinding?: CareerSessionBinding;
   requireSessionBinding?: boolean;
 };
@@ -264,6 +265,7 @@ export class CareerAdaptMcpBridgeClient {
         logicalTurnId: request.logicalTurnId ?? confirmationContext?.turnId,
         taskId: request.taskId,
         incidentTraceId: request.incidentTraceId,
+        agentSessionId: request.agentSessionId ?? confirmationContext?.sessionId,
         careerSessionBinding: request.careerSessionBinding,
         requireSessionBinding: request.requireSessionBinding === true
       };

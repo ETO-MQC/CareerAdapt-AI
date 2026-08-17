@@ -115,7 +115,10 @@ export class CareerAdaptMcpProtocolServer {
     const input = value.arguments && typeof value.arguments === "object" && !Array.isArray(value.arguments)
       ? value.arguments
       : {};
-    const meta = readCallMeta(value._meta, this.metadata.requireSessionBinding === true);
+    const meta = readCallMeta(
+      value._meta,
+      this.metadata.requireSessionBinding === true && !isUnboundTailorFacadeName(name)
+    );
     return this.adapter.callTool(name, input, meta);
   }
 }
@@ -144,6 +147,10 @@ function initializeResult(
   };
 }
 
+function isUnboundTailorFacadeName(name: string) {
+  return name === "career.workflow.tailor_resume" || name.includes("career_workflow_tailor_resume");
+}
+
 function readCallMeta(value: unknown, requireSessionBinding: boolean): CareerAdaptMcpCallMeta {
   const meta = asRecord(value);
   const operationId = typeof meta["careeradapt/operationId"] === "string"
@@ -165,6 +172,9 @@ function readCallMeta(value: unknown, requireSessionBinding: boolean): CareerAda
   const incidentTraceId = typeof meta["careeradapt/incidentTraceId"] === "string"
     ? meta["careeradapt/incidentTraceId"]
     : typeof meta.incidentTraceId === "string" ? meta.incidentTraceId : undefined;
+  const agentSessionId = typeof meta["careeradapt/agentSessionId"] === "string"
+    ? meta["careeradapt/agentSessionId"]
+    : typeof meta.agentSessionId === "string" ? meta.agentSessionId : undefined;
   const careerSessionBinding = readCareerSessionBinding(meta.careerSessionBinding ?? meta["careeradapt/sessionBinding"]);
   return {
     ...(operationId ? { operationId } : {}),
@@ -172,6 +182,7 @@ function readCallMeta(value: unknown, requireSessionBinding: boolean): CareerAda
     ...(logicalTurnId ? { logicalTurnId } : {}),
     ...(taskId ? { taskId } : {}),
     ...(incidentTraceId ? { incidentTraceId } : {}),
+    ...(agentSessionId ? { agentSessionId } : {}),
     ...(careerSessionBinding ? { careerSessionBinding } : {}),
     requireSessionBinding,
     confirmationRequested: meta["careeradapt/confirmationRequested"] === true

@@ -29,6 +29,7 @@ export const CareerToolFailureScopeSchema = z.enum([
   "provider",
   "mcp_transport",
   "mcp_tool",
+  "career_context",
   "career_workflow",
   "repository",
   "policy"
@@ -107,4 +108,3 @@ function lengthBucket(length: number) {
   if (length <= 24_000) return "length:2001-24000";
   return "length:24001+";
 }
-
