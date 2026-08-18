@@ -40,6 +40,13 @@ export type CareerAdaptMcpConfirmationContext = {
   assistantMessageId: string;
   userMessageId?: string;
   incidentTraceId?: string;
+  tailoringAnswer?: {
+    checkpointId: string;
+    questionId: string;
+    questionPlanId: string;
+    questionPlanRevision: number;
+    answer: string;
+  };
 };
 
 export type CareerAdaptMcpExternalConfirmation = CareerAdaptMcpConfirmationContext & {
@@ -678,8 +685,14 @@ function normalizeHermesScopedInput(
   binding?: CareerSessionBinding,
   turn?: CareerAdaptMcpConfirmationContext
 ) {
-  if (!binding) return value;
   const input = asRecord(value);
+  if (name === "career.workflow.tailor_resume" && turn?.tailoringAnswer) {
+    return {
+      checkpointId: turn.tailoringAnswer.checkpointId,
+      userAnswer: turn.tailoringAnswer.answer
+    };
+  }
+  if (!binding) return value;
   if (name === "career.workflow.profile_intake_turn") {
     return {
       ...input,

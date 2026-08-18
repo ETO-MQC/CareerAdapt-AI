@@ -77,6 +77,15 @@ export type SecondaryRecoveryFailure = z.infer<typeof SecondaryRecoveryFailureSc
 
 export const AbortTraceSchema = z.object({
   abortSource: z.enum([
+    "run_completed",
+    "user_cancel",
+    "workflow_pause",
+    "navigation",
+    "component_unmount",
+    "network_timeout",
+    "inactivity_watchdog",
+    "absolute_stream_timeout",
+    "unknown_upstream",
     "user_interrupt",
     "renderer_unmount",
     "new_turn_superseded",
@@ -94,6 +103,18 @@ export const AbortTraceSchema = z.object({
 }).strict();
 
 export type AbortTrace = z.infer<typeof AbortTraceSchema>;
+
+export const EventStreamDiagnosticSchema = z.object({
+  openedAt: z.string().datetime({ offset: true }),
+  lastEventAt: z.string().datetime({ offset: true }).optional(),
+  closedAt: z.string().datetime({ offset: true }).optional(),
+  closeReason: z.string().min(1).max(160).optional(),
+  abortedBy: z.string().min(1).max(80).optional(),
+  absoluteLifetimeMs: z.number().int().min(0).optional(),
+  localTimeoutConfiguredMs: z.number().int().min(0).optional()
+}).strict();
+
+export type EventStreamDiagnostic = z.infer<typeof EventStreamDiagnosticSchema>;
 
 export const BridgeRequestTraceSchema = z.object({
   action: z.enum(["run_start", "run_events", "run_status", "run_stop", "run_approval", "session_create", "session_resume", "turn", "tool_callback", "interrupt", "health"]),
@@ -189,13 +210,22 @@ export function abortSourceForReason(reason: unknown): AbortTrace["abortSource"]
     ? reason as Record<string, unknown>
     : {};
   const source = typeof value.abortSource === "string" ? value.abortSource : typeof value.reasonCode === "string" ? value.reasonCode : "";
+  if (source === "run_completed") return source;
+  if (source === "user_cancel" || source === "user_stop") return "user_cancel";
+  if (source === "workflow_pause" || source === "workflow_paused") return "workflow_pause";
+  if (source === "navigation") return source;
+  if (source === "component_unmount") return source;
+  if (source === "network_timeout" || source === "timeout" || source === "AbortError") return "network_timeout";
+  if (source === "inactivity_watchdog") return source;
+  if (source === "absolute_stream_timeout") return source;
+  if (source === "unknown_upstream") return source;
   if (source === "user_interrupt") return source;
   if (source === "renderer_unmount") return source;
   if (source === "new_turn_superseded") return source;
   if (source === "runtime_restart" || source === "hermes_run_stopped_for_restart") return "runtime_restart";
   if (source === "page_navigation") return source;
   if (source === "runtime_recovery") return source;
-  return "unknown_abort";
+  return "unknown_upstream";
 }
 
 export function abortTraceFromSignal(signal: AbortSignal | undefined, input: Omit<AbortTrace, "abortSource" | "abortReason" | "abortedAt">): AbortTrace | undefined {

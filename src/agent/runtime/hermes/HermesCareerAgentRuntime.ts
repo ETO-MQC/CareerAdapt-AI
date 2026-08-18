@@ -410,6 +410,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
           ...(primaryFailureCode ? { primaryFailureCode } : {}),
           recoveryAttempted: recoveryPerformed,
           transportReattachAttempted: attachable || transportReattachPerformed,
+          runStartedSuccessfully,
           semanticRetryAttempted: input.metadata?.semanticRetryAttempted === true,
           ...(recoveryKind ? { recoveryKind } : {}),
           primaryCausalChain: primaryCausalChain.slice(),
@@ -532,6 +533,9 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
             this.normalizeCancellationEvent(bridgeEvent, handle),
             runStartedSuccessfully
           );
+          if (bridgeEvent.type === "turn_completed" || bridgeEvent.type === "turn_failed") {
+            this.eventStreamLeases.close(streamLease, "run_completed", "run_completed");
+          }
           const event = this.mapBridgeEvent(normalized, normalizedBridgeEvent, counters, startedAt);
         if (event) yield {
           ...event,
@@ -544,6 +548,8 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
             ...(secondaryRecoveryFailures.length ? { secondaryRecoveryFailures: secondaryRecoveryFailures.slice() } : {}),
             ...(recoveryPerformed ? { recoveryAttempted: true } : {}),
             ...(attachable || transportReattachPerformed ? { transportReattachAttempted: true } : {}),
+            runStartedSuccessfully,
+            eventStream: eventStreamDiagnostics(streamLease),
             ...(input.metadata?.semanticRetryAttempted === true ? { semanticRetryAttempted: true } : {}),
             ...(this.controlledStops.has(handle.runId) ? { stopReason: this.controlledStops.get(handle.runId) } : {})
           })
@@ -568,9 +574,20 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       }
         streamClosedNormally = true;
         } catch (error) {
+        const abortTrace = input.signal?.aborted
+          ? abortTraceFromSignal(input.signal, { incidentTraceId, sessionId: input.sessionId, turnId, runId: handle.runId })
+          : undefined;
         if (streamLease) {
-          if (input.signal?.aborted) this.eventStreamLeases.fail(streamLease, "hermes_transport_detached");
-          else if (!(error instanceof EventStreamLeaseConflictError)) this.eventStreamLeases.fail(streamLease, errorCode(error));
+          if (input.signal?.aborted) {
+            this.eventStreamLeases.fail(
+              streamLease,
+              "hermes_transport_detached",
+              abortTrace?.abortSource ?? "unknown_upstream",
+              abortTrace?.abortSource
+            );
+          } else if (!(error instanceof EventStreamLeaseConflictError)) {
+            this.eventStreamLeases.fail(streamLease, errorCode(error), "network_disconnect", "network_timeout");
+          }
         }
         if (error instanceof EventStreamLeaseConflictError) {
           terminalSeen = true;
@@ -587,6 +604,8 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
                 activeConsumerId: error.activeLease.consumerId
               },
               eventStreamLease: error.activeLease,
+              eventStream: eventStreamDiagnostics(error.activeLease),
+              runStartedSuccessfully,
               incidentTraceId,
               traceId: attemptTraceId,
               primaryCausalChain: primaryCausalChain.slice(),
@@ -599,6 +618,8 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
           const abortTrace = abortTraceFromSignal(input.signal, { incidentTraceId, sessionId: input.sessionId, turnId, runId: handle.runId });
           yield this.event(normalized, "turn_paused", { message: "页面连接已断开，Hermes 任务仍在运行。", data: {
             runHandle: handle,
+            eventStream: streamLease ? eventStreamDiagnostics(streamLease) : undefined,
+            runStartedSuccessfully,
             primaryCausalChain: primaryCausalChain.slice(),
             ...(secondaryRecoveryFailures.length ? { secondaryRecoveryFailures: secondaryRecoveryFailures.slice() } : {}),
             ...(abortTrace ? { abortTrace } : {})
@@ -614,7 +635,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         recordCausal("run_events_disconnected", "HermesCareerAgentRuntime", errorCode(error), handle.runId);
         }
         finally {
-          if (streamLease && streamClosedNormally) this.eventStreamLeases.close(streamLease);
+          if (streamLease && streamClosedNormally) this.eventStreamLeases.close(streamLease, "run_completed", "run_completed");
         }
         if (!terminalSeen && reconnectAttempt < 2) {
           try {
@@ -1567,7 +1588,7 @@ function delay(ms: number, signal?: AbortSignal) {
   });
 }
 
-async function* eventsWithHeartbeat(
+export async function* eventsWithHeartbeat(
   transport: HermesBridgeTransport & Required<Pick<HermesBridgeTransport, "runEvents">>,
   runId: string,
   signal?: AbortSignal,
@@ -1600,10 +1621,32 @@ async function* eventsWithHeartbeat(
       pending = iterator.next();
       yield item.value.value;
     }
+  } catch (error) {
+    if (!streamController.signal.aborted) {
+      streamController.abort({ abortSource: "network_timeout", abortReason: "run_events_iterator_failed" });
+    }
+    throw error;
   } finally {
-    streamController.abort();
+    if (!streamController.signal.aborted) {
+      streamController.abort({ abortSource: "run_completed", abortReason: "event_stream_iterator_closed" });
+    }
     await iterator.return?.().catch(() => undefined);
   }
+}
+
+function eventStreamDiagnostics(lease: EventStreamLease) {
+  const closedAt = lease.closedAt;
+  return {
+    openedAt: lease.openedAt,
+    ...(lease.lastEventAt ? { lastEventAt: lease.lastEventAt } : {}),
+    ...(closedAt ? { closedAt } : {}),
+    ...(lease.closeReason ? { closeReason: lease.closeReason } : {}),
+    ...(lease.abortedBy ? { abortedBy: lease.abortedBy } : {}),
+    ...(lease.absoluteLifetimeMs !== undefined
+      ? { absoluteLifetimeMs: lease.absoluteLifetimeMs }
+      : { absoluteLifetimeMs: Math.max(0, Date.now() - Date.parse(lease.openedAt)) }),
+    localTimeoutConfiguredMs: lease.localTimeoutConfiguredMs ?? 0
+  };
 }
 
 function supportsRuns(transport: HermesBridgeTransport): transport is HermesBridgeTransport & Required<Pick<

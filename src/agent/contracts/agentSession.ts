@@ -11,7 +11,8 @@ import {
   RuntimeAttemptSchema,
   RuntimeFailureSnapshotSchema,
   RunStopReasonSchema,
-  SecondaryRecoveryFailureSchema
+  SecondaryRecoveryFailureSchema,
+  EventStreamDiagnosticSchema
 } from "@/agent/runtime/hermes/hermesIncidentTrace";
 
 export const AgentOptionSetStateSchema = z.enum(["active", "resolved", "superseded", "stale"]);
@@ -199,6 +200,7 @@ export const AgentTurnSchema = z.object({
   lastFailedOperationId: z.string().min(1).optional(),
   lastSafeErrorCode: z.string().min(1).optional(),
   runtimeFailureDiagnostics: z.record(z.string(), z.unknown()).optional(),
+  eventStream: EventStreamDiagnosticSchema.optional(),
   runtimeAttempts: z.array(RuntimeAttemptSchema).max(8).optional(),
   primaryCausalChain: z.array(RuntimeCausalChainEntrySchema).max(48).optional(),
   secondaryRecoveryFailures: z.array(SecondaryRecoveryFailureSchema).max(16).optional(),

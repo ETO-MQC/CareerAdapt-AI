@@ -10,6 +10,10 @@ export type EventStreamLease = {
   lastEventAt?: string;
   closedAt?: string;
   failureCode?: string;
+  closeReason?: string;
+  abortedBy?: string;
+  absoluteLifetimeMs?: number;
+  localTimeoutConfiguredMs?: number;
 };
 
 export class EventStreamLeaseConflictError extends Error {
@@ -48,12 +52,29 @@ export class EventStreamLeaseRegistry {
     return this.update(lease, { lastEventAt: new Date().toISOString() });
   }
 
-  close(lease: EventStreamLease) {
-    return this.update(lease, { state: "closed", closedAt: new Date().toISOString() });
+  close(lease: EventStreamLease, closeReason = "run_completed", abortedBy = "run_completed") {
+    const closedAt = new Date().toISOString();
+    return this.update(lease, {
+      state: "closed",
+      closedAt,
+      closeReason,
+      abortedBy,
+      absoluteLifetimeMs: Math.max(0, Date.parse(closedAt) - Date.parse(lease.openedAt)),
+      localTimeoutConfiguredMs: 0
+    });
   }
 
-  fail(lease: EventStreamLease, failureCode: string) {
-    return this.update(lease, { state: "failed", failureCode, closedAt: new Date().toISOString() });
+  fail(lease: EventStreamLease, failureCode: string, closeReason = failureCode, abortedBy?: string) {
+    const closedAt = new Date().toISOString();
+    return this.update(lease, {
+      state: "failed",
+      failureCode,
+      closedAt,
+      closeReason,
+      ...(abortedBy ? { abortedBy } : {}),
+      absoluteLifetimeMs: Math.max(0, Date.parse(closedAt) - Date.parse(lease.openedAt)),
+      localTimeoutConfiguredMs: 0
+    });
   }
 
   get(sessionId: string, logicalTurnId: string, runId: string) {
@@ -74,4 +95,3 @@ export class EventStreamLeaseRegistry {
 function leaseKey(sessionId: string, logicalTurnId: string, runId: string) {
   return `${sessionId}\u001f${logicalTurnId}\u001f${runId}`;
 }
-

@@ -10,7 +10,7 @@ import { AgentExecutor } from "@/agent/runtime/agentExecutor";
 import { createAgentToolRegistry } from "@/agent/tools/registry";
 import { BrowserAgentToolService } from "@/services/agent/agentToolService";
 import { AgentSessionStore } from "@/services/agent/agentSessionStore";
-import { AgentHostStore } from "@/agent/runtime/AgentHostStore";
+import { AgentHostStore, type TailoringAnswerBinding } from "@/agent/runtime/AgentHostStore";
 import { NativeCareerAgentRuntime } from "@/agent/runtime/NativeCareerAgentRuntime";
 import { createAgentRuntimeRouter } from "@/agent/runtime/AgentRuntimeRouter";
 import { CareerToolGateway, CareerToolGatewayExecutor, type CareerToolContract } from "@/agent/tools/CareerToolGateway";
@@ -302,6 +302,9 @@ function createAgentHost() {
           userMessage: runtimeRequest.userMessage,
           runtimeId: "hermes",
           turnId: runtimeShellTurnId,
+          ...(typeof input.metadata?.prePersistedUserMessageId === "string"
+            ? { userMessageId: input.metadata.prePersistedUserMessageId, appendUserMessage: false }
+            : {}),
           runtimeDiagnostics: {
             preferredRuntime: "hermes",
             attemptedRuntime: "hermes",
@@ -394,7 +397,13 @@ function createAgentHost() {
         ...(runtimeShell ? {
           runtimeShellMessageId: runtimeShell.assistantMessageId,
           runtimeShellUserMessageId: runtimeShell.userMessageId
-        } : {})
+        } : {}),
+        ...(input.metadata?.tailoringAnswerBinding && typeof input.metadata.tailoringAnswerBinding === "object"
+          ? { tailoringAnswerBinding: input.metadata.tailoringAnswerBinding }
+          : {}),
+        ...(typeof input.metadata?.prePersistedUserMessageId === "string"
+          ? { prePersistedUserMessageId: input.metadata.prePersistedUserMessageId }
+          : {})
       }
     };
     let sessionBindingSet = false;
@@ -403,13 +412,15 @@ function createAgentHost() {
     try {
       if (runtime.id === "hermes") {
         if (runtimeShell) {
+          const tailoringAnswer = readTailoringAnswerBinding(runtimeInput.metadata?.tailoringAnswerBinding);
           await mcpBridge.setConfirmationContext({
             sessionId: runtimeInput.sessionId,
             turnId: runtimeShell.turnId,
             taskId: runtimeInput.session?.id,
             assistantMessageId: runtimeShell.assistantMessageId,
             userMessageId: runtimeShell.userMessageId,
-            incidentTraceId
+            incidentTraceId,
+            ...(tailoringAnswer ? { tailoringAnswer } : {})
           }).catch(() => undefined);
         }
         const binding = resolveCareerSessionBinding({
@@ -438,7 +449,8 @@ function createAgentHost() {
           ? rawEventData.runHandle as Record<string, unknown>
           : {};
         const runStartedBeforeFailure = Boolean(
-          rawRunHandle.runId
+          rawEventData?.runStartedSuccessfully === true
+          || rawRunHandle.runId
           || rawEventData?.runId
           || runtimeInput.session?.hermesRun?.runId
           || rawRuntimeFailureDiagnostics.hermesRunId
@@ -621,7 +633,9 @@ function createAgentHost() {
         ...(input.metadata ?? {}),
         executionOwner: prepared.executionOwner,
         runtimeEventPrepared: prepared.deterministicTransitionApplied,
-        runtimeUserEvent: prepared.event
+        runtimeUserEvent: prepared.event,
+        ...(prepared.prePersistedUserMessageId ? { prePersistedUserMessageId: prepared.prePersistedUserMessageId } : {}),
+        ...(prepared.tailoringAnswerBinding ? { tailoringAnswerBinding: prepared.tailoringAnswerBinding } : {})
       }
     });
   };
@@ -792,6 +806,25 @@ function runtimeDiagnosticsFromMetadata(metadata?: Record<string, unknown>) {
     nextHermesRunId: typeof value.nextHermesRunId === "string" ? value.nextHermesRunId : undefined,
     firstEventAt: typeof value.firstEventAt === "string" ? value.firstEventAt : undefined,
     runtimeFailureAt: typeof value.runtimeFailureAt === "string" ? value.runtimeFailureAt : undefined
+  };
+}
+
+function readTailoringAnswerBinding(value: unknown): TailoringAnswerBinding | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const candidate = value as Record<string, unknown>;
+  if (
+    typeof candidate.checkpointId !== "string"
+    || typeof candidate.questionId !== "string"
+    || typeof candidate.questionPlanId !== "string"
+    || typeof candidate.questionPlanRevision !== "number"
+    || typeof candidate.answer !== "string"
+  ) return undefined;
+  return {
+    checkpointId: candidate.checkpointId,
+    questionId: candidate.questionId,
+    questionPlanId: candidate.questionPlanId,
+    questionPlanRevision: candidate.questionPlanRevision,
+    answer: candidate.answer
   };
 }
 

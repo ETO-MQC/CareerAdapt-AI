@@ -26,6 +26,7 @@ import {
   RuntimeFailureSnapshotSchema,
   RunStopReasonSchema,
   SecondaryRecoveryFailureSchema,
+  EventStreamDiagnosticSchema,
   type AbortTrace,
   type RuntimeAttempt,
   type RunStopReason
@@ -47,7 +48,7 @@ import type {
   AgentWorkflowControl,
   ProfileIntakeSection
 } from "@/agent/contracts/agentActions";
-import { AgentTaskStateReducer, dependencySnapshot } from "./AgentTaskStateReducer";
+import { AgentTaskStateReducer, dependencySnapshot, normalizeAgentTaskState } from "./AgentTaskStateReducer";
 import { appendAgentMessage, replaceAgentThinking, upsertAgentActivity } from "./AgentSessionMessages";
 import { migrateAgentSessionToCurrentSchema } from "./AgentSessionMigration";
 import { routeAgentIntent } from "./agentIntentRouter";
@@ -65,7 +66,7 @@ import {
   type TurnIntentDecision
 } from "./AgentTurnIntent";
 import { stableHashText } from "@/services/security/text";
-import { ensureConversationBranches, forkConversationBranch } from "./activeBranchContext";
+import { ensureConversationBranches, forkConversationBranch, withActiveBranchHead } from "./activeBranchContext";
 import { createQuickActionIntent, type AgentQuickActionId, type QuickActionIntent } from "@/agent/contracts/agentQuickAction";
 import {
   resolveCompoundAnswer,
@@ -152,6 +153,31 @@ export type PreparedRuntimeUserEvent = {
   executionOwner?: AgentTurn["executionOwner"];
   deterministicTransitionApplied: boolean;
   deterministicTerminal?: boolean;
+  prePersistedUserMessageId?: string;
+  tailoringAnswerBinding?: TailoringAnswerBinding;
+};
+
+export type TailoringAnswerBinding = {
+  checkpointId: string;
+  questionId: string;
+  questionPlanId: string;
+  questionPlanRevision: number;
+  answer: string;
+};
+
+export type TailoringQuestionProjection = {
+  questionPlanId: string;
+  questionPlanRevision: number;
+  questionId: string;
+  questionText: string;
+  position: number;
+  count: number;
+  answerType: string;
+  options: AgentOption[];
+  allowSkip: true;
+  tailoringSessionId: string;
+  messageId: string;
+  projectionRevision: string;
 };
 
 export type SafeWorkflowCheckpoint = {
@@ -757,6 +783,10 @@ export class AgentHostStore {
       ? this.snapshot.activeSession
       : input.session;
     if (input.event.type === "text_message") {
+      const tailoringProjection = getActiveTailoringQuestionProjection(current);
+      if (tailoringProjection) {
+        return this.applyTailoringTextAnswer(current, input.event.text, tailoringProjection);
+      }
       const confirmationMode = normalizeResumeCompositionConfirmationText(input.event.text);
       if (
         confirmationMode
@@ -1513,11 +1543,14 @@ export class AgentHostStore {
     userMessage: string;
     runtimeId: string;
     turnId?: string;
+    userMessageId?: string;
+    appendUserMessage?: boolean;
     runtimeDiagnostics?: Partial<Pick<NonNullable<AgentSession["activeTurn"]>, "preferredRuntime" | "attemptedRuntime" | "finalRuntime" | "executionOwner" | "fallbackUsed" | "fallbackReasonCode" | "hermesRunId" | "nextHermesRunId" | "firstEventAt" | "runtimeFailureAt" | "incidentTraceId" | "runtimeAttempts" | "primaryCausalChain" | "secondaryRecoveryFailures" | "transportReattachAttempted" | "semanticRetryAttempted" | "runtimeRestartAttempted" | "turnStartSnapshot" | "runtimeFailureSnapshot" | "runtimeFailureDiagnostics" | "cancellation" | "abortTraces" | "recoveryAttempted">>;
   }) {
     const now = new Date().toISOString();
     const turnId = input.turnId ?? `runtime-turn-${crypto.randomUUID()}`;
     const incidentTraceId = input.runtimeDiagnostics?.incidentTraceId ?? createIncidentTraceId();
+    const appendUserMessage = Boolean(input.userMessage.trim()) && input.appendUserMessage !== false;
     const reusableAssistant = !input.userMessage.trim()
       ? input.session.messages.findLast((message) =>
           message.role === "assistant"
@@ -1526,13 +1559,15 @@ export class AgentHostStore {
         )
       : undefined;
     const userMessageId = input.userMessage.trim()
-      ? `agent-user-${crypto.randomUUID()}`
+      ? input.userMessageId ?? (input.appendUserMessage === false
+        ? input.session.activeTurn?.userMessageId ?? `agent-user-${crypto.randomUUID()}`
+        : `agent-user-${crypto.randomUUID()}`)
       : input.session.activeTurn?.userMessageId ?? `agent-user-${crypto.randomUUID()}`;
     const assistantMessageId = reusableAssistant?.id ?? `agent-thinking-${crypto.randomUUID()}`;
-    let current = input.userMessage.trim()
+    let current = appendUserMessage
       ? withTurnCheckpoint(input.session, turnId, userMessageId, now)
       : input.session;
-    current = input.userMessage.trim()
+    current = appendUserMessage
       ? appendAgentMessage(current, "user", input.userMessage.trim(), {
           id: userMessageId,
           turnId,
@@ -1709,8 +1744,9 @@ export class AgentHostStore {
     const runHandleResult = HermesRunHandleSchema.safeParse(objectValue(event.data).runHandle);
     next = applyRuntimeEventDiagnostics(next, event, runHandleResult.success ? runHandleResult.data.runId : undefined);
     if (runHandleResult.success) next = { ...next, hermesRun: runHandleResult.data };
+    const activeTailoringProjection = getActiveTailoringQuestionProjection(next);
     if (event.type === "progress" || event.type === "reasoning_status") {
-      if (!assistant || assistant.metadata?.runtimeTextStarted !== true) {
+      if (!activeTailoringProjection && (!assistant || assistant.metadata?.runtimeTextStarted !== true)) {
         next = replaceRuntimeShellMessage(next, assistantMessageId, event.message ?? "正在处理当前任务…", event, true);
       }
       const persisted = runHandleResult.success ? await this.dependencies.persistence.save(next) : next;
@@ -1718,11 +1754,32 @@ export class AgentHostStore {
       return persisted;
     }
     if (event.type === "turn_paused" || event.type === "turn_resumed") {
-      const persisted = runHandleResult.success ? await this.dependencies.persistence.save(next) : next;
-      this.patchSession(persisted, { turnStatus: "running", activeTurnId: event.turnId, currentObservation: event.data ?? event.message });
+      if (activeTailoringProjection) {
+        next = projectTaskStateIntoSession(next, normalizeAgentTaskState(next.taskState!));
+        next = projectActiveTailoringQuestionToChat(next, next.taskState!);
+        next = {
+          ...next,
+          activeTurn: next.activeTurn
+            ? { ...next.activeTurn, status: "waiting_for_user", completedAt: new Date().toISOString() }
+            : next.activeTurn
+        };
+      }
+      const persisted = runHandleResult.success || activeTailoringProjection
+        ? await this.dependencies.persistence.save(next)
+        : next;
+      this.patchSession(persisted, {
+        turnStatus: activeTailoringProjection ? "waiting_for_user" : "running",
+        activeTurnId: event.turnId,
+        currentObservation: activeTailoringProjection ? { type: "tailoring_question_waiting", message: "等待你的补充说明。" } : event.data ?? event.message
+      });
       return persisted;
     }
     if (event.type === "text_delta") {
+      if (activeTailoringProjection && (assistant?.metadata?.retracted === true || next.activeTurn?.status === "waiting_for_user")) {
+        const persisted = runHandleResult.success ? await this.dependencies.persistence.save(next) : next;
+        this.patchSession(persisted, { turnStatus: "waiting_for_user", activeTurnId: event.turnId, currentObservation: { type: "stale_text_delta_ignored" } });
+        return persisted;
+      }
       next = replaceRuntimeShellMessage(next, assistantMessageId, `${assistant?.content ?? ""}${event.delta ?? ""}`, event, true);
       this.scheduleStreamingCheckpoint(next, assistantMessageId);
     }
@@ -1785,6 +1842,7 @@ export class AgentHostStore {
         }
       });
       if (event.type === "tool_call_completed") {
+        next = markTailoringAnswerConsumed(next, event.turnId, operationId);
         // Bridge callbacks carry `{ result, contract }`, while a few runtime
         // adapters emit the safe tool result directly in `data`. Accept both
         // shapes so the canonical TaskState is reduced exactly once either
@@ -1828,6 +1886,15 @@ export class AgentHostStore {
           // arrived. Re-project them after accepting the result so a waiting
           // composition never becomes a dead-end.
           if (next.taskState) next = attachTaskStateOptions(next, next.taskState);
+          if (getActiveTailoringQuestionProjection(next)) {
+            next = projectActiveTailoringQuestionToChat(next, next.taskState!);
+            next = {
+              ...next,
+              activeTurn: next.activeTurn
+                ? { ...next.activeTurn, status: "waiting_for_user", completedAt: new Date().toISOString() }
+                : next.activeTurn
+            };
+          }
         } else if (result.ok === false || contradictoryCompletion) {
           if (event.toolName?.startsWith("career.workflow.") && result.data !== undefined) {
             next = applyRuntimeFacadeCheckpoint(next, event.toolName, result.data);
@@ -1948,6 +2015,12 @@ export class AgentHostStore {
       };
     }
     if (event.type === "turn_completed" || event.type === "turn_failed") {
+      if (next.taskState) {
+        next = projectTaskStateIntoSession(next, normalizeAgentTaskState(next.taskState));
+        const questionState = getActiveTailoringQuestionProjection(next);
+        if (questionState) next = projectActiveTailoringQuestionToChat(next, next.taskState!);
+      }
+      const tailoringQuestionWaiting = Boolean(getActiveTailoringQuestionProjection(next));
       const domainFailureWaiting = isCareerDomainPreconditionCode(event.error?.code)
         || objectValue(event.data).domainFailure === true
         && objectValue(event.data).waitingForUser === true;
@@ -1958,7 +2031,8 @@ export class AgentHostStore {
       const completionWaiting = domainFailureWaiting
         || completionNeedsRecovery
         || completionDecision?.reason === "waiting_for_user"
-        || completionDecision?.reason === "waiting_for_confirmation";
+        || completionDecision?.reason === "waiting_for_confirmation"
+        || tailoringQuestionWaiting;
       const completionWaitingForConfirmation = completionDecision?.reason === "waiting_for_confirmation";
       const tailoringRecovery = Boolean(next.taskState?.knownSlots.tailoringApplyFailure);
       const tailoringQuestionRecovery = next.taskState?.knownSlots.lastSafeErrorCode === "tailoring_questions_incomplete";
@@ -1966,6 +2040,8 @@ export class AgentHostStore {
         ? completionGuardRecoveryText(completionDecision, next.taskState)
         : tailoringRecovery
         ? "已采用的修改仍保留，但岗位简历写入没有完成。可以从当前步骤重试。"
+        : tailoringQuestionWaiting && next.taskState
+          ? formatCurrentTailoringQuestion(next.taskState)
         : tailoringQuestionRecovery && next.taskState
           ? formatCurrentTailoringQuestion(next.taskState)
         : event.type === "turn_failed"
@@ -1978,12 +2054,12 @@ export class AgentHostStore {
       const grounding = next.taskState
         ? evaluateGroundedResumeOutput({ text: candidate, taskState: next.taskState, artifactRefs: next.artifactRefs })
         : { allowed: true as const };
-      const blocked = !completionWaiting && !tailoringRecovery && !tailoringQuestionRecovery && !grounding.allowed;
-      const terminalFailed = (event.type === "turn_failed" && !tailoringRecovery && !tailoringQuestionRecovery) || blocked || completionBlocked;
-      const terminalWaiting = !terminalFailed && (tailoringRecovery || tailoringQuestionRecovery || completionWaiting);
+      const blocked = !tailoringQuestionWaiting && !completionWaiting && !tailoringRecovery && !tailoringQuestionRecovery && !grounding.allowed;
+      const terminalFailed = !tailoringQuestionWaiting && ((event.type === "turn_failed" && !tailoringRecovery && !tailoringQuestionRecovery) || blocked || completionBlocked);
+      const terminalWaiting = !terminalFailed && (tailoringRecovery || tailoringQuestionRecovery || tailoringQuestionWaiting || completionWaiting);
       const text = blocked ? grounding.recoveryText : candidate;
-      next = replaceRuntimeShellMessage(next, assistantMessageId, text, event, false, terminalFailed);
-      if ((terminalFailed || terminalWaiting || tailoringRecovery) && !domainFailureWaiting) next = withRetryCurrentStepOption(next, assistantMessageId);
+      if (!tailoringQuestionWaiting) next = replaceRuntimeShellMessage(next, assistantMessageId, text, event, false, terminalFailed);
+      if ((terminalFailed || terminalWaiting || tailoringRecovery) && !domainFailureWaiting && !tailoringQuestionWaiting) next = withRetryCurrentStepOption(next, assistantMessageId);
       if (next.taskState) next = attachTaskStateOptions(next, next.taskState);
       next = {
         ...next,
@@ -2032,6 +2108,18 @@ export class AgentHostStore {
         activeTurnId: event.turnId,
         currentObservation: event.error ?? { runtimeId: "hermes", message: event.message, grounded: !blocked },
          uiAction: event.type === "turn_completed" && !blocked && !terminalWaiting && !terminalFailed ? resumePreviewUiAction(saved) : undefined
+      });
+      return saved;
+    }
+    if (
+      getActiveTailoringQuestionProjection(next)
+      && ["tool_call_completed", "tool_call_failed"].includes(event.type)
+    ) {
+      const saved = await this.dependencies.persistence.save(next);
+      this.patchSession(saved, {
+        turnStatus: "waiting_for_user",
+        activeTurnId: event.turnId,
+        currentObservation: { type: "tailoring_question_waiting", message: "等待你的补充说明。" }
       });
       return saved;
     }
@@ -5532,6 +5620,85 @@ export class AgentHostStore {
     return { session: saved, turnId, applied: true };
   }
 
+  private async applyTailoringTextAnswer(
+    session: AgentSession,
+    value: string,
+    projection: TailoringQuestionProjection
+  ): Promise<PreparedRuntimeUserEvent> {
+    const text = value.trim().slice(0, 8_000);
+    const turnId = `agent-turn-${crypto.randomUUID()}`;
+    const userMessageId = `agent-user-${crypto.randomUUID()}`;
+    const now = new Date().toISOString();
+    let current = withTurnCheckpoint(supersedeActiveOptionSets(session), turnId, userMessageId, now);
+    current = appendAgentMessage(current, "user", text, {
+      id: userMessageId,
+      turnId,
+      status: "complete",
+      metadata: {
+        executionOwner: "runtime_continuation",
+        answerPayload: true,
+        tailoringQuestionId: projection.questionId,
+        tailoringQuestionPlanId: projection.questionPlanId,
+        tailoringQuestionPlanRevision: projection.questionPlanRevision,
+        executionState: "running"
+      }
+    });
+    if (current.taskState) {
+      const taskState = normalizeAgentTaskState(new AgentTaskStateReducer().reduce(current.taskState, {
+        type: "user_message",
+        message: text,
+        sessionId: current.id,
+        messageId: userMessageId,
+        turnId,
+        capturedAt: now,
+        turnIntent: "continue_current_task"
+      }));
+      current = projectTaskStateIntoSession(current, taskState);
+      current = projectActiveTailoringQuestionToChat(current, taskState);
+    }
+    current = {
+      ...current,
+      activeTurn: {
+        ...current.activeTurn,
+        id: turnId,
+        sessionId: current.id,
+        userMessageId,
+        runtimeId: "hermes",
+        preferredRuntime: "hermes",
+        attemptedRuntime: "hermes",
+        finalRuntime: "hermes",
+        fallbackUsed: false,
+        executionOwner: "runtime_continuation",
+        visibleAssistantMessageId: undefined,
+        status: "running",
+        startedAt: now,
+        completedAt: undefined
+      }
+    };
+    const saved = await this.dependencies.persistence.save(current);
+    this.patchSession(saved, {
+      turnStatus: "running",
+      activeTurnId: turnId,
+      currentObservation: { type: "tailoring_answer_accepted", message: "已收到，正在继续当前问题。" }
+    });
+    return {
+      session: saved,
+      event: { type: "text_message", text },
+      turnId,
+      userMessage: text,
+      executionOwner: "runtime_continuation",
+      deterministicTransitionApplied: true,
+      prePersistedUserMessageId: userMessageId,
+      tailoringAnswerBinding: {
+        checkpointId: projection.tailoringSessionId,
+        questionId: projection.questionId,
+        questionPlanId: projection.questionPlanId,
+        questionPlanRevision: projection.questionPlanRevision,
+        answer: text
+      }
+    };
+  }
+
   private async prepareRetryWorkflowStep(session: AgentSession) {
     const safe = resolveLastSafeWorkflowCheckpoint(session);
     const turnId = session.activeTurn?.id ?? safe?.checkpoint?.turnId ?? `agent-retry-${crypto.randomUUID()}`;
@@ -7307,7 +7474,177 @@ function supersedeActiveOptionSets(session: AgentSession) {
   };
 }
 
+export function getActiveTailoringQuestionProjection(
+  sessionOrState: AgentSession | AgentTaskState | undefined
+): TailoringQuestionProjection | undefined {
+  const state: AgentTaskState | undefined = sessionOrState && "taskState" in sessionOrState
+    ? sessionOrState.taskState
+    : sessionOrState as AgentTaskState | undefined;
+  if (!state || state.stage !== "clarify_unsupported_facts") return undefined;
+  const tailoringSession = objectValue(state.knownSlots.tailoringSession);
+  const plan = objectValue(tailoringSession.plan);
+  const questionPlan = objectValue(state.knownSlots.questionPlan ?? plan.questionPlan);
+  const questionPlanId = stringValue(questionPlan.id);
+  const questionPlanRevision = numberValue(questionPlan.revision);
+  const questionId = stringValue(state.knownSlots.activeQuestionId ?? questionPlan.activeQuestionId);
+  const tailoringSessionId = stringValue(questionPlan.sessionId)
+    ?? stringValue(tailoringSession.id)
+    ?? state.selectedEntities.tailoringSessionId;
+  const questionIds = Array.isArray(questionPlan.questionIds)
+    ? questionPlan.questionIds.filter((id): id is string => typeof id === "string")
+    : [];
+  const questions = Array.isArray(plan.clarificationQuestions)
+    ? plan.clarificationQuestions.map(objectValue)
+    : [];
+  const question = questions.find((candidate) => candidate.id === questionId);
+  if (!questionPlanId || questionPlanRevision === undefined || !questionId || !tailoringSessionId || !question) return undefined;
+  const questionText = stringValue(question.question);
+  if (!questionText) return undefined;
+  const options = Array.isArray(question.options)
+    ? question.options.map(objectValue).flatMap((option, index): AgentOption[] => {
+        const label = stringValue(option.label);
+        const value = stringValue(option.value);
+        if (!label || !value) return [];
+        return [{
+          id: `tailoring-question-${questionId}-${String(option.id ?? index)}`,
+          label,
+          action: { type: "answer", field: `tailoring-question:${questionId}`, value }
+        }];
+      })
+    : [];
+  const position = Math.max(0, questionIds.indexOf(questionId)) + 1;
+  const projectionRevision = `${questionPlanId}:${questionPlanRevision}:${questionId}`;
+  return {
+    questionPlanId,
+    questionPlanRevision,
+    questionId,
+    questionText,
+    position,
+    count: questionIds.length,
+    answerType: stringValue(question.answerType) ?? "text",
+    options,
+    allowSkip: true,
+    tailoringSessionId,
+    messageId: `agent-tailoring-question-${projectionRevision}`,
+    projectionRevision
+  };
+}
+
+export function projectActiveTailoringQuestionToChat(
+  session: AgentSession,
+  state: AgentTaskState = session.taskState as AgentTaskState
+) {
+  const projection = getActiveTailoringQuestionProjection(state);
+  if (!projection) return session;
+  const now = new Date().toISOString();
+  const turnId = session.activeTurn?.id ?? `tailoring-question-${projection.projectionRevision}`;
+  const userMessageId = session.activeTurn?.userMessageId;
+  const stableMetadata = {
+    tailoringQuestionProjection: true,
+    tailoringQuestionId: projection.questionId,
+    questionId: projection.questionId,
+    questionPlanId: projection.questionPlanId,
+    questionPlanRevision: projection.questionPlanRevision,
+    questionText: projection.questionText,
+    questionPosition: projection.position,
+    questionCount: projection.count,
+    answerType: projection.answerType,
+    allowSkip: projection.allowSkip,
+    tailoringSessionId: projection.tailoringSessionId,
+    questionProjectionRevision: projection.projectionRevision,
+    questionProjectionState: "active"
+  } satisfies Record<string, unknown>;
+  const withSettledProgress = {
+    ...session,
+    messages: session.messages.map((message) => {
+      const belongsToCurrentTurn = message.turnId === session.activeTurn?.id;
+      const isProgressShell = message.role === "assistant"
+        && message.metadata?.tailoringQuestionProjection !== true
+        && belongsToCurrentTurn
+        && (message.streaming || message.status === "thinking" || message.status === "streaming" || message.kind === "assistant_thinking" || message.kind === "assistant_streaming");
+      return isProgressShell
+        ? {
+            ...message,
+            streaming: false,
+            status: "recovered" as const,
+            metadata: { ...message.metadata, retracted: true, questionProjectionSuperseded: true },
+            updatedAt: now
+          }
+        : message;
+    }),
+    updatedAt: now
+  };
+  const projectionBase = supersedeActiveOptionSets(withSettledProgress);
+  const existing = projectionBase.messages.find((message) =>
+    message.id === projection.messageId
+    || message.role === "assistant"
+      && message.metadata?.tailoringQuestionProjection === true
+      && message.metadata.questionProjectionRevision === projection.projectionRevision
+    || message.role === "assistant"
+      && message.metadata?.tailoringQuestionId === projection.questionId
+      && message.metadata?.questionPlanId === projection.questionPlanId
+      && message.metadata?.questionPlanRevision === projection.questionPlanRevision
+  );
+  const current = existing
+    ? {
+        ...projectionBase,
+        messages: projectionBase.messages.map((message) => message.id === existing.id
+          ? {
+              ...message,
+              id: projection.messageId,
+              turnId,
+              content: formatTailoringQuestionProjection(projection),
+              kind: "text" as const,
+              type: "text" as const,
+              status: "complete" as const,
+              streaming: false,
+              options: projection.options.length ? projection.options : undefined,
+              optionSet: projection.options.length
+                ? activeOptionSetForMessage(projectionBase, projection.messageId, "tailoring-question")
+                : undefined,
+              parentMessageId: userMessageId,
+              metadata: { ...message.metadata, ...stableMetadata, retracted: false },
+              updatedAt: now
+            }
+          : message),
+        updatedAt: now
+      }
+    : appendAgentMessage(
+        projectionBase,
+        "assistant",
+        formatTailoringQuestionProjection(projection),
+        {
+          id: projection.messageId,
+          turnId,
+          kind: "text",
+          type: "text",
+          status: "complete",
+          streaming: false,
+          options: projection.options.length ? projection.options : undefined,
+          parentMessageId: userMessageId,
+          metadata: stableMetadata
+        }
+      );
+  return existing ? withActiveBranchHead(current, projection.messageId) : current;
+}
+
+function formatTailoringQuestionProjection(projection: TailoringQuestionProjection) {
+  return [
+    "已记录。",
+    `问题 ${projection.position}/${projection.count}：`,
+    projection.questionText,
+    "你可以直接补充说明，或回复“跳过”。"
+  ].join("\n\n");
+}
+
 export function attachTaskStateOptions(session: AgentSession, state: AgentTaskState) {
+  if (state.stage === "clarify_unsupported_facts" && getActiveTailoringQuestionProjection(state)) {
+    const normalizedState = normalizeAgentTaskState(state);
+    const normalizedSession = session.taskState === state
+      ? session
+      : projectTaskStateIntoSession(session, normalizedState);
+    return projectActiveTailoringQuestionToChat(normalizedSession, normalizedState);
+  }
   const recoverableCompositionProposal = state.workflowId === "compose_resume"
     && Boolean(state.knownSlots.resumeCompositionProposal)
     && !state.knownSlots.resumeCompositionResult;
@@ -7997,38 +8334,22 @@ function tailoringDiffFieldNames(state: AgentTaskState | undefined, diffId: stri
 }
 
 function presentedActiveTailoringQuestion(session: AgentSession) {
-  const state = session.taskState;
-  if (!state || state.stage !== "clarify_unsupported_facts") return undefined;
-  const tailoring = objectValue(state.knownSlots.tailoringSession);
-  const plan = objectValue(tailoring.plan);
-  const questionPlan = objectValue(plan.questionPlan);
-  const activeQuestionId = stringValue(questionPlan.activeQuestionId);
-  if (!activeQuestionId) return undefined;
+  const projection = getActiveTailoringQuestionProjection(session);
+  if (!projection) return undefined;
   const assistant = session.messages.findLast((message) =>
-    message.role === "assistant" && message.metadata?.retracted !== true && message.status === "complete"
+    message.role === "assistant"
+      && message.metadata?.retracted !== true
+      && message.metadata?.tailoringQuestionId === projection.questionId
+      && message.metadata?.questionPlanId === projection.questionPlanId
+      && message.metadata?.questionPlanRevision === projection.questionPlanRevision
+      && (message.status === "complete" || message.metadata?.tailoringQuestionProjection === true)
   );
-  return assistant?.metadata?.tailoringQuestionId === activeQuestionId
-    && assistant.metadata.questionPlanId === questionPlan.id
-    && assistant.metadata.questionPlanRevision === questionPlan.revision
-      ? activeQuestionId
-      : undefined;
+  return assistant ? projection.questionId : undefined;
 }
 
 function formatCurrentTailoringQuestion(state: AgentTaskState) {
-  const tailoring = objectValue(state.knownSlots.tailoringSession);
-  const plan = objectValue(tailoring.plan);
-  const questionPlan = objectValue(plan.questionPlan);
-  const questionId = stringValue(questionPlan.activeQuestionId);
-  const questionIds = Array.isArray(questionPlan.questionIds) ? questionPlan.questionIds : [];
-  const questions = Array.isArray(plan.clarificationQuestions) ? plan.clarificationQuestions.map(objectValue) : [];
-  const question = questions.find((item) => item.id === questionId);
-  const position = Math.max(0, questionIds.indexOf(questionId)) + 1;
-  return [
-    "已记录。",
-    `问题 ${position}/${questionIds.length}：`,
-    String(question?.question ?? "请补充当前问题。"),
-    "你可以直接补充说明，或回复“跳过”。"
-  ].filter(Boolean).join("\n\n");
+  const projection = getActiveTailoringQuestionProjection(state);
+  return projection ? formatTailoringQuestionProjection(projection) : "请补充当前问题。";
 }
 
 function recoverOrphanedThinking(session: AgentSession) {
@@ -9526,6 +9847,13 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
   } else if (checkpoint.kind === "resume_composition") {
     delete knownSlots.resumeCompositionResult;
   }
+  const authoritativeActiveQuestionId = stringValue(
+    knownSlots.activeQuestionId
+    ?? objectValue(knownSlots.questionPlan).activeQuestionId
+  );
+  const effectiveCompletionStatus = stage === "clarify_unsupported_facts" && authoritativeActiveQuestionId
+    ? "waiting_for_user" as const
+    : completionStatus;
   const nextSession = {
     ...session,
     taskState: {
@@ -9534,12 +9862,12 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
       selectedEntities,
       knownSlots,
       artifacts: [...new Set([...task.artifacts, ...session.artifactRefs.map((artifact) => artifact.id)])],
-      completionStatus,
+      completionStatus: effectiveCompletionStatus,
       lastObservation: { source: "career_workflow_facade", toolName, status, checkpoint },
       updatedAt: new Date().toISOString()
     }
   };
-  return projectTaskStateIntoSession(nextSession, nextSession.taskState);
+  return projectTaskStateIntoSession(nextSession, normalizeAgentTaskState(nextSession.taskState));
 }
 
 function artifactActionExecution(
@@ -9853,6 +10181,28 @@ function recordRuntimeToolFailure(
   };
 }
 
+function markTailoringAnswerConsumed(session: AgentSession, turnId: string, operationId: string) {
+  const userMessageId = session.activeTurn?.id === turnId ? session.activeTurn.userMessageId : undefined;
+  if (!userMessageId) return session;
+  const userMessage = session.messages.find((message) => message.id === userMessageId);
+  if (userMessage?.role !== "user" || userMessage.metadata?.answerPayload !== true) return session;
+  return {
+    ...session,
+    messages: session.messages.map((message) => message.id === userMessageId
+      ? {
+          ...message,
+          metadata: {
+            ...message.metadata,
+            executionState: "complete",
+            answerOperationId: operationId,
+            answerConsumedAt: new Date().toISOString()
+          },
+          updatedAt: new Date().toISOString()
+        }
+      : message)
+  };
+}
+
 function replaceRuntimeShellMessage(
   session: AgentSession,
   messageId: string,
@@ -9943,6 +10293,7 @@ function applyRuntimeEventDiagnostics(session: AgentSession, event: AgentRuntime
   const runtimeFailureDiagnostics = data.diagnostics && typeof data.diagnostics === "object" && !Array.isArray(data.diagnostics)
     ? data.diagnostics as Record<string, unknown>
     : undefined;
+  const eventStream = EventStreamDiagnosticSchema.safeParse(data.eventStream ?? telemetry.eventStream);
   const incidentTraceId = stringValue(data.incidentTraceId)
     ?? stringValue(telemetry.incidentTraceId)
     ?? session.activeTurn.incidentTraceId
@@ -10020,6 +10371,7 @@ function applyRuntimeEventDiagnostics(session: AgentSession, event: AgentRuntime
       firstEventAt: session.activeTurn.firstEventAt ?? event.timestamp,
       runtimeFailureAt: runtimeFailureAt ?? (event.type === "turn_failed" ? event.timestamp : session.activeTurn.runtimeFailureAt),
       runtimeAttempts: nextRuntimeAttempts,
+      ...(eventStream.success ? { eventStream: eventStream.data } : {}),
       ...(failureSnapshot.success && !session.activeTurn.runtimeFailureSnapshot ? { runtimeFailureSnapshot: failureSnapshot.data } : {}),
       ...(stopReason.success ? { cancellation: stopReason.data } : {}),
       ...(nextAbortTraces ? { abortTraces: nextAbortTraces } : {}),

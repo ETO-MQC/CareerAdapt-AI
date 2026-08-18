@@ -1335,6 +1335,16 @@ function normalize(state: AgentTaskState): AgentTaskState {
       state.stage = "choose_job";
       state.completionStatus = "waiting_for_user";
     }
+    const tailoringSession = objectValue(state.knownSlots.tailoringSession);
+    const tailoringPlan = objectValue(tailoringSession.plan);
+    const questionPlan = objectValue(state.knownSlots.questionPlan ?? tailoringPlan.questionPlan);
+    const activeQuestionId = stringValue(
+      state.knownSlots.activeQuestionId
+      ?? questionPlan.activeQuestionId
+    );
+    if (state.stage === "clarify_unsupported_facts" && activeQuestionId) {
+      state.completionStatus = "waiting_for_user";
+    }
   }
   if (state.workflowId === "resume_import") {
     if (!state.attachment && !hasValue(state.knownSlots.importId)) {
@@ -1417,6 +1427,10 @@ function normalize(state: AgentTaskState): AgentTaskState {
     state.completionStatus = "active";
   }
   return state;
+}
+
+export function normalizeAgentTaskState(state: AgentTaskState) {
+  return normalize(state);
 }
 
 function supersedeConfirmation(state: AgentTaskState, toolName: string) {

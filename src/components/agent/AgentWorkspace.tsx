@@ -49,6 +49,7 @@ import { agentToolNames } from "@/agent/tools/registry";
 import { HermesCareerToolCatalog, hermesProductionToolNames } from "@/agent/runtime/hermes/HermesCareerToolCatalog";
 import { isRoadshowReady } from "@/agent/runtime/runtimeHealth";
 import { createRunStopReason } from "@/agent/runtime/hermes/hermesIncidentTrace";
+import { getActiveTailoringQuestionProjection } from "@/agent/runtime/AgentHostStore";
 
 type ResumeSummary = { id: string; profileId: string; name: string; purpose: string; revision: number };
 type SessionComposerDrafts = Record<string, string>;
@@ -257,7 +258,15 @@ export function AgentWorkspace() {
           return;
         }
       }
-      const result = (input.attachments.length === 0 && input.text.trim()) || hermesAttachmentTurn
+      const tailoringQuestionAnswer = input.attachments.length === 0
+        && Boolean(input.text.trim())
+        && Boolean(getActiveTailoringQuestionProjection(submitSession));
+      const result = tailoringQuestionAnswer
+        ? await host.runUserEvent(
+            { type: "text_message", text: input.text },
+            { session: submitSession, pageContext: pageContext() }
+          )
+        : (input.attachments.length === 0 && input.text.trim()) || hermesAttachmentTurn
         ? await host.runTurn({
             sessionId: submitSession.id,
             userMessage: input.text,
@@ -289,7 +298,11 @@ export function AgentWorkspace() {
       const errorCode = error instanceof Error && "code" in error && typeof error.code === "string" ? error.code : "composer_submit_failed";
       setSessionDraft(input.text);
       setSessionAttachments((current) => current.map((attachment) => ({ ...attachment, status: "failed" as const, errorCode })));
-      notify({ type: "error", title: "附件发送失败", message: "附件仍保留在编辑区，可以重试或移除。" });
+      notify({
+        type: "error",
+        title: input.attachments.length ? "附件发送失败" : "消息发送失败",
+        message: input.attachments.length ? "附件仍保留在编辑区，可以重试或移除。" : "消息仍保留在编辑区，可以重试。"
+      });
     }
   }, [host, pageContext, runtimeStatus.health, runtimeStatus.preferredRuntime, runtimeStatus.status, session, setSessionAttachments, setSessionDraft, setSessionDraftReference]);
 
@@ -709,6 +722,38 @@ export function AgentWorkspace() {
         artifactActionFeedback: safeArtifactActionFeedback
       }
     } : undefined;
+    const activeQuestionProjection = getActiveTailoringQuestionProjection(session);
+    const activeQuestionMessage = activeQuestionProjection
+      ? session.messages.find((message) => message.id === activeQuestionProjection.messageId)
+      : undefined;
+    const pendingAnswer = session.messages.findLast((message) =>
+      message.role === "user"
+      && message.metadata?.answerPayload === true
+      && ["queued", "running"].includes(String(message.metadata.executionState))
+    );
+    const clarificationState = activeQuestionProjection ? {
+      questionPlanId: activeQuestionProjection.questionPlanId,
+      questionPlanRevision: activeQuestionProjection.questionPlanRevision,
+      activeQuestionId: activeQuestionProjection.questionId,
+      activeQuestionProjected: Boolean(activeQuestionMessage && activeQuestionMessage.metadata?.tailoringQuestionProjection === true),
+      activeQuestionMessageId: activeQuestionMessage?.id,
+      taskCompletionStatus: task?.completionStatus,
+      composerEnabled: !paused,
+      composerBlockReason: paused ? "workflow_paused" : undefined,
+      userAnswerPending: Boolean(pendingAnswer),
+      lastAnswerTurnId: pendingAnswer?.turnId
+    } : {
+      questionPlanId: undefined,
+      questionPlanRevision: undefined,
+      activeQuestionId: undefined,
+      activeQuestionProjected: false,
+      activeQuestionMessageId: undefined,
+      taskCompletionStatus: task?.completionStatus,
+      composerEnabled: !paused,
+      composerBlockReason: paused ? "workflow_paused" : undefined,
+      userAnswerPending: false,
+      lastAnswerTurnId: undefined
+    };
     const careerContracts = host.careerToolGateway.listContracts();
     const careerCatalog = new HermesCareerToolCatalog(careerContracts);
     const runtimeHealth = runtimeStatus.health;
@@ -753,6 +798,7 @@ export function AgentWorkspace() {
         profileRevision: session.profileRevision
       },
       taskState: safeTaskState,
+      clarificationState,
       runtime: {
         runtimeId: activeTurn?.runtimeId ?? runtimeStatus.activeRuntime,
         executionOwner: activeTurn?.executionOwner,
@@ -775,6 +821,7 @@ export function AgentWorkspace() {
         secondaryRecoveryFailures: sanitizeSecondaryRecoveryFailures(activeTurn?.secondaryRecoveryFailures),
         cancellation: sanitizeRunStopReason(activeTurn?.cancellation),
         abortTraces: sanitizeAbortTraces(activeTurn?.abortTraces ?? runtimeStatus.abortTraces ?? []),
+        eventStream: activeTurn?.eventStream,
         runtimeFailureDiagnostics: safeRuntimeFailureDiagnostics,
         runtimeFailureSnapshot: sanitizeRuntimeFailureSnapshot(failureSnapshot),
         readinessSnapshots: {
@@ -885,7 +932,7 @@ export function AgentWorkspace() {
     anchor.download = `agent-diagnostics-${new Date().toISOString().slice(0, 10)}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
-  }, [host.careerToolGateway, host.hermesRuntime, host.store, intakeProjection, runtimeStatus.activeRunId, runtimeStatus.activeRuntime, runtimeStatus.abortTraces, runtimeStatus.bridgeRequestTraces, runtimeStatus.failureTimeSupervisorSnapshot, runtimeStatus.health, runtimeStatus.runtimeFailureSnapshot, runtimeStatus.status, runtimeStatus.supervisorSnapshot, session]);
+  }, [host.careerToolGateway, host.hermesRuntime, host.store, intakeProjection, paused, runtimeStatus.activeRunId, runtimeStatus.activeRuntime, runtimeStatus.abortTraces, runtimeStatus.bridgeRequestTraces, runtimeStatus.failureTimeSupervisorSnapshot, runtimeStatus.health, runtimeStatus.runtimeFailureSnapshot, runtimeStatus.status, runtimeStatus.supervisorSnapshot, session]);
 
   const restartHermes = useCallback(async () => {
     const activeRun = Boolean(
