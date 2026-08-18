@@ -15,7 +15,11 @@ import {
 import { isTailoringQuestionPaused, normalizeTailoringStage, type TailoringStage } from "./tailoringStage";
 import { JobRequirementGraphV4Schema, JobTargetSnapshotSchema } from "@/domain/schemas";
 import { createPastedJobTargetSnapshot, jobTargetSnapshotHash } from "@/domain/jobTarget/jobTargetSnapshot";
-import { normalizeTailorResumeInput, TailorResumeInputSchema } from "../tools/careerToolContract";
+import {
+  normalizeTailorResumeInput,
+  TailorResumeInputSchema,
+  tailorResumeInputJsonSchema
+} from "../tools/careerToolContract";
 import {
   careerContextBindingResolver,
   profileHasSufficientFacts,
@@ -79,11 +83,9 @@ const ProfileToResumeInputSchema = z.object({
   name: z.string().min(1).max(120).optional(),
   purpose: z.enum(["general", "targeted"]).optional()
 }).strict();
-const ComposeResumeInputSchema = z.object({
+const ComposeResumeSharedInputSchema = z.object({
   profileId: z.string().min(1),
   expectedProfileRevision: z.number().int().min(1),
-  mode: z.enum(["general", "job_specific"]),
-  jobId: z.string().min(1).optional(),
   sourceResumeId: z.string().min(1).optional(),
   checkpointId: z.string().min(1).optional(),
   name: z.string().min(1).max(120).optional(),
@@ -93,15 +95,26 @@ const ComposeResumeInputSchema = z.object({
   companyType: z.string().trim().min(1).max(160).optional(),
   acknowledgedActiveProfileId: z.string().min(1).optional(),
   userPreferences: z.record(z.string(), z.unknown()).optional()
-}).strict().superRefine((input, context) => {
-  if (input.mode === "job_specific" && !input.jobId) context.addIssue({ code: "custom", path: ["jobId"], message: "jobId is required for job-specific composition" });
-});
+}).strict();
+const ComposeResumeGeneralInputSchema = ComposeResumeSharedInputSchema.extend({
+  mode: z.literal("general")
+}).strict();
+const ComposeResumeJobSpecificInputSchema = ComposeResumeSharedInputSchema.extend({
+  mode: z.literal("job_specific"),
+  jobId: z.string().min(1)
+}).strict();
+const ComposeResumeInputSchema = z.union([
+  ComposeResumeGeneralInputSchema,
+  ComposeResumeJobSpecificInputSchema
+]);
 const ResumeExportInputSchema = z.object({ resumeId: z.string().min(1), templateId: z.string().min(1).optional() }).strict();
 
 export type CareerWorkflowFacadeDefinition = {
   name: string;
   description: string;
   inputSchema: z.ZodType;
+  /** Declarative model-facing JSON Schema. Runtime validation remains Zod. */
+  inputJsonSchema?: Record<string, unknown>;
   personProfileBinding: CareerToolPersonProfileBinding;
 };
 
@@ -110,11 +123,44 @@ export const CAREER_WORKFLOW_FACADE_DEFINITIONS: CareerWorkflowFacadeDefinition[
   { name: "career.workflow.profile_intake_finalize", description: "Finalize all Profile Intake source turns into one grounded final review draft. Stops for user review and never commits the Profile.", inputSchema: ProfileIntakeFinalizeInputSchema, personProfileBinding: "required" },
   { name: "career.workflow.resume_import", description: "Import one staged CareerAdapt attachment through the existing local parser and return the review checkpoint. Never accepts file bytes or paths.", inputSchema: ResumeImportInputSchema, personProfileBinding: "required" },
   { name: "career.workflow.job_fit", description: "Run the existing deterministic Job Fit workflow and return its terminal artifact.", inputSchema: JobFitInputSchema, personProfileBinding: "required" },
-  { name: "career.workflow.tailor_resume", description: "Canonical generate_job_specific_resume workflow: create a target-specific Job Resume from a saved Job or direct external targetText, using the selected Profile/source resume. A pasted target remains session-only until the user explicitly chooses persistence.", inputSchema: TailorResumeInputSchema, personProfileBinding: "required" },
+  { name: "career.workflow.tailor_resume", description: "Canonical generate_job_specific_resume workflow: create a target-specific Job Resume from a saved Job or direct external targetText, using the selected Profile/source resume. A pasted target remains session-only until the user explicitly chooses persistence.", inputSchema: TailorResumeInputSchema, inputJsonSchema: tailorResumeInputJsonSchema(), personProfileBinding: "required" },
   { name: "career.workflow.profile_to_resume", description: "Create or reuse an isolated general resume from the confirmed Profile without writing resume content back to Profile.", inputSchema: ProfileToResumeInputSchema, personProfileBinding: "required" },
-  { name: "career.workflow.compose_resume", description: "Build an evidence graph and grounded general/base Resume from the confirmed Profile, show a proposal, then write an isolated ResumeRevision only after explicit confirmation. Use tailor_resume for any saved-job or external-target resume.", inputSchema: ComposeResumeInputSchema, personProfileBinding: "required" },
+  { name: "career.workflow.compose_resume", description: "Build an evidence graph and grounded general/base Resume from the confirmed Profile, show a proposal, then write an isolated ResumeRevision only after explicit confirmation. Use tailor_resume for any saved-job or external-target resume.", inputSchema: ComposeResumeInputSchema, inputJsonSchema: composeResumeInputJsonSchema(), personProfileBinding: "required" },
   { name: "career.workflow.resume_export", description: "Create the existing Preview/PDF export artifact for a selected resume.", inputSchema: ResumeExportInputSchema, personProfileBinding: "optional" }
 ];
+
+function composeResumeInputJsonSchema(): Record<string, unknown> {
+  const commonProperties = {
+    profileId: { type: "string", minLength: 1 },
+    expectedProfileRevision: { type: "integer", minimum: 1 },
+    sourceResumeId: { type: "string", minLength: 1 },
+    checkpointId: { type: "string", minLength: 1 },
+    name: { type: "string", minLength: 1, maxLength: 120 },
+    generalResumeMode: { type: "string", enum: ["create_new", "update_existing"] },
+    targetDirection: { type: "string", minLength: 1, maxLength: 160 },
+    targetAudience: { type: "string", minLength: 1, maxLength: 160 },
+    companyType: { type: "string", minLength: 1, maxLength: 160 },
+    acknowledgedActiveProfileId: { type: "string", minLength: 1 },
+    userPreferences: { type: "object" }
+  };
+  return {
+    type: "object",
+    oneOf: [
+      {
+        type: "object",
+        additionalProperties: false,
+        required: ["profileId", "expectedProfileRevision", "mode"],
+        properties: { ...commonProperties, mode: { const: "general" } }
+      },
+      {
+        type: "object",
+        additionalProperties: false,
+        required: ["profileId", "expectedProfileRevision", "mode", "jobId"],
+        properties: { ...commonProperties, mode: { const: "job_specific" }, jobId: { type: "string", minLength: 1 } }
+      }
+    ]
+  };
+}
 
 type ExecuteAtomic = (name: string, input: unknown, context: CareerToolExecutionContext) => Promise<CareerToolResult>;
 
@@ -497,14 +543,62 @@ async function executeTailoringResumeFacade(
           sourceResumeId: undefined
         }, undefined, "waiting_for_user", sourceResolution.userPrompt);
       }
-      if (sourceResolution.kind === "profile_route" || sourceResolution.kind === "needs_profile_facts") {
+      if (sourceResolution.kind === "profile_route") {
+        const expectedProfileVersion = numberValue(resolvedProfile?.version)
+          ?? numberValue(resolvedProfile?.profileRevision)
+          ?? resolvedBinding?.profileVersionNumber;
+        if (expectedProfileVersion === undefined) {
+          return tailoringFacadeProgress(operationId, input, context, results, {
+            kind: "tailoring_source_selection",
+            workflowStage: "choose_resume_source",
+            profileId,
+            sourceRoute: "profile",
+            profileRoute: "profile_to_resume",
+            contextBindingState: resolvedBinding ? "bound" : "partially_bound",
+            userPrompt: "当前资料缺少可核对的版本号，已保留岗位输入；请先重新读取资料后继续。"
+          }, undefined, "recoverable_failure");
+        }
+        // This is the internal Profile→general/base step of the canonical
+        // tailoring route. It deliberately crosses the atomic repository
+        // operation without invoking the model-facing compose facade.
+        const ensured = await call("career.resume.ensure_general_from_profile", {
+          targetProfileId: profileId,
+          expectedProfileVersion,
+          mode: "create_new",
+          ...(resolvedBinding?.profileId ? { acknowledgedActiveProfileId: resolvedBinding.profileId } : {})
+        }, callIndex++, internalContext);
+        results.push(ensured);
+        if (!ensured.ok) {
+          return tailoringFacadeProgress(operationId, input, context, results, {
+            kind: "tailoring_source_selection",
+            workflowStage: "choose_resume_source",
+            profileId,
+            sourceRoute: "profile",
+            profileRoute: "profile_to_resume",
+            contextBindingState: resolvedBinding ? "bound" : "partially_bound",
+            ...(targetSnapshot ? {
+              targetSourceType: targetSnapshot.sourceType,
+              targetSnapshotId: targetSnapshot.id,
+              targetSnapshotVersion: targetSnapshot.version,
+              targetSnapshotHash: jobTargetSnapshotHash(targetSnapshot),
+              targetSnapshot,
+              jobPersistenceDecision: targetInput?.type === "pasted_jd"
+                ? targetInput.persistence
+                : persistedJobPersistenceDecision
+            } : {}),
+            userPrompt: ensured.error?.message ?? "通用简历准备没有完成；当前岗位输入已保留，请从当前步骤重试。"
+          }, undefined, ensured.error?.recoverable === false ? "failed" : "recoverable_failure");
+        }
+        resolvedSourceResumeId = stringValue(objectValue(ensured.data).resumeId);
+      }
+      if (sourceResolution.kind === "needs_profile_facts") {
         return tailoringFacadeProgress(operationId, input, context, results, {
           kind: "tailoring_source_selection",
           workflowStage: "choose_resume_source",
           profileId,
           contextBindingState: resolvedBinding ? "bound" : "partially_bound",
           sourceRoute: "profile",
-          profileRoute: sourceResolution.kind === "profile_route" ? "profile_to_resume" : "profile_intake_or_resume_import",
+          profileRoute: "profile_intake_or_resume_import",
           profileSufficient,
           ...(targetSnapshot ? {
             targetSourceType: targetSnapshot.sourceType,
@@ -519,7 +613,7 @@ async function executeTailoringResumeFacade(
           userPrompt: sourceResolution.userPrompt
         }, undefined, "waiting_for_user", sourceResolution.userPrompt);
       }
-      resolvedSourceResumeId = sourceResolution.resume.id;
+      if (sourceResolution.kind === "selected") resolvedSourceResumeId = sourceResolution.resume.id;
     }
     if (!resolvedSourceResumeId || (!jobId && !targetSnapshot)) {
       const failure = syntheticTailoringResult(operationId, "tailoring_selection_required", "开始岗位定制需要当前选中的岗位、简历和资料版本。", false);
@@ -1076,6 +1170,10 @@ function arrayValue(value: unknown): unknown[] {
 
 function stringValue(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function numberValue(value: unknown) {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : undefined;
 }
 
 function profileIntakeCheckpointFields(input: Record<string, unknown>) {

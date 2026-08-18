@@ -10,10 +10,12 @@ export type SegmentedResumeItem = {
   headingText?: string;
   normalizedText: string;
   bodyBlocks: NormalizedSourceBlock[];
+  contentBlocks: NormalizedSourceBlock[];
   dateCandidate?: ReturnType<typeof alignResumeDateRange>;
 };
 
 const DATE_RANGE_SIGNAL = /(?<!\d)(?:19|20)\d{2}(?:\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?|[./-]\d{1,2}(?:[./-]\d{1,2})?)?\s*(?:-|–|—|至|到)\s*(?:(?:19|20)\d{2}(?:\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?|[./-]\d{1,2}(?:[./-]\d{1,2})?)?|至今|现在|Present|Current|仍在职|在读)/i;
+const OPEN_ENDED_DATE_SIGNAL = /(?:至今|现在|目前|Present|Current|仍在职|在读)/i;
 
 export function segmentResumeItems(input: {
   sectionType: ResumeSectionTypeV2;
@@ -40,7 +42,10 @@ export function segmentResumeItems(input: {
   const groups: NormalizedSourceBlock[][] = [];
   let current: NormalizedSourceBlock[] = [];
   for (const block of blocks) {
-    if (DATE_RANGE_SIGNAL.test(block.normalizedText) && current.length > 0) {
+    const startsWithItemHeading = block.blockType === "heading" && current.length > 0;
+    const startsWithDate = hasDateSignal(block.normalizedText) && current.length > 0;
+    const isHeaderContinuation = current.length === 1 && current[0].blockType === "heading";
+    if ((startsWithItemHeading || (startsWithDate && !isHeaderContinuation)) && current.length > 0) {
       groups.push(current);
       current = [];
     }
@@ -60,6 +65,12 @@ function buildSegment(
   const first = blocks[0];
   const firstText = first.normalizedText.slice(firstStart, firstEnd).trim();
   const texts = [firstText, ...blocks.slice(1).map((block) => block.normalizedText.trim())].filter(Boolean);
+  const firstContentIndex = blocks.findIndex((block) => isContentBlock(block));
+  const headerBlockCount = firstContentIndex < 0 ? blocks.length : firstContentIndex;
+  const headerTexts = [firstText, ...blocks.slice(1, headerBlockCount).map((block) => block.normalizedText.trim())].filter(Boolean);
+  const dateBlock = blocks
+    .slice(0, headerBlockCount)
+    .find((block) => hasDateSignal(block.normalizedText));
   const sourceRanges = blocks.map((block, blockIndex) => ({
     blockId: block.id,
     start: blockIndex === 0 ? firstStart : 0,
@@ -70,13 +81,22 @@ function buildSegment(
     sectionType,
     sourceBlockIds: [...new Set(blocks.map((block) => block.id))],
     sourceRanges,
-    headingText: firstText,
+    headingText: headerTexts.join(" | "),
     normalizedText: texts.join("\n"),
     bodyBlocks: blocks,
-    dateCandidate: alignResumeDateRange(firstStart > 0 || firstEnd < first.normalizedText.length
+    contentBlocks: blocks.slice(headerBlockCount),
+    dateCandidate: alignResumeDateRange(dateBlock ?? (firstStart > 0 || firstEnd < first.normalizedText.length
       ? { ...first, text: firstText, rawText: firstText, normalizedText: firstText }
-      : first)
+      : first))
   };
+}
+
+function hasDateSignal(text: string) {
+  return DATE_RANGE_SIGNAL.test(text) || OPEN_ENDED_DATE_SIGNAL.test(text);
+}
+
+function isContentBlock(block: NormalizedSourceBlock) {
+  return block.blockType === "list_item" || /^[•·●▪◦■□◆◇▶►*-]\s+/u.test(block.normalizedText.trim());
 }
 
 function splitDelimitedRanges(text: string) {

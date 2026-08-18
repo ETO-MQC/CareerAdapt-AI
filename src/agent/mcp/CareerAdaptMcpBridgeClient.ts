@@ -10,7 +10,6 @@ import {
   safeCareerToolArgumentShape,
   type CareerToolFailureDiagnostics
 } from "../tools/careerToolDiagnostics";
-import { stableCareerLogicalToolOperationId } from "../tools/careerToolContract";
 
 type BridgeRequest = {
   id: string;
@@ -399,13 +398,11 @@ function failedResult(request: BridgeRequest, reason: string): CareerToolResult 
     durationMs: 0,
     retryable: true,
     operationId: request.operationId,
-    logicalToolOperationId: request.logicalToolOperationId
-      ?? stableCareerLogicalToolOperationId(request.logicalTurnId, request.name),
+    logicalToolOperationId: request.logicalToolOperationId ?? request.operationId,
     argumentShape: safeCareerToolArgumentShape(request.input),
     mcpCallTrace: {
       toolName: request.name,
-      logicalToolOperationId: request.logicalToolOperationId
-        ?? stableCareerLogicalToolOperationId(request.logicalTurnId, request.name),
+      logicalToolOperationId: request.logicalToolOperationId ?? request.operationId,
       requestStartedAt: new Date().toISOString(),
       jsonRpcStatus: "error",
       safeMcpErrorCode: code,
@@ -448,8 +445,7 @@ function noProgressResult(request: BridgeRequest): CareerToolResult {
     durationMs: 0,
     retryable: false,
     operationId: request.operationId,
-    logicalToolOperationId: request.logicalToolOperationId
-      ?? stableCareerLogicalToolOperationId(request.logicalTurnId, request.name),
+    logicalToolOperationId: request.logicalToolOperationId ?? request.operationId,
     argumentShape: safeCareerToolArgumentShape(request.input),
     ...(request.logicalTurnId ? { logicalTurnId: request.logicalTurnId } : {}),
     ...(request.taskId ? { taskId: request.taskId } : {}),
@@ -494,8 +490,7 @@ function duplicateInvalidCallResult(
     durationMs: 0,
     retryable: false,
     operationId: request.operationId,
-    logicalToolOperationId: request.logicalToolOperationId
-      ?? stableCareerLogicalToolOperationId(request.logicalTurnId, request.name),
+    logicalToolOperationId: request.logicalToolOperationId ?? request.operationId,
     argumentShape: safeCareerToolArgumentShape(request.input),
     ...(previous.schemaIssues ? { schemaIssues: previous.schemaIssues } : {}),
     ...(previous.invalidFields ? { invalidFields: previous.invalidFields } : {}),
@@ -531,8 +526,7 @@ function withMcpCallTrace(result: CareerToolResult, request: BridgeRequest, gate
   const baseDiagnostics = result.diagnostics ?? result.error?.diagnostics;
   if (!baseDiagnostics) return result;
   const existingTrace = baseDiagnostics.mcpCallTrace;
-  const logicalToolOperationId = request.logicalToolOperationId
-    ?? stableCareerLogicalToolOperationId(request.logicalTurnId, request.name);
+  const logicalToolOperationId = request.logicalToolOperationId ?? request.operationId;
   const diagnostics = CareerToolFailureDiagnosticsSchema.parse({
     ...baseDiagnostics,
     mcpCallTrace: {
@@ -564,8 +558,7 @@ function confirmationBoundaryResult(request: BridgeRequest): CareerToolResult {
     durationMs: 0,
     retryable: true,
     operationId: request.operationId,
-    logicalToolOperationId: request.logicalToolOperationId
-      ?? stableCareerLogicalToolOperationId(request.logicalTurnId, request.name),
+    logicalToolOperationId: request.logicalToolOperationId ?? request.operationId,
     argumentShape: safeCareerToolArgumentShape(request.input),
     ...(request.logicalTurnId ? { logicalTurnId: request.logicalTurnId } : {}),
     ...(request.taskId ? { taskId: request.taskId } : {}),

@@ -19,7 +19,12 @@ export function normalizeExtractedSourceBlocks(blocks: ExtractedSourceBlock[]): 
 
   return ordered.map((block, order) => {
     const actions: string[] = [];
-    let text = block.rawText;
+    // Markdown headings and list items expose a presentation-free `text`
+    // while `rawText` keeps the exact source line for provenance.  Use the
+    // former for parsing so markdown syntax cannot become profile content.
+    let text = block.sourceEngine === "markdown_parser" && block.blockType !== "paragraph"
+      ? block.text
+      : block.rawText;
     text = replaceTracked(text, /\r\n?/g, "\n", "normalize_line_endings", actions);
     text = replaceTracked(text, ZERO_WIDTH, "", "remove_zero_width_characters", actions);
     text = replaceTracked(text, /\u00A0/g, " ", "replace_non_breaking_spaces", actions);

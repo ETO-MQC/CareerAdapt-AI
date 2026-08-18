@@ -2,6 +2,7 @@ import { demoJobDescriptions } from "@/data/demoJobs";
 import { demoCareerProfile } from "@/data/demoProfile";
 import { migrateBranchContentItem, migrateCareerProfileToV2, migrateResumeBranchToV2, normalizeAwardedAt, projectResumeItemV2 } from "@/domain/migrations/resumeV2";
 import { canonicalProfileLibraryItems } from "@/domain/profile/canonicalLibrary";
+import { buildProfileSyncDiagnostics, type ProfileSyncDiagnostics } from "@/domain/profile/profileSyncDiagnostics";
 import {
   AiLogSchema,
   AiSuggestionSchema,
@@ -4826,7 +4827,10 @@ export class WorkspaceRepository {
     structuredItems?: Array<{ itemId: string; data: ResumeItemV2 }>;
     acknowledgeProfileVersion?: boolean;
   }) {
-    return this.mutateResumeBranch({
+    const branchBefore = await this.getResumeBranch(input.branchId);
+    const profileBefore = branchBefore ? await this.getProfile(branchBefore.profileId) : undefined;
+    if (!branchBefore || !profileBefore) throw new Error("profile_sync_source_missing");
+    const result = await this.mutateResumeBranch({
       branchId: input.branchId,
       expectedRevision: input.expectedRevision,
       operationId: input.operationId,
@@ -4892,6 +4896,13 @@ export class WorkspaceRepository {
           structuredContentItems: nextStructuredItems
         });
       }
+    });
+    return this.withProfileSyncDiagnostics(result, {
+      direction: "profile_to_resume",
+      sourceBefore: profileBefore,
+      targetBefore: branchBefore,
+      sourceId: profileBefore.id,
+      targetId: branchBefore.id
     });
   }
 
@@ -5016,6 +5027,9 @@ export class WorkspaceRepository {
     structuredItem?: ResumeItemV2;
     syncToProfile?: boolean;
   }) {
+    const syncSourceBefore = input.syncToProfile ? await this.getResumeBranch(input.branchId) : undefined;
+    const syncProfileBefore = syncSourceBefore ? await this.getProfile(syncSourceBefore.profileId) : undefined;
+    if (input.syncToProfile && (!syncSourceBefore || !syncProfileBefore)) throw new Error("profile_sync_source_missing");
     const newItemId = `branch-item-new-${stableHashText(`${input.branchId}:${input.operationId}`).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 28)}`;
     const text = input.text.trim();
     if (!text) throw new Error("branch_content_item_text_required");
@@ -5026,6 +5040,9 @@ export class WorkspaceRepository {
       type: "manual_edit",
       source: "manual_edit",
       mutate: async ({ branch, profile, now }) => {
+        if (input.syncToProfile && branch.branchPurpose !== "general") {
+          throw new Error("job_specific_resume_profile_sync_forbidden");
+        }
         if (branch.contentItems.some((item) => item.id === newItemId)) {
           return ResumeBranchSchema.parse(branch);
         }
@@ -5265,7 +5282,15 @@ export class WorkspaceRepository {
         });
       }
     });
-    return { ...result, newItemId };
+    if (!input.syncToProfile) return { ...result, newItemId };
+    const diagnosed = await this.withProfileSyncDiagnostics(result, {
+      direction: "resume_to_profile",
+      sourceBefore: syncSourceBefore!,
+      targetBefore: syncProfileBefore!,
+      sourceId: syncSourceBefore!.id,
+      targetId: syncProfileBefore!.id
+    });
+    return { ...diagnosed, newItemId };
   }
 
   async syncResumeContentItemToProfile(input: {
@@ -5283,13 +5308,17 @@ export class WorkspaceRepository {
     startDate?: string;
     endDate?: string;
   }) {
-    return this.mutateResumeBranch({
+    const branchBefore = await this.getResumeBranch(input.branchId);
+    const profileBefore = branchBefore ? await this.getProfile(branchBefore.profileId) : undefined;
+    if (!branchBefore || !profileBefore) throw new Error("profile_sync_source_missing");
+    const result = await this.mutateResumeBranch({
       branchId: input.branchId,
       expectedRevision: input.expectedRevision,
       operationId: input.operationId,
       type: "manual_edit",
       source: "manual_edit",
       mutate: async ({ branch, profile, now }) => {
+        if (branch.branchPurpose !== "general") throw new Error("job_specific_resume_profile_sync_forbidden");
         const item = branch.contentItems.find((candidate) => candidate.id === input.itemId);
         if (!item || item.itemType === "structural") {
           throw new Error("branch_content_item_missing");
@@ -5573,6 +5602,13 @@ export class WorkspaceRepository {
         });
       }
     });
+    return this.withProfileSyncDiagnostics(result, {
+      direction: "resume_to_profile",
+      sourceBefore: branchBefore,
+      targetBefore: profileBefore,
+      sourceId: branchBefore.id,
+      targetId: profileBefore.id
+    });
   }
 
   async syncResumeBasicsSummaryToProfile(input: {
@@ -5580,13 +5616,17 @@ export class WorkspaceRepository {
     expectedRevision: number;
     operationId: string;
   }) {
-    return this.mutateResumeBranch({
+    const branchBefore = await this.getResumeBranch(input.branchId);
+    const profileBefore = branchBefore ? await this.getProfile(branchBefore.profileId) : undefined;
+    if (!branchBefore || !profileBefore) throw new Error("profile_sync_source_missing");
+    const result = await this.mutateResumeBranch({
       branchId: input.branchId,
       expectedRevision: input.expectedRevision,
       operationId: input.operationId,
       type: "manual_edit",
       source: "manual_edit",
       mutate: async ({ branch, profile, now }) => {
+        if (branch.branchPurpose !== "general") throw new Error("job_specific_resume_profile_sync_forbidden");
         const summary = branch.resumeBasics?.summary?.trim() ?? profile.basics.summary?.trim() ?? "";
         const migratedProfile = migrateCareerProfileToV2(profile);
         const nextProfile = CareerProfileSchema.parse({
@@ -5609,6 +5649,13 @@ export class WorkspaceRepository {
         });
       }
     });
+    return this.withProfileSyncDiagnostics(result, {
+      direction: "resume_to_profile",
+      sourceBefore: branchBefore,
+      targetBefore: profileBefore,
+      sourceId: branchBefore.id,
+      targetId: profileBefore.id
+    });
   }
 
   async addResumeContentItemFromProfile(input: {
@@ -5619,6 +5666,9 @@ export class WorkspaceRepository {
     experienceId: string;
     factId: string;
   }) {
+    const branchBefore = await this.getResumeBranch(input.branchId);
+    const profileBefore = branchBefore ? await this.getProfile(branchBefore.profileId) : undefined;
+    if (!branchBefore || !profileBefore) throw new Error("profile_sync_source_missing");
     const newItemId = `branch-item-profile-use-${stableHashText(`${input.branchId}:${input.operationId}`).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 28)}`;
     const result = await this.mutateResumeBranch({
       branchId: input.branchId,
@@ -5651,7 +5701,10 @@ export class WorkspaceRepository {
           endDate: experience.endDate ?? parsedDraft.endDate,
           current: Boolean(experience.startDate && !experience.endDate),
           description: parsedDraft.organization ? parsedDraft.description : description,
-          highlights: []
+          highlights: parsedDraft.highlights,
+          outcomes: category === "project" ? parsedDraft.outcomes : [],
+          tools: category === "project" ? parsedDraft.tools : [],
+          background: category === "project" ? parsedDraft.background : ""
         }, category);
         const factRefs: ResumeBranch["contentItems"][number]["factRefs"] = [{
           type: "experience_fact",
@@ -5695,7 +5748,14 @@ export class WorkspaceRepository {
         });
       }
     });
-    return { ...result, newItemId };
+    const diagnosed = await this.withProfileSyncDiagnostics(result, {
+      direction: "profile_to_resume",
+      sourceBefore: profileBefore,
+      targetBefore: branchBefore,
+      sourceId: profileBefore.id,
+      targetId: branchBefore.id
+    });
+    return { ...diagnosed, newItemId };
   }
 
   async addResumeContentItemFromProfileReference(input: {
@@ -5709,6 +5769,9 @@ export class WorkspaceRepository {
       | { type: "certificate"; certificateId: string; factId: string }
       | { type: "canonical"; itemId: string; sectionType: string };
   }) {
+    const branchBefore = await this.getResumeBranch(input.branchId);
+    const profileBefore = branchBefore ? await this.getProfile(branchBefore.profileId) : undefined;
+    if (!branchBefore || !profileBefore) throw new Error("profile_sync_source_missing");
     const reference = input.reference;
     const newItemId = `branch-item-profile-use-${stableHashText(`${input.branchId}:${input.operationId}`).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 28)}`;
     const result = await this.mutateResumeBranch({
@@ -5754,7 +5817,10 @@ export class WorkspaceRepository {
             endDate: experience.endDate ?? parsedDraft.endDate,
             current: Boolean(experience.startDate && !experience.endDate),
             description: parsedDraft.organization ? parsedDraft.description : description,
-            highlights: []
+            highlights: parsedDraft.highlights,
+            outcomes: category === "project" ? parsedDraft.outcomes : [],
+            tools: category === "project" ? parsedDraft.tools : [],
+            background: category === "project" ? parsedDraft.background : ""
           }, category);
           itemType = input.section === "awards" ? "custom" : "experience";
           factRefs = [{ type: "experience_fact", experienceId: experience.id, factId: fact.id }];
@@ -5820,7 +5886,14 @@ export class WorkspaceRepository {
         });
       }
     });
-    return { ...result, newItemId };
+    const diagnosed = await this.withProfileSyncDiagnostics(result, {
+      direction: "profile_to_resume",
+      sourceBefore: profileBefore,
+      targetBefore: branchBefore,
+      sourceId: profileBefore.id,
+      targetId: branchBefore.id
+    });
+    return { ...diagnosed, newItemId };
   }
 
   async restoreResumeRevision(input: {
@@ -7176,6 +7249,47 @@ export class WorkspaceRepository {
       await this.db.resumeBranchOperations.put(operation);
       return { branch: nextBranch, revision, idempotent: false };
     });
+  }
+
+  private async withProfileSyncDiagnostics<T extends { branch: ResumeBranch }>(
+    result: T,
+    input: {
+      direction: "profile_to_resume" | "resume_to_profile";
+      sourceBefore: CareerProfile | ResumeBranch;
+      targetBefore: CareerProfile | ResumeBranch;
+      sourceId: string;
+      targetId: string;
+    }
+  ): Promise<T & { syncDiagnostics: ProfileSyncDiagnostics }> {
+    const [sourceAfter, targetAfter] = await Promise.all([
+      input.direction === "profile_to_resume"
+        ? this.getProfile(input.sourceId)
+        : this.getResumeBranch(input.sourceId),
+      input.direction === "profile_to_resume"
+        ? this.getResumeBranch(input.targetId)
+        : this.getProfile(input.targetId)
+    ]);
+    if (!sourceAfter || !targetAfter) throw new Error("profile_sync_readback_missing");
+    const branchAfter = (input.direction === "profile_to_resume" ? targetAfter : sourceAfter) as ResumeBranch;
+    const readbackVerified = branchAfter.id === result.branch.id
+      && branchAfter.revision === result.branch.revision
+      && branchAfter.currentRevisionId === result.branch.currentRevisionId
+      && ((input.direction === "profile_to_resume" ? targetAfter : sourceAfter).id === result.branch.id);
+    const sourceRevision = "version" in sourceAfter ? sourceAfter.version : sourceAfter.revision;
+    const targetRevision = "version" in targetAfter ? targetAfter.version : targetAfter.revision;
+    const syncDiagnostics = buildProfileSyncDiagnostics({
+      direction: input.direction,
+      sourceBefore: input.sourceBefore,
+      targetBefore: input.targetBefore,
+      sourceAfter,
+      targetAfter,
+      sourceId: input.sourceId,
+      targetId: input.targetId,
+      sourceRevision,
+      targetRevision,
+      readbackVerified
+    });
+    return { ...result, syncDiagnostics };
   }
 
   private async mutateResumeBranch(input: {

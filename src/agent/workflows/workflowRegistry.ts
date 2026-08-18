@@ -28,6 +28,10 @@ export const LEGACY_WORKFLOW_ALIASES: Record<string, string> = {
   build_resume_from_profile: "compose_resume"
 };
 
+export function isTailoringWorkflowId(workflowId: string | undefined) {
+  return workflowId === "tailor_existing_resume" || workflowId === "tailor_resume";
+}
+
 export function canonicalWorkflowId(workflowId: string) {
   const withoutQuickActionPrefix = workflowId.replace(/^quick_action:/, "");
   return LEGACY_WORKFLOW_ALIASES[withoutQuickActionPrefix] ?? withoutQuickActionPrefix;
@@ -163,6 +167,14 @@ export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
     select_resume: ["open_resume_picker"],
     review_export: ["open_artifact"]
   }, ["resumeId"])
+};
+
+// `tailor_resume` is the authoritative task-state identifier for the
+// canonical Hermes facade. Keep the older identifier available for persisted
+// native sessions and tests while sharing the exact stage/tool contract.
+agentWorkflowRegistry.tailor_resume = {
+  ...agentWorkflowRegistry.tailor_existing_resume,
+  id: "tailor_resume"
 };
 
 export function getWorkflowDefinition(workflowId: string) {

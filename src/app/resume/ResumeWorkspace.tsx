@@ -1597,6 +1597,10 @@ export function ResumeWorkspace() {
       notify({ type: "warning", title: "不可编辑", message: "当前简历不可编辑。" });
       return;
     }
+    if (syncToProfile && selectedBranch.branchPurpose !== "general") {
+      notify({ type: "warning", title: "仅通用简历可补充资料", message: "岗位简历保持独立；请从通用简历补充资料。" });
+      return;
+    }
     const itemTypeMap: Record<string, "experience" | "skill" | "certificate" | "summary" | "custom"> = {
       summary: "summary",
       education: "experience",
@@ -1676,8 +1680,8 @@ export function ResumeWorkspace() {
       setSelectedBranchId(result.branch.id);
       setSelectedStudioItemId(result.newItemId);
       notify({ type: "success", title: "已添加", message: syncToProfile
-        ? "新内容已加入简历，并同步到个人资料库。"
-        : "新内容已保存到当前简历。资料库中还没有这条内容，可随时点击“同步到资料库”。" });
+        ? "新内容已加入简历，并从通用简历补充资料。"
+        : "新内容已保存到当前简历。需要补充资料时，请使用“从通用简历补充资料”。" });
     } catch {
       notify({ type: "error", title: "添加失败", message: "当前简历可能不可编辑。" });
     }
@@ -1728,6 +1732,10 @@ export function ResumeWorkspace() {
 
   async function savePendingResumeOnlyEdit(syncAfterSave: boolean) {
     if (!selectedBranch || !pendingResumeOnlyEdit) return;
+    if (syncAfterSave && selectedBranch.branchPurpose !== "general") {
+      notify({ type: "warning", title: "岗位简历保持独立", message: "岗位简历不能反向写入个人资料库；请先在通用简历中确认。" });
+      return;
+    }
     const pending = pendingResumeOnlyEdit;
     try {
       const saved = await repository.editResumeBranch({
@@ -1751,7 +1759,7 @@ export function ResumeWorkspace() {
       if (pending.source === "preview") cancelStudioEdit();
       setPendingResumeOnlyEdit(undefined);
       notify({ type: "success", title: "已保存", message: syncAfterSave
-        ? "修改已保存，并同步到个人资料库。"
+        ? "修改已保存，并从通用简历补充资料。"
         : "修改已仅保存到当前简历；个人资料库未被修改。" });
     } catch (error) {
       notify({ type: "error", title: "保存失败", message: error instanceof RevisionConflictError
@@ -1766,6 +1774,12 @@ export function ResumeWorkspace() {
     options: { notifyOnSuccess?: boolean; throwOnError?: boolean } = {}
   ) {
     if (!sourceBranch) return undefined;
+    if (sourceBranch.branchPurpose !== "general") {
+      const error = new Error("job_specific_resume_profile_sync_forbidden");
+      if (options.throwOnError) throw error;
+      notify({ type: "warning", title: "岗位简历保持独立", message: "岗位简历不能反向写入个人资料库；请从通用简历补充资料。" });
+      return undefined;
+    }
     try {
       const result = resumeDocumentBlocksById.get(itemId)?.derivedFrom === "resumeBasics.summary"
         ? await repository.syncResumeBasicsSummaryToProfile({
@@ -1779,11 +1793,12 @@ export function ResumeWorkspace() {
             operationId: `sync-resume-item-${sourceBranch.id}-${sourceBranch.revision}-${itemId}`,
             itemId
           });
+      if (result.syncDiagnostics.readbackVerified !== true) throw new Error("profile_sync_readback_unverified");
       const nextProfile = await repository.getProfile(result.branch.profileId);
       if (nextProfile) setProfileOverride(nextProfile);
       replaceBranch(result.branch);
       if (options.notifyOnSuccess !== false) {
-        notify({ type: "success", title: "已同步", message: "该内容已同步到个人资料库；以后仍可继续独立编辑这份简历。" });
+        notify({ type: "success", title: "资料已补充", message: "已从通用简历补充资料；当前简历仍可独立编辑。" });
       }
       return result.branch;
     } catch (error) {
@@ -1805,10 +1820,11 @@ export function ResumeWorkspace() {
         section: activeResumeSection,
         reference: item.reference
       });
+      if (result.syncDiagnostics.readbackVerified !== true) throw new Error("profile_sync_readback_unverified");
       replaceBranch(result.branch);
       setSelectedStudioItemId(result.newItemId);
       setProfileLibraryOpen(false);
-      notify({ type: "success", title: "已加入", message: "已从个人资料库加入当前简历；重复条目不会再次加入。" });
+      notify({ type: "success", title: "已更新简历", message: "已从资料库更新简历；重复条目不会再次加入。" });
     } catch (error) {
       notify({ type: "error", title: "加入失败", message: error instanceof RevisionConflictError
         ? "简历版本已变化，请刷新后重试。"
@@ -2638,8 +2654,12 @@ export function ResumeWorkspace() {
         structuredItems: autoStructuredItems,
         acknowledgeProfileVersion: true
       });
+      if (result.syncDiagnostics.readbackVerified !== true) {
+        notify({ type: "warning", title: "需要重新核验", message: "资料库更新已写入，但读回核验未通过；当前简历没有显示为已同步。" });
+        return;
+      }
       replaceBranch(result.branch);
-      notify({ type: "success", title: "已同步", message: autoStructuredItems.length > 0
+      notify({ type: "success", title: "已更新简历", message: autoStructuredItems.length > 0
         ? "资料库中的奖项月份已补充到当前简历。"
         : "这份简历与个人资料库的信息已经一致。" });
       return;
@@ -2679,12 +2699,13 @@ export function ResumeWorkspace() {
         structuredItems,
         acknowledgeProfileVersion: true
       });
+      if (result.syncDiagnostics.readbackVerified !== true) throw new Error("profile_sync_readback_unverified");
       replaceBranch(result.branch);
       setProfileSyncDialogOpen(false);
       setProfileSyncConflicts([]);
       setProfileSyncChoices({});
       setProfileSyncAutoItems([]);
-      notify({ type: "success", title: "已同步", message: "已按你的选择处理资料库差异；个人资料库未被修改。" });
+      notify({ type: "success", title: "已更新简历", message: "已按你的选择从资料库更新简历；个人资料库未被修改。" });
     } catch {
       setProfileFieldError("同步失败，请稍后重试。");
     } finally {
@@ -3891,7 +3912,7 @@ export function ResumeWorkspace() {
                 onClick={() => { void openProfileSyncDialog(); }}
                 disabled={profileFieldPending}
               >
-                {profileFieldPending ? "处理中…" : "从资料库同步"}
+                {profileFieldPending ? "处理中…" : "从资料库更新简历"}
               </button>
               {workbarWarnings.length > 0 ? (
                 <details className="resume-review-chip">
@@ -4213,6 +4234,7 @@ export function ResumeWorkspace() {
                   onSetPresentationVisibility={(itemId, visible) => { void setPresentationItemVisibility(itemId, visible); }}
                   onDelete={(itemId) => { void setContentItemVisibility(itemId, false); }}
                   onSyncToProfile={(itemId) => { void syncContentItemToProfile(itemId); }}
+                  allowSyncToProfile={selectedBranch?.branchPurpose === "general"}
                   nav={sectionNavContext}
                 />
               ) : activeResumeSection === "work"
@@ -4238,6 +4260,7 @@ export function ResumeWorkspace() {
                   onMoveDown={(itemId) => void movePresentationItem(itemId, "down")}
                   onAdd={(draft, syncToProfile) => void addContentItem(activeResumeSection, draft, syncToProfile)}
                   onSyncToProfile={(itemId) => { void syncContentItemToProfile(itemId); }}
+                  allowSyncToProfile={selectedBranch?.branchPurpose === "general"}
                   onOpenLibrary={() => setProfileLibraryOpen(true)}
                   nav={sectionNavContext}
                 />
@@ -4902,9 +4925,9 @@ export function ResumeWorkspace() {
       {pendingResumeOnlyEdit ? (
         <div className="sync-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="resume-only-edit-title">
           <div className="sync-dialog">
-            <h3 className="sync-dialog-title" id="resume-only-edit-title">是否同步到个人资料库？</h3>
+            <h3 className="sync-dialog-title" id="resume-only-edit-title">是否从通用简历补充资料？</h3>
             <p className="sync-dialog-description">
-              这是你手动确认的修改，当前简历可以直接使用。请选择只保留在当前简历，还是同时更新个人资料库；资料库不会被默认改写。
+              这是你手动确认的修改，当前简历可以直接使用。请选择只保留在当前简历，还是从通用简历补充资料；资料库不会被默认改写。
             </p>
             <div className="sync-dialog-notice" role="status">
               仅保存到简历后，这条内容会标记为“未同步”，之后仍可手动同步。
@@ -4916,9 +4939,9 @@ export function ResumeWorkspace() {
               <button type="button" className="section-action-button" onClick={() => { void savePendingResumeOnlyEdit(false); }}>
                 仅保存到简历
               </button>
-              <button type="button" className="section-action-button section-action-button-primary" onClick={() => { void savePendingResumeOnlyEdit(true); }}>
-                保存并同步资料库
-              </button>
+              {selectedBranch?.branchPurpose === "general" ? <button type="button" className="section-action-button section-action-button-primary" onClick={() => { void savePendingResumeOnlyEdit(true); }}>
+                从通用简历补充资料
+              </button> : null}
             </div>
           </div>
         </div>

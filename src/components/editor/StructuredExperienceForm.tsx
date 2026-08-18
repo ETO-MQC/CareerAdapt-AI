@@ -8,7 +8,7 @@ import {
 } from "@/domain/resumeFields/catalog";
 import { FieldInput } from "./FieldInput";
 import { TipTapEditor } from "./TipTapEditor";
-import { htmlToPlainText, plainTextToHtml, highlightsToEditorHtml, editorHtmlToHighlights } from "./helpers";
+import { editorHtmlToExperienceDocument, experienceDocumentToEditorHtml } from "./helpers";
 
 type StructuredExperienceFormProps = {
   category: Extract<ResumeFieldCategoryId, "education" | "work" | "internship" | "project" | "campus">;
@@ -34,14 +34,13 @@ export function StructuredExperienceForm({
     onChange(next);
   };
 
-  // Get the appropriate highlights label based on category
-  const highlightsLabel = category === "project"
-    ? "项目成果与说明"
-    : category === "education"
-      ? "教育亮点"
-      : category === "internship"
-        ? "实习内容与成果"
-        : "工作内容与成果";
+  const editorDocument = {
+    description: value.description,
+    highlights: value.highlights,
+    outcomes: value.outcomes ?? [],
+    tools: value.tools ?? [],
+    background: value.background ?? ""
+  };
 
   return (
     <div className="section-fields profile-structured-fields">
@@ -82,24 +81,22 @@ export function StructuredExperienceForm({
       <div className="experience-description-field">
         <label className="field-input-label">{labels.description}</label>
         <TipTapEditor
-          value={plainTextToHtml(value.description)}
-          onChange={(html) => update("description", htmlToPlainText(html))}
-          placeholder={category === "education" ? "概述性补充说明…" : "概述性段落说明…"}
-          minRows={2}
+          value={experienceDocumentToEditorHtml(editorDocument)}
+          onChange={(html) => {
+            const next = editorHtmlToExperienceDocument(html, editorDocument);
+            onChange({
+              ...value,
+              description: next.description,
+              highlights: next.highlights,
+              outcomes: next.outcomes,
+              tools: next.tools,
+              background: next.background
+            });
+          }}
+          placeholder={category === "education" ? "概述教育经历与亮点…" : "写清经历内容、行动与可验证成果…"}
+          minRows={5}
         />
       </div>
-      {value.highlights.length > 0 || (category !== "education" && category !== "work" && category !== "internship") ? (
-        <div className="experience-description-field">
-          <label className="field-input-label">{highlightsLabel}</label>
-          <TipTapEditor
-            value={highlightsToEditorHtml(value.highlights)}
-            onChange={(html) => update("highlights", editorHtmlToHighlights(html))}
-            placeholder="每行一条，写清职责、行动和可验证的结果…"
-            minRows={4}
-            mode="highlight-list"
-          />
-        </div>
-      ) : null}
     </div>
   );
 }

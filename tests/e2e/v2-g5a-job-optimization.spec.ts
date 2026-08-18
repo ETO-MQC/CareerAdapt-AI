@@ -177,7 +177,7 @@ test.describe("P3.4 job resume derivation and suggestion closure", () => {
     const company = fields.getByLabel("公司 / 组织").first();
     await company.fill(`${await company.inputValue()}（岗位 A）`);
     await fields.getByRole("button", { name: "保存", exact: true }).first().click();
-    const choice = page.getByRole("dialog", { name: "是否同步到个人资料库？" });
+    const choice = page.getByRole("dialog", { name: "是否从通用简历补充资料？" });
     if (await choice.count()) await choice.getByRole("button", { name: "仅保存到简历", exact: true }).click();
     await expect.poll(async () => (await readFromStore<DbBranch>(page, "resumeBranches", first.derivedId))?.revision)
       .toBe((branchABefore?.revision ?? 0) + 1);
@@ -202,7 +202,7 @@ test.describe("P3.4 job resume derivation and suggestion closure", () => {
     const company = fields.getByLabel("公司 / 组织").first();
     await company.fill(`${await company.inputValue()}（已更新）`);
     await fields.getByRole("button", { name: "保存", exact: true }).first().click();
-    const choice = page.getByRole("dialog", { name: "是否同步到个人资料库？" });
+    const choice = page.getByRole("dialog", { name: "是否从通用简历补充资料？" });
     if (await choice.count()) await choice.getByRole("button", { name: "仅保存到简历", exact: true }).click();
     const revised = await readFromStore<DbBranch>(page, "resumeBranches", derivedId);
 

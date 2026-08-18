@@ -10,7 +10,6 @@ import {
   type CareerMcpCallTrace,
   type CareerToolFailureDiagnostics
 } from "../tools/careerToolDiagnostics";
-import { stableCareerLogicalToolOperationId } from "../tools/careerToolContract";
 
 /**
  * The MCP adapter is deliberately narrower than the Career domain.  It only
@@ -98,8 +97,10 @@ export class CareerAdaptMcpAdapter {
     const contract = this.gateway.listContracts().find((candidate) => candidate.name === name);
     const operationId = normalizeOperationId(meta.operationId);
     const requestStartedAt = new Date().toISOString();
-    const logicalToolOperationId = meta.logicalToolOperationId?.trim()
-      || stableCareerLogicalToolOperationId(meta.logicalTurnId, name);
+    // The Browser handler may carry forward an upstream ID or reuse the
+    // existing MCP operation ID for legacy direct callers. It must not mint a
+    // second logical ID from the turn and tool name.
+    const logicalToolOperationId = meta.logicalToolOperationId?.trim() || operationId;
     if (!contract) {
       return toolErrorResult(
         "unknown_career_tool",

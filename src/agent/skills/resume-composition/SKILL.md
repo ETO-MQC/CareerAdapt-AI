@@ -1,11 +1,13 @@
 ---
 name: resume-composition
-description: Compile an evidence-grounded general or job-specific resume from a confirmed CareerProfile through the CareerAdapt workflow boundary.
+description: Compile an evidence-grounded general/base resume from a confirmed CareerProfile through the CareerAdapt workflow boundary.
 ---
 
 # Resume composition
 
-Use `career.workflow.compose_resume` for new general or job-specific resumes.
+Use `career.workflow.compose_resume` for a new general/base resume. Use the
+canonical `career.workflow.tailor_resume` facade for any saved-job or external-
+target Job Resume; do not stage a target resume through composition first.
 Read the confirmed Profile and optional Job through the host, build the
 Evidence Graph, propose a Resume Blueprint, show information needs and review
 findings, then wait for explicit confirmation before `compose_resume` writes an

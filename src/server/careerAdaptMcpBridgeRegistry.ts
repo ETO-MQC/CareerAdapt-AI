@@ -11,7 +11,6 @@ import {
   type CareerToolFailureDiagnostics,
   safeCareerToolArgumentShape
 } from "@/agent/tools/careerToolDiagnostics";
-import { stableCareerLogicalToolOperationId } from "@/agent/tools/careerToolContract";
 
 export type CareerAdaptMcpSurface = "internal" | "hermes-production";
 
@@ -239,8 +238,10 @@ function enqueueCall(name: string, input: unknown, context: CareerToolExecutionC
     name,
     input,
     operationId,
-    logicalToolOperationId: context.logicalToolOperationId
-      ?? stableCareerLogicalToolOperationId(context.logicalTurnId, name),
+    // The bridge registry transports the upstream identity; it does not
+    // invent a second logical operation when an older direct caller omitted
+    // it. The operation ID is the bounded fallback for that legacy path.
+    logicalToolOperationId: context.logicalToolOperationId ?? operationId,
     logicalTurnId: context.logicalTurnId,
     taskId: context.taskId,
     incidentTraceId: context.incidentTraceId,
@@ -360,13 +361,11 @@ function failedResult(
     durationMs: Math.max(0, Date.now() - request.createdAt),
     retryable: layer === "timeout",
     operationId: request.operationId,
-    logicalToolOperationId: request.logicalToolOperationId
-      ?? stableCareerLogicalToolOperationId(request.logicalTurnId, request.name),
+    logicalToolOperationId: request.logicalToolOperationId ?? request.operationId,
     argumentShape: safeCareerToolArgumentShape(request.input),
     mcpCallTrace: {
       toolName: request.name,
-      logicalToolOperationId: request.logicalToolOperationId
-        ?? stableCareerLogicalToolOperationId(request.logicalTurnId, request.name),
+      logicalToolOperationId: request.logicalToolOperationId ?? request.operationId,
       requestStartedAt: new Date(request.createdAt).toISOString(),
       jsonRpcStatus: "error",
       safeMcpErrorCode: code,

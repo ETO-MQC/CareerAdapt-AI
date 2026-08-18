@@ -79,6 +79,27 @@ export const CareerMcpCallTraceSchema = z.object({
 
 export type CareerMcpCallTrace = z.infer<typeof CareerMcpCallTraceSchema>;
 
+export const CareerMcpResponseBytesBucketSchema = z.enum([
+  "0",
+  "1-255",
+  "256-1023",
+  "1-4kb",
+  "4-16kb",
+  "16kb+"
+]);
+
+export const CareerMcpResponseTraceSchema = z.object({
+  handlerResultCreated: z.boolean(),
+  responseSerialized: z.boolean(),
+  responseBytesBucket: CareerMcpResponseBytesBucketSchema,
+  responseEnvelopeValid: z.boolean(),
+  responseSent: z.boolean(),
+  hermesResultObserved: z.boolean().optional(),
+  officialHermesToolTerminalEvent: z.enum(["completed", "failed"]).optional()
+}).strict();
+
+export type CareerMcpResponseTrace = z.infer<typeof CareerMcpResponseTraceSchema>;
+
 export const CareerToolArgumentShapeSchema = z.record(z.string(), z.union([
   z.string(),
   z.number(),
@@ -115,6 +136,7 @@ export const CareerToolFailureDiagnosticsSchema = z.object({
   gatewayContractVersion: z.string().min(1).optional(),
   gatewaySchemaHash: z.string().min(1).optional(),
   mcpCallTrace: CareerMcpCallTraceSchema.optional(),
+  mcpResponseTrace: CareerMcpResponseTraceSchema.optional(),
   startedAt: z.string().datetime({ offset: true }).optional(),
   enteredGatewayAt: z.string().datetime({ offset: true }).optional(),
   enteredFacadeAt: z.string().datetime({ offset: true }).optional(),

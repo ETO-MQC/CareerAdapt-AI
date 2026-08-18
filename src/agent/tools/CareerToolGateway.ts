@@ -508,26 +508,13 @@ export class CareerToolGateway {
 
   private verifyTailoringStage(name: string, context: CareerToolExecutionContext = {}) {
     if (context.workflowFacadeInternal) return undefined;
+    // Hermes' authoritative tool-start event promotes the task immediately
+    // before the transaction. Do not reject the canonical facade from a
+    // stale Host projection; the facade owns checkpoint validation and can
+    // return a recoverable result without creating a second route.
+    if (name === "career.workflow.tailor_resume") return undefined;
     const state = context.authoritativeTaskState ?? this.asDependencies().getAuthoritativeTaskState?.();
-    if (!state || state.workflowId !== "tailor_existing_resume") return undefined;
-    if (name === "career.workflow.tailor_resume") {
-      const stage = normalizeTailoringStage(state.stage);
-      return stage && [
-        "clarify_target",
-        "choose_resume_source",
-        "choose_job",
-        "analyze_fit",
-        "generate_plan",
-        "clarify_unsupported_facts",
-        "generate_changes",
-        "preview_changes"
-      ].includes(stage)
-        ? undefined
-        : {
-            code: "agent_tool_not_allowed_current_stage",
-            message: `当前岗位定制步骤为 ${stage ?? state.stage}，暂不允许执行可续跑定制 facade。`
-          };
-    }
+    if (!state || !isTailoringWorkflowId(state.workflowId)) return undefined;
     const sourceToolName = name.startsWith("career.workflow.")
       ? name === "career.workflow.tailor_resume" ? "create_tailoring_session" : undefined
       : this.byName.get(name)?.sourceToolName;
@@ -636,7 +623,8 @@ export class CareerToolGateway {
   }
 
   private toWorkflowContract(definition: (typeof CAREER_WORKFLOW_FACADE_DEFINITIONS)[number]): CareerToolContract {
-    const inputSchema = z.toJSONSchema(definition.inputSchema) as Record<string, unknown>;
+    const inputSchema = definition.inputJsonSchema
+      ?? z.toJSONSchema(definition.inputSchema) as Record<string, unknown>;
     const identity = contractIdentityForInputSchema(inputSchema);
     return {
       name: definition.name,
@@ -674,6 +662,10 @@ export class CareerToolGateway {
 
 function isTailoringReadTool(sourceToolName: string) {
   return ["get_profile", "get_resume", "get_resume_revision", "get_job", "list_resumes", "list_jobs"].includes(sourceToolName);
+}
+
+function isTailoringWorkflowId(workflowId: string | undefined) {
+  return workflowId === "tailor_existing_resume" || workflowId === "tailor_resume";
 }
 
 function atomicWorkflowHint(name: string) {
@@ -907,7 +899,10 @@ function createExecutionTrace(
     name,
     input,
     operationId,
-    logicalToolOperationId: context.logicalToolOperationId ?? `career-logical-${operationId}`,
+    // The gateway is downstream of Hermes/MCP. If an upstream logical ID was
+    // not supplied, reuse the operation ID instead of minting a second
+    // logical identity at this boundary.
+    logicalToolOperationId: context.logicalToolOperationId ?? operationId,
     logicalTurnId: context.logicalTurnId,
     taskId: context.taskId,
     workflowStageBefore: context.authoritativeTaskState?.stage,

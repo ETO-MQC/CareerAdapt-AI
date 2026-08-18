@@ -10,7 +10,7 @@ import type { HermesRunHandle } from "../../contracts/agentSession";
 import type { CareerToolGateway, CareerToolContract } from "../../tools/CareerToolGateway";
 import { logicalToolOperationId, type HermesBridgeEvent, type HermesBridgeTransport, type HermesRunTraceContext } from "./HermesBridgeTransport";
 import { resolveCareerSessionBinding, type CareerSessionBinding } from "../careerSessionBinding";
-import { hermesProductionToolNames, HermesCareerToolCatalog, projectCareerContractsForHermes } from "./HermesCareerToolCatalog";
+import { hermesProductionToolNames, HermesCareerToolCatalog, projectCareerContractsForHermes, HERMES_REQUIRED_CAREER_FACADES } from "./HermesCareerToolCatalog";
 import { isRoadshowReady } from "../runtimeHealth";
 import { isCareerSystemStatusQuestion } from "../../kernel/AgentToolResolver";
 import {
@@ -1345,9 +1345,9 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         operationId: event.operationId,
         data: {
           toolCallId: event.toolCallId,
-          logicalToolOperationId: this.bridgeLogicalOperationId(input, event),
           ...this.toolDiagnostics(event.toolName),
-          ...(event.data && typeof event.data === "object" ? event.data as Record<string, unknown> : {})
+          ...(event.data && typeof event.data === "object" ? event.data as Record<string, unknown> : {}),
+          logicalToolOperationId: this.bridgeLogicalOperationId(input, event)
         }
       });
     }
@@ -1357,9 +1357,9 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       operationId: event.operationId,
       data: {
         toolCallId: event.toolCallId,
-        logicalToolOperationId: this.bridgeLogicalOperationId(input, event),
         ...this.toolDiagnostics(event.toolName),
-        ...(event.data && typeof event.data === "object" ? event.data as Record<string, unknown> : {})
+        ...(event.data && typeof event.data === "object" ? event.data as Record<string, unknown> : {}),
+        logicalToolOperationId: this.bridgeLogicalOperationId(input, event)
       }
     });
     if (event.type === "tool_call_failed") {
@@ -1369,7 +1369,11 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         toolName: event.toolName,
         operationId: event.operationId,
         error: { code: event.code, message: event.message, recoverable: event.recoverable },
-        data: { logicalToolOperationId: this.bridgeLogicalOperationId(input, event), ...this.toolDiagnostics(event.toolName), ...(event.data && typeof event.data === "object" ? event.data as Record<string, unknown> : {}) }
+        data: {
+          ...this.toolDiagnostics(event.toolName),
+          ...(event.data && typeof event.data === "object" ? event.data as Record<string, unknown> : {}),
+          logicalToolOperationId: this.bridgeLogicalOperationId(input, event)
+        }
       });
     }
     if (event.type === "approval_required") return this.event(input, "approval_required", {
@@ -1691,7 +1695,6 @@ function allowedCareerToolContracts(gateway: CareerToolGateway, input: AgentRunt
         || allowedCareerTools.has(contract.name)
         || workflowFacades.includes(contract.name)
         || isCareerSystemStatusQuestion(input.userMessage) && contract.name.startsWith("career.system.")
-        || contract.name.startsWith("career.workflow.")
       )
   );
   return projectCareerContractsForHermes(contracts, productionProfile);
@@ -1718,7 +1721,7 @@ function workflowFacadeNames(input: AgentRuntimeTurnInput) {
   }
   if (workflowId === "resume_import" || workflowId === "import_resume") return ["career.workflow.resume_import"];
   if (workflowId === "analyze_job_fit") return ["career.workflow.job_fit"];
-  if (workflowId === "tailor_existing_resume" || workflowId === "create_tailored_resume") {
+  if (workflowId === "tailor_existing_resume" || workflowId === "tailor_resume" || workflowId === "create_tailored_resume") {
     return stage === "analyze_fit"
       ? ["career.workflow.job_fit", "career.workflow.tailor_resume"]
       : ["career.workflow.tailor_resume"];
@@ -1727,6 +1730,7 @@ function workflowFacadeNames(input: AgentRuntimeTurnInput) {
   if (workflowId === "compose_resume" || workflowId === "create_resume_from_profile") {
     return ["career.workflow.compose_resume", "career.workflow.profile_to_resume"];
   }
+  if (!workflowId || workflowId === "agent_quick_action") return [...HERMES_REQUIRED_CAREER_FACADES];
   return [];
 }
 

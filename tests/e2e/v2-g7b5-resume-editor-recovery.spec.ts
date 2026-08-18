@@ -86,8 +86,8 @@ test.describe("V2-G7b.5 resume editor recovery", () => {
     await fields.getByLabel("公司 / 组织").fill("星河未来科技");
     await expect(page.getByTestId("resume-autosave-status")).toHaveText("已自动保存", { timeout: 10_000 });
     await expect(page.getByTestId("resume-a4-page").first()).toContainText("星河未来科技");
-    await fields.getByRole("button", { name: "同步到资料库", exact: true }).click();
-    await expect(page.getByText(/该内容已同步到个人资料库/)).toBeVisible();
+    await fields.getByRole("button", { name: "从通用简历补充资料", exact: true }).click();
+    await expect(page.getByText(/已从通用简历补充资料/)).toBeVisible();
     await expect(fields.getByText("已关联资料库", { exact: true })).toBeVisible();
 
     await page.goto("/profile");
@@ -112,7 +112,7 @@ test.describe("V2-G7b.5 resume editor recovery", () => {
     await page.locator("#basics-email").press("Tab");
     await expect(page.locator("#basics-email")).toHaveValue("resume-only@example.com");
 
-    await page.getByRole("button", { name: "从资料库同步", exact: true }).click();
+    await page.getByRole("button", { name: "从资料库更新简历", exact: true }).click();
     const emailConflict = page.locator(".sync-conflict-card").filter({ hasText: "邮箱" });
     await expect(emailConflict).toBeVisible();
     await emailConflict.getByRole("button").filter({ hasText: "资料库版本" }).click();
@@ -131,7 +131,7 @@ test.describe("V2-G7b.5 resume editor recovery", () => {
     const dialog = page.getByRole("dialog", { name: /从资料库选择工作.*经历/ });
     await expect(dialog).toContainText("某政府部门");
     await dialog.locator(".profile-library-item").filter({ hasText: "某政府部门" }).getByRole("button", { name: "使用", exact: true }).click();
-    await expect(page.getByText("已从个人资料库加入当前简历；重复条目不会再次加入。", { exact: true })).toBeVisible();
+    await expect(page.getByText("已从资料库更新简历；重复条目不会再次加入。", { exact: true })).toBeVisible();
     await expect(page.getByTestId("resume-a4-page").first()).toContainText("某政府部门");
     await fields.getByRole("button", { name: "资料库", exact: true }).click();
     await expect(page.getByRole("dialog", { name: /从资料库选择工作.*经历/ }).locator(".profile-library-item").filter({ hasText: "某政府部门" }).getByRole("button", { name: "已在简历中", exact: true })).toBeDisabled();
@@ -144,7 +144,7 @@ test.describe("V2-G7b.5 resume editor recovery", () => {
     const fields = page.getByTestId("resume-active-section-fields");
     await fields.getByLabel("公司 / 组织").first().fill("全新科技公司");
     await fields.getByRole("button", { name: "保存", exact: true }).first().click();
-    const dialog = page.getByRole("dialog", { name: "是否同步到个人资料库？" });
+    const dialog = page.getByRole("dialog", { name: "是否从通用简历补充资料？" });
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "仅保存到简历", exact: true }).click();
     await expect(page.getByText("修改已仅保存到当前简历；个人资料库未被修改。", { exact: true })).toBeVisible();

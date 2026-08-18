@@ -5,7 +5,7 @@ import { z } from "zod";
  * product phase.  Bumping this value is required whenever a published tool
  * schema changes so a stale Hermes tool surface cannot report Ready.
  */
-export const CAREER_TOOL_CONTRACT_VERSION = "career-tool-contract-v2";
+export const CAREER_TOOL_CONTRACT_VERSION = "career-tool-contract-v3";
 
 const CAREER_TARGET_PERSISTENCE_VALUES = ["ask", "save", "session_only"] as const;
 
@@ -161,7 +161,54 @@ export function canonicalTailorResumeContractIdentity(): CareerContractIdentity 
 }
 
 export function tailorResumeInputJsonSchema() {
-  return z.toJSONSchema(TailorResumeInputSchema) as Record<string, unknown>;
+  const branches = [
+    {
+      type: "object",
+      additionalProperties: false,
+      required: ["targetText"],
+      properties: {
+        profileId: { type: "string", minLength: 1 },
+        sourceResumeId: { type: "string", minLength: 1 },
+        targetText: { type: "string", minLength: 20, maxLength: 24_000 },
+        jobPersistence: { type: "string", enum: [...CAREER_TARGET_PERSISTENCE_VALUES] },
+        targetTitle: { type: "string", minLength: 1, maxLength: 160 },
+        targetCompany: { type: "string", minLength: 1, maxLength: 160 },
+        targetSourceUrl: { type: "string", format: "uri" }
+      }
+    },
+    {
+      type: "object",
+      additionalProperties: false,
+      required: ["jobId"],
+      properties: {
+        profileId: { type: "string", minLength: 1 },
+        sourceResumeId: { type: "string", minLength: 1 },
+        jobId: { type: "string", minLength: 1 }
+      }
+    },
+    {
+      type: "object",
+      additionalProperties: false,
+      required: ["checkpointId"],
+      properties: {
+        checkpointId: { type: "string", minLength: 1 },
+        userAnswer: {
+          oneOf: [
+            { type: "string", minLength: 1, maxLength: 8_000 },
+            { type: "array", minItems: 1, maxItems: 32, items: { type: "string", minLength: 1 } },
+            { type: "boolean" }
+          ]
+        }
+      }
+    }
+  ];
+  return {
+    type: "object",
+    oneOf: branches,
+    // Kept as a compatibility mirror for older MCP inspectors. `oneOf` is
+    // authoritative and is the branch semantics shown to Hermes.
+    anyOf: branches
+  } satisfies Record<string, unknown>;
 }
 
 export function evaluateCareerToolContractSurface(

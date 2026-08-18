@@ -19,6 +19,7 @@ type SummarySectionPageProps = {
   onSetPresentationVisibility: (itemId: string, visible: boolean) => void;
   onDelete: (itemId: string) => void;
   onSyncToProfile: (itemId: string) => void;
+  allowSyncToProfile?: boolean;
   nav: SectionNavContext;
 };
 
@@ -33,6 +34,7 @@ export function SummarySectionPage({
   onSetPresentationVisibility,
   onDelete,
   onSyncToProfile,
+  allowSyncToProfile = true,
   nav
 }: SummarySectionPageProps) {
   const prev = prevSection(nav.activeSection);
@@ -91,18 +93,18 @@ export function SummarySectionPage({
                 <span>显示</span>
               </label>
               {isSyncedToProfile ? (
-                <span className="resume-sync-state resume-sync-state-synced">已同步资料库</span>
+                <span className="resume-sync-state resume-sync-state-synced">与资料库一致</span>
               ) : (
                 <>
                   {sourceItem?.userConfirmation?.scope === "resume_only" ? <span className="resume-sync-state">仅当前简历</span> : null}
-                  <button
-                    type="button"
-                    className="section-action-button"
-                    disabled={block.contentItemId in editTexts}
-                    onClick={() => onSyncToProfile(block.contentItemId)}
-                  >
-                    同步到资料库
-                  </button>
+                  {allowSyncToProfile ? <button
+                      type="button"
+                      className="section-action-button"
+                      disabled={block.contentItemId in editTexts}
+                      onClick={() => onSyncToProfile(block.contentItemId)}
+                    >
+                      从通用简历补充资料
+                    </button> : null}
                 </>
               )}
               <button type="button" className="section-action-button section-action-button-danger" onClick={() => onDelete(block.contentItemId)}>删除</button>

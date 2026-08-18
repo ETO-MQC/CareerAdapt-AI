@@ -1730,12 +1730,27 @@ export class AgentHostStore {
       const operationId = event.operationId ?? `runtime-tool-${crypto.randomUUID()}`;
       const logicalToolOperationId = stringValue(objectValue(event.data).logicalToolOperationId);
       const eventData = objectValue(event.data);
+      if (isCanonicalTailorFacadeToolName(event.toolName, eventData)) {
+        const reducer = new AgentTaskStateReducer();
+        const baseline = next.taskState ?? reducer.create(next, "generate_job_specific_resume");
+        const currentStage = normalizeTailoringStage(baseline.stage) ?? "choose_resume_source";
+        const promoted = reducer.reduce(baseline, {
+          type: "authoritative_workflow_selected",
+          rootGoal: "generate_job_specific_resume",
+          workflowId: "tailor_resume",
+          stage: currentStage,
+          completionType: "transactional"
+        });
+        next = projectTaskStateIntoSession(next, promoted);
+      }
       const eventResult = objectValue(eventData.result ?? eventData);
-      const resultDiagnostics = objectValue(eventResult.diagnostics ?? eventData.diagnostics);
-      const resultExplicitlyFailed = eventResult.ok === false
+      const structuredResult = objectValue(eventResult.structuredContent);
+      const projectedResult = typeof structuredResult.ok === "boolean" ? structuredResult : eventResult;
+      const resultDiagnostics = objectValue(projectedResult.diagnostics ?? eventResult.diagnostics ?? eventData.diagnostics);
+      const resultExplicitlyFailed = projectedResult.ok === false
         || eventData.isError === true
         || eventData.is_error === true
-        || Object.keys(objectValue(eventResult.error)).length > 0
+        || Object.keys(objectValue(projectedResult.error)).length > 0
         || Boolean(stringValue(eventResult.safeErrorCode) || stringValue(resultDiagnostics.safeErrorCode));
       const contradictoryCompletion = event.type === "tool_call_completed"
         && (resultExplicitlyFailed
@@ -1774,7 +1789,7 @@ export class AgentHostStore {
         // adapters emit the safe tool result directly in `data`. Accept both
         // shapes so the canonical TaskState is reduced exactly once either
         // way; a progress-shaped event still has no `ok` flag and is ignored.
-        const result = objectValue(eventData.result ?? eventData);
+        const result = typeof structuredResult.ok === "boolean" ? structuredResult : eventResult;
         const contract = objectValue(eventData.contract);
         if (result.ok === true && !contradictoryCompletion) {
           next = applyRuntimeFacadeCheckpoint(next, event.toolName ?? "", result.data);
@@ -9272,6 +9287,14 @@ function runtimeArtifactSourceToolName(stableName: string, declaredSource?: stri
   return facadeSources[stableName] ?? stableSources[stableName] ?? declaredSource ?? stableName;
 }
 
+function isCanonicalTailorFacadeToolName(toolName: string | undefined, data: Record<string, unknown>) {
+  const candidate = stringValue(data.stableCareerToolName) ?? toolName;
+  return candidate === "career.workflow.tailor_resume"
+    || candidate === "career_workflow_tailor_resume"
+    || candidate?.endsWith("__career_workflow_tailor_resume") === true
+    || candidate?.endsWith("_career_workflow_tailor_resume") === true;
+}
+
 function runtimeArtifactResultData(stableName: string, value: unknown) {
   if (!stableName.startsWith("career.workflow.")) return value;
   const facade = objectValue(value);
@@ -10139,7 +10162,7 @@ function runtimeFailureRecoveryText(code?: string, taskState?: AgentTaskState, d
     return "简历组装流程刚才没有完成，当前方向和已完成步骤已保留。请从当前步骤继续，我不会把未确认内容显示为简历。";
   }
   if (
-    taskState?.workflowId === "tailor_existing_resume"
+    (taskState?.workflowId === "tailor_existing_resume" || taskState?.workflowId === "tailor_resume")
     && normalizeTailoringStage(taskState.stage) === "generate_plan"
     && taskState.knownSlots.fitAnalysis
     && taskState.selectedEntities.profileId

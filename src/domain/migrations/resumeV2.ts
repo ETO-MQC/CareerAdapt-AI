@@ -39,7 +39,11 @@ export function migrateCareerProfileToV2(profile: CareerProfile): CareerProfileV
     }) as CareerProfileV2;
   }
   const structuredFacts = [
-    ...profile.experiences.map((experience) => ({ data: migrateExperience(experience), factIds: experience.facts.map((fact) => fact.id) })),
+    ...profile.experiences.map((experience) => ({
+      data: migrateExperience(experience),
+      factIds: experience.facts.map((fact) => fact.id),
+      sourceExcerpt: experience.facts.map((fact) => fact.statement).join("\n") || undefined
+    })),
     ...profile.skills.map((skill) => ({
       data: skill.fact?.category === "language"
         ? { id: skill.id, sectionType: "languages" as const, language: skill.name, description: skill.fact.statement, customFields: [] }
@@ -148,17 +152,55 @@ export function projectResumeItemV2(item: ResumeItemV2): string {
 }
 
 function migrateExperience(experience: Experience): ResumeItemV2 {
-  const common = { id: experience.id, startDate: experience.startDate, endDate: experience.endDate, location: experience.location, customFields: [] };
+  const highlights = experience.facts.map((fact) => fact.statement.trim()).filter(Boolean);
+  const description = experience.resumeDrafts.map((draft) => draft.text.trim()).filter(Boolean).join("\n\n") || undefined;
+  const customFields = legacyExperienceCustomFields(experience);
+  const common = { id: experience.id, startDate: experience.startDate, endDate: experience.endDate, location: experience.location, description, customFields };
   switch (experience.type) {
-    case "education": return { ...common, sectionType: "education", school: experience.organization, degree: experience.role, major: experience.major, courses: experience.courses ?? [], honors: [], highlights: [], current: false };
-    case "internship": return { ...common, sectionType: "internship", organization: experience.organization, role: experience.role, highlights: [], current: false };
-    case "project": return { id: experience.id, sectionType: "project", title: experience.organization, role: experience.role, location: experience.location, startDate: experience.startDate, endDate: experience.endDate, current: false, tools: [], highlights: [], outcomes: [], customFields: [] };
-    case "competition": return { id: experience.id, sectionType: "awards", name: experience.role, issuer: experience.organization, customFields: [] };
-    case "campus": return { ...common, sectionType: "campus", organization: experience.organization, role: experience.role, highlights: [], current: false };
-    case "volunteer": return { ...common, sectionType: "volunteer", organization: experience.organization, role: experience.role, highlights: [], current: false };
-    case "work": return { ...common, sectionType: "work", organization: experience.organization, role: experience.role, highlights: [], current: false };
-    default: return { id: experience.id, sectionType: "other", title: experience.organization, description: experience.role, highlights: [], customFields: [] };
+    case "education": return { ...common, sectionType: "education", school: experience.organization, degree: experience.role, major: experience.major, courses: experience.courses ?? [], honors: [], highlights, current: false };
+    case "internship": return { ...common, sectionType: "internship", organization: experience.organization, role: experience.role, highlights, current: false };
+    case "project": return { ...common, sectionType: "project", title: experience.organization, role: experience.role, tools: [], highlights, outcomes: [], current: false };
+    case "competition": return {
+      id: experience.id,
+      sectionType: "awards",
+      name: experience.role,
+      issuer: experience.organization,
+      description,
+      customFields
+    };
+    case "campus": return { ...common, sectionType: "campus", organization: experience.organization, role: experience.role, highlights, current: false };
+    case "volunteer": return { ...common, sectionType: "volunteer", organization: experience.organization, role: experience.role, highlights, current: false };
+    case "work": return { ...common, sectionType: "work", organization: experience.organization, role: experience.role, highlights, current: false };
+    default: return { id: experience.id, sectionType: "other", title: experience.organization, description: description ?? experience.role, highlights, customFields };
   }
+}
+
+function legacyExperienceCustomFields(experience: Experience) {
+  const fields: Array<{
+    id: string;
+    label: string;
+    valueType: "text" | "string_list";
+    value: string | string[];
+    order: number;
+    sensitive: boolean;
+  }> = [];
+  if (experience.resumeDrafts.length) {
+    fields.push({
+      id: `${experience.id}:legacy-resume-drafts`,
+      label: "原始资料草稿",
+      valueType: "text",
+      value: experience.resumeDrafts.map((draft) => draft.text).join("\n\n"),
+      order: fields.length,
+      sensitive: false
+    });
+  }
+  if (experience.tags.length) {
+    fields.push({ id: `${experience.id}:legacy-tags`, label: "原始标签", valueType: "string_list", value: [...experience.tags], order: fields.length, sensitive: false });
+  }
+  if (experience.evidenceIds.length) {
+    fields.push({ id: `${experience.id}:legacy-evidence-ids`, label: "原始证据引用", valueType: "string_list", value: [...experience.evidenceIds], order: fields.length, sensitive: false });
+  }
+  return fields;
 }
 
 function legacyBranchData(item: BranchContentItem): ResumeItemV2 {

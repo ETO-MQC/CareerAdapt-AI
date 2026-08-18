@@ -1,13 +1,14 @@
 # 从资料库生成简历
 
 ## When to use
-用户要从 CareerProfile 组装通用或岗位简历时。
+用户要从 CareerProfile 组装通用/base 简历时。岗位简历必须走
+`career.workflow.tailor_resume`。
 
 ## Goal
 选择有证据的相关事实，形成可核对的简历计划。
 
 ## Inputs and tools
-资料库、用途、可选岗位；新简历正常流程优先
+资料库和通用简历用途；新简历正常流程优先
 `career.workflow.compose_resume`，它会先返回 Evidence Graph、Resume
 Blueprint 和审查提案，再在确认后创建独立 ResumeRevision。旧的
 `career.workflow.profile_to_resume` 仅用于兼容或简单恢复；原子工具仅用于检查。

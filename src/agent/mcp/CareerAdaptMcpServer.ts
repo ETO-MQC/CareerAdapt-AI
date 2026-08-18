@@ -1,6 +1,5 @@
 import { CareerAdaptMcpAdapter, type CareerAdaptMcpCallMeta, type CareerAdaptMcpGateway } from "./CareerAdaptMcpAdapter";
 import type { CareerSessionBinding } from "../runtime/careerSessionBinding";
-import { stableCareerLogicalToolOperationId } from "../tools/careerToolContract";
 
 export const CAREERADAPT_MCP_PROTOCOL_VERSION = "2025-06-18";
 const SUPPORTED_PROTOCOL_VERSIONS = new Set([
@@ -260,13 +259,12 @@ function mcpCallTraceForRequest(
     ? meta["careeradapt/logicalToolOperationId"]
     : typeof meta.logicalToolOperationId === "string"
       ? meta.logicalToolOperationId
-      : stableCareerLogicalToolOperationId(
-          typeof meta["careeradapt/logicalTurnId"] === "string" ? meta["careeradapt/logicalTurnId"] : undefined,
-          toolName
-        );
+      : typeof meta["careeradapt/operationId"] === "string"
+        ? meta["careeradapt/operationId"]
+        : typeof meta.operationId === "string" ? meta.operationId : undefined;
   return {
     toolName,
-    logicalToolOperationId,
+    ...(logicalToolOperationId ? { logicalToolOperationId } : {}),
     requestStartedAt,
     jsonRpcStatus,
     safeMcpErrorCode,

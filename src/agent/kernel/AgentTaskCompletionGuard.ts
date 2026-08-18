@@ -181,6 +181,8 @@ function tailoringContractComplete(state: AgentTaskState) {
   const afterHash = stringValue(quality.afterContentHash);
   const resultResumeId = stringValue(state.selectedEntities.resultResumeId ?? quality.resultResumeId ?? quality.branchId);
   const resultRevisionId = stringValue(state.selectedEntities.resultResumeRevisionId ?? quality.resultResumeRevisionId ?? quality.revisionId);
+  const readbackVerified = state.completionType !== "transactional"
+    || quality.repositoryReadBackVerified === true && quality.resumeListVisibilityVerified === true;
   const targetProvenance = Boolean(
     state.selectedEntities.jobId
     || state.selectedEntities.targetSnapshotId
@@ -208,6 +210,7 @@ function tailoringContractComplete(state: AgentTaskState) {
     && quality.status === "passed"
     && quality.factGuard === "passed"
     && quality.revisionCreated === true
+    && readbackVerified
     && receipt.status === "completed"
     && state.stage === "quality_result"
     && state.completionStatus === "completed"

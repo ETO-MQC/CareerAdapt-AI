@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { NextResponse, type NextRequest } from "next/server";
 import { CareerAdaptMcpProtocolServer, type McpJsonRpcRequest } from "@/agent/mcp/CareerAdaptMcpServer";
 import type { CareerToolContract, CareerToolResult } from "@/agent/tools/CareerToolGateway";
+import type { CareerMcpResponseTrace } from "@/agent/tools/careerToolDiagnostics";
 import {
   completeCareerAdaptMcpBridgeCall,
   disconnectCareerAdaptMcpBridge,
@@ -92,6 +93,23 @@ export async function POST(request: NextRequest) {
   });
   const response = await protocol.handle(body);
   if (!response) return new Response(null, { status: 202 });
+  const responseEnvelopeValid = isMcpResponseEnvelope(response);
+  let responseTrace: CareerMcpResponseTrace = {
+    handlerResultCreated: true,
+    responseSerialized: true,
+    responseBytesBucket: "0",
+    responseEnvelopeValid,
+    responseSent: true
+  };
+  let tracedResponse = attachMcpResponseTrace(response, responseTrace);
+  let serialized = JSON.stringify(tracedResponse);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const nextBucket = responseBytesBucket(new TextEncoder().encode(serialized).byteLength);
+    if (nextBucket === responseTrace.responseBytesBucket) break;
+    responseTrace = { ...responseTrace, responseBytesBucket: nextBucket };
+    tracedResponse = attachMcpResponseTrace(response, responseTrace);
+    serialized = JSON.stringify(tracedResponse);
+  }
   const headers = new Headers({
     "Content-Type": "application/json",
     "Cache-Control": "no-store",
@@ -100,7 +118,7 @@ export async function POST(request: NextRequest) {
       : "2025-06-18"
   });
   if (body.method === "initialize") headers.set("Mcp-Session-Id", `careeradapt-mcp-${nanoid(12)}`);
-  return new Response(JSON.stringify(response), { status: 200, headers });
+  return new Response(serialized, { status: 200, headers });
 }
 
 export async function DELETE(request: NextRequest) {
@@ -192,6 +210,64 @@ function isCareerToolResult(value: unknown): value is CareerToolResult {
   return typeof candidate.ok === "boolean"
     && Array.isArray(candidate.artifacts)
     && Boolean(receipt && typeof receipt === "object");
+}
+
+function isMcpResponseEnvelope(value: unknown): value is { jsonrpc: "2.0"; result?: Record<string, unknown>; error?: unknown } {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const candidate = value as Record<string, unknown>;
+  return candidate.jsonrpc === "2.0"
+    && (Boolean(candidate.result && typeof candidate.result === "object" && !Array.isArray(candidate.result))
+      || Boolean(candidate.error && typeof candidate.error === "object" && !Array.isArray(candidate.error)));
+}
+
+function attachMcpResponseTrace<T extends { jsonrpc: "2.0"; result?: Record<string, unknown>; error?: { code: number; message: string; data?: Record<string, unknown> } }>(
+  response: T,
+  trace: Record<string, unknown>
+): T {
+  if (response.result) {
+    const result = response.result;
+    const meta = result._meta && typeof result._meta === "object" && !Array.isArray(result._meta)
+      ? result._meta as Record<string, unknown>
+      : {};
+    const structuredContent = result.structuredContent && typeof result.structuredContent === "object" && !Array.isArray(result.structuredContent)
+      ? result.structuredContent as Record<string, unknown>
+      : undefined;
+    const diagnostics = structuredContent?.diagnostics && typeof structuredContent.diagnostics === "object" && !Array.isArray(structuredContent.diagnostics)
+      ? structuredContent.diagnostics as Record<string, unknown>
+      : undefined;
+    return {
+      ...response,
+      result: {
+        ...result,
+        ...(structuredContent ? {
+          structuredContent: {
+            ...structuredContent,
+            ...(diagnostics ? { diagnostics: { ...diagnostics, mcpResponseTrace: trace } } : {})
+          }
+        } : {}),
+        _meta: { ...meta, "careeradapt/mcpResponseTrace": trace }
+      }
+    } as T;
+  }
+  if (response.error) {
+    return {
+      ...response,
+      error: {
+        ...response.error,
+        data: { ...(response.error.data ?? {}), mcpResponseTrace: trace }
+      }
+    } as T;
+  }
+  return response;
+}
+
+function responseBytesBucket(bytes: number) {
+  if (bytes === 0) return "0" as const;
+  if (bytes <= 255) return "1-255" as const;
+  if (bytes <= 1_023) return "256-1023" as const;
+  if (bytes <= 4_096) return "1-4kb" as const;
+  if (bytes <= 16_384) return "4-16kb" as const;
+  return "16kb+" as const;
 }
 
 function bridgeError(error: unknown) {

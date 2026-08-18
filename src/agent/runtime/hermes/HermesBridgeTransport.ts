@@ -488,7 +488,7 @@ function parseBridgeEvent(line: string): HermesBridgeEvent | undefined {
   }
 }
 
-function mapOfficialHermesEvent(name: string, value: unknown): HermesBridgeEvent | undefined {
+export function mapOfficialHermesEvent(name: string, value: unknown): HermesBridgeEvent | undefined {
   const payload = value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {};
@@ -507,10 +507,11 @@ function mapOfficialHermesEvent(name: string, value: unknown): HermesBridgeEvent
     return typeof payload.delta === "string" ? { type: "text_delta", delta: payload.delta } : undefined;
   }
   if (name === "tool.started") {
-    return { type: "tool_call_started", toolName, operationId, logicalToolOperationId: eventLogicalToolOperationId, data: payload };
+    return { type: "tool_call_started", toolCallId, toolName, operationId, logicalToolOperationId: eventLogicalToolOperationId, data: payload };
   }
   if (name === "tool.completed") {
     const failure = officialToolFailure(payload);
+    const terminalData = officialToolTerminalData(payload, failure ? "failed" : "completed");
     return failure
       ? {
           type: "tool_call_failed",
@@ -520,9 +521,9 @@ function mapOfficialHermesEvent(name: string, value: unknown): HermesBridgeEvent
           code: failure.code,
           message: failure.message,
           recoverable: failure.recoverable,
-          data: safeOfficialToolFailureData(payload, failure.code)
+          data: { ...safeOfficialToolFailureData(payload, failure.code), ...terminalData }
         }
-      : { type: "tool_call_completed", toolName, operationId, logicalToolOperationId: eventLogicalToolOperationId, data: payload };
+      : { type: "tool_call_completed", toolCallId, toolName, operationId, logicalToolOperationId: eventLogicalToolOperationId, data: { ...payload, ...terminalData } };
   }
   if (name === "reasoning.available") {
     return { type: "reasoning_status", message: typeof payload.text === "string" ? payload.text : undefined, data: payload };
@@ -568,19 +569,34 @@ function mapOfficialHermesEvent(name: string, value: unknown): HermesBridgeEvent
       ? { type: "reasoning_status", message, data: payload }
       : { type: "progress", message, data: payload };
   }
-  if (name === "tool.started") return { type: "tool_call_started", toolCallId, toolName, operationId, logicalToolOperationId: eventLogicalToolOperationId, data: payload };
-  if (name === "tool.completed") return { type: "tool_call_completed", toolCallId, toolName, operationId, logicalToolOperationId: eventLogicalToolOperationId, data: payload };
-  if (name === "tool.failed") return {
-    type: "tool_call_failed",
-    toolCallId,
-    toolName,
-    operationId,
-    code: officialToolFailure(payload)?.code ?? "hermes_tool_failed",
-    message: officialToolFailure(payload)?.message ?? "Career 工具执行没有完成。",
-    recoverable: officialToolFailure(payload)?.recoverable ?? true,
-    logicalToolOperationId: eventLogicalToolOperationId,
-    data: safeOfficialToolFailureData(payload, officialToolFailure(payload)?.code ?? "hermes_tool_failed")
-  };
+  if (name === "tool.failed") {
+    const validMcpSuccessEnvelope = isValidMcpSuccessEnvelope(payload);
+    const failure = officialToolFailure(payload);
+    const code = failure?.code ?? (validMcpSuccessEnvelope
+      ? "hermes_protocol_rejected_valid_mcp_success"
+      : "hermes_tool_failed");
+    const message = failure?.message ?? (validMcpSuccessEnvelope
+      ? "Hermes rejected a valid MCP success envelope."
+      : "Career 工具执行没有完成。");
+    return {
+      type: "tool_call_failed",
+      toolCallId,
+      toolName,
+      operationId,
+      code,
+      message,
+      recoverable: failure?.recoverable ?? true,
+      logicalToolOperationId: eventLogicalToolOperationId,
+      data: {
+        ...safeOfficialToolFailureData(payload, code),
+        ...(validMcpSuccessEnvelope ? {
+          toolResultIsError: false,
+          protocolCause: "valid_mcp_success_envelope_rejected_by_hermes"
+        } : {}),
+        ...officialToolTerminalData(payload, "failed")
+      }
+    };
+  }
   if (name === "error") return {
     type: "turn_failed",
     code: typeof payload.code === "string" ? payload.code : "hermes_api_error",
@@ -611,9 +627,15 @@ function officialLogicalToolOperationId(
   operationId: string,
   toolName: string
 ) {
-  const explicit = typeof payload.logical_tool_operation_id === "string"
-    ? payload.logical_tool_operation_id
-    : typeof payload.logicalToolOperationId === "string" ? payload.logicalToolOperationId : undefined;
+  const explicit = officialResponseCandidates(payload)
+    .map((candidate) => typeof candidate.logical_tool_operation_id === "string"
+      ? candidate.logical_tool_operation_id
+      : typeof candidate.logicalToolOperationId === "string"
+        ? candidate.logicalToolOperationId
+        : typeof candidate["careeradapt/logicalToolOperationId"] === "string"
+          ? candidate["careeradapt/logicalToolOperationId"]
+          : undefined)
+    .find((candidate): candidate is string => Boolean(candidate?.trim()));
   if (explicit?.trim()) return explicit.trim();
   const turnId = typeof payload.logical_turn_id === "string"
     ? payload.logical_turn_id
@@ -632,9 +654,19 @@ function officialLogicalToolOperationId(
 }
 
 function officialToolFailure(payload: Record<string, unknown>) {
+  if (isValidMcpSuccessEnvelope(payload)) return undefined;
   const result = objectRecord(payload.result);
   const data = objectRecord(payload.data);
-  const candidates = [payload, result, data, objectRecord(payload.error), objectRecord(result.error), objectRecord(data.error)];
+  const candidates = [
+    payload,
+    result,
+    objectRecord(result.structuredContent),
+    data,
+    objectRecord(data.structuredContent),
+    objectRecord(payload.error),
+    objectRecord(result.error),
+    objectRecord(data.error)
+  ];
   const errorRecord = candidates.find((candidate) => Object.keys(candidate).length > 0 && (
     candidate.error === true
     || typeof candidate.error === "string"
@@ -661,6 +693,82 @@ function officialToolFailure(payload: Record<string, unknown>) {
     ? nested.recoverable
     : typeof errorRecord?.recoverable === "boolean" ? errorRecord.recoverable : true;
   return { code, message, recoverable };
+}
+
+function officialResponseCandidates(payload: Record<string, unknown>) {
+  const result = objectRecord(payload.result);
+  const data = objectRecord(payload.data);
+  const resultStructured = objectRecord(result.structuredContent);
+  const dataStructured = objectRecord(data.structuredContent);
+  return [
+    payload,
+    objectRecord(payload._meta),
+    result,
+    objectRecord(result._meta),
+    resultStructured,
+    objectRecord(resultStructured._meta),
+    objectRecord(result.data),
+    data,
+    objectRecord(data._meta),
+    dataStructured,
+    objectRecord(dataStructured._meta),
+    objectRecord(data.result)
+  ];
+}
+
+function isValidMcpSuccessEnvelope(payload: Record<string, unknown>) {
+  return officialResponseCandidates(payload).some((candidate) => {
+    const result = Array.isArray(candidate.content)
+      ? candidate
+      : objectRecord(candidate.result);
+    const structuredContent = objectRecord(result.structuredContent);
+    const receipt = objectRecord(structuredContent.receipt);
+    return Object.keys(result).length > 0
+      && result.isError !== true
+      && result.is_error !== true
+      && Array.isArray(result.content)
+      && structuredContent.ok === true
+      && typeof receipt.operationId === "string"
+      && typeof receipt.status === "string";
+  });
+}
+
+function officialToolTerminalData(payload: Record<string, unknown>, terminalEvent: "completed" | "failed") {
+  const responseTrace = officialMcpResponseTrace(payload, terminalEvent);
+  return {
+    hermesResultObserved: true,
+    officialHermesToolTerminalEvent: terminalEvent,
+    ...(responseTrace ? { mcpResponseTrace: responseTrace } : {})
+  };
+}
+
+function officialMcpResponseTrace(payload: Record<string, unknown>, terminalEvent: "completed" | "failed") {
+  const candidates = officialResponseCandidates(payload);
+  for (const candidate of candidates) {
+    const direct = objectRecord(candidate.mcpResponseTrace);
+    const namespaced = objectRecord(candidate["careeradapt/mcpResponseTrace"]);
+    const diagnostics = objectRecord(candidate.diagnostics);
+    const diagnosticTrace = objectRecord(diagnostics.mcpResponseTrace);
+    const namespacedDiagnosticTrace = objectRecord(diagnostics["careeradapt/mcpResponseTrace"]);
+    const trace = Object.keys(direct).length
+      ? direct
+      : Object.keys(namespaced).length
+        ? namespaced
+        : Object.keys(diagnosticTrace).length
+          ? diagnosticTrace
+          : namespacedDiagnosticTrace;
+    if (!Object.keys(trace).length) continue;
+    return {
+      ...(typeof trace.handlerResultCreated === "boolean" ? { handlerResultCreated: trace.handlerResultCreated } : {}),
+      ...(typeof trace.responseSerialized === "boolean" ? { responseSerialized: trace.responseSerialized } : {}),
+      ...(typeof trace.responseBytesBucket === "string" ? { responseBytesBucket: trace.responseBytesBucket } : {}),
+      ...(typeof trace.responseEnvelopeValid === "boolean" ? { responseEnvelopeValid: trace.responseEnvelopeValid } : {}),
+      ...(typeof trace.responseSent === "boolean" ? { responseSent: trace.responseSent } : {}),
+      hermesResultObserved: true,
+      officialHermesToolTerminalEvent: terminalEvent
+    };
+  }
+  return undefined;
 }
 
 function safeOfficialToolFailureData(payload: Record<string, unknown>, code: string) {

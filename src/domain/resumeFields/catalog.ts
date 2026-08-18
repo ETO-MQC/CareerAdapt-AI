@@ -64,9 +64,14 @@ export function categorySourceSectionId(category: Exclude<ResumeFieldCategoryId,
 }
 
 export type StructuredExperienceFields = {
+  /** Project-only fields retained for compatibility with the shared projection. */
+  title?: string;
   organization: string;
   role: string;
   location: string;
+  url?: string;
+  tools?: string[];
+  background?: string;
   degree: string;
   major: string;
   courses: string;
@@ -76,12 +81,17 @@ export type StructuredExperienceFields = {
   current: boolean;
   description: string;
   highlights: string[];
+  outcomes?: string[];
 };
 
 export const emptyStructuredExperienceFields: StructuredExperienceFields = {
+  title: "",
   organization: "",
   role: "",
   location: "",
+  url: "",
+  tools: [],
+  background: "",
   degree: "",
   major: "",
   courses: "",
@@ -90,7 +100,8 @@ export const emptyStructuredExperienceFields: StructuredExperienceFields = {
   expectedEndDate: "",
   current: false,
   description: "",
-  highlights: []
+  highlights: [],
+  outcomes: []
 };
 
 export function canonicalToStructuredExperienceFields(item: ResumeItemV2): StructuredExperienceFields {
@@ -112,9 +123,13 @@ export function canonicalToStructuredExperienceFields(item: ResumeItemV2): Struc
   }
   if (item.sectionType === "project") {
     return {
+      title: item.title ?? "",
       organization: item.title ?? "",
       role: item.role ?? "",
       location: item.location ?? "",
+      url: item.url ?? "",
+      tools: item.tools ?? [],
+      background: item.background ?? "",
       degree: "",
       major: "",
       courses: "",
@@ -123,14 +138,21 @@ export function canonicalToStructuredExperienceFields(item: ResumeItemV2): Struc
       expectedEndDate: "",
       current: item.current ?? false,
       description: item.description ?? "",
-      highlights: item.highlights ?? []
+      highlights: item.highlights ?? [],
+      outcomes: item.outcomes ?? []
     };
   }
   const record = item as unknown as Record<string, unknown>;
   return {
+    title: text(record.title),
     organization: text(record.organization),
     role: text(record.role),
     location: text(record.location),
+    url: text(record.url),
+    tools: Array.isArray(record.tools)
+      ? record.tools.filter((value): value is string => typeof value === "string")
+      : [],
+    background: text(record.background),
     degree: "",
     major: "",
     courses: "",
@@ -141,6 +163,9 @@ export function canonicalToStructuredExperienceFields(item: ResumeItemV2): Struc
     description: text(record.description),
     highlights: Array.isArray(record.highlights)
       ? record.highlights.filter((value): value is string => typeof value === "string")
+      : [],
+    outcomes: Array.isArray(record.outcomes)
+      ? record.outcomes.filter((value): value is string => typeof value === "string")
       : []
   };
 }
@@ -151,6 +176,7 @@ export function patchCanonicalExperienceFields(
 ): ResumeItemV2 {
   const description = fields.description.trim() || undefined;
   const highlights = fields.highlights.map((value) => value.trim()).filter(Boolean);
+  const outcomes = (fields.outcomes ?? []).map((value) => value.trim()).filter(Boolean);
   if (item.sectionType === "education") {
     return {
       ...item,
@@ -170,14 +196,18 @@ export function patchCanonicalExperienceFields(
   if (item.sectionType === "project") {
     return {
       ...item,
-      title: fields.organization.trim() || undefined,
+      title: (fields.title ?? fields.organization).trim() || undefined,
       role: fields.role.trim() || undefined,
       location: fields.location.trim() || undefined,
       startDate: fields.startDate || undefined,
       endDate: fields.current ? undefined : fields.endDate || undefined,
       current: fields.current,
+      url: validResumeUrl(fields.url ?? ""),
+      tools: (fields.tools ?? []).map((value) => value.trim()).filter(Boolean),
+      background: (fields.background ?? "").trim() || undefined,
       description,
-      highlights
+      highlights,
+      outcomes
     };
   }
   return {
@@ -228,7 +258,7 @@ export function experienceFieldLabels(category: ResumeFieldCategoryId) {
       location: "项目地点",
       startDate: "开始日期",
       endDate: "结束日期",
-      description: "项目成果与说明"
+      description: "经历内容与成果"
     };
   }
   if (category === "campus") {
@@ -248,7 +278,7 @@ export function experienceFieldLabels(category: ResumeFieldCategoryId) {
       location: "实习地点",
       startDate: "开始日期",
       endDate: "结束日期",
-      description: "实习内容与成果"
+      description: "经历内容与成果"
     };
   }
   return {
@@ -257,7 +287,7 @@ export function experienceFieldLabels(category: ResumeFieldCategoryId) {
     location: "工作地点",
     startDate: "开始日期",
     endDate: "结束日期",
-    description: "工作内容与成果"
+    description: "经历内容与成果"
   };
 }
 
@@ -360,10 +390,27 @@ export function parseStructuredExperienceText(text: string): StructuredExperienc
   const degreeLine = rawLines.find((line) => /^学历[：:]/.test(line.trim()));
   const majorLine = rawLines.find((line) => /^专业[：:]/.test(line.trim()));
   const coursesLine = rawLines.find((line) => /^主修课程[：:]/.test(line.trim()));
-  const description = rawLines
-    .filter((line) => !/^(学历|专业|主修课程)[：:]/.test(line.trim()))
-    .join("\n")
-    .trim();
+  const contentLines = rawLines.filter((line) => !/^(学历|专业|主修课程|项目背景|技术栈)[：:]/.test(line.trim()));
+  let outcomeMode = false;
+  const descriptionLines: string[] = [];
+  const highlights: string[] = [];
+  const outcomes: string[] = [];
+  for (const line of contentLines) {
+    const trimmed = line.trim();
+    if (/^成果与结果[：:]?$/u.test(trimmed)) {
+      outcomeMode = true;
+      continue;
+    }
+    const bullet = stripStructuredBullet(trimmed);
+    if (bullet) {
+      (outcomeMode ? outcomes : highlights).push(bullet);
+    } else if (trimmed) {
+      descriptionLines.push(trimmed);
+    }
+  }
+  const backgroundLine = rawLines.find((line) => /^项目背景[：:]/.test(line.trim()));
+  const toolsLine = rawLines.find((line) => /^技术栈[：:]/.test(line.trim()));
+  const description = descriptionLines.join("\n").trim();
   return {
     organization: identityParts[0] ?? "",
     role: identityParts.slice(1).join(separator ?? " / "),
@@ -376,7 +423,10 @@ export function parseStructuredExperienceText(text: string): StructuredExperienc
     expectedEndDate: current ? normalizeStructuredDate(dates[1] ?? "") : "",
     current,
     description,
-    highlights: []
+    highlights,
+    outcomes,
+    background: backgroundLine?.replace(/^项目背景[：:]\s*/, "").trim() ?? "",
+    tools: toolsLine?.replace(/^技术栈[：:]\s*/, "").split(/[、,，;；]/).map((value) => value.trim()).filter(Boolean) ?? []
   };
 }
 
@@ -393,7 +443,20 @@ export function serializeStructuredExperienceText(fields: StructuredExperienceFi
         fields.courses.trim() ? `主修课程：${fields.courses.trim()}` : ""
       ].filter(Boolean)
     : [];
-  return [header, ...metadata, fields.description.trim()].filter(Boolean).join("\n");
+  const content = [
+    fields.background?.trim() ? `项目背景：${fields.background.trim()}` : "",
+    fields.tools?.length ? `技术栈：${fields.tools.map((value) => value.trim()).filter(Boolean).join("、")}` : "",
+    fields.description.trim(),
+    ...fields.highlights.map((value) => `• ${value.trim()}`).filter((value) => value !== "•"),
+    fields.outcomes?.length ? "成果与结果：" : "",
+    ...(fields.outcomes ?? []).map((value) => `• ${value.trim()}`).filter((value) => value !== "•")
+  ];
+  return [header, ...metadata, ...content].filter(Boolean).join("\n");
+}
+
+function stripStructuredBullet(value: string) {
+  if (!/^[•●○\-–]\s*/u.test(value)) return undefined;
+  return value.replace(/^[•●○\-–]\s*/u, "").trim() || undefined;
 }
 
 function normalizeStructuredDate(value: string) {

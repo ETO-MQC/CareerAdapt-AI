@@ -3,6 +3,7 @@ import {
   serializeStructuredExperienceText,
   type ResumeFieldCategoryId
 } from "@/domain/resumeFields/catalog";
+import type { CanonicalExperienceEditorDocument } from "@/domain/profile/experienceContentAdapter";
 
 /**
  * Shared label helpers and structured-field utilities for the resume editor.
@@ -179,6 +180,49 @@ export function editorHtmlToHighlights(html: string): string[] {
     return lines;
   }
   return items;
+}
+
+/** One rich editor codec for the neutral description/highlight/outcome model. */
+export function experienceDocumentToEditorHtml(document: Pick<CanonicalExperienceEditorDocument, "description" | "highlights" | "outcomes">) {
+  const blocks = [
+    document.description.trim() ? plainTextToHtml(document.description) : "",
+    highlightsToEditorHtml(document.highlights),
+    document.outcomes.length
+      ? `<p>${escapeHtml(EXPERIENCE_OUTCOMES_MARKER)}</p>${highlightsToEditorHtml(document.outcomes)}`
+      : ""
+  ].filter(Boolean);
+  return blocks.join("");
+}
+
+export function editorHtmlToExperienceDocument(
+  html: string,
+  current: CanonicalExperienceEditorDocument
+): CanonicalExperienceEditorDocument {
+  const marker = new RegExp(`<p[^>]*>\\s*${EXPERIENCE_OUTCOMES_MARKER}\\s*</p>`, "iu").exec(html);
+  const primaryHtml = marker ? html.slice(0, marker.index) : html;
+  const outcomesHtml = marker ? html.slice(marker.index + marker[0].length) : "";
+  const primaryHasList = /<li(?:\\s|>)/iu.test(primaryHtml);
+  const outcomesHaveList = /<li(?:\\s|>)/iu.test(outcomesHtml);
+  return {
+    ...current,
+    description: htmlParagraphTexts(primaryHtml).join("\n"),
+    highlights: primaryHasList ? editorHtmlToHighlights(primaryHtml) : [],
+    outcomes: marker && outcomesHaveList ? editorHtmlToHighlights(outcomesHtml) : marker ? [] : current.outcomes
+  };
+}
+
+const EXPERIENCE_OUTCOMES_MARKER = "成果与结果";
+
+function htmlParagraphTexts(html: string) {
+  const paragraphs: string[] = [];
+  const paragraphRegex = /<p[^>]*>([\s\S]*?)<\/p>/giu;
+  let match = paragraphRegex.exec(html);
+  while (match) {
+    const value = match[1].replace(/<[^>]+>/gu, "").replace(/&nbsp;/gu, " ").replace(/&amp;/gu, "&").replace(/&lt;/gu, "<").replace(/&gt;/gu, ">").trim();
+    if (value) paragraphs.push(value);
+    match = paragraphRegex.exec(html);
+  }
+  return paragraphs;
 }
 
 /**

@@ -38,12 +38,17 @@ import {
 } from "@/components/ui/product";
 import { CareerContextEntryBar } from "@/components/career/CareerContextEntryBar";
 import { StructuredExperienceForm } from "@/components/editor/StructuredExperienceForm";
+import { StructuredProjectForm } from "@/components/editor/StructuredProjectForm";
 import {
   defaultExperienceType,
   emptyStructuredExperienceFields,
   canonicalToStructuredExperienceFields,
   patchCanonicalExperienceFields,
-  type StructuredExperienceFields
+  canonicalToStructuredProjectFields,
+  emptyStructuredProjectFields,
+  patchCanonicalProjectFields,
+  type StructuredExperienceFields,
+  type StructuredProjectFields
 } from "@/domain/resumeFields/catalog";
 import { canonicalProfileBasics, canonicalProfileLibraryItems, canonicalProfileSectionCounts, profileSectionCatalog } from "@/domain/profile/canonicalLibrary";
 import {
@@ -99,10 +104,12 @@ type ProfileManagedItem = {
   skillLevel?: Skill["level"];
   date?: string;
   structured?: StructuredExperienceFields;
+  projectStructured?: StructuredProjectFields;
   canonicalData?: ResumeItemV2;
 };
 
 type ProfileItemDraft = StructuredExperienceFields & {
+  projectFields: StructuredProjectFields;
   title: string;
   subtitle: string;
   body: string;
@@ -149,6 +156,7 @@ const profileCategoryIcons: Record<ProfileCategoryId, typeof UserRound> = {
 
 const emptyProfileItemDraft: ProfileItemDraft = {
   ...emptyStructuredExperienceFields,
+  projectFields: emptyStructuredProjectFields,
   title: "",
   subtitle: "",
   body: "",
@@ -701,8 +709,10 @@ export function ProfileWorkspace() {
 
     const title = profileItemDraft.title.trim();
     const body = profileItemDraft.body.trim();
-    const structuredTitle = profileItemDraft.organization.trim();
-    const isStructuredCategory = activeProfileCategory === "education" || activeProfileCategory === "work" || activeProfileCategory === "project" || activeProfileCategory === "campus";
+    const structuredTitle = activeProfileCategory === "project"
+      ? profileItemDraft.projectFields.title.trim()
+      : profileItemDraft.organization.trim();
+    const isStructuredCategory = activeProfileCategory === "education" || activeProfileCategory === "work" || activeProfileCategory === "internship" || activeProfileCategory === "project" || activeProfileCategory === "campus";
     if (!(isStructuredCategory ? structuredTitle : title) && activeProfileCategory !== "custom") {
       notify({ type: "warning", title: "名称必填", message: "请先填写条目名称。" });
       return;
@@ -2250,7 +2260,28 @@ function ProfileCategoryFields({
       </label>
     );
   }
-  if (category === "education" || category === "work" || category === "project" || category === "campus") {
+  if (category === "project") {
+    return (
+      <StructuredProjectForm
+        value={draft.projectFields}
+        onChange={(value) => onChange({
+          ...draft,
+          projectFields: value,
+          organization: value.title,
+          role: value.role,
+          location: value.location,
+          startDate: value.startDate,
+          endDate: value.endDate,
+          current: value.current,
+          description: value.description,
+          highlights: value.highlights,
+          body: value.description
+        })}
+        idPrefix="profile-project"
+      />
+    );
+  }
+  if (category === "education" || category === "work" || category === "internship" || category === "campus") {
     const extraField = category === "work" ? (
       <label className="field-input-group">
         <span className="field-input-label">经历类型</span>
@@ -2453,8 +2484,11 @@ function buildCurrentProfileItems(profile: CareerProfile, category: ProfileCateg
       archived: false,
       updatedAt: profile.updatedAt,
       canonicalData: item.data,
-      structured: isStructuredCanonicalSection(item.data.sectionType)
+      structured: isStructuredCanonicalSection(item.data.sectionType) && item.data.sectionType !== "project"
         ? canonicalToStructuredExperienceFields(item.data)
+        : undefined,
+      projectStructured: item.data.sectionType === "project"
+        ? canonicalToStructuredProjectFields(item.data)
         : undefined,
       date: canonicalItemDate(item.data)
     }));
@@ -2513,6 +2547,9 @@ function canonicalItemDate(item: ResumeItemV2) {
 }
 
 function patchCanonicalProfileDraft(item: ResumeItemV2, draft: ProfileItemDraft): ResumeItemV2 {
+  if (item.sectionType === "project") {
+    return patchCanonicalProjectFields(item, draft.projectFields);
+  }
   if (isStructuredCanonicalSection(item.sectionType)) {
     return patchCanonicalExperienceFields(item, draft);
   }
@@ -2582,7 +2619,20 @@ function experienceToManagedItem(experience: Experience, archived: boolean): Pro
       current: Boolean(experience.startDate && !experience.endDate),
       description: firstFact?.statement ?? "",
       highlights: []
-    }
+    },
+    ...(categoryForExperience(experience) === "project" ? {
+      projectStructured: {
+        ...emptyStructuredProjectFields,
+        title: experience.organization,
+        role: experience.role,
+        organization: "",
+        location: experience.location ?? "",
+        startDate: experience.startDate ?? "",
+        endDate: experience.endDate ?? "",
+        current: Boolean(experience.startDate && !experience.endDate),
+        description: firstFact?.statement ?? ""
+      }
+    } : {})
   };
 }
 
@@ -2626,6 +2676,7 @@ function profileDraftFromItem(item: ProfileManagedItem): ProfileItemDraft {
   return {
     ...emptyStructuredExperienceFields,
     ...item.structured,
+    projectFields: item.projectStructured ?? emptyStructuredProjectFields,
     title: item.title,
     subtitle: item.subtitle,
     body: item.body,
@@ -2645,7 +2696,7 @@ function defaultProfileDraftForCategory(category: ProfileCategoryId): ProfileIte
 function buildExperienceFromDraft(draft: ProfileItemDraft, category: ProfileCategoryId, existingId: string | undefined, now: string): Experience {
   const id = existingId ?? `experience-${nanoid(10)}`;
   const type = category === "work" ? draft.experienceType : defaultExperienceTypeForCategory(category);
-  const isStructured = category === "education" || category === "work" || category === "project" || category === "campus";
+  const isStructured = category === "education" || category === "work" || category === "internship" || category === "project" || category === "campus";
   const organization = (isStructured ? draft.organization : draft.title).trim() || profileCategoryLabel(category);
   const role = (category === "education" ? draft.degree : isStructured ? draft.role : draft.subtitle).trim() || profileCategoryLabel(category);
   const statement = (isStructured ? draft.description : draft.body).trim() || `${organization} / ${role}`;
@@ -2751,12 +2802,13 @@ function defaultExperienceTypeForCategory(category: ProfileCategoryId): Experien
   return defaultExperienceType(category as Parameters<typeof defaultExperienceType>[0]);
 }
 
-function isStructuredProfileCategory(category: ProfileCategoryId): category is "education" | "work" | "project" | "campus" {
-  return category === "education" || category === "work" || category === "project" || category === "campus";
+function isStructuredProfileCategory(category: ProfileCategoryId): category is "education" | "work" | "internship" | "project" | "campus" {
+  return category === "education" || category === "work" || category === "internship" || category === "project" || category === "campus";
 }
 
-function buildCanonicalProfileItemFromDraft(draft: ProfileItemDraft, category: "education" | "work" | "project" | "campus"): ResumeItemV2 {
+function buildCanonicalProfileItemFromDraft(draft: ProfileItemDraft, category: "education" | "work" | "internship" | "project" | "campus"): ResumeItemV2 {
   const id = `profile-${category}-${nanoid(10)}`;
+  const project = draft.projectFields;
   const shared = {
     id,
     customFields: [],
@@ -2779,11 +2831,28 @@ function buildCanonicalProfileItemFromDraft(draft: ProfileItemDraft, category: "
     });
   }
   if (category === "project") {
-    return ResumeItemV2Schema.parse({ ...shared, sectionType: "project", title: optionalText(draft.organization), role: optionalText(draft.role), tools: [], outcomes: [] });
+    return ResumeItemV2Schema.parse({
+      id,
+      sectionType: "project",
+      title: optionalText(project.title),
+      role: optionalText(project.role),
+      organization: optionalText(project.organization),
+      location: optionalText(project.location),
+      startDate: optionalText(project.startDate),
+      endDate: project.current ? undefined : optionalText(project.endDate),
+      current: project.current,
+      url: optionalText(project.url),
+      tools: project.tools.map((value) => value.trim()).filter(Boolean),
+      background: optionalText(project.background),
+      description: optionalText(project.description),
+      highlights: project.highlights.map((value) => value.trim()).filter(Boolean),
+      outcomes: project.outcomes.map((value) => value.trim()).filter(Boolean),
+      customFields: []
+    });
   }
   return ResumeItemV2Schema.parse({
     ...shared,
-    sectionType: category === "work" && draft.experienceType === "internship" ? "internship" : category === "work" ? "work" : "campus",
+    sectionType: category === "internship" || category === "work" && draft.experienceType === "internship" ? "internship" : category === "work" ? "work" : "campus",
     organization: optionalText(draft.organization),
     role: optionalText(draft.role),
     department: undefined

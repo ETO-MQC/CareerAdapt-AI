@@ -2,19 +2,21 @@ import type { ResumeItemV2 } from "@/domain/schemas";
 import { ResumeItemV2Schema } from "@/domain/schemas";
 import type { SegmentedResumeItem } from "./itemSegmenter";
 
-const DATE_RANGE_PATTERN = /(?<!\d)((?:19|20)\d{2}(?:\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?|[./-]\d{1,2}(?:[./-]\d{1,2})?)?)\s*(?:-|–|—|至|到)\s*((?:19|20)\d{2}(?:\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?|[./-]\d{1,2}(?:[./-]\d{1,2})?)?|至今|现在|Present|Current|仍在职|在读)/i;
+const DATE_RANGE_PATTERN = /(?<!\d)(?:(?:19|20)\d{2}(?:\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?|[./-]\d{1,2}(?:[./-]\d{1,2})?)?\s*(?:-|–|—|至|到)\s*(?:(?:19|20)\d{2}(?:\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?|[./-]\d{1,2}(?:[./-]\d{1,2})?)?|至今|现在|Present|Current|仍在职|在读)|至今|现在|目前|Present|Current|仍在职|在读)/i;
 const LOCATION_PATTERN = /(?<![\p{L}\p{N}])(?:北京|上海|广州|深圳|杭州|南京|成都|武汉|西安|天津|重庆|苏州|某地|长沙|合肥|厦门|青岛|大连|昆明|济南|珠海|佛山|东莞|无锡|宁波|温州|福州|贵阳|南昌|太原|石家庄|哈尔滨|长春|沈阳|洛阳|测试市)(?:（远程）|\(远程\))?(?![\p{L}\p{N}])/gu;
 const HIGHLIGHT_START = /(?=\s+(?:将|对|形成|协助|设计|针对|开发|实现|识别|发现|搭建|封装|适配|集成|基于|完成|复用))/g;
 const HIGHLIGHT_ACTION_START = /^(?:负责|将|对|形成|协助|设计|针对|开发|实现|识别|发现|搭建|封装|适配|集成|基于|完成|复用)/;
 
 export function extractSegmentedItemFields(item: SegmentedResumeItem): ResumeItemV2 {
-  const text = item.normalizedText.replace(/\n+/g, " ").replace(/\s+/g, " ").trim();
-  const headerText = (item.headingText ?? item.normalizedText).replace(/\s+/g, " ").trim();
+  const text = stripResumeMarkup(item.normalizedText).replace(/\n+/g, " ").replace(/\s+/g, " ").trim();
+  const headerText = stripResumeMarkup(item.headingText ?? item.normalizedText).replace(/\s+/g, " ").trim();
   const dateMatch = headerText.match(DATE_RANGE_PATTERN);
   const startDate = item.dateCandidate?.startDate?.value;
   const current = Boolean(item.dateCandidate?.endDate?.current);
   const endDate = current ? undefined : item.dateCandidate?.endDate?.value;
-  const beforeDate = dateMatch ? headerText.slice(0, dateMatch.index).trim() : headerText;
+  const beforeDate = (dateMatch ? headerText.slice(0, dateMatch.index) : headerText)
+    .replace(/[|/]\s*$/, "")
+    .trim();
   const afterDate = dateMatch ? headerText.slice((dateMatch.index ?? 0) + dateMatch[0].length).trim() : "";
   const locationMatches = [...beforeDate.matchAll(LOCATION_PATTERN)];
   const locationMatch = locationMatches.at(-1);
@@ -23,7 +25,10 @@ export function extractSegmentedItemFields(item: SegmentedResumeItem): ResumeIte
     ? `${beforeDate.slice(0, locationMatch.index).trim()} ${beforeDate.slice((locationMatch.index ?? 0) + locationMatch[0].length).trim()}`.trim()
     : beforeDate;
   const [primary, secondary] = splitIdentity(identity);
-  const highlights = splitHighlights(afterDate, item.bodyBlocks.slice(1).map((block) => block.normalizedText));
+  const contentTexts = item.contentBlocks.map((block) => stripResumeMarkup(block.normalizedText));
+  const highlights = item.contentBlocks.length > 0 && item.contentBlocks.every(isBulletBlock)
+    ? [afterDate, ...contentTexts].map((value) => value.trim()).filter(Boolean)
+    : splitHighlights(afterDate, contentTexts);
   const base = { id: item.id, customFields: [] };
 
   switch (item.sectionType) {
@@ -172,4 +177,18 @@ function splitHighlights(inline: string, continuation: string[]) {
 function singleMonth(text: string) {
   const match = text.match(/(?<!\d)((?:19|20)\d{2})[./-](\d{1,2})(?!\d)/);
   return match ? `${match[1]}-${match[2].padStart(2, "0")}` : undefined;
+}
+
+function stripResumeMarkup(text: string) {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/__(.*?)__/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^[•·●▪◦■□◆◇▶►*-]\s+/u, "")
+    .replace(/^#{1,6}\s*/u, "")
+    .trim();
+}
+
+function isBulletBlock(block: SegmentedResumeItem["contentBlocks"][number]) {
+  return block.blockType === "list_item" || /^[•·●▪◦■□◆◇▶►*-]\s+/u.test(block.normalizedText.trim());
 }

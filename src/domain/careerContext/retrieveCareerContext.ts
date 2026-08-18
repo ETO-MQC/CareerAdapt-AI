@@ -67,6 +67,15 @@ const CareerContextSourceSummarySchema = z.object({
   }).strict().optional()
 }).strict();
 
+/** Safe retrieval coverage telemetry; it never contains evidence text. */
+export const CareerContextResultSummarySchema = z.object({
+  profileId: z.string().min(1),
+  factsReturned: z.number().int().min(0),
+  entityCounts: z.record(z.string().min(1), z.number().int().min(0)),
+  contentCoverage: z.record(z.string().min(1), z.number().int().min(0)),
+  evidenceRefCount: z.number().int().min(0)
+}).strict();
+
 export const CareerContextRetrieveResultSchema = z.object({
   profileId: z.string().min(1),
   query: z.string().min(1),
@@ -74,12 +83,14 @@ export const CareerContextRetrieveResultSchema = z.object({
   facts: z.array(CareerContextFactSchema),
   targetSignals: z.array(z.string().min(1)),
   unsupportedClaims: z.array(z.string().min(1)),
-  sourceSummary: CareerContextSourceSummarySchema
+  sourceSummary: CareerContextSourceSummarySchema,
+  careerContextResultSummary: CareerContextResultSummarySchema
 }).strict();
 
 export type CareerContextIntent = z.infer<typeof CareerContextIntentSchema>;
 export type CareerContextRetrieveInput = z.infer<typeof CareerContextRetrieveInputSchema>;
 export type CareerContextFact = z.infer<typeof CareerContextFactSchema>;
+export type CareerContextResultSummary = z.infer<typeof CareerContextResultSummarySchema>;
 export type CareerContextRetrieveResult = z.infer<typeof CareerContextRetrieveResultSchema>;
 
 type FactSource = {
@@ -161,6 +172,7 @@ export function retrieveCareerContext(input: {
       }
     } : {})
   };
+  const careerContextResultSummary = buildCareerContextResultSummary(profile, facts.length);
   return CareerContextRetrieveResultSchema.parse({
     profileId: profile.id,
     query: request.query,
@@ -168,8 +180,93 @@ export function retrieveCareerContext(input: {
     facts,
     targetSignals,
     unsupportedClaims,
-    sourceSummary
+    sourceSummary,
+    careerContextResultSummary
   });
+}
+
+function buildCareerContextResultSummary(
+  profile: ReturnType<typeof migrateCareerProfileToV2>,
+  factsReturned: number
+): CareerContextResultSummary {
+  const entityCounts: Record<string, number> = {
+    summary: 0,
+    education: 0,
+    work: 0,
+    internship: 0,
+    project: 0,
+    research: 0,
+    campus: 0,
+    volunteer: 0,
+    awards: 0,
+    skills: 0,
+    certificates: 0,
+    languages: 0,
+    publications: 0,
+    patents: 0,
+    portfolio: 0,
+    other: 0,
+    custom: 0
+  };
+  const contentCoverage: Record<string, number> = {};
+  for (const sectionType of ["summary", "education", "work", "internship", "project", "research", "campus", "volunteer", "awards", "skills", "certificates", "languages", "publications", "patents", "portfolio", "other", "custom"]) {
+    for (const field of ["Description", "Highlights", "Outcomes", "Tools"]) {
+      contentCoverage[`${sectionType}${field}NonEmpty`] = 0;
+    }
+  }
+  const evidenceRefs = new Set<string>(profile.evidences.map((evidence) => evidence.id));
+  for (const experience of profile.experiences) {
+    for (const evidenceId of experience.evidenceIds) evidenceRefs.add(evidenceId);
+  }
+  for (const skill of profile.skills) {
+    for (const evidenceId of skill.evidenceIds) evidenceRefs.add(evidenceId);
+  }
+  for (const certificate of profile.certificates) {
+    for (const evidenceId of certificate.evidenceIds) evidenceRefs.add(evidenceId);
+  }
+
+  for (const entry of profile.structuredFacts ?? []) {
+    const item = entry.data as unknown as Record<string, unknown>;
+    const sectionType = entry.data.sectionType;
+    entityCounts[sectionType] = (entityCounts[sectionType] ?? 0) + 1;
+    for (const sourceId of entry.sourceBlockIds) evidenceRefs.add(sourceId);
+    for (const factId of entry.factIds) evidenceRefs.add(factId);
+    const prefix = resultSummarySectionPrefix(sectionType);
+    incrementCoverage(contentCoverage, `${prefix}DescriptionNonEmpty`, nonEmptyText(item.description));
+    incrementCoverage(contentCoverage, `${prefix}HighlightsNonEmpty`, nonEmptyListLength(item.highlights) > 0);
+    incrementCoverage(contentCoverage, `${prefix}OutcomesNonEmpty`, nonEmptyListLength(item.outcomes) > 0);
+    incrementCoverage(contentCoverage, `${prefix}ToolsNonEmpty`, nonEmptyListLength(item.tools) > 0);
+  }
+
+  return CareerContextResultSummarySchema.parse({
+    profileId: profile.id,
+    factsReturned,
+    entityCounts,
+    contentCoverage,
+    evidenceRefCount: evidenceRefs.size
+  });
+}
+
+function resultSummarySectionPrefix(sectionType: string) {
+  if (sectionType === "skills") return "skills";
+  if (sectionType === "certificates") return "certificates";
+  if (sectionType === "languages") return "languages";
+  if (sectionType === "awards") return "awards";
+  return sectionType;
+}
+
+function nonEmptyText(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function nonEmptyListLength(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0).length
+    : 0;
+}
+
+function incrementCoverage(target: Record<string, number>, key: string, present: boolean) {
+  if (present) target[key] = (target[key] ?? 0) + 1;
 }
 
 function buildFactSources(profile: ReturnType<typeof migrateCareerProfileToV2>): FactSource[] {

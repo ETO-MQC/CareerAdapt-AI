@@ -44,17 +44,18 @@ type ExperienceSectionPageProps = {
   onMoveDown: (itemId: string) => void;
   onAdd: (draft: { text: string; organization?: string; title?: string; role?: string; location?: string; degree?: string; major?: string; courses?: string[]; startDate?: string; endDate?: string; expectedEndDate?: string; current?: boolean; url?: string; tools?: string[]; background?: string; description?: string; highlights?: string[]; outcomes?: string[] }, syncToProfile: boolean) => void;
   onSyncToProfile: (itemId: string) => void;
+  allowSyncToProfile?: boolean;
   onOpenLibrary: () => void;
   nav: SectionNavContext;
 };
 
-function DefaultExperienceFields({ sectionLabel, onAdd, onCancel }: { sectionLabel: string; onAdd: ExperienceSectionPageProps["onAdd"]; onCancel?: () => void }) {
+function DefaultExperienceFields({ sectionLabel, onAdd, onCancel, allowSyncToProfile = true }: { sectionLabel: string; onAdd: ExperienceSectionPageProps["onAdd"]; onCancel?: () => void; allowSyncToProfile?: boolean }) {
   const category = experienceCategoryFromLabel(sectionLabel);
-  if (category === "project") return <DefaultProjectFields onAdd={onAdd} onCancel={onCancel} />;
-  return <DefaultNonProjectFields category={category} onAdd={onAdd} onCancel={onCancel} />;
+  if (category === "project") return <DefaultProjectFields onAdd={onAdd} onCancel={onCancel} allowSyncToProfile={allowSyncToProfile} />;
+  return <DefaultNonProjectFields category={category} onAdd={onAdd} onCancel={onCancel} allowSyncToProfile={allowSyncToProfile} />;
 }
 
-function DefaultNonProjectFields({ category, onAdd, onCancel }: { category: Exclude<ReturnType<typeof experienceCategoryFromLabel>, "project">; onAdd: ExperienceSectionPageProps["onAdd"]; onCancel?: () => void }) {
+function DefaultNonProjectFields({ category, onAdd, onCancel, allowSyncToProfile = true }: { category: Exclude<ReturnType<typeof experienceCategoryFromLabel>, "project">; onAdd: ExperienceSectionPageProps["onAdd"]; onCancel?: () => void; allowSyncToProfile?: boolean }) {
   const [draft, setDraft] = useState<StructuredExperienceFields>(emptyStructuredExperienceFields);
   const save = (syncToProfile: boolean) => {
     const text = serializeStructuredExperienceText(draft, category);
@@ -80,16 +81,16 @@ function DefaultNonProjectFields({ category, onAdd, onCancel }: { category: Excl
         <button type="button" className="section-action-button section-action-button-primary" onClick={() => save(false)} disabled={!Object.values(draft).some(Boolean)}>
           保存到简历
         </button>
-        <button type="button" className="section-action-button" onClick={() => save(true)} disabled={!Object.values(draft).some(Boolean)}>
-          保存并同步资料库
-        </button>
+        {allowSyncToProfile ? <button type="button" className="section-action-button" onClick={() => save(true)} disabled={!Object.values(draft).some(Boolean)}>
+          从通用简历补充资料
+        </button> : null}
         {onCancel ? <button type="button" className="section-action-button" onClick={onCancel}>取消</button> : null}
       </div>
     </div>
   );
 }
 
-function DefaultProjectFields({ onAdd, onCancel }: { onAdd: ExperienceSectionPageProps["onAdd"]; onCancel?: () => void }) {
+function DefaultProjectFields({ onAdd, onCancel, allowSyncToProfile = true }: { onAdd: ExperienceSectionPageProps["onAdd"]; onCancel?: () => void; allowSyncToProfile?: boolean }) {
   const [draft, setDraft] = useState<StructuredProjectFields>(emptyStructuredProjectFields);
   const save = (syncToProfile: boolean) => {
     if (!draft.title.trim()) return;
@@ -116,7 +117,7 @@ function DefaultProjectFields({ onAdd, onCancel }: { onAdd: ExperienceSectionPag
       <StructuredProjectForm value={draft} onChange={setDraft} idPrefix="new-project" />
       <div className="section-summary-actions">
         <button type="button" className="section-action-button section-action-button-primary" onClick={() => save(false)} disabled={!draft.title.trim()}>保存到简历</button>
-        <button type="button" className="section-action-button" onClick={() => save(true)} disabled={!draft.title.trim()}>保存并同步资料库</button>
+        {allowSyncToProfile ? <button type="button" className="section-action-button" onClick={() => save(true)} disabled={!draft.title.trim()}>从通用简历补充资料</button> : null}
         {onCancel ? <button type="button" className="section-action-button" onClick={onCancel}>取消</button> : null}
       </div>
     </div>
@@ -149,6 +150,7 @@ export function ExperienceSectionPage({
   onMoveDown,
   onAdd,
   onSyncToProfile,
+  allowSyncToProfile = true,
   onOpenLibrary,
   nav
 }: ExperienceSectionPageProps) {
@@ -201,6 +203,7 @@ export function ExperienceSectionPage({
           onSave={onSave}
           onSaveStructuredItem={onSaveStructuredItem}
           onSelectItem={onSelectItem}
+          allowSyncToProfile={allowSyncToProfile}
           warning={block.presentationHidden ? (
             <div className="field-warning-box">该内容仅从当前简历预览中隐藏，仍保留在正文中。</div>
           ) : null}
@@ -244,7 +247,7 @@ export function ExperienceSectionPage({
             >
               删除
             </button>
-            {sourceItem?.userConfirmation?.scope === "resume_only" ? (
+            {sourceItem?.userConfirmation?.scope === "resume_only" && allowSyncToProfile ? (
               <>
                 <span className="resume-sync-state">仅当前简历</span>
                 <button
@@ -252,9 +255,11 @@ export function ExperienceSectionPage({
                   className="section-action-button"
                   onClick={() => onSyncToProfile(block.contentItemId)}
                 >
-                  同步到资料库
+                  从通用简历补充资料
                 </button>
               </>
+            ) : sourceItem?.userConfirmation?.scope === "resume_only" ? (
+              <span className="resume-sync-state">仅当前简历</span>
             ) : (
               <span className="resume-sync-state resume-sync-state-synced">已关联资料库</span>
             )}
@@ -277,6 +282,7 @@ export function ExperienceSectionPage({
             onAdd(draft, syncToProfile);
             setAdding(false);
           }}
+          allowSyncToProfile={allowSyncToProfile}
           onCancel={blocks.length > 0 ? () => setAdding(false) : undefined}
         />
       )
@@ -326,6 +332,7 @@ function ExperienceItemFields(props: {
   onSave: (itemId: string) => void;
   onSaveStructuredItem?: ExperienceSectionPageProps["onSaveStructuredItem"];
   onSelectItem: (itemId: string) => void;
+  allowSyncToProfile: boolean;
   warning?: ReactNode;
   children: ReactNode;
 }) {

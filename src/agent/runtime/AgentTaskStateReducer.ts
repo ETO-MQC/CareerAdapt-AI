@@ -1,5 +1,5 @@
 import type { AgentSession, AgentTaskState } from "@/agent/contracts/agentSession";
-import { canonicalWorkflowId, getWorkflowDefinition } from "@/agent/workflows/workflowRegistry";
+import { canonicalWorkflowId, getWorkflowDefinition, isTailoringWorkflowId } from "@/agent/workflows/workflowRegistry";
 import {
   classifyProfileIntakeTurn,
   hasExplicitCorrectionReplacement,
@@ -36,6 +36,13 @@ export type AgentTaskEvent =
     }
   | { type: "new_root_task"; goal: string; workflowId: string; stage: string }
   | { type: "new_active_task"; goal: string; workflowId: string; stage: string }
+  | {
+      type: "authoritative_workflow_selected";
+      rootGoal: "generate_job_specific_resume";
+      workflowId: "tailor_resume";
+      stage: string;
+      completionType: "transactional";
+    }
   | { type: "restart_profile_intake" }
   | { type: "attachment_selected"; attachment: AgentAttachmentRef }
   | { type: "slot_answer"; slot: string; value: unknown }
@@ -74,7 +81,7 @@ export class AgentTaskStateReducer {
         operationId: session.pendingConfirmation.operationId
       };
     }
-    const tailoringWorkflow = session.workflowState.workflowId === "tailor_existing_resume";
+    const tailoringWorkflow = isTailoringWorkflowId(session.workflowState.workflowId);
     const state: AgentTaskState = {
       goal,
       rootGoal: goal,
@@ -94,6 +101,7 @@ export class AgentTaskStateReducer {
       dependencySnapshots: {},
       artifacts: session.artifactRefs.map((artifact) => artifact.id),
       completionStatus: workflowStatus(session.workflowState.status),
+      completionType: session.workflowState.workflowId === "tailor_resume" ? "transactional" : "conversational",
       computeTier: computeTier(goal),
       updatedAt: now
     };
@@ -103,6 +111,17 @@ export class AgentTaskStateReducer {
   reduce(previous: AgentTaskState, event: AgentTaskEvent): AgentTaskState {
     const state = structuredClone(previous);
     state.updatedAt = new Date().toISOString();
+    if (event.type === "authoritative_workflow_selected") {
+      state.goal = event.rootGoal;
+      state.rootGoal = event.rootGoal;
+      state.activeGoal = event.rootGoal;
+      state.workflowId = event.workflowId;
+      state.stage = event.stage;
+      state.completionType = event.completionType;
+      state.completionStatus = "active";
+      state.pendingDecision = undefined;
+      return normalize(state);
+    }
     if (event.type === "new_root_task") {
       const workflowId = canonicalWorkflowId(event.workflowId);
       return normalize({
@@ -129,6 +148,9 @@ export class AgentTaskStateReducer {
         artifacts: [],
         lastObservation: undefined,
         completionStatus: "active",
+        completionType: workflowId === "tailor_resume"
+          ? "transactional"
+          : "conversational",
         computeTier: computeTier(event.goal),
         updatedAt: new Date().toISOString()
       });
@@ -141,6 +163,9 @@ export class AgentTaskStateReducer {
       state.missingSlots = [];
       state.pendingDecision = undefined;
       state.completionStatus = "active";
+      state.completionType = state.workflowId === "tailor_resume"
+        ? "transactional"
+        : state.completionType;
       return normalize(state);
     }
     if (event.type === "restart_profile_intake") {
@@ -1235,6 +1260,9 @@ function resetProfileIntakeDraft(state: AgentTaskState) {
 function normalize(state: AgentTaskState): AgentTaskState {
   state.goal = state.rootGoal;
   state.workflowId = canonicalWorkflowId(state.workflowId);
+  if (state.workflowId === "tailor_resume") {
+    state.completionType = "transactional";
+  }
   if (state.workflowId === "compose_resume") {
     // `create_resume_from_profile` remains a compatible root-goal label for
     // persisted sessions, but its executable workflow is now composition.
@@ -1264,7 +1292,7 @@ function normalize(state: AgentTaskState): AgentTaskState {
     }
     if (state.stage === "completed") state.completionStatus = "completed";
   }
-  if (state.workflowId === "tailor_existing_resume") {
+  if (isTailoringWorkflowId(state.workflowId)) {
     const canonicalStage = normalizeTailoringStage(state.stage);
     if (canonicalStage) state.stage = canonicalStage;
     if (state.selectedEntities.resumeId && !state.selectedEntities.sourceResumeId && !state.selectedEntities.resultResumeId) {

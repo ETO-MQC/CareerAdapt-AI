@@ -3,6 +3,8 @@
 import { useState } from "react";
 import type { StructuredProjectFields } from "@/domain/resumeFields/catalog";
 import { FieldInput } from "./FieldInput";
+import { TipTapEditor } from "./TipTapEditor";
+import { editorHtmlToExperienceDocument, experienceDocumentToEditorHtml } from "./helpers";
 
 type StructuredProjectFormProps = {
   value: StructuredProjectFields;
@@ -13,6 +15,13 @@ type StructuredProjectFormProps = {
 
 export function StructuredProjectForm({ value, onChange, idPrefix, onFocus }: StructuredProjectFormProps) {
   const update = <Key extends keyof StructuredProjectFields>(key: Key, next: StructuredProjectFields[Key]) => onChange({ ...value, [key]: next });
+  const editorDocument = {
+    description: value.description,
+    highlights: value.highlights,
+    outcomes: value.outcomes,
+    tools: value.tools,
+    background: value.background
+  };
   return (
     <div className="section-fields profile-structured-fields structured-project-form">
       <div className="section-fields-grid-2">
@@ -34,9 +43,19 @@ export function StructuredProjectForm({ value, onChange, idPrefix, onFocus }: St
       <FieldInput id={`${idPrefix}-url`} label="项目链接" type="url" value={value.url} placeholder="https://…" onChange={(next) => update("url", next)} onFocus={onFocus} />
       <TokenEditor idPrefix={`${idPrefix}-tools`} label="技术栈 / 工具" values={value.tools} onChange={(next) => update("tools", next)} onFocus={onFocus} placeholder="输入后按 Enter 添加，例如 React" />
       <TextAreaField id={`${idPrefix}-background`} label="项目背景" value={value.background} onChange={(next) => update("background", next)} onFocus={onFocus} placeholder="只写来源中已有的背景，不需要补充推测。" />
-      <TextAreaField id={`${idPrefix}-description`} label="项目说明" value={value.description} onChange={(next) => update("description", next)} onFocus={onFocus} placeholder="概括项目内容；预览时会优先使用要点列表。" />
-      <BulletListEditor idPrefix={`${idPrefix}-highlights`} label="行动与职责" values={value.highlights} onChange={(next) => update("highlights", next)} onFocus={onFocus} placeholder="一条写清一个行动，保留参与 / 协助等原始角色。" />
-      <BulletListEditor idPrefix={`${idPrefix}-outcomes`} label="成果与结果" values={value.outcomes} onChange={(next) => update("outcomes", next)} onFocus={onFocus} placeholder="只填写资料中有证据支持的结果。" />
+      <div className="experience-description-field">
+        <label className="field-input-label">经历内容与成果</label>
+        <TipTapEditor
+          value={experienceDocumentToEditorHtml(editorDocument)}
+          onChange={(html) => {
+            const next = editorHtmlToExperienceDocument(html, editorDocument);
+            onChange({ ...value, description: next.description, highlights: next.highlights, outcomes: next.outcomes });
+          }}
+          placeholder="概括经历内容，再用列表写清行动与可验证成果…"
+          minRows={7}
+          ariaLabel="经历内容与成果"
+        />
+      </div>
     </div>
   );
 }
@@ -75,27 +94,6 @@ function TokenEditor({ idPrefix, label, values, onChange, onFocus, placeholder }
           </span>
         ))}
       </div> : <p className="field-input-hint">尚未添加技术栈；只填写明确出现在资料或来源证据中的工具。</p>}
-    </div>
-  );
-}
-
-function BulletListEditor({ idPrefix, label, values, onChange, onFocus, placeholder }: { idPrefix: string; label: string; values: string[]; onChange: (values: string[]) => void; onFocus?: () => void; placeholder?: string }) {
-  const update = (index: number, value: string) => onChange(values.map((item, itemIndex) => itemIndex === index ? value : item));
-  return (
-    <div className="structured-bullet-editor" onFocus={onFocus}>
-      <span className="field-input-label">{label}</span>
-      {values.map((value, index) => (
-        <div className="structured-bullet-row" key={`${idPrefix}-${index}`}>
-          <span className="structured-bullet-marker" aria-hidden="true">•</span>
-          <textarea id={`${idPrefix}-${index}`} aria-label={`${label}${index + 1}`} className="field-input structured-project-bullet-input" value={value} placeholder={placeholder} rows={2} onChange={(event) => update(index, event.target.value)} />
-          <div className="structured-bullet-actions">
-            <button type="button" aria-label={`上移${label}${index + 1}`} disabled={index === 0} onClick={() => onChange(move(values, index, -1))}>↑</button>
-            <button type="button" aria-label={`下移${label}${index + 1}`} disabled={index === values.length - 1} onClick={() => onChange(move(values, index, 1))}>↓</button>
-            <button type="button" aria-label={`删除${label}${index + 1}`} onClick={() => onChange(values.filter((_, itemIndex) => itemIndex !== index))}>删除</button>
-          </div>
-        </div>
-      ))}
-      <button type="button" className="section-action-button" onClick={() => onChange([...values, ""])}>+ 添加一条</button>
     </div>
   );
 }

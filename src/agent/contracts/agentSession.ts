@@ -260,6 +260,8 @@ const AgentTaskStateObjectSchema = z.object({
   artifacts: z.array(z.string().min(1)).max(128).default([]),
   lastObservation: z.unknown().optional(),
   completionStatus: z.enum(["active", "waiting_for_user", "waiting_for_confirmation", "completed", "failed", "cancelled"]).default("active"),
+  /** Transactional workflows require a durable receipt before completion. */
+  completionType: z.enum(["conversational", "transactional"]).default("conversational"),
   computeTier: z.enum(["T0", "T1", "T2", "T3", "T4"]).default("T0"),
   updatedAt: z.string().datetime({ offset: true })
 }).strict();

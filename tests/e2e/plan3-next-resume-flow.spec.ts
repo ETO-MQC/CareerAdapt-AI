@@ -27,8 +27,8 @@ test.describe("Plan3 resume flow corrections", () => {
     await fields.locator(".tiptap-prosemirror").fill("注重结果，善于协作并持续复盘。");
     await fields.getByRole("button", { name: "保存", exact: true }).click();
     await expect(page.getByTestId("resume-a4-page").first()).toContainText("自我评价");
-    await fields.getByRole("button", { name: "同步到资料库", exact: true }).click();
-    await expect(fields.getByText("已同步资料库", { exact: true })).toBeVisible();
+    await fields.getByRole("button", { name: "从通用简历补充资料", exact: true }).click();
+    await expect(fields.getByText("与资料库一致", { exact: true })).toBeVisible();
   });
 
   test("renders unsaved and saved experiences with the same collapsible card and keeps education selected", async ({ page }) => {

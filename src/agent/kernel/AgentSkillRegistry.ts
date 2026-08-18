@@ -33,10 +33,10 @@ const skills: AgentSkill[] = [
   skill("jd-analysis", "岗位分析", "解析岗位要求并与真实资料、简历进行匹配。", ["JD", "岗位", "匹配", "适合"], ["job_ingestion", "analyze_job_fit", "tailor_existing_resume"], ["list_jobs", "get_job", "parse_job_description", "commit_job", "get_active_profile", "get_profile", "get_resume", "analyze_job_fit"], [
     "确定岗位是否已保存；缺失时解析用户提供的 JD。", "读取所选资料和简历。", "识别硬门槛、核心职责与加分项。", "给出有证据的匹配、缺口和下一步。"
   ]),
-  skill("resume-from-profile", "从资料库生成简历", "从 CareerProfile 选择真实事实并生成岗位或通用简历计划。", ["生成简历", "组装简历", "资料库"], ["compose_resume"], ["get_active_profile", "get_profile", "search_profile_facts", "get_job", "list_resumes", "build_resume_evidence_graph", "plan_resume_composition", "review_resume_composition", "compose_resume"], [
+  skill("resume-from-profile", "从资料库生成简历", "从 CareerProfile 选择真实事实并生成通用/base 简历计划；岗位简历走 canonical tailor_resume。", ["生成简历", "组装简历", "资料库"], ["compose_resume"], ["get_active_profile", "get_profile", "search_profile_facts", "list_resumes", "build_resume_evidence_graph", "plan_resume_composition", "review_resume_composition", "compose_resume"], [
     "读取目标资料与用途。", "筛选有证据的相关事实。", "形成章节与叙事计划。", "预览并确认后才创建版本。"
   ]),
-  skill("resume-composition", "简历证据组装", "从确认 Profile 构建 Evidence Graph、Resume Blueprint 和经过 Fact Guard 审查的通用或岗位简历。", ["生成简历", "组装简历", "证据图", "简历蓝图"], ["compose_resume"], ["build_resume_evidence_graph", "plan_resume_composition", "review_resume_composition", "compose_resume"], [
+  skill("resume-composition", "简历证据组装", "从确认 Profile 构建 Evidence Graph、Resume Blueprint 和经过 Fact Guard 审查的通用/base 简历。岗位简历走 canonical tailor_resume。", ["生成简历", "组装简历", "证据图", "简历蓝图"], ["compose_resume"], ["build_resume_evidence_graph", "plan_resume_composition", "review_resume_composition", "compose_resume"], [
     "读取最新 Profile、来源证据和可选岗位。", "构建证据图并聚合跨项目技能。", "提出资产、摘要、项目 bullet 和关键词缺口蓝图。", "只询问最多两项可选高价值信息。", "展示审查提案，确认后写入隔离 ResumeRevision。"
   ]),
   skill("resume-tailoring", "岗位简历定制", "在分支隔离和 Fact Guard 下定制现有简历。", ["定制", "改简历", "岗位简历"], ["tailor_existing_resume"], ["get_resume", "get_job", "analyze_job_fit", "create_tailoring_session", "answer_tailoring_question", "generate_tailoring_changes", "review_tailoring_diff", "preview_tailoring_changes", "apply_tailoring_changes"], [
