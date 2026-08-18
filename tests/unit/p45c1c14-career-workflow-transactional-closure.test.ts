@@ -176,10 +176,20 @@ describe("P4.5c.1.14 Career workflow transactional closure", () => {
     const gateway = new CareerToolGateway(new AgentToolRegistry([]));
     const tailor = gateway.getContract("career.workflow.tailor_resume");
     const compose = gateway.getContract("career.workflow.compose_resume");
-    const properties = (tailor.inputSchema.properties ?? {}) as Record<string, unknown>;
+    const branches = Array.isArray(tailor.inputSchema.anyOf) ? tailor.inputSchema.anyOf : [];
+    const branchProperties = branches
+      .filter((branch): branch is Record<string, unknown> => Boolean(branch && typeof branch === "object"))
+      .map((branch) => branch.properties)
+      .filter((properties): properties is Record<string, unknown> => Boolean(properties && typeof properties === "object"));
 
-    expect(properties).toHaveProperty("targetText");
-    expect(properties).toHaveProperty("saveTargetPreference");
+    expect(branchProperties).toEqual(expect.arrayContaining([
+      expect.objectContaining({ targetText: expect.anything(), jobPersistence: expect.anything() }),
+      expect.objectContaining({ jobId: expect.anything() }),
+      expect.objectContaining({ checkpointId: expect.anything() })
+    ]));
+    expect(JSON.stringify(tailor.inputSchema)).not.toContain("saveTargetPreference");
+    expect(tailor.contractVersion).toBeTypeOf("string");
+    expect(tailor.contractSchemaHash).toBeTypeOf("string");
     expect(tailor.description).toContain("generate_job_specific_resume");
     expect(compose.description).toContain("general/base");
     expect(compose.description).toContain("tailor_resume");

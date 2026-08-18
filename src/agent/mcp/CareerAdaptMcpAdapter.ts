@@ -5,7 +5,12 @@ import type {
   CareerToolResult
 } from "@/agent/tools/CareerToolGateway";
 import type { CareerSessionBinding } from "../runtime/careerSessionBinding";
-import type { CareerToolFailureDiagnostics } from "../tools/careerToolDiagnostics";
+import {
+  CareerToolFailureDiagnosticsSchema,
+  type CareerMcpCallTrace,
+  type CareerToolFailureDiagnostics
+} from "../tools/careerToolDiagnostics";
+import { stableCareerLogicalToolOperationId } from "../tools/careerToolContract";
 
 /**
  * The MCP adapter is deliberately narrower than the Career domain.  It only
@@ -32,6 +37,8 @@ export type McpToolAnnotations = {
 export type CareerAdaptMcpTool = {
   name: string;
   description: string;
+  contractVersion: string;
+  contractSchemaHash: string;
   inputSchema: Record<string, unknown>;
   outputSchema: Record<string, unknown>;
   annotations: McpToolAnnotations;
@@ -43,6 +50,8 @@ export type CareerAdaptMcpTool = {
     "careeradapt/idempotencyKeyPolicy": CareerToolContract["idempotencyKeyPolicy"];
     "careeradapt/personProfileBinding": CareerToolContract["personProfileBinding"];
     "careeradapt/artifactBehavior": CareerToolContract["artifactBehavior"];
+    "careeradapt/contractVersion": string;
+    "careeradapt/contractSchemaHash": string;
   };
 };
 
@@ -88,18 +97,23 @@ export class CareerAdaptMcpAdapter {
   ): Promise<CareerAdaptMcpCallResult> {
     const contract = this.gateway.listContracts().find((candidate) => candidate.name === name);
     const operationId = normalizeOperationId(meta.operationId);
+    const requestStartedAt = new Date().toISOString();
+    const logicalToolOperationId = meta.logicalToolOperationId?.trim()
+      || stableCareerLogicalToolOperationId(meta.logicalTurnId, name);
     if (!contract) {
       return toolErrorResult(
         "unknown_career_tool",
         "当前 Career 工具不可用。",
         operationId,
-        name
+        name,
+        logicalToolOperationId,
+        requestStartedAt
       );
     }
 
     const context: CareerToolExecutionContext = {
       operationId,
-      logicalToolOperationId: meta.logicalToolOperationId?.trim() || `hermes-tool-${operationId}`,
+      logicalToolOperationId,
       logicalTurnId: meta.logicalTurnId,
       taskId: meta.taskId,
       incidentTraceId: meta.incidentTraceId,
@@ -115,7 +129,16 @@ export class CareerAdaptMcpAdapter {
       requireSessionBinding: meta.requireSessionBinding === true
     };
     const result = await this.gateway.execute(name, input, context);
-    return toCallResult(result, contract, context.logicalToolOperationId);
+    return toCallResult(result, contract, logicalToolOperationId, {
+      toolName: name,
+      logicalToolOperationId,
+      requestStartedAt,
+      jsonRpcStatus: "response_received",
+      toolResponseIsError: !result.ok,
+      browserMcpHandlerReached: true,
+      gatewayReached: true,
+      completedAt: new Date().toISOString()
+    });
   }
 }
 
@@ -123,6 +146,8 @@ export function toMcpTool(contract: CareerToolContract): CareerAdaptMcpTool {
   return {
     name: contract.name,
     description: contract.description,
+    contractVersion: contract.contractVersion ?? "unknown",
+    contractSchemaHash: contract.contractSchemaHash ?? "unknown",
     inputSchema: contract.inputSchema,
     outputSchema: contract.outputSchema,
     annotations: {
@@ -138,19 +163,40 @@ export function toMcpTool(contract: CareerToolContract): CareerAdaptMcpTool {
       "careeradapt/confirmationPolicy": contract.confirmationPolicy,
       "careeradapt/idempotencyKeyPolicy": contract.idempotencyKeyPolicy,
       "careeradapt/personProfileBinding": contract.personProfileBinding,
-      "careeradapt/artifactBehavior": contract.artifactBehavior
+      "careeradapt/artifactBehavior": contract.artifactBehavior,
+      "careeradapt/contractVersion": contract.contractVersion ?? "unknown",
+      "careeradapt/contractSchemaHash": contract.contractSchemaHash ?? "unknown"
     }
   };
 }
 
-function toCallResult(result: CareerToolResult, contract: CareerToolContract, logicalToolOperationId?: string): CareerAdaptMcpCallResult {
+function toCallResult(
+  result: CareerToolResult,
+  contract: CareerToolContract,
+  logicalToolOperationId: string,
+  mcpCallTrace: CareerMcpCallTrace
+): CareerAdaptMcpCallResult {
+  const baseDiagnostics = result.diagnostics ?? result.error?.diagnostics;
+  const diagnostics = baseDiagnostics
+    ? CareerToolFailureDiagnosticsSchema.parse({
+        ...baseDiagnostics,
+        mcpCallTrace: baseDiagnostics.mcpCallTrace
+          ? {
+              ...mcpCallTrace,
+              requestStartedAt: baseDiagnostics.mcpCallTrace.requestStartedAt,
+              browserMcpHandlerReached: baseDiagnostics.mcpCallTrace.browserMcpHandlerReached,
+              gatewayReached: baseDiagnostics.mcpCallTrace.gatewayReached
+            }
+          : mcpCallTrace
+      })
+    : undefined;
   const payload: Record<string, unknown> = result.ok
     ? {
         ok: true,
         data: result.data,
         artifacts: result.artifacts,
         receipt: result.receipt,
-        diagnostics: result.diagnostics
+        ...(diagnostics ? { diagnostics } : {})
       }
     : {
         ok: false,
@@ -161,7 +207,10 @@ function toCallResult(result: CareerToolResult, contract: CareerToolContract, lo
               message: result.error.message,
               recoverable: result.error.recoverable,
               retryHint: result.error.retryHint,
-              diagnostics: result.error.diagnostics
+              ...(result.error.scope ? { scope: result.error.scope } : {}),
+              ...(result.error.invalidFields ? { invalidFields: result.error.invalidFields } : {}),
+              ...(result.error.acceptedShapeHint ? { acceptedShapeHint: result.error.acceptedShapeHint } : {}),
+              ...(diagnostics ? { diagnostics } : {})
             }
           : {
               code: "career_tool_failed",
@@ -170,7 +219,7 @@ function toCallResult(result: CareerToolResult, contract: CareerToolContract, lo
               recoverable: false
             },
         receipt: result.receipt,
-        diagnostics: result.diagnostics ?? result.error?.diagnostics
+        ...(diagnostics ? { diagnostics } : {})
       };
   return {
     content: [{ type: "text", text: safeJson(payload) }],
@@ -181,17 +230,28 @@ function toCallResult(result: CareerToolResult, contract: CareerToolContract, lo
       "careeradapt/operationId": result.receipt.operationId,
       ...(logicalToolOperationId ? { "careeradapt/logicalToolOperationId": logicalToolOperationId } : {}),
       "careeradapt/safetyClass": contract.safetyClass,
-      ...(result.diagnostics ? {
-        "careeradapt/toolFailureLayer": result.diagnostics.toolFailureLayer,
-        "careeradapt/safeDomainErrorCode": result.diagnostics.safeDomainErrorCode
+      "careeradapt/contractVersion": contract.contractVersion ?? "unknown",
+      "careeradapt/contractSchemaHash": contract.contractSchemaHash ?? "unknown",
+      ...(diagnostics ? {
+        "careeradapt/toolFailureLayer": diagnostics.toolFailureLayer,
+        "careeradapt/safeDomainErrorCode": diagnostics.safeDomainErrorCode,
+        "careeradapt/failureKind": diagnostics.failureKind ?? "workflow_failed"
       } : {})
     }
   };
 }
 
-function toolErrorResult(code: string, message: string, operationId: string, toolName: string): CareerAdaptMcpCallResult {
+function toolErrorResult(
+  code: string,
+  message: string,
+  operationId: string,
+  toolName: string,
+  logicalToolOperationId: string,
+  requestStartedAt: string
+): CareerAdaptMcpCallResult {
   const diagnostics: CareerToolFailureDiagnostics = {
     toolFailureLayer: "gateway_validation",
+    failureKind: "gateway_validation_failed",
     failureScope: "career_workflow",
     safeDomainErrorCode: code,
     toolResultIsError: true,
@@ -199,7 +259,18 @@ function toolErrorResult(code: string, message: string, operationId: string, too
     durationMs: 0,
     retryable: false,
     operationId,
-    logicalToolOperationId: `hermes-tool-${operationId}`,
+    logicalToolOperationId,
+    mcpCallTrace: {
+      toolName,
+      logicalToolOperationId,
+      requestStartedAt,
+      jsonRpcStatus: "response_received",
+      toolResponseIsError: true,
+      safeMcpErrorCode: code,
+      browserMcpHandlerReached: true,
+      gatewayReached: false,
+      completedAt: new Date().toISOString()
+    },
     completedAt: new Date().toISOString()
   };
   const payload = {
@@ -223,7 +294,11 @@ function toolErrorResult(code: string, message: string, operationId: string, too
     content: [{ type: "text", text: safeJson(payload) }],
     isError: true,
     structuredContent: payload,
-    _meta: { "careeradapt/operationId": operationId }
+    _meta: {
+      "careeradapt/operationId": operationId,
+      "careeradapt/logicalToolOperationId": logicalToolOperationId,
+      "careeradapt/failureKind": "gateway_validation_failed"
+    }
   };
 }
 

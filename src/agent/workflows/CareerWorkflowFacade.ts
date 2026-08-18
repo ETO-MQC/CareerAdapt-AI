@@ -13,8 +13,9 @@ import {
   type CareerInteractionQuestion
 } from "@/domain/careerInteraction/CareerInteractionPlan";
 import { isTailoringQuestionPaused, normalizeTailoringStage, type TailoringStage } from "./tailoringStage";
-import { JobRequirementGraphV4Schema, JobTargetPersistenceSchema, JobTargetSnapshotSchema } from "@/domain/schemas";
+import { JobRequirementGraphV4Schema, JobTargetSnapshotSchema } from "@/domain/schemas";
 import { createPastedJobTargetSnapshot, jobTargetSnapshotHash } from "@/domain/jobTarget/jobTargetSnapshot";
+import { normalizeTailorResumeInput, TailorResumeInputSchema } from "../tools/careerToolContract";
 import {
   careerContextBindingResolver,
   profileHasSufficientFacts,
@@ -71,38 +72,6 @@ const ProfileIntakeFinalizeInputSchema = z.object({
 
 const ResumeImportInputSchema = z.object({ attachmentId: z.string().min(1) }).strict();
 const JobFitInputSchema = z.object({ profileId: z.string().min(1), resumeId: z.string().min(1), jobId: z.string().min(1) }).strict();
-const TailorTargetInputSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("saved_job"), jobId: z.string().min(1) }).strict(),
-  z.object({
-    type: z.literal("pasted_jd"),
-    text: z.string().trim().min(20).max(24_000),
-    title: z.string().trim().min(1).max(160).optional(),
-    company: z.string().trim().min(1).max(160).optional(),
-    sourceUrl: z.string().url().optional(),
-    persistence: JobTargetPersistenceSchema.default("ask")
-  }).strict()
-]);
-const TailorResumeInputSchema = z.object({
-  profileId: z.string().min(1).optional(),
-  sourceResumeId: z.string().min(1).optional(),
-  /** Compatibility alias for pre-P4.5c.1.7 callers. */
-  resumeId: z.string().min(1).optional(),
-  jobId: z.string().min(1).optional(),
-  target: TailorTargetInputSchema.optional(),
-  /** Canonical direct external-target contract; raw text is never persisted by the contract layer. */
-  targetText: z.string().trim().min(20).max(24_000).optional(),
-  saveTargetPreference: z.enum(["ask", "save", "session_only", "unknown"]).optional(),
-  checkpointId: z.string().min(1).optional(),
-  userAnswer: z.union([
-    z.string().trim().min(1).max(8_000),
-    z.array(z.string().trim().min(1)).min(1).max(32),
-    z.boolean()
-  ]).optional(),
-  intensity: z.enum(["conservative", "balanced", "aggressive"]).optional()
-}).strict().superRefine((input, refinement) => {
-  if (input.checkpointId) return;
-  if (!input.jobId && !input.target && !input.targetText) refinement.addIssue({ code: "custom", path: ["jobId"], message: "jobId, target, or targetText is required to start tailoring" });
-});
 const ProfileToResumeInputSchema = z.object({
   targetProfileId: z.string().min(1),
   expectedProfileVersion: z.number().int().min(0),
@@ -158,7 +127,10 @@ export async function executeCareerWorkflowFacade(
 ): Promise<{ data: CareerWorkflowFacadeResult; artifacts: ArtifactRef[]; receipts: OperationReceipt[] }> {
   const definition = CAREER_WORKFLOW_FACADE_DEFINITIONS.find((candidate) => candidate.name === name);
   if (!definition) throw Object.assign(new Error("unknown_career_workflow"), { code: "unknown_career_workflow" });
-  const input = definition.inputSchema.parse(rawInput) as Record<string, unknown>;
+  const normalizedInput = name === "career.workflow.tailor_resume"
+    ? normalizeTailorResumeInput(rawInput)
+    : rawInput;
+  const input = definition.inputSchema.parse(normalizedInput) as Record<string, unknown>;
   const call = async (
     toolName: string,
     value: unknown,
@@ -328,19 +300,20 @@ async function executeTailoringResumeFacade(
   operationId: string,
   call: TailoringFacadeCall
 ) {
-  const rawTargetInput = input.target as
-    | { type: "saved_job"; jobId: string }
-    | { type: "pasted_jd"; text: string; title?: string; company?: string; sourceUrl?: string; persistence: "ask" | "save" | "session_only" }
-    | undefined;
-  const targetInput = rawTargetInput
-    ?? (typeof input.targetText === "string"
-      ? {
-          type: "pasted_jd" as const,
-          text: input.targetText,
-          persistence: normalizeTargetPersistence(input.saveTargetPreference)
-        }
-      : undefined);
-  if (targetInput) input.target = targetInput;
+  const targetInput = typeof input.targetText === "string"
+    ? {
+        type: "pasted_jd" as const,
+        text: input.targetText,
+        ...(typeof input.targetTitle === "string" ? { title: input.targetTitle } : {}),
+        ...(typeof input.targetCompany === "string" ? { company: input.targetCompany } : {}),
+        ...(typeof input.targetSourceUrl === "string" ? { sourceUrl: input.targetSourceUrl } : {}),
+        persistence: input.jobPersistence === "save" || input.jobPersistence === "session_only"
+          ? input.jobPersistence
+          : "ask" as const
+      }
+    : typeof input.jobId === "string"
+      ? { type: "saved_job" as const, jobId: input.jobId }
+      : undefined;
   const sourceResumeId = stringValue(input.sourceResumeId) ?? stringValue(input.resumeId);
   let profileId = stringValue(input.profileId)
     ?? context.authoritativeTaskState?.selectedEntities.profileId
@@ -362,7 +335,7 @@ async function executeTailoringResumeFacade(
     : undefined;
   let fitAnalysis = targetSnapshot ? undefined : context.authoritativeTaskState?.knownSlots.fitAnalysis;
   const persistedJobPersistenceDecision = stringValue(context.authoritativeTaskState?.knownSlots.jobPersistenceDecision);
-  if (!input.jobPersistenceDecision && persistedJobPersistenceDecision) input.jobPersistenceDecision = persistedJobPersistenceDecision;
+  if (input.jobPersistence === undefined && persistedJobPersistenceDecision) input.jobPersistence = persistedJobPersistenceDecision;
 
   if (checkpointId && (!persistedSessionId || persistedSessionId !== checkpointId)) {
     const failure = syntheticTailoringResult(operationId, "tailoring_checkpoint_not_found", "当前定制 checkpoint 不存在或已变化，已保留当前岗位和简历选择。", false);
@@ -727,7 +700,7 @@ function tailoringCheckpoint(input: Record<string, unknown>, session: Record<str
   const targetSnapshot = Object.keys(snapshotValue).length ? JobTargetSnapshotSchema.parse(snapshotValue) : undefined;
   const targetInput = objectValue(input.target);
   const jobPersistenceDecision = targetSnapshot
-    ? stringValue(targetInput.persistence) ?? stringValue(input.jobPersistenceDecision)
+    ? stringValue(targetInput.persistence) ?? stringValue(input.jobPersistence)
     : undefined;
   return {
     kind: "tailoring_session",
@@ -748,10 +721,6 @@ function tailoringCheckpoint(input: Record<string, unknown>, session: Record<str
     session,
     review: tailoringReviewProjection(session)
   } satisfies Record<string, unknown>;
-}
-
-function normalizeTargetPersistence(value: unknown): "ask" | "save" | "session_only" {
-  return value === "save" || value === "session_only" ? value : "ask";
 }
 
 function tailoringStageForSession(session: Record<string, unknown>) {

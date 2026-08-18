@@ -568,19 +568,28 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         streamClosedNormally = true;
         } catch (error) {
         if (streamLease) {
-          if (error instanceof EventStreamLeaseConflictError) this.eventStreamLeases.fail(streamLease, error.code);
-          else if (input.signal?.aborted) this.eventStreamLeases.fail(streamLease, "hermes_transport_detached");
-          else this.eventStreamLeases.fail(streamLease, errorCode(error));
+          if (input.signal?.aborted) this.eventStreamLeases.fail(streamLease, "hermes_transport_detached");
+          else if (!(error instanceof EventStreamLeaseConflictError)) this.eventStreamLeases.fail(streamLease, errorCode(error));
         }
         if (error instanceof EventStreamLeaseConflictError) {
           terminalSeen = true;
-          yield this.event(normalized, "turn_failed", {
-            error: { code: error.code, message: error.message, recoverable: true },
+          yield this.event(normalized, "turn_paused", {
+            message: "检测到已有活动事件流，当前 Hermes 任务仍在运行，继续观察同一个 run。",
             data: {
-              ...this.diagnostics(handle, counters, error.code, primaryCausalChain, secondaryRecoveryFailures),
+              runHandle: handle,
+              healthyObservation: true,
+              runtimeHealthy: runtimeAvailable,
+              watchdog: {
+                event: "event_stream_lease_observation",
+                action: "continue_waiting",
+                runId: handle.runId,
+                activeConsumerId: error.activeLease.consumerId
+              },
               eventStreamLease: error.activeLease,
               incidentTraceId,
-              traceId: attemptTraceId
+              traceId: attemptTraceId,
+              primaryCausalChain: primaryCausalChain.slice(),
+              ...(secondaryRecoveryFailures.length ? { secondaryRecoveryFailures: secondaryRecoveryFailures.slice() } : {})
             }
           });
           break;
@@ -854,6 +863,25 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       // Hermes recovery retry. Once a turn has emitted anything, the failure
       // is terminal for this runtime and must not be replayed as Native.
       if (!emitted) throw error;
+      const activeHandle = this.activeRuns.get(input.sessionId);
+      if (
+        runStartedSuccessfully
+        && errorCode(error) === "hermes_unavailable_before_turn"
+        && activeHandle
+        && !isTerminalRunStatus(activeHandle.status)
+      ) {
+        yield this.event(normalized, "turn_paused", {
+          message: "Hermes run 已启动且仍处于活动状态，暂不把健康观察误记为运行失败。",
+          data: {
+            runHandle: activeHandle,
+            healthyObservation: true,
+            watchdog: { event: "run_health_observation", action: "continue_waiting", runStatus: activeHandle.status },
+            incidentTraceId,
+            attemptTraceId
+          }
+        });
+        return;
+      }
       const safeErrorCode = runStartedSuccessfully
         ? postStartHermesErrorCode(errorCode(error))
         : errorCode(error);
@@ -1087,7 +1115,8 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     const logicalOperationId = request.logicalToolOperationId ?? logicalToolOperationId({
       ...request,
       turnId: input.turnId,
-      stableToolName
+      stableToolName,
+      preferStableToolName: true
     });
     if (!isAllowedCareerTool(input, stableToolName, catalog)) {
       const code = "agent_tool_not_allowed";
@@ -1376,7 +1405,8 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       toolCallId: event.toolCallId,
       operationId: event.operationId,
       turnId: input.turnId,
-      stableToolName
+      stableToolName,
+      preferStableToolName: true
     });
   }
 
@@ -1585,7 +1615,17 @@ function safeToolResult(result: Awaited<ReturnType<CareerToolGateway["execute"]>
     ok: false,
     ...(result.data === undefined ? {} : { data: result.data }),
     error: result.error
-      ? { code: result.error.code, category: result.error.category, message: result.error.message, recoverable: result.error.recoverable, retryHint: result.error.retryHint, diagnostics: result.error.diagnostics }
+      ? {
+          code: result.error.code,
+          category: result.error.category,
+          message: result.error.message,
+          recoverable: result.error.recoverable,
+          retryHint: result.error.retryHint,
+          ...(result.error.scope ? { scope: result.error.scope } : {}),
+          ...(result.error.invalidFields ? { invalidFields: result.error.invalidFields } : {}),
+          ...(result.error.acceptedShapeHint ? { acceptedShapeHint: result.error.acceptedShapeHint } : {}),
+          diagnostics: result.error.diagnostics
+        }
       : { code: "career_tool_failed", message: "工具执行没有完成。", recoverable: false },
     receipt: result.receipt,
     diagnostics: result.diagnostics ?? result.error?.diagnostics

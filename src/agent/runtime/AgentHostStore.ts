@@ -1732,8 +1732,14 @@ export class AgentHostStore {
       const eventData = objectValue(event.data);
       const eventResult = objectValue(eventData.result ?? eventData);
       const resultDiagnostics = objectValue(eventResult.diagnostics ?? eventData.diagnostics);
+      const resultExplicitlyFailed = eventResult.ok === false
+        || eventData.isError === true
+        || eventData.is_error === true
+        || Object.keys(objectValue(eventResult.error)).length > 0
+        || Boolean(stringValue(eventResult.safeErrorCode) || stringValue(resultDiagnostics.safeErrorCode));
       const contradictoryCompletion = event.type === "tool_call_completed"
-        && (resultDiagnostics.toolResultIsError === true
+        && (resultExplicitlyFailed
+          || resultDiagnostics.toolResultIsError === true
           || Boolean(stringValue(resultDiagnostics.safeDomainErrorCode) && stringValue(resultDiagnostics.safeDomainErrorCode) !== "none"));
       const effectiveFailure = event.type === "tool_call_failed" || contradictoryCompletion;
       const status = effectiveFailure ? "failed" : event.type === "tool_call_completed" ? "complete" : "pending";

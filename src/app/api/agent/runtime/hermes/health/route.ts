@@ -4,7 +4,8 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 import { HermesHealthSchema, type HermesHealth } from "@/agent/runtime/hermes/HermesBridgeTransport";
 import { RuntimeHealthSchema } from "@/agent/runtime/runtimeHealth";
-import { HermesCareerToolCatalog } from "@/agent/runtime/hermes/HermesCareerToolCatalog";
+import { HermesCareerToolCatalog, HERMES_REQUIRED_CAREER_FACADES } from "@/agent/runtime/hermes/HermesCareerToolCatalog";
+import { runCareerToolContractSelfTest } from "@/agent/tools/careerToolContract";
 import {
   careerAdaptMcpBridgeContracts,
   statusCareerAdaptMcpBridge
@@ -139,6 +140,8 @@ async function withRuntimeHealth(
   const careerMcpServerReachable = await probeCareerMcpServer(appBaseUrl);
   const contracts = careerAdaptMcpBridgeContracts();
   const exposedContracts = careerAdaptMcpBridgeContracts("hermes-production");
+  const contractReadiness = runCareerToolContractSelfTest(contracts, HERMES_REQUIRED_CAREER_FACADES);
+  const careerToolContractReady = contractReadiness.ready && upstreamRuntimeHealth?.careerToolContractReady !== false;
   const catalog = new HermesCareerToolCatalog(exposedContracts);
   const coverage = catalog.coverage(registry.visibleTools, registry.registeredToolsets);
   const companionReady = upstreamRuntimeHealth?.companionReady ?? (
@@ -154,15 +157,17 @@ async function withRuntimeHealth(
     && (upstreamRuntimeHealth?.providerReachable ?? health.providerStatus === "ready")
     && Boolean(health.model || upstreamRuntimeHealth?.model)
   );
-  const mcpReady = upstreamRuntimeHealth?.mcpReady ?? (
+  const mcpReady = (upstreamRuntimeHealth?.mcpReady ?? (
     mcp.connected
     && careerMcpServerReachable
     && coverage.hermesMcpRegistered
     && coverage.hermesMcpToolCount > 0
     && coverage.requiredCareerFacadesMissing.length === 0
-  );
+  )) && careerToolContractReady;
   const cachedRunReadiness = readHermesRunReadiness(runtimeBaseUrl);
-  const runReady = cachedRunReadiness?.ready === false
+  const runReady = !careerToolContractReady
+    ? false
+    : cachedRunReadiness?.ready === false
     ? false
     : upstreamRuntimeHealth?.runReady
       ?? (mcpReady && companionReady && providerReady);
@@ -198,6 +203,12 @@ async function withRuntimeHealth(
     hermesMcpRegistered: coverage.hermesMcpRegistered,
     hermesMcpToolCount: coverage.hermesMcpToolCount,
     hermesCareerFacadeCount: coverage.hermesCareerFacadeCount,
+    careerToolContractReady,
+    careerToolContractVersion: contractReadiness.contractVersion,
+    ...(careerToolContractReady ? {} : {
+      careerToolContractReason: contractReadiness.reason ?? "career_tool_contract_mismatch",
+      careerToolContractMismatches: contractReadiness.mismatches
+    }),
     requiredCareerFacadesMissing: coverage.requiredCareerFacadesMissing,
     careerGatewayContracts: contracts.map((contract) => contract.name).sort(),
     careerMcpExposedTools: exposedContracts.map((contract) => contract.name).sort(),
@@ -211,7 +222,9 @@ async function withRuntimeHealth(
       ...(cachedRunReadiness.safeErrorCode ? { runReadySafeErrorCode: cachedRunReadiness.safeErrorCode } : {}),
       ...(cachedRunReadiness.runtimeFailureDiagnostics ? { runtimeFailureDiagnostics: cachedRunReadiness.runtimeFailureDiagnostics } : {})
     } : {}),
-    ...(health.reason ? { safeErrorCode: safeErrorCode(health.reason) } : {})
+    ...(careerToolContractReady
+      ? (health.reason ? { safeErrorCode: safeErrorCode(health.reason) } : {})
+      : { safeErrorCode: "career_tool_contract_mismatch" })
   });
   const configuredRuntimeUrl = process.env.HERMES_RUNTIME_URL?.trim().replace(/\/$/u, "");
   const appUrl = process.env.CAREERADAPT_BASE_URL?.trim().replace(/\/$/u, "");

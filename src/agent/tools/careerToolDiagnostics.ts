@@ -37,6 +37,48 @@ export const CareerToolFailureScopeSchema = z.enum([
 
 export type CareerToolFailureScope = z.infer<typeof CareerToolFailureScopeSchema>;
 
+export const CareerToolFailureKindSchema = z.enum([
+  "tool_schema_rejected_by_hermes_or_mcp",
+  "mcp_jsonrpc_failed",
+  "mcp_handler_not_reached",
+  "gateway_validation_failed",
+  "workflow_failed"
+]);
+
+export type CareerToolFailureKind = z.infer<typeof CareerToolFailureKindSchema>;
+
+export const CareerToolSchemaIssueSchema = z.object({
+  path: z.string().min(1),
+  code: z.string().min(1),
+  expectedType: z.string().min(1).optional(),
+  receivedType: z.string().min(1).optional(),
+  key: z.string().min(1).optional()
+}).strict();
+
+export type CareerToolSchemaIssue = z.infer<typeof CareerToolSchemaIssueSchema>;
+
+export const CareerToolAcceptedShapeHintSchema = z.object({
+  requiredOneOf: z.array(z.string().min(1)).min(1),
+  note: z.string().min(1).optional()
+}).strict();
+
+export type CareerToolAcceptedShapeHint = z.infer<typeof CareerToolAcceptedShapeHintSchema>;
+
+export const CareerMcpCallTraceSchema = z.object({
+  toolName: z.string().min(1),
+  logicalToolOperationId: z.string().min(1),
+  requestStartedAt: z.string().datetime({ offset: true }),
+  jsonRpcStatus: z.enum(["not_started", "request_sent", "response_received", "error"]).optional(),
+  jsonRpcErrorCode: z.union([z.number().int(), z.string()]).optional(),
+  toolResponseIsError: z.boolean().optional(),
+  safeMcpErrorCode: z.string().min(1).optional(),
+  browserMcpHandlerReached: z.boolean(),
+  gatewayReached: z.boolean(),
+  completedAt: z.string().datetime({ offset: true }).optional()
+}).strict();
+
+export type CareerMcpCallTrace = z.infer<typeof CareerMcpCallTraceSchema>;
+
 export const CareerToolArgumentShapeSchema = z.record(z.string(), z.union([
   z.string(),
   z.number(),
@@ -48,6 +90,7 @@ export type CareerToolArgumentShape = z.infer<typeof CareerToolArgumentShapeSche
 
 export const CareerToolFailureDiagnosticsSchema = z.object({
   toolFailureLayer: CareerToolFailureLayerSchema,
+  failureKind: CareerToolFailureKindSchema.optional(),
   failureScope: CareerToolFailureScopeSchema.optional(),
   safeDomainErrorCode: z.string().min(1),
   httpStatus: z.number().int().optional(),
@@ -63,6 +106,15 @@ export const CareerToolFailureDiagnosticsSchema = z.object({
   logicalTurnId: z.string().optional(),
   taskId: z.string().optional(),
   argumentShape: CareerToolArgumentShapeSchema.optional(),
+  schemaIssues: z.array(CareerToolSchemaIssueSchema).optional(),
+  schemaIssueFingerprint: z.string().min(1).optional(),
+  invalidFields: z.array(z.string().min(1)).optional(),
+  acceptedShapeHint: CareerToolAcceptedShapeHintSchema.optional(),
+  publishedContractVersion: z.string().min(1).optional(),
+  publishedSchemaHash: z.string().min(1).optional(),
+  gatewayContractVersion: z.string().min(1).optional(),
+  gatewaySchemaHash: z.string().min(1).optional(),
+  mcpCallTrace: CareerMcpCallTraceSchema.optional(),
   startedAt: z.string().datetime({ offset: true }).optional(),
   enteredGatewayAt: z.string().datetime({ offset: true }).optional(),
   enteredFacadeAt: z.string().datetime({ offset: true }).optional(),
@@ -76,6 +128,45 @@ export const CareerToolFailureDiagnosticsSchema = z.object({
 }).strict();
 
 export type CareerToolFailureDiagnostics = z.infer<typeof CareerToolFailureDiagnosticsSchema>;
+
+export function safeZodSchemaIssues(error: unknown): CareerToolSchemaIssue[] {
+  if (!(error instanceof z.ZodError)) return [];
+  const issues: CareerToolSchemaIssue[] = [];
+  const collect = (issue: unknown) => {
+    if (!issue || typeof issue !== "object" || Array.isArray(issue)) return;
+    const issueRecord = issue as Record<string, unknown>;
+    if (Array.isArray(issueRecord.errors)) {
+      for (const branch of issueRecord.errors) {
+        if (Array.isArray(branch)) {
+          for (const nested of branch) collect(nested);
+        }
+      }
+      return;
+    }
+    const pathSegments = Array.isArray(issueRecord.path) ? issueRecord.path : [];
+    const pathText = pathSegments.length
+      ? pathSegments.map((segment) => typeof segment === "number" ? `[${segment}]` : String(segment)).join(".").replaceAll(".[", "[")
+      : "$";
+    const issueKeys = Array.isArray(issueRecord.keys)
+      ? issueRecord.keys.filter((key): key is string => typeof key === "string")
+      : [];
+    const lastPathSegment = pathSegments.at(-1);
+    const key = typeof lastPathSegment === "string" ? lastPathSegment : issueKeys[0];
+    const path = pathText === "$" && key ? key : pathText;
+    const code = typeof issueRecord.code === "string" ? issueRecord.code : "schema_issue";
+    const expectedType = typeof issueRecord.expected === "string" ? issueRecord.expected : undefined;
+    const receivedType = typeof issueRecord.received === "string" ? issueRecord.received : undefined;
+    issues.push({
+      path,
+      code,
+      ...(expectedType ? { expectedType } : {}),
+      ...(receivedType ? { receivedType } : {}),
+      ...(key ? { key } : {})
+    });
+  };
+  for (const issue of error.issues) collect(issue);
+  return issues;
+}
 
 export function safeCareerToolArgumentShape(input: unknown): CareerToolArgumentShape {
   if (!input || typeof input !== "object" || Array.isArray(input)) return { input: "non_object" };

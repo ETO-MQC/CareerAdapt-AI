@@ -552,7 +552,9 @@ class HermesSupervisor {
       && runtimeHealth.careerMcpServerReachable === true
       && runtimeHealth.mcpConnected === true;
     const requiredMissing = arrayOfStrings(runtimeHealth.requiredCareerFacadesMissing);
-    const toolSurfaceReady = runtimeHealth.hermesMcpRegistered === true
+    const contractReady = runtimeHealth.careerToolContractReady !== false;
+    const toolSurfaceReady = contractReady
+      && runtimeHealth.hermesMcpRegistered === true
       && Number(runtimeHealth.hermesMcpToolCount || 0) > 0
       && requiredMissing.length === 0;
     const runReady = runtimeHealth.runReady !== false && apiReady && providerReady && toolSurfaceReady;
@@ -777,6 +779,7 @@ function healthReason(input) {
   if (providerStatus === "invalid" || providerStatus === "unconfigured") return direct || "configuration_required";
   if (!apiReady) return direct || "hermes_api_unreachable";
   if (!careerMcpReady) return direct || "career_mcp_sync_pending";
+  if (runtimeHealth.careerToolContractReady === false) return direct || "career_tool_contract_mismatch";
   if (!toolSurfaceReady) return direct || "hermes_tool_surface_sync_pending";
   if (!runReady) return direct || "hermes_run_not_ready";
   return direct;
@@ -807,6 +810,9 @@ function sanitizeHealth(value) {
     "hermesMcpRegistered",
     "hermesMcpToolCount",
     "hermesCareerFacadeCount",
+    "careerToolContractReady",
+    "careerToolContractVersion",
+    "careerToolContractReason",
     "careerSkillsLoaded",
     "runReady",
     "runReadySafeErrorCode",
@@ -820,6 +826,20 @@ function sanitizeHealth(value) {
   result.careerMcpExposedTools = arrayOfStrings(record.careerMcpExposedTools);
   result.hermesRegisteredToolsets = arrayOfStrings(record.hermesRegisteredToolsets);
   result.hermesVisibleTools = arrayOfStrings(record.hermesVisibleTools);
+  result.careerToolContractMismatches = Array.isArray(record.careerToolContractMismatches)
+    ? record.careerToolContractMismatches
+      .filter((item) => item && typeof item === "object" && !Array.isArray(item))
+      .map((item) => {
+        const candidate = item;
+        return {
+          ...(typeof candidate.toolName === "string" ? { toolName: candidate.toolName } : {}),
+          ...(typeof candidate.reason === "string" ? { reason: candidate.reason } : {}),
+          ...(typeof candidate.publishedContractVersion === "string" ? { publishedContractVersion: candidate.publishedContractVersion } : {}),
+          ...(typeof candidate.publishedSchemaHash === "string" ? { publishedSchemaHash: candidate.publishedSchemaHash } : {}),
+          ...(typeof candidate.expectedSchemaHash === "string" ? { expectedSchemaHash: candidate.expectedSchemaHash } : {})
+        };
+      })
+    : [];
   return result;
 }
 

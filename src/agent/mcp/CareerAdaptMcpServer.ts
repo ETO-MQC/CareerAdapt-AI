@@ -1,5 +1,6 @@
 import { CareerAdaptMcpAdapter, type CareerAdaptMcpCallMeta, type CareerAdaptMcpGateway } from "./CareerAdaptMcpAdapter";
 import type { CareerSessionBinding } from "../runtime/careerSessionBinding";
+import { stableCareerLogicalToolOperationId } from "../tools/careerToolContract";
 
 export const CAREERADAPT_MCP_PROTOCOL_VERSION = "2025-06-18";
 const SUPPORTED_PROTOCOL_VERSIONS = new Set([
@@ -56,6 +57,7 @@ export class CareerAdaptMcpProtocolServer {
   }
 
   async handle(request: McpJsonRpcRequest): Promise<McpJsonRpcResponse | undefined> {
+    const requestStartedAt = new Date().toISOString();
     const id = normalizeId(request.id);
     const method = typeof request.method === "string" ? request.method : undefined;
     if (!method) return errorResponse(id, -32600, "Invalid Request");
@@ -88,18 +90,26 @@ export class CareerAdaptMcpProtocolServer {
       if (error instanceof CareerAdaptMcpUnavailableError) {
         return errorResponse(id, -32002, error.message, {
           code: error.code,
+          failureKind: "mcp_jsonrpc_failed",
           toolFailureLayer: "mcp_transport",
           jsonRpcErrorCode: -32002,
           safeDomainErrorCode: error.code,
-          toolResultIsError: true
+          toolResultIsError: true,
+          ...(mcpCallTraceForRequest(request, requestStartedAt, error.code, "error") ? {
+            mcpCallTrace: mcpCallTraceForRequest(request, requestStartedAt, error.code, "error")
+          } : {})
         });
       }
       return errorResponse(id, -32603, "CareerAdapt MCP request failed.", {
         code: safeErrorCode(error),
+        failureKind: "mcp_handler_not_reached",
         toolFailureLayer: "mcp_handler",
         jsonRpcErrorCode: -32603,
         safeDomainErrorCode: safeErrorCode(error),
-        toolResultIsError: true
+        toolResultIsError: true,
+        ...(mcpCallTraceForRequest(request, requestStartedAt, safeErrorCode(error), "error") ? {
+          mcpCallTrace: mcpCallTraceForRequest(request, requestStartedAt, safeErrorCode(error), "error")
+        } : {})
       });
     }
   }
@@ -234,4 +244,34 @@ function safeErrorCode(error: unknown) {
   return error && typeof error === "object" && "code" in error && typeof error.code === "string"
     ? error.code
     : "mcp_internal_error";
+}
+
+function mcpCallTraceForRequest(
+  request: McpJsonRpcRequest,
+  requestStartedAt: string,
+  safeMcpErrorCode: string,
+  jsonRpcStatus: "error"
+) {
+  if (request.method !== "tools/call") return undefined;
+  const params = asRecord(request.params);
+  const toolName = typeof params.name === "string" ? params.name : "unknown";
+  const meta = asRecord(params._meta);
+  const logicalToolOperationId = typeof meta["careeradapt/logicalToolOperationId"] === "string"
+    ? meta["careeradapt/logicalToolOperationId"]
+    : typeof meta.logicalToolOperationId === "string"
+      ? meta.logicalToolOperationId
+      : stableCareerLogicalToolOperationId(
+          typeof meta["careeradapt/logicalTurnId"] === "string" ? meta["careeradapt/logicalTurnId"] : undefined,
+          toolName
+        );
+  return {
+    toolName,
+    logicalToolOperationId,
+    requestStartedAt,
+    jsonRpcStatus,
+    safeMcpErrorCode,
+    browserMcpHandlerReached: true,
+    gatewayReached: false,
+    completedAt: new Date().toISOString()
+  };
 }

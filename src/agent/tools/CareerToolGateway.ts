@@ -16,8 +16,10 @@ import {
   CareerToolFailureDiagnosticsSchema,
   type CareerToolFailureDiagnostics,
   type CareerToolFailureLayer,
-  safeCareerToolArgumentShape
+  safeCareerToolArgumentShape,
+  safeZodSchemaIssues
 } from "./careerToolDiagnostics";
+import { contractIdentityForInputSchema } from "./careerToolContract";
 import {
   TransactionalWorkflowLeaseManager,
   type TransactionalWorkflowLease
@@ -62,6 +64,9 @@ export type CareerToolError = {
   message: string;
   recoverable: boolean;
   retryHint?: string;
+  scope?: CareerToolFailureDiagnostics["failureScope"];
+  invalidFields?: string[];
+  acceptedShapeHint?: CareerToolFailureDiagnostics["acceptedShapeHint"];
   diagnostics?: CareerToolFailureDiagnostics;
 };
 
@@ -89,6 +94,9 @@ export type CareerToolContract = {
   personProfileBinding: CareerToolPersonProfileBinding;
   artifactBehavior: CareerToolArtifactBehavior;
   errorTaxonomy: CareerToolErrorCategory[];
+  /** Public schema identity used to reject stale Hermes/MCP surfaces. */
+  contractVersion?: string;
+  contractSchemaHash?: string;
 };
 
 export type CareerToolExecutionContext = {
@@ -318,6 +326,7 @@ export class CareerToolGateway {
         const stageError = this.verifyTailoringStage(name, context);
         if (stageError) return this.failure(name, operationId, stageError.code, stageError.message, true, undefined, "failed", finishFailureTrace(trace, stageError.code, "gateway_policy"));
         const contract = this.toWorkflowContract(workflow);
+        attachContractIdentity(trace, contract);
         const bindingError = await this.verifyExecutionBinding(contract, input, context);
         if (bindingError) return this.failure(name, operationId, bindingError.code, bindingError.message, false, undefined, "failed", finishFailureTrace(trace, bindingError.code, "gateway_policy"));
         if (!context.workflowFacadeInternal && isTransactionalWorkflow(name)) {
@@ -364,6 +373,7 @@ export class CareerToolGateway {
         return withExecutionDiagnostics(result, trace, result.error?.code);
       } catch (error) {
         const code = errorCode(error);
+        attachSchemaFailure(trace, error, name, code);
         return this.failure(name, operationId, code, safeGatewayErrorMessage(error, code), isRecoverable(code), undefined, "failed", finishFailureTrace(trace, code));
       } finally {
         this.transactionalWorkflowLeases.release(lease);
@@ -379,6 +389,7 @@ export class CareerToolGateway {
       const stageError = this.verifyTailoringStage(name, context);
       if (stageError) return this.failure(name, operationId, stageError.code, stageError.message, true, undefined, "failed", finishFailureTrace(trace, stageError.code, "gateway_policy"));
       const contract = this.toContract(definition);
+      attachContractIdentity(trace, contract);
       const bindingError = await this.verifyExecutionBinding(contract, input, context);
       if (bindingError) return this.failure(name, operationId, bindingError.code, bindingError.message, false, undefined, "failed", finishFailureTrace(trace, bindingError.code, "gateway_policy"));
       if (!context.workflowFacadeInternal && isTransactionalAtomic(definition.sourceToolName)) {
@@ -398,6 +409,7 @@ export class CareerToolGateway {
         return this.failure(name, operationId, error.code, "这项操作需要你的明确确认后才能继续。", false, "请确认后重试。", "confirmation_required", finishFailureTrace(trace, error.code, "gateway_policy"));
       }
       const code = errorCode(error);
+      attachSchemaFailure(trace, error, name, code);
       return this.failure(name, operationId, code, safeGatewayErrorMessage(error, code), isRecoverable(code), undefined, "failed", finishFailureTrace(trace, code));
     } finally {
       this.transactionalWorkflowLeases.release(lease);
@@ -566,7 +578,17 @@ export class CareerToolGateway {
       context: {},
       input: undefined
     });
-    const errorValue = { code, category: categoryForCode(code), message, recoverable, ...(retryHint ? { retryHint } : {}), diagnostics: safeDiagnostics };
+    const errorValue = {
+      code,
+      category: categoryForCode(code),
+      message,
+      recoverable,
+      ...(retryHint ? { retryHint } : {}),
+      ...(safeDiagnostics.failureScope ? { scope: safeDiagnostics.failureScope } : {}),
+      ...(safeDiagnostics.invalidFields ? { invalidFields: safeDiagnostics.invalidFields } : {}),
+      ...(safeDiagnostics.acceptedShapeHint ? { acceptedShapeHint: safeDiagnostics.acceptedShapeHint } : {}),
+      diagnostics: safeDiagnostics
+    } satisfies CareerToolError;
     return {
       ok: false,
       error: errorValue,
@@ -593,12 +615,14 @@ export class CareerToolGateway {
         : tool.requiresConfirmation
           ? "CONFIRMATION_WRITE"
           : "SAFE_WRITE";
+    const inputSchema = z.toJSONSchema(tool.inputSchema) as Record<string, unknown>;
+    const identity = contractIdentityForInputSchema(inputSchema);
     return {
       name: definition.name,
       description: `${atomicWorkflowHint(definition.name)}${tool.description}`,
       sourceToolName: definition.sourceToolName,
       namespace: definition.namespace,
-      inputSchema: z.toJSONSchema(tool.inputSchema) as Record<string, unknown>,
+      inputSchema,
       outputSchema: careerToolEnvelopeJsonSchema(tool.outputSchema),
       readWrite: definition.readWrite,
       safetyClass,
@@ -606,17 +630,20 @@ export class CareerToolGateway {
       idempotencyKeyPolicy: definition.readWrite === "write" ? "operation_id" : "none",
       personProfileBinding: definition.personProfileBinding,
       artifactBehavior: tool.producesArtifact ? "produces_artifact" : "none",
-      errorTaxonomy: ["validation", "not_found", "conflict", "stale_revision", "permission", "provider", "recoverable", "internal"]
+      errorTaxonomy: ["validation", "not_found", "conflict", "stale_revision", "permission", "provider", "recoverable", "internal"],
+      ...identity
     };
   }
 
   private toWorkflowContract(definition: (typeof CAREER_WORKFLOW_FACADE_DEFINITIONS)[number]): CareerToolContract {
+    const inputSchema = z.toJSONSchema(definition.inputSchema) as Record<string, unknown>;
+    const identity = contractIdentityForInputSchema(inputSchema);
     return {
       name: definition.name,
       description: `${definition.description} Stop when status is completed, waiting_for_user, waiting_for_confirmation, working, review_ready, recoverable_failure, partial, or failed; do not call another workflow facade in the same turn. The result status and receipt are authoritative; do not claim completion from prose alone.`,
       sourceToolName: definition.name,
       namespace: "career.workflow",
-      inputSchema: z.toJSONSchema(definition.inputSchema) as Record<string, unknown>,
+      inputSchema,
       outputSchema: careerToolEnvelopeJsonSchema(CareerWorkflowFacadeResultSchema),
       readWrite: "write",
       safetyClass: "SAFE_WRITE",
@@ -624,7 +651,8 @@ export class CareerToolGateway {
       idempotencyKeyPolicy: "operation_id",
       personProfileBinding: definition.personProfileBinding,
       artifactBehavior: "produces_artifact",
-      errorTaxonomy: ["validation", "not_found", "conflict", "stale_revision", "permission", "provider", "recoverable", "internal"]
+      errorTaxonomy: ["validation", "not_found", "conflict", "stale_revision", "permission", "provider", "recoverable", "internal"],
+      ...identity
     };
   }
 
@@ -742,6 +770,9 @@ function careerToolEnvelopeJsonSchema(dataSchema: z.ZodType): Record<string, unk
       message: z.string(),
       recoverable: z.boolean(),
       retryHint: z.string().optional(),
+      scope: z.string().optional(),
+      invalidFields: z.array(z.string()).optional(),
+      acceptedShapeHint: z.record(z.string(), z.unknown()).optional(),
       diagnostics: CareerToolFailureDiagnosticsSchema.optional()
     }).optional(),
     diagnostics: CareerToolFailureDiagnosticsSchema.optional(),
@@ -799,6 +830,9 @@ function toCareerToolError(code: string, message: string, retryable: boolean, di
     message,
     recoverable,
     ...(diagnostics ? { diagnostics } : {}),
+    ...(diagnostics?.failureScope ? { scope: diagnostics.failureScope } : {}),
+    ...(diagnostics?.invalidFields ? { invalidFields: diagnostics.invalidFields } : {}),
+    ...(diagnostics?.acceptedShapeHint ? { acceptedShapeHint: diagnostics.acceptedShapeHint } : {}),
     ...(recoverable ? { retryHint: "可以稍后重试；如果仍失败，请保留当前任务状态后再继续。" } : {})
   };
 }
@@ -817,6 +851,13 @@ type ExecutionTrace = {
   enteredGatewayAt?: string;
   enteredFacadeAt?: string;
   firstInternalOperationAt?: string;
+  publishedContractVersion?: string;
+  publishedSchemaHash?: string;
+  gatewayContractVersion?: string;
+  gatewaySchemaHash?: string;
+  schemaIssues?: ReturnType<typeof safeZodSchemaIssues>;
+  invalidFields?: string[];
+  acceptedShapeHint?: { requiredOneOf: string[]; note?: string };
 };
 
 const TRANSACTIONAL_WORKFLOW_NAMES = new Set([
@@ -902,6 +943,7 @@ function finishTrace(
   const completedAt = new Date().toISOString();
   return CareerToolFailureDiagnosticsSchema.parse({
     toolFailureLayer: layer,
+    ...(toolResultIsError ? { failureKind: failureKindFor(code, layer) } : {}),
     failureScope: isCareerDomainPreconditionCode(code) ? "career_context" : scopeForLayer(layer),
     safeDomainErrorCode: code,
     toolResultIsError,
@@ -915,12 +957,46 @@ function finishTrace(
     ...(trace.logicalTurnId ? { logicalTurnId: trace.logicalTurnId } : {}),
     ...(trace.taskId ? { taskId: trace.taskId } : {}),
     argumentShape: safeCareerToolArgumentShape(trace.input),
+    ...(trace.schemaIssues?.length ? { schemaIssues: trace.schemaIssues } : {}),
+    ...(trace.invalidFields?.length ? { invalidFields: trace.invalidFields } : {}),
+    ...(trace.acceptedShapeHint ? { acceptedShapeHint: trace.acceptedShapeHint } : {}),
+    ...(trace.publishedContractVersion ? { publishedContractVersion: trace.publishedContractVersion } : {}),
+    ...(trace.publishedSchemaHash ? { publishedSchemaHash: trace.publishedSchemaHash } : {}),
+    ...(trace.gatewayContractVersion ? { gatewayContractVersion: trace.gatewayContractVersion } : {}),
+    ...(trace.gatewaySchemaHash ? { gatewaySchemaHash: trace.gatewaySchemaHash } : {}),
     startedAt: trace.startedAt,
     ...(trace.enteredGatewayAt ? { enteredGatewayAt: trace.enteredGatewayAt } : {}),
     ...(trace.enteredFacadeAt ? { enteredFacadeAt: trace.enteredFacadeAt } : {}),
     ...(trace.firstInternalOperationAt ? { firstInternalOperationAt: trace.firstInternalOperationAt } : {}),
     completedAt
   });
+}
+
+function attachContractIdentity(trace: ExecutionTrace, contract: CareerToolContract) {
+  trace.publishedContractVersion = contract.contractVersion;
+  trace.publishedSchemaHash = contract.contractSchemaHash;
+  trace.gatewayContractVersion = contract.contractVersion;
+  trace.gatewaySchemaHash = contract.contractSchemaHash;
+}
+
+function attachSchemaFailure(trace: ExecutionTrace, error: unknown, name: string, code: string) {
+  if (code !== "schema_validation_failed") return;
+  trace.schemaIssues = safeZodSchemaIssues(error);
+  trace.invalidFields = [...new Set(trace.schemaIssues.map((issue) => issue.key).filter((key): key is string => Boolean(key)))];
+  trace.acceptedShapeHint = name === "career.workflow.tailor_resume"
+    ? {
+        requiredOneOf: ["targetText", "jobId", "checkpointId"],
+        note: "targetText 用于原始外部 JD；不要把原始 JD 放入 target。"
+      }
+    : { requiredOneOf: ["published inputSchema"] };
+}
+
+function failureKindFor(code: string, layer: CareerToolFailureLayer) {
+  if (layer === "mcp_jsonrpc") return "mcp_jsonrpc_failed" as const;
+  if (layer === "mcp_handler") return "mcp_handler_not_reached" as const;
+  if (layer === "gateway_validation") return "gateway_validation_failed" as const;
+  if (code === "schema_validation_failed") return "tool_schema_rejected_by_hermes_or_mcp" as const;
+  return "workflow_failed" as const;
 }
 
 function createFailureDiagnostics(input: {

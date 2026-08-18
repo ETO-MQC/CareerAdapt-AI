@@ -13,6 +13,7 @@ import {
   type BridgeRequestTrace,
   type RunStopReason
 } from "./hermesIncidentTrace";
+import { stableCareerLogicalToolOperationId } from "../../tools/careerToolContract";
 
 export const HermesHealthSchema = z.object({
   available: z.boolean(),
@@ -124,7 +125,16 @@ export type HermesToolCallback = {
   result: unknown;
 };
 
-export function logicalToolOperationId(input: { toolCallId?: string; operationId?: string; turnId?: string; stableToolName?: string }) {
+export function logicalToolOperationId(input: {
+  toolCallId?: string;
+  operationId?: string;
+  turnId?: string;
+  stableToolName?: string;
+  preferStableToolName?: boolean;
+}) {
+  if (input.preferStableToolName && input.turnId?.trim() && input.stableToolName?.trim()) {
+    return stableCareerLogicalToolOperationId(input.turnId.trim(), input.stableToolName.trim());
+  }
   const source = input.toolCallId?.trim();
   if (source) return `hermes-tool-${source}`;
   if (input.turnId?.trim() && input.stableToolName?.trim()) {
@@ -491,12 +501,13 @@ function mapOfficialHermesEvent(name: string, value: unknown): HermesBridgeEvent
     : toolCallId
       ? `hermes-mcp-${toolCallId}`
       : `hermes-mcp-${typeof payload.run_id === "string" ? payload.run_id : "run"}-${toolName}`;
+  const eventLogicalToolOperationId = officialLogicalToolOperationId(payload, toolCallId, operationId, toolName);
 
   if (name === "message.delta") {
     return typeof payload.delta === "string" ? { type: "text_delta", delta: payload.delta } : undefined;
   }
   if (name === "tool.started") {
-    return { type: "tool_call_started", toolName, operationId, logicalToolOperationId: logicalToolOperationId({ toolCallId }), data: payload };
+    return { type: "tool_call_started", toolName, operationId, logicalToolOperationId: eventLogicalToolOperationId, data: payload };
   }
   if (name === "tool.completed") {
     const failure = officialToolFailure(payload);
@@ -505,13 +516,13 @@ function mapOfficialHermesEvent(name: string, value: unknown): HermesBridgeEvent
           type: "tool_call_failed",
           toolName,
           operationId,
-          logicalToolOperationId: logicalToolOperationId({ toolCallId }),
+          logicalToolOperationId: eventLogicalToolOperationId,
           code: failure.code,
           message: failure.message,
           recoverable: failure.recoverable,
           data: safeOfficialToolFailureData(payload, failure.code)
         }
-      : { type: "tool_call_completed", toolName, operationId, logicalToolOperationId: logicalToolOperationId({ toolCallId }), data: payload };
+      : { type: "tool_call_completed", toolName, operationId, logicalToolOperationId: eventLogicalToolOperationId, data: payload };
   }
   if (name === "reasoning.available") {
     return { type: "reasoning_status", message: typeof payload.text === "string" ? payload.text : undefined, data: payload };
@@ -557,8 +568,8 @@ function mapOfficialHermesEvent(name: string, value: unknown): HermesBridgeEvent
       ? { type: "reasoning_status", message, data: payload }
       : { type: "progress", message, data: payload };
   }
-  if (name === "tool.started") return { type: "tool_call_started", toolCallId, toolName, operationId, logicalToolOperationId: logicalToolOperationId({ toolCallId }), data: payload };
-  if (name === "tool.completed") return { type: "tool_call_completed", toolCallId, toolName, operationId, logicalToolOperationId: logicalToolOperationId({ toolCallId }), data: payload };
+  if (name === "tool.started") return { type: "tool_call_started", toolCallId, toolName, operationId, logicalToolOperationId: eventLogicalToolOperationId, data: payload };
+  if (name === "tool.completed") return { type: "tool_call_completed", toolCallId, toolName, operationId, logicalToolOperationId: eventLogicalToolOperationId, data: payload };
   if (name === "tool.failed") return {
     type: "tool_call_failed",
     toolCallId,
@@ -567,7 +578,7 @@ function mapOfficialHermesEvent(name: string, value: unknown): HermesBridgeEvent
     code: officialToolFailure(payload)?.code ?? "hermes_tool_failed",
     message: officialToolFailure(payload)?.message ?? "Career 工具执行没有完成。",
     recoverable: officialToolFailure(payload)?.recoverable ?? true,
-    logicalToolOperationId: logicalToolOperationId({ toolCallId }),
+    logicalToolOperationId: eventLogicalToolOperationId,
     data: safeOfficialToolFailureData(payload, officialToolFailure(payload)?.code ?? "hermes_tool_failed")
   };
   if (name === "error") return {
@@ -592,6 +603,32 @@ function objectRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {};
+}
+
+function officialLogicalToolOperationId(
+  payload: Record<string, unknown>,
+  toolCallId: string | undefined,
+  operationId: string,
+  toolName: string
+) {
+  const explicit = typeof payload.logical_tool_operation_id === "string"
+    ? payload.logical_tool_operation_id
+    : typeof payload.logicalToolOperationId === "string" ? payload.logicalToolOperationId : undefined;
+  if (explicit?.trim()) return explicit.trim();
+  const turnId = typeof payload.logical_turn_id === "string"
+    ? payload.logical_turn_id
+    : typeof payload.turn_id === "string"
+      ? payload.turn_id
+      : typeof payload.turnId === "string"
+        ? payload.turnId
+        : typeof payload.run_id === "string" ? payload.run_id : undefined;
+  return logicalToolOperationId({
+    toolCallId,
+    operationId,
+    turnId,
+    stableToolName: toolName,
+    preferStableToolName: Boolean(turnId)
+  });
 }
 
 function officialToolFailure(payload: Record<string, unknown>) {
@@ -628,6 +665,12 @@ function officialToolFailure(payload: Record<string, unknown>) {
 
 function safeOfficialToolFailureData(payload: Record<string, unknown>, code: string) {
   const result = objectRecord(payload.result);
+  const nestedDiagnostics = [
+    objectRecord(payload.diagnostics),
+    objectRecord(result.diagnostics),
+    objectRecord(objectRecord(payload.error).diagnostics),
+    objectRecord(objectRecord(result.error).diagnostics)
+  ].find((candidate) => Object.keys(candidate).length > 0) ?? {};
   return {
     toolFailureLayer: "hermes_tool_protocol",
     safeDomainErrorCode: code,
@@ -635,7 +678,14 @@ function safeOfficialToolFailureData(payload: Record<string, unknown>, code: str
     failedStage: "hermes_tool_protocol",
     ...(typeof payload.tool_call_id === "string" ? { toolCallId: payload.tool_call_id } : {}),
     ...(typeof payload.operation_id === "string" ? { operationId: payload.operation_id } : {}),
-    ...(typeof result.status === "string" ? { upstreamStatus: result.status } : {})
+    ...(typeof result.status === "string" ? { upstreamStatus: result.status } : {}),
+    ...(typeof payload.stableCareerToolName === "string" ? { stableCareerToolName: payload.stableCareerToolName } : {}),
+    ...(typeof payload.stable_tool_name === "string" ? { stableCareerToolName: payload.stable_tool_name } : {}),
+    ...(typeof nestedDiagnostics.failureKind === "string" ? { failureKind: nestedDiagnostics.failureKind } : {}),
+    ...(typeof nestedDiagnostics.failureScope === "string" ? { failureScope: nestedDiagnostics.failureScope } : {}),
+    ...(typeof nestedDiagnostics.duplicateProjection === "boolean" ? { duplicateProjection: nestedDiagnostics.duplicateProjection } : {}),
+    ...(typeof nestedDiagnostics.publishedContractVersion === "string" ? { publishedContractVersion: nestedDiagnostics.publishedContractVersion } : {}),
+    ...(typeof nestedDiagnostics.publishedSchemaHash === "string" ? { publishedSchemaHash: nestedDiagnostics.publishedSchemaHash } : {})
   };
 }
 

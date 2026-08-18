@@ -30,6 +30,16 @@ export const RuntimeHealthSchema = z.object({
   hermesMcpRegistered: z.boolean().default(false),
   hermesMcpToolCount: z.number().int().min(0).default(0),
   hermesCareerFacadeCount: z.number().int().min(0).default(0),
+  careerToolContractReady: z.boolean().default(true),
+  careerToolContractVersion: z.string().min(1).optional(),
+  careerToolContractReason: z.string().min(1).optional(),
+  careerToolContractMismatches: z.array(z.object({
+    toolName: z.string().min(1),
+    reason: z.string().min(1),
+    publishedContractVersion: z.string().min(1).optional(),
+    publishedSchemaHash: z.string().min(1).optional(),
+    expectedSchemaHash: z.string().min(1).optional()
+  }).strict()).default([]),
   requiredCareerFacadesMissing: z.array(z.string().min(1)).default([...HERMES_REQUIRED_CAREER_FACADES]),
   careerGatewayContracts: z.array(z.string().min(1)).default([]),
   careerMcpExposedTools: z.array(z.string().min(1)).default([]),
@@ -62,6 +72,7 @@ export function isRoadshowReady(health: RuntimeHealth) {
     && health.browserCareerDomainHostConnected
     && health.careerMcpServerReachable
     && health.careerMcpContractCount > 0
+    && health.careerToolContractReady
     && health.hermesMcpRegistered
     && health.hermesMcpToolCount > 0
     && health.hermesCareerFacadeCount >= HERMES_REQUIRED_CAREER_FACADES.length
@@ -78,6 +89,7 @@ export function readinessDimensions(health: RuntimeHealth) {
       && health.browserCareerDomainHostConnected
       && health.careerMcpServerReachable
       && health.careerMcpContractCount > 0
+      && health.careerToolContractReady
       && health.hermesMcpRegistered
       && health.hermesMcpToolCount > 0
       && health.hermesCareerFacadeCount >= HERMES_REQUIRED_CAREER_FACADES.length
@@ -93,7 +105,7 @@ export function readinessDimensions(health: RuntimeHealth) {
 export function runtimeHealthStatus(health: RuntimeHealth) {
   return isRoadshowReady(health)
     ? "ready" as const
-    : /auth|provider|invalid|config/u.test(`${health.runReadySafeErrorCode ?? ""} ${health.safeErrorCode ?? ""}`)
+    : /auth|provider|invalid|config|contract/u.test(`${health.runReadySafeErrorCode ?? ""} ${health.safeErrorCode ?? ""} ${health.careerToolContractReason ?? ""}`)
       ? "unavailable" as const
       : health.runtimeAvailable || health.mcpConnected || health.careerSkillsLoaded
       ? "starting" as const

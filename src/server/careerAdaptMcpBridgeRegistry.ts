@@ -7,7 +7,11 @@ import type {
 import { CareerAdaptMcpUnavailableError } from "@/agent/mcp/CareerAdaptMcpServer";
 import { CareerSessionBindingSchema, type CareerSessionBinding } from "@/agent/runtime/careerSessionBinding";
 import { hermesProductionToolNames } from "@/agent/runtime/hermes/HermesCareerToolCatalog";
-import type { CareerToolFailureDiagnostics } from "@/agent/tools/careerToolDiagnostics";
+import {
+  type CareerToolFailureDiagnostics,
+  safeCareerToolArgumentShape
+} from "@/agent/tools/careerToolDiagnostics";
+import { stableCareerLogicalToolOperationId } from "@/agent/tools/careerToolContract";
 
 export type CareerAdaptMcpSurface = "internal" | "hermes-production";
 
@@ -235,7 +239,8 @@ function enqueueCall(name: string, input: unknown, context: CareerToolExecutionC
     name,
     input,
     operationId,
-    logicalToolOperationId: context.logicalToolOperationId ?? `hermes-tool-${operationId}`,
+    logicalToolOperationId: context.logicalToolOperationId
+      ?? stableCareerLogicalToolOperationId(context.logicalTurnId, name),
     logicalTurnId: context.logicalTurnId,
     taskId: context.taskId,
     incidentTraceId: context.incidentTraceId,
@@ -327,7 +332,9 @@ function sanitizeContract(contract: CareerToolContract): CareerToolContract {
     idempotencyKeyPolicy: contract.idempotencyKeyPolicy,
     personProfileBinding: contract.personProfileBinding,
     artifactBehavior: contract.artifactBehavior,
-    errorTaxonomy: contract.errorTaxonomy
+    errorTaxonomy: contract.errorTaxonomy,
+    ...(contract.contractVersion ? { contractVersion: contract.contractVersion } : {}),
+    ...(contract.contractSchemaHash ? { contractSchemaHash: contract.contractSchemaHash } : {})
   };
 }
 
@@ -339,6 +346,13 @@ function failedResult(
 ): CareerToolResult {
   const diagnostics: CareerToolFailureDiagnostics = {
     toolFailureLayer: layer,
+    failureKind: layer === "mcp_jsonrpc"
+      ? "mcp_jsonrpc_failed"
+      : layer === "mcp_handler"
+        ? "mcp_handler_not_reached"
+        : layer === "gateway_validation"
+          ? "gateway_validation_failed"
+          : "workflow_failed",
     failureScope: "mcp_transport",
     safeDomainErrorCode: code,
     toolResultIsError: true,
@@ -346,7 +360,20 @@ function failedResult(
     durationMs: Math.max(0, Date.now() - request.createdAt),
     retryable: layer === "timeout",
     operationId: request.operationId,
-    logicalToolOperationId: request.logicalToolOperationId ?? `hermes-tool-${request.operationId}`,
+    logicalToolOperationId: request.logicalToolOperationId
+      ?? stableCareerLogicalToolOperationId(request.logicalTurnId, request.name),
+    argumentShape: safeCareerToolArgumentShape(request.input),
+    mcpCallTrace: {
+      toolName: request.name,
+      logicalToolOperationId: request.logicalToolOperationId
+        ?? stableCareerLogicalToolOperationId(request.logicalTurnId, request.name),
+      requestStartedAt: new Date(request.createdAt).toISOString(),
+      jsonRpcStatus: "error",
+      safeMcpErrorCode: code,
+      browserMcpHandlerReached: false,
+      gatewayReached: layer === "gateway_validation",
+      completedAt: new Date().toISOString()
+    },
     ...(request.logicalTurnId ? { logicalTurnId: request.logicalTurnId } : {}),
     ...(request.taskId ? { taskId: request.taskId } : {}),
     completedAt: new Date().toISOString()

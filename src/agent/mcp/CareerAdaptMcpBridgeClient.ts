@@ -5,7 +5,12 @@ import type {
 } from "@/agent/tools/CareerToolGateway";
 import type { CareerAdaptMcpGateway } from "./CareerAdaptMcpAdapter";
 import type { CareerSessionBinding } from "../runtime/careerSessionBinding";
-import type { CareerToolFailureDiagnostics } from "../tools/careerToolDiagnostics";
+import {
+  CareerToolFailureDiagnosticsSchema,
+  safeCareerToolArgumentShape,
+  type CareerToolFailureDiagnostics
+} from "../tools/careerToolDiagnostics";
+import { stableCareerLogicalToolOperationId } from "../tools/careerToolContract";
 
 type BridgeRequest = {
   id: string;
@@ -65,6 +70,13 @@ export class CareerAdaptMcpBridgeClient {
   private detachedConfirmationContext?: CareerAdaptMcpConfirmationContext;
   private confirmationPendingTurnId?: string;
   private noProgress?: { turnId: string; callKey: string; count: number };
+  private invalidCallGuard?: {
+    turnId: string;
+    toolName: string;
+    argumentShapeFingerprint: string;
+    schemaIssueFingerprint: string;
+    diagnostics: CareerToolFailureDiagnostics;
+  };
   private lifecycleGeneration = 0;
   private registrationChain: Promise<void> = Promise.resolve();
   private currentBinding?: CareerSessionBinding;
@@ -94,6 +106,7 @@ export class CareerAdaptMcpBridgeClient {
   setConfirmationContext(context?: CareerAdaptMcpConfirmationContext) {
     if (context?.turnId !== this.confirmationContext?.turnId) {
       this.noProgress = undefined;
+      this.invalidCallGuard = undefined;
       this.confirmationPendingTurnId = undefined;
     }
     if (context) {
@@ -129,6 +142,7 @@ export class CareerAdaptMcpBridgeClient {
     this.confirmationContext = undefined;
     this.detachedConfirmationContext = undefined;
     this.confirmationPendingTurnId = undefined;
+    this.invalidCallGuard = undefined;
     this.currentBinding = undefined;
     this.onConfirmation = undefined;
     this.onResult = undefined;
@@ -256,7 +270,7 @@ export class CareerAdaptMcpBridgeClient {
     // at request start so a later cleanup cannot make a valid result look
     // unrelated to the assistant message that initiated it.
     const confirmationContext = this.confirmationContext ?? this.detachedConfirmationContext;
-    let result;
+    let result: CareerToolResult;
     const toolInput = normalizeHermesScopedInput(request.name, request.input, request.careerSessionBinding, confirmationContext);
     try {
       const context: CareerToolExecutionContext = {
@@ -270,17 +284,40 @@ export class CareerAdaptMcpBridgeClient {
         requireSessionBinding: request.requireSessionBinding === true
       };
       const callKey = `${request.name}:${stableJson(toolInput)}`;
-      const turnId = confirmationContext?.turnId ?? "unbound-turn";
-      if (this.confirmationPendingTurnId === turnId) {
+      const turnId = request.logicalTurnId ?? confirmationContext?.turnId ?? "unbound-turn";
+      const argumentShapeFingerprint = stableJson(safeCareerToolArgumentShape(toolInput));
+      let gatewayReached = false;
+      if (this.invalidCallGuard && (
+        this.invalidCallGuard.turnId !== turnId
+        || this.invalidCallGuard.toolName !== request.name
+        || this.invalidCallGuard.argumentShapeFingerprint !== argumentShapeFingerprint
+      )) {
+        this.invalidCallGuard = undefined;
+      }
+      if (this.invalidCallGuard) {
+        result = duplicateInvalidCallResult(request, this.invalidCallGuard);
+      } else if (this.confirmationPendingTurnId === turnId) {
         result = confirmationBoundaryResult(request);
       } else if (this.noProgress?.turnId === turnId && this.noProgress.callKey === callKey && this.noProgress.count >= 2) {
         result = noProgressResult(request);
       } else {
         result = await this.gateway.execute(request.name, toolInput, context);
+        gatewayReached = true;
         this.noProgress = this.noProgress?.turnId === turnId && this.noProgress.callKey === callKey
           ? { ...this.noProgress, count: this.noProgress.count + 1 }
           : { turnId, callKey, count: 1 };
+        const resultDiagnostics = result.diagnostics ?? result.error?.diagnostics;
+        if (!result.ok && !result.error?.recoverable && resultDiagnostics?.schemaIssues?.length) {
+          this.invalidCallGuard = {
+            turnId,
+            toolName: request.name,
+            argumentShapeFingerprint,
+            schemaIssueFingerprint: stableJson(resultDiagnostics.schemaIssues),
+            diagnostics: resultDiagnostics
+          };
+        }
       }
+      result = withMcpCallTrace(result, request, gatewayReached);
       if (isConfirmationRequired(result) && confirmationContext) {
         this.confirmationPendingTurnId = turnId;
       }
@@ -350,10 +387,11 @@ function bridgeUrl(bridgeId?: string, token?: string) {
   return `/api/agent/mcp?${params.toString()}`;
 }
 
-function failedResult(request: BridgeRequest, reason: string) {
+function failedResult(request: BridgeRequest, reason: string): CareerToolResult {
   const code = reason === "mcp_bridge_timeout" ? reason : "mcp_bridge_tool_failed";
   const diagnostics: CareerToolFailureDiagnostics = {
     toolFailureLayer: reason === "mcp_bridge_timeout" ? "timeout" : "mcp_transport",
+    failureKind: "mcp_jsonrpc_failed",
     failureScope: "mcp_transport",
     safeDomainErrorCode: code,
     toolResultIsError: true,
@@ -361,7 +399,20 @@ function failedResult(request: BridgeRequest, reason: string) {
     durationMs: 0,
     retryable: true,
     operationId: request.operationId,
-    logicalToolOperationId: request.logicalToolOperationId ?? `hermes-tool-${request.operationId}`,
+    logicalToolOperationId: request.logicalToolOperationId
+      ?? stableCareerLogicalToolOperationId(request.logicalTurnId, request.name),
+    argumentShape: safeCareerToolArgumentShape(request.input),
+    mcpCallTrace: {
+      toolName: request.name,
+      logicalToolOperationId: request.logicalToolOperationId
+        ?? stableCareerLogicalToolOperationId(request.logicalTurnId, request.name),
+      requestStartedAt: new Date().toISOString(),
+      jsonRpcStatus: "error",
+      safeMcpErrorCode: code,
+      browserMcpHandlerReached: true,
+      gatewayReached: false,
+      completedAt: new Date().toISOString()
+    },
     ...(request.logicalTurnId ? { logicalTurnId: request.logicalTurnId } : {}),
     ...(request.taskId ? { taskId: request.taskId } : {}),
     completedAt: new Date().toISOString()
@@ -389,6 +440,7 @@ function failedResult(request: BridgeRequest, reason: string) {
 function noProgressResult(request: BridgeRequest): CareerToolResult {
   const diagnostics: CareerToolFailureDiagnostics = {
     toolFailureLayer: "gateway_policy",
+    failureKind: "workflow_failed",
     failureScope: "policy",
     safeDomainErrorCode: "career_agent_no_progress",
     toolResultIsError: true,
@@ -396,7 +448,9 @@ function noProgressResult(request: BridgeRequest): CareerToolResult {
     durationMs: 0,
     retryable: false,
     operationId: request.operationId,
-    logicalToolOperationId: request.logicalToolOperationId ?? `hermes-tool-${request.operationId}`,
+    logicalToolOperationId: request.logicalToolOperationId
+      ?? stableCareerLogicalToolOperationId(request.logicalTurnId, request.name),
+    argumentShape: safeCareerToolArgumentShape(request.input),
     ...(request.logicalTurnId ? { logicalTurnId: request.logicalTurnId } : {}),
     ...(request.taskId ? { taskId: request.taskId } : {}),
     completedAt: new Date().toISOString()
@@ -422,9 +476,87 @@ function noProgressResult(request: BridgeRequest): CareerToolResult {
   };
 }
 
+function duplicateInvalidCallResult(
+  request: BridgeRequest,
+  guard: {
+    schemaIssueFingerprint: string;
+    diagnostics: CareerToolFailureDiagnostics;
+  }
+): CareerToolResult {
+  const previous = guard.diagnostics;
+  const diagnostics: CareerToolFailureDiagnostics = {
+    toolFailureLayer: "gateway_validation",
+    failureKind: "gateway_validation_failed",
+    failureScope: "career_workflow",
+    safeDomainErrorCode: "career_agent_duplicate_invalid_call",
+    toolResultIsError: true,
+    failedStage: "gateway_validation",
+    durationMs: 0,
+    retryable: false,
+    operationId: request.operationId,
+    logicalToolOperationId: request.logicalToolOperationId
+      ?? stableCareerLogicalToolOperationId(request.logicalTurnId, request.name),
+    argumentShape: safeCareerToolArgumentShape(request.input),
+    ...(previous.schemaIssues ? { schemaIssues: previous.schemaIssues } : {}),
+    ...(previous.invalidFields ? { invalidFields: previous.invalidFields } : {}),
+    ...(previous.acceptedShapeHint ? { acceptedShapeHint: previous.acceptedShapeHint } : {}),
+    schemaIssueFingerprint: guard.schemaIssueFingerprint,
+    duplicateProjection: true,
+    ...(request.logicalTurnId ? { logicalTurnId: request.logicalTurnId } : {}),
+    ...(request.taskId ? { taskId: request.taskId } : {}),
+    completedAt: new Date().toISOString()
+  };
+  return {
+    ok: false,
+    error: {
+      code: "career_agent_duplicate_invalid_call",
+      category: "validation",
+      message: "本轮相同的无效工具输入已被识别；未重复调用 Gateway。请按 acceptedShapeHint 修正字段后再继续。",
+      recoverable: false,
+      retryHint: "修改无效字段或改用新的 checkpoint 输入后重试。",
+      diagnostics
+    },
+    diagnostics,
+    artifacts: [],
+    receipt: {
+      operationId: request.operationId,
+      toolName: request.name,
+      status: "failed",
+      completedAt: new Date().toISOString()
+    }
+  };
+}
+
+function withMcpCallTrace(result: CareerToolResult, request: BridgeRequest, gatewayReached: boolean): CareerToolResult {
+  const baseDiagnostics = result.diagnostics ?? result.error?.diagnostics;
+  if (!baseDiagnostics) return result;
+  const existingTrace = baseDiagnostics.mcpCallTrace;
+  const logicalToolOperationId = request.logicalToolOperationId
+    ?? stableCareerLogicalToolOperationId(request.logicalTurnId, request.name);
+  const diagnostics = CareerToolFailureDiagnosticsSchema.parse({
+    ...baseDiagnostics,
+    mcpCallTrace: {
+      toolName: request.name,
+      logicalToolOperationId,
+      requestStartedAt: existingTrace?.requestStartedAt ?? new Date().toISOString(),
+      jsonRpcStatus: "response_received",
+      ...(!result.ok && result.error?.code ? { safeMcpErrorCode: result.error.code } : {}),
+      browserMcpHandlerReached: existingTrace?.browserMcpHandlerReached ?? true,
+      gatewayReached: existingTrace ? existingTrace.gatewayReached : gatewayReached,
+      completedAt: new Date().toISOString()
+    }
+  });
+  return {
+    ...result,
+    diagnostics,
+    ...(result.error ? { error: { ...result.error, diagnostics } } : {})
+  };
+}
+
 function confirmationBoundaryResult(request: BridgeRequest): CareerToolResult {
   const diagnostics: CareerToolFailureDiagnostics = {
     toolFailureLayer: "gateway_policy",
+    failureKind: "workflow_failed",
     failureScope: "policy",
     safeDomainErrorCode: "career_agent_waiting_for_confirmation",
     toolResultIsError: true,
@@ -432,7 +564,9 @@ function confirmationBoundaryResult(request: BridgeRequest): CareerToolResult {
     durationMs: 0,
     retryable: true,
     operationId: request.operationId,
-    logicalToolOperationId: request.logicalToolOperationId ?? `hermes-tool-${request.operationId}`,
+    logicalToolOperationId: request.logicalToolOperationId
+      ?? stableCareerLogicalToolOperationId(request.logicalTurnId, request.name),
+    argumentShape: safeCareerToolArgumentShape(request.input),
     ...(request.logicalTurnId ? { logicalTurnId: request.logicalTurnId } : {}),
     ...(request.taskId ? { taskId: request.taskId } : {}),
     completedAt: new Date().toISOString()

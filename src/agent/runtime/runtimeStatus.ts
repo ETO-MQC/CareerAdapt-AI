@@ -118,6 +118,7 @@ export class RuntimeStatusStore {
       && health.careerMcpServerReachable
       && health.mcpConnected;
     const toolSurfaceReady = health.hermesMcpRegistered
+      && health.careerToolContractReady
       && health.hermesMcpToolCount > 0
       && health.requiredCareerFacadesMissing.length === 0;
     this.update({
@@ -154,7 +155,7 @@ export class RuntimeStatusStore {
 
   recordRunFailure(input: HermesRunFailureInput & { safeErrorCode?: string; safeErrorMessage?: string }) {
     const requestedCode = input.code ?? input.safeErrorCode;
-    if (isCareerDomainPreconditionCode(requestedCode)) return;
+    if (isCareerDomainPreconditionCode(requestedCode) || requestedCode === "hermes_event_stream_active") return;
     const activeRunId = input.hermesRunId ?? this.snapshot.activeRunId ?? this.snapshot.health?.activeRunId;
     const normalizedCode = activeRunId
       && (requestedCode === "hermes_unavailable_before_turn" || requestedCode === "mcp_unavailable_before_turn")
