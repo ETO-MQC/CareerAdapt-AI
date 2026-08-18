@@ -201,8 +201,8 @@ export function editorHtmlToExperienceDocument(
   const marker = new RegExp(`<p[^>]*>\\s*${EXPERIENCE_OUTCOMES_MARKER}\\s*</p>`, "iu").exec(html);
   const primaryHtml = marker ? html.slice(0, marker.index) : html;
   const outcomesHtml = marker ? html.slice(marker.index + marker[0].length) : "";
-  const primaryHasList = /<li(?:\\s|>)/iu.test(primaryHtml);
-  const outcomesHaveList = /<li(?:\\s|>)/iu.test(outcomesHtml);
+  const primaryHasList = /<li(?:\s|>)/iu.test(primaryHtml);
+  const outcomesHaveList = /<li(?:\s|>)/iu.test(outcomesHtml);
   return {
     ...current,
     description: htmlParagraphTexts(primaryHtml).join("\n"),
@@ -211,16 +211,28 @@ export function editorHtmlToExperienceDocument(
   };
 }
 
+export function experienceEditorContentCounts(html: string) {
+  const marker = new RegExp(`<p[^>]*>\\s*${EXPERIENCE_OUTCOMES_MARKER}\\s*</p>`, "iu").exec(html);
+  const primaryHtml = marker ? html.slice(0, marker.index) : html;
+  const outcomesHtml = marker ? html.slice(marker.index + marker[0].length) : "";
+  return {
+    descriptionParagraphs: htmlParagraphTexts(primaryHtml).length,
+    highlights: /<li(?:\s|>)/iu.test(primaryHtml) ? editorHtmlToHighlights(primaryHtml).length : 0,
+    outcomes: marker && /<li(?:\s|>)/iu.test(outcomesHtml) ? editorHtmlToHighlights(outcomesHtml).length : 0
+  };
+}
+
 const EXPERIENCE_OUTCOMES_MARKER = "成果与结果";
 
 function htmlParagraphTexts(html: string) {
+  const htmlWithoutLists = html.replace(/<(?:ul|ol)\b[\s\S]*?<\/(?:ul|ol)>/giu, "");
   const paragraphs: string[] = [];
   const paragraphRegex = /<p[^>]*>([\s\S]*?)<\/p>/giu;
-  let match = paragraphRegex.exec(html);
+  let match = paragraphRegex.exec(htmlWithoutLists);
   while (match) {
     const value = match[1].replace(/<[^>]+>/gu, "").replace(/&nbsp;/gu, " ").replace(/&amp;/gu, "&").replace(/&lt;/gu, "<").replace(/&gt;/gu, ">").trim();
     if (value) paragraphs.push(value);
-    match = paragraphRegex.exec(html);
+    match = paragraphRegex.exec(htmlWithoutLists);
   }
   return paragraphs;
 }

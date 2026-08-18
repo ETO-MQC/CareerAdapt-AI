@@ -2,7 +2,7 @@ import { demoJobDescriptions } from "@/data/demoJobs";
 import { demoCareerProfile } from "@/data/demoProfile";
 import { migrateBranchContentItem, migrateCareerProfileToV2, migrateResumeBranchToV2, normalizeAwardedAt, projectResumeItemV2 } from "@/domain/migrations/resumeV2";
 import { canonicalProfileLibraryItems } from "@/domain/profile/canonicalLibrary";
-import { buildProfileSyncDiagnostics, type ProfileSyncDiagnostics } from "@/domain/profile/profileSyncDiagnostics";
+import { buildProfileSyncDiagnostics, profileSyncContentCounts, type ProfileSyncDiagnostics } from "@/domain/profile/profileSyncDiagnostics";
 import {
   AiLogSchema,
   AiSuggestionSchema,
@@ -7271,10 +7271,13 @@ export class WorkspaceRepository {
     ]);
     if (!sourceAfter || !targetAfter) throw new Error("profile_sync_readback_missing");
     const branchAfter = (input.direction === "profile_to_resume" ? targetAfter : sourceAfter) as ResumeBranch;
+    const expectedBranchCounts = profileSyncContentCounts(result.branch);
+    const actualBranchCounts = profileSyncContentCounts(branchAfter);
     const readbackVerified = branchAfter.id === result.branch.id
       && branchAfter.revision === result.branch.revision
       && branchAfter.currentRevisionId === result.branch.currentRevisionId
-      && ((input.direction === "profile_to_resume" ? targetAfter : sourceAfter).id === result.branch.id);
+      && ((input.direction === "profile_to_resume" ? targetAfter : sourceAfter).id === result.branch.id)
+      && JSON.stringify(expectedBranchCounts) === JSON.stringify(actualBranchCounts);
     const sourceRevision = "version" in sourceAfter ? sourceAfter.version : sourceAfter.revision;
     const targetRevision = "version" in targetAfter ? targetAfter.version : targetAfter.revision;
     const syncDiagnostics = buildProfileSyncDiagnostics({

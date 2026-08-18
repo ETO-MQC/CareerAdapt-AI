@@ -19,12 +19,13 @@ import {
   safeCareerToolArgumentShape,
   safeZodSchemaIssues
 } from "./careerToolDiagnostics";
-import { contractIdentityForInputSchema } from "./careerToolContract";
+import { contractIdentityForInputSchema, stableCareerLogicalToolOperationId } from "./careerToolContract";
 import {
   TransactionalWorkflowLeaseManager,
   type TransactionalWorkflowLease
 } from "../workflows/TransactionalWorkflowLease";
 import { isCareerDomainPreconditionCode } from "../runtime/careerContextBindingResolver";
+import { appBuildTechnicalDiagnostics } from "@/services/diagnostics/appBuildInfo";
 
 export type CareerToolReadWrite = "read" | "write";
 export type CareerToolConfirmationPolicy = "none" | "user_confirmation" | "destructive_confirmation";
@@ -316,6 +317,12 @@ export class CareerToolGateway {
     input: unknown,
     context: CareerToolExecutionContext = {}
   ): Promise<CareerToolResult<T>> {
+    context = {
+      ...context,
+      ...(context.logicalToolOperationId || !context.logicalTurnId
+        ? {}
+        : { logicalToolOperationId: stableCareerLogicalToolOperationId(context.logicalTurnId, name) })
+    };
     const operationId = normalizeOperationId(context.operationId);
     const trace = createExecutionTrace(name, input, operationId, context);
     const workflow = this.workflowByName.get(name);
@@ -429,6 +436,8 @@ export class CareerToolGateway {
         toolInput: input,
         operationId,
         logicalToolOperationId: context.logicalToolOperationId,
+        logicalTurnId: context.logicalTurnId,
+        taskId: context.taskId,
         incidentTraceId: context.incidentTraceId,
         signal: context.signal,
         confirmed: context.confirmed,
@@ -952,6 +961,8 @@ function finishTrace(
     ...(trace.logicalTurnId ? { logicalTurnId: trace.logicalTurnId } : {}),
     ...(trace.taskId ? { taskId: trace.taskId } : {}),
     argumentShape: safeCareerToolArgumentShape(trace.input),
+    gatewayArgumentShape: safeCareerToolArgumentShape(trace.input),
+    ...appBuildTechnicalDiagnostics,
     ...(trace.schemaIssues?.length ? { schemaIssues: trace.schemaIssues } : {}),
     ...(trace.invalidFields?.length ? { invalidFields: trace.invalidFields } : {}),
     ...(trace.acceptedShapeHint ? { acceptedShapeHint: trace.acceptedShapeHint } : {}),

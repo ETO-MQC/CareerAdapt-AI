@@ -10,6 +10,8 @@ import {
   safeCareerToolArgumentShape,
   type CareerToolFailureDiagnostics
 } from "../tools/careerToolDiagnostics";
+import { CAREER_TOOL_CONTRACT_VERSION } from "../tools/careerToolContract";
+import { stableHashText } from "@/services/security/text";
 
 type BridgeRequest = {
   id: string;
@@ -34,6 +36,7 @@ export type CareerAdaptMcpBridgeClientStatus = {
 export type CareerAdaptMcpConfirmationContext = {
   sessionId: string;
   turnId: string;
+  taskId?: string;
   assistantMessageId: string;
   userMessageId?: string;
   incidentTraceId?: string;
@@ -70,8 +73,11 @@ export class CareerAdaptMcpBridgeClient {
   private confirmationPendingTurnId?: string;
   private noProgress?: { turnId: string; callKey: string; count: number };
   private invalidCallGuard?: {
-    turnId: string;
+    sessionId: string;
+    logicalTurnId: string;
     toolName: string;
+    contractVersion: string;
+    operationId: string;
     argumentShapeFingerprint: string;
     schemaIssueFingerprint: string;
     diagnostics: CareerToolFailureDiagnostics;
@@ -79,6 +85,7 @@ export class CareerAdaptMcpBridgeClient {
   private lifecycleGeneration = 0;
   private registrationChain: Promise<void> = Promise.resolve();
   private currentBinding?: CareerSessionBinding;
+  private turnContextSyncChain: Promise<void> = Promise.resolve();
 
   async start(
     gateway: CareerAdaptMcpGateway,
@@ -119,6 +126,7 @@ export class CareerAdaptMcpBridgeClient {
       this.detachedConfirmationContext = this.confirmationContext;
     }
     this.confirmationContext = context;
+    return this.syncTurnContext();
   }
 
   async stop() {
@@ -143,6 +151,7 @@ export class CareerAdaptMcpBridgeClient {
     this.confirmationPendingTurnId = undefined;
     this.invalidCallGuard = undefined;
     this.currentBinding = undefined;
+    this.turnContextSyncChain = Promise.resolve();
     this.onConfirmation = undefined;
     this.onResult = undefined;
     this.publish({ connected: false, discoveredToolCount: 0, reason: "stopped" });
@@ -163,7 +172,8 @@ export class CareerAdaptMcpBridgeClient {
           action: "binding",
           bridgeId,
           token,
-          ...(binding ? { binding } : {})
+          ...(binding ? { binding } : {}),
+          turnContext: this.turnContextPayload()
         }),
         cache: "no-store"
       }).catch(() => undefined);
@@ -177,6 +187,39 @@ export class CareerAdaptMcpBridgeClient {
       await this.queueRegister().catch(() => undefined);
     }
     throw Object.assign(new Error("mcp_bridge_binding_unavailable"), { code: "mcp_bridge_binding_unavailable" });
+  }
+
+  private turnContextPayload() {
+    const context = this.confirmationContext;
+    return context
+      ? {
+          sessionId: context.sessionId,
+          logicalTurnId: context.turnId,
+          ...(context.taskId ? { taskId: context.taskId } : {}),
+          ...(context.incidentTraceId ? { incidentTraceId: context.incidentTraceId } : {}),
+          agentSessionId: context.sessionId
+        }
+      : null;
+  }
+
+  private syncTurnContext() {
+    const queued = this.turnContextSyncChain.then(async () => {
+      if (this.stopped || !this.bridgeId || !this.token) return;
+      const response = await fetch(bridgeUrl(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "turn_context",
+          bridgeId: this.bridgeId,
+          token: this.token,
+          turnContext: this.turnContextPayload()
+        }),
+        cache: "no-store"
+      });
+      if (!response.ok) throw new Error("mcp_bridge_turn_context_unavailable");
+    });
+    this.turnContextSyncChain = queued.catch(() => undefined);
+    return queued;
   }
 
   private queueRegister(generation = this.lifecycleGeneration) {
@@ -196,7 +239,8 @@ export class CareerAdaptMcpBridgeClient {
         body: JSON.stringify({
           action: "register",
           contracts: gateway.listContracts(),
-          ...(this.currentBinding ? { binding: this.currentBinding } : {})
+          ...(this.currentBinding ? { binding: this.currentBinding } : {}),
+          turnContext: this.turnContextPayload()
         }),
         cache: "no-store"
       });
@@ -218,7 +262,8 @@ export class CareerAdaptMcpBridgeClient {
             action: "binding",
             bridgeId: this.bridgeId,
             token: this.token,
-            binding: this.currentBinding
+            binding: this.currentBinding,
+            turnContext: this.turnContextPayload()
           }),
           cache: "no-store"
         }).catch(() => undefined);
@@ -271,11 +316,17 @@ export class CareerAdaptMcpBridgeClient {
     const confirmationContext = this.confirmationContext ?? this.detachedConfirmationContext;
     let result: CareerToolResult;
     const toolInput = normalizeHermesScopedInput(request.name, request.input, request.careerSessionBinding, confirmationContext);
+    let gatewayReached = false;
     try {
+      const logicalTurnId = request.logicalTurnId ?? confirmationContext?.turnId;
+      const sessionId = request.agentSessionId ?? confirmationContext?.sessionId;
+      const cacheSessionId = sessionId ?? "bridge-session";
+      const contractVersion = this.gateway.listContracts().find((candidate) => candidate.name === request.name)?.contractVersion
+        ?? CAREER_TOOL_CONTRACT_VERSION;
       const context: CareerToolExecutionContext = {
         operationId: request.operationId,
         logicalToolOperationId: request.logicalToolOperationId,
-        logicalTurnId: request.logicalTurnId ?? confirmationContext?.turnId,
+        logicalTurnId,
         taskId: request.taskId,
         incidentTraceId: request.incidentTraceId,
         agentSessionId: request.agentSessionId ?? confirmationContext?.sessionId,
@@ -283,12 +334,15 @@ export class CareerAdaptMcpBridgeClient {
         requireSessionBinding: request.requireSessionBinding === true
       };
       const callKey = `${request.name}:${stableJson(toolInput)}`;
-      const turnId = request.logicalTurnId ?? confirmationContext?.turnId ?? "unbound-turn";
-      const argumentShapeFingerprint = stableJson(safeCareerToolArgumentShape(toolInput));
-      let gatewayReached = false;
+      const turnId = logicalTurnId ?? "unbound-turn";
+      const argumentShapeFingerprint = stableHashText(stableJson(safeCareerToolArgumentShape(toolInput)));
+      const provenTurn = Boolean(logicalTurnId);
       if (this.invalidCallGuard && (
-        this.invalidCallGuard.turnId !== turnId
+        !provenTurn
+        || this.invalidCallGuard.sessionId !== cacheSessionId
+        || this.invalidCallGuard.logicalTurnId !== logicalTurnId
         || this.invalidCallGuard.toolName !== request.name
+        || this.invalidCallGuard.contractVersion !== contractVersion
         || this.invalidCallGuard.argumentShapeFingerprint !== argumentShapeFingerprint
       )) {
         this.invalidCallGuard = undefined;
@@ -306,17 +360,20 @@ export class CareerAdaptMcpBridgeClient {
           ? { ...this.noProgress, count: this.noProgress.count + 1 }
           : { turnId, callKey, count: 1 };
         const resultDiagnostics = result.diagnostics ?? result.error?.diagnostics;
-        if (!result.ok && !result.error?.recoverable && resultDiagnostics?.schemaIssues?.length) {
+        if (provenTurn && !result.ok && !result.error?.recoverable && resultDiagnostics?.schemaIssues?.length) {
           this.invalidCallGuard = {
-            turnId,
+            sessionId: cacheSessionId,
+            logicalTurnId: logicalTurnId!,
             toolName: request.name,
+            contractVersion,
+            operationId: request.operationId,
             argumentShapeFingerprint,
-            schemaIssueFingerprint: stableJson(resultDiagnostics.schemaIssues),
+            schemaIssueFingerprint: stableHashText(stableJson(resultDiagnostics.schemaIssues)),
             diagnostics: resultDiagnostics
           };
         }
       }
-      result = withMcpCallTrace(result, request, gatewayReached);
+      result = withMcpCallTrace(result, request, gatewayReached, toolInput);
       if (isConfirmationRequired(result) && confirmationContext) {
         this.confirmationPendingTurnId = turnId;
       }
@@ -336,6 +393,7 @@ export class CareerAdaptMcpBridgeClient {
       await Promise.resolve(this.onResult?.({ request, result, confirmationContext })).catch(() => undefined);
     } catch (error) {
       result = failedResult(request, safeError(error));
+      result = withMcpCallTrace(result, request, gatewayReached, toolInput);
     }
     await fetch(bridgeUrl(), {
       method: "POST",
@@ -475,6 +533,8 @@ function noProgressResult(request: BridgeRequest): CareerToolResult {
 function duplicateInvalidCallResult(
   request: BridgeRequest,
   guard: {
+    operationId: string;
+    argumentShapeFingerprint: string;
     schemaIssueFingerprint: string;
     diagnostics: CareerToolFailureDiagnostics;
   }
@@ -496,6 +556,9 @@ function duplicateInvalidCallResult(
     ...(previous.invalidFields ? { invalidFields: previous.invalidFields } : {}),
     ...(previous.acceptedShapeHint ? { acceptedShapeHint: previous.acceptedShapeHint } : {}),
     schemaIssueFingerprint: guard.schemaIssueFingerprint,
+    duplicateOfOperationId: guard.operationId,
+    previousSchemaFingerprint: guard.schemaIssueFingerprint,
+    previousArgumentShapeFingerprint: guard.argumentShapeFingerprint,
     duplicateProjection: true,
     ...(request.logicalTurnId ? { logicalTurnId: request.logicalTurnId } : {}),
     ...(request.taskId ? { taskId: request.taskId } : {}),
@@ -522,13 +585,19 @@ function duplicateInvalidCallResult(
   };
 }
 
-function withMcpCallTrace(result: CareerToolResult, request: BridgeRequest, gatewayReached: boolean): CareerToolResult {
+function withMcpCallTrace(
+  result: CareerToolResult,
+  request: BridgeRequest,
+  gatewayReached: boolean,
+  input: unknown
+): CareerToolResult {
   const baseDiagnostics = result.diagnostics ?? result.error?.diagnostics;
   if (!baseDiagnostics) return result;
   const existingTrace = baseDiagnostics.mcpCallTrace;
   const logicalToolOperationId = request.logicalToolOperationId ?? request.operationId;
   const diagnostics = CareerToolFailureDiagnosticsSchema.parse({
     ...baseDiagnostics,
+    browserHandlerArgumentShape: safeCareerToolArgumentShape(input),
     mcpCallTrace: {
       toolName: request.name,
       logicalToolOperationId,

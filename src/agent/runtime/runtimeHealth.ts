@@ -32,6 +32,8 @@ export const RuntimeHealthSchema = z.object({
   hermesCareerFacadeCount: z.number().int().min(0).default(0),
   careerToolContractReady: z.boolean().default(true),
   careerToolContractVersion: z.string().min(1).optional(),
+  appBuildCommit: z.string().min(1).optional(),
+  appBuildTimestamp: z.string().min(1).optional(),
   careerToolContractReason: z.string().min(1).optional(),
   careerToolContractMismatches: z.array(z.object({
     toolName: z.string().min(1),

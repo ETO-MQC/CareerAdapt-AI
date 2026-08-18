@@ -78,7 +78,7 @@ export function StructuredExperienceForm({
       {category === "education" ? (
         <FieldInput id={`${idPrefix}-courses`} label="主修课程" value={value.courses} placeholder="用顿号或逗号分隔" onChange={(next) => update("courses", next)} onFocus={onFocus} />
       ) : null}
-      <div className="experience-description-field">
+      <div className="experience-description-field" data-profile-editor="experience-content">
         <label className="field-input-label">{labels.description}</label>
         <TipTapEditor
           value={experienceDocumentToEditorHtml(editorDocument)}

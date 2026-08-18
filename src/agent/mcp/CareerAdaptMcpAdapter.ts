@@ -7,9 +7,11 @@ import type {
 import type { CareerSessionBinding } from "../runtime/careerSessionBinding";
 import {
   CareerToolFailureDiagnosticsSchema,
+  safeCareerToolArgumentShape,
   type CareerMcpCallTrace,
   type CareerToolFailureDiagnostics
 } from "../tools/careerToolDiagnostics";
+import { stableCareerLogicalToolOperationId } from "../tools/careerToolContract";
 
 /**
  * The MCP adapter is deliberately narrower than the Career domain.  It only
@@ -97,16 +99,18 @@ export class CareerAdaptMcpAdapter {
     const contract = this.gateway.listContracts().find((candidate) => candidate.name === name);
     const operationId = normalizeOperationId(meta.operationId);
     const requestStartedAt = new Date().toISOString();
-    // The Browser handler may carry forward an upstream ID or reuse the
-    // existing MCP operation ID for legacy direct callers. It must not mint a
-    // second logical ID from the turn and tool name.
-    const logicalToolOperationId = meta.logicalToolOperationId?.trim() || operationId;
+    // The Browser handler carries forward the upstream ID. A legacy direct
+    // caller without one gets the same deterministic turn/tool fallback; no
+    // per-call logical ID is minted here.
+    const logicalToolOperationId = meta.logicalToolOperationId?.trim()
+      || (meta.logicalTurnId ? stableCareerLogicalToolOperationId(meta.logicalTurnId, name) : operationId);
     if (!contract) {
       return toolErrorResult(
         "unknown_career_tool",
         "当前 Career 工具不可用。",
         operationId,
         name,
+        input,
         logicalToolOperationId,
         requestStartedAt
       );
@@ -130,7 +134,7 @@ export class CareerAdaptMcpAdapter {
       requireSessionBinding: meta.requireSessionBinding === true
     };
     const result = await this.gateway.execute(name, input, context);
-    return toCallResult(result, contract, logicalToolOperationId, {
+    return toCallResult(result, contract, logicalToolOperationId, input, {
       toolName: name,
       logicalToolOperationId,
       requestStartedAt,
@@ -175,12 +179,14 @@ function toCallResult(
   result: CareerToolResult,
   contract: CareerToolContract,
   logicalToolOperationId: string,
+  input: unknown,
   mcpCallTrace: CareerMcpCallTrace
 ): CareerAdaptMcpCallResult {
   const baseDiagnostics = result.diagnostics ?? result.error?.diagnostics;
   const diagnostics = baseDiagnostics
-    ? CareerToolFailureDiagnosticsSchema.parse({
+      ? CareerToolFailureDiagnosticsSchema.parse({
         ...baseDiagnostics,
+        mcpJsonRpcArgumentShape: safeCareerToolArgumentShape(input),
         mcpCallTrace: baseDiagnostics.mcpCallTrace
           ? {
               ...mcpCallTrace,
@@ -247,6 +253,7 @@ function toolErrorResult(
   message: string,
   operationId: string,
   toolName: string,
+  input: unknown,
   logicalToolOperationId: string,
   requestStartedAt: string
 ): CareerAdaptMcpCallResult {
@@ -261,6 +268,7 @@ function toolErrorResult(
     retryable: false,
     operationId,
     logicalToolOperationId,
+    mcpJsonRpcArgumentShape: safeCareerToolArgumentShape(input),
     mcpCallTrace: {
       toolName,
       logicalToolOperationId,

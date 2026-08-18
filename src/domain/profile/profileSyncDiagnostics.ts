@@ -53,6 +53,10 @@ export type ProfileSyncDiagnostics = {
   readbackVerified: boolean;
 };
 
+export function profileSyncContentCounts(entity: CareerProfile | ResumeBranch): SyncContentCounts {
+  return snapshotSyncSide(entity).contentCounts;
+}
+
 export function buildProfileSyncDiagnostics(input: {
   direction: ProfileSyncDirection;
   sourceBefore: CareerProfile | ResumeBranch;

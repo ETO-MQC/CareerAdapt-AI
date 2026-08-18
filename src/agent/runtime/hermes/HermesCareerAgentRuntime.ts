@@ -8,6 +8,7 @@ import type {
 } from "../agentRuntime";
 import type { HermesRunHandle } from "../../contracts/agentSession";
 import type { CareerToolGateway, CareerToolContract } from "../../tools/CareerToolGateway";
+import { safeCareerToolArgumentShape } from "../../tools/careerToolDiagnostics";
 import { logicalToolOperationId, type HermesBridgeEvent, type HermesBridgeTransport, type HermesRunTraceContext } from "./HermesBridgeTransport";
 import { resolveCareerSessionBinding, type CareerSessionBinding } from "../careerSessionBinding";
 import { hermesProductionToolNames, HermesCareerToolCatalog, projectCareerContractsForHermes, HERMES_REQUIRED_CAREER_FACADES } from "./HermesCareerToolCatalog";
@@ -945,7 +946,11 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         yield this.event(input, "tool_call_requested", {
           toolName: bridgeEvent.toolName,
           operationId: bridgeEvent.operationId,
-          data: { toolCallId: bridgeEvent.toolCallId, logicalToolOperationId: this.bridgeLogicalOperationId(input, bridgeEvent), input: bridgeEvent.input }
+          data: {
+            toolCallId: bridgeEvent.toolCallId,
+            logicalToolOperationId: this.bridgeLogicalOperationId(input, bridgeEvent),
+            hermesToolCallArgumentShape: safeCareerToolArgumentShape(bridgeEvent.input)
+          }
         });
         yield* this.executeToolCall(input, opened.sessionId, bridgeEvent, counters, binding, requireSessionBinding);
         continue;
@@ -1197,7 +1202,12 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         toolName: request.toolName,
         operationId: request.operationId,
         message: "这项 Career 操作需要用户确认后才能继续。",
-        data: { toolCallId: request.toolCallId, logicalToolOperationId: logicalOperationId, input: request.input, contract }
+        data: {
+          toolCallId: request.toolCallId,
+          logicalToolOperationId: logicalOperationId,
+          hermesToolCallArgumentShape: safeCareerToolArgumentShape(request.input),
+          contract
+        }
       });
       yield approval;
       await this.dependencies.transport.toolCallback({

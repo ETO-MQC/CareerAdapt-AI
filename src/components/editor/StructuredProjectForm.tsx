@@ -43,7 +43,7 @@ export function StructuredProjectForm({ value, onChange, idPrefix, onFocus }: St
       <FieldInput id={`${idPrefix}-url`} label="项目链接" type="url" value={value.url} placeholder="https://…" onChange={(next) => update("url", next)} onFocus={onFocus} />
       <TokenEditor idPrefix={`${idPrefix}-tools`} label="技术栈 / 工具" values={value.tools} onChange={(next) => update("tools", next)} onFocus={onFocus} placeholder="输入后按 Enter 添加，例如 React" />
       <TextAreaField id={`${idPrefix}-background`} label="项目背景" value={value.background} onChange={(next) => update("background", next)} onFocus={onFocus} placeholder="只写来源中已有的背景，不需要补充推测。" />
-      <div className="experience-description-field">
+      <div className="experience-description-field" data-profile-editor="experience-content">
         <label className="field-input-label">经历内容与成果</label>
         <TipTapEditor
           value={experienceDocumentToEditorHtml(editorDocument)}

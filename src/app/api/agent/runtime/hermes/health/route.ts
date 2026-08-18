@@ -11,6 +11,7 @@ import {
   statusCareerAdaptMcpBridge
 } from "@/server/careerAdaptMcpBridgeRegistry";
 import { readHermesRunReadiness } from "@/agent/runtime/hermes/hermesRunReadiness";
+import { appBuildTechnicalDiagnostics } from "@/services/diagnostics/appBuildInfo";
 
 export const dynamic = "force-dynamic";
 
@@ -204,7 +205,7 @@ async function withRuntimeHealth(
     hermesMcpToolCount: coverage.hermesMcpToolCount,
     hermesCareerFacadeCount: coverage.hermesCareerFacadeCount,
     careerToolContractReady,
-    careerToolContractVersion: contractReadiness.contractVersion,
+    ...appBuildTechnicalDiagnostics,
     ...(careerToolContractReady ? {} : {
       careerToolContractReason: contractReadiness.reason ?? "career_tool_contract_mismatch",
       careerToolContractMismatches: contractReadiness.mismatches

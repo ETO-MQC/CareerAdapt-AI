@@ -22,6 +22,7 @@ import { ProfileIntakeReviewProjectionSchema, type ProfileIntakeReviewProjection
 import { ResumeCompositionInformationNeedSchema } from "@/domain/resumeComposition/contracts";
 import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
 import { normalizeTailoringStage } from "@/agent/workflows/tailoringStage";
+import { createTurnScopedTargetContext } from "./turnScopedTargetContext";
 
 export type AgentTaskEvent =
   | {
@@ -176,6 +177,25 @@ export class AgentTaskStateReducer {
     }
     if (event.type === "user_message") {
       delete state.knownSlots.compoundAnswerResolution;
+      if (looksLikeJd(event.message)) {
+        const targetText = event.message.trim();
+        if (event.turnId) {
+          state.knownSlots.turnScopedTargetContext = createTurnScopedTargetContext({
+            logicalTurnId: event.turnId,
+            targetText,
+            createdAt: event.capturedAt ?? state.updatedAt
+          });
+        }
+        if (
+          state.rootGoal === "apply_to_external_job"
+          || state.rootGoal === "generate_job_specific_resume"
+          || state.rootGoal === "clarify_external_target"
+        ) {
+          state.knownSlots.rawText = targetText;
+          state.knownSlots.targetSourceType = "pasted_jd";
+          state.knownSlots.jobPersistenceDecision = "ask";
+        }
+      }
       if (state.workflowId === "guided_profile_intake") {
         const profileIntakeTurnKind = event.profileIntakeTurnKind ?? classifyProfileIntakeTurn({
           text: event.message,
@@ -310,11 +330,6 @@ export class AgentTaskStateReducer {
       }
       if (state.completionStatus !== "waiting_for_confirmation") state.completionStatus = "active";
       captureEntityReferences(state, event.message);
-      if ((state.rootGoal === "apply_to_external_job" || state.rootGoal === "generate_job_specific_resume" || state.rootGoal === "clarify_external_target") && looksLikeJd(event.message)) {
-        state.knownSlots.rawText = event.message.trim();
-        state.knownSlots.targetSourceType = "pasted_jd";
-        state.knownSlots.jobPersistenceDecision = "ask";
-      }
       if (isTailoringGoal(state.rootGoal)) {
         resolvePendingTailoringSelection(state, event.message);
       }

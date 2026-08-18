@@ -28,6 +28,7 @@ import {
   type ProfileImportDraft,
   type ProfileRecycleItem,
   type RawInputDocument,
+  type ResumeBranch,
   type ResumeItemV2,
   type Skill
 } from "@/domain/schemas";
@@ -63,6 +64,8 @@ import { notify } from "@/services/notifications/store";
 import { useWorkspace } from "@/services/workspace/useWorkspace";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
 import { countProfileContent, profileCountSummary } from "@/domain/profile/profileCounts";
+import { buildProfileContentIntegrity, canonicalProfileContentCounts } from "@/domain/profile/profileContentIntegrity";
+import { experienceEditorContentCounts, experienceDocumentToEditorHtml } from "@/components/editor/helpers";
 
 const repository = new WorkspaceRepository();
 const pdfInputId = "resume-pdf-upload";
@@ -232,6 +235,7 @@ export function ProfileWorkspace() {
   const [newProfileDraft, setNewProfileDraft] = useState<NewProfileDraft>(emptyNewProfileDraft);
   const [profileOverrides, setProfileOverrides] = useState<Record<string, CareerProfile>>({});
   const [removedProfileIds, setRemovedProfileIds] = useState<string[]>([]);
+  const [generalResumeState, setGeneralResumeState] = useState<{ profileId: string; resume?: ResumeBranch }>();
 
   useEffect(() => {
     let active = true;
@@ -325,6 +329,7 @@ export function ProfileWorkspace() {
     ? availableProfiles.find((item) => item.id === activeCareerContext.profileId)
     : undefined;
   const profile = profileOverride === undefined ? workspaceProfile : profileOverride ?? undefined;
+  const generalResume = generalResumeState?.profileId === profile?.id ? generalResumeState?.resume : undefined;
   const profileCounts = profile ? countProfileContent(profile) : undefined;
   const profileDraftKey = profile ? `${profile.id}:${profile.version}` : "";
   const basicDraft = profile && basicDraftState.profileKey !== profileDraftKey
@@ -342,6 +347,35 @@ export function ProfileWorkspace() {
     () => profile ? buildProfileCategoryCounts(profile, profileArchive) : new Map<ProfileCategoryId, number>(),
     [profile, profileArchive]
   );
+  const integrityEditorSource = activeProfileCategory === "project"
+    ? (profileItemEditing ? profileItemDraft.projectFields : selectedProfileItem?.projectStructured)
+    : (profileItemEditing ? profileItemDraft : selectedProfileItem?.structured);
+  const integrityEditorDocument = integrityEditorSource
+    ? {
+        description: integrityEditorSource.description,
+        highlights: integrityEditorSource.highlights,
+        outcomes: integrityEditorSource.outcomes ?? [],
+        tools: integrityEditorSource.tools ?? [],
+        background: integrityEditorSource.background ?? ""
+      }
+    : undefined;
+  const integrityEditorHtml = integrityEditorDocument
+    ? experienceDocumentToEditorHtml(integrityEditorDocument)
+    : "";
+  const profileContentIntegrity = profile
+    ? buildProfileContentIntegrity({
+        profile,
+        ...(integrityEditorDocument ? { editorProjection: integrityEditorDocument } : {}),
+        renderedEditorCounts: {
+          ...experienceEditorContentCounts(integrityEditorHtml),
+          ...(integrityEditorDocument ? {
+            items: 1,
+            tools: integrityEditorDocument.tools.length
+          } : {})
+        },
+        generalResume
+      })
+    : undefined;
 
   function setBasicDraft(nextDraft: BasicDraft) {
     setBasicDraftState({ ...nextDraft, profileKey: profileDraftKey });
@@ -392,10 +426,30 @@ export function ProfileWorkspace() {
     };
   }, [profile?.id]);
 
+  useEffect(() => {
+    let active = true;
+    if (!profile?.id) {
+      return () => { active = false; };
+    }
+    const profileId = profile.id;
+    void repository.listResumeBranches(profileId).then((branches) => {
+      if (!active) return;
+      setGeneralResumeState({
+        profileId,
+        resume: branches.find((branch) => branch.branchPurpose === "general" && branch.lifecycleStatus === "active")
+      });
+    });
+    return () => { active = false; };
+  }, [profile?.id, profile?.version]);
   async function saveProfileSnapshot(nextProfile: CareerProfile, successMessage: string) {
     setProfileSaving(true);
     try {
       const saved = await repository.saveProfile(synchronizeProfileStructuredFacts(nextProfile, profile));
+      const readback = await repository.getProfile(saved.id);
+      if (!readback || readback.version !== saved.version) throw new Error("profile_content_readback_missing");
+      const expectedCounts = canonicalProfileContentCounts(saved);
+      const readbackCounts = canonicalProfileContentCounts(readback);
+      if (JSON.stringify(expectedCounts) !== JSON.stringify(readbackCounts)) throw new Error("profile_content_readback_mismatch");
       setProfileOverride(saved);
       setProfileOverrides((current) => ({ ...current, [saved.id]: saved }));
       setSaveStatus("saved");
@@ -1694,7 +1748,10 @@ export function ProfileWorkspace() {
   }
 
   return (
-    <main className={importWorkspaceOpen ? "page-shell profile-workspace is-import-open" : "page-shell profile-workspace"}>
+    <main
+      className={importWorkspaceOpen ? "page-shell profile-workspace is-import-open" : "page-shell profile-workspace"}
+      {...(profileContentIntegrity ? { "data-profile-content-integrity": JSON.stringify(profileContentIntegrity) } : {})}
+    >
       <ProductTopbar
         className="profile-page-topbar"
         title="个人资料库"

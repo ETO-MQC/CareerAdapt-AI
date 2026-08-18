@@ -14,6 +14,8 @@ import {
   type RunStopReason
 } from "./hermesIncidentTrace";
 import { stableCareerLogicalToolOperationId } from "../../tools/careerToolContract";
+import { safeCareerToolArgumentShape } from "../../tools/careerToolDiagnostics";
+import { appBuildTechnicalDiagnostics } from "@/services/diagnostics/appBuildInfo";
 
 export const HermesHealthSchema = z.object({
   available: z.boolean(),
@@ -502,12 +504,20 @@ export function mapOfficialHermesEvent(name: string, value: unknown): HermesBrid
       ? `hermes-mcp-${toolCallId}`
       : `hermes-mcp-${typeof payload.run_id === "string" ? payload.run_id : "run"}-${toolName}`;
   const eventLogicalToolOperationId = officialLogicalToolOperationId(payload, toolCallId, operationId, toolName);
+  const hermesToolCallArgumentShape = safeCareerToolArgumentShape(officialToolArgumentInput(payload));
 
   if (name === "message.delta") {
     return typeof payload.delta === "string" ? { type: "text_delta", delta: payload.delta } : undefined;
   }
   if (name === "tool.started") {
-    return { type: "tool_call_started", toolCallId, toolName, operationId, logicalToolOperationId: eventLogicalToolOperationId, data: payload };
+    return {
+      type: "tool_call_started",
+      toolCallId,
+      toolName,
+      operationId,
+      logicalToolOperationId: eventLogicalToolOperationId,
+      data: safeOfficialToolEventData(payload, hermesToolCallArgumentShape)
+    };
   }
   if (name === "tool.completed") {
     const failure = officialToolFailure(payload);
@@ -521,15 +531,28 @@ export function mapOfficialHermesEvent(name: string, value: unknown): HermesBrid
           code: failure.code,
           message: failure.message,
           recoverable: failure.recoverable,
-          data: { ...safeOfficialToolFailureData(payload, failure.code), ...terminalData }
+          data: { ...safeOfficialToolFailureData(payload, failure.code), hermesToolCallArgumentShape, ...terminalData }
         }
-      : { type: "tool_call_completed", toolCallId, toolName, operationId, logicalToolOperationId: eventLogicalToolOperationId, data: { ...payload, ...terminalData } };
+      : {
+          type: "tool_call_completed",
+          toolCallId,
+          toolName,
+          operationId,
+          logicalToolOperationId: eventLogicalToolOperationId,
+          data: { ...safeOfficialToolEventData(payload, hermesToolCallArgumentShape), ...terminalData }
+        };
   }
   if (name === "reasoning.available") {
     return { type: "reasoning_status", message: typeof payload.text === "string" ? payload.text : undefined, data: payload };
   }
   if (name === "approval.request") {
-    return { type: "approval_required", toolName, operationId, data: payload, message: "Hermes run requires approval." };
+    return {
+      type: "approval_required",
+      toolName,
+      operationId,
+      data: safeOfficialToolEventData(payload, hermesToolCallArgumentShape),
+      message: "Hermes run requires approval."
+    };
   }
   if (name === "run.completed") {
     return { type: "turn_completed", data: payload, message: typeof payload.output === "string" ? payload.output : undefined };
@@ -589,6 +612,7 @@ export function mapOfficialHermesEvent(name: string, value: unknown): HermesBrid
       logicalToolOperationId: eventLogicalToolOperationId,
       data: {
         ...safeOfficialToolFailureData(payload, code),
+        hermesToolCallArgumentShape,
         ...(validMcpSuccessEnvelope ? {
           toolResultIsError: false,
           protocolCause: "valid_mcp_success_envelope_rejected_by_hermes"
@@ -716,6 +740,42 @@ function officialResponseCandidates(payload: Record<string, unknown>) {
   ];
 }
 
+function officialToolArgumentInput(payload: Record<string, unknown>) {
+  const candidates = [
+    payload,
+    objectRecord(payload.data),
+    objectRecord(payload.result),
+    objectRecord(payload.params)
+  ];
+  for (const candidate of candidates) {
+    for (const key of ["arguments", "input", "tool_input", "toolInput"] as const) {
+      if (candidate[key] !== undefined) return candidate[key];
+    }
+  }
+  return {};
+}
+
+function safeOfficialToolEventData(
+  payload: Record<string, unknown>,
+  hermesToolCallArgumentShape: ReturnType<typeof safeCareerToolArgumentShape>
+) {
+  const data = stripOfficialToolArgumentFields(payload);
+  return { ...data, hermesToolCallArgumentShape };
+}
+
+function stripOfficialToolArgumentFields(value: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (key === "arguments" || key === "input" || key === "tool_input" || key === "toolInput") continue;
+    if ((key === "data" || key === "params") && entry && typeof entry === "object" && !Array.isArray(entry)) {
+      result[key] = stripOfficialToolArgumentFields(entry as Record<string, unknown>);
+    } else {
+      result[key] = entry;
+    }
+  }
+  return result;
+}
+
 function isValidMcpSuccessEnvelope(payload: Record<string, unknown>) {
   return officialResponseCandidates(payload).some((candidate) => {
     const result = Array.isArray(candidate.content)
@@ -792,6 +852,13 @@ function safeOfficialToolFailureData(payload: Record<string, unknown>, code: str
     ...(typeof nestedDiagnostics.failureKind === "string" ? { failureKind: nestedDiagnostics.failureKind } : {}),
     ...(typeof nestedDiagnostics.failureScope === "string" ? { failureScope: nestedDiagnostics.failureScope } : {}),
     ...(typeof nestedDiagnostics.duplicateProjection === "boolean" ? { duplicateProjection: nestedDiagnostics.duplicateProjection } : {}),
+    ...(nestedDiagnostics.hermesToolCallArgumentShape ? { hermesToolCallArgumentShape: nestedDiagnostics.hermesToolCallArgumentShape } : {}),
+    ...(nestedDiagnostics.mcpJsonRpcArgumentShape ? { mcpJsonRpcArgumentShape: nestedDiagnostics.mcpJsonRpcArgumentShape } : {}),
+    ...(nestedDiagnostics.browserHandlerArgumentShape ? { browserHandlerArgumentShape: nestedDiagnostics.browserHandlerArgumentShape } : {}),
+    ...(nestedDiagnostics.gatewayArgumentShape ? { gatewayArgumentShape: nestedDiagnostics.gatewayArgumentShape } : {}),
+    ...(typeof nestedDiagnostics.duplicateOfOperationId === "string" ? { duplicateOfOperationId: nestedDiagnostics.duplicateOfOperationId } : {}),
+    ...(typeof nestedDiagnostics.previousSchemaFingerprint === "string" ? { previousSchemaFingerprint: nestedDiagnostics.previousSchemaFingerprint } : {}),
+    ...(typeof nestedDiagnostics.previousArgumentShapeFingerprint === "string" ? { previousArgumentShapeFingerprint: nestedDiagnostics.previousArgumentShapeFingerprint } : {}),
     ...(typeof nestedDiagnostics.publishedContractVersion === "string" ? { publishedContractVersion: nestedDiagnostics.publishedContractVersion } : {}),
     ...(typeof nestedDiagnostics.publishedSchemaHash === "string" ? { publishedSchemaHash: nestedDiagnostics.publishedSchemaHash } : {})
   };
@@ -848,6 +915,7 @@ export function toRuntimeHealth(
     mcpConnected: overrides.mcpConnected ?? health.mcpConnected ?? false,
     mcpToolCount: overrides.mcpToolCount ?? health.discoveredToolCount ?? 0,
     careerSkillsLoaded: overrides.careerSkillsLoaded ?? false,
+    ...appBuildTechnicalDiagnostics,
     lastCheckedAt: new Date().toISOString(),
     ...(health.reason ? { safeErrorCode: safeRuntimeErrorCode(health.reason) } : {})
   });

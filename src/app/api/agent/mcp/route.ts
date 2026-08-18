@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { CareerAdaptMcpProtocolServer, type McpJsonRpcRequest } from "@/agent/mcp/CareerAdaptMcpServer";
 import type { CareerToolContract, CareerToolResult } from "@/agent/tools/CareerToolGateway";
 import type { CareerMcpResponseTrace } from "@/agent/tools/careerToolDiagnostics";
+import { safeCareerToolArgumentShape } from "@/agent/tools/careerToolDiagnostics";
 import {
   completeCareerAdaptMcpBridgeCall,
   disconnectCareerAdaptMcpBridge,
@@ -11,6 +12,7 @@ import {
   createCareerAdaptMcpBridgeGateway,
   registerCareerAdaptMcpBridge,
   setCareerAdaptMcpBridgeBinding,
+  setCareerAdaptMcpBridgeTurnContext,
   statusCareerAdaptMcpBridge
 } from "@/server/careerAdaptMcpBridgeRegistry";
 
@@ -93,6 +95,9 @@ export async function POST(request: NextRequest) {
   });
   const response = await protocol.handle(body);
   if (!response) return new Response(null, { status: 202 });
+  const mcpJsonRpcArgumentShape = body.method === "tools/call"
+    ? safeCareerToolArgumentShape(mcpArguments(body.params))
+    : undefined;
   const responseEnvelopeValid = isMcpResponseEnvelope(response);
   let responseTrace: CareerMcpResponseTrace = {
     handlerResultCreated: true,
@@ -101,13 +106,13 @@ export async function POST(request: NextRequest) {
     responseEnvelopeValid,
     responseSent: true
   };
-  let tracedResponse = attachMcpResponseTrace(response, responseTrace);
+  let tracedResponse = attachMcpResponseTrace(response, responseTrace, mcpJsonRpcArgumentShape);
   let serialized = JSON.stringify(tracedResponse);
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const nextBucket = responseBytesBucket(new TextEncoder().encode(serialized).byteLength);
     if (nextBucket === responseTrace.responseBytesBucket) break;
     responseTrace = { ...responseTrace, responseBytesBucket: nextBucket };
-    tracedResponse = attachMcpResponseTrace(response, responseTrace);
+    tracedResponse = attachMcpResponseTrace(response, responseTrace, mcpJsonRpcArgumentShape);
     serialized = JSON.stringify(tracedResponse);
   }
   const headers = new Headers({
@@ -158,7 +163,7 @@ async function bridgePost(request: NextRequest) {
   try {
     if (action === "register") {
       const contracts = Array.isArray(value.contracts) ? value.contracts.filter(isCareerToolContract) : [];
-      return NextResponse.json({ ok: true, ...registerCareerAdaptMcpBridge(contracts, value.binding) });
+      return NextResponse.json({ ok: true, ...registerCareerAdaptMcpBridge(contracts, value.binding, value.turnContext) });
     }
     const bridgeId = typeof value.bridgeId === "string" ? value.bridgeId : undefined;
     const token = typeof value.token === "string" ? value.token : undefined;
@@ -167,7 +172,10 @@ async function bridgePost(request: NextRequest) {
       return NextResponse.json({ ok: true, status: heartbeatCareerAdaptMcpBridge(bridgeId, token) });
     }
     if (action === "binding") {
-      return NextResponse.json({ ok: true, status: setCareerAdaptMcpBridgeBinding(bridgeId, token, value.binding) });
+      return NextResponse.json({ ok: true, status: setCareerAdaptMcpBridgeBinding(bridgeId, token, value.binding, value.turnContext) });
+    }
+    if (action === "turn_context") {
+      return NextResponse.json({ ok: true, status: setCareerAdaptMcpBridgeTurnContext(bridgeId, token, value.turnContext) });
     }
     if (action === "result") {
       const requestId = typeof value.requestId === "string" ? value.requestId : undefined;
@@ -183,6 +191,14 @@ async function bridgePost(request: NextRequest) {
 
 function isJsonRpcRequest(value: unknown): value is McpJsonRpcRequest {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function mcpArguments(params: unknown) {
+  if (!params || typeof params !== "object" || Array.isArray(params)) return {};
+  const argumentsValue = (params as Record<string, unknown>).arguments;
+  return argumentsValue && typeof argumentsValue === "object" && !Array.isArray(argumentsValue)
+    ? argumentsValue
+    : {};
 }
 
 function isCareerToolContract(value: unknown): value is CareerToolContract {
@@ -222,7 +238,8 @@ function isMcpResponseEnvelope(value: unknown): value is { jsonrpc: "2.0"; resul
 
 function attachMcpResponseTrace<T extends { jsonrpc: "2.0"; result?: Record<string, unknown>; error?: { code: number; message: string; data?: Record<string, unknown> } }>(
   response: T,
-  trace: Record<string, unknown>
+  trace: Record<string, unknown>,
+  mcpJsonRpcArgumentShape?: ReturnType<typeof safeCareerToolArgumentShape>
 ): T {
   if (response.result) {
     const result = response.result;
@@ -242,7 +259,13 @@ function attachMcpResponseTrace<T extends { jsonrpc: "2.0"; result?: Record<stri
         ...(structuredContent ? {
           structuredContent: {
             ...structuredContent,
-            ...(diagnostics ? { diagnostics: { ...diagnostics, mcpResponseTrace: trace } } : {})
+            ...(diagnostics ? {
+              diagnostics: {
+                ...diagnostics,
+                ...(mcpJsonRpcArgumentShape ? { mcpJsonRpcArgumentShape } : {}),
+                mcpResponseTrace: trace
+              }
+            } : {})
           }
         } : {}),
         _meta: { ...meta, "careeradapt/mcpResponseTrace": trace }
@@ -254,7 +277,11 @@ function attachMcpResponseTrace<T extends { jsonrpc: "2.0"; result?: Record<stri
       ...response,
       error: {
         ...response.error,
-        data: { ...(response.error.data ?? {}), mcpResponseTrace: trace }
+        data: {
+          ...(response.error.data ?? {}),
+          ...(mcpJsonRpcArgumentShape ? { mcpJsonRpcArgumentShape } : {}),
+          mcpResponseTrace: trace
+        }
       }
     } as T;
   }

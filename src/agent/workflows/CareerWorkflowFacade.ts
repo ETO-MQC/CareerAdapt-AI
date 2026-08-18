@@ -26,6 +26,7 @@ import {
   type CareerProfileCandidate,
   type CareerResumeCandidate
 } from "../runtime/careerContextBindingResolver";
+import { currentTurnScopedTargetContext, targetContextForId } from "../runtime/turnScopedTargetContext";
 
 export const CareerWorkflowStatusSchema = z.enum([
   "completed",
@@ -173,10 +174,14 @@ export async function executeCareerWorkflowFacade(
 ): Promise<{ data: CareerWorkflowFacadeResult; artifacts: ArtifactRef[]; receipts: OperationReceipt[] }> {
   const definition = CAREER_WORKFLOW_FACADE_DEFINITIONS.find((candidate) => candidate.name === name);
   if (!definition) throw Object.assign(new Error("unknown_career_workflow"), { code: "unknown_career_workflow" });
+  const turnScopedInput = name === "career.workflow.tailor_resume"
+    ? resolveTurnScopedTailoringInput(rawInput, context)
+    : { input: rawInput };
   const normalizedInput = name === "career.workflow.tailor_resume"
-    ? normalizeTailorResumeInput(rawInput)
-    : rawInput;
+    ? normalizeTailorResumeInput(turnScopedInput.input)
+    : turnScopedInput.input;
   const input = definition.inputSchema.parse(normalizedInput) as Record<string, unknown>;
+  if (turnScopedInput.targetContextId) input.targetContextId = turnScopedInput.targetContextId;
   const call = async (
     toolName: string,
     value: unknown,
@@ -333,6 +338,31 @@ export async function executeCareerWorkflowFacade(
   }, context);
 }
 
+export function resolveTurnScopedTailoringInput(
+  rawInput: unknown,
+  context: CareerToolExecutionContext
+): { input: unknown; targetContextId?: string } {
+  if (!rawInput || typeof rawInput !== "object" || Array.isArray(rawInput)) return { input: rawInput };
+  const input = { ...(rawInput as Record<string, unknown>) };
+  const explicitTargetContextId = stringValue(input.targetContextId);
+  const internalKeys = new Set(["targetContextId", "sourceResumeId", "profileId"]);
+  const canResolveOmittedTarget = Object.keys(input).every((key) => internalKeys.has(key));
+  const targetContext = explicitTargetContextId
+    ? targetContextForId(context.authoritativeTaskState, context.logicalTurnId, explicitTargetContextId)
+    : canResolveOmittedTarget
+      ? currentTurnScopedTargetContext(context.authoritativeTaskState, context.logicalTurnId)
+      : undefined;
+  if (!targetContext) return { input };
+  delete input.targetContextId;
+  return {
+    input: {
+      ...input,
+      targetText: targetContext.targetText
+    },
+    targetContextId: targetContext.targetContextId
+  };
+}
+
 type TailoringFacadeCall = (
   toolName: string,
   value: unknown,
@@ -360,7 +390,9 @@ async function executeTailoringResumeFacade(
     : typeof input.jobId === "string"
       ? { type: "saved_job" as const, jobId: input.jobId }
       : undefined;
-  const sourceResumeId = stringValue(input.sourceResumeId) ?? stringValue(input.resumeId);
+  const sourceResumeId = stringValue(input.sourceResumeId)
+    ?? stringValue(input.resumeId)
+    ?? context.authoritativeTaskState?.selectedEntities.sourceResumeId;
   let profileId = stringValue(input.profileId)
     ?? context.authoritativeTaskState?.selectedEntities.profileId
     ?? context.careerSessionBinding?.profileId;
@@ -558,6 +590,18 @@ async function executeTailoringResumeFacade(
             userPrompt: "当前资料缺少可核对的版本号，已保留岗位输入；请先重新读取资料后继续。"
           }, undefined, "recoverable_failure");
         }
+        if (context.availableCareerToolNames?.has("career.resume.ensure_general_from_profile") === false) {
+          return tailoringFacadeProgress(operationId, input, context, results, {
+            kind: "tailoring_source_selection",
+            workflowStage: "choose_resume_source",
+            profileId,
+            sourceRoute: "profile",
+            profileRoute: "profile_to_resume",
+            contextBindingState: resolvedBinding ? "bound" : "partially_bound",
+            profileSufficient: true,
+            userPrompt: "当前还没有可用的通用简历准备工具；已保留岗位和资料选择，请稍后从当前步骤继续。"
+          }, undefined, "waiting_for_user");
+        }
         // This is the internal Profile→general/base step of the canonical
         // tailoring route. It deliberately crosses the atomic repository
         // operation without invoking the model-facing compose facade.
@@ -735,8 +779,13 @@ function tailoringFacadeProgress(
   requestedStatus: CareerWorkflowFacadeResult["status"],
   userPromptOverride?: string
 ) {
+  const currentTargetContext = currentTurnScopedTargetContext(context.authoritativeTaskState, context.logicalTurnId);
+  const targetContextId = stringValue(checkpoint.targetContextId) ?? currentTargetContext?.targetContextId;
+  const scopedCheckpoint = targetContextId
+    ? { ...checkpoint, targetContextId }
+    : checkpoint;
   const last = results.at(-1) ?? checkpointOnlyTailoringResult(operationId, session ?? {});
-  const workflowStage = facadeWorkflowStage("career.workflow.tailor_resume", last, checkpoint);
+  const workflowStage = facadeWorkflowStage("career.workflow.tailor_resume", last, scopedCheckpoint);
   const status: CareerWorkflowFacadeResult["status"] = last.ok
     ? requestedStatus
     : last.receipt.status === "confirmation_required"
@@ -745,7 +794,7 @@ function tailoringFacadeProgress(
   const interactionPlan = buildFacadeInteractionPlan({
     facadeName: "career.workflow.tailor_resume",
     result: last,
-    workflowCheckpoint: checkpoint,
+    workflowCheckpoint: scopedCheckpoint,
     context
   });
   const facadeReceipt: OperationReceipt = {
@@ -758,7 +807,7 @@ function tailoringFacadeProgress(
   const artifactRefs = [...new Map(results.flatMap((result) => result.artifacts).map((artifact) => [artifact.id, artifact])).values()];
   const receipts = [...results.map((result) => result.receipt), facadeReceipt];
   const prompt = userPromptOverride
-    ?? stringValue(checkpoint.userPrompt)
+    ?? stringValue(scopedCheckpoint.userPrompt)
     ?? stringValue(interactionPlan?.recommendedNextQuestion?.question)
     ?? (workflowStage === "generate_changes" ? "澄清已完成，可以生成定制修改建议。" : undefined);
   const review = tailoringReviewProjection(session ?? objectValue(checkpoint.session));
@@ -775,13 +824,13 @@ function tailoringFacadeProgress(
             ? "review_tailoring_diff"
             : "continue_tailoring",
     ...(status === "waiting_for_user" && prompt ? { userPrompt: prompt } : {}),
-    ...(stringValue(checkpoint.checkpointId) ? { checkpointId: stringValue(checkpoint.checkpointId) } : {}),
+    ...(stringValue(scopedCheckpoint.checkpointId) ? { checkpointId: stringValue(scopedCheckpoint.checkpointId) } : {}),
     interaction: interactionPlan,
     ...(Object.keys(review).length ? { review } : {}),
     artifactRefs,
     receipts,
     ...(last.error ? { safeError: { code: last.error.code, message: last.error.message, recoverable: last.error.recoverable } } : {}),
-    workflowCheckpoint: checkpoint
+    workflowCheckpoint: scopedCheckpoint
   });
   return { data, artifacts: artifactRefs, receipts };
 }
@@ -800,6 +849,7 @@ function tailoringCheckpoint(input: Record<string, unknown>, session: Record<str
     kind: "tailoring_session",
     workflowStage: tailoringStageForSession(session),
     checkpointId: id,
+    ...(stringValue(input.targetContextId) ? { targetContextId: stringValue(input.targetContextId) } : {}),
     profileId: stringValue(input.profileId) ?? stringValue(objectValue(session.profile).id),
     resumeId: stringValue(input.sourceResumeId) ?? stringValue(input.resumeId) ?? stringValue(branch.id),
     ...(!targetSnapshot ? { jobId: stringValue(input.jobId) ?? stringValue(job.id) } : {}),

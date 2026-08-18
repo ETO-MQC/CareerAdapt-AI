@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { stableHashText } from "@/services/security/text";
 
 /**
  * Safe, transport-neutral failure layers.  These values are intentionally
@@ -100,11 +101,18 @@ export const CareerMcpResponseTraceSchema = z.object({
 
 export type CareerMcpResponseTrace = z.infer<typeof CareerMcpResponseTraceSchema>;
 
+export const CareerToolStringArgumentShapeSchema = z.object({
+  present: z.boolean(),
+  lengthBucket: z.string().min(1),
+  hashPrefix: z.string().min(1).optional()
+}).strict();
+
 export const CareerToolArgumentShapeSchema = z.record(z.string(), z.union([
   z.string(),
   z.number(),
   z.boolean(),
-  z.array(z.string())
+  z.array(z.string()),
+  CareerToolStringArgumentShapeSchema
 ]));
 
 export type CareerToolArgumentShape = z.infer<typeof CareerToolArgumentShapeSchema>;
@@ -127,14 +135,24 @@ export const CareerToolFailureDiagnosticsSchema = z.object({
   logicalTurnId: z.string().optional(),
   taskId: z.string().optional(),
   argumentShape: CareerToolArgumentShapeSchema.optional(),
+  hermesToolCallArgumentShape: CareerToolArgumentShapeSchema.optional(),
+  mcpJsonRpcArgumentShape: CareerToolArgumentShapeSchema.optional(),
+  browserHandlerArgumentShape: CareerToolArgumentShapeSchema.optional(),
+  gatewayArgumentShape: CareerToolArgumentShapeSchema.optional(),
   schemaIssues: z.array(CareerToolSchemaIssueSchema).optional(),
   schemaIssueFingerprint: z.string().min(1).optional(),
+  duplicateOfOperationId: z.string().min(1).optional(),
+  previousSchemaFingerprint: z.string().min(1).optional(),
+  previousArgumentShapeFingerprint: z.string().min(1).optional(),
   invalidFields: z.array(z.string().min(1)).optional(),
   acceptedShapeHint: CareerToolAcceptedShapeHintSchema.optional(),
   publishedContractVersion: z.string().min(1).optional(),
   publishedSchemaHash: z.string().min(1).optional(),
   gatewayContractVersion: z.string().min(1).optional(),
   gatewaySchemaHash: z.string().min(1).optional(),
+  careerToolContractVersion: z.string().min(1).optional(),
+  appBuildCommit: z.string().min(1).optional(),
+  appBuildTimestamp: z.string().min(1).optional(),
   mcpCallTrace: CareerMcpCallTraceSchema.optional(),
   mcpResponseTrace: CareerMcpResponseTraceSchema.optional(),
   startedAt: z.string().datetime({ offset: true }).optional(),
@@ -195,9 +213,11 @@ export function safeCareerToolArgumentShape(input: unknown): CareerToolArgumentS
   const shape: CareerToolArgumentShape = {};
   for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
     if (typeof value === "string") {
-      shape[key] = key.toLowerCase().includes("text") || key.toLowerCase().includes("jd")
-        ? lengthBucket(value.length)
-        : value.length > 160 ? lengthBucket(value.length) : "present";
+      shape[key] = {
+        present: true,
+        lengthBucket: lengthBucket(value.length),
+        ...(value.length ? { hashPrefix: stableHashText(value).slice(0, 16) } : {})
+      };
     } else if (typeof value === "number") {
       shape[key] = "number";
     } else if (typeof value === "boolean") {

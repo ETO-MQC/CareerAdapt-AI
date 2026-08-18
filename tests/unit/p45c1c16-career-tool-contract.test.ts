@@ -144,7 +144,10 @@ describe("P4.5c.1.16 canonical Career tool contract closure", () => {
       expect(second.result.diagnostics).toMatchObject({
         duplicateProjection: true,
         safeDomainErrorCode: "career_agent_duplicate_invalid_call",
-        failureKind: "gateway_validation_failed"
+        failureKind: "gateway_validation_failed",
+        duplicateOfOperationId: "operation-one",
+        previousSchemaFingerprint: expect.any(String),
+        previousArgumentShapeFingerprint: expect.any(String)
       });
     } finally {
       vi.unstubAllGlobals();

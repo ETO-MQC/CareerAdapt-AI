@@ -403,13 +403,14 @@ function createAgentHost() {
     try {
       if (runtime.id === "hermes") {
         if (runtimeShell) {
-          mcpBridge.setConfirmationContext({
+          await mcpBridge.setConfirmationContext({
             sessionId: runtimeInput.sessionId,
             turnId: runtimeShell.turnId,
+            taskId: runtimeInput.session?.id,
             assistantMessageId: runtimeShell.assistantMessageId,
             userMessageId: runtimeShell.userMessageId,
             incidentTraceId
-          });
+          }).catch(() => undefined);
         }
         const binding = resolveCareerSessionBinding({
           sessionId: runtimeInput.sessionId,
@@ -530,7 +531,7 @@ function createAgentHost() {
         }
       }
     } finally {
-      if (runtime.id === "hermes") mcpBridge.setConfirmationContext(undefined);
+      if (runtime.id === "hermes") await mcpBridge.setConfirmationContext(undefined).catch(() => undefined);
       if (sessionBindingSet && !shouldKeepHermesSessionBinding(runtimeInput.sessionId)) {
         await mcpBridge.setSessionBinding(undefined).catch(() => undefined);
       }
