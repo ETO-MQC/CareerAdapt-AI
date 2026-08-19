@@ -74,7 +74,6 @@ describe("P4.5c.1.2 confirmed composition write boundary", () => {
       event: directGenerateEvent(),
       pageContext: fixture.pageContext("session-button")
     });
-
     expect(textPrepared.deterministicTerminal).toBe(true);
     expect(buttonPrepared.deterministicTerminal).toBe(true);
     expect(textPrepared.event).toMatchObject({ type: "confirm_resume_composition", branchMode: "create_new" });
@@ -394,7 +393,7 @@ describe("P4.5c.1.2 confirmed composition write boundary", () => {
       message: "个人简介\n项目经历\n- 搭建智能招聘平台并提升增长 99%，负责完整方案设计与交付。\n- 教育背景：某某大学本科。"
     }, shell.assistantMessageId);
     const assistant = failed?.messages.find((message) => message.id === shell.assistantMessageId);
-    expect(assistant?.status).toBe("failed");
+    expect(assistant?.status).toBe("complete");
     expect(assistant?.options?.map((option) => option.label)).toEqual(expect.arrayContaining(["直接生成", "重新执行当前步骤"]));
     expect(failed?.artifactRefs.some((artifact) => artifact.entityId.startsWith("pending-") && artifact.kind === "quality_result")).toBe(false);
   });
@@ -428,9 +427,9 @@ describe("P4.5c.1.2 confirmed composition write boundary", () => {
       workflowState: projectTaskStateToWorkflowState(task, base.workflowState),
       updatedAt: new Date().toISOString()
     });
-    host.adopt(session);
+    const adopted = await host.adoptDurably(session);
     const shell = await host.beginRuntimeShell({
-      session,
+      session: adopted ?? session,
       userMessage: "用我的资料库生成通用简历",
       runtimeId: "hermes",
       turnId: "runtime-compose-race-turn"

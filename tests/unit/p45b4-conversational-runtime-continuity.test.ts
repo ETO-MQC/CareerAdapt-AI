@@ -40,7 +40,7 @@ describe("P4.5b.4 conversational runtime continuity", () => {
       intent: "new_domain_task",
       taskMutation: "replace",
       newTask: {
-        goal: "apply_to_job",
+        goal: "generate_job_specific_resume",
         workflowId: "tailor_existing_resume",
         stage: "choose_resume_source"
       }

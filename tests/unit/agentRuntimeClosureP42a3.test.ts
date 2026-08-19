@@ -48,7 +48,11 @@ describe("P4.2a.3 single runtime closure", () => {
     expect(continued.rootGoal).toBe("create_tailored_resume");
     expect(continued.activeGoal).toBe("create_tailored_resume");
     expect(continued.stage).toBe("preview_changes");
-    expect(continued.selectedEntities).toEqual(state.selectedEntities);
+    expect(continued.selectedEntities).toEqual({
+      ...state.selectedEntities,
+      sourceResumeId: "resume-general-latest",
+      sourceResumeRevisionId: undefined
+    });
   });
 
   it("leaves AgentWorkspace as a view adapter with no legacy conversation owner", () => {

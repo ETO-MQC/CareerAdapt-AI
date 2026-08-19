@@ -25,7 +25,7 @@ afterEach(async () => {
 });
 
 describe("P4.2 agent reliability regressions", () => {
-  it("narrows capabilities to the minimum sufficient action", () => {
+  it("routes a bare long JD to the canonical external-target capability set", () => {
     const broker = new AgentCapabilityBroker();
     const base = AgentRuntime.create("tailor_existing_resume", "analyze_job");
     expect(broker.allowedToolNames({ session: base, userMessage: "你好", workflowToolNames: ["list_jobs", "get_profile"] })).toEqual([]);
@@ -39,7 +39,22 @@ describe("P4.2 agent reliability regressions", () => {
       session: base,
       userMessage: longJd(),
       workflowToolNames: ["list_jobs", "get_profile"]
-    })).toEqual(["parse_job_description", "commit_job"]);
+    })).toEqual([
+      "list_resumes",
+      "get_resume",
+      "get_resume_revision",
+      "list_profiles",
+      "get_active_profile",
+      "get_profile",
+      "recommend_resume_source",
+      "analyze_job_fit",
+      "create_tailoring_session",
+      "answer_tailoring_question",
+      "generate_tailoring_changes",
+      "review_tailoring_diff",
+      "preview_tailoring_changes",
+      "apply_tailoring_changes"
+    ]);
   });
 
   it("accepts raw JD text without authoritative identity fields", () => {
@@ -86,7 +101,8 @@ describe("P4.2 agent reliability regressions", () => {
     stale.messages.push(message("stale-message", "assistant", "late old result", stale.updatedAt));
     const afterStale = await repository.saveAgentSession(stale);
     expect(afterStale.title).toBe(committed.title);
-    expect(afterStale.messages.map((entry) => entry.id)).toEqual(expect.arrayContaining(["newer-message", "stale-message"]));
+    expect(afterStale.messages.map((entry) => entry.id)).toEqual(expect.arrayContaining(["newer-message"]));
+    expect(afterStale.messages.map((entry) => entry.id)).not.toContain("stale-message");
   }, 15_000);
 
   it("reuses an unchanged authoritative observation across turns", async () => {

@@ -574,7 +574,20 @@ describe("AgentKernel", () => {
       observation: {
         branchId: "resume-job-1",
         revisionId: "revision-job-1",
-        qualityResult: { status: "passed", factGuard: "passed" }
+        qualityResult: {
+          status: "passed",
+          factGuard: "passed",
+          revisionCreated: true,
+          acceptedDiffCount: 1,
+          acceptedDiffIds: ["diff-1"],
+          changedFieldPaths: ["sections.experience.items.1.highlights"],
+          beforeContentHash: "before-proof-hash",
+          afterContentHash: "after-proof-hash",
+          repositoryReadBackVerified: true,
+          resumeListVisibilityVerified: true,
+          receipt: { status: "completed" },
+          artifactReceipt: { status: "completed" }
+        }
       }
     });
 
@@ -913,7 +926,15 @@ describe("AgentKernel", () => {
             activeQuestionId: "q-ai",
             currentClarification: { id: "q-ai", question: "你是否有模型训练经验？" },
             questionPlan: { questionIds: ["q-ai"], activeQuestionId: "q-ai" },
-            tailoringSession: {}
+            tailoringSession: {
+              plan: {
+                questionPlan: {
+                  status: "asking",
+                  activeQuestionId: "q-ai",
+                  questionIds: ["q-ai"]
+                }
+              }
+            }
           }
         }
       },

@@ -1430,6 +1430,11 @@ function normalize(state: AgentTaskState): AgentTaskState {
   if (
     state.completionStatus === "waiting_for_confirmation"
     && !hasValue(state.knownSlots.pendingConfirmation)
+    && !(
+      state.workflowId === "compose_resume"
+      && state.stage === "review_composition"
+      && objectValue(state.knownSlots.facadeCheckpoint).status === "waiting_for_confirmation"
+    )
   ) {
     state.completionStatus = "active";
   }

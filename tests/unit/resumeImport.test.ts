@@ -78,8 +78,8 @@ describe("V2-G4a resume PDF import", () => {
     expect(result.profile.structuredBasics).toMatchObject({ headline: "开发工程师", targetRole: "开发工程师" });
     expect(result.firstRevision.snapshot.resumeBasics?.name).toBe(result.profile.basics.name);
     expect(result.firstRevision.snapshot.resumeBasics?.targetRole).toBe("开发工程师");
-    expect(renderModel.jobTitle).toBe("开发工程师");
-    expect(renderModel.candidate.targetRole).toBe("开发工程师");
+    expect(renderModel.jobTitle).toBe("通用简历");
+    expect(renderModel.candidate.targetRole).toBeUndefined();
     expect(renderModel.sourceTrace.jobId).toBeUndefined();
   });
 

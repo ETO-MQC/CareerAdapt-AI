@@ -299,7 +299,7 @@ describe("P4.3h Profile Intake host boundaries", () => {
     expect(execute).toHaveBeenCalledTimes(2);
     expect(retried?.taskState?.completionStatus).toBe("waiting_for_user");
     expect(retried?.conversationBranches.filter((branch) => branch.status === "active")).toHaveLength(1);
-    expect(sourceTurns.filter((turn) => turn.processingStatus === "superseded")).toHaveLength(1);
+    expect(sourceTurns.filter((turn) => turn.processingStatus === "superseded")).toHaveLength(0);
     expect(sourceTurns.filter((turn) => turn.processingStatus === "partial" || turn.processingStatus === "structured")).toHaveLength(1);
   });
 

@@ -43,6 +43,12 @@ import {
 } from "@/components/ui/product";
 import { useAgentHost } from "@/components/agent/runtime/AgentRuntimeProvider";
 import { createRunStopReason } from "@/agent/runtime/hermes/hermesIncidentTrace";
+import {
+  getLatestCoreClosureSelfCheck,
+  runP45CoreClosureSelfCheck,
+  type CoreClosureSelfCheckResult
+} from "@/services/diagnostics/p45CoreClosureSelfCheck";
+import { buildProfileRecoveryCandidates } from "@/domain/profile/profileContentRecovery";
 
 type ThemePreference = "system" | "light" | "dark";
 type DensityPreference = "compact" | "comfortable";
@@ -119,6 +125,10 @@ export default function SettingsPage() {
   const [orphanedCounts, setOrphanedCounts] = useState<{ drafts: number; rawInputs: number; pdfSessions: number; orphanedDraftIds: string[]; orphanedRawInputIds: string[]; orphanedPdfSessionIds: string[] } | null>(null);
   const [orphanedLoading, setOrphanedLoading] = useState(false);
   const [orphanedClearing, setOrphanedClearing] = useState(false);
+  const [coreSelfCheck, setCoreSelfCheck] = useState<CoreClosureSelfCheckResult | undefined>(() => getLatestCoreClosureSelfCheck());
+  const [coreSelfChecking, setCoreSelfChecking] = useState(false);
+  const [coreRepairing, setCoreRepairing] = useState(false);
+  const [selectedRepairCandidateId, setSelectedRepairCandidateId] = useState<string>();
   const [archivedSessions, setArchivedSessions] = useState<AgentSession[]>([]);
   const [archivedLoading, setArchivedLoading] = useState(false);
   const sessionStoreRef = useRef(new AgentSessionStore());
@@ -251,6 +261,93 @@ export default function SettingsPage() {
       if (downloadAbortRef.current === controller) downloadAbortRef.current = null;
       setModelDownloading(false);
     }
+  }
+
+  async function runCoreClosureSelfCheck() {
+    if (coreSelfChecking) return;
+    setCoreSelfChecking(true);
+    try {
+      const result = await runP45CoreClosureSelfCheck({
+        repository: repositoryRef.current,
+        runtimeSnapshot: agentHost.runtimeStatus.getSnapshot(),
+        contracts: agentHost.careerToolGateway.listContracts(),
+        activeSession: agentHost.state.getSnapshot().activeSession,
+        fetcher: window.fetch.bind(window)
+      });
+      setCoreSelfCheck(result);
+      notify({
+        type: result.overallStatus === "PASS" ? "success" : result.overallStatus === "FAIL" ? "warning" : "info",
+        title: result.overallStatus === "PASS" ? "核心闭环自检通过" : "核心闭环自检已完成",
+        message: result.overallStatus === "PASS"
+          ? "运行时、资料完整性与 Repository 读回均已通过。"
+          : "请查看各项状态；诊断只展示安全计数与标识，不导出正文。"
+      });
+    } catch {
+      notify({ type: "error", title: "核心闭环自检失败", message: "诊断未完成，请刷新应用后重试。" });
+    } finally {
+      setCoreSelfChecking(false);
+    }
+  }
+
+  async function repairProfileContent() {
+    if (coreRepairing || !coreSelfCheck?.repairRequired || !coreSelfCheck.profileId || coreSelfCheck.profileRevision === undefined) return;
+    const repository = repositoryRef.current;
+    const profile = await repository.getProfile(coreSelfCheck.profileId);
+    if (!profile || profile.version !== coreSelfCheck.profileRevision) {
+      notify({ type: "warning", title: "资料版本已变化", message: "请重新运行核心闭环自检后再修复。" });
+      return;
+    }
+    const branches = await repository.listResumeBranches(profile.id);
+    const generalResume = branches
+      .filter((branch) => branch.branchPurpose === "general" && branch.lifecycleStatus === "active")
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
+    const importedDraft = await repository.getLatestImportedResumeDraft();
+    const candidates = buildProfileRecoveryCandidates({ profile, importedDraft, generalResume });
+    const candidate = candidates.find((item) => item.id === selectedRepairCandidateId)
+      ?? candidates.find((item) => item.affectedEntityCount > 0);
+    if (!candidate || candidate.affectedEntityCount === 0) {
+      notify({ type: "info", title: "没有可修复内容", message: "当前没有新的、已确认且可安全回填的资料来源。" });
+      return;
+    }
+    if (!window.confirm(`将使用「${candidate.sourceLabel}」创建新的 Profile 版本，影响 ${candidate.affectedEntityCount} 个条目。继续吗？`)) return;
+    setCoreRepairing(true);
+    try {
+      const repaired = await repository.repairProfileContent({
+        profileId: profile.id,
+        expectedProfileVersion: profile.version,
+        operationId: `profile-content-repair-${crypto.randomUUID()}`,
+        sourceType: candidate.sourceType,
+        items: candidate.items
+      });
+      const verified = await runP45CoreClosureSelfCheck({
+        repository,
+        runtimeSnapshot: agentHost.runtimeStatus.getSnapshot(),
+        contracts: agentHost.careerToolGateway.listContracts(),
+        activeSession: agentHost.state.getSnapshot().activeSession,
+        fetcher: window.fetch.bind(window)
+      });
+      setCoreSelfCheck(verified);
+      if (!repaired.readbackVerified || verified.checks.repositoryReadback.status !== "PASS" || verified.checks.profileContentIntegrity.status !== "PASS") {
+        throw new Error("profile_content_repair_verification_failed");
+      }
+      notify({ type: "success", title: "资料内容已修复", message: `已创建新的 Profile 版本并完成读回校验（${repaired.profileId}）。` });
+    } catch {
+      notify({ type: "error", title: "资料修复未完成", message: "写入或读回校验未通过，未报告为同步成功。请重新运行诊断。" });
+    } finally {
+      setCoreRepairing(false);
+    }
+  }
+
+  function exportCoreClosureSelfCheck() {
+    if (!coreSelfCheck) return;
+    const blob = new Blob([JSON.stringify(coreSelfCheck, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `careeradapt-core-self-check-${coreSelfCheck.runId}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    notify({ type: "success", title: "诊断已导出", message: "仅包含安全计数、运行标识、阶段与读回结果，未包含正文。" });
   }
 
   function cancelLocalOcrModelDownload() {
@@ -998,6 +1095,100 @@ export default function SettingsPage() {
                 />
               </label>
 
+              <section className="settings-group core-self-check-group" aria-labelledby="core-self-check-heading">
+                <div className="settings-group-heading">
+                  <div>
+                    <h3 id="core-self-check-heading">P4.5 核心闭环诊断</h3>
+                    <p>读取当前运行中的 Hermes、Career MCP、Profile、通用简历和真实页面投影；只展示安全计数与标识，不导出正文。</p>
+                  </div>
+                  <span className={`status-badge core-self-check-badge is-${coreSelfCheck?.overallStatus?.toLowerCase() ?? "idle"}`}>
+                    {coreSelfCheck ? coreCheckStatusLabel(coreSelfCheck.overallStatus) : "未运行"}
+                  </span>
+                </div>
+                <div className="core-self-check-actions">
+                  <button type="button" className="primary-button compact" disabled={coreSelfChecking || coreRepairing} onClick={() => { void runCoreClosureSelfCheck(); }}>
+                    {coreSelfChecking ? "自检中…" : "运行核心闭环自检"}
+                  </button>
+                  <button type="button" className="secondary-button compact" disabled={!coreSelfCheck || coreSelfChecking || coreRepairing} onClick={exportCoreClosureSelfCheck}>
+                    导出安全诊断
+                  </button>
+                </div>
+                {coreSelfCheck ? (
+                  <>
+                    <dl className="document-engine-facts core-self-check-facts">
+                      <div><dt>runId</dt><dd>{coreSelfCheck.runId}</dd></div>
+                      <div><dt>logicalTurnId</dt><dd>{coreSelfCheck.logicalTurnId}</dd></div>
+                      <div><dt>logicalToolOperationId</dt><dd>{coreSelfCheck.logicalToolOperationId}</dd></div>
+                      <div><dt>Profile</dt><dd>{coreSelfCheck.profileId ? `${coreSelfCheck.profileId} · revision ${coreSelfCheck.profileRevision}` : "未读取"}</dd></div>
+                      <div><dt>TurnTargetContext</dt><dd>{coreSelfCheck.turnTargetContextId ?? "未生成"}</dd></div>
+                    </dl>
+                    <div className="core-self-check-grid">
+                      {([
+                        ["Hermes runtime", coreSelfCheck.checks.hermesRuntime],
+                        ["Career MCP", coreSelfCheck.checks.careerMcp],
+                        ["Contract version/hash", coreSelfCheck.checks.careerContract],
+                        ["Active Profile", coreSelfCheck.checks.activeProfileReadability],
+                        ["General Resume", coreSelfCheck.checks.generalResumeReadability],
+                        ["Profile integrity", coreSelfCheck.checks.profileContentIntegrity],
+                        ["Browser MCP round-trip", coreSelfCheck.checks.browserMcpRoundTrip],
+                        ["logicalToolOperationId", coreSelfCheck.checks.logicalToolOperationIdCorrelation],
+                        ["TurnTargetContext", coreSelfCheck.checks.turnTargetContext],
+                        ["Checkpoint invariant", coreSelfCheck.checks.workflowCheckpointInvariants],
+                        ["Repository read-back", coreSelfCheck.checks.repositoryReadback]
+                      ] as Array<[string, { status: string; reason?: string }]>).map(([label, check]) => (
+                        <div key={label} className="core-self-check-row">
+                          <span>{label}</span>
+                          <strong className={`core-check-status is-${check.status.toLowerCase()}`}>{coreCheckStatusLabel(check.status as "PASS" | "FAIL" | "NOT_APPLICABLE")}</strong>
+                          {check.reason ? <small>{check.reason}</small> : null}
+                        </div>
+                      ))}
+                    </div>
+                    {coreSelfCheck.profileContentIntegrity ? (
+                      <details className="settings-help-details" open>
+                        <summary>Profile content integrity · {coreSelfCheck.profileIntegrityClassification}</summary>
+                        <dl className="document-engine-facts core-self-check-counts">
+                          <div><dt>Repository project</dt><dd>{coreSelfCheck.profileContentIntegrity.repository.projectCount} 条 / 描述 {coreSelfCheck.profileContentIntegrity.repository.projectDescriptionCount} / bullet {coreSelfCheck.profileContentIntegrity.repository.projectHighlightCount}</dd></div>
+                          <div><dt>Repository work / internship</dt><dd>{coreSelfCheck.profileContentIntegrity.repository.workCount} 条 / bullet {coreSelfCheck.profileContentIntegrity.repository.workHighlightCount} · {coreSelfCheck.profileContentIntegrity.repository.internshipCount} 条 / bullet {coreSelfCheck.profileContentIntegrity.repository.internshipHighlightCount}</dd></div>
+                          <div><dt>Adapter / Form / Editor</dt><dd>{coreSelfCheck.profileContentIntegrity.adapter.paragraphCount}/{coreSelfCheck.profileContentIntegrity.adapter.bulletCount} · {coreSelfCheck.profileContentIntegrity.form.paragraphCount}/{coreSelfCheck.profileContentIntegrity.form.bulletCount} · {coreSelfCheck.profileContentIntegrity.editor.visibleParagraphCount}/{coreSelfCheck.profileContentIntegrity.editor.visibleBulletCount}</dd></div>
+                          <div><dt>General Resume</dt><dd>{coreSelfCheck.profileContentIntegrity.generalResume.projectCount} 个项目 / bullet {coreSelfCheck.profileContentIntegrity.generalResume.projectHighlightCount} · work bullet {coreSelfCheck.profileContentIntegrity.generalResume.workHighlightCount}</dd></div>
+                        </dl>
+                      </details>
+                    ) : null}
+                    {coreSelfCheck.repairCandidates.length > 0 ? (
+                      <section className="core-repair-section" aria-labelledby="core-repair-heading">
+                        <div className="settings-group-heading">
+                          <div>
+                            <h4 id="core-repair-heading">资料恢复候选</h4>
+                            <p>不会在页面加载时写入。选择来源并确认后，系统创建新的 Profile 版本、原子写入、读回并重新自检。</p>
+                          </div>
+                        </div>
+                        <div className="core-repair-candidates">
+                          {coreSelfCheck.repairCandidates.map((candidate) => (
+                            <button
+                              key={candidate.id}
+                              type="button"
+                              className={selectedRepairCandidateId === candidate.id ? "core-repair-candidate is-selected" : "core-repair-candidate"}
+                              onClick={() => setSelectedRepairCandidateId(candidate.id)}
+                            >
+                              <strong>{candidate.sourceLabel}</strong>
+                              <span>影响 {candidate.affectedEntityCount} 条 · 候选 bullet {candidate.candidateBulletCount}</span>
+                              <small>冲突 {candidate.conflictCount} · 不变 {candidate.unchangedItemCount}</small>
+                            </button>
+                          ))}
+                        </div>
+                        {coreSelfCheck.repairRequired ? (
+                          <button type="button" className="secondary-button compact" disabled={coreRepairing || coreSelfChecking} onClick={() => { void repairProfileContent(); }}>
+                            {coreRepairing ? "修复并校验中…" : "修复资料内容"}
+                          </button>
+                        ) : null}
+                      </section>
+                    ) : null}
+                  </>
+                ) : (
+                  <p className="settings-save-state">尚未运行。诊断不会启动新的 AI 任务，也不会修改 Profile。</p>
+                )}
+              </section>
+
               <section className="settings-group" aria-labelledby="orphaned-data-heading">
                 <div className="settings-group-heading">
                   <div>
@@ -1052,6 +1243,13 @@ function formatEndpoint(value: string | undefined, fallback: string) {
   } catch {
     return value.replace(/^https?:\/\//u, "").replace(/\/$/u, "");
   }
+}
+
+function coreCheckStatusLabel(status: "PASS" | "FAIL" | "NOT_APPLICABLE" | "idle") {
+  if (status === "PASS") return "通过";
+  if (status === "FAIL") return "失败";
+  if (status === "NOT_APPLICABLE") return "不适用";
+  return "未运行";
 }
 
 function hermesLifecycleState(status?: HermesSupervisorSnapshot, health?: HermesSettingsHealth): HermesSupervisorSnapshot["overallState"] {

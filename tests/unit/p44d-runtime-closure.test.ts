@@ -243,10 +243,20 @@ describe("P4.4d Hermes runtime closure", () => {
       } as never,
       metadata: { requireCareerSessionBinding: true }
     })) events.push(event);
-    expect(events.find((event) => event.type === "approval_required")).toMatchObject({
+    const approval = events.find((event) => event.type === "approval_required");
+    expect(approval).toMatchObject({
       type: "approval_required",
-      data: { input }
+      data: {
+        logicalToolOperationId: expect.any(String),
+        hermesToolCallArgumentShape: {
+          expectedProfileVersion: "number",
+          selectedFactIds: ["count:1"],
+          targetProfileId: { present: true, lengthBucket: "length:1-20" },
+          name: { present: true, lengthBucket: "length:1-20" }
+        }
+      }
     });
+    expect(approval?.data).not.toHaveProperty("input");
   });
 
   it("does not replay an idempotent operation across different session bindings", async () => {

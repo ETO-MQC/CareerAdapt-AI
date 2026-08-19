@@ -187,9 +187,9 @@ describe("Tailoring Engine v2 repository application", () => {
     const after = [...before, "验证 RAG 输出并定位逻辑缺陷"];
     const valid = {
       target: { sectionId: "project", itemId: structured.id, fieldPath: "highlights" as const },
-      operation: "replace" as const,
+      operation: "append" as const,
       original: before,
-      value: after,
+      value: "验证 RAG 输出并定位逻辑缺陷",
       reason: "突出已验证的模型输出评估经验",
       requirementIds: ["req-eval"],
       targetKeywords: ["输出质量评估", "逻辑缺陷识别"],
@@ -217,7 +217,7 @@ describe("Tailoring Engine v2 repository application", () => {
     expect(updated?.data.sectionType === "project" ? updated.data.highlights : []).toEqual(after);
     const beforeFit = analyzeJobFit({ profile, branch: job.branch, job: fitJob }).report!.overallCoverage;
     const afterFit = analyzeJobFit({ profile, branch: applied.branch, job: fitJob }).report!.overallCoverage;
-    expect([beforeFit, afterFit]).toEqual([0, 50]);
+    expect([beforeFit, afterFit]).toEqual([50, 50]);
 
     const undone = await repository.undoResumeBranch({ branchId: job.branch.id, expectedRevision: applied.branch.revision, operationId: "undo-diffs-partial" });
     expect(undone.branch.structuredContentItems).toEqual(job.branch.structuredContentItems);

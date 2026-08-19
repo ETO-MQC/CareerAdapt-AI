@@ -787,16 +787,6 @@ export class AgentHostStore {
       ? this.snapshot.activeSession
       : input.session;
     if (input.event.type === "text_message") {
-      const checkpointPrepared = await this.prepareWorkflowCheckpointTextInput(
-        current,
-        input.event.text,
-        current.taskState?.workflowUserInputCheckpoint
-      );
-      if (checkpointPrepared) return checkpointPrepared;
-      const tailoringProjection = getActiveTailoringQuestionProjection(current);
-      if (tailoringProjection) {
-        return this.applyTailoringTextAnswer(current, input.event.text, tailoringProjection);
-      }
       const confirmationMode = normalizeResumeCompositionConfirmationText(input.event.text);
       if (
         confirmationMode
@@ -820,6 +810,16 @@ export class AgentHostStore {
             deterministicTerminal: true
           };
         }
+      }
+      const checkpointPrepared = await this.prepareWorkflowCheckpointTextInput(
+        current,
+        input.event.text,
+        current.taskState?.workflowUserInputCheckpoint
+      );
+      if (checkpointPrepared) return checkpointPrepared;
+      const tailoringProjection = getActiveTailoringQuestionProjection(current);
+      if (tailoringProjection) {
+        return this.applyTailoringTextAnswer(current, input.event.text, tailoringProjection);
       }
       const session = await this.prepareRuntimeTask({
         session: current,
@@ -6534,6 +6534,7 @@ export class AgentHostStore {
         profileIntakeContinuationNarration(taskState),
         turnId,
         operationId,
+        currentTurn?.id
       );
     }
     // Artifact decisions can create a typed task decision without another
@@ -9158,11 +9159,12 @@ function upsertProfileIntakeContinuation(
   content: string,
   turnId: string,
   operationId: string,
+  previousTurnId?: string,
 ) {
-  const activeTurnAssistant = session.activeTurn?.id
+  const activeTurnAssistant = (previousTurnId ?? session.activeTurn?.id)
     ? session.messages.findLast((message) =>
         message.role === "assistant"
-        && message.turnId === session.activeTurn?.id
+        && message.turnId === (previousTurnId ?? session.activeTurn?.id)
         && message.metadata?.intakeRestorePrompt !== true
       )
     : undefined;
@@ -10108,7 +10110,7 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
                     : task.stage;
   const knownSlots: Record<string, unknown> = {
     ...task.knownSlots,
-    facadeCheckpoint: checkpoint,
+    facadeCheckpoint: { ...checkpoint, status },
     ...(checkpoint.kind === "job_fit" ? { fitAnalysis: result } : {}),
     ...(checkpoint.kind === "profile_to_resume" ? { resumeResult: result } : {}),
     ...(checkpoint.kind === "resume_composition" ? {

@@ -401,7 +401,7 @@ describe("P4.4c CareerAdapt MCP gateway", () => {
     const request = {
       id: "mcp-request-capture",
       name: "career.profile.capture_intake",
-      input: { sessionId: "hermes-session-1", targetProfileId: "profile-1" },
+      input: { sessionId: "agent-session-1", targetProfileId: "profile-1" },
       operationId: "p44c-capture-01",
       careerSessionBinding: binding,
       requireSessionBinding: true

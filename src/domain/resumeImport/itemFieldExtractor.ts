@@ -156,7 +156,8 @@ function splitIdentity(value: string): [string, string] {
 }
 
 function splitHighlights(inline: string, continuation: string[]) {
-  const repairedSegments = [inline, ...continuation].reduce<string[]>((result, current) => {
+  const sourceSegments = [inline, ...continuation].flatMap((current) => current.split(/\s*\|\s*/u));
+  const repairedSegments = sourceSegments.reduce<string[]>((result, current) => {
     const value = current.trim();
     if (!value) return result;
     const previous = result.at(-1);

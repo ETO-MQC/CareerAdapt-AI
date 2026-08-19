@@ -51,6 +51,7 @@ import { isRoadshowReady } from "@/agent/runtime/runtimeHealth";
 import { createRunStopReason } from "@/agent/runtime/hermes/hermesIncidentTrace";
 import { getActiveTailoringQuestionProjection } from "@/agent/runtime/AgentHostStore";
 import { buildProfileContentIntegrity } from "@/domain/profile/profileContentIntegrity";
+import { getLatestCoreClosureSelfCheck } from "@/services/diagnostics/p45CoreClosureSelfCheck";
 
 type ResumeSummary = { id: string; profileId: string; name: string; purpose: string; revision: number };
 type SessionComposerDrafts = Record<string, string>;
@@ -817,6 +818,7 @@ export function AgentWorkspace() {
         profileRevision: session.profileRevision
       },
       profileContentIntegrity,
+      coreClosureSelfCheck: getLatestCoreClosureSelfCheck(),
       taskState: safeTaskState,
       clarificationState,
       runtime: {

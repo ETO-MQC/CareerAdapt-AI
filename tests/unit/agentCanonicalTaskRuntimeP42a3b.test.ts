@@ -431,7 +431,7 @@ describe("P4.2a.3b canonical task runtime", () => {
   it.each([
     ["choose_resume_source", ["list_resumes", "list_profiles", "list_jobs", "get_active_profile", "get_profile", "search_profile_facts", "get_resume", "get_resume_revision", "get_job", "recommend_resume_source"]],
     ["analyze_fit", ["list_resumes", "list_profiles", "list_jobs", "get_active_profile", "get_profile", "search_profile_facts", "get_resume", "get_resume_revision", "get_job", "analyze_job_fit"]],
-    ["generate_plan", ["list_resumes", "list_profiles", "list_jobs", "get_active_profile", "get_profile", "search_profile_facts", "get_resume", "get_resume_revision", "get_job", "create_tailoring_session"]],
+    ["generate_plan", ["create_tailoring_session"]],
     ["clarify_unsupported_facts", ["answer_tailoring_question"]],
     ["preview_changes", ["list_resumes", "list_profiles", "list_jobs", "get_active_profile", "get_profile", "search_profile_facts", "get_resume", "get_resume_revision", "get_job", "review_tailoring_diff", "preview_tailoring_changes"]],
     ["confirm_apply", ["apply_tailoring_changes"]],
@@ -1348,7 +1348,15 @@ function tailoringState(stage: string) {
       jobId: "job-1"
     },
     knownSlots: {
-      tailoringSession: { plan: { clarificationQuestions: [], clarificationAnswers: [] } },
+      tailoringSession: {
+        plan: {
+          clarificationQuestions: [],
+          clarificationAnswers: [],
+          questionPlan: stage === "clarify_unsupported_facts"
+            ? { status: "asking", activeQuestionId: "question-1", questionIds: ["question-1"] }
+            : undefined
+        }
+      },
       selectedDiffs: [],
       activeQuestionId: stage === "clarify_unsupported_facts" ? "question-1" : undefined,
       remainingDiffCount: stage === "preview_changes" ? 0 : undefined

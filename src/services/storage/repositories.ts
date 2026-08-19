@@ -3,6 +3,7 @@ import { demoCareerProfile } from "@/data/demoProfile";
 import { migrateBranchContentItem, migrateCareerProfileToV2, migrateResumeBranchToV2, normalizeAwardedAt, projectResumeItemV2 } from "@/domain/migrations/resumeV2";
 import { canonicalProfileLibraryItems } from "@/domain/profile/canonicalLibrary";
 import { buildProfileSyncDiagnostics, profileSyncContentCounts, type ProfileSyncDiagnostics } from "@/domain/profile/profileSyncDiagnostics";
+import { applyProfileRecoveryItems, type ProfileRecoveryItem, type ProfileRecoverySourceType } from "@/domain/profile/profileContentRecovery";
 import {
   AiLogSchema,
   AiSuggestionSchema,
@@ -179,6 +180,7 @@ const CAREER_PERSON_INDEX_META_KEY = "careerPersons:v1";
 const LEGACY_DEMO_PROFILE_NAME = "陈同学";
 const PROFILE_RECONCILIATION_META_KEY_PREFIX = "profileReconciliation:v1:";
 const PROFILE_INTAKE_OPERATION_META_KEY_PREFIX = "profileIntakeOperation:v1:";
+const PROFILE_CONTENT_REPAIR_OPERATION_META_KEY_PREFIX = "profileContentRepair:v1:";
 const PROFILE_INTAKE_SOURCE_TURN_META_KEY_PREFIX = "profileIntakeSourceTurn:v1:";
 const AGENT_PROTOCOL_DIAGNOSTIC_META_KEY_PREFIX = "agentProtocolDiagnostic:v1:";
 const CAREER_LIFECYCLE_OPERATION_META_KEY_PREFIX = "careerLifecycleOperation:v1:";
@@ -895,7 +897,7 @@ export class WorkspaceRepository {
     for (const message of migrated.messages) {
       if (!messages.some((candidate) => candidate.id === message.id)) messages.push(message);
     }
-    const hydrated = migrateAgentSessionToCurrentSchema({ ...migrated, messages });
+    let hydrated = migrateAgentSessionToCurrentSchema({ ...migrated, messages });
     if (metadataChanged) {
       // Migration may settle legacy records stored in the append-only message
       // table as well as the session projection. Preserve those repairs before
@@ -904,12 +906,15 @@ export class WorkspaceRepository {
       const latestRaw = await this.db.agentSessions.get(migrated.id);
       const latestRevision = Number((latestRaw as AgentSession | undefined)?.sessionRevision ?? 0);
       const rawRevision = Number(raw.sessionRevision ?? 0);
-      if (!latestRaw || latestRevision <= rawRevision) {
-        await this.db.agentSessions.put({
-          ...persistedMigration,
-          sessionRevision: rawRevision + 1
-        });
-      }
+      const repairRequired = !latestRaw || latestRevision <= rawRevision;
+      const persisted = repairRequired
+        ? {
+            ...persistedMigration,
+            sessionRevision: rawRevision + 1
+          }
+        : latestRaw;
+      if (repairRequired) await this.db.agentSessions.put(persisted);
+      hydrated = migrateAgentSessionToCurrentSchema({ ...persisted, messages });
     }
     return hydrated;
   }
@@ -1214,6 +1219,109 @@ export class WorkspaceRepository {
     const saved = await this.saveProfile(next);
     await this.setActiveCareerContext({ personId: source.personId, profileId: saved.id });
     return saved;
+  }
+
+  /**
+   * Apply an explicitly confirmed Profile content recovery as a new Profile
+   * version.  The candidate was built from a confirmed source by the
+   * diagnostic layer; this method owns the only write and keeps the old
+   * Profile immutable.
+   */
+  async repairProfileContent(input: {
+    profileId: string;
+    expectedProfileVersion: number;
+    operationId: string;
+    sourceType: ProfileRecoverySourceType;
+    items: ProfileRecoveryItem[];
+  }) {
+    await this.ensureCareerIdentityMigration();
+    const operationKey = `${PROFILE_CONTENT_REPAIR_OPERATION_META_KEY_PREFIX}${input.operationId}`;
+    const result = await withProfileWriteLock(input.profileId, () => this.db.transaction("rw", this.db.profiles, this.db.appMeta, async () => {
+      const existingOperation = await this.db.appMeta.get(operationKey);
+      if (existingOperation?.value && typeof existingOperation.value === "object") {
+        const stored = existingOperation.value as Record<string, unknown>;
+        if (typeof stored.profileId === "string" && typeof stored.profileVersion === "number") {
+          return {
+            profileId: stored.profileId,
+            profileVersion: stored.profileVersion,
+            parentProfileId: typeof stored.parentProfileId === "string" ? stored.parentProfileId : input.profileId,
+            operationId: input.operationId,
+            sourceType: input.sourceType,
+            affectedEntityCount: typeof stored.affectedEntityCount === "number" ? stored.affectedEntityCount : 0,
+            candidateBulletCount: typeof stored.candidateBulletCount === "number" ? stored.candidateBulletCount : 0,
+            idempotent: true as const
+          };
+        }
+      }
+
+      const rawSource = await this.db.profiles.get(input.profileId);
+      if (!rawSource) throw new Error("profile_content_repair_source_missing");
+      const source = migrateCareerProfileToV2(CareerProfileSchema.parse(rawSource));
+      if (source.version !== input.expectedProfileVersion) throw new RevisionConflictError();
+      if (!source.personId || source.archivedAt || source.trashedAt) throw new Error("profile_content_repair_source_inactive");
+      const rawProfiles = await this.db.profiles.toArray();
+      const siblings = rawProfiles
+        .map((raw) => migrateCareerProfileToV2(CareerProfileSchema.parse(raw)))
+        .filter((candidate) => candidate.personId === source.personId);
+      const nextProfileVersionNumber = Math.max(0, ...siblings.map((candidate) => candidate.profileVersionNumber ?? 1)) + 1;
+      const now = new Date().toISOString();
+      const repaired = CareerProfileSchema.parse({
+        ...applyProfileRecoveryItems({ profile: source, items: input.items, now }),
+        id: `profile-${crypto.randomUUID()}`,
+        version: 1,
+        profileVersionNumber: nextProfileVersionNumber,
+        parentProfileId: source.id,
+        versionCreatedReason: input.sourceType === "imported_resume_draft" || input.sourceType === "resume_source_document" ? "resume_import" : "manual_snapshot",
+        profileVersionLabel: "资料内容修复",
+        isCurrent: true,
+        archivedAt: undefined,
+        trashedAt: undefined,
+        createdAt: now,
+        updatedAt: now
+      });
+      await this.ensurePersonForProfileInTransaction(repaired);
+      await this.markCurrentProfileInTransaction(repaired);
+      await this.db.profiles.put(repaired);
+
+      const activeRaw = await this.db.appMeta.get(ACTIVE_CAREER_CONTEXT_META_KEY);
+      const active = ActiveCareerContextSchema.safeParse(activeRaw?.value);
+      if (active.success && active.data.profileId === source.id) {
+        const nextContext = ActiveCareerContextSchema.parse({
+          ...active.data,
+          profileId: repaired.id,
+          profileVersionNumber: repaired.profileVersionNumber,
+          profileRevision: repaired.version,
+          selectedAt: now
+        });
+        await this.db.appMeta.bulkPut([
+          { key: ACTIVE_CAREER_CONTEXT_META_KEY, value: nextContext, updatedAt: now },
+          { key: ACTIVE_PROFILE_META_KEY, value: { schemaVersion: "active-profile-v1", profileId: repaired.id }, updatedAt: now }
+        ]);
+      }
+
+      const repairResult = {
+        profileId: repaired.id,
+        profileVersion: repaired.version,
+        parentProfileId: source.id,
+        operationId: input.operationId,
+        sourceType: input.sourceType,
+        affectedEntityCount: input.items.length,
+        candidateBulletCount: input.items.reduce((total, item) => total
+          + (Array.isArray((item.structuredFact.data as Record<string, unknown>).highlights) ? ((item.structuredFact.data as Record<string, unknown>).highlights as unknown[]).length : 0)
+          + (item.structuredFact.data.sectionType === "project" && Array.isArray((item.structuredFact.data as Record<string, unknown>).outcomes)
+            ? ((item.structuredFact.data as Record<string, unknown>).outcomes as unknown[]).length
+            : 0), 0),
+        idempotent: false as const
+      };
+      await this.db.appMeta.put({ key: operationKey, value: repairResult, updatedAt: now });
+      return repairResult;
+    }));
+
+    const readback = await this.getProfile(result.profileId);
+    if (!readback || readback.version !== result.profileVersion || readback.parentProfileId !== result.parentProfileId) {
+      throw new Error("profile_content_repair_readback_failed");
+    }
+    return { ...result, readbackVerified: true as const, profile: readback };
   }
 
   async renameProfileVersion(profileId: string, profileVersionLabel: string) {

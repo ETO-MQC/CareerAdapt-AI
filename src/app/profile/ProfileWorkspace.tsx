@@ -65,6 +65,8 @@ import { useWorkspace } from "@/services/workspace/useWorkspace";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
 import { countProfileContent, profileCountSummary } from "@/domain/profile/profileCounts";
 import { buildProfileContentIntegrity, canonicalProfileContentCounts } from "@/domain/profile/profileContentIntegrity";
+import { canonicalExperienceToEditorDocument } from "@/domain/profile/experienceContentAdapter";
+import { publishLiveProfileProjection } from "@/domain/profile/profileProjectionRegistry";
 import { experienceEditorContentCounts, experienceDocumentToEditorHtml } from "@/components/editor/helpers";
 
 const repository = new WorkspaceRepository();
@@ -350,15 +352,18 @@ export function ProfileWorkspace() {
   const integrityEditorSource = activeProfileCategory === "project"
     ? (profileItemEditing ? profileItemDraft.projectFields : selectedProfileItem?.projectStructured)
     : (profileItemEditing ? profileItemDraft : selectedProfileItem?.structured);
-  const integrityEditorDocument = integrityEditorSource
-    ? {
-        description: integrityEditorSource.description,
-        highlights: integrityEditorSource.highlights,
-        outcomes: integrityEditorSource.outcomes ?? [],
-        tools: integrityEditorSource.tools ?? [],
-        background: integrityEditorSource.background ?? ""
-      }
-    : undefined;
+  const integrityEditorDocument = useMemo(
+    () => integrityEditorSource
+      ? {
+          description: integrityEditorSource.description,
+          highlights: integrityEditorSource.highlights,
+          outcomes: integrityEditorSource.outcomes ?? [],
+          tools: integrityEditorSource.tools ?? [],
+          background: integrityEditorSource.background ?? ""
+        }
+      : undefined,
+    [integrityEditorSource]
+  );
   const integrityEditorHtml = integrityEditorDocument
     ? experienceDocumentToEditorHtml(integrityEditorDocument)
     : "";
@@ -376,6 +381,47 @@ export function ProfileWorkspace() {
         generalResume
       })
     : undefined;
+
+  useEffect(() => {
+    if (!profile || !selectedProfileItem?.canonicalData || !integrityEditorDocument) return;
+    const selectedCanonicalData = selectedProfileItem.canonicalData;
+    const adapterDocument = canonicalExperienceToEditorDocument(selectedCanonicalData);
+    const adapterHtml = experienceDocumentToEditorHtml(adapterDocument);
+    const formCounts = experienceEditorContentCounts(integrityEditorHtml);
+    const adapterCounts = experienceEditorContentCounts(adapterHtml);
+    const timer = window.setTimeout(() => {
+      const editorRoot = document.querySelector<HTMLElement>(
+        '[data-profile-editor="experience-content"] .tiptap-prosemirror'
+      );
+      const visibleParagraphCount = editorRoot
+        ? Array.from(editorRoot.querySelectorAll("p")).filter((element) => {
+            const text = element.textContent?.trim() ?? "";
+            return Boolean(text) && text !== "成果与结果";
+          }).length
+        : 0;
+      const visibleBulletCount = editorRoot
+        ? Array.from(editorRoot.querySelectorAll("li")).filter((element) => Boolean(element.textContent?.trim())).length
+        : 0;
+      publishLiveProfileProjection({
+        profileId: profile.id,
+        profileRevision: profile.version,
+        selectedItemId: selectedCanonicalData.id,
+        selectedSectionType: selectedCanonicalData.sectionType,
+        adapter: {
+          paragraphCount: adapterCounts.descriptionParagraphs,
+          bulletCount: adapterCounts.highlights + adapterCounts.outcomes
+        },
+        form: {
+          paragraphCount: formCounts.descriptionParagraphs,
+          bulletCount: formCounts.highlights + formCounts.outcomes
+        },
+        editor: { visibleParagraphCount, visibleBulletCount },
+        dirty: profileItemEditing,
+        capturedAt: new Date().toISOString()
+      });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [integrityEditorDocument, integrityEditorHtml, profile, profileItemEditing, selectedProfileItem]);
 
   function setBasicDraft(nextDraft: BasicDraft) {
     setBasicDraftState({ ...nextDraft, profileKey: profileDraftKey });

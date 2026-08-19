@@ -3,6 +3,77 @@ import type { CareerProfile, ResumeBranch, ResumeItemV2 } from "@/domain/schemas
 import type { CanonicalExperienceEditorDocument } from "./experienceContentAdapter";
 import { appBuildTechnicalDiagnostics } from "@/services/diagnostics/appBuildInfo";
 
+export type LiveProfileIntegrityStatus = "PASS" | "FAIL" | "NOT_APPLICABLE";
+
+export type ProfileIntegrityClassification =
+  | "repository_content_missing"
+  | "adapter_projection_loss"
+  | "form_hydration_loss"
+  | "editor_hydration_loss"
+  | "editor_rehydration_loss"
+  | "no_integrity_issue";
+
+export type LiveProfileProjection = {
+  profileId: string;
+  profileRevision: number;
+  selectedItemId?: string;
+  selectedSectionType?: ResumeItemV2["sectionType"];
+  adapter: {
+    paragraphCount: number;
+    bulletCount: number;
+  };
+  form: {
+    paragraphCount: number;
+    bulletCount: number;
+  };
+  editor: {
+    visibleParagraphCount: number;
+    visibleBulletCount: number;
+  };
+  dirty: boolean;
+  rehydrationIssue?: boolean;
+  capturedAt: string;
+};
+
+export type LiveProfileContentIntegrity = {
+  profileId: string;
+  revision: number;
+  repository: {
+    projectCount: number;
+    projectDescriptionCount: number;
+    projectHighlightCount: number;
+    workCount: number;
+    workHighlightCount: number;
+    internshipCount: number;
+    internshipHighlightCount: number;
+  };
+  adapter: {
+    paragraphCount: number;
+    bulletCount: number;
+  };
+  form: {
+    paragraphCount: number;
+    bulletCount: number;
+  };
+  editor: {
+    visibleParagraphCount: number;
+    visibleBulletCount: number;
+  };
+  generalResume: {
+    projectCount: number;
+    projectHighlightCount: number;
+    workHighlightCount: number;
+  };
+};
+
+export type LiveProfileContentIntegrityResult = {
+  status: LiveProfileIntegrityStatus;
+  classification: ProfileIntegrityClassification;
+  profileContentIntegrity: LiveProfileContentIntegrity;
+  liveProjectionAvailable: boolean;
+  generalResumeContentMissingFromRepository: boolean;
+};
+
 export type ProfileContentIntegrityCounts = {
   items: number;
   descriptions: number;
@@ -101,6 +172,150 @@ export function canonicalProfileContentCounts(profile: CareerProfile): ProfileCo
     entry.sourceBlockIds.forEach((id) => evidenceRefs.add(id));
   }
   return contentCounts(canonical.structuredFacts.map((entry) => entry.data), evidenceRefs.size);
+}
+
+/**
+ * Build the compact, text-free integrity payload used by the P4.5 closure
+ * diagnostic.  The existing richer ProfileContentIntegrity payload remains
+ * available for technical exports; this shape is intentionally stable and
+ * safe to display in Settings.
+ */
+export function buildLiveProfileContentIntegrity(input: {
+  profile: CareerProfile;
+  generalResume?: ResumeBranch;
+  liveProjection?: LiveProfileProjection;
+}): LiveProfileContentIntegrityResult {
+  const repository = repositoryIntegrityCounts(input.profile);
+  const generalResume = generalResumeIntegrityCounts(input.generalResume);
+  const adapter = input.liveProjection?.adapter ?? adapterIntegrityCounts(input.profile);
+  const form = input.liveProjection?.form ?? emptyFormIntegrityCounts();
+  const editor = input.liveProjection?.editor ?? emptyEditorIntegrityCounts();
+  const generalResumeContentMissingFromRepository = generalResume.projectHighlightCount > repository.projectHighlightCount
+    || generalResume.workHighlightCount > repository.workHighlightCount
+    || generalResume.projectCount > repository.projectCount;
+  const profileContentIntegrity: LiveProfileContentIntegrity = {
+    profileId: input.profile.id,
+    revision: input.profile.version,
+    repository,
+    adapter,
+    form,
+    editor,
+    generalResume
+  };
+
+  let classification: ProfileIntegrityClassification = "no_integrity_issue";
+  if (generalResumeContentMissingFromRepository) {
+    classification = "repository_content_missing";
+  } else if (input.liveProjection?.rehydrationIssue) {
+    classification = "editor_rehydration_loss";
+  } else if (input.liveProjection && repositoryHasSelectedContent(input.profile, input.liveProjection.selectedItemId)
+    && adapter.bulletCount === 0 && adapter.paragraphCount === 0) {
+    classification = "adapter_projection_loss";
+  } else if (input.liveProjection && !input.liveProjection.dirty
+    && adapter.bulletCount + adapter.paragraphCount > 0
+    && form.bulletCount + form.paragraphCount === 0) {
+    classification = "form_hydration_loss";
+  } else if (input.liveProjection && !input.liveProjection.dirty
+    && form.bulletCount + form.paragraphCount > 0
+    && editor.visibleBulletCount + editor.visibleParagraphCount === 0) {
+    classification = "editor_hydration_loss";
+  }
+
+  return {
+    status: classification === "no_integrity_issue" ? "PASS" : "FAIL",
+    classification,
+    profileContentIntegrity,
+    liveProjectionAvailable: Boolean(input.liveProjection),
+    generalResumeContentMissingFromRepository
+  };
+}
+
+export function repositoryIntegrityCounts(profile: CareerProfile): LiveProfileContentIntegrity["repository"] {
+  const canonical = migrateCareerProfileToV2(profile);
+  const counts: LiveProfileContentIntegrity["repository"] = {
+    projectCount: 0,
+    projectDescriptionCount: 0,
+    projectHighlightCount: 0,
+    workCount: 0,
+    workHighlightCount: 0,
+    internshipCount: 0,
+    internshipHighlightCount: 0
+  };
+  for (const entry of canonical.structuredFacts) {
+    const section = entry.data.sectionType;
+    if (section !== "project" && section !== "work" && section !== "internship") continue;
+    if (section === "project") {
+      counts.projectCount += 1;
+      if (hasDescription(entry.data)) counts.projectDescriptionCount += 1;
+      counts.projectHighlightCount += textListLength((entry.data as Record<string, unknown>).highlights);
+    } else if (section === "work") {
+      counts.workCount += 1;
+      counts.workHighlightCount += textListLength((entry.data as Record<string, unknown>).highlights);
+    } else {
+      counts.internshipCount += 1;
+      counts.internshipHighlightCount += textListLength((entry.data as Record<string, unknown>).highlights);
+    }
+  }
+  return counts;
+}
+
+function adapterIntegrityCounts(profile: CareerProfile) {
+  const canonical = migrateCareerProfileToV2(profile);
+  const documents = canonical.structuredFacts
+    .filter((entry) => entry.data.sectionType === "project" || entry.data.sectionType === "work" || entry.data.sectionType === "internship")
+    .map((entry) => {
+      const data = entry.data as Record<string, unknown>;
+      return {
+        description: typeof data.description === "string" ? data.description : "",
+        highlights: textValues(data.highlights),
+        outcomes: entry.data.sectionType === "project" ? textValues(data.outcomes) : [],
+        tools: entry.data.sectionType === "project" ? textValues(data.tools) : [],
+        background: entry.data.sectionType === "project" && typeof data.background === "string" ? data.background : ""
+      };
+    });
+  return editorProjectionContentCounts(documents);
+}
+
+function generalResumeIntegrityCounts(branch?: ResumeBranch): LiveProfileContentIntegrity["generalResume"] {
+  const counts: LiveProfileContentIntegrity["generalResume"] = {
+    projectCount: 0,
+    projectHighlightCount: 0,
+    workHighlightCount: 0
+  };
+  if (!branch) return counts;
+  const canonical = migrateResumeBranchToV2(branch);
+  for (const item of canonical.structuredContentItems ?? []) {
+    if (item.data.sectionType === "project") {
+      counts.projectCount += 1;
+      counts.projectHighlightCount += textListLength((item.data as Record<string, unknown>).highlights);
+    } else if (item.data.sectionType === "work") {
+      counts.workHighlightCount += textListLength((item.data as Record<string, unknown>).highlights);
+    }
+  }
+  return counts;
+}
+
+function emptyFormIntegrityCounts() {
+  return { paragraphCount: 0, bulletCount: 0 };
+}
+
+function emptyEditorIntegrityCounts() {
+  return { visibleParagraphCount: 0, visibleBulletCount: 0 };
+}
+
+function textValues(value: unknown) {
+  return Array.isArray(value) ? value.filter((candidate): candidate is string => typeof candidate === "string" && candidate.trim().length > 0) : [];
+}
+
+function repositoryHasSelectedContent(profile: CareerProfile, selectedItemId?: string) {
+  if (!selectedItemId) return true;
+  const canonical = migrateCareerProfileToV2(profile);
+  const selected = canonical.structuredFacts.find((entry) => entry.data.id === selectedItemId);
+  if (!selected) return false;
+  const data = selected.data as Record<string, unknown>;
+  return hasDescription(selected.data)
+    || textListLength(data.highlights) > 0
+    || (selected.data.sectionType === "project" && (textListLength(data.outcomes) > 0 || textListLength(data.tools) > 0));
 }
 
 function canonicalExperienceCategoryCounts(profile: CareerProfile): ProfileContentIntegrity["canonical"] {
