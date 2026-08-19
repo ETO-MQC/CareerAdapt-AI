@@ -5,13 +5,13 @@ import type {
   CareerToolResult
 } from "@/agent/tools/CareerToolGateway";
 import type { CareerSessionBinding } from "../runtime/careerSessionBinding";
+import { stableCareerLogicalToolOperationId } from "../tools/careerToolContract";
 import {
   CareerToolFailureDiagnosticsSchema,
   safeCareerToolArgumentShape,
   type CareerMcpCallTrace,
   type CareerToolFailureDiagnostics
 } from "../tools/careerToolDiagnostics";
-import { stableCareerLogicalToolOperationId } from "../tools/careerToolContract";
 
 /**
  * The MCP adapter is deliberately narrower than the Career domain.  It only
@@ -99,9 +99,9 @@ export class CareerAdaptMcpAdapter {
     const contract = this.gateway.listContracts().find((candidate) => candidate.name === name);
     const operationId = normalizeOperationId(meta.operationId);
     const requestStartedAt = new Date().toISOString();
-    // The Browser handler carries forward the upstream ID. A legacy direct
-    // caller without one gets the same deterministic turn/tool fallback; no
-    // per-call logical ID is minted here.
+    // This is the first boundary. If the upstream caller supplied no logical
+    // ID, derive the deterministic turn/tool identity once; downstream layers
+    // only carry it forward.
     const logicalToolOperationId = meta.logicalToolOperationId?.trim()
       || (meta.logicalTurnId ? stableCareerLogicalToolOperationId(meta.logicalTurnId, name) : operationId);
     if (!contract) {

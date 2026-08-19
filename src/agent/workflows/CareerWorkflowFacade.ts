@@ -130,6 +130,63 @@ export const CAREER_WORKFLOW_FACADE_DEFINITIONS: CareerWorkflowFacadeDefinition[
   { name: "career.workflow.resume_export", description: "Create the existing Preview/PDF export artifact for a selected resume.", inputSchema: ResumeExportInputSchema, personProfileBinding: "optional" }
 ];
 
+export type PreparedCareerWorkflowInvocation = {
+  input: Record<string, unknown>;
+  context: CareerToolExecutionContext;
+};
+
+/**
+ * The single production preparation boundary for Career workflow calls.
+ * Hermes/MCP may transport an omitted same-turn target, but only this
+ * boundary resolves it, applies the existing binding, normalizes aliases and
+ * performs the canonical facade validation.
+ */
+export function prepareCareerWorkflowInvocation(
+  name: string,
+  rawInput: unknown,
+  context: CareerToolExecutionContext,
+  operationId: string
+): PreparedCareerWorkflowInvocation {
+  const definition = CAREER_WORKFLOW_FACADE_DEFINITIONS.find((candidate) => candidate.name === name);
+  if (!definition) throw Object.assign(new Error("unknown_career_workflow"), { code: "unknown_career_workflow" });
+  const turnScopedInput = name === "career.workflow.tailor_resume"
+    ? context.tailoringAnswer
+      ? {
+          input: {
+            checkpointId: context.tailoringAnswer.checkpointId,
+            userAnswer: context.tailoringAnswer.answer
+          }
+        }
+      : resolveTurnScopedTailoringInput(rawInput, context)
+    : { input: normalizeCareerWorkflowScopedInput(name, rawInput, context) };
+  const normalizedInput = name === "career.workflow.tailor_resume"
+    ? normalizeTailorResumeInput(turnScopedInput.input)
+    : turnScopedInput.input;
+  if (
+    name === "career.workflow.tailor_resume"
+    && normalizedInput
+    && typeof normalizedInput === "object"
+    && !Array.isArray(normalizedInput)
+    && !["targetText", "jobId", "checkpointId"].some((key) => {
+      const value = (normalizedInput as Record<string, unknown>)[key];
+      return typeof value === "string" && value.trim().length > 0;
+    })
+  ) {
+    throw Object.assign(new Error("career_workflow_target_required"), {
+      code: "target_required"
+    });
+  }
+  const input = definition.inputSchema.parse(normalizedInput) as Record<string, unknown>;
+  if (turnScopedInput.targetContextId) input.targetContextId = turnScopedInput.targetContextId;
+  return {
+    input,
+    context: {
+      ...context,
+      logicalToolOperationId: context.logicalToolOperationId ?? operationId
+    }
+  };
+}
+
 function composeResumeInputJsonSchema(): Record<string, unknown> {
   const commonProperties = {
     profileId: { type: "string", minLength: 1 },
@@ -163,6 +220,30 @@ function composeResumeInputJsonSchema(): Record<string, unknown> {
   };
 }
 
+function normalizeCareerWorkflowScopedInput(
+  name: string,
+  rawInput: unknown,
+  context: CareerToolExecutionContext
+) {
+  const input = rawInput && typeof rawInput === "object" && !Array.isArray(rawInput)
+    ? { ...(rawInput as Record<string, unknown>) }
+    : rawInput;
+  const binding = context.careerSessionBinding;
+  if (!binding || !input || typeof input !== "object" || Array.isArray(input)) return rawInput;
+  if (name === "career.workflow.profile_intake_turn") {
+    return {
+      ...input,
+      agentSessionId: binding.agentSessionId,
+      profileId: binding.profileId,
+      expectedProfileRevision: binding.profileRevision,
+      ...(context.userMessageId ? { messageId: context.userMessageId } : {}),
+      ...(context.logicalTurnId ? { turnId: context.logicalTurnId } : {}),
+      capturedAt: new Date().toISOString()
+    };
+  }
+  return input;
+}
+
 type ExecuteAtomic = (name: string, input: unknown, context: CareerToolExecutionContext) => Promise<CareerToolResult>;
 
 export async function executeCareerWorkflowFacade(
@@ -170,18 +251,14 @@ export async function executeCareerWorkflowFacade(
   rawInput: unknown,
   context: CareerToolExecutionContext,
   operationId: string,
-  executeAtomic: ExecuteAtomic
+  executeAtomic: ExecuteAtomic,
+  prepared?: PreparedCareerWorkflowInvocation
 ): Promise<{ data: CareerWorkflowFacadeResult; artifacts: ArtifactRef[]; receipts: OperationReceipt[] }> {
   const definition = CAREER_WORKFLOW_FACADE_DEFINITIONS.find((candidate) => candidate.name === name);
   if (!definition) throw Object.assign(new Error("unknown_career_workflow"), { code: "unknown_career_workflow" });
-  const turnScopedInput = name === "career.workflow.tailor_resume"
-    ? resolveTurnScopedTailoringInput(rawInput, context)
-    : { input: rawInput };
-  const normalizedInput = name === "career.workflow.tailor_resume"
-    ? normalizeTailorResumeInput(turnScopedInput.input)
-    : turnScopedInput.input;
-  const input = definition.inputSchema.parse(normalizedInput) as Record<string, unknown>;
-  if (turnScopedInput.targetContextId) input.targetContextId = turnScopedInput.targetContextId;
+  const preparedInvocation = prepared ?? prepareCareerWorkflowInvocation(name, rawInput, context, operationId);
+  context = preparedInvocation.context;
+  const input = preparedInvocation.input;
   const call = async (
     toolName: string,
     value: unknown,
@@ -347,10 +424,15 @@ export function resolveTurnScopedTailoringInput(
   const explicitTargetContextId = stringValue(input.targetContextId);
   const internalKeys = new Set(["targetContextId", "sourceResumeId", "profileId"]);
   const canResolveOmittedTarget = Object.keys(input).every((key) => internalKeys.has(key));
+  const directTargetContext = context.turnTargetContext?.logicalTurnId === context.logicalTurnId
+    ? context.turnTargetContext
+    : undefined;
   const targetContext = explicitTargetContextId
-    ? targetContextForId(context.authoritativeTaskState, context.logicalTurnId, explicitTargetContextId)
+    ? directTargetContext?.targetContextId === explicitTargetContextId
+      ? directTargetContext
+      : targetContextForId(context.authoritativeTaskState, context.logicalTurnId, explicitTargetContextId)
     : canResolveOmittedTarget
-      ? currentTurnScopedTargetContext(context.authoritativeTaskState, context.logicalTurnId)
+      ? directTargetContext ?? currentTurnScopedTargetContext(context.authoritativeTaskState, context.logicalTurnId)
       : undefined;
   if (!targetContext) return { input };
   delete input.targetContextId;

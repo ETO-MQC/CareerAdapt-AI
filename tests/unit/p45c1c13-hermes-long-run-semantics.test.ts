@@ -5,6 +5,7 @@ import { AgentRuntimeRouter } from "@/agent/runtime/AgentRuntimeRouter";
 import { HermesCareerAgentRuntime } from "@/agent/runtime/hermes/HermesCareerAgentRuntime";
 import { HttpHermesBridgeTransport, type HermesBridgeTransport } from "@/agent/runtime/hermes/HermesBridgeTransport";
 import { classifyHermesRunFailure, createHermesRunFailure } from "@/agent/runtime/hermes/hermesRunReliability";
+import { migrateAgentSessionToCurrentSchema } from "@/agent/runtime/AgentSessionMigration";
 import { CareerToolGateway } from "@/agent/tools/CareerToolGateway";
 import { AgentToolRegistry } from "@/agent/tools/registry";
 
@@ -55,6 +56,83 @@ describe("P4.5c.1.13 Hermes long-run semantics and non-destructive recovery", ()
     expect(stops).toBe(0);
     expect(observedRunIds).toEqual(["run-live"]);
     expect(events.at(-1)).toMatchObject({ type: "turn_completed", data: { runHandle: { runId: "run-live" } } });
+  });
+
+  it("reattaches the current run when health is unavailable and never emits pre-turn unavailability", async () => {
+    let healthChecks = 0;
+    let starts = 0;
+    const transport = runsTransport({
+      health: async () => {
+        healthChecks += 1;
+        return { available: false, mcpConnected: false, reason: "companion_health_unavailable" };
+      },
+      startRun: async () => {
+        starts += 1;
+        throw new Error("start_run_must_not_be_called_for_reattach");
+      },
+      runEvents: async function* (runId) {
+        expect(runId).toBe("run-live");
+        yield { type: "turn_completed", message: "同一 run 完成" } as const;
+      }
+    });
+    const session = persistedSession("run-live", "running", true);
+    const events = [];
+    for await (const event of runtime(transport).runTurn({
+      sessionId: session.id,
+      turnId: "turn-live",
+      userMessage: "",
+      pageContext: { query: {} },
+      session,
+      metadata: { reattachRunId: "run-live" }
+    })) events.push(event);
+
+    expect(healthChecks).toBe(0);
+    expect(starts).toBe(0);
+    expect(events.some((event) => event.type === "turn_failed" && event.error?.code === "hermes_unavailable_before_turn")).toBe(false);
+    expect(events.at(-1)).toMatchObject({ type: "turn_completed", data: { runHandle: { runId: "run-live" } } });
+  });
+
+  it("does not recover a pending tool as historical when a non-terminal run still owns its turn", () => {
+    const base = AgentRuntime.create("tailor_existing_resume", "generate_plan", "迁移归属");
+    const raw = {
+      ...base,
+      activeTurn: {
+        id: "turn-live",
+        sessionId: base.id,
+        status: "failed" as const,
+        startedAt: "2026-08-09T01:00:00.000Z",
+        completedAt: "2026-08-09T01:00:02.000Z"
+      },
+      hermesRun: {
+        runId: "run-live",
+        hermesSessionId: "hermes-session",
+        careerAgentSessionId: base.id,
+        turnId: "turn-live",
+        status: "running" as const,
+        startedAt: "2026-08-09T01:00:00.000Z",
+        lastEventAt: "2026-08-09T01:00:01.000Z"
+      },
+      messages: [{
+        id: "tool-live",
+        turnId: "turn-live",
+        role: "tool" as const,
+        content: "等待同一 run 的工具结果",
+        kind: "tool_status" as const,
+        type: "tool_status" as const,
+        status: "pending" as const,
+        toolName: "career.workflow.tailor_resume",
+        operationId: "operation-live-tool",
+        metadata: { activityState: "running" },
+        createdAt: "2026-08-09T01:00:01.000Z"
+      }]
+    };
+
+    const migrated = migrateAgentSessionToCurrentSchema(raw as never, "2026-08-09T01:00:03.000Z");
+    expect(migrated.messages[0]).toMatchObject({
+      status: "pending",
+      metadata: { activityState: "running" }
+    });
+    expect(migrated.messages[0]?.metadata?.recoveryReason).toBeUndefined();
   });
 
   it("retries a terminal run with one new POST and a new run id, never reading old run events", async () => {

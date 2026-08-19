@@ -89,6 +89,21 @@ describe("P4.5c.1.16 canonical Career tool contract closure", () => {
     expect(JSON.stringify(result.diagnostics)).not.toContain("too-short");
   });
 
+  it("returns target_required when an external caller omits every explicit target", async () => {
+    const result = await new CareerToolGateway(new AgentToolRegistry([])).execute(
+      "career.workflow.tailor_resume",
+      {},
+      { operationId: "target-required-operation" }
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatchObject({ code: "target_required", recoverable: false });
+    expect(result.diagnostics).toMatchObject({
+      safeDomainErrorCode: "target_required",
+      toolFailureLayer: "gateway_validation"
+    });
+  });
+
   it("fails readiness before execution when the published contract drifts", () => {
     const gateway = new CareerToolGateway(new AgentToolRegistry([]));
     const contract = gateway.getContract("career.workflow.tailor_resume");

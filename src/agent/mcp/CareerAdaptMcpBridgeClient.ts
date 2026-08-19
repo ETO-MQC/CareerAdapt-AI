@@ -326,13 +326,15 @@ export class CareerAdaptMcpBridgeClient {
     const confirmationContext = this.confirmationContext ?? this.detachedConfirmationContext;
     let result: CareerToolResult;
     const logicalTurnId = request.logicalTurnId ?? confirmationContext?.turnId;
-    const toolInput = normalizeHermesScopedInput(
-      request.name,
-      request.input,
-      request.careerSessionBinding,
-      confirmationContext,
-      logicalTurnId
-    );
+    // Keep the transport payload unchanged. Same-turn target resolution and
+    // canonical validation belong to prepareCareerWorkflowInvocation at the
+    // Gateway/Facade boundary, so this bridge cannot inject a second copy.
+    const toolInput = confirmationContext?.tailoringAnswer && request.name === "career.workflow.tailor_resume"
+      ? {
+          checkpointId: confirmationContext.tailoringAnswer.checkpointId,
+          userAnswer: confirmationContext.tailoringAnswer.answer
+        }
+      : request.input;
     let gatewayReached = false;
     try {
       const sessionId = request.agentSessionId ?? confirmationContext?.sessionId;
@@ -347,7 +349,10 @@ export class CareerAdaptMcpBridgeClient {
         incidentTraceId: request.incidentTraceId,
         agentSessionId: request.agentSessionId ?? confirmationContext?.sessionId,
         careerSessionBinding: request.careerSessionBinding,
-        requireSessionBinding: request.requireSessionBinding === true
+        requireSessionBinding: request.requireSessionBinding === true,
+        turnTargetContext: confirmationContext?.targetContext,
+        tailoringAnswer: confirmationContext?.tailoringAnswer,
+        userMessageId: confirmationContext?.userMessageId
       };
       const callKey = `${request.name}:${stableJson(toolInput)}`;
       const turnId = logicalTurnId ?? "unbound-turn";
@@ -614,7 +619,7 @@ function withMcpCallTrace(
   const diagnostics = CareerToolFailureDiagnosticsSchema.parse({
     ...baseDiagnostics,
     mcpHttpArgumentShape: safeCareerToolArgumentShape(request.input),
-    browserHandlerArgumentShape: safeCareerToolArgumentShape(input),
+    browserHandlerArgumentShape: baseDiagnostics.facadeArgumentShape ?? safeCareerToolArgumentShape(input),
     mcpCallTrace: {
       toolName: request.name,
       logicalToolOperationId,

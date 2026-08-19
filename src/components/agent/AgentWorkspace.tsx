@@ -50,6 +50,7 @@ import { HermesCareerToolCatalog, hermesProductionToolNames } from "@/agent/runt
 import { isRoadshowReady } from "@/agent/runtime/runtimeHealth";
 import { createRunStopReason } from "@/agent/runtime/hermes/hermesIncidentTrace";
 import { getActiveTailoringQuestionProjection } from "@/agent/runtime/AgentHostStore";
+import { buildProfileContentIntegrity } from "@/domain/profile/profileContentIntegrity";
 
 type ResumeSummary = { id: string; profileId: string; name: string; purpose: string; revision: number };
 type SessionComposerDrafts = Record<string, string>;
@@ -762,6 +763,18 @@ export function AgentWorkspace() {
     };
     const careerContracts = host.careerToolGateway.listContracts();
     const careerCatalog = new HermesCareerToolCatalog(careerContracts);
+    const workspaceRepository = host.store.getWorkspaceRepository();
+    const diagnosticProfile = session.activeProfileId
+      ? await workspaceRepository.getProfile(session.activeProfileId)
+      : undefined;
+    const diagnosticGeneralResume = diagnosticProfile
+      ? (await workspaceRepository.listResumeBranches(diagnosticProfile.id)).find((branch) =>
+          branch.branchPurpose === "general" && branch.lifecycleStatus === "active"
+        )
+      : undefined;
+    const profileContentIntegrity = diagnosticProfile
+      ? buildProfileContentIntegrity({ profile: diagnosticProfile, generalResume: diagnosticGeneralResume })
+      : undefined;
     const runtimeHealth = runtimeStatus.health;
     const runtimeEnvironment = window.careerAdaptDesktop ? "electron" : "web";
     const supervisorExpected = runtimeEnvironment === "electron";
@@ -803,6 +816,7 @@ export function AgentWorkspace() {
         versionNumber: session.profileVersionNumber,
         profileRevision: session.profileRevision
       },
+      profileContentIntegrity,
       taskState: safeTaskState,
       clarificationState,
       runtime: {

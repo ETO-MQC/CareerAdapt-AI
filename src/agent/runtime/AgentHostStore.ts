@@ -455,9 +455,12 @@ export class AgentHostStore {
     // session-scoped execution is still active.
     const hasLiveExecution = Boolean(liveExecution?.promise) || liveExecution?.status === "running";
     const hasRecoverableHermesRun = Boolean(
-      migrated.activeTurn?.status === "running"
+      migrated.activeTurn
       && migrated.hermesRun
+      && migrated.activeTurn.id === migrated.hermesRun.turnId
       && ["queued", "running", "waiting_for_approval", "stopping"].includes(migrated.hermesRun.status)
+      && migrated.taskState?.completionStatus !== "completed"
+      && migrated.taskState?.completionStatus !== "failed"
     );
     const hasRecoverableArtifactWrite = Boolean(artifactWriteCheckpointFromSession(migrated));
     const canResumePersistedTurn = hasLiveExecution || hasRecoverableHermesRun || hasRecoverableArtifactWrite;

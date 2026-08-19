@@ -109,7 +109,9 @@ export function migrateAgentSessionToCurrentSchema(value: AgentSession | Record<
       nextTaskState = {
         ...nextTaskState,
         knownSlots,
-        selectedEntities: { ...selectedEntities, tailoringSessionId: undefined },
+        // Preserve canonical source-resume fields backfilled above; using the
+        // pre-canonical projection here made the migration non-idempotent.
+        selectedEntities: { ...record(nextTaskState?.selectedEntities), tailoringSessionId: undefined },
         stage: fitFresh ? "generate_plan" : "analyze_fit",
         activeGoal: fitFresh ? "create_tailored_resume" : "analyze_job_fit",
         completionStatus: "active"
@@ -123,6 +125,11 @@ export function migrateAgentSessionToCurrentSchema(value: AgentSession | Record<
   }
 
   const activeTurn = record(raw.activeTurn);
+  const persistedHermesRun = record(raw.hermesRun);
+  const persistedHermesRunIsNonTerminal = ["queued", "running", "waiting_for_approval", "stopping"].includes(String(persistedHermesRun.status ?? ""));
+  const hermesRunOwnsActiveTurn = persistedHermesRunIsNonTerminal
+    && typeof persistedHermesRun.turnId === "string"
+    && persistedHermesRun.turnId === activeTurn.id;
   const rawMessages = Array.isArray(raw.messages) ? raw.messages : [];
   const legacyBranchId = typeof raw.activeBranchId === "string" ? raw.activeBranchId : "legacy-branch";
   const messages = rawMessages.map((input, index) => {
@@ -144,7 +151,8 @@ export function migrateAgentSessionToCurrentSchema(value: AgentSession | Record<
     }
     if (message.role === "tool" && (message.status === "pending" || metadata.activityState === "running")) {
       const retired = RETIRED_TAILORING_MUTATIONS.has(message.toolName ?? "");
-      const turnStillActive = activeTurn.status === "running" && message.turnId === activeTurn.id;
+      const turnStillActive = message.turnId === activeTurn.id
+        && (activeTurn.status === "running" || hermesRunOwnsActiveTurn);
       if (retired || !turnStillActive) {
         message = { ...message, status: "recovered", content: retired ? "旧版岗位定制操作已恢复，不会自动执行。" : message.content };
         metadata.activityState = "recovered";

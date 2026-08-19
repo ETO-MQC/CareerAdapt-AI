@@ -8,7 +8,7 @@ import {
   CAREER_WORKFLOW_FACADE_DEFINITIONS,
   CareerWorkflowFacadeResultSchema,
   executeCareerWorkflowFacade,
-  resolveTurnScopedTailoringInput
+  prepareCareerWorkflowInvocation
 } from "../workflows/CareerWorkflowFacade";
 import { isRetryableAiProviderErrorCode } from "@/ai/providers/transportError";
 import type { AgentTaskState } from "../contracts/agentSession";
@@ -20,13 +20,15 @@ import {
   safeCareerToolArgumentShape,
   safeZodSchemaIssues
 } from "./careerToolDiagnostics";
-import { contractIdentityForInputSchema, stableCareerLogicalToolOperationId } from "./careerToolContract";
+import { contractIdentityForInputSchema } from "./careerToolContract";
 import {
   TransactionalWorkflowLeaseManager,
   type TransactionalWorkflowLease
 } from "../workflows/TransactionalWorkflowLease";
 import { isCareerDomainPreconditionCode } from "../runtime/careerContextBindingResolver";
 import { appBuildTechnicalDiagnostics } from "@/services/diagnostics/appBuildInfo";
+import type { TurnScopedTargetContext } from "../runtime/turnScopedTargetContext";
+import { turnTargetContextDiagnostics } from "../runtime/turnScopedTargetContext";
 
 export type CareerToolReadWrite = "read" | "write";
 export type CareerToolConfirmationPolicy = "none" | "user_confirmation" | "destructive_confirmation";
@@ -126,6 +128,18 @@ export type CareerToolExecutionContext = {
   authoritativeTaskState?: AgentTaskState;
   /** Only the deterministic facade may use this to advance internal stages. */
   workflowFacadeInternal?: boolean;
+  /** Browser/Host-owned same-turn target authority; never included raw in diagnostics. */
+  turnTargetContext?: TurnScopedTargetContext;
+  /** Browser/Host-owned answer for the current tailoring checkpoint. */
+  tailoringAnswer?: {
+    checkpointId: string;
+    questionId: string;
+    questionPlanId: string;
+    questionPlanRevision: number;
+    answer: string;
+  };
+  /** Browser/Host source message for a workflow turn. */
+  userMessageId?: string;
   /** Internal discovery snapshot used only to keep partial test/adapter registries source-compatible. */
   availableCareerToolNames?: ReadonlySet<string>;
 };
@@ -318,13 +332,14 @@ export class CareerToolGateway {
     input: unknown,
     context: CareerToolExecutionContext = {}
   ): Promise<CareerToolResult<T>> {
+    const operationId = normalizeOperationId(context.operationId);
     context = {
       ...context,
-      ...(context.logicalToolOperationId || !context.logicalTurnId
-        ? {}
-        : { logicalToolOperationId: stableCareerLogicalToolOperationId(context.logicalTurnId, name) })
+      operationId,
+      // The first boundary owns the fallback identity. Downstream layers
+      // transport it; they never derive a second turn/tool identity.
+      logicalToolOperationId: context.logicalToolOperationId ?? operationId
     };
-    const operationId = normalizeOperationId(context.operationId);
     const trace = createExecutionTrace(name, input, operationId, context);
     const workflow = this.workflowByName.get(name);
     if (workflow) {
@@ -335,7 +350,16 @@ export class CareerToolGateway {
         if (stageError) return this.failure(name, operationId, stageError.code, stageError.message, true, undefined, "failed", finishFailureTrace(trace, stageError.code, "gateway_policy"));
         const contract = this.toWorkflowContract(workflow);
         attachContractIdentity(trace, contract);
-        const bindingError = await this.verifyExecutionBinding(contract, input, context);
+        const facadeContext = {
+          ...context,
+          authoritativeTaskState: context.authoritativeTaskState ?? this.asDependencies().getAuthoritativeTaskState?.(),
+          availableCareerToolNames: context.availableCareerToolNames ?? new Set(this.listContracts().map((candidate) => candidate.name))
+        };
+        const prepared = prepareCareerWorkflowInvocation(name, input, facadeContext, operationId);
+        trace.gatewayInput = prepared.input;
+        trace.facadeInput = prepared.input;
+        trace.targetContext = turnTargetContextDiagnostics(prepared.context.turnTargetContext, true);
+        const bindingError = await this.verifyExecutionBinding(contract, prepared.input, prepared.context);
         if (bindingError) return this.failure(name, operationId, bindingError.code, bindingError.message, false, undefined, "failed", finishFailureTrace(trace, bindingError.code, "gateway_policy"));
         if (!context.workflowFacadeInternal && isTransactionalWorkflow(name)) {
           lease = this.transactionalWorkflowLeases.acquire({
@@ -345,20 +369,12 @@ export class CareerToolGateway {
             operationId
           });
         }
-        const facadeContext = {
-          ...context,
-          authoritativeTaskState: context.authoritativeTaskState ?? this.asDependencies().getAuthoritativeTaskState?.(),
-          availableCareerToolNames: context.availableCareerToolNames ?? new Set(this.listContracts().map((candidate) => candidate.name))
-        };
-        trace.facadeInput = name === "career.workflow.tailor_resume"
-          ? resolveTurnScopedTailoringInput(input, facadeContext).input
-          : input;
         trace.enteredFacadeAt = new Date().toISOString();
         trace.firstInternalOperationAt = new Date().toISOString();
         const facade = await executeCareerWorkflowFacade(
           name,
           input,
-          facadeContext,
+          prepared.context,
           operationId,
           (atomicName, atomicInput, atomicContext) => this.execute(atomicName, atomicInput, {
             ...atomicContext,
@@ -368,7 +384,8 @@ export class CareerToolGateway {
             taskId: atomicContext.taskId ?? context.taskId,
             workflowFacadeInternal: true,
             authoritativeTaskState: facadeContext.authoritativeTaskState
-          })
+          }),
+          prepared
         );
         trace.workflowStageAfter = facade.data.workflowStage;
         const facadeReceipt = facade.receipts.at(-1)!;
@@ -806,6 +823,7 @@ function errorCode(error: unknown) {
 
 function safeGatewayErrorMessage(error: unknown, code: string) {
   if (code === "schema_validation_failed") return "工具输入未通过 Career Schema 校验，未执行写入。";
+  if (code === "target_required") return "当前岗位定制缺少 targetText、jobId 或 checkpointId。";
   return error instanceof Error && error.message.trim()
     ? error.message.replace(/[\u0000-\u001f\u007f]/gu, " ").replace(/\s+/gu, " ").trim().slice(0, 360)
     : "工具执行没有完成。";
@@ -817,7 +835,7 @@ function isRecoverable(code: string) {
 }
 
 function categoryForCode(code: string): CareerToolErrorCategory {
-  if (/input_invalid|validation|schema/i.test(code)) return "validation";
+  if (/input_invalid|validation|schema|target_required/i.test(code)) return "validation";
   if (/not_found|unknown_(?:agent_|career_)?tool|missing/i.test(code)) return "not_found";
   if (/stale|revision|version/i.test(code)) return "stale_revision";
   if (/conflict|duplicate|already_exists|career_workflow_in_progress/i.test(code)) return "conflict";
@@ -864,6 +882,8 @@ type ExecutionTrace = {
   invalidFields?: string[];
   acceptedShapeHint?: { requiredOneOf: string[]; note?: string };
   facadeInput?: unknown;
+  gatewayInput?: unknown;
+  targetContext?: ReturnType<typeof turnTargetContextDiagnostics>;
 };
 
 const TRANSACTIONAL_WORKFLOW_NAMES = new Set([
@@ -966,8 +986,9 @@ function finishTrace(
     ...(trace.logicalTurnId ? { logicalTurnId: trace.logicalTurnId } : {}),
     ...(trace.taskId ? { taskId: trace.taskId } : {}),
     argumentShape: safeCareerToolArgumentShape(trace.input),
-    gatewayArgumentShape: safeCareerToolArgumentShape(trace.input),
+    gatewayArgumentShape: safeCareerToolArgumentShape(trace.gatewayInput ?? trace.input),
     facadeArgumentShape: safeCareerToolArgumentShape(trace.facadeInput ?? trace.input),
+    ...(trace.targetContext ? { targetContext: trace.targetContext } : {}),
     ...(scopeForLayer(layer) === "career_workflow" ? { runtimeHealthy: true, mcpHealthy: true } : {}),
     ...appBuildTechnicalDiagnostics,
     ...(trace.schemaIssues?.length ? { schemaIssues: trace.schemaIssues } : {}),
@@ -1034,7 +1055,7 @@ function failureLayerForCode(code: string): CareerToolFailureLayer {
   if (/repository|workspace|repo_|database|dexie/i.test(code)) return "repository";
   if (/provider|model|planner|ai_/i.test(code)) return "provider";
   if (/binding|not_allowed|permission|confirmation|forbidden|unauthor/i.test(code)) return "gateway_policy";
-  if (/invalid|schema|missing|unknown_|not_found|input_/i.test(code)) return "gateway_validation";
+  if (/invalid|schema|missing|unknown_|not_found|input_|target_required/i.test(code)) return "gateway_validation";
   if (/selection_required|checkpoint|stale|revision|workflow_in_progress|questions_incomplete|precondition/i.test(code)) return "workflow_precondition";
   if (/tailor|compose|profile|resume|workflow/i.test(code)) return "workflow_execution";
   return "unknown";

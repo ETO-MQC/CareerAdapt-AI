@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { stableHashText } from "@/services/security/text";
+import type { TurnTargetContextDiagnostics } from "../runtime/turnScopedTargetContext";
 
 /**
  * Safe, transport-neutral failure layers.  These values are intentionally
@@ -141,6 +142,16 @@ export const CareerToolFailureDiagnosticsSchema = z.object({
   browserHandlerArgumentShape: CareerToolArgumentShapeSchema.optional(),
   gatewayArgumentShape: CareerToolArgumentShapeSchema.optional(),
   facadeArgumentShape: CareerToolArgumentShapeSchema.optional(),
+  targetContext: z.object({
+    targetContextId: z.string().min(1),
+    logicalTurnId: z.string().min(1),
+    sourceMessageId: z.string().min(1),
+    targetPresent: z.boolean(),
+    targetLengthBucket: z.string().min(1),
+    targetHashPrefix: z.string().min(1),
+    createdAt: z.string().datetime({ offset: true }),
+    resolvedForTool: z.boolean()
+  }).strict().optional(),
   runtimeHealthy: z.boolean().optional(),
   mcpHealthy: z.boolean().optional(),
   schemaIssues: z.array(CareerToolSchemaIssueSchema).optional(),
@@ -172,6 +183,8 @@ export const CareerToolFailureDiagnosticsSchema = z.object({
 }).strict();
 
 export type CareerToolFailureDiagnostics = z.infer<typeof CareerToolFailureDiagnosticsSchema>;
+
+export type { TurnTargetContextDiagnostics };
 
 export function safeZodSchemaIssues(error: unknown): CareerToolSchemaIssue[] {
   if (!(error instanceof z.ZodError)) return [];

@@ -268,9 +268,8 @@ function enqueueCall(name: string, input: unknown, context: CareerToolExecutionC
     name,
     input,
     operationId,
-    // The bridge registry transports the upstream identity. Only an older
-    // direct caller without it gets the same deterministic turn/tool fallback;
-    // the random operation ID remains a transport-only legacy fallback.
+    // This is the first identity boundary for a direct server caller. Once
+    // assigned, the browser bridge and Gateway transport this exact value.
     logicalToolOperationId: context.logicalToolOperationId
       ?? (logicalTurnId ? stableCareerLogicalToolOperationId(logicalTurnId, name) : operationId),
     logicalTurnId,

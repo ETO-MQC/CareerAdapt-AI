@@ -111,7 +111,7 @@ type ProfileManagedItem = {
   canonicalData?: ResumeItemV2;
 };
 
-type ProfileItemDraft = StructuredExperienceFields & {
+export type ProfileItemDraft = StructuredExperienceFields & {
   projectFields: StructuredProjectFields;
   title: string;
   subtitle: string;
@@ -402,6 +402,17 @@ export function ProfileWorkspace() {
       active = false;
     };
   }, [activeProfileCategory, profileManagedItems, selectedProfileItemKey]);
+
+  useEffect(() => {
+    if (profileItemEditing || !selectedProfileItem) return;
+    let active = true;
+    queueMicrotask(() => {
+      if (active) setProfileItemDraft(profileDraftFromItem(selectedProfileItem));
+    });
+    return () => {
+      active = false;
+    };
+  }, [profileItemEditing, selectedProfileItem]);
 
   useEffect(() => {
     if (!profile?.id) {
@@ -2299,7 +2310,7 @@ export function ProfileWorkspace() {
   );
 }
 
-function ProfileCategoryFields({
+export function ProfileCategoryFields({
   category,
   draft,
   onChange

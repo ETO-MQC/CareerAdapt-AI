@@ -248,6 +248,7 @@ function createAgentHost() {
       || session.taskState?.completionStatus === "waiting_for_confirmation"
       || ["queued", "running", "waiting_for_approval", "stopping"].includes(session.hermesRun?.status ?? "");
   };
+  const activeHermesExecutionKeys = new Set<string>();
   const runTurn = async (input: AgentRuntimeTurnInput) => {
     // The UI consumes only this stable event protocol.  Native and Hermes can
     // change their internals without changing the workspace submission path.
@@ -407,6 +408,16 @@ function createAgentHost() {
           : {})
       }
     };
+    const hermesExecutionKey = runtime.id === "hermes"
+      ? `${runtimeInput.sessionId}:${runtimeInput.turnId ?? runtimeInput.session?.activeTurn?.id ?? input.metadata?.reattachRunId ?? incidentTraceId}`
+      : undefined;
+    if (hermesExecutionKey && activeHermesExecutionKeys.has(hermesExecutionKey)) {
+      // AgentWorkspace may request transport restoration when it observes a
+      // persisted run. The Provider already owns this same session/turn, so
+      // the request is an observation only and must not open a second stream.
+      return state.getSnapshot().activeSession;
+    }
+    if (hermesExecutionKey) activeHermesExecutionKeys.add(hermesExecutionKey);
     let sessionBindingSet = false;
     let recoveryInput: AgentRuntimeTurnInput | undefined;
     let toolsExecuted = false;
@@ -548,6 +559,7 @@ function createAgentHost() {
         }
       }
     } finally {
+      if (hermesExecutionKey) activeHermesExecutionKeys.delete(hermesExecutionKey);
       if (runtime.id === "hermes") await mcpBridge.setConfirmationContext(undefined).catch(() => undefined);
       if (sessionBindingSet && !shouldKeepHermesSessionBinding(runtimeInput.sessionId)) {
         await mcpBridge.setSessionBinding(undefined).catch(() => undefined);
