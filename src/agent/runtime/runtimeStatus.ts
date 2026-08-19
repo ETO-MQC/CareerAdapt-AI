@@ -1,6 +1,16 @@
 import { runtimeHealthStatus, type RuntimeHealth } from "./runtimeHealth";
 import { classifyHermesRunFailure, type HermesRunFailureInput } from "./hermes/hermesRunReliability";
-import type { HermesSupervisorSnapshot } from "@/services/agent/hermesControl";
+import {
+  applyHermesProviderTest,
+  createHermesControlSnapshotFromHealth,
+  createHermesControlSnapshotFromSupervisor,
+  createInitialHermesControlSnapshot,
+  updateHermesControlRunState,
+  type HermesControlSnapshot,
+  type HermesProviderTestResult,
+  type HermesSupervisorSnapshot,
+  type HermesRunState
+} from "@/services/agent/hermesControl";
 import type { AbortTrace, BridgeRequestTrace, RuntimeFailureSnapshot } from "./hermes/hermesIncidentTrace";
 import { isCareerDomainPreconditionCode } from "./careerContextBindingResolver";
 
@@ -31,6 +41,7 @@ export type RuntimeStatusSnapshot = {
   requiredCareerFacadesTotal?: number;
   latestLifecycleEntries?: HermesSupervisorSnapshot["latestLifecycleEntries"];
   supervisorSnapshot?: HermesSupervisorSnapshot;
+  controlSnapshot?: HermesControlSnapshot;
   failureTimeSupervisorSnapshot?: HermesSupervisorSnapshot;
   runtimeFailureSnapshot?: RuntimeFailureSnapshot;
   bridgeRequestTraces?: BridgeRequestTrace[];
@@ -70,7 +81,10 @@ export class RuntimeStatusStore {
   private supervisorOwned = false;
 
   constructor(initial: RuntimeStatusSnapshot) {
-    this.snapshot = initial;
+    this.snapshot = {
+      ...initial,
+      controlSnapshot: initial.controlSnapshot ?? createInitialHermesControlSnapshot()
+    };
   }
 
   subscribe = (listener: () => void) => {
@@ -98,6 +112,9 @@ export class RuntimeStatusStore {
       runReady: status.connected ? health.runReady : false,
       lastCheckedAt: new Date().toISOString()
     } : undefined;
+    const controlSnapshot = nextHealth
+      ? createHermesControlSnapshotFromHealth(nextHealth, this.snapshot.controlSnapshot, this.snapshot.controlSnapshot?.environment ?? (this.supervisorOwned ? "electron" : "web"))
+      : this.snapshot.controlSnapshot;
     this.update({
       mcpServer: "careeradapt",
       mcpConnected: status.connected,
@@ -107,11 +124,17 @@ export class RuntimeStatusStore {
         ...(this.supervisorOwned ? {} : { status: runtimeHealthStatus(nextHealth) }),
         health: nextHealth
       } : {}),
-      ...(status.reason ? { reason: status.reason } : {})
+      ...(status.reason ? { reason: status.reason } : {}),
+      ...(controlSnapshot ? { controlSnapshot } : {})
     });
   }
 
   recordHealth(health: RuntimeHealth) {
+    const controlSnapshot = createHermesControlSnapshotFromHealth(
+      health,
+      this.snapshot.controlSnapshot,
+      this.snapshot.controlSnapshot?.environment ?? (this.supervisorOwned ? "electron" : "web")
+    );
     const processReady = health.companionReady ?? health.runtimeAvailable;
     const providerReady = health.providerReady ?? (health.providerConfigured && health.providerReachable && Boolean(health.model));
     const careerMcpReady = health.browserCareerDomainHostConnected
@@ -149,7 +172,73 @@ export class RuntimeStatusStore {
       mcpConnected: health.mcpConnected,
       discoveredToolCount: health.mcpToolCount,
       skillCount: health.careerSkillsLoaded ? 6 : 0,
-      health
+      health,
+      controlSnapshot
+    });
+  }
+
+  recordProviderTest(result: HermesProviderTestResult) {
+    const controlSnapshot = applyHermesProviderTest(
+      this.snapshot.controlSnapshot ?? createInitialHermesControlSnapshot(),
+      result
+    );
+    this.update({
+      providerReady: controlSnapshot.providerReady,
+      apiReady: controlSnapshot.apiReady,
+      runReady: controlSnapshot.runReady,
+      provider: controlSnapshot.provider,
+      model: controlSnapshot.model,
+      reason: controlSnapshot.safeReasonCode,
+      reasonCode: controlSnapshot.safeReasonCode,
+      ...(controlSnapshot.status === "ready" ? { status: "ready" as const } : { status: "unavailable" as const }),
+      controlSnapshot
+    });
+  }
+
+  recordRunState(runState: HermesRunState, activeRunId?: string) {
+    const previous = this.snapshot.controlSnapshot ?? createInitialHermesControlSnapshot();
+    const controlSnapshot = updateHermesControlRunState(previous, runState, activeRunId);
+    this.recordControlSnapshot(controlSnapshot);
+  }
+
+  recordProviderConfiguration(input: {
+    provider?: string;
+    model?: string;
+    credentialConfigured: boolean;
+    credentialSource: HermesControlSnapshot["providerDiagnostic"]["credentialSource"];
+  }) {
+    const previous = this.snapshot.controlSnapshot ?? createInitialHermesControlSnapshot();
+    const controlSnapshot = createHermesControlSnapshotFromHealth({
+      available: previous.apiReady,
+      provider: input.provider ?? previous.provider,
+      model: input.model ?? previous.model,
+      credentialConfigured: input.credentialConfigured,
+      credentialSource: input.credentialSource,
+      providerDiagnostic: {
+        provider: input.provider ?? previous.provider,
+        model: input.model ?? previous.model,
+        credentialConfigured: input.credentialConfigured,
+        credentialSource: input.credentialSource
+      }
+    }, previous, previous.environment);
+    this.update({ controlSnapshot });
+  }
+
+  recordControlSnapshot(controlSnapshot: HermesControlSnapshot) {
+    this.update({
+      controlSnapshot,
+      status: controlSnapshot.status === "ready" ? "ready" : controlSnapshot.status === "starting" || controlSnapshot.status === "stopping" ? "starting" : "unavailable",
+      reason: controlSnapshot.safeReasonCode,
+      reasonCode: controlSnapshot.safeReasonCode,
+      processReady: controlSnapshot.serviceState === "running" || controlSnapshot.serviceState === "starting",
+      apiReady: controlSnapshot.apiReady,
+      providerReady: controlSnapshot.providerReady,
+      careerMcpReady: controlSnapshot.careerMcpReady,
+      toolSurfaceReady: controlSnapshot.toolSurfaceReady,
+      runReady: controlSnapshot.runReady,
+      activeRunId: controlSnapshot.activeRunId,
+      provider: controlSnapshot.provider,
+      model: controlSnapshot.model
     });
   }
 
@@ -228,6 +317,7 @@ export class RuntimeStatusStore {
     this.supervisorOwned = true;
     const status = supervisorRuntimeStatus(snapshot.overallState);
     const previous = this.snapshot.supervisorSnapshot;
+    const controlSnapshot = createHermesControlSnapshotFromSupervisor(snapshot, this.snapshot.controlSnapshot);
     const failureTimeSupervisorSnapshot = this.snapshot.failureTimeSupervisorSnapshot
       ?? (previous?.runReady === true && snapshot.runReady === false ? snapshot : undefined);
     this.update({
@@ -258,6 +348,7 @@ export class RuntimeStatusStore {
       requiredCareerFacadesTotal: snapshot.requiredCareerFacadesTotal,
       latestLifecycleEntries: snapshot.latestLifecycleEntries,
       supervisorSnapshot: snapshot,
+      controlSnapshot,
       ...(failureTimeSupervisorSnapshot ? { failureTimeSupervisorSnapshot } : {}),
       mcpConnected: snapshot.careerMcpReady,
       discoveredToolCount: snapshot.hermesCareerToolCount

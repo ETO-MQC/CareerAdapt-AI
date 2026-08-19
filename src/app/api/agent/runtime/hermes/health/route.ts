@@ -12,6 +12,8 @@ import {
 } from "@/server/careerAdaptMcpBridgeRegistry";
 import { readHermesRunReadiness } from "@/agent/runtime/hermes/hermesRunReadiness";
 import { appBuildTechnicalDiagnostics } from "@/services/diagnostics/appBuildInfo";
+import { decodeAiSettingsFromHeader, type AiSettings } from "@/services/storage/aiSettings";
+import { resolveEffectiveAiConfiguration } from "@/ai/providers/effectiveConfiguration";
 
 export const dynamic = "force-dynamic";
 
@@ -28,9 +30,10 @@ let hermesToolsetSnapshotInFlight: Promise<HermesToolsetSnapshot> | undefined;
 export async function GET(request: Request) {
   const appBaseUrl = new URL(request.url).origin;
   const mcp = statusCareerAdaptMcpBridge();
+  const customSettings = decodeAiSettingsFromHeader(request.headers.get("x-ai-config") ?? "");
   const runtimeUrl = process.env.HERMES_RUNTIME_URL?.trim();
   if (!runtimeUrl) {
-    const provider = await checkConfiguredProvider();
+    const provider = await checkConfiguredProvider(customSettings);
     const legacy: HermesHealth = {
       available: false,
       runtimeId: "hermes",
@@ -44,10 +47,10 @@ export async function GET(request: Request) {
     };
     return NextResponse.json(await withRuntimeHealth(legacy, mcp, undefined, appBaseUrl), { status: 503, headers: { "Cache-Control": "no-store" } });
   }
-  return proxy(`${runtimeUrl.replace(/\/$/u, "")}/health`, mcp, appBaseUrl);
+  return proxy(`${runtimeUrl.replace(/\/$/u, "")}/health`, mcp, appBaseUrl, customSettings);
 }
 
-async function proxy(url: string, mcp: ReturnType<typeof statusCareerAdaptMcpBridge>, appBaseUrl: string) {
+async function proxy(url: string, mcp: ReturnType<typeof statusCareerAdaptMcpBridge>, appBaseUrl: string, customSettings?: AiSettings) {
   try {
     let response = await fetch(url, {
       method: "GET",
@@ -69,16 +72,13 @@ async function proxy(url: string, mcp: ReturnType<typeof statusCareerAdaptMcpBri
     const raw = await response.json().catch(() => ({}));
     const upstream = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
     const upstreamRuntimeHealth = readRuntimeHealth(upstream.runtimeHealth);
-    const configuredProvider = typeof upstream.providerStatus === "string"
-      || typeof upstream.provider === "string"
-      || typeof upstream.model === "string"
-      ? undefined
-      : await checkConfiguredProvider();
+    const configuredProvider = await checkConfiguredProvider(customSettings);
     const health = HermesHealthSchema.safeParse({
       available: typeof upstream.available === "boolean" ? upstream.available : response.ok,
       runtimeId: typeof upstream.runtimeId === "string" ? upstream.runtimeId : "hermes",
       ...(typeof upstream.activeRunId === "string" ? { activeRunId: upstream.activeRunId } : {}),
       ...(typeof upstream.hermesRunId === "string" ? { hermesRunId: upstream.hermesRunId } : {}),
+      ...(normalizeRunState(upstream.runState) ? { runState: normalizeRunState(upstream.runState) } : {}),
       version: typeof upstream.version === "string" ? upstream.version : undefined,
       reason: typeof upstream.reason === "string" ? upstream.reason : response.ok ? undefined : `hermes_http_${response.status}`,
       provider: typeof upstream.provider === "string" ? upstream.provider : configuredProvider?.provider ?? (configuredProviderBaseUrl() ? "openai-compatible" : undefined),
@@ -86,6 +86,7 @@ async function proxy(url: string, mcp: ReturnType<typeof statusCareerAdaptMcpBri
       providerStatus: typeof upstream.providerStatus === "string"
         ? normalizeProviderStatus(upstream.providerStatus, response.ok)
         : configuredProvider?.providerStatus ?? normalizeProviderStatus(upstream.providerStatus, response.ok),
+      ...(configuredProvider?.providerDiagnostic ? { providerDiagnostic: configuredProvider.providerDiagnostic } : {}),
       contextWindow: numberValue(upstream.contextWindow) ?? configuredProvider?.contextWindow,
       toolCalling: typeof upstream.toolCalling === "string"
         ? normalizeToolCalling(upstream.toolCalling)
@@ -101,7 +102,7 @@ async function proxy(url: string, mcp: ReturnType<typeof statusCareerAdaptMcpBri
       discoveredToolCount: mcp.discoveredToolCount
     });
     if (!health.success) {
-      const legacy = {
+    const legacy = {
         available: false,
         runtimeId: "hermes",
         reason: "hermes_health_invalid_response",
@@ -148,7 +149,11 @@ async function withRuntimeHealth(
   const companionReady = upstreamRuntimeHealth?.companionReady ?? (
     (upstreamRuntimeHealth?.runtimeAvailable ?? health.available) === true
   );
-  const providerReady = upstreamRuntimeHealth?.providerReady ?? (
+  const providerAuthInvalid = health.providerDiagnostic?.lastHttpStatus === 401
+    || health.providerDiagnostic?.lastHttpStatus === 403
+    || health.providerDiagnostic?.safeErrorCode === "provider_http_401"
+    || health.providerDiagnostic?.safeErrorCode === "provider_http_403";
+  const providerReady = !providerAuthInvalid && (upstreamRuntimeHealth?.providerReady ?? (
     (upstreamRuntimeHealth?.providerConfigured ?? (
       health.providerStatus === "ready"
       || health.providerStatus === "invalid"
@@ -157,7 +162,7 @@ async function withRuntimeHealth(
     ))
     && (upstreamRuntimeHealth?.providerReachable ?? health.providerStatus === "ready")
     && Boolean(health.model || upstreamRuntimeHealth?.model)
-  );
+  ));
   const mcpReady = (upstreamRuntimeHealth?.mcpReady ?? (
     mcp.connected
     && careerMcpServerReachable
@@ -177,13 +182,17 @@ async function withRuntimeHealth(
     runtimeId: upstreamRuntimeHealth?.runtimeId ?? health.runtimeId ?? "hermes",
     ...(health.activeRunId || upstreamRuntimeHealth?.activeRunId ? { activeRunId: health.activeRunId ?? upstreamRuntimeHealth?.activeRunId } : {}),
     ...(health.hermesRunId || upstreamRuntimeHealth?.hermesRunId ? { hermesRunId: health.hermesRunId ?? upstreamRuntimeHealth?.hermesRunId } : {}),
+    ...(health.runState || upstreamRuntimeHealth?.runState ? { runState: health.runState ?? upstreamRuntimeHealth?.runState } : {}),
     runtimeAvailable: upstreamRuntimeHealth?.runtimeAvailable ?? health.available,
     companionReady,
     providerConfigured: upstreamRuntimeHealth?.providerConfigured ?? (health.providerStatus === "ready"
       || health.providerStatus === "invalid"
       || health.providerStatus === "unreachable"
       || Boolean(health.provider || health.model)),
-    providerReachable: upstreamRuntimeHealth?.providerReachable ?? health.providerStatus === "ready",
+    providerReachable: providerAuthInvalid ? false : upstreamRuntimeHealth?.providerReachable ?? health.providerStatus === "ready",
+    ...(health.provider ? { provider: health.provider } : {}),
+    ...(health.providerStatus ? { providerStatus: health.providerStatus } : {}),
+    ...(health.providerDiagnostic ? { providerDiagnostic: health.providerDiagnostic } : {}),
     providerReady,
     ...(health.model || upstreamRuntimeHealth?.model ? { model: health.model ?? upstreamRuntimeHealth?.model } : {}),
     ...(health.contextWindow === undefined && upstreamRuntimeHealth?.contextWindow === undefined ? {} : { contextWindow: health.contextWindow ?? upstreamRuntimeHealth?.contextWindow }),
@@ -374,24 +383,27 @@ async function probeCareerMcpServer(appBaseUrl?: string) {
 }
 
 function readRuntimeHealth(value: unknown) {
-  const parsed = RuntimeHealthSchema.safeParse(value);
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
+  const parsed = RuntimeHealthSchema.safeParse(record && normalizeRunState(record.runState) ? { ...record, runState: normalizeRunState(record.runState) } : value);
   return parsed.success ? parsed.data : undefined;
 }
 
-async function checkConfiguredProvider() {
-  const baseUrl = configuredProviderBaseUrl();
-  if (!baseUrl) {
+async function checkConfiguredProvider(settings?: AiSettings) {
+  const configuration = resolveEffectiveAiConfiguration(settings);
+  const diagnostic = safeProviderConfigurationDiagnostic(configuration);
+  if (!configuration.apiKey || !configuration.model) {
     return {
       providerStatus: "unconfigured" as const,
-      provider: undefined,
-      model: configuredModel(),
+      provider: configuration.provider,
+      model: configuration.model || undefined,
       contextWindow: undefined,
-      toolCalling: "unknown" as const
+      toolCalling: "unknown" as const,
+      providerDiagnostic: diagnostic
     };
   }
   try {
-    const response = await fetch(`${baseUrl.replace(/\/$/u, "")}/models`, {
-      headers: providerHeaders(),
+    const response = await fetch(`${configuration.baseUrl.replace(/\/$/u, "")}/models`, {
+      headers: providerHeaders(configuration.apiKey),
       signal: AbortSignal.timeout(5_000),
       cache: "no-store"
     });
@@ -404,19 +416,31 @@ async function checkConfiguredProvider() {
       ? firstModel as Record<string, unknown>
       : {};
     const contextWindow = numberValue(modelRecord.context_length ?? modelRecord.contextWindow);
+    const providerStatus = response.ok ? "ready" as const : "invalid" as const;
     return {
-      provider: "openai-compatible",
-      model: configuredModel() || (typeof modelRecord.id === "string" ? modelRecord.id : undefined),
-      providerStatus: response.ok ? "ready" as const : "invalid" as const,
+      provider: configuration.provider,
+      model: configuration.model || (typeof modelRecord.id === "string" ? modelRecord.id : undefined),
+      providerStatus,
       ...(contextWindow === undefined ? {} : { contextWindow }),
-      toolCalling: "unknown" as const
+      toolCalling: "unknown" as const,
+      providerDiagnostic: {
+        ...diagnostic,
+        lastCheckedAt: new Date().toISOString(),
+        lastHttpStatus: response.status,
+        ...(response.ok ? {} : { safeErrorCode: `provider_http_${response.status}` })
+      }
     };
   } catch {
     return {
-      provider: "openai-compatible",
-      model: configuredModel(),
+      provider: configuration.provider,
+      model: configuration.model || undefined,
       providerStatus: "unreachable" as const,
-      toolCalling: "unknown" as const
+      toolCalling: "unknown" as const,
+      providerDiagnostic: {
+        ...diagnostic,
+        lastCheckedAt: new Date().toISOString(),
+        safeErrorCode: "provider_unreachable"
+      }
     };
   }
 }
@@ -430,10 +454,8 @@ function upstreamHeaders() {
   return headers;
 }
 
-function providerHeaders() {
+function providerHeaders(apiKey = process.env.AI_API_KEY?.trim() || process.env.HERMES_API_KEY?.trim()) {
   const headers: Record<string, string> = { Accept: "application/json" };
-  const apiKey = process.env.AI_API_KEY?.trim()
-    || process.env.HERMES_API_KEY?.trim();
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
   return headers;
 }
@@ -446,6 +468,15 @@ function configuredModel() {
   return process.env.HERMES_MODEL?.trim() || process.env.AI_MODEL?.trim() || undefined;
 }
 
+function safeProviderConfigurationDiagnostic(configuration: ReturnType<typeof resolveEffectiveAiConfiguration>) {
+  return {
+    provider: configuration.provider,
+    ...(configuration.model ? { model: configuration.model } : {}),
+    credentialConfigured: Boolean(configuration.apiKey),
+    credentialSource: configuration.sources.credential
+  };
+}
+
 function numberValue(value: unknown) {
   return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : undefined;
 }
@@ -453,6 +484,15 @@ function numberValue(value: unknown) {
 function normalizeProviderStatus(value: unknown, responseOk: boolean) {
   if (value === "ready" || value === "unconfigured" || value === "unreachable" || value === "invalid" || value === "unknown") return value;
   return responseOk ? "unknown" : "unreachable";
+}
+
+function normalizeRunState(value: unknown) {
+  if (value === "started") return "running" as const;
+  if (value === "waiting_for_approval") return "waiting_for_user" as const;
+  if (value === "cancelled") return "completed" as const;
+  return value === "none" || value === "queued" || value === "running" || value === "waiting_for_user" || value === "stopping" || value === "completed" || value === "failed"
+    ? value
+    : undefined;
 }
 
 function normalizeToolCalling(value: unknown) {

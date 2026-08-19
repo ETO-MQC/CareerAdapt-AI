@@ -405,24 +405,19 @@ ipcMain.handle("careeradapt:hermes:renderer-ready", async (_event, requestedSett
 ipcMain.handle("careeradapt:hermes:status", () => hermesSupervisor?.getStatus());
 
 ipcMain.handle("careeradapt:hermes:start", async (_event, requestedSettings) => {
-  if (!hermesSupervisor) return { ok: false, reason: "careeradapt_app_not_ready" };
-  const snapshot = await hermesSupervisor.ensureStarted(requestedSettings);
-  return { ok: snapshot.overallState !== "unavailable", reason: snapshot.reasonCode, runtimeUrl: snapshot.runtimeUrl, snapshot };
+  return runHermesControlAction("start", () => hermesSupervisor.ensureStarted(requestedSettings));
 });
 
 ipcMain.handle("careeradapt:hermes:stop", async () => {
-  if (!hermesSupervisor) return { ok: false, reason: "careeradapt_app_not_ready" };
-  return { ok: true, snapshot: await hermesSupervisor.stop() };
+  return runHermesControlAction("stop", () => hermesSupervisor.stop());
 });
 
 ipcMain.handle("careeradapt:hermes:restart", async (_event, options) => {
-  if (!hermesSupervisor) return { ok: false, reason: "careeradapt_app_not_ready" };
-  return { ok: true, snapshot: await hermesSupervisor.restart(options) };
+  return runHermesControlAction("restart", () => hermesSupervisor.restart(options));
 });
 
 ipcMain.handle("careeradapt:hermes:recover", async () => {
-  if (!hermesSupervisor) return { ok: false, reason: "careeradapt_app_not_ready" };
-  return { ok: true, snapshot: await hermesSupervisor.recover() };
+  return runHermesControlAction("recover", () => hermesSupervisor.recover());
 });
 
 ipcMain.handle("careeradapt:hermes:logs", async () => {
@@ -439,13 +434,83 @@ ipcMain.handle("careeradapt:hermes:open-logs", async () => {
 ipcMain.handle("careeradapt:hermes:config", async () => hermesSupervisor?.getConfig());
 ipcMain.handle("careeradapt:hermes:config-schema", async () => hermesSupervisor?.getConfigSchema());
 ipcMain.handle("careeradapt:hermes:update-config", async (_event, settings) => {
-  if (!hermesSupervisor) return { ok: false, reason: "careeradapt_app_not_ready" };
-  return { ok: true, snapshot: await hermesSupervisor.updateConfig(settings) };
+  return runHermesControlAction("update_config", () => hermesSupervisor.updateConfig(settings));
 });
 ipcMain.handle("careeradapt:hermes:reset-config", async () => {
-  if (!hermesSupervisor) return { ok: false, reason: "careeradapt_app_not_ready" };
-  return { ok: true, snapshot: await hermesSupervisor.resetConfig() };
+  return runHermesControlAction("reset_config", () => hermesSupervisor.resetConfig());
 });
+
+async function runHermesControlAction(action, operation) {
+  const requestedAt = new Date().toISOString();
+  if (!hermesSupervisor) {
+    return {
+      ok: false,
+      reason: "careeradapt_app_not_ready",
+      receipt: {
+        action,
+        requestedAt,
+        accepted: false,
+        executed: false,
+        previousState: "unavailable",
+        nextState: "unavailable",
+        safeReasonCode: "careeradapt_app_not_ready",
+        controlOwner: "electron_supervisor"
+      }
+    };
+  }
+  const previous = hermesSupervisor.getStatus();
+  let snapshot;
+  try {
+    snapshot = await operation();
+  } catch (error) {
+    const safeReasonCode = safeControlReason(error, `${action}_failed`);
+    return {
+      ok: false,
+      reason: safeReasonCode,
+      snapshot: previous,
+      receipt: {
+        action,
+        requestedAt,
+        accepted: true,
+        executed: false,
+        previousState: serviceState(previous),
+        nextState: serviceState(previous),
+        safeReasonCode,
+        controlOwner: "electron_supervisor"
+      }
+    };
+  }
+  const safeReasonCode = snapshot.reasonCode || `${action}_completed`;
+  return {
+    ok: action === "start" ? snapshot.overallState !== "unavailable" : true,
+    reason: snapshot.reasonCode,
+    runtimeUrl: snapshot.runtimeUrl,
+    snapshot,
+    receipt: {
+      action,
+      requestedAt,
+      accepted: true,
+      executed: true,
+      previousState: serviceState(previous),
+      nextState: serviceState(snapshot),
+      safeReasonCode,
+      controlOwner: "electron_supervisor"
+    }
+  };
+}
+
+function safeControlReason(error, fallback) {
+  const candidate = error && typeof error === "object" && typeof error.code === "string" ? error.code : undefined;
+  return candidate ? candidate.replace(/[^A-Za-z0-9_.:-]/gu, "_").slice(0, 120) : fallback;
+}
+
+function serviceState(snapshot) {
+  if (snapshot.overallState === "stopped") return "stopped";
+  if (["starting", "api_ready", "syncing_career_tools", "restarting"].includes(snapshot.overallState)) return "starting";
+  if (snapshot.overallState === "stopping") return "stopping";
+  if (snapshot.overallState === "unavailable") return "unavailable";
+  return snapshot.processReady ? "running" : "unavailable";
+}
 
 async function stopServer() {
   if (ocrBootstrapTimer) {

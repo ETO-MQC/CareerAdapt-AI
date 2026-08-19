@@ -672,7 +672,13 @@ function createAgentHost() {
       incidentTraceId: current?.id === sessionId ? current.activeTurn?.incidentTraceId : undefined
     });
     try {
-      await hermesRuntime.interrupt(sessionId, stopReason);
+      if (current?.id === sessionId && current.hermesRun?.runId) {
+        runtimeStatus.recordRunState("stopping", current.hermesRun.runId);
+        const stopped = await hermesRuntime.stopCurrentRun(current.hermesRun.runId, stopReason);
+        runtimeStatus.recordRunState(stopped.status === "failed" ? "failed" : "completed");
+      } else {
+        await hermesRuntime.interrupt(sessionId, stopReason);
+      }
     } finally {
       state.interrupt(sessionId, stopReason);
     }
@@ -926,11 +932,12 @@ export function AgentRuntimeProvider({ children }: { children: React.ReactNode }
       if (!active) return;
       if (rendererReady?.ok === false) return;
       // Electron's renderer-ready IPC is the authoritative startup owner.
-      // Browser/web mode has no renderer handshake, so it starts through the
-      // existing control route exactly once here.
+      // Browser/web mode has no renderer handshake or process owner, so it
+      // only observes the externally managed runtime.
       if (rendererReady === undefined) {
-        const started = await host.startHermes();
-        if (!active || !started.ok) return;
+        await host.refreshHermesHealth().catch(() => undefined);
+        if (!active) return;
+        return;
       }
       await host.refreshHermesHealth().catch(() => undefined);
     };

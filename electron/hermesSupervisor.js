@@ -76,6 +76,9 @@ class HermesSupervisor {
     this.maintenancePending = false;
     this.maintenanceReasonCode = undefined;
     this.failureTimeSnapshot = undefined;
+    this.credentialSource = firstValue(this.environment.AI_API_KEY, this.environment.OPENAI_API_KEY, this.environment.HERMES_API_KEY, this.environment.HERMES_RUNTIME_API_KEY)
+      ? "server_env"
+      : "missing";
     this.snapshot = this.createInitialSnapshot();
   }
 
@@ -90,6 +93,7 @@ class HermesSupervisor {
       toolSurfaceReady: false,
       runReady: false,
       careerSkillsReady: false,
+      runState: "none",
       reasonCode: "hermes_renderer_not_ready",
       updatedAt: new Date().toISOString(),
       runtimeUrl: this.environment.HERMES_RUNTIME_URL,
@@ -97,6 +101,8 @@ class HermesSupervisor {
       version: typeof manifest.hermesVersion === "string" ? manifest.hermesVersion : undefined,
       model: firstValue(this.environment.AI_MODEL, this.environment.HERMES_MODEL, manifest.model),
       provider: firstValue(this.environment.AI_BASE_URL, this.environment.OPENAI_BASE_URL, manifest.providerBaseUrl),
+      credentialConfigured: Boolean(firstValue(this.environment.AI_API_KEY, this.environment.OPENAI_API_KEY, this.environment.HERMES_API_KEY, this.environment.HERMES_RUNTIME_API_KEY)),
+      credentialSource: this.credentialSource,
       careerDomainToolCount: 0,
       hermesCareerToolCount: 0,
       requiredCareerFacadesReady: 0,
@@ -298,6 +304,13 @@ class HermesSupervisor {
       baseUrl: firstValue(this.environment.AI_BASE_URL, this.environment.OPENAI_BASE_URL, manifest.providerBaseUrl),
       model: this.snapshot.model,
       apiKeyConfigured: Boolean(firstValue(this.environment.AI_API_KEY, this.environment.OPENAI_API_KEY, this.environment.HERMES_API_KEY, this.environment.HERMES_RUNTIME_API_KEY)),
+      credentialSource: this.credentialSource,
+      providerDiagnostic: {
+        provider: this.snapshot.provider,
+        model: this.snapshot.model,
+        credentialConfigured: Boolean(firstValue(this.environment.AI_API_KEY, this.environment.OPENAI_API_KEY, this.environment.HERMES_API_KEY, this.environment.HERMES_RUNTIME_API_KEY)),
+        credentialSource: this.credentialSource
+      },
       version: this.snapshot.version,
       configPath,
       capabilities: this.capabilities,
@@ -389,6 +402,11 @@ class HermesSupervisor {
       return this.deferMaintenance("hermes_start_deferred_active_run");
     }
     this.environment = { ...targetEnvironment };
+    this.credentialSource = options.requestedSettings?.apiKey
+      ? "managed_config"
+      : firstValue(this.environment.AI_API_KEY, this.environment.OPENAI_API_KEY, this.environment.HERMES_API_KEY, this.environment.HERMES_RUNTIME_API_KEY)
+        ? "server_env"
+        : "missing";
     this.lastRequestedSettings = { ...(options.requestedSettings || {}) };
     applyEnvironment(this.environment);
     this.publish({
@@ -544,10 +562,14 @@ class HermesSupervisor {
     const root = asRecord(health);
     const runtimeHealth = asRecord(root.runtimeHealth);
     const providerStatus = stringValue(root.providerStatus) || stringValue(runtimeHealth.providerStatus);
+    const providerDiagnostic = safeProviderDiagnostic(root.providerDiagnostic || runtimeHealth.providerDiagnostic);
+    const providerAuthInvalid = providerDiagnostic?.safeErrorCode === "provider_http_401"
+      || providerDiagnostic?.safeErrorCode === "provider_http_403"
+      || (providerStatus === "invalid" && providerDiagnostic?.lastHttpStatus === 401);
     const processReady = this.snapshot.processReady && !isExited(this.handle?.child);
     const apiReady = processReady && (root.available === true || runtimeHealth.runtimeAvailable === true);
-    const providerReady = runtimeHealth.providerReady === true
-      || (runtimeHealth.providerConfigured === true && runtimeHealth.providerReachable === true && Boolean(stringValue(root.model) || stringValue(runtimeHealth.model)));
+    const providerReady = !providerAuthInvalid && (runtimeHealth.providerReady === true
+      || (runtimeHealth.providerConfigured === true && runtimeHealth.providerReachable === true && Boolean(stringValue(root.model) || stringValue(runtimeHealth.model))));
     const careerMcpReady = runtimeHealth.browserCareerDomainHostConnected === true
       && runtimeHealth.careerMcpServerReachable === true
       && runtimeHealth.mcpConnected === true;
@@ -585,6 +607,8 @@ class HermesSupervisor {
     const hasReportedActiveRunId = ["activeRunId", "hermesRunId"].some((key) => Object.prototype.hasOwnProperty.call(root, key))
       || ["activeRunId", "hermesRunId"].some((key) => Object.prototype.hasOwnProperty.call(runtimeHealth, key));
     const activeRunId = hasReportedActiveRunId ? reportedActiveRunId : this.snapshot.activeRunId;
+    const runState = normalizeRunState(stringValue(root.runState) || stringValue(runtimeHealth.runState))
+      || (activeRunId ? "running" : "none");
     const previousRunReady = this.snapshot.runReady;
     if (previousRunReady === true && runReady === false && !this.failureTimeSnapshot) {
       this.failureTimeSnapshot = {
@@ -616,6 +640,10 @@ class HermesSupervisor {
       requiredCareerFacadesReady: requiredReady,
       requiredCareerFacadesTotal: REQUIRED_CAREER_FACADES,
       providerStatus,
+      credentialConfigured: providerDiagnostic?.credentialConfigured ?? this.snapshot.credentialConfigured,
+      credentialSource: providerDiagnostic?.credentialSource ?? this.credentialSource,
+      ...(providerDiagnostic ? { providerDiagnostic } : {}),
+      runState,
       careerSkills: arrayOfStrings(runtimeHealth.careerSkillsLoaded ? ["careeradapt"] : []),
       missingRequiredCareerTools: requiredMissing,
       hermesRegisteredToolsets: arrayOfStrings(runtimeHealth.hermesRegisteredToolsets),
@@ -774,9 +802,15 @@ function environmentFromHermesSettings(value) {
 
 function healthReason(input) {
   const { root, runtimeHealth, providerStatus, apiReady, careerMcpReady, toolSurfaceReady, runReady } = input;
+  const providerDiagnostic = safeProviderDiagnostic(root.providerDiagnostic || runtimeHealth.providerDiagnostic);
   const rawDirect = stringValue(runtimeHealth.runReadySafeErrorCode) || stringValue(runtimeHealth.safeErrorCode) || stringValue(root.reason);
   const direct = rawDirect ? safeReason(rawDirect) : undefined;
-  if (providerStatus === "invalid" || providerStatus === "unconfigured") return direct || "configuration_required";
+  if ((providerStatus === "invalid" || providerStatus === "unconfigured") && (providerDiagnostic?.lastHttpStatus === 401 || providerDiagnostic?.lastHttpStatus === 403 || providerDiagnostic?.safeErrorCode === "provider_http_401" || providerDiagnostic?.safeErrorCode === "provider_http_403")) {
+    return "provider_auth_invalid";
+  }
+  if (providerStatus === "invalid" || providerStatus === "unconfigured") {
+    return direct || "configuration_required";
+  }
   if (!apiReady) return direct || "hermes_api_unreachable";
   if (!careerMcpReady) return direct || "career_mcp_sync_pending";
   if (runtimeHealth.careerToolContractReady === false) return direct || "career_tool_contract_mismatch";
@@ -797,6 +831,9 @@ function sanitizeHealth(value) {
     "providerConfigured",
     "providerReachable",
     "providerReady",
+    "provider",
+    "providerStatus",
+    "runState",
     "model",
     "toolCallingCapability",
     "toolCallingAvailable",
@@ -821,6 +858,8 @@ function sanitizeHealth(value) {
   ]) {
     if (record[key] !== undefined) result[key] = record[key];
   }
+  const providerDiagnostic = safeProviderDiagnostic(record.providerDiagnostic);
+  if (providerDiagnostic) result.providerDiagnostic = providerDiagnostic;
   result.requiredCareerFacadesMissing = arrayOfStrings(record.requiredCareerFacadesMissing);
   result.careerGatewayContracts = arrayOfStrings(record.careerGatewayContracts);
   result.careerMcpExposedTools = arrayOfStrings(record.careerMcpExposedTools);
@@ -869,6 +908,30 @@ function asRecord(value) {
 
 function stringValue(value) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function normalizeRunState(value) {
+  if (value === "started") return "running";
+  if (value === "waiting_for_approval") return "waiting_for_user";
+  if (value === "cancelled") return "completed";
+  return ["none", "queued", "running", "waiting_for_user", "stopping", "completed", "failed"].includes(value) ? value : undefined;
+}
+
+function safeProviderDiagnostic(value) {
+  const record = asRecord(value);
+  const credentialSource = ["server_env", "managed_config", "custom_header", "default", "missing", "unknown"].includes(record.credentialSource)
+    ? record.credentialSource
+    : undefined;
+  if (typeof record.credentialConfigured !== "boolean" && !credentialSource && typeof record.safeErrorCode !== "string") return undefined;
+  return {
+    ...(typeof record.provider === "string" ? { provider: record.provider.slice(0, 120) } : {}),
+    ...(typeof record.model === "string" ? { model: record.model.slice(0, 160) } : {}),
+    credentialConfigured: record.credentialConfigured === true,
+    credentialSource: credentialSource || "unknown",
+    ...(typeof record.lastCheckedAt === "string" ? { lastCheckedAt: record.lastCheckedAt } : {}),
+    ...(typeof record.lastHttpStatus === "number" && Number.isInteger(record.lastHttpStatus) ? { lastHttpStatus: record.lastHttpStatus } : {}),
+    ...(typeof record.safeErrorCode === "string" ? { safeErrorCode: safeReason(record.safeErrorCode) } : {})
+  };
 }
 
 function arrayOfStrings(value) {

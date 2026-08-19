@@ -9,7 +9,7 @@ import type {
 import type { HermesRunHandle } from "../../contracts/agentSession";
 import type { CareerToolGateway, CareerToolContract } from "../../tools/CareerToolGateway";
 import { safeCareerToolArgumentShape } from "../../tools/careerToolDiagnostics";
-import { logicalToolOperationId, type HermesBridgeEvent, type HermesBridgeTransport, type HermesRunTraceContext } from "./HermesBridgeTransport";
+import { logicalToolOperationId, type HermesBridgeEvent, type HermesBridgeTransport, type HermesRunStatus, type HermesRunTraceContext } from "./HermesBridgeTransport";
 import { resolveCareerSessionBinding, type CareerSessionBinding } from "../careerSessionBinding";
 import { hermesProductionToolNames, HermesCareerToolCatalog, projectCareerContractsForHermes, HERMES_REQUIRED_CAREER_FACADES } from "./HermesCareerToolCatalog";
 import { isRoadshowReady } from "../runtimeHealth";
@@ -181,6 +181,52 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       logicalTurnId: handle.turnId,
       runId: handle.runId
     }));
+  }
+
+  async stopCurrentRun(runId: string, reason: RunStopReason): Promise<HermesRunStatus> {
+    const transport = this.dependencies.transport;
+    if (!transport.getRun || !transport.stopRun) throw hermesError("hermes_run_stop_unavailable", "当前 Hermes 运行时不支持停止 Run。");
+    const activeHandle = [...this.activeRuns.values()].find((candidate) => candidate.runId === runId);
+    if (activeHandle) {
+      await this.stopRemoteRun(activeHandle, reason);
+    } else {
+      const status = await transport.getRun(runId, undefined, this.traceContext({
+        incidentTraceId: reason.incidentTraceId,
+        logicalTurnId: reason.logicalTurnId,
+        sessionId: reason.sessionId,
+        turnId: reason.logicalTurnId,
+        runId
+      }));
+      if (isTerminalRunStatus(status.status)) return status;
+      this.controlledStops.set(runId, reason);
+      await transport.stopRun(runId, undefined, this.traceContext({
+        incidentTraceId: reason.incidentTraceId,
+        logicalTurnId: reason.logicalTurnId,
+        sessionId: reason.sessionId,
+        turnId: reason.logicalTurnId,
+        runId,
+        stopReason: reason
+      }));
+    }
+    let status = await transport.getRun(runId, undefined, this.traceContext({
+      incidentTraceId: reason.incidentTraceId,
+      logicalTurnId: reason.logicalTurnId,
+      sessionId: reason.sessionId,
+      turnId: reason.logicalTurnId,
+      runId
+    }));
+    for (let attempt = 0; attempt < 4 && !isTerminalRunStatus(status.status); attempt += 1) {
+      await delay(150);
+      status = await transport.getRun(runId, undefined, this.traceContext({
+        incidentTraceId: reason.incidentTraceId,
+        logicalTurnId: reason.logicalTurnId,
+        sessionId: reason.sessionId,
+        turnId: reason.logicalTurnId,
+        runId
+      }));
+    }
+    if (!isTerminalRunStatus(status.status)) throw hermesError("hermes_run_stop_reconcile_timeout", "Hermes Run 停止请求已发出，但状态尚未进入终态。");
+    return status;
   }
 
   async resume() {

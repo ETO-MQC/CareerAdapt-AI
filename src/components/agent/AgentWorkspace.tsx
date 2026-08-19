@@ -40,6 +40,7 @@ import {
   openHermesLogs,
   getHermesLogs,
   requestHermesRecover,
+  requestHermesProviderTest,
   requestHermesRestart,
   requestHermesStop
 } from "@/services/agent/hermesControl";
@@ -976,6 +977,33 @@ export function AgentWorkspace() {
     await requestHermesRestart({ reason: "user_explicit_restart" });
   }, [host, session]);
 
+  const testHermesProvider = useCallback(async () => {
+    const result = await requestHermesProviderTest();
+    host.runtimeStatus.recordProviderTest(result);
+  }, [host]);
+
+  const reconnectHermes = useCallback(async () => {
+    await host.mcpBridge.reconnect();
+    await host.refreshHermesHealth();
+    const result = await requestHermesProviderTest();
+    host.runtimeStatus.recordProviderTest(result);
+  }, [host]);
+
+  const stopCurrentHermesRun = useCallback(async () => {
+    const runId = runtimeStatus.controlSnapshot?.activeRunId ?? session.hermesRun?.runId;
+    if (!runId) return;
+    await host.interruptRun(session.id, createRunStopReason({
+      requestedBy: "user",
+      reasonCode: "user_stop",
+      sourceComponent: "AgentWorkspace.stopCurrentHermesRun",
+      sessionId: session.id,
+      logicalTurnId: session.activeTurn?.id,
+      runId,
+      incidentTraceId: session.activeTurn?.incidentTraceId
+    }));
+    await host.refreshHermesHealth();
+  }, [host, runtimeStatus.controlSnapshot?.activeRunId, session]);
+
   return (
     <AgentWorkspaceLayout
       sessionTitle={getAgentSessionDisplayTitle(session)}
@@ -998,6 +1026,9 @@ export function AgentWorkspace() {
       }}
       onRestartHermes={restartHermes}
       onRecoverHermes={async () => { await requestHermesRecover(); }}
+      onReconnectHermes={reconnectHermes}
+      onTestProvider={testHermesProvider}
+      onStopCurrentRun={stopCurrentHermesRun}
       onOpenHermesLogs={async () => { await openHermesLogs(); }}
       contextSelector={<CareerContextSelector onBeforeSelect={handleBeforeContextSelect} />}
       pinnedContextLabel={pinnedContextLabel}

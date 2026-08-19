@@ -167,6 +167,18 @@ export class CareerAdaptMcpBridgeClient {
     this.publish({ connected: false, discoveredToolCount: 0, reason: "stopped" });
   }
 
+  async reconnect() {
+    const gateway = this.gateway;
+    const onStatus = this.onStatus;
+    const onConfirmation = this.onConfirmation;
+    const onResult = this.onResult;
+    const binding = this.currentBinding;
+    if (!gateway) return;
+    await this.stop();
+    await this.start(gateway, onStatus, onConfirmation, onResult);
+    if (binding) await this.setSessionBinding(binding);
+  }
+
   async setSessionBinding(binding?: CareerSessionBinding) {
     this.currentBinding = binding;
     for (let attempt = 0; attempt < 3; attempt += 1) {

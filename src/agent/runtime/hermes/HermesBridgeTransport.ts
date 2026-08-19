@@ -16,17 +16,28 @@ import {
 import { stableCareerLogicalToolOperationId } from "../../tools/careerToolContract";
 import { safeCareerToolArgumentShape } from "../../tools/careerToolDiagnostics";
 import { appBuildTechnicalDiagnostics } from "@/services/diagnostics/appBuildInfo";
+import { encodeAiSettingsForHeader, readAiSettings } from "@/services/storage/aiSettings";
 
 export const HermesHealthSchema = z.object({
   available: z.boolean(),
   runtimeId: z.string().min(1).optional(),
   activeRunId: z.string().min(1).optional(),
   hermesRunId: z.string().min(1).optional(),
+  runState: z.enum(["none", "queued", "running", "waiting_for_user", "stopping", "completed", "failed"]).optional(),
   version: z.string().min(1).optional(),
   reason: z.string().min(1).optional(),
   provider: z.string().min(1).optional(),
   model: z.string().min(1).optional(),
   providerStatus: z.enum(["ready", "unconfigured", "unreachable", "invalid", "unknown"]).optional(),
+  providerDiagnostic: z.object({
+    provider: z.string().min(1).optional(),
+    model: z.string().min(1).optional(),
+    credentialConfigured: z.boolean(),
+    credentialSource: z.enum(["server_env", "managed_config", "custom_header", "default", "missing", "unknown"]),
+    lastCheckedAt: z.string().datetime({ offset: true }).optional(),
+    lastHttpStatus: z.number().int().min(100).max(599).optional(),
+    safeErrorCode: z.string().min(1).optional()
+  }).strict().optional(),
   contextWindow: z.number().int().min(0).optional(),
   toolCalling: z.enum(["verified", "unverified", "unsupported", "unknown"]).optional(),
   toolCallingCapability: z.enum(["verified", "unverified", "unsupported", "unknown"]).optional(),
@@ -178,7 +189,12 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
   }
 
   async health(signal?: AbortSignal) {
-    const response = await this.request(`${this.endpoint}/health`, { method: "GET", signal }, "hermes_health_timeout");
+    const settings = readAiSettings();
+    const headers: Record<string, string> = { Accept: "application/json" };
+    if (settings.apiKey.trim() || settings.baseUrl.trim() || settings.model.trim()) {
+      headers["x-ai-config"] = encodeAiSettingsForHeader(settings);
+    }
+    const response = await this.request(`${this.endpoint}/health`, { method: "GET", headers, signal }, "hermes_health_timeout");
     const payload = await response.json();
     return HermesHealthSchema.parse(payload);
   }
@@ -897,6 +913,7 @@ export function toRuntimeHealth(
     return RuntimeHealthSchema.parse({
       ...health.runtimeHealth,
       ...overrides,
+      ...(health.runState && !health.runtimeHealth.runState ? { runState: health.runState } : {}),
       lastCheckedAt: health.runtimeHealth.lastCheckedAt ?? new Date().toISOString()
     });
   }
@@ -908,9 +925,13 @@ export function toRuntimeHealth(
     runtimeId: health.runtimeId ?? "hermes",
     ...(health.activeRunId ? { activeRunId: health.activeRunId } : {}),
     ...(health.hermesRunId ? { hermesRunId: health.hermesRunId } : {}),
+    ...(health.runState ? { runState: health.runState } : {}),
     runtimeAvailable: health.available,
     providerConfigured,
     providerReachable,
+    ...(health.provider ? { provider: health.provider } : {}),
+    ...(health.providerStatus ? { providerStatus: health.providerStatus } : {}),
+    ...(health.providerDiagnostic ? { providerDiagnostic: health.providerDiagnostic } : {}),
     ...(health.model ? { model: health.model } : {}),
     ...(health.contextWindow === undefined ? {} : { contextWindow: health.contextWindow }),
     toolCallingCapability: health.toolCallingCapability ?? health.toolCalling ?? "unknown",

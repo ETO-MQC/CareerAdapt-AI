@@ -7,12 +7,24 @@ export const RuntimeHealthSchema = z.object({
   runtimeId: z.string().min(1),
   activeRunId: z.string().min(1).optional(),
   hermesRunId: z.string().min(1).optional(),
+  runState: z.enum(["none", "queued", "running", "waiting_for_user", "stopping", "completed", "failed"]).optional(),
   runtimeAvailable: z.boolean(),
   /** Lightweight readiness dimensions. Optional for persisted pre-P4.5c.1.7 snapshots. */
   companionReady: z.boolean().optional(),
   providerConfigured: z.boolean(),
   providerReachable: z.boolean(),
   providerReady: z.boolean().optional(),
+  provider: z.string().min(1).optional(),
+  providerStatus: z.enum(["ready", "unconfigured", "unreachable", "invalid", "unknown"]).optional(),
+  providerDiagnostic: z.object({
+    provider: z.string().min(1).optional(),
+    model: z.string().min(1).optional(),
+    credentialConfigured: z.boolean(),
+    credentialSource: z.enum(["server_env", "managed_config", "custom_header", "default", "missing", "unknown"]),
+    lastCheckedAt: z.string().datetime({ offset: true }).optional(),
+    lastHttpStatus: z.number().int().min(100).max(599).optional(),
+    safeErrorCode: z.string().min(1).optional()
+  }).strict().optional(),
   model: z.string().min(1).optional(),
   contextWindow: z.number().int().min(0).optional(),
   /** Capability of the configured model/runtime; it is not an in-flight tool call. */
