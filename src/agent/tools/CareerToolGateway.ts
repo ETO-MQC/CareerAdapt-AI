@@ -7,7 +7,8 @@ import type { CareerSessionBinding } from "../runtime/careerSessionBinding";
 import {
   CAREER_WORKFLOW_FACADE_DEFINITIONS,
   CareerWorkflowFacadeResultSchema,
-  executeCareerWorkflowFacade
+  executeCareerWorkflowFacade,
+  resolveTurnScopedTailoringInput
 } from "../workflows/CareerWorkflowFacade";
 import { isRetryableAiProviderErrorCode } from "@/ai/providers/transportError";
 import type { AgentTaskState } from "../contracts/agentSession";
@@ -349,6 +350,9 @@ export class CareerToolGateway {
           authoritativeTaskState: context.authoritativeTaskState ?? this.asDependencies().getAuthoritativeTaskState?.(),
           availableCareerToolNames: context.availableCareerToolNames ?? new Set(this.listContracts().map((candidate) => candidate.name))
         };
+        trace.facadeInput = name === "career.workflow.tailor_resume"
+          ? resolveTurnScopedTailoringInput(input, facadeContext).input
+          : input;
         trace.enteredFacadeAt = new Date().toISOString();
         trace.firstInternalOperationAt = new Date().toISOString();
         const facade = await executeCareerWorkflowFacade(
@@ -859,6 +863,7 @@ type ExecutionTrace = {
   schemaIssues?: ReturnType<typeof safeZodSchemaIssues>;
   invalidFields?: string[];
   acceptedShapeHint?: { requiredOneOf: string[]; note?: string };
+  facadeInput?: unknown;
 };
 
 const TRANSACTIONAL_WORKFLOW_NAMES = new Set([
@@ -962,6 +967,8 @@ function finishTrace(
     ...(trace.taskId ? { taskId: trace.taskId } : {}),
     argumentShape: safeCareerToolArgumentShape(trace.input),
     gatewayArgumentShape: safeCareerToolArgumentShape(trace.input),
+    facadeArgumentShape: safeCareerToolArgumentShape(trace.facadeInput ?? trace.input),
+    ...(scopeForLayer(layer) === "career_workflow" ? { runtimeHealthy: true, mcpHealthy: true } : {}),
     ...appBuildTechnicalDiagnostics,
     ...(trace.schemaIssues?.length ? { schemaIssues: trace.schemaIssues } : {}),
     ...(trace.invalidFields?.length ? { invalidFields: trace.invalidFields } : {}),

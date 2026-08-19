@@ -1,5 +1,6 @@
 import { CAREER_WORKFLOW_FACADE_DEFINITIONS } from "@/agent/workflows/CareerWorkflowFacade";
 import type { CareerToolContract } from "@/agent/tools/CareerToolGateway";
+import { contractIdentityForInputSchema, tailorResumeInternalHermesInputJsonSchema } from "@/agent/tools/careerToolContract";
 
 /** The logical MCP server name written to the managed Hermes config. */
 export const HERMES_CAREER_MCP_SERVER = "careeradapt";
@@ -164,17 +165,36 @@ export class HermesCareerToolCatalog {
 
 export function projectCareerContractsForHermes(
   contracts: CareerToolContract[],
-  allowedStableNames?: Set<string>
+  allowedStableNames?: Set<string>,
+  options: { allowSameTurnTargetContext?: boolean } = {}
 ) {
   const catalog = new HermesCareerToolCatalog(contracts);
   return contracts
     .filter((contract) => !allowedStableNames || allowedStableNames.has(contract.name))
-    .map((contract) => ({
-      ...contract,
-      name: catalog.registeredNameForStableName(contract.name),
-      careerAdaptStableName: contract.name,
-      description: `${contract.description} Stable CareerAdapt contract: ${contract.name}.`
-    }));
+    .map((contract) => {
+      const sameTurnTargetContext = options.allowSameTurnTargetContext
+        && contract.name === "career.workflow.tailor_resume";
+      const inputSchema = sameTurnTargetContext
+        ? tailorResumeInternalHermesInputJsonSchema()
+        : contract.inputSchema;
+      const identity = sameTurnTargetContext
+        ? contractIdentityForInputSchema(inputSchema)
+        : undefined;
+      return {
+        ...contract,
+        ...(sameTurnTargetContext ? {
+          inputSchema,
+          contractSchemaHash: identity!.contractSchemaHash,
+          careerAdaptInputMode: "same_turn_target_injection" as const,
+          careerAdaptCanonicalSchemaHash: contract.contractSchemaHash
+        } : {}),
+        name: catalog.registeredNameForStableName(contract.name),
+        careerAdaptStableName: contract.name,
+        description: `${contract.description} Stable CareerAdapt contract: ${contract.name}.${sameTurnTargetContext
+          ? " This internal Hermes route may omit targetText/jobId/checkpointId when the same-turn external target is captured; Browser/Host injects it before the canonical v3 gateway validation."
+          : ""}`
+      };
+    });
 }
 
 export function normalizeHermesCareerToolName(

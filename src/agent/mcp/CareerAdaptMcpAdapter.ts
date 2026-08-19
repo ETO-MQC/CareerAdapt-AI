@@ -187,6 +187,7 @@ function toCallResult(
       ? CareerToolFailureDiagnosticsSchema.parse({
         ...baseDiagnostics,
         mcpJsonRpcArgumentShape: safeCareerToolArgumentShape(input),
+        mcpHttpArgumentShape: safeCareerToolArgumentShape(input),
         mcpCallTrace: baseDiagnostics.mcpCallTrace
           ? {
               ...mcpCallTrace,
@@ -269,6 +270,7 @@ function toolErrorResult(
     operationId,
     logicalToolOperationId,
     mcpJsonRpcArgumentShape: safeCareerToolArgumentShape(input),
+    mcpHttpArgumentShape: safeCareerToolArgumentShape(input),
     mcpCallTrace: {
       toolName,
       logicalToolOperationId,

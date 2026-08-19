@@ -4,6 +4,7 @@ import {
   ResumeCompositionProposalSchema,
   ResumeCompositionResultSchema
 } from "@/domain/resumeComposition/contracts";
+import { ResumeArtifactReceiptSchema } from "@/agent/contracts/resumeArtifactWrite";
 
 export type GroundedResumeOutputDecision =
   | { allowed: true }
@@ -14,6 +15,7 @@ export function evaluateGroundedResumeOutput(input: {
   taskState: AgentTaskState;
   artifactRefs?: AgentArtifactRef[];
   explicitUserAuthoredSample?: boolean;
+  explicitUserRequestedDraft?: boolean;
 }) : GroundedResumeOutputDecision {
   const text = input.text.trim();
   if (!looksLikeResumePresentation(text)) return { allowed: true };
@@ -21,10 +23,32 @@ export function evaluateGroundedResumeOutput(input: {
   // authoritative diff/quality gates. This guard is the composition boundary
   // and must not turn a legitimate tailoring recovery prompt into a fabricated
   // composition failure.
-  if (input.taskState.workflowId !== "compose_resume" && input.taskState.rootGoal !== "compose_resume") {
+  const tailoringWorkflow = input.taskState.workflowId === "tailor_resume"
+    || ["generate_job_specific_resume", "apply_to_external_job", "create_tailored_resume", "apply_to_job"].includes(input.taskState.rootGoal);
+  const compositionWorkflow = input.taskState.workflowId === "compose_resume" || input.taskState.rootGoal === "compose_resume";
+  if (!compositionWorkflow && !tailoringWorkflow) {
     return { allowed: true };
   }
-  if (input.explicitUserAuthoredSample) return { allowed: true };
+  if (
+    input.explicitUserAuthoredSample
+    || input.explicitUserRequestedDraft
+    || input.taskState.knownSlots.nonPersistedDraftModeRequested === true
+  ) return { allowed: true };
+
+  if (tailoringWorkflow) {
+    const slots = input.taskState.knownSlots;
+    const quality = objectValue(slots.qualityResult);
+    const artifactReceipt = ResumeArtifactReceiptSchema.safeParse(
+      slots.artifactReceipt
+        ?? quality.artifactReceipt
+        ?? slots.applyReceipt
+        ?? quality.receipt
+    );
+    if (!artifactReceipt.success) return blocked("resume_output_without_artifact_receipt");
+    const corpus = JSON.stringify({ quality, receipt: artifactReceipt.data });
+    if (containsUnsupportedHardClaim(text, corpus)) return blocked("resume_output_contains_unsupported_fact");
+    return { allowed: true };
+  }
 
   const slots = input.taskState.knownSlots;
   const proposal = ResumeCompositionProposalSchema.safeParse(
@@ -75,7 +99,7 @@ function blocked(reasonCode: string): GroundedResumeOutputDecision {
   return {
     allowed: false,
     reasonCode,
-    recoveryText: "这次简历组装还没有形成可展示的有依据结果。我已保留当前方向和已完成步骤，请重新执行当前步骤；不会把未确认内容显示为简历。"
+    recoveryText: "这次简历输出还没有形成可展示的正式凭证。我已保留当前方向和已完成步骤，请从当前步骤继续；不会把未确认内容显示为简历。"
   };
 }
 
@@ -132,12 +156,13 @@ function hasCorpusSupport(match: string, normalizedCorpus: string) {
   return parts.length > 0 && parts.every((part) => normalizedCorpus.includes(part));
 }
 
+
+function stringValue(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
 function objectValue(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {};
-}
-
-function stringValue(value: unknown) {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }

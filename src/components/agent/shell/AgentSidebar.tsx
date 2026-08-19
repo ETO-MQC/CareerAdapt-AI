@@ -259,6 +259,12 @@ function readSidebarCollapsed() {
 }
 
 function sidebarSessionStatus(session: AgentSession) {
+  const checkpoint = session.taskState?.workflowUserInputCheckpoint;
+  if (checkpoint) {
+    return checkpoint.kind === "confirmation"
+      ? { kind: "waiting_for_confirmation", label: "等待核对" }
+      : { kind: "waiting_for_user", label: "等待输入" };
+  }
   if (session.pendingConfirmation) return { kind: "waiting_for_confirmation", label: "等待核对" };
   if (session.workflowState.status === "paused") return { kind: "paused", label: "已暂停" };
   if (session.activeTurn?.status === "running") return { kind: "running", label: "运行中" };

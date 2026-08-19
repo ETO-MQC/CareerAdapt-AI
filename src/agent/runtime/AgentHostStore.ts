@@ -9,7 +9,8 @@ import {
   type AgentTaskState,
   type AgentOptionSet,
   type AgentTurn,
-  type AgentTurnCheckpoint
+  type AgentTurnCheckpoint,
+  type WorkflowUserInputCheckpoint
 } from "@/agent/contracts/agentSession";
 import type { AgentPageContext } from "@/agent/contracts/agentContext";
 import type { AgentStreamEvent } from "@/agent/runtime/agentSse";
@@ -783,6 +784,12 @@ export class AgentHostStore {
       ? this.snapshot.activeSession
       : input.session;
     if (input.event.type === "text_message") {
+      const checkpointPrepared = await this.prepareWorkflowCheckpointTextInput(
+        current,
+        input.event.text,
+        current.taskState?.workflowUserInputCheckpoint
+      );
+      if (checkpointPrepared) return checkpointPrepared;
       const tailoringProjection = getActiveTailoringQuestionProjection(current);
       if (tailoringProjection) {
         return this.applyTailoringTextAnswer(current, input.event.text, tailoringProjection);
@@ -924,6 +931,141 @@ export class AgentHostStore {
       userMessage: "",
       deterministicTransitionApplied: false
     };
+  }
+
+  private async prepareWorkflowCheckpointTextInput(
+    session: AgentSession,
+    value: string,
+    checkpoint: WorkflowUserInputCheckpoint | undefined
+  ): Promise<PreparedRuntimeUserEvent | undefined> {
+    if (!checkpoint || !value.trim()) return undefined;
+    const text = value.trim().slice(0, 8_000);
+    if (checkpoint.kind === "clarification") {
+      const projection = getActiveTailoringQuestionProjection(session);
+      return projection ? this.applyTailoringTextAnswer(session, text, projection) : undefined;
+    }
+    if (checkpoint.kind === "resume_choice" || checkpoint.kind === "job_choice") {
+      const option = checkpointOptionForText(checkpoint, text);
+      const candidateSetRevision = stringValue(
+        session.taskState?.knownSlots[checkpoint.kind === "resume_choice" ? "resumeCandidateSetRevision" : "jobCandidateSetRevision"]
+      );
+      if (!option || !candidateSetRevision) return undefined;
+      const action = {
+        type: "select_entity" as const,
+        entityType: checkpoint.kind === "resume_choice" ? "resume" as const : "job" as const,
+        entityId: option.value,
+        candidateSetRevision
+      };
+      const prepared = await this.applyTypedEntitySelection(session, action, {
+        continueAfter: false,
+        userMessage: text
+      });
+      if (!prepared.applied) return undefined;
+      return {
+        session: prepared.session,
+        event: { type: "entity_selected", action },
+        turnId: prepared.turnId,
+        userMessage: "",
+        executionOwner: "deterministic_transition",
+        deterministicTransitionApplied: true
+      };
+    }
+    if (checkpoint.kind === "target_persistence_choice") {
+      const option = checkpointOptionForText(checkpoint, text);
+      if (option?.value !== "session_only" && option?.value !== "save_job") return undefined;
+      const prepared = await this.applyTaskDecision(session, {
+        type: "task_decision",
+        decisionType: "job_target_persistence",
+        option: option.value
+      }, { userMessage: text });
+      if (!prepared.applied) return undefined;
+      return {
+        session: prepared.session,
+        event: {
+          type: "option_selected",
+          action: {
+            type: "task_decision",
+            decisionType: "job_target_persistence",
+            option: option.value
+          }
+        },
+        turnId: prepared.turnId,
+        userMessage: "",
+        executionOwner: "deterministic_transition",
+        deterministicTransitionApplied: true
+      };
+    }
+    if (checkpoint.kind === "confirmation") {
+      const confirmed = /^(?:确认|确定|同意|继续|确认并继续|是|好)[。！!]?$/u.test(text)
+        ? true
+        : /^(?:取消|不同意|拒绝|不确认|否)[。！!]?$/u.test(text)
+          ? false
+          : undefined;
+      if (confirmed === undefined || !session.pendingConfirmation) return undefined;
+      const persisted = await this.persistWorkflowCheckpointUserMessage(session, text, checkpoint);
+      return {
+        session: persisted.session,
+        event: { type: "confirmation", confirmed },
+        turnId: persisted.turnId,
+        userMessage: "",
+        executionOwner: "deterministic_transition",
+        deterministicTransitionApplied: true
+      };
+    }
+    if (checkpoint.kind === "review_decision") {
+      const persisted = await this.persistWorkflowCheckpointUserMessage(session, text, checkpoint);
+      return {
+        session: persisted.session,
+        event: { type: "text_message", text },
+        turnId: persisted.turnId,
+        userMessage: text,
+        executionOwner: "runtime_continuation",
+        deterministicTransitionApplied: true,
+        prePersistedUserMessageId: persisted.userMessageId
+      };
+    }
+    return undefined;
+  }
+
+  private async persistWorkflowCheckpointUserMessage(
+    session: AgentSession,
+    text: string,
+    checkpoint: WorkflowUserInputCheckpoint
+  ) {
+    const turnId = `agent-turn-${crypto.randomUUID()}`;
+    const userMessageId = `agent-user-${crypto.randomUUID()}`;
+    const now = new Date().toISOString();
+    let current = withTurnCheckpoint(supersedeActiveOptionSets(session), turnId, userMessageId, now);
+    current = appendAgentMessage(current, "user", text, {
+      id: userMessageId,
+      turnId,
+      status: "complete",
+      metadata: {
+        executionOwner: "deterministic_transition",
+        workflowCheckpointId: checkpoint.checkpointId,
+        workflowCheckpointKind: checkpoint.kind,
+        executionState: "running"
+      }
+    });
+    current = {
+      ...current,
+      activeTurn: {
+        ...current.activeTurn,
+        id: turnId,
+        sessionId: current.id,
+        userMessageId,
+        preferredRuntime: current.activeTurn?.preferredRuntime ?? "hermes",
+        attemptedRuntime: current.activeTurn?.attemptedRuntime ?? "hermes",
+        finalRuntime: current.activeTurn?.finalRuntime ?? "hermes",
+        fallbackUsed: current.activeTurn?.fallbackUsed ?? false,
+        executionOwner: "deterministic_transition",
+        status: "running",
+        startedAt: now
+      }
+    };
+    const saved = await this.dependencies.persistence.save(current);
+    this.patchSession(saved, { turnStatus: "running", activeTurnId: turnId });
+    return { session: saved, turnId, userMessageId };
   }
 
   /** Continue a validated event through deterministic/native infrastructure
@@ -1545,7 +1687,7 @@ export class AgentHostStore {
     turnId?: string;
     userMessageId?: string;
     appendUserMessage?: boolean;
-    runtimeDiagnostics?: Partial<Pick<NonNullable<AgentSession["activeTurn"]>, "preferredRuntime" | "attemptedRuntime" | "finalRuntime" | "executionOwner" | "fallbackUsed" | "fallbackReasonCode" | "hermesRunId" | "nextHermesRunId" | "firstEventAt" | "runtimeFailureAt" | "incidentTraceId" | "runtimeAttempts" | "primaryCausalChain" | "secondaryRecoveryFailures" | "transportReattachAttempted" | "semanticRetryAttempted" | "runtimeRestartAttempted" | "turnStartSnapshot" | "runtimeFailureSnapshot" | "runtimeFailureDiagnostics" | "cancellation" | "abortTraces" | "recoveryAttempted">>;
+    runtimeDiagnostics?: Partial<Pick<NonNullable<AgentSession["activeTurn"]>, "preferredRuntime" | "attemptedRuntime" | "finalRuntime" | "executionOwner" | "fallbackUsed" | "fallbackReasonCode" | "hermesRunId" | "nextHermesRunId" | "firstEventAt" | "runtimeFailureAt" | "incidentTraceId" | "runtimeAttempts" | "primaryCausalChain" | "secondaryRecoveryFailures" | "transportReattachAttempted" | "semanticRetryAttempted" | "runtimeRestartAttempted" | "turnStartSnapshot" | "runtimeFailureSnapshot" | "previousRuntimeIncidents" | "runtimeFailureDiagnostics" | "cancellation" | "abortTraces" | "recoveryAttempted">>;
   }) {
     const now = new Date().toISOString();
     const turnId = input.turnId ?? `runtime-turn-${crypto.randomUUID()}`;
@@ -1564,6 +1706,14 @@ export class AgentHostStore {
         : `agent-user-${crypto.randomUUID()}`)
       : input.session.activeTurn?.userMessageId ?? `agent-user-${crypto.randomUUID()}`;
     const assistantMessageId = reusableAssistant?.id ?? `agent-thinking-${crypto.randomUUID()}`;
+    const inheritedRuntimeSnapshot = input.runtimeDiagnostics?.runtimeFailureSnapshot;
+    const previousRuntimeIncidents = [
+      ...(input.runtimeDiagnostics?.previousRuntimeIncidents ?? []),
+      ...(inheritedRuntimeSnapshot ? [inheritedRuntimeSnapshot] : [])
+    ].slice(-16);
+    const runtimeDiagnostics = { ...(input.runtimeDiagnostics ?? {}) };
+    delete runtimeDiagnostics.runtimeFailureSnapshot;
+    delete runtimeDiagnostics.previousRuntimeIncidents;
     let current = appendUserMessage
       ? withTurnCheckpoint(input.session, turnId, userMessageId, now)
       : input.session;
@@ -1575,6 +1725,21 @@ export class AgentHostStore {
           metadata: { executionState: "running", runtimeId: input.runtimeId }
         })
       : current;
+    if (appendUserMessage && current.taskState) {
+      // Persist the UserMessage and capture its same-turn target before any
+      // Hermes event can request a Career facade. This is context binding,
+      // not intent routing; Hermes still chooses the next tool/action.
+      const taskState = new AgentTaskStateReducer().reduce(current.taskState, {
+        type: "user_message",
+        message: input.userMessage.trim(),
+        sessionId: current.id,
+        messageId: userMessageId,
+        turnId,
+        capturedAt: now,
+        turnIntent: "continue_current_task"
+      });
+      current = projectTaskStateIntoSession(current, taskState);
+    }
     current = reusableAssistant
       ? {
           ...current,
@@ -1623,8 +1788,9 @@ export class AgentHostStore {
           stage: current.taskState.stage,
           selectedEntities: current.taskState.selectedEntities
         } : undefined,
+        ...(previousRuntimeIncidents.length ? { previousRuntimeIncidents } : {}),
         toolFailures: [],
-        ...input.runtimeDiagnostics,
+        ...runtimeDiagnostics,
         status: "running",
         startedAt: now
       }
@@ -1744,6 +1910,18 @@ export class AgentHostStore {
     const runHandleResult = HermesRunHandleSchema.safeParse(objectValue(event.data).runHandle);
     next = applyRuntimeEventDiagnostics(next, event, runHandleResult.success ? runHandleResult.data.runId : undefined);
     if (runHandleResult.success) next = { ...next, hermesRun: runHandleResult.data };
+    if (
+      next.taskState?.knownSlots.canonicalWorkflowFailure
+      && !["turn_completed", "turn_failed"].includes(event.type)
+    ) {
+      const persisted = await this.dependencies.persistence.save(next);
+      this.patchSession(persisted, {
+        turnStatus: "waiting_for_user",
+        activeTurnId: event.turnId,
+        currentObservation: { type: "canonical_workflow_failure_settled" }
+      });
+      return persisted;
+    }
     const activeTailoringProjection = getActiveTailoringQuestionProjection(next);
     if (event.type === "progress" || event.type === "reasoning_status") {
       if (!activeTailoringProjection && (!assistant || assistant.metadata?.runtimeTextStarted !== true)) {
@@ -1904,7 +2082,12 @@ export class AgentHostStore {
             ?? stringValue(resultDiagnostics.safeDomainErrorCode)
             ?? "career_tool_failed";
           const errorMessage = stringValue(objectValue(result.error).message);
-          const recoverable = objectValue(result.error).recoverable !== false;
+          const canonicalWorkflowValidationFailure = isCanonicalWorkflowValidationFailure(
+            event.toolName,
+            errorCode,
+            resultDiagnostics
+          );
+          const recoverable = canonicalWorkflowValidationFailure || objectValue(result.error).recoverable !== false;
           if (next.taskState) next = projectTaskStateIntoSession(next, new AgentTaskStateReducer().reduce(next.taskState, {
             type: "tool_failure",
             toolName: failureToolName,
@@ -1922,6 +2105,38 @@ export class AgentHostStore {
             diagnostics: Object.keys(resultDiagnostics).length ? resultDiagnostics : undefined,
             occurredAt: event.timestamp
           });
+          if (canonicalWorkflowValidationFailure && next.taskState) {
+            const taskState = {
+              ...next.taskState,
+              knownSlots: {
+                ...next.taskState.knownSlots,
+                canonicalWorkflowFailure: {
+                  code: errorCode,
+                  operationId,
+                  recoverable: true
+                }
+              },
+              completionStatus: "waiting_for_user" as const,
+              updatedAt: new Date().toISOString()
+            };
+            next = projectTaskStateIntoSession(next, normalizeAgentTaskState(taskState));
+            next = replaceRuntimeShellMessage(
+              next,
+              assistantMessageId,
+              runtimeFailureRecoveryText(errorCode, next.taskState, resultDiagnostics),
+              { ...event, error: { code: errorCode, message: "Career 工作流输入未完成。", recoverable: true } },
+              false,
+              false
+            );
+            next = attachTaskStateOptions(next, next.taskState!);
+            next = {
+              ...next,
+              activeTurn: next.activeTurn
+                ? { ...next.activeTurn, status: "waiting_for_user", completedAt: new Date().toISOString() }
+                : next.activeTurn
+            };
+            lateTailoringRecovery = true;
+          }
           if (next.taskState?.knownSlots.tailoringApplyFailure && next.activeTurn?.status !== "running") {
             next = replaceRuntimeShellMessage(next, assistantMessageId, TAILORING_APPLY_FAILURE_MESSAGE, {
               ...event,
@@ -1944,25 +2159,70 @@ export class AgentHostStore {
           next = applyRuntimeFacadeCheckpoint(next, event.toolName, failedResult.data);
         }
         const failureToolName = runtimeArtifactSourceToolName(event.toolName ?? "", stringValue(objectValue(event.data).stableCareerToolName));
+        const failureDiagnostics = objectValue(
+          objectValue(event.data).diagnostics
+            ?? failedResult.diagnostics
+            ?? objectValue(failedResult.error).diagnostics
+        );
+        const errorCode = event.error?.code
+          ?? stringValue(failureDiagnostics.safeDomainErrorCode)
+          ?? "career_tool_failed";
+        const canonicalWorkflowValidationFailure = isCanonicalWorkflowValidationFailure(
+          event.toolName,
+          errorCode,
+          failureDiagnostics
+        );
         if (next.taskState) next = projectTaskStateIntoSession(next, new AgentTaskStateReducer().reduce(next.taskState, {
           type: "tool_failure",
           toolName: failureToolName,
           operationId,
-          errorCode: event.error?.code ?? "career_tool_failed",
+          errorCode,
           message: event.error?.message,
-          recoverable: event.error?.recoverable
+          recoverable: canonicalWorkflowValidationFailure || event.error?.recoverable
         }));
         next = recordRuntimeToolFailure(next, {
           toolName: failureToolName,
           operationId,
-          code: event.error?.code ?? "career_tool_failed",
+          code: errorCode,
           message: event.error?.message,
           recoverable: event.error?.recoverable,
-          diagnostics: Object.keys(objectValue(objectValue(event.data).diagnostics)).length
-            ? objectValue(objectValue(event.data).diagnostics)
+          diagnostics: Object.keys(failureDiagnostics).length
+            ? failureDiagnostics
             : undefined,
           occurredAt: event.timestamp
         });
+        if (canonicalWorkflowValidationFailure && next.taskState) {
+          const taskState = {
+            ...next.taskState,
+            knownSlots: {
+              ...next.taskState.knownSlots,
+              canonicalWorkflowFailure: {
+                code: errorCode,
+                operationId,
+                recoverable: true
+              }
+            },
+            completionStatus: "waiting_for_user" as const,
+            updatedAt: new Date().toISOString()
+          };
+          next = projectTaskStateIntoSession(next, normalizeAgentTaskState(taskState));
+          next = replaceRuntimeShellMessage(
+            next,
+            assistantMessageId,
+            runtimeFailureRecoveryText(errorCode, next.taskState, failureDiagnostics),
+            { ...event, error: { code: errorCode, message: "Career 工作流输入未完成。", recoverable: true } },
+            false,
+            false
+          );
+          next = attachTaskStateOptions(next, next.taskState!);
+          next = {
+            ...next,
+            activeTurn: next.activeTurn
+              ? { ...next.activeTurn, status: "waiting_for_user", completedAt: new Date().toISOString() }
+              : next.activeTurn
+          };
+          lateTailoringRecovery = true;
+        }
         if (next.taskState?.knownSlots.tailoringApplyFailure && next.activeTurn?.status !== "running") {
           next = replaceRuntimeShellMessage(next, assistantMessageId, TAILORING_APPLY_FAILURE_MESSAGE, event, false, true);
           next = withRetryCurrentStepOption(next, assistantMessageId);
@@ -2036,7 +2296,21 @@ export class AgentHostStore {
       const completionWaitingForConfirmation = completionDecision?.reason === "waiting_for_confirmation";
       const tailoringRecovery = Boolean(next.taskState?.knownSlots.tailoringApplyFailure);
       const tailoringQuestionRecovery = next.taskState?.knownSlots.lastSafeErrorCode === "tailoring_questions_incomplete";
-      const candidate = completionNeedsRecovery && completionDecision
+      const canonicalWorkflowFailure = Boolean(next.taskState?.knownSlots.canonicalWorkflowFailure);
+      const terminalDiagnostics = objectValue(
+        objectValue(event.data).diagnostics
+          ?? objectValue(event.data).toolFailureDiagnostics
+          ?? next.taskState?.knownSlots.canonicalWorkflowFailure
+      );
+      const candidate = canonicalWorkflowFailure
+        ? runtimeFailureRecoveryText(
+            stringValue(terminalDiagnostics.safeDomainErrorCode)
+              ?? stringValue(terminalDiagnostics.code)
+              ?? event.error?.code,
+            next.taskState,
+            terminalDiagnostics
+          )
+        : completionNeedsRecovery && completionDecision
         ? completionGuardRecoveryText(completionDecision, next.taskState)
         : tailoringRecovery
         ? "已采用的修改仍保留，但岗位简历写入没有完成。可以从当前步骤重试。"
@@ -2054,9 +2328,9 @@ export class AgentHostStore {
       const grounding = next.taskState
         ? evaluateGroundedResumeOutput({ text: candidate, taskState: next.taskState, artifactRefs: next.artifactRefs })
         : { allowed: true as const };
-      const blocked = !tailoringQuestionWaiting && !completionWaiting && !tailoringRecovery && !tailoringQuestionRecovery && !grounding.allowed;
-      const terminalFailed = !tailoringQuestionWaiting && ((event.type === "turn_failed" && !tailoringRecovery && !tailoringQuestionRecovery) || blocked || completionBlocked);
-      const terminalWaiting = !terminalFailed && (tailoringRecovery || tailoringQuestionRecovery || tailoringQuestionWaiting || completionWaiting);
+      const blocked = !canonicalWorkflowFailure && !tailoringQuestionWaiting && !completionWaiting && !tailoringRecovery && !tailoringQuestionRecovery && !grounding.allowed;
+      const terminalFailed = !canonicalWorkflowFailure && !tailoringQuestionWaiting && ((event.type === "turn_failed" && !tailoringRecovery && !tailoringQuestionRecovery) || blocked || completionBlocked);
+      const terminalWaiting = !terminalFailed && (canonicalWorkflowFailure || tailoringRecovery || tailoringQuestionRecovery || tailoringQuestionWaiting || completionWaiting);
       const text = blocked ? grounding.recoveryText : candidate;
       if (!tailoringQuestionWaiting) next = replaceRuntimeShellMessage(next, assistantMessageId, text, event, false, terminalFailed);
       if ((terminalFailed || terminalWaiting || tailoringRecovery) && !domainFailureWaiting && !tailoringQuestionWaiting) next = withRetryCurrentStepOption(next, assistantMessageId);
@@ -4334,7 +4608,7 @@ export class AgentHostStore {
     sourceTurnId?: string;
     regeneratedFromMessageId?: string;
     retryWorkflowStep?: boolean;
-    runtimeDiagnostics?: Partial<Pick<NonNullable<AgentSession["activeTurn"]>, "preferredRuntime" | "attemptedRuntime" | "finalRuntime" | "fallbackUsed" | "fallbackReasonCode" | "hermesRunId" | "firstEventAt" | "runtimeFailureAt" | "incidentTraceId" | "runtimeAttempts" | "turnStartSnapshot" | "runtimeFailureSnapshot" | "cancellation" | "abortTraces" | "recoveryAttempted">>;
+    runtimeDiagnostics?: Partial<Pick<NonNullable<AgentSession["activeTurn"]>, "preferredRuntime" | "attemptedRuntime" | "finalRuntime" | "fallbackUsed" | "fallbackReasonCode" | "hermesRunId" | "firstEventAt" | "runtimeFailureAt" | "incidentTraceId" | "runtimeAttempts" | "turnStartSnapshot" | "runtimeFailureSnapshot" | "previousRuntimeIncidents" | "cancellation" | "abortTraces" | "recoveryAttempted">>;
   }) {
     if (input.session.pendingConfirmation && input.session.pendingToolCall) {
       input.session = invalidatePendingConfirmationForCorrection(input.session);
@@ -4368,6 +4642,14 @@ export class AgentHostStore {
     const now = new Date().toISOString();
     const turnId = input.turnId ?? `agent-turn-${crypto.randomUUID()}`;
     const incidentTraceId = input.runtimeDiagnostics?.incidentTraceId ?? createIncidentTraceId();
+    const inheritedRuntimeSnapshot = input.runtimeDiagnostics?.runtimeFailureSnapshot;
+    const previousRuntimeIncidents = [
+      ...(input.runtimeDiagnostics?.previousRuntimeIncidents ?? []),
+      ...(inheritedRuntimeSnapshot ? [inheritedRuntimeSnapshot] : [])
+    ].slice(-16);
+    const runtimeDiagnostics = { ...(input.runtimeDiagnostics ?? {}) };
+    delete runtimeDiagnostics.runtimeFailureSnapshot;
+    delete runtimeDiagnostics.previousRuntimeIncidents;
     const executionRecord = this.executionCoordinator.begin({
       sessionId: input.session.id,
       activeTurnId: turnId,
@@ -4499,9 +4781,10 @@ export class AgentHostStore {
         finalRuntime: current.activeTurn?.finalRuntime ?? input.runtimeDiagnostics?.finalRuntime ?? (input.runtimeId === "hermes" ? "hermes" : "native"),
         fallbackUsed: current.activeTurn?.fallbackUsed ?? input.runtimeDiagnostics?.fallbackUsed ?? false,
         incidentTraceId: current.activeTurn?.incidentTraceId ?? incidentTraceId,
+        ...(previousRuntimeIncidents.length ? { previousRuntimeIncidents } : {}),
         status: "running",
         startedAt: now,
-        ...input.runtimeDiagnostics
+        ...runtimeDiagnostics
       },
       ...(input.runtimeId ? { runtimeId: input.runtimeId } : {})
     };
@@ -5294,7 +5577,8 @@ export class AgentHostStore {
 
   private async applyTaskDecision(
     session: AgentSession,
-    action: Extract<AgentOption["action"], { type: "task_decision" }>
+    action: Extract<AgentOption["action"], { type: "task_decision" }>,
+    options: { userMessage?: string } = {}
   ): Promise<{ session: AgentSession; turnId: string; applied: boolean }> {
     if (
       session.taskState?.pendingDecision?.type !== action.decisionType
@@ -5321,7 +5605,21 @@ export class AgentHostStore {
       decisionType: action.decisionType,
       option: action.option
     });
-    let current = withTurnCheckpoint(session, turnId, userMessageId, new Date().toISOString());
+    const now = new Date().toISOString();
+    let current = withTurnCheckpoint(session, turnId, userMessageId, now);
+    if (options.userMessage) {
+      current = appendAgentMessage(current, "user", options.userMessage, {
+        id: userMessageId,
+        turnId,
+        status: "complete",
+        metadata: {
+          executionOwner: "deterministic_transition",
+          checkpointDecisionType: action.decisionType,
+          checkpointDecisionOption: action.option,
+          executionState: "running"
+        }
+      });
+    }
     current = markTypedTaskDecisionResolution(current, {
       turnId,
       decisionType: action.decisionType,
@@ -5342,7 +5640,7 @@ export class AgentHostStore {
         fallbackUsed: current.activeTurn?.fallbackUsed ?? false,
         executionOwner: "deterministic_transition",
         status: "running",
-        startedAt: new Date().toISOString()
+        startedAt: now
       }
     };
     if (action.decisionType === "job_target_persistence") {
@@ -6265,7 +6563,7 @@ export class AgentHostStore {
   private async applyTypedEntitySelection(
     session: AgentSession,
     action: Extract<AgentOption["action"], { type: "select_entity" }>,
-    options: { continueAfter: boolean }
+    options: { continueAfter: boolean; userMessage?: string }
   ): Promise<{ session: AgentSession; turnId: string; applied: boolean }> {
     if (!session.taskState) return { session, turnId: `agent-turn-${crypto.randomUUID()}`, applied: false };
     const candidatesKey = action.entityType === "job" ? "jobCandidates" : "resumeCandidates";
@@ -6308,12 +6606,12 @@ export class AgentHostStore {
       ? `${String(candidate.title ?? "岗位")}${candidate.company ? ` · ${String(candidate.company)}` : ""}`
       : String(candidate.name ?? "简历");
     let current = withTurnCheckpoint(supersedeActiveOptionSets(session), turnId, userMessageId, taskState.updatedAt);
-    current = appendAgentMessage(current, "user", label, {
+    current = appendAgentMessage(current, "user", options.userMessage ?? label, {
       id: userMessageId,
       turnId,
       status: "complete",
       metadata: {
-        executionState: "complete",
+        executionState: options.userMessage ? "running" : "complete",
         executionOwner: "deterministic_transition",
         selectedEntityType: action.entityType,
         selectedEntityId: action.entityId
@@ -7480,14 +7778,22 @@ export function getActiveTailoringQuestionProjection(
   const state: AgentTaskState | undefined = sessionOrState && "taskState" in sessionOrState
     ? sessionOrState.taskState
     : sessionOrState as AgentTaskState | undefined;
-  if (!state || state.stage !== "clarify_unsupported_facts") return undefined;
+  if (!state) return undefined;
+  const workflowCheckpoint = state.workflowUserInputCheckpoint?.kind === "clarification"
+    ? state.workflowUserInputCheckpoint
+    : undefined;
+  if (!workflowCheckpoint && state.stage !== "clarify_unsupported_facts") return undefined;
+  const checkpointPrompt = objectValue(workflowCheckpoint?.promptProjection);
+  const checkpointAllowed = objectValue(workflowCheckpoint?.allowedInput);
   const tailoringSession = objectValue(state.knownSlots.tailoringSession);
   const plan = objectValue(tailoringSession.plan);
   const questionPlan = objectValue(state.knownSlots.questionPlan ?? plan.questionPlan);
-  const questionPlanId = stringValue(questionPlan.id);
-  const questionPlanRevision = numberValue(questionPlan.revision);
-  const questionId = stringValue(state.knownSlots.activeQuestionId ?? questionPlan.activeQuestionId);
-  const tailoringSessionId = stringValue(questionPlan.sessionId)
+  const questionPlanId = stringValue(checkpointPrompt.questionPlanId) ?? stringValue(questionPlan.id);
+  const questionPlanRevision = numberValue(checkpointPrompt.questionPlanRevision) ?? numberValue(questionPlan.revision);
+  const questionId = stringValue(checkpointPrompt.questionId)
+    ?? stringValue(state.knownSlots.activeQuestionId ?? questionPlan.activeQuestionId);
+  const tailoringSessionId = stringValue(checkpointPrompt.tailoringSessionId)
+    ?? stringValue(questionPlan.sessionId)
     ?? stringValue(tailoringSession.id)
     ?? state.selectedEntities.tailoringSessionId;
   const questionIds = Array.isArray(questionPlan.questionIds)
@@ -7497,11 +7803,26 @@ export function getActiveTailoringQuestionProjection(
     ? plan.clarificationQuestions.map(objectValue)
     : [];
   const question = questions.find((candidate) => candidate.id === questionId);
-  if (!questionPlanId || questionPlanRevision === undefined || !questionId || !tailoringSessionId || !question) return undefined;
-  const questionText = stringValue(question.question);
+  if (!questionPlanId || questionPlanRevision === undefined || !questionId || !tailoringSessionId) return undefined;
+  const questionText = stringValue(checkpointPrompt.text) ?? stringValue(question?.question);
   if (!questionText) return undefined;
-  const options = Array.isArray(question.options)
-    ? question.options.map(objectValue).flatMap((option, index): AgentOption[] => {
+  const checkpointOptions = Array.isArray(checkpointAllowed.options)
+    ? checkpointAllowed.options.map(objectValue)
+    : undefined;
+  const questionOptions = question && Array.isArray(question.options) ? question.options : undefined;
+  const options = checkpointOptions?.length
+    ? checkpointOptions.flatMap((option, index): AgentOption[] => {
+        const label = stringValue(option.label);
+        const value = stringValue(option.value);
+        if (!label || !value) return [];
+        return [{
+          id: `tailoring-question-${questionId}-${String(option.id ?? index)}`,
+          label,
+          action: { type: "answer" as const, field: `tailoring-question:${questionId}`, value }
+        }];
+      })
+    : questionOptions
+    ? questionOptions.map(objectValue).flatMap((option, index): AgentOption[] => {
         const label = stringValue(option.label);
         const value = stringValue(option.value);
         if (!label || !value) return [];
@@ -7520,8 +7841,8 @@ export function getActiveTailoringQuestionProjection(
     questionId,
     questionText,
     position,
-    count: questionIds.length,
-    answerType: stringValue(question.answerType) ?? "text",
+    count: numberValue(checkpointPrompt.questionCount) ?? questionIds.length,
+    answerType: stringValue(question?.answerType) ?? stringValue(checkpointAllowed.answerType) ?? "text",
     options,
     allowSkip: true,
     tailoringSessionId,
@@ -7638,7 +7959,10 @@ function formatTailoringQuestionProjection(projection: TailoringQuestionProjecti
 }
 
 export function attachTaskStateOptions(session: AgentSession, state: AgentTaskState) {
-  if (state.stage === "clarify_unsupported_facts" && getActiveTailoringQuestionProjection(state)) {
+  if (
+    (state.workflowUserInputCheckpoint?.kind === "clarification" || state.stage === "clarify_unsupported_facts")
+    && getActiveTailoringQuestionProjection(state)
+  ) {
     const normalizedState = normalizeAgentTaskState(state);
     const normalizedSession = session.taskState === state
       ? session
@@ -7677,7 +8001,10 @@ export function attachTaskStateOptions(session: AgentSession, state: AgentTaskSt
     };
   } else if (state.stage === "choose_job") {
     options = entityOptions(state, "job");
-  } else if (state.stage === "choose_resume_source" && state.knownSlots.resumeSelectionRequired) {
+  } else if (
+    state.workflowUserInputCheckpoint?.kind === "resume_choice"
+    || state.stage === "choose_resume_source" && state.knownSlots.resumeSelectionRequired
+  ) {
     options = entityOptions(state, "resume");
   } else if (state.stage === "clarify_unsupported_facts") {
     const sessionValue = objectValue(state.knownSlots.tailoringSession);
@@ -8022,6 +8349,25 @@ function entityOptions(state: AgentTaskState, entityType: "job" | "resume"): Age
       action: { type: "select_entity" as const, entityType, entityId: id, candidateSetRevision: revision }
     }];
   });
+}
+
+function checkpointOptionForText(
+  checkpoint: WorkflowUserInputCheckpoint,
+  text: string
+): (Record<string, unknown> & { value: string }) | undefined {
+  const normalized = text.trim().toLocaleLowerCase("zh-CN");
+  const allowedInput = objectValue(checkpoint.allowedInput);
+  const options = Array.isArray(allowedInput.options)
+    ? allowedInput.options.flatMap((candidate) => {
+        if (typeof candidate === "string") return [{ value: candidate, label: candidate }];
+        return candidate && typeof candidate === "object" && !Array.isArray(candidate)
+          ? [candidate as Record<string, unknown>]
+          : [];
+      })
+    : [];
+  const matched = options.find((option) => [option.value, option.id, option.label]
+    .some((candidate) => typeof candidate === "string" && candidate.trim().toLocaleLowerCase("zh-CN") === normalized));
+  return typeof matched?.value === "string" ? { ...matched, value: matched.value } : undefined;
 }
 
 type ConfirmationResolution = "confirmed" | "rejected" | "superseded";
@@ -9616,6 +9962,16 @@ function isCanonicalTailorFacadeToolName(toolName: string | undefined, data: Rec
     || candidate?.endsWith("_career_workflow_tailor_resume") === true;
 }
 
+function isCanonicalWorkflowValidationFailure(
+  toolName: string | undefined,
+  code: string,
+  diagnostics: Record<string, unknown>
+) {
+  return isCanonicalTailorFacadeToolName(toolName, diagnostics)
+    && (diagnostics.failureScope === "career_workflow" || diagnostics.toolFailureLayer === "gateway_validation")
+    && /schema_validation_failed|target_required/i.test(code);
+}
+
 function runtimeArtifactResultData(stableName: string, value: unknown) {
   if (!stableName.startsWith("career.workflow.")) return value;
   const facade = objectValue(value);
@@ -10300,6 +10656,11 @@ function applyRuntimeEventDiagnostics(session: AgentSession, event: AgentRuntime
     ?? createIncidentTraceId();
   const failureSnapshotCandidate = data.failureSnapshot ?? telemetry.failureSnapshot;
   const failureSnapshot = RuntimeFailureSnapshotSchema.safeParse(failureSnapshotCandidate);
+  const observedLogicalTurnId = stringValue(data.logicalTurnId) ?? stringValue(telemetry.logicalTurnId);
+  const expectedRunId = hermesRunId ?? session.activeTurn.hermesRunId;
+  const snapshotRunId = failureSnapshot.success ? failureSnapshot.data.run.runId : undefined;
+  const snapshotBelongsToCurrentIncident = (!observedLogicalTurnId || observedLogicalTurnId === session.activeTurn.id)
+    && (!expectedRunId || !snapshotRunId || expectedRunId === snapshotRunId);
   const stopReason = RunStopReasonSchema.safeParse(data.stopReason ?? telemetry.stopReason);
   const abortTrace = AbortTraceSchema.safeParse(data.abortTrace ?? telemetry.abortTrace);
   const causalChainCandidate = data.primaryCausalChain
@@ -10331,7 +10692,10 @@ function applyRuntimeEventDiagnostics(session: AgentSession, event: AgentRuntime
     ? [...(session.activeTurn.abortTraces ?? []), abortTrace.data].slice(-32)
     : session.activeTurn.abortTraces;
   const nextRuntimeFailureSnapshot = session.activeTurn.runtimeFailureSnapshot
-    ?? (failureSnapshot.success ? failureSnapshot.data : undefined);
+    ?? (failureSnapshot.success && snapshotBelongsToCurrentIncident ? failureSnapshot.data : undefined);
+  const previousRuntimeIncidents = failureSnapshot.success && !snapshotBelongsToCurrentIncident
+    ? [...(session.activeTurn.previousRuntimeIncidents ?? []), failureSnapshot.data].slice(-16)
+    : session.activeTurn.previousRuntimeIncidents;
   const previousHermesRunId = session.activeTurn.hermesRunId;
   const observedNextHermesRunId = nextHermesRunId
     ?? (hermesRunId && previousHermesRunId && hermesRunId !== previousHermesRunId ? hermesRunId : undefined);
@@ -10372,6 +10736,7 @@ function applyRuntimeEventDiagnostics(session: AgentSession, event: AgentRuntime
       runtimeFailureAt: runtimeFailureAt ?? (event.type === "turn_failed" ? event.timestamp : session.activeTurn.runtimeFailureAt),
       runtimeAttempts: nextRuntimeAttempts,
       ...(eventStream.success ? { eventStream: eventStream.data } : {}),
+      ...(previousRuntimeIncidents ? { previousRuntimeIncidents } : {}),
       ...(failureSnapshot.success && !session.activeTurn.runtimeFailureSnapshot ? { runtimeFailureSnapshot: failureSnapshot.data } : {}),
       ...(stopReason.success ? { cancellation: stopReason.data } : {}),
       ...(nextAbortTraces ? { abortTraces: nextAbortTraces } : {}),
@@ -10494,6 +10859,12 @@ function runtimeFailureRecoveryText(code?: string, taskState?: AgentTaskState, d
     if (code === "needs_profile_choice") return "当前有多份可用的个人资料，请先选择一份。";
     if (code === "needs_resume_choice") return "当前有多份可用的通用简历，请先选择一份。";
     return "当前步骤需要你的选择或补充信息后才能继续。";
+  }
+  if (
+    diagnostics?.failureScope === "career_workflow"
+    && (failureLayer === "gateway_validation" || /schema_validation_failed|target_required/i.test(code ?? ""))
+  ) {
+    return "Career 工作流输入还没有完成，MCP 与 Hermes 仍处于健康状态。已保留当前岗位、简历和来源上下文，请按当前问题补充后继续。";
   }
   if (failureLayer === "mcp_transport" || /mcp_(?:bridge_)?(?:transport|unavailable|timeout)/i.test(code ?? "")) {
     return "CareerAdapt MCP 边界这次没有返回工具结果；Hermes 任务本身没有被判定为不可用。已保留当前任务 checkpoint，确认工作区连接后可从当前步骤重试。";

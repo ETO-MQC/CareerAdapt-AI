@@ -12,6 +12,7 @@ import {
 } from "../tools/careerToolDiagnostics";
 import { CAREER_TOOL_CONTRACT_VERSION } from "../tools/careerToolContract";
 import { stableHashText } from "@/services/security/text";
+import type { TurnScopedTargetContext } from "@/agent/runtime/turnScopedTargetContext";
 
 type BridgeRequest = {
   id: string;
@@ -40,6 +41,8 @@ export type CareerAdaptMcpConfirmationContext = {
   assistantMessageId: string;
   userMessageId?: string;
   incidentTraceId?: string;
+  /** Browser/Host-only same-turn target authority; never sent to diagnostics. */
+  targetContext?: TurnScopedTargetContext;
   tailoringAnswer?: {
     checkpointId: string;
     questionId: string;
@@ -322,10 +325,16 @@ export class CareerAdaptMcpBridgeClient {
     // unrelated to the assistant message that initiated it.
     const confirmationContext = this.confirmationContext ?? this.detachedConfirmationContext;
     let result: CareerToolResult;
-    const toolInput = normalizeHermesScopedInput(request.name, request.input, request.careerSessionBinding, confirmationContext);
+    const logicalTurnId = request.logicalTurnId ?? confirmationContext?.turnId;
+    const toolInput = normalizeHermesScopedInput(
+      request.name,
+      request.input,
+      request.careerSessionBinding,
+      confirmationContext,
+      logicalTurnId
+    );
     let gatewayReached = false;
     try {
-      const logicalTurnId = request.logicalTurnId ?? confirmationContext?.turnId;
       const sessionId = request.agentSessionId ?? confirmationContext?.sessionId;
       const cacheSessionId = sessionId ?? "bridge-session";
       const contractVersion = this.gateway.listContracts().find((candidate) => candidate.name === request.name)?.contractVersion
@@ -604,6 +613,7 @@ function withMcpCallTrace(
   const logicalToolOperationId = request.logicalToolOperationId ?? request.operationId;
   const diagnostics = CareerToolFailureDiagnosticsSchema.parse({
     ...baseDiagnostics,
+    mcpHttpArgumentShape: safeCareerToolArgumentShape(request.input),
     browserHandlerArgumentShape: safeCareerToolArgumentShape(input),
     mcpCallTrace: {
       toolName: request.name,
@@ -679,17 +689,32 @@ function asRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
-function normalizeHermesScopedInput(
+export function normalizeHermesScopedInput(
   name: string,
   value: unknown,
   binding?: CareerSessionBinding,
-  turn?: CareerAdaptMcpConfirmationContext
+  turn?: CareerAdaptMcpConfirmationContext,
+  logicalTurnId?: string
 ) {
   const input = asRecord(value);
   if (name === "career.workflow.tailor_resume" && turn?.tailoringAnswer) {
     return {
       checkpointId: turn.tailoringAnswer.checkpointId,
       userAnswer: turn.tailoringAnswer.answer
+    };
+  }
+  if (
+    name === "career.workflow.tailor_resume"
+    && turn?.targetContext
+    && turn.targetContext.logicalTurnId === logicalTurnId
+    && input.targetText === undefined
+    && input.jobId === undefined
+    && input.checkpointId === undefined
+  ) {
+    return {
+      ...input,
+      targetText: turn.targetContext.targetText,
+      targetContextId: turn.targetContext.targetContextId
     };
   }
   if (!binding) return value;

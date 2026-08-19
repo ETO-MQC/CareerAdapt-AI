@@ -7,9 +7,9 @@ import { CAREER_TOOL_CONTRACT_VERSION } from "@/agent/tools/careerToolContract";
 export const appBuildTechnicalDiagnostics = {
   appBuildCommit: process.env.NEXT_PUBLIC_APP_BUILD_COMMIT?.trim()
     || process.env.APP_BUILD_COMMIT?.trim()
-    || "unknown",
+    || "workspace-source",
   appBuildTimestamp: process.env.NEXT_PUBLIC_APP_BUILD_TIMESTAMP?.trim()
     || process.env.APP_BUILD_TIMESTAMP?.trim()
-    || "unknown",
+    || "runtime-start",
   careerToolContractVersion: CAREER_TOOL_CONTRACT_VERSION
 } as const;

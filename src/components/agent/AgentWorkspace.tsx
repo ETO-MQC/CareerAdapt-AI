@@ -114,6 +114,12 @@ export function AgentWorkspace() {
   const [pendingContextRequest, setPendingContextRequest] = useState<PendingContextRequest>();
   const quickActionDispatchRef = useRef<Promise<AgentSession | undefined> | undefined>(undefined);
   const running = snapshot.turnStatus === "running";
+  const workflowCheckpoint = session.taskState?.workflowUserInputCheckpoint;
+  const checkpointTurnStatus = workflowCheckpoint
+    ? session.taskState?.completionStatus === "waiting_for_confirmation"
+      ? "waiting_for_confirmation" as const
+      : "waiting_for_user" as const
+    : snapshot.turnStatus;
   const liveHermesRun = ["queued", "running", "waiting_for_approval", "stopping"].includes(session.hermesRun?.status ?? "");
   const paused = snapshot.turnStatus === "paused";
   const draft = draftsBySession[session.id] ?? "";
@@ -957,7 +963,7 @@ export function AgentWorkspace() {
   return (
     <AgentWorkspaceLayout
       sessionTitle={getAgentSessionDisplayTitle(session)}
-      status={statusLabel(snapshot.turnStatus)}
+      status={statusLabel(checkpointTurnStatus)}
       runtimeStatus={runtimeStatus}
       onStartHermes={host.startHermes}
       onStopHermes={async () => {
@@ -988,6 +994,8 @@ export function AgentWorkspace() {
         data-agent-workflow-id={session.taskState?.workflowId ?? session.workflowState.workflowId}
         data-agent-task-stage={session.taskState?.stage ?? ""}
         data-agent-completion-status={session.taskState?.completionStatus ?? ""}
+        data-agent-checkpoint-id={workflowCheckpoint?.checkpointId ?? ""}
+        data-agent-checkpoint-kind={workflowCheckpoint?.kind ?? ""}
         data-agent-branch-id={session.activeBranchId}
       >
         <section className="agent-conversation-panel">
@@ -1097,6 +1105,7 @@ export function AgentWorkspace() {
           <AgentComposer
             disabled={paused}
             running={running}
+            checkpoint={workflowCheckpoint}
             queuedCount={snapshot.pendingInputCount}
             draft={draft}
             reference={draftReference}

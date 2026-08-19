@@ -23,6 +23,7 @@ import { ResumeCompositionInformationNeedSchema } from "@/domain/resumeCompositi
 import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
 import { normalizeTailoringStage } from "@/agent/workflows/tailoringStage";
 import { createTurnScopedTargetContext } from "./turnScopedTargetContext";
+import { deriveWorkflowUserInputCheckpoint } from "./workflowUserInputCheckpoint";
 
 export type AgentTaskEvent =
   | {
@@ -180,11 +181,17 @@ export class AgentTaskStateReducer {
       if (looksLikeJd(event.message)) {
         const targetText = event.message.trim();
         if (event.turnId) {
-          state.knownSlots.turnScopedTargetContext = createTurnScopedTargetContext({
+          const turnTargetContext = createTurnScopedTargetContext({
             logicalTurnId: event.turnId,
             targetText,
+            sourceMessageId: event.messageId,
             createdAt: event.capturedAt ?? state.updatedAt
           });
+          // `turnTargetContext` is the single authority. Keep the older slot
+          // name as a compatibility projection for persisted P4.5c sessions;
+          // both references intentionally point at the same immutable value.
+          state.knownSlots.turnTargetContext = turnTargetContext;
+          state.knownSlots.turnScopedTargetContext = turnTargetContext;
         }
         if (
           state.rootGoal === "apply_to_external_job"
@@ -1426,6 +1433,7 @@ function normalize(state: AgentTaskState): AgentTaskState {
   ) {
     state.completionStatus = "active";
   }
+  state.workflowUserInputCheckpoint = deriveWorkflowUserInputCheckpoint(state);
   return state;
 }
 
@@ -1479,9 +1487,10 @@ function mergeObservationSlots(state: AgentTaskState, toolName: string, observat
   if (toolName === "list_resumes") {
     const resumes = Array.isArray(value.resumes) ? value.resumes.map(objectValue) : [];
     const targetProfileId = state.selectedEntities.profileId ?? stringValue(state.knownSlots.targetProfileId);
-    const ownedResumes = targetProfileId
+    const ownedResumes = (targetProfileId
       ? resumes.filter((resume) => resume.profileId === targetProfileId)
-      : resumes;
+      : resumes)
+      .filter((resume) => resume.purpose === "general" && resume.status !== "archived" && resume.healthy !== false);
     const resumeCandidates: Record<string, unknown>[] = ownedResumes.map((resume, index) => ({
       ...resume,
       order: typeof resume.order === "number" ? resume.order : index + 1
@@ -1509,6 +1518,12 @@ function mergeObservationSlots(state: AgentTaskState, toolName: string, observat
       state.knownSlots.resumeSelectionRequired = true;
       state.stage = "choose_resume_source";
       state.completionStatus = "waiting_for_user";
+    } else if (isTailoringGoal(state.rootGoal) && resumeCandidates.length === 0 && state.stage === "choose_resume_source") {
+      // No healthy general source is a Facade preparation path, not a silent
+      // waiting state. The Facade may create a base branch from the selected
+      // Profile or return the explicit profile-preparation checkpoint.
+      delete state.knownSlots.resumeSelectionRequired;
+      if (state.completionStatus === "waiting_for_user") state.completionStatus = "active";
     }
   }
   if (toolName === "list_jobs") {

@@ -1750,7 +1750,7 @@ function allowedCareerToolContracts(gateway: CareerToolGateway, input: AgentRunt
         || isCareerSystemStatusQuestion(input.userMessage) && contract.name.startsWith("career.system.")
       )
   );
-  return projectCareerContractsForHermes(contracts, productionProfile);
+  return projectCareerContractsForHermes(contracts, productionProfile, { allowSameTurnTargetContext: true });
 }
 
 function isAllowedCareerTool(input: AgentRuntimeTurnInput, toolName: string, catalog: HermesCareerToolCatalog) {

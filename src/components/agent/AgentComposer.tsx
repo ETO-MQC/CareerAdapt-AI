@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { AgentUiAction } from "@/agent/contracts/agentActions";
-import type { AgentMessageReference } from "@/agent/contracts/agentSession";
+import type { AgentMessageReference, WorkflowUserInputCheckpoint } from "@/agent/contracts/agentSession";
 import { AGENT_RESUME_IMPORT_ACCEPT } from "@/agent/capabilities/AgentProductCapabilityManifest";
 
 export type ComposerAttachmentDraft = {
@@ -37,6 +37,7 @@ export function AgentComposer(props: {
   running?: boolean;
   queuedCount?: number;
   aiStatus?: string;
+  checkpoint?: WorkflowUserInputCheckpoint;
   draft?: string;
   reference?: AgentMessageReference;
   onRemoveReference?(): void;
@@ -58,6 +59,10 @@ export function AgentComposer(props: {
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const message = props.draft ?? localMessage;
+  const checkpointPrompt = props.checkpoint?.promptProjection
+    && typeof props.checkpoint.promptProjection.text === "string"
+    ? props.checkpoint.promptProjection.text
+    : undefined;
   const setMessage = (value: string) => {
     props.onDraftChange?.(value);
     if (props.draft === undefined) setLocalMessage(value);
@@ -142,8 +147,10 @@ export function AgentComposer(props: {
           rows={1}
           value={message}
           disabled={props.disabled}
+          data-agent-checkpoint-kind={props.checkpoint?.kind}
+          data-agent-checkpoint-id={props.checkpoint?.checkpointId}
           autoComplete="off"
-          placeholder="描述你的求职任务，或粘贴一份岗位描述..."
+          placeholder={checkpointPrompt ?? "描述你的求职任务，或粘贴一份岗位描述..."}
           onChange={(event) => setMessage(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
@@ -165,7 +172,7 @@ export function AgentComposer(props: {
           {props.canFinish ? <button type="button" disabled={props.disabled} onClick={() => void props.onFinish?.()}><span>完成整理</span></button> : null}
         </div>
         <div className="agent-composer-submit">
-          <span>{props.aiStatus ?? (props.queuedCount ? `已排队 ${props.queuedCount} 条` : props.running ? "AI 正在处理，可继续发送排队" : "AI 就绪")}</span>
+          <span>{props.aiStatus ?? (props.checkpoint ? "等待回答" : props.queuedCount ? `已排队 ${props.queuedCount} 条` : props.running ? "AI 正在处理，可继续发送排队" : "AI 就绪")}</span>
           {props.running ? <><button className="agent-send-button" type="submit" disabled={props.disabled || !canSubmit} aria-label="排队发送消息"><Send aria-hidden="true" /></button><button className="agent-stop-button" type="button" aria-label="停止运行" onClick={props.onStop}><Square aria-hidden="true" /></button></> : <button className="agent-send-button" type="submit" disabled={props.disabled || !canSubmit} aria-label="发送消息"><Send aria-hidden="true" /></button>}
         </div>
       </div>

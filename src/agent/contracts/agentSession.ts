@@ -167,6 +167,31 @@ export const AgentPendingToolCallSchema = z.object({
   input: z.record(z.string(), z.unknown())
 }).strict();
 
+export const WorkflowUserInputCheckpointKindSchema = z.enum([
+  "resume_choice",
+  "job_choice",
+  "clarification",
+  "confirmation",
+  "target_persistence_choice",
+  "review_decision"
+]);
+
+/**
+ * The one persisted user-input boundary for a workflow.  UI projections and
+ * runtime continuation must consume this object instead of independently
+ * inferring waiting state from a stage, stream or remote run.
+ */
+export const WorkflowUserInputCheckpointSchema = z.object({
+  checkpointId: z.string().min(1),
+  kind: WorkflowUserInputCheckpointKindSchema,
+  workflowId: z.string().min(1),
+  stage: z.string().min(1),
+  promptProjection: z.record(z.string(), z.unknown()),
+  allowedInput: z.record(z.string(), z.unknown()),
+  createdAt: z.string().datetime({ offset: true }),
+  revision: z.number().int().min(0)
+}).strict();
+
 export const AgentTurnToolFailureSchema = z.object({
   toolName: z.string().min(1),
   operationId: z.string().min(1).optional(),
@@ -206,6 +231,8 @@ export const AgentTurnSchema = z.object({
   secondaryRecoveryFailures: z.array(SecondaryRecoveryFailureSchema).max(16).optional(),
   turnStartSnapshot: RuntimeFailureSnapshotSchema.optional(),
   runtimeFailureSnapshot: RuntimeFailureSnapshotSchema.optional(),
+  /** Snapshots from a prior run/turn are retained for diagnostics only. */
+  previousRuntimeIncidents: z.array(RuntimeFailureSnapshotSchema).max(16).optional(),
   cancellation: RunStopReasonSchema.optional(),
   abortTraces: z.array(AbortTraceSchema).max(32).optional(),
   recoveryAttempted: z.boolean().optional(),
@@ -228,6 +255,7 @@ const AgentTaskStateObjectSchema = z.object({
   stage: z.string().min(1),
   requiredSlots: z.array(z.string().min(1)).max(32).default([]),
   knownSlots: z.record(z.string(), z.unknown()).default({}),
+  workflowUserInputCheckpoint: WorkflowUserInputCheckpointSchema.optional(),
   missingSlots: z.array(z.string().min(1)).max(32).default([]),
   selectedEntities: z.object({
     profileId: z.string().min(1).optional(),
@@ -374,6 +402,8 @@ export type AgentTurnToolFailure = z.infer<typeof AgentTurnToolFailureSchema>;
 export type AgentTurnCheckpoint = z.infer<typeof AgentTurnCheckpointSchema>;
 export type HermesRunHandle = z.infer<typeof HermesRunHandleSchema>;
 export type AgentTaskState = z.infer<typeof AgentTaskStateSchema>;
+export type WorkflowUserInputCheckpoint = z.infer<typeof WorkflowUserInputCheckpointSchema>;
+export type WorkflowUserInputCheckpointKind = z.infer<typeof WorkflowUserInputCheckpointKindSchema>;
 export type AgentOptionSetState = z.infer<typeof AgentOptionSetStateSchema>;
 export type AgentOptionSet = z.infer<typeof AgentOptionSetSchema>;
 export type ConversationBranch = z.infer<typeof ConversationBranchSchema>;

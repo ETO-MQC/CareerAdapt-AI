@@ -211,6 +211,38 @@ export function tailorResumeInputJsonSchema() {
   } satisfies Record<string, unknown>;
 }
 
+/**
+ * Hermes' embedded Browser/Host route has an authoritative same-turn target
+ * captured from the user's external JD message. The model may therefore omit
+ * targetText/jobId/checkpointId for the initial internal call; the adapter
+ * injects the captured target before the v3 gateway schema is evaluated.
+ * External MCP callers continue to receive tailorResumeInputJsonSchema().
+ */
+export function tailorResumeInternalHermesInputJsonSchema() {
+  return {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      profileId: { type: "string", minLength: 1 },
+      sourceResumeId: { type: "string", minLength: 1 },
+      targetText: { type: "string", minLength: 20, maxLength: 24_000 },
+      jobId: { type: "string", minLength: 1 },
+      checkpointId: { type: "string", minLength: 1 },
+      userAnswer: {
+        oneOf: [
+          { type: "string", minLength: 1, maxLength: 8_000 },
+          { type: "array", minItems: 1, maxItems: 32, items: { type: "string", minLength: 1 } },
+          { type: "boolean" }
+        ]
+      },
+      jobPersistence: { type: "string", enum: [...CAREER_TARGET_PERSISTENCE_VALUES] },
+      targetTitle: { type: "string", minLength: 1, maxLength: 160 },
+      targetCompany: { type: "string", minLength: 1, maxLength: 160 },
+      targetSourceUrl: { type: "string", format: "uri" }
+    }
+  } satisfies Record<string, unknown>;
+}
+
 export function evaluateCareerToolContractSurface(
   contracts: Array<{
     name: string;

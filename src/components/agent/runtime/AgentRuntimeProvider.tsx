@@ -40,6 +40,7 @@ import { hermesProductionToolNames } from "@/agent/runtime/hermes/HermesCareerTo
 import { isReadOnlyCareerQuestion } from "@/agent/runtime/AgentTurnIntent";
 import { isCareerDomainPreconditionCode } from "@/agent/runtime/careerContextBindingResolver";
 import { createIncidentTraceId, createRunStopReason, type RuntimeFailureSnapshot, type RunStopReason } from "@/agent/runtime/hermes/hermesIncidentTrace";
+import { currentTurnScopedTargetContext } from "@/agent/runtime/turnScopedTargetContext";
 
 function createAgentHost() {
   const repository = new WorkspaceRepository();
@@ -420,6 +421,10 @@ function createAgentHost() {
             assistantMessageId: runtimeShell.assistantMessageId,
             userMessageId: runtimeShell.userMessageId,
             incidentTraceId,
+            ...(runtimeInput.session?.taskState
+              && currentTurnScopedTargetContext(runtimeInput.session.taskState, runtimeShell.turnId)
+              ? { targetContext: currentTurnScopedTargetContext(runtimeInput.session.taskState, runtimeShell.turnId) }
+              : {}),
             ...(tailoringAnswer ? { tailoringAnswer } : {})
           }).catch(() => undefined);
         }
@@ -611,6 +616,9 @@ function createAgentHost() {
       return state.dispatchRuntimeUserEvent({ session, event, pageContext: input.pageContext });
     }
     const prepared = await state.prepareRuntimeUserEvent({ session, event, pageContext: input.pageContext });
+    if (prepared.event.type === "confirmation" && prepared.deterministicTransitionApplied && prepared.session.pendingConfirmation) {
+      return state.resolveConfirmation(prepared.event.confirmed, input.pageContext, prepared.session);
+    }
     if (prepared.deterministicTerminal && prepared.event.type === "confirm_resume_composition") {
       return state.executeConfirmedResumeComposition({
         session: prepared.session,

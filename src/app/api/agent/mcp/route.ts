@@ -96,6 +96,9 @@ export async function POST(request: NextRequest) {
   const response = await protocol.handle(body);
   if (!response) return new Response(null, { status: 202 });
   const mcpJsonRpcArgumentShape = body.method === "tools/call"
+    ? safeCareerToolArgumentShape(body.params)
+    : undefined;
+  const mcpHttpArgumentShape = body.method === "tools/call"
     ? safeCareerToolArgumentShape(mcpArguments(body.params))
     : undefined;
   const responseEnvelopeValid = isMcpResponseEnvelope(response);
@@ -106,13 +109,13 @@ export async function POST(request: NextRequest) {
     responseEnvelopeValid,
     responseSent: true
   };
-  let tracedResponse = attachMcpResponseTrace(response, responseTrace, mcpJsonRpcArgumentShape);
+  let tracedResponse = attachMcpResponseTrace(response, responseTrace, mcpJsonRpcArgumentShape, mcpHttpArgumentShape);
   let serialized = JSON.stringify(tracedResponse);
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const nextBucket = responseBytesBucket(new TextEncoder().encode(serialized).byteLength);
     if (nextBucket === responseTrace.responseBytesBucket) break;
     responseTrace = { ...responseTrace, responseBytesBucket: nextBucket };
-    tracedResponse = attachMcpResponseTrace(response, responseTrace, mcpJsonRpcArgumentShape);
+    tracedResponse = attachMcpResponseTrace(response, responseTrace, mcpJsonRpcArgumentShape, mcpHttpArgumentShape);
     serialized = JSON.stringify(tracedResponse);
   }
   const headers = new Headers({
@@ -239,7 +242,8 @@ function isMcpResponseEnvelope(value: unknown): value is { jsonrpc: "2.0"; resul
 function attachMcpResponseTrace<T extends { jsonrpc: "2.0"; result?: Record<string, unknown>; error?: { code: number; message: string; data?: Record<string, unknown> } }>(
   response: T,
   trace: Record<string, unknown>,
-  mcpJsonRpcArgumentShape?: ReturnType<typeof safeCareerToolArgumentShape>
+  mcpJsonRpcArgumentShape?: ReturnType<typeof safeCareerToolArgumentShape>,
+  mcpHttpArgumentShape?: ReturnType<typeof safeCareerToolArgumentShape>
 ): T {
   if (response.result) {
     const result = response.result;
@@ -263,12 +267,24 @@ function attachMcpResponseTrace<T extends { jsonrpc: "2.0"; result?: Record<stri
               diagnostics: {
                 ...diagnostics,
                 ...(mcpJsonRpcArgumentShape ? { mcpJsonRpcArgumentShape } : {}),
+                ...(mcpHttpArgumentShape ? { mcpHttpArgumentShape } : {}),
                 mcpResponseTrace: trace
               }
-            } : {})
+            } : {
+              diagnostics: {
+                ...(mcpJsonRpcArgumentShape ? { mcpJsonRpcArgumentShape } : {}),
+                ...(mcpHttpArgumentShape ? { mcpHttpArgumentShape } : {}),
+                mcpResponseTrace: trace
+              }
+            })
           }
         } : {}),
-        _meta: { ...meta, "careeradapt/mcpResponseTrace": trace }
+        _meta: {
+          ...meta,
+          ...(mcpJsonRpcArgumentShape ? { "careeradapt/mcpJsonRpcArgumentShape": mcpJsonRpcArgumentShape } : {}),
+          ...(mcpHttpArgumentShape ? { "careeradapt/mcpHttpArgumentShape": mcpHttpArgumentShape } : {}),
+          "careeradapt/mcpResponseTrace": trace
+        }
       }
     } as T;
   }
@@ -280,6 +296,7 @@ function attachMcpResponseTrace<T extends { jsonrpc: "2.0"; result?: Record<stri
         data: {
           ...(response.error.data ?? {}),
           ...(mcpJsonRpcArgumentShape ? { mcpJsonRpcArgumentShape } : {}),
+          ...(mcpHttpArgumentShape ? { mcpHttpArgumentShape } : {}),
           mcpResponseTrace: trace
         }
       }
