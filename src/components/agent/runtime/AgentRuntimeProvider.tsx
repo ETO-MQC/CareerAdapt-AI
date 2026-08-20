@@ -40,7 +40,7 @@ import { hermesProductionToolNames } from "@/agent/runtime/hermes/HermesCareerTo
 import { isReadOnlyCareerQuestion } from "@/agent/runtime/AgentTurnIntent";
 import { isCareerDomainPreconditionCode } from "@/agent/runtime/careerContextBindingResolver";
 import { createIncidentTraceId, createRunStopReason, type RuntimeFailureSnapshot, type RunStopReason } from "@/agent/runtime/hermes/hermesIncidentTrace";
-import { currentTurnScopedTargetContext } from "@/agent/runtime/turnScopedTargetContext";
+import { currentTurnInputContext, currentTurnScopedTargetContext } from "@/agent/runtime/turnScopedTargetContext";
 
 function createAgentHost() {
   const repository = new WorkspaceRepository();
@@ -432,6 +432,10 @@ function createAgentHost() {
             assistantMessageId: runtimeShell.assistantMessageId,
             userMessageId: runtimeShell.userMessageId,
             incidentTraceId,
+            ...(runtimeInput.session?.taskState
+              && currentTurnInputContext(runtimeInput.session.taskState, runtimeShell.turnId)
+              ? { turnInputContext: currentTurnInputContext(runtimeInput.session.taskState, runtimeShell.turnId) }
+              : {}),
             ...(runtimeInput.session?.taskState
               && currentTurnScopedTargetContext(runtimeInput.session.taskState, runtimeShell.turnId)
               ? { targetContext: currentTurnScopedTargetContext(runtimeInput.session.taskState, runtimeShell.turnId) }

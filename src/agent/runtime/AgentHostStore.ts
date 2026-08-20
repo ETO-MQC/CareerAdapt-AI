@@ -50,6 +50,7 @@ import type {
   ProfileIntakeSection
 } from "@/agent/contracts/agentActions";
 import { AgentTaskStateReducer, dependencySnapshot, normalizeAgentTaskState } from "./AgentTaskStateReducer";
+import { captureTurnInputContext } from "./turnScopedTargetContext";
 import { appendAgentMessage, replaceAgentThinking, upsertAgentActivity } from "./AgentSessionMessages";
 import { migrateAgentSessionToCurrentSchema } from "./AgentSessionMigration";
 import { routeAgentIntent } from "./agentIntentRouter";
@@ -1968,6 +1969,8 @@ export class AgentHostStore {
       const operationId = event.operationId ?? `runtime-tool-${crypto.randomUUID()}`;
       const logicalToolOperationId = stringValue(objectValue(event.data).logicalToolOperationId);
       const eventData = objectValue(event.data);
+      const eventRunId = stringValue(objectValue(eventData.runHandle).runId)
+        ?? stringValue(eventData.runId);
       if (isCanonicalTailorFacadeToolName(event.toolName, eventData)) {
         const reducer = new AgentTaskStateReducer();
         const baseline = next.taskState ?? reducer.create(next, "generate_job_specific_resume");
@@ -2009,6 +2012,7 @@ export class AgentHostStore {
           runtimeId: "hermes",
           activityState: status,
           ...(logicalToolOperationId ? { logicalToolOperationId } : {}),
+          ...(eventRunId ? { hermesRunId: eventRunId } : {}),
           transportOperationIds: [operationId],
           operationId,
           ...(event.error?.code ? { safeErrorCode: event.error.code } : {}),
@@ -4864,6 +4868,18 @@ export class AgentHostStore {
         turnIntent: intakeRecoverySource ? "clarification_answer" : turnDecision.intent,
         profileIntakeTurnKind: intakeRecoverySource ? "career_narrative" : turnDecision.profileIntakeTurnKind
       });
+    }
+    if (input.userMessage.trim()) {
+      // The UserMessage has already been persisted above. Capture its durable
+      // same-turn input authority even when the continuation resolver keeps
+      // the existing task and does not dispatch the full reducer event.
+      taskState = captureTurnInputContext(taskState, {
+        logicalTurnId: turnId,
+        sourceMessageId: userMessageId,
+        inputReference: input.userMessage,
+        createdAt: now
+      });
+      current = projectTaskStateIntoSession(current, taskState);
     }
     if (input.attachment) {
       taskState = reducer.reduce(taskState, {
@@ -9973,7 +9989,9 @@ function isCanonicalWorkflowValidationFailure(
   diagnostics: Record<string, unknown>
 ) {
   return isCanonicalTailorFacadeToolName(toolName, diagnostics)
-    && (diagnostics.failureScope === "career_workflow" || diagnostics.toolFailureLayer === "gateway_validation")
+    && (diagnostics.failureScope === "career_workflow"
+      || diagnostics.failureScope === "career_context"
+      || diagnostics.toolFailureLayer === "gateway_validation")
     && /schema_validation_failed|target_required/i.test(code);
 }
 

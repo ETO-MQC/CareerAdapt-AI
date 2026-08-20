@@ -278,7 +278,7 @@ export default function SettingsPage() {
     const generalResume = branches
       .filter((branch) => branch.branchPurpose === "general" && branch.lifecycleStatus === "active")
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
-    const importedDraft = await repository.getLatestImportedResumeDraft();
+    const importedDraft = await repository.getLatestImportedResumeDraftForProfile(profile.id);
     const candidates = buildProfileRecoveryCandidates({ profile, importedDraft, generalResume });
     const candidate = candidates.find((item) => item.id === selectedRepairCandidateId)
       ?? candidates.find((item) => item.affectedEntityCount > 0);
@@ -286,7 +286,7 @@ export default function SettingsPage() {
       notify({ type: "info", title: "没有可修复内容", message: "当前没有新的、已确认且可安全回填的资料来源。" });
       return;
     }
-    if (!window.confirm(`将使用「${candidate.sourceLabel}」创建新的 Profile 版本，影响 ${candidate.affectedEntityCount} 个条目。继续吗？`)) return;
+    if (!window.confirm(`将使用「${candidate.sourceLabel}」在当前 Profile 上写入 revision +1，影响 ${candidate.affectedEntityCount} 个条目。继续吗？`)) return;
     setCoreRepairing(true);
     try {
       const repaired = await repository.repairProfileContent({
@@ -307,7 +307,7 @@ export default function SettingsPage() {
       if (!repaired.readbackVerified || verified.checks.repositoryReadback.status !== "PASS" || verified.checks.profileContentIntegrity.status !== "PASS") {
         throw new Error("profile_content_repair_verification_failed");
       }
-      notify({ type: "success", title: "资料内容已修复", message: `已创建新的 Profile 版本并完成读回校验（${repaired.profileId}）。` });
+      notify({ type: "success", title: "资料内容已修复", message: `已写入同一 Profile 的 revision ${repaired.profileVersion} 并完成读回校验（${repaired.profileId}）。` });
     } catch {
       notify({ type: "error", title: "资料修复未完成", message: "写入或读回校验未通过，未报告为同步成功。请重新运行诊断。" });
     } finally {
@@ -1183,6 +1183,7 @@ export default function SettingsPage() {
                         ["Profile integrity", coreSelfCheck.checks.profileContentIntegrity],
                         ["Browser MCP round-trip", coreSelfCheck.checks.browserMcpRoundTrip],
                         ["logicalToolOperationId", coreSelfCheck.checks.logicalToolOperationIdCorrelation],
+                        ["TurnInputContext", coreSelfCheck.checks.turnInputContext],
                         ["TurnTargetContext", coreSelfCheck.checks.turnTargetContext],
                         ["Checkpoint invariant", coreSelfCheck.checks.workflowCheckpointInvariants],
                         ["Repository read-back", coreSelfCheck.checks.repositoryReadback]
@@ -1205,12 +1206,21 @@ export default function SettingsPage() {
                         </dl>
                       </details>
                     ) : null}
+                    {coreSelfCheck.profileIntegrityClassification === "repository_content_missing" ? (
+                      <div className="core-repair-alert" role="status">
+                        <strong>检测到资料内容缺失</strong>
+                        <span>
+                          当前 Profile 中项目 {coreSelfCheck.profileContentIntegrity?.repository.projectCount ?? 0} 个、工作经历 {coreSelfCheck.profileContentIntegrity?.repository.workCount ?? 0} 个；
+                          可从已确认来源恢复项目 bullet {coreSelfCheck.repairCandidates[0]?.projectBulletCount ?? 0} 条、工作 bullet {coreSelfCheck.repairCandidates[0]?.workBulletCount ?? 0} 条。
+                        </span>
+                      </div>
+                    ) : null}
                     {coreSelfCheck.repairCandidates.length > 0 ? (
                       <section className="core-repair-section" aria-labelledby="core-repair-heading">
                         <div className="settings-group-heading">
                           <div>
-                            <h4 id="core-repair-heading">资料恢复候选</h4>
-                            <p>不会在页面加载时写入。选择来源并确认后，系统创建新的 Profile 版本、原子写入、读回并重新自检。</p>
+                            <h4 id="core-repair-heading">修复资料内容</h4>
+                            <p>不会在页面加载时写入。选择来源并确认后，系统在同一 Profile 上提交 revision +1，原子写入、读回并重新自检。</p>
                           </div>
                         </div>
                         <div className="core-repair-candidates">
@@ -1222,14 +1232,14 @@ export default function SettingsPage() {
                               onClick={() => setSelectedRepairCandidateId(candidate.id)}
                             >
                               <strong>{candidate.sourceLabel}</strong>
-                              <span>影响 {candidate.affectedEntityCount} 条 · 候选 bullet {candidate.candidateBulletCount}</span>
-                              <small>冲突 {candidate.conflictCount} · 不变 {candidate.unchangedItemCount}</small>
+                              <span>项目 {candidate.projectCount} 个 / bullet {candidate.projectBulletCount} · 工作 {candidate.workCount} 个 / bullet {candidate.workBulletCount}</span>
+                              <small>影响 {candidate.affectedEntityCount} 条 · 冲突 {candidate.conflictCount} · 置信度 {candidate.confidence}</small>
                             </button>
                           ))}
                         </div>
                         {coreSelfCheck.repairRequired ? (
                           <button type="button" className="secondary-button compact" disabled={coreRepairing || coreSelfChecking} onClick={() => { void repairProfileContent(); }}>
-                            {coreRepairing ? "修复并校验中…" : "修复资料内容"}
+                            {coreRepairing ? "修复并校验中…" : "确认修复"}
                           </button>
                         ) : null}
                       </section>

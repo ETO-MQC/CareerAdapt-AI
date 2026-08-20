@@ -26,7 +26,15 @@ import {
   type CareerProfileCandidate,
   type CareerResumeCandidate
 } from "../runtime/careerContextBindingResolver";
-import { currentTurnScopedTargetContext, targetContextForId } from "../runtime/turnScopedTargetContext";
+import {
+  currentTurnInputContext,
+  currentTurnScopedTargetContext,
+  createTurnScopedTargetContext,
+  isCredibleExternalTargetText,
+  targetContextForId,
+  type TurnInputContext,
+  type TurnScopedTargetContext
+} from "../runtime/turnScopedTargetContext";
 
 export const CareerWorkflowStatusSchema = z.enum([
   "completed",
@@ -133,6 +141,7 @@ export const CAREER_WORKFLOW_FACADE_DEFINITIONS: CareerWorkflowFacadeDefinition[
 export type PreparedCareerWorkflowInvocation = {
   input: Record<string, unknown>;
   context: CareerToolExecutionContext;
+  sameTurnTarget: boolean;
 };
 
 /**
@@ -178,12 +187,20 @@ export function prepareCareerWorkflowInvocation(
   }
   const input = definition.inputSchema.parse(normalizedInput) as Record<string, unknown>;
   if (turnScopedInput.targetContextId) input.targetContextId = turnScopedInput.targetContextId;
+  const inputContext = sameTurnInputContext(context);
+  const targetContext = turnScopedInput.targetContextId
+    ? targetContextForId(context.authoritativeTaskState, context.logicalTurnId, turnScopedInput.targetContextId)
+      ?? sameTurnTargetContext(context)
+    : undefined;
   return {
     input,
     context: {
       ...context,
-      logicalToolOperationId: context.logicalToolOperationId ?? operationId
-    }
+      logicalToolOperationId: context.logicalToolOperationId ?? operationId,
+      ...(inputContext ? { turnInputContext: inputContext } : {}),
+      ...(targetContext ? { turnTargetContext: targetContext } : {})
+    },
+    sameTurnTarget: Boolean(targetContext && typeof input.targetText === "string" && input.targetText.trim())
   };
 }
 
@@ -424,9 +441,7 @@ export function resolveTurnScopedTailoringInput(
   const explicitTargetContextId = stringValue(input.targetContextId);
   const internalKeys = new Set(["targetContextId", "sourceResumeId", "profileId"]);
   const canResolveOmittedTarget = Object.keys(input).every((key) => internalKeys.has(key));
-  const directTargetContext = context.turnTargetContext?.logicalTurnId === context.logicalTurnId
-    ? context.turnTargetContext
-    : undefined;
+  const directTargetContext = sameTurnTargetContext(context);
   const targetContext = explicitTargetContextId
     ? directTargetContext?.targetContextId === explicitTargetContextId
       ? directTargetContext
@@ -443,6 +458,29 @@ export function resolveTurnScopedTailoringInput(
     },
     targetContextId: targetContext.targetContextId
   };
+}
+
+function sameTurnInputContext(context: CareerToolExecutionContext): TurnInputContext | undefined {
+  if (context.turnInputContext && context.turnInputContext.logicalTurnId === context.logicalTurnId) {
+    return context.turnInputContext;
+  }
+  return currentTurnInputContext(context.authoritativeTaskState, context.logicalTurnId);
+}
+
+function sameTurnTargetContext(context: CareerToolExecutionContext): TurnScopedTargetContext | undefined {
+  const input = sameTurnInputContext(context);
+  if (input && isCredibleExternalTargetText(input.inputReference)) {
+    return createTurnScopedTargetContext({
+      logicalTurnId: input.logicalTurnId,
+      sourceMessageId: input.sourceMessageId,
+      targetText: input.inputReference.trim(),
+      createdAt: input.createdAt
+    });
+  }
+  const direct = context.turnTargetContext?.logicalTurnId === context.logicalTurnId
+    ? context.turnTargetContext
+    : undefined;
+  return direct ?? currentTurnScopedTargetContext(context.authoritativeTaskState, context.logicalTurnId);
 }
 
 type TailoringFacadeCall = (

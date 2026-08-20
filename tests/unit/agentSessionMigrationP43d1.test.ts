@@ -166,4 +166,111 @@ describe("P4.3d.1 agent session migration", () => {
     const migrated = migrateAgentSessionToCurrentSchema(raw as never, NOW);
     expect(migrated.artifactRefs).toEqual(raw.artifactRefs);
   });
+
+  it("keeps a same-turn tool tail authoritative for a completed run while the turn waits", () => {
+    const base = AgentRuntime.create("tailor_resume", "choose_resume_source", "Current turn");
+    const raw = {
+      ...base,
+      activeTurn: {
+        id: "turn-current",
+        sessionId: base.id,
+        status: "waiting_for_user",
+        startedAt: NOW,
+        completedAt: NOW
+      },
+      hermesRun: {
+        runId: "run-current",
+        hermesSessionId: "hermes-session-current",
+        careerAgentSessionId: base.id,
+        turnId: "turn-current",
+        status: "completed",
+        startedAt: NOW,
+        lastEventAt: NOW
+      },
+      messages: [
+        {
+          id: "tool-current",
+          turnId: "turn-current",
+          role: "tool",
+          content: "等待当前工具结果",
+          kind: "tool_status",
+          type: "tool_status",
+          status: "pending",
+          toolName: "career.workflow.tailor_resume",
+          operationId: "operation-current",
+          metadata: { activityState: "running", hermesRunId: "run-current" },
+          createdAt: NOW
+        },
+        {
+          id: "tool-other-run",
+          turnId: "turn-current",
+          role: "tool",
+          content: "旧 run 尾部",
+          kind: "tool_status",
+          type: "tool_status",
+          status: "pending",
+          toolName: "career.workflow.tailor_resume",
+          operationId: "operation-old-run",
+          metadata: { activityState: "running", hermesRunId: "run-old" },
+          createdAt: NOW
+        },
+        {
+          id: "tool-other-turn",
+          turnId: "turn-old",
+          role: "tool",
+          content: "旧 turn 尾部",
+          kind: "tool_status",
+          type: "tool_status",
+          status: "pending",
+          toolName: "career.workflow.tailor_resume",
+          operationId: "operation-old-turn",
+          metadata: { activityState: "running", hermesRunId: "run-current" },
+          createdAt: NOW
+        }
+      ]
+    };
+
+    const migrated = migrateAgentSessionToCurrentSchema(raw as never, NOW);
+    expect(migrated.messages.find((message) => message.id === "tool-current")).toMatchObject({ status: "pending" });
+    expect(migrated.messages.find((message) => message.id === "tool-other-run")).toMatchObject({
+      status: "recovered",
+      metadata: { recoveryReason: "inactive_historical_turn" }
+    });
+    expect(migrated.messages.find((message) => message.id === "tool-other-turn")).toMatchObject({
+      status: "recovered",
+      metadata: { recoveryReason: "inactive_historical_turn" }
+    });
+  });
+
+  it("backfills the universal input context from the persisted active UserMessage", () => {
+    const base = AgentRuntime.create("tailor_resume", "choose_resume_source", "Recoverable current turn");
+    const initialTask = new AgentTaskStateReducer().create(base, "create_tailored_resume");
+    const raw = {
+      ...base,
+      activeTurn: {
+        id: "turn-recovered-input",
+        sessionId: base.id,
+        userMessageId: "user-recovered-input",
+        status: "waiting_for_user",
+        startedAt: NOW
+      },
+      messages: [{
+        id: "user-recovered-input",
+        turnId: "turn-recovered-input",
+        role: "user",
+        content: "请用当前持久化的用户输入恢复这一轮岗位简历任务。",
+        status: "complete",
+        createdAt: NOW
+      }],
+      taskState: initialTask
+    };
+
+    const migrated = migrateAgentSessionToCurrentSchema(raw as never, NOW);
+    expect(migrated.taskState?.knownSlots.turnInputContext).toMatchObject({
+      logicalTurnId: "turn-recovered-input",
+      sourceMessageId: "user-recovered-input",
+      inputReference: "请用当前持久化的用户输入恢复这一轮岗位简历任务。"
+    });
+    expect(migrateAgentSessionToCurrentSchema(migrated, NOW)).toEqual(migrated);
+  });
 });

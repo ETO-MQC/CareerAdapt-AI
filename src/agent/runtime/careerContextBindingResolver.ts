@@ -182,7 +182,8 @@ export function isCareerDomainPreconditionCode(code?: string) {
     "needs_profile_choice",
     "needs_resume_choice",
     "needs_user_input",
-    "workflow_precondition"
+    "workflow_precondition",
+    "target_required"
   ].includes(code!);
 }
 

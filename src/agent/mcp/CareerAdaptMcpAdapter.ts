@@ -5,7 +5,6 @@ import type {
   CareerToolResult
 } from "@/agent/tools/CareerToolGateway";
 import type { CareerSessionBinding } from "../runtime/careerSessionBinding";
-import { stableCareerLogicalToolOperationId } from "../tools/careerToolContract";
 import {
   CareerToolFailureDiagnosticsSchema,
   safeCareerToolArgumentShape,
@@ -99,11 +98,10 @@ export class CareerAdaptMcpAdapter {
     const contract = this.gateway.listContracts().find((candidate) => candidate.name === name);
     const operationId = normalizeOperationId(meta.operationId);
     const requestStartedAt = new Date().toISOString();
-    // This is the first boundary. If the upstream caller supplied no logical
-    // ID, derive the deterministic turn/tool identity once; downstream layers
-    // only carry it forward.
-    const logicalToolOperationId = meta.logicalToolOperationId?.trim()
-      || (meta.logicalTurnId ? stableCareerLogicalToolOperationId(meta.logicalTurnId, name) : operationId);
+    // The Hermes transport is the only boundary that derives the stable
+    // Career logical identity. External MCP calls carry an explicit identity
+    // when one exists, otherwise their transport operation remains local.
+    const logicalToolOperationId = meta.logicalToolOperationId?.trim() || operationId;
     if (!contract) {
       return toolErrorResult(
         "unknown_career_tool",

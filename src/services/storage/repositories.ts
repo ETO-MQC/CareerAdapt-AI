@@ -1221,12 +1221,9 @@ export class WorkspaceRepository {
     return saved;
   }
 
-  /**
-   * Apply an explicitly confirmed Profile content recovery as a new Profile
-   * version.  The candidate was built from a confirmed source by the
-   * diagnostic layer; this method owns the only write and keeps the old
-   * Profile immutable.
-   */
+  /** Apply an explicitly confirmed recovery as one atomic revision write on
+   * the same Profile identity. The candidate was built from a confirmed
+   * source by the diagnostic layer; this method owns the only write. */
   async repairProfileContent(input: {
     profileId: string;
     expectedProfileVersion: number;
@@ -1244,7 +1241,7 @@ export class WorkspaceRepository {
           return {
             profileId: stored.profileId,
             profileVersion: stored.profileVersion,
-            parentProfileId: typeof stored.parentProfileId === "string" ? stored.parentProfileId : input.profileId,
+            ...(typeof stored.parentProfileId === "string" ? { parentProfileId: stored.parentProfileId } : {}),
             operationId: input.operationId,
             sourceType: input.sourceType,
             affectedEntityCount: typeof stored.affectedEntityCount === "number" ? stored.affectedEntityCount : 0,
@@ -1259,24 +1256,19 @@ export class WorkspaceRepository {
       const source = migrateCareerProfileToV2(CareerProfileSchema.parse(rawSource));
       if (source.version !== input.expectedProfileVersion) throw new RevisionConflictError();
       if (!source.personId || source.archivedAt || source.trashedAt) throw new Error("profile_content_repair_source_inactive");
-      const rawProfiles = await this.db.profiles.toArray();
-      const siblings = rawProfiles
-        .map((raw) => migrateCareerProfileToV2(CareerProfileSchema.parse(raw)))
-        .filter((candidate) => candidate.personId === source.personId);
-      const nextProfileVersionNumber = Math.max(0, ...siblings.map((candidate) => candidate.profileVersionNumber ?? 1)) + 1;
       const now = new Date().toISOString();
       const repaired = CareerProfileSchema.parse({
         ...applyProfileRecoveryItems({ profile: source, items: input.items, now }),
-        id: `profile-${crypto.randomUUID()}`,
-        version: 1,
-        profileVersionNumber: nextProfileVersionNumber,
-        parentProfileId: source.id,
-        versionCreatedReason: input.sourceType === "imported_resume_draft" || input.sourceType === "resume_source_document" ? "resume_import" : "manual_snapshot",
+        id: source.id,
+        version: source.version + 1,
+        profileVersionNumber: source.profileVersionNumber ?? 1,
+        parentProfileId: source.parentProfileId,
+        versionCreatedReason: source.versionCreatedReason ?? "manual_snapshot",
         profileVersionLabel: "资料内容修复",
-        isCurrent: true,
-        archivedAt: undefined,
-        trashedAt: undefined,
-        createdAt: now,
+        isCurrent: source.isCurrent ?? true,
+        archivedAt: source.archivedAt,
+        trashedAt: source.trashedAt,
+        createdAt: source.createdAt,
         updatedAt: now
       });
       await this.ensurePersonForProfileInTransaction(repaired);
@@ -1302,7 +1294,7 @@ export class WorkspaceRepository {
       const repairResult = {
         profileId: repaired.id,
         profileVersion: repaired.version,
-        parentProfileId: source.id,
+        ...(repaired.parentProfileId ? { parentProfileId: repaired.parentProfileId } : {}),
         operationId: input.operationId,
         sourceType: input.sourceType,
         affectedEntityCount: input.items.length,
@@ -1929,6 +1921,20 @@ export class WorkspaceRepository {
       .map((row) => ImportedResumeDraftSchema.safeParse(row.value))
       .filter((result): result is { success: true; data: ImportedResumeDraft } => result.success)
       .map((result) => result.data)
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    return drafts[0];
+  }
+
+  async getLatestImportedResumeDraftForProfile(profileId: string) {
+    const rows = await this.db.appMeta
+      .where("key")
+      .startsWith(IMPORTED_RESUME_DRAFT_KEY_PREFIX)
+      .toArray();
+    const drafts = rows
+      .map((row) => ImportedResumeDraftSchema.safeParse(row.value))
+      .filter((result): result is { success: true; data: ImportedResumeDraft } => result.success)
+      .map((result) => result.data)
+      .filter((draft) => draft.status === "confirmed" && draft.confirmedProfileId === profileId)
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
     return drafts[0];
   }

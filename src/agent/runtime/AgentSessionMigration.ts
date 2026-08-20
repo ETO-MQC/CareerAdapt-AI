@@ -6,6 +6,7 @@ import { stableHashText } from "@/services/security/text";
 import { normalizeMessageForFinalAssistant } from "./AgentSessionMessages";
 import { canonicalWorkflowId } from "@/agent/workflows/workflowRegistry";
 import { normalizeTailoringStage } from "@/agent/workflows/tailoringStage";
+import { createTurnInputContext } from "./turnScopedTargetContext";
 
 export const CURRENT_AGENT_SESSION_SCHEMA_VERSION = 3;
 export const CURRENT_TAILORING_RUNTIME_VERSION = 3;
@@ -126,10 +127,26 @@ export function migrateAgentSessionToCurrentSchema(value: AgentSession | Record<
 
   const activeTurn = record(raw.activeTurn);
   const persistedHermesRun = record(raw.hermesRun);
-  const persistedHermesRunIsNonTerminal = ["queued", "running", "waiting_for_approval", "stopping"].includes(String(persistedHermesRun.status ?? ""));
-  const hermesRunOwnsActiveTurn = persistedHermesRunIsNonTerminal
+  // A logical turn remains authoritative while it is waiting for user input,
+  // and a just-completed Hermes run can still have a pending tool tail that
+  // must be projected into that same turn.  The activeTurn presentation state
+  // is not an identity boundary.
+  const currentHermesRunStatus = String(persistedHermesRun.status ?? "");
+  const persistedHermesRunOwnsActiveTurn = [
+    "queued",
+    "running",
+    "waiting_for_approval",
+    "stopping",
+    "completed"
+  ].includes(currentHermesRunStatus)
+    && typeof persistedHermesRun.runId === "string"
     && typeof persistedHermesRun.turnId === "string"
     && persistedHermesRun.turnId === activeTurn.id;
+  // Pre-run legacy records have no persisted run identity. Keep their old
+  // running-turn behavior only as a compatibility fallback; once a run is
+  // persisted, runId + logicalTurnId own the decision.
+  const legacyActiveTurnOwnsTail = !persistedHermesRun.runId
+    && activeTurn.status === "running";
   const rawMessages = Array.isArray(raw.messages) ? raw.messages : [];
   const legacyBranchId = typeof raw.activeBranchId === "string" ? raw.activeBranchId : "legacy-branch";
   const messages = rawMessages.map((input, index) => {
@@ -151,8 +168,12 @@ export function migrateAgentSessionToCurrentSchema(value: AgentSession | Record<
     }
     if (message.role === "tool" && (message.status === "pending" || metadata.activityState === "running")) {
       const retired = RETIRED_TAILORING_MUTATIONS.has(message.toolName ?? "");
-      const turnStillActive = message.turnId === activeTurn.id
-        && (activeTurn.status === "running" || hermesRunOwnsActiveTurn);
+      const messageRunId = [metadata.hermesRunId, metadata.runId, metadata.activeRunId]
+        .find((value): value is string => typeof value === "string" && value.length > 0);
+      const messageBelongsToCurrentRun = messageRunId
+        ? messageRunId === persistedHermesRun.runId && persistedHermesRunOwnsActiveTurn
+        : persistedHermesRunOwnsActiveTurn || legacyActiveTurnOwnsTail;
+      const turnStillActive = message.turnId === activeTurn.id && messageBelongsToCurrentRun;
       if (retired || !turnStillActive) {
         message = { ...message, status: "recovered", content: retired ? "旧版岗位定制操作已恢复，不会自动执行。" : message.content };
         metadata.activityState = "recovered";
@@ -174,6 +195,30 @@ export function migrateAgentSessionToCurrentSchema(value: AgentSession | Record<
       updatedAt: migrationTime,
       metadata: { migration: "tailoring-runtime-v3" }
     });
+  }
+
+  // Older persisted sessions predate the universal input authority.  Backfill
+  // only the current logical turn from its persisted UserMessage so recovery
+  // and newly started turns share the same production input path.
+  const activeUserMessage = activeTurn.userMessageId
+    ? messages.find((message) => message.role === "user" && message.id === activeTurn.userMessageId)
+    : undefined;
+  const existingTurnInput = record(knownSlots.turnInputContext);
+  const existingTurnInputIsCurrent = Boolean(
+    existingTurnInput.logicalTurnId === activeTurn.id
+    && existingTurnInput.sourceMessageId === activeUserMessage?.id
+    && typeof existingTurnInput.inputReference === "string"
+    && typeof existingTurnInput.inputHash === "string"
+    && stableHashText(existingTurnInput.inputReference.trim()) === existingTurnInput.inputHash
+  );
+  if (nextTaskState && typeof activeTurn.id === "string" && activeUserMessage?.role === "user" && activeUserMessage.content.trim() && !existingTurnInputIsCurrent) {
+    knownSlots.turnInputContext = createTurnInputContext({
+      logicalTurnId: activeTurn.id,
+      sourceMessageId: activeUserMessage.id,
+      inputReference: activeUserMessage.content,
+      createdAt: activeUserMessage.createdAt
+    });
+    nextTaskState = { ...nextTaskState, knownSlots };
   }
 
   const migrated = AgentSessionSchema.parse({

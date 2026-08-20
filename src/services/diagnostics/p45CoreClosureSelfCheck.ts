@@ -2,7 +2,10 @@ import { AgentTaskStateSchema, type AgentSession, type AgentTaskState } from "@/
 import { AgentTaskStateReducer } from "@/agent/runtime/AgentTaskStateReducer";
 import { deriveWorkflowUserInputCheckpoint } from "@/agent/runtime/workflowUserInputCheckpoint";
 import { prepareCareerWorkflowInvocation } from "@/agent/workflows/CareerWorkflowFacade";
-import { createTurnScopedTargetContext } from "@/agent/runtime/turnScopedTargetContext";
+import {
+  currentTurnInputContext,
+  currentTurnScopedTargetContext
+} from "@/agent/runtime/turnScopedTargetContext";
 import type { CareerToolContract, CareerToolExecutionContext } from "@/agent/tools/CareerToolGateway";
 import { runCareerToolContractSelfTest } from "@/agent/tools/careerToolContract";
 import type { RuntimeStatusSnapshot } from "@/agent/runtime/runtimeStatus";
@@ -33,6 +36,7 @@ export type CoreClosureSelfCheckResult = {
   checkedAt: string;
   logicalTurnId: string;
   logicalToolOperationId: string;
+  turnInputContextHashPrefix?: string;
   turnTargetContextId?: string;
   profileId?: string;
   profileRevision?: number;
@@ -50,6 +54,7 @@ export type CoreClosureSelfCheckResult = {
     profileContentIntegrity: CoreClosureCheck;
     browserMcpRoundTrip: CoreClosureCheck;
     logicalToolOperationIdCorrelation: CoreClosureCheck;
+    turnInputContext: CoreClosureCheck;
     turnTargetContext: CoreClosureCheck;
     workflowCheckpointInvariants: CoreClosureCheck;
     repositoryReadback: CoreClosureCheck;
@@ -97,7 +102,8 @@ export async function runP45CoreClosureSelfCheck(input: CoreClosureSelfCheckInpu
   const activeContext = await input.repository.getActiveCareerContext();
   const profile = activeContext ? await input.repository.getProfile(activeContext.profileId) : undefined;
   const generalResume = profile ? await activeGeneralResume(input.repository, profile.id) : undefined;
-  const importedDraft = input.importedDraft ?? await input.repository.getLatestImportedResumeDraft();
+  const importedDraft = input.importedDraft
+    ?? (profile ? await input.repository.getLatestImportedResumeDraftForProfile(profile.id) : undefined);
   const liveProjection = profile ? getLiveProfileProjection(profile.id, profile.version) : undefined;
   const integrity = profile
     ? buildLiveProfileContentIntegrity({ profile, generalResume, liveProjection })
@@ -164,6 +170,7 @@ export async function runP45CoreClosureSelfCheck(input: CoreClosureSelfCheckInpu
       : { status: "NOT_APPLICABLE" as const, reason: "active_profile_unreadable" },
     browserMcpRoundTrip: browser?.check ?? { status: "NOT_APPLICABLE" as const, reason: "active_profile_unreadable" },
     logicalToolOperationIdCorrelation: browser?.correlationCheck ?? { status: "NOT_APPLICABLE" as const, reason: "browser_mcp_roundtrip_not_run" },
+    turnInputContext: targetCheck.inputCheck,
     turnTargetContext: targetCheck.check,
     workflowCheckpointInvariants: checkpointCheck,
     repositoryReadback: readback ?? { status: "NOT_APPLICABLE" as const, reason: "active_profile_unreadable" }
@@ -176,6 +183,7 @@ export async function runP45CoreClosureSelfCheck(input: CoreClosureSelfCheckInpu
     checkedAt,
     logicalTurnId,
     logicalToolOperationId,
+    ...(targetCheck.inputContext ? { turnInputContextHashPrefix: targetCheck.inputContext.inputHash.slice(0, 16) } : {}),
     ...(targetCheck.targetContextId ? { turnTargetContextId: targetCheck.targetContextId } : {}),
     ...(profile ? { profileId: profile.id, profileRevision: profile.version } : {}),
     ...(integrity ? {
@@ -280,15 +288,14 @@ function runTurnTargetSelfCheck(logicalTurnId: string) {
     turnId: logicalTurnId,
     capturedAt
   });
-  const target = withMessage.knownSlots.turnTargetContext ?? withMessage.knownSlots.turnScopedTargetContext;
-  const targetContext = target && typeof target === "object" && !Array.isArray(target)
-    ? target as ReturnType<typeof createTurnScopedTargetContext>
-    : undefined;
+  const inputContext = currentTurnInputContext(withMessage, logicalTurnId);
+  const targetContext = currentTurnScopedTargetContext(withMessage, logicalTurnId);
   const context: CareerToolExecutionContext = {
     operationId,
     logicalTurnId,
     logicalToolOperationId: diagnosticId("target-tool"),
     authoritativeTaskState: withMessage,
+    ...(inputContext ? { turnInputContext: inputContext } : {}),
     ...(targetContext ? { turnTargetContext: targetContext } : {})
   };
   try {
@@ -300,16 +307,27 @@ function runTurnTargetSelfCheck(logicalTurnId: string) {
     );
     const preparedInput = prepared.input as Record<string, unknown>;
     const injected = preparedInput.targetText === targetText;
-    const sameTurn = preparedInput.targetContextId === targetContext?.targetContextId
-      && prepared.context.logicalTurnId === logicalTurnId;
+    const sameTurn = prepared.sameTurnTarget
+      && prepared.context.logicalTurnId === logicalTurnId
+      && prepared.context.turnInputContext?.logicalTurnId === logicalTurnId;
+    const inputCheck = inputContext
+      ? { status: "PASS" as const, details: { captured: true, sourceMessageId: inputContext.sourceMessageId, inputHashPrefix: inputContext.inputHash.slice(0, 16) } }
+      : { status: "FAIL" as const, reason: "turn_input_context_missing" };
     return {
       check: injected && sameTurn
         ? { status: "PASS" as const, details: { targetInjected: true, sameLogicalTurnId: true, historicalFallback: false, schemaAccepted: true } }
         : { status: "FAIL" as const, reason: injected ? "turn_target_identity_mismatch" : "turn_target_not_injected" },
+      inputCheck,
+      inputContext,
       targetContextId: targetContext?.targetContextId
     };
   } catch {
-    return { check: { status: "FAIL" as const, reason: "turn_target_schema_failure" }, targetContextId: targetContext?.targetContextId };
+    return {
+      check: { status: "FAIL" as const, reason: "turn_target_schema_failure" },
+      inputCheck: inputContext ? { status: "PASS" as const } : { status: "FAIL" as const, reason: "turn_input_context_missing" },
+      inputContext,
+      targetContextId: targetContext?.targetContextId
+    };
   }
 }
 

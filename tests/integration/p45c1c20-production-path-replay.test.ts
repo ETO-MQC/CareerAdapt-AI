@@ -12,7 +12,7 @@ import {
 } from "@/agent/runtime/AgentHostStore";
 import { AgentTaskStateReducer } from "@/agent/runtime/AgentTaskStateReducer";
 import { projectTaskStateIntoSession } from "@/agent/runtime/projectTaskStateToWorkflowState";
-import { currentTurnScopedTargetContext } from "@/agent/runtime/turnScopedTargetContext";
+import { currentTurnInputContext, currentTurnScopedTargetContext } from "@/agent/runtime/turnScopedTargetContext";
 import { mapOfficialHermesEvent } from "@/agent/runtime/hermes/HermesBridgeTransport";
 import {
   CareerAdaptMcpBridgeClient,
@@ -50,6 +50,13 @@ describe("P4.5c.1.20 production golden journey replay", () => {
       session,
       userMessage: LONG_EXTERNAL_JD,
       runtimeId: "hermes"
+    });
+    const turnInput = currentTurnInputContext(shell.session.taskState, shell.turnId);
+    expect(turnInput).toMatchObject({
+      logicalTurnId: shell.turnId,
+      sourceMessageId: shell.userMessageId,
+      inputReference: LONG_EXTERNAL_JD,
+      inputHash: stableHashText(LONG_EXTERNAL_JD)
     });
     const captured = currentTurnScopedTargetContext(shell.session.taskState, shell.turnId);
     expect(captured).toMatchObject({
@@ -188,7 +195,8 @@ describe("P4.5c.1.20 production golden journey replay", () => {
       sessionId: shell.session.id,
       turnId: shell.turnId,
       assistantMessageId: shell.assistantMessageId,
-      targetContext: captured
+      targetContext: captured,
+      turnInputContext: turnInput
     };
     await browser.execute({
       id: "bridge-request-1",
@@ -203,8 +211,10 @@ describe("P4.5c.1.20 production golden journey replay", () => {
     const posted = JSON.parse(String((browserCall?.[1] as RequestInit | undefined)?.body)) as { result?: { diagnostics?: Record<string, unknown>; error?: { diagnostics?: Record<string, unknown> } } };
     const browserDiagnostics = posted.result?.diagnostics ?? posted.result?.error?.diagnostics ?? {};
     expect(browserDiagnostics).toMatchObject({
-      browserHandlerArgumentShape: {
-        targetText: { present: true, lengthBucket: "length:201-2000" }
+      browserHandlerArgumentShape: {},
+      preparedInvocationShape: {
+        targetText: { present: true, lengthBucket: "length:201-2000" },
+        sameTurnTarget: "present"
       },
       gatewayArgumentShape: {
         targetText: { present: true }
@@ -247,6 +257,7 @@ describe("P4.5c.1.20 production golden journey replay", () => {
       "hermesToolCallArgumentShape",
       "mcpJsonRpcArgumentShape",
       "mcpHttpArgumentShape",
+      "preparedInvocationShape",
       "browserHandlerArgumentShape",
       "gatewayArgumentShape",
       "facadeArgumentShape",

@@ -11,7 +11,6 @@ import {
   type CareerToolFailureDiagnostics,
   safeCareerToolArgumentShape
 } from "@/agent/tools/careerToolDiagnostics";
-import { stableCareerLogicalToolOperationId } from "@/agent/tools/careerToolContract";
 
 export type CareerAdaptMcpSurface = "internal" | "hermes-production";
 
@@ -268,10 +267,10 @@ function enqueueCall(name: string, input: unknown, context: CareerToolExecutionC
     name,
     input,
     operationId,
-    // This is the first identity boundary for a direct server caller. Once
-    // assigned, the browser bridge and Gateway transport this exact value.
-    logicalToolOperationId: context.logicalToolOperationId
-      ?? (logicalTurnId ? stableCareerLogicalToolOperationId(logicalTurnId, name) : operationId),
+    // The Hermes transport owns stable Career logical ID generation. A direct
+    // MCP caller may carry an explicit logical ID, otherwise keep the
+    // transport operation identity and do not derive from an untrusted turn.
+    logicalToolOperationId: context.logicalToolOperationId ?? operationId,
     logicalTurnId,
     taskId,
     incidentTraceId,

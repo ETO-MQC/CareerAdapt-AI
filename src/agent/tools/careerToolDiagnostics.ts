@@ -137,6 +137,7 @@ export const CareerToolFailureDiagnosticsSchema = z.object({
   taskId: z.string().optional(),
   argumentShape: CareerToolArgumentShapeSchema.optional(),
   hermesToolCallArgumentShape: CareerToolArgumentShapeSchema.optional(),
+  preparedInvocationShape: CareerToolArgumentShapeSchema.optional(),
   mcpJsonRpcArgumentShape: CareerToolArgumentShapeSchema.optional(),
   mcpHttpArgumentShape: CareerToolArgumentShapeSchema.optional(),
   browserHandlerArgumentShape: CareerToolArgumentShapeSchema.optional(),

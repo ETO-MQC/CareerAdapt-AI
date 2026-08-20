@@ -12,7 +12,7 @@ import {
 } from "../tools/careerToolDiagnostics";
 import { CAREER_TOOL_CONTRACT_VERSION } from "../tools/careerToolContract";
 import { stableHashText } from "@/services/security/text";
-import type { TurnScopedTargetContext } from "@/agent/runtime/turnScopedTargetContext";
+import type { TurnInputContext, TurnScopedTargetContext } from "@/agent/runtime/turnScopedTargetContext";
 
 type BridgeRequest = {
   id: string;
@@ -43,6 +43,8 @@ export type CareerAdaptMcpConfirmationContext = {
   incidentTraceId?: string;
   /** Browser/Host-only same-turn target authority; never sent to diagnostics. */
   targetContext?: TurnScopedTargetContext;
+  /** Browser/Host-only universal input authority for this logical turn. */
+  turnInputContext?: TurnInputContext;
   tailoringAnswer?: {
     checkpointId: string;
     questionId: string;
@@ -363,6 +365,7 @@ export class CareerAdaptMcpBridgeClient {
         careerSessionBinding: request.careerSessionBinding,
         requireSessionBinding: request.requireSessionBinding === true,
         turnTargetContext: confirmationContext?.targetContext,
+        turnInputContext: confirmationContext?.turnInputContext,
         tailoringAnswer: confirmationContext?.tailoringAnswer,
         userMessageId: confirmationContext?.userMessageId
       };
@@ -631,7 +634,7 @@ function withMcpCallTrace(
   const diagnostics = CareerToolFailureDiagnosticsSchema.parse({
     ...baseDiagnostics,
     mcpHttpArgumentShape: safeCareerToolArgumentShape(request.input),
-    browserHandlerArgumentShape: baseDiagnostics.facadeArgumentShape ?? safeCareerToolArgumentShape(input),
+    browserHandlerArgumentShape: safeCareerToolArgumentShape(input),
     mcpCallTrace: {
       toolName: request.name,
       logicalToolOperationId,
@@ -720,6 +723,9 @@ export function normalizeHermesScopedInput(
       userAnswer: turn.tailoringAnswer.answer
     };
   }
+  // Deprecated compatibility helper for legacy callers that invoke this
+  // exported normalizer directly. Production bridge execution leaves the
+  // payload unchanged and resolves the target only in Gateway preparation.
   if (
     name === "career.workflow.tailor_resume"
     && turn?.targetContext

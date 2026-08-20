@@ -855,11 +855,17 @@ function safeOfficialToolFailureData(payload: Record<string, unknown>, code: str
     objectRecord(objectRecord(payload.error).diagnostics),
     objectRecord(objectRecord(result.error).diagnostics)
   ].find((candidate) => Object.keys(candidate).length > 0) ?? {};
+  const nestedFailureLayer = typeof nestedDiagnostics.toolFailureLayer === "string"
+    ? nestedDiagnostics.toolFailureLayer
+    : "hermes_tool_protocol";
+  const nestedFailedStage = typeof nestedDiagnostics.failedStage === "string"
+    ? nestedDiagnostics.failedStage
+    : "hermes_tool_protocol";
   return {
-    toolFailureLayer: "hermes_tool_protocol",
+    toolFailureLayer: nestedFailureLayer,
     safeDomainErrorCode: code,
     toolResultIsError: true,
-    failedStage: "hermes_tool_protocol",
+    failedStage: nestedFailedStage,
     ...(typeof payload.tool_call_id === "string" ? { toolCallId: payload.tool_call_id } : {}),
     ...(typeof payload.operation_id === "string" ? { operationId: payload.operation_id } : {}),
     ...(typeof result.status === "string" ? { upstreamStatus: result.status } : {}),
@@ -869,6 +875,7 @@ function safeOfficialToolFailureData(payload: Record<string, unknown>, code: str
     ...(typeof nestedDiagnostics.failureScope === "string" ? { failureScope: nestedDiagnostics.failureScope } : {}),
     ...(typeof nestedDiagnostics.duplicateProjection === "boolean" ? { duplicateProjection: nestedDiagnostics.duplicateProjection } : {}),
     ...(nestedDiagnostics.hermesToolCallArgumentShape ? { hermesToolCallArgumentShape: nestedDiagnostics.hermesToolCallArgumentShape } : {}),
+    ...(nestedDiagnostics.preparedInvocationShape ? { preparedInvocationShape: nestedDiagnostics.preparedInvocationShape } : {}),
     ...(nestedDiagnostics.mcpJsonRpcArgumentShape ? { mcpJsonRpcArgumentShape: nestedDiagnostics.mcpJsonRpcArgumentShape } : {}),
     ...(nestedDiagnostics.mcpHttpArgumentShape ? { mcpHttpArgumentShape: nestedDiagnostics.mcpHttpArgumentShape } : {}),
     ...(nestedDiagnostics.browserHandlerArgumentShape ? { browserHandlerArgumentShape: nestedDiagnostics.browserHandlerArgumentShape } : {}),

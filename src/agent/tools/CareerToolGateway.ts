@@ -27,7 +27,7 @@ import {
 } from "../workflows/TransactionalWorkflowLease";
 import { isCareerDomainPreconditionCode } from "../runtime/careerContextBindingResolver";
 import { appBuildTechnicalDiagnostics } from "@/services/diagnostics/appBuildInfo";
-import type { TurnScopedTargetContext } from "../runtime/turnScopedTargetContext";
+import type { TurnInputContext, TurnScopedTargetContext } from "../runtime/turnScopedTargetContext";
 import { turnTargetContextDiagnostics } from "../runtime/turnScopedTargetContext";
 
 export type CareerToolReadWrite = "read" | "write";
@@ -130,6 +130,8 @@ export type CareerToolExecutionContext = {
   workflowFacadeInternal?: boolean;
   /** Browser/Host-owned same-turn target authority; never included raw in diagnostics. */
   turnTargetContext?: TurnScopedTargetContext;
+  /** Universal persisted input authority for the current logical turn. */
+  turnInputContext?: TurnInputContext;
   /** Browser/Host-owned answer for the current tailoring checkpoint. */
   tailoringAnswer?: {
     checkpointId: string;
@@ -355,9 +357,13 @@ export class CareerToolGateway {
           authoritativeTaskState: context.authoritativeTaskState ?? this.asDependencies().getAuthoritativeTaskState?.(),
           availableCareerToolNames: context.availableCareerToolNames ?? new Set(this.listContracts().map((candidate) => candidate.name))
         };
+        trace.preparedInvocationInput = input;
+        trace.preparedSameTurnTarget = false;
         const prepared = prepareCareerWorkflowInvocation(name, input, facadeContext, operationId);
         trace.gatewayInput = prepared.input;
         trace.facadeInput = prepared.input;
+        trace.preparedInvocationInput = prepared.input;
+        trace.preparedSameTurnTarget = prepared.sameTurnTarget;
         trace.targetContext = turnTargetContextDiagnostics(prepared.context.turnTargetContext, true);
         const bindingError = await this.verifyExecutionBinding(contract, prepared.input, prepared.context);
         if (bindingError) return this.failure(name, operationId, bindingError.code, bindingError.message, false, undefined, "failed", finishFailureTrace(trace, bindingError.code, "gateway_policy"));
@@ -883,6 +889,8 @@ type ExecutionTrace = {
   acceptedShapeHint?: { requiredOneOf: string[]; note?: string };
   facadeInput?: unknown;
   gatewayInput?: unknown;
+  preparedInvocationInput?: unknown;
+  preparedSameTurnTarget?: boolean;
   targetContext?: ReturnType<typeof turnTargetContextDiagnostics>;
 };
 
@@ -986,6 +994,12 @@ function finishTrace(
     ...(trace.logicalTurnId ? { logicalTurnId: trace.logicalTurnId } : {}),
     ...(trace.taskId ? { taskId: trace.taskId } : {}),
     argumentShape: safeCareerToolArgumentShape(trace.input),
+    ...(trace.preparedInvocationInput !== undefined ? {
+      preparedInvocationShape: {
+        ...safeCareerToolArgumentShape(trace.preparedInvocationInput),
+        sameTurnTarget: trace.preparedSameTurnTarget === true ? "present" : "absent"
+      }
+    } : {}),
     gatewayArgumentShape: safeCareerToolArgumentShape(trace.gatewayInput ?? trace.input),
     facadeArgumentShape: safeCareerToolArgumentShape(trace.facadeInput ?? trace.input),
     ...(trace.targetContext ? { targetContext: trace.targetContext } : {}),
@@ -1055,6 +1069,7 @@ function failureLayerForCode(code: string): CareerToolFailureLayer {
   if (/repository|workspace|repo_|database|dexie/i.test(code)) return "repository";
   if (/provider|model|planner|ai_/i.test(code)) return "provider";
   if (/binding|not_allowed|permission|confirmation|forbidden|unauthor/i.test(code)) return "gateway_policy";
+  if (code === "target_required") return "workflow_precondition";
   if (/invalid|schema|missing|unknown_|not_found|input_|target_required/i.test(code)) return "gateway_validation";
   if (/selection_required|checkpoint|stale|revision|workflow_in_progress|questions_incomplete|precondition/i.test(code)) return "workflow_precondition";
   if (/tailor|compose|profile|resume|workflow/i.test(code)) return "workflow_execution";

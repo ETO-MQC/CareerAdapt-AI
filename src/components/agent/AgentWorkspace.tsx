@@ -662,6 +662,7 @@ export function AgentWorkspace() {
       .filter((message) => message.role === "tool" && message.toolName)
       .map((message) => ({
         toolName: message.toolName,
+        turnId: message.turnId,
         status: message.status,
         safeErrorCode: typeof message.metadata?.safeErrorCode === "string" ? message.metadata.safeErrorCode : undefined,
         operationId: message.operationId,
@@ -670,7 +671,8 @@ export function AgentWorkspace() {
           ? message.metadata.transportOperationIds.filter((value): value is string => typeof value === "string")
           : undefined,
         requestedHermesToolName: typeof message.metadata?.requestedHermesToolName === "string" ? message.metadata.requestedHermesToolName : undefined,
-        stableCareerToolName: typeof message.metadata?.stableCareerToolName === "string" ? message.metadata.stableCareerToolName : undefined
+        stableCareerToolName: typeof message.metadata?.stableCareerToolName === "string" ? message.metadata.stableCareerToolName : undefined,
+        toolFailureDiagnostics: sanitizeCareerToolFailureDiagnostics(message.metadata?.toolFailureDiagnostics)
       }));
     const deniedActivity = toolActivities.findLast((activity) => activity.safeErrorCode === "agent_tool_not_allowed");
     const pendingInformationNeed = recordValue(slots.resumeCompositionPendingInformationNeed);
@@ -783,6 +785,9 @@ export function AgentWorkspace() {
     const safeRuntimeFailureDiagnostics = sanitizeRuntimeFailureDiagnostics(
       session.activeTurn?.runtimeFailureDiagnostics ?? runtimeHealth?.runtimeFailureDiagnostics
     );
+    const latestCareerToolFailureDiagnostics = toolActivities.findLast((activity) =>
+      activity.turnId === session.activeTurn?.id && activity.toolFailureDiagnostics
+    )?.toolFailureDiagnostics;
     const productionCareerContracts = careerContracts.filter((contract) => hermesProductionToolNames().has(contract.name));
     const hermesLogs = await getHermesLogs();
     const activeTurn = session.activeTurn;
@@ -793,7 +798,8 @@ export function AgentWorkspace() {
     const careerToolsExecuted = toolActivities.length > 0;
     const exportRunReady = runtimeHealth?.runReady ?? currentSupervisorSnapshot?.runReady;
     const recoveredAtExport = Boolean(failureSnapshot && exportRunReady === true);
-    const primaryErrorCode = safeRuntimeFailureDiagnostics?.safeErrorCode
+    const primaryErrorCode = latestCareerToolFailureDiagnostics?.safeDomainErrorCode
+      ?? safeRuntimeFailureDiagnostics?.safeErrorCode
       ?? activeTurn?.fallbackReasonCode
       ?? activeTurn?.lastSafeErrorCode;
     const cancellationOwner = activeTurn?.cancellation?.requestedBy
@@ -805,7 +811,9 @@ export function AgentWorkspace() {
       incidentSummary: {
         traceId: activeTurn?.incidentTraceId,
         incidentAt: activeTurn?.runtimeFailureAt ?? activeTurn?.firstEventAt ?? activeTurn?.startedAt,
-        primaryLayer: safeRuntimeFailureDiagnostics?.failureLayer ?? (activeTurn?.hermesRunId || activeTurn?.firstEventAt ? "runtime" : undefined),
+        primaryLayer: latestCareerToolFailureDiagnostics?.failureScope
+          ?? safeRuntimeFailureDiagnostics?.failureLayer
+          ?? (activeTurn?.hermesRunId || activeTurn?.firstEventAt ? "runtime" : undefined),
         primaryErrorCode,
         cancellationOwner,
         careerToolsExecuted,
@@ -819,6 +827,7 @@ export function AgentWorkspace() {
         profileRevision: session.profileRevision
       },
       profileContentIntegrity,
+      careerToolFailureDiagnostics: latestCareerToolFailureDiagnostics,
       coreClosureSelfCheck: getLatestCoreClosureSelfCheck(),
       taskState: safeTaskState,
       clarificationState,
@@ -1618,6 +1627,86 @@ function sanitizeRuntimeHealth(value: unknown) {
     if (typeof source[key] === "boolean") result[key] = source[key];
   }
   if (typeof source.toolCallingCapability === "string") result.toolCallingCapability = source.toolCallingCapability.slice(0, 40);
+  return result;
+}
+
+function sanitizeCareerToolFailureDiagnostics(value: unknown): Record<string, unknown> | undefined {
+  const source = readRecord(value);
+  if (Object.keys(source).length === 0) return undefined;
+  const result: Record<string, unknown> = {};
+  for (const key of [
+    "toolFailureLayer",
+    "failureKind",
+    "failureScope",
+    "safeDomainErrorCode",
+    "failedStage",
+    "operationId",
+    "logicalToolOperationId",
+    "logicalTurnId",
+    "startedAt",
+    "completedAt",
+    "publishedContractVersion",
+    "gatewayContractVersion",
+    "publishedSchemaHash",
+    "gatewaySchemaHash",
+    "careerToolContractVersion",
+    "appBuildCommit",
+    "appBuildTimestamp"
+  ]) {
+    if (typeof source[key] === "string" && source[key].trim()) result[key] = source[key].slice(0, 240);
+  }
+  for (const key of ["toolResultIsError", "runtimeHealthy", "mcpHealthy", "retryable"]) {
+    if (typeof source[key] === "boolean") result[key] = source[key];
+  }
+  if (typeof source.durationMs === "number" && Number.isFinite(source.durationMs)) {
+    result.durationMs = Math.max(0, Math.round(source.durationMs));
+  }
+  for (const key of [
+    "argumentShape",
+    "preparedInvocationShape",
+    "mcpJsonRpcArgumentShape",
+    "mcpHttpArgumentShape",
+    "browserHandlerArgumentShape",
+    "gatewayArgumentShape",
+    "facadeArgumentShape"
+  ]) {
+    const shape = sanitizeCareerArgumentShape(source[key]);
+    if (shape) result[key] = shape;
+  }
+  const trace = readRecord(source.mcpCallTrace);
+  if (Object.keys(trace).length > 0) {
+    const safeTrace: Record<string, unknown> = {};
+    for (const key of ["toolName", "logicalToolOperationId", "requestStartedAt", "safeMcpErrorCode", "completedAt"]) {
+      if (typeof trace[key] === "string") safeTrace[key] = trace[key].slice(0, 240);
+    }
+    for (const key of ["browserMcpHandlerReached", "gatewayReached"]) {
+      if (typeof trace[key] === "boolean") safeTrace[key] = trace[key];
+    }
+    if (Object.keys(safeTrace).length) result.mcpCallTrace = safeTrace;
+  }
+  return Object.keys(result).length ? result : undefined;
+}
+
+function sanitizeCareerArgumentShape(value: unknown): Record<string, unknown> | undefined {
+  const source = readRecord(value);
+  if (Object.keys(source).length === 0) return {};
+  const result: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(source)) {
+    if (typeof entry === "string" || typeof entry === "number" || typeof entry === "boolean") {
+      result[key] = typeof entry === "string" ? entry.slice(0, 80) : entry;
+    } else if (Array.isArray(entry) && entry.every((item) => typeof item === "string")) {
+      result[key] = entry.slice(0, 32);
+    } else {
+      const nested = readRecord(entry);
+      if (typeof nested.present === "boolean" && typeof nested.lengthBucket === "string") {
+        result[key] = {
+          present: nested.present,
+          lengthBucket: nested.lengthBucket.slice(0, 40),
+          ...(typeof nested.hashPrefix === "string" ? { hashPrefix: nested.hashPrefix.slice(0, 32) } : {})
+        };
+      }
+    }
+  }
   return result;
 }
 

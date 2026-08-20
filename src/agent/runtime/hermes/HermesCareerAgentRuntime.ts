@@ -31,7 +31,7 @@ import {
   EventStreamLeaseRegistry,
   type EventStreamLease
 } from "./hermesEventStreamLease";
-import { currentTurnScopedTargetContext, turnTargetContextDiagnostics } from "../turnScopedTargetContext";
+import { currentTurnInputContext, currentTurnScopedTargetContext, turnTargetContextDiagnostics } from "../turnScopedTargetContext";
 
 type TurnCounters = {
   toolCalls: number;
@@ -1186,6 +1186,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     const catalog = new HermesCareerToolCatalog(this.dependencies.careerToolGateway.listContracts());
     const requestedHermesToolName = request.toolName;
     const stableToolName = catalog.stableNameForRequestedName(requestedHermesToolName) ?? requestedHermesToolName;
+    const turnInputContext = currentTurnInputContext(input.session?.taskState, input.turnId);
     const targetContext = currentTurnScopedTargetContext(input.session?.taskState, input.turnId);
     const logicalOperationId = request.logicalToolOperationId ?? logicalToolOperationId({
       ...request,
@@ -1321,7 +1322,8 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       confirmationCount,
       careerSessionBinding: binding,
       requireSessionBinding,
-      turnTargetContext: targetContext
+      turnTargetContext: targetContext,
+      turnInputContext
     }, counters);
     if (!result.ok && shouldRetryRead(contract, result)) {
       counters.autonomousRecoveries += 1;
@@ -1337,7 +1339,8 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         confirmationCount,
         careerSessionBinding: binding,
         requireSessionBinding,
-        turnTargetContext: targetContext
+        turnTargetContext: targetContext,
+        turnInputContext
       }, counters);
     }
     if (!result.ok && result.error?.category === "stale_revision") {

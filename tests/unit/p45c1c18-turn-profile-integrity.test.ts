@@ -5,7 +5,6 @@ import { AgentTaskStateReducer } from "@/agent/runtime/AgentTaskStateReducer";
 import {
   resolveTurnScopedTailoringInput
 } from "@/agent/workflows/CareerWorkflowFacade";
-import { stableCareerLogicalToolOperationId } from "@/agent/tools/careerToolContract";
 import { safeCareerToolArgumentShape } from "@/agent/tools/careerToolDiagnostics";
 import { mapOfficialHermesEvent } from "@/agent/runtime/hermes/HermesBridgeTransport";
 import { CareerToolGateway } from "@/agent/tools/CareerToolGateway";
@@ -83,8 +82,8 @@ describe("P4.5c.1.18 turn-scoped tailoring and live profile integrity", () => {
       }
     });
 
-    await adapter.callTool("career.workflow.tailor_resume", {}, { logicalTurnId: "turn-logical-1" });
-    expect(receivedLogicalId).toBe(stableCareerLogicalToolOperationId("turn-logical-1", "career.workflow.tailor_resume"));
+    await adapter.callTool("career.workflow.tailor_resume", {}, { operationId: "mcp-transport-operation-1", logicalTurnId: "turn-logical-1" });
+    expect(receivedLogicalId).toBe("mcp-transport-operation-1");
   });
 
   it("records safe argument shapes without copying the pasted target", () => {

@@ -100,7 +100,10 @@ describe("P4.5c.1.16 canonical Career tool contract closure", () => {
     expect(result.error).toMatchObject({ code: "target_required", recoverable: false });
     expect(result.diagnostics).toMatchObject({
       safeDomainErrorCode: "target_required",
-      toolFailureLayer: "gateway_validation"
+      toolFailureLayer: "workflow_precondition",
+      failureScope: "career_context",
+      runtimeHealthy: true,
+      mcpHealthy: true
     });
   });
 
