@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   applyHermesProviderTest,
   createHermesControlSnapshot,
@@ -9,6 +9,7 @@ import {
   type HermesSupervisorSnapshot
 } from "@/services/agent/hermesControl";
 import { RuntimeStatusStore } from "@/agent/runtime/runtimeStatus";
+import type { RuntimeHealth } from "@/agent/runtime/runtimeHealth";
 
 function careerHealth(overrides: Record<string, unknown> = {}) {
   return {
@@ -135,6 +136,62 @@ describe("P4.5c.1.23 Hermes control capability and provider closure", () => {
     expect(store.getSnapshot().status).toBe("ready");
   });
 
+  it("gives the local Web Supervisor the same process capabilities", () => {
+    const snapshot = createHermesControlSnapshot({
+      environment: "web",
+      controlOwner: "web_supervisor",
+      health: { available: false }
+    });
+    expect(snapshot.supervisorExpected).toBe(true);
+    expect(snapshot.controlOwner).toBe("web_supervisor");
+    expect(snapshot.capabilities.canStartService).toBe(true);
+    expect(snapshot.capabilities.canStopService).toBe(true);
+    expect(snapshot.capabilities.canRestartService).toBe(true);
+    expect(snapshot.capabilities.canRecoverService).toBe(true);
+  });
+
+  it("keeps Supervisor readiness authoritative when a refresh observes a transient health failure", () => {
+    const store = new RuntimeStatusStore({ preferredRuntime: "hermes", activeRuntime: "hermes", status: "starting" });
+    store.recordSupervisorStatus(electronSupervisor(), "web");
+
+    store.recordHealth({
+      runtimeId: "hermes",
+      runtimeAvailable: false,
+      providerConfigured: true,
+      providerReachable: false,
+      providerReady: false,
+      providerStatus: "unreachable",
+      toolCallingAvailable: false,
+      mcpConnected: false,
+      mcpToolCount: 0,
+      careerSkillsLoaded: false,
+      browserCareerDomainHostConnected: false,
+      careerMcpServerReachable: false,
+      careerMcpContractCount: 0,
+      hermesMcpRegistered: false,
+      hermesMcpToolCount: 0,
+      hermesCareerFacadeCount: 0,
+      careerToolContractReady: true,
+      careerToolContractMismatches: [],
+      requiredCareerFacadesMissing: [],
+      careerGatewayContracts: [],
+      careerMcpExposedTools: [],
+      hermesRegisteredToolsets: [],
+      hermesVisibleTools: [],
+      missingRequiredCareerTools: [],
+      lastCheckedAt: new Date().toISOString(),
+      runReady: false
+    } satisfies RuntimeHealth);
+    store.recordMcp({ connected: false, discoveredToolCount: 0, reason: "mcp_bridge_reconnecting" });
+
+    expect(store.getSnapshot().controlSnapshot).toMatchObject({
+      status: "ready",
+      serviceState: "running",
+      controlOwner: "web_supervisor",
+      ready: true
+    });
+  });
+
   it("updates the shared projection immediately after a Provider test and keeps service state independent", () => {
     const initial = createInitialHermesControlSnapshot("web");
     const result = applyHermesProviderTest(initial, {
@@ -171,14 +228,19 @@ describe("P4.5c.1.23 Hermes control capability and provider closure", () => {
   });
 
   it("returns an explicit unsupported receipt for a Web process action", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      ok: false,
+      error: { code: "web_control_disabled" }
+    }), { status: 409, headers: { "Content-Type": "application/json" } })));
     const result = await requestHermesStart();
     expect(result.ok).toBe(false);
     expect(result.receipt).toMatchObject({
       action: "start",
       accepted: false,
       executed: false,
-      safeReasonCode: "control_not_supported_in_web",
+      safeReasonCode: "web_control_disabled",
       controlOwner: "external_environment"
     });
+    vi.unstubAllGlobals();
   });
 });

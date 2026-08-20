@@ -442,7 +442,9 @@ export default function SettingsPage() {
       if (result.controlSnapshot) agentHost.runtimeStatus.recordControlSnapshot(result.controlSnapshot);
       if (result.snapshot) agentHost.runtimeStatus.recordSupervisorStatus(result.snapshot);
       if (result.receipt && !result.receipt.accepted) {
-        setHermesFeedback("当前为 Web 调试模式，Hermes 服务进程由外部环境管理。请使用重新连接或桌面版控制进程。");
+        setHermesFeedback(result.reason === "web_control_disabled"
+          ? "Web Supervisor 未启用，请设置 HERMES_WEB_CONTROL_ENABLED=true 后重启开发服务。"
+          : "当前 Hermes 进程没有可用的控制权，请检查本地开发服务配置。");
         return;
       }
       if (!result.ok) throw new Error(result.reason ?? "Hermes 启动失败。");
@@ -464,7 +466,9 @@ export default function SettingsPage() {
       if (result?.controlSnapshot) agentHost.runtimeStatus.recordControlSnapshot(result.controlSnapshot);
       if (result?.snapshot) agentHost.runtimeStatus.recordSupervisorStatus(result.snapshot);
       if (result?.receipt && !result.receipt.accepted) {
-        setHermesFeedback("当前为 Web 调试模式，Hermes 服务进程由外部环境管理。请使用重新连接或桌面版控制进程。");
+        setHermesFeedback(result.reason === "web_control_disabled"
+          ? "Web Supervisor 未启用，请设置 HERMES_WEB_CONTROL_ENABLED=true 后重启开发服务。"
+          : "当前 Hermes 进程没有可用的控制权，请检查本地开发服务配置。");
         return;
       }
       if (result && !result.ok) throw new Error(result.reason ?? "Hermes 控制操作未完成。");
@@ -538,17 +542,12 @@ export default function SettingsPage() {
     writeAiSettings(aiSettings);
     setAiSaved(true);
     try {
-      if (hermesRuntimeEnvironment() === "web") {
-        setHermesFeedback("配置已更新；当前 Web 模式无法重启 Hermes 服务，请重启外部 Hermes 进程或使用桌面版。");
-        await checkHermesHealth();
-      } else {
-        const result = await requestHermesConfigUpdate(aiSettings);
-        if (result?.controlSnapshot) agentHost.runtimeStatus.recordControlSnapshot(result.controlSnapshot);
-        if (result?.snapshot) agentHost.runtimeStatus.recordSupervisorStatus(result.snapshot);
-        setHermesFeedback(result?.ok
-          ? "AI 配置已保存，Hermes 已重启并按新配置加载。"
-          : `AI 配置已保存，但 Hermes 尚未就绪：${result?.reason ?? "请稍后重试。"}`);
-      }
+      const result = await requestHermesConfigUpdate(aiSettings);
+      if (result?.controlSnapshot) agentHost.runtimeStatus.recordControlSnapshot(result.controlSnapshot);
+      if (result?.snapshot) agentHost.runtimeStatus.recordSupervisorStatus(result.snapshot);
+      setHermesFeedback(result?.ok
+        ? `${hermesRuntimeEnvironment() === "web" ? "Web Supervisor" : "Hermes"} 已按新配置重启并加载。`
+        : `AI 配置已保存，但 Hermes 尚未就绪：${result?.reason ?? "请稍后重试。"}`);
     } catch (error) {
       setHermesFeedback(error instanceof Error
         ? `AI 配置已保存，但 Hermes 重载失败：${error.message}`
@@ -921,7 +920,11 @@ export default function SettingsPage() {
               <div className="section-heading compact-heading">
                 <div>
                   <h2>Hermes Control Center</h2>
-                  <p>{hermesSnapshot.environment === "web" ? "当前为 Web 调试模式，Hermes 服务进程由外部环境管理；页面只负责重新检测、重新连接和模型连接测试。" : "Hermes 是随应用安装的语义 Agent 运行时，服务状态和进程控制均由 Electron 主进程 Supervisor 统一管理。"}</p>
+                  <p>{hermesSnapshot.controlOwner === "web_supervisor"
+                    ? "当前为 Web 调试模式，Hermes 由本机 Next 服务端 Web Supervisor 管理；启动、停止、重启和配置重载均只作用于本地开发进程。"
+                    : hermesSnapshot.environment === "web"
+                      ? "当前为 Web 调试模式，Hermes 服务进程由外部环境管理；请启用本地 Web Supervisor 或使用重新检测。"
+                      : "Hermes 是随应用安装的语义 Agent 运行时，服务状态和进程控制均由 Electron 主进程 Supervisor 统一管理。"}</p>
                 </div>
               </div>
               <section className="settings-group hermes-control-section" aria-labelledby="hermes-state-heading">
@@ -930,7 +933,7 @@ export default function SettingsPage() {
                   <span className={`status-badge hermes-state-badge is-${hermesSnapshot.status}`}>{hermesControlStatusLabel(hermesSnapshot)}</span>
                 </div>
                 <dl className="info-list hermes-control-facts">
-                  <div><dt>服务进程</dt><dd>{hermesServiceStateLabel(hermesSnapshot.serviceState)} · {hermesSnapshot.controlOwner === "electron_supervisor" ? "Electron Supervisor" : "外部环境"}</dd></div>
+                  <div><dt>服务进程</dt><dd>{hermesServiceStateLabel(hermesSnapshot.serviceState)} · {hermesSnapshot.controlOwner === "electron_supervisor" ? "Electron Supervisor" : hermesSnapshot.controlOwner === "web_supervisor" ? "Web Supervisor" : "外部环境"}</dd></div>
                   <div><dt>Runtime</dt><dd>{formatEndpoint(hermesSnapshot.runtimeUrl, "正在分配")}{hermesSnapshot.version ? ` · ${hermesSnapshot.version}` : ""}</dd></div>
                   <div><dt>应用 / MCP</dt><dd>{formatEndpoint(hermesSnapshot.appUrl, "当前应用端口")}</dd></div>
                   <div><dt>Provider</dt><dd>{hermesSnapshot.provider || hermesConfig?.provider || "正在读取"}</dd></div>

@@ -46,6 +46,8 @@ if (runtimeAllocation.environment.HERMES_RUNTIME_URL) {
 }
 const appUrl = environment.CAREERADAPT_BASE_URL;
 const logPath = path.join(projectRoot, ".next", "dev", "logs", "hermes-runtime.log");
+const webControlEnabled = (environment.HERMES_WEB_CONTROL_ENABLED ?? "true").trim().toLowerCase() !== "false";
+environment.HERMES_WEB_CONTROL_ENABLED = webControlEnabled ? "true" : "false";
 
 let nextProcess;
 let hermesHandle;
@@ -74,22 +76,26 @@ if (appAlreadyRunning) {
   await waitForApp(nextProcess);
 }
 
-hermesHandle = await startHermesCompanion({
-  projectRoot,
-  environment,
-  hermesHome: path.join(projectRoot, ".next", "dev", "hermes"),
-  logPath,
-  allowEphemeralRuntimeKey: !appAlreadyRunning,
-  allowProviderKeyFallback: appAlreadyRunning
-});
-
-if (hermesHandle.ok) {
-  console.log(`[Hermes] Ready at ${hermesHandle.runtime.baseUrl}; log=${hermesHandle.logPath}`);
+if (webControlEnabled) {
+  console.log(`[Hermes] Web Supervisor enabled; the browser bridge will start Hermes at ${environment.HERMES_RUNTIME_URL}.`);
 } else {
-  console.warn(`[Hermes] Not ready (${hermesHandle.reason ?? "unknown"}); CareerAdapt remains available with Native fallback.`);
-  console.warn(`[Hermes] Startup log: ${hermesHandle.logPath}`);
-  if (environment.HERMES_AUTOSTART_REQUIRED?.trim().toLowerCase() === "true") {
-    await shutdown(1);
+  hermesHandle = await startHermesCompanion({
+    projectRoot,
+    environment,
+    hermesHome: path.join(projectRoot, ".next", "dev", "hermes"),
+    logPath,
+    allowEphemeralRuntimeKey: !appAlreadyRunning,
+    allowProviderKeyFallback: appAlreadyRunning
+  });
+
+  if (hermesHandle.ok) {
+    console.log(`[Hermes] Ready at ${hermesHandle.runtime.baseUrl}; log=${hermesHandle.logPath}`);
+  } else {
+    console.warn(`[Hermes] Not ready (${hermesHandle.reason ?? "unknown"}); CareerAdapt remains available with Native fallback.`);
+    console.warn(`[Hermes] Startup log: ${hermesHandle.logPath}`);
+    if (environment.HERMES_AUTOSTART_REQUIRED?.trim().toLowerCase() === "true") {
+      await shutdown(1);
+    }
   }
 }
 
@@ -107,8 +113,18 @@ await new Promise(() => {});
 async function shutdown(code) {
   if (shuttingDown) return;
   shuttingDown = true;
-  console.log("[CareerAdapt] Stopping managed Hermes companion...");
-  await stopHermesCompanion(hermesHandle);
+  if (webControlEnabled && nextProcess && !appAlreadyRunning) {
+    console.log("[CareerAdapt] Asking the Web Supervisor to stop Hermes...");
+    await fetch(`${appUrl}/api/agent/runtime/hermes/control`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: appUrl },
+      body: JSON.stringify({ action: "stop" }),
+      signal: AbortSignal.timeout(5_000)
+    }).catch(() => undefined);
+  } else {
+    console.log("[CareerAdapt] Stopping managed Hermes companion...");
+    await stopHermesCompanion(hermesHandle);
+  }
   if (nextProcess && nextProcess.exitCode === null) nextProcess.kill();
   process.exit(code);
 }

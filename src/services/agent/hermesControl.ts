@@ -12,7 +12,7 @@ export type HermesLifecycleState =
   | "stopping";
 
 export type HermesRuntimeEnvironment = "web" | "electron";
-export type HermesControlOwner = "external_environment" | "electron_supervisor" | "none";
+export type HermesControlOwner = "external_environment" | "electron_supervisor" | "web_supervisor" | "none";
 export type HermesServiceState = "stopped" | "starting" | "running" | "stopping" | "unavailable";
 export type HermesApiState = "unreachable" | "reachable";
 export type HermesProviderState = "unknown" | "checking" | "ready" | "auth_error" | "config_error" | "unreachable";
@@ -313,6 +313,7 @@ export function createInitialHermesControlSnapshot(
 
 export function createHermesControlSnapshot(input: {
   environment?: HermesRuntimeEnvironment;
+  controlOwner?: HermesControlOwner;
   previous?: HermesControlSnapshot;
   supervisor?: HermesSupervisorSnapshot;
   health?: HermesControlHealthInput;
@@ -325,7 +326,10 @@ export function createHermesControlSnapshot(input: {
   const supervisor = input.supervisor;
   const health = input.health;
   const runtimeHealth = health?.runtimeHealth;
-  const controlOwner = environment === "electron" ? "electron_supervisor" : "external_environment";
+  const controlOwner = input.controlOwner
+    ?? (environment === "electron"
+      ? "electron_supervisor"
+      : previous?.controlOwner === "web_supervisor" ? "web_supervisor" : "external_environment");
   const apiReady = supervisor?.apiReady
     ?? (health?.available === true || runtimeHealth?.runtimeAvailable === true);
   const serviceState = supervisor
@@ -410,7 +414,7 @@ export function createHermesControlSnapshot(input: {
     ?? previous?.safeReasonCode;
   const snapshot: HermesControlSnapshot = {
     environment,
-    supervisorExpected: environment === "electron",
+    supervisorExpected: controlOwner === "electron_supervisor" || controlOwner === "web_supervisor",
     controlOwner,
     serviceState,
     apiState: apiReady ? "reachable" : "unreachable",
@@ -454,9 +458,15 @@ export function createHermesControlSnapshot(input: {
 
 export function createHermesControlSnapshotFromSupervisor(
   supervisor: HermesSupervisorSnapshot,
-  previous?: HermesControlSnapshot
+  previous?: HermesControlSnapshot,
+  environment: HermesRuntimeEnvironment = "electron"
 ) {
-  return createHermesControlSnapshot({ environment: "electron", previous, supervisor });
+  return createHermesControlSnapshot({
+    environment,
+    controlOwner: environment === "electron" ? "electron_supervisor" : "web_supervisor",
+    previous,
+    supervisor
+  });
 }
 
 export function createHermesControlSnapshotFromHealth(
@@ -548,7 +558,8 @@ export function createHermesControlCapabilities(
   controlOwner: HermesControlOwner,
   runState: HermesRunState
 ): HermesControlCapabilities {
-  const supportsServiceControl = environment === "electron" && controlOwner === "electron_supervisor";
+  const supportsServiceControl = (environment === "electron" && controlOwner === "electron_supervisor")
+    || (environment === "web" && controlOwner === "web_supervisor");
   return {
     environment,
     controlOwner,
@@ -559,7 +570,9 @@ export function createHermesControlCapabilities(
     canReconnect: true,
     canStopCurrentRun: ["queued", "running", "waiting_for_user", "stopping"].includes(runState),
     canTestProvider: true,
-    ...(supportsServiceControl ? {} : { unsupportedReason: "当前为 Web 调试模式，Hermes 服务进程由外部环境管理。进程启动/停止/重启仅在桌面版可直接控制。" })
+    ...(supportsServiceControl || environment === "electron"
+      ? {}
+      : { unsupportedReason: "当前 Web 调试模式未授予本地 Supervisor 控制权；可使用重新检测，或启用 HERMES_WEB_CONTROL_ENABLED 后重启开发服务。" })
   };
 }
 
@@ -578,7 +591,8 @@ export function hermesControlFeedback(snapshot: HermesControlSnapshot) {
   if (snapshot.ready) return "Hermes Ready：API、Provider、Career MCP、工具面和 Run 均已就绪。";
   if (snapshot.status === "configuration_required") return "Hermes API 已连接，但 Provider 需要配置或认证修复。";
   if (snapshot.apiState === "reachable") return "Hermes API 已连接；Provider、Career MCP 或 Run 仍需单独检查。";
-  if (snapshot.environment === "web") return "当前为 Web 调试模式，Hermes 服务进程由外部环境管理。";
+  if (snapshot.controlOwner === "external_environment") return "当前为 Web 调试模式，Hermes 服务进程由外部环境管理。";
+  if (snapshot.controlOwner === "web_supervisor") return "Web Supervisor 正在管理 Hermes 服务进程。";
   return `Hermes 状态：${hermesControlStatusLabel(snapshot)}。`;
 }
 
@@ -670,38 +684,57 @@ function defaultStorageDiagnostic(environment: HermesRuntimeEnvironment): Hermes
 
 /** Starts or reuses the local Hermes companion without exposing credentials to the browser. */
 export async function requestHermesStart(): Promise<HermesControlResult> {
-  if (hermesRuntimeEnvironment() === "web") return unsupportedControlResult("start");
+  if (hermesRuntimeEnvironment() === "web") return requestWebHermesControl("start", { rendererReady: true });
   const settings = readAiSettings();
   return window.careerAdaptDesktop!.startHermes(settings);
 }
 
 export async function notifyHermesRendererReady(settings?: HermesStartSettings) {
-  if (typeof window === "undefined" || !window.careerAdaptDesktop) return undefined;
-  return window.careerAdaptDesktop.notifyHermesRendererReady(settings);
+  if (typeof window === "undefined") return undefined;
+  if (window.careerAdaptDesktop) return window.careerAdaptDesktop.notifyHermesRendererReady(settings);
+  const result = await requestWebHermesControl("start", { rendererReady: true, settings });
+  return result.reason === "web_control_disabled" ? undefined : result;
 }
 
 export async function getHermesStatus() {
-  if (typeof window === "undefined" || !window.careerAdaptDesktop) return undefined;
-  return window.careerAdaptDesktop.getHermesStatus();
+  if (typeof window === "undefined") return undefined;
+  if (window.careerAdaptDesktop) return window.careerAdaptDesktop.getHermesStatus();
+  const response = await fetch(WEB_HERMES_CONTROL_ENDPOINT, { cache: "no-store" });
+  if (!response.ok) return undefined;
+  const payload = await response.json() as { snapshot?: HermesSupervisorSnapshot };
+  return payload.snapshot;
 }
 
 export function subscribeHermesStatus(listener: (snapshot: HermesSupervisorSnapshot) => void) {
-  if (typeof window === "undefined" || !window.careerAdaptDesktop) return () => undefined;
-  return window.careerAdaptDesktop.subscribeHermesStatus(listener);
+  if (typeof window === "undefined") return () => undefined;
+  if (window.careerAdaptDesktop) return window.careerAdaptDesktop.subscribeHermesStatus(listener);
+  let stopped = false;
+  let timer: number | undefined;
+  const poll = async () => {
+    if (stopped) return;
+    const snapshot = await getHermesStatus();
+    if (snapshot && !stopped) listener(snapshot);
+    if (!stopped) timer = window.setTimeout(() => { void poll(); }, 2_000);
+  };
+  void poll();
+  return () => {
+    stopped = true;
+    if (timer !== undefined) window.clearTimeout(timer);
+  };
 }
 
 export async function requestHermesStop() {
-  if (hermesRuntimeEnvironment() === "web") return unsupportedControlResult("stop");
+  if (hermesRuntimeEnvironment() === "web") return requestWebHermesControl("stop");
   return window.careerAdaptDesktop!.stopHermes();
 }
 
 export async function requestHermesRestart(options?: { auto?: boolean; reason?: string }) {
-  if (hermesRuntimeEnvironment() === "web") return unsupportedControlResult("restart");
+  if (hermesRuntimeEnvironment() === "web") return requestWebHermesControl("restart", { options });
   return window.careerAdaptDesktop!.restartHermes(options);
 }
 
 export async function requestHermesRecover() {
-  if (hermesRuntimeEnvironment() === "web") return unsupportedControlResult("recover");
+  if (hermesRuntimeEnvironment() === "web") return requestWebHermesControl("recover");
   return window.careerAdaptDesktop!.recoverHermes();
 }
 
@@ -716,22 +749,26 @@ export async function openHermesLogs() {
 }
 
 export async function getHermesConfig() {
-  if (typeof window === "undefined" || !window.careerAdaptDesktop) return undefined;
-  return window.careerAdaptDesktop.getHermesConfig();
+  if (typeof window === "undefined") return undefined;
+  if (window.careerAdaptDesktop) return window.careerAdaptDesktop.getHermesConfig();
+  const payload = await requestWebHermesView();
+  return payload?.config;
 }
 
 export async function getHermesConfigSchema() {
-  if (typeof window === "undefined" || !window.careerAdaptDesktop) return undefined;
-  return window.careerAdaptDesktop.getHermesConfigSchema();
+  if (typeof window === "undefined") return undefined;
+  if (window.careerAdaptDesktop) return window.careerAdaptDesktop.getHermesConfigSchema();
+  const payload = await requestWebHermesView();
+  return payload?.configSchema;
 }
 
 export async function requestHermesConfigUpdate(settings: HermesStartSettings) {
-  if (hermesRuntimeEnvironment() === "web") return unsupportedControlResult("update_config");
+  if (hermesRuntimeEnvironment() === "web") return requestWebHermesControl("update_config", { settings });
   return window.careerAdaptDesktop!.updateHermesConfig(settings);
 }
 
 export async function requestHermesConfigReset() {
-  if (hermesRuntimeEnvironment() === "web") return unsupportedControlResult("reset_config");
+  if (hermesRuntimeEnvironment() === "web") return requestWebHermesControl("reset_config");
   return window.careerAdaptDesktop!.resetHermesConfig();
 }
 
@@ -765,11 +802,11 @@ export async function requestHermesProviderTest(settings = readAiSettings()): Pr
   };
 }
 
-function unsupportedControlResult(action: HermesControlAction): HermesControlResult {
+function unsupportedControlResult(action: HermesControlAction, reason = "web_control_disabled"): HermesControlResult {
   const snapshot = createInitialHermesControlSnapshot("web");
   return {
     ok: false,
-    reason: "control_not_supported_in_web",
+    reason,
     controlSnapshot: snapshot,
     receipt: {
       action,
@@ -778,9 +815,47 @@ function unsupportedControlResult(action: HermesControlAction): HermesControlRes
       executed: false,
       previousState: snapshot.serviceState,
       nextState: snapshot.serviceState,
-      safeReasonCode: "control_not_supported_in_web",
+      safeReasonCode: reason,
       controlOwner: "external_environment"
     }
+  };
+}
+
+const WEB_HERMES_CONTROL_ENDPOINT = "/api/agent/runtime/hermes/control";
+
+async function requestWebHermesControl(
+  action: HermesControlAction,
+  input: { rendererReady?: boolean; options?: { auto?: boolean; reason?: string }; settings?: HermesStartSettings } = {}
+): Promise<HermesControlResult> {
+  const settings = input.settings ?? (action === "start" ? readAiSettings() : undefined);
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (settings && (input.settings !== undefined || hasCustomSettings(settings))) {
+    headers["x-ai-config"] = encodeAiSettingsForHeader(settings);
+  }
+  const response = await fetch(WEB_HERMES_CONTROL_ENDPOINT, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      action,
+      ...(input.rendererReady ? { rendererReady: true } : {}),
+      ...(input.options ? { options: input.options } : {})
+    }),
+    cache: "no-store"
+  });
+  const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
+  if (!response.ok && payload.error && typeof payload.error === "object" && !Array.isArray(payload.error)) {
+    const error = payload.error as Record<string, unknown>;
+    return unsupportedControlResult(action, typeof error.code === "string" ? error.code : "web_control_failed");
+  }
+  return payload as HermesControlResult;
+}
+
+async function requestWebHermesView() {
+  const response = await fetch(WEB_HERMES_CONTROL_ENDPOINT, { cache: "no-store" });
+  if (!response.ok) return undefined;
+  return await response.json() as {
+    config?: HermesConfigSnapshot;
+    configSchema?: HermesConfigSchema;
   };
 }
 
