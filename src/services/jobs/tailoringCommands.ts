@@ -24,7 +24,7 @@ import {
 } from "@/domain/jobOptimization";
 import type { WorkspaceRepository } from "@/services/storage/repositories";
 import { stableHashText } from "@/services/security/text";
-import { answerTailoringClarification, createTailoringPlan, createTailoringQuestionPlan, tailoringAnswerRevisionHash } from "./tailoringService";
+import { consumeTailoringQuestionAnswer, createTailoringPlan, createTailoringQuestionPlan, tailoringAnswerRevisionHash } from "./tailoringService";
 import { tailoringDiffId } from "./tailoringDiffId";
 
 export { tailoringDiffId } from "./tailoringDiffId";
@@ -83,7 +83,8 @@ export const AnswerTailoringQuestionCommandInputSchema = z.object({
   session: TailoringSessionSchema,
   questionId: z.string().min(1),
   answer: z.union([z.string(), z.array(z.string()), z.boolean()]),
-  proficiency: z.enum(["proficient", "familiar", "aware", "learning"]).optional()
+  proficiency: z.enum(["proficient", "familiar", "aware", "learning"]).optional(),
+  answerMessageId: z.string().min(1).optional()
 }).strict();
 
 export const ReviewTailoringDiffCommandInputSchema = z.object({
@@ -319,21 +320,19 @@ export function answerTailoringQuestionCommand(input: z.input<typeof AnswerTailo
   if (parsed.session.plan.questionPlan?.activeQuestionId !== question.id && !previouslyAnswered) {
     throw commandError("tailoring_question_not_active");
   }
-  const plan = answerTailoringClarification({
-    plan: parsed.session.plan,
-    question,
+  const consumed = consumeTailoringQuestionAnswer({
+    session: parsed.session as unknown as Record<string, unknown>,
+    questionId: question.id,
     answer: parsed.answer,
     proficiency: parsed.proficiency,
     branch: parsed.session.branch,
-    operationId: parsed.operationId
+    operationId: parsed.operationId,
+    answerMessageId: parsed.answerMessageId ?? `answer-message-${parsed.operationId}`
   });
+  const session = TailoringSessionSchema.parse(consumed.session);
   return {
     operationId: parsed.operationId,
-    session: TailoringSessionSchema.parse({
-      ...parsed.session,
-      plan,
-      revision: plan === parsed.session.plan ? parsed.session.revision : parsed.session.revision + 1
-    })
+    session
   };
 }
 

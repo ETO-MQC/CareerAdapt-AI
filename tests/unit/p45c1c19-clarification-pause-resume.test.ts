@@ -85,7 +85,7 @@ describe("P4.5c.1.19 clarification pause/resume closure", () => {
     expect(save).toHaveBeenCalled();
   });
 
-  it("persists a text answer before starting a continuation turn", async () => {
+  it("consumes a text answer locally without starting a continuation turn", async () => {
     const save = vi.fn(async (session: AgentSession) => session);
     const host = new AgentHostStore({
       kernel: {} as never,
@@ -111,16 +111,26 @@ describe("P4.5c.1.19 clarification pause/resume closure", () => {
         tailoringQuestionId: "q-1",
         tailoringQuestionPlanId: "question-plan-1",
         tailoringQuestionPlanRevision: 1,
-        executionOwner: "runtime_continuation"
+        executionOwner: "deterministic_transition",
+        executionState: "complete",
+        tailoringAnswerReceipt: {
+          questionId: "q-1",
+          disposition: "answered"
+        }
       }
     });
     expect(prepared.prePersistedUserMessageId).toBe(answers[0]?.id);
-    expect(prepared.tailoringAnswerBinding).toMatchObject({
-      checkpointId: "tailoring-session-1",
-      questionId: "q-1",
-      answer: "有的"
-    });
-    expect(prepared.session.taskState?.completionStatus).toBe("waiting_for_user");
+    expect(prepared.tailoringAnswerBinding).toBeUndefined();
+    expect(prepared.deterministicTerminal).toBe(true);
+    expect(prepared.session.taskState?.completionStatus).toBe("active");
+    expect(prepared.session.taskState?.knownSlots.tailoringQuestionAnswerReceipts).toMatchObject([
+      { questionId: "q-1", answerMessageId: answers[0]?.id, disposition: "answered" }
+    ]);
+    expect(prepared.session.messages.find((message) => message.metadata?.questionId === "q-1" && message.role === "assistant"))
+      .toMatchObject({
+        metadata: { questionProjectionState: "resolved" },
+        options: [expect.objectContaining({ disabled: true })]
+      });
     expect(save).toHaveBeenCalled();
   });
 

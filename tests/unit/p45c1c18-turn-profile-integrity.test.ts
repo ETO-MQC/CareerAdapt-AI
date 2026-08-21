@@ -57,6 +57,25 @@ describe("P4.5c.1.18 turn-scoped tailoring and live profile integrity", () => {
     expect(previousTurn).toEqual({ input: {}, sameTurnTarget: false });
   });
 
+  it("removes only the conversational job wrapper before requirement analysis", () => {
+    const jobDescription = [
+      "岗位职责 Responsibilities：负责 AI 应用需求分析、工作流设计和交付验证。",
+      "任职要求 Requirements：熟悉 TypeScript、React 或 Python，能够维护回归测试。",
+      "补充要求：能够阅读技术文档并完成风险说明。",
+      "x".repeat(260)
+    ].join("\n");
+    const sourceUserMessage = `我想应聘这个岗位：“岗位描述”\n${jobDescription}`;
+    const resolved = resolveTurnScopedTailoringInput({}, {
+      logicalTurnId: "turn-wrapper",
+      sourceUserMessageId: "message-wrapper",
+      sourceUserMessage,
+      authoritativeTaskState: {} as never
+    });
+    expect(resolved.sameTurnTarget).toBe(true);
+    expect(resolved.input).toMatchObject({ targetText: jobDescription });
+    expect(sourceUserMessage).toContain("我想应聘这个岗位");
+  });
+
   it("keeps Hermes, MCP and Gateway logical identity deterministic when MCP metadata carries a turn", async () => {
     const contract = new CareerToolGateway(new AgentToolRegistry([])).getContract("career.workflow.tailor_resume");
     let receivedLogicalId = "";

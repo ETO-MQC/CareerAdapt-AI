@@ -346,12 +346,13 @@ function AgentMessageRow({
           ) : null}
           {message.options?.length
             && (!message.optionSet
-              || message.optionSet.state === "active" && message.optionSet.sourceMessageId === message.id)
+              || message.optionSet.state === "active" && message.optionSet.sourceMessageId === message.id
+              || message.metadata?.tailoringQuestionProjection === true && message.metadata.questionProjectionState === "resolved")
             && message.metadata?.retracted !== true
             && !message.metadata?.typedActionResolution ? (
             <div className="agent-message-options" aria-label="可选回答">
               {message.options.map((option) => (
-                <button key={option.id} type="button" onClick={() => onOption?.(option)}>
+                <button key={option.id} type="button" disabled={option.disabled} onClick={() => onOption?.(option)}>
                   {option.label}
                 </button>
               ))}

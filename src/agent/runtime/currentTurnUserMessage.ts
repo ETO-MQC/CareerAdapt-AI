@@ -34,3 +34,18 @@ export function isCredibleExternalTargetText(value: string) {
     && /职责|工作内容|responsibilit/i.test(value)
     && /要求|任职资格|qualification|requirement/i.test(value);
 }
+
+/**
+ * Strip the conversational wrapper that may precede a pasted job description.
+ * The source UserMessage remains unchanged; only the parser-facing target
+ * text is normalized, and only when the wrapper occupies its own first line.
+ */
+export function normalizeExternalJobTargetText(value: string) {
+  const normalized = value.trim();
+  const lines = normalized.split(/\r?\n/u);
+  const firstLine = lines[0]?.trim() ?? "";
+  if (lines.length < 2 || !/^(?:我想|我要|希望|请帮我)?\s*(?:应聘|申请|投递)\s*(?:这个|该|目标)?\s*(?:岗位|职位)\s*(?:[:：]\s*(?:[“"「『][^”"」』]{1,80}[”"」』])?)?\s*$/u.test(firstLine)) {
+    return normalized;
+  }
+  return lines.slice(1).join("\n").trim();
+}

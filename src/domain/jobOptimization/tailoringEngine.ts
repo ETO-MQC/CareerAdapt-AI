@@ -74,6 +74,8 @@ export function routeTailoringRequirements(input: {
       requirementId: item.id,
       description: item.description,
       priority: item.priority,
+      category: item.category,
+      evidenceNeed: evidenceNeedForRequirement(item.category, item.description),
       keywords: unique(item.keywords.filter(isUsefulKeyword)),
       // categoryRelevance bottoms out at -3. Offset every score equally so the
       // Zod contract stays non-negative without changing requirement ordering.
@@ -82,6 +84,14 @@ export function routeTailoringRequirements(input: {
   }).filter((item) => item.description !== GENERIC_REQUIREMENT || source.length === 1)
     .sort((a, b) => b.relevanceScore - a.relevanceScore || a.requirementId.localeCompare(b.requirementId))
     .slice(0, input.sectionType === "summary" ? 4 : 3);
+}
+
+function evidenceNeedForRequirement(category: string, description: string) {
+  if (category === "tool_or_technology") return "实际使用场景、项目范围和可核验结果";
+  if (/作品集|仓库|链接|材料|证据|可核验/u.test(description)) return "可核验材料、来源或链接";
+  if (category === "responsibility") return "实际负责的任务、方法和结果";
+  if (category === "experience_depth") return "对应项目或工作经历、时间和交付结果";
+  return "真实经历、使用场景和结果证据";
 }
 
 // 检测通用前缀（这些前缀不增加价值，只是机械地添加）

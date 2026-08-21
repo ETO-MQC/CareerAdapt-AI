@@ -26,6 +26,7 @@ import type {
   CareerProfile,
   CapabilityEntity,
   ClaimConfirmation,
+  CanonicalResumeTailoringPlan,
   JobCoverageReportV2,
   JobDescription,
   ResumeBranch,
@@ -34,11 +35,18 @@ import type {
   TailoringClaim,
   TailoringAction,
   TailoringClarificationQuestion,
+  TailoringQuestionAnswerReceipt,
   TailoringQuestionPlan,
   TailoringIntensity,
   TailoringSuggestion
 } from "@/domain/schemas";
-import { ClarificationAnswerRecordSchema, ResumeTailoringPlanSchema, TailoringQuestionPlanSchema, TailoringSuggestionSchema } from "@/domain/schemas";
+import {
+  ClarificationAnswerRecordSchema,
+  ResumeTailoringPlanSchema,
+  TailoringQuestionAnswerReceiptSchema,
+  TailoringQuestionPlanSchema,
+  TailoringSuggestionSchema
+} from "@/domain/schemas";
 import { resolveBranchFactRefs } from "@/domain/branch/validation";
 import { stableHashText } from "@/services/security/text";
 import type { WorkspaceRepository } from "@/services/storage/repositories";
@@ -226,6 +234,10 @@ export function withPlannerActions(input: { plan: ResumeTailoringPlan; assessmen
       return {
         id: `planner-clarification-${assessment.itemId}-${index}`,
         question: questionText,
+        requirementText: questionText,
+        requirementCategory: capability?.type ?? "planner_clarification",
+        requirementPriority: assessment.relatedRequirementIds.length ? "high" : "medium",
+        evidenceNeed: "请提供真实经历、使用场景和结果证据",
         requirementIds: assessment.relatedRequirementIds,
         sourceItemIds: [assessment.itemId],
         relatedItemIds: [assessment.itemId],
@@ -273,18 +285,41 @@ export function clarificationAnswerTypeFromAssessment(questionText: string, capa
   return capabilityAllowsProficiency(capability) ? "proficiency" : "boolean";
 }
 
-export function answerTailoringClarification(input: { plan: ResumeTailoringPlan; question: TailoringClarificationQuestion; answer: string | string[] | boolean; proficiency?: ClaimConfirmation["proficiency"]; branch?: ResumeBranch; operationId?: string; now?: string }) {
-  const normalizedAnswer = typeof input.answer === "string" ? input.answer.trim() : input.answer;
-  const skipped = typeof normalizedAnswer === "string" && /^(?:跳过|不确定)$/.test(normalizedAnswer);
-  const rejected = normalizedAnswer === false
+export type TailoringQuestionAnswerDisposition = "answered" | "none" | "uncertain" | "skipped";
+
+export function classifyTailoringQuestionAnswer(answer: string | string[] | boolean): TailoringQuestionAnswerDisposition {
+  const normalizedAnswer = typeof answer === "string" ? answer.trim() : answer;
+  if (typeof normalizedAnswer === "string" && normalizedAnswer === "跳过") return "skipped";
+  if (typeof normalizedAnswer === "string" && normalizedAnswer === "不确定") return "uncertain";
+  if (normalizedAnswer === false
     || (typeof normalizedAnswer === "string" && /^(?:没有|没有使用|不具备|不添加|否|无)$/.test(normalizedAnswer))
-    || (Array.isArray(normalizedAnswer) && normalizedAnswer.length === 0);
+    || (Array.isArray(normalizedAnswer) && normalizedAnswer.length === 0)) return "none";
+  return "answered";
+}
+
+export function answerTailoringClarification(input: {
+  plan: ResumeTailoringPlan;
+  question: TailoringClarificationQuestion;
+  answer: string | string[] | boolean;
+  proficiency?: ClaimConfirmation["proficiency"];
+  branch?: ResumeBranch;
+  operationId?: string;
+  answerMessageId?: string;
+  now?: string;
+}): CanonicalResumeTailoringPlan {
+  const normalizedAnswer = typeof input.answer === "string" ? input.answer.trim() : input.answer;
+  const disposition = classifyTailoringQuestionAnswer(input.answer);
+  const skipped = disposition === "skipped";
+  const uncertain = disposition === "uncertain";
+  const rejected = disposition === "none";
   const previous = input.plan.clarificationAnswers?.find((record) => record.questionId === input.question.id);
-  if (previous?.operationId && input.operationId && previous.operationId === input.operationId) return input.plan;
+  if (previous?.operationId && input.operationId && previous.operationId === input.operationId) {
+    return ResumeTailoringPlanSchema.parse(input.plan);
+  }
   const resolvedAt = input.now ?? new Date().toISOString();
   const answerRecord = ClarificationAnswerRecordSchema.parse({
     questionId: input.question.id,
-    status: skipped ? "skipped" : rejected ? "rejected" : "accepted",
+    status: skipped ? "skipped" : uncertain ? "uncertain" : rejected ? "rejected" : "accepted",
     answer: skipped ? undefined : input.answer,
     proficiency: input.proficiency,
     evidenceQuote: typeof normalizedAnswer === "string" ? normalizedAnswer : undefined,
@@ -293,16 +328,30 @@ export function answerTailoringClarification(input: { plan: ResumeTailoringPlan;
     resolvedAt
   });
   const withAnswerRecord = (plan: ResumeTailoringPlan) => {
-    const questionPlan = advanceTailoringQuestionPlan(plan.questionPlan, input.question.id, skipped, resolvedAt);
+    const questionPlan = advanceTailoringQuestionPlan(plan.questionPlan, input.question.id, disposition, resolvedAt);
     const clarificationAnswers = [
       ...(plan.clarificationAnswers ?? []).filter((record) => record.questionId !== input.question.id),
       answerRecord
+    ];
+    const receipt: TailoringQuestionAnswerReceipt = TailoringQuestionAnswerReceiptSchema.parse({
+      questionPlanId: plan.questionPlan?.id ?? "tailoring-question-plan-legacy",
+      questionPlanRevision: plan.questionPlan?.revision ?? 1,
+      questionId: input.question.id,
+      answerMessageId: input.answerMessageId ?? `tailoring-answer-${input.operationId ?? input.question.id}`,
+      disposition,
+      answerText: answerTextForReceipt(input.answer),
+      consumedAt: resolvedAt
+    });
+    const answerReceipts = [
+      ...(plan.answerReceipts ?? []).filter((item) => item.questionId !== input.question.id),
+      receipt
     ];
     const answerRevisionHash = tailoringAnswerRevisionHash({ clarificationAnswers });
     return ResumeTailoringPlanSchema.parse({
       ...plan,
       diffs: previous ? [] : plan.diffs,
       clarificationAnswers,
+      answerReceipts,
       generationStatus: previous ? "ready_for_regeneration" : plan.generationStatus,
       answerRevisionHash,
       ...(previous ? {
@@ -325,7 +374,7 @@ export function answerTailoringClarification(input: { plan: ResumeTailoringPlan;
       questionPlan
     });
   };
-  if (rejected || skipped) return withAnswerRecord(input.plan);
+  if (rejected || skipped || uncertain) return withAnswerRecord(input.plan);
   if (input.question.targetPolicy === "material_only") return withAnswerRecord(input.plan);
   const answerText = Array.isArray(input.answer) ? input.answer.join("、") : String(input.answer);
   const answerCapabilities = resolveCapabilityEntities({ userAnswers: Array.isArray(input.answer) ? input.answer : [answerText] });
@@ -391,6 +440,145 @@ export function answerTailoringClarification(input: { plan: ResumeTailoringPlan;
   return withAnswerRecord(ResumeTailoringPlanSchema.parse({ ...input.plan, claims }));
 }
 
+/**
+ * Consume a presented question at the workflow boundary. The normal path
+ * uses the typed tailoring plan; the small projection fallback keeps older
+ * persisted host snapshots readable until their next canonical tool result.
+ */
+export function consumeTailoringQuestionAnswer(input: {
+  session: Record<string, unknown>;
+  questionId: string;
+  answer: string | string[] | boolean;
+  answerMessageId: string;
+  proficiency?: ClaimConfirmation["proficiency"];
+  branch?: ResumeBranch;
+  operationId?: string;
+  now?: string;
+}): { session: Record<string, unknown>; receipt: TailoringQuestionAnswerReceipt; changed: boolean } {
+  const tailoringPlan = rawRecord(input.session.plan);
+  const questionPlan = rawRecord(tailoringPlan.questionPlan);
+  const questions = rawRecords(tailoringPlan.clarificationQuestions);
+  const question = questions.find((item) => item.id === input.questionId);
+  if (!question) throw new Error("tailoring_question_not_found");
+  const previousAnswer = rawRecords(tailoringPlan.clarificationAnswers).find((item) => item.questionId === input.questionId);
+  const previousReceipt = rawRecords(tailoringPlan.answerReceipts).find((item) => item.questionId === input.questionId);
+  if (previousReceipt?.answerMessageId === input.answerMessageId) {
+    return {
+      session: input.session,
+      receipt: TailoringQuestionAnswerReceiptSchema.parse(previousReceipt),
+      changed: false
+    };
+  }
+  const activeQuestionId = typeof questionPlan.activeQuestionId === "string" ? questionPlan.activeQuestionId : undefined;
+  if (activeQuestionId !== input.questionId && !previousAnswer && !previousReceipt) {
+    throw new Error("tailoring_question_not_active");
+  }
+
+  const parsedPlan = ResumeTailoringPlanSchema.safeParse(tailoringPlan);
+  if (parsedPlan.success) {
+    const typedQuestion = parsedPlan.data.clarificationQuestions?.find((item) => item.id === input.questionId);
+    if (!typedQuestion) throw new Error("tailoring_question_not_found");
+    const plan = answerTailoringClarification({
+      plan: parsedPlan.data,
+      question: typedQuestion,
+      answer: input.answer,
+      proficiency: input.proficiency,
+      branch: input.branch,
+      operationId: input.operationId,
+      answerMessageId: input.answerMessageId,
+      now: input.now
+    });
+    const receipt = plan.answerReceipts.find((item) => item.questionId === input.questionId);
+    if (!receipt) throw new Error("tailoring_question_receipt_missing");
+    return {
+      session: { ...input.session, plan, revision: (numberValue(input.session.revision) ?? 1) + (plan === parsedPlan.data ? 0 : 1) },
+      receipt,
+      changed: plan !== parsedPlan.data
+    };
+  }
+
+  const now = input.now ?? new Date().toISOString();
+  const disposition = classifyTailoringQuestionAnswer(input.answer);
+  const questionIds = rawStringArray(questionPlan.questionIds);
+  const currentAnswered = rawStringArray(questionPlan.answeredQuestionIds).filter((id) => id !== input.questionId);
+  const currentSkipped = rawStringArray(questionPlan.skippedQuestionIds).filter((id) => id !== input.questionId);
+  const currentUncertain = rawStringArray(questionPlan.uncertainQuestionIds).filter((id) => id !== input.questionId);
+  const answeredQuestionIds = disposition === "answered" || disposition === "none"
+    ? [...new Set([...currentAnswered, input.questionId])]
+    : currentAnswered;
+  const skippedQuestionIds = disposition === "skipped"
+    ? [...new Set([...currentSkipped, input.questionId])]
+    : currentSkipped;
+  const uncertainQuestionIds = disposition === "uncertain"
+    ? [...new Set([...currentUncertain, input.questionId])]
+    : currentUncertain;
+  const resolvedIds = new Set([...answeredQuestionIds, ...skippedQuestionIds, ...uncertainQuestionIds]);
+  const editingResolved = Boolean(previousAnswer || previousReceipt);
+  const nextQuestionId = editingResolved
+    ? activeQuestionId
+    : questionIds.find((id) => !resolvedIds.has(id));
+  const questionPlanRevision = numberValue(questionPlan.revision) ?? 1;
+  const receipt = TailoringQuestionAnswerReceiptSchema.parse({
+    questionPlanId: typeof questionPlan.id === "string" ? questionPlan.id : "tailoring-question-plan-legacy",
+    questionPlanRevision,
+    questionId: input.questionId,
+    answerMessageId: input.answerMessageId,
+    disposition,
+    answerText: answerTextForReceipt(input.answer),
+    consumedAt: now
+  });
+  const priorAnswerRevision = numberValue(previousAnswer?.answerRevision) ?? 0;
+  const answerRecord = {
+    questionId: input.questionId,
+    status: disposition === "skipped" ? "skipped" : disposition === "uncertain" ? "uncertain" : disposition === "none" ? "rejected" : "accepted",
+    ...(disposition === "skipped" ? {} : { answer: input.answer }),
+    ...(typeof input.answer === "string" ? { evidenceQuote: input.answer.trim() || undefined } : {}),
+    answerRevision: priorAnswerRevision + 1,
+    ...(input.operationId && input.operationId.length >= 8 ? { operationId: input.operationId } : {}),
+    resolvedAt: now
+  };
+  const nextPlan = {
+    ...tailoringPlan,
+    clarificationAnswers: [
+      ...rawRecords(tailoringPlan.clarificationAnswers).filter((item) => item.questionId !== input.questionId),
+      answerRecord
+    ],
+    answerReceipts: [
+      ...rawRecords(tailoringPlan.answerReceipts).filter((item) => item.questionId !== input.questionId),
+      receipt
+    ],
+    clarificationQuestions: questions.map((item) => item.id === input.questionId
+      ? {
+          ...item,
+          status: disposition === "skipped" ? "skipped" : "answered",
+          ...(disposition === "skipped" ? { answer: undefined } : { answer: input.answer }),
+          ...(typeof input.answer === "string" ? { evidenceQuote: input.answer.trim() || undefined } : {}),
+          answeredAt: now,
+          updatedAt: now
+        }
+      : item.id === nextQuestionId ? { ...item, status: "active", updatedAt: now } : item),
+    questionPlan: {
+      ...questionPlan,
+      revision: questionPlanRevision + 1,
+      status: nextQuestionId ? "asking" : "ready_for_generation",
+      activeQuestionId: nextQuestionId,
+      answeredQuestionIds,
+      skippedQuestionIds,
+      uncertainQuestionIds,
+      completedAt: nextQuestionId ? undefined : now
+    }
+  };
+  return {
+    session: {
+      ...input.session,
+      plan: nextPlan,
+      revision: (numberValue(input.session.revision) ?? 1) + 1
+    },
+    receipt,
+    changed: true
+  };
+}
+
 /** Stable input marker for generated diffs. It includes answer revisions so an edit
  * cannot accidentally reuse a preview generated from an earlier answer. */
 export function tailoringAnswerRevisionHash(plan: Pick<ResumeTailoringPlan, "clarificationAnswers">) {
@@ -404,6 +592,30 @@ export function tailoringAnswerRevisionHash(plan: Pick<ResumeTailoringPlan, "cla
       answerRevision: answer.answerRevision
     }));
   return stableHashText(JSON.stringify(answers));
+}
+
+function answerTextForReceipt(answer: string | string[] | boolean) {
+  if (typeof answer === "string") return answer.trim() || undefined;
+  if (Array.isArray(answer)) return answer.join("、").trim() || undefined;
+  return answer ? "有" : "没有";
+}
+
+function rawRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function rawRecords(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? value.map(rawRecord).filter((item) => Object.keys(item).length > 0) : [];
+}
+
+function rawStringArray(value: unknown) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function numberValue(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 function clarificationFallbackClaim(branch: ResumeBranch, question: TailoringClarificationQuestion): TailoringClaim | undefined {
@@ -599,10 +811,13 @@ export function confirmTailoringClaims(input: { plan: ResumeTailoringPlan; confi
 
 export function buildClarificationQuestions(input: { job: JobDescription; taskInputs: ResumeTailorTaskInputV2[] }) {
   const graph = buildCanonicalJobRequirementGraphV3(input.job);
-  const candidates = graph.requirements.filter((node) => node.priority === "must" || node.priority === "high");
+  const candidates = graph.requirements
+    .filter((node) => node.priority === "must" || node.priority === "high")
+    .filter((node) => isMaterialTailoringRequirement(node.statement));
   const emittedAnyOfGroups = new Set<string>();
   const fallbackTargets = input.taskInputs.filter((item) => ["summary", "skills", "project", "work", "internship"].includes(item.target.sectionType)).slice(0, 4);
   const questions = candidates.flatMap((requirement, index) => {
+    const requirementText = requirement.statement.trim();
     const group = requirement.parentGroupId ? graph.groups.find((item) => item.id === requirement.parentGroupId) : undefined;
     if (group?.relation === "any_of") {
       if (emittedAnyOfGroups.has(group.id)) return [];
@@ -627,7 +842,7 @@ export function buildClarificationQuestions(input: { job: JobDescription; taskIn
     if (!sourceItemIds.length || !targetFieldPaths.length) return [];
     const entities = resolveCapabilityEntities({
       job: input.job,
-      requirements: [requirement.statement],
+      requirements: [requirementText],
       keywords: requirement.exactKeywords
     });
     const capability = pickProficiencyCapability(entities) ?? entities.find((item) => item.source === "requirement");
@@ -642,7 +857,7 @@ export function buildClarificationQuestions(input: { job: JobDescription; taskIn
           : singleTarget
             ? "specific_item" as const
             : capabilityAllowsProficiency(capability) ? "skill_once" as const : "summary_once" as const;
-    const inferredAnswerType = clarificationAnswerType(requirement.statement, capability);
+    const inferredAnswerType = clarificationAnswerType(requirementText, capability);
     const expectedImpact = related.some((item) => item.target.sectionType === "summary")
       ? "summary" as const
       : related.some((item) => item.target.sectionType === "skills")
@@ -650,22 +865,26 @@ export function buildClarificationQuestions(input: { job: JobDescription; taskIn
         : related.some((item) => item.target.sectionType === "project")
           ? "project" as const
           : "multiple" as const;
-    const capabilityCluster = inferCapabilityCluster(requirement.statement, capability?.normalizedLabel);
+    const capabilityCluster = inferCapabilityCluster(requirementText, capability?.normalizedLabel);
     return [{
       id: `clarification-${requirement.id}-${index + 1}`,
-      question: group?.relation === "any_of" ? `以下 ${group.requirementIds.length} 项满足任一项即可；你具备其中哪一项真实经历或可核验材料？` : `你是否具备"${requirement.statement}"相关的真实经历或可核验材料？`,
-      shortLabel: shortQuestionLabel(requirement.statement),
+      question: group?.relation === "any_of" ? `以下 ${group.requirementIds.length} 项满足任一项即可；你具备其中哪一项真实经历或可核验材料？` : `你是否具备"${requirementText}"相关的真实经历或可核验材料？`,
+      requirementText,
+      requirementCategory: requirement.kind,
+      requirementPriority: requirement.priority,
+      evidenceNeed: evidenceNeedForRequirement(requirement.kind, requirementText),
+      shortLabel: shortQuestionLabel(requirementText),
       requirementIds: group?.relation === "any_of" ? group.requirementIds : [requirement.id],
       groupId: requirement.parentGroupId,
       sourceItemIds,
       relatedItemIds: sourceItemIds,
-      candidateClaim: requirement.statement,
+      candidateClaim: requirementText,
       targetFieldPaths,
       capability,
       capabilityCluster,
       targetPolicy,
       answerType: inferredAnswerType === "proficiency" && !capabilityAllowsProficiency(capability) ? "text" as const : inferredAnswerType,
-      options: defaultQuestionOptions(inferredAnswerType, isEvidenceFirstQuestion(requirement.statement)),
+      options: defaultQuestionOptions(inferredAnswerType, isEvidenceFirstQuestion(requirementText)),
       expectedImpact,
       priorityScore: (requirement.priority === "must" ? 50 : 35) + requirement.exactKeywords.length + (expectedImpact === "summary" ? 20 : expectedImpact === "skills" ? 16 : 8),
       status: "pending" as const,
@@ -673,6 +892,20 @@ export function buildClarificationQuestions(input: { job: JobDescription; taskIn
     }];
   });
   return selectHighValueClarificationQuestions(dedupeClarificationQuestions(questions, input.job.id), 3);
+}
+
+function isMaterialTailoringRequirement(statement: string) {
+  const normalized = statement.trim();
+  if (normalized.length < 8) return false;
+  return !/^(?:我想|我要|希望|请帮我)?\s*(?:应聘|申请|投递)\s*(?:这个|该|目标)?\s*(?:岗位|职位)\s*(?:[:：].*)?$/u.test(normalized);
+}
+
+function evidenceNeedForRequirement(category: string, statement: string) {
+  if (category === "tool_or_technology") return "请提供实际使用场景、项目范围和可核验结果";
+  if (category === "verification" || /作品集|仓库|链接|材料|证据|可核验/u.test(statement)) return "请提供可核验材料、来源或链接";
+  if (category === "responsibility") return "请提供你实际负责的任务、方法和结果";
+  if (category === "experience_depth") return "请提供对应项目或工作经历、时间和交付结果";
+  return "请提供真实经历、使用场景和结果证据";
 }
 
 export function clarificationAnswerType(statement: string, capability?: CapabilityEntity): "boolean" | "proficiency" | "text" | "url" | "multi_select" {
@@ -754,6 +987,7 @@ export function createTailoringQuestionPlan(input: {
     activeQuestionId: questionIds[0],
     answeredQuestionIds: [],
     skippedQuestionIds: [],
+    uncertainQuestionIds: [],
     createdAt: now,
     frozenAt: now,
     completedAt: questionIds.length ? undefined : now
@@ -768,19 +1002,24 @@ export function getActiveTailoringQuestion(plan: Pick<ResumeTailoringPlan, "ques
 function advanceTailoringQuestionPlan(
   questionPlan: TailoringQuestionPlan | undefined,
   questionId: string,
-  skipped: boolean,
+  disposition: TailoringQuestionAnswerDisposition,
   now: string
 ) {
   if (!questionPlan) return undefined;
-  const editingResolved = questionPlan.answeredQuestionIds.includes(questionId) || questionPlan.skippedQuestionIds.includes(questionId);
+  const editingResolved = questionPlan.answeredQuestionIds.includes(questionId)
+    || questionPlan.skippedQuestionIds.includes(questionId)
+    || questionPlan.uncertainQuestionIds.includes(questionId);
   if (questionPlan.activeQuestionId !== questionId && !editingResolved) throw new Error("tailoring_question_not_active");
-  const answeredQuestionIds = skipped
-    ? questionPlan.answeredQuestionIds.filter((id) => id !== questionId)
-    : [...new Set([...questionPlan.answeredQuestionIds.filter((id) => id !== questionId), questionId])];
-  const skippedQuestionIds = skipped
+  const answeredQuestionIds = disposition === "answered" || disposition === "none"
+    ? [...new Set([...questionPlan.answeredQuestionIds.filter((id) => id !== questionId), questionId])]
+    : questionPlan.answeredQuestionIds.filter((id) => id !== questionId);
+  const skippedQuestionIds = disposition === "skipped"
     ? [...new Set([...questionPlan.skippedQuestionIds.filter((id) => id !== questionId), questionId])]
     : questionPlan.skippedQuestionIds.filter((id) => id !== questionId);
-  const resolved = new Set([...answeredQuestionIds, ...skippedQuestionIds]);
+  const uncertainQuestionIds = disposition === "uncertain"
+    ? [...new Set([...questionPlan.uncertainQuestionIds.filter((id) => id !== questionId), questionId])]
+    : questionPlan.uncertainQuestionIds.filter((id) => id !== questionId);
+  const resolved = new Set([...answeredQuestionIds, ...skippedQuestionIds, ...uncertainQuestionIds]);
   const activeQuestionId = editingResolved
     ? questionPlan.activeQuestionId
     : questionPlan.questionIds.find((id) => !resolved.has(id));
@@ -791,6 +1030,7 @@ function advanceTailoringQuestionPlan(
     activeQuestionId,
     answeredQuestionIds,
     skippedQuestionIds,
+    uncertainQuestionIds,
     completedAt: activeQuestionId ? undefined : now
   });
 }

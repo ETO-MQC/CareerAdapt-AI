@@ -1887,6 +1887,8 @@ function captureTailoringTruth(state: AgentTaskState, observation: unknown) {
   state.knownSlots.selectedQuestionId = state.knownSlots.selectedQuestionId ?? questionPlan.activeQuestionId;
   state.knownSlots.answeredQuestionIds = Array.isArray(questionPlan.answeredQuestionIds) ? questionPlan.answeredQuestionIds : [];
   state.knownSlots.skippedQuestionIds = Array.isArray(questionPlan.skippedQuestionIds) ? questionPlan.skippedQuestionIds : [];
+  state.knownSlots.uncertainQuestionIds = Array.isArray(questionPlan.uncertainQuestionIds) ? questionPlan.uncertainQuestionIds : [];
+  state.knownSlots.tailoringQuestionAnswerReceipts = Array.isArray(plan.answerReceipts) ? plan.answerReceipts : [];
   const diffs = Array.isArray(plan.diffs) ? plan.diffs.map(objectValue) : [];
   const reviews = Array.isArray(plan.diffReviews) ? plan.diffReviews.map(objectValue) : [];
   const reviewById = new Map(reviews.flatMap((review) =>

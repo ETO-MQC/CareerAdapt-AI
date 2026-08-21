@@ -126,13 +126,24 @@ export const TailoringGapSchema = z.object({
 
 export const ClarificationAnswerRecordSchema = z.object({
   questionId: z.string().min(1),
-  status: z.enum(["accepted", "rejected", "skipped"]),
+  status: z.enum(["accepted", "rejected", "uncertain", "skipped"]),
   answer: z.union([z.string(), z.array(z.string()), z.boolean()]).optional(),
   proficiency: SkillProficiencySchema.optional(),
   evidenceQuote: z.string().min(1).optional(),
   answerRevision: z.number().int().min(1).default(1),
   operationId: z.string().min(8).max(160).optional(),
   resolvedAt: z.string().datetime({ offset: true })
+}).strict();
+
+/** Durable ledger entry for one consumed tailoring question. */
+export const TailoringQuestionAnswerReceiptSchema = z.object({
+  questionPlanId: z.string().min(1),
+  questionPlanRevision: z.number().int().min(1),
+  questionId: z.string().min(1),
+  answerMessageId: z.string().min(1),
+  disposition: z.enum(["answered", "none", "uncertain", "skipped"]),
+  answerText: z.string().min(1).optional(),
+  consumedAt: z.string().datetime({ offset: true })
 }).strict();
 
 export const TailoringDiffReviewSchema = z.object({
@@ -162,6 +173,8 @@ export const TailoringRequirementSchema = z.object({
   requirementId: z.string().min(1),
   description: z.string().min(1),
   priority: z.string().min(1),
+  category: z.string().min(1).optional(),
+  evidenceNeed: z.string().min(1).optional(),
   keywords: z.array(z.string().min(1)).default([]),
   relevanceScore: z.number().min(0)
 }).strict();
@@ -326,6 +339,10 @@ export const TailoringClaimSchema = z.object({
 export const TailoringClarificationQuestionSchema = z.object({
   id: z.string().min(1),
   question: z.string().min(1),
+  requirementText: z.string().min(1).optional(),
+  requirementCategory: z.string().min(1).optional(),
+  requirementPriority: z.string().min(1).optional(),
+  evidenceNeed: z.string().min(1).optional(),
   shortLabel: z.string().min(1).optional(),
   requirementIds: z.array(z.string().min(1)).min(1),
   groupId: z.string().min(1).optional(),
@@ -370,6 +387,7 @@ export const TailoringQuestionPlanSchema = z.object({
   activeQuestionId: z.string().min(1).optional(),
   answeredQuestionIds: z.array(z.string().min(1)).max(5).default([]),
   skippedQuestionIds: z.array(z.string().min(1)).max(5).default([]),
+  uncertainQuestionIds: z.array(z.string().min(1)).max(5).default([]),
   createdAt: z.string().datetime({ offset: true }),
   frozenAt: z.string().datetime({ offset: true }).optional(),
   completedAt: z.string().datetime({ offset: true }).optional()
@@ -379,6 +397,18 @@ export const TailoringQuestionPlanSchema = z.object({
   }
   if (plan.activeQuestionId && !plan.questionIds.includes(plan.activeQuestionId)) {
     context.addIssue({ code: "custom", path: ["activeQuestionId"], message: "active question must belong to the frozen plan" });
+  }
+  const resolvedIds = new Set([
+    ...plan.answeredQuestionIds,
+    ...plan.skippedQuestionIds,
+    ...plan.uncertainQuestionIds
+  ]);
+  if (plan.activeQuestionId && resolvedIds.has(plan.activeQuestionId)) {
+    context.addIssue({ code: "custom", path: ["activeQuestionId"], message: "active question must not already be resolved" });
+  }
+  if (new Set([...plan.answeredQuestionIds, ...plan.skippedQuestionIds, ...plan.uncertainQuestionIds]).size
+    !== plan.answeredQuestionIds.length + plan.skippedQuestionIds.length + plan.uncertainQuestionIds.length) {
+    context.addIssue({ code: "custom", path: ["answeredQuestionIds"], message: "a question may have only one terminal disposition" });
   }
 });
 
@@ -406,6 +436,7 @@ export const ResumeTailoringPlanSchema = z.object({
   }).strict()).optional(),
   clarificationQuestions: z.array(TailoringClarificationQuestionSchema).optional(),
   clarificationAnswers: z.array(ClarificationAnswerRecordSchema).optional(),
+  answerReceipts: z.array(TailoringQuestionAnswerReceiptSchema).default([]),
   questionPlan: TailoringQuestionPlanSchema.optional(),
   generationStatus: TailoringGenerationStatusSchema.optional(),
   answerRevisionHash: z.string().min(1).optional(),
@@ -420,7 +451,15 @@ export const ResumeTailoringPlanSchema = z.object({
   invalidOutputCodes: z.array(z.enum(["invalid_ai_output", "no_change_needed"])).optional(),
   estimatedFitScore: z.number().min(0).max(100),
   createdAt: z.string().datetime({ offset: true })
-}).strict();
+}).strict().superRefine((plan, context) => {
+  const receiptQuestionIds = plan.answerReceipts.map((receipt) => receipt.questionId);
+  if (new Set(receiptQuestionIds).size !== receiptQuestionIds.length) {
+    context.addIssue({ code: "custom", path: ["answerReceipts"], message: "only one answer receipt is allowed per question" });
+  }
+  if (plan.questionPlan && plan.answerReceipts.some((receipt) => !plan.questionPlan!.questionIds.includes(receipt.questionId))) {
+    context.addIssue({ code: "custom", path: ["answerReceipts"], message: "answer receipt must belong to the frozen plan" });
+  }
+});
 
 export const ClaimConfirmationSchema = z.object({
   claimId: z.string().min(1),
@@ -460,22 +499,26 @@ export type TailoringDiffReview = z.infer<typeof TailoringDiffReviewSchema>;
 export type TailoringDiffRejectionReason = z.infer<typeof TailoringDiffRejectionReasonSchema>;
 export type TailoringGap = z.infer<typeof TailoringGapSchema>;
 export type ClarificationAnswerRecord = z.infer<typeof ClarificationAnswerRecordSchema>;
+export type TailoringQuestionAnswerReceipt = z.infer<typeof TailoringQuestionAnswerReceiptSchema>;
 export type TailoringQuestionPlan = z.infer<typeof TailoringQuestionPlanSchema>;
 export type TailoringGenerationStatus = z.infer<typeof TailoringGenerationStatusSchema>;
 export type ConfirmableClaim = z.infer<typeof ConfirmableClaimSchema>;
 export type TailoringClaim = z.infer<typeof TailoringClaimSchema>;
 export type TailoringClarificationQuestion = z.infer<typeof TailoringClarificationQuestionSchema>;
 type ParsedResumeTailoringPlan = z.infer<typeof ResumeTailoringPlanSchema>;
+export type CanonicalResumeTailoringPlan = ParsedResumeTailoringPlan;
 export type ResumeTailoringPlan = Omit<ParsedResumeTailoringPlan,
   | "generationStatus"
   | "answerRevisionHash"
   | "generatedDiffsBasedOnQuestionPlanRevision"
   | "generatedDiffsBasedOnAnswerRevisionHash"
+  | "answerReceipts"
 > & {
   generationStatus?: TailoringGenerationStatus;
   answerRevisionHash?: string;
   generatedDiffsBasedOnQuestionPlanRevision?: number;
   generatedDiffsBasedOnAnswerRevisionHash?: string;
+  answerReceipts?: TailoringQuestionAnswerReceipt[];
 };
 export type ClaimConfirmation = z.infer<typeof ClaimConfirmationSchema>;
 

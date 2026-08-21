@@ -26,7 +26,7 @@ import {
   type CareerProfileCandidate,
   type CareerResumeCandidate
 } from "../runtime/careerContextBindingResolver";
-import { isCredibleExternalTargetText } from "../runtime/currentTurnUserMessage";
+import { isCredibleExternalTargetText, normalizeExternalJobTargetText } from "../runtime/currentTurnUserMessage";
 import { TARGET_REQUIRED_PROMPT } from "../runtime/workflowUserInputCheckpoint";
 
 export const CareerWorkflowStatusSchema = z.enum([
@@ -436,7 +436,7 @@ export function resolveTurnScopedTailoringInput(
   return {
     input: {
       ...input,
-      targetText: sourceUserMessage
+      targetText: normalizeExternalJobTargetText(sourceUserMessage)
     },
     sameTurnTarget: true
   };
@@ -458,7 +458,7 @@ async function executeTailoringResumeFacade(
   const targetInput = typeof input.targetText === "string"
     ? {
         type: "pasted_jd" as const,
-        text: input.targetText,
+        text: normalizeExternalJobTargetText(input.targetText),
         ...(typeof input.targetTitle === "string" ? { title: input.targetTitle } : {}),
         ...(typeof input.targetCompany === "string" ? { company: input.targetCompany } : {}),
         ...(typeof input.targetSourceUrl === "string" ? { sourceUrl: input.targetSourceUrl } : {}),

@@ -124,6 +124,7 @@ import {
   type RuntimeUserEvent
 } from "./RuntimeUserEvent";
 import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
+import { consumeTailoringQuestionAnswer } from "@/services/jobs/tailoringService";
 import { isTailoringQuestionPaused, normalizeTailoringStage } from "@/agent/workflows/tailoringStage";
 import {
   ResumeArtifactReceiptSchema,
@@ -923,7 +924,8 @@ export class AgentHostStore {
           turnId: prepared.turnId,
           userMessage: "",
           executionOwner: "deterministic_transition",
-          deterministicTransitionApplied: prepared.applied
+          deterministicTransitionApplied: prepared.applied,
+          deterministicTerminal: prepared.deterministicTerminal
         };
       }
       if (action.type === "retry_current_step") {
@@ -5933,7 +5935,7 @@ export class AgentHostStore {
   private async applyRuntimeAnswer(
     session: AgentSession,
     action: Extract<AgentOption["action"], { type: "answer" }>
-  ): Promise<{ session: AgentSession; turnId: string; applied: boolean }> {
+  ): Promise<{ session: AgentSession; turnId: string; applied: boolean; deterministicTerminal?: boolean }> {
     if (action.field === "profile-intake-section") {
       return { session, turnId: `agent-turn-${crypto.randomUUID()}`, applied: false };
     }
@@ -5966,11 +5968,18 @@ export class AgentHostStore {
         optionValue: answerValue
       }
     });
-    // Text answers and semantic answer buttons share the same reducer/action
-    // contract. Tailoring-question buttons are handled by the existing
-    // compound-answer path in the native continuation, so they must retain
-    // the question context until that path executes the answer tool.
-    if (current.taskState && !action.field.startsWith("tailoring-question:")) {
+    const tailoringQuestionProjection = action.field.startsWith("tailoring-question:")
+      ? getActiveTailoringQuestionProjection(session)
+      : undefined;
+    if (tailoringQuestionProjection) {
+      current = this.consumeTailoringQuestionAnswerLocally(
+        current,
+        tailoringQuestionProjection,
+        answerValue as string | string[] | boolean,
+        userMessageId,
+        now
+      );
+    } else if (current.taskState) {
       const taskState = new AgentTaskStateReducer().reduce(current.taskState, {
         type: "user_message",
         message: text,
@@ -5995,13 +6004,19 @@ export class AgentHostStore {
         finalRuntime: current.activeTurn?.finalRuntime ?? "native",
         fallbackUsed: current.activeTurn?.fallbackUsed ?? false,
         executionOwner: "deterministic_transition",
-        status: "running",
-        startedAt: now
+        status: tailoringQuestionProjection ? "waiting_for_user" : "running",
+        startedAt: now,
+        completedAt: tailoringQuestionProjection ? now : undefined
       }
     };
+    if (tailoringQuestionProjection && current.taskState) {
+      current = projectActiveTailoringQuestionToChat(current, current.taskState);
+    }
     const saved = await this.dependencies.persistence.save(current);
-    this.patchSession(saved);
-    return { session: saved, turnId, applied: true };
+    this.patchSession(saved, tailoringQuestionProjection
+      ? { turnStatus: "waiting_for_user", activeTurnId: turnId, currentObservation: { type: "tailoring_answer_consumed", message: "已记录，进入下一道问题。" } }
+      : undefined);
+    return { session: saved, turnId, applied: true, deterministicTerminal: Boolean(tailoringQuestionProjection) };
   }
 
   private async applyTailoringTextAnswer(
@@ -6019,7 +6034,7 @@ export class AgentHostStore {
       turnId,
       status: "complete",
       metadata: {
-        executionOwner: "runtime_continuation",
+        executionOwner: "deterministic_transition",
         answerPayload: true,
         tailoringQuestionId: projection.questionId,
         tailoringQuestionPlanId: projection.questionPlanId,
@@ -6027,19 +6042,13 @@ export class AgentHostStore {
         executionState: "running"
       }
     });
-    if (current.taskState) {
-      const taskState = normalizeAgentTaskState(new AgentTaskStateReducer().reduce(current.taskState, {
-        type: "user_message",
-        message: text,
-        sessionId: current.id,
-        messageId: userMessageId,
-        turnId,
-        capturedAt: now,
-        turnIntent: "continue_current_task"
-      }));
-      current = projectTaskStateIntoSession(current, taskState);
-      current = projectActiveTailoringQuestionToChat(current, taskState);
-    }
+    current = this.consumeTailoringQuestionAnswerLocally(
+      current,
+      projection,
+      text,
+      userMessageId,
+      now
+    );
     current = {
       ...current,
       activeTurn: {
@@ -6048,39 +6057,93 @@ export class AgentHostStore {
         sessionId: current.id,
         sourceUserMessageId: userMessageId,
         userMessageId,
-        runtimeId: "hermes",
-        preferredRuntime: "hermes",
-        attemptedRuntime: "hermes",
-        finalRuntime: "hermes",
+        runtimeId: undefined,
+        preferredRuntime: "native",
+        attemptedRuntime: "native",
+        finalRuntime: "native",
         fallbackUsed: false,
-        executionOwner: "runtime_continuation",
+        executionOwner: "deterministic_transition",
         visibleAssistantMessageId: undefined,
-        status: "running",
+        status: current.taskState?.completionStatus === "waiting_for_user" ? "waiting_for_user" : "completed",
         startedAt: now,
-        completedAt: undefined
+        completedAt: now
       }
     };
+    if (current.taskState) current = projectActiveTailoringQuestionToChat(current, current.taskState);
     const saved = await this.dependencies.persistence.save(current);
     this.patchSession(saved, {
-      turnStatus: "running",
+      turnStatus: current.activeTurn?.status === "waiting_for_user"
+        ? "waiting_for_user"
+        : current.activeTurn?.status === "waiting_for_confirmation"
+          ? "waiting_for_confirmation"
+          : current.activeTurn?.status === "failed"
+            ? "failed"
+            : "completed",
       activeTurnId: turnId,
-      currentObservation: { type: "tailoring_answer_accepted", message: "已收到，正在继续当前问题。" }
+      currentObservation: { type: "tailoring_answer_consumed", message: "已记录，进入下一道问题。" }
     });
     return {
       session: saved,
       event: { type: "text_message", text },
       turnId,
-      userMessage: text,
-      executionOwner: "runtime_continuation",
+      userMessage: "",
+      executionOwner: "deterministic_transition",
       deterministicTransitionApplied: true,
+      deterministicTerminal: true,
       prePersistedUserMessageId: userMessageId,
-      tailoringAnswerBinding: {
-        checkpointId: projection.tailoringSessionId,
-        questionId: projection.questionId,
-        questionPlanId: projection.questionPlanId,
-        questionPlanRevision: projection.questionPlanRevision,
-        answer: text
-      }
+      tailoringAnswerBinding: undefined
+    };
+  }
+
+  private consumeTailoringQuestionAnswerLocally(
+    session: AgentSession,
+    projection: TailoringQuestionProjection,
+    answer: string | string[] | boolean,
+    answerMessageId: string,
+    now: string
+  ) {
+    if (!session.taskState) throw new Error("tailoring_question_task_state_missing");
+    const tailoringSession = objectValue(session.taskState.knownSlots.tailoringSession);
+    const branch = tailoringSession.branch && typeof tailoringSession.branch === "object" && !Array.isArray(tailoringSession.branch)
+      ? tailoringSession.branch as never
+      : undefined;
+    const consumed = consumeTailoringQuestionAnswer({
+      session: tailoringSession,
+      questionId: projection.questionId,
+      answer,
+      answerMessageId,
+      branch,
+      operationId: `tailoring-answer-${answerMessageId}`,
+      now
+    });
+    const taskState = normalizeAgentTaskState(new AgentTaskStateReducer().reduce(session.taskState, {
+      type: "tool_observation",
+      toolName: "answer_tailoring_question",
+      observation: { session: consumed.session }
+    }));
+    let next = projectTaskStateIntoSession(session, taskState);
+    next = settleTailoringQuestionProjection(next, consumed.receipt, now);
+    return {
+      ...next,
+      messages: next.messages.map((message) => message.id === answerMessageId
+        ? {
+            ...message,
+            metadata: {
+              ...message.metadata,
+              executionOwner: "deterministic_transition",
+              answerPayload: true,
+              tailoringQuestionId: consumed.receipt.questionId,
+              tailoringQuestionPlanId: consumed.receipt.questionPlanId,
+              tailoringQuestionPlanRevision: consumed.receipt.questionPlanRevision,
+              tailoringAnswerReceipt: consumed.receipt,
+              executionState: "complete",
+              answerConsumedAt: consumed.receipt.consumedAt,
+              answerOperationId: `tailoring-answer-${answerMessageId}`
+            },
+            updatedAt: now
+          }
+        : message),
+      updatedAt: now
     };
   }
 
@@ -7855,11 +7918,46 @@ function supersedeActiveOptionSets(session: AgentSession) {
     messages: session.messages.map((message) => message.optionSet?.state === "active"
       ? {
           ...message,
-          options: undefined,
+          options: message.metadata?.tailoringQuestionProjection === true
+            ? message.options?.map((option) => ({ ...option, disabled: true }))
+            : undefined,
           optionSet: { ...message.optionSet, state: "superseded" as const, resolvedAt: now },
           updatedAt: now
         }
       : message)
+  };
+}
+
+function settleTailoringQuestionProjection(
+  session: AgentSession,
+  receipt: { questionPlanId: string; questionId: string; disposition: string; answerMessageId: string; consumedAt: string },
+  now: string
+) {
+  return {
+    ...session,
+    messages: session.messages.map((message) => {
+      const isQuestion = message.role === "assistant"
+        && message.metadata?.tailoringQuestionProjection === true
+        && message.metadata?.questionPlanId === receipt.questionPlanId
+        && message.metadata?.questionId === receipt.questionId;
+      if (!isQuestion) return message;
+      return {
+        ...message,
+        options: message.options?.map((option) => ({ ...option, disabled: true })),
+        optionSet: message.optionSet
+          ? { ...message.optionSet, state: "superseded" as const, resolvedAt: receipt.consumedAt }
+          : undefined,
+        metadata: {
+          ...message.metadata,
+          questionProjectionState: "resolved",
+          tailoringAnswerDisposition: receipt.disposition,
+          answerMessageId: receipt.answerMessageId,
+          answerConsumedAt: receipt.consumedAt
+        },
+        updatedAt: now
+      };
+    }),
+    updatedAt: now
   };
 }
 
@@ -8003,18 +8101,15 @@ export function projectActiveTailoringQuestionToChat(
         messages: projectionBase.messages.map((message) => message.id === existing.id
           ? {
               ...message,
-              id: projection.messageId,
-              turnId,
-              content: formatTailoringQuestionProjection(projection),
+              content: message.content || formatTailoringQuestionProjection(projection),
               kind: "text" as const,
               type: "text" as const,
               status: "complete" as const,
               streaming: false,
               options: projection.options.length ? projection.options : undefined,
               optionSet: projection.options.length
-                ? activeOptionSetForMessage(projectionBase, projection.messageId, "tailoring-question")
+                ? activeOptionSetForMessage(projectionBase, existing.id, "tailoring-question")
                 : undefined,
-              parentMessageId: userMessageId,
               metadata: { ...message.metadata, ...stableMetadata, retracted: false },
               updatedAt: now
             }
@@ -8037,7 +8132,7 @@ export function projectActiveTailoringQuestionToChat(
           metadata: stableMetadata
         }
       );
-  return existing ? withActiveBranchHead(current, projection.messageId) : current;
+  return existing ? withActiveBranchHead(current, existing.id) : current;
 }
 
 function formatTailoringQuestionProjection(projection: TailoringQuestionProjection) {

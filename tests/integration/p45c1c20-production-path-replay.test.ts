@@ -252,7 +252,7 @@ describe("P4.5c.1.20 production golden journey replay", () => {
     ]) expect(completeness[field]).toBeDefined();
   });
 
-  it("derives one waiting checkpoint and consumes the persisted text answer once", async () => {
+  it("derives one checkpoint and consumes the persisted text answer without Hermes", async () => {
     const host = new AgentHostStore({
       kernel: {} as never,
       executor: {} as never,
@@ -271,34 +271,17 @@ describe("P4.5c.1.20 production golden journey replay", () => {
       message.role === "user" && message.metadata?.answerPayload === true
     );
     expect(answer).toMatchObject({ content: "有的", turnId: prepared.turnId });
-    expect(prepared.tailoringAnswerBinding).toMatchObject({
-      checkpointId: "tailoring-session-1",
-      questionId: "q-1",
-      answer: "有的"
-    });
-
-    host.adopt(prepared.session);
-    const continuation = await host.beginRuntimeShell({
-      session: prepared.session,
-      userMessage: "",
-      runtimeId: "hermes",
-      appendUserMessage: false
-    });
-    const answered = tailoringSessionWithoutActiveQuestion();
-    await host.applyRuntimeEvent({
-      type: "tool_call_completed",
-      sessionId: continuation.session.id,
-      turnId: continuation.turnId,
-      timestamp: new Date().toISOString(),
-      toolName: "answer_tailoring_question",
-      operationId: "answer-once-1",
-      data: { result: { ok: true, data: { session: answered } } }
-    }, continuation.assistantMessageId);
-    const after = host.getSnapshot().activeSession;
-    expect(after?.taskState?.workflowUserInputCheckpoint).toBeUndefined();
-    expect(after?.messages.find((message) => message.id === answer?.id)?.metadata).toMatchObject({
+    expect(prepared.tailoringAnswerBinding).toBeUndefined();
+    expect(prepared.deterministicTerminal).toBe(true);
+    expect(prepared.session.hermesRun).toBeUndefined();
+    expect(prepared.session.taskState?.workflowUserInputCheckpoint).toBeUndefined();
+    expect(prepared.session.messages.find((message) => message.id === answer?.id)?.metadata).toMatchObject({
       answerConsumedAt: expect.any(String),
-      answerOperationId: "answer-once-1"
+      tailoringAnswerReceipt: {
+        questionId: "q-1",
+        answerMessageId: answer?.id,
+        disposition: "answered"
+      }
     });
   });
 
@@ -528,26 +511,6 @@ function clarificationSession(): AgentSession {
     },
     updatedAt: new Date().toISOString()
   }));
-}
-
-function tailoringSessionWithoutActiveQuestion() {
-  const session = tailoringSessionData(false);
-  return {
-    session: {
-      ...session,
-      plan: {
-        ...session.plan,
-        questionPlan: {
-          ...session.plan.questionPlan,
-          activeQuestionId: undefined,
-          answeredQuestionIds: ["q-1"],
-          status: "complete"
-        },
-        clarificationAnswers: [{ questionId: "q-1", answer: "有的" }],
-        generationStatus: "not_started"
-      }
-    }
-  };
 }
 
 function tailoringSessionData(activeQuestion: boolean) {

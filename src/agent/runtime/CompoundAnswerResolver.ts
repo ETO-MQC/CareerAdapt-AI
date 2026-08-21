@@ -82,7 +82,11 @@ export function unresolvedTailoringQuestions(taskState: {
     ?? stringValue(taskState.knownSlots.activeQuestionId);
   const questions = Array.isArray(plan.clarificationQuestions) ? plan.clarificationQuestions : [];
   const answers = Array.isArray(plan.clarificationAnswers) ? plan.clarificationAnswers : [];
-  const answered = new Set(answers.map((answer) => stringValue(objectValue(answer).questionId)).filter(Boolean));
+  const receipts = Array.isArray(plan.answerReceipts) ? plan.answerReceipts : [];
+  const answered = new Set([
+    ...answers.map((answer) => stringValue(objectValue(answer).questionId)),
+    ...receipts.map((receipt) => stringValue(objectValue(receipt).questionId))
+  ].filter(Boolean));
   return questions.flatMap((value) => {
     const question = objectValue(value);
     const id = stringValue(question.id);
@@ -124,7 +128,8 @@ function matchScore(question: PendingCompoundQuestion, clause: string) {
 }
 
 function parseAnswer(question: PendingCompoundQuestion, evidenceQuote: string) {
-  if (/^(?:跳过|不确定|继续)$/u.test(evidenceQuote.trim())) return { answer: "跳过" };
+  if (/^(?:跳过|继续)$/u.test(evidenceQuote.trim())) return { answer: "跳过" };
+  if (/^不确定$/u.test(evidenceQuote.trim())) return { answer: "不确定" };
   if (/^(?:第一个|第1个|1)$/u.test(evidenceQuote.trim())) {
     const first = question.options?.[0];
     return first ? { answer: first.value } : undefined;
