@@ -168,12 +168,15 @@ export const AgentPendingToolCallSchema = z.object({
 }).strict();
 
 export const WorkflowUserInputCheckpointKindSchema = z.enum([
+  "target_input",
   "resume_choice",
   "job_choice",
   "clarification",
   "confirmation",
   "target_persistence_choice",
-  "review_decision"
+  "review_decision",
+  "profile_choice",
+  "import_prompt"
 ]);
 
 /**
@@ -186,8 +189,8 @@ export const WorkflowUserInputCheckpointSchema = z.object({
   kind: WorkflowUserInputCheckpointKindSchema,
   workflowId: z.string().min(1),
   stage: z.string().min(1),
-  promptProjection: z.record(z.string(), z.unknown()),
-  allowedInput: z.record(z.string(), z.unknown()),
+  promptProjection: z.object({ text: z.string().trim().min(1) }).passthrough(),
+  allowedInput: z.object({ type: z.string().trim().min(1) }).passthrough(),
   createdAt: z.string().datetime({ offset: true }),
   revision: z.number().int().min(0)
 }).strict();
@@ -205,6 +208,8 @@ export const AgentTurnToolFailureSchema = z.object({
 export const AgentTurnSchema = z.object({
   id: z.string().min(1),
   sessionId: z.string().min(1),
+  /** Durable identity of the UserMessage that opened this LogicalTurn. */
+  sourceUserMessageId: z.string().min(1).optional(),
   userMessageId: z.string().min(1).optional(),
   runtimeId: z.string().min(1).optional(),
   preferredRuntime: z.enum(["native", "hermes"]).optional(),

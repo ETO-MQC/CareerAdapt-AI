@@ -234,15 +234,15 @@ describe("P4.3d.1 agent session migration", () => {
     expect(migrated.messages.find((message) => message.id === "tool-current")).toMatchObject({ status: "pending" });
     expect(migrated.messages.find((message) => message.id === "tool-other-run")).toMatchObject({
       status: "recovered",
-      metadata: { recoveryReason: "inactive_historical_turn" }
+      metadata: { recoveryReason: "migration_stale_turn" }
     });
     expect(migrated.messages.find((message) => message.id === "tool-other-turn")).toMatchObject({
       status: "recovered",
-      metadata: { recoveryReason: "inactive_historical_turn" }
+      metadata: { recoveryReason: "migration_stale_turn" }
     });
   });
 
-  it("backfills the universal input context from the persisted active UserMessage", () => {
+  it("backfills only the LogicalTurn source identity and keeps UserMessage as authority", () => {
     const base = AgentRuntime.create("tailor_resume", "choose_resume_source", "Recoverable current turn");
     const initialTask = new AgentTaskStateReducer().create(base, "create_tailored_resume");
     const raw = {
@@ -266,11 +266,9 @@ describe("P4.3d.1 agent session migration", () => {
     };
 
     const migrated = migrateAgentSessionToCurrentSchema(raw as never, NOW);
-    expect(migrated.taskState?.knownSlots.turnInputContext).toMatchObject({
-      logicalTurnId: "turn-recovered-input",
-      sourceMessageId: "user-recovered-input",
-      inputReference: "请用当前持久化的用户输入恢复这一轮岗位简历任务。"
-    });
+    expect(migrated.activeTurn?.sourceUserMessageId).toBe("user-recovered-input");
+    expect(migrated.taskState?.knownSlots).not.toHaveProperty("turnInputContext");
+    expect(migrated.taskState?.knownSlots).not.toHaveProperty("turnTargetContext");
     expect(migrateAgentSessionToCurrentSchema(migrated, NOW)).toEqual(migrated);
   });
 });

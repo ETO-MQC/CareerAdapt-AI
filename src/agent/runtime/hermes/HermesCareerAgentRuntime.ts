@@ -31,7 +31,7 @@ import {
   EventStreamLeaseRegistry,
   type EventStreamLease
 } from "./hermesEventStreamLease";
-import { currentTurnInputContext, currentTurnScopedTargetContext, turnTargetContextDiagnostics } from "../turnScopedTargetContext";
+import { getUserMessageForTurn } from "../currentTurnUserMessage";
 
 type TurnCounters = {
   toolCalls: number;
@@ -62,6 +62,13 @@ const DEFAULT_HERMES_LONG_RUN_POLICY: Required<HermesLongRunPolicy> = {
   statusPollMs: 1_000,
   hardDeadlineMs: 30 * 60_000
 };
+
+function sourceUserMessageIdForTurn(
+  session: AgentRuntimeTurnInput["session"],
+  turnId?: string
+) {
+  return turnId ? getUserMessageForTurn(session, turnId)?.id : undefined;
+}
 
 /**
  * Server/local Hermes adapter.  It owns protocol translation and tool
@@ -1015,10 +1022,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
             toolCallId: bridgeEvent.toolCallId,
             logicalToolOperationId: this.bridgeLogicalOperationId(input, bridgeEvent),
             hermesToolCallArgumentShape: safeCareerToolArgumentShape(bridgeEvent.input),
-            targetContext: turnTargetContextDiagnostics(
-              currentTurnScopedTargetContext(input.session?.taskState, input.turnId),
-              false
-            )
+            sourceUserMessageId: sourceUserMessageIdForTurn(input.session, input.turnId)
           }
         });
         yield* this.executeToolCall(input, opened.sessionId, bridgeEvent, counters, binding, requireSessionBinding);
@@ -1186,8 +1190,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     const catalog = new HermesCareerToolCatalog(this.dependencies.careerToolGateway.listContracts());
     const requestedHermesToolName = request.toolName;
     const stableToolName = catalog.stableNameForRequestedName(requestedHermesToolName) ?? requestedHermesToolName;
-    const turnInputContext = currentTurnInputContext(input.session?.taskState, input.turnId);
-    const targetContext = currentTurnScopedTargetContext(input.session?.taskState, input.turnId);
+    const sourceUserMessageId = sourceUserMessageIdForTurn(input.session, input.turnId);
     const logicalOperationId = request.logicalToolOperationId ?? logicalToolOperationId({
       ...request,
       turnId: input.turnId,
@@ -1226,7 +1229,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         toolName: request.toolName,
         operationId: request.operationId,
         error: { code, message: "当前组合工作流步骤不允许该 Career 工具。", recoverable: true },
-        data: { safeErrorCode: code, logicalToolOperationId: logicalOperationId, workflowId: input.metadata?.workflowId, workflowStage: input.metadata?.workflowStage, requestedHermesToolName, stableCareerToolName: stableToolName, targetContext: turnTargetContextDiagnostics(targetContext, false) }
+        data: { safeErrorCode: code, logicalToolOperationId: logicalOperationId, workflowId: input.metadata?.workflowId, workflowStage: input.metadata?.workflowStage, requestedHermesToolName, stableCareerToolName: stableToolName, sourceUserMessageId }
       });
       return;
     }
@@ -1261,7 +1264,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         toolName: request.toolName,
         operationId: request.operationId,
         error: { code, message: "CareerAdapt MCP 工具未找到，正在刷新工具发现。", recoverable: true },
-        data: { toolCallId: request.toolCallId, logicalToolOperationId: logicalOperationId, discoveryRefreshRequired: true, requestedHermesToolName, stableCareerToolName: stableToolName, targetContext: turnTargetContextDiagnostics(targetContext, false) }
+        data: { toolCallId: request.toolCallId, logicalToolOperationId: logicalOperationId, discoveryRefreshRequired: true, requestedHermesToolName, stableCareerToolName: stableToolName, sourceUserMessageId }
       });
       return;
     }
@@ -1277,7 +1280,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
           toolCallId: request.toolCallId,
           logicalToolOperationId: logicalOperationId,
           hermesToolCallArgumentShape: safeCareerToolArgumentShape(request.input),
-          targetContext: turnTargetContextDiagnostics(targetContext, false),
+          sourceUserMessageId,
           contract
         }
       });
@@ -1307,7 +1310,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         hermesToolCallArgumentShape: safeCareerToolArgumentShape(request.input),
         requestedHermesToolName,
         stableCareerToolName: stableToolName,
-        targetContext: turnTargetContextDiagnostics(targetContext, false)
+        sourceUserMessageId
       }
     });
     let result = await this.executeGatewayTool(stableToolName, request.input, {
@@ -1322,8 +1325,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       confirmationCount,
       careerSessionBinding: binding,
       requireSessionBinding,
-      turnTargetContext: targetContext,
-      turnInputContext
+      sourceUserMessageId
     }, counters);
     if (!result.ok && shouldRetryRead(contract, result)) {
       counters.autonomousRecoveries += 1;
@@ -1339,8 +1341,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         confirmationCount,
         careerSessionBinding: binding,
         requireSessionBinding,
-        turnTargetContext: targetContext,
-        turnInputContext
+        sourceUserMessageId
       }, counters);
     }
     if (!result.ok && result.error?.category === "stale_revision") {
@@ -1408,7 +1409,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
           artifacts: result.artifacts,
           requestedHermesToolName,
           stableCareerToolName: stableToolName,
-          targetContext: turnTargetContextDiagnostics(targetContext, true)
+          sourceUserMessageId
         }
       });
       return;
@@ -1423,7 +1424,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         message: result.error?.message ?? "Career tool failed.",
         recoverable: result.error?.recoverable ?? false
       },
-      data: { toolCallId: request.toolCallId, logicalToolOperationId, result: safeToolResult(result), safeErrorCode: result.error?.code, requestedHermesToolName, stableCareerToolName: stableToolName, targetContext: turnTargetContextDiagnostics(targetContext, true) }
+      data: { toolCallId: request.toolCallId, logicalToolOperationId, result: safeToolResult(result), safeErrorCode: result.error?.code, requestedHermesToolName, stableCareerToolName: stableToolName, sourceUserMessageId }
     });
   }
 
@@ -1515,10 +1516,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     return {
       requestedHermesToolName,
       ...(stableCareerToolName ? { stableCareerToolName } : {}),
-      targetContext: turnTargetContextDiagnostics(
-        currentTurnScopedTargetContext(input.session?.taskState, input.turnId),
-        false
-      )
+      sourceUserMessageId: sourceUserMessageIdForTurn(input.session, input.turnId)
     };
   }
 
@@ -1817,7 +1815,7 @@ function allowedCareerToolContracts(gateway: CareerToolGateway, input: AgentRunt
         || isCareerSystemStatusQuestion(input.userMessage) && contract.name.startsWith("career.system.")
       )
   );
-  return projectCareerContractsForHermes(contracts, productionProfile, { allowSameTurnTargetContext: true });
+  return projectCareerContractsForHermes(contracts, productionProfile, { allowTargetOmission: true });
 }
 
 function isAllowedCareerTool(input: AgentRuntimeTurnInput, toolName: string, catalog: HermesCareerToolCatalog) {

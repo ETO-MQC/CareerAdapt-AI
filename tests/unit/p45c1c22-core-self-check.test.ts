@@ -167,6 +167,6 @@ it("runs the production MCP route shape and correlates one logical tool id", asy
   const result = await runP45CoreClosureSelfCheck({ repository, runtimeSnapshot, contracts, fetcher });
   expect(result.checks.browserMcpRoundTrip.status).toBe("PASS");
   expect(result.checks.logicalToolOperationIdCorrelation.status).toBe("PASS");
-  expect(result.checks.turnTargetContext.status).toBe("PASS");
+  expect(result.checks.workflowPreparation.status).toBe("PASS");
   expect(result.checks.repositoryReadback.status).toBe("PASS");
 });

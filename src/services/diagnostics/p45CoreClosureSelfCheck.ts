@@ -2,10 +2,7 @@ import { AgentTaskStateSchema, type AgentSession, type AgentTaskState } from "@/
 import { AgentTaskStateReducer } from "@/agent/runtime/AgentTaskStateReducer";
 import { deriveWorkflowUserInputCheckpoint } from "@/agent/runtime/workflowUserInputCheckpoint";
 import { prepareCareerWorkflowInvocation } from "@/agent/workflows/CareerWorkflowFacade";
-import {
-  currentTurnInputContext,
-  currentTurnScopedTargetContext
-} from "@/agent/runtime/turnScopedTargetContext";
+import { getUserMessageForTurn } from "@/agent/runtime/currentTurnUserMessage";
 import type { CareerToolContract, CareerToolExecutionContext } from "@/agent/tools/CareerToolGateway";
 import { runCareerToolContractSelfTest } from "@/agent/tools/careerToolContract";
 import type { RuntimeStatusSnapshot } from "@/agent/runtime/runtimeStatus";
@@ -36,8 +33,7 @@ export type CoreClosureSelfCheckResult = {
   checkedAt: string;
   logicalTurnId: string;
   logicalToolOperationId: string;
-  turnInputContextHashPrefix?: string;
-  turnTargetContextId?: string;
+  sourceUserMessageId?: string;
   profileId?: string;
   profileRevision?: number;
   profileContentIntegrity?: LiveProfileContentIntegrity;
@@ -54,8 +50,8 @@ export type CoreClosureSelfCheckResult = {
     profileContentIntegrity: CoreClosureCheck;
     browserMcpRoundTrip: CoreClosureCheck;
     logicalToolOperationIdCorrelation: CoreClosureCheck;
-    turnInputContext: CoreClosureCheck;
-    turnTargetContext: CoreClosureCheck;
+    currentTurnUserMessage: CoreClosureCheck;
+    workflowPreparation: CoreClosureCheck;
     workflowCheckpointInvariants: CoreClosureCheck;
     repositoryReadback: CoreClosureCheck;
   };
@@ -116,7 +112,7 @@ export async function runP45CoreClosureSelfCheck(input: CoreClosureSelfCheckInpu
   const runtimeReady = runtimeReadyForSelfCheck(input.runtimeSnapshot);
   const mcpReady = input.runtimeSnapshot.mcpConnected === true
     && (input.runtimeSnapshot.discoveredToolCount ?? 0) > 0;
-  const targetCheck = runTurnTargetSelfCheck(logicalTurnId);
+  const targetCheck = runCurrentTurnPreparationSelfCheck(logicalTurnId);
   const checkpointCheck = workflowCheckpointInvariant(input.activeSession?.taskState);
   const browser = profile && activeContext
     ? await runBrowserMcpRoundTrip({
@@ -170,8 +166,8 @@ export async function runP45CoreClosureSelfCheck(input: CoreClosureSelfCheckInpu
       : { status: "NOT_APPLICABLE" as const, reason: "active_profile_unreadable" },
     browserMcpRoundTrip: browser?.check ?? { status: "NOT_APPLICABLE" as const, reason: "active_profile_unreadable" },
     logicalToolOperationIdCorrelation: browser?.correlationCheck ?? { status: "NOT_APPLICABLE" as const, reason: "browser_mcp_roundtrip_not_run" },
-    turnInputContext: targetCheck.inputCheck,
-    turnTargetContext: targetCheck.check,
+    currentTurnUserMessage: targetCheck.sourceCheck,
+    workflowPreparation: targetCheck.check,
     workflowCheckpointInvariants: checkpointCheck,
     repositoryReadback: readback ?? { status: "NOT_APPLICABLE" as const, reason: "active_profile_unreadable" }
   };
@@ -183,8 +179,7 @@ export async function runP45CoreClosureSelfCheck(input: CoreClosureSelfCheckInpu
     checkedAt,
     logicalTurnId,
     logicalToolOperationId,
-    ...(targetCheck.inputContext ? { turnInputContextHashPrefix: targetCheck.inputContext.inputHash.slice(0, 16) } : {}),
-    ...(targetCheck.targetContextId ? { turnTargetContextId: targetCheck.targetContextId } : {}),
+    ...(targetCheck.sourceUserMessageId ? { sourceUserMessageId: targetCheck.sourceUserMessageId } : {}),
     ...(profile ? { profileId: profile.id, profileRevision: profile.version } : {}),
     ...(integrity ? {
       profileContentIntegrity: integrity.profileContentIntegrity,
@@ -258,7 +253,7 @@ async function verifyRepositoryReadback(
     : { status: "FAIL", reason: "profile_content_readback_count_mismatch" };
 }
 
-function runTurnTargetSelfCheck(logicalTurnId: string) {
+function runCurrentTurnPreparationSelfCheck(logicalTurnId: string) {
   const operationId = diagnosticId("target-preparation");
   const targetText = [
     "岗位职责 Responsibilities：负责跨团队交付、TypeScript 平台建设与质量闭环。",
@@ -288,15 +283,31 @@ function runTurnTargetSelfCheck(logicalTurnId: string) {
     turnId: logicalTurnId,
     capturedAt
   });
-  const inputContext = currentTurnInputContext(withMessage, logicalTurnId);
-  const targetContext = currentTurnScopedTargetContext(withMessage, logicalTurnId);
+  const sourceUserMessageId = diagnosticId("source-user");
+  const sourceUserMessage = {
+    id: sourceUserMessageId,
+    turnId: logicalTurnId,
+    role: "user" as const,
+    content: targetText,
+    createdAt: capturedAt
+  };
+  const sourceSession = {
+    messages: [sourceUserMessage],
+    activeTurn: {
+      id: logicalTurnId,
+      sessionId: diagnosticId("source-session"),
+      sourceUserMessageId,
+      userMessageId: sourceUserMessageId
+    }
+  } as AgentSession;
+  const resolvedMessage = getUserMessageForTurn(sourceSession, logicalTurnId);
   const context: CareerToolExecutionContext = {
     operationId,
     logicalTurnId,
     logicalToolOperationId: diagnosticId("target-tool"),
     authoritativeTaskState: withMessage,
-    ...(inputContext ? { turnInputContext: inputContext } : {}),
-    ...(targetContext ? { turnTargetContext: targetContext } : {})
+    sourceUserMessageId: resolvedMessage?.id,
+    sourceUserMessage: resolvedMessage?.content
   };
   try {
     const prepared = prepareCareerWorkflowInvocation(
@@ -309,24 +320,21 @@ function runTurnTargetSelfCheck(logicalTurnId: string) {
     const injected = preparedInput.targetText === targetText;
     const sameTurn = prepared.sameTurnTarget
       && prepared.context.logicalTurnId === logicalTurnId
-      && prepared.context.turnInputContext?.logicalTurnId === logicalTurnId;
-    const inputCheck = inputContext
-      ? { status: "PASS" as const, details: { captured: true, sourceMessageId: inputContext.sourceMessageId, inputHashPrefix: inputContext.inputHash.slice(0, 16) } }
-      : { status: "FAIL" as const, reason: "turn_input_context_missing" };
+      && prepared.context.sourceUserMessageId === sourceUserMessageId;
     return {
       check: injected && sameTurn
-        ? { status: "PASS" as const, details: { targetInjected: true, sameLogicalTurnId: true, historicalFallback: false, schemaAccepted: true } }
-        : { status: "FAIL" as const, reason: injected ? "turn_target_identity_mismatch" : "turn_target_not_injected" },
-      inputCheck,
-      inputContext,
-      targetContextId: targetContext?.targetContextId
+        ? { status: "PASS" as const, details: { targetPrepared: true, sameLogicalTurnId: true, sourceUserMessageId, schemaAccepted: true } }
+        : { status: "FAIL" as const, reason: injected ? "source_user_message_identity_mismatch" : "target_not_prepared" },
+      sourceCheck: resolvedMessage
+        ? { status: "PASS" as const, details: { sourceUserMessageId: resolvedMessage.id, sourceLength: resolvedMessage.content.length } }
+        : { status: "FAIL" as const, reason: "source_user_message_missing" },
+      sourceUserMessageId: resolvedMessage?.id
     };
   } catch {
     return {
-      check: { status: "FAIL" as const, reason: "turn_target_schema_failure" },
-      inputCheck: inputContext ? { status: "PASS" as const } : { status: "FAIL" as const, reason: "turn_input_context_missing" },
-      inputContext,
-      targetContextId: targetContext?.targetContextId
+      check: { status: "FAIL" as const, reason: "workflow_preparation_schema_failure" },
+      sourceCheck: resolvedMessage ? { status: "PASS" as const } : { status: "FAIL" as const, reason: "source_user_message_missing" },
+      sourceUserMessageId: resolvedMessage?.id
     };
   }
 }
@@ -345,7 +353,7 @@ function workflowCheckpointInvariant(state?: AgentTaskState): CoreClosureCheck {
     || stored.workflowId !== derived.workflowId
     || stored.stage !== derived.stage
   )) return { status: "FAIL", reason: "checkpoint_projection_mismatch" };
-  return { status: "PASS", details: { waiting, checkpointCount: stored ? 1 : 0, supportedKinds: true } };
+  return { status: "PASS", details: { waiting, checkpointCount: stored ? 1 : 0, askOrAct: true } };
 }
 
 async function runBrowserMcpRoundTrip(input: {

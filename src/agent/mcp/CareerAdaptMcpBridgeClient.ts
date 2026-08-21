@@ -12,7 +12,6 @@ import {
 } from "../tools/careerToolDiagnostics";
 import { CAREER_TOOL_CONTRACT_VERSION } from "../tools/careerToolContract";
 import { stableHashText } from "@/services/security/text";
-import type { TurnInputContext, TurnScopedTargetContext } from "@/agent/runtime/turnScopedTargetContext";
 
 type BridgeRequest = {
   id: string;
@@ -21,6 +20,7 @@ type BridgeRequest = {
   operationId: string;
   logicalToolOperationId?: string;
   logicalTurnId?: string;
+  sourceUserMessageId?: string;
   taskId?: string;
   incidentTraceId?: string;
   agentSessionId?: string;
@@ -39,12 +39,9 @@ export type CareerAdaptMcpConfirmationContext = {
   turnId: string;
   taskId?: string;
   assistantMessageId: string;
+  sourceUserMessageId?: string;
   userMessageId?: string;
   incidentTraceId?: string;
-  /** Browser/Host-only same-turn target authority; never sent to diagnostics. */
-  targetContext?: TurnScopedTargetContext;
-  /** Browser/Host-only universal input authority for this logical turn. */
-  turnInputContext?: TurnInputContext;
   tailoringAnswer?: {
     checkpointId: string;
     questionId: string;
@@ -219,6 +216,9 @@ export class CareerAdaptMcpBridgeClient {
       ? {
           sessionId: context.sessionId,
           logicalTurnId: context.turnId,
+          ...(context.sourceUserMessageId ?? context.userMessageId
+            ? { sourceUserMessageId: context.sourceUserMessageId ?? context.userMessageId }
+            : {}),
           ...(context.taskId ? { taskId: context.taskId } : {}),
           ...(context.incidentTraceId ? { incidentTraceId: context.incidentTraceId } : {}),
           agentSessionId: context.sessionId
@@ -359,15 +359,16 @@ export class CareerAdaptMcpBridgeClient {
         operationId: request.operationId,
         logicalToolOperationId: request.logicalToolOperationId,
         logicalTurnId,
+        sourceUserMessageId: request.sourceUserMessageId
+          ?? confirmationContext?.sourceUserMessageId
+          ?? confirmationContext?.userMessageId,
         taskId: request.taskId,
         incidentTraceId: request.incidentTraceId,
         agentSessionId: request.agentSessionId ?? confirmationContext?.sessionId,
         careerSessionBinding: request.careerSessionBinding,
         requireSessionBinding: request.requireSessionBinding === true,
-        turnTargetContext: confirmationContext?.targetContext,
-        turnInputContext: confirmationContext?.turnInputContext,
         tailoringAnswer: confirmationContext?.tailoringAnswer,
-        userMessageId: confirmationContext?.userMessageId
+        userMessageId: confirmationContext?.userMessageId,
       };
       const callKey = `${request.name}:${stableJson(toolInput)}`;
       const turnId = logicalTurnId ?? "unbound-turn";
@@ -716,6 +717,7 @@ export function normalizeHermesScopedInput(
   turn?: CareerAdaptMcpConfirmationContext,
   logicalTurnId?: string
 ) {
+  void logicalTurnId;
   const input = asRecord(value);
   if (name === "career.workflow.tailor_resume" && turn?.tailoringAnswer) {
     return {
@@ -726,20 +728,6 @@ export function normalizeHermesScopedInput(
   // Deprecated compatibility helper for legacy callers that invoke this
   // exported normalizer directly. Production bridge execution leaves the
   // payload unchanged and resolves the target only in Gateway preparation.
-  if (
-    name === "career.workflow.tailor_resume"
-    && turn?.targetContext
-    && turn.targetContext.logicalTurnId === logicalTurnId
-    && input.targetText === undefined
-    && input.jobId === undefined
-    && input.checkpointId === undefined
-  ) {
-    return {
-      ...input,
-      targetText: turn.targetContext.targetText,
-      targetContextId: turn.targetContext.targetContextId
-    };
-  }
   if (!binding) return value;
   if (name === "career.workflow.profile_intake_turn") {
     return {

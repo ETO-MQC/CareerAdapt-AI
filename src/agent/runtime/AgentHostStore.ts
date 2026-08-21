@@ -50,7 +50,7 @@ import type {
   ProfileIntakeSection
 } from "@/agent/contracts/agentActions";
 import { AgentTaskStateReducer, dependencySnapshot, normalizeAgentTaskState } from "./AgentTaskStateReducer";
-import { captureTurnInputContext } from "./turnScopedTargetContext";
+import { getUserMessageForTurn } from "./currentTurnUserMessage";
 import { appendAgentMessage, replaceAgentThinking, upsertAgentActivity } from "./AgentSessionMessages";
 import { migrateAgentSessionToCurrentSchema } from "./AgentSessionMigration";
 import { routeAgentIntent } from "./agentIntentRouter";
@@ -88,6 +88,7 @@ import {
 import { ImportedResumeDraftSchema, type ImportedResumeDraft } from "@/domain/schemas";
 import { JobTargetSnapshotSchema } from "@/domain/schemas/jobTarget";
 import { jobTargetSnapshotHash } from "@/domain/jobTarget/jobTargetSnapshot";
+import { TARGET_REQUIRED_PROMPT } from "./workflowUserInputCheckpoint";
 import { createProfileIntakeInterviewPlan } from "@/domain/profileIntake/ProfileIntakeCompleteness";
 import { appendProfileIntakeQuestionAnswer } from "@/domain/profileIntake/ProfileIntakeQuestionAnswer";
 import {
@@ -369,6 +370,14 @@ export class AgentHostStore {
   };
 
   getSnapshot = () => this.snapshot;
+
+  /**
+   * Return the persisted UserMessage that opened the requested LogicalTurn.
+   * This method intentionally performs no intent or target interpretation.
+   */
+  getUserMessageForTurn(turnId: string) {
+    return getUserMessageForTurn(this.snapshot.activeSession, turnId);
+  }
 
   getExecution(sessionId: string) {
     return this.executionCoordinator.get(sessionId);
@@ -717,9 +726,12 @@ export class AgentHostStore {
     references?: AgentMessageReference[];
   }) {
     if (!input.userMessage.trim()) return input.session;
-    const current = this.snapshot.activeSession?.id === input.session.id
+    const currentSession = this.snapshot.activeSession?.id === input.session.id
       ? this.snapshot.activeSession
       : input.session;
+    const current = currentSession.taskState
+      ? attachTaskStateOptions(currentSession, currentSession.taskState)
+      : currentSession;
     const decision = classifyTurnIntent({
       text: input.userMessage,
       references: input.references,
@@ -944,6 +956,9 @@ export class AgentHostStore {
   ): Promise<PreparedRuntimeUserEvent | undefined> {
     if (!checkpoint || !value.trim()) return undefined;
     const text = value.trim().slice(0, 8_000);
+    if (/^(?:需要什么|缺什么|还需要什么|什么信息)[？?。！!]?$/u.test(text)) {
+      return this.answerWorkflowCheckpointQuestion(session, text, checkpoint);
+    }
     if (checkpoint.kind === "clarification") {
       const projection = getActiveTailoringQuestionProjection(session);
       return projection ? this.applyTailoringTextAnswer(session, text, projection) : undefined;
@@ -1057,6 +1072,7 @@ export class AgentHostStore {
         ...current.activeTurn,
         id: turnId,
         sessionId: current.id,
+        sourceUserMessageId: userMessageId,
         userMessageId,
         preferredRuntime: current.activeTurn?.preferredRuntime ?? "hermes",
         attemptedRuntime: current.activeTurn?.attemptedRuntime ?? "hermes",
@@ -1070,6 +1086,61 @@ export class AgentHostStore {
     const saved = await this.dependencies.persistence.save(current);
     this.patchSession(saved, { turnStatus: "running", activeTurnId: turnId });
     return { session: saved, turnId, userMessageId };
+  }
+
+  private async answerWorkflowCheckpointQuestion(
+    session: AgentSession,
+    text: string,
+    checkpoint: WorkflowUserInputCheckpoint
+  ): Promise<PreparedRuntimeUserEvent> {
+    const persisted = await this.persistWorkflowCheckpointUserMessage(session, text, checkpoint);
+    const now = new Date().toISOString();
+    const options = Array.isArray(checkpoint.promptProjection.options)
+      ? checkpoint.promptProjection.options
+        .filter((option): option is Record<string, unknown> => Boolean(option && typeof option === "object" && !Array.isArray(option)))
+        .map((option) => stringValue(option.label))
+        .filter((label): label is string => Boolean(label))
+      : [];
+    const response = [
+      checkpoint.promptProjection.text,
+      ...(options.length ? [`可选操作：${options.join("、")}`] : [])
+    ].join("\n\n");
+    const assistantMessageId = `agent-checkpoint-answer-${crypto.randomUUID()}`;
+    let current = appendAgentMessage(persisted.session, "assistant", response, {
+      id: assistantMessageId,
+      turnId: persisted.turnId,
+      kind: "text",
+      type: "text",
+      status: "complete",
+      parentMessageId: persisted.userMessageId,
+      metadata: {
+        executionOwner: "deterministic_transition",
+        workflowCheckpointId: checkpoint.checkpointId,
+        checkpointQuestionAnswered: true
+      }
+    });
+    current = {
+      ...current,
+      activeTurn: current.activeTurn
+        ? { ...current.activeTurn, status: "waiting_for_user", completedAt: now }
+        : current.activeTurn
+    };
+    const saved = await this.dependencies.persistence.save(current);
+    this.patchSession(saved, {
+      turnStatus: "waiting_for_user",
+      activeTurnId: persisted.turnId,
+      currentObservation: { type: "workflow_checkpoint_explained", checkpointId: checkpoint.checkpointId }
+    });
+    return {
+      session: saved,
+      event: { type: "text_message", text: "" },
+      turnId: persisted.turnId,
+      userMessage: "",
+      executionOwner: "deterministic_transition",
+      deterministicTransitionApplied: true,
+      deterministicTerminal: true,
+      prePersistedUserMessageId: persisted.userMessageId
+    };
   }
 
   /** Continue a validated event through deterministic/native infrastructure
@@ -1706,9 +1777,9 @@ export class AgentHostStore {
       : undefined;
     const userMessageId = input.userMessage.trim()
       ? input.userMessageId ?? (input.appendUserMessage === false
-        ? input.session.activeTurn?.userMessageId ?? `agent-user-${crypto.randomUUID()}`
+        ? input.session.activeTurn?.sourceUserMessageId ?? input.session.activeTurn?.userMessageId ?? `agent-user-${crypto.randomUUID()}`
         : `agent-user-${crypto.randomUUID()}`)
-      : input.session.activeTurn?.userMessageId ?? `agent-user-${crypto.randomUUID()}`;
+      : input.session.activeTurn?.sourceUserMessageId ?? input.session.activeTurn?.userMessageId ?? `agent-user-${crypto.randomUUID()}`;
     const assistantMessageId = reusableAssistant?.id ?? `agent-thinking-${crypto.randomUUID()}`;
     const inheritedRuntimeSnapshot = input.runtimeDiagnostics?.runtimeFailureSnapshot;
     const previousRuntimeIncidents = [
@@ -1778,6 +1849,7 @@ export class AgentHostStore {
       activeTurn: {
         id: turnId,
         sessionId: current.id,
+        sourceUserMessageId: userMessageId,
         userMessageId,
         runtimeId: input.runtimeId,
         preferredRuntime: input.runtimeDiagnostics?.preferredRuntime ?? (input.runtimeId === "hermes" ? "hermes" : "native"),
@@ -4073,6 +4145,7 @@ export class AgentHostStore {
         ...current.activeTurn,
         id: input.turnId,
         sessionId: current.id,
+        sourceUserMessageId: input.userMessageId,
         userMessageId: input.userMessageId,
         preferredRuntime: current.activeTurn?.preferredRuntime ?? "native",
         attemptedRuntime: current.activeTurn?.attemptedRuntime ?? "native",
@@ -4781,6 +4854,7 @@ export class AgentHostStore {
         ...current.activeTurn,
         id: turnId,
         sessionId: current.id,
+        sourceUserMessageId: userMessageId,
         userMessageId,
         ...(input.runtimeId ? { runtimeId: input.runtimeId } : {}),
         preferredRuntime: current.activeTurn?.preferredRuntime ?? input.runtimeDiagnostics?.preferredRuntime ?? (input.runtimeId === "hermes" ? "hermes" : "native"),
@@ -4869,18 +4943,7 @@ export class AgentHostStore {
         profileIntakeTurnKind: intakeRecoverySource ? "career_narrative" : turnDecision.profileIntakeTurnKind
       });
     }
-    if (input.userMessage.trim()) {
-      // The UserMessage has already been persisted above. Capture its durable
-      // same-turn input authority even when the continuation resolver keeps
-      // the existing task and does not dispatch the full reducer event.
-      taskState = captureTurnInputContext(taskState, {
-        logicalTurnId: turnId,
-        sourceMessageId: userMessageId,
-        inputReference: input.userMessage,
-        createdAt: now
-      });
-      current = projectTaskStateIntoSession(current, taskState);
-    }
+    if (input.userMessage.trim()) current = projectTaskStateIntoSession(current, taskState);
     if (input.attachment) {
       taskState = reducer.reduce(taskState, {
         type: "attachment_selected",
@@ -5009,6 +5072,7 @@ export class AgentHostStore {
           ...current.activeTurn,
           id: turnId,
           sessionId: current.id,
+          sourceUserMessageId: userMessageId,
           userMessageId,
           status: taskState.completionStatus === "waiting_for_user" ? "waiting_for_user" : "completed",
           startedAt: now,
@@ -5053,6 +5117,7 @@ export class AgentHostStore {
         ...current.activeTurn,
         id: turnId,
         sessionId: current.id,
+        sourceUserMessageId: userMessageId,
         userMessageId,
         preferredRuntime: current.activeTurn?.preferredRuntime ?? "native",
         attemptedRuntime: current.activeTurn?.attemptedRuntime ?? "native",
@@ -5652,6 +5717,7 @@ export class AgentHostStore {
         ...current.activeTurn,
         id: turnId,
         sessionId: current.id,
+        sourceUserMessageId: userMessageId,
         userMessageId,
         preferredRuntime: current.activeTurn?.preferredRuntime ?? "native",
         attemptedRuntime: current.activeTurn?.attemptedRuntime ?? "native",
@@ -5922,6 +5988,7 @@ export class AgentHostStore {
         ...current.activeTurn,
         id: turnId,
         sessionId: current.id,
+        sourceUserMessageId: userMessageId,
         userMessageId,
         preferredRuntime: current.activeTurn?.preferredRuntime ?? "native",
         attemptedRuntime: current.activeTurn?.attemptedRuntime ?? "native",
@@ -5979,6 +6046,7 @@ export class AgentHostStore {
         ...current.activeTurn,
         id: turnId,
         sessionId: current.id,
+        sourceUserMessageId: userMessageId,
         userMessageId,
         runtimeId: "hermes",
         preferredRuntime: "hermes",
@@ -6053,6 +6121,7 @@ export class AgentHostStore {
         ...restored.activeTurn,
         id: turnId,
         sessionId: restored.id,
+        sourceUserMessageId: userMessageId,
         userMessageId,
         preferredRuntime: restored.activeTurn?.preferredRuntime ?? "native",
         attemptedRuntime: restored.activeTurn?.attemptedRuntime ?? "native",
@@ -6644,6 +6713,7 @@ export class AgentHostStore {
         ...current.activeTurn,
         id: turnId,
         sessionId: current.id,
+        sourceUserMessageId: userMessageId,
         userMessageId,
         preferredRuntime: current.activeTurn?.preferredRuntime ?? "native",
         attemptedRuntime: current.activeTurn?.attemptedRuntime ?? "native",
@@ -6706,6 +6776,7 @@ export class AgentHostStore {
         ...current.activeTurn,
         id: turnId,
         sessionId: current.id,
+        sourceUserMessageId: current.activeTurn?.sourceUserMessageId ?? current.activeTurn?.userMessageId,
         userMessageId: current.activeTurn?.userMessageId,
         preferredRuntime: current.activeTurn?.preferredRuntime ?? "native",
         attemptedRuntime: current.activeTurn?.attemptedRuntime ?? "native",
@@ -7979,6 +8050,11 @@ function formatTailoringQuestionProjection(projection: TailoringQuestionProjecti
 }
 
 export function attachTaskStateOptions(session: AgentSession, state: AgentTaskState) {
+  const normalizedState = normalizeAgentTaskState(state);
+  if (normalizedState !== state) {
+    session = projectTaskStateIntoSession(session, normalizedState);
+    state = normalizedState;
+  }
   if (
     (state.workflowUserInputCheckpoint?.kind === "clarification" || state.stage === "clarify_unsupported_facts")
     && getActiveTailoringQuestionProjection(state)
@@ -8019,7 +8095,22 @@ export function attachTaskStateOptions(session: AgentSession, state: AgentTaskSt
       resumeCompositionProposal: true,
       resumeCompositionInformationNeedId: "target_direction"
     };
-  } else if (state.stage === "choose_job") {
+  } else if (state.workflowUserInputCheckpoint?.kind === "target_input") {
+    options = [
+      { id: "target-paste", label: "粘贴岗位描述", action: { type: "open_job_import_dialog" as const } },
+      { id: "target-saved-job", label: "选择已有岗位", action: { type: "open_job_import_dialog" as const } }
+    ];
+    metadata = { workflowCheckpointKind: "target_input" };
+  } else if (state.workflowUserInputCheckpoint?.kind === "profile_choice") {
+    options = [{ id: "profile-select", label: "选择已有资料", action: { type: "open_profile_browser" as const } }];
+    metadata = { workflowCheckpointKind: "profile_choice" };
+  } else if (state.workflowUserInputCheckpoint?.kind === "import_prompt") {
+    options = [
+      { id: "profile-select", label: "选择已有资料", action: { type: "open_profile_browser" as const } },
+      { id: "profile-import", label: "导入一份简历", action: { type: "open_resume_upload" as const } }
+    ];
+    metadata = { workflowCheckpointKind: "import_prompt" };
+  } else if (state.workflowUserInputCheckpoint?.kind === "job_choice" || state.stage === "choose_job") {
     options = entityOptions(state, "job");
   } else if (
     state.workflowUserInputCheckpoint?.kind === "resume_choice"
@@ -8645,6 +8736,7 @@ function beginDeterministicArtifactTurn(
     activeTurn: {
       id: turnId,
       sessionId: session.id,
+      sourceUserMessageId: userMessageId,
       userMessageId,
       runtimeId: session.runtimeId,
       preferredRuntime: session.activeTurn?.preferredRuntime ?? "hermes",
@@ -10206,7 +10298,10 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
     const resumeCandidates = Array.isArray(checkpoint.resumeCandidates) ? checkpoint.resumeCandidates : [];
     const contextBindingState = stringRecordValue(checkpoint.contextBindingState);
     if (contextBindingState) knownSlots.careerContextBindingState = contextBindingState;
-    if (profileCandidates.length) knownSlots.profileCandidates = profileCandidates;
+    if (profileCandidates.length) {
+      knownSlots.profileCandidates = profileCandidates;
+      knownSlots.profileCandidateSetRevision = stableHashText(JSON.stringify(profileCandidates));
+    }
     if (resumeCandidates.length) {
       knownSlots.resumeCandidates = resumeCandidates;
       knownSlots.resumeSelectionRequired = true;
@@ -10875,13 +10970,18 @@ function runtimeAttemptStatus(
 
 function runtimeFailureRecoveryText(code?: string, taskState?: AgentTaskState, diagnostics?: Record<string, unknown>) {
   const failureLayer = stringValue(diagnostics?.toolFailureLayer);
+  if (/target_required/i.test(code ?? "")) return TARGET_REQUIRED_PROMPT;
   if (isCareerDomainPreconditionCode(code)) {
     if (code === "needs_profile" || code === "career_session_binding_required") {
       return "当前还没有可用于定制的个人资料。你可以选择已有资料，或先导入一份简历。";
     }
     if (code === "needs_profile_choice") return "当前有多份可用的个人资料，请先选择一份。";
-    if (code === "needs_resume_choice") return "当前有多份可用的通用简历，请先选择一份。";
-    return "当前步骤需要你的选择或补充信息后才能继续。";
+    if (code === "needs_resume_choice" || code === "multiple_resume_sources") return "当前有多份可用的通用简历，请先选择一份。";
+    if (code === "job_required") return "请选择已经保存的岗位，或直接粘贴岗位描述。";
+    if (code === "clarification_required") return "请补充当前岗位定制中尚未确认的信息。";
+    if (code === "confirmation_required") return "这一步需要你的明确确认。";
+    if (code === "review_required") return "请检查当前结果并告诉我下一步如何处理。";
+    return "请按下方问题或选项补充当前岗位定制所需的信息。";
   }
   if (
     diagnostics?.failureScope === "career_workflow"

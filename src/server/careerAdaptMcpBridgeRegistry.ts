@@ -21,6 +21,7 @@ type BridgeRequest = {
   operationId: string;
   logicalToolOperationId?: string;
   logicalTurnId?: string;
+  sourceUserMessageId?: string;
   taskId?: string;
   incidentTraceId?: string;
   agentSessionId?: string;
@@ -32,6 +33,7 @@ type BridgeRequest = {
 export type CareerAdaptMcpBridgeTurnContext = {
   sessionId: string;
   logicalTurnId: string;
+  sourceUserMessageId?: string;
   taskId?: string;
   incidentTraceId?: string;
   agentSessionId?: string;
@@ -177,6 +179,7 @@ export function pollCareerAdaptMcpBridge(bridgeId: string, token: string, limit 
     operationId: request.operationId,
     logicalToolOperationId: request.logicalToolOperationId,
     logicalTurnId: request.logicalTurnId,
+    sourceUserMessageId: request.sourceUserMessageId,
     taskId: request.taskId,
     incidentTraceId: request.incidentTraceId,
     agentSessionId: request.agentSessionId,
@@ -259,6 +262,7 @@ function enqueueCall(name: string, input: unknown, context: CareerToolExecutionC
   if (!bridge) throw new CareerAdaptMcpUnavailableError();
   const operationId = context.operationId ?? `mcp-bridge-${nanoid(16)}`;
   const logicalTurnId = context.logicalTurnId ?? bridge.turnContext?.logicalTurnId;
+  const sourceUserMessageId = context.sourceUserMessageId ?? bridge.turnContext?.sourceUserMessageId;
   const agentSessionId = context.agentSessionId ?? bridge.turnContext?.agentSessionId ?? bridge.turnContext?.sessionId;
   const taskId = context.taskId ?? bridge.turnContext?.taskId;
   const incidentTraceId = context.incidentTraceId ?? bridge.turnContext?.incidentTraceId;
@@ -272,6 +276,7 @@ function enqueueCall(name: string, input: unknown, context: CareerToolExecutionC
     // transport operation identity and do not derive from an untrusted turn.
     logicalToolOperationId: context.logicalToolOperationId ?? operationId,
     logicalTurnId,
+    sourceUserMessageId,
     taskId,
     incidentTraceId,
     agentSessionId,
@@ -306,6 +311,7 @@ function sanitizeTurnContext(value: unknown): CareerAdaptMcpBridgeTurnContext {
   return {
     sessionId: candidate.sessionId,
     logicalTurnId: candidate.logicalTurnId,
+    ...(typeof candidate.sourceUserMessageId === "string" ? { sourceUserMessageId: candidate.sourceUserMessageId } : {}),
     ...(typeof candidate.taskId === "string" ? { taskId: candidate.taskId } : {}),
     ...(typeof candidate.incidentTraceId === "string" ? { incidentTraceId: candidate.incidentTraceId } : {}),
     ...(typeof candidate.agentSessionId === "string" ? { agentSessionId: candidate.agentSessionId } : {})

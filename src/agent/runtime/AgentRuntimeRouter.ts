@@ -402,12 +402,19 @@ function safeErrorMessage(error: unknown) {
 }
 
 function careerDomainWaitingMessage(code: string) {
+  if (/target_required/i.test(code)) {
+    return "我还没有拿到要定制的岗位信息。\n你可以直接粘贴岗位描述，或者选择已经保存的岗位。";
+  }
   if (code === "needs_profile" || code === "career_session_binding_required") {
     return "当前还没有可用于定制的个人资料。你可以选择已有资料，或先导入一份简历。";
   }
   if (code === "needs_profile_choice") return "当前有多份可用的个人资料，请先选择一份。";
-  if (code === "needs_resume_choice") return "当前有多份可用的通用简历，请先选择一份。";
-  return "当前步骤需要你的选择或补充信息后才能继续。";
+  if (code === "needs_resume_choice" || code === "multiple_resume_sources") return "当前有多份可用的通用简历，请先选择一份。";
+  if (code === "job_required") return "请选择已经保存的岗位，或直接粘贴岗位描述。";
+  if (code === "clarification_required") return "请补充当前岗位定制中尚未确认的信息。";
+  if (code === "confirmation_required") return "这一步需要你的明确确认。";
+  if (code === "review_required") return "请检查当前结果并告诉我下一步如何处理。";
+  return "请按下方问题或选项补充当前岗位定制所需的信息。";
 }
 
 function diagnosticsFromError(error: unknown) {

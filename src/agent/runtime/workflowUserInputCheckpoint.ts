@@ -6,6 +6,8 @@ import type {
 import { WorkflowUserInputCheckpointSchema } from "@/agent/contracts/agentSession";
 import { stableHashText } from "@/services/security/text";
 
+export const TARGET_REQUIRED_PROMPT = "我还没有拿到要定制的岗位信息。\n你可以直接粘贴岗位描述，或者选择已经保存的岗位。";
+
 /**
  * Derive the persisted checkpoint projection used by Host and UI. This is a
  * projection of TaskState, not a second workflow machine.
@@ -58,6 +60,9 @@ function checkpointProjection(state: AgentTaskState): Omit<WorkflowUserInputChec
       options: state.pendingDecision.options
     }, { type: "choice", options: state.pendingDecision.options });
   }
+
+  const precondition = preconditionProjection(state);
+  if (precondition) return precondition;
 
   if (state.stage === "choose_resume_source") {
     const candidates = generalResumeCandidates(state);
@@ -138,6 +143,78 @@ function clarificationProjection(state: AgentTaskState) {
       options
     }
   };
+}
+
+function preconditionProjection(state: AgentTaskState) {
+  const facadeCheckpoint = record(state.knownSlots.facadeCheckpoint);
+  if (facadeCheckpoint.kind === "career_context" && state.completionStatus === "waiting_for_user") {
+    const candidates = arrayRecords(state.knownSlots.profileCandidates).map(candidateProjection);
+    if (candidates.length) {
+      return base(state, `profile-choice:${stringValue(state.knownSlots.profileCandidateSetRevision) ?? hashCandidates(candidates)}`, "profile_choice", {
+        text: "请选择用于岗位定制的个人资料。",
+        options: candidates
+      }, { type: "profile", options: candidates });
+    }
+    return base(state, `profile-import:${state.workflowId}:${state.stage}`, "import_prompt", {
+      text: "当前还没有可用于岗位定制的个人资料。你可以选择已有资料，或先导入一份简历。"
+    }, { type: "profile_import", actions: ["select_profile", "import_resume"] });
+  }
+  const failure = record(state.knownSlots.canonicalWorkflowFailure);
+  const code = stringValue(failure.code) ?? stringValue(record(state.knownSlots.facadeCheckpoint).safeErrorCode);
+  if (!code) return undefined;
+  const operationId = stringValue(failure.operationId) ?? `stage:${state.stage}`;
+  if (code === "target_required") {
+    const options = [
+      { id: "paste_target", label: "粘贴岗位描述", value: "paste_target" },
+      { id: "select_saved_job", label: "选择已有岗位", value: "select_saved_job" }
+    ];
+    return base(state, `target-input:${operationId}`, "target_input", {
+      text: TARGET_REQUIRED_PROMPT,
+      options
+    }, { type: "target_input", options });
+  }
+  if (code === "multiple_resume_sources" || code === "needs_resume_choice") {
+    const candidates = generalResumeCandidates(state).map(candidateProjection);
+    return base(state, `resume-choice:${stringValue(state.knownSlots.resumeCandidateSetRevision) ?? hashCandidates(candidates)}`, "resume_choice", {
+      text: "请选择用于岗位定制的通用简历。",
+      options: candidates
+    }, { type: "resume", options: candidates });
+  }
+  if (code === "job_required") {
+    const candidates = arrayRecords(state.knownSlots.jobCandidates).map(candidateProjection);
+    return base(state, `job-choice:${stringValue(state.knownSlots.jobCandidateSetRevision) ?? hashCandidates(candidates)}`, "job_choice", {
+      text: candidates.length ? "请选择要继续定制的岗位。" : "请选择已经保存的岗位，或直接粘贴岗位描述。",
+      options: candidates
+    }, { type: "job", options: candidates });
+  }
+  if (code === "needs_profile" || code === "career_session_binding_required" || code === "needs_profile_choice" || code === "profile_required") {
+    const candidates = arrayRecords(state.knownSlots.profileCandidates).map(candidateProjection);
+    if (candidates.length) {
+      return base(state, `profile-choice:${stringValue(state.knownSlots.profileCandidateSetRevision) ?? hashCandidates(candidates)}`, "profile_choice", {
+        text: "请选择用于岗位定制的个人资料。",
+        options: candidates
+      }, { type: "profile", options: candidates });
+    }
+    return base(state, `profile-import:${state.workflowId}:${state.stage}`, "import_prompt", {
+      text: "当前还没有可用于岗位定制的个人资料。你可以选择已有资料，或先导入一份简历。"
+    }, { type: "profile_import", actions: ["select_profile", "import_resume"] });
+  }
+  if (code === "clarification_required") {
+    return base(state, `clarification:${operationId}`, "clarification", {
+      text: "请补充当前岗位定制中尚未确认的信息。"
+    }, { type: "text" });
+  }
+  if (code === "confirmation_required") {
+    return base(state, `confirmation:${operationId}`, "confirmation", {
+      text: "这一步需要你的明确确认。"
+    }, { type: "confirmation", values: ["confirm", "reject"] });
+  }
+  if (code === "review_required") {
+    return base(state, `review:${operationId}`, "review_decision", {
+      text: "请检查当前结果并告诉我下一步如何处理。"
+    }, { type: "review_decision", values: ["confirm", "edit", "continue"] });
+  }
+  return undefined;
 }
 
 function generalResumeCandidates(state: AgentTaskState) {

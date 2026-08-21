@@ -27,8 +27,8 @@ import {
 } from "../workflows/TransactionalWorkflowLease";
 import { isCareerDomainPreconditionCode } from "../runtime/careerContextBindingResolver";
 import { appBuildTechnicalDiagnostics } from "@/services/diagnostics/appBuildInfo";
-import type { TurnInputContext, TurnScopedTargetContext } from "../runtime/turnScopedTargetContext";
-import { turnTargetContextDiagnostics } from "../runtime/turnScopedTargetContext";
+import type { AgentMessage } from "../contracts/agentSession";
+import { TARGET_REQUIRED_PROMPT } from "../runtime/workflowUserInputCheckpoint";
 
 export type CareerToolReadWrite = "read" | "write";
 export type CareerToolConfirmationPolicy = "none" | "user_confirmation" | "destructive_confirmation";
@@ -128,10 +128,10 @@ export type CareerToolExecutionContext = {
   authoritativeTaskState?: AgentTaskState;
   /** Only the deterministic facade may use this to advance internal stages. */
   workflowFacadeInternal?: boolean;
-  /** Browser/Host-owned same-turn target authority; never included raw in diagnostics. */
-  turnTargetContext?: TurnScopedTargetContext;
-  /** Universal persisted input authority for the current logical turn. */
-  turnInputContext?: TurnInputContext;
+  /** Durable identity of the UserMessage that opened this logical turn. */
+  sourceUserMessageId?: string;
+  /** Host-resolved source text. Ephemeral: never persisted or sent over MCP. */
+  sourceUserMessage?: string;
   /** Browser/Host-owned answer for the current tailoring checkpoint. */
   tailoringAnswer?: {
     checkpointId: string;
@@ -140,7 +140,7 @@ export type CareerToolExecutionContext = {
     questionPlanRevision: number;
     answer: string;
   };
-  /** Browser/Host source message for a workflow turn. */
+  /** Compatibility alias for sourceUserMessageId. */
   userMessageId?: string;
   /** Internal discovery snapshot used only to keep partial test/adapter registries source-compatible. */
   availableCareerToolNames?: ReadonlySet<string>;
@@ -164,6 +164,8 @@ type CareerToolGatewayDependencies = {
   /** Read the current Host projection at execution time; never use the
    * planner's stale stage metadata for authorization. */
   getAuthoritativeTaskState?: () => AgentTaskState | undefined;
+  /** Resolve the persisted source UserMessage for one current logical turn. */
+  getUserMessageForTurn?: (turnId: string) => Pick<AgentMessage, "id" | "turnId" | "content"> | undefined;
   transactionalWorkflowLeases?: TransactionalWorkflowLeaseManager;
 };
 
@@ -335,12 +337,20 @@ export class CareerToolGateway {
     context: CareerToolExecutionContext = {}
   ): Promise<CareerToolResult<T>> {
     const operationId = normalizeOperationId(context.operationId);
+    const sourceUserMessageId = context.sourceUserMessageId ?? context.userMessageId;
+    const sourceUserMessage = sourceUserMessageId && context.logicalTurnId
+      ? this.asDependencies().getUserMessageForTurn?.(context.logicalTurnId)
+      : undefined;
     context = {
       ...context,
       operationId,
       // The first boundary owns the fallback identity. Downstream layers
       // transport it; they never derive a second turn/tool identity.
-      logicalToolOperationId: context.logicalToolOperationId ?? operationId
+      logicalToolOperationId: context.logicalToolOperationId ?? operationId,
+      ...(sourceUserMessageId ? { sourceUserMessageId } : {}),
+      ...(sourceUserMessage && sourceUserMessage.id === sourceUserMessageId
+        ? { sourceUserMessage: sourceUserMessage.content }
+        : {})
     };
     const trace = createExecutionTrace(name, input, operationId, context);
     const workflow = this.workflowByName.get(name);
@@ -364,7 +374,6 @@ export class CareerToolGateway {
         trace.facadeInput = prepared.input;
         trace.preparedInvocationInput = prepared.input;
         trace.preparedSameTurnTarget = prepared.sameTurnTarget;
-        trace.targetContext = turnTargetContextDiagnostics(prepared.context.turnTargetContext, true);
         const bindingError = await this.verifyExecutionBinding(contract, prepared.input, prepared.context);
         if (bindingError) return this.failure(name, operationId, bindingError.code, bindingError.message, false, undefined, "failed", finishFailureTrace(trace, bindingError.code, "gateway_policy"));
         if (!context.workflowFacadeInternal && isTransactionalWorkflow(name)) {
@@ -829,7 +838,7 @@ function errorCode(error: unknown) {
 
 function safeGatewayErrorMessage(error: unknown, code: string) {
   if (code === "schema_validation_failed") return "工具输入未通过 Career Schema 校验，未执行写入。";
-  if (code === "target_required") return "当前岗位定制缺少 targetText、jobId 或 checkpointId。";
+  if (code === "target_required") return TARGET_REQUIRED_PROMPT;
   return error instanceof Error && error.message.trim()
     ? error.message.replace(/[\u0000-\u001f\u007f]/gu, " ").replace(/\s+/gu, " ").trim().slice(0, 360)
     : "工具执行没有完成。";
@@ -872,6 +881,8 @@ type ExecutionTrace = {
   operationId: string;
   logicalToolOperationId: string;
   logicalTurnId?: string;
+  sourceUserMessageId?: string;
+  sourceUserMessageResolved?: boolean;
   taskId?: string;
   workflowStageBefore?: string;
   workflowStageAfter?: string;
@@ -891,7 +902,6 @@ type ExecutionTrace = {
   gatewayInput?: unknown;
   preparedInvocationInput?: unknown;
   preparedSameTurnTarget?: boolean;
-  targetContext?: ReturnType<typeof turnTargetContextDiagnostics>;
 };
 
 const TRANSACTIONAL_WORKFLOW_NAMES = new Set([
@@ -946,6 +956,8 @@ function createExecutionTrace(
     // logical identity at this boundary.
     logicalToolOperationId: context.logicalToolOperationId ?? operationId,
     logicalTurnId: context.logicalTurnId,
+    sourceUserMessageId: context.sourceUserMessageId ?? context.userMessageId,
+    sourceUserMessageResolved: Boolean(context.sourceUserMessage),
     taskId: context.taskId,
     workflowStageBefore: context.authoritativeTaskState?.stage,
     startedAtMs,
@@ -992,6 +1004,8 @@ function finishTrace(
     operationId: trace.operationId,
     logicalToolOperationId: trace.logicalToolOperationId,
     ...(trace.logicalTurnId ? { logicalTurnId: trace.logicalTurnId } : {}),
+    ...(trace.sourceUserMessageId ? { sourceUserMessageId: trace.sourceUserMessageId } : {}),
+    ...(trace.sourceUserMessageResolved !== undefined ? { sourceUserMessageResolved: trace.sourceUserMessageResolved } : {}),
     ...(trace.taskId ? { taskId: trace.taskId } : {}),
     argumentShape: safeCareerToolArgumentShape(trace.input),
     ...(trace.preparedInvocationInput !== undefined ? {
@@ -1002,7 +1016,6 @@ function finishTrace(
     } : {}),
     gatewayArgumentShape: safeCareerToolArgumentShape(trace.gatewayInput ?? trace.input),
     facadeArgumentShape: safeCareerToolArgumentShape(trace.facadeInput ?? trace.input),
-    ...(trace.targetContext ? { targetContext: trace.targetContext } : {}),
     ...(scopeForLayer(layer) === "career_workflow" ? { runtimeHealthy: true, mcpHealthy: true } : {}),
     ...appBuildTechnicalDiagnostics,
     ...(trace.schemaIssues?.length ? { schemaIssues: trace.schemaIssues } : {}),

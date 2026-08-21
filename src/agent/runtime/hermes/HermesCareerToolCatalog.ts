@@ -166,23 +166,23 @@ export class HermesCareerToolCatalog {
 export function projectCareerContractsForHermes(
   contracts: CareerToolContract[],
   allowedStableNames?: Set<string>,
-  options: { allowSameTurnTargetContext?: boolean } = {}
+  options: { allowTargetOmission?: boolean } = {}
 ) {
   const catalog = new HermesCareerToolCatalog(contracts);
   return contracts
     .filter((contract) => !allowedStableNames || allowedStableNames.has(contract.name))
     .map((contract) => {
-      const sameTurnTargetContext = options.allowSameTurnTargetContext
+      const allowTargetOmission = options.allowTargetOmission
         && contract.name === "career.workflow.tailor_resume";
-      const inputSchema = sameTurnTargetContext
+      const inputSchema = allowTargetOmission
         ? tailorResumeInternalHermesInputJsonSchema()
         : contract.inputSchema;
-      const identity = sameTurnTargetContext
+      const identity = allowTargetOmission
         ? contractIdentityForInputSchema(inputSchema)
         : undefined;
       return {
         ...contract,
-        ...(sameTurnTargetContext ? {
+        ...(allowTargetOmission ? {
           inputSchema,
           contractSchemaHash: identity!.contractSchemaHash,
           careerAdaptInputMode: "same_turn_target_injection" as const,
@@ -190,8 +190,8 @@ export function projectCareerContractsForHermes(
         } : {}),
         name: catalog.registeredNameForStableName(contract.name),
         careerAdaptStableName: contract.name,
-        description: `${contract.description} Stable CareerAdapt contract: ${contract.name}.${sameTurnTargetContext
-          ? " This internal Hermes route may omit targetText/jobId/checkpointId when the same-turn external target is captured; Browser/Host injects it before the canonical v3 gateway validation."
+        description: `${contract.description} Stable CareerAdapt contract: ${contract.name}.${allowTargetOmission
+          ? " This internal Hermes route may omit targetText/jobId/checkpointId; Host preparation resolves the current persisted UserMessage before canonical v3 gateway validation."
           : ""}`
       };
     });

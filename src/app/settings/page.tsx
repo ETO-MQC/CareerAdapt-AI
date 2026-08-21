@@ -1171,7 +1171,7 @@ export default function SettingsPage() {
                       <div><dt>logicalTurnId</dt><dd>{coreSelfCheck.logicalTurnId}</dd></div>
                       <div><dt>logicalToolOperationId</dt><dd>{coreSelfCheck.logicalToolOperationId}</dd></div>
                       <div><dt>Profile</dt><dd>{coreSelfCheck.profileId ? `${coreSelfCheck.profileId} · revision ${coreSelfCheck.profileRevision}` : "未读取"}</dd></div>
-                      <div><dt>TurnTargetContext</dt><dd>{coreSelfCheck.turnTargetContextId ?? "未生成"}</dd></div>
+                      <div><dt>sourceUserMessageId</dt><dd>{coreSelfCheck.sourceUserMessageId ?? "未解析"}</dd></div>
                     </dl>
                     <div className="core-self-check-grid">
                       {([
@@ -1183,8 +1183,8 @@ export default function SettingsPage() {
                         ["Profile integrity", coreSelfCheck.checks.profileContentIntegrity],
                         ["Browser MCP round-trip", coreSelfCheck.checks.browserMcpRoundTrip],
                         ["logicalToolOperationId", coreSelfCheck.checks.logicalToolOperationIdCorrelation],
-                        ["TurnInputContext", coreSelfCheck.checks.turnInputContext],
-                        ["TurnTargetContext", coreSelfCheck.checks.turnTargetContext],
+                        ["Current UserMessage", coreSelfCheck.checks.currentTurnUserMessage],
+                        ["Workflow preparation", coreSelfCheck.checks.workflowPreparation],
                         ["Checkpoint invariant", coreSelfCheck.checks.workflowCheckpointInvariants],
                         ["Repository read-back", coreSelfCheck.checks.repositoryReadback]
                       ] as Array<[string, { status: string; reason?: string }]>).map(([label, check]) => (

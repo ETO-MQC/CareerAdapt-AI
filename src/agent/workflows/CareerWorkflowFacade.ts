@@ -26,15 +26,8 @@ import {
   type CareerProfileCandidate,
   type CareerResumeCandidate
 } from "../runtime/careerContextBindingResolver";
-import {
-  currentTurnInputContext,
-  currentTurnScopedTargetContext,
-  createTurnScopedTargetContext,
-  isCredibleExternalTargetText,
-  targetContextForId,
-  type TurnInputContext,
-  type TurnScopedTargetContext
-} from "../runtime/turnScopedTargetContext";
+import { isCredibleExternalTargetText } from "../runtime/currentTurnUserMessage";
+import { TARGET_REQUIRED_PROMPT } from "../runtime/workflowUserInputCheckpoint";
 
 export const CareerWorkflowStatusSchema = z.enum([
   "completed",
@@ -164,10 +157,11 @@ export function prepareCareerWorkflowInvocation(
           input: {
             checkpointId: context.tailoringAnswer.checkpointId,
             userAnswer: context.tailoringAnswer.answer
-          }
+          },
+          sameTurnTarget: false
         }
       : resolveTurnScopedTailoringInput(rawInput, context)
-    : { input: normalizeCareerWorkflowScopedInput(name, rawInput, context) };
+    : { input: normalizeCareerWorkflowScopedInput(name, rawInput, context), sameTurnTarget: false };
   const normalizedInput = name === "career.workflow.tailor_resume"
     ? normalizeTailorResumeInput(turnScopedInput.input)
     : turnScopedInput.input;
@@ -182,25 +176,20 @@ export function prepareCareerWorkflowInvocation(
     })
   ) {
     throw Object.assign(new Error("career_workflow_target_required"), {
-      code: "target_required"
+      code: "target_required",
+      message: TARGET_REQUIRED_PROMPT
     });
   }
   const input = definition.inputSchema.parse(normalizedInput) as Record<string, unknown>;
-  if (turnScopedInput.targetContextId) input.targetContextId = turnScopedInput.targetContextId;
-  const inputContext = sameTurnInputContext(context);
-  const targetContext = turnScopedInput.targetContextId
-    ? targetContextForId(context.authoritativeTaskState, context.logicalTurnId, turnScopedInput.targetContextId)
-      ?? sameTurnTargetContext(context)
-    : undefined;
+  const contextWithoutSource = { ...context };
+  delete contextWithoutSource.sourceUserMessage;
   return {
     input,
     context: {
-      ...context,
+      ...contextWithoutSource,
       logicalToolOperationId: context.logicalToolOperationId ?? operationId,
-      ...(inputContext ? { turnInputContext: inputContext } : {}),
-      ...(targetContext ? { turnTargetContext: targetContext } : {})
     },
-    sameTurnTarget: Boolean(targetContext && typeof input.targetText === "string" && input.targetText.trim())
+    sameTurnTarget: turnScopedInput.sameTurnTarget
   };
 }
 
@@ -435,52 +424,22 @@ export async function executeCareerWorkflowFacade(
 export function resolveTurnScopedTailoringInput(
   rawInput: unknown,
   context: CareerToolExecutionContext
-): { input: unknown; targetContextId?: string } {
-  if (!rawInput || typeof rawInput !== "object" || Array.isArray(rawInput)) return { input: rawInput };
+): { input: unknown; sameTurnTarget: boolean } {
+  if (!rawInput || typeof rawInput !== "object" || Array.isArray(rawInput)) return { input: rawInput, sameTurnTarget: false };
   const input = { ...(rawInput as Record<string, unknown>) };
-  const explicitTargetContextId = stringValue(input.targetContextId);
-  const internalKeys = new Set(["targetContextId", "sourceResumeId", "profileId"]);
+  const internalKeys = new Set(["sourceResumeId", "profileId"]);
   const canResolveOmittedTarget = Object.keys(input).every((key) => internalKeys.has(key));
-  const directTargetContext = sameTurnTargetContext(context);
-  const targetContext = explicitTargetContextId
-    ? directTargetContext?.targetContextId === explicitTargetContextId
-      ? directTargetContext
-      : targetContextForId(context.authoritativeTaskState, context.logicalTurnId, explicitTargetContextId)
-    : canResolveOmittedTarget
-      ? directTargetContext ?? currentTurnScopedTargetContext(context.authoritativeTaskState, context.logicalTurnId)
-      : undefined;
-  if (!targetContext) return { input };
-  delete input.targetContextId;
+  const sourceUserMessage = context.sourceUserMessage?.trim();
+  if (!canResolveOmittedTarget || !sourceUserMessage || !isCredibleExternalTargetText(sourceUserMessage)) {
+    return { input, sameTurnTarget: false };
+  }
   return {
     input: {
       ...input,
-      targetText: targetContext.targetText
+      targetText: sourceUserMessage
     },
-    targetContextId: targetContext.targetContextId
+    sameTurnTarget: true
   };
-}
-
-function sameTurnInputContext(context: CareerToolExecutionContext): TurnInputContext | undefined {
-  if (context.turnInputContext && context.turnInputContext.logicalTurnId === context.logicalTurnId) {
-    return context.turnInputContext;
-  }
-  return currentTurnInputContext(context.authoritativeTaskState, context.logicalTurnId);
-}
-
-function sameTurnTargetContext(context: CareerToolExecutionContext): TurnScopedTargetContext | undefined {
-  const input = sameTurnInputContext(context);
-  if (input && isCredibleExternalTargetText(input.inputReference)) {
-    return createTurnScopedTargetContext({
-      logicalTurnId: input.logicalTurnId,
-      sourceMessageId: input.sourceMessageId,
-      targetText: input.inputReference.trim(),
-      createdAt: input.createdAt
-    });
-  }
-  const direct = context.turnTargetContext?.logicalTurnId === context.logicalTurnId
-    ? context.turnTargetContext
-    : undefined;
-  return direct ?? currentTurnScopedTargetContext(context.authoritativeTaskState, context.logicalTurnId);
 }
 
 type TailoringFacadeCall = (
@@ -899,11 +858,7 @@ function tailoringFacadeProgress(
   requestedStatus: CareerWorkflowFacadeResult["status"],
   userPromptOverride?: string
 ) {
-  const currentTargetContext = currentTurnScopedTargetContext(context.authoritativeTaskState, context.logicalTurnId);
-  const targetContextId = stringValue(checkpoint.targetContextId) ?? currentTargetContext?.targetContextId;
-  const scopedCheckpoint = targetContextId
-    ? { ...checkpoint, targetContextId }
-    : checkpoint;
+  const scopedCheckpoint = checkpoint;
   const last = results.at(-1) ?? checkpointOnlyTailoringResult(operationId, session ?? {});
   const workflowStage = facadeWorkflowStage("career.workflow.tailor_resume", last, scopedCheckpoint);
   const status: CareerWorkflowFacadeResult["status"] = last.ok
@@ -969,7 +924,6 @@ function tailoringCheckpoint(input: Record<string, unknown>, session: Record<str
     kind: "tailoring_session",
     workflowStage: tailoringStageForSession(session),
     checkpointId: id,
-    ...(stringValue(input.targetContextId) ? { targetContextId: stringValue(input.targetContextId) } : {}),
     profileId: stringValue(input.profileId) ?? stringValue(objectValue(session.profile).id),
     resumeId: stringValue(input.sourceResumeId) ?? stringValue(input.resumeId) ?? stringValue(branch.id),
     ...(!targetSnapshot ? { jobId: stringValue(input.jobId) ?? stringValue(job.id) } : {}),

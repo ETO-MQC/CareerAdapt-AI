@@ -14,7 +14,7 @@ import { buildProfileContentIntegrity } from "@/domain/profile/profileContentInt
 import { demoCareerProfile } from "@/data/demoProfile";
 
 describe("P4.5c.1.18 turn-scoped tailoring and live profile integrity", () => {
-  it("captures and resolves only the current turn target for an omitted Hermes argument object", () => {
+  it("resolves an omitted Hermes target only from the current persisted UserMessage", () => {
     const state = AgentTaskStateSchema.parse({
       rootGoal: "conversation",
       workflowId: "conversation",
@@ -41,24 +41,20 @@ describe("P4.5c.1.18 turn-scoped tailoring and live profile integrity", () => {
       turnId: "turn-current",
       capturedAt: "2026-08-18T00:00:00.000Z"
     });
-    const context = next.knownSlots.turnScopedTargetContext as Record<string, unknown>;
-    expect(context).toMatchObject({
-      logicalTurnId: "turn-current",
-      sourceType: "pasted_jd"
-    });
-
     const resolved = resolveTurnScopedTailoringInput({}, {
       logicalTurnId: "turn-current",
-      authoritativeTaskState: next
+      authoritativeTaskState: next,
+      sourceUserMessageId: "message-current",
+      sourceUserMessage: targetText
     });
-    expect(resolved.targetContextId).toBe(context.targetContextId);
+    expect(resolved.sameTurnTarget).toBe(true);
     expect(resolved.input).toMatchObject({ targetText });
 
     const previousTurn = resolveTurnScopedTailoringInput({}, {
       logicalTurnId: "turn-previous",
       authoritativeTaskState: next
     });
-    expect(previousTurn).toEqual({ input: {} });
+    expect(previousTurn).toEqual({ input: {}, sameTurnTarget: false });
   });
 
   it("keeps Hermes, MCP and Gateway logical identity deterministic when MCP metadata carries a turn", async () => {

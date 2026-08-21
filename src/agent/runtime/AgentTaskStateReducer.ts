@@ -22,7 +22,6 @@ import { ProfileIntakeReviewProjectionSchema, type ProfileIntakeReviewProjection
 import { ResumeCompositionInformationNeedSchema } from "@/domain/resumeComposition/contracts";
 import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
 import { normalizeTailoringStage } from "@/agent/workflows/tailoringStage";
-import { captureTurnInputContext, createTurnScopedTargetContext } from "./turnScopedTargetContext";
 import { deriveWorkflowUserInputCheckpoint } from "./workflowUserInputCheckpoint";
 
 export type AgentTaskEvent =
@@ -178,32 +177,8 @@ export class AgentTaskStateReducer {
     }
     if (event.type === "user_message") {
       delete state.knownSlots.compoundAnswerResolution;
-      if (event.turnId) {
-        delete state.knownSlots.turnTargetContext;
-        delete state.knownSlots.turnScopedTargetContext;
-        const captured = captureTurnInputContext(state, {
-          logicalTurnId: event.turnId,
-          sourceMessageId: event.messageId,
-          inputReference: event.message,
-          createdAt: event.capturedAt ?? state.updatedAt
-        });
-        state.knownSlots = captured.knownSlots;
-      }
       if (looksLikeJd(event.message)) {
         const targetText = event.message.trim();
-        if (event.turnId) {
-          // Compatibility projection for pre-P4.5c persisted callers. The
-          // universal TurnInputContext above remains the sole production
-          // source; preparation derives from it and does not read this slot.
-          const targetContext = createTurnScopedTargetContext({
-            logicalTurnId: event.turnId,
-            targetText,
-            sourceMessageId: event.messageId,
-            createdAt: event.capturedAt ?? state.updatedAt
-          });
-          state.knownSlots.turnTargetContext = targetContext;
-          state.knownSlots.turnScopedTargetContext = targetContext;
-        }
         if (
           state.rootGoal === "apply_to_external_job"
           || state.rootGoal === "generate_job_specific_resume"

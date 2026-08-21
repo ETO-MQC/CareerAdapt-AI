@@ -40,7 +40,6 @@ import { hermesProductionToolNames } from "@/agent/runtime/hermes/HermesCareerTo
 import { isReadOnlyCareerQuestion } from "@/agent/runtime/AgentTurnIntent";
 import { isCareerDomainPreconditionCode } from "@/agent/runtime/careerContextBindingResolver";
 import { createIncidentTraceId, createRunStopReason, type RuntimeFailureSnapshot, type RunStopReason } from "@/agent/runtime/hermes/hermesIncidentTrace";
-import { currentTurnInputContext, currentTurnScopedTargetContext } from "@/agent/runtime/turnScopedTargetContext";
 
 function createAgentHost() {
   const repository = new WorkspaceRepository();
@@ -52,7 +51,8 @@ function createAgentHost() {
     registry,
     executor: rawExecutor,
     verifySessionBinding: async (binding, input) => verifyBrowserCareerBinding(repository, binding, input),
-    getAuthoritativeTaskState: () => hostStateRef.current?.getSnapshot().activeSession?.taskState
+    getAuthoritativeTaskState: () => hostStateRef.current?.getSnapshot().activeSession?.taskState,
+    getUserMessageForTurn: (turnId) => hostStateRef.current?.getUserMessageForTurn(turnId)
   });
   const executor = new CareerToolGatewayExecutor(registry, careerToolGateway);
   const store = new AgentSessionStore(repository);
@@ -431,15 +431,8 @@ function createAgentHost() {
             taskId: runtimeInput.session?.id,
             assistantMessageId: runtimeShell.assistantMessageId,
             userMessageId: runtimeShell.userMessageId,
+            sourceUserMessageId: runtimeShell.userMessageId,
             incidentTraceId,
-            ...(runtimeInput.session?.taskState
-              && currentTurnInputContext(runtimeInput.session.taskState, runtimeShell.turnId)
-              ? { turnInputContext: currentTurnInputContext(runtimeInput.session.taskState, runtimeShell.turnId) }
-              : {}),
-            ...(runtimeInput.session?.taskState
-              && currentTurnScopedTargetContext(runtimeInput.session.taskState, runtimeShell.turnId)
-              ? { targetContext: currentTurnScopedTargetContext(runtimeInput.session.taskState, runtimeShell.turnId) }
-              : {}),
             ...(tailoringAnswer ? { tailoringAnswer } : {})
           }).catch(() => undefined);
         }
@@ -643,6 +636,7 @@ function createAgentHost() {
         turnId: prepared.turnId
       });
     }
+    if (prepared.deterministicTerminal) return prepared.session;
     const deterministicEvent = event.type === "entity_selected"
       || event.type === "option_selected" && ["select_entity", "task_decision", "answer", "retry_current_step"].includes(event.action.type)
       || event.type === "retry";

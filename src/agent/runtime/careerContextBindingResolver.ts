@@ -181,6 +181,12 @@ export function isCareerDomainPreconditionCode(code?: string) {
     "needs_profile",
     "needs_profile_choice",
     "needs_resume_choice",
+    "multiple_resume_sources",
+    "job_required",
+    "clarification_required",
+    "confirmation_required",
+    "review_required",
+    "profile_required",
     "needs_user_input",
     "workflow_precondition",
     "target_required"

@@ -12,16 +12,14 @@ import {
 } from "@/agent/runtime/AgentHostStore";
 import { AgentTaskStateReducer } from "@/agent/runtime/AgentTaskStateReducer";
 import { projectTaskStateIntoSession } from "@/agent/runtime/projectTaskStateToWorkflowState";
-import { currentTurnInputContext, currentTurnScopedTargetContext } from "@/agent/runtime/turnScopedTargetContext";
 import { mapOfficialHermesEvent } from "@/agent/runtime/hermes/HermesBridgeTransport";
 import {
-  CareerAdaptMcpBridgeClient,
-  normalizeHermesScopedInput
+  CareerAdaptMcpBridgeClient
 } from "@/agent/mcp/CareerAdaptMcpBridgeClient";
 import { CareerAdaptMcpProtocolServer } from "@/agent/mcp/CareerAdaptMcpServer";
 import { CareerToolGateway } from "@/agent/tools/CareerToolGateway";
 import { AgentToolRegistry } from "@/agent/tools/registry";
-import { stableHashText } from "@/services/security/text";
+import { analyzeJobDescriptionV4 } from "@/domain/jobOptimization/v4/analyze";
 
 const LONG_EXTERNAL_JD = [
   "岗位职责：负责 AI 应用的需求分析、工作流设计、服务接入和交付质量跟踪，协同产品与工程团队完成上线。",
@@ -38,7 +36,7 @@ afterEach(() => {
 });
 
 describe("P4.5c.1.20 production golden journey replay", () => {
-  it("keeps one target context and one logical operation across Hermes, MCP, Browser, Gateway and Facade", async () => {
+  it("resolves one persisted UserMessage across Hermes, MCP, Browser, Gateway and Facade", async () => {
     const session = tailoringSession("choose_resume_source");
     const host = new AgentHostStore({
       kernel: {} as never,
@@ -51,19 +49,10 @@ describe("P4.5c.1.20 production golden journey replay", () => {
       userMessage: LONG_EXTERNAL_JD,
       runtimeId: "hermes"
     });
-    const turnInput = currentTurnInputContext(shell.session.taskState, shell.turnId);
-    expect(turnInput).toMatchObject({
-      logicalTurnId: shell.turnId,
-      sourceMessageId: shell.userMessageId,
-      inputReference: LONG_EXTERNAL_JD,
-      inputHash: stableHashText(LONG_EXTERNAL_JD)
-    });
-    const captured = currentTurnScopedTargetContext(shell.session.taskState, shell.turnId);
-    expect(captured).toMatchObject({
-      logicalTurnId: shell.turnId,
-      sourceMessageId: shell.userMessageId,
-      targetText: LONG_EXTERNAL_JD,
-      targetTextHash: stableHashText(LONG_EXTERNAL_JD)
+    expect(shell.session.activeTurn?.sourceUserMessageId).toBe(shell.userMessageId);
+    expect(host.getUserMessageForTurn(shell.turnId)).toMatchObject({
+      id: shell.userMessageId,
+      content: LONG_EXTERNAL_JD
     });
 
     const officialStarted = mapOfficialHermesEvent("tool.started", {
@@ -87,7 +76,10 @@ describe("P4.5c.1.20 production golden journey replay", () => {
       timestamp: new Date().toISOString()
     }, shell.assistantMessageId);
 
-    const gateway = new CareerToolGateway(goldenReadRegistry());
+    const gateway = new CareerToolGateway({
+      registry: productionReplayRegistry(),
+      getUserMessageForTurn: (turnId) => host.getUserMessageForTurn(turnId)
+    });
     const protocol = new CareerAdaptMcpProtocolServer(gateway, {
       name: "careeradapt",
       version: "p4.5c.1.20",
@@ -159,23 +151,6 @@ describe("P4.5c.1.20 production golden journey replay", () => {
     expect(host.getSnapshot().activeSession?.taskState?.selectedEntities.resumeId).toBe("resume-1");
     expect(host.getSnapshot().activeSession?.taskState?.workflowUserInputCheckpoint).toBeUndefined();
 
-    const normalized = normalizeHermesScopedInput(
-      "career.workflow.tailor_resume",
-      {},
-      binding,
-      {
-        sessionId: shell.session.id,
-        turnId: shell.turnId,
-        assistantMessageId: shell.assistantMessageId,
-        targetContext: captured
-      },
-      shell.turnId
-    );
-    expect(normalized).toMatchObject({
-      targetText: LONG_EXTERNAL_JD,
-      targetContextId: captured?.targetContextId
-    });
-
     const fetchMock = vi.fn().mockResolvedValue(Response.json({ ok: true }));
     vi.stubGlobal("fetch", fetchMock);
     const browserClient = new CareerAdaptMcpBridgeClient();
@@ -195,8 +170,10 @@ describe("P4.5c.1.20 production golden journey replay", () => {
       sessionId: shell.session.id,
       turnId: shell.turnId,
       assistantMessageId: shell.assistantMessageId,
-      targetContext: captured,
-      turnInputContext: turnInput
+      sourceUserMessageId: shell.userMessageId,
+      careerSessionBinding: binding,
+      requireSessionBinding: true,
+      agentSessionId: shell.session.id
     };
     await browser.execute({
       id: "bridge-request-1",
@@ -204,12 +181,18 @@ describe("P4.5c.1.20 production golden journey replay", () => {
       input: {},
       operationId: "transport-operation-1",
       logicalToolOperationId: "logical-operation-1",
-      logicalTurnId: shell.turnId
+      logicalTurnId: shell.turnId,
+      careerSessionBinding: binding,
+      requireSessionBinding: true,
+      agentSessionId: shell.session.id
     });
 
     const browserCall = fetchMock.mock.calls.at(-1);
-    const posted = JSON.parse(String((browserCall?.[1] as RequestInit | undefined)?.body)) as { result?: { diagnostics?: Record<string, unknown>; error?: { diagnostics?: Record<string, unknown> } } };
+    const posted = JSON.parse(String((browserCall?.[1] as RequestInit | undefined)?.body)) as { result?: { ok?: boolean; data?: { status?: string }; diagnostics?: Record<string, unknown>; error?: { diagnostics?: Record<string, unknown> } } };
     const browserDiagnostics = posted.result?.diagnostics ?? posted.result?.error?.diagnostics ?? {};
+    expect(posted.result?.error).toBeUndefined();
+    expect(posted.result?.ok).toBe(true);
+    expect(posted.result?.data?.status).toBe("review_ready");
     expect(browserDiagnostics).toMatchObject({
       browserHandlerArgumentShape: {},
       preparedInvocationShape: {
@@ -226,6 +209,9 @@ describe("P4.5c.1.20 production golden journey replay", () => {
     });
     expect(browserDiagnostics.logicalToolOperationId).toBe("logical-operation-1");
     expect(JSON.stringify(browserDiagnostics)).not.toContain(LONG_EXTERNAL_JD);
+    expect(JSON.stringify(browserDiagnostics)).not.toContain("target_required");
+    expect(host.getSnapshot().activeSession?.activeTurn?.sourceUserMessageId).toBe(shell.userMessageId);
+    expect(host.getSnapshot().activeSession?.messages.some((message) => message.metadata?.recoveryReason === "inactive_historical_turn")).toBe(false);
 
     const protocolDiagnostics = objectValue(structuredPayload(await protocol.handle({
       jsonrpc: "2.0",
@@ -240,6 +226,7 @@ describe("P4.5c.1.20 production golden journey replay", () => {
         }
       }
     })).diagnostics);
+    expect(protocolDiagnostics.logicalToolOperationId).toBe("logical-operation-1");
     expect(protocolDiagnostics).toMatchObject({
       mcpJsonRpcArgumentShape: expect.any(Object),
       mcpHttpArgumentShape: expect.any(Object),
@@ -409,8 +396,7 @@ describe("P4.5c.1.20 production golden journey replay", () => {
     const assistant = after?.messages.find((message) => message.id === shell.assistantMessageId);
     expect(assistant?.content).toContain("MCP 与 Hermes 仍处于健康状态");
     expect(assistant?.content).not.toContain("MCP 边界这次没有返回");
-    expect(currentTurnScopedTargetContext(after?.taskState, shell.turnId)?.targetTextHash)
-      .toBe(stableHashText(LONG_EXTERNAL_JD));
+    expect(host.getUserMessageForTurn(shell.turnId)?.content).toBe(LONG_EXTERNAL_JD);
   });
 });
 
@@ -453,6 +439,46 @@ function goldenReadRegistry() {
     tool("get_profile", { profile: { id: "profile-1", personId: "person-1", profileRevision: 3 } }),
     tool("list_profiles", { profiles: [{ id: "profile-1", personId: "person-1", profileRevision: 3, version: 3 }] }),
     tool("get_active_profile", { selected: true, profileId: "profile-1", version: 3, profileRevision: 3 })
+  ]);
+}
+
+function productionReplayRegistry() {
+  const registry = goldenReadRegistry();
+  const output = z.record(z.string(), z.unknown());
+  const input = z.record(z.string(), z.unknown());
+  const tool = (name: string, value: Record<string, unknown>) => ({
+    name,
+    description: name,
+    risk: "read" as const,
+    requiresConfirmation: false,
+    idempotent: true,
+    resumable: true,
+    inputSchema: input,
+    outputSchema: output,
+    execute: async () => value
+  });
+  const graph = analyzeJobDescriptionV4({ rawText: LONG_EXTERNAL_JD }).graph;
+  const session = {
+    id: "tailoring-session-replay",
+    branch: { id: "resume-1", currentRevisionId: "resume-revision-1" },
+    job: { title: "AI 应用工程师" },
+    plan: {
+      generationStatus: "ready_for_generation",
+      questionPlan: { status: "ready_for_generation", revision: 1 },
+      clarificationQuestions: []
+    }
+  };
+  return new AgentToolRegistry([
+    ...registry.list(),
+    tool("parse_job_description", { graph, candidateTitle: "AI 应用工程师" }),
+    tool("analyze_job_fit", { analysis: {}, dependencies: {} }),
+    tool("create_tailoring_session", { session }),
+    tool("generate_tailoring_changes", {
+      session: {
+        ...session,
+        plan: { ...session.plan, generationStatus: "completed" }
+      }
+    })
   ]);
 }
 
