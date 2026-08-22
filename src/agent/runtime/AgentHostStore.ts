@@ -88,7 +88,8 @@ import {
 import { ImportedResumeDraftSchema, type ImportedResumeDraft } from "@/domain/schemas";
 import { JobTargetSnapshotSchema } from "@/domain/schemas/jobTarget";
 import { jobTargetSnapshotHash } from "@/domain/jobTarget/jobTargetSnapshot";
-import { TARGET_REQUIRED_PROMPT } from "./workflowUserInputCheckpoint";
+import { activeWorkflowInteractionFor, TARGET_REQUIRED_PROMPT } from "./workflowUserInputCheckpoint";
+export { activeWorkflowInteractionFor } from "./workflowUserInputCheckpoint";
 import { createProfileIntakeInterviewPlan } from "@/domain/profileIntake/ProfileIntakeCompleteness";
 import { appendProfileIntakeQuestionAnswer } from "@/domain/profileIntake/ProfileIntakeQuestionAnswer";
 import {
@@ -124,8 +125,11 @@ import {
   type RuntimeUserEvent
 } from "./RuntimeUserEvent";
 import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
+import type { TailoringSession } from "@/services/jobs/tailoringCommands";
 import { consumeTailoringQuestionAnswer } from "@/services/jobs/tailoringService";
 import { isTailoringQuestionPaused, normalizeTailoringStage } from "@/agent/workflows/tailoringStage";
+import { advanceTailoringWorkflow, type TailoringWorkflowBoundary } from "@/agent/workflows/tailoringWorkflowDriver";
+import { isTailoringWorkflowId } from "@/agent/workflows/workflowRegistry";
 import {
   ResumeArtifactReceiptSchema,
   ResumeArtifactWriteCheckpointSchema,
@@ -170,6 +174,9 @@ export type TailoringAnswerBinding = {
 };
 
 export type TailoringQuestionProjection = {
+  interactionId: string;
+  checkpointId: string;
+  interactionRevision: number;
   questionPlanId: string;
   questionPlanRevision: number;
   questionId: string;
@@ -182,6 +189,13 @@ export type TailoringQuestionProjection = {
   tailoringSessionId: string;
   messageId: string;
   projectionRevision: string;
+};
+
+type WorkflowInteractionConsumption = {
+  session: AgentSession;
+  turnId: string;
+  userMessageId?: string;
+  applied: boolean;
 };
 
 export type SafeWorkflowCheckpoint = {
@@ -312,6 +326,7 @@ export class AgentHostStore {
   private readonly confirmationExecutions = new Map<string, Promise<AgentSession | undefined>>();
   private readonly resumeCompositionExecutions = new Map<string, Promise<AgentSession | undefined>>();
   private readonly artifactActionExecutions = new Map<string, Promise<AgentSession | undefined>>();
+  private readonly workflowInteractionExecutions = new Map<string, Promise<WorkflowInteractionConsumption>>();
   private readonly pendingInputs = new Map<string, PendingUserInput[]>();
   private runtimeEventQueue: Promise<void> = Promise.resolve();
   private streamCheckpointTimer?: ReturnType<typeof setTimeout>;
@@ -1774,6 +1789,7 @@ export class AgentHostStore {
       ? input.session.messages.findLast((message) =>
           message.role === "assistant"
           && message.turnId === turnId
+          && !isWorkflowInteractionMessage(message)
           && message.metadata?.retracted !== true
         )
       : undefined;
@@ -2662,18 +2678,15 @@ export class AgentHostStore {
       }
       if (input.action.type === "answer") {
         if (input.action.field === "profile-intake-section") return session;
-        const answerValue = input.action.value;
         if (input.action.field.startsWith("tailoring-question:")) {
-          const questionId = input.action.field.slice("tailoring-question:".length);
-          if (presentedActiveTailoringQuestion(session) !== questionId) return session;
-          const tailoring = objectValue(session.taskState?.knownSlots.tailoringSession);
-          const plan = objectValue(tailoring.plan);
-          const question = (Array.isArray(plan.clarificationQuestions) ? plan.clarificationQuestions.map(objectValue) : [])
-            .find((item) => item.id === questionId);
-          const valid = Array.isArray(question?.options)
-            && question.options.map(objectValue).some((option) => option.value === answerValue);
-          if (!valid) return session;
+          const prepared = await this.prepareRuntimeUserEvent({
+            session,
+            event: { type: "option_selected", action: input.action },
+            pageContext: context.pageContext
+          });
+          return prepared.session;
         }
+        const answerValue = input.action.value;
         return this.startTurn({
           session,
           userMessage: String(answerValue ?? ""),
@@ -5187,6 +5200,7 @@ export class AgentHostStore {
       pendingConfirmation: undefined,
       pendingToolCall: undefined
     };
+    current = settleWorkflowInteractionMessages(current);
     this.patchSession(current, { turnStatus: "running" });
     if (!confirmed) {
       current = {
@@ -5939,20 +5953,34 @@ export class AgentHostStore {
     if (action.field === "profile-intake-section") {
       return { session, turnId: `agent-turn-${crypto.randomUUID()}`, applied: false };
     }
-    const answerValue = action.value;
     if (action.field.startsWith("tailoring-question:")) {
       const questionId = action.field.slice("tailoring-question:".length);
-      if (presentedActiveTailoringQuestion(session) !== questionId) {
+      const projection = getActiveTailoringQuestionProjection(session);
+      if (
+        !projection
+        || projection.questionId !== questionId
+        || presentedActiveTailoringQuestion(session) !== questionId
+        || !workflowInteractionActionMatches(projection, action)
+      ) {
         return { session, turnId: `agent-turn-${crypto.randomUUID()}`, applied: false };
       }
-      const tailoring = objectValue(session.taskState?.knownSlots.tailoringSession);
-      const plan = objectValue(tailoring.plan);
-      const question = (Array.isArray(plan.clarificationQuestions) ? plan.clarificationQuestions.map(objectValue) : [])
-        .find((item) => item.id === questionId);
-      const valid = Array.isArray(question?.options)
-        && question.options.map(objectValue).some((option) => option.value === answerValue);
+      const answerValue = action.value;
+      const valid = projection.options.some((option) =>
+        option.action.type === "answer" && option.action.value === answerValue
+      );
       if (!valid) return { session, turnId: `agent-turn-${crypto.randomUUID()}`, applied: false };
+      const consumed = await this.consumeWorkflowInteraction(session, projection, answerValue as string, {
+        optionField: action.field,
+        optionValue: answerValue
+      });
+      return {
+        session: consumed.session,
+        turnId: consumed.turnId,
+        applied: consumed.applied,
+        deterministicTerminal: consumed.applied
+      };
     }
+    const answerValue = action.value;
     const turnId = `agent-turn-${crypto.randomUUID()}`;
     const userMessageId = `agent-user-${crypto.randomUUID()}`;
     const now = new Date().toISOString();
@@ -5968,18 +5996,7 @@ export class AgentHostStore {
         optionValue: answerValue
       }
     });
-    const tailoringQuestionProjection = action.field.startsWith("tailoring-question:")
-      ? getActiveTailoringQuestionProjection(session)
-      : undefined;
-    if (tailoringQuestionProjection) {
-      current = this.consumeTailoringQuestionAnswerLocally(
-        current,
-        tailoringQuestionProjection,
-        answerValue as string | string[] | boolean,
-        userMessageId,
-        now
-      );
-    } else if (current.taskState) {
+    if (current.taskState) {
       const taskState = new AgentTaskStateReducer().reduce(current.taskState, {
         type: "user_message",
         message: text,
@@ -6004,19 +6021,14 @@ export class AgentHostStore {
         finalRuntime: current.activeTurn?.finalRuntime ?? "native",
         fallbackUsed: current.activeTurn?.fallbackUsed ?? false,
         executionOwner: "deterministic_transition",
-        status: tailoringQuestionProjection ? "waiting_for_user" : "running",
+        status: "running",
         startedAt: now,
-        completedAt: tailoringQuestionProjection ? now : undefined
+        completedAt: undefined
       }
     };
-    if (tailoringQuestionProjection && current.taskState) {
-      current = projectActiveTailoringQuestionToChat(current, current.taskState);
-    }
     const saved = await this.dependencies.persistence.save(current);
-    this.patchSession(saved, tailoringQuestionProjection
-      ? { turnStatus: "waiting_for_user", activeTurnId: turnId, currentObservation: { type: "tailoring_answer_consumed", message: "已记录，进入下一道问题。" } }
-      : undefined);
-    return { session: saved, turnId, applied: true, deterministicTerminal: Boolean(tailoringQuestionProjection) };
+    this.patchSession(saved);
+    return { session: saved, turnId, applied: true };
   }
 
   private async applyTailoringTextAnswer(
@@ -6025,10 +6037,74 @@ export class AgentHostStore {
     projection: TailoringQuestionProjection
   ): Promise<PreparedRuntimeUserEvent> {
     const text = value.trim().slice(0, 8_000);
+    const consumed = await this.consumeWorkflowInteraction(session, projection, text, {});
+    return {
+      session: consumed.session,
+      event: { type: "text_message", text },
+      turnId: consumed.turnId,
+      userMessage: "",
+      executionOwner: "deterministic_transition",
+      deterministicTransitionApplied: consumed.applied,
+      deterministicTerminal: consumed.applied,
+      prePersistedUserMessageId: consumed.userMessageId,
+      tailoringAnswerBinding: undefined
+    };
+  }
+
+  private async consumeWorkflowInteraction(
+    session: AgentSession,
+    projection: TailoringQuestionProjection,
+    answer: string,
+    options: { optionField?: string; optionValue?: unknown }
+  ) {
+    const executionKey = `${session.id}:${projection.interactionId}:${projection.interactionRevision}`;
+    const running = this.workflowInteractionExecutions.get(executionKey);
+    if (running) {
+      const settled = await running;
+      return {
+        session: settled.session,
+        turnId: settled.turnId,
+        userMessageId: settled.userMessageId,
+        applied: false
+      };
+    }
+    const execution = this.consumeWorkflowInteractionOnce(session, projection, answer, options)
+      .finally(() => this.workflowInteractionExecutions.delete(executionKey));
+    this.workflowInteractionExecutions.set(executionKey, execution);
+    return execution;
+  }
+
+  private async consumeWorkflowInteractionOnce(
+    requestedSession: AgentSession,
+    projection: TailoringQuestionProjection,
+    answer: string,
+    options: { optionField?: string; optionValue?: unknown }
+  ) {
+    const authoritative = this.snapshot.activeSession?.id === requestedSession.id
+      ? this.snapshot.activeSession
+      : requestedSession;
+    const activeProjection = getActiveTailoringQuestionProjection(authoritative);
+    if (
+      !activeProjection
+      || activeProjection.interactionId !== projection.interactionId
+      || activeProjection.checkpointId !== projection.checkpointId
+      || activeProjection.interactionRevision !== projection.interactionRevision
+      || activeProjection.questionId !== projection.questionId
+      || presentedActiveTailoringQuestion(authoritative) !== projection.questionId
+    ) {
+      return {
+        session: authoritative,
+        turnId: authoritative.activeTurn?.id ?? `agent-turn-${crypto.randomUUID()}`,
+        userMessageId: authoritative.activeTurn?.userMessageId,
+        applied: false
+      };
+    }
+    const resolvedInteraction = activeWorkflowInteractionFor(authoritative.taskState);
+    const text = answer.trim().slice(0, 8_000);
     const turnId = `agent-turn-${crypto.randomUUID()}`;
     const userMessageId = `agent-user-${crypto.randomUUID()}`;
     const now = new Date().toISOString();
-    let current = withTurnCheckpoint(supersedeActiveOptionSets(session), turnId, userMessageId, now);
+    let current = withTurnCheckpoint(supersedeActiveOptionSets(authoritative), turnId, userMessageId, now);
     current = appendAgentMessage(current, "user", text, {
       id: userMessageId,
       turnId,
@@ -6039,16 +6115,73 @@ export class AgentHostStore {
         tailoringQuestionId: projection.questionId,
         tailoringQuestionPlanId: projection.questionPlanId,
         tailoringQuestionPlanRevision: projection.questionPlanRevision,
+        workflowInteractionId: projection.interactionId,
+        workflowCheckpointId: projection.checkpointId,
+        workflowInteractionRevision: projection.interactionRevision,
+        ...(options.optionField ? { optionField: options.optionField } : {}),
+        ...(options.optionValue !== undefined ? { optionValue: options.optionValue } : {}),
         executionState: "running"
       }
     });
-    current = this.consumeTailoringQuestionAnswerLocally(
-      current,
-      projection,
-      text,
-      userMessageId,
-      now
-    );
+    current = this.consumeTailoringQuestionAnswerLocally(current, projection, text, userMessageId, now);
+    if (typeof this.dependencies.executor.execute !== "function") {
+      const nextQuestionState = current.taskState ? getActiveTailoringQuestionProjection(current.taskState) : undefined;
+      if (nextQuestionState && current.taskState) {
+        current = projectActiveTailoringQuestionToChat(current, current.taskState);
+        current = {
+          ...current,
+          activeTurn: {
+            ...current.activeTurn,
+            id: turnId,
+            sessionId: current.id,
+            sourceUserMessageId: userMessageId,
+            userMessageId,
+            executionOwner: "deterministic_transition",
+            status: "waiting_for_user",
+            startedAt: now,
+            completedAt: now
+          }
+        };
+        current = settleUserExecutionState(current, turnId, "complete");
+        current = completeTurnCheckpoint(current, turnId, new Date().toISOString());
+        const saved = await this.dependencies.persistence.save(current);
+        this.patchSession(saved, { turnStatus: "waiting_for_user", activeTurnId: turnId });
+        return { session: saved, turnId, userMessageId, applied: true };
+      }
+      current = {
+        ...current,
+        activeTurn: {
+          ...current.activeTurn,
+          id: turnId,
+          sessionId: current.id,
+          sourceUserMessageId: userMessageId,
+          userMessageId,
+          executionOwner: "deterministic_transition",
+          status: "completed",
+          startedAt: now,
+          completedAt: now
+        }
+      };
+      current = settleUserExecutionState(current, turnId, "complete");
+      current = completeTurnCheckpoint(current, turnId, new Date().toISOString());
+      const saved = await this.dependencies.persistence.save(current);
+      this.patchSession(saved, { turnStatus: "completed", activeTurnId: turnId });
+      return { session: saved, turnId, userMessageId, applied: true };
+    }
+    const driver = await advanceTailoringWorkflow({
+      taskState: current.taskState!,
+      tailoringSession: objectValue(current.taskState!.knownSlots.tailoringSession) as TailoringSession,
+      operationId: `tailoring-driver-${turnId}`.slice(0, 160),
+      resolvedInteraction,
+      execute: ({ toolName, toolInput, operationId, signal }) => this.dependencies.executor.execute({
+        toolName,
+        toolInput,
+        operationId,
+        signal
+      })
+    });
+    current = projectTaskStateIntoSession(current, driver.taskState);
+    current = upsertTailoringDriverOutput(current, driver, turnId);
     current = {
       ...current,
       activeTurn: {
@@ -6064,35 +6197,35 @@ export class AgentHostStore {
         fallbackUsed: false,
         executionOwner: "deterministic_transition",
         visibleAssistantMessageId: undefined,
-        status: current.taskState?.completionStatus === "waiting_for_user" ? "waiting_for_user" : "completed",
+        status: driver.kind === "WAITING_FOR_CONFIRMATION"
+          ? "waiting_for_confirmation"
+          : driver.kind === "WAITING_FOR_USER"
+            ? "waiting_for_user"
+            : driver.kind === "RECOVERABLE_FAILURE" ? "failed" : "completed",
         startedAt: now,
-        completedAt: now
+        completedAt: driver.kind === "WAITING_FOR_CONFIRMATION" ? undefined : new Date().toISOString()
       }
     };
-    if (current.taskState) current = projectActiveTailoringQuestionToChat(current, current.taskState);
+    if (driver.kind === "WAITING_FOR_USER" && driver.interactionKind === "clarification") {
+      current = projectActiveTailoringQuestionToChat(current, driver.taskState);
+    } else if (driver.kind === "WAITING_FOR_USER") {
+      current = attachTaskStateOptions(current, driver.taskState);
+    }
+    current = settleUserExecutionState(current, turnId, driver.kind === "RECOVERABLE_FAILURE" ? "failed" : "complete");
+    current = completeTurnCheckpoint(current, turnId, new Date().toISOString());
     const saved = await this.dependencies.persistence.save(current);
     this.patchSession(saved, {
-      turnStatus: current.activeTurn?.status === "waiting_for_user"
-        ? "waiting_for_user"
-        : current.activeTurn?.status === "waiting_for_confirmation"
-          ? "waiting_for_confirmation"
-          : current.activeTurn?.status === "failed"
-            ? "failed"
-            : "completed",
+      turnStatus: driver.kind === "WAITING_FOR_CONFIRMATION"
+        ? "waiting_for_confirmation"
+        : driver.kind === "WAITING_FOR_USER"
+          ? "waiting_for_user"
+          : driver.kind === "RECOVERABLE_FAILURE" ? "failed" : "completed",
       activeTurnId: turnId,
-      currentObservation: { type: "tailoring_answer_consumed", message: "已记录，进入下一道问题。" }
+      currentObservation: driver.kind === "RECOVERABLE_FAILURE"
+        ? { type: "tailoring_driver_failure", ...driver.error }
+        : { type: "tailoring_interaction_consumed", interactionId: projection.interactionId }
     });
-    return {
-      session: saved,
-      event: { type: "text_message", text },
-      turnId,
-      userMessage: "",
-      executionOwner: "deterministic_transition",
-      deterministicTransitionApplied: true,
-      deterministicTerminal: true,
-      prePersistedUserMessageId: userMessageId,
-      tailoringAnswerBinding: undefined
-    };
+    return { session: saved, turnId, userMessageId, applied: true };
   }
 
   private consumeTailoringQuestionAnswerLocally(
@@ -6488,148 +6621,32 @@ export class AgentHostStore {
         metadata: { activityState: "complete", artifactActionType: action.type, artifactIds: result.artifactIds }
       });
     }
-    const acceptedDiffCount = typeof observation.acceptedDiffCount === "number"
-      ? observation.acceptedDiffCount
-      : Array.isArray(observation.selectedDiffIds) ? observation.selectedDiffIds.length : 0;
-    const remainingDiffCount = typeof observation.remainingDiffCount === "number"
-      ? observation.remainingDiffCount
-      : undefined;
-    if (action.type === "tailoring_diff_decision" && remainingDiffCount === 0 && acceptedDiffCount > 0) {
-      const confirmationTurnId = turnId;
-      const previewOperationId = `${operationId}-preview`.slice(0, 160);
-      const preview = await this.dependencies.executor.execute({
-        toolName: "preview_tailoring_changes",
-        toolInput: {
-          session: observation.session,
-          selectedDiffs: observation.selectedDiffs ?? [],
-          confirmedRequirementIds: taskState.knownSlots.confirmedRequirementIds ?? []
-        },
-        operationId: previewOperationId
+    let tailoringBoundary: TailoringWorkflowBoundary | undefined;
+    if (action.type === "tailoring_diff_decision") {
+      tailoringBoundary = await advanceTailoringWorkflow({
+        taskState,
+        tailoringSession: objectValue(taskState.knownSlots.tailoringSession) as TailoringSession,
+        operationId,
+        resolvedInteraction: activeWorkflowInteractionFor(session.taskState),
+        execute: ({ toolName, toolInput, operationId: driverOperationId, signal }) => this.dependencies.executor.execute({
+          toolName,
+          toolInput,
+          operationId: driverOperationId,
+          signal
+        })
       });
-      if (preview.ok) {
-        taskState = reducer.reduce(taskState, {
-          type: "tool_observation",
-          toolName: preview.toolName,
-          observation: preview.data,
-          artifactIds: preview.artifactIds
-        });
-        const applyOperationId = `${operationId}-apply`.slice(0, 160);
-        const applyInput = {
-          session: observation.session,
-          selectedDiffs: observation.selectedDiffs ?? [],
-          confirmedRequirementIds: taskState.knownSlots.confirmedRequirementIds ?? []
-        };
-        const targetSnapshotValue = objectValue(taskState.knownSlots.targetSnapshot ?? objectValue(applyInput.session).targetSnapshot);
-        if (Object.keys(targetSnapshotValue).length) {
-          const targetSnapshot = JobTargetSnapshotSchema.parse(targetSnapshotValue);
-          const persistenceDecision = stringValue(taskState.knownSlots.jobPersistenceDecision) ?? "ask";
-          taskState = {
-            ...taskState,
-            knownSlots: {
-              ...taskState.knownSlots,
-              targetSnapshot,
-              targetSourceType: targetSnapshot.sourceType,
-              targetSnapshotId: targetSnapshot.id,
-              targetSnapshotVersion: targetSnapshot.version,
-              targetSnapshotHash: jobTargetSnapshotHash(targetSnapshot),
-              pendingTargetApplyInput: applyInput,
-              pendingTargetApplyOperationId: applyOperationId
-            },
-            ...(persistenceDecision === "ask" ? {
-              pendingDecision: { type: "job_target_persistence" as const, options: ["session_only", "save_job"] as const },
-              stage: "confirm_apply",
-              completionStatus: "waiting_for_user" as const
-            } : {})
-          };
-          current = projectTaskStateIntoSession(current, taskState);
-          if (persistenceDecision === "ask") {
-            current = appendAgentMessage(current, "assistant", "目标岗位可以只用于本次定制，也可以保存到岗位列表。请选择保存范围。", {
-              id: `job-target-persistence-${applyOperationId}`,
-              turnId: confirmationTurnId,
-              kind: "text",
-              type: "text",
-              status: "complete",
-              metadata: {
-                targetSourceType: targetSnapshot.sourceType,
-                targetSnapshotId: targetSnapshot.id,
-                jobPersistenceDecision: "ask"
-              }
-            });
-            current = attachPendingDecisionOptions(current, taskState.pendingDecision!);
-          } else if (persistenceDecision === "save") {
-            current = await this.persistExternalTargetJob(current, confirmationTurnId);
-            if (current.taskState?.knownSlots.savedJobId) {
-              current = this.prepareExternalTargetApplyConfirmation(current, confirmationTurnId);
-            }
-          } else {
-            current = this.prepareExternalTargetApplyConfirmation(current, confirmationTurnId);
-          }
-        } else {
-          taskState = reducer.reduce(taskState, {
-            type: "confirmation_requested",
-            toolName: "apply_tailoring_changes",
-            operationId: applyOperationId
-          });
-          current = projectTaskStateIntoSession(current, taskState);
-          const requestedAt = new Date().toISOString();
-          current = {
-            ...current,
-            pendingConfirmation: {
-              id: `confirmation-${applyOperationId}`,
-              turnId: confirmationTurnId,
-              operationId: applyOperationId,
-              toolName: "apply_tailoring_changes",
-              title: "应用这些简历修改？",
-              description: "确认后会生成岗位定制简历；只应用已采用的修改，来源简历和个人资料库不会被覆盖。",
-              destructive: false,
-              validatedInput: applyInput,
-              dependencyExpectation: dependencySnapshot(taskState),
-              status: "pending",
-              requestedAt
-            },
-            pendingToolCall: {
-              turnId: confirmationTurnId,
-              toolName: "apply_tailoring_changes",
-              operationId: applyOperationId,
-              input: applyInput
-            },
-            activeTurn: current.activeTurn
-              ? {
-                  ...current.activeTurn,
-                  id: confirmationTurnId,
-                  status: "waiting_for_confirmation",
-                  completedAt: undefined
-                }
-              : current.activeTurn
-          };
-        }
-      }
-    } else if (action.type === "tailoring_diff_decision" && remainingDiffCount === 0) {
-      taskState = {
-        ...taskState,
-        stage: "preview_changes",
-        activeGoal: "review_tailoring_changes",
-        completionStatus: "waiting_for_user",
-        knownSlots: {
-          ...taskState.knownSlots,
-          acceptedDiffCount: 0,
-          acceptedDiffIds: [],
-          editedDiffIds: [],
-          selectedDiffs: [],
-          selectedDiffIds: [],
-          remainingDiffCount: 0
-        },
-        updatedAt: new Date().toISOString()
-      };
+      taskState = tailoringBoundary.taskState;
       current = projectTaskStateIntoSession(current, taskState);
-      current = appendAgentMessage(current, "assistant", "已记录你的选择，但目前没有采用任何修改，因此不会创建岗位简历。你可以重新打开修改建议后至少采用或编辑后采用一项。", {
-        id: "tailoring-no-selection-" + operationId,
-        turnId,
-        kind: "text",
-        type: "text",
-        status: "complete",
-        metadata: { tailoringNoSelection: true, operationId }
-      });
+      current = upsertTailoringDriverOutput(current, tailoringBoundary, turnId);
+      if (tailoringBoundary.kind === "WAITING_FOR_CONFIRMATION") {
+        const persistenceDecision = stringValue(taskState.knownSlots.jobPersistenceDecision) ?? "ask";
+        const targetSnapshotValue = objectValue(taskState.knownSlots.targetSnapshot ?? objectValue(taskState.knownSlots.tailoringSession).targetSnapshot);
+        if (persistenceDecision === "save" && Object.keys(targetSnapshotValue).length) {
+          current = await this.persistExternalTargetJob(current, turnId);
+        }
+        current = this.prepareExternalTargetApplyConfirmation(current, turnId);
+        taskState = current.taskState ?? taskState;
+      }
     }
     current = settleDeterministicArtifactSession(current, turnId);
     const diffFieldNames = action.type === "tailoring_diff_decision"
@@ -6642,6 +6659,7 @@ export class AgentHostStore {
       operationId,
       fieldNames: diffFieldNames
     });
+    taskState = current.taskState ?? taskState;
     if (
       action.type === "profile_intake_reconciliation_decision"
       && taskState.workflowId === "guided_profile_intake"
@@ -6692,7 +6710,7 @@ export class AgentHostStore {
     if (taskState.pendingDecision) {
       current = attachPendingDecisionOptions(current, taskState.pendingDecision);
     }
-    current = attachTaskStateOptions(current, taskState);
+    current = attachTaskStateOptions(current, current.taskState ?? taskState);
     current = await this.dependencies.persistence.save(current);
     this.patchSession(current, { turnStatus: current.pendingConfirmation ? "waiting_for_confirmation" : "completed" });
     void pageContext;
@@ -7883,7 +7901,9 @@ function attachPendingDecisionOptions(
     }
   }));
   const assistantIndex = session.messages.findLastIndex((message) =>
-    message.role === "assistant" && message.kind !== "assistant_thinking"
+    message.role === "assistant"
+      && message.kind !== "assistant_thinking"
+      && !isWorkflowInteractionMessage(message)
   );
   if (assistantIndex < 0) return session;
   return {
@@ -7915,12 +7935,10 @@ function supersedeActiveOptionSets(session: AgentSession) {
   const now = new Date().toISOString();
   return {
     ...session,
-    messages: session.messages.map((message) => message.optionSet?.state === "active"
+    messages: session.messages.map((message) => message.optionSet?.state === "active" && !isWorkflowInteractionMessage(message)
       ? {
           ...message,
-          options: message.metadata?.tailoringQuestionProjection === true
-            ? message.options?.map((option) => ({ ...option, disabled: true }))
-            : undefined,
+          options: undefined,
           optionSet: { ...message.optionSet, state: "superseded" as const, resolvedAt: now },
           updatedAt: now
         }
@@ -7933,7 +7951,7 @@ function settleTailoringQuestionProjection(
   receipt: { questionPlanId: string; questionId: string; disposition: string; answerMessageId: string; consumedAt: string },
   now: string
 ) {
-  return {
+  const settled = {
     ...session,
     messages: session.messages.map((message) => {
       const isQuestion = message.role === "assistant"
@@ -7945,11 +7963,18 @@ function settleTailoringQuestionProjection(
         ...message,
         options: message.options?.map((option) => ({ ...option, disabled: true })),
         optionSet: message.optionSet
-          ? { ...message.optionSet, state: "superseded" as const, resolvedAt: receipt.consumedAt }
+          ? {
+              ...message.optionSet,
+              state: "resolved" as const,
+              resolvedValue: receipt.disposition,
+              resolvedAt: receipt.consumedAt
+            }
           : undefined,
         metadata: {
           ...message.metadata,
           questionProjectionState: "resolved",
+          workflowInteractionState: "resolved",
+          interactionResolvedAt: receipt.consumedAt,
           tailoringAnswerDisposition: receipt.disposition,
           answerMessageId: receipt.answerMessageId,
           answerConsumedAt: receipt.consumedAt
@@ -7959,6 +7984,41 @@ function settleTailoringQuestionProjection(
     }),
     updatedAt: now
   };
+  const state = settled.taskState;
+  if (!state) return settled;
+  const previous = objectValue(state.knownSlots.workflowInteractionDiagnostics);
+  const previousActive = objectValue(previous.activeWorkflowInteraction);
+  const history = Array.isArray(previous.interactionTransitionHistory)
+    ? previous.interactionTransitionHistory.filter((entry): entry is Record<string, unknown> => Boolean(entry && typeof entry === "object" && !Array.isArray(entry)))
+    : [];
+  const diagnostics = {
+    activeWorkflowInteraction: undefined,
+    interactionTransitionHistory: [
+      ...history,
+      {
+        type: "resolved",
+        interactionId: previousActive.interactionId ?? `workflow-interaction:clarification:${receipt.questionPlanId}:${receipt.questionId}`,
+        checkpointId: previousActive.checkpointId,
+        kind: "clarification",
+        revision: previousActive.revision,
+        messageId: previousActive.messageId,
+        answerMessageId: receipt.answerMessageId,
+        at: receipt.consumedAt
+      }
+    ].slice(-32),
+    questionProjectionWriters: {
+      count: 1,
+      owners: ["TailoringWorkflowDriver"],
+      invariant: "passed"
+    }
+  } satisfies Record<string, unknown>;
+  return projectTaskStateIntoSession(settled, {
+    ...state,
+    knownSlots: {
+      ...state.knownSlots,
+      workflowInteractionDiagnostics: diagnostics
+    }
+  });
 }
 
 export function getActiveTailoringQuestionProjection(
@@ -7999,6 +8059,19 @@ export function getActiveTailoringQuestionProjection(
     ? checkpointAllowed.options.map(objectValue)
     : undefined;
   const questionOptions = question && Array.isArray(question.options) ? question.options : undefined;
+  const checkpointId = workflowCheckpoint?.checkpointId
+    ?? `clarification:${questionPlanId}:${questionPlanRevision}:${questionId}`;
+  const interactionId = workflowCheckpoint?.interactionId
+    ?? `workflow-interaction:${checkpointId}`;
+  const interactionRevision = workflowCheckpoint?.revision ?? 0;
+  const bindAnswer = (value: string): AgentOption["action"] => ({
+    type: "answer",
+    field: `tailoring-question:${questionId}`,
+    value,
+    interactionId,
+    checkpointId,
+    interactionRevision
+  });
   const options = checkpointOptions?.length
     ? checkpointOptions.flatMap((option, index): AgentOption[] => {
         const label = stringValue(option.label);
@@ -8007,7 +8080,7 @@ export function getActiveTailoringQuestionProjection(
         return [{
           id: `tailoring-question-${questionId}-${String(option.id ?? index)}`,
           label,
-          action: { type: "answer" as const, field: `tailoring-question:${questionId}`, value }
+          action: bindAnswer(value)
         }];
       })
     : questionOptions
@@ -8018,13 +8091,16 @@ export function getActiveTailoringQuestionProjection(
         return [{
           id: `tailoring-question-${questionId}-${String(option.id ?? index)}`,
           label,
-          action: { type: "answer", field: `tailoring-question:${questionId}`, value }
+          action: bindAnswer(value)
         }];
       })
     : [];
   const position = Math.max(0, questionIds.indexOf(questionId)) + 1;
   const projectionRevision = `${questionPlanId}:${questionPlanRevision}:${questionId}`;
   return {
+    interactionId,
+    checkpointId,
+    interactionRevision,
     questionPlanId,
     questionPlanRevision,
     questionId,
@@ -8047,10 +8123,9 @@ export function projectActiveTailoringQuestionToChat(
   const projection = getActiveTailoringQuestionProjection(state);
   if (!projection) return session;
   const now = new Date().toISOString();
-  const turnId = session.activeTurn?.id ?? `tailoring-question-${projection.projectionRevision}`;
-  const userMessageId = session.activeTurn?.userMessageId;
   const stableMetadata = {
     tailoringQuestionProjection: true,
+    workflowInteractionProjection: true,
     tailoringQuestionId: projection.questionId,
     questionId: projection.questionId,
     questionPlanId: projection.questionPlanId,
@@ -8062,6 +8137,11 @@ export function projectActiveTailoringQuestionToChat(
     allowSkip: projection.allowSkip,
     tailoringSessionId: projection.tailoringSessionId,
     questionProjectionRevision: projection.projectionRevision,
+    workflowInteractionId: projection.interactionId,
+    workflowCheckpointId: projection.checkpointId,
+    workflowInteractionRevision: projection.interactionRevision,
+    workflowInteractionKind: "clarification",
+    workflowInteractionState: "active",
     questionProjectionState: "active"
   } satisfies Record<string, unknown>;
   const withSettledProgress = {
@@ -8084,12 +8164,11 @@ export function projectActiveTailoringQuestionToChat(
     }),
     updatedAt: now
   };
-  const projectionBase = supersedeActiveOptionSets(withSettledProgress);
-  const existing = projectionBase.messages.find((message) =>
+  const existing = withSettledProgress.messages.find((message) =>
     message.id === projection.messageId
     || message.role === "assistant"
-      && message.metadata?.tailoringQuestionProjection === true
-      && message.metadata.questionProjectionRevision === projection.projectionRevision
+      && isWorkflowInteractionMessage(message)
+      && message.metadata?.questionProjectionRevision === projection.projectionRevision
     || message.role === "assistant"
       && message.metadata?.tailoringQuestionId === projection.questionId
       && message.metadata?.questionPlanId === projection.questionPlanId
@@ -8097,42 +8176,208 @@ export function projectActiveTailoringQuestionToChat(
   );
   const current = existing
     ? {
-        ...projectionBase,
-        messages: projectionBase.messages.map((message) => message.id === existing.id
+        ...withSettledProgress,
+        messages: withSettledProgress.messages.map((message) => message.id === existing.id
           ? {
               ...message,
-              content: message.content || formatTailoringQuestionProjection(projection),
-              kind: "text" as const,
-              type: "text" as const,
-              status: "complete" as const,
-              streaming: false,
-              options: projection.options.length ? projection.options : undefined,
-              optionSet: projection.options.length
-                ? activeOptionSetForMessage(projectionBase, existing.id, "tailoring-question")
-                : undefined,
-              metadata: { ...message.metadata, ...stableMetadata, retracted: false },
-              updatedAt: now
+              ...(message.metadata?.retracted === true ? {
+                status: "complete" as const,
+                streaming: false,
+                metadata: { ...message.metadata, retracted: false }
+              } : {}),
+              ...(!message.options?.length && projection.options.length ? {
+                options: projection.options,
+                optionSet: activeOptionSetForMessage(withSettledProgress, existing.id, "tailoring-question")
+              } : {}),
+              metadata: { ...message.metadata, ...stableMetadata, retracted: false }
             }
           : message),
         updatedAt: now
       }
     : appendAgentMessage(
-        projectionBase,
+        withSettledProgress,
         "assistant",
         formatTailoringQuestionProjection(projection),
         {
           id: projection.messageId,
-          turnId,
+          turnId: session.activeTurn?.id ?? `tailoring-question-${projection.projectionRevision}`,
           kind: "text",
           type: "text",
           status: "complete",
           streaming: false,
           options: projection.options.length ? projection.options : undefined,
-          parentMessageId: userMessageId,
+          parentMessageId: session.activeTurn?.userMessageId,
           metadata: stableMetadata
         }
       );
-  return existing ? withActiveBranchHead(current, existing.id) : current;
+  const withDiagnostics = updateWorkflowInteractionDiagnostics(
+    current,
+    state,
+    projection,
+    existing?.id ?? projection.messageId
+  );
+  return existing ? withActiveBranchHead(withDiagnostics, existing.id) : withDiagnostics;
+}
+
+function isWorkflowInteractionMessage(message: AgentSession["messages"][number]) {
+  return message.metadata?.workflowInteractionProjection === true
+    || message.metadata?.tailoringQuestionProjection === true
+    || typeof message.metadata?.workflowInteractionId === "string";
+}
+
+function projectActiveTailoringWorkflowInteractionToChat(
+  session: AgentSession,
+  state: AgentTaskState,
+  interaction: NonNullable<ReturnType<typeof activeWorkflowInteractionFor>>
+) {
+  const withPreviousResolved = settleWorkflowInteractionMessages(session, interaction.interactionId);
+  const existing = withPreviousResolved.messages.find((message) =>
+    message.role === "assistant"
+    && isWorkflowInteractionMessage(message)
+    && message.metadata?.workflowInteractionId === interaction.interactionId
+    && message.metadata?.workflowInteractionRevision === interaction.revision
+  );
+  const messageId = existing?.id ?? `workflow-interaction-${interaction.interactionId}`;
+  const projected = existing
+    ? withPreviousResolved
+    : appendAgentMessage(withPreviousResolved, "assistant", interaction.prompt, {
+        id: messageId,
+        turnId: session.activeTurn?.id,
+        kind: "text",
+        type: "text",
+        status: "complete",
+        metadata: {
+          workflowInteractionProjection: true,
+          workflowInteractionId: interaction.interactionId,
+          workflowCheckpointId: interaction.checkpointId,
+          workflowInteractionRevision: interaction.revision,
+          workflowInteractionKind: interaction.kind,
+          workflowInteractionState: interaction.state
+        }
+      });
+  return updateWorkflowInteractionBoundaryDiagnostics(projected, state, interaction, messageId);
+}
+
+function settleWorkflowInteractionMessages(session: AgentSession, keepInteractionId?: string) {
+  const now = new Date().toISOString();
+  return {
+    ...session,
+    messages: session.messages.map((message) => {
+      if (
+        !isWorkflowInteractionMessage(message)
+        || message.metadata?.workflowInteractionState !== "active"
+        || message.metadata.workflowInteractionId === keepInteractionId
+      ) return message;
+      return {
+        ...message,
+        options: message.options?.map((option) => ({ ...option, disabled: true })),
+        optionSet: message.optionSet?.state === "active"
+          ? { ...message.optionSet, state: "resolved" as const, resolvedAt: now }
+          : message.optionSet,
+        metadata: {
+          ...message.metadata,
+          workflowInteractionState: "resolved",
+          workflowInteractionResolvedAt: now,
+          ...(message.metadata.tailoringQuestionProjection === true ? { questionProjectionState: "resolved" } : {})
+        },
+        updatedAt: now
+      };
+    }),
+    updatedAt: now
+  };
+}
+
+function updateWorkflowInteractionBoundaryDiagnostics(
+  session: AgentSession,
+  state: AgentTaskState,
+  interaction: NonNullable<ReturnType<typeof activeWorkflowInteractionFor>>,
+  messageId: string
+) {
+  const previous = objectValue(state.knownSlots.workflowInteractionDiagnostics);
+  const previousActive = objectValue(previous.activeWorkflowInteraction);
+  const history = Array.isArray(previous.interactionTransitionHistory)
+    ? previous.interactionTransitionHistory.filter((entry): entry is Record<string, unknown> => Boolean(entry && typeof entry === "object" && !Array.isArray(entry)))
+    : [];
+  const sameActive = previousActive.interactionId === interaction.interactionId
+    && previousActive.revision === interaction.revision;
+  const transition = sameActive ? undefined : {
+    type: previousActive.interactionId || history.at(-1)?.type === "resolved" ? "next_created" : "created",
+    interactionId: interaction.interactionId,
+    checkpointId: interaction.checkpointId,
+    kind: interaction.kind,
+    revision: interaction.revision,
+    messageId,
+    at: new Date().toISOString()
+  };
+  return projectTaskStateIntoSession(session, {
+    ...state,
+    knownSlots: {
+      ...state.knownSlots,
+      workflowInteractionDiagnostics: {
+        activeWorkflowInteraction: {
+          interactionId: interaction.interactionId,
+          kind: interaction.kind,
+          revision: interaction.revision,
+          state: interaction.state,
+          messageId,
+          checkpointId: interaction.checkpointId
+        },
+        interactionTransitionHistory: transition ? [...history, transition].slice(-32) : history,
+        questionProjectionWriters: {
+          count: 1,
+          owners: ["TailoringWorkflowDriver"],
+          invariant: "passed"
+        }
+      }
+    }
+  });
+}
+
+function updateWorkflowInteractionDiagnostics(
+  session: AgentSession,
+  state: AgentTaskState,
+  projection: TailoringQuestionProjection,
+  messageId: string
+) {
+  const previous = objectValue(state.knownSlots.workflowInteractionDiagnostics);
+  const previousActive = objectValue(previous.activeWorkflowInteraction);
+  const history = Array.isArray(previous.interactionTransitionHistory)
+    ? previous.interactionTransitionHistory.filter((entry): entry is Record<string, unknown> => Boolean(entry && typeof entry === "object" && !Array.isArray(entry)))
+    : [];
+  const sameActive = previousActive.interactionId === projection.interactionId
+    && previousActive.revision === projection.interactionRevision;
+  const transition = sameActive ? undefined : {
+    type: previousActive.interactionId || history.at(-1)?.type === "resolved" ? "next_created" : "created",
+    interactionId: projection.interactionId,
+    checkpointId: projection.checkpointId,
+    kind: "clarification",
+    revision: projection.interactionRevision,
+    messageId,
+    at: new Date().toISOString()
+  };
+  const diagnostics = {
+    activeWorkflowInteraction: {
+      interactionId: projection.interactionId,
+      kind: "clarification",
+      revision: projection.interactionRevision,
+      state: "active",
+      messageId,
+      checkpointId: projection.checkpointId
+    },
+    interactionTransitionHistory: transition ? [...history, transition].slice(-32) : history,
+    questionProjectionWriters: {
+      count: 1,
+      owners: ["TailoringWorkflowDriver"],
+      invariant: "passed"
+    }
+  } satisfies Record<string, unknown>;
+  return projectTaskStateIntoSession(session, {
+    ...state,
+    knownSlots: {
+      ...state.knownSlots,
+      workflowInteractionDiagnostics: diagnostics
+    }
+  });
 }
 
 function formatTailoringQuestionProjection(projection: TailoringQuestionProjection) {
@@ -8160,12 +8405,21 @@ export function attachTaskStateOptions(session: AgentSession, state: AgentTaskSt
       : projectTaskStateIntoSession(session, normalizedState);
     return projectActiveTailoringQuestionToChat(normalizedSession, normalizedState);
   }
+  const activeInteraction = activeWorkflowInteractionFor(state);
+  if (
+    activeInteraction
+    && isTailoringWorkflowId(state.workflowId)
+    && activeInteraction.kind !== "clarification"
+  ) {
+    return projectActiveTailoringWorkflowInteractionToChat(session, state, activeInteraction);
+  }
   const recoverableCompositionProposal = state.workflowId === "compose_resume"
     && Boolean(state.knownSlots.resumeCompositionProposal)
     && !state.knownSlots.resumeCompositionResult;
   const assistantIndex = session.messages.findLastIndex((message) =>
     message.role === "assistant"
       && message.kind !== "assistant_thinking"
+      && !isWorkflowInteractionMessage(message)
       && message.metadata?.retracted !== true
       && (
         message.status === "complete"
@@ -8308,7 +8562,9 @@ export function attachTaskStateOptions(session: AgentSession, state: AgentTaskSt
   const shouldClearResolvedProfileOptions = state.workflowId === "guided_profile_intake"
     && (state.stage !== "collect_experience" || Boolean(state.knownSlots.intakeRequestedSection));
   const currentMessage = session.messages[assistantIndex];
-  const hasActiveOptionSet = session.messages.some((message) => message.optionSet?.state === "active");
+  const hasActiveOptionSet = session.messages.some((message) =>
+    message.optionSet?.state === "active" && !isWorkflowInteractionMessage(message)
+  );
   const preservingPendingDecisionOptions = Boolean(state.pendingDecision && currentMessage.options?.length);
   if (options?.length && !optionSet) optionSet = activeOptionSetForMessage(session, currentMessage.id, "agent-options");
   if (!options?.length && !metadata && !shouldClearResolvedProfileOptions && !hasActiveOptionSet && !preservingPendingDecisionOptions) return session;
@@ -8337,7 +8593,7 @@ export function attachTaskStateOptions(session: AgentSession, state: AgentTaskSt
           metadata: { ...message.metadata, ...metadata }
         };
       }
-      if (message.role !== "assistant" || message.metadata?.retracted === true || !message.optionSet) return message;
+      if (message.role !== "assistant" || isWorkflowInteractionMessage(message) || message.metadata?.retracted === true || !message.optionSet) return message;
       return {
         ...message,
         options: undefined,
@@ -8705,6 +8961,7 @@ function markTurnTerminalState(
       && message.turnId === turnId
       && message.kind !== "assistant_thinking"
       && message.kind !== "assistant_streaming"
+      && !isWorkflowInteractionMessage(message)
   );
   if (index < 0) return session;
   return {
@@ -8760,6 +9017,7 @@ function replaceTurnWithContinuityRecovery(
   const index = session.messages.findLastIndex((message) =>
     message.role === "assistant"
       && message.turnId === turnId
+      && !isWorkflowInteractionMessage(message)
       && message.metadata?.retracted !== true
   );
   const option: AgentOption = {
@@ -8892,9 +9150,13 @@ function presentedActiveTailoringQuestion(session: AgentSession) {
   const assistant = session.messages.findLast((message) =>
     message.role === "assistant"
       && message.metadata?.retracted !== true
+      && (isWorkflowInteractionMessage(message) || message.metadata?.tailoringQuestionId === projection.questionId)
       && message.metadata?.tailoringQuestionId === projection.questionId
       && message.metadata?.questionPlanId === projection.questionPlanId
       && message.metadata?.questionPlanRevision === projection.questionPlanRevision
+      && (message.metadata?.workflowInteractionId === undefined || message.metadata.workflowInteractionId === projection.interactionId)
+      && (message.metadata?.workflowCheckpointId === undefined || message.metadata.workflowCheckpointId === projection.checkpointId)
+      && (message.metadata?.workflowInteractionRevision === undefined || message.metadata.workflowInteractionRevision === projection.interactionRevision)
       && (message.status === "complete" || message.metadata?.tailoringQuestionProjection === true)
   );
   return assistant ? projection.questionId : undefined;
@@ -8903,6 +9165,69 @@ function presentedActiveTailoringQuestion(session: AgentSession) {
 function formatCurrentTailoringQuestion(state: AgentTaskState) {
   const projection = getActiveTailoringQuestionProjection(state);
   return projection ? formatTailoringQuestionProjection(projection) : "请补充当前问题。";
+}
+
+function workflowInteractionActionMatches(
+  projection: TailoringQuestionProjection,
+  action: Extract<AgentOption["action"], { type: "answer" }>
+) {
+  const hasBinding = Boolean(action.interactionId || action.checkpointId || action.interactionRevision !== undefined);
+  if (!hasBinding) return true;
+  return action.interactionId === projection.interactionId
+    && action.checkpointId === projection.checkpointId
+    && action.interactionRevision === projection.interactionRevision;
+}
+
+function upsertTailoringDriverOutput(
+  session: AgentSession,
+  boundary: TailoringWorkflowBoundary,
+  turnId: string
+) {
+  if (boundary.kind === "WAITING_FOR_USER" && boundary.interactionKind === "clarification") return session;
+  if (boundary.kind === "WAITING_FOR_USER" && boundary.interactionKind === "review_decision") {
+    const interaction = activeWorkflowInteractionFor(boundary.taskState);
+    if (!interaction) throw new Error("tailoring_review_interaction_missing");
+    const messageId = `tailoring-review-interaction-${interaction.interactionId}`;
+    if (session.messages.some((message) => message.id === messageId)) return session;
+    return appendAgentMessage(session, "assistant", "已生成岗位修改建议，请在右侧逐项采用、编辑或忽略。", {
+      id: messageId,
+      turnId,
+      kind: "text",
+      type: "text",
+      status: "complete",
+      metadata: {
+        workflowInteractionProjection: true,
+        workflowInteractionId: interaction.interactionId,
+        workflowCheckpointId: interaction.checkpointId,
+        workflowInteractionRevision: interaction.revision,
+        workflowInteractionKind: interaction.kind,
+        workflowInteractionState: interaction.state
+      }
+    });
+  }
+  if (boundary.kind === "RECOVERABLE_FAILURE") {
+    const messageId = `tailoring-driver-failure-${boundary.error.operationId}`;
+    if (session.messages.some((message) => message.id === messageId)) return session;
+    return appendAgentMessage(session, "assistant", boundary.error.message, {
+      id: messageId,
+      turnId,
+      kind: "error_status",
+      type: "error",
+      status: "failed",
+      errorCode: boundary.error.code,
+      options: [{
+        id: "tailoring-driver-retry",
+        label: "重新执行当前步骤",
+        action: { type: "retry_current_step" }
+      }],
+      metadata: {
+        terminalState: "RECOVERABLE_FAILURE",
+        tailoringDriver: true,
+        workflowStage: boundary.error.stage
+      }
+    });
+  }
+  return session;
 }
 
 function recoverOrphanedThinking(session: AgentSession) {
@@ -8998,6 +9323,7 @@ function enforceExactlyOneFinal(session: AgentSession) {
       && message.status === "complete"
       && message.kind !== "assistant_thinking"
       && message.kind !== "assistant_streaming"
+      && !isWorkflowInteractionMessage(message)
       && message.metadata?.retracted !== true
     ) {
       finalIdsByTurn.set(message.turnId, [...(finalIdsByTurn.get(message.turnId) ?? []), message.id]);
@@ -9130,7 +9456,7 @@ export function branchSessionFromEditedUserMessage(
           updatedAt: now
         };
       }
-      if (index > targetIndex) {
+      if (index > targetIndex && !isWorkflowInteractionMessage(message)) {
         return {
           ...message,
           metadata: { ...message.metadata, retracted: true },
@@ -9294,7 +9620,7 @@ export function prepareSessionForAssistantRegeneration(
         pendingToolCall: checkpoint.pendingToolCallBefore
       } : {}),
       messages: session.messages.map((message, index) =>
-        index > userIndex && index !== targetIndex
+        index > userIndex && index !== targetIndex && !isWorkflowInteractionMessage(message)
           ? {
               ...message,
               metadata: { ...message.metadata, retracted: true },
@@ -10783,7 +11109,7 @@ function replaceRuntimeShellMessage(
   const now = new Date().toISOString();
   return {
     ...session,
-    messages: session.messages.map((message) => message.id === messageId
+    messages: session.messages.map((message) => message.id === messageId && !isWorkflowInteractionMessage(message)
       ? {
           ...message,
           turnId: event.turnId,
@@ -10814,6 +11140,7 @@ function projectDeterministicAssistantMessage(
   const existing = session.messages.findLast((message) =>
     message.role === "assistant"
     && message.turnId === turnId
+    && !isWorkflowInteractionMessage(message)
     && message.metadata?.retracted !== true
   );
   if (existing) {
@@ -11198,7 +11525,7 @@ function withOpenArtifactOption(session: AgentSession, messageId: string | undef
   };
   return {
     ...session,
-    messages: session.messages.map((message) => message.id === messageId
+    messages: session.messages.map((message) => message.id === messageId && !isWorkflowInteractionMessage(message)
       ? { ...message, options: [option], optionSet: undefined }
       : message)
   };

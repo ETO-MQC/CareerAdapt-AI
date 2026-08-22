@@ -1,7 +1,8 @@
 import type {
   AgentTaskState,
   WorkflowUserInputCheckpoint,
-  WorkflowUserInputCheckpointKind
+  WorkflowUserInputCheckpointKind,
+  WorkflowInteraction
 } from "@/agent/contracts/agentSession";
 import { WorkflowUserInputCheckpointSchema } from "@/agent/contracts/agentSession";
 import { stableHashText } from "@/services/security/text";
@@ -41,6 +42,14 @@ export function workflowUserInputCheckpointFor(
   state: AgentTaskState | undefined
 ) {
   return state?.workflowUserInputCheckpoint;
+}
+
+/** The active checkpoint is the persisted WorkflowInteraction authority. */
+export function activeWorkflowInteractionFor(
+  state: AgentTaskState | undefined
+): WorkflowInteraction | undefined {
+  const interaction = state?.workflowUserInputCheckpoint;
+  return interaction?.state === "active" ? interaction : undefined;
 }
 
 function checkpointProjection(state: AgentTaskState): Omit<WorkflowUserInputCheckpoint, "createdAt" | "revision"> | undefined {
@@ -239,14 +248,41 @@ function base(
   promptProjection: Record<string, unknown>,
   allowedInput: Record<string, unknown>
 ) {
+  const prompt = stringValue(promptProjection.text);
+  if (!prompt) throw new Error("workflow_interaction_prompt_missing");
   return {
+    interactionId: `workflow-interaction:${checkpointId}`,
     checkpointId,
     kind,
+    state: "active" as const,
     workflowId: state.workflowId,
     stage: state.stage,
+    prompt,
+    options: interactionOptions(promptProjection, allowedInput),
     promptProjection,
     allowedInput
   } as Omit<WorkflowUserInputCheckpoint, "createdAt" | "revision">;
+}
+
+function interactionOptions(
+  promptProjection: Record<string, unknown>,
+  allowedInput: Record<string, unknown>
+) {
+  const values = Array.isArray(promptProjection.options)
+    ? promptProjection.options
+    : Array.isArray(allowedInput.options)
+      ? allowedInput.options
+      : Array.isArray(allowedInput.values)
+        ? allowedInput.values
+        : [];
+  return values.flatMap((option, index): Record<string, unknown>[] => {
+    if (typeof option === "string" && option.trim()) {
+      return [{ id: `workflow-interaction-option-${index}`, label: option, value: option }];
+    }
+    return option && typeof option === "object" && !Array.isArray(option)
+      ? [option as Record<string, unknown>]
+      : [];
+  });
 }
 
 function arrayRecords(value: unknown) {

@@ -61,7 +61,7 @@ export function AgentConversation({
   children?: React.ReactNode;
 }) {
   const visibleMessages = dedupeProfileIntakeMessages(messages.filter((message) =>
-    message.role !== "system" && message.metadata?.retracted !== true
+    message.role !== "system" && (message.metadata?.retracted !== true || isWorkflowInteractionMessage(message))
   ));
   const conversationItems = groupConversationItems(visibleMessages);
   const confirmationMessageId = confirmation
@@ -94,13 +94,13 @@ export function AgentConversation({
       <div className="agent-conversation-inner">
         {conversationItems.map((item) => {
           if (item.type === "activity") {
-            return <AgentActivityGroup key={item.id} messages={item.messages} />;
+            return <AgentActivityGroup key={item.id} identityKey={item.id} messages={item.messages} />;
           }
           if (item.type === "assistant_turn") {
             if (item.message.kind === "error_status" || item.message.type === "error") {
               return (
                 <div key={item.id} className="agent-error-turn">
-                  <AgentActivityGroup messages={item.activity} />
+                  <AgentActivityGroup identityKey={item.id} messages={item.activity} />
                   <AgentErrorStatus message={item.message} />
                 </div>
               );
@@ -110,6 +110,7 @@ export function AgentConversation({
                 key={item.id}
                 message={item.message}
                 activity={item.activity}
+                identityKey={item.id}
                 editingContent={editing?.messageId === item.message.id ? editing.content : undefined}
                 historyOpen={historyMessageId === item.message.id}
                 editSaving={editSaving}
@@ -153,6 +154,7 @@ export function AgentConversation({
             <AgentMessageRow
               key={message.id}
               message={message}
+              identityKey={message.turnId ? `turn-${message.turnId}` : message.id}
               editingContent={editing?.messageId === message.id ? editing.content : undefined}
               historyOpen={historyMessageId === message.id}
               editSaving={editSaving}
@@ -218,13 +220,25 @@ export function AgentConversation({
   );
 }
 
-function AgentActivityGroup({ messages }: { messages: AgentMessage[] }) {
+function AgentActivityGroup({ messages, identityKey }: { messages: AgentMessage[]; identityKey: string }) {
+  const storageKey = `careeradapt:task-steps:${identityKey}`;
+  const [open, setOpen] = useState(() =>
+    typeof window !== "undefined" && window.localStorage.getItem(storageKey) === "open"
+  );
   const running = messages.some((message) => message.metadata?.activityState === "running" || message.status === "pending");
   const failed = messages.some((message) => message.metadata?.activityState === "failed" || message.status === "failed");
   const cheapContextDiscovery = messages.length > 0
     && messages.every((message) => ["get_active_profile", "list_resumes", "list_jobs"].includes(message.toolName ?? ""));
   return (
-    <details className={`agent-tool-status-row is-${running ? "running" : failed ? "failed" : "complete"}`} open={running || failed || undefined}>
+    <details
+      className={`agent-tool-status-row is-${running ? "running" : failed ? "failed" : "complete"}`}
+      open={open}
+      onToggle={(event) => {
+        const next = event.currentTarget.open;
+        setOpen(next);
+        window.localStorage.setItem(storageKey, next ? "open" : "closed");
+      }}
+    >
       <summary role="status">
         <span className="agent-tool-status-icon" aria-hidden="true">
           <LoaderCircle className={`is-running is-spinning${running ? " is-visible" : ""}`} />
@@ -259,6 +273,7 @@ export const AgentConversationTimeline = AgentConversation;
 function AgentMessageRow({
   message,
   activity,
+  identityKey,
   editingContent,
   historyOpen,
   editSaving,
@@ -277,6 +292,7 @@ function AgentMessageRow({
 }: {
   message: AgentMessage;
   activity?: AgentMessage[];
+  identityKey: string;
   editingContent?: string;
   historyOpen?: boolean;
   editSaving?: boolean;
@@ -306,7 +322,7 @@ function AgentMessageRow({
       data-message-role={message.role}
       data-message-status={message.status ?? message.kind ?? "complete"}
     >
-      {!isUser && activity?.length ? <AgentActivityGroup messages={activity} /> : null}
+      {!isUser && activity?.length ? <AgentActivityGroup identityKey={identityKey} messages={activity} /> : null}
       <div className="agent-message-main">
         {!isUser ? <AgentAvatar role="assistant" /> : null}
         <div className="agent-message-stack">
@@ -893,6 +909,12 @@ function groupConversationItems(messages: AgentMessage[]) {
 
 function isActivityMessage(message: AgentMessage) {
   return message.role === "tool" || message.kind === "tool_status" || message.type === "tool_status";
+}
+
+function isWorkflowInteractionMessage(message: AgentMessage) {
+  return message.metadata?.workflowInteractionProjection === true
+    || message.metadata?.tailoringQuestionProjection === true
+    || typeof message.metadata?.workflowInteractionId === "string";
 }
 
 export function normalizeAgentMessageText(input: string) {

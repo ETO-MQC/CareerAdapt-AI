@@ -59,10 +59,9 @@ export function AgentComposer(props: {
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const message = props.draft ?? localMessage;
-  const checkpointPrompt = props.checkpoint?.promptProjection
-    && typeof props.checkpoint.promptProjection.text === "string"
-    ? props.checkpoint.promptProjection.text
-    : undefined;
+  const interactionPlaceholder = props.checkpoint
+    ? workflowInteractionPlaceholder(props.checkpoint)
+    : "描述你的求职任务，或粘贴一份岗位描述...";
   const setMessage = (value: string) => {
     props.onDraftChange?.(value);
     if (props.draft === undefined) setLocalMessage(value);
@@ -149,8 +148,10 @@ export function AgentComposer(props: {
           disabled={props.disabled}
           data-agent-checkpoint-kind={props.checkpoint?.kind}
           data-agent-checkpoint-id={props.checkpoint?.checkpointId}
+          data-agent-interaction-id={props.checkpoint?.interactionId}
+          data-agent-interaction-revision={props.checkpoint?.revision}
           autoComplete="off"
-          placeholder={checkpointPrompt ?? "描述你的求职任务，或粘贴一份岗位描述..."}
+          placeholder={interactionPlaceholder}
           onChange={(event) => setMessage(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
@@ -186,4 +187,23 @@ function statusLabel(status: ComposerAttachmentDraft["status"], errorCode?: stri
   if (status === "registering") return "登记中";
   if (status === "queued") return "已排队";
   return errorCode ? `失败 · ${errorCode}` : "失败，可重试";
+}
+
+function workflowInteractionPlaceholder(checkpoint: WorkflowUserInputCheckpoint) {
+  switch (checkpoint.kind) {
+    case "clarification":
+      return "补充你的实际经历，或回复“跳过”…";
+    case "review_decision":
+      return "告诉我哪些修改采用、编辑或忽略…";
+    case "confirmation":
+      return "输入“确认”或“取消”…";
+    case "resume_choice":
+      return "输入简历名称，或选择一个选项…";
+    case "job_choice":
+      return "输入岗位名称，或选择一个选项…";
+    case "target_persistence_choice":
+      return "输入“保存”或“仅本次”…";
+    default:
+      return "补充当前步骤需要的信息…";
+  }
 }

@@ -100,6 +100,10 @@ export function replaceAgentThinking(
 ) {
   const now = new Date().toISOString();
   const existing = session.messages.find((item) => item.id === messageId);
+  if (
+    existing?.metadata?.workflowInteractionProjection === true
+    || existing?.metadata?.tailoringQuestionProjection === true
+  ) return session;
   const message = normalizeMessageForFinalAssistant({
     ...existing,
     id: messageId,

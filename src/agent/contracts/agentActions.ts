@@ -165,7 +165,15 @@ export const AgentOptionActionSchema = z.union([
   }).strict(),
   z.object({ type: z.literal("retry_current_step") }).strict(),
   z.object({ type: z.literal("new_tailoring_task") }).strict(),
-  z.object({ type: z.literal("answer"), field: z.string().min(1), value: z.unknown() }).strict()
+  z.object({
+    type: z.literal("answer"),
+    field: z.string().min(1),
+    value: z.unknown(),
+    /** WorkflowInteraction binding; absent only for legacy persisted options. */
+    interactionId: z.string().min(1).optional(),
+    checkpointId: z.string().min(1).optional(),
+    interactionRevision: z.number().int().min(0).optional()
+  }).strict()
 ]);
 
 export const AgentOptionSchema = z.object({

@@ -179,21 +179,68 @@ export const WorkflowUserInputCheckpointKindSchema = z.enum([
   "import_prompt"
 ]);
 
-/**
- * The one persisted user-input boundary for a workflow.  UI projections and
- * runtime continuation must consume this object instead of independently
- * inferring waiting state from a stage, stream or remote run.
- */
-export const WorkflowUserInputCheckpointSchema = z.object({
+export const WorkflowInteractionStateSchema = z.enum(["active", "resolved", "cancelled"]);
+
+const WorkflowInteractionObjectSchema = z.object({
+  interactionId: z.string().min(1),
   checkpointId: z.string().min(1),
-  kind: WorkflowUserInputCheckpointKindSchema,
   workflowId: z.string().min(1),
+  kind: WorkflowUserInputCheckpointKindSchema,
+  state: WorkflowInteractionStateSchema,
   stage: z.string().min(1),
+  prompt: z.string().trim().min(1),
+  options: z.array(z.record(z.string(), z.unknown())).max(12),
   promptProjection: z.object({ text: z.string().trim().min(1) }).passthrough(),
   allowedInput: z.object({ type: z.string().trim().min(1) }).passthrough(),
   createdAt: z.string().datetime({ offset: true }),
+  resolvedAt: z.string().datetime({ offset: true }).optional(),
+  answerMessageId: z.string().min(1).optional(),
   revision: z.number().int().min(0)
 }).strict();
+
+/**
+ * The one persisted user-input boundary for a workflow. The compatibility
+ * name is retained so existing sessions do not need a destructive migration;
+ * the object itself is the WorkflowInteraction ledger used by Host and UI.
+ */
+export const WorkflowInteractionSchema = z.preprocess((value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const record = value as Record<string, unknown>;
+  const checkpointId = typeof record.checkpointId === "string" ? record.checkpointId : undefined;
+  const promptProjection = record.promptProjection && typeof record.promptProjection === "object" && !Array.isArray(record.promptProjection)
+    ? record.promptProjection as Record<string, unknown>
+    : {};
+  const allowedInput = record.allowedInput && typeof record.allowedInput === "object" && !Array.isArray(record.allowedInput)
+    ? record.allowedInput as Record<string, unknown>
+    : {};
+  const prompt = typeof record.prompt === "string" && record.prompt.trim()
+    ? record.prompt
+    : typeof promptProjection.text === "string"
+      ? promptProjection.text
+      : undefined;
+  const rawOptions = Array.isArray(record.options)
+    ? record.options
+    : Array.isArray(promptProjection.options)
+      ? promptProjection.options
+      : Array.isArray(allowedInput.options)
+        ? allowedInput.options
+        : [];
+  const options = rawOptions.flatMap((option, index) => {
+    if (typeof option === "string" && option.trim()) {
+      return [{ id: `workflow-interaction-option-${index}`, label: option, value: option }];
+    }
+    return option && typeof option === "object" && !Array.isArray(option) ? [option] : [];
+  });
+  return {
+    ...record,
+    ...(checkpointId ? { interactionId: typeof record.interactionId === "string" ? record.interactionId : `workflow-interaction:${checkpointId}` } : {}),
+    state: record.state === "resolved" || record.state === "cancelled" ? record.state : "active",
+    ...(prompt ? { prompt } : {}),
+    options
+  };
+}, WorkflowInteractionObjectSchema);
+
+export const WorkflowUserInputCheckpointSchema = WorkflowInteractionSchema;
 
 export const AgentTurnToolFailureSchema = z.object({
   toolName: z.string().min(1),
@@ -407,6 +454,7 @@ export type AgentTurnToolFailure = z.infer<typeof AgentTurnToolFailureSchema>;
 export type AgentTurnCheckpoint = z.infer<typeof AgentTurnCheckpointSchema>;
 export type HermesRunHandle = z.infer<typeof HermesRunHandleSchema>;
 export type AgentTaskState = z.infer<typeof AgentTaskStateSchema>;
+export type WorkflowInteraction = z.infer<typeof WorkflowInteractionSchema>;
 export type WorkflowUserInputCheckpoint = z.infer<typeof WorkflowUserInputCheckpointSchema>;
 export type WorkflowUserInputCheckpointKind = z.infer<typeof WorkflowUserInputCheckpointKindSchema>;
 export type AgentOptionSetState = z.infer<typeof AgentOptionSetStateSchema>;

@@ -237,7 +237,7 @@ describe("AgentConversationTimeline", () => {
     expect(screen.getAllByText(/除了刚才展示/)).toHaveLength(1);
   });
 
-  it("places the user message above the AI row and expands running task progress", () => {
+  it("places the user message above the AI row and keeps running task progress collapsed", () => {
     render(
       <AgentConversationTimeline
         messages={[
@@ -280,8 +280,43 @@ describe("AgentConversationTimeline", () => {
     }
     expect(row?.firstElementChild).toHaveClass("agent-tool-status-row");
     expect(row?.children[1]).toHaveClass("agent-message-main");
-    expect(row?.querySelector<HTMLDetailsElement>(".agent-tool-status-row")?.open).toBe(true);
+    expect(row?.querySelector<HTMLDetailsElement>(".agent-tool-status-row")?.open).toBe(false);
     expect(row?.querySelector(".agent-tool-status-icon .is-running")).toHaveClass("is-visible");
+  });
+
+  it("keeps TaskSteps collapsed across activity updates after the user opens it", () => {
+    const messages = (count: number): AgentMessage[] => [
+      ...Array.from({ length: count }, (_, index) => ({
+        id: `tool-task-steps-${index + 1}`,
+        turnId: "turn-task-steps",
+        role: "tool" as const,
+        content: `步骤 ${index + 1}`,
+        kind: "tool_status" as const,
+        type: "tool_status" as const,
+        status: "complete" as const,
+        metadata: { activityState: "complete" },
+        createdAt: `2026-07-24T00:00:${String(index + 1).padStart(2, "0")}.000Z`
+      })),
+      {
+        id: "assistant-task-steps",
+        turnId: "turn-task-steps",
+        role: "assistant",
+        content: "任务步骤已经完成。",
+        kind: "text",
+        type: "text",
+        status: "complete",
+        createdAt: "2026-07-24T00:01:00.000Z"
+      }
+    ];
+    const { rerender } = render(<AgentConversationTimeline messages={messages(1)} />);
+    const activity = document.querySelector<HTMLDetailsElement>(".agent-tool-status-row");
+    expect(activity?.open).toBe(false);
+
+    fireEvent.click(screen.getByRole("status"));
+    expect(activity?.open).toBe(true);
+
+    rerender(<AgentConversationTimeline messages={messages(10)} />);
+    expect(document.querySelector<HTMLDetailsElement>(".agent-tool-status-row")?.open).toBe(true);
   });
 
   it("does not show repeated profile-intake continuation or restore rows", () => {
@@ -393,7 +428,7 @@ describe("AgentConversationTimeline", () => {
     );
 
     const activity = document.querySelector<HTMLDetailsElement>(".agent-tool-status-row");
-    expect(activity?.open).toBe(true);
+    expect(activity?.open).toBe(false);
     expect(screen.getByText("未完成", { exact: true })).toBeInTheDocument();
     expect(screen.getByText(/读取指定任务的当前进度未完成/)).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("自动处理没有完成");

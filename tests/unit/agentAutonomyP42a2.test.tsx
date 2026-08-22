@@ -75,7 +75,7 @@ describe("P4.2a.2 autonomy closure", () => {
     expect(screen.getByText(/<script>/)).toBeVisible();
   });
 
-  it("attaches activity to its assistant turn and keeps failed activity expanded", () => {
+  it("attaches activity to its assistant turn and keeps failed activity collapsed by default", () => {
     render(<AgentConversationTimeline messages={[
       message("user", "开始", "turn-1", "user-1"),
       {
@@ -98,7 +98,7 @@ describe("P4.2a.2 autonomy closure", () => {
     const assistantRows = document.querySelectorAll(".agent-message-row.is-assistant");
     expect(assistantRows).toHaveLength(2);
     expect(assistantRows[0].querySelector(".agent-tool-status-row")).not.toBeNull();
-    expect(assistantRows[1].querySelector("details")?.open).toBe(true);
+    expect(assistantRows[1].querySelector("details")?.open).toBe(false);
   });
 
   it("persists and reloads 150 dialogue messages plus 400 activity events without truncation", async () => {
