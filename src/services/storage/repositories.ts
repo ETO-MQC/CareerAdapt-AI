@@ -149,6 +149,13 @@ import {
   type ResumeCompositionCheckpoint,
   type ResumeCompositionResult
 } from "@/domain/resumeComposition";
+import {
+  canonicalSkillIdentity,
+  inspectResumeItemStructuralIntegrity,
+  rehydrateLegacyStructuredResumeItem,
+  resumeItemBodyProjection,
+  assertTailoringStructuralPreservation
+} from "@/domain/resumeIntegrity";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import {
   AdaptationDraftError,
@@ -250,21 +257,32 @@ function agentSessionMetadataFingerprint(value: AgentSession) {
   ));
 }
 
-function syncStructuredContentItems(
+export function syncStructuredContentItems(
   branch: ResumeBranch,
   contentItems: ResumeBranch["contentItems"]
 ) {
   const current = new Map((branch.structuredContentItems ?? []).map((item) => [item.id, item]));
   return contentItems.map((legacy) => {
     const structured = current.get(legacy.id);
-    if (!structured) return migrateBranchContentItem(legacy);
+    const migrated = structured ?? migrateBranchContentItem(legacy);
     // Fix legacy data where internship was misclassified as work
-    const patchedData = legacy.sourceSectionId === "internship" && structured.data.sectionType === "work"
-      ? { ...structured.data, sectionType: "internship" as const }
-      : structured.data;
+    const patchedData = legacy.sourceSectionId === "internship" && migrated.data.sectionType === "work"
+      ? { ...migrated.data, sectionType: "internship" as const }
+      : migrated.data;
+    const integrity = inspectResumeItemStructuralIntegrity(patchedData, {
+      origin: structured ? "structured" : "legacy_projection",
+      legacyTextProjection: legacy.text
+    });
+    const rehydrated = rehydrateLegacyStructuredResumeItem(
+      patchedData,
+      legacy.text,
+      { origin: structured ? "structured" : "legacy_projection" }
+    );
+    const cleanProjection = resumeItemBodyProjection(rehydrated.item).trim() || legacy.text;
+    const shouldUseCleanProjection = rehydrated.changed || integrity.detectedLabels.length > 0;
     return ResumeContentItemV2Schema.parse({
-      ...structured,
-      data: patchedData,
+      ...migrated,
+      data: rehydrated.item,
       order: legacy.order,
       visible: legacy.visible,
       source: legacy.source,
@@ -273,7 +291,7 @@ function syncStructuredContentItems(
       guardStatus: legacy.guardStatus,
       guardFindings: legacy.guardFindings,
       userConfirmation: legacy.userConfirmation,
-      legacyTextProjection: legacy.text
+      legacyTextProjection: shouldUseCleanProjection ? cleanProjection : legacy.text
     });
   });
 }
@@ -314,7 +332,20 @@ function applyTailoringClaimsToBranch(
   const contentItems = structuredContentItems.map((structured) => {
     const previous = previousById.get(structured.id);
     const itemClaims = claimsByItem.get(structured.id) ?? [];
-    if (!itemClaims.length && previous) return previous;
+    if (!itemClaims.length && previous) {
+      if (structured.legacyTextProjection === previous.text) return previous;
+      const text = structured.legacyTextProjection ?? previous.text;
+      return BranchContentItemSchema.parse({
+        ...previous,
+        text,
+        ...(previous.userConfirmation?.scope === "resume_only" ? {
+          userConfirmation: {
+            ...previous.userConfirmation,
+            confirmedTextHash: stableHashText(text)
+          }
+        } : {})
+      });
+    }
     const text = tailoringBodyProjection(structured.data);
     const userDeclared = itemClaims.some((claim) => claim.supportLevel !== "verified");
     const confirmation = userDeclared ? { scope: "resume_only" as const, confirmedTextHash: stableHashText(text), confirmedAt: now } : undefined;
@@ -571,6 +602,11 @@ function createConfirmedSkillItem(patch: ResumeFieldPatch, existing: ResumeConte
     throw new Error("tailoring_patch_item_missing");
   }
   const text = patch.after.trim();
+  const skillIdentity = canonicalSkillIdentity(text);
+  if (!skillIdentity) throw new Error("tailoring_skill_name_must_be_capability");
+  if (existing.some((item) => item.data.sectionType === "skills" && canonicalSkillIdentity(item.data.name) === skillIdentity)) {
+    throw new Error("tailoring_duplicate_skill");
+  }
   return ResumeContentItemV2Schema.parse({
     id: patch.itemId,
     schemaVersion: "resume-content-item-v2",
@@ -2757,6 +2793,10 @@ export class WorkspaceRepository {
         updatedAt: presentationBaseline.updatedAt
       });
       const sourceBranchBefore = branch.sourceBranchId ? await this.db.resumeBranches.get(branch.sourceBranchId) : undefined;
+      const structuralBaseline = ResumeBranchSchema.parse({
+        ...branch,
+        structuredContentItems: syncStructuredContentItems(branch, branch.contentItems)
+      });
       const now = new Date().toISOString();
       const patched = applyTailoringClaimsToBranch(branch, applicable, now);
       const contentItems = patched.contentItems;
@@ -2767,6 +2807,7 @@ export class WorkspaceRepository {
         revision: branch.revision + 1,
         updatedAt: now
       });
+      assertTailoringStructuralPreservation(structuralBaseline, nextBase, []);
       const profileSyncClaims = applicable.filter((claim) => claim.syncScope === "resume_and_profile");
       const profileRecord = profileSyncClaims.length ? await this.db.profiles.get(branch.profileId) : undefined;
       const profileBefore = profileRecord ? CareerProfileSchema.parse(profileRecord) : undefined;
@@ -3065,6 +3106,10 @@ export class WorkspaceRepository {
 
         const now = new Date().toISOString();
         const sourceStructuredContentItems = syncStructuredContentItems(sourceBranch, sourceBranch.contentItems);
+        const structuralBaseline = ResumeBranchSchema.parse({
+          ...sourceBranch,
+          structuredContentItems: sourceStructuredContentItems
+        });
         const sourceMatchSetHash = computeRequirementsHash({ job, matches });
         const branchId = `branch-${sourceBranch.profileId}-${job.id}-${stableHashText(input.operationId).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 18)}`;
         const branchWithoutSync = ResumeBranchSchema.parse({
@@ -3164,6 +3209,7 @@ export class WorkspaceRepository {
           revision: 1,
           updatedAt: now
         });
+        assertTailoringStructuralPreservation(structuralBaseline, nextBase, validation.appliedDiffs);
         const changedFieldPaths = validation.appliedDiffs.map((diff, index) => {
           const patch = validation.patches[index];
           const before = readTailoringValue(candidate, diff);
@@ -5902,6 +5948,7 @@ export class WorkspaceRepository {
         let itemType: "experience" | "skill" | "certificate" | "custom" = "custom";
         let factRefs: ResumeBranch["contentItems"][number]["factRefs"] = [];
         let canonicalEntry: NonNullable<CareerProfile["structuredFacts"]>[number] | undefined;
+        let skillStructuredData: Extract<ResumeItemV2, { sectionType: "skills" }> | undefined;
 
         if (reference.type === "canonical") {
           canonicalEntry = profile.structuredFacts?.find((entry) => entry.data.id === reference.itemId && entry.data.sectionType === reference.sectionType);
@@ -5911,6 +5958,9 @@ export class WorkspaceRepository {
           if (!isConfirmedNarrative && (!factRefs.length || factRefs.length !== canonicalEntry.factIds.length)) throw new Error("profile_canonical_fact_unavailable");
           text = projectResumeItemV2(canonicalEntry.data);
           itemType = canonicalBranchItemType(canonicalEntry.data.sectionType);
+          if (canonicalEntry.data.sectionType === "skills") {
+            skillStructuredData = ResumeItemV2Schema.parse({ ...canonicalEntry.data, id: newItemId }) as Extract<ResumeItemV2, { sectionType: "skills" }>;
+          }
         } else if (reference.type === "experience") {
           const experience = profile.experiences.find((candidate) => candidate.id === reference.experienceId);
           const fact = experience?.facts.find((candidate) => candidate.id === reference.factId);
@@ -5946,6 +5996,14 @@ export class WorkspaceRepository {
           text = skill.fact.statement.includes(skill.name) ? skill.fact.statement : `${skill.name}\n${skill.fact.statement}`;
           itemType = input.section === "skills" ? "skill" : "custom";
           factRefs = [{ type: "skill_fact", skillId: skill.id, factId: skill.fact.id }];
+          skillStructuredData = ResumeItemV2Schema.parse({
+            id: newItemId,
+            sectionType: "skills",
+            name: skill.name,
+            level: skill.level,
+            description: skill.fact.statement === skill.name ? undefined : skill.fact.statement,
+            customFields: []
+          }) as Extract<ResumeItemV2, { sectionType: "skills" }>;
         } else {
           const certificate = profile.certificates.find((candidate) => candidate.id === reference.certificateId);
           if (!certificate?.fact || certificate.fact.id !== reference.factId || !certificate.fact.confirmedByUser || certificate.fact.riskLevel === "high") throw new Error("profile_certificate_fact_unavailable");
@@ -5986,9 +6044,30 @@ export class WorkspaceRepository {
           userConfirmation: isConfirmedNarrative ? { scope: "resume_only", confirmedTextHash: stableHashText(text), confirmedAt: now } : undefined
         });
         const nextContentItems = [...orderedItems, nextItem].map((item, order) => ({ ...item, order }));
-        const syncedStructuredItems = syncStructuredContentItems(branch, nextContentItems);
+        const seededStructuredItem = skillStructuredData
+          ? ResumeContentItemV2Schema.parse({
+            id: newItemId,
+            schemaVersion: "resume-content-item-v2",
+            data: skillStructuredData,
+            factRefs,
+            source: nextItem.source,
+            order: nextItem.order,
+            visible: true,
+            guardMode: nextItem.guardMode,
+            guardStatus: nextItem.guardStatus,
+            guardFindings: nextItem.guardFindings,
+            legacyTextProjection: text,
+            sourceBlockIds: [],
+            sourceRanges: [],
+            mappingTrace: []
+          })
+          : undefined;
+        const syncBranch = seededStructuredItem
+          ? { ...branch, structuredContentItems: [...(branch.structuredContentItems ?? []), seededStructuredItem] }
+          : branch;
+        const syncedStructuredItems = syncStructuredContentItems(syncBranch, nextContentItems);
         const nextStructuredItems = canonicalEntry ? syncedStructuredItems.map((item) => item.id === newItemId ? ResumeContentItemV2Schema.parse({
-          id: newItemId, schemaVersion: "resume-content-item-v2", data: canonicalEntry!.data, factRefs,
+          id: newItemId, schemaVersion: "resume-content-item-v2", data: skillStructuredData ?? canonicalEntry!.data, factRefs,
           source: nextItem.source, order: nextItem.order, visible: true, guardMode: nextItem.guardMode,
           guardStatus: nextItem.guardStatus, guardFindings: nextItem.guardFindings, legacyTextProjection: text,
           sourceBlockIds: canonicalEntry!.sourceBlockIds, sourceRanges: canonicalEntry!.sourceRanges,

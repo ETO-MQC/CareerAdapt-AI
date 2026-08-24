@@ -68,6 +68,7 @@ export type StructuredExperienceFields = {
   title?: string;
   organization: string;
   role: string;
+  department?: string;
   location: string;
   url?: string;
   tools?: string[];
@@ -88,6 +89,7 @@ export const emptyStructuredExperienceFields: StructuredExperienceFields = {
   title: "",
   organization: "",
   role: "",
+  department: "",
   location: "",
   url: "",
   tools: [],
@@ -109,6 +111,7 @@ export function canonicalToStructuredExperienceFields(item: ResumeItemV2): Struc
     return {
       organization: item.school ?? "",
       role: item.degree ?? "",
+      department: item.department ?? "",
       location: item.location ?? "",
       degree: item.degree ?? "",
       major: item.major ?? "",
@@ -124,7 +127,7 @@ export function canonicalToStructuredExperienceFields(item: ResumeItemV2): Struc
   if (item.sectionType === "project") {
     return {
       title: item.title ?? "",
-      organization: item.title ?? "",
+      organization: item.organization ?? "",
       role: item.role ?? "",
       location: item.location ?? "",
       url: item.url ?? "",
@@ -147,6 +150,7 @@ export function canonicalToStructuredExperienceFields(item: ResumeItemV2): Struc
     title: text(record.title),
     organization: text(record.organization),
     role: text(record.role),
+    department: text(record.department),
     location: text(record.location),
     url: text(record.url),
     tools: Array.isArray(record.tools)
@@ -183,6 +187,7 @@ export function patchCanonicalExperienceFields(
       school: fields.organization.trim() || undefined,
       degree: fields.degree.trim() || fields.role.trim() || undefined,
       major: fields.major.trim() || undefined,
+      department: fields.department?.trim() || undefined,
       location: fields.location.trim() || undefined,
       startDate: fields.startDate || undefined,
       endDate: fields.current ? undefined : fields.endDate || undefined,
@@ -198,6 +203,7 @@ export function patchCanonicalExperienceFields(
       ...item,
       title: (fields.title ?? fields.organization).trim() || undefined,
       role: fields.role.trim() || undefined,
+      organization: fields.organization.trim() || undefined,
       location: fields.location.trim() || undefined,
       startDate: fields.startDate || undefined,
       endDate: fields.current ? undefined : fields.endDate || undefined,
@@ -214,6 +220,7 @@ export function patchCanonicalExperienceFields(
     ...item,
     organization: fields.organization.trim() || undefined,
     role: fields.role.trim() || undefined,
+    department: fields.department?.trim() || undefined,
     location: fields.location.trim() || undefined,
     startDate: fields.startDate || undefined,
     endDate: fields.current ? undefined : fields.endDate || undefined,
@@ -374,6 +381,12 @@ function validResumeUrl(value: string) {
 }
 
 export function parseStructuredExperienceText(text: string): StructuredExperienceFields {
+  const labeled = parseLegacyLabeledStructuredExperienceText(text);
+  if (labeled) return labeled;
+
+  const compactEducation = parseCompactEducationText(text);
+  if (compactEducation) return compactEducation;
+
   const [rawHeader = "", ...rawLines] = text.split("\n");
   let header = rawHeader.trim();
   const current = /(?:至今|现在|present|current)/i.test(header);
@@ -412,6 +425,7 @@ export function parseStructuredExperienceText(text: string): StructuredExperienc
   const toolsLine = rawLines.find((line) => /^技术栈[：:]/.test(line.trim()));
   const description = descriptionLines.join("\n").trim();
   return {
+    title: identityParts[0] ?? "",
     organization: identityParts[0] ?? "",
     role: identityParts.slice(1).join(separator ?? " / "),
     location: segments.slice(1).join(" "),
@@ -428,6 +442,243 @@ export function parseStructuredExperienceText(text: string): StructuredExperienc
     background: backgroundLine?.replace(/^项目背景[：:]\s*/, "").trim() ?? "",
     tools: toolsLine?.replace(/^技术栈[：:]\s*/, "").split(/[、,，;；]/).map((value) => value.trim()).filter(Boolean) ?? []
   };
+}
+
+export const LEGACY_RESUME_STRUCTURED_LABELS = [
+  "项目名称",
+  "组织",
+  "公司",
+  "单位",
+  "学校",
+  "学校名称",
+  "职位",
+  "职位名称",
+  "职位/角色",
+  "职责 / 角色",
+  "角色",
+  "部门",
+  "地点",
+  "所在地",
+  "学校所在地",
+  "项目地点",
+  "开始日期",
+  "结束日期",
+  "至今",
+  "学历",
+  "学位",
+  "学位/学历",
+  "专业",
+  "主修课程",
+  "预计结束日期",
+  "在读",
+  "进行中",
+  "荣誉",
+  "技能名称",
+  "类别",
+  "熟练度",
+  "项目链接",
+  "工具",
+  "技术工具",
+  "技术栈",
+  "项目背景",
+  "说明",
+  "亮点",
+  "成果",
+  "成果与结果"
+] as const;
+
+export type LegacyResumeStructuredLabel = typeof LEGACY_RESUME_STRUCTURED_LABELS[number];
+
+export function detectLegacyStructuredLabels(text: string): LegacyResumeStructuredLabel[] {
+  const found = new Set<LegacyResumeStructuredLabel>();
+  for (const line of text.split("\n")) {
+    const match = /^\s*(项目名称|组织|公司|单位|学校名称|学校|职位名称|职位\/角色|职责\s*\/\s*角色|职位|角色|部门|地点|所在地|学校所在地|项目地点|开始日期|结束日期|至今|学历|学位\/学历|学位|专业|主修课程|预计结束日期|在读|进行中|荣誉|技能名称|类别|熟练度|项目链接|工具|技术工具|技术栈|项目背景|说明|亮点|成果与结果|成果)\s*[：:]/u.exec(line);
+    if (match) found.add(normalizeLegacyStructuredLabel(match[1]));
+  }
+  return [...found];
+}
+
+function parseLegacyLabeledStructuredExperienceText(text: string): StructuredExperienceFields | undefined {
+  const labels = detectLegacyStructuredLabels(text);
+  if (!labels.length) return undefined;
+
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const firstLineLabel = legacyLabelFromLine(lines[0] ?? "");
+  const rawHeader = firstLineLabel ? "" : lines[0] ?? "";
+  const rawLines = firstLineLabel ? lines : lines.slice(1);
+  const header = parseStructuredHeader(rawHeader);
+  const values = new Map<LegacyResumeStructuredLabel, string>();
+  const highlights: string[] = [];
+  const outcomes: string[] = [];
+  const descriptionLines: string[] = [];
+  let contentMode: "description" | "highlight" | "outcome" | undefined;
+
+  for (const line of rawLines) {
+    const labeled = /^\s*(项目名称|组织|公司|单位|学校名称|学校|职位名称|职位\/角色|职责\s*\/\s*角色|职位|角色|部门|地点|所在地|学校所在地|项目地点|开始日期|结束日期|至今|学历|学位\/学历|学位|专业|主修课程|预计结束日期|在读|进行中|荣誉|技能名称|类别|熟练度|项目链接|工具|技术工具|技术栈|项目背景|说明|亮点|成果与结果|成果)\s*[：:]\s*(.*)$/u.exec(line);
+    if (labeled) {
+      const label = normalizeLegacyStructuredLabel(labeled[1]);
+      const value = labeled[2].trim();
+      values.set(label, value);
+      if (label === "说明") {
+        contentMode = "description";
+        if (value) descriptionLines.push(value);
+      } else if (label === "亮点") {
+        contentMode = "highlight";
+        highlights.push(...splitStructuredList(value));
+      } else if (label === "成果" || label === "成果与结果") {
+        contentMode = "outcome";
+        outcomes.push(...splitStructuredList(value));
+      } else {
+        contentMode = label === "至今" ? "description" : undefined;
+      }
+      continue;
+    }
+
+    const trimmed = line.trim();
+    if (!trimmed || isStructuredDateOnlyLine(trimmed)) continue;
+    const bullet = stripStructuredBullet(trimmed);
+    if (bullet) {
+      if (contentMode === "outcome") outcomes.push(bullet);
+      else if (contentMode === "highlight") highlights.push(bullet);
+      else highlights.push(bullet);
+    } else if (contentMode === "description" || !contentMode) {
+      descriptionLines.push(trimmed);
+    }
+  }
+
+  const startDate = valueDate(values.get("开始日期")) || header.startDate;
+  const labeledEnd = values.get("结束日期") ?? values.get("预计结束日期") ?? values.get("至今");
+  const current = header.current || Boolean(values.has("至今") || values.has("在读") || values.has("进行中")) || /(?:至今|现在|present|current)/iu.test(labeledEnd ?? "");
+  const endDates = extractStructuredDates(labeledEnd ?? "");
+  const endDate = current ? "" : valueDate(labeledEnd) || header.endDate || endDates[1] || "";
+  const expectedEndDate = current ? valueDate(labeledEnd) || endDates[1] || "" : "";
+  const organization = firstNonEmpty(values.get("组织"), values.get("公司"), values.get("单位"), values.get("学校名称"), values.get("学校"), header.organization);
+  const title = values.get("项目名称") || header.title || organization;
+  const degree = firstNonEmpty(values.get("学历"), values.get("学位/学历"), values.get("学位"), header.degree, header.role);
+  const role = firstNonEmpty(values.get("职位"), values.get("职位名称"), values.get("职位/角色"), values.get("职责 / 角色"), values.get("角色"), header.role);
+  const description = descriptionLines.join("\n").trim();
+  const background = values.get("项目背景") ?? "";
+  const tools = splitStructuredList(values.get("技术工具") ?? values.get("技术栈") ?? values.get("工具") ?? "");
+
+  return {
+    title,
+    organization,
+    role,
+    department: values.get("部门") ?? "",
+    location: firstNonEmpty(values.get("地点"), values.get("所在地"), values.get("学校所在地"), values.get("项目地点"), header.location),
+    degree,
+    major: values.get("专业") ?? "",
+    courses: values.get("主修课程") ?? "",
+    startDate,
+    endDate,
+    expectedEndDate,
+    current,
+    description,
+    highlights: uniqueStructuredList(highlights),
+    outcomes: uniqueStructuredList(outcomes),
+    url: values.get("项目链接") ?? "",
+    background,
+    tools: uniqueStructuredList(tools)
+  };
+}
+
+function parseCompactEducationText(text: string): StructuredExperienceFields | undefined {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const rawHeader = lines[0]?.trim() ?? "";
+  const headerWithoutDates = rawHeader
+    .replace(/(?:19|20)\d{2}(?:[./-]\d{1,2})?(?:[./-]\d{1,2})?/g, "")
+    .replace(/(?:至今|现在|present|current)/giu, "")
+    .trim();
+  const parts = headerWithoutDates.split(/\s*[|｜]\s*/u).map((value) => value.trim()).filter(Boolean);
+  if (parts.length < 3 || !/(?:高中|中专|专科|本科|学士|硕士|博士|研究生|MBA|EMBA)/iu.test(parts[1] ?? "")) return undefined;
+  const dates = extractStructuredDates(text);
+  if (!dates.length) return undefined;
+  const current = /(?:至今|现在|present|current)/iu.test(text);
+  const description = lines.slice(1).filter((line) => line.trim() && !isStructuredDateOnlyLine(line.trim())).join("\n").trim();
+  return {
+    title: parts[0],
+    organization: parts[0],
+    role: parts[1],
+    department: "",
+    location: "",
+    degree: parts[1],
+    major: parts[2],
+    courses: "",
+    startDate: normalizeStructuredDate(dates[0] ?? ""),
+    endDate: current ? "" : normalizeStructuredDate(dates[1] ?? ""),
+    expectedEndDate: current ? normalizeStructuredDate(dates[1] ?? "") : "",
+    current,
+    description,
+    highlights: [],
+    outcomes: [],
+    background: "",
+    tools: []
+  };
+}
+
+function parseStructuredHeader(rawHeader: string) {
+  let header = rawHeader.trim();
+  const current = /(?:至今|现在|present|current)/iu.test(header);
+  const dates = extractStructuredDates(header);
+  header = header
+    .replace(/(?:19|20)\d{2}(?:[./-]\d{1,2})?(?:[./-]\d{1,2})?/g, "")
+    .replace(/(?:至今|现在|present|current)/giu, "")
+    .replace(/\s+-\s*$/, "")
+    .trim();
+  const segments = header.split(/\s{2,}/u).map((value) => value.trim()).filter(Boolean);
+  const identity = segments[0] ?? "";
+  const separator = [" / ", " ｜ ", " | ", "，", ","].find((value) => identity.includes(value));
+  const identityParts = separator ? identity.split(separator).map((value) => value.trim()) : [identity];
+  return {
+    title: identityParts[0] ?? "",
+    organization: identityParts[0] ?? "",
+    role: identityParts.slice(1).join(separator ?? " / "),
+    degree: "",
+    location: segments.slice(1).join(" "),
+    startDate: normalizeStructuredDate(dates[0] ?? ""),
+    endDate: current ? "" : normalizeStructuredDate(dates[1] ?? ""),
+    current
+  };
+}
+
+function extractStructuredDates(value: string) {
+  return value.match(/(?:19|20)\d{2}(?:[./-]\d{1,2})?(?:[./-]\d{1,2})?/g) ?? [];
+}
+
+function valueDate(value: string | undefined) {
+  const date = extractStructuredDates(value ?? "")[0];
+  return date ? normalizeStructuredDate(date) : "";
+}
+
+function isStructuredDateOnlyLine(value: string) {
+  return /^(?:(?:19|20)\d{2}(?:[./-]\d{1,2})?(?:[./-]\d{1,2})?\s*(?:-|至今|现在|present|current)?\s*)+$/iu.test(value);
+}
+
+function splitStructuredList(value: string) {
+  return value
+    .split(/[、,，;；\n]/u)
+    .map((entry) => stripStructuredBullet(entry.trim()) ?? entry.trim())
+    .filter(Boolean);
+}
+
+function uniqueStructuredList(values: string[]) {
+  return [...new Map(values.map((value) => [value.trim(), value.trim()])).values()].filter(Boolean);
+}
+
+function firstNonEmpty(...values: Array<string | undefined>) {
+  return values.find((value) => Boolean(value?.trim()))?.trim() ?? "";
+}
+
+function normalizeLegacyStructuredLabel(value: string): LegacyResumeStructuredLabel {
+  const compact = value.replace(/\s+/gu, "");
+  const label = LEGACY_RESUME_STRUCTURED_LABELS.find((candidate) => candidate.replace(/\s+/gu, "") === compact);
+  if (!label) throw new Error("unknown_legacy_resume_label");
+  return label;
+}
+
+function legacyLabelFromLine(value: string) {
+  const match = /^\s*(项目名称|组织|公司|单位|学校名称|学校|职位名称|职位\/角色|职责\s*\/\s*角色|职位|角色|部门|地点|所在地|学校所在地|项目地点|开始日期|结束日期|至今|学历|学位\/学历|学位|专业|主修课程|预计结束日期|在读|进行中|荣誉|技能名称|类别|熟练度|项目链接|工具|技术工具|技术栈|项目背景|说明|亮点|成果与结果|成果)\s*[：:]/u.exec(value);
+  return match ? normalizeLegacyStructuredLabel(match[1]) : undefined;
 }
 
 export function serializeStructuredExperienceText(fields: StructuredExperienceFields, category: ResumeFieldCategoryId): string {

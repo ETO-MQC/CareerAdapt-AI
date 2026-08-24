@@ -14,6 +14,7 @@ import { getResumeSectionDefinition, type ResumeSectionTypeV2 } from "@/domain/r
 import { projectResumePresentationItem } from "@/domain/resumePresentation/projector";
 import { resolveResumeTargetRole } from "@/domain/branch/targetRole";
 import { jobTargetSnapshotToJobDescription } from "@/domain/jobTarget/jobTargetSnapshot";
+import { inspectResumeItemStructuralIntegrity, rehydrateLegacyStructuredResumeItem } from "@/domain/resumeIntegrity";
 import {
   createRenderCoverageReport,
   presentationCoverage,
@@ -47,6 +48,17 @@ export function mapBranchToResumeRenderModel(input: {
   ) {
     throw new ResumeRenderMapperError("render_source_mismatch");
   }
+
+  const runtimeBranch = migrateResumeBranchToV2(branch);
+  const runtimeStructuredContentItems = branch.structuredContentItems
+      ? runtimeBranch.structuredContentItems.map((item) => {
+        const legacy = branch.contentItems.find((candidate) => candidate.id === item.id);
+        const integrity = inspectResumeItemStructuralIntegrity(item.data, { origin: "legacy_projection", legacyTextProjection: legacy?.text });
+        if (item.source === "legacy" && integrity.detectedLabels.length === 0) return item;
+        const rehydrated = rehydrateLegacyStructuredResumeItem(item.data, legacy?.text, { origin: "structured" });
+        return { ...item, data: rehydrated.item };
+      })
+    : runtimeBranch.structuredContentItems;
 
   const document = mapBranchToResumeDocument({
     branch,
@@ -93,12 +105,11 @@ export function mapBranchToResumeRenderModel(input: {
     links: profile.basics.links
   };
 
-  const runtimeBranch = migrateResumeBranchToV2(branch);
   const targetRole = resolveResumeTargetRole({ branch, profile, job });
-  const persistedSummaryItem = runtimeBranch.structuredContentItems.find((item) => item.data.sectionType === "summary");
+  const persistedSummaryItem = runtimeStructuredContentItems.find((item) => item.data.sectionType === "summary");
   const derivedSummaryItemId = `derived-summary:${branch.id}`;
   const seenStructuredItemIds = new Set<string>();
-  const structuredItems = runtimeBranch.structuredContentItems.flatMap((item) => {
+  const structuredItems = runtimeStructuredContentItems.flatMap((item) => {
     if (!item.visible || !renderableItemIds.has(item.id)) return [];
     if (seenStructuredItemIds.has(item.id)) return [];
     seenStructuredItemIds.add(item.id);

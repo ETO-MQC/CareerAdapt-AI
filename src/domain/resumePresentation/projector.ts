@@ -84,7 +84,7 @@ export function projectResumePresentationItem(item: ResumeItemV2): ResumePresent
         secondaryTitle: item.role,
         dateRange: formatResumePresentationDateRange(item.startDate, item.endDate, item.current),
         location: item.location,
-        inlineMeta: compact([item.organization, ...item.tools, item.url]),
+        inlineMeta: compact([item.organization, ...item.tools]),
         description: item.description ?? item.background,
         secondaryMeta: item.description && item.background ? [item.background] : [],
         highlights: [...item.highlights, ...item.outcomes],
@@ -230,22 +230,29 @@ function patentDateRange(filedAt?: string, grantedAt?: string) {
 }
 
 function dedupePresentation(item: ResumePresentationItem): ResumePresentationItem {
+  const inlineMeta = uniqueSemantic(item.inlineMeta);
+  const highlights = uniqueSemantic(item.highlights);
+  const highlightKeys = new Set(highlights.map(normalizePresentationSentence));
+  const description = uniqueSentences(item.description)
+    .filter((value) => !highlightKeys.has(normalizePresentationSentence(value)))
+    .join("\n") || undefined;
   const occupied = new Set(compact([
     item.primaryTitle,
     item.secondaryTitle,
     item.tertiaryTitle,
     item.dateRange,
     item.location,
-    item.description,
-    ...item.inlineMeta
-  ]));
-  const secondaryMeta = unique(item.secondaryMeta).filter((value) => !occupied.has(value));
-  secondaryMeta.forEach((value) => occupied.add(value));
+    description,
+    ...inlineMeta
+  ]).map(normalizePresentationSentence));
+  const secondaryMeta = uniqueSemantic(item.secondaryMeta).filter((value) => !occupied.has(normalizePresentationSentence(value)));
+  secondaryMeta.forEach((value) => occupied.add(normalizePresentationSentence(value)));
   return {
     ...item,
-    inlineMeta: unique(item.inlineMeta),
+    inlineMeta,
+    description,
     secondaryMeta,
-    highlights: unique(item.highlights).filter((value) => !occupied.has(value)),
+    highlights: highlights.filter((value) => !occupied.has(normalizePresentationSentence(value))),
     links: unique(item.links),
     customRows: item.customRows.filter((row, index, rows) => rows.findIndex((candidate) => candidate.label === row.label && candidate.value === row.value) === index)
   };
@@ -267,4 +274,33 @@ function compact(values: Array<string | undefined>): string[] {
 
 function unique(values: string[]) {
   return [...new Set(compact(values))];
+}
+
+function uniqueSemantic(values: string[]) {
+  const result: string[] = [];
+  const seen = new Set<string>();
+  for (const value of compact(values)) {
+    const key = normalizePresentationSentence(value);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    result.push(value);
+  }
+  return result;
+}
+
+function uniqueSentences(value?: string) {
+  const result: string[] = [];
+  const seen = new Set<string>();
+  for (const sentence of (value ?? "").split(/[\n。！？!?]+/u)) {
+    const normalized = sentence.trim();
+    const key = normalizePresentationSentence(normalized);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    result.push(normalized);
+  }
+  return result;
+}
+
+function normalizePresentationSentence(value: string) {
+  return value.trim().replace(/[。！？!?；;，,、\s]+$/gu, "").replace(/[\s\u3000]+/gu, "").toLocaleLowerCase();
 }

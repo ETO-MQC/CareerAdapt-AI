@@ -4,6 +4,7 @@ import type { JobRequirementGraphV4 } from "@/domain/schemas/jobOptimizationV4";
 import { JobTargetSnapshotSchema, type JobTargetSnapshot } from "@/domain/schemas/jobTarget";
 import { projectJobGraphV3ToAnalyzerOutput, projectJobGraphV4ToAnalyzerOutput } from "@/domain/jobOptimization/v3/project";
 import { stableHashText } from "@/services/security/text";
+import { extractExplicitTargetRole } from "@/domain/branch/targetRole";
 
 export function createPastedJobTargetSnapshot(input: {
   rawText: string;
@@ -13,7 +14,9 @@ export function createPastedJobTargetSnapshot(input: {
   capturedAt?: string;
 }) {
   const capturedAt = input.capturedAt ?? new Date().toISOString();
-  const title = input.title?.trim() || input.graph.roleProfile.title?.trim();
+  const title = extractExplicitTargetRole(input.title ?? "")
+    || extractExplicitTargetRole(input.rawText)
+    || extractExplicitTargetRole(input.graph.roleProfile.title ?? "");
   const company = input.company?.trim();
   const projection = input.graph.schemaVersion === "job-requirement-graph-v4"
     ? projectJobGraphV4ToAnalyzerOutput({

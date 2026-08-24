@@ -13,6 +13,7 @@ import {
   TailoringIntensitySchema
 } from "@/domain/schemas";
 import { projectJobGraphV4ToAnalyzerOutput } from "@/domain/jobOptimization/v3/project";
+import { extractExplicitTargetRole } from "@/domain/branch/targetRole";
 import { createImportedResumeDraftFromText } from "@/domain/resumeImport/parser";
 import {
   analyzeJobCommand,
@@ -2162,13 +2163,7 @@ function assertConversationIntakeCommitEligible(draft: ImportedResumeDraft | und
 }
 
 function inferJobTitle(rawText: string) {
-  const lines = rawText.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  const labeled = lines.find((line) => /^(岗位|职位|job\s*title)\s*[:：]/i.test(line));
-  if (labeled) return labeled.replace(/^[^:：]+[:：]\s*/, "").slice(0, 160) || undefined;
-  const first = lines[0];
-  return first && first.length <= 80 && !/职责|要求|招聘|responsibilit|requirement/i.test(first)
-    ? first.slice(0, 160)
-    : undefined;
+  return extractExplicitTargetRole(rawText);
 }
 
 function inferJobCompany(rawText: string) {
