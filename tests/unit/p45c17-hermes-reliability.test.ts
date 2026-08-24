@@ -5,7 +5,7 @@ import { upsertAgentActivity } from "@/agent/runtime/AgentSessionMessages";
 import { HermesCareerAgentRuntime } from "@/agent/runtime/hermes/HermesCareerAgentRuntime";
 import type { HermesBridgeTransport } from "@/agent/runtime/hermes/HermesBridgeTransport";
 import { hermesProductionToolNames, HermesCareerToolCatalog } from "@/agent/runtime/hermes/HermesCareerToolCatalog";
-import { createHermesRunFailure } from "@/agent/runtime/hermes/hermesRunReliability";
+import { classifyHermesRunFailure, createHermesRunFailure } from "@/agent/runtime/hermes/hermesRunReliability";
 import { CareerToolGateway } from "@/agent/tools/CareerToolGateway";
 import { AgentToolRegistry } from "@/agent/tools/registry";
 
@@ -77,6 +77,36 @@ describe("P4.5c.1.7 Hermes runtime reliability", () => {
       type: "turn_failed",
       error: { code: "hermes_provider_auth_failed", recoverable: false },
       data: { diagnostics: { safeErrorCode: "hermes_provider_auth_failed", httpStatus: 401 } }
+    });
+  });
+
+  it("classifies a non-retryable 400 with safe upstream and controller metadata", () => {
+    const diagnostics = classifyHermesRunFailure({
+      code: "invalid_turn_state",
+      message: "request rejected",
+      httpStatus: 400,
+      upstreamErrorType: "InvalidRequestError",
+      activeRunId: "run-active",
+      sessionId: "session-400",
+      requestedTurnId: "turn-400",
+      requestState: "pending_start",
+      controllerState: "pending_start",
+      existingPendingTurnId: "turn-existing",
+      existingActiveTurnId: "turn-active"
+    });
+    expect(diagnostics).toMatchObject({
+      safeErrorCode: "hermes_run_start_http_failed",
+      upstreamErrorCode: "invalid_turn_state",
+      upstreamErrorType: "InvalidRequestError",
+      safeMessageCategory: "invalid_request",
+      activeRunId: "run-active",
+      sessionId: "session-400",
+      requestedTurnId: "turn-400",
+      requestState: "pending_start",
+      controllerState: "pending_start",
+      existingPendingTurnId: "turn-existing",
+      existingActiveTurnId: "turn-active",
+      retryable: false
     });
   });
 

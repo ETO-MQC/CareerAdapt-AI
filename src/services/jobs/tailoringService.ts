@@ -287,6 +287,65 @@ export function clarificationAnswerTypeFromAssessment(questionText: string, capa
 
 export type TailoringQuestionAnswerDisposition = "answered" | "none" | "uncertain" | "skipped";
 
+export type TailoringQuestionCompleteness = {
+  complete: boolean;
+  questionPlanId?: string;
+  requiredQuestionIds: string[];
+  resolvedQuestionIds: string[];
+  missingQuestionIds: string[];
+  duplicateQuestionIds: string[];
+};
+
+/**
+ * Answer existence is keyed by the frozen plan identity and question identity.
+ * The plan revision records provenance only; it is deliberately absent from
+ * this predicate so receipts from revisions 1, 2, and 3 remain valid together.
+ */
+export function evaluateTailoringQuestionCompleteness(
+  plan: Pick<ResumeTailoringPlan, "questionPlan" | "answerReceipts">
+): TailoringQuestionCompleteness {
+  const questionPlan = plan.questionPlan;
+  const requiredQuestionIds = questionPlan?.questionIds ?? [];
+  const questionPlanId = questionPlan?.id;
+  const terminal = new Set<TailoringQuestionAnswerDisposition>(["answered", "none", "uncertain", "skipped"]);
+  const receipts = (plan.answerReceipts ?? []).filter((receipt) => receipt.questionPlanId === questionPlanId);
+  const counts = new Map<string, number>();
+  for (const receipt of receipts) {
+    if (!requiredQuestionIds.includes(receipt.questionId) || !terminal.has(receipt.disposition)) continue;
+    counts.set(receipt.questionId, (counts.get(receipt.questionId) ?? 0) + 1);
+  }
+  const resolvedQuestionIds = requiredQuestionIds.filter((questionId) => counts.get(questionId) === 1);
+  const missingQuestionIds = requiredQuestionIds.filter((questionId) => counts.get(questionId) !== 1);
+  const duplicateQuestionIds = requiredQuestionIds.filter((questionId) => (counts.get(questionId) ?? 0) > 1);
+  return {
+    complete: missingQuestionIds.length === 0 && duplicateQuestionIds.length === 0,
+    questionPlanId,
+    requiredQuestionIds,
+    resolvedQuestionIds,
+    missingQuestionIds,
+    duplicateQuestionIds
+  };
+}
+
+export function isTailoringQuestionPlanComplete(
+  plan: Pick<ResumeTailoringPlan, "questionPlan" | "answerReceipts">
+) {
+  return evaluateTailoringQuestionCompleteness(plan).complete;
+}
+
+function normalizeTailoringQuestionPlanCompletion(plan: ResumeTailoringPlan, now: string): CanonicalResumeTailoringPlan {
+  if (!plan.questionPlan || !isTailoringQuestionPlanComplete(plan)) return ResumeTailoringPlanSchema.parse(plan);
+  return ResumeTailoringPlanSchema.parse({
+    ...plan,
+    questionPlan: {
+      ...plan.questionPlan,
+      status: "ready_for_generation",
+      activeQuestionId: undefined,
+      completedAt: plan.questionPlan.completedAt ?? now
+    }
+  });
+}
+
 export function classifyTailoringQuestionAnswer(answer: string | string[] | boolean): TailoringQuestionAnswerDisposition {
   const normalizedAnswer = typeof answer === "string" ? answer.trim() : answer;
   if (typeof normalizedAnswer === "string" && normalizedAnswer === "跳过") return "skipped";
@@ -347,7 +406,7 @@ export function answerTailoringClarification(input: {
       receipt
     ];
     const answerRevisionHash = tailoringAnswerRevisionHash({ clarificationAnswers });
-    return ResumeTailoringPlanSchema.parse({
+    return normalizeTailoringQuestionPlanCompletion(ResumeTailoringPlanSchema.parse({
       ...plan,
       diffs: previous ? [] : plan.diffs,
       clarificationAnswers,
@@ -372,7 +431,7 @@ export function answerTailoringClarification(input: {
           ? { ...question, status: "active", updatedAt: resolvedAt }
           : question),
       questionPlan
-    });
+    }), resolvedAt);
   };
   if (rejected || skipped || uncertain) return withAnswerRecord(input.plan);
   if (input.question.targetPolicy === "material_only") return withAnswerRecord(input.plan);

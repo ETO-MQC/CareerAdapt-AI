@@ -119,6 +119,99 @@ describe("P4.5c.1 Host Ask-or-Act replay", () => {
     expect(explained.session.taskState?.workflowUserInputCheckpoint?.kind).toBe(kind);
   });
 
+  it("projects the external target persistence choice with concrete actions", () => {
+    const base = tailoringSession("confirm_apply");
+    const pendingDecision: NonNullable<AgentTaskState["pendingDecision"]> = {
+      type: "job_target_persistence",
+      options: ["session_only", "save_job"]
+    };
+    const state = {
+      ...base.taskState!,
+      stage: "confirm_apply",
+      completionStatus: "waiting_for_user" as const,
+      pendingDecision,
+      selectedEntities: {
+        ...base.taskState!.selectedEntities,
+        targetSnapshotId: "target-snapshot-1"
+      },
+      knownSlots: {
+        ...base.taskState!.knownSlots,
+        jobPersistenceDecision: "ask" as const
+      },
+      updatedAt: new Date().toISOString()
+    };
+    const session = attachTaskStateOptions(projectTaskStateIntoSession(base, state), state);
+    const interaction = session.taskState?.workflowUserInputCheckpoint;
+    const message = session.messages.find((candidate) =>
+      candidate.metadata?.workflowInteractionKind === "target_persistence_choice"
+    );
+
+    expect(interaction).toMatchObject({
+      kind: "target_persistence_choice",
+      prompt: "是否将这份外部岗位保存到岗位列表？"
+    });
+    expect(message).toMatchObject({
+      content: "是否将这份外部岗位保存到岗位列表？",
+      options: [
+        expect.objectContaining({
+          label: "仅用于本次定制",
+          action: expect.objectContaining({ type: "task_decision", option: "session_only" })
+        }),
+        expect.objectContaining({
+          label: "保存到岗位列表",
+          action: expect.objectContaining({ type: "task_decision", option: "save_job" })
+        })
+      ]
+    });
+  });
+
+  it("stops at the explicit apply confirmation instead of reopening Hermes", async () => {
+    const base = tailoringSession("confirm_apply");
+    const pendingDecision: NonNullable<AgentTaskState["pendingDecision"]> = {
+      type: "job_target_persistence",
+      options: ["session_only", "save_job"]
+    };
+    const state = {
+      ...base.taskState!,
+      stage: "confirm_apply",
+      completionStatus: "waiting_for_user" as const,
+      pendingDecision,
+      knownSlots: {
+        ...base.taskState!.knownSlots,
+        jobPersistenceDecision: "ask" as const,
+        tailoringSession: { id: "tailoring-session-1" },
+        selectedDiffs: [{ diffId: "diff-1", value: "已核对的岗位描述" }],
+        confirmedRequirementIds: []
+      },
+      updatedAt: new Date().toISOString()
+    };
+    const session = attachTaskStateOptions(projectTaskStateIntoSession(base, state), state);
+    const host = createHost();
+    host.adopt(session);
+
+    const prepared = await host.prepareRuntimeUserEvent({
+      session,
+      event: {
+        type: "option_selected",
+        action: {
+          type: "task_decision",
+          decisionType: "job_target_persistence",
+          option: "session_only"
+        }
+      },
+      pageContext
+    });
+
+    expect(prepared.executionOwner).toBe("deterministic_transition");
+    expect(prepared.deterministicTransitionApplied).toBe(true);
+    expect(prepared.deterministicTerminal).toBe(true);
+    expect(prepared.session.pendingConfirmation).toMatchObject({
+      toolName: "apply_tailoring_changes",
+      status: "pending"
+    });
+    expect(prepared.session.taskState?.completionStatus).toBe("waiting_for_confirmation");
+  });
+
   it("keeps one healthy General Resume on the automatic route and asks only when there are multiple", () => {
     const base = tailoringSession("choose_resume_source");
     const reducer = new AgentTaskStateReducer();

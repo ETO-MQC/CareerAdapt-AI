@@ -4,7 +4,7 @@ import { ResumeTailoringDiffSchema } from "@/domain/schemas";
 import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
 import { stableHashText } from "@/services/security/text";
 import { normalizeMessageForFinalAssistant } from "./AgentSessionMessages";
-import { canonicalWorkflowId } from "@/agent/workflows/workflowRegistry";
+import { canonicalWorkflowId, isTailoringWorkflowId } from "@/agent/workflows/workflowRegistry";
 import { normalizeTailoringStage } from "@/agent/workflows/tailoringStage";
 
 export const CURRENT_AGENT_SESSION_SCHEMA_VERSION = 3;
@@ -27,7 +27,7 @@ export function migrateAgentSessionToCurrentSchema(value: AgentSession | Record<
   let nextTaskState: Record<string, unknown> | undefined = Object.keys(taskState).length
     ? { ...taskState, knownSlots, selectedEntities }
     : undefined;
-  if (nextTaskState && canonicalWorkflowId(String(nextTaskState.workflowId ?? "")) === "tailor_existing_resume") {
+  if (nextTaskState && isTailoringWorkflowId(canonicalWorkflowId(String(nextTaskState.workflowId ?? "")))) {
     const canonicalStage = normalizeTailoringStage(String(nextTaskState.stage ?? ""));
     const canonicalSelectedEntities = { ...record(nextTaskState.selectedEntities) };
     if (!canonicalSelectedEntities.sourceResumeId && canonicalSelectedEntities.resumeId && !canonicalSelectedEntities.resultResumeId) {
@@ -87,6 +87,7 @@ export function migrateAgentSessionToCurrentSchema(value: AgentSession | Record<
         knownSlots.tailoringSession = {
           ...tailoring,
           tailoringRuntimeVersion: CURRENT_TAILORING_RUNTIME_VERSION,
+          generatedDiffRevision: typeof tailoring.generatedDiffRevision === "number" ? tailoring.generatedDiffRevision : 0,
           plan: {
             ...plan,
             answerRevisionHash,

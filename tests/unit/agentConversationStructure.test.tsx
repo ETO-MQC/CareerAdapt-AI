@@ -4,6 +4,38 @@ import type { AgentMessage } from "@/agent/contracts/agentSession";
 import { AgentConversationTimeline } from "@/components/agent/AgentConversation";
 
 describe("AgentConversationTimeline", () => {
+  it("keeps one current tailoring review status when persisted turns contain duplicates", () => {
+    render(
+      <AgentConversationTimeline
+        messages={[
+          {
+            id: "review-old",
+            role: "assistant",
+            content: "旧的岗位修改状态",
+            kind: "text",
+            type: "text",
+            status: "complete",
+            metadata: { workflowInteractionKind: "review_decision", workflowInteractionProjection: true },
+            createdAt: "2026-07-24T00:00:00.000Z"
+          },
+          {
+            id: "review-current",
+            role: "assistant",
+            content: "当前岗位修改状态",
+            kind: "text",
+            type: "text",
+            status: "complete",
+            metadata: { workflowInteractionKind: "review_decision", workflowInteractionProjection: true },
+            createdAt: "2026-07-24T00:00:01.000Z"
+          }
+        ]}
+      />
+    );
+
+    expect(screen.queryByText("旧的岗位修改状态")).not.toBeInTheDocument();
+    expect(screen.getByText("当前岗位修改状态")).toBeInTheDocument();
+  });
+
   it("renders workflow interactions inside the conversation timeline", () => {
     render(
       <AgentConversationTimeline messages={[]}>
@@ -432,6 +464,52 @@ describe("AgentConversationTimeline", () => {
     expect(screen.getByText("未完成", { exact: true })).toBeInTheDocument();
     expect(screen.getByText(/读取指定任务的当前进度未完成/)).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("自动处理没有完成");
+  });
+
+  it("keeps Hermes runtime failures out of the conversation timeline", () => {
+    render(
+      <AgentConversationTimeline
+        messages={[
+          {
+            id: "hermes-tool-failed",
+            turnId: "turn-hermes-failed",
+            role: "tool",
+            content: "Hermes run start failed",
+            kind: "tool_status",
+            type: "tool_status",
+            toolName: "hermes_run_start",
+            status: "failed",
+            metadata: { activityState: "failed" },
+            createdAt: "2026-07-28T05:01:00.000Z"
+          },
+          {
+            id: "hermes-failed",
+            turnId: "turn-hermes-failed",
+            role: "assistant",
+            content: "Hermes 暂时无法启动本轮任务，已保留当前岗位、简历和任务进度。",
+            kind: "error_status",
+            type: "error",
+            status: "failed",
+            errorCode: "hermes_run_start_http_failed",
+            createdAt: "2026-07-28T05:01:01.000Z"
+          },
+          {
+            id: "domain-failed",
+            role: "assistant",
+            content: "业务校验没有完成。",
+            kind: "error_status",
+            type: "error",
+            status: "failed",
+            errorCode: "career_tool_failed",
+            createdAt: "2026-07-28T05:01:02.000Z"
+          }
+        ]}
+      />
+    );
+
+    expect(screen.queryByText(/Hermes 暂时无法启动本轮任务/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Hermes run start failed")).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("业务校验没有完成");
   });
 
   it("renders borderless confirmation actions under the matching AI reply and replaces them with resolution status", () => {

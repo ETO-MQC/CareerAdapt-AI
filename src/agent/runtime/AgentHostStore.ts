@@ -9,6 +9,7 @@ import {
   type AgentTaskState,
   type AgentOptionSet,
   type AgentTurn,
+  type AgentRegenerationTarget,
   type AgentTurnCheckpoint,
   type WorkflowUserInputCheckpoint
 } from "@/agent/contracts/agentSession";
@@ -115,7 +116,7 @@ import {
   profileIntakePersistenceReceipt
 } from "@/agent/workflows/ProfileIntakeFinalizationSupervisor";
 import { AuthoritativeConversationAlignmentGuard } from "@/agent/kernel/AuthoritativeConversationAlignmentGuard";
-import { AgentExecutionCoordinator, type SessionExecution } from "./AgentExecutionCoordinator";
+import { TurnController, type SessionExecution, type SessionExecutionStatus, type TurnControllerState, type TurnOperationClaim, type TurnOperationKind } from "./TurnController";
 import type { AgentToolResult } from "@/agent/contracts/agentTool";
 import type { CareerSessionBinding } from "./careerSessionBinding";
 import { resolveCareerSessionBinding } from "./careerSessionBinding";
@@ -126,7 +127,7 @@ import {
 } from "./RuntimeUserEvent";
 import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
 import type { TailoringSession } from "@/services/jobs/tailoringCommands";
-import { consumeTailoringQuestionAnswer } from "@/services/jobs/tailoringService";
+import { consumeTailoringQuestionAnswer, isTailoringQuestionPlanComplete } from "@/services/jobs/tailoringService";
 import { isTailoringQuestionPaused, normalizeTailoringStage } from "@/agent/workflows/tailoringStage";
 import { advanceTailoringWorkflow, type TailoringWorkflowBoundary } from "@/agent/workflows/tailoringWorkflowDriver";
 import { isTailoringWorkflowId } from "@/agent/workflows/workflowRegistry";
@@ -163,6 +164,31 @@ export type PreparedRuntimeUserEvent = {
   deterministicTerminal?: boolean;
   prePersistedUserMessageId?: string;
   tailoringAnswerBinding?: TailoringAnswerBinding;
+};
+
+export type AgentStartTurnInput = {
+  session: AgentSession;
+  userMessage: string;
+  turnId?: string;
+  runtimeId?: string;
+  userMessageId?: string;
+  assistantMessageId?: string;
+  appendUserMessage?: boolean;
+  pageContext: AgentPageContext;
+  attachment?: AgentAttachmentRef;
+  references?: AgentMessageReference[];
+  typedTask?: QuickActionIntent["task"];
+  supersede?: boolean;
+  regenerateNarrationOnly?: boolean;
+  updateExistingUserMessage?: boolean;
+  sourceTurnId?: string;
+  regeneratedFromMessageId?: string;
+  regenerationTarget?: AgentRegenerationTarget;
+  retryWorkflowStep?: boolean;
+  operationId?: string;
+  operationKind?: TurnOperationKind;
+  operationClaimed?: boolean;
+  runtimeDiagnostics?: Partial<Pick<NonNullable<AgentSession["activeTurn"]>, "preferredRuntime" | "attemptedRuntime" | "finalRuntime" | "fallbackUsed" | "fallbackReasonCode" | "hermesRunId" | "firstEventAt" | "runtimeFailureAt" | "incidentTraceId" | "runtimeAttempts" | "turnStartSnapshot" | "runtimeFailureSnapshot" | "previousRuntimeIncidents" | "cancellation" | "abortTraces" | "recoveryAttempted">>;
 };
 
 export type TailoringAnswerBinding = {
@@ -292,6 +318,7 @@ export type AgentHostSnapshot = {
   activeSession?: AgentSession;
   activeTask?: AgentTaskState;
   turnStatus: "idle" | "running" | "paused" | "waiting_for_confirmation" | "waiting_for_user" | "completed" | "failed";
+  controllerState: TurnControllerState;
   activeTurnId?: string;
   startedAt?: string;
   lastProgressAt?: string;
@@ -315,17 +342,20 @@ type PendingUserInput = {
 export class AgentHostStore {
   private snapshot: AgentHostSnapshot = {
     turnStatus: "idle",
+    controllerState: "idle",
     streamEvents: [],
     artifacts: [],
     stalled: false,
     pendingInputCount: 0
   };
   private readonly listeners = new Set<() => void>();
-  private readonly executionCoordinator = new AgentExecutionCoordinator();
+  /** One Codex-style lifecycle owner; the old execution API is retained as methods on this object. */
+  private readonly executionCoordinator = new TurnController();
   private readonly stallTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly confirmationExecutions = new Map<string, Promise<AgentSession | undefined>>();
   private readonly resumeCompositionExecutions = new Map<string, Promise<AgentSession | undefined>>();
   private readonly artifactActionExecutions = new Map<string, Promise<AgentSession | undefined>>();
+  private readonly tailoringArtifactActionQueues = new Map<string, Promise<AgentSession | undefined>>();
   private readonly workflowInteractionExecutions = new Map<string, Promise<WorkflowInteractionConsumption>>();
   private readonly pendingInputs = new Map<string, PendingUserInput[]>();
   private runtimeEventQueue: Promise<void> = Promise.resolve();
@@ -403,6 +433,58 @@ export class AgentHostStore {
     return this.executionCoordinator.executions;
   }
 
+  getTurnControllerState(sessionId = this.snapshot.activeSessionId) {
+    return sessionId ? this.executionCoordinator.getState(sessionId) : "idle" as const;
+  }
+
+  getTurnOperation(operationId: string) {
+    return this.executionCoordinator.getOperation(operationId);
+  }
+
+  claimTurnOperation(input: {
+    sessionId: string;
+    operationId: string;
+    kind: TurnOperationKind;
+    turnId?: string;
+  }): TurnOperationClaim {
+    const claim = this.executionCoordinator.claim(input);
+    if (claim.accepted || this.snapshot.activeSessionId === input.sessionId) {
+      this.patch({ controllerState: this.executionCoordinator.getState(input.sessionId) });
+    }
+    return claim;
+  }
+
+  attachTurnOperation(operationId: string, promise: Promise<unknown>) {
+    const operation = this.executionCoordinator.attachOperationPromise(operationId, promise);
+    if (operation && this.snapshot.activeSessionId === operation.sessionId) {
+      this.patch({ controllerState: operation.state });
+    }
+    return operation;
+  }
+
+  finishTurnOperation(operationId: string, status?: SessionExecutionStatus) {
+    const operation = this.executionCoordinator.getOperation(operationId);
+    if (!operation) return;
+    const current = this.snapshot.activeSession?.id === operation.sessionId ? this.snapshot.activeSession : undefined;
+    const terminalStatus: SessionExecutionStatus = status
+      ?? (current?.activeTurn?.status === "failed" || this.snapshot.turnStatus === "failed"
+      ? "failed"
+      : "completed");
+    const finished = this.executionCoordinator.finish(operation.sessionId, terminalStatus, undefined, operationId);
+    if (this.snapshot.activeSessionId === operation.sessionId) {
+      this.patch({ controllerState: this.executionCoordinator.getState(operation.sessionId) });
+    }
+    return finished;
+  }
+
+  setTurnOperationState(operationId: string, state: TurnControllerState) {
+    const operation = this.executionCoordinator.setOperationState(operationId, state);
+    if (operation && this.snapshot.activeSessionId === operation.sessionId) {
+      this.patch({ controllerState: operation.state });
+    }
+    return operation;
+  }
+
   async rebindSessionCareerContext(sessionId: string, context: { personId: string; profileId: string }, reread = true) {
     const stored = await this.dependencies.persistence.get(sessionId);
     const current = this.snapshot.activeSession?.id === sessionId ? this.snapshot.activeSession : stored;
@@ -473,6 +555,16 @@ export class AgentHostStore {
 
   adopt(session: AgentSession) {
     const migrated = migrateAgentSessionToCurrentSchema(session);
+    const liveSession = this.snapshot.activeSession;
+    const isStaleSameSession = liveSession?.id === migrated.id
+      && (
+        liveSession.sessionRevision > migrated.sessionRevision
+        || (
+          liveSession.sessionRevision === migrated.sessionRevision
+          && liveSession.updatedAt > migrated.updatedAt
+        )
+      );
+    if (isStaleSameSession) return;
     const liveExecution = this.executionCoordinator.get(session.id);
     // An execution record is created before async preflight starts. During that
     // window its promise has not been attached yet, so checking only `promise`
@@ -911,7 +1003,13 @@ export class AgentHostStore {
           turnId: prepared.turnId,
           userMessage: "",
           executionOwner: "deterministic_transition",
-          deterministicTransitionApplied: prepared.applied
+          deterministicTransitionApplied: prepared.applied,
+          // Target persistence is a Host-owned checkpoint. It must never
+          // fall through to Hermes with an empty user message, even when an
+          // older persisted session needs its apply input reconstructed.
+          deterministicTerminal: action.decisionType === "job_target_persistence"
+            ? prepared.applied
+            : Boolean(prepared.session.pendingConfirmation)
         };
       }
       if (action.type === "answer") {
@@ -1028,7 +1126,8 @@ export class AgentHostStore {
         turnId: prepared.turnId,
         userMessage: "",
         executionOwner: "deterministic_transition",
-        deterministicTransitionApplied: true
+        deterministicTransitionApplied: true,
+        deterministicTerminal: true
       };
     }
     if (checkpoint.kind === "confirmation") {
@@ -1777,10 +1876,19 @@ export class AgentHostStore {
     userMessage: string;
     runtimeId: string;
     turnId?: string;
+    signal?: AbortSignal;
     userMessageId?: string;
     appendUserMessage?: boolean;
     runtimeDiagnostics?: Partial<Pick<NonNullable<AgentSession["activeTurn"]>, "preferredRuntime" | "attemptedRuntime" | "finalRuntime" | "executionOwner" | "fallbackUsed" | "fallbackReasonCode" | "hermesRunId" | "nextHermesRunId" | "firstEventAt" | "runtimeFailureAt" | "incidentTraceId" | "runtimeAttempts" | "primaryCausalChain" | "secondaryRecoveryFailures" | "transportReattachAttempted" | "semanticRetryAttempted" | "runtimeRestartAttempted" | "turnStartSnapshot" | "runtimeFailureSnapshot" | "previousRuntimeIncidents" | "runtimeFailureDiagnostics" | "cancellation" | "abortTraces" | "recoveryAttempted">>;
   }) {
+    if (input.signal?.aborted) {
+      return {
+        session: input.session,
+        turnId: input.turnId ?? input.session.activeTurn?.id ?? `runtime-turn-${crypto.randomUUID()}`,
+        userMessageId: input.userMessageId ?? input.session.activeTurn?.userMessageId ?? `agent-user-${crypto.randomUUID()}`,
+        assistantMessageId: input.session.activeTurn?.visibleAssistantMessageId ?? `agent-thinking-${crypto.randomUUID()}`
+      };
+    }
     const now = new Date().toISOString();
     const turnId = input.turnId ?? `runtime-turn-${crypto.randomUUID()}`;
     const incidentTraceId = input.runtimeDiagnostics?.incidentTraceId ?? createIncidentTraceId();
@@ -1889,7 +1997,25 @@ export class AgentHostStore {
         startedAt: now
       }
     };
+    if (input.signal?.aborted) return { session: current, turnId, userMessageId, assistantMessageId };
     const saved = await this.dependencies.persistence.save(current);
+    if (input.signal?.aborted) {
+      const latest = typeof this.dependencies.persistence.get === "function"
+        ? await this.dependencies.persistence.get(current.id)
+        : undefined;
+      const stopped = settleThinkingMessages(
+        completeTurn(latest ?? saved, "aborted"),
+        turnId
+      );
+      const committed = await this.dependencies.persistence.save(stopped);
+      this.patchSession(committed, { turnStatus: "paused", activeTurnId: turnId });
+      return {
+        session: committed,
+        turnId,
+        userMessageId,
+        assistantMessageId
+      };
+    }
     this.patchSession(saved, {
       turnStatus: "running",
       activeTurnId: turnId,
@@ -2515,6 +2641,13 @@ export class AgentHostStore {
       incidentTraceId: activeTurn?.incidentTraceId
     };
     this.executionCoordinator.interrupt(sessionId, abortTrace);
+    const pauseLike = !reason || reason.reasonCode === "workflow_paused" || reason.reasonCode === "user_interrupt";
+    this.patch({
+      controllerState: "interrupting",
+      ...(pauseLike
+        ? { turnStatus: "paused" as const }
+        : {})
+    });
     if (activeSession && activeTurn) {
       const next = {
         ...activeSession,
@@ -2605,10 +2738,13 @@ export class AgentHostStore {
         appendUserMessage: false,
         updateExistingUserMessage: prepared.updateExistingUserMessage,
         regenerateNarrationOnly: prepared.regenerateNarrationOnly,
-         sourceTurnId: prepared.sourceTurnId,
-         regeneratedFromMessageId: prepared.regeneratedFromMessageId,
-         retryWorkflowStep: prepared.retryWorkflowStep,
-         pageContext: context.pageContext,
+        sourceTurnId: prepared.sourceTurnId,
+        regeneratedFromMessageId: prepared.regeneratedFromMessageId,
+        regenerationTarget: prepared.regenerationTarget,
+        retryWorkflowStep: prepared.retryWorkflowStep,
+        operationId: `regenerate:${session.id}:${input.messageId}:${session.taskState?.updatedAt ?? session.updatedAt}`,
+        operationKind: "regenerate",
+        pageContext: context.pageContext,
         supersede: true
       });
     }
@@ -2700,7 +2836,11 @@ export class AgentHostStore {
         return this.resolveTypedEntitySelection(session, input.action, context.pageContext);
       }
       if (input.action.type === "retry_current_step") {
-        return this.retryCurrentWorkflowStep(session, context.pageContext);
+        return this.retryCurrentWorkflowStep(
+          session,
+          context.pageContext,
+          `retry:${session.id}:${session.activeTurn?.id ?? session.taskState?.stage ?? "workflow"}:${session.taskState?.updatedAt ?? session.updatedAt}`
+        );
       }
       if (input.action.type === "new_tailoring_task") {
         return this.startTurn({
@@ -3437,7 +3577,7 @@ export class AgentHostStore {
     });
   }
 
-  private async retryCurrentWorkflowStep(session: AgentSession, pageContext: AgentPageContext) {
+  private async retryCurrentWorkflowStep(session: AgentSession, pageContext: AgentPageContext, operationId?: string) {
     const isProfileIntake = session.taskState?.workflowId === "guided_profile_intake";
     const journal = isProfileIntake
       ? await this.dependencies.persistence.listProfileIntakeSourceTurns?.(session.id) ?? []
@@ -3472,10 +3612,40 @@ export class AgentHostStore {
       this.patchSession(saved, { turnStatus: "failed" });
       return saved;
     }
+    const tailoringSession = session.taskState?.knownSlots.tailoringSession as TailoringSession | undefined;
+    const tailoringFailure = objectValue(session.taskState?.knownSlots.canonicalWorkflowFailure);
+    const tailoringGenerationRetry = Boolean(
+      session.taskState
+      && tailoringSession
+      && ["tailor_resume", "tailor_existing_resume"].includes(session.taskState.workflowId)
+      && isTailoringQuestionPlanComplete(tailoringSession.plan)
+      && (
+        session.taskState.stage === "generate_changes"
+        || (session.taskState.stage === "clarify_unsupported_facts" && tailoringFailure.code === "tailoring_questions_incomplete")
+      )
+    );
+    const retryTaskState = tailoringGenerationRetry
+      ? {
+          ...session.taskState!,
+          stage: "generate_changes" as const,
+          activeGoal: "generate_tailoring_changes" as const,
+          completionStatus: "active" as const,
+          knownSlots: {
+            ...session.taskState!.knownSlots,
+            tailoringSession,
+            questionPlan: tailoringSession!.plan.questionPlan,
+            activeQuestionId: undefined,
+            currentClarification: undefined,
+            canonicalWorkflowFailure: undefined
+          },
+          workflowUserInputCheckpoint: undefined,
+          updatedAt: new Date().toISOString()
+        }
+      : undefined;
     const restored = safe
       ? {
           ...session,
-          taskState: { ...safe.taskState, completionStatus: "active" as const, updatedAt: new Date().toISOString() },
+          taskState: retryTaskState ?? { ...safe.taskState, completionStatus: "active" as const, updatedAt: new Date().toISOString() },
           workflowState: safe.workflowState,
           artifactRefs: safe.artifactRefs,
           activeProfileId: safe.selectedEntities.profileId,
@@ -3500,6 +3670,19 @@ export class AgentHostStore {
           activeTurn: undefined,
           updatedAt: new Date().toISOString()
         }
+      : retryTaskState
+      ? {
+          ...session,
+          taskState: retryTaskState,
+          workflowState: projectTaskStateToWorkflowState(retryTaskState, session.workflowState),
+          activeProfileId: retryTaskState.selectedEntities.profileId,
+          activeResumeId: retryTaskState.selectedEntities.resumeId,
+          activeJobId: retryTaskState.selectedEntities.jobId,
+          pendingConfirmation: undefined,
+          pendingToolCall: undefined,
+          activeTurn: undefined,
+          updatedAt: new Date().toISOString()
+        }
       : session;
     if (recoverableJournal) {
       await this.dependencies.persistence.updateProfileIntakeSourceTurn?.(
@@ -3515,7 +3698,9 @@ export class AgentHostStore {
       appendUserMessage: false,
       pageContext,
       supersede: true,
-      retryWorkflowStep: true
+      retryWorkflowStep: true,
+      operationId: operationId ?? `retry:${session.id}:${originalTurnId ?? session.taskState?.stage ?? "workflow"}`,
+      operationKind: "retry"
     });
   }
 
@@ -4685,26 +4870,57 @@ export class AgentHostStore {
     this.patch({ uiAction: undefined });
   }
 
-  async startTurn(input: {
-    session: AgentSession;
-    userMessage: string;
-    turnId?: string;
-    runtimeId?: string;
-    userMessageId?: string;
-    assistantMessageId?: string;
-    appendUserMessage?: boolean;
-    pageContext: AgentPageContext;
-    attachment?: AgentAttachmentRef;
-    references?: AgentMessageReference[];
-    typedTask?: QuickActionIntent["task"];
-    supersede?: boolean;
-    regenerateNarrationOnly?: boolean;
-    updateExistingUserMessage?: boolean;
-    sourceTurnId?: string;
-    regeneratedFromMessageId?: string;
-    retryWorkflowStep?: boolean;
-    runtimeDiagnostics?: Partial<Pick<NonNullable<AgentSession["activeTurn"]>, "preferredRuntime" | "attemptedRuntime" | "finalRuntime" | "fallbackUsed" | "fallbackReasonCode" | "hermesRunId" | "firstEventAt" | "runtimeFailureAt" | "incidentTraceId" | "runtimeAttempts" | "turnStartSnapshot" | "runtimeFailureSnapshot" | "previousRuntimeIncidents" | "cancellation" | "abortTraces" | "recoveryAttempted">>;
-  }) {
+  /**
+   * Claim the turn before entering the asynchronous implementation. This is
+   * intentionally a non-async wrapper: the operation receipt is installed in
+   * the controller before the first await or network request.
+   */
+  startTurn(input: AgentStartTurnInput): Promise<AgentSession | undefined> {
+    const operationId = input.operationId ?? `turn-start:${input.session.id}:${crypto.randomUUID()}`;
+    const operationKind = input.operationKind
+      ?? (input.regenerateNarrationOnly ? "regenerate"
+        : input.retryWorkflowStep ? "retry" : "user_turn");
+    if (input.operationClaimed) {
+      const claimed = this.executionCoordinator.getOperation(operationId);
+      if (!claimed) throw new Error("turn_operation_claim_missing");
+      if (claimed.cancelled) return Promise.resolve(this.snapshot.activeSession);
+      const execution = this.startTurnOnce({ ...input, operationId, operationKind });
+      this.attachTurnOperation(operationId, execution);
+      return execution;
+    }
+    const claim = this.claimTurnOperation({ sessionId: input.session.id, operationId, kind: operationKind, turnId: input.turnId });
+    if (!claim.accepted) {
+      if (claim.existing) {
+        return claim.operation.promise as Promise<AgentSession | undefined>;
+      }
+      if (!input.supersede) return this.enqueueUserInput(input);
+      this.executionCoordinator.interrupt(input.session.id, createRunStopReason({
+        requestedBy: "agent_runtime_provider",
+        reasonCode: "new_turn_superseded",
+        sourceComponent: "AgentHostStore.startTurn",
+        sessionId: input.session.id,
+        logicalTurnId: claim.operation.turnId ?? input.session.activeTurn?.id,
+        runId: input.session.hermesRun?.runId,
+        incidentTraceId: input.session.activeTurn?.incidentTraceId
+      }));
+      return claim.operation.promise.then(() => {
+        if (this.snapshot.activeSessionId === input.session.id
+          && (this.snapshot.turnStatus === "paused" || this.snapshot.activeSession?.workflowState.status === "paused")) {
+          return this.snapshot.activeSession;
+        }
+        return this.startTurn({
+          ...input,
+          operationId,
+          operationKind
+        });
+      });
+    }
+    const execution = this.startTurnOnce({ ...input, operationId, operationKind });
+    this.attachTurnOperation(operationId, execution);
+    return execution;
+  }
+
+  private async startTurnOnce(input: AgentStartTurnInput) {
     if (input.session.pendingConfirmation && input.session.pendingToolCall) {
       input.session = invalidatePendingConfirmationForCorrection(input.session);
     }
@@ -4745,11 +4961,14 @@ export class AgentHostStore {
     const runtimeDiagnostics = { ...(input.runtimeDiagnostics ?? {}) };
     delete runtimeDiagnostics.runtimeFailureSnapshot;
     delete runtimeDiagnostics.previousRuntimeIncidents;
+    const turnOperation = input.operationId ? this.executionCoordinator.getOperation(input.operationId) : undefined;
     const executionRecord = this.executionCoordinator.begin({
       sessionId: input.session.id,
       activeTurnId: turnId,
       startedAt: now,
-      pendingInputCount: this.pendingInputs.get(input.session.id)?.length ?? 0
+      pendingInputCount: this.pendingInputs.get(input.session.id)?.length ?? 0,
+      operationId: input.operationId,
+      controller: turnOperation?.controller
     });
     const generation = executionRecord.generation;
     const controller = executionRecord.controller;
@@ -4878,6 +5097,7 @@ export class AgentHostStore {
         fallbackUsed: current.activeTurn?.fallbackUsed ?? input.runtimeDiagnostics?.fallbackUsed ?? false,
         incidentTraceId: current.activeTurn?.incidentTraceId ?? incidentTraceId,
         ...(previousRuntimeIncidents.length ? { previousRuntimeIncidents } : {}),
+        ...(input.regenerationTarget ? { regenerationTarget: input.regenerationTarget } : {}),
         status: "running",
         startedAt: now,
         ...runtimeDiagnostics
@@ -5166,6 +5386,9 @@ export class AgentHostStore {
     });
     const trackedExecution = execution.finally(() => {
       this.executionCoordinator.finish(current.id, undefined, generation);
+      if (this.snapshot.activeSessionId === current.id) {
+        this.patch({ controllerState: this.executionCoordinator.getState(current.id) });
+      }
     });
     this.executionCoordinator.attachPromise(current.id, trackedExecution);
     return trackedExecution;
@@ -5754,6 +5977,7 @@ export class AgentHostStore {
         current = this.prepareExternalTargetApplyConfirmation(current, turnId);
       }
     }
+    if (current.taskState) current = attachTaskStateOptions(current, current.taskState);
     current = await this.dependencies.persistence.save(current);
     this.patchSession(current);
     return { session: current, turnId, applied: true };
@@ -5894,11 +6118,30 @@ export class AgentHostStore {
     const state = session.taskState;
     if (!state) return session;
     const pending = objectValue(state.knownSlots.pendingTargetApplyInput);
-    if (!Object.keys(pending).length) return session;
+    let applyInputSource = pending;
+    if (!Object.keys(applyInputSource).length) {
+      // Older persisted sessions can reach this checkpoint after the
+      // transient pending input was dropped. The reviewed result is still
+      // durable in the task state, so rebuild only this deterministic apply
+      // payload instead of opening an unscoped Hermes turn.
+      if (
+        !isTailoringWorkflowId(state.workflowId)
+        || normalizeTailoringStage(state.stage) !== "confirm_apply"
+      ) return session;
+      const tailoringSession = objectValue(state.knownSlots.tailoringSession);
+      const selectedDiffs = Array.isArray(state.knownSlots.selectedDiffs)
+        ? state.knownSlots.selectedDiffs
+        : [];
+      if (!Object.keys(tailoringSession).length || !selectedDiffs.length) return session;
+      const confirmedRequirementIds = Array.isArray(state.knownSlots.confirmedRequirementIds)
+        ? state.knownSlots.confirmedRequirementIds.filter((value): value is string => typeof value === "string")
+        : [];
+      applyInputSource = { selectedDiffs, confirmedRequirementIds };
+    }
     const operationId = stringValue(state.knownSlots.pendingTargetApplyOperationId)
       ?? `tailoring-apply-${turnId}`.slice(0, 160);
     const applyInput = {
-      ...pending,
+      ...applyInputSource,
       session: state.knownSlots.tailoringSession
     };
     const reducer = new AgentTaskStateReducer();
@@ -6038,14 +6281,22 @@ export class AgentHostStore {
   ): Promise<PreparedRuntimeUserEvent> {
     const text = value.trim().slice(0, 8_000);
     const consumed = await this.consumeWorkflowInteraction(session, projection, text, {});
+    const answerWasCommitted = consumed.applied || consumed.session.messages.some((message) =>
+      message.id === consumed.userMessageId
+      && message.role === "user"
+      && message.metadata?.answerPayload === true
+    );
+    if (!answerWasCommitted) {
+      throw Object.assign(new Error("tailoring_answer_not_committed"), { code: "tailoring_answer_not_committed" });
+    }
     return {
       session: consumed.session,
       event: { type: "text_message", text },
       turnId: consumed.turnId,
       userMessage: "",
       executionOwner: "deterministic_transition",
-      deterministicTransitionApplied: consumed.applied,
-      deterministicTerminal: consumed.applied,
+      deterministicTransitionApplied: answerWasCommitted,
+      deterministicTerminal: answerWasCommitted,
       prePersistedUserMessageId: consumed.userMessageId,
       tailoringAnswerBinding: undefined
     };
@@ -6080,9 +6331,22 @@ export class AgentHostStore {
     answer: string,
     options: { optionField?: string; optionValue?: unknown }
   ) {
-    const authoritative = this.snapshot.activeSession?.id === requestedSession.id
+    const liveSession = this.snapshot.activeSession?.id === requestedSession.id
       ? this.snapshot.activeSession
       : requestedSession;
+    const persistedSession = typeof this.dependencies.persistence.get === "function"
+      ? await this.dependencies.persistence.get(requestedSession.id)
+      : undefined;
+    const authoritative = persistedSession
+      && (
+        persistedSession.sessionRevision > liveSession.sessionRevision
+        || (
+          persistedSession.sessionRevision === liveSession.sessionRevision
+          && persistedSession.updatedAt > liveSession.updatedAt
+        )
+      )
+      ? persistedSession
+      : liveSession;
     const activeProjection = getActiveTailoringQuestionProjection(authoritative);
     if (
       !activeProjection
@@ -6099,31 +6363,108 @@ export class AgentHostStore {
         applied: false
       };
     }
-    const resolvedInteraction = activeWorkflowInteractionFor(authoritative.taskState);
+    let resolvedInteraction = activeWorkflowInteractionFor(authoritative.taskState);
     const text = answer.trim().slice(0, 8_000);
-    const turnId = `agent-turn-${crypto.randomUUID()}`;
+    let answerBase = authoritative;
+    let answerProjection = activeProjection;
+    let turnId = authoritative.activeTurn?.id
+      ?? authoritative.messages.find((message) => message.id === projection.messageId)?.turnId
+      ?? `agent-turn-${crypto.randomUUID()}`;
     const userMessageId = `agent-user-${crypto.randomUUID()}`;
-    const now = new Date().toISOString();
-    let current = withTurnCheckpoint(supersedeActiveOptionSets(authoritative), turnId, userMessageId, now);
-    current = appendAgentMessage(current, "user", text, {
-      id: userMessageId,
-      turnId,
-      status: "complete",
-      metadata: {
-        executionOwner: "deterministic_transition",
-        answerPayload: true,
-        tailoringQuestionId: projection.questionId,
-        tailoringQuestionPlanId: projection.questionPlanId,
-        tailoringQuestionPlanRevision: projection.questionPlanRevision,
-        workflowInteractionId: projection.interactionId,
-        workflowCheckpointId: projection.checkpointId,
-        workflowInteractionRevision: projection.interactionRevision,
-        ...(options.optionField ? { optionField: options.optionField } : {}),
-        ...(options.optionValue !== undefined ? { optionValue: options.optionValue } : {}),
-        executionState: "running"
+    let turnUserMessageId = authoritative.activeTurn?.sourceUserMessageId
+      ?? authoritative.activeTurn?.userMessageId
+      ?? authoritative.messages.find((message) => message.id === projection.messageId)?.parentMessageId
+      ?? userMessageId;
+    let now = new Date().toISOString();
+    let canonicalAnswer: AgentSession | undefined;
+    let answerWasCommitted = false;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      if (attempt > 0) {
+        if (!canonicalAnswer) break;
+        const retryProjection = getActiveTailoringQuestionProjection(canonicalAnswer);
+        if (
+          !retryProjection
+          || retryProjection.interactionId !== projection.interactionId
+          || retryProjection.checkpointId !== projection.checkpointId
+          || retryProjection.interactionRevision !== projection.interactionRevision
+          || retryProjection.questionId !== projection.questionId
+          || presentedActiveTailoringQuestion(canonicalAnswer) !== projection.questionId
+        ) break;
+        answerBase = canonicalAnswer;
+        answerProjection = retryProjection;
+        resolvedInteraction = activeWorkflowInteractionFor(answerBase.taskState);
+        const retryInteractionMessage = answerBase.messages.find((message) => message.id === answerProjection.messageId);
+        turnId = answerBase.activeTurn?.id
+          ?? retryInteractionMessage?.turnId
+          ?? turnId;
+        turnUserMessageId = answerBase.activeTurn?.sourceUserMessageId
+          ?? answerBase.activeTurn?.userMessageId
+          ?? retryInteractionMessage?.parentMessageId
+          ?? userMessageId;
+        now = new Date().toISOString();
       }
-    });
-    current = this.consumeTailoringQuestionAnswerLocally(current, projection, text, userMessageId, now);
+      let attemptSession = withTurnCheckpoint(supersedeActiveOptionSets(answerBase), turnId, userMessageId, now);
+      attemptSession = appendAgentMessage(attemptSession, "user", text, {
+        id: userMessageId,
+        turnId,
+        status: "complete",
+        metadata: {
+          executionOwner: "deterministic_transition",
+          answerPayload: true,
+          tailoringQuestionId: answerProjection.questionId,
+          tailoringQuestionPlanId: answerProjection.questionPlanId,
+          tailoringQuestionPlanRevision: answerProjection.questionPlanRevision,
+          workflowInteractionId: answerProjection.interactionId,
+          workflowCheckpointId: answerProjection.checkpointId,
+          workflowInteractionRevision: answerProjection.interactionRevision,
+          ...(options.optionField ? { optionField: options.optionField } : {}),
+          ...(options.optionValue !== undefined ? { optionValue: options.optionValue } : {}),
+          executionState: "running"
+        }
+      });
+      attemptSession = this.consumeTailoringQuestionAnswerLocally(attemptSession, answerProjection, text, userMessageId, now);
+      // Commit the answer and plan before the Driver is allowed to inspect the
+      // next stage. This is the read-after-write boundary: the Driver must not
+      // run against the object captured before Q3 was consumed.
+      attemptSession = {
+        ...attemptSession,
+        activeTurn: {
+          ...attemptSession.activeTurn,
+          id: turnId,
+          sessionId: attemptSession.id,
+          sourceUserMessageId: turnUserMessageId,
+          userMessageId: turnUserMessageId,
+          executionOwner: "deterministic_transition",
+          status: "running",
+          startedAt: attemptSession.activeTurn?.startedAt ?? now,
+          completedAt: undefined
+        }
+      };
+      const committedAnswer = await this.dependencies.persistence.save(attemptSession);
+      canonicalAnswer = typeof this.dependencies.persistence.get === "function"
+        ? await this.dependencies.persistence.get(committedAnswer.id)
+        : committedAnswer;
+      if (!canonicalAnswer) throw new Error("tailoring_answer_canonical_read_missing");
+      answerWasCommitted = canonicalAnswer.messages.some((message) =>
+        message.id === userMessageId
+        && message.role === "user"
+        && message.metadata?.answerPayload === true
+      );
+      if (answerWasCommitted) break;
+    }
+    if (!canonicalAnswer) throw new Error("tailoring_answer_canonical_read_missing");
+    if (!answerWasCommitted) {
+      // WorkspaceRepository can return the newer stored snapshot when this
+      // turn lost its compare-and-swap race. Do not let that unchanged
+      // snapshot enter the Driver as if the answer had been consumed.
+      this.patchSession(canonicalAnswer, {
+        turnStatus: sessionTurnStatus(canonicalAnswer),
+        activeTurnId: canonicalAnswer.activeTurn?.id
+      });
+      return { session: canonicalAnswer, turnId, userMessageId, applied: false };
+    }
+    let current = canonicalAnswer;
+    this.patchSession(current, { turnStatus: "running", activeTurnId: turnId });
     if (typeof this.dependencies.executor.execute !== "function") {
       const nextQuestionState = current.taskState ? getActiveTailoringQuestionProjection(current.taskState) : undefined;
       if (nextQuestionState && current.taskState) {
@@ -6134,11 +6475,11 @@ export class AgentHostStore {
             ...current.activeTurn,
             id: turnId,
             sessionId: current.id,
-            sourceUserMessageId: userMessageId,
-            userMessageId,
+            sourceUserMessageId: turnUserMessageId,
+            userMessageId: turnUserMessageId,
             executionOwner: "deterministic_transition",
             status: "waiting_for_user",
-            startedAt: now,
+            startedAt: current.activeTurn?.startedAt ?? now,
             completedAt: now
           }
         };
@@ -6185,12 +6526,12 @@ export class AgentHostStore {
     current = {
       ...current,
       activeTurn: {
-        ...current.activeTurn,
-        id: turnId,
-        sessionId: current.id,
-        sourceUserMessageId: userMessageId,
-        userMessageId,
-        runtimeId: undefined,
+          ...current.activeTurn,
+          id: turnId,
+          sessionId: current.id,
+          sourceUserMessageId: turnUserMessageId,
+          userMessageId: turnUserMessageId,
+          runtimeId: undefined,
         preferredRuntime: "native",
         attemptedRuntime: "native",
         finalRuntime: "native",
@@ -6202,7 +6543,7 @@ export class AgentHostStore {
           : driver.kind === "WAITING_FOR_USER"
             ? "waiting_for_user"
             : driver.kind === "RECOVERABLE_FAILURE" ? "failed" : "completed",
-        startedAt: now,
+        startedAt: current.activeTurn?.startedAt ?? now,
         completedAt: driver.kind === "WAITING_FOR_CONFIRMATION" ? undefined : new Date().toISOString()
       }
     };
@@ -6342,15 +6683,355 @@ export class AgentHostStore {
     const executionKey = artifactActionOperationId(session, action, revision);
     const running = this.artifactActionExecutions.get(executionKey);
     if (running) return running;
-    const execution = (
-      action.type === "profile_intake_retry_extraction"
-        ? this.resolveProfileIntakeExtractionRetry(session, action, pageContext, revision)
+    const resolve = async () => {
+      // Multiple inline review cards can be clicked before React has rendered
+      // the first result. Re-read the host's canonical session at the queue
+      // boundary so each decision is applied to the revision produced by the
+      // preceding decision instead of saving three stale snapshots.
+      const isTailoringReviewAction = action.type === "tailoring_diff_decision"
+        || action.type === "tailoring_diff_stage_decision"
+        || action.type === "tailoring_diff_submit";
+      const current = isTailoringReviewAction
+        ? this.snapshot.activeSession?.id === session.id
+          ? this.snapshot.activeSession
+          : typeof this.dependencies.persistence.get === "function"
+            ? await this.dependencies.persistence.get(session.id) ?? session
+            : session
+        : session;
+      const currentRevision = artifactActionRevision(current.taskState, action);
+      return action.type === "tailoring_diff_stage_decision"
+        ? this.resolveTailoringDiffStageDecision(current, action, pageContext, currentRevision)
+        : action.type === "tailoring_diff_submit"
+          ? this.resolveTailoringDiffSubmit(current, action, pageContext, currentRevision)
+        : action.type === "profile_intake_retry_extraction"
+        ? this.resolveProfileIntakeExtractionRetry(current, action, pageContext, currentRevision)
         : action.type === "profile_intake_extraction_recovery"
-        ? this.resolveProfileIntakeExtractionRecovery(session, action, pageContext, revision)
-        : this.resolveArtifactActionOnce(session, action, pageContext, revision)
-    ).finally(() => this.artifactActionExecutions.delete(executionKey));
+        ? this.resolveProfileIntakeExtractionRecovery(current, action, pageContext, currentRevision)
+        : this.resolveArtifactActionOnce(current, action, pageContext, currentRevision);
+    };
+    const isTailoringReviewAction = action.type === "tailoring_diff_decision"
+      || action.type === "tailoring_diff_stage_decision"
+      || action.type === "tailoring_diff_submit";
+    const previous = isTailoringReviewAction
+      ? this.tailoringArtifactActionQueues.get(session.id)
+      : undefined;
+    const execution = (previous ? previous.catch(() => undefined).then(resolve) : resolve())
+      .finally(() => this.artifactActionExecutions.delete(executionKey));
     this.artifactActionExecutions.set(executionKey, execution);
-    return execution;
+    if (!isTailoringReviewAction) return execution;
+    const queuedExecution = execution.finally(() => {
+      if (this.tailoringArtifactActionQueues.get(session.id) === queuedExecution) {
+        this.tailoringArtifactActionQueues.delete(session.id);
+      }
+    });
+    this.tailoringArtifactActionQueues.set(session.id, queuedExecution);
+    return queuedExecution;
+  }
+
+  private async resolveTailoringDiffStageDecision(
+    session: AgentSession,
+    action: Extract<AgentArtifactAction, { type: "tailoring_diff_stage_decision" }>,
+    pageContext: AgentPageContext,
+    revision: number | undefined
+  ) {
+    const taskState = session.taskState;
+    const tailoring = objectValue(taskState?.knownSlots.tailoringSession);
+    const plan = objectValue(tailoring.plan);
+    const diffs = Array.isArray(plan.diffs) ? plan.diffs.map(objectValue) : [];
+    const diff = diffs.find((candidate) => {
+      try {
+        return tailoringDiffId(candidate as never) === action.diffId;
+      } catch {
+        return false;
+      }
+    });
+    const currentGeneratedDiffRevision = typeof (tailoring.generatedDiffRevision ?? plan.generatedDiffRevision) === "number"
+      ? tailoring.generatedDiffRevision ?? plan.generatedDiffRevision
+      : 0;
+    if (
+      !taskState
+      || revision === undefined
+      || !diff
+      || (action.decision === "edit" && action.editedValue === undefined)
+      || action.generatedDiffRevision !== undefined
+        && currentGeneratedDiffRevision !== undefined
+        && String(action.generatedDiffRevision) !== String(currentGeneratedDiffRevision)
+    ) {
+      const rejected = withArtifactActionFeedback(session, action, {
+        result: revision === undefined ? "missing_revision" : "invalid_target",
+        message: revision === undefined
+          ? "当前产物版本不可用，请刷新后重试。"
+          : action.generatedDiffRevision !== undefined
+            && currentGeneratedDiffRevision !== undefined
+            && String(action.generatedDiffRevision) !== String(currentGeneratedDiffRevision)
+            ? "修改建议已经更新，请重新选择后重试。"
+            : "这项修改已失效，请刷新产物后重试。",
+        retryable: true
+      });
+      const saved = await this.dependencies.persistence.save(rejected);
+      this.patchSession(saved, { turnStatus: "waiting_for_user" });
+      void pageContext;
+      return saved;
+    }
+
+    const prior = Array.isArray(taskState.knownSlots.tailoringDraftDiffReviews)
+      ? taskState.knownSlots.tailoringDraftDiffReviews.map(objectValue)
+      : [];
+    const now = new Date().toISOString();
+    const nextReview = {
+      diffId: action.diffId,
+      decision: action.decision,
+      status: action.decision === "accept" ? "accepted" : action.decision === "edit" ? "edited" : "rejected",
+      ...(action.editedValue !== undefined ? { editedValue: action.editedValue } : {}),
+      ...(currentGeneratedDiffRevision !== undefined
+        ? { generatedDiffRevision: currentGeneratedDiffRevision }
+        : {}),
+      updatedAt: now
+    };
+    const nextDraftReviews = [
+      ...prior.filter((review) => review.diffId !== action.diffId),
+      nextReview
+    ];
+    let current = projectTaskStateIntoSession(session, {
+      ...taskState,
+      knownSlots: {
+        ...taskState.knownSlots,
+        tailoringDraftDiffReviews: nextDraftReviews,
+        tailoringReviewSubmittedDiffRevision: undefined
+      },
+      updatedAt: now
+    });
+    current = withArtifactActionFeedback(current, action, {
+      result: "handled",
+      message: "已暂存这项选择；点击“提交本次选择”后统一处理。",
+      retryable: false
+    });
+    const saved = await this.dependencies.persistence.save(current);
+    this.patchSession(saved, { turnStatus: "waiting_for_user" });
+    void pageContext;
+    return saved;
+  }
+
+  private async resolveTailoringDiffSubmit(
+    session: AgentSession,
+    action: Extract<AgentArtifactAction, { type: "tailoring_diff_submit" }>,
+    pageContext: AgentPageContext,
+    revision: number | undefined
+  ) {
+    const taskState = session.taskState;
+    const staged = Array.isArray(action.reviews)
+      ? action.reviews.map((review) => ({ ...review }))
+      : Array.isArray(taskState?.knownSlots.tailoringDraftDiffReviews)
+      ? taskState.knownSlots.tailoringDraftDiffReviews.map(objectValue)
+      : [];
+    const currentTailoringSession = objectValue(taskState?.knownSlots.tailoringSession);
+    const currentPlan = objectValue(currentTailoringSession.plan);
+    const currentGeneratedDiffRevision = typeof (currentTailoringSession.generatedDiffRevision ?? currentPlan.generatedDiffRevision) === "number"
+      ? currentTailoringSession.generatedDiffRevision ?? currentPlan.generatedDiffRevision
+      : 0;
+    const staleStagedChoice = currentGeneratedDiffRevision !== undefined && staged.some((review) =>
+      review.generatedDiffRevision !== undefined
+      && String(review.generatedDiffRevision) !== String(currentGeneratedDiffRevision)
+    );
+    if (!taskState || revision === undefined || !staged.length || staleStagedChoice) {
+      const rejected = withArtifactActionFeedback(session, action, {
+        result: revision === undefined ? "missing_revision" : "invalid_target",
+        message: revision === undefined
+          ? "当前产物版本不可用，请刷新后重试。"
+          : staleStagedChoice
+            ? "修改建议已经更新，请重新选择后再提交。"
+            : "请先选择至少一项修改，再提交本次选择。",
+        retryable: true
+      });
+      const saved = await this.dependencies.persistence.save(rejected);
+      this.patchSession(saved, { turnStatus: "waiting_for_user" });
+      void pageContext;
+      return saved;
+    }
+
+    const allDiffIds = Array.isArray(currentPlan.diffs)
+      ? currentPlan.diffs.map((diff) => tailoringDiffId(diff as never))
+      : [];
+    const resolvedDiffIds = new Set(
+      (Array.isArray(currentPlan.diffReviews) ? currentPlan.diffReviews.map(objectValue) : [])
+        .filter((review) => ["accepted", "edited", "rejected"].includes(String(review.status)))
+        .map((review) => stringValue(review.diffId))
+        .filter((diffId): diffId is string => Boolean(diffId))
+    );
+    staged.forEach((review) => {
+      const diffId = stringValue(review.diffId);
+      if (diffId) resolvedDiffIds.add(diffId);
+    });
+    const unresolvedDiffCount = allDiffIds.filter((diffId) => !resolvedDiffIds.has(diffId)).length;
+    if (unresolvedDiffCount > 0) {
+      const rejected = withArtifactActionFeedback(session, action, {
+        result: "invalid_target",
+        message: `还有 ${unresolvedDiffCount} 项修改未完成选择，请先逐项选择“采用、编辑后采用”或“忽略”。`,
+        retryable: true
+      });
+      const saved = await this.dependencies.persistence.save(rejected);
+      this.patchSession(saved, { turnStatus: "waiting_for_user" });
+      void pageContext;
+      return saved;
+    }
+
+    this.executionCoordinator.interrupt(session.id);
+    await this.executionCoordinator.get(session.id)?.promise;
+    const currentTurn = session.activeTurn;
+    const preserveArtifactTurn = currentTurn?.status === "waiting_for_user";
+    const turnId = preserveArtifactTurn && currentTurn.id
+      ? currentTurn.id
+      : `agent-turn-${crypto.randomUUID()}`;
+    const userMessageId = preserveArtifactTurn && currentTurn.userMessageId
+      ? currentTurn.userMessageId
+      : `agent-user-${crypto.randomUUID()}`;
+    const operationId = artifactActionOperationId(session, action, revision);
+    const startedAt = new Date().toISOString();
+    const actionSession = beginDeterministicArtifactTurn(session, turnId, userMessageId, startedAt);
+    const runningSession = withArtifactActionFeedback(actionSession, action, {
+      result: "handled",
+      message: `正在统一提交 ${staged.length} 项选择…`,
+      running: true,
+      retryable: false,
+      operationId
+    });
+    this.patchSession(runningSession, { turnStatus: "running" });
+    const persistedRunning = await this.dependencies.persistence.save(runningSession);
+    let current = persistedRunning;
+    let currentTaskState = persistedRunning.taskState!;
+    const reducer = new AgentTaskStateReducer();
+    for (const [index, stagedReview] of staged.entries()) {
+      const diffId = stringValue(stagedReview.diffId);
+      const decision = stagedReview.decision;
+      if (!diffId || !["accept", "edit", "reject"].includes(String(decision))) {
+        const failed = withArtifactActionFeedback(settleDeterministicArtifactSession(current, turnId), action, {
+          result: "invalid_target",
+          message: "有一项暂存选择已失效，请刷新修改预览后重试。",
+          retryable: true,
+          operationId
+        });
+        const saved = await this.dependencies.persistence.save(failed);
+        this.patchSession(saved, { turnStatus: "waiting_for_user" });
+        void pageContext;
+        return saved;
+      }
+      const reviewOperationId = `${operationId}-diff-${index}-${stableHashText(diffId).slice(0, 12)}`.slice(0, 160);
+      const result = await this.dependencies.executor.execute({
+        toolName: "review_tailoring_diff",
+        toolInput: {
+          session: currentTaskState.knownSlots.tailoringSession,
+          diffId,
+          decision,
+          ...(stagedReview.editedValue !== undefined ? { editedValue: stagedReview.editedValue } : {})
+        },
+        operationId: reviewOperationId
+      });
+      if (!result.ok) {
+        const failed = withArtifactActionFeedback(settleDeterministicArtifactSession(current, turnId), action, {
+          result: "rejected",
+          message: result.error?.message ?? "统一提交修改选择没有完成，请重试。",
+          retryable: true,
+          safeErrorCode: result.error?.code ?? "tailoring_review_submit_failed",
+          operationId
+        });
+        const saved = await this.dependencies.persistence.save(failed);
+        this.patchSession(saved, { turnStatus: "waiting_for_user" });
+        void pageContext;
+        return saved;
+      }
+      currentTaskState = reducer.reduce(currentTaskState, {
+        type: "tool_observation",
+        toolName: result.toolName,
+        observation: result.data,
+        artifactIds: result.artifactIds
+      });
+      current = projectTaskStateIntoSession(current, currentTaskState);
+    }
+
+    current = upsertAgentActivity(current, {
+      id: `agent-tool-${operationId}`,
+      turnId,
+      content: `已统一提交 ${staged.length} 项岗位修改选择。`,
+      toolName: "review_tailoring_diff",
+      operationId,
+      status: "complete",
+      metadata: {
+        activityState: "complete",
+        artifactActionType: action.type,
+        batch: true,
+        itemCount: staged.length
+      }
+    });
+    const generatedDiffRevisionValue = objectValue(currentTaskState.knownSlots.tailoringSession).generatedDiffRevision
+      ?? objectValue(objectValue(currentTaskState.knownSlots.tailoringSession).plan).generatedDiffRevision;
+    const generatedDiffRevision = typeof generatedDiffRevisionValue === "number" ? generatedDiffRevisionValue : 0;
+    currentTaskState = {
+      ...currentTaskState,
+      knownSlots: {
+        ...currentTaskState.knownSlots,
+        tailoringDraftDiffReviews: [],
+        tailoringReviewSubmittedDiffRevision: generatedDiffRevision
+      },
+      updatedAt: new Date().toISOString()
+    };
+    current = projectTaskStateIntoSession(current, currentTaskState);
+    const tailoringBoundary = await advanceTailoringWorkflow({
+      taskState: currentTaskState,
+      tailoringSession: objectValue(currentTaskState.knownSlots.tailoringSession) as TailoringSession,
+      operationId,
+      execute: ({ toolName, toolInput, operationId: driverOperationId, signal }) => this.dependencies.executor.execute({
+        toolName,
+        toolInput,
+        operationId: driverOperationId,
+        signal
+      })
+    });
+    currentTaskState = tailoringBoundary.taskState;
+    current = projectTaskStateIntoSession(current, currentTaskState);
+    current = upsertTailoringDriverOutput(current, tailoringBoundary, turnId, staged.length);
+    if (tailoringBoundary.kind === "WAITING_FOR_CONFIRMATION") {
+      const persistenceDecision = stringValue(currentTaskState.knownSlots.jobPersistenceDecision) ?? "ask";
+      const targetSnapshotValue = objectValue(currentTaskState.knownSlots.targetSnapshot ?? objectValue(currentTaskState.knownSlots.tailoringSession).targetSnapshot);
+      if (persistenceDecision === "save" && Object.keys(targetSnapshotValue).length) {
+        current = await this.persistExternalTargetJob(current, turnId);
+      }
+      current = this.prepareExternalTargetApplyConfirmation(current, turnId);
+      currentTaskState = current.taskState ?? currentTaskState;
+    }
+    current = settleDeterministicArtifactSession(current, turnId);
+    if (
+      tailoringBoundary.kind === "WAITING_FOR_USER" && tailoringBoundary.interactionKind === "target_persistence_choice"
+      || current.pendingConfirmation
+    ) {
+      current = attachTaskStateOptions(current, current.taskState ?? currentTaskState);
+    }
+    current = withArtifactActionFeedback(current, action, {
+      result: "handled",
+      message: tailoringBoundary.kind === "WAITING_FOR_CONFIRMATION"
+        ? `已提交 ${staged.length} 项选择，新的岗位简历预览已生成。`
+        : tailoringBoundary.kind === "WAITING_FOR_USER"
+          && (numberValue(tailoringBoundary.taskState.knownSlots.remainingDiffCount) ?? 0) > 0
+          ? `已提交 ${staged.length} 项选择，还有 ${numberValue(tailoringBoundary.taskState.knownSlots.remainingDiffCount) ?? 0} 项待核对，请在右侧产物栏继续处理。`
+          : tailoringBoundary.kind === "WAITING_FOR_USER"
+            && (numberValue(tailoringBoundary.taskState.knownSlots.acceptedDiffCount) ?? 0) === 0
+            ? `已提交 ${staged.length} 项选择，目前没有可应用的修改，请在右侧重新选择。`
+          : `已提交 ${staged.length} 项选择，当前结果已更新。`,
+      retryable: false,
+      operationId
+    });
+    currentTaskState = current.taskState ?? currentTaskState;
+    const saved = await this.dependencies.persistence.save(current);
+    this.patchSession(saved, {
+      turnStatus: saved.pendingConfirmation
+        ? "waiting_for_confirmation"
+        : tailoringBoundary.kind === "RECOVERABLE_FAILURE"
+          ? "failed"
+          : tailoringBoundary.kind === "WAITING_FOR_USER"
+            ? "waiting_for_user"
+            : "completed"
+    });
+    void pageContext;
+    return saved;
   }
 
   private async resolveProfileIntakeExtractionRetry(
@@ -6583,14 +7264,20 @@ export class AgentHostStore {
       retryable: false
     });
     this.patchSession(runningSession);
-    await this.dependencies.persistence.save(runningSession);
+    // saveAgentSession returns the CAS-accepted, hydrated snapshot with the
+    // incremented sessionRevision. Continue from that value; continuing from
+    // runningSession makes the final save look stale to WorkspaceRepository,
+    // which silently returns the pre-action snapshot and makes the button
+    // appear to do nothing in a real browser.
+    const persistedRunning = await this.dependencies.persistence.save(runningSession);
+    const executionSession = persistedRunning;
     const result = await this.dependencies.executor.execute({
       toolName: execution.toolName,
       toolInput: execution.toolInput,
       operationId
     });
     if (!result.ok) {
-      const failed = withArtifactActionFeedback(settleDeterministicArtifactSession(runningSession, turnId), action, {
+      const failed = withArtifactActionFeedback(settleDeterministicArtifactSession(executionSession, turnId), action, {
         result: "rejected",
         message: result.error?.message ?? "这项核对没有保存成功，请重试。",
         retryable: true,
@@ -6602,13 +7289,24 @@ export class AgentHostStore {
       return saved;
     }
     const reducer = new AgentTaskStateReducer();
-    let taskState = reducer.reduce(runningSession.taskState!, {
+    let taskState = reducer.reduce(executionSession.taskState!, {
       type: "tool_observation",
       toolName: result.toolName,
       observation: result.data,
       artifactIds: result.artifactIds
     });
-    let current = projectTaskStateIntoSession(runningSession, taskState);
+    if (action.type === "tailoring_answer_edit" || action.type === "tailoring_regenerate") {
+      taskState = {
+        ...taskState,
+        knownSlots: {
+          ...taskState.knownSlots,
+          tailoringDraftDiffReviews: [],
+          tailoringReviewSubmittedDiffRevision: undefined
+        },
+        updatedAt: new Date().toISOString()
+      };
+    }
+    let current = projectTaskStateIntoSession(executionSession, taskState);
     const observation = objectValue(result.data);
     if (observation.idempotent !== true) {
       current = upsertAgentActivity(current, {
@@ -6624,10 +7322,10 @@ export class AgentHostStore {
     let tailoringBoundary: TailoringWorkflowBoundary | undefined;
     if (action.type === "tailoring_diff_decision") {
       tailoringBoundary = await advanceTailoringWorkflow({
-        taskState,
-        tailoringSession: objectValue(taskState.knownSlots.tailoringSession) as TailoringSession,
-        operationId,
-        resolvedInteraction: activeWorkflowInteractionFor(session.taskState),
+          taskState,
+          tailoringSession: objectValue(taskState.knownSlots.tailoringSession) as TailoringSession,
+          operationId,
+          resolvedInteraction: activeWorkflowInteractionFor(executionSession.taskState),
         execute: ({ toolName, toolInput, operationId: driverOperationId, signal }) => this.dependencies.executor.execute({
           toolName,
           toolInput,
@@ -6650,7 +7348,7 @@ export class AgentHostStore {
     }
     current = settleDeterministicArtifactSession(current, turnId);
     const diffFieldNames = action.type === "tailoring_diff_decision"
-      ? tailoringDiffFieldNames(session.taskState, action.diffId)
+      ? tailoringDiffFieldNames(executionSession.taskState, action.diffId)
       : undefined;
     current = withArtifactActionFeedback(current, action, {
       result: "handled",
@@ -6886,6 +7584,9 @@ export class AgentHostStore {
     });
     const trackedExecution = execution.finally(() => {
       this.executionCoordinator.finish(current.id, undefined, generation);
+      if (this.snapshot.activeSessionId === current.id) {
+        this.patch({ controllerState: this.executionCoordinator.getState(current.id) });
+      }
     });
     this.executionCoordinator.attachPromise(current.id, trackedExecution);
     return trackedExecution;
@@ -7195,6 +7896,7 @@ export class AgentHostStore {
             signal: input.controller.signal,
             emit: onEvent
           });
+      if (input.controller.signal.aborted) return this.snapshot.activeSession;
       if (!this.executionCoordinator.isCurrent(input.current.id, input.generation)) return this.dependencies.persistence.get(input.current.id);
       if (result.protocolDiagnostics?.length) {
         await this.persistProtocolDiagnostics(current, input.turnId, result.protocolDiagnostics);
@@ -7308,7 +8010,12 @@ export class AgentHostStore {
         type: "error",
         status: "failed",
         errorCode: errorCode(error),
-        metadata: { terminalState: "RECOVERABLE_FAILURE" },
+        metadata: {
+          terminalState: "RECOVERABLE_FAILURE",
+          ...(isHermesRuntimeFailureCode(errorCode(error))
+            ? { runtimeFailurePresentation: "topbar" }
+            : {})
+        },
         options: [{ id: "retry-current-step", label: "重新执行当前步骤", action: { type: "retry_current_step" } }]
       });
       current = await this.dependencies.persistence.save(current);
@@ -7319,6 +8026,9 @@ export class AgentHostStore {
     } finally {
       if (this.executionCoordinator.isCurrent(input.current.id, input.generation)) {
         this.executionCoordinator.finish(input.current.id, undefined, input.generation);
+        if (this.snapshot.activeSessionId === input.current.id) {
+          this.patch({ controllerState: this.executionCoordinator.getState(input.current.id) });
+        }
         this.clearStallTimer(input.current.id);
         const activeForSession = this.snapshot.activeSession?.id === input.current.id
           ? this.snapshot.activeSession
@@ -7492,7 +8202,15 @@ export class AgentHostStore {
 
   private async applyWorkflowControl(session: AgentSession, action: AgentWorkflowControl) {
     if (action.type === "cancel_workflow") {
-      this.interrupt(session.id);
+      this.interrupt(session.id, createRunStopReason({
+        requestedBy: "user",
+        reasonCode: "workflow_cancelled",
+        sourceComponent: "AgentHostStore.applyWorkflowControl",
+        sessionId: session.id,
+        logicalTurnId: session.activeTurn?.id,
+        runId: session.hermesRun?.runId,
+        incidentTraceId: session.activeTurn?.incidentTraceId
+      }));
       const current = await this.dependencies.persistence.save({
         ...completeTurn(session, "aborted"),
         workflowState: { ...session.workflowState, status: "completed" },
@@ -7504,7 +8222,15 @@ export class AgentHostStore {
       return current;
     }
     if (action.type === "pause_workflow") {
-      this.interrupt(session.id);
+      this.interrupt(session.id, createRunStopReason({
+        requestedBy: "user",
+        reasonCode: "workflow_paused",
+        sourceComponent: "AgentHostStore.applyWorkflowControl",
+        sessionId: session.id,
+        logicalTurnId: session.activeTurn?.id,
+        runId: session.hermesRun?.runId,
+        incidentTraceId: session.activeTurn?.incidentTraceId
+      }));
       const current = await this.dependencies.persistence.save({
         ...session,
         workflowState: { ...session.workflowState, status: "paused" }
@@ -7552,7 +8278,10 @@ export class AgentHostStore {
   }
 
   private patch(patch: Partial<AgentHostSnapshot>) {
-    this.snapshot = { ...this.snapshot, ...patch };
+    const sessionId = patch.activeSessionId ?? this.snapshot.activeSessionId;
+    const controllerState = patch.controllerState
+      ?? (sessionId ? this.executionCoordinator.getState(sessionId) : this.snapshot.controllerState);
+    this.snapshot = { ...this.snapshot, ...patch, controllerState };
     for (const listener of this.listeners) listener();
   }
 
@@ -7881,7 +8610,27 @@ function attachPendingDecisionOptions(
   session: AgentSession,
   decision: NonNullable<AgentTaskState["pendingDecision"]>
 ) {
-  const options: AgentOption[] = decision.options.map((option) => ({
+  const options = taskDecisionOptions(decision);
+  const assistantIndex = session.messages.findLastIndex((message) =>
+    message.role === "assistant"
+      && message.kind !== "assistant_thinking"
+      && !isWorkflowInteractionMessage(message)
+  );
+  if (assistantIndex < 0) return session;
+  return {
+    ...session,
+    messages: session.messages.map((message, index) =>
+      index === assistantIndex
+        ? { ...message, options, optionSet: activeOptionSetForMessage(session, message.id, "decision") }
+        : message
+    )
+  };
+}
+
+function taskDecisionOptions(
+  decision: NonNullable<AgentTaskState["pendingDecision"]>
+): AgentOption[] {
+  return decision.options.map((option) => ({
     id: `decision-${decision.type}-${option}`,
     label: {
       profile: "使用个人资料库",
@@ -7900,20 +8649,6 @@ function attachPendingDecisionOptions(
       option
     }
   }));
-  const assistantIndex = session.messages.findLastIndex((message) =>
-    message.role === "assistant"
-      && message.kind !== "assistant_thinking"
-      && !isWorkflowInteractionMessage(message)
-  );
-  if (assistantIndex < 0) return session;
-  return {
-    ...session,
-    messages: session.messages.map((message, index) =>
-      index === assistantIndex
-        ? { ...message, options, optionSet: activeOptionSetForMessage(session, message.id, "decision") }
-        : message
-    )
-  };
 }
 
 function activeOptionSetForMessage(session: AgentSession, messageId: string, prefix = "agent-options"): AgentOptionSet {
@@ -8237,9 +8972,53 @@ function projectActiveTailoringWorkflowInteractionToChat(
     && message.metadata?.workflowInteractionId === interaction.interactionId
     && message.metadata?.workflowInteractionRevision === interaction.revision
   );
-  const messageId = existing?.id ?? `workflow-interaction-${interaction.interactionId}`;
-  const projected = existing
-    ? withPreviousResolved
+  const reusableReview = interaction.kind === "review_decision"
+    ? withPreviousResolved.messages.findLast((message) =>
+        message.role === "assistant" && message.metadata?.workflowInteractionKind === "review_decision"
+      )
+    : undefined;
+  const target = existing ?? reusableReview;
+  const messageId = target?.id ?? `workflow-interaction-${interaction.interactionId}`;
+  const now = new Date().toISOString();
+  const decisionOptions = interaction.kind === "target_persistence_choice"
+    && state.pendingDecision?.type === "job_target_persistence"
+    ? taskDecisionOptions(state.pendingDecision)
+    : undefined;
+  const projected = target
+    ? withActiveBranchHead({
+        ...withPreviousResolved,
+        messages: withPreviousResolved.messages.map((message) => message.id === target.id
+          ? {
+              ...message,
+              turnId: session.activeTurn?.id,
+              content: interaction.prompt,
+              kind: "text" as const,
+              type: "text" as const,
+              status: "complete" as const,
+              options: interaction.kind === "target_persistence_choice"
+                ? decisionOptions
+                : interaction.kind === "confirmation"
+                  ? undefined
+                  : message.options,
+              optionSet: interaction.kind === "target_persistence_choice"
+                ? activeOptionSetForMessage(withPreviousResolved, message.id, "decision")
+                : interaction.kind === "confirmation"
+                  ? undefined
+                  : message.optionSet,
+              metadata: {
+                ...(message.metadata ?? {}),
+                workflowInteractionProjection: true,
+                workflowInteractionId: interaction.interactionId,
+                workflowCheckpointId: interaction.checkpointId,
+                workflowInteractionRevision: interaction.revision,
+                workflowInteractionKind: interaction.kind,
+                workflowInteractionState: interaction.state
+              },
+              updatedAt: now
+            }
+          : message),
+        updatedAt: now
+      }, messageId)
     : appendAgentMessage(withPreviousResolved, "assistant", interaction.prompt, {
         id: messageId,
         turnId: session.activeTurn?.id,
@@ -8253,7 +9032,11 @@ function projectActiveTailoringWorkflowInteractionToChat(
           workflowInteractionRevision: interaction.revision,
           workflowInteractionKind: interaction.kind,
           workflowInteractionState: interaction.state
-        }
+        },
+        ...(decisionOptions ? {
+          options: decisionOptions,
+          optionSet: activeOptionSetForMessage(withPreviousResolved, messageId, "decision")
+        } : {})
       });
   return updateWorkflowInteractionBoundaryDiagnostics(projected, state, interaction, messageId);
 }
@@ -9181,29 +9964,79 @@ function workflowInteractionActionMatches(
 function upsertTailoringDriverOutput(
   session: AgentSession,
   boundary: TailoringWorkflowBoundary,
-  turnId: string
+  turnId: string,
+  submittedCount?: number
 ) {
   if (boundary.kind === "WAITING_FOR_USER" && boundary.interactionKind === "clarification") return session;
   if (boundary.kind === "WAITING_FOR_USER" && boundary.interactionKind === "review_decision") {
     const interaction = activeWorkflowInteractionFor(boundary.taskState);
     if (!interaction) throw new Error("tailoring_review_interaction_missing");
-    const messageId = `tailoring-review-interaction-${interaction.interactionId}`;
-    if (session.messages.some((message) => message.id === messageId)) return session;
-    return appendAgentMessage(session, "assistant", "已生成岗位修改建议，请在右侧逐项采用、编辑或忽略。", {
+    const existing = session.messages.findLast((message) =>
+      message.role === "assistant" && message.metadata?.workflowInteractionKind === "review_decision"
+    );
+    const messageId = existing?.id ?? `tailoring-review-interaction-${session.id}`;
+    const now = new Date().toISOString();
+    const remainingDiffCount = numberValue(boundary.taskState.knownSlots.remainingDiffCount) ?? 0;
+    const acceptedDiffCount = numberValue(boundary.taskState.knownSlots.acceptedDiffCount) ?? 0;
+    const content = submittedCount === undefined
+      ? "已生成岗位修改建议，请在右侧选择后提交本次选择。"
+      : remainingDiffCount > 0
+        ? `已提交 ${submittedCount} 项岗位修改选择，还有 ${remainingDiffCount} 项待核对，请在右侧产物栏继续处理。`
+        : acceptedDiffCount > 0
+          ? `已提交 ${submittedCount} 项岗位修改选择，新的岗位简历预览已生成，请确认后创建。`
+          : `已提交 ${submittedCount} 项岗位修改选择，目前没有可应用的修改，请在右侧重新选择。`;
+    const nextMessage = {
+      ...(existing ?? {}),
       id: messageId,
+      branchId: existing?.branchId ?? session.activeBranchId ?? "legacy-branch",
       turnId,
-      kind: "text",
-      type: "text",
-      status: "complete",
+      role: "assistant" as const,
+      content,
+      kind: "text" as const,
+      type: "text" as const,
+      status: "complete" as const,
       metadata: {
+        ...(existing?.metadata ?? {}),
         workflowInteractionProjection: true,
         workflowInteractionId: interaction.interactionId,
         workflowCheckpointId: interaction.checkpointId,
         workflowInteractionRevision: interaction.revision,
         workflowInteractionKind: interaction.kind,
         workflowInteractionState: interaction.state
-      }
-    });
+      },
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now
+    };
+    return withActiveBranchHead({
+      ...session,
+      messages: existing
+        ? session.messages.map((message) => message.id === existing.id ? nextMessage : message)
+        : [...session.messages, nextMessage],
+      updatedAt: now
+    }, messageId);
+  }
+  if (boundary.kind === "WAITING_FOR_CONFIRMATION" && submittedCount !== undefined) {
+    const existing = session.messages.findLast((message) =>
+      message.role === "assistant" && message.metadata?.workflowInteractionKind === "review_decision"
+    );
+    if (existing) {
+      const now = new Date().toISOString();
+      const nextMessage = {
+        ...existing,
+        turnId,
+        content: `已提交 ${submittedCount} 项岗位修改选择，新的岗位简历预览已生成，请确认后创建。`,
+        updatedAt: now,
+        metadata: {
+          ...(existing.metadata ?? {}),
+          workflowInteractionState: "resolved"
+        }
+      };
+      return withActiveBranchHead({
+        ...session,
+        messages: session.messages.map((message) => message.id === existing.id ? nextMessage : message),
+        updatedAt: now
+      }, existing.id);
+    }
   }
   if (boundary.kind === "RECOVERABLE_FAILURE") {
     const messageId = `tailoring-driver-failure-${boundary.error.operationId}`;
@@ -9477,6 +10310,36 @@ export function branchSessionFromEditedUserMessage(
   };
 }
 
+function buildRegenerationTarget(
+  session: AgentSession,
+  messageId: string,
+  prepared: { sourceTurnId?: string; userMessageId: string }
+): AgentRegenerationTarget {
+  const targetIndex = session.messages.findIndex((message) => message.id === messageId && message.role === "assistant");
+  if (targetIndex < 0) throw new Error("regeneration_target_assistant_missing");
+  const target = session.messages[targetIndex];
+  const parent = session.messages.find((message) => message.id === prepared.userMessageId && message.role === "user");
+  if (!parent) throw new Error("regeneration_parent_user_missing");
+  const checkpoint = session.turnCheckpoints.findLast((item) => item.userMessageId === parent.id);
+  const targetTurnId = target.turnId
+    ?? prepared.sourceTurnId
+    ?? parent.turnId
+    // Legacy persisted messages may predate turn ids. Keep the target bound to
+    // the assistant message instead of inventing a new user semantic turn.
+    ?? `legacy-turn:${target.id}`;
+  const baseCheckpointId = checkpoint
+    ? `${checkpoint.turnId}:${checkpoint.userMessageId}:${checkpoint.createdAt}`
+    : `session:${session.sessionRevision}`;
+  const baseVersion = checkpoint?.completedAt ?? checkpoint?.createdAt ?? session.sessionRevision;
+  return {
+    targetAssistantMessageId: target.id,
+    targetTurnId,
+    parentUserMessageId: parent.id,
+    baseCheckpointId,
+    baseVersion
+  };
+}
+
 export function prepareSessionForAssistantRegeneration(
   session: AgentSession,
   messageId: string
@@ -9545,10 +10408,14 @@ export function prepareSessionForAssistantRegeneration(
       userMessage: userMessage.content,
       assistantMessageId: target.id,
       updateExistingUserMessage: false,
-      regenerateNarrationOnly: false,
-      retryWorkflowStep: true,
-      sourceTurnId: target.turnId,
-      regeneratedFromMessageId: target.id
+        regenerateNarrationOnly: false,
+        retryWorkflowStep: true,
+        sourceTurnId: target.turnId,
+        regeneratedFromMessageId: target.id,
+        regenerationTarget: buildRegenerationTarget(session, messageId, {
+          sourceTurnId: target.turnId,
+          userMessageId: userMessage.id
+        })
     };
   }
   if (session.conversationBranches.length) {
@@ -9580,7 +10447,11 @@ export function prepareSessionForAssistantRegeneration(
       updateExistingUserMessage: false,
       regenerateNarrationOnly: true,
       sourceTurnId: target.turnId,
-      regeneratedFromMessageId: target.id
+      regeneratedFromMessageId: target.id,
+      regenerationTarget: buildRegenerationTarget(session, messageId, {
+        sourceTurnId: target.turnId,
+        userMessageId: userMessage.id
+      })
     };
   }
   if (!checkpoint && isUnsafeLegacyDomainRegeneration(session, targetIndex)) {
@@ -9640,7 +10511,10 @@ export function prepareSessionForAssistantRegeneration(
     assistantMessageId: messageId,
     updateExistingUserMessage: true,
     sourceTurnId: undefined,
-    regeneratedFromMessageId: undefined
+    regeneratedFromMessageId: undefined,
+    regenerationTarget: buildRegenerationTarget(session, messageId, {
+      userMessageId: userMessage.id
+    })
   };
 }
 
@@ -10285,7 +11159,10 @@ function artifactActionRevision(
         ? state.knownSlots.expectedIntakeDraftRevision
       : action.type === "resume_import_review_decision"
         ? state.knownSlots.expectedDraftRevision
-        : action.type === "tailoring_answer_edit" || action.type === "tailoring_regenerate" || action.type === "tailoring_diff_decision"
+        : action.type === "tailoring_answer_edit" || action.type === "tailoring_regenerate"
+          || action.type === "tailoring_diff_decision"
+          || action.type === "tailoring_diff_stage_decision"
+          || action.type === "tailoring_diff_submit"
           ? objectValue(state.knownSlots.tailoringSession).revision
           : action.type === "profile_intake_reconciliation_decision"
             ? state.knownSlots.expectedIntakeReconciliationRevision
@@ -10302,6 +11179,8 @@ function artifactActionEntityId(action: AgentArtifactAction) {
   if (action.type === "resume_import_reconciliation_decision") return action.incomingItemId;
   if (action.type === "tailoring_answer_edit") return action.questionId;
   if (action.type === "tailoring_regenerate") return "regenerate";
+  if (action.type === "tailoring_diff_stage_decision") return action.diffId;
+  if (action.type === "tailoring_diff_submit") return "submit";
   if (action.type === "tailoring_diff_decision") return action.diffId;
   return "review";
 }
@@ -10328,8 +11207,10 @@ function artifactActionOperationId(session: AgentSession, action: AgentArtifactA
       action.questionId, String(answerRevision), answerHash, action.proficiency ?? "none"
     ].join("-").replace(/[^\w-]/g, "-").slice(0, 160);
   }
-  const decision = action.type === "tailoring_diff_decision"
+  const decision = action.type === "tailoring_diff_decision" || action.type === "tailoring_diff_stage_decision"
     ? action.decision
+    : action.type === "tailoring_diff_submit"
+      ? "submit"
     : action.type === "tailoring_regenerate"
       ? "regenerate"
       : action.type === "profile_intake_candidate_edit"
@@ -10343,7 +11224,7 @@ function artifactActionOperationId(session: AgentSession, action: AgentArtifactA
         : action.type === "profile_intake_reconciliation_decision"
           ? action.resolution
         : action.resolution;
-  const editedValueHash = action.type === "tailoring_diff_decision" && action.editedValue !== undefined
+  const editedValueHash = (action.type === "tailoring_diff_decision" || action.type === "tailoring_diff_stage_decision") && action.editedValue !== undefined
     ? stableHashText(JSON.stringify(action.editedValue))
       : action.type === "profile_intake_candidate_edit"
        ? stableHashText(JSON.stringify({
@@ -10355,19 +11236,33 @@ function artifactActionOperationId(session: AgentSession, action: AgentArtifactA
       : action.type === "profile_intake_extraction_recovery"
         ? stableHashText(action.decision)
     : "none";
-  if (action.type === "tailoring_diff_decision") {
+  if (action.type === "tailoring_diff_decision" || action.type === "tailoring_diff_stage_decision") {
     const tailoringSession = objectValue(session.taskState?.knownSlots.tailoringSession);
     return [
       "artifact-tailoring-diff",
       session.id,
       tailoringSessionId,
-      String(tailoringSession.generatedDiffRevision ?? "missing"),
+      String(tailoringSession.generatedDiffRevision ?? 0),
       "diff",
       action.diffId,
       "decision",
       decision,
       "value",
       editedValueHash
+    ].join("-").replace(/[^\w-]/g, "-").slice(0, 160);
+  }
+  if (action.type === "tailoring_diff_submit") {
+    const staged = Array.isArray(action.reviews)
+      ? action.reviews
+      : Array.isArray(session.taskState?.knownSlots.tailoringDraftDiffReviews)
+        ? session.taskState.knownSlots.tailoringDraftDiffReviews
+      : [];
+    return [
+      "artifact-tailoring-submit",
+      session.id,
+      tailoringSessionId,
+      String(revision ?? "missing"),
+      stableHashText(JSON.stringify(staged))
     ].join("-").replace(/[^\w-]/g, "-").slice(0, 160);
   }
   const actionIdentity =
@@ -10786,6 +11681,7 @@ function artifactActionExecution(
       }
     };
   }
+  if (action.type === "tailoring_diff_stage_decision" || action.type === "tailoring_diff_submit") return undefined;
   if (action.type === "tailoring_answer_edit") {
     const session = objectValue(state.knownSlots.tailoringSession);
     const plan = objectValue(session.plan);
@@ -11018,6 +11914,8 @@ function artifactActionExecution(
 }
 
 function artifactActionCompletedLabel(action: AgentArtifactAction) {
+  if (action.type === "tailoring_diff_stage_decision") return "已暂存这项岗位修改选择。";
+  if (action.type === "tailoring_diff_submit") return "已统一提交岗位修改选择。";
   if (action.type === "tailoring_diff_decision") {
     return action.decision === "accept" ? "已采用这项修改。" : action.decision === "edit" ? "已采用编辑后的修改。" : "已忽略这项修改。";
   }
@@ -11118,12 +12016,15 @@ function replaceRuntimeShellMessage(
           type: failed ? "error" as const : streaming ? "assistant_streaming" as const : "text" as const,
           status: failed ? "failed" as const : streaming ? "streaming" as const : "complete" as const,
           streaming,
-          ...(failed && event.error?.code ? { errorCode: event.error.code } : {}),
-          metadata: {
-            ...message.metadata,
-            runtimeId: "hermes",
-            ...(event.type === "text_delta" ? { runtimeTextStarted: true } : {})
-          },
+           ...(failed && event.error?.code ? { errorCode: event.error.code } : {}),
+           metadata: {
+             ...message.metadata,
+             runtimeId: "hermes",
+             ...(failed && isHermesRuntimeFailureCode(event.error?.code)
+               ? { runtimeFailurePresentation: "topbar" }
+               : {}),
+             ...(event.type === "text_delta" ? { runtimeTextStarted: true } : {})
+           },
           updatedAt: now
         }
       : message),

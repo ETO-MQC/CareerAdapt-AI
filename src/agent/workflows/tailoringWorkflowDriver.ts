@@ -56,7 +56,11 @@ export async function advanceTailoringWorkflow(
   }
 
   const activeInteraction = activeWorkflowInteractionFor(taskState);
-  if (input.resolvedInteraction?.interactionId === activeInteraction?.interactionId) {
+  if (
+    input.resolvedInteraction?.interactionId
+    && activeInteraction?.interactionId
+    && input.resolvedInteraction.interactionId === activeInteraction.interactionId
+  ) {
     return recoverableFailure(
       taskState,
       input.operationId,

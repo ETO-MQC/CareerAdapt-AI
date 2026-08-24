@@ -10,7 +10,8 @@ import { AgentExecutor } from "@/agent/runtime/agentExecutor";
 import { createAgentToolRegistry } from "@/agent/tools/registry";
 import { BrowserAgentToolService } from "@/services/agent/agentToolService";
 import { AgentSessionStore } from "@/services/agent/agentSessionStore";
-import { AgentHostStore, type TailoringAnswerBinding } from "@/agent/runtime/AgentHostStore";
+import { AgentHostStore, getActiveTailoringQuestionProjection, type TailoringAnswerBinding } from "@/agent/runtime/AgentHostStore";
+import type { AgentSession } from "@/agent/contracts/agentSession";
 import { NativeCareerAgentRuntime } from "@/agent/runtime/NativeCareerAgentRuntime";
 import { createAgentRuntimeRouter } from "@/agent/runtime/AgentRuntimeRouter";
 import { CareerToolGateway, CareerToolGatewayExecutor, type CareerToolContract } from "@/agent/tools/CareerToolGateway";
@@ -93,16 +94,10 @@ function createAgentHost() {
           && runtimeUserEvent.action.type === "answer"
           && runtimeUserEvent.action.field.startsWith("tailoring-question:")
         ) {
-          const userMessage = [...session.messages].reverse().find((message) => message.role === "user")?.content ?? "";
-          return state.startTurn({
-            session,
-            userMessage,
-            userMessageId: session.activeTurn?.userMessageId,
-            appendUserMessage: false,
-            pageContext: input.pageContext,
-            turnId: input.turnId,
-            runtimeDiagnostics: runtimeDiagnosticsFromMetadata(input.metadata)
-          });
+          // Workflow answers are already committed by the deterministic
+          // interaction controller. They are UserInputAnswer equivalents, not
+          // a second semantic turn for Native/Hermes to interpret.
+          return state.getSnapshot().activeSession ?? session;
         }
         return state.continueRuntimeEvent({
           session,
@@ -137,6 +132,11 @@ function createAgentHost() {
         runtimeId: "native",
         runtimeDiagnostics: runtimeDiagnosticsFromMetadata(input.metadata),
         typedTask: quickTask ?? preparedTask,
+        operationId: typeof input.metadata?.turnOperationId === "string" ? input.metadata.turnOperationId : undefined,
+        operationKind: input.metadata?.turnOperationKind === "retry" || input.metadata?.turnOperationKind === "regenerate" || input.metadata?.turnOperationKind === "runtime_continuation" || input.metadata?.turnOperationKind === "user_turn"
+          ? input.metadata.turnOperationKind
+          : undefined,
+        operationClaimed: input.metadata?.turnOperationClaimed === true,
         ...(hasRuntimeShell ? {
           userMessageId: runtimeShellUserMessageId,
           assistantMessageId: runtimeShellMessageId,
@@ -248,8 +248,78 @@ function createAgentHost() {
       || session.taskState?.completionStatus === "waiting_for_confirmation"
       || ["queued", "running", "waiting_for_approval", "stopping"].includes(session.hermesRun?.status ?? "");
   };
-  const activeHermesExecutionKeys = new Set<string>();
-  const runTurn = async (input: AgentRuntimeTurnInput) => {
+  const runtimeOperationId = (input: AgentRuntimeTurnInput) => {
+    const supplied = input.metadata?.turnOperationId;
+    if (typeof supplied === "string" && supplied.trim()) return supplied;
+    const reattach = input.metadata?.reattachRunId;
+    if (typeof reattach === "string" && reattach.trim()) return `reattach:${input.sessionId}:${reattach}`;
+    return `turn:${input.sessionId}:${crypto.randomUUID()}`;
+  };
+  const runtimeOperationKind = (input: AgentRuntimeTurnInput): "user_turn" | "retry" | "regenerate" | "runtime_continuation" => {
+    if (input.metadata?.turnOperationKind === "retry") return "retry";
+    if (input.metadata?.turnOperationKind === "regenerate") return "regenerate";
+    if (input.metadata?.turnOperationKind === "user_turn") return "user_turn";
+    return "runtime_continuation";
+  };
+  const runTurn = (input: AgentRuntimeTurnInput): Promise<AgentSession | undefined> => {
+    const operationId = runtimeOperationId(input);
+    const claimed = input.metadata?.turnOperationClaimed === true;
+    const claim = claimed
+      ? undefined
+      : state.claimTurnOperation({
+          sessionId: input.sessionId,
+          operationId,
+          kind: runtimeOperationKind(input),
+          turnId: input.turnId
+        });
+    // A different operation id can lose the session-scoped single-flight
+    // race to an already active operation. In that case `claim.operation` is
+    // the authoritative receipt; the requested id is intentionally absent
+    // from the registry.
+    if (claim && !claim.accepted) return claim.operation.promise as Promise<AgentSession | undefined>;
+    const operation = state.getTurnOperation(operationId);
+    if (!operation) throw new Error("turn_operation_claim_missing");
+    if (operation.cancelled) {
+      state.finishTurnOperation(operationId);
+      return Promise.resolve(state.getSnapshot().activeSession);
+    }
+    const promise = runTurnOnce({
+      ...input,
+      signal: input.signal ? AbortSignal.any([input.signal, operation.controller.signal]) : operation.controller.signal,
+      metadata: {
+        ...(input.metadata ?? {}),
+        turnOperationId: operationId,
+        turnOperationKind: operation.kind,
+        turnOperationClaimed: true
+      }
+    }).then(
+      (result) => {
+        state.finishTurnOperation(operationId);
+        return result;
+      },
+      (error) => {
+        state.finishTurnOperation(operationId, "failed");
+        throw error;
+      }
+    );
+    state.attachTurnOperation(operationId, promise);
+    return promise;
+  };
+  const runTurnOnce = async (input: AgentRuntimeTurnInput) => {
+    const controllerState = state.getTurnControllerState(input.sessionId);
+    const activeOperation = typeof input.metadata?.turnOperationId === "string"
+      ? state.getTurnOperation(input.metadata.turnOperationId)
+      : undefined;
+    input = {
+      ...input,
+      metadata: {
+        ...(input.metadata ?? {}),
+        requestState: controllerState,
+        controllerState,
+        ...(activeOperation?.state === "pending_start" && activeOperation.turnId ? { existingPendingTurnId: activeOperation.turnId } : {}),
+        ...(input.session?.activeTurn?.id ? { existingActiveTurnId: input.session.activeTurn.id } : {})
+      }
+    };
     // The UI consumes only this stable event protocol.  Native and Hermes can
     // change their internals without changing the workspace submission path.
     const runtime = runtimeRouter.active();
@@ -298,13 +368,20 @@ function createAgentHost() {
       : reattachedAttempt?.traceId ?? `${incidentTraceId}:attempt-${Math.max(1, attemptNumber)}`;
     const runtimeShellTurnId = runtimeRequest.turnId
       ?? (reattachingHermesRun ? runtimeRequest.session?.hermesRun?.turnId : undefined);
+    const claimedOperation = typeof runtimeRequest.metadata?.turnOperationId === "string"
+      ? state.getTurnOperation(runtimeRequest.metadata.turnOperationId)
+      : undefined;
+    if (input.signal?.aborted || claimedOperation?.cancelled) {
+      return state.getSnapshot().activeSession ?? runtimeRequest.session;
+    }
     const runtimeShell = canStartHermesShell && runtimeRequest.session
-      ? await state.beginRuntimeShell({
-          session: runtimeRequest.session,
-          userMessage: runtimeRequest.userMessage,
-          runtimeId: "hermes",
-          turnId: runtimeShellTurnId,
-          ...(typeof input.metadata?.prePersistedUserMessageId === "string"
+        ? await state.beginRuntimeShell({
+            session: runtimeRequest.session,
+            userMessage: runtimeRequest.userMessage,
+            runtimeId: "hermes",
+            turnId: runtimeShellTurnId,
+            signal: input.signal,
+            ...(typeof input.metadata?.prePersistedUserMessageId === "string"
             ? { userMessageId: input.metadata.prePersistedUserMessageId, appendUserMessage: false }
             : {}),
           runtimeDiagnostics: {
@@ -408,19 +485,15 @@ function createAgentHost() {
           : {})
       }
     };
-    const hermesExecutionKey = runtime.id === "hermes"
-      ? `${runtimeInput.sessionId}:${runtimeInput.turnId ?? runtimeInput.session?.activeTurn?.id ?? input.metadata?.reattachRunId ?? incidentTraceId}`
-      : undefined;
-    if (hermesExecutionKey && activeHermesExecutionKeys.has(hermesExecutionKey)) {
-      // AgentWorkspace may request transport restoration when it observes a
-      // persisted run. The Provider already owns this same session/turn, so
-      // the request is an observation only and must not open a second stream.
-      return state.getSnapshot().activeSession;
-    }
-    if (hermesExecutionKey) activeHermesExecutionKeys.add(hermesExecutionKey);
     let sessionBindingSet = false;
     let recoveryInput: AgentRuntimeTurnInput | undefined;
     let toolsExecuted = false;
+    if (input.signal?.aborted || state.getTurnOperation(String(input.metadata?.turnOperationId ?? ""))?.cancelled) {
+      return state.getSnapshot().activeSession ?? runtimeInput.session;
+    }
+    if (typeof input.metadata?.turnOperationId === "string") {
+      state.setTurnOperationState(input.metadata.turnOperationId, "running");
+    }
     try {
       if (runtime.id === "hermes") {
         if (runtimeShell) {
@@ -556,17 +629,73 @@ function createAgentHost() {
         }
       }
     } finally {
-      if (hermesExecutionKey) activeHermesExecutionKeys.delete(hermesExecutionKey);
       if (runtime.id === "hermes") await mcpBridge.setConfirmationContext(undefined).catch(() => undefined);
       if (sessionBindingSet && !shouldKeepHermesSessionBinding(runtimeInput.sessionId)) {
         await mcpBridge.setSessionBinding(undefined).catch(() => undefined);
       }
       runtimeStatus.recordBridgeRequestTraces(hermesRuntime.getDiagnostics().bridgeRequestTraces);
     }
-    if (recoveryInput) return runTurn(recoveryInput);
+    if (recoveryInput) return runTurnOnce(recoveryInput);
     return state.getSnapshot().activeSession;
   };
-  const runUserEvent = async (event: RuntimeUserEvent, input: Omit<AgentRuntimeTurnInput, "sessionId" | "userMessage"> & { sessionId?: string; userMessage?: string }) => {
+  const userEventOperationId = (session: AgentSession, event: RuntimeUserEvent) => {
+    const stateVersion = session.taskState?.updatedAt ?? session.updatedAt;
+    if (event.type === "retry") return `retry:${session.id}:${session.activeTurn?.id ?? session.taskState?.stage ?? "workflow"}:${stateVersion}`;
+    if (event.type === "regenerate") return `regenerate:${session.id}:${event.messageId}:${stateVersion}`;
+    return `event:${session.id}:${crypto.randomUUID()}`;
+  };
+  const runUserEvent = (
+    event: RuntimeUserEvent,
+    input: Omit<AgentRuntimeTurnInput, "sessionId" | "userMessage"> & { sessionId?: string; userMessage?: string }
+  ): Promise<AgentSession | undefined> => {
+    const session = input.session ?? state.getSnapshot().activeSession;
+    if (!session) throw new Error("agent_session_required");
+    const activeSession = state.getSnapshot().activeSession;
+    const workflowAnswer = event.type === "option_selected"
+      && event.action.type === "answer"
+      && event.action.field.startsWith("tailoring-question:");
+    const workflowTextAnswer = event.type === "text_message"
+      && Boolean(event.text.trim())
+      && Boolean(getActiveTailoringQuestionProjection(
+        activeSession?.id === session.id ? activeSession : session
+      ));
+    if (workflowAnswer || workflowTextAnswer || event.type === "artifact_action" || event.type === "confirmation" || event.type === "workflow_control") {
+      return runUserEventOnce(event, input);
+    }
+    const operationId = typeof input.metadata?.turnOperationId === "string"
+      ? input.metadata.turnOperationId
+      : userEventOperationId(session, event);
+    const claim = state.claimTurnOperation({
+      sessionId: input.sessionId ?? session.id,
+      operationId,
+      kind: event.type === "retry" ? "retry" : event.type === "regenerate" ? "regenerate" : "user_turn",
+      turnId: input.turnId
+    });
+    if (!claim.accepted) return claim.operation.promise as Promise<AgentSession | undefined>;
+    const promise = runUserEventOnce(event, {
+      ...input,
+      session,
+      sessionId: input.sessionId ?? session.id,
+      metadata: {
+        ...(input.metadata ?? {}),
+        turnOperationId: operationId,
+        turnOperationKind: event.type === "retry" ? "retry" : event.type === "regenerate" ? "regenerate" : "user_turn",
+        turnOperationClaimed: true
+      }
+    }).then(
+      (result) => {
+        state.finishTurnOperation(operationId);
+        return result;
+      },
+      (error) => {
+        state.finishTurnOperation(operationId, "failed");
+        throw error;
+      }
+    );
+    state.attachTurnOperation(operationId, promise);
+    return promise;
+  };
+  const runUserEventOnce = async (event: RuntimeUserEvent, input: Omit<AgentRuntimeTurnInput, "sessionId" | "userMessage"> & { sessionId?: string; userMessage?: string }) => {
     const session = input.session ?? state.getSnapshot().activeSession;
     if (!session) throw new Error("agent_session_required");
     if (
@@ -605,6 +734,12 @@ function createAgentHost() {
       // already-reviewed write should happen.
       return state.resolveConfirmation(event.confirmed, input.pageContext, session);
     }
+    if (event.type === "confirmation") {
+      // A stale confirmation event must not be reinterpreted as a new AI turn.
+      // The card is Host-owned; if its transaction is no longer present, keep
+      // the current session instead of sending an unscoped approval to Hermes.
+      return session;
+    }
     if (event.type === "artifact_action") {
       // Artifact decisions are already typed, scoped to a concrete artifact,
       // and recorded in the Host ledger. Inline tailoring acceptance must be
@@ -628,6 +763,7 @@ function createAgentHost() {
     if (prepared.event.type === "confirmation" && prepared.deterministicTransitionApplied && prepared.session.pendingConfirmation) {
       return state.resolveConfirmation(prepared.event.confirmed, input.pageContext, prepared.session);
     }
+    if (prepared.deterministicTransitionApplied && prepared.session.pendingConfirmation) return prepared.session;
     if (prepared.deterministicTerminal && prepared.event.type === "confirm_resume_composition") {
       return state.executeConfirmedResumeComposition({
         session: prepared.session,
@@ -799,9 +935,17 @@ function runtimeFailureInput(value: unknown): Partial<HermesRunFailureInput> {
     ...(typeof record.httpStatus === "number" ? { httpStatus: record.httpStatus } : {}),
     ...(layer ? { failureLayer: layer } : {}),
     ...(typeof record.upstreamErrorCode === "string" ? { upstreamErrorCode: record.upstreamErrorCode } : {}),
+    ...(typeof record.upstreamErrorType === "string" ? { upstreamErrorType: record.upstreamErrorType } : {}),
+    ...(record.safeMessageCategory === "auth" || record.safeMessageCategory === "invalid_request" || record.safeMessageCategory === "conflict" || record.safeMessageCategory === "provider" || record.safeMessageCategory === "transport" || record.safeMessageCategory === "unknown" ? { safeMessageCategory: record.safeMessageCategory } : {}),
     ...(typeof record.hermesSessionId === "string" ? { hermesSessionId: record.hermesSessionId } : {}),
     ...(typeof record.hermesRunId === "string" ? { hermesRunId: record.hermesRunId } : {}),
+    ...(typeof record.activeRunId === "string" ? { activeRunId: record.activeRunId } : {}),
+    ...(typeof record.sessionId === "string" ? { sessionId: record.sessionId } : {}),
     ...(typeof record.requestedTurnId === "string" ? { requestedTurnId: record.requestedTurnId } : {}),
+    ...(typeof record.requestState === "string" ? { requestState: record.requestState } : {}),
+    ...(typeof record.controllerState === "string" ? { controllerState: record.controllerState } : {}),
+    ...(typeof record.existingPendingTurnId === "string" ? { existingPendingTurnId: record.existingPendingTurnId } : {}),
+    ...(typeof record.existingActiveTurnId === "string" ? { existingActiveTurnId: record.existingActiveTurnId } : {}),
     ...(record.runStartKind === "new" || record.runStartKind === "reattach" ? { runStartKind: record.runStartKind } : {}),
     ...(record.runPhase === "before_run_start" || record.runPhase === "after_run_start" ? { runPhase: record.runPhase } : {}),
     ...(typeof record.companionConnected === "boolean" ? { companionConnected: record.companionConnected } : {}),

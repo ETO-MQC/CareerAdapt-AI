@@ -4,6 +4,7 @@ import type { AgentConfirmation, AgentMessage, AgentTaskState } from "@/agent/co
 import type { AgentOption } from "@/agent/contracts/agentActions";
 import type { AgentArtifactAction } from "@/agent/contracts/agentActions";
 import type { ProfileIntakeReviewProjection } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
+import { isHermesRuntimeFailureCode } from "@/agent/runtime/hermes/hermesRunReliability";
 import {
   AlertCircle,
   Bot,
@@ -37,6 +38,7 @@ export function AgentConversation({
   onContinueFromMessage,
   onCopyMessage,
   onOption,
+  pendingRegenerateMessageId,
   confirmation,
   confirmationBusy,
   onConfirmation,
@@ -52,6 +54,7 @@ export function AgentConversation({
   onContinueFromMessage?(message: AgentMessage): void;
   onCopyMessage?(message: AgentMessage): void;
   onOption?(option: AgentOption): void;
+  pendingRegenerateMessageId?: string;
   confirmation?: AgentConfirmation;
   confirmationBusy?: boolean;
   onConfirmation?(confirmed: boolean): void;
@@ -60,9 +63,18 @@ export function AgentConversation({
   tailoringTaskState?: AgentTaskState;
   children?: React.ReactNode;
 }) {
-  const visibleMessages = dedupeProfileIntakeMessages(messages.filter((message) =>
-    message.role !== "system" && (message.metadata?.retracted !== true || isWorkflowInteractionMessage(message))
-  ));
+  const topbarOnlyFailureTurnIds = new Set(
+    messages
+      .filter(isTopbarOnlyRuntimeFailure)
+      .map((message) => message.turnId)
+      .filter((turnId): turnId is string => Boolean(turnId))
+  );
+  const visibleMessages = dedupeWorkflowReviewMessages(dedupeProfileIntakeMessages(messages.filter((message) =>
+    message.role !== "system"
+    && !isTopbarOnlyRuntimeFailure(message)
+    && !(isActivityMessage(message) && message.turnId && topbarOnlyFailureTurnIds.has(message.turnId))
+    && (message.metadata?.retracted !== true || isWorkflowInteractionMessage(message))
+  )));
   const conversationItems = groupConversationItems(visibleMessages);
   const confirmationMessageId = confirmation
     ? [...visibleMessages].reverse().find((message) =>
@@ -140,6 +152,7 @@ export function AgentConversation({
                 onCopyMessage={onCopyMessage}
                 onRegenerate={onRegenerate}
                 onOption={onOption}
+                regeneratePending={pendingRegenerateMessageId === item.message.id}
                 confirmation={item.message.id === confirmationMessageId ? confirmation : undefined}
                 confirmationBusy={confirmationBusy}
                 onConfirmation={onConfirmation}
@@ -184,6 +197,7 @@ export function AgentConversation({
               onCopyMessage={onCopyMessage}
               onRegenerate={onRegenerate}
               onOption={onOption}
+              regeneratePending={pendingRegenerateMessageId === message.id}
               confirmation={message.id === confirmationMessageId ? confirmation : undefined}
               confirmationBusy={confirmationBusy}
               onConfirmation={onConfirmation}
@@ -208,7 +222,12 @@ export function AgentConversation({
               </button>
             ) : null}
             {onRegenerate && latestAssistantMessage ? (
-              <button type="button" onClick={() => void onRegenerate(latestAssistantMessage)}>
+              <button
+                type="button"
+                disabled={pendingRegenerateMessageId === latestAssistantMessage.id}
+                aria-busy={pendingRegenerateMessageId === latestAssistantMessage.id}
+                onClick={() => void onRegenerate(latestAssistantMessage)}
+              >
                 <RotateCcw aria-hidden="true" /> {isFailedAssistantMessage(latestAssistantMessage) ? "重新执行当前步骤" : "重新生成最近回答"}
               </button>
             ) : null}
@@ -286,6 +305,7 @@ function AgentMessageRow({
   onCopyMessage,
   onRegenerate,
   onOption,
+  regeneratePending,
   confirmation,
   confirmationBusy,
   onConfirmation
@@ -305,6 +325,7 @@ function AgentMessageRow({
   onCopyMessage?(message: AgentMessage): void;
   onRegenerate?(message: AgentMessage): Promise<void> | void;
   onOption?(option: AgentOption): void;
+  regeneratePending?: boolean;
   confirmation?: AgentConfirmation;
   confirmationBusy?: boolean;
   onConfirmation?(confirmed: boolean): void;
@@ -383,6 +404,7 @@ function AgentMessageRow({
               onContinueFromMessage={onContinueFromMessage}
               onCopyMessage={onCopyMessage}
               onRegenerate={onRegenerate}
+              regeneratePending={regeneratePending}
             />
           ) : null}
         </div>
@@ -415,6 +437,15 @@ function isFailedAssistantMessage(message: AgentMessage) {
     || message.kind === "error_status"
     || message.type === "error"
     || Boolean(message.errorCode);
+}
+
+function isTopbarOnlyRuntimeFailure(message: AgentMessage) {
+  if (message.role !== "assistant") return false;
+  const safeErrorCode = typeof message.metadata?.safeErrorCode === "string"
+    ? message.metadata.safeErrorCode
+    : undefined;
+  return message.metadata?.runtimeFailurePresentation === "topbar"
+    || isHermesRuntimeFailureCode(message.errorCode ?? safeErrorCode);
 }
 
 function AgentTypedActionResolution({ message }: { message: AgentMessage }) {
@@ -639,7 +670,8 @@ function AgentMessageActions({
   onToggleHistory,
   onContinueFromMessage,
   onCopyMessage,
-  onRegenerate
+  onRegenerate,
+  regeneratePending
 }: {
   message: AgentMessage;
   activity?: AgentMessage[];
@@ -648,9 +680,10 @@ function AgentMessageActions({
   onContinueFromMessage?(message: AgentMessage): void;
   onCopyMessage?(message: AgentMessage): void;
   onRegenerate?(message: AgentMessage): Promise<void> | void;
+  regeneratePending?: boolean;
 }) {
   const isUser = message.role === "user";
-  const disabled = isStreamingMessage(message);
+  const disabled = isStreamingMessage(message) || Boolean(regeneratePending);
   return (
     <div className="agent-message-actions" aria-label={isUser ? "用户消息操作" : "AI 消息操作"}>
       {isUser ? (
@@ -664,7 +697,7 @@ function AgentMessageActions({
         </>
       ) : (
         <>
-          <button type="button" title="重新生成" aria-label="重新生成" disabled={disabled} onClick={() => void onRegenerate?.(message)}>
+          <button type="button" title={regeneratePending ? "正在重新生成" : "重新生成"} aria-label="重新生成" aria-busy={regeneratePending} disabled={disabled} onClick={() => void onRegenerate?.(message)}>
             <RotateCcw aria-hidden="true" />
           </button>
           <button type="button" title="基于此继续" aria-label="基于此继续" disabled={disabled} onClick={() => onContinueFromMessage?.(message)}>
@@ -865,6 +898,23 @@ function dedupeProfileIntakeMessages(messages: AgentMessage[]) {
       .map((message) => message.turnId as string)
   );
 
+  return messages.filter((message) =>
+    !duplicateIds.has(message.id)
+    && !(isActivityMessage(message) && message.turnId && duplicateTurnIds.has(message.turnId))
+  );
+}
+
+function dedupeWorkflowReviewMessages(messages: AgentMessage[]) {
+  const reviewMessages = messages.filter((message) =>
+    message.role === "assistant" && message.metadata?.workflowInteractionKind === "review_decision"
+  );
+  const latestReview = reviewMessages.at(-1);
+  if (!latestReview || reviewMessages.length < 2) return messages;
+  const duplicateIds = new Set(reviewMessages.slice(0, -1).map((message) => message.id));
+  const latestTurnId = latestReview.turnId;
+  const duplicateTurnIds = new Set(reviewMessages.slice(0, -1)
+    .map((message) => message.turnId)
+    .filter((turnId): turnId is string => Boolean(turnId && turnId !== latestTurnId)));
   return messages.filter((message) =>
     !duplicateIds.has(message.id)
     && !(isActivityMessage(message) && message.turnId && duplicateTurnIds.has(message.turnId))

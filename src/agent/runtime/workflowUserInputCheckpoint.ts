@@ -56,10 +56,13 @@ function checkpointProjection(state: AgentTaskState): Omit<WorkflowUserInputChec
   const pendingConfirmation = record(state.knownSlots.pendingConfirmation);
   if (state.completionStatus === "waiting_for_confirmation" || Object.keys(pendingConfirmation).length > 0) {
     const operationId = stringValue(pendingConfirmation.operationId) ?? `stage:${state.stage}`;
+    const toolName = stringValue(pendingConfirmation.toolName);
     return base(state, `confirmation:${operationId}`, "confirmation", {
-      text: "这一步需要你的明确确认。",
+      text: toolName === "apply_tailoring_changes"
+        ? "岗位简历预览已生成，确认后我会创建独立岗位简历。"
+        : "这一步需要你的明确确认。",
       operationId,
-      toolName: stringValue(pendingConfirmation.toolName)
+      toolName
     }, { type: "confirmation", values: ["confirm", "reject"] });
   }
 

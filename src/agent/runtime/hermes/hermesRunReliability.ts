@@ -15,9 +15,17 @@ export type HermesRunFailureDiagnostics = {
   safeErrorCode: string;
   safeErrorMessage: string;
   upstreamErrorCode?: string;
+  upstreamErrorType?: string;
+  safeMessageCategory?: "auth" | "invalid_request" | "conflict" | "provider" | "transport" | "unknown";
   hermesSessionId?: string;
   hermesRunId?: string;
+  activeRunId?: string;
+  sessionId?: string;
   requestedTurnId?: string;
+  requestState?: string;
+  controllerState?: string;
+  existingPendingTurnId?: string;
+  existingActiveTurnId?: string;
   runStartKind?: "new" | "reattach";
   runPhase?: "before_run_start" | "after_run_start";
   companionConnected?: boolean;
@@ -35,9 +43,17 @@ export const HermesRunFailureDiagnosticsSchema = z.object({
   safeErrorCode: z.string().min(1),
   safeErrorMessage: z.string().min(1),
   upstreamErrorCode: z.string().min(1).optional(),
+  upstreamErrorType: z.string().min(1).max(120).optional(),
+  safeMessageCategory: z.enum(["auth", "invalid_request", "conflict", "provider", "transport", "unknown"]).optional(),
   hermesSessionId: z.string().min(1).optional(),
   hermesRunId: z.string().min(1).optional(),
+  activeRunId: z.string().min(1).optional(),
+  sessionId: z.string().min(1).optional(),
   requestedTurnId: z.string().min(1).optional(),
+  requestState: z.string().min(1).max(120).optional(),
+  controllerState: z.string().min(1).max(120).optional(),
+  existingPendingTurnId: z.string().min(1).optional(),
+  existingActiveTurnId: z.string().min(1).optional(),
   runStartKind: z.enum(["new", "reattach"]).optional(),
   runPhase: z.enum(["before_run_start", "after_run_start"]).optional(),
   companionConnected: z.boolean().optional(),
@@ -62,9 +78,17 @@ export type HermesRunFailureInput = {
   httpStatus?: number;
   failureLayer?: HermesFailureLayer;
   upstreamErrorCode?: string;
+  upstreamErrorType?: string;
+  safeMessageCategory?: HermesRunFailureDiagnostics["safeMessageCategory"];
   hermesSessionId?: string;
   hermesRunId?: string;
+  activeRunId?: string;
+  sessionId?: string;
   requestedTurnId?: string;
+  requestState?: string;
+  controllerState?: string;
+  existingPendingTurnId?: string;
+  existingActiveTurnId?: string;
   runStartKind?: "new" | "reattach";
   runPhase?: "before_run_start" | "after_run_start";
   companionConnected?: boolean;
@@ -115,6 +139,13 @@ export function classifyHermesRunFailure(input: HermesRunFailureInput): HermesRu
     || /companion|bridge|network|connect/u.test(message);
   const postStartOperation = /^hermes_run_(events|status|approval|stop)_(failed|timeout)$/u.test(sourceCode);
   const postStartPhase = input.runPhase === "after_run_start";
+  const safeMessageCategory = input.safeMessageCategory ?? (
+    authFailure ? "auth"
+      : activeConflict ? "conflict"
+        : providerFailure ? "provider"
+          : status !== undefined && status >= 400 && status < 500 ? "invalid_request"
+            : transientHttp || companionFailure ? "transport" : "unknown"
+  );
 
   let safeErrorCode = sourceCode;
   let retryable = input.retryable ?? true;
@@ -177,10 +208,18 @@ export function classifyHermesRunFailure(input: HermesRunFailureInput): HermesRu
     ...(status === undefined ? {} : { httpStatus: status }),
     safeErrorCode,
     safeErrorMessage: sourceMessage,
-    ...(sourceCode !== safeErrorCode ? { upstreamErrorCode: sourceCode } : {}),
+    ...((input.upstreamErrorCode || sourceCode !== safeErrorCode) ? { upstreamErrorCode: input.upstreamErrorCode ?? sourceCode } : {}),
+    ...(input.upstreamErrorType && /^[A-Za-z0-9_.:-]{1,120}$/u.test(input.upstreamErrorType) ? { upstreamErrorType: input.upstreamErrorType } : {}),
+    safeMessageCategory,
     ...(input.hermesSessionId ? { hermesSessionId: input.hermesSessionId } : {}),
     ...(input.hermesRunId ? { hermesRunId: input.hermesRunId } : {}),
+    ...(input.activeRunId ? { activeRunId: input.activeRunId } : {}),
+    ...(input.sessionId ? { sessionId: input.sessionId } : {}),
     ...(input.requestedTurnId ? { requestedTurnId: input.requestedTurnId } : {}),
+    ...(input.requestState ? { requestState: input.requestState.slice(0, 120) } : {}),
+    ...(input.controllerState ? { controllerState: input.controllerState.slice(0, 120) } : {}),
+    ...(input.existingPendingTurnId ? { existingPendingTurnId: input.existingPendingTurnId } : {}),
+    ...(input.existingActiveTurnId ? { existingActiveTurnId: input.existingActiveTurnId } : {}),
     ...(input.runStartKind ? { runStartKind: input.runStartKind } : {}),
     ...(input.runPhase ? { runPhase: input.runPhase } : {}),
     ...(input.companionConnected === undefined ? {} : { companionConnected: input.companionConnected }),

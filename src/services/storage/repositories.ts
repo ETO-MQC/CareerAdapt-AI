@@ -2854,6 +2854,7 @@ export class WorkspaceRepository {
         branch,
         diffs: input.diffs,
         confirmedRequirementIds: input.confirmedRequirementIds,
+        explicitlyAcceptedDiffs: input.diffs,
         allowUnconfirmed: false,
         submissionSafe: true
       });
@@ -3130,6 +3131,7 @@ export class WorkspaceRepository {
           branch: candidate,
           diffs: input.diffs,
           confirmedRequirementIds: input.confirmedRequirementIds,
+          explicitlyAcceptedDiffs: input.diffs,
           allowUnconfirmed: false,
           submissionSafe: true
         });

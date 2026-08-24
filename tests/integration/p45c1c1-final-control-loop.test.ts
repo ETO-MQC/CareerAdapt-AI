@@ -21,7 +21,7 @@ import {
   reviewTailoringDiffCommand,
   tailoringDiffId
 } from "@/services/jobs/tailoringCommands";
-import { tailoringAnswerRevisionHash } from "@/services/jobs/tailoringService";
+import { isTailoringQuestionPlanComplete, tailoringAnswerRevisionHash } from "@/services/jobs/tailoringService";
 
 const pageContext = { pathname: "/ai-workspace", query: {} };
 
@@ -287,6 +287,10 @@ describe("P4.5c.1 final control-loop closure", () => {
       expect.objectContaining({ questionId: "q-2", disposition: "skipped" }),
       expect.objectContaining({ questionId: "q-3", disposition: "answered" })
     ]);
+    const answerTurnIds = new Set(reviewed.messages
+      .filter((message) => message.role === "user" && message.metadata?.answerPayload === true)
+      .map((message) => message.turnId));
+    expect(answerTurnIds).toEqual(new Set(["p45c1-final-question-turn"]));
     expect(reviewed.taskState).toMatchObject({
       stage: "preview_changes",
       completionStatus: "waiting_for_user",
@@ -486,6 +490,91 @@ describe("P4.5c.1 final control-loop closure", () => {
     });
   });
 
+  it("reads the canonical post-Q3 session before generate_changes", async () => {
+    const source = loopSession();
+    const persisted = new Map<string, AgentSession>();
+    const answerCommitIds = new Set<string>();
+    const events: string[] = [];
+    const execute = vi.fn(async (input: {
+      toolName: string;
+      toolInput: Record<string, unknown>;
+      operationId: string;
+    }) => {
+      events.push(input.toolName);
+      if (input.toolName !== "generate_tailoring_changes") throw new Error(`unexpected_tool:${input.toolName}`);
+      const tailoring = input.toolInput.session as {
+        plan: Parameters<typeof isTailoringQuestionPlanComplete>[0];
+      };
+      expect(tailoring.plan.questionPlan?.status).toBe("ready_for_generation");
+      expect(tailoring.plan.answerReceipts?.map((receipt) => [receipt.questionId, receipt.questionPlanRevision])).toEqual([
+        ["q-1", 1],
+        ["q-2", 2],
+        ["q-3", 3]
+      ]);
+      expect(isTailoringQuestionPlanComplete(tailoring.plan)).toBe(true);
+      return {
+        ok: false as const,
+        operationId: input.operationId,
+        toolName: input.toolName,
+        artifactIds: [],
+        error: { code: "probe_generate_failure", message: "只验证 Driver 输入。", recoverable: true },
+        completedAt: new Date().toISOString()
+      };
+    });
+    const persistence = {
+      save: vi.fn(async (value: AgentSession) => {
+        events.push("save");
+        const previous = persisted.get(value.id);
+        persisted.set(value.id, structuredClone(value));
+        const answer = [...value.messages].reverse().find((message) =>
+          message.role === "user" && message.metadata?.answerPayload === true
+        );
+        if (answer && !answerCommitIds.has(answer.id)) {
+          answerCommitIds.add(answer.id);
+          // Model the stale object that caused the incident: save succeeds,
+          // but its return value is the pre-write snapshot. The canonical get
+          // below is the only value allowed into the Driver.
+          return previous ?? value;
+        }
+        return value;
+      }),
+      get: vi.fn(async (sessionId: string) => {
+        events.push("get");
+        const value = persisted.get(sessionId);
+        return value ? structuredClone(value) : undefined;
+      })
+    };
+    const host = new AgentHostStore({
+      kernel: {} as never,
+      executor: { execute } as never,
+      persistence: persistence as never
+    });
+    host.adopt(source);
+
+    const choose = async (value: string) => {
+      const projection = getActiveTailoringQuestionProjection(host.getSnapshot().activeSession!);
+      const option = projection?.options.find((candidate) => candidate.action.type === "answer" && candidate.action.value === value);
+      if (!option || option.action.type !== "answer") throw new Error(`question_option_missing:${value}`);
+      await host.dispatch({ type: "option", action: option.action }, { pageContext });
+    };
+    await choose("跳过");
+    await choose("跳过");
+    const prepared = await host.prepareRuntimeUserEvent({
+      session: host.getSnapshot().activeSession!,
+      event: { type: "text_message", text: "我在真实项目中完成了接口回归测试。" },
+      pageContext
+    });
+
+    const generateIndex = events.indexOf("generate_tailoring_changes");
+    const canonicalReadIndex = events.lastIndexOf("get");
+    expect(canonicalReadIndex).toBeGreaterThan(-1);
+    expect(canonicalReadIndex).toBeLessThan(generateIndex);
+    expect(prepared.session.taskState?.knownSlots.canonicalWorkflowFailure).toMatchObject({
+      code: "probe_generate_failure",
+      stage: "generate_changes"
+    });
+  });
+
   it("applies a bound answer button once when two clicks race", async () => {
     const session = loopSession();
     const host = new AgentHostStore({
@@ -510,6 +599,9 @@ describe("P4.5c.1 final control-loop closure", () => {
     const result = host.getSnapshot().activeSession ?? first ?? second;
     if (!result) throw new Error("raced_transition_missing");
     expect(result.messages.filter((message) => message.role === "user" && message.metadata?.answerPayload === true)).toHaveLength(1);
+    expect(new Set(result.messages
+      .filter((message) => message.role === "user" && message.metadata?.answerPayload === true)
+      .map((message) => message.turnId))).toEqual(new Set(["p45c1-race-question-turn"]));
     expect(result.messages.filter((message) =>
       message.role === "assistant" && message.metadata?.tailoringQuestionId === "q-1"
     )).toHaveLength(1);
@@ -517,6 +609,206 @@ describe("P4.5c.1 final control-loop closure", () => {
       { questionId: "q-1", disposition: "skipped" }
     ]);
     expect(getActiveTailoringQuestionProjection(result)?.questionId).toBe("q-2");
+  });
+
+  it("does not let delayed same-session hydration roll back a live question", async () => {
+    const source = loopSession();
+    const live = AgentSessionSchema.parse({
+      ...source,
+      sessionRevision: 4,
+      updatedAt: "2026-08-21T00:00:04.000Z"
+    });
+    const stale = AgentSessionSchema.parse({
+      ...source,
+      sessionRevision: 3,
+      updatedAt: "2026-08-21T00:00:03.000Z"
+    });
+    const host = new AgentHostStore({
+      kernel: {} as never,
+      executor: {} as never,
+      persistence: { save: async (value: AgentSession) => value } as never
+    });
+
+    host.adopt(live);
+    host.adopt(stale);
+
+    expect(host.getSnapshot().activeSession).toMatchObject({
+      sessionRevision: 4
+    });
+    expect(host.getSnapshot().activeSession?.updatedAt).not.toBe(stale.updatedAt);
+    const projection = getActiveTailoringQuestionProjection(host.getSnapshot().activeSession!);
+    const option = projection?.options.find((candidate) => candidate.action.type === "answer" && candidate.action.value === "跳过");
+    if (!option || option.action.type !== "answer") throw new Error("delayed_hydration_option_missing");
+
+    const result = await host.dispatch({ type: "option", action: option.action }, { pageContext });
+
+    expect(result?.taskState?.knownSlots.activeQuestionId).toBe("q-2");
+    expect(result?.messages.filter((message) => message.role === "user" && message.metadata?.answerPayload === true)).toHaveLength(1);
+    expect(result?.messages.some((message) => message.errorCode === "tailoring_interaction_not_consumed")).toBe(false);
+  });
+
+  it("does not invoke the Driver when the answer write loses its CAS race", async () => {
+    const source = loopSession();
+    const persisted = structuredClone(source);
+    const execute = vi.fn(async () => {
+      throw new Error("driver_should_not_run_after_rejected_answer");
+    });
+    const host = new AgentHostStore({
+      kernel: {} as never,
+      executor: { execute } as never,
+      persistence: {
+        save: async (value: AgentSession) => value,
+        get: async () => structuredClone(persisted)
+      } as never
+    });
+    host.adopt(source);
+    const projection = getActiveTailoringQuestionProjection(host.getSnapshot().activeSession!);
+    const option = projection?.options.find((candidate) => candidate.action.type === "answer" && candidate.action.value === "跳过");
+    if (!option || option.action.type !== "answer") throw new Error("cas_race_option_missing");
+
+    const result = await host.dispatch({ type: "option", action: option.action }, { pageContext });
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(result?.messages.some((message) => message.errorCode === "tailoring_interaction_not_consumed")).toBe(false);
+    expect(result?.messages.filter((message) => message.role === "user" && message.metadata?.answerPayload === true)).toHaveLength(0);
+  });
+
+  it("rebases a typed tailoring answer after a CAS rejection", async () => {
+    const source = loopSession();
+    let persisted = structuredClone(source);
+    let answerSaveCount = 0;
+    const persistence = {
+      save: vi.fn(async (value: AgentSession) => {
+        const answer = [...value.messages].reverse().find((message) =>
+          message.role === "user" && message.metadata?.answerPayload === true
+        );
+        if (answer) {
+          answerSaveCount += 1;
+          if (answerSaveCount === 1) {
+            persisted = AgentSessionSchema.parse({
+              ...persisted,
+              sessionRevision: persisted.sessionRevision + 1,
+              updatedAt: "2026-08-21T00:00:01.000Z"
+            });
+            return structuredClone(persisted);
+          }
+        }
+        persisted = structuredClone(value);
+        return structuredClone(value);
+      }),
+      get: vi.fn(async () => structuredClone(persisted))
+    };
+    const host = new AgentHostStore({
+      kernel: {} as never,
+      executor: {} as never,
+      persistence: persistence as never
+    });
+    host.adopt(source);
+
+    const text = "我在真实项目中负责接口行为、错误处理和并发问题的回归验证。";
+    const prepared = await host.prepareRuntimeUserEvent({
+      session: source,
+      event: { type: "text_message", text },
+      pageContext
+    });
+
+    expect(answerSaveCount).toBeGreaterThanOrEqual(2);
+    expect(prepared.deterministicTerminal).toBe(true);
+    expect(prepared.session.messages).toContainEqual(expect.objectContaining({
+      role: "user",
+      content: text,
+      metadata: expect.objectContaining({ answerPayload: true })
+    }));
+    expect(getActiveTailoringQuestionProjection(prepared.session)?.questionId).toBe("q-2");
+  });
+
+  it("does not route an uncommitted typed answer into the Driver", async () => {
+    const source = loopSession();
+    const execute = vi.fn(async () => {
+      throw new Error("driver_should_not_run_after_uncommitted_text_answer");
+    });
+    const host = new AgentHostStore({
+      kernel: {} as never,
+      executor: { execute } as never,
+      persistence: {
+        save: async (value: AgentSession) => value,
+        get: async () => structuredClone(source)
+      } as never
+    });
+    host.adopt(source);
+
+    await expect(host.prepareRuntimeUserEvent({
+      session: source,
+      event: { type: "text_message", text: "这段输入必须保留，不能被吞掉。" },
+      pageContext
+    })).rejects.toMatchObject({ code: "tailoring_answer_not_committed" });
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("retries a failed generation checkpoint without replaying resolved questions", async () => {
+    const source = loopSession();
+    let retryInput: AgentSession | undefined;
+    const runTurn = vi.fn(async (input: { session: AgentSession }) => {
+      retryInput = input.session;
+      return {
+        trajectory: {
+          workflowId: input.session.taskState?.workflowId ?? "tailor_resume",
+          startedAt: "2026-08-21T00:00:00.000Z",
+          completedAt: "2026-08-21T00:00:01.000Z",
+          outcome: "completed" as const,
+          toolCalls: [],
+          artifacts: [],
+          observations: []
+        },
+        taskState: input.session.taskState
+      };
+    });
+    const execute = vi.fn(async (input: { toolName: string; operationId: string }) => ({
+      ok: false as const,
+      operationId: input.operationId,
+      toolName: input.toolName,
+      artifactIds: [],
+      error: { code: "generate_changes_probe_failure", message: "生成阶段故障", recoverable: true },
+      completedAt: new Date().toISOString()
+    }));
+    const host = new AgentHostStore({
+      kernel: { runTurn } as never,
+      executor: { execute } as never,
+      persistence: { save: async (value: AgentSession) => value } as never
+    });
+    host.adopt(source);
+    const choose = async (value: string) => {
+      const projection = getActiveTailoringQuestionProjection(host.getSnapshot().activeSession!);
+      const option = projection?.options.find((candidate) => candidate.action.type === "answer" && candidate.action.value === value);
+      if (!option || option.action.type !== "answer") throw new Error(`question_option_missing:${value}`);
+      await host.dispatch({ type: "option", action: option.action }, { pageContext });
+    };
+    await choose("跳过");
+    await choose("跳过");
+    await host.prepareRuntimeUserEvent({
+      session: host.getSnapshot().activeSession!,
+      event: { type: "text_message", text: "我在真实项目中完成了接口回归测试。" },
+      pageContext
+    });
+    const failed = host.getSnapshot().activeSession!;
+    expect(failed.taskState?.stage).toBe("generate_changes");
+    const retried = await host.dispatch({
+      type: "option",
+      action: { type: "retry_current_step" }
+    }, { pageContext });
+    expect(runTurn).toHaveBeenCalledTimes(1);
+    expect(retryInput?.taskState?.stage).toBe("generate_changes");
+    expect(retryInput?.taskState?.knownSlots.tailoringSession).toMatchObject({
+      plan: { answerReceipts: [
+        { questionId: "q-1" },
+        { questionId: "q-2" },
+        { questionId: "q-3" }
+      ] }
+    });
+    expect(retried?.messages.filter((message) => message.role === "user" && message.metadata?.answerPayload === true)).toHaveLength(3);
+    expect(retried?.messages.filter((message) =>
+      message.role === "assistant" && message.metadata?.tailoringQuestionProjection === true && message.metadata?.retracted !== true
+    )).toHaveLength(3);
   });
 });
 

@@ -38,6 +38,7 @@ async function officialHermesRequest(baseUrl: string, action: z.infer<typeof Her
   const root = baseUrl.replace(/\/$/u, "");
   try {
     if (action === "run_start") {
+      const requestContext = runStartDiagnosticContext(payload);
       const response = await fetch(`${root}/v1/runs`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json", ...apiKeyHeader() },
@@ -64,11 +65,18 @@ async function officialHermesRequest(baseUrl: string, action: z.infer<typeof Her
           message: typeof rawError.message === "string" ? rawError.message : undefined,
           httpStatus: response.status,
           failureLayer: /provider|model|auth/u.test(String(rawError.code ?? "")) ? "provider" : "bridge_http",
+          upstreamErrorCode: typeof rawError.code === "string" ? rawError.code : undefined,
+          upstreamErrorType: safeDiagnosticString(rawError.type ?? rawError.error_type),
           runStartKind: "new",
-          companionConnected: true
+          companionConnected: true,
+          ...requestContext,
+          activeRunId: safeDiagnosticString(rawError.activeRunId ?? rawError.active_run_id ?? rawError.runId ?? rawError.run_id) ?? requestContext.activeRunId
         });
         recordHermesRunStartFailure(root, diagnostics);
-        return upstreamError(response.status, raw, "hermes_run_start_failed");
+        return upstreamError(response.status, raw, "hermes_run_start_failed", {
+          ...requestContext,
+          activeRunId: safeDiagnosticString(rawError.activeRunId ?? rawError.active_run_id ?? rawError.runId ?? rawError.run_id)
+        });
       }
       const record = asRecord(raw);
       if (typeof record.run_id !== "string" || !record.run_id.trim()) {
@@ -203,7 +211,8 @@ async function officialHermesRequest(baseUrl: string, action: z.infer<typeof Her
         httpStatus: 503,
         failureLayer: error instanceof Error && error.name === "AbortError" ? "bridge_http" : "companion",
         runStartKind: "new",
-        companionConnected: false
+        companionConnected: false,
+        ...runStartDiagnosticContext(payload)
       });
       recordHermesRunStartFailure(root, diagnostics);
       return unavailable(diagnostics.safeErrorCode, diagnostics);
@@ -269,7 +278,7 @@ function sessionIdFromResponse(value: unknown) {
       : undefined;
 }
 
-function upstreamError(status: number, value: unknown, fallbackCode: string) {
+function upstreamError(status: number, value: unknown, fallbackCode: string, context: Partial<ReturnType<typeof classifyHermesRunFailure>> = {}) {
   const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
   const error = record.error && typeof record.error === "object" && !Array.isArray(record.error)
     ? record.error as Record<string, unknown>
@@ -279,7 +288,9 @@ function upstreamError(status: number, value: unknown, fallbackCode: string) {
     message: typeof error.message === "string" ? error.message : undefined,
     httpStatus: status || 502,
     failureLayer: /provider|model|auth/u.test(String(error.code ?? fallbackCode)) ? "provider" : "bridge_http",
-    upstreamErrorCode: typeof error.code === "string" ? error.code : fallbackCode
+    upstreamErrorCode: typeof error.code === "string" ? error.code : fallbackCode,
+    upstreamErrorType: safeDiagnosticString(error.type ?? error.error_type),
+    ...context
   });
   return NextResponse.json({
     ok: false,
@@ -292,6 +303,23 @@ function upstreamError(status: number, value: unknown, fallbackCode: string) {
       diagnostics
     }
   }, { status: status || 502 });
+}
+
+function runStartDiagnosticContext(payload: Record<string, unknown>) {
+  const metadata = asRecord(payload.metadata);
+  return {
+    sessionId: safeDiagnosticString(payload.sessionId),
+    requestedTurnId: safeDiagnosticString(payload.turnId ?? payload.requestedTurnId),
+    activeRunId: safeDiagnosticString(payload.activeRunId ?? metadata.activeRunId ?? metadata.hermesRunId),
+    requestState: safeDiagnosticString(metadata.requestState),
+    controllerState: safeDiagnosticString(metadata.controllerState),
+    existingPendingTurnId: safeDiagnosticString(metadata.existingPendingTurnId),
+    existingActiveTurnId: safeDiagnosticString(metadata.existingActiveTurnId)
+  };
+}
+
+function safeDiagnosticString(value: unknown) {
+  return typeof value === "string" && /^[A-Za-z0-9_.:-]{1,160}$/u.test(value) ? value : undefined;
 }
 
 function unavailable(code = "hermes_bridge_unavailable", diagnostics?: ReturnType<typeof classifyHermesRunFailure>) {
@@ -406,7 +434,7 @@ function isSystemStatusQuestion(value: unknown) {
 function safeRuntimeMetadata(value: unknown) {
   const metadata = asRecord(value);
   const result: Record<string, unknown> = {};
-  for (const key of ["executionOwner", "preferredRuntime", "attemptedRuntime", "finalRuntime", "fallbackUsed", "fallbackReasonCode", "workflowId", "workflowStage", "rootGoal", "runtimeId", "hermesSessionId", "hermesRunId", "nextHermesRunId", "firstEventAt", "runtimeFailureAt", "runtimeRecoveryAttempted", "runtimeRecoveryKind", "transportReattachAttempted", "semanticRetryAttempted", "semanticRetryUserMessage", "attemptNumber", "primaryFailureCode", "recoveryFailureCode", "incidentTraceId", "logicalTurnId", "attemptTraceId", "recoveryReason", "nativeAllowedSourceTools", "careerGatewayContracts", "careerMcpExposedTools", "hermesRegisteredToolsets", "hermesVisibleTools", "missingRequiredCareerTools", "lastRequestedHermesToolName", "lastRequestedCareerToolName"]) {
+  for (const key of ["executionOwner", "preferredRuntime", "attemptedRuntime", "finalRuntime", "fallbackUsed", "fallbackReasonCode", "workflowId", "workflowStage", "rootGoal", "runtimeId", "hermesSessionId", "hermesRunId", "nextHermesRunId", "activeRunId", "firstEventAt", "runtimeFailureAt", "runtimeRecoveryAttempted", "runtimeRecoveryKind", "transportReattachAttempted", "semanticRetryAttempted", "semanticRetryUserMessage", "attemptNumber", "primaryFailureCode", "recoveryFailureCode", "incidentTraceId", "logicalTurnId", "attemptTraceId", "recoveryReason", "requestState", "controllerState", "existingPendingTurnId", "existingActiveTurnId", "upstreamErrorType", "safeMessageCategory", "nativeAllowedSourceTools", "careerGatewayContracts", "careerMcpExposedTools", "hermesRegisteredToolsets", "hermesVisibleTools", "missingRequiredCareerTools", "lastRequestedHermesToolName", "lastRequestedCareerToolName"]) {
     const entry = metadata[key];
     if (typeof entry === "string" || typeof entry === "boolean" || typeof entry === "number") {
       result[key] = entry;

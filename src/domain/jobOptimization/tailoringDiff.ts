@@ -34,6 +34,7 @@ export function validateEachTailoringDiffLocally(input: {
   branch: ResumeBranch;
   diffs: ResumeTailoringDiff[];
   confirmedRequirementIds?: string[];
+  explicitlyAcceptedDiffs?: ResumeTailoringDiff[];
   allowUnconfirmed?: boolean;
   submissionSafe?: boolean;
 }): TailoringDiffValidationResult {
@@ -42,6 +43,7 @@ export function validateEachTailoringDiffLocally(input: {
   const patches: ResumeFieldPatch[] = [];
   const warnings: string[] = [];
   const confirmed = new Set(input.confirmedRequirementIds ?? []);
+  const explicitlyAcceptedDiffs = input.explicitlyAcceptedDiffs ?? [];
 
   for (const rawDiff of input.diffs) {
     const parsed = ResumeTailoringDiffSchema.safeParse(rawDiff);
@@ -63,7 +65,9 @@ export function validateEachTailoringDiffLocally(input: {
       rejectedDiffs.push({ diff, reasonCode: "original_mismatch" });
       continue;
     }
-    const reason = validateOperation(diff, target.current, confirmed, input.allowUnconfirmed ?? true);
+    const explicitlyAccepted = explicitlyAcceptedDiffs.some((candidate) => sameDiffIdentity(candidate, diff));
+    const requirementConfirmed = diff.requirementIds.some((id) => confirmed.has(id));
+    const reason = validateOperation(diff, target.current, confirmed, input.allowUnconfirmed ?? true, explicitlyAccepted);
     if (reason) {
       rejectedDiffs.push({ diff, reasonCode: reason });
       continue;
@@ -71,7 +75,9 @@ export function validateEachTailoringDiffLocally(input: {
     const patch = toFieldPatch(diff);
     appliedDiffs.push(diff);
     patches.push(patch);
-    if (diff.supportLevel !== "verified") warnings.push(`${diff.target.itemId}.${diff.target.fieldPath} 需要用户确认后才能写入。`);
+    if (diff.supportLevel !== "verified" && !explicitlyAccepted && !requirementConfirmed) {
+      warnings.push(`${diff.target.itemId}.${diff.target.fieldPath} 需要用户确认后才能写入。`);
+    }
   }
   return { appliedDiffs, rejectedDiffs, patches, warnings: [...new Set(warnings)] };
 }
@@ -170,9 +176,10 @@ function validateOperation(
   diff: ResumeTailoringDiff,
   current: unknown,
   confirmed: Set<string>,
-  allowUnconfirmed: boolean
+  allowUnconfirmed: boolean,
+  explicitlyAccepted: boolean
 ): TailoringDiffRejectionReason | undefined {
-  if (diff.supportLevel !== "verified" && !allowUnconfirmed && !diff.requirementIds.some((id) => confirmed.has(id))) return "confirmation_required";
+  if (diff.supportLevel !== "verified" && !allowUnconfirmed && !explicitlyAccepted && !diff.requirementIds.some((id) => confirmed.has(id))) return "confirmation_required";
   if (diff.supportLevel === "verified" && !diff.evidenceRefs.length && !["reorder", "hide"].includes(diff.operation)) return "insufficient_evidence";
 
   if (diff.operation === "hide") {
@@ -185,7 +192,7 @@ function validateOperation(
   if (diff.operation === "append") {
     if (diff.target.fieldPath !== "highlights" && diff.target.sectionId !== "skills") return "append_not_allowed";
     if (typeof diff.value !== "string" || !diff.value.trim()) return "empty_value";
-    if (diff.supportLevel !== "verified" && !allowUnconfirmed && !diff.requirementIds.some((id) => confirmed.has(id))) return "confirmation_required";
+    if (diff.supportLevel !== "verified" && !allowUnconfirmed && !explicitlyAccepted && !diff.requirementIds.some((id) => confirmed.has(id))) return "confirmation_required";
     return undefined;
   }
   if (diff.operation !== "replace") return "invalid_value_type";
@@ -261,6 +268,15 @@ function sameMultiset(left: unknown[], right: unknown[]) {
 
 function sameValue(left: unknown, right: unknown) {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function sameDiffIdentity(left: ResumeTailoringDiff, right: ResumeTailoringDiff) {
+  return left.target.sectionId === right.target.sectionId
+    && left.target.itemId === right.target.itemId
+    && left.target.fieldPath === right.target.fieldPath
+    && left.operation === right.operation
+    && sameValue(left.original, right.original)
+    && sameValue(left.value, right.value);
 }
 
 function render(value: unknown) {

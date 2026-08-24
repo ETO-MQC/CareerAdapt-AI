@@ -252,6 +252,14 @@ export const AgentTurnToolFailureSchema = z.object({
   occurredAt: z.string().datetime({ offset: true })
 }).strict();
 
+export const AgentRegenerationTargetSchema = z.object({
+  targetAssistantMessageId: z.string().min(1),
+  targetTurnId: z.string().min(1),
+  parentUserMessageId: z.string().min(1),
+  baseCheckpointId: z.string().min(1),
+  baseVersion: z.union([z.string().min(1), z.number().int().min(0)])
+}).strict();
+
 export const AgentTurnSchema = z.object({
   id: z.string().min(1),
   sessionId: z.string().min(1),
@@ -288,6 +296,7 @@ export const AgentTurnSchema = z.object({
   cancellation: RunStopReasonSchema.optional(),
   abortTraces: z.array(AbortTraceSchema).max(32).optional(),
   recoveryAttempted: z.boolean().optional(),
+  regenerationTarget: AgentRegenerationTargetSchema.optional(),
   transportReattachAttempted: z.boolean().optional(),
   semanticRetryAttempted: z.boolean().optional(),
   runtimeRestartAttempted: z.boolean().optional(),
@@ -450,6 +459,7 @@ export type AgentSession = z.infer<typeof AgentSessionSchema>;
 export type AgentWorkflowState = z.infer<typeof AgentWorkflowStateSchema>;
 export type AgentConfirmation = z.infer<typeof AgentConfirmationSchema>;
 export type AgentTurn = z.infer<typeof AgentTurnSchema>;
+export type AgentRegenerationTarget = z.infer<typeof AgentRegenerationTargetSchema>;
 export type AgentTurnToolFailure = z.infer<typeof AgentTurnToolFailureSchema>;
 export type AgentTurnCheckpoint = z.infer<typeof AgentTurnCheckpointSchema>;
 export type HermesRunHandle = z.infer<typeof HermesRunHandleSchema>;

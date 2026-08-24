@@ -121,5 +121,11 @@ describe("operation-aware resume diff validation", () => {
       allowUnconfirmed: false,
       confirmedRequirementIds: ["req-eval"]
     }).appliedDiffs).toHaveLength(1);
+    expect(validateEachTailoringDiffLocally({
+      branch: branchFixture(),
+      diffs: [candidate],
+      explicitlyAcceptedDiffs: [candidate],
+      allowUnconfirmed: false
+    }).appliedDiffs).toHaveLength(1);
   });
 });

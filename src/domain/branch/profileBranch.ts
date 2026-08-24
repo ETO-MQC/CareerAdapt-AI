@@ -78,7 +78,11 @@ export function buildJobBranchFromProfile(input: {
   if (pairs.length === 0) throw new Error("profile_library_selection_empty");
   const sourceProfileSnapshotId = `profile-snapshot-${input.profile.id}-${input.profile.version}-${stableHashText(input.selectedCanonicalItemIds.slice().sort().join(":"))}`;
   const branchBase = ResumeBranchSchema.parse({
-    id: `branch-job-profile-${nanoid(10)}`,
+    id: `branch-job-profile-${stableHashText([
+      input.profile.id,
+      input.jobId ?? input.targetSnapshot?.id ?? "target-snapshot",
+      input.operationId
+    ].join(":")).slice(0, 20)}`,
     schemaVersion: "resume-branch-v2",
     branchPurpose: "job_specific",
     profileId: input.profile.id,

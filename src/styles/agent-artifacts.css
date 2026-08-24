@@ -759,26 +759,121 @@
   border: 1px solid var(--ai-border);
   border-radius: 10px;
   display: grid;
-  gap: 8px;
-  margin: 12px 0;
-  padding: 12px;
+  gap: 6px;
+  margin: 8px 0;
+  padding: 0 8px;
 }
 
-.agent-tailoring-inline > header {
+.agent-tailoring-inline[open] {
+  padding-bottom: 6px;
+}
+
+.agent-tailoring-inline > summary {
   align-items: baseline;
   display: flex;
   gap: 8px;
   justify-content: space-between;
+  list-style: none;
+  min-height: 28px;
+  padding: 3px 1px;
+  cursor: pointer;
+  user-select: none;
 }
 
-.agent-tailoring-inline > header span {
+.agent-tailoring-inline > summary::-webkit-details-marker {
+  display: none;
+}
+
+.agent-tailoring-inline > summary::before {
+  color: var(--ai-muted);
+  content: "⌄";
+  font-size: 13px;
+  margin-right: 3px;
+  transform: rotate(-90deg);
+  transition: transform 120ms ease;
+}
+
+.agent-tailoring-inline[open] > summary::before {
+  transform: rotate(0deg);
+}
+
+.agent-tailoring-inline > summary:focus-visible {
+  outline: 2px solid var(--ai-accent);
+  outline-offset: 2px;
+}
+
+.agent-tailoring-inline > summary > span:first-of-type {
+  align-items: baseline;
+  display: inline-flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.agent-tailoring-inline > summary small,
+.agent-tailoring-inline > summary .agent-tailoring-draft-state {
   color: var(--ai-muted);
   font-size: 12px;
 }
 
+.agent-tailoring-inline > summary .agent-tailoring-draft-state {
+  flex: 0 0 auto;
+}
+
 .agent-tailoring-inline .agent-diff-list {
   display: grid;
+  gap: 6px;
+}
+
+.agent-tailoring-inline .agent-diff-list article {
+  padding-top: 6px;
+}
+
+.agent-tailoring-inline .agent-diff-list article:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.agent-tailoring-inline .agent-diff-list article p {
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 3px 0;
+}
+
+.agent-tailoring-diff-navigator {
+  align-items: center;
+  border-top: 1px solid var(--ai-border);
+  display: flex;
   gap: 8px;
+  justify-content: space-between;
+  padding-top: 6px;
+}
+
+.agent-tailoring-diff-navigator span {
+  color: var(--ai-muted);
+  font-size: 12px;
+}
+
+.agent-tailoring-diff-navigator button {
+  background: var(--ai-surface-raised);
+  border: 1px solid var(--ai-border);
+  border-radius: 6px;
+  color: var(--ai-text);
+  cursor: pointer;
+  font: inherit;
+  min-height: 28px;
+  min-width: 32px;
+  padding: 0 8px;
+}
+
+.agent-tailoring-diff-navigator button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.agent-tailoring-diff-navigator button:hover:not(:disabled),
+.agent-tailoring-diff-navigator button:focus-visible {
+  border-color: var(--ai-accent);
+  color: var(--ai-accent);
 }
 
 .agent-diff-rationale {
@@ -799,8 +894,8 @@
   border-radius: 6px;
   color: var(--ai-muted);
   cursor: pointer;
-  min-height: 30px;
-  padding: 0 8px;
+  min-height: 26px;
+  padding: 0 7px;
 }
 
 .agent-diff-actions button:hover,
@@ -862,6 +957,56 @@
 
 .agent-diff-feedback.is-error {
   color: var(--ai-danger, #b42318);
+}
+
+.agent-diff-list.is-read-only article {
+  opacity: 0.92;
+}
+
+.agent-tailoring-submit-row {
+  align-items: center;
+  border-top: 1px solid var(--ai-border);
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  padding-top: 8px;
+}
+
+.agent-tailoring-submit-row button {
+  background: var(--ai-surface-raised);
+  border: 1px solid var(--ai-border);
+  border-radius: 6px;
+  color: var(--ai-text);
+  cursor: pointer;
+  flex: 0 0 auto;
+  min-height: 28px;
+  padding: 0 9px;
+}
+
+.agent-tailoring-submit-row button:hover,
+.agent-tailoring-submit-row button:focus-visible,
+.agent-tailoring-submit-row button.is-primary {
+  border-color: var(--ai-accent);
+  color: var(--ai-accent);
+}
+
+.agent-tailoring-submit-row button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.agent-tailoring-submit-row .agent-diff-feedback {
+  margin-top: 0;
+}
+
+.agent-tailoring-review-handoff {
+  background: var(--ai-surface-raised);
+  border-radius: 7px;
+  color: var(--ai-muted);
+  font-size: 12px;
+  line-height: 1.55;
+  margin: 0;
+  padding: 9px 10px;
 }
 
 .agent-import-review-actions button:hover,

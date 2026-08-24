@@ -1,4 +1,3 @@
-import { nanoid } from "nanoid";
 import {
   ResumeBranchSnapshotSchema,
   ResumeRevisionSchema,
@@ -7,6 +6,7 @@ import {
   type ResumeRevision,
   type ResumeRevisionSource
 } from "@/domain/schemas";
+import { stableHashText } from "@/services/security/text";
 
 export function createBranchSnapshot(branch: Pick<ResumeBranch, "name" | "lifecycleStatus" | "resumeBasics" | "contentItems" | "structuredContentItems">): ResumeBranchSnapshot {
   return ResumeBranchSnapshotSchema.parse({
@@ -28,7 +28,12 @@ export function createResumeRevision(input: {
 }): ResumeRevision {
   const now = input.now ?? new Date().toISOString();
   return ResumeRevisionSchema.parse({
-    id: `resume-revision-${nanoid(10)}`,
+    id: `resume-revision-${stableHashText([
+      input.branch.id,
+      input.branch.revision,
+      input.operationId,
+      input.previousRevisionId ?? "root"
+    ].join(":")).slice(0, 20)}`,
     branchId: input.branch.id,
     revisionNumber: input.branch.revision,
     source: input.source,

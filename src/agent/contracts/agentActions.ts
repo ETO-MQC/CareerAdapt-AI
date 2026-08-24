@@ -70,6 +70,22 @@ export const AgentArtifactActionSchema = z.discriminatedUnion("type", [
     type: z.literal("tailoring_regenerate")
   }).strict(),
   z.object({
+    type: z.literal("tailoring_diff_stage_decision"),
+    diffId: z.string().min(1),
+    decision: z.enum(["accept", "edit", "reject"]),
+    editedValue: z.union([z.string().min(1), z.array(z.string().min(1))]).optional(),
+    generatedDiffRevision: z.number().int().min(0).optional()
+  }).strict(),
+  z.object({
+    type: z.literal("tailoring_diff_submit"),
+    reviews: z.array(z.object({
+      diffId: z.string().min(1),
+      decision: z.enum(["accept", "edit", "reject"]),
+      editedValue: z.union([z.string().min(1), z.array(z.string().min(1))]).optional(),
+      generatedDiffRevision: z.number().int().min(0).optional()
+    }).strict()).min(1).optional()
+  }).strict(),
+  z.object({
     type: z.literal("tailoring_diff_decision"),
     diffId: z.string().min(1),
     decision: z.enum(["accept", "edit", "reject"]),

@@ -157,6 +157,13 @@ describe("P4.3e.3 conversation branch isolation", () => {
       regenerateNarrationOnly: true,
       userMessageId: "user-1"
     });
+    expect(prepared?.regenerationTarget).toMatchObject({
+      targetAssistantMessageId: "assistant-1",
+      targetTurnId: "turn-1",
+      parentUserMessageId: "user-1",
+      baseCheckpointId: expect.stringContaining("session:"),
+      baseVersion: expect.any(Number)
+    });
     expect(prepared?.session.messages.map((message) => ({ id: message.id, content: message.content })))
       .toEqual(session.messages.map((message) => ({ id: message.id, content: message.content })));
     expect(prepared?.session.messages.some((message) => message.metadata?.retracted === true)).toBe(false);
@@ -207,11 +214,13 @@ describe("P4.3e.3 conversation branch isolation", () => {
       regenerateNarrationOnly: prepared.regenerateNarrationOnly,
       sourceTurnId: prepared.sourceTurnId,
       regeneratedFromMessageId: prepared.regeneratedFromMessageId,
+      regenerationTarget: prepared.regenerationTarget,
       pageContext: { pathname: "/ai-workspace", query: {} }
     });
     expect(runTurn).toHaveBeenCalledTimes(1);
     expect(runTurn).toHaveBeenCalledWith(expect.objectContaining({ narrationOnly: true }));
     expect(result?.messages.filter((message) => message.role === "user")).toHaveLength(2);
     expect(result?.messages.filter((message) => message.branchId === result?.activeBranchId && message.role === "tool")).toHaveLength(0);
+    expect(result?.activeTurn?.regenerationTarget).toEqual(prepared.regenerationTarget);
   });
 });

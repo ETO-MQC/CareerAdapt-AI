@@ -194,7 +194,7 @@ function workflowInteractionPlaceholder(checkpoint: WorkflowUserInputCheckpoint)
     case "clarification":
       return "补充你的实际经历，或回复“跳过”…";
     case "review_decision":
-      return "告诉我哪些修改采用、编辑或忽略…";
+      return "补充经历，或告诉我还需要调整什么…";
     case "confirmation":
       return "输入“确认”或“取消”…";
     case "resume_choice":

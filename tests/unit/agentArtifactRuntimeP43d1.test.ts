@@ -6,9 +6,12 @@ import { demoCareerProfile } from "@/data/demoProfile";
 import { demoJobDescriptions } from "@/data/demoJobs";
 import { buildGeneralBranchFromProfile, buildJobBranchFromProfile } from "@/domain/branch/profileBranch";
 import { canonicalProfileLibraryItems } from "@/domain/profile/canonicalLibrary";
+import { createPastedJobTargetSnapshot, jobTargetSnapshotToJobDescription } from "@/domain/jobTarget/jobTargetSnapshot";
+import { analyzeJobDescriptionV4 } from "@/domain/jobOptimization";
 import { ResumeTailoringPlanSchema } from "@/domain/schemas";
 import { CareerAdaptDb } from "@/services/storage/db";
 import { WorkspaceRepository } from "@/services/storage/repositories";
+import { AgentSessionStore } from "@/services/agent/agentSessionStore";
 import { BrowserAgentToolService } from "@/services/agent/agentToolService";
 import {
   TailoringSessionSchema,
@@ -124,18 +127,19 @@ describe("P4.3d.1 artifact action runtime", () => {
     expect(persisted).toEqual(result);
 
     const activityCount = result?.messages.filter((message) => message.toolName === "review_tailoring_diff").length;
-    const repeated = await host.dispatch({
-      type: "artifact_action",
-      action: { type: "tailoring_diff_decision", diffId: tailoringDiffId(diffA), decision: "accept" }
-    }, { pageContext: { pathname: "/ai-workspace", query: {} } });
+    const [repeated, completed] = await Promise.all([
+      host.dispatch({
+        type: "artifact_action",
+        action: { type: "tailoring_diff_decision", diffId: tailoringDiffId(diffA), decision: "accept" }
+      }, { pageContext: { pathname: "/ai-workspace", query: {} } }),
+      host.dispatch({
+        type: "artifact_action",
+        action: { type: "tailoring_diff_decision", diffId: tailoringDiffId(diffB), decision: "accept" }
+      }, { pageContext: { pathname: "/ai-workspace", query: {} } })
+    ]);
     const repeatedTailoring = repeated?.taskState?.knownSlots.tailoringSession as typeof tailoringSession;
     expect(repeatedTailoring.revision).toBe(beforeRevision + 1);
     expect(repeated?.messages.filter((message) => message.toolName === "review_tailoring_diff")).toHaveLength(activityCount ?? 0);
-
-    const completed = await host.dispatch({
-      type: "artifact_action",
-      action: { type: "tailoring_diff_decision", diffId: tailoringDiffId(diffB), decision: "accept" }
-    }, { pageContext: { pathname: "/ai-workspace", query: {} } });
     expect(completed?.taskState).toMatchObject({
       stage: "confirm_apply",
       completionStatus: "waiting_for_confirmation",
@@ -155,6 +159,137 @@ describe("P4.3d.1 artifact action runtime", () => {
     reloadedHost.adopt(persisted);
     const reloaded = reloadedHost.getSnapshot().activeSession?.taskState?.knownSlots.tailoringSession as typeof tailoringSession;
     expect(reloaded.plan.diffReviews?.find((review) => review.diffId === tailoringDiffId(diffA))?.status).toBe("accepted");
+  });
+
+  it("stages diff choices without execution and submits them as one workflow step", async () => {
+    const job = demoJobDescriptions[0];
+    const built = buildJobBranchFromProfile({
+      profile: demoCareerProfile,
+      jobId: job.id,
+      jobTitle: job.title,
+      jobVersion: "artifact-batch-v1",
+      operationId: "artifact-batch-branch-create",
+      name: "批量提交岗位简历",
+      selectedCanonicalItemIds: canonicalProfileLibraryItems(demoCareerProfile).slice(0, 4).map((item) => item.id),
+      requirementMatchIds: [],
+      sourceMatchSetHash: "artifact-batch-hash",
+      now: "2026-08-02T12:00:00.000Z"
+    });
+    const created = createTailoringSessionCommand({
+      operationId: "artifact-batch-tailoring-create",
+      profile: demoCareerProfile,
+      branch: built.branch,
+      job
+    });
+    const diffA = {
+      target: { sectionId: "summary", itemId: "summary-batch", fieldPath: "text" as const },
+      operation: "replace" as const,
+      original: "批量原文", value: "批量新文", reason: "批量岗位匹配",
+      requirementIds: [], targetKeywords: [], evidenceRefs: [], supportLevel: "verified" as const
+    };
+    const diffB = {
+      ...diffA,
+      target: { sectionId: "summary", itemId: "summary-batch-2", fieldPath: "text" as const },
+      original: "批量原文 2",
+      value: "批量新文 2"
+    };
+    const now = "2026-08-02T12:00:00.000Z";
+    const plan = ResumeTailoringPlanSchema.parse({
+      ...created.session.plan,
+      questionPlan: { ...created.session.plan.questionPlan!, status: "completed", activeQuestionId: undefined, completedAt: now },
+      diffs: [diffA, diffB],
+      diffReviews: []
+    });
+    const tailoringSession = TailoringSessionSchema.parse({ ...created.session, plan, revision: 4, generatedDiffRevision: 1 });
+    const base = AgentRuntime.create("tailor_existing_resume", "preview_changes", "Artifact batch runtime");
+    const reducer = new AgentTaskStateReducer();
+    const taskState = reducer.reduce(reducer.create(base, "create_tailored_resume"), {
+      type: "tool_observation",
+      toolName: "generate_tailoring_changes",
+      observation: { session: tailoringSession, appliedDiffs: [diffA, diffB] }
+    });
+    const initialSession: AgentSession = {
+      ...base,
+      taskState,
+      messages: [{
+        id: "batch-review-status",
+        role: "assistant",
+        content: "已生成岗位修改建议，请在右侧选择后提交本次选择。",
+        kind: "text",
+        type: "text",
+        status: "complete",
+        metadata: { workflowInteractionKind: "review_decision", workflowInteractionProjection: true },
+        createdAt: now
+      }],
+      activeTurn: {
+        id: "batch-turn",
+        sessionId: base.id,
+        status: "waiting_for_user",
+        startedAt: now
+      }
+    };
+    let persisted = initialSession;
+    const save = vi.fn(async (value: AgentSession) => { persisted = value; return value; });
+    const execute = vi.fn(async (input: { toolName: string; toolInput: Record<string, unknown>; operationId: string }) => {
+      const data = input.toolName === "review_tailoring_diff"
+        ? reviewTailoringDiffCommand({ operationId: input.operationId, ...input.toolInput } as never)
+        : input.toolName === "preview_tailoring_changes"
+          ? { operationId: input.operationId, preview: true }
+          : (() => { throw new Error(`unexpected:${input.toolName}`); })();
+      return { ok: true, operationId: input.operationId, toolName: input.toolName, data, artifactIds: [], completedAt: now };
+    });
+    const host = new AgentHostStore({
+      kernel: {} as never,
+      executor: { execute } as never,
+      persistence: { save } as never
+    });
+    host.adopt(initialSession);
+    const pageContext = { pathname: "/ai-workspace", query: {} };
+    const staged = await host.dispatch({
+      type: "artifact_action",
+      action: { type: "tailoring_diff_stage_decision", diffId: tailoringDiffId(diffA), decision: "accept" }
+    }, { pageContext });
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(staged?.taskState?.knownSlots.tailoringDraftDiffReviews).toEqual([
+      expect.objectContaining({ diffId: tailoringDiffId(diffA), decision: "accept", status: "accepted" })
+    ]);
+
+    const partial = await host.dispatch({
+      type: "artifact_action",
+      action: { type: "tailoring_diff_submit" }
+    }, { pageContext });
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(partial?.taskState?.knownSlots.tailoringDraftDiffReviews).toEqual([
+      expect.objectContaining({ diffId: tailoringDiffId(diffA), decision: "accept", status: "accepted" })
+    ]);
+    expect(partial?.taskState?.knownSlots.artifactActionFeedback).toMatchObject({
+      message: "还有 1 项修改未完成选择，请先逐项选择“采用、编辑后采用”或“忽略”。"
+    });
+
+    await host.dispatch({
+      type: "artifact_action",
+      action: { type: "tailoring_diff_stage_decision", diffId: tailoringDiffId(diffB), decision: "reject" }
+    }, { pageContext });
+
+    const submitted = await host.dispatch({
+      type: "artifact_action",
+      action: { type: "tailoring_diff_submit" }
+    }, { pageContext });
+
+    expect(execute.mock.calls.map(([input]) => input.toolName)).toEqual([
+      "review_tailoring_diff",
+      "review_tailoring_diff",
+      "preview_tailoring_changes"
+    ]);
+    expect(submitted?.taskState?.knownSlots.tailoringDraftDiffReviews).toEqual([]);
+    expect(submitted?.taskState?.knownSlots.tailoringReviewSubmittedDiffRevision).toBe(1);
+    expect(submitted?.taskState).toMatchObject({ stage: "confirm_apply", completionStatus: "waiting_for_confirmation" });
+    expect(submitted?.messages.filter((message) => message.metadata?.workflowInteractionKind === "review_decision")).toHaveLength(1);
+    expect(submitted?.messages.find((message) => message.metadata?.workflowInteractionKind === "confirmation")?.content)
+      .toBe("岗位简历预览已生成，确认后我会创建独立岗位简历。");
+    expect(persisted).toEqual(submitted);
   });
 
   it("writes the accepted summary diff through Host confirmation into a new Job Revision", async () => {
@@ -188,7 +323,7 @@ describe("P4.3d.1 artifact action runtime", () => {
       requirementIds: [],
       targetKeywords: ["Stata"],
       evidenceRefs: [evidence],
-      supportLevel: "verified" as const
+      supportLevel: "reasonable_inference" as const
     };
     db = new CareerAdaptDb(`ArtifactRuntimeApply-${crypto.randomUUID()}`);
     const repository = new WorkspaceRepository(db);
@@ -267,7 +402,8 @@ describe("P4.3d.1 artifact action runtime", () => {
             : (() => { throw new Error(`unexpected:${input.toolName}`); })();
       return { ok: true, operationId: input.operationId, toolName: input.toolName, data, artifactIds: [], completedAt: now };
     });
-    const save = vi.fn(async (value: AgentSession) => value);
+    const sessionStore = new AgentSessionStore(repository);
+    const save = vi.fn((value: AgentSession) => sessionStore.save(value));
     const resumeTurn = vi.fn(async (input: { session: AgentSession; observation: unknown }) => {
       const taskState = new AgentTaskStateReducer().reduce(input.session.taskState!, {
         type: "tool_observation",
@@ -293,7 +429,7 @@ describe("P4.3d.1 artifact action runtime", () => {
     const host = new AgentHostStore({
       kernel: { resumeTurn } as never,
       executor: { execute } as never,
-      persistence: { save } as never
+      persistence: { save, get: (sessionId: string) => sessionStore.get(sessionId) } as never
     });
     host.adopt(initialSession);
 
@@ -342,5 +478,96 @@ describe("P4.3d.1 artifact action runtime", () => {
       text: beforeSummary
     });
     expect(await repository.getProfile(demoCareerProfile.id)).toEqual(expect.objectContaining({ version: demoCareerProfile.version }));
+  });
+
+  it("writes a session-only external target through the same local apply transaction", async () => {
+    const sourceJob = demoJobDescriptions[0];
+    const targetSnapshot = createPastedJobTargetSnapshot({
+      rawText: sourceJob.rawText,
+      graph: analyzeJobDescriptionV4({ rawText: sourceJob.rawText }).graph,
+      title: sourceJob.title,
+      company: sourceJob.company,
+      capturedAt: "2026-08-02T12:00:00.000Z"
+    });
+    const targetJob = jobTargetSnapshotToJobDescription(targetSnapshot);
+    const general = buildGeneralBranchFromProfile({
+      profile: demoCareerProfile,
+      operationId: "artifact-external-general-create",
+      name: "通用简历",
+      includeProfileFacts: true,
+      includeProfileBasics: true
+    });
+    const summary = general.branch.structuredContentItems?.find((item) => item.data.sectionType === "summary");
+    if (!summary || summary.data.sectionType !== "summary") throw new Error("summary_fixture_missing");
+    const fact = demoCareerProfile.experiences[0].facts[0];
+    const diff = {
+      target: { sectionId: "summary", itemId: summary.id, fieldPath: "text" as const },
+      operation: "replace" as const,
+      original: summary.data.text,
+      value: "基于已核验经历，突出与目标岗位相关的交付能力。",
+      reason: "突出岗位相关的已核验经历",
+      requirementIds: [],
+      targetKeywords: ["交付"],
+      evidenceRefs: [{
+        type: "experience_fact" as const,
+        experienceId: demoCareerProfile.experiences[0].id,
+        factId: fact.id,
+        factQuote: fact.statement,
+        factText: fact.statement
+      }],
+      supportLevel: "verified" as const
+    };
+    db = new CareerAdaptDb(`ArtifactRuntimeExternalApply-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    await repository.saveProfile(demoCareerProfile);
+    await repository.saveResumeBranch(general.branch);
+    await db.resumeRevisions.put(general.firstRevision);
+
+    const created = createTailoringSessionCommand({
+      operationId: "artifact-external-tailoring-create",
+      profile: demoCareerProfile,
+      branch: general.branch,
+      job: targetJob,
+      targetSnapshot
+    });
+    const now = "2026-08-02T12:00:00.000Z";
+    const plan = ResumeTailoringPlanSchema.parse({
+      ...created.session.plan,
+      questionPlan: created.session.plan.questionPlan
+        ? { ...created.session.plan.questionPlan, status: "completed", activeQuestionId: undefined, completedAt: now }
+        : undefined,
+      diffs: [diff],
+      diffReviews: [{ diffId: tailoringDiffId(diff), status: "accepted", updatedAt: now }]
+    });
+    const tailoringSession = TailoringSessionSchema.parse({
+      ...created.session,
+      plan,
+      revision: 2,
+      generatedDiffRevision: 1
+    });
+    const service = new BrowserAgentToolService(repository);
+    const result = await service.applyTailoringChanges({
+      session: tailoringSession,
+      selectedDiffs: [diff],
+      confirmedRequirementIds: []
+    }, "artifact-external-tailoring-apply");
+
+    expect(result.qualityResult).toMatchObject({
+      status: "passed",
+      repositoryReadBackVerified: true,
+      resumeListVisibilityVerified: true,
+      acceptedDiffCount: 1,
+      changedFieldPaths: [`summary.${summary.id}.text`]
+    });
+    const jobBranches = (await repository.listResumeBranches(demoCareerProfile.id))
+      .filter((branch) => branch.branchPurpose === "job_specific");
+    expect(jobBranches).toHaveLength(1);
+    expect(jobBranches[0]).toMatchObject({
+      targetSnapshotId: targetSnapshot.id,
+      targetSnapshotVersion: targetSnapshot.version,
+      targetSnapshotHash: expect.any(String),
+      sourceBranchId: general.branch.id
+    });
+    expect(jobBranches[0].jobId).toBeUndefined();
   });
 });

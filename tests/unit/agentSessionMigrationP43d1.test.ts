@@ -110,7 +110,7 @@ describe("P4.3d.1 agent session migration", () => {
   });
 
   it("preserves a valid current question plan and backfills reviews by stable diff id", () => {
-    const base = AgentRuntime.create("tailor_existing_resume", "preview_changes", "Current");
+    const base = AgentRuntime.create("tailor_resume", "preview_changes", "Current");
     const initialTask = new AgentTaskStateReducer().create(base, "create_tailored_resume");
     const diff = {
       target: { sectionId: "summary", itemId: "summary-1", fieldPath: "text" as const },
@@ -133,8 +133,9 @@ describe("P4.3d.1 agent session migration", () => {
       }
     };
     const migrated = migrateAgentSessionToCurrentSchema(raw as never, NOW);
-    const tailoring = migrated.taskState?.knownSlots.tailoringSession as { tailoringRuntimeVersion: number; plan: { questionPlan: { questionPlanVersion: number }; diffReviews: Array<{ diffId: string; status: string }> } };
+    const tailoring = migrated.taskState?.knownSlots.tailoringSession as { tailoringRuntimeVersion: number; generatedDiffRevision: number; plan: { questionPlan: { questionPlanVersion: number }; diffReviews: Array<{ diffId: string; status: string }> } };
     expect(tailoring.tailoringRuntimeVersion).toBe(CURRENT_TAILORING_RUNTIME_VERSION);
+    expect(tailoring.generatedDiffRevision).toBe(0);
     expect(tailoring.plan.questionPlan.questionPlanVersion).toBe(CURRENT_QUESTION_PLAN_VERSION);
     expect(tailoring.plan.diffReviews).toEqual([{ diffId: tailoringDiffId(diff), status: "suggested", updatedAt: NOW }]);
   });

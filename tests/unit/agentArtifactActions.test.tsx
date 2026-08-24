@@ -1,6 +1,7 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AgentArtifactContent } from "@/components/agent/artifacts/AgentArtifactContent";
+import { AgentTailoringInlineDiffs } from "@/components/agent/AgentTailoringInlineDiffs";
 import type { AgentTaskState } from "@/agent/contracts/agentSession";
 import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
 
@@ -257,10 +258,226 @@ describe("Agent artifact decisions", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^采用$/ }));
     expect(onArtifactAction).toHaveBeenCalledWith({
-      type: "tailoring_diff_decision",
+      type: "tailoring_diff_stage_decision",
       diffId: tailoringDiffId(diff),
       decision: "accept",
       editedValue: undefined
     });
   });
+
+  it("submits staged tailoring choices as one artifact action", () => {
+    const onArtifactAction = vi.fn();
+    const diff = {
+      target: { sectionId: "summary", itemId: "summary-submit", fieldPath: "text" as const },
+      operation: "replace" as const,
+      original: "原文", value: "岗位化原文", reason: "突出岗位关键词",
+      requirementIds: [], targetKeywords: [], evidenceRefs: [], supportLevel: "verified" as const
+    };
+    const diffId = tailoringDiffId(diff);
+    const tailoringSession = {
+      revision: 2,
+      generatedDiffRevision: 1,
+      plan: {
+        diffs: [diff],
+        diffReviews: [{ diffId, status: "accepted", decision: "accept" }]
+      }
+    };
+    render(
+      <AgentArtifactContent
+        state={{ step: "preview_changes", busy: false, tailoringSession, diffs: [diff], confirmedRequirementIds: [] }}
+        taskState={{
+          rootGoal: "create_tailored_resume",
+          knownSlots: {
+            tailoringSession,
+            tailoringDraftDiffReviews: [{ diffId, decision: "accept", status: "accepted" }]
+          }
+        } as unknown as AgentTaskState}
+        onArtifactAction={onArtifactAction}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "提交本次选择" }));
+    expect(onArtifactAction).toHaveBeenCalledWith({ type: "tailoring_diff_submit" });
+  });
+
+  it("keeps a local staged choice available when an older session returns no immediate state", async () => {
+    const onArtifactAction = vi.fn(async () => undefined);
+    const diff = {
+      target: { sectionId: "summary", itemId: "summary-inline", fieldPath: "text" as const },
+      operation: "replace" as const,
+      original: "旧个人评价",
+      value: "岗位化个人评价",
+      reason: "突出岗位匹配度",
+      requirementIds: [],
+      targetKeywords: [],
+      evidenceRefs: [],
+      supportLevel: "verified" as const
+    };
+    const diffId = tailoringDiffId(diff);
+    const tailoringSession = {
+      revision: 2,
+      generatedDiffRevision: 1,
+      plan: {
+        diffs: [diff],
+        diffReviews: []
+      }
+    };
+    render(
+      <AgentTailoringInlineDiffs
+        taskState={{
+          rootGoal: "create_tailored_resume",
+          workflowId: "tailor_resume",
+          stage: "preview_changes",
+          knownSlots: { tailoringSession }
+        } as unknown as AgentTaskState}
+        onArtifactAction={onArtifactAction}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^采用$/ }));
+    expect(await screen.findByText("1/1 项已暂存")).toBeInTheDocument();
+    const submit = screen.getByRole("button", { name: "提交本次选择" });
+    expect(submit).not.toBeDisabled();
+    fireEvent.click(submit);
+    expect(onArtifactAction).toHaveBeenLastCalledWith({
+      type: "tailoring_diff_submit",
+      reviews: [{ diffId, decision: "accept", generatedDiffRevision: 1 }]
+    });
+  });
+
+  it("shows one inline diff at a time, navigates all generated diffs, and advances after a decision", async () => {
+    const diffs = Array.from({ length: 6 }, (_, index) => makeTailoringDiff(`inline-${index}`));
+    const onArtifactAction = vi.fn(async () => undefined);
+    const tailoringSession = {
+      revision: 2,
+      generatedDiffRevision: 1,
+      plan: {
+        diffs,
+        diffReviews: diffs.map((diff) => ({ diffId: tailoringDiffId(diff), status: "suggested" }))
+      }
+    };
+    render(
+      <AgentTailoringInlineDiffs
+        taskState={{
+          rootGoal: "create_tailored_resume",
+          workflowId: "tailor_resume",
+          stage: "preview_changes",
+          knownSlots: { tailoringSession }
+        } as unknown as AgentTaskState}
+        onArtifactAction={onArtifactAction}
+      />
+    );
+
+    expect(screen.getByText("修改意见 1 / 6")).toBeVisible();
+    expect(screen.getAllByRole("article")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "下一条修改意见" }));
+    expect(screen.getByText("修改意见 2 / 6")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "下一条修改意见" }));
+    expect(screen.getByText("修改意见 3 / 6")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: /^采用$/ }));
+
+    await waitFor(() => expect(screen.getByText("修改意见 4 / 6")).toBeVisible());
+    expect(onArtifactAction).toHaveBeenCalledWith({
+      type: "tailoring_diff_stage_decision",
+      diffId: tailoringDiffId(diffs[2]),
+      decision: "accept",
+      editedValue: undefined,
+      generatedDiffRevision: 1
+    });
+    const submit = screen.getByRole("button", { name: "提交本次选择" });
+    expect(submit).toBeDisabled();
+    expect(screen.getByText("还有 5 项修改未处理，请先选择“采用、编辑后采用”或“忽略”。")).toBeInTheDocument();
+    fireEvent.click(submit);
+    expect(onArtifactAction).not.toHaveBeenCalledWith(expect.objectContaining({ type: "tailoring_diff_submit" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "上一条修改意见" }));
+    await waitFor(() => expect(screen.getByText("修改意见 3 / 6")).toBeVisible());
+    fireEvent.click(screen.getByRole("button", { name: "上一条修改意见" }));
+    await waitFor(() => expect(screen.getByText("修改意见 2 / 6")).toBeVisible());
+    fireEvent.click(screen.getByRole("button", { name: "上一条修改意见" }));
+    await waitFor(() => expect(screen.getByText("修改意见 1 / 6")).toBeVisible());
+    fireEvent.click(screen.getByRole("button", { name: /^采用$/ }));
+    await waitFor(() => expect(screen.getByText("修改意见 2 / 6")).toBeVisible());
+    fireEvent.click(screen.getByRole("button", { name: /^采用$/ }));
+    await waitFor(() => expect(screen.getByText("修改意见 3 / 6")).toBeVisible());
+    fireEvent.click(screen.getByRole("button", { name: "下一条修改意见" }));
+    await waitFor(() => expect(screen.getByText("修改意见 4 / 6")).toBeVisible());
+    fireEvent.click(screen.getByRole("button", { name: /^采用$/ }));
+    await waitFor(() => expect(screen.getByText("修改意见 5 / 6")).toBeVisible());
+    fireEvent.click(screen.getByRole("button", { name: /^采用$/ }));
+    await waitFor(() => expect(screen.getByText("修改意见 6 / 6")).toBeVisible());
+    fireEvent.click(screen.getByRole("button", { name: /^忽略$/ }));
+    await waitFor(() => expect(screen.getByText("6/6 项已暂存")).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "提交本次选择" })).not.toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "提交本次选择" }));
+    expect(onArtifactAction).toHaveBeenLastCalledWith({
+      type: "tailoring_diff_submit",
+      reviews: [
+        { diffId: tailoringDiffId(diffs[0]), decision: "accept", generatedDiffRevision: 1 },
+        { diffId: tailoringDiffId(diffs[1]), decision: "accept", generatedDiffRevision: 1 },
+        { diffId: tailoringDiffId(diffs[2]), decision: "accept", generatedDiffRevision: 1 },
+        { diffId: tailoringDiffId(diffs[3]), decision: "accept", generatedDiffRevision: 1 },
+        { diffId: tailoringDiffId(diffs[4]), decision: "accept", generatedDiffRevision: 1 },
+        { diffId: tailoringDiffId(diffs[5]), decision: "reject", generatedDiffRevision: 1 }
+      ]
+    });
+  });
+
+  it("hands all generated diffs to the artifact panel after the conversation handoff", () => {
+    const diffs = Array.from({ length: 6 }, (_, index) => makeTailoringDiff(`artifact-${index}`));
+    const tailoringSession = {
+      revision: 3,
+      generatedDiffRevision: 1,
+      plan: {
+        diffs,
+        diffReviews: diffs.map((diff) => ({ diffId: tailoringDiffId(diff), status: "suggested" }))
+      }
+    };
+    render(
+      <AgentArtifactContent
+        artifact={{
+          id: "tailoring-workspace",
+          kind: "tailoring_workspace",
+          title: "岗位定制工作区",
+          entityType: "tailoring_session",
+          entityId: "tailoring-session",
+          status: "active",
+          createdAt: "2026-08-23T00:00:00.000Z",
+          updatedAt: "2026-08-23T00:00:00.000Z"
+        }}
+        state={{ step: "preview_changes", busy: false, tailoringSession, diffs, confirmedRequirementIds: [] }}
+        taskState={{
+          rootGoal: "create_tailored_resume",
+          workflowId: "tailor_resume",
+          stage: "preview_changes",
+          completionStatus: "waiting_for_user",
+          knownSlots: {
+            tailoringSession,
+            tailoringReviewSubmittedDiffRevision: 1,
+            remainingDiffCount: 3
+          }
+        } as unknown as AgentTaskState}
+        onArtifactAction={vi.fn()}
+      />
+    );
+
+    expect(screen.getAllByRole("article")).toHaveLength(6);
+    expect(screen.getByRole("button", { name: "提交本次选择" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "提交本次选择" })).toBeDisabled();
+    expect(screen.getAllByRole("button").filter((button) => button.textContent === "采用")).toHaveLength(6);
+  });
 });
+
+function makeTailoringDiff(itemId: string) {
+  return {
+    target: { sectionId: "summary", itemId, fieldPath: "text" as const },
+    operation: "replace" as const,
+    original: `原文 ${itemId}`,
+    value: `岗位化原文 ${itemId}`,
+    reason: "突出岗位相关交付经验",
+    requirementIds: [],
+    targetKeywords: [],
+    evidenceRefs: [],
+    supportLevel: "verified" as const
+  };
+}

@@ -288,7 +288,16 @@ describe("P4.5c.1.11 external job target closure", () => {
     expect(sessionOnly?.pendingConfirmation).toMatchObject({ toolName: "apply_tailoring_changes" });
     expect(sessionOnly?.taskState?.knownSlots.jobPersistenceDecision).toBe("session_only");
 
-    host.adopt(AgentSessionSchema.parse({ ...session, taskState: { ...taskState, pendingDecision: { type: "job_target_persistence", options: ["session_only", "save_job"] } } }));
+    const saveChoiceSession = AgentSessionSchema.parse({
+      ...session,
+      sessionRevision: session.sessionRevision + 1,
+      updatedAt: new Date(Date.parse(session.updatedAt) + 1_000).toISOString(),
+      taskState: {
+        ...taskState,
+        pendingDecision: { type: "job_target_persistence", options: ["session_only", "save_job"] }
+      }
+    });
+    host.adopt(saveChoiceSession);
     const saved = await host.dispatch({
       type: "option",
       action: { type: "task_decision", decisionType: "job_target_persistence", option: "save_job" }

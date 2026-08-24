@@ -34,6 +34,21 @@ export function AgentArtifactContent({
   const analysis = asRecord(state.fitAnalysis);
   const plan = asRecord(asRecord(state.tailoringSession).plan);
   const isTailoringWorkspace = artifact?.kind === "tailoring_workspace";
+  const tailoringSession = asRecord(state.tailoringSession);
+  const generatedDiffRevision = typeof (tailoringSession.generatedDiffRevision ?? plan.generatedDiffRevision) === "number"
+    ? tailoringSession.generatedDiffRevision ?? plan.generatedDiffRevision
+    : 0;
+  const submittedDiffRevision = taskState?.knownSlots.tailoringReviewSubmittedDiffRevision;
+  const reviewSubmittedInConversation = Boolean(
+    isTailoringWorkspace
+    && taskState
+    && String(submittedDiffRevision) === String(generatedDiffRevision)
+  );
+  const reviewPendingInConversation = Boolean(
+    isTailoringWorkspace
+    && taskState
+    && String(submittedDiffRevision) !== String(generatedDiffRevision)
+  );
   const initialWorkspaceView = taskState?.knownSlots.tailoringWorkspaceView === "questions"
     || (taskState?.knownSlots.activeQuestionId && !state.diffs.length) ? "questions"
     : taskState?.knownSlots.tailoringWorkspaceView === "diffs" || state.diffs.length ? "diffs" : "fit";
@@ -75,6 +90,30 @@ export function AgentArtifactContent({
     || plan.generatedDiffsBasedOnAnswerRevisionHash !== plan.answerRevisionHash;
   const reviewsById = new Map(diffReviews.flatMap((review) => typeof review.diffId === "string" ? [[review.diffId, review]] : []));
   const artifactActionFeedback = asRecord(taskState?.knownSlots.artifactActionFeedback);
+  const stagedDiffReviews = Array.isArray(taskState?.knownSlots.tailoringDraftDiffReviews)
+    ? taskState.knownSlots.tailoringDraftDiffReviews.map(asRecord)
+    : [];
+  const stagedDiffReviewsById = new Map(stagedDiffReviews.flatMap((review) =>
+    typeof review.diffId === "string" ? [[review.diffId, review] as const] : []
+  ));
+  const resolvedTailoringDiffIds = new Set([
+    ...diffReviews
+      .filter((review) => ["accepted", "edited", "rejected"].includes(String(review.status)))
+      .flatMap((review) => typeof review.diffId === "string" ? [review.diffId] : []),
+    ...stagedDiffReviews.flatMap((review) => typeof review.diffId === "string" ? [review.diffId] : [])
+  ]);
+  const unresolvedTailoringDiffCount = state.diffs.filter((item) => {
+    const parsed = ResumeTailoringDiffSchema.safeParse(item);
+    return !parsed.success || !resolvedTailoringDiffIds.has(tailoringDiffId(parsed.data));
+  }).length;
+  const allTailoringDiffsResolved = state.diffs.length > 0 && unresolvedTailoringDiffCount === 0;
+  const tailoringReviewReadOnly = isTailoringWorkspace && (
+    reviewPendingInConversation
+    || taskState?.completionStatus === "waiting_for_confirmation"
+    || taskState?.stage === "confirm_apply"
+  );
+  const canSubmitTailoringReview = !tailoringReviewReadOnly
+    && (!isTailoringWorkspace || taskState?.stage === "preview_changes");
   const importArtifact = asRecord(taskState?.knownSlots.importArtifact);
   const importReview = asRecord(taskState?.knownSlots.importReviewSummary);
   const importTarget = asRecord(taskState?.knownSlots.importTarget);
@@ -543,23 +582,33 @@ export function AgentArtifactContent({
               <button type="button" onClick={() => onArtifactAction?.({ type: "tailoring_regenerate" })}>重新生成修改建议</button>
             </div>
           ) : null}
-          <div className="agent-diff-list">
-            {state.diffs.slice(0, 8).map((item, index) => {
+          {reviewPendingInConversation ? (
+            <p className="agent-tailoring-review-handoff" role="status">
+              先在对话区逐项核对；提交后这里会接管全部 {state.diffs.length} 项修改。
+            </p>
+          ) : null}
+          <div className={`agent-diff-list${tailoringReviewReadOnly ? " is-read-only" : ""}`}>
+            {state.diffs.map((item, index) => {
               const parsedDiff = ResumeTailoringDiffSchema.safeParse(item);
               const diff = asRecord(item);
               const diffId = parsedDiff.success ? tailoringDiffId(parsedDiff.data) : undefined;
-              const review = diffId ? reviewsById.get(diffId) ?? {} : {};
+              const storedReview = diffId ? reviewsById.get(diffId) ?? {} : {};
+              const stagedReview = diffId ? stagedDiffReviewsById.get(diffId) : undefined;
+              const review = stagedReview
+                ? { ...storedReview, ...stagedReview, status: stagedReview.status ?? reviewStatusForDecision(stagedReview.decision) }
+                : storedReview;
               return (
                 <TailoringDiffRecord
                   key={diffId ?? `invalid-diff-${index}`}
                   diff={diff}
                   review={review}
                   diffId={diffId}
+                  readOnly={tailoringReviewReadOnly}
                   feedback={artifactActionFeedback.entityId === diffId ? artifactActionFeedback : undefined}
                   onDecision={async (decision, editedValue) => {
                     if (!diffId) return;
                     await onArtifactAction?.({
-                      type: "tailoring_diff_decision",
+                      type: "tailoring_diff_stage_decision",
                       diffId,
                       decision,
                       editedValue
@@ -569,6 +618,33 @@ export function AgentArtifactContent({
               );
             })}
           </div>
+          {isTailoringWorkspace && reviewSubmittedInConversation && !canSubmitTailoringReview ? (
+            <p className="agent-tailoring-review-handoff" role="status">
+              本轮选择已提交；确认后会创建独立岗位简历，来源简历和资料库不会被覆盖。
+            </p>
+          ) : null}
+          {canSubmitTailoringReview ? (
+            <div className="agent-tailoring-submit-row">
+              <span className="agent-diff-feedback" role="status">
+                {stagedDiffReviews.length
+                  ? allTailoringDiffsResolved
+                    ? `已完成 ${state.diffs.length} 项选择，提交后才会统一处理。`
+                    : `还有 ${unresolvedTailoringDiffCount} 项修改未处理，请先逐项选择“采用、编辑后采用”或“忽略”。`
+                  : "先选择采用、编辑后采用或忽略；选择不会立即调度 AI。"}
+              </span>
+              <button
+                className="is-primary"
+                type="button"
+                disabled={!onArtifactAction || !stagedDiffReviews.length || !allTailoringDiffsResolved}
+                onClick={() => void onArtifactAction?.({ type: "tailoring_diff_submit" })}
+              >
+                提交本次选择
+              </button>
+            </div>
+          ) : null}
+          {artifactActionFeedback.entityId === "submit" && typeof artifactActionFeedback.message === "string" ? (
+            <span className="agent-diff-feedback" role="status">{artifactActionFeedback.message}</span>
+          ) : null}
           {state.resumeId ? <Link href={`/resume?branchId=${encodeURIComponent(state.resumeId)}`}>打开简历编辑器</Link> : null}
         </details>
       ) : null}
@@ -924,12 +1000,14 @@ export function TailoringDiffRecord({
   review,
   diffId,
   feedback,
+  readOnly = false,
   onDecision
 }: {
   diff: Record<string, unknown>;
   review: Record<string, unknown>;
   diffId?: string;
   feedback?: Record<string, unknown>;
+  readOnly?: boolean;
   onDecision(decision: "accept" | "edit" | "reject", editedValue?: string): Promise<void> | void;
 }) {
   const proposed = renderValue(diff.value);
@@ -948,7 +1026,9 @@ export function TailoringDiffRecord({
       <p><del>{renderValue(diff.original)}</del></p>
       <p><ins>{status === "edited" ? renderValue(review.editedValue) : proposed}</ins></p>
       {typeof diff.reason === "string" ? <p className="agent-diff-rationale">{diff.reason}</p> : null}
-      {editing ? (
+      {readOnly ? (
+        <span className="agent-diff-feedback">{status === "suggested" ? "待在对话区核对" : "已暂存本轮选择"}</span>
+      ) : editing ? (
         <form onSubmit={(event) => {
           event.preventDefault();
           if (!draft.trim()) return;
@@ -973,6 +1053,13 @@ export function TailoringDiffRecord({
       {!diffId ? <span className="agent-diff-feedback is-error" role="status">这项修改缺少稳定标识，请刷新后重试。</span> : null}
     </article>
   );
+}
+
+function reviewStatusForDecision(value: unknown) {
+  if (value === "accept") return "accepted";
+  if (value === "edit") return "edited";
+  if (value === "reject") return "rejected";
+  return "suggested";
 }
 
 function tailoringTargetLabel(value: unknown) {

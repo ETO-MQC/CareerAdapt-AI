@@ -76,6 +76,15 @@ function isPresentationOptionAction(action: AgentOption["action"]) {
     || action.type === "profile_intake_section_select";
 }
 
+function agentOptionOperationKey(sessionId: string, option: AgentOption, stateVersion?: string) {
+  const action = option.action;
+  if (action.type === "answer" && action.field.startsWith("tailoring-question:")) {
+    return `interaction:${sessionId}:${action.interactionId ?? action.field}:${action.interactionRevision ?? 0}`;
+  }
+  if (action.type === "retry_current_step") return `retry:${sessionId}:${option.id}:${stateVersion ?? "current"}`;
+  return `option:${sessionId}:${option.id}`;
+}
+
 export function AgentWorkspace() {
   const host = useAgentHost();
   const snapshot = useSyncExternalStore(host.state.subscribe, host.state.getSnapshot, host.state.getSnapshot);
@@ -115,6 +124,9 @@ export function AgentWorkspace() {
     attachments: AgentAttachmentRef[];
   }>();
   const [pendingContextRequest, setPendingContextRequest] = useState<PendingContextRequest>();
+  const [pendingOptionKey, setPendingOptionKey] = useState<string>();
+  const pendingOptionKeyRef = useRef<string | undefined>(undefined);
+  const [pendingRegenerateMessageId, setPendingRegenerateMessageId] = useState<string>();
   const quickActionDispatchRef = useRef<Promise<AgentSession | undefined> | undefined>(undefined);
   const running = snapshot.turnStatus === "running";
   const workflowCheckpoint = session.taskState?.workflowUserInputCheckpoint;
@@ -581,6 +593,9 @@ export function AgentWorkspace() {
       window.localStorage.setItem(ACTIVE_SESSION_KEY, result.id);
       window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
       return result;
+    }).catch((error) => {
+      notify({ type: "error", title: "采用操作未完成", message: error instanceof Error ? error.message : "请刷新当前建议后重试。" });
+      return undefined;
     });
   }
 
@@ -607,11 +622,23 @@ export function AgentWorkspace() {
   }
 
   function dispatchOption(option: AgentOption) {
+    if (pendingOptionKeyRef.current) return;
     userInteractedRef.current = true;
     restoreRequestRef.current += 1;
     window.localStorage.setItem(ACTIVE_SESSION_KEY, session.id);
+    const nextOperationKey = agentOptionOperationKey(session.id, option, session.taskState?.updatedAt ?? session.updatedAt);
+    const reusingRetry = option.action.type === "retry_current_step"
+      && pendingOptionKey?.startsWith(`retry:${session.id}:${option.id}:`);
+    const operationKey = reusingRetry ? pendingOptionKey! : nextOperationKey;
+    pendingOptionKeyRef.current = operationKey;
+    setPendingOptionKey(operationKey);
     if (isPresentationOptionAction(option.action)) {
-      void host.state.dispatch({ type: "option", action: option.action }, { session, pageContext: pageContext() });
+      const pending = host.state.dispatch({ type: "option", action: option.action }, { session, pageContext: pageContext() });
+      void pending.catch((error) => notify({ type: "error", title: "操作未完成", message: error instanceof Error ? error.message : "请重试当前操作。" }))
+        .finally(() => {
+          if (pendingOptionKeyRef.current === operationKey) pendingOptionKeyRef.current = undefined;
+          setPendingOptionKey((current) => current === operationKey ? undefined : current);
+        });
       return;
     }
     const event = option.action.type === "select_entity"
@@ -619,15 +646,47 @@ export function AgentWorkspace() {
       : option.action.type === "retry_current_step"
         ? { type: "retry" as const, action: option.action }
         : { type: "option_selected" as const, optionId: option.id, action: option.action };
-    void host.runUserEvent(event, { session, pageContext: pageContext() }).then((result) => {
+    const pending = host.runUserEvent(event, {
+      session,
+      pageContext: pageContext(),
+      ...(option.action.type === "retry_current_step"
+        ? { metadata: { turnOperationId: operationKey, turnOperationKind: "retry" as const } }
+        : {})
+    });
+    void pending.then((result) => {
       if (!result) return;
       setSession(result);
       window.localStorage.setItem(ACTIVE_SESSION_KEY, result.id);
       window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
+    }).catch((error) => {
+      notify({ type: "error", title: "操作未完成", message: error instanceof Error ? error.message : "请重试当前操作。" });
+    }).finally(() => {
+      if (pendingOptionKeyRef.current === operationKey) pendingOptionKeyRef.current = undefined;
+      setPendingOptionKey((current) => current === operationKey ? undefined : current);
     });
   }
 
   const workflowView = useMemo(() => taskToWorkflowView(session), [session]);
+  const conversationMessages = useMemo(() => activeBranchMessages(session).map((message) => {
+    if (!pendingOptionKey || !message.options?.length) return message;
+    const stateVersion = session.taskState?.updatedAt ?? session.updatedAt;
+    const matchesPending = (option: AgentOption) => {
+      const operationKey = agentOptionOperationKey(session.id, option, stateVersion);
+      return operationKey === pendingOptionKey
+        || (option.action.type === "retry_current_step"
+          && pendingOptionKey.startsWith(`retry:${session.id}:${option.id}:`));
+    };
+    const pending = message.options.some(matchesPending);
+    if (!pending) return message;
+    return {
+      ...message,
+      options: message.options.map((option) => ({
+        ...option,
+        disabled: true,
+        label: matchesPending(option) ? `${option.label}（提交中…）` : option.label
+      }))
+    };
+  }), [pendingOptionKey, session]);
   const pinnedProfile = profiles.find((profile) => profile.id === session.activeProfileId);
   const pinnedContextLabel = pinnedProfile
     ? `${pinnedProfile.name} · V${pinnedProfile.profileVersionNumber ?? 1}`
@@ -1110,17 +1169,32 @@ export function AgentWorkspace() {
               ) : null}
               <AgentConversationTimeline
                 key={session.id}
-                 messages={activeBranchMessages(session)}
+                 messages={conversationMessages}
+                 pendingRegenerateMessageId={pendingRegenerateMessageId}
                  onRegenerate={async (message) => {
+                   setPendingRegenerateMessageId(message.id);
+                   try {
                    const result = await host.runUserEvent(
-                     { type: "regenerate", messageId: message.id },
-                     { session, pageContext: pageContext() }
-                   );
-                  if (!result) return;
-                  setSession(result);
-                  window.localStorage.setItem(ACTIVE_SESSION_KEY, result.id);
-                  window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
-                }}
+                      { type: "regenerate", messageId: message.id },
+                      {
+                        session,
+                        pageContext: pageContext(),
+                        metadata: {
+                          turnOperationId: `regenerate:${session.id}:${message.id}:${session.updatedAt}`,
+                          turnOperationKind: "regenerate"
+                        }
+                      }
+                    );
+                     if (!result) return;
+                     setSession(result);
+                     window.localStorage.setItem(ACTIVE_SESSION_KEY, result.id);
+                     window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
+                   } catch (error) {
+                     notify({ type: "error", title: "重新生成未完成", message: error instanceof Error ? error.message : "请重试当前回答。" });
+                   } finally {
+                     setPendingRegenerateMessageId((current) => current === message.id ? undefined : current);
+                   }
+                 }}
                  onEditUserMessage={async (message, content) => {
                    setLastUserMessage(content);
                    const result = await host.runUserEvent(
@@ -1454,7 +1528,7 @@ function taskToWorkflowView(session: AgentSession): TailorWorkflowViewState {
     step: allowedSteps.has(stage ?? "") ? stage as TailorWorkflowViewState["step"] : "select_resume",
     busy: session.activeTurn?.status === "running",
     profileId: task?.selectedEntities.profileId,
-    resumeId: task?.selectedEntities.resumeId,
+    resumeId: task?.selectedEntities.resultResumeId ?? task?.selectedEntities.resumeId,
     jobId: task?.selectedEntities.jobId,
     jobGraph: slots.graph,
     fitAnalysis: slots.fitAnalysis,

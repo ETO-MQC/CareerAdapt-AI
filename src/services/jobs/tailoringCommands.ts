@@ -24,7 +24,7 @@ import {
 } from "@/domain/jobOptimization";
 import type { WorkspaceRepository } from "@/services/storage/repositories";
 import { stableHashText } from "@/services/security/text";
-import { consumeTailoringQuestionAnswer, createTailoringPlan, createTailoringQuestionPlan, tailoringAnswerRevisionHash } from "./tailoringService";
+import { consumeTailoringQuestionAnswer, createTailoringPlan, createTailoringQuestionPlan, isTailoringQuestionPlanComplete, tailoringAnswerRevisionHash } from "./tailoringService";
 import { tailoringDiffId } from "./tailoringDiffId";
 
 export { tailoringDiffId } from "./tailoringDiffId";
@@ -215,7 +215,7 @@ export async function generateTailoringDiffsCommand(input: {
   const accepted: ResumeTailoringDiff[] = [];
   const rejected: Array<{ diff: ResumeTailoringDiff; reasonCode: string }> = [];
   const warnings: string[] = [];
-  if (parsed.session.plan.questionPlan?.status === "asking") {
+  if (!isTailoringQuestionPlanComplete(parsed.session.plan)) {
     throw commandError("tailoring_questions_incomplete");
   }
   const clarifications = [...(parsed.session.plan.clarificationQuestions ?? [])];
@@ -407,12 +407,14 @@ function reviewTailoringDiffResult(operationId: string, session: TailoringSessio
 export function previewTailoringChangesCommand(input: z.input<typeof PreviewTailoringChangesCommandInputSchema>, signal?: AbortSignal) {
   assertNotCancelled(signal);
   const parsed = PreviewTailoringChangesCommandInputSchema.parse(input);
+  const reviewed = reviewedTailoringDiffs(parsed.session);
   return {
     operationId: parsed.operationId,
     ...validateEachTailoringDiffLocally({
       branch: parsed.session.branch,
-      diffs: reviewedTailoringDiffs(parsed.session),
+      diffs: reviewed,
       confirmedRequirementIds: parsed.confirmedRequirementIds,
+      explicitlyAcceptedDiffs: reviewed,
       allowUnconfirmed: false
     })
   };
