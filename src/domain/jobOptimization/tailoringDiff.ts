@@ -9,7 +9,8 @@ import {
   type ResumeTailoringDiff,
   type TailoringDiffRejectionReason,
   type TailoringGap,
-  type TailoringClarificationQuestion
+  type TailoringClarificationQuestion,
+  type TailoringUserDeclaration
 } from "@/domain/schemas";
 import { buildCanonicalJobRequirementGraphV3 } from "./v3";
 import { extractPhraseAwareKeywords, keywordMatchScore } from "./keywordTaxonomy";
@@ -29,6 +30,10 @@ export type TailoringDiffValidationResult = {
 const MECHANICAL_PREFIX = /^(?:围绕|基于).{0,42}(?:复现问题、定位原因并验证结果|：原文|:\s*原文)/;
 const OWNER_UPGRADE = /(?:参与|协助|配合|支持).{0,20}(?:主导|独立负责|全面负责)/;
 const METRIC = /(?:\d+(?:\.\d+)?%|\d+(?:\.\d+)?x|¥\s*\d+|\$\s*\d+|\d+\s*(?:万|亿|用户|stars?))/gi;
+const INTERNAL_FIELD_LABEL = /(?:组织|职位\/角色|项目名称|开始日期|结束日期|进行中|亮点)\s*[:：]/u;
+const MALFORMED_CHINESE = /(?:的的|了了|负责负责|并且和|提升并提升)/u;
+const GENERIC_PROFICIENCY = /^(?:熟练掌握|熟练运用|熟悉|了解|掌握|具备)\s*[^。；;!?！？]{0,32}(?:能力|经验|技能|知识|相关工作|相关任务)[。；;!?！？]?$/u;
+const STRONG_PROFICIENCY = /(?:精通|熟练掌握|熟练运用|独立使用|主导使用)/u;
 
 export function validateEachTailoringDiffLocally(input: {
   branch: ResumeBranch;
@@ -37,6 +42,9 @@ export function validateEachTailoringDiffLocally(input: {
   explicitlyAcceptedDiffs?: ResumeTailoringDiff[];
   allowUnconfirmed?: boolean;
   submissionSafe?: boolean;
+  forbiddenTerms?: string[];
+  confirmedUserDeclarations?: TailoringUserDeclaration[];
+  requirementTexts?: string[];
 }): TailoringDiffValidationResult {
   const appliedDiffs: ResumeTailoringDiff[] = [];
   const rejectedDiffs: TailoringDiffRejection[] = [];
@@ -67,7 +75,16 @@ export function validateEachTailoringDiffLocally(input: {
     }
     const explicitlyAccepted = explicitlyAcceptedDiffs.some((candidate) => sameDiffIdentity(candidate, diff));
     const requirementConfirmed = diff.requirementIds.some((id) => confirmed.has(id));
-    const reason = validateOperation(diff, target.current, confirmed, input.allowUnconfirmed ?? true, explicitlyAccepted);
+    const reason = validateOperation(
+      diff,
+      target.current,
+      confirmed,
+      input.allowUnconfirmed ?? true,
+      explicitlyAccepted,
+      input.forbiddenTerms ?? [],
+      input.confirmedUserDeclarations ?? [],
+      input.requirementTexts ?? []
+    );
     if (reason) {
       rejectedDiffs.push({ diff, reasonCode: reason });
       continue;
@@ -140,6 +157,36 @@ export function diffToFieldPatch(diff: ResumeTailoringDiff) {
   return toFieldPatch(ResumeTailoringDiffSchema.parse(diff));
 }
 
+export function dedupeTailoringDiffs(diffs: ResumeTailoringDiff[]) {
+  const appliedDiffs: ResumeTailoringDiff[] = [];
+  const rejectedDiffs: TailoringDiffRejection[] = [];
+  const seen = new Set<string>();
+  for (const diff of diffs) {
+    const targetKey = `${diff.target.sectionId}:${diff.target.itemId}:${diff.target.fieldPath}:${diff.operation}`;
+    const normalizedValue = normalize(render(diff.value));
+    if (seen.has(targetKey)) {
+      rejectedDiffs.push({ diff, reasonCode: "cross_diff_duplicate" });
+      continue;
+    }
+    const sameSentence = appliedDiffs.some((candidate) => normalize(render(candidate.value)) === normalizedValue);
+    if (sameSentence) {
+      rejectedDiffs.push({ diff, reasonCode: "duplicate_sentence" });
+      continue;
+    }
+    const overlaps = appliedDiffs.some((candidate) => {
+      const requirementOverlap = candidate.requirementIds.some((id) => diff.requirementIds.includes(id));
+      return requirementOverlap && characterOverlap(render(candidate.value), render(diff.value)) >= 0.86;
+    });
+    if (overlaps) {
+      rejectedDiffs.push({ diff, reasonCode: "cross_diff_duplicate" });
+      continue;
+    }
+    seen.add(targetKey);
+    appliedDiffs.push(diff);
+  }
+  return { appliedDiffs, rejectedDiffs, patches: [], warnings: [] };
+}
+
 function resolveTarget(branch: ResumeBranch, diff: ResumeTailoringDiff) {
   const item = branch.structuredContentItems?.find((candidate) => candidate.id === diff.target.itemId);
   if (!item || item.data.sectionType !== diff.target.sectionId) return undefined;
@@ -177,7 +224,10 @@ function validateOperation(
   current: unknown,
   confirmed: Set<string>,
   allowUnconfirmed: boolean,
-  explicitlyAccepted: boolean
+  explicitlyAccepted: boolean,
+  forbiddenTerms: string[],
+  confirmedUserDeclarations: TailoringUserDeclaration[],
+  requirementTexts: string[]
 ): TailoringDiffRejectionReason | undefined {
   if (diff.supportLevel !== "verified" && !allowUnconfirmed && !explicitlyAccepted && !diff.requirementIds.some((id) => confirmed.has(id))) return "confirmation_required";
   if (diff.supportLevel === "verified" && !diff.evidenceRefs.length && !["reorder", "hide"].includes(diff.operation)) return "insufficient_evidence";
@@ -201,10 +251,18 @@ function validateOperation(
   const after = render(diff.value);
   if (!after.trim()) return "empty_value";
   if (normalize(before) === normalize(after)) return "no_op";
+  if (INTERNAL_FIELD_LABEL.test(after) && !INTERNAL_FIELD_LABEL.test(before)) return "internal_field_label";
+  if (Array.isArray(diff.value) && hasDuplicateSentences(diff.value)) return "duplicate_sentence";
+  if (forbiddenTerms.some((term) => termAppearsAsNewText(term, before, after))) return "denied_capability";
+  if (hasProficiencyUpgrade(after, confirmedUserDeclarations)) return "proficiency_upgrade";
+  if (GENERIC_PROFICIENCY.test(after)) return "generic_proficiency_sentence";
+  if (MALFORMED_CHINESE.test(after)) return "malformed_chinese_phrase";
+  if (requirementTexts.some((text) => normalize(text) === normalize(after))) return "jd_parroting";
+  if (looksLikeKeywordStuffing(after, diff.targetKeywords)) return "keyword_stuffing";
   if (MECHANICAL_PREFIX.test(after)) return "mechanical_prefix";
-  if (before.length >= 24 && after.includes(before) && after.length > before.length * 1.15) return "duplicate_original";
+  if (!Array.isArray(current) && !Array.isArray(diff.value) && before.length >= 24 && after.includes(before) && after.length > before.length * 1.15) return "duplicate_original";
   if (before.length >= 50 && after.length < before.length * 0.45) return "truncated_output";
-  if (OWNER_UPGRADE.test(`${before}\n${after}`)) return "responsibility_upgrade";
+  if (OWNER_UPGRADE.test(`${before} ${after}`)) return "responsibility_upgrade";
   const oldMetrics = new Set(before.match(METRIC) ?? []);
   const evidenceText = diff.evidenceRefs.map((ref) => ref.factText).join("\n");
   const invented = (after.match(METRIC) ?? []).filter((metric) => !oldMetrics.has(metric) && !evidenceText.includes(metric));
@@ -270,6 +328,29 @@ function sameValue(left: unknown, right: unknown) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+function hasDuplicateSentences(values: string[]) {
+  const normalized = values.map((value) => normalize(value));
+  return new Set(normalized).size !== normalized.length;
+}
+
+function termAppearsAsNewText(term: string, before: string, after: string) {
+  const normalizedTerm = normalize(term);
+  return normalizedTerm.length > 1 && !normalize(before).includes(normalizedTerm) && normalize(after).includes(normalizedTerm);
+}
+
+function hasProficiencyUpgrade(after: string, declarations: TailoringUserDeclaration[]) {
+  if (!STRONG_PROFICIENCY.test(after)) return false;
+  return declarations.some((declaration) => declaration.proficiency && ["familiar", "aware", "learning"].includes(declaration.proficiency)
+    && normalize(after).includes(normalize(declaration.value)));
+}
+
+function looksLikeKeywordStuffing(after: string, targetKeywords: string[]) {
+  if (!targetKeywords.length) return false;
+  const normalized = normalize(after);
+  const hits = targetKeywords.filter((keyword) => normalized.includes(normalize(keyword))).length;
+  return hits >= 4 && normalized.length < targetKeywords.reduce((total, keyword) => total + keyword.length, 0) * 1.35;
+}
+
 function sameDiffIdentity(left: ResumeTailoringDiff, right: ResumeTailoringDiff) {
   return left.target.sectionId === right.target.sectionId
     && left.target.itemId === right.target.itemId
@@ -285,4 +366,13 @@ function render(value: unknown) {
 
 function normalize(value: string) {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function characterOverlap(left: string, right: string) {
+  const toSet = (value: string) => new Set([...normalize(value).replace(/[\s\p{P}\p{S}]/gu, "")]);
+  const leftSet = toSet(left);
+  const rightSet = toSet(right);
+  if (!leftSet.size || !rightSet.size) return 0;
+  const intersection = [...leftSet].filter((value) => rightSet.has(value)).length;
+  return intersection / Math.max(leftSet.size, rightSet.size);
 }

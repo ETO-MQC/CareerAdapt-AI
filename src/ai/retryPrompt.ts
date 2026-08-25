@@ -102,6 +102,20 @@ export function buildRetryPrompt({
       "Return compact JSON only."
     ].join("\n");
   }
+  if (task === "resume-tailor-diff") {
+    const retryReasons = typeof input === "object" && input && "retryContext" in input
+      ? JSON.stringify((input as { retryContext?: unknown }).retryContext ?? null)
+      : "null";
+    return [
+      baseUserPrompt,
+      "",
+      `The previous diff failed validation (${failure ?? "schema validation failed"}).`,
+      `RETRY DIAGNOSTIC: ${retryReasons}`,
+      "Make one materially different correction for the same target, preserving exactOriginal and all evidence restrictions.",
+      "Do not force a change: if the original is already good or evidence remains insufficient, return {\"diffs\":[],\"clarifications\":[]}.",
+      "Return only {\"diffs\":[],\"clarifications\":[]} matching the resume-tailor-diff schema."
+    ].join("\n");
+  }
   if (!task.startsWith("resume-tailor")) return [baseUserPrompt, "", `Previous ${task} response failed (${failure ?? "schema validation failed"}).`, "Return only compact JSON matching this task's requested schema; do not use another task's example."].join("\n");
   const reason = failure === "resume_tailor_requirement_out_of_scope" || failure === "resume_tailor_requirement_binding_failed" ? "requirementIds did not match the supplied IDs" : failure === "resume_tailor_after_missing" ? "after was missing" : failure === "resume_tailor_no_op" ? "after was identical to before" : failure === "no_change_needed" ? "the response contained no suggestion" : failure ?? "schema validation failed";
   return [baseUserPrompt, "", `Previous response failed because ${reason}.`, "Return only:", '{"suggestions":[{"after":"...","rationale":"...","requirementIds":["an ID copied from relevantRequirements"]}]}'].join("\n");

@@ -652,14 +652,7 @@ function createMockOutput(task: AiTask, input: unknown) {
     if (!itemId) return { diffs: [], clarifications: [] };
     const evidenceRefs = diffInput.allowedEvidenceRefs.slice(0, 3);
     if (!evidenceRefs.length) {
-      return {
-        diffs: [],
-        clarifications: [{
-          question: `请补充一个可核验案例，说明你如何满足“${diffInput.relevantRequirements[0]?.description ?? "该岗位要求"}”。`,
-          requirementIds: diffInput.relevantRequirements.map((item) => item.requirementId).slice(0, 3),
-          answerType: "text"
-        }]
-      };
+      return { diffs: [], clarifications: [] };
     }
     return {
       diffs: [{

@@ -1209,24 +1209,44 @@ export const aiTaskRegistry = {
     maxOutputChars: 8_000,
     buildUserPrompt(input: ResumeTailoringDiffTaskInput) {
       return JSON.stringify({
-        target: {
-          sectionType: input.target.sectionType,
-          sectionId: input.target.sectionId,
-          itemId: input.target.itemId,
-          fieldPath: input.target.fieldPath
+        FACT: {
+          target: input.target,
+          exactOriginal: input.currentContent.fieldValue,
+          structuredItem: input.currentContent.structuredItem,
+          renderedText: input.currentContent.renderedText,
+          evidenceBundle: {
+            directEvidence: input.evidenceBundle?.directEvidence ?? [],
+            relatedResumeEvidence: input.evidenceBundle?.relatedResumeEvidence ?? [],
+            relatedProfileEvidence: input.evidenceBundle?.relatedProfileEvidence ?? [],
+            confirmedUserDeclarations: input.evidenceBundle?.confirmedUserDeclarations ?? [],
+            negativeUserDeclarations: input.evidenceBundle?.negativeUserDeclarations ?? [],
+            uncertainUserDeclarations: input.evidenceBundle?.uncertainUserDeclarations ?? [],
+            confirmableSignals: input.evidenceBundle?.confirmableSignals ?? []
+          },
+          allowedEvidenceRefs: input.allowedEvidenceRefs,
+          allowedFacts: input.allowedFacts
         },
-        structuredItem: input.currentContent.structuredItem,
-        renderedText: input.currentContent.renderedText,
-        exactOriginal: input.currentContent.fieldValue,
-        relevantRequirements: input.relevantRequirements,
-        requirementDetails: input.requirementDetails,
-        directEvidence: input.evidenceBundle?.directEvidence ?? [],
-        relatedResumeEvidence: input.evidenceBundle?.relatedResumeEvidence ?? [],
-        relatedProfileEvidence: input.evidenceBundle?.relatedProfileEvidence ?? [],
-        confirmableSignals: input.evidenceBundle?.confirmableSignals ?? [],
-        intensity: input.intensity,
-        allowedOperation: input.allowedOperation,
-        allowedEvidenceRefs: input.allowedEvidenceRefs,
+        REQUIREMENT: {
+          relevantRequirements: input.relevantRequirements,
+          requirementDetails: input.requirementDetails
+        },
+        CONTEXT: {
+          job: {
+            title: input.jobContext.title,
+            company: input.jobContext.company,
+            roleMission: input.jobContext.roleMission,
+            responsibilities: input.jobContext.responsibilities.slice(0, 4),
+            mustHave: input.jobContext.mustHave.slice(0, 4),
+            niceToHave: input.jobContext.niceToHave.slice(0, 4),
+            tools: input.jobContext.tools.slice(0, 12),
+            keywords: input.jobContext.keywords.slice(0, 16)
+          },
+          intensity: input.intensity,
+          allowedOperation: input.allowedOperation,
+          wholeResumeContext: input.wholeResumeContext ?? {}
+        },
+        "CONFIRMED USER DECLARATION": input.evidenceBundle?.confirmedUserDeclarations ?? [],
+        "RETRY DIAGNOSTIC": input.retryContext ?? null,
         outputContract: {
           diffs: [{
             target: { sectionId: "copy target.sectionId", itemId: "copy target.itemId", fieldPath: "copy target.fieldPath" },
@@ -1239,7 +1259,7 @@ export const aiTaskRegistry = {
             evidenceRefs: ["copy allowed evidence refs"],
             supportLevel: "verified | reasonable_inference | user_declared"
           }],
-          clarifications: [{ question: "concrete missing fact question", requirementIds: ["copy requirement ids"], answerType: "boolean | proficiency | multi_select | text | url" }]
+          clarifications: []
         }
       }, null, 2);
     },

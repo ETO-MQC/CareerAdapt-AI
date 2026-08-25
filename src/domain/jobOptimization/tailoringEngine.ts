@@ -62,7 +62,15 @@ export function routeTailoringRequirements(input: {
 }): TailoringRequirement[] {
   const graph = buildCanonicalJobRequirementGraphV3(input.job);
   const source = graph.requirements.map((item) => ({
-    id: item.id, description: item.statement, priority: item.priority, category: item.kind, keywords: unique([...item.exactKeywords, ...item.details.flatMap((detail) => tokenize(detail.text))])
+    id: item.id,
+    description: item.statement,
+    priority: item.priority,
+    category: item.kind,
+    keywords: unique([...item.exactKeywords, ...item.details.flatMap((detail) => tokenize(detail.text))]),
+    detailClauses: item.details.map((detail) => detail.text).filter(Boolean).slice(0, 4),
+    semanticAliases: item.semanticAliases,
+    hardConstraint: item.hardConstraint,
+    parentGroupId: item.parentGroupId
   }));
   const haystack = normalize(`${input.itemId ?? ""} ${input.renderedText}`);
   return source.map((item) => {
@@ -77,6 +85,10 @@ export function routeTailoringRequirements(input: {
       category: item.category,
       evidenceNeed: evidenceNeedForRequirement(item.category, item.description),
       keywords: unique(item.keywords.filter(isUsefulKeyword)),
+      detailClauses: item.detailClauses,
+      semanticAliases: unique(item.semanticAliases.filter(isUsefulKeyword)).slice(0, 8),
+      hardConstraint: item.hardConstraint,
+      ...(item.parentGroupId ? { parentGroupId: item.parentGroupId } : {}),
       // categoryRelevance bottoms out at -3. Offset every score equally so the
       // Zod contract stays non-negative without changing requirement ordering.
       relevanceScore: keywordHits * 12 + descriptionHits * 2 + categoryScore + priorityScore + 3
@@ -268,6 +280,7 @@ export function createResumeTailorTaskInputs(input: {
         relevantRequirements,
         allowedEvidenceRefs,
         evidenceBundle,
+        wholeResumeContext: buildWholeResumeContext({ branch: input.branch, targetItemId: target.item.id, relevantRequirements }),
         allowedFacts: allowedFacts.length ? allowedFacts : unique(allowedEvidenceRefs.map((ref) => ref.factText)).map((value) => ({ value, evidenceRefs: allowedEvidenceRefs.filter((ref) => ref.factText === value) }))
       })];
     })
@@ -298,8 +311,52 @@ export function buildTailoringEvidenceBundle(input: {
     directEvidence,
     relatedResumeEvidence,
     relatedProfileEvidence,
-    confirmableSignals: unique(input.requirements.flatMap((requirement) => requirement.keywords)).filter((keyword) => !ranked.some(({ unit }) => normalize(unit.text).includes(normalize(keyword)))).slice(0, 8)
+    confirmableSignals: unique(input.requirements.flatMap((requirement) => requirement.keywords)).filter((keyword) => !ranked.some(({ unit }) => normalize(unit.text).includes(normalize(keyword)))).slice(0, 8),
+    confirmedUserDeclarations: [],
+    negativeUserDeclarations: [],
+    uncertainUserDeclarations: []
   };
+}
+
+export function buildWholeResumeContext(input: {
+  branch: ResumeBranch;
+  targetItemId: string;
+  relevantRequirements?: TailoringRequirement[];
+}) {
+  const structuredItems = [...(input.branch.structuredContentItems ?? [])].sort((a, b) => a.order - b.order);
+  const targetIndex = structuredItems.findIndex((item) => item.id === input.targetItemId);
+  const nearby = targetIndex < 0 ? [] : structuredItems
+    .slice(Math.max(0, targetIndex - 2), targetIndex + 3)
+    .filter((item) => item.id !== input.targetItemId)
+    .map((item) => compactItemLine(input.branch, item.id))
+    .filter((line): line is string => Boolean(line))
+    .slice(0, 6);
+  const summary = structuredItems
+    .find((item) => item.data.sectionType === "summary")?.data;
+  const summaryText = summary && "text" in summary ? summary.text.slice(0, 600) : undefined;
+  const topCapabilityPhrases = unique(structuredItems.flatMap((item) => {
+    const data = item.data as Record<string, unknown>;
+    const values = [data.name, ...(Array.isArray(data.tools) ? data.tools : []), ...(Array.isArray(data.methods) ? data.methods : [])];
+    return values.filter((value): value is string => typeof value === "string" && value.trim().length > 1);
+  })).slice(0, 12);
+  return {
+    ...(summaryText ? { summary: summaryText } : {}),
+    neighboringLines: nearby,
+    topCapabilityPhrases,
+    alreadySelectedRequirementIds: unique((input.relevantRequirements ?? []).map((item) => item.requirementId)).slice(0, 8),
+    nearbyItemIds: structuredItems.slice(Math.max(0, targetIndex - 2), targetIndex < 0 ? 0 : targetIndex + 3).map((item) => item.id).slice(0, 8)
+  };
+}
+
+function compactItemLine(branch: ResumeBranch, itemId: string) {
+  const structured = branch.structuredContentItems?.find((item) => item.id === itemId);
+  const legacy = branch.contentItems.find((item) => item.id === itemId)?.text;
+  const data = structured?.data as Record<string, unknown> | undefined;
+  if (!data && !legacy) return undefined;
+  const fields = [data?.title, data?.name, data?.role, data?.organization, data?.description,
+    ...(Array.isArray(data?.highlights) ? data.highlights : [])]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+  return (fields.join(" · ") || legacy)?.slice(0, 240);
 }
 
 function profileEvidenceFacts(profile: CareerProfile) {

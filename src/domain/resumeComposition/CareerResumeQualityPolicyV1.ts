@@ -11,14 +11,22 @@ export const CareerResumeQualityPolicyV1 = {
     "employer_pain_point_relevance",
     "objective_and_interview_defensible",
     "experience_priority_over_filler",
-    "evidence_over_decoration"
+    "evidence_over_decoration",
+    "direct_evidence_over_similarity",
+    "ownership_preservation",
+    "technical_specificity_without_keyword_stuffing",
+    "no_change_needed_is_valid"
   ] as const,
   writerInstructions: [
     "Lead with an accomplishment, decision, or concrete contribution whenever the confirmed evidence supports one; do not fill space with personality adjectives.",
     "Prefer the sequence Context → Goal → Action → Method → Result/Verification → Reflection, but omit unsupported stages rather than inventing them.",
     "Prioritize the employer's likely pain point and the target objective, while keeping every statement interview-defensible from the supplied evidence.",
     "Give real experience and demonstrated work priority over generic skills, filler summary language, and decorative keywords.",
-    "Metrics, scale, ownership, outcomes, and technical methods require direct or confirmed evidence; Fact Guard remains authoritative."
+    "Metrics, scale, ownership, outcomes, and technical methods require direct or confirmed evidence; Fact Guard remains authoritative.",
+    "Use evidence in this order: direct target experience, related resume experience, confirmed profile fact, then explicit user declaration; a job description never proves a fact.",
+    "Preserve the source's participation, assistance, cooperation, ownership, independence, and leadership level; never upgrade a verb to make a match look stronger.",
+    "Summary may synthesize verified experience once; project/work/internship should carry concrete methods and verification; skills may support experience but cannot introduce a capability.",
+    "Keep technical nouns and methods specific, but do not concatenate keywords, parrot requirement wording, repeat a sentence, or force a rewrite when the original is already fit."
   ] as const,
   reviewerWarnings: {
     genericSummary: "resume_quality.summary_generic",

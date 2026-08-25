@@ -48,6 +48,7 @@ import {
   TailoringSuggestionSchema
 } from "@/domain/schemas";
 import { resolveBranchFactRefs } from "@/domain/branch/validation";
+import { promptVersions } from "@/ai/prompts/versions";
 import { stableHashText } from "@/services/security/text";
 import type { WorkspaceRepository } from "@/services/storage/repositories";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
@@ -123,7 +124,7 @@ export function createTailoringPlan(input: {
     branchId: input.branch.id,
     jobId: input.job.id,
     intensity,
-    promptVersion: "resume-tailor.v2",
+    promptVersion: promptVersions.resumeTailoringDiff,
     jobContext,
     basedOnBranchRevision: input.branch.revision,
     basedOnRevisionId: input.branch.currentRevisionId,

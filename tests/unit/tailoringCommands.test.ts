@@ -3,7 +3,7 @@ import { demoCareerProfile } from "@/data/demoProfile";
 import { demoJobDescriptions } from "@/data/demoJobs";
 import { buildJobBranchFromProfile } from "@/domain/branch/profileBranch";
 import { canonicalProfileLibraryItems } from "@/domain/profile/canonicalLibrary";
-import { ResumeTailorTaskInputV2Schema, type ResumeTailoringDiffTaskInput } from "@/domain/schemas";
+import { ResumeTailorTaskInputV2Schema, ResumeTailoringPlanSchema, type ResumeTailoringDiffTaskInput } from "@/domain/schemas";
 import {
   analyzeJobCommand,
   applyTailoringSessionCommand,
@@ -126,6 +126,77 @@ describe("headless tailoring commands", () => {
     expect(generate).toHaveBeenCalledTimes(2);
     expect(result.appliedDiffs).toHaveLength(1);
     expect(result.rejectedDiffs).toHaveLength(0);
+    const noChange = vi.fn(async () => ({ diffs: [], clarifications: [] }));
+    const noChangeResult = await generateTailoringDiffsCommand({
+      operationId: "generate-command-no-change",
+      session,
+      generate: noChange
+    });
+    expect(noChange).toHaveBeenCalledTimes(1);
+    expect(noChangeResult.appliedDiffs).toHaveLength(0);
+    expect(noChangeResult.session.plan.generationDiagnostics).toEqual(expect.arrayContaining([{ code: "no_change_needed", targetItemId: session.taskInputs[0].target.itemId }]));
+
+    const requirementId = session.taskInputs[0].relevantRequirements[0].requirementId;
+    const itemId = session.taskInputs[0].target.itemId!;
+    const answeredQuestion = {
+      id: "q-capability",
+      question: "你是否使用过 Cursor？",
+      requirementIds: [requirementId],
+      sourceItemIds: [itemId],
+      relatedItemIds: [itemId],
+      candidateClaim: "Cursor",
+      targetFieldPaths: [session.taskInputs[0].target.fieldPath],
+      answerType: "boolean" as const,
+      status: "answered" as const
+    };
+    const blockedSession = {
+      ...session,
+      plan: ResumeTailoringPlanSchema.parse({
+        ...session.plan,
+        clarificationQuestions: [answeredQuestion],
+        clarificationAnswers: [{ questionId: "q-capability", status: "rejected", answer: false, answerRevision: 1, resolvedAt: NOW }],
+        answerReceipts: [{ questionPlanId: "question-plan-1", questionPlanRevision: 1, questionId: "q-capability", answerMessageId: "answer-message-1", disposition: "none", consumedAt: NOW }],
+        questionPlan: { questionPlanVersion: 2, id: "question-plan-1", sessionId: session.id, revision: 1, status: "completed", defaultBudget: 1, maximumBudget: 1, questionIds: ["q-capability"], answeredQuestionIds: ["q-capability"], skippedQuestionIds: [], uncertainQuestionIds: [], createdAt: NOW, completedAt: NOW }
+      })
+    };
+    const blockedRequests: ResumeTailoringDiffTaskInput[] = [];
+    const blockedResult = await generateTailoringDiffsCommand({
+      operationId: "generate-command-denied-capability",
+      session: blockedSession,
+      generate: vi.fn(async (request: ResumeTailoringDiffTaskInput) => {
+        blockedRequests.push(request);
+        return { diffs: [], clarifications: [] };
+      })
+    });
+    expect(blockedRequests[0].evidenceBundle?.negativeUserDeclarations[0]?.value).toBe("Cursor");
+    expect(blockedResult.appliedDiffs).toHaveLength(0);
+
+    const positiveQuestion = { ...answeredQuestion, id: "q-positive", candidateClaim: "Claude Code" };
+    const positiveSession = {
+      ...session,
+      plan: ResumeTailoringPlanSchema.parse({
+        ...session.plan,
+        clarificationQuestions: [positiveQuestion],
+        clarificationAnswers: [{ questionId: "q-positive", status: "accepted", answer: "Claude Code 使用 4 个月", proficiency: "familiar", answerRevision: 1, resolvedAt: NOW }],
+        answerReceipts: [{ questionPlanId: "question-plan-2", questionPlanRevision: 1, questionId: "q-positive", answerMessageId: "answer-message-2", disposition: "answered", answerText: "Claude Code 使用 4 个月", consumedAt: NOW }],
+        questionPlan: { questionPlanVersion: 2, id: "question-plan-2", sessionId: session.id, revision: 1, status: "completed", defaultBudget: 1, maximumBudget: 1, questionIds: ["q-positive"], answeredQuestionIds: ["q-positive"], skippedQuestionIds: [], uncertainQuestionIds: [], createdAt: NOW, completedAt: NOW }
+      })
+    };
+    const positiveRequests: ResumeTailoringDiffTaskInput[] = [];
+    const positiveResult = await generateTailoringDiffsCommand({
+      operationId: "generate-command-positive-capability",
+      session: positiveSession,
+      generate: vi.fn(async (request: ResumeTailoringDiffTaskInput) => {
+        positiveRequests.push(request);
+        const original = request.currentContent.fieldValue;
+        return {
+          diffs: [{ target: { sectionId: request.target.sectionId, itemId: request.target.itemId!, fieldPath: request.target.fieldPath }, operation: "replace" as const, original, value: Array.isArray(original) ? [...original, "熟悉 Claude Code 在真实任务中的使用"] : `${original}；熟悉 Claude Code 在真实任务中的使用`, reason: "根据用户已确认的使用经历做范围受控改写", requirementIds: [requirementId], targetKeywords: [], evidenceRefs: [], supportLevel: "user_declared" as const }],
+          clarifications: []
+        };
+      })
+    });
+    expect(positiveRequests[0].evidenceBundle?.confirmedUserDeclarations[0]?.value).toContain("Claude Code");
+    expect(positiveResult.appliedDiffs).toHaveLength(1);
     const diffId = tailoringDiffId(result.appliedDiffs[0]);
     const accepted = reviewTailoringDiffCommand({
       operationId: "review-diff-command-1",
@@ -174,34 +245,11 @@ describe("headless tailoring commands", () => {
       selectedDiffs: accepted.selectedDiffs
     })).rejects.toMatchObject({ code: "tailoring_apply_verification_failed" });
 
-    const consolidated = vi.fn(async (requests: ResumeTailoringDiffTaskInput[]) => ({
-      diffs: requests.map((request) => ({
-        target: {
-          sectionId: request.target.sectionId,
-          itemId: request.target.itemId!,
-          fieldPath: request.target.fieldPath as "text" | "description" | "highlights" | "name" | "visible" | "order"
-        },
-        operation: "replace" as const,
-        original: request.currentContent.fieldValue,
-        value: Array.isArray(request.currentContent.fieldValue)
-          ? request.currentContent.fieldValue.map((item, index) => index === 0 ? `${item}。` : item)
-          : `${request.currentContent.fieldValue.replace(/[。；;]$/, "")}；突出岗位相关交付。`,
-        reason: "一次总体优化中生成的岗位相关表达",
-        requirementIds: request.relevantRequirements.map((item) => item.requirementId),
-        targetKeywords: request.relevantRequirements.flatMap((item) => item.keywords).slice(0, 3),
-        evidenceRefs: [],
-        supportLevel: "reasonable_inference" as const
-      }))
-    }));
-    const fallback = vi.fn();
-    const consolidatedResult = await generateTailoringDiffsCommand({
-      operationId: "generate-command-consolidated",
-      session,
-      generate: fallback,
-      generateConsolidated: consolidated
+    expect(result.generationStats).toEqual({
+      selectedTargetCount: 1,
+      providerCallCount: 2,
+      retryCount: 1,
+      acceptedDiffCount: 1
     });
-    expect(consolidated).toHaveBeenCalledTimes(1);
-    expect(fallback).not.toHaveBeenCalled();
-    expect(consolidatedResult.appliedDiffs).toHaveLength(1);
   });
 });

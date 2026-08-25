@@ -5,8 +5,6 @@ import {
   JobTargetSnapshotSchema,
   type JobTargetSnapshot,
   RawInputDocumentSchema,
-  ResumeTailorBatchInputSchema,
-  ResumeTailorModelOutputSchema,
   ResumeTailoringDiffSchema,
   type ImportedResumeDraft,
   type ProfileReconciliationPlan,
@@ -2068,63 +2066,6 @@ export class BrowserAgentToolService implements AgentToolServices {
         });
         if (!result.ok) throw toolError(result.errorCode, "AI could not generate a validated tailoring diff.");
         return result.data;
-      },
-      generateConsolidated: async (requests: ResumeTailoringDiffTaskInput[], requestSignal?: AbortSignal) => {
-        const first = requests[0];
-        const batchInput = ResumeTailorBatchInputSchema.parse({
-          draftId: first.draftId,
-          profileId: first.profileId,
-          jobId: first.jobId,
-          intensity: first.intensity,
-          compactJobContext: {
-            title: first.jobContext.title,
-            roleMission: first.jobContext.roleMission,
-            topResponsibilities: first.jobContext.responsibilities.slice(0, 4),
-            targetKeywords: first.jobContext.keywords.slice(0, 16)
-          },
-          targets: requests.map((request) => ({
-            itemId: request.target.itemId,
-            sectionType: request.target.sectionType,
-            sectionId: request.target.sectionId,
-            fieldPath: request.target.fieldPath,
-            structuredItem: request.currentContent.structuredItem,
-            before: request.currentContent.fieldValue,
-            renderedText: request.currentContent.renderedText,
-            relevantRequirements: request.relevantRequirements,
-            evidenceBundle: request.evidenceBundle,
-            allowedEvidenceRefs: request.allowedEvidenceRefs,
-            allowedFacts: request.allowedFacts
-          }))
-        });
-        const result = await invokeStructuredAi({
-          task: "resume-tailor-batch",
-          businessInput: batchInput,
-          outputSchema: ResumeTailorModelOutputSchema,
-          signal: requestSignal
-        });
-        if (!result.ok) throw toolError(result.errorCode, "AI could not generate a consolidated tailoring plan.");
-        const targetByItemId = new Map(requests.map((request) => [request.target.itemId, request]));
-        const suggestions = result.data.suggestions as Array<Record<string, unknown>>;
-        const diffs = suggestions.flatMap((suggestion) => {
-          const request = targetByItemId.get(String(suggestion.targetItemId ?? suggestion.itemId ?? ""));
-          if (!request) return [];
-          return [ResumeTailoringDiffSchema.parse({
-            target: {
-              sectionId: request.target.sectionId,
-              itemId: request.target.itemId,
-              fieldPath: request.target.fieldPath
-            },
-            operation: "replace",
-            original: request.currentContent.fieldValue,
-            value: suggestion.after,
-            reason: suggestion.rationale,
-            requirementIds: suggestion.requirementIds ?? [],
-            targetKeywords: suggestion.targetKeywords ?? [],
-            evidenceRefs: suggestion.evidenceRefs ?? request.allowedEvidenceRefs,
-            supportLevel: suggestion.claimSupportLevel ?? "verified"
-          })];
-        });
-        return { diffs };
       }
     });
   }

@@ -8,6 +8,7 @@ export const promptVersions = {
   jdAnalyzer: "jd-analyzer.v3-unit-ledger",
   evidenceMatcher: "evidence-matcher.v2",
   resumeTailor: "resume-tailor.v3-minimal-output",
+  resumeTailoringDiff: "resume-tailoring-diff.v4-quality-closure",
   resumeOptimizationPlanner: "resume-optimization-planner.v1",
   factGuard: "fact-guard.v1"
 } as const;
