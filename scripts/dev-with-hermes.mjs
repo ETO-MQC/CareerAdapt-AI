@@ -64,7 +64,7 @@ if (appAlreadyRunning) {
   // dev server has the same safety fuse.
   environment.NODE_OPTIONS = `${environment.NODE_OPTIONS ?? ""} --max-old-space-size=4096`.trim();
   applyEnvironment(environment);
-  nextProcess = spawnPnpm(["exec", "next", "dev", "--hostname", host, "--port", String(appPort)], {
+  nextProcess = spawnPnpm(["exec", "next", "dev", "--webpack", "--hostname", host, "--port", String(appPort)], {
     cwd: projectRoot,
     env: environment,
     stdio: "inherit",

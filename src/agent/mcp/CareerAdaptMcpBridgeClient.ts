@@ -316,8 +316,12 @@ export class CareerAdaptMcpBridgeClient {
       const payload = await response.json() as { ok?: boolean; requests?: BridgeRequest[] };
       if (!payload.ok) throw new Error("mcp_bridge_poll_failed");
       this.publish({ connected: true, discoveredToolCount: this.gateway.listContracts().length });
-      for (const request of payload.requests ?? []) await this.execute(request);
-      this.schedulePoll(150);
+      const requests = payload.requests ?? [];
+      for (const request of requests) await this.execute(request);
+      // An empty bridge queue is the normal idle state. Polling it every 150ms
+      // creates unnecessary browser/Next work and can keep the dev server hot.
+      // Drain newly queued work immediately, then settle to a 1s idle cadence.
+      this.schedulePoll(requests.length > 0 ? 0 : 1_000);
     } catch (error) {
       this.publish({ connected: false, discoveredToolCount: 0, reason: safeError(error) });
       if (!this.stopped) {

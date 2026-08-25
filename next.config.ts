@@ -7,7 +7,7 @@ const appBuildCommit = process.env.NEXT_PUBLIC_APP_BUILD_COMMIT?.trim()
   || "workspace-source";
 const appBuildTimestamp = process.env.NEXT_PUBLIC_APP_BUILD_TIMESTAMP?.trim()
   || process.env.APP_BUILD_TIMESTAMP?.trim()
-  || new Date().toISOString();
+  || (process.env.NODE_ENV === "production" ? new Date().toISOString() : "development");
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],

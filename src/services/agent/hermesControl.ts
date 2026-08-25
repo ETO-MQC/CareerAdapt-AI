@@ -699,10 +699,17 @@ export async function notifyHermesRendererReady(settings?: HermesStartSettings) 
 export async function getHermesStatus() {
   if (typeof window === "undefined") return undefined;
   if (window.careerAdaptDesktop) return window.careerAdaptDesktop.getHermesStatus();
-  const response = await fetch(WEB_HERMES_CONTROL_ENDPOINT, { cache: "no-store" });
-  if (!response.ok) return undefined;
-  const payload = await response.json() as { snapshot?: HermesSupervisorSnapshot };
-  return payload.snapshot;
+  try {
+    const response = await fetch(WEB_HERMES_CONTROL_ENDPOINT, { cache: "no-store" });
+    if (!response.ok) return undefined;
+    const payload = await response.json() as { snapshot?: HermesSupervisorSnapshot };
+    return payload.snapshot;
+  } catch {
+    // A web Hermes supervisor may be unavailable during startup or after a
+    // server restart. Status observation is best-effort and must not create
+    // an unhandled browser rejection.
+    return undefined;
+  }
 }
 
 export function subscribeHermesStatus(listener: (snapshot: HermesSupervisorSnapshot) => void) {
@@ -710,11 +717,22 @@ export function subscribeHermesStatus(listener: (snapshot: HermesSupervisorSnaps
   if (window.careerAdaptDesktop) return window.careerAdaptDesktop.subscribeHermesStatus(listener);
   let stopped = false;
   let timer: number | undefined;
+  let consecutiveFailures = 0;
   const poll = async () => {
     if (stopped) return;
     const snapshot = await getHermesStatus();
-    if (snapshot && !stopped) listener(snapshot);
-    if (!stopped) timer = window.setTimeout(() => { void poll(); }, 2_000);
+    if (snapshot && !stopped) {
+      consecutiveFailures = 0;
+      listener(snapshot);
+    } else {
+      consecutiveFailures += 1;
+    }
+    if (!stopped) {
+      const delay = snapshot
+        ? 2_000
+        : Math.min(30_000, 2_000 * (2 ** Math.min(consecutiveFailures, 4)));
+      timer = window.setTimeout(() => { void poll(); }, delay);
+    }
   };
   void poll();
   return () => {

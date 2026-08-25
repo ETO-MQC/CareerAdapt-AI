@@ -1,5 +1,4 @@
 import path from "node:path";
-import { createRequire } from "node:module";
 import type {
   HermesConfigSchema,
   HermesConfigSnapshot,
@@ -116,11 +115,16 @@ function loadHermesCompanionModule() {
 }
 
 function loadCommonJsModule(fileName: string) {
-  const runtimeRequire = createRequire(import.meta.url);
   const modulePath = path.join(process.cwd(), "electron", fileName);
-  // Keep this development-only bridge outside Turbopack's static module graph.
-  const load = Function("requireModule", "target", "return requireModule(target);") as (requireModule: NodeRequire, target: string) => unknown;
-  return load(runtimeRequire, modulePath);
+  // Keep this development-only bridge outside the bundler's static module
+  // graph. `node:module` is replaced by an empty webpack context in dev
+  // bundles, so obtain the native loader from Node at runtime instead.
+  const builtinModule = typeof process.getBuiltinModule === "function"
+    ? process.getBuiltinModule("node:module") as { createRequire(filename: string): NodeRequire }
+    : undefined;
+  const runtimeRequire = builtinModule?.createRequire(path.join(process.cwd(), "package.json"))
+    ?? Function("return require")() as NodeRequire;
+  return runtimeRequire(modulePath);
 }
 
 function hasRuntimeApiKey(environment: Record<string, string>) {

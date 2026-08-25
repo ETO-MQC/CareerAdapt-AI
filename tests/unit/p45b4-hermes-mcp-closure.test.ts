@@ -5,7 +5,7 @@ import {
   hermesRegisteredCareerToolName,
   projectCareerContractsForHermes
 } from "@/agent/runtime/hermes/HermesCareerToolCatalog";
-import { parseHermesToolsetsPayload } from "@/app/api/agent/runtime/hermes/health/route";
+import { parseHermesToolsetsPayload } from "@/app/api/agent/runtime/hermes/health/toolsets";
 import { RuntimeHealthSchema, isRoadshowReady } from "@/agent/runtime/runtimeHealth";
 
 describe("P4.5b.4.2 embedded Hermes MCP closure", () => {

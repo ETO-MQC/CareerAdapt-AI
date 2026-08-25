@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "node --max-old-space-size=4096 scripts/dev-with-hermes.mjs",
     "dev:watch": "node scripts/dev-watchdog.mjs",
-    "dev:next": "next dev",
+    "dev:next": "next dev --webpack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
