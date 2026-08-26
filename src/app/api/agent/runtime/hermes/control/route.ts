@@ -19,6 +19,7 @@ const CONTROL_ACTIONS = new Set<HermesControlAction>([
   "restart",
   "recover",
   "update_config",
+  "reload_config",
   "reset_config"
 ]);
 
@@ -108,6 +109,7 @@ async function runAction(
   if (action === "restart") return supervisor.restart(readRestartOptions(body.options));
   if (action === "recover") return supervisor.recover();
   if (action === "update_config") return supervisor.updateConfig(requestedSettings ?? emptySettings());
+  if (action === "reload_config") return supervisor.reloadConfigFromEnvironment();
   return supervisor.resetConfig();
 }
 

@@ -506,6 +506,7 @@ function resolveHermesLaunch(environment, options, childEnvironment) {
 
 function hermesConfigurationFingerprint(environment) {
   return crypto.createHash("sha256").update(JSON.stringify({
+    provider: firstValue(environment.AI_PROVIDER, environment.HERMES_PROVIDER),
     baseUrl: firstValue(environment.AI_BASE_URL, environment.HERMES_BASE_URL, environment.OPENAI_BASE_URL),
     model: firstValue(environment.AI_MODEL, environment.HERMES_MODEL, environment.HERMES_INFERENCE_MODEL),
     apiKey: firstValue(environment.AI_API_KEY, environment.OPENAI_API_KEY),

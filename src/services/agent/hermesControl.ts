@@ -113,6 +113,7 @@ export type HermesControlAction =
   | "test_provider"
   | "stop_current_run"
   | "update_config"
+  | "reload_config"
   | "reset_config";
 
 export type HermesControlActionReceipt = {
@@ -257,9 +258,16 @@ export type HermesConfigSnapshot = {
   model?: string;
   apiKeyConfigured: boolean;
   credentialSource?: HermesCredentialSource;
+  sources?: {
+    provider: HermesCredentialSource;
+    baseUrl: HermesCredentialSource;
+    model: HermesCredentialSource;
+    credential: HermesCredentialSource;
+  };
   providerDiagnostic?: HermesProviderDiagnostic;
   version?: string;
   configPath?: string;
+  runtimeConfigWritable?: boolean;
   capabilities?: HermesSupervisorSnapshot["capabilities"];
   locked: Record<string, boolean>;
 };
@@ -268,6 +276,7 @@ export type HermesConfigSchema = {
   version?: string;
   bundledRuntime: boolean;
   adminConfigWritable: boolean;
+  runtimeConfigWritable?: boolean;
   supportedEndpoints: string[];
   unsupportedEndpoints: string[];
   supportedFields: Array<{ key: string; label: string; editable: boolean; secret?: boolean }>;
@@ -783,6 +792,11 @@ export async function getHermesConfigSchema() {
 export async function requestHermesConfigUpdate(settings: HermesStartSettings) {
   if (hermesRuntimeEnvironment() === "web") return requestWebHermesControl("update_config", { settings });
   return window.careerAdaptDesktop!.updateHermesConfig(settings);
+}
+
+export async function requestHermesEnvironmentReload() {
+  if (hermesRuntimeEnvironment() === "web") return requestWebHermesControl("reload_config");
+  return window.careerAdaptDesktop!.reloadHermesConfig();
 }
 
 export async function requestHermesConfigReset() {

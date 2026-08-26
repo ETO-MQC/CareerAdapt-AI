@@ -5,6 +5,7 @@ const path = require("path");
 const {
   applyEnvironment,
   hermesConfigurationFingerprint,
+  loadCareerAdaptEnvironment,
   startHermesCompanion,
   stopHermesCompanion
 } = require("./hermesCompanion");
@@ -76,7 +77,7 @@ class HermesSupervisor {
     this.maintenancePending = false;
     this.maintenanceReasonCode = undefined;
     this.failureTimeSnapshot = undefined;
-    this.credentialSource = firstValue(this.environment.AI_API_KEY, this.environment.OPENAI_API_KEY, this.environment.HERMES_API_KEY, this.environment.HERMES_RUNTIME_API_KEY)
+    this.credentialSource = firstValue(this.environment.AI_API_KEY, this.environment.OPENAI_API_KEY, this.environment.HERMES_API_KEY)
       ? "server_env"
       : "missing";
     this.snapshot = this.createInitialSnapshot();
@@ -101,7 +102,7 @@ class HermesSupervisor {
       version: typeof manifest.hermesVersion === "string" ? manifest.hermesVersion : undefined,
       model: firstValue(this.environment.AI_MODEL, this.environment.HERMES_MODEL, manifest.model),
       provider: firstValue(this.environment.AI_BASE_URL, this.environment.OPENAI_BASE_URL, manifest.providerBaseUrl),
-      credentialConfigured: Boolean(firstValue(this.environment.AI_API_KEY, this.environment.OPENAI_API_KEY, this.environment.HERMES_API_KEY, this.environment.HERMES_RUNTIME_API_KEY)),
+      credentialConfigured: Boolean(firstValue(this.environment.AI_API_KEY, this.environment.OPENAI_API_KEY, this.environment.HERMES_API_KEY)),
       credentialSource: this.credentialSource,
       careerDomainToolCount: 0,
       hermesCareerToolCount: 0,
@@ -299,20 +300,45 @@ class HermesSupervisor {
   async getConfig() {
     const manifest = readJsonFile(path.join(this.hermesRuntimeRoot || "", "runtime-manifest.json"));
     const configPath = this.hermesHome ? path.join(this.hermesHome, "config.yaml") : undefined;
+    const requested = this.lastRequestedSettings || {};
+    const provider = firstValue(this.environment.AI_PROVIDER, this.environment.HERMES_PROVIDER)
+      || (this.snapshot.provider && !/^https?:\/\//iu.test(this.snapshot.provider) ? this.snapshot.provider : undefined)
+      || "openai-compatible";
+    const baseUrl = firstValue(this.environment.AI_BASE_URL, this.environment.HERMES_BASE_URL, this.environment.OPENAI_BASE_URL, manifest.providerBaseUrl);
+    const model = firstValue(this.environment.AI_MODEL, this.environment.HERMES_MODEL, this.environment.HERMES_INFERENCE_MODEL, this.snapshot.model, manifest.model);
+    const providerApiKey = firstValue(this.environment.AI_API_KEY, this.environment.OPENAI_API_KEY, this.environment.HERMES_API_KEY);
+    const apiKeyConfigured = Boolean(providerApiKey);
+    const credentialSource = requested.AI_API_KEY
+      ? "managed_config"
+      : firstValue(this.baseEnvironment.AI_API_KEY, this.baseEnvironment.OPENAI_API_KEY, this.baseEnvironment.HERMES_API_KEY)
+        ? "server_env"
+        : "missing";
+    const source = (requestedValue, environmentValue, fallback) => requestedValue
+      ? "managed_config"
+      : environmentValue
+        ? "server_env"
+        : fallback;
     return {
-      provider: this.snapshot.provider,
-      baseUrl: firstValue(this.environment.AI_BASE_URL, this.environment.OPENAI_BASE_URL, manifest.providerBaseUrl),
-      model: this.snapshot.model,
-      apiKeyConfigured: Boolean(firstValue(this.environment.AI_API_KEY, this.environment.OPENAI_API_KEY, this.environment.HERMES_API_KEY, this.environment.HERMES_RUNTIME_API_KEY)),
-      credentialSource: this.credentialSource,
+      provider,
+      baseUrl,
+      model,
+      apiKeyConfigured,
+      credentialSource,
+      sources: {
+        provider: source(requested.AI_PROVIDER, firstValue(this.baseEnvironment.AI_PROVIDER, this.baseEnvironment.HERMES_PROVIDER), "default"),
+        baseUrl: source(requested.AI_BASE_URL, firstValue(this.baseEnvironment.AI_BASE_URL, this.baseEnvironment.HERMES_BASE_URL, this.baseEnvironment.OPENAI_BASE_URL), "default"),
+        model: source(requested.AI_MODEL, firstValue(this.baseEnvironment.AI_MODEL, this.baseEnvironment.HERMES_MODEL, this.baseEnvironment.HERMES_INFERENCE_MODEL), "missing"),
+        credential: source(requested.AI_API_KEY, firstValue(this.baseEnvironment.AI_API_KEY, this.baseEnvironment.OPENAI_API_KEY, this.baseEnvironment.HERMES_API_KEY), "missing")
+      },
       providerDiagnostic: {
-        provider: this.snapshot.provider,
-        model: this.snapshot.model,
-        credentialConfigured: Boolean(firstValue(this.environment.AI_API_KEY, this.environment.OPENAI_API_KEY, this.environment.HERMES_API_KEY, this.environment.HERMES_RUNTIME_API_KEY)),
-        credentialSource: this.credentialSource
+        provider,
+        model,
+        credentialConfigured: apiKeyConfigured,
+        credentialSource
       },
       version: this.snapshot.version,
       configPath,
+      runtimeConfigWritable: true,
       capabilities: this.capabilities,
       locked: {
         apiServerHost: true,
@@ -359,6 +385,7 @@ class HermesSupervisor {
         { key: "model", label: "模型", editable: true },
         { key: "apiKey", label: "API Key", editable: true, secret: true }
       ],
+      runtimeConfigWritable: true,
       lockedFields: [
         "API server host",
         "runtime authentication",
@@ -370,10 +397,39 @@ class HermesSupervisor {
   }
 
   async updateConfig(settings) {
+    const pendingLifecycle = this.lifecyclePromise;
+    if (pendingLifecycle) await pendingLifecycle;
     return this.start(settings);
   }
 
+  async reloadConfigFromEnvironment() {
+    const pendingLifecycle = this.lifecyclePromise;
+    if (pendingLifecycle) await pendingLifecycle;
+    const fileEnvironment = loadCareerAdaptEnvironment(this.projectRoot, {});
+    const providerKeys = [
+      "AI_PROVIDER",
+      "AI_BASE_URL",
+      "AI_API_KEY",
+      "AI_MODEL",
+      "HERMES_PROVIDER",
+      "HERMES_BASE_URL",
+      "HERMES_API_KEY",
+      "HERMES_MODEL",
+      "HERMES_INFERENCE_MODEL"
+    ];
+    this.baseEnvironment = { ...this.baseEnvironment };
+    for (const key of providerKeys) {
+      if (Object.prototype.hasOwnProperty.call(fileEnvironment, key)) this.baseEnvironment[key] = fileEnvironment[key];
+    }
+    this.lastRequestedSettings = {};
+    this.environment = { ...this.baseEnvironment };
+    this.currentFingerprint = undefined;
+    return this.start({});
+  }
+
   async resetConfig() {
+    const pendingLifecycle = this.lifecyclePromise;
+    if (pendingLifecycle) await pendingLifecycle;
     this.lastRequestedSettings = {};
     this.environment = { ...this.baseEnvironment };
     this.currentFingerprint = undefined;
@@ -402,9 +458,13 @@ class HermesSupervisor {
       return this.deferMaintenance("hermes_start_deferred_active_run");
     }
     this.environment = { ...targetEnvironment };
-    this.credentialSource = options.requestedSettings?.apiKey
+    this.credentialSource = firstValue(
+      options.requestedSettings?.AI_API_KEY,
+      options.requestedSettings?.OPENAI_API_KEY,
+      options.requestedSettings?.HERMES_API_KEY
+    )
       ? "managed_config"
-      : firstValue(this.environment.AI_API_KEY, this.environment.OPENAI_API_KEY, this.environment.HERMES_API_KEY, this.environment.HERMES_RUNTIME_API_KEY)
+      : firstValue(this.environment.AI_API_KEY, this.environment.OPENAI_API_KEY, this.environment.HERMES_API_KEY)
         ? "server_env"
         : "missing";
     this.lastRequestedSettings = { ...(options.requestedSettings || {}) };
@@ -793,7 +853,9 @@ function environmentFromHermesSettings(value) {
   const baseUrl = read("baseUrl");
   const apiKey = read("apiKey");
   const model = read("model");
+  const provider = read("provider");
   return {
+    ...(provider ? { AI_PROVIDER: provider } : {}),
     ...(baseUrl ? { AI_BASE_URL: baseUrl } : {}),
     ...(apiKey ? { AI_API_KEY: apiKey } : {}),
     ...(model ? { AI_MODEL: model } : {})

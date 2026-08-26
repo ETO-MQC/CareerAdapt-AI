@@ -436,6 +436,9 @@ ipcMain.handle("careeradapt:hermes:config-schema", async () => hermesSupervisor?
 ipcMain.handle("careeradapt:hermes:update-config", async (_event, settings) => {
   return runHermesControlAction("update_config", () => hermesSupervisor.updateConfig(settings));
 });
+ipcMain.handle("careeradapt:hermes:reload-config", async () => {
+  return runHermesControlAction("reload_config", () => hermesSupervisor.reloadConfigFromEnvironment());
+});
 ipcMain.handle("careeradapt:hermes:reset-config", async () => {
   return runHermesControlAction("reset_config", () => hermesSupervisor.resetConfig());
 });

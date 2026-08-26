@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld("careerAdaptDesktop", {
   getHermesConfig: () => ipcRenderer.invoke("careeradapt:hermes:config"),
   getHermesConfigSchema: () => ipcRenderer.invoke("careeradapt:hermes:config-schema"),
   updateHermesConfig: (settings) => ipcRenderer.invoke("careeradapt:hermes:update-config", settings),
+  reloadHermesConfig: () => ipcRenderer.invoke("careeradapt:hermes:reload-config"),
   resetHermesConfig: () => ipcRenderer.invoke("careeradapt:hermes:reset-config"),
   subscribeHermesStatus: (listener) => subscribe("careeradapt:hermes:status-changed", listener)
 });

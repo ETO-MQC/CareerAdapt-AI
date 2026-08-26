@@ -19,6 +19,7 @@ type WebHermesSupervisor = {
   getConfig(): Promise<HermesConfigSnapshot>;
   getConfigSchema(): Promise<HermesConfigSchema>;
   updateConfig(settings: HermesStartSettings): Promise<HermesSupervisorSnapshot>;
+  reloadConfigFromEnvironment(): Promise<HermesSupervisorSnapshot>;
   resetConfig(): Promise<HermesSupervisorSnapshot>;
   shutdown(): Promise<HermesSupervisorSnapshot>;
 };

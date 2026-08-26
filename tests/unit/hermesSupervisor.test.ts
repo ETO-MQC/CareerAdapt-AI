@@ -7,6 +7,9 @@ const { HermesSupervisor } = require("../../electron/hermesSupervisor.js") as {
   HermesSupervisor: new (options: Record<string, unknown>) => {
     start(settings?: unknown): Promise<Record<string, unknown>>;
     rendererHostReady(settings?: unknown): Promise<Record<string, unknown>>;
+    updateConfig(settings?: unknown): Promise<Record<string, unknown>>;
+    resetConfig(): Promise<Record<string, unknown>>;
+    getConfig(): Promise<Record<string, unknown>>;
     recover(): Promise<Record<string, unknown>>;
     shutdown(): Promise<Record<string, unknown>>;
     applyHealth(health: Record<string, unknown>): void;
@@ -194,5 +197,40 @@ describe("Hermes Supervisor lifecycle", () => {
     await harness.supervisor.recover();
     expect(harness.getStartCount()).toBe(2);
     expect(harness.supervisor.getStatus().overallState).toBe("ready");
+  });
+
+  it("applies provider, endpoint, model, and managed credential together", async () => {
+    const harness = createHarness();
+    await harness.supervisor.rendererHostReady({
+      provider: "openrouter",
+      baseUrl: "https://openrouter.ai/api/v1",
+      apiKey: "managed-secret",
+      model: "stealth/ox-alpha"
+    });
+
+    const config = await harness.supervisor.getConfig();
+    expect(config).toMatchObject({
+      provider: "openrouter",
+      baseUrl: "https://openrouter.ai/api/v1",
+      model: "stealth/ox-alpha",
+      apiKeyConfigured: true,
+      credentialSource: "managed_config",
+      sources: {
+        provider: "managed_config",
+        baseUrl: "managed_config",
+        model: "managed_config",
+        credential: "managed_config"
+      },
+      runtimeConfigWritable: true
+    });
+
+    await harness.supervisor.resetConfig();
+    const resetConfig = await harness.supervisor.getConfig();
+    expect(resetConfig).toMatchObject({
+      provider: "openai-compatible",
+      baseUrl: "https://provider.example/v1",
+      model: "mimo-v2.5-pro",
+      credentialSource: "missing"
+    });
   });
 });

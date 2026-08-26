@@ -23,6 +23,7 @@ declare global {
       getHermesConfig(): Promise<HermesConfigSnapshot | undefined>;
       getHermesConfigSchema(): Promise<HermesConfigSchema | undefined>;
       updateHermesConfig(settings: HermesStartSettings): Promise<HermesControlResult>;
+      reloadHermesConfig(): Promise<HermesControlResult>;
       resetHermesConfig(): Promise<HermesControlResult>;
       subscribeHermesStatus(listener: (snapshot: HermesSupervisorSnapshot) => void): () => void;
     };
