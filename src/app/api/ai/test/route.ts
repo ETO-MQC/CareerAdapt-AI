@@ -11,6 +11,7 @@ import {
   probeAiProviderTransport
 } from "@/ai/providers/transportDiagnostics";
 import { decodeAiSettingsFromHeader, type AiSettings } from "@/services/storage/aiSettings";
+import { runtimeConfigFingerprint } from "@/services/agent/aiRuntimeConfiguration";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +22,7 @@ export async function POST(request: NextRequest) {
 
   const configuration = resolveEffectiveAiConfiguration(customSettings);
   const provider = new OpenAiCompatibleProvider(customSettings);
+  const configFingerprint = await runtimeConfigFingerprint(configuration);
   const started = Date.now();
   let transportProbe: Awaited<ReturnType<typeof probeAiProviderTransport>> | undefined;
 
@@ -31,7 +33,8 @@ export async function POST(request: NextRequest) {
         ok: false,
         code: transportProbe.failureCode,
         message: safeTransportMessage(transportProbe.failureCode),
-        configuration: provider.configurationDiagnostic,
+        configuration: { ...provider.configurationDiagnostic, configFingerprint },
+        configFingerprint,
         diagnostics: transportProbe.diagnostics
       }, { status: transportProbe.failureCode === "request_cancelled" ? 499 : 502 });
     }
@@ -47,7 +50,8 @@ export async function POST(request: NextRequest) {
       ok: true,
       provider: response.provider,
       model: response.model,
-      configuration: provider.configurationDiagnostic,
+      configuration: { ...provider.configurationDiagnostic, configFingerprint },
+      configFingerprint,
       diagnostics: connectionDiagnosticsWithHttp(transportProbe.diagnostics, {
         status: "reached",
         statusCode: 200,
@@ -60,13 +64,14 @@ export async function POST(request: NextRequest) {
     const diagnostic = classifyAiTransportError(error, { requestSignal: request.signal });
     console.warn("ai_provider_connection_test_failed", {
       code,
-      configuration: provider.configurationDiagnostic
+      configuration: { ...provider.configurationDiagnostic, configFingerprint }
     });
     return NextResponse.json({
       ok: false,
       code,
       message: safeTransportMessage(code),
-      configuration: provider.configurationDiagnostic,
+      configuration: { ...provider.configurationDiagnostic, configFingerprint },
+      configFingerprint,
       diagnostics: connectionDiagnosticsWithHttp(
         transportProbe?.diagnostics ?? emptyProbeFromProvider(),
         {

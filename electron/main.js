@@ -484,8 +484,14 @@ async function runHermesControlAction(action, operation) {
     };
   }
   const safeReasonCode = snapshot.reasonCode || `${action}_completed`;
+  const configAction = ["update_config", "reload_config", "reset_config"].includes(action);
+  const runtimeConfig = snapshot.runtimeConfig;
+  const configApplied = runtimeConfig?.applyStatus === "applied" && runtimeConfig.verified === true;
+  const configRolledBack = runtimeConfig?.applyStatus === "rolled_back";
   return {
-    ok: action === "start" ? snapshot.overallState !== "unavailable" : true,
+    ok: configAction
+      ? configApplied
+      : action === "start" ? snapshot.overallState !== "unavailable" : true,
     reason: snapshot.reasonCode,
     runtimeUrl: snapshot.runtimeUrl,
     snapshot,
@@ -493,11 +499,20 @@ async function runHermesControlAction(action, operation) {
       action,
       requestedAt,
       accepted: true,
-      executed: true,
+      executed: configAction ? configApplied || configRolledBack : true,
       previousState: serviceState(previous),
       nextState: serviceState(snapshot),
       safeReasonCode,
-      controlOwner: "electron_supervisor"
+      controlOwner: "electron_supervisor",
+      ...(configAction ? {
+        applyStatus: runtimeConfig?.applyStatus,
+        desiredFingerprint: runtimeConfig?.desiredFingerprint,
+        activeFingerprint: runtimeConfig?.activeFingerprint,
+        restartPerformed: runtimeConfig?.restartPerformed === true,
+        verified: configApplied,
+        rollbackOccurred: configRolledBack,
+        reasonCode: runtimeConfig?.reasonCode || snapshot.reasonCode
+      } : {})
     }
   };
 }

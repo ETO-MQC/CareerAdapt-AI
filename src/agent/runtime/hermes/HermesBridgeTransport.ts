@@ -16,7 +16,6 @@ import {
 import { stableCareerLogicalToolOperationId } from "../../tools/careerToolContract";
 import { safeCareerToolArgumentShape } from "../../tools/careerToolDiagnostics";
 import { appBuildTechnicalDiagnostics } from "@/services/diagnostics/appBuildInfo";
-import { encodeAiSettingsForHeader, readAiSettings } from "@/services/storage/aiSettings";
 
 export const HermesHealthSchema = z.object({
   available: z.boolean(),
@@ -34,6 +33,8 @@ export const HermesHealthSchema = z.object({
     model: z.string().min(1).optional(),
     credentialConfigured: z.boolean(),
     credentialSource: z.enum(["server_env", "managed_config", "custom_header", "default", "missing", "unknown"]),
+    configFingerprint: z.string().min(1).optional(),
+    configGeneration: z.number().int().min(0).optional(),
     lastCheckedAt: z.string().datetime({ offset: true }).optional(),
     lastHttpStatus: z.number().int().min(100).max(599).optional(),
     safeErrorCode: z.string().min(1).optional()
@@ -189,12 +190,7 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
   }
 
   async health(signal?: AbortSignal) {
-    const settings = readAiSettings();
-    const headers: Record<string, string> = { Accept: "application/json" };
-    if (settings.apiKey.trim() || settings.baseUrl.trim() || settings.model.trim()) {
-      headers["x-ai-config"] = encodeAiSettingsForHeader(settings);
-    }
-    const response = await this.request(`${this.endpoint}/health`, { method: "GET", headers, signal }, "hermes_health_timeout");
+    const response = await this.request(`${this.endpoint}/health`, { method: "GET", headers: { Accept: "application/json" }, signal }, "hermes_health_timeout");
     const payload = await response.json();
     return HermesHealthSchema.parse(payload);
   }

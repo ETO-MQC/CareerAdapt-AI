@@ -7,6 +7,7 @@ const path = require("path");
 const { execFile, execFileSync, spawn } = require("child_process");
 
 const DEFAULT_RUNTIME_URL = "http://127.0.0.1:8642";
+const DEFAULT_PROVIDER_BASE_URL = "https://api.openai.com/v1";
 const DEFAULT_APP_URL = "http://127.0.0.1:3000";
 const DEFAULT_LOCAL_HOST = "127.0.0.1";
 const DEFAULT_PORT_SCAN_LIMIT = 100;
@@ -148,8 +149,8 @@ function prepareHermesEnvironment(environment, options = {}) {
     result.HERMES_RUNTIME_API_KEY = runtimeApiKey;
   }
 
-  const providerBaseUrl = firstValue(result.AI_BASE_URL, result.HERMES_BASE_URL, result.OPENAI_BASE_URL);
-  const providerApiKey = firstValue(result.AI_API_KEY, result.OPENAI_API_KEY);
+  const providerBaseUrl = firstValue(result.HERMES_BASE_URL, result.AI_BASE_URL, result.OPENAI_BASE_URL);
+  const providerApiKey = firstValue(result.AI_API_KEY, result.OPENAI_API_KEY, result.HERMES_API_KEY);
   const model = firstValue(result.HERMES_MODEL, result.AI_MODEL, result.HERMES_INFERENCE_MODEL);
   const appBaseUrl = firstValue(options.appBaseUrl, result.CAREERADAPT_BASE_URL, result.PLAYWRIGHT_BASE_URL, DEFAULT_APP_URL);
   const hermesHome = firstValue(options.hermesHome, result.CAREERADAPT_HERMES_HOME, result.HERMES_HOME);
@@ -381,13 +382,17 @@ async function startHermesCompanion(options = {}) {
     return failedCompanion("hermes_runtime_api_key_missing", logPath);
   }
 
-  const existing = await probeHealth(runtime.healthUrl, prepared.runtimeApiKey);
-  if (existing.ok) {
-    writeLog(`reusing existing Hermes API Server at ${runtime.baseUrl}`);
-    return { ok: true, reused: true, owned: false, child: undefined, logPath, runtime, runtimeApiKey: prepared.runtimeApiKey };
-  }
-  if (existing.reachable && existing.status !== 404) {
-    writeLog(`the preferred Hermes port responded with HTTP ${existing.status}; looking for another local port`);
+  if (options.reuseExistingRuntime !== false) {
+    const existing = await probeHealth(runtime.healthUrl, prepared.runtimeApiKey);
+    if (existing.ok) {
+      writeLog(`reusing existing Hermes API Server at ${runtime.baseUrl}`);
+      return { ok: true, reused: true, owned: false, child: undefined, logPath, runtime, runtimeApiKey: prepared.runtimeApiKey };
+    }
+    if (existing.reachable && existing.status !== 404) {
+      writeLog(`the preferred Hermes port responded with HTTP ${existing.status}; looking for another local port`);
+    }
+  } else {
+    writeLog(`existing Hermes runtime reuse disabled; starting a supervised instance`);
   }
   if (await isPortBusy(runtime.port, runtime.host)) {
     const previousPort = runtime.port;
@@ -506,12 +511,33 @@ function resolveHermesLaunch(environment, options, childEnvironment) {
 
 function hermesConfigurationFingerprint(environment) {
   return crypto.createHash("sha256").update(JSON.stringify({
-    provider: firstValue(environment.AI_PROVIDER, environment.HERMES_PROVIDER),
-    baseUrl: firstValue(environment.AI_BASE_URL, environment.HERMES_BASE_URL, environment.OPENAI_BASE_URL),
-    model: firstValue(environment.AI_MODEL, environment.HERMES_MODEL, environment.HERMES_INFERENCE_MODEL),
-    apiKey: firstValue(environment.AI_API_KEY, environment.OPENAI_API_KEY),
-    runtimeUrl: firstValue(environment.HERMES_RUNTIME_URL) || DEFAULT_RUNTIME_URL
+    provider: normalizeProviderIdentity(firstValue(environment.HERMES_PROVIDER, environment.AI_PROVIDER), environment),
+    baseUrl: firstValue(environment.HERMES_BASE_URL, environment.AI_BASE_URL, environment.OPENAI_BASE_URL) || DEFAULT_PROVIDER_BASE_URL,
+    model: firstValue(environment.HERMES_MODEL, environment.AI_MODEL, environment.HERMES_INFERENCE_MODEL) || "",
+    apiKey: providerCredential(environment) || ""
   })).digest("hex");
+}
+
+function providerCredential(environment) {
+  for (const key of ["AI_API_KEY", "OPENAI_API_KEY", "HERMES_API_KEY"]) {
+    if (!Object.prototype.hasOwnProperty.call(environment, key)) continue;
+    const value = environment[key];
+    return typeof value === "string" ? value.trim() : "";
+  }
+  return undefined;
+}
+
+function normalizeProviderIdentity(provider, environment) {
+  const candidate = firstValue(provider);
+  if (candidate && !/^https?:\/\//iu.test(candidate)) return candidate.toLowerCase();
+  const baseUrl = firstValue(environment?.HERMES_BASE_URL, environment?.AI_BASE_URL, environment?.OPENAI_BASE_URL);
+  try {
+    const hostname = new URL(baseUrl || "").hostname.toLowerCase();
+    if (hostname === "openrouter.ai" || hostname.endsWith(".openrouter.ai")) return "openrouter";
+  } catch {
+    // Configuration validation owns user-facing URL errors.
+  }
+  return "openai-compatible";
 }
 
 async function stopHermesCompanion(handle) {

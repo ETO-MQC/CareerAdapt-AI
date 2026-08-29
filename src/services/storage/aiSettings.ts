@@ -5,13 +5,16 @@ export type AiSettings = {
   apiKey: string;
   model: string;
   provider: string;
+  /** Blank keys are normally left unchanged; the UI uses clear explicitly. */
+  credentialAction?: "unchanged" | "replace" | "clear";
 };
 
 const DEFAULTS: AiSettings = {
   baseUrl: "",
   apiKey: "",
   model: "",
-  provider: "openai-compatible"
+  provider: "openai-compatible",
+  credentialAction: "unchanged"
 };
 
 export function readAiSettings(): AiSettings {
@@ -30,7 +33,10 @@ export function readAiSettings(): AiSettings {
       baseUrl: typeof parsed.baseUrl === "string" ? parsed.baseUrl : DEFAULTS.baseUrl,
       apiKey: typeof parsed.apiKey === "string" ? parsed.apiKey : DEFAULTS.apiKey,
       model: typeof parsed.model === "string" ? parsed.model : DEFAULTS.model,
-      provider: typeof parsed.provider === "string" ? parsed.provider : DEFAULTS.provider
+      provider: typeof parsed.provider === "string" ? parsed.provider : DEFAULTS.provider,
+      credentialAction: parsed.credentialAction === "replace" || parsed.credentialAction === "clear"
+        ? parsed.credentialAction
+        : "unchanged"
     };
   } catch {
     return { ...DEFAULTS };
@@ -53,9 +59,18 @@ export function clearAiSettings(): void {
   localStorage.removeItem(STORAGE_KEY);
 }
 
+export function hasStoredAiSettings(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(STORAGE_KEY) !== null;
+}
+
 export function hasCustomAiSettings(): boolean {
   const settings = readAiSettings();
-  return settings.apiKey.length > 0 || settings.baseUrl.length > 0 || settings.model.length > 0;
+  return settings.apiKey.length > 0
+    || settings.baseUrl.length > 0
+    || settings.model.length > 0
+    || (settings.provider.length > 0 && settings.provider !== DEFAULTS.provider)
+    || settings.credentialAction === "clear";
 }
 
 export function encodeAiSettingsForHeader(settings: AiSettings): string {
@@ -73,7 +88,10 @@ export function decodeAiSettingsFromHeader(encoded: string): AiSettings | undefi
       baseUrl: typeof parsed.baseUrl === "string" ? parsed.baseUrl : "",
       apiKey: typeof parsed.apiKey === "string" ? parsed.apiKey : "",
       model: typeof parsed.model === "string" ? parsed.model : "",
-      provider: typeof parsed.provider === "string" ? parsed.provider : "openai-compatible"
+      provider: typeof parsed.provider === "string" ? parsed.provider : "openai-compatible",
+      credentialAction: parsed.credentialAction === "replace" || parsed.credentialAction === "clear"
+        ? parsed.credentialAction
+        : "unchanged"
     };
   } catch {
     return undefined;

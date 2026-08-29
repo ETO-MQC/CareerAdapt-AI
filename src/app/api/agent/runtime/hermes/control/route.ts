@@ -57,8 +57,15 @@ export async function POST(request: Request) {
   try {
     const snapshot = await runAction(supervisor, action as HermesControlAction, body, requestedSettings);
     const safeReasonCode = snapshot.reasonCode || `${action}_completed`;
+    const configAction = ["update_config", "reload_config", "reset_config"].includes(action);
+    const runtimeConfig = snapshot.runtimeConfig;
+    const configApplied = runtimeConfig?.applyStatus === "applied" && runtimeConfig.verified === true;
+    const configRolledBack = runtimeConfig?.applyStatus === "rolled_back";
+    const configExecuted = configApplied || configRolledBack;
     const result: HermesControlResult = {
-      ok: action === "start" ? snapshot.overallState !== "unavailable" : true,
+      ok: configAction
+        ? configApplied
+        : action === "start" ? snapshot.overallState !== "unavailable" : true,
       reason: snapshot.reasonCode,
       runtimeUrl: snapshot.runtimeUrl,
       snapshot,
@@ -66,11 +73,20 @@ export async function POST(request: Request) {
         action: action as HermesControlAction,
         requestedAt,
         accepted: true,
-        executed: true,
+        executed: configAction ? configExecuted : true,
         previousState: serviceState(previous),
         nextState: serviceState(snapshot),
         safeReasonCode,
-        controlOwner: "web_supervisor"
+        controlOwner: "web_supervisor",
+        ...(configAction ? {
+          applyStatus: runtimeConfig?.applyStatus,
+          desiredFingerprint: runtimeConfig?.desiredFingerprint,
+          activeFingerprint: runtimeConfig?.activeFingerprint,
+          restartPerformed: runtimeConfig?.restartPerformed === true,
+          verified: configApplied,
+          rollbackOccurred: configRolledBack,
+          reasonCode: runtimeConfig?.reasonCode ?? snapshot.reasonCode
+        } : {})
       }
     };
     return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
@@ -100,6 +116,8 @@ async function runAction(
   body: Record<string, unknown>,
   requestedSettings?: HermesStartSettings
 ) {
+  const rendererNeedsHandshake = body.rendererReady === true
+    && supervisor.getStatus().reasonCode === "hermes_renderer_not_ready";
   if (action === "start") {
     return body.rendererReady === true
       ? supervisor.rendererHostReady(requestedSettings)
@@ -108,8 +126,15 @@ async function runAction(
   if (action === "stop") return supervisor.stop();
   if (action === "restart") return supervisor.restart(readRestartOptions(body.options));
   if (action === "recover") return supervisor.recover();
-  if (action === "update_config") return supervisor.updateConfig(requestedSettings ?? emptySettings());
-  if (action === "reload_config") return supervisor.reloadConfigFromEnvironment();
+  if (action === "update_config") {
+    if (rendererNeedsHandshake) await supervisor.rendererHostReady(requestedSettings);
+    return supervisor.updateConfig(requestedSettings ?? emptySettings());
+  }
+  if (action === "reload_config") {
+    if (rendererNeedsHandshake) await supervisor.rendererHostReady();
+    return supervisor.reloadConfigFromEnvironment();
+  }
+  if (rendererNeedsHandshake) await supervisor.rendererHostReady();
   return supervisor.resetConfig();
 }
 

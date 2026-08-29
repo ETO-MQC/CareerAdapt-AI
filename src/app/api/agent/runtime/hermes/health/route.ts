@@ -12,8 +12,11 @@ import {
 } from "@/server/careerAdaptMcpBridgeRegistry";
 import { readHermesRunReadiness } from "@/agent/runtime/hermes/hermesRunReadiness";
 import { appBuildTechnicalDiagnostics } from "@/services/diagnostics/appBuildInfo";
-import { decodeAiSettingsFromHeader, type AiSettings } from "@/services/storage/aiSettings";
 import { resolveEffectiveAiConfiguration } from "@/ai/providers/effectiveConfiguration";
+import {
+  normalizeAiProviderIdentity,
+  runtimeConfigFingerprint
+} from "@/services/agent/aiRuntimeConfiguration";
 import { parseHermesToolsetsPayload, type HermesToolsetSnapshot } from "./toolsets";
 
 export const dynamic = "force-dynamic";
@@ -31,10 +34,9 @@ let hermesToolsetSnapshotInFlight: Promise<HermesToolsetSnapshot> | undefined;
 export async function GET(request: Request) {
   const appBaseUrl = new URL(request.url).origin;
   const mcp = statusCareerAdaptMcpBridge();
-  const customSettings = decodeAiSettingsFromHeader(request.headers.get("x-ai-config") ?? "");
   const runtimeUrl = process.env.HERMES_RUNTIME_URL?.trim();
   if (!runtimeUrl) {
-    const provider = await checkConfiguredProvider(customSettings);
+    const provider = await checkConfiguredProvider();
     const legacy: HermesHealth = {
       available: false,
       runtimeId: "hermes",
@@ -48,10 +50,10 @@ export async function GET(request: Request) {
     };
     return NextResponse.json(await withRuntimeHealth(legacy, mcp, undefined, appBaseUrl), { status: 503, headers: { "Cache-Control": "no-store" } });
   }
-  return proxy(`${runtimeUrl.replace(/\/$/u, "")}/health`, mcp, appBaseUrl, customSettings);
+  return proxy(`${runtimeUrl.replace(/\/$/u, "")}/health`, mcp, appBaseUrl);
 }
 
-async function proxy(url: string, mcp: ReturnType<typeof statusCareerAdaptMcpBridge>, appBaseUrl: string, customSettings?: AiSettings) {
+async function proxy(url: string, mcp: ReturnType<typeof statusCareerAdaptMcpBridge>, appBaseUrl: string) {
   try {
     let response = await fetch(url, {
       method: "GET",
@@ -73,7 +75,7 @@ async function proxy(url: string, mcp: ReturnType<typeof statusCareerAdaptMcpBri
     const raw = await response.json().catch(() => ({}));
     const upstream = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
     const upstreamRuntimeHealth = readRuntimeHealth(upstream.runtimeHealth);
-    const configuredProvider = await checkConfiguredProvider(customSettings);
+    const configuredProvider = await checkConfiguredProvider();
     const health = HermesHealthSchema.safeParse({
       available: typeof upstream.available === "boolean" ? upstream.available : response.ok,
       runtimeId: typeof upstream.runtimeId === "string" ? upstream.runtimeId : "hermes",
@@ -82,7 +84,11 @@ async function proxy(url: string, mcp: ReturnType<typeof statusCareerAdaptMcpBri
       ...(normalizeRunState(upstream.runState) ? { runState: normalizeRunState(upstream.runState) } : {}),
       version: typeof upstream.version === "string" ? upstream.version : undefined,
       reason: typeof upstream.reason === "string" ? upstream.reason : response.ok ? undefined : `hermes_http_${response.status}`,
-      provider: typeof upstream.provider === "string" ? upstream.provider : configuredProvider?.provider ?? (configuredProviderBaseUrl() ? "openai-compatible" : undefined),
+      provider: typeof upstream.provider === "string"
+        ? normalizeAiProviderIdentity(upstream.provider, configuredProviderBaseUrl())
+        : configuredProvider?.provider ?? (configuredProviderBaseUrl()
+          ? normalizeAiProviderIdentity(undefined, configuredProviderBaseUrl())
+          : undefined),
       model: typeof upstream.model === "string" ? upstream.model : configuredProvider?.model ?? configuredModel(),
       providerStatus: typeof upstream.providerStatus === "string"
         ? normalizeProviderStatus(upstream.providerStatus, response.ok)
@@ -355,9 +361,15 @@ function readRuntimeHealth(value: unknown) {
   return parsed.success ? parsed.data : undefined;
 }
 
-async function checkConfiguredProvider(settings?: AiSettings) {
-  const configuration = resolveEffectiveAiConfiguration(settings);
-  const diagnostic = safeProviderConfigurationDiagnostic(configuration);
+async function checkConfiguredProvider() {
+  const configuration = resolveEffectiveAiConfiguration(undefined, hermesProviderEnvironment());
+  const configFingerprint = await runtimeConfigFingerprint(configuration);
+  const configGeneration = Number(process.env.CAREERADAPT_HERMES_CONFIG_GENERATION);
+  const diagnostic = {
+    ...safeProviderConfigurationDiagnostic(configuration),
+    configFingerprint,
+    ...(Number.isInteger(configGeneration) && configGeneration >= 0 ? { configGeneration } : {})
+  };
   if (!configuration.apiKey || !configuration.model) {
     return {
       providerStatus: "unconfigured" as const,
@@ -421,18 +433,28 @@ function upstreamHeaders() {
   return headers;
 }
 
-function providerHeaders(apiKey = process.env.AI_API_KEY?.trim() || process.env.HERMES_API_KEY?.trim()) {
+function providerHeaders(apiKey = process.env.AI_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim() || process.env.HERMES_API_KEY?.trim()) {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
   return headers;
 }
 
 function configuredProviderBaseUrl() {
-  return process.env.HERMES_BASE_URL?.trim() || process.env.AI_BASE_URL?.trim();
+  return process.env.HERMES_BASE_URL?.trim() || process.env.AI_BASE_URL?.trim() || process.env.OPENAI_BASE_URL?.trim();
 }
 
 function configuredModel() {
-  return process.env.HERMES_MODEL?.trim() || process.env.AI_MODEL?.trim() || undefined;
+  return process.env.HERMES_MODEL?.trim() || process.env.AI_MODEL?.trim() || process.env.HERMES_INFERENCE_MODEL?.trim() || undefined;
+}
+
+function hermesProviderEnvironment() {
+  return {
+    ...process.env,
+    AI_PROVIDER: process.env.HERMES_PROVIDER?.trim() || process.env.AI_PROVIDER?.trim(),
+    AI_BASE_URL: configuredProviderBaseUrl(),
+    AI_API_KEY: process.env.AI_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim() || process.env.HERMES_API_KEY?.trim(),
+    AI_MODEL: configuredModel()
+  };
 }
 
 function safeProviderConfigurationDiagnostic(configuration: ReturnType<typeof resolveEffectiveAiConfiguration>) {

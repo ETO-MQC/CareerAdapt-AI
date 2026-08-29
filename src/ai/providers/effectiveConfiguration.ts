@@ -1,4 +1,5 @@
 import type { AiSettings } from "@/services/storage/aiSettings";
+import { normalizeAiProviderIdentity } from "@/services/agent/aiRuntimeConfiguration";
 
 type Environment = Record<string, string | undefined>;
 type ConfigurationSource = "custom_header" | "server_env" | "default" | "missing";
@@ -23,6 +24,8 @@ export type SafeAiConfigurationDiagnostic = {
   credentialPresent: boolean;
   authMode: "bearer_custom_header" | "bearer_server_env" | "missing";
   sources: EffectiveAiConfiguration["sources"];
+  configFingerprint?: string;
+  configGeneration?: number;
 };
 
 export function resolveEffectiveAiConfiguration(
@@ -42,7 +45,7 @@ export function resolveEffectiveAiConfiguration(
     apiKey: environment.AI_API_KEY?.trim() ?? ""
   };
   return {
-    provider: custom.provider || fromEnvironment.provider || "openai-compatible",
+    provider: normalizeAiProviderIdentity(custom.provider || fromEnvironment.provider, custom.baseUrl || fromEnvironment.baseUrl),
     model: custom.model || fromEnvironment.model,
     baseUrl: custom.baseUrl || fromEnvironment.baseUrl || "https://api.openai.com/v1",
     apiKey: custom.apiKey || fromEnvironment.apiKey,

@@ -196,7 +196,7 @@ function createAgentHost() {
       runtimeStatus.recordHealth(runtimeHealth);
       runtimeStatus.update({
         version: health.version,
-        provider: health.provider,
+        ...(runtimeStatus.getSnapshot().supervisorOwned ? {} : { provider: health.provider }),
         mcpServer: health.mcpServer ?? "careeradapt",
         health: runtimeHealth,
         roadshowMode: health.roadshowMode === true
@@ -1073,9 +1073,9 @@ export function AgentRuntimeProvider({ children }: { children: React.ReactNode }
       if (rendererReady?.snapshot) host.runtimeStatus.recordSupervisorStatus(rendererReady.snapshot);
       if (!active) return;
       if (rendererReady?.ok === false) return;
-      // Electron's renderer-ready IPC is the authoritative startup owner.
-      // Browser/web mode has no renderer handshake or process owner, so it
-      // only observes the externally managed runtime.
+      // Electron and Web Supervisor both use this renderer-ready signal. The
+      // ownership boundary differs by environment, but the browser MCP/domain
+      // host is required before either path can report Hermes as ready.
       if (rendererReady === undefined) {
         await host.refreshHermesHealth().catch(() => undefined);
         if (!active) return;

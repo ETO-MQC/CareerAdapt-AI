@@ -192,7 +192,7 @@ describe("P4.5c.1.23 Hermes control capability and provider closure", () => {
     });
   });
 
-  it("updates the shared projection immediately after a Provider test and keeps service state independent", () => {
+  it("keeps a Provider candidate test outside the shared active projection", () => {
     const initial = createInitialHermesControlSnapshot("web");
     const result = applyHermesProviderTest(initial, {
       ok: false,
@@ -205,10 +205,26 @@ describe("P4.5c.1.23 Hermes control capability and provider closure", () => {
       safeErrorCode: "provider_http_401"
     });
 
+    expect(result).toBe(initial);
     expect(result.serviceState).toBe("unavailable");
     expect(result.apiState).toBe("unreachable");
-    expect(result.providerState).toBe("auth_error");
-    expect(result.status).toBe("configuration_required");
+    expect(result.providerState).toBe("unknown");
+    expect(result.status).toBe("unavailable");
+
+    const store = new RuntimeStatusStore({ preferredRuntime: "hermes", activeRuntime: "hermes", status: "starting" });
+    store.recordCandidateProviderTest({
+      ok: false,
+      provider: "openai-compatible",
+      model: "mimo-v2.5-pro",
+      credentialConfigured: true,
+      credentialSource: "custom_header",
+      checkedAt: new Date().toISOString(),
+      httpStatus: 401,
+      safeErrorCode: "provider_http_401"
+    });
+    expect(store.getSnapshot().candidateProviderTest?.safeErrorCode).toBe("provider_http_401");
+    expect(store.getSnapshot().controlSnapshot?.providerState).toBe("unknown");
+    expect(store.getSnapshot().providerReady).toBeUndefined();
   });
 
   it("keeps a stale Run stop in the Run state plane without changing service controls", () => {

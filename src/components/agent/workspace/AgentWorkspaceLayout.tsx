@@ -167,6 +167,7 @@ function RuntimeStatusBadge({
   const [controlBusy, setControlBusy] = useState(false);
   const [controlOpen, setControlOpen] = useState(false);
   const controlSnapshot = status.controlSnapshot ?? createInitialHermesControlSnapshot();
+  const activeConfig = controlSnapshot.runtimeConfig.active;
   const runtimeLabel = "Hermes";
   const statusLabel = hermesControlStatusLabel(controlSnapshot);
   const details = [
@@ -174,7 +175,7 @@ function RuntimeStatusBadge({
     `API ${mark(controlSnapshot.apiReady)}  Provider ${mark(controlSnapshot.providerReady)}`,
     `Career MCP ${mark(controlSnapshot.careerMcpReady)}  工具面 ${mark(controlSnapshot.toolSurfaceReady)}  Run ${mark(controlSnapshot.runReady)}`,
     `Domain ${controlSnapshot.careerDomainToolCount ?? 0} · Hermes Career ${controlSnapshot.hermesCareerToolCount ?? 0}`,
-    controlSnapshot.model ? `模型 ${controlSnapshot.model}` : undefined
+    activeConfig?.model ? `模型 ${activeConfig.model}` : undefined
   ].filter(Boolean).join("\n");
   const runControl = async (action?: () => Promise<unknown>) => {
     if (!action || controlBusy) return;
@@ -223,7 +224,8 @@ function RuntimeStatusBadge({
           <p className="agent-runtime-status-popover-counts">
             Domain {controlSnapshot.careerDomainToolCount ?? 0} · Hermes Career {controlSnapshot.hermesCareerToolCount ?? 0} · Facades {controlSnapshot.careerIntegration.requiredToolCount}/{controlSnapshot.careerIntegration.requiredToolTotal}
           </p>
-          <p className="agent-runtime-status-popover-counts">Provider {controlSnapshot.provider || "未确认"} · 模型 {controlSnapshot.model || "未配置"} · 凭证 {controlSnapshot.providerDiagnostic.credentialConfigured ? "已配置" : "未配置"}</p>
+          <p className="agent-runtime-status-popover-counts">Provider {activeConfig?.provider || "未确认"} · 模型 {activeConfig?.model || "未配置"} · 凭证 {activeConfig?.credentialConfigured ? "已配置" : "未配置"}</p>
+          {controlSnapshot.runtimeConfig.desiredFingerprint && controlSnapshot.runtimeConfig.desiredFingerprint !== controlSnapshot.runtimeConfig.activeFingerprint ? <p className="agent-runtime-status-popover-warning">当前有一份尚未应用的 Desired 配置。</p> : null}
           {controlSnapshot.environment === "web" ? <p className="agent-runtime-status-popover-warning">{controlSnapshot.capabilities.unsupportedReason}</p> : null}
           {isActiveRun ? <p className="agent-runtime-status-popover-warning">当前有 Hermes Run；停止当前任务只调用 Run stop，不重启服务。</p> : null}
           <details className="agent-runtime-status-diagnostics">
@@ -239,7 +241,7 @@ function RuntimeStatusBadge({
             {controlSnapshot.capabilities.canRecoverService && ["unavailable", "running"].includes(controlSnapshot.serviceState) ? <button type="button" onClick={() => void runControl(onRecoverHermes)} disabled={controlBusy}><Wrench aria-hidden="true" />自动修复</button> : null}
             {controlSnapshot.capabilities.canReconnect ? <button type="button" onClick={() => void runControl(onReconnectHermes)} disabled={controlBusy}>重新连接</button> : null}
             {controlSnapshot.capabilities.canStopCurrentRun ? <button type="button" onClick={() => void runControl(onStopCurrentRun)} disabled={controlBusy}><Power aria-hidden="true" />停止当前任务</button> : null}
-            {controlSnapshot.capabilities.canTestProvider ? <button type="button" onClick={() => void runControl(onTestProvider)} disabled={controlBusy}>测试模型连接</button> : null}
+            {controlSnapshot.capabilities.canTestProvider ? <button type="button" onClick={() => void runControl(onTestProvider)} disabled={controlBusy}>测试候选配置</button> : null}
             {controlSnapshot.environment === "electron" ? <button type="button" onClick={() => void runControl(onOpenHermesLogs)} disabled={controlBusy}><FileText aria-hidden="true" />日志</button> : null}
             <Link href="/settings?category=ai" onClick={() => setControlOpen(false)}><Settings aria-hidden="true" />设置</Link>
           </div>

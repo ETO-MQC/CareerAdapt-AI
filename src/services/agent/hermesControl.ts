@@ -1,4 +1,24 @@
-import { encodeAiSettingsForHeader, readAiSettings, type AiSettings } from "@/services/storage/aiSettings";
+import { encodeAiSettingsForHeader, hasStoredAiSettings, readAiSettings, type AiSettings } from "@/services/storage/aiSettings";
+import type {
+  AiRuntimeConfigActive,
+  AiRuntimeConfigApplyReceipt,
+  AiRuntimeConfigApplyStatus,
+  AiRuntimeConfigDesired,
+  AiRuntimeConfigState
+} from "./aiRuntimeConfiguration";
+import { normalizeAiProviderIdentity } from "./aiRuntimeConfiguration";
+import { runtimeConfigFingerprint } from "./aiRuntimeConfiguration";
+
+export type {
+  AiRuntimeConfigActive,
+  AiRuntimeConfigApplyReceipt,
+  AiRuntimeConfigApplyStatus,
+  AiRuntimeConfigDesired,
+  AiRuntimeConfigDraft,
+  AiRuntimeConfigState,
+  AiRuntimeConfigSource,
+  AiRuntimeConfigValue
+} from "./aiRuntimeConfiguration";
 
 export type HermesLifecycleState =
   | "stopped"
@@ -38,6 +58,8 @@ export type HermesProviderDiagnostic = {
   model?: string;
   credentialConfigured: boolean;
   credentialSource: HermesCredentialSource;
+  configFingerprint?: string;
+  configGeneration?: number;
   lastCheckedAt?: string;
   lastHttpStatus?: number;
   safeErrorCode?: string;
@@ -92,17 +114,21 @@ export type HermesControlHealthInput = {
   };
 };
 
-export type HermesProviderTestResult = {
+export type CandidateProviderTestResult = {
   ok: boolean;
   provider?: string;
   model?: string;
   credentialConfigured: boolean;
   credentialSource: HermesCredentialSource;
+  configFingerprint?: string;
   checkedAt: string;
   httpStatus?: number;
   safeErrorCode?: string;
   message?: string;
 };
+
+/** Backwards-compatible name for callers that only need the candidate result. */
+export type HermesProviderTestResult = CandidateProviderTestResult;
 
 export type HermesControlAction =
   | "start"
@@ -125,6 +151,13 @@ export type HermesControlActionReceipt = {
   nextState: HermesServiceState;
   safeReasonCode: string;
   controlOwner: HermesControlOwner;
+  applyStatus?: AiRuntimeConfigApplyStatus;
+  desiredFingerprint?: string;
+  activeFingerprint?: string;
+  restartPerformed?: boolean;
+  verified?: boolean;
+  rollbackOccurred?: boolean;
+  reasonCode?: string;
 };
 
 export type HermesControlSnapshot = {
@@ -159,6 +192,7 @@ export type HermesControlSnapshot = {
   version?: string;
   activeRunId?: string;
   providerDiagnostic: HermesProviderDiagnostic;
+  runtimeConfig: AiRuntimeConfigState;
   storage: HermesStorageDiagnostic;
   capabilities: HermesControlCapabilities;
   safeReasonCode?: string;
@@ -193,6 +227,8 @@ export type HermesSupervisorSnapshot = {
   credentialConfigured?: boolean;
   credentialSource?: HermesCredentialSource;
   providerDiagnostic?: HermesProviderDiagnostic;
+  runtimeConfig?: AiRuntimeConfigState;
+  lastApplyReceipt?: AiRuntimeConfigApplyReceipt;
   runState?: HermesRunState;
   careerSkills?: string[];
   missingRequiredCareerTools?: string[];
@@ -242,7 +278,7 @@ export type HermesControlResult = {
   receipt?: HermesControlActionReceipt;
 };
 
-export type HermesStartSettings = Pick<AiSettings, "baseUrl" | "apiKey" | "model" | "provider">;
+export type HermesStartSettings = AiSettings;
 
 export type HermesLogs = {
   logPath?: string;
@@ -265,6 +301,14 @@ export type HermesConfigSnapshot = {
     credential: HermesCredentialSource;
   };
   providerDiagnostic?: HermesProviderDiagnostic;
+  active?: AiRuntimeConfigActive;
+  desired?: AiRuntimeConfigDesired;
+  activeFingerprint?: string;
+  desiredFingerprint?: string;
+  activeGeneration?: number;
+  desiredGeneration?: number;
+  applyStatus?: AiRuntimeConfigApplyStatus;
+  lastApplyReceipt?: AiRuntimeConfigApplyReceipt;
   version?: string;
   configPath?: string;
   runtimeConfigWritable?: boolean;
@@ -283,8 +327,8 @@ export type HermesConfigSchema = {
   lockedFields: string[];
 };
 
-export function readHermesStartSettings(): HermesStartSettings {
-  return readAiSettings();
+export function readHermesStartSettings(): HermesStartSettings | undefined {
+  return hasStoredAiSettings() ? readAiSettings() : undefined;
 }
 
 export function hermesRuntimeEnvironment(): HermesRuntimeEnvironment {
@@ -314,6 +358,7 @@ export function createInitialHermesControlSnapshot(
     ready: false,
     status: environment === "electron" ? "stopped" : "unavailable",
     providerDiagnostic: { credentialConfigured: false, credentialSource: "unknown" },
+    runtimeConfig: { applyStatus: "idle", rollbackOccurred: false },
     storage: defaultStorageDiagnostic(environment),
     capabilities: createHermesControlCapabilities(environment, controlOwner, "none"),
     updatedAt: now
@@ -333,6 +378,7 @@ export function createHermesControlSnapshot(input: {
   const environment = input.environment ?? input.previous?.environment ?? hermesRuntimeEnvironment();
   const previous = input.previous;
   const supervisor = input.supervisor;
+  const activeRuntimeConfig = supervisor?.runtimeConfig?.active;
   const health = input.health;
   const runtimeHealth = health?.runtimeHealth;
   const controlOwner = input.controlOwner
@@ -348,14 +394,13 @@ export function createHermesControlSnapshot(input: {
       : previous?.serviceState === "starting"
         ? "starting"
         : "unavailable";
-  const activeRunId = supervisor?.activeRunId
-    ?? health?.activeRunId
-    ?? health?.hermesRunId
-    ?? runtimeHealth?.activeRunId
-    ?? runtimeHealth?.hermesRunId;
-  const providerState = input.providerTest
-    ? providerStateFromProviderTest(input.providerTest)
-    : supervisor
+  const activeRunId = supervisor
+    ? supervisor.activeRunId
+    : health?.activeRunId
+      ?? health?.hermesRunId
+      ?? runtimeHealth?.activeRunId
+      ?? runtimeHealth?.hermesRunId;
+  const providerState = supervisor
       ? providerStateFromHealth({
           providerStatus: supervisor.providerStatus,
           providerDiagnostic: supervisor.providerDiagnostic,
@@ -386,41 +431,53 @@ export function createHermesControlSnapshot(input: {
     ?? runtimeHealth?.runReady
     ?? (apiReady && providerReady && toolSurfaceReady);
   const runState = input.runState
-    ?? health?.runState
-    ?? runtimeHealth?.runState
-    ?? supervisor?.runState
-    ?? (activeRunId ? previous?.runState === "stopping" ? "stopping" : "running" : "none");
+    ?? (supervisor
+      ? supervisor.runState ?? (activeRunId ? previous?.runState === "stopping" ? "stopping" : "running" : "none")
+      : health?.runState
+        ?? runtimeHealth?.runState
+        ?? (activeRunId ? previous?.runState === "stopping" ? "stopping" : "running" : "none"));
+  const reportedProvider = activeRuntimeConfig?.provider
+    ?? supervisor?.provider
+    ?? (supervisor ? undefined : health?.provider ?? previous?.provider);
+  const provider = reportedProvider ? normalizeAiProviderIdentity(reportedProvider, undefined) : undefined;
   const providerDiagnostic = mergeProviderDiagnostic(
-    previous?.providerDiagnostic,
-    health?.providerDiagnostic,
-    runtimeHealth?.providerDiagnostic,
+    supervisor ? undefined : previous?.providerDiagnostic,
+    supervisor ? undefined : health?.providerDiagnostic,
+    supervisor ? undefined : runtimeHealth?.providerDiagnostic,
     supervisor?.providerDiagnostic,
-    input.providerTest,
+    activeRuntimeConfig ? {
+      provider: activeRuntimeConfig.provider,
+      model: activeRuntimeConfig.model,
+      credentialConfigured: activeRuntimeConfig.credentialConfigured,
+      credentialSource: activeRuntimeConfig.credentialSource,
+      configFingerprint: activeRuntimeConfig.configFingerprint,
+      configGeneration: activeRuntimeConfig.configGeneration
+    } : undefined,
     {
-      provider: health?.provider ?? supervisor?.provider ?? previous?.provider,
-      model: health?.model ?? runtimeHealth?.model ?? supervisor?.model,
-      credentialConfigured: health?.credentialConfigured
+      ...(provider ? { provider } : {}),
+      model: activeRuntimeConfig?.model ?? supervisor?.model ?? (supervisor ? undefined : health?.model ?? runtimeHealth?.model),
+      credentialConfigured: activeRuntimeConfig?.credentialConfigured
         ?? supervisor?.credentialConfigured
-        ?? previous?.providerDiagnostic.credentialConfigured
+        ?? (supervisor ? undefined : health?.credentialConfigured)
+        ?? (supervisor ? undefined : previous?.providerDiagnostic.credentialConfigured)
         ?? false,
-      credentialSource: health?.credentialSource
+      credentialSource: activeRuntimeConfig?.credentialSource
         ?? supervisor?.credentialSource
-        ?? previous?.providerDiagnostic.credentialSource
+        ?? (supervisor ? undefined : health?.credentialSource)
+        ?? (supervisor ? undefined : previous?.providerDiagnostic.credentialSource)
         ?? "unknown"
     }
   );
   const resolvedProviderReady = providerReady && providerState === "ready";
   const ready = apiReady && resolvedProviderReady && careerMcpReady && toolSurfaceReady && runReady;
   const status = controlStatus({ ready, serviceState, apiReady, providerState });
-  const diagnosticReasonCode = input.providerTest?.safeErrorCode
-    ?? health?.reason
-    ?? supervisor?.reasonCode
-    ?? previous?.diagnosticReasonCode;
-  const safeReasonCode = input.providerTest?.safeErrorCode
-    ?? (providerState === "auth_error" ? "provider_auth_invalid" : undefined)
+  const diagnosticReasonCode = supervisor
+    ? supervisor.reasonCode ?? previous?.diagnosticReasonCode
+    : health?.reason ?? previous?.diagnosticReasonCode;
+  const safeReasonCode = (providerState === "auth_error" ? "provider_auth_invalid" : undefined)
     ?? (providerState === "config_error" ? "configuration_required" : undefined)
     ?? (status === "ready" && diagnosticReasonCode === "health_endpoint_ready" ? undefined : diagnosticReasonCode)
-    ?? previous?.safeReasonCode;
+    ?? (supervisor ? undefined : previous?.safeReasonCode);
   const snapshot: HermesControlSnapshot = {
     environment,
     supervisorExpected: controlOwner === "electron_supervisor" || controlOwner === "web_supervisor",
@@ -442,17 +499,18 @@ export function createHermesControlSnapshot(input: {
     runReady,
     ready,
     status,
-    provider: health?.provider ?? supervisor?.provider ?? previous?.provider,
-    model: health?.model ?? runtimeHealth?.model ?? supervisor?.model ?? previous?.model,
+    ...(provider ? { provider } : {}),
+    model: activeRuntimeConfig?.model ?? supervisor?.model ?? (supervisor ? undefined : health?.model ?? runtimeHealth?.model ?? previous?.model),
     careerDomainToolCount: supervisor?.careerDomainToolCount ?? runtimeHealth?.careerMcpContractCount ?? previous?.careerDomainToolCount,
     hermesCareerToolCount: supervisor?.hermesCareerToolCount ?? runtimeHealth?.hermesMcpToolCount ?? previous?.hermesCareerToolCount,
     careerSkillsReady: supervisor?.careerSkillsReady ?? runtimeHealth?.careerSkillsLoaded ?? previous?.careerSkillsReady,
     ...(supervisor?.careerSkills ?? previous?.careerSkills ? { careerSkills: supervisor?.careerSkills ?? previous?.careerSkills } : {}),
-    runtimeUrl: health?.runtimeUrl ?? supervisor?.runtimeUrl ?? previous?.runtimeUrl,
-    appUrl: health?.appUrl ?? supervisor?.appUrl ?? previous?.appUrl,
-    version: health?.version ?? supervisor?.version ?? previous?.version,
+    runtimeUrl: supervisor?.runtimeUrl ?? (supervisor ? undefined : health?.runtimeUrl) ?? previous?.runtimeUrl,
+    appUrl: supervisor?.appUrl ?? (supervisor ? undefined : health?.appUrl) ?? previous?.appUrl,
+    version: supervisor?.version ?? (supervisor ? undefined : health?.version) ?? previous?.version,
     ...(activeRunId ? { activeRunId } : {}),
     providerDiagnostic,
+    runtimeConfig: supervisor?.runtimeConfig ?? previous?.runtimeConfig ?? { applyStatus: "idle", rollbackOccurred: false },
     storage: {
       ...(previous?.storage ?? defaultStorageDiagnostic(environment)),
       ...(input.activeProfileSource ? { activeProfileSource: input.activeProfileSource } : {})
@@ -490,36 +548,11 @@ export function applyHermesProviderTest(
   snapshot: HermesControlSnapshot,
   result: HermesProviderTestResult
 ) {
-  return createHermesControlSnapshot({
-    environment: snapshot.environment,
-    previous: snapshot,
-    providerTest: result,
-    health: {
-      available: snapshot.apiReady,
-      provider: result.provider ?? snapshot.provider,
-      model: result.model ?? snapshot.model,
-      credentialConfigured: result.credentialConfigured,
-      credentialSource: result.credentialSource,
-      activeRunId: snapshot.activeRunId,
-      runtimeUrl: snapshot.runtimeUrl,
-      appUrl: snapshot.appUrl,
-      runtimeHealth: {
-        runtimeAvailable: snapshot.apiReady,
-        providerReady: result.ok,
-        runReady: snapshot.runReady,
-        mcpReady: snapshot.careerMcpReady,
-        mcpConnected: snapshot.careerMcpReady,
-        browserCareerDomainHostConnected: snapshot.careerMcpReady,
-        careerMcpServerReachable: snapshot.careerMcpReady,
-        hermesMcpRegistered: snapshot.toolSurfaceReady,
-        hermesMcpToolCount: snapshot.careerIntegration.requiredToolCount,
-        hermesCareerFacadeCount: snapshot.careerIntegration.requiredToolCount,
-        requiredCareerFacadesMissing: snapshot.careerIntegration.requiredToolTotal > snapshot.careerIntegration.requiredToolCount
-          ? Array.from({ length: snapshot.careerIntegration.requiredToolTotal - snapshot.careerIntegration.requiredToolCount }, (_, index) => `missing-${index + 1}`)
-          : []
-      }
-    }
-  });
+  void result;
+  // Candidate provider tests are intentionally not runtime observations. Keep
+  // this compatibility helper pure so legacy call sites cannot overwrite the
+  // active Supervisor projection by accident.
+  return snapshot;
 }
 
 export function updateHermesControlRunState(
@@ -586,6 +619,8 @@ export function createHermesControlCapabilities(
 }
 
 export function hermesControlStatusLabel(snapshot: HermesControlSnapshot) {
+  if (["validating", "testing", "saving", "restarting_runtime", "verifying"].includes(snapshot.runtimeConfig.applyStatus)) return "正在切换模型";
+  if (snapshot.runtimeConfig.applyStatus === "deferred") return "等待应用配置";
   if (snapshot.ready) return "Hermes Ready";
   if (snapshot.status === "configuration_required") return "需要配置";
   if (snapshot.apiState === "reachable" && (snapshot.providerState === "unknown" || snapshot.providerState === "checking")) return "Hermes API 已连接";
@@ -597,6 +632,10 @@ export function hermesControlStatusLabel(snapshot: HermesControlSnapshot) {
 }
 
 export function hermesControlFeedback(snapshot: HermesControlSnapshot) {
+  if (snapshot.runtimeConfig.applyStatus === "deferred") return "配置已保存，但当前运行仍未到安全边界；请停止当前任务后重新应用。";
+  if (["validating", "testing", "saving", "restarting_runtime", "verifying"].includes(snapshot.runtimeConfig.applyStatus)) return "AI · Hermes · 正在切换模型。";
+  if (snapshot.runtimeConfig.applyStatus === "rolled_back") return "新配置未通过 Provider 就绪检查，已恢复上一份健康配置。";
+  if (snapshot.runtimeConfig.applyStatus === "failed") return "新配置未应用；请检查 Provider 地址、模型和凭证。";
   if (snapshot.ready) return "Hermes Ready：API、Provider、Career MCP、工具面和 Run 均已就绪。";
   if (snapshot.status === "configuration_required") return "Hermes API 已连接，但 Provider 需要配置或认证修复。";
   if (snapshot.apiState === "reachable") return "Hermes API 已连接；Provider、Career MCP 或 Run 仍需单独检查。";
@@ -627,14 +666,6 @@ function providerStateFromHealth(health: HermesControlHealthInput | undefined, p
   return "unknown";
 }
 
-function providerStateFromProviderTest(result: HermesProviderTestResult): HermesProviderState {
-  if (result.ok) return "ready";
-  if (result.safeErrorCode === "provider_http_401" || result.safeErrorCode === "provider_http_403" || result.httpStatus === 401 || result.httpStatus === 403) return "auth_error";
-  if (result.safeErrorCode === "missing_ai_config" || result.safeErrorCode === "provider_protocol_mismatch" || result.safeErrorCode === "provider_http_400" || result.safeErrorCode === "provider_http_404" || result.safeErrorCode === "provider_http_422") return "config_error";
-  if (result.safeErrorCode?.startsWith("provider_")) return "unreachable";
-  return "unknown";
-}
-
 function controlStatus(input: { ready: boolean; serviceState: HermesServiceState; apiReady: boolean; providerState: HermesProviderState }): HermesControlStatus {
   if (input.ready) return "ready";
   if (input.providerState === "auth_error" || input.providerState === "config_error") return "configuration_required";
@@ -656,12 +687,14 @@ function mergeProviderDiagnostic(
     lastHttpStatus?: number;
     httpStatus?: number;
     safeErrorCode?: string;
+    configFingerprint?: string;
+    configGeneration?: number;
   } | undefined>
 ): HermesProviderDiagnostic {
   const result: HermesProviderDiagnostic = { credentialConfigured: false, credentialSource: "unknown" };
   for (const value of values) {
     if (!value) continue;
-    if (typeof value.provider === "string") result.provider = value.provider;
+    if (typeof value.provider === "string") result.provider = normalizeAiProviderIdentity(value.provider, value.provider);
     if (typeof value.model === "string") result.model = value.model;
     if (typeof value.credentialConfigured === "boolean") result.credentialConfigured = value.credentialConfigured;
     if (value.credentialSource) result.credentialSource = value.credentialSource;
@@ -670,6 +703,8 @@ function mergeProviderDiagnostic(
     if (typeof value.lastHttpStatus === "number") result.lastHttpStatus = value.lastHttpStatus;
     if (typeof value.httpStatus === "number") result.lastHttpStatus = value.httpStatus;
     if (typeof value.safeErrorCode === "string") result.safeErrorCode = value.safeErrorCode;
+    if (typeof value.configFingerprint === "string") result.configFingerprint = value.configFingerprint;
+    if (typeof value.configGeneration === "number") result.configGeneration = value.configGeneration;
   }
   return result;
 }
@@ -695,7 +730,7 @@ function defaultStorageDiagnostic(environment: HermesRuntimeEnvironment): Hermes
 export async function requestHermesStart(): Promise<HermesControlResult> {
   if (hermesRuntimeEnvironment() === "web") return requestWebHermesControl("start", { rendererReady: true });
   const settings = readAiSettings();
-  return window.careerAdaptDesktop!.startHermes(settings);
+  return window.careerAdaptDesktop!.startHermes(hasStoredAiSettings() ? settings : undefined);
 }
 
 export async function notifyHermesRendererReady(settings?: HermesStartSettings) {
@@ -790,17 +825,17 @@ export async function getHermesConfigSchema() {
 }
 
 export async function requestHermesConfigUpdate(settings: HermesStartSettings) {
-  if (hermesRuntimeEnvironment() === "web") return requestWebHermesControl("update_config", { settings });
+  if (hermesRuntimeEnvironment() === "web") return requestWebHermesControl("update_config", { rendererReady: true, settings });
   return window.careerAdaptDesktop!.updateHermesConfig(settings);
 }
 
 export async function requestHermesEnvironmentReload() {
-  if (hermesRuntimeEnvironment() === "web") return requestWebHermesControl("reload_config");
+  if (hermesRuntimeEnvironment() === "web") return requestWebHermesControl("reload_config", { rendererReady: true });
   return window.careerAdaptDesktop!.reloadHermesConfig();
 }
 
 export async function requestHermesConfigReset() {
-  if (hermesRuntimeEnvironment() === "web") return requestWebHermesControl("reset_config");
+  if (hermesRuntimeEnvironment() === "web") return requestWebHermesControl("reset_config", { rendererReady: true });
   return window.careerAdaptDesktop!.resetHermesConfig();
 }
 
@@ -819,14 +854,28 @@ export async function requestHermesProviderTest(settings = readAiSettings()): Pr
     : Boolean(settings.apiKey.trim());
   const credentialSource = credentialSourceValue(sources.credential)
     ?? (settings.apiKey.trim() ? "custom_header" : "unknown");
+  const configFingerprint = typeof payload.configFingerprint === "string"
+    ? payload.configFingerprint
+    : typeof configuration.configFingerprint === "string"
+      ? configuration.configFingerprint
+      : await runtimeConfigFingerprint({
+          provider: typeof configuration.provider === "string" ? configuration.provider : settings.provider,
+          baseUrl: settings.baseUrl,
+          model: typeof configuration.model === "string" ? configuration.model : settings.model,
+          apiKey: settings.apiKey
+        });
   const httpStatus = numberValue(http.statusCode)
     ?? (safeErrorCode?.startsWith("provider_http_") ? Number(safeErrorCode.slice("provider_http_".length)) : undefined);
   return {
     ok: response.ok && payload.ok === true,
-    provider: typeof payload.provider === "string" ? payload.provider : typeof configuration.provider === "string" ? configuration.provider : settings.provider,
+    provider: normalizeAiProviderIdentity(
+      typeof payload.provider === "string" ? payload.provider : typeof configuration.provider === "string" ? configuration.provider : settings.provider,
+      settings.baseUrl
+    ),
     model: typeof payload.model === "string" ? payload.model : typeof configuration.model === "string" ? configuration.model : settings.model || undefined,
     credentialConfigured: configured,
     credentialSource,
+    configFingerprint,
     checkedAt: new Date().toISOString(),
     ...(httpStatus === undefined ? {} : { httpStatus }),
     ...(safeErrorCode ? { safeErrorCode } : {}),
@@ -906,5 +955,9 @@ function credentialSourceValue(value: unknown): HermesCredentialSource | undefin
 }
 
 function hasCustomSettings(settings: HermesStartSettings) {
-  return Boolean(settings.apiKey.trim() || settings.baseUrl.trim() || settings.model.trim());
+  return Boolean(settings.apiKey.trim()
+    || settings.baseUrl.trim()
+    || settings.model.trim()
+    || settings.provider !== "openai-compatible"
+    || settings.credentialAction === "clear");
 }

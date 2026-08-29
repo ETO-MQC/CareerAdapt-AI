@@ -59,11 +59,27 @@ function createHealth(overrides: Record<string, unknown> = {}) {
 }
 
 function createHarness(initialHealth = createHealth(), options: Record<string, unknown> = {}) {
+  const baseHealth = initialHealth;
   let currentHealth: Record<string, unknown> = initialHealth;
+  let nextStartHealth: Record<string, unknown> | undefined;
   let startCount = 0;
   const children: Array<EventEmitter & { exitCode: number | null }> = [];
-  const startCompanion = async () => {
+  const startInputs: Array<{ environment?: Record<string, string>; reuseExistingRuntime?: boolean }> = [];
+  const startCompanion = async (input: { environment?: Record<string, string> }) => {
     startCount += 1;
+    startInputs.push(input);
+    const environment = input.environment ?? {};
+    const launchHealth = nextStartHealth ?? baseHealth;
+    nextStartHealth = undefined;
+    currentHealth = {
+      ...launchHealth,
+      ...(environment.AI_PROVIDER ? { provider: environment.AI_PROVIDER } : {}),
+      ...(environment.AI_MODEL ? { model: environment.AI_MODEL } : {}),
+      runtimeHealth: {
+        ...(launchHealth.runtimeHealth as Record<string, unknown>),
+        ...(environment.AI_MODEL ? { model: environment.AI_MODEL } : {})
+      }
+    };
     const child = Object.assign(new EventEmitter(), { exitCode: null as number | null });
     children.push(child);
     return {
@@ -104,8 +120,10 @@ function createHarness(initialHealth = createHealth(), options: Record<string, u
   return {
     supervisor,
     children,
+    startInputs,
     getStartCount: () => startCount,
-    setHealth: (health: Record<string, unknown>) => { currentHealth = health; }
+    setHealth: (health: Record<string, unknown>) => { currentHealth = health; },
+    setNextStartHealth: (health: Record<string, unknown>) => { nextStartHealth = health; }
   };
 }
 
@@ -232,5 +250,180 @@ describe("Hermes Supervisor lifecycle", () => {
       model: "mimo-v2.5-pro",
       credentialSource: "missing"
     });
+  });
+
+  it("does not reuse a healthy runtime that is outside the Supervisor ownership boundary", async () => {
+    const harness = createHarness();
+    await harness.supervisor.rendererHostReady();
+    await harness.supervisor.updateConfig({
+      provider: "openrouter",
+      baseUrl: "https://openrouter.ai/api/v1",
+      apiKey: "managed-secret",
+      model: "stealth/ox-alpha"
+    });
+
+    expect(harness.startInputs).toHaveLength(2);
+    expect(harness.startInputs.every((input) => input.reuseExistingRuntime === false)).toBe(true);
+  });
+
+  it("only reports an applied configuration after the running runtime reads it back", async () => {
+    const harness = createHarness();
+    await harness.supervisor.rendererHostReady();
+    const result = await harness.supervisor.updateConfig({
+      provider: "openrouter",
+      baseUrl: "https://openrouter.ai/api/v1",
+      apiKey: "managed-secret",
+      model: "stealth/ox-alpha"
+    });
+    const runtimeConfig = result.runtimeConfig as { desiredFingerprint?: string; desiredGeneration?: number };
+
+    expect(result.runtimeConfig).toMatchObject({
+      applyStatus: "applied",
+      verified: true,
+      desired: { provider: "openrouter", model: "stealth/ox-alpha" },
+      active: { provider: "openrouter", model: "stealth/ox-alpha" },
+      activeFingerprint: runtimeConfig.desiredFingerprint,
+      activeGeneration: runtimeConfig.desiredGeneration
+    });
+    expect(result.lastApplyReceipt).toMatchObject({
+      applyStatus: "applied",
+      verified: true,
+      rollbackOccurred: false,
+      restartPerformed: true
+    });
+    expect(harness.getStartCount()).toBe(2);
+  });
+
+  it("switches back to the previous provider shape with one controlled restart", async () => {
+    const harness = createHarness();
+    await harness.supervisor.rendererHostReady({
+      provider: "openrouter",
+      baseUrl: "https://openrouter.ai/api/v1",
+      apiKey: "openrouter-secret",
+      model: "stealth/ox-alpha"
+    });
+
+    const result = await harness.supervisor.updateConfig({
+      provider: "openai-compatible",
+      baseUrl: "https://provider.example/v1",
+      apiKey: "mimo-secret",
+      model: "mimo-v2.5-pro"
+    });
+    const runtimeConfig = result.runtimeConfig as { desiredFingerprint?: string };
+
+    expect(runtimeConfig).toMatchObject({
+      applyStatus: "applied",
+      verified: true,
+      active: { provider: "openai-compatible", baseUrl: "https://provider.example/v1", model: "mimo-v2.5-pro" },
+      activeFingerprint: runtimeConfig.desiredFingerprint
+    });
+    expect(harness.getStartCount()).toBe(2);
+  });
+
+  it("performs one bounded rollback when the new Provider cannot become ready", async () => {
+    const harness = createHarness();
+    await harness.supervisor.rendererHostReady();
+    harness.setNextStartHealth(createHealth({
+      providerStatus: "invalid",
+      runtimeHealth: {
+        ...createHealth().runtimeHealth,
+        providerReady: false,
+        providerReachable: false,
+        runReady: false
+      }
+    }));
+
+    const result = await harness.supervisor.updateConfig({
+      provider: "openrouter",
+      baseUrl: "https://openrouter.ai/api/v1",
+      apiKey: "bad-secret",
+      model: "bad/model"
+    });
+
+    expect(result.runtimeConfig).toMatchObject({
+      applyStatus: "rolled_back",
+      verified: false,
+      rollbackOccurred: true,
+      active: { provider: "openai-compatible", model: "mimo-v2.5-pro" },
+      desired: { provider: "openrouter", model: "bad/model" },
+      activeGeneration: 1,
+      desiredGeneration: 2
+    });
+    expect(result.lastApplyReceipt).toMatchObject({ applyStatus: "rolled_back", verified: false, rollbackOccurred: true });
+    expect(harness.getStartCount()).toBe(3);
+  });
+
+  it("defers configuration apply during an active semantic run without starting a second run", async () => {
+    const harness = createHarness();
+    await harness.supervisor.rendererHostReady();
+    harness.supervisor.applyHealth(createHealth({
+      activeRunId: "run-1",
+      runtimeHealth: {
+        ...createHealth().runtimeHealth,
+        activeRunId: "run-1",
+        runState: "running"
+      }
+    }));
+
+    const result = await harness.supervisor.updateConfig({
+      provider: "openrouter",
+      baseUrl: "https://openrouter.ai/api/v1",
+      apiKey: "managed-secret",
+      model: "stealth/ox-alpha"
+    });
+
+    expect(harness.getStartCount()).toBe(1);
+    expect(result.runtimeConfig).toMatchObject({
+      applyStatus: "deferred",
+      active: { provider: "openai-compatible", model: "mimo-v2.5-pro" },
+      desired: { provider: "openrouter", model: "stealth/ox-alpha" }
+    });
+  });
+
+  it("does not attach a stale provider diagnostic to the verified active configuration", async () => {
+    const harness = createHarness();
+    await harness.supervisor.rendererHostReady();
+    harness.supervisor.applyHealth(createHealth({
+      provider: "https://openrouter.ai/api/v1",
+      model: "stale/model",
+      providerStatus: "invalid",
+      providerDiagnostic: {
+        provider: "openrouter",
+        model: "stale/model",
+        credentialConfigured: true,
+        credentialSource: "managed_config",
+        configFingerprint: "stale-fingerprint",
+        configGeneration: 99,
+        lastHttpStatus: 401,
+        safeErrorCode: "provider_http_401"
+      },
+      runtimeHealth: {
+        ...createHealth().runtimeHealth,
+        providerReady: false,
+        providerReachable: false,
+        providerStatus: "invalid",
+        model: "stale/model",
+        runReady: false,
+        providerDiagnostic: {
+          provider: "openrouter",
+          model: "stale/model",
+          credentialConfigured: true,
+          credentialSource: "managed_config",
+          configFingerprint: "stale-fingerprint",
+          configGeneration: 99,
+          lastHttpStatus: 401,
+          safeErrorCode: "provider_http_401"
+        }
+      }
+    }));
+
+    expect(harness.supervisor.getStatus()).toMatchObject({
+      overallState: "degraded",
+      reasonCode: "configuration_desync",
+      provider: "openai-compatible",
+      model: "mimo-v2.5-pro",
+      providerReady: false
+    });
+    expect(harness.supervisor.getStatus().providerDiagnostic).toBeUndefined();
   });
 });

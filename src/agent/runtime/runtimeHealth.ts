@@ -21,6 +21,8 @@ export const RuntimeHealthSchema = z.object({
     model: z.string().min(1).optional(),
     credentialConfigured: z.boolean(),
     credentialSource: z.enum(["server_env", "managed_config", "custom_header", "default", "missing", "unknown"]),
+    configFingerprint: z.string().min(1).optional(),
+    configGeneration: z.number().int().min(0).optional(),
     lastCheckedAt: z.string().datetime({ offset: true }).optional(),
     lastHttpStatus: z.number().int().min(100).max(599).optional(),
     safeErrorCode: z.string().min(1).optional()

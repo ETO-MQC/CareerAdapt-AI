@@ -1047,14 +1047,14 @@ export function AgentWorkspace() {
 
   const testHermesProvider = useCallback(async () => {
     const result = await requestHermesProviderTest();
-    host.runtimeStatus.recordProviderTest(result);
+    host.runtimeStatus.recordCandidateProviderTest(result);
   }, [host]);
 
   const reconnectHermes = useCallback(async () => {
     await host.mcpBridge.reconnect();
     await host.refreshHermesHealth();
     const result = await requestHermesProviderTest();
-    host.runtimeStatus.recordProviderTest(result);
+    host.runtimeStatus.recordCandidateProviderTest(result);
   }, [host]);
 
   const stopCurrentHermesRun = useCallback(async () => {
