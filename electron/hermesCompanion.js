@@ -8,6 +8,14 @@ const { execFile, execFileSync, spawn } = require("child_process");
 
 const DEFAULT_RUNTIME_URL = "http://127.0.0.1:8642";
 const DEFAULT_PROVIDER_BASE_URL = "https://api.openai.com/v1";
+const HERMES_PROVIDER_ALIASES = Object.freeze({
+  "openai-compatible": "openai-api",
+  "openai_api": "openai-api",
+  "openai": "openai-api",
+  "openai api": "openai-api",
+  local: "custom",
+  ollama: "custom"
+});
 const DEFAULT_APP_URL = "http://127.0.0.1:3000";
 const DEFAULT_LOCAL_HOST = "127.0.0.1";
 const DEFAULT_PORT_SCAN_LIMIT = 100;
@@ -151,6 +159,10 @@ function prepareHermesEnvironment(environment, options = {}) {
 
   const providerBaseUrl = firstValue(result.HERMES_BASE_URL, result.AI_BASE_URL, result.OPENAI_BASE_URL);
   const providerApiKey = firstValue(result.AI_API_KEY, result.OPENAI_API_KEY, result.HERMES_API_KEY);
+  const provider = normalizeProviderIdentity(
+    firstValue(result.HERMES_PROVIDER, result.AI_PROVIDER),
+    { HERMES_BASE_URL: providerBaseUrl }
+  );
   const model = firstValue(result.HERMES_MODEL, result.AI_MODEL, result.HERMES_INFERENCE_MODEL);
   const appBaseUrl = firstValue(options.appBaseUrl, result.CAREERADAPT_BASE_URL, result.PLAYWRIGHT_BASE_URL, DEFAULT_APP_URL);
   const hermesHome = firstValue(options.hermesHome, result.CAREERADAPT_HERMES_HOME, result.HERMES_HOME);
@@ -187,6 +199,7 @@ function prepareHermesEnvironment(environment, options = {}) {
     childEnvironment.PATH = childEnvironment.Path;
     childEnvironment.HERMES_HOME = hermesHome || path.join(options.projectRoot ?? process.cwd(), ".next", "dev", "hermes");
     ensureManagedHermesConfig(childEnvironment.HERMES_HOME, {
+      provider,
       baseUrl: providerBaseUrl,
       model,
       appBaseUrl,
@@ -234,7 +247,10 @@ function ensureManagedHermesConfig(hermesHome, values) {
   fs.mkdirSync(hermesHome, { recursive: true });
   const baseUrl = firstValue(values.baseUrl);
   const model = firstValue(values.model);
-  const provider = baseUrl && model ? "custom:careeradapt" : "custom";
+  const configuredProvider = firstValue(values.provider);
+  const provider = configuredProvider === "custom"
+    ? "custom:careeradapt"
+    : configuredProvider || (baseUrl && model ? "custom:careeradapt" : "custom");
   const mcpUrl = `${String(values.appBaseUrl || DEFAULT_APP_URL).replace(/\/$/u, "")}/api/agent/mcp`;
   const developerMode = firstValue(values.mode, process.env.CAREERADAPT_HERMES_MODE)?.toLowerCase() === "developer"
     || firstValue(values.developerMode, process.env.CAREERADAPT_HERMES_DEVELOPER_MODE)?.toLowerCase() === "true";
@@ -529,15 +545,20 @@ function providerCredential(environment) {
 
 function normalizeProviderIdentity(provider, environment) {
   const candidate = firstValue(provider);
-  if (candidate && !/^https?:\/\//iu.test(candidate)) return candidate.toLowerCase();
+  if (candidate && !/^https?:\/\//iu.test(candidate)) {
+    const normalized = candidate.toLowerCase();
+    if (normalized === "openai-compatible" || normalized === "openai_api") return normalizeProviderIdentity(undefined, environment);
+    return HERMES_PROVIDER_ALIASES[normalized] || normalized;
+  }
   const baseUrl = firstValue(environment?.HERMES_BASE_URL, environment?.AI_BASE_URL, environment?.OPENAI_BASE_URL);
   try {
     const hostname = new URL(baseUrl || "").hostname.toLowerCase();
     if (hostname === "openrouter.ai" || hostname.endsWith(".openrouter.ai")) return "openrouter";
+    if (hostname === "api.openai.com" || hostname.endsWith(".openai.com")) return "openai-api";
   } catch {
     // Configuration validation owns user-facing URL errors.
   }
-  return "openai-compatible";
+  return "custom";
 }
 
 async function stopHermesCompanion(handle) {
@@ -942,6 +963,7 @@ module.exports = {
   parsePort,
   ensureManagedHermesConfig,
   classifyStartupStage,
+  normalizeProviderIdentity,
   sanitizedLaunchSummary,
   startHermesCompanion,
   stopHermesCompanion

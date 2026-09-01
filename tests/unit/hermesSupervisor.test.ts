@@ -60,10 +60,21 @@ function createHealth(overrides: Record<string, unknown> = {}) {
 }
 
 function createHarness(initialHealth = createHealth(), options: Record<string, unknown> = {}) {
+  const nativeModelConfigEnabled = options.nativeModelConfig === true;
+  const nativeReadbackProvider = typeof options.nativeReadbackProvider === "string" ? options.nativeReadbackProvider : undefined;
   const baseHealth = initialHealth;
   let currentHealth: Record<string, unknown> = initialHealth;
   let nextStartHealth: Record<string, unknown> | undefined;
   let startCount = 0;
+  let stopCount = 0;
+  let modelSetCount = 0;
+  let modelInfoCount = 0;
+  const modelSetBodies: Array<Record<string, unknown>> = [];
+  let modelConfig = {
+    provider: "custom",
+    model: "mimo-v2.5-pro",
+    baseUrl: "https://provider.example/v1"
+  };
   const children: Array<EventEmitter & { exitCode: number | null }> = [];
   const startInputs: Array<{ environment?: Record<string, string>; reuseExistingRuntime?: boolean }> = [];
   const startCompanion = async (input: { environment?: Record<string, string> }) => {
@@ -81,6 +92,13 @@ function createHarness(initialHealth = createHealth(), options: Record<string, u
         ...(environment.AI_MODEL ? { model: environment.AI_MODEL } : {})
       }
     };
+    if (nativeModelConfigEnabled) {
+      modelConfig = {
+        provider: nativeReadbackProvider ?? environment.AI_PROVIDER ?? modelConfig.provider,
+        model: environment.AI_MODEL ?? modelConfig.model,
+        baseUrl: environment.AI_BASE_URL ?? modelConfig.baseUrl
+      };
+    }
     const child = Object.assign(new EventEmitter(), { exitCode: null as number | null });
     children.push(child);
     return {
@@ -92,14 +110,31 @@ function createHarness(initialHealth = createHealth(), options: Record<string, u
     };
   };
   const stopCompanion = async (handle: { child?: EventEmitter & { exitCode: number | null } }) => {
+    stopCount += 1;
     const child = handle.child;
     if (!child || child.exitCode !== null) return;
     child.exitCode = 0;
     child.emit("exit", 0, null);
   };
-  const fetchImpl = async (url: string) => url.includes("/api/agent/runtime/hermes/health")
-    ? { ok: true, json: async () => currentHealth }
-    : { ok: false, json: async () => ({}) };
+  const fetchImpl = async (url: string, init: RequestInit = {}) => {
+    if (url.includes("/api/agent/runtime/hermes/health")) return { ok: true, status: 200, json: async () => currentHealth };
+    if (nativeModelConfigEnabled && url.endsWith("/api/model/info")) {
+      modelInfoCount += 1;
+      return { ok: true, status: 200, json: async () => ({ ...modelConfig, capabilities: {} }) };
+    }
+    if (nativeModelConfigEnabled && url.endsWith("/api/model/set")) {
+      modelSetCount += 1;
+      const body = JSON.parse(String(init.body ?? "{}")) as Record<string, unknown> & { provider?: string; model?: string; base_url?: string };
+      modelSetBodies.push(body);
+      modelConfig = {
+        provider: nativeReadbackProvider ?? body.provider ?? modelConfig.provider,
+        model: body.model ?? modelConfig.model,
+        baseUrl: body.base_url ?? modelConfig.baseUrl
+      };
+      return { ok: true, status: 200, json: async () => ({ ok: true, ...modelConfig, base_url: modelConfig.baseUrl }) };
+    }
+    return { ok: false, status: 404, json: async () => ({}) };
+  };
   const supervisor = new HermesSupervisor({
     projectRoot: process.cwd(),
     appBaseUrl: "http://127.0.0.1:3000",
@@ -123,6 +158,10 @@ function createHarness(initialHealth = createHealth(), options: Record<string, u
     children,
     startInputs,
     getStartCount: () => startCount,
+    getStopCount: () => stopCount,
+    getModelSetCount: () => modelSetCount,
+    getModelSetBodies: () => modelSetBodies,
+    getModelInfoCount: () => modelInfoCount,
     setHealth: (health: Record<string, unknown>) => { currentHealth = health; },
     setNextStartHealth: (health: Record<string, unknown>) => { nextStartHealth = health; }
   };
@@ -246,7 +285,7 @@ describe("Hermes Supervisor lifecycle", () => {
     await harness.supervisor.resetConfig();
     const resetConfig = await harness.supervisor.getConfig();
     expect(resetConfig).toMatchObject({
-      provider: "openai-compatible",
+      provider: "custom",
       baseUrl: "https://provider.example/v1",
       model: "mimo-v2.5-pro",
       credentialSource: "missing"
@@ -315,7 +354,7 @@ describe("Hermes Supervisor lifecycle", () => {
     expect(runtimeConfig).toMatchObject({
       applyStatus: "applied",
       verified: true,
-      active: { provider: "openai-compatible", baseUrl: "https://provider.example/v1", model: "mimo-v2.5-pro" },
+      active: { provider: "custom", baseUrl: "https://provider.example/v1", model: "mimo-v2.5-pro" },
       activeFingerprint: runtimeConfig.desiredFingerprint
     });
     expect(harness.getStartCount()).toBe(2);
@@ -345,7 +384,7 @@ describe("Hermes Supervisor lifecycle", () => {
       applyStatus: "rolled_back",
       verified: false,
       rollbackOccurred: true,
-      active: { provider: "openai-compatible", model: "mimo-v2.5-pro" },
+      active: { provider: "custom", model: "mimo-v2.5-pro" },
       desired: { provider: "openrouter", model: "bad/model" },
       activeGeneration: 1,
       desiredGeneration: 2
@@ -354,8 +393,8 @@ describe("Hermes Supervisor lifecycle", () => {
     expect(harness.getStartCount()).toBe(3);
   });
 
-  it("defers configuration apply during an active semantic run without starting a second run", async () => {
-    const harness = createHarness();
+  it("applies a native model change during an active semantic run without restarting Hermes", async () => {
+    const harness = createHarness(createHealth(), { nativeModelConfig: true });
     await harness.supervisor.rendererHostReady();
     harness.supervisor.applyHealth(createHealth({
       activeRunId: "run-1",
@@ -375,10 +414,60 @@ describe("Hermes Supervisor lifecycle", () => {
 
     expect(harness.getStartCount()).toBe(1);
     expect(result.runtimeConfig).toMatchObject({
-      applyStatus: "deferred",
-      active: { provider: "openai-compatible", model: "mimo-v2.5-pro" },
+      applyStatus: "applied",
+      restartPerformed: false,
+      active: { provider: "openrouter", model: "stealth/ox-alpha" },
       desired: { provider: "openrouter", model: "stealth/ox-alpha" }
     });
+    expect(harness.getModelSetCount()).toBe(1);
+  });
+
+  it("accepts Hermes named custom-provider readback as the requested custom identity", async () => {
+    const harness = createHarness(createHealth(), { nativeModelConfig: true, nativeReadbackProvider: "custom:careeradapt" });
+    await harness.supervisor.rendererHostReady();
+
+    const result = await harness.supervisor.updateConfig({
+      provider: "openai-compatible",
+      baseUrl: "https://provider.example/v1",
+      apiKey: "managed-secret",
+      model: "custom-model"
+    });
+
+    expect(result.runtimeConfig).toMatchObject({
+      applyStatus: "applied",
+      verified: true,
+      restartPerformed: false,
+      active: { provider: "custom", model: "custom-model" }
+    });
+    expect(harness.getStartCount()).toBe(1);
+    expect(harness.getStopCount()).toBe(0);
+  });
+
+  it("coalesces twenty native model applies into one write without a lifecycle restart", async () => {
+    const harness = createHarness(createHealth(), { nativeModelConfig: true });
+    await harness.supervisor.rendererHostReady();
+    const draft = {
+      provider: "openrouter",
+      baseUrl: "https://openrouter.ai/api/v1",
+      apiKey: "managed-secret",
+      model: "z-ai/glm-5.3-flash"
+    };
+
+    const results = await Promise.all(Array.from({ length: 20 }, () => harness.supervisor.updateConfig(draft)));
+
+    expect(harness.getStartCount()).toBe(1);
+    expect(harness.getStopCount()).toBe(0);
+    expect(harness.getModelSetCount()).toBe(1);
+    expect(harness.getModelSetBodies()).toEqual([expect.objectContaining({
+      scope: "main",
+      provider: "openrouter",
+      model: draft.model,
+      base_url: draft.baseUrl,
+      api_key: draft.apiKey,
+      confirm_expensive_model: true
+    })]);
+    expect(results.every((result) => (result.runtimeConfig as { active?: { model?: string } }).active?.model === draft.model)).toBe(true);
+    expect(results.at(-1)?.lastApplyReceipt).toMatchObject({ applyStatus: "applied", restartPerformed: false, verified: true });
   });
 
   it("does not attach a stale provider diagnostic to the verified active configuration", async () => {
@@ -421,7 +510,7 @@ describe("Hermes Supervisor lifecycle", () => {
     expect(harness.supervisor.getStatus()).toMatchObject({
       overallState: "degraded",
       reasonCode: "configuration_desync",
-      provider: "openai-compatible",
+      provider: "custom",
       model: "mimo-v2.5-pro",
       providerReady: false
     });

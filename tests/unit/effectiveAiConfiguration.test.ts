@@ -41,7 +41,7 @@ describe("effective AI configuration diagnostics", () => {
     }));
 
     expect(diagnostic).toMatchObject({
-      provider: "openai-compatible",
+      provider: "custom",
       model: "mimo-v2.5-pro",
       baseUrlHostPath: "token-plan-cn.xiaomimimo.com/v1",
       credentialPresent: true,

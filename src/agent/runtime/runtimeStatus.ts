@@ -6,7 +6,6 @@ import {
   createHermesControlCapabilities,
   createInitialHermesControlSnapshot,
   updateHermesControlRunState,
-  type CandidateProviderTestResult,
   type HermesControlSnapshot,
   type HermesSupervisorSnapshot,
   type HermesRunState
@@ -49,14 +48,6 @@ export type RuntimeStatusSnapshot = {
   version?: string;
   provider?: string;
   model?: string;
-  /** Candidate diagnostics are deliberately separate from active runtime state. */
-  candidateProviderTest?: CandidateProviderTestResult;
-  candidateConfiguration?: {
-    provider?: string;
-    model?: string;
-    credentialConfigured: boolean;
-    credentialSource: HermesControlSnapshot["providerDiagnostic"]["credentialSource"];
-  };
   contextWindow?: number;
   toolCalling?: "verified" | "unverified" | "unsupported" | "unknown";
   toolCallingCapability?: "verified" | "unverified" | "unsupported" | "unknown";
@@ -187,14 +178,6 @@ export class RuntimeStatusStore {
     });
   }
 
-  recordProviderTest(result: CandidateProviderTestResult) {
-    this.update({ candidateProviderTest: result });
-  }
-
-  recordCandidateProviderTest(result: CandidateProviderTestResult) {
-    this.recordProviderTest(result);
-  }
-
   recordRunState(runState: HermesRunState, activeRunId?: string) {
     const previous = this.snapshot.controlSnapshot ?? createInitialHermesControlSnapshot();
     if (this.supervisorOwned) {
@@ -210,15 +193,6 @@ export class RuntimeStatusStore {
     }
     const controlSnapshot = updateHermesControlRunState(previous, runState, activeRunId);
     this.recordControlSnapshot(controlSnapshot);
-  }
-
-  recordProviderConfiguration(input: {
-    provider?: string;
-    model?: string;
-    credentialConfigured: boolean;
-    credentialSource: HermesControlSnapshot["providerDiagnostic"]["credentialSource"];
-  }) {
-    this.update({ candidateConfiguration: input });
   }
 
   recordControlSnapshot(controlSnapshot: HermesControlSnapshot) {

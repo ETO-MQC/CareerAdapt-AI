@@ -99,6 +99,10 @@ class RoutedAgentRuntime implements AgentRuntime {
     await this.preferred.interrupt(sessionId, reason);
   }
 
+  releaseSessionBinding(sessionId: string) {
+    this.preferred.releaseSessionBinding?.(sessionId);
+  }
+
   async resume(sessionId: string) {
     await this.preferred.resume(sessionId);
   }

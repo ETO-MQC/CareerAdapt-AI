@@ -226,19 +226,10 @@ describe("P4.5c.1.23 Hermes control capability and provider closure", () => {
     });
   });
 
-  it("keeps a Provider candidate test outside the shared active projection", () => {
+  it("keeps candidate test results out of RuntimeStatusStore", () => {
     const store = new RuntimeStatusStore({ preferredRuntime: "hermes", activeRuntime: "hermes", status: "starting" });
-    store.recordCandidateProviderTest({
-      ok: false,
-      provider: "openai-compatible",
-      model: "mimo-v2.5-pro",
-      credentialConfigured: true,
-      credentialSource: "custom_header",
-      checkedAt: new Date().toISOString(),
-      httpStatus: 401,
-      safeErrorCode: "provider_http_401"
-    });
-    expect(store.getSnapshot().candidateProviderTest?.safeErrorCode).toBe("provider_http_401");
+    expect("recordCandidateProviderTest" in store).toBe(false);
+    expect("candidateProviderTest" in store.getSnapshot()).toBe(false);
     expect(store.getSnapshot().controlSnapshot?.providerState).toBe("unknown");
     expect(store.getSnapshot().providerReady).toBeUndefined();
   });

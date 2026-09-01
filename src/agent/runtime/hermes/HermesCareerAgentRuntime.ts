@@ -190,6 +190,17 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     }));
   }
 
+  /**
+   * A model apply changes Hermes' default for future sessions. Release only
+   * the transport binding so the next semantic turn opens a fresh Hermes
+   * session; CareerAdapt's persisted messages, workflow, checkpoints, and
+   * artifacts remain owned by AgentHostStore.
+   */
+  releaseSessionBinding(sessionId: string) {
+    this.sessions.delete(sessionId);
+    this.activeRuns.delete(sessionId);
+  }
+
   async stopCurrentRun(runId: string, reason: RunStopReason): Promise<HermesRunStatus> {
     const transport = this.dependencies.transport;
     if (!transport.getRun || !transport.stopRun) throw hermesError("hermes_run_stop_unavailable", "当前 Hermes 运行时不支持停止 Run。");

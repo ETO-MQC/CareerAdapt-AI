@@ -98,6 +98,8 @@ export interface AgentRuntime {
   runTurn(input: AgentRuntimeTurnInput): AsyncIterable<AgentRuntimeEvent>;
   pause(sessionId: string): Promise<void>;
   interrupt(sessionId: string, reason?: RunStopReason): Promise<void>;
+  /** Releases only the runtime-session binding after a verified model apply. */
+  releaseSessionBinding?(sessionId: string): void;
   resume(sessionId: string): Promise<void>;
   capabilities(): AgentRuntimeCapabilities;
   /** One bounded Hermes health/session recovery before a safe retry. */

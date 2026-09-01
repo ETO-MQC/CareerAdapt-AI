@@ -81,7 +81,7 @@ function readySnapshot(model = "mimo-v2.5-pro") {
       activeFingerprint: active.configFingerprint,
       activeGeneration: active.configGeneration,
       applyStatus: "applied" as const,
-      restartPerformed: true,
+      restartPerformed: false,
       verified: true,
       rollbackOccurred: false
     },
@@ -125,13 +125,12 @@ beforeEach(() => {
   mocks.environmentReload.mockResolvedValue({ ok: true, controlSnapshot: readySnapshot() });
 
   const controlSnapshot = readySnapshot();
-  const runtimeStatusSnapshot = { controlSnapshot, candidateProviderTest: undefined };
-  const runtimeStatus = {
-    subscribe: vi.fn(() => () => undefined),
-    getSnapshot: vi.fn(() => runtimeStatusSnapshot),
-    recordCandidateProviderTest: vi.fn(),
-    recordControlSnapshot: vi.fn(),
-    recordSupervisorStatus: vi.fn()
+  const runtimeStatusSnapshot = { controlSnapshot };
+    const runtimeStatus = {
+      subscribe: vi.fn(() => () => undefined),
+      getSnapshot: vi.fn(() => runtimeStatusSnapshot),
+      recordControlSnapshot: vi.fn(),
+      recordSupervisorStatus: vi.fn()
   };
   mocks.host = {
     runtimeStatus,
@@ -175,16 +174,16 @@ describe("P4.6d AI runtime control plane", () => {
     render(<SettingsPage />);
     fireEvent.click(screen.getByRole("button", { name: /AI 配置/ }));
 
-    const testButton = screen.getByRole("button", { name: "测试候选配置" });
+    const testButton = screen.getByRole("button", { name: "测试连接" });
     fireEvent.click(testButton);
-    expect(screen.getByRole("button", { name: "候选测试中…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "测试连接中…" })).toBeDisabled();
 
     resolveTest(candidateFailure());
-    await screen.findByText(/候选配置未通过：API Key 无效或已过期/u, { selector: "p" });
+    await screen.findByText("API Key 无效或没有模型权限。", { selector: "p" });
     mocks.providerTest.mockResolvedValue(candidateFailure());
     for (let index = 1; index < 5; index += 1) {
-      fireEvent.click(screen.getByRole("button", { name: "测试候选配置" }));
-      await screen.findByText(/候选配置未通过：API Key 无效或已过期/u, { selector: "p" });
+      fireEvent.click(screen.getByRole("button", { name: "测试连接" }));
+      await screen.findByText("API Key 无效或没有模型权限。", { selector: "p" });
     }
     expect(screen.getByText("mimo-v2.5-pro")).toBeInTheDocument();
     expect(mocks.providerTest).toHaveBeenCalledTimes(5);
@@ -212,16 +211,15 @@ describe("P4.6d AI runtime control plane", () => {
     expect(screen.getByRole("button", { name: "清除已保存 API Key" })).toBeInTheDocument();
   });
 
-  it("keeps engineering telemetry collapsed but available in diagnostics", () => {
+  it("moves engineering telemetry into Developer Mode diagnostics", () => {
     render(<SettingsPage />);
     fireEvent.click(screen.getByRole("button", { name: /AI Agent服务/ }));
 
-    const diagnostics = screen.getByText("诊断与运行时详情", { exact: true }).closest("details");
-    const runtimeDetails = screen.getByText("运行时详情", { exact: true }).closest("details");
-    expect(diagnostics).not.toHaveAttribute("open");
-    expect(runtimeDetails).not.toHaveAttribute("open");
+    expect(screen.queryByText("诊断与运行时详情", { exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByText("Fingerprint", { exact: true })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByText("诊断与运行时详情", { exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: /开发者模式/ }));
+    expect(screen.getByRole("heading", { name: "AI Runtime 诊断" })).toBeInTheDocument();
     expect(screen.getByText("Readiness dimensions")).toBeInTheDocument();
     expect(screen.getByText("CareerAdapt Domain tools")).toBeInTheDocument();
     expect(screen.getByText("Fingerprint")).toBeInTheDocument();
@@ -235,7 +233,7 @@ describe("P4.6d AI runtime control plane", () => {
 
     const saveButton = screen.getByRole("button", { name: "保存并应用" });
     for (let index = 0; index < 20; index += 1) fireEvent.click(saveButton);
-    expect(screen.getByRole("button", { name: "正在应用…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "正在应用模型…" })).toBeDisabled();
     expect(mocks.configUpdate).toHaveBeenCalledTimes(1);
 
     resolveApply({ ok: true, receipt: { applyStatus: "applied" }, controlSnapshot: readySnapshot("new-model") });

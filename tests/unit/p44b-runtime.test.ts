@@ -67,6 +67,30 @@ describe("P4.4b Hermes runtime bridge", () => {
     expect(callbacks[0]).toMatchObject({ toolName: "career.profile.list", result: { ok: true } });
     expect(events.at(-1)?.data).toMatchObject({ telemetry: { runtimeId: "hermes", toolCalls: 1, toolFailures: 0 } });
   });
+
+  it("releases only the Hermes session binding after a model apply", async () => {
+    let created = 0;
+    const runtime = new HermesCareerAgentRuntime({
+      transport: {
+        health: async () => ({ available: true }),
+        createSession: async () => ({ sessionId: `hermes-session-${++created}`, resumed: false }),
+        resumeSession: async () => ({ sessionId: "unexpected", resumed: true }),
+        turn: async function* () { yield { type: "turn_completed", data: { ok: true } }; },
+        toolCallback: async () => undefined,
+        interrupt: async () => undefined
+      },
+      careerToolGateway: gateway()
+    });
+    const run = async () => {
+      for await (const event of runtime.runTurn({ sessionId: "rebind-me", userMessage: "继续", pageContext: { query: {} } })) void event;
+    };
+
+    await run();
+    runtime.releaseSessionBinding("rebind-me");
+    await run();
+
+    expect(created).toBe(2);
+  });
 });
 
 function gateway() {

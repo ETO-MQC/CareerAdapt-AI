@@ -621,10 +621,6 @@ function createAgentHost() {
               // the bounded health check cannot establish a safe retry.
             }
           }
-        } else if (eventData?.fallbackUsed === true) {
-          // Kept only for legacy/test adapters; production Hermes turns never
-          // reach this branch because the router does not switch personas.
-          runtimeStatus.update({ activeRuntime: "hermes", status: "ready" });
         }
       }
     } finally {

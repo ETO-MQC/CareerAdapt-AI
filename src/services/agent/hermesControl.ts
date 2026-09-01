@@ -122,6 +122,7 @@ export type CandidateProviderTestResult = {
   credentialSource: HermesCredentialSource;
   configFingerprint?: string;
   checkedAt: string;
+  latencyMs?: number;
   httpStatus?: number;
   safeErrorCode?: string;
   message?: string;
@@ -678,7 +679,7 @@ export function createHermesControlCapabilities(
 }
 
 export function hermesControlStatusLabel(snapshot: HermesControlSnapshot) {
-  if (["validating", "testing", "saving", "restarting_runtime", "verifying"].includes(snapshot.runtimeConfig.applyStatus)) return "正在应用模型";
+  if (["validating", "testing", "saving", "restarting_runtime", "verifying"].includes(snapshot.runtimeConfig.applyStatus)) return "正在应用模型…";
   if (snapshot.runtimeConfig.applyStatus === "deferred") return "等待应用配置";
   if (snapshot.ready) return "Ready";
   if (snapshot.status === "configuration_required") return "需要配置";
@@ -691,16 +692,28 @@ export function hermesControlStatusLabel(snapshot: HermesControlSnapshot) {
 }
 
 export function hermesControlFeedback(snapshot: HermesControlSnapshot) {
-  if (snapshot.runtimeConfig.applyStatus === "deferred") return "配置已保存，但当前运行仍未到安全边界；请停止当前任务后重新应用。";
-  if (["validating", "testing", "saving", "restarting_runtime", "verifying"].includes(snapshot.runtimeConfig.applyStatus)) return "AI · 正在应用模型。";
-  if (snapshot.runtimeConfig.applyStatus === "rolled_back") return "新配置未通过 Provider 就绪检查，已恢复上一份健康配置。";
-  if (snapshot.runtimeConfig.applyStatus === "failed") return "新配置未应用；请检查 Provider 地址、模型和凭证。";
+  const reasonCode = snapshot.safeReasonCode ?? snapshot.diagnosticReasonCode;
+  if (["validating", "testing", "saving", "restarting_runtime", "verifying"].includes(snapshot.runtimeConfig.applyStatus)) return "正在应用模型…";
+  if (snapshot.runtimeConfig.applyStatus === "rolled_back") return "新配置未通过检查，已恢复原来的模型。";
+  if (snapshot.runtimeConfig.applyStatus === "failed") return humanHermesReason(reasonCode) ?? "配置未应用，请检查 API 地址、模型和 API Key。";
   if (snapshot.ready) return "AI Agent 已就绪。";
-  if (snapshot.status === "configuration_required") return "Hermes API 已连接，但 Provider 需要配置或认证修复。";
-  if (snapshot.apiState === "reachable") return "Hermes API 已连接；Provider、Career MCP 或 Run 仍需单独检查。";
+  if (reasonCode) return humanHermesReason(reasonCode) ?? "AI Agent 当前不可用，请查看开发者诊断。";
+  if (snapshot.status === "configuration_required") return "API Key 无效或没有模型权限。";
+  if (snapshot.apiState === "reachable" && !snapshot.careerMcpReady) return "Career 工具连接失败。";
+  if (snapshot.apiState === "reachable") return "AI Agent 正在检查运行条件。";
   if (snapshot.controlOwner === "external_environment") return "当前为 Web 调试模式，Hermes 服务进程由外部环境管理。";
   if (snapshot.controlOwner === "web_supervisor") return "Web Supervisor 正在管理 Hermes 服务进程。";
-  return `Hermes 状态：${hermesControlStatusLabel(snapshot)}。`;
+  return "AI Agent 当前不可用，请查看开发者诊断。";
+}
+
+function humanHermesReason(reasonCode?: string) {
+  if (!reasonCode) return undefined;
+  if (["provider_auth_invalid", "provider_http_401", "provider_http_403"].includes(reasonCode)) return "API Key 无效或没有模型权限。";
+  if (["provider_model_not_found", "configuration_desync"].includes(reasonCode)) return "未找到这个模型，请检查模型名称。";
+  if (["hermes_api_unreachable", "provider_dns_failed", "provider_connection_failed", "provider_timeout"].includes(reasonCode)) return "无法连接 API 地址，请检查地址和网络。";
+  if (["career_mcp_sync_pending", "career_tool_contract_mismatch", "hermes_tool_surface_sync_pending"].includes(reasonCode)) return "Career 工具连接失败。";
+  if (["hermes_companion_start_failed", "hermes_process_crashed", "hermes_restart_circuit_open"].includes(reasonCode)) return "AI Agent 启动失败。";
+  return undefined;
 }
 
 function serviceStateFromSupervisor(snapshot: HermesSupervisorSnapshot): HermesServiceState {
@@ -925,6 +938,7 @@ export async function requestHermesProviderTest(settings = readAiSettings()): Pr
         });
   const httpStatus = numberValue(http.statusCode)
     ?? (safeErrorCode?.startsWith("provider_http_") ? Number(safeErrorCode.slice("provider_http_".length)) : undefined);
+  const latencyMs = numberValue(payload.latencyMs);
   return {
     ok: response.ok && payload.ok === true,
     provider: normalizeAiProviderIdentity(
@@ -936,6 +950,7 @@ export async function requestHermesProviderTest(settings = readAiSettings()): Pr
     credentialSource,
     configFingerprint,
     checkedAt: new Date().toISOString(),
+    ...(latencyMs === undefined ? {} : { latencyMs }),
     ...(httpStatus === undefined ? {} : { httpStatus }),
     ...(safeErrorCode ? { safeErrorCode } : {}),
     ...(typeof payload.message === "string" ? { message: payload.message } : {})

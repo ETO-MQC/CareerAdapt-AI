@@ -340,9 +340,17 @@ export default function SettingsPage() {
     try {
       const result = await requestHermesProviderTest(aiSettings);
       setCandidateProviderTest(result);
-      setHermesFeedback(candidateProviderTestFeedback(result, aiSettings));
     } catch (error) {
-      setHermesFeedback(error instanceof Error ? error.message : "无法测试模型连接，请检查配置和网络。" );
+      setCandidateProviderTest({
+        ok: false,
+        provider: aiSettings.provider,
+        model: aiSettings.model || undefined,
+        credentialConfigured: Boolean(aiSettings.apiKey.trim()),
+        credentialSource: aiSettings.apiKey.trim() ? "custom_header" : "unknown",
+        checkedAt: new Date().toISOString(),
+        safeErrorCode: "provider_unavailable",
+        message: error instanceof Error ? error.message : "无法连接 API 地址，请检查地址和网络。"
+      });
     } finally {
       aiTestingRef.current = false;
       setAiTesting(false);
@@ -370,6 +378,19 @@ export default function SettingsPage() {
       setHermesFeedback("已请求停止当前 Hermes Run；运行状态会由 AI Agent 自动更新。");
     } catch (error) {
       setHermesFeedback(error instanceof Error ? error.message : "停止当前 Hermes Run 失败，请稍后重试。" );
+    } finally {
+      setHermesStarting(false);
+    }
+  }
+
+  async function reconnectCareerToolsFromSettings() {
+    if (hermesStarting) return;
+    setHermesStarting(true);
+    try {
+      await agentHost.mcpBridge.reconnect();
+      setHermesFeedback("Career 工具正在重新连接。" );
+    } catch (error) {
+      setHermesFeedback(error instanceof Error ? error.message : "Career 工具连接失败。" );
     } finally {
       setHermesStarting(false);
     }
@@ -484,12 +505,14 @@ export default function SettingsPage() {
   async function saveAiConfiguration() {
     if (aiSavingRef.current || aiSaving) return;
     const session = agentHost.state.getSnapshot().activeSession;
+    let sessionBindingToRelease: string | undefined;
     const activeRun = Boolean(
-      session
-      && (session.activeTurn?.status === "running"
-        || ["queued", "running", "waiting_for_approval", "stopping"].includes(session.hermesRun?.status ?? ""))
+      hermesSnapshot.activeRunId
+      || (session
+        && (session.activeTurn?.status === "running"
+          || ["queued", "running", "waiting_for_approval", "stopping"].includes(session.hermesRun?.status ?? "")))
     );
-    if (activeRun && !window.confirm("当前 AI 任务正在执行。应用新配置会中断当前运行，但会保留任务进度；确定继续吗？")) return;
+    if (activeRun && !window.confirm("当前 AI 正在处理任务。切换模型需要停止当前运行，但对话和任务进度会保留。是否立即切换？")) return;
     aiSavingRef.current = true;
     setAiSaving(true);
     try {
@@ -515,6 +538,7 @@ export default function SettingsPage() {
       const applyStatus = result.receipt?.applyStatus ?? result.snapshot?.runtimeConfig?.applyStatus;
       if (applyStatus === "applied") {
         setAiSaved(true);
+        if (session) sessionBindingToRelease = session.id;
       }
       setHermesFeedback(result.ok
         ? hermesControlFeedback(result.controlSnapshot ?? agentHost.runtimeStatus.getSnapshot().controlSnapshot ?? hermesSnapshot)
@@ -524,6 +548,7 @@ export default function SettingsPage() {
         ? `AI 配置未应用：${error.message}`
         : "AI 配置未应用，请查看运行诊断后重试。");
     } finally {
+      if (sessionBindingToRelease) agentHost.hermesRuntime?.releaseSessionBinding?.(sessionBindingToRelease);
       aiSavingRef.current = false;
       setAiSaving(false);
       window.setTimeout(() => setAiSaved(false), 2000);
@@ -533,10 +558,12 @@ export default function SettingsPage() {
   async function resetAiConfiguration() {
     if (aiSavingRef.current || aiSaving) return;
     const session = agentHost.state.getSnapshot().activeSession;
+    let sessionBindingToRelease: string | undefined;
     const activeRun = Boolean(
-      session
-      && (session.activeTurn?.status === "running"
-        || ["queued", "running", "waiting_for_approval", "stopping"].includes(session.hermesRun?.status ?? ""))
+      hermesSnapshot.activeRunId
+      || (session
+        && (session.activeTurn?.status === "running"
+          || ["queued", "running", "waiting_for_approval", "stopping"].includes(session.hermesRun?.status ?? "")))
     );
     if (activeRun && !window.confirm("当前 AI 任务正在执行。恢复环境默认配置会中断当前运行，但会保留任务进度；确定继续吗？")) return;
     aiSavingRef.current = true;
@@ -557,12 +584,14 @@ export default function SettingsPage() {
       clearAiSettings();
       const result = await requestHermesConfigReset();
       setAiSettings(readAiSettings());
+      if (result.ok && session) sessionBindingToRelease = session.id;
       setHermesFeedback(result.ok
         ? hermesControlFeedback(result.controlSnapshot ?? agentHost.runtimeStatus.getSnapshot().controlSnapshot ?? hermesSnapshot)
         : aiRuntimeConfigFeedback(result.reason ?? "reset_failed"));
     } catch (error) {
       setHermesFeedback(error instanceof Error ? `恢复默认配置失败：${error.message}` : "恢复默认配置失败，请稍后重试。");
     } finally {
+      if (sessionBindingToRelease) agentHost.hermesRuntime?.releaseSessionBinding?.(sessionBindingToRelease);
       aiSavingRef.current = false;
       setAiSaving(false);
     }
@@ -571,10 +600,12 @@ export default function SettingsPage() {
   async function reloadHermesEnvironmentFromSettings() {
     if (hermesStarting || aiSavingRef.current || aiSaving) return;
     const session = agentHost.state.getSnapshot().activeSession;
+    let sessionBindingToRelease: string | undefined;
     const activeRun = Boolean(
-      session
-      && (session.activeTurn?.status === "running"
-        || ["queued", "running", "waiting_for_approval", "stopping"].includes(session.hermesRun?.status ?? ""))
+      hermesSnapshot.activeRunId
+      || (session
+        && (session.activeTurn?.status === "running"
+          || ["queued", "running", "waiting_for_approval", "stopping"].includes(session.hermesRun?.status ?? "")))
     );
     if (activeRun && !window.confirm("当前 AI 任务正在执行。从环境文件重载会中断当前运行，但会保留任务进度；确定继续吗？")) return;
     aiSavingRef.current = true;
@@ -594,12 +625,14 @@ export default function SettingsPage() {
       clearAiSettings();
       const result = await requestHermesEnvironmentReload();
       setAiSettings(readAiSettings());
+      if (result.ok && session) sessionBindingToRelease = session.id;
       setHermesFeedback(result.ok
         ? hermesControlFeedback(result.controlSnapshot ?? agentHost.runtimeStatus.getSnapshot().controlSnapshot ?? hermesSnapshot)
         : aiRuntimeConfigFeedback(result.reason ?? "reload_failed"));
     } catch (error) {
       setHermesFeedback(error instanceof Error ? `环境配置重载失败：${error.message}` : "环境配置重载失败，请稍后重试。");
     } finally {
+      if (sessionBindingToRelease) agentHost.hermesRuntime?.releaseSessionBinding?.(sessionBindingToRelease);
       aiSavingRef.current = false;
       setAiSaving(false);
     }
@@ -608,6 +641,7 @@ export default function SettingsPage() {
   const hermesSnapshot = runtimeStatus.controlSnapshot ?? createInitialHermesControlSnapshot(hermesRuntimeEnvironment());
   const activeConfig = hermesSnapshot.runtimeConfig.active;
   const applyStatus = hermesSnapshot.runtimeConfig.applyStatus;
+  const lifecycleEntries = runtimeStatus.supervisorSnapshot?.latestLifecycleEntries ?? [];
 
   return (
     <main className="page-shell settings-workspace">
@@ -869,7 +903,10 @@ export default function SettingsPage() {
                       type="url"
                       autoComplete="url"
                       value={aiSettings.baseUrl}
-                      onChange={(event) => setAiSettings((prev) => ({ ...prev, baseUrl: event.target.value }))}
+                      onChange={(event) => {
+                        setAiSettings((prev) => ({ ...prev, baseUrl: event.target.value }));
+                        setCandidateProviderTest(undefined);
+                      }}
                       placeholder="https://api.example.com/v1…"
                     />
                   </label>
@@ -883,11 +920,14 @@ export default function SettingsPage() {
                         autoComplete="off"
                         spellCheck={false}
                         value={aiSettings.apiKey}
-                        onChange={(event) => setAiSettings((prev) => ({
-                          ...prev,
-                          apiKey: event.target.value,
-                          credentialAction: event.target.value.trim() ? "replace" : prev.credentialAction
-                        }))}
+                        onChange={(event) => {
+                          setAiSettings((prev) => ({
+                            ...prev,
+                            apiKey: event.target.value,
+                            credentialAction: event.target.value.trim() ? "replace" : prev.credentialAction
+                          }));
+                          setCandidateProviderTest(undefined);
+                        }}
                         placeholder="输入本机 API Key…"
                       />
                       <button type="button" className="ai-api-key-toggle" aria-label={showApiKey ? "隐藏 API Key" : "显示 API Key"} onClick={() => setShowApiKey((prev) => !prev)}>
@@ -903,30 +943,38 @@ export default function SettingsPage() {
                       type="text"
                       autoComplete="off"
                       value={aiSettings.model}
-                      onChange={(event) => setAiSettings((prev) => ({ ...prev, model: event.target.value }))}
+                      onChange={(event) => {
+                        setAiSettings((prev) => ({ ...prev, model: event.target.value }));
+                        setCandidateProviderTest(undefined);
+                      }}
                       placeholder="例如 gpt-4o-mini…"
                     />
                   </label>
                 </div>
               </section>
               <div className="settings-save-state" role="status" aria-live="polite">{hermesFeedback}</div>
-              {candidateProviderTest ? <p className={`ai-candidate-feedback ${candidateProviderTest.ok ? "is-success" : "is-error"}`} role="status" aria-live="polite">{candidateProviderTestFeedback(candidateProviderTest, aiSettings)}</p> : null}
+              {candidateProviderTest ? (
+                <p className={`ai-candidate-feedback ${candidateProviderTest.ok ? "is-success" : "is-error"}`} role="status" aria-live="polite">
+                  {candidateProviderTestFeedback(candidateProviderTest)}
+                  {!candidateProviderTest.ok && candidateNeedsApiKey(candidateProviderTest) ? <button type="button" className="inline-action-button" onClick={() => document.getElementById("ai-api-key")?.focus()}>修改 API Key</button> : null}
+                </p>
+              ) : null}
               <div className="hermes-settings-actions ai-runtime-actions">
-                <button
-                  type="button"
-                  className="button button-primary"
-                  disabled={aiSaving}
-                  onClick={() => void saveAiConfiguration()}
-                >
-                  {aiSaving ? "正在应用…" : aiSaved ? "已应用 ✓" : "保存并应用"}
-                </button>
                 <button
                   type="button"
                   className="button button-secondary"
                   disabled={aiTesting || aiSaving}
                   onClick={() => void testHermesProviderFromSettings()}
                 >
-                  {aiTesting ? "候选测试中…" : "测试候选配置"}
+                  {aiTesting ? "测试连接中…" : "测试连接"}
+                </button>
+                <button
+                  type="button"
+                  className="button button-primary"
+                  disabled={aiSaving}
+                  onClick={() => void saveAiConfiguration()}
+                >
+                  {aiSaving ? "正在应用模型…" : aiSaved ? "已应用 ✓" : "保存并应用"}
                 </button>
               </div>
               <details className="settings-help-details ai-runtime-more">
@@ -960,60 +1008,7 @@ export default function SettingsPage() {
                   <div><span>Career 工具</span><strong>{hermesSnapshot.careerMcpReady ? "已连接" : "待连接"}</strong></div>
                   <div><span>当前任务</span><strong>{hermesSnapshot.runReady ? "可运行" : hermesSnapshot.activeRunId ? "运行中" : "待命"}</strong></div>
                 </div>
-                <details className="settings-help-details hermes-runtime-details">
-                  <summary>运行时详情</summary>
-                  <dl className="info-list hermes-control-facts">
-                    <div><dt>服务进程</dt><dd>{hermesServiceStateLabel(hermesSnapshot.serviceState)} · {hermesSnapshot.controlOwner === "electron_supervisor" ? "Electron Supervisor" : hermesSnapshot.controlOwner === "web_supervisor" ? "Web Supervisor" : "外部环境"}</dd></div>
-                    <div><dt>Runtime</dt><dd>{formatEndpoint(hermesSnapshot.runtimeUrl, "正在分配")}{hermesSnapshot.version ? ` · ${hermesSnapshot.version}` : ""}</dd></div>
-                    <div><dt>应用 / MCP</dt><dd>{formatEndpoint(hermesSnapshot.appUrl, "当前应用端口")}</dd></div>
-                    <div><dt>API 地址</dt><dd>{activeConfig?.baseUrl || "未确认"}</dd></div>
-                    <div><dt>Provider</dt><dd>{activeConfig?.provider || "未确认"}</dd></div>
-                    <div><dt>模型</dt><dd>{activeConfig?.model || "未确认"}</dd></div>
-                    <div><dt>凭证</dt><dd>{hermesSnapshot.providerDiagnostic.credentialConfigured ? "已配置（仅显示状态）" : "未配置"} · {credentialSourceLabel(hermesSnapshot.providerDiagnostic.credentialSource)}</dd></div>
-                    <div><dt>最近检查</dt><dd>{hermesSnapshot.providerDiagnostic.lastCheckedAt ? new Date(hermesSnapshot.providerDiagnostic.lastCheckedAt).toLocaleString() : "尚未检查"}{hermesSnapshot.providerDiagnostic.lastHttpStatus ? ` · HTTP ${hermesSnapshot.providerDiagnostic.lastHttpStatus}` : ""}</dd></div>
-                    <div><dt>配置应用</dt><dd>{applyStatus}{activeConfig?.configGeneration === undefined ? "" : ` · generation ${activeConfig.configGeneration}`}</dd></div>
-                    <div><dt>Fingerprint</dt><dd>{activeConfig?.configFingerprint || "未确认"}</dd></div>
-                    <div><dt>数据上下文</dt><dd>{hermesSnapshot.storage.storageEnvironment} · {hermesSnapshot.storage.storageOrigin} · {hermesSnapshot.storage.storagePartition} · {hermesSnapshot.storage.activeProfileSource}</dd></div>
-                  </dl>
-                </details>
               </section>
-
-              <details className="settings-help-details hermes-diagnostics-details">
-                <summary>诊断与运行时详情</summary>
-                <section className="settings-group hermes-control-section" aria-labelledby="hermes-readiness-heading">
-                  <div className="settings-group-heading">
-                    <div><h3 id="hermes-readiness-heading">Readiness dimensions</h3><p>五个独立条件共同决定 Ready；API 可达不等于 Provider 或整体就绪。</p></div>
-                  </div>
-                  <div className="hermes-dimension-grid">
-                    {([
-                      ["API", hermesSnapshot.apiReady],
-                      ["Provider", hermesSnapshot.providerReady],
-                      ["Career MCP", hermesSnapshot.careerMcpReady],
-                      ["Tool surface", hermesSnapshot.toolSurfaceReady],
-                      ["Run", hermesSnapshot.runReady]
-                    ] as Array<[string, boolean]>).map(([label, ready]) => <span key={label} className={ready ? "is-ready" : "is-pending"}><b>{ready ? "✓" : "—"}</b>{label}</span>)}
-                  </div>
-                  <p className="settings-save-state">{hermesControlFeedback(hermesSnapshot)}</p>
-                  <details className="settings-help-details">
-                    <summary>查看安全诊断</summary>
-                    <p>安全错误码：{hermesSnapshot.safeReasonCode ?? "none"} · Provider 状态：{hermesSnapshot.providerState} · API 状态：{hermesSnapshot.apiState}</p>
-                    <p>内部诊断：{hermesSnapshot.diagnosticReasonCode ?? "none"} · 控制权：{hermesSnapshot.controlOwner} · 环境：{hermesSnapshot.environment}</p>
-                    {hermesSnapshot.environment === "web" ? <p>Web 模式的 Profile 数据上下文不会验证 Electron Profile；最终验收应在拥有实际 Profile 的桌面版/开发 Electron 环境完成。</p> : null}
-                  </details>
-                </section>
-
-                <section className="settings-group hermes-control-section" aria-labelledby="hermes-tools-heading">
-                  <div className="settings-group-heading">
-                    <div><h3 id="hermes-tools-heading">Career 工具面</h3><p>两个数量分别表示内部 Domain 合同面与 Hermes 生产可见 Career 工具面。</p></div>
-                  </div>
-                  <dl className="info-list hermes-control-facts">
-                    <div><dt>CareerAdapt Domain tools</dt><dd>{hermesSnapshot.careerDomainToolCount ?? 0}</dd></div>
-                    <div><dt>Hermes production Career tools</dt><dd>{hermesSnapshot.hermesCareerToolCount ?? 0}</dd></div>
-                    <div><dt>Required Career facades</dt><dd>{hermesSnapshot.careerIntegration.requiredToolCount}/{hermesSnapshot.careerIntegration.requiredToolTotal}</dd></div>
-                    <div><dt>Career skills</dt><dd>{hermesSnapshot.careerSkillsReady ? "已加载" : "同步中"}{hermesSnapshot.careerSkills?.length ? ` · ${hermesSnapshot.careerSkills.join(", ")}` : ""}</dd></div>
-                  </dl>
-                </section>
-              </details>
 
               <p className="settings-save-state" role="status" aria-live="polite">{hermesFeedback}</p>
               <div className="hermes-settings-actions hermes-primary-action-row">
@@ -1025,21 +1020,12 @@ export default function SettingsPage() {
                 <summary>更多</summary>
                 <div className="hermes-settings-actions">
                   {hermesSnapshot.capabilities.canStopService ? <button type="button" className="button button-secondary" disabled={hermesStarting} onClick={() => void stopHermesFromSettings()}><Power size={14} aria-hidden="true" />停止 AI Agent</button> : null}
-                  {hermesSnapshot.capabilities.canStartService && hermesSnapshot.serviceState !== "stopped" ? <button type="button" className="button button-secondary" disabled={hermesStarting} onClick={() => void startHermesFromSettings()}>启动 AI Agent</button> : null}
                   {hermesSnapshot.capabilities.canRestartService ? <button type="button" className="button button-secondary" disabled={hermesStarting} onClick={() => void reloadHermesEnvironmentFromSettings()}>从环境加载</button> : null}
                   {hermesSnapshot.capabilities.canRecoverService ? <button type="button" className="button button-secondary" disabled={hermesStarting} onClick={() => void runHermesControl(requestHermesRecover, "已执行一次自动修复检查。")}><Wrench size={14} aria-hidden="true" />自动修复</button> : null}
                   {hermesSnapshot.capabilities.canStopCurrentRun ? <button type="button" className="button button-secondary" disabled={hermesStarting} onClick={() => void stopCurrentRunFromSettings()}><Power size={14} aria-hidden="true" />停止当前任务</button> : null}
-                  {hermesSnapshot.environment === "electron" ? <button type="button" className="button button-secondary" disabled={hermesStarting} onClick={() => { void refreshHermesLogs(); }}><FileText size={14} aria-hidden="true" />查看日志</button> : null}
-                  {hermesSnapshot.environment === "electron" ? <button type="button" className="button button-secondary" disabled={hermesStarting} onClick={() => { void openHermesLogFile(); }}><FileText size={14} aria-hidden="true" />打开日志目录</button> : null}
+                  {!hermesSnapshot.careerMcpReady ? <button type="button" className="button button-secondary" disabled={hermesStarting} onClick={() => { void reconnectCareerToolsFromSettings(); }}>重新连接 Career 工具</button> : null}
                 </div>
               </details>
-              {hermesLogs ? (
-                <details className="settings-help-details hermes-log-details" open>
-                  <summary>安全日志与 Supervisor timeline</summary>
-                  <p>{hermesLogs.logPath || "日志路径由 Electron 管理"}</p>
-                  <pre>{[...hermesLogs.latestLifecycleEntries.map((entry) => `${entry.at} [${entry.state}] ${entry.message}`), ...hermesLogs.recentLogLines].join("\n") || "暂无日志"}</pre>
-                </details>
-              ) : null}
               <details className="settings-help-details">
                 <summary>端口说明</summary>
                 <p>应用启动时会分别探测 CareerAdapt 和 Hermes 的可用本地端口。默认端口只是首选值；如果被其他程序占用，应用会自动顺延到可用端口，并同步更新 MCP 与 Hermes 配置。</p>
@@ -1179,6 +1165,61 @@ export default function SettingsPage() {
                   }}
                 />
               </label>
+
+              <section className="settings-group hermes-control-section" aria-labelledby="ai-runtime-diagnostics-heading">
+                <div className="settings-group-heading">
+                  <div>
+                    <h3 id="ai-runtime-diagnostics-heading">AI Runtime 诊断</h3>
+                    <p>仅在开发者模式查看运行时细节；普通 AI Agent 页面只保留状态、模型和可执行操作。</p>
+                  </div>
+                  <span className="status-badge">{hermesControlStatusLabel(hermesSnapshot)}</span>
+                </div>
+                <dl className="info-list hermes-control-facts">
+                  <div><dt>服务进程</dt><dd>{hermesServiceStateLabel(hermesSnapshot.serviceState)} · {hermesSnapshot.controlOwner === "electron_supervisor" ? "Electron Supervisor" : hermesSnapshot.controlOwner === "web_supervisor" ? "Web Supervisor" : "外部环境"}</dd></div>
+                  <div><dt>Runtime URL / 版本</dt><dd>{formatEndpoint(hermesSnapshot.runtimeUrl, "正在分配")}{hermesSnapshot.version ? " · " + hermesSnapshot.version : ""}</dd></div>
+                  <div><dt>应用 / MCP URL</dt><dd>{formatEndpoint(hermesSnapshot.appUrl, "当前应用端口")}</dd></div>
+                  <div><dt>Provider Base URL</dt><dd>{activeConfig?.baseUrl || "未确认"}</dd></div>
+                  <div><dt>Provider / 模型</dt><dd>{activeConfig?.provider || "未确认"} · {activeConfig?.model || "未确认"}</dd></div>
+                  <div><dt>凭证状态 / 来源</dt><dd>{hermesSnapshot.providerDiagnostic.credentialConfigured ? "已配置（仅显示状态）" : "未配置"} · {credentialSourceLabel(hermesSnapshot.providerDiagnostic.credentialSource)}</dd></div>
+                  <div><dt>最近检查</dt><dd>{hermesSnapshot.providerDiagnostic.lastCheckedAt ? new Date(hermesSnapshot.providerDiagnostic.lastCheckedAt).toLocaleString() : "尚未检查"}{hermesSnapshot.providerDiagnostic.lastHttpStatus ? " · HTTP " + hermesSnapshot.providerDiagnostic.lastHttpStatus : ""}</dd></div>
+                  <div><dt>配置应用 / generation</dt><dd>{applyStatus}{activeConfig?.configGeneration === undefined ? "" : " · " + activeConfig.configGeneration}</dd></div>
+                  <div><dt>Fingerprint</dt><dd>{activeConfig?.configFingerprint || "未确认"}</dd></div>
+                  <div><dt>数据上下文</dt><dd>{hermesSnapshot.storage.storageEnvironment} · {hermesSnapshot.storage.storageOrigin} · {hermesSnapshot.storage.storagePartition} · {hermesSnapshot.storage.activeProfileSource}</dd></div>
+                </dl>
+                <h4>Readiness dimensions</h4>
+                <div className="hermes-dimension-grid">
+                  {([
+                    ["API", hermesSnapshot.apiReady],
+                    ["Provider", hermesSnapshot.providerReady],
+                    ["Career MCP", hermesSnapshot.careerMcpReady],
+                    ["Tool surface", hermesSnapshot.toolSurfaceReady],
+                    ["Run", hermesSnapshot.runReady]
+                  ] as Array<[string, boolean]>).map(([label, ready]) => <span key={label} className={ready ? "is-ready" : "is-pending"}><b>{ready ? "✓" : "—"}</b>{label}</span>)}
+                </div>
+                <dl className="info-list hermes-control-facts">
+                  <div><dt>安全 / 内部原因</dt><dd>{hermesSnapshot.safeReasonCode ?? "none"} · {hermesSnapshot.diagnosticReasonCode ?? "none"}</dd></div>
+                  <div><dt>Provider / API 状态</dt><dd>{hermesSnapshot.providerState} · {hermesSnapshot.apiState} · environment {hermesSnapshot.environment}</dd></div>
+                  <div><dt>CareerAdapt Domain tools</dt><dd>{hermesSnapshot.careerDomainToolCount ?? 0}</dd></div>
+                  <div><dt>Hermes production Career tools</dt><dd>{hermesSnapshot.hermesCareerToolCount ?? 0}</dd></div>
+                  <div><dt>Required Career facades</dt><dd>{hermesSnapshot.careerIntegration.requiredToolCount}/{hermesSnapshot.careerIntegration.requiredToolTotal}</dd></div>
+                  <div><dt>Career skills</dt><dd>{hermesSnapshot.careerSkillsReady ? "已加载" : "同步中"}{hermesSnapshot.careerSkills?.length ? " · " + hermesSnapshot.careerSkills.join(", ") : ""}</dd></div>
+                </dl>
+                <details className="settings-help-details" open>
+                  <summary>Supervisor timeline</summary>
+                  <pre>{lifecycleEntries.map((entry) => entry.at + " [" + entry.state + "] " + entry.message).join("\n") || "暂无 timeline"}</pre>
+                </details>
+                <div className="hermes-settings-actions">
+                  {hermesSnapshot.environment === "electron" ? <button type="button" className="button button-secondary" disabled={hermesStarting} onClick={() => { void refreshHermesLogs(); }}><FileText size={14} aria-hidden="true" />查看日志</button> : null}
+                  {hermesSnapshot.environment === "electron" ? <button type="button" className="button button-secondary" disabled={hermesStarting} onClick={() => { void openHermesLogFile(); }}><FileText size={14} aria-hidden="true" />打开日志目录</button> : null}
+                </div>
+                {hermesLogs ? (
+                  <details className="settings-help-details hermes-log-details" open>
+                    <summary>完整运行日志</summary>
+                    <p>{hermesLogs.logPath || "日志路径由 Electron 管理"}</p>
+                    <pre>{[...hermesLogs.latestLifecycleEntries.map((entry) => entry.at + " [" + entry.state + "] " + entry.message), ...hermesLogs.recentLogLines].join("\n") || "暂无日志"}</pre>
+                  </details>
+                ) : null}
+              </section>
 
               <section className="settings-group core-self-check-group" aria-labelledby="core-self-check-heading">
                 <div className="settings-group-heading">
@@ -1369,48 +1410,58 @@ function credentialSourceLabel(source: "server_env" | "managed_config" | "custom
 }
 
 function aiRuntimeApplyStatusLabel(status: string, hasActiveConfig: boolean) {
-  if (status === "applied") return "已生效";
+  if (status === "applied") return "Ready";
   if (status === "rolled_back") return "已回滚";
   if (status === "failed") return "应用失败";
-  if (["validating", "testing", "saving", "restarting_runtime", "verifying"].includes(status)) return "正在应用";
+  if (["validating", "testing", "saving", "restarting_runtime", "verifying"].includes(status)) return "正在应用模型…";
   if (status === "deferred") return "等待应用";
-  if (status === "idle" && hasActiveConfig) return "已同步";
+  if (status === "idle" && hasActiveConfig) return "Ready";
   return "未确认";
 }
 
-function candidateProviderTestFeedback(result: HermesProviderTestResult, settings: AiSettings) {
-  if (result.ok) return "候选配置连接成功：" + (result.model ?? (settings.model || "当前模型")) + "。当前运行中的模型未改变。";
+function candidateProviderTestFeedback(result: HermesProviderTestResult) {
+  if (result.ok) return `✓ 连接正常${result.latencyMs === undefined ? "" : ` · ${result.latencyMs} ms`}`;
   const descriptions: Record<string, string> = {
     missing_ai_config: "请填写 API Key 和模型后再测试。",
     provider_protocol_mismatch: "请确认 API 地址提供 OpenAI 兼容接口。",
-    provider_http_401: "API Key 无效或已过期，请检查后重试。",
-    provider_http_403: "API Key 无权访问该模型，请检查模型名称和 Key。",
+    provider_http_401: "API Key 无效或没有模型权限。",
+    provider_http_403: "API Key 无效或没有模型权限。",
+    provider_model_not_found: "未找到这个模型，请检查模型名称。",
+    provider_dns_failed: "无法连接 API 地址，请检查地址和网络。",
+    provider_connection_failed: "无法连接 API 地址，请检查地址和网络。",
+    provider_timeout: "无法连接 API 地址，请检查地址和网络。",
     provider_http_429: "请求过于频繁，请稍后再试。",
     provider_http_500: "模型服务内部错误，请稍后再试。",
     provider_http_502: "网关错误，请检查 API 地址。",
     provider_http_503: "模型服务暂时不可用，请稍后再试。",
     model_output_too_large: "模型返回内容过长，但连接本身正常。",
   };
-  return "候选配置未通过：" + (descriptions[result.safeErrorCode ?? ""] ?? "请检查 API 地址、模型和凭证。") + " 当前运行中的模型未改变。";
+  return descriptions[result.safeErrorCode ?? ""] ?? result.message ?? "请检查 API 地址、模型和凭证。";
+}
+
+function candidateNeedsApiKey(result: HermesProviderTestResult) {
+  return result.safeErrorCode === "provider_http_401" || result.safeErrorCode === "provider_http_403";
 }
 
 function aiRuntimeConfigFeedback(reason: string) {
   const descriptions: Record<string, string> = {
     provider_base_url_invalid: "API 地址格式无效，请填写完整的 http(s) 地址。",
     provider_base_url_protocol_invalid: "API 地址必须使用 http 或 https。",
-    provider_identity_must_not_be_url: "接口协议请填写为 OpenAI 兼容接口，Provider 标识不能是 URL。",
+    provider_identity_must_not_be_url: "API 地址请填写在 API 地址字段中。",
     credential_clear_conflict: "清除 API Key 时不要同时填写新的 Key。",
     credential_replace_missing: "替换 API Key 时请先填写新的 Key。",
     missing_ai_config: "请填写 API Key 和模型后再应用。",
-    config_deferred_active_run: "当前任务仍在运行；配置会在任务结束后应用。",
+    config_deferred_active_run: "当前任务仍在运行；请确认后应用新配置。",
     config_rollback_failed: "新配置未通过验证，旧配置也未能恢复，请查看诊断。",
     config_apply_rolled_back: "新配置未通过验证，已恢复到原来的模型。",
-    provider_auth_invalid: "API Key 无效，请检查凭证后重试。",
-    provider_http_401: "API Key 无效，请检查凭证后重试。",
-    provider_http_403: "API Key 无权访问该模型，请检查模型名称和凭证。",
-    hermes_api_unreachable: "API 地址不可达，请检查地址和网络。",
-    hermes_companion_start_failed: "AI Agent 服务启动失败，请查看诊断。",
-    configuration_desync: "运行时未确认新模型，请检查 API 地址和模型名称。",
+    provider_auth_invalid: "API Key 无效或没有模型权限。",
+    provider_http_401: "API Key 无效或没有模型权限。",
+    provider_http_403: "API Key 无效或没有模型权限。",
+    provider_model_not_found: "未找到这个模型，请检查模型名称。",
+    hermes_api_unreachable: "无法连接 API 地址，请检查地址和网络。",
+    hermes_companion_start_failed: "AI Agent 启动失败。",
+    hermes_process_crashed: "AI Agent 启动失败。",
+    configuration_desync: "未找到这个模型，请检查模型名称。",
   };
   return descriptions[reason] ?? "配置未应用，请检查 API 地址、模型和 API Key。";
 }

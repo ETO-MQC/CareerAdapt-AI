@@ -6,9 +6,11 @@ const {
   applyEnvironment,
   hermesConfigurationFingerprint,
   loadCareerAdaptEnvironment,
+  normalizeProviderIdentity,
   startHermesCompanion,
   stopHermesCompanion
 } = require("./hermesCompanion");
+const { HermesModelConfigClient } = require("./hermesModelConfigClient");
 
 const STARTUP_TIMEOUT_MS = 60_000;
 // Career tool discovery is a readiness deadline, not a run liveness deadline.
@@ -95,6 +97,7 @@ class HermesSupervisor {
     this.configurationMutationPromise = undefined;
     this.timeline = [];
     this.capabilities = undefined;
+    this.nativeModelConfigSupported = undefined;
     this.maintenancePending = false;
     this.maintenanceReasonCode = undefined;
     this.failureTimeSnapshot = undefined;
@@ -175,8 +178,9 @@ class HermesSupervisor {
     this.stageDesiredConfiguration(targetEnvironment, requestedEnvironment);
 
     if (this.lifecyclePromise) return this.lifecyclePromise;
-    if (this.snapshot.processReady && sameConfiguration && !options.forceRestart && !isTerminalState(this.snapshot.overallState)) {
-      return this.enqueue("hermes_status_refresh", () => this.synchronizeCareerReadiness());
+    if (this.snapshot.processReady && !options.forceRestart && !isTerminalState(this.snapshot.overallState)) {
+      if (sameConfiguration) return this.enqueue("hermes_status_refresh", () => this.synchronizeCareerReadiness());
+      return this.updateConfig(requestedSettings, options);
     }
 
     this.lifecyclePromise = this.enqueue("hermes_start", () => this.startInternal(targetEnvironment, {
@@ -202,15 +206,6 @@ class HermesSupervisor {
     }
     if (this.lifecyclePromise) return this.lifecyclePromise;
     if (this.snapshot.processReady && this.handle && !isExited(this.handle.child) && !isTerminalState(this.snapshot.overallState)) {
-      const requestedEnvironment = this.applyCredentialIntent(
-        environmentFromHermesSettings(requestedSettings),
-        requestedSettings
-      );
-      const targetFingerprint = hermesConfigurationFingerprint(this.withManifestDefaults({ ...this.baseEnvironment, ...requestedEnvironment }));
-      if (this.runtimeConfigState.active?.configFingerprint && targetFingerprint !== this.runtimeConfigState.active.configFingerprint) {
-        if (this.hasActiveSemanticRun()) return this.deferMaintenance("hermes_configuration_update_deferred_active_run");
-        return this.start(requestedSettings);
-      }
       return this.getStatus();
     }
     return this.start(requestedSettings);
@@ -488,7 +483,7 @@ class HermesSupervisor {
     const diagnosticGeneration = this.runtimeProcessState.observedProviderDiagnostic?.configGeneration;
     if (diagnosticGeneration !== undefined && targetGeneration !== undefined && diagnosticGeneration !== targetGeneration) return false;
     const expected = configurationValue(this.environment, targetFingerprint, targetGeneration || 0, "runtime_readback");
-    if (this.runtimeProcessState.observedConfiguration?.provider && this.runtimeProcessState.observedConfiguration.provider !== expected.provider) return false;
+    if (this.runtimeProcessState.observedConfiguration?.provider && !providerIdentitiesMatch(expected.provider, this.runtimeProcessState.observedConfiguration.provider)) return false;
     if (this.runtimeProcessState.observedConfiguration?.model && expected.model && this.runtimeProcessState.observedConfiguration.model !== expected.model) return false;
     return true;
   }
@@ -524,9 +519,10 @@ class HermesSupervisor {
         "/v1/capabilities",
         "/v1/skills",
         "/v1/toolsets",
-        "/api/model/options"
+        "/api/model/options",
+        ...(this.nativeModelConfigSupported ? ["/api/model/info", "/api/model/set"] : [])
       ],
-      unsupportedEndpoints: ["/api/config", "/api/config/defaults", "/api/config/schema"],
+      unsupportedEndpoints: ["/api/config", "/api/config/defaults", "/api/config/schema", ...(this.nativeModelConfigSupported === false ? ["/api/model/info", "/api/model/set"] : [])],
       supportedFields: [
         { key: "provider", label: "提供商", editable: true },
         { key: "baseUrl", label: "Provider Base URL", editable: true },
@@ -556,7 +552,7 @@ class HermesSupervisor {
   }
 
   async updateConfigInternal(settings, options = {}) {
-   const pendingLifecycle = this.lifecyclePromise;
+    const pendingLifecycle = this.lifecyclePromise;
     if (pendingLifecycle) await pendingLifecycle;
     const requestedEnvironment = this.applyCredentialIntent(
       environmentFromHermesSettings(settings),
@@ -567,14 +563,13 @@ class HermesSupervisor {
     const previous = this.captureHealthyConfiguration();
     this.stageDesiredConfiguration(targetEnvironment, requestedEnvironment);
     const validationReason = validateHermesConfigSettings(settings);
-   if (validationReason) {
-     this.setConfigurationApplyStatus("validating");
-     this.setConfigurationApplyStatus("failed", validationReason, { verified: false, rollbackOccurred: false });
+    if (validationReason) {
+      this.setConfigurationApplyStatus("validating");
+      this.setConfigurationApplyStatus("failed", validationReason, { verified: false, rollbackOccurred: false });
       this.runtimeConfigState.lastApplyReceipt = this.createApplyReceipt(false, false, validationReason);
       this.publish({ lastApplyReceipt: this.runtimeConfigState.lastApplyReceipt, runtimeConfig: this.runtimeConfigSnapshot() }, "Hermes configuration validation failed");
-     return this.getStatus();
-   }
-   if (this.hasActiveSemanticRun()) return this.deferMaintenance("hermes_configuration_update_deferred_active_run");
+      return this.getStatus();
+    }
     const activeFingerprint = this.runtimeConfigState.active?.configFingerprint;
     const sameConfiguration = activeFingerprint !== undefined && activeFingerprint === targetFingerprint;
     if (sameConfiguration && this.snapshot.overallState === "ready" && this.snapshot.providerReady === true && options.forceRestart !== true) {
@@ -583,30 +578,132 @@ class HermesSupervisor {
       this.publish({ lastApplyReceipt: this.runtimeConfigState.lastApplyReceipt, runtimeConfig: this.runtimeConfigSnapshot() }, "Hermes configuration already active");
       return this.getStatus();
     }
-   this.setConfigurationApplyStatus("saving");
-   this.setConfigurationApplyStatus("restarting_runtime", undefined, {
-      restartPerformed: activeFingerprint !== undefined && (options.forceRestart === true || activeFingerprint !== targetFingerprint),
-     verified: false,
-     rollbackOccurred: false
-   });
-   const snapshot = await this.start(settings, options);
-   const applied = snapshot.overallState === "ready"
-      && this.runtimeConfigState.active?.configFingerprint === targetFingerprint;
-   if (applied) {
-     this.setConfigurationApplyStatus("applied", undefined, { verified: true, rollbackOccurred: false });
-      this.runtimeConfigState.lastApplyReceipt = this.createApplyReceipt(true, false, undefined);
-      this.publish({ lastApplyReceipt: this.runtimeConfigState.lastApplyReceipt, runtimeConfig: this.runtimeConfigSnapshot() }, "Hermes configuration applied");
-     return this.getStatus();
-   }
+    this.setConfigurationApplyStatus("saving", undefined, {
+      restartPerformed: false,
+      verified: false,
+      rollbackOccurred: false
+    });
 
+    if (!this.handle || !this.snapshot.processReady) {
+      return this.applyConfigurationWithLifecycleRestart(settings, options, targetFingerprint, previous);
+    }
+
+    if (this.nativeModelConfigSupported === true) {
+      try {
+        return await this.applyNativeModelConfiguration(settings, targetEnvironment, targetFingerprint);
+      } catch (error) {
+        const reasonCode = safeReason(error instanceof Error ? error.code || error.message : "hermes_model_config_apply_failed");
+        if (reasonCode === "hermes_model_config_endpoint_missing") {
+          this.nativeModelConfigSupported = false;
+          this.publish({ capabilities: this.capabilitiesWithModelConfig() }, "Hermes native model config endpoint unavailable; using one restart fallback");
+          return this.applyConfigurationWithLifecycleRestart(settings, options, targetFingerprint, previous);
+        }
+        if (previous) return this.rollbackToHealthy(previous, reasonCode);
+        this.setConfigurationApplyStatus("failed", reasonCode, { verified: false, rollbackOccurred: false });
+        this.runtimeConfigState.lastApplyReceipt = this.createApplyReceipt(false, false, reasonCode);
+        this.publish({ lastApplyReceipt: this.runtimeConfigState.lastApplyReceipt, runtimeConfig: this.runtimeConfigSnapshot() }, "Hermes native model configuration failed");
+        return this.getStatus();
+      }
+    }
+
+    return this.applyConfigurationWithLifecycleRestart(settings, options, targetFingerprint, previous);
+  }
+
+  async applyNativeModelConfiguration(settings, targetEnvironment, targetFingerprint, options = {}) {
+    if (!options.rollback) this.setConfigurationApplyStatus("verifying", undefined, { restartPerformed: false, verified: false, rollbackOccurred: false });
+    const { provider, model } = await this.setAndReadNativeModel(targetEnvironment);
+    this.environment = { ...targetEnvironment };
+    this.baseEnvironment = { ...this.baseEnvironment, ...(options.rollback ? targetEnvironment : environmentFromHermesSettings(settings)) };
+    this.runtimeProcessState.observedConfiguration = { provider, model };
+    this.runtimeProcessState.observedProviderDiagnostic = undefined;
+    this.commitActiveConfiguration(this.environment, {
+      targetFingerprint,
+      targetGeneration: options.targetGeneration ?? this.runtimeConfigState.desired?.configGeneration,
+      requestedSettings: settings,
+      credentialSourceOverride: options.credentialSourceOverride
+        ?? (settings?.credentialAction === "clear" ? "missing" : settings?.apiKey?.trim() ? "managed_config" : undefined),
+      source: "runtime_readback",
+      rollback: options.rollback
+    });
+    if (options.rollback) return this.getStatus();
+    this.runtimeConfigState.lastApplyReceipt = this.createApplyReceipt(true, false, undefined);
+    this.setConfigurationApplyStatus("applied", undefined, { restartPerformed: false, verified: true, rollbackOccurred: false });
+    return this.getStatus();
+  }
+
+  async applyConfigurationWithLifecycleRestart(settings, options, targetFingerprint, previous) {
+    this.setConfigurationApplyStatus("restarting_runtime", "native_model_config_fallback", {
+      restartPerformed: this.runtimeConfigState.active?.configFingerprint !== undefined,
+      verified: false,
+      rollbackOccurred: false
+    });
+    const snapshot = await this.start(settings, { ...options, forceRestart: true });
+    const applied = snapshot.overallState === "ready"
+      && this.runtimeConfigState.active?.configFingerprint === targetFingerprint;
+    if (applied) {
+      this.baseEnvironment = { ...this.baseEnvironment, ...environmentFromHermesSettings(settings) };
+      this.runtimeConfigState.lastApplyReceipt = this.createApplyReceipt(true, false, undefined);
+      this.setConfigurationApplyStatus("applied", undefined, { verified: true, rollbackOccurred: false });
+      return this.getStatus();
+    }
     const reasonCode = safeReason(snapshot.reasonCode || "hermes_configuration_apply_failed");
     if (previous && (isConfigurationReason(reasonCode) || snapshot.providerReady !== true)) {
       return this.rollbackToHealthy(previous, reasonCode);
     }
-   this.setConfigurationApplyStatus("failed", reasonCode, { verified: false });
+    this.setConfigurationApplyStatus("failed", reasonCode, { verified: false });
     this.runtimeConfigState.lastApplyReceipt = this.createApplyReceipt(false, false, reasonCode);
     this.publish({ lastApplyReceipt: this.runtimeConfigState.lastApplyReceipt, runtimeConfig: this.runtimeConfigSnapshot() }, "Hermes configuration failed");
     return this.getStatus();
+  }
+
+  createModelConfigClient() {
+    const runtimeUrl = this.handle?.runtime?.baseUrl || this.snapshot.runtimeUrl || this.environment.HERMES_RUNTIME_URL;
+    const runtimeApiKey = this.handle?.runtimeApiKey || firstValue(
+      this.environment.HERMES_RUNTIME_API_KEY,
+      this.environment.HERMES_API_KEY,
+      this.environment.API_SERVER_KEY,
+      this.environment.AI_API_KEY
+    );
+    return runtimeUrl ? new HermesModelConfigClient({ runtimeUrl, runtimeApiKey, fetchImpl: this.fetchImpl }) : undefined;
+  }
+
+  async setAndReadNativeModel(environment) {
+    const client = this.createModelConfigClient();
+    if (!client) throw Object.assign(new Error("hermes_runtime_url_missing"), { code: "hermes_runtime_url_missing" });
+    const provider = normalizeProviderIdentity(
+      firstValue(environment.HERMES_PROVIDER, environment.AI_PROVIDER),
+      environment
+    );
+    const model = firstValue(environment.HERMES_MODEL, environment.AI_MODEL, environment.HERMES_INFERENCE_MODEL) || "";
+    const baseUrl = firstValue(environment.HERMES_BASE_URL, environment.AI_BASE_URL, environment.OPENAI_BASE_URL) || DEFAULT_PROVIDER_BASE_URL;
+    const assigned = await client.setMainModel({ provider, model, baseUrl, apiKey: providerCredential(environment) || "" });
+    const readback = await client.readModelConfig();
+    const readbackBaseUrl = readback.baseUrl || assigned.baseUrl;
+    const readbackProvider = normalizeProviderIdentity(readback.provider || provider, { AI_BASE_URL: readbackBaseUrl || baseUrl });
+    if (!providerIdentitiesMatch(provider, readbackProvider)
+      || readback.model !== model
+      || (readbackBaseUrl && readbackBaseUrl !== baseUrl)) {
+      throw Object.assign(new Error("configuration_desync"), { code: "configuration_desync" });
+    }
+    return { provider, model: readback.model };
+  }
+
+  capabilitiesWithModelConfig() {
+    const current = this.capabilities || { supportedEndpoints: [], features: {} };
+    const supportedEndpoints = current.supportedEndpoints.filter((endpoint) => endpoint !== "/api/model/info" && endpoint !== "/api/model/set");
+    if (this.nativeModelConfigSupported) supportedEndpoints.push("/api/model/info", "/api/model/set");
+    return {
+      ...current,
+      supportedEndpoints,
+      features: {
+        ...current.features,
+        nativeModelConfig: this.nativeModelConfigSupported === true,
+        modelConfigAppliesToNewSessions: true,
+        runtimeSessionModelSwitch: false,
+        supportsInitialModelSelection: true,
+        supportsRuntimeModelSwitch: false
+      }
+    };
   }
 
  captureHealthyConfiguration() {
@@ -633,6 +730,9 @@ class HermesSupervisor {
   }
 
   async rollbackToHealthy(previous, reasonCode) {
+    if (this.nativeModelConfigSupported === true && this.handle && this.snapshot.processReady) {
+      return this.rollbackNativeModelConfiguration(previous, reasonCode);
+    }
     if (this.runtimeProcessState.rollbackInProgress) return this.getStatus();
     this.runtimeProcessState.rollbackInProgress = true;
     const failedDesiredConfiguration = this.runtimeConfigState.desired;
@@ -649,7 +749,6 @@ class HermesSupervisor {
         requestedSettings: previous.settings,
         credentialSourceOverride: previous.credentialSource,
         allowActiveRun: true,
-        preserveDesired: true,
         rollback: true
       });
      const restored = snapshot.overallState === "ready"
@@ -671,6 +770,51 @@ class HermesSupervisor {
       }, "Hermes restored previous healthy configuration");
       return this.getStatus();
    } finally {
+      this.runtimeConfigState.desired = failedDesiredConfiguration;
+      this.runtimeProcessState.rollbackInProgress = false;
+    }
+  }
+
+  async rollbackNativeModelConfiguration(previous, reasonCode) {
+    if (this.runtimeProcessState.rollbackInProgress) return this.getStatus();
+    this.runtimeProcessState.rollbackInProgress = true;
+    const failedDesiredConfiguration = this.runtimeConfigState.desired;
+    this.runtimeConfigState.desired = this.runtimeConfigState.active;
+    this.setConfigurationApplyStatus("verifying", "config_apply_rollback_requested", {
+      restartPerformed: false,
+      verified: false,
+      rollbackOccurred: true
+    });
+    try {
+      await this.applyNativeModelConfiguration(previous.settings, previous.environment, previous.fingerprint, {
+        targetGeneration: previous.generation,
+        credentialSourceOverride: previous.credentialSource,
+        rollback: true
+      });
+      this.runtimeConfigState.desired = failedDesiredConfiguration;
+      this.setConfigurationApplyStatus("rolled_back", "config_apply_rolled_back", {
+        restartPerformed: false,
+        verified: false,
+        rollbackOccurred: true
+      });
+      this.runtimeConfigState.lastApplyReceipt = this.createApplyReceipt(false, true, reasonCode);
+      this.publish({
+        lastApplyReceipt: this.runtimeConfigState.lastApplyReceipt,
+        reasonCode: "config_apply_rolled_back",
+        runtimeConfig: this.runtimeConfigSnapshot()
+      }, "Hermes restored previous native model configuration");
+      return this.getStatus();
+    } catch {
+      this.runtimeConfigState.desired = failedDesiredConfiguration;
+      this.setConfigurationApplyStatus("failed", "config_rollback_failed", {
+        restartPerformed: false,
+        verified: false,
+        rollbackOccurred: true
+      });
+      this.runtimeConfigState.lastApplyReceipt = this.createApplyReceipt(false, true, "config_rollback_failed");
+      this.publish({ lastApplyReceipt: this.runtimeConfigState.lastApplyReceipt, runtimeConfig: this.runtimeConfigSnapshot() }, "Hermes native configuration rollback failed");
+      return this.getStatus();
+    } finally {
       this.runtimeConfigState.desired = failedDesiredConfiguration;
       this.runtimeProcessState.rollbackInProgress = false;
     }
@@ -699,7 +843,7 @@ class HermesSupervisor {
     this.runtimeProcessState.credentialAction = undefined;
     this.environment = { ...this.baseEnvironment };
     this.runtimeConfigState.desired = undefined;
-    return this.updateConfig(undefined, { forceRestart: true });
+    return this.updateConfig(undefined);
   }
 
   async resetConfig() {
@@ -709,7 +853,7 @@ class HermesSupervisor {
     this.runtimeProcessState.credentialAction = undefined;
     this.environment = { ...this.baseEnvironment };
     this.runtimeConfigState.desired = undefined;
-    return this.updateConfig(undefined, { forceRestart: true });
+    return this.updateConfig(undefined);
   }
 
   async shutdown() {
@@ -938,15 +1082,18 @@ class HermesSupervisor {
     const runtimeHealth = asRecord(root.runtimeHealth);
     const providerStatus = stringValue(root.providerStatus) || stringValue(runtimeHealth.providerStatus);
    const providerDiagnostic = safeProviderDiagnostic(root.providerDiagnostic || runtimeHealth.providerDiagnostic);
-    const expectedConfiguration = this.runtimeConfigState.desired || this.runtimeConfigState.active;
-   const observedProvider = normalizeProviderIdentity(stringValue(root.provider) || stringValue(runtimeHealth.provider), this.environment);
+   const expectedConfiguration = this.runtimeConfigState.desired || this.runtimeConfigState.active;
+   const rawObservedProvider = normalizeProviderIdentity(stringValue(root.provider) || stringValue(runtimeHealth.provider), this.environment);
+   const observedProvider = expectedConfiguration && providerIdentitiesMatch(expectedConfiguration.provider, rawObservedProvider)
+     ? expectedConfiguration.provider
+     : rawObservedProvider;
    const observedModel = stringValue(root.model) || stringValue(runtimeHealth.model);
     const diagnosticConfigurationMismatch = Boolean(expectedConfiguration && providerDiagnostic && (
       (providerDiagnostic.configFingerprint && providerDiagnostic.configFingerprint !== expectedConfiguration.configFingerprint)
       || (providerDiagnostic.configGeneration !== undefined && providerDiagnostic.configGeneration !== expectedConfiguration.configGeneration)
    ));
     const observedConfigurationMismatch = Boolean(expectedConfiguration && (
-      (observedProvider && observedProvider !== expectedConfiguration.provider)
+      (observedProvider && !providerIdentitiesMatch(observedProvider, expectedConfiguration.provider))
       || (observedModel && expectedConfiguration.model && observedModel !== expectedConfiguration.model)
    ));
    const configurationDesync = diagnosticConfigurationMismatch || observedConfigurationMismatch;
@@ -1078,6 +1225,24 @@ class HermesSupervisor {
         // the official health endpoint and does not depend on every optional
         // discovery request.
       }
+    }
+    const modelConfigClient = this.createModelConfigClient();
+    let modelConfigCapability = { supported: false };
+    try {
+      if (modelConfigClient) modelConfigCapability = await modelConfigClient.testCapability();
+    } catch {
+      // Keep capability unknown when the optional diagnostic request itself
+      // is unavailable; the apply boundary will surface the real error.
+      modelConfigCapability = { supported: undefined };
+    }
+    this.nativeModelConfigSupported = modelConfigCapability.supported;
+    if (this.nativeModelConfigSupported) {
+      supported.push("/api/model/info", "/api/model/set");
+      features.nativeModelConfig = true;
+      features.modelConfigAppliesToNewSessions = true;
+      features.runtimeSessionModelSwitch = false;
+      features.supportsInitialModelSelection = true;
+      features.supportsRuntimeModelSwitch = false;
     }
     this.capabilities = { supportedEndpoints: supported, features };
     this.publish({ capabilities: this.capabilities }, "Hermes capability discovery complete");
@@ -1245,19 +1410,6 @@ function validateHermesConfigSettings(settings) {
   return undefined;
 }
 
-function normalizeProviderIdentity(provider, environment) {
-  const candidate = firstValue(provider);
-  if (candidate && !/^https?:\/\//iu.test(candidate)) return candidate.toLowerCase();
-  const baseUrl = firstValue(environment?.HERMES_BASE_URL, environment?.AI_BASE_URL, environment?.OPENAI_BASE_URL);
-  try {
-    const hostname = new URL(baseUrl || "").hostname.toLowerCase();
-    if (hostname === "openrouter.ai" || hostname.endsWith(".openrouter.ai")) return "openrouter";
-  } catch {
-    // The boundary validator reports an invalid provider endpoint.
-  }
-  return "openai-compatible";
-}
-
 function applyProviderEnvironment(environment) {
   for (const key of ["AI_PROVIDER", "AI_BASE_URL", "AI_API_KEY", "AI_MODEL", "HERMES_PROVIDER", "HERMES_BASE_URL", "HERMES_API_KEY", "HERMES_MODEL", "HERMES_INFERENCE_MODEL", "OPENAI_BASE_URL", "OPENAI_API_KEY"]) {
     process.env[key] = Object.prototype.hasOwnProperty.call(environment, key) && typeof environment[key] === "string"
@@ -1276,7 +1428,10 @@ function environmentFromHermesSettings(value) {
   const provider = read("provider");
   const credentialAction = settings.credentialAction;
   return {
-    ...(provider ? { AI_PROVIDER: provider, HERMES_PROVIDER: provider } : {}),
+    ...((provider || baseUrl) ? {
+      AI_PROVIDER: normalizeProviderIdentity(provider, { AI_BASE_URL: baseUrl }),
+      HERMES_PROVIDER: normalizeProviderIdentity(provider, { HERMES_BASE_URL: baseUrl })
+    } : {}),
     ...(baseUrl ? { AI_BASE_URL: baseUrl, HERMES_BASE_URL: baseUrl } : {}),
     ...(apiKey ? { AI_API_KEY: apiKey } : credentialAction === "clear" ? {
       AI_API_KEY: "",
@@ -1380,6 +1535,10 @@ function isConfigurationReason(value) {
 function safeReason(value) {
   const normalized = String(value || "hermes_unavailable").replace(/[^A-Za-z0-9_.:-]/gu, "_").slice(0, 160);
   return normalized || "hermes_unavailable";
+}
+
+function providerIdentitiesMatch(expected, observed) {
+  return expected === observed || (expected === "custom" && observed?.startsWith("custom:") === true);
 }
 
 function companionFailureReason(handle) {

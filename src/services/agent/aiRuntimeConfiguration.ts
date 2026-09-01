@@ -86,15 +86,26 @@ export function validateAiRuntimeConfigDraft(settings: AiRuntimeConfigDraft): st
 
 export function normalizeAiProviderIdentity(provider: string | undefined, baseUrl: string | undefined) {
   const candidate = provider?.trim();
-  if (candidate && !/^https?:\/\//iu.test(candidate)) return candidate.toLowerCase();
+  if (candidate && !/^https?:\/\//iu.test(candidate)) {
+    const normalized = candidate.toLowerCase();
+    if (["openai-compatible", "openai_api"].includes(normalized)) return providerFromBaseUrl(baseUrl);
+    if (normalized === "openai" || normalized === "openai api") return "openai-api";
+    if (normalized === "local" || normalized === "ollama") return "custom";
+    return normalized;
+  }
+  return providerFromBaseUrl(baseUrl);
+}
+
+function providerFromBaseUrl(baseUrl: string | undefined) {
   try {
     const hostname = new URL(baseUrl?.trim() || "").hostname.toLowerCase();
     if (hostname === "openrouter.ai" || hostname.endsWith(".openrouter.ai")) return "openrouter";
+    if (hostname === "api.openai.com" || hostname.endsWith(".openai.com")) return "openai-api";
   } catch {
     // A missing/invalid provider URL is reported by boundary validation. The
     // identity fallback keeps diagnostics deterministic while it is pending.
   }
-  return "openai-compatible";
+  return "custom";
 }
 
 export function runtimeConfigFingerprintPayload(input: {
