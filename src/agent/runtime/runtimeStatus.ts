@@ -3,6 +3,7 @@ import { classifyHermesRunFailure, type HermesRunFailureInput } from "./hermes/h
 import {
   createHermesControlSnapshotFromHealth,
   createHermesControlSnapshotFromSupervisor,
+  createHermesControlCapabilities,
   createInitialHermesControlSnapshot,
   updateHermesControlRunState,
   type CandidateProviderTestResult,
@@ -155,7 +156,7 @@ export class RuntimeStatusStore {
       && health.requiredCareerFacadesMissing.length === 0;
     this.update({
       activeRuntime: this.snapshot.preferredRuntime === "hermes" ? "hermes" : "native",
-      activeRunId: health.activeRunId ?? health.hermesRunId,
+      ...(this.supervisorOwned ? {} : { activeRunId: health.activeRunId ?? health.hermesRunId }),
       ...(this.supervisorOwned ? {} : { status: runtimeHealthStatus(health) }),
       ...(this.supervisorOwned ? {} : { reason: health.safeErrorCode }),
       ...(this.supervisorOwned ? {} : {
@@ -196,6 +197,17 @@ export class RuntimeStatusStore {
 
   recordRunState(runState: HermesRunState, activeRunId?: string) {
     const previous = this.snapshot.controlSnapshot ?? createInitialHermesControlSnapshot();
+    if (this.supervisorOwned) {
+      const controlSnapshot = {
+        ...previous,
+        ...(activeRunId ? { activeRunId } : { activeRunId: undefined }),
+        runState,
+        capabilities: createHermesControlCapabilities(previous.environment, previous.controlOwner, runState),
+        updatedAt: new Date().toISOString()
+      } satisfies HermesControlSnapshot;
+      this.update({ controlSnapshot, activeRunId });
+      return;
+    }
     const controlSnapshot = updateHermesControlRunState(previous, runState, activeRunId);
     this.recordControlSnapshot(controlSnapshot);
   }

@@ -14,6 +14,7 @@ const { HermesSupervisor } = require("../../electron/hermesSupervisor.js") as {
     shutdown(): Promise<Record<string, unknown>>;
     applyHealth(health: Record<string, unknown>): void;
     getStatus(): Record<string, unknown>;
+    startCompanion: (input: Record<string, unknown>) => Promise<unknown>;
   };
 };
 
@@ -425,5 +426,79 @@ describe("Hermes Supervisor lifecycle", () => {
       providerReady: false
     });
     expect(harness.supervisor.getStatus().providerDiagnostic).toBeUndefined();
+  });
+
+  it("keeps the last active configuration visible while a replacement is applying", async () => {
+    const harness = createHarness();
+    await harness.supervisor.rendererHostReady();
+    const originalStartCompanion = harness.supervisor.startCompanion;
+    let releaseStart!: () => void;
+    const startGate = new Promise<void>((resolve) => { releaseStart = resolve; });
+    harness.supervisor.startCompanion = async (input: Record<string, unknown>) => {
+      await startGate;
+      return originalStartCompanion(input);
+    };
+
+    const applyPromise = harness.supervisor.updateConfig({
+      provider: "openrouter",
+      baseUrl: "https://openrouter.ai/api/v1",
+      apiKey: "managed-secret",
+      model: "stealth/ox-alpha"
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+   expect(harness.supervisor.getStatus()).toMatchObject({
+     model: "mimo-v2.5-pro",
+      runtimeConfig: {
+        applyStatus: "restarting_runtime",
+        active: { model: "mimo-v2.5-pro" },
+        desired: { model: "stealth/ox-alpha" }
+     }
+   });
+    expect(["starting", "restarting"]).toContain(harness.supervisor.getStatus().overallState);
+
+    releaseStart();
+    await applyPromise;
+  });
+
+  it("accepts one configuration mutation while rapid requests share its result", async () => {
+    const harness = createHarness();
+    await harness.supervisor.rendererHostReady();
+    const originalStartCompanion = harness.supervisor.startCompanion;
+    let releaseStart!: () => void;
+    const startGate = new Promise<void>((resolve) => { releaseStart = resolve; });
+    harness.supervisor.startCompanion = async (input: Record<string, unknown>) => {
+      await startGate;
+      return originalStartCompanion(input);
+    };
+
+    const firstDraft = {
+      provider: "openrouter",
+      baseUrl: "https://openrouter.ai/api/v1",
+      apiKey: "managed-secret",
+      model: "first-model"
+    };
+    const requests = Array.from({ length: 20 }, (_, index) => harness.supervisor.updateConfig({
+      ...firstDraft,
+      model: index === 0 ? firstDraft.model : "second-model"
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(harness.getStartCount()).toBe(1);
+
+    releaseStart();
+    const results = await Promise.all(requests);
+    expect(harness.getStartCount()).toBe(2);
+    expect(results.every((result) => (result.runtimeConfig as { active?: { model?: string } }).active?.model === "first-model")).toBe(true);
+  });
+
+  it("treats an already active configuration as a no-op without restarting", async () => {
+    const harness = createHarness();
+    await harness.supervisor.rendererHostReady();
+
+    const result = await harness.supervisor.updateConfig();
+
+    expect(harness.getStartCount()).toBe(1);
+    expect(result.runtimeConfig).toMatchObject({ applyStatus: "applied", restartPerformed: false, verified: true });
+    expect(result.lastApplyReceipt).toMatchObject({ applyStatus: "applied", restartPerformed: false, verified: true });
   });
 });

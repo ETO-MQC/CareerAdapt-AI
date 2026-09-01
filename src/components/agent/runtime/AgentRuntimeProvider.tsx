@@ -26,7 +26,6 @@ import { resolveCareerSessionBinding, type CareerSessionBinding } from "@/agent/
 import { WorkspaceRepository } from "@/services/storage/repositories";
 import { allowedToolManifestForStep } from "@/agent/workflows/workflowRegistry";
 import {
-  getHermesStatus,
   notifyHermesRendererReady,
   readHermesStartSettings,
   requestHermesStart,
@@ -1007,9 +1006,6 @@ export function AgentRuntimeProvider({ children }: { children: React.ReactNode }
     const unsubscribeHermesStatus = subscribeHermesStatus((snapshot) => {
       if (active) host.runtimeStatus.recordSupervisorStatus(snapshot);
     });
-    void getHermesStatus().then((snapshot) => {
-      if (active && snapshot) host.runtimeStatus.recordSupervisorStatus(snapshot);
-    }).catch(() => undefined);
     const boot = async () => {
       await host.mcpBridge.start(
         host.careerToolGateway,

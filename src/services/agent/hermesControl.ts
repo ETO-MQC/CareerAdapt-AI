@@ -365,162 +365,232 @@ export function createInitialHermesControlSnapshot(
   };
 }
 
+type HermesControlProjection = {
+  apiReady: boolean;
+  serviceState: HermesServiceState;
+  activeRunId?: string;
+  providerState: HermesProviderState;
+  providerReady: boolean;
+  careerMcpReady: boolean;
+  requiredMissing: string[];
+  requiredToolTotal: number;
+  requiredToolCount: number;
+  toolSurfaceReady: boolean;
+  runReady: boolean;
+  runState: HermesRunState;
+  provider?: string;
+  model?: string;
+  providerDiagnostic: HermesProviderDiagnostic;
+  careerDomainToolCount?: number;
+  hermesCareerToolCount?: number;
+  careerSkillsReady?: boolean;
+  careerSkills?: string[];
+  runtimeUrl?: string;
+  appUrl?: string;
+  version?: string;
+  runtimeConfig: AiRuntimeConfigState;
+  diagnosticReasonCode?: string;
+};
+
 export function createHermesControlSnapshot(input: {
   environment?: HermesRuntimeEnvironment;
   controlOwner?: HermesControlOwner;
   previous?: HermesControlSnapshot;
   supervisor?: HermesSupervisorSnapshot;
   health?: HermesControlHealthInput;
-  providerTest?: HermesProviderTestResult;
   runState?: HermesRunState;
   activeProfileSource?: string;
 } = {}): HermesControlSnapshot {
   const environment = input.environment ?? input.previous?.environment ?? hermesRuntimeEnvironment();
   const previous = input.previous;
-  const supervisor = input.supervisor;
-  const activeRuntimeConfig = supervisor?.runtimeConfig?.active;
-  const health = input.health;
-  const runtimeHealth = health?.runtimeHealth;
   const controlOwner = input.controlOwner
-    ?? (environment === "electron"
-      ? "electron_supervisor"
-      : previous?.controlOwner === "web_supervisor" ? "web_supervisor" : "external_environment");
-  const apiReady = supervisor?.apiReady
-    ?? (health?.available === true || runtimeHealth?.runtimeAvailable === true);
-  const serviceState = supervisor
-    ? serviceStateFromSupervisor(supervisor)
-    : apiReady
-      ? "running"
-      : previous?.serviceState === "starting"
-        ? "starting"
-        : "unavailable";
-  const activeRunId = supervisor
-    ? supervisor.activeRunId
-    : health?.activeRunId
-      ?? health?.hermesRunId
-      ?? runtimeHealth?.activeRunId
-      ?? runtimeHealth?.hermesRunId;
-  const providerState = supervisor
-      ? providerStateFromHealth({
-          providerStatus: supervisor.providerStatus,
-          providerDiagnostic: supervisor.providerDiagnostic,
-          credentialConfigured: supervisor.credentialConfigured,
-          credentialSource: supervisor.credentialSource,
-          provider: supervisor.provider,
-          model: supervisor.model
-        }, previous?.providerState === "auth_error" || previous?.providerState === "config_error" ? previous.providerState : supervisor.providerReady ? "ready" : previous?.providerState)
-      : providerStateFromHealth(health, previous?.providerState);
-  const providerReady = supervisor?.providerReady
-    ?? runtimeHealth?.providerReady
-    ?? (runtimeHealth?.providerConfigured === true && runtimeHealth.providerReachable === true && Boolean(health?.model || runtimeHealth?.model));
-  const careerMcpReady = supervisor?.careerMcpReady
-    ?? runtimeHealth?.mcpReady
-    ?? (runtimeHealth?.mcpConnected === true
-      && runtimeHealth?.browserCareerDomainHostConnected === true
-      && runtimeHealth?.careerMcpServerReachable === true);
-  const requiredMissing = runtimeHealth?.requiredCareerFacadesMissing ?? [];
-  const requiredToolTotal = supervisor?.requiredCareerFacadesTotal
-    ?? Math.max(8, (runtimeHealth?.hermesCareerFacadeCount ?? 0) + requiredMissing.length);
-  const requiredToolCount = supervisor?.requiredCareerFacadesReady
-    ?? Math.max(0, requiredToolTotal - requiredMissing.length);
-  const toolSurfaceReady = supervisor?.toolSurfaceReady
-    ?? (runtimeHealth?.hermesMcpRegistered === true
-      && (runtimeHealth?.hermesMcpToolCount ?? 0) > 0
-      && requiredMissing.length === 0);
-  const runReady = supervisor?.runReady
-    ?? runtimeHealth?.runReady
-    ?? (apiReady && providerReady && toolSurfaceReady);
-  const runState = input.runState
-    ?? (supervisor
-      ? supervisor.runState ?? (activeRunId ? previous?.runState === "stopping" ? "stopping" : "running" : "none")
-      : health?.runState
-        ?? runtimeHealth?.runState
-        ?? (activeRunId ? previous?.runState === "stopping" ? "stopping" : "running" : "none"));
-  const reportedProvider = activeRuntimeConfig?.provider
-    ?? supervisor?.provider
-    ?? (supervisor ? undefined : health?.provider ?? previous?.provider);
-  const provider = reportedProvider ? normalizeAiProviderIdentity(reportedProvider, undefined) : undefined;
-  const providerDiagnostic = mergeProviderDiagnostic(
-    supervisor ? undefined : previous?.providerDiagnostic,
-    supervisor ? undefined : health?.providerDiagnostic,
-    supervisor ? undefined : runtimeHealth?.providerDiagnostic,
-    supervisor?.providerDiagnostic,
-    activeRuntimeConfig ? {
-      provider: activeRuntimeConfig.provider,
-      model: activeRuntimeConfig.model,
-      credentialConfigured: activeRuntimeConfig.credentialConfigured,
-      credentialSource: activeRuntimeConfig.credentialSource,
-      configFingerprint: activeRuntimeConfig.configFingerprint,
-      configGeneration: activeRuntimeConfig.configGeneration
-    } : undefined,
-    {
-      ...(provider ? { provider } : {}),
-      model: activeRuntimeConfig?.model ?? supervisor?.model ?? (supervisor ? undefined : health?.model ?? runtimeHealth?.model),
-      credentialConfigured: activeRuntimeConfig?.credentialConfigured
-        ?? supervisor?.credentialConfigured
-        ?? (supervisor ? undefined : health?.credentialConfigured)
-        ?? (supervisor ? undefined : previous?.providerDiagnostic.credentialConfigured)
-        ?? false,
-      credentialSource: activeRuntimeConfig?.credentialSource
-        ?? supervisor?.credentialSource
-        ?? (supervisor ? undefined : health?.credentialSource)
-        ?? (supervisor ? undefined : previous?.providerDiagnostic.credentialSource)
-        ?? "unknown"
-    }
-  );
-  const resolvedProviderReady = providerReady && providerState === "ready";
-  const ready = apiReady && resolvedProviderReady && careerMcpReady && toolSurfaceReady && runReady;
-  const status = controlStatus({ ready, serviceState, apiReady, providerState });
-  const diagnosticReasonCode = supervisor
-    ? supervisor.reasonCode ?? previous?.diagnosticReasonCode
-    : health?.reason ?? previous?.diagnosticReasonCode;
-  const safeReasonCode = (providerState === "auth_error" ? "provider_auth_invalid" : undefined)
-    ?? (providerState === "config_error" ? "configuration_required" : undefined)
-    ?? (status === "ready" && diagnosticReasonCode === "health_endpoint_ready" ? undefined : diagnosticReasonCode)
-    ?? (supervisor ? undefined : previous?.safeReasonCode);
-  const snapshot: HermesControlSnapshot = {
+    ?? (input.supervisor
+      ? environment === "electron" ? "electron_supervisor" : "web_supervisor"
+      : environment === "electron"
+        ? "electron_supervisor"
+        : previous?.controlOwner === "web_supervisor" ? "web_supervisor" : "external_environment");
+  const projection = input.supervisor
+    ? projectSupervisorSnapshot(input.supervisor, previous)
+    : projectHealthSnapshot(input.health, previous);
+  const runState = input.runState ?? projection.runState;
+  const resolvedProviderReady = projection.providerReady && projection.providerState === "ready";
+  const ready = projection.apiReady
+    && resolvedProviderReady
+    && projection.careerMcpReady
+    && projection.toolSurfaceReady
+    && projection.runReady;
+  const status = controlStatus({
+    ready,
+    serviceState: projection.serviceState,
+    apiReady: projection.apiReady,
+    providerState: projection.providerState
+  });
+  const safeReasonCode = (projection.providerState === "auth_error" ? "provider_auth_invalid" : undefined)
+    ?? (projection.providerState === "config_error" ? "configuration_required" : undefined)
+    ?? (status === "ready" && projection.diagnosticReasonCode === "health_endpoint_ready" ? undefined : projection.diagnosticReasonCode)
+    ?? (input.supervisor ? undefined : previous?.safeReasonCode);
+  return {
     environment,
     supervisorExpected: controlOwner === "electron_supervisor" || controlOwner === "web_supervisor",
     controlOwner,
-    serviceState,
-    apiState: apiReady ? "reachable" : "unreachable",
-    providerState,
+    serviceState: projection.serviceState,
+    apiState: projection.apiReady ? "reachable" : "unreachable",
+    providerState: projection.providerState,
     careerIntegration: {
-      mcpReady: careerMcpReady,
-      toolSurfaceReady,
-      requiredToolCount,
-      requiredToolTotal
+      mcpReady: projection.careerMcpReady,
+      toolSurfaceReady: projection.toolSurfaceReady,
+      requiredToolCount: projection.requiredToolCount,
+      requiredToolTotal: projection.requiredToolTotal
     },
     runState,
-    apiReady,
+    apiReady: projection.apiReady,
     providerReady: resolvedProviderReady,
-    careerMcpReady,
-    toolSurfaceReady,
-    runReady,
+    careerMcpReady: projection.careerMcpReady,
+    toolSurfaceReady: projection.toolSurfaceReady,
+    runReady: projection.runReady,
     ready,
     status,
-    ...(provider ? { provider } : {}),
-    model: activeRuntimeConfig?.model ?? supervisor?.model ?? (supervisor ? undefined : health?.model ?? runtimeHealth?.model ?? previous?.model),
-    careerDomainToolCount: supervisor?.careerDomainToolCount ?? runtimeHealth?.careerMcpContractCount ?? previous?.careerDomainToolCount,
-    hermesCareerToolCount: supervisor?.hermesCareerToolCount ?? runtimeHealth?.hermesMcpToolCount ?? previous?.hermesCareerToolCount,
-    careerSkillsReady: supervisor?.careerSkillsReady ?? runtimeHealth?.careerSkillsLoaded ?? previous?.careerSkillsReady,
-    ...(supervisor?.careerSkills ?? previous?.careerSkills ? { careerSkills: supervisor?.careerSkills ?? previous?.careerSkills } : {}),
-    runtimeUrl: supervisor?.runtimeUrl ?? (supervisor ? undefined : health?.runtimeUrl) ?? previous?.runtimeUrl,
-    appUrl: supervisor?.appUrl ?? (supervisor ? undefined : health?.appUrl) ?? previous?.appUrl,
-    version: supervisor?.version ?? (supervisor ? undefined : health?.version) ?? previous?.version,
-    ...(activeRunId ? { activeRunId } : {}),
-    providerDiagnostic,
-    runtimeConfig: supervisor?.runtimeConfig ?? previous?.runtimeConfig ?? { applyStatus: "idle", rollbackOccurred: false },
+    ...(projection.provider ? { provider: projection.provider } : {}),
+    model: projection.model,
+    careerDomainToolCount: projection.careerDomainToolCount,
+    hermesCareerToolCount: projection.hermesCareerToolCount,
+    careerSkillsReady: projection.careerSkillsReady,
+    ...(projection.careerSkills ? { careerSkills: projection.careerSkills } : {}),
+    runtimeUrl: projection.runtimeUrl,
+    appUrl: projection.appUrl,
+    version: projection.version,
+    ...(projection.activeRunId ? { activeRunId: projection.activeRunId } : {}),
+    providerDiagnostic: projection.providerDiagnostic,
+    runtimeConfig: projection.runtimeConfig,
     storage: {
       ...(previous?.storage ?? defaultStorageDiagnostic(environment)),
       ...(input.activeProfileSource ? { activeProfileSource: input.activeProfileSource } : {})
     },
     capabilities: createHermesControlCapabilities(environment, controlOwner, runState),
     ...(safeReasonCode ? { safeReasonCode } : {}),
-    ...(diagnosticReasonCode ? { diagnosticReasonCode } : {}),
+    ...(projection.diagnosticReasonCode ? { diagnosticReasonCode: projection.diagnosticReasonCode } : {}),
     updatedAt: new Date().toISOString()
   };
-  return snapshot;
+}
+
+function projectSupervisorSnapshot(supervisor: HermesSupervisorSnapshot, previous?: HermesControlSnapshot): HermesControlProjection {
+  const active = supervisor.runtimeConfig?.active;
+  const providerState = providerStateFromHealth({
+    providerStatus: supervisor.providerStatus,
+    providerDiagnostic: supervisor.providerDiagnostic,
+    credentialConfigured: supervisor.credentialConfigured,
+    credentialSource: supervisor.credentialSource,
+    provider: supervisor.provider,
+    model: supervisor.model
+  }, previous?.providerState === "auth_error" || previous?.providerState === "config_error"
+    ? previous.providerState
+    : supervisor.providerReady ? "ready" : previous?.providerState);
+  const provider = active?.provider ?? supervisor.provider;
+  return {
+    apiReady: supervisor.apiReady,
+    serviceState: serviceStateFromSupervisor(supervisor),
+    activeRunId: supervisor.activeRunId,
+    providerState,
+    providerReady: supervisor.providerReady,
+    careerMcpReady: supervisor.careerMcpReady,
+    requiredMissing: [],
+    requiredToolTotal: supervisor.requiredCareerFacadesTotal,
+    requiredToolCount: supervisor.requiredCareerFacadesReady,
+    toolSurfaceReady: supervisor.toolSurfaceReady,
+    runReady: supervisor.runReady,
+    runState: supervisor.runState ?? (supervisor.activeRunId ? previous?.runState === "stopping" ? "stopping" : "running" : "none"),
+    ...(provider ? { provider: normalizeAiProviderIdentity(provider, undefined) } : {}),
+    model: active?.model ?? supervisor.model,
+    providerDiagnostic: mergeProviderDiagnostic(
+      supervisor.providerDiagnostic,
+      active ? {
+        provider: active.provider,
+        model: active.model,
+        credentialConfigured: active.credentialConfigured,
+        credentialSource: active.credentialSource,
+        configFingerprint: active.configFingerprint,
+        configGeneration: active.configGeneration
+      } : undefined,
+      {
+        ...(provider ? { provider } : {}),
+        model: active?.model ?? supervisor.model,
+        credentialConfigured: active?.credentialConfigured ?? supervisor.credentialConfigured ?? false,
+        credentialSource: active?.credentialSource ?? supervisor.credentialSource ?? "unknown"
+      }
+    ),
+    careerDomainToolCount: supervisor.careerDomainToolCount,
+    hermesCareerToolCount: supervisor.hermesCareerToolCount,
+    careerSkillsReady: supervisor.careerSkillsReady,
+    ...((supervisor.careerSkills ?? previous?.careerSkills) ? { careerSkills: supervisor.careerSkills ?? previous?.careerSkills } : {}),
+    runtimeUrl: supervisor.runtimeUrl,
+    appUrl: supervisor.appUrl,
+    version: supervisor.version,
+    runtimeConfig: supervisor.runtimeConfig ?? previous?.runtimeConfig ?? { applyStatus: "idle", rollbackOccurred: false },
+    diagnosticReasonCode: supervisor.reasonCode ?? previous?.diagnosticReasonCode
+  };
+}
+
+function projectHealthSnapshot(health: HermesControlHealthInput | undefined, previous?: HermesControlSnapshot): HermesControlProjection {
+  const runtimeHealth = health?.runtimeHealth;
+  const apiReady = health?.available === true || runtimeHealth?.runtimeAvailable === true;
+  const activeRunId = health?.activeRunId
+    ?? health?.hermesRunId
+    ?? runtimeHealth?.activeRunId
+    ?? runtimeHealth?.hermesRunId;
+  const providerState = providerStateFromHealth(health, previous?.providerState);
+  const providerReady = runtimeHealth?.providerReady
+    ?? (runtimeHealth?.providerConfigured === true && runtimeHealth.providerReachable === true && Boolean(health?.model || runtimeHealth?.model));
+  const careerMcpReady = runtimeHealth?.mcpReady
+    ?? (runtimeHealth?.mcpConnected === true
+      && runtimeHealth?.browserCareerDomainHostConnected === true
+      && runtimeHealth?.careerMcpServerReachable === true);
+  const requiredMissing = runtimeHealth?.requiredCareerFacadesMissing ?? [];
+  const requiredToolTotal = Math.max(8, (runtimeHealth?.hermesCareerFacadeCount ?? 0) + requiredMissing.length);
+  const toolSurfaceReady = runtimeHealth?.hermesMcpRegistered === true
+    && (runtimeHealth?.hermesMcpToolCount ?? 0) > 0
+    && requiredMissing.length === 0;
+  const runReady = runtimeHealth?.runReady
+    ?? (apiReady && providerReady && toolSurfaceReady);
+  const reportedProvider = health?.provider ?? previous?.provider;
+  const provider = reportedProvider ? normalizeAiProviderIdentity(reportedProvider, undefined) : undefined;
+  return {
+    apiReady,
+    serviceState: apiReady ? "running" : previous?.serviceState === "starting" ? "starting" : "unavailable",
+    activeRunId,
+    providerState,
+    providerReady,
+    careerMcpReady,
+    requiredMissing,
+    requiredToolTotal,
+    requiredToolCount: Math.max(0, requiredToolTotal - requiredMissing.length),
+    toolSurfaceReady,
+    runReady,
+    runState: health?.runState
+      ?? runtimeHealth?.runState
+      ?? (activeRunId ? previous?.runState === "stopping" ? "stopping" : "running" : "none"),
+    ...(provider ? { provider } : {}),
+    model: health?.model ?? runtimeHealth?.model ?? previous?.model,
+    providerDiagnostic: mergeProviderDiagnostic(
+      previous?.providerDiagnostic,
+      health?.providerDiagnostic,
+      runtimeHealth?.providerDiagnostic,
+      {
+        ...(provider ? { provider } : {}),
+        model: health?.model ?? runtimeHealth?.model,
+        credentialConfigured: health?.credentialConfigured ?? previous?.providerDiagnostic.credentialConfigured ?? false,
+        credentialSource: health?.credentialSource ?? previous?.providerDiagnostic.credentialSource ?? "unknown"
+      }
+    ),
+    careerDomainToolCount: runtimeHealth?.careerMcpContractCount ?? previous?.careerDomainToolCount,
+    hermesCareerToolCount: runtimeHealth?.hermesMcpToolCount ?? previous?.hermesCareerToolCount,
+    careerSkillsReady: runtimeHealth?.careerSkillsLoaded ?? previous?.careerSkillsReady,
+    ...(previous?.careerSkills ? { careerSkills: previous.careerSkills } : {}),
+    runtimeUrl: health?.runtimeUrl ?? previous?.runtimeUrl,
+    appUrl: health?.appUrl ?? previous?.appUrl,
+    version: health?.version ?? previous?.version,
+    runtimeConfig: previous?.runtimeConfig ?? { applyStatus: "idle", rollbackOccurred: false },
+    diagnosticReasonCode: health?.reason ?? previous?.diagnosticReasonCode
+  };
 }
 
 export function createHermesControlSnapshotFromSupervisor(
@@ -542,17 +612,6 @@ export function createHermesControlSnapshotFromHealth(
   environment: HermesRuntimeEnvironment = previous?.environment ?? hermesRuntimeEnvironment()
 ) {
   return createHermesControlSnapshot({ environment, previous, health });
-}
-
-export function applyHermesProviderTest(
-  snapshot: HermesControlSnapshot,
-  result: HermesProviderTestResult
-) {
-  void result;
-  // Candidate provider tests are intentionally not runtime observations. Keep
-  // this compatibility helper pure so legacy call sites cannot overwrite the
-  // active Supervisor projection by accident.
-  return snapshot;
 }
 
 export function updateHermesControlRunState(
@@ -619,9 +678,9 @@ export function createHermesControlCapabilities(
 }
 
 export function hermesControlStatusLabel(snapshot: HermesControlSnapshot) {
-  if (["validating", "testing", "saving", "restarting_runtime", "verifying"].includes(snapshot.runtimeConfig.applyStatus)) return "正在切换模型";
+  if (["validating", "testing", "saving", "restarting_runtime", "verifying"].includes(snapshot.runtimeConfig.applyStatus)) return "正在应用模型";
   if (snapshot.runtimeConfig.applyStatus === "deferred") return "等待应用配置";
-  if (snapshot.ready) return "Hermes Ready";
+  if (snapshot.ready) return "Ready";
   if (snapshot.status === "configuration_required") return "需要配置";
   if (snapshot.apiState === "reachable" && (snapshot.providerState === "unknown" || snapshot.providerState === "checking")) return "Hermes API 已连接";
   if (snapshot.status === "starting") return "启动中";
@@ -633,10 +692,10 @@ export function hermesControlStatusLabel(snapshot: HermesControlSnapshot) {
 
 export function hermesControlFeedback(snapshot: HermesControlSnapshot) {
   if (snapshot.runtimeConfig.applyStatus === "deferred") return "配置已保存，但当前运行仍未到安全边界；请停止当前任务后重新应用。";
-  if (["validating", "testing", "saving", "restarting_runtime", "verifying"].includes(snapshot.runtimeConfig.applyStatus)) return "AI · Hermes · 正在切换模型。";
+  if (["validating", "testing", "saving", "restarting_runtime", "verifying"].includes(snapshot.runtimeConfig.applyStatus)) return "AI · 正在应用模型。";
   if (snapshot.runtimeConfig.applyStatus === "rolled_back") return "新配置未通过 Provider 就绪检查，已恢复上一份健康配置。";
   if (snapshot.runtimeConfig.applyStatus === "failed") return "新配置未应用；请检查 Provider 地址、模型和凭证。";
-  if (snapshot.ready) return "Hermes Ready：API、Provider、Career MCP、工具面和 Run 均已就绪。";
+  if (snapshot.ready) return "AI Agent 已就绪。";
   if (snapshot.status === "configuration_required") return "Hermes API 已连接，但 Provider 需要配置或认证修复。";
   if (snapshot.apiState === "reachable") return "Hermes API 已连接；Provider、Career MCP 或 Run 仍需单独检查。";
   if (snapshot.controlOwner === "external_environment") return "当前为 Web 调试模式，Hermes 服务进程由外部环境管理。";

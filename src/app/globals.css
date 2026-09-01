@@ -8286,6 +8286,7 @@ html[data-theme="dark"] .resume-export-recovery-secondary {
   min-width: 0;
   overflow-y: scroll;
   overscroll-behavior-y: contain;
+  overflow-x: hidden;
   scrollbar-gutter: stable both-edges;
 }
 
@@ -8511,6 +8512,80 @@ html[data-theme="dark"] .resume-export-recovery-secondary {
   display: inline-flex;
   gap: 5px;
 }
+.ai-runtime-settings-card {
+  gap: 16px;
+  padding: 18px;
+}
+.ai-runtime-current-model {
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+}
+.ai-runtime-current-model strong {
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+.ai-runtime-current-model span {
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.ai-runtime-fields {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.ai-runtime-fields .field-label:last-child {
+  grid-column: 1 / -1;
+}
+.ai-api-key-field {
+  position: relative;
+}
+.ai-api-key-field input {
+  padding-right: 4.5rem;
+}
+.ai-api-key-toggle {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  padding: 5px;
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.ai-api-key-toggle:hover { color: var(--ink); }
+.ai-runtime-actions {
+  margin-top: 0;
+}
+.ai-runtime-more,
+.hermes-more-details,
+.hermes-diagnostics-details,
+.hermes-runtime-details {
+  background: var(--surface-subtle);
+}
+.ai-runtime-more .hermes-settings-actions {
+  margin-top: 10px;
+}
+.ai-candidate-feedback {
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+.ai-candidate-feedback.is-success { color: var(--accent); }
+.ai-candidate-feedback.is-error { color: var(--danger); }
+.hermes-runtime-summary { display: grid; gap: 10px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.hermes-runtime-summary > div { background: var(--surface-subtle); border: 1px solid var(--line); border-radius: 8px; display: grid; gap: 3px; min-width: 0; padding: 10px 12px; }
+.hermes-runtime-summary span { color: var(--muted); font-size: 11px; }
+.hermes-runtime-summary strong { overflow-wrap: anywhere; }
+.hermes-primary-action-row { align-items: center; min-height: 42px; }
+.settings-inline-note { color: var(--muted); font-size: 13px; }
 
 .hermes-log-details pre {
   background: var(--surface-subtle);
@@ -9144,6 +9219,13 @@ html[data-theme="dark"] .resume-export-recovery-secondary {
   .settings-save-state {
     max-width: none;
     text-align: left;
+  }
+  .ai-runtime-fields,
+  .hermes-runtime-summary {
+    grid-template-columns: 1fr;
+  }
+  .ai-runtime-fields .field-label:last-child {
+    grid-column: auto;
   }
 
   .import-route-actions {

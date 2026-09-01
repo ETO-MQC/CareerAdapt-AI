@@ -40,7 +40,6 @@ import {
   openHermesLogs,
   getHermesLogs,
   requestHermesRecover,
-  requestHermesProviderTest,
   requestHermesRestart,
   requestHermesStop
 } from "@/services/agent/hermesControl";
@@ -1045,18 +1044,6 @@ export function AgentWorkspace() {
     await requestHermesRestart({ reason: "user_explicit_restart" });
   }, [host, session]);
 
-  const testHermesProvider = useCallback(async () => {
-    const result = await requestHermesProviderTest();
-    host.runtimeStatus.recordCandidateProviderTest(result);
-  }, [host]);
-
-  const reconnectHermes = useCallback(async () => {
-    await host.mcpBridge.reconnect();
-    await host.refreshHermesHealth();
-    const result = await requestHermesProviderTest();
-    host.runtimeStatus.recordCandidateProviderTest(result);
-  }, [host]);
-
   const stopCurrentHermesRun = useCallback(async () => {
     const runId = runtimeStatus.controlSnapshot?.activeRunId ?? session.hermesRun?.runId;
     if (!runId) return;
@@ -1094,8 +1081,6 @@ export function AgentWorkspace() {
       }}
       onRestartHermes={restartHermes}
       onRecoverHermes={async () => { await requestHermesRecover(); }}
-      onReconnectHermes={reconnectHermes}
-      onTestProvider={testHermesProvider}
       onStopCurrentRun={stopCurrentHermesRun}
       onOpenHermesLogs={async () => { await openHermesLogs(); }}
       contextSelector={<CareerContextSelector onBeforeSelect={handleBeforeContextSelect} />}

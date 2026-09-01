@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  applyHermesProviderTest,
   createHermesControlSnapshot,
-  createInitialHermesControlSnapshot,
   hermesControlStatusLabel,
   requestHermesStart,
   updateHermesControlRunState,
@@ -192,25 +190,43 @@ describe("P4.5c.1.23 Hermes control capability and provider closure", () => {
     });
   });
 
-  it("keeps a Provider candidate test outside the shared active projection", () => {
-    const initial = createInitialHermesControlSnapshot("web");
-    const result = applyHermesProviderTest(initial, {
-      ok: false,
-      provider: "openai-compatible",
-      model: "mimo-v2.5-pro",
-      credentialConfigured: true,
-      credentialSource: "custom_header",
-      checkedAt: new Date().toISOString(),
-      httpStatus: 401,
-      safeErrorCode: "provider_http_401"
+  it("keeps Supervisor configuration and readiness authoritative when Run state changes", () => {
+    const supervisor = {
+      ...electronSupervisor(),
+      activeRunId: "run-1",
+      runState: "running" as const,
+      runtimeConfig: {
+        active: {
+          provider: "openrouter",
+          baseUrl: "https://openrouter.ai/api/v1",
+          model: "stealth/ox-alpha",
+          credentialConfigured: true,
+          credentialSource: "managed_config" as const,
+          configFingerprint: "active-fingerprint",
+          configGeneration: 4,
+          source: "runtime_readback" as const
+        },
+        applyStatus: "applied" as const,
+        verified: true,
+        rollbackOccurred: false
+      }
+    };
+    const store = new RuntimeStatusStore({ preferredRuntime: "hermes", activeRuntime: "hermes", status: "starting" });
+    store.recordSupervisorStatus(supervisor, "electron");
+
+    store.recordRunState("completed");
+
+    expect(store.getSnapshot().controlSnapshot).toMatchObject({
+      status: "ready",
+      ready: true,
+      provider: "openrouter",
+      model: "stealth/ox-alpha",
+      runtimeConfig: { active: { model: "stealth/ox-alpha" }, applyStatus: "applied" },
+      runState: "completed"
     });
+  });
 
-    expect(result).toBe(initial);
-    expect(result.serviceState).toBe("unavailable");
-    expect(result.apiState).toBe("unreachable");
-    expect(result.providerState).toBe("unknown");
-    expect(result.status).toBe("unavailable");
-
+  it("keeps a Provider candidate test outside the shared active projection", () => {
     const store = new RuntimeStatusStore({ preferredRuntime: "hermes", activeRuntime: "hermes", status: "starting" });
     store.recordCandidateProviderTest({
       ok: false,
