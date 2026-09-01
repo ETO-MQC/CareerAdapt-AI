@@ -641,6 +641,10 @@ export default function SettingsPage() {
   const hermesSnapshot = runtimeStatus.controlSnapshot ?? createInitialHermesControlSnapshot(hermesRuntimeEnvironment());
   const activeConfig = hermesSnapshot.runtimeConfig.active;
   const applyStatus = hermesSnapshot.runtimeConfig.applyStatus;
+  const runtimeConfigAttention = applyStatus === "failed" || applyStatus === "rolled_back";
+  const runtimeConfigReason = hermesSnapshot.runtimeConfig.reasonCode
+    ?? hermesSnapshot.diagnosticReasonCode
+    ?? hermesSnapshot.safeReasonCode;
   const lifecycleEntries = runtimeStatus.supervisorSnapshot?.latestLifecycleEntries ?? [];
 
   return (
@@ -953,6 +957,14 @@ export default function SettingsPage() {
                 </div>
               </section>
               <div className="settings-save-state" role="status" aria-live="polite">{hermesFeedback}</div>
+              {runtimeConfigAttention ? (
+                <div className={`ai-runtime-result ${applyStatus === "rolled_back" ? "is-rollback" : "is-error"}`} role="alert">
+                  <strong>{applyStatus === "rolled_back" ? "新配置未通过检查，已回滚" : "配置应用失败"}</strong>
+                  <span>{aiRuntimeConfigFeedback(runtimeConfigReason ?? "unknown")}</span>
+                  {runtimeConfigReason ? <code>{runtimeConfigReason}</code> : null}
+                  <button type="button" className="inline-action-button" onClick={() => { setCategory("developer"); void refreshHermesLogs(); }}>查看 AI Runtime 日志</button>
+                </div>
+              ) : null}
               {candidateProviderTest ? (
                 <p className={`ai-candidate-feedback ${candidateProviderTest.ok ? "is-success" : "is-error"}`} role="status" aria-live="polite">
                   {candidateProviderTestFeedback(candidateProviderTest)}
@@ -1458,10 +1470,10 @@ function aiRuntimeConfigFeedback(reason: string) {
     provider_http_401: "API Key 无效或没有模型权限。",
     provider_http_403: "API Key 无效或没有模型权限。",
     provider_model_not_found: "未找到这个模型，请检查模型名称。",
+    configuration_desync: "运行时读回配置与提交值不一致，请查看 AI Runtime 日志。",
     hermes_api_unreachable: "无法连接 API 地址，请检查地址和网络。",
     hermes_companion_start_failed: "AI Agent 启动失败。",
     hermes_process_crashed: "AI Agent 启动失败。",
-    configuration_desync: "未找到这个模型，请检查模型名称。",
   };
   return descriptions[reason] ?? "配置未应用，请检查 API 地址、模型和 API Key。";
 }

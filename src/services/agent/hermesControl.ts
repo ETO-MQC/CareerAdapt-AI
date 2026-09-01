@@ -680,6 +680,8 @@ export function createHermesControlCapabilities(
 
 export function hermesControlStatusLabel(snapshot: HermesControlSnapshot) {
   if (["validating", "testing", "saving", "restarting_runtime", "verifying"].includes(snapshot.runtimeConfig.applyStatus)) return "正在应用模型…";
+  if (snapshot.runtimeConfig.applyStatus === "failed") return "应用失败";
+  if (snapshot.runtimeConfig.applyStatus === "rolled_back") return "已回滚";
   if (snapshot.runtimeConfig.applyStatus === "deferred") return "等待应用配置";
   if (snapshot.ready) return "Ready";
   if (snapshot.status === "configuration_required") return "需要配置";
@@ -688,7 +690,8 @@ export function hermesControlStatusLabel(snapshot: HermesControlSnapshot) {
   if (snapshot.status === "stopping") return "正在停止";
   if (snapshot.status === "stopped") return "已停止";
   if (snapshot.status === "unavailable") return "不可用";
-  return "等待检查";
+  if (snapshot.status === "degraded") return "检查未通过";
+  return "检查中";
 }
 
 export function hermesControlFeedback(snapshot: HermesControlSnapshot) {
@@ -709,7 +712,8 @@ export function hermesControlFeedback(snapshot: HermesControlSnapshot) {
 function humanHermesReason(reasonCode?: string) {
   if (!reasonCode) return undefined;
   if (["provider_auth_invalid", "provider_http_401", "provider_http_403"].includes(reasonCode)) return "API Key 无效或没有模型权限。";
-  if (["provider_model_not_found", "configuration_desync"].includes(reasonCode)) return "未找到这个模型，请检查模型名称。";
+  if (reasonCode === "provider_model_not_found") return "未找到这个模型，请检查模型名称。";
+  if (reasonCode === "configuration_desync") return "运行时读回配置与提交值不一致，请打开 AI Runtime 诊断查看 Supervisor 日志。";
   if (["hermes_api_unreachable", "provider_dns_failed", "provider_connection_failed", "provider_timeout"].includes(reasonCode)) return "无法连接 API 地址，请检查地址和网络。";
   if (["career_mcp_sync_pending", "career_tool_contract_mismatch", "hermes_tool_surface_sync_pending"].includes(reasonCode)) return "Career 工具连接失败。";
   if (["hermes_companion_start_failed", "hermes_process_crashed", "hermes_restart_circuit_open"].includes(reasonCode)) return "AI Agent 启动失败。";

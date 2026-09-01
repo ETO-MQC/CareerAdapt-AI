@@ -334,6 +334,37 @@ describe("Hermes Supervisor lifecycle", () => {
     expect(harness.getStartCount()).toBe(2);
   });
 
+  it("does not treat the health proxy diagnostic fingerprint as Hermes readback", async () => {
+    const harness = createHarness(createHealth({
+      provider: "openrouter",
+      model: "stealth/ox-alpha",
+      providerDiagnostic: {
+        provider: "openrouter",
+        model: "stealth/ox-alpha",
+        credentialConfigured: true,
+        credentialSource: "server_env",
+        configFingerprint: "health-proxy-before-managed-apply",
+        configGeneration: 99
+      },
+      runtimeHealth: {
+        ...createHealth().runtimeHealth,
+        model: "stealth/ox-alpha"
+      }
+    }));
+
+    const result = await harness.supervisor.rendererHostReady({
+      provider: "openrouter",
+      baseUrl: "https://openrouter.ai/api/v1",
+      apiKey: "managed-secret",
+      model: "stealth/ox-alpha"
+    });
+    const runtimeConfig = result.runtimeConfig as { active?: { provider?: string; model?: string }; applyStatus?: string; verified?: boolean };
+
+    expect(result).toMatchObject({ overallState: "ready", providerReady: true });
+    expect(runtimeConfig).toMatchObject({ applyStatus: "applied", verified: true });
+    expect(runtimeConfig.active).toMatchObject({ provider: "openrouter", model: "stealth/ox-alpha" });
+  });
+
   it("switches back to the previous provider shape with one controlled restart", async () => {
     const harness = createHarness();
     await harness.supervisor.rendererHostReady({

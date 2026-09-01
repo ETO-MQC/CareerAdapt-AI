@@ -478,10 +478,6 @@ class HermesSupervisor {
   }
 
   configurationReadbackMatches(targetFingerprint, targetGeneration) {
-    const diagnosticFingerprint = this.runtimeProcessState.observedProviderDiagnostic?.configFingerprint;
-    if (diagnosticFingerprint && diagnosticFingerprint !== targetFingerprint) return false;
-    const diagnosticGeneration = this.runtimeProcessState.observedProviderDiagnostic?.configGeneration;
-    if (diagnosticGeneration !== undefined && targetGeneration !== undefined && diagnosticGeneration !== targetGeneration) return false;
     const expected = configurationValue(this.environment, targetFingerprint, targetGeneration || 0, "runtime_readback");
     if (this.runtimeProcessState.observedConfiguration?.provider && !providerIdentitiesMatch(expected.provider, this.runtimeProcessState.observedConfiguration.provider)) return false;
     if (this.runtimeProcessState.observedConfiguration?.model && expected.model && this.runtimeProcessState.observedConfiguration.model !== expected.model) return false;
@@ -1091,15 +1087,21 @@ class HermesSupervisor {
     const diagnosticConfigurationMismatch = Boolean(expectedConfiguration && providerDiagnostic && (
       (providerDiagnostic.configFingerprint && providerDiagnostic.configFingerprint !== expectedConfiguration.configFingerprint)
       || (providerDiagnostic.configGeneration !== undefined && providerDiagnostic.configGeneration !== expectedConfiguration.configGeneration)
-   ));
+    ));
     const observedConfigurationMismatch = Boolean(expectedConfiguration && (
       (observedProvider && !providerIdentitiesMatch(observedProvider, expectedConfiguration.provider))
       || (observedModel && expectedConfiguration.model && observedModel !== expectedConfiguration.model)
    ));
-   const configurationDesync = diagnosticConfigurationMismatch || observedConfigurationMismatch;
+    // The health route's configuration diagnostic describes the process that
+    // serves the health proxy. It is not Hermes' runtime readback and can
+    // legitimately lag behind a managed configuration, especially when the
+    // Supervisor and Next run in different processes. Provider/model values
+    // are the readback contract here; native model endpoints are verified
+    // separately by setAndReadNativeModel().
+    const configurationDesync = observedConfigurationMismatch;
     this.runtimeProcessState.observedConfiguration = { provider: observedProvider, model: observedModel };
-    this.runtimeProcessState.observedProviderDiagnostic = configurationDesync ? undefined : providerDiagnostic;
-    const providerAuthInvalid = !configurationDesync && (providerDiagnostic?.safeErrorCode === "provider_http_401"
+    this.runtimeProcessState.observedProviderDiagnostic = !diagnosticConfigurationMismatch && !configurationDesync ? providerDiagnostic : undefined;
+    const providerAuthInvalid = !diagnosticConfigurationMismatch && !configurationDesync && (providerDiagnostic?.safeErrorCode === "provider_http_401"
       || providerDiagnostic?.safeErrorCode === "provider_http_403"
       || (providerStatus === "invalid" && providerDiagnostic?.lastHttpStatus === 401));
     const processReady = this.snapshot.processReady && !isExited(this.handle?.child);
@@ -1180,7 +1182,7 @@ class HermesSupervisor {
       providerStatus,
       credentialConfigured: this.runtimeConfigState.active?.credentialConfigured ?? false,
       credentialSource: this.runtimeConfigState.active?.credentialSource ?? "unknown",
-      providerDiagnostic: this.runtimeConfigState.active && !configurationDesync ? providerDiagnostic : undefined,
+      providerDiagnostic: this.runtimeConfigState.active && !diagnosticConfigurationMismatch && !configurationDesync ? providerDiagnostic : undefined,
       runtimeConfig: this.runtimeConfigSnapshot(),
       runState,
       careerSkills: arrayOfStrings(runtimeHealth.careerSkillsLoaded ? ["careeradapt"] : []),

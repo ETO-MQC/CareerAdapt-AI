@@ -148,6 +148,33 @@ describe("P4.5c.1.23 Hermes control capability and provider closure", () => {
     expect(snapshot.capabilities.canRecoverService).toBe(true);
   });
 
+  it("reports apply failure and degraded readiness instead of waiting indefinitely", () => {
+    const snapshot = createHermesControlSnapshot({
+      environment: "electron",
+      supervisor: {
+        ...electronSupervisor(),
+        overallState: "degraded",
+        providerReady: false,
+        providerStatus: "ready",
+        runReady: false,
+        reasonCode: "configuration_desync",
+        runtimeConfig: {
+          applyStatus: "failed",
+          verified: false,
+          rollbackOccurred: false,
+          reasonCode: "configuration_desync"
+        }
+      }
+    });
+
+    expect(snapshot.status).toBe("degraded");
+    expect(hermesControlStatusLabel(snapshot)).toBe("应用失败");
+    expect(hermesControlStatusLabel({
+      ...snapshot,
+      runtimeConfig: { ...snapshot.runtimeConfig, applyStatus: "idle" }
+    })).toBe("检查未通过");
+  });
+
   it("keeps Supervisor readiness authoritative when a refresh observes a transient health failure", () => {
     const store = new RuntimeStatusStore({ preferredRuntime: "hermes", activeRuntime: "hermes", status: "starting" });
     store.recordSupervisorStatus(electronSupervisor(), "web");
