@@ -217,6 +217,62 @@ describe("P4.5c.1.23 Hermes control capability and provider closure", () => {
     });
   });
 
+  it("does not let an older Supervisor response roll back a newer Ready projection", () => {
+    const store = new RuntimeStatusStore({ preferredRuntime: "hermes", activeRuntime: "hermes", status: "starting" });
+    const ready = {
+      ...electronSupervisor(),
+      updatedAt: "2026-09-02T01:30:21.181Z",
+      provider: "openrouter",
+      model: "z-ai/glm-5.3-flash",
+      runtimeConfig: {
+        active: {
+          provider: "openrouter",
+          baseUrl: "https://openrouter.ai/api/v1",
+          model: "z-ai/glm-5.3-flash",
+          credentialConfigured: true,
+          credentialSource: "managed_config" as const,
+          configFingerprint: "ready-fingerprint",
+          configGeneration: 2,
+          source: "runtime_readback" as const
+        },
+        applyStatus: "applied" as const,
+        verified: true,
+        rollbackOccurred: false
+      }
+    };
+    const staleStopped = {
+      ...electronSupervisor(),
+      overallState: "stopped" as const,
+      processReady: false,
+      apiReady: false,
+      providerReady: false,
+      careerMcpReady: false,
+      toolSurfaceReady: false,
+      runReady: false,
+      reasonCode: "hermes_renderer_not_ready",
+      updatedAt: "2026-09-02T01:30:09.789Z",
+      runtimeConfig: {
+        applyStatus: "idle" as const,
+        verified: false,
+        rollbackOccurred: false
+      }
+    };
+
+    store.recordSupervisorStatus(ready, "web");
+    store.recordSupervisorStatus(staleStopped, "web");
+
+    expect(store.getSnapshot()).toMatchObject({
+      status: "ready",
+      provider: "openrouter",
+      model: "z-ai/glm-5.3-flash",
+      supervisorSnapshot: { updatedAt: "2026-09-02T01:30:21.181Z" },
+      controlSnapshot: {
+        status: "ready",
+        runtimeConfig: { applyStatus: "applied", verified: true }
+      }
+    });
+  });
+
   it("keeps Supervisor configuration and readiness authoritative when Run state changes", () => {
     const supervisor = {
       ...electronSupervisor(),

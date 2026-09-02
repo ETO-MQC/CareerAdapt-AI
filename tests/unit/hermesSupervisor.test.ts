@@ -353,7 +353,7 @@ describe("Hermes Supervisor lifecycle", () => {
     }));
 
     const result = await harness.supervisor.rendererHostReady({
-      provider: "openrouter",
+      provider: "openai-compatible",
       baseUrl: "https://openrouter.ai/api/v1",
       apiKey: "managed-secret",
       model: "stealth/ox-alpha"

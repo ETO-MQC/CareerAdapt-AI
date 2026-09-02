@@ -1062,8 +1062,8 @@ export function AgentRuntimeProvider({ children }: { children: React.ReactNode }
       // which Hermes can start. This handshake is deliberately after MCP
       // registration and carries the current local provider settings.
       const rendererReady = await notifyHermesRendererReady(readHermesStartSettings());
-      if (rendererReady?.snapshot) host.runtimeStatus.recordSupervisorStatus(rendererReady.snapshot);
       if (!active) return;
+      if (rendererReady?.snapshot) host.runtimeStatus.recordSupervisorStatus(rendererReady.snapshot);
       if (rendererReady?.ok === false) return;
       // Electron and Web Supervisor both use this renderer-ready signal. The
       // ownership boundary differs by environment, but the browser MCP/domain

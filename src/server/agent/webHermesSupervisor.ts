@@ -34,9 +34,21 @@ type HermesCompanionModule = {
   loadCareerAdaptEnvironment(projectRoot: string): Record<string, string>;
 };
 
-let supervisor: WebHermesSupervisor | undefined;
-let supervisorOrigin: string | undefined;
-let shutdownHooksInstalled = false;
+type WebHermesSupervisorGlobalState = {
+  supervisor?: WebHermesSupervisor;
+  supervisorOrigin?: string;
+  shutdownHooksInstalled: boolean;
+};
+
+// Next development can reload this module while the Node process and the
+// supervised Hermes child remain alive. Keep the process owner at the same
+// application-global boundary used by the MCP bridge registry.
+const supervisorGlobal = globalThis as typeof globalThis & {
+  __careeradaptWebHermesSupervisor?: WebHermesSupervisorGlobalState;
+};
+const state = supervisorGlobal.__careeradaptWebHermesSupervisor ??= {
+  shutdownHooksInstalled: false
+};
 
 export function webHermesControlEnabled() {
   return process.env.NODE_ENV !== "production"
@@ -49,8 +61,8 @@ export function webHermesControlOwner(): HermesControlOwner {
 
 export function getWebHermesSupervisor(appOrigin: string): WebHermesSupervisor {
   if (!webHermesControlEnabled()) throw new Error("web_hermes_control_disabled");
-  if (supervisorOrigin && supervisorOrigin !== appOrigin) throw new Error("web_hermes_origin_mismatch");
-  if (supervisor) return supervisor;
+  if (state.supervisorOrigin && state.supervisorOrigin !== appOrigin) throw new Error("web_hermes_origin_mismatch");
+  if (state.supervisor) return state.supervisor;
 
   const projectRoot = process.env.CAREERADAPT_PROJECT_ROOT?.trim() || process.cwd();
   const companion = loadHermesCompanionModule();
@@ -66,7 +78,7 @@ export function getWebHermesSupervisor(appOrigin: string): WebHermesSupervisor {
   if (!hasRuntimeApiKey(environment)) environment.HERMES_RUNTIME_API_KEY = companion.createEphemeralRuntimeApiKey();
   companion.applyEnvironment(environment);
 
-  supervisor = new hermesSupervisor.HermesSupervisor({
+  state.supervisor = new hermesSupervisor.HermesSupervisor({
     projectRoot,
     appBaseUrl: appOrigin,
     environment,
@@ -77,29 +89,29 @@ export function getWebHermesSupervisor(appOrigin: string): WebHermesSupervisor {
     requireBundledRuntime: false,
     watchMcpBridge: false
   });
-  supervisorOrigin = appOrigin;
+  state.supervisorOrigin = appOrigin;
   installShutdownHooks();
-  return supervisor;
+  return state.supervisor;
 }
 
 export function currentWebHermesSupervisor() {
-  return supervisor;
+  return state.supervisor;
 }
 
 export function webHermesSupervisorSnapshot(): HermesSupervisorSnapshot | undefined {
-  return supervisor?.getStatus();
+  return state.supervisor?.getStatus();
 }
 
 export async function shutdownWebHermesSupervisor() {
-  if (!supervisor) return;
-  await supervisor.shutdown();
-  supervisor = undefined;
-  supervisorOrigin = undefined;
+  if (!state.supervisor) return;
+  await state.supervisor.shutdown();
+  state.supervisor = undefined;
+  state.supervisorOrigin = undefined;
 }
 
 function installShutdownHooks() {
-  if (shutdownHooksInstalled) return;
-  shutdownHooksInstalled = true;
+  if (state.shutdownHooksInstalled) return;
+  state.shutdownHooksInstalled = true;
   const shutdown = () => {
     void shutdownWebHermesSupervisor().finally(() => process.exit(0));
   };

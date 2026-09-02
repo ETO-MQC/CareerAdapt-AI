@@ -285,9 +285,13 @@ export class RuntimeStatusStore {
   }
 
   recordSupervisorStatus(snapshot: HermesSupervisorSnapshot, environment?: "web" | "electron") {
+    const previous = this.snapshot.supervisorSnapshot;
+    // A status request can begin before a control command and finish after it.
+    // Supervisor.updatedAt is the existing version of that observation; an
+    // older response must not roll the renderer projection back.
+    if (previous && snapshot.updatedAt < previous.updatedAt) return;
     this.supervisorOwned = true;
     const status = supervisorRuntimeStatus(snapshot.overallState);
-    const previous = this.snapshot.supervisorSnapshot;
     const controlSnapshot = createHermesControlSnapshotFromSupervisor(
       snapshot,
       this.snapshot.controlSnapshot,
