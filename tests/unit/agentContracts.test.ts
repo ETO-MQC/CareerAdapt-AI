@@ -20,7 +20,7 @@ describe("agent contracts", () => {
         data: { resumeId: "resume-1", selectedIds: ["a", "b"] }
       }
     });
-    expect(AgentSessionSchema.parse(parsed).workflowState.data.resumeId).toBe("resume-1");
+    expect(AgentSessionSchema.parse(parsed).workflowState?.data.resumeId).toBe("resume-1");
     expect(() => AgentSessionSchema.parse({
       ...session,
       workflowState: { ...session.workflowState, data: { branch: { rawText: "forbidden copy" } } }

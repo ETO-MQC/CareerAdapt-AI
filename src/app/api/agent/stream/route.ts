@@ -19,6 +19,16 @@ When recentToolResults contains list_profiles, treat it as a read-only local pro
 Be concise and concrete.`;
 
 export async function POST(request: NextRequest) {
+  // Native model streaming is retained for development fixtures only. The
+  // production semantic path is the Hermes /v1/runs bridge.
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({
+      error: {
+        code: "hermes_runtime_required",
+        message: "Production agent turns use the Hermes runtime."
+      }
+    }, { status: 410, headers: { "Cache-Control": "no-store" } });
+  }
   const raw = await request.json();
   const mode = typeof raw === "object" && raw && "mode" in raw ? String(raw.mode) : undefined;
   if (mode === "decision") return modelDecision(request, raw);

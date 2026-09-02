@@ -1450,7 +1450,7 @@ export class BrowserAgentToolService implements AgentToolServices {
     const turn = session.activeTurn;
     return {
       sessionId: session.id,
-      status: turn?.status ?? session.workflowState.status,
+      status: turn?.status ?? (session.workflowState ? session.workflowState.status : "completed"),
       runtime: {
         preferred: turn?.preferredRuntime,
         attempted: turn?.attemptedRuntime,
@@ -1478,9 +1478,9 @@ export class BrowserAgentToolService implements AgentToolServices {
       sessionId: session.id,
       rootGoal: task?.rootGoal,
       activeGoal: task?.activeGoal,
-      workflowId: task?.workflowId ?? session.workflowState.workflowId,
-      stage: task?.stage ?? session.workflowState.step,
-      completionStatus: task?.completionStatus ?? session.workflowState.status,
+      workflowId: task?.workflowId ?? session.workflowState?.workflowId,
+      stage: task?.stage ?? session.workflowState?.step,
+      completionStatus: task?.completionStatus ?? session.workflowState?.status,
       requiredSlots: task?.requiredSlots ?? [],
       missingSlots: task?.missingSlots ?? [],
       selectedEntities: task?.selectedEntities ?? {},
@@ -1499,7 +1499,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       || message.kind === "error_status"
       || Boolean(message.errorCode)
     );
-    const workflowError = session.workflowState.error;
+    const workflowError = session.workflowState?.error;
     if (!failedMessage && !workflowError && !session.activeTurn?.runtimeFailureAt) {
       return { sessionId: session.id, found: false, updatedAt: session.updatedAt };
     }
@@ -1528,9 +1528,9 @@ export class BrowserAgentToolService implements AgentToolServices {
         .map((session) => ({
           id: session.id,
           title: getAgentSessionDisplayTitle(session),
-          workflowId: session.workflowState.workflowId,
-          step: session.workflowState.step,
-          status: session.workflowState.status,
+          workflowId: session.workflowState?.workflowId,
+          step: session.workflowState?.step,
+          status: session.workflowState?.status,
           summary: session.conversationSummary.slice(-1200),
           updatedAt: session.updatedAt
         }))

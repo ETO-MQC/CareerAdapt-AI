@@ -15,7 +15,7 @@ export const AgentRuntimeConfigurationSchema = z.object({
 export type AgentRuntimeConfiguration = z.infer<typeof AgentRuntimeConfigurationSchema>;
 
 /**
- * Thin compatibility registry. Production constructs this with Hermes only;
+ * Test/dev compatibility registry. Production does not construct this class;
  * the optional Native entry exists for deterministic/unit harnesses and old
  * persisted integrations. It is never selected as a failure fallback.
  */

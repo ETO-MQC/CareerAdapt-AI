@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, CircleDot } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getAgentSessionDisplayTitle, type AgentSession } from "@/agent/contracts/agentSession";
+import { getAgentSessionDisplayTitle, type AgentSession, type AgentWorkflowState } from "@/agent/contracts/agentSession";
 import { useAgentPageContext } from "@/components/agent/context/AgentPageContextProvider";
 import { AgentSidebar } from "@/components/agent/shell/AgentSidebar";
 import { AgentSessionStore } from "@/services/agent/agentSessionStore";
@@ -87,7 +87,7 @@ export function AiShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function statusLabel(status?: AgentSession["workflowState"]["status"]) {
+function statusLabel(status?: AgentWorkflowState["status"]) {
   if (status === "running") return "处理中";
   if (status === "completed") return "已完成";
   if (status === "failed") return "需要处理";

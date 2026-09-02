@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { classifyHermesRunFailure } from "@/agent/runtime/hermes/hermesRunReliability";
 import { recordHermesRunStartFailure, recordHermesRunStartSuccess } from "@/agent/runtime/hermes/hermesRunReadiness";
+import { requestLegacyHermes, type LegacyHermesAction } from "./legacyBridge";
 
 const HermesBridgeRequestSchema = z.object({
   action: z.enum([
@@ -10,16 +11,6 @@ const HermesBridgeRequestSchema = z.object({
   ])
 }).passthrough();
 
-type LegacyAction = "session_create" | "session_resume" | "turn" | "tool_callback" | "interrupt";
-
-const upstreamPath: Record<LegacyAction, string> = {
-  session_create: "/sessions",
-  session_resume: "/sessions/resume",
-  turn: "/turn",
-  tool_callback: "/tool-callback",
-  interrupt: "/interrupt"
-};
-
 export async function POST(request: NextRequest) {
   const baseUrl = process.env.HERMES_RUNTIME_URL?.trim();
   if (!baseUrl) return unavailable();
@@ -27,8 +18,9 @@ export async function POST(request: NextRequest) {
   if (!body.success) return NextResponse.json({ ok: false, error: { code: "hermes_bridge_bad_request", message: "Invalid Hermes bridge request." } }, { status: 400 });
   const { action, ...payload } = body.data;
   if (process.env.HERMES_RUNTIME_PROTOCOL?.trim().toLowerCase() === "legacy") {
+    if (process.env.NODE_ENV === "production") return unavailable("hermes_legacy_protocol_disabled");
     if (action.startsWith("run_")) return unavailable("hermes_runs_unsupported");
-    return legacyRequest(baseUrl, action as LegacyAction, payload);
+    return requestLegacyHermes(baseUrl, action as LegacyHermesAction, payload, unavailable);
   }
   return officialHermesRequest(baseUrl, action, payload);
 }
@@ -242,30 +234,6 @@ async function officialHermesRequest(baseUrl: string, action: z.infer<typeof Her
       });
       return unavailable(diagnostics.safeErrorCode, diagnostics);
     }
-    return unavailable();
-  }
-}
-
-async function legacyRequest(baseUrl: string, action: LegacyAction, payload: Record<string, unknown>) {
-  try {
-    const response = await fetch(baseUrl.replace(/\/$/u, "") + upstreamPath[action], {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: action === "turn" ? "application/x-ndjson" : "application/json", ...apiKeyHeader() },
-      body: JSON.stringify(payload),
-      ...(action === "turn" ? {} : { signal: AbortSignal.timeout(30_000) }),
-      cache: "no-store"
-    });
-    if (action === "turn") {
-      return new Response(response.body, {
-        status: response.status,
-        headers: { "Content-Type": response.headers.get("content-type") ?? "application/x-ndjson", "Cache-Control": "no-store" }
-      });
-    }
-    return new Response(response.body, {
-      status: response.status,
-      headers: { "Content-Type": response.headers.get("content-type") ?? "application/json" }
-    });
-  } catch {
     return unavailable();
   }
 }

@@ -1,4 +1,4 @@
-import type { AgentSession, AgentTaskState } from "@/agent/contracts/agentSession";
+import type { AgentSession, AgentTaskState, AgentWorkflowState } from "@/agent/contracts/agentSession";
 import { canonicalWorkflowId, getWorkflowDefinition, isTailoringWorkflowId } from "@/agent/workflows/workflowRegistry";
 import {
   classifyProfileIntakeTurn,
@@ -72,23 +72,27 @@ export type AgentTaskEvent =
 export class AgentTaskStateReducer {
   create(
     session: AgentSession,
-    goal = session.taskState?.rootGoal ?? session.memory?.currentGoal ?? "conversation"
+    goal = session.taskState?.rootGoal ?? session.memory?.currentGoal ?? "conversation",
+    initialWorkflow?: Pick<AgentWorkflowState, "workflowId" | "step">
   ): AgentTaskState {
     const now = new Date().toISOString();
-    const knownSlots: AgentTaskState["knownSlots"] = { ...session.workflowState.data };
+    const workflowId = session.workflowState?.workflowId ?? initialWorkflow?.workflowId;
+    const stage = session.workflowState?.step ?? initialWorkflow?.step;
+    if (!workflowId || !stage) throw new Error("agent_task_state_requires_workflow");
+    const knownSlots: AgentTaskState["knownSlots"] = { ...(session.workflowState?.data ?? {}) };
     if (session.pendingConfirmation && session.pendingToolCall) {
       knownSlots.pendingConfirmation = {
         toolName: session.pendingToolCall.toolName,
         operationId: session.pendingConfirmation.operationId
       };
     }
-    const tailoringWorkflow = isTailoringWorkflowId(session.workflowState.workflowId);
+    const tailoringWorkflow = isTailoringWorkflowId(workflowId);
     const state: AgentTaskState = {
       goal,
       rootGoal: goal,
       activeGoal: goal,
-      workflowId: session.workflowState.workflowId,
-      stage: session.workflowState.step,
+      workflowId,
+      stage,
       requiredSlots: [],
       knownSlots,
       missingSlots: [],
@@ -101,8 +105,8 @@ export class AgentTaskStateReducer {
       },
       dependencySnapshots: {},
       artifacts: session.artifactRefs.map((artifact) => artifact.id),
-      completionStatus: workflowStatus(session.workflowState.status),
-      completionType: session.workflowState.workflowId === "tailor_resume" ? "transactional" : "conversational",
+      completionStatus: workflowStatus(session.workflowState?.status ?? "idle"),
+      completionType: workflowId === "tailor_resume" ? "transactional" : "conversational",
       computeTier: computeTier(goal),
       updatedAt: now
     };
@@ -2099,7 +2103,7 @@ function computeTier(goal: string, message = ""): AgentTaskState["computeTier"] 
   return "T0";
 }
 
-function workflowStatus(status: AgentSession["workflowState"]["status"]): AgentTaskState["completionStatus"] {
+function workflowStatus(status: AgentWorkflowState["status"]): AgentTaskState["completionStatus"] {
   if (status === "waiting_for_confirmation") return "waiting_for_confirmation";
   if (status === "waiting_for_user" || status === "paused") return "waiting_for_user";
   if (status === "completed") return "completed";

@@ -17,6 +17,7 @@ import {
   normalizeAiProviderIdentity,
   runtimeConfigFingerprint
 } from "@/services/agent/aiRuntimeConfiguration";
+import { resolveHermesProviderBinding } from "../../../../../../../electron/hermesProviderBinding.js";
 import { parseHermesToolsetsPayload, type HermesToolsetSnapshot } from "./toolsets";
 
 export const dynamic = "force-dynamic";
@@ -433,14 +434,14 @@ function upstreamHeaders() {
   return headers;
 }
 
-function providerHeaders(apiKey = process.env.AI_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim() || process.env.HERMES_API_KEY?.trim()) {
+function providerHeaders(apiKey = hermesProviderCredential()) {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
   return headers;
 }
 
 function configuredProviderBaseUrl() {
-  return process.env.HERMES_BASE_URL?.trim() || process.env.AI_BASE_URL?.trim() || process.env.OPENAI_BASE_URL?.trim();
+  return process.env.HERMES_BASE_URL?.trim() || process.env.AI_BASE_URL?.trim() || process.env.OPENROUTER_BASE_URL?.trim() || process.env.OPENAI_BASE_URL?.trim();
 }
 
 function configuredModel() {
@@ -448,13 +449,25 @@ function configuredModel() {
 }
 
 function hermesProviderEnvironment() {
+  const provider = process.env.HERMES_PROVIDER?.trim() || process.env.AI_PROVIDER?.trim();
+  const baseUrl = configuredProviderBaseUrl();
+  const binding = resolveHermesProviderBinding({ provider, baseUrl });
   return {
     ...process.env,
-    AI_PROVIDER: process.env.HERMES_PROVIDER?.trim() || process.env.AI_PROVIDER?.trim(),
-    AI_BASE_URL: configuredProviderBaseUrl(),
-    AI_API_KEY: process.env.AI_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim() || process.env.HERMES_API_KEY?.trim(),
+    AI_PROVIDER: binding.providerId,
+    AI_BASE_URL: baseUrl,
+    AI_API_KEY: hermesProviderCredential(binding),
     AI_MODEL: configuredModel()
   };
+}
+
+function hermesProviderCredential(binding = resolveHermesProviderBinding({
+  provider: process.env.HERMES_PROVIDER?.trim() || process.env.AI_PROVIDER?.trim(),
+  baseUrl: configuredProviderBaseUrl()
+})) {
+  return process.env[binding.credentialEnvName]?.trim()
+    || process.env.AI_API_KEY?.trim()
+    || process.env.HERMES_API_KEY?.trim();
 }
 
 function safeProviderConfigurationDiagnostic(configuration: ReturnType<typeof resolveEffectiveAiConfiguration>) {

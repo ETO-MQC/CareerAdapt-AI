@@ -61,13 +61,83 @@ class HermesModelConfigClient {
     };
   }
 
-  async #request(pathname, init) {
+  async setProviderCredential(input) {
+    const response = await this.#fetch("/api/env", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: input.key, value: input.apiKey || "" })
+    });
+    const payload = await readJson(response);
+    if (!response.ok) {
+      throw requestError(
+        response.status === 404 || response.status === 405 ? "hermes_credential_lifecycle_endpoint_missing" : `hermes_credential_lifecycle_http_${response.status}`,
+        response.status,
+        payload
+      );
+    }
+    return {
+      ok: payload.ok !== false,
+      key: input.key,
+      credentialConfigured: Boolean(input.apiKey && input.apiKey.trim())
+    };
+  }
+
+  async upsertCustomProvider(input) {
+    const payload = await this.#request("/api/providers/custom-endpoints", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: "careeradapt",
+        name: "careeradapt",
+        base_url: input.baseUrl,
+        model: input.model,
+        api_key: input.apiKey || "",
+        discover_models: false,
+        make_default: false,
+        models: input.model ? [input.model] : []
+      })
+    }, "hermes_custom_provider_endpoint_missing");
+    if (payload.ok !== true) {
+      throw requestError("hermes_custom_provider_rejected", 422, payload);
+    }
+    return { ok: true, provider: "custom:careeradapt" };
+  }
+
+  async validateProviderCredential(input) {
+    const custom = input.provider === "custom:careeradapt";
+    const pathname = custom ? "/api/providers/custom-endpoints/validate" : "/api/providers/validate";
+    const body = custom
+      ? {
+          name: "careeradapt",
+          base_url: input.baseUrl,
+          model: input.model,
+          api_key: input.apiKey || ""
+        }
+      : { key: input.credentialEnvName, value: input.apiKey || "" };
+    const response = await this.#fetch(pathname, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    if (response.status === 404 || response.status === 405) return { supported: false };
+    const payload = await readJson(response);
+    return {
+      supported: true,
+      ok: response.ok && payload.ok === true,
+      reachable: payload.reachable === true,
+      httpStatus: response.status,
+      ...(typeof payload.message === "string" && payload.message.trim() ? { message: payload.message.trim().slice(0, 240) } : {}),
+      ...(Array.isArray(payload.models) ? { models: payload.models.filter((model) => typeof model === "string").slice(0, 200) } : {})
+    };
+  }
+
+  async #request(pathname, init, missingCode = "hermes_model_config_endpoint_missing") {
     const response = await this.#fetch(pathname, init);
     const payload = await readJson(response);
     if (!response.ok) {
       const detail = typeof payload.detail === "string" ? payload.detail : undefined;
       throw requestError(
-        response.status === 404 || response.status === 405 ? "hermes_model_config_endpoint_missing" : `hermes_model_config_http_${response.status}`,
+        response.status === 404 || response.status === 405 ? missingCode : `hermes_model_config_http_${response.status}`,
         response.status,
         { ...payload, ...(detail ? { detail } : {}) }
       );

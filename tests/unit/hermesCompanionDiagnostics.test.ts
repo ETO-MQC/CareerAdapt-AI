@@ -53,7 +53,7 @@ describe("Hermes companion startup diagnostics", () => {
       PYTHONPATH: "C:/runtime/source",
       PATH: "C:/runtime/bin",
       OPENAI_BASE_URL: "https://provider.example/v1",
-      OPENAI_API_KEY: "never-log-this-secret",
+      HERMES_CUSTOM_CAREERADAPT_API_KEY: "never-log-this-secret",
       HERMES_INFERENCE_MODEL: "model-a"
     }, { baseUrl: "http://127.0.0.1:8642" });
 

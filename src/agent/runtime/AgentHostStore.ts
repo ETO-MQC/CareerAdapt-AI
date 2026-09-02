@@ -721,7 +721,7 @@ export class AgentHostStore {
       activeTurn: repaired.activeTurn
         ? { ...repaired.activeTurn, status: "completed", completedAt: new Date().toISOString(), visibleAssistantMessageId: assistantId }
         : repaired.activeTurn,
-      workflowState: repaired.taskState
+      workflowState: repaired.taskState && repaired.workflowState
         ? projectTaskStateToWorkflowState(repaired.taskState, { ...repaired.workflowState, status: "completed" })
         : repaired.workflowState
     };
@@ -806,7 +806,7 @@ export class AgentHostStore {
       activeTurn: repaired.activeTurn
         ? { ...repaired.activeTurn, status: "waiting_for_user", completedAt: new Date().toISOString() }
         : repaired.activeTurn,
-      workflowState: repaired.taskState
+      workflowState: repaired.taskState && repaired.workflowState
         ? projectTaskStateToWorkflowState(repaired.taskState, { ...repaired.workflowState, status: "waiting_for_user" })
         : repaired.workflowState
     };
@@ -849,7 +849,10 @@ export class AgentHostStore {
     });
     if (!decision.newTask || decision.taskMutation === "preserve") return current;
     const reducer = new AgentTaskStateReducer();
-    let taskState = current.taskState ?? reducer.create(current);
+    let taskState = current.taskState ?? reducer.create(current, undefined, {
+      workflowId: decision.newTask.workflowId,
+      step: decision.newTask.stage
+    });
     const mutation = current.taskState && decision.taskMutation === "continue"
       ? "new_active_task" as const
       : "new_root_task" as const;
@@ -1458,9 +1461,9 @@ export class AgentHostStore {
       activeTurn: current.activeTurn
         ? { ...current.activeTurn, status: "completed", completedAt }
         : current.activeTurn,
-      workflowState: current.taskState
+      workflowState: current.taskState && current.workflowState
         ? projectTaskStateToWorkflowState(current.taskState, { ...current.workflowState, status: "completed" })
-        : { ...current.workflowState, status: "completed" }
+        : current.workflowState
     };
     current = completeTurnCheckpoint(current, turnId, completedAt);
     const saved = await this.dependencies.persistence.save(current);
@@ -2186,7 +2189,10 @@ export class AgentHostStore {
         ?? stringValue(eventData.runId);
       if (isCanonicalTailorFacadeToolName(event.toolName, eventData)) {
         const reducer = new AgentTaskStateReducer();
-        const baseline = next.taskState ?? reducer.create(next, "generate_job_specific_resume");
+        const baseline = next.taskState ?? reducer.create(next, "generate_job_specific_resume", {
+          workflowId: "tailor_resume",
+          step: "choose_resume_source"
+        });
         const currentStage = normalizeTailoringStage(baseline.stage) ?? "choose_resume_source";
         const promoted = reducer.reduce(baseline, {
           type: "authoritative_workflow_selected",
@@ -2926,7 +2932,10 @@ export class AgentHostStore {
     input: Extract<AgentHostInput, { type: "quick_action" }>
   ) {
     const reducer = new AgentTaskStateReducer();
-    const taskState = reducer.reduce(reducer.create(session), {
+    const taskState = reducer.reduce(reducer.create(session, undefined, {
+      workflowId: input.task.workflowId,
+      step: input.task.stage
+    }), {
       type: "new_root_task",
       goal: input.task.rootGoal,
       workflowId: input.task.workflowId,
@@ -3008,7 +3017,10 @@ export class AgentHostStore {
   ) {
     const now = new Date().toISOString();
     const reducer = new AgentTaskStateReducer();
-    let taskState = reducer.create(session);
+    let taskState = reducer.create(session, undefined, {
+      workflowId: input.task.workflowId,
+      step: input.task.stage
+    });
     taskState = reducer.reduce(taskState, {
       type: "new_root_task",
       goal: input.task.rootGoal,
@@ -3184,7 +3196,10 @@ export class AgentHostStore {
     }
     const now = new Date().toISOString();
     const reducer = new AgentTaskStateReducer();
-    let taskState = reducer.create(session);
+    let taskState = reducer.create(session, undefined, {
+      workflowId: "guided_profile_intake",
+      step: "resolve_profile_target"
+    });
     taskState = reducer.reduce(taskState, {
       type: "new_root_task",
       goal: input.task.rootGoal,
@@ -3288,7 +3303,10 @@ export class AgentHostStore {
   ) {
     const now = new Date().toISOString();
     const reducer = new AgentTaskStateReducer();
-    let taskState = reducer.reduce(reducer.create(session), {
+    let taskState = reducer.reduce(reducer.create(session, undefined, {
+      workflowId: "resume_import",
+      step: "resolve_target"
+    }), {
       type: "new_root_task",
       goal: input.task.rootGoal,
       workflowId: "resume_import",
@@ -3354,7 +3372,10 @@ export class AgentHostStore {
   ) {
     const snapshot = await this.readQuickActionContext(session);
     const reducer = new AgentTaskStateReducer();
-    let taskState = session.taskState ?? reducer.create(session);
+    let taskState = session.taskState ?? reducer.create(session, undefined, {
+      workflowId: "resume_import",
+      step: "resolve_target"
+    });
     if (taskState.workflowId !== "resume_import") {
       taskState = reducer.reduce(taskState, {
         type: "new_root_task",
@@ -3515,7 +3536,10 @@ export class AgentHostStore {
     }
     const targetLabel = `${targetProfile.name} · V${targetProfile.profileVersionNumber ?? 1}`;
     const reducer = new AgentTaskStateReducer();
-    const base = session.taskState ?? reducer.create(session);
+    const base = session.taskState ?? reducer.create(session, undefined, {
+      workflowId: "resume_import",
+      step: "prepare_import"
+    });
     const nextTaskState = {
       ...base,
       workflowId: "resume_import",
@@ -5028,7 +5052,10 @@ export class AgentHostStore {
       : input.session;
     const reducer = new AgentTaskStateReducer();
     const initialTaskState = input.typedTask && !input.regenerateNarrationOnly
-      ? reducer.reduce(input.session.taskState ?? reducer.create(input.session), {
+      ? reducer.reduce(input.session.taskState ?? reducer.create(input.session, undefined, {
+          workflowId: turnDecision.newTask!.workflowId,
+          step: turnDecision.newTask!.stage
+        }), {
           type: "new_root_task",
           ...turnDecision.newTask!
         })
@@ -5130,10 +5157,16 @@ export class AgentHostStore {
     let kernelUserMessage = input.userMessage;
     const presentedQuestion = presentedActiveTailoringQuestion(input.session);
     let deterministicTailoringAnswer = false;
-    let taskState = current.taskState ?? reducer.create(current);
+    let taskState = current.taskState;
+    if (!taskState && turnDecision.newTask && turnDecision.taskMutation !== "preserve" && !input.regenerateNarrationOnly) {
+      taskState = reducer.create(current, turnDecision.newTask.goal, {
+        workflowId: turnDecision.newTask.workflowId,
+        step: turnDecision.newTask.stage
+      });
+    }
     const shouldReduceProfileIntakeControl = input.session.taskState?.workflowId === "guided_profile_intake"
       && turnDecision.profileIntakeTurnKind === "interview_control";
-    if ((turnDecision.taskMutation !== "preserve" || shouldReduceProfileIntakeControl) && !input.regenerateNarrationOnly) {
+    if (taskState && (turnDecision.taskMutation !== "preserve" || shouldReduceProfileIntakeControl) && !input.regenerateNarrationOnly) {
       if (turnDecision.taskMutation === "replace" && turnDecision.newTask) {
         taskState = reducer.reduce(taskState, {
           type: "new_root_task",
@@ -5175,14 +5208,15 @@ export class AgentHostStore {
         profileIntakeTurnKind: intakeRecoverySource ? "career_narrative" : turnDecision.profileIntakeTurnKind
       });
     }
-    if (input.userMessage.trim()) current = projectTaskStateIntoSession(current, taskState);
+    if (input.userMessage.trim() && taskState) current = projectTaskStateIntoSession(current, taskState);
     if (input.attachment) {
+      if (!taskState) throw new Error("attachment_requires_workflow_task");
       taskState = reducer.reduce(taskState, {
         type: "attachment_selected",
         attachment: input.attachment
       });
     }
-    if (!input.regenerateNarrationOnly && taskState.workflowId === "guided_profile_intake") {
+    if (!input.regenerateNarrationOnly && taskState?.workflowId === "guided_profile_intake") {
       const conversationBoundary = await this.resolveProfileIntakeConversationBoundary({
         current,
         taskState,
@@ -5207,7 +5241,7 @@ export class AgentHostStore {
         const processingText = input.userMessage.trim().length >= 80
           ? "正在整理你刚才提到的多段经历…"
           : "正在整理你刚才的回答…";
-        current = replaceAgentThinking(current, thinkingMessageId, processingText, turnId);
+        current = replaceAgentThinking(current, thinkingMessageId, processingText, turnId, { preserveThinking: true });
         current = await this.dependencies.persistence.save(current);
         this.patchSession(current, {
           turnStatus: "running",
@@ -5217,10 +5251,10 @@ export class AgentHostStore {
         });
       }
     }
-    const compound = presentedQuestion && !/^(?:继续|生成吧|按这些生成)$/u.test(input.userMessage.trim())
+    const compound = presentedQuestion && taskState && !/^(?:继续|生成吧|按这些生成)$/u.test(input.userMessage.trim())
       ? resolveCompoundAnswer(input.userMessage, unresolvedTailoringQuestions(taskState))
       : { answers: [] };
-    if (compound.answers.length) {
+    if (compound.answers.length && taskState) {
       const applied: CompoundAnswerResolution["answers"] = [];
       for (const mapping of compound.answers) {
         const unresolved = unresolvedTailoringQuestions(taskState);
@@ -5262,7 +5296,7 @@ export class AgentHostStore {
       kernelUserMessage = compound.unmatchedText
         ?? "已按顺序记录这条消息中的澄清回答，请继续当前流程。";
     }
-    if (deterministicTailoringAnswer && !compound.unmatchedText) {
+    if (deterministicTailoringAnswer && !compound.unmatchedText && taskState) {
       current = projectTaskStateIntoSession(current, taskState);
       if (taskState.stage === "clarify_unsupported_facts") {
         current = replaceAgentThinking(current, thinkingMessageId, formatCurrentTailoringQuestion(taskState), turnId);
@@ -5319,7 +5353,7 @@ export class AgentHostStore {
     }
     if (
       !input.regenerateNarrationOnly
-      && taskState.workflowId === "guided_profile_intake"
+      && taskState?.workflowId === "guided_profile_intake"
       && typeof this.dependencies.executor.execute === "function"
     ) {
       const boundary = await this.resolveProfileIntakeBoundary({
@@ -5344,7 +5378,7 @@ export class AgentHostStore {
       }
     }
     current = {
-      ...projectTaskStateIntoSession(current, taskState),
+      ...(taskState ? projectTaskStateIntoSession(current, taskState) : current),
       activeTurn: {
         ...current.activeTurn,
         id: turnId,
@@ -5712,7 +5746,7 @@ export class AgentHostStore {
           activeTurn: current.activeTurn
             ? { ...current.activeTurn, status: "waiting_for_user", completedAt: new Date().toISOString(), visibleAssistantMessageId: assistantId }
             : current.activeTurn,
-          workflowState: current.taskState
+          workflowState: current.taskState && current.workflowState
             ? projectTaskStateToWorkflowState(current.taskState, { ...current.workflowState, status: "waiting_for_user" })
             : current.workflowState
         };
@@ -5726,7 +5760,7 @@ export class AgentHostStore {
         activeTurn: current.activeTurn
           ? { ...current.activeTurn, status: "completed", completedAt: new Date().toISOString(), visibleAssistantMessageId: assistantId }
           : current.activeTurn,
-        workflowState: current.taskState
+        workflowState: current.taskState && current.workflowState
           ? projectTaskStateToWorkflowState(current.taskState, { ...current.workflowState, status: "completed" })
           : current.workflowState
       };
@@ -5774,9 +5808,9 @@ export class AgentHostStore {
         activeTurn: current.activeTurn
           ? { ...current.activeTurn, status: "completed", completedAt }
           : current.activeTurn,
-        workflowState: current.taskState
+        workflowState: current.taskState && current.workflowState
           ? projectTaskStateToWorkflowState(current.taskState, { ...current.workflowState, status: "completed" })
-          : { ...current.workflowState, status: "completed" }
+          : current.workflowState
       };
       const saved = await this.dependencies.persistence.save(current);
       this.patchSession(saved, { turnStatus: "completed", activeTurnId: turnId, currentObservation: workflowResult });
@@ -7839,7 +7873,9 @@ export class AgentHostStore {
               }
             : message),
           pendingConfirmation: confirmation,
-          workflowState: { ...current.workflowState, status: "waiting_for_confirmation" }
+          ...(current.workflowState
+            ? { workflowState: { ...current.workflowState, status: "waiting_for_confirmation" as const } }
+            : {})
         };
       }
       if (event.type === "done") {

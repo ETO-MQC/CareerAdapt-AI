@@ -99,6 +99,9 @@ export class AgentKernel {
     const alignmentGuard = new AuthoritativeConversationAlignmentGuard();
     const canonicalEntities = new AgentCanonicalEntityGuard();
     const taskReducer = new AgentTaskStateReducer();
+    if (!input.session.taskState && !input.session.workflowState) {
+      throw new Error("agent_kernel_requires_workflow_session");
+    }
     let taskState = input.session.taskState ?? taskReducer.create(input.session);
     if (!input.narrationOnly && !input.taskEventAlreadyReduced && input.turnIntent !== "casual_side_turn" && input.turnIntent !== "reference_followup") {
       taskState = taskReducer.reduce(taskState, {

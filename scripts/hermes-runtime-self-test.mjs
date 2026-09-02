@@ -13,6 +13,7 @@ const {
   startHermesCompanion,
   stopHermesCompanion
 } = require("../electron/hermesCompanion.js");
+const { resolveHermesProviderBinding } = require("../electron/hermesProviderBinding.js");
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(scriptDirectory, "..");
@@ -58,10 +59,25 @@ try {
   const managedConfigPath = path.join(hermesHome, "config.yaml");
   assertFile(managedConfigPath, "managed Hermes config");
   const managedConfig = fs.readFileSync(managedConfigPath, "utf8");
-  for (const required of ["api_server:", "mcp_servers:", "careeradapt:", "key_env: OPENAI_API_KEY"]) {
+  const binding = resolveHermesProviderBinding({
+    provider: prepared.childEnvironment.HERMES_PROVIDER || prepared.childEnvironment.AI_PROVIDER,
+    baseUrl: prepared.childEnvironment.HERMES_BASE_URL
+      || prepared.childEnvironment.AI_BASE_URL
+      || prepared.childEnvironment.OPENROUTER_BASE_URL
+      || prepared.childEnvironment.OPENAI_BASE_URL,
+    model: prepared.childEnvironment.HERMES_MODEL
+      || prepared.childEnvironment.AI_MODEL
+      || prepared.childEnvironment.HERMES_INFERENCE_MODEL,
+    genericApiKey: [prepared.childEnvironment.AI_API_KEY, prepared.childEnvironment.HERMES_API_KEY]
+      .find((value) => typeof value === "string" && value.trim()) || ""
+  });
+  for (const required of ["api_server:", "mcp_servers:", "careeradapt:"]) {
     if (!managedConfig.includes(required)) throw new Error(`managed Hermes config is missing ${required}`);
   }
-  const providerKey = prepared.childEnvironment.OPENAI_API_KEY;
+  if (binding.customProviderName && !managedConfig.includes(`key_env: ${binding.credentialEnvName}`)) {
+    throw new Error(`managed Hermes config is missing key_env: ${binding.credentialEnvName}`);
+  }
+  const providerKey = prepared.childEnvironment[binding.credentialEnvName];
   if (providerKey && managedConfig.includes(providerKey)) throw new Error("managed Hermes config contains the provider key value");
 
   handle = await startHermesCompanion({

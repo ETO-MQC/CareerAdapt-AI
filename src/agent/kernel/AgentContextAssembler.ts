@@ -24,6 +24,39 @@ export class AgentContextAssembler {
   }) {
     const workflow = input.session.workflowState;
     const task = input.session.taskState;
+    const taskPrompt = task
+      ? {
+          workflowId: task.workflowId,
+          step: task.stage,
+          status: task.completionStatus,
+          requiredSlots: task.requiredSlots,
+          taskState: {
+            rootGoal: task.rootGoal,
+            activeGoal: task.activeGoal,
+            stage: task.stage,
+            requiredSlots: task.requiredSlots,
+            knownSlots: promptKnownSlots(task.knownSlots),
+            missingSlots: task.missingSlots,
+            selectedEntities: task.selectedEntities,
+            attachment: task.attachment,
+            pendingDecision: task.pendingDecision,
+            dependencySnapshots: task.dependencySnapshots,
+            completionStatus: task.completionStatus,
+            computeTier: task.computeTier
+          }
+        }
+      : workflow
+        ? {
+            workflowId: workflow.workflowId,
+            step: workflow.step,
+            status: workflow.status,
+            requiredSlots: [],
+            taskState: undefined
+          }
+        : {
+            requiredSlots: [],
+            taskState: undefined
+          };
     return [
       "Tier 1 — stable policy",
       "You are CareerAdapt AI, a career orchestration agent over existing domain tools.",
@@ -50,26 +83,7 @@ export class AgentContextAssembler {
       "",
       "Tier 2 — task",
       JSON.stringify({
-        workflowId: task?.workflowId ?? workflow.workflowId,
-        step: task?.stage ?? workflow.step,
-        status: task?.completionStatus ?? workflow.status,
-        requiredSlots: task?.requiredSlots ?? [],
-        taskState: task
-            ? {
-              rootGoal: task.rootGoal,
-              activeGoal: task.activeGoal,
-              stage: task.stage,
-              requiredSlots: task.requiredSlots,
-              knownSlots: promptKnownSlots(task.knownSlots),
-              missingSlots: task.missingSlots,
-              selectedEntities: task.selectedEntities,
-              attachment: task.attachment,
-              pendingDecision: task.pendingDecision,
-              dependencySnapshots: task.dependencySnapshots,
-              completionStatus: task.completionStatus,
-              computeTier: task.computeTier
-            }
-          : undefined,
+        ...taskPrompt,
         activeSkills: input.activeSkills.map((skill) => ({
           id: skill.id,
           name: skill.name,

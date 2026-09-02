@@ -5,7 +5,9 @@ import {
   AgentWorkflowStateSchema,
   type AgentConfirmation,
   type AgentMessage,
-  type AgentSession
+  type AgentSession,
+  type WorkflowAgentSession,
+  isWorkflowAgentSession
 } from "../contracts/agentSession";
 import { AgentPageContextSchema, type AgentPageContext } from "../contracts/agentContext";
 import type { AgentToolResult } from "../contracts/agentTool";
@@ -86,9 +88,9 @@ export type AgentRuntimeCapabilities = {
 };
 
 /**
- * Stable runtime boundary used by the application host.  Legacy planner
- * behavior remains available below, while native and future Hermes adapters
- * can expose the same event stream without leaking planner internals.
+ * Stable compatibility boundary. Production conversation orchestration is
+ * owned by HermesCareerAgentRuntime; the legacy planner remains available
+ * below only for migration and deterministic test harnesses.
  */
 export interface AgentRuntime {
   readonly id: string;
@@ -176,7 +178,8 @@ type PendingCall = z.infer<typeof ToolCallSchema>;
 
 /**
  * @deprecated Compatibility runtime for legacy planner tests and migrations.
- * Production orchestration is owned by AgentKernel through AgentRuntimeProvider.
+ * Production orchestration is owned by HermesCareerAgentRuntime through the
+ * AgentRuntimeProvider.
  */
 export class LegacyAgentRuntime {
   readonly id: string = "legacy-native";
@@ -186,7 +189,7 @@ export class LegacyAgentRuntime {
   private paused = false;
 
   constructor(
-    private session: AgentSession,
+    private session: WorkflowAgentSession,
     private readonly dependencies: {
       planner: AgentPlanner;
       executor: AgentExecutor;
@@ -196,12 +199,14 @@ export class LegacyAgentRuntime {
       maxToolCalls?: number;
     }
   ) {
-    this.session = AgentSessionSchema.parse(session);
+    const parsed = AgentSessionSchema.parse(session);
+    if (!isWorkflowAgentSession(parsed)) throw new Error("legacy_runtime_requires_workflow_session");
+    this.session = parsed;
   }
 
-  static create(workflowId: string, initialStep: string, title = "新的 AI 任务", context?: ActiveCareerContext) {
+  static create(workflowId: string, initialStep: string, title = "新的 AI 任务", context?: ActiveCareerContext): WorkflowAgentSession {
     const now = new Date().toISOString();
-    return AgentSessionSchema.parse({
+    const session = AgentSessionSchema.parse({
       id: `agent-session-${nanoid(12)}`,
       title,
       titleOrigin: title === "新的 AI 任务" || title === "AI 求职任务" ? "default" : "user",
@@ -222,6 +227,8 @@ export class LegacyAgentRuntime {
       createdAt: now,
       updatedAt: now
     });
+    if (!isWorkflowAgentSession(session)) throw new Error("legacy_runtime_requires_workflow_session");
+    return session;
   }
 
   static createConversationSession(title = "新的对话", context?: ActiveCareerContext) {
@@ -565,10 +572,12 @@ export class LegacyAgentRuntime {
   }
 
   private async persist() {
-    this.session = await this.dependencies.persistence.save({
+    const saved = await this.dependencies.persistence.save({
       ...this.session,
       updatedAt: new Date().toISOString()
     });
+    if (!isWorkflowAgentSession(saved)) throw new Error("legacy_runtime_requires_workflow_session");
+    this.session = saved;
   }
 }
 

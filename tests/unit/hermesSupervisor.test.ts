@@ -70,8 +70,10 @@ function createHarness(initialHealth = createHealth(), options: Record<string, u
   let modelSetCount = 0;
   let modelInfoCount = 0;
   const modelSetBodies: Array<Record<string, unknown>> = [];
+  const credentialWrites: Array<Record<string, unknown>> = [];
+  const customProviderWrites: Array<Record<string, unknown>> = [];
   let modelConfig = {
-    provider: "custom",
+    provider: "custom:careeradapt",
     model: "mimo-v2.5-pro",
     baseUrl: "https://provider.example/v1"
   };
@@ -122,6 +124,38 @@ function createHarness(initialHealth = createHealth(), options: Record<string, u
       modelInfoCount += 1;
       return { ok: true, status: 200, json: async () => ({ ...modelConfig, capabilities: {} }) };
     }
+    if (nativeModelConfigEnabled && url.endsWith("/api/env")) {
+      const body = JSON.parse(String(init.body ?? "{}")) as Record<string, unknown>;
+      credentialWrites.push(body);
+      return { ok: true, status: 200, json: async () => ({ ok: true, key: body.key }) };
+    }
+    if (nativeModelConfigEnabled && url.endsWith("/api/providers/validate")) {
+      const body = JSON.parse(String(init.body ?? "{}")) as Record<string, unknown>;
+      const invalid = body.value === "bad-secret";
+      return {
+        ok: true,
+        status: 200,
+        json: async () => invalid
+          ? { ok: false, reachable: true, message: "API Key 无效" }
+          : { ok: true, reachable: true }
+      };
+    }
+    if (nativeModelConfigEnabled && url.endsWith("/api/providers/custom-endpoints/validate")) {
+      const body = JSON.parse(String(init.body ?? "{}")) as Record<string, unknown>;
+      const invalid = body.api_key === "bad-secret";
+      return {
+        ok: true,
+        status: 200,
+        json: async () => invalid
+          ? { ok: false, reachable: true, message: "API Key 无效" }
+          : { ok: true, reachable: true, models: [body.model] }
+      };
+    }
+    if (nativeModelConfigEnabled && url.endsWith("/api/providers/custom-endpoints")) {
+      const body = JSON.parse(String(init.body ?? "{}")) as Record<string, unknown>;
+      customProviderWrites.push(body);
+      return { ok: true, status: 200, json: async () => ({ ok: true, provider: "custom:careeradapt" }) };
+    }
     if (nativeModelConfigEnabled && url.endsWith("/api/model/set")) {
       modelSetCount += 1;
       const body = JSON.parse(String(init.body ?? "{}")) as Record<string, unknown> & { provider?: string; model?: string; base_url?: string };
@@ -161,6 +195,8 @@ function createHarness(initialHealth = createHealth(), options: Record<string, u
     getStopCount: () => stopCount,
     getModelSetCount: () => modelSetCount,
     getModelSetBodies: () => modelSetBodies,
+    getCredentialWrites: () => credentialWrites,
+    getCustomProviderWrites: () => customProviderWrites,
     getModelInfoCount: () => modelInfoCount,
     setHealth: (health: Record<string, unknown>) => { currentHealth = health; },
     setNextStartHealth: (health: Record<string, unknown>) => { nextStartHealth = health; }
@@ -285,7 +321,7 @@ describe("Hermes Supervisor lifecycle", () => {
     await harness.supervisor.resetConfig();
     const resetConfig = await harness.supervisor.getConfig();
     expect(resetConfig).toMatchObject({
-      provider: "custom",
+      provider: "custom:careeradapt",
       baseUrl: "https://provider.example/v1",
       model: "mimo-v2.5-pro",
       credentialSource: "missing"
@@ -385,14 +421,22 @@ describe("Hermes Supervisor lifecycle", () => {
     expect(runtimeConfig).toMatchObject({
       applyStatus: "applied",
       verified: true,
-      active: { provider: "custom", baseUrl: "https://provider.example/v1", model: "mimo-v2.5-pro" },
+      active: { provider: "custom:careeradapt", baseUrl: "https://provider.example/v1", model: "mimo-v2.5-pro" },
       activeFingerprint: runtimeConfig.desiredFingerprint
     });
     expect(harness.getStartCount()).toBe(2);
   });
 
   it("performs one bounded rollback when the new Provider cannot become ready", async () => {
-    const harness = createHarness();
+    const harness = createHarness(createHealth(), {
+      environment: {
+        HERMES_RUNTIME_URL: "http://127.0.0.1:18642",
+        HERMES_RUNTIME_API_KEY: "local-test-secret",
+        AI_BASE_URL: "https://provider.example/v1",
+        AI_MODEL: "mimo-v2.5-pro",
+        HERMES_CUSTOM_CAREERADAPT_API_KEY: "initial-secret"
+      }
+    });
     await harness.supervisor.rendererHostReady();
     harness.setNextStartHealth(createHealth({
       providerStatus: "invalid",
@@ -410,12 +454,11 @@ describe("Hermes Supervisor lifecycle", () => {
       apiKey: "bad-secret",
       model: "bad/model"
     });
-
     expect(result.runtimeConfig).toMatchObject({
       applyStatus: "rolled_back",
       verified: false,
       rollbackOccurred: true,
-      active: { provider: "custom", model: "mimo-v2.5-pro" },
+      active: { provider: "custom:careeradapt", model: "mimo-v2.5-pro" },
       desired: { provider: "openrouter", model: "bad/model" },
       activeGeneration: 1,
       desiredGeneration: 2
@@ -447,7 +490,7 @@ describe("Hermes Supervisor lifecycle", () => {
     expect(result.runtimeConfig).toMatchObject({
       applyStatus: "applied",
       restartPerformed: false,
-      active: { provider: "openrouter", model: "stealth/ox-alpha" },
+      active: { provider: "openrouter", model: "stealth/ox-alpha", credentialConfigured: true },
       desired: { provider: "openrouter", model: "stealth/ox-alpha" }
     });
     expect(harness.getModelSetCount()).toBe(1);
@@ -468,7 +511,7 @@ describe("Hermes Supervisor lifecycle", () => {
       applyStatus: "applied",
       verified: true,
       restartPerformed: false,
-      active: { provider: "custom", model: "custom-model" }
+      active: { provider: "custom:careeradapt", model: "custom-model", credentialConfigured: true }
     });
     expect(harness.getStartCount()).toBe(1);
     expect(harness.getStopCount()).toBe(0);
@@ -494,9 +537,10 @@ describe("Hermes Supervisor lifecycle", () => {
       provider: "openrouter",
       model: draft.model,
       base_url: draft.baseUrl,
-      api_key: draft.apiKey,
+      api_key: "",
       confirm_expensive_model: true
     })]);
+    expect(harness.getCredentialWrites()).toEqual([expect.objectContaining({ key: "OPENROUTER_API_KEY", value: draft.apiKey })]);
     expect(results.every((result) => (result.runtimeConfig as { active?: { model?: string } }).active?.model === draft.model)).toBe(true);
     expect(results.at(-1)?.lastApplyReceipt).toMatchObject({ applyStatus: "applied", restartPerformed: false, verified: true });
   });
@@ -541,7 +585,7 @@ describe("Hermes Supervisor lifecycle", () => {
     expect(harness.supervisor.getStatus()).toMatchObject({
       overallState: "degraded",
       reasonCode: "configuration_desync",
-      provider: "custom",
+      provider: "custom:careeradapt",
       model: "mimo-v2.5-pro",
       providerReady: false
     });

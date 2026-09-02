@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   AgentSessionSchema,
-  type AgentSession,
-  type AgentTaskState
+  isWorkflowAgentSession,
+  type AgentTaskState,
+  type WorkflowAgentSession
 } from "@/agent/contracts/agentSession";
 import { AgentRuntime } from "@/agent/runtime/agentRuntime";
 import { AgentHostStore, attachTaskStateOptions } from "@/agent/runtime/AgentHostStore";
@@ -278,10 +279,10 @@ function createHost() {
   });
 }
 
-function tailoringSession(stage: string): AgentSession {
+function tailoringSession(stage: string): WorkflowAgentSession {
   const base = AgentRuntime.create("tailor_resume", stage, "P4.5c.1.25 replay");
   const state = new AgentTaskStateReducer().create(base, "generate_job_specific_resume");
-  return AgentSessionSchema.parse(projectTaskStateIntoSession(base, {
+  const parsed = AgentSessionSchema.parse(projectTaskStateIntoSession(base, {
     ...state,
     rootGoal: "generate_job_specific_resume",
     activeGoal: "resolve_resume_source",
@@ -295,6 +296,8 @@ function tailoringSession(stage: string): AgentSession {
     },
     updatedAt: new Date().toISOString()
   }));
+  if (!isWorkflowAgentSession(parsed)) throw new Error("test_fixture_requires_workflow_session");
+  return parsed;
 }
 
 function resumeChoiceState() {

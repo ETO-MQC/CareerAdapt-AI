@@ -8,13 +8,21 @@ import type { AgentModelTool } from "@/agent/model/agentModel";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Deprecated compatibility endpoint. AgentKernel production traffic uses
-// /api/agent/stream in decision/narration mode.
+// Deprecated compatibility endpoint. Hermes owns production semantic turns;
+// this planner endpoint remains only for old integrations and fixtures.
 const legacySystemPrompt = `You are CareerAdapt AI's legacy planner compatibility wrapper.
 Choose only from the supplied tools. CareerProfile and FactProvenance are authoritative.
 Never invent facts or expose hidden reasoning. Return a concise final answer in the user's language when no tool is needed.`;
 
 export async function POST(request: NextRequest) {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({
+      error: {
+        code: "hermes_runtime_required",
+        message: "Production agent turns use the Hermes runtime."
+      }
+    }, { status: 410, headers: { "Cache-Control": "no-store" } });
+  }
   try {
     const parsed = AgentTurnRequestSchema.safeParse(await request.json());
     if (!parsed.success) return failure("invalid_agent_turn", "Agent turn input failed validation.", 400);

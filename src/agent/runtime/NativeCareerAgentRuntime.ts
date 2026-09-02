@@ -17,9 +17,9 @@ export type NativeCareerAgentRuntimeDependencies = {
 };
 
 /**
- * Native adapter for CareerAdapt's current AgentHost/AgentKernel stack.
- * The adapter owns the runtime contract; callers do not need to know whether
- * the implementation is a browser host, a desktop host, or a future worker.
+ * Compatibility adapter for the pre-Hermes AgentHost/AgentKernel stack.
+ * It remains available to deterministic/unit harnesses; production does not
+ * construct or select this runtime.
  */
 export class NativeCareerAgentRuntime implements AgentRuntime {
   readonly id = "native" as const;

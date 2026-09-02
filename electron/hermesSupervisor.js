@@ -7,6 +7,8 @@ const {
   hermesConfigurationFingerprint,
   loadCareerAdaptEnvironment,
   normalizeProviderIdentity,
+  providerCredential,
+  resolveHermesProviderBinding,
   startHermesCompanion,
   stopHermesCompanion
 } = require("./hermesCompanion");
@@ -389,7 +391,7 @@ class HermesSupervisor {
     const manifest = readJsonFile(path.join(this.hermesRuntimeRoot || "", "runtime-manifest.json"));
     return {
       ...environment,
-      ...(!firstValue(environment.AI_BASE_URL, environment.HERMES_BASE_URL, environment.OPENAI_BASE_URL) && firstValue(manifest.providerBaseUrl)
+      ...(!firstValue(environment.AI_BASE_URL, environment.HERMES_BASE_URL, environment.OPENROUTER_BASE_URL, environment.OPENAI_BASE_URL) && firstValue(manifest.providerBaseUrl)
         ? { AI_BASE_URL: manifest.providerBaseUrl }
         : {}),
       ...(!firstValue(environment.AI_MODEL, environment.HERMES_MODEL, environment.HERMES_INFERENCE_MODEL) && firstValue(manifest.model)
@@ -418,6 +420,8 @@ class HermesSupervisor {
         ...requestedEnvironment,
         AI_API_KEY: "",
         OPENAI_API_KEY: "",
+        OPENROUTER_API_KEY: "",
+        HERMES_CUSTOM_CAREERADAPT_API_KEY: "",
         HERMES_API_KEY: ""
       };
     }
@@ -425,8 +429,10 @@ class HermesSupervisor {
       && !firstValue(settings.apiKey)
       && this.runtimeProcessState.activeEnvironment
       && this.runtimeConfigState.active?.credentialConfigured) {
-      const activeKey = providerCredential(this.runtimeProcessState.activeEnvironment);
-      if (activeKey) return { ...requestedEnvironment, AI_API_KEY: activeKey };
+      const activeEnvironment = this.runtimeProcessState.activeEnvironment;
+      const activeBinding = providerBinding(activeEnvironment);
+      const activeKey = providerCredential(activeEnvironment, activeBinding);
+      if (activeKey) return { ...requestedEnvironment, [activeBinding.credentialEnvName]: activeKey };
     }
     return requestedEnvironment;
   }
@@ -447,16 +453,20 @@ class HermesSupervisor {
         ? this.runtimeConfigState.desired.configGeneration
         : (this.runtimeConfigState.active?.configGeneration ?? 0) + 1);
    const source = options.source || "runtime_readback";
-   const credentialSourceOverride = options.credentialSourceOverride
-     ?? (firstValue(options.requestedSettings?.AI_API_KEY) ? "managed_config" : undefined)
+    const credentialSourceOverride = options.credentialSourceOverride
+     ?? (firstValue(
+       options.requestedSettings?.apiKey,
+       options.requestedSettings?.AI_API_KEY,
+       options.requestedSettings?.OPENAI_API_KEY,
+       options.requestedSettings?.OPENROUTER_API_KEY,
+       options.requestedSettings?.HERMES_CUSTOM_CAREERADAPT_API_KEY
+     ) ? "managed_config" : undefined)
       ?? (source === "runtime_readback" && this.runtimeConfigState.desired?.source === "managed_config" && !options.rollback
        ? "managed_config"
        : undefined);
     this.runtimeConfigState.active = configurationValue({
-     ...targetEnvironment,
-      ...(this.runtimeProcessState.observedConfiguration?.provider ? { AI_PROVIDER: this.runtimeProcessState.observedConfiguration.provider } : {}),
-      ...(this.runtimeProcessState.observedConfiguration?.model ? { AI_MODEL: this.runtimeProcessState.observedConfiguration.model } : {})
-   }, fingerprint, generation, source, new Date().toISOString(),
+      ...targetEnvironment
+    }, fingerprint, generation, source, new Date().toISOString(),
      credentialSourceOverride);
     this.runtimeProcessState.activeEnvironment = { ...targetEnvironment };
     this.runtimeProcessState.activeSettings = { ...(options.requestedSettings || {}) };
@@ -589,7 +599,12 @@ class HermesSupervisor {
         return await this.applyNativeModelConfiguration(settings, targetEnvironment, targetFingerprint);
       } catch (error) {
         const reasonCode = safeReason(error instanceof Error ? error.code || error.message : "hermes_model_config_apply_failed");
-        if (reasonCode === "hermes_model_config_endpoint_missing") {
+        if ([
+          "hermes_model_config_endpoint_missing",
+          "hermes_credential_lifecycle_endpoint_missing",
+          "hermes_custom_provider_endpoint_missing",
+          "hermes_provider_validation_endpoint_missing"
+        ].includes(reasonCode)) {
           this.nativeModelConfigSupported = false;
           this.publish({ capabilities: this.capabilitiesWithModelConfig() }, "Hermes native model config endpoint unavailable; using one restart fallback");
           return this.applyConfigurationWithLifecycleRestart(settings, options, targetFingerprint, previous);
@@ -607,11 +622,18 @@ class HermesSupervisor {
 
   async applyNativeModelConfiguration(settings, targetEnvironment, targetFingerprint, options = {}) {
     if (!options.rollback) this.setConfigurationApplyStatus("verifying", undefined, { restartPerformed: false, verified: false, rollbackOccurred: false });
-    const { provider, model } = await this.setAndReadNativeModel(targetEnvironment);
+    const applied = await this.setAndReadNativeModel(targetEnvironment);
+    const credentialSource = options.credentialSourceOverride
+      || (settings?.credentialAction === "clear" ? "missing" : settings?.apiKey?.trim() ? "managed_config" : applied.credentialConfigured ? "server_env" : "missing");
+    const providerDiagnostic = {
+      ...applied.providerDiagnostic,
+      credentialSource
+    };
     this.environment = { ...targetEnvironment };
+    applyProviderEnvironment(this.environment);
     this.baseEnvironment = { ...this.baseEnvironment, ...(options.rollback ? targetEnvironment : environmentFromHermesSettings(settings)) };
-    this.runtimeProcessState.observedConfiguration = { provider, model };
-    this.runtimeProcessState.observedProviderDiagnostic = undefined;
+    this.runtimeProcessState.observedConfiguration = { provider: applied.provider, model: applied.model };
+    this.runtimeProcessState.observedProviderDiagnostic = providerDiagnostic;
     this.commitActiveConfiguration(this.environment, {
       targetFingerprint,
       targetGeneration: options.targetGeneration ?? this.runtimeConfigState.desired?.configGeneration,
@@ -621,6 +643,20 @@ class HermesSupervisor {
       source: "runtime_readback",
       rollback: options.rollback
     });
+    const providerReady = applied.credentialConfigured && !["provider_http_401", "provider_http_403"].includes(providerDiagnostic.safeErrorCode);
+    const runReady = providerReady && this.snapshot.apiReady && this.snapshot.toolSurfaceReady;
+    const ready = runReady && this.snapshot.careerMcpReady && this.snapshot.careerSkillsReady;
+    this.publish({
+      overallState: ready ? "ready" : "degraded",
+      provider: applied.provider,
+      model: applied.model,
+      providerReady,
+      runReady,
+      credentialConfigured: applied.credentialConfigured,
+      credentialSource,
+      providerDiagnostic,
+      reasonCode: providerReady ? undefined : "configuration_required"
+    }, "Hermes provider credential binding verified");
     if (options.rollback) return this.getStatus();
     this.runtimeConfigState.lastApplyReceipt = this.createApplyReceipt(true, false, undefined);
     this.setConfigurationApplyStatus("applied", undefined, { restartPerformed: false, verified: true, rollbackOccurred: false });
@@ -666,22 +702,63 @@ class HermesSupervisor {
   async setAndReadNativeModel(environment) {
     const client = this.createModelConfigClient();
     if (!client) throw Object.assign(new Error("hermes_runtime_url_missing"), { code: "hermes_runtime_url_missing" });
-    const provider = normalizeProviderIdentity(
-      firstValue(environment.HERMES_PROVIDER, environment.AI_PROVIDER),
-      environment
-    );
     const model = firstValue(environment.HERMES_MODEL, environment.AI_MODEL, environment.HERMES_INFERENCE_MODEL) || "";
-    const baseUrl = firstValue(environment.HERMES_BASE_URL, environment.AI_BASE_URL, environment.OPENAI_BASE_URL) || DEFAULT_PROVIDER_BASE_URL;
-    const assigned = await client.setMainModel({ provider, model, baseUrl, apiKey: providerCredential(environment) || "" });
+    const baseUrl = firstValue(environment.HERMES_BASE_URL, environment.AI_BASE_URL, environment.OPENROUTER_BASE_URL, environment.OPENAI_BASE_URL) || DEFAULT_PROVIDER_BASE_URL;
+    const binding = providerBinding(environment);
+    const apiKey = providerCredential(environment, binding) || "";
+    let validation = { supported: true, ok: true, reachable: true, httpStatus: 200 };
+    if (apiKey) {
+      validation = await client.validateProviderCredential({
+        provider: binding.providerId,
+        credentialEnvName: binding.credentialEnvName,
+        baseUrl,
+        model,
+        apiKey
+      });
+      if (validation.supported === false) {
+        throw Object.assign(new Error("hermes_provider_validation_endpoint_missing"), { code: "hermes_provider_validation_endpoint_missing" });
+      }
+      if (!validation.ok) {
+        const error = new Error(validation.reachable ? "API Key 无效或没有模型权限。" : "无法连接 Provider 验证地址。");
+        error.code = validation.reachable ? "provider_auth_invalid" : "provider_credential_unreachable";
+        error.httpStatus = validation.httpStatus;
+        throw error;
+      }
+      if (binding.providerId === "custom:careeradapt"
+        && validation.models?.length
+        && !validation.models.includes(model)) {
+        throw Object.assign(new Error("provider_model_not_found"), { code: "provider_model_not_found" });
+      }
+    }
+    const credentialUpdate = await client.setProviderCredential({ key: binding.credentialEnvName, apiKey });
+    if (!credentialUpdate.ok) {
+      throw Object.assign(new Error("hermes_credential_lifecycle_rejected"), { code: "hermes_credential_lifecycle_rejected" });
+    }
+    if (binding.customProviderName) {
+      await client.upsertCustomProvider({ baseUrl, model, apiKey });
+    }
+    const assigned = await client.setMainModel({ provider: binding.providerId, model, baseUrl, apiKey: "" });
     const readback = await client.readModelConfig();
     const readbackBaseUrl = readback.baseUrl || assigned.baseUrl;
-    const readbackProvider = normalizeProviderIdentity(readback.provider || provider, { AI_BASE_URL: readbackBaseUrl || baseUrl });
-    if (!providerIdentitiesMatch(provider, readbackProvider)
+    const readbackProvider = normalizeProviderIdentity(readback.provider || binding.providerId, { AI_BASE_URL: readbackBaseUrl || baseUrl });
+    if (!providerIdentitiesMatch(binding.providerId, readbackProvider)
       || readback.model !== model
       || (readbackBaseUrl && readbackBaseUrl !== baseUrl)) {
       throw Object.assign(new Error("configuration_desync"), { code: "configuration_desync" });
     }
-    return { provider, model: readback.model };
+    return {
+      provider: binding.providerId,
+      model: readback.model,
+      credentialConfigured: Boolean(apiKey),
+      providerDiagnostic: {
+        provider: binding.providerId,
+        model: readback.model,
+        credentialConfigured: Boolean(apiKey),
+        credentialSource: apiKey ? "server_env" : "missing",
+        lastCheckedAt: new Date().toISOString(),
+        ...(apiKey && validation.httpStatus ? { lastHttpStatus: validation.httpStatus } : {})
+      }
+    };
   }
 
   capabilitiesWithModelConfig() {
@@ -829,7 +906,11 @@ class HermesSupervisor {
       "HERMES_BASE_URL",
       "HERMES_API_KEY",
       "HERMES_MODEL",
-      "HERMES_INFERENCE_MODEL"
+      "HERMES_INFERENCE_MODEL",
+      "OPENAI_BASE_URL",
+      "OPENAI_API_KEY",
+      "OPENROUTER_API_KEY",
+      "HERMES_CUSTOM_CAREERADAPT_API_KEY"
     ];
     this.baseEnvironment = { ...this.initialBaseEnvironment };
     for (const key of providerKeys) {
@@ -908,12 +989,15 @@ class HermesSupervisor {
       runtimeConfig: this.runtimeConfigSnapshot()
     }, "Hermes start requested");
 
-    if (this.handle?.owned) await this.stopCompanion(this.handle, options.stopReason || {
+    if (this.handle?.owned) {
+      this.handle.supervisorStopping = true;
+      await this.stopCompanion(this.handle, options.stopReason || {
       requestedBy: "hermes_supervisor",
       reasonCode: "hermes_start_replacement",
       sourceComponent: "HermesSupervisor.startInternal",
       requestedAt: new Date().toISOString()
-   });
+      });
+    }
    this.handle = undefined;
     let handle;
     try {
@@ -1103,11 +1187,19 @@ class HermesSupervisor {
     this.runtimeProcessState.observedProviderDiagnostic = !diagnosticConfigurationMismatch && !configurationDesync ? providerDiagnostic : undefined;
     const providerAuthInvalid = !diagnosticConfigurationMismatch && !configurationDesync && (providerDiagnostic?.safeErrorCode === "provider_http_401"
       || providerDiagnostic?.safeErrorCode === "provider_http_403"
-      || (providerStatus === "invalid" && providerDiagnostic?.lastHttpStatus === 401));
+      || (providerStatus === "invalid" && [401, 403].includes(providerDiagnostic?.lastHttpStatus)));
     const processReady = this.snapshot.processReady && !isExited(this.handle?.child);
     const apiReady = processReady && (root.available === true || runtimeHealth.runtimeAvailable === true);
-    const providerReady = !configurationDesync && !providerAuthInvalid && (runtimeHealth.providerReady === true
-      || (runtimeHealth.providerConfigured === true && runtimeHealth.providerReachable === true && Boolean(stringValue(root.model) || stringValue(runtimeHealth.model))));
+    const expectedCredentialRequired = expectedConfiguration
+      ? expectedConfiguration.credentialConfigured === true || expectedConfiguration.source === "environment"
+      : false;
+    const reportedCredentialConfigured = runtimeHealth.providerConfigured === true
+      || providerDiagnostic?.credentialConfigured === true;
+    const credentialReady = expectedCredentialRequired && reportedCredentialConfigured;
+    const providerCapabilityReady = runtimeHealth.providerReady === true
+      || (runtimeHealth.providerConfigured === true && runtimeHealth.providerReachable === true && Boolean(stringValue(root.model) || stringValue(runtimeHealth.model)));
+    const providerStatusInvalid = providerStatus === "invalid" || providerStatus === "unconfigured";
+    const providerReady = !configurationDesync && !providerAuthInvalid && !providerStatusInvalid && credentialReady && providerCapabilityReady;
     const careerMcpReady = runtimeHealth.browserCareerDomainHostConnected === true
       && runtimeHealth.careerMcpServerReachable === true
       && runtimeHealth.mcpConnected === true;
@@ -1254,7 +1346,7 @@ class HermesSupervisor {
     const child = handle?.child;
     if (!child || typeof child.once !== "function") return;
     child.once("exit", (code, signal) => {
-      if (this.handle !== handle || handle.stopping || this.snapshot.overallState === "stopping" || this.snapshot.overallState === "restarting") return;
+      if (this.handle !== handle || handle.stopping || handle.supervisorStopping || this.snapshot.overallState === "stopping" || this.snapshot.overallState === "restarting") return;
       void this.handleUnexpectedExit({ code, signal });
     });
   }
@@ -1357,11 +1449,12 @@ class HermesSupervisor {
 }
 
 function configurationValue(environment, configFingerprint, configGeneration, source, lastAppliedAt, credentialSourceOverride) {
-  const apiKey = providerCredential(environment);
+  const binding = providerBinding(environment);
+  const apiKey = providerCredential(environment, binding);
   return {
-    provider: normalizeProviderIdentity(firstValue(environment.HERMES_PROVIDER, environment.AI_PROVIDER), environment),
-    baseUrl: firstValue(environment.HERMES_BASE_URL, environment.AI_BASE_URL, environment.OPENAI_BASE_URL) || DEFAULT_PROVIDER_BASE_URL,
-    baseUrlHostPath: safeBaseUrlHostPath(firstValue(environment.HERMES_BASE_URL, environment.AI_BASE_URL, environment.OPENAI_BASE_URL) || DEFAULT_PROVIDER_BASE_URL),
+    provider: binding.providerId,
+    baseUrl: firstValue(environment.HERMES_BASE_URL, environment.AI_BASE_URL, environment.OPENROUTER_BASE_URL, environment.OPENAI_BASE_URL) || DEFAULT_PROVIDER_BASE_URL,
+    baseUrlHostPath: safeBaseUrlHostPath(firstValue(environment.HERMES_BASE_URL, environment.AI_BASE_URL, environment.OPENROUTER_BASE_URL, environment.OPENAI_BASE_URL) || DEFAULT_PROVIDER_BASE_URL),
     model: firstValue(environment.HERMES_MODEL, environment.AI_MODEL, environment.HERMES_INFERENCE_MODEL) || "",
     credentialConfigured: Boolean(apiKey),
     credentialSource: credentialSourceOverride || (source === "managed_config" && apiKey
@@ -1385,8 +1478,13 @@ function safeBaseUrlHostPath(baseUrl) {
   }
 }
 
-function providerCredential(environment) {
-  return firstValue(environment.AI_API_KEY, environment.OPENAI_API_KEY, environment.HERMES_API_KEY);
+function providerBinding(environment = {}) {
+  return resolveHermesProviderBinding({
+    provider: firstValue(environment.HERMES_PROVIDER, environment.AI_PROVIDER),
+    baseUrl: firstValue(environment.HERMES_BASE_URL, environment.AI_BASE_URL, environment.OPENROUTER_BASE_URL, environment.OPENAI_BASE_URL),
+    model: firstValue(environment.HERMES_MODEL, environment.AI_MODEL, environment.HERMES_INFERENCE_MODEL),
+    genericApiKey: providerCredential(environment)
+  });
 }
 
 function activeConfigurationFieldSource(settings) {
@@ -1413,7 +1511,7 @@ function validateHermesConfigSettings(settings) {
 }
 
 function applyProviderEnvironment(environment) {
-  for (const key of ["AI_PROVIDER", "AI_BASE_URL", "AI_API_KEY", "AI_MODEL", "HERMES_PROVIDER", "HERMES_BASE_URL", "HERMES_API_KEY", "HERMES_MODEL", "HERMES_INFERENCE_MODEL", "OPENAI_BASE_URL", "OPENAI_API_KEY"]) {
+  for (const key of ["AI_PROVIDER", "AI_BASE_URL", "AI_API_KEY", "AI_MODEL", "HERMES_PROVIDER", "HERMES_BASE_URL", "HERMES_API_KEY", "HERMES_MODEL", "HERMES_INFERENCE_MODEL", "OPENAI_BASE_URL", "OPENROUTER_BASE_URL", "OPENAI_API_KEY", "OPENROUTER_API_KEY", "HERMES_CUSTOM_CAREERADAPT_API_KEY"]) {
     process.env[key] = Object.prototype.hasOwnProperty.call(environment, key) && typeof environment[key] === "string"
       ? environment[key]
       : "";
@@ -1429,15 +1527,18 @@ function environmentFromHermesSettings(value) {
   const model = read("model");
   const provider = read("provider");
   const credentialAction = settings.credentialAction;
+  const binding = resolveHermesProviderBinding({ provider, baseUrl, model, genericApiKey: apiKey });
   return {
     ...((provider || baseUrl) ? {
-      AI_PROVIDER: normalizeProviderIdentity(provider, { AI_BASE_URL: baseUrl }),
-      HERMES_PROVIDER: normalizeProviderIdentity(provider, { HERMES_BASE_URL: baseUrl })
+      AI_PROVIDER: binding.providerId,
+      HERMES_PROVIDER: binding.providerId
     } : {}),
     ...(baseUrl ? { AI_BASE_URL: baseUrl, HERMES_BASE_URL: baseUrl } : {}),
-    ...(apiKey ? { AI_API_KEY: apiKey } : credentialAction === "clear" ? {
+    ...(apiKey ? { [binding.credentialEnvName]: apiKey } : credentialAction === "clear" ? {
       AI_API_KEY: "",
       OPENAI_API_KEY: "",
+      OPENROUTER_API_KEY: "",
+      HERMES_CUSTOM_CAREERADAPT_API_KEY: "",
       HERMES_API_KEY: ""
     } : {}),
     ...(model ? { AI_MODEL: model, HERMES_MODEL: model, HERMES_INFERENCE_MODEL: model } : {})

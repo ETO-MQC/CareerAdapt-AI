@@ -8,7 +8,6 @@ import { BrowserAgentToolService } from "@/services/agent/agentToolService";
 import { AgentSessionStore } from "@/services/agent/agentSessionStore";
 import { AgentHostStore, getActiveTailoringQuestionProjection, type TailoringAnswerBinding } from "@/agent/runtime/AgentHostStore";
 import type { AgentSession } from "@/agent/contracts/agentSession";
-import { createAgentRuntimeRouter } from "@/agent/runtime/AgentRuntimeRouter";
 import { CareerToolGateway, CareerToolGatewayExecutor, type CareerToolContract } from "@/agent/tools/CareerToolGateway";
 import { AgentRuntimeEventBus } from "@/agent/runtime/agentRuntimeEventBus";
 import type { AgentRuntimeTurnInput } from "@/agent/runtime/agentRuntime";
@@ -67,10 +66,6 @@ function createAgentHost() {
     pdfExportAvailable: careerToolGateway.listContracts().some((contract) => contract.name === "career.export.resume")
   });
   const mcpBridge = new CareerAdaptMcpBridgeClient();
-  const runtimeRouter = createAgentRuntimeRouter({
-    hermes: hermesRuntime,
-    configuration: { agentRuntime: "hermes" }
-  });
   let healthRefreshInFlight: Promise<Awaited<ReturnType<typeof hermesRuntime.health>>> | undefined;
   const refreshHermesHealth = async () => {
     if (healthRefreshInFlight) return healthRefreshInFlight;
@@ -216,7 +211,7 @@ function createAgentHost() {
     };
     // The UI consumes one stable event protocol. Hermes is the sole semantic
     // production runtime; this host only owns persistence and presentation.
-    const runtime = runtimeRouter.active();
+    const runtime = hermesRuntime;
     const runtimeUserEvent = input.metadata?.runtimeUserEvent as RuntimeUserEvent | undefined;
     const incidentTraceId = typeof input.metadata?.incidentTraceId === "string" && input.metadata.incidentTraceId.trim()
       ? input.metadata.incidentTraceId
@@ -371,9 +366,7 @@ function createAgentHost() {
           sessionBindingSet = true;
         }
       }
-      const eventStream = runtimeUserEvent
-        ? runtimeRouter.runUserEvent(runtimeUserEvent, runtimeInput)
-        : runtime.runTurn(runtimeInput);
+      const eventStream = runtime.runTurn(runtimeInput);
       for await (const event of eventStream) {
         const rawEventData = event.data && typeof event.data === "object" && !Array.isArray(event.data)
           ? event.data as Record<string, unknown>
@@ -618,7 +611,6 @@ function createAgentHost() {
     state,
     careerToolGateway,
     hermesRuntime,
-    runtimeRouter,
     runtimeStatus,
     mcpBridge,
     refreshHermesHealth,
@@ -772,7 +764,7 @@ export function AgentRuntimeProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     let active = true;
     let lastObservedMcpHealthKey: string | undefined;
-    host.runtimeStatus.update({ status: host.runtimeRouter.configurationSnapshot.agentRuntime === "hermes" ? "starting" : "ready" });
+    host.runtimeStatus.update({ status: "starting", activeRuntime: "hermes" });
     const unsubscribeHermesStatus = subscribeHermesStatus((snapshot) => {
       if (active) host.runtimeStatus.recordSupervisorStatus(snapshot);
     });
@@ -831,7 +823,7 @@ export function AgentRuntimeProvider({ children }: { children: React.ReactNode }
           }, assistant.id);
         }
       );
-      if (!active || host.runtimeRouter.configurationSnapshot.agentRuntime !== "hermes") return;
+      if (!active) return;
       // The renderer-owned Browser Domain Host is the first valid point at
       // which Hermes can start. This handshake is deliberately after MCP
       // registration and carries the current local provider settings.

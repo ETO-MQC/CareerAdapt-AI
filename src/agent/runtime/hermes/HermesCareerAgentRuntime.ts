@@ -6,13 +6,10 @@ import type {
   AgentRuntimeTurnInput
 } from "../agentRuntime";
 import type { HermesRunHandle } from "../../contracts/agentSession";
-import type { CareerToolGateway, CareerToolContract } from "../../tools/CareerToolGateway";
-import { safeCareerToolArgumentShape } from "../../tools/careerToolDiagnostics";
+import type { CareerToolGateway } from "../../tools/CareerToolGateway";
 import { logicalToolOperationId, type HermesBridgeEvent, type HermesBridgeTransport, type HermesRunStatus, type HermesRunTraceContext } from "./HermesBridgeTransport";
-import { resolveCareerSessionBinding, type CareerSessionBinding } from "../careerSessionBinding";
-import { hermesProductionToolNames, HermesCareerToolCatalog, projectCareerContractsForHermes, HERMES_REQUIRED_CAREER_FACADES } from "./HermesCareerToolCatalog";
-import { isRoadshowReady } from "../runtimeHealth";
-import { isCareerSystemStatusQuestion } from "../../kernel/AgentToolResolver";
+import { resolveCareerSessionBinding } from "../careerSessionBinding";
+import { HermesCareerToolCatalog } from "./HermesCareerToolCatalog";
 import {
   classifyHermesRunFailure,
   createHermesRunFailure,
@@ -26,6 +23,7 @@ import {
 } from "./hermesIncidentTrace";
 import type { RuntimeCausalChainEntry, SecondaryRecoveryFailure } from "./hermesIncidentTrace";
 import { getUserMessageForTurn } from "../currentTurnUserMessage";
+import { HermesLegacyCompatibilityAdapter } from "./HermesLegacyCompatibilityAdapter";
 
 type TurnCounters = {
   toolCalls: number;
@@ -225,8 +223,16 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
 
     if (!supportsRuns(this.dependencies.transport)) {
       // Compatibility is deliberately isolated here. Production transports
-      // use the official /v1/runs path below and never execute browser tools.
-      yield* this.runLegacyAdapterTurn(normalized, counters, startedAt);
+      // use the official /v1/runs path below and never execute browser tools;
+      // only non-production in-memory/dev adapters may exercise the old loop.
+      if (process.env.NODE_ENV === "production") {
+        throw hermesError("hermes_runs_unsupported", "Hermes production transport does not expose the official /v1/runs API.");
+      }
+      yield* new HermesLegacyCompatibilityAdapter({
+        transport: this.dependencies.transport,
+        careerToolGateway: this.dependencies.careerToolGateway,
+        sessions: this.sessions
+      }).runTurn(normalized, counters, startedAt);
       return;
     }
 
@@ -686,76 +692,6 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     }
   }
 
-  private async *runLegacyAdapterTurn(
-    input: AgentRuntimeTurnInput,
-    counters: TurnCounters,
-    startedAt: number
-  ): AsyncGenerator<AgentRuntimeEvent> {
-    input = { ...input, metadata: { ...(input.metadata ?? {}), hermesProtocol: "legacy" } };
-    const binding = resolveCareerSessionBinding({ sessionId: input.sessionId, session: input.session, pageContext: input.pageContext });
-    const requireSessionBinding = Boolean(binding);
-    const health = await this.dependencies.transport.health(input.signal);
-    if (!(health.runtimeHealth?.runtimeAvailable ?? health.available)) {
-      // Preserve the old adapter's retryable pre-turn contract for legacy
-      // harnesses. Official /v1/runs errors are classified by their own run
-      // diagnostics and never enter this branch.
-      throw hermesError("hermes_unavailable_recoverable", health.reason ?? "Hermes runtime is unavailable.", true);
-    }
-    if (health.runtimeHealth && !isRoadshowReady(health.runtimeHealth)) {
-      throw hermesError("hermes_career_registry_not_ready", "CareerAdapt MCP 尚未完成 Hermes 注册。");
-    }
-    const existing = this.sessions.get(input.sessionId);
-    const opened = existing
-      ? await this.dependencies.transport.resumeSession({ sessionId: existing }, input.signal)
-      : await this.dependencies.transport.createSession({ sessionId: input.sessionId }, input.signal);
-    this.sessions.set(input.sessionId, opened.sessionId);
-    let emitted = false;
-    for await (const bridgeEvent of this.dependencies.transport.turn({
-      sessionId: opened.sessionId,
-      turnId: input.turnId ?? `hermes-turn-${nanoid(12)}`,
-      userMessage: input.userMessage,
-      pageContext: input.pageContext,
-      toolContracts: allowedCareerToolContracts(this.dependencies.careerToolGateway, input, false) as unknown as Array<Record<string, unknown>>,
-      careerSessionBinding: binding,
-      incidentTraceId: typeof input.metadata?.incidentTraceId === "string" ? input.metadata.incidentTraceId : undefined,
-      logicalTurnId: input.turnId,
-      metadata: safeMetadata(input.metadata)
-    }, input.signal)) {
-      emitted = true;
-      if (bridgeEvent.type === "tool_call_requested") {
-        yield this.event(input, "tool_call_requested", {
-          toolName: bridgeEvent.toolName,
-          operationId: bridgeEvent.operationId,
-          data: {
-            toolCallId: bridgeEvent.toolCallId,
-            logicalToolOperationId: this.bridgeLogicalOperationId(input, bridgeEvent),
-            hermesToolCallArgumentShape: safeCareerToolArgumentShape(bridgeEvent.input),
-            sourceUserMessageId: sourceUserMessageIdForTurn(input.session, input.turnId)
-          }
-        });
-        yield* this.executeToolCall(input, opened.sessionId, bridgeEvent, counters, binding, requireSessionBinding);
-        continue;
-      }
-      if (bridgeEvent.type === "turn_completed") {
-        const completion = bridgeEvent.data && typeof bridgeEvent.data === "object" && !Array.isArray(bridgeEvent.data)
-          ? bridgeEvent.data as Record<string, unknown>
-          : {};
-        if (typeof completion.structuredOutputValid === "boolean") counters.structuredOutputValid = completion.structuredOutputValid;
-        yield this.event(input, "turn_completed", {
-          message: bridgeEvent.message,
-          data: { ...completion, telemetry: this.telemetry(input, counters, "completed", startedAt) }
-        });
-        continue;
-      }
-      if (bridgeEvent.type === "text_delta" && counters.firstTokenLatencyMs === undefined) {
-        counters.firstTokenLatencyMs = Math.max(0, Date.now() - startedAt);
-      }
-      const event = this.mapBridgeEvent(input, bridgeEvent, counters, startedAt);
-      if (event) yield event;
-    }
-    if (!emitted) throw hermesError("hermes_stream_incomplete", "Hermes adapter stream ended before the first event.");
-  }
-
   private diagnostics(
     handle: HermesRunHandle | undefined,
     counters: TurnCounters,
@@ -883,256 +819,6 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       mcpConnected: true,
       hermesSessionId: sessionId,
       incidentTraceId: reason.incidentTraceId
-    });
-  }
-
-  private async *executeToolCall(
-    input: AgentRuntimeTurnInput,
-    hermesSessionId: string,
-    request: Extract<HermesBridgeEvent, { type: "tool_call_requested" }>,
-    counters: TurnCounters,
-    binding: CareerSessionBinding | undefined,
-    requireSessionBinding: boolean
-  ): AsyncGenerator<AgentRuntimeEvent> {
-    counters.toolCalls += 1;
-    const catalog = new HermesCareerToolCatalog(this.dependencies.careerToolGateway.listContracts());
-    const requestedHermesToolName = request.toolName;
-    const stableToolName = catalog.stableNameForRequestedName(requestedHermesToolName) ?? requestedHermesToolName;
-    const sourceUserMessageId = sourceUserMessageIdForTurn(input.session, input.turnId);
-    const logicalOperationId = request.logicalToolOperationId ?? logicalToolOperationId({
-      ...request,
-      turnId: input.turnId,
-      stableToolName,
-      preferStableToolName: true
-    });
-    if (!isAllowedCareerTool(input, stableToolName, catalog)) {
-      const code = "agent_tool_not_allowed";
-      counters.toolFailures += 1;
-      // Return a structured observation to the bridge so Hermes can refresh
-      // the legal tool set and replan. Emitting only a UI failure leaves the
-      // external run waiting for a callback and turns a repairable mismatch
-      // into a stuck runtime.
-      await this.dependencies.transport.toolCallback({
-        sessionId: hermesSessionId,
-        turnId: input.turnId ?? "hermes-turn-unknown",
-        toolCallId: request.toolCallId,
-        toolName: request.toolName,
-        operationId: request.operationId,
-        incidentTraceId: typeof input.metadata?.incidentTraceId === "string" ? input.metadata.incidentTraceId : undefined,
-        attemptTraceId: typeof input.metadata?.attemptTraceId === "string" ? input.metadata.attemptTraceId : undefined,
-        logicalToolOperationId: logicalOperationId,
-        careerSessionBinding: binding,
-        result: {
-          ok: false,
-          error: {
-            code,
-            category: "validation",
-            recoverable: true,
-            retryHint: "刷新当前工作流阶段允许的工具后重新规划；不要重复或并行提交写入。"
-          }
-        }
-      }, input.signal);
-      yield this.event(input, "tool_call_failed", {
-        eventId: request.eventId,
-        toolName: request.toolName,
-        operationId: request.operationId,
-        error: { code, message: "当前组合工作流步骤不允许该 Career 工具。", recoverable: true },
-        data: { safeErrorCode: code, logicalToolOperationId: logicalOperationId, workflowId: input.metadata?.workflowId, workflowStage: input.metadata?.workflowStage, requestedHermesToolName, stableCareerToolName: stableToolName, sourceUserMessageId }
-      });
-      return;
-    }
-    let contract: CareerToolContract;
-    try {
-      contract = this.dependencies.careerToolGateway.getContract(stableToolName);
-    } catch (error) {
-      counters.toolFailures += 1;
-      const code = errorCode(error) === "hermes_turn_failed" ? "mcp_tool_not_found" : errorCode(error);
-      await this.dependencies.transport.toolCallback({
-        sessionId: hermesSessionId,
-        turnId: input.turnId ?? "hermes-turn-unknown",
-        toolCallId: request.toolCallId,
-        toolName: request.toolName,
-        operationId: request.operationId,
-        incidentTraceId: typeof input.metadata?.incidentTraceId === "string" ? input.metadata.incidentTraceId : undefined,
-        attemptTraceId: typeof input.metadata?.attemptTraceId === "string" ? input.metadata.attemptTraceId : undefined,
-        logicalToolOperationId: logicalOperationId,
-        careerSessionBinding: binding,
-        result: {
-          ok: false,
-          error: {
-            code,
-            category: "not_found",
-            recoverable: true,
-            retryHint: "刷新 CareerAdapt MCP 工具发现后重新规划，不要重复已完成写入。"
-          }
-        }
-      }, input.signal);
-      yield this.event(input, "tool_call_failed", {
-        eventId: request.eventId,
-        toolName: request.toolName,
-        operationId: request.operationId,
-        error: { code, message: "CareerAdapt MCP 工具未找到，正在刷新工具发现。", recoverable: true },
-        data: { toolCallId: request.toolCallId, logicalToolOperationId: logicalOperationId, discoveryRefreshRequired: true, requestedHermesToolName, stableCareerToolName: stableToolName, sourceUserMessageId }
-      });
-      return;
-    }
-    const confirmed = input.metadata?.confirmed === true;
-    const confirmationCount = typeof input.metadata?.confirmationCount === "number" ? input.metadata.confirmationCount : undefined;
-    if (requiresConfirmation(contract) && !confirmed && (confirmationCount ?? 0) < 1) {
-      counters.toolFailures += 1;
-      const approval = this.event(input, "approval_required", {
-        toolName: request.toolName,
-        operationId: request.operationId,
-        message: "这项 Career 操作需要用户确认后才能继续。",
-        data: {
-          toolCallId: request.toolCallId,
-          logicalToolOperationId: logicalOperationId,
-          hermesToolCallArgumentShape: safeCareerToolArgumentShape(request.input),
-          sourceUserMessageId,
-          contract
-        }
-      });
-      yield approval;
-      await this.dependencies.transport.toolCallback({
-        sessionId: hermesSessionId,
-        turnId: input.turnId ?? "hermes-turn-unknown",
-        toolCallId: request.toolCallId,
-        toolName: request.toolName,
-        operationId: request.operationId,
-        incidentTraceId: typeof input.metadata?.incidentTraceId === "string" ? input.metadata.incidentTraceId : undefined,
-        attemptTraceId: typeof input.metadata?.attemptTraceId === "string" ? input.metadata.attemptTraceId : undefined,
-        logicalToolOperationId: logicalOperationId,
-        careerSessionBinding: binding,
-        result: { ok: false, error: { code: "approval_required", recoverable: false } }
-      }, input.signal);
-      return;
-    }
-
-    yield this.event(input, "tool_call_started", {
-      eventId: request.eventId,
-      toolName: request.toolName,
-      operationId: request.operationId,
-      data: {
-        toolCallId: request.toolCallId,
-        logicalToolOperationId: logicalOperationId,
-        hermesToolCallArgumentShape: safeCareerToolArgumentShape(request.input),
-        requestedHermesToolName,
-        stableCareerToolName: stableToolName,
-        sourceUserMessageId
-      }
-    });
-    let result = await this.executeGatewayTool(stableToolName, request.input, {
-      operationId: request.operationId,
-      logicalToolOperationId: logicalOperationId,
-      logicalTurnId: input.turnId,
-      taskId: typeof input.metadata?.taskId === "string" ? input.metadata.taskId : undefined,
-      incidentTraceId: typeof input.metadata?.incidentTraceId === "string" ? input.metadata.incidentTraceId : undefined,
-      agentSessionId: input.sessionId,
-      signal: input.signal,
-      confirmed,
-      confirmationCount,
-      careerSessionBinding: binding,
-      requireSessionBinding,
-      sourceUserMessageId
-    }, counters);
-    if (!result.ok && shouldRetryRead(contract, result)) {
-      counters.autonomousRecoveries += 1;
-      result = await this.executeGatewayTool(stableToolName, request.input, {
-        operationId: request.operationId,
-        logicalToolOperationId: logicalOperationId,
-        logicalTurnId: input.turnId,
-        taskId: typeof input.metadata?.taskId === "string" ? input.metadata.taskId : undefined,
-        incidentTraceId: typeof input.metadata?.incidentTraceId === "string" ? input.metadata.incidentTraceId : undefined,
-        agentSessionId: input.sessionId,
-        signal: input.signal,
-        confirmed,
-        confirmationCount,
-        careerSessionBinding: binding,
-        requireSessionBinding,
-        sourceUserMessageId
-      }, counters);
-    }
-    if (!result.ok && result.error?.category === "stale_revision") {
-      counters.autonomousRecoveries += 1;
-      const reread = await rereadStaleDependencies(
-        this.dependencies.careerToolGateway,
-        request.input,
-        binding,
-        requireSessionBinding,
-        input.signal
-      );
-      result = {
-        ...result,
-        error: {
-          ...result.error,
-          recoverable: true,
-          retryHint: reread > 0
-            ? "已重新读取最新依赖；请基于最新 revision 重新生成合法请求。不会自动重复这次写入。"
-            : "请重新读取最新 revision 后再生成请求；不会自动重复这次写入。"
-        }
-      };
-    }
-    if (!result.ok && result.error?.category === "not_found") {
-      counters.autonomousRecoveries += 1;
-      const discoveredToolCount = this.dependencies.careerToolGateway.listContracts().length;
-      result = {
-        ...result,
-        error: {
-          ...result.error,
-          recoverable: true,
-          retryHint: `已刷新 Career 工具发现（${discoveredToolCount} 个工具）；请重新规划，不会重复已完成写入。`
-        }
-      };
-    }
-    if (!result.ok && result.error?.category === "validation") {
-      result = {
-        ...result,
-        error: {
-          ...result.error,
-          retryHint: "当前输入未通过校验；已保留任务状态，请修正当前参数后重试。不会自动提交写入。"
-        }
-      };
-    }
-    await this.dependencies.transport.toolCallback({
-      sessionId: hermesSessionId,
-      turnId: input.turnId ?? "hermes-turn-unknown",
-      toolCallId: request.toolCallId,
-      toolName: request.toolName,
-      operationId: request.operationId,
-      incidentTraceId: typeof input.metadata?.incidentTraceId === "string" ? input.metadata.incidentTraceId : undefined,
-      attemptTraceId: typeof input.metadata?.attemptTraceId === "string" ? input.metadata.attemptTraceId : undefined,
-      logicalToolOperationId: logicalOperationId,
-      careerSessionBinding: binding,
-      result: safeToolResult(result)
-    }, input.signal);
-    if (result.ok) {
-      yield this.event(input, "tool_call_completed", {
-        eventId: request.eventId,
-        toolName: request.toolName,
-        operationId: request.operationId,
-        data: {
-          toolCallId: request.toolCallId,
-          logicalToolOperationId,
-          result: safeToolResult(result),
-          artifacts: result.artifacts,
-          requestedHermesToolName,
-          stableCareerToolName: stableToolName,
-          sourceUserMessageId
-        }
-      });
-      return;
-    }
-    counters.toolFailures += 1;
-    yield this.event(input, "tool_call_failed", {
-      eventId: request.eventId,
-      toolName: request.toolName,
-      operationId: request.operationId,
-      error: {
-        code: result.error?.code ?? "career_tool_failed",
-        message: result.error?.message ?? "Career tool failed.",
-        recoverable: result.error?.recoverable ?? false
-      },
-      data: { toolCallId: request.toolCallId, logicalToolOperationId, result: safeToolResult(result), safeErrorCode: result.error?.code, requestedHermesToolName, stableCareerToolName: stableToolName, sourceUserMessageId }
     });
   }
 
@@ -1351,35 +1037,6 @@ function supportsRuns(transport: HermesBridgeTransport): transport is HermesBrid
     && typeof transport.runEvents === "function";
 }
 
-function requiresConfirmation(contract: CareerToolContract) {
-  return contract.confirmationPolicy !== "none";
-}
-
-function safeToolResult(result: Awaited<ReturnType<CareerToolGateway["execute"]>>) {
-  if (result.ok) {
-    return { ok: true, data: result.data, artifacts: result.artifacts, receipt: result.receipt, diagnostics: result.diagnostics };
-  }
-  return {
-    ok: false,
-    ...(result.data === undefined ? {} : { data: result.data }),
-    error: result.error
-      ? {
-          code: result.error.code,
-          category: result.error.category,
-          message: result.error.message,
-          recoverable: result.error.recoverable,
-          retryHint: result.error.retryHint,
-          ...(result.error.scope ? { scope: result.error.scope } : {}),
-          ...(result.error.invalidFields ? { invalidFields: result.error.invalidFields } : {}),
-          ...(result.error.acceptedShapeHint ? { acceptedShapeHint: result.error.acceptedShapeHint } : {}),
-          diagnostics: result.error.diagnostics
-        }
-      : { code: "career_tool_failed", message: "工具执行没有完成。", recoverable: false },
-    receipt: result.receipt,
-    diagnostics: result.diagnostics ?? result.error?.diagnostics
-  };
-}
-
 function safeMetadata(metadata?: Record<string, unknown>) {
   if (!metadata) return undefined;
   const result: Record<string, unknown> = {};
@@ -1410,110 +1067,6 @@ function sanitizeRuntimeUserEvent(value: Record<string, unknown>) {
     ...(typeof value.messageId === "string" ? { messageId: value.messageId } : {}),
     ...(typeof value.sourceMessageId === "string" ? { sourceMessageId: value.sourceMessageId } : {})
   };
-}
-
-function allowedCareerToolContracts(gateway: CareerToolGateway, input: AgentRuntimeTurnInput, production = true) {
-  if (!production) {
-    return projectCareerContractsForHermes(gateway.listContracts());
-  }
-  const workflowId = typeof input.metadata?.workflowId === "string" ? input.metadata.workflowId : undefined;
-  const workflowStage = typeof input.metadata?.workflowStage === "string" ? input.metadata.workflowStage : undefined;
-  const composeFacadeFirst = workflowId === "compose_resume" && workflowStage === "select_profile_scope";
-  const allowedSourceTools = new Set(
-    Array.isArray(input.metadata?.allowedToolNames)
-      ? input.metadata.allowedToolNames.filter((name): name is string => typeof name === "string")
-      : gateway.listContracts().map((contract) => contract.sourceToolName)
-  );
-  const workflowFacades = workflowFacadeNames(input);
-  const allowedCareerTools = new Set(
-    Array.isArray(input.metadata?.allowedCareerToolNames)
-      ? input.metadata.allowedCareerToolNames.filter((name): name is string => typeof name === "string")
-      : []
-  );
-  const productionProfile = hermesProductionToolNames();
-  const contracts = gateway.listContracts().filter((contract) => composeFacadeFirst
-    ? contract.name === "career.workflow.compose_resume"
-    : productionProfile.has(contract.name)
-      && (
-        allowedSourceTools.has(contract.sourceToolName)
-        || allowedCareerTools.has(contract.name)
-        || workflowFacades.includes(contract.name)
-        || isCareerSystemStatusQuestion(input.userMessage) && contract.name.startsWith("career.system.")
-      )
-  );
-  return projectCareerContractsForHermes(contracts, productionProfile, { allowTargetOmission: true });
-}
-
-function isAllowedCareerTool(input: AgentRuntimeTurnInput, toolName: string, catalog: HermesCareerToolCatalog) {
-  if (input.metadata?.hermesProtocol === "legacy") return Boolean(catalog.entryForStableName(toolName));
-  const allowed = input.metadata?.allowedCareerToolNames;
-  if (Array.isArray(allowed)) return allowed.includes(toolName)
-    || workflowFacadeNames(input).includes(toolName)
-    || isCareerSystemStatusQuestion(input.userMessage) && toolName.startsWith("career.system.");
-  return hermesProductionToolNames().has(toolName) && Boolean(catalog.entryForStableName(toolName));
-}
-
-function workflowFacadeNames(input: AgentRuntimeTurnInput) {
-  const workflowId = typeof input.metadata?.workflowId === "string" ? input.metadata.workflowId : undefined;
-  const stage = typeof input.metadata?.workflowStage === "string" ? input.metadata.workflowStage : undefined;
-  if (workflowId === "guided_profile_intake" || workflowId === "profile_intake") {
-    return [
-      ...(stage === "final_review" || stage === "reconcile_profile" || stage === "resolve_conflicts"
-        ? ["career.workflow.profile_intake_finalize"]
-        : ["career.workflow.profile_intake_turn"])
-    ];
-  }
-  if (workflowId === "resume_import" || workflowId === "import_resume") return ["career.workflow.resume_import"];
-  if (workflowId === "analyze_job_fit") return ["career.workflow.job_fit"];
-  if (workflowId === "tailor_existing_resume" || workflowId === "tailor_resume" || workflowId === "create_tailored_resume") {
-    return stage === "analyze_fit"
-      ? ["career.workflow.job_fit", "career.workflow.tailor_resume"]
-      : ["career.workflow.tailor_resume"];
-  }
-  if (workflowId === "repair_and_export_resume" || workflowId === "export_resume") return ["career.workflow.resume_export"];
-  if (workflowId === "compose_resume" || workflowId === "create_resume_from_profile") {
-    return ["career.workflow.compose_resume", "career.workflow.profile_to_resume"];
-  }
-  if (!workflowId || workflowId === "agent_quick_action") return [...HERMES_REQUIRED_CAREER_FACADES];
-  return [];
-}
-
-async function rereadStaleDependencies(
-  gateway: CareerToolGateway,
-  input: Record<string, unknown>,
-  binding: CareerSessionBinding | undefined,
-  requireSessionBinding: boolean,
-  signal?: AbortSignal
-) {
-  const reads: Array<[string, Record<string, unknown>]> = [];
-  const profileId = stringValue(input.targetProfileId) ?? stringValue(input.profileId);
-  const resumeId = stringValue(input.resumeId);
-  const jobId = stringValue(input.jobId);
-  if (profileId && hasContract(gateway, "career.profile.get")) reads.push(["career.profile.get", { profileId }]);
-  if (resumeId && hasContract(gateway, "career.resume.get")) reads.push(["career.resume.get", { resumeId }]);
-  if (jobId && hasContract(gateway, "career.job.get")) reads.push(["career.job.get", { jobId }]);
-  const results = await Promise.all(reads.map(([name, value], index) => gateway.execute(name, value, {
-    operationId: `mcp-reread-${index}-${Date.now()}`,
-    signal,
-    careerSessionBinding: binding,
-    requireSessionBinding
-  })));
-  return results.filter((result) => result.ok).length;
-}
-
-function shouldRetryRead(contract: CareerToolContract, result: Awaited<ReturnType<CareerToolGateway["execute"]>>) {
-  return contract.readWrite === "read"
-    && result.error?.recoverable === true
-    && result.error.category !== "validation"
-    && result.error.category !== "permission";
-}
-
-function hasContract(gateway: CareerToolGateway, name: string) {
-  return gateway.listContracts().some((contract) => contract.name === name);
-}
-
-function stringValue(value: unknown) {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 function errorCode(error: unknown) {

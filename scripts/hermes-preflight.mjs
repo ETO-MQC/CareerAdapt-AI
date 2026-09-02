@@ -2,7 +2,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+
+const require = createRequire(import.meta.url);
+const { resolveHermesProviderBinding } = require("../electron/hermesProviderBinding.js");
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(scriptDir, "..");
@@ -40,7 +44,17 @@ const providerConfigured = Boolean(firstValue(env.HERMES_BASE_URL, env.AI_BASE_U
   || companionHealth.providerConfigured === true;
 const modelConfigured = Boolean(firstValue(env.HERMES_MODEL, env.AI_MODEL))
   || Boolean(companionHealth.model);
-const credentialPresent = Boolean(firstValue(env.HERMES_RUNTIME_API_KEY, env.HERMES_API_KEY, env.AI_API_KEY));
+const providerBinding = resolveHermesProviderBinding({
+  provider: firstValue(env.HERMES_PROVIDER, env.AI_PROVIDER),
+  baseUrl: firstValue(env.HERMES_BASE_URL, env.AI_BASE_URL, env.OPENROUTER_BASE_URL, env.OPENAI_BASE_URL),
+  model: firstValue(env.HERMES_MODEL, env.AI_MODEL, env.HERMES_INFERENCE_MODEL),
+  genericApiKey: firstValue(env.AI_API_KEY, env.HERMES_API_KEY)
+});
+const credentialPresent = Boolean(firstValue(
+  env[providerBinding.credentialEnvName],
+  env.AI_API_KEY,
+  env.HERMES_API_KEY
+));
 const companionReachable = companionHealth.reachable;
 const mcpCareerAdaptReachable = mcpStatus.reachable && mcpConfigured && mcpTestPassed(mcpTest);
 const browserBridgeReachable = browserBridgeStatus.connected;

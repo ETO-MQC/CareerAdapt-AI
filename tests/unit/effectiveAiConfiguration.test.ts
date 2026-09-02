@@ -19,7 +19,7 @@ describe("effective AI configuration diagnostics", () => {
     });
 
     expect(effective).toMatchObject({
-      provider: "custom-compatible",
+      provider: "custom:careeradapt",
       model: "env-model",
       baseUrl: "https://custom.example/v2/",
       apiKey: "custom-secret",
@@ -41,7 +41,7 @@ describe("effective AI configuration diagnostics", () => {
     }));
 
     expect(diagnostic).toMatchObject({
-      provider: "custom",
+      provider: "custom:careeradapt",
       model: "mimo-v2.5-pro",
       baseUrlHostPath: "token-plan-cn.xiaomimimo.com/v1",
       credentialPresent: true,

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { AgentHostStore } from "@/agent/runtime/AgentHostStore";
 import { AgentRuntime } from "@/agent/runtime/agentRuntime";
+import type { AgentSession } from "@/agent/contracts/agentSession";
 import { AgentRuntimeRouter } from "@/agent/runtime/AgentRuntimeRouter";
 import { RuntimeStatusStore } from "@/agent/runtime/runtimeStatus";
 import { HermesCareerAgentRuntime } from "@/agent/runtime/hermes/HermesCareerAgentRuntime";
@@ -44,6 +45,44 @@ describe("P4.6f Hermes delegation architecture", () => {
     expect(persisted.taskState).toBeUndefined();
     expect(messages.map((message) => message.role)).toEqual(["user", "assistant"]);
     expect(messages[1]).toMatchObject({ content: "正在回复…", streaming: true });
+  });
+
+  it("keeps a completed greeting free of workflow state and task routing", async () => {
+    const saves: unknown[] = [];
+    const host = new AgentHostStore({
+      executor: {} as never,
+      persistence: { save: async (session: unknown) => { saves.push(session); return session as never; } } as never
+    });
+    const session = AgentRuntime.createConversationSession();
+    const shell = await host.beginRuntimeShell({
+      session,
+      userMessage: "你好",
+      runtimeId: "hermes",
+      turnId: "greeting-turn"
+    });
+    await host.applyRuntimeEvent({
+      type: "text_delta",
+      sessionId: session.id,
+      turnId: shell.turnId,
+      timestamp: new Date().toISOString(),
+      delta: "你好，我是职适AI。"
+    }, shell.assistantMessageId);
+    await host.applyRuntimeEvent({
+      type: "turn_completed",
+      sessionId: session.id,
+      turnId: shell.turnId,
+      timestamp: new Date().toISOString(),
+      message: "你好，我是职适AI。"
+    }, shell.assistantMessageId);
+
+    const persisted = saves.at(-1) as AgentSession;
+    expect(persisted.workflowState).toBeUndefined();
+    expect(persisted.taskState).toBeUndefined();
+    expect(persisted.turnCheckpoints).toEqual([]);
+    expect(persisted.messages.map((message) => message.role)).toEqual(["user", "assistant"]);
+    expect(persisted.messages.at(-1)).toMatchObject({ content: "你好，我是职适AI。", status: "complete" });
+    expect(JSON.stringify(persisted)).not.toContain("agent_quick_action");
+    expect(JSON.stringify(persisted)).not.toContain("collecting_intent");
   });
 
   it("uses one official run and never enters the legacy tool callback loop", async () => {

@@ -458,16 +458,16 @@ export type AgentMessage = z.infer<typeof AgentMessageSchema>;
 export type AgentMessageRevision = z.infer<typeof AgentMessageRevisionSchema>;
 export type AgentMessageReference = z.infer<typeof AgentMessageReferenceSchema>;
 export type AgentMessageRecord = z.infer<typeof AgentMessageRecordSchema>;
-type AgentSessionShape = z.infer<typeof AgentSessionObjectSchema>;
-
-// Keep the historical TypeScript contract required for workflow-only code and
-// tests. The runtime/schema boundary above is intentionally more permissive;
-// workflow code is reached only after taskState has been created.
-export type AgentSession = Omit<AgentSessionShape, "workflowState"> & {
+export type AgentSession = z.infer<typeof AgentSessionObjectSchema>;
+export type WorkflowAgentSession = Omit<AgentSession, "workflowState"> & {
   workflowState: z.infer<typeof AgentWorkflowStateSchema>;
 };
 
-export const AgentSessionSchema = AgentSessionObjectSchema.transform((value): AgentSession => value as AgentSession);
+export function isWorkflowAgentSession(session: AgentSession): session is WorkflowAgentSession {
+  return session.workflowState !== undefined;
+}
+
+export const AgentSessionSchema = AgentSessionObjectSchema.transform((value): AgentSession => value);
 
 export type AgentWorkflowState = z.infer<typeof AgentWorkflowStateSchema>;
 export type AgentConfirmation = z.infer<typeof AgentConfirmationSchema>;

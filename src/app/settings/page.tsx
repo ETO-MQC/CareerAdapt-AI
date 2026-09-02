@@ -522,7 +522,6 @@ export default function SettingsPage() {
         setHermesFeedback(aiRuntimeConfigFeedback(validationReason));
         return;
       }
-      writeAiSettings(draft);
       if (activeRun && session) {
         await agentHost.interruptRun(session.id, createRunStopReason({
           requestedBy: "user",
@@ -537,6 +536,7 @@ export default function SettingsPage() {
       const result = await requestHermesConfigUpdate(draft);
       const applyStatus = result.receipt?.applyStatus ?? result.snapshot?.runtimeConfig?.applyStatus;
       if (applyStatus === "applied") {
+        writeAiSettings(draft);
         setAiSaved(true);
         if (session) sessionBindingToRelease = session.id;
       }
@@ -581,10 +581,12 @@ export default function SettingsPage() {
           incidentTraceId: session.activeTurn?.incidentTraceId
         }));
       }
-      clearAiSettings();
       const result = await requestHermesConfigReset();
-      setAiSettings(readAiSettings());
-      if (result.ok && session) sessionBindingToRelease = session.id;
+      if (result.ok) {
+        clearAiSettings();
+        setAiSettings(readAiSettings());
+        if (session) sessionBindingToRelease = session.id;
+      }
       setHermesFeedback(result.ok
         ? hermesControlFeedback(result.controlSnapshot ?? agentHost.runtimeStatus.getSnapshot().controlSnapshot ?? hermesSnapshot)
         : aiRuntimeConfigFeedback(result.reason ?? "reset_failed"));

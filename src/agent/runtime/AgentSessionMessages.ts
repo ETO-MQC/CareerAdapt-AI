@@ -96,7 +96,8 @@ export function replaceAgentThinking(
   session: AgentSession,
   messageId: string,
   content: string,
-  turnId?: string
+  turnId?: string,
+  options: { preserveThinking?: boolean } = {}
 ) {
   const now = new Date().toISOString();
   const existing = session.messages.find((item) => item.id === messageId);
@@ -104,7 +105,24 @@ export function replaceAgentThinking(
     existing?.metadata?.workflowInteractionProjection === true
     || existing?.metadata?.tailoringQuestionProjection === true
   ) return session;
-  const message = normalizeMessageForFinalAssistant({
+  const message = options.preserveThinking
+    ? {
+        ...existing,
+        id: messageId,
+        branchId: existing?.branchId ?? session.activeBranchId ?? "legacy-branch",
+        turnId,
+        role: "assistant" as const,
+        content,
+        kind: "assistant_thinking" as const,
+        type: "assistant_thinking" as const,
+        status: "thinking" as const,
+        streaming: true,
+        language: detectLanguage(content),
+        metadata: { ...existing?.metadata, retracted: false },
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now
+      } as AgentMessage
+    : normalizeMessageForFinalAssistant({
     ...existing,
     id: messageId,
     branchId: existing?.branchId ?? session.activeBranchId ?? "legacy-branch",
