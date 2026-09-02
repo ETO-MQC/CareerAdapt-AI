@@ -9,6 +9,18 @@ export type HermesFailureLayer =
   | "bridge_http"
   | "response";
 
+export type HermesSafeErrorCategory =
+  | "provider_auth"
+  | "provider_request_invalid"
+  | "model_not_found"
+  | "tool_schema_invalid"
+  | "context_overflow"
+  | "provider_timeout"
+  | "mcp_tool_failure"
+  | "hermes_internal_failure"
+  | "transport_failure"
+  | "unknown";
+
 export type HermesRunFailureDiagnostics = {
   failureLayer: HermesFailureLayer;
   httpStatus?: number;
@@ -16,6 +28,7 @@ export type HermesRunFailureDiagnostics = {
   safeErrorMessage: string;
   upstreamErrorCode?: string;
   upstreamErrorType?: string;
+  safeErrorCategory: HermesSafeErrorCategory;
   safeMessageCategory?: "auth" | "invalid_request" | "conflict" | "provider" | "transport" | "unknown";
   hermesSessionId?: string;
   hermesRunId?: string;
@@ -30,6 +43,10 @@ export type HermesRunFailureDiagnostics = {
   runPhase?: "before_run_start" | "after_run_start";
   companionConnected?: boolean;
   providerStatus?: string;
+  provider?: string;
+  model?: string;
+  lastHermesEventType?: string;
+  toolName?: string;
   mcpConnected?: boolean;
   latencyMs?: number;
   incidentTraceId?: string;
@@ -44,6 +61,18 @@ export const HermesRunFailureDiagnosticsSchema = z.object({
   safeErrorMessage: z.string().min(1),
   upstreamErrorCode: z.string().min(1).optional(),
   upstreamErrorType: z.string().min(1).max(120).optional(),
+  safeErrorCategory: z.enum([
+    "provider_auth",
+    "provider_request_invalid",
+    "model_not_found",
+    "tool_schema_invalid",
+    "context_overflow",
+    "provider_timeout",
+    "mcp_tool_failure",
+    "hermes_internal_failure",
+    "transport_failure",
+    "unknown"
+  ]).optional(),
   safeMessageCategory: z.enum(["auth", "invalid_request", "conflict", "provider", "transport", "unknown"]).optional(),
   hermesSessionId: z.string().min(1).optional(),
   hermesRunId: z.string().min(1).optional(),
@@ -58,6 +87,10 @@ export const HermesRunFailureDiagnosticsSchema = z.object({
   runPhase: z.enum(["before_run_start", "after_run_start"]).optional(),
   companionConnected: z.boolean().optional(),
   providerStatus: z.string().min(1).optional(),
+  provider: z.string().min(1).max(160).optional(),
+  model: z.string().min(1).max(160).optional(),
+  lastHermesEventType: z.string().min(1).max(160).optional(),
+  toolName: z.string().min(1).max(160).optional(),
   mcpConnected: z.boolean().optional(),
   latencyMs: z.number().int().min(0).optional(),
   incidentTraceId: z.string().min(1).optional(),
@@ -79,6 +112,7 @@ export type HermesRunFailureInput = {
   failureLayer?: HermesFailureLayer;
   upstreamErrorCode?: string;
   upstreamErrorType?: string;
+  safeErrorCategory?: HermesSafeErrorCategory;
   safeMessageCategory?: HermesRunFailureDiagnostics["safeMessageCategory"];
   hermesSessionId?: string;
   hermesRunId?: string;
@@ -93,6 +127,10 @@ export type HermesRunFailureInput = {
   runPhase?: "before_run_start" | "after_run_start";
   companionConnected?: boolean;
   providerStatus?: string;
+  provider?: string;
+  model?: string;
+  lastHermesEventType?: string;
+  toolName?: string;
   mcpConnected?: boolean;
   latencyMs?: number;
   incidentTraceId?: string;
@@ -119,7 +157,7 @@ export function classifyHermesRunFailure(input: HermesRunFailureInput): HermesRu
   const sourceCode = safeCode(input.code) ?? "hermes_run_start_failed";
   const sourceMessage = safeMessage(input.message)
     ?? (input.runPhase === "after_run_start" ? "Hermes 本轮任务没有完成。" : "Hermes 本轮任务没有启动。");
-  const status = input.httpStatus;
+  const status = input.httpStatus ?? inferHttpStatus(sourceMessage);
   const code = sourceCode.toLowerCase();
   const message = sourceMessage.toLowerCase();
   const authFailure = status === 401 || status === 403
@@ -139,18 +177,70 @@ export function classifyHermesRunFailure(input: HermesRunFailureInput): HermesRu
     || /companion|bridge|network|connect/u.test(message);
   const postStartOperation = /^hermes_run_(events|status|approval|stop)_(failed|timeout)$/u.test(sourceCode);
   const postStartPhase = input.runPhase === "after_run_start";
+  const modelNotFound = /(?:model|deployment).*(?:not found|does not exist|unknown|missing)|(?:not found|does not exist).*(?:model|deployment)/u.test(code)
+    || /(?:model|deployment).*(?:not found|does not exist|unknown|missing)|(?:not found|does not exist).*(?:model|deployment)/u.test(message);
+  const toolSchemaInvalid = /(?:tool|function|mcp).*(?:schema|contract).*(?:invalid|error)|(?:invalid|malformed).*(?:tool|function|mcp)/u.test(code)
+    || /(?:tool|function|mcp).*(?:schema|contract).*(?:invalid|error)|(?:invalid|malformed).*(?:tool|function|mcp)/u.test(message);
+  const contextOverflow = /context|token.*(?:limit|length|overflow)|too many tokens|maximum context/u.test(code)
+    || /context|token.*(?:limit|length|overflow)|too many tokens|maximum context/u.test(message);
+  const mcpToolFailure = input.failureLayer === "mcp"
+    || /mcp|tool[_ -]?(?:call|execution|failure)|function[_ -]?call/u.test(code)
+    || /mcp|tool (?:call|execution|failure)|function call/u.test(message);
+  const hermesInternalFailure = /hermes.*(?:internal|server)|internal.*(?:error|failure)|server error/u.test(code)
+    || /hermes.*(?:internal|server)|internal.*(?:error|failure)|server error/u.test(message);
+  const providerRequestInvalid = status === 400 || status === 422
+    || /invalid[_ -]?(?:request|parameter|input)|bad[_ -]?request/u.test(code)
+    || /invalid (?:request|parameter|input)|bad request/u.test(message);
+  const providerTimeout = timeout && (input.failureLayer === "provider" || providerFailure || /provider|upstream/u.test(message));
+  const transportFailure = input.failureLayer === "companion"
+    || input.failureLayer === "bridge_http"
+    || companionFailure
+    || transientHttp;
+  const safeErrorCategory = input.safeErrorCategory ?? (
+    authFailure ? "provider_auth"
+      : modelNotFound ? "model_not_found"
+        : toolSchemaInvalid ? "tool_schema_invalid"
+          : contextOverflow ? "context_overflow"
+            : providerTimeout ? "provider_timeout"
+              : mcpToolFailure ? "mcp_tool_failure"
+                : hermesInternalFailure ? "hermes_internal_failure"
+                  : providerRequestInvalid ? "provider_request_invalid"
+                    : postStartOperation || activeConflict || transportFailure ? "transport_failure"
+                      : "unknown"
+  );
   const safeMessageCategory = input.safeMessageCategory ?? (
-    authFailure ? "auth"
+    safeErrorCategory === "provider_auth" ? "auth"
       : activeConflict ? "conflict"
-        : providerFailure ? "provider"
-          : status !== undefined && status >= 400 && status < 500 ? "invalid_request"
-            : transientHttp || companionFailure ? "transport" : "unknown"
+        : ["provider_request_invalid", "tool_schema_invalid", "context_overflow"].includes(safeErrorCategory) ? "invalid_request"
+          : ["model_not_found", "provider_timeout", "hermes_internal_failure"].includes(safeErrorCategory) ? "provider"
+            : ["mcp_tool_failure", "transport_failure"].includes(safeErrorCategory) ? "transport"
+              : "unknown"
   );
 
   let safeErrorCode = sourceCode;
   let retryable = input.retryable ?? true;
   let failureLayer = input.failureLayer ?? "run_start";
-  if (authFailure) {
+  if (safeErrorCategory === "model_not_found") {
+    safeErrorCode = "hermes_model_not_found";
+    retryable = false;
+    failureLayer = "provider";
+  } else if (safeErrorCategory === "tool_schema_invalid") {
+    safeErrorCode = "hermes_tool_schema_invalid";
+    retryable = false;
+    failureLayer = "mcp";
+  } else if (safeErrorCategory === "context_overflow") {
+    safeErrorCode = "hermes_context_overflow";
+    retryable = false;
+    failureLayer = "provider";
+  } else if (safeErrorCategory === "mcp_tool_failure") {
+    safeErrorCode = sourceCode === "hermes_tool_failed" ? "hermes_mcp_tool_failed" : sourceCode;
+    retryable = input.retryable ?? false;
+    failureLayer = "mcp";
+  } else if (safeErrorCategory === "hermes_internal_failure") {
+    safeErrorCode = "hermes_internal_failure";
+    retryable = input.retryable ?? false;
+    failureLayer = input.failureLayer ?? "bridge_http";
+  } else if (safeErrorCategory === "provider_auth" || authFailure) {
     safeErrorCode = "hermes_provider_auth_failed";
     retryable = false;
     failureLayer = "provider";
@@ -177,7 +267,8 @@ export function classifyHermesRunFailure(input: HermesRunFailureInput): HermesRu
     safeErrorCode = "hermes_provider_unconfigured";
     retryable = false;
     failureLayer = "provider";
-  } else if (providerFailure && (status === 400 || status === 422 || input.providerStatus === "invalid")) {
+  } else if (safeErrorCategory === "provider_request_invalid"
+    && (providerFailure || input.providerStatus === "invalid" || input.failureLayer === "provider")) {
     safeErrorCode = "hermes_provider_unavailable";
     retryable = false;
     failureLayer = "provider";
@@ -210,6 +301,7 @@ export function classifyHermesRunFailure(input: HermesRunFailureInput): HermesRu
     safeErrorMessage: sourceMessage,
     ...((input.upstreamErrorCode || sourceCode !== safeErrorCode) ? { upstreamErrorCode: input.upstreamErrorCode ?? sourceCode } : {}),
     ...(input.upstreamErrorType && /^[A-Za-z0-9_.:-]{1,120}$/u.test(input.upstreamErrorType) ? { upstreamErrorType: input.upstreamErrorType } : {}),
+    safeErrorCategory,
     safeMessageCategory,
     ...(input.hermesSessionId ? { hermesSessionId: input.hermesSessionId } : {}),
     ...(input.hermesRunId ? { hermesRunId: input.hermesRunId } : {}),
@@ -224,6 +316,10 @@ export function classifyHermesRunFailure(input: HermesRunFailureInput): HermesRu
     ...(input.runPhase ? { runPhase: input.runPhase } : {}),
     ...(input.companionConnected === undefined ? {} : { companionConnected: input.companionConnected }),
     ...(input.providerStatus ? { providerStatus: input.providerStatus } : {}),
+    ...(input.provider ? { provider: input.provider.slice(0, 160) } : {}),
+    ...(input.model ? { model: input.model.slice(0, 160) } : {}),
+    ...(input.lastHermesEventType ? { lastHermesEventType: input.lastHermesEventType.slice(0, 160) } : {}),
+    ...(input.toolName ? { toolName: input.toolName.slice(0, 160) } : {}),
     ...(input.mcpConnected === undefined ? {} : { mcpConnected: input.mcpConnected }),
     ...(input.latencyMs === undefined ? {} : { latencyMs: Math.max(0, Math.round(input.latencyMs)) }),
     ...(input.incidentTraceId ? { incidentTraceId: input.incidentTraceId } : {}),
@@ -280,6 +376,11 @@ function safeCode(value: unknown) {
 function safeMessage(value: unknown) {
   if (typeof value !== "string" || !value.trim()) return undefined;
   return redactSensitiveText(value.replace(/[\u0000-\u001f\u007f]/gu, " ").replace(/\s+/gu, " ").trim()).slice(0, 360);
+}
+
+function inferHttpStatus(value: string) {
+  const match = value.match(/(?:HTTP|status|code)\s*[:=]?\s*(4\d{2}|5\d{2})\b/iu);
+  return match ? Number(match[1]) : undefined;
 }
 
 function redactSensitiveText(value: string) {

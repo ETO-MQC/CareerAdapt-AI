@@ -58,7 +58,7 @@ describe("P4.4d Hermes runtime closure", () => {
     for await (const event of router.active().runTurn({ sessionId: "p44d-empty", userMessage: "继续", pageContext: { query: {} } })) events.push(event);
     expect(events.at(-1)).toMatchObject({
       type: "turn_failed",
-      error: { code: "hermes_unavailable_recoverable", recoverable: true },
+      error: { code: "hermes_stream_incomplete", recoverable: false },
       data: { telemetry: { fallbackUsed: false, finalRuntime: "hermes" } }
     });
   });

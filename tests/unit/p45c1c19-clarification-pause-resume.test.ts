@@ -8,8 +8,6 @@ import {
 } from "@/agent/runtime/AgentHostStore";
 import { AgentTaskStateReducer, normalizeAgentTaskState } from "@/agent/runtime/AgentTaskStateReducer";
 import { projectTaskStateIntoSession } from "@/agent/runtime/projectTaskStateToWorkflowState";
-import { eventsWithHeartbeat } from "@/agent/runtime/hermes/HermesCareerAgentRuntime";
-import type { HermesBridgeTransport } from "@/agent/runtime/hermes/HermesBridgeTransport";
 import { CareerAdaptMcpBridgeClient } from "@/agent/mcp/CareerAdaptMcpBridgeClient";
 
 const pageContext = { pathname: "/ai-workspace", query: {} };
@@ -143,41 +141,6 @@ describe("P4.5c.1.19 clarification pause/resume closure", () => {
       questionId: "q-1",
       messageId: expect.stringContaining("question-plan-1")
     });
-  });
-
-  it("keeps one run_events observer alive beyond the former 60 second boundary", async () => {
-    vi.useFakeTimers();
-    const transport = {
-      runEvents: async function* (_runId: string, signal?: AbortSignal) {
-        await new Promise<void>((resolve, reject) => {
-          const timer = setTimeout(resolve, 90_000);
-          signal?.addEventListener("abort", () => {
-            clearTimeout(timer);
-            reject(new Error("stream_aborted"));
-          }, { once: true });
-        });
-        yield { type: "turn_completed", message: "90 秒后完成" } as const;
-      }
-    } as unknown as HermesBridgeTransport;
-    const iterator = eventsWithHeartbeat(transport as HermesBridgeTransport & Required<Pick<HermesBridgeTransport, "runEvents">>, "run-90s", undefined, undefined, 45_000)[Symbol.asyncIterator]();
-
-    const first = iterator.next();
-    await vi.advanceTimersByTimeAsync(45_000);
-    expect((await first).value).toMatchObject({ type: "progress", data: { heartbeat: true } });
-
-    const second = iterator.next();
-    await vi.advanceTimersByTimeAsync(45_000);
-    const secondValue = (await second).value;
-    expect(secondValue).toMatchObject(
-      secondValue?.type === "progress"
-        ? { type: "progress", data: { heartbeat: true } }
-        : { type: "turn_completed", message: "90 秒后完成" }
-    );
-    if (secondValue?.type === "progress") {
-      const third = iterator.next();
-      await vi.advanceTimersByTimeAsync(1);
-      expect((await third).value).toMatchObject({ type: "turn_completed", message: "90 秒后完成" });
-    }
   });
 
   it("binds the canonical continuation to the active question and sends one answer payload", async () => {

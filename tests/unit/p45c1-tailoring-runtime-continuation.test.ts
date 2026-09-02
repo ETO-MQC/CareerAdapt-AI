@@ -139,16 +139,16 @@ describe("P4.5c.1.6 Hermes-first tailoring continuation and failure closure", ()
     const failed = [...events].reverse().find((event) => event.type === "turn_failed");
     const failedData = failed?.data as Record<string, unknown> | undefined;
     expect(failed?.error).toMatchObject({
-      code: "hermes_unavailable_recoverable",
-      recoverable: true
+      code: "hermes_run_start_failed",
+      recoverable: false
     });
     expect(failedData?.telemetry).toMatchObject({
       fallbackUsed: false,
       preferredRuntime: "hermes",
       attemptedRuntime: "hermes",
-      finalRuntime: "hermes",
-      fallbackReasonCode: "hermes_run_start_failed"
+      finalRuntime: "hermes"
     });
+    expect(failedData?.telemetry).not.toHaveProperty("fallbackReasonCode");
   });
 
   it("keeps the fit checkpoint and selected entities when plan creation fails, then retries generate_plan", async () => {

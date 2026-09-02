@@ -89,7 +89,7 @@ export function AgentWorkspace() {
   const snapshot = useSyncExternalStore(host.state.subscribe, host.state.getSnapshot, host.state.getSnapshot);
   const runtimeStatus = useSyncExternalStore(host.runtimeStatus.subscribe, host.runtimeStatus.getSnapshot, host.runtimeStatus.getSnapshot);
   const [session, setSession] = useState<AgentSession>(() =>
-    snapshot.activeSession ?? AgentRuntime.create("agent_quick_action", "collecting_intent", "AI 求职任务")
+    snapshot.activeSession ?? AgentRuntime.createConversationSession()
   );
   const [sessions, setSessions] = useState<AgentSession[]>([]);
   const [resumes, setResumes] = useState<ResumeSummary[]>([]);
@@ -343,7 +343,7 @@ export function AgentWorkspace() {
     const pending = pendingContextRequest;
     if (!pending) return;
     if (action === "new_task") {
-      const created = AgentRuntime.create("agent_quick_action", "collecting_intent", "新的 AI 任务", pending.context);
+      const created = AgentRuntime.createConversationSession("新的对话", pending.context);
       const saved = await host.state.adoptDurably(created);
       if (saved) {
         setSession(saved);
@@ -436,7 +436,7 @@ export function AgentWorkspace() {
   const createSessionWithCurrentContext = useCallback(async (title: string, options: { allowAfterInteraction?: boolean } = {}) => {
     const context = await agentImportRepository.getActiveCareerContext();
     if (!mountedRef.current || (!options.allowAfterInteraction && userInteractedRef.current)) return undefined;
-    const created = AgentRuntime.create("agent_quick_action", "collecting_intent", title, context);
+    const created = AgentRuntime.createConversationSession(title, context);
     const saved = await host.state.adoptDurably(created);
     if (!saved) return undefined;
     setSession(saved);
@@ -487,7 +487,7 @@ export function AgentWorkspace() {
         return;
       }
       if (requested === NEW_TASK_SESSION_VALUE) {
-        await createSessionWithCurrentContext("新的 AI 任务", { allowAfterInteraction: true });
+        await createSessionWithCurrentContext("新的对话", { allowAfterInteraction: true });
         return;
       }
       const restored = requestedStoredSession ?? storedSessions.find((item) => item.id === requested) ?? storedSessions[0];
@@ -506,7 +506,7 @@ export function AgentWorkspace() {
         } else {
           restoreSession(restored, { initial: true });
         }
-      } else await createSessionWithCurrentContext("AI 求职任务");
+      } else await createSessionWithCurrentContext("新的对话");
     });
     return () => { active = false; };
   }, [createSessionWithCurrentContext, host.executor, host.state, host.store, restoreSession]);
@@ -538,7 +538,7 @@ export function AgentWorkspace() {
     const newTask = () => {
       userInteractedRef.current = true;
       restoreRequestRef.current += 1;
-      void createSessionWithCurrentContext("新的 AI 任务", { allowAfterInteraction: true });
+      void createSessionWithCurrentContext("新的对话", { allowAfterInteraction: true });
       setPendingResumeImportAttachmentId(undefined);
       setDrawerState("closed");
     };
@@ -1091,7 +1091,7 @@ export function AgentWorkspace() {
     >
       <div
         className={`agent-workspace-body is-drawer-${drawerState}`}
-        data-agent-workflow-id={session.taskState?.workflowId ?? session.workflowState.workflowId}
+        data-agent-workflow-id={session.taskState?.workflowId ?? session.workflowState?.workflowId ?? ""}
         data-agent-task-stage={session.taskState?.stage ?? ""}
         data-agent-completion-status={session.taskState?.completionStatus ?? ""}
         data-agent-checkpoint-id={workflowCheckpoint?.checkpointId ?? ""}
@@ -1104,7 +1104,7 @@ export function AgentWorkspace() {
           ) : (
             <>
               <div className="agent-conversation-toolbar">
-                {snapshot.turnStatus === "failed" ? <span><WifiOff aria-hidden="true" />任务已中断，可重试</span> : null}
+                {snapshot.turnStatus === "failed" ? <span><WifiOff aria-hidden="true" />本轮回答失败，可重试</span> : null}
                 {hasAutosavedIntake ? <span className="agent-autosave-receipt" aria-live="polite">已自动保存到本地</span> : null}
                 <button
                   type="button"
@@ -1125,20 +1125,20 @@ export function AgentWorkspace() {
                 <button type="button" onClick={() => void exportTechnicalDiagnostics()}>
                   导出技术诊断
                 </button>
-                <button
-                  type="button"
-                  onClick={() => dispatchUi({ type: paused ? "resume_workflow" : "pause_workflow", workflowId: session.workflowState.workflowId })}
-                >
-                  {paused ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />}
-                  {paused ? "继续任务" : "暂停任务"}
-                </button>
+                {session.taskState ? <button
+                    type="button"
+                    onClick={() => dispatchUi({ type: paused ? "resume_workflow" : "pause_workflow", workflowId: session.taskState!.workflowId })}
+                  >
+                    {paused ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />}
+                    {paused ? "继续任务" : "暂停任务"}
+                  </button> : null}
                 <button type="button" onClick={() => setHistoryOpen(true)}>
                   <History aria-hidden="true" />历史
                 </button>
               </div>
               {snapshot.stalled ? (
                 <div className="agent-stall-watchdog" role="status">
-                  <span>{liveHermesRun ? "Hermes 正在处理较长内容，仍在运行…" : "这一步响应时间较长"}</span>
+                  <span>{liveHermesRun ? "正在回复…" : "这一步响应时间较长"}</span>
                   <div>
                     <button type="button" onClick={() => host.state.continueWaiting()}>继续等待</button>
                     <button type="button" onClick={() => host.state.interrupt()}>停止任务</button>
@@ -1773,7 +1773,7 @@ export function sanitizeRuntimeFailureDiagnostics(value: unknown): Record<string
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const source = value as Record<string, unknown>;
   const result: Record<string, unknown> = {};
-  const stringKeys = ["failureLayer", "safeErrorCode", "safeErrorMessage", "upstreamErrorCode", "hermesSessionId", "hermesRunId", "requestedTurnId", "runStartKind", "runPhase", "providerStatus", "incidentTraceId", "attemptTraceId", "recoveryReason", "cancellationOwner"];
+  const stringKeys = ["failureLayer", "safeErrorCode", "safeErrorMessage", "safeErrorCategory", "safeMessageCategory", "upstreamErrorCode", "upstreamErrorType", "hermesSessionId", "hermesRunId", "requestedTurnId", "runStartKind", "runPhase", "providerStatus", "provider", "model", "lastHermesEventType", "toolName", "incidentTraceId", "attemptTraceId", "recoveryReason", "cancellationOwner"];
   const numberKeys = ["httpStatus", "latencyMs"];
   const booleanKeys = ["companionConnected", "mcpConnected", "retryable"];
   for (const key of stringKeys) {

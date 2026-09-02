@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { HermesCareerToolCatalog } from "@/agent/runtime/hermes/HermesCareerToolCatalog";
 import { classifyHermesRunFailure } from "@/agent/runtime/hermes/hermesRunReliability";
 import { recordHermesRunStartFailure, recordHermesRunStartSuccess } from "@/agent/runtime/hermes/hermesRunReadiness";
 
@@ -48,6 +47,12 @@ async function officialHermesRequest(baseUrl: string, action: z.infer<typeof Her
           ...(configuredModel() ? { model: configuredModel() } : {}),
           instructions: careerRunInstructions(payload),
           conversation_history: safeConversationHistory(payload.conversationHistory),
+          career_context: {
+            session_id: safeCareerBinding(payload.careerSessionBinding)?.agentSessionId ?? safeDiagnosticString(payload.sessionId),
+            binding: safeCareerBinding(payload.careerSessionBinding),
+            page: safePageContext(payload.pageContext),
+            attachments: safeAttachments(payload.attachments)
+          },
           metadata: safeRuntimeMetadata({
             ...asRecord(payload.metadata),
             incidentTraceId: payload.incidentTraceId,
@@ -280,12 +285,16 @@ function sessionIdFromResponse(value: unknown) {
 
 function upstreamError(status: number, value: unknown, fallbackCode: string, context: Partial<ReturnType<typeof classifyHermesRunFailure>> = {}) {
   const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
-  const error = record.error && typeof record.error === "object" && !Array.isArray(record.error)
-    ? record.error as Record<string, unknown>
+  const rawError = record.error;
+  const error = rawError && typeof rawError === "object" && !Array.isArray(rawError)
+    ? rawError as Record<string, unknown>
     : {};
+  const message = typeof rawError === "string"
+    ? rawError
+    : typeof error.message === "string" ? error.message : undefined;
   const diagnostics = classifyHermesRunFailure({
     code: typeof error.code === "string" ? error.code : fallbackCode,
-    message: typeof error.message === "string" ? error.message : undefined,
+    message,
     httpStatus: status || 502,
     failureLayer: /provider|model|auth/u.test(String(error.code ?? fallbackCode)) ? "provider" : "bridge_http",
     upstreamErrorCode: typeof error.code === "string" ? error.code : fallbackCode,
@@ -349,7 +358,7 @@ async function proxyRunJson(root: string, payload: Record<string, unknown>, meth
   });
   const raw = await response.json().catch(() => ({}));
   if (!response.ok) return upstreamError(response.status, raw, `hermes_run_${kind}_failed`);
-  return NextResponse.json({ ok: true, data: raw });
+  return NextResponse.json({ ok: true, data: safeRunStatus(raw) });
 }
 
 function requiredRunId(payload: Record<string, unknown>) {
@@ -357,6 +366,67 @@ function requiredRunId(payload: Record<string, unknown>) {
     throw Object.assign(new Error("hermes_run_id_required"), { code: "hermes_run_id_required" });
   }
   return payload.runId;
+}
+
+function safeRunStatus(value: unknown) {
+  const record = asRecord(value);
+  const allowedStatuses = ["queued", "started", "running", "waiting_for_approval", "stopping", "completed", "failed", "cancelled"] as const;
+  const rawStatus = typeof record.status === "string" ? record.status : "failed";
+  const status = allowedStatuses.includes(rawStatus as typeof allowedStatuses[number])
+    ? rawStatus as typeof allowedStatuses[number]
+    : "failed";
+  const output = typeof record.output === "string" ? record.output.slice(0, 16_000) : undefined;
+  const error = safeRunError(record.error);
+  const usage = asRecord(record.usage);
+  const numericUsage = Object.fromEntries(Object.entries(usage).flatMap(([key, entry]) =>
+    typeof entry === "number" && Number.isFinite(entry) ? [[key, entry]] : []
+  ));
+  return {
+    run_id: safeDiagnosticString(record.run_id) ?? "unknown-run",
+    status,
+    ...(safeLabel(record.session_id) ? { session_id: safeLabel(record.session_id) } : {}),
+    ...(safeLabel(record.provider) ? { provider: safeLabel(record.provider) } : {}),
+    ...(safeLabel(record.model) ? { model: safeLabel(record.model) } : {}),
+    ...(output !== undefined ? { output } : {}),
+    ...(error ? { error } : {}),
+    ...(safeLabel(record.last_event) ? { last_event: safeLabel(record.last_event) } : {}),
+    ...(typeof record.created_at === "number" ? { created_at: record.created_at } : {}),
+    ...(typeof record.updated_at === "number" ? { updated_at: record.updated_at } : {}),
+    ...(Object.keys(numericUsage).length ? { usage: numericUsage } : {})
+  };
+}
+
+function safeRunError(value: unknown) {
+  const error = typeof value === "string"
+    ? { message: value }
+    : asRecord(value);
+  const message = typeof error.message === "string"
+    ? error.message
+    : typeof error.error === "string" ? error.error : undefined;
+  const code = safeDiagnosticString(error.code);
+  const httpStatus = [error.http_status, error.httpStatus, error.status_code, error.statusCode]
+    .find((entry): entry is number => typeof entry === "number" && Number.isInteger(entry) && entry >= 100 && entry <= 599);
+  if (!message && !code && httpStatus === undefined) return undefined;
+  return {
+    ...(code ? { code } : {}),
+    ...(message ? { message: redactRunText(message) } : {}),
+    ...(httpStatus === undefined ? {} : { httpStatus })
+  };
+}
+
+function redactRunText(value: string) {
+  return value
+    .replace(/Bearer\s+[^\s,;]+/giu, "Bearer [redacted]")
+    .replace(/\b(?:sk|rk)-[A-Za-z0-9_-]{8,}\b/gu, "[redacted-key]")
+    .replace(/\b(?:x-api-key|api[_ -]?key|authorization|token|secret|password)\s*[:=]\s*[^\s,;]+/giu, "[redacted-secret]")
+    .replace(/[\u0000-\u001f\u007f]/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim()
+    .slice(0, 360);
+}
+
+function safeLabel(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim().slice(0, 160) : undefined;
 }
 
 function safeConversationHistory(value: unknown) {
@@ -370,71 +440,30 @@ function safeConversationHistory(value: unknown) {
 }
 
 function careerRunInstructions(payload: Record<string, unknown>) {
-  const contracts = Array.isArray(payload.toolContracts)
-    ? payload.toolContracts.flatMap((value) => {
-        const contract = asRecord(value);
-        if (typeof contract.name !== "string") return [];
-        return [{
-          stableName: typeof contract.careerAdaptStableName === "string" ? contract.careerAdaptStableName : contract.name,
-          registeredName: contract.name
-        }];
-      })
-    : [];
-  const catalog = new HermesCareerToolCatalog(contracts.map((contract) => contract.stableName));
   const metadata = asRecord(payload.metadata);
   const workflowId = typeof payload.workflowId === "string" ? payload.workflowId : typeof metadata.workflowId === "string" ? metadata.workflowId : undefined;
   const workflowStage = typeof payload.workflowStage === "string" ? payload.workflowStage : typeof metadata.workflowStage === "string" ? metadata.workflowStage : undefined;
-  const systemStatusTurn = isSystemStatusQuestion(payload.userMessage);
-  const registered = (stableName: string) => contracts.find((contract) => contract.stableName === stableName)?.registeredName
-    ?? catalog.registeredNameForStableName(stableName);
-  const facadeLines = contracts
-    .filter((contract) => contract.stableName.startsWith("career.workflow."))
-    .map((contract) => `${contract.stableName} -> ${contract.registeredName.startsWith("mcp__") ? contract.registeredName : catalog.registeredNameForStableName(contract.stableName)}`)
-    .join(", ");
-  const context = {
-    career_context: {
-      session_id: safeCareerBinding(payload.careerSessionBinding)?.agentSessionId,
-      binding: safeCareerBinding(payload.careerSessionBinding),
-      page: safePageContext(payload.pageContext),
-      runtime_user_event: safeRuntimeUserEvent(asRecord(payload.metadata).runtimeUserEvent)
-    },
-    attachments: safeAttachments(payload.attachments)
-  };
+  const binding = safeCareerBinding(payload.careerSessionBinding);
+  const activeWorkflow = workflowId && workflowStage
+    ? `Active CareerAdapt workflow checkpoint: ${safeDiagnosticString(workflowId) ?? "unknown"} / ${safeDiagnosticString(workflowStage) ?? "unknown"}. Continue from this checkpoint only and stop at any host confirmation or review boundary.`
+    : "";
+  const attachmentHint = safeAttachments(payload.attachments).length > 0
+    ? "The host supplied local attachment references. Use only their IDs when the user explicitly asks to import them; never request file paths, bytes, or base64."
+    : "";
   return [
-    "You are the CareerAdapt Career Agent. Hermes v0.19 exposes CareerAdapt MCP tools under exact mcp__careeradapt__... registry names.",
-    systemStatusTurn
-      ? "This is a CareerAdapt system-status question. Use the read-only CareerAdapt system contracts first: runtime status, current task, and last failure. Do not inspect the host with terminal, file, process, or search tools."
-      : `There are two Career Agent task classes. A ConversationalCareerTask is read-only natural career Q&A: call ${registered("career.context.retrieve")} only when confirmed facts or saved target context are needed, then answer in natural prose. A TransactionalCareerWorkflow is import, profile intake, job fit, tailoring, resume composition, modification, save, or export: call exactly the matching high-level workflow facade first and respect its checkpoint, receipt, stale, confirmation, and terminal status.`,
-    `Callable facade mapping (stable CareerAdapt name -> exact Hermes name): ${facadeLines || "not supplied; use visible mcp__careeradapt__ names from the active registry"}`,
-    "Dotted names are stable CareerAdapt diagnostics aliases only. Never send career.workflow.* or career.profile.* as the provider tool name when an mcp__careeradapt__ registry name is available.",
-    systemStatusTurn
-      ? "For this status question, do not call a workflow facade or any write tool; return Hermes runtime, model, Career MCP, Career skills, and current Career task diagnostics."
-      : `For a conversational turn, do not call a workflow facade, resume/profile/job write, or atomic workflow tool. If context is needed, call ${registered("career.context.retrieve")} with the bound profileId and the user's question; do not require jobId for ordinary questions. Its facts are confirmed/evidence-bound and ranked deterministically. Use only returned facts, say plainly when a requested target or skill is unsupported, and never expose the whole profile JSON.`,
-    "For follow-up conversational turns, reuse the conversation and pinned context; do not reread the entire profile automatically. targetText is ephemeral turn context and must not be persisted.",
-    "Never invent profile, resume, job, metric, ownership, or skill-level facts. Never claim a write or draft exists without a completed CareerAdapt tool receipt. Hermes writes natural prose; career.context.retrieve returns structured facts.",
-    "A conversational answer may offer or accept an explicit escalation to a workflow facade. Once the user asks to import, modify, create, tailor, save, or export, begin the matching transaction and keep conversation and transaction state separate; after completion, return to read-only Q&A.",
-    "Do not manually orchestrate atomic CareerAdapt tools when a workflow facade exists. Use atomic contracts only when a facade explicitly reports a bounded recovery path.",
-    "runtime_user_event is an authoritative structured event from the host. For entity_selected, option_selected, retry, confirmation, and workflow_control, use the typed action and persisted task state exactly; never parse a visible button label, ask the user to repeat a validated selection, or repeat a deterministic host write.",
-    workflowId === "compose_resume" && workflowStage === "select_profile_scope"
-      ? `For this compose_resume task, call ${registered("career.workflow.compose_resume")} immediately as the first CareerAdapt call. Use the bound career_context.binding.profileId and career_context.binding.profileRevision with mode "general"; do not call profile reads/searches first because the facade performs the authoritative read and returns the composition checkpoint.`
-      : "",
-    `For tailor_existing_resume, prefer ${registered("career.workflow.tailor_resume")} as the single resumable facade. START for a saved target uses {jobId} and START for a pasted external target uses {targetText: raw JD text, jobPersistence:"ask"|"save"|"session_only"}; include profileId/sourceResumeId when known. CONTINUE uses {checkpointId, userAnswer?}. The facade internally advances parsing, target snapshot, profile/source-resume selection, Job Fit, plan, clarification, and generation, then returns one structured status/checkpoint/userPrompt/interaction/review boundary. Do not call career.job.parse, career.job.commit, or career.tailoring.* atomic tools directly from Hermes.`,
-    `When a workflow returns waiting_for_user, stop tool-calling and ask exactly the returned high-value question. When tailor_resume returns review_ready, stop at the deterministic Host review boundary; never apply or write a resume from Hermes narration.`,
-    "When it returns waiting_for_confirmation, stop and yield the approval boundary. When completed, stop the tool loop and narrate the result.",
-    `Attachments are local CareerAdapt references. Use only their IDs with ${registered("career.workflow.resume_import")}; never request paths, bytes, base64, or parse them yourself.`,
-    `Runtime context: ${JSON.stringify(context)}`
-  ].join("\n");
-}
-
-function isSystemStatusQuestion(value: unknown) {
-  return typeof value === "string"
-    && /(?:CareerAdapt|职适AI).*(?:系统状态|运行状态|健康状态)|(?:检查|查看|查询).*(?:系统状态|运行状态)|系统状态/u.test(value.trim());
+    "You are CareerAdapt's career assistant. Answer ordinary conversation naturally and concisely.",
+    "Use CareerAdapt MCP when confirmed saved career facts or an explicit Career action is needed. Never invent user facts or claim a write without a completed CareerAdapt receipt.",
+    "CareerAdapt owns persistence, authorization, workflow checkpoints, confirmations, attachments, and artifacts. Hermes owns semantic reasoning, response generation, and model-driven tool selection.",
+    activeWorkflow,
+    attachmentHint,
+    binding ? "Use the host-provided Career session binding for CareerAdapt MCP calls; do not replace it with guessed identifiers." : ""
+  ].filter(Boolean).join("\n");
 }
 
 function safeRuntimeMetadata(value: unknown) {
   const metadata = asRecord(value);
   const result: Record<string, unknown> = {};
-  for (const key of ["executionOwner", "preferredRuntime", "attemptedRuntime", "finalRuntime", "fallbackUsed", "fallbackReasonCode", "workflowId", "workflowStage", "rootGoal", "runtimeId", "hermesSessionId", "hermesRunId", "nextHermesRunId", "activeRunId", "firstEventAt", "runtimeFailureAt", "runtimeRecoveryAttempted", "runtimeRecoveryKind", "transportReattachAttempted", "semanticRetryAttempted", "semanticRetryUserMessage", "attemptNumber", "primaryFailureCode", "recoveryFailureCode", "incidentTraceId", "logicalTurnId", "attemptTraceId", "recoveryReason", "requestState", "controllerState", "existingPendingTurnId", "existingActiveTurnId", "upstreamErrorType", "safeMessageCategory", "nativeAllowedSourceTools", "careerGatewayContracts", "careerMcpExposedTools", "hermesRegisteredToolsets", "hermesVisibleTools", "missingRequiredCareerTools", "lastRequestedHermesToolName", "lastRequestedCareerToolName"]) {
+  for (const key of ["executionOwner", "preferredRuntime", "attemptedRuntime", "finalRuntime", "fallbackUsed", "fallbackReasonCode", "workflowId", "workflowStage", "rootGoal", "runtimeId", "hermesSessionId", "hermesRunId", "nextHermesRunId", "activeRunId", "firstEventAt", "runtimeFailureAt", "runtimeRecoveryAttempted", "runtimeRecoveryKind", "transportReattachAttempted", "attemptNumber", "primaryFailureCode", "recoveryFailureCode", "incidentTraceId", "logicalTurnId", "attemptTraceId", "recoveryReason", "requestState", "controllerState", "existingPendingTurnId", "existingActiveTurnId", "upstreamErrorType", "safeErrorCategory", "safeMessageCategory"]) {
     const entry = metadata[key];
     if (typeof entry === "string" || typeof entry === "boolean" || typeof entry === "number") {
       result[key] = entry;

@@ -16,7 +16,7 @@ describe("P4.4a runtime and career tool boundaries", () => {
     const router = new AgentRuntimeRouter({ native });
 
     expect(router.configurationSnapshot.agentRuntime).toBe("native");
-    expect(router.active()).toBe(native);
+    expect(router.active().id).toBe(native.id);
     expect(() => router.resolve("hermes")).toThrowError(/unavailable/iu);
   });
 

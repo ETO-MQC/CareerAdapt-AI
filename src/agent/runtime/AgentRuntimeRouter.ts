@@ -1,7 +1,6 @@
 import { z } from "zod";
-import type { AgentRuntime, AgentRuntimeEvent, AgentRuntimeRecoveryPlan, AgentRuntimeTurnInput } from "./agentRuntime";
+import type { AgentRuntime, AgentRuntimeEvent, AgentRuntimeTurnInput } from "./agentRuntime";
 import type { RuntimeUserEvent } from "./RuntimeUserEvent";
-import { isRetryableHermesRunFailure } from "./hermes/hermesRunReliability";
 import type { RunStopReason } from "./hermes/hermesIncidentTrace";
 import { isCareerDomainPreconditionCode } from "./careerContextBindingResolver";
 
@@ -11,23 +10,30 @@ export const AgentRuntimeIdSchema = z.enum(["native", "hermes"]);
 export type AgentRuntimeId = z.infer<typeof AgentRuntimeIdSchema>;
 
 export const AgentRuntimeConfigurationSchema = z.object({
-  agentRuntime: AgentRuntimeIdSchema.default("native")
+  agentRuntime: AgentRuntimeIdSchema.default("hermes")
 }).strict();
 export type AgentRuntimeConfiguration = z.infer<typeof AgentRuntimeConfigurationSchema>;
 
-/** Selects a runtime by configuration without coupling the app to Hermes. */
+/**
+ * Thin compatibility registry. Production constructs this with Hermes only;
+ * the optional Native entry exists for deterministic/unit harnesses and old
+ * persisted integrations. It is never selected as a failure fallback.
+ */
 export class AgentRuntimeRouter {
   private configuration: AgentRuntimeConfiguration;
   private readonly runtimes = new Map<AgentRuntimeId, AgentRuntime>();
 
   constructor(input: {
-    native: AgentRuntime;
+    native?: AgentRuntime;
     hermes?: AgentRuntime;
     configuration?: Partial<AgentRuntimeConfiguration>;
   }) {
-    this.runtimes.set("native", input.native);
+    if (input.native) this.runtimes.set("native", input.native);
     if (input.hermes) this.runtimes.set("hermes", input.hermes);
-    this.configuration = AgentRuntimeConfigurationSchema.parse(input.configuration ?? {});
+    const defaultRuntime = input.hermes ? "hermes" : input.native ? "native" : "hermes";
+    this.configuration = AgentRuntimeConfigurationSchema.parse({
+      agentRuntime: input.configuration?.agentRuntime ?? defaultRuntime
+    });
   }
 
   get configurationSnapshot() {
@@ -55,15 +61,10 @@ export class AgentRuntimeRouter {
   }
 
   active() {
-    const preferred = this.resolve();
-    return preferred.id === "hermes" ? new RoutedAgentRuntime(preferred) : preferred;
+    return new RoutedAgentRuntime(this.resolve());
   }
 
-  /**
-   * Single semantic entry for UI/domain events. The event is preserved as
-   * structured metadata; runtimes must not infer a button action from its
-   * visible label.
-   */
+  /** Structured UI events are forwarded without becoming prompt text. */
   runUserEvent(event: RuntimeUserEvent, input: AgentRuntimeTurnInput) {
     return this.active().runTurn({
       ...input,
@@ -76,257 +77,109 @@ export class AgentRuntimeRouter {
 }
 
 /**
- * Hermes recovery is deliberately bounded before the first protocol event.
- * Once a Hermes turn has emitted anything, the router never switches runtimes
- * in the middle of a turn or repeats an authoritative write.
+ * One semantic owner per turn. This adapter only decorates the stable event
+ * protocol and converts an exception into a terminal event; it never retries,
+ * re-prompts, executes tools, or switches to another runtime.
  */
 class RoutedAgentRuntime implements AgentRuntime {
   readonly id: string;
 
-  constructor(private readonly preferred: AgentRuntime) {
-    this.id = preferred.id;
+  constructor(private readonly runtime: AgentRuntime) {
+    this.id = runtime.id;
   }
 
   capabilities() {
-    return this.preferred.capabilities();
+    return this.runtime.capabilities();
   }
 
-  async pause(sessionId: string) {
-    await this.preferred.pause(sessionId);
+  pause(sessionId: string) {
+    return this.runtime.pause(sessionId);
   }
 
-  async interrupt(sessionId: string, reason?: RunStopReason) {
-    await this.preferred.interrupt(sessionId, reason);
+  interrupt(sessionId: string, reason?: RunStopReason) {
+    return this.runtime.interrupt(sessionId, reason);
   }
 
   releaseSessionBinding(sessionId: string) {
-    this.preferred.releaseSessionBinding?.(sessionId);
+    this.runtime.releaseSessionBinding?.(sessionId);
   }
 
-  async resume(sessionId: string) {
-    await this.preferred.resume(sessionId);
-  }
-
-  async recoverBeforeFallback(input: AgentRuntimeTurnInput) {
-    return this.preferred.recoverBeforeFallback?.(input);
+  resume(sessionId: string) {
+    return this.runtime.resume(sessionId);
   }
 
   async *runTurn(input: AgentRuntimeTurnInput): AsyncIterable<AgentRuntimeEvent> {
     let emitted = false;
     let firstEventAt: string | undefined;
     try {
-      for await (const event of this.preferred.runTurn(input)) {
+      for await (const event of this.runtime.runTurn(input)) {
         emitted = true;
         firstEventAt ??= event.timestamp;
         yield decorateRuntimeEvent(event, {
           ...(input.metadata ?? {}),
-          preferredRuntime: this.preferred.id,
-          attemptedRuntime: this.preferred.id,
-          finalRuntime: this.preferred.id,
+          preferredRuntime: this.runtime.id,
+          attemptedRuntime: this.runtime.id,
+          finalRuntime: this.runtime.id,
           fallbackUsed: false,
           firstEventAt
         });
       }
-      return;
     } catch (error) {
-      if (emitted) {
-        const runtimeFailureAt = new Date().toISOString();
-        const failureCode = postStartRuntimeErrorCode(errorCode(error));
-        if (isCareerDomainPreconditionCode(errorCode(error))) {
-          yield {
-            type: "turn_completed",
-            sessionId: input.sessionId,
-            turnId: input.turnId ?? "runtime-turn-unknown",
-            timestamp: runtimeFailureAt,
-            message: careerDomainWaitingMessage(errorCode(error)),
-            data: { safeErrorCode: errorCode(error), waitingForUser: true, domainFailure: true }
-          };
-          return;
-        }
-        yield {
-          type: "turn_failed",
-          sessionId: input.sessionId,
-          turnId: input.turnId ?? "runtime-turn-unknown",
-          timestamp: runtimeFailureAt,
-          error: {
-            code: failureCode,
-            message: error instanceof Error ? error.message : "当前任务没有完成。",
-            recoverable: false
-          },
-          data: {
-            telemetry: {
-              preferredRuntime: this.preferred.id,
-              attemptedRuntime: this.preferred.id,
-              finalRuntime: this.preferred.id,
-              fallbackUsed: false,
-              incidentTraceId: stringMetadata(input.metadata?.incidentTraceId),
-              attemptTraceId: stringMetadata(input.metadata?.attemptTraceId),
-              firstEventAt,
-              runtimeFailureAt,
-               fallbackReasonCode: failureCode
-            }
-          }
-        };
-        return;
-      }
-      const fallbackReasonCode = errorCode(error);
-      const runtimeFailureAt = new Date().toISOString();
-      const initialFailureDiagnostics = diagnosticsFromError(error);
-      if (isCareerDomainPreconditionCode(fallbackReasonCode)) {
-        yield {
+      const failureAt = new Date().toISOString();
+      const code = errorCode(error);
+      if (isCareerDomainPreconditionCode(code)) {
+        yield decorateRuntimeEvent({
           type: "turn_completed",
           sessionId: input.sessionId,
           turnId: input.turnId ?? "runtime-turn-unknown",
-          timestamp: runtimeFailureAt,
-          message: careerDomainWaitingMessage(fallbackReasonCode),
-          data: {
-            safeErrorCode: fallbackReasonCode,
-            waitingForUser: true,
-            domainFailure: true,
-            diagnostics: initialFailureDiagnostics,
-            telemetry: {
-              preferredRuntime: this.preferred.id,
-              attemptedRuntime: this.preferred.id,
-              finalRuntime: this.preferred.id,
-              fallbackUsed: false,
-              incidentTraceId: stringMetadata(input.metadata?.incidentTraceId),
-              attemptTraceId: stringMetadata(input.metadata?.attemptTraceId),
-              firstEventAt
-            }
-          }
-        };
+          timestamp: failureAt,
+          message: careerDomainWaitingMessage(code),
+          data: { safeErrorCode: code, waitingForUser: true, domainFailure: true }
+        }, {
+          ...(input.metadata ?? {}),
+          preferredRuntime: this.runtime.id,
+          attemptedRuntime: this.runtime.id,
+          finalRuntime: this.runtime.id,
+          fallbackUsed: false,
+          firstEventAt
+        });
         return;
       }
-      if (!isRetryableHermesRunFailure(error)) {
-        yield {
-          type: "turn_failed",
-          sessionId: input.sessionId,
-          turnId: input.turnId ?? "runtime-turn-unknown",
-          timestamp: runtimeFailureAt,
-          error: {
-            code: fallbackReasonCode,
-            message: safeErrorMessage(error),
-            recoverable: false
-          },
-          data: {
-            diagnostics: initialFailureDiagnostics,
-            telemetry: {
-              preferredRuntime: this.preferred.id,
-              attemptedRuntime: this.preferred.id,
-              finalRuntime: this.preferred.id,
-              fallbackUsed: false,
-              incidentTraceId: stringMetadata(input.metadata?.incidentTraceId),
-              attemptTraceId: stringMetadata(input.metadata?.attemptTraceId),
-              fallbackReasonCode,
-              runtimeFailureAt,
-              firstEventAt
-            }
-          }
-        };
-        return;
-      }
-      let recoveryFailureCode: string | undefined;
-      let recoveryFailureDiagnostics: Record<string, unknown> | undefined;
-      try {
-        // Hermes may perform one bounded health/session recovery here. The
-        // second preferred attempt is safe because the first attempt emitted
-        // no protocol event and therefore did not expose an authoritative
-        // write or stream to the host.
-        const recoveryPlan: AgentRuntimeRecoveryPlan = await this.preferred.recoverBeforeFallback?.(input) ?? { kind: "retry" };
-        const recoveryAttemptTraceId = nextAttemptTraceId(input.metadata);
-        const recoveryInput = {
-          ...input,
-          userMessage: recoveryPlan.kind === "reattach" ? "" : input.userMessage,
-          metadata: {
-            ...(input.metadata ?? {}),
-            ...(recoveryAttemptTraceId ? { attemptTraceId: recoveryAttemptTraceId } : {}),
-            runtimeRecoveryAttempted: true,
-            runtimeFailureAt,
-            fallbackReasonCode,
-            runtimeRecoveryKind: recoveryPlan.kind,
-            primaryFailureCode: fallbackReasonCode,
-            ...(recoveryPlan.kind === "reattach"
-              ? { reattachRunId: recoveryPlan.runId, transportReattachAttempted: true }
-              : {
-                  reattachRunId: undefined,
-                  semanticRetryAttempted: true,
-                  semanticRetryUserMessage: input.userMessage
-                })
-          }
-        };
-        for await (const event of this.preferred.runTurn(recoveryInput)) {
-          emitted = true;
-          firstEventAt ??= event.timestamp;
-          yield decorateRuntimeEvent(event, {
-            ...(recoveryInput.metadata ?? {}),
-            preferredRuntime: this.preferred.id,
-            attemptedRuntime: this.preferred.id,
-            finalRuntime: this.preferred.id,
-            fallbackUsed: false,
-            incidentTraceId: stringMetadata(input.metadata?.incidentTraceId),
-            attemptTraceId: stringMetadata(recoveryInput.metadata?.attemptTraceId),
-            fallbackReasonCode,
-            runtimeFailureAt,
-            runtimeRecoveryAttempted: true,
-            runtimeRecoveryKind: recoveryPlan.kind,
-            transportReattachAttempted: recoveryPlan.kind === "reattach",
-            semanticRetryAttempted: recoveryPlan.kind === "retry",
-            firstEventAt
-          });
-        }
-        return;
-      } catch (error) {
-        recoveryFailureCode = errorCode(error);
-        recoveryFailureDiagnostics = diagnosticsFromError(error);
-      }
-      // Hermes is the only semantic runtime for a Hermes-selected turn. A
-      // failed bounded recovery is surfaced as a recoverable Hermes state;
-      // Native must not start a second persona or repeat a semantic write.
-      const code = recoveryFailureCode ?? fallbackReasonCode;
-      yield {
+      // The runtime owns whether a remote run was created. If it throws after
+      // emitting, preserve the same turn and expose one terminal failure.
+      yield decorateRuntimeEvent({
         type: "turn_failed",
         sessionId: input.sessionId,
         turnId: input.turnId ?? "runtime-turn-unknown",
-        timestamp: new Date().toISOString(),
+        timestamp: failureAt,
         error: {
-          code: "hermes_unavailable_recoverable",
-          message: "Hermes 当前不可用，已保留任务 checkpoint。连接恢复后可以从当前步骤重试。",
-          recoverable: true
+          code,
+          message: safeErrorMessage(error),
+          recoverable: Boolean(error && typeof error === "object" && "retryable" in error && error.retryable === true)
         },
         data: {
-          diagnostics: {
-            initialFailure: initialFailureDiagnostics,
-            ...(recoveryFailureDiagnostics ? { recoveryFailure: recoveryFailureDiagnostics } : {}),
-            primaryCausalChain: [
-              {
-                event: "primary_failure",
-                component: "RoutedAgentRuntime",
-                at: runtimeFailureAt,
-                attemptTraceId: stringMetadata(input.metadata?.attemptTraceId),
-                detail: fallbackReasonCode
-              },
-              ...(recoveryFailureCode ? [{
-                event: "recovery_failure",
-                component: "RoutedAgentRuntime",
-                at: new Date().toISOString(),
-                attemptTraceId: stringMetadata(nextAttemptTraceId(input.metadata)),
-                detail: recoveryFailureCode
-              }] : [])
-            ]
-          },
+          diagnostics: diagnosticsFromError(error),
           telemetry: {
-            preferredRuntime: this.preferred.id,
-            attemptedRuntime: this.preferred.id,
-            finalRuntime: this.preferred.id,
+            preferredRuntime: this.runtime.id,
+            attemptedRuntime: this.runtime.id,
+            finalRuntime: this.runtime.id,
             fallbackUsed: false,
-            fallbackReasonCode,
-            runtimeFailureAt,
-            recoveryFailureCode: code,
-            primaryFailureCode: fallbackReasonCode,
-            firstEventAt
+            incidentTraceId: stringMetadata(input.metadata?.incidentTraceId),
+            attemptTraceId: stringMetadata(input.metadata?.attemptTraceId),
+            firstEventAt,
+            runtimeFailureAt: failureAt,
+            emittedBeforeFailure: emitted
           }
         }
-      };
+      }, {
+        ...(input.metadata ?? {}),
+        preferredRuntime: this.runtime.id,
+        attemptedRuntime: this.runtime.id,
+        finalRuntime: this.runtime.id,
+        fallbackUsed: false,
+        firstEventAt,
+        runtimeFailureAt: failureAt
+      });
     }
   }
 }
@@ -339,21 +192,15 @@ function decorateRuntimeEvent(event: AgentRuntimeEvent, metadata: Record<string,
     preferredRuntime: runtimeId(metadata.preferredRuntime),
     attemptedRuntime: runtimeId(metadata.attemptedRuntime),
     finalRuntime: runtimeId(metadata.finalRuntime),
-    fallbackUsed: metadata.fallbackUsed === true,
-    fallbackReasonCode: stringMetadata(metadata.fallbackReasonCode),
+    fallbackUsed: false,
     incidentTraceId: stringMetadata(metadata.incidentTraceId),
     attemptTraceId: stringMetadata(metadata.attemptTraceId),
     hermesRunId: stringMetadata(metadata.hermesRunId),
-    nextHermesRunId: stringMetadata(metadata.nextHermesRunId),
     firstEventAt: stringMetadata(metadata.firstEventAt) ?? event.timestamp,
     runtimeFailureAt: stringMetadata(metadata.runtimeFailureAt),
     executionOwner: metadata.executionOwner,
-    runtimeRecoveryAttempted: metadata.runtimeRecoveryAttempted === true,
-    runtimeRecoveryKind: metadata.runtimeRecoveryKind,
     transportReattachAttempted: metadata.transportReattachAttempted === true,
-    semanticRetryAttempted: metadata.semanticRetryAttempted === true,
-    primaryFailureCode: stringMetadata(metadata.primaryFailureCode),
-    recoveryFailureCode: stringMetadata(metadata.recoveryFailureCode)
+    semanticRetryAttempted: false
   };
   return {
     ...event,
@@ -376,49 +223,23 @@ function stringMetadata(value: unknown) {
   return typeof value === "string" && value.trim() ? value : undefined;
 }
 
-function nextAttemptTraceId(metadata?: Record<string, unknown>) {
-  const current = stringMetadata(metadata?.attemptTraceId);
-  if (!current) return undefined;
-  const match = current.match(/^(.*):attempt-(\d+)$/u);
-  if (match) return `${match[1]}:attempt-${Number(match[2]) + 1}`;
-  return `${current}:recovery-1`;
-}
-
 function errorCode(error: unknown) {
   return error instanceof Error && "code" in error && typeof error.code === "string"
     ? error.code
     : "agent_runtime_failed";
 }
 
-function postStartRuntimeErrorCode(code: string) {
-  return code === "hermes_unavailable_before_turn"
-    || code === "mcp_unavailable_before_turn"
-    || code.startsWith("hermes_run_start_")
-    ? "hermes_run_failed_after_start"
-    : code;
-}
-
 function safeErrorMessage(error: unknown) {
   if (error instanceof Error && error.message.trim()) {
-    return error.message.replace(/[\u0000-\u001f\u007f]/gu, " ").replace(/\s+/gu, " ").trim().slice(0, 360);
+    return error.message
+      .replace(/Bearer\s+[^\s,;]+/giu, "Bearer [redacted]")
+      .replace(/\b(?:sk|rk)-[A-Za-z0-9_-]{8,}\b/gu, "[redacted-key]")
+      .replace(/[\u0000-\u001f\u007f]/gu, " ")
+      .replace(/\s+/gu, " ")
+      .trim()
+      .slice(0, 360);
   }
-  return "Hermes 当前不可用，已保留任务 checkpoint。";
-}
-
-function careerDomainWaitingMessage(code: string) {
-  if (/target_required/i.test(code)) {
-    return "我还没有拿到要定制的岗位信息。\n你可以直接粘贴岗位描述，或者选择已经保存的岗位。";
-  }
-  if (code === "needs_profile" || code === "career_session_binding_required") {
-    return "当前还没有可用于定制的个人资料。你可以选择已有资料，或先导入一份简历。";
-  }
-  if (code === "needs_profile_choice") return "当前有多份可用的个人资料，请先选择一份。";
-  if (code === "needs_resume_choice" || code === "multiple_resume_sources") return "当前有多份可用的通用简历，请先选择一份。";
-  if (code === "job_required") return "请选择已经保存的岗位，或直接粘贴岗位描述。";
-  if (code === "clarification_required") return "请补充当前岗位定制中尚未确认的信息。";
-  if (code === "confirmation_required") return "这一步需要你的明确确认。";
-  if (code === "review_required") return "请检查当前结果并告诉我下一步如何处理。";
-  return "请按下方问题或选项补充当前岗位定制所需的信息。";
+  return "本轮回答失败。当前对话已保留，你可以重试。";
 }
 
 function diagnosticsFromError(error: unknown) {
@@ -427,6 +248,18 @@ function diagnosticsFromError(error: unknown) {
   return value.diagnostics && typeof value.diagnostics === "object" && !Array.isArray(value.diagnostics)
     ? value.diagnostics as Record<string, unknown>
     : typeof value.code === "string" ? { safeErrorCode: value.code } : undefined;
+}
+
+function careerDomainWaitingMessage(code: string) {
+  if (/target_required/i.test(code)) return "我还没有拿到要定制的岗位信息。\n你可以直接粘贴岗位描述，或者选择已经保存的岗位。";
+  if (code === "needs_profile" || code === "career_session_binding_required") return "当前还没有可用于定制的个人资料。你可以选择已有资料，或先导入一份简历。";
+  if (code === "needs_profile_choice") return "当前有多份可用的个人资料，请先选择一份。";
+  if (code === "needs_resume_choice" || code === "multiple_resume_sources") return "当前有多份可用的通用简历，请先选择一份。";
+  if (code === "job_required") return "请选择已经保存的岗位，或直接粘贴岗位描述。";
+  if (code === "clarification_required") return "请补充当前岗位定制中尚未确认的信息。";
+  if (code === "confirmation_required") return "这一步需要你的明确确认。";
+  if (code === "review_required") return "请检查当前结果并告诉我下一步如何处理。";
+  return "请按下方问题或选项补充当前岗位定制所需的信息。";
 }
 
 export function createAgentRuntimeRouter(input: ConstructorParameters<typeof AgentRuntimeRouter>[0]) {

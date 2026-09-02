@@ -377,7 +377,8 @@ describe("P4.5c.1.20 production golden journey replay", () => {
       recoverable: true
     });
     const assistant = after?.messages.find((message) => message.id === shell.assistantMessageId);
-    expect(assistant?.content).toContain("MCP 与 Hermes 仍处于健康状态");
+    expect(assistant?.content).toContain("这一步还没有完成");
+    expect(assistant?.content).not.toContain("MCP 与 Hermes");
     expect(assistant?.content).not.toContain("MCP 边界这次没有返回");
     expect(host.getUserMessageForTurn(shell.turnId)?.content).toBe(LONG_EXTERNAL_JD);
   });

@@ -302,7 +302,7 @@ describe("P4.5c.1.14 Career workflow transactional closure", () => {
     }, shell.assistantMessageId);
     const assistant = host.getSnapshot().activeSession?.messages.find((message) => message.id === shell.assistantMessageId);
 
-    expect(assistant?.content).toContain("CareerAdapt MCP");
+    expect(assistant?.content).toContain("这一步暂时没有返回结果");
     expect(assistant?.content).not.toContain("Hermes 暂时无法启动");
   });
 

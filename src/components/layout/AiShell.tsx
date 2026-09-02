@@ -43,7 +43,7 @@ export function AiShell({ children }: { children: React.ReactNode }) {
         jobId: current?.activeJobId,
         dirty: false
       });
-      const previousRevisionId = current?.workflowState.data.revisionId;
+      const previousRevisionId = current?.workflowState?.data.revisionId;
       if (
         current
         && branch?.currentRevisionId
@@ -68,7 +68,7 @@ export function AiShell({ children }: { children: React.ReactNode }) {
               <span>正在处理</span>
               <strong>{session ? getAgentSessionDisplayTitle(session) : "浏览求职资产"}</strong>
             </div>
-            <span className="ai-context-status"><CircleDot aria-hidden="true" /> {statusLabel(session?.workflowState.status)}</span>
+            <span className="ai-context-status"><CircleDot aria-hidden="true" /> {statusLabel(session?.workflowState?.status)}</span>
             <Link
               href="/ai-workspace"
               onClick={() => {

@@ -10,7 +10,7 @@ import { CareerToolGateway } from "@/agent/tools/CareerToolGateway";
 import { AgentToolRegistry } from "@/agent/tools/registry";
 
 describe("P4.5c.1.7 Hermes runtime reliability", () => {
-  it("retries one transient run_start failure with the same logical turn and no Native persona", async () => {
+  it("keeps one transient run_start failure in Hermes and never performs a semantic retry", async () => {
     let starts = 0;
     const nativeRun = vi.fn(async function* () {
       yield { type: "turn_completed", sessionId: "session", turnId: "turn", timestamp: new Date().toISOString() } as never;
@@ -45,9 +45,13 @@ describe("P4.5c.1.7 Hermes runtime reliability", () => {
       pageContext: { query: {} }
     })) events.push(event);
 
-    expect(starts).toBe(2);
+    expect(starts).toBe(1);
     expect(nativeRun).not.toHaveBeenCalled();
-    expect(events.at(-1)).toMatchObject({ type: "turn_completed", turnId: "turn" });
+    expect(events.at(-1)).toMatchObject({
+      type: "turn_failed",
+      turnId: "turn",
+      error: { code: "hermes_run_start_http_failed", recoverable: true }
+    });
   });
 
   it("does not retry provider authentication failures and preserves safe diagnostics", async () => {
@@ -110,9 +114,8 @@ describe("P4.5c.1.7 Hermes runtime reliability", () => {
     });
   });
 
-  it("settles a known active remote run before starting a new user action", async () => {
-    const getStatuses = ["running", "completed"];
-    const getRun = vi.fn(async (runId: string) => ({ run_id: runId, status: (getStatuses.shift() ?? "completed") as "running" | "completed" }));
+  it("does not stop or replace a known active remote run", async () => {
+    const getRun = vi.fn(async (runId: string) => ({ run_id: runId, status: "running" as const }));
     const stopRun = vi.fn(async (runId: string) => ({ run_id: runId, status: "stopping" as const }));
     const startRun = vi.fn(async () => ({ runId: "new-run", status: "started" as const }));
     const transport = runsTransport({ getRun, stopRun, startRun });
@@ -134,19 +137,20 @@ describe("P4.5c.1.7 Hermes runtime reliability", () => {
         lastEventAt: new Date().toISOString()
       }
     };
-    const events = [];
-    for await (const event of runtime.runTurn({
-      sessionId: "session",
-      turnId: "new-turn",
-      userMessage: "继续这个岗位任务",
-      pageContext: { query: {} },
-      session
-    })) events.push(event);
+    await expect((async () => {
+      const events = [];
+      for await (const event of runtime.runTurn({
+        sessionId: "session",
+        turnId: "new-turn",
+        userMessage: "继续这个岗位任务",
+        pageContext: { query: {} },
+        session
+      })) events.push(event);
+    })()).rejects.toMatchObject({ code: "hermes_active_run_conflict" });
 
-    expect(getRun.mock.calls[0]?.[0]).toBe("old-run");
-    expect(stopRun.mock.calls[0]?.[0]).toBe("old-run");
-    expect(startRun).toHaveBeenCalledTimes(1);
-    expect(events[0]).toMatchObject({ type: "progress", data: { runHandle: { runId: "new-run" } } });
+    expect(getRun).not.toHaveBeenCalled();
+    expect(stopRun).not.toHaveBeenCalled();
+    expect(startRun).not.toHaveBeenCalled();
   });
 
   it("keeps the production model-facing profile to facades, status, and small reads", () => {

@@ -14,8 +14,8 @@ export class AgentMemoryManager {
     const task = session.taskState;
     return {
       working: {
-        workflowId: task?.workflowId ?? session.workflowState.workflowId,
-        step: task?.stage ?? session.workflowState.step,
+        workflowId: task?.workflowId ?? session.workflowState?.workflowId,
+        step: task?.stage ?? session.workflowState?.step,
         rootGoal: task?.rootGoal,
         activeGoal: task?.activeGoal,
         selectedEntities: task?.selectedEntities,

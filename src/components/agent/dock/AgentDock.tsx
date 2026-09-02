@@ -36,7 +36,7 @@ export function AgentDock() {
         <div className="agent-dock-content">
           <header>
             <span><Bot aria-hidden="true" /> AI 协作助手</span>
-            <small>{session?.workflowState.status === "running" ? "处理中" : "可随时继续"}</small>
+            <small>{session?.workflowState?.status === "running" ? "处理中" : "可随时继续"}</small>
           </header>
           <div className="agent-dock-context">
             <span>当前页面</span>

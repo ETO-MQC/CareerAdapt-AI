@@ -97,7 +97,7 @@ function updateSummary(session: AgentSession, messages: AgentMessage[]) {
   const body = [
     `当前目标：${session.taskState?.rootGoal ?? session.memory?.currentGoal ?? session.title}`,
     `当前子任务：${session.taskState?.activeGoal ?? session.taskState?.rootGoal ?? session.title}`,
-    `当前阶段：${session.taskState?.stage ?? session.workflowState.step}`,
+    ...(session.taskState || session.workflowState ? [`当前阶段：${session.taskState?.stage ?? session.workflowState?.step ?? "conversation"}`] : []),
     `已选实体：${JSON.stringify(session.taskState?.selectedEntities ?? {
       profileId: session.activeProfileId,
       resumeId: session.activeResumeId,

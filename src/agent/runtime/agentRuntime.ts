@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { z } from "zod";
 import {
   AgentSessionSchema,
+  AgentWorkflowStateSchema,
   type AgentConfirmation,
   type AgentMessage,
   type AgentSession
@@ -84,10 +85,6 @@ export type AgentRuntimeCapabilities = {
   runtimeVersion?: string;
 };
 
-export type AgentRuntimeRecoveryPlan =
-  | { kind: "reattach"; runId: string }
-  | { kind: "retry" };
-
 /**
  * Stable runtime boundary used by the application host.  Legacy planner
  * behavior remains available below, while native and future Hermes adapters
@@ -102,8 +99,6 @@ export interface AgentRuntime {
   releaseSessionBinding?(sessionId: string): void;
   resume(sessionId: string): Promise<void>;
   capabilities(): AgentRuntimeCapabilities;
-  /** One bounded Hermes health/session recovery before a safe retry. */
-  recoverBeforeFallback?(input: AgentRuntimeTurnInput): Promise<AgentRuntimeRecoveryPlan | undefined>;
 }
 
 const ToolCallSchema = z.object({
@@ -160,7 +155,7 @@ export type AgentPlannerAction = z.infer<typeof AgentPlannerActionSchema>;
 export const AgentTurnRequestSchema = z.object({
   userMessage: z.string().max(8000),
   sessionSummary: z.string().max(6000),
-  workflowState: AgentSessionSchema.shape.workflowState,
+  workflowState: AgentWorkflowStateSchema,
   pageContext: AgentPageContextSchema,
   toolManifest: z.array(z.record(z.string(), z.unknown())).max(32),
   recentToolResults: z.array(z.object({
@@ -218,6 +213,24 @@ export class LegacyAgentRuntime {
         toolCallCount: 0,
         data: {}
       },
+      artifactRefs: [],
+      personId: context?.personId,
+      activeProfileId: context?.profileId,
+      profileVersionNumber: context?.profileVersionNumber,
+      profileRevision: context?.profileRevision,
+      conversationSummary: "",
+      createdAt: now,
+      updatedAt: now
+    });
+  }
+
+  static createConversationSession(title = "新的对话", context?: ActiveCareerContext) {
+    const now = new Date().toISOString();
+    return AgentSessionSchema.parse({
+      id: `agent-session-${nanoid(12)}`,
+      title,
+      titleOrigin: title === "新的对话" ? "default" : "user",
+      messages: [],
       artifactRefs: [],
       personId: context?.personId,
       activeProfileId: context?.profileId,

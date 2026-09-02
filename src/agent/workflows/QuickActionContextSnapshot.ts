@@ -81,7 +81,7 @@ export async function buildQuickActionContextSnapshot(
               ? "waiting_for_user" as const
               : session.taskState?.completionStatus === "failed"
                 ? "failed" as const
-                : session.workflowState.status === "paused"
+                : session.workflowState?.status === "paused"
                   ? "paused" as const
                   : session.activeTurn?.status === "completed"
                     ? "completed" as const

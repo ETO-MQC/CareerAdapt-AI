@@ -14,48 +14,42 @@ afterEach(() => {
 });
 
 describe("P4.5c.1.13 Hermes long-run semantics and non-destructive recovery", () => {
-  it("reattaches a live run after a pre-event failure without stopping or starting another run", async () => {
+  it("rejects a new user turn while a persisted run still owns the session", async () => {
     let starts = 0;
     let stops = 0;
     let statusChecks = 0;
-    const observedRunIds: string[] = [];
+    let eventStreams = 0;
     const transport = runsTransport({
       startRun: async () => {
         starts += 1;
-        throw createHermesRunFailure({ code: "hermes_run_start_failed", httpStatus: 503, message: "temporary" });
+        throw new Error("start_run_must_not_be_called");
       },
-      getRun: async (runId) => {
+      getRun: async () => {
         statusChecks += 1;
-        return { run_id: runId, status: statusChecks === 1 ? "completed" as const : "running" as const };
+        return { run_id: "run-live", status: "running" as const };
       },
-      runEvents: async function* (runId) {
-        observedRunIds.push(runId);
-        yield { type: "turn_completed", message: "已恢复" } as const;
+      runEvents: async function* () {
+        eventStreams += 1;
       },
-      stopRun: async (runId) => {
+      stopRun: async () => {
         stops += 1;
-        return { run_id: runId, status: "stopping" as const };
+        return { run_id: "run-live", status: "stopping" as const };
       }
     });
     const session = persistedSession("run-live", "running", true);
-    const router = new AgentRuntimeRouter({
-      native: nativeRuntime(),
-      hermes: new HermesCareerAgentRuntime({ transport, careerToolGateway: emptyGateway() }),
-      configuration: { agentRuntime: "hermes" }
-    });
-    const events = [];
-    for await (const event of router.active().runTurn({
+    const iterator = new HermesCareerAgentRuntime({ transport, careerToolGateway: emptyGateway() }).runTurn({
       sessionId: session.id,
       turnId: "turn-live",
       userMessage: "长岗位描述",
       pageContext: { query: {} },
       session
-    })) events.push(event);
+    })[Symbol.asyncIterator]();
 
-    expect(starts).toBe(1);
+    await expect(iterator.next()).rejects.toMatchObject({ code: "hermes_active_run_conflict" });
+    expect(starts).toBe(0);
     expect(stops).toBe(0);
-    expect(observedRunIds).toEqual(["run-live"]);
-    expect(events.at(-1)).toMatchObject({ type: "turn_completed", data: { runHandle: { runId: "run-live" } } });
+    expect(statusChecks).toBe(0);
+    expect(eventStreams).toBe(0);
   });
 
   it("reattaches the current run when health is unavailable and never emits pre-turn unavailability", async () => {
@@ -135,7 +129,7 @@ describe("P4.5c.1.13 Hermes long-run semantics and non-destructive recovery", ()
     expect(migrated.messages[0]?.metadata?.recoveryReason).toBeUndefined();
   });
 
-  it("retries a terminal run with one new POST and a new run id, never reading old run events", async () => {
+  it("does not retry a failed run with a second POST", async () => {
     let starts = 0;
     const startMessages: string[] = [];
     const observedRunIds: string[] = [];
@@ -158,19 +152,18 @@ describe("P4.5c.1.13 Hermes long-run semantics and non-destructive recovery", ()
       hermes: new HermesCareerAgentRuntime({ transport, careerToolGateway: emptyGateway() }),
       configuration: { agentRuntime: "hermes" }
     });
-    const events = [];
-    for await (const event of router.active().runTurn({
+    const iterator = router.active().runTurn({
       sessionId: session.id,
       turnId: "turn-retry",
       userMessage: "长岗位描述",
       pageContext: { query: {} },
       session
-    })) events.push(event);
+    })[Symbol.asyncIterator]();
 
-    expect(starts).toBe(2);
-    expect(startMessages).toEqual(["长岗位描述", "长岗位描述"]);
-    expect(observedRunIds).toEqual(["run-B"]);
-    expect(events.at(-1)).toMatchObject({ type: "turn_completed", data: { runHandle: { runId: "run-B" } } });
+    await expect(iterator.next()).resolves.toMatchObject({ value: expect.objectContaining({ type: "turn_failed" }) });
+    expect(starts).toBe(1);
+    expect(startMessages).toEqual(["长岗位描述"]);
+    expect(observedRunIds).toEqual([]);
   });
 
   it("checks a disconnected event stream and reattaches the same run", async () => {
@@ -195,14 +188,13 @@ describe("P4.5c.1.13 Hermes long-run semantics and non-destructive recovery", ()
       pageContext: { query: {} }
     })) events.push(event);
 
-    expect(statuses).toBe(1);
+    expect(statuses).toBe(0);
     expect(eventStreams).toBe(2);
-    expect(events.some((event) => event.type === "progress" && event.data && typeof event.data === "object" && "watchdog" in event.data)).toBe(true);
+    expect(events.some((event) => event.type === "progress" && event.data && typeof event.data === "object" && "watchdog" in event.data)).toBe(false);
     expect(events.at(-1)).toMatchObject({ type: "turn_completed", data: { runHandle: { runId: "run-default" } } });
   });
 
-  it("keeps one event consumer during observer silence and status-polls the same run", async () => {
-    vi.useFakeTimers();
+  it("keeps one event consumer and forwards tool lifecycle without a local watchdog", async () => {
     let starts = 0;
     let stops = 0;
     let eventStreams = 0;
@@ -214,50 +206,35 @@ describe("P4.5c.1.13 Hermes long-run semantics and non-destructive recovery", ()
       },
       getRun: async (runId) => {
         statuses += 1;
-        return { run_id: runId, status: statuses >= 3 ? "completed" as const : "running" as const };
+        return { run_id: runId, status: "completed" as const };
       },
-      runEvents: async function* (_runId, signal) {
+      runEvents: async function* () {
         eventStreams += 1;
         yield { type: "tool_call_started", toolCallId: "tool-1", toolName: "career.workflow.tailor_resume", operationId: "operation-1" } as const;
-        await waitForAbort(signal);
+        yield { type: "turn_completed", message: "完成" } as const;
       },
       stopRun: async (runId) => {
         stops += 1;
         return { run_id: runId, status: "stopping" as const };
       }
     });
-    const iterator = runtime(transport, {
-      observerHeartbeatMs: 45_000,
-      statusPollMs: 1,
-      hardDeadlineMs: 180_000
-    }).runTurn({
+    const events = [];
+    for await (const event of runtime(transport).runTurn({
       sessionId: "session-silent",
       turnId: "turn-silent",
       userMessage: "分析长岗位描述",
       pageContext: { query: {} }
-    })[Symbol.asyncIterator]();
+    })) events.push(event);
 
-    await iterator.next();
-    const toolStarted = await iterator.next();
-    expect(toolStarted.value).toMatchObject({ type: "tool_call_started", toolName: "career.workflow.tailor_resume" });
-    const firstReconnect = iterator.next();
-    await vi.advanceTimersByTimeAsync(45_000);
-    const firstProgress = await firstReconnect;
-    expect(firstProgress.value).toMatchObject({ type: "progress", data: { watchdog: { action: "continue_waiting", runId: "run-silent" } } });
-
-    const secondReconnect = iterator.next();
-    await vi.advanceTimersByTimeAsync(45_000);
-    const secondProgress = await secondReconnect;
-    expect(secondProgress.value).toMatchObject({ type: "progress", data: { watchdog: { action: "continue_waiting", runId: "run-silent" } } });
-
-    const completion = iterator.next();
-    await vi.advanceTimersByTimeAsync(45_000);
-    const completed = await completion;
-    expect(completed.value).toMatchObject({ type: "turn_completed", data: { runHandle: { runId: "run-silent" } } });
+    expect(events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "tool_call_started", toolName: "career.workflow.tailor_resume" }),
+      expect.objectContaining({ type: "turn_completed" })
+    ]));
     expect(starts).toBe(1);
     expect(stops).toBe(0);
     expect(eventStreams).toBe(1);
-    expect(statuses).toBe(3);
+    expect(statuses).toBe(0);
+    expect(events.some((event) => event.type === "progress" && event.data && typeof event.data === "object" && "watchdog" in event.data)).toBe(false);
   });
 
   it("keeps post-start and run-status errors in their correct phase", () => {
@@ -401,8 +378,8 @@ describe("P4.5c.1.13 Hermes long-run semantics and non-destructive recovery", ()
 
     expect(events.at(-1)).toMatchObject({
       type: "turn_failed",
-      error: { code: "hermes_run_start_failed" },
-      data: { secondaryRecoveryFailures: [{ code: "hermes_run_status_failed", httpStatus: 404 }] }
+      error: { code: "hermes_run_status_failed" },
+      data: { runId: "run-old", diagnostics: { safeErrorCategory: "transport_failure", httpStatus: 404 } }
     });
   });
 });
@@ -466,9 +443,4 @@ function runsTransport(overrides: Partial<HermesBridgeTransport> = {}): HermesBr
     stopRun: async (runId) => ({ run_id: runId, status: "stopping" }),
     ...overrides
   };
-}
-
-function waitForAbort(signal?: AbortSignal) {
-  if (!signal || signal.aborted) return Promise.resolve();
-  return new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
 }

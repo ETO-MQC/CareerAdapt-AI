@@ -487,7 +487,7 @@ describe("AgentConversationTimeline", () => {
             id: "hermes-failed",
             turnId: "turn-hermes-failed",
             role: "assistant",
-            content: "Hermes 暂时无法启动本轮任务，已保留当前岗位、简历和任务进度。",
+            content: "本轮回答失败。当前对话已保留，你可以重试。",
             kind: "error_status",
             type: "error",
             status: "failed",
@@ -501,7 +501,7 @@ describe("AgentConversationTimeline", () => {
     );
 
     expect(screen.getAllByRole("alert").find((alert) =>
-      alert.textContent?.includes("Hermes 暂时无法启动本轮任务")
+      alert.textContent?.includes("本轮回答失败")
     )).toBeTruthy();
     expect(screen.queryByText("Hermes run start failed")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "重新执行当前步骤" }));

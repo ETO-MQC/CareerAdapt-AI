@@ -266,7 +266,7 @@ function sidebarSessionStatus(session: AgentSession) {
       : { kind: "waiting_for_user", label: "等待输入" };
   }
   if (session.pendingConfirmation) return { kind: "waiting_for_confirmation", label: "等待核对" };
-  if (session.workflowState.status === "paused") return { kind: "paused", label: "已暂停" };
+  if (session.workflowState?.status === "paused") return { kind: "paused", label: "已暂停" };
   if (session.activeTurn?.status === "running") return { kind: "running", label: "运行中" };
   if (session.taskState?.completionStatus === "waiting_for_user") return { kind: "waiting_for_user", label: "等待输入" };
   if (session.taskState?.completionStatus === "failed" || session.activeTurn?.status === "failed") return { kind: "failed", label: "失败" };

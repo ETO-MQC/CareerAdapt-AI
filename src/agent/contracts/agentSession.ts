@@ -408,7 +408,7 @@ export const HermesRunHandleSchema = z.object({
   lastEventAt: z.string().datetime({ offset: true })
 }).strict();
 
-export const AgentSessionSchema = z.object({
+const AgentSessionObjectSchema = z.object({
   // P4.3i adds pinned identity fields compatibly; keep the persisted session
   // schema number stable so existing session stores do not need a destructive
   // rewrite just to acquire the optional fields.
@@ -421,7 +421,10 @@ export const AgentSessionSchema = z.object({
   // has its own independent budget in AgentContextWindow.
   messages: z.array(AgentMessageSchema),
   sessionRevision: z.number().int().min(0).default(0),
-  workflowState: AgentWorkflowStateSchema,
+  // A plain conversation does not enter a workflow until Hermes (or an
+  // explicit deterministic UI action) actually selects one. Keep this field
+  // optional on the wire so a new session cannot masquerade as a task.
+  workflowState: AgentWorkflowStateSchema.optional(),
   artifactRefs: z.array(AgentArtifactRefSchema).max(64),
   /** Session-pinned career identity. It never follows the global context implicitly. */
   personId: z.string().min(1).optional(),
@@ -455,7 +458,17 @@ export type AgentMessage = z.infer<typeof AgentMessageSchema>;
 export type AgentMessageRevision = z.infer<typeof AgentMessageRevisionSchema>;
 export type AgentMessageReference = z.infer<typeof AgentMessageReferenceSchema>;
 export type AgentMessageRecord = z.infer<typeof AgentMessageRecordSchema>;
-export type AgentSession = z.infer<typeof AgentSessionSchema>;
+type AgentSessionShape = z.infer<typeof AgentSessionObjectSchema>;
+
+// Keep the historical TypeScript contract required for workflow-only code and
+// tests. The runtime/schema boundary above is intentionally more permissive;
+// workflow code is reached only after taskState has been created.
+export type AgentSession = Omit<AgentSessionShape, "workflowState"> & {
+  workflowState: z.infer<typeof AgentWorkflowStateSchema>;
+};
+
+export const AgentSessionSchema = AgentSessionObjectSchema.transform((value): AgentSession => value as AgentSession);
+
 export type AgentWorkflowState = z.infer<typeof AgentWorkflowStateSchema>;
 export type AgentConfirmation = z.infer<typeof AgentConfirmationSchema>;
 export type AgentTurn = z.infer<typeof AgentTurnSchema>;

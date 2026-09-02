@@ -229,6 +229,9 @@ export class RuntimeStatusStore {
     const health = this.snapshot.health;
     const capturedAt = new Date().toISOString();
     const failureSupervisor = this.snapshot.failureTimeSupervisorSnapshot ?? this.snapshot.supervisorSnapshot;
+    const globallyReady = this.snapshot.supervisorOwned
+      ? this.snapshot.supervisorSnapshot?.overallState === "ready" && this.snapshot.supervisorSnapshot.runReady === true
+      : this.snapshot.status === "ready" && this.snapshot.runReady !== false;
     const runtimeFailureSnapshot = this.snapshot.runtimeFailureSnapshot ?? {
       capturedAt,
       supervisor: failureSupervisor
@@ -268,7 +271,7 @@ export class RuntimeStatusStore {
     } satisfies RuntimeFailureSnapshot;
     const nextHealth = health ? {
       ...health,
-      runReady: false,
+      runReady: globallyReady ? health.runReady : false,
       runReadyCheckedAt: new Date().toISOString(),
       runReadySafeErrorCode: diagnostics.safeErrorCode,
       runtimeFailureDiagnostics: diagnostics,
@@ -276,9 +279,9 @@ export class RuntimeStatusStore {
     } : undefined;
     this.update({
       activeRuntime: "hermes",
-      status: this.supervisorOwned ? "degraded" : "unavailable",
-      reason: diagnostics.safeErrorCode,
-      runReady: false,
+      status: globallyReady ? "ready" : this.supervisorOwned ? "degraded" : "unavailable",
+      reason: globallyReady ? this.snapshot.reason : diagnostics.safeErrorCode,
+      runReady: globallyReady ? true : false,
       runtimeFailureSnapshot,
       ...(nextHealth ? { health: nextHealth } : {})
     });

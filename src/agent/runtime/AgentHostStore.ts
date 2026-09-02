@@ -367,7 +367,9 @@ export class AgentHostStore {
   private streamCheckpointPersistedLength = 0;
 
   constructor(private readonly dependencies: {
-    kernel: AgentKernel;
+    /** Native kernel is retained only for legacy/unit harnesses. Production
+     * semantic turns are delegated to Hermes through the runtime boundary. */
+    kernel?: AgentKernel;
     executor: AgentExecutor;
     persistence: AgentSessionStore;
     repository?: WorkspaceRepository;
@@ -942,16 +944,11 @@ export class AgentHostStore {
       if (tailoringProjection) {
         return this.applyTailoringTextAnswer(current, input.event.text, tailoringProjection);
       }
-      const session = await this.prepareRuntimeTask({
-        session: current,
-        userMessage: input.event.text,
-        references: input.event.references
-      });
       return {
-        session,
+        session: current,
         event: input.event,
         userMessage: input.event.text,
-        deterministicTransitionApplied: session !== current
+        deterministicTransitionApplied: false
       };
     }
     if (input.event.type === "quick_action_started") {
@@ -1795,9 +1792,9 @@ export class AgentHostStore {
       activeTurn: session.activeTurn
         ? { ...session.activeTurn, status: "waiting_for_user" as const, completedAt: now }
         : session.activeTurn,
-      workflowState: session.taskState
-        ? projectTaskStateToWorkflowState(session.taskState, { ...session.workflowState, status: "waiting_for_user" })
-        : { ...session.workflowState, status: "waiting_for_user" as const }
+      ...(session.taskState && session.workflowState
+        ? { workflowState: projectTaskStateToWorkflowState(session.taskState, { ...session.workflowState, status: "waiting_for_user" }) }
+        : {})
     };
     current = completeTurnCheckpoint(current, turnId, now);
     const saved = await this.dependencies.persistence.save(current);
@@ -1947,7 +1944,7 @@ export class AgentHostStore {
           messages: current.messages.map((message) => message.id === reusableAssistant.id
             ? {
                 ...message,
-                content: "正在读取当前资料…",
+                content: "正在回复…",
                 kind: "assistant_thinking" as const,
                 type: "assistant_thinking" as const,
                 status: "thinking" as const,
@@ -1959,7 +1956,7 @@ export class AgentHostStore {
             : message),
           updatedAt: now
         }
-      : appendAgentMessage(current, "assistant", "正在读取当前资料…", {
+      : appendAgentMessage(current, "assistant", "正在回复…", {
           id: assistantMessageId,
           turnId,
           kind: "assistant_thinking",
@@ -2023,7 +2020,7 @@ export class AgentHostStore {
       lastProgressAt: now,
       stalled: false,
       streamEvents: [],
-      currentObservation: { runtimeId: input.runtimeId, message: "正在读取当前资料…" }
+      currentObservation: { runtimeId: input.runtimeId, message: "正在回复…" }
     });
     return { session: saved, turnId, userMessageId, assistantMessageId };
   }
@@ -2145,7 +2142,7 @@ export class AgentHostStore {
     const activeTailoringProjection = getActiveTailoringQuestionProjection(next);
     if (event.type === "progress" || event.type === "reasoning_status") {
       if (!activeTailoringProjection && (!assistant || assistant.metadata?.runtimeTextStarted !== true)) {
-        next = replaceRuntimeShellMessage(next, assistantMessageId, event.message ?? "正在处理当前任务…", event, true);
+        next = replaceRuntimeShellMessage(next, assistantMessageId, event.message ?? "正在回复…", event, true);
       }
       const persisted = runHandleResult.success ? await this.dependencies.persistence.save(next) : next;
       this.patchSession(persisted, { currentObservation: { runtimeId: "hermes", message: event.message } });
@@ -2347,7 +2344,7 @@ export class AgentHostStore {
               next,
               assistantMessageId,
               runtimeFailureRecoveryText(errorCode, next.taskState, resultDiagnostics),
-              { ...event, error: { code: errorCode, message: "Career 工作流输入未完成。", recoverable: true } },
+              { ...event, error: { code: errorCode, message: "当前输入还没有完成。", recoverable: true } },
               false,
               false
             );
@@ -2433,7 +2430,7 @@ export class AgentHostStore {
             next,
             assistantMessageId,
             runtimeFailureRecoveryText(errorCode, next.taskState, failureDiagnostics),
-            { ...event, error: { code: errorCode, message: "Career 工作流输入未完成。", recoverable: true } },
+            { ...event, error: { code: errorCode, message: "当前输入还没有完成。", recoverable: true } },
             false,
             false
           );
@@ -2494,7 +2491,7 @@ export class AgentHostStore {
           operationId,
           input: objectValue(data.input)
         },
-        workflowState: { ...next.workflowState, status: "waiting_for_confirmation" }
+          ...(next.workflowState ? { workflowState: { ...next.workflowState, status: "waiting_for_confirmation" as const } } : {})
       };
     }
     if (event.type === "turn_completed" || event.type === "turn_failed") {
@@ -2577,9 +2574,9 @@ export class AgentHostStore {
         // state. Keep the existing workflow status here unless the runtime has
         // raised an approval boundary; native workflow execution remains the
         // only path that can mark a workflow completed or failed.
-        workflowState: next.pendingConfirmation
-          ? { ...next.workflowState, status: "waiting_for_confirmation" }
-          : next.workflowState
+        ...(next.pendingConfirmation && next.workflowState
+          ? { workflowState: { ...next.workflowState, status: "waiting_for_confirmation" as const } }
+          : {})
       };
       const isolatedConversationalTurn = isIsolatedRuntimeTurn(next, event.turnId);
       next = markTurnTerminalState(
@@ -2907,7 +2904,7 @@ export class AgentHostStore {
       return this.resolveConfirmation(false, context.pageContext, session);
     }
     const routed = routeAgentIntent(input.text, {
-      activeWorkflowId: session.taskState?.workflowId ?? session.workflowState.workflowId
+      activeWorkflowId: session.taskState?.workflowId ?? session.workflowState?.workflowId
     });
     if (routed.kind === "ui_action") {
       this.patch({ uiAction: routed.action });
@@ -4905,7 +4902,7 @@ export class AgentHostStore {
       }));
       return claim.operation.promise.then(() => {
         if (this.snapshot.activeSessionId === input.session.id
-          && (this.snapshot.turnStatus === "paused" || this.snapshot.activeSession?.workflowState.status === "paused")) {
+          && (this.snapshot.turnStatus === "paused" || this.snapshot.activeSession?.workflowState?.status === "paused")) {
           return this.snapshot.activeSession;
         }
         return this.startTurn({
@@ -5586,7 +5583,7 @@ export class AgentHostStore {
       confirmed: true,
       ...(careerSessionBinding ? { careerSessionBinding, requireSessionBinding: true } : {})
     });
-    if (result.ok && typeof this.dependencies.kernel.invalidateObservationsAfter === "function") {
+    if (result.ok && typeof this.dependencies.kernel?.invalidateObservationsAfter === "function") {
       this.dependencies.kernel.invalidateObservationsAfter(call.toolName);
     }
     current = upsertAgentActivity(current, {
@@ -7735,7 +7732,7 @@ export class AgentHostStore {
           const now = new Date().toISOString();
             const descriptor = artifactDescriptor(
               event.toolName,
-              current.taskState?.workflowId ?? current.workflowState.workflowId,
+              current.taskState?.workflowId ?? current.workflowState?.workflowId,
               current.taskState?.rootGoal
             );
             if (descriptor) {
@@ -7870,8 +7867,10 @@ export class AgentHostStore {
     };
 
     try {
+      const kernel = this.dependencies.kernel;
+      if (!kernel) throw new Error("agent_kernel_disabled_for_production");
       const result = input.resume
-        ? await this.dependencies.kernel.resumeTurn({
+        ? await kernel.resumeTurn({
             session: current,
             pageContext: input.pageContext,
             reason: input.resume.reason,
@@ -7881,7 +7880,7 @@ export class AgentHostStore {
             emit: onEvent,
             profileIntakeSourceTurns: await this.dependencies.persistence.listProfileIntakeSourceTurns?.(current.id)
           })
-        : await this.dependencies.kernel.runTurn({
+        : await kernel.runTurn({
             session: current,
             pageContext: input.pageContext,
             userMessage: input.userMessage ?? "",
@@ -8004,7 +8003,7 @@ export class AgentHostStore {
       if (input.controller.signal.aborted) return this.snapshot.activeSession;
       current = completeTurn(current, "failed");
       current = settleUserExecutionState(current, input.turnId, "failed");
-      current = appendAgentMessage(current, "assistant", "AI 任务暂时中断，当前进度和输入已保留。", {
+      current = appendAgentMessage(current, "assistant", "本轮回答暂时中断，当前进度和输入已保留。", {
         turnId: input.turnId,
         kind: "error_status",
         type: "error",
@@ -8075,8 +8074,8 @@ export class AgentHostStore {
           provider: diagnostic.provider,
           model: diagnostic.model,
           providerResponseShape: diagnostic.providerResponseShape,
-          workflowId: session.taskState?.workflowId ?? session.workflowState.workflowId,
-          stage: session.taskState?.stage ?? session.workflowState.step,
+          workflowId: session.taskState?.workflowId ?? session.workflowState?.workflowId,
+          stage: session.taskState?.stage ?? session.workflowState?.step,
           sessionId: session.id,
           activeBranchId: session.activeBranchId,
           turnId,
@@ -8201,6 +8200,7 @@ export class AgentHostStore {
   }
 
   private async applyWorkflowControl(session: AgentSession, action: AgentWorkflowControl) {
+    if (!session.taskState || !session.workflowState) return session;
     if (action.type === "cancel_workflow") {
       this.interrupt(session.id, createRunStopReason({
         requestedBy: "user",
@@ -8358,7 +8358,7 @@ function completeTurn(session: AgentSession, status: "failed" | "aborted") {
 
 function sessionTurnStatus(session: AgentSession): AgentHostSnapshot["turnStatus"] {
   if (session.pendingConfirmation) return "waiting_for_confirmation";
-  if (session.workflowState.status === "paused") return "paused";
+  if (session.workflowState?.status === "paused") return "paused";
   if (session.activeTurn?.status === "running") return "running";
   if (session.taskState?.completionStatus === "waiting_for_user") return "waiting_for_user";
   if (session.taskState?.completionStatus === "failed") return "failed";
@@ -10177,7 +10177,10 @@ function enforceExactlyOneFinal(session: AgentSession) {
 }
 
 function withTurnCheckpoint(session: AgentSession, turnId: string, userMessageId: string, createdAt: string) {
-  const taskState = session.taskState ?? new AgentTaskStateReducer().create(session);
+  // A plain conversation has no workflow transaction to checkpoint. Creating
+  // a synthetic task here would make every greeting look like a job flow.
+  if (!session.taskState || !session.workflowState) return session;
+  const taskState = session.taskState;
   const checkpoint = {
     turnId,
     userMessageId,
@@ -11083,7 +11086,7 @@ function attachConfirmedToolArtifact(
 ) {
   const descriptor = artifactDescriptor(
     toolName,
-    session.taskState?.workflowId ?? session.workflowState.workflowId,
+    session.taskState?.workflowId ?? session.workflowState?.workflowId,
     session.taskState?.rootGoal
   );
   if (!result.ok || !descriptor) return session;
@@ -12293,6 +12296,7 @@ function runtimeAttemptStatus(
 
 function runtimeFailureRecoveryText(code?: string, taskState?: AgentTaskState, diagnostics?: Record<string, unknown>) {
   const failureLayer = stringValue(diagnostics?.toolFailureLayer);
+  const safeErrorCategory = stringValue(diagnostics?.safeErrorCategory);
   if (/target_required/i.test(code ?? "")) return TARGET_REQUIRED_PROMPT;
   if (isCareerDomainPreconditionCode(code)) {
     if (code === "needs_profile" || code === "career_session_binding_required") {
@@ -12310,22 +12314,29 @@ function runtimeFailureRecoveryText(code?: string, taskState?: AgentTaskState, d
     diagnostics?.failureScope === "career_workflow"
     && (failureLayer === "gateway_validation" || /schema_validation_failed|target_required/i.test(code ?? ""))
   ) {
-    return "Career 工作流输入还没有完成，MCP 与 Hermes 仍处于健康状态。已保留当前岗位、简历和来源上下文，请按当前问题补充后继续。";
+    return "这一步还没有完成。已保留当前岗位、简历和来源上下文，请按当前问题补充后继续。";
   }
   if (failureLayer === "mcp_transport" || /mcp_(?:bridge_)?(?:transport|unavailable|timeout)/i.test(code ?? "")) {
-    return "CareerAdapt MCP 边界这次没有返回工具结果；Hermes 任务本身没有被判定为不可用。已保留当前任务 checkpoint，确认工作区连接后可从当前步骤重试。";
+    return "这一步暂时没有返回结果。已保留当前任务和输入，确认工作区连接后可从当前步骤重试。";
+  }
+  if (safeErrorCategory === "provider_auth"
+    || safeErrorCategory === "provider_request_invalid"
+    || safeErrorCategory === "model_not_found"
+    || safeErrorCategory === "context_overflow"
+    || safeErrorCategory === "provider_timeout") {
+    return "本轮回答失败。当前对话已保留，你可以稍后重试。";
   }
   if (isHermesRuntimeFailureCode(code)) {
-    return "Hermes 暂时无法启动本轮任务，已保留当前岗位、简历和任务进度。连接恢复后可直接重试。";
+    return "本轮回答失败。当前对话已保留，你可以重试。";
   }
   if (failureLayer === "fact_guard" || /fact_guard|ungrounded|unsupported_fact/i.test(code ?? "")) {
     return "这次简历修改没有通过事实核验，因此没有写入。已保留当前岗位与修改预览，请补充可确认的真实依据后继续。";
   }
   if (failureLayer === "provider" || /provider|model|ai_/i.test(code ?? "")) {
-    return "当前 Career 工作流依赖的模型服务没有完成这一步；已保留当前岗位、简历和任务 checkpoint，可以稍后从当前步骤重试。";
+    return "这一步暂时没有完成。已保留当前岗位、简历和任务进度，可以稍后从当前步骤重试。";
   }
   if (code === "career_workflow_in_progress") {
-    return "当前 Career 工作流已有一个事务正在执行；没有并行提交新的写入。请等待当前 checkpoint 返回后再继续。";
+    return "当前操作正在进行中；没有并行提交新的写入。请等待当前步骤完成后再继续。";
   }
   if (code === "agent_tool_not_allowed") {
     return "简历组装流程刚才没有完成，当前方向和已完成步骤已保留。请从当前步骤继续，我不会把未确认内容显示为简历。";
@@ -12350,9 +12361,9 @@ function completionGuardRecoveryText(
   const rootGoal = taskState?.rootGoal;
   const requiredNextStage = decision.requiredNextStage ?? taskState?.stage ?? "current_step";
   if (rootGoal === "generate_job_specific_resume" || rootGoal === "apply_to_external_job" || rootGoal === "create_tailored_resume") {
-    return `岗位简历工作流尚未形成可确认的完成凭证（当前步骤：${requiredNextStage}）。已保留岗位、来源简历和任务 checkpoint，请从当前步骤继续；不会把未确认内容当作正式简历。`;
+    return `岗位简历还没有形成可确认的完成凭证（当前步骤：${requiredNextStage}）。已保留岗位、来源简历和任务进度，请从当前步骤继续；不会把未确认内容当作正式简历。`;
   }
-  return `当前 Career 工作流尚未形成可确认的完成凭证（当前步骤：${requiredNextStage}）。已保留任务 checkpoint，请从当前步骤继续。`;
+  return `当前任务尚未形成可确认的完成凭证（当前步骤：${requiredNextStage}）。已保留任务进度，请从当前步骤继续。`;
 }
 
 function resumePreviewUiAction(session: AgentSession): AgentUiAction | undefined {

@@ -4,6 +4,7 @@ import type { AgentRuntimeAttachment } from "../agentRuntime";
 import type { CareerSessionBinding } from "../careerSessionBinding";
 import { RuntimeHealthSchema, type RuntimeHealth } from "../runtimeHealth";
 import {
+  classifyHermesRunFailure,
   createHermesRunFailure,
   type HermesRunFailureDiagnostics,
   withHermesRunFailureDiagnostics
@@ -96,7 +97,8 @@ export const HermesRunStatusSchema = z.object({
   session_id: z.string().min(1).optional(),
   model: z.string().min(1).optional(),
   output: z.string().optional(),
-  error: z.string().optional(),
+  provider: z.string().min(1).optional(),
+  error: z.union([z.string(), z.record(z.string(), z.unknown())]).optional(),
   last_event: z.string().optional(),
   created_at: z.number().optional(),
   updated_at: z.number().optional(),
@@ -567,14 +569,32 @@ export function mapOfficialHermesEvent(name: string, value: unknown): HermesBrid
     };
   }
   if (name === "run.completed") {
-    return { type: "turn_completed", data: payload, message: typeof payload.output === "string" ? payload.output : undefined };
+    const data = safeOfficialRunData(payload);
+    return { type: "turn_completed", data, message: typeof payload.output === "string" ? payload.output : undefined };
   }
   if (name === "run.cancelled") {
     return { type: "turn_failed", code: "hermes_run_cancelled", message: "Hermes run was stopped.", recoverable: true };
   }
   if (name === "run.failed") {
-    const message = typeof payload.error === "string" ? payload.error : "Hermes run failed.";
-    return { type: "turn_failed", code: "hermes_run_failed", message, recoverable: isTransientHermesEventError(message) };
+    const message = officialRunFailureMessage(payload);
+    const diagnostics = classifyHermesRunFailure({
+      code: typeof payload.code === "string" ? payload.code : "hermes_run_failed",
+      message,
+      httpStatus: officialRunHttpStatus(payload),
+      failureLayer: "provider",
+      runPhase: "after_run_start",
+      retryable: false
+    });
+    return {
+      type: "turn_failed",
+      code: diagnostics.safeErrorCode,
+      message: diagnostics.safeErrorMessage,
+      recoverable: false,
+      data: {
+        diagnostics,
+        lastHermesEventType: "run.failed"
+      }
+    };
   }
   if (name === "assistant.delta") {
     return typeof payload.delta === "string" ? { type: "text_delta", delta: payload.delta } : undefined;
@@ -644,9 +664,9 @@ export function mapOfficialHermesEvent(name: string, value: unknown): HermesBrid
     message: typeof payload.content === "string" ? payload.content : undefined,
     data: payload
   };
-  if (name === "response.completed" || name === "run.completed") return { type: "turn_completed", data: payload };
+  if (name === "response.completed") return { type: "turn_completed", data: safeOfficialRunData(payload) };
   if (name === "response.created" || name === "run.started" || name === "message.started") {
-    return { type: "progress", message: "Hermes 已接收当前任务。", data: payload };
+    return { type: "progress", message: "正在回复…", data: safeOfficialRunData(payload) };
   }
   return undefined;
 }
@@ -887,8 +907,53 @@ function safeOfficialToolFailureData(payload: Record<string, unknown>, code: str
   };
 }
 
-function isTransientHermesEventError(message: string) {
-  return /(?:timeout|timed out|temporar|unavailable|overload|rate limit|reset|502|503|504|429)/iu.test(message);
+function safeOfficialRunData(payload: Record<string, unknown>) {
+  const allowedKeys = new Set([
+    "event",
+    "run_id",
+    "status",
+    "completed",
+    "output",
+    "last_event",
+    "provider",
+    "model",
+    "finish_reason",
+    "finishReason",
+    "created_at",
+    "updated_at",
+    "usage"
+  ]);
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(payload)) {
+    if (!allowedKeys.has(key)) continue;
+    if (key === "usage" && value && typeof value === "object" && !Array.isArray(value)) {
+      const usage: Record<string, number> = {};
+      for (const [usageKey, usageValue] of Object.entries(value as Record<string, unknown>)) {
+        if (typeof usageValue === "number" && Number.isFinite(usageValue)) usage[usageKey] = usageValue;
+      }
+      result[key] = usage;
+      continue;
+    }
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") result[key] = value;
+  }
+  return result;
+}
+
+function officialRunFailureMessage(payload: Record<string, unknown>) {
+  const nestedError = objectRecord(payload.error);
+  const candidates = [
+    typeof payload.error === "string" ? payload.error : undefined,
+    typeof nestedError.message === "string" ? nestedError.message : undefined,
+    typeof nestedError.error === "string" ? nestedError.error : undefined,
+    typeof payload.message === "string" ? payload.message : undefined
+  ];
+  return candidates.find((candidate): candidate is string => Boolean(candidate?.trim())) ?? "Hermes run failed.";
+}
+
+function officialRunHttpStatus(payload: Record<string, unknown>) {
+  const nestedError = objectRecord(payload.error);
+  const candidates = [payload.http_status, payload.httpStatus, payload.status_code, payload.statusCode, nestedError.http_status, nestedError.httpStatus, nestedError.status_code, nestedError.statusCode];
+  return candidates.find((candidate): candidate is number => typeof candidate === "number" && Number.isInteger(candidate) && candidate >= 100 && candidate <= 599);
 }
 
 /** Convert the compatibility health shape into the authoritative contract. */

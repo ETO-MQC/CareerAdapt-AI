@@ -48,7 +48,7 @@ export function AgentHistoryDialog(props: {
           {props.sessions.length === 0 ? <p>还没有保存的 AI 任务。</p> : filteredSessions.length === 0 ? <p>没有找到匹配的历史记录。</p> : filteredSessions.map((session) => (
             <button type="button" key={session.id} onClick={() => props.onSelect(session)}>
               <strong>{getAgentSessionDisplayTitle(session)}</strong>
-              <span>{session.workflowState.status} · {new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(session.updatedAt))}</span>
+              <span>{session.workflowState?.status ?? "conversation"} · {new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(session.updatedAt))}</span>
             </button>
           ))}
         </div>

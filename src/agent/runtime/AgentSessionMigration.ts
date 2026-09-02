@@ -206,7 +206,9 @@ export function migrateAgentSessionToCurrentSchema(value: AgentSession | Record<
     pendingConfirmation: retiresConfirmation ? undefined : raw.pendingConfirmation,
     pendingToolCall: retiresConfirmation || retiresCall ? undefined : raw.pendingToolCall,
     activeTurn: Object.keys(activeTurn).length ? activeTurn : raw.activeTurn,
-    workflowState: migrateWorkflowState(record(raw.workflowState)),
+    ...(Object.keys(record(raw.workflowState)).length
+      ? { workflowState: migrateWorkflowState(record(raw.workflowState)) }
+      : {}),
     turnCheckpoints: Array.isArray(raw.turnCheckpoints)
       ? raw.turnCheckpoints.map((checkpoint) => {
           const value = record(checkpoint);
