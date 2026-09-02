@@ -63,16 +63,18 @@ export function AgentConversation({
   tailoringTaskState?: AgentTaskState;
   children?: React.ReactNode;
 }) {
-  const topbarOnlyFailureTurnIds = new Set(
+  // Keep the safe assistant failure in the transcript so a failed turn never
+  // appears as an unanswered user message. Only its internal activity rows
+  // remain collapsed when the runtime status is also projected to the topbar.
+  const runtimeFailureTurnIds = new Set(
     messages
-      .filter(isTopbarOnlyRuntimeFailure)
+      .filter(isRuntimeFailureMessage)
       .map((message) => message.turnId)
       .filter((turnId): turnId is string => Boolean(turnId))
   );
   const visibleMessages = dedupeWorkflowReviewMessages(dedupeProfileIntakeMessages(messages.filter((message) =>
     message.role !== "system"
-    && !isTopbarOnlyRuntimeFailure(message)
-    && !(isActivityMessage(message) && message.turnId && topbarOnlyFailureTurnIds.has(message.turnId))
+    && !(isActivityMessage(message) && message.turnId && runtimeFailureTurnIds.has(message.turnId))
     && (message.metadata?.retracted !== true || isWorkflowInteractionMessage(message))
   )));
   const conversationItems = groupConversationItems(visibleMessages);
@@ -439,7 +441,7 @@ function isFailedAssistantMessage(message: AgentMessage) {
     || Boolean(message.errorCode);
 }
 
-function isTopbarOnlyRuntimeFailure(message: AgentMessage) {
+function isRuntimeFailureMessage(message: AgentMessage) {
   if (message.role !== "assistant") return false;
   const safeErrorCode = typeof message.metadata?.safeErrorCode === "string"
     ? message.metadata.safeErrorCode

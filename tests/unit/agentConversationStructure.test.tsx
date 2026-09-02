@@ -466,7 +466,8 @@ describe("AgentConversationTimeline", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("自动处理没有完成");
   });
 
-  it("keeps Hermes runtime failures out of the conversation timeline", () => {
+  it("shows a user-facing Hermes runtime failure while keeping internal activity hidden", () => {
+    const onRegenerate = vi.fn();
     render(
       <AgentConversationTimeline
         messages={[
@@ -491,25 +492,20 @@ describe("AgentConversationTimeline", () => {
             type: "error",
             status: "failed",
             errorCode: "hermes_run_start_http_failed",
+            metadata: { runtimeFailurePresentation: "topbar" },
             createdAt: "2026-07-28T05:01:01.000Z"
-          },
-          {
-            id: "domain-failed",
-            role: "assistant",
-            content: "业务校验没有完成。",
-            kind: "error_status",
-            type: "error",
-            status: "failed",
-            errorCode: "career_tool_failed",
-            createdAt: "2026-07-28T05:01:02.000Z"
           }
         ]}
+        onRegenerate={onRegenerate}
       />
     );
 
-    expect(screen.queryByText(/Hermes 暂时无法启动本轮任务/)).not.toBeInTheDocument();
+    expect(screen.getAllByRole("alert").find((alert) =>
+      alert.textContent?.includes("Hermes 暂时无法启动本轮任务")
+    )).toBeTruthy();
     expect(screen.queryByText("Hermes run start failed")).not.toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent("业务校验没有完成");
+    fireEvent.click(screen.getByRole("button", { name: "重新执行当前步骤" }));
+    expect(onRegenerate).toHaveBeenCalledWith(expect.objectContaining({ id: "hermes-failed" }));
   });
 
   it("renders borderless confirmation actions under the matching AI reply and replaces them with resolution status", () => {
