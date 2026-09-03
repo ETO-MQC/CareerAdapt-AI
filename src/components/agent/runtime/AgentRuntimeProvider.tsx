@@ -674,7 +674,7 @@ function runtimeFailureSnapshotFromStatus(
       ...snapshot.supervisor,
       // A failed run is a turn-scoped failure. Keep the supervisor's global
       // readiness truthful so the next user turn can retry without a fake
-      // process restart or Native fallback.
+      // process restart or a different semantic runtime.
       activeRunId: input.hermesRunId ?? snapshot.supervisor.activeRunId
     },
     run: {
@@ -692,10 +692,11 @@ function runtimeFailureInput(value: unknown): Partial<HermesRunFailureInput> {
   const record = value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {};
-  const layer = ["companion", "session", "provider", "mcp", "run_start", "bridge_http", "response"].includes(String(record.failureLayer))
+  const layer = ["companion", "session", "provider", "mcp", "control_plane", "run_start", "bridge_http", "response"].includes(String(record.failureLayer))
     ? String(record.failureLayer) as HermesFailureLayer
     : undefined;
   const safeErrorCategories = [
+    "runtime_control_auth",
     "provider_auth",
     "provider_request_invalid",
     "model_not_found",
@@ -703,7 +704,10 @@ function runtimeFailureInput(value: unknown): Partial<HermesRunFailureInput> {
     "context_overflow",
     "provider_timeout",
     "mcp_tool_failure",
+    "mcp_connection",
+    "model_error",
     "hermes_internal_failure",
+    "runtime_internal",
     "transport_failure",
     "unknown"
   ] as const;

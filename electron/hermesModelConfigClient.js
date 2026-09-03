@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+
+const crypto = require("crypto");
 const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 
 /**
@@ -147,6 +150,10 @@ class HermesModelConfigClient {
 
   async #fetch(pathname, init) {
     if (!this.runtimeUrl) throw requestError("hermes_runtime_url_missing");
+    if (process.env.CAREERADAPT_RUNTIME_AUTH_DIAGNOSTICS?.trim().toLowerCase() === "true" && this.runtimeApiKey) {
+      const fingerprint = crypto.createHash("sha256").update(this.runtimeApiKey).digest("hex").slice(0, 10);
+      console.error(`[CareerAdapt runtime-auth] C-model-client=${fingerprint}`);
+    }
     const headers = {
       Accept: "application/json",
       ...(this.runtimeApiKey ? { Authorization: `Bearer ${this.runtimeApiKey}` } : {}),

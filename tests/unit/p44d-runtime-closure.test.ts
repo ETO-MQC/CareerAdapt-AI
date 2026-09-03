@@ -11,6 +11,7 @@ import { CareerToolGateway } from "@/agent/tools/CareerToolGateway";
 import { AgentToolRegistry } from "@/agent/tools/registry";
 import { AgentExecutor } from "@/agent/runtime/agentExecutor";
 import { allHermesWorkflowsCovered, evaluateHermesWorkflowCoverage, HERMES_WORKFLOW_MATRIX } from "@/agent/runtime/hermes/hermesWorkflowMatrix";
+import { createHermesLegacyCompatibilityAdapter } from "../support/HermesLegacyCompatibilityAdapter";
 
 const AnyInput = z.object({}).passthrough();
 const AnyOutput = z.object({}).passthrough();
@@ -51,7 +52,9 @@ describe("P4.4d Hermes runtime closure", () => {
         toolCallback: async () => undefined,
         interrupt: async () => undefined
       },
-      careerToolGateway: new CareerToolGateway(new AgentToolRegistry([]))
+      careerToolGateway: new CareerToolGateway(new AgentToolRegistry([])),
+      allowLegacyCompatibility: true,
+      legacyCompatibilityAdapter: createHermesLegacyCompatibilityAdapter
     });
     const router = new AgentRuntimeRouter({ native, hermes, configuration: { agentRuntime: "hermes" } });
     const events = [];
@@ -145,7 +148,12 @@ describe("P4.4d Hermes runtime closure", () => {
       toolCallback: async (input) => { callbacks.push(input); },
       interrupt: async () => undefined
     };
-    const runtime = new HermesCareerAgentRuntime({ transport, careerToolGateway: gateway });
+    const runtime = new HermesCareerAgentRuntime({
+      transport,
+      careerToolGateway: gateway,
+      allowLegacyCompatibility: true,
+      legacyCompatibilityAdapter: createHermesLegacyCompatibilityAdapter
+    });
     const events = [];
     for await (const event of runtime.runTurn({
       sessionId: "agent-session-p44d",
@@ -179,7 +187,9 @@ describe("P4.4d Hermes runtime closure", () => {
         toolCallback: async () => undefined,
         interrupt: async () => undefined
       },
-      careerToolGateway: new CareerToolGateway(new AgentToolRegistry([]))
+      careerToolGateway: new CareerToolGateway(new AgentToolRegistry([])),
+      allowLegacyCompatibility: true,
+      legacyCompatibilityAdapter: createHermesLegacyCompatibilityAdapter
     });
 
     for await (const event of runtime.runTurn({
@@ -227,7 +237,9 @@ describe("P4.4d Hermes runtime closure", () => {
         toolCallback: async () => undefined,
         interrupt: async () => undefined
       },
-      careerToolGateway: gateway
+      careerToolGateway: gateway,
+      allowLegacyCompatibility: true,
+      legacyCompatibilityAdapter: createHermesLegacyCompatibilityAdapter
     });
     const events = [];
     for await (const event of runtime.runTurn({

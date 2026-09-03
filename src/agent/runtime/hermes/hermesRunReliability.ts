@@ -5,11 +5,13 @@ export type HermesFailureLayer =
   | "session"
   | "provider"
   | "mcp"
+  | "control_plane"
   | "run_start"
   | "bridge_http"
   | "response";
 
 export type HermesSafeErrorCategory =
+  | "runtime_control_auth"
   | "provider_auth"
   | "provider_request_invalid"
   | "model_not_found"
@@ -17,7 +19,10 @@ export type HermesSafeErrorCategory =
   | "context_overflow"
   | "provider_timeout"
   | "mcp_tool_failure"
+  | "mcp_connection"
+  | "model_error"
   | "hermes_internal_failure"
+  | "runtime_internal"
   | "transport_failure"
   | "unknown";
 
@@ -55,13 +60,14 @@ export type HermesRunFailureDiagnostics = {
 };
 
 export const HermesRunFailureDiagnosticsSchema = z.object({
-  failureLayer: z.enum(["companion", "session", "provider", "mcp", "run_start", "bridge_http", "response"]),
+  failureLayer: z.enum(["companion", "session", "provider", "mcp", "control_plane", "run_start", "bridge_http", "response"]),
   httpStatus: z.number().int().min(100).max(599).optional(),
   safeErrorCode: z.string().min(1),
   safeErrorMessage: z.string().min(1),
   upstreamErrorCode: z.string().min(1).optional(),
   upstreamErrorType: z.string().min(1).max(120).optional(),
   safeErrorCategory: z.enum([
+    "runtime_control_auth",
     "provider_auth",
     "provider_request_invalid",
     "model_not_found",
@@ -69,7 +75,10 @@ export const HermesRunFailureDiagnosticsSchema = z.object({
     "context_overflow",
     "provider_timeout",
     "mcp_tool_failure",
+    "mcp_connection",
+    "model_error",
     "hermes_internal_failure",
+    "runtime_internal",
     "transport_failure",
     "unknown"
   ]).optional(),
@@ -172,6 +181,10 @@ export function classifyHermesRunFailure(input: HermesRunFailureInput): HermesRu
   const configurationFailure = /config|unconfigured|not[_ -]?configured|missing[_ -]?(api|model|provider)/u.test(code)
     || /configuration|not configured|missing (api|model|provider)/u.test(message);
   const providerFailure = /provider|model|upstream/u.test(code) || /provider|model|upstream/u.test(message);
+  const runtimeControlFailure = input.failureLayer === "control_plane"
+    || input.safeErrorCategory === "runtime_control_auth"
+    || /gateway[_ -]?auth|api[_ -]?server[_ -]?key|runtime[_ -]?(?:control|auth)/u.test(code)
+    || /gateway[_ -]?auth|api[_ -]?server[_ -]?key|runtime[_ -]?(?:control|auth)/u.test(message);
   const transientHttp = status === 408 || status === 425 || status === 429 || (status !== undefined && status >= 500);
   const companionFailure = /companion|bridge[_ -]?(unavailable|http)|network|connect/u.test(code)
     || /companion|bridge|network|connect/u.test(message);
@@ -186,41 +199,59 @@ export function classifyHermesRunFailure(input: HermesRunFailureInput): HermesRu
   const mcpToolFailure = input.failureLayer === "mcp"
     || /mcp|tool[_ -]?(?:call|execution|failure)|function[_ -]?call/u.test(code)
     || /mcp|tool (?:call|execution|failure)|function call/u.test(message);
+  const modelError = input.safeErrorCategory === "model_error"
+    || /(?:model|inference|completion|generation)[_ -]?(?:error|failure|failed|unavailable)/u.test(code)
+    || /(?:model|inference|completion|generation)[_ -]?(?:error|failure|failed|unavailable)/u.test(message);
+  const runtimeInternalFailure = input.safeErrorCategory === "runtime_internal"
+    || /runtime[_ -]?(?:internal|error|failure|exception)/u.test(code)
+    || /runtime[_ -]?(?:internal|error|failure|exception)/u.test(message);
   const hermesInternalFailure = /hermes.*(?:internal|server)|internal.*(?:error|failure)|server error/u.test(code)
     || /hermes.*(?:internal|server)|internal.*(?:error|failure)|server error/u.test(message);
   const providerRequestInvalid = status === 400 || status === 422
     || /invalid[_ -]?(?:request|parameter|input)|bad[_ -]?request/u.test(code)
     || /invalid (?:request|parameter|input)|bad request/u.test(message);
   const providerTimeout = timeout && (input.failureLayer === "provider" || providerFailure || /provider|upstream/u.test(message));
+  const mcpConnectionFailure = input.failureLayer === "mcp"
+    && /connect|unreachable|unavailable|handshake/u.test(code + " " + message);
   const transportFailure = input.failureLayer === "companion"
     || input.failureLayer === "bridge_http"
     || companionFailure
     || transientHttp;
   const safeErrorCategory = input.safeErrorCategory ?? (
-    authFailure ? "provider_auth"
+    runtimeControlFailure ? "runtime_control_auth"
+      : authFailure ? "provider_auth"
       : modelNotFound ? "model_not_found"
         : toolSchemaInvalid ? "tool_schema_invalid"
           : contextOverflow ? "context_overflow"
             : providerTimeout ? "provider_timeout"
-              : mcpToolFailure ? "mcp_tool_failure"
-                : hermesInternalFailure ? "hermes_internal_failure"
-                  : providerRequestInvalid ? "provider_request_invalid"
+                : mcpConnectionFailure ? "mcp_connection"
+                : mcpToolFailure ? "mcp_tool_failure"
+                  : modelError ? "model_error"
+                    : runtimeInternalFailure ? "runtime_internal"
+                      : hermesInternalFailure ? "hermes_internal_failure"
+                        : providerRequestInvalid ? "provider_request_invalid"
                     : postStartOperation || activeConflict || transportFailure ? "transport_failure"
                       : "unknown"
   );
   const safeMessageCategory = input.safeMessageCategory ?? (
-    safeErrorCategory === "provider_auth" ? "auth"
+    ["runtime_control_auth", "provider_auth"].includes(safeErrorCategory) ? "auth"
       : activeConflict ? "conflict"
         : ["provider_request_invalid", "tool_schema_invalid", "context_overflow"].includes(safeErrorCategory) ? "invalid_request"
-          : ["model_not_found", "provider_timeout", "hermes_internal_failure"].includes(safeErrorCategory) ? "provider"
-            : ["mcp_tool_failure", "transport_failure"].includes(safeErrorCategory) ? "transport"
+          : ["model_not_found", "provider_timeout", "model_error", "hermes_internal_failure"].includes(safeErrorCategory) ? "provider"
+          : ["mcp_tool_failure", "mcp_connection", "transport_failure"].includes(safeErrorCategory) ? "transport"
               : "unknown"
   );
 
   let safeErrorCode = sourceCode;
   let retryable = input.retryable ?? true;
   let failureLayer = input.failureLayer ?? "run_start";
-  if (safeErrorCategory === "model_not_found") {
+  if (safeErrorCategory === "runtime_control_auth") {
+    safeErrorCode = sourceCode === "hermes_runtime_control_key_missing"
+      ? sourceCode
+      : "hermes_runtime_control_auth_failed";
+    retryable = false;
+    failureLayer = "control_plane";
+  } else if (safeErrorCategory === "model_not_found") {
     safeErrorCode = "hermes_model_not_found";
     retryable = false;
     failureLayer = "provider";
@@ -236,6 +267,18 @@ export function classifyHermesRunFailure(input: HermesRunFailureInput): HermesRu
     safeErrorCode = sourceCode === "hermes_tool_failed" ? "hermes_mcp_tool_failed" : sourceCode;
     retryable = input.retryable ?? false;
     failureLayer = "mcp";
+  } else if (safeErrorCategory === "mcp_connection") {
+    safeErrorCode = "hermes_mcp_connection_failed";
+    retryable = input.retryable ?? true;
+    failureLayer = "mcp";
+  } else if (safeErrorCategory === "model_error") {
+    safeErrorCode = "hermes_model_error";
+    retryable = input.retryable ?? false;
+    failureLayer = "provider";
+  } else if (safeErrorCategory === "runtime_internal") {
+    safeErrorCode = "hermes_runtime_internal";
+    retryable = input.retryable ?? false;
+    failureLayer = input.failureLayer ?? "bridge_http";
   } else if (safeErrorCategory === "hermes_internal_failure") {
     safeErrorCode = "hermes_internal_failure";
     retryable = input.retryable ?? false;

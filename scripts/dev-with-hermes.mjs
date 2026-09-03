@@ -7,7 +7,6 @@ import companion from "../electron/hermesCompanion.js";
 const {
   applyEnvironment,
   allocateLocalRuntimeUrl,
-  createEphemeralRuntimeApiKey,
   findAvailablePort,
   loadCareerAdaptEnvironment,
   parsePort,
@@ -52,13 +51,16 @@ environment.HERMES_WEB_CONTROL_ENABLED = webControlEnabled ? "true" : "false";
 let nextProcess;
 let hermesHandle;
 let shuttingDown = false;
+const runtimeControlKey = companion.resolveRuntimeControlKey(environment, {
+  allowEphemeralRuntimeKey: !appAlreadyRunning
+});
+environment.HERMES_RUNTIME_API_KEY = runtimeControlKey || "";
+environment.API_SERVER_KEY = runtimeControlKey || "";
+environment.HERMES_API_KEY = "";
 
 if (appAlreadyRunning) {
   console.log(`[CareerAdapt] Reusing the existing app at ${appUrl}`);
 } else {
-  if (!environment.HERMES_RUNTIME_API_KEY && !environment.HERMES_API_KEY && !environment.API_SERVER_KEY) {
-    environment.HERMES_RUNTIME_API_KEY = createEphemeralRuntimeApiKey();
-  }
   // The CLI heap flag on this wrapper does not propagate to the separately
   // spawned Next.js process. Pass it through explicitly so the long-lived
   // dev server has the same safety fuse.
@@ -84,14 +86,13 @@ if (webControlEnabled) {
     environment,
     hermesHome: path.join(projectRoot, ".next", "dev", "hermes"),
     logPath,
-    allowEphemeralRuntimeKey: !appAlreadyRunning,
-    allowProviderKeyFallback: appAlreadyRunning
+    runtimeControlKey
   });
 
   if (hermesHandle.ok) {
     console.log(`[Hermes] Ready at ${hermesHandle.runtime.baseUrl}; log=${hermesHandle.logPath}`);
   } else {
-    console.warn(`[Hermes] Not ready (${hermesHandle.reason ?? "unknown"}); CareerAdapt remains available with Native fallback.`);
+    console.warn(`[Hermes] Not ready (${hermesHandle.reason ?? "unknown"}); Hermes is unavailable until the runtime boundary is repaired.`);
     console.warn(`[Hermes] Startup log: ${hermesHandle.logPath}`);
     if (environment.HERMES_AUTOSTART_REQUIRED?.trim().toLowerCase() === "true") {
       await shutdown(1);

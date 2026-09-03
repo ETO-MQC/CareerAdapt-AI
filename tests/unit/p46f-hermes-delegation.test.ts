@@ -284,6 +284,36 @@ describe("P4.6f Hermes delegation architecture", () => {
       expect(classifyHermesRunFailure({ message, httpStatus, code: "hermes_run_failed" }).safeErrorCategory).toBe(category);
     }
 
+    expect(classifyHermesRunFailure({
+      code: "gateway_auth_failed",
+      message: "Invalid gateway API key",
+      httpStatus: 401,
+      failureLayer: "control_plane"
+    })).toMatchObject({
+      safeErrorCategory: "runtime_control_auth",
+      safeErrorCode: "hermes_runtime_control_auth_failed",
+      failureLayer: "control_plane",
+      retryable: false
+    });
+
+    expect(classifyHermesRunFailure({
+      code: "provider_auth",
+      message: "Provider rejected the configured credential.",
+      httpStatus: 401,
+      failureLayer: "provider"
+    })).toMatchObject({
+      safeErrorCategory: "provider_auth",
+      safeErrorCode: "hermes_provider_auth_failed",
+      failureLayer: "provider"
+    });
+
+    expect(classifyHermesRunFailure({ code: "mcp_connection_failed", message: "MCP connection refused", failureLayer: "mcp" }))
+      .toMatchObject({ safeErrorCategory: "mcp_connection", safeErrorCode: "hermes_mcp_connection_failed", failureLayer: "mcp" });
+    expect(classifyHermesRunFailure({ code: "model_error", message: "Model error", failureLayer: "provider" }))
+      .toMatchObject({ safeErrorCategory: "model_error", safeErrorCode: "hermes_model_error", failureLayer: "provider" });
+    expect(classifyHermesRunFailure({ code: "runtime_internal", message: "Runtime internal failure", failureLayer: "bridge_http" }))
+      .toMatchObject({ safeErrorCategory: "runtime_internal", safeErrorCode: "hermes_runtime_internal", failureLayer: "bridge_http" });
+
     expect(mapOfficialHermesEvent("run.failed", {
       code: "provider_auth",
       error: { message: "HTTP 401: Missing Authentication header", http_status: 401 },

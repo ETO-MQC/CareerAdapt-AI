@@ -11,6 +11,7 @@ import {
   statusCareerAdaptMcpBridge
 } from "@/server/careerAdaptMcpBridgeRegistry";
 import { readHermesRunReadiness } from "@/agent/runtime/hermes/hermesRunReadiness";
+import { classifyHermesRunFailure } from "@/agent/runtime/hermes/hermesRunReliability";
 import { appBuildTechnicalDiagnostics } from "@/services/diagnostics/appBuildInfo";
 import { resolveEffectiveAiConfiguration } from "@/ai/providers/effectiveConfiguration";
 import {
@@ -36,6 +37,16 @@ export async function GET(request: Request) {
   const appBaseUrl = new URL(request.url).origin;
   const mcp = statusCareerAdaptMcpBridge();
   const runtimeUrl = process.env.HERMES_RUNTIME_URL?.trim();
+  if (!process.env.API_SERVER_KEY?.trim()) {
+    return NextResponse.json({
+      available: false,
+      runtimeId: "hermes",
+      reason: "hermes_runtime_control_key_missing",
+      mcpServer: mcp.server,
+      mcpConnected: mcp.connected,
+      discoveredToolCount: mcp.discoveredToolCount
+    }, { status: 503, headers: { "Cache-Control": "no-store" } });
+  }
   if (!runtimeUrl) {
     const provider = await checkConfiguredProvider();
     const legacy: HermesHealth = {
@@ -77,23 +88,37 @@ async function proxy(url: string, mcp: ReturnType<typeof statusCareerAdaptMcpBri
     const upstream = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
     const upstreamRuntimeHealth = readRuntimeHealth(upstream.runtimeHealth);
     const configuredProvider = await checkConfiguredProvider();
+    const runtimeControlAuthFailure = response.status === 401 || response.status === 403;
+    const runtimeControlDiagnostics = runtimeControlAuthFailure
+      ? classifyHermesRunFailure({
+          code: "gateway_auth_failed",
+          message: "Hermes runtime control authentication failed.",
+          httpStatus: response.status,
+          failureLayer: "control_plane"
+        })
+      : undefined;
     const health = HermesHealthSchema.safeParse({
-      available: typeof upstream.available === "boolean" ? upstream.available : response.ok,
+      available: runtimeControlAuthFailure
+        ? false
+        : typeof upstream.available === "boolean" ? upstream.available : response.ok,
       runtimeId: typeof upstream.runtimeId === "string" ? upstream.runtimeId : "hermes",
       ...(typeof upstream.activeRunId === "string" ? { activeRunId: upstream.activeRunId } : {}),
       ...(typeof upstream.hermesRunId === "string" ? { hermesRunId: upstream.hermesRunId } : {}),
       ...(normalizeRunState(upstream.runState) ? { runState: normalizeRunState(upstream.runState) } : {}),
       version: typeof upstream.version === "string" ? upstream.version : undefined,
-      reason: typeof upstream.reason === "string" ? upstream.reason : response.ok ? undefined : `hermes_http_${response.status}`,
+      reason: runtimeControlDiagnostics?.safeErrorCode
+        ?? (typeof upstream.reason === "string" ? upstream.reason : response.ok ? undefined : `hermes_http_${response.status}`),
       provider: typeof upstream.provider === "string"
         ? normalizeAiProviderIdentity(upstream.provider, configuredProviderBaseUrl())
         : configuredProvider?.provider ?? (configuredProviderBaseUrl()
           ? normalizeAiProviderIdentity(undefined, configuredProviderBaseUrl())
           : undefined),
       model: typeof upstream.model === "string" ? upstream.model : configuredProvider?.model ?? configuredModel(),
-      providerStatus: typeof upstream.providerStatus === "string"
-        ? normalizeProviderStatus(upstream.providerStatus, response.ok)
-        : configuredProvider?.providerStatus ?? normalizeProviderStatus(upstream.providerStatus, response.ok),
+      providerStatus: runtimeControlAuthFailure
+        ? "unknown"
+        : typeof upstream.providerStatus === "string"
+          ? normalizeProviderStatus(upstream.providerStatus, response.ok)
+          : configuredProvider?.providerStatus ?? normalizeProviderStatus(upstream.providerStatus, response.ok),
       ...(configuredProvider?.providerDiagnostic ? { providerDiagnostic: configuredProvider.providerDiagnostic } : {}),
       contextWindow: numberValue(upstream.contextWindow) ?? configuredProvider?.contextWindow,
       toolCalling: typeof upstream.toolCalling === "string"
@@ -110,7 +135,7 @@ async function proxy(url: string, mcp: ReturnType<typeof statusCareerAdaptMcpBri
       discoveredToolCount: mcp.discoveredToolCount
     });
     if (!health.success) {
-    const legacy = {
+      const legacy = {
         available: false,
         runtimeId: "hermes",
         reason: "hermes_health_invalid_response",
@@ -120,7 +145,7 @@ async function proxy(url: string, mcp: ReturnType<typeof statusCareerAdaptMcpBri
       };
       return NextResponse.json(await withRuntimeHealth(legacy, mcp, rootUrl(url), appBaseUrl), { status: 503, headers: { "Cache-Control": "no-store" } });
     }
-    return NextResponse.json(await withRuntimeHealth(health.data, mcp, rootUrl(url), appBaseUrl), {
+    return NextResponse.json(await withRuntimeHealth(health.data, mcp, rootUrl(url), appBaseUrl, runtimeControlDiagnostics), {
       status: health.data.available ? 200 : 503,
       headers: { "Cache-Control": "no-store" }
     });
@@ -142,9 +167,10 @@ async function withRuntimeHealth(
   health: ReturnType<typeof HermesHealthSchema.parse>,
   mcp: ReturnType<typeof statusCareerAdaptMcpBridge>,
   runtimeBaseUrl?: string,
-  appBaseUrl?: string
+  appBaseUrl?: string,
+  runtimeFailureDiagnostics?: ReturnType<typeof classifyHermesRunFailure>
 ) {
-  const upstreamRuntimeHealth = health.runtimeHealth;
+  const upstreamRuntimeHealth = runtimeFailureDiagnostics ? undefined : health.runtimeHealth;
   const careerSkillsLoaded = upstreamRuntimeHealth?.careerSkillsLoaded ?? await detectCareerSkills();
   const registry = await readHermesToolsetSnapshot(runtimeBaseUrl);
   const careerMcpServerReachable = await probeCareerMcpServer(appBaseUrl);
@@ -240,6 +266,7 @@ async function withRuntimeHealth(
       ...(cachedRunReadiness.safeErrorCode ? { runReadySafeErrorCode: cachedRunReadiness.safeErrorCode } : {}),
       ...(cachedRunReadiness.runtimeFailureDiagnostics ? { runtimeFailureDiagnostics: cachedRunReadiness.runtimeFailureDiagnostics } : {})
     } : {}),
+    ...(runtimeFailureDiagnostics ? { runtimeFailureDiagnostics } : {}),
     ...(careerToolContractReady
       ? (health.reason ? { safeErrorCode: safeErrorCode(health.reason) } : {})
       : { safeErrorCode: "career_tool_contract_mismatch" })
@@ -427,9 +454,7 @@ async function checkConfiguredProvider() {
 
 function upstreamHeaders() {
   const headers: Record<string, string> = { Accept: "application/json" };
-  const apiKey = process.env.HERMES_RUNTIME_API_KEY?.trim()
-    || process.env.HERMES_API_KEY?.trim()
-    || process.env.AI_API_KEY?.trim();
+  const apiKey = process.env.API_SERVER_KEY?.trim();
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
   return headers;
 }
@@ -466,8 +491,7 @@ function hermesProviderCredential(binding = resolveHermesProviderBinding({
   baseUrl: configuredProviderBaseUrl()
 })) {
   return process.env[binding.credentialEnvName]?.trim()
-    || process.env.AI_API_KEY?.trim()
-    || process.env.HERMES_API_KEY?.trim();
+    || process.env.AI_API_KEY?.trim();
 }
 
 function safeProviderConfigurationDiagnostic(configuration: ReturnType<typeof resolveEffectiveAiConfiguration>) {

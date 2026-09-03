@@ -7,6 +7,7 @@ import type { HermesBridgeTransport } from "@/agent/runtime/hermes/HermesBridgeT
 import { NativeCareerAgentRuntime } from "@/agent/runtime/NativeCareerAgentRuntime";
 import { CareerToolGateway } from "@/agent/tools/CareerToolGateway";
 import { AgentToolRegistry } from "@/agent/tools/registry";
+import { createHermesLegacyCompatibilityAdapter } from "../support/HermesLegacyCompatibilityAdapter";
 
 const AnyInput = z.object({}).passthrough();
 const AnyOutput = z.object({}).passthrough();
@@ -23,7 +24,9 @@ describe("P4.4b Hermes runtime bridge", () => {
         toolCallback: async () => undefined,
         interrupt: async () => undefined
       },
-      careerToolGateway: gateway()
+      careerToolGateway: gateway(),
+      allowLegacyCompatibility: true,
+      legacyCompatibilityAdapter: createHermesLegacyCompatibilityAdapter
     });
     const router = new AgentRuntimeRouter({ native, hermes, configuration: { agentRuntime: "hermes" } });
     const events = [];
@@ -52,7 +55,12 @@ describe("P4.4b Hermes runtime bridge", () => {
       toolCallback: async (input) => { callbacks.push(input); },
       interrupt: async () => undefined
     };
-    const runtime = new HermesCareerAgentRuntime({ transport, careerToolGateway: gateway() });
+    const runtime = new HermesCareerAgentRuntime({
+      transport,
+      careerToolGateway: gateway(),
+      allowLegacyCompatibility: true,
+      legacyCompatibilityAdapter: createHermesLegacyCompatibilityAdapter
+    });
     const events = [];
     for await (const event of runtime.runTurn({ sessionId: "p44b-hermes", userMessage: "读取资料", pageContext: { query: {} } })) {
       events.push(event);
@@ -79,7 +87,9 @@ describe("P4.4b Hermes runtime bridge", () => {
         toolCallback: async () => undefined,
         interrupt: async () => undefined
       },
-      careerToolGateway: gateway()
+      careerToolGateway: gateway(),
+      allowLegacyCompatibility: true,
+      legacyCompatibilityAdapter: createHermesLegacyCompatibilityAdapter
     });
     const run = async () => {
       for await (const event of runtime.runTurn({ sessionId: "rebind-me", userMessage: "继续", pageContext: { query: {} } })) void event;

@@ -56,10 +56,44 @@ function applyEnvironment(environment) {
   for (const [name, value] of Object.entries(environment)) {
     if (typeof value === "string") process.env[name] = value;
   }
+  const hasRuntimeControlInput = ["HERMES_RUNTIME_API_KEY", "HERMES_API_KEY", "API_SERVER_KEY"]
+    .some((name) => Object.prototype.hasOwnProperty.call(environment, name));
+  if (hasRuntimeControlInput) {
+    const runtimeApiKey = resolveRuntimeControlKey(environment);
+    process.env.HERMES_RUNTIME_API_KEY = runtimeApiKey || "";
+    process.env.API_SERVER_KEY = runtimeApiKey || "";
+    // HERMES_API_KEY is a legacy runtime-control alias. It is never a
+    // provider credential and must not remain ambiguous in the app process.
+    process.env.HERMES_API_KEY = "";
+  }
 }
 
 function createEphemeralRuntimeApiKey() {
-  return crypto.randomBytes(32).toString("hex");
+  const key = crypto.randomBytes(32).toString("hex");
+  recordRuntimeControlKeyDiagnostic("A-created", key);
+  return key;
+}
+
+function runtimeControlKeyFingerprint(value) {
+  if (typeof value !== "string" || !value) return undefined;
+  return crypto.createHash("sha256").update(value).digest("hex").slice(0, 10);
+}
+
+function recordRuntimeControlKeyDiagnostic(stage, value) {
+  if (process.env.CAREERADAPT_RUNTIME_AUTH_DIAGNOSTICS?.trim().toLowerCase() !== "true") return;
+  const fingerprint = runtimeControlKeyFingerprint(value);
+  if (fingerprint) console.error(`[CareerAdapt runtime-auth] ${stage}=${fingerprint}`);
+}
+
+function resolveRuntimeControlKey(environment = {}, options = {}) {
+  const existing = firstValue(
+    environment.API_SERVER_KEY,
+    environment.HERMES_RUNTIME_API_KEY,
+    environment.HERMES_API_KEY
+  );
+  if (existing) return existing;
+  if (options.allowEphemeralRuntimeKey === true) return createEphemeralRuntimeApiKey();
+  return undefined;
 }
 
 function resolveRuntimeConfig(environment) {
@@ -137,23 +171,18 @@ function prepareHermesEnvironment(environment, options = {}) {
   const bundledRuntime = resolveBundledHermesRuntime(environment, options);
 
   const result = { ...environment };
-  let runtimeApiKey = firstValue(
-    result.HERMES_RUNTIME_API_KEY,
-    result.HERMES_API_KEY,
+  const runtimeApiKey = firstValue(
+    options.runtimeControlKey,
     result.API_SERVER_KEY
   );
-  if (!runtimeApiKey && options.allowProviderKeyFallback === true) {
-    runtimeApiKey = firstValue(result.AI_API_KEY);
-  }
-  if (!runtimeApiKey && options.allowEphemeralRuntimeKey === true) {
-    runtimeApiKey = createEphemeralRuntimeApiKey();
-    result.HERMES_RUNTIME_API_KEY = runtimeApiKey;
-  }
+  result.HERMES_RUNTIME_API_KEY = runtimeApiKey || "";
+  result.API_SERVER_KEY = runtimeApiKey || "";
+  result.HERMES_API_KEY = "";
 
   const model = firstValue(result.HERMES_MODEL, result.AI_MODEL, result.HERMES_INFERENCE_MODEL);
   const providerBaseUrl = firstValue(result.HERMES_BASE_URL, result.AI_BASE_URL, result.OPENROUTER_BASE_URL, result.OPENAI_BASE_URL);
   const configuredProvider = firstValue(result.HERMES_PROVIDER, result.AI_PROVIDER);
-  const configuredApiKey = firstValue(result.AI_API_KEY, result.HERMES_API_KEY);
+  const configuredApiKey = firstValue(result.AI_API_KEY);
   const binding = resolveHermesProviderBinding({
     provider: configuredProvider,
     baseUrl: providerBaseUrl,
@@ -169,7 +198,9 @@ function prepareHermesEnvironment(environment, options = {}) {
     API_SERVER_ENABLED: "true",
     API_SERVER_HOST: runtime.host,
     API_SERVER_PORT: String(runtime.port),
-    ...(runtimeApiKey ? { API_SERVER_KEY: runtimeApiKey } : {}),
+    HERMES_RUNTIME_API_KEY: runtimeApiKey || "",
+    API_SERVER_KEY: runtimeApiKey || "",
+    HERMES_API_KEY: "",
     OPENAI_BASE_URL: binding.baseUrlEnvName === "OPENAI_BASE_URL" ? providerBaseUrl || "" : "",
     OPENROUTER_BASE_URL: binding.baseUrlEnvName === "OPENROUTER_BASE_URL" ? providerBaseUrl || "" : "",
     AI_API_KEY: "",
@@ -178,6 +209,7 @@ function prepareHermesEnvironment(environment, options = {}) {
     HERMES_CUSTOM_CAREERADAPT_API_KEY: binding.credentialEnvName === "HERMES_CUSTOM_CAREERADAPT_API_KEY" ? providerApiKey || "" : "",
     ...(model ? { HERMES_INFERENCE_MODEL: model } : {})
   };
+  recordRuntimeControlKeyDiagnostic("B-child", childEnvironment.API_SERVER_KEY);
 
   if (bundledRuntime) {
     childEnvironment.HERMES_RUNTIME_MODE = "bundled";
@@ -206,7 +238,8 @@ function prepareHermesEnvironment(environment, options = {}) {
       model,
       genericApiKey: providerApiKey,
       appBaseUrl,
-      runtimeUrl: runtime.baseUrl
+      runtimeUrl: runtime.baseUrl,
+      includeCareerAdaptMcp: options.includeCareerAdaptMcp
     });
   }
   return { environment: result, childEnvironment, runtime, runtimeApiKey };
@@ -260,7 +293,10 @@ function ensureManagedHermesConfig(hermesHome, values) {
   const mcpUrl = `${String(values.appBaseUrl || DEFAULT_APP_URL).replace(/\/$/u, "")}/api/agent/mcp`;
   const developerMode = firstValue(values.mode, process.env.CAREERADAPT_HERMES_MODE)?.toLowerCase() === "developer"
     || firstValue(values.developerMode, process.env.CAREERADAPT_HERMES_DEVELOPER_MODE)?.toLowerCase() === "true";
-  const apiServerToolsets = developerMode ? ["hermes-api-server", "careeradapt"] : ["skills", "careeradapt"];
+  const includeCareerAdaptMcp = values.includeCareerAdaptMcp !== false;
+  const apiServerToolsets = includeCareerAdaptMcp
+    ? (developerMode ? ["hermes-api-server", "careeradapt"] : ["skills", "careeradapt"])
+    : ["skills"];
   const managedLines = [
     "# CareerAdapt managed Hermes invariants. User-owned config outside this block is preserved.",
     "# Managed by CareerAdapt AI. Do not put API keys in this file.",
@@ -280,11 +316,13 @@ function ensureManagedHermesConfig(hermesHome, values) {
     "platform_toolsets:",
     "  api_server:",
     ...apiServerToolsets.map((toolset) => `    - ${toolset}`),
-    "mcp_servers:",
-    "  careeradapt:",
-    `    url: ${yamlScalar(mcpUrl)}`,
-    "    enabled: true",
-    "    connect_timeout: 10",
+    ...(includeCareerAdaptMcp ? [
+      "mcp_servers:",
+      "  careeradapt:",
+      `    url: ${yamlScalar(mcpUrl)}`,
+      "    enabled: true",
+      "    connect_timeout: 10"
+    ] : []),
     "gateway:",
     `  careeradapt_runtime_url: ${yamlScalar(values.runtimeUrl || DEFAULT_RUNTIME_URL)}`,
     ""
@@ -365,7 +403,7 @@ function findHermesBinary(environment = process.env) {
 }
 
 async function startHermesCompanion(options = {}) {
-  let environment = options.environment ?? process.env;
+  let environment = { ...(options.environment ?? process.env) };
   let runtime = options.runtime ?? resolveRuntimeConfig(environment);
   const projectRoot = options.projectRoot ?? process.cwd();
   const hermesHome = firstValue(options.hermesHome, environment.HERMES_HOME, path.join(projectRoot, ".next", "dev", "hermes"));
@@ -393,9 +431,20 @@ async function startHermesCompanion(options = {}) {
     return failedCompanion("hermes_bundled_runtime_missing", logPath, { runtime });
   }
 
+  const runtimeApiKey = firstValue(
+    options.runtimeControlKey,
+    resolveRuntimeControlKey(environment, { allowEphemeralRuntimeKey: options.allowEphemeralRuntimeKey === true })
+  );
+  environment = {
+    ...environment,
+    HERMES_RUNTIME_API_KEY: runtimeApiKey || "",
+    API_SERVER_KEY: runtimeApiKey || "",
+    HERMES_API_KEY: ""
+  };
+
   let prepared = prepareHermesEnvironment(environment, {
-    allowEphemeralRuntimeKey: options.allowEphemeralRuntimeKey === true,
-    allowProviderKeyFallback: options.allowProviderKeyFallback === true,
+    runtimeControlKey: runtimeApiKey,
+    includeCareerAdaptMcp: options.includeCareerAdaptMcp,
     projectRoot,
     appBaseUrl: options.appBaseUrl,
     hermesHome,
@@ -427,11 +476,16 @@ async function startHermesCompanion(options = {}) {
       writeLog(`startup blocked: ${runtime.host}:${runtime.port} is occupied by another process`);
       return failedCompanion("hermes_runtime_port_occupied", logPath, { runtime });
     }
-    environment = allocated.environment;
+    environment = {
+      ...allocated.environment,
+      HERMES_RUNTIME_API_KEY: runtimeApiKey || "",
+      API_SERVER_KEY: runtimeApiKey || "",
+      HERMES_API_KEY: ""
+    };
     runtime = allocated.runtime;
     prepared = prepareHermesEnvironment(environment, {
-      allowEphemeralRuntimeKey: options.allowEphemeralRuntimeKey === true,
-      allowProviderKeyFallback: options.allowProviderKeyFallback === true,
+      runtimeControlKey: runtimeApiKey,
+      includeCareerAdaptMcp: options.includeCareerAdaptMcp,
       projectRoot,
       appBaseUrl: options.appBaseUrl,
       hermesHome,
@@ -549,7 +603,7 @@ function providerCredential(environment, binding = resolveHermesProviderBinding(
   })) {
   const direct = environment[binding.credentialEnvName];
   if (typeof direct === "string" && direct.trim()) return direct.trim();
-  for (const key of ["AI_API_KEY", "HERMES_API_KEY"]) {
+  for (const key of ["AI_API_KEY"]) {
     const value = environment[key];
     if (typeof value === "string" && value.trim()) return value.trim();
   }
@@ -917,7 +971,7 @@ async function runCli() {
   const environment = loadCareerAdaptEnvironment(projectRoot);
   if (command === "check") {
     const runtime = resolveRuntimeConfig(environment);
-    const result = runtime.error ? { ok: false, reason: runtime.error } : await probeHealth(runtime.healthUrl, firstValue(environment.HERMES_RUNTIME_API_KEY, environment.HERMES_API_KEY, environment.AI_API_KEY));
+    const result = runtime.error ? { ok: false, reason: runtime.error } : await probeHealth(runtime.healthUrl, resolveRuntimeControlKey(environment));
     console.log(`Hermes companion: ${result.ok ? "READY" : "NOT READY"}`);
     process.exitCode = result.ok ? 0 : 1;
     return;
@@ -932,7 +986,7 @@ async function runCli() {
     environment,
     hermesHome: path.join(projectRoot, ".next", "dev", "hermes"),
     logPath: path.join(projectRoot, ".next", "dev", "logs", "hermes-runtime.log"),
-    allowProviderKeyFallback: true
+    allowEphemeralRuntimeKey: true
   });
   if (!handle.ok) {
     console.error(`Hermes companion failed to start: ${handle.reason ?? "unknown"}`);
@@ -965,6 +1019,9 @@ module.exports = {
   classifyStartupStage,
   normalizeProviderIdentity,
   providerCredential,
+  resolveRuntimeControlKey,
+  recordRuntimeControlKeyDiagnostic,
+  runtimeControlKeyFingerprint,
   resolveHermesProviderBinding,
   sanitizedLaunchSummary,
   startHermesCompanion,

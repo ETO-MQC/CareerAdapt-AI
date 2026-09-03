@@ -313,7 +313,9 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
           payload.error?.message ?? "Hermes bridge request failed.",
           {
             httpStatus: response.status,
-            failureLayer: payload.error?.failureLayer === "provider" ? "provider" : "bridge_http",
+            failureLayer: payload.error?.failureLayer === "provider"
+              ? "provider"
+              : payload.error?.failureLayer === "control_plane" ? "control_plane" : "bridge_http",
             upstreamErrorCode: payload.error?.code,
             hermesRunId: safeString(input.runId),
             diagnostics: payload.error?.diagnostics
@@ -348,7 +350,7 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
       const action = String(input.action);
       const error = bridgeError(payload?.error?.code ?? `hermes_${action}_failed`, payload?.error?.message ?? "Hermes turn stream is unavailable.", {
         httpStatus: response.status,
-        failureLayer: "bridge_http",
+        failureLayer: payload?.error?.failureLayer === "control_plane" ? "control_plane" : "bridge_http",
         upstreamErrorCode: payload?.error?.code,
         hermesRunId: safeString(input.runId),
         diagnostics: payload?.error?.diagnostics
@@ -1016,7 +1018,7 @@ export function toRuntimeHealth(
 
 async function safeJson(response: Response) {
   try {
-    return await response.json() as { error?: { code?: string; message?: string; diagnostics?: Partial<HermesRunFailureDiagnostics> } };
+    return await response.json() as { error?: { code?: string; message?: string; failureLayer?: string; diagnostics?: Partial<HermesRunFailureDiagnostics> } };
   } catch {
     return undefined;
   }
@@ -1027,7 +1029,7 @@ function bridgeError(
   message: string,
   context: {
     httpStatus?: number;
-    failureLayer?: "companion" | "session" | "provider" | "mcp" | "run_start" | "bridge_http" | "response";
+    failureLayer?: "companion" | "session" | "provider" | "mcp" | "control_plane" | "run_start" | "bridge_http" | "response";
     upstreamErrorCode?: string;
     hermesRunId?: string;
     diagnostics?: Partial<HermesRunFailureDiagnostics>;

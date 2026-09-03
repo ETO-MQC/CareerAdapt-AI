@@ -23,7 +23,6 @@ import {
 } from "./hermesIncidentTrace";
 import type { RuntimeCausalChainEntry, SecondaryRecoveryFailure } from "./hermesIncidentTrace";
 import { getUserMessageForTurn } from "../currentTurnUserMessage";
-import { HermesLegacyCompatibilityAdapter } from "./HermesLegacyCompatibilityAdapter";
 
 type TurnCounters = {
   toolCalls: number;
@@ -73,6 +72,15 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     capabilities?: Partial<AgentRuntimeCapabilities>;
     /** @deprecated accepted for source compatibility; production does not use local run policy. */
     longRunPolicy?: HermesLongRunPolicy;
+    /** Explicit test/compatibility hook for pre-P4.6f transports only. */
+    allowLegacyCompatibility?: boolean;
+    legacyCompatibilityAdapter?: (dependencies: {
+      transport: HermesBridgeTransport;
+      careerToolGateway: CareerToolGateway;
+      sessions: Map<string, string>;
+    }) => {
+      runTurn(input: AgentRuntimeTurnInput, counters: TurnCounters, startedAt: number): AsyncIterable<AgentRuntimeEvent>;
+    };
   }) {}
 
   capabilities(): AgentRuntimeCapabilities {
@@ -224,11 +232,14 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     if (!supportsRuns(this.dependencies.transport)) {
       // Compatibility is deliberately isolated here. Production transports
       // use the official /v1/runs path below and never execute browser tools;
-      // only non-production in-memory/dev adapters may exercise the old loop.
-      if (process.env.NODE_ENV === "production") {
-        throw hermesError("hermes_runs_unsupported", "Hermes production transport does not expose the official /v1/runs API.");
+      // only explicit non-production test/compatibility fixtures may exercise
+      // the old loop. Product composition never supplies this hook.
+      if (process.env.NODE_ENV === "production"
+        || this.dependencies.allowLegacyCompatibility !== true
+        || !this.dependencies.legacyCompatibilityAdapter) {
+        throw hermesError("hermes_runs_unsupported", "Hermes transport does not expose the official /v1/runs API.");
       }
-      yield* new HermesLegacyCompatibilityAdapter({
+      yield* this.dependencies.legacyCompatibilityAdapter({
         transport: this.dependencies.transport,
         careerToolGateway: this.dependencies.careerToolGateway,
         sessions: this.sessions

@@ -30,8 +30,8 @@ type HermesSupervisorModule = {
 
 type HermesCompanionModule = {
   applyEnvironment(environment: Record<string, string>): void;
-  createEphemeralRuntimeApiKey(): string;
   loadCareerAdaptEnvironment(projectRoot: string): Record<string, string>;
+  resolveRuntimeControlKey(environment: Record<string, string>): string | undefined;
 };
 
 type WebHermesSupervisorGlobalState = {
@@ -75,13 +75,17 @@ export function getWebHermesSupervisor(appOrigin: string): WebHermesSupervisor {
     HERMES_RUNTIME_ROOT: loadedEnvironment.HERMES_RUNTIME_ROOT?.trim()
       || ".electron-build/hermes-runtime-v4"
   };
-  if (!hasRuntimeApiKey(environment)) environment.HERMES_RUNTIME_API_KEY = companion.createEphemeralRuntimeApiKey();
+  const runtimeControlKey = companion.resolveRuntimeControlKey(environment);
+  environment.HERMES_RUNTIME_API_KEY = runtimeControlKey || "";
+  environment.API_SERVER_KEY = runtimeControlKey || "";
+  environment.HERMES_API_KEY = "";
   companion.applyEnvironment(environment);
 
   state.supervisor = new hermesSupervisor.HermesSupervisor({
     projectRoot,
     appBaseUrl: appOrigin,
     environment,
+    runtimeControlKey,
     hermesHome: environment.HERMES_HOME || ".next/dev/hermes",
     hermesRuntimeRoot: environment.HERMES_RUNTIME_ROOT,
     runtimeCwd: projectRoot,
@@ -138,12 +142,4 @@ function loadCommonJsModule(fileName: string) {
   const runtimeRequire = builtinModule?.createRequire(path.join(process.cwd(), "package.json"))
     ?? Function("return require")() as NodeRequire;
   return runtimeRequire(modulePath);
-}
-
-function hasRuntimeApiKey(environment: Record<string, string>) {
-  return Boolean(
-    environment.HERMES_RUNTIME_API_KEY?.trim()
-    || environment.HERMES_API_KEY?.trim()
-    || environment.API_SERVER_KEY?.trim()
-  );
 }

@@ -14,7 +14,8 @@ const {
 const {
   prepareHermesEnvironment,
   providerCredential,
-  resolveHermesProviderBinding
+  resolveHermesProviderBinding,
+  resolveRuntimeControlKey
 } = require("../../electron/hermesCompanion.js") as {
   CUSTOM_CREDENTIAL_ENV: string;
   OPENAI_CREDENTIAL_ENV: string;
@@ -25,6 +26,7 @@ const {
     runtime: Record<string, unknown>;
   };
   providerCredential: (environment: Record<string, string>) => string | undefined;
+  resolveRuntimeControlKey: (environment: Record<string, string>, options?: Record<string, unknown>) => string | undefined;
   resolveHermesProviderBinding: (input: {
     provider?: string;
     baseUrl?: string;
@@ -81,6 +83,14 @@ describe("P4.6g Hermes provider credential binding", () => {
     expect(JSON.stringify(binding)).not.toContain("must-not-return");
   });
 
+  it("normalizes the canonical control key before legacy runtime aliases", () => {
+    expect(resolveRuntimeControlKey({
+      API_SERVER_KEY: "canonical-control-key",
+      HERMES_RUNTIME_API_KEY: "legacy-runtime-key",
+      HERMES_API_KEY: "ambiguous-key"
+    })).toBe("canonical-control-key");
+  });
+
   it("injects only the matching canonical credential and base-url environment", () => {
     const prepared = prepareHermesEnvironment({
       HERMES_RUNTIME_URL: "http://127.0.0.1:18642",
@@ -105,12 +115,14 @@ describe("P4.6g Hermes provider credential binding", () => {
     expect(providerCredential({
       HERMES_PROVIDER: "openrouter",
       HERMES_BASE_URL: "https://openrouter.ai/api/v1",
-      OPENAI_API_KEY: "wrong-openai-secret"
+      OPENAI_API_KEY: "wrong-openai-secret",
+      HERMES_API_KEY: "ambiguous-runtime-secret"
     })).toBeUndefined();
     expect(providerCredential({
       HERMES_PROVIDER: "openai-compatible",
       HERMES_BASE_URL: "https://provider.example/v1",
-      OPENAI_API_KEY: "wrong-openai-secret"
+      OPENAI_API_KEY: "wrong-openai-secret",
+      HERMES_API_KEY: "ambiguous-runtime-secret"
     })).toBeUndefined();
   });
 });

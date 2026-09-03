@@ -1,18 +1,18 @@
 import { nanoid } from "nanoid";
-import type { AgentRuntimeEvent, AgentRuntimeTurnInput } from "../agentRuntime";
-import type { CareerSessionBinding } from "../careerSessionBinding";
-import { resolveCareerSessionBinding } from "../careerSessionBinding";
-import type { CareerToolGateway, CareerToolContract } from "../../tools/CareerToolGateway";
-import { safeCareerToolArgumentShape } from "../../tools/careerToolDiagnostics";
+import type { AgentRuntimeEvent, AgentRuntimeTurnInput } from "@/agent/runtime/agentRuntime";
+import type { CareerSessionBinding } from "@/agent/runtime/careerSessionBinding";
+import { resolveCareerSessionBinding } from "@/agent/runtime/careerSessionBinding";
+import type { CareerToolGateway, CareerToolContract } from "@/agent/tools/CareerToolGateway";
+import { safeCareerToolArgumentShape } from "@/agent/tools/careerToolDiagnostics";
 import {
   logicalToolOperationId,
   type HermesBridgeEvent,
   type HermesBridgeTransport
-} from "./HermesBridgeTransport";
-import { HermesCareerToolCatalog, HERMES_REQUIRED_CAREER_FACADES, hermesProductionToolNames, projectCareerContractsForHermes } from "./HermesCareerToolCatalog";
-import { isRoadshowReady } from "../runtimeHealth";
-import { isCareerSystemStatusQuestion } from "../../kernel/AgentToolResolver";
-import { getUserMessageForTurn } from "../currentTurnUserMessage";
+} from "@/agent/runtime/hermes/HermesBridgeTransport";
+import { HermesCareerToolCatalog, HERMES_REQUIRED_CAREER_FACADES, hermesProductionToolNames, projectCareerContractsForHermes } from "@/agent/runtime/hermes/HermesCareerToolCatalog";
+import { isRoadshowReady } from "@/agent/runtime/runtimeHealth";
+import { isCareerSystemStatusQuestion } from "@/agent/kernel/AgentToolResolver";
+import { getUserMessageForTurn } from "@/agent/runtime/currentTurnUserMessage";
 
 type LegacyTurnCounters = {
   toolCalls: number;
@@ -33,9 +33,8 @@ type LegacyTurnCounters = {
 };
 
 /**
- * Compatibility-only adapter for pre-P4.6f Hermes transports. The production
- * runtime never constructs this adapter; its session/callback loop remains
- * available only for non-production protocol fixtures and dev adapters.
+ * Test/compatibility-only adapter for pre-P4.6f Hermes transports. Product
+ * composition never imports or constructs this adapter.
  */
 export class HermesLegacyCompatibilityAdapter {
   constructor(private readonly dependencies: {
@@ -496,6 +495,14 @@ export class HermesLegacyCompatibilityAdapter {
       ...partial
     } satisfies AgentRuntimeEvent;
   }
+}
+
+export function createHermesLegacyCompatibilityAdapter(dependencies: {
+  transport: HermesBridgeTransport;
+  careerToolGateway: CareerToolGateway;
+  sessions: Map<string, string>;
+}) {
+  return new HermesLegacyCompatibilityAdapter(dependencies);
 }
 
 function sourceUserMessageIdForTurn(session: AgentRuntimeTurnInput["session"], turnId?: string) {

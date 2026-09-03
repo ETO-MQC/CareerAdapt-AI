@@ -1,12 +1,11 @@
+import { createHash } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { classifyHermesRunFailure } from "@/agent/runtime/hermes/hermesRunReliability";
 import { recordHermesRunStartFailure, recordHermesRunStartSuccess } from "@/agent/runtime/hermes/hermesRunReadiness";
-import { requestLegacyHermes, type LegacyHermesAction } from "./legacyBridge";
 
 const HermesBridgeRequestSchema = z.object({
   action: z.enum([
-    "session_create", "session_resume", "turn", "tool_callback", "interrupt",
     "run_start", "run_status", "run_events", "run_approval", "run_stop"
   ])
 }).passthrough();
@@ -17,16 +16,13 @@ export async function POST(request: NextRequest) {
   const body = HermesBridgeRequestSchema.safeParse(await request.json());
   if (!body.success) return NextResponse.json({ ok: false, error: { code: "hermes_bridge_bad_request", message: "Invalid Hermes bridge request." } }, { status: 400 });
   const { action, ...payload } = body.data;
-  if (process.env.HERMES_RUNTIME_PROTOCOL?.trim().toLowerCase() === "legacy") {
-    if (process.env.NODE_ENV === "production") return unavailable("hermes_legacy_protocol_disabled");
-    if (action.startsWith("run_")) return unavailable("hermes_runs_unsupported");
-    return requestLegacyHermes(baseUrl, action as LegacyHermesAction, payload, unavailable);
-  }
+  if (process.env.HERMES_RUNTIME_PROTOCOL?.trim().toLowerCase() === "legacy") return unavailable("hermes_legacy_protocol_disabled");
   return officialHermesRequest(baseUrl, action, payload);
 }
 
 async function officialHermesRequest(baseUrl: string, action: z.infer<typeof HermesBridgeRequestSchema>["action"], payload: Record<string, unknown>) {
   const root = baseUrl.replace(/\/$/u, "");
+  if (!process.env.API_SERVER_KEY?.trim()) return unavailable("hermes_runtime_control_key_missing");
   try {
     if (action === "run_start") {
       const requestContext = runStartDiagnosticContext(payload);
@@ -61,7 +57,7 @@ async function officialHermesRequest(baseUrl: string, action: z.infer<typeof Her
           code: typeof rawError.code === "string" ? rawError.code : "hermes_run_start_failed",
           message: typeof rawError.message === "string" ? rawError.message : undefined,
           httpStatus: response.status,
-          failureLayer: /provider|model|auth/u.test(String(rawError.code ?? "")) ? "provider" : "bridge_http",
+          failureLayer: response.status === 401 || response.status === 403 ? "control_plane" : "bridge_http",
           upstreamErrorCode: typeof rawError.code === "string" ? rawError.code : undefined,
           upstreamErrorType: safeDiagnosticString(rawError.type ?? rawError.error_type),
           runStartKind: "new",
@@ -129,77 +125,7 @@ async function officialHermesRequest(baseUrl: string, action: z.infer<typeof Her
         headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-store", "X-Accel-Buffering": "no" }
       });
     }
-    if (action === "tool_callback") {
-      // Official Hermes API Server executes MCP tools on its own host. The
-      // legacy callback action remains accepted so the browser adapter can
-      // keep one stable protocol without pretending a callback was needed.
-      return NextResponse.json({ ok: true, data: { accepted: false, execution: "hermes-api-server" } });
-    }
-    if (action === "interrupt") {
-      return NextResponse.json({ ok: true, data: { interrupted: false, reason: "official_session_stream_interrupt_not_exposed_by_bridge" } });
-    }
-    if (action === "session_create") {
-      const response = await fetch(`${root}/api/sessions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json", ...apiKeyHeader() },
-        body: JSON.stringify({
-          id: payload.sessionId,
-          model: configuredModel(),
-          source: "careerad",
-          metadata: safeCareerMetadata(payload)
-        }),
-        signal: AbortSignal.timeout(30_000),
-        cache: "no-store"
-      });
-      const raw = await response.json().catch(() => ({}));
-      if (!response.ok) return upstreamError(response.status, raw, "hermes_session_create_failed");
-      const sessionId = sessionIdFromResponse(raw) ?? String(payload.sessionId);
-      return NextResponse.json({ ok: true, data: { sessionId, resumed: false } }, { status: 200 });
-    }
-    if (action === "session_resume") {
-      const sessionId = typeof payload.sessionId === "string" ? payload.sessionId : "";
-      const response = await fetch(`${root}/api/sessions/${encodeURIComponent(sessionId)}`, {
-        method: "GET",
-        headers: { Accept: "application/json", ...apiKeyHeader() },
-        signal: AbortSignal.timeout(30_000),
-        cache: "no-store"
-      });
-      const raw = await response.json().catch(() => ({}));
-      if (!response.ok) return upstreamError(response.status, raw, "hermes_session_not_found");
-      return NextResponse.json({ ok: true, data: { sessionId: sessionIdFromResponse(raw) ?? sessionId, resumed: true } });
-    }
-    const sessionId = typeof payload.sessionId === "string" ? payload.sessionId : "";
-    const careerBinding = safeCareerBinding(payload.careerSessionBinding);
-    const response = await fetch(`${root}/api/sessions/${encodeURIComponent(sessionId)}/chat/stream`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "text/event-stream", ...apiKeyHeader() },
-      body: JSON.stringify({
-        message: typeof payload.userMessage === "string" ? payload.userMessage : "",
-        ...(configuredModel() ? { model: configuredModel() } : {}),
-        // Hermes owns reasoning and tool selection. CareerAdapt only supplies
-        // the immutable task binding and page hints; no Repository is sent.
-        career_context: {
-          // The URL/sessionId above is the Hermes API session. Tool inputs
-          // such as profile-intake evidence use the CareerAdapt Agent Session
-          // ID, which is the binding authority and may differ after Hermes
-          // creates/resumes its own session.
-          session_id: careerBinding?.agentSessionId ?? sessionId,
-          binding: careerBinding,
-          page: safePageContext(payload.pageContext),
-          tool_contract_count: Array.isArray(payload.toolContracts) ? payload.toolContracts.length : 0,
-          runtime_user_event: safeRuntimeUserEvent(asRecord(payload.metadata).runtimeUserEvent)
-        }
-      }),
-      cache: "no-store"
-    });
-    if (!response.ok || !response.body) {
-      const raw = await response.json().catch(() => ({}));
-      return upstreamError(response.status, raw, "hermes_turn_failed");
-    }
-    return new Response(response.body, {
-      status: response.status,
-      headers: { "Content-Type": response.headers.get("content-type") ?? "text/event-stream", "Cache-Control": "no-store" }
-    });
+    return unavailable("hermes_runs_unsupported");
   } catch (error) {
     if (action === "run_start") {
       const diagnostics = classifyHermesRunFailure({
@@ -238,19 +164,6 @@ async function officialHermesRequest(baseUrl: string, action: z.infer<typeof Her
   }
 }
 
-function sessionIdFromResponse(value: unknown) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
-  const record = value as Record<string, unknown>;
-  const session = record.session && typeof record.session === "object" && !Array.isArray(record.session)
-    ? record.session as Record<string, unknown>
-    : undefined;
-  return typeof record.session_id === "string"
-    ? record.session_id
-    : typeof session?.id === "string"
-      ? session.id
-      : undefined;
-}
-
 function upstreamError(status: number, value: unknown, fallbackCode: string, context: Partial<ReturnType<typeof classifyHermesRunFailure>> = {}) {
   const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
   const rawError = record.error;
@@ -264,7 +177,7 @@ function upstreamError(status: number, value: unknown, fallbackCode: string, con
     code: typeof error.code === "string" ? error.code : fallbackCode,
     message,
     httpStatus: status || 502,
-    failureLayer: /provider|model|auth/u.test(String(error.code ?? fallbackCode)) ? "provider" : "bridge_http",
+    failureLayer: status === 401 || status === 403 ? "control_plane" : "bridge_http",
     upstreamErrorCode: typeof error.code === "string" ? error.code : fallbackCode,
     upstreamErrorType: safeDiagnosticString(error.type ?? error.error_type),
     ...context
@@ -300,7 +213,13 @@ function safeDiagnosticString(value: unknown) {
 }
 
 function unavailable(code = "hermes_bridge_unavailable", diagnostics?: ReturnType<typeof classifyHermesRunFailure>) {
-  const safeDiagnostics = diagnostics ?? classifyHermesRunFailure({ code, httpStatus: 503, failureLayer: "companion" });
+  const controlBoundaryFailure = code.startsWith("hermes_runtime_control_");
+  const safeDiagnostics = diagnostics ?? classifyHermesRunFailure({
+    code,
+    httpStatus: 503,
+    failureLayer: controlBoundaryFailure ? "control_plane" : "companion",
+    ...(controlBoundaryFailure ? { safeErrorCategory: "runtime_control_auth" as const } : {})
+  });
   return NextResponse.json({
     ok: false,
     error: {
@@ -498,9 +417,10 @@ function requestSignal() {
 }
 
 function apiKeyHeader(): Record<string, string> {
-  const apiKey = process.env.HERMES_RUNTIME_API_KEY?.trim()
-    || process.env.HERMES_API_KEY?.trim()
-    || process.env.AI_API_KEY?.trim();
+  const apiKey = process.env.API_SERVER_KEY?.trim();
+  if (process.env.CAREERADAPT_RUNTIME_AUTH_DIAGNOSTICS?.trim().toLowerCase() === "true" && apiKey) {
+    console.error(`[CareerAdapt runtime-auth] D-run-proxy=${createHash("sha256").update(apiKey).digest("hex").slice(0, 10)}`);
+  }
   return apiKey
     ? { Authorization: `Bearer ${apiKey}` }
     : {};
@@ -535,12 +455,4 @@ function safePageContext(value: unknown) {
     ["pathname", "route", "title", "selectedSectionId", "selectedItemId", "selectedFieldPath", "templateId"].includes(key)
     && typeof entry === "string"
   ));
-}
-
-function safeCareerMetadata(payload: Record<string, unknown>) {
-  return {
-    source: "careerad",
-    binding: safeCareerBinding(payload.careerSessionBinding),
-    tool_contract_count: Array.isArray(payload.toolContracts) ? payload.toolContracts.length : 0
-  };
 }

@@ -8,6 +8,7 @@ const {
   loadCareerAdaptEnvironment,
   normalizeProviderIdentity,
   providerCredential,
+  recordRuntimeControlKeyDiagnostic,
   resolveHermesProviderBinding,
   startHermesCompanion,
   stopHermesCompanion
@@ -59,6 +60,14 @@ class HermesSupervisor {
     this.baseEnvironment = { ...(options.environment || process.env) };
     this.initialBaseEnvironment = { ...this.baseEnvironment };
     this.environment = { ...this.baseEnvironment };
+    this.runtimeControlKey = firstValue(options.runtimeControlKey, this.environment.API_SERVER_KEY);
+    if (this.runtimeControlKey) {
+      this.baseEnvironment.HERMES_RUNTIME_API_KEY = this.runtimeControlKey;
+      this.baseEnvironment.API_SERVER_KEY = this.runtimeControlKey;
+      this.baseEnvironment.HERMES_API_KEY = "";
+      this.initialBaseEnvironment = { ...this.baseEnvironment };
+      this.environment = { ...this.baseEnvironment };
+    }
     this.broadcast = typeof options.broadcast === "function" ? options.broadcast : () => undefined;
     this.startCompanion = options.startCompanion || startHermesCompanion;
     this.stopCompanion = options.stopCompanion || stopHermesCompanion;
@@ -421,8 +430,7 @@ class HermesSupervisor {
         AI_API_KEY: "",
         OPENAI_API_KEY: "",
         OPENROUTER_API_KEY: "",
-        HERMES_CUSTOM_CAREERADAPT_API_KEY: "",
-        HERMES_API_KEY: ""
+        HERMES_CUSTOM_CAREERADAPT_API_KEY: ""
       };
     }
     if (settings.credentialAction === "unchanged"
@@ -690,12 +698,8 @@ class HermesSupervisor {
 
   createModelConfigClient() {
     const runtimeUrl = this.handle?.runtime?.baseUrl || this.snapshot.runtimeUrl || this.environment.HERMES_RUNTIME_URL;
-    const runtimeApiKey = this.handle?.runtimeApiKey || firstValue(
-      this.environment.HERMES_RUNTIME_API_KEY,
-      this.environment.HERMES_API_KEY,
-      this.environment.API_SERVER_KEY,
-      this.environment.AI_API_KEY
-    );
+    const runtimeApiKey = this.runtimeControlKey;
+    recordRuntimeControlKeyDiagnostic("C-supervisor", runtimeApiKey);
     return runtimeUrl ? new HermesModelConfigClient({ runtimeUrl, runtimeApiKey, fetchImpl: this.fetchImpl }) : undefined;
   }
 
@@ -904,7 +908,6 @@ class HermesSupervisor {
       "AI_MODEL",
       "HERMES_PROVIDER",
       "HERMES_BASE_URL",
-      "HERMES_API_KEY",
       "HERMES_MODEL",
       "HERMES_INFERENCE_MODEL",
       "OPENAI_BASE_URL",
@@ -919,6 +922,11 @@ class HermesSupervisor {
     this.runtimeProcessState.requestedSettings = {};
     this.runtimeProcessState.credentialAction = undefined;
     this.environment = { ...this.baseEnvironment };
+    if (this.runtimeControlKey) {
+      this.environment.HERMES_RUNTIME_API_KEY = this.runtimeControlKey;
+      this.environment.API_SERVER_KEY = this.runtimeControlKey;
+      this.environment.HERMES_API_KEY = "";
+    }
     this.runtimeConfigState.desired = undefined;
     return this.updateConfig(undefined);
   }
@@ -1009,7 +1017,7 @@ class HermesSupervisor {
         hermesRuntimeRoot: this.hermesRuntimeRoot || this.environment.HERMES_RUNTIME_ROOT,
         runtimeCwd: this.runtimeCwd,
         logPath: this.logPath,
-        allowProviderKeyFallback: true,
+        runtimeControlKey: this.runtimeControlKey,
         requireBundledRuntime: this.requireBundledRuntime,
         timeoutMs: this.startupTimeoutMs,
         watchMcpBridge: false,
@@ -1053,7 +1061,28 @@ class HermesSupervisor {
       return this.getStatus();
     }
 
-   this.handle = handle;
+    if (handle.runtimeApiKey === undefined) handle.runtimeApiKey = this.runtimeControlKey;
+    if (handle.runtimeApiKey !== this.runtimeControlKey) {
+      if (handle.owned) await this.stopCompanion(handle, {
+        requestedBy: "hermes_supervisor",
+        reasonCode: "hermes_runtime_control_key_mismatch",
+        sourceComponent: "HermesSupervisor.startInternal",
+        requestedAt: new Date().toISOString()
+      });
+      this.publish({
+        overallState: "unavailable",
+        processReady: false,
+        apiReady: false,
+        providerReady: false,
+        careerMcpReady: false,
+        toolSurfaceReady: false,
+        runReady: false,
+        careerSkillsReady: false,
+        reasonCode: "hermes_runtime_control_key_mismatch"
+      }, "Hermes runtime-control key mismatch");
+      return this.getStatus();
+    }
+    this.handle = handle;
    this.processStartedAt = Date.now();
     if (handle.runtime?.baseUrl) {
       this.environment.HERMES_RUNTIME_URL = handle.runtime.baseUrl;
@@ -1140,12 +1169,8 @@ class HermesSupervisor {
   }
 
   async readAppHealth() {
-    const runtimeApiKey = firstValue(
-      this.environment.HERMES_RUNTIME_API_KEY,
-      this.environment.HERMES_API_KEY,
-      this.environment.API_SERVER_KEY,
-      this.environment.AI_API_KEY
-    );
+    const runtimeApiKey = this.runtimeControlKey;
+    recordRuntimeControlKeyDiagnostic("D-supervisor-health", runtimeApiKey);
     const response = await this.fetchImpl(`${this.appBaseUrl}/api/agent/runtime/hermes/health`, {
       method: "GET",
       headers: runtimeApiKey ? { Authorization: `Bearer ${runtimeApiKey}`, Accept: "application/json" } : { Accept: "application/json" },
@@ -1298,7 +1323,7 @@ class HermesSupervisor {
   async discoverCapabilities() {
     const runtimeUrl = this.handle?.runtime?.baseUrl || this.snapshot.runtimeUrl;
     if (!runtimeUrl) return;
-    const runtimeApiKey = firstValue(this.environment.HERMES_RUNTIME_API_KEY, this.environment.HERMES_API_KEY, this.environment.API_SERVER_KEY, this.environment.AI_API_KEY);
+    const runtimeApiKey = this.runtimeControlKey;
     const endpoints = ["/v1/capabilities", "/v1/skills", "/v1/toolsets", "/api/model/options"];
     const supported = [];
     const features = {};
@@ -1511,7 +1536,7 @@ function validateHermesConfigSettings(settings) {
 }
 
 function applyProviderEnvironment(environment) {
-  for (const key of ["AI_PROVIDER", "AI_BASE_URL", "AI_API_KEY", "AI_MODEL", "HERMES_PROVIDER", "HERMES_BASE_URL", "HERMES_API_KEY", "HERMES_MODEL", "HERMES_INFERENCE_MODEL", "OPENAI_BASE_URL", "OPENROUTER_BASE_URL", "OPENAI_API_KEY", "OPENROUTER_API_KEY", "HERMES_CUSTOM_CAREERADAPT_API_KEY"]) {
+  for (const key of ["AI_PROVIDER", "AI_BASE_URL", "AI_API_KEY", "AI_MODEL", "HERMES_PROVIDER", "HERMES_BASE_URL", "HERMES_MODEL", "HERMES_INFERENCE_MODEL", "OPENAI_BASE_URL", "OPENROUTER_BASE_URL", "OPENAI_API_KEY", "OPENROUTER_API_KEY", "HERMES_CUSTOM_CAREERADAPT_API_KEY"]) {
     process.env[key] = Object.prototype.hasOwnProperty.call(environment, key) && typeof environment[key] === "string"
       ? environment[key]
       : "";
@@ -1538,8 +1563,7 @@ function environmentFromHermesSettings(value) {
       AI_API_KEY: "",
       OPENAI_API_KEY: "",
       OPENROUTER_API_KEY: "",
-      HERMES_CUSTOM_CAREERADAPT_API_KEY: "",
-      HERMES_API_KEY: ""
+      HERMES_CUSTOM_CAREERADAPT_API_KEY: ""
     } : {}),
     ...(model ? { AI_MODEL: model, HERMES_MODEL: model, HERMES_INFERENCE_MODEL: model } : {})
   };

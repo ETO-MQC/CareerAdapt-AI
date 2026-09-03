@@ -10,10 +10,10 @@ const fs = require("fs");
 const {
   applyEnvironment,
   allocateLocalRuntimeUrl,
-  createEphemeralRuntimeApiKey,
   findAvailablePort,
   loadCareerAdaptEnvironment,
-  parsePort
+  parsePort,
+  resolveRuntimeControlKey
 } = require("./hermesCompanion");
 const { HermesSupervisor } = require("./hermesSupervisor");
 
@@ -333,9 +333,12 @@ async function startServer() {
   await startLocalOcrSidecar(appPath);
   ocrBootstrapTimer = setInterval(() => { void startLocalOcrSidecar(appPath); }, 5000);
 
-  if (!environment.HERMES_RUNTIME_API_KEY && !environment.HERMES_API_KEY && !environment.API_SERVER_KEY) {
-    environment.HERMES_RUNTIME_API_KEY = createEphemeralRuntimeApiKey();
-  }
+  const runtimeControlKey = resolveRuntimeControlKey(environment, {
+    allowEphemeralRuntimeKey: !reuseExistingDevelopmentServer
+  });
+  environment.HERMES_RUNTIME_API_KEY = runtimeControlKey || "";
+  environment.API_SERVER_KEY = runtimeControlKey || "";
+  environment.HERMES_API_KEY = "";
   applyEnvironment(environment);
 
   console.log("Starting CareerAdapt AI server...");
@@ -347,7 +350,7 @@ async function startServer() {
   if (reuseExistingDevelopmentServer) {
     applyEnvironment(environment);
     console.warn(`端口 ${serverPort} 已有开发服务器，直接复用：${getServerUrl()}`);
-    createHermesSupervisor(appPath, environment);
+    createHermesSupervisor(appPath, environment, runtimeControlKey);
     saveAppPort(serverPort);
     return getServerUrl();
   }
@@ -359,7 +362,7 @@ async function startServer() {
   saveAppPort(serverPort);
   // Hermes starts only after the renderer-owned Browser Domain Host sends
   // the MCP READY handshake.
-  createHermesSupervisor(appPath, environment);
+  createHermesSupervisor(appPath, environment, runtimeControlKey);
   return resolvedUrl;
 }
 
@@ -373,12 +376,13 @@ async function readServerJson(url) {
 }
 
 
-function createHermesSupervisor(appPath, environment) {
+function createHermesSupervisor(appPath, environment, runtimeControlKey) {
   hermesSupervisor = new HermesSupervisor({
     projectRoot: appPath,
     appPath,
     appBaseUrl: getServerUrl(),
     environment: { ...environment },
+    runtimeControlKey,
     hermesHome: environment.HERMES_HOME,
     hermesRuntimeRoot: environment.HERMES_RUNTIME_ROOT,
     runtimeCwd: app.isPackaged ? process.resourcesPath : appPath,

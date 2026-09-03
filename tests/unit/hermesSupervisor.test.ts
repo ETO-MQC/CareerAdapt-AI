@@ -174,7 +174,7 @@ function createHarness(initialHealth = createHealth(), options: Record<string, u
     appBaseUrl: "http://127.0.0.1:3000",
     environment: {
       HERMES_RUNTIME_URL: "http://127.0.0.1:18642",
-      HERMES_RUNTIME_API_KEY: "local-test-secret",
+      API_SERVER_KEY: "local-test-secret",
       AI_BASE_URL: "https://provider.example/v1",
       AI_MODEL: "mimo-v2.5-pro"
     },
@@ -342,6 +342,27 @@ describe("Hermes Supervisor lifecycle", () => {
     expect(harness.startInputs.every((input) => input.reuseExistingRuntime === false)).toBe(true);
   });
 
+  it("keeps one runtime-control credential across provider and model changes", async () => {
+    const harness = createHarness();
+    await harness.supervisor.rendererHostReady();
+    await harness.supervisor.updateConfig({
+      provider: "openrouter",
+      baseUrl: "https://openrouter.ai/api/v1",
+      apiKey: "provider-secret",
+      model: "stealth/ox-alpha"
+    });
+
+    expect(harness.startInputs).toHaveLength(2);
+    expect(harness.startInputs.map((input) => ({
+      runtimeKey: input.environment?.API_SERVER_KEY,
+      legacyRuntimeKey: input.environment?.HERMES_RUNTIME_API_KEY,
+      ambiguousKey: input.environment?.HERMES_API_KEY
+    }))).toEqual([
+      { runtimeKey: "local-test-secret", legacyRuntimeKey: "local-test-secret", ambiguousKey: "" },
+      { runtimeKey: "local-test-secret", legacyRuntimeKey: "local-test-secret", ambiguousKey: "" }
+    ]);
+  });
+
   it("only reports an applied configuration after the running runtime reads it back", async () => {
     const harness = createHarness();
     await harness.supervisor.rendererHostReady();
@@ -431,7 +452,7 @@ describe("Hermes Supervisor lifecycle", () => {
     const harness = createHarness(createHealth(), {
       environment: {
         HERMES_RUNTIME_URL: "http://127.0.0.1:18642",
-        HERMES_RUNTIME_API_KEY: "local-test-secret",
+        API_SERVER_KEY: "local-test-secret",
         AI_BASE_URL: "https://provider.example/v1",
         AI_MODEL: "mimo-v2.5-pro",
         HERMES_CUSTOM_CAREERADAPT_API_KEY: "initial-secret"
