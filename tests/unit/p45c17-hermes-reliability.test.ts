@@ -153,7 +153,7 @@ describe("P4.5c.1.7 Hermes runtime reliability", () => {
     expect(startRun).not.toHaveBeenCalled();
   });
 
-  it("keeps the production model-facing profile to facades, status, and small reads", () => {
+  it("keeps the production model-facing profile to facades and small reads", () => {
     const names = hermesProductionToolNames();
     const catalog = new HermesCareerToolCatalog([
       "career.workflow.tailor_resume",
@@ -163,10 +163,12 @@ describe("P4.5c.1.7 Hermes runtime reliability", () => {
       "career.resume.compose"
     ]);
     expect(names.has("career.workflow.tailor_resume")).toBe(true);
+    expect(names.has("career.system.runtime_status")).toBe(false);
+    expect(names.has("career.system.current_task")).toBe(false);
+    expect(names.has("career.system.last_failure")).toBe(false);
     expect(names.has("career.tailoring.answer_question")).toBe(false);
     expect(catalog.entries().filter((entry) => names.has(entry.stableName)).map((entry) => entry.stableName)).toEqual([
       "career.resume.list",
-      "career.system.runtime_status",
       "career.workflow.tailor_resume"
     ]);
   });

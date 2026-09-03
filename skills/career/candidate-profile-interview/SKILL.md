@@ -1,6 +1,6 @@
 ---
 name: candidate-profile-interview
-description: Interview for one evidence-bound career gap.
+description: Create or complete a CareerProfile from user-provided experience, or answer an active Profile Intake question with evidence-bound facts.
 version: 1.0.0
 author: CareerAdapt AI
 license: Project-local
@@ -15,14 +15,18 @@ metadata:
 
 ## WHEN TO USE
 
-Use when one active career asset has a material missing dimension such as role,
-action, method, challenge, result, or evidence. Keep the question attached to
-the selected asset and the current Agent Session.
+Use when the user wants to create or complete their CareerProfile from scratch,
+or when they are answering an active Profile Intake question. Keep each answer
+attached to the selected asset and current Agent Session.
+
+Do not use for extracting one story without a Profile update, comparing a
+candidate with a Job/JD, creating a general Resume, tailoring a target Resume,
+or reviewing an existing Resume.
 
 ## INPUTS
 
 - Active `personId`, `profileId`, profile revision, and `agentSessionId`.
-- One active question with its dimension and question revision.
+- An optional active question with its dimension and question revision.
 - Confirmed structured facts, source quotes, and answered/skipped ledger.
 - The candidate's latest turn.
 
@@ -71,11 +75,12 @@ a write. Never turn a recovery step into a new factual assertion.
 
 ## TOOL BOUNDARIES
 
-Return a proposed source-bound patch or ledger entry to the host. Only the
-host may call the exact Hermes MCP names
-`mcp__careeradapt__career_profile_capture_intake` or
-`mcp__careeradapt__career_profile_commit_intake`; the skill never writes to
-`WorkspaceRepository` directly.
+Use `mcp__careeradapt__career_workflow_profile_intake_turn` to capture or
+continue the user turn. When all intake source turns are ready and the user
+asks to finalize, use
+`mcp__careeradapt__career_workflow_profile_intake_finalize`. These facades own
+the provisional state, review boundary, and guarded Profile commit; never call
+atomic Profile tools or write `WorkspaceRepository` directly.
 
 ## FACT SAFETY
 

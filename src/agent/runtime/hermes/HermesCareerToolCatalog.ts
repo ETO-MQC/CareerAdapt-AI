@@ -31,15 +31,12 @@ export const HERMES_REQUIRED_CAREER_FACADES = CAREER_WORKFLOW_FACADE_DEFINITIONS
 
 /**
  * The production Hermes model sees workflow boundaries and a very small
- * diagnostic/read surface. Atomic contracts remain registered for the
- * browser gateway and internal recovery, but are not part of normal model
- * planning.
+ * read surface. Atomic contracts and runtime diagnostics remain registered
+ * for the browser gateway and internal recovery, but are not part of normal
+ * model planning.
  */
 export const HERMES_PRODUCTION_TOOL_PROFILE = [
   ...HERMES_REQUIRED_CAREER_FACADES,
-  "career.system.runtime_status",
-  "career.system.current_task",
-  "career.system.last_failure",
   "career.context.retrieve",
   "career.profile.get",
   "career.resume.list",

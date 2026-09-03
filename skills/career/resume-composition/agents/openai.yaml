@@ -1,4 +1,4 @@
 interface:
   display_name: "Resume composition"
-  short_description: "Compile evidence-grounded general and job-specific resumes"
+  short_description: "Create or update an evidence-grounded general resume from Profile facts"
   default_prompt: "Use $resume-composition to plan, review, and confirm a grounded resume composition."

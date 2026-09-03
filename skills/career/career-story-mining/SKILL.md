@@ -1,6 +1,6 @@
 ---
 name: career-story-mining
-description: Mine career stories without inventing facts.
+description: Extract actions, methods, challenges, results, and evidence from one user-described career experience without changing Profile or Resume data.
 version: 1.0.0
 author: CareerAdapt AI
 license: Project-local
@@ -15,8 +15,13 @@ metadata:
 
 ## WHEN TO USE
 
-Use when raw candidate narration needs to become a reviewable set of career
-story components for a profile or a job-specific branch.
+Use when the user is describing one experience, project, role, or achievement
+and wants help extracting its actions, methods, challenges, results, or
+evidence. Return a reviewable, source-bound story proposal.
+
+Do not use for creating or completing a CareerProfile, comparing a candidate
+with a Job/JD, creating a general Resume, tailoring a target Resume, or
+reviewing an existing Resume.
 
 ## INPUTS
 
@@ -74,10 +79,10 @@ smallest clarification needed to re-anchor the proposal.
 
 ## TOOL BOUNDARIES
 
-Return a proposal for the host to validate. The skill may request safe reads
-through the exact `mcp__careeradapt__...` names in the visible CareerAdapt MCP
-registry, but it never writes a profile, resume, or job branch and never
-accesses `WorkspaceRepository` directly.
+Return a proposal for the host to validate. Use
+`mcp__careeradapt__career_context_retrieve` only when confirmed saved context is
+semantically needed to anchor the story. This skill never writes a Profile,
+Resume, or Job branch and never accesses `WorkspaceRepository` directly.
 
 ## FACT SAFETY
 

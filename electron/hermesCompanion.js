@@ -297,6 +297,15 @@ function ensureManagedHermesConfig(hermesHome, values) {
   const apiServerToolsets = includeCareerAdaptMcp
     ? (developerMode ? ["hermes-api-server", "careeradapt"] : ["skills", "careeradapt"])
     : ["skills"];
+  const existing = fs.existsSync(configPath) ? fs.readFileSync(configPath, "utf8") : "";
+  const preserved = preserveUserHermesConfig(existing);
+  const hasUserMcpServers = preserved.some((line) => line === "mcp_servers:");
+  const managedCareerAdaptMcp = [
+    "  careeradapt:",
+    `    url: ${yamlScalar(mcpUrl)}`,
+    "    enabled: true",
+    "    connect_timeout: 10"
+  ];
   const managedLines = [
     "# CareerAdapt managed Hermes invariants. User-owned config outside this block is preserved.",
     "# Managed by CareerAdapt AI. Do not put API keys in this file.",
@@ -316,21 +325,16 @@ function ensureManagedHermesConfig(hermesHome, values) {
     "platform_toolsets:",
     "  api_server:",
     ...apiServerToolsets.map((toolset) => `    - ${toolset}`),
-    ...(includeCareerAdaptMcp ? [
-      "mcp_servers:",
-      "  careeradapt:",
-      `    url: ${yamlScalar(mcpUrl)}`,
-      "    enabled: true",
-      "    connect_timeout: 10"
-    ] : []),
+    ...(includeCareerAdaptMcp && !hasUserMcpServers ? ["mcp_servers:", ...managedCareerAdaptMcp] : []),
     "gateway:",
     `  careeradapt_runtime_url: ${yamlScalar(values.runtimeUrl || DEFAULT_RUNTIME_URL)}`,
     ""
   ];
-  const existing = fs.existsSync(configPath) ? fs.readFileSync(configPath, "utf8") : "";
-  const preserved = preserveUserHermesConfig(existing);
+  const preservedWithCareerAdaptMcp = includeCareerAdaptMcp && hasUserMcpServers
+    ? addManagedCareerAdaptMcpServer(preserved, managedCareerAdaptMcp)
+    : preserved;
   const lines = [
-    ...preserved,
+    ...preservedWithCareerAdaptMcp,
     "# BEGIN CAREERADAPT MANAGED CONFIG",
     ...managedLines,
     "# END CAREERADAPT MANAGED CONFIG",
@@ -375,12 +379,50 @@ function preserveUserHermesConfig(existing) {
       section.push(withoutManagedMarkers[index]);
       index += 1;
     }
+    if (topLevel[1] === "mcp_servers") {
+      const userMcpSection = mcpSectionWithoutCareerAdapt(section);
+      if (userMcpSection.length) preserved.push(...userMcpSection);
+      continue;
+    }
     // CareerAdapt owns these top-level blocks. Other top-level user config is
-    // replaced inside the managed block; all other top-level config is
     // retained verbatim, so advanced Hermes settings survive future starts.
   }
   while (preserved.at(-1) === "") preserved.pop();
   return preserved.length ? [...preserved, ""] : [];
+}
+
+function mcpSectionWithoutCareerAdapt(section) {
+  const retained = [section[0]];
+  let hasUserServer = false;
+  let index = 1;
+  while (index < section.length) {
+    const server = section[index].match(/^  ([A-Za-z_][A-Za-z0-9_-]*):(?:\s|$)/u);
+    if (!server) {
+      index += 1;
+      continue;
+    }
+    const block = [section[index]];
+    index += 1;
+    while (index < section.length && !/^  [A-Za-z_][A-Za-z0-9_-]*:(?:\s|$)/u.test(section[index])) {
+      block.push(section[index]);
+      index += 1;
+    }
+    if (server[1] !== "careeradapt") {
+      retained.push(...block);
+      hasUserServer = true;
+    }
+  }
+  return hasUserServer ? retained : [];
+}
+
+function addManagedCareerAdaptMcpServer(preserved, managedServer) {
+  const mcpIndex = preserved.findIndex((line) => line === "mcp_servers:");
+  if (mcpIndex < 0) return [...preserved, "mcp_servers:", ...managedServer];
+  let sectionEnd = mcpIndex + 1;
+  while (sectionEnd < preserved.length && !/^[A-Za-z_][A-Za-z0-9_-]*:(?:\s|$)/u.test(preserved[sectionEnd])) {
+    sectionEnd += 1;
+  }
+  return [...preserved.slice(0, sectionEnd), ...managedServer, ...preserved.slice(sectionEnd)];
 }
 
 function yamlScalar(value) {
@@ -1016,6 +1058,9 @@ module.exports = {
   resolveRuntimeConfig,
   parsePort,
   ensureManagedHermesConfig,
+  preserveUserHermesConfig,
+  mcpSectionWithoutCareerAdapt,
+  addManagedCareerAdaptMcpServer,
   classifyStartupStage,
   normalizeProviderIdentity,
   providerCredential,

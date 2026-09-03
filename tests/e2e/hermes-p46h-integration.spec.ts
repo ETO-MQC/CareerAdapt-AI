@@ -11,24 +11,72 @@ test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
     expect(trace.toolRequests).toHaveLength(0);
   });
 
-  test("CASE B — deterministic read uses the browser Career MCP bridge", async ({ page }) => {
+  test("CASE B — general career advice stays tool-free", async ({ page }) => {
     const trace = observeRuntimeAndBridge(page);
     await openWorkspace(page);
-    await send(page, "我有几个项目经历？");
+    await send(page, "大学生找工作应该怎么准备？");
+    await expectAssistant(page, "你好，Hermes hermetic runtime 已就绪。");
+    expect(trace.toolRequests).toHaveLength(0);
+  });
+
+  test("CASE C — personal career questions use a read-only Career tool", async ({ page }) => {
+    const trace = observeRuntimeAndBridge(page);
+    await openWorkspace(page);
+    await resetHermesForCase(page);
+    await send(page, "根据我的经历，你觉得我适合哪些岗位？");
     await expectAssistant(page, "当前示例资料包含 2 个项目经历。");
-    expect(trace.toolRequests.map((request) => request.name)).toEqual(["career.profile.get"]);
+    await expectToolNames(trace, ["career.profile.get"]);
     expect(trace.resultActions).toContain("result");
     expect(trace.toolRequests.every((request) => request.name.startsWith("career.") && !request.name.includes("workflow"))).toBe(true);
   });
 
-  test("CASE C — tailoring is selected through the canonical workflow facade", async ({ page }) => {
+  test("CASE D — building from zero starts Profile Intake through a facade", async ({ page }) => {
     const trace = observeRuntimeAndBridge(page);
     await openWorkspace(page);
-    await send(page, "请用当前已确认的示例岗位开始岗位定制，停在用户确认边界。");
+    await resetHermesForCase(page);
+    await send(page, "我没有简历，从零开始帮我做一份。");
+    await expectAssistant(page, "已进入 Profile Intake，并停在下一步资料补充边界。");
+    await expectToolNames(trace, ["career.workflow.profile_intake_turn"]);
+  });
+
+  test("CASE E — general Resume review uses compose update_existing", async ({ page }) => {
+    const trace = observeRuntimeAndBridge(page);
+    await openWorkspace(page);
+    await resetHermesForCase(page);
+    await send(page, "帮我看看这份简历有什么问题");
+    await expectAssistant(page, "已完成通用简历检查，并停在用户确认边界。");
+    await expectToolNames(trace, ["career.workflow.compose_resume"]);
+    expect(trace.toolRequests[0]?.input).toMatchObject({ mode: "general", generalResumeMode: "update_existing" });
+  });
+
+  test("CASE F — pasted JD tailoring uses the canonical workflow facade", async ({ page }) => {
+    const trace = observeRuntimeAndBridge(page);
+    await openWorkspace(page);
+    await resetHermesForCase(page);
+    await send(page, "根据这个 JD 帮我生成岗位简历");
     await expectAssistant(page, "已读取当前示例岗位，并停在用户确认边界。");
-    expect(trace.toolRequests.map((request) => request.name)).toEqual(["career.workflow.tailor_resume"]);
+    await expectToolNames(trace, ["career.workflow.tailor_resume"]);
+    expect(trace.toolRequests[0]?.input).toMatchObject({ targetText: expect.any(String) });
     expect(trace.toolRequests.some((request) => request.name.startsWith("career.tailoring."))).toBe(false);
     expect(trace.resultActions).toContain("result");
+  });
+
+  test("CASE G — Job Fit stays a comparison workflow", async ({ page }) => {
+    const trace = observeRuntimeAndBridge(page);
+    await openWorkspace(page);
+    await resetHermesForCase(page);
+    await send(page, "分析一下我和这个岗位匹不匹配");
+    await expectAssistant(page, "已完成岗位匹配比较，并保留证据缺口。");
+    await expectToolNames(trace, ["career.workflow.job_fit"]);
+  });
+
+  test("CASE H — export uses the dedicated export facade", async ({ page }) => {
+    const trace = observeRuntimeAndBridge(page);
+    await openWorkspace(page);
+    await resetHermesForCase(page);
+    await send(page, "导出这份简历");
+    await expectAssistant(page, "已准备简历导出产物。");
+    await expectToolNames(trace, ["career.workflow.resume_export"]);
   });
 });
 
@@ -59,11 +107,24 @@ async function send(page: Page, message: string) {
   await page.getByRole("button", { name: "发送消息", exact: true }).click();
 }
 
+async function resetHermesForCase(page: Page) {
+  const response = await page.request.post("/api/agent/runtime/hermes/control", { data: { action: "restart" } });
+  expect(response.ok()).toBe(true);
+  await expect(page.locator(".agent-runtime-status")).toHaveAttribute("aria-label", /AI Runtime Hermes，状态 Ready/u, { timeout: 90_000 });
+}
+
 async function expectAssistant(page: Page, text: string) {
   await expect.poll(async () => {
     const messages = page.locator('[data-message-role="assistant"]');
     return await messages.last().textContent();
   }, { timeout: 90_000, intervals: [250, 500, 1_000] }).toContain(text);
+}
+
+async function expectToolNames(trace: ReturnType<typeof observeRuntimeAndBridge>, names: string[]) {
+  await expect.poll(() => trace.toolRequests.map((request) => request.name), {
+    timeout: 10_000,
+    intervals: [100, 250, 500]
+  }).toEqual(names);
 }
 
 function observeRuntimeAndBridge(page: Page) {

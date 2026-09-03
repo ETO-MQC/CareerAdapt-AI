@@ -1,6 +1,6 @@
 ---
 name: resume-tailoring
-description: Tailor a job resume branch from confirmed evidence.
+description: Create or tailor a job-specific Resume when the user supplies or selects a target Job or JD, while keeping claims evidence-bound.
 version: 1.0.0
 author: CareerAdapt AI
 license: Project-local
@@ -15,15 +15,19 @@ metadata:
 
 ## WHEN TO USE
 
-Use after job-fit analysis identifies an evidence-backed priority and a
-job-specific resume branch has been selected. When a new job resume is needed,
-hand off to `mcp__careeradapt__career_workflow_compose_resume` first; use tailoring for a
-reversible diff against an existing branch. Keep the general resume and
-profile immutable while proposing changes.
+Use when the user supplies or selects a target Job or JD and asks for a
+job-specific Resume to be created or tailored. A pasted JD may go directly to
+this workflow; a prior Job Fit result is optional unless the user requested
+Job Fit separately. Keep the general Resume and Profile isolated while
+proposing target-specific changes.
+
+Do not use for a general/base Resume, Job Fit-only comparison, importing a
+resume, or reviewing a Resume without a target Job/JD.
 
 ## INPUTS
 
-- Target job and stable requirement IDs.
+- Target Job/JD or supplied target text, with stable requirement IDs when they
+  are already available.
 - Selected source resume or general profile branch and revision.
 - Confirmed evidence graph/blueprint, source quotes, and user-approved
   preferences.
@@ -33,8 +37,9 @@ profile immutable while proposing changes.
 
 ### WHAT TO READ FIRST
 
-Read the confirmed Profile, source Resume, target Job, and fit analysis before
-planning any question or rewrite.
+Read the confirmed Profile, source Resume, and target Job/JD before planning
+any question or rewrite. Incorporate an existing fit analysis when available;
+do not require a prior Job Fit call for a pasted or newly supplied target.
 
 ### WHEN TO ASK
 
@@ -103,16 +108,12 @@ do not block a safe resume-only draft on optional detail.
 
 ## TOOL BOUNDARIES
 
-Use the exact Hermes MCP names in the visible CareerAdapt registry, such as
-`mcp__careeradapt__career_tailoring_create_session`,
-`mcp__careeradapt__career_tailoring_generate_changes`,
-`mcp__careeradapt__career_tailoring_review_diff`,
-`mcp__careeradapt__career_tailoring_preview_changes`,
-`mcp__careeradapt__career_tailoring_apply_changes`,
-`mcp__careeradapt__career_preview_review_diff`, and
-`mcp__careeradapt__career_preview_apply_changes`, only through the host
-gateway. Proposal generation is not a write. Applying a diff requires the
-host's confirmation and revision checks; no skill code writes the repository.
+Use only the high-level facade
+`mcp__careeradapt__career_workflow_tailor_resume` through the host gateway.
+It owns target selection, proposal/review checkpoints, and the confirmation
+boundary. Proposal generation is not a write; applying a target-specific
+change requires host confirmation and revision checks. Never call atomic
+tailoring or preview tools and never write the repository from Skill code.
 
 ## FACT SAFETY
 

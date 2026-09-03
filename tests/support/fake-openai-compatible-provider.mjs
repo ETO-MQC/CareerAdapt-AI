@@ -60,13 +60,38 @@ function chooseResponse({ mode, messages, tools }) {
   const lastToolResult = [...messages].reverse().find((message) => message && message.role === "tool");
   if (lastToolResult) {
     const name = typeof lastToolResult.name === "string" ? lastToolResult.name : "CareerAdapt tool";
+    if (name.includes("profile_intake_turn")) return { content: "已进入 Profile Intake，并停在下一步资料补充边界。" };
+    if (name.includes("profile_intake_finalize")) return { content: "Profile Intake 已整理为待用户复核的草稿。" };
+    if (name.includes("job_fit")) return { content: "已完成岗位匹配比较，并保留证据缺口。" };
+    if (name.includes("compose_resume")) return { content: "已完成通用简历检查，并停在用户确认边界。" };
     if (name.includes("profile")) return { content: "当前示例资料包含 2 个项目经历。" };
     if (name.includes("tailor_resume")) return { content: "已读取当前示例岗位，并停在用户确认边界。" };
+    if (name.includes("resume_export")) return { content: "已准备简历导出产物。" };
     return { content: "CareerAdapt 工具已返回结果。" };
   }
   if (mode === "integration") {
     const userText = latestUserText(messages);
-    if (/资料|个人资料|姓名|项目经历|profile/u.test(userText)) {
+    if (/从零|没有简历|开始帮我做/u.test(userText)) {
+      const toolName = findToolName(tools, "career.workflow.profile_intake_turn");
+      if (toolName) return { toolCall: { name: toolName, arguments: JSON.stringify({ userTurn: userText }) } };
+    }
+    if (/根据.*JD.*生成.*岗位简历/u.test(userText)) {
+      const toolName = findToolName(tools, "career.workflow.tailor_resume");
+      if (toolName) return { toolCall: { name: toolName, arguments: JSON.stringify({ targetText: "数据分析实习生，负责数据清洗、分析与报告，要求 Python 和 SQL 能力。" }) } };
+    }
+    if (/匹配/u.test(userText) && /岗位/u.test(userText)) {
+      const toolName = findToolName(tools, "career.workflow.job_fit");
+      if (toolName) return { toolCall: { name: toolName, arguments: JSON.stringify({ profileId: "profile-demo-student", resumeId: "resume-general-1", jobId: "job-data-analyst-intern" }) } };
+    }
+    if (/看看.*简历|优化.*通用|这份简历.*问题/u.test(userText) && !/岗位|JD/u.test(userText)) {
+      const toolName = findToolName(tools, "career.workflow.compose_resume");
+      if (toolName) return { toolCall: { name: toolName, arguments: JSON.stringify({ mode: "general", profileId: "profile-demo-student", expectedProfileRevision: 1, sourceResumeId: "resume-general-1", generalResumeMode: "update_existing" }) } };
+    }
+    if (/导出.*简历|导出这份简历/u.test(userText)) {
+      const toolName = findToolName(tools, "career.workflow.resume_export");
+      if (toolName) return { toolCall: { name: toolName, arguments: JSON.stringify({ resumeId: "resume-general-1" }) } };
+    }
+    if (/资料|个人资料|姓名|项目经历|经历|适合哪些岗位|profile/u.test(userText)) {
       const toolName = findToolName(tools, "career.profile.get");
       if (toolName) return { toolCall: { name: toolName, arguments: JSON.stringify({ profileId: "profile-demo-student" }) } };
     }

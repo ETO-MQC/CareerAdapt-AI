@@ -1,23 +1,32 @@
 ---
 name: resume-composition
-description: Compile an evidence-grounded general or job-specific CareerAdapt resume from a confirmed CareerProfile using an evidence graph, blueprint, guarded professional writing, review, and explicit confirmation. Use when generating a new resume, previewing a composition proposal, recovering supported project technology, or evaluating job-keyword coverage.
+description: Create or update an isolated general/base Resume from confirmed CareerProfile evidence, without a target Job or JD.
+version: 1.0.0
+author: CareerAdapt AI
+license: Project-local
+metadata:
+  hermes:
+    category: career
+    tags: [resume, composition, general-resume, evidence, fact-safety]
+    related_skills: [candidate-profile-interview, resume-review, resume-tailoring]
 ---
 
 # Resume composition
 
 ## PURPOSE
 
-Turn a confirmed CareerProfile into a derived ResumeRevision. Keep Profile,
-general Resume, and job-specific branches isolated. Use one composition path
-for both `general` and `job_specific` modes.
+Turn a confirmed CareerProfile into an isolated general/base ResumeRevision.
+Keep Profile data separate from the derived Resume. Use Resume Tailoring for
+any saved-job or external-target Resume.
 
 ## INPUTS
 
 - `profileId` and `expectedProfileRevision`.
-- `mode`: `general` or `job_specific`.
-- Optional `jobId`, `sourceResumeId`, and user preferences.
+- `mode`: `general`.
+- Optional `sourceResumeId` and user preferences when updating an existing
+  general Resume.
 - Confirmed structured facts, fact provenance, source excerpts, and any
-  existing job requirement or fit context available through the host.
+  existing review context available through the host.
 
 ## WORKFLOW
 
@@ -25,7 +34,7 @@ for both `general` and `job_specific` modes.
    `ResumeEvidenceGraph` from confirmed facts, canonical `structuredFacts`,
    provenance, source excerpts, and cross-asset links. Do not mutate Profile.
 2. Create a `ResumeBlueprint` proposal. Rank assets by evidence strength,
-   relevance, uniqueness, and (in job mode) truthful requirement coverage.
+   relevance, and uniqueness for a general/base Resume.
    Prefer one page for an early-career profile and expose at most two optional
    information needs.
 3. Show a compact proposal before writing: selected education/assets,
@@ -34,8 +43,8 @@ for both `general` and `job_specific` modes.
 4. Persist the exact graph/blueprint/writer output/reviewer result as an
    immutable `ResumeCompositionCheckpoint` before confirmation. Confirmation
    commits that checkpoint exactly; it must not invoke the Writer a second
-   time. Regeneration, new evidence, target-context changes, job changes, or
-   Profile revision changes create a new checkpoint.
+   time. Regeneration, new evidence, or Profile revision changes create a new
+   checkpoint.
 5. Ask only optional, high-value questions. A missing metric, publication
    detail, or ambiguous author role must never block a safe draft; the user may
    choose direct generation.
@@ -64,16 +73,6 @@ for both `general` and `job_specific` modes.
 - Exclude placeholders, workflow controls, diagnostic/fallback text, negative
   absence statements, and empty generic `Other` items.
 
-## JOB-SPECIFIC MODE
-
-Classify each job keyword as `SUPPORTED`, `POTENTIALLY_SUPPORTED`, or
-`UNSUPPORTED`. Use supported terminology only when the evidence supports the
-same meaning. A neighboring technology may create a question or visible gap,
-never a stuffed keyword. If the user confirms a new fact, ask whether it is
-for this job branch only or should be explicitly synchronized to Profile. A
-Profile sync creates a confirmed structured fact with `user_input` provenance
-and Profile revision +1; resume-only evidence never enters Profile.
-
 ## REVIEW AND OUTPUT
 
 Run a global reviewer pass for evidence support, ownership, relevance,
@@ -88,19 +87,17 @@ revision; verify the text layer before export.
 
 ## TOOL BOUNDARY
 
-Use `mcp__careeradapt__career_workflow_compose_resume` for the normal flow and
-`mcp__careeradapt__career_resume_build_evidence_graph`,
-`mcp__careeradapt__career_resume_plan_composition`,
-`mcp__careeradapt__career_resume_review_composition`, or
-`mcp__careeradapt__career_resume_compose` only for bounded
-inspection/recovery. These are the exact Hermes v0.19 callable names; the
-stable dotted CareerAdapt names are diagnostics aliases, not model calls.
-Hermes/MCP never writes a repository directly. Profile synchronization is a
-separate, explicit user action.
+Use only `mcp__careeradapt__career_workflow_compose_resume` for general Resume
+creation or update. It owns evidence eligibility, the review proposal, and
+the explicit confirmation boundary, including
+`generalResumeMode: "update_existing"` when an existing general Resume is
+being improved. Hermes/MCP never writes a repository directly, and Profile
+synchronization remains a separate explicit user action. Never call atomic
+composition tools.
 
 ## STOP CONDITIONS
 
 Stop at `waiting_for_confirmation` before a write, at `waiting_for_user` for
 an optional question, or at `partial`/`failed` with the checkpoint and safe
-error. Stop composition when the profile revision, job, source branch, or
-session binding is stale; reread and replan rather than replaying a write.
+error. Stop composition when the Profile revision, source branch, or session
+binding is stale; reread and replan rather than replaying a write.

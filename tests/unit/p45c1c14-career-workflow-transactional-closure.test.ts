@@ -190,9 +190,9 @@ describe("P4.5c.1.14 Career workflow transactional closure", () => {
     expect(JSON.stringify(tailor.inputSchema)).not.toContain("saveTargetPreference");
     expect(tailor.contractVersion).toBeTypeOf("string");
     expect(tailor.contractSchemaHash).toBeTypeOf("string");
-    expect(tailor.description).toContain("generate_job_specific_resume");
+    expect(tailor.description).toContain("job-specific Resume");
     expect(compose.description).toContain("general/base");
-    expect(compose.description).toContain("tailor_resume");
+    expect(compose.description).toContain("target Job/JD");
   });
 
   it("requires authoritative result proof before a canonical job resume can complete", () => {
