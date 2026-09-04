@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   refreshHermesHealth: vi.fn(async () => undefined),
   configUpdate: vi.fn(),
   providerTest: vi.fn(),
+  providerLatencyTest: vi.fn(),
   configReset: vi.fn(),
   environmentReload: vi.fn(),
   interruptRun: vi.fn(async () => undefined),
@@ -24,6 +25,7 @@ vi.mock("@/services/agent/hermesControl", async (importOriginal) => {
   return {
     ...actual,
     requestHermesConfigUpdate: mocks.configUpdate,
+    requestHermesProviderLatencyTest: mocks.providerLatencyTest,
     requestHermesProviderTest: mocks.providerTest,
     requestHermesConfigReset: mocks.configReset,
     requestHermesEnvironmentReload: mocks.environmentReload
@@ -113,6 +115,7 @@ beforeEach(() => {
   window.localStorage.clear();
   mocks.configUpdate.mockReset();
   mocks.providerTest.mockReset();
+  mocks.providerLatencyTest.mockReset();
   mocks.configReset.mockReset();
   mocks.environmentReload.mockReset();
   mocks.interruptRun.mockClear();
@@ -121,6 +124,15 @@ beforeEach(() => {
   mocks.activeSession = undefined;
   mocks.configUpdate.mockResolvedValue({ ok: true, controlSnapshot: readySnapshot("new-model") });
   mocks.providerTest.mockResolvedValue(candidateFailure());
+  mocks.providerLatencyTest.mockResolvedValue({
+    ok: true,
+    provider: "openrouter",
+    model: "mimo-v2.5-pro",
+    credentialConfigured: true,
+    credentialSource: "custom_header" as const,
+    checkedAt: new Date().toISOString(),
+    latencyMs: 123
+  });
   mocks.configReset.mockResolvedValue({ ok: true, controlSnapshot: readySnapshot() });
   mocks.environmentReload.mockResolvedValue({ ok: true, controlSnapshot: readySnapshot() });
 
@@ -187,6 +199,19 @@ describe("P4.6d AI runtime control plane", () => {
     }
     expect(screen.getByText("mimo-v2.5-pro")).toBeInTheDocument();
     expect(mocks.providerTest).toHaveBeenCalledTimes(5);
+    expect(mocks.configUpdate).not.toHaveBeenCalled();
+    expect(mocks.reconnect).not.toHaveBeenCalled();
+    expect(mocks.refreshHermesHealth).not.toHaveBeenCalled();
+  });
+
+  it("shows the current model response latency without changing runtime state", async () => {
+    render(<SettingsPage />);
+    fireEvent.click(screen.getByRole("button", { name: /AI 配置/ }));
+
+    fireEvent.click(screen.getByRole("button", { name: "测速" }));
+    await screen.findByText("✓ 模型响应延迟：123 ms · mimo-v2.5-pro", { selector: "p" });
+
+    expect(mocks.providerLatencyTest).toHaveBeenCalledTimes(1);
     expect(mocks.configUpdate).not.toHaveBeenCalled();
     expect(mocks.reconnect).not.toHaveBeenCalled();
     expect(mocks.refreshHermesHealth).not.toHaveBeenCalled();

@@ -83,6 +83,16 @@ function request() {
   });
 }
 
+function latencyRequest() {
+  return new NextRequest("http://127.0.0.1/api/ai/test", {
+    method: "POST",
+    headers: {
+      "x-ai-config": encodeAiSettingsForHeader(settings),
+      "x-ai-test-mode": "latency"
+    }
+  });
+}
+
 async function responseBody(response: Response) {
   return await response.json() as Record<string, unknown>;
 }
@@ -153,6 +163,24 @@ describe("P4.6e candidate connection test", () => {
     expect(body).toMatchObject({ ok: true });
     expect(mocks.fetch).toHaveBeenCalledTimes(2);
     expect(String(completionInit.body)).not.toContain("\"tools\"");
+  });
+
+  it("measures one minimal completion for the configured model", async () => {
+    vi.stubGlobal("fetch", mocks.fetch);
+    mocks.fetch.mockResolvedValueOnce(new Response(JSON.stringify({
+      choices: [{ message: { content: "{\"ok\":true}" } }]
+    }), { status: 200 }));
+
+    const response = await POST(latencyRequest());
+    const body = await responseBody(response);
+    const completionInit = mocks.fetch.mock.calls[0][1] as RequestInit;
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ ok: true, model: "candidate-model", latencyMs: expect.any(Number) });
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    expect(String(completionInit.body)).toContain("\"model\":\"candidate-model\"");
+    expect(String(completionInit.body)).not.toContain("\"tools\"");
+    expect(mocks.probe).not.toHaveBeenCalled();
   });
 
   it("maps a models-endpoint DNS failure to an actionable connection message", async () => {

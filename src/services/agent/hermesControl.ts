@@ -916,8 +916,17 @@ export async function requestHermesConfigReset() {
 }
 
 export async function requestHermesProviderTest(settings = readAiSettings()): Promise<HermesProviderTestResult> {
+  return requestHermesProviderTestRequest(settings);
+}
+
+export async function requestHermesProviderLatencyTest(settings = readAiSettings()): Promise<HermesProviderTestResult> {
+  return requestHermesProviderTestRequest(settings, "latency");
+}
+
+async function requestHermesProviderTestRequest(settings: AiSettings, mode?: "latency"): Promise<HermesProviderTestResult> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (hasCustomSettings(settings)) headers["x-ai-config"] = encodeAiSettingsForHeader(settings);
+  if (mode) headers["x-ai-test-mode"] = mode;
   const response = await fetch("/api/ai/test", { method: "POST", headers });
   const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
   const configuration = asRecord(payload.configuration);
@@ -942,7 +951,7 @@ export async function requestHermesProviderTest(settings = readAiSettings()): Pr
         });
   const httpStatus = numberValue(http.statusCode)
     ?? (safeErrorCode?.startsWith("provider_http_") ? Number(safeErrorCode.slice("provider_http_".length)) : undefined);
-  const latencyMs = numberValue(payload.latencyMs);
+  const latencyMs = durationValue(payload.latencyMs);
   return {
     ok: response.ok && payload.ok === true,
     provider: normalizeAiProviderIdentity(
@@ -1024,6 +1033,10 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 function numberValue(value: unknown) {
   return typeof value === "number" && Number.isInteger(value) && value >= 100 && value <= 599 ? value : undefined;
+}
+
+function durationValue(value: unknown) {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : undefined;
 }
 
 function credentialSourceValue(value: unknown): HermesCredentialSource | undefined {

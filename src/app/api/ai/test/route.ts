@@ -18,6 +18,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   const aiConfigHeader = request.headers.get("x-ai-config");
+  const latencyTest = request.headers.get("x-ai-test-mode") === "latency";
   const customSettings: AiSettings | undefined = aiConfigHeader ? decodeAiSettingsFromHeader(aiConfigHeader) : undefined;
 
   const configuration = resolveEffectiveAiConfiguration(customSettings);
@@ -36,6 +37,28 @@ export async function POST(request: NextRequest) {
         configFingerprint,
         diagnostics: emptyProbeFromProvider()
       }, { status: 400 });
+    }
+    if (latencyTest) {
+      const response = await provider.invoke({
+        systemPrompt: "Output ONLY this raw JSON object: {\"ok\":true}.",
+        userPrompt: "Return exactly {\"ok\":true}.",
+        maxOutputChars: 64,
+        signal: AbortSignal.any([request.signal, AbortSignal.timeout(180_000)])
+      });
+      const latencyMs = Date.now() - started;
+      return NextResponse.json({
+        ok: true,
+        provider: response.provider,
+        model: response.model,
+        configuration: { ...provider.configurationDiagnostic, configFingerprint },
+        configFingerprint,
+        diagnostics: connectionDiagnosticsWithHttp(emptyProbeFromProvider(), {
+          status: "reached",
+          statusCode: 200,
+          latencyMs
+        }),
+        latencyMs
+      });
     }
     transportProbe = await probeAiProviderTransport(configuration, request.signal);
     if (transportProbe.failureCode) {

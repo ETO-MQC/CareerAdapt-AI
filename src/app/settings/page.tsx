@@ -29,6 +29,7 @@ import {
   requestHermesConfigReset,
   requestHermesConfigUpdate,
   requestHermesEnvironmentReload,
+  requestHermesProviderLatencyTest,
   requestHermesProviderTest,
   requestHermesRestart,
   requestHermesStart,
@@ -84,9 +85,12 @@ export default function SettingsPage() {
   const [aiSaving, setAiSaving] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [aiTesting, setAiTesting] = useState(false);
+  const [aiLatencyTesting, setAiLatencyTesting] = useState(false);
   const aiSavingRef = useRef(false);
   const aiTestingRef = useRef(false);
+  const aiLatencyTestingRef = useRef(false);
   const [candidateProviderTest, setCandidateProviderTest] = useState<HermesProviderTestResult>();
+  const [candidateProviderLatencyTest, setCandidateProviderLatencyTest] = useState<HermesProviderTestResult>();
   const [hermesLogs, setHermesLogs] = useState<HermesLogs>();
   const [hermesStarting, setHermesStarting] = useState(false);
   const [hermesFeedback, setHermesFeedback] = useState("应用启动时会自动启动 AI Agent；异常退出后可在此恢复。");
@@ -334,7 +338,7 @@ export default function SettingsPage() {
   }
 
   async function testHermesProviderFromSettings() {
-    if (aiTestingRef.current || aiTesting) return;
+    if (aiTestingRef.current || aiTesting || aiLatencyTestingRef.current || aiLatencyTesting) return;
     aiTestingRef.current = true;
     setAiTesting(true);
     try {
@@ -354,6 +358,30 @@ export default function SettingsPage() {
     } finally {
       aiTestingRef.current = false;
       setAiTesting(false);
+    }
+  }
+
+  async function testHermesProviderLatencyFromSettings() {
+    if (aiLatencyTestingRef.current || aiLatencyTesting || aiTestingRef.current || aiTesting) return;
+    aiLatencyTestingRef.current = true;
+    setAiLatencyTesting(true);
+    try {
+      const result = await requestHermesProviderLatencyTest(aiSettings);
+      setCandidateProviderLatencyTest(result);
+    } catch (error) {
+      setCandidateProviderLatencyTest({
+        ok: false,
+        provider: aiSettings.provider,
+        model: aiSettings.model || undefined,
+        credentialConfigured: Boolean(aiSettings.apiKey.trim()),
+        credentialSource: aiSettings.apiKey.trim() ? "custom_header" : "unknown",
+        checkedAt: new Date().toISOString(),
+        safeErrorCode: "provider_unavailable",
+        message: error instanceof Error ? error.message : "无法连接 API 地址，请检查地址和网络。"
+      });
+    } finally {
+      aiLatencyTestingRef.current = false;
+      setAiLatencyTesting(false);
     }
   }
 
@@ -570,6 +598,8 @@ export default function SettingsPage() {
     setAiSaving(true);
     try {
       setShowApiKey(false);
+      setCandidateProviderTest(undefined);
+      setCandidateProviderLatencyTest(undefined);
       if (activeRun && session) {
         await agentHost.interruptRun(session.id, createRunStopReason({
           requestedBy: "user",
@@ -625,6 +655,8 @@ export default function SettingsPage() {
         }));
       }
       clearAiSettings();
+      setCandidateProviderTest(undefined);
+      setCandidateProviderLatencyTest(undefined);
       const result = await requestHermesEnvironmentReload();
       setAiSettings(readAiSettings());
       if (result.ok && session) sessionBindingToRelease = session.id;
@@ -912,6 +944,7 @@ export default function SettingsPage() {
                       onChange={(event) => {
                         setAiSettings((prev) => ({ ...prev, baseUrl: event.target.value }));
                         setCandidateProviderTest(undefined);
+                        setCandidateProviderLatencyTest(undefined);
                       }}
                       placeholder="https://api.example.com/v1…"
                     />
@@ -933,6 +966,7 @@ export default function SettingsPage() {
                             credentialAction: event.target.value.trim() ? "replace" : prev.credentialAction
                           }));
                           setCandidateProviderTest(undefined);
+                          setCandidateProviderLatencyTest(undefined);
                         }}
                         placeholder="输入本机 API Key…"
                       />
@@ -952,6 +986,7 @@ export default function SettingsPage() {
                       onChange={(event) => {
                         setAiSettings((prev) => ({ ...prev, model: event.target.value }));
                         setCandidateProviderTest(undefined);
+                        setCandidateProviderLatencyTest(undefined);
                       }}
                       placeholder="例如 gpt-4o-mini…"
                     />
@@ -973,19 +1008,33 @@ export default function SettingsPage() {
                   {!candidateProviderTest.ok && candidateNeedsApiKey(candidateProviderTest) ? <button type="button" className="inline-action-button" onClick={() => document.getElementById("ai-api-key")?.focus()}>修改 API Key</button> : null}
                 </p>
               ) : null}
+              {candidateProviderLatencyTest ? (
+                <p className={`ai-candidate-feedback ${candidateProviderLatencyTest.ok ? "is-success" : "is-error"}`} role="status" aria-live="polite">
+                  {candidateProviderLatencyTestFeedback(candidateProviderLatencyTest)}
+                </p>
+              ) : null}
               <div className="hermes-settings-actions ai-runtime-actions">
                 <button
                   type="button"
                   className="button button-secondary"
-                  disabled={aiTesting || aiSaving}
+                  disabled={aiTesting || aiLatencyTesting || aiSaving}
                   onClick={() => void testHermesProviderFromSettings()}
                 >
                   {aiTesting ? "测试连接中…" : "测试连接"}
                 </button>
                 <button
                   type="button"
+                  className="button button-secondary"
+                  disabled={aiTesting || aiLatencyTesting || aiSaving}
+                  onClick={() => void testHermesProviderLatencyFromSettings()}
+                  title="向当前模型发送一次最短请求，测量完整响应耗时"
+                >
+                  {aiLatencyTesting ? "测速中…" : "测速"}
+                </button>
+                <button
+                  type="button"
                   className="button button-primary"
-                  disabled={aiSaving}
+                  disabled={aiSaving || aiTesting || aiLatencyTesting}
                   onClick={() => void saveAiConfiguration()}
                 >
                   {aiSaving ? "正在应用模型…" : aiSaved ? "已应用 ✓" : "保存并应用"}
@@ -997,7 +1046,18 @@ export default function SettingsPage() {
                 <div className="hermes-settings-actions">
                   <button type="button" className="button button-secondary" disabled={aiSaving} onClick={() => void resetAiConfiguration()}>恢复默认配置</button>
                   <button type="button" className="button button-secondary" disabled={aiSaving || hermesStarting || hermesSnapshot.controlOwner === "external_environment"} onClick={() => void reloadHermesEnvironmentFromSettings()}>从环境加载</button>
-                  <button type="button" className="button button-secondary" disabled={!aiSettings.apiKey && aiSettings.credentialAction !== "replace"} onClick={() => setAiSettings((prev) => ({ ...prev, apiKey: "", credentialAction: "clear" }))}>清除已保存 API Key</button>
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    disabled={!aiSettings.apiKey && aiSettings.credentialAction !== "replace"}
+                    onClick={() => {
+                      setAiSettings((prev) => ({ ...prev, apiKey: "", credentialAction: "clear" }));
+                      setCandidateProviderTest(undefined);
+                      setCandidateProviderLatencyTest(undefined);
+                    }}
+                  >
+                    清除已保存 API Key
+                  </button>
                 </div>
               </details>
             </div>
@@ -1451,6 +1511,14 @@ function candidateProviderTestFeedback(result: HermesProviderTestResult) {
     model_output_too_large: "模型返回内容过长，但连接本身正常。",
   };
   return descriptions[result.safeErrorCode ?? ""] ?? result.message ?? "请检查 API 地址、模型和凭证。";
+}
+
+function candidateProviderLatencyTestFeedback(result: HermesProviderTestResult) {
+  if (result.ok) {
+    const latency = result.latencyMs === undefined ? "未提供" : `${result.latencyMs} ms`;
+    return `✓ 模型响应延迟：${latency}${result.model ? ` · ${result.model}` : ""}`;
+  }
+  return `× 测速失败：${candidateProviderTestFeedback(result)}`;
 }
 
 function candidateNeedsApiKey(result: HermesProviderTestResult) {

@@ -1010,7 +1010,6 @@
 }
 
 .ai-asset-content .profile-manager-grid .profile-category-list,
-.ai-asset-content .profile-manager-grid .profile-managed-list,
 .ai-asset-content .profile-manager-grid .profile-detail-scroll {
   gap: 8px;
   min-height: 0;
@@ -1020,7 +1019,43 @@
 
 .ai-asset-content .profile-manager-grid .profile-category-list,
 .ai-asset-content .profile-manager-grid .profile-managed-list {
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.ai-asset-content .profile-manager-grid .profile-category-list {
+  -ms-overflow-style: none;
+  scrollbar-gutter: auto;
+  scrollbar-width: none;
+}
+
+.ai-asset-content .profile-manager-grid .profile-category-list::-webkit-scrollbar {
+  display: none;
+}
+
+.ai-asset-content .profile-manager-grid .profile-managed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  scrollbar-color: var(--line) transparent;
+  scrollbar-width: thin;
+}
+
+.ai-asset-content .profile-manager-grid .profile-managed-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ai-asset-content .profile-manager-grid .profile-managed-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ai-asset-content .profile-manager-grid .profile-managed-list::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 3px;
+}
+
+.ai-asset-content .profile-manager-grid .profile-managed-list::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
 }
 
 .ai-asset-content .profile-manager-grid .profile-category-button {
