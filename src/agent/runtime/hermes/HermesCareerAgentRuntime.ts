@@ -40,6 +40,22 @@ type TurnCounters = {
   lastOperationId?: string;
   lastSubstantiveEventAt: number;
   toolStartedAt?: number;
+  providerRequestCount?: number;
+  providerRequestDurationMs?: number;
+  runStartToFirstProviderRequestMs?: number;
+  skillLoadRequestMs?: number;
+  toolSelectionDelayMs?: number;
+  mcpRequestToDomainResultMs?: number;
+  postToolProviderRequestMs?: number;
+  firstEventLatencyMs?: number;
+  skillViewCount?: number;
+  careerFacadeCount?: number;
+  readToolCount?: number;
+  failedToolCount?: number;
+  lastToolCompletedAt?: number;
+  telemetryToolKeys?: Set<string>;
+  failedTelemetryToolKeys?: Set<string>;
+  toolOperationStartedAt?: Map<string, number>;
 };
 
 export type HermesLongRunPolicy = {
@@ -226,7 +242,11 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       tailoringLatencyMs: 0,
       pdfLatencyMs: 0,
       recoveryCount: 0,
-      lastSubstantiveEventAt: startedAt
+      lastSubstantiveEventAt: startedAt,
+      providerRequestCount: 0,
+      telemetryToolKeys: new Set<string>(),
+      failedTelemetryToolKeys: new Set<string>(),
+      toolOperationStartedAt: new Map<string, number>()
     };
 
     if (!supportsRuns(this.dependencies.transport)) {
@@ -327,46 +347,54 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
 
     try {
       if (!attachable) {
-        const started = await transport.startRun!({
-          sessionId: hermesSessionId,
-          turnId,
-          userMessage: input.userMessage,
-          pageContext: input.pageContext,
-          // The official Hermes server owns model/tool execution. CareerAdapt
-          // sends no executable callback contract or second tool loop here.
-          toolContracts: [],
-          careerSessionBinding: binding,
-          incidentTraceId,
-          logicalTurnId: turnId,
-          attemptTraceId,
-          attachments: input.attachments,
-          conversationHistory: conversationHistory(input),
-          metadata: {
-            ...(safeMetadata(input.metadata) ?? {}),
-            requireCareerSessionBinding: Boolean(binding)
-          }
-        }, input.signal);
-        if (!started.runId || !["started", "queued", "running"].includes(started.status)) {
-          throw createHermesRunFailure({
-            code: "hermes_run_start_invalid_response",
-            message: "Hermes run_start 返回了无法识别的运行句柄。",
-            failureLayer: "response",
-            hermesSessionId,
-            requestedTurnId: turnId,
-            runStartKind: "new",
-            runPhase: "before_run_start",
+        const providerRequestStartedAt = Date.now();
+        counters.providerRequestCount = 1;
+        counters.runStartToFirstProviderRequestMs = Math.max(0, providerRequestStartedAt - startedAt);
+        try {
+          const started = await transport.startRun!({
+            sessionId: hermesSessionId,
+            turnId,
+            userMessage: input.userMessage,
+            pageContext: input.pageContext,
+            // The official Hermes server owns model/tool execution. CareerAdapt
+            // sends no executable callback contract or second tool loop here.
+            toolContracts: [],
+            careerSessionBinding: binding,
             incidentTraceId,
+            logicalTurnId: turnId,
             attemptTraceId,
-            retryable: false
-          });
+            attachments: input.attachments,
+            conversationHistory: conversationHistory(input),
+            metadata: {
+              ...(safeMetadata(input.metadata) ?? {}),
+              requireCareerSessionBinding: Boolean(binding)
+            }
+          }, input.signal);
+          counters.providerRequestDurationMs = Math.max(0, Date.now() - providerRequestStartedAt);
+          if (!started.runId || !["started", "queued", "running"].includes(started.status)) {
+            throw createHermesRunFailure({
+              code: "hermes_run_start_invalid_response",
+              message: "Hermes run_start 返回了无法识别的运行句柄。",
+              failureLayer: "response",
+              hermesSessionId,
+              requestedTurnId: turnId,
+              runStartKind: "new",
+              runPhase: "before_run_start",
+              incidentTraceId,
+              attemptTraceId,
+              retryable: false
+            });
+          }
+          handle = {
+            ...handle,
+            runId: started.runId,
+            status: started.status === "queued" ? "queued" : "running",
+            lastEventAt: new Date().toISOString()
+          };
+          runStartedSuccessfully = true;
+        } finally {
+          counters.providerRequestDurationMs ??= Math.max(0, Date.now() - providerRequestStartedAt);
         }
-        handle = {
-          ...handle,
-          runId: started.runId,
-          status: started.status === "queued" ? "queued" : "running",
-          lastEventAt: new Date().toISOString()
-        };
-        runStartedSuccessfully = true;
       }
 
       this.activeRuns.set(input.sessionId, handle);
@@ -398,15 +426,10 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
               seenEventIds.add(bridgeEvent.eventId);
               eventCursor = bridgeEvent.eventId;
             }
+            this.observeTelemetryBridgeEvent(bridgeEvent, counters, startedAt);
             counters.lastEventType = bridgeEvent.type;
             if ("toolName" in bridgeEvent && typeof bridgeEvent.toolName === "string") counters.lastTool = bridgeEvent.toolName;
             if ("operationId" in bridgeEvent && typeof bridgeEvent.operationId === "string") counters.lastOperationId = bridgeEvent.operationId;
-            if (bridgeEvent.type === "text_delta" && counters.firstTokenLatencyMs === undefined) {
-              counters.firstTokenLatencyMs = Math.max(0, Date.now() - startedAt);
-            }
-            if (bridgeEvent.type === "tool_call_started") counters.toolCalls += 1;
-            if (bridgeEvent.type === "tool_call_failed") counters.toolFailures += 1;
-            if (bridgeEvent.type === "artifact_updated") counters.artifactUpdates += 1;
             handle = touchRunHandle(handle, statusForBridgeEvent(bridgeEvent, handle.status));
             this.activeRuns.set(input.sessionId, handle);
 
@@ -838,7 +861,6 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     if (event.type === "reasoning_status") return this.event(input, "reasoning_status", { eventId: event.eventId, message: event.message, data: event.data });
     if (event.type === "text_delta") return this.event(input, "text_delta", { eventId: event.eventId, delta: event.delta });
     if (event.type === "tool_call_started") {
-      counters.toolCalls += 1;
       return this.event(input, "tool_call_started", {
         eventId: event.eventId,
         toolName: event.toolName,
@@ -863,7 +885,6 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       }
     });
     if (event.type === "tool_call_failed") {
-      counters.toolFailures += 1;
       return this.event(input, "tool_call_failed", {
         eventId: event.eventId,
         toolName: event.toolName,
@@ -884,7 +905,6 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       data: { ...this.toolDiagnostics(input, event.toolName), ...(event.data && typeof event.data === "object" ? event.data as Record<string, unknown> : {}) }
     });
     if (event.type === "artifact_updated") {
-      counters.artifactUpdates += 1;
       return this.event(input, "artifact_updated", { eventId: event.eventId, data: event.data, ...(event.artifactId ? { operationId: event.artifactId } : {}) });
     }
     if (event.type === "turn_completed") return this.event(input, "turn_completed", {
@@ -934,6 +954,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
   }
 
   private telemetry(input: AgentRuntimeTurnInput, counters: TurnCounters, completionStatus: "completed" | "failed", startedAt: number) {
+    const terminalCompletionMs = Math.max(0, Date.now() - startedAt);
     return {
       runtimeId: this.id,
       turnId: input.turnId ?? "hermes-turn-unknown",
@@ -950,8 +971,87 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       recoveryCount: counters.recoveryCount,
       fallbackUsed: input.metadata?.fallbackUsed === true,
       artifactUpdates: counters.artifactUpdates,
-      completionStatus
+      completionStatus,
+      providerRequestCount: counters.providerRequestCount,
+      providerRequestDurationMs: counters.providerRequestDurationMs,
+      skillViewCount: counters.skillViewCount,
+      careerFacadeCount: counters.careerFacadeCount,
+      readToolCount: counters.readToolCount,
+      failedToolCount: counters.failedToolCount,
+      providerRequestScope: counters.providerRequestCount === 1 ? "hermes_run_start_proxy" : "unobservable",
+      phaseLatencyMs: {
+        runStartToFirstProviderRequestMs: counters.runStartToFirstProviderRequestMs,
+        providerRequestDurationMs: counters.providerRequestDurationMs,
+        skillLoadRequestMs: counters.skillLoadRequestMs,
+        toolSelectionDelayMs: counters.toolSelectionDelayMs,
+        mcpRequestToDomainResultMs: counters.mcpRequestToDomainResultMs,
+        postToolProviderRequestMs: counters.postToolProviderRequestMs,
+        firstVisibleAssistantTokenMs: counters.firstTokenLatencyMs,
+        terminalCompletionMs
+      }
     };
+  }
+
+  private observeTelemetryBridgeEvent(event: HermesBridgeEvent, counters: TurnCounters, startedAt: number) {
+    const now = Date.now();
+    counters.firstEventLatencyMs ??= Math.max(0, now - startedAt);
+
+    if (event.type === "text_delta") {
+      counters.firstTokenLatencyMs ??= Math.max(0, now - startedAt);
+      if (counters.lastToolCompletedAt !== undefined) {
+        counters.postToolProviderRequestMs = Math.max(0, now - counters.lastToolCompletedAt);
+        counters.lastToolCompletedAt = undefined;
+      }
+      return;
+    }
+    if (event.type === "artifact_updated") {
+      counters.artifactUpdates += 1;
+      return;
+    }
+    if (event.type !== "tool_call_started" && event.type !== "tool_call_completed" && event.type !== "tool_call_failed") {
+      if (event.type === "turn_completed" || event.type === "turn_failed") {
+        counters.postToolProviderRequestMs ??= counters.lastToolCompletedAt === undefined
+          ? undefined
+          : Math.max(0, now - counters.lastToolCompletedAt);
+      }
+      return;
+    }
+
+    const toolName = event.toolName;
+    const catalog = new HermesCareerToolCatalog(this.dependencies.careerToolGateway.listContracts());
+    const stableToolName = catalog.stableNameForRequestedName(toolName) ?? toolName;
+    const logicalOperationId = "logicalToolOperationId" in event && typeof event.logicalToolOperationId === "string"
+      ? event.logicalToolOperationId
+      : undefined;
+    const operationKey = logicalOperationId ?? `${stableToolName}:${event.operationId}`;
+    if (event.type === "tool_call_started") {
+      const alreadyStarted = counters.telemetryToolKeys?.has(operationKey) === true;
+      if (alreadyStarted) return;
+      counters.toolCalls += 1;
+      counters.telemetryToolKeys?.add(operationKey);
+      counters.toolOperationStartedAt?.set(operationKey, now);
+      counters.toolSelectionDelayMs ??= Math.max(0, now - startedAt);
+      const contract = this.dependencies.careerToolGateway.listContracts().find((candidate) => candidate.name === stableToolName);
+      if (stableToolName === "skill_view" || stableToolName === "skills_list") counters.skillViewCount = (counters.skillViewCount ?? 0) + 1;
+      if (stableToolName.startsWith("career.workflow.")) counters.careerFacadeCount = (counters.careerFacadeCount ?? 0) + 1;
+      if (contract?.readWrite === "read") counters.readToolCount = (counters.readToolCount ?? 0) + 1;
+      if (counters.skillViewCount === 1) counters.skillLoadRequestMs = Math.max(0, now - startedAt);
+      return;
+    }
+
+    const toolStartedAt = counters.toolOperationStartedAt?.get(operationKey);
+    if (toolStartedAt !== undefined) {
+      counters.mcpRequestToDomainResultMs = (counters.mcpRequestToDomainResultMs ?? 0) + Math.max(0, now - toolStartedAt);
+      counters.toolOperationStartedAt?.delete(operationKey);
+    }
+    counters.lastToolCompletedAt = now;
+    if (event.type === "tool_call_failed") {
+      counters.toolFailures += 1;
+      if (!counters.failedTelemetryToolKeys?.has(operationKey)) {
+        counters.failedTelemetryToolKeys?.add(operationKey);
+        counters.failedToolCount = (counters.failedToolCount ?? 0) + 1;
+      }
+    }
   }
 
   private async executeGatewayTool(

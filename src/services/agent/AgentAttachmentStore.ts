@@ -7,22 +7,29 @@ export const AgentAttachmentRefSchema = z.object({
   mimeType: z.string().min(1).max(160),
   size: z.number().int().min(0),
   hash: z.string().min(1).optional(),
+  /** The Agent Session that selected this file; never infer ownership from a filename. */
+  agentSessionId: z.string().min(1).optional(),
   createdAt: z.string().datetime({ offset: true })
 }).strict();
 
 export type AgentAttachmentRef = z.infer<typeof AgentAttachmentRefSchema>;
 
+export type AgentAttachmentRegistrationOptions = {
+  agentSessionId: string;
+};
+
 export class AgentAttachmentStore {
   private readonly files = new Map<string, File>();
   private readonly refs = new Map<string, AgentAttachmentRef>();
 
-  async register(file: File): Promise<AgentAttachmentRef> {
+  async register(file: File, options?: AgentAttachmentRegistrationOptions): Promise<AgentAttachmentRef> {
     const ref = AgentAttachmentRefSchema.parse({
       id: `agent-attachment-${crypto.randomUUID()}`,
       fileName: file.name,
       mimeType: file.type || mimeTypeFromName(file.name),
       size: file.size,
       hash: await hashBytes(new Uint8Array(await file.arrayBuffer())),
+      ...(options?.agentSessionId ? { agentSessionId: options.agentSessionId } : {}),
       createdAt: new Date().toISOString()
     });
     this.files.set(ref.id, file);
@@ -40,6 +47,17 @@ export class AgentAttachmentStore {
       );
     }
     return { ref, file };
+  }
+
+  assertOwned(id: string, agentSessionId: string) {
+    const { ref } = this.resolve(id);
+    if (ref.agentSessionId !== agentSessionId) {
+      throw Object.assign(
+        new Error("附件不属于当前对话，请重新选择文件。"),
+        { code: "agent_attachment_session_mismatch", recovery: "reselect_file" }
+      );
+    }
+    return ref;
   }
 
   release(id: string) {

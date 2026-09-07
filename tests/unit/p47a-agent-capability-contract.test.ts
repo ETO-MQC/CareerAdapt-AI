@@ -38,7 +38,6 @@ const productionAuditRows = [
   { stableName: "career.workflow.resume_import", kind: "facade", readWrite: "write", skillOwner: "resume import", visible: true },
   { stableName: "career.workflow.job_fit", kind: "facade", readWrite: "write", skillOwner: "job-fit-analysis", visible: true },
   { stableName: "career.workflow.tailor_resume", kind: "facade", readWrite: "write", skillOwner: "resume-tailoring", visible: true },
-  { stableName: "career.workflow.profile_to_resume", kind: "facade", readWrite: "write", skillOwner: "resume-composition", visible: true },
   { stableName: "career.workflow.compose_resume", kind: "facade", readWrite: "write", skillOwner: "resume-composition / resume-review", visible: true },
   { stableName: "career.workflow.resume_export", kind: "facade", readWrite: "write", skillOwner: "resume-review / export", visible: true }
 ] as const;
@@ -67,7 +66,7 @@ describe("P4.7a Agent capability contract", () => {
   it("keeps the exact production profile to facades plus the small read surface", () => {
     const expected = productionAuditRows.map((row) => row.stableName).sort();
     expect([...HERMES_PRODUCTION_TOOL_PROFILE].sort()).toEqual(expected);
-    expect(HERMES_PRODUCTION_TOOL_PROFILE).toHaveLength(12);
+    expect(HERMES_PRODUCTION_TOOL_PROFILE).toHaveLength(11);
     expect(HERMES_PRODUCTION_TOOL_PROFILE).not.toEqual(expect.arrayContaining([
       "career.system.runtime_status",
       "career.system.current_task",
@@ -160,7 +159,9 @@ describe("P4.7a Agent capability contract", () => {
   });
 
   it("keeps the canonical facade list free of a second semantic Agent or router", () => {
-    expect(HERMES_REQUIRED_CAREER_FACADES).toHaveLength(8);
+    expect(CAREER_WORKFLOW_FACADE_DEFINITIONS.some((definition) => definition.name === "career.workflow.profile_to_resume")).toBe(true);
+    expect(HERMES_REQUIRED_CAREER_FACADES).toHaveLength(7);
+    expect(HERMES_REQUIRED_CAREER_FACADES).not.toContain("career.workflow.profile_to_resume");
     expect(HERMES_REQUIRED_CAREER_FACADES.some((name) => /router|planner|agent|manager/u.test(name))).toBe(false);
   });
 });

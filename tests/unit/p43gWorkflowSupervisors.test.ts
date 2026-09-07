@@ -107,9 +107,10 @@ describe("P4.3g workflow supervisors", () => {
 
   it("handles the import quick action in the host without executor or model calls", async () => {
     const intent = createQuickActionIntent("import_existing_resume");
+    const runTurn = vi.fn();
     const execute = vi.fn();
     const host = new AgentHostStore({
-      kernel: { runTurn: vi.fn() } as never,
+      kernel: { runTurn } as never,
       executor: { execute } as never,
       persistence: { save: async (session: AgentSession) => session } as never
     });
@@ -123,12 +124,15 @@ describe("P4.3g workflow supervisors", () => {
     }, { session: base, pageContext: { pathname: "/ai-workspace", query: {} } });
 
     expect(execute).not.toHaveBeenCalled();
-    const assistant = result?.messages.at(-1);
-    expect(assistant?.role).toBe("assistant");
-    expect(assistant?.content).toContain("准备导入到");
-    expect(assistant?.options?.map((option) => option.action.type)).toContain("quick_action_decision");
-    expect(assistant?.options?.some((option) => option.action.type === "quick_action_decision" && option.action.decision === "import_new_person")).toBe(true);
-    expect(host.getSnapshot().uiAction).toBeUndefined();
+    expect(runTurn).not.toHaveBeenCalled();
+    expect(result?.messages).toEqual([]);
+    expect(result?.taskState).toBeUndefined();
+    expect(host.getSnapshot().uiAction).toEqual({ type: "open_resume_upload" });
+    expect(host.getSnapshot().currentObservation).toMatchObject({
+      type: "resume_import_picker_requested",
+      modelCalls: 0,
+      workflowCalls: 0
+    });
   });
 
   it("handles missing quick-action assets locally without entering the model stream", async () => {

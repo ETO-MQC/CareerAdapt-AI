@@ -233,7 +233,15 @@ export function applyProfileRecoveryItems(input: {
       ...incoming,
       factIds: incoming.factIds.map((id) => factIdMap.get(id) ?? id)
     });
-    byId.set(incoming.data.id, current ? mergeStructuredFact(current, remappedIncoming) : remappedIncoming);
+    const merged = current ? mergeStructuredFact(current, remappedIncoming) : remappedIncoming;
+    const preservedConfirmedFactIds = current?.factIds.filter((factId) => {
+      const fact = factsById.get(factId);
+      return Boolean(fact?.confirmedByUser && fact.provenance.some((source) => source.confirmedByUser));
+    }) ?? [];
+    byId.set(incoming.data.id, {
+      ...merged,
+      factIds: [...new Set([...preservedConfirmedFactIds, ...remappedIncoming.factIds])]
+    });
     if (item.experience && !targetExperience && !experiences.some((candidate) => candidate.id === item.experience?.id)) experiences.push(item.experience);
     if (item.skill && !skills.some((candidate) => candidate.id === item.skill?.id)) skills.push(item.skill);
     if (item.certificate && !certificates.some((candidate) => candidate.id === item.certificate?.id)) certificates.push(item.certificate);

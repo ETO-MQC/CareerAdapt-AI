@@ -359,7 +359,9 @@ it("writes an explicitly confirmed recovery as revision plus one on the same Pro
   db = new CareerAdaptDb(`CareerAdaptP45C1C24-${crypto.randomUUID()}`);
   const repository = new WorkspaceRepository(db);
   const profile = currentProfile();
-  await repository.saveProfile(profile);
+  // Seed the intentionally degraded historical record outside the write
+  // contract; the repair path must be the first validated Profile write.
+  await db.profiles.put(profile);
   await repository.setActiveCareerContext({ personId: profile.personId!, profileId: profile.id });
   await repository.saveImportedResumeDraft(importedDraft(profile.id), 0);
 

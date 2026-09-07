@@ -68,6 +68,13 @@ export type RuntimeStatusSnapshot = {
     mcpLatencyMs?: number;
     tailoringLatencyMs?: number;
     pdfLatencyMs?: number;
+    providerRequestCount?: number;
+    providerRequestDurationMs?: number;
+    skillViewCount?: number;
+    careerFacadeCount?: number;
+    readToolCount?: number;
+    failedToolCount?: number;
+    phaseLatencyMs?: Record<string, number | undefined>;
     structuredOutputValid?: boolean;
     fallbackUsed: boolean;
     autonomousRecoveries?: number;
@@ -367,6 +374,13 @@ export class RuntimeStatusStore {
         mcpLatencyMs: numberValue(telemetry.mcpLatencyMs),
         tailoringLatencyMs: numberValue(telemetry.tailoringLatencyMs),
         pdfLatencyMs: numberValue(telemetry.pdfLatencyMs),
+        providerRequestCount: numberValue(telemetry.providerRequestCount),
+        providerRequestDurationMs: numberValue(telemetry.providerRequestDurationMs),
+        skillViewCount: numberValue(telemetry.skillViewCount),
+        careerFacadeCount: numberValue(telemetry.careerFacadeCount),
+        readToolCount: numberValue(telemetry.readToolCount),
+        failedToolCount: numberValue(telemetry.failedToolCount),
+        phaseLatencyMs: recordNumberValues(telemetry.phaseLatencyMs),
         structuredOutputValid: typeof telemetry.structuredOutputValid === "boolean" ? telemetry.structuredOutputValid : undefined,
         fallbackUsed: telemetry.fallbackUsed === true,
         autonomousRecoveries: numberValue(telemetry.autonomousRecoveries)
@@ -377,6 +391,16 @@ export class RuntimeStatusStore {
 
 function numberValue(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
+}
+
+function recordNumberValues(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const result: Record<string, number> = {};
+  for (const [key, candidate] of Object.entries(value)) {
+    const normalized = numberValue(candidate);
+    if (normalized !== undefined) result[key] = normalized;
+  }
+  return Object.keys(result).length ? result : undefined;
 }
 
 function supervisorRuntimeStatus(state: HermesSupervisorSnapshot["overallState"]): RuntimeStatus {

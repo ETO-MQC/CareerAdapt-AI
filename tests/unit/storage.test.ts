@@ -305,7 +305,15 @@ describe("WorkspaceRepository", () => {
 
     const restored = await repository.restoreProfileRecycleItem("canonical", structuredFact.data.id);
 
-    expect(restored.profile.structuredFacts).toContainEqual(structuredFact);
+    const restoredFact = restored.profile.structuredFacts?.find((entry) => entry.data.id === structuredFact.data.id);
+    expect(restoredFact).toMatchObject({
+      data: structuredFact.data,
+      sourceBlockIds: structuredFact.sourceBlockIds,
+      sourceRanges: structuredFact.sourceRanges,
+      sourceExcerpt: structuredFact.sourceExcerpt,
+      factIds: [expect.any(String)]
+    });
+    expect(restored.profile.experiences.some((experience) => experience.facts.some((fact) => restoredFact?.factIds.includes(fact.id)))).toBe(true);
     expect(restored.state.profileItems).toHaveLength(0);
   });
 

@@ -1,6 +1,7 @@
 import { nanoid } from "nanoid";
 import { BranchContentItemSchema, ResumeBranchSchema, ResumeContentItemV2Schema, type BranchContentItem, type BranchFactRef, type CareerProfile, type JobTargetSnapshot, type ResumeBranch, type ResumeBranchBasics, type ResumeItemV2, type ResumeRevision } from "@/domain/schemas";
 import { migrateCareerProfileToV2, projectResumeItemV2 } from "@/domain/migrations/resumeV2";
+import { assertProfileFactReferenceIntegrity } from "@/domain/profile/profileWriteContract";
 import { stableHashText } from "@/services/security/text";
 import { createResumeRevision } from "./revision";
 import type { ResumeCompositionResult } from "@/domain/resumeComposition";
@@ -129,13 +130,16 @@ export function buildJobBranchFromProfile(input: {
 }
 
 function profileContentItems(profile: CareerProfile, now: string, composition?: ResumeCompositionResult) {
+  assertProfileFactReferenceIntegrity(profile);
   if (composition) return compositionContentItems(profile, now, composition);
   const facts = [...migrateCareerProfileToV2(profile).structuredFacts];
   const summary = profile.basics.summary?.trim();
   if (summary && !facts.some((entry) => entry.data.sectionType === "summary")) facts.unshift({ data: { id: `profile-summary-${profile.id}`, sectionType: "summary", text: summary, customFields: [] }, factIds: [], sourceBlockIds: [], sourceRanges: [], mappingTrace: [] });
   return facts.flatMap((entry, order) => {
     const factRefs = resolveProfileFactRefs(profile, entry.factIds);
-    if (entry.data.sectionType !== "summary" && (!factRefs.length || factRefs.length !== entry.factIds.length)) return [];
+    if (entry.data.sectionType !== "summary" && (!factRefs.length || factRefs.length !== entry.factIds.length)) {
+      throw new Error(`profile_fact_reference_unresolved:${entry.data.id}`);
+    }
     const text = projectResumeItemV2(entry.data);
     const id = `branch-item-profile-${entry.data.id}-${nanoid(6)}`;
     const legacy = BranchContentItemSchema.parse({ id, itemType: canonicalItemType(entry.data.sectionType), source: "user_manual", sourceSectionId: entry.data.sectionType, text, originalText: text, order, visible: true, requirementIds: [], sourceSuggestionIds: [], factRefs, guardMode: entry.data.sectionType === "summary" ? "not_fact" : "rule_verified", guardStatus: "pass", guardRiskLevel: profileFactRiskLevel(profile, entry.factIds), guardFindings: [], guardedAt: now, guardVersion: "profile-snapshot-v2", userConfirmation: entry.data.sectionType === "summary" ? { scope: "resume_only", confirmedTextHash: stableHashText(text), confirmedAt: now } : undefined });
@@ -147,7 +151,9 @@ function profileContentItems(profile: CareerProfile, now: string, composition?: 
 function compositionContentItems(profile: CareerProfile, now: string, composition: ResumeCompositionResult) {
   return composition.items.flatMap((entry, order) => {
     const factRefs = resolveProfileFactRefs(profile, entry.factIds);
-    if (entry.data.sectionType !== "summary" && (!factRefs.length || factRefs.length !== entry.factIds.length)) return [];
+    if (entry.data.sectionType !== "summary" && (!factRefs.length || factRefs.length !== entry.factIds.length)) {
+      throw new Error(`profile_fact_reference_unresolved:${entry.data.id}`);
+    }
     const text = projectResumeItemV2(entry.data);
     if (!text.trim()) return [];
     const id = `branch-item-composed-${entry.data.id}-${nanoid(6)}`;

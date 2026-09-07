@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 test.describe("AI workspace shell", () => {
   test.beforeEach(async ({ page }) => {
@@ -49,34 +49,45 @@ test.describe("AI workspace shell", () => {
     await expect(contextTrigger).toBeVisible();
     if ((await contextTrigger.innerText()).includes("选择人物")) {
       await contextTrigger.click();
-      await page.getByRole("button", { name: "新建人物" }).click();
+      await page.getByRole("tab", { name: "新增人物" }).click();
       await page.getByLabel("人物名称").fill("测试人物");
-      await page.getByRole("button", { name: "创建并使用" }).click();
+      await page.getByRole("button", { name: "创建人物" }).click();
+      await page.getByRole("button", { name: "使用此版本" }).click();
       await expect(contextTrigger).toContainText("测试人物");
-      await page.getByRole("button", { name: "关闭人物与版本选择器" }).click();
     }
   });
 
-  test("enters conversation immediately from a quick card and shows thinking before planner returns", async ({ page }) => {
-    await page.unroute("**/api/agent/turn");
-    await page.route("**/api/agent/turn", async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 900));
-      await route.fulfill({
-        contentType: "application/json",
-        body: JSON.stringify({
-          type: "ask_user",
-          message: "好的，我们先从最近一段真实经历开始。请告诉我公司、岗位和时间范围。"
-        })
-      });
+  test("starts profile intake with local onboarding and no synthetic user turn", async ({ page }) => {
+    let runtimeRequestCount = 0;
+    page.on("request", (request) => {
+      if (request.method() === "POST" && /\/api\/agent\/(?:turn|stream)$/.test(new URL(request.url()).pathname)) {
+        runtimeRequestCount += 1;
+      }
     });
-
-    await page.goto("/");
+    await page.goto("/ai-workspace");
     await page.getByRole("button", { name: /从零整理我的经历/ }).click();
 
-    await expect(page).toHaveURL(/\/ai-workspace$/);
-    await expect(page.getByText("我想从零整理自己的真实经历")).toBeVisible();
-    await expect(page.locator('[data-message-status="thinking"].is-streaming')).toBeVisible();
-    await expect(page.getByText("好的，我们先从最近一段真实经历开始")).toBeVisible();
+    await expect(page.getByText("可以先从你最熟悉的一段开始。比如：实习 / 工作、课程项目、个人项目、比赛、校园经历、兼职 / 副业、志愿活动。想到哪段先说哪段。", { exact: true })).toBeVisible();
+    await expect(page.locator(".agent-message-row.is-user")).toHaveCount(0);
+    expect(runtimeRequestCount).toBe(0);
+  });
+
+  test("opens the existing composer picker before import work and keeps cancel side-effect free", async ({ page }) => {
+    let runtimeRequestCount = 0;
+    page.on("request", (request) => {
+      if (request.method() === "POST" && /\/api\/agent\/(?:turn|stream)$/.test(new URL(request.url()).pathname)) {
+        runtimeRequestCount += 1;
+      }
+    });
+
+    await page.goto("/ai-workspace");
+    const fileChooser = page.waitForEvent("filechooser");
+    await page.getByRole("button", { name: /导入现有简历/ }).click();
+    await fileChooser;
+
+    await expect(page.locator('input[type="file"]')).toHaveCount(1);
+    await expect(page.locator(".agent-message-row.is-user")).toHaveCount(0);
+    expect(runtimeRequestCount).toBe(0);
   });
 
   test("sends a normal Chinese turn with streaming UI and message actions", async ({ page }) => {
@@ -135,21 +146,80 @@ test.describe("AI workspace shell", () => {
   });
 
   test("keeps the active user and thinking messages when navigating away and back", async ({ page }) => {
-    await page.unroute("**/api/agent/stream");
-    await page.route("**/api/agent/stream", async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 2_000));
+    test.setTimeout(60_000);
+    const runStarts: string[] = [];
+    const eventRunIds: string[] = [];
+    await page.route("**/api/agent/runtime/hermes/health", async (route) => {
       await route.fulfill({
-        contentType: "text/event-stream",
-        body: [
-          "event: model_text_delta",
-          `data: ${JSON.stringify({ type: "model_text_delta", delta: "跨页面任务已经正常完成。" })}`,
-          "",
-          "event: model_finish",
-          "data: {\"type\":\"model_finish\",\"stopReason\":\"final\"}",
-          "",
-          ""
-        ].join("\n")
+        contentType: "application/json",
+        body: JSON.stringify({
+          available: true,
+          runtimeId: "hermes",
+          model: "test-model",
+          providerStatus: "ready",
+          mcpConnected: true,
+          discoveredToolCount: 0,
+          runtimeHealth: {
+            runtimeId: "hermes",
+            runtimeAvailable: true,
+            companionReady: true,
+            providerConfigured: true,
+            providerReachable: true,
+            providerReady: true,
+            mcpConnected: true,
+            mcpReady: true,
+            mcpToolCount: 0,
+            toolCallingAvailable: true,
+            careerSkillsLoaded: true,
+            browserCareerDomainHostConnected: true,
+            careerMcpServerReachable: true,
+            careerMcpContractCount: 0,
+            hermesMcpRegistered: true,
+            hermesMcpToolCount: 0,
+            hermesCareerFacadeCount: 0,
+            requiredCareerFacadesMissing: [],
+            careerGatewayContracts: [],
+            careerMcpExposedTools: [],
+            hermesRegisteredToolsets: ["careeradapt"],
+            hermesVisibleTools: [],
+            runReady: true,
+            lastCheckedAt: new Date().toISOString()
+          }
+        })
       });
+    });
+    await page.route("**/api/agent/runtime/hermes", async (route) => {
+      const body = route.request().postDataJSON() as { action?: string; runId?: string };
+      if (body.action === "run_start") {
+        runStarts.push("run-cross-page-1");
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({ ok: true, data: { runId: "run-cross-page-1", status: "started" } })
+        });
+        return;
+      }
+      if (body.action === "run_events") {
+        eventRunIds.push(String(body.runId));
+        await new Promise((resolve) => setTimeout(resolve, 5_000));
+        await route.fulfill({
+          contentType: "text/event-stream",
+          body: [
+            "event: run.completed",
+            `data: ${JSON.stringify({ run_id: body.runId, output: "跨页面任务已经正常完成。" })}`,
+            "",
+            ""
+          ].join("\n")
+        });
+        return;
+      }
+      if (body.action === "run_status") {
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({ ok: true, data: { run_id: body.runId, status: "running" } })
+        });
+        return;
+      }
+      await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, data: {} }) });
     });
 
     await page.goto("/ai-workspace");
@@ -160,16 +230,25 @@ test.describe("AI workspace shell", () => {
     await page.getByRole("button", { name: "发送消息" }).click();
     await expect(page.getByText("请保留这条跨页面消息")).toBeVisible();
     await expect(page.locator('[data-message-status="thinking"], [data-message-status="streaming"]').first()).toBeVisible();
+    await expect.poll(() => runStarts.length).toBe(1);
+    const runningSnapshot = await readActiveSession(page);
+    expect(runningSnapshot.hermesRunId).toBe("run-cross-page-1");
+    const activeSessionId = runningSnapshot.sessionId;
+    expect(activeSessionId).toBeTruthy();
 
     await page.getByRole("link", { name: "个人资料库" }).click();
     await expect(page).toHaveURL(/\/profile$/);
     await page.getByRole("link", { name: "返回任务" }).click();
     await expect(page).toHaveURL(/\/ai-workspace$/);
+    await expect.poll(() => readActiveSession(page)).toMatchObject({ sessionId: activeSessionId, hermesRunId: "run-cross-page-1" });
     await expect(page.getByText("请保留这条跨页面消息")).toBeVisible();
     await expect(page.locator('[data-message-status="thinking"], [data-message-status="streaming"]').first()).toBeVisible();
 
     await expect(page.getByText("跨页面任务已经正常完成。")).toBeVisible();
     await expect(page.getByText("请保留这条跨页面消息")).toBeVisible();
+    expect(runStarts).toEqual(["run-cross-page-1"]);
+    expect(eventRunIds.length).toBeGreaterThan(0);
+    expect(new Set(eventRunIds)).toEqual(new Set(["run-cross-page-1"]));
   });
 
   test("keeps unsent composer drafts isolated by task and restores them when returning", async ({ page }) => {
@@ -434,3 +513,27 @@ test.describe("AI workspace shell", () => {
     await expect(page.locator(".agent-history-list > button")).toHaveCount(1);
   });
 });
+
+async function readActiveSession(page: Page) {
+  return page.evaluate(async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("CareerAdaptDb");
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const sessions = await new Promise<Record<string, unknown>[]>((resolve, reject) => {
+      const request = database.transaction("agentSessions", "readonly").objectStore("agentSessions").getAll();
+      request.onsuccess = () => resolve(request.result as Record<string, unknown>[]);
+      request.onerror = () => reject(request.error);
+    });
+    const activeId = localStorage.getItem("careerad.agent.activeSessionId");
+    const session = sessions.find((candidate) => candidate.id === activeId) ?? sessions.at(-1);
+    const hermesRun = session?.hermesRun as Record<string, unknown> | undefined;
+    database.close();
+    return {
+      sessionId: session?.id,
+      hermesRunId: hermesRun?.runId,
+      activeTurnStatus: (session?.activeTurn as Record<string, unknown> | undefined)?.status
+    };
+  });
+}

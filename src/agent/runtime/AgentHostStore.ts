@@ -98,7 +98,7 @@ import {
   type QuickActionPrerequisiteResolution,
   type QuickActionWorkflowResolution
 } from "@/agent/workflows/QuickActionWorkflowSupervisor";
-import { buildQuickActionContextSnapshot, quickActionProfileCountSummary, quickActionProfileLabel, quickActionSectionCount } from "@/agent/workflows/QuickActionContextSnapshot";
+import { buildQuickActionContextSnapshot } from "@/agent/workflows/QuickActionContextSnapshot";
 import { QuickActionContextSnapshotSchema, type QuickActionContextSnapshot } from "@/agent/contracts/quickActionContext";
 import { defaultAgentTaskTitle, refineAgentTaskTitle } from "@/agent/services/AgentTaskTitleService";
 import { WorkspaceRepository } from "@/services/storage/repositories";
@@ -140,6 +140,7 @@ import {
 } from "@/agent/contracts/resumeArtifactWrite";
 
 const TAILORING_APPLY_FAILURE_MESSAGE = "已采用的修改仍保留，但岗位简历写入没有完成。可以从当前步骤重试。";
+const PROFILE_INTAKE_ONBOARDING_PROMPT = "可以先从你最熟悉的一段开始。比如：实习 / 工作、课程项目、个人项目、比赛、校园经历、兼职 / 副业、志愿活动。想到哪段先说哪段。";
 
 export type AgentHostInput =
   | { type: "message"; text: string; references?: AgentMessageReference[] }
@@ -955,12 +956,51 @@ export class AgentHostStore {
       };
     }
     if (input.event.type === "quick_action_started") {
+      if (input.event.actionId === "import_existing_resume") {
+        // Import is a picker command. Do not create a task, UserMessage, or
+        // runtime operation until the composer hands us a real File.
+        this.patch({
+          uiAction: { type: "open_resume_upload" },
+          currentObservation: {
+            type: "resume_import_picker_requested",
+            actionId: input.event.actionId,
+            modelCalls: 0,
+            workflowCalls: 0
+          }
+        });
+        return {
+          session: current,
+          event: input.event,
+          userMessage: "",
+          executionOwner: "deterministic_transition",
+          deterministicTransitionApplied: true,
+          deterministicTerminal: true
+        };
+      }
       const initialized = await this.initializeQuickActionTask(current, {
         type: "quick_action",
         actionId: input.event.actionId,
         text: input.event.text,
         task: input.event.task
       });
+      if (input.event.actionId === "build_profile_from_scratch") {
+        const quickContext = await this.readQuickActionContext(initialized);
+        const prepared = await this.prepareQuickActionSession(initialized, input.event.actionId, quickContext);
+        const resolved = await this.resolveProfileIntakeQuickAction(prepared, {
+          type: "quick_action",
+          actionId: input.event.actionId,
+          text: input.event.text,
+          task: input.event.task
+        }, quickContext);
+        return {
+          session: resolved,
+          event: input.event,
+          userMessage: "",
+          executionOwner: "deterministic_transition",
+          deterministicTransitionApplied: true,
+          deterministicTerminal: true
+        };
+      }
       return {
         session: initialized,
         event: input.event,
@@ -2222,7 +2262,7 @@ export class AgentHostStore {
         id: `agent-tool-${logicalToolOperationId ?? operationId}`,
         turnId: event.turnId,
         content: effectiveFailure
-          ? event.error?.message ?? "Career 工具执行失败。"
+          ? "该步骤未完成，当前进度已保留，可重试。"
           : event.type === "tool_call_completed" ? "Career 工具执行完成。" : `正在调用 ${event.toolName ?? "Career 工具"}…`,
         toolName: event.toolName,
         operationId,
@@ -2513,6 +2553,17 @@ export class AgentHostStore {
       const completionDecision = next.taskState ? new AgentGoalCompletionGuard().evaluate(next.taskState) : undefined;
       const completionNeedsRecovery = event.type === "turn_completed"
         && Boolean(completionDecision && !completionDecision.canFinish);
+      if (completionNeedsRecovery && next.taskState?.completionStatus === "active") {
+        // A Hermes terminal narration can end at an information boundary
+        // without emitting a workflow facade checkpoint. Keep the durable
+        // task state aligned with the user-facing waiting turn so a reload
+        // resumes at the same input boundary instead of looking active.
+        next = projectTaskStateIntoSession(next, {
+          ...next.taskState,
+          completionStatus: "waiting_for_user",
+          updatedAt: new Date().toISOString()
+        });
+      }
       const completionBlocked = !domainFailureWaiting && completionDecision?.reason === "blocked";
       const completionWaiting = domainFailureWaiting
         || completionNeedsRecovery
@@ -2767,7 +2818,9 @@ export class AgentHostStore {
       if (!files.length && !input.text?.trim()) return session;
       const registered: AgentAttachmentRef[] = [];
       try {
-        for (const file of files) registered.push(await agentAttachmentStore.register(file));
+        for (const file of files) {
+          registered.push(await agentAttachmentStore.register(file, { agentSessionId: session.id }));
+        }
       } catch (error) {
         for (const attachment of registered) agentAttachmentStore.release(attachment.id);
         throw error;
@@ -2786,13 +2839,17 @@ export class AgentHostStore {
       });
     }
     if (input.type === "resume_import_consent") {
-      const { ref } = agentAttachmentStore.resolve(input.attachmentId);
+      const ref = agentAttachmentStore.assertOwned(input.attachmentId, session.id);
       const consentAttachmentIds = Array.isArray(session.taskState?.knownSlots.resumeImportAttachmentIds)
         ? session.taskState.knownSlots.resumeImportAttachmentIds.filter((id): id is string => typeof id === "string")
-        : [input.attachmentId];
-      const consentAttachmentRefs = consentAttachmentIds.flatMap((id) => {
-        try { return [agentAttachmentStore.resolve(id).ref]; } catch { return []; }
-      });
+        : [];
+      if (!consentAttachmentIds.includes(input.attachmentId)) {
+        throw Object.assign(
+          new Error("当前导入确认已失效，请重新选择文件。"),
+          { code: "agent_attachment_action_mismatch", recovery: "reselect_file" }
+        );
+      }
+      const consentAttachmentRefs = consentAttachmentIds.map((id) => agentAttachmentStore.assertOwned(id, session.id));
       if (input.mode === "ai" || input.mode === "local") {
         const currentUserMessage = [...session.messages].reverse().find((message) => message.role === "user");
         return this.resolveDirectImportAttachment(session, ref, context.pageContext, {
@@ -2879,6 +2936,21 @@ export class AgentHostStore {
       return this.applyWorkflowControl(session, input.action);
     }
     if (input.type === "quick_action") {
+      if (input.actionId === "import_existing_resume") {
+        // Keep the first import interaction entirely local. The attachment
+        // selection callback will register the actual File and enter the
+        // existing import pipeline through composer_submit.
+        this.patch({
+          uiAction: { type: "open_resume_upload" },
+          currentObservation: {
+            type: "resume_import_picker_requested",
+            actionId: input.actionId,
+            modelCalls: 0,
+            workflowCalls: 0
+          }
+        });
+        return session;
+      }
       // The typed task boundary is durable before context reads, prerequisite
       // checks, or any model/runtime work. A reload cannot fall back to
       // agent_quick_action/collecting_intent after the card was clicked.
@@ -2888,9 +2960,6 @@ export class AgentHostStore {
       if (input.actionId === "build_profile_from_scratch") {
         return this.resolveProfileIntakeQuickAction(preparedSession, input, quickContext);
       }
-      if (input.actionId === "import_existing_resume") {
-        return this.resolveResumeImportQuickAction(preparedSession, input, quickContext);
-      }
       const localPrerequisites = await this.resolveQuickActionPrerequisites(input);
       if (localPrerequisites) {
         return this.resolveQuickActionLocally(preparedSession, input, localPrerequisites, quickContext);
@@ -2898,6 +2967,7 @@ export class AgentHostStore {
       return this.startTurn({
         session: preparedSession,
         userMessage: input.text,
+        appendUserMessage: false,
         pageContext: context.pageContext,
         typedTask: input.task,
         supersede: true
@@ -2941,7 +3011,10 @@ export class AgentHostStore {
       workflowId: input.task.workflowId,
       stage: input.task.stage
     });
-    const initialized = projectTaskStateIntoSession(session, taskState);
+    const initialized = {
+      ...projectTaskStateIntoSession(session, taskState),
+      updatedAt: new Date().toISOString()
+    };
     const saved = await this.dependencies.persistence.save(initialized);
     // Publish the durable boundary immediately. The remaining quick-action
     // preflight may still read local context, but a reply typed during that
@@ -3042,12 +3115,7 @@ export class AgentHostStore {
       };
     }
     current = ensureConversationBranches(current);
-    const userMessage = appendAgentMessage(current, "user", input.text.trim(), {
-      id: `agent-user-${crypto.randomUUID()}`,
-      status: "complete",
-      metadata: { executionState: "complete", quickActionSupervisor: true }
-    });
-    current = appendAgentMessage(userMessage, "assistant", resolution.assistantText, {
+    current = appendAgentMessage(current, "assistant", resolution.assistantText, {
       kind: "text",
       type: "text",
       status: "complete",
@@ -3243,29 +3311,14 @@ export class AgentHostStore {
         profileRevision: activeProfile!.profileRevision
       };
     }
-    current = appendAgentMessage(current, "user", input.text.trim(), {
-      id: `agent-user-${crypto.randomUUID()}`,
-      status: "complete",
-      metadata: { executionState: "complete", quickActionSupervisor: true, modelCalls: 0 }
-    });
-    const profileLabel = quickActionProfileLabel(snapshot);
     const assistantText = selected
-      ? snapshot.profileItemCount > 0
-        ? `当前使用“${profileLabel}”，已有教育 ${quickActionSectionCount(snapshot, "education")} 项、项目 ${quickActionSectionCount(snapshot, "project")} 项、技能 ${quickActionSectionCount(snapshot, "skills")} 项。\n你准备继续补充、查看、修改，还是归档已有内容？`
-        : `当前“${profileLabel}”还没有经历资料，我们先从你的身份或教育背景开始。若先从教育背景开始，请告诉我你的姓名、学校、专业和学历；只写你确认过的内容即可。`
-      : "开始整理经历前，需要先选择或创建一个个人资料库。请选择资料库后，我会立即进入第一步访谈。";
+      ? PROFILE_INTAKE_ONBOARDING_PROMPT
+      : `${PROFILE_INTAKE_ONBOARDING_PROMPT}\n\n开始保存确认过的经历前，请先选择或创建一个个人资料库。`;
     current = appendAgentMessage(current, "assistant", assistantText, {
       kind: "text",
       type: "text",
       status: "complete",
-      options: selected && snapshot.profileItemCount > 0
-        ? [
-            { id: "profile-intake-continue", label: "继续补充", action: { type: "quick_action_decision", decision: "continue_profile_intake" } },
-            { id: "profile-intake-view", label: "查看资料", action: { type: "quick_action_decision", decision: "view_profile" } },
-            { id: "profile-intake-edit", label: "修改已有", action: { type: "quick_action_decision", decision: "edit_profile" } },
-            { id: "profile-intake-archive", label: "归档资料", action: { type: "quick_action_decision", decision: "archive_profile" } }
-          ]
-        : selected ? undefined : [{
+      options: selected ? undefined : [{
             id: "profile-intake-select-or-create-profile",
             label: "选择或创建个人资料库",
             action: { type: "open_profile_browser" }
@@ -3296,69 +3349,6 @@ export class AgentHostStore {
     return saved;
   }
 
-  private async resolveResumeImportQuickAction(
-    session: AgentSession,
-    input: Extract<AgentHostInput, { type: "quick_action" }>,
-    snapshot: QuickActionContextSnapshot
-  ) {
-    const now = new Date().toISOString();
-    const reducer = new AgentTaskStateReducer();
-    let taskState = reducer.reduce(reducer.create(session, undefined, {
-      workflowId: "resume_import",
-      step: "resolve_target"
-    }), {
-      type: "new_root_task",
-      goal: input.task.rootGoal,
-      workflowId: "resume_import",
-      stage: "resolve_target"
-    });
-    taskState = { ...taskState, completionStatus: "waiting_for_user", updatedAt: now };
-    let current = projectTaskStateIntoSession(session, taskState);
-    if (snapshot.activePerson && snapshot.activeProfile) {
-      current = {
-        ...current,
-        personId: snapshot.activePerson.id,
-        activeProfileId: snapshot.activeProfile.id,
-        profileVersionNumber: snapshot.activeProfile.profileVersionNumber,
-        profileRevision: snapshot.activeProfile.profileRevision
-      };
-    }
-    current = appendAgentMessage(current, "user", input.text.trim(), {
-      id: `agent-user-${crypto.randomUUID()}`,
-      status: "complete",
-      metadata: { executionState: "complete", quickActionSupervisor: true }
-    });
-    current = appendAgentMessage(current, "assistant", importTargetPrompt(snapshot), {
-      kind: "text",
-      type: "text",
-      status: "complete",
-      options: importTargetOptions(snapshot),
-      metadata: {
-        quickActionSupervisor: true,
-        quickActionKind: "resume_import_target",
-        modelCalls: 0,
-        profileReads: 1,
-        resumeReads: 0,
-        jobReads: 0,
-        quickActionContext: snapshot
-      }
-    });
-    const saved = await this.dependencies.persistence.save(current);
-    this.patchSession(saved, {
-      turnStatus: "idle",
-      currentObservation: {
-        type: "quick_action_fast_path",
-        actionId: input.actionId,
-        modelCalls: 0,
-        profileReads: 1,
-        resumeReads: 0,
-        jobReads: 0,
-        quickActionContext: snapshot
-      }
-    });
-    return saved;
-  }
-
   private async resolveDirectImportAttachment(
     session: AgentSession,
     attachment: AgentAttachmentRef,
@@ -3370,6 +3360,7 @@ export class AgentHostStore {
       requestConsent?: boolean;
     } = {}
   ) {
+    agentAttachmentStore.assertOwned(attachment.id, session.id);
     const snapshot = await this.readQuickActionContext(session);
     const reducer = new AgentTaskStateReducer();
     let taskState = session.taskState ?? reducer.create(session, undefined, {
@@ -3384,22 +3375,38 @@ export class AgentHostStore {
         stage: "resolve_target"
       });
     }
-    const targetProfileId = typeof taskState.knownSlots.targetProfileId === "string"
+    const activeProfile = snapshot.activeProfile && snapshot.activePerson
+      ? snapshot.activeProfile
+      : undefined;
+    const taskTargetProfileId = typeof taskState.knownSlots.targetProfileId === "string"
       ? taskState.knownSlots.targetProfileId
       : undefined;
-    const targetAlreadyResolved = taskState.knownSlots.quickActionImportTargetRequired === false && Boolean(targetProfileId);
+    const targetProfileId = taskTargetProfileId ?? activeProfile?.id;
+    const targetAlreadyResolved = Boolean(targetProfileId && activeProfile?.id === targetProfileId);
     const visibleAttachmentRefs = options.attachmentRefs ?? [attachment];
+    for (const ref of visibleAttachmentRefs) agentAttachmentStore.assertOwned(ref.id, session.id);
     taskState = reducer.reduce(taskState, { type: "attachment_selected", attachment });
     taskState = {
       ...taskState,
-      stage: targetAlreadyResolved ? "prepare_import" : "resolve_target",
-      completionStatus: options.requestConsent ? "waiting_for_user" : targetAlreadyResolved ? "active" : "waiting_for_user",
-        knownSlots: {
-          ...taskState.knownSlots,
-          quickActionImportTargetRequired: !targetAlreadyResolved,
-          resumeImportConsentAttachmentId: options.requestConsent ? attachment.id : undefined,
-          resumeImportAttachmentIds: visibleAttachmentRefs.map((ref) => ref.id)
-        },
+      // The file is the first source of truth. Always enter extraction before
+      // asking for a target, so an unbound import can produce a draft and an
+      // existing active Profile can be compared from the same parsed draft.
+      stage: "prepare_import",
+      completionStatus: options.requestConsent ? "waiting_for_user" : "active",
+      knownSlots: {
+        ...taskState.knownSlots,
+        quickActionImportTargetRequired: !targetAlreadyResolved,
+        ...(targetAlreadyResolved && targetProfileId && activeProfile ? {
+          importTargetIntent: "existing",
+          importTarget: { mode: "existing", profileId: targetProfileId },
+          targetProfileId,
+          targetProfileName: activeProfile.displayName,
+          expectedProfileVersion: activeProfile.profileRevision,
+          acknowledgedActiveProfileId: targetProfileId
+        } : {}),
+        resumeImportConsentAttachmentId: options.requestConsent ? attachment.id : undefined,
+        resumeImportAttachmentIds: visibleAttachmentRefs.map((ref) => ref.id)
+      },
       updatedAt: new Date().toISOString()
     };
     let current = projectTaskStateIntoSession(session, taskState);
@@ -3425,48 +3432,27 @@ export class AgentHostStore {
       void pageContext;
       return saved;
     }
-    if (targetAlreadyResolved && targetProfileId) {
-      const targetProfile = await this.getCareerRepository().getProfile(targetProfileId);
-      if (!targetProfile) {
-        agentAttachmentStore.releaseMany(visibleAttachmentRefs.map((ref) => ref.id));
-        return current;
-      }
-      const saved = await this.dependencies.persistence.save(current);
-      this.patchSession(saved, {
-        turnStatus: "idle",
-        currentObservation: { type: "import_target_resolved", targetProfileId, quickActionContext: snapshot }
-      });
-      const userMessage = [...saved.messages].reverse().find((message) => message.role === "user");
-      const started = this.startTurn({
-        session: saved,
-        userMessage: visibleMessage || userMessage?.content || "",
-        userMessageId: userMessage?.id,
-        appendUserMessage: false,
-        pageContext,
-        supersede: true
-      });
-      agentAttachmentStore.releaseMany(visibleAttachmentRefs.filter((ref) => ref.id !== attachment.id).map((ref) => ref.id));
-      return started;
-    }
-    current = appendAgentMessage(current, "assistant", importTargetPrompt(snapshot), {
-      kind: "text",
-      type: "text",
-      status: "complete",
-      options: importTargetOptions(snapshot),
-      metadata: {
-        quickActionSupervisor: true,
-        quickActionKind: "resume_import_target",
+    const saved = await this.dependencies.persistence.save(current);
+    this.patchSession(saved, {
+      turnStatus: options.requestConsent ? "waiting_for_user" : "running",
+      currentObservation: {
+        type: "resume_import_attachment_staged",
         attachmentId: attachment.id,
+        targetProfileId: targetAlreadyResolved ? targetProfileId : undefined,
+        targetSelectionDeferred: !targetAlreadyResolved,
         quickActionContext: snapshot
       }
     });
-    const saved = await this.dependencies.persistence.save(current);
-    this.patchSession(saved, {
-      turnStatus: "idle",
-      currentObservation: { type: "import_target_required", attachmentId: attachment.id, quickActionContext: snapshot }
+    if (options.requestConsent) return saved;
+    const persistedUserMessage = [...saved.messages].reverse().find((message) => message.role === "user");
+    return this.startTurn({
+      session: saved,
+      userMessage: visibleMessage || persistedUserMessage?.content || "",
+      userMessageId: persistedUserMessage?.id,
+      appendUserMessage: false,
+      pageContext,
+      supersede: true
     });
-    void pageContext;
-    return saved;
   }
 
   private async resolveQuickActionDecision(
@@ -3529,11 +3515,13 @@ export class AgentHostStore {
       return session;
     }
     if (action.decision === "import_new_version") {
-      targetProfile = await this.getCareerRepository().createProfileVersion({ profileId: targetProfile.id, reason: "resume_import" });
+      const sourceProfileId = targetProfile.id;
+      targetProfile = await this.getCareerRepository().createProfileVersion({ profileId: sourceProfileId, reason: "resume_import" });
     } else if (action.decision === "import_new_person") {
       const created = await this.getCareerRepository().createPerson("新人物", "resume_import");
       targetProfile = created.profile;
     }
+    if (!targetProfile) throw new Error("career_profile_target_missing");
     const targetLabel = `${targetProfile.name} · V${targetProfile.profileVersionNumber ?? 1}`;
     const reducer = new AgentTaskStateReducer();
     const base = session.taskState ?? reducer.create(session, undefined, {
@@ -8432,26 +8420,6 @@ function emptyQuickActionCounts() {
     patents: 0,
     other: 0
   };
-}
-
-function importTargetPrompt(snapshot: QuickActionContextSnapshot) {
-  const label = quickActionProfileLabel(snapshot) ?? "当前人物与版本";
-  return `准备导入到“${label}”。当前资料库已有 ${quickActionProfileCountSummary(snapshot)}。\n导入后会先比对已有事实；完全重复项不会重复新增，近似重复和字段冲突会在核对页让你选择，不会静默覆盖。`;
-}
-
-function importTargetOptions(snapshot: QuickActionContextSnapshot): AgentOption[] {
-  const currentVersion = snapshot.activeProfile?.profileVersionNumber;
-  const nextVersion = currentVersion ? currentVersion + 1 : undefined;
-  return [
-    ...(currentVersion
-      ? [{ id: "resume-import-current", label: `合并到当前 V${currentVersion}`, action: { type: "quick_action_decision" as const, decision: "import_current_version" as const } }]
-      : [{ id: "resume-import-select-context", label: "选择人物与版本", action: { type: "open_profile_browser" as const } }]),
-    ...(nextVersion
-      ? [{ id: "resume-import-new-version", label: `基于当前资料新建 V${nextVersion}`, action: { type: "quick_action_decision" as const, decision: "import_new_version" as const } }]
-      : []),
-    { id: "resume-import-new-person", label: "新建人物", action: { type: "quick_action_decision", decision: "import_new_person" } },
-    { id: "resume-import-cancel", label: "取消", action: { type: "quick_action_decision", decision: "cancel_import" } }
-  ];
 }
 
 function replaceLatestQuickActionAssistant(

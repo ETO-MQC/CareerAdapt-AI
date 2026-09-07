@@ -14,40 +14,119 @@ test.describe("P4.3d.2 six quick-action deterministic smoke", () => {
     test(`${action.id} dispatches a typed task and persists its real boundary`, async ({ page }) => {
       test.setTimeout(60_000);
       const requests: Array<{ tools: string[]; messages: string[] }> = [];
-      await page.route("**/api/agent/stream", async (route) => {
-        const body = route.request().postDataJSON() as {
-          tools?: Array<{ name?: string }>;
-          messages?: Array<{ role?: string; content?: string }>;
-        };
-        requests.push({
-          tools: (body.tools ?? []).map((tool) => String(tool.name)),
-          messages: (body.messages ?? []).map((message) => String(message.content ?? ""))
-        });
+      await page.route("**/api/agent/runtime/hermes/health", async (route) => {
         await route.fulfill({
-          contentType: "text/event-stream",
-          body: nativeAsk(`已进入 ${action.title} 流程，请补充下一步所需信息。`)
+          contentType: "application/json",
+          body: JSON.stringify({
+            available: true,
+            runtimeId: "hermes",
+            model: "test-model",
+            providerStatus: "ready",
+            mcpConnected: true,
+            discoveredToolCount: 0,
+            runtimeHealth: {
+              runtimeId: "hermes",
+              runtimeAvailable: true,
+              companionReady: true,
+              providerConfigured: true,
+              providerReachable: true,
+              providerReady: true,
+              mcpConnected: true,
+              mcpReady: true,
+              mcpToolCount: 0,
+              toolCallingAvailable: true,
+              careerSkillsLoaded: true,
+              browserCareerDomainHostConnected: true,
+              careerMcpServerReachable: true,
+              careerMcpContractCount: 0,
+              hermesMcpRegistered: true,
+              hermesMcpToolCount: 0,
+              hermesCareerFacadeCount: 0,
+              requiredCareerFacadesMissing: [],
+              careerGatewayContracts: [],
+              careerMcpExposedTools: [],
+              hermesRegisteredToolsets: ["careeradapt"],
+              hermesVisibleTools: [],
+              runReady: true,
+              lastCheckedAt: new Date().toISOString()
+            }
+          })
         });
       });
-
-      await page.addInitScript(() => {
-        window.localStorage.setItem("careerad-agent-runtime", "native");
+      await page.route("**/api/agent/runtime/hermes", async (route) => {
+        const body = route.request().postDataJSON() as {
+          action?: string;
+          sessionId?: string;
+          turnId?: string;
+          runId?: string;
+          userMessage?: string;
+        };
+        if (body.action === "run_start") {
+          requests.push({ tools: [], messages: [String(body.userMessage ?? "")] });
+          await route.fulfill({
+            contentType: "application/json",
+            body: JSON.stringify({ ok: true, data: { runId: `run-${action.id}`, status: "started" } })
+          });
+          return;
+        }
+        if (body.action === "run_events") {
+          await route.fulfill({
+            contentType: "text/event-stream",
+            body: [
+              "event: run.completed",
+              `data: ${JSON.stringify({ run_id: body.runId, output: `已进入 ${action.title} 流程，请补充下一步所需信息。` })}`,
+              "",
+              ""
+            ].join("\n")
+          });
+          return;
+        }
+        if (body.action === "run_status") {
+          await route.fulfill({
+            contentType: "application/json",
+            body: JSON.stringify({ ok: true, data: { run_id: body.runId, status: "completed" } })
+          });
+          return;
+        }
+        await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, data: {} }) });
       });
       await page.goto("/ai-workspace");
       await bypassSetupIfNeeded(page);
       const card = page.getByRole("button", { name: new RegExp(action.title) });
-      if (!(await card.isVisible().catch(() => false))) {
+      const cardReady = await card.waitFor({ state: "visible", timeout: 5_000 }).then(() => true).catch(() => false);
+      if (!cardReady) {
         await page.getByRole("button", { name: "新任务", exact: true }).click();
       }
       await expect(card).toBeVisible({ timeout: 20_000 });
+      if (action.id === "import_existing_resume") {
+        const fileChooser = page.waitForEvent("filechooser");
+        await card.click();
+        await fileChooser;
+        await expect(page.locator('input[type="file"]')).toHaveCount(1);
+        await expect(page.locator(".agent-message-row.is-user")).toHaveCount(0);
+        expect(requests).toHaveLength(0);
+        const snapshot = await readActiveSession(page);
+        expect(snapshot.rootGoal).toBeUndefined();
+        expect(snapshot.userMessage).toBeUndefined();
+        return;
+      }
+      if (action.id === "build_profile_from_scratch") {
+        await card.click();
+        await expect(page.getByText("可以先从你最熟悉的一段开始。比如：实习 / 工作、课程项目、个人项目、比赛、校园经历、兼职 / 副业、志愿活动。想到哪段先说哪段。", { exact: true })).toBeVisible();
+        await expect(page.locator(".agent-message-row.is-user")).toHaveCount(0);
+        expect(requests).toHaveLength(0);
+        const snapshot = await readActiveSession(page);
+        expect(snapshot.rootGoal).toBe("profile_intake");
+        expect(snapshot.workflowId).toBe("guided_profile_intake");
+        expect(snapshot.userMessage).toBeUndefined();
+        return;
+      }
       await card.click();
-      const generalFlowResponse = page.getByText(`已进入 ${action.title} 流程，请补充下一步所需信息。`);
       await expect(page.locator(".agent-message-row.is-assistant").last()).toBeVisible({ timeout: 30_000 });
       await expect.poll(() => readActiveSession(page), { timeout: 30_000 }).toMatchObject({
         rootGoal: action.rootGoal,
         workflowId: action.workflowId
       });
-      const usedGeneralFlow = requests.length > 0;
-      if (usedGeneralFlow) await expect(generalFlowResponse).toBeVisible({ timeout: 30_000 });
 
       const expectedBoundary = {
         rootGoal: action.rootGoal,
@@ -55,12 +134,12 @@ test.describe("P4.3d.2 six quick-action deterministic smoke", () => {
         completionStatus: "waiting_for_user",
         pendingConfirmation: undefined,
         pendingToolCall: undefined,
-        activeTurnStatus: usedGeneralFlow ? "waiting_for_user" : undefined
       };
       await expect.poll(() => readActiveSession(page), { timeout: 30_000 }).toMatchObject(expectedBoundary);
       const snapshot = await readActiveSession(page);
+      const usedGeneralFlow = requests.length > 0;
       expect([action.stage, "select_facts", "collect_experience"]).toContain(snapshot.stage);
-      expect(snapshot.userMessage).toContain(action.intentFragment);
+      expect(snapshot.userMessage).toBeUndefined();
       if (usedGeneralFlow) expect(requests.length).toBeGreaterThan(0);
       else expect(requests).toHaveLength(0);
     });
@@ -74,7 +153,6 @@ async function bypassSetupIfNeeded(page: Page) {
     await page.goto("/ai-workspace");
   }
 }
-
 async function readActiveSession(page: Page) {
   return page.evaluate(async () => {
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -107,11 +185,4 @@ async function readActiveSession(page: Page) {
       userMessage: sessionMessages.findLast((message) => message.role === "user")?.content
     };
   });
-}
-
-function nativeAsk(message: string) {
-  return [
-    `event: model_text_delta\ndata: ${JSON.stringify({ type: "model_text_delta", delta: message })}\n\n`,
-    `event: model_finish\ndata: ${JSON.stringify({ type: "model_finish", stopReason: "ask_user" })}\n\n`
-  ].join("");
 }

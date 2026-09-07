@@ -27,8 +27,8 @@ describe("P4.5b.4.2 embedded Hermes MCP closure", () => {
     const visible = HERMES_REQUIRED_CAREER_FACADES.map((name) => catalog.registeredNameForStableName(name));
     expect(catalog.coverage(visible, ["mcp-careeradapt"])).toMatchObject({
       hermesMcpRegistered: true,
-      hermesMcpToolCount: 8,
-      hermesCareerFacadeCount: 8,
+      hermesMcpToolCount: 7,
+      hermesCareerFacadeCount: 7,
       requiredCareerFacadesMissing: []
     });
     const health = RuntimeHealthSchema.parse({
@@ -46,7 +46,7 @@ describe("P4.5b.4.2 embedded Hermes MCP closure", () => {
       careerMcpContractCount: 55,
       hermesMcpRegistered: true,
       hermesMcpToolCount: 55,
-      hermesCareerFacadeCount: 8,
+      hermesCareerFacadeCount: 7,
       requiredCareerFacadesMissing: [],
       lastCheckedAt: new Date().toISOString()
     });

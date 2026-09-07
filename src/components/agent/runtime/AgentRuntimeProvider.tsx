@@ -265,7 +265,9 @@ function createAgentHost() {
             signal: input.signal,
             ...(typeof input.metadata?.prePersistedUserMessageId === "string"
             ? { userMessageId: input.metadata.prePersistedUserMessageId, appendUserMessage: false }
-            : {}),
+            : runtimeUserEvent?.type === "quick_action_started"
+              ? { appendUserMessage: false }
+              : {}),
           runtimeDiagnostics: {
             preferredRuntime: "hermes",
             attemptedRuntime: "hermes",

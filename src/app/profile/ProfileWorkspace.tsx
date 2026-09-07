@@ -52,6 +52,7 @@ import {
   type StructuredProjectFields
 } from "@/domain/resumeFields/catalog";
 import { canonicalProfileBasics, canonicalProfileLibraryItems, canonicalProfileSectionCounts, profileSectionCatalog } from "@/domain/profile/canonicalLibrary";
+import { synchronizeProfileStructuredFacts } from "@/domain/profile/profileWriteContract";
 import {
   canonicalSectionTypeForProfileCategory,
   profileCategoryForCanonicalSection,
@@ -3058,65 +3059,6 @@ function triggerJsonDownload(payload: unknown, fileName: string) {
   anchor.click();
   anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function synchronizeProfileStructuredFacts(nextProfile: CareerProfile, previousProfile: CareerProfile | undefined): CareerProfile {
-  if (nextProfile.schemaVersion === "career-profile-v2") {
-    const previous = previousProfile?.schemaVersion === "career-profile-v2" ? previousProfile : undefined;
-    const previousFacts = previous?.structuredFacts ?? [];
-    const nextFacts = nextProfile.structuredFacts ?? [];
-    const nextIds = new Set(nextFacts.map((entry) => entry.data.id));
-    const deletedIds = new Set(previousFacts
-      .filter((entry) => !nextIds.has(entry.data.id))
-      .map((entry) => entry.data.id));
-    const deletedFactIds = new Set(previousFacts
-      .filter((entry) => !nextIds.has(entry.data.id))
-      .flatMap((entry) => entry.factIds));
-    const isDeletedMirror = (id: string, factIds: string[]) =>
-      deletedIds.has(id) || factIds.some((factId) => deletedFactIds.has(factId));
-    const experiences = nextProfile.experiences.filter((item) => !isDeletedMirror(item.id, item.facts.map((fact) => fact.id)));
-    const skills = nextProfile.skills.filter((item) => !isDeletedMirror(item.id, item.fact ? [item.fact.id] : []));
-    const certificates = nextProfile.certificates.filter((item) => !isDeletedMirror(item.id, item.fact ? [item.fact.id] : []));
-    const structuredBasics = nextProfile.structuredBasics ?? migrateCareerProfileToV2(nextProfile).structuredBasics;
-    return CareerProfileSchema.parse({
-      ...nextProfile,
-      schemaVersion: "career-profile-v2",
-      experiences,
-      skills,
-      certificates,
-      structuredBasics,
-      structuredFacts: nextFacts
-    });
-  }
-  const previous = previousProfile ?? nextProfile;
-  const previousLegacyIds = new Set([
-    ...previous.experiences.map((item) => item.id),
-    ...previous.skills.map((item) => item.id),
-    ...previous.certificates.map((item) => item.id)
-  ]);
-  const previousLegacyFactIds = new Set([
-    ...previous.experiences.flatMap((item) => item.facts.map((fact) => fact.id)),
-    ...previous.skills.flatMap((item) => item.fact ? [item.fact.id] : []),
-    ...previous.certificates.flatMap((item) => item.fact ? [item.fact.id] : [])
-  ]);
-  const nextFactIds = new Set((nextProfile.structuredFacts ?? []).map((entry) => entry.data.id));
-  const canonicalOnlyFacts = (nextProfile.structuredFacts ?? []).filter((entry) =>
-    !previousLegacyIds.has(entry.data.id)
-    && !entry.factIds.some((factId) => previousLegacyFactIds.has(factId))
-    && nextFactIds.has(entry.data.id)
-  );
-  const rebuilt = migrateCareerProfileToV2({
-    ...nextProfile,
-    schemaVersion: undefined,
-    structuredBasics: undefined,
-    structuredFacts: undefined
-  });
-  return CareerProfileSchema.parse({
-    ...nextProfile,
-    schemaVersion: "career-profile-v2",
-    structuredBasics: nextProfile.structuredBasics ?? rebuilt.structuredBasics,
-    structuredFacts: [...rebuilt.structuredFacts, ...canonicalOnlyFacts]
-  });
 }
 
 function basicDraftFromProfile(profile: CareerProfile, profileKey: string): BasicDraftState {

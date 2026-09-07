@@ -41,8 +41,8 @@ describe("P4.5c.1.17 Career evidence integrity and canonical tailoring", () => {
       ["checkpointId"]
     ]);
     expect(composeBranches).toHaveLength(2);
-    expect(composeBranches[0]?.required).toEqual(["profileId", "expectedProfileRevision", "mode"]);
-    expect(composeBranches[1]?.required).toEqual(["profileId", "expectedProfileRevision", "mode", "jobId"]);
+    expect(composeBranches[0]?.required).toEqual(["mode", "generalResumeMode"]);
+    expect(composeBranches[1]?.required).toEqual(["mode", "jobId"]);
     expect(tailor.inputSchema.oneOf).toEqual(tailor.inputSchema.anyOf);
   });
 

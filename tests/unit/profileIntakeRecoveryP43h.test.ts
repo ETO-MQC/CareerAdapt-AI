@@ -184,7 +184,7 @@ describe("P4.3h Profile Intake host boundaries", () => {
       completionStatus: "waiting_for_user",
       selectedEntities: { profileId: "profile-1", profileVersion: 0 }
     });
-    expect(resultSession?.messages.at(-1)?.content).toContain("从教育背景开始");
+    expect(resultSession?.messages.at(-1)?.content).toContain("可以先从你最熟悉的一段开始");
     expect(resultSession?.messages.at(-1)?.metadata).toMatchObject({ modelCalls: 0, authoritativeStage: "collect_experience" });
   });
 

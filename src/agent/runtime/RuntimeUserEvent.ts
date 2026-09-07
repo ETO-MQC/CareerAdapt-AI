@@ -94,6 +94,6 @@ export function normalizeResumeCompositionConfirmationText(value: unknown) {
 }
 
 export function runtimeUserEventMessage(event: RuntimeUserEvent) {
-  if (event.type === "text_message" || event.type === "quick_action_started") return event.text;
+  if (event.type === "text_message") return event.text;
   return "";
 }

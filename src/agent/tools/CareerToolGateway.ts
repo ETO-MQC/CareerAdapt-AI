@@ -720,7 +720,7 @@ function atomicWorkflowHint(name: string) {
     "career.resume.import.prepare": "仅用于 Resume Import facade 的内部/恢复步骤；正常导入请先调用 career.workflow.resume_import。 ",
     "career.job.analyze_fit": "仅用于 Job Fit facade 的内部/恢复步骤；正常匹配请先调用 career.workflow.job_fit。 ",
     "career.tailoring.create_session": "仅用于 Tailoring facade 的内部/恢复步骤；正常定制请先调用 career.workflow.tailor_resume。 ",
-    "career.resume.ensure_general_from_profile": "仅用于 Profile→Resume facade 的内部/恢复步骤；正常组装请先调用 career.workflow.profile_to_resume。 ",
+    "career.resume.ensure_general_from_profile": "仅用于旧版 Profile→Resume 兼容或内部/恢复步骤；正常组装请先调用 career.workflow.compose_resume。 ",
     "career.resume.compose": "仅用于 Resume Composition facade 的确认写入步骤；正常组装请先调用 career.workflow.compose_resume。 ",
     "career.export.resume": "仅用于 Repair→Export facade 的内部/恢复步骤；正常导出请先调用 career.workflow.resume_export。 "
   };

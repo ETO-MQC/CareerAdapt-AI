@@ -2,6 +2,7 @@ import { demoJobDescriptions } from "@/data/demoJobs";
 import { demoCareerProfile } from "@/data/demoProfile";
 import { migrateBranchContentItem, migrateCareerProfileToV2, migrateResumeBranchToV2, normalizeAwardedAt, projectResumeItemV2 } from "@/domain/migrations/resumeV2";
 import { canonicalProfileLibraryItems } from "@/domain/profile/canonicalLibrary";
+import { synchronizeProfileStructuredFacts } from "@/domain/profile/profileWriteContract";
 import { buildProfileSyncDiagnostics, profileSyncContentCounts, type ProfileSyncDiagnostics } from "@/domain/profile/profileSyncDiagnostics";
 import { applyProfileRecoveryItems, type ProfileRecoveryItem, type ProfileRecoverySourceType } from "@/domain/profile/profileContentRecovery";
 import {
@@ -781,13 +782,24 @@ export class WorkspaceRepository {
     return person;
   }
 
+  /**
+   * Every Profile persistence path crosses the same v2/ledger/mirror
+   * contract. The optional previous snapshot preserves deletion-aware v2
+   * semantics while allowing direct repository transactions to stay atomic.
+   */
+  private async putProfileInTransaction(profile: CareerProfile, previousProfile?: CareerProfile) {
+    const normalized = synchronizeProfileStructuredFacts(profile, previousProfile);
+    await this.db.profiles.put(normalized);
+    return normalized;
+  }
+
   private async markCurrentProfileInTransaction(profile: CareerProfile) {
     if (!profile.personId) return;
     const rawProfiles = await this.db.profiles.toArray();
     for (const raw of rawProfiles) {
       const candidate = migrateCareerProfileToV2(CareerProfileSchema.parse(raw));
       if (candidate.personId !== profile.personId || candidate.id === profile.id || !candidate.isCurrent) continue;
-      await this.db.profiles.put(CareerProfileSchema.parse({ ...candidate, isCurrent: false, updatedAt: profile.updatedAt }));
+      await this.putProfileInTransaction(CareerProfileSchema.parse({ ...candidate, isCurrent: false, updatedAt: profile.updatedAt }), candidate);
     }
     const person = await this.getCareerPersonWithoutMigration(profile.personId);
     if (person) {
@@ -1007,8 +1019,7 @@ export class WorkspaceRepository {
       const saved = await this.db.transaction("rw", this.db.profiles, this.db.appMeta, async () => {
         await this.ensurePersonForProfileInTransaction(parsed);
         if (parsed.isCurrent) await this.markCurrentProfileInTransaction(parsed);
-        await this.db.profiles.put(parsed);
-        return migrateCareerProfileToV2(parsed);
+        return this.putProfileInTransaction(parsed, existing);
       });
       const activeRaw = await this.db.appMeta.get(ACTIVE_CAREER_CONTEXT_META_KEY);
       const active = ActiveCareerContextSchema.safeParse(activeRaw?.value);
@@ -1088,7 +1099,7 @@ export class WorkspaceRepository {
             versionCreatedReason: profile.versionCreatedReason ?? "initial"
           });
           if (JSON.stringify(rawProfiles.find((raw) => raw.id === profile.id)) !== JSON.stringify(normalized)) {
-            await this.db.profiles.put(normalized);
+            await this.putProfileInTransaction(normalized, profile);
           }
         }
       }
@@ -1221,12 +1232,13 @@ export class WorkspaceRepository {
       updatedAt: now
     });
     const person = CareerPersonSchema.parse({ id: personId, displayName: name, currentProfileId: profileId, createdAt: now, updatedAt: now });
+    let normalizedProfile!: ReturnType<typeof migrateCareerProfileToV2>;
     await this.db.transaction("rw", this.db.profiles, this.db.appMeta, async () => {
-      await this.db.profiles.put(migrateCareerProfileToV2(profile));
+      normalizedProfile = await this.putProfileInTransaction(migrateCareerProfileToV2(profile));
       await this.db.appMeta.put({ key: careerPersonMetaKey(person.id), value: person, updatedAt: now });
     });
     await this.setActiveCareerContext({ personId, profileId });
-    return { person, profile: migrateCareerProfileToV2(profile) };
+    return { person, profile: normalizedProfile };
   }
 
   async createProfileVersion(input: { profileId: string; reason?: "manual_snapshot" | "resume_import" | "agent_created" | "conflict_fork" }) {
@@ -1309,7 +1321,7 @@ export class WorkspaceRepository {
       });
       await this.ensurePersonForProfileInTransaction(repaired);
       await this.markCurrentProfileInTransaction(repaired);
-      await this.db.profiles.put(repaired);
+      await this.putProfileInTransaction(repaired, source);
 
       const activeRaw = await this.db.appMeta.get(ACTIVE_CAREER_CONTEXT_META_KEY);
       const active = ActiveCareerContextSchema.safeParse(activeRaw?.value);
@@ -1510,8 +1522,8 @@ export class WorkspaceRepository {
       }
       const now = new Date().toISOString();
       const next = CareerProfileSchema.parse({ ...profile, archivedAt: undefined, version: profile.version + 1, updatedAt: now });
-      await this.db.profiles.put(next);
-      const result = { profile: migrateCareerProfileToV2(next), idempotent: false as const };
+      const normalizedProfile = await this.putProfileInTransaction(next, profile);
+      const result = { profile: normalizedProfile, idempotent: false as const };
       await this.db.appMeta.put({ key: careerLifecycleOperationKey(operationId), value: result, updatedAt: now });
       return result;
     });
@@ -1535,8 +1547,8 @@ export class WorkspaceRepository {
       }
       const now = new Date().toISOString();
       const next = CareerProfileSchema.parse({ ...profile, trashedAt: now, isCurrent: false, version: profile.version + 1, updatedAt: now });
-      await this.db.profiles.put(next);
-      const result = { profile: migrateCareerProfileToV2(next), idempotent: false as const };
+      const normalizedProfile = await this.putProfileInTransaction(next, profile);
+      const result = { profile: normalizedProfile, idempotent: false as const };
       await this.db.appMeta.put({ key: careerLifecycleOperationKey(operationId), value: result, updatedAt: now });
       return result;
     });
@@ -1558,8 +1570,8 @@ export class WorkspaceRepository {
       }
       const now = new Date().toISOString();
       const next = CareerProfileSchema.parse({ ...profile, trashedAt: undefined, version: profile.version + 1, updatedAt: now });
-      await this.db.profiles.put(next);
-      const result = { profile: migrateCareerProfileToV2(next), idempotent: false as const };
+      const normalizedProfile = await this.putProfileInTransaction(next, profile);
+      const result = { profile: normalizedProfile, idempotent: false as const };
       await this.db.appMeta.put({ key: careerLifecycleOperationKey(operationId), value: result, updatedAt: now });
       return result;
     });
@@ -1797,7 +1809,7 @@ export class WorkspaceRepository {
 
       await this.ensurePersonForProfileInTransaction(profile);
       if (profile.isCurrent) await this.markCurrentProfileInTransaction(profile);
-      await this.db.profiles.put(profile);
+      const normalizedProfile = await this.putProfileInTransaction(profile, input.profile);
       await this.db.draftCommits.put(commit);
       await this.db.profileImportDrafts.put(
         ProfileImportDraftSchema.parse({
@@ -1810,7 +1822,7 @@ export class WorkspaceRepository {
         })
       );
 
-      return { profile, commit, idempotent: false };
+      return { profile: normalizedProfile, commit, idempotent: false };
     });
   }
 
@@ -2173,7 +2185,7 @@ export class WorkspaceRepository {
         idempotent: false
       };
       await this.ensurePersonForProfileInTransaction(committedProfile);
-      await this.db.profiles.put(committedProfile);
+      await this.putProfileInTransaction(committedProfile, profile);
       await this.db.appMeta.bulkPut([
         { key: profileReconciliationMetaKey(input.importId), value: committedPlan, updatedAt: now },
         { key: importedResumeDraftKey(input.importId), value: committedDraft, updatedAt: now },
@@ -2390,7 +2402,7 @@ export class WorkspaceRepository {
 
         await this.ensurePersonForProfileInTransaction(runtimeProfile);
         await this.markCurrentProfileInTransaction(runtimeProfile);
-        await this.db.profiles.put(runtimeProfile);
+        await this.putProfileInTransaction(runtimeProfile, existingProfile);
         if (built && runtimeBranch && operation && presentationConfig) {
           await this.db.resumeBranches.put(runtimeBranch);
           await this.db.resumeRevisions.put(built.firstRevision);
@@ -2815,7 +2827,7 @@ export class WorkspaceRepository {
       const profileSync = profileBefore
         ? syncTailoringClaimsToProfile({ profile: profileBefore, branch: nextBase, claims: profileSyncClaims, operationId: input.operationId, now })
         : undefined;
-      if (profileSync) await this.db.profiles.put(profileSync.profile);
+      if (profileSync) await this.putProfileInTransaction(profileSync.profile, profileBefore);
       const branchWithProfileSync = ResumeBranchSchema.parse({
         ...nextBase,
         ...(profileSync ? {
@@ -5417,7 +5429,7 @@ export class WorkspaceRepository {
         const nextItems = [...orderedItems, newItem].map((item, order) =>
           BranchContentItemSchema.parse({ ...item, order })
         );
-        await this.db.profiles.put(nextProfile);
+        await this.putProfileInTransaction(nextProfile, profile);
         const structuredItems = structuredData
           ? [
               ...syncStructuredContentItems(branch, nextItems).filter((item) => item.id !== newItemId),
@@ -5495,7 +5507,10 @@ export class WorkspaceRepository {
           });
           const factIds = item.factRefs.flatMap((reference) => "factId" in reference ? [reference.factId] : []);
           const currentFacts = profile.structuredFacts ?? [];
-          const matchingIndex = currentFacts.findIndex((entry) => entry.data.id === award.id || entry.factIds.some((factId) => factIds.includes(factId)));
+          const matchingIndexById = currentFacts.findIndex((entry) => entry.data.id === award.id);
+          const matchingIndex = matchingIndexById >= 0
+            ? matchingIndexById
+            : currentFacts.findIndex((entry) => entry.factIds.some((factId) => factIds.includes(factId)));
           const nextFacts = matchingIndex >= 0
             ? currentFacts.map((entry, index) => index === matchingIndex ? { ...entry, data: award } : entry)
             : [...currentFacts, { data: award, factIds, sourceBlockIds: [], sourceRanges: [], mappingTrace: [] }];
@@ -5529,7 +5544,7 @@ export class WorkspaceRepository {
                 legacyTextProjection: nextText
               })
             : candidate);
-          await this.db.profiles.put(nextProfile);
+          await this.putProfileInTransaction(nextProfile, profile);
           return ResumeBranchSchema.parse({
             ...branch,
             sourceProfileVersion: nextProfile.version,
@@ -5542,7 +5557,10 @@ export class WorkspaceRepository {
           const structured = ResumeItemV2Schema.parse(currentStructuredItem);
           const factIds = item.factRefs.flatMap((reference) => "factId" in reference ? [reference.factId] : []);
           const currentFacts = profile.structuredFacts ?? [];
-          const matchingIndex = currentFacts.findIndex((entry) => entry.data.id === structured.id || entry.factIds.some((factId) => factIds.includes(factId)));
+          const matchingIndexById = currentFacts.findIndex((entry) => entry.data.id === structured.id);
+          const matchingIndex = matchingIndexById >= 0
+            ? matchingIndexById
+            : currentFacts.findIndex((entry) => entry.factIds.some((factId) => factIds.includes(factId)));
           const nextFacts = matchingIndex >= 0
             ? currentFacts.map((entry, index) => index === matchingIndex ? { ...entry, data: structured } : entry)
             : [...currentFacts, { data: structured, factIds, sourceBlockIds: [], sourceRanges: [], mappingTrace: [] }];
@@ -5576,7 +5594,7 @@ export class WorkspaceRepository {
                 legacyTextProjection: nextText
               })
             : candidate);
-          await this.db.profiles.put(nextProfile);
+          await this.putProfileInTransaction(nextProfile, profile);
           return ResumeBranchSchema.parse({
             ...branch,
             sourceProfileVersion: nextProfile.version,
@@ -5602,7 +5620,7 @@ export class WorkspaceRepository {
             version: profile.version + 1,
             updatedAt: now
           });
-          await this.db.profiles.put(nextProfile);
+          await this.putProfileInTransaction(nextProfile, profile);
           return ResumeBranchSchema.parse({
             ...branch,
             sourceProfileVersion: nextProfile.version
@@ -5755,7 +5773,7 @@ export class WorkspaceRepository {
               userConfirmation: undefined
             })
           : candidate);
-        await this.db.profiles.put(nextProfile);
+        await this.putProfileInTransaction(nextProfile, profile);
         return ResumeBranchSchema.parse({
           ...branch,
           sourceProfileVersion: nextProfile.version,
@@ -5804,7 +5822,7 @@ export class WorkspaceRepository {
           version: migratedProfile.version + 1,
           updatedAt: now
         });
-        await this.db.profiles.put(nextProfile);
+        await this.putProfileInTransaction(nextProfile, profile);
         return ResumeBranchSchema.parse({
           ...branch,
           sourceProfileVersion: nextProfile.version
@@ -7220,7 +7238,14 @@ export class WorkspaceRepository {
                   experiences: profile.experiences.filter((entry) => entry.id !== item.id && !entry.facts.some((fact) => item.value.factIds.includes(fact.id))),
                   skills: profile.skills.filter((entry) => entry.id !== item.id && !(entry.fact && item.value.factIds.includes(entry.fact.id))),
                   certificates: profile.certificates.filter((entry) => entry.id !== item.id && !(entry.fact && item.value.factIds.includes(entry.fact.id))),
-                  structuredFacts: [...(profile.structuredFacts ?? []).filter((entry) => entry.data.id !== item.id), item.value],
+                  // Recycle items retain the structured payload, but not a
+                  // durable copy of the removed ledger rows. Recreate the
+                  // confirmed mirror from the exact projection so restore
+                  // cannot reintroduce orphan fact references.
+                  structuredFacts: [
+                    ...(profile.structuredFacts ?? []).filter((entry) => entry.data.id !== item.id),
+                    { ...item.value, factIds: [] }
+                  ],
                   version: profile.version + 1,
                   updatedAt: now
                 }
@@ -7229,9 +7254,9 @@ export class WorkspaceRepository {
         ...current,
         profileItems: current.profileItems.filter((entry) => !(entry.kind === kind && entry.id === itemId))
       });
-      await this.db.profiles.put(nextProfile);
+      const normalizedProfile = await this.putProfileInTransaction(nextProfile, profile);
       await this.db.appMeta.put({ key: RECYCLE_BIN_META_KEY, value: nextState, updatedAt: now });
-      return { profile: nextProfile, state: nextState, idempotent: false };
+      return { profile: normalizedProfile, state: nextState, idempotent: false };
     });
   }
 

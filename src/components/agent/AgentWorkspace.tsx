@@ -127,6 +127,7 @@ export function AgentWorkspace() {
   const pendingOptionKeyRef = useRef<string | undefined>(undefined);
   const [pendingRegenerateMessageId, setPendingRegenerateMessageId] = useState<string>();
   const quickActionDispatchRef = useRef<Promise<AgentSession | undefined> | undefined>(undefined);
+  const pendingImportQuickActionRef = useRef(false);
   const running = snapshot.turnStatus === "running";
   const workflowCheckpoint = session.taskState?.workflowUserInputCheckpoint;
   const checkpointTurnStatus = workflowCheckpoint
@@ -201,13 +202,50 @@ export function AgentWorkspace() {
     setAttachmentsBySession((current) => ({ ...current, [session.id]: updater(current[session.id] ?? []) }));
   }, [session.id]);
 
+  const pageContext = useCallback((contextSession: AgentSession = session) => ({
+    pathname: window.location.pathname,
+    route: window.location.pathname,
+    title: "AI 工作台",
+    agentSessionId: contextSession.id,
+    personId: contextSession.personId,
+    activeProfileId: contextSession.activeProfileId,
+    profileId: contextSession.activeProfileId,
+    profileVersionNumber: contextSession.profileVersionNumber,
+    profileRevision: contextSession.profileRevision,
+    activeResumeId: contextSession.activeResumeId,
+    activeJobId: contextSession.activeJobId,
+    query: {}
+  }), [session]);
+
   const stageComposerFiles = useCallback((files: File[]) => {
     // Selecting or dropping a file is a user interaction in its own right.
     // Mark it before mutating the draft so the initial session hydration cannot
     // replace the session and strand the staged chips under another ID.
     userInteractedRef.current = true;
     restoreRequestRef.current += 1;
-    window.localStorage.setItem(ACTIVE_SESSION_KEY, session.id);
+    const liveSession = host.state.getSnapshot().activeSession;
+    const submitSession = liveSession?.id === session.id ? liveSession : session;
+    window.localStorage.setItem(ACTIVE_SESSION_KEY, submitSession.id);
+    if (pendingImportQuickActionRef.current) {
+      pendingImportQuickActionRef.current = false;
+      void host.state.dispatch(
+        { type: "composer_submit", files },
+        { session: submitSession, pageContext: pageContext(submitSession) }
+      ).then((result) => {
+        if (!result) return;
+        setSessionAttachments(() => []);
+        setSession(result);
+        window.localStorage.setItem(ACTIVE_SESSION_KEY, result.id);
+        window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
+      }).catch((error) => {
+        notify({
+          type: "error",
+          title: "简历导入未启动",
+          message: error instanceof Error ? error.message : "请重新选择附件后重试。"
+        });
+      });
+      return;
+    }
     setSessionAttachments((current) => [
       ...current,
       ...files.map((file) => ({
@@ -219,21 +257,11 @@ export function AgentWorkspace() {
         status: "staged" as const
       }))
     ]);
-  }, [session.id, setSessionAttachments]);
+  }, [host.state, pageContext, session, setSessionAttachments]);
 
   const removeComposerAttachment = useCallback((clientId: string) => {
     setSessionAttachments((current) => current.filter((attachment) => attachment.clientId !== clientId));
   }, [setSessionAttachments]);
-
-  const pageContext = useCallback(() => ({
-    pathname: window.location.pathname,
-    route: window.location.pathname,
-    title: "AI 工作台",
-    activeProfileId: session.activeProfileId,
-    activeResumeId: session.activeResumeId,
-    activeJobId: session.activeJobId,
-    query: {}
-  }), [session.activeJobId, session.activeProfileId, session.activeResumeId]);
 
   const taskHasUsedAssetsOrWrites = Boolean(
     session.artifactRefs.length
@@ -269,7 +297,7 @@ export function AgentWorkspace() {
       const hermesAttachmentTurn = hermesAttachmentRequested;
       if (hermesAttachmentTurn) {
         for (const attachment of input.attachments) {
-          registeredAttachments.push(await agentAttachmentStore.register(attachment.file));
+          registeredAttachments.push(await agentAttachmentStore.register(attachment.file, { agentSessionId: submitSession.id }));
         }
         if (readResumeImportSemanticPreference() === "unset" && registeredAttachments.some((attachment) => attachment.mimeType !== "application/json")) {
           setPendingHermesAttachmentTurn({ sessionId: submitSession.id, text: input.text, attachments: registeredAttachments });
@@ -284,13 +312,13 @@ export function AgentWorkspace() {
       const result = tailoringQuestionAnswer
         ? await host.runUserEvent(
             { type: "text_message", text: input.text },
-            { session: submitSession, pageContext: pageContext() }
+            { session: submitSession, pageContext: pageContext(submitSession) }
           )
         : (input.attachments.length === 0 && input.text.trim()) || hermesAttachmentTurn
         ? await host.runTurn({
             sessionId: submitSession.id,
             userMessage: input.text,
-            pageContext: pageContext(),
+            pageContext: pageContext(submitSession),
             session: submitSession,
             attachments: registeredAttachments.map((attachment) => ({
               id: attachment.id,
@@ -302,7 +330,7 @@ export function AgentWorkspace() {
           })
         : await host.state.dispatch(
             { type: "composer_submit", text: input.text || undefined, files: input.attachments.map((attachment) => attachment.file) },
-            { session: submitSession, pageContext: pageContext() }
+            { session: submitSession, pageContext: pageContext(submitSession) }
           );
       if (!result) throw new Error("composer_turn_not_accepted");
       if (!["queued", "running", "waiting_for_approval", "stopping"].includes(result.hermesRun?.status ?? "completed")) {
@@ -364,7 +392,10 @@ export function AgentWorkspace() {
     // Initial repository hydration can publish an older active session after
     // the user has already selected a file. Do not strand that staged File by
     // switching the controlled composer to another session mid-interaction.
-    if (current.activeSession && (current.activeSession.id === session.id || !stagedAttachments.length)) {
+    if (current.activeSession && (
+      current.activeSession.id === session.id
+      || (!userInteractedRef.current && !stagedAttachments.length)
+    )) {
       setSession(current.activeSession);
     }
     if (current.uiAction) {
@@ -419,7 +450,7 @@ export function AgentWorkspace() {
     const requestId = ++restoreRequestRef.current;
     const selectedId = typeof selected === "string" ? selected : selected.id;
     const apply = (resolved?: AgentSession) => {
-      if (requestId !== restoreRequestRef.current || !resolved) return;
+      if (requestId !== restoreRequestRef.current || !resolved || (options.initial && userInteractedRef.current)) return;
       host.state.adopt(resolved);
       setPendingResumeImportAttachmentId(undefined);
       setSession(host.state.getSnapshot().activeSession ?? resolved);
@@ -437,12 +468,19 @@ export function AgentWorkspace() {
     const context = await agentImportRepository.getActiveCareerContext();
     if (!mountedRef.current || (!options.allowAfterInteraction && userInteractedRef.current)) return undefined;
     const created = AgentRuntime.createConversationSession(title, context);
-    const saved = await host.state.adoptDurably(created);
+    // Persist the initial shell without adopting it first. A Quick Action can
+    // arrive while this IndexedDB write is in flight; adopting here would let
+    // the late hydration result replace the session that the user already
+    // started. The interaction check below is synchronous with adoption, so
+    // the active user-owned session remains authoritative.
+    const saved = await host.store.save(created);
     if (!saved) return undefined;
+    if (!mountedRef.current || (!options.allowAfterInteraction && userInteractedRef.current)) return undefined;
+    host.state.adopt(saved);
     setSession(saved);
     window.localStorage.setItem(ACTIVE_SESSION_KEY, saved.id);
     return saved;
-  }, [host.state]);
+  }, [host.state, host.store]);
 
   useEffect(() => {
     let active = true;
@@ -465,8 +503,33 @@ export function AgentWorkspace() {
       setResumes(readArray(resumeResult.data, "resumes") as ResumeSummary[]);
       setSessions(storedSessions);
       setProfiles(storedProfiles);
-      if (userInteractedRef.current) return;
       const live = host.state.getSnapshot();
+      if (userInteractedRef.current) {
+        const current = live.activeSession;
+        const hasExplicitProfileTarget = Boolean(current?.taskState?.knownSlots?.targetProfileId);
+        const canLateBindUnboundSession = Boolean(
+          activeContext
+          && current
+          && (!requested || requested === current.id)
+          && !current.personId
+          && !current.activeProfileId
+          && !current.activeResumeId
+          && !current.activeJobId
+          && !hasExplicitProfileTarget
+          && !current.artifactRefs.length
+          && !current.taskState?.attachment
+          && current.activeTurn?.status !== "running"
+          && !current.messages.some((message) => message.role === "user")
+        );
+        if (canLateBindUnboundSession) {
+          const rebound = await host.state.rebindSessionCareerContext(current!.id, activeContext!, true);
+          if (!active) return;
+          setSession(rebound);
+          setSessions((items) => items.map((item) => item.id === rebound.id ? rebound : item));
+          window.localStorage.setItem(ACTIVE_SESSION_KEY, rebound.id);
+        }
+        return;
+      }
       if (
         activeContext
         && live.activeSession
@@ -559,6 +622,7 @@ export function AgentWorkspace() {
   async function dispatchMessage(text: string) {
     userInteractedRef.current = true;
     restoreRequestRef.current += 1;
+    pendingImportQuickActionRef.current = false;
     setLastUserMessage(text);
     window.localStorage.setItem(ACTIVE_SESSION_KEY, session.id);
     const result = await host.runUserEvent({
@@ -602,13 +666,26 @@ export function AgentWorkspace() {
     userInteractedRef.current = true;
     restoreRequestRef.current += 1;
     const intent = createQuickActionIntent(actionId);
-    setLastUserMessage(intent.intent);
+    const liveSession = host.state.getSnapshot().activeSession;
+    const submitSession = liveSession?.id === session.id ? liveSession : session;
+    if (actionId === "import_existing_resume") {
+      pendingImportQuickActionRef.current = true;
+      setLastUserMessage("");
+      window.localStorage.setItem(ACTIVE_SESSION_KEY, submitSession.id);
+      void host.state.dispatch(
+        { type: "ui_control", action: { type: "open_resume_upload" } },
+        { session: submitSession, pageContext: pageContext(submitSession) }
+      );
+      return;
+    }
+    setLastUserMessage(actionId === "build_profile_from_scratch" ? "" : intent.intent);
+    window.localStorage.setItem(ACTIVE_SESSION_KEY, submitSession.id);
     const pending = host.runUserEvent({
       type: "quick_action_started",
       actionId: intent.actionId,
       text: intent.intent,
       task: intent.task
-    }, { session, pageContext: pageContext() });
+    }, { session: submitSession, pageContext: pageContext(submitSession) });
     quickActionDispatchRef.current = pending;
     void pending.then((result) => {
       if (!result) return;

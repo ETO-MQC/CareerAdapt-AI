@@ -1176,9 +1176,29 @@ function itemMappingTrace(draft: ImportedResumeDraft, item: ImportedResumeItem) 
 
 function structuredBodyText(item: ResumeItemV2) {
   if (item.sectionType === "summary") return item.text;
-  if ("highlights" in item && item.highlights.length > 0) return item.highlights.join("\n");
-  if ("description" in item && item.description) return item.description;
-  return "";
+  const lines: string[] = [];
+  if (item.sectionType === "project") {
+    if (item.background) lines.push(`项目背景：${item.background}`);
+    if (item.tools.length > 0) lines.push(`方法 / 工具：${item.tools.join("、")}`);
+  }
+  if (item.sectionType === "research") {
+    if (item.methods.length > 0) lines.push(`方法：${item.methods.join("、")}`);
+    if (item.samples) lines.push(`样本 / 规模：${item.samples}`);
+  }
+  if ("description" in item && item.description) lines.push(item.description);
+  if ("highlights" in item) lines.push(...item.highlights);
+  if (item.sectionType === "project" && item.outcomes.length > 0) {
+    lines.push(`结果：${item.outcomes.join("；")}`);
+  }
+  if (item.sectionType === "research") {
+    if (item.publication) lines.push(`产出：${item.publication}`);
+    if (item.publicationStatus) lines.push(`发表状态：${item.publicationStatus}`);
+  }
+  lines.push(...item.customFields.map((field) => {
+    const value = Array.isArray(field.value) ? field.value.join("；") : String(field.value);
+    return value.trim() ? `${field.label}：${value}` : "";
+  }).filter(Boolean));
+  return lines.join("\n");
 }
 
 function projectStructuredItemForLegacy(item: ResumeItemV2) {
