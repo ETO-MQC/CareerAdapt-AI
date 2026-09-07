@@ -125,35 +125,29 @@ export class BrowserAgentToolService implements AgentToolServices {
     if (semanticPreference === "unset" && !canonicalJson) {
       throw new Error("resume_import_ai_privacy_consent_required");
     }
-    try {
-      const prepared = await new ResumeImportOrchestrator(this.repository).prepare({
-        fileName: ref.fileName,
-        mimeType: ref.mimeType,
-        size: ref.size,
-        file
-      }, {
-        signal,
-        semanticMode: semanticPreference === "ai" && !canonicalJson ? "ai" : "local",
-        onProgress: (progress) => agentImportProgressBus.emit(progress)
-      });
-      return {
-        importId: prepared.importId,
-        expectedDraftRevision: prepared.draftRevision,
-        sourceKind: prepared.sourceKind,
-        fileName: prepared.fileName,
-        fileHash: prepared.fileHash,
-        status: prepared.status,
-        quality: prepared.quality,
-        reviewSummary: prepared.reviewSummary,
-        artifactPayload: prepared.artifactPayload,
-        warnings: prepared.warnings
-      };
-    } finally {
-      // The orchestrator has consumed the browser File in every terminal
-      // path.  Persisted import drafts retain hashes and extracted evidence,
-      // never the File object itself.
-      agentAttachmentStore.release(input.attachmentId);
-    }
+    const prepared = await new ResumeImportOrchestrator(this.repository).prepare({
+      fileName: ref.fileName,
+      mimeType: ref.mimeType,
+      size: ref.size,
+      file
+    }, {
+      signal,
+      semanticMode: semanticPreference === "ai" && !canonicalJson ? "ai" : "local",
+      onProgress: (progress) => agentImportProgressBus.emit(progress)
+    });
+    agentAttachmentStore.release(input.attachmentId);
+    return {
+      importId: prepared.importId,
+      expectedDraftRevision: prepared.draftRevision,
+      sourceKind: prepared.sourceKind,
+      fileName: prepared.fileName,
+      fileHash: prepared.fileHash,
+      status: prepared.status,
+      quality: prepared.quality,
+      reviewSummary: prepared.reviewSummary,
+      artifactPayload: prepared.artifactPayload,
+      warnings: prepared.warnings
+    };
   }
 
   async reviewResumeImport(rawInput: unknown, signal?: AbortSignal) {

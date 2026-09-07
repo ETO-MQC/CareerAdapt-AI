@@ -1082,6 +1082,10 @@ export class AgentHostStore {
         };
       }
       if (action.type === "retry_current_step") {
+        if (current.taskState?.workflowId === "resume_import" && current.taskState.stage === "prepare_import" && current.taskState.attachment) {
+          const session = await this.resolveDirectImportAttachment(current, current.taskState.attachment, input.pageContext, { appendUserMessage: false });
+          return { session, event: input.event, userMessage: "", executionOwner: "deterministic_transition", deterministicTransitionApplied: true, deterministicTerminal: true };
+        }
         const prepared = await this.prepareRetryWorkflowStep(current);
         const retryMessage = prepared.session.messages.find((message) =>
           message.role === "user" && message.id === prepared.session.activeTurn?.userMessageId
@@ -2851,6 +2855,8 @@ export class AgentHostStore {
       }
       const consentAttachmentRefs = consentAttachmentIds.map((id) => agentAttachmentStore.assertOwned(id, session.id));
       if (input.mode === "ai" || input.mode === "local") {
+        const { writeResumeImportSemanticPreference } = await import("@/services/preferences/resumeImportAi");
+        writeResumeImportSemanticPreference(input.mode);
         const currentUserMessage = [...session.messages].reverse().find((message) => message.role === "user");
         return this.resolveDirectImportAttachment(session, ref, context.pageContext, {
           userMessage: currentUserMessage?.content ?? "",
@@ -3443,16 +3449,77 @@ export class AgentHostStore {
         quickActionContext: snapshot
       }
     });
-    if (options.requestConsent) return saved;
     const persistedUserMessage = [...saved.messages].reverse().find((message) => message.role === "user");
-    return this.startTurn({
-      session: saved,
-      userMessage: visibleMessage || persistedUserMessage?.content || "",
-      userMessageId: persistedUserMessage?.id,
-      appendUserMessage: false,
-      pageContext,
-      supersede: true
+    const turnId = `agent-turn-${crypto.randomUUID()}`;
+    const operationId = `resume-import:${saved.id}:${attachment.id}`;
+    const toolName = "career.workflow.resume_import";
+    current = {
+      ...saved,
+      messages: saved.messages.map(message => message.id === persistedUserMessage?.id ? { ...message, turnId } : message),
+      activeTurn: {
+        id: turnId, sessionId: saved.id, userMessageId: persistedUserMessage?.id,
+        sourceUserMessageId: persistedUserMessage?.id,
+        executionOwner: "deterministic_transition", status: "running",
+        startedAt: new Date().toISOString()
+      }
+    };
+    current = upsertAgentActivity(current, {
+      id: `agent-tool-${operationId}`, turnId, toolName, operationId,
+      content: "正在解析简历", status: "pending",
+      metadata: { activityState: "pending" }
     });
+    current = await this.dependencies.persistence.save(current);
+    this.patchSession(current, { turnStatus: "running", activeTurnId: turnId, uiAction: undefined });
+    const result = await this.dependencies.executor.execute({
+      toolName, toolInput: { attachmentId: attachment.id }, operationId,
+      logicalTurnId: turnId, retryFailedOperation: true
+    });
+    current = upsertAgentActivity(current, {
+      id: `agent-tool-${operationId}`, turnId, toolName, operationId,
+      content: result.ok ? "简历已解析，请核对识别结果。" : "简历解析未完成，文件和导入目标已保留。",
+      status: result.ok ? "complete" : "failed",
+      metadata: {
+        activityState: result.ok ? "complete" : "failed",
+        diagnostic: { ...confirmedToolDiagnostic(toolName, result), sourceToolName: "career.resume.import.prepare", result: result.data },
+        artifactIds: result.artifactIds
+      }
+    });
+    if (result.ok) {
+      current = applyRuntimeFacadeCheckpoint(current, toolName, result.data);
+      current = projectTaskStateIntoSession(current, {
+        ...current.taskState!, stage: "import_review", completionStatus: "waiting_for_user",
+        knownSlots: { ...current.taskState!.knownSlots, reviewStatus: "needs_review" }
+      });
+      current = attachConfirmedToolArtifact(current, runtimeArtifactSourceToolName(toolName), operationId, {
+        ...result, data: runtimeArtifactResultData(toolName, result.data)
+      });
+      current = appendAgentMessage(current, "assistant", "简历已解析，请核对识别结果。", { turnId, kind: "text", type: "text", status: "complete" });
+      current = attachTaskStateOptions(current, current.taskState!);
+    } else {
+      current = projectTaskStateIntoSession(current, reducer.reduce(current.taskState!, {
+        type: "tool_failure", toolName, operationId,
+        errorCode: result.error!.code, message: result.error!.message,
+        recoverable: result.error!.retryable
+      }));
+      current = appendAgentMessage(current, "assistant", result.error!.message, {
+        turnId, kind: "error_status", type: "error", status: "failed", errorCode: result.error!.code
+      });
+      current = withRetryCurrentStepOption(current, current.messages.at(-1)?.id);
+    }
+    current = settleUserExecutionState(current, turnId, result.ok ? "complete" : "failed");
+    current = {
+      ...current,
+      activeTurn: {
+        ...current.activeTurn!, status: "waiting_for_user", completedAt: new Date().toISOString(),
+        ...(!result.ok ? { lastSafeErrorCode: result.error!.code, lastFailedTool: toolName, lastFailedOperationId: operationId } : {})
+      }
+    };
+    current = await this.dependencies.persistence.save(current);
+    this.patchSession(current, {
+      turnStatus: "waiting_for_user", currentObservation: result.ok ? result.data : { error: result.error },
+      uiAction: result.ok ? { type: "open_import_review", importId: String(current.taskState!.knownSlots.importId), targetMode: targetProfileId ? "existing" : "new" } : undefined
+    });
+    return current;
   }
 
   private async resolveQuickActionDecision(
@@ -3587,6 +3654,9 @@ export class AgentHostStore {
   }
 
   private async retryCurrentWorkflowStep(session: AgentSession, pageContext: AgentPageContext, operationId?: string) {
+    if (session.taskState?.workflowId === "resume_import" && session.taskState.stage === "prepare_import" && session.taskState.attachment) {
+      return this.resolveDirectImportAttachment(session, session.taskState.attachment, pageContext, { appendUserMessage: false });
+    }
     const isProfileIntake = session.taskState?.workflowId === "guided_profile_intake";
     const journal = isProfileIntake
       ? await this.dependencies.persistence.listProfileIntakeSourceTurns?.(session.id) ?? []
@@ -4929,6 +4999,7 @@ export class AgentHostStore {
     return execution;
   }
 
+  /** Legacy Native/unit harness execution. Production Quick Import uses the Career facade directly. */
   private async startTurnOnce(input: AgentStartTurnInput) {
     if (input.session.pendingConfirmation && input.session.pendingToolCall) {
       input.session = invalidatePendingConfirmationForCorrection(input.session);

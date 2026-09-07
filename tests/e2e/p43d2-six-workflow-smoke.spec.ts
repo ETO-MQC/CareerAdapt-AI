@@ -1,8 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
+import { resolve } from "node:path";
 
 const actions = [
   { id: "build_profile_from_scratch", title: "从零整理我的经历", intentFragment: "从零整理", rootGoal: "profile_intake", workflowId: "guided_profile_intake", stage: "resolve_profile_target" },
   { id: "import_existing_resume", title: "导入现有简历", intentFragment: "导入现有简历", rootGoal: "import_resume", workflowId: "resume_import", stage: "select_source" },
+  { id: "import_existing_resume", title: "导入现有简历", intentFragment: "导入现有简历", rootGoal: "import_resume", workflowId: "resume_import", stage: "select_source", noProfile: true },
   { id: "tailor_resume_to_job", title: "生成岗位定制简历", intentFragment: "现有简历", rootGoal: "create_tailored_resume", workflowId: "tailor_existing_resume", stage: "choose_resume_source" },
   { id: "build_resume_from_profile", title: "从资料库组装简历", intentFragment: "个人资料库", rootGoal: "create_resume_from_profile", workflowId: "compose_resume", stage: "select_profile_scope" },
   { id: "analyze_job_fit", title: "分析岗位匹配度", intentFragment: "目标岗位", rootGoal: "analyze_job_fit", workflowId: "analyze_job_fit", stage: "select_assets" },
@@ -11,7 +13,7 @@ const actions = [
 
 test.describe("P4.3d.2 six quick-action deterministic smoke", () => {
   for (const action of actions) {
-    test(`${action.id} dispatches a typed task and persists its real boundary`, async ({ page }) => {
+    test(`${action.id}${"noProfile" in action ? " without Profile" : ""} dispatches a typed task and persists its real boundary`, async ({ page }) => {
       test.setTimeout(60_000);
       const requests: Array<{ tools: string[]; messages: string[] }> = [];
       await page.route("**/api/agent/runtime/hermes/health", async (route) => {
@@ -101,13 +103,38 @@ test.describe("P4.3d.2 six quick-action deterministic smoke", () => {
       if (action.id === "import_existing_resume") {
         const fileChooser = page.waitForEvent("filechooser");
         await card.click();
-        await fileChooser;
+        const chooser = await fileChooser;
         await expect(page.locator('input[type="file"]')).toHaveCount(1);
         await expect(page.locator(".agent-message-row.is-user")).toHaveCount(0);
         expect(requests).toHaveLength(0);
         const snapshot = await readActiveSession(page);
         expect(snapshot.rootGoal).toBeUndefined();
         expect(snapshot.userMessage).toBeUndefined();
+        if ("noProfile" in action) {
+          await page.evaluate(async () => {
+            const db = await new Promise<IDBDatabase>((resolve, reject) => {
+              const request = indexedDB.open("CareerAdaptDb");
+              request.onsuccess = () => resolve(request.result);
+              request.onerror = () => reject(request.error);
+            });
+            await new Promise<void>((resolve, reject) => {
+              const transaction = db.transaction(["profiles"], "readwrite");
+              transaction.objectStore("profiles").clear();
+              transaction.oncomplete = () => resolve(); transaction.onerror = () => reject(transaction.error);
+            });
+            db.close();
+          });
+        }
+        await chooser.setFiles(resolve("tests/fixtures/pdf/p47c1-sanitized-resume.pdf"));
+        await page.getByRole("button", { name: /本地|不用 AI|仅.*解析/ }).first().click();
+        await expect.poll(async () => {
+          const state = await readActiveSession(page);
+          return state.stage === "import_review" || state.completionStatus === "failed";
+        }, { timeout: 30_000 }).toBe(true);
+        expect((await readActiveSession(page)).stage).toBe("import_review");
+        expect((await readActiveSession(page)).targetSelectionDeferred).toBe("noProfile" in action);
+        await expect(page.locator(".import-review-grid")).toBeVisible();
+        expect(requests).toHaveLength(0);
         return;
       }
       if (action.id === "build_profile_from_scratch") {
@@ -179,6 +206,7 @@ async function readActiveSession(page: Page) {
       workflowId: task?.workflowId,
       stage: task?.stage,
       completionStatus: task?.completionStatus,
+      targetSelectionDeferred: (task?.knownSlots as Record<string, unknown> | undefined)?.quickActionImportTargetRequired,
       pendingConfirmation: session?.pendingConfirmation,
       pendingToolCall: session?.pendingToolCall,
       activeTurnStatus: (session?.activeTurn as Record<string, unknown> | undefined)?.status,
