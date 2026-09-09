@@ -292,7 +292,11 @@ pnpm build        # 生产构建
 # 专项验证
 pnpm test:c1:eval    # C1 评估
 pnpm test:c2:eval    # C2 评估
-pnpm test:e2e        # 端到端测试
+pnpm test:e2e:ui     # UI E2E：并行运行，不启动真实 Hermes
+pnpm hermes:integration # Hermes Integration：独立 App/Hermes/Provider，workers=1
+pnpm test:career-agent-eval # Career Agent Eval：独立 Harness，workers=1
+pnpm test:e2e:all    # 完整 hermetic E2E 门禁：UI → Hermes Integration → Career Agent Eval
+pnpm test:e2e        # test:e2e:all 的别名
 ```
 
 ---

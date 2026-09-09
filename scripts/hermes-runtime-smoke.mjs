@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -75,8 +76,26 @@ try {
   console.log(`[Hermes runtime-smoke] PASS runtime=${runtimeUrl}`);
   console.log(`[Hermes runtime-smoke] run=completed providerCalls=${provider.requests.length} controlAuth=runtime_control_auth`);
 } finally {
+  const stopStartedAt = Date.now();
   await companion.stopHermesCompanion(handle);
+  const child = handle?.child;
+  let childAlive = false;
+  if (child?.pid && child.exitCode === null) {
+    try {
+      process.kill(child.pid, 0);
+      childAlive = true;
+    } catch (error) {
+      childAlive = error?.code !== "ESRCH";
+    }
+  }
+  const hermesPortState = await probePort(runtimePort);
+  console.log(`[Hermes runtime-smoke] cleanup stopHermesCompanion durationMs=${Date.now() - stopStartedAt} child=${JSON.stringify({ pid: child?.pid, exitCode: child?.exitCode, signalCode: child?.signalCode, alive: childAlive })} hermesPort=${JSON.stringify(hermesPortState)}`);
+  const providerCloseStartedAt = Date.now();
   await provider.close();
+  const providerPort = Number(new URL(provider.baseUrl).port);
+  console.log(`[Hermes runtime-smoke] cleanup provider.close durationMs=${Date.now() - providerCloseStartedAt} providerPort=${JSON.stringify(await probePort(providerPort))}`);
+  await new Promise((resolve) => setImmediate(resolve));
+  console.log(`[Hermes runtime-smoke] cleanup activeResources=${JSON.stringify(process.getActiveResourcesInfo())}`);
   console.log(`[Hermes runtime-smoke] hermesHome=${hermesHome}`);
 }
 
@@ -115,4 +134,19 @@ async function readRunEvents(url, apiKey) {
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
+}
+
+function probePort(port) {
+  return new Promise((resolve) => {
+    const socket = net.createConnection({ host: "127.0.0.1", port });
+    let finished = false;
+    const finish = (state) => {
+      if (finished) return;
+      finished = true;
+      socket.once("close", () => resolve(state));
+      socket.destroy();
+    };
+    socket.once("connect", () => finish({ open: true }));
+    socket.once("error", (error) => finish({ open: false, code: error.code }));
+  });
 }
