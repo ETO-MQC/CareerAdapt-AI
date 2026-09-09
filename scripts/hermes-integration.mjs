@@ -38,7 +38,7 @@ if (isCareerAgentReal && (!realProviderBaseUrl || !realProviderApiKey || !realPr
   process.exit(0);
 }
 const hermesHome = fs.mkdtempSync(path.join(os.tmpdir(), "careerad-hermes-integration-"));
-const nextDistDir = path.join(path.parse(projectRoot).root, `careerad-next-integration-${appPort}-${Date.now()}`);
+const nextDistDir = path.join(projectRoot, ".next", `integration-${appPort}-${Date.now()}`);
 const appUrl = `http://127.0.0.1:${appPort}`;
 const childEnvironment = {
   ...process.env,

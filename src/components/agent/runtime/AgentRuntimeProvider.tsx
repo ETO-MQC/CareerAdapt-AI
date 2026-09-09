@@ -213,6 +213,11 @@ function createAgentHost() {
     // production runtime; this host only owns persistence and presentation.
     const runtime = hermesRuntime;
     const runtimeUserEvent = input.metadata?.runtimeUserEvent as RuntimeUserEvent | undefined;
+    const runtimeShellOptions = input.metadata?.runtimeShell as {
+      userMessageId?: string;
+      assistantMessageId?: string;
+      appendUserMessage?: boolean;
+    } | undefined;
     const incidentTraceId = typeof input.metadata?.incidentTraceId === "string" && input.metadata.incidentTraceId.trim()
       ? input.metadata.incidentTraceId
       : createIncidentTraceId();
@@ -263,7 +268,13 @@ function createAgentHost() {
             runtimeId: "hermes",
             turnId: runtimeShellTurnId,
             signal: input.signal,
-            ...(typeof input.metadata?.prePersistedUserMessageId === "string"
+            ...(runtimeShellOptions
+            ? {
+              userMessageId: runtimeShellOptions.userMessageId,
+              assistantMessageId: runtimeShellOptions.assistantMessageId,
+              appendUserMessage: runtimeShellOptions.appendUserMessage
+            }
+            : typeof input.metadata?.prePersistedUserMessageId === "string"
             ? { userMessageId: input.metadata.prePersistedUserMessageId, appendUserMessage: false }
             : runtimeUserEvent?.type === "quick_action_started"
               ? { appendUserMessage: false }
@@ -572,6 +583,7 @@ function createAgentHost() {
         executionOwner: prepared.executionOwner,
         runtimeEventPrepared: prepared.deterministicTransitionApplied,
         runtimeUserEvent: prepared.event,
+        ...(prepared.runtimeShell ? { runtimeShell: prepared.runtimeShell } : {}),
         ...(prepared.prePersistedUserMessageId ? { prePersistedUserMessageId: prepared.prePersistedUserMessageId } : {}),
         ...(prepared.tailoringAnswerBinding ? { tailoringAnswerBinding: prepared.tailoringAnswerBinding } : {})
       }

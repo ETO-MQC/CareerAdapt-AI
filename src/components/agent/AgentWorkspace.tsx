@@ -309,7 +309,10 @@ export function AgentWorkspace() {
       const tailoringQuestionAnswer = input.attachments.length === 0
         && Boolean(input.text.trim())
         && Boolean(getActiveTailoringQuestionProjection(submitSession));
-      const result = tailoringQuestionAnswer
+      const workflowCheckpointAnswer = input.attachments.length === 0
+        && Boolean(input.text.trim())
+        && Boolean(submitSession.taskState?.workflowUserInputCheckpoint);
+      const result = tailoringQuestionAnswer || workflowCheckpointAnswer
         ? await host.runUserEvent(
             { type: "text_message", text: input.text },
             { session: submitSession, pageContext: pageContext(submitSession) }

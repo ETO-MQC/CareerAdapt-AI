@@ -165,6 +165,11 @@ export type PreparedRuntimeUserEvent = {
   deterministicTerminal?: boolean;
   prePersistedUserMessageId?: string;
   tailoringAnswerBinding?: TailoringAnswerBinding;
+  runtimeShell?: {
+    userMessageId: string;
+    assistantMessageId?: string;
+    appendUserMessage: boolean;
+  };
 };
 
 export type AgentStartTurnInput = {
@@ -910,9 +915,95 @@ export class AgentHostStore {
     event: RuntimeUserEvent;
     pageContext: AgentPageContext;
   }): Promise<PreparedRuntimeUserEvent> {
-    const current = this.snapshot.activeSession?.id === input.session.id
+    // A late terminal Hermes event may still be queued after the UI has
+    // received the completed shell. Deterministic corrections and checkpoint
+    // answers must start from that final persisted projection, otherwise the
+    // repository CAS quite correctly rejects the older snapshot.
+    await this.runtimeEventQueue;
+    const liveSession = this.snapshot.activeSession?.id === input.session.id
       ? this.snapshot.activeSession
-      : input.session;
+      : undefined;
+    const persistedSession = typeof this.dependencies.persistence.get === "function"
+      ? await this.dependencies.persistence.get(input.session.id)
+      : undefined;
+    const current = persistedSession && liveSession
+      ? persistedSession.sessionRevision > liveSession.sessionRevision
+        || persistedSession.sessionRevision === liveSession.sessionRevision && persistedSession.updatedAt > liveSession.updatedAt
+        ? persistedSession
+        : liveSession
+      : liveSession ?? persistedSession ?? input.session;
+    if (input.event.type === "edit_message") {
+      const assistantMessageId = findBranchAssistantMessageId(current, input.event.messageId);
+      const correctionBase = current.pendingConfirmation && current.pendingToolCall
+        ? invalidatePendingConfirmationForCorrection(current)
+        : current;
+      const edited = branchSessionFromEditedUserMessage(correctionBase, input.event.messageId, input.event.text);
+      if (edited) {
+        const {
+          userMessageId: editedUserMessageId,
+          assistantMessageId: editedAssistantMessageId,
+          appendUserMessage,
+          updateExistingUserMessage,
+          ...editedSession
+        } = edited;
+        let replaySession: AgentSession = editedSession as AgentSession;
+        if (current.taskState?.workflowId === "guided_profile_intake") {
+          await this.supersedeProfileIntakeTurnsAfterEdit(current, input.event.messageId);
+          replaySession = await this.restoreProfileIntakeDraftForBranch(current, replaySession, input.event.messageId);
+        }
+        const resolvedAssistantMessageId = updateExistingUserMessage
+          ? editedAssistantMessageId ?? assistantMessageId
+          : editedAssistantMessageId;
+        const saved = await this.dependencies.persistence.save(replaySession);
+        this.patchSession(saved, { turnStatus: "idle" });
+        return {
+          session: saved,
+          event: input.event,
+          userMessage: input.event.text.trim(),
+          executionOwner: "runtime_continuation",
+          deterministicTransitionApplied: true,
+          runtimeShell: {
+            userMessageId: editedUserMessageId ?? input.event.messageId,
+            assistantMessageId: resolvedAssistantMessageId,
+            appendUserMessage
+          }
+        };
+      }
+    }
+    if (input.event.type === "regenerate") {
+      const correctionBase = current.pendingConfirmation && current.pendingToolCall
+        ? invalidatePendingConfirmationForCorrection(current)
+        : current;
+      const prepared = prepareSessionForAssistantRegeneration(correctionBase, input.event.messageId);
+      if (prepared) {
+        if (prepared.blocked) {
+          const saved = await this.dependencies.persistence.save(prepared.session);
+          this.patchSession(saved);
+          return {
+            session: saved,
+            event: input.event,
+            userMessage: "",
+            executionOwner: "deterministic_transition",
+            deterministicTransitionApplied: true,
+            deterministicTerminal: true
+          };
+        }
+        const saved = await this.dependencies.persistence.save(prepared.session);
+        this.patchSession(saved, { turnStatus: "idle" });
+        return {
+          session: saved,
+          event: input.event,
+          userMessage: prepared.userMessage,
+          executionOwner: "runtime_continuation",
+          deterministicTransitionApplied: true,
+          runtimeShell: {
+            userMessageId: prepared.userMessageId,
+            assistantMessageId: prepared.assistantMessageId,
+            appendUserMessage: false
+          }
+        };
+      }
+    }
     if (input.event.type === "text_message") {
       const confirmationMode = normalizeResumeCompositionConfirmationText(input.event.text);
       if (
@@ -1922,6 +2013,7 @@ export class AgentHostStore {
     turnId?: string;
     signal?: AbortSignal;
     userMessageId?: string;
+    assistantMessageId?: string;
     appendUserMessage?: boolean;
     runtimeDiagnostics?: Partial<Pick<NonNullable<AgentSession["activeTurn"]>, "preferredRuntime" | "attemptedRuntime" | "finalRuntime" | "executionOwner" | "fallbackUsed" | "fallbackReasonCode" | "hermesRunId" | "nextHermesRunId" | "firstEventAt" | "runtimeFailureAt" | "incidentTraceId" | "runtimeAttempts" | "primaryCausalChain" | "secondaryRecoveryFailures" | "transportReattachAttempted" | "semanticRetryAttempted" | "runtimeRestartAttempted" | "turnStartSnapshot" | "runtimeFailureSnapshot" | "previousRuntimeIncidents" | "runtimeFailureDiagnostics" | "cancellation" | "abortTraces" | "recoveryAttempted">>;
   }) {
@@ -1937,20 +2029,22 @@ export class AgentHostStore {
     const turnId = input.turnId ?? `runtime-turn-${crypto.randomUUID()}`;
     const incidentTraceId = input.runtimeDiagnostics?.incidentTraceId ?? createIncidentTraceId();
     const appendUserMessage = Boolean(input.userMessage.trim()) && input.appendUserMessage !== false;
-    const reusableAssistant = !input.userMessage.trim()
-      ? input.session.messages.findLast((message) =>
+    const reusableAssistant = input.assistantMessageId
+      ? input.session.messages.find((message) => message.id === input.assistantMessageId && message.role === "assistant")
+      : !input.userMessage.trim()
+        ? input.session.messages.findLast((message) =>
           message.role === "assistant"
           && message.turnId === turnId
           && !isWorkflowInteractionMessage(message)
           && message.metadata?.retracted !== true
         )
-      : undefined;
+        : undefined;
     const userMessageId = input.userMessage.trim()
       ? input.userMessageId ?? (input.appendUserMessage === false
         ? input.session.activeTurn?.sourceUserMessageId ?? input.session.activeTurn?.userMessageId ?? `agent-user-${crypto.randomUUID()}`
         : `agent-user-${crypto.randomUUID()}`)
-      : input.session.activeTurn?.sourceUserMessageId ?? input.session.activeTurn?.userMessageId ?? `agent-user-${crypto.randomUUID()}`;
-    const assistantMessageId = reusableAssistant?.id ?? `agent-thinking-${crypto.randomUUID()}`;
+      : input.userMessageId ?? input.session.activeTurn?.sourceUserMessageId ?? input.session.activeTurn?.userMessageId ?? `agent-user-${crypto.randomUUID()}`;
+    const assistantMessageId = input.assistantMessageId ?? reusableAssistant?.id ?? `agent-thinking-${crypto.randomUUID()}`;
     const inheritedRuntimeSnapshot = input.runtimeDiagnostics?.runtimeFailureSnapshot;
     const previousRuntimeIncidents = [
       ...(input.runtimeDiagnostics?.previousRuntimeIncidents ?? []),
