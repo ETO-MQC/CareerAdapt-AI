@@ -710,6 +710,9 @@ function createReconciledFact(candidate: ProfileReconciliationCandidate, categor
     confirmedByUser: true,
     riskLevel: candidate.sourceProvenance.some((item) => item.riskLevel === "high") ? "high"
       : candidate.sourceProvenance.some((item) => item.riskLevel === "medium") ? "medium" : "low",
+    maturity: candidate.entityType === "languages" || category === "skill"
+      ? "confirmed_capability"
+      : "demonstrated",
     createdAt: now,
     updatedAt: now
   };
@@ -717,6 +720,7 @@ function createReconciledFact(candidate: ProfileReconciliationCandidate, categor
 
 function importedFactCategory(entityType: ProfileReconciliationCandidate["entityType"]): FactCategory {
   if (entityType === "skills") return "skill";
+  if (entityType === "languages") return "language";
   if (entityType === "certificates") return "certificate";
   if (entityType === "education") return "education";
   if (entityType === "awards") return "achievement";
@@ -1062,6 +1066,9 @@ function createImportedFact(input: {
     confirmedByUser: true,
     riskLevel: provenance.some((item) => item.riskLevel === "high") ? "high"
       : provenance.some((item) => item.riskLevel === "medium") ? "medium" : "low",
+    maturity: input.category === "skill" || input.category === "language"
+      ? "confirmed_capability"
+      : "demonstrated",
     createdAt: input.now,
     updatedAt: input.now
   };

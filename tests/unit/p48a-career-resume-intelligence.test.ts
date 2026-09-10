@@ -3,6 +3,7 @@ import {
   FactStatementSchema,
   ResumeItemV2Schema,
   ResumeTailoringPlanSchema,
+  resolveTailoringMode,
   type FactStatement,
   type JobDescription,
   type ResumeBranch,
@@ -35,6 +36,21 @@ describe("P4.8a career resume intelligence", () => {
     expect(maturityForTailoringAnswer("接触 / 学习过")).toBe("familiar");
     expect(maturityForTailoringAnswer("正在学习")).toBe("learning");
     expect(maturityForTailoringAnswer("没有使用过")).toBeUndefined();
+  });
+
+  it("projects legacy facts from their confirmation and source contract without migrating them", () => {
+    const legacyExperience = makeFact({ category: "experience", maturity: undefined });
+    const legacyLanguage = makeFact({ category: "language", maturity: undefined });
+    const unconfirmed = makeFact({
+      maturity: undefined,
+      confirmedByUser: false,
+      provenance: legacyExperience.provenance.map((source) => ({ ...source, confirmedByUser: false }))
+    });
+
+    expect(factMaturityOf(legacyExperience)).toBe("demonstrated");
+    expect(factMaturityOf(legacyLanguage)).toBe("confirmed_capability");
+    expect(factMaturityOf(unconfirmed, "familiar")).toBe("familiar");
+    expect(legacyExperience.maturity).toBeUndefined();
   });
 
   it("builds at most four exact, reusable confirmed fact bullets without project provenance", () => {
@@ -82,7 +98,29 @@ describe("P4.8a career resume intelligence", () => {
     ]);
     expect(createTailoringQuestionPlan({ sessionId: "steady", questions, mode: "steady", now: NOW }).questionIds).toEqual([]);
     expect(createTailoringQuestionPlan({ sessionId: "competitive", questions, mode: "competitive", now: NOW }).questionIds).toHaveLength(1);
-    expect(createTailoringQuestionPlan({ sessionId: "max-fit", questions, mode: "max_fit", now: NOW }).questionIds.length).toBeLessThanOrEqual(3);
+    const maxFitPlan = createTailoringQuestionPlan({ sessionId: "max-fit", questions, mode: "max_fit", now: NOW });
+    expect(maxFitPlan.maximumBudget).toBe(3);
+    expect(maxFitPlan.questionIds.length).toBeLessThanOrEqual(3);
+    expect(resolveTailoringMode({ intensity: "proactive" })).toBe("max_fit");
+    expect(() => resolveTailoringMode({ mode: "max_fit", intensity: "conservative" })).toThrow("tailoring_mode_intensity_conflict");
+  });
+
+  it("keeps a high-value missing dimension visible while allowing an incomplete review to finish", () => {
+    const item = ResumeItemV2Schema.parse({
+      id: "project-missing-tools",
+      sectionType: "project",
+      title: "模型评估项目",
+      role: "项目成员"
+    });
+    const review = buildCareerExperienceReview({
+      item,
+      facts: [makeFact({ statement: "完成模型评估并形成评估报告。", category: "experience", maturity: undefined })]
+    });
+
+    expect(review.bullets).toHaveLength(1);
+    expect(review.reviewState).toBe("needs_more_detail");
+    expect(review.missingDimensions).toContain("tools_methods");
+    expect(review.nextQuestion).toContain("工具");
   });
 
   it("records a max-fit answer as bounded resume-only evidence instead of copying the option text", () => {

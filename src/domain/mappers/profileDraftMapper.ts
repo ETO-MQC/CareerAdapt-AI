@@ -211,6 +211,9 @@ function mapDraftFact(fact: ProfileBuilderFact, rawInput: RawInputDocument, now:
     ],
     confirmedByUser: fact.confirmedByUser,
     riskLevel,
+    maturity: fact.category === "skill" || fact.category === "language"
+      ? "confirmed_capability"
+      : "demonstrated",
     createdAt: now,
     updatedAt: now
   };

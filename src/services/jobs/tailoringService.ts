@@ -45,11 +45,11 @@ import {
   ClarificationAnswerRecordSchema,
   CapabilityEntitySchema,
   intensityForTailoringMode,
+  resolveTailoringMode,
   ResumeTailoringPlanSchema,
   TailoringQuestionAnswerReceiptSchema,
   TailoringQuestionPlanSchema,
   TailoringSuggestionSchema,
-  tailoringModeForIntensity
 } from "@/domain/schemas";
 import { resolveBranchFactRefs } from "@/domain/branch/validation";
 import { promptVersions } from "@/ai/prompts/versions";
@@ -101,22 +101,22 @@ export function createTailoringPlan(input: {
 }): TailoringServiceResult {
   const analyzed = analyzeJobFit(input);
   const report = analyzed.report!;
-  const mode = input.mode ?? (input.intensity ? tailoringModeForIntensity(input.intensity) : "competitive");
-  const intensity = input.intensity ?? intensityForTailoringMode(mode);
+  const mode = resolveTailoringMode({ mode: input.mode, intensity: input.intensity });
+  const intensity = intensityForTailoringMode(mode);
   const jobContext = buildTailoringJobContext(input.job);
   const taskInputs = createResumeTailorTaskInputs({
     draftId: `tailoring-draft-${input.branch.id}`,
     profileId: input.profile.id,
     branch: input.branch,
     job: input.job,
-    intensity,
+    mode,
     profile: input.profile,
     resolveEvidenceRefs: (item) => resolveBranchFactRefs(input.profile, item.factRefs)
   });
   const suggestions = createDeterministicTailoringSuggestions({
     branch: input.branch,
     job: input.job,
-    intensity,
+    mode,
     operationId: input.operationId,
     resolveEvidenceRefs: (item) => resolveBranchFactRefs(input.profile, item.factRefs)
   });
@@ -162,21 +162,25 @@ export function validateTailoringSuggestions(input: { suggestions: TailoringSugg
   const rejected: Array<{ suggestion: TailoringSuggestion; code: "invalid_ai_output" | "no_change_needed"; reasons: string[] }> = [];
   for (const candidate of input.suggestions) {
     const suggestion = TailoringSuggestionSchema.parse(candidate);
+    const mode = resolveTailoringMode({ mode: suggestion.mode, intensity: suggestion.intensity });
+    const intensity = intensityForTailoringMode(mode);
     const validation = validateTailoringDelta({
       before: suggestion.before,
       after: suggestion.after,
-      intensity: suggestion.intensity,
+      mode,
       targetKeywords: suggestion.targetKeywords,
       sectionType: suggestion.targetSectionType,
       rationale: suggestion.rationale
     });
     if (validation.valid) {
       const guard = runRuleFactGuard({ originalText: renderSuggestionValue(suggestion.before), checkedText: renderSuggestionValue(suggestion.after), usedEvidenceRefs: suggestion.evidenceRefs });
-      const policy = resolveTailoringClaimPolicy({ suggestion, guardResult: guard, sectionType: suggestion.targetSectionType, intensity: suggestion.intensity });
+      const policy = resolveTailoringClaimPolicy({ suggestion, guardResult: guard, sectionType: suggestion.targetSectionType, mode, intensity });
       const blocked = policy.decision === "blocked";
       const requiresConfirmation = policy.decision === "requires_confirmation";
       valid.push(TailoringSuggestionSchema.parse({
         ...suggestion,
+        intensity,
+        mode,
         claimSupportLevel: blocked ? "unsupported_hard_fact" : policy.claimClass === "user_confirmable_capability" ? "user_declared" : policy.claimClass === "reasonable_reframe" ? "reasonable_inference" : "verified",
         status: blocked ? "blocked" : requiresConfirmation ? "requires_confirmation" : "ready",
         riskLevel: policy.riskLevel,
@@ -1089,8 +1093,9 @@ export function createTailoringQuestionPlan(input: {
 }): TailoringQuestionPlan {
   const now = input.now ?? new Date().toISOString();
   const modeDefaultBudget = input.mode === "steady" ? 0 : input.mode === "competitive" ? 1 : 3;
-  const modeMaximumBudget = input.mode === "steady" ? 0 : input.mode === "competitive" ? 1 : 5;
-  const maximumBudget = Math.max(0, Math.min(5, input.maximumBudget ?? modeMaximumBudget));
+  const modeMaximumBudget = input.mode === "steady" ? 0 : input.mode === "competitive" ? 1 : input.mode === "max_fit" ? 3 : 5;
+  const maximumBudgetLimit = input.mode === "max_fit" ? 3 : 5;
+  const maximumBudget = Math.max(0, Math.min(maximumBudgetLimit, input.maximumBudget ?? modeMaximumBudget));
   const defaultBudget = Math.max(0, Math.min(maximumBudget, input.defaultBudget ?? modeDefaultBudget));
   const selected = selectHighValueClarificationQuestions(input.questions, defaultBudget);
   const questionIds = selected.map((question) => question.id);

@@ -14,7 +14,26 @@ import { careerResumeQualityWarnings } from "./CareerResumeQualityPolicyV1";
 export function reviewResumeComposition(result: ResumeCompositionResult, input: { job?: JobDescription } = {}) {
   const firstPass = reviewResumeCompositionPass(result, input, true);
   if (!firstPass.didRepair) return firstPass.result;
-  return reviewResumeCompositionPass(firstPass.result, input, false).result;
+  const repairedPass = reviewResumeCompositionPass(firstPass.result, input, false).result;
+  const reviewResult = ResumeReviewResultSchema.parse({
+    ...repairedPass.reviewResult,
+    status: firstPass.result.reviewResult.status === "NEEDS_REVIEW" || repairedPass.reviewResult.status === "NEEDS_REVIEW"
+      ? "NEEDS_REVIEW"
+      : "PASS",
+    findings: [...new Set([...firstPass.result.reviewResult.findings, ...repairedPass.reviewResult.findings])],
+    // Keep the first-pass proposal ledger. A repair pass is an implementation
+    // detail; it must not make the original remove/rewrite/shorten proposal
+    // disappear before the user can review it.
+    diffs: [...new Map([
+      ...firstPass.result.reviewResult.diffs,
+      ...repairedPass.reviewResult.diffs
+    ].map((diff) => [diff.id, diff])).values()]
+  });
+  return ResumeCompositionResultSchema.parse({
+    ...repairedPass,
+    reviewResult,
+    telemetry: repairedPass.telemetry ? { ...repairedPass.telemetry, reviewStatus: reviewResult.status } : undefined
+  });
 }
 
 function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { job?: JobDescription }, allowRepair: boolean) {
@@ -27,15 +46,7 @@ function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { j
   let bulletRepairCount = 0;
   let bulletRejectedCount = 0;
   const seenBullets: string[] = [];
-  const reviewDiffs: Array<{
-    id: string;
-    kind: "remove" | "rewrite" | "verify" | "deduplicate" | "shorten";
-    itemId: string;
-    fieldPath: string;
-    before: string;
-    recommendation: string;
-    after?: string;
-  }> = [];
+  const reviewDiffs: ResumeReviewResult["diffs"] = [];
 
   const items = result.items.map((item) => {
     const data = item.data as unknown as Record<string, unknown>;
@@ -113,14 +124,38 @@ function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { j
       });
     }
     if (item.data.sectionType === "project" && typeof data.description === "string" && data.description.trim()) {
-      findings.push(`${displayIdentity}：项目仍包含较长段落描述`);
+      findings.push(`${displayIdentity}：项目段落描述将改为 bullet`);
       reviewDiffs.push({
         id: `review-diff-${item.sourceAssetId}-paragraph`,
         kind: "shorten",
         itemId: item.sourceAssetId,
         fieldPath: "description",
         before: data.description,
-        recommendation: "拆成 2–4 条事实 bullet，只保留动作、方法和结果。"
+        after: bullets.join("\n") || undefined,
+        recommendation: "拆成 2–4 条事实 bullet，只保留动作、方法和结果；该段落不会静默消失。"
+      });
+    }
+    if (item.data.sectionType === "project" && typeof data.background === "string" && data.background.trim()) {
+      findings.push(`${displayIdentity}：项目背景将从正文移入可审阅 bullet 提案`);
+      reviewDiffs.push({
+        id: `review-diff-${item.sourceAssetId}-background`,
+        kind: "rewrite",
+        itemId: item.sourceAssetId,
+        fieldPath: "background",
+        before: data.background,
+        recommendation: "背景字段会被移除；仅保留已有事实 bullet，不新增未经确认的内容。"
+      });
+    }
+    if (item.data.sectionType === "research" && typeof data.description === "string" && data.description.trim()) {
+      findings.push(`${displayIdentity}：研究段落描述将改为 bullet`);
+      reviewDiffs.push({
+        id: `review-diff-${item.sourceAssetId}-research-description`,
+        kind: "shorten",
+        itemId: item.sourceAssetId,
+        fieldPath: "description",
+        before: data.description,
+        after: bullets.join("\n") || undefined,
+        recommendation: "将段落改为可核对的事实 bullet；原段落变化保持在 review ledger 中。"
       });
     }
     return patchBullets(item.data, bullets);
@@ -136,9 +171,11 @@ function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { j
     ? applySafeAtsRepairs({
       items: result.items.map((item, index) => ({ ...item, data: items[index] })),
       coverage: result.keywordCoverage,
-      result
+      result,
+      reviewDiffs
     })
     : { items: result.items.map((item, index) => ({ ...item, data: items[index] })), repairedCount: 0 };
+  if (atsRepair.repairedCount) findings.push(`${atsRepair.repairedCount} evidence-backed ATS keywords proposed for review`);
   const reviewedItems = atsRepair.items.map((item) => item.data);
   const summaryItem = reviewedItems.find((item) => item.sectionType === "summary") as unknown as Record<string, unknown> | undefined;
   const qualityWarnings = careerResumeQualityWarnings({
@@ -168,7 +205,7 @@ function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { j
     unsupportedClaimsBlocked: baseMetrics.unsupportedClaimsBlocked + (allowRepair ? unsupportedClaims : 0),
     atsRepairPassCount: baseMetrics.atsRepairPassCount + (allowRepair ? 1 : 0)
   };
-  const status = findings.some((finding) => /职责表述|项目仍包含|口语|ownership|paragraph|unsupported|density|semantic components|resume_quality|重复/iu.test(finding)) ? "NEEDS_REVIEW" : "PASS";
+  const status = findings.some((finding) => /职责表述|项目段落|项目仍包含|研究段落|ATS keywords|口语|ownership|paragraph|unsupported|density|semantic components|resume_quality|重复/iu.test(finding)) ? "NEEDS_REVIEW" : "PASS";
   const reviewResult = ResumeReviewResultSchema.parse({
     status,
     findings,
@@ -229,6 +266,7 @@ function applySafeAtsRepairs(input: {
   items: ResumeCompositionResult["items"];
   coverage: ResumeCompositionResult["keywordCoverage"];
   result: ResumeCompositionResult;
+  reviewDiffs: ResumeReviewResult["diffs"];
 }) {
   let repairedCount = 0;
   const supportedMissing = input.coverage.filter((entry) => entry.status === "SUPPORTED" && entry.sourceAssetIds.length > 0);
@@ -257,6 +295,15 @@ function applySafeAtsRepairs(input: {
     const guard = runRuleFactGuard({ originalText: sourceText, checkedText: JSON.stringify(patched), usedEvidenceRefs: [] });
     if (guard.status !== "pass") return compiledItem;
     repairedCount += additions.length;
+    input.reviewDiffs.push({
+      id: `review-diff-${sourceAssetId}-ats`,
+      kind: "rewrite",
+      itemId: sourceAssetId,
+      fieldPath: "tools",
+      before: item.tools.join(", ") || "（无工具）",
+      after: patched.tools.join(", "),
+      recommendation: "仅加入证据图中已出现且与岗位相关的关键词；请在确认前核对工具确实被使用。"
+    });
     return { ...compiledItem, data: patched };
   });
   return { items, repairedCount };

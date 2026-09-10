@@ -6,8 +6,10 @@ import type {
   RiskLevel,
   TailoringClaimClass,
   TailoringIntensity,
+  TailoringMode,
   TailoringSectionPolicy
 } from "@/domain/schemas";
+import { resolveTailoringMode } from "@/domain/schemas";
 
 const CONFIRMABLE = new Set<FactGuardFinding["type"]>(["new_tool", "new_skill", "know_to_proficient"]);
 const HARD_FACT = new Set<FactGuardFinding["type"]>([
@@ -28,9 +30,13 @@ export function resolveTailoringClaimPolicy(input: {
   suggestion: { claimSupportLevel: "verified" | "reasonable_inference" | "user_declared" | "unsupported_hard_fact"; targetKeywords?: string[] };
   guardResult: FactGuardResult;
   sectionType: TailoringSectionPolicy;
-  intensity: TailoringIntensity;
+  mode?: TailoringMode;
+  intensity?: TailoringIntensity;
   maturity?: FactMaturity;
 }): TailoringClaimPolicyResult {
+  // Keep this boundary tolerant of persisted legacy suggestions while making
+  // every new caller resolve the canonical mode first.
+  resolveTailoringMode({ mode: input.mode, intensity: input.intensity });
   const findings = input.guardResult.ruleFindings.filter((finding) => !finding.allowed);
   const blockingFindings = findings.filter((finding) => HARD_FACT.has(finding.type));
   const confirmableFindings = findings.filter((finding) => CONFIRMABLE.has(finding.type));

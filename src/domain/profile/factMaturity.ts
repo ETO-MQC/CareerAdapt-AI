@@ -1,14 +1,29 @@
 import type { FactMaturity, FactStatement, SkillProficiency } from "@/domain/schemas";
 
 /**
- * Legacy facts predate maturity. Their existing confirmation/provenance
- * semantics remain valid; this helper only supplies a conservative projection
- * for consumers that need to distinguish project proof from a declaration.
+ * Legacy facts predate maturity. The historical write paths that produced
+ * non-skill facts all required a user-confirmed source (manual narration,
+ * confirmed imported text, or a located PDF quote), so those facts retain the
+ * old demonstrated-asset meaning. Skills and languages are declarations of
+ * capability, not project proof, and therefore project to the narrower
+ * confirmed_capability value. This is a read-time compatibility projection;
+ * it does not authorize an unconfirmed or high-risk fact for a resume.
  */
 export function factMaturityOf(fact: FactStatement | undefined, fallback: FactMaturity = "demonstrated"): FactMaturity {
   if (fact?.maturity) return fact.maturity;
-  if (fact?.category === "skill" && fact.confirmedByUser) return "confirmed_capability";
-  return fallback;
+  if (!fact) return fallback;
+  const hasUserConfirmedProvenance = fact.provenance.some((source) => source.confirmedByUser);
+  const hasHighRiskProvenance = fact.provenance.some((source) => source.riskLevel === "high");
+  if (!fact.confirmedByUser || !hasUserConfirmedProvenance || fact.riskLevel === "high" || hasHighRiskProvenance) return fallback;
+  if (fact.category === "skill" || fact.category === "language") return "confirmed_capability";
+  const hasHistoricalEvidenceSource = fact.provenance.some((source) =>
+    ["demo", "user_input", "imported_text", "pdf_import", "evidence"].includes(source.sourceType)
+  );
+  if (hasHistoricalEvidenceSource) return "demonstrated";
+  // A confirmed fact from an unrecognised/system source is not allowed to
+  // inherit demonstrated status; retain only the user-confirmed capability
+  // claim until a stronger source is present.
+  return "confirmed_capability";
 }
 
 export function strongestFactMaturity(facts: FactStatement[], fallback: FactMaturity = "demonstrated"): FactMaturity {

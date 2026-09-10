@@ -1,4 +1,5 @@
-import type { TailoringIntensity, TailoringSection } from "@/domain/schemas";
+import { tailoringModeForIntensity } from "@/domain/schemas";
+import type { TailoringIntensity, TailoringMode, TailoringSection } from "@/domain/schemas";
 
 export type SectionTailoringPolicy = {
   section: TailoringSection;
@@ -10,7 +11,10 @@ export type SectionTailoringPolicy = {
 
 const immutable = ["education", "awards", "certificates", "publications", "patents"] as const;
 
-export function sectionTailoringPolicy(section: TailoringSection, intensity: TailoringIntensity): SectionTailoringPolicy {
+export function sectionTailoringPolicy(section: TailoringSection, setting: TailoringMode | TailoringIntensity): SectionTailoringPolicy {
+  const mode = setting === "steady" || setting === "competitive" || setting === "max_fit"
+    ? setting
+    : tailoringModeForIntensity(setting);
   if (immutable.includes(section as typeof immutable[number])) {
     return { section, allowedActions: ["show", "hide", "reorder", "format"], allowsInference: false, allowsUserDeclared: false, immutableFacts: true };
   }
@@ -24,9 +28,9 @@ export function sectionTailoringPolicy(section: TailoringSection, intensity: Tai
       : ["rewrite", "reorder", "prioritize", "hide"];
   return {
     section,
-    allowedActions: intensity === "conservative" ? base.filter((action) => !["add", "reposition"].includes(action)) : base,
-    allowsInference: intensity !== "conservative",
-    allowsUserDeclared: section === "skills" && intensity === "proactive",
+    allowedActions: mode === "steady" ? base.filter((action) => !["add", "reposition"].includes(action)) : base,
+    allowsInference: mode !== "steady",
+    allowsUserDeclared: section === "skills" && mode === "max_fit",
     immutableFacts: false
   };
 }

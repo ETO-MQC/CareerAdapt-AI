@@ -10,6 +10,7 @@ import type { AgentToolDefinition, AgentToolResult } from "../contracts/agentToo
 import type { ExternalToolProvider } from "./externalToolProvider";
 import { ResumeSectionTypeV2Schema } from "@/domain/schemas/resumeV2";
 import { JobTargetSnapshotSchema } from "@/domain/schemas/jobTarget";
+import { TailoringIntensitySchema, TailoringModeSchema } from "@/domain/schemas/tailoring";
 import {
   CareerContextRetrieveInputSchema,
   CareerContextRetrieveResultSchema
@@ -233,8 +234,8 @@ const EntitySelectionSchema = z.object({
 });
 
 const TailoringSessionInputSchema = EntitySelectionSchema.extend({
-  intensity: z.enum(["conservative", "balanced", "aggressive"]).optional(),
-  mode: z.enum(["steady", "competitive", "max_fit"]).optional()
+  intensity: TailoringIntensitySchema.optional(),
+  mode: TailoringModeSchema.optional()
 }).strict();
 
 const TailoringQuestionInputSchema = z.object({

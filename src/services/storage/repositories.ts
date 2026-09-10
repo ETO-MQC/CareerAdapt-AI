@@ -3431,15 +3431,30 @@ export class WorkspaceRepository {
           composition,
           now
         });
+        // Profile-derived legacy items also use the user_manual source. Treat
+        // an item as user-authored when it has no profile refs or when its
+        // text was edited after the source snapshot. Edited items must remain
+        // authoritative during update_existing; otherwise a composition
+        // refresh can silently remove the user's bullet.
         const retainedManualItems = branch.contentItems.filter((item) =>
           item.source === "user_manual"
-          && item.factRefs.length === 0
+          && item.itemType !== "structural"
           && item.sourceSectionId !== "summary"
+          && (item.factRefs.length === 0 || item.text !== item.originalText || item.userConfirmation?.scope === "resume_only")
         );
         const retainedManualIds = new Set(retainedManualItems.map((item) => item.id));
+        const generatedContentItems = built.branch.contentItems
+          .filter((item) => !retainedManualItems.some((manualItem) =>
+            manualItem.factRefs.some((manualRef) => item.factRefs.some((candidateRef) => profileFactReferenceEquals(manualRef, candidateRef)))
+          ))
+          .map((item, index) => ({ ...item, order: index }));
+        const generatedContentIds = new Set(generatedContentItems.map((item) => item.id));
+        const generatedStructuredItems = (built.branch.structuredContentItems ?? [])
+          .filter((item) => generatedContentIds.has(item.id))
+          .map((item, index) => ({ ...item, order: index }));
         const retainedStructuredItems = (branch.structuredContentItems ?? [])
           .filter((item) => retainedManualIds.has(item.id));
-        const nextOrder = built.branch.contentItems.length;
+        const nextOrder = generatedContentItems.length;
         return ResumeBranchSchema.parse({
           ...branch,
           sourceProfileVersion: built.branch.sourceProfileVersion,
@@ -3450,11 +3465,11 @@ export class WorkspaceRepository {
           syncStatusCache: built.branch.syncStatusCache,
           resumeBasics: built.branch.resumeBasics,
           contentItems: [
-            ...built.branch.contentItems,
+            ...generatedContentItems,
             ...retainedManualItems.map((item, index) => ({ ...item, order: nextOrder + index }))
           ],
           structuredContentItems: [
-            ...(built.branch.structuredContentItems ?? []),
+            ...generatedStructuredItems,
             ...retainedStructuredItems.map((item, index) => ({ ...item, order: nextOrder + index }))
           ],
           updatedAt: now
@@ -5306,6 +5321,9 @@ export class WorkspaceRepository {
           }],
           confirmedByUser: true,
           riskLevel: "medium",
+          maturity: input.section === "skills" || input.section === "language"
+            ? "confirmed_capability"
+            : "demonstrated",
           createdAt: now,
           updatedAt: now
         };
@@ -8179,7 +8197,7 @@ function confirmedUserFact(
     statement: text,
     confirmedByUser: true,
     riskLevel: "medium",
-    maturity: fact.maturity ?? (fact.category === "skill" ? "confirmed_capability" : "demonstrated"),
+    maturity: fact.maturity ?? (fact.category === "skill" || fact.category === "language" ? "confirmed_capability" : "demonstrated"),
     provenance: [
       ...fact.provenance,
       {

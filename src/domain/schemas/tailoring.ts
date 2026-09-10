@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { FactMaturitySchema } from "./common";
 import { MatchEvidenceRefSchema } from "./job";
 import { ResumeItemV2Schema } from "./resumeV2";
 
@@ -137,7 +138,7 @@ export const ClarificationAnswerRecordSchema = z.object({
   status: z.enum(["accepted", "rejected", "uncertain", "skipped"]),
   answer: z.union([z.string(), z.array(z.string()), z.boolean()]).optional(),
   proficiency: SkillProficiencySchema.optional(),
-  maturity: z.enum(["demonstrated", "confirmed_capability", "familiar", "learning"]).optional(),
+  maturity: FactMaturitySchema.optional(),
   evidenceQuote: z.string().min(1).optional(),
   answerRevision: z.number().int().min(1).default(1),
   operationId: z.string().min(8).max(160).optional(),
@@ -230,13 +231,13 @@ export const TailoringUserDeclarationSchema = z.object({
   value: z.string().min(1),
   requirementIds: z.array(z.string().min(1)).default([]),
   proficiency: SkillProficiencySchema.optional(),
-  maturity: z.enum(["demonstrated", "confirmed_capability", "familiar", "learning"]).optional()
+  maturity: FactMaturitySchema.optional()
 }).strict();
 
 const TailoringEvidenceFactSchema = z.object({
   value: z.string().min(1),
   evidenceRefs: z.array(MatchEvidenceRefSchema).default([]),
-  maturity: z.enum(["demonstrated", "confirmed_capability", "familiar", "learning"]).optional()
+  maturity: FactMaturitySchema.optional()
 }).strict();
 
 export const TailoringEvidenceBundleSchema = z.object({
@@ -266,11 +267,12 @@ export const TailoringRequirementDetailSchema = z.object({
   evidenceExpectation: z.string().min(1).optional()
 }).strict();
 
-export const ResumeTailorTaskInputV2Schema = z.object({
+const ResumeTailorTaskInputV2BaseSchema = z.object({
   draftId: z.string().min(1),
   profileId: z.string().min(1),
   jobId: z.string().min(1),
   intensity: TailoringIntensitySchema,
+  mode: TailoringModeSchema.optional(),
   jobContext: TailoringJobContextSchema,
   target: z.object({
     sectionType: TailoringSectionPolicySchema,
@@ -287,12 +289,19 @@ export const ResumeTailorTaskInputV2Schema = z.object({
   allowedEvidenceRefs: z.array(MatchEvidenceRefSchema).default([]),
   allowedFacts: z.array(z.object({
     value: z.string().min(1),
-    evidenceRefs: z.array(MatchEvidenceRefSchema).default([])
+    evidenceRefs: z.array(MatchEvidenceRefSchema).default([]),
+    maturity: FactMaturitySchema.optional()
   }).strict()).default([]),
   evidenceBundle: TailoringEvidenceBundleSchema.optional(),
   wholeResumeContext: TailoringWholeResumeContextSchema.optional(),
   retryContext: TailoringRetryContextSchema.optional()
 }).strict();
+
+export const ResumeTailorTaskInputV2Schema = ResumeTailorTaskInputV2BaseSchema.superRefine((input, context) => {
+  if (input.mode && tailoringModeForIntensity(input.intensity) !== input.mode) {
+    context.addIssue({ code: "custom", path: ["mode"], message: "tailoring mode and legacy intensity conflict" });
+  }
+});
 
 export const ResumeTailorModelSuggestionSchema = z.object({
   after: z.union([z.string().min(1), z.array(z.string().min(1)).min(1)]),
@@ -306,13 +315,17 @@ export const ResumeTailorModelOutputSchema = z.object({
   suggestions: z.array(ResumeTailorModelSuggestionSchema)
 }).passthrough();
 
-export const ResumeTailoringDiffTaskInputSchema = ResumeTailorTaskInputV2Schema.extend({
-  target: ResumeTailorTaskInputV2Schema.shape.target.extend({
+export const ResumeTailoringDiffTaskInputSchema = ResumeTailorTaskInputV2BaseSchema.extend({
+  target: ResumeTailorTaskInputV2BaseSchema.shape.target.extend({
     fieldPath: ResumeFieldPathSchema
   }).strict(),
   allowedOperation: z.enum(["replace", "reorder", "append", "hide"]),
   requirementDetails: z.record(z.string(), TailoringRequirementDetailSchema).default({})
-}).strict();
+}).strict().superRefine((input, context) => {
+  if (input.mode && tailoringModeForIntensity(input.intensity) !== input.mode) {
+    context.addIssue({ code: "custom", path: ["mode"], message: "tailoring mode and legacy intensity conflict" });
+  }
+});
 
 export const ResumeTailoringDiffModelOutputSchema = z.object({
   diffs: z.array(ResumeTailoringDiffSchema).max(1),
@@ -326,6 +339,7 @@ export const ResumeTailoringDiffModelOutputSchema = z.object({
 export const ResumeTailorBatchInputSchema = z.object({
   draftId: z.string().min(1), profileId: z.string().min(1), jobId: z.string().min(1),
   intensity: TailoringIntensitySchema,
+  mode: TailoringModeSchema.optional(),
   compactJobContext: z.object({
     title: z.string().min(1), roleMission: z.string().optional(),
     topResponsibilities: z.array(z.string()).max(4), targetKeywords: z.array(z.string()).max(16)
@@ -337,9 +351,13 @@ export const ResumeTailorBatchInputSchema = z.object({
     currentSectionContext: z.array(z.string()).optional(),
     evidenceBundle: TailoringEvidenceBundleSchema.optional(),
     allowedEvidenceRefs: z.array(MatchEvidenceRefSchema).default([]),
-    allowedFacts: z.array(z.object({ value: z.string().min(1), evidenceRefs: z.array(MatchEvidenceRefSchema).default([]) }).strict()).default([])
+    allowedFacts: z.array(z.object({ value: z.string().min(1), evidenceRefs: z.array(MatchEvidenceRefSchema).default([]), maturity: FactMaturitySchema.optional() }).strict()).default([])
   }).strict()).min(1).max(6)
-}).strict();
+}).strict().superRefine((input, context) => {
+  if (input.mode && tailoringModeForIntensity(input.intensity) !== input.mode) {
+    context.addIssue({ code: "custom", path: ["mode"], message: "tailoring mode and legacy intensity conflict" });
+  }
+});
 
 export const ResumeTailorBatchModelOutputSchema = z.object({
   suggestions: z.array(ResumeTailorModelSuggestionSchema.extend({ itemId: z.string().min(1) }).passthrough())
@@ -348,6 +366,7 @@ export const ResumeTailorBatchModelOutputSchema = z.object({
 export const TailoringSuggestionSchema = z.object({
   id: z.string().min(1),
   intensity: TailoringIntensitySchema,
+  mode: TailoringModeSchema.optional(),
   operation: TailoringOperationSchema,
   targetSectionType: TailoringSectionPolicySchema,
   targetSectionId: z.string().min(1),
@@ -366,7 +385,11 @@ export const TailoringSuggestionSchema = z.object({
   riskLevel: z.enum(["low", "medium", "high"]),
   metrics: z.object({ textChangeRatio: z.number().min(0).max(1), keywordGain: z.number().int().min(0) }).strict(),
   status: TailoringSuggestionStatusSchema
-}).strict();
+}).strict().superRefine((suggestion, context) => {
+  if (suggestion.mode && tailoringModeForIntensity(suggestion.intensity) !== suggestion.mode) {
+    context.addIssue({ code: "custom", path: ["mode"], message: "tailoring mode and legacy intensity conflict" });
+  }
+});
 
 export const TailoringClaimSchema = z.object({
   id: z.string().min(1),
@@ -396,7 +419,7 @@ export const TailoringClaimSchema = z.object({
   evidenceRefs: z.array(MatchEvidenceRefSchema).default([]),
   syncScope: ClaimSyncScopeSchema.default("resume_only"),
   proficiency: SkillProficiencySchema.optional(),
-  maturity: z.enum(["demonstrated", "confirmed_capability", "familiar", "learning"]).optional(),
+  maturity: FactMaturitySchema.optional(),
   resolvedText: z.string().min(1).optional(),
   confirmed: z.boolean().default(false)
 }).strict();
@@ -430,7 +453,7 @@ export const TailoringClarificationQuestionSchema = z.object({
   status: z.enum(["pending", "active", "answered", "skipped"]).optional(),
   answer: z.union([z.string(), z.array(z.string()), z.boolean()]).optional(),
   proficiency: SkillProficiencySchema.optional(),
-  maturity: z.enum(["demonstrated", "confirmed_capability", "familiar", "learning"]).optional(),
+  maturity: FactMaturitySchema.optional(),
   evidenceQuote: z.string().min(1).optional(),
   answeredAt: z.string().datetime({ offset: true }).optional(),
   updatedAt: z.string().datetime({ offset: true }).optional()
@@ -534,6 +557,9 @@ export const ResumeTailoringPlanSchema = z.object({
   if (plan.questionPlan && plan.answerReceipts.some((receipt) => !plan.questionPlan!.questionIds.includes(receipt.questionId))) {
     context.addIssue({ code: "custom", path: ["answerReceipts"], message: "answer receipt must belong to the frozen plan" });
   }
+  if (plan.mode && tailoringModeForIntensity(plan.intensity) !== plan.mode) {
+    context.addIssue({ code: "custom", path: ["mode"], message: "tailoring mode and legacy intensity conflict" });
+  }
 });
 
 export const ClaimConfirmationSchema = z.object({
@@ -613,6 +639,23 @@ export function intensityForTailoringMode(mode: TailoringMode): TailoringIntensi
 
 export function tailoringModeForIntensity(intensity: TailoringIntensity): TailoringMode {
   return ({ conservative: "steady", balanced: "competitive", proactive: "max_fit" } as const)[intensity];
+}
+
+/**
+ * Resolve the canonical product setting at the legacy writer/API boundary.
+ * New callers should pass mode; intensity remains an accepted compatibility
+ * input and is never allowed to disagree with an explicit mode.
+ */
+export function resolveTailoringMode(input: {
+  mode?: TailoringMode;
+  intensity?: TailoringIntensity;
+  defaultMode?: TailoringMode;
+} = {}): TailoringMode {
+  const mappedMode = input.intensity ? tailoringModeForIntensity(input.intensity) : undefined;
+  if (input.mode && mappedMode && input.mode !== mappedMode) {
+    throw new Error("tailoring_mode_intensity_conflict");
+  }
+  return input.mode ?? mappedMode ?? input.defaultMode ?? "competitive";
 }
 
 // --- Phase 1: Planner schemas ---

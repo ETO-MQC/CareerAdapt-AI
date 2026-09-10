@@ -176,6 +176,43 @@ describe("P4.2a.3f profile commit and General Resume bootstrap", () => {
     expect(await repository.listResumeBranches(profile.id)).toHaveLength(1);
   });
 
+  it("preserves a user-edited profile-backed bullet during update_existing sync", async () => {
+    const repository = createRepository();
+    await repository.saveProfile(demoCareerProfile);
+    const created = await repository.createGeneralResumeBranch({
+      profileId: demoCareerProfile.id,
+      operationId: "profile-backed-resume-create",
+      name: "已有资料简历",
+      includeProfileFacts: true,
+      includeProfileBasics: true
+    });
+    const profileItem = created.branch.contentItems.find((item) => item.itemType === "experience" && item.factRefs.length > 0);
+    if (!profileItem) throw new Error("profile-backed fixture requires an experience item");
+
+    const edited = await repository.editResumeBranch({
+      branchId: created.branch.id,
+      expectedRevision: created.branch.revision,
+      operationId: "profile-backed-bullet-edit",
+      confirmAsResumeOnly: true,
+      edits: [{ itemId: profileItem.id, text: "用户确认保留的项目 bullet，包含原有事实边界。" }]
+    });
+    const synced = await repository.ensureGeneralResumeFromProfile({
+      profileId: demoCareerProfile.id,
+      operationId: "profile-backed-bullet-sync"
+    });
+
+    expect(synced.branch.contentItems).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: profileItem.id,
+        text: "用户确认保留的项目 bullet，包含原有事实边界。",
+        factRefs: profileItem.factRefs,
+        userConfirmation: expect.objectContaining({ scope: "resume_only" })
+      })
+    ]));
+    expect(synced.branch.contentItems.filter((item) => item.factRefs.some((ref) => profileItem.factRefs.some((candidate) => JSON.stringify(candidate) === JSON.stringify(ref)))).length).toBe(1);
+    expect(edited.branch.revision).toBe(created.branch.revision + 1);
+  });
+
   it("blocks a stale target after the active Profile changes until that mismatch is acknowledged", async () => {
     const repository = createRepository();
     const profileA = emptyProfile("profile-switch-a", "示例用户");

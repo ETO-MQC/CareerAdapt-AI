@@ -1,6 +1,6 @@
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import { resolveTailoringClaimPolicy } from "./tailoringClaimPolicy";
-import type { ClaimDecision, ClaimSupportLevel, MatchEvidenceRef, TailoringClaim } from "@/domain/schemas";
+import type { ClaimDecision, ClaimSupportLevel, MatchEvidenceRef, TailoringClaim, TailoringMode } from "@/domain/schemas";
 
 export function claimDecisionFor(level: ClaimSupportLevel): ClaimDecision {
   if (level === "verified") return "auto_applicable";
@@ -19,6 +19,7 @@ export function classifyTailoringClaim(input: {
   evidenceRefs?: MatchEvidenceRef[];
   declaredByUser?: boolean;
   inferred?: boolean;
+  mode?: TailoringMode;
 }): TailoringClaim {
   const evidenceRefs = input.evidenceRefs ?? [];
   const guard = runRuleFactGuard({
@@ -30,7 +31,7 @@ export function classifyTailoringClaim(input: {
     suggestion: { claimSupportLevel: input.declaredByUser ? "user_declared" : input.inferred ? "reasonable_inference" : "verified" },
     guardResult: guard,
     sectionType: ["summary", "skills", "project", "work", "internship", "ordering"].includes(input.section) ? input.section as "summary" | "skills" | "project" | "work" | "internship" | "ordering" : "ordering",
-    intensity: "balanced"
+    mode: input.mode ?? "competitive"
   });
   const supportLevel: ClaimSupportLevel = policy.claimClass === "unsupported_hard_fact"
     ? "unsupported_hard_fact"

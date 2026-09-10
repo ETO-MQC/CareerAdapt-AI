@@ -8,7 +8,8 @@ import {
   ResumeTailoringDiffSchema,
   type ImportedResumeDraft,
   type ProfileReconciliationPlan,
-  TailoringIntensitySchema
+  TailoringIntensitySchema,
+  TailoringModeSchema
 } from "@/domain/schemas";
 import { projectJobGraphV4ToAnalyzerOutput } from "@/domain/jobOptimization/v3/project";
 import { extractExplicitTargetRole } from "@/domain/branch/targetRole";
@@ -1679,7 +1680,7 @@ export class BrowserAgentToolService implements AgentToolServices {
   }
 
   async createTailoringSession(rawInput: unknown, operationId: string, signal?: AbortSignal) {
-    const input = rawInput as { intensity?: unknown };
+    const input = rawInput as { intensity?: unknown; mode?: unknown };
     const { profile, branch, job, targetSnapshot } = await this.loadSelection(rawInput);
     const created = createTailoringSessionCommand({
       operationId,
@@ -1687,7 +1688,8 @@ export class BrowserAgentToolService implements AgentToolServices {
       branch,
       job,
       ...(targetSnapshot ? { targetSnapshot } : {}),
-      intensity: input.intensity ? TailoringIntensitySchema.parse(input.intensity) : undefined
+      intensity: input.intensity === undefined ? undefined : TailoringIntensitySchema.parse(input.intensity),
+      mode: input.mode === undefined ? undefined : TailoringModeSchema.parse(input.mode)
     }, signal);
     return {
       ...created,

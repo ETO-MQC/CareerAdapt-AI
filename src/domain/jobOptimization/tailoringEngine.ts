@@ -7,12 +7,13 @@ import type {
   ResumeBranch,
   ResumeItemV2,
   TailoringIntensity,
+  TailoringMode,
   TailoringJobContext,
   TailoringRequirement,
   TailoringSectionPolicy,
   TailoringSuggestion
 } from "@/domain/schemas";
-import { TailoringSuggestionSchema } from "@/domain/schemas";
+import { TailoringSuggestionSchema, intensityForTailoringMode, resolveTailoringMode } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
 import { migrateBranchContentItem } from "@/domain/migrations/resumeV2";
 import { ResumeTailorTaskInputV2Schema, type ResumeTailorTaskInputV2 } from "@/domain/schemas";
@@ -123,12 +124,14 @@ function containsGenericPrefix(text: string): boolean {
 export function validateTailoringDelta(input: {
   before: string | string[];
   after: string | string[] | null | undefined;
-  intensity: TailoringIntensity;
+  mode?: TailoringMode;
+  intensity?: TailoringIntensity;
   targetKeywords: string[];
   sectionType: TailoringSectionPolicy;
   rationale?: string;
   requirementDescriptions?: string[];
 }): TailoringDeltaValidation {
+  const mode = resolveTailoringMode({ mode: input.mode, intensity: input.intensity });
   const before = render(input.before);
   const after = input.after == null ? "" : render(input.after);
   const normalizedBefore = normalizeComparable(before);
@@ -142,9 +145,9 @@ export function validateTailoringDelta(input: {
   if (normalizedAfter === normalizedBefore) reasons.push("copied_original");
   if (input.sectionType === "summary" && looksLikeTruncatedSummary(before, after)) reasons.push("truncated_summary");
   if (containsResumeAnalysisBoilerplate(after)) reasons.push("resume_analysis_boilerplate");
-  const minimum = adjustedMinimum(input.intensity, input.sectionType, normalizedBefore.length);
+  const minimum = adjustedMinimum(mode, input.sectionType, normalizedBefore.length);
   if (textChangeRatio < minimum) reasons.push("insufficient_text_delta");
-  if (input.intensity === "conservative" && normalizedBefore.length >= 30 && textChangeRatio > 0.34) reasons.push("conservative_delta_too_large");
+  if (mode === "steady" && normalizedBefore.length >= 30 && textChangeRatio > 0.34) reasons.push("conservative_delta_too_large");
   // Legacy suggestions keep textChangeRatio as a diagnostic. Diff V3 validates by operation.
   const usefulTargets = unique(input.targetKeywords.filter(isUsefulKeyword));
   if (input.targetKeywords.length > 0 && usefulTargets.length === 0) reasons.push("generic_target_keywords");
@@ -205,11 +208,14 @@ export function aggregateDelta(suggestions: TailoringSuggestion[]) {
 export function createDeterministicTailoringSuggestions(input: {
   branch: ResumeBranch;
   job: JobDescription;
-  intensity: TailoringIntensity;
+  mode?: TailoringMode;
+  intensity?: TailoringIntensity;
   operationId: string;
   resolveEvidenceRefs: (item: BranchContentItem) => MatchEvidenceRef[];
 }): TailoringSuggestion[] {
-  if (input.intensity !== "conservative") return [];
+  const mode = resolveTailoringMode({ mode: input.mode, intensity: input.intensity });
+  const intensity = intensityForTailoringMode(mode);
+  if (mode !== "steady") return [];
   const candidates = input.branch.contentItems.filter((item) => item.visible && item.itemType !== "structural")
     .map((item) => targetFor(input.branch, item))
     .filter((target): target is NonNullable<typeof target> => Boolean(target))
@@ -221,11 +227,12 @@ export function createDeterministicTailoringSuggestions(input: {
     const targetKeywords = unique(relevant.flatMap((item) => item.keywords).filter(isUsefulKeyword)).slice(0, 8);
     const after = mapFieldValue(target.before, alignKeywordVariants);
     const rationale = "仅执行完全等价的术语、标点或格式规范化，不新增能力或职责。";
-    const validation = validateTailoringDelta({ before: target.before, after, intensity: input.intensity, targetKeywords, sectionType: target.sectionType, rationale, requirementDescriptions: relevant.map((item) => item.description) });
+    const validation = validateTailoringDelta({ before: target.before, after, mode, targetKeywords, sectionType: target.sectionType, rationale, requirementDescriptions: relevant.map((item) => item.description) });
     if (!validation.valid) continue;
     suggestions.push(TailoringSuggestionSchema.parse({
       id: `tailoring-${stableHashText(`${input.operationId}:${target.item.id}:${target.fieldPath}`)}`,
-      intensity: input.intensity,
+      intensity,
+      mode,
       operation: "rewrite",
       targetSectionType: target.sectionType,
       targetSectionId: target.sectionType,
@@ -254,10 +261,13 @@ export function createResumeTailorTaskInputs(input: {
   profileId: string;
   branch: ResumeBranch;
   job: JobDescription;
-  intensity: TailoringIntensity;
+  mode?: TailoringMode;
+  intensity?: TailoringIntensity;
   profile?: CareerProfile;
   resolveEvidenceRefs: (item: BranchContentItem) => MatchEvidenceRef[];
 }): ResumeTailorTaskInputV2[] {
+  const mode = resolveTailoringMode({ mode: input.mode, intensity: input.intensity });
+  const intensity = intensityForTailoringMode(mode);
   const jobContext = buildTailoringJobContext(input.job);
   return input.branch.contentItems.filter((item) => item.visible && item.itemType !== "structural")
     .map((item) => targetFor(input.branch, item))
@@ -274,7 +284,8 @@ export function createResumeTailorTaskInputs(input: {
         draftId: input.draftId,
         profileId: input.profileId,
         jobId: input.job.id,
-        intensity: input.intensity,
+        intensity,
+        mode,
         jobContext,
         target: { sectionType: target.sectionType, sectionId: target.sectionType, itemId: target.item.id, fieldPath: target.fieldPath },
         currentContent: { structuredItem, fieldValue: target.before, renderedText: target.renderedText },
@@ -405,9 +416,9 @@ function categoryRelevance(section: TailoringSectionPolicy, category: string) {
   return 0;
 }
 
-function adjustedMinimum(intensity: TailoringIntensity, section: TailoringSectionPolicy, length: number) {
-  const base = intensity === "conservative" ? 0.05 : intensity === "balanced" ? 0.1 : 0.25;
-  if (length < 24) return Math.min(base, intensity === "conservative" ? 0.03 : intensity === "balanced" ? 0.08 : 0.2);
+function adjustedMinimum(mode: TailoringMode, section: TailoringSectionPolicy, length: number) {
+  const base = mode === "steady" ? 0.05 : mode === "competitive" ? 0.1 : 0.25;
+  if (length < 24) return Math.min(base, mode === "steady" ? 0.03 : mode === "competitive" ? 0.08 : 0.2);
   if (section === "skills" && length < 50) return base * 0.7;
   return base;
 }

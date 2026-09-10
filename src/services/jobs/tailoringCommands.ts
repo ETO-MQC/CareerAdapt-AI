@@ -180,7 +180,10 @@ export function createTailoringSessionCommand(input: z.input<typeof CreateTailor
     sessionId,
     questions: selectedQuestions,
     now: planned.plan.createdAt,
-    mode: planned.plan.mode
+    // A caller that omits both legacy intensity and canonical mode is an
+    // older API session. Keep its historical question-plan capacity while
+    // the persisted plan still records the canonical competitive default.
+    ...(parsed.mode || parsed.intensity !== undefined ? { mode: planned.plan.mode } : {})
   });
   const selectedIds = new Set(questionPlan.questionIds);
   const plan = ResumeTailoringPlanSchema.parse({

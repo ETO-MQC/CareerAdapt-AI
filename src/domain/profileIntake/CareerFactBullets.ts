@@ -71,11 +71,18 @@ export function buildCareerExperienceReview(input: {
     ...(input.sourceEvidence ?? []),
     ...bullets.map((bullet) => bullet.text)
   ]);
+  // A confirmed bullet is enough to show a usable partial review, but a
+  // high-value gap should still get one useful follow-up while information
+  // gain remains. Optional gaps (for example challenge or collaboration)
+  // must not hold the user in intake indefinitely.
+  const needsHighValueFollowUp = completeness.missing.length > 0
+    && completeness.informationGain > 0
+    && completeness.readiness < 1;
   return {
     itemId: input.item.id,
     label: itemLabel(input.item),
     ...itemRoleAndTime(input.item),
-    reviewState: bullets.length ? "ready_for_confirmation" : "needs_more_detail",
+    reviewState: bullets.length && !needsHighValueFollowUp ? "ready_for_confirmation" : "needs_more_detail",
     bullets,
     missingDimensions: completeness.missing,
     nextQuestion: completeness.nextQuestion
