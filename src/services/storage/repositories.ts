@@ -3,6 +3,7 @@ import { demoCareerProfile } from "@/data/demoProfile";
 import { migrateBranchContentItem, migrateCareerProfileToV2, migrateResumeBranchToV2, normalizeAwardedAt, projectResumeItemV2 } from "@/domain/migrations/resumeV2";
 import { canonicalProfileLibraryItems } from "@/domain/profile/canonicalLibrary";
 import { synchronizeProfileStructuredFacts } from "@/domain/profile/profileWriteContract";
+import { maturityForSkillProficiency } from "@/domain/profile/factMaturity";
 import { buildProfileSyncDiagnostics, profileSyncContentCounts, type ProfileSyncDiagnostics } from "@/domain/profile/profileSyncDiagnostics";
 import { applyProfileRecoveryItems, type ProfileRecoveryItem, type ProfileRecoverySourceType } from "@/domain/profile/profileContentRecovery";
 import {
@@ -428,6 +429,8 @@ function syncTailoringClaimsToProfile(input: {
       provenance: [],
       confirmedByUser: true,
       riskLevel: "medium",
+      maturity: claim.maturity
+        ?? (claim.proficiency ? maturityForSkillProficiency(claim.proficiency) : sectionType === "skills" ? "confirmed_capability" : "demonstrated"),
       createdAt: input.now,
       updatedAt: input.now
     }, input.operationId, text, input.now);
@@ -8176,6 +8179,7 @@ function confirmedUserFact(
     statement: text,
     confirmedByUser: true,
     riskLevel: "medium",
+    maturity: fact.maturity ?? (fact.category === "skill" ? "confirmed_capability" : "demonstrated"),
     provenance: [
       ...fact.provenance,
       {

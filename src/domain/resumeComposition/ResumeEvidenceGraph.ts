@@ -22,6 +22,7 @@ import {
   extractTechnicalTerms,
   technicalTermCategory
 } from "./ResumeSkillTaxonomy";
+import { factMaturityOf, strongestFactMaturity } from "@/domain/profile/factMaturity";
 
 type FactLookup = Map<string, FactStatement>;
 
@@ -45,7 +46,8 @@ export function buildResumeEvidenceGraph(input: ResumeEvidenceGraphInput): Resum
     const sourceFacts = sourceFactIds.map((id) => facts.get(id)).filter((fact): fact is FactStatement => Boolean(fact));
     const text = assetText(entry, sourceFacts);
     const confirmationStatus = confirmationFor(sourceFacts, sourceFactIds.length > 0);
-    if (isExcludedAsset(entry.data, text, confirmationStatus)) {
+    const maturity = sourceFacts.length ? strongestFactMaturity(sourceFacts) : undefined;
+    if (isExcludedAsset(entry.data, text, confirmationStatus, maturity)) {
       excludedAssetIds.push(assetId);
       continue;
     }
@@ -59,6 +61,7 @@ export function buildResumeEvidenceGraph(input: ResumeEvidenceGraphInput): Resum
       factIds: sourceFactIds,
       sourceTurnIds: sourceTurnIds(entry, sourceFacts),
       confirmationStatus,
+      ...(maturity ? { maturity } : {}),
       ownershipStrength: Math.max(0, ...sourceFacts.map((fact) => ownershipStrength(`${fact.statement} ${fact.provenance.map((item) => item.sourceText).join(" ")}`))),
       sourceExcerpts: unique([entry.sourceExcerpt ?? "", ...sourceFacts.flatMap((fact) => fact.provenance.map((item) => item.sourceQuote ?? item.sourceText))])
     };
@@ -77,6 +80,7 @@ export function buildResumeEvidenceGraph(input: ResumeEvidenceGraphInput): Resum
           factIds: sourceFactIds,
           sourceTurnIds: sourceTurnIds(entry, sourceFacts),
           confirmationStatus,
+          ...(maturity ? { maturity } : {}),
           ownershipStrength: assetNode.ownershipStrength,
           sourceExcerpts: assetNode.sourceExcerpts
         });
@@ -95,13 +99,15 @@ export function buildResumeEvidenceGraph(input: ResumeEvidenceGraphInput): Resum
           sourceAssetIds: [assetId],
           factIds: sourceFactIds,
           evidenceNodeIds: [nodeId],
-          evidenceCount: 1
+          evidenceCount: 1,
+          ...(maturity ? { maturity } : {})
         });
       } else {
         existing.sourceAssetIds = unique([...existing.sourceAssetIds, assetId]);
         existing.factIds = unique([...existing.factIds, ...sourceFactIds]);
         existing.evidenceNodeIds = unique([...existing.evidenceNodeIds, nodeId]);
         existing.evidenceCount = existing.sourceAssetIds.length;
+        if (maturity === "demonstrated") existing.maturity = maturity;
       }
     }
 
@@ -117,6 +123,7 @@ export function buildResumeEvidenceGraph(input: ResumeEvidenceGraphInput): Resum
           factIds: sourceFactIds,
           sourceTurnIds: sourceTurnIds(entry, sourceFacts),
           confirmationStatus,
+          ...(maturity ? { maturity } : {}),
           ownershipStrength: assetNode.ownershipStrength,
           sourceExcerpts: assetNode.sourceExcerpts
         });
@@ -131,6 +138,8 @@ export function buildResumeEvidenceGraph(input: ResumeEvidenceGraphInput): Resum
     const sourceFactIds = skill.fact ? [skill.fact.id] : [];
     const term = canonicalTechnicalTerm(skill.name);
     if (!term || !isConfirmedFact(skill.fact)) continue;
+    const maturity = factMaturityOf(skill.fact);
+    if (maturity === "familiar" || maturity === "learning") continue;
     const existing = skillEvidence.get(term);
     const category = technicalTermCategory(term) ?? "其他";
     if (existing) {
@@ -148,10 +157,11 @@ export function buildResumeEvidenceGraph(input: ResumeEvidenceGraphInput): Resum
       factIds: sourceFactIds,
       sourceTurnIds: sourceTurnIdsFromFacts([skill.fact!]),
       confirmationStatus: "confirmed",
+      maturity,
       ownershipStrength: 0,
       sourceExcerpts: [skill.fact!.statement, ...skill.fact!.provenance.map((item) => item.sourceQuote ?? item.sourceText)]
     });
-    skillEvidence.set(term, { name: term, category, sourceAssetIds: [skill.id], factIds: sourceFactIds, evidenceNodeIds: [nodeId], evidenceCount: 1 });
+    skillEvidence.set(term, { name: term, category, sourceAssetIds: [skill.id], factIds: sourceFactIds, evidenceNodeIds: [nodeId], evidenceCount: 1, maturity });
   }
 
   return ResumeEvidenceGraphSchema.parse({
@@ -237,9 +247,12 @@ function roleLikeValue(value: unknown) {
   return role;
 }
 
-function isExcludedAsset(item: ResumeItemV2, text: string, status: ResumeEvidenceNode["confirmationStatus"]) {
+function isExcludedAsset(item: ResumeItemV2, text: string, status: ResumeEvidenceNode["confirmationStatus"], maturity?: ResumeEvidenceNode["maturity"]) {
   const normalized = `${assetTitle(item)} ${text}`.trim();
-  return !normalized || status !== "confirmed" || /empty-resume-placeholder|待整理|暂无可靠内容|fallback|diagnostic|placeholder|negative|失败原因|不采用|Other\b/iu.test(normalized);
+  const declarationOnlyExperience = maturity === "confirmed_capability"
+    && !["skills", "languages"].includes(item.sectionType);
+  const immatureCoreAsset = maturity === "familiar" || maturity === "learning" || declarationOnlyExperience;
+  return !normalized || status !== "confirmed" || immatureCoreAsset || /empty-resume-placeholder|待整理|暂无可靠内容|fallback|diagnostic|placeholder|negative|失败原因|不采用|Other\b/iu.test(normalized);
 }
 
 function confirmationFor(facts: FactStatement[], hasFactIds: boolean): ResumeEvidenceNode["confirmationStatus"] {

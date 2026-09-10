@@ -268,16 +268,20 @@ function careerAssetResumeScore(input: {
   const bullets = bulletPlan(input.data);
   const targetTerms = unique([input.input.targetDirection, input.input.targetAudience, input.input.companyType, input.job?.title].filter((value): value is string => Boolean(value)).flatMap((value) => value.toLocaleLowerCase().split(/[\s/|·、，,]+/u)));
   const targetRelevance = targetTerms.length ? clamp(targetTerms.filter((term) => term.length > 1 && text.includes(term)).length / Math.min(4, targetTerms.length)) : sectionWeight(input.data.sectionType);
-  const evidenceStrength = clamp(((input.node?.confirmationStatus === "confirmed" ? 0.55 : 0.2) + Math.min(0.3, (input.node?.factIds.length ?? 0) * 0.08) + Math.min(0.15, (input.node?.sourceExcerpts.length ?? 0) * 0.03)));
-  const demonstratedComplexity = clamp((semanticParts(bullets.join(" ")) + Math.min(3, tools.length)) / 10);
+  const maturity = input.node?.maturity ?? "demonstrated";
+  const maturityFactor = maturity === "demonstrated" ? 1 : maturity === "confirmed_capability" ? 0.7 : 0.45;
+  const evidenceStrength = clamp(((input.node?.confirmationStatus === "confirmed" ? 0.55 : 0.2) * maturityFactor + Math.min(0.3, (input.node?.factIds.length ?? 0) * 0.08) + Math.min(0.15, (input.node?.sourceExcerpts.length ?? 0) * 0.03)));
+  const demonstratedComplexity = clamp(((semanticParts(bullets.join(" ")) + Math.min(3, tools.length)) / 10) * maturityFactor);
   const outcomeStrength = clamp((countOutcomeTerms(text) + (input.data.sectionType === "project" && bullets.some((bullet) => /完成|实现|构建|分析|优化|交付|支持/iu.test(bullet)) ? 1 : 0)) / 4);
   const specificity = clamp((tools.length + (/[0-9一二三四五六七八九十%]+/u.test(text) ? 1 : 0) + (input.data.sectionType !== "custom" ? 1 : 0)) / 5);
   const uniqueness = clamp(1 - maxOverlap(input.data, input.graph, input.node?.sourceAssetIds[0]));
   const technicalDepth = clamp((tools.length + findTechnicalTerms(text).length) / 8);
   const recency = recencyScore(input.data);
-  const ownershipStrength = clamp((input.node?.ownershipStrength ?? 0) / 6);
+  const ownershipStrength = maturity === "demonstrated" ? clamp((input.node?.ownershipStrength ?? 0) / 6) : 0;
   const redundancy = clamp(maxOverlap(input.data, input.graph, input.node?.sourceAssetIds[0]));
-  const weakEvidencePenalty = input.node?.confirmationStatus === "confirmed" ? 0 : input.node?.confirmationStatus === "needs_confirmation" ? 0.25 : 0.6;
+  const weakEvidencePenalty = maturity === "demonstrated"
+    ? input.node?.confirmationStatus === "confirmed" ? 0 : input.node?.confirmationStatus === "needs_confirmation" ? 0.25 : 0.6
+    : maturity === "confirmed_capability" ? 0.2 : 0.45;
   const supported = input.keywordCoverage.filter((keyword) => keyword.status === "SUPPORTED" && keyword.sourceAssetIds.includes(input.data.id));
   const requirementCoverage = input.mode === "job_specific" ? clamp(supported.length / Math.max(1, input.keywordCoverage.filter((keyword) => keyword.status === "SUPPORTED").length)) : undefined;
   const mustHaveCoverage = input.mode === "job_specific" ? clamp(supported.length / Math.max(1, input.job?.requirements.filter((requirement) => requirement.priority === "high" || requirement.hardConstraint).length ?? 1)) : undefined;

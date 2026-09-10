@@ -128,6 +128,12 @@ function buildBusinessInput(
       };
     }),
     skillGroups: normalizeSkillGroups(input.graph.skillMatrix),
+    skillEvidence: input.graph.skillMatrix.map((skill) => ({
+      name: skill.name,
+      category: skill.category,
+      maturity: skill.maturity ?? "demonstrated",
+      evidenceCount: skill.evidenceCount
+    })),
     instructions: [
       ...CareerResumeQualityPolicyV1.writerInstructions,
       "Use one or two lines for the summary; omit it if the evidence does not support a useful opening.",

@@ -15,6 +15,8 @@ export const CareerResumeQualityPolicyV1 = {
     "direct_evidence_over_similarity",
     "ownership_preservation",
     "technical_specificity_without_keyword_stuffing",
+    "maturity_aware_claim_language",
+    "natural_narration_without_ai_boilerplate",
     "no_change_needed_is_valid"
   ] as const,
   writerInstructions: [
@@ -25,12 +27,16 @@ export const CareerResumeQualityPolicyV1 = {
     "Metrics, scale, ownership, outcomes, and technical methods require direct or confirmed evidence; Fact Guard remains authoritative.",
     "Use evidence in this order: direct target experience, related resume experience, confirmed profile fact, then explicit user declaration; a job description never proves a fact.",
     "Preserve the source's participation, assistance, cooperation, ownership, independence, and leadership level; never upgrade a verb to make a match look stronger.",
+    "Use demonstrated experience for experience claims; use bounded language such as familiar with, basic use, or learning for less mature capability evidence.",
+    "Prefer the candidate's concrete nouns and verbs over mechanical phrases such as 'based on the job description', repeated 'through...to achieve...', empty adjectives, or keyword lists.",
     "Summary may synthesize verified experience once; project/work/internship should carry concrete methods and verification; skills may support experience but cannot introduce a capability.",
     "Keep technical nouns and methods specific, but do not concatenate keywords, parrot requirement wording, repeat a sentence, or force a rewrite when the original is already fit."
   ] as const,
   reviewerWarnings: {
     genericSummary: "resume_quality.summary_generic",
-    repeatedContent: "resume_quality.repeated_content"
+    repeatedContent: "resume_quality.repeated_content",
+    mechanicalWording: "resume_quality.mechanical_ai_wording",
+    emptyAdjective: "resume_quality.empty_adjective"
   }
 } as const;
 
@@ -55,6 +61,13 @@ export function careerResumeQualityWarnings(input: { summary?: string; bullets?:
   }
   if ([...normalized.values()].some((count) => count > 1)) {
     warnings.push(CareerResumeQualityPolicyV1.reviewerWarnings.repeatedContent);
+  }
+  const mechanicalCount = bullets.filter((bullet) => /^(?:基于|围绕|通过|结合).{0,60}(?:实现|完成|提升|优化)/u.test(bullet)).length;
+  if (mechanicalCount >= 2 || bullets.some((bullet) => /(?:根据岗位需求|赋能业务|打造闭环|沉淀能力|抓手)/u.test(bullet) && !hasEvidenceSignal(bullet))) {
+    warnings.push(CareerResumeQualityPolicyV1.reviewerWarnings.mechanicalWording);
+  }
+  if (bullets.some((bullet) => /^(?:具备|拥有|熟悉|掌握|具有).{0,36}(?:能力|素养|经验|意识)[。；;]?$/u.test(bullet))) {
+    warnings.push(CareerResumeQualityPolicyV1.reviewerWarnings.emptyAdjective);
   }
   return [...new Set(warnings)];
 }

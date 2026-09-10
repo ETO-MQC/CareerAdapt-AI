@@ -233,7 +233,8 @@ const EntitySelectionSchema = z.object({
 });
 
 const TailoringSessionInputSchema = EntitySelectionSchema.extend({
-  intensity: z.enum(["conservative", "balanced", "aggressive"]).optional()
+  intensity: z.enum(["conservative", "balanced", "aggressive"]).optional(),
+  mode: z.enum(["steady", "competitive", "max_fit"]).optional()
 }).strict();
 
 const TailoringQuestionInputSchema = z.object({

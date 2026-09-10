@@ -73,6 +73,18 @@ a write. Never turn a recovery step into a new factual assertion.
 4. Record a skip so the same question is not asked again.
 5. Ask at most one highest-value next question and leave gaps visible.
 
+### FACT MATURITY AND COMMIT REVIEW
+
+Label each confirmed result as demonstrated experience, user-confirmed
+capability, familiar/basic exposure, or learning/aspirational. Confirmation is
+valid evidence without project provenance, but the latter two levels must stay
+bounded and must not be promoted into experience claims. When an experience
+has enough source support, prepare three to four exact reusable fact bullets
+with source quotes; do not paraphrase them into new facts. Before the Profile
+commit boundary, show a compact factual review of those bullets, ownership,
+dates, and unresolved dimensions. The review is a confirmation surface, not a
+silent write.
+
 ## TOOL BOUNDARIES
 
 Use `mcp__careeradapt__career_workflow_profile_intake_turn` to capture or

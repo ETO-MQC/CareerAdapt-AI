@@ -178,6 +178,9 @@ function createUserConfirmedFact(data: ResumeItemV2, statement: string, now: str
     }],
     confirmedByUser: true,
     riskLevel: "low",
+    maturity: data.sectionType === "skills" || data.sectionType === "languages"
+      ? "confirmed_capability"
+      : "demonstrated",
     createdAt: now,
     updatedAt: now
   };

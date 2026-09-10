@@ -73,9 +73,13 @@ requirement rows; do not broaden the question set.
    and constraints, separating must-have from preferred.
 2. Map each requirement to direct evidence, transferable evidence, a gap, or
    ambiguity.
-3. Explain the evidence behind each material match and expose verification
+3. Preserve evidence maturity in every row: demonstrated, confirmed capability,
+   familiar/basic exposure, or learning/aspirational. A confirmed capability
+   may count as partial evidence without project provenance, but cannot be
+   scored as demonstrated experience.
+4. Explain the evidence behind each material match and expose verification
    questions instead of hiding gaps behind a score.
-4. Produce tailoring priorities only after the evidence matrix is complete.
+5. Produce tailoring priorities only after the evidence matrix is complete.
 
 ## TOOL BOUNDARIES
 

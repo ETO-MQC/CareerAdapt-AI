@@ -6,6 +6,7 @@ import {
 } from "@/domain/schemas";
 import { resolveBranchFactRefs } from "@/domain/branch/validation";
 import { migrateResumeBranchToV2 } from "@/domain/migrations/resumeV2";
+import { strongestFactMaturity } from "@/domain/profile/factMaturity";
 import { stableHashText } from "@/services/security/text";
 
 const ALIASES: Record<string, string[]> = {
@@ -17,13 +18,28 @@ const ALIASES: Record<string, string[]> = {
 export function buildCandidateEvidenceUnits(input: { profile: CareerProfile; branch: ResumeBranch }): CandidateEvidenceUnit[] {
   const branch = migrateResumeBranchToV2(input.branch);
   const units: CandidateEvidenceUnit[] = [];
+  const factsById = new Map([
+    ...input.profile.experiences.flatMap((experience) => experience.facts.map((fact) => [fact.id, fact] as const)),
+    ...input.profile.skills.flatMap((skill) => skill.fact ? [[skill.fact.id, skill.fact] as const] : []),
+    ...input.profile.certificates.flatMap((certificate) => certificate.fact ? [[certificate.fact.id, certificate.fact] as const] : [])
+  ]);
   for (const item of branch.structuredContentItems) {
     const userDeclared = item.factRefs.length === 0 && Boolean(item.userConfirmation);
     if (!item.visible || (!item.factRefs.length && !userDeclared) || item.data.sectionType === "summary") continue;
     if (item.factRefs.length) try { resolveBranchFactRefs(input.profile, item.factRefs); } catch { continue; }
     const data = item.data as ResumeItemV2 & Record<string, unknown>;
+    const referencedFacts = item.factRefs
+      .map((ref) => ref.type === "evidence_file" ? ref.linkedFactId : ref.factId)
+      .map((factId) => factsById.get(factId))
+      .filter((fact): fact is NonNullable<typeof fact> => Boolean(fact));
+    const maturity = userDeclared
+      ? "confirmed_capability" as const
+      : referencedFacts.length
+        ? strongestFactMaturity(referencedFacts)
+        : undefined;
     const common = {
       sectionType: data.sectionType, itemId: item.id, factRefs: item.factRefs, sourceBlockIds: item.sourceBlockIds, supportLevel: userDeclared ? "user_declared" as const : "verified" as const,
+      ...(maturity ? { maturity } : {}),
       organization: stringValue(data.organization) ?? stringValue(data.school) ?? stringValue(data.institution),
       role: stringValue(data.role) ?? stringValue(data.title),
       dateRange: [stringValue(data.startDate), stringValue(data.endDate)].filter(Boolean).join(" — ") || undefined,
@@ -128,17 +144,21 @@ function deterministicEvaluation(requirement: JobRequirementGraphV2["nodes"][num
   const top = recall?.candidates.filter((item) => item.score >= 0.2).slice(0, 3) ?? [];
   if (!top.length) return noneEvaluation(requirement.id, "当前来源简历中没有召回到可引用的已确认事实。", requirement.statement);
   const units = top.map((item) => unitById.get(item.evidenceUnitId)!).filter(Boolean);
-  const direct = top[0].score >= 0.64 && units.some((unit) => ["skill", "certificate", "education"].includes(unit.sourceType) || ngramDice(requirement.normalizedIntent, unit.normalizedText) >= 0.72);
+  const hasConfirmedCapability = units.some((unit) => unit.maturity === "confirmed_capability" || unit.supportLevel === "user_declared");
+  const hasMaturityGap = units.some((unit) => unit.maturity === "familiar" || unit.maturity === "learning");
+  const direct = top[0].score >= 0.64 && units.some((unit) =>
+    (unit.maturity === "demonstrated" || unit.maturity === undefined)
+    && (["skill", "certificate", "education"].includes(unit.sourceType) || ngramDice(requirement.normalizedIntent, unit.normalizedText) >= 0.72)
+  );
   const transferable = !direct && top[0].reasons.some((reason) => reason.startsWith("语义别名")) && top[0].score >= 0.32;
-  const hasUserDeclared = units.some((unit) => unit.supportLevel === "user_declared");
-  const level = hasUserDeclared ? "partial" : direct ? "direct" : transferable ? "strong_transferable" : top[0].score >= 0.3 ? "partial" : "weak";
+  const level = direct ? "direct" : hasConfirmedCapability ? "partial" : hasMaturityGap ? "needs_confirmation" : transferable ? "strong_transferable" : top[0].score >= 0.3 ? "partial" : "weak";
   return RequirementEvidenceEvaluationV2Schema.parse({
     requirementId: requirement.id, matchLevel: level, evidenceUnitIds: units.map((unit) => unit.id),
     evidenceRefs: resolveEvaluationRefs(profile, units.map((unit) => unit.id), unitById),
     coveredAspects: requirement.exactKeywords.filter((term) => units.some((unit) => containsTerm(unit.normalizedText, term))),
     missingAspects: level === "direct" ? [] : [requirement.statement],
-    risks: hasUserDeclared ? ["new_fact_risk"] : level === "weak" ? ["low_confidence"] : [],
-    explanation: hasUserDeclared ? "该内容由用户为当前岗位简历明确声明，按 user_declared 证据计入部分覆盖，不升级为资料库事实。" : level === "direct" ? "已确认事实直接覆盖要求中的核心对象或资格。" : level === "strong_transferable" ? "证据所处场景不同，但任务机制与能力可明确迁移；不等同于已承担完整岗位职责。" : level === "partial" ? "已确认事实只覆盖该要求的一部分。" : "仅存在弱相关证据，不能据此主张满足要求。",
+    risks: level === "direct" ? [] : hasConfirmedCapability ? ["new_fact_risk"] : hasMaturityGap ? ["skill_level_risk"] : level === "weak" ? ["low_confidence"] : [],
+    explanation: level === "direct" ? "已确认事实直接覆盖要求中的核心对象或资格。" : hasConfirmedCapability ? "该内容是用户确认的能力或当前简历声明，按部分覆盖计入；它不是带项目来源的已证明经历。" : hasMaturityGap ? "当前只有熟悉、基础接触或学习中的表述，不能作为已完成岗位经历。" : level === "strong_transferable" ? "证据所处场景不同，但任务机制与能力可明确迁移；不等同于已承担完整岗位职责。" : level === "partial" ? "已确认事实只覆盖该要求的一部分。" : "仅存在弱相关证据，不能据此主张满足要求。",
     confidence: Number(top[0].score.toFixed(2))
   });
 }

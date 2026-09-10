@@ -10,6 +10,18 @@ export const EntityBaseSchema = z.object({
 
 export const RiskLevelSchema = z.enum(["low", "medium", "high"]);
 
+/**
+ * Evidence strength is intentionally separate from confirmation. A user can
+ * confirm that they know or can use something without that statement being a
+ * demonstrated project or work outcome.
+ */
+export const FactMaturitySchema = z.enum([
+  "demonstrated",
+  "confirmed_capability",
+  "familiar",
+  "learning"
+]);
+
 export const FactSourceTypeSchema = z.enum([
   "demo",
   "imported_text",
@@ -138,7 +150,9 @@ export const FactStatementSchema = EntityBaseSchema.extend({
   category: FactCategorySchema,
   provenance: z.array(FactProvenanceSchema).min(1),
   confirmedByUser: z.boolean(),
-  riskLevel: RiskLevelSchema
+  riskLevel: RiskLevelSchema,
+  /** Optional for legacy records; new user declarations set this explicitly. */
+  maturity: FactMaturitySchema.optional()
 });
 
 export const SourceSpanSchema = z.object({
@@ -151,6 +165,7 @@ export const SourceSpanSchema = z.object({
 
 export type EntityBase = z.infer<typeof EntityBaseSchema>;
 export type RiskLevel = z.infer<typeof RiskLevelSchema>;
+export type FactMaturity = z.infer<typeof FactMaturitySchema>;
 export type FactSourceType = z.infer<typeof FactSourceTypeSchema>;
 export type PdfLocatorStatus = z.infer<typeof PdfLocatorStatusSchema>;
 export type PdfSourceLocator = z.infer<typeof PdfSourceLocatorSchema>;

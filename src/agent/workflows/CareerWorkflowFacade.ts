@@ -793,7 +793,8 @@ async function executeTailoringResumeFacade(
       resumeId: resolvedSourceResumeId,
       ...(jobId ? { jobId } : {}),
       ...(targetSnapshot ? { targetSnapshot } : {}),
-      ...(input.intensity ? { intensity: input.intensity } : {})
+      ...(input.intensity ? { intensity: input.intensity } : {}),
+      ...(input.mode ? { mode: input.mode } : {})
     }, callIndex++, internalContext);
     results.push(created);
     session = objectValue(objectValue(created.data).session);

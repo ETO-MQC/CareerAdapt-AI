@@ -72,6 +72,7 @@ export function extractTechnicalTerms(item: ResumeItemV2, text: string) {
 export function normalizeSkillGroups(skills: ResumeSkillEvidence[]) {
   const grouped = new Map<string, string[]>();
   for (const skill of skills) {
+    if (skill.maturity === "familiar" || skill.maturity === "learning") continue;
     const canonical = canonicalTechnicalTerm(skill.name) ?? skill.name.trim();
     const category = compactSkillCategory(technicalTermCategory(canonical) ?? skill.category);
     if (!canonical || !category || !isUsefulSkillName(canonical)) continue;

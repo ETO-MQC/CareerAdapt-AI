@@ -5,9 +5,10 @@ import { z } from "zod";
  * product phase.  Bumping this value is required whenever a published tool
  * schema changes so a stale Hermes tool surface cannot report Ready.
  */
-export const CAREER_TOOL_CONTRACT_VERSION = "career-tool-contract-v3";
+export const CAREER_TOOL_CONTRACT_VERSION = "career-tool-contract-v4";
 
 const CAREER_TARGET_PERSISTENCE_VALUES = ["ask", "save", "session_only"] as const;
+const CAREER_TAILORING_MODE_VALUES = ["steady", "competitive", "max_fit"] as const;
 
 export const TailorResumeUserAnswerSchema = z.union([
   z.string().trim().min(1).max(8_000),
@@ -18,6 +19,7 @@ export const TailorResumeUserAnswerSchema = z.union([
 const TailorResumePastedStartSchema = z.object({
   profileId: z.string().min(1).optional(),
   sourceResumeId: z.string().min(1).optional(),
+  mode: z.enum(CAREER_TAILORING_MODE_VALUES).optional(),
   targetText: z.string().trim().min(20).max(24_000),
   jobPersistence: z.enum(CAREER_TARGET_PERSISTENCE_VALUES).optional().default("ask"),
   /** Optional metadata retained for legacy structured-target callers. */
@@ -29,6 +31,7 @@ const TailorResumePastedStartSchema = z.object({
 const TailorResumeSavedJobStartSchema = z.object({
   profileId: z.string().min(1).optional(),
   sourceResumeId: z.string().min(1).optional(),
+  mode: z.enum(CAREER_TAILORING_MODE_VALUES).optional(),
   jobId: z.string().min(1)
 }).strict();
 
@@ -169,6 +172,7 @@ export function tailorResumeInputJsonSchema() {
       properties: {
         profileId: { type: "string", minLength: 1 },
         sourceResumeId: { type: "string", minLength: 1 },
+        mode: { type: "string", enum: [...CAREER_TAILORING_MODE_VALUES] },
         targetText: { type: "string", minLength: 20, maxLength: 24_000 },
         jobPersistence: { type: "string", enum: [...CAREER_TARGET_PERSISTENCE_VALUES] },
         targetTitle: { type: "string", minLength: 1, maxLength: 160 },
@@ -183,6 +187,7 @@ export function tailorResumeInputJsonSchema() {
       properties: {
         profileId: { type: "string", minLength: 1 },
         sourceResumeId: { type: "string", minLength: 1 },
+        mode: { type: "string", enum: [...CAREER_TAILORING_MODE_VALUES] },
         jobId: { type: "string", minLength: 1 }
       }
     },
@@ -215,7 +220,7 @@ export function tailorResumeInputJsonSchema() {
  * Hermes' embedded Browser/Host route has an authoritative same-turn target
  * captured from the user's external JD message. The model may therefore omit
  * targetText/jobId/checkpointId for the initial internal call; the adapter
- * injects the captured target before the v3 gateway schema is evaluated.
+ * injects the captured target before the v4 gateway schema is evaluated.
  * External MCP callers continue to receive tailorResumeInputJsonSchema().
  */
 export function tailorResumeInternalHermesInputJsonSchema() {
@@ -225,6 +230,7 @@ export function tailorResumeInternalHermesInputJsonSchema() {
     properties: {
       profileId: { type: "string", minLength: 1 },
       sourceResumeId: { type: "string", minLength: 1 },
+      mode: { type: "string", enum: [...CAREER_TAILORING_MODE_VALUES] },
       targetText: { type: "string", minLength: 20, maxLength: 24_000 },
       jobId: { type: "string", minLength: 1 },
       checkpointId: { type: "string", minLength: 1 },

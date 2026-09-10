@@ -27,6 +27,15 @@ function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { j
   let bulletRepairCount = 0;
   let bulletRejectedCount = 0;
   const seenBullets: string[] = [];
+  const reviewDiffs: Array<{
+    id: string;
+    kind: "remove" | "rewrite" | "verify" | "deduplicate" | "shorten";
+    itemId: string;
+    fieldPath: string;
+    before: string;
+    recommendation: string;
+    after?: string;
+  }> = [];
 
   const items = result.items.map((item) => {
     const data = item.data as unknown as Record<string, unknown>;
@@ -38,7 +47,15 @@ function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { j
     const before = bullets.length;
     bullets = dedupeCareerWriting(bullets);
     duplicateBullets += Math.max(0, before - bullets.length);
-    const candidateBullets = bullets.filter((bullet) => {
+    if (before > bullets.length) reviewDiffs.push({
+      id: `review-diff-${item.sourceAssetId}-deduplicate`,
+      kind: "deduplicate",
+      itemId: item.sourceAssetId,
+      fieldPath: "highlights",
+      before: `${before} 条候选 bullet`,
+      recommendation: "合并重复或近似重复表述，只保留信息量更高的一条。"
+    });
+    const candidateBullets = bullets.filter((bullet, bulletIndex) => {
       const filler = isFiller(bullet);
       if (filler) fillerBullets += 1;
       const rawOrNegative = isRawOrNegativeSpeech(bullet);
@@ -48,6 +65,30 @@ function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { j
       const duplicate = seenBullets.some((candidate) => writingOverlap(candidate, bullet) >= 0.72);
       if (duplicate) duplicateBullets += 1;
       else seenBullets.push(bullet);
+      if (filler || rawOrNegative) reviewDiffs.push({
+        id: `review-diff-${item.sourceAssetId}-${bulletIndex}-remove`,
+        kind: "remove",
+        itemId: item.sourceAssetId,
+        fieldPath: "highlights",
+        before: bullet,
+        recommendation: "移除内部草稿、口语或负向说明，不把它带入正式简历。"
+      });
+      else if (lowDensity) reviewDiffs.push({
+        id: `review-diff-${item.sourceAssetId}-${bulletIndex}-shorten`,
+        kind: "shorten",
+        itemId: item.sourceAssetId,
+        fieldPath: "highlights",
+        before: bullet,
+        recommendation: "补充动作、方法或结果；若没有可确认信息则不要扩写。"
+      });
+      else if (duplicate) reviewDiffs.push({
+        id: `review-diff-${item.sourceAssetId}-${bulletIndex}-duplicate`,
+        kind: "deduplicate",
+        itemId: item.sourceAssetId,
+        fieldPath: "highlights",
+        before: bullet,
+        recommendation: "与其他条目重复，保留最贴近岗位且证据最强的一条。"
+      });
       return !filler && !rawOrNegative && !lowDensity && !duplicate;
     });
     const repairedBullets = candidateBullets.length >= 2 || !allowRepair
@@ -60,8 +101,28 @@ function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { j
     if (typeof data.description === "string" && data.description.length > 180) paragraphHeavyItems += 1;
     const sourceText = sourceClaims.map((claim) => claim.text).join(" ");
     const displayIdentity = resolveCareerAssetDisplayIdentity(item.data).label;
-    if (sourceText && bullets.some((bullet) => !preservesOwnership(sourceText, bullet))) findings.push(`${displayIdentity}：职责表述需要再核对`);
-    if (item.data.sectionType === "project" && typeof data.description === "string" && data.description.trim()) findings.push(`${displayIdentity}：项目仍包含较长段落描述`);
+    if (sourceText && bullets.some((bullet) => !preservesOwnership(sourceText, bullet))) {
+      findings.push(`${displayIdentity}：职责表述需要再核对`);
+      reviewDiffs.push({
+        id: `review-diff-${item.sourceAssetId}-ownership`,
+        kind: "verify",
+        itemId: item.sourceAssetId,
+        fieldPath: "highlights",
+        before: bullets.find((bullet) => !preservesOwnership(sourceText, bullet)) ?? sourceText,
+        recommendation: "回到来源事实核对参与、协助、负责或主导的边界。"
+      });
+    }
+    if (item.data.sectionType === "project" && typeof data.description === "string" && data.description.trim()) {
+      findings.push(`${displayIdentity}：项目仍包含较长段落描述`);
+      reviewDiffs.push({
+        id: `review-diff-${item.sourceAssetId}-paragraph`,
+        kind: "shorten",
+        itemId: item.sourceAssetId,
+        fieldPath: "description",
+        before: data.description,
+        recommendation: "拆成 2–4 条事实 bullet，只保留动作、方法和结果。"
+      });
+    }
     return patchBullets(item.data, bullets);
   });
 
@@ -107,10 +168,11 @@ function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { j
     unsupportedClaimsBlocked: baseMetrics.unsupportedClaimsBlocked + (allowRepair ? unsupportedClaims : 0),
     atsRepairPassCount: baseMetrics.atsRepairPassCount + (allowRepair ? 1 : 0)
   };
-  const status = findings.some((finding) => /职责表述|项目仍包含|口语|ownership|paragraph|unsupported|density|semantic components/iu.test(finding)) ? "NEEDS_REVIEW" : "PASS";
+  const status = findings.some((finding) => /职责表述|项目仍包含|口语|ownership|paragraph|unsupported|density|semantic components|resume_quality|重复/iu.test(finding)) ? "NEEDS_REVIEW" : "PASS";
   const reviewResult = ResumeReviewResultSchema.parse({
     status,
     findings,
+    diffs: reviewDiffs,
     atsCoverage: finalKeywordCoverage(result.keywordCoverage, reviewedItems),
     metrics,
     revisedBulletCount: reviewedItems.reduce((sum, item) => sum + bulletCount(item), 0)

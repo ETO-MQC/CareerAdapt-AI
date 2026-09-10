@@ -84,6 +84,13 @@ retry the diagnostic step without modifying user content.
    and text-layer parity. Verify that the preview text layer matches the
    reviewed content before export.
 
+6. Return meaningful review diffs for each material change: remove, rewrite,
+   verify, deduplicate, or shorten, with item ID, field path, before text, and
+   recommendation. Flag maturity mismatches, mechanical AI wording, empty
+   adjectives, and job-description parroting separately from factual risk.
+   Preserve the source revision and never turn a review suggestion into a
+   Profile write.
+
 ## TOOL BOUNDARIES
 
 Review is read-only by default. Use

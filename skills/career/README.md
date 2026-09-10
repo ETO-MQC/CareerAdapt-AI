@@ -13,6 +13,24 @@ Each skill preserves these boundaries:
 - Mark uncertainty and ask for confirmation before a new fact appears in a resume, preview, or export.
 - Return structured work products plus source references, not only prose.
 
+P4.8a adds one shared maturity vocabulary across the six skills:
+`demonstrated` (已证明经历), `confirmed_capability` (用户确认能力),
+`familiar` (熟悉 / 基础接触), and `learning` (学习中 / 目标能力). A user
+confirmation is valid evidence for a capability even when no project
+provenance exists, but it must not be narrated as demonstrated experience.
+Every resume-facing claim keeps its maturity and bounded language.
+
+Resume work uses three explicit modes: `steady` / 稳健 uses demonstrated
+evidence only; `competitive` / 竞争力 is the default and may combine
+demonstrated evidence, confirmed capability, and clearly transferable work;
+`max_fit` / 最大匹配 may surface gaps and ask bounded questions, but never
+invents a hard fact. A confirmed tailoring claim defaults to the current
+resume branch; syncing it to Profile is always a separate explicit choice.
+
+The skills are reference-grounded but not a training or fine-tuning pipeline:
+future external corpus guidance may affect style or questions only, never
+candidate facts, branches, revisions, or exports.
+
 ## Skills
 
 1. `candidate-profile-interview` — ask the smallest useful next question and capture the answer against the active career asset.

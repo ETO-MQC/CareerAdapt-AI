@@ -2,9 +2,15 @@ import { expect, test, type Page } from "@playwright/test";
 
 type DbBranch = { id: string; revision: number; currentRevisionId?: string; sourceBranchId?: string; contentItems: Array<{ id: string; text: string }> };
 
-test("three tailoring intensities produce real deltas, apply a revision, and reject empty AI output", async ({ page }) => {
+test("three tailoring modes produce real deltas, apply a revision, and reject empty AI output", async ({ page }) => {
   test.setTimeout(240_000);
   await page.goto("/resume");
+  const skipSetup = page.getByRole("button", { name: "跳过，先体验其他功能" });
+  const setupVisible = await skipSetup.waitFor({ state: "visible", timeout: 5_000 }).then(() => true).catch(() => false);
+  if (setupVisible) {
+    await skipSetup.click();
+    await page.goto("/resume");
+  }
   await page.getByRole("button").filter({ hasText: "从个人资料库创建" }).click();
   await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 20_000 });
   await page.goto("/jobs");
@@ -25,9 +31,13 @@ test("three tailoring intensities produce real deltas, apply a revision, and rej
   const panel = page.getByTestId("job-optimization-panel");
   await expect(panel).toBeVisible();
   const results = new Map<string, string>();
-  for (const intensity of ["conservative", "balanced", "proactive"] as const) {
-    await panel.getByLabel("推荐改写力度").selectOption(intensity);
+  for (const mode of ["steady", "competitive", "max_fit"] as const) {
+    await panel.getByLabel("定制模式").selectOption(mode);
     await panel.getByRole("button", { name: /生成改写建议/ }).click();
+    while (await panel.getByRole("button", { name: "没有使用过", exact: true }).isVisible().catch(() => false)) {
+      await panel.getByRole("button", { name: "没有使用过", exact: true }).click();
+      await panel.getByRole("button", { name: "提交回答", exact: true }).click();
+    }
     const cards = panel.locator(".tailoring-suggestion-card");
     await expect(cards.first()).toBeVisible({ timeout: 60_000 });
     const deltas = await cards.evaluateAll((nodes) => nodes.map((node) => {
@@ -36,8 +46,8 @@ test("three tailoring intensities produce real deltas, apply a revision, and rej
     }));
     expect(deltas.length).toBeGreaterThan(0);
     expect(deltas.every((delta) => delta.after.length > 0 && delta.after !== delta.before)).toBe(true);
-    results.set(intensity, deltas.map((delta) => delta.after).join("\n"));
-    if (intensity !== "proactive") await panel.getByRole("button", { name: /1 匹配概览/ }).click();
+    results.set(mode, deltas.map((delta) => delta.after).join("\n"));
+    await panel.getByRole("button", { name: /1 匹配概览/ }).click();
   }
   expect(new Set(results.values()).size).toBe(3);
   await expect(panel.getByText("自我评价", { exact: true })).toBeVisible();
@@ -55,6 +65,7 @@ test("three tailoring intensities produce real deltas, apply a revision, and rej
     if (body.task !== "resume-tailor") return route.continue();
     await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, task: "resume-tailor", promptVersion: "resume-tailor.v2-empty-e2e", output: { suggestions: [] }, meta: { provider: "mock", model: "empty", inputLength: 1, outputLength: 1, latencyMs: 1 } }) });
   });
+  await panel.getByLabel("定制模式").selectOption("steady");
   await panel.getByRole("button", { name: /1 匹配概览/ }).click();
   await panel.getByRole("button", { name: /生成改写建议/ }).click();
   await expect(panel.getByRole("alert")).toContainText("AI 未生成有效改写", { timeout: 60_000 });

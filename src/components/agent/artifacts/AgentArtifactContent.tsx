@@ -875,7 +875,9 @@ function ProfileIntakeFinalReview({
                 const asset = assetById.get(candidate.id);
                 const candidateAccepted = candidate.status === "accepted" || candidate.decision === "accept";
                 const candidateIgnored = candidate.status === "ignored" || candidate.decision === "reject";
-                const candidateHighlights = asset?.highlights ?? stringArray(structuredItem.highlights);
+                const candidateHighlights = asset?.careerReadyHighlights?.length
+                  ? asset.careerReadyHighlights
+                  : asset?.highlights ?? stringArray(structuredItem.highlights);
                 return (
                   <article key={candidate.id} className="agent-final-review-item" data-candidate-id={candidate.id}>
                     <header>

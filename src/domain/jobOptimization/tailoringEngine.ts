@@ -19,6 +19,7 @@ import { ResumeTailorTaskInputV2Schema, type ResumeTailorTaskInputV2 } from "@/d
 import { tailoringTargetPriority } from "./confirmation";
 import { buildCandidateEvidenceUnits } from "./v2/evidence";
 import { resolveBranchFactRefs } from "@/domain/branch/validation";
+import { factMaturityOf } from "@/domain/profile/factMaturity";
 
 const GENERIC_REQUIREMENT = "负责AI领域的软件工程化和产品开发";
 const sectionOrder: Record<TailoringSectionPolicy, number> = { summary: 0, skills: 1, project: 2, work: 3, internship: 3, ordering: 4 };
@@ -299,14 +300,18 @@ export function buildTailoringEvidenceBundle(input: {
     .filter(({ unit, score }) => unit.supportLevel === "verified" && (score > 0 || unit.itemId === input.target.itemId))
     .sort((a, b) => (b.unit.itemId === input.target.itemId ? 1 : 0) - (a.unit.itemId === input.target.itemId ? 1 : 0) || b.score - a.score)
     .slice(0, 12);
-  const toFact = (entry: typeof ranked[number]) => ({ value: entry.unit.text, evidenceRefs: dedupeEvidenceRefs(resolveBranchFactRefs(input.profile, entry.unit.factRefs)) });
+  const toFact = (entry: typeof ranked[number]) => ({
+    value: entry.unit.text,
+    evidenceRefs: dedupeEvidenceRefs(resolveBranchFactRefs(input.profile, entry.unit.factRefs)),
+    ...(entry.unit.maturity ? { maturity: entry.unit.maturity } : {})
+  });
   const directEvidence = ranked.filter(({ unit }) => unit.itemId === input.target.itemId).map(toFact);
   const relatedResumeEvidence = ranked.filter(({ unit }) => unit.itemId !== input.target.itemId).map(toFact);
   const usedRefs = new Set([...directEvidence, ...relatedResumeEvidence].flatMap((fact) => fact.evidenceRefs).map((ref) => JSON.stringify(ref)));
   const relatedProfileEvidence = profileEvidenceFacts(input.profile).map((fact) => ({ ...fact, score: terms.reduce((score, term) => score + (normalize(fact.value).includes(normalize(term)) ? 1 : 0), 0) }))
     .filter((fact) => fact.score > 0 && fact.evidenceRefs.some((ref) => !usedRefs.has(JSON.stringify(ref))))
     .sort((a, b) => b.score - a.score).slice(0, Math.max(0, 12 - directEvidence.length - relatedResumeEvidence.length))
-    .map(({ value, evidenceRefs }) => ({ value, evidenceRefs }));
+    .map(({ value, evidenceRefs, maturity }) => ({ value, evidenceRefs, ...(maturity ? { maturity } : {}) }));
   return {
     directEvidence,
     relatedResumeEvidence,
@@ -362,9 +367,9 @@ function compactItemLine(branch: ResumeBranch, itemId: string) {
 function profileEvidenceFacts(profile: CareerProfile) {
   const confirmed = (fact: CareerProfile["experiences"][number]["facts"][number]) => fact.confirmedByUser && fact.riskLevel !== "high" && fact.provenance.some((item) => item.confirmedByUser);
   return [
-    ...profile.experiences.flatMap((experience) => experience.facts.filter(confirmed).map((fact) => ({ value: fact.statement, evidenceRefs: resolveBranchFactRefs(profile, [{ type: "experience_fact" as const, experienceId: experience.id, factId: fact.id }]) }))),
-    ...profile.skills.flatMap((skill) => skill.fact && confirmed(skill.fact) ? [{ value: skill.fact.statement, evidenceRefs: resolveBranchFactRefs(profile, [{ type: "skill_fact" as const, skillId: skill.id, factId: skill.fact.id }]) }] : []),
-    ...profile.certificates.flatMap((certificate) => certificate.fact && confirmed(certificate.fact) ? [{ value: certificate.fact.statement, evidenceRefs: resolveBranchFactRefs(profile, [{ type: "certificate_fact" as const, certificateId: certificate.id, factId: certificate.fact.id }]) }] : [])
+    ...profile.experiences.flatMap((experience) => experience.facts.filter(confirmed).map((fact) => ({ value: fact.statement, maturity: factMaturityOf(fact), evidenceRefs: resolveBranchFactRefs(profile, [{ type: "experience_fact" as const, experienceId: experience.id, factId: fact.id }]) }))),
+    ...profile.skills.flatMap((skill) => skill.fact && confirmed(skill.fact) ? [{ value: skill.fact.statement, maturity: factMaturityOf(skill.fact), evidenceRefs: resolveBranchFactRefs(profile, [{ type: "skill_fact" as const, skillId: skill.id, factId: skill.fact.id }]) }] : []),
+    ...profile.certificates.flatMap((certificate) => certificate.fact && confirmed(certificate.fact) ? [{ value: certificate.fact.statement, maturity: factMaturityOf(certificate.fact), evidenceRefs: resolveBranchFactRefs(profile, [{ type: "certificate_fact" as const, certificateId: certificate.id, factId: certificate.fact.id }]) }] : [])
   ];
 }
 

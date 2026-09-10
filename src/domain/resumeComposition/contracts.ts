@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ResumeItemV2Schema, type ResumeItemV2 } from "@/domain/schemas/resumeV2";
+import { FactMaturitySchema } from "@/domain/schemas/common";
 
 const StringListSchema = z.array(z.string().trim().min(1)).default([]);
 
@@ -61,6 +62,7 @@ export const ResumeEvidenceNodeSchema = z.object({
   factIds: StringListSchema,
   sourceTurnIds: StringListSchema,
   confirmationStatus: z.enum(["confirmed", "unconfirmed", "needs_confirmation"]),
+  maturity: FactMaturitySchema.optional(),
   ownershipStrength: z.number().int().min(0).max(6),
   sourceExcerpts: StringListSchema
 }).strict();
@@ -80,7 +82,8 @@ export const ResumeSkillEvidenceSchema = z.object({
   sourceAssetIds: StringListSchema,
   factIds: StringListSchema,
   evidenceNodeIds: StringListSchema,
-  evidenceCount: z.number().int().min(1)
+  evidenceCount: z.number().int().min(1),
+  maturity: FactMaturitySchema.optional()
 }).strict();
 export type ResumeSkillEvidence = z.infer<typeof ResumeSkillEvidenceSchema>;
 
@@ -283,6 +286,15 @@ export type ResumeCompositionMetrics = z.infer<typeof ResumeCompositionMetricsSc
 export const ResumeReviewResultSchema = z.object({
   status: z.enum(["PASS", "NEEDS_REVIEW"]),
   findings: z.array(z.string().min(1)),
+  diffs: z.array(z.object({
+    id: z.string().min(1),
+    kind: z.enum(["remove", "rewrite", "verify", "deduplicate", "shorten"]),
+    itemId: z.string().min(1),
+    fieldPath: z.string().min(1),
+    before: z.string().min(1),
+    recommendation: z.string().min(1),
+    after: z.string().min(1).optional()
+  }).strict()).default([]),
   atsCoverage: z.array(ResumeKeywordCoverageSchema),
   metrics: ResumeCompositionMetricsSchema,
   revisedBulletCount: z.number().int().min(0)

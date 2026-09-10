@@ -233,7 +233,7 @@ describe("P4.5c.1.20 production golden journey replay", () => {
       facadeArgumentShape: expect.any(Object),
       appBuildCommit: expect.not.stringMatching(/^unknown$/u),
       appBuildTimestamp: expect.not.stringMatching(/^unknown$/u),
-      careerToolContractVersion: "career-tool-contract-v3"
+      careerToolContractVersion: "career-tool-contract-v4"
     });
     const completeness: Record<string, unknown> = {
       ...protocolDiagnostics,

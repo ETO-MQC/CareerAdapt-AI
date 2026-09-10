@@ -20,6 +20,7 @@ describe("Tailoring Engine v2 regression", () => {
       });
 
       expect(result.plan).toBeDefined();
+      expect(result.plan!.mode).toBe(({ conservative: "steady", balanced: "competitive", proactive: "max_fit" } as const)[intensity]);
       expect(result.taskInputs?.every((request) => request.intensity === intensity)).toBe(true);
       expect(result.taskInputs?.every((request) => request.jobContext.rawText === jdText)).toBe(true);
       // Claims may be empty when the engine determines no valid rewrite is possible
@@ -28,6 +29,17 @@ describe("Tailoring Engine v2 regression", () => {
       }
     }
   );
+
+  it("defaults new sessions to competitive mode while keeping legacy intensity balanced", () => {
+    const result = createTailoringPlan({
+      profile: fixtureProfile(),
+      branch: fixtureBranch(),
+      job: fixtureJob(),
+      operationId: "default-competitive",
+      now: NOW
+    });
+    expect(result.plan).toMatchObject({ mode: "competitive", intensity: "balanced" });
+  });
 
   it("routes proactive tailoring through evidence-constrained model task inputs", () => {
     const proactive = createTailoringPlan({

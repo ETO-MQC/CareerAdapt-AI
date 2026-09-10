@@ -53,8 +53,8 @@ missing detail that can be handled as a visible conservative gap.
 
 ### QUESTION BUDGET
 
-Use zero questions when possible and no more than three normal clarification
-questions for one tailoring task.
+Use zero questions when possible; `steady` asks zero, `competitive` asks at
+most one highest-value question, and `max_fit` asks no more than three.
 
 ### WHEN TO PROCEED
 
@@ -74,6 +74,24 @@ write or silently change the source branch.
 Every proposal retains its checkpoint, source branch fingerprint, and base
 revision. A stale source, job, or Profile creates a new proposal; it never
 replays an old write.
+
+## TAILORING MODES
+
+Use one explicit mode for every new tailoring plan:
+
+- `steady` / 稳健: demonstrated experience only; do not ask gap questions.
+- `competitive` / 竞争力: the default; combine demonstrated experience,
+  user-confirmed capability, and clearly transferable evidence while keeping
+  maturity-bound wording.
+- `max_fit` / 最大匹配: surface important JD gaps and ask no more than three
+  bounded questions. For a missing capability, offer exactly these factual
+  choices: `实际做过`, `能够独立完成基础任务`, `接触 / 学习过`,
+  `没有使用过`, `不确定`, or `跳过`. The answer is not itself resume copy;
+  translate it into a bounded claim and keep it pending confirmation.
+
+Hard fact findings remain blocked in every mode. Familiar or learning answers
+may explain a gap or produce bounded, reviewable language, but never prove a
+completed project or ownership outcome.
 
 ## GAP SCORECARD
 

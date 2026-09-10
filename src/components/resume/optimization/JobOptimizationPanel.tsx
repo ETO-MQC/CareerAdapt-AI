@@ -13,6 +13,7 @@ import type {
   ResumeTailoringPlan,
   TailoringClaim,
   TailoringClarificationQuestion,
+  TailoringMode,
   TailoringIntensity,
   TailoringSuggestion
 } from "@/domain/schemas";
@@ -48,7 +49,7 @@ export function JobOptimizationPanel({
   setShowDebugPanel: (value: boolean | ((prev: boolean) => boolean)) => void;
 }) {
   const [view, setView] = useState<TailoringView>("overview");
-  const [intensity, setIntensity] = useState<TailoringIntensity>("balanced");
+  const [mode, setMode] = useState<TailoringMode>("competitive");
   const [plan, setPlan] = useState<ResumeTailoringPlan>();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmations, setConfirmations] = useState<Record<string, ClaimConfirmation>>({});
@@ -155,7 +156,7 @@ export function JobOptimizationPanel({
     setActiveQuestionId(undefined);
     setView("suggestions");
     try {
-      const result = createTailoringPlan({ profile: activeProfile, branch: activeBranch, job: activeJob, intensity, operationId: `plan-${activeBranch.id}-${activeBranch.revision}-${activeJob.id}` });
+      const result = createTailoringPlan({ profile: activeProfile, branch: activeBranch, job: activeJob, mode, operationId: `plan-${activeBranch.id}-${activeBranch.revision}-${activeJob.id}` });
       const taskInputs = result.taskInputs ?? [];
       if (!taskInputs.length) {
         onMessage("简历内容较少，无需改写。");
@@ -440,9 +441,9 @@ export function JobOptimizationPanel({
           <strong aria-label="岗位适配度">{report?.overallCoverage ?? 0}</strong>
         </header>
         {activeBranch.tailoringAppliedCount ? <div className="info-box" style={{ marginBottom: "0.5rem" }}><span>✅ 此简历已优化 {activeBranch.tailoringAppliedCount} 次，再次优化将基于当前内容重新生成建议。</span></div> : null}
-        <label className="field-label">推荐改写力度
-          <select value={intensity} onChange={(event) => setIntensity(event.target.value as TailoringIntensity)}>
-            <option value="conservative">保守对齐</option><option value="balanced">平衡强化</option><option value="proactive">主动定向</option>
+        <label className="field-label" aria-label="定制模式（原推荐改写力度）">定制模式
+          <select value={mode} onChange={(event) => setMode(event.target.value as TailoringMode)}>
+            <option value="steady">稳健：只用已证明经历</option><option value="competitive">竞争力：加入确认能力</option><option value="max_fit">最大匹配：补问岗位缺口</option>
           </select>
         </label>
         <div className="tailoring-score-grid">
@@ -450,7 +451,7 @@ export function JobOptimizationPanel({
         </div>
         <ResultList title="你的优势" items={(report?.coveredRequirementDescriptions ?? []).slice(0, 4).map((description) => `匹配能力：${description}`)} empty="暂未识别到可直接证明的岗位优势" />
         <ResultList title="主要缺口" items={(report?.uncoveredRequirementDescriptions ?? []).slice(0, 4).map((description) => `尚无直接证据：${description}`)} empty="暂未发现明显缺口" />
-        <div className="info-box"><strong>推荐策略</strong><p>{strategyCopy(intensity)}</p></div>
+        <div className="info-box"><strong>当前策略</strong><p>{strategyCopy(mode)}</p></div>
         <button className="primary-button" type="button" disabled={pending || !canEdit} onClick={() => { void generatePlan(); }}><Sparkles size={16} />生成改写建议</button>
       </div> : null}
 
@@ -463,7 +464,7 @@ export function JobOptimizationPanel({
             可直接改写 {plannerAssessment.direct} 项 · 确认后可加入 {plannerAssessment.confirmable} 项 · 需要回答 {plannerAssessment.clarification} 项 · 建议准备材料 {plannerAssessment.materials} 项 · 保持不变 {plannerAssessment.keep} 项
           </p>
         </div> : null}
-        {activeQuestion ? <section className="tailoring-suggestion-group"><h3>需要你回答</h3><p>一次只展开一个问题；否定回答会被记录，且不会重复询问。</p><article key={activeQuestion.id} className="tailoring-suggestion-card"><div className="tailoring-question-progress"><strong>问题 {activeQuestionPosition} / {allQuestions.length}</strong><span>已完成 {completedQuestionIds.size}</span><span>剩余 {unansweredQuestions.length}</span></div><strong>{activeQuestion.question}</strong>{activeQuestion.answerType === "proficiency" ? <div className="chip-row" aria-label="选择真实熟练度">{["熟练使用", "熟悉基础", "了解", "正在学习", "没有使用"].map((option) => <button type="button" key={option} className={clarificationAnswer === option ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer(option)}>{option}</button>)}</div> : activeQuestion.answerType === "boolean" ? <div className="chip-row">{["有", "没有"].map((option) => <button type="button" key={option} className={clarificationAnswer === (option === "有") ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer(option === "有")}>{option}</button>)}</div> : activeQuestion.answerType === "multi_select" ? <div className="chip-row" aria-label="选择适用项">{clarificationOptions(activeQuestion).map((option) => <button type="button" key={option.id} className={Array.isArray(clarificationAnswer) && clarificationAnswer.includes(option.value) ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer((current) => { const values = Array.isArray(current) ? current : []; return values.includes(option.value) ? values.filter((value) => value !== option.value) : [...values, option.value]; })}>{option.label}</button>)}</div> : <label className="field-label" htmlFor={`clarification-${activeQuestion.id}`}>{activeQuestion.answerType === "url" ? "链接" : "你的回答"}<input id={`clarification-${activeQuestion.id}`} name={`clarification-${activeQuestion.id}`} type={activeQuestion.answerType === "url" ? "url" : "text"} autoComplete="off" value={typeof clarificationAnswer === "string" ? clarificationAnswer : ""} onChange={(event) => setClarificationAnswer(event.target.value)} /></label>}<button type="button" className="primary-button" onClick={submitClarificationAnswer}>提交回答</button></article></section> : <div className="info-box" aria-live="polite"><strong>所有问题已回答完毕</strong><p>现在可以继续生成改写建议了。</p></div>}
+        {activeQuestion ? <section className="tailoring-suggestion-group"><h3>需要你回答</h3><p>一次只展开一个问题；否定回答会被记录，且不会重复询问。</p><article key={activeQuestion.id} className="tailoring-suggestion-card"><div className="tailoring-question-progress"><strong>问题 {activeQuestionPosition} / {allQuestions.length}</strong><span>已完成 {completedQuestionIds.size}</span><span>剩余 {unansweredQuestions.length}</span></div><strong>{activeQuestion.question}</strong>{activeQuestion.answerType === "proficiency" ? <div className="chip-row" aria-label="选择真实熟练度">{["熟练使用", "熟悉基础", "了解", "正在学习", "没有使用"].map((option) => <button type="button" key={option} className={clarificationAnswer === option ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer(option)}>{option}</button>)}</div> : activeQuestion.answerType === "boolean" ? <div className="chip-row">{["有", "没有"].map((option) => <button type="button" key={option} className={clarificationAnswer === (option === "有") ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer(option === "有")}>{option}</button>)}</div> : activeQuestion.answerType === "single_select" ? <div className="chip-row" aria-label="选择你的实际程度">{clarificationOptions(activeQuestion).map((option) => <button type="button" key={option.id} className={clarificationAnswer === option.value ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer(option.value)}>{option.label}</button>)}</div> : activeQuestion.answerType === "multi_select" ? <div className="chip-row" aria-label="选择适用项">{clarificationOptions(activeQuestion).map((option) => <button type="button" key={option.id} className={Array.isArray(clarificationAnswer) && clarificationAnswer.includes(option.value) ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer((current) => { const values = Array.isArray(current) ? current : []; return values.includes(option.value) ? values.filter((value) => value !== option.value) : [...values, option.value]; })}>{option.label}</button>)}</div> : <label className="field-label" htmlFor={`clarification-${activeQuestion.id}`}>{activeQuestion.answerType === "url" ? "链接" : "你的回答"}<input id={`clarification-${activeQuestion.id}`} name={`clarification-${activeQuestion.id}`} type={activeQuestion.answerType === "url" ? "url" : "text"} autoComplete="off" value={typeof clarificationAnswer === "string" ? clarificationAnswer : ""} onChange={(event) => setClarificationAnswer(event.target.value)} /></label>}<button type="button" className="primary-button" onClick={submitClarificationAnswer}>提交回答</button></article></section> : <div className="info-box" aria-live="polite"><strong>所有问题已回答完毕</strong><p>现在可以继续生成改写建议了。</p></div>}
         <div className="action-row">
           <button className="secondary-button" onClick={() => { setPlan(undefined); setPlannerAssessment(undefined); setSelected(new Set()); setPendingTaskInputs([]); setPendingBasePlan(undefined); setView("overview"); }}>弃用建议</button>
           <button className="secondary-button" onClick={() => setView("overview")}><ChevronLeft size={16} />返回概览</button>
@@ -581,7 +582,7 @@ function clarificationOptions(question: TailoringClarificationQuestion) {
     { id: "skip", label: "跳过", value: "跳过" }
   ];
 }
-function strategyCopy(intensity: TailoringIntensity) { return intensity === "conservative" ? "对齐关键词、压缩句子并调整顺序，不产生新能力陈述。" : intensity === "balanced" ? "用岗位语言重组真实经历；合理推导项集中确认后再应用。" : "更主动地重构相关内容并建议能力项；所有非直接依据内容都需确认。"; }
+function strategyCopy(mode: TailoringMode) { return mode === "steady" ? "只重组已证明的经历和结果；不新增能力陈述。" : mode === "competitive" ? "优先呈现已证明经历，并把用户确认的可迁移能力集中标为待确认项。" : "主动识别岗位缺口并最多追问三项；熟悉或学习中的能力不会写成已证明经历。"; }
 function decisionLabel(claim: TailoringClaim) { return claim.decision === "auto_applicable" ? "可直接采用" : claim.decision === "blocked" ? "不能添加硬事实" : claim.supportLevel === "reasonable_inference" ? "不建议但可确认" : "需要确认"; }
 function requirementText(job: JobDescription, id: string) { return job.requirements.find((item) => item.id === id)?.description ?? "这项岗位要求暂未在简历中体现"; }
 function suggestionStatusGroups(claims: TailoringClaim[]) {

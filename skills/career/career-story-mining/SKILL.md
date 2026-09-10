@@ -77,6 +77,16 @@ smallest clarification needed to re-anchor the proposal.
 4. Split multiple assets only when the source gives each a clear identity;
    otherwise ask one clarifying question.
 
+## REUSABLE FACT OUTPUT
+
+Attach a maturity label to every candidate fact. Prefer demonstrated facts for
+story results; record a user-confirmed capability as capability evidence even
+without project provenance; keep familiar and learning statements explicitly
+bounded. When evidence supports it, return three to four compact reusable
+bullets copied from exact source-grounded statements, with fact/source IDs and
+source quotes. These bullets are review material only and cannot be written to
+Profile or a Resume until the existing confirmation contract is invoked.
+
 ## TOOL BOUNDARIES
 
 Return a proposal for the host to validate. Use

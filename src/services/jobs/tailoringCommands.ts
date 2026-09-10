@@ -12,6 +12,7 @@ import {
   ResumeTailoringPlanSchema,
   TailoringGapSchema,
   TailoringIntensitySchema,
+  TailoringModeSchema,
   type ResumeTailoringDiff,
   type ResumeTailoringDiffModelOutput,
   type ResumeTailoringDiffTaskInput,
@@ -69,7 +70,8 @@ export const CreateTailoringSessionCommandInputSchema = z.object({
   branch: ResumeBranchSchema,
   job: JobDescriptionSchema,
   targetSnapshot: JobTargetSnapshotSchema.optional(),
-  intensity: TailoringIntensitySchema.optional()
+  intensity: TailoringIntensitySchema.optional(),
+  mode: TailoringModeSchema.optional()
 }).strict();
 
 export const CreateTailoringSessionCommandOutputSchema = z.object({
@@ -163,6 +165,7 @@ export function createTailoringSessionCommand(input: z.input<typeof CreateTailor
     branch: parsed.branch,
     job: parsed.job,
     intensity: parsed.intensity,
+    mode: parsed.mode,
     operationId: parsed.operationId
   });
   if (!planned.plan || !planned.taskInputs) throw commandError("tailoring_plan_unavailable");
@@ -176,7 +179,8 @@ export function createTailoringSessionCommand(input: z.input<typeof CreateTailor
   const questionPlan = createTailoringQuestionPlan({
     sessionId,
     questions: selectedQuestions,
-    now: planned.plan.createdAt
+    now: planned.plan.createdAt,
+    mode: planned.plan.mode
   });
   const selectedIds = new Set(questionPlan.questionIds);
   const plan = ResumeTailoringPlanSchema.parse({
@@ -475,7 +479,8 @@ function buildTailoringAnswerContext(session: TailoringSession) {
       questionId: answer.questionId,
       value,
       requirementIds: question.requirementIds,
-      ...(answer.proficiency ? { proficiency: answer.proficiency } : {})
+      ...(answer.proficiency ? { proficiency: answer.proficiency } : {}),
+      ...(answer.maturity ? { maturity: answer.maturity } : {})
     } satisfies TailoringUserDeclaration;
     if (answer.status === "accepted") declarations.confirmedUserDeclarations.push(declaration);
     if (answer.status === "rejected") declarations.negativeUserDeclarations.push(declaration);

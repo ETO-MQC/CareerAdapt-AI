@@ -8,7 +8,6 @@ import {
   createResumeTailorTaskInputs,
   evaluateRequirementEvidence,
   recallEvidenceCandidates,
-  recommendedTailoringIntensity,
   validateTailoringDelta
 } from "@/domain/jobOptimization";
 import { buildConfirmableClaim, resolveConfirmableClaim } from "@/domain/jobOptimization/confirmation";
@@ -17,6 +16,7 @@ import {
   capabilityIsMaterialOnly,
   captureAndDedupeTailoringClaims,
   dedupeTailoringClaims,
+  normalizeCapabilityLabel,
   pickProficiencyCapability,
   resolveCapabilityEntities,
   tailoringValueHash,
@@ -37,15 +37,19 @@ import type {
   TailoringClarificationQuestion,
   TailoringQuestionAnswerReceipt,
   TailoringQuestionPlan,
+  TailoringMode,
   TailoringIntensity,
   TailoringSuggestion
 } from "@/domain/schemas";
 import {
   ClarificationAnswerRecordSchema,
+  CapabilityEntitySchema,
+  intensityForTailoringMode,
   ResumeTailoringPlanSchema,
   TailoringQuestionAnswerReceiptSchema,
   TailoringQuestionPlanSchema,
-  TailoringSuggestionSchema
+  TailoringSuggestionSchema,
+  tailoringModeForIntensity
 } from "@/domain/schemas";
 import { resolveBranchFactRefs } from "@/domain/branch/validation";
 import { promptVersions } from "@/ai/prompts/versions";
@@ -53,6 +57,7 @@ import { stableHashText } from "@/services/security/text";
 import type { WorkspaceRepository } from "@/services/storage/repositories";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import { resolveTailoringClaimPolicy } from "@/domain/jobOptimization/tailoringClaimPolicy";
+import { maturityForTailoringAnswer } from "@/domain/profile/factMaturity";
 
 export type ClaimConfirmationGroup = {
   id: string;
@@ -90,12 +95,14 @@ export function createTailoringPlan(input: {
   branch: ResumeBranch;
   job: JobDescription;
   intensity?: TailoringIntensity;
+  mode?: TailoringMode;
   operationId: string;
   now?: string;
 }): TailoringServiceResult {
   const analyzed = analyzeJobFit(input);
   const report = analyzed.report!;
-  const intensity = input.intensity ?? recommendedTailoringIntensity(report.overallCoverage);
+  const mode = input.mode ?? (input.intensity ? tailoringModeForIntensity(input.intensity) : "competitive");
+  const intensity = input.intensity ?? intensityForTailoringMode(mode);
   const jobContext = buildTailoringJobContext(input.job);
   const taskInputs = createResumeTailorTaskInputs({
     draftId: `tailoring-draft-${input.branch.id}`,
@@ -118,12 +125,13 @@ export function createTailoringPlan(input: {
     branch: input.branch,
     jobId: input.job.id
   });
-  const clarificationQuestions = buildClarificationQuestions({ job: input.job, taskInputs });
+  const clarificationQuestions = buildClarificationQuestions({ job: input.job, taskInputs, mode });
   const plan = ResumeTailoringPlanSchema.parse({
     id: `tailoring-plan-${stableHashText(input.operationId)}`,
     branchId: input.branch.id,
     jobId: input.job.id,
     intensity,
+    mode,
     promptVersion: promptVersions.resumeTailoringDiff,
     jobContext,
     basedOnBranchRevision: input.branch.revision,
@@ -140,7 +148,7 @@ export function createTailoringPlan(input: {
   const confirmationGroups = buildConfirmationGroups(plan.claims);
   return {
     status: confirmationGroups.length ? "needs_confirmation" : "ready",
-    summary: `已生成 ${claims.length} 条${intensityLabel(intensity)}建议。`,
+    summary: `已生成 ${claims.length} 条${tailoringModeLabel(mode)}建议。`,
     report,
     plan,
     confirmationGroups,
@@ -372,6 +380,10 @@ export function answerTailoringClarification(input: {
   const skipped = disposition === "skipped";
   const uncertain = disposition === "uncertain";
   const rejected = disposition === "none";
+  const answerText = Array.isArray(input.answer) ? input.answer.join("、") : String(input.answer);
+  const answerMaturity = typeof input.answer === "string"
+    ? maturityForTailoringAnswer(answerText, input.proficiency)
+    : undefined;
   const previous = input.plan.clarificationAnswers?.find((record) => record.questionId === input.question.id);
   if (previous?.operationId && input.operationId && previous.operationId === input.operationId) {
     return ResumeTailoringPlanSchema.parse(input.plan);
@@ -382,6 +394,7 @@ export function answerTailoringClarification(input: {
     status: skipped ? "skipped" : uncertain ? "uncertain" : rejected ? "rejected" : "accepted",
     answer: skipped ? undefined : input.answer,
     proficiency: input.proficiency,
+    maturity: answerMaturity,
     evidenceQuote: typeof normalizedAnswer === "string" ? normalizedAnswer : undefined,
     answerRevision: (previous?.answerRevision ?? 0) + 1,
     operationId: input.operationId,
@@ -424,6 +437,7 @@ export function answerTailoringClarification(input: {
             status: skipped ? "skipped" : "answered",
             answer: skipped ? undefined : input.answer,
             proficiency: input.proficiency,
+            maturity: answerMaturity,
             evidenceQuote: typeof normalizedAnswer === "string" ? normalizedAnswer : undefined,
             answeredAt: resolvedAt,
             updatedAt: resolvedAt
@@ -436,10 +450,12 @@ export function answerTailoringClarification(input: {
   };
   if (rejected || skipped || uncertain) return withAnswerRecord(input.plan);
   if (input.question.targetPolicy === "material_only") return withAnswerRecord(input.plan);
-  const answerText = Array.isArray(input.answer) ? input.answer.join("、") : String(input.answer);
   const answerCapabilities = resolveCapabilityEntities({ userAnswers: Array.isArray(input.answer) ? input.answer : [answerText] });
   const capability = input.question.capability ?? pickProficiencyCapability(answerCapabilities);
   if (input.question.answerType === "proficiency" && !capabilityAllowsProficiency(capability)) {
+    return withAnswerRecord(input.plan);
+  }
+  if (input.question.answerType === "single_select" && !answerMaturity) {
     return withAnswerRecord(input.plan);
   }
   const sourceItemId = targetItemForQuestion(input.plan, input.question);
@@ -480,6 +496,19 @@ export function answerTailoringClarification(input: {
       learning: `正在学习 ${tool} 等相关工具或方法在真实任务中的应用。`
     };
     resolved = finalTextByProficiency[input.proficiency];
+  } else if (input.question.answerType === "single_select") {
+    const capabilityLabel = capability?.label ?? label;
+    finalTextByProficiency = {
+      proficient: `实际使用 ${capabilityLabel} 完成相关任务、问题定位与结果交付。`,
+      familiar: `熟悉 ${capabilityLabel} 的基本使用方式，并接触过相关任务。`,
+      aware: `了解 ${capabilityLabel} 的基本工作方式。`,
+      learning: `正在学习 ${capabilityLabel} 在真实任务中的应用。`
+    };
+    resolved = answerMaturity === "confirmed_capability"
+      ? finalTextByProficiency.proficient
+      : answerMaturity === "familiar"
+        ? finalTextByProficiency.familiar
+        : finalTextByProficiency.learning;
   } else {
     resolved = answerText;
   }
@@ -493,6 +522,7 @@ export function answerTailoringClarification(input: {
       ? answerCapabilities.filter(capabilityAllowsProficiency).map((item) => item.label)
       : capability ? [capability.label] : [answerText],
     requirementIds: input.question.requirementIds, supportLevel: "user_declared", decision: "requires_confirmation", confirmed: false, syncScope: "resume_only",
+    maturity: answerMaturity,
     capability, targetPolicy: input.question.targetPolicy,
     reason: `根据你对"${input.question.question}"的回答生成，应用前仍需确认最终文本。`
   }, input.plan.basedOnRevisionId);
@@ -649,6 +679,7 @@ export function tailoringAnswerRevisionHash(plan: Pick<ResumeTailoringPlan, "cla
       status: answer.status,
       answer: answer.answer,
       proficiency: answer.proficiency,
+      maturity: answer.maturity,
       answerRevision: answer.answerRevision
     }));
   return stableHashText(JSON.stringify(answers));
@@ -869,7 +900,9 @@ export function confirmTailoringClaims(input: { plan: ResumeTailoringPlan; confi
   };
 }
 
-export function buildClarificationQuestions(input: { job: JobDescription; taskInputs: ResumeTailorTaskInputV2[] }) {
+export function buildClarificationQuestions(input: { job: JobDescription; taskInputs: ResumeTailorTaskInputV2[]; mode?: TailoringMode }) {
+  const mode = input.mode ?? "max_fit";
+  if (mode === "steady") return [];
   const graph = buildCanonicalJobRequirementGraphV3(input.job);
   const candidates = graph.requirements
     .filter((node) => node.priority === "must" || node.priority === "high")
@@ -897,19 +930,31 @@ export function buildClarificationQuestions(input: { job: JobDescription; taskIn
     });
     if (hasEvidence) return [];
     const related = (directlyRelated.length ? directlyRelated : fallbackTargets).slice(0, 4);
-    const sourceItemIds = [...new Set(related.map((item) => item.target.itemId ?? item.target.sectionId))];
-    const targetFieldPaths = [...new Set(related.map((item) => item.target.fieldPath))];
-    if (!sourceItemIds.length || !targetFieldPaths.length) return [];
     const entities = resolveCapabilityEntities({
       job: input.job,
       requirements: [requirementText],
       keywords: requirement.exactKeywords
     });
-    const capability = pickProficiencyCapability(entities) ?? entities.find((item) => item.source === "requirement");
+    const requirementCapability = entities.find((item) => item.source === "requirement");
+    const capability = pickProficiencyCapability(entities)
+      ?? (requirementCapability && capabilityIsMaterialOnly(requirementCapability)
+        ? requirementCapability
+        : mode === "max_fit" && ["core_competency", "required_skill", "tool_or_technology", "responsibility"].includes(requirement.kind)
+          ? fallbackRequirementCapability(requirement.exactKeywords)
+          : requirementCapability);
+    const skillTarget = mode === "max_fit" && capabilityAllowsProficiency(capability)
+      ? input.taskInputs.find((item) => item.target.sectionType === "skills")
+      : undefined;
+    const targetRelated = skillTarget ? [skillTarget] : related;
+    const sourceItemIds = [...new Set(targetRelated.map((item) => item.target.itemId ?? item.target.sectionId))];
+    const targetFieldPaths = [...new Set(targetRelated.map((item) => item.target.fieldPath))];
+    if (!sourceItemIds.length || !targetFieldPaths.length) return [];
     const materialOnly = capabilityIsMaterialOnly(capability);
-    const singleTarget = related.length === 1 ? related[0] : undefined;
+    const singleTarget = targetRelated.length === 1 ? targetRelated[0] : undefined;
     const targetPolicy = materialOnly
       ? "material_only" as const
+      : mode === "max_fit" && capabilityAllowsProficiency(capability)
+        ? "skill_once" as const
       : singleTarget?.target.sectionType === "summary"
         ? "summary_once" as const
         : singleTarget?.target.sectionType === "skills"
@@ -917,18 +962,22 @@ export function buildClarificationQuestions(input: { job: JobDescription; taskIn
           : singleTarget
             ? "specific_item" as const
             : capabilityAllowsProficiency(capability) ? "skill_once" as const : "summary_once" as const;
-    const inferredAnswerType = clarificationAnswerType(requirementText, capability);
-    const expectedImpact = related.some((item) => item.target.sectionType === "summary")
+    const inferredAnswerType = mode === "max_fit" && capabilityAllowsProficiency(capability)
+      ? "single_select" as const
+      : clarificationAnswerType(requirementText, capability);
+    const expectedImpact = targetRelated.some((item) => item.target.sectionType === "summary")
       ? "summary" as const
-      : related.some((item) => item.target.sectionType === "skills")
+      : targetRelated.some((item) => item.target.sectionType === "skills")
         ? "skills" as const
-        : related.some((item) => item.target.sectionType === "project")
+        : targetRelated.some((item) => item.target.sectionType === "project")
           ? "project" as const
           : "multiple" as const;
     const capabilityCluster = inferCapabilityCluster(requirementText, capability?.normalizedLabel);
     return [{
       id: `clarification-${requirement.id}-${index + 1}`,
-      question: group?.relation === "any_of" ? `以下 ${group.requirementIds.length} 项满足任一项即可；你具备其中哪一项真实经历或可核验材料？` : `你是否具备"${requirementText}"相关的真实经历或可核验材料？`,
+      question: mode === "max_fit"
+        ? `为了提高与“${requirementText}”的匹配度，你的实际情况是哪一种？`
+        : group?.relation === "any_of" ? `以下 ${group.requirementIds.length} 项满足任一项即可；你具备其中哪一项真实经历或可核验材料？` : `你是否具备"${requirementText}"相关的真实经历或可核验材料？`,
       requirementText,
       requirementCategory: requirement.kind,
       requirementPriority: requirement.priority,
@@ -943,15 +992,21 @@ export function buildClarificationQuestions(input: { job: JobDescription; taskIn
       capability,
       capabilityCluster,
       targetPolicy,
+      mode,
       answerType: inferredAnswerType === "proficiency" && !capabilityAllowsProficiency(capability) ? "text" as const : inferredAnswerType,
-      options: defaultQuestionOptions(inferredAnswerType, isEvidenceFirstQuestion(requirementText)),
+      options: inferredAnswerType === "single_select"
+        ? maxFitQuestionOptions()
+        : defaultQuestionOptions(inferredAnswerType, isEvidenceFirstQuestion(requirementText)),
       expectedImpact,
       priorityScore: (requirement.priority === "must" ? 50 : 35) + requirement.exactKeywords.length + (expectedImpact === "summary" ? 20 : expectedImpact === "skills" ? 16 : 8),
       status: "pending" as const,
       updatedAt: new Date().toISOString()
     }];
   });
-  return selectHighValueClarificationQuestions(dedupeClarificationQuestions(questions, input.job.id), 3);
+  return selectHighValueClarificationQuestions(
+    dedupeClarificationQuestions(questions, input.job.id),
+    mode === "max_fit" ? 3 : 1
+  );
 }
 
 function isMaterialTailoringRequirement(statement: string) {
@@ -1030,10 +1085,13 @@ export function createTailoringQuestionPlan(input: {
   now?: string;
   defaultBudget?: number;
   maximumBudget?: number;
+  mode?: TailoringMode;
 }): TailoringQuestionPlan {
   const now = input.now ?? new Date().toISOString();
-  const maximumBudget = Math.max(0, Math.min(5, input.maximumBudget ?? 5));
-  const defaultBudget = Math.max(0, Math.min(maximumBudget, input.defaultBudget ?? 3));
+  const modeDefaultBudget = input.mode === "steady" ? 0 : input.mode === "competitive" ? 1 : 3;
+  const modeMaximumBudget = input.mode === "steady" ? 0 : input.mode === "competitive" ? 1 : 5;
+  const maximumBudget = Math.max(0, Math.min(5, input.maximumBudget ?? modeMaximumBudget));
+  const defaultBudget = Math.max(0, Math.min(maximumBudget, input.defaultBudget ?? modeDefaultBudget));
   const selected = selectHighValueClarificationQuestions(input.questions, defaultBudget);
   const questionIds = selected.map((question) => question.id);
   return TailoringQuestionPlanSchema.parse({
@@ -1110,6 +1168,19 @@ function shortQuestionLabel(statement: string) {
   return statement.replace(/[。；;，,].*$/u, "").trim().slice(0, 28) || "岗位相关经验";
 }
 
+function fallbackRequirementCapability(keywords: string[]) {
+  const label = keywords.find((keyword) => /[A-Za-z\u4e00-\u9fa5][\w+#./-]{1,}/u.test(keyword.trim()))?.trim();
+  if (!label) return undefined;
+  const normalizedLabel = normalizeCapabilityLabel(label);
+  return CapabilityEntitySchema.parse({
+    id: `capability-${stableHashText(`${normalizedLabel}:skill:requirement`)}`,
+    label,
+    normalizedLabel,
+    type: "skill",
+    source: "requirement"
+  });
+}
+
 function defaultQuestionOptions(answerType: ReturnType<typeof clarificationAnswerType>, evidenceFirst = false) {
   if (evidenceFirst) return [
     { id: "evidence", label: "有相关经历", value: "有相关经历" },
@@ -1135,6 +1206,17 @@ function defaultQuestionOptions(answerType: ReturnType<typeof clarificationAnswe
   ];
   return [
     { id: "none", label: "没有", value: "没有" },
+    { id: "uncertain", label: "不确定", value: "不确定" },
+    { id: "skip", label: "跳过", value: "跳过" }
+  ];
+}
+
+function maxFitQuestionOptions() {
+  return [
+    { id: "demonstrated", label: "实际做过", value: "实际做过" },
+    { id: "confirmed_capability", label: "能够独立完成基础任务", value: "能够独立完成基础任务" },
+    { id: "familiar", label: "接触 / 学习过", value: "接触 / 学习过" },
+    { id: "none", label: "没有使用过", value: "没有使用过" },
     { id: "uncertain", label: "不确定", value: "不确定" },
     { id: "skip", label: "跳过", value: "跳过" }
   ];
@@ -1217,8 +1299,8 @@ function buildConfirmationGroups(claims: TailoringClaim[]): ClaimConfirmationGro
   }];
 }
 
-function intensityLabel(intensity: TailoringIntensity) {
-  return ({ conservative: "保守对齐", balanced: "平衡强化", proactive: "主动定向" } as const)[intensity];
+function tailoringModeLabel(mode: TailoringMode) {
+  return ({ steady: "稳健", competitive: "竞争力", max_fit: "最大匹配" } as const)[mode];
 }
 
 function renderSuggestionValue(value: string | string[]) {

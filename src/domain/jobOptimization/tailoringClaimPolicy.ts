@@ -2,6 +2,7 @@ import type {
   ClaimDecision,
   FactGuardFinding,
   FactGuardResult,
+  FactMaturity,
   RiskLevel,
   TailoringClaimClass,
   TailoringIntensity,
@@ -28,6 +29,7 @@ export function resolveTailoringClaimPolicy(input: {
   guardResult: FactGuardResult;
   sectionType: TailoringSectionPolicy;
   intensity: TailoringIntensity;
+  maturity?: FactMaturity;
 }): TailoringClaimPolicyResult {
   const findings = input.guardResult.ruleFindings.filter((finding) => !finding.allowed);
   const blockingFindings = findings.filter((finding) => HARD_FACT.has(finding.type));
@@ -35,7 +37,7 @@ export function resolveTailoringClaimPolicy(input: {
   if (input.suggestion.claimSupportLevel === "unsupported_hard_fact" || blockingFindings.length) {
     return { claimClass: "unsupported_hard_fact", decision: "blocked", riskLevel: "high", confirmationKind: "none", blockingFindings, confirmableFindings };
   }
-  if (confirmableFindings.length || input.suggestion.claimSupportLevel === "user_declared") {
+  if (confirmableFindings.length || input.suggestion.claimSupportLevel === "user_declared" || input.maturity && input.maturity !== "demonstrated") {
     return { claimClass: "user_confirmable_capability", decision: "requires_confirmation", riskLevel: "medium", confirmationKind: "capability", blockingFindings: [], confirmableFindings };
   }
   if (input.suggestion.claimSupportLevel === "reasonable_inference" || findings.length) {

@@ -62,6 +62,11 @@ any saved-job or external-target Resume.
 - Aggregate technical skills only from explicit, confirmed tools, methods, or
   source evidence. Preserve source asset IDs, fact IDs, excerpts, and turn IDs.
   Do not infer proficiency, ownership, metrics, or PostgreSQL from SQLite/SQLx.
+- Carry fact maturity into the evidence graph and writing proposal. General
+  resume content may use demonstrated evidence and user-confirmed capability
+  with bounded wording; familiar/basic and learning/aspirational entries stay
+  out of automatic experience claims until the user explicitly confirms a
+  resume-safe statement.
 - Preserve ownership wording such as `协助`, `参与`, and `共同负责`.
  - Compile substantial projects into a header, optional tech-stack row, and
    two to four concise bullets. Do not persist recovered tools or author roles
@@ -81,6 +86,12 @@ coverage, section balance, and one-page density. After the draft, perform one
 bounded safe ATS repair for a supported-but-missing exact concept, then Fact
 Guard, Reviewer, and ATS re-check. Cut low-relevance lines before changing
 safe typography.
+
+The proposal should expose three to four reusable confirmed fact bullets when
++the Profile evidence supports them. Preserve exact source links and avoid
++mechanical phrases, empty adjectives, keyword lists, or job-description
++parroting. Do not persist a `ResumeDocument`; it remains a derived projection
++of the confirmed branch/revision.
 Return the proposal/checkpoint before confirmation and the new resume/revision
 only after confirmation. Preview and PDF remain derived from the persisted
 revision; verify the text layer before export.

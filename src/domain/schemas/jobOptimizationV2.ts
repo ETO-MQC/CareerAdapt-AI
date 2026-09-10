@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { BranchFactRefSchema } from "./branch";
-import { IsoDateStringSchema, SourceSpanSchema } from "./common";
+import { FactMaturitySchema, IsoDateStringSchema, SourceSpanSchema } from "./common";
 import { MatchEvidenceRefSchema, MatchRiskSchema } from "./job";
 import { ResumeSectionTypeV2Schema } from "./resumeV2";
 
@@ -50,6 +50,7 @@ export const CandidateEvidenceUnitSchema = z.object({
   text: z.string().min(1), normalizedText: z.string().min(1),
   factRefs: z.array(BranchFactRefSchema).default([]), sourceBlockIds: z.array(z.string().min(1)).default([]),
   supportLevel: z.enum(["verified", "user_declared"]).default("verified"),
+  maturity: FactMaturitySchema.optional(),
   organization: z.string().min(1).optional(), role: z.string().min(1).optional(), dateRange: z.string().min(1).optional(),
   confirmed: z.literal(true)
 }).strict().superRefine((unit, context) => {
