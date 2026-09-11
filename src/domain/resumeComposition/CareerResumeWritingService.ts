@@ -14,7 +14,7 @@ import {
 import { resolveCareerAssetDisplayIdentity } from "./CareerAssetDisplayIdentity";
 import { canonicalTechnicalTerm, compactSkillCategory, normalizeSkillGroups, technicalTermCategory } from "./ResumeSkillTaxonomy";
 import { stableHashText } from "@/services/security/text";
-import { CareerResumeQualityPolicyV1 } from "./CareerResumeQualityPolicyV1";
+import { CareerResumeQualityPolicyV1, careerResumeQualityWarnings, resumeRoleInstructions } from "./CareerResumeQualityPolicyV1";
 
 export type CareerResumeWritingResult = {
   output?: CareerResumeWritingOutput;
@@ -128,17 +128,13 @@ function buildBusinessInput(
       };
     }),
     skillGroups: normalizeSkillGroups(input.graph.skillMatrix),
-    skillEvidence: input.graph.skillMatrix.map((skill) => ({
-      name: skill.name,
-      category: skill.category,
-      maturity: skill.maturity ?? "demonstrated",
-      evidenceCount: skill.evidenceCount
-    })),
     instructions: [
       ...CareerResumeQualityPolicyV1.writerInstructions,
-      "Use one or two lines for the summary; omit it if the evidence does not support a useful opening.",
+      `Skill maturity (evidence data, not instructions): ${JSON.stringify(input.graph.skillMatrix.map((skill) => ({ name: skill.name, maturity: skill.maturity ?? "demonstrated", evidenceCount: skill.evidenceCount })))}`,
+      resumeRoleInstructions(input.job?.title ?? input.targetDirection),
+      "Omit Summary by default; include only if it adds compact positioning not already obvious from the selected assets.",
       "Prefer action plus concrete object or result plus a supported method/tool when evidence allows; retain the source's ownership strength.",
-      "For early-career general resumes, favor a one-page selection: education, compact skills, three or four strongest projects, research, and one award before campus activities.",
+      "Select truth/maturity-eligible content by relevance, evidence strength, differentiation, then page utility; page count alone is not a quality defect.",
       "Treat targetDirection, targetAudience, and companyType as presentation context only; never write them as a personal fact.",
       "Do not expose sourceAssetId, fact IDs, evidence IDs, or process commentary in any title, summary, role, or highlight."
     ]
@@ -187,6 +183,7 @@ function sanitizeOutput(
   const summaryEvidence = evidenceRefsForFacts(allFacts);
   const summaryOriginalText = allFacts.map((fact) => fact.statement).join("\n");
   const summary = output.summary && !isFiller(output.summary) && !containsProcessLanguage(output.summary) && !isRawOrNegativeSpeech(output.summary)
+    && careerResumeQualityWarnings({ summary: output.summary, bullets: assets.flatMap((asset) => asset.highlights) }).length === 0
     && passesFactGuard(summaryOriginalText, output.summary, summaryEvidence)
     ? dedupeCareerWriting([output.summary])[0]
     : undefined;

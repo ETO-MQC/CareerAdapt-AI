@@ -34,6 +34,7 @@ import { resolveCareerAssetDisplayIdentity } from "./CareerAssetDisplayIdentity"
 import { normalizeSkillGroups } from "./ResumeSkillTaxonomy";
 import { CareerResumeWritingService } from "./CareerResumeWritingService";
 import { stableHashText } from "@/services/security/text";
+import { assessResumeBullet } from "./CareerResumeQualityPolicyV1";
 
 export type ResumeWriterInput = {
   profile: CareerProfile;
@@ -56,7 +57,8 @@ export function writeResumeComposition(input: ResumeWriterInput): ResumeComposit
   const items: ResumeCompiledItem[] = [];
 
   const selectedAssetIds = new Set(input.blueprint.assets.map((asset) => asset.sourceAssetId));
-  const selectedEntries = profile.structuredFacts.filter((entry) => selectedAssetIds.has(entry.data.id));
+  const selectedEntries = profile.structuredFacts.filter((entry) => selectedAssetIds.has(entry.data.id))
+    .sort((left, right) => input.blueprint.assets.findIndex((asset) => asset.sourceAssetId === left.data.id) - input.blueprint.assets.findIndex((asset) => asset.sourceAssetId === right.data.id));
   const selectedFactIds = new Set(selectedEntries.flatMap((entry) => entry.factIds));
   const deterministicOutput = createDeterministicWritingOutput(input);
   const writingOutput = input.writingOutput ?? deterministicOutput;
@@ -66,7 +68,7 @@ export function writeResumeComposition(input: ResumeWriterInput): ResumeComposit
   );
   const writingAssetById = new Map((writingOutput?.assets ?? []).map((asset) => [asset.sourceAssetId, asset]));
 
-  const summary = writingOutput?.summary?.trim() || input.blueprint.summaryPlan?.trim();
+  const summary = writingOutput?.summary?.trim();
   if (summary) {
     const claim = claimFor({
       id: `claim:summary:${profile.id}`,
@@ -280,7 +282,7 @@ function compressProfessionalBullet(value: string, tools: string[]) {
     .replace(/\s+/gu, " ")
     .trim();
   if (!cleaned || isRawOrNegativeSpeech(cleaned)) return "";
-  if (semanticComponentCount(cleaned) >= 2 || !tools.length) return cleaned;
+  if (assessResumeBullet(cleaned).specific || semanticComponentCount(cleaned) >= 2 || !tools.length) return cleaned;
   const sentence = cleaned.replace(/[。；;]+$/u, "");
   return `${sentence}，使用 ${tools.join("、")}。`;
 }
@@ -291,7 +293,7 @@ function compileItem(input: { entry: NonNullable<ReturnType<typeof migrateCareer
     return {
       ...item,
       id: item.id,
-      tools: unique([...item.tools, ...input.asset.explicitTools, ...(input.writingAsset?.techStack ?? [])]),
+      tools: unique([...(input.writingAsset?.techStack ?? []), ...item.tools, ...input.asset.explicitTools]).slice(0, 8),
       background: undefined,
       description: undefined,
       highlights: [],
@@ -324,7 +326,7 @@ function bulletsFor(input: {
     .flatMap(splitBullet)
     .map((bullet) => compressProfessionalBullet(bullet, input.asset.explicitTools))
     .filter((bullet) => !isFiller(bullet) && !isRawOrNegativeSpeech(bullet))
-    .filter((bullet) => semanticComponentCount(bullet) >= 2)
+    .filter((bullet) => assessResumeBullet(bullet).specific || semanticComponentCount(bullet) >= 2)
     .slice(0, input.data.sectionType === "project" ? 4 : 4);
   return rawBullets.flatMap((bullet, index) => {
     const claim = claimFor({
@@ -513,7 +515,7 @@ function isConfirmedFact(fact: FactStatement) {
 }
 
 function splitBullet(value: string) {
-  return value.split(/[\n。；;]+/u).map((part) => part.trim()).filter((part) => part.length >= 4).map((part) => part.replace(/^(?:项目成果|项目背景|研究方法|成果|说明)[:：]\s*/u, "").trim()).filter(Boolean).slice(0, 4);
+  return value.split(/[\n]+/u).map((part) => part.trim()).filter((part) => part.length >= 4).map((part) => part.replace(/^(?:项目成果|项目背景|研究方法|成果|说明)[:：]\s*/u, "").trim()).filter(Boolean).slice(0, 4);
 }
 
 function unique(values: string[]) {

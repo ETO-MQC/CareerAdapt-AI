@@ -121,7 +121,9 @@ describe("P4.5b resume compilation intelligence", () => {
     expect(graph.skillMatrix.some((skill) => skill.name === "PostgreSQL")).toBe(false);
     expect(graph.recoveryCandidates).toContainEqual(expect.objectContaining({ field: "authorRole", status: "needs_confirmation", proposedValue: "研究助理" }));
     expect(graph.excludedAssetIds).not.toContain("empty-resume-placeholder");
-    expect(result.items.some((item) => item.data.sectionType === "summary")).toBe(true);
+    // P4.8c: no automatic school/tools recap; Summary must add positioning value.
+    expect(result.items.some((item) => item.data.sectionType === "summary")).toBe(false);
+    expect(result.blueprint.summaryPlan).toBeUndefined();
     expect(result.items.some((item) => item.data.sectionType === "skills")).toBe(true);
     expect(projectItems.length).toBeGreaterThanOrEqual(4);
     expect(projectItems.every((item) => item.data.sectionType === "project" && !item.data.description && item.data.highlights.length >= 1 && item.data.highlights.length <= 4)).toBe(true);

@@ -8,6 +8,7 @@ import {
 } from "./contracts";
 import { resolveCareerAssetDisplayIdentity } from "./CareerAssetDisplayIdentity";
 import { findTechnicalTerms, normalizeSkillGroups } from "./ResumeSkillTaxonomy";
+import { resumeRoleEvidencePreference } from "./CareerResumeQualityPolicyV1";
 
 export type ResumeBlueprintInput = {
   profile: CareerProfile;
@@ -74,7 +75,7 @@ export function planResumeBlueprint(input: ResumeBlueprintInput): ResumeBlueprin
     projectCount,
     bulletCount: selected.reduce((sum, item) => sum + Math.max(1, bulletPlan(item.data).length), 0),
     skillCount: effectiveInput.graph.skillMatrix.length,
-    hasSummary: Boolean(profile.basics.summary || selected.length)
+    hasSummary: false
   });
 
   const informationNeeds = buildInformationNeeds(effectiveInput, keywordCoverage);
@@ -88,7 +89,6 @@ export function planResumeBlueprint(input: ResumeBlueprintInput): ResumeBlueprin
     ...(effectiveInput.targetDirection ? { targetDirection: effectiveInput.targetDirection } : {}),
     ...(effectiveInput.targetAudience ? { targetAudience: effectiveInput.targetAudience } : {}),
     ...(effectiveInput.companyType ? { companyType: effectiveInput.companyType } : {}),
-    summaryPlan: summaryPlan(profile, selected, effectiveInput),
     skillGroups,
     sections,
     assets,
@@ -209,35 +209,6 @@ function buildInformationNeeds(input: ResumeBlueprintInput, coverage: ResumeKeyw
   return needs;
 }
 
-function summaryPlan(
-  profile: ReturnType<typeof migrateCareerProfileToV2>,
-  selected: Array<{ data: ResumeItemV2 }>,
-  input: ResumeBlueprintInput
-) {
-  const education = selected.find(({ data }) => data.sectionType === "education")?.data;
-  const school = education && education.sectionType === "education" ? education.school : undefined;
-  const visibleSkills = selected
-    .flatMap(({ data }) => {
-      const record = data as unknown as Record<string, unknown>;
-      return [...(Array.isArray(record.tools) ? record.tools : []), ...(Array.isArray(record.methods) ? record.methods : [])];
-    })
-    .filter((value): value is string => typeof value === "string" && Boolean(value.trim()))
-    .slice(0, 4);
-  const direction = input.targetDirection ?? input.job?.title ?? profile.structuredBasics?.targetRole ?? profile.structuredBasics?.headline;
-  const audience = input.targetAudience ?? (direction?.includes("秋招") ? "互联网秋招" : undefined);
-  const skillText = unique(visibleSkills).join("、");
-  const educationLabel = education && education.sectionType === "education"
-    ? `${education.major ? `${education.major}` : ""}本科生`
-    : "本科生";
-  const lead = school ? `${school}${educationLabel}` : educationLabel;
-  const focus = skillText
-    ? `聚焦 ${skillText} 的项目实践`
-    : selected.some(({ data }) => data.sectionType === "project") ? "具备多项项目实践" : "具备学习与实践经历";
-  const audienceText = audience ? `，面向${audience}` : "";
-  const directionText = direction && !direction.includes("秋招") ? `，目标${direction}` : "";
-  return `${lead}${audienceText}${directionText}，${focus}。`;
-}
-
 function inclusionReason(item: ResumeItemV2, mode: "general" | "job_specific", relevance: number, input: ResumeBlueprintInput, score?: ResumeBlueprint["assets"][number]["score"]) {
   if (item.sectionType === "education") return "教育背景是通用简历的基础事实。";
   const signals = score ? `证据强度${formatScore(score.evidenceStrength)}、技术深度${formatScore(score.technicalDepth)}、独特性${formatScore(score.uniqueness)}` : "已有证据";
@@ -267,7 +238,9 @@ function careerAssetResumeScore(input: {
   const tools = explicitTools(input.data, input.graph);
   const bullets = bulletPlan(input.data);
   const targetTerms = unique([input.input.targetDirection, input.input.targetAudience, input.input.companyType, input.job?.title].filter((value): value is string => Boolean(value)).flatMap((value) => value.toLocaleLowerCase().split(/[\s/|·、，,]+/u)));
-  const targetRelevance = targetTerms.length ? clamp(targetTerms.filter((term) => term.length > 1 && text.includes(term)).length / Math.min(4, targetTerms.length)) : sectionWeight(input.data.sectionType);
+  const rolePreference = input.node?.confirmationStatus === "confirmed" && (input.node.maturity ?? "demonstrated") === "demonstrated"
+    ? resumeRoleEvidencePreference(input.job?.title ?? input.input.targetDirection, bullets.join(" ")) : 0;
+  const targetRelevance = Math.max(rolePreference, targetTerms.length ? clamp(targetTerms.filter((term) => term.length > 1 && text.includes(term)).length / Math.min(4, targetTerms.length)) : sectionWeight(input.data.sectionType));
   const maturity = input.node?.maturity ?? "demonstrated";
   const maturityFactor = maturity === "demonstrated" ? 1 : maturity === "confirmed_capability" ? 0.7 : 0.45;
   const evidenceStrength = clamp(((input.node?.confirmationStatus === "confirmed" ? 0.55 : 0.2) * maturityFactor + Math.min(0.3, (input.node?.factIds.length ?? 0) * 0.08) + Math.min(0.15, (input.node?.sourceExcerpts.length ?? 0) * 0.03)));

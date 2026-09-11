@@ -4,11 +4,11 @@ export const promptVersions = {
   profileIntakeSemantic: "profile-intake-semantic.v10-p43j-semantic-v3",
   profileIntakeFollowUpPatch: "profile-intake-follow-up-patch.v1-p44b",
   profileIntakeFinalCareerSynthesis: "profile-intake-final-career-synthesis.v1",
-  resumeCareerWriter: "resume-career-writer.v3-context-execution",
+  resumeCareerWriter: "resume-career-writer.v4-corpus-calibration",
   jdAnalyzer: "jd-analyzer.v3-unit-ledger",
   evidenceMatcher: "evidence-matcher.v2",
   resumeTailor: "resume-tailor.v3-minimal-output",
-  resumeTailoringDiff: "resume-tailoring-diff.v4-quality-closure",
+  resumeTailoringDiff: "resume-tailoring-diff.v5-corpus-calibration",
   resumeOptimizationPlanner: "resume-optimization-planner.v1",
   factGuard: "fact-guard.v1"
 } as const;

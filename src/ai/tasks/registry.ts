@@ -1,4 +1,5 @@
 import { nanoid } from "nanoid";
+import { resumeRoleInstructions } from "@/domain/resumeComposition/CareerResumeQualityPolicyV1";
 import { z } from "zod";
 import {
   AiTaskSchema,
@@ -1231,6 +1232,7 @@ export const aiTaskRegistry = {
           requirementDetails: input.requirementDetails
         },
         CONTEXT: {
+          rolePreference: resumeRoleInstructions(input.jobContext.title),
           job: {
             title: input.jobContext.title,
             company: input.jobContext.company,

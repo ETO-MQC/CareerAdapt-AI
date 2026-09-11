@@ -9,7 +9,7 @@ import {
   type ResumeReviewResult
 } from "./contracts";
 import { resolveCareerAssetDisplayIdentity } from "./CareerAssetDisplayIdentity";
-import { careerResumeQualityWarnings } from "./CareerResumeQualityPolicyV1";
+import { assessResumeBullet, careerResumeQualityWarnings } from "./CareerResumeQualityPolicyV1";
 
 export function reviewResumeComposition(result: ResumeCompositionResult, input: { job?: JobDescription } = {}) {
   const firstPass = reviewResumeCompositionPass(result, input, true);
@@ -67,11 +67,26 @@ function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { j
       recommendation: "合并重复或近似重复表述，只保留信息量更高的一条。"
     });
     const candidateBullets = bullets.filter((bullet, bulletIndex) => {
+      const quality = assessResumeBullet(bullet, input.job?.title ?? result.targetDirection);
+      const sourceText = sourceClaims.filter((claim) => claim.classification === "SUPPORTED" || claim.classification === "DERIVED_PRESENTATION").map((claim) => claim.text).join(" ");
+      const metrics = bullet.match(/(?:[$¥￥]\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?\s*(?:%|％|ms|毫秒|秒|QPS|万|亿|倍|美元|元|请求|文档|用户|次|条|个))/giu) ?? [];
+      const needsVerification = metrics.some((metric) => !sourceText.includes(metric));
+      const recommendation = needsVerification ? "这个数字需要确认来源；保留原文供核对，不默认为已验证。"
+        : quality.evaluationGap ? "效果结论需要评测方法或证据支持，请核对降低幻觉或准确率的依据。"
+        : quality.contributionGap ? "架构名称不能代替个人贡献，请补充实际构建的对象、动作及职责边界。"
+        : quality.independentAchievements ? "两项独立成果挤在一条里，建议拆分；保留各自的贡献与证据。"
+          : quality.catalog ? "技术目录较长且缺少机制证据，建议压缩为技能索引。"
+            : quality.genericity ? "这句话较泛，建议换成实际完成的任务、对象或方法；不要补造数字。" : undefined;
+      if (recommendation) reviewDiffs.push({
+        id: `review-diff-${item.sourceAssetId}-${bulletIndex}-quality`,
+        kind: needsVerification || quality.evaluationGap ? "verify" : quality.catalog ? "deduplicate" : "rewrite",
+        itemId: item.sourceAssetId, fieldPath: "highlights", before: bullet, recommendation
+      });
       const filler = isFiller(bullet);
       if (filler) fillerBullets += 1;
       const rawOrNegative = isRawOrNegativeSpeech(bullet);
       if (rawOrNegative) findings.push(`${resolveCareerAssetDisplayIdentity(item.data).label}：移除口语或负向表述`);
-      const lowDensity = semanticComponentCount(bullet) < 2;
+      const lowDensity = !quality.specific && !recommendation && semanticComponentCount(bullet) < 2;
       if (lowDensity) lowDensityBullets += 1;
       const duplicate = seenBullets.some((candidate) => writingOverlap(candidate, bullet) >= 0.72);
       if (duplicate) duplicateBullets += 1;
@@ -107,7 +122,7 @@ function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { j
       : repairAffectedBullets({ item, bullets, result, sourceClaims });
     bulletRepairCount += Math.max(0, repairedBullets.length - candidateBullets.length);
     bulletRejectedCount += Math.max(0, bullets.length - repairedBullets.length);
-    bullets = dedupeCareerWriting(repairedBullets).filter((bullet) => semanticComponentCount(bullet) >= 2).slice(0, 4);
+    bullets = dedupeCareerWriting(repairedBullets).filter((bullet) => assessResumeBullet(bullet).specific || semanticComponentCount(bullet) >= 2).slice(0, 4);
     revisedBulletCount += bullets.length;
     if (typeof data.description === "string" && data.description.length > 180) paragraphHeavyItems += 1;
     const sourceText = sourceClaims.map((claim) => claim.text).join(" ");
@@ -162,8 +177,18 @@ function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { j
   });
 
   const projectedLines = items.reduce((sum, item) => sum + itemLineWeight(item), 0);
-  const pageOverflow = projectedLines > 31;
-  if (pageOverflow) findings.push("estimated one-page budget is exceeded; lower-relevance bullets were trimmed only if a safe reduction was available");
+  const pageOverflow = projectedLines > 31 * result.blueprint.pageBudget.targetPages
+    || result.blueprint.pageBudget.estimatedPageCount > result.blueprint.pageBudget.targetPages;
+  for (const item of result.items) {
+    if (item.data.sectionType === "summary" && pageOverflow && careerResumeQualityWarnings({ summary: item.data.text }).length) {
+      reviewDiffs.push({ id: `review-diff-${item.sourceAssetId}-page-utility`, kind: "remove", itemId: item.sourceAssetId,
+        fieldPath: "text", before: item.data.text, recommendation: "当前页面空间紧张，这段摘要较泛或重复，建议优先移除；保留高相关、有证据的经历。" });
+    }
+    if (item.data.sectionType === "skills" && careerResumeQualityWarnings({ bullets: [item.data.name] }).length) {
+      reviewDiffs.push({ id: `review-diff-${item.sourceAssetId}-catalog`, kind: "deduplicate", itemId: item.sourceAssetId,
+        fieldPath: "name", before: item.data.name, recommendation: "技能作为紧凑索引，压缩重复目录；项目中的具体机制属于证据，应保留。" });
+    }
+  }
   if (lowDensityBullets) findings.push(`${lowDensityBullets} bullets did not contain enough semantic components and were omitted`);
   const unsupportedClaims = allowRepair ? result.claims.filter((claim) => claim.classification === "UNSUPPORTED").length : 0;
   if (unsupportedClaims) findings.push(`${unsupportedClaims} unsupported claims were held out of the resume`);
@@ -205,7 +230,7 @@ function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { j
     unsupportedClaimsBlocked: baseMetrics.unsupportedClaimsBlocked + (allowRepair ? unsupportedClaims : 0),
     atsRepairPassCount: baseMetrics.atsRepairPassCount + (allowRepair ? 1 : 0)
   };
-  const status = findings.some((finding) => /职责表述|项目段落|项目仍包含|研究段落|ATS keywords|口语|ownership|paragraph|unsupported|density|semantic components|resume_quality|重复/iu.test(finding)) ? "NEEDS_REVIEW" : "PASS";
+  const status = reviewDiffs.length || findings.some((finding) => /职责表述|项目段落|项目仍包含|研究段落|ATS keywords|口语|ownership|paragraph|unsupported|density|semantic components|resume_quality|重复/iu.test(finding)) ? "NEEDS_REVIEW" : "PASS";
   const reviewResult = ResumeReviewResultSchema.parse({
     status,
     findings,
@@ -232,11 +257,11 @@ function repairAffectedBullets(input: {
   sourceClaims: ResumeCompositionResult["claims"];
 }) {
   const asset = input.result.blueprint.assets.find((candidate) => candidate.sourceAssetId === input.item.sourceAssetId);
-  if (!asset || !asset.explicitTools.length) return input.bullets.filter((bullet) => semanticComponentCount(bullet) >= 2);
+  if (!asset || !asset.explicitTools.length) return input.bullets.filter((bullet) => assessResumeBullet(bullet).specific || semanticComponentCount(bullet) >= 2);
   const safeTool = asset.explicitTools.find((tool) => !/^(?:API|工具|测试|开发)$/iu.test(tool));
-  if (!safeTool) return input.bullets.filter((bullet) => semanticComponentCount(bullet) >= 2);
+  if (!safeTool) return input.bullets.filter((bullet) => assessResumeBullet(bullet).specific || semanticComponentCount(bullet) >= 2);
   const repaired = input.bullets.flatMap((bullet) => {
-    if (isFiller(bullet) || isRawOrNegativeSpeech(bullet) || semanticComponentCount(bullet) >= 2) return [bullet];
+    if (isFiller(bullet) || isRawOrNegativeSpeech(bullet) || assessResumeBullet(bullet).specific || semanticComponentCount(bullet) >= 2) return [bullet];
     const sourceText = [
       ...input.sourceClaims.map((claim) => claim.text),
       ...asset.bulletPlan,

@@ -1,0 +1,106 @@
+{
+  "startingHead": "d7eddf4a0831766591f257a4f796201fa99a8fd7",
+  "before": {
+    "passed": 9,
+    "failed": 11,
+    "report": "p48c-before.json"
+  },
+  "after": {
+    "passed": 20,
+    "failed": 0,
+    "report": "p48c-after.json"
+  },
+  "unit": {
+    "command": "pnpm test",
+    "exitCode": 0,
+    "files": 196,
+    "passed": 1354,
+    "failed": 0,
+    "rawReport": ".tmp/p48c-validation/p48c-full-tests.json"
+  },
+  "requiredRegression": [
+    {
+      "file": "p46a-resume-structural-integrity.test.ts",
+      "status": "passed",
+      "cases": 5
+    },
+    {
+      "file": "p46b-tailoring-quality.test.ts",
+      "status": "passed",
+      "cases": 6
+    },
+    {
+      "file": "p48a-career-resume-intelligence.test.ts",
+      "status": "passed",
+      "cases": 8
+    },
+    {
+      "file": "p48bTemplateSystem.test.tsx",
+      "status": "passed",
+      "cases": 6
+    },
+    {
+      "file": "resumeCompositionConfirmedWriteP45c12.test.ts",
+      "status": "passed",
+      "cases": 12
+    },
+    {
+      "file": "resumeCompositionP45b.test.ts",
+      "status": "passed",
+      "cases": 9
+    }
+  ],
+  "acceptance": {
+    "status": "passed",
+    "report": "p48c-same-profile.json",
+    "mode": "deterministic compiler + real Repository in isolated database; controlled Writer provider fixture; no live model"
+  },
+  "lint": {
+    "command": "pnpm lint",
+    "exitCode": 0
+  },
+  "build": {
+    "command": "CAREERAD_NEXT_DIST_DIR=.next/p48c-build-final pnpm build",
+    "exitCode": 0,
+    "temporaryConfigRestored": true
+  },
+  "typecheck": {
+    "command": "pnpm typecheck",
+    "exitCode": 0,
+    "afterRestoringTemporaryConfig": true
+  },
+  "finalFocused": {
+    "command": "pnpm exec vitest run tests/unit/p48c-corpus-calibration.test.ts tests/unit/p48c-acceptance.test.ts",
+    "exitCode": 0,
+    "passed": 25,
+    "failed": 0,
+    "report": "docs/testing/p48c-final-focused.json"
+  },
+  "careerAgentEval": {
+    "command": "pnpm test:career-agent-eval",
+    "status": "stopped_after_timeout",
+    "exitCode": 1,
+    "completeReport": false,
+    "log": "docs/testing/p48c-career-agent-retry.log",
+    "reason": "The fresh retry emitted only MCP heartbeat traffic for several hours and produced no completed case report; the owned test process was interrupted after repeated long-poll timeout. It is not counted as pass or fail cases."
+  },
+  "productionFootprint": {
+    "files": 9,
+    "addedLines": 141,
+    "removedLines": 68,
+    "newProductionFiles": 0
+  },
+  "boundaries": {
+    "hermesRuntimeMcpModified": false,
+    "profileResumeTemplateArchitectureModified": false,
+    "factGuardModified": false,
+    "newDependencies": false,
+    "newDexieTables": false
+  },
+  "limitations": [
+    "No live-provider or subjective user-quality acceptance.",
+    "No Electron package rebuilt.",
+    "Initial Agent Eval interrupted after default build touched its shared Next directory; fresh isolated retry also stopped after repeated heartbeat-only timeout without a complete report.",
+    "Historical UI E2E unchanged."
+  ]
+}

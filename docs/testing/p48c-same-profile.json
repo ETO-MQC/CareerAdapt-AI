@@ -1,0 +1,3705 @@
+{
+  "mode": "deterministic production compiler + Repository; no live model",
+  "factsUnchanged": true,
+  "factRefsUnchanged": true,
+  "artifacts": [
+    {
+      "variant": "General",
+      "composition": {
+        "schemaVersion": "resume-composition-v1",
+        "mode": "general",
+        "profileId": "p48c-profile",
+        "profileRevision": 1,
+        "targetDirection": "互联网技术 / AI 应用",
+        "evidenceGraph": {
+          "schemaVersion": "resume-evidence-graph-v1",
+          "profileId": "p48c-profile",
+          "profileRevision": 1,
+          "nodes": [
+            {
+              "id": "asset:asset-0",
+              "type": "career_asset",
+              "value": "验证项目0",
+              "sourceAssetIds": [
+                "asset-0"
+              ],
+              "factIds": [
+                "fact-0"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。"
+              ]
+            },
+            {
+              "id": "outcome:asset-0:参与检索链路开发-使用混合检索与重排序处理文档查询-通过离线评测集验证召回-",
+              "type": "outcome",
+              "value": "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。",
+              "sourceAssetIds": [
+                "asset-0"
+              ],
+              "factIds": [
+                "fact-0"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。"
+              ]
+            },
+            {
+              "id": "evidence:asset-0:项目名称-验证项目0-角色-项目成员-亮点-参与检索链路开发-使用混合检索与重排序处理文档查询-",
+              "type": "evidence",
+              "value": "项目名称：验证项目0\n角色：项目成员\n亮点：参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。\n参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。\n参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。\n参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。",
+              "sourceAssetIds": [
+                "asset-0"
+              ],
+              "factIds": [
+                "fact-0"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。"
+              ]
+            },
+            {
+              "id": "asset:asset-1",
+              "type": "career_asset",
+              "value": "验证项目1",
+              "sourceAssetIds": [
+                "asset-1"
+              ],
+              "factIds": [
+                "fact-1"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+              ]
+            },
+            {
+              "id": "term:redis",
+              "type": "skill",
+              "value": "Redis",
+              "sourceAssetIds": [
+                "asset-1"
+              ],
+              "factIds": [
+                "fact-1"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+              ]
+            },
+            {
+              "id": "outcome:asset-1:参与订单服务开发-使用-redis-缓存会话状态-通过-api-接口交付数据查询-",
+              "type": "outcome",
+              "value": "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。",
+              "sourceAssetIds": [
+                "asset-1"
+              ],
+              "factIds": [
+                "fact-1"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+              ]
+            },
+            {
+              "id": "evidence:asset-1:项目名称-验证项目1-角色-项目成员-亮点-参与订单服务开发-使用-redis-缓存会话状态-通",
+              "type": "evidence",
+              "value": "项目名称：验证项目1\n角色：项目成员\n亮点：参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。\n参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。\n参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。\n参与订单服务开发，使用 Redis 缓存会话状态，通过 API ",
+              "sourceAssetIds": [
+                "asset-1"
+              ],
+              "factIds": [
+                "fact-1"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+              ]
+            },
+            {
+              "id": "asset:asset-2",
+              "type": "career_asset",
+              "value": "验证项目2",
+              "sourceAssetIds": [
+                "asset-2"
+              ],
+              "factIds": [
+                "fact-2"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。"
+              ]
+            },
+            {
+              "id": "outcome:asset-2:参与会话页面开发-封装组件与状态管理-通过渲染测试验证交互复用-",
+              "type": "outcome",
+              "value": "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。",
+              "sourceAssetIds": [
+                "asset-2"
+              ],
+              "factIds": [
+                "fact-2"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。"
+              ]
+            },
+            {
+              "id": "evidence:asset-2:项目名称-验证项目2-角色-项目成员-亮点-参与会话页面开发-封装组件与状态管理-通过渲染测试验",
+              "type": "evidence",
+              "value": "项目名称：验证项目2\n角色：项目成员\n亮点：参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。\n参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。\n参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。\n参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。",
+              "sourceAssetIds": [
+                "asset-2"
+              ],
+              "factIds": [
+                "fact-2"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。"
+              ]
+            },
+            {
+              "id": "asset:asset-3",
+              "type": "career_asset",
+              "value": "验证项目3",
+              "sourceAssetIds": [
+                "asset-3"
+              ],
+              "factIds": [
+                "fact-3"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。"
+              ]
+            },
+            {
+              "id": "outcome:asset-3:参与部署流程开发-配置双机热备与健康检查-通过故障切换演练验证恢复-",
+              "type": "outcome",
+              "value": "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。",
+              "sourceAssetIds": [
+                "asset-3"
+              ],
+              "factIds": [
+                "fact-3"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。"
+              ]
+            },
+            {
+              "id": "evidence:asset-3:项目名称-验证项目3-角色-项目成员-亮点-参与部署流程开发-配置双机热备与健康检查-通过故障切",
+              "type": "evidence",
+              "value": "项目名称：验证项目3\n角色：项目成员\n亮点：参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。\n参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。\n参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。\n参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。",
+              "sourceAssetIds": [
+                "asset-3"
+              ],
+              "factIds": [
+                "fact-3"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。"
+              ]
+            }
+          ],
+          "edges": [
+            {
+              "id": "edge:outcome:asset-0:参与检索链路开发-使用混合检索与重排序处理文档查询-通过离线评测集验证召回-:asset:asset-0",
+              "from": "outcome:asset-0:参与检索链路开发-使用混合检索与重排序处理文档查询-通过离线评测集验证召回-",
+              "to": "asset:asset-0",
+              "relation": "supports"
+            },
+            {
+              "id": "edge:evidence:asset-0:项目名称-验证项目0-角色-项目成员-亮点-参与检索链路开发-使用混合检索与重排序处理文档查询-:asset:asset-0",
+              "from": "evidence:asset-0:项目名称-验证项目0-角色-项目成员-亮点-参与检索链路开发-使用混合检索与重排序处理文档查询-",
+              "to": "asset:asset-0",
+              "relation": "supports"
+            },
+            {
+              "id": "edge:term:redis:asset:asset-1",
+              "from": "term:redis",
+              "to": "asset:asset-1",
+              "relation": "supports"
+            },
+            {
+              "id": "edge:outcome:asset-1:参与订单服务开发-使用-redis-缓存会话状态-通过-api-接口交付数据查询-:asset:asset-1",
+              "from": "outcome:asset-1:参与订单服务开发-使用-redis-缓存会话状态-通过-api-接口交付数据查询-",
+              "to": "asset:asset-1",
+              "relation": "supports"
+            },
+            {
+              "id": "edge:evidence:asset-1:项目名称-验证项目1-角色-项目成员-亮点-参与订单服务开发-使用-redis-缓存会话状态-通:asset:asset-1",
+              "from": "evidence:asset-1:项目名称-验证项目1-角色-项目成员-亮点-参与订单服务开发-使用-redis-缓存会话状态-通",
+              "to": "asset:asset-1",
+              "relation": "supports"
+            },
+            {
+              "id": "edge:outcome:asset-2:参与会话页面开发-封装组件与状态管理-通过渲染测试验证交互复用-:asset:asset-2",
+              "from": "outcome:asset-2:参与会话页面开发-封装组件与状态管理-通过渲染测试验证交互复用-",
+              "to": "asset:asset-2",
+              "relation": "supports"
+            },
+            {
+              "id": "edge:evidence:asset-2:项目名称-验证项目2-角色-项目成员-亮点-参与会话页面开发-封装组件与状态管理-通过渲染测试验:asset:asset-2",
+              "from": "evidence:asset-2:项目名称-验证项目2-角色-项目成员-亮点-参与会话页面开发-封装组件与状态管理-通过渲染测试验",
+              "to": "asset:asset-2",
+              "relation": "supports"
+            },
+            {
+              "id": "edge:outcome:asset-3:参与部署流程开发-配置双机热备与健康检查-通过故障切换演练验证恢复-:asset:asset-3",
+              "from": "outcome:asset-3:参与部署流程开发-配置双机热备与健康检查-通过故障切换演练验证恢复-",
+              "to": "asset:asset-3",
+              "relation": "supports"
+            },
+            {
+              "id": "edge:evidence:asset-3:项目名称-验证项目3-角色-项目成员-亮点-参与部署流程开发-配置双机热备与健康检查-通过故障切:asset:asset-3",
+              "from": "evidence:asset-3:项目名称-验证项目3-角色-项目成员-亮点-参与部署流程开发-配置双机热备与健康检查-通过故障切",
+              "to": "asset:asset-3",
+              "relation": "supports"
+            }
+          ],
+          "skillMatrix": [
+            {
+              "name": "Redis",
+              "category": "数据库",
+              "sourceAssetIds": [
+                "asset-1"
+              ],
+              "factIds": [
+                "fact-1"
+              ],
+              "evidenceNodeIds": [
+                "term:redis"
+              ],
+              "evidenceCount": 1,
+              "maturity": "demonstrated"
+            }
+          ],
+          "recoveryCandidates": [],
+          "sourceAssetIds": [
+            "asset-0",
+            "asset-1",
+            "asset-2",
+            "asset-3"
+          ],
+          "excludedAssetIds": []
+        },
+        "blueprint": {
+          "schemaVersion": "resume-blueprint-v1",
+          "mode": "general",
+          "profileId": "p48c-profile",
+          "profileRevision": 1,
+          "targetDirection": "互联网技术 / AI 应用",
+          "skillGroups": {
+            "后端 / 数据": [
+              "Redis"
+            ]
+          },
+          "sections": [
+            {
+              "sectionType": "project",
+              "assetIds": [
+                "asset-0",
+                "asset-1",
+                "asset-2",
+                "asset-3"
+              ],
+              "maxItems": 4,
+              "priority": 0.7
+            },
+            {
+              "sectionType": "skills",
+              "assetIds": [
+                "derived-skills"
+              ],
+              "maxItems": 1,
+              "priority": 0.7
+            }
+          ],
+          "assets": [
+            {
+              "sourceAssetId": "asset-0",
+              "sectionType": "project",
+              "title": "验证项目0",
+              "sourceFactIds": [
+                "fact-0"
+              ],
+              "evidenceNodeIds": [
+                "asset:asset-0"
+              ],
+              "relevance": 0.6476000000000001,
+              "inclusionReason": "与互联网技术 / AI 应用方向相关，并具备可核验行动证据（证据强度66%、技术深度0%、独特性100%）。",
+              "bulletPlan": [
+                "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。"
+              ],
+              "explicitTools": [],
+              "score": {
+                "targetRelevance": 1,
+                "evidenceStrength": 0.66,
+                "demonstratedComplexity": 0.2,
+                "outcomeStrength": 0.75,
+                "specificity": 0.4,
+                "uniqueness": 1,
+                "technicalDepth": 0,
+                "recency": 0.5,
+                "ownershipStrength": 0.16666666666666666,
+                "redundancy": 0,
+                "weakEvidencePenalty": 0,
+                "total": 0.6476000000000001
+              }
+            },
+            {
+              "sourceAssetId": "asset-1",
+              "sectionType": "project",
+              "title": "验证项目1",
+              "sourceFactIds": [
+                "fact-1"
+              ],
+              "evidenceNodeIds": [
+                "asset:asset-1"
+              ],
+              "relevance": 0.4586000000000001,
+              "inclusionReason": "与互联网技术 / AI 应用方向相关，并具备可核验行动证据（证据强度66%、技术深度25%、独特性100%）。",
+              "bulletPlan": [
+                "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+              ],
+              "explicitTools": [
+                "Redis"
+              ],
+              "score": {
+                "targetRelevance": 0,
+                "evidenceStrength": 0.66,
+                "demonstratedComplexity": 0.5,
+                "outcomeStrength": 1,
+                "specificity": 0.6,
+                "uniqueness": 1,
+                "technicalDepth": 0.25,
+                "recency": 0.5,
+                "ownershipStrength": 0.16666666666666666,
+                "redundancy": 0,
+                "weakEvidencePenalty": 0,
+                "total": 0.4586000000000001
+              }
+            },
+            {
+              "sourceAssetId": "asset-2",
+              "sectionType": "project",
+              "title": "验证项目2",
+              "sourceFactIds": [
+                "fact-2"
+              ],
+              "evidenceNodeIds": [
+                "asset:asset-2"
+              ],
+              "relevance": 0.37760000000000005,
+              "inclusionReason": "与互联网技术 / AI 应用方向相关，并具备可核验行动证据（证据强度66%、技术深度0%、独特性100%）。",
+              "bulletPlan": [
+                "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。"
+              ],
+              "explicitTools": [],
+              "score": {
+                "targetRelevance": 0,
+                "evidenceStrength": 0.66,
+                "demonstratedComplexity": 0.3,
+                "outcomeStrength": 0.75,
+                "specificity": 0.4,
+                "uniqueness": 1,
+                "technicalDepth": 0,
+                "recency": 0.5,
+                "ownershipStrength": 0.16666666666666666,
+                "redundancy": 0,
+                "weakEvidencePenalty": 0,
+                "total": 0.37760000000000005
+              }
+            },
+            {
+              "sourceAssetId": "asset-3",
+              "sectionType": "project",
+              "title": "验证项目3",
+              "sourceFactIds": [
+                "fact-3"
+              ],
+              "evidenceNodeIds": [
+                "asset:asset-3"
+              ],
+              "relevance": 0.37760000000000005,
+              "inclusionReason": "与互联网技术 / AI 应用方向相关，并具备可核验行动证据（证据强度66%、技术深度0%、独特性100%）。",
+              "bulletPlan": [
+                "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。"
+              ],
+              "explicitTools": [],
+              "score": {
+                "targetRelevance": 0,
+                "evidenceStrength": 0.66,
+                "demonstratedComplexity": 0.3,
+                "outcomeStrength": 0.75,
+                "specificity": 0.4,
+                "uniqueness": 1,
+                "technicalDepth": 0,
+                "recency": 0.5,
+                "ownershipStrength": 0.16666666666666666,
+                "redundancy": 0,
+                "weakEvidencePenalty": 0,
+                "total": 0.37760000000000005
+              }
+            }
+          ],
+          "excludedAssets": [],
+          "informationNeeds": [],
+          "keywordCoverage": [],
+          "pageBudget": {
+            "targetPages": 1,
+            "maxProjects": 4,
+            "maxBulletsPerProject": 4,
+            "estimatedPageCount": 0.6
+          }
+        },
+        "items": [
+          {
+            "sourceAssetId": "asset-0",
+            "data": {
+              "id": "asset-0",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "验证项目0",
+              "role": "项目成员",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。"
+              ],
+              "outcomes": []
+            },
+            "claimIds": [
+              "claim:asset-0:1"
+            ],
+            "factIds": [
+              "fact-0"
+            ],
+            "sourceBlockIds": [],
+            "sourceExcerpt": "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。"
+          },
+          {
+            "sourceAssetId": "asset-1",
+            "data": {
+              "id": "asset-1",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "验证项目1",
+              "role": "项目成员",
+              "current": false,
+              "tools": [
+                "Redis"
+              ],
+              "highlights": [
+                "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+              ],
+              "outcomes": []
+            },
+            "claimIds": [
+              "claim:asset-1:1"
+            ],
+            "factIds": [
+              "fact-1"
+            ],
+            "sourceBlockIds": [],
+            "sourceExcerpt": "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+          },
+          {
+            "sourceAssetId": "asset-2",
+            "data": {
+              "id": "asset-2",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "验证项目2",
+              "role": "项目成员",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。"
+              ],
+              "outcomes": []
+            },
+            "claimIds": [
+              "claim:asset-2:1"
+            ],
+            "factIds": [
+              "fact-2"
+            ],
+            "sourceBlockIds": [],
+            "sourceExcerpt": "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。"
+          },
+          {
+            "sourceAssetId": "asset-3",
+            "data": {
+              "id": "asset-3",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "验证项目3",
+              "role": "项目成员",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。"
+              ],
+              "outcomes": []
+            },
+            "claimIds": [
+              "claim:asset-3:1"
+            ],
+            "factIds": [
+              "fact-3"
+            ],
+            "sourceBlockIds": [],
+            "sourceExcerpt": "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。"
+          },
+          {
+            "sourceAssetId": "derived-skill-group:数据库",
+            "data": {
+              "id": "composition-skill-group-数据库",
+              "customFields": [],
+              "sectionType": "skills",
+              "name": "Redis",
+              "category": "数据库"
+            },
+            "claimIds": [
+              "claim:skill:Redis"
+            ],
+            "factIds": [
+              "fact-1"
+            ],
+            "sourceBlockIds": [],
+            "sourceExcerpt": "Redis"
+          }
+        ],
+        "claims": [
+          {
+            "id": "claim:asset-0:1",
+            "text": "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。",
+            "classification": "DERIVED_PRESENTATION",
+            "sourceAssetIds": [
+              "asset-0"
+            ],
+            "factIds": [
+              "fact-0"
+            ],
+            "sourceTurnIds": [],
+            "evidenceNodeIds": [
+              "asset:asset-0",
+              "outcome:asset-0:参与检索链路开发-使用混合检索与重排序处理文档查询-通过离线评测集验证召回-",
+              "evidence:asset-0:项目名称-验证项目0-角色-项目成员-亮点-参与检索链路开发-使用混合检索与重排序处理文档查询-"
+            ],
+            "reason": "保留来源事实，只进行简历展示层的压缩与措辞整理。",
+            "guardStatus": "pass"
+          },
+          {
+            "id": "claim:asset-1:1",
+            "text": "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。",
+            "classification": "DERIVED_PRESENTATION",
+            "sourceAssetIds": [
+              "asset-1"
+            ],
+            "factIds": [
+              "fact-1"
+            ],
+            "sourceTurnIds": [],
+            "evidenceNodeIds": [
+              "asset:asset-1",
+              "term:redis",
+              "outcome:asset-1:参与订单服务开发-使用-redis-缓存会话状态-通过-api-接口交付数据查询-",
+              "evidence:asset-1:项目名称-验证项目1-角色-项目成员-亮点-参与订单服务开发-使用-redis-缓存会话状态-通"
+            ],
+            "reason": "保留来源事实，只进行简历展示层的压缩与措辞整理。",
+            "guardStatus": "pass"
+          },
+          {
+            "id": "claim:asset-2:1",
+            "text": "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。",
+            "classification": "DERIVED_PRESENTATION",
+            "sourceAssetIds": [
+              "asset-2"
+            ],
+            "factIds": [
+              "fact-2"
+            ],
+            "sourceTurnIds": [],
+            "evidenceNodeIds": [
+              "asset:asset-2",
+              "outcome:asset-2:参与会话页面开发-封装组件与状态管理-通过渲染测试验证交互复用-",
+              "evidence:asset-2:项目名称-验证项目2-角色-项目成员-亮点-参与会话页面开发-封装组件与状态管理-通过渲染测试验"
+            ],
+            "reason": "保留来源事实，只进行简历展示层的压缩与措辞整理。",
+            "guardStatus": "pass"
+          },
+          {
+            "id": "claim:asset-3:1",
+            "text": "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。",
+            "classification": "DERIVED_PRESENTATION",
+            "sourceAssetIds": [
+              "asset-3"
+            ],
+            "factIds": [
+              "fact-3"
+            ],
+            "sourceTurnIds": [],
+            "evidenceNodeIds": [
+              "asset:asset-3",
+              "outcome:asset-3:参与部署流程开发-配置双机热备与健康检查-通过故障切换演练验证恢复-",
+              "evidence:asset-3:项目名称-验证项目3-角色-项目成员-亮点-参与部署流程开发-配置双机热备与健康检查-通过故障切"
+            ],
+            "reason": "保留来源事实，只进行简历展示层的压缩与措辞整理。",
+            "guardStatus": "pass"
+          },
+          {
+            "id": "claim:skill:Redis",
+            "text": "Redis",
+            "classification": "SUPPORTED",
+            "sourceAssetIds": [
+              "asset-1"
+            ],
+            "factIds": [
+              "fact-1"
+            ],
+            "sourceTurnIds": [],
+            "evidenceNodeIds": [
+              "asset:asset-1",
+              "term:redis",
+              "outcome:asset-1:参与订单服务开发-使用-redis-缓存会话状态-通过-api-接口交付数据查询-",
+              "evidence:asset-1:项目名称-验证项目1-角色-项目成员-亮点-参与订单服务开发-使用-redis-缓存会话状态-通"
+            ],
+            "reason": "从多个已确认职业资产的显式工具、方法或技能字段汇总。",
+            "guardStatus": "pass"
+          }
+        ],
+        "reviewResult": {
+          "status": "PASS",
+          "findings": [],
+          "diffs": [],
+          "atsCoverage": [],
+          "metrics": {
+            "sourceAssets": 4,
+            "selectedAssets": 4,
+            "derivedSkills": 1,
+            "questionsAsked": 0,
+            "supportedClaims": 1,
+            "derivedPresentationClaims": 4,
+            "needsConfirmationClaims": 0,
+            "unsupportedClaims": 0,
+            "bulletsGenerated": 4,
+            "duplicateBullets": 0,
+            "fillerBullets": 0,
+            "lowDensityBullets": 0,
+            "paragraphHeavyItems": 0,
+            "pageOverflow": false,
+            "onePageReasonable": true,
+            "bulletRepairCount": 0,
+            "bulletRejectedCount": 0,
+            "repairPassCount": 0,
+            "unsupportedClaimsBlocked": 0,
+            "atsRepairPassCount": 1,
+            "compressionPassCount": 0,
+            "profileFactsAddedFromTailoring": 0
+          },
+          "revisedBulletCount": 4
+        },
+        "proposal": {
+          "mode": "general",
+          "title": "通用简历组装预览",
+          "summary": "这份简历会重点呈现 验证项目0、验证项目1、验证项目2 等项目实践，并将 Redis 等已确认能力压缩为清晰的技能分组。",
+          "selectedAssetTitles": [
+            "验证项目0",
+            "验证项目1",
+            "验证项目2",
+            "验证项目3"
+          ],
+          "derivedSkillNames": [
+            "Redis"
+          ],
+          "bulletCount": 4,
+          "informationNeeds": [],
+          "contactReminder": true,
+          "actions": [
+            "generate",
+            "adjust",
+            "cancel"
+          ]
+        },
+        "metrics": {
+          "sourceAssets": 4,
+          "selectedAssets": 4,
+          "derivedSkills": 1,
+          "questionsAsked": 0,
+          "supportedClaims": 1,
+          "derivedPresentationClaims": 4,
+          "needsConfirmationClaims": 0,
+          "unsupportedClaims": 0,
+          "bulletsGenerated": 4,
+          "duplicateBullets": 0,
+          "fillerBullets": 0,
+          "lowDensityBullets": 0,
+          "paragraphHeavyItems": 0,
+          "pageOverflow": false,
+          "onePageReasonable": true,
+          "bulletRepairCount": 0,
+          "bulletRejectedCount": 0,
+          "repairPassCount": 0,
+          "unsupportedClaimsBlocked": 0,
+          "atsRepairPassCount": 1,
+          "compressionPassCount": 0,
+          "profileFactsAddedFromTailoring": 0
+        },
+        "keywordCoverage": [],
+        "informationNeeds": [],
+        "skillGroups": [
+          {
+            "category": "后端 / 数据",
+            "skills": [
+              "Redis"
+            ]
+          }
+        ],
+        "writingExecution": {
+          "mode": "deterministic_fallback",
+          "attemptCount": 1,
+          "fallbackReason": "deterministic_compile_path",
+          "inputContextHash": "fnv-4e4a0d6a-150",
+          "outputHash": "fnv-4272b152-586"
+        },
+        "writingOutput": {
+          "assets": [
+            {
+              "sourceAssetId": "asset-0",
+              "title": "验证项目0",
+              "role": "项目成员",
+              "techStack": [],
+              "highlights": [
+                "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。"
+              ]
+            },
+            {
+              "sourceAssetId": "asset-1",
+              "title": "验证项目1",
+              "role": "项目成员",
+              "techStack": [
+                "Redis"
+              ],
+              "highlights": [
+                "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+              ]
+            },
+            {
+              "sourceAssetId": "asset-2",
+              "title": "验证项目2",
+              "role": "项目成员",
+              "techStack": [],
+              "highlights": [
+                "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。"
+              ]
+            },
+            {
+              "sourceAssetId": "asset-3",
+              "title": "验证项目3",
+              "role": "项目成员",
+              "techStack": [],
+              "highlights": [
+                "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。"
+              ]
+            }
+          ],
+          "skillGroups": [
+            {
+              "category": "后端 / 数据",
+              "skills": [
+                "Redis"
+              ]
+            }
+          ]
+        },
+        "telemetry": {
+          "writerMode": "deterministic_fallback",
+          "writerFallbackReason": "deterministic_compile_path",
+          "targetContext": {
+            "targetDirection": "互联网技术 / AI 应用"
+          },
+          "selectedAssetCount": 4,
+          "selectedProjectCount": 4,
+          "bulletCount": 4,
+          "bulletRepairCount": 0,
+          "bulletRejectedCount": 0,
+          "evidenceKeywordSupportedCount": 0,
+          "evidenceKeywordPotentialCount": 0,
+          "evidenceKeywordUnsupportedCount": 0,
+          "finalKeywordPresentCount": 0,
+          "finalKeywordMissingSupportedCount": 0,
+          "reviewStatus": "PASS",
+          "pageCount": 0.6,
+          "pageCountSource": "blueprint_estimate",
+          "compressionPassCount": 0,
+          "profileFactsAddedFromTailoring": 0
+        }
+      },
+      "branch": {
+        "id": "branch-general-tEEs6kWNnG",
+        "createdAt": "2026-09-11T10:21:03.413Z",
+        "updatedAt": "2026-09-11T10:21:03.413Z",
+        "schemaVersion": "resume-branch-v2",
+        "branchPurpose": "general",
+        "profileId": "p48c-profile",
+        "name": "General",
+        "sourceProfileVersion": 1,
+        "sourceProfileSnapshotId": "profile-snapshot-p48c-profile-1-hp19t2",
+        "sourceDraftRevision": 0,
+        "matcherVersion": "profile-snapshot-v2",
+        "sourceMatchSetHash": "profile-snapshot-p48c-profile-1-hp19t2",
+        "requirementMatchIds": [],
+        "revision": 0,
+        "currentRevisionId": "resume-revision-fnv-1760c5bb-45",
+        "lifecycleStatus": "active",
+        "migrationStatus": "verified",
+        "syncStatusCache": {
+          "status": "in_sync",
+          "sourceProfileVersion": 1,
+          "currentProfileVersion": 1,
+          "invalidFactRefs": [],
+          "checkedAt": "2026-09-11T10:21:03.413Z",
+          "message": "General branch is in sync with its source profile."
+        },
+        "resumeBasics": {
+          "name": "校准候选人",
+          "targetRole": "互联网技术 / AI 应用",
+          "email": "",
+          "phone": "",
+          "location": "",
+          "summary": "",
+          "links": []
+        },
+        "contentItems": [
+          {
+            "id": "branch-item-composed-asset-0-AlPJwY",
+            "itemType": "experience",
+            "source": "adaptation_draft",
+            "sourceSectionId": "project",
+            "text": "项目名称：验证项目0\n角色：项目成员\n亮点：参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。",
+            "originalText": "项目名称：验证项目0\n角色：项目成员\n亮点：参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。",
+            "order": 0,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-0",
+                "factId": "fact-0"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-09-11T10:21:03.413Z",
+            "guardVersion": "resume-composition-v1"
+          },
+          {
+            "id": "branch-item-composed-asset-1-5F-SpJ",
+            "itemType": "experience",
+            "source": "adaptation_draft",
+            "sourceSectionId": "project",
+            "text": "项目名称：验证项目1\n角色：项目成员\n技术工具：Redis\n亮点：参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。",
+            "originalText": "项目名称：验证项目1\n角色：项目成员\n技术工具：Redis\n亮点：参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。",
+            "order": 1,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-1",
+                "factId": "fact-1"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-09-11T10:21:03.413Z",
+            "guardVersion": "resume-composition-v1"
+          },
+          {
+            "id": "branch-item-composed-asset-2-bJPgWD",
+            "itemType": "experience",
+            "source": "adaptation_draft",
+            "sourceSectionId": "project",
+            "text": "项目名称：验证项目2\n角色：项目成员\n亮点：参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。",
+            "originalText": "项目名称：验证项目2\n角色：项目成员\n亮点：参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。",
+            "order": 2,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-2",
+                "factId": "fact-2"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-09-11T10:21:03.413Z",
+            "guardVersion": "resume-composition-v1"
+          },
+          {
+            "id": "branch-item-composed-asset-3-QBK9b3",
+            "itemType": "experience",
+            "source": "adaptation_draft",
+            "sourceSectionId": "project",
+            "text": "项目名称：验证项目3\n角色：项目成员\n亮点：参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。",
+            "originalText": "项目名称：验证项目3\n角色：项目成员\n亮点：参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。",
+            "order": 3,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-3",
+                "factId": "fact-3"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-09-11T10:21:03.413Z",
+            "guardVersion": "resume-composition-v1"
+          },
+          {
+            "id": "branch-item-composed-composition-skill-group-数据库-X5_SjT",
+            "itemType": "skill",
+            "source": "adaptation_draft",
+            "sourceSectionId": "skills",
+            "text": "技能名称：Redis\n类别：数据库",
+            "originalText": "技能名称：Redis\n类别：数据库",
+            "order": 4,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-1",
+                "factId": "fact-1"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-09-11T10:21:03.413Z",
+            "guardVersion": "resume-composition-v1"
+          }
+        ],
+        "structuredContentItems": [
+          {
+            "id": "branch-item-composed-asset-0-AlPJwY",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "asset-0",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "验证项目0",
+              "role": "项目成员",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。"
+              ],
+              "outcomes": []
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-0",
+                "factId": "fact-0"
+              }
+            ],
+            "source": "adaptation_draft",
+            "order": 0,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "项目名称：验证项目0\n角色：项目成员\n亮点：参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-composed-asset-1-5F-SpJ",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "asset-1",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "验证项目1",
+              "role": "项目成员",
+              "current": false,
+              "tools": [
+                "Redis"
+              ],
+              "highlights": [
+                "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+              ],
+              "outcomes": []
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-1",
+                "factId": "fact-1"
+              }
+            ],
+            "source": "adaptation_draft",
+            "order": 1,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "项目名称：验证项目1\n角色：项目成员\n技术工具：Redis\n亮点：参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-composed-asset-2-bJPgWD",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "asset-2",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "验证项目2",
+              "role": "项目成员",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。"
+              ],
+              "outcomes": []
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-2",
+                "factId": "fact-2"
+              }
+            ],
+            "source": "adaptation_draft",
+            "order": 2,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "项目名称：验证项目2\n角色：项目成员\n亮点：参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-composed-asset-3-QBK9b3",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "asset-3",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "验证项目3",
+              "role": "项目成员",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。"
+              ],
+              "outcomes": []
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-3",
+                "factId": "fact-3"
+              }
+            ],
+            "source": "adaptation_draft",
+            "order": 3,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "项目名称：验证项目3\n角色：项目成员\n亮点：参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-composed-composition-skill-group-数据库-X5_SjT",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "composition-skill-group-数据库",
+              "customFields": [],
+              "sectionType": "skills",
+              "name": "Redis",
+              "category": "数据库"
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-1",
+                "factId": "fact-1"
+              }
+            ],
+            "source": "adaptation_draft",
+            "order": 4,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "技能名称：Redis\n类别：数据库",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "Redis",
+            "mappingTrace": []
+          }
+        ],
+        "tailoringAppliedCount": 0
+      }
+    },
+    {
+      "variant": "ai",
+      "composition": {
+        "schemaVersion": "resume-composition-v1",
+        "mode": "job_specific",
+        "profileId": "p48c-profile",
+        "profileRevision": 1,
+        "jobId": "p48c-ai",
+        "evidenceGraph": {
+          "schemaVersion": "resume-evidence-graph-v1",
+          "profileId": "p48c-profile",
+          "profileRevision": 1,
+          "nodes": [
+            {
+              "id": "asset:asset-0",
+              "type": "career_asset",
+              "value": "验证项目0",
+              "sourceAssetIds": [
+                "asset-0"
+              ],
+              "factIds": [
+                "fact-0"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。"
+              ]
+            },
+            {
+              "id": "outcome:asset-0:参与检索链路开发-使用混合检索与重排序处理文档查询-通过离线评测集验证召回-",
+              "type": "outcome",
+              "value": "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。",
+              "sourceAssetIds": [
+                "asset-0"
+              ],
+              "factIds": [
+                "fact-0"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。"
+              ]
+            },
+            {
+              "id": "evidence:asset-0:项目名称-验证项目0-角色-项目成员-亮点-参与检索链路开发-使用混合检索与重排序处理文档查询-",
+              "type": "evidence",
+              "value": "项目名称：验证项目0\n角色：项目成员\n亮点：参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。\n参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。\n参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。\n参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。",
+              "sourceAssetIds": [
+                "asset-0"
+              ],
+              "factIds": [
+                "fact-0"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。"
+              ]
+            },
+            {
+              "id": "asset:asset-1",
+              "type": "career_asset",
+              "value": "验证项目1",
+              "sourceAssetIds": [
+                "asset-1"
+              ],
+              "factIds": [
+                "fact-1"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+              ]
+            },
+            {
+              "id": "term:redis",
+              "type": "skill",
+              "value": "Redis",
+              "sourceAssetIds": [
+                "asset-1"
+              ],
+              "factIds": [
+                "fact-1"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+              ]
+            },
+            {
+              "id": "outcome:asset-1:参与订单服务开发-使用-redis-缓存会话状态-通过-api-接口交付数据查询-",
+              "type": "outcome",
+              "value": "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。",
+              "sourceAssetIds": [
+                "asset-1"
+              ],
+              "factIds": [
+                "fact-1"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+              ]
+            },
+            {
+              "id": "evidence:asset-1:项目名称-验证项目1-角色-项目成员-亮点-参与订单服务开发-使用-redis-缓存会话状态-通",
+              "type": "evidence",
+              "value": "项目名称：验证项目1\n角色：项目成员\n亮点：参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。\n参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。\n参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。\n参与订单服务开发，使用 Redis 缓存会话状态，通过 API ",
+              "sourceAssetIds": [
+                "asset-1"
+              ],
+              "factIds": [
+                "fact-1"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+              ]
+            },
+            {
+              "id": "asset:asset-2",
+              "type": "career_asset",
+              "value": "验证项目2",
+              "sourceAssetIds": [
+                "asset-2"
+              ],
+              "factIds": [
+                "fact-2"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。"
+              ]
+            },
+            {
+              "id": "outcome:asset-2:参与会话页面开发-封装组件与状态管理-通过渲染测试验证交互复用-",
+              "type": "outcome",
+              "value": "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。",
+              "sourceAssetIds": [
+                "asset-2"
+              ],
+              "factIds": [
+                "fact-2"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。"
+              ]
+            },
+            {
+              "id": "evidence:asset-2:项目名称-验证项目2-角色-项目成员-亮点-参与会话页面开发-封装组件与状态管理-通过渲染测试验",
+              "type": "evidence",
+              "value": "项目名称：验证项目2\n角色：项目成员\n亮点：参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。\n参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。\n参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。\n参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。",
+              "sourceAssetIds": [
+                "asset-2"
+              ],
+              "factIds": [
+                "fact-2"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。"
+              ]
+            },
+            {
+              "id": "asset:asset-3",
+              "type": "career_asset",
+              "value": "验证项目3",
+              "sourceAssetIds": [
+                "asset-3"
+              ],
+              "factIds": [
+                "fact-3"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。"
+              ]
+            },
+            {
+              "id": "outcome:asset-3:参与部署流程开发-配置双机热备与健康检查-通过故障切换演练验证恢复-",
+              "type": "outcome",
+              "value": "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。",
+              "sourceAssetIds": [
+                "asset-3"
+              ],
+              "factIds": [
+                "fact-3"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。"
+              ]
+            },
+            {
+              "id": "evidence:asset-3:项目名称-验证项目3-角色-项目成员-亮点-参与部署流程开发-配置双机热备与健康检查-通过故障切",
+              "type": "evidence",
+              "value": "项目名称：验证项目3\n角色：项目成员\n亮点：参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。\n参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。\n参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。\n参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。",
+              "sourceAssetIds": [
+                "asset-3"
+              ],
+              "factIds": [
+                "fact-3"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。"
+              ]
+            }
+          ],
+          "edges": [
+            {
+              "id": "edge:outcome:asset-0:参与检索链路开发-使用混合检索与重排序处理文档查询-通过离线评测集验证召回-:asset:asset-0",
+              "from": "outcome:asset-0:参与检索链路开发-使用混合检索与重排序处理文档查询-通过离线评测集验证召回-",
+              "to": "asset:asset-0",
+              "relation": "supports"
+            },
+            {
+              "id": "edge:evidence:asset-0:项目名称-验证项目0-角色-项目成员-亮点-参与检索链路开发-使用混合检索与重排序处理文档查询-:asset:asset-0",
+              "from": "evidence:asset-0:项目名称-验证项目0-角色-项目成员-亮点-参与检索链路开发-使用混合检索与重排序处理文档查询-",
+              "to": "asset:asset-0",
+              "relation": "supports"
+            },
+            {
+              "id": "edge:term:redis:asset:asset-1",
+              "from": "term:redis",
+              "to": "asset:asset-1",
+              "relation": "supports"
+            },
+            {
+              "id": "edge:outcome:asset-1:参与订单服务开发-使用-redis-缓存会话状态-通过-api-接口交付数据查询-:asset:asset-1",
+              "from": "outcome:asset-1:参与订单服务开发-使用-redis-缓存会话状态-通过-api-接口交付数据查询-",
+              "to": "asset:asset-1",
+              "relation": "supports"
+            },
+            {
+              "id": "edge:evidence:asset-1:项目名称-验证项目1-角色-项目成员-亮点-参与订单服务开发-使用-redis-缓存会话状态-通:asset:asset-1",
+              "from": "evidence:asset-1:项目名称-验证项目1-角色-项目成员-亮点-参与订单服务开发-使用-redis-缓存会话状态-通",
+              "to": "asset:asset-1",
+              "relation": "supports"
+            },
+            {
+              "id": "edge:outcome:asset-2:参与会话页面开发-封装组件与状态管理-通过渲染测试验证交互复用-:asset:asset-2",
+              "from": "outcome:asset-2:参与会话页面开发-封装组件与状态管理-通过渲染测试验证交互复用-",
+              "to": "asset:asset-2",
+              "relation": "supports"
+            },
+            {
+              "id": "edge:evidence:asset-2:项目名称-验证项目2-角色-项目成员-亮点-参与会话页面开发-封装组件与状态管理-通过渲染测试验:asset:asset-2",
+              "from": "evidence:asset-2:项目名称-验证项目2-角色-项目成员-亮点-参与会话页面开发-封装组件与状态管理-通过渲染测试验",
+              "to": "asset:asset-2",
+              "relation": "supports"
+            },
+            {
+              "id": "edge:outcome:asset-3:参与部署流程开发-配置双机热备与健康检查-通过故障切换演练验证恢复-:asset:asset-3",
+              "from": "outcome:asset-3:参与部署流程开发-配置双机热备与健康检查-通过故障切换演练验证恢复-",
+              "to": "asset:asset-3",
+              "relation": "supports"
+            },
+            {
+              "id": "edge:evidence:asset-3:项目名称-验证项目3-角色-项目成员-亮点-参与部署流程开发-配置双机热备与健康检查-通过故障切:asset:asset-3",
+              "from": "evidence:asset-3:项目名称-验证项目3-角色-项目成员-亮点-参与部署流程开发-配置双机热备与健康检查-通过故障切",
+              "to": "asset:asset-3",
+              "relation": "supports"
+            }
+          ],
+          "skillMatrix": [
+            {
+              "name": "Redis",
+              "category": "数据库",
+              "sourceAssetIds": [
+                "asset-1"
+              ],
+              "factIds": [
+                "fact-1"
+              ],
+              "evidenceNodeIds": [
+                "term:redis"
+              ],
+              "evidenceCount": 1,
+              "maturity": "demonstrated"
+            }
+          ],
+          "recoveryCandidates": [],
+          "sourceAssetIds": [
+            "asset-0",
+            "asset-1",
+            "asset-2",
+            "asset-3"
+          ],
+          "excludedAssetIds": []
+        },
+        "blueprint": {
+          "schemaVersion": "resume-blueprint-v1",
+          "mode": "job_specific",
+          "profileId": "p48c-profile",
+          "profileRevision": 1,
+          "jobId": "p48c-ai",
+          "targetRole": "AI / Agent 应用工程师",
+          "skillGroups": {
+            "后端 / 数据": [
+              "Redis"
+            ]
+          },
+          "sections": [
+            {
+              "sectionType": "project",
+              "assetIds": [
+                "asset-0",
+                "asset-1",
+                "asset-2",
+                "asset-3"
+              ],
+              "maxItems": 4,
+              "priority": 0.95
+            },
+            {
+              "sectionType": "skills",
+              "assetIds": [
+                "derived-skills"
+              ],
+              "maxItems": 1,
+              "priority": 0.7
+            }
+          ],
+          "assets": [
+            {
+              "sourceAssetId": "asset-0",
+              "sectionType": "project",
+              "title": "验证项目0",
+              "sourceFactIds": [
+                "fact-0"
+              ],
+              "evidenceNodeIds": [
+                "asset:asset-0"
+              ],
+              "relevance": 0.6451,
+              "inclusionReason": "保留相邻经历，供人工判断（证据强度66%、技术深度0%、独特性100%）。",
+              "bulletPlan": [
+                "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。"
+              ],
+              "explicitTools": [],
+              "score": {
+                "targetRelevance": 1,
+                "evidenceStrength": 0.66,
+                "demonstratedComplexity": 0.2,
+                "outcomeStrength": 0.75,
+                "specificity": 0.4,
+                "uniqueness": 1,
+                "technicalDepth": 0,
+                "recency": 0.5,
+                "ownershipStrength": 0.16666666666666666,
+                "redundancy": 0,
+                "weakEvidencePenalty": 0,
+                "requirementCoverage": 0,
+                "mustHaveCoverage": 0,
+                "jdSemanticRelevance": 0.25,
+                "total": 0.6451
+              }
+            },
+            {
+              "sourceAssetId": "asset-1",
+              "sectionType": "project",
+              "title": "验证项目1",
+              "sourceFactIds": [
+                "fact-1"
+              ],
+              "evidenceNodeIds": [
+                "asset:asset-1"
+              ],
+              "relevance": 0.4561000000000001,
+              "inclusionReason": "保留相邻经历，供人工判断（证据强度66%、技术深度25%、独特性100%）。",
+              "bulletPlan": [
+                "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+              ],
+              "explicitTools": [
+                "Redis"
+              ],
+              "score": {
+                "targetRelevance": 0,
+                "evidenceStrength": 0.66,
+                "demonstratedComplexity": 0.5,
+                "outcomeStrength": 1,
+                "specificity": 0.6,
+                "uniqueness": 1,
+                "technicalDepth": 0.25,
+                "recency": 0.5,
+                "ownershipStrength": 0.16666666666666666,
+                "redundancy": 0,
+                "weakEvidencePenalty": 0,
+                "requirementCoverage": 0,
+                "mustHaveCoverage": 0,
+                "jdSemanticRelevance": 0.25,
+                "total": 0.4561000000000001
+              }
+            },
+            {
+              "sourceAssetId": "asset-2",
+              "sectionType": "project",
+              "title": "验证项目2",
+              "sourceFactIds": [
+                "fact-2"
+              ],
+              "evidenceNodeIds": [
+                "asset:asset-2"
+              ],
+              "relevance": 0.37510000000000004,
+              "inclusionReason": "保留相邻经历，供人工判断（证据强度66%、技术深度0%、独特性100%）。",
+              "bulletPlan": [
+                "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。"
+              ],
+              "explicitTools": [],
+              "score": {
+                "targetRelevance": 0,
+                "evidenceStrength": 0.66,
+                "demonstratedComplexity": 0.3,
+                "outcomeStrength": 0.75,
+                "specificity": 0.4,
+                "uniqueness": 1,
+                "technicalDepth": 0,
+                "recency": 0.5,
+                "ownershipStrength": 0.16666666666666666,
+                "redundancy": 0,
+                "weakEvidencePenalty": 0,
+                "requirementCoverage": 0,
+                "mustHaveCoverage": 0,
+                "jdSemanticRelevance": 0.25,
+                "total": 0.37510000000000004
+              }
+            },
+            {
+              "sourceAssetId": "asset-3",
+              "sectionType": "project",
+              "title": "验证项目3",
+              "sourceFactIds": [
+                "fact-3"
+              ],
+              "evidenceNodeIds": [
+                "asset:asset-3"
+              ],
+              "relevance": 0.37510000000000004,
+              "inclusionReason": "保留相邻经历，供人工判断（证据强度66%、技术深度0%、独特性100%）。",
+              "bulletPlan": [
+                "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。"
+              ],
+              "explicitTools": [],
+              "score": {
+                "targetRelevance": 0,
+                "evidenceStrength": 0.66,
+                "demonstratedComplexity": 0.3,
+                "outcomeStrength": 0.75,
+                "specificity": 0.4,
+                "uniqueness": 1,
+                "technicalDepth": 0,
+                "recency": 0.5,
+                "ownershipStrength": 0.16666666666666666,
+                "redundancy": 0,
+                "weakEvidencePenalty": 0,
+                "requirementCoverage": 0,
+                "mustHaveCoverage": 0,
+                "jdSemanticRelevance": 0.25,
+                "total": 0.37510000000000004
+              }
+            }
+          ],
+          "excludedAssets": [],
+          "informationNeeds": [],
+          "keywordCoverage": [],
+          "pageBudget": {
+            "targetPages": 1,
+            "maxProjects": 4,
+            "maxBulletsPerProject": 4,
+            "estimatedPageCount": 0.6
+          }
+        },
+        "items": [
+          {
+            "sourceAssetId": "asset-0",
+            "data": {
+              "id": "asset-0",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "验证项目0",
+              "role": "项目成员",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。"
+              ],
+              "outcomes": []
+            },
+            "claimIds": [
+              "claim:asset-0:1"
+            ],
+            "factIds": [
+              "fact-0"
+            ],
+            "sourceBlockIds": [],
+            "sourceExcerpt": "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。"
+          },
+          {
+            "sourceAssetId": "asset-1",
+            "data": {
+              "id": "asset-1",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "验证项目1",
+              "role": "项目成员",
+              "current": false,
+              "tools": [
+                "Redis"
+              ],
+              "highlights": [
+                "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+              ],
+              "outcomes": []
+            },
+            "claimIds": [
+              "claim:asset-1:1"
+            ],
+            "factIds": [
+              "fact-1"
+            ],
+            "sourceBlockIds": [],
+            "sourceExcerpt": "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+          },
+          {
+            "sourceAssetId": "asset-2",
+            "data": {
+              "id": "asset-2",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "验证项目2",
+              "role": "项目成员",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。"
+              ],
+              "outcomes": []
+            },
+            "claimIds": [
+              "claim:asset-2:1"
+            ],
+            "factIds": [
+              "fact-2"
+            ],
+            "sourceBlockIds": [],
+            "sourceExcerpt": "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。"
+          },
+          {
+            "sourceAssetId": "asset-3",
+            "data": {
+              "id": "asset-3",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "验证项目3",
+              "role": "项目成员",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。"
+              ],
+              "outcomes": []
+            },
+            "claimIds": [
+              "claim:asset-3:1"
+            ],
+            "factIds": [
+              "fact-3"
+            ],
+            "sourceBlockIds": [],
+            "sourceExcerpt": "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。"
+          },
+          {
+            "sourceAssetId": "derived-skill-group:数据库",
+            "data": {
+              "id": "composition-skill-group-数据库",
+              "customFields": [],
+              "sectionType": "skills",
+              "name": "Redis",
+              "category": "数据库"
+            },
+            "claimIds": [
+              "claim:skill:Redis"
+            ],
+            "factIds": [
+              "fact-1"
+            ],
+            "sourceBlockIds": [],
+            "sourceExcerpt": "Redis"
+          }
+        ],
+        "claims": [
+          {
+            "id": "claim:asset-0:1",
+            "text": "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。",
+            "classification": "DERIVED_PRESENTATION",
+            "sourceAssetIds": [
+              "asset-0"
+            ],
+            "factIds": [
+              "fact-0"
+            ],
+            "sourceTurnIds": [],
+            "evidenceNodeIds": [
+              "asset:asset-0",
+              "outcome:asset-0:参与检索链路开发-使用混合检索与重排序处理文档查询-通过离线评测集验证召回-",
+              "evidence:asset-0:项目名称-验证项目0-角色-项目成员-亮点-参与检索链路开发-使用混合检索与重排序处理文档查询-"
+            ],
+            "reason": "保留来源事实，只进行简历展示层的压缩与措辞整理。",
+            "guardStatus": "pass"
+          },
+          {
+            "id": "claim:asset-1:1",
+            "text": "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。",
+            "classification": "DERIVED_PRESENTATION",
+            "sourceAssetIds": [
+              "asset-1"
+            ],
+            "factIds": [
+              "fact-1"
+            ],
+            "sourceTurnIds": [],
+            "evidenceNodeIds": [
+              "asset:asset-1",
+              "term:redis",
+              "outcome:asset-1:参与订单服务开发-使用-redis-缓存会话状态-通过-api-接口交付数据查询-",
+              "evidence:asset-1:项目名称-验证项目1-角色-项目成员-亮点-参与订单服务开发-使用-redis-缓存会话状态-通"
+            ],
+            "reason": "保留来源事实，只进行简历展示层的压缩与措辞整理。",
+            "guardStatus": "pass"
+          },
+          {
+            "id": "claim:asset-2:1",
+            "text": "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。",
+            "classification": "DERIVED_PRESENTATION",
+            "sourceAssetIds": [
+              "asset-2"
+            ],
+            "factIds": [
+              "fact-2"
+            ],
+            "sourceTurnIds": [],
+            "evidenceNodeIds": [
+              "asset:asset-2",
+              "outcome:asset-2:参与会话页面开发-封装组件与状态管理-通过渲染测试验证交互复用-",
+              "evidence:asset-2:项目名称-验证项目2-角色-项目成员-亮点-参与会话页面开发-封装组件与状态管理-通过渲染测试验"
+            ],
+            "reason": "保留来源事实，只进行简历展示层的压缩与措辞整理。",
+            "guardStatus": "pass"
+          },
+          {
+            "id": "claim:asset-3:1",
+            "text": "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。",
+            "classification": "DERIVED_PRESENTATION",
+            "sourceAssetIds": [
+              "asset-3"
+            ],
+            "factIds": [
+              "fact-3"
+            ],
+            "sourceTurnIds": [],
+            "evidenceNodeIds": [
+              "asset:asset-3",
+              "outcome:asset-3:参与部署流程开发-配置双机热备与健康检查-通过故障切换演练验证恢复-",
+              "evidence:asset-3:项目名称-验证项目3-角色-项目成员-亮点-参与部署流程开发-配置双机热备与健康检查-通过故障切"
+            ],
+            "reason": "保留来源事实，只进行简历展示层的压缩与措辞整理。",
+            "guardStatus": "pass"
+          },
+          {
+            "id": "claim:skill:Redis",
+            "text": "Redis",
+            "classification": "SUPPORTED",
+            "sourceAssetIds": [
+              "asset-1"
+            ],
+            "factIds": [
+              "fact-1"
+            ],
+            "sourceTurnIds": [],
+            "evidenceNodeIds": [
+              "asset:asset-1",
+              "term:redis",
+              "outcome:asset-1:参与订单服务开发-使用-redis-缓存会话状态-通过-api-接口交付数据查询-",
+              "evidence:asset-1:项目名称-验证项目1-角色-项目成员-亮点-参与订单服务开发-使用-redis-缓存会话状态-通"
+            ],
+            "reason": "从多个已确认职业资产的显式工具、方法或技能字段汇总。",
+            "guardStatus": "pass"
+          }
+        ],
+        "reviewResult": {
+          "status": "PASS",
+          "findings": [],
+          "diffs": [],
+          "atsCoverage": [],
+          "metrics": {
+            "sourceAssets": 4,
+            "selectedAssets": 4,
+            "derivedSkills": 1,
+            "questionsAsked": 0,
+            "supportedClaims": 1,
+            "derivedPresentationClaims": 4,
+            "needsConfirmationClaims": 0,
+            "unsupportedClaims": 0,
+            "bulletsGenerated": 4,
+            "duplicateBullets": 0,
+            "fillerBullets": 0,
+            "lowDensityBullets": 0,
+            "paragraphHeavyItems": 0,
+            "pageOverflow": false,
+            "onePageReasonable": true,
+            "bulletRepairCount": 0,
+            "bulletRejectedCount": 0,
+            "repairPassCount": 0,
+            "unsupportedClaimsBlocked": 0,
+            "atsRepairPassCount": 1,
+            "compressionPassCount": 0,
+            "profileFactsAddedFromTailoring": 0
+          },
+          "revisedBulletCount": 4
+        },
+        "proposal": {
+          "mode": "job_specific",
+          "title": "AI / Agent 应用工程师 · 简历组装预览",
+          "summary": "这份简历会重点呈现 验证项目0、验证项目1、验证项目2 等项目实践，并将 Redis 等已确认能力压缩为清晰的技能分组。",
+          "selectedAssetTitles": [
+            "验证项目0",
+            "验证项目1",
+            "验证项目2",
+            "验证项目3"
+          ],
+          "derivedSkillNames": [
+            "Redis"
+          ],
+          "bulletCount": 4,
+          "informationNeeds": [],
+          "contactReminder": true,
+          "actions": [
+            "generate",
+            "adjust",
+            "cancel"
+          ]
+        },
+        "metrics": {
+          "sourceAssets": 4,
+          "selectedAssets": 4,
+          "derivedSkills": 1,
+          "questionsAsked": 0,
+          "supportedClaims": 1,
+          "derivedPresentationClaims": 4,
+          "needsConfirmationClaims": 0,
+          "unsupportedClaims": 0,
+          "bulletsGenerated": 4,
+          "duplicateBullets": 0,
+          "fillerBullets": 0,
+          "lowDensityBullets": 0,
+          "paragraphHeavyItems": 0,
+          "pageOverflow": false,
+          "onePageReasonable": true,
+          "bulletRepairCount": 0,
+          "bulletRejectedCount": 0,
+          "repairPassCount": 0,
+          "unsupportedClaimsBlocked": 0,
+          "atsRepairPassCount": 1,
+          "compressionPassCount": 0,
+          "profileFactsAddedFromTailoring": 0
+        },
+        "keywordCoverage": [],
+        "informationNeeds": [],
+        "skillGroups": [
+          {
+            "category": "后端 / 数据",
+            "skills": [
+              "Redis"
+            ]
+          }
+        ],
+        "writingExecution": {
+          "mode": "deterministic_fallback",
+          "attemptCount": 1,
+          "fallbackReason": "deterministic_compile_path",
+          "inputContextHash": "fnv-9705273d-121",
+          "outputHash": "fnv-4272b152-586"
+        },
+        "writingOutput": {
+          "assets": [
+            {
+              "sourceAssetId": "asset-0",
+              "title": "验证项目0",
+              "role": "项目成员",
+              "techStack": [],
+              "highlights": [
+                "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。"
+              ]
+            },
+            {
+              "sourceAssetId": "asset-1",
+              "title": "验证项目1",
+              "role": "项目成员",
+              "techStack": [
+                "Redis"
+              ],
+              "highlights": [
+                "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+              ]
+            },
+            {
+              "sourceAssetId": "asset-2",
+              "title": "验证项目2",
+              "role": "项目成员",
+              "techStack": [],
+              "highlights": [
+                "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。"
+              ]
+            },
+            {
+              "sourceAssetId": "asset-3",
+              "title": "验证项目3",
+              "role": "项目成员",
+              "techStack": [],
+              "highlights": [
+                "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。"
+              ]
+            }
+          ],
+          "skillGroups": [
+            {
+              "category": "后端 / 数据",
+              "skills": [
+                "Redis"
+              ]
+            }
+          ]
+        },
+        "telemetry": {
+          "writerMode": "deterministic_fallback",
+          "writerFallbackReason": "deterministic_compile_path",
+          "targetContext": {},
+          "selectedAssetCount": 4,
+          "selectedProjectCount": 4,
+          "bulletCount": 4,
+          "bulletRepairCount": 0,
+          "bulletRejectedCount": 0,
+          "evidenceKeywordSupportedCount": 0,
+          "evidenceKeywordPotentialCount": 0,
+          "evidenceKeywordUnsupportedCount": 0,
+          "finalKeywordPresentCount": 0,
+          "finalKeywordMissingSupportedCount": 0,
+          "reviewStatus": "PASS",
+          "pageCount": 0.6,
+          "pageCountSource": "blueprint_estimate",
+          "compressionPassCount": 0,
+          "profileFactsAddedFromTailoring": 0
+        }
+      },
+      "branch": {
+        "id": "branch-job-profile-fnv-18e47fb8-28",
+        "createdAt": "2026-09-11T10:21:03.455Z",
+        "updatedAt": "2026-09-11T10:21:03.455Z",
+        "schemaVersion": "resume-branch-v2",
+        "branchPurpose": "job_specific",
+        "profileId": "p48c-profile",
+        "jobId": "p48c-ai",
+        "name": "AI / Agent 应用工程师",
+        "sourceProfileVersion": 1,
+        "sourceJobVersion": "2026-09-11T00:00:00.000Z",
+        "sourceProfileSnapshotId": "profile-snapshot-p48c-profile-1-fnv-5641ee99-31",
+        "derivedAt": "2026-09-11T10:21:03.455Z",
+        "sourceDraftRevision": 0,
+        "matcherVersion": "job-source-mode.profile-library.v2",
+        "sourceMatchSetHash": "fnv-61b9949f-245",
+        "requirementMatchIds": [],
+        "revision": 0,
+        "currentRevisionId": "resume-revision-fnv-75e6db53-49",
+        "lifecycleStatus": "active",
+        "migrationStatus": "verified",
+        "syncStatusCache": {
+          "status": "in_sync",
+          "sourceProfileVersion": 1,
+          "currentProfileVersion": 1,
+          "sourceJobVersion": "2026-09-11T00:00:00.000Z",
+          "currentJobVersion": "2026-09-11T00:00:00.000Z",
+          "invalidFactRefs": [],
+          "checkedAt": "2026-09-11T10:21:03.455Z",
+          "message": "Job branch is in sync with its profile-library source and job version."
+        },
+        "resumeBasics": {
+          "name": "校准候选人",
+          "targetRole": "AI / Agent 应用工程师",
+          "email": "",
+          "phone": "",
+          "location": "",
+          "summary": "",
+          "links": []
+        },
+        "contentItems": [
+          {
+            "id": "branch-item-composed-asset-0-kiGDaL",
+            "itemType": "experience",
+            "source": "adaptation_draft",
+            "sourceSectionId": "project",
+            "text": "项目名称：验证项目0\n角色：项目成员\n亮点：参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。",
+            "originalText": "项目名称：验证项目0\n角色：项目成员\n亮点：参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。",
+            "order": 0,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-0",
+                "factId": "fact-0"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-09-11T10:21:03.455Z",
+            "guardVersion": "resume-composition-v1"
+          },
+          {
+            "id": "branch-item-composed-asset-1-j2xU3l",
+            "itemType": "experience",
+            "source": "adaptation_draft",
+            "sourceSectionId": "project",
+            "text": "项目名称：验证项目1\n角色：项目成员\n技术工具：Redis\n亮点：参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。",
+            "originalText": "项目名称：验证项目1\n角色：项目成员\n技术工具：Redis\n亮点：参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。",
+            "order": 1,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-1",
+                "factId": "fact-1"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-09-11T10:21:03.455Z",
+            "guardVersion": "resume-composition-v1"
+          },
+          {
+            "id": "branch-item-composed-asset-2-JK9Rhc",
+            "itemType": "experience",
+            "source": "adaptation_draft",
+            "sourceSectionId": "project",
+            "text": "项目名称：验证项目2\n角色：项目成员\n亮点：参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。",
+            "originalText": "项目名称：验证项目2\n角色：项目成员\n亮点：参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。",
+            "order": 2,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-2",
+                "factId": "fact-2"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-09-11T10:21:03.455Z",
+            "guardVersion": "resume-composition-v1"
+          },
+          {
+            "id": "branch-item-composed-asset-3-lyB6v6",
+            "itemType": "experience",
+            "source": "adaptation_draft",
+            "sourceSectionId": "project",
+            "text": "项目名称：验证项目3\n角色：项目成员\n亮点：参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。",
+            "originalText": "项目名称：验证项目3\n角色：项目成员\n亮点：参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。",
+            "order": 3,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-3",
+                "factId": "fact-3"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-09-11T10:21:03.455Z",
+            "guardVersion": "resume-composition-v1"
+          },
+          {
+            "id": "branch-item-composed-composition-skill-group-数据库-MRj5d4",
+            "itemType": "skill",
+            "source": "adaptation_draft",
+            "sourceSectionId": "skills",
+            "text": "技能名称：Redis\n类别：数据库",
+            "originalText": "技能名称：Redis\n类别：数据库",
+            "order": 4,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-1",
+                "factId": "fact-1"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-09-11T10:21:03.455Z",
+            "guardVersion": "resume-composition-v1"
+          }
+        ],
+        "structuredContentItems": [
+          {
+            "id": "branch-item-composed-asset-0-kiGDaL",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "asset-0",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "验证项目0",
+              "role": "项目成员",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。"
+              ],
+              "outcomes": []
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-0",
+                "factId": "fact-0"
+              }
+            ],
+            "source": "adaptation_draft",
+            "order": 0,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "项目名称：验证项目0\n角色：项目成员\n亮点：参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-composed-asset-1-j2xU3l",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "asset-1",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "验证项目1",
+              "role": "项目成员",
+              "current": false,
+              "tools": [
+                "Redis"
+              ],
+              "highlights": [
+                "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+              ],
+              "outcomes": []
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-1",
+                "factId": "fact-1"
+              }
+            ],
+            "source": "adaptation_draft",
+            "order": 1,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "项目名称：验证项目1\n角色：项目成员\n技术工具：Redis\n亮点：参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-composed-asset-2-JK9Rhc",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "asset-2",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "验证项目2",
+              "role": "项目成员",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。"
+              ],
+              "outcomes": []
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-2",
+                "factId": "fact-2"
+              }
+            ],
+            "source": "adaptation_draft",
+            "order": 2,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "项目名称：验证项目2\n角色：项目成员\n亮点：参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-composed-asset-3-lyB6v6",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "asset-3",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "验证项目3",
+              "role": "项目成员",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。"
+              ],
+              "outcomes": []
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-3",
+                "factId": "fact-3"
+              }
+            ],
+            "source": "adaptation_draft",
+            "order": 3,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "项目名称：验证项目3\n角色：项目成员\n亮点：参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-composed-composition-skill-group-数据库-MRj5d4",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "composition-skill-group-数据库",
+              "customFields": [],
+              "sectionType": "skills",
+              "name": "Redis",
+              "category": "数据库"
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-1",
+                "factId": "fact-1"
+              }
+            ],
+            "source": "adaptation_draft",
+            "order": 4,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "技能名称：Redis\n类别：数据库",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "Redis",
+            "mappingTrace": []
+          }
+        ],
+        "tailoringAppliedCount": 0
+      }
+    },
+    {
+      "variant": "backend",
+      "composition": {
+        "schemaVersion": "resume-composition-v1",
+        "mode": "job_specific",
+        "profileId": "p48c-profile",
+        "profileRevision": 1,
+        "jobId": "p48c-backend",
+        "evidenceGraph": {
+          "schemaVersion": "resume-evidence-graph-v1",
+          "profileId": "p48c-profile",
+          "profileRevision": 1,
+          "nodes": [
+            {
+              "id": "asset:asset-0",
+              "type": "career_asset",
+              "value": "验证项目0",
+              "sourceAssetIds": [
+                "asset-0"
+              ],
+              "factIds": [
+                "fact-0"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。"
+              ]
+            },
+            {
+              "id": "outcome:asset-0:参与检索链路开发-使用混合检索与重排序处理文档查询-通过离线评测集验证召回-",
+              "type": "outcome",
+              "value": "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。",
+              "sourceAssetIds": [
+                "asset-0"
+              ],
+              "factIds": [
+                "fact-0"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。"
+              ]
+            },
+            {
+              "id": "evidence:asset-0:项目名称-验证项目0-角色-项目成员-亮点-参与检索链路开发-使用混合检索与重排序处理文档查询-",
+              "type": "evidence",
+              "value": "项目名称：验证项目0\n角色：项目成员\n亮点：参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。\n参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。\n参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。\n参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。",
+              "sourceAssetIds": [
+                "asset-0"
+              ],
+              "factIds": [
+                "fact-0"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。"
+              ]
+            },
+            {
+              "id": "asset:asset-1",
+              "type": "career_asset",
+              "value": "验证项目1",
+              "sourceAssetIds": [
+                "asset-1"
+              ],
+              "factIds": [
+                "fact-1"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+              ]
+            },
+            {
+              "id": "term:redis",
+              "type": "skill",
+              "value": "Redis",
+              "sourceAssetIds": [
+                "asset-1"
+              ],
+              "factIds": [
+                "fact-1"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+              ]
+            },
+            {
+              "id": "outcome:asset-1:参与订单服务开发-使用-redis-缓存会话状态-通过-api-接口交付数据查询-",
+              "type": "outcome",
+              "value": "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。",
+              "sourceAssetIds": [
+                "asset-1"
+              ],
+              "factIds": [
+                "fact-1"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+              ]
+            },
+            {
+              "id": "evidence:asset-1:项目名称-验证项目1-角色-项目成员-亮点-参与订单服务开发-使用-redis-缓存会话状态-通",
+              "type": "evidence",
+              "value": "项目名称：验证项目1\n角色：项目成员\n亮点：参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。\n参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。\n参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。\n参与订单服务开发，使用 Redis 缓存会话状态，通过 API ",
+              "sourceAssetIds": [
+                "asset-1"
+              ],
+              "factIds": [
+                "fact-1"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+              ]
+            },
+            {
+              "id": "asset:asset-2",
+              "type": "career_asset",
+              "value": "验证项目2",
+              "sourceAssetIds": [
+                "asset-2"
+              ],
+              "factIds": [
+                "fact-2"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。"
+              ]
+            },
+            {
+              "id": "outcome:asset-2:参与会话页面开发-封装组件与状态管理-通过渲染测试验证交互复用-",
+              "type": "outcome",
+              "value": "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。",
+              "sourceAssetIds": [
+                "asset-2"
+              ],
+              "factIds": [
+                "fact-2"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。"
+              ]
+            },
+            {
+              "id": "evidence:asset-2:项目名称-验证项目2-角色-项目成员-亮点-参与会话页面开发-封装组件与状态管理-通过渲染测试验",
+              "type": "evidence",
+              "value": "项目名称：验证项目2\n角色：项目成员\n亮点：参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。\n参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。\n参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。\n参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。",
+              "sourceAssetIds": [
+                "asset-2"
+              ],
+              "factIds": [
+                "fact-2"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。"
+              ]
+            },
+            {
+              "id": "asset:asset-3",
+              "type": "career_asset",
+              "value": "验证项目3",
+              "sourceAssetIds": [
+                "asset-3"
+              ],
+              "factIds": [
+                "fact-3"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。"
+              ]
+            },
+            {
+              "id": "outcome:asset-3:参与部署流程开发-配置双机热备与健康检查-通过故障切换演练验证恢复-",
+              "type": "outcome",
+              "value": "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。",
+              "sourceAssetIds": [
+                "asset-3"
+              ],
+              "factIds": [
+                "fact-3"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。"
+              ]
+            },
+            {
+              "id": "evidence:asset-3:项目名称-验证项目3-角色-项目成员-亮点-参与部署流程开发-配置双机热备与健康检查-通过故障切",
+              "type": "evidence",
+              "value": "项目名称：验证项目3\n角色：项目成员\n亮点：参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。\n参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。\n参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。\n参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。",
+              "sourceAssetIds": [
+                "asset-3"
+              ],
+              "factIds": [
+                "fact-3"
+              ],
+              "sourceTurnIds": [],
+              "confirmationStatus": "confirmed",
+              "maturity": "demonstrated",
+              "ownershipStrength": 1,
+              "sourceExcerpts": [
+                "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。"
+              ]
+            }
+          ],
+          "edges": [
+            {
+              "id": "edge:outcome:asset-0:参与检索链路开发-使用混合检索与重排序处理文档查询-通过离线评测集验证召回-:asset:asset-0",
+              "from": "outcome:asset-0:参与检索链路开发-使用混合检索与重排序处理文档查询-通过离线评测集验证召回-",
+              "to": "asset:asset-0",
+              "relation": "supports"
+            },
+            {
+              "id": "edge:evidence:asset-0:项目名称-验证项目0-角色-项目成员-亮点-参与检索链路开发-使用混合检索与重排序处理文档查询-:asset:asset-0",
+              "from": "evidence:asset-0:项目名称-验证项目0-角色-项目成员-亮点-参与检索链路开发-使用混合检索与重排序处理文档查询-",
+              "to": "asset:asset-0",
+              "relation": "supports"
+            },
+            {
+              "id": "edge:term:redis:asset:asset-1",
+              "from": "term:redis",
+              "to": "asset:asset-1",
+              "relation": "supports"
+            },
+            {
+              "id": "edge:outcome:asset-1:参与订单服务开发-使用-redis-缓存会话状态-通过-api-接口交付数据查询-:asset:asset-1",
+              "from": "outcome:asset-1:参与订单服务开发-使用-redis-缓存会话状态-通过-api-接口交付数据查询-",
+              "to": "asset:asset-1",
+              "relation": "supports"
+            },
+            {
+              "id": "edge:evidence:asset-1:项目名称-验证项目1-角色-项目成员-亮点-参与订单服务开发-使用-redis-缓存会话状态-通:asset:asset-1",
+              "from": "evidence:asset-1:项目名称-验证项目1-角色-项目成员-亮点-参与订单服务开发-使用-redis-缓存会话状态-通",
+              "to": "asset:asset-1",
+              "relation": "supports"
+            },
+            {
+              "id": "edge:outcome:asset-2:参与会话页面开发-封装组件与状态管理-通过渲染测试验证交互复用-:asset:asset-2",
+              "from": "outcome:asset-2:参与会话页面开发-封装组件与状态管理-通过渲染测试验证交互复用-",
+              "to": "asset:asset-2",
+              "relation": "supports"
+            },
+            {
+              "id": "edge:evidence:asset-2:项目名称-验证项目2-角色-项目成员-亮点-参与会话页面开发-封装组件与状态管理-通过渲染测试验:asset:asset-2",
+              "from": "evidence:asset-2:项目名称-验证项目2-角色-项目成员-亮点-参与会话页面开发-封装组件与状态管理-通过渲染测试验",
+              "to": "asset:asset-2",
+              "relation": "supports"
+            },
+            {
+              "id": "edge:outcome:asset-3:参与部署流程开发-配置双机热备与健康检查-通过故障切换演练验证恢复-:asset:asset-3",
+              "from": "outcome:asset-3:参与部署流程开发-配置双机热备与健康检查-通过故障切换演练验证恢复-",
+              "to": "asset:asset-3",
+              "relation": "supports"
+            },
+            {
+              "id": "edge:evidence:asset-3:项目名称-验证项目3-角色-项目成员-亮点-参与部署流程开发-配置双机热备与健康检查-通过故障切:asset:asset-3",
+              "from": "evidence:asset-3:项目名称-验证项目3-角色-项目成员-亮点-参与部署流程开发-配置双机热备与健康检查-通过故障切",
+              "to": "asset:asset-3",
+              "relation": "supports"
+            }
+          ],
+          "skillMatrix": [
+            {
+              "name": "Redis",
+              "category": "数据库",
+              "sourceAssetIds": [
+                "asset-1"
+              ],
+              "factIds": [
+                "fact-1"
+              ],
+              "evidenceNodeIds": [
+                "term:redis"
+              ],
+              "evidenceCount": 1,
+              "maturity": "demonstrated"
+            }
+          ],
+          "recoveryCandidates": [],
+          "sourceAssetIds": [
+            "asset-0",
+            "asset-1",
+            "asset-2",
+            "asset-3"
+          ],
+          "excludedAssetIds": []
+        },
+        "blueprint": {
+          "schemaVersion": "resume-blueprint-v1",
+          "mode": "job_specific",
+          "profileId": "p48c-profile",
+          "profileRevision": 1,
+          "jobId": "p48c-backend",
+          "targetRole": "后端工程师",
+          "skillGroups": {
+            "后端 / 数据": [
+              "Redis"
+            ]
+          },
+          "sections": [
+            {
+              "sectionType": "project",
+              "assetIds": [
+                "asset-1",
+                "asset-2",
+                "asset-3",
+                "asset-0"
+              ],
+              "maxItems": 4,
+              "priority": 0.95
+            },
+            {
+              "sectionType": "skills",
+              "assetIds": [
+                "derived-skills"
+              ],
+              "maxItems": 1,
+              "priority": 0.7
+            }
+          ],
+          "assets": [
+            {
+              "sourceAssetId": "asset-1",
+              "sectionType": "project",
+              "title": "验证项目1",
+              "sourceFactIds": [
+                "fact-1"
+              ],
+              "evidenceNodeIds": [
+                "asset:asset-1"
+              ],
+              "relevance": 0.7361000000000001,
+              "inclusionReason": "与岗位要求有直接证据连接（证据强度66%、技术深度25%、独特性100%）。",
+              "bulletPlan": [
+                "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+              ],
+              "explicitTools": [
+                "Redis"
+              ],
+              "score": {
+                "targetRelevance": 1,
+                "evidenceStrength": 0.66,
+                "demonstratedComplexity": 0.5,
+                "outcomeStrength": 1,
+                "specificity": 0.6,
+                "uniqueness": 1,
+                "technicalDepth": 0.25,
+                "recency": 0.5,
+                "ownershipStrength": 0.16666666666666666,
+                "redundancy": 0,
+                "weakEvidencePenalty": 0,
+                "requirementCoverage": 0,
+                "mustHaveCoverage": 0,
+                "jdSemanticRelevance": 0.25,
+                "total": 0.7361000000000001
+              }
+            },
+            {
+              "sourceAssetId": "asset-2",
+              "sectionType": "project",
+              "title": "验证项目2",
+              "sourceFactIds": [
+                "fact-2"
+              ],
+              "evidenceNodeIds": [
+                "asset:asset-2"
+              ],
+              "relevance": 0.37510000000000004,
+              "inclusionReason": "保留相邻经历，供人工判断（证据强度66%、技术深度0%、独特性100%）。",
+              "bulletPlan": [
+                "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。"
+              ],
+              "explicitTools": [],
+              "score": {
+                "targetRelevance": 0,
+                "evidenceStrength": 0.66,
+                "demonstratedComplexity": 0.3,
+                "outcomeStrength": 0.75,
+                "specificity": 0.4,
+                "uniqueness": 1,
+                "technicalDepth": 0,
+                "recency": 0.5,
+                "ownershipStrength": 0.16666666666666666,
+                "redundancy": 0,
+                "weakEvidencePenalty": 0,
+                "requirementCoverage": 0,
+                "mustHaveCoverage": 0,
+                "jdSemanticRelevance": 0.25,
+                "total": 0.37510000000000004
+              }
+            },
+            {
+              "sourceAssetId": "asset-3",
+              "sectionType": "project",
+              "title": "验证项目3",
+              "sourceFactIds": [
+                "fact-3"
+              ],
+              "evidenceNodeIds": [
+                "asset:asset-3"
+              ],
+              "relevance": 0.37510000000000004,
+              "inclusionReason": "保留相邻经历，供人工判断（证据强度66%、技术深度0%、独特性100%）。",
+              "bulletPlan": [
+                "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。"
+              ],
+              "explicitTools": [],
+              "score": {
+                "targetRelevance": 0,
+                "evidenceStrength": 0.66,
+                "demonstratedComplexity": 0.3,
+                "outcomeStrength": 0.75,
+                "specificity": 0.4,
+                "uniqueness": 1,
+                "technicalDepth": 0,
+                "recency": 0.5,
+                "ownershipStrength": 0.16666666666666666,
+                "redundancy": 0,
+                "weakEvidencePenalty": 0,
+                "requirementCoverage": 0,
+                "mustHaveCoverage": 0,
+                "jdSemanticRelevance": 0.25,
+                "total": 0.37510000000000004
+              }
+            },
+            {
+              "sourceAssetId": "asset-0",
+              "sectionType": "project",
+              "title": "验证项目0",
+              "sourceFactIds": [
+                "fact-0"
+              ],
+              "evidenceNodeIds": [
+                "asset:asset-0"
+              ],
+              "relevance": 0.3651000000000001,
+              "inclusionReason": "保留相邻经历，供人工判断（证据强度66%、技术深度0%、独特性100%）。",
+              "bulletPlan": [
+                "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。"
+              ],
+              "explicitTools": [],
+              "score": {
+                "targetRelevance": 0,
+                "evidenceStrength": 0.66,
+                "demonstratedComplexity": 0.2,
+                "outcomeStrength": 0.75,
+                "specificity": 0.4,
+                "uniqueness": 1,
+                "technicalDepth": 0,
+                "recency": 0.5,
+                "ownershipStrength": 0.16666666666666666,
+                "redundancy": 0,
+                "weakEvidencePenalty": 0,
+                "requirementCoverage": 0,
+                "mustHaveCoverage": 0,
+                "jdSemanticRelevance": 0.25,
+                "total": 0.3651000000000001
+              }
+            }
+          ],
+          "excludedAssets": [],
+          "informationNeeds": [],
+          "keywordCoverage": [],
+          "pageBudget": {
+            "targetPages": 1,
+            "maxProjects": 4,
+            "maxBulletsPerProject": 4,
+            "estimatedPageCount": 0.6
+          }
+        },
+        "items": [
+          {
+            "sourceAssetId": "asset-1",
+            "data": {
+              "id": "asset-1",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "验证项目1",
+              "role": "项目成员",
+              "current": false,
+              "tools": [
+                "Redis"
+              ],
+              "highlights": [
+                "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+              ],
+              "outcomes": []
+            },
+            "claimIds": [
+              "claim:asset-1:1"
+            ],
+            "factIds": [
+              "fact-1"
+            ],
+            "sourceBlockIds": [],
+            "sourceExcerpt": "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+          },
+          {
+            "sourceAssetId": "asset-2",
+            "data": {
+              "id": "asset-2",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "验证项目2",
+              "role": "项目成员",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。"
+              ],
+              "outcomes": []
+            },
+            "claimIds": [
+              "claim:asset-2:1"
+            ],
+            "factIds": [
+              "fact-2"
+            ],
+            "sourceBlockIds": [],
+            "sourceExcerpt": "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。"
+          },
+          {
+            "sourceAssetId": "asset-3",
+            "data": {
+              "id": "asset-3",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "验证项目3",
+              "role": "项目成员",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。"
+              ],
+              "outcomes": []
+            },
+            "claimIds": [
+              "claim:asset-3:1"
+            ],
+            "factIds": [
+              "fact-3"
+            ],
+            "sourceBlockIds": [],
+            "sourceExcerpt": "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。"
+          },
+          {
+            "sourceAssetId": "asset-0",
+            "data": {
+              "id": "asset-0",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "验证项目0",
+              "role": "项目成员",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。"
+              ],
+              "outcomes": []
+            },
+            "claimIds": [
+              "claim:asset-0:1"
+            ],
+            "factIds": [
+              "fact-0"
+            ],
+            "sourceBlockIds": [],
+            "sourceExcerpt": "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。"
+          },
+          {
+            "sourceAssetId": "derived-skill-group:数据库",
+            "data": {
+              "id": "composition-skill-group-数据库",
+              "customFields": [],
+              "sectionType": "skills",
+              "name": "Redis",
+              "category": "数据库"
+            },
+            "claimIds": [
+              "claim:skill:Redis"
+            ],
+            "factIds": [
+              "fact-1"
+            ],
+            "sourceBlockIds": [],
+            "sourceExcerpt": "Redis"
+          }
+        ],
+        "claims": [
+          {
+            "id": "claim:asset-1:1",
+            "text": "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。",
+            "classification": "DERIVED_PRESENTATION",
+            "sourceAssetIds": [
+              "asset-1"
+            ],
+            "factIds": [
+              "fact-1"
+            ],
+            "sourceTurnIds": [],
+            "evidenceNodeIds": [
+              "asset:asset-1",
+              "term:redis",
+              "outcome:asset-1:参与订单服务开发-使用-redis-缓存会话状态-通过-api-接口交付数据查询-",
+              "evidence:asset-1:项目名称-验证项目1-角色-项目成员-亮点-参与订单服务开发-使用-redis-缓存会话状态-通"
+            ],
+            "reason": "保留来源事实，只进行简历展示层的压缩与措辞整理。",
+            "guardStatus": "pass"
+          },
+          {
+            "id": "claim:asset-2:1",
+            "text": "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。",
+            "classification": "DERIVED_PRESENTATION",
+            "sourceAssetIds": [
+              "asset-2"
+            ],
+            "factIds": [
+              "fact-2"
+            ],
+            "sourceTurnIds": [],
+            "evidenceNodeIds": [
+              "asset:asset-2",
+              "outcome:asset-2:参与会话页面开发-封装组件与状态管理-通过渲染测试验证交互复用-",
+              "evidence:asset-2:项目名称-验证项目2-角色-项目成员-亮点-参与会话页面开发-封装组件与状态管理-通过渲染测试验"
+            ],
+            "reason": "保留来源事实，只进行简历展示层的压缩与措辞整理。",
+            "guardStatus": "pass"
+          },
+          {
+            "id": "claim:asset-3:1",
+            "text": "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。",
+            "classification": "DERIVED_PRESENTATION",
+            "sourceAssetIds": [
+              "asset-3"
+            ],
+            "factIds": [
+              "fact-3"
+            ],
+            "sourceTurnIds": [],
+            "evidenceNodeIds": [
+              "asset:asset-3",
+              "outcome:asset-3:参与部署流程开发-配置双机热备与健康检查-通过故障切换演练验证恢复-",
+              "evidence:asset-3:项目名称-验证项目3-角色-项目成员-亮点-参与部署流程开发-配置双机热备与健康检查-通过故障切"
+            ],
+            "reason": "保留来源事实，只进行简历展示层的压缩与措辞整理。",
+            "guardStatus": "pass"
+          },
+          {
+            "id": "claim:asset-0:1",
+            "text": "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。",
+            "classification": "DERIVED_PRESENTATION",
+            "sourceAssetIds": [
+              "asset-0"
+            ],
+            "factIds": [
+              "fact-0"
+            ],
+            "sourceTurnIds": [],
+            "evidenceNodeIds": [
+              "asset:asset-0",
+              "outcome:asset-0:参与检索链路开发-使用混合检索与重排序处理文档查询-通过离线评测集验证召回-",
+              "evidence:asset-0:项目名称-验证项目0-角色-项目成员-亮点-参与检索链路开发-使用混合检索与重排序处理文档查询-"
+            ],
+            "reason": "保留来源事实，只进行简历展示层的压缩与措辞整理。",
+            "guardStatus": "pass"
+          },
+          {
+            "id": "claim:skill:Redis",
+            "text": "Redis",
+            "classification": "SUPPORTED",
+            "sourceAssetIds": [
+              "asset-1"
+            ],
+            "factIds": [
+              "fact-1"
+            ],
+            "sourceTurnIds": [],
+            "evidenceNodeIds": [
+              "asset:asset-1",
+              "term:redis",
+              "outcome:asset-1:参与订单服务开发-使用-redis-缓存会话状态-通过-api-接口交付数据查询-",
+              "evidence:asset-1:项目名称-验证项目1-角色-项目成员-亮点-参与订单服务开发-使用-redis-缓存会话状态-通"
+            ],
+            "reason": "从多个已确认职业资产的显式工具、方法或技能字段汇总。",
+            "guardStatus": "pass"
+          }
+        ],
+        "reviewResult": {
+          "status": "PASS",
+          "findings": [],
+          "diffs": [],
+          "atsCoverage": [],
+          "metrics": {
+            "sourceAssets": 4,
+            "selectedAssets": 4,
+            "derivedSkills": 1,
+            "questionsAsked": 0,
+            "supportedClaims": 1,
+            "derivedPresentationClaims": 4,
+            "needsConfirmationClaims": 0,
+            "unsupportedClaims": 0,
+            "bulletsGenerated": 4,
+            "duplicateBullets": 0,
+            "fillerBullets": 0,
+            "lowDensityBullets": 0,
+            "paragraphHeavyItems": 0,
+            "pageOverflow": false,
+            "onePageReasonable": true,
+            "bulletRepairCount": 0,
+            "bulletRejectedCount": 0,
+            "repairPassCount": 0,
+            "unsupportedClaimsBlocked": 0,
+            "atsRepairPassCount": 1,
+            "compressionPassCount": 0,
+            "profileFactsAddedFromTailoring": 0
+          },
+          "revisedBulletCount": 4
+        },
+        "proposal": {
+          "mode": "job_specific",
+          "title": "后端工程师 · 简历组装预览",
+          "summary": "这份简历会重点呈现 验证项目1、验证项目2、验证项目3 等项目实践，并将 Redis 等已确认能力压缩为清晰的技能分组。",
+          "selectedAssetTitles": [
+            "验证项目1",
+            "验证项目2",
+            "验证项目3",
+            "验证项目0"
+          ],
+          "derivedSkillNames": [
+            "Redis"
+          ],
+          "bulletCount": 4,
+          "informationNeeds": [],
+          "contactReminder": true,
+          "actions": [
+            "generate",
+            "adjust",
+            "cancel"
+          ]
+        },
+        "metrics": {
+          "sourceAssets": 4,
+          "selectedAssets": 4,
+          "derivedSkills": 1,
+          "questionsAsked": 0,
+          "supportedClaims": 1,
+          "derivedPresentationClaims": 4,
+          "needsConfirmationClaims": 0,
+          "unsupportedClaims": 0,
+          "bulletsGenerated": 4,
+          "duplicateBullets": 0,
+          "fillerBullets": 0,
+          "lowDensityBullets": 0,
+          "paragraphHeavyItems": 0,
+          "pageOverflow": false,
+          "onePageReasonable": true,
+          "bulletRepairCount": 0,
+          "bulletRejectedCount": 0,
+          "repairPassCount": 0,
+          "unsupportedClaimsBlocked": 0,
+          "atsRepairPassCount": 1,
+          "compressionPassCount": 0,
+          "profileFactsAddedFromTailoring": 0
+        },
+        "keywordCoverage": [],
+        "informationNeeds": [],
+        "skillGroups": [
+          {
+            "category": "后端 / 数据",
+            "skills": [
+              "Redis"
+            ]
+          }
+        ],
+        "writingExecution": {
+          "mode": "deterministic_fallback",
+          "attemptCount": 1,
+          "fallbackReason": "deterministic_compile_path",
+          "inputContextHash": "fnv-4db49f8d-121",
+          "outputHash": "fnv-642e8322-586"
+        },
+        "writingOutput": {
+          "assets": [
+            {
+              "sourceAssetId": "asset-1",
+              "title": "验证项目1",
+              "role": "项目成员",
+              "techStack": [
+                "Redis"
+              ],
+              "highlights": [
+                "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+              ]
+            },
+            {
+              "sourceAssetId": "asset-2",
+              "title": "验证项目2",
+              "role": "项目成员",
+              "techStack": [],
+              "highlights": [
+                "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。"
+              ]
+            },
+            {
+              "sourceAssetId": "asset-3",
+              "title": "验证项目3",
+              "role": "项目成员",
+              "techStack": [],
+              "highlights": [
+                "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。"
+              ]
+            },
+            {
+              "sourceAssetId": "asset-0",
+              "title": "验证项目0",
+              "role": "项目成员",
+              "techStack": [],
+              "highlights": [
+                "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。"
+              ]
+            }
+          ],
+          "skillGroups": [
+            {
+              "category": "后端 / 数据",
+              "skills": [
+                "Redis"
+              ]
+            }
+          ]
+        },
+        "telemetry": {
+          "writerMode": "deterministic_fallback",
+          "writerFallbackReason": "deterministic_compile_path",
+          "targetContext": {},
+          "selectedAssetCount": 4,
+          "selectedProjectCount": 4,
+          "bulletCount": 4,
+          "bulletRepairCount": 0,
+          "bulletRejectedCount": 0,
+          "evidenceKeywordSupportedCount": 0,
+          "evidenceKeywordPotentialCount": 0,
+          "evidenceKeywordUnsupportedCount": 0,
+          "finalKeywordPresentCount": 0,
+          "finalKeywordMissingSupportedCount": 0,
+          "reviewStatus": "PASS",
+          "pageCount": 0.6,
+          "pageCountSource": "blueprint_estimate",
+          "compressionPassCount": 0,
+          "profileFactsAddedFromTailoring": 0
+        }
+      },
+      "branch": {
+        "id": "branch-job-profile-fnv-a578c6d8-38",
+        "createdAt": "2026-09-11T10:21:03.479Z",
+        "updatedAt": "2026-09-11T10:21:03.479Z",
+        "schemaVersion": "resume-branch-v2",
+        "branchPurpose": "job_specific",
+        "profileId": "p48c-profile",
+        "jobId": "p48c-backend",
+        "name": "后端工程师",
+        "sourceProfileVersion": 1,
+        "sourceJobVersion": "2026-09-11T00:00:00.000Z",
+        "sourceProfileSnapshotId": "profile-snapshot-p48c-profile-1-fnv-5641ee99-31",
+        "derivedAt": "2026-09-11T10:21:03.479Z",
+        "sourceDraftRevision": 0,
+        "matcherVersion": "job-source-mode.profile-library.v2",
+        "sourceMatchSetHash": "fnv-39953760-244",
+        "requirementMatchIds": [],
+        "revision": 0,
+        "currentRevisionId": "resume-revision-fnv-1b64f6c7-54",
+        "lifecycleStatus": "active",
+        "migrationStatus": "verified",
+        "syncStatusCache": {
+          "status": "in_sync",
+          "sourceProfileVersion": 1,
+          "currentProfileVersion": 1,
+          "sourceJobVersion": "2026-09-11T00:00:00.000Z",
+          "currentJobVersion": "2026-09-11T00:00:00.000Z",
+          "invalidFactRefs": [],
+          "checkedAt": "2026-09-11T10:21:03.479Z",
+          "message": "Job branch is in sync with its profile-library source and job version."
+        },
+        "resumeBasics": {
+          "name": "校准候选人",
+          "targetRole": "后端工程师",
+          "email": "",
+          "phone": "",
+          "location": "",
+          "summary": "",
+          "links": []
+        },
+        "contentItems": [
+          {
+            "id": "branch-item-composed-asset-1-jFHiMC",
+            "itemType": "experience",
+            "source": "adaptation_draft",
+            "sourceSectionId": "project",
+            "text": "项目名称：验证项目1\n角色：项目成员\n技术工具：Redis\n亮点：参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。",
+            "originalText": "项目名称：验证项目1\n角色：项目成员\n技术工具：Redis\n亮点：参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。",
+            "order": 0,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-1",
+                "factId": "fact-1"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-09-11T10:21:03.479Z",
+            "guardVersion": "resume-composition-v1"
+          },
+          {
+            "id": "branch-item-composed-asset-2-ZjPY7T",
+            "itemType": "experience",
+            "source": "adaptation_draft",
+            "sourceSectionId": "project",
+            "text": "项目名称：验证项目2\n角色：项目成员\n亮点：参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。",
+            "originalText": "项目名称：验证项目2\n角色：项目成员\n亮点：参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。",
+            "order": 1,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-2",
+                "factId": "fact-2"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-09-11T10:21:03.479Z",
+            "guardVersion": "resume-composition-v1"
+          },
+          {
+            "id": "branch-item-composed-asset-3-i7aZwS",
+            "itemType": "experience",
+            "source": "adaptation_draft",
+            "sourceSectionId": "project",
+            "text": "项目名称：验证项目3\n角色：项目成员\n亮点：参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。",
+            "originalText": "项目名称：验证项目3\n角色：项目成员\n亮点：参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。",
+            "order": 2,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-3",
+                "factId": "fact-3"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-09-11T10:21:03.479Z",
+            "guardVersion": "resume-composition-v1"
+          },
+          {
+            "id": "branch-item-composed-asset-0-9V-DPO",
+            "itemType": "experience",
+            "source": "adaptation_draft",
+            "sourceSectionId": "project",
+            "text": "项目名称：验证项目0\n角色：项目成员\n亮点：参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。",
+            "originalText": "项目名称：验证项目0\n角色：项目成员\n亮点：参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。",
+            "order": 3,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-0",
+                "factId": "fact-0"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-09-11T10:21:03.479Z",
+            "guardVersion": "resume-composition-v1"
+          },
+          {
+            "id": "branch-item-composed-composition-skill-group-数据库-BoQ2rw",
+            "itemType": "skill",
+            "source": "adaptation_draft",
+            "sourceSectionId": "skills",
+            "text": "技能名称：Redis\n类别：数据库",
+            "originalText": "技能名称：Redis\n类别：数据库",
+            "order": 4,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-1",
+                "factId": "fact-1"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-09-11T10:21:03.479Z",
+            "guardVersion": "resume-composition-v1"
+          }
+        ],
+        "structuredContentItems": [
+          {
+            "id": "branch-item-composed-asset-1-jFHiMC",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "asset-1",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "验证项目1",
+              "role": "项目成员",
+              "current": false,
+              "tools": [
+                "Redis"
+              ],
+              "highlights": [
+                "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。"
+              ],
+              "outcomes": []
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-1",
+                "factId": "fact-1"
+              }
+            ],
+            "source": "adaptation_draft",
+            "order": 0,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "项目名称：验证项目1\n角色：项目成员\n技术工具：Redis\n亮点：参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "参与订单服务开发，使用 Redis 缓存会话状态，通过 API 接口交付数据查询。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-composed-asset-2-ZjPY7T",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "asset-2",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "验证项目2",
+              "role": "项目成员",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。"
+              ],
+              "outcomes": []
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-2",
+                "factId": "fact-2"
+              }
+            ],
+            "source": "adaptation_draft",
+            "order": 1,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "项目名称：验证项目2\n角色：项目成员\n亮点：参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "参与会话页面开发，封装组件与状态管理，通过渲染测试验证交互复用。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-composed-asset-3-i7aZwS",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "asset-3",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "验证项目3",
+              "role": "项目成员",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。"
+              ],
+              "outcomes": []
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-3",
+                "factId": "fact-3"
+              }
+            ],
+            "source": "adaptation_draft",
+            "order": 2,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "项目名称：验证项目3\n角色：项目成员\n亮点：参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-composed-asset-0-9V-DPO",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "asset-0",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "验证项目0",
+              "role": "项目成员",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。"
+              ],
+              "outcomes": []
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-0",
+                "factId": "fact-0"
+              }
+            ],
+            "source": "adaptation_draft",
+            "order": 3,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "项目名称：验证项目0\n角色：项目成员\n亮点：参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "参与检索链路开发，使用混合检索与重排序处理文档查询，通过离线评测集验证召回。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-composed-composition-skill-group-数据库-BoQ2rw",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "composition-skill-group-数据库",
+              "customFields": [],
+              "sectionType": "skills",
+              "name": "Redis",
+              "category": "数据库"
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "asset-1",
+                "factId": "fact-1"
+              }
+            ],
+            "source": "adaptation_draft",
+            "order": 4,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "技能名称：Redis\n类别：数据库",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "Redis",
+            "mappingTrace": []
+          }
+        ],
+        "tailoringAppliedCount": 0
+      }
+    }
+  ]
+}

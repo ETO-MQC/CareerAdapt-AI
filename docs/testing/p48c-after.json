@@ -1,0 +1,258 @@
+{
+  "source": "Final full pnpm test run",
+  "numTotalTests": 20,
+  "numPassedTests": 20,
+  "numFailedTests": 0,
+  "success": true,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "P4.8c frozen 20 production scenarios"
+          ],
+          "fullName": "P4.8c frozen 20 production scenarios 01 action + method without metric KEEP",
+          "status": "passed",
+          "title": "01 action + method without metric KEEP",
+          "duration": 187.5482000000011,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "P4.8c frozen 20 production scenarios"
+          ],
+          "fullName": "P4.8c frozen 20 production scenarios 02 verified metric preserved",
+          "status": "passed",
+          "title": "02 verified metric preserved",
+          "duration": 12.707400000001144,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "P4.8c frozen 20 production scenarios"
+          ],
+          "fullName": "P4.8c frozen 20 production scenarios 03 generic claim requests rewrite without invented number",
+          "status": "passed",
+          "title": "03 generic claim requests rewrite without invented number",
+          "duration": 18.339500000000044,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "P4.8c frozen 20 production scenarios"
+          ],
+          "fullName": "P4.8c frozen 20 production scenarios 04 participation never becomes ownership",
+          "status": "passed",
+          "title": "04 participation never becomes ownership",
+          "duration": 1.60779999999977,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "P4.8c frozen 20 production scenarios"
+          ],
+          "fullName": "P4.8c frozen 20 production scenarios 05 familiar and learning never become mastery",
+          "status": "passed",
+          "title": "05 familiar and learning never become mastery",
+          "duration": 3.065099999999802,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "P4.8c frozen 20 production scenarios"
+          ],
+          "fullName": "P4.8c frozen 20 production scenarios 06 absent Summary has no penalty or automatic filler",
+          "status": "passed",
+          "title": "06 absent Summary has no penalty or automatic filler",
+          "duration": 9.90179999999964,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "P4.8c frozen 20 production scenarios"
+          ],
+          "fullName": "P4.8c frozen 20 production scenarios 07 generic Summary under pressure is removal candidate",
+          "status": "passed",
+          "title": "07 generic Summary under pressure is removal candidate",
+          "duration": 21.214900000000853,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "P4.8c frozen 20 production scenarios"
+          ],
+          "fullName": "P4.8c frozen 20 production scenarios 08 twenty-tool catalog gets redundancy warning",
+          "status": "passed",
+          "title": "08 twenty-tool catalog gets redundancy warning",
+          "duration": 1.71480000000156,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "P4.8c frozen 20 production scenarios"
+          ],
+          "fullName": "P4.8c frozen 20 production scenarios 09 Skills Redis plus Project Redis proof allowed",
+          "status": "passed",
+          "title": "09 Skills Redis plus Project Redis proof allowed",
+          "duration": 0.756600000000617,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "P4.8c frozen 20 production scenarios"
+          ],
+          "fullName": "P4.8c frozen 20 production scenarios 10 strong original requires zero rewrite",
+          "status": "passed",
+          "title": "10 strong original requires zero rewrite",
+          "duration": 9.188599999999497,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "P4.8c frozen 20 production scenarios"
+          ],
+          "fullName": "P4.8c frozen 20 production scenarios 11 long single causal chain is not split",
+          "status": "passed",
+          "title": "11 long single causal chain is not split",
+          "duration": 7.039200000001074,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "P4.8c frozen 20 production scenarios"
+          ],
+          "fullName": "P4.8c frozen 20 production scenarios 12 independent achievements receive split suggestion",
+          "status": "passed",
+          "title": "12 independent achievements receive split suggestion",
+          "duration": 9.66530000000057,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "P4.8c frozen 20 production scenarios"
+          ],
+          "fullName": "P4.8c frozen 20 production scenarios 13 user precise metric without supporting source VERIFY",
+          "status": "passed",
+          "title": "13 user precise metric without supporting source VERIFY",
+          "duration": 23.32300000000032,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "P4.8c frozen 20 production scenarios"
+          ],
+          "fullName": "P4.8c frozen 20 production scenarios 14 generated unsupported metric BLOCK",
+          "status": "passed",
+          "title": "14 generated unsupported metric BLOCK",
+          "duration": 0.9998999999988882,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "P4.8c frozen 20 production scenarios"
+          ],
+          "fullName": "P4.8c frozen 20 production scenarios 15 AI / Agent 应用工程师 evidence emphasis",
+          "status": "passed",
+          "title": "15 AI / Agent 应用工程师 evidence emphasis",
+          "duration": 32.40760000000046,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "P4.8c frozen 20 production scenarios"
+          ],
+          "fullName": "P4.8c frozen 20 production scenarios 16 后端工程师 evidence emphasis",
+          "status": "passed",
+          "title": "16 后端工程师 evidence emphasis",
+          "duration": 9.16320000000087,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "P4.8c frozen 20 production scenarios"
+          ],
+          "fullName": "P4.8c frozen 20 production scenarios 17 前端工程师 evidence emphasis",
+          "status": "passed",
+          "title": "17 前端工程师 evidence emphasis",
+          "duration": 9.288300000000163,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "P4.8c frozen 20 production scenarios"
+          ],
+          "fullName": "P4.8c frozen 20 production scenarios 18 DevOps 基础设施工程师 evidence emphasis",
+          "status": "passed",
+          "title": "18 DevOps 基础设施工程师 evidence emphasis",
+          "duration": 8.84940000000097,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "P4.8c frozen 20 production scenarios"
+          ],
+          "fullName": "P4.8c frozen 20 production scenarios 19 JD keyword without source cannot be parroted",
+          "status": "passed",
+          "title": "19 JD keyword without source cannot be parroted",
+          "duration": 9.29740000000129,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": [
+            "P4.8c frozen 20 production scenarios"
+          ],
+          "fullName": "P4.8c frozen 20 production scenarios 20 constrained selection preserves strongest relevant evidence",
+          "status": "passed",
+          "title": "20 constrained selection preserves strongest relevant evidence",
+          "duration": 19.53399999999965,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1789122067157,
+      "endTime": 1789122067554.534,
+      "status": "passed",
+      "message": "",
+      "name": "E:/DEF/CareerAdapt AI/tests/unit/p48c-corpus-calibration.test.ts"
+    }
+  ]
+}
