@@ -66,6 +66,7 @@ import {
   getTemplateDefaultStyleConfig,
   isResumeTemplateId,
   resumeTemplates,
+  resolveTemplateSwitchStyle,
   type ResumeTemplateStyleConfig
 } from "@/components/resume/templates/templateRegistry";
 import { printCurrentPage } from "@/services/export/browserPrint";
@@ -1900,14 +1901,33 @@ export function ResumeWorkspace() {
       const nextConfig = buildNextPresentationConfig({
         current,
         branch: selectedBranch,
-        patch: { templateId: nextTemplateId }
+        patch: {
+          templateId: nextTemplateId,
+          ...resolveTemplateSwitchStyle(
+            getResumeTemplate(current.templateId),
+            getResumeTemplate(nextTemplateId),
+            presentationStylePatch(current)
+          )
+        }
       });
-      return await savePresentationConfig({
+      // The canvas changes as soon as the user chooses a compatible template;
+      // persistence remains serialized through WorkspaceRepository below.
+      setPresentationConfig(nextConfig);
+      setTemplateId(nextTemplateId);
+      presentationQueueRef.current.latestConfig = nextConfig;
+      const saved = await savePresentationConfig({
         nextConfig,
         beforeConfig: current,
         operationId: `v2-g1a-template-${selectedBranch.id}-${selectedBranch.revision}-${current.presentationRevision}-${nextTemplateId}`,
         successMessage: "模板偏好已保存到当前简历展示配置。"
       });
+      if (!saved) {
+        setPresentationConfig(current);
+        setTemplateId(current.templateId);
+        presentationQueueRef.current.latestConfig = current;
+        return current;
+      }
+      return saved;
     }).finally(() => {
       setPendingTemplateApplyId(undefined);
     });
@@ -4315,6 +4335,18 @@ export function ResumeWorkspace() {
                     ))}
                   </select>
                 </label>
+                <div className="template-style-reset">
+                  <button
+                    type="button"
+                    className="secondary-button compact"
+                    aria-label="恢复此模板默认排版"
+                    disabled={!presentationConfig || !selectedBranchEditable}
+                    onClick={() => { void resetTemplateStyle(); }}
+                  >
+                    恢复此模板默认排版
+                  </button>
+                  <p>只重置当前模板的排版，内容、顺序和隐藏项保持不变。</p>
+                </div>
                 <div className="action-row template-center-entry">
                   <button
                     type="button"
@@ -4372,9 +4404,6 @@ export function ResumeWorkspace() {
                             </div>
                           </div>
                         ))}
-                        <button className="secondary-button compact" disabled={!presentationConfig || !selectedBranchEditable} onClick={() => { void resetTemplateStyle(); }}>
-                          恢复默认
-                        </button>
                       </>
                     ) : null}
 
@@ -4430,7 +4459,6 @@ export function ResumeWorkspace() {
                         <div className="preset-buttons-row">
                           <button className="secondary-button compact" type="button" disabled={!presentationConfig || !selectedBranchEditable} onClick={() => { void optimizeForOnePage(); }}>一页优化</button>
                           <button className="secondary-button compact" type="button" disabled={!presentationConfig || !selectedBranchEditable} onClick={() => { void relaxForTwoPages(); }}>两页舒展</button>
-                          <button className="secondary-button compact" type="button" disabled={!presentationConfig || !selectedBranchEditable} onClick={() => { void resetTemplateStyle(); }}>恢复默认</button>
                         </div>
                         <label className="field-label">页边距
                           <select aria-label="页边距" value={presentationConfig?.spacing.pageMargin ?? "normal"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
@@ -4446,6 +4474,22 @@ export function ResumeWorkspace() {
                             void updatePresentationStyle((current) => ({ spacing: { ...current.spacing, sectionGap } }), "模块间距已保存。");
                           }}>
                             {(["tight", "normal", "relaxed"] as const).map((value) => <option key={value} value={value}>{spacingLabel(value)}</option>)}
+                          </select>
+                        </label>
+                        <label className="field-label">条目间距
+                          <select aria-label="条目间距" value={presentationConfig?.spacing.itemGap ?? "normal"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
+                            const itemGap = event.target.value as ResumePresentationConfig["spacing"]["itemGap"];
+                            void updatePresentationStyle((current) => ({ spacing: { ...current.spacing, itemGap } }), "条目间距已保存。");
+                          }}>
+                            {(["tight", "normal", "relaxed"] as const).map((value) => <option key={value} value={value}>{spacingLabel(value)}</option>)}
+                          </select>
+                        </label>
+                        <label className="field-label">排版密度
+                          <select aria-label="排版密度" value={presentationConfig?.theme.density ?? "balanced"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
+                            const density = event.target.value as ResumePresentationConfig["theme"]["density"];
+                            void updatePresentationStyle((current) => ({ theme: { ...current.theme, density } }), "排版密度已保存。");
+                          }}>
+                            <option value="compact">紧凑</option><option value="balanced">均衡</option><option value="spacious">舒展</option>
                           </select>
                         </label>
                         <label className="field-label">建议页数

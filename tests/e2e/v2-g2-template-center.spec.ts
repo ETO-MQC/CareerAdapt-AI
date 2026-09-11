@@ -242,30 +242,35 @@ test.describe("V2-G2 template center", () => {
     });
   });
 
-  test("打开关闭模板中心，展示四套模板并按第一阶段分类筛选", async ({ page }) => {
+  test("打开关闭模板中心，展示六套模板并按分类筛选", async ({ page }) => {
     const branchName = `V2 G2 模板中心 ${Date.now()}`;
     await createBranchFromDraft(page, branchName);
 
     await openTemplateCenter(page);
-    await expectCardCount(page, 4);
+    await expectCardCount(page, 6);
     await expect(page.getByTestId("template-card-classic-technical")).toContainText("稳重技术");
     await expect(page.getByTestId("template-card-modern-operations")).toContainText("简洁现代");
     await expect(page.getByTestId("template-card-ats-minimal")).toContainText("ATS极简单栏");
     await expect(page.getByTestId("template-card-business-consulting")).toContainText("商务咨询正式");
+    await expect(page.getByTestId("template-card-campus-clean")).toContainText("校园清爽");
+    await expect(page.getByTestId("template-card-professional-classic")).toContainText("专业经典");
     await expect(page.getByTestId("template-card-ats-minimal")).toContainText("单栏");
     await expect(page.getByTestId("template-card-business-consulting")).toContainText("ATS友好：中");
 
     await page.getByRole("button", { name: "ATS优先", exact: true }).click();
-    await expectCardCount(page, 2);
+    await expectCardCount(page, 4);
     await page.getByRole("button", { name: "单栏", exact: true }).click();
-    await expectCardCount(page, 2);
+    await expectCardCount(page, 4);
     await page.getByRole("button", { name: "双栏", exact: true }).click();
     await expectCardCount(page, 2);
     await page.getByRole("button", { name: "技术简洁", exact: true }).click();
     await expectCardCount(page, 2);
     await page.getByRole("button", { name: "商务正式", exact: true }).click();
-    await expectCardCount(page, 1);
+    await expectCardCount(page, 2);
     await expect(page.getByTestId("template-card-business-consulting")).toBeVisible();
+    await page.getByRole("button", { name: "校园 / 应届", exact: true }).click();
+    await expectCardCount(page, 1);
+    await expect(page.getByTestId("template-card-campus-clean")).toBeVisible();
 
     await page.getByRole("button", { name: "关闭模板中心" }).click();
     await expect(page.getByTestId("template-center")).toHaveCount(0);
@@ -365,7 +370,7 @@ test.describe("V2-G2 template center", () => {
     expect(switchedConfig.typography?.lineHeight).toBe("relaxed");
   });
 
-  test("四套模板均可生成A4 PDF且不包含模板中心或编辑控件", async ({ page }) => {
+  test("六套模板均可生成A4 PDF且不包含模板中心或编辑控件", async ({ page }) => {
     const branchName = `V2 G2 PDF ${Date.now()}`;
     await createBranchFromDraft(page, branchName);
     await ensureSinglePage(page);
@@ -374,7 +379,9 @@ test.describe("V2-G2 template center", () => {
       "classic-technical",
       "modern-operations",
       "ats-minimal",
-      "business-consulting"
+      "business-consulting",
+      "campus-clean",
+      "professional-classic"
     ];
 
     for (const templateId of templateIds) {

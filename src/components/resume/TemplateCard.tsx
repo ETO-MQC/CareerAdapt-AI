@@ -25,6 +25,7 @@ export function TemplateCard({
     <article
       className={`template-card ${current ? "template-card-current" : ""}`}
       data-testid={`template-card-${template.id}`}
+      data-template-category={template.category}
       aria-current={current ? "true" : undefined}
       tabIndex={0}
     >
@@ -38,8 +39,8 @@ export function TemplateCard({
           {current ? <span className="template-current-badge">当前使用</span> : null}
         </div>
         <div className="template-meta-row" aria-label={`${template.name} 模板元数据`}>
-          <span>{layoutLabel(template.layout)}</span>
-          <span>ATS友好：{atsLevelLabel(template.atsLevel)}</span>
+          <span className="template-layout-badge">{layoutLabel(template.layout)}</span>
+          <span className="template-readability-badge" aria-label={`可读性：${atsLevelLabel(template.atsLevel)}`}>ATS友好：{atsLevelLabel(template.atsLevel)}</span>
           <span>v{template.version}</span>
         </div>
         <div className="template-role-list" aria-label={`${template.name} 适用岗位`}>

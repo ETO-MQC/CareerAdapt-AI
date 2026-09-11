@@ -134,7 +134,7 @@ export function TemplateCenter({
         {!model ? (
           <p className="template-empty-state">当前分支无法生成模板预览。</p>
         ) : filteredTemplates.length > 0 ? (
-          <div className="template-card-grid">
+          <div className={`template-card-grid ${filteredTemplates.length === 1 ? "template-card-grid-single" : ""}`}>
             {filteredTemplates.map((template) => (
               <TemplateCard
                 key={template.id}

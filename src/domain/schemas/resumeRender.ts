@@ -11,7 +11,9 @@ export const TemplateIdSchema = z.enum([
   "classic-technical",
   "modern-operations",
   "ats-minimal",
-  "business-consulting"
+  "business-consulting",
+  "campus-clean",
+  "professional-classic"
 ]);
 
 export const ResumePaginationStatusSchema = z.enum([

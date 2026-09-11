@@ -217,11 +217,11 @@ test.describe("V2-G3a direct PDF download", () => {
     expect(record.pdfContentHash).toBeTruthy();
   });
 
-  test("classic-technical, modern-operations, ats-minimal and business-consulting direct exports", async ({ page }) => {
-    test.setTimeout(90_000);
+  test("all six registered templates support direct exports", async ({ page }) => {
+    test.setTimeout(120_000);
     await createBranchFromDraft(page);
     await ensureSinglePage(page);
-    const templateIds = ["classic-technical", "modern-operations", "ats-minimal", "business-consulting"];
+    const templateIds = ["classic-technical", "modern-operations", "ats-minimal", "business-consulting", "campus-clean", "professional-classic"];
 
     for (const templateId of templateIds) {
       await openManualTemplateTab(page);

@@ -28,7 +28,7 @@ export const RESUME_DIAGNOSTICS_RULESET_VERSION = "g5b-deterministic-rules.v1";
 export type ResumeDiagnosticTemplateInfo = {
   id: TemplateId;
   version: number;
-  category: "ats" | "technical" | "business" | "modern";
+  category: "ats" | "technical" | "business" | "modern" | "campus";
   layout: "single-column" | "two-column";
   atsLevel: "high" | "medium" | "visual";
   suitableRoles: string[];

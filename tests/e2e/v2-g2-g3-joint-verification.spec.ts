@@ -16,6 +16,8 @@ const TEMPLATE_IDS = [
   "modern-operations",
   "ats-minimal",
   "business-consulting",
+  "campus-clean",
+  "professional-classic",
 ] as const;
 
 function resolvePopplerBinary(name: "pdftotext" | "pdfinfo"): string {
@@ -110,6 +112,8 @@ function templateName(id: string): string {
     "modern-operations": "简洁现代",
     "ats-minimal": "ATS极简单栏",
     "business-consulting": "商务咨询正式",
+    "campus-clean": "校园清爽",
+    "professional-classic": "专业经典",
   };
   return map[id] ?? id;
 }
@@ -257,30 +261,32 @@ async function getLatestExportRecord(page: Page) {
 // ─── Group 1: Template Center & Registry ──────────────────────────────
 
 test.describe("V2-G2/G3 Joint: template-center-and-registry", () => {
-  test("template center shows exactly 4 cards with correct metadata", async ({ page }) => {
+  test("template center shows exactly 6 cards with correct metadata", async ({ page }) => {
     const branchName = `GJ-reg-cards ${Date.now()}`;
     await createBranchFromDraft(page, branchName);
     await openTemplateCenter(page);
-    await expect(page.locator("[data-testid^='template-card-']")).toHaveCount(4);
+    await expect(page.locator("[data-testid^='template-card-']")).toHaveCount(6);
     await expect(page.getByTestId("template-card-classic-technical")).toContainText("稳重技术");
     await expect(page.getByTestId("template-card-modern-operations")).toContainText("简洁现代");
     await expect(page.getByTestId("template-card-ats-minimal")).toContainText("ATS极简单栏");
     await expect(page.getByTestId("template-card-business-consulting")).toContainText("商务咨询正式");
+    await expect(page.getByTestId("template-card-campus-clean")).toContainText("校园清爽");
+    await expect(page.getByTestId("template-card-professional-classic")).toContainText("专业经典");
     await closeTemplateCenter(page);
   });
 
-  test("ATS filter shows 2 templates, single-column 2, two-column 2", async ({ page }) => {
+  test("ATS filter shows 4 templates, single-column 4, two-column 2", async ({ page }) => {
     const branchName = `GJ-reg-filter ${Date.now()}`;
     await createBranchFromDraft(page, branchName);
     await openTemplateCenter(page);
     await page.getByRole("button", { name: "ATS优先", exact: true }).click();
-    await expect(page.locator("[data-testid^='template-card-']")).toHaveCount(2);
+    await expect(page.locator("[data-testid^='template-card-']")).toHaveCount(4);
     await page.getByRole("button", { name: "单栏", exact: true }).click();
-    await expect(page.locator("[data-testid^='template-card-']")).toHaveCount(2);
+    await expect(page.locator("[data-testid^='template-card-']")).toHaveCount(4);
     await page.getByRole("button", { name: "双栏", exact: true }).click();
     await expect(page.locator("[data-testid^='template-card-']")).toHaveCount(2);
     await page.getByRole("button", { name: "全部", exact: true }).click();
-    await expect(page.locator("[data-testid^='template-card-']")).toHaveCount(4);
+    await expect(page.locator("[data-testid^='template-card-']")).toHaveCount(6);
     await closeTemplateCenter(page);
   });
 
@@ -334,7 +340,7 @@ test.describe("V2-G2/G3 Joint: template-center-and-registry", () => {
   });
 });
 
-// ─── Group 2: One-page Four-template PDF Export ───────────────────────
+// ─── Group 2: One-page Six-template PDF Export ───────────────────────
 
 test.describe("V2-G2/G3 Joint: one-page-four-template-export", () => {
   for (const tplId of TEMPLATE_IDS) {
@@ -369,7 +375,7 @@ test.describe("V2-G2/G3 Joint: one-page-four-template-export", () => {
   }
 });
 
-// ─── Group 3: Two-page Four-template PDF Export ───────────────────────
+// ─── Group 3: Two-page Six-template PDF Export ───────────────────────
 
 test.describe("V2-G2/G3 Joint: two-page-four-template-export", () => {
   for (const tplId of TEMPLATE_IDS) {

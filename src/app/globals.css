@@ -5134,6 +5134,18 @@ html[data-theme="dark"] .property-panel-heading p {
   margin-bottom: 12px;
 }
 
+.template-style-reset {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 12px;
+}
+
+.template-style-reset p {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0;
+}
+
 .template-center-overlay {
   align-items: center;
   background: rgba(14, 19, 17, 0.48);
@@ -5196,10 +5208,15 @@ html[data-theme="dark"] .property-panel-heading p {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+.template-card-grid-single {
+  grid-template-columns: minmax(220px, 320px);
+}
+
 .template-card {
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 8px;
+  color: #202522;
   display: grid;
   gap: 10px;
   padding: 10px;
@@ -5228,6 +5245,7 @@ html[data-theme="dark"] .property-panel-heading p {
 }
 
 .template-card-heading h3 {
+  color: #202522;
   margin-bottom: 4px;
 }
 
@@ -5237,6 +5255,10 @@ html[data-theme="dark"] .property-panel-heading p {
   font-size: 13px;
   line-height: 1.55;
   margin-bottom: 0;
+}
+
+.template-card-heading p {
+  color: #606962;
 }
 
 .template-current-badge,
@@ -5268,6 +5290,22 @@ html[data-theme="dark"] .property-panel-heading p {
 .template-meta-row span {
   background: var(--tab-bg);
   color: var(--ink);
+}
+
+.template-card .template-meta-row span {
+  background: #f7f8f5;
+  color: #202522;
+}
+
+.template-card .template-readability-badge {
+  border-color: #b7cdbf;
+  font-weight: 800;
+}
+
+.template-card .template-role-list span {
+  background: #fff7ed;
+  border-color: #e9c992;
+  color: #7a4b13;
 }
 
 .template-role-list span {
@@ -5353,6 +5391,10 @@ html[data-theme="dark"] .property-panel-heading p {
   padding-bottom: 7mm;
 }
 
+.resume-template-header > div {
+  min-width: 0;
+}
+
 .resume-template-header h1 {
   color: #111;
   font-size: var(--resume-header-title-size, 21pt);
@@ -5375,6 +5417,7 @@ html[data-theme="dark"] .property-panel-heading p {
   font-style: normal;
   gap: 3px;
   min-width: 43mm;
+  overflow-wrap: anywhere;
   text-align: right;
 }
 
@@ -5494,7 +5537,9 @@ html[data-theme="dark"] .property-panel-heading p {
 }
 
 .resume-presentation-heading time {
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  text-align: right;
+  white-space: normal;
 }
 
 .resume-template-section .resume-presentation-subtitle,
@@ -5549,13 +5594,14 @@ html[data-theme="dark"] .property-panel-heading p {
   align-items: baseline;
   display: grid;
   gap: 2mm;
-  grid-template-columns: minmax(24mm, auto) minmax(0, 1fr);
+  grid-template-columns: minmax(18mm, 30mm) minmax(0, 1fr);
 }
 
 .resume-skill-group > strong,
 .resume-language-row > strong {
   color: #262b28;
   font-size: var(--resume-body-font-size, 9.3pt);
+  min-width: 0;
 }
 
 .resume-skill-group > strong::after {
@@ -5765,6 +5811,90 @@ html[data-theme="dark"] .property-panel-heading p {
 
 .template-business-consulting .resume-template-item-business p {
   font-weight: 500;
+}
+
+.template-campus-clean .resume-template-header {
+  border-bottom-width: 1px;
+  padding-bottom: 6mm;
+}
+
+.template-campus-clean .resume-template-header h1 {
+  font-weight: 780;
+}
+
+.template-campus-clean .resume-template-section {
+  border-bottom-color: #c9d8e8;
+}
+
+.template-campus-clean .resume-template-section h2 {
+  align-items: baseline;
+  border-bottom: 1px solid var(--resume-accent-border, #bfd2ef);
+  color: var(--resume-accent-strong, #143866);
+  display: flex;
+  gap: 3mm;
+  justify-content: space-between;
+  padding-bottom: 1.5mm;
+}
+
+.template-campus-clean .resume-template-section h2::after {
+  background: var(--resume-accent-color, #1d4f91);
+  content: "";
+  flex: 0 0 10mm;
+  height: 1px;
+}
+
+.template-campus-clean [data-render-section="education"] h2,
+.template-campus-clean [data-render-section="project"] h2 {
+  font-size: calc(var(--resume-section-title-size, 11.2pt) * 1.06);
+  font-weight: 800;
+}
+
+.template-campus-clean .resume-canonical-item {
+  gap: 1mm;
+}
+
+.template-professional-classic .resume-template-header {
+  border-bottom: 1px solid #202522;
+  padding-bottom: 5mm;
+}
+
+.template-professional-classic .resume-template-header h1 {
+  color: #202522;
+  font-weight: 720;
+}
+
+.template-professional-classic .resume-template-section {
+  border-bottom-color: #cfd3d0;
+  padding-top: 5mm;
+}
+
+.template-professional-classic .resume-template-section h2 {
+  border-bottom: 2px solid #202522;
+  color: #202522;
+  font-weight: 760;
+  padding-bottom: 1.5mm;
+}
+
+.template-professional-classic .resume-template-section h2::first-letter {
+  color: var(--resume-accent-color, #202522);
+}
+
+.template-professional-classic .resume-presentation-heading h3 {
+  font-weight: 700;
+}
+
+.template-professional-classic .resume-template-item::before {
+  background: #202522;
+  height: 1mm;
+  top: 2.4mm;
+  width: 1mm;
+}
+
+.resume-skill-group > strong,
+.resume-skill-name,
+.resume-skill-description,
+.resume-language-row {
+  overflow-wrap: anywhere;
 }
 
 .overflow-status {
