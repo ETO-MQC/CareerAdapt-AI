@@ -34,6 +34,7 @@ export type ResumeMapperSafeDiagnostics = {
   failedIssues: SafeSchemaIssue[];
   provider?: string;
   model?: string;
+  providerMessage?: string;
   attempt?: number;
   latencyMs?: number;
 };

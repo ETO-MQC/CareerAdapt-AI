@@ -77,7 +77,6 @@ export class OpenAiCompatibleProvider {
       },
       body: JSON.stringify({
         model: this.model,
-        response_format: { type: "json_object" },
         messages: [
           { role: "system", content: request.systemPrompt },
           { role: "user", content: request.userPrompt }
@@ -87,11 +86,17 @@ export class OpenAiCompatibleProvider {
       signal: request.signal
     });
 
+    const responseText = await response.text();
     if (!response.ok) {
-      throw createAiProviderError(`provider_http_${response.status}`, `Provider returned HTTP ${response.status}.`, transportDiagnosticForHttpStatus(response.status));
+      const providerMessage = extractProviderErrorMessage(responseText);
+      const diagnostic = transportDiagnosticForHttpStatus(response.status);
+      throw createAiProviderError(
+        `provider_http_${response.status}`,
+        `Provider returned HTTP ${response.status}.`,
+        providerMessage ? { ...diagnostic, providerMessage } : diagnostic
+      );
     }
 
-    const responseText = await response.text();
     let payload: Record<string, unknown>;
     try {
       payload = JSON.parse(responseText) as Record<string, unknown>;
@@ -459,6 +464,29 @@ function safeProviderResponseShape(payload: Record<string, unknown>) {
     }
   }
   return shape.slice(0, 20);
+}
+
+function extractProviderErrorMessage(responseText: string) {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(responseText);
+  } catch {
+    parsed = undefined;
+  }
+  const root = parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : undefined;
+  const providerError = root?.error && typeof root.error === "object"
+    ? root.error as Record<string, unknown>
+    : undefined;
+  const message = [providerError?.message, root?.message]
+    .find((value): value is string => typeof value === "string" && value.trim().length > 0);
+  const normalized = (message ?? responseText)
+    .replace(/Bearer\s+\S+/giu, "Bearer [redacted]")
+    .replace(/\b(?:sk|rk|key|token)[-_][A-Za-z0-9_-]{12,}\b/giu, "[redacted]")
+    .replace(/[\u0000-\u001f\u007f]/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim()
+    .slice(0, 240);
+  return normalized || undefined;
 }
 
 function safeProviderStreamShape(payload: Record<string, unknown>) {

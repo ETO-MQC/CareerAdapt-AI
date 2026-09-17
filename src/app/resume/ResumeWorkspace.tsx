@@ -602,7 +602,7 @@ export function ResumeWorkspace() {
     { key: "trash", label: "回收站", count: trashedBranches.length }
   ];
   const workbarWarnings = selectedBranch ? [
-    selectedBranch.migrationStatus === "legacy_unverified" ? "旧占位简历已只读保留，不参与正式编辑或导出。" : undefined,
+    selectedBranch.migrationStatus === "legacy_unverified" ? "旧版本简历已保留为只读；如需继续编辑或导出，请在预览区创建可编辑副本。" : undefined,
     !selectedBranchEditable && selectedBranch.migrationStatus !== "legacy_unverified"
       ? `当前简历不可编辑：${branchNotEditableLabel(branchNotEditableReason(selectedBranch))}。`
       : undefined,
@@ -2954,7 +2954,7 @@ export function ResumeWorkspace() {
     }
   }
 
-  async function downloadPdf() {
+  async function downloadPdf(allowCoverageWarnings = false) {
     if (!selectedBranch || !renderModel) {
       notify({ type: "error", title: "无法导出", message: "当前简历无法生成正式预览，不能导出。" });
       setPdfExportState({
@@ -2963,6 +2963,10 @@ export function ResumeWorkspace() {
         errorCode: "render_model_missing",
         canUseFallback: true
       });
+      return;
+    }
+    if (!allowCoverageWarnings && (renderResult.warning || (renderCoverageReport && renderCoverageHasBlockingFailure(renderCoverageReport)))) {
+      notify({ type: "warning", title: "请先确认兼容提示", message: "当前预览有内容映射提示。请在页面上查看受影响内容，确认后点击“仍然下载兼容 PDF”。" });
       return;
     }
     if (renderModel.safety.visibleItemCount === 0) {
@@ -3062,7 +3066,8 @@ export function ResumeWorkspace() {
         branch: persistedBranch,
         profile: latestProfile,
         job: latestJob,
-        presentationConfig
+        presentationConfig,
+        coveragePolicy: "warn"
       });
       exportBranch = latestBranch;
       let recoveredCoverage = await rebuildExportCoverage({
@@ -3073,7 +3078,7 @@ export function ResumeWorkspace() {
         fallbackPlan: paginationPlan,
         presentationConfig
       });
-      if (!recoveredCoverage.report || renderCoverageHasBlockingFailure(recoveredCoverage.report)) {
+      if ((!recoveredCoverage.report || renderCoverageHasBlockingFailure(recoveredCoverage.report)) && !allowCoverageWarnings) {
         // One bounded client-side recovery gives fonts, ResizeObserver and the
         // preview DOM a chance to settle before the persistent failure path.
         await waitForStableClientLayout();
@@ -3088,7 +3093,7 @@ export function ResumeWorkspace() {
       }
       exportPaginationPlan = recoveredCoverage.plan;
       exportCoverageDiagnostics = recoveredCoverage.report?.diagnostics;
-      if (!recoveredCoverage.report || renderCoverageHasBlockingFailure(recoveredCoverage.report)) {
+      if ((!recoveredCoverage.report || renderCoverageHasBlockingFailure(recoveredCoverage.report)) && !allowCoverageWarnings) {
         const coverageError = new Error("render_coverage_failed");
         await recordDirectPdfFailure({
           exportId,
@@ -3114,6 +3119,9 @@ export function ResumeWorkspace() {
         });
         return;
       }
+      if (!recoveredCoverage.report || renderCoverageHasBlockingFailure(recoveredCoverage.report)) {
+        notify({ type: "warning", title: "兼容模式导出", message: "已按当前兼容预览继续生成 PDF；受映射提示影响的内容可能不会出现在文件中，请打开文件复核。" });
+      }
 
       const exportFileName = buildResumePdfFileName({
         candidateName: persistedRenderModel.candidate.name,
@@ -3132,7 +3140,8 @@ export function ResumeWorkspace() {
         filename: exportFileName,
         overflowStatus: exportPaginationPlan.status,
         paginationPlan: exportPaginationPlan,
-        templateVersion: selectedTemplate.version
+        templateVersion: selectedTemplate.version,
+        allowCoverageWarnings
       });
       setPdfExportState({
         status: "validating",
@@ -3329,9 +3338,13 @@ export function ResumeWorkspace() {
     };
   }
 
-  async function exportPdf() {
+  async function exportPdf(allowCoverageWarnings = false) {
     if (!selectedBranch || !renderModel) {
       notify({ type: "error", title: "无法导出", message: "当前简历无法生成正式预览，不能导出。" });
+      return;
+    }
+    if (!allowCoverageWarnings && (renderResult.warning || (renderCoverageReport && renderCoverageHasBlockingFailure(renderCoverageReport)))) {
+      notify({ type: "warning", title: "请先确认兼容提示", message: "当前预览有内容映射提示。请在页面上查看受影响内容，确认后点击“仍然打印 / 保存”。" });
       return;
     }
     if (renderModel.safety.visibleItemCount === 0) {
@@ -3344,7 +3357,7 @@ export function ResumeWorkspace() {
       notify({ type: "warning", title: "提示", message: "分页测量尚未完成，请稍后再使用打印 fallback。" });
       return;
     }
-    if (!renderCoverageReport || renderCoverageHasBlockingFailure(renderCoverageReport)) {
+    if ((!renderCoverageReport || renderCoverageHasBlockingFailure(renderCoverageReport)) && !allowCoverageWarnings) {
       notify({ type: "warning", title: "导出已停止", message: "检测到预览与导出渲染链路不一致。当前版本已保留，请使用页面上方的“重新检查并重试导出”或“查看预览中的问题”。" });
       setPdfExportState({
         status: "failed",
@@ -3354,6 +3367,9 @@ export function ResumeWorkspace() {
         coverageDiagnostics: renderCoverageReport?.diagnostics
       });
       return;
+    }
+    if (!renderCoverageReport || renderCoverageHasBlockingFailure(renderCoverageReport)) {
+      notify({ type: "warning", title: "兼容模式打印", message: "将按当前兼容预览打开打印；受映射提示影响的内容可能不会出现在打印文件中，请先复核。" });
     }
     const startedAt = new Date().toISOString();
     const operationId = `d2-export-${selectedBranch.id}-${selectedBranch.revision}-${selectedBranch.currentRevisionId}-${effectiveTemplateId}-${paginationPlan.status}-${presentationConfig?.presentationRevision ?? 0}-${paginationPlan.paginationHash}`;
@@ -3387,7 +3403,8 @@ export function ResumeWorkspace() {
         branch: latestBranch,
         profile: latestProfile,
         job: latestJob,
-        presentationConfig
+        presentationConfig,
+        coveragePolicy: "warn"
       });
 
       if (isPaginationPlanBlocked(paginationPlan)) {
@@ -3958,7 +3975,7 @@ export function ResumeWorkspace() {
               ) : null}
               <button
                 className="primary-button compact"
-                onClick={downloadPdf}
+                onClick={() => { void downloadPdf(); }}
                 disabled={!renderModel || renderModel.safety.visibleItemCount === 0 || !presentationConfig || isPdfExportBusy || pagination.blocked || pagination.status === "measuring"}
                 title="下载 PDF"
               >
@@ -3969,7 +3986,7 @@ export function ResumeWorkspace() {
               <div className="toolbar-more-popover">
                 <button type="button" onClick={refreshSync}>重新检查</button>
                 <button type="button" onClick={downloadStructuredJson} disabled={!renderModel}>导出 JSON</button>
-                <button type="button" onClick={exportPdf} disabled={!renderModel || renderModel.safety.visibleItemCount === 0 || isPdfExportBusy}>打印 / 保存 PDF</button>
+                <button type="button" onClick={() => { void exportPdf(); }} disabled={!renderModel || renderModel.safety.visibleItemCount === 0 || isPdfExportBusy}>打印 / 保存 PDF</button>
                 <label className="inline-toggle studio-edit-toggle">
                   <input
                     type="checkbox"
@@ -4650,14 +4667,22 @@ export function ResumeWorkspace() {
                 </div>
                 ) : null}
                 {styleInspectorTab === "page" && renderCoverageReport && renderCoverageHasBlockingFailure(renderCoverageReport) && !exportRecoveryAvailable ? (
-                  <div className="warning-box" data-testid="render-coverage-warning">
+                  <div className="warning-box" data-testid="render-coverage-warning" role="status" aria-live="polite">
                     <p>
                       检测到内容在{renderCoverageStageLabel(renderCoverageReport.diagnostics.failedStage)}阶段丢失或重复，已停止正式导出。
                     </p>
                     {renderCoverageReport.diagnostics.droppedItems.length > 0 ? (
                       <p>受影响条目：{renderCoverageReport.diagnostics.droppedItems.slice(0, 3).map((item) => item.label).join("、")}。</p>
                     ) : null}
-                    <p>已保留当前版本；请使用工作区上方的恢复操作重新检查，或查看预览中的问题。</p>
+                    <p>已保留当前版本。确认接受这条提示后，仍可按兼容预览继续生成文件；未确认的内容仍不会进入导出。</p>
+                    <div className="action-row">
+                      <button className="section-action-button section-action-button-primary" type="button" disabled={isPdfExportBusy} onClick={() => { void downloadPdf(true); }}>
+                        仍然下载兼容 PDF
+                      </button>
+                      <button className="section-action-button" type="button" disabled={isPdfExportBusy} onClick={() => { void exportPdf(true); }}>
+                        仍然打印 / 保存
+                      </button>
+                    </div>
                   </div>
                 ) : null}
                 {styleInspectorTab === "page" && renderModel?.safety.ruleOnlyItemIds.length ? (
@@ -4680,14 +4705,14 @@ export function ResumeWorkspace() {
                 <div className="export-control-stack" data-testid="pdf-export-controls">
                   <button
                     className="primary-button"
-                    onClick={downloadPdf}
+                    onClick={() => { void downloadPdf(); }}
                     disabled={!renderModel || !presentationConfig || isPdfExportBusy || pagination.blocked || pagination.status === "measuring"}
                   >
                     {isPdfExportBusy ? "生成 PDF 中" : "下载 PDF"}
                   </button>
                   <button
                     className="secondary-button"
-                    onClick={exportPdf}
+                    onClick={() => { void exportPdf(); }}
                     disabled={!renderModel || isPdfExportBusy}
                   >
                     打印 / 保存 PDF
@@ -4705,6 +4730,20 @@ export function ResumeWorkspace() {
                 </div>
                 ) : null}
               </>
+            ) : null}
+            {renderResult.warning ? (
+              <div className="warning-box" data-testid="render-compatibility-warning" role="status" aria-live="polite">
+                <p><strong>已显示兼容预览</strong></p>
+                <p>{renderResult.warning}</p>
+                <div className="action-row">
+                  <button className="section-action-button section-action-button-primary" type="button" disabled={isPdfExportBusy} onClick={() => { void downloadPdf(true); }}>
+                    仍然下载兼容 PDF
+                  </button>
+                  <button className="section-action-button" type="button" disabled={isPdfExportBusy} onClick={() => { void exportPdf(true); }}>
+                    仍然打印 / 保存
+                  </button>
+                </div>
+              </div>
             ) : null}
             {renderResult.error ? <p className="save-status save-status-failed">{renderResult.error}</p> : null}
           </aside>
@@ -4836,6 +4875,13 @@ export function ResumeWorkspace() {
           <div className="resume-preview-stage" ref={previewStageRef}>
             <div className="resume-document-scroller" data-testid="resume-document-scroller">
               {renderModel ? (
+                <>
+                {renderResult.warning ? (
+                  <div className="resume-preview-compatibility-notice no-print" role="status" aria-live="polite">
+                    <strong>兼容预览</strong>
+                    <span>{renderResult.warning}</span>
+                  </div>
+                ) : null}
                 <A4ResumePreview
                 model={renderModel}
                 template={selectedTemplate}
@@ -4883,8 +4929,17 @@ export function ResumeWorkspace() {
                   onDelete: (itemId) => { void setContentItemVisibility(itemId, false); }
                 } : undefined}
                 />
+                </>
               ) : (
-                <div className="panel no-print">当前简历不能进入正式模板预览。</div>
+                <div className="panel no-print resume-preview-empty" role="status" aria-live="polite">
+                  <strong>{renderResult.error ?? "当前没有可用的简历预览。"}</strong>
+                  <p>{renderResult.errorCode ? renderErrorRecoveryCopy(renderResult.errorCode) : "请选择一份简历，或先从当前资料库创建一份通用简历。"}</p>
+                  {canCreateResumeFromProfile(renderResult.errorCode) ? (
+                    <button className="section-action-button section-action-button-primary" type="button" onClick={() => { void createGeneralResume({ fromProfile: true }); }}>
+                      从当前资料库创建可编辑简历
+                    </button>
+                  ) : null}
+                </div>
               )}
             </div>
             <div className="resume-canvas-toolbar no-print" aria-label="A4 预览工具">
@@ -5063,27 +5118,59 @@ function buildRenderModel(input: {
   profile?: Parameters<typeof mapBranchToResumeRenderModel>[0]["profile"];
   job?: Parameters<typeof mapBranchToResumeRenderModel>[0]["job"];
   presentationConfig?: ResumePresentationConfig;
-}): { model?: ResumeRenderModel; error?: string } {
+}): { model?: ResumeRenderModel; error?: string; errorCode?: string; warning?: string } {
   if (!input.branch || !input.profile || (input.branch.branchPurpose !== "general" && !input.job && !input.branch.targetSnapshot)) {
     return {};
   }
 
   try {
+    const model = mapBranchToResumeRenderModel({
+      branch: input.branch,
+      profile: input.profile,
+      job: input.job,
+      presentationConfig: input.presentationConfig,
+      coveragePolicy: "warn"
+    });
     return {
-      model: mapBranchToResumeRenderModel({
-        branch: input.branch,
-        profile: input.profile,
-        job: input.job,
-        presentationConfig: input.presentationConfig
-      })
+      model,
+      warning: model.schemaVersion === "resume-render-v2" ? model.compatibilityWarnings[0] : undefined
     };
   } catch (error) {
+    const errorCode = error instanceof ResumeRenderMapperError ? error.code : "render_model_invalid";
     return {
-      error: error instanceof ResumeRenderMapperError
-        ? `预览阻止：${error.code}`
-        : "预览阻止：简历内容无法通过正式渲染校验。"
+      error: renderErrorMessage(errorCode),
+      errorCode
     };
   }
+}
+
+function renderErrorMessage(code: string) {
+  const messages: Record<string, string> = {
+    legacy_branch_cannot_render: "这份简历来自旧版本，目前保留为只读，不能直接进入正式模板。",
+    archived_branch_cannot_render: "这份简历已归档或在回收站中，只读保留，不能直接进入正式模板。",
+    branch_current_revision_missing: "这份简历缺少可用版本，暂时不能进入正式模板。",
+    branch_invalid_reference: "这份简历引用的资料已经变化，暂时不能进入正式模板。",
+    render_source_mismatch: "当前简历与所选人物或岗位不匹配，暂时不能进入正式模板。",
+    render_model_invalid: "简历内容暂时无法生成预览，但原内容仍会保留。"
+  };
+  return messages[code] ?? `简历暂时无法生成预览（${code}）。`;
+}
+
+function renderErrorRecoveryCopy(code?: string) {
+  if (canCreateResumeFromProfile(code)) {
+    return "原简历不会被删除。点击下方按钮，会根据当前资料库内容创建一份新的、可编辑且可导出的通用简历。";
+  }
+  if (code === "render_source_mismatch") {
+    return "请切换到对应的人物或岗位，或重新导入并在核对页确认后再试。";
+  }
+  return "请保留当前内容，重新选择简历或重新导入并完成核对。";
+}
+
+function canCreateResumeFromProfile(code?: string) {
+  return code === "legacy_branch_cannot_render"
+    || code === "archived_branch_cannot_render"
+    || code === "branch_current_revision_missing"
+    || code === "branch_invalid_reference";
 }
 
 function buildResumeStudioSections(input: {

@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createImportedResumeDraftFromPdf } from "@/domain/resumeImport/parser";
 import { buildResumeImportConfirmation } from "@/domain/resumeImport/confirm";
+import { buildGeneralBranchFromProfile } from "@/domain/branch/profileBranch";
+import { mapBranchToResumeRenderModel } from "@/domain/resumeRender/mapper";
 import {
   buildJobOptimizationSummary,
   buildRequirementBlockMatches,
@@ -37,6 +39,29 @@ afterEach(async () => {
 });
 
 describe("V2-G5a job optimization", () => {
+  it("renders imported and profile-backed general resumes", () => {
+    const imported = buildImportedGeneralResume();
+    expect(() => mapBranchToResumeRenderModel({
+      branch: imported.branch,
+      profile: imported.profile,
+      coveragePolicy: "warn"
+    })).not.toThrow();
+
+    const profileBacked = buildGeneralBranchFromProfile({
+      profile: imported.profile,
+      operationId: "render-profile-backed",
+      name: "资料库通用简历",
+      includeProfileFacts: true,
+      includeProfileBasics: true,
+      now: TEST_TIME
+    });
+    expect(() => mapBranchToResumeRenderModel({
+      branch: profileBacked.branch,
+      profile: imported.profile,
+      coveragePolicy: "warn"
+    })).not.toThrow();
+  });
+
   it("maps confirmed job requirements to branch content blocks and summarizes fact gaps", () => {
     const { profile, branch } = buildImportedGeneralResume();
     const job = createSqlAnalystJob();

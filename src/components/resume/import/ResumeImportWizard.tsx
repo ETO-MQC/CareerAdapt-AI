@@ -676,7 +676,7 @@ export function ResumeImportWizard(props: {
           diagnostics: error.diagnostics
         } : current);
       }
-      fail(error instanceof Error ? error.message : "AI 简历语义识别暂时不可用。");
+      fail(`${error instanceof Error ? error.message : "AI 简历语义识别暂时不可用。"} 原始文件和本地解析结果仍已保留，可直接点击“使用本地结果”。`);
     }
   }
 
@@ -1048,12 +1048,16 @@ export function ResumeImportWizard(props: {
         mergeDecisions: buildMergeDecisions(),
         expectedReconciliationRevision: targetMode === "existing" ? activeReconciliationPlan?.revision : undefined,
         target: targetMode === "existing"
-          ? { mode: "existing", profileId: targetProfileId }
+          ? { mode: "existing", profileId: targetProfileId, createGeneralResume }
           : { mode: "new", profileName: newProfileName.trim(), createGeneralResume }
       });
       setStatus("completed");
-      setMessage(result.branchId ? (result.idempotent ? "该导入已确认过，已打开现有通用简历。" : "已确认导入，并创建通用简历分支。") : "已确认导入并创建人物资料。");
-      notify({ type: "success", title: "导入成功", message: result.branchId ? (result.idempotent ? "已打开现有通用简历。" : "已创建通用简历和首个版本。") : "已创建人物资料，未创建简历。" });
+      setMessage(result.branchId
+        ? (result.idempotent ? "该导入已确认过，已打开现有通用简历。" : "已确认导入，并创建通用简历分支。")
+        : targetMode === "existing" ? "已更新人物资料，未创建新的通用简历。" : "已确认导入并创建人物资料。");
+      notify({ type: "success", title: "导入成功", message: result.branchId
+        ? (result.idempotent ? "已打开现有通用简历。" : "已创建通用简历和首个版本。")
+        : targetMode === "existing" ? "已更新人物资料，未创建新的通用简历。" : "已创建人物资料，未创建简历。" });
       await props.onImported({ profileId: result.profileId, branchId: result.branchId });
     } catch (error) {
       setStatus("reviewing");
@@ -1201,20 +1205,23 @@ export function ResumeImportWizard(props: {
         <legend>导入目标</legend>
         <div className="import-target-options">
           <label className={targetMode === "existing" ? "import-target-option active" : "import-target-option"}>
-            <input type="radio" name="import-target" checked={targetMode === "existing"} disabled={(props.profiles ?? []).length === 0 && !props.profile} onChange={() => { setTargetMode("existing"); setBasicMergeActions((current) => ({ ...current, name: "keep_existing" })); }} />
+            <input type="radio" name="import-target" checked={targetMode === "existing"} disabled={(props.profiles ?? []).length === 0 && !props.profile} onChange={() => { setTargetMode("existing"); setCreateGeneralResume(true); setBasicMergeActions((current) => ({ ...current, name: "keep_existing" })); }} />
             导入到已有资料
           </label>
           <label className={targetMode === "new" ? "import-target-option active" : "import-target-option"}>
-            <input type="radio" name="import-target" checked={targetMode === "new"} onChange={() => { setTargetMode("new"); if (!newProfileName.trim() && draft?.basics.name?.value) setNewProfileName(draft.basics.name.value); }} />
+            <input type="radio" name="import-target" checked={targetMode === "new"} onChange={() => { setTargetMode("new"); setCreateGeneralResume(true); if (!newProfileName.trim() && draft?.basics.name?.value) setNewProfileName(draft.basics.name.value); }} />
             创建新人物
           </label>
         </div>
         {targetMode === "existing" ? (
-          <label className="import-target-field">目标人物
-            <select name="import-target-profile" value={targetProfileId} onChange={(event) => setTargetProfileId(event.target.value)}>
-              {(props.profiles?.length ? props.profiles : props.profile ? [props.profile] : []).map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
-            </select>
-          </label>
+          <div className="import-existing-profile-fields">
+            <label className="import-target-field">目标人物
+              <select name="import-target-profile" value={targetProfileId} onChange={(event) => setTargetProfileId(event.target.value)}>
+                {(props.profiles?.length ? props.profiles : props.profile ? [props.profile] : []).map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
+              </select>
+            </label>
+            <label className="inline-toggle"><input name="import-create-general-resume" type="checkbox" checked={createGeneralResume} onChange={(event) => setCreateGeneralResume(event.target.checked)} />同时创建一份新的通用简历</label>
+          </div>
         ) : (
           <div className="import-new-profile-fields">
             <label className="import-target-field">人物名称<input name="new-profile-name" autoComplete="off" value={newProfileName} onChange={(event) => setNewProfileName(event.target.value)} placeholder="将从导入姓名预填" /></label>
@@ -1290,11 +1297,12 @@ export function ResumeImportWizard(props: {
             {aiFailureRecovery ? (
               <div className="import-recognition-recovery" role="alert">
                 <span>
-                  <strong>{aiFailureRecovery.diagnostics?.safeErrorCode === "model_schema_invalid" ? "● 结构校验未通过" : "● AI 识别未完成"}</strong>
-                  {aiFailureRecovery.diagnostics?.safeErrorCode === "model_schema_invalid" ? "模型输出格式需要修正" : message}
+                  <strong>{aiFailureRecovery.diagnostics?.safeErrorCode === "model_schema_invalid" ? "● AI 识别未完成：结构校验未通过" : "● AI 识别未完成，本地结果仍可继续使用"}</strong>
+                  <small>{aiFailureRecovery.diagnostics?.safeErrorCode === "model_schema_invalid" ? "模型输出格式需要修正；" : null}{message}</small>
+                  <small>原始文件和本地解析结果已保留。只想完成导入时，点击“使用本地结果”；需要再次尝试智能整理时，点击“重试 AI”。</small>
                 </span>
                 <div>
-                  <button className="primary-button compact" type="button" onClick={() => { void retryAiMapping(); }}>重试</button>
+                  <button className="primary-button compact" type="button" onClick={() => { void retryAiMapping(); }}>重试 AI</button>
                   <button className="secondary-button compact" type="button" onClick={() => { void acceptLocalFallback(); }}>使用本地结果</button>
                 </div>
                 {aiFailureRecovery.errorCode ? (
@@ -1303,6 +1311,7 @@ export function ResumeImportWizard(props: {
                     <dl className="import-recognition-diagnostics" translate="no">
                       <div><dt>safeErrorCode</dt><dd>{aiFailureRecovery.diagnostics?.safeErrorCode ?? aiFailureRecovery.errorCode}</dd></div>
                       {aiFailureRecovery.diagnostics?.provider ? <div><dt>provider/model</dt><dd>{aiFailureRecovery.diagnostics.provider} / {aiFailureRecovery.diagnostics.model ?? "unknown"}</dd></div> : null}
+                      {aiFailureRecovery.diagnostics?.providerMessage ? <div><dt>provider message</dt><dd>{aiFailureRecovery.diagnostics.providerMessage}</dd></div> : null}
                       {aiFailureRecovery.diagnostics?.attempt ? <div><dt>attempt</dt><dd>{aiFailureRecovery.diagnostics.attempt}</dd></div> : null}
                       {aiFailureRecovery.diagnostics?.latencyMs !== undefined ? <div><dt>latency</dt><dd>{aiFailureRecovery.diagnostics.latencyMs}ms</dd></div> : null}
                       {aiFailureRecovery.diagnostics?.failedIssues.map((issue, index) => (

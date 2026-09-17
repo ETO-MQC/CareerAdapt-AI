@@ -34,6 +34,7 @@ export function mapBranchToResumeRenderModel(input: {
   profile: CareerProfile;
   job?: JobDescription;
   presentationConfig?: ResumePresentationConfig;
+  coveragePolicy?: "strict" | "warn";
 }) {
   const { branch, profile } = input;
   const job = input.job ?? (branch.targetSnapshot ? jobTargetSnapshotToJobDescription(branch.targetSnapshot) : undefined);
@@ -49,16 +50,29 @@ export function mapBranchToResumeRenderModel(input: {
     throw new ResumeRenderMapperError("render_source_mismatch");
   }
 
-  const runtimeBranch = migrateResumeBranchToV2(branch);
-  const runtimeStructuredContentItems = branch.structuredContentItems
-      ? runtimeBranch.structuredContentItems.map((item) => {
-        const legacy = branch.contentItems.find((candidate) => candidate.id === item.id);
-        const integrity = inspectResumeItemStructuralIntegrity(item.data, { origin: "legacy_projection", legacyTextProjection: legacy?.text });
-        if (item.source === "legacy" && integrity.detectedLabels.length === 0) return item;
-        const rehydrated = rehydrateLegacyStructuredResumeItem(item.data, legacy?.text, { origin: "structured" });
-        return { ...item, data: rehydrated.item };
-      })
-    : runtimeBranch.structuredContentItems;
+  const compatibilityWarnings: string[] = [];
+  let runtimeStructuredContentItems: NonNullable<ResumeBranch["structuredContentItems"]> = [];
+  try {
+    const runtimeBranch = migrateResumeBranchToV2(branch);
+    runtimeStructuredContentItems = runtimeBranch.structuredContentItems.map((item) => {
+        try {
+          const legacy = branch.contentItems.find((candidate) => candidate.id === item.id);
+          const integrity = inspectResumeItemStructuralIntegrity(item.data, { origin: "legacy_projection", legacyTextProjection: legacy?.text });
+          if (item.source === "legacy" && integrity.detectedLabels.length === 0) return item;
+          const rehydrated = rehydrateLegacyStructuredResumeItem(item.data, legacy?.text, { origin: "structured" });
+          return { ...item, data: rehydrated.item };
+        } catch (error) {
+          if (input.coveragePolicy !== "warn") throw error;
+          addCompatibilityWarning(compatibilityWarnings, "兼容预览提示：部分结构化字段未能重建，已保留对应的已核验原文。正式 PDF 仍需完成结构化校验。");
+          logRenderCompatibilityIssue("structured_item_rehydration", error);
+          return item;
+        }
+      });
+  } catch (error) {
+    if (input.coveragePolicy !== "warn") throw error;
+    addCompatibilityWarning(compatibilityWarnings, "兼容预览提示：结构化字段暂未能完整重建，已使用已核验的来源文本继续显示。正式 PDF 仍需完成结构化校验。");
+    logRenderCompatibilityIssue("structured_migration", error);
+  }
 
   const document = mapBranchToResumeDocument({
     branch,
@@ -113,18 +127,25 @@ export function mapBranchToResumeRenderModel(input: {
     if (!item.visible || !renderableItemIds.has(item.id)) return [];
     if (seenStructuredItemIds.has(item.id)) return [];
     seenStructuredItemIds.add(item.id);
-    const sourceSectionId = branch.contentItems.find((legacy) => legacy.id === item.id)?.sourceSectionId;
-    const sectionType = canonicalRenderSection(item.data.sectionType, sourceSectionId);
-    const sectionId = sourceSectionId?.startsWith("custom:") ? sourceSectionId : sectionType;
-    const presentation = projectResumePresentationItem(item.data);
-    return [{
-      sectionId,
-      sectionType,
-      itemId: item.id,
-      data: item.data,
-      plainText: projectResumeItemV2(item.data),
-      presentation: { ...presentation, id: item.id, sourceItemId: item.id }
-    }];
+    try {
+      const sourceSectionId = branch.contentItems.find((legacy) => legacy.id === item.id)?.sourceSectionId;
+      const sectionType = canonicalRenderSection(item.data.sectionType, sourceSectionId);
+      const sectionId = sourceSectionId?.startsWith("custom:") ? sourceSectionId : sectionType;
+      const presentation = projectResumePresentationItem(item.data);
+      return [{
+        sectionId,
+        sectionType,
+        itemId: item.id,
+        data: item.data,
+        plainText: projectResumeItemV2(item.data),
+        presentation: { ...presentation, id: item.id, sourceItemId: item.id }
+      }];
+    } catch (error) {
+      if (input.coveragePolicy !== "warn") throw error;
+      addCompatibilityWarning(compatibilityWarnings, "兼容预览提示：部分结构化字段未能投影，已保留对应的已核验原文块。");
+      logRenderCompatibilityIssue("structured_item_projection", error);
+      return [];
+    }
   });
   if (visibleSummaryBlock) {
     const data = persistedSummaryItem?.data.sectionType === "summary"
@@ -161,7 +182,7 @@ export function mapBranchToResumeRenderModel(input: {
     return { sectionId, sectionType, title: sectionType === "custom" ? "自定义栏目" : getResumeSectionDefinition(sectionType).label, order, items };
   });
 
-  const model = ResumeRenderModelSchema.parse({
+  const modelInput = {
     schemaVersion: "resume-render-v2",
     branchId: branch.id,
     branchRevision: branch.revision,
@@ -182,7 +203,7 @@ export function mapBranchToResumeRenderModel(input: {
     },
     sections,
     structuredSections,
-    compatibilityWarnings: [],
+    compatibilityWarnings,
     safety: {
       ruleOnlyItemIds: renderableBlocks.filter((block) => block.guardMode === "rule_only_verified").map((block) => block.contentItemId),
       visibleItemCount: structuredItems.length,
@@ -195,16 +216,84 @@ export function mapBranchToResumeRenderModel(input: {
       sourceProfileVersion: branch.sourceProfileVersion,
       sourceJobVersion: branch.sourceJobVersion
     }
-  });
+  };
+  const parsedModel = ResumeRenderModelSchema.safeParse(modelInput);
+  let model = parsedModel.success ? parsedModel.data : undefined;
+  if (!model) {
+    if (input.coveragePolicy !== "warn") throw parsedModel.error;
+    addCompatibilityWarning(compatibilityWarnings, "兼容预览提示：结构化预览模型校验未通过，已使用来源文本生成兼容预览。");
+    logRenderCompatibilityIssue("render_model_schema", parsedModel.error);
+    model = ResumeRenderModelSchema.parse({
+      ...modelInput,
+      structuredSections: [],
+      compatibilityWarnings,
+      safety: {
+        ...modelInput.safety,
+        visibleItemCount: renderableBlocks.length
+      }
+    });
+  }
   const sourceCoverage = sourceVisibleCoverage({ branch, document, derivedSummary: basics.summary });
   const coverage = createRenderCoverageReport({
     source: sourceCoverage,
     presentation: presentationCoverage(model)
   });
-  if (renderCoverageHasBlockingFailure(coverage)) {
+  const hasCoverageFailure = renderCoverageHasBlockingFailure(coverage);
+  if (hasCoverageFailure && input.coveragePolicy !== "warn") {
     throw new ResumeRenderMapperError("render_coverage_failed");
   }
-  return model;
+  const completePreviewModel = hasCoverageFailure && input.coveragePolicy === "warn" && model.schemaVersion === "resume-render-v2"
+    ? ResumeRenderModelSchema.parse({
+        ...model,
+        structuredSections: [],
+        compatibilityWarnings: [
+          ...model.compatibilityWarnings,
+          "兼容预览提示：结构化内容未完整投影，已切换到来源文本布局，确保所有已核验内容可见。"
+        ],
+        safety: {
+          ...model.safety,
+          visibleItemCount: renderableBlocks.length
+        }
+      })
+    : model;
+  return ResumeRenderModelSchema.parse({
+    ...completePreviewModel,
+    compatibilityWarnings: [
+      ...(completePreviewModel.schemaVersion === "resume-render-v2" ? completePreviewModel.compatibilityWarnings : []),
+      ...(hasCoverageFailure ? [renderCoverageWarning(coverage)] : [])
+    ]
+  });
+}
+
+function addCompatibilityWarning(warnings: string[], warning: string) {
+  if (!warnings.includes(warning)) warnings.push(warning);
+}
+
+function logRenderCompatibilityIssue(stage: string, error: unknown) {
+  if (process.env.NODE_ENV === "production") return;
+  const issueCode = error && typeof error === "object" && "issues" in error && Array.isArray(error.issues)
+    ? error.issues
+      .slice(0, 4)
+      .map((issue: unknown) => {
+        if (!issue || typeof issue !== "object") return "unknown";
+        const value = issue as { path?: unknown; code?: unknown };
+        const path = Array.isArray(value.path) ? value.path.join(".") : "root";
+        return `${path}:${typeof value.code === "string" ? value.code : "invalid"}`;
+      })
+      .join(",")
+    : error instanceof Error ? error.name : "unknown";
+  console.warn("[resume-render:compatibility]", { stage, issueCode });
+}
+
+function renderCoverageWarning(report: ReturnType<typeof createRenderCoverageReport>) {
+  const issues = [
+    report.silentDroppedItemCount > 0 ? `${report.silentDroppedItemCount} 项内容未完整映射` : undefined,
+    report.silentDroppedSectionCount > 0 ? `${report.silentDroppedSectionCount} 个栏目未完整映射` : undefined,
+    report.duplicateRenderedItemCount > 0 ? `${report.duplicateRenderedItemCount} 项内容重复显示` : undefined,
+    report.duplicateRenderedSectionCount > 0 ? `${report.duplicateRenderedSectionCount} 个栏目重复显示` : undefined,
+    report.genericExperienceRendered > 0 ? "存在未关联来源的经历块" : undefined
+  ].filter((value): value is string => Boolean(value));
+  return `兼容预览提示：${issues.join("；")}。已先显示可渲染内容；正式 PDF 默认仍会拦截此问题，确认后可选择继续导出。`;
 }
 
 function canonicalRenderSection(dataSection: ResumeSectionTypeV2, sourceSectionId?: string): Exclude<ResumeSectionTypeV2, "basics"> {

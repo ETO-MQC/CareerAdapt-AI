@@ -18,6 +18,7 @@ type StructuredAiResponse<TOutput> =
         outputLength: number;
         latencyMs: number;
         attemptCount?: number;
+        providerMessage?: string;
       };
     }
   | {
@@ -33,6 +34,7 @@ type StructuredAiResponse<TOutput> =
         outputLength?: number;
         latencyMs?: number;
         safeErrorCode?: string;
+        providerMessage?: string;
         failedIssues?: SafeSchemaIssue[];
         attempt?: number;
       };
@@ -57,6 +59,7 @@ type StructuredAiDiagnostics = {
   attempt?: number;
   latencyMs?: number;
   safeErrorCode?: string;
+  providerMessage?: string;
 };
 
   if (hasCustomSettings) {
@@ -139,6 +142,7 @@ type StructuredAiDiagnostics = {
             failedIssues: payload.meta?.failedIssues ?? [],
             provider: payload.meta?.provider,
             model: payload.meta?.model,
+            providerMessage: payload.meta?.providerMessage,
             attempt: payload.meta?.attempt,
             latencyMs: payload.meta?.latencyMs
           }

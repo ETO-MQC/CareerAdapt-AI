@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { OpenAiCompatibleProvider } from "@/ai/providers/openAiCompatibleProvider";
+import { AiProviderError, OpenAiCompatibleProvider } from "@/ai/providers/openAiCompatibleProvider";
 import { aiProviderErrorCode } from "@/ai/providers/transportError";
 import {
   getAiTaskDefinition,
@@ -302,7 +302,10 @@ export async function POST(request: NextRequest) {
     return aiError(code, "AI request failed.", status, startedAt, {
       provider: provider?.configurationDiagnostic.provider,
       model: provider?.configurationDiagnostic.model,
-      safeErrorCode: code
+      safeErrorCode: code,
+      ...(error instanceof AiProviderError && error.diagnostic?.providerMessage
+        ? { providerMessage: error.diagnostic.providerMessage }
+        : {})
     });
   }
 }
@@ -340,6 +343,7 @@ function aiError(
     inputLength: number;
     outputLength: number;
     safeErrorCode: string;
+    providerMessage: string;
     failedIssues: SafeSchemaIssue[];
     attempt: number;
   }> = {}

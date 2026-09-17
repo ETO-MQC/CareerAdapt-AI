@@ -6791,6 +6791,12 @@ html[data-theme="dark"] .resume-export-recovery-secondary {
   font-size: 12px;
 }
 
+.import-recognition-recovery > span small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 .import-recognition-recovery > div {
   display: flex;
   gap: 6px;
@@ -6798,6 +6804,38 @@ html[data-theme="dark"] .resume-export-recovery-secondary {
 
 .import-recognition-recovery > details {
   grid-column: 1 / -1;
+}
+
+.resume-preview-compatibility-notice {
+  align-items: flex-start;
+  background: color-mix(in srgb, var(--amber) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--amber) 36%, var(--line));
+  border-radius: var(--radius);
+  color: var(--ink);
+  display: grid;
+  gap: 3px;
+  justify-self: stretch;
+  margin-bottom: 12px;
+  max-width: 794px;
+  padding: 9px 12px;
+}
+
+.resume-preview-compatibility-notice span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.resume-preview-empty {
+  align-self: center;
+  max-width: 520px;
+  padding: 24px;
+}
+
+.resume-preview-empty p {
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 8px 0 14px;
 }
 
 .import-recognition-diagnostics {
@@ -6978,7 +7016,8 @@ html[data-theme="dark"] .resume-export-recovery-secondary {
 }
 
 .import-target-options,
-.import-new-profile-fields {
+.import-new-profile-fields,
+.import-existing-profile-fields {
   align-items: center;
   display: flex;
   flex-wrap: wrap;

@@ -72,4 +72,24 @@ describe("resume import target semantics", () => {
     expect((await repository.getProfile(first.id))?.version).toBe(first.version);
     expect((await repository.getProfile(second.id))?.version).toBe(second.version + 1);
   });
+
+  it("creates a verified general resume when an existing-profile import opts in", async () => {
+    db = new CareerAdaptDb(`p36a-existing-with-resume-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    const profile = { ...demoCareerProfile, id: "profile-import-target", name: "当前人物", basics: { ...demoCareerProfile.basics, name: "当前人物" } };
+    await repository.saveProfile(profile);
+    const saved = await repository.saveImportedResumeDraft(draft("existing-with-resume"), 0);
+    const result = await repository.confirmImportedResume({
+      importId: saved.importId,
+      expectedDraftRevision: saved.revision,
+      operationId: "existing-with-resume-operation",
+      target: { mode: "existing", profileId: profile.id, createGeneralResume: true },
+      mergeDecisions: [{ target: "name", importedValue: "导入人物", action: "keep_existing" }]
+    });
+
+    expect(result.branchId).toBeDefined();
+    const branch = await repository.getResumeBranch(result.branchId!);
+    expect(branch?.migrationStatus).toBe("verified");
+    expect(branch?.currentRevisionId).toBe(result.revisionId);
+  });
 });

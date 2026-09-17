@@ -21,6 +21,7 @@ export function createResumePdfExportRequest(input: {
   overflowStatus: ResumePdfExportSnapshot["overflowStatus"];
   paginationPlan: ResumePaginationPlan;
   templateVersion?: number;
+  allowCoverageWarnings?: boolean;
 }): ResumePdfExportRequest {
   const snapshot = createResumeExportSnapshot(input);
   return {
@@ -40,6 +41,7 @@ export function createResumeExportSnapshot(input: {
   overflowStatus: ResumePdfExportSnapshot["overflowStatus"];
   paginationPlan: ResumePaginationPlan;
   templateVersion?: number;
+  allowCoverageWarnings?: boolean;
 }): ResumeExportSnapshot {
   if (input.persistedRevision) {
     if (input.persistedRevision.id !== input.renderModel.branchCurrentRevisionId
@@ -67,7 +69,8 @@ export function createResumeExportSnapshot(input: {
     paginationPlan: input.paginationPlan,
     paginationHash: input.paginationPlan.paginationHash,
     presentation: presentationSnapshotFromConfig(input.presentationConfig),
-    renderModel: input.renderModel
+    renderModel: input.renderModel,
+    ...(input.allowCoverageWarnings ? { allowCoverageWarnings: true } : {})
   };
   const snapshotHash = hashExportSnapshot(snapshotWithoutHash);
   return ResumeExportSnapshotSchema.parse({ ...snapshotWithoutHash, snapshotHash });

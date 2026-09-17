@@ -138,6 +138,7 @@ export const ResumePdfExportSnapshotSchema = z.object({
   paginationHash: z.string().min(8),
   presentation: ExportSnapshotPresentationSchema,
   renderModel: ResumeRenderModelSchema,
+  allowCoverageWarnings: z.boolean().optional(),
   snapshotHash: z.string().min(8)
 }).superRefine((snapshot, ctx) => {
   if (snapshot.branchId !== snapshot.renderModel.branchId) {

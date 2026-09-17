@@ -157,7 +157,7 @@ function isPortAvailable(port, host = HOST) {
     const probe = net.createServer();
     const onError = (error) => {
       probe.removeListener("listening", onListening);
-      if (error.code === "EADDRINUSE") {
+      if (error.code === "EADDRINUSE" || error.code === "EACCES") {
         resolve(false);
         return;
       }

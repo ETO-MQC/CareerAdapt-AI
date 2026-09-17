@@ -2204,7 +2204,7 @@ export class WorkspaceRepository {
     operationId: string;
     mergeDecisions?: ImportMergeDecision[];
     expectedReconciliationRevision?: number;
-    target?: { mode: "existing"; profileId: string } | { mode: "new"; profileName: string; createGeneralResume: true };
+    target?: { mode: "existing"; profileId: string; createGeneralResume?: boolean } | { mode: "new"; profileName: string; createGeneralResume: true };
   }): Promise<ImportedResumeBranchConfirmResult>;
   async confirmImportedResume(input: {
     importId: string;
@@ -2358,7 +2358,9 @@ export class WorkspaceRepository {
           : true;
         const createBranch = input.target?.mode === "new"
           ? input.target.createGeneralResume
-          : !existingProfile || (existingGeneralResumeCount === 0 && reconciliationCreatesResumeContent);
+          : input.target?.mode === "existing" && input.target.createGeneralResume === true
+            ? true
+            : !existingProfile || (existingGeneralResumeCount === 0 && reconciliationCreatesResumeContent);
         const built = createBranch ? buildResumeImportConfirmation({
           draft,
           existingProfile,

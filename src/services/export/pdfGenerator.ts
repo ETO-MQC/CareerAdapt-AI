@@ -130,7 +130,7 @@ async function generateResumePdfAttempt(snapshot: ResumePdfExportSnapshot, page:
       revisionId: snapshot.currentRevisionId,
       presentationRevision: snapshot.presentationRevision
     });
-    if (renderCoverageHasBlockingFailure(paginationCoverageReport)) {
+    if (!snapshot.allowCoverageWarnings && renderCoverageHasBlockingFailure(paginationCoverageReport)) {
       throw new ResumePdfGenerationError("render_coverage_failed", paginationCoverageReport.diagnostics, recoveryAttempt);
     }
     // Server uses its own measurement directly — client/server fonts differ so hash comparison is unreliable
@@ -169,7 +169,7 @@ async function generateResumePdfAttempt(snapshot: ResumePdfExportSnapshot, page:
       revisionId: snapshot.currentRevisionId,
       presentationRevision: snapshot.presentationRevision
     });
-    if (renderCoverageHasBlockingFailure(renderedCoverageReport)) {
+    if (!snapshot.allowCoverageWarnings && renderCoverageHasBlockingFailure(renderedCoverageReport)) {
       throw new ResumePdfGenerationError("render_coverage_failed", renderedCoverageReport.diagnostics, recoveryAttempt);
     }
 

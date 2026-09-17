@@ -975,10 +975,10 @@ function isPortAvailable(port, host = DEFAULT_LOCAL_HOST) {
     const server = net.createServer();
     const onError = (error) => {
       server.removeListener("listening", onListening);
-      if (error.code === "EADDRINUSE") {
-        resolve(false);
-        return;
-      }
+        if (error.code === "EADDRINUSE" || error.code === "EACCES") {
+          resolve(false);
+          return;
+        }
       reject(error);
     };
     const onListening = () => server.close(() => resolve(true));

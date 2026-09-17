@@ -5,6 +5,7 @@ export type SafeAiTransportDiagnostic = {
   phase: AiTransportPhase;
   safeCauseCode?: string;
   httpStatus?: number;
+  providerMessage?: string;
 };
 
 type TransportErrorOptions = {
@@ -171,8 +172,21 @@ function safeDiagnostic(error: unknown): SafeAiTransportDiagnostic | undefined {
     safeErrorCode,
     phase,
     ...(typeof value.safeCauseCode === "string" && SAFE_CAUSE_CODES.has(value.safeCauseCode) ? { safeCauseCode: value.safeCauseCode } : {}),
-    ...(typeof value.httpStatus === "number" && Number.isInteger(value.httpStatus) ? { httpStatus: value.httpStatus } : {})
+    ...(typeof value.httpStatus === "number" && Number.isInteger(value.httpStatus) ? { httpStatus: value.httpStatus } : {}),
+    ...(safeDiagnosticMessage(value.providerMessage) ? { providerMessage: safeDiagnosticMessage(value.providerMessage) } : {})
   };
+}
+
+function safeDiagnosticMessage(value: unknown) {
+  if (typeof value !== "string") return undefined;
+  const normalized = value
+    .replace(/Bearer\s+\S+/giu, "Bearer [redacted]")
+    .replace(/\b(?:sk|rk|key|token)[-_][A-Za-z0-9_-]{12,}\b/giu, "[redacted]")
+    .replace(/[\u0000-\u001f\u007f]/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim()
+    .slice(0, 240);
+  return normalized || undefined;
 }
 
 function isRawTransportCode(code: string) {

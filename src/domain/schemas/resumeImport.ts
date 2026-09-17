@@ -411,7 +411,8 @@ export const ImportedResumeSourceSchema = z.object({
 export const ImportTargetSchema = z.discriminatedUnion("mode", [
   z.object({
     mode: z.literal("existing"),
-    profileId: z.string().min(1)
+    profileId: z.string().min(1),
+    createGeneralResume: z.boolean().optional()
   }),
   z.object({
     mode: z.literal("new"),
