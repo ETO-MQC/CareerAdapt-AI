@@ -524,10 +524,10 @@ function parseLegacyLabeledStructuredExperienceText(text: string): StructuredExp
         if (value) descriptionLines.push(value);
       } else if (label === "亮点") {
         contentMode = "highlight";
-        highlights.push(...splitStructuredList(value));
+        highlights.push(...splitStructuredBulletList(value));
       } else if (label === "成果" || label === "成果与结果") {
         contentMode = "outcome";
-        outcomes.push(...splitStructuredList(value));
+        outcomes.push(...splitStructuredBulletList(value));
       } else {
         contentMode = label === "至今" ? "description" : undefined;
       }
@@ -657,6 +657,15 @@ function isStructuredDateOnlyLine(value: string) {
 function splitStructuredList(value: string) {
   return value
     .split(/[、,，;；\n]/u)
+    .map((entry) => stripStructuredBullet(entry.trim()) ?? entry.trim())
+    .filter(Boolean);
+}
+
+// Exact inverse of the array projection (projectResumeItemV2 joins bullet lists with "；").
+// Only that separator and line breaks may end a bullet: sentence-internal ，、； are content.
+function splitStructuredBulletList(value: string) {
+  return value
+    .split(/[；;\n]/u)
     .map((entry) => stripStructuredBullet(entry.trim()) ?? entry.trim())
     .filter(Boolean);
 }

@@ -242,24 +242,14 @@ export function mapBranchToResumeRenderModel(input: {
   if (hasCoverageFailure && input.coveragePolicy !== "warn") {
     throw new ResumeRenderMapperError("render_coverage_failed");
   }
-  const completePreviewModel = hasCoverageFailure && input.coveragePolicy === "warn" && model.schemaVersion === "resume-render-v2"
-    ? ResumeRenderModelSchema.parse({
-        ...model,
-        structuredSections: [],
-        compatibilityWarnings: [
-          ...model.compatibilityWarnings,
-          "兼容预览提示：结构化内容未完整投影，已切换到来源文本布局，确保所有已核验内容可见。"
-        ],
-        safety: {
-          ...model.safety,
-          visibleItemCount: renderableBlocks.length
-        }
-      })
-    : model;
+  // Templates only consume structuredSections. Clearing them here would collapse the
+  // whole page onto the legacy text layout (every section merged, each item reduced to
+  // one wrapped paragraph). Keep the structured model and surface the coverage gap as a
+  // compatibility warning instead, so structure and styles stay on the canonical path.
   return ResumeRenderModelSchema.parse({
-    ...completePreviewModel,
+    ...model,
     compatibilityWarnings: [
-      ...(completePreviewModel.schemaVersion === "resume-render-v2" ? completePreviewModel.compatibilityWarnings : []),
+      ...(model.schemaVersion === "resume-render-v2" ? model.compatibilityWarnings : []),
       ...(hasCoverageFailure ? [renderCoverageWarning(coverage)] : [])
     ]
   });

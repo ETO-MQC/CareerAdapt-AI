@@ -72,7 +72,10 @@ export function inspectResumeItemStructuralIntegrity(
     : [];
   const shape = resumeStructuralShape(item);
   const reasonCodes: string[] = [];
-  if (detectedLabels.length) reasonCodes.push("legacy_labels_present");
+  // Labels are emitted by the canonical field projection itself, so for an item that
+  // is already structured they are expected text, not a defect. Only a flat legacy
+  // projection being asked to describe an item counts as a reason to rebuild it.
+  if (detectedLabels.length && origin === "legacy_projection") reasonCodes.push("legacy_labels_present");
 
   const missingIdentity = missingPrimaryIdentity(item);
   if (missingIdentity) reasonCodes.push(missingIdentity);
@@ -217,16 +220,18 @@ function legacySkillIdentity(source: string) {
 function rehydrateExperience(item: ResumeItemV2, sourceText: string, hasLabels: boolean): ResumeItemV2 {
   const parsed = parseStructuredExperienceText(sourceText);
   const record = item as unknown as Record<string, unknown>;
-  const highlights = uniqueList([
-    ...stringList(record.highlights),
-    ...parsed.highlights
-  ]);
-  const outcomes = uniqueList([
-    ...stringList(record.outcomes),
-    ...(parsed.outcomes ?? [])
-  ]);
+  // Structured content is authoritative: recovery only fills what is absent.
+  // Union-merging here would append a re-parsed projection of the item's own
+  // legacy text to the values that text was projected from, duplicating every
+  // bullet.
+  const existingHighlights = stringList(record.highlights);
+  const highlights = existingHighlights.length ? existingHighlights : parsed.highlights;
+  const existingOutcomes = stringList(record.outcomes);
+  const outcomes = existingOutcomes.length ? existingOutcomes : (parsed.outcomes ?? []);
   const description = withoutDuplicateSentences(
-    hasLabels ? parsed.description : mergeText(textValue(record.description), parsed.description),
+    hasLabels
+      ? parsed.description || textValue(record.description)
+      : mergeText(textValue(record.description), parsed.description),
     [...highlights, ...outcomes]
   );
 

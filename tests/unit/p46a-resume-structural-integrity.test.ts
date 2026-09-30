@@ -15,6 +15,8 @@ import {
   inspectResumeItemStructuralIntegrity,
   rehydrateLegacyStructuredResumeItem
 } from "@/domain/resumeIntegrity";
+import { parseStructuredExperienceText } from "@/domain/resumeFields/catalog";
+import { projectResumeItemV2 } from "@/domain/migrations/resumeV2";
 import { mapBranchToResumeRenderModel } from "@/domain/resumeRender/mapper";
 import { resolveResumeTargetRole } from "@/domain/branch/targetRole";
 import { presentationSnapshotFromConfig, createResumePdfExportRequest } from "@/services/export/snapshot";
@@ -67,6 +69,50 @@ describe("P4.6a resume structural integrity", () => {
     if (repaired.item.sectionType !== "project") throw new Error("project_rehydration_expected");
     expect(repaired.item.description).toBe("负责服务搭建。");
     expect(rehydrateLegacyStructuredResumeItem(repaired.item, undefined).changed).toBe(false);
+  });
+
+  it("never rebuilds a healthy structured item from its own canonical projection", () => {
+    const source = ResumeItemV2Schema.parse({
+      id: "project-frozen",
+      sectionType: "project",
+      title: "驱动桌面任务与学习规划系统",
+      role: "全栈开发",
+      organization: "独立项目",
+      startDate: "2026-02-01",
+      endDate: "2026-04-01",
+      tools: ["SQLite", "FastAPI"],
+      description: "面向学习规划的桌面任务系统。",
+      highlights: [
+        "将模糊的活动策划需求拆解为背景、目标、内容模块、预期效果等可执行信息框架",
+        "设计AI助手的多轮指令框架，将自然语言解析为结构化操作，并对解析结果进行逻辑验证"
+      ],
+      outcomes: ["完成登录、看板与阶段仪表盘，端到端可运行"],
+      customFields: []
+    });
+    if (source.sectionType !== "project") throw new Error("project_fixture_expected");
+    const projection = projectResumeItemV2(source);
+
+    const report = inspectResumeItemStructuralIntegrity(source, { origin: "structured", legacyTextProjection: projection });
+    expect(report.status).toBe("healthy");
+    expect(report.detectedLabels.length).toBeGreaterThan(0);
+    expect(report.reasonCodes).toEqual([]);
+
+    const repaired = rehydrateLegacyStructuredResumeItem(source, projection, { origin: "structured" });
+    expect(repaired.changed).toBe(false);
+    expect(repaired.item).toMatchObject({
+      title: source.title,
+      tools: source.tools,
+      highlights: source.highlights,
+      outcomes: source.outcomes,
+      description: source.description
+    });
+
+    // the projection must stay a lossless round-trip: no bullet may be cut on
+    // sentence-internal punctuation.
+    const reparsed = parseStructuredExperienceText(projection);
+    expect(reparsed.highlights).toEqual(source.highlights);
+    expect(reparsed.outcomes).toEqual(source.outcomes);
+    expect(reparsed.description).toBe(source.description);
   });
 
   it("normalizes evidence-bearing skill names without inventing a capability", () => {

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createImportedResumeDraftFromStructuredJson } from "@/domain/resumeImport/parser";
+import { buildGeneralBranchFromProfile } from "@/domain/branch/profileBranch";
 import { CareerAdaptDb } from "@/services/storage/db";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 import { demoCareerProfile } from "@/data/demoProfile";
@@ -91,5 +92,38 @@ describe("resume import target semantics", () => {
     const branch = await repository.getResumeBranch(result.branchId!);
     expect(branch?.migrationStatus).toBe("verified");
     expect(branch?.currentRevisionId).toBe(result.revisionId);
+  });
+
+  it("still creates a branch when the profile already has an active general resume", async () => {
+    db = new CareerAdaptDb(`p36a-existing-already-resumed-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    const profile = { ...demoCareerProfile, id: "profile-already-resumed", name: "已有简历人物", basics: { ...demoCareerProfile.basics, name: "已有简历人物" } };
+    await repository.saveProfile(profile);
+    const first = buildGeneralBranchFromProfile({
+      profile,
+      operationId: "already-has-resume-seed",
+      name: "已有简历",
+      includeProfileFacts: true,
+      includeProfileBasics: true
+    });
+    await repository.saveResumeBranch(first.branch);
+    expect(await repository.listResumeBranches(profile.id)).toHaveLength(1);
+
+    const saved = await repository.saveImportedResumeDraft(draft("already-has-resume"), 0);
+    const result = await repository.confirmImportedResume({
+      importId: saved.importId,
+      expectedDraftRevision: saved.revision,
+      operationId: "already-has-resume-operation",
+      target: { mode: "existing", profileId: profile.id, createGeneralResume: true },
+      mergeDecisions: [{ target: "name", importedValue: "导入人物", action: "keep_existing" }]
+    });
+
+    expect(result.branchId).toBeDefined();
+    expect(result.branchId).not.toBe(first.branch.id);
+    expect(await repository.listResumeBranches(profile.id)).toHaveLength(2);
+    const created = await repository.getResumeBranch(result.branchId!);
+    expect(created?.branchPurpose).toBe("general");
+    expect(created?.lifecycleStatus).toBe("active");
+    expect(created?.migrationStatus).toBe("verified");
   });
 });
