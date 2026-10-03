@@ -33,7 +33,6 @@ import {
   type RuntimeAttempt,
   type RunStopReason
 } from "@/agent/runtime/hermes/hermesIncidentTrace";
-import type { AgentKernel } from "@/agent/kernel/AgentKernel";
 import { evaluateGroundedResumeOutput } from "@/agent/kernel/GroundedResumeOutputGate";
 import { AgentGoalCompletionGuard } from "@/agent/kernel/AgentGoalCompletionGuard";
 import {
@@ -141,6 +140,27 @@ import {
 
 const TAILORING_APPLY_FAILURE_MESSAGE = "已采用的修改仍保留，但岗位简历写入没有完成。可以从当前步骤重试。";
 const PROFILE_INTAKE_ONBOARDING_PROMPT = "可以先从你最熟悉的一段开始。比如：实习 / 工作、课程项目、个人项目、比赛、校园经历、兼职 / 副业、志愿活动。想到哪段先说哪段。";
+
+type RetiredNativeKernelResult = {
+  protocolDiagnostics?: never[];
+  text?: string;
+  trajectory: NonNullable<AgentSession["trajectory"]>;
+  reflection?: AgentSession["reflection"];
+  conversationSummary?: string;
+  taskState?: AgentTaskState;
+  pendingConfirmation?: AgentSession["pendingConfirmation"];
+  pendingCall?: AgentSession["pendingToolCall"];
+};
+
+/**
+ * Kept only as a structural boundary for old test fixtures while the
+ * production constructor no longer receives a native kernel. Hermes is the
+ * only runtime created by the application.
+ */
+type RetiredNativeKernel = {
+  runTurn(input: unknown): Promise<RetiredNativeKernelResult>;
+  resumeTurn(input: unknown): Promise<RetiredNativeKernelResult>;
+};
 
 export type AgentHostInput =
   | { type: "message"; text: string; references?: AgentMessageReference[] }
@@ -373,9 +393,7 @@ export class AgentHostStore {
   private streamCheckpointPersistedLength = 0;
 
   constructor(private readonly dependencies: {
-    /** Native kernel is retained only for legacy/unit harnesses. Production
-     * semantic turns are delegated to Hermes through the runtime boundary. */
-    kernel?: AgentKernel;
+    kernel?: RetiredNativeKernel;
     executor: AgentExecutor;
     persistence: AgentSessionStore;
     repository?: WorkspaceRepository;
@@ -1394,8 +1412,8 @@ export class AgentHostStore {
     };
   }
 
-  /** Continue a validated event through deterministic/native infrastructure
-   * when the configured environment is native-only. */
+  /** Continue a validated event through the retained deterministic
+   * compatibility boundary. */
   continueRuntimeEvent(input: {
     session: AgentSession;
     event: RuntimeUserEvent;
@@ -2002,8 +2020,7 @@ export class AgentHostStore {
 
   /**
    * Publish a runtime-owned conversation shell before an external runtime
-   * performs network or model work. Native turns already use startTurn; this
-   * path is for Hermes (and future companion runtimes) so the UI never waits
+   * performs network or model work. Hermes turns use this path so the UI never waits
    * for the first model token before showing progress.
    */
   async beginRuntimeShell(input: {
@@ -5770,9 +5787,6 @@ export class AgentHostStore {
       confirmed: true,
       ...(careerSessionBinding ? { careerSessionBinding, requireSessionBinding: true } : {})
     });
-    if (result.ok && typeof this.dependencies.kernel?.invalidateObservationsAfter === "function") {
-      this.dependencies.kernel.invalidateObservationsAfter(call.toolName);
-    }
     current = upsertAgentActivity(current, {
       id: `agent-tool-${call.operationId}`,
       turnId,
@@ -8770,7 +8784,7 @@ function matchesActiveStream(
   if (event.streamId && activeStreamId && event.streamId !== activeStreamId) return false;
   if (event.iterationId && activeIterationId && event.iterationId !== activeIterationId) return false;
   // Identified deltas must follow an identified start. Legacy unscoped events
-  // remain accepted for route compatibility outside AgentKernel.
+  // remain accepted for route compatibility outside the Hermes boundary.
   if ((event.streamId || event.iterationId) && !activeStreamId && !activeIterationId) return false;
   return true;
 }
@@ -11593,7 +11607,7 @@ function runtimeArtifactResultData(stableName: string, value: unknown) {
 }
 
 /**
- * Runs execute Career workflow facades outside the native AgentKernel. Keep
+ * Runs execute Career workflow facades outside the Hermes semantic loop. Keep
  * the durable task projection in sync with the facade's explicit checkpoint;
  * otherwise a successful Hermes workflow would leave the old prerequisite
  * stage (or a stale failed status) in IndexedDB even though the artifact was

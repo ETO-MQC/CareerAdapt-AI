@@ -1,9 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import regressionFixture from "../fixtures/p43e1-profile-state-regression.json";
-import { AgentKernel } from "@/agent/kernel/AgentKernel";
-import { AgentObservationCache } from "@/agent/kernel/AgentObservationCache";
-import { AgentToolResolver } from "@/agent/kernel/AgentToolResolver";
-import { AgentExecutor } from "@/agent/runtime/agentExecutor";
 import { AgentRuntime } from "@/agent/runtime/agentRuntime";
 import { AgentTaskStateReducer } from "@/agent/runtime/AgentTaskStateReducer";
 import { classifyProfileIntakeTurn, classifyTurnIntent } from "@/agent/runtime/AgentTurnIntent";
@@ -35,8 +31,6 @@ function baseServices(overrides: Partial<AgentToolServices> = {}): AgentToolServ
     getJob: empty,
     getAgentTaskContext: empty,
     searchAgentSessions: empty,
-    skillsList: empty,
-    skillView: empty,
     parseResumeFile: empty,
     createResumeImportDraft: empty,
     commitResumeImport: empty,
@@ -187,50 +181,6 @@ describe("P4.3e.1 Profile Intake routing and recycle isolation", () => {
     })).toBe("career_narrative");
   });
 
-  it("performs a fresh profile read and never calls capture for the side turn", async () => {
-    const getProfile = vi.fn(async () => ({ profile: { id: regressionFixture.profile.id, items: [], sectionCounts: {} } }));
-    const captureProfileIntake = vi.fn(async () => ({}));
-    const registry = createAgentToolRegistry(baseServices({ getProfile, captureProfileIntake }));
-    const model = {
-      completeWithTools: vi.fn(async () => ({
-        stopReason: "tool_calls" as const,
-        toolCalls: [{ id: "profile-state-read", name: "get_profile", arguments: { profileId: regressionFixture.profile.id } }]
-      }))
-    };
-    const session = AgentRuntime.create("guided_profile_intake", "collect_experience");
-    const reducer = new AgentTaskStateReducer();
-    session.taskState = {
-      ...reducer.create(session, "profile_intake"),
-      stage: "collect_experience",
-      completionStatus: "waiting_for_user",
-      knownSlots: {
-        targetProfileId: regressionFixture.profile.id,
-        expectedProfileVersion: regressionFixture.profile.versionBeforeRecycle,
-        draft: { preserved: true }
-      }
-    };
-    const result = await new AgentKernel({
-      model,
-      executor: new AgentExecutor(registry),
-      toolResolver: new AgentToolResolver(registry)
-    }).runTurn({
-      session,
-      pageContext: { pathname: "/ai-workspace", query: {} },
-      userMessage: regressionFixture.sequence[2],
-      turnId: "turn-meta-question",
-      turnIntent: "casual_side_turn",
-      profileIntakeTurnKind: "profile_state_question",
-      toolScope: "profile_read",
-      taskEventAlreadyReduced: true
-    });
-    expect(getProfile).toHaveBeenCalledTimes(1);
-    expect(captureProfileIntake).not.toHaveBeenCalled();
-    expect(result.text).toContain("没有这条教育经历");
-    expect(result.taskState?.rootGoal).toBe("profile_intake");
-    expect(result.taskState?.stage).toBe("collect_experience");
-    expect(result.taskState?.knownSlots.draft).toEqual({ preserved: true });
-  });
-
   it("does not reconstruct a recycled canonical education item and restores exactly once", async () => {
     db = new CareerAdaptDb(`P43e1-${crypto.randomUUID()}`);
     const repository = new WorkspaceRepository(db);
@@ -269,18 +219,7 @@ describe("P4.3e.1 Profile Intake routing and recycle isolation", () => {
     expect(repeated.profile.structuredFacts?.filter((entry) => entry.data.id === regressionFixture.profile.education.id)).toHaveLength(1);
   });
 
-  it("does not cache profile reads and reports safe typed tool input diagnostics", async () => {
-    const cache = new AgentObservationCache();
-    cache.set("get_profile", { profileId: regressionFixture.profile.id }, {
-      ok: true,
-      operationId: "profile-read-old",
-      toolName: "get_profile",
-      data: { profile: { id: regressionFixture.profile.id, version: 7 } },
-      artifactIds: [],
-      completedAt: NOW
-    });
-    expect(cache.get("get_profile", { profileId: regressionFixture.profile.id })).toBeUndefined();
-
+  it("reports safe typed tool input diagnostics", async () => {
     const registry = createAgentToolRegistry(baseServices());
     const invalid = await registry.execute("capture_profile_intake", {}, "invalid-input-operation");
     expect(invalid).toMatchObject({

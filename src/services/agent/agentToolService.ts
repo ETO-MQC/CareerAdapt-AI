@@ -49,7 +49,6 @@ import {
 } from "@/domain/careerContext/retrieveCareerContext";
 import { getAgentSessionDisplayTitle } from "@/agent/contracts/agentSession";
 import { canonicalProfileLibraryItems, canonicalProfileSectionCounts } from "@/domain/profile/canonicalLibrary";
-import { agentSkillRegistry } from "@/agent/kernel/AgentSkillRegistry";
 import { recommendSourceRoute } from "@/agent/orchestration/sourceRouteRecommendation";
 import { analyzeProfileLibrarySource } from "@/services/jobs/jobResumeSourceModes";
 import { agentAttachmentStore } from "@/services/agent/AgentAttachmentStore";
@@ -1530,19 +1529,6 @@ export class BrowserAgentToolService implements AgentToolServices {
           updatedAt: session.updatedAt
         }))
     };
-  }
-
-  async skillsList(signal?: AbortSignal) {
-    assertNotAborted(signal);
-    return { skills: agentSkillRegistry.list() };
-  }
-
-  async skillView(rawInput: unknown, signal?: AbortSignal) {
-    assertNotAborted(signal);
-    const input = rawInput as { skillId: string; referencePath?: string };
-    return input.referencePath
-      ? agentSkillRegistry.view(input.skillId, input.referencePath)
-      : agentSkillRegistry.view(input.skillId);
   }
 
   async parseResumeFile(rawInput: unknown, signal?: AbortSignal) {

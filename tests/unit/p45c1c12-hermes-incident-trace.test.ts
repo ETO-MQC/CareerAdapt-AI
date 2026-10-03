@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import { EventEmitter } from "node:events";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AgentExecutionCoordinator } from "@/agent/runtime/AgentExecutionCoordinator";
+import { TurnController } from "@/agent/runtime/TurnController";
 import { HermesCareerAgentRuntime } from "@/agent/runtime/hermes/HermesCareerAgentRuntime";
 import type { HermesBridgeTransport } from "@/agent/runtime/hermes/HermesBridgeTransport";
 import { HttpHermesBridgeTransport } from "@/agent/runtime/hermes/HermesBridgeTransport";
@@ -196,7 +196,7 @@ describe("P4.5c.1.12 Hermes incident trace and lifecycle race closure", () => {
   });
 
   it("exposes the abort reason through the session execution controller", () => {
-    const coordinator = new AgentExecutionCoordinator();
+    const coordinator = new TurnController();
     const execution = coordinator.begin({ sessionId: "session", activeTurnId: "turn" });
     const abort = { abortSource: "runtime_restart", abortReason: "runtime_restart" };
     coordinator.interrupt("session", abort);
@@ -212,11 +212,6 @@ function emptyGateway() {
 function runsTransport(overrides: Partial<HermesBridgeTransport> = {}): HermesBridgeTransport {
   return {
     health: async () => ({ available: true, mcpConnected: true }),
-    createSession: async ({ sessionId }) => ({ sessionId, resumed: false }),
-    resumeSession: async ({ sessionId }) => ({ sessionId, resumed: true }),
-    turn: async function* () {},
-    toolCallback: async () => undefined,
-    interrupt: async () => undefined,
     startRun: async () => ({ runId: "run-active", status: "started" }),
     getRun: async (runId) => ({ run_id: runId, status: "running" }),
     runEvents: async function* () {},

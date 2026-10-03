@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import { AgentRuntime } from "@/agent/runtime/agentRuntime";
-import { AgentRuntimeRouter } from "@/agent/runtime/AgentRuntimeRouter";
 import { upsertAgentActivity } from "@/agent/runtime/AgentSessionMessages";
 import { HermesCareerAgentRuntime } from "@/agent/runtime/hermes/HermesCareerAgentRuntime";
 import type { HermesBridgeTransport } from "@/agent/runtime/hermes/HermesBridgeTransport";
@@ -12,9 +11,6 @@ import { AgentToolRegistry } from "@/agent/tools/registry";
 describe("P4.5c.1.7 Hermes runtime reliability", () => {
   it("keeps one transient run_start failure in Hermes and never performs a semantic retry", async () => {
     let starts = 0;
-    const nativeRun = vi.fn(async function* () {
-      yield { type: "turn_completed", sessionId: "session", turnId: "turn", timestamp: new Date().toISOString() } as never;
-    });
     const transport = runsTransport({
       startRun: async (input) => {
         starts += 1;
@@ -32,26 +28,19 @@ describe("P4.5c.1.7 Hermes runtime reliability", () => {
       }
     });
     const hermes = new HermesCareerAgentRuntime({ transport, careerToolGateway: emptyGateway() });
-    const router = new AgentRuntimeRouter({
-      native: { id: "native", runTurn: nativeRun, capabilities: () => ({ streaming: true }) } as never,
-      hermes,
-      configuration: { agentRuntime: "hermes" }
-    });
-    const events = [];
-    for await (const event of router.active().runTurn({
-      sessionId: "session",
-      turnId: "turn",
-      userMessage: "继续",
-      pageContext: { query: {} }
-    })) events.push(event);
+    await expect((async () => {
+      for await (const event of hermes.runTurn({
+        sessionId: "session",
+        turnId: "turn",
+        userMessage: "继续",
+        pageContext: { query: {} }
+      })) {
+        // The direct Hermes runtime surfaces a pre-run failure to its host.
+        void event;
+      }
+    })()).rejects.toMatchObject({ code: "hermes_run_start_http_failed" });
 
     expect(starts).toBe(1);
-    expect(nativeRun).not.toHaveBeenCalled();
-    expect(events.at(-1)).toMatchObject({
-      type: "turn_failed",
-      turnId: "turn",
-      error: { code: "hermes_run_start_http_failed", recoverable: true }
-    });
   });
 
   it("does not retry provider authentication failures and preserves safe diagnostics", async () => {
@@ -66,22 +55,20 @@ describe("P4.5c.1.7 Hermes runtime reliability", () => {
         });
       }
     });
-    const router = new AgentRuntimeRouter({
-      native: { id: "native", runTurn: async function* () { yield { type: "turn_completed" } as never; }, capabilities: () => ({}) } as never,
-      hermes: new HermesCareerAgentRuntime({ transport, careerToolGateway: emptyGateway() }),
-      configuration: { agentRuntime: "hermes" }
-    });
-    const events = [];
-    for await (const event of router.active().runTurn({ sessionId: "session", turnId: "turn-auth", userMessage: "继续", pageContext: { query: {} } })) {
-      events.push(event);
-    }
+    const hermes = new HermesCareerAgentRuntime({ transport, careerToolGateway: emptyGateway() });
+    await expect((async () => {
+      for await (const event of hermes.runTurn({
+        sessionId: "session",
+        turnId: "turn-auth",
+        userMessage: "继续",
+        pageContext: { query: {} }
+      })) {
+        // The direct Hermes runtime surfaces a pre-run failure to its host.
+        void event;
+      }
+    })()).rejects.toMatchObject({ code: "hermes_provider_auth_failed" });
 
     expect(starts).toBe(1);
-    expect(events.at(-1)).toMatchObject({
-      type: "turn_failed",
-      error: { code: "hermes_provider_auth_failed", recoverable: false },
-      data: { diagnostics: { safeErrorCode: "hermes_provider_auth_failed", httpStatus: 401 } }
-    });
   });
 
   it("classifies a non-retryable 400 with safe upstream and controller metadata", () => {
@@ -208,11 +195,6 @@ function emptyGateway() {
 function runsTransport(overrides: Partial<HermesBridgeTransport> = {}): HermesBridgeTransport {
   return {
     health: async () => ({ available: true, mcpConnected: true }),
-    createSession: async ({ sessionId }) => ({ sessionId, resumed: false }),
-    resumeSession: async ({ sessionId }) => ({ sessionId, resumed: true }),
-    turn: async function* () {},
-    toolCallback: async () => undefined,
-    interrupt: async () => undefined,
     startRun: async () => ({ runId: "run-default", status: "started" }),
     getRun: async (runId) => ({ run_id: runId, status: "completed" }),
     runEvents: async function* () { yield { type: "turn_completed", message: "完成" }; },

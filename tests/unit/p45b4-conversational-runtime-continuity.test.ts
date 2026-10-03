@@ -3,8 +3,6 @@ import { AgentRuntime } from "@/agent/runtime/agentRuntime";
 import { AgentTaskStateReducer } from "@/agent/runtime/AgentTaskStateReducer";
 import { classifyTurnIntent } from "@/agent/runtime/AgentTurnIntent";
 import { deriveNextLegalStage, resolveContinuationIntent } from "@/agent/runtime/TaskContinuationResolver";
-import { AgentToolResolver } from "@/agent/kernel/AgentToolResolver";
-import { createAgentToolRegistry, type AgentToolServices } from "@/agent/tools/registry";
 
 function tailoringState() {
   const reducer = new AgentTaskStateReducer();
@@ -65,27 +63,4 @@ describe("P4.5b.4 conversational runtime continuity", () => {
     expect(deriveNextLegalStage(state)).toBe("generate_plan");
   });
 
-  it("keeps the three diagnostics available for a failure-side 为什么 turn", () => {
-    const taskState = tailoringState();
-    const session = {
-      ...AgentRuntime.create("tailor_existing_resume", "analyze_fit"),
-      taskState,
-      activeResumeId: taskState.selectedEntities.resumeId,
-      activeJobId: taskState.selectedEntities.jobId
-    };
-    const resolver = new AgentToolResolver(createAgentToolRegistry({} as AgentToolServices));
-    const tools = resolver.allowedTools({
-      workflowId: "tailor_existing_resume",
-      step: "analyze_fit",
-      skills: [],
-      session,
-      userMessage: "为什么"
-    }).map((tool) => tool.name);
-
-    expect(tools).toEqual(expect.arrayContaining([
-      "get_agent_current_task",
-      "get_agent_last_failure",
-      "get_agent_runtime_status"
-    ]));
-  });
 });

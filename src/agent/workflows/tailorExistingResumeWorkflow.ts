@@ -1,5 +1,4 @@
 import { z } from "zod";
-import type { AgentPlannerAction } from "../runtime/agentRuntime";
 import { nanoid } from "nanoid";
 import { AgentExecutor } from "../runtime/agentExecutor";
 
@@ -19,6 +18,11 @@ export const TailorExistingResumeStepSchema = z.enum([
 ]);
 
 export type TailorExistingResumeStep = z.infer<typeof TailorExistingResumeStepSchema>;
+
+type TailorWorkflowAction =
+  | { type: "ask_user"; message: string; field: string }
+  | { type: "assistant_message"; message: string }
+  | { type: "workflow_complete"; message: string };
 
 export const tailorExistingResumeTransitions: Record<TailorExistingResumeStep, TailorExistingResumeStep[]> = {
   select_resume: ["choose_job", "collect_job"],
@@ -64,7 +68,7 @@ export const tailorExistingResumeWorkflow = {
     "preview_tailoring_changes",
     "apply_tailoring_changes"
   ] as const,
-  actionForStep(step: TailorExistingResumeStep): AgentPlannerAction {
+  actionForStep(step: TailorExistingResumeStep): TailorWorkflowAction {
     switch (step) {
       case "select_resume":
         return { type: "ask_user", message: "先选择一份已有简历。", field: "resumeId" };

@@ -10,26 +10,6 @@ import { CareerAdaptMcpBridgeClient } from "@/agent/mcp/CareerAdaptMcpBridgeClie
 const Any = z.object({}).passthrough();
 
 describe("P4.4e Hermes long-run closure", () => {
-  it("starts one official run and exposes a persistable handle through terminal completion", async () => {
-    let starts = 0;
-    let legacyTurns = 0;
-    const transport = runsTransport({
-      startRun: async () => { starts += 1; return { runId: "run-p44e-1", status: "started" }; },
-      runEvents: async function* () {
-        yield { type: "text_delta", delta: "已整理" } as const;
-        yield { type: "turn_completed", message: "完成", data: { output: "完成" } } as const;
-      },
-      turn: async function* () { legacyTurns += 1; }
-    });
-    const events = [];
-    for await (const event of runtime(transport).runTurn(turnInput())) events.push(event);
-
-    expect(starts).toBe(1);
-    expect(legacyTurns).toBe(0);
-    expect(events[0]).toMatchObject({ type: "progress", data: { runHandle: { runId: "run-p44e-1", status: "running" } } });
-    expect(events.at(-1)).toMatchObject({ type: "turn_completed", data: { runHandle: { runId: "run-p44e-1", status: "completed" } } });
-  });
-
   it("reattaches a persisted running handle without creating a duplicate run", async () => {
     let starts = 0;
     const transport = runsTransport({
@@ -276,11 +256,6 @@ function binding() {
 function runsTransport(overrides: Partial<HermesBridgeTransport> = {}): HermesBridgeTransport {
   return {
     health: async () => ({ available: true, mcpConnected: true }),
-    createSession: async ({ sessionId }) => ({ sessionId, resumed: false }),
-    resumeSession: async ({ sessionId }) => ({ sessionId, resumed: true }),
-    turn: async function* () {},
-    toolCallback: async () => undefined,
-    interrupt: async () => undefined,
     startRun: async () => ({ runId: "run-p44e", status: "started" }),
     getRun: async () => ({ run_id: "run-p44e", status: "completed", output: "完成" }),
     runEvents: async function* () { yield { type: "turn_completed", message: "完成" }; },

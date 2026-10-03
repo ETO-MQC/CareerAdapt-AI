@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AgentToolRegistry } from "@/agent/tools/registry";
 import { CareerToolGateway, type CareerToolResult } from "@/agent/tools/CareerToolGateway";
-import { AgentRuntimeRouter } from "@/agent/runtime/AgentRuntimeRouter";
 import { HermesCareerAgentRuntime } from "@/agent/runtime/hermes/HermesCareerAgentRuntime";
 import { RuntimeStatusStore } from "@/agent/runtime/runtimeStatus";
 import { resolveCareerSessionBinding } from "@/agent/runtime/careerSessionBinding";
@@ -103,9 +102,6 @@ describe("P4.5c.1.15 Career context binding and canonical tailor flow", () => {
     const runtime = new HermesCareerAgentRuntime({
       transport: {
         health: async () => ({ available: true, mcpConnected: true }),
-        createSession: async () => ({ sessionId: "hermes-session-unbound", resumed: false }),
-        resumeSession: async () => ({ sessionId: "hermes-session-unbound", resumed: true }),
-        turn: async function* () { yield { type: "turn_completed" as const }; },
         startRun: async (request) => {
           startedRequest = request as unknown as Record<string, unknown>;
           return { runId: "run-unbound-1", status: "started" as const };
@@ -114,8 +110,6 @@ describe("P4.5c.1.15 Career context binding and canonical tailor flow", () => {
         runEvents: async function* () { yield { type: "turn_completed" as const, message: "你好" }; },
         approveRun: async () => ({ run_id: "run-unbound-1", status: "completed" as const }),
         stopRun: async () => ({ run_id: "run-unbound-1", status: "completed" as const }),
-        toolCallback: async () => undefined,
-        interrupt: async () => undefined
       },
       careerToolGateway: new CareerToolGateway(new AgentToolRegistry([]))
     });
@@ -137,64 +131,6 @@ describe("P4.5c.1.15 Career context binding and canonical tailor flow", () => {
     expect(startedRequest).toMatchObject({ userMessage: "你好", careerSessionBinding: undefined });
     expect(events.some((event) => event.type === "turn_completed")).toBe(true);
     expect(events.some((event) => event.type === "turn_failed" && event.error?.code === "career_session_binding_required")).toBe(false);
-  });
-
-  it("keeps domain preconditions in waiting_for_user without Hermes fallback", async () => {
-    let nativeCalls = 0;
-    const native = {
-      id: "native" as const,
-      async *runTurn() {
-        nativeCalls += 1;
-        yield {
-          type: "turn_completed" as const,
-          sessionId: "agent-session-domain",
-          turnId: "turn-domain-1",
-          timestamp: new Date().toISOString(),
-          message: "native"
-        };
-      },
-      pause: async () => undefined,
-      interrupt: async () => undefined,
-      resume: async () => undefined,
-      capabilities: () => ({
-        streaming: false,
-        interruptible: true,
-        resumable: true,
-        toolCalls: true,
-        approvals: true,
-        offline: true
-      })
-    };
-    const hermes = {
-      id: "hermes" as const,
-      async *runTurn() {
-        throw Object.assign(new Error("profile selection required"), { code: "needs_profile" });
-      },
-      pause: async () => undefined,
-      interrupt: async () => undefined,
-      resume: async () => undefined,
-      capabilities: () => ({
-        streaming: true,
-        interruptible: true,
-        resumable: true,
-        toolCalls: true,
-        approvals: true,
-        offline: false
-      })
-    };
-    const router = new AgentRuntimeRouter({ native, hermes, configuration: { agentRuntime: "hermes" } });
-    const events = [];
-    for await (const event of router.runUserEvent(
-      { type: "text_message", text: "帮我生成岗位简历" },
-      { sessionId: "agent-session-domain", turnId: "turn-domain-1", userMessage: "帮我生成岗位简历", pageContext: { query: {} } }
-    )) events.push(event);
-
-    expect(nativeCalls).toBe(0);
-    expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({
-      type: "turn_completed",
-      data: { safeErrorCode: "needs_profile", waitingForUser: true, domainFailure: true }
-    });
   });
 
   it("does not downgrade Hermes health dimensions for a domain precondition", () => {

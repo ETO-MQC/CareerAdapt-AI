@@ -12,7 +12,7 @@ import { resolveProfileIntakeInterviewSupervisor } from "@/agent/workflows/Profi
 import type { ProfileIntakeSemanticResult } from "@/domain/profileIntake/ProfileIntakeSemanticService";
 import { BrowserAgentToolService } from "@/services/agent/agentToolService";
 import { AgentAttachmentStore } from "@/services/agent/AgentAttachmentStore";
-import { AgentExecutionCoordinator } from "@/agent/runtime/AgentExecutionCoordinator";
+import { TurnController } from "@/agent/runtime/TurnController";
 import { CareerAdaptDb } from "@/services/storage/db";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 import { stableHashText } from "@/services/security/text";
@@ -274,7 +274,7 @@ describe("P4.3k interview-first profile intake", () => {
 
 describe("P4.3k bounded runtime resources", () => {
   it("removes terminal executions and releases attachment references", async () => {
-    const coordinator = new AgentExecutionCoordinator();
+    const coordinator = new TurnController();
     coordinator.begin({ sessionId: "session-resource" });
     coordinator.finish("session-resource", "completed");
     expect(coordinator.get("session-resource")).toBeUndefined();

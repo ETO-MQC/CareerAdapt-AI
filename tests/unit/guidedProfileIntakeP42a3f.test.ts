@@ -6,7 +6,6 @@ import { AgentTaskCompletionGuard } from "@/agent/kernel/AgentTaskCompletionGuar
 import { adaptConversationMessageToIntakeDraft } from "@/domain/profileIntake/ConversationIntakeAdapter";
 import { ProfileReconciliationEngine } from "@/domain/profileReconciliation/ProfileReconciliationEngine";
 import { demoCareerProfile } from "@/data/demoProfile";
-import { groundMutationClaims } from "@/agent/kernel/AgentMutationClaimGuard";
 import { classifyTurnIntent } from "@/agent/runtime/AgentTurnIntent";
 import { findRecoverableProfileIntakeSource } from "@/agent/runtime/AgentHostStore";
 
@@ -708,55 +707,4 @@ describe("P4.2a.3f guided profile intake intent authority", () => {
     expect(state.pendingDecision).toBeUndefined();
   });
 
-  it("does not turn a user assertion into a persisted mutation claim", () => {
-    expect(groundMutationClaims({
-      userMessage: "已修改为小明",
-      text: "好的，已经记录姓名改为小明。",
-      observations: []
-    })).toBe("好的，我会先读取当前资料库确认后继续。");
-
-    expect(groundMutationClaims({
-      userMessage: "确认保存这些经历",
-      text: "已成功保存 8 段经历到你的个人资料库。",
-      observations: [{
-        toolName: "commit_profile_intake",
-        value: {
-          profileId: "profile-a",
-          profileVersion: 2,
-          committedFactCount: 8,
-          committedItemCount: 3
-        }
-      }]
-    })).toBe("写入步骤已完成，正在读取核验；暂不显示个人资料库写入结论。");
-
-    expect(groundMutationClaims({
-      userMessage: "确认保存这些经历",
-      text: "已成功保存 8 段经历到你的个人资料库。",
-      observations: [
-        {
-          toolName: "commit_profile_intake",
-          value: { profileId: "profile-a", profileVersion: 2, committedItemCount: 3 }
-        },
-        {
-          toolName: "get_profile",
-          value: { profile: { id: "profile-a", version: 2, name: "小明" } }
-        }
-      ]
-    })).toBe("已写入‘小明 · V2’个人资料库。本次新增 3 项经历。");
-
-    expect(groundMutationClaims({
-      userMessage: "确认保存这些经历",
-      text: "已成功保存 8 段经历到你的个人资料库。",
-      observations: [{
-        toolName: "commit_profile_intake",
-        value: { profileId: "profile-a", profileVersion: 2 }
-      }]
-    })).toContain("暂不能确认资料已保存");
-
-    expect(groundMutationClaims({
-      userMessage: "把这份简历导出 PDF",
-      text: "已经导出 PDF。",
-      observations: [{ toolName: "export_resume", value: { status: "ready_for_preview" } }]
-    })).toBe("PDF 导出入口已准备好，请在预览页确认并下载。");
-  });
 });

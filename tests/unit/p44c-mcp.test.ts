@@ -3,7 +3,6 @@ import { z } from "zod";
 import { AgentExecutor } from "@/agent/runtime/agentExecutor";
 import { CareerAdaptMcpAdapter } from "@/agent/mcp/CareerAdaptMcpAdapter";
 import { CareerAdaptMcpProtocolServer } from "@/agent/mcp/CareerAdaptMcpServer";
-import { HttpHermesBridgeTransport } from "@/agent/runtime/hermes/HermesBridgeTransport";
 import { CareerToolGateway } from "@/agent/tools/CareerToolGateway";
 import { AgentToolRegistry } from "@/agent/tools/registry";
 import { CareerAdaptMcpBridgeClient } from "@/agent/mcp/CareerAdaptMcpBridgeClient";
@@ -97,40 +96,6 @@ describe("P4.4c CareerAdapt MCP gateway", () => {
       id: 3,
       result: { structuredContent: { ok: true, receipt: { operationId: "p44c-jsonrpc-01" } } }
     });
-  });
-
-  it("translates official Hermes session SSE into the stable runtime stream", async () => {
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(encoder.encode("event: assistant.delta\ndata: {\"delta\":\"读取完成\"}\n\n"));
-        controller.enqueue(encoder.encode("event: assistant.completed\ndata: {\"content\":\"读取完成\"}\n\n"));
-        controller.enqueue(encoder.encode("event: run.completed\ndata: {\"completed\":true}\n\n"));
-        controller.close();
-      }
-    });
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(stream, {
-      status: 200,
-      headers: { "Content-Type": "text/event-stream" }
-    })));
-    try {
-      const transport = new HttpHermesBridgeTransport("/api/agent/runtime/hermes");
-      const events = [];
-      for await (const event of transport.turn({
-        sessionId: "hermes-session",
-        turnId: "p44c-sse-01",
-        userMessage: "读取资料",
-        pageContext: { query: {} },
-        toolContracts: []
-      })) events.push(event);
-      expect(events).toEqual([
-        { type: "text_delta", delta: "读取完成" },
-        { type: "turn_completed", message: "读取完成", data: { content: "读取完成" } },
-        { type: "turn_completed", data: { completed: true } }
-      ]);
-    } finally {
-      vi.unstubAllGlobals();
-    }
   });
 
   it("keeps official API-server MCP calls bound to the active browser turn", async () => {

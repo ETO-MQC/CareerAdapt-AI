@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { demoCareerProfile } from "@/data/demoProfile";
 import { migrateCareerProfileToV2 } from "@/domain/migrations/resumeV2";
-import { AgentExecutionCoordinator } from "@/agent/runtime/AgentExecutionCoordinator";
+import { TurnController } from "@/agent/runtime/TurnController";
 import { AgentSessionSchema } from "@/agent/contracts/agentSession";
 import { refineAgentTaskTitle } from "@/agent/services/AgentTaskTitleService";
 import { buildQuickActionContextSnapshot } from "@/agent/workflows/QuickActionContextSnapshot";
@@ -116,7 +116,7 @@ describe("P4.3i career identity and execution boundaries", () => {
   });
 
   it("keeps execution state independent per session", () => {
-    const coordinator = new AgentExecutionCoordinator();
+    const coordinator = new TurnController();
     const first = coordinator.begin({ sessionId: "session-a", activeTurnId: "turn-a" });
     const second = coordinator.begin({ sessionId: "session-b", activeTurnId: "turn-b" });
     coordinator.markStalled("session-a", true);

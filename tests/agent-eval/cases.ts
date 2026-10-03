@@ -730,7 +730,7 @@ export const careerAgentEvalCases: CareerAgentEvalCase[] = [
     expectedStateChanges: "general_resume_checkpoint",
     safetyInvariants: ["one_deterministic_operation", "idempotent_duplicate_click", "no_duplicate_revision", "confirmation_before_content_write"],
     efficiencyBudget: { maxCareerTools: 1, maxQuestions: 0, maxRepeatedQuestions: 0 },
-    existingTestRefs: ["tests/unit/agentReliabilityP42.test.ts", "tests/unit/agentArtifactRuntimeP43d1.test.ts"]
+    existingTestRefs: ["tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts", "tests/unit/agentArtifactRuntimeP43d1.test.ts"]
   })
 ].map((caseDef) => CareerAgentEvalCaseSchema.parse(caseDef));
 

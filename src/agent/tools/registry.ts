@@ -7,7 +7,6 @@ import {
 import { ProfileIntakeStructuredPatchSchema } from "@/domain/profileIntake/ProfileIntakeNormalizer";
 import { CaptureProfileIntakeResultSchema } from "@/domain/profileIntake/CaptureProfileIntakeResult";
 import type { AgentToolDefinition, AgentToolResult } from "../contracts/agentTool";
-import type { ExternalToolProvider } from "./externalToolProvider";
 import { ResumeSectionTypeV2Schema } from "@/domain/schemas/resumeV2";
 import { JobTargetSnapshotSchema } from "@/domain/schemas/jobTarget";
 import { TailoringIntensitySchema, TailoringModeSchema } from "@/domain/schemas/tailoring";
@@ -48,8 +47,6 @@ export type AgentToolServices = {
   getAgentCurrentTask?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   getAgentLastFailure?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   searchAgentSessions?(input: unknown, signal?: AbortSignal): Promise<unknown>;
-  skillsList?(signal?: AbortSignal): Promise<unknown>;
-  skillView?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   prepareResumeImport?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   reviewResumeImport?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   reconcileResumeImport?(input: unknown, signal?: AbortSignal): Promise<unknown>;
@@ -310,7 +307,6 @@ const ProfileSearchInputSchema = z.object({
 }).strict();
 const TaskContextInputSchema = z.object({ sessionId: z.string().min(1) }).strict();
 const SessionSearchInputSchema = z.object({ query: z.string().min(1).max(240), limit: z.number().int().min(1).max(20).default(8) }).strict();
-const SkillViewInputSchema = z.object({ skillId: z.string().min(1), referencePath: z.string().min(1).max(240).optional() }).strict();
 
 function define<TInput>(
   services: AgentToolServices,
@@ -352,8 +348,6 @@ export function createAgentToolRegistry(services: AgentToolServices) {
     define(services, meta("get_agent_current_task", "读取一个 Agent Session 当前任务、阶段、完成状态和缺失槽位；只读诊断。", "read", false, true, true, TaskContextInputSchema, "agent", "current_task"), (input, _, signal) => services.getAgentCurrentTask ? services.getAgentCurrentTask(input, signal) : unavailableTool("get_agent_current_task")),
     define(services, meta("get_agent_last_failure", "读取一个 Agent Session 最近一次运行或工具失败的安全摘要；只读诊断。", "read", false, true, true, TaskContextInputSchema, "agent", "last_failure"), (input, _, signal) => services.getAgentLastFailure ? services.getAgentLastFailure(input, signal) : unavailableTool("get_agent_last_failure")),
     define(services, meta("search_agent_sessions", "按标题、摘要和用户修正检索历史 Agent Session。", "read", false, true, true, SessionSearchInputSchema, "agent", "episodic_memory"), (input, _, signal) => services.searchAgentSessions ? services.searchAgentSessions(input, signal) : unavailableTool("search_agent_sessions")),
-    define(services, meta("skills_list", "列出可按需加载的 CareerAdapt 程序性 Skills 元数据。", "read", false, true, true, EmptyInputSchema, "skill", "procedural_memory"), (_, __, signal) => services.skillsList ? services.skillsList(signal) : unavailableTool("skills_list")),
-    define(services, meta("skill_view", "读取一个 Skill 的方法或其允许的单个参考文件。", "read", false, true, true, SkillViewInputSchema, "skill", "procedural_memory"), (input, _, signal) => services.skillView ? services.skillView(input, signal) : unavailableTool("skill_view")),
     define(services, meta("prepare_resume_import", "通过本地附件引用解析 PDF、DOCX 或 JSON，并创建可恢复的简历导入核对草稿。不得传入文件二进制或提取文本。", "write", false, true, true, ResumeImportPrepareInputSchema, "resume", "import_draft", true), (input, _, signal) => services.prepareResumeImport ? services.prepareResumeImport(input, signal) : unavailableTool("prepare_resume_import")),
     define(services, meta("review_resume_import", "记录用户对导入草稿不确定内容的明确采用或忽略决定，并推进草稿 revision。", "user_declared", false, true, true, ResumeImportReviewInputSchema, "resume", "import_draft"), (input, _, signal) => services.reviewResumeImport ? services.reviewResumeImport(input, signal) : unavailableTool("review_resume_import")),
     define(services, meta("reconcile_resume_import", "使用确定性 Profile Reconciliation Engine 比对导入草稿与指定已有资料库；只生成计划，不写入 Profile。", "read", false, true, false, ResumeImportReconcileInputSchema, "resume", "import_draft"), (input, _, signal) => services.reconcileResumeImport ? services.reconcileResumeImport(input, signal) : unavailableTool("reconcile_resume_import")),
@@ -441,17 +435,6 @@ export class AgentToolRegistry {
     }));
   }
 
-  async mergeExternal(provider: ExternalToolProvider) {
-    const external = await provider.listTools();
-    const wrapped = external.map((tool) => ({
-      ...tool,
-      external: true,
-      execute: async (input: unknown, context: { operationId: string; signal?: AbortSignal }) =>
-        provider.execute(tool.name, input, context.operationId, context.signal)
-    }));
-    return new AgentToolRegistry([...this.list(), ...wrapped]);
-  }
-
   async execute(name: string, rawInput: unknown, operationId: string, signal?: AbortSignal): Promise<AgentToolResult> {
     const tool = this.require(name);
     let input: unknown;
@@ -530,7 +513,7 @@ export const agentToolNames = [
   "list_resumes", "list_profiles", "list_jobs", "get_active_profile", "get_profile", "search_profile_facts",
   "get_resume", "get_resume_revision", "get_job", "get_agent_task_context", "get_agent_runtime_status", "get_agent_current_task", "get_agent_last_failure", "search_agent_sessions",
   "recommend_resume_source",
-  "skills_list", "skill_view", "prepare_resume_import", "review_resume_import", "reconcile_resume_import",
+  "prepare_resume_import", "review_resume_import", "reconcile_resume_import",
   "resolve_resume_reconciliation", "parse_resume_file", "create_resume_import_draft",
   "capture_profile_intake", "synthesize_profile_intake", "review_profile_intake", "reconcile_profile_intake",
   "resolve_profile_intake_conflict", "commit_profile_intake", "ensure_general_resume_from_profile", "build_resume_evidence_graph", "plan_resume_composition", "review_resume_composition", "compose_resume",

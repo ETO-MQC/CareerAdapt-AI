@@ -120,7 +120,7 @@ export type CareerToolExecutionContext = {
   confirmationCount?: number;
   /** Immutable context selected by the user for this Agent Session. */
   careerSessionBinding?: CareerSessionBinding;
-  /** Hermes/MCP callers must set this; legacy native tests may omit it. */
+  /** Hermes/MCP callers must set this; compatibility callers may omit it. */
   requireSessionBinding?: boolean;
   /** Host-only replay of a failed idempotent operation against the same checkpoint. */
   retryFailedOperation?: boolean;
@@ -265,7 +265,7 @@ export class CareerToolGateway {
   }
 
   /**
-   * Native AgentKernel/AgentHost calls use source tool names for compatibility,
+   * Host compatibility calls use source tool names,
    * but still cross the same Career domain boundary as Hermes calls.  The
    * wrapper preserves AgentExecutor's confirmation exception contract while
    * delegating the actual operation to this gateway.

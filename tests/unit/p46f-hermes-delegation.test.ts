@@ -1,8 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { AgentHostStore } from "@/agent/runtime/AgentHostStore";
 import { AgentRuntime } from "@/agent/runtime/agentRuntime";
 import type { AgentSession } from "@/agent/contracts/agentSession";
-import { AgentRuntimeRouter } from "@/agent/runtime/AgentRuntimeRouter";
 import { RuntimeStatusStore } from "@/agent/runtime/runtimeStatus";
 import { HermesCareerAgentRuntime } from "@/agent/runtime/hermes/HermesCareerAgentRuntime";
 import {
@@ -83,41 +82,6 @@ describe("P4.6f Hermes delegation architecture", () => {
     expect(persisted.messages.at(-1)).toMatchObject({ content: "你好，我是职适AI。", status: "complete" });
     expect(JSON.stringify(persisted)).not.toContain("agent_quick_action");
     expect(JSON.stringify(persisted)).not.toContain("collecting_intent");
-  });
-
-  it("uses one official run and never enters the legacy tool callback loop", async () => {
-    const starts: Array<Record<string, unknown>> = [];
-    let legacyTurns = 0;
-    let callbacks = 0;
-    const transport = runsTransport({
-      startRun: async (input) => {
-        starts.push(input as unknown as Record<string, unknown>);
-        return { runId: "run-one", status: "started" as const };
-      },
-      turn: async function* () {
-        legacyTurns += 1;
-      },
-      toolCallback: async () => {
-        callbacks += 1;
-      },
-      runEvents: async function* () {
-        yield { type: "text_delta", delta: "你好，我可以帮你处理职业资料。" } as const;
-        yield { type: "turn_completed", message: "你好，我可以帮你处理职业资料。" } as const;
-      }
-    });
-    const events = await collect(new HermesCareerAgentRuntime({ transport, careerToolGateway: emptyGateway() }).runTurn({
-      sessionId: "session-one",
-      turnId: "turn-one",
-      userMessage: "你好",
-      pageContext: { query: {} }
-    }));
-
-    expect(starts).toHaveLength(1);
-    expect(starts[0]).toMatchObject({ userMessage: "你好", toolContracts: [] });
-    expect(legacyTurns).toBe(0);
-    expect(callbacks).toBe(0);
-    expect(events.map((event) => event.type)).toEqual(["progress", "text_delta", "turn_completed"]);
-    expect(events.at(-1)?.data).toMatchObject({ runId: "run-one", telemetry: { toolCalls: 0 } });
   });
 
   it("reads one authoritative terminal status after run.failed and exposes only safe diagnostics", async () => {
@@ -201,41 +165,6 @@ describe("P4.6f Hermes delegation architecture", () => {
     expect(streams).toEqual(["run-reattach", "run-reattach"]);
     expect(events.at(-1)).toMatchObject({ type: "turn_completed", data: { runHandle: { runId: "run-reattach" } } });
     expect(events.some((event) => event.type === "turn_failed")).toBe(false);
-  });
-
-  it("does not fall back to Native after a Hermes failure", async () => {
-    const nativeRuns = vi.fn();
-    const native = {
-      id: "native",
-      runTurn: async function* () {
-        nativeRuns();
-        yield { type: "turn_completed", sessionId: "session-router", turnId: "turn-router", timestamp: new Date().toISOString() } as never;
-      },
-      pause: async () => undefined,
-      interrupt: async () => undefined,
-      resume: async () => undefined,
-      capabilities: () => ({}) as never
-    } as never;
-    const router = new AgentRuntimeRouter({
-      native,
-      hermes: new HermesCareerAgentRuntime({
-        transport: runsTransport({
-          startRun: async () => { throw Object.assign(new Error("HTTP 401: Missing Authentication header"), { code: "auth_failed", httpStatus: 401 }); }
-        }),
-        careerToolGateway: emptyGateway()
-      }),
-      configuration: { agentRuntime: "hermes" }
-    });
-    const events = await collect(router.active().runTurn({
-      sessionId: "session-router",
-      turnId: "turn-router",
-      userMessage: "你好",
-      pageContext: { query: {} }
-    }));
-
-    expect(nativeRuns).not.toHaveBeenCalled();
-    expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({ type: "turn_failed", error: { code: "hermes_provider_auth_failed" } });
   });
 
   it("keeps global Agent Ready while recording the failed run", () => {
@@ -339,11 +268,6 @@ function emptyGateway() {
 function runsTransport(overrides: Partial<HermesBridgeTransport> = {}): HermesBridgeTransport {
   return {
     health: async () => ({ available: true, mcpConnected: true }),
-    createSession: async ({ sessionId }) => ({ sessionId, resumed: false }),
-    resumeSession: async ({ sessionId }) => ({ sessionId, resumed: true }),
-    turn: async function* () {},
-    toolCallback: async () => undefined,
-    interrupt: async () => undefined,
     startRun: async () => ({ runId: "run-default", status: "started" as const }),
     getRun: async (runId): Promise<HermesRunStatus> => ({ run_id: runId, status: "completed", output: "完成" }),
     runEvents: async function* () { yield { type: "turn_completed", message: "完成" } as const; },

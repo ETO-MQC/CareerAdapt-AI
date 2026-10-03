@@ -5,10 +5,7 @@ import {
   deriveNextLegalStage,
   resolveContinuationIntent
 } from "@/agent/runtime/TaskContinuationResolver";
-import { projectTaskStateToWorkflowState } from "@/agent/runtime/projectTaskStateToWorkflowState";
 import { AgentTaskCompletionGuard } from "@/agent/kernel/AgentTaskCompletionGuard";
-import { AgentToolResolver } from "@/agent/kernel/AgentToolResolver";
-import { createAgentToolRegistry, type AgentToolServices } from "@/agent/tools/registry";
 import { AgentProductCapabilityManifest, RESUME_IMPORT_ACCEPT } from "@/agent/capabilities/AgentProductCapabilityManifest";
 import { BrowserAgentToolService } from "@/services/agent/agentToolService";
 import { AgentHostStore } from "@/agent/runtime/AgentHostStore";
@@ -35,28 +32,6 @@ function routeTurn(
 }
 
 describe("P4.2a.3b canonical task runtime", () => {
-  it("replaces a stale quick-action workflow and uses the task workflow for every later resolution", () => {
-    const base = AgentRuntime.create("agent_quick_action", "collecting_intent");
-    const reducer = new AgentTaskStateReducer();
-    const task = routeTurn(reducer, reducer.create(base), "基于现有简历做岗位定制");
-    const staleSession = { ...base, taskState: task };
-    const names = new AgentToolResolver(createAgentToolRegistry(services())).allowedTools({
-      workflowId: base.workflowState.workflowId,
-      step: base.workflowState.step,
-      skills: [],
-      session: staleSession,
-      userMessage: "基于现有简历做岗位定制"
-    }).map((tool) => tool.name);
-
-    expect(task.workflowId).toBe("tailor_existing_resume");
-    expect(task.stage).toBe("choose_resume_source");
-    expect(names).toContain("list_resumes");
-    expect(projectTaskStateToWorkflowState(task, base.workflowState)).toMatchObject({
-      workflowId: "tailor_existing_resume",
-      step: "choose_resume_source"
-    });
-  });
-
   it("treats continuation phrases as intent and derives the next stage from unresolved facts", () => {
     const state = tailoringState("preview_changes");
     const unresolved = {
@@ -428,30 +403,6 @@ describe("P4.2a.3b canonical task runtime", () => {
     expect(invalidated.knownSlots).not.toHaveProperty("qualityResult");
   });
 
-  it.each([
-    ["choose_resume_source", ["list_resumes", "list_profiles", "list_jobs", "get_active_profile", "get_profile", "search_profile_facts", "get_resume", "get_resume_revision", "get_job", "recommend_resume_source"]],
-    ["analyze_fit", ["list_resumes", "list_profiles", "list_jobs", "get_active_profile", "get_profile", "search_profile_facts", "get_resume", "get_resume_revision", "get_job", "analyze_job_fit"]],
-    ["generate_plan", ["create_tailoring_session"]],
-    ["clarify_unsupported_facts", ["answer_tailoring_question"]],
-    ["preview_changes", ["list_resumes", "list_profiles", "list_jobs", "get_active_profile", "get_profile", "search_profile_facts", "get_resume", "get_resume_revision", "get_job", "review_tailoring_diff", "preview_tailoring_changes"]],
-    ["confirm_apply", ["apply_tailoring_changes"]],
-    ["quality_result", ["list_resumes", "get_resume", "get_resume_revision"]]
-  ])("exposes the exact Route B tools at %s", (stage, expected) => {
-    const state = tailoringState(stage);
-    const session = {
-      ...AgentRuntime.create("agent_quick_action", "collecting_intent"),
-      taskState: state
-    };
-    const names = new AgentToolResolver(createAgentToolRegistry(services())).allowedTools({
-      workflowId: "agent_quick_action",
-      step: "collecting_intent",
-      skills: [],
-      session,
-      userMessage: "继续"
-    }).map((tool) => tool.name);
-    expect(names).toEqual(expected);
-  });
-
   it("uses one truthful product manifest and repository-backed archive semantics", async () => {
     expect(RESUME_IMPORT_ACCEPT).toContain(".docx");
     expect(RESUME_IMPORT_ACCEPT).not.toContain(".rtf");
@@ -507,36 +458,6 @@ describe("P4.2a.3b canonical task runtime", () => {
     });
     expect(result).toMatchObject({ lifecycleStatus: "archived", revision: 5 });
     expect(result).not.toHaveProperty("route");
-  });
-
-  it("resolves the latest general resume before exposing archive_resume", () => {
-    const reducer = new AgentTaskStateReducer();
-    const base = AgentRuntime.create("agent_quick_action", "collecting_intent");
-    let state = reducer.reduce(reducer.create(base), {
-      type: "user_message",
-      message: "归档最新的通用简历"
-    });
-    state = reducer.reduce(state, {
-      type: "tool_observation",
-      toolName: "list_resumes",
-      observation: {
-        resumes: [{
-          id: "resume-general",
-          purpose: "general",
-          revision: 1,
-          updatedAt: new Date().toISOString()
-        }]
-      }
-    });
-    const tools = new AgentToolResolver(createAgentToolRegistry(services())).allowedTools({
-      workflowId: base.workflowState.workflowId,
-      step: base.workflowState.step,
-      skills: [],
-      session: { ...base, taskState: state },
-      userMessage: "归档最新的通用简历"
-    });
-    expect(state.selectedEntities.resumeId).toBe("resume-general");
-    expect(tools.map((tool) => tool.name)).toContain("archive_resume");
   });
 
   it("recovers orphaned thinking when a persisted session is adopted without a live turn", () => {
@@ -1362,28 +1283,6 @@ function tailoringState(stage: string) {
       remainingDiffCount: stage === "preview_changes" ? 0 : undefined
     },
     completionStatus: "active" as const
-  };
-}
-
-function services(): AgentToolServices {
-  const result = async () => ({ value: "ok" });
-  return {
-    listResumes: result,
-    listProfiles: result,
-    listJobs: result,
-    parseResumeFile: result,
-    createResumeImportDraft: result,
-    commitResumeImport: result,
-    parseJobDescription: result,
-    commitJob: result,
-    analyzeJobFit: result,
-    createTailoringSession: result,
-    answerTailoringQuestion: result,
-    previewTailoringChanges: result,
-    applyTailoringChanges: result,
-    archiveResume: result,
-    restoreResume: result,
-    exportResume: result
   };
 }
 

@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AgentRuntime } from "@/agent/runtime/agentRuntime";
 import { AgentHostStore } from "@/agent/runtime/AgentHostStore";
-import { AgentRuntimeRouter } from "@/agent/runtime/AgentRuntimeRouter";
 import { HermesCareerAgentRuntime } from "@/agent/runtime/hermes/HermesCareerAgentRuntime";
 import { HttpHermesBridgeTransport, type HermesBridgeTransport } from "@/agent/runtime/hermes/HermesBridgeTransport";
 import { classifyHermesRunFailure, createHermesRunFailure } from "@/agent/runtime/hermes/hermesRunReliability";
@@ -147,12 +146,8 @@ describe("P4.5c.1.13 Hermes long-run semantics and non-destructive recovery", ()
       }
     });
     const session = persistedSession("run-A", "completed", false);
-    const router = new AgentRuntimeRouter({
-      native: nativeRuntime(),
-      hermes: new HermesCareerAgentRuntime({ transport, careerToolGateway: emptyGateway() }),
-      configuration: { agentRuntime: "hermes" }
-    });
-    const iterator = router.active().runTurn({
+    const runtime = new HermesCareerAgentRuntime({ transport, careerToolGateway: emptyGateway() });
+    const iterator = runtime.runTurn({
       sessionId: session.id,
       turnId: "turn-retry",
       userMessage: "长岗位描述",
@@ -160,7 +155,7 @@ describe("P4.5c.1.13 Hermes long-run semantics and non-destructive recovery", ()
       session
     })[Symbol.asyncIterator]();
 
-    await expect(iterator.next()).resolves.toMatchObject({ value: expect.objectContaining({ type: "turn_failed" }) });
+    await expect(iterator.next()).rejects.toMatchObject({ code: "hermes_run_start_http_failed" });
     expect(starts).toBe(1);
     expect(startMessages).toEqual(["长岗位描述"]);
     expect(observedRunIds).toEqual([]);
@@ -392,14 +387,6 @@ function runtime(transport: HermesBridgeTransport, longRunPolicy?: { observerHea
   return new HermesCareerAgentRuntime({ transport, careerToolGateway: emptyGateway(), longRunPolicy });
 }
 
-function nativeRuntime() {
-  return {
-    id: "native",
-    runTurn: async function* () { yield { type: "turn_completed" } as never; },
-    capabilities: () => ({})
-  } as never;
-}
-
 function persistedSession(runId: string, status: "running" | "completed", withAssistant: boolean) {
   const session = AgentRuntime.create("tailor_existing_resume", "generate_plan");
   return {
@@ -431,11 +418,6 @@ function persistedSession(runId: string, status: "running" | "completed", withAs
 function runsTransport(overrides: Partial<HermesBridgeTransport> = {}): HermesBridgeTransport {
   return {
     health: async () => ({ available: true, mcpConnected: true }),
-    createSession: async ({ sessionId }) => ({ sessionId, resumed: false }),
-    resumeSession: async ({ sessionId }) => ({ sessionId, resumed: true }),
-    turn: async function* () {},
-    toolCallback: async () => undefined,
-    interrupt: async () => undefined,
     startRun: async () => ({ runId: "run-default", status: "started" }),
     getRun: async (runId) => ({ run_id: runId, status: "completed", output: "完成" }),
     runEvents: async function* () { yield { type: "turn_completed", message: "完成" }; },

@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import { AgentCapabilityBroker } from "@/agent/kernel/AgentCapabilityBroker";
 import { AgentRuntime } from "@/agent/runtime/agentRuntime";
 import { AgentHostStore } from "@/agent/runtime/AgentHostStore";
 import { AgentTaskStateReducer } from "@/agent/runtime/AgentTaskStateReducer";
@@ -41,28 +40,7 @@ function targetSnapshot() {
 }
 
 describe("P4.5c.1.11 external job target closure", () => {
-  it("routes a pasted JD plus resume-generation language before job ingestion", () => {
-    const broker = new AgentCapabilityBroker();
-    const plain = broker.route(AI_TRAINER_JD_V4);
-    const application = broker.route(TARGET_TEXT);
-    const ingestion = broker.route(`录入岗位\n${AI_TRAINER_JD_V4}`);
 
-    expect(plain).toMatchObject({
-      intent: "external_target",
-      goal: "clarify_external_target",
-      possibleWorkflow: "tailor_existing_resume"
-    });
-    expect(application).toMatchObject({
-      intent: "external_target",
-      goal: "apply_to_external_job",
-      possibleWorkflow: "tailor_existing_resume"
-    });
-    expect(ingestion).toMatchObject({
-      intent: "job_ingestion",
-      goal: "ingest_job",
-      possibleWorkflow: "job_ingestion"
-    });
-  });
 
   it("keeps the pasted text in the tailoring task and exposes structured persistence choices", () => {
     const reducer = new AgentTaskStateReducer();

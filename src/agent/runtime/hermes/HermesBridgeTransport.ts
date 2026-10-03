@@ -70,11 +70,6 @@ export type HermesBridgeEvent =
 
 type HermesBridgeEventMetadata = { eventId?: string };
 
-export type HermesSession = {
-  sessionId: string;
-  resumed: boolean;
-};
-
 export type HermesTurnRequest = {
   sessionId: string;
   turnId: string;
@@ -128,19 +123,6 @@ const HermesRunStartSchema = z.object({
   status: z.enum(["started", "queued", "running"])
 }).passthrough();
 
-export type HermesToolCallback = {
-  sessionId: string;
-  turnId: string;
-  toolCallId: string;
-  toolName: string;
-  operationId: string;
-  logicalToolOperationId?: string;
-  incidentTraceId?: string;
-  attemptTraceId?: string;
-  careerSessionBinding?: CareerSessionBinding;
-  result: unknown;
-};
-
 export function logicalToolOperationId(input: {
   toolCallId?: string;
   operationId?: string;
@@ -166,18 +148,11 @@ function sanitizeLogicalPart(value: string) {
 
 export interface HermesBridgeTransport {
   health(signal?: AbortSignal): Promise<HermesHealth>;
-  createSession(input: { sessionId: string; metadata?: Record<string, unknown> }, signal?: AbortSignal): Promise<HermesSession>;
-  resumeSession(input: { sessionId: string }, signal?: AbortSignal): Promise<HermesSession>;
-  turn(input: HermesTurnRequest, signal?: AbortSignal): AsyncIterable<HermesBridgeEvent>;
-  toolCallback(input: HermesToolCallback, signal?: AbortSignal): Promise<void>;
-  interrupt(input: { sessionId: string; turnId?: string; reason?: string; stopReason?: RunStopReason }, signal?: AbortSignal, trace?: HermesRunTraceContext): Promise<void>;
-  /** Runs are mandatory for production transports. Optionality only keeps
-   * pre-P4.4e in-memory adapters source-compatible during migration. */
-  startRun?(input: HermesTurnRequest, signal?: AbortSignal): Promise<HermesRunStart>;
-  getRun?(runId: string, signal?: AbortSignal, trace?: HermesRunTraceContext): Promise<HermesRunStatus>;
-  runEvents?(runId: string, signal?: AbortSignal, trace?: HermesRunTraceContext): AsyncIterable<HermesBridgeEvent>;
-  approveRun?(runId: string, choice: "once" | "session" | "always" | "deny", signal?: AbortSignal, trace?: HermesRunTraceContext): Promise<HermesRunStatus>;
-  stopRun?(runId: string, signal?: AbortSignal, trace?: HermesRunTraceContext): Promise<HermesRunStatus>;
+  startRun(input: HermesTurnRequest, signal?: AbortSignal): Promise<HermesRunStart>;
+  getRun(runId: string, signal?: AbortSignal, trace?: HermesRunTraceContext): Promise<HermesRunStatus>;
+  runEvents(runId: string, signal?: AbortSignal, trace?: HermesRunTraceContext): AsyncIterable<HermesBridgeEvent>;
+  approveRun(runId: string, choice: "once" | "session" | "always" | "deny", signal?: AbortSignal, trace?: HermesRunTraceContext): Promise<HermesRunStatus>;
+  stopRun(runId: string, signal?: AbortSignal, trace?: HermesRunTraceContext): Promise<HermesRunStatus>;
   getDiagnostics?(): { bridgeRequestTraces: BridgeRequestTrace[] };
 }
 
@@ -195,42 +170,6 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
     const response = await this.request(`${this.endpoint}/health`, { method: "GET", headers: { Accept: "application/json" }, signal }, "hermes_health_timeout");
     const payload = await response.json();
     return HermesHealthSchema.parse(payload);
-  }
-
-  async createSession(input: { sessionId: string; metadata?: Record<string, unknown> }, signal?: AbortSignal) {
-    return this.jsonRequest<HermesSession>("session_create", input, signal, { sessionId: input.sessionId });
-  }
-
-  async resumeSession(input: { sessionId: string }, signal?: AbortSignal) {
-    return this.jsonRequest<HermesSession>("session_resume", input, signal, { sessionId: input.sessionId });
-  }
-
-  turn(input: HermesTurnRequest, signal?: AbortSignal) {
-    return this.streamRequest({ action: "turn", ...input }, signal, {
-      incidentTraceId: input.incidentTraceId,
-      traceId: input.attemptTraceId,
-      logicalTurnId: input.logicalTurnId,
-      sessionId: input.sessionId,
-      turnId: input.turnId
-    });
-  }
-
-  async toolCallback(input: HermesToolCallback, signal?: AbortSignal) {
-    await this.jsonRequest("tool_callback", input, signal, {
-      incidentTraceId: input.incidentTraceId,
-      traceId: input.attemptTraceId,
-      sessionId: input.sessionId,
-      turnId: input.turnId
-    });
-  }
-
-  async interrupt(input: { sessionId: string; turnId?: string; reason?: string; stopReason?: RunStopReason }, signal?: AbortSignal, trace?: HermesRunTraceContext) {
-    await this.jsonRequest("interrupt", input, signal, {
-      ...trace,
-      sessionId: input.sessionId,
-      turnId: input.turnId,
-      stopReason: input.stopReason ?? trace?.stopReason
-    });
   }
 
   async startRun(input: HermesTurnRequest, signal?: AbortSignal) {

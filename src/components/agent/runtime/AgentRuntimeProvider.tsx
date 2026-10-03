@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { AgentEventBus } from "@/agent/runtime/agentEventBus";
 import { AgentExecutor } from "@/agent/runtime/agentExecutor";
 import { createAgentToolRegistry } from "@/agent/tools/registry";
 import { BrowserAgentToolService } from "@/services/agent/agentToolService";
@@ -618,7 +617,6 @@ function createAgentHost() {
     registry,
     executor,
     store,
-    eventBus: new AgentEventBus(),
     runtimeEventBus,
     runTurn,
     runUserEvent,
