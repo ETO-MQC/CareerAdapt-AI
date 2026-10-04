@@ -398,7 +398,9 @@ export const ExportRecordPresentationSnapshotSchema = z.object({
   pagination: z.object({
     pagePolicy: z.enum(["natural", "prefer_one_page", "one_page_strict", "up_to_two_pages"]),
     pageBreakBeforeSections: z.array(z.enum(["summary", "experience", "skills", "certificates"]))
-  }).optional()
+  }).optional(),
+  highlightListStyle: z.enum(["bullet", "numbered", "none"]).optional(),
+  itemHeaderMiddleAlignment: z.enum(["fixed-column", "balanced", "flow"]).optional()
 });
 
 export const ExportRecordSchema = EntityBaseSchema.extend({

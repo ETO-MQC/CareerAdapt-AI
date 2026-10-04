@@ -109,8 +109,8 @@ export function presentationConfigFromExportSnapshot(snapshot: ResumePdfExportSn
     theme: snapshot.presentation.theme,
     pagination: snapshot.presentation.pagination,
     sectionStyleOverrides: snapshot.presentation.sectionStyleOverrides,
-    highlightListStyle: "bullet" as const,
-    itemHeaderMiddleAlignment: "balanced" as const,
+    highlightListStyle: snapshot.presentation.highlightListStyle,
+    itemHeaderMiddleAlignment: snapshot.presentation.itemHeaderMiddleAlignment,
     presentationRevision: snapshot.presentationRevision,
     updatedAt: snapshot.generatedAt
   };

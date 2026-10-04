@@ -16,6 +16,7 @@ import {
 } from "@/domain/schemas";
 import { applicationStatusGroup, applicationStatusLabel, APPLICATION_STATUS_ORDER } from "@/domain/application";
 import { mapBranchToResumeRenderModel } from "@/domain/resumeRender/mapper";
+import { defaultResumeRenderSectionOrder } from "@/domain/resumeFields/catalog";
 import { buildResumePdfFileName, PDF_MIME_TYPE } from "@/services/export/filename";
 import { createResumePdfExportRequest, presentationSnapshotFromConfig } from "@/services/export/snapshot";
 import { getResumeTemplate } from "@/components/resume/templates/templateRegistry";
@@ -1014,12 +1015,14 @@ function presentationConfigFromApplication(context: ApplicationContext): ResumeP
       branchRevision: context.application.selectedBranchRevision,
       currentRevisionId: context.application.selectedRevisionId
     },
-    sectionOrder: snapshot.sectionOrder ?? ["summary", "skills", "experience", "certificates"],
+    sectionOrder: snapshot.sectionOrder ?? [...defaultResumeRenderSectionOrder],
     itemOrderBySection: snapshot.itemOrderBySection,
     hiddenItemIds: snapshot.hiddenItemIds,
     typography: snapshot.typography,
     spacing: snapshot.spacing,
     theme: snapshot.theme,
+    highlightListStyle: snapshot.highlightListStyle,
+    itemHeaderMiddleAlignment: snapshot.itemHeaderMiddleAlignment,
     pagination: snapshot.pagination ?? {
       pagePolicy: context.application.selectedPagePolicy ?? "one_page_strict",
       pageBreakBeforeSections: []

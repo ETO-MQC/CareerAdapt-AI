@@ -9262,6 +9262,8 @@ html[data-theme="dark"] .resume-export-recovery-secondary {
 
   .resume-preview-pages {
     display: block;
+    /* The on-screen zoom is a reading aid for the canvas; printing must emit true page size. */
+    zoom: 1 !important;
   }
 
   .resume-page-shell {
