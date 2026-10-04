@@ -64,6 +64,30 @@ describe("resume presentation contract", () => {
     expect(projectResumePresentationItem({ id: "l1", sectionType: "languages", language: "英语", level: "CET-4", description: "备考中", customFields: [] })).toMatchObject({ primaryTitle: "英语", secondaryTitle: "CET-4", description: "备考中" });
   });
 
+  it("keeps self-evaluation as one paragraph with its sentence punctuation", () => {
+    const text = "熟悉 React 与 TypeScript；掌握 Node.js。具备良好的跨团队协作意识。";
+    const item = projectResumePresentationItem({
+      id: "summary-1", sectionType: "summary", text, customFields: []
+    });
+    expect(item.description).toBe(text);
+    expect(item.description).not.toContain("\n");
+  });
+
+  it("trims a self-evaluation without rewriting its inner line breaks", () => {
+    const item = projectResumePresentationItem({
+      id: "summary-2", sectionType: "summary", text: "  第一段评价。\n第二段评价。  ", customFields: []
+    });
+    expect(item.description).toBe("第一段评价。\n第二段评价。");
+  });
+
+  it("still splits and de-duplicates non-summary descriptions", () => {
+    const item = projectResumePresentationItem({
+      id: "work-dedupe", sectionType: "work", organization: "甲公司", role: "工程师", current: false,
+      description: "负责平台建设。负责平台建设。", highlights: [], customFields: []
+    });
+    expect(item.description).toBe("负责平台建设");
+  });
+
   it("uses only the centralized canonical label whitelist and preserves custom fields", () => {
     expect(RESUME_PRESENTATION_ALLOWED_LABELS).toEqual({
       gpa: "GPA", rank: "专业排名", courses: "核心课程", tools: "技术栈", doi: "DOI",

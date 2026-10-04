@@ -233,9 +233,11 @@ function dedupePresentation(item: ResumePresentationItem): ResumePresentationIte
   const inlineMeta = uniqueSemantic(item.inlineMeta);
   const highlights = uniqueSemantic(item.highlights);
   const highlightKeys = new Set(highlights.map(normalizePresentationSentence));
-  const description = uniqueSentences(item.description)
-    .filter((value) => !highlightKeys.has(normalizePresentationSentence(value)))
-    .join("\n") || undefined;
+  const description = item.sectionType === "summary"
+    ? clean(item.description)
+    : (uniqueSentences(item.description)
+        .filter((value) => !highlightKeys.has(normalizePresentationSentence(value)))
+        .join("\n") || undefined);
   const occupied = new Set(compact([
     item.primaryTitle,
     item.secondaryTitle,
