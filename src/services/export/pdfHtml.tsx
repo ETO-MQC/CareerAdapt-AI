@@ -69,6 +69,28 @@ export async function renderResumePdfHtml(
   <title>${escapeHtml(snapshot.filename)}</title>
   <style>${css}</style>
   <style>
+    /*
+     * globals.css is read from source, so its \`@tailwind base\` never survives readResumeCss()
+     * and the browser falls back to the UA stylesheet. That reintroduces UA margins on every
+     * \`p\`/\`h1\`/\`ul\`, which the on-screen preview does not have: measured drift reached 11.1mm by the
+     * last block of a work section. These are the preflight rules the resume layout relies on.
+     */
+    *,
+    ::before,
+    ::after {
+      box-sizing: border-box;
+      border-width: 0;
+      border-style: solid;
+    }
+
+    h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd, pre {
+      margin: 0;
+    }
+
+    ul, ol {
+      margin: 0;
+    }
+
     html, body {
       background: #ffffff;
       margin: 0;

@@ -1,0 +1,124 @@
+{
+  "preflightPresence": {
+    "previewCss": false,
+    "pdfCss": false
+  },
+  "sensitivityControl": "previewCss is expected to contain preflight and pdfCss not to; if so the probe can detect removal.",
+  "zoom": {
+    "preview": "1",
+    "pdf": "1"
+  },
+  "page": {
+    "previewTotalHeightMm": 296.999,
+    "pdfTotalHeightMm": 296.999,
+    "previewContentBottomMm": 102.7,
+    "pdfContentBottomMm": 101.906
+  },
+  "deltas": [
+    {
+      "key": "name",
+      "deltaTopMm": 0,
+      "deltaHeightMm": 0,
+      "previewTopMm": 11.997,
+      "pdfTopMm": 11.997,
+      "previewHeightMm": 8.148,
+      "pdfHeightMm": 8.148,
+      "previewMargin": "0px / 4px",
+      "pdfMargin": "0px / 4px",
+      "previewFontSize": "28px",
+      "pdfFontSize": "28px",
+      "previewWhiteSpace": "normal",
+      "pdfWhiteSpace": "normal"
+    },
+    {
+      "key": "headline",
+      "deltaTopMm": 0,
+      "deltaHeightMm": 0,
+      "previewTopMm": 11.997,
+      "pdfTopMm": 11.997,
+      "previewHeightMm": 4.758,
+      "pdfHeightMm": 4.758,
+      "previewMargin": "0px / 0px",
+      "pdfMargin": "0px / 0px",
+      "previewFontSize": "13.3333px",
+      "pdfFontSize": "13.3333px",
+      "previewWhiteSpace": "normal",
+      "pdfWhiteSpace": "normal"
+    },
+    {
+      "key": "sectionTitle",
+      "deltaTopMm": 0,
+      "deltaHeightMm": 0,
+      "previewTopMm": 28.732,
+      "pdfTopMm": 28.732,
+      "previewHeightMm": 5.503,
+      "pdfHeightMm": 5.503,
+      "previewMargin": "0px / 6px",
+      "pdfMargin": "0px / 6px",
+      "previewFontSize": "16px",
+      "pdfFontSize": "16px",
+      "previewWhiteSpace": "normal",
+      "pdfWhiteSpace": "normal"
+    },
+    {
+      "key": "summary",
+      "deltaTopMm": 0,
+      "deltaHeightMm": 0,
+      "previewTopMm": 35.822,
+      "pdfTopMm": 35.822,
+      "previewHeightMm": 11.476,
+      "pdfHeightMm": 11.476,
+      "previewMargin": "0px / 0px",
+      "pdfMargin": "0px / 0px",
+      "previewFontSize": "14px",
+      "pdfFontSize": "14px",
+      "previewWhiteSpace": "pre-line",
+      "pdfWhiteSpace": "pre-line"
+    },
+    {
+      "key": "description",
+      "deltaTopMm": 0,
+      "deltaHeightMm": 0,
+      "previewTopMm": 62.508,
+      "pdfTopMm": 62.508,
+      "previewHeightMm": 11.476,
+      "pdfHeightMm": 11.476,
+      "previewMargin": "0px / 0px",
+      "pdfMargin": "0px / 0px",
+      "previewFontSize": "14px",
+      "pdfFontSize": "14px",
+      "previewWhiteSpace": "normal",
+      "pdfWhiteSpace": "pre-line"
+    },
+    {
+      "key": "highlight",
+      "deltaTopMm": 0,
+      "deltaHeightMm": 0,
+      "previewTopMm": 73.984,
+      "pdfTopMm": 73.984,
+      "previewHeightMm": 4.858,
+      "pdfHeightMm": 4.858,
+      "previewMargin": "0px / 0px",
+      "pdfMargin": "0px / 0px",
+      "previewFontSize": "12.4px",
+      "pdfFontSize": "12.4px",
+      "previewWhiteSpace": "normal",
+      "pdfWhiteSpace": "normal"
+    },
+    {
+      "key": "skill",
+      "deltaTopMm": 0,
+      "deltaHeightMm": -0.794,
+      "previewTopMm": 93.968,
+      "pdfTopMm": 93.968,
+      "previewHeightMm": 6.35,
+      "pdfHeightMm": 5.556,
+      "previewMargin": "0px / 0px",
+      "pdfMargin": "0px / 0px",
+      "previewFontSize": "16px",
+      "pdfFontSize": "16px",
+      "previewWhiteSpace": "normal",
+      "pdfWhiteSpace": "normal"
+    }
+  ]
+}
