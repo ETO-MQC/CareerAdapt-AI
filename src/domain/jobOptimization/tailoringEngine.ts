@@ -21,9 +21,14 @@ import { tailoringTargetPriority } from "./confirmation";
 import { buildCandidateEvidenceUnits } from "./v2/evidence";
 import { resolveBranchFactRefs } from "@/domain/branch/validation";
 import { factMaturityOf } from "@/domain/profile/factMaturity";
+import { RESUME_SECTION_TYPES_V2 } from "@/domain/resumeFields/types";
+import { resumeRewritableFields } from "@/domain/resumeFields/fieldCatalog";
 
 const GENERIC_REQUIREMENT = "负责AI领域的软件工程化和产品开发";
-const sectionOrder: Record<TailoringSectionPolicy, number> = { summary: 0, skills: 1, project: 2, work: 3, internship: 3, ordering: 4 };
+const sectionOrder: Record<string, number> = Object.fromEntries(
+  RESUME_SECTION_TYPES_V2.filter((sectionType) => sectionType !== "basics").map((sectionType, index) => [sectionType, index])
+);
+sectionOrder.ordering = RESUME_SECTION_TYPES_V2.length;
 
 export type TailoringDeltaValidation = {
   valid: boolean;
@@ -391,20 +396,31 @@ function dedupeEvidenceRefs(refs: MatchEvidenceRef[]) {
 
 function targetFor(branch: ResumeBranch, item: BranchContentItem) {
   const structured = branch.structuredContentItems?.find((candidate) => candidate.id === item.id)?.data as ResumeItemV2 | undefined;
-  const rawSection = structured?.sectionType ?? (item.itemType === "summary" ? "summary" : item.itemType === "skill" ? "skills" : item.sourceSectionId);
-  const sectionType = (["summary", "skills", "project", "work", "internship"] as const).find((section) => section === rawSection)
-    ?? (item.itemType === "experience" ? "project" : undefined);
-  if (!sectionType) return undefined;
-  if (structured?.sectionType === "summary") return { item, sectionType, before: structured.text, renderedText: item.text, fieldPath: `sections.summary.items.${item.id}.text` };
-  if (structured?.sectionType === "skills") return { item, sectionType, before: structured.description || structured.name, renderedText: item.text, fieldPath: `sections.skills.items.${item.id}.description` };
-  if (structured && ["project", "work", "internship"].includes(structured.sectionType)) {
-    const highlights = "highlights" in structured ? structured.highlights : [];
-    if (highlights.length) return { item, sectionType, before: highlights, renderedText: item.text, fieldPath: `sections.${sectionType}.items.${item.id}.highlights` };
-    if ("description" in structured && structured.description) return { item, sectionType, before: structured.description, renderedText: item.text, fieldPath: `sections.${sectionType}.items.${item.id}.description` };
-    return undefined;
+  if (!structured) return undefined;
+  // Resolve against the item's real section. Guessing a section from `itemType`
+  // silently retargeted education/research/campus/volunteer onto "project",
+  // which then failed target resolution downstream and vanished without a trace.
+  const sectionType = structured.sectionType;
+  const rewritable = resumeRewritableFields(sectionType);
+  if (!rewritable.length) return undefined;
+  if (sectionType === "summary") {
+    return { item, sectionType, before: structured.text, renderedText: item.text, fieldPath: `sections.summary.items.${item.id}.text` };
   }
-  const field = sectionType === "summary" ? "text" : sectionType === "skills" ? "description" : "highlights";
-  return { item, sectionType, before: item.text, renderedText: item.text, fieldPath: `sections.${sectionType}.items.${item.id}.${field}` };
+  if (sectionType === "skills") {
+    // `description` is the rewrite target; reading `name` as the original value made
+    // every skill without a description fail original_mismatch.
+    const description = structured.description ?? "";
+    return { item, sectionType, before: description, renderedText: item.text, fieldPath: `sections.skills.items.${item.id}.description` };
+  }
+  const highlights = "highlights" in structured ? structured.highlights : undefined;
+  if (Array.isArray(highlights) && highlights.length) {
+    return { item, sectionType, before: highlights, renderedText: item.text, fieldPath: `sections.${sectionType}.items.${item.id}.highlights` };
+  }
+  const description = "description" in structured ? structured.description : undefined;
+  if (typeof description === "string" && description) {
+    return { item, sectionType, before: description, renderedText: item.text, fieldPath: `sections.${sectionType}.items.${item.id}.description` };
+  }
+  return undefined;
 }
 
 function categoryRelevance(section: TailoringSectionPolicy, category: string) {

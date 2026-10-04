@@ -2793,7 +2793,11 @@ export class WorkspaceRepository {
       if (input.plan.claims.some((claim) => claim.decision === "requires_confirmation" && !claim.confirmed && claim.syncScope !== "rejected")) throw new Error("tailoring_claim_confirmation_required");
       if (!applicable.length) throw new Error("tailoring_no_selected_changes");
       if (applicable.some((claim) => claim.targetPatches?.some((patch) =>
-        !isSubmissionSafeTailoringPath(patch.sectionId, patch.fieldPath as ResumeTailoringDiff["target"]["fieldPath"])
+        !isSubmissionSafeTailoringPath(
+          patch.sectionId,
+          patch.fieldPath as ResumeTailoringDiff["target"]["fieldPath"],
+          patch.operation as ResumeTailoringDiff["operation"]
+        )
       ))) throw new Error("path_not_allowed");
       if (input.plan.basedOnRevisionId && input.plan.basedOnRevisionId !== branch.currentRevisionId) throw new RevisionConflictError();
       const closureIssues = validateTailoringClaimClosure({ claims: applicable, branch });

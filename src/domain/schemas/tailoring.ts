@@ -2,6 +2,7 @@ import { z } from "zod";
 import { FactMaturitySchema } from "./common";
 import { MatchEvidenceRefSchema } from "./job";
 import { ResumeItemV2Schema } from "./resumeV2";
+import { RESUME_SECTION_TYPES_V2, type ResumeSectionTypeV2 } from "@/domain/resumeFields/types";
 
 export const ClaimSupportLevelSchema = z.enum([
   "verified",
@@ -14,11 +15,22 @@ export const ClaimSyncScopeSchema = z.enum(["resume_only", "resume_and_profile",
 export const TailoringIntensitySchema = z.enum(["conservative", "balanced", "proactive"]);
 export const TailoringModeSchema = z.enum(["steady", "competitive", "max_fit"]);
 export const TailoringActionSchema = z.enum(["verified_rewrite", "confirmable_rewrite", "clarification_required", "material_task", "keep", "deprioritize"]);
-export const TailoringSectionPolicySchema = z.enum(["summary", "skills", "project", "work", "internship", "ordering"]);
+export type TailoringSectionPolicyTarget = Exclude<ResumeSectionTypeV2, "basics">;
+
+/**
+ * Every resume section is addressable as a tailoring target. Narrowing this to a
+ * handful of sections made the rest unreachable rather than explicitly unsupported,
+ * and pushed a guessed section id onto generated diffs.
+ */
+export const TailoringSectionPolicySchema = z.enum([
+  ...RESUME_SECTION_TYPES_V2.filter((sectionType) => sectionType !== "basics") as [TailoringSectionPolicyTarget, ...TailoringSectionPolicyTarget[]],
+  "ordering"
+]);
 export const TailoringOperationSchema = z.enum(["rewrite", "replace", "add", "remove", "hide", "reorder"]);
 export const TailoringSuggestionStatusSchema = z.enum(["ready", "requires_confirmation", "blocked", "no_change_needed"]);
 export const TailoringSectionSchema = z.enum([
-  "summary", "skills", "project", "work", "internship", "education", "awards", "certificates", "publications", "patents", "ordering"
+  ...RESUME_SECTION_TYPES_V2.filter((sectionType) => sectionType !== "basics") as [TailoringSectionPolicyTarget, ...TailoringSectionPolicyTarget[]],
+  "ordering"
 ]);
 export const SkillProficiencySchema = z.enum(["proficient", "familiar", "aware", "learning"]);
 export const CapabilityEntityTypeSchema = z.enum([

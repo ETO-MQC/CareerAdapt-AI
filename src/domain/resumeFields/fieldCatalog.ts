@@ -118,3 +118,79 @@ export function findResumeFieldsByAlias(alias: string, sectionType?: ResumeSecti
   return resumeFieldCatalog.filter((field) => (!sectionType || field.sectionType === sectionType) &&
     [field.id.split(".").at(-1) ?? "", ...field.aliases].some((candidate) => candidate.toLocaleLowerCase() === normalized));
 }
+
+export type ResumeRewritableFieldDefinition = Readonly<{
+  sectionType: Exclude<ResumeSectionTypeV2, "basics">;
+  field: string;
+  label: string;
+  valueType: ResumeFieldValueType;
+}>;
+
+/**
+ * Rewrite scope is deliberately narrower than `aiMappable`: that flag marks a field as
+ * mappable from profile facts, whereas rewriting may only restate wording the user already
+ * owns. Identity and fact fields (school, organization, degree, dates, gpa, credential ids)
+ * stay out of this set so a rewrite can never restate them. The names must remain a subset of
+ * `ResumeFieldPathSchema`, otherwise the catalog would advertise targets the diff contract
+ * rejects before any content check runs.
+ */
+const REWRITABLE_FIELD_NAMES: ReadonlySet<string> = new Set([
+  "text", "description", "highlights"
+]);
+
+const CUSTOM_REWRITABLE_FIELDS: readonly ResumeRewritableFieldDefinition[] = [
+  { sectionType: "custom", field: "description", label: "内容", valueType: "text" },
+  { sectionType: "custom", field: "highlights", label: "要点", valueType: "string_list" }
+];
+
+export const resumeRewritableFieldCatalog: readonly ResumeRewritableFieldDefinition[] = Object.freeze([
+  ...RESUME_ITEM_SECTION_TYPES.flatMap((sectionType): ResumeRewritableFieldDefinition[] =>
+    sectionType === "custom"
+      ? []
+      : resumeFieldCatalog
+          .filter((field) => field.sectionType === sectionType && REWRITABLE_FIELD_NAMES.has(field.id.slice(sectionType.length + 1)))
+          .map((field) => ({
+            sectionType,
+            field: field.id.slice(sectionType.length + 1),
+            label: field.label,
+            valueType: field.valueType
+          }))
+  ),
+  ...CUSTOM_REWRITABLE_FIELDS
+]);
+
+const rewritableBySection = new Map<Exclude<ResumeSectionTypeV2, "basics">, ResumeRewritableFieldDefinition[]>();
+for (const definition of resumeRewritableFieldCatalog) {
+  const bucket = rewritableBySection.get(definition.sectionType);
+  if (bucket) bucket.push(definition);
+  else rewritableBySection.set(definition.sectionType, [definition]);
+}
+
+export const resumeRewritableSectionTypes: readonly Exclude<ResumeSectionTypeV2, "basics">[] = Object.freeze(
+  [...rewritableBySection.keys()].sort()
+);
+
+export function resumeRewritableFields(sectionType: string): readonly ResumeRewritableFieldDefinition[] {
+  return rewritableBySection.get(sectionType as Exclude<ResumeSectionTypeV2, "basics">) ?? [];
+}
+
+export function isRewritableResumeField(sectionType: string, field: string): boolean {
+  return resumeRewritableFields(sectionType).some((definition) => definition.field === field);
+}
+
+export function resumeRewritableFieldLabel(sectionType: string, field: string): string {
+  return resumeRewritableFields(sectionType).find((definition) => definition.field === field)?.label ?? field;
+}
+
+/**
+ * Identity fields that may only be written while creating a new item. An append
+ * targets an item id that does not exist yet, so nothing user-owned is being
+ * restated. Rewriting an existing item never reaches these fields.
+ */
+const CREATABLE_IDENTITY_FIELDS: ReadonlyMap<string, readonly string[]> = new Map([
+  ["skills", ["name"]]
+]);
+
+export function isCreatableResumeField(sectionType: string, field: string): boolean {
+  return CREATABLE_IDENTITY_FIELDS.get(sectionType)?.includes(field) ?? false;
+}
