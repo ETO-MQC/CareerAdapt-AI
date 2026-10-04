@@ -233,9 +233,12 @@ function dedupePresentation(item: ResumePresentationItem): ResumePresentationIte
   const inlineMeta = uniqueSemantic(item.inlineMeta);
   const highlights = uniqueSemantic(item.highlights);
   const highlightKeys = new Set(highlights.map(normalizePresentationSentence));
+  // Split only on boundaries the author typed. Cutting on sentence punctuation here both
+  // reflowed paragraphs and dropped their full stops, so a single paragraph could turn into
+  // several lines with no newline anywhere in the stored value.
   const description = item.sectionType === "summary"
     ? clean(item.description)
-    : (uniqueSentences(item.description)
+    : (uniqueParagraphs(item.description)
         .filter((value) => !highlightKeys.has(normalizePresentationSentence(value)))
         .join("\n") || undefined);
   const occupied = new Set(compact([
@@ -290,11 +293,11 @@ function uniqueSemantic(values: string[]) {
   return result;
 }
 
-function uniqueSentences(value?: string) {
+function uniqueParagraphs(value?: string) {
   const result: string[] = [];
   const seen = new Set<string>();
-  for (const sentence of (value ?? "").split(/[\n。！？!?]+/u)) {
-    const normalized = sentence.trim();
+  for (const paragraph of (value ?? "").split(/\r?\n/)) {
+    const normalized = paragraph.trim();
     const key = normalizePresentationSentence(normalized);
     if (!key || seen.has(key)) continue;
     seen.add(key);

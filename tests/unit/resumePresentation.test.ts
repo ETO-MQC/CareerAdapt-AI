@@ -80,12 +80,15 @@ describe("resume presentation contract", () => {
     expect(item.description).toBe("第一段评价。\n第二段评价。");
   });
 
-  it("still splits and de-duplicates non-summary descriptions", () => {
+  it("still removes duplicate paragraphs from non-summary descriptions", () => {
+    // Corrected assertion: this previously pinned sentence-level splitting on "。", which the
+    // preflight plan forbids. De-duplication now runs on author-typed line breaks only, so the
+    // case has to express the repetition across paragraphs instead.
     const item = projectResumePresentationItem({
       id: "work-dedupe", sectionType: "work", organization: "甲公司", role: "工程师", current: false,
-      description: "负责平台建设。负责平台建设。", highlights: [], customFields: []
+      description: "负责平台建设。\n负责平台建设。", highlights: [], customFields: []
     });
-    expect(item.description).toBe("负责平台建设");
+    expect(item.description).toBe("负责平台建设。");
   });
 
   it("uses only the centralized canonical label whitelist and preserves custom fields", () => {

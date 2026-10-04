@@ -5663,6 +5663,15 @@ html[data-theme="dark"] .property-panel-heading p {
   white-space: pre-line;
 }
 
+/*
+ * Block-level narrative descriptions keep the line breaks the author typed. Skills and
+ * languages are excluded on purpose: they render as a compact tag row and a single joined
+ * line respectively, so honouring newlines there would break their layout.
+ */
+.resume-presentation-description {
+  white-space: pre-line;
+}
+
 .resume-template-item::before {
   background: var(--resume-bullet-color, #202522);
   border-radius: 999px;
