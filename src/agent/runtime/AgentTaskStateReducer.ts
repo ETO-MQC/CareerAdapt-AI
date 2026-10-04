@@ -1,4 +1,5 @@
 import type { AgentSession, AgentTaskState, AgentWorkflowState } from "@/agent/contracts/agentSession";
+import { TailoringDiagnosticsSchema, buildTailoringDiagnostics } from "@/agent/contracts/tailoringDiagnostics";
 import { canonicalWorkflowId, getWorkflowDefinition, isTailoringWorkflowId } from "@/agent/workflows/workflowRegistry";
 import {
   classifyProfileIntakeTurn,
@@ -615,6 +616,11 @@ export class AgentTaskStateReducer {
         state.knownSlots.rejectedDiffIds = [];
         state.knownSlots.acceptedDiffCount = 0;
         state.knownSlots.remainingDiffCount = diffReviews.length;
+        // Regenerating replaces the previous diagnostic set so an earlier round can never
+        // surface as if it belonged to the new plan.
+        state.knownSlots.tailoringDiagnostics = TailoringDiagnosticsSchema.parse(
+          buildTailoringDiagnostics({ observation: generated, capturedAt: new Date().toISOString() })
+        );
         state.stage = "preview_changes";
         state.activeGoal = "review_tailoring_changes";
         state.completionStatus = diffReviews.length ? "waiting_for_user" : "active";

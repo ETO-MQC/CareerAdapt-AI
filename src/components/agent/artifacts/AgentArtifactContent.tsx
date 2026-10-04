@@ -8,6 +8,12 @@ import type { AgentTaskState } from "@/agent/contracts/agentSession";
 import type { AgentArtifactAction, AgentUiAction } from "@/agent/contracts/agentActions";
 import type { ProfileIntakeStructuredPatch } from "@/domain/profileIntake/ProfileIntakeNormalizer";
 import { ResumeTailoringDiffSchema } from "@/domain/schemas";
+import {
+  explainTailoringReason,
+  readTailoringDiagnostics,
+  type TailoringDiagnostic,
+  type TailoringDiagnostics
+} from "@/agent/contracts/tailoringDiagnostics";
 import { RESUME_SECTION_TYPES_V2, resumeFieldCatalog, resumeSectionById, type ResumeSectionTypeV2 } from "@/domain/resumeFields";
 import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
 import { ProfileIntakeReviewProjectionSchema, type ProfileIntakeReviewProjection } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
@@ -107,6 +113,7 @@ export function AgentArtifactContent({
     return !parsed.success || !resolvedTailoringDiffIds.has(tailoringDiffId(parsed.data));
   }).length;
   const allTailoringDiffsResolved = state.diffs.length > 0 && unresolvedTailoringDiffCount === 0;
+const tailoringDiagnostics = readTailoringDiagnostics(taskState?.knownSlots.tailoringDiagnostics);
   const tailoringReviewReadOnly = isTailoringWorkspace && (
     reviewPendingInConversation
     || taskState?.completionStatus === "waiting_for_confirmation"
@@ -645,6 +652,7 @@ export function AgentArtifactContent({
           {artifactActionFeedback.entityId === "submit" && typeof artifactActionFeedback.message === "string" ? (
             <span className="agent-diff-feedback" role="status">{artifactActionFeedback.message}</span>
           ) : null}
+          <TailoringDiagnosticsPanel diagnostics={tailoringDiagnostics} />
           {state.resumeId ? <Link href={`/resume?branchId=${encodeURIComponent(state.resumeId)}`}>打开简历编辑器</Link> : null}
         </details>
       ) : null}
@@ -1024,7 +1032,7 @@ export function TailoringDiffRecord({
   };
   return (
     <article>
-      <small>{tailoringTargetLabel(asRecord(diff.target).fieldPath)}</small>
+      <small>{tailoringTargetLabel(asRecord(diff.target).fieldPath, asRecord(diff.target).sectionId, diff)}</small>
       <p><del>{renderValue(diff.original)}</del></p>
       <p><ins>{status === "edited" ? renderValue(review.editedValue) : proposed}</ins></p>
       {typeof diff.reason === "string" ? <p className="agent-diff-rationale">{diff.reason}</p> : null}
@@ -1064,12 +1072,70 @@ function reviewStatusForDecision(value: unknown) {
   return "suggested";
 }
 
-function tailoringTargetLabel(value: unknown) {
-  const path = String(value ?? "");
-  if (path === "text") return "个人评价";
-  if (path === "name" || path === "description") return "技能或经历描述";
-  if (path === "highlights") return "经历要点";
-  return "简历内容";
+function tailoringTargetLabel(fieldPath: unknown, sectionId: unknown, diff?: Record<string, unknown>) {
+  const field = String(fieldPath ?? "");
+  const section = sectionTypeLabel(sectionId);
+  const itemLabel = diff ? tailoringItemLabel(diff) : undefined;
+  const item = itemLabel ? ` · ${itemLabel}` : "";  if (field === "text") return `${section}${item} · 自我评价`;
+  if (field === "name") return `${section}${item} · 名称`;
+  if (field === "description") return `${section}${item} · 描述`;
+  if (field === "highlights") return `${section}${item} · 经历要点`;
+  return `${section}${item} · 简历内容`;
+}
+
+function tailoringItemLabel(diff: Record<string, unknown>) {
+  const original = diff.original;
+  const first = Array.isArray(original) ? original[0] : original;
+  if (typeof first === "string" && first.trim()) return first.trim().slice(0, 20);
+  const target = asRecord(diff.target);
+  return typeof target.itemId === "string" ? target.itemId : undefined;
+}
+
+/**
+ * Display-only diagnostics for edits the agent produced but did not apply. Kept out of
+ * the review list on purpose: a rejected entry must never look like something awaiting
+ * a decision.
+ */
+function TailoringDiagnosticsPanel({ diagnostics }: { diagnostics: TailoringDiagnostics }) {
+  if (!diagnostics.diagnostics.length && !diagnostics.truncatedCount) return null;
+  const total = diagnostics.diagnostics.length + diagnostics.truncatedCount;
+  return (
+    <details className="agent-tailoring-diagnostics">
+      <summary role="status">未应用/需关注 {total} 项</summary>
+      <p className="agent-diff-rationale">这些修改没有写入简历，仅供你了解生成结果，可以安全忽略。</p>
+      <ul>
+        {diagnostics.diagnostics.map((diagnostic) => (
+          <li key={diagnostic.diagnosticId}>
+            <span className="agent-tailoring-diagnostic-target">
+              {tailoringDiagnosticTarget(diagnostic)}
+            </span>
+            <span className="agent-tailoring-diagnostic-status">{tailoringDiagnosticStatusLabel(diagnostic.status)}</span>
+            <span className="agent-diff-rationale">{explainTailoringReason(diagnostic.reasonCode)}</span>
+            <small>{diagnostic.reasonCode}</small>
+          </li>
+        ))}
+      </ul>
+      {diagnostics.truncatedCount ? (
+        <small>另有 {diagnostics.truncatedCount} 项未展示。</small>
+      ) : null}
+    </details>
+  );
+}
+
+function tailoringDiagnosticTarget(diagnostic: TailoringDiagnostic) {
+  const section = sectionTypeLabel(diagnostic.sectionType);
+  const item = diagnostic.itemLabel || diagnostic.itemId || "未命名条目";
+  const field = diagnostic.fieldPath ? ` · ${diagnostic.fieldPath}` : "";
+  return `${section} · ${item}${field}`;
+}
+
+function tailoringDiagnosticStatusLabel(status: TailoringDiagnostic["status"]) {
+  if (status === "original_mismatch") return "内容已变更";
+  if (status === "pending_confirmation") return "待你确认";
+  if (status === "unsupported_section") return "栏目暂不支持";
+  if (status === "conflict") return "存在冲突";
+  if (status === "blocked") return "生成受阻";
+  return "未应用";
 }
 
 function DetailList({ title, values }: { title: string; values: string[] }) {
@@ -1306,7 +1372,7 @@ function intakeStatusLabel(value: unknown, decision?: unknown) {
 
 function sectionTypeLabel(value: unknown) {
   const labels: Record<string, string> = {
-    education: "教育", work: "工作", internship: "实习", project: "项目", research: "科研",
+    summary: "自我评价", education: "教育", work: "工作", internship: "实习", project: "项目", research: "科研",
     campus: "校园", volunteer: "志愿", awards: "奖项", skills: "技能", certificates: "证书",
     languages: "语言", publications: "出版物", patents: "专利", portfolio: "作品", other: "其他", custom: "自定义"
   };
