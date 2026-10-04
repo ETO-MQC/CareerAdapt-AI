@@ -10,6 +10,7 @@ import type {
   ResumeItemV2
 } from "@/domain/schemas";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
+import type { ResumeCompositionPreferences } from "./ResumeCompositionPreferences";
 import { dedupeCareerWriting, isFiller, isRawOrNegativeSpeech, semanticComponentCount } from "@/domain/profileIntake/CareerWritingQuality";
 import {
   ResumeClaimSchema,
@@ -183,6 +184,7 @@ export async function compileResumeCompositionWithAi(input: {
   targetDirection?: string;
   targetAudience?: string;
   companyType?: string;
+  userPreferences?: ResumeCompositionPreferences;
   signal?: AbortSignal;
 }, options: {
   graph?: ResumeEvidenceGraph;
@@ -200,6 +202,7 @@ export async function compileResumeCompositionWithAi(input: {
     targetDirection: input.targetDirection,
     targetAudience: input.targetAudience,
     companyType: input.companyType,
+    userPreferences: input.userPreferences,
     signal: input.signal
   });
   return writeResumeComposition({ ...input, graph, blueprint, writingOutput: writingResult.output, writingExecution: writingResult.execution });

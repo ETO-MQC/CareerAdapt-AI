@@ -12,6 +12,10 @@ import {
   type ResumeEvidenceGraph
 } from "./contracts";
 import { resolveCareerAssetDisplayIdentity } from "./CareerAssetDisplayIdentity";
+import {
+  renderCompositionPreferenceDirectives,
+  type ResumeCompositionPreferences
+} from "./ResumeCompositionPreferences";
 import { canonicalTechnicalTerm, compactSkillCategory, normalizeSkillGroups, technicalTermCategory } from "./ResumeSkillTaxonomy";
 import { stableHashText } from "@/services/security/text";
 import { CareerResumeQualityPolicyV1, careerResumeQualityWarnings, resumeRoleInstructions } from "./CareerResumeQualityPolicyV1";
@@ -31,6 +35,7 @@ export class CareerResumeWritingService {
     targetDirection?: string;
     targetAudience?: string;
     companyType?: string;
+    userPreferences?: ResumeCompositionPreferences;
     signal?: AbortSignal;
   }): Promise<CareerResumeWritingOutput | undefined> {
     return (await this.writeWithExecution(input)).output;
@@ -45,6 +50,7 @@ export class CareerResumeWritingService {
     targetDirection?: string;
     targetAudience?: string;
     companyType?: string;
+    userPreferences?: ResumeCompositionPreferences;
     signal?: AbortSignal;
   }): Promise<CareerResumeWritingResult> {
     const profile = migrateCareerProfileToV2(input.profile);
@@ -98,17 +104,21 @@ function buildBusinessInput(
     targetDirection?: string;
     targetAudience?: string;
     companyType?: string;
+    userPreferences?: ResumeCompositionPreferences;
   },
   profile: ReturnType<typeof migrateCareerProfileToV2>,
   facts: Map<string, FactStatement>,
   entriesById: Map<string, ReturnType<typeof migrateCareerProfileToV2>["structuredFacts"][number]>
 ) {
+  const preferenceDirectives = renderCompositionPreferenceDirectives(input.userPreferences);
   return {
     mode: input.mode,
     ...(input.job?.title ? { targetRole: input.job.title } : {}),
     ...((input.targetDirection ?? input.blueprint.targetDirection) ? { targetDirection: input.targetDirection ?? input.blueprint.targetDirection } : {}),
     ...((input.targetAudience ?? input.blueprint.targetAudience) ? { targetAudience: input.targetAudience ?? input.blueprint.targetAudience } : {}),
     ...((input.companyType ?? input.blueprint.companyType) ? { companyType: input.companyType ?? input.blueprint.companyType } : {}),
+    ...(preferenceDirectives.length ? { writingPreferenceDirectives: preferenceDirectives } : {}),
+    ...(input.userPreferences ? { userPreferences: input.userPreferences } : {}),
     assets: input.blueprint.assets.map((asset) => {
       const entry = entriesById.get(asset.sourceAssetId);
       const sourceFacts = entry?.factIds.map((id) => facts.get(id)).filter((fact): fact is FactStatement => Boolean(fact)) ?? [];

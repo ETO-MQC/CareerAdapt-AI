@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ResumeCompositionPreferencesSchema } from "@/domain/resumeComposition/ResumeCompositionPreferences";
 import type {
   ArtifactRef,
   CareerToolExecutionContext,
@@ -9,8 +10,7 @@ import type {
 import {
   buildCareerInteractionPlan,
   CareerInteractionPlanSchema,
-  type CareerInformationNeedDraft,
-  type CareerInteractionQuestion
+  type CareerInformationNeedDraft,  type CareerInteractionQuestion
 } from "@/domain/careerInteraction/CareerInteractionPlan";
 import { isTailoringQuestionPaused, normalizeTailoringStage, type TailoringStage } from "./tailoringStage";
 import { JobRequirementGraphV4Schema, JobTargetSnapshotSchema } from "@/domain/schemas";
@@ -100,7 +100,7 @@ const ComposeResumeSharedInputSchema = z.object({
   targetAudience: z.string().trim().min(1).max(160).optional(),
   companyType: z.string().trim().min(1).max(160).optional(),
   acknowledgedActiveProfileId: z.string().min(1).optional(),
-  userPreferences: z.record(z.string(), z.unknown()).optional()
+  userPreferences: ResumeCompositionPreferencesSchema.optional()
 }).strict();
 const ComposeResumeGeneralInputSchema = ComposeResumeSharedInputSchema.extend({
   mode: z.literal("general")
@@ -206,7 +206,23 @@ function composeResumeInputJsonSchema(): Record<string, unknown> {
     targetDirection: { type: "string", minLength: 1, maxLength: 160 },
     targetAudience: { type: "string", minLength: 1, maxLength: 160 },
     companyType: { type: "string", minLength: 1, maxLength: 160 },
-    userPreferences: { type: "object" }
+    userPreferences: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        toneStyle: { type: "string", enum: ["concise", "professional", "technical", "business", "academic", "plain"] },
+        focusAreas: {
+          type: "array",
+          maxItems: 4,
+          items: {
+            type: "string",
+            enum: ["project_impact", "technical_depth", "management", "domain_expertise", "innovation", "collaboration", "quantified_results"]
+          }
+        },
+        audience: { type: "string", minLength: 1, maxLength: 120 },
+        avoidJargon: { type: "boolean" }
+      }
+    }
   };
   return {
     type: "object",

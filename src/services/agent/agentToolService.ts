@@ -12,6 +12,7 @@ import {
   TailoringModeSchema
 } from "@/domain/schemas";
 import { projectJobGraphV4ToAnalyzerOutput } from "@/domain/jobOptimization/v3/project";
+import { parseUserPreferences } from "@/domain/resumeComposition/ResumeCompositionPreferences";
 import { extractExplicitTargetRole } from "@/domain/branch/targetRole";
 import { createImportedResumeDraftFromText } from "@/domain/resumeImport/parser";
 import {
@@ -810,12 +811,14 @@ export class BrowserAgentToolService implements AgentToolServices {
       targetAudience?: string;
       companyType?: string;
       acknowledgedActiveProfileId?: string;
+      userPreferences?: unknown;
     };
     const context = await this.loadCompositionContext(input);
+    const userPreferences = parseUserPreferences(input.userPreferences);
     const graph = buildResumeEvidenceGraph({ profile: context.profile });
     const blueprint = planResumeBlueprint({ profile: context.profile, graph, mode: input.mode, job: context.job, targetDirection: input.targetDirection, targetAudience: input.targetAudience, companyType: input.companyType });
     const composition = await compileResumeCompositionWithAi(
-      { profile: context.profile, mode: input.mode, job: context.job, sourceResumeId: input.sourceResumeId, targetDirection: input.targetDirection, targetAudience: input.targetAudience, companyType: input.companyType, signal },
+      { profile: context.profile, mode: input.mode, job: context.job, sourceResumeId: input.sourceResumeId, targetDirection: input.targetDirection, targetAudience: input.targetAudience, companyType: input.companyType, userPreferences, signal },
       { graph, blueprint, writingService: this.careerResumeWriter }
     );
     const source = input.mode === "job_specific"
@@ -837,6 +840,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       metrics: composition.metrics,
       keywordCoverage: composition.keywordCoverage,
       informationNeeds: composition.informationNeeds,
+      ...(userPreferences ? { appliedUserPreferences: userPreferences } : {}),
       checkpointId: checkpoint.checkpointId,
       checkpoint,
       composition,
