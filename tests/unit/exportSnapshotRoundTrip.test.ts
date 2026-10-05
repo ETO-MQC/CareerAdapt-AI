@@ -73,8 +73,18 @@ describe("legacy export snapshots stay readable", () => {
   });
   // A stored snapshot written before the layout fields existed.
   const legacyWithoutLayout = (() => {
-    const { highlightListStyle: _list, itemHeaderMiddleAlignment: _align, ...rest } = presentationSnapshotFromConfig(config);
-    return rest;
+    const full = presentationSnapshotFromConfig(config);
+    return {
+      templateId: full.templateId,
+      sectionOrder: full.sectionOrder,
+      itemOrderBySection: full.itemOrderBySection,
+      hiddenItemIds: full.hiddenItemIds,
+      typography: full.typography,
+      spacing: full.spacing,
+      theme: full.theme,
+      pagination: full.pagination,
+      sectionStyleOverrides: full.sectionStyleOverrides
+    };
   })();
 
   it("reads a stored export snapshot that predates the layout fields", () => {
