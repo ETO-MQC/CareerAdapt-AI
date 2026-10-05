@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { defaultResumeRenderSectionOrder } from "@/domain/resumeFields/catalog";
 import { AUTHOR_NEWLINE_SUMMARY, exportSeedPayload } from "./support/p1fDeterministicResumeFixture";
+import { openManualPageTab } from "./support/g7b2Ui";
 
 /**
  * Preflight P-1F deterministic closure.
@@ -298,6 +299,8 @@ test.describe("P-1F deterministic render and export closure", () => {
     // workspace shell instead of the resume document. When the control is unavailable the
     // export stage is reported rather than silently replaced.
     const download = page.waitForEvent("download", { timeout: 120_000 }).catch(() => null);
+    // The export control lives in the style inspector's "page" tab, which is not the default.
+    await openManualPageTab(page);
     const exportButton = page.getByTestId("pdf-export-controls").getByRole("button", { name: /PDF/ }).first();
     const exportAvailable = await exportButton.isEnabled().catch(() => false);
     expect(exportAvailable, "the application PDF export control must be available").toBe(true);
