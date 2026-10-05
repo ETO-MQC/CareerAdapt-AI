@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { defaultResumeRenderSectionOrder } from "@/domain/resumeFields/catalog";
@@ -69,41 +69,57 @@ async function installSeed(page: Page, payload: SeedPayload) {
 
 async function geometry(page: Page) {
   return page.evaluate((mm) => {
-    // Measure layout boxes, not the visually scaled canvas: the preview stacks a reading zoom
-    // and a fit-to-width transform, so getBoundingClientRect reports a scaled width. offsetWidth
-    // is unaffected by transforms, which is exactly the A4 geometry we want to assert.
-    const pages = Array.from(document.querySelectorAll<HTMLElement>(".resume-a4-page"));
+    // Correction of the measured subject: A4ResumePreview renders a hidden pagination
+    // measurement page that also carries the `resume-a4-page` class. On screen it is only
+    // pushed off-canvas (visibility stays intact), so counting `.resume-a4-page` included it;
+    // under print media `.no-print` collapses it to 0x0. Real pages are the ones carrying
+    // `data-testid="resume-a4-page"` inside a `.resume-page-shell`, so scope every query to
+    // those shells.
+    const shells = Array.from(document.querySelectorAll<HTMLElement>(".resume-page-shell"));
+    const pages = shells
+      .map((shell) => shell.querySelector<HTMLElement>('[data-testid="resume-a4-page"]'))
+      .filter((el): el is HTMLElement => Boolean(el));
+    const measurementPages = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-testid="resume-pagination-measurement-page"]')
+    );
     const canvas = document.querySelector(".resume-preview-pages");
     const zoomValue = canvas ? getComputedStyle(canvas).zoom : "1";
-    const zoom = zoomValue === "normal" ? 1 : Number(zoomValue);
-    const scale = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+    // Compare layout boxes with offsetTop/offsetHeight, which are unaffected by the canvas
+    // zoom and by media-query recalculation, so screen and print are directly comparable.
     const readBox = (selector: string) => {
-      const el = document.querySelector(selector) as HTMLElement | null;
+      const el = pages[0]?.querySelector<HTMLElement>(selector) ?? null;
       if (!el) return null;
-      const page = el.closest(".resume-a4-page") as HTMLElement | null;
-      const rect = el.getBoundingClientRect();
-      const pageRect = page?.getBoundingClientRect();
-      const ratio = pageRect && pageRect.height > 0 ? rect.height / pageRect.height : scale;
-      const base = pageRect?.top ?? 0;
       const style = getComputedStyle(el);
       return {
-        topMm: +((rect.top - base) / ratio / mm).toFixed(3),
-        heightMm: +(rect.height / ratio / mm).toFixed(3),
+        topMm: +(el.offsetTop / mm).toFixed(3),
+        heightMm: +(el.offsetHeight / mm).toFixed(3),
         whiteSpace: style.whiteSpace,
         listStyleType: style.listStyleType,
         text: (el.textContent ?? "").trim()
       };
     };
+    const describeBox = (el: HTMLElement) => {
+      const style = getComputedStyle(el);
+      return {
+        width: el.offsetWidth,
+        height: el.offsetHeight,
+        display: style.display,
+        visibility: style.visibility
+      };
+    };
     return {
       zoom: zoomValue,
-      pageCount: pages.filter((el) => el.offsetWidth > 1).length,
+      measurementPageCount: measurementPages.length,
+      resumePageShellCount: shells.length,
+      actualPageCount: pages.length,
+      pages: pages.map(describeBox),
       pageSizesMm: pages.map((el) => ({
         w: +(el.offsetWidth / mm).toFixed(2),
         h: +(el.offsetHeight / mm).toFixed(2)
       })),
       blankPages: pages.filter((el) => ((el.textContent ?? "").trim().length) === 0).length,
-      sections: Array.from(document.querySelectorAll("[data-render-section]"))
-        .map((el) => (el as HTMLElement).dataset.renderSection)
+      sections: Array.from(pages[0]?.querySelectorAll<HTMLElement>("[data-render-section]") ?? [])
+        .map((el) => el.dataset.renderSection)
         .filter((value): value is string => Boolean(value)),
       summary: readBox(".resume-presentation-summary p"),
       description: readBox(".resume-presentation-description"),
@@ -217,15 +233,13 @@ test.describe("P-1F deterministic render and export closure", () => {
 
     // A4 geometry and blank-page sanity on screen.
     const preview = await geometry(page);
-    const visiblePages = (result: Awaited<ReturnType<typeof geometry>>) =>
-      result.pageSizesMm.filter((size) => size.w > 1 && size.h > 1).map((size) => `${size.w}x${size.h}`);
-    expect(preview.pageCount).toBeGreaterThan(0);
+    expect(preview.actualPageCount, "the seeded resume must render at least one real page").toBeGreaterThan(0);
+    expect(preview.resumePageShellCount).toBe(preview.actualPageCount);
     for (const size of preview.pageSizesMm) {
       expect(Math.abs(size.w - 210)).toBeLessThan(1);
       expect(Math.abs(size.h - 297)).toBeLessThan(1);
     }
     expect(preview.blankPages, "no blank page may be emitted").toBe(0);
-    expect(preview.pageCount, "every rendered page must occupy paper").toBe(visiblePages(preview).length);
 
     // Section order follows the shared default. The DOM lists one node per rendered section,
     // so compare the first occurrence of each section.
@@ -255,12 +269,11 @@ test.describe("P-1F deterministic render and export closure", () => {
     await page.emulateMedia({ media: "print" });
     const printed = await geometry(page);
     expect(["1", "normal"]).toContain(printed.zoom);
-    // Print media also keeps the hidden pagination measurement node, so compare only the pages
-    // that actually occupy paper.
-    expect(
-      visiblePages(printed),
-      `print pages (${visiblePages(printed).length}) must match preview pages (${visiblePages(preview).length})`
-    ).toEqual(visiblePages(preview));
+    expect(printed.actualPageCount).toBe(preview.actualPageCount);
+    expect(printed.measurementPageCount).toBe(preview.measurementPageCount);
+    expect(printed.pageSizesMm.map((size) => `${size.w}x${size.h}`)).toEqual(
+      preview.pageSizesMm.map((size) => `${size.w}x${size.h}`)
+    );
     expect(printed.sections).toEqual(preview.sections);
     if (preview.summary && printed.summary) {
       expect(Math.abs(printed.summary.heightMm - preview.summary.heightMm)).toBeLessThan(0.5);
@@ -279,26 +292,25 @@ test.describe("P-1F deterministic render and export closure", () => {
     const outDir = resolve(process.cwd(), "tmp", "pdfs");
     mkdirSync(outDir, { recursive: true });
     const pdfPath = resolve(outDir, "p1f-render-parity.pdf");
+    // The application export is the path under test. Falling back to page.pdf() would print the
+    // whole workspace shell and measure a different document, so require the real export.
+    // The application export is the path under test; a fallback to page.pdf() would print the
+    // workspace shell instead of the resume document. When the control is unavailable the
+    // export stage is reported rather than silently replaced.
     const download = page.waitForEvent("download", { timeout: 120_000 }).catch(() => null);
-    const exportButton = page.getByRole("button", { name: /PDF/ }).first();
-    let exported = false;
-    if (await exportButton.isEnabled().catch(() => false)) {
-      await exportButton.click();
-      const file = await download;
-      if (file) {
-        await file.saveAs(pdfPath);
-        exported = true;
-      }
-    }
-    if (!exported) {
-      writeFileSync(pdfPath, await page.pdf({ format: "A4", printBackground: true, preferCSSPageSize: true }));
-    }
+    const exportButton = page.getByTestId("pdf-export-controls").getByRole("button", { name: /PDF/ }).first();
+    const exportAvailable = await exportButton.isEnabled().catch(() => false);
+    expect(exportAvailable, "the application PDF export control must be available").toBe(true);
+    await exportButton.click();
+    const file = await download;
+    expect(file, "the application must produce a PDF download").not.toBeNull();
+    await file!.saveAs(pdfPath);
 
     if (existsSync(poppler("pdfinfo"))) {
       const info = execFileSync(poppler("pdfinfo"), [pdfPath], { encoding: "utf8" });
       expect(info).toContain("A4");
       const pages = Number(/Pages:\s+(\d+)/.exec(info)?.[1] ?? "0");
-      expect(pages).toBe(preview.pageCount);
+      expect(pages, "the exported PDF must contain every rendered page").toBe(preview.actualPageCount);
     }
     if (existsSync(poppler("pdftotext"))) {
       const text = execFileSync(poppler("pdftotext"), ["-enc", "UTF-8", pdfPath, "-"], { encoding: "utf8" });
