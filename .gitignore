@@ -9,6 +9,7 @@ release/
 .electron-build/
 .tmp/
 tmp/render-parity/
+tmp/pdfs/
 electron/node_modules/
 electron/pnpm-lock.yaml
 *.local
