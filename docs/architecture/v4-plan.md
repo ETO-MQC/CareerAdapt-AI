@@ -6,9 +6,27 @@
 - 适用项目：CareerAdapt AI
 - 执行对象：独立开发 AI 或后续开发者
 
+> **强制前置门禁：** 开始本计划的 V4-P0 之前，必须先完成 [v4-preflight-remediation-plan.md](v4-preflight-remediation-plan.md) 的 P-1A 至 P-1F，并取得该计划规定的完整验收记录。前置计划未完成时，不得实现本文件中的任何 V4 阶段。
+>
+> **前置状态（2026-10-05）：已解除。** P-1A 至 P-1F 均已实现，完整门禁退出码全部为 0，记录见前置计划 §10。V4-P0 现在可以开始。
+>
+> **V4-P0 范围限制：** V4-P0 只做 Hermes/runtime、MCP、权限、Browser Domain Host、密钥边界、依赖与工具能力的审计，**不直接实现岗位采集或任何其他 V4 功能**。
+>
+> **V4-P0 首要子任务 —— Provider Health Smoke：** 现有 provider 持续返回 401，真实 AI 链路从未验证。V4-P0 必须先查明 401 属于代码/适配器问题还是无效、过期或缺失的外部凭据；不得把 API Key 写入源码、仓库或前端；凭据可用时执行一次最小真实 smoke，不可用时明确记录为外部环境阻塞。**mock 与 contract 测试通过不能替代真实 provider 验证。**
+
 > 本文是 V4 的唯一执行入口。它建立在当前 CareerAdapt 的 Resume Schema v2、WorkspaceRepository、Fact Guard、Job Optimization、ApplicationReadiness、Hermes MCP Bridge 和 Electron 运行时之上。
 >
 > 本版本保留高自治产品目标，不把 V4 收缩成单来源岗位导入；同时将模型能力、网络来源权限、业务数据写入权和高影响外部操作拆成不同边界，避免把“Agent 可以规划”错误实现成“Agent 可以无条件执行所有副作用”。
+
+### 0.0 前置修复遗留的独立债务（2026-10-05 登记）
+
+以下三项来自 [v4-preflight-remediation-plan.md](v4-preflight-remediation-plan.md) 的验收记录，**不因前置门禁解除而视为已完成**：
+
+| # | 债务 | 优先级 | 约束 |
+| --- | --- | --- | --- |
+| 1 | **真实 provider 链路未验证**：持续 401，真实 Hermes/provider E2E 未执行 | 最高 | 由 V4-P0 的 Provider Health Smoke 处置；凭据不得写入源码、仓库或前端；不可用时只能记录为外部环境阻塞 |
+| 2 | **JSON 导入最终未创建分支**：走到确认流程但 `resumeBranches` 无记录，原因未查明 | 高 | 必须在 V4 使用该导入链路之前修复；**不要回溯修改已完成的 P-1F** |
+| 3 | **`v2-g4a` 定位器与当前 UI 不一致**：用例查找 `name: "导入"`，当前可见控件为「导入简历」/「选择或拖放文件」 | 中（测试维护） | 不阻塞 V4-P0，但需单独修复，**不得通过 skip 或降低断言处理** |
 
 ---
 
