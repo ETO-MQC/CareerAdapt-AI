@@ -8,6 +8,7 @@ out/
 release/
 .electron-build/
 .tmp/
+tmp/render-parity/
 electron/node_modules/
 electron/pnpm-lock.yaml
 *.local
