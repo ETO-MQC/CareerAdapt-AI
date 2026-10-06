@@ -527,22 +527,24 @@ describe("V4-P2-A applicationDrafts repository", () => {
     await repository.updateApplicationAssistStep({ draftId: "draft_1", step: "handed_off", now: LATER });
     // P2-A.1：handed_off → user_marked_submitted 必须由用户显式动作触发。
     await expect(repository.updateApplicationAssistStep({
-      draftId: "draft_1", step: "user_marked_submitted", applicationId: "app-1", now: LATER
+      draftId: "draft_1", step: "user_marked_submitted", now: LATER
     })).rejects.toThrow("user_confirmation_required_for_submitted");
     await expect(repository.updateApplicationAssistStep({
       draftId: "draft_1", step: "abandoned", now: LATER
     })).rejects.toThrow("invalid_application_draft_transition");
     await repository.updateApplicationAssistStep({
-      draftId: "draft_1", step: "user_marked_submitted", applicationId: "app-1", userAction: true, now: LATER
+      draftId: "draft_1", step: "user_marked_submitted", userAction: true, now: LATER
     });
 
     await expect(repository.updateApplicationAssistStep({
       draftId: "draft_1", step: "running", now: LATER
     })).rejects.toThrow("invalid_application_draft_transition");
 
+    // applicationId 关联的存在性与岗位对应校验由 V4-P2-B 的专项测试覆盖；
+    // 本用例只验证步进机，不带 applicationId。
     const drafts = await repository.listApplicationDrafts(listing.id);
     expect(drafts).toHaveLength(1);
-    expect(drafts[0].applicationId).toBe("app-1");
+    expect(drafts[0].applicationId).toBeUndefined();
   });
 
   it("rejects drafts for missing or blocked listings and stores no credential field values", async () => {

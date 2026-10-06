@@ -8176,7 +8176,7 @@ export class WorkspaceRepository {
     now?: string;
   }) {
     const now = input.now ?? new Date().toISOString();
-    return this.db.transaction("rw", this.db.applicationDrafts, async () => {
+    return this.db.transaction("rw", this.db.applicationDrafts, this.db.jobListings, this.db.applications, async () => {
       const existing = await this.db.applicationDrafts.get(input.draftId);
       if (!existing) throw new Error("application_draft_missing");
       const draft = ApplicationDraftSchema.parse(existing);
@@ -8185,6 +8185,15 @@ export class WorkspaceRepository {
       if (input.step === "user_marked_submitted" && input.userAction !== true) {
         // handed_off 只能由用户确认转入已提交；确定性流水线不得代用户提交。
         throw new Error("user_confirmation_required_for_submitted");
+      }
+      if (input.applicationId) {
+        // P2-B：applicationId 关联必须指向真实存在且与候选对应正式岗位的投递。
+        const application = await this.db.applications.get(input.applicationId);
+        if (!application) throw new Error("application_missing");
+        const parsedApplication = ApplicationRecordSchema.parse(application);
+        const listing = await this.db.jobListings.get(draft.jobListingId);
+        if (!listing?.jobDescriptionId) throw new Error("listing_not_converted");
+        if (parsedApplication.jobId !== listing.jobDescriptionId) throw new Error("application_job_mismatch");
       }
       const updated = ApplicationDraftSchema.parse({
         ...draft,
@@ -8297,6 +8306,150 @@ export class WorkspaceRepository {
       this.parsePendingConfirmationEnvelope(record.value);
       await this.db.appMeta.delete(key);
       return { completed: true, existed: true };
+    });
+  }
+
+  // ================= V4-P2-B：本地确定性候选岗位闭环 =================
+  // 编排原则：pipeline（domain/jobDiscovery）只做纯逻辑与决策；所有跨表
+  // 写入以本类的事务为边界。jobListings 永不自动变正式岗位——转换必须
+  // 显式 userConfirmed 且复用既有 commitJobDraft 事务。
+
+  async listJobListings(): Promise<JobListing[]> {
+    const listings = await this.db.jobListings.toArray();
+    return listings.map((listing) => JobListingSchema.parse(listing));
+  }
+
+  async getJobListing(id: string) {
+    const listing = await this.db.jobListings.get(id);
+    return listing ? JobListingSchema.parse(listing) : undefined;
+  }
+
+  /**
+   * 候选岗位解析为分析草稿：一个事务内创建 RawInputDocument（保存原文）与
+   * JobAnalysisDraft（raw_saved，未做任何 AI 分析），并把
+   * parsedSnapshotId/analysisDraftId 绑回 listing。rawText/normalizerVersion/
+   * provenance/sourceSpan 的可追溯链路是 listing → parsedSnapshotId →
+   * jobSnapshots，draft 通过 rawInputId 回到原文。幂等：listing 已绑定草稿
+   * 时直接复用。
+   */
+  async createCandidateAnalysisDraft(input: {
+    listingId: string;
+    snapshotId?: string;
+    draftId: string;
+    promptVersion?: string;
+    now?: string;
+  }): Promise<{ draft: JobAnalysisDraft; rawInputId: string; reused: boolean }> {
+    const now = input.now ?? new Date().toISOString();
+    return this.db.transaction("rw", this.db.jobListings, this.db.jobSnapshots, this.db.rawInputs, this.db.jobAnalysisDrafts, async () => {
+      const listing = await this.db.jobListings.get(input.listingId);
+      if (!listing) throw new Error("listing_missing");
+      const parsedListing = JobListingSchema.parse(listing);
+      const snapshotId = input.snapshotId ?? parsedListing.latestSnapshotId;
+      if (!snapshotId) throw new Error("snapshot_missing");
+      const snapshot = await this.db.jobSnapshots.get(snapshotId);
+      if (!snapshot || snapshot.jobListingId !== parsedListing.id) throw new Error("snapshot_mismatch");
+
+      if (parsedListing.analysisDraftId) {
+        const existingDraft = await this.db.jobAnalysisDrafts.get(parsedListing.analysisDraftId);
+        if (existingDraft) {
+          return { draft: JobAnalysisDraftSchema.parse(existingDraft), rawInputId: JobAnalysisDraftSchema.parse(existingDraft).rawInputId, reused: true };
+        }
+      }
+      const existingById = await this.db.jobAnalysisDrafts.get(input.draftId);
+      if (existingById) {
+        // 崩溃恢复：草稿已写、listing 绑定未完成 → 补绑定并复用。
+        const draft = JobAnalysisDraftSchema.parse(existingById);
+        await this.db.jobListings.put(JobListingSchema.parse({
+          ...parsedListing,
+          parsedSnapshotId: snapshotId,
+          analysisDraftId: draft.id,
+          updatedAt: now
+        }));
+        return { draft, rawInputId: draft.rawInputId, reused: true };
+      }
+
+      const rawInput = RawInputDocumentSchema.parse({
+        id: `rawinput_${crypto.randomUUID()}`,
+        createdAt: now,
+        updatedAt: now,
+        kind: "job_jd",
+        rawText: snapshot.rawText,
+        inputHash: snapshot.contentHash,
+        title: parsedListing.title
+      });
+      const draft = JobAnalysisDraftSchema.parse({
+        id: input.draftId,
+        createdAt: now,
+        updatedAt: now,
+        rawInputId: rawInput.id,
+        revision: 0,
+        title: parsedListing.title,
+        company: parsedListing.company,
+        status: "raw_saved",
+        promptVersion: input.promptVersion ?? "careeradapt-candidate-pipeline-v1",
+        attemptCount: 0,
+        manualRequirements: [],
+        riskNotes: []
+      });
+      await this.db.rawInputs.put(rawInput);
+      await this.db.jobAnalysisDrafts.put(draft);
+      await this.db.jobListings.put(JobListingSchema.parse({
+        ...parsedListing,
+        parsedSnapshotId: snapshotId,
+        analysisDraftId: draft.id,
+        updatedAt: now
+      }));
+      return { draft, rawInputId: rawInput.id, reused: false };
+    });
+  }
+
+  /**
+   * 候选 → 正式岗位的完整转换事务（§6.6 的存储级闭环）：
+   * consume（可选）→ commitJobDraft（既有幂等事务，创建 JobDescription +
+   * DraftCommit）→ markJobListingConverted。任一步失败整体回滚——
+   * jobListings.jobDescriptionId、convertedAt 与正式岗位不会出现半提交。
+   * userConfirmed 必须显式为 true（编译期字面量类型），确定性流水线不得
+   * 自动创建正式岗位。
+   */
+  async convertCandidateListing(input: {
+    listingId: string;
+    draftId: string;
+    expectedDraftRevision: number;
+    commitId: string;
+    jobDescription: JobDescription;
+    userConfirmed: true;
+    pendingProposal?: { proposalId: string; answer?: string; at: string };
+    now?: string;
+  }) {
+    if (input.userConfirmed !== true) throw new Error("user_confirmation_required_for_conversion");
+    const now = input.now ?? new Date().toISOString();
+    return this.db.transaction("rw", this.db.jobAnalysisDrafts, this.db.jobDescriptions, this.db.draftCommits, this.db.jobListings, this.db.appMeta, async () => {
+      const consumed = input.pendingProposal
+        ? await this.consumePendingConfirmation({
+          proposalId: input.pendingProposal.proposalId,
+          at: input.pendingProposal.at,
+          answer: input.pendingProposal.answer
+        })
+        : undefined;
+      const commitResult = await this.commitJobDraft({
+        draftId: input.draftId,
+        expectedRevision: input.expectedDraftRevision,
+        commitId: input.commitId,
+        jobDescription: input.jobDescription
+      });
+      const converted = await this.markJobListingConverted({
+        listingId: input.listingId,
+        jobDescriptionId: commitResult.jobDescription.id,
+        now
+      });
+      return {
+        jobDescription: commitResult.jobDescription,
+        draft: commitResult.draft,
+        commit: commitResult.commit,
+        listing: converted.listing,
+        consumedProposal: consumed?.proposal,
+        idempotent: commitResult.idempotent && converted.idempotent
+      };
     });
   }
 }
