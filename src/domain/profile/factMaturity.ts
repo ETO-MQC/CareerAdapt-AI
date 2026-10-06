@@ -1,4 +1,5 @@
 import type { FactMaturity, FactStatement, SkillProficiency } from "@/domain/schemas";
+import { LEGACY_DEMONSTRATED_ASSET_SOURCE_TYPES } from "@/domain/sourceTaxonomy";
 
 /**
  * Legacy facts predate maturity. The historical write paths that produced
@@ -17,7 +18,7 @@ export function factMaturityOf(fact: FactStatement | undefined, fallback: FactMa
   if (!fact.confirmedByUser || !hasUserConfirmedProvenance || fact.riskLevel === "high" || hasHighRiskProvenance) return fallback;
   if (fact.category === "skill" || fact.category === "language") return "confirmed_capability";
   const hasHistoricalEvidenceSource = fact.provenance.some((source) =>
-    ["demo", "user_input", "imported_text", "pdf_import", "evidence"].includes(source.sourceType)
+    LEGACY_DEMONSTRATED_ASSET_SOURCE_TYPES.includes(source.sourceType)
   );
   if (hasHistoricalEvidenceSource) return "demonstrated";
   // A confirmed fact from an unrecognised/system source is not allowed to

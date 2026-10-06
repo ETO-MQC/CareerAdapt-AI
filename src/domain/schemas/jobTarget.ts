@@ -1,15 +1,12 @@
 import { z } from "zod";
+import { JOB_TARGET_SOURCE_TYPES } from "@/domain/sourceTaxonomy";
 import { EntityBaseSchema, IsoDateStringSchema } from "./common";
 import { JobRequirementSchema } from "./job";
 import { JobRequirementGraphV3Schema } from "./jobOptimizationV3";
 import { JobRequirementGraphV4Schema } from "./jobOptimizationV4";
 
-export const JobTargetSourceTypeSchema = z.enum([
-  "saved_job",
-  "pasted_jd",
-  "manual_target",
-  "external_application"
-]);
+// Canonical source taxonomy derivation; legacy values validate identically.
+export const JobTargetSourceTypeSchema = z.enum(JOB_TARGET_SOURCE_TYPES);
 
 export const JobTargetPersistenceSchema = z.enum(["ask", "save", "session_only"]);
 

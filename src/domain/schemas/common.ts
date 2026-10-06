@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { FACT_SOURCE_TYPES } from "@/domain/sourceTaxonomy";
 
 export const IsoDateStringSchema = z.string().datetime({ offset: true });
 
@@ -22,15 +23,9 @@ export const FactMaturitySchema = z.enum([
   "learning"
 ]);
 
-export const FactSourceTypeSchema = z.enum([
-  "demo",
-  "imported_text",
-  "pdf_import",
-  "user_input",
-  "ai_suggestion",
-  "evidence",
-  "system"
-]);
+// The literal values live in the canonical source taxonomy (V4-P1); this enum
+// derives from it so legacy values keep validating identically.
+export const FactSourceTypeSchema = z.enum(FACT_SOURCE_TYPES);
 
 export const PdfLocatorStatusSchema = z.enum(["located", "ambiguous", "unlocated"]);
 

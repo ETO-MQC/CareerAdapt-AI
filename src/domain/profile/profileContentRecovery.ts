@@ -13,14 +13,12 @@ import type {
   Certificate,
   Experience
 } from "@/domain/schemas";
+import { PROFILE_RECOVERY_SOURCE_TYPES } from "@/domain/sourceTaxonomy";
 import { ProfileStructuredFactSchema } from "@/domain/schemas/profile";
 import { stableHashText } from "@/services/security/text";
 
-export type ProfileRecoverySourceType =
-  | "imported_resume_draft"
-  | "resume_source_document"
-  | "confirmed_provenance"
-  | "general_resume";
+// Canonical source taxonomy derivation; legacy values keep their meaning.
+export type ProfileRecoverySourceType = (typeof PROFILE_RECOVERY_SOURCE_TYPES)[number];
 
 export type ProfileRecoveryItem = {
   structuredFact: ProfileStructuredFact;

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MATERIAL_EVIDENCE_SOURCE_TYPES } from "@/domain/sourceTaxonomy";
 import { EntityBaseSchema, IsoDateStringSchema } from "./common";
 
 export const ApplicationPreparationSchemaVersionSchema = z.literal("application-preparation-v1");
@@ -30,12 +31,8 @@ export const ApplicationMaterialTypeSchema = z.enum([
   "star_story"
 ]);
 
-export const MaterialEvidenceSourceTypeSchema = z.enum([
-  "career_fact",
-  "resume_block",
-  "job_requirement",
-  "user_confirmed"
-]);
+// Canonical source taxonomy derivation; legacy values validate identically.
+export const MaterialEvidenceSourceTypeSchema = z.enum(MATERIAL_EVIDENCE_SOURCE_TYPES);
 
 export const MaterialEvidenceRefSchema = z.object({
   factId: z.string().min(1).optional(),

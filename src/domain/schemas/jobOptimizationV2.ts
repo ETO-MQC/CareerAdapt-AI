@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CANDIDATE_EVIDENCE_SOURCE_TYPES } from "@/domain/sourceTaxonomy";
 import { BranchFactRefSchema } from "./branch";
 import { FactMaturitySchema, IsoDateStringSchema, SourceSpanSchema } from "./common";
 import { MatchEvidenceRefSchema, MatchRiskSchema } from "./job";
@@ -40,10 +41,8 @@ export const JobRequirementGraphV2Schema = z.object({
   analyzerVersion: z.string().min(1)
 }).strict();
 
-export const CandidateEvidenceSourceTypeSchema = z.enum([
-  "experience_highlight", "experience_description", "skill", "certificate",
-  "education", "project_outcome", "custom_fact"
-]);
+// Canonical source taxonomy derivation; legacy values validate identically.
+export const CandidateEvidenceSourceTypeSchema = z.enum(CANDIDATE_EVIDENCE_SOURCE_TYPES);
 export const CandidateEvidenceUnitSchema = z.object({
   id: z.string().min(1), sourceType: CandidateEvidenceSourceTypeSchema,
   sectionType: ResumeSectionTypeV2Schema, itemId: z.string().min(1), fieldPath: z.string().min(1),
