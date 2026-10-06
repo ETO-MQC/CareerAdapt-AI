@@ -4,12 +4,17 @@ import type {
   AiSuggestion,
   ApplicationRecord,
   CareerProfile,
+  CrawlRun,
+  CrawlSource,
   DraftCommit,
   ExportRecord,
   JobAdaptationDraft,
   JobAdaptationSnapshot,
   JobAnalysisDraft,
+  ApplicationDraft,
   JobDescription,
+  JobListing,
+  JobSnapshot,
   MatchOperation,
   PdfImportSession,
   PdfPageText,
@@ -52,6 +57,11 @@ export class CareerAdaptDb extends Dexie {
   applications!: Table<ApplicationRecord, string>;
   agentSessions!: Table<AgentSession, string>;
   agentMessages!: Table<AgentMessageRecord, string>;
+  crawlSources!: Table<CrawlSource, string>;
+  jobListings!: Table<JobListing, string>;
+  jobSnapshots!: Table<JobSnapshot, string>;
+  crawlRuns!: Table<CrawlRun, string>;
+  applicationDrafts!: Table<ApplicationDraft, string>;
   appMeta!: Table<AppMeta, string>;
 
   constructor(name = "CareerAdaptDb") {
@@ -360,6 +370,39 @@ export class CareerAdaptDb extends Dexie {
           sessionRevision: session.sessionRevision ?? 0
         });
       }
+    });
+
+    // V4-P2-A: the five approved V4 tables (v4-plan §6). Pure additions with
+    // no legacy rows, so the upgrade only creates stores.
+    this.version(11).stores({
+      profiles: "id, name, updatedAt",
+      jobDescriptions: "id, title, company, updatedAt",
+      rawInputs: "id, kind, inputHash, sourceSessionId, updatedAt",
+      pdfImportSessions: "id, status, fileHash, normalizedTextHash, rawInputId, draftId, updatedAt",
+      pdfPageTexts: "id, sessionId, [sessionId+pageNumber], pageNumber, updatedAt",
+      profileImportDrafts: "id, rawInputId, status, updatedAt",
+      jobAnalysisDrafts: "id, rawInputId, status, updatedAt",
+      draftCommits: "commitId, draftId, kind, entityId",
+      requirementMatches: "id, [profileId+jobId], requirementId, isStale, updatedAt",
+      matchOperations: "id, operationId, requirementMatchId, [profileId+jobId], type, occurredAt",
+      jobAdaptationDrafts: "id, [profileId+jobId], status, updatedAt",
+      aiSuggestions: "id, draftId, status, type, updatedAt",
+      adaptationSnapshots: "id, draftId, revision, operationId, updatedAt",
+      suggestionOperations: "id, operationId, draftId, suggestionId, type, occurredAt",
+      resumeBranches: "id, profileId, jobId, sourceAdaptationDraftId, lifecycleStatus, migrationStatus, updatedAt",
+      resumeRevisions: "id, branchId, revisionNumber, operationId, source, createdAt",
+      resumeBranchOperations: "id, &operationId, branchId, sourceAdaptationDraftId, type, occurredAt",
+      aiLogs: "id, task, provider, createdAt",
+      exportRecords: "id, &operationId, branchId, branchRevision, templateId, exportStatus, exportedAt",
+      applications: "id, profileId, jobId, jobSpecificBranchId, status, updatedAt, [profileId+status]",
+      agentSessions: "id, updatedAt, createdAt, sessionRevision, [workflowState.status+updatedAt]",
+      agentMessages: "id, sessionId, &[sessionId+sequence], [sessionId+createdAt], role, kind",
+      crawlSources: "id, &key, channelType, complianceStatus, enabled, updatedAt",
+      jobListings: "id, sourceKey, &[sourceKey+externalId], &canonicalSourceUrl, contentFingerprint, companyTitleFingerprint, listingKind, crawlState, policyStatus, updatedAt",
+      jobSnapshots: "id, contentHash, &[jobListingId+contentHash], &[jobListingId+version], [jobListingId+capturedAt]",
+      crawlRuns: "id, sourceKey, status, trigger, startedAt",
+      applicationDrafts: "id, jobListingId, applicationId, platform, step, updatedAt",
+      appMeta: "key"
     });
   }
 }

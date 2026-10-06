@@ -1,4 +1,35 @@
+import Dexie from "dexie";
+import { z } from "zod";
 import { demoJobDescriptions } from "@/data/demoJobs";
+import {
+  ApplicationDraftSchema,
+  ApplicationDraftStepSchema,
+  CrawlRunCountersSchema,
+  CrawlRunSchema,
+  CrawlSourceSchema,
+  JobListingSchema,
+  JobSnapshotSchema,
+  applicationDraftTransitionError,
+  type ApplicationDraft,
+  type ApplicationDraftFieldPlan,
+  type ApplicationDraftStep,
+  type CrawlPolicyVersion,
+  type CrawlRun,
+  type CrawlRunCounters,
+  type CrawlRunDiagnostic,
+  type CrawlRunStatus,
+  type CrawlSource,
+  type JobListing,
+  type JobSnapshot,
+  JobSnapshotProvenanceSchema
+} from "@/domain/schemas/jobDiscovery";
+import {
+  FactProposalSchema,
+  confirmFactProposal,
+  createFactProposal,
+  type CreateFactProposalInput,
+  type FactProposal
+} from "@/domain/factProposal";
 import { demoCareerProfile } from "@/data/demoProfile";
 import { migrateBranchContentItem, migrateCareerProfileToV2, migrateResumeBranchToV2, normalizeAwardedAt, projectResumeItemV2 } from "@/domain/migrations/resumeV2";
 import { canonicalProfileLibraryItems } from "@/domain/profile/canonicalLibrary";
@@ -7799,6 +7830,393 @@ export class WorkspaceRepository {
       await this.db.adaptationSnapshots.put(snapshot);
       await this.db.suggestionOperations.put(operation);
       return { draft: nextDraftWithSnapshot, suggestion: changed.suggestion, idempotent: false };
+    });
+  }
+
+  // ================= V4-P2-A：五张已批准表（v4-plan §6） =================
+  // 约束：jobListings 只是候选层；snapshot version 在事务内计算；重复抓取
+  // 幂等；事务失败不产生半提交；Fact Proposal 复用 appMeta，不新增第六张表。
+
+  private async resolveCrawlSourceId(key: string): Promise<string | undefined> {
+    const byKey = await this.db.crawlSources.where("key").equals(key).first();
+    return byKey?.id;
+  }
+
+  async getCrawlSource(key: string) {
+    const source = await this.db.crawlSources.where("key").equals(key).first();
+    return source ? CrawlSourceSchema.parse(source) : undefined;
+  }
+
+  async createCrawlSource(input: { source: Omit<CrawlSource, "createdAt" | "updatedAt">; now?: string }) {
+    const now = input.now ?? new Date().toISOString();
+    const source = CrawlSourceSchema.parse({
+      ...input.source,
+      createdAt: now,
+      updatedAt: now
+    });
+    return this.db.transaction("rw", this.db.crawlSources, async () => {
+      const existing = await this.db.crawlSources.where("key").equals(source.key).first();
+      if (existing) throw new Error("crawl_source_key_exists");
+      await this.db.crawlSources.put(source);
+      return source;
+    });
+  }
+
+  async updateCrawlSourcePolicy(input: {
+    sourceKey: string;
+    policy: Omit<CrawlPolicyVersion, "version" | "createdAt">;
+    expectedCurrentVersion: number;
+    now?: string;
+  }) {
+    const now = input.now ?? new Date().toISOString();
+    return this.db.transaction("rw", this.db.crawlSources, async () => {
+      const existing = await this.db.crawlSources.where("key").equals(input.sourceKey).first();
+      if (!existing) throw new Error("crawl_source_missing");
+      const source = CrawlSourceSchema.parse(existing);
+      if (source.currentPolicyVersion !== input.expectedCurrentVersion) {
+        throw new Error("crawl_source_policy_version_conflict");
+      }
+      if (source.policyVersions.length >= 50) throw new Error("crawl_source_policy_versions_exhausted");
+      const nextVersion = source.currentPolicyVersion + 1;
+      const policyVersion: CrawlPolicyVersion = { ...input.policy, version: nextVersion, createdAt: now };
+      // 政策版本追加式：历史 crawlRun 引用的旧版本记录不被覆盖（§6.1）。
+      const updated = CrawlSourceSchema.parse({
+        ...source,
+        automationLevel: policyVersion.automationLevel,
+        complianceStatus: policyVersion.complianceStatus,
+        // review_required / blocked 的来源不能停留在 scheduled 模式（§6.1）。
+        ...(policyVersion.complianceStatus === "allowed" ? {} : { mode: "manual" as const }),
+        ...(policyVersion.complianceStatus === "blocked" ? { enabled: false } : {}),
+        policyVersions: [...source.policyVersions, policyVersion],
+        currentPolicyVersion: nextVersion,
+        updatedAt: now
+      });
+      await this.db.crawlSources.put(updated);
+      return updated;
+    });
+  }
+
+  async createCrawlRun(input: {
+    run: { id: string; sourceKey: string; trigger: CrawlRun["trigger"]; startedAt: string };
+    now?: string;
+  }) {
+    const now = input.now ?? new Date().toISOString();
+    return this.db.transaction("rw", this.db.crawlSources, this.db.crawlRuns, async () => {
+      const existing = await this.db.crawlSources.where("key").equals(input.run.sourceKey).first();
+      if (!existing) throw new Error("crawl_source_missing");
+      const source = CrawlSourceSchema.parse(existing);
+      const currentPolicy = source.policyVersions.find((version) => version.version === source.currentPolicyVersion);
+      if (!currentPolicy) throw new Error("crawl_source_policy_missing");
+      if (currentPolicy.complianceStatus === "blocked") throw new Error("crawl_source_blocked");
+      if (!source.enabled) throw new Error("crawl_source_disabled");
+      // review_required 来源不能进入 scheduled（§6.1）。
+      if (input.run.trigger === "scheduled"
+        && (source.mode !== "scheduled" || source.automationLevel !== "scheduled" || currentPolicy.complianceStatus === "review_required")) {
+        throw new Error("crawl_source_not_schedulable");
+      }
+      const run = CrawlRunSchema.parse({
+        id: input.run.id,
+        createdAt: now,
+        updatedAt: now,
+        schemaVersion: "crawl-run-v1",
+        sourceKey: source.key,
+        trigger: input.run.trigger,
+        autonomyLevel: source.automationLevel,
+        status: "running",
+        startedAt: input.run.startedAt,
+        counters: CrawlRunCountersSchema.parse({}),
+        diagnostics: [],
+        policySnapshot: currentPolicy
+      });
+      await this.db.crawlRuns.put(run);
+      await this.db.crawlSources.put(CrawlSourceSchema.parse({ ...source, lastRunAt: now, updatedAt: now }));
+      return run;
+    });
+  }
+
+  async finishCrawlRun(input: {
+    runId: string;
+    status: Exclude<CrawlRunStatus, "running">;
+    counters?: Partial<CrawlRunCounters>;
+    errorCode?: string;
+    diagnostics?: CrawlRunDiagnostic[];
+    finishedAt: string;
+  }) {
+    return this.db.transaction("rw", this.db.crawlRuns, this.db.crawlSources, async () => {
+      const existing = await this.db.crawlRuns.get(input.runId);
+      if (!existing) throw new Error("crawl_run_missing");
+      const run = CrawlRunSchema.parse(existing);
+      if (run.status !== "running") {
+        // 崩溃恢复下的重复 finish 幂等返回，不覆盖既有结果。
+        if (run.status === input.status) return { run, idempotent: true };
+        throw new Error("crawl_run_already_finished");
+      }
+      const counters = CrawlRunCountersSchema.parse({ ...run.counters, ...input.counters });
+      const finished = CrawlRunSchema.parse({
+        ...run,
+        status: input.status,
+        counters,
+        finishedAt: input.finishedAt,
+        ...(input.errorCode ? { errorCode: input.errorCode } : {}),
+        ...(input.diagnostics ? { diagnostics: input.diagnostics.slice(0, 50) } : {}),
+        updatedAt: input.finishedAt
+      });
+      await this.db.crawlRuns.put(finished);
+      const source = await this.db.crawlSources.where("key").equals(run.sourceKey).first();
+      if (source) {
+        const parsed = CrawlSourceSchema.parse(source);
+        await this.db.crawlSources.put(CrawlSourceSchema.parse({
+          ...parsed,
+          lastRunAt: input.finishedAt,
+          ...(input.errorCode ? { lastErrorCode: input.errorCode } : { lastErrorCode: undefined }),
+          updatedAt: input.finishedAt
+        }));
+      }
+      return { run: finished, idempotent: false };
+    });
+  }
+
+  async upsertJobListing(input: {
+    listing: Omit<JobListing, "createdAt" | "updatedAt" | "firstSeenAt" | "lastSeenAt">
+      & { firstSeenAt?: string; lastSeenAt?: string };
+    now?: string;
+  }): Promise<{ listing: JobListing; created: boolean }> {
+    const now = input.now ?? new Date().toISOString();
+    return this.db.transaction("rw", this.db.jobListings, async () => {
+      const existing = await this.db.jobListings
+        .where("[sourceKey+externalId]")
+        .equals([input.listing.sourceKey, input.listing.externalId])
+        .first();
+      if (input.listing.canonicalSourceUrl) {
+        const byUrl = await this.db.jobListings.where("canonicalSourceUrl").equals(input.listing.canonicalSourceUrl).first();
+        if (byUrl && byUrl.id !== existing?.id) throw new Error("listing_canonical_url_conflict");
+      }
+      const merged = JobListingSchema.parse({
+        ...(existing ?? {}),
+        ...input.listing,
+        id: existing?.id ?? input.listing.id,
+        firstSeenAt: existing?.firstSeenAt ?? input.listing.firstSeenAt ?? now,
+        lastSeenAt: now,
+        // 候选 → 正式的转换状态只能经 markJobListingConverted 变更。
+        jobDescriptionId: existing?.jobDescriptionId,
+        convertedAt: existing?.convertedAt,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now
+      });
+      await this.db.jobListings.put(merged);
+      return { listing: merged, created: !existing };
+    });
+  }
+
+  async getJobListingByExternalId(sourceKey: string, externalId: string) {
+    const listing = await this.db.jobListings
+      .where("[sourceKey+externalId]")
+      .equals([sourceKey, externalId])
+      .first();
+    return listing ? JobListingSchema.parse(listing) : undefined;
+  }
+
+  async appendJobSnapshot(input: {
+    jobListingId: string;
+    rawText: string;
+    contentHash: string;
+    normalizerVersion: string;
+    capturedBy: string;
+    provenance: z.input<typeof JobSnapshotProvenanceSchema>;
+    redactionStatus: JobSnapshot["redactionStatus"];
+    sourceLocator?: string;
+    capturedAt: string;
+    now?: string;
+  }): Promise<{ snapshot: JobSnapshot; created: boolean }> {
+    const now = input.now ?? new Date().toISOString();
+    return this.db.transaction("rw", this.db.jobListings, this.db.jobSnapshots, async () => {
+      const listing = await this.db.jobListings.get(input.jobListingId);
+      if (!listing) throw new Error("listing_missing");
+      // 新岗位数据只允许 canonical source taxonomy；旧 FactSourceType 值仅
+      // 用于兼容读取，不得作为新快照的来源写入。
+      if (input.provenance.legacySourceType) throw new Error("snapshot_provenance_legacy_source_type_forbidden");
+      const existing = await this.db.jobSnapshots
+        .where("[jobListingId+contentHash]")
+        .equals([input.jobListingId, input.contentHash])
+        .first();
+      if (existing) {
+        // 同内容重复抓取幂等：不产生新版本（P2 验收"同内容不产生重复版本"）。
+        return { snapshot: JobSnapshotSchema.parse(existing), created: false };
+      }
+      // version 必须在事务内计算，不能依赖业务层先读后写（§6.3）。
+      const highest = await this.db.jobSnapshots
+        .where("[jobListingId+version]")
+        .between([input.jobListingId, Dexie.minKey], [input.jobListingId, Dexie.maxKey])
+        .last();
+      const snapshot = JobSnapshotSchema.parse({
+        id: `snapshot_${crypto.randomUUID()}`,
+        createdAt: now,
+        updatedAt: now,
+        schemaVersion: "job-snapshot-v1",
+        jobListingId: input.jobListingId,
+        version: (highest?.version ?? 0) + 1,
+        contentHash: input.contentHash,
+        rawText: input.rawText,
+        ...(input.sourceLocator ? { sourceLocator: input.sourceLocator } : {}),
+        normalizerVersion: input.normalizerVersion,
+        capturedBy: input.capturedBy,
+        provenance: input.provenance,
+        redactionStatus: input.redactionStatus,
+        contentSize: input.rawText.length,
+        capturedAt: input.capturedAt
+      });
+      await this.db.jobSnapshots.put(snapshot);
+      await this.db.jobListings.put(JobListingSchema.parse({
+        ...JobListingSchema.parse(listing),
+        latestSnapshotId: snapshot.id,
+        updatedAt: now
+      }));
+      return { snapshot, created: true };
+    });
+  }
+
+  async listJobSnapshots(jobListingId: string) {
+    const snapshots = await this.db.jobSnapshots
+      .where("[jobListingId+capturedAt]")
+      .between([jobListingId, Dexie.minKey], [jobListingId, Dexie.maxKey])
+      .toArray();
+    return snapshots.map((snapshot) => JobSnapshotSchema.parse(snapshot));
+  }
+
+  async markJobListingParsed(input: { listingId: string; snapshotId: string; analysisDraftId: string; now?: string }) {
+    const now = input.now ?? new Date().toISOString();
+    return this.db.transaction("rw", this.db.jobListings, this.db.jobSnapshots, async () => {
+      const listing = await this.db.jobListings.get(input.listingId);
+      if (!listing) throw new Error("listing_missing");
+      const snapshot = await this.db.jobSnapshots.get(input.snapshotId);
+      if (!snapshot || snapshot.jobListingId !== input.listingId) throw new Error("snapshot_mismatch");
+      const updated = JobListingSchema.parse({
+        ...JobListingSchema.parse(listing),
+        parsedSnapshotId: input.snapshotId,
+        analysisDraftId: input.analysisDraftId,
+        updatedAt: now
+      });
+      await this.db.jobListings.put(updated);
+      return updated;
+    });
+  }
+
+  async markJobListingConverted(input: { listingId: string; jobDescriptionId: string; now?: string }) {
+    const now = input.now ?? new Date().toISOString();
+    // 存储级转换步骤：完整 validate→draft→parse→commit 编排在 P2-B 接入；
+    // 本方法只保证"正式岗位已存在"与"候选状态只转换一次"两个不变量。
+    return this.db.transaction("rw", this.db.jobListings, this.db.jobDescriptions, async () => {
+      const listing = await this.db.jobListings.get(input.listingId);
+      if (!listing) throw new Error("listing_missing");
+      const parsed = JobListingSchema.parse(listing);
+      if (parsed.jobDescriptionId) {
+        if (parsed.jobDescriptionId === input.jobDescriptionId) {
+          return { listing: parsed, idempotent: true };
+        }
+        throw new Error("listing_already_converted");
+      }
+      const job = await this.db.jobDescriptions.get(input.jobDescriptionId);
+      if (!job) throw new Error("converted_job_missing");
+      const updated = JobListingSchema.parse({
+        ...parsed,
+        jobDescriptionId: input.jobDescriptionId,
+        convertedAt: now,
+        updatedAt: now
+      });
+      await this.db.jobListings.put(updated);
+      return { listing: updated, idempotent: false };
+    });
+  }
+
+  async createApplicationAssistDraft(input: {
+    draft: Omit<ApplicationDraft, "createdAt" | "updatedAt" | "fieldPlans" | "sensitiveFieldsPending" | "blockers">
+      & Partial<Pick<ApplicationDraft, "fieldPlans" | "sensitiveFieldsPending" | "blockers">>;
+    now?: string;
+  }) {
+    const now = input.now ?? new Date().toISOString();
+    return this.db.transaction("rw", this.db.applicationDrafts, this.db.jobListings, async () => {
+      const listing = await this.db.jobListings.get(input.draft.jobListingId);
+      if (!listing) throw new Error("listing_missing");
+      if (listing.policyStatus === "blocked") throw new Error("listing_blocked");
+      const draft = ApplicationDraftSchema.parse({
+        ...input.draft,
+        createdAt: now,
+        updatedAt: now
+      });
+      await this.db.applicationDrafts.put(draft);
+      return draft;
+    });
+  }
+
+  async updateApplicationAssistStep(input: {
+    draftId: string;
+    step: ApplicationDraftStep;
+    fieldPlans?: ApplicationDraftFieldPlan[];
+    sensitiveFieldsPending?: string[];
+    blockers?: Array<{ code: string; message: string }>;
+    applicationId?: string;
+    now?: string;
+  }) {
+    const now = input.now ?? new Date().toISOString();
+    return this.db.transaction("rw", this.db.applicationDrafts, async () => {
+      const existing = await this.db.applicationDrafts.get(input.draftId);
+      if (!existing) throw new Error("application_draft_missing");
+      const draft = ApplicationDraftSchema.parse(existing);
+      const transitionError = applicationDraftTransitionError(draft.step, input.step);
+      if (transitionError) throw new Error(transitionError);
+      const updated = ApplicationDraftSchema.parse({
+        ...draft,
+        step: ApplicationDraftStepSchema.parse(input.step),
+        ...(input.fieldPlans ? { fieldPlans: input.fieldPlans } : {}),
+        ...(input.sensitiveFieldsPending ? { sensitiveFieldsPending: input.sensitiveFieldsPending } : {}),
+        ...(input.blockers ? { blockers: input.blockers } : {}),
+        ...(input.applicationId ? { applicationId: input.applicationId } : {}),
+        updatedAt: now
+      });
+      await this.db.applicationDrafts.put(updated);
+      return updated;
+    });
+  }
+
+  async listApplicationDrafts(jobListingId: string) {
+    const drafts = await this.db.applicationDrafts.where("jobListingId").equals(jobListingId).toArray();
+    return drafts.map((draft) => ApplicationDraftSchema.parse(draft));
+  }
+
+  /**
+   * Pending confirmation 存储在 appMeta（键 `fact-proposal:<id>`），不新增
+   * 第六张表（用户约束）。确认后的 updatedAt/revision 由后续持久化路径
+   * （岗位分支 / 资料库同步）明确处理，本方法只返回已确认提议并移除待确认
+   * 记录。
+   */
+  async createPendingConfirmation(input: { proposal: CreateFactProposalInput; now?: string }) {
+    const now = input.now ?? new Date().toISOString();
+    const proposal = createFactProposal(input.proposal, { now });
+    return this.db.transaction("rw", this.db.appMeta, async () => {
+      const key = `fact-proposal:${proposal.id}`;
+      const existing = await this.db.appMeta.get(key);
+      if (existing) throw new Error("fact_proposal_exists");
+      await this.db.appMeta.put({ key, value: proposal, updatedAt: now });
+      return proposal;
+    });
+  }
+
+  async getPendingConfirmation(proposalId: string): Promise<FactProposal | undefined> {
+    const record = await this.db.appMeta.get(`fact-proposal:${proposalId}`);
+    if (!record) return undefined;
+    return FactProposalSchema.parse(record.value);
+  }
+
+  async consumePendingConfirmation(input: { proposalId: string; at: string; answer?: string }) {
+    return this.db.transaction("rw", this.db.appMeta, async () => {
+      const key = `fact-proposal:${input.proposalId}`;
+      const record = await this.db.appMeta.get(key);
+      if (!record) throw new Error("fact_proposal_missing");
+      const proposal = FactProposalSchema.parse(record.value);
+      const result = confirmFactProposal(proposal, { at: input.at, answer: input.answer });
+      if (!result.ok) throw new Error(result.code);
+      await this.db.appMeta.delete(key);
+      return { proposal: result.proposal };
     });
   }
 }
