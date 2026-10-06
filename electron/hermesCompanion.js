@@ -6,12 +6,25 @@ const net = require("net");
 const path = require("path");
 const { execFile, execFileSync, spawn } = require("child_process");
 const { resolveHermesProviderBinding } = require("./hermesProviderBinding");
+const { credentialFingerprintPepper } = require("./credentialFingerprintPepper");
 
 const DEFAULT_RUNTIME_URL = "http://127.0.0.1:8642";
 const DEFAULT_PROVIDER_BASE_URL = "https://api.openai.com/v1";
 const DEFAULT_APP_URL = "http://127.0.0.1:3000";
 const DEFAULT_LOCAL_HOST = "127.0.0.1";
 const DEFAULT_PORT_SCAN_LIMIT = 100;
+// Every value from these environment names is treated as a secret anywhere
+// companion output is captured or logged, including the raw child stdout/stderr
+// lines that reach the renderer through startupFailure.
+const LOG_SECRET_ENV_NAMES = [
+  "AI_API_KEY",
+  "HERMES_API_KEY",
+  "HERMES_RUNTIME_API_KEY",
+  "API_SERVER_KEY",
+  "OPENAI_API_KEY",
+  "OPENROUTER_API_KEY",
+  "HERMES_CUSTOM_CAREERADAPT_API_KEY"
+];
 // Hermes can finish binding its API server before its first health response is
 // serviced. This is especially visible on a cold packaged start while the
 // bundled Python runtime opens its state databases and registers MCP tools.
@@ -450,15 +463,12 @@ async function startHermesCompanion(options = {}) {
   const projectRoot = options.projectRoot ?? process.cwd();
   const hermesHome = firstValue(options.hermesHome, environment.HERMES_HOME, path.join(projectRoot, ".next", "dev", "hermes"));
   const logPath = options.logPath ?? path.join(projectRoot, ".next", "dev", "logs", "hermes-runtime.log");
-  const writeLog = createLogWriter(logPath, [
-    environment.AI_API_KEY,
-    environment.HERMES_API_KEY,
-    environment.HERMES_RUNTIME_API_KEY,
-    environment.API_SERVER_KEY,
-    environment.OPENAI_API_KEY,
-    environment.OPENROUTER_API_KEY,
-    environment.HERMES_CUSTOM_CAREERADAPT_API_KEY
-  ]);
+  // Mutable on purpose: the runtime control key is resolved below (it may be
+  // ephemeral and absent from the initial environment), and both the log file
+  // and the captured startup lines must redact it from that point on.
+  const logSecrets = hermesLogSecrets(environment);
+  const writeLog = createLogWriter(logPath, logSecrets);
+  const redactLine = createLogRedactor(logSecrets);
 
   if (runtime.error) {
     writeLog(`startup blocked: ${runtime.error}`);
@@ -477,6 +487,7 @@ async function startHermesCompanion(options = {}) {
     options.runtimeControlKey,
     resolveRuntimeControlKey(environment, { allowEphemeralRuntimeKey: options.allowEphemeralRuntimeKey === true })
   );
+  if (runtimeApiKey && !logSecrets.includes(runtimeApiKey)) logSecrets.push(runtimeApiKey);
   environment = {
     ...environment,
     HERMES_RUNTIME_API_KEY: runtimeApiKey || "",
@@ -547,7 +558,7 @@ async function startHermesCompanion(options = {}) {
   const output = { stdout: [], stderr: [] };
   writeLog(`launch: ${JSON.stringify(sanitizedLaunchSummary(launch, prepared.childEnvironment, runtime))}`);
   writeLog(`starting Hermes gateway API Server on ${runtime.host}:${runtime.port}`);
-  const child = spawnGateway(launch, prepared.childEnvironment, launch.cwd ?? projectRoot, writeLog, output);
+  const child = spawnGateway(launch, prepared.childEnvironment, launch.cwd ?? projectRoot, writeLog, redactLine, output);
   const handle = {
     ok: false,
     reused: false,
@@ -564,6 +575,7 @@ async function startHermesCompanion(options = {}) {
     childEnvironment: prepared.childEnvironment,
     configurationFingerprint: hermesConfigurationFingerprint(prepared.childEnvironment),
     writeLog,
+    redactLine,
     bridgeStatusUrl,
     bridgeConnected: bridgeAtStart.connected,
     bridgeId: bridgeAtStart.bridgeId,
@@ -629,12 +641,20 @@ function resolveHermesLaunch(environment, options, childEnvironment) {
   };
 }
 
+// V4-P0 A1: the configuration fingerprint reaches the renderer, so the raw
+// provider credential must never be a direct hash input. The credential is
+// reduced to an HMAC-SHA-256 tag under a pepper shared with the Next-side
+// fingerprint (see credentialFingerprintPepper.js for the launch-path rules).
+function credentialFingerprintValue(credential) {
+  return crypto.createHmac("sha256", credentialFingerprintPepper()).update(credential || "").digest("hex");
+}
+
 function hermesConfigurationFingerprint(environment) {
   return crypto.createHash("sha256").update(JSON.stringify({
     provider: normalizeProviderIdentity(firstValue(environment.HERMES_PROVIDER, environment.AI_PROVIDER), environment),
     baseUrl: firstValue(environment.HERMES_BASE_URL, environment.AI_BASE_URL, environment.OPENROUTER_BASE_URL, environment.OPENAI_BASE_URL) || DEFAULT_PROVIDER_BASE_URL,
     model: firstValue(environment.HERMES_MODEL, environment.AI_MODEL, environment.HERMES_INFERENCE_MODEL) || "",
-    apiKey: providerCredential(environment) || ""
+    credentialFingerprint: credentialFingerprintValue(providerCredential(environment) || "")
   })).digest("hex");
 }
 
@@ -680,7 +700,7 @@ async function terminateChild(child) {
   await waitForExit(child, 5_000);
 }
 
-function spawnGateway(launch, environment, cwd, writeLog, output) {
+function spawnGateway(launch, environment, cwd, writeLog, redactLine, output) {
   const child = spawn(launch.command, launch.args, {
     cwd,
     env: environment,
@@ -691,8 +711,8 @@ function spawnGateway(launch, environment, cwd, writeLog, output) {
     // window or route the managed child through a shell.
     shell: false
   });
-  attachLog(child.stdout, writeLog, "stdout", output?.stdout);
-  attachLog(child.stderr, writeLog, "stderr", output?.stderr);
+  attachLog(child.stdout, writeLog, "stdout", redactLine, output?.stdout);
+  attachLog(child.stderr, writeLog, "stderr", redactLine, output?.stderr);
   return child;
 }
 
@@ -784,7 +804,7 @@ async function refreshHermesGateway(handle, timeoutMs) {
   // gateway just to repeat that same registration during renderer boot.
   if (handle.bridgeRefreshCompleted && handle.lastRefreshedBridgeId) return true;
   const replacementOutput = { stdout: [], stderr: [] };
-  const replacement = spawnGateway(handle.launch, handle.childEnvironment, handle.cwd ?? process.cwd(), handle.writeLog, replacementOutput);
+  const replacement = spawnGateway(handle.launch, handle.childEnvironment, handle.cwd ?? process.cwd(), handle.writeLog, handle.redactLine, replacementOutput);
   handle.replacementChild = replacement;
   attachChildLifecycle(handle, replacement, "replacement");
   try {
@@ -827,7 +847,19 @@ function createLogWriter(logPath, secrets) {
   };
 }
 
-function attachLog(stream, writeLog, channel, capturedLines) {
+function hermesLogSecrets(environment) {
+  return LOG_SECRET_ENV_NAMES
+    .map((name) => environment[name])
+    .filter((value) => typeof value === "string" && value.length >= 8);
+}
+
+// A stable per-launch redactor over the launch's secret set. Used for both the
+// log file and the raw child output lines captured for startup diagnostics.
+function createLogRedactor(secrets) {
+  return (line) => redact(String(line), secrets);
+}
+
+function attachLog(stream, writeLog, channel, redactLine, capturedLines) {
   if (!stream) return;
   let buffer = "";
   stream.on("data", (chunk) => {
@@ -835,21 +867,25 @@ function attachLog(stream, writeLog, channel, capturedLines) {
     const lines = buffer.split(/\r?\n/u);
     buffer = lines.pop() ?? "";
     for (const line of lines) if (line) {
-      captureLine(capturedLines, line);
+      captureLine(capturedLines, line, redactLine);
       writeLog(`[${channel}] ${line}`);
     }
   });
   stream.on("end", () => {
     if (buffer) {
-      captureLine(capturedLines, buffer);
+      captureLine(capturedLines, buffer, redactLine);
       writeLog(`[${channel}] ${buffer}`);
     }
   });
 }
 
-function captureLine(lines, line) {
+// Captured lines feed `startupFailure.lastStdoutLines`/`lastStderrLines`, which
+// the Supervisor publishes to the renderer. Redact them at capture time so the
+// child process output never becomes an unredacted credential channel; the log
+// file gets the same treatment via the log writer.
+function captureLine(lines, line, redactLine) {
   if (!Array.isArray(lines)) return;
-  lines.push(String(line));
+  lines.push(typeof redactLine === "function" ? redactLine(String(line)) : String(line));
   if (lines.length > STARTUP_OUTPUT_LINE_LIMIT) lines.splice(0, lines.length - STARTUP_OUTPUT_LINE_LIMIT);
 }
 
@@ -1062,6 +1098,9 @@ module.exports = {
   mcpSectionWithoutCareerAdapt,
   addManagedCareerAdaptMcpServer,
   classifyStartupStage,
+  captureLine,
+  createLogRedactor,
+  hermesLogSecrets,
   normalizeProviderIdentity,
   providerCredential,
   resolveRuntimeControlKey,

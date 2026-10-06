@@ -1,6 +1,7 @@
 import type { AiSettings } from "@/services/storage/aiSettings";
-import { hashText } from "@/services/security/text";
+import { hashText, stableHashText } from "@/services/security/text";
 import { resolveHermesProviderBinding } from "../../../electron/hermesProviderBinding.js";
+import { credentialFingerprintPepper } from "../../../electron/credentialFingerprintPepper.js";
 
 export type AiRuntimeConfigDraft = AiSettings;
 export const DEFAULT_AI_PROVIDER_BASE_URL = "https://api.openai.com/v1";
@@ -89,17 +90,44 @@ export function normalizeAiProviderIdentity(provider: string | undefined, baseUr
   return resolveHermesProviderBinding({ provider, baseUrl }).providerId;
 }
 
+// V4-P0 A1: the configuration fingerprint reaches the renderer, so the raw
+// provider credential must never be a direct hash input. The credential is
+// reduced to an HMAC-SHA-256 tag under a pepper shared with the Electron-side
+// fingerprint (see electron/credentialFingerprintPepper.js for the launch-path
+// rules). This mirrors electron/hermesCompanion.js credentialFingerprintValue().
+async function credentialFingerprintValue(credential: string | undefined) {
+  const pepper = credentialFingerprintPepper();
+  const message = credential?.trim() ?? "";
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) {
+    // Same fallback contract as hashText() for runtimes without WebCrypto;
+    // supported runtimes (Node >= 20, Chromium) always take the HMAC path.
+    return stableHashText(`${pepper}:${message}`);
+  }
+  const key = await subtle.importKey(
+    "raw",
+    new TextEncoder().encode(pepper),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const digest = await subtle.sign("HMAC", key, new TextEncoder().encode(message));
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 export function runtimeConfigFingerprintPayload(input: {
   provider?: string;
   baseUrl?: string;
   model?: string;
   apiKey?: string;
-}) {
+}, credentialFingerprint: string) {
   return JSON.stringify({
     provider: normalizeAiProviderIdentity(input.provider, input.baseUrl),
     baseUrl: input.baseUrl?.trim() || DEFAULT_AI_PROVIDER_BASE_URL,
     model: input.model?.trim() ?? "",
-    apiKey: input.apiKey?.trim() ?? ""
+    credentialFingerprint
   });
 }
 
@@ -109,7 +137,7 @@ export async function runtimeConfigFingerprint(input: {
   model?: string;
   apiKey?: string;
 }) {
-  return hashText(runtimeConfigFingerprintPayload(input));
+  return hashText(runtimeConfigFingerprintPayload(input, await credentialFingerprintValue(input.apiKey)));
 }
 
 export function credentialSourceForDraft(settings: AiRuntimeConfigDraft): AiRuntimeConfigValue["credentialSource"] {

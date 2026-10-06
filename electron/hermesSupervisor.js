@@ -5,6 +5,7 @@ const path = require("path");
 const {
   applyEnvironment,
   hermesConfigurationFingerprint,
+  hermesLogSecrets,
   loadCareerAdaptEnvironment,
   normalizeProviderIdentity,
   providerCredential,
@@ -1057,7 +1058,11 @@ class HermesSupervisor {
         runReady: false,
         careerSkillsReady: false,
         reasonCode,
-        startupFailure: error instanceof Error ? error.message : "hermes_companion_start_failed"
+        startupFailure: {
+          reason: reasonCode,
+          stage: "companion_start_threw",
+          message: redact(error instanceof Error ? error.message : "hermes_companion_start_failed", hermesLogSecrets(this.environment))
+        }
       }, `Hermes start threw: ${reasonCode}`);
       return this.getStatus();
     }

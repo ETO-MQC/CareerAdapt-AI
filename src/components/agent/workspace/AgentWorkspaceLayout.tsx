@@ -159,9 +159,9 @@ function RuntimeStatusBadge({
   const controlSnapshot = status.controlSnapshot ?? createInitialHermesControlSnapshot();
   const activeConfig = controlSnapshot.runtimeConfig.active;
   const applyingConfiguration = ["validating", "testing", "saving", "restarting_runtime", "verifying"].includes(controlSnapshot.runtimeConfig.applyStatus);
-  const runtimeLabel = applyingConfiguration ? "正在应用模型" : "Agent";
   const statusLabel = hermesControlStatusLabel(controlSnapshot);
-  const details = `AI Agent · ${applyingConfiguration ? "正在应用模型" : statusLabel}`;
+  const runtimeLabel = applyingConfiguration ? statusLabel.replace(/…$/u, "") : "Agent";
+  const details = `AI Agent · ${statusLabel}`;
   const runControl = async (action?: () => Promise<unknown>) => {
     if (!action || controlBusy) return;
     setControlBusy(true);
@@ -179,7 +179,7 @@ function RuntimeStatusBadge({
         type="button"
         className={`agent-runtime-status is-${controlSnapshot.status}`}
         title={details}
-        aria-label={`AI Runtime Hermes，状态 ${applyingConfiguration ? "正在应用模型" : statusLabel}`}
+        aria-label={`AI Runtime Hermes，状态 ${statusLabel}`}
         aria-expanded={controlOpen}
         aria-busy={controlBusy}
         onClick={() => setControlOpen((open) => !open)}

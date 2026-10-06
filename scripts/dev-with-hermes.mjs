@@ -3,6 +3,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 
 import companion from "../electron/hermesCompanion.js";
+import { ensureCredentialFingerprintPepper } from "../electron/credentialFingerprintPepper.js";
 
 const {
   applyEnvironment,
@@ -57,6 +58,10 @@ const runtimeControlKey = companion.resolveRuntimeControlKey(environment, {
 environment.HERMES_RUNTIME_API_KEY = runtimeControlKey || "";
 environment.API_SERVER_KEY = runtimeControlKey || "";
 environment.HERMES_API_KEY = "";
+// V4-P0 A1: pin the credential-fingerprint pepper before the Next.js child
+// process and the managed Hermes companion start, so the supervisor side and
+// the health-route side of the fingerprint comparison read the same value.
+environment.CAREERADAPT_CREDENTIAL_PEPPER = ensureCredentialFingerprintPepper(environment.CAREERADAPT_CREDENTIAL_PEPPER);
 
 if (appAlreadyRunning) {
   console.log(`[CareerAdapt] Reusing the existing app at ${appUrl}`);

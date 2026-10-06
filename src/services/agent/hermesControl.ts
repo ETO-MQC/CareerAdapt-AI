@@ -228,6 +228,31 @@ export type HermesControlSnapshot = {
   updatedAt: string;
 };
 
+/**
+ * Structured diagnostics for a failed Hermes start, published by the Electron
+ * supervisor. `lastStdoutLines`/`lastStderrLines` are captured child output and
+ * are redacted by the main process before publication.
+ */
+export type HermesStartupFailure = {
+  reason?: string;
+  exitCode?: number | null;
+  signal?: string | null;
+  launchKind?: string;
+  executable?: string;
+  args?: string[];
+  cwd?: string;
+  runtimeVersion?: string;
+  runtimeCommit?: string;
+  pythonVersion?: string;
+  runtimeRoot?: string;
+  hermesHome?: string;
+  selectedPort?: number;
+  stage?: string;
+  message?: string;
+  lastStdoutLines?: string[];
+  lastStderrLines?: string[];
+};
+
 export type HermesSupervisorSnapshot = {
   overallState: HermesLifecycleState;
   processReady: boolean;
@@ -262,7 +287,7 @@ export type HermesSupervisorSnapshot = {
   missingRequiredCareerTools?: string[];
   hermesRegisteredToolsets?: string[];
   hermesVisibleTools?: string[];
-  startupFailure?: string;
+  startupFailure?: HermesStartupFailure;
   lastExit?: { code?: number | null; signal?: string | null };
   lastStopReason?: {
     requestedBy: string;
@@ -706,7 +731,8 @@ export function createHermesControlCapabilities(
 }
 
 export function hermesControlStatusLabel(snapshot: HermesControlSnapshot) {
-  if (["validating", "testing", "saving", "restarting_runtime", "verifying"].includes(snapshot.runtimeConfig.applyStatus)) return "正在应用模型…";
+  if (snapshot.runtimeConfig.applyStatus === "restarting_runtime") return "正在重启 AI Agent…";
+  if (["validating", "testing", "saving", "verifying"].includes(snapshot.runtimeConfig.applyStatus)) return "正在应用模型…";
   if (snapshot.runtimeConfig.applyStatus === "failed") return "应用失败";
   if (snapshot.runtimeConfig.applyStatus === "rolled_back") return "已回滚";
   if (snapshot.runtimeConfig.applyStatus === "deferred") return "等待应用配置";
@@ -723,7 +749,8 @@ export function hermesControlStatusLabel(snapshot: HermesControlSnapshot) {
 
 export function hermesControlFeedback(snapshot: HermesControlSnapshot) {
   const reasonCode = snapshot.safeReasonCode ?? snapshot.diagnosticReasonCode;
-  if (["validating", "testing", "saving", "restarting_runtime", "verifying"].includes(snapshot.runtimeConfig.applyStatus)) return "正在应用模型…";
+  if (snapshot.runtimeConfig.applyStatus === "restarting_runtime") return "正在重启 AI Agent…";
+  if (["validating", "testing", "saving", "verifying"].includes(snapshot.runtimeConfig.applyStatus)) return "正在应用模型…";
   if (snapshot.runtimeConfig.applyStatus === "rolled_back") return "新配置未通过检查，已恢复原来的模型。";
   if (snapshot.runtimeConfig.applyStatus === "failed") return humanHermesReason(reasonCode) ?? "配置未应用，请检查 API 地址、模型和 API Key。";
   if (snapshot.ready) return "AI Agent 已就绪。";

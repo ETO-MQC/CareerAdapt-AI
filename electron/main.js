@@ -17,6 +17,7 @@ const {
 } = require("./hermesCompanion");
 const { HermesSupervisor } = require("./hermesSupervisor");
 const { createUserDataCredentialStore } = require("./providerCredentialStore");
+const { ensureCredentialFingerprintPepper } = require("./credentialFingerprintPepper");
 
 let mainWindow;
 let nextServer;
@@ -341,6 +342,10 @@ async function startServer() {
   environment.HERMES_RUNTIME_API_KEY = runtimeControlKey || "";
   environment.API_SERVER_KEY = runtimeControlKey || "";
   environment.HERMES_API_KEY = "";
+  // V4-P0 A1: pin the credential-fingerprint pepper for this launch before the
+  // Next server (in-process) and the Hermes supervisor start, so both sides of
+  // the configuration-fingerprint comparison read the same value.
+  environment.CAREERADAPT_CREDENTIAL_PEPPER = ensureCredentialFingerprintPepper(environment.CAREERADAPT_CREDENTIAL_PEPPER);
   applyEnvironment(environment);
 
   console.log("Starting CareerAdapt AI server...");

@@ -18,7 +18,60 @@ import {
 
 export const dynamic = "force-dynamic";
 
+// V4-P0 C: the MCP bridge executes renderer-registered career tools, so the
+// route is loopback-only like /api/agent/runtime/hermes/control. Browser
+// callers are additionally held to a loopback same-origin check (blocks CSRF
+// and DNS rebinding); process callers such as the Hermes gateway send no
+// Origin and pass through the loopback Host check.
+function resolveMcpRequestGuard(request: NextRequest): NextResponse | undefined {
+  const requestUrl = new URL(request.url);
+  const hostHeader = request.headers.get("host")?.trim();
+  const originHeader = request.headers.get("origin")?.trim();
+  let originUrl;
+  try {
+    originUrl = originHeader && originHeader !== "null"
+      ? new URL(originHeader)
+      : hostHeader
+        ? new URL(`${requestUrl.protocol}//${hostHeader}`)
+        : requestUrl;
+  } catch {
+    return mcpGuardErrorResponse();
+  }
+  if (!(originUrl.protocol === "http:" || originUrl.protocol === "https:") || !isLoopbackHostname(originUrl.hostname)) {
+    return mcpGuardErrorResponse();
+  }
+  if (hostHeader) {
+    try {
+      const hostUrl = new URL(`${originUrl.protocol}//${hostHeader}`);
+      if (!isLoopbackHostname(hostUrl.hostname) || canonicalLoopbackOrigin(hostUrl) !== canonicalLoopbackOrigin(originUrl)) {
+        return mcpGuardErrorResponse();
+      }
+    } catch {
+      return mcpGuardErrorResponse();
+    }
+  }
+  return undefined;
+}
+
+function mcpGuardErrorResponse() {
+  return NextResponse.json({
+    jsonrpc: "2.0",
+    id: null,
+    error: { code: -32001, message: "CareerAdapt MCP is restricted to local loopback same-origin callers." }
+  }, { status: 403, headers: { "Cache-Control": "no-store" } });
+}
+
+function isLoopbackHostname(hostname: string) {
+  return ["127.0.0.1", "localhost", "::1"].includes(hostname.toLowerCase());
+}
+
+function canonicalLoopbackOrigin(url: URL) {
+  return `${url.protocol}//127.0.0.1${url.port ? `:${url.port}` : ""}`;
+}
+
 export async function GET(request: NextRequest) {
+  const guard = resolveMcpRequestGuard(request);
+  if (guard) return guard;
   if (request.nextUrl.searchParams.get("bridge") === "1") return bridgeGet(request);
   // Streamable HTTP clients open an optional server-to-client event channel
   // after initialize. Keep that channel alive instead of returning the
@@ -74,6 +127,8 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: NextRequest) {
+  const guard = resolveMcpRequestGuard(request);
+  if (guard) return guard;
   if (request.nextUrl.searchParams.get("bridge") === "1") return bridgePost(request);
   let body: unknown;
   try {
@@ -130,6 +185,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const guard = resolveMcpRequestGuard(request);
+  if (guard) return guard;
   if (request.nextUrl.searchParams.get("bridge") !== "1") {
     return NextResponse.json({ ok: false, error: "method_not_allowed" }, { status: 405 });
   }

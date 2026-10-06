@@ -1,4 +1,6 @@
-import { chromium, type Browser, type Page } from "@playwright/test";
+// V4-P0 D: production API route — depend on the playwright runtime package,
+// never on the @playwright/test runner (kept in devDependencies, v4-plan D7).
+import { chromium, type Browser, type Page } from "playwright-core";
 import type { ResumePdfExportSnapshot } from "@/domain/schemas";
 import { RESUME_SECTION_TYPES_V2 } from "@/domain/resumeFields";
 import { createResumePaginationPlan, paginateResumeRenderModel, type ResumePaginationMeasurement } from "./pagination";

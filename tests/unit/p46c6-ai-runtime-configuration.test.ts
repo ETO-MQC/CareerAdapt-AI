@@ -85,11 +85,14 @@ describe("P4.6c unified AI runtime configuration", () => {
       baseUrl: "https://openrouter.ai/api/v1",
       model: "stealth/ox-alpha",
       apiKey: "never-persisted-in-this-test-result"
-    })) as { provider: string; baseUrl: string };
+    }, "credential-fingerprint-placeholder")) as { provider: string; baseUrl: string; credentialFingerprint: string; apiKey?: string };
 
     expect(parsed.provider).toBe("openrouter");
     expect(parsed.provider).not.toMatch(/^https?:\/\//u);
     expect(parsed.baseUrl).toBe("https://openrouter.ai/api/v1");
+    expect(parsed.credentialFingerprint).toBe("credential-fingerprint-placeholder");
+    expect(parsed.apiKey).toBeUndefined();
+    expect(JSON.stringify(parsed)).not.toContain("never-persisted-in-this-test-result");
   });
 
   it("rejects an invalid endpoint before persistence or runtime command", () => {
