@@ -30,6 +30,22 @@ import {
   type CreateFactProposalInput,
   type FactProposal
 } from "@/domain/factProposal";
+
+/**
+ * appMeta 中 pending confirmation 记录的信封形状。P2-A 首版直接存提议本体
+ * （视为 pending），本版起带 state，消费不再删除记录。
+ */
+const PendingConfirmationEnvelopeSchema = z.discriminatedUnion("state", [
+  z.object({ state: z.literal("pending"), proposal: FactProposalSchema }).strict(),
+  z.object({
+    state: z.literal("consumed"),
+    proposal: FactProposalSchema,
+    confirmed: FactProposalSchema,
+    consumedAt: z.string().min(1)
+  }).strict()
+]);
+
+type PendingConfirmationEnvelope = z.infer<typeof PendingConfirmationEnvelopeSchema>;
 import { demoCareerProfile } from "@/data/demoProfile";
 import { migrateBranchContentItem, migrateCareerProfileToV2, migrateResumeBranchToV2, normalizeAwardedAt, projectResumeItemV2 } from "@/domain/migrations/resumeV2";
 import { canonicalProfileLibraryItems } from "@/domain/profile/canonicalLibrary";
@@ -8155,6 +8171,8 @@ export class WorkspaceRepository {
     sensitiveFieldsPending?: string[];
     blockers?: Array<{ code: string; message: string }>;
     applicationId?: string;
+    /** P2-A.1：只有用户显式动作（UI 传 true）才能进入 user_marked_submitted。 */
+    userAction?: boolean;
     now?: string;
   }) {
     const now = input.now ?? new Date().toISOString();
@@ -8164,6 +8182,10 @@ export class WorkspaceRepository {
       const draft = ApplicationDraftSchema.parse(existing);
       const transitionError = applicationDraftTransitionError(draft.step, input.step);
       if (transitionError) throw new Error(transitionError);
+      if (input.step === "user_marked_submitted" && input.userAction !== true) {
+        // handed_off 只能由用户确认转入已提交；确定性流水线不得代用户提交。
+        throw new Error("user_confirmation_required_for_submitted");
+      }
       const updated = ApplicationDraftSchema.parse({
         ...draft,
         step: ApplicationDraftStepSchema.parse(input.step),
@@ -8185,9 +8207,13 @@ export class WorkspaceRepository {
 
   /**
    * Pending confirmation 存储在 appMeta（键 `fact-proposal:<id>`），不新增
-   * 第六张表（用户约束）。确认后的 updatedAt/revision 由后续持久化路径
-   * （岗位分支 / 资料库同步）明确处理，本方法只返回已确认提议并移除待确认
-   * 记录。
+   * 第六张表（用户约束）。P2-A.1 失败恢复语义：consume 不再不可恢复地删除
+   * 记录，而是把信封标记为 consumed（保留原始提议与确认结果）；只有目标
+   * 写入成功后由 completePendingConfirmation 显式删除。下游持久化若把
+   * consume 与目标写入放进同一 Dexie 事务（嵌套事务，表为子集即可）则
+   * 天然原子；跨事务流程依赖 restore/completed 幂等机制恢复。
+   * 确认后的 updatedAt/revision 由后续持久化路径（岗位分支 / 资料库同步）
+   * 明确处理，本模块只负责可恢复的确认状态。
    */
   async createPendingConfirmation(input: { proposal: CreateFactProposalInput; now?: string }) {
     const now = input.now ?? new Date().toISOString();
@@ -8196,27 +8222,81 @@ export class WorkspaceRepository {
       const key = `fact-proposal:${proposal.id}`;
       const existing = await this.db.appMeta.get(key);
       if (existing) throw new Error("fact_proposal_exists");
-      await this.db.appMeta.put({ key, value: proposal, updatedAt: now });
+      const envelope: PendingConfirmationEnvelope = { state: "pending", proposal };
+      await this.db.appMeta.put({ key, value: envelope, updatedAt: now });
       return proposal;
     });
+  }
+
+  private parsePendingConfirmationEnvelope(value: unknown): PendingConfirmationEnvelope {
+    const direct = PendingConfirmationEnvelopeSchema.safeParse(value);
+    if (direct.success) return direct.data;
+    // 兼容 P2-A 首版：appMeta 中直接存的是未确认提议本体。
+    const legacy = FactProposalSchema.safeParse(value);
+    if (legacy.success) return { state: "pending", proposal: legacy.data };
+    throw new Error("fact_proposal_record_invalid");
   }
 
   async getPendingConfirmation(proposalId: string): Promise<FactProposal | undefined> {
     const record = await this.db.appMeta.get(`fact-proposal:${proposalId}`);
     if (!record) return undefined;
-    return FactProposalSchema.parse(record.value);
+    const envelope = this.parsePendingConfirmationEnvelope(record.value);
+    return envelope.state === "pending" ? envelope.proposal : undefined;
   }
 
-  async consumePendingConfirmation(input: { proposalId: string; at: string; answer?: string }) {
+  async getConsumedConfirmation(proposalId: string): Promise<FactProposal | undefined> {
+    const record = await this.db.appMeta.get(`fact-proposal:${proposalId}`);
+    if (!record) return undefined;
+    const envelope = this.parsePendingConfirmationEnvelope(record.value);
+    return envelope.state === "consumed" ? envelope.confirmed : undefined;
+  }
+
+  async consumePendingConfirmation(input: { proposalId: string; at: string; answer?: string }): Promise<{ proposal: FactProposal; idempotent: boolean }> {
     return this.db.transaction("rw", this.db.appMeta, async () => {
       const key = `fact-proposal:${input.proposalId}`;
       const record = await this.db.appMeta.get(key);
       if (!record) throw new Error("fact_proposal_missing");
-      const proposal = FactProposalSchema.parse(record.value);
-      const result = confirmFactProposal(proposal, { at: input.at, answer: input.answer });
+      const envelope = this.parsePendingConfirmationEnvelope(record.value);
+      if (envelope.state === "consumed") {
+        // 崩溃恢复重试：确认已发生且结果已保留，幂等返回同一确认结果。
+        return { proposal: envelope.confirmed, idempotent: true };
+      }
+      const result = confirmFactProposal(envelope.proposal, { at: input.at, answer: input.answer });
       if (!result.ok) throw new Error(result.code);
+      const next: PendingConfirmationEnvelope = {
+        state: "consumed",
+        proposal: envelope.proposal,
+        confirmed: result.proposal,
+        consumedAt: new Date(input.at).toISOString()
+      };
+      await this.db.appMeta.put({ key, value: next, updatedAt: next.consumedAt });
+      return { proposal: result.proposal, idempotent: false };
+    });
+  }
+
+  /** 下游持久化失败后的显式恢复：确认结果作废，提议回到待确认。 */
+  async restorePendingConfirmation(proposalId: string): Promise<FactProposal> {
+    return this.db.transaction("rw", this.db.appMeta, async () => {
+      const key = `fact-proposal:${proposalId}`;
+      const record = await this.db.appMeta.get(key);
+      if (!record) throw new Error("fact_proposal_missing");
+      const envelope = this.parsePendingConfirmationEnvelope(record.value);
+      if (envelope.state === "pending") return envelope.proposal;
+      const restored: PendingConfirmationEnvelope = { state: "pending", proposal: envelope.proposal };
+      await this.db.appMeta.put({ key, value: restored, updatedAt: new Date().toISOString() });
+      return restored.proposal;
+    });
+  }
+
+  /** 目标写入成功后的显式完成；幂等（记录不存在也算完成）。 */
+  async completePendingConfirmation(proposalId: string): Promise<{ completed: boolean; existed: boolean }> {
+    return this.db.transaction("rw", this.db.appMeta, async () => {
+      const key = `fact-proposal:${proposalId}`;
+      const record = await this.db.appMeta.get(key);
+      if (!record) return { completed: true, existed: false };
+      this.parsePendingConfirmationEnvelope(record.value);
       await this.db.appMeta.delete(key);
-      return { proposal: result.proposal };
+      return { completed: true, existed: true };
     });
   }
 }

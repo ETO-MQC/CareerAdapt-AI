@@ -9,8 +9,11 @@ import {
   JobSnapshotProvenanceSchema,
   JobListingSchema,
   JobSnapshotSchema,
-  SENSITIVE_FIELD_KEYS
+  SENSITIVE_FIELD_KEYS,
+  isSensitiveFieldKey,
+  isTerminalApplicationDraftStep
 } from "@/domain/schemas/jobDiscovery";
+import { FactProposalSchema } from "@/domain/factProposal";
 import { JobDescriptionSchema } from "@/domain/schemas/job";
 import { CareerAdaptDb } from "@/services/storage/db";
 import { WorkspaceRepository } from "@/services/storage/repositories";
@@ -249,7 +252,8 @@ describe("V4-P2-A crawlRuns repository", () => {
     await repository2.createCrawlSource({ source: crawlSourceFixture({
       mode: "manual",
       automationLevel: "user_present",
-      supportsSchedule: false
+      supportsSchedule: false,
+      policyVersions: [policyVersion({ automationLevel: "user_present" })]
     }), now: NOW });
     await expect(repository2.createCrawlRun({
       run: { id: "run_y", sourceKey: "greenhouse.acme", trigger: "scheduled", startedAt: NOW }, now: NOW
@@ -521,7 +525,16 @@ describe("V4-P2-A applicationDrafts repository", () => {
 
     await repository.updateApplicationAssistStep({ draftId: "draft_1", step: "ready_for_user_submit", now: LATER });
     await repository.updateApplicationAssistStep({ draftId: "draft_1", step: "handed_off", now: LATER });
-    await repository.updateApplicationAssistStep({ draftId: "draft_1", step: "user_marked_submitted", applicationId: "app-1", now: LATER });
+    // P2-A.1：handed_off → user_marked_submitted 必须由用户显式动作触发。
+    await expect(repository.updateApplicationAssistStep({
+      draftId: "draft_1", step: "user_marked_submitted", applicationId: "app-1", now: LATER
+    })).rejects.toThrow("user_confirmation_required_for_submitted");
+    await expect(repository.updateApplicationAssistStep({
+      draftId: "draft_1", step: "abandoned", now: LATER
+    })).rejects.toThrow("invalid_application_draft_transition");
+    await repository.updateApplicationAssistStep({
+      draftId: "draft_1", step: "user_marked_submitted", applicationId: "app-1", userAction: true, now: LATER
+    });
 
     await expect(repository.updateApplicationAssistStep({
       draftId: "draft_1", step: "running", now: LATER
@@ -597,10 +610,61 @@ describe("V4-P2-A pending confirmations on appMeta (no sixth table)", () => {
       proposalId: "proposal_1", at: LATER, answer: "有三年经验"
     });
     expect(consumed.proposal.userConfirmed).toBe(true);
+    expect(consumed.idempotent).toBe(false);
+    // P2-A.1：消费不再不可恢复地删除记录——提议保留为 consumed，待目标写入完成后显式清理。
     expect(await repository.getPendingConfirmation("proposal_1")).toBeUndefined();
+    expect((await repository.getConsumedConfirmation("proposal_1"))?.candidateAnswer).toBe("有三年经验");
+
+    // 崩溃恢复重试：幂等返回同一确认结果，不重复确认。
+    const retry = await repository.consumePendingConfirmation({
+      proposalId: "proposal_1", at: LATER, answer: "有三年经验"
+    });
+    expect(retry.idempotent).toBe(true);
+    expect(retry.proposal.candidateAnswer).toBe("有三年经验");
+
+    // 下游持久化失败：显式恢复到待确认，用户可重新确认。
+    const restored = await repository.restorePendingConfirmation("proposal_1");
+    expect(restored.userConfirmed).toBe(false);
+    expect((await repository.getPendingConfirmation("proposal_1"))?.userConfirmed).toBe(false);
+
+    const reconsumed = await repository.consumePendingConfirmation({
+      proposalId: "proposal_1", at: LATER, answer: "有四年经验"
+    });
+    expect(reconsumed.idempotent).toBe(false);
+    expect(reconsumed.proposal.candidateAnswer).toBe("有四年经验");
+
+    // 目标写入成功：显式完成并删除；再次完成幂等。
+    expect(await repository.completePendingConfirmation("proposal_1")).toEqual({ completed: true, existed: true });
+    expect(await repository.getConsumedConfirmation("proposal_1")).toBeUndefined();
+    expect(await repository.completePendingConfirmation("proposal_1")).toEqual({ completed: true, existed: false });
     await expect(repository.consumePendingConfirmation({
       proposalId: "proposal_1", at: LATER, answer: "x"
     })).rejects.toThrow("fact_proposal_missing");
+  });
+
+  it("keeps a P2-A first-release raw proposal record readable as pending", async () => {
+    const { db: database, repository } = makeDb();
+    await database.appMeta.put({
+      key: "fact-proposal:legacy_1",
+      value: FactProposalSchema.parse({
+        id: "legacy_1", createdAt: NOW, updatedAt: NOW, schemaVersion: "fact-proposal-v1",
+        proposalType: "clarification", question: "目标城市？", candidateAnswer: "",
+        userConfirmed: false,
+        provenance: [{
+          sourceType: "ai_suggestion", sourceId: "job-analysis:job-1", sourceText: "无地点",
+          confidence: 0.8, confirmedByUser: false, riskLevel: "low", createdAt: NOW
+        }],
+        scope: "job_specific", expiresAt: "2026-11-05T00:00:00.000Z"
+      }),
+      updatedAt: NOW
+    });
+    const fetched = await repository.getPendingConfirmation("legacy_1");
+    expect(fetched?.question).toBe("目标城市？");
+    const consumed = await repository.consumePendingConfirmation({
+      proposalId: "legacy_1", at: LATER, answer: "上海"
+    });
+    expect(consumed.proposal.candidateAnswer).toBe("上海");
+    expect(await repository.completePendingConfirmation("legacy_1")).toEqual({ completed: true, existed: true });
   });
 
   it("refuses expired proposals, duplicate ids, and answerless confirmations", async () => {
@@ -631,5 +695,73 @@ describe("V4-P2-A pending confirmations on appMeta (no sixth table)", () => {
     await expect(repository.consumePendingConfirmation({
       proposalId: "proposal_1", at: LATER
     })).rejects.toThrow("fact_proposal_answer_required");
+  });
+});
+
+describe("V4-P2-A.1 contract hardening", () => {
+  it("pins jobListings.origin to external_job_source and rejects every other canonical kind", () => {
+    const base = { ...listingFixture(), createdAt: NOW, updatedAt: NOW, firstSeenAt: NOW, lastSeenAt: NOW };
+    expect(JobListingSchema.parse(base).canonicalSourceKind).toBe("external_job_source");
+    for (const kind of ["user_declared", "document_import", "ai_generated", "verified_evidence", "system", "job_requirement", "resume_content"]) {
+      expect(() => JobListingSchema.parse({ ...base, canonicalSourceKind: kind })).toThrow();
+    }
+  });
+
+  it("requires top-level automationLevel/complianceStatus to match the current policy version", () => {
+    expect(() => CrawlSourceSchema.parse(crawlSourceFixture(invalidOverrides({
+      complianceStatus: "review_required",
+      policyVersions: [policyVersion({ complianceStatus: "allowed" })]
+    })))).toThrow("top-level complianceStatus must match the current policy version");
+    expect(() => CrawlSourceSchema.parse(crawlSourceFixture(invalidOverrides({
+      automationLevel: "user_present",
+      mode: "manual"
+    })))).toThrow("top-level automationLevel must match the current policy version");
+    // 一致时正常解析。
+    expect(CrawlSourceSchema.parse(crawlSourceFixture()).complianceStatus).toBe("allowed");
+  });
+
+  it("treats handed_off as non-terminal and gates user_marked_submitted behind explicit user action", async () => {
+    expect(isTerminalApplicationDraftStep("handed_off")).toBe(false);
+    expect(isTerminalApplicationDraftStep("user_marked_submitted")).toBe(true);
+    expect(isTerminalApplicationDraftStep("abandoned")).toBe(true);
+
+    const { repository } = makeDb();
+    const { listing } = await repository.upsertJobListing({ listing: listingFixture(), now: NOW });
+    await repository.createApplicationAssistDraft({
+      draft: {
+        id: "draft_ho", schemaVersion: "application-draft-v1",
+        jobListingId: listing.id, platform: "greenhouse", step: "created"
+      },
+      now: NOW
+    });
+    for (const step of ["running", "awaiting_user_review", "ready_for_user_submit", "handed_off"] as const) {
+      await repository.updateApplicationAssistStep({ draftId: "draft_ho", step, now: LATER });
+    }
+    // 自动化路径（无 userAction）不得代用户提交。
+    await expect(repository.updateApplicationAssistStep({
+      draftId: "draft_ho", step: "user_marked_submitted", now: LATER
+    })).rejects.toThrow("user_confirmation_required_for_submitted");
+    await repository.updateApplicationAssistStep({
+      draftId: "draft_ho", step: "user_marked_submitted", userAction: true, now: LATER
+    });
+  });
+
+  it("normalizes sensitive field names across casings, separators, and common abbreviations", () => {
+    for (const alias of [
+      "verificationCode", "verification-code", "verification code", "VERIFICATION_CODE",
+      "pwd", "Passwd", "bank card", "bank-card", "bank_card", "idCard", "ID Card",
+      "smsCode", "student_id", "cvv", "CVC", "oneTimePassword"
+    ]) {
+      expect(ApplicationDraftSchema.safeParse({
+        id: "draft_x", createdAt: NOW, updatedAt: NOW, schemaVersion: "application-draft-v1",
+        jobListingId: "listing_1", platform: "greenhouse", step: "created",
+        fieldPlans: [{ fieldKey: alias, value: "x", source: "manual" }]
+      }).success).toBe(false);
+      expect(isSensitiveFieldKey(alias)).toBe(true);
+    }
+    // 非敏感字段不受影响。
+    for (const legit of ["coverLetter", "expected_salary", "availableFrom", "自我评价"]) {
+      expect(isSensitiveFieldKey(legit)).toBe(false);
+    }
   });
 });

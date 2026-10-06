@@ -96,6 +96,25 @@ export const CrawlSourceSchema = EntityBaseSchema.extend({
       message: "blocked sources cannot stay enabled"
     });
   }
+  const currentPolicy = source.policyVersions.find((version) => version.version === source.currentPolicyVersion);
+  if (currentPolicy) {
+    // P2-A.1：顶层 automationLevel / complianceStatus 必须与当前政策版本一致，
+    // 且该检查与 mode 无关（manual 模式同样生效）。
+    if (currentPolicy.automationLevel !== source.automationLevel) {
+      context.addIssue({
+        code: "custom",
+        path: ["automationLevel"],
+        message: "top-level automationLevel must match the current policy version"
+      });
+    }
+    if (currentPolicy.complianceStatus !== source.complianceStatus) {
+      context.addIssue({
+        code: "custom",
+        path: ["complianceStatus"],
+        message: "top-level complianceStatus must match the current policy version"
+      });
+    }
+  }
   if (source.mode === "scheduled") {
     if (!source.supportsSchedule) {
       context.addIssue({
@@ -111,8 +130,7 @@ export const CrawlSourceSchema = EntityBaseSchema.extend({
         message: "scheduled mode requires scheduled automation level"
       });
     }
-    const current = source.policyVersions.find((version) => version.version === source.currentPolicyVersion);
-    if (current && current.complianceStatus === "review_required") {
+    if (currentPolicy && (currentPolicy.complianceStatus === "review_required" || currentPolicy.complianceStatus === "blocked")) {
       context.addIssue({
         code: "custom",
         path: ["mode"],
@@ -151,8 +169,11 @@ export const JobListingSchema = EntityBaseSchema.extend({
   contentFingerprint: z.string().min(8).max(128),
   companyTitleFingerprint: z.string().min(8).max(128),
   listingKind: ListingKindSchema,
-  /** canonical source taxonomy：候选岗位的来源 origin 固定可审计。 */
-  canonicalSourceKind: z.enum(CanonicalSourceKindValues),
+  /**
+   * P2-A.1 收紧：jobListings 按定义是外部候选层，origin 固定为
+   * external_job_source；其他 canonical kind 不允许出现在本表。
+   */
+  canonicalSourceKind: z.literal("external_job_source"),
   title: z.string().min(1).max(500),
   company: z.string().min(1).max(300),
   location: z.string().max(300).optional(),
@@ -325,7 +346,58 @@ export const ApplicationDraftStepSchema = z.enum([
 
 export type ApplicationDraftStep = z.infer<typeof ApplicationDraftStepSchema>;
 
-/** 禁止写入的字段名集合（§6.5）。sensitiveFieldsPending 只允许名称，不允许值。 */
+/**
+ * P2-A.1：敏感字段名规范化与别名集（§6.5）。
+ * 判定前先把字段名小写并去掉所有非字母数字字符，因此 verificationCode、
+ * verification-code、verification code、VERIFICATION_CODE 命中同一别名。
+ */
+export function normalizeSensitiveFieldKey(key: string): string {
+  return key.toLowerCase().replace(/[^a-z0-9]/gu, "");
+}
+
+/** 规范化后的敏感字段名别名（含常见缩写）。 */
+export const SENSITIVE_FIELD_KEY_ALIASES: readonly string[] = [
+  "password",
+  "passwd",
+  "pwd",
+  "pass",
+  "passcode",
+  "otp",
+  "onetimepassword",
+  "onetimecode",
+  "verificationcode",
+  "verifycode",
+  "verifcode",
+  "vcode",
+  "smscode",
+  "smsverificationcode",
+  "idcard",
+  "idnumber",
+  "identitynumber",
+  "identityno",
+  "studentid",
+  "studentnumber",
+  "xujihao",
+  "bankcard",
+  "bankaccount",
+  "cardnumber",
+  "cardno",
+  "cvv",
+  "cvc",
+  "securitycode",
+  "signature",
+  "signedvalue",
+  "signvalue"
+];
+
+const SENSITIVE_FIELD_KEY_SET = new Set(SENSITIVE_FIELD_KEY_ALIASES);
+
+/** 规范化后的敏感字段名判定；与存储格式无关（camelCase/连字符/空格等价）。 */
+export function isSensitiveFieldKey(key: string): boolean {
+  return SENSITIVE_FIELD_KEY_SET.has(normalizeSensitiveFieldKey(key));
+}
+
+/** 兼容导出：规范化前的展示名单（各值均被 isSensitiveFieldKey 命中）。 */
 export const SENSITIVE_FIELD_KEYS: readonly string[] = [
   "password",
   "passcode",
@@ -342,21 +414,19 @@ export const SENSITIVE_FIELD_KEYS: readonly string[] = [
   "signed_value"
 ];
 
-const SENSITIVE_FIELD_KEY_SET = new Set(SENSITIVE_FIELD_KEYS);
-
 export const ApplicationDraftFieldPlanSchema = z.object({
   fieldKey: z.string().min(1).max(120),
   value: z.string().max(2000).optional(),
   source: z.enum(["resume_data", "user_input_pending", "manual"]).default("manual")
 }).strict().superRefine((entry, context) => {
-  if (SENSITIVE_FIELD_KEY_SET.has(entry.fieldKey.toLowerCase())) {
+  if (isSensitiveFieldKey(entry.fieldKey)) {
     context.addIssue({
       code: "custom",
       path: ["fieldKey"],
       message: "sensitive credential fields must never be stored in applicationDrafts"
     });
   }
-  if (entry.source === "resume_data" && entry.value !== undefined && SENSITIVE_FIELD_KEY_SET.has(entry.value.toLowerCase())) {
+  if (entry.source === "resume_data" && entry.value !== undefined && isSensitiveFieldKey(entry.value)) {
     context.addIssue({
       code: "custom",
       path: ["value"],
@@ -401,7 +471,9 @@ const APPLICATION_DRAFT_STEP_ORDER: ApplicationDraftStep[] = [
   "abandoned"
 ];
 
-const TERMINAL_DRAFT_STEPS = new Set<ApplicationDraftStep>(["user_marked_submitted", "abandoned", "handed_off"]);
+// P2-A.1：handed_off 不是终态——它必须允许用户执行 user_marked_submitted；
+// 真正的终态只有 user_marked_submitted 与 abandoned。
+const TERMINAL_DRAFT_STEPS = new Set<ApplicationDraftStep>(["user_marked_submitted", "abandoned"]);
 
 const APPLICATION_DRAFT_TRANSITIONS: Readonly<Record<ApplicationDraftStep, readonly ApplicationDraftStep[]>> = {
   created: ["login_required", "running", "abandoned"],

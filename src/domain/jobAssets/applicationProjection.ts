@@ -18,45 +18,29 @@
  */
 
 import type { ApplicationStatus } from "@/domain/schemas/application";
+import {
+  canTransitionApplicationStatus,
+  isApplicationTerminalStatus
+} from "@/domain/application/statusMachine";
 
 export const APPLICATION_TRANSITION_ALGORITHM = "careeradapt-application-transition-v1";
 export const FOLLOW_UP_CADENCE_ALGORITHM = "careeradapt-follow-up-cadence-v1";
 
-const NON_TERMINAL_STATUSES: readonly ApplicationStatus[] = [
-  "discovered",
-  "preparing",
-  "ready",
-  "applied",
-  "interviewing"
-];
-
 /**
- * 合法状态转移表（v1 政策，全部显式可测）：
- * - 前向推进：discovered → preparing → ready → applied → interviewing → 终态；
- * - archived 是生命周期操作，任何非终态都可进入；终态（offer/rejected/
- *   withdrawn）只能归档，不再参与投递推进；
- * - 不提供回退边（如 applied → preparing）：回退走 restore/编辑流程，
- *   不是状态机的一部分。
+ * P2-A.1 契约加固：本模块不再维护第二套 ApplicationStatus 转移表。
+ * `src/domain/application/statusMachine.ts` 是 ApplicationRecord 的唯一生产
+ * 状态机（含回退边），这里的转移判断只是对它的适配；本模块自有资产只有
+ * follow-up cadence（值取自 MyCareer，映射到现有状态名）。
  */
-export const APPLICATION_TRANSITIONS: Readonly<Record<ApplicationStatus, readonly ApplicationStatus[]>> = {
-  discovered: ["preparing", "archived"],
-  preparing: ["ready", "archived"],
-  ready: ["applied", "archived"],
-  applied: ["interviewing", "rejected", "withdrawn", "archived"],
-  interviewing: ["offer", "rejected", "withdrawn", "archived"],
-  offer: ["archived"],
-  rejected: ["archived"],
-  withdrawn: ["archived"],
-  archived: []
-};
 
 export function applicationTransitionError(from: ApplicationStatus, to: ApplicationStatus): "invalid_application_transition" | undefined {
-  return APPLICATION_TRANSITIONS[from].includes(to) ? undefined : "invalid_application_transition";
+  return canTransitionApplicationStatus(from, to) ? undefined : "invalid_application_transition";
 }
 
 export function applicationStatusTerminal(status: ApplicationStatus): boolean {
-  return !NON_TERMINAL_STATUSES.includes(status);
+  return isApplicationTerminalStatus(status);
 }
+
 
 export type FollowUpCadence = {
   intervalDays: number;
