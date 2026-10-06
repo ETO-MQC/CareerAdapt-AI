@@ -1,4 +1,4 @@
-# 交接报告：V4-P0 退出条件已满足，V4-P1 已解锁（B/E 项开放）
+# 交接报告：V4-P0 已退出，V4-P1 纯逻辑资产迁移已完成（2026-10-06 更新）
 
 面向接手本项目的下一个 AI。阅读顺序：本文件 → `AGENTS.md` → `docs/architecture/v4-plan.md` §11 → `docs/architecture/v4p0-audit-status.md`。
 
@@ -6,9 +6,10 @@
 
 ## 0. 三十秒结论
 
-- **已完成**：Provider Health 子任务（上一轮）+ 本轮审计修复 A1/A2/C/D + §5 全部 6 项审计补齐 + 完整门禁全绿（195 files / 1352 tests、build 0、真实 smoke 通过）。
-- **判定**：`v4-plan.md` §11 V4-P0 退出条件**全部满足**，V4-P1 解锁。用户已授权的 V4-P1 范围：只做纯逻辑资产迁移（`normalizeJd`、内容哈希、去重、匹配派生、来源证据、Fact Proposal、简历 patch）。
-- **仍开放（不阻塞）**：B 项 Browser Domain Host 命名超前于实现——**需用户拍板**改名还是实现，不得擅动；E 项 4 条低危待决；§5.4 `expiresAt` 未实现；5 套 sourceType 分类法待统一（V4-P1 起步时先做）。
+- **V4-P0 已退出**：审计修复 A1/A2/C/D + §5 全部 6 项审计补齐 + 完整门禁全绿 + 真实 smoke 通过。
+- **V4-P1 已完成（2026-10-06）**：两个前置（5 套 sourceType 统一为 `src/domain/sourceTaxonomy.ts` canonical 分类法 + Fact Proposal `expiresAt` 过期机制正式化）与六阶段纯逻辑资产（JD 标准化/哈希、三级去重、fit/hard gate/coverage 派生、投递转移+跟进节奏、Markdown 转义、简历 patch 结构、证据定位诊断）全部交付，测试 `203 files / 1434 tests` 全绿（基线只增不减）。详细记录见 `Plan3.md` 的「V4-P1 纯逻辑资产迁移」与 `history3.md` 同日条目。
+- **仍开放（不阻塞）**：B 项 Browser Domain Host 命名超前于实现——用户已决定**本轮不处理**，但后续代码不得把 `mcp.connected` 别名当成真实浏览器能力，也不得据此启用浏览器自动化；E 项 4 条低危待决。
+- **下一步**：V4-P2（五张表、Repository、候选岗位管道）**未获用户授权前不得开始**。JD 快照/去重/提议等纯逻辑资产的落库接入点在 V4-P2 实现。
 
 ---
 
