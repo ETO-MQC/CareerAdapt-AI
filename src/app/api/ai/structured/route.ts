@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { AiProviderError, OpenAiCompatibleProvider } from "@/ai/providers/openAiCompatibleProvider";
+import { resolveEffectiveAiConfiguration } from "@/ai/providers/effectiveConfiguration";
 import { aiProviderErrorCode } from "@/ai/providers/transportError";
 import {
   getAiTaskDefinition,
@@ -85,7 +86,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    provider = new OpenAiCompatibleProvider(customSettings);
+    // V4-P0 S-2: hand the provider the already-resolved configuration so the credential is resolved
+    // exactly once and its source is reported accurately. The header no longer carries a credential.
+    provider = new OpenAiCompatibleProvider(customSettings, resolveEffectiveAiConfiguration(customSettings));
     const baseUserPrompt = taskDefinition.buildUserPrompt(input.data);
     let lastValidationFailure: string | undefined;
     let lastSchemaIssues: SafeSchemaIssue[] | undefined;

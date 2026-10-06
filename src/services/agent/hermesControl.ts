@@ -38,7 +38,34 @@ export type HermesApiState = "unreachable" | "reachable";
 export type HermesProviderState = "unknown" | "checking" | "ready" | "auth_error" | "config_error" | "unreachable";
 export type HermesRunState = "none" | "queued" | "running" | "waiting_for_user" | "stopping" | "completed" | "failed";
 export type HermesControlStatus = "ready" | "starting" | "configuration_required" | "stopping" | "stopped" | "unavailable" | "degraded";
-export type HermesCredentialSource = "server_env" | "managed_config" | "custom_header" | "default" | "missing" | "unknown";
+export type HermesCredentialSource = "server_env" | "secure_store" | "managed_config" | "custom_header" | "default" | "missing" | "unknown";
+
+/**
+ * Secure credential channel status (V4-P0 S-0). Renderer-safe by construction: it reports whether
+ * a credential exists and where an effective one would come from, never the value itself.
+ *
+ * `available: false` means no OS-backed store exists (web mode, or a platform without a keychain).
+ * In that case the UI must only read server-side environment configuration and must not offer to
+ * save a key, because there is nowhere safe to put it.
+ */
+export type ProviderCredentialStatus = {
+  available: boolean;
+  configured: boolean;
+  source: "secure_store" | "server_env";
+  reason?: string;
+};
+
+/**
+ * Payload for storing a credential. `apiKey` is sent once over IPC and is encrypted by the main
+ * process; it is never read back. The provider coordinates ride along so that storing a key and
+ * applying the configuration happen in a single runtime restart.
+ */
+export type ProviderCredentialWrite = {
+  apiKey: string;
+  provider?: string;
+  baseUrl?: string;
+  model?: string;
+};
 
 export type HermesControlCapabilities = {
   environment: HermesRuntimeEnvironment;
@@ -915,6 +942,50 @@ export async function requestHermesConfigReset() {
   return window.careerAdaptDesktop!.resetHermesConfig();
 }
 
+// Secure credential channel (V4-P0 S-0).
+//
+// Desktop: the key is stored by the Electron main process with `safeStorage`, so it is never
+// readable by the renderer and never enters localStorage or a request header.
+//
+// Web: there is no main process and no OS-backed store, so per the S-0 rule the only permitted
+// source is server-side environment configuration. These calls report `available: false` rather
+// than pretending a write succeeded, so the UI can tell the user to configure the server env.
+const SERVER_ENV_ONLY_CREDENTIAL_STATUS: ProviderCredentialStatus = {
+  available: false,
+  configured: false,
+  source: "server_env",
+  reason: "credential_store_unavailable"
+};
+
+export async function describeProviderCredential(): Promise<ProviderCredentialStatus> {
+  const desktop = typeof window !== "undefined" ? window.careerAdaptDesktop : undefined;
+  if (!desktop) return SERVER_ENV_ONLY_CREDENTIAL_STATUS;
+  return desktop.describeProviderCredential();
+}
+
+/**
+ * Stores `apiKey` in the OS-encrypted main-process store and applies it to the running runtime in
+ * a single restart. Returns the credential status plus the runtime apply receipt; neither ever
+ * carries the key, so the caller cannot read the stored value back.
+ */
+export type ProviderCredentialWriteResult = ProviderCredentialStatus & {
+  /** Whether the credential was stored. `false` means nothing was written. */
+  ok?: boolean;
+  control?: HermesControlResult;
+};
+
+export async function storeProviderCredential(credential: ProviderCredentialWrite): Promise<ProviderCredentialWriteResult> {
+  const desktop = typeof window !== "undefined" ? window.careerAdaptDesktop : undefined;
+  if (!desktop) return SERVER_ENV_ONLY_CREDENTIAL_STATUS;
+  return desktop.setProviderCredential(credential);
+}
+
+export async function clearStoredProviderCredential(): Promise<ProviderCredentialStatus> {
+  const desktop = typeof window !== "undefined" ? window.careerAdaptDesktop : undefined;
+  if (!desktop) return SERVER_ENV_ONLY_CREDENTIAL_STATUS;
+  return desktop.clearProviderCredential();
+}
+
 export async function requestHermesProviderTest(settings = readAiSettings()): Promise<HermesProviderTestResult> {
   return requestHermesProviderTestRequest(settings);
 }
@@ -1046,8 +1117,9 @@ function credentialSourceValue(value: unknown): HermesCredentialSource | undefin
 }
 
 function hasCustomSettings(settings: HermesStartSettings) {
-  return Boolean(settings.apiKey.trim()
-    || settings.baseUrl.trim()
+  // V4-P0 S-2: a credential is no longer something the renderer can contribute, so this gate only
+  // considers non-sensitive fields plus the explicit clear intent.
+  return Boolean(settings.baseUrl.trim()
     || settings.model.trim()
     || settings.provider !== "openai-compatible"
     || settings.credentialAction === "clear");

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { encodeAiSettingsForHeader } from "@/services/storage/aiSettings";
 import type { AiSettings } from "@/services/storage/aiSettings";
@@ -69,12 +69,19 @@ afterEach(() => {
   mocks.probe.mockClear();
 });
 
+// V4-P0 S-1/S-2: the header carries the non-sensitive settings only. The credential is resolved by
+// the route from the server-side configuration, so these route tests provide it via the
+// environment rather than through the request.
 const settings: AiSettings = {
   provider: "openai-compatible",
   baseUrl: "https://provider.example/v1",
   apiKey: "candidate-key",
   model: "candidate-model"
 };
+
+beforeEach(() => {
+  vi.stubEnv("AI_API_KEY", "candidate-key");
+});
 
 function request() {
   return new NextRequest("http://127.0.0.1/api/ai/test", {

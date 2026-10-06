@@ -16,6 +16,7 @@ const {
   resolveRuntimeControlKey
 } = require("./hermesCompanion");
 const { HermesSupervisor } = require("./hermesSupervisor");
+const { createUserDataCredentialStore } = require("./providerCredentialStore");
 
 let mainWindow;
 let nextServer;
@@ -25,6 +26,7 @@ let ocrSidecarProcess;
 let ocrSidecarStarting = false;
 let ocrBootstrapTimer;
 let hermesSupervisor;
+let providerCredentialStore;
 
 const isDev = !app.isPackaged;
 const HOST = "127.0.0.1";
@@ -348,7 +350,20 @@ async function startServer() {
   console.log("Packaged:", app.isPackaged);
 
   if (reuseExistingDevelopmentServer) {
-    applyEnvironment(environment);
+applyEnvironment(environment);
+
+  // V4-P0 S-0: desktop-first credential resolution. The OS-encrypted store wins over the env
+  // file so the key the user entered in Settings is the one actually used, and it is injected
+  // into this process only -- never written back to .env, config.yaml, or any other file.
+  providerCredentialStore = createUserDataCredentialStore(app.getPath("userData"));
+  const storedProviderCredential = providerCredentialStore.read();
+  if (storedProviderCredential) {
+    environment.AI_API_KEY = storedProviderCredential;
+    process.env.AI_API_KEY = storedProviderCredential;
+    // Lets the provider routes report an accurate credential source without inspecting the value.
+    environment.CAREERADAPT_CREDENTIAL_SOURCE = "secure_store";
+    process.env.CAREERADAPT_CREDENTIAL_SOURCE = "secure_store";
+  }
     console.warn(`端口 ${serverPort} 已有开发服务器，直接复用：${getServerUrl()}`);
     createHermesSupervisor(appPath, environment, runtimeControlKey);
     saveAppPort(serverPort);
@@ -445,6 +460,55 @@ ipcMain.handle("careeradapt:hermes:reload-config", async () => {
 });
 ipcMain.handle("careeradapt:hermes:reset-config", async () => {
   return runHermesControlAction("reset_config", () => hermesSupervisor.resetConfig());
+});
+
+// Secure provider-credential channel (V4-P0 S-0). These three channels are the only
+// renderer-facing credential surface, and none of them ever returns the key: `describe` is a
+// status object, `set` returns a status object, and `clear` returns a status object. The
+// renderer cannot read the stored value back through any channel.
+ipcMain.handle("careeradapt:credentials:describe", async () => {
+  return providerCredentialStore.describe();
+});
+ipcMain.handle("careeradapt:credentials:set", async (_event, request) => {
+  const apiKey = request && typeof request.apiKey === "string" ? request.apiKey : "";
+  const result = providerCredentialStore.write(apiKey);
+  // A newly stored credential must reach the running runtime, otherwise the UI would report a
+  // key that Hermes never sees. Applying it restarts the companion, which is the supported path.
+  //
+  // The key is re-read from the store and handed to the Supervisor here, never to the renderer.
+  // It must be passed explicitly: `updateConfig` with `credentialAction: "replace"` and no apiKey
+  // resolves to an environment without the credential, which would clear it (applyProviderEnvironment).
+  if (result.ok) {
+    const appliedCredential = providerCredentialStore.read();
+    if (appliedCredential) {
+      // Keep the Next routes (which run in this same process) in sync with the store.
+      process.env.AI_API_KEY = appliedCredential;
+      process.env.CAREERADAPT_CREDENTIAL_SOURCE = "secure_store";
+    }
+    const control = await runHermesControlAction("update_config", () => hermesSupervisor.updateConfig({
+      provider: typeof request?.provider === "string" ? request.provider : undefined,
+      baseUrl: typeof request?.baseUrl === "string" ? request.baseUrl : undefined,
+      model: typeof request?.model === "string" ? request.model : undefined,
+      credentialAction: "replace",
+      apiKey: appliedCredential
+    }));
+    // The credential status and the apply receipt are returned together so the UI can report one
+    // outcome. Neither ever carries the key itself.
+    return { ...result, control };
+  }
+  return { ...result, control: undefined };
+});
+ipcMain.handle("careeradapt:credentials:clear", async () => {
+  const result = providerCredentialStore.clear();
+  if (result.changed) {
+    // The stored credential is the only thing removed here; a server env credential, if any,
+    // stays in effect, so the marker must be cleared rather than assumed.
+    delete process.env.CAREERADAPT_CREDENTIAL_SOURCE;
+    await runHermesControlAction("update_config", () => hermesSupervisor.updateConfig({
+      credentialAction: "clear"
+    }));
+  }
+  return result;
 });
 
 async function runHermesControlAction(action, operation) {

@@ -33,7 +33,7 @@ export const HermesHealthSchema = z.object({
     provider: z.string().min(1).optional(),
     model: z.string().min(1).optional(),
     credentialConfigured: z.boolean(),
-    credentialSource: z.enum(["server_env", "managed_config", "custom_header", "default", "missing", "unknown"]),
+    credentialSource: z.enum(["server_env", "secure_store", "managed_config", "custom_header", "default", "missing", "unknown"]),
     configFingerprint: z.string().min(1).optional(),
     configGeneration: z.number().int().min(0).optional(),
     lastCheckedAt: z.string().datetime({ offset: true }).optional(),

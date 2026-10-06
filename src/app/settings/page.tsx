@@ -20,6 +20,8 @@ import { normalizeAiRuntimeConfigDraft, validateAiRuntimeConfigDraft } from "@/s
 import { AgentSessionStore } from "@/services/agent/agentSessionStore";
 import type { AgentSession } from "@/agent/contracts/agentSession";
 import {
+  clearStoredProviderCredential,
+  describeProviderCredential,
   getHermesLogs,
   hermesControlFeedback,
   hermesControlStatusLabel,
@@ -34,8 +36,11 @@ import {
   requestHermesRestart,
   requestHermesStart,
   requestHermesStop,
+  storeProviderCredential,
+  type ProviderCredentialStatus,
   type HermesProviderTestResult,
   type HermesControlResult,
+  type HermesCredentialSource,
   type HermesLogs,
   createInitialHermesControlSnapshot
 } from "@/services/agent/hermesControl";
@@ -84,6 +89,9 @@ export default function SettingsPage() {
   const [aiSaved, setAiSaved] = useState(false);
   const [aiSaving, setAiSaving] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
+  // V4-P0 S-3: credential presence/availability from the Electron main process. The key itself is
+  // never fetched into the renderer, so this status is all the UI can show.
+  const [credentialState, setCredentialState] = useState<ProviderCredentialStatus | undefined>();
   const [aiTesting, setAiTesting] = useState(false);
   const [aiLatencyTesting, setAiLatencyTesting] = useState(false);
   const aiSavingRef = useRef(false);
@@ -161,6 +169,12 @@ export default function SettingsPage() {
       setOrphanedClearing(false);
     }
   }
+
+  useEffect(() => {
+    // Ask the main process how the credential is configured. This is a status read only: there is
+    // no channel that returns the stored value.
+    void describeProviderCredential().then(setCredentialState);
+  }, []);
 
   useEffect(() => {
     if (category !== "developer" || orphanedCounts || orphanedLoading) return;
@@ -561,16 +575,52 @@ export default function SettingsPage() {
           incidentTraceId: session.activeTurn?.incidentTraceId
         }));
       }
-      const result = await requestHermesConfigUpdate(draft);
-      const applyStatus = result.receipt?.applyStatus ?? result.snapshot?.runtimeConfig?.applyStatus;
+
+      // V4-P0 S-3: a typed key goes to the Electron main process, which encrypts it with
+      // safeStorage and applies it in the same restart. The key is never written to
+      // localStorage and never sent in a request header. Without a new key, the existing
+      // credential is preserved by the Supervisor ("unchanged"), so the plain config update
+      // applies provider/model only.
+      const storeResult = draft.apiKey
+        ? await storeProviderCredential({
+          apiKey: draft.apiKey,
+          provider: draft.provider,
+          baseUrl: draft.baseUrl,
+          model: draft.model
+        })
+        : undefined;
+      const controlResult = storeResult ? storeResult.control : await requestHermesConfigUpdate(draft);
+
+      if (storeResult && !storeResult.ok) {
+        // Nothing was stored (web mode, or no OS keychain). Drop the typed key instead of
+        // silently keeping it in the page, and point the user at the supported configuration.
+        setAiSettings((previous) => ({ ...previous, apiKey: "", credentialAction: "unchanged" }));
+        setCredentialState(storeResult);
+        setHermesFeedback(storeResult.available
+          ? "API Key 未能写入系统安全存储，请查看运行诊断后重试。"
+          : "当前环境没有可用的系统安全存储，API Key 未保存。请改用服务端环境变量配置 AI 凭据。");
+        return;
+      }
+
+      const applyStatus = controlResult?.receipt?.applyStatus
+        ?? controlResult?.snapshot?.runtimeConfig?.applyStatus;
       if (applyStatus === "applied") {
-        writeAiSettings(draft);
+        const credentialStatus = draft.apiKey ? await describeProviderCredential() : credentialState;
+        // Persist without the key; only the "is one configured" flag is recorded.
+        writeAiSettings({
+          ...draft,
+          apiKey: "",
+          apiKeyConfigured: credentialStatus?.configured ?? aiSettings.apiKeyConfigured
+        });
+        if (credentialStatus) setCredentialState(credentialStatus);
+        // Do not keep the typed key in component state once the main process owns it.
+        setAiSettings((previous) => ({ ...previous, apiKey: "", credentialAction: "unchanged" }));
         setAiSaved(true);
         if (session) sessionBindingToRelease = session.id;
       }
-      setHermesFeedback(result.ok
-        ? hermesControlFeedback(result.controlSnapshot ?? agentHost.runtimeStatus.getSnapshot().controlSnapshot ?? hermesSnapshot)
-        : aiRuntimeConfigFeedback(result.reason ?? applyStatus ?? "unknown"));
+      setHermesFeedback(controlResult?.ok
+        ? hermesControlFeedback(controlResult.controlSnapshot ?? agentHost.runtimeStatus.getSnapshot().controlSnapshot ?? hermesSnapshot)
+        : aiRuntimeConfigFeedback(controlResult?.reason ?? applyStatus ?? "unknown"));
     } catch (error) {
       setHermesFeedback(error instanceof Error
         ? `AI 配置未应用：${error.message}`
@@ -580,6 +630,35 @@ export default function SettingsPage() {
       aiSavingRef.current = false;
       setAiSaving(false);
       window.setTimeout(() => setAiSaved(false), 2000);
+    }
+  }
+
+  /**
+ * V4-P0 S-3: clear the stored credential in the Electron main process, then apply the clear to
+ * the runtime. Clearing goes through the same secure channel as saving, so no key is ever touched
+ * in the renderer.
+ */
+async function clearAiCredentialFromSettings() {
+    if (aiSavingRef.current || aiSaving) return;
+    aiSavingRef.current = true;
+    setAiSaving(true);
+    try {
+      const status = await clearStoredProviderCredential();
+      setCredentialState(status);
+      setCandidateProviderTest(undefined);
+      setCandidateProviderLatencyTest(undefined);
+      setAiSettings((prev) => ({ ...prev, apiKey: "", credentialAction: "unchanged", apiKeyConfigured: false }));
+      writeAiSettings({ ...aiSettings, apiKey: "", credentialAction: "unchanged", apiKeyConfigured: false });
+      setHermesFeedback(status.available
+        ? "已清除系统安全存储中的 API Key，并已重启 AI Agent 应用该变更。"
+        : "当前环境没有可用的系统安全存储，未保存过 API Key。");
+    } catch (error) {
+      setHermesFeedback(error instanceof Error
+        ? `清除 API Key 失败：${error.message}`
+        : "清除 API Key 失败，请查看运行诊断后重试。");
+    } finally {
+      aiSavingRef.current = false;
+      setAiSaving(false);
     }
   }
 
@@ -918,7 +997,7 @@ export default function SettingsPage() {
               <div className="section-heading compact-heading">
                 <div>
                   <h2>AI 模型</h2>
-                  <p>保存后由 AI Agent 验证并应用。当前运行中的模型会在切换完成前保持可见。</p>
+                  <p>保存后由 AI Agent 重启并应用新配置。重启期间会中断当前运行中的对话与任务，任务进度会保留。</p>
                 </div>
               </div>
               <section className="settings-group ai-runtime-settings-card" aria-labelledby="ai-runtime-config-heading">
@@ -968,13 +1047,24 @@ export default function SettingsPage() {
                           setCandidateProviderTest(undefined);
                           setCandidateProviderLatencyTest(undefined);
                         }}
-                        placeholder="输入本机 API Key…"
+                        placeholder={credentialState?.available ? "输入新的 API Key…" : "当前环境不支持保存 API Key"}
+                        disabled={aiSaving || credentialState?.available === false}
                       />
                       <button type="button" className="ai-api-key-toggle" aria-label={showApiKey ? "隐藏 API Key" : "显示 API Key"} onClick={() => setShowApiKey((prev) => !prev)}>
                         {showApiKey ? "隐藏" : "显示"}
                       </button>
                     </div>
                   </label>
+                  {/* Kept outside the label so the accessible name stays exactly "API Key".
+                      The stored key is never sent back to the page, so state is shown as a fact,
+                      not as a value. This is also why the field always starts empty. */}
+                  <p className="field-help">
+                    {credentialState?.available
+                      ? credentialState.configured
+                        ? "已配置。出于安全考虑不会回显，需要更换请直接输入新 Key。"
+                        : "尚未保存。输入后由系统安全存储加密保存，不会保存在浏览器中。"
+                      : "当前环境没有可用的系统安全存储，仅支持读取服务端环境变量配置。"}
+                  </p>
                   <label className="field-label" htmlFor="ai-model">
                     模型
                     <input
@@ -1037,7 +1127,7 @@ export default function SettingsPage() {
                   disabled={aiSaving || aiTesting || aiLatencyTesting}
                   onClick={() => void saveAiConfiguration()}
                 >
-                  {aiSaving ? "正在应用模型…" : aiSaved ? "已应用 ✓" : "保存并应用"}
+                  {aiSaving ? "正在重启并应用…" : aiSaved ? "已应用 ✓" : "保存并重启应用"}
                 </button>
               </div>
               <details className="settings-help-details ai-runtime-more">
@@ -1049,12 +1139,8 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     className="button button-secondary"
-                    disabled={!aiSettings.apiKey && aiSettings.credentialAction !== "replace"}
-                    onClick={() => {
-                      setAiSettings((prev) => ({ ...prev, apiKey: "", credentialAction: "clear" }));
-                      setCandidateProviderTest(undefined);
-                      setCandidateProviderLatencyTest(undefined);
-                    }}
+                    disabled={aiSaving || (!aiSettings.apiKey && aiSettings.credentialAction !== "replace" && !credentialState?.configured)}
+                    onClick={() => void clearAiCredentialFromSettings()}
                   >
                     清除已保存 API Key
                   </button>
@@ -1472,9 +1558,10 @@ function hermesServiceStateLabel(state: "stopped" | "starting" | "running" | "st
   }[state];
 }
 
-function credentialSourceLabel(source: "server_env" | "managed_config" | "custom_header" | "default" | "missing" | "unknown") {
+function credentialSourceLabel(source: HermesCredentialSource) {
   return {
     server_env: "服务环境",
+    secure_store: "系统安全存储",
     managed_config: "桌面版托管配置",
     custom_header: "当前设置",
     default: "默认值",
@@ -1487,7 +1574,8 @@ function aiRuntimeApplyStatusLabel(status: string, hasActiveConfig: boolean) {
   if (status === "applied") return "Ready";
   if (status === "rolled_back") return "已回滚";
   if (status === "failed") return "应用失败";
-  if (["validating", "testing", "saving", "restarting_runtime", "verifying"].includes(status)) return "正在应用模型…";
+  if (status === "restarting_runtime") return "正在重启 AI Agent…";
+  if (["validating", "testing", "saving", "verifying"].includes(status)) return "正在应用模型…";
   if (status === "deferred") return "等待应用";
   if (status === "idle" && hasActiveConfig) return "Ready";
   return "未确认";

@@ -47,7 +47,10 @@ export async function invokeStructuredAi<TOutput>(input: {
   signal?: AbortSignal;
 }) {
   const aiSettings = readAiSettings();
-  const hasCustomSettings = aiSettings.apiKey.length > 0 || aiSettings.baseUrl.length > 0 || aiSettings.model.length > 0;
+  // V4-P0 S-2: the header carries provider coordinates only. The credential is never read here
+  // (`readAiSettings` never restores it) and never travels in a request header; the server
+  // resolves it from the main-process secure store or its own environment.
+  const hasCustomSettings = aiSettings.baseUrl.length > 0 || aiSettings.model.length > 0;
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json"

@@ -6,7 +6,10 @@ import type {
   HermesControlResult,
   HermesLogs,
   HermesSupervisorSnapshot,
-  HermesStartSettings
+  HermesStartSettings,
+  ProviderCredentialStatus,
+ProviderCredentialWrite,
+  ProviderCredentialWriteResult
 } from "@/services/agent/hermesControl";
 
 declare global {
@@ -25,6 +28,14 @@ declare global {
       updateHermesConfig(settings: HermesStartSettings): Promise<HermesControlResult>;
       reloadHermesConfig(): Promise<HermesControlResult>;
       resetHermesConfig(): Promise<HermesControlResult>;
+      /**
+       * Secure credential channel (V4-P0 S-0). There is intentionally no getter that returns the
+       * stored key: `describeProviderCredential` reports availability/presence only, and the two
+       * mutating calls resolve to the same status shape.
+       */
+      describeProviderCredential(): Promise<ProviderCredentialStatus>;
+      setProviderCredential(credential: ProviderCredentialWrite): Promise<ProviderCredentialWriteResult>;
+      clearProviderCredential(): Promise<ProviderCredentialStatus>;
       subscribeHermesStatus(listener: (snapshot: HermesSupervisorSnapshot) => void): () => void;
     };
   }

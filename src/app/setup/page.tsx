@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { writeAiSettings, hasCustomAiSettings, type AiSettings } from "@/services/storage/aiSettings";
-import { requestHermesStart } from "@/services/agent/hermesControl";
+import { requestHermesStart, storeProviderCredential } from "@/services/agent/hermesControl";
 
 export default function SetupPage() {
   const router = useRouter();
@@ -18,6 +18,7 @@ export default function SetupPage() {
   });
   const [saving, setSaving] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [error, setError] = useState<string | undefined>();
 
   useEffect(() => {
     // 如果已配置，直接跳转到主页
@@ -27,21 +28,41 @@ export default function SetupPage() {
   }, [router]);
 
   async function handleSave() {
-    if (!settings.apiKey.trim()) return;
+    const apiKey = settings.apiKey.trim();
+    if (!apiKey) return;
 
     setSaving(true);
-    writeAiSettings(settings);
+    setError(undefined);
+    // V4-P0 S-1/S-3: the key is stored by the main process with OS encryption and applied to the
+    // runtime in the same restart. It is never written to browser storage, so there is nothing to
+    // persist here beyond the non-sensitive fields.
+    const result = await storeProviderCredential({
+      apiKey,
+      provider: settings.provider || undefined,
+      baseUrl: settings.baseUrl || undefined,
+      model: settings.model || undefined
+    }).catch(() => undefined);
+    if (!result?.ok) {
+      setSaving(false);
+      setError(result?.available
+        ? "密钥未能写入系统安全存储，请重试。"
+        : "当前环境没有可用的系统安全存储，无法在此保存 API 密钥。请改用服务端环境变量配置 AI 凭据。");
+      return;
+    }
+    writeAiSettings({ ...settings, apiKey: "", apiKeyConfigured: true });
+    setSettings((previous) => ({ ...previous, apiKey: "" }));
     // 先把新配置交给内置 Hermes；即使它暂时不可用，主页仍保留会话入口并显示明确状态。
     await requestHermesStart().catch(() => undefined);
     router.push("/");
   }
 
   function handleSkip() {
-    // 跳过设置，进入 mock 模式
+    // 跳过设置，进入 mock 模式。Mock 模式不需要真实凭据，因此不写入任何密钥。
     writeAiSettings({
       ...settings,
-      provider: "mock",
-      apiKey: "mock-key"
+      apiKey: "",
+      apiKeyConfigured: false,
+      provider: "mock"
     });
     router.push("/");
   }
@@ -82,7 +103,8 @@ export default function SetupPage() {
                 {showApiKey ? "隐藏" : "显示"}
               </button>
             </div>
-            <p className="setup-hint">内置 Hermes 会在应用启动时接管 AI；密钥只保存在本机。</p>
+            <p className="setup-hint">内置 Hermes 会在应用启动时接管 AI；密钥经系统安全存储加密后保存在本机，不会保存在浏览器中。</p>
+            {error ? <p className="setup-error" role="alert">{error}</p> : null}
           </div>
 
           <div className="setup-field">
@@ -133,7 +155,7 @@ export default function SetupPage() {
         </div>
 
         <div className="setup-footer">
-          <p>设置保存在本机浏览器，不会上传到任何服务器</p>
+          <p>密钥由系统安全存储加密保存在本机，不会上传到任何服务器</p>
           <p>可随时在「设置 → AI 配置」中修改</p>
         </div>
       </div>
@@ -249,6 +271,12 @@ export default function SetupPage() {
         .setup-hint {
           font: var(--product-font-caption);
           color: var(--product-text-secondary);
+          margin: 0;
+        }
+
+        .setup-error {
+          font: var(--product-font-caption);
+          color: var(--danger, #b42318);
           margin: 0;
         }
 

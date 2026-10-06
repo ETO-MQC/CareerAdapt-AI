@@ -3,6 +3,7 @@ import type { AiSettings } from "@/services/storage/aiSettings";
 import {
   resolveEffectiveAiConfiguration,
   safeAiConfigurationDiagnostic,
+  type EffectiveAiConfiguration,
   type SafeAiConfigurationDiagnostic
 } from "./effectiveConfiguration";
 import { normalizeProviderFrame, parseOpenAiCompatibleSse } from "./openAiSse";
@@ -47,8 +48,16 @@ export class OpenAiCompatibleProvider {
   private readonly baseUrl: string;
   private readonly apiKey: string;
 
-  constructor(settings?: AiSettings) {
-    const configuration = resolveEffectiveAiConfiguration(settings);
+  /**
+ * Accepts either raw renderer settings or an already-resolved configuration.
+ *
+ * V4-P0 S-2: the credential no longer travels in the request header, so a caller that has already
+ * run `resolveEffectiveAiConfiguration` must be able to hand that result in directly. Without the
+ * second form, passing a resolved config would be re-resolved and its `sources` would be
+ * mislabelled as `custom_header`, making the credential diagnostic lie about its origin.
+ */
+constructor(settings?: AiSettings, resolved?: EffectiveAiConfiguration) {
+    const configuration = resolved ?? resolveEffectiveAiConfiguration(settings);
     this.provider = configuration.provider;
     this.model = configuration.model;
     this.baseUrl = configuration.baseUrl;

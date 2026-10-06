@@ -22,7 +22,10 @@ export async function POST(request: NextRequest) {
   const customSettings: AiSettings | undefined = aiConfigHeader ? decodeAiSettingsFromHeader(aiConfigHeader) : undefined;
 
   const configuration = resolveEffectiveAiConfiguration(customSettings);
-  const provider = new OpenAiCompatibleProvider(customSettings);
+  // V4-P0 S-2: hand the provider the already-resolved configuration so the credential is
+  // resolved exactly once. The header no longer carries a credential, so the provider must not
+  // re-derive it from header settings -- that would also mislabel its source.
+  const provider = new OpenAiCompatibleProvider(customSettings, configuration);
   const configFingerprint = await runtimeConfigFingerprint(configuration);
   const started = Date.now();
   let transportProbe: Awaited<ReturnType<typeof probeAiProviderTransport>> | undefined;

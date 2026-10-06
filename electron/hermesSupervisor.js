@@ -602,11 +602,22 @@ class HermesSupervisor {
       return this.applyConfigurationWithLifecycleRestart(settings, options, targetFingerprint, previous);
     }
 
+    // The bundled Hermes gateway serves /v1/capabilities, /v1/skills, /v1/toolsets and
+    // /api/model/options, but NOT /api/model/info, /api/model/set, /api/env or
+    // /api/providers/*. Those exist only in the dashboard server, so the native path below is
+    // an OPTIONAL, non-default capability (see hermesModelConfigClient.js). Against the bundled
+    // runtime `nativeModelConfigSupported` stays false and the restart fallback below is the
+    // NORMAL, fully supported path -- not a degradation and not an incident. Do not treat a
+    // restart here as a failure, and do not add a gateway config API to avoid it.
     if (this.nativeModelConfigSupported === true) {
       try {
         return await this.applyNativeModelConfiguration(settings, targetEnvironment, targetFingerprint);
       } catch (error) {
         const reasonCode = safeReason(error instanceof Error ? error.code || error.message : "hermes_model_config_apply_failed");
+        // Second line of defence: even if a future build exposes the model endpoints, the
+        // native path still needs /api/providers/validate, which the gateway does not serve.
+        // A missing endpoint therefore degrades to the same restart fallback rather than
+        // failing the apply. Contract: tests/unit/v4p0NativeConfigFallback.test.ts
         if ([
           "hermes_model_config_endpoint_missing",
           "hermes_credential_lifecycle_endpoint_missing",
@@ -671,6 +682,12 @@ class HermesSupervisor {
     return this.getStatus();
   }
 
+  // Canonical and default configuration apply path (C-1): apply the new provider/model, restart
+  // the Hermes companion, then verify the runtime readback matches the target fingerprint.
+  // The bundled gateway has no runtime config API, so this restart is the intended mechanism --
+  // `native_model_config_fallback` is the reason code for the ordinary case, not an error state.
+  // Success requires runtimeConfig.applyStatus === "applied" AND verified === true; anything else
+  // rolls back to the previous healthy configuration when one exists.
   async applyConfigurationWithLifecycleRestart(settings, options, targetFingerprint, previous) {
     this.setConfigurationApplyStatus("restarting_runtime", "native_model_config_fallback", {
       restartPerformed: this.runtimeConfigState.active?.configFingerprint !== undefined,

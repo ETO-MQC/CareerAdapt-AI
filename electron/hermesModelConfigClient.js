@@ -4,11 +4,29 @@ const crypto = require("crypto");
 const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 
 /**
- * The only boundary adapter for Hermes' native model configuration API.
+ * OPTIONAL, NON-DEFAULT adapter for Hermes' native model configuration API (V4-P0 C-5).
  *
  * This module is loaded by the Electron/Web Supervisor, never by the
  * browser. It deliberately has no lifecycle state, persistence, retries, or
  * provider abstraction: Hermes owns provider resolution and config writes.
+ *
+ * Availability (verified against the bundled Hermes runtime):
+ *   SERVED by the gateway : /v1/capabilities, /v1/skills, /v1/toolsets, /api/model/options
+ *   NOT served by the gateway, dashboard-server only:
+ *                          /api/model/info, /api/model/set, /api/env,
+ *                          /api/providers/custom-endpoints, /api/providers/validate
+ *
+ * Consequences, which are EXPECTED rather than defects:
+ *   - `testCapability()` reports `supported: false`, so `nativeModelConfigSupported` stays
+ *     false and `HermesSupervisor` uses `applyConfigurationWithLifecycleRestart()`.
+ *   - Every method below is therefore a no-op path that returns an "endpoint missing" error.
+ *   - The restart fallback is the supported, tested apply path. See
+ *     `tests/unit/v4p0NativeConfigFallback.test.ts`.
+ *
+ * This client is retained on purpose: it is the correct adapter for a Hermes build that does
+ * serve the dashboard endpoints, and it must not be used to justify adding a config API to the
+ * bundled runtime. Do not infer capability from the presence of this file -- always gate on
+ * `nativeModelConfigSupported`, which is derived from a live probe.
  */
 class HermesModelConfigClient {
   constructor(options = {}) {
