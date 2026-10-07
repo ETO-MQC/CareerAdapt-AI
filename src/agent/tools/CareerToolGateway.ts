@@ -291,6 +291,7 @@ export class CareerToolGateway {
           confirmed: context.confirmed,
           confirmationCount: context.confirmationCount,
           careerSessionBinding: context.careerSessionBinding,
+          ...(context.userMessageId ? { userMessageId: context.userMessageId } : {}),
           requireSessionBinding: context.requireSessionBinding,
           retryFailedOperation: context.retryFailedOperation
         });
@@ -479,6 +480,7 @@ export class CareerToolGateway {
         confirmed: context.confirmed,
         confirmationCount: context.confirmationCount,
         careerSessionBinding: context.careerSessionBinding,
+        ...(context.userMessageId ? { userMessageId: context.userMessageId } : {}),
         requireSessionBinding: context.requireSessionBinding,
         retryFailedOperation: context.retryFailedOperation
       });

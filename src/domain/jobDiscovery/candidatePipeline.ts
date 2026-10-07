@@ -1,16 +1,17 @@
 /**
- * V4-P2-B 第一轮：本地确定性候选岗位闭环。
+ * V4-P2-B：本地候选岗位闭环。
  *
- * 流水线：fixture 文本 → normalizeJd / 内容哈希 → 三级去重 → jobListings +
- * jobSnapshots → JobAnalysisDraft（raw_saved，无 AI）→ 用户确认 →
- * 既有 commitJobDraft → JobDescription → markJobListingConverted。
+ * 流水线：用户/Agent 提供的 JD 文本 → normalizeJd / 内容哈希 → 三级去重 →
+ * jobListings + jobSnapshots → JobAnalysisDraft（raw_saved，无 AI）→
+ * 用户核对 → ConversionConfirmation → repository.convertCandidateListing →
+ * JobDescription → markJobListingConverted。
  *
  * 边界：
- * - 不访问网络、Hermes、cron、浏览器；输入只来自调用方（fixture）；
+ * - 不访问网络、Hermes、cron、浏览器；输入只来自调用方；
  * - 所有跨表写入经 WorkspaceRepository 事务；本模块只做纯逻辑与决策，
  *   不直接触碰 Dexie；
- * - 候选岗位不会自动成为正式岗位：转换必须由调用方显式传入
- *   userConfirmed: true 并走 repository.convertCandidateListing；
+ * - 候选岗位不会自动成为正式岗位：转换必须持有效的 ConversionConfirmation
+ *   （用户在 UI 或 Agent 确认轮中明确批准后发放，单次消费）；
  * - 原文永不覆盖：snapshot.rawText 保存原文，contentHash 是规范化文本的
  *   版本化哈希（sha256-normalized-v1），sourceSpan 始终能回到原文。
  */
@@ -84,7 +85,7 @@ export type CandidateIngestWaiting = {
 };
 
 /**
- * 摄取一个确定性 fixture 岗位：规范化 → 哈希 → 三级去重 → upsert listing →
+ * 摄取一个候选岗位：规范化 → 哈希 → 三级去重 → 原子写入 listing →
  * 追加 snapshot。重复摄取完全幂等；内容变化产生新 snapshot 版本并把
  * crawlState 标为 changed。
  */

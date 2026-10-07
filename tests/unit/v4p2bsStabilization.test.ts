@@ -243,6 +243,63 @@ describe("V4-P2-B stabilization: confirmation binding validation", () => {
     })).rejects.toThrow("conversion_confirmation_expired");
   });
 
+  it("rejects conversion when the graph is removed after confirmation (graphHash present -> absent)", async () => {
+    const { repository } = await setupReviewableDraft();
+    // 确认前草稿带 graph（确认捕获其指纹）。
+    const current = await repository.getJobAnalysisDraft("draft_a");
+    const withGraph = JobAnalysisDraftSchema.parse({
+      ...current,
+      requirementGraph: analyzeJobDescriptionV4({ rawText: JD_A }).graph,
+      updatedAt: LATER
+    });
+    await repository.saveJobAnalysisDraftRevision(withGraph, current!.revision);
+    const confirmation = await repository.createConversionConfirmation({
+      channel: "jobs_workspace",
+      operationId: "op-graph-removed",
+      listingId: "listing_a",
+      draftId: "draft_a",
+      now: LATER
+    });
+    expect(confirmation.graphHash).toBe(withGraph.requirementGraph?.graphHash);
+
+    // 确认后 graph 被整体移除（有值 → 无值）：指纹不一致，必须拒绝。
+    const currentAfterConfirm = await repository.getJobAnalysisDraft("draft_a");
+    const stripped = JobAnalysisDraftSchema.parse({ ...withGraph, requirementGraph: undefined, updatedAt: LATER });
+    await repository.saveJobAnalysisDraftRevision(stripped, currentAfterConfirm!.revision);
+    await expect(repository.convertCandidateListing({
+      listingId: "listing_a",
+      draftId: "draft_a",
+      commitId: "commit_graph_removed",
+      confirmationId: confirmation.confirmationId,
+      now: LATER
+    })).rejects.toThrow("conversion_confirmation_stale_content");
+  });
+
+  it("rejects agent-channel confirmations that lack session binding or user message (no degraded conversion)", async () => {
+    const { db, repository } = await setupReviewableDraft();
+    // 直接构造缺绑定字段的 agent 通道确认（绕过创建期快速失败，验证消费端兜底）。
+    const confirmation = await repository.createConversionConfirmation({
+      channel: "jobs_workspace",
+      operationId: "op-degrade-source",
+      listingId: "listing_a",
+      draftId: "draft_a",
+      now: LATER
+    });
+    const stored = await repository.getConversionConfirmation(confirmation.confirmationId);
+    await (db as CareerAdaptDb).appMeta.put({
+      key: `conversion-confirmation:${confirmation.confirmationId}`,
+      value: { ...stored, channel: "agent", careerSessionBinding: undefined, userMessageId: undefined },
+      updatedAt: LATER
+    });
+    await expect(repository.convertCandidateListing({
+      listingId: "listing_a",
+      draftId: "draft_a",
+      commitId: "commit_degrade",
+      confirmationId: confirmation.confirmationId,
+      now: LATER
+    })).rejects.toThrow("conversion_confirmation_agent_binding_missing");
+  });
+
   it("rejects conversion when the requirement graph changed after confirmation (graphHash fingerprint)", async () => {
     const { db: database, repository } = await setupReviewableDraft();
     // 先让草稿携带真实 V4 graph（确认创建时捕获其 graphHash 指纹）。
@@ -299,7 +356,7 @@ describe("V4-P2-B stabilization: agent duplicate decision", () => {
       company: "Acme",
       rawText: JD_A,
       graph
-    }, "op-agent-dup") as { status?: string; candidates?: Array<{ listingId: string; company: string }> };
+    }, "op-agent-dup", undefined, { operationId: "op-agent-dup", careerSessionBinding: AGENT_BINDING, userMessageId: "user-msg-dup" }) as { status?: string; candidates?: Array<{ listingId: string; company: string }> };
 
     expect(result.status).toBe("duplicate_decision_required");
     expect(result.candidates?.[0]?.company).toBe("Other Co");
@@ -330,7 +387,7 @@ describe("V4-P2-B stabilization: agent duplicate decision", () => {
       rawText: JD_A,
       graph,
       dedupDecision: "keep_separate"
-    }, "op-agent-sep");
+    }, "op-agent-sep", undefined, { operationId: "op-agent-sep", careerSessionBinding: AGENT_BINDING, userMessageId: "user-msg-sep" });
     expect((separate as { jobId?: string }).jobId).toBeTruthy();
     expect(await repository.listJobListings()).toHaveLength(2);
 
@@ -342,7 +399,7 @@ describe("V4-P2-B stabilization: agent duplicate decision", () => {
       graph,
       dedupDecision: "merge_existing",
       duplicateListingId: other.listing.id
-    }, "op-agent-merge");
+    }, "op-agent-merge", undefined, { operationId: "op-agent-merge", careerSessionBinding: AGENT_BINDING, userMessageId: "user-msg-merge" });
     expect((merged as { jobId?: string }).jobId).toBeTruthy();
     expect(await repository.listJobListings()).toHaveLength(2);
   });

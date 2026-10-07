@@ -6228,7 +6228,12 @@ export class AgentHostStore {
       },
       operationId,
       confirmed: true,
-      confirmationCount: 1
+      confirmationCount: 1,
+      // P2-B 最终收口：Agent 通道确认必须绑定会话与用户消息（缺任一即被
+      // commitJob 快速失败，不得降级）。
+      careerSessionBinding: careerSessionBindingForSession(session),
+      userMessageId: session.activeTurn?.sourceUserMessageId ?? session.activeTurn?.userMessageId,
+      requireSessionBinding: true
     });
     if (!result.ok) {
       const failedState = new AgentTaskStateReducer().reduce(state, {

@@ -500,6 +500,7 @@ describe("V4-P2-B round 2: agent commitJob shares the candidate pipeline", () =>
       graph
     }, "op-agent-job-1", undefined, {
       operationId: "op-agent-job-1",
+      userMessageId: "user-msg-job-1",
       careerSessionBinding: {
         personId: "person-1", profileId: "profile-1",
         profileVersionNumber: 1, profileRevision: 0, agentSessionId: "session-1"
@@ -532,6 +533,7 @@ describe("V4-P2-B round 2: agent commitJob shares the candidate pipeline", () =>
       graph
     }, "op-agent-job-2", undefined, {
       operationId: "op-agent-job-2",
+      userMessageId: "user-msg-job-2",
       careerSessionBinding: {
         personId: "person-1", profileId: "profile-1",
         profileVersionNumber: 1, profileRevision: 0, agentSessionId: "session-1"

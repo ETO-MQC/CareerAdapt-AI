@@ -8757,9 +8757,17 @@ export class WorkspaceRepository {
         if (expected.userMessageId !== undefined && confirmation.userMessageId !== expected.userMessageId) {
           throw new Error("conversion_confirmation_user_message_mismatch");
         }
-        if (expected.careerSessionBinding !== undefined
-          && JSON.stringify(confirmation.careerSessionBinding ?? null) !== JSON.stringify(expected.careerSessionBinding)) {
-          throw new Error("conversion_confirmation_session_mismatch");
+        if (expected.careerSessionBinding !== undefined) {
+          const stored = confirmation.careerSessionBinding;
+          // 逐字段比较（JSON.stringify 对键序敏感，不能用于此判定）。
+          if (!stored
+            || stored.agentSessionId !== expected.careerSessionBinding.agentSessionId
+            || stored.personId !== expected.careerSessionBinding.personId
+            || stored.profileId !== expected.careerSessionBinding.profileId
+            || stored.profileVersionNumber !== expected.careerSessionBinding.profileVersionNumber
+            || stored.profileRevision !== expected.careerSessionBinding.profileRevision) {
+            throw new Error("conversion_confirmation_session_mismatch");
+          }
         }
       }
 
@@ -8794,8 +8802,14 @@ export class WorkspaceRepository {
       if (confirmation.expectedDraftRevision !== draft.revision) {
         throw new Error("conversion_confirmation_stale_content");
       }
-      if (confirmation.graphHash && draft.requirementGraph?.graphHash && confirmation.graphHash !== draft.requirementGraph.graphHash) {
+      // 指纹校验：确认时记录了 graphHash，之后无论值变化还是整个 graph 被移除
+      // （有值→无值），内容都已变化，必须拒绝。
+      if (confirmation.graphHash && (draft.requirementGraph?.graphHash ?? "") !== confirmation.graphHash) {
         throw new Error("conversion_confirmation_stale_content");
+      }
+      if (confirmation.channel === "agent" && (!confirmation.careerSessionBinding || !confirmation.userMessageId)) {
+        // Agent 通道的确认不允许缺省绑定降级执行（P2-B 最终收口）。
+        throw new Error("conversion_confirmation_agent_binding_missing");
       }
       const notCommittable = draftCommittableError(draft);
       if (notCommittable) throw notCommittable;

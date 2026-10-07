@@ -1694,13 +1694,18 @@ export class BrowserAgentToolService implements AgentToolServices {
       updatedAt: now
     });
     await this.repository.saveJobAnalysisDraftRevision(analyzedDraft, parsed.draft.revision);
+    if (!context?.careerSessionBinding || !context?.userMessageId) {
+      // P2-B 最终收口：Agent 通道的转换确认必须绑定会话与用户消息；字段缺失
+      // 时快速失败，不允许降级执行。
+      throw new Error("agent_confirmation_binding_missing");
+    }
     const confirmation = await this.repository.createConversionConfirmation({
       channel: "agent",
       operationId,
       listingId: ingest.listing.id,
       draftId,
-      ...(context?.careerSessionBinding ? { careerSessionBinding: context.careerSessionBinding } : {}),
-      ...(context?.userMessageId ? { userMessageId: context.userMessageId } : {}),
+      careerSessionBinding: context.careerSessionBinding,
+      userMessageId: context.userMessageId,
       now
     });
     const committed = await this.repository.convertCandidateListing({
@@ -1711,8 +1716,8 @@ export class BrowserAgentToolService implements AgentToolServices {
       expectedConfirmation: {
         channel: "agent",
         operationId,
-        ...(context?.userMessageId ? { userMessageId: context.userMessageId } : {}),
-        ...(context?.careerSessionBinding ? { careerSessionBinding: context.careerSessionBinding } : {})
+        userMessageId: context.userMessageId,
+        careerSessionBinding: context.careerSessionBinding
       },
       now
     });
