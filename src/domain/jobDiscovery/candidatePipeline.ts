@@ -18,7 +18,6 @@
 import {
   JD_NORMALIZER_VERSION,
   companyTitleFingerprint,
-  contentFingerprint,
   jdContentHash,
   normalizeJd
 } from "@/domain/jobAssets/jdNormalization";
@@ -33,6 +32,23 @@ import type { JobListing, JobSnapshot } from "@/domain/schemas/jobDiscovery";
 import type { WorkspaceRepository } from "@/services/storage/repositories";
 
 export const CANDIDATE_PIPELINE_VERSION = "careeradapt-candidate-pipeline-v1";
+
+/**
+ * P2-B 第二轮：本地手动输入（用户粘贴 / Agent 接收用户提供 JD）的稳定身份。
+ * 岗位身份 = 公司 + 标题指纹：同 (公司, 标题) 的重复输入落到同一 listing
+ * （内容变化产生新 snapshot 版本，同内容完全幂等）；不同 (公司, 标题) 的
+ * 相同正文是三级去重的候选，由用户决定合并或独立保存。
+ */
+export const MANUAL_JOB_SOURCE_KEY = "local.manual";
+
+export function manualCandidateIdentity(title: string, company: string) {
+  const fingerprint = companyTitleFingerprint(title, company);
+  return {
+    sourceKey: MANUAL_JOB_SOURCE_KEY,
+    externalId: `manual-${fingerprint}`,
+    listingId: `listing-manual-${fingerprint}`
+  };
+}
 
 export type CandidateIngestInput = {
   sourceKey: string;
@@ -97,7 +113,10 @@ export async function ingestCandidateFixture(
   const normalized = normalizeJd(input.rawText);
   if (!normalized) throw new Error("candidate_jd_empty");
   const contentHash = jdContentHash(input.rawText);
-  const contentFingerprintValue = contentFingerprint(input.title, input.company, input.rawText);
+  // listing 的 contentFingerprint 取"纯规范化内容哈希"：三级去重的 content
+  // 规则据此才能命中"同 JD 正文、不同标题/公司"的重复（companyTitle 指纹
+  // 保持 title+company 语义）。
+  const contentFingerprintValue = contentHash;
   const companyTitleFingerprintValue = companyTitleFingerprint(input.title, input.company);
 
   const existing = await repository.listJobListings();

@@ -6,7 +6,7 @@ import {
 } from "@/ai/providers/transportError";
 import { ProfileIntakeStructuredPatchSchema } from "@/domain/profileIntake/ProfileIntakeNormalizer";
 import { CaptureProfileIntakeResultSchema } from "@/domain/profileIntake/CaptureProfileIntakeResult";
-import type { AgentToolDefinition, AgentToolResult } from "../contracts/agentTool";
+import type { AgentToolDefinition, AgentToolExecutionContext, AgentToolResult } from "../contracts/agentTool";
 import { ResumeSectionTypeV2Schema } from "@/domain/schemas/resumeV2";
 import { JobTargetSnapshotSchema } from "@/domain/schemas/jobTarget";
 import { TailoringIntensitySchema, TailoringModeSchema } from "@/domain/schemas/tailoring";
@@ -62,7 +62,7 @@ export type AgentToolServices = {
   createResumeImportDraft(input: unknown, signal?: AbortSignal): Promise<unknown>;
   commitResumeImport(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
   parseJobDescription(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
-  commitJob(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
+  commitJob(input: unknown, operationId: string, signal?: AbortSignal, context?: AgentToolExecutionContext): Promise<unknown>;
   analyzeJobFit(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
   createTailoringSession(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
   answerTailoringQuestion(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
@@ -311,12 +311,12 @@ const SessionSearchInputSchema = z.object({ query: z.string().min(1).max(240), l
 function define<TInput>(
   services: AgentToolServices,
   definition: Omit<AgentToolDefinition<TInput, unknown>, "execute">,
-  execute: (input: TInput, operationId: string, signal?: AbortSignal) => Promise<unknown>
+  execute: (input: TInput, operationId: string, signal?: AbortSignal, context?: AgentToolExecutionContext) => Promise<unknown>
 ): AgentToolDefinition<TInput, unknown> {
   return {
     ...definition,
     execute: async (input, context) => {
-      const value = await execute(input, context.operationId, context.signal);
+      const value = await execute(input, context.operationId, context.signal, context);
       return typeof value === "object" && value !== null
         ? { ...value, operationId: context.operationId }
         : { operationId: context.operationId, value };
@@ -364,7 +364,7 @@ export function createAgentToolRegistry(services: AgentToolServices) {
     define(services, meta("create_resume_import_draft", "兼容旧版已构建 draft 保存；canonical Agent 导入必须使用 prepare_resume_import。", "write", false, true, true, ResumeDraftInputSchema, "resume", "import_draft", true), (input, _, signal) => services.createResumeImportDraft(input, signal)),
     define(services, meta("commit_resume_import", "确认导入草稿并创建资料及简历版本。", "write", true, true, true, ResumeCommitInputSchema, "resume", "career_profile", true), (input, operationId, signal) => services.commitResumeImport(input, operationId, signal)),
     define(services, meta("parse_job_description", "解析岗位描述并生成岗位语义图。", "read", false, true, true, JobParseInputSchema, "job", "job_draft", true), (input, operationId, signal) => services.parseJobDescription(input, operationId, signal)),
-    define(services, meta("commit_job", "确认并保存岗位。", "write", true, true, true, JobCommitInputSchema, "job", "job_detail", true), (input, operationId, signal) => services.commitJob(input, operationId, signal)),
+    define(services, meta("commit_job", "确认并保存岗位。", "write", true, true, true, JobCommitInputSchema, "job", "job_detail", true), (input, operationId, signal, context) => services.commitJob(input, operationId, signal, context)),
     define(services, meta("analyze_job_fit", "分析简历与岗位的匹配情况。", "read", false, true, true, EntitySelectionSchema, "analysis", "career_assets", true), (input, operationId, signal) => services.analyzeJobFit(input, operationId, signal)),
     define(services, meta("create_tailoring_session", "基于现有简历和岗位创建改写计划。", "read", false, true, true, TailoringSessionInputSchema, "tailoring", "career_assets", true), (input, operationId, signal) => services.createTailoringSession(input, operationId, signal)),
     define(services, meta("answer_tailoring_question", "记录用户对当前改写澄清问题的回答；只修改当前定制会话。", "user_declared", false, true, true, TailoringQuestionInputSchema, "tailoring", "tailoring_session"), (input, operationId, signal) => services.answerTailoringQuestion(input, operationId, signal)),
@@ -435,7 +435,7 @@ export class AgentToolRegistry {
     }));
   }
 
-  async execute(name: string, rawInput: unknown, operationId: string, signal?: AbortSignal): Promise<AgentToolResult> {
+  async execute(name: string, rawInput: unknown, operationId: string, signal?: AbortSignal, context?: { careerSessionBinding?: AgentToolExecutionContext["careerSessionBinding"] }): Promise<AgentToolResult> {
     const tool = this.require(name);
     let input: unknown;
     try {
@@ -461,7 +461,7 @@ export class AgentToolRegistry {
       throw error;
     }
     try {
-      const output = tool.outputSchema.parse(await tool.execute(input, { operationId, signal }));
+      const output = tool.outputSchema.parse(await tool.execute(input, { operationId, signal, ...(context?.careerSessionBinding ? { careerSessionBinding: context.careerSessionBinding } : {}) }));
       return {
         ok: true,
         operationId,

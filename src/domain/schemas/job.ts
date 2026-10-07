@@ -12,6 +12,7 @@ export const JobWorkflowErrorCodeSchema = z.enum([
   "ai_invalid_output",
   "repository_save_failed",
   "revision_conflict",
+  "draft_not_committable",
   "unknown_error"
 ]);
 

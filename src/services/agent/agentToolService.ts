@@ -4,13 +4,14 @@ import {
   JobRequirementGraphV4Schema,
   JobTargetSnapshotSchema,
   type JobTargetSnapshot,
-  RawInputDocumentSchema,
   ResumeTailoringDiffSchema,
   type ImportedResumeDraft,
   type ProfileReconciliationPlan,
   TailoringIntensitySchema,
   TailoringModeSchema
 } from "@/domain/schemas";
+import { ingestCandidateFixture, manualCandidateIdentity, parseCandidateToDraft } from "@/domain/jobDiscovery/candidatePipeline";
+import type { AgentToolExecutionContext } from "@/agent/contracts/agentTool";
 import { projectJobGraphV4ToAnalyzerOutput } from "@/domain/jobOptimization/v3/project";
 import { parseUserPreferences } from "@/domain/resumeComposition/ResumeCompositionPreferences";
 import { extractExplicitTargetRole } from "@/domain/branch/targetRole";
@@ -29,9 +30,8 @@ import {
 import { jobTargetSnapshotHash, jobTargetSnapshotToJobDescription } from "@/domain/jobTarget/jobTargetSnapshot";
 import { invokeStructuredAi } from "@/ai/client";
 import { ResumeTailoringDiffModelOutputSchema, type ResumeTailoringDiffTaskInput } from "@/domain/schemas";
-import { commitParsedJob } from "@/services/jobs/jobWorkflow";
 import { analyzeJobFit, tailoringAnswerRevisionHash } from "@/services/jobs/tailoringService";
-import { hashText, stableHashText } from "@/services/security/text";
+import { stableHashText } from "@/services/security/text";
 import {
   readTailoringValue,
   resumeBranchContentHash,
@@ -1607,48 +1607,89 @@ export class BrowserAgentToolService implements AgentToolServices {
     };
   }
 
-  async commitJob(rawInput: unknown, operationId: string, signal?: AbortSignal) {
+  /**
+   * P2-B 第二轮：Agent 保存岗位与 JobsWorkspace 共用同一条候选岗位管道。
+   * 摄取（manual 身份，同公司+标题幂等）→ 绑定分析草稿 → 把 Agent 已分析的
+   * graph 写回同一条草稿 → 创建转换确认（绑定 operationId 与 agent 会话，
+   * 指纹为草稿 revision + graphHash）→ 单事务转换。Agent 仍不能绕过
+   * executor 的用户确认（requiresConfirmation），也不能自行发放确认之外
+   * 的第二次确认。
+   */
+  async commitJob(rawInput: unknown, operationId: string, signal?: AbortSignal, context?: AgentToolExecutionContext) {
     assertNotAborted(signal);
     const input = rawInput as { title: string; company: string; rawText: string; graph: unknown };
     const graph = JobRequirementGraphV4Schema.parse(input.graph);
     const now = new Date().toISOString();
-    const rawInputId = `raw-agent-job-${stableHashText(operationId).slice(0, 20)}`;
-    const draftId = `job-draft-agent-${stableHashText(operationId).slice(0, 20)}`;
-    const rawDocument = RawInputDocumentSchema.parse({
-      id: rawInputId,
-      kind: "job_jd",
+    const identity = manualCandidateIdentity(input.title, input.company);
+    const ingest = await ingestCandidateFixture(this.repository, {
+      sourceKey: identity.sourceKey,
+      externalId: identity.externalId,
+      listingId: identity.listingId,
       rawText: input.rawText,
-      inputHash: await hashText(input.rawText),
-      title: `${input.company} ${input.title}`,
-      createdAt: now,
-      updatedAt: now
+      title: input.title,
+      company: input.company,
+      dedupDecision: "keep_separate",
+      now
     });
+    if (ingest.status === "waiting_input") throw new Error("candidate_duplicate_decision_required");
+    const draftId = `job-draft-agent-${stableHashText(operationId).slice(0, 20)}`;
+    const parsed = await parseCandidateToDraft(this.repository, {
+      listingId: ingest.listing.id,
+      snapshotId: ingest.snapshot.id,
+      draftId,
+      now
+    });
+    if (parsed.draft.status === "committed" && parsed.draft.committedJobId) {
+      // 该候选岗位已经转换为正式岗位：幂等返回既有结果，不重复分析或转换。
+      const existing = await this.repository.getJobDescription(parsed.draft.committedJobId);
+      if (existing) {
+        return {
+          jobId: existing.id,
+          jobRevision: existing.updatedAt,
+          jobGraphHash: stableHashText(JSON.stringify(existing.requirementGraph ?? existing.requirements)),
+          jobDescription: existing,
+          draft: parsed.draft,
+          idempotent: true
+        };
+      }
+    }
     const analyzerOutput = projectJobGraphV4ToAnalyzerOutput({
       graph,
       title: input.title,
       company: input.company,
       now
     });
-    const draft = JobAnalysisDraftSchema.parse({
-      id: draftId,
-      rawInputId,
-      revision: 0,
+    const analyzedDraft = JobAnalysisDraftSchema.parse({
+      ...parsed.draft,
       title: input.title,
       company: input.company,
       status: graph.needsReview ? "needs_review" : "ai_validated",
       promptVersion: "agent-command.v1",
-      attemptCount: 1,
+      attemptCount: parsed.draft.attemptCount + 1,
       analyzerOutput,
       requirementGraph: graph,
       analysisIssues: graph.sourceCoverage.unclassifiedSpans.map((span) => span.text),
       manualRequirements: [],
       riskNotes: analyzerOutput.riskNotes,
-      createdAt: now,
+      analysisRunStatus: "review_ready",
       updatedAt: now
     });
-    await this.repository.saveRawInput(rawDocument);
-    await this.repository.createJobAnalysisDraft(draft);
-    const committed = await commitParsedJob({ repository: this.repository, draft, rawInput: rawDocument });
+    await this.repository.saveJobAnalysisDraftRevision(analyzedDraft, parsed.draft.revision);
+    const confirmation = await this.repository.createConversionConfirmation({
+      channel: "agent",
+      operationId,
+      listingId: ingest.listing.id,
+      draftId,
+      ...(context?.careerSessionBinding ? { careerSessionBinding: context.careerSessionBinding } : {}),
+      now
+    });
+    const committed = await this.repository.convertCandidateListing({
+      listingId: ingest.listing.id,
+      draftId,
+      commitId: `commit-job-${draftId}-${analyzedDraft.revision}`,
+      confirmationId: confirmation.confirmationId,
+      now
+    });
     return {
       jobId: committed.jobDescription.id,
       jobRevision: committed.jobDescription.updatedAt,

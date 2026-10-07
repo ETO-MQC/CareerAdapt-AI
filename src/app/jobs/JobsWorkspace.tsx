@@ -9,6 +9,15 @@ import { invokeStageBAi, invokeStructuredAi } from "@/ai/client";
 import { promptVersions } from "@/ai/prompts/versions";
 import { analyzeJobDescriptionV4, projectJobGraphV4ToAnalyzerOutput } from "@/domain/jobOptimization";
 import {
+  ingestCandidateFixture,
+  manualCandidateIdentity,
+  parseCandidateToDraft,
+  MANUAL_JOB_SOURCE_KEY,
+  type CandidateIngestInput
+} from "@/domain/jobDiscovery/candidatePipeline";
+import type { JobListing } from "@/domain/schemas/jobDiscovery";
+import type { ConversionConfirmation } from "@/services/storage/repositories";
+import {
   EvidenceMatcherOutputSchema,
   JdAnalyzerModelOutputSchema,
   MatchEvaluationSchema,
@@ -31,10 +40,9 @@ import {
 import { canonicalProfileLibraryItems } from "@/domain/profile/canonicalLibrary";
 import { WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState } from "@/components/workspace/WorkspaceStates";
 import { ProductTopbar } from "@/components/ui/product";
-import { hashText, redactSensitiveTextForModel, stableHashText } from "@/services/security/text";
+import { redactSensitiveTextForModel, stableHashText } from "@/services/security/text";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
 import {
-  commitParsedJob,
   jobResumeGenerationFeedback,
   jobWorkflowErrorState,
   appendJobAnalysisRun,
@@ -92,6 +100,10 @@ export function JobsWorkspace() {
   const [profileAnalysis, setProfileAnalysis] = useState<ProfileLibrarySourceAnalysis>();
   const [selectedProfileItemIds, setSelectedProfileItemIds] = useState<string[]>([]);
   const [existingJobBranch, setExistingJobBranch] = useState<ResumeBranch | null>(null);
+  const [candidateListing, setCandidateListing] = useState<JobListing>();
+  const [duplicateCandidate, setDuplicateCandidate] = useState<{ input: CandidateIngestInput; duplicateListingId: string; duplicateTitle: string }>();
+  const [openConfirmation, setOpenConfirmation] = useState<ConversionConfirmation>();
+  const [conversionResult, setConversionResult] = useState<{ jobId: string; listingId: string }>();
 
   useEffect(() => {
     let active = true;
@@ -103,6 +115,12 @@ export function JobsWorkspace() {
       const persisted = recovered === latest ? latest : await repository.saveJobAnalysisDraftRevision(recovered, latest.revision);
       if (!active) return;
       setDraft(persisted); setTitle(persisted.title); setCompany(persisted.company); setRawInput(raw); setRawText(raw?.rawText ?? ""); setLoadedDraft(true);
+      // P2-B 第二轮：刷新/重启后恢复候选岗位与待确认的转换操作。
+      const boundListing = (await repository.listJobListings()).find((item) => item.analysisDraftId === persisted.id);
+      if (!active) return;
+      if (boundListing) setCandidateListing(boundListing);
+      const openConfirmations = await repository.findOpenConversionConfirmations(persisted.id);
+      if (active && openConfirmations[0]) setOpenConfirmation(openConfirmations[0]);
     });
     return () => { active = false; };
   }, []);
@@ -156,30 +174,55 @@ export function JobsWorkspace() {
     return () => { active = false; };
   }, [profile, selectedBaseResumeId, selectedJob]);
 
-  async function startImport() {
+  /**
+   * P2-B 第二轮：粘贴/上传 JD 统一走候选岗位管道——摄取（manual 身份幂等）
+   * → 绑定分析草稿 → 对齐到现有隐私确认入口状态。重复内容命中去重候选时
+   * 交由用户选择合并或独立保存，不静默合并。
+   */
+  async function startImport(decision?: "merge_existing" | "keep_separate", duplicateListingId?: string) {
     try {
       const validated = validateJobInput({ title, company, rawText });
-      const now = new Date().toISOString();
-      const inputHash = await hashText(`${validated.title}\n${validated.company}\n${validated.rawText}`);
-      const inputChanged = inputHash !== rawInput?.inputHash;
-      const nextRawInput: RawInputDocument = { id: rawInput?.id ?? `raw-${nanoid(10)}`, kind: "job_jd", rawText: validated.rawText, inputHash, title: `${validated.company} / ${validated.title}`, createdAt: rawInput?.createdAt ?? now, updatedAt: now };
-      await repository.saveRawInput(nextRawInput);
-      const nextDraft: JobAnalysisDraft = {
-        id: draft?.id ?? `job-draft-${nanoid(10)}`, rawInputId: nextRawInput.id, revision: draft?.revision ?? 0,
-        title: validated.title, company: validated.company, status: "privacy_pending", promptVersion: promptVersions.jdAnalyzer,
-        attemptCount: inputChanged ? 0 : draft?.attemptCount ?? 0,
-        analyzerOutput: inputChanged ? undefined : draft?.analyzerOutput,
-        requirementGraph: inputChanged ? undefined : draft?.requirementGraph,
-        analysisIssues: inputChanged ? [] : draft?.analysisIssues ?? [],
-        manualRequirements: inputChanged ? [] : draft?.manualRequirements ?? [], riskNotes: inputChanged ? [] : draft?.riskNotes ?? [],
-        committedJobId: draft?.committedJobId, committedAt: draft?.committedAt,
-        analysisRunStatus: "saved",
-        analysisRuns: inputChanged ? [{ id: `job-run-${nanoid(8)}`, startedAt: now, status: "saved", analyzerVersion: "jd-analyzer.semantic-ledger-v4.0" }] : draft?.analysisRuns ?? [],
-        createdAt: draft?.createdAt ?? now, updatedAt: now
+      const identity = manualCandidateIdentity(validated.title, validated.company);
+      const ingestInput: CandidateIngestInput = {
+        sourceKey: identity.sourceKey,
+        externalId: identity.externalId,
+        listingId: identity.listingId,
+        rawText: validated.rawText,
+        title: validated.title,
+        company: validated.company,
+        ...(decision ? { dedupDecision: decision, duplicateListingId } : {})
       };
-      const saved = draft ? await repository.saveJobAnalysisDraftRevision(nextDraft, draft.revision) : await repository.createJobAnalysisDraft(nextDraft);
-      setRawInput(nextRawInput); setDraft(saved); setJobAnalysisDialogOpen(true); setSaveStatus("saved"); setJobError(undefined); setFailedAction(undefined);
-      notify({ type: "success", title: "岗位已保存", message: "原始 JD 已安全保留。确认隐私说明后即可开始解析。" });
+      const ingest = await ingestCandidateFixture(repository, ingestInput);
+      if (ingest.status === "waiting_input") {
+        const candidate = ingest.dedup.candidates[0];
+        if (!candidate) throw new Error("duplicate_candidate_missing");
+        const existing = await repository.getJobListing(candidate.jobPostingId);
+        setDuplicateCandidate({ input: ingestInput, duplicateListingId: candidate.jobPostingId, duplicateTitle: existing ? `${existing.company} / ${existing.title}` : candidate.title });
+        setSaveStatus("idle"); setJobError(undefined); setFailedAction(undefined);
+        notify({ type: "warning", title: "发现可能的重复岗位", message: "相同内容已存在于其他岗位标题下，请选择合并或独立保存。" });
+        return;
+      }
+      setDuplicateCandidate(undefined);
+      setCandidateListing(ingest.listing);
+      const parsed = await parseCandidateToDraft(repository, {
+        listingId: ingest.listing.id,
+        snapshotId: ingest.snapshot.id,
+        draftId: draft?.id ?? `job-draft-${nanoid(10)}`
+      });
+      setRawInput(await repository.getRawInput(parsed.rawInputId));
+      // 对齐到现有解析入口状态：raw_saved → privacy_pending（同一条草稿）。
+      const now = new Date().toISOString();
+      const aligned = await repository.saveJobAnalysisDraftRevision({
+        ...parsed.draft,
+        status: "privacy_pending",
+        promptVersion: promptVersions.jdAnalyzer,
+        analysisRunStatus: "saved",
+        analysisRuns: [{ id: `job-run-${nanoid(8)}`, startedAt: now, status: "saved", analyzerVersion: "jd-analyzer.semantic-ledger-v4.0" }],
+        updatedAt: now
+      }, parsed.draft.revision);
+      setOpenConfirmation(undefined);
+      setDraft(aligned); setJobAnalysisDialogOpen(true); setSaveStatus("saved"); setJobError(undefined); setFailedAction(undefined);
+      notify({ type: "success", title: "候选岗位已保存", message: `原始 JD 已进入候选岗位（${MANUAL_JOB_SOURCE_KEY}）。确认隐私说明后即可开始解析。` });
     } catch (error) {
       const state = jobWorkflowErrorState(error, "repository_save_failed");
       setJobError(state); setFailedAction("start_import"); setSaveStatus(error instanceof RevisionConflictError ? "conflict" : "failed");
@@ -275,15 +318,33 @@ export function JobsWorkspace() {
   }
 
   async function commitJob() {
-    if (!draft || !rawInput) return;
+    if (!draft || !rawInput || !candidateListing) return;
     try {
       setSaveStatus("saving");
-      const result = await commitParsedJob({ repository, draft, rawInput });
+      // P2-B 第二轮：正式岗位转换必须携带真实确认记录（绑定 operationId、
+      // 过期时间与内容指纹，单次消费）；确认过期或已消费时重试会重新创建。
+      const confirmation = openConfirmation ?? await repository.createConversionConfirmation({
+        channel: "jobs_workspace",
+        operationId: `jobs-workspace-${draft.id}-${draft.revision}`,
+        listingId: candidateListing.id,
+        draftId: draft.id
+      });
+      const result = await repository.convertCandidateListing({
+        listingId: candidateListing.id,
+        draftId: draft.id,
+        commitId: `commit-job-${draft.id}-${draft.revision}`,
+        confirmationId: confirmation.confirmationId
+      });
       workspace.upsertJob(result.jobDescription);
-      setDraft(undefined); setRawInput(undefined); setTitle(""); setCompany(""); setRawText(""); setSelectedJobId(result.jobDescription.id); setJobListFilter("active"); setTab("resumes"); setSaveStatus("saved"); setJobError(undefined); setFailedAction(undefined);
+      setConversionResult({ jobId: result.jobDescription.id, listingId: candidateListing.id });
+      setDraft(undefined); setRawInput(undefined); setTitle(""); setCompany(""); setRawText(""); setSelectedJobId(result.jobDescription.id); setJobListFilter("active"); setTab("resumes"); setSaveStatus("saved"); setJobError(undefined); setFailedAction(undefined); setCandidateListing(undefined); setOpenConfirmation(undefined);
       notify({ type: "success", title: "岗位已提交", message: `${result.jobDescription.company} / ${result.jobDescription.title} 已保存。` });
       await workspace.refetch();
     } catch (error) {
+      if (error instanceof Error && error.message.startsWith("conversion_confirmation_")) {
+        // 确认过期/已消费/内容变化：丢弃本地缓存确认，重试时重新走确认链。
+        setOpenConfirmation(undefined);
+      }
       const state = jobWorkflowErrorState(error); setJobError(state); setFailedAction("commit"); setSaveStatus(state.code === "revision_conflict" ? "conflict" : "failed");
       notify({ type: "error", title: jobWorkflowErrorLabel(state.code), message: state.message });
     }
@@ -299,7 +360,7 @@ export function JobsWorkspace() {
     if (!draft || !window.confirm("弃用后，岗位解析任务入口会移除。原始 JD 不会进入正式岗位。确认弃用？")) return;
     const currentRun = draft.analysisRuns?.at(-1) ?? { id: `job-run-${nanoid(8)}`, startedAt: new Date().toISOString(), status: "saved" as const, analyzerVersion: "job-requirement-analyzer-v3" };
     await saveDraft(appendJobAnalysisRun({ ...draft, status: "discarded" }, { ...currentRun, status: "discarded", finishedAt: new Date().toISOString() }));
-    setDraft(undefined); setRawInput(undefined); setTitle(""); setCompany(""); setRawText(""); setJobAnalysisDialogOpen(false);
+    setDraft(undefined); setRawInput(undefined); setTitle(""); setCompany(""); setRawText(""); setJobAnalysisDialogOpen(false); setCandidateListing(undefined); setOpenConfirmation(undefined); setDuplicateCandidate(undefined);
   }
 
   async function analyzeProfileLibrary() {
@@ -407,10 +468,10 @@ export function JobsWorkspace() {
   async function restoreSelectedJob() { if (!selectedJob) return; await saveArchivedJobIds(archivedJobIds.filter((id) => id !== selectedJob.id)); setJobListFilter("active"); setSelectedJobId(selectedJob.id); notify({ type: "success", title: "岗位已恢复", message: "岗位已回到当前列表。" }); }
   async function requestSafeJobDelete() { if (!selectedJob || !window.confirm(`将“${selectedJob.company} / ${selectedJob.title}”移入回收站？之后可在统一回收站恢复。`)) return; const next = await repository.moveJobToRecycleBin(selectedJob.id); await saveArchivedJobIds(archivedJobIds.filter((id) => id !== selectedJob.id)); setTrashedJobIds(next.jobIds); setSelectedJobId(activeJobs.find((job) => job.id !== selectedJob.id)?.id ?? ""); notify({ type: "success", title: "岗位已移入回收站", message: "关联简历、匹配和求职记录未被删除。" }); }
 
-  function editSelectedJob() { if (!selectedJob) return; setTitle(selectedJob.title); setCompany(selectedJob.company); setRawText(selectedJob.rawText); setRawInput(undefined); setDraft(undefined); setShowJobMenu(false); window.scrollTo({ top: 0, behavior: "smooth" }); }
-  function editJobFromCard(job: JobDescription) { setSelectedJobId(job.id); setTitle(job.title); setCompany(job.company); setRawText(job.rawText); setRawInput(undefined); setDraft(undefined); setShowJobMenu(false); setTab("resumes"); setSourceMode("profile"); setSelectedBaseResumeId(""); setMatches([]); setProfileAnalysis(undefined); setSelectedProfileItemIds([]); setGenerationErrorCode(undefined); setShowMatchDetails(false); setResumeActionStatus("idle"); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  function editSelectedJob() { if (!selectedJob) return; setTitle(selectedJob.title); setCompany(selectedJob.company); setRawText(selectedJob.rawText); setRawInput(undefined); setDraft(undefined); setCandidateListing(undefined); setOpenConfirmation(undefined); setDuplicateCandidate(undefined); setShowJobMenu(false); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  function editJobFromCard(job: JobDescription) { setSelectedJobId(job.id); setTitle(job.title); setCompany(job.company); setRawText(job.rawText); setRawInput(undefined); setDraft(undefined); setCandidateListing(undefined); setOpenConfirmation(undefined); setDuplicateCandidate(undefined); setShowJobMenu(false); setTab("resumes"); setSourceMode("profile"); setSelectedBaseResumeId(""); setMatches([]); setProfileAnalysis(undefined); setSelectedProfileItemIds([]); setGenerationErrorCode(undefined); setShowMatchDetails(false); setResumeActionStatus("idle"); window.scrollTo({ top: 0, behavior: "smooth" }); }
   async function deleteJobFromCard(job: JobDescription) { if (!window.confirm(`将"${job.company} / ${job.title}"移入回收站？之后可在统一回收站恢复。`)) return; const next = await repository.moveJobToRecycleBin(job.id); await saveArchivedJobIds(archivedJobIds.filter((id) => id !== job.id)); setTrashedJobIds(next.jobIds); setSelectedJobId(activeJobs.find((j) => j.id !== job.id)?.id ?? ""); notify({ type: "success", title: "岗位已移入回收站", message: "关联简历、匹配和求职记录未被删除。" }); }
-  function retryFailedJobAction() { if (failedAction === "start_import") void startImport(); else if (failedAction === "analyze") void analyzeWithAi(); else if (failedAction === "commit") void commitJob(); }
+  function retryFailedJobAction() { if (failedAction === "start_import") void startImport(duplicateCandidate ? "keep_separate" : undefined, duplicateCandidate?.duplicateListingId); else if (failedAction === "analyze") void analyzeWithAi(); else if (failedAction === "commit") void commitJob(); }
   function selectJob(id: string) { setSelectedJobId(id); setTab("resumes"); setSourceMode("profile"); setSelectedBaseResumeId(""); setMatches([]); setProfileAnalysis(undefined); setSelectedProfileItemIds([]); setGenerationErrorCode(undefined); setShowMatchDetails(false); setResumeActionStatus("idle"); setShowJobMenu(false); }
   function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, current: JobWorkspaceTab) { const tabs: JobWorkspaceTab[] = ["resumes", "info", "requirements", "applications"]; const index = tabs.indexOf(current); const next = event.key === "ArrowRight" ? (index + 1) % tabs.length : event.key === "ArrowLeft" ? (index - 1 + tabs.length) % tabs.length : event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : index; if (next === index && !["Home", "End"].includes(event.key)) return; event.preventDefault(); setTab(tabs[next]); event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus(); }
 
@@ -432,7 +493,9 @@ export function JobsWorkspace() {
             <label className="job-jd-field" htmlFor="job-raw-textarea">岗位描述<textarea id="job-raw-textarea" name="job-description" data-testid="job-raw-textarea" value={rawText} onChange={(event) => setRawText(event.target.value)} placeholder="粘贴岗位职责、任职要求和加分项…" /></label>
           </div>
           <footer className="job-entry-actions">
-            {draft?.status === "privacy_pending" ? <div className="privacy-inline"><span>{redactionPreview.redactions.length ? `已识别 ${redactionPreview.redactions.length} 类隐私信息，将先脱敏。` : "未发现需脱敏的联系信息。"}</span><button className="secondary-button" type="button" data-testid="job-manual-mode" onClick={() => void enterManualMode()}>使用本地解析</button><button className="primary-button" type="button" data-testid="job-analyze-ai" onClick={() => void analyzeWithAi()}>同意脱敏并解析</button></div> : <button className="primary-button" type="button" data-testid="save-job-raw-input" onClick={() => void startImport()} disabled={saveStatus === "saving"}>{saveStatus === "saving" ? "保存中…" : "保存并分析岗位"}</button>}
+            {duplicateCandidate ? <div className="privacy-inline" data-testid="duplicate-choice" role="group" aria-label="重复岗位选择"><span>与已有候选岗位「{duplicateCandidate.duplicateTitle}」内容相同：合并到它，还是独立保存？</span><button className="secondary-button" type="button" data-testid="duplicate-merge" onClick={() => void startImport("merge_existing", duplicateCandidate.duplicateListingId)}>合并到已有岗位</button><button className="primary-button" type="button" data-testid="duplicate-keep-separate" onClick={() => void startImport("keep_separate", duplicateCandidate.duplicateListingId)}>保存为独立岗位</button></div> : null}
+            {conversionResult ? <div className="privacy-inline" data-testid="conversion-result"><span>正式岗位已创建（来自候选岗位的确认转换）。</span></div> : null}
+            {draft?.status === "privacy_pending" ? <div className="privacy-inline"><span>{redactionPreview.redactions.length ? `已识别 ${redactionPreview.redactions.length} 类隐私信息，将先脱敏。` : "未发现需脱敏的联系信息。"}</span><button className="secondary-button" type="button" data-testid="job-manual-mode" onClick={() => void enterManualMode()}>使用本地解析</button><button className="primary-button" type="button" data-testid="job-analyze-ai" onClick={() => void analyzeWithAi()}>同意脱敏并解析</button></div> : <button className="primary-button" type="button" data-testid="save-job-raw-input" onClick={() => void startImport()} disabled={saveStatus === "saving" || Boolean(duplicateCandidate)}>{saveStatus === "saving" ? "保存中…" : duplicateCandidate ? "请先选择处理方式" : "保存并分析岗位"}</button>}
           </footer>
         </article>
 
@@ -443,7 +506,7 @@ export function JobsWorkspace() {
         </aside>
       </section>
 
-      {draft && !["committed", "discarded"].includes(draft.status) ? <section className="panel job-analysis-task" aria-live="polite"><div><span>{jobAnalysisTaskLabel(draft.analysisRunStatus)}</span><strong>{draft.title}</strong><p>{jobAnalysisTaskDescription(draft)}</p></div><div className="action-row"><button className="secondary-button compact" type="button" data-testid="open-job-analysis" onClick={() => setJobAnalysisDialogOpen(true)}>{draft.analysisRunStatus === "ai_analyzing" ? "查看进度" : "继续核对"}</button>{draft.analysisRunStatus === "local_ready_ai_failed" ? <button className="secondary-button compact" type="button" onClick={() => { setJobAnalysisDialogOpen(true); void analyzeWithAi(); }}>重试 AI</button> : null}</div></section> : null}
+      {draft && !["committed", "discarded"].includes(draft.status) ? <section className="panel job-analysis-task" aria-live="polite"><div><span>{jobAnalysisTaskLabel(draft.analysisRunStatus)}</span><strong>{draft.title}</strong><p>{jobAnalysisTaskDescription(draft)}</p>{candidateListing ? <p className="candidate-status" data-testid="candidate-status">候选岗位：{candidateListing.sourceKey} · {candidateListing.crawlState === "new" ? "新候选" : candidateListing.crawlState === "changed" ? "内容有更新" : candidateListing.crawlState === "unchanged" ? "内容未变化" : "已下线"}{openConfirmation ? " · 存在待使用的转换确认" : ""}</p> : null}</div><div className="action-row"><button className="secondary-button compact" type="button" data-testid="open-job-analysis" onClick={() => setJobAnalysisDialogOpen(true)}>{draft.analysisRunStatus === "ai_analyzing" ? "查看进度" : "继续核对"}</button>{draft.analysisRunStatus === "local_ready_ai_failed" ? <button className="secondary-button compact" type="button" onClick={() => { setJobAnalysisDialogOpen(true); void analyzeWithAi(); }}>重试 AI</button> : null}</div></section> : null}
 
       {draft && output ? <JobAnalysisDialog open={isJobAnalysisDialogOpen} draft={draft} output={output} saveStatus={saveStatus} onClose={() => setJobAnalysisDialogOpen(false)} onRetry={() => void analyzeWithAi()} onManual={() => void enterManualMode()} onToggle={toggleRequirement} onToggleAll={toggleAllRequirements} onRemove={removeRequirement} onDiscard={() => void discardDraft()} onCommit={() => void commitJob()} /> : null}
 
@@ -599,7 +662,7 @@ function formatJobDate(value: string) { return new Intl.DateTimeFormat("zh-CN", 
 function tabLabel(tab: JobWorkspaceTab) { return { resumes: "生成岗位简历", info: "岗位信息", requirements: "岗位要求", applications: "求职进度" }[tab]; }
 function tabIcon(tab: JobWorkspaceTab) { return { resumes: Sparkles, info: FileText, requirements: ListChecks, applications: KanbanSquare }[tab]; }
 function saveStatusLabel(status: "idle" | "saving" | "saved" | "failed" | "conflict") { return { idle: "等待保存", saving: "保存中…", saved: "已保存", failed: "保存失败", conflict: "内容已变化" }[status]; }
-function jobWorkflowErrorLabel(code: JobWorkflowErrorState["code"]) { return { empty_input: "输入不完整", text_too_short: "JD 文本过短", schema_validation_failed: "岗位数据校验失败", ai_invalid_output: "岗位解析格式不完整", repository_save_failed: "岗位保存失败", revision_conflict: "岗位草稿已变化", unknown_error: "操作未完成" }[code]; }
+function jobWorkflowErrorLabel(code: JobWorkflowErrorState["code"]) { return { empty_input: "输入不完整", text_too_short: "JD 文本过短", schema_validation_failed: "岗位数据校验失败", ai_invalid_output: "岗位解析格式不完整", repository_save_failed: "岗位保存失败", revision_conflict: "岗位草稿已变化", draft_not_committable: "草稿尚未完成核对", unknown_error: "操作未完成" }[code]; }
 function jobSourceLabel(source: JobDescription["source"]) { return { manual: "手动录入", imported_text: "文本导入", url: "链接导入", demo: "示例岗位" }[source]; }
 function categoryLabel(value: string) { return ({ responsibility: "工作职责", must_have: "必备条件", required_skill: "必备技能", core_skill: "核心能力", preferred_skill: "加分技能", nice_to_have: "加分项", experience: "工作经验", education: "学历要求", certificate: "证书要求", language: "语言要求", tool: "工具与技术", soft_skill: "通用能力", risk_or_uncertain: "待确认", other: "其他要求" } as Record<string, string>)[value] ?? "其他要求"; }
 function jobAnalysisRunLabel(value: string) { return ({ saved: "原始 JD 已保存", local_analyzing: "正在本地结构化", ai_analyzing: "正在进行 AI 语义增强", validating: "正在校验来源与 Schema", review_ready: "已完成，等待核对", local_ready_ai_failed: "本地完成，AI 增强失败", interrupted: "已中断，可继续解析", committed: "已提交", discarded: "已弃用" } as Record<string, string>)[value] ?? "等待处理"; }

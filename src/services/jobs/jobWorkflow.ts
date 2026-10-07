@@ -166,12 +166,38 @@ export function jobResumeGenerationFeedback(code: JobResumeGenerationErrorCode):
   return feedback[code];
 }
 
+/**
+ * P2-B 第二轮：只有完成分析并由用户核对过的草稿可以转换为正式岗位。
+ * raw_saved / privacy_pending / analyzing / empty / raw_saving / committed /
+ * discarded / error 一律拒绝——正式岗位只能来自已保存、已分析、已审核的草稿，
+ * 且只能经 mapJobDraftToJobDescription 生成，不接受调用方任意传入的
+ * JobDescription。
+ */
+export const COMMITTABLE_DRAFT_STATUSES: readonly JobAnalysisDraft["status"][] = [
+  "ai_validated",
+  "needs_review",
+  "editing",
+  "manual_mode",
+  "confirming"
+];
+
+export function draftCommittableError(draft: JobAnalysisDraft): JobWorkflowError | undefined {
+  if (COMMITTABLE_DRAFT_STATUSES.includes(draft.status)) return undefined;
+  return createJobWorkflowError(
+    "draft_not_committable",
+    "validate",
+    `当前草稿状态（${draft.status}）尚未完成分析与用户核对，不能提交正式岗位。`
+  );
+}
+
 export async function commitParsedJob(input: {
   repository: JobCommitRepository;
   draft: JobAnalysisDraft;
   rawInput: RawInputDocument;
 }) {
   try {
+    const notCommittable = draftCommittableError(input.draft);
+    if (notCommittable) throw notCommittable;
     const jobDescription = mapJobDraftToJobDescription({
       draft: input.draft,
       rawInput: input.rawInput,

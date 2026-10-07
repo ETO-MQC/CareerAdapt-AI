@@ -1,5 +1,8 @@
 import Dexie from "dexie";
 import { z } from "zod";
+import { CommittedJobDescriptionSchema } from "@/domain/schemas";
+import { mapJobDraftToJobDescription } from "@/domain/mappers/jobDraftMapper";
+import { draftCommittableError } from "@/services/jobs/jobWorkflow";
 import { demoJobDescriptions } from "@/data/demoJobs";
 import {
   ApplicationDraftSchema,
@@ -46,6 +49,53 @@ const PendingConfirmationEnvelopeSchema = z.discriminatedUnion("state", [
 ]);
 
 type PendingConfirmationEnvelope = z.infer<typeof PendingConfirmationEnvelopeSchema>;
+
+/**
+ * P2-B 第二轮：正式岗位转换确认（appMeta 承载，无第六张表）。
+ * 确认记录绑定提交通道、operationId、agent 会话绑定、过期时间与内容指纹
+ * （草稿 revision + requirementGraph hash），只能被消费一次；
+ * `userConfirmed: true` 不再是转换的有效依据。
+ */
+export const ConversionConfirmationSchema = z.object({
+  confirmationId: z.string().min(1),
+  channel: z.enum(["jobs_workspace", "agent"]),
+  operationId: z.string().min(1),
+  careerSessionBinding: z.object({
+    personId: z.string().min(1),
+    profileId: z.string().min(1),
+    profileVersionNumber: z.number().int().min(1),
+    profileRevision: z.number().int().min(0),
+    agentSessionId: z.string().min(1)
+  }).strict().optional(),
+  userMessageId: z.string().min(1).optional(),
+  listingId: z.string().min(1),
+  draftId: z.string().min(1),
+  expectedDraftRevision: z.number().int().min(0),
+  graphHash: z.string().min(1).optional(),
+  createdAt: z.string().min(1),
+  expiresAt: z.string().min(1),
+  state: z.enum(["pending", "consumed"]),
+  consumedAt: z.string().min(1).optional(),
+  consumedCommitId: z.string().min(1).optional()
+}).strict().superRefine((record, context) => {
+  if (record.state === "consumed" && (!record.consumedAt || !record.consumedCommitId)) {
+    context.addIssue({ code: "custom", path: ["state"], message: "consumed confirmations record consumedAt and consumedCommitId" });
+  }
+  if (record.state === "pending" && (record.consumedAt || record.consumedCommitId)) {
+    context.addIssue({ code: "custom", path: ["state"], message: "pending confirmations cannot carry consumption metadata" });
+  }
+  if (new Date(record.expiresAt).getTime() <= new Date(record.createdAt).getTime()) {
+    context.addIssue({ code: "custom", path: ["expiresAt"], message: "confirmation expiry must follow creation" });
+  }
+});
+
+export type ConversionConfirmation = z.infer<typeof ConversionConfirmationSchema>;
+
+export const CONVERSION_CONFIRMATION_DEFAULT_TTL_MINUTES = 30;
+
+function conversionConfirmationKey(confirmationId: string) {
+  return `conversion-confirmation:${confirmationId}`;
+}
 import { demoCareerProfile } from "@/data/demoProfile";
 import { migrateBranchContentItem, migrateCareerProfileToV2, migrateResumeBranchToV2, normalizeAwardedAt, projectResumeItemV2 } from "@/domain/migrations/resumeV2";
 import { canonicalProfileLibraryItems } from "@/domain/profile/canonicalLibrary";
@@ -8404,26 +8454,144 @@ export class WorkspaceRepository {
   }
 
   /**
+   * 创建正式岗位转换确认（appMeta 承载）。确认在创建时捕获内容指纹
+   * （expectedDraftRevision + requirementGraph graphHash），消费时重新校验，
+   * 草稿在确认之后发生变化即失效。默认 30 分钟过期。
+   */
+  async createConversionConfirmation(input: {
+    channel: ConversionConfirmation["channel"];
+    operationId: string;
+    listingId: string;
+    draftId: string;
+    careerSessionBinding?: ConversionConfirmation["careerSessionBinding"];
+    userMessageId?: string;
+    ttlMinutes?: number;
+    now?: string;
+  }): Promise<ConversionConfirmation> {
+    const now = input.now ?? new Date().toISOString();
+    return this.db.transaction("rw", this.db.appMeta, this.db.jobAnalysisDrafts, async () => {
+      const draft = await this.db.jobAnalysisDrafts.get(input.draftId);
+      if (!draft) throw new Error("draft_missing");
+      const parsedDraft = JobAnalysisDraftSchema.parse(draft);
+      // 创建确认时即拒绝不可提交状态，避免为注定失败的转换发放确认。
+      const notCommittable = draftCommittableError(parsedDraft);
+      if (notCommittable) throw notCommittable;
+      const confirmation: ConversionConfirmation = {
+        confirmationId: `convconf_${crypto.randomUUID()}`,
+        channel: input.channel,
+        operationId: input.operationId,
+        ...(input.careerSessionBinding ? { careerSessionBinding: input.careerSessionBinding } : {}),
+        ...(input.userMessageId ? { userMessageId: input.userMessageId } : {}),
+        listingId: input.listingId,
+        draftId: input.draftId,
+        expectedDraftRevision: parsedDraft.revision,
+        ...(parsedDraft.requirementGraph?.graphHash ? { graphHash: parsedDraft.requirementGraph.graphHash } : {}),
+        createdAt: now,
+        expiresAt: new Date(new Date(now).getTime() + (input.ttlMinutes ?? CONVERSION_CONFIRMATION_DEFAULT_TTL_MINUTES) * 60 * 1000).toISOString(),
+        state: "pending"
+      };
+      const parsed = ConversionConfirmationSchema.parse(confirmation);
+      await this.db.appMeta.put({ key: conversionConfirmationKey(parsed.confirmationId), value: parsed, updatedAt: now });
+      return parsed;
+    });
+  }
+
+  parseConversionConfirmation(value: unknown): ConversionConfirmation {
+    return ConversionConfirmationSchema.parse(value);
+  }
+
+  async getConversionConfirmation(confirmationId: string): Promise<ConversionConfirmation | undefined> {
+    const record = await this.db.appMeta.get(conversionConfirmationKey(confirmationId));
+    return record ? this.parseConversionConfirmation(record.value) : undefined;
+  }
+
+  /** 恢复入口：找出某草稿下仍然有效（pending 且未过期）的转换确认。 */
+  async findOpenConversionConfirmations(draftId: string, now?: string): Promise<ConversionConfirmation[]> {
+    const at = now ?? new Date().toISOString();
+    const records = await this.db.appMeta.filter((record) => record.key.startsWith("conversion-confirmation:")).toArray();
+    return records
+      .map((record) => this.parseConversionConfirmation(record.value))
+      .filter((confirmation) => confirmation.draftId === draftId
+        && confirmation.state === "pending"
+        && new Date(confirmation.expiresAt).getTime() > new Date(at).getTime());
+  }
+
+  /**
    * 候选 → 正式岗位的完整转换事务（§6.6 的存储级闭环）：
-   * consume（可选）→ commitJobDraft（既有幂等事务，创建 JobDescription +
-   * DraftCommit）→ markJobListingConverted。任一步失败整体回滚——
+   * 校验并消费确认 → 由草稿经 mapJobDraftToJobDescription 生成正式岗位 →
+   * commitJobDraft（既有幂等事务）→ markJobListingConverted →
+   * 可选的 pending confirmation 消费。任一步失败整体回滚——
    * jobListings.jobDescriptionId、convertedAt 与正式岗位不会出现半提交。
-   * userConfirmed 必须显式为 true（编译期字面量类型），确定性流水线不得
-   * 自动创建正式岗位。
+   * 正式岗位不接受调用方任意传入：只能由已保存、已分析、已审核的草稿映射生成。
    */
   async convertCandidateListing(input: {
     listingId: string;
     draftId: string;
-    expectedDraftRevision: number;
     commitId: string;
-    jobDescription: JobDescription;
-    userConfirmed: true;
+    confirmationId: string;
     pendingProposal?: { proposalId: string; answer?: string; at: string };
     now?: string;
   }) {
-    if (input.userConfirmed !== true) throw new Error("user_confirmation_required_for_conversion");
     const now = input.now ?? new Date().toISOString();
-    return this.db.transaction("rw", this.db.jobAnalysisDrafts, this.db.jobDescriptions, this.db.draftCommits, this.db.jobListings, this.db.appMeta, async () => {
+    return this.db.transaction("rw", [this.db.jobAnalysisDrafts, this.db.jobDescriptions, this.db.draftCommits, this.db.jobListings, this.db.rawInputs, this.db.appMeta], async () => {
+      const confirmationRecord = await this.db.appMeta.get(conversionConfirmationKey(input.confirmationId));
+      if (!confirmationRecord) throw new Error("conversion_confirmation_missing");
+      const confirmation = this.parseConversionConfirmation(confirmationRecord.value);
+      if (confirmation.listingId !== input.listingId || confirmation.draftId !== input.draftId) {
+        throw new Error("conversion_confirmation_target_mismatch");
+      }
+
+      const draftRecord = await this.db.jobAnalysisDrafts.get(input.draftId);
+      if (!draftRecord) throw new Error("draft_missing");
+      const draft = JobAnalysisDraftSchema.parse(draftRecord);
+
+      if (confirmation.state === "consumed") {
+        if (confirmation.consumedCommitId !== input.commitId) {
+          throw new Error("conversion_confirmation_already_consumed");
+        }
+        // 崩溃恢复重试：同一 commitId 的已消费确认幂等重放既有结果。
+        if (!draft.committedJobId) throw new Error("committed_job_missing");
+        const job = await this.db.jobDescriptions.get(draft.committedJobId);
+        if (!job) throw new Error("committed_job_missing");
+        const commit = await this.db.draftCommits.where("commitId").equals(input.commitId).first();
+        if (!commit) throw new Error("committed_job_missing");
+        const listing = await this.db.jobListings.get(input.listingId);
+        if (!listing?.jobDescriptionId) throw new Error("listing_missing");
+        return {
+          jobDescription: JobDescriptionSchema.parse(job),
+          draft,
+          commit: DraftCommitSchema.parse(commit),
+          listing: JobListingSchema.parse(listing),
+          consumedProposal: undefined,
+          idempotent: true
+        };
+      }
+      if (new Date(confirmation.expiresAt).getTime() <= new Date(now).getTime()) {
+        throw new Error("conversion_confirmation_expired");
+      }
+      if (confirmation.expectedDraftRevision !== draft.revision) {
+        throw new Error("conversion_confirmation_stale_content");
+      }
+      if (confirmation.graphHash && draft.requirementGraph?.graphHash && confirmation.graphHash !== draft.requirementGraph.graphHash) {
+        throw new Error("conversion_confirmation_stale_content");
+      }
+      const notCommittable = draftCommittableError(draft);
+      if (notCommittable) throw notCommittable;
+      const rawInput = await this.db.rawInputs.get(draft.rawInputId);
+      if (!rawInput) throw new Error("raw_input_missing");
+
+      // 消费确认（先标记，失败随事务回滚）。
+      const consumedConfirmation: ConversionConfirmation = ConversionConfirmationSchema.parse({
+        ...confirmation,
+        state: "consumed",
+        consumedAt: now,
+        consumedCommitId: input.commitId
+      });
+      await this.db.appMeta.put({ key: conversionConfirmationKey(input.confirmationId), value: consumedConfirmation, updatedAt: now });
+
+      const jobDescription = CommittedJobDescriptionSchema.parse(
+        mapJobDraftToJobDescription({ draft, rawInput: RawInputDocumentSchema.parse(rawInput), now })
+      );
       const consumed = input.pendingProposal
         ? await this.consumePendingConfirmation({
           proposalId: input.pendingProposal.proposalId,
@@ -8433,9 +8601,9 @@ export class WorkspaceRepository {
         : undefined;
       const commitResult = await this.commitJobDraft({
         draftId: input.draftId,
-        expectedRevision: input.expectedDraftRevision,
+        expectedRevision: draft.revision,
         commitId: input.commitId,
-        jobDescription: input.jobDescription
+        jobDescription
       });
       const converted = await this.markJobListingConverted({
         listingId: input.listingId,
@@ -8447,6 +8615,7 @@ export class WorkspaceRepository {
         draft: commitResult.draft,
         commit: commitResult.commit,
         listing: converted.listing,
+        confirmation: consumedConfirmation,
         consumedProposal: consumed?.proposal,
         idempotent: commitResult.idempotent && converted.idempotent
       };

@@ -1,5 +1,17 @@
 import { expect, test, type Page } from "@playwright/test";
 
+// V4-P0 引入了首次运行向导；本文件先于该向导编写，进入页面前先跳过。
+async function skipSetupWizard(page: Page) {
+  await page.goto("/jobs");
+  const skipSetup = page.getByRole("button", { name: "跳过，先体验其他功能" });
+  const setupVisible = await skipSetup.waitFor({ state: "visible", timeout: 5_000 }).then(() => true).catch(() => false);
+  if (setupVisible) {
+    await skipSetup.click();
+    await skipSetupWizard(page);
+  }
+  await page.goto("/jobs");
+}
+
 type DbBranch = {
   id: string;
   branchPurpose: "general" | "job_specific";
@@ -14,7 +26,7 @@ type DbBranch = {
 
 test.describe("P4.0a.1 job resume source modes", () => {
   test("selects canonical profile content and creates an isolated job branch", async ({ page }) => {
-    await page.goto("/jobs");
+    await skipSetupWizard(page);
     await expect(page.getByRole("tab", { name: "生成岗位简历" })).toHaveAttribute("aria-selected", "true");
     const profileBefore = await readAllFromStore(page, "profiles");
 
@@ -37,13 +49,19 @@ test.describe("P4.0a.1 job resume source modes", () => {
   });
 
   test("analyzes one general resume and creates a branch without changing its source", async ({ page }) => {
+    // 跳过向导会进入 mock AI 模式；本用例断言确定性匹配，需屏蔽可选语义增强。
+    await page.route("**/api/ai/structured", (route) => route.fulfill({
+      status: 502,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: false, error: { code: "invalid_json", message: "AI request failed." } })
+    }));
     await ensureGeneralResume(page);
     const generalBranches = (await readAllFromStore(page, "resumeBranches") as DbBranch[]).filter((branch) => branch.branchPurpose === "general");
     const sourceId = generalBranches.sort((left, right) => right.id.localeCompare(left.id))[0].id;
     const sourceBefore = await readFromStore<DbBranch>(page, "resumeBranches", sourceId);
     expect(sourceBefore?.branchPurpose).toBe("general");
 
-    await page.goto("/jobs");
+    await skipSetupWizard(page);
     await page.getByRole("radio", { name: /优化已有简历/ }).click();
     await page.getByLabel("来源通用简历").selectOption(sourceId);
     await page.getByTestId("analyze-and-generate-job-resume").click();
@@ -61,6 +79,12 @@ test.describe("P4.0a.1 job resume source modes", () => {
   });
 
   test("creates Job A and Job B through the current source panel and preserves both after reload", async ({ page }) => {
+    // 同上：屏蔽 mock 模式下的可选语义增强，保持确定性匹配。
+    await page.route("**/api/ai/structured", (route) => route.fulfill({
+      status: 502,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: false, error: { code: "invalid_json", message: "AI request failed." } })
+    }));
     await ensureGeneralResume(page);
     const source = (await readAllFromStore(page, "resumeBranches") as DbBranch[])
       .find((branch) => branch.branchPurpose === "general")!;
@@ -71,7 +95,7 @@ test.describe("P4.0a.1 job resume source modes", () => {
 
     const branchIds: string[] = [];
     for (const job of jobs.slice(0, 2)) {
-      await page.goto("/jobs");
+      await skipSetupWizard(page);
       await page.locator(".job-card").filter({ hasText: job.title }).first().click();
       await page.getByRole("radio", { name: /优化已有简历/ }).click();
       await page.getByLabel("来源通用简历").selectOption(source.id);
@@ -102,8 +126,11 @@ test.describe("P4.0a.1 job resume source modes", () => {
 });
 
 async function ensureGeneralResume(page: Page) {
+  await skipSetupWizard(page);
   await page.goto("/resume");
-  await page.getByRole("button").filter({ hasText: "从个人资料库创建" }).click();
+  const createButton = page.getByRole("button").filter({ hasText: "从个人资料库创建" });
+  await expect(createButton).toBeEnabled({ timeout: 20_000 });
+  await createButton.click();
   await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 20_000 });
 }
 

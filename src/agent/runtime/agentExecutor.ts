@@ -72,7 +72,7 @@ export class AgentExecutor {
       });
     }
 
-    const result = await this.registry.execute(input.toolName, input.toolInput, input.operationId, input.signal);
+    const result = await this.registry.execute(input.toolName, input.toolInput, input.operationId, input.signal, input.careerSessionBinding ? { careerSessionBinding: input.careerSessionBinding } : undefined);
     if (tool.idempotent || result.ok) {
       this.results.set(input.operationId, result);
       this.operationBindings.set(input.operationId, input.careerSessionBinding);

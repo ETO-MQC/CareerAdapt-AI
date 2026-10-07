@@ -4,9 +4,11 @@ import {
   parseCandidateToDraft,
   CANDIDATE_PIPELINE_VERSION
 } from "@/domain/jobDiscovery/candidatePipeline";
-import { jdContentHash } from "@/domain/jobAssets/jdNormalization";
-import { companyTitleFingerprint, contentFingerprint } from "@/domain/jobAssets/jdNormalization";
-import { JobDescriptionSchema, type JobDescription } from "@/domain/schemas";
+import { companyTitleFingerprint, jdContentHash } from "@/domain/jobAssets/jdNormalization";
+import { JobAnalysisDraftSchema, JdAnalyzerRequirementSchema } from "@/domain/schemas";
+import { BrowserAgentToolService } from "@/services/agent/agentToolService";
+import { analyzeJobDescriptionV4 } from "@/domain/jobOptimization";
+import { stableHashText } from "@/services/security/text";
 import { CareerAdaptDb } from "@/services/storage/db";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 
@@ -45,15 +47,22 @@ function fixtureInput(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function jobDescriptionFixture(id: string): JobDescription {
-  return JobDescriptionSchema.parse({
-    id,
+function confirmedRequirementFixture() {
+  return JdAnalyzerRequirementSchema.parse({
+    id: "req-1",
     createdAt: LATER,
     updatedAt: LATER,
-    title: "Go 工程师",
-    company: "Acme",
-    rawText: JD_A,
-    source: "manual"
+    category: "required_skill",
+    description: "3 年以上 Go 后端经验",
+    priority: "must",
+    hardConstraint: true,
+    sourceQuote: "3 年以上经验。",
+    sourceSpan: { start: JD_A.indexOf("3 年以上经验。"), end: JD_A.indexOf("3 年以上经验。") + "3 年以上经验。".length, text: "3 年以上经验。" },
+    keywords: ["Go"],
+    confidenceLevel: "high",
+    confidenceReason: "JD 原文明确写出",
+    needsConfirmation: false,
+    confirmedByUser: true
   });
 }
 
@@ -65,16 +74,44 @@ async function ingestA(repository: WorkspaceRepository): Promise<IngestResult> {
   return result;
 }
 
+/** P2-B 第二轮：把 raw_saved 草稿推进到"已分析、已核对"的可提交状态。 */
+async function prepareReviewedDraft(repository: WorkspaceRepository) {
+  const draft = await repository.getJobAnalysisDraft("draft_a");
+  if (!draft) throw new Error("draft_missing");
+  const analyzed = JobAnalysisDraftSchema.parse({
+    ...draft,
+    status: "editing",
+    manualRequirements: [confirmedRequirementFixture()],
+    analysisRunStatus: "review_ready",
+    updatedAt: LATER
+  });
+  return repository.saveJobAnalysisDraftRevision(analyzed, draft.revision);
+}
+
+async function createConfirmationA(repository: WorkspaceRepository, overrides: Record<string, unknown> = {}) {
+  return repository.createConversionConfirmation({
+    channel: "jobs_workspace",
+    operationId: "op_convert_a",
+    listingId: "listing_a",
+    draftId: "draft_a",
+    now: LATER,
+    ...overrides
+  });
+}
+
 async function convertA(repository: WorkspaceRepository, overrides: Record<string, unknown> = {}) {
+  const confirmation = overrides.confirmation instanceof Object
+    ? (overrides.confirmation as Awaited<ReturnType<typeof createConfirmationA>>)
+    : await createConfirmationA(repository);
+  const rest = { ...overrides };
+  delete rest.confirmation;
   return repository.convertCandidateListing({
     listingId: "listing_a",
     draftId: "draft_a",
-    expectedDraftRevision: 0,
     commitId: "commit_a",
-    jobDescription: jobDescriptionFixture("job_a"),
-    userConfirmed: true,
+    confirmationId: confirmation.confirmationId,
     now: LATER,
-    ...overrides
+    ...rest
   });
 }
 
@@ -84,7 +121,7 @@ describe("V4-P2-B stage 1-2: deterministic ingest (normalize, hash, dedupe, snap
     const result = await ingestA(repository);
     expect(result.status).toBe("created");
     expect(result.listing.canonicalSourceKind).toBe("external_job_source");
-    expect(result.listing.contentFingerprint).toBe(contentFingerprint("Go 工程师", "Acme", JD_A));
+    expect(result.listing.contentFingerprint).toBe(jdContentHash(JD_A));
     expect(result.listing.companyTitleFingerprint).toBe(companyTitleFingerprint("Go 工程师", "Acme"));
     expect(result.snapshotCreated).toBe(true);
     expect(result.snapshot.version).toBe(1);
@@ -213,20 +250,20 @@ describe("V4-P2-B stage 3-5: draft, user-confirmed conversion, no half-commit", 
     expect(listing?.parsedSnapshotId).toBe(ingested.snapshot.id);
   });
 
-  it("refuses to convert without explicit user confirmation and writes nothing", async () => {
+  it("refuses conversion without a real confirmation record and writes nothing", async () => {
     const { repository } = makeDb();
     const ingested = await ingestA(repository);
     await parseCandidateToDraft(repository, { listingId: ingested.listing.id, draftId: "draft_a", now: LATER });
+    await prepareReviewedDraft(repository);
 
+    // 不存在确认记录时无法转换：userConfirmed 布尔不再是有效确认依据。
     await expect(repository.convertCandidateListing({
       listingId: ingested.listing.id,
       draftId: "draft_a",
-      expectedDraftRevision: 0,
       commitId: "commit_a",
-      jobDescription: jobDescriptionFixture("job_a"),
-      userConfirmed: false as never,
+      confirmationId: "convconf_missing",
       now: LATER
-    })).rejects.toThrow("user_confirmation_required_for_conversion");
+    })).rejects.toThrow("conversion_confirmation_missing");
 
     expect(await repository.getJobDescription("job_a")).toBeUndefined();
     const listing = await repository.getJobListing(ingested.listing.id);
@@ -234,46 +271,76 @@ describe("V4-P2-B stage 3-5: draft, user-confirmed conversion, no half-commit", 
     expect(listing?.convertedAt).toBeUndefined();
   });
 
-  it("converts atomically on user confirmation: DraftCommit, JobDescription, and listing conversion together", async () => {
+  it("refuses to hand out or use a conversion confirmation for a raw_saved draft", async () => {
     const { repository } = makeDb();
     const ingested = await ingestA(repository);
-    const parsed = await parseCandidateToDraft(repository, { listingId: ingested.listing.id, draftId: "draft_a", now: LATER });
+    await parseCandidateToDraft(repository, { listingId: ingested.listing.id, draftId: "draft_a", now: LATER });
 
+    // 创建确认时即拒绝不可提交状态（raw_saved 未完成分析核对）。
+    await expect(createConfirmationA(repository)).rejects.toThrow("尚未完成分析与用户核对");
+    expect(await repository.getJobDescription("job_a")).toBeUndefined();
+  });
+
+  it("converts atomically after user review: DraftCommit, JobDescription, and listing conversion together", async () => {
+    const { db: database, repository } = makeDb();
+    const ingested = await ingestA(repository);
+    await parseCandidateToDraft(repository, { listingId: ingested.listing.id, draftId: "draft_a", now: LATER });
+    const reviewed = await prepareReviewedDraft(repository);
+
+    const profilesBefore = await database.profiles.toArray();
     const converted = await convertA(repository);
+    // 资料库零写入：候选岗位管道与转换不触碰个人资料库。
+    const profilesAfter = await database.profiles.toArray();
+    expect(profilesAfter).toEqual(profilesBefore);
+
     expect(converted.idempotent).toBe(false);
-    expect(converted.jobDescription.id).toBe("job_a");
+    // 正式岗位由 mapJobDraftToJobDescription 从草稿生成：只包含用户核对过的要求。
+    expect(converted.jobDescription.rawText).toBe(JD_A);
+    expect(converted.jobDescription.requirements).toHaveLength(1);
+    expect(converted.jobDescription.requirements[0].description).toBe("3 年以上 Go 后端经验");
+    expect(converted.jobDescription.source).toBe("imported_text");
     expect(converted.commit.kind).toBe("job");
-    expect(converted.commit.entityId).toBe("job_a");
-    expect(converted.listing.jobDescriptionId).toBe("job_a");
+    expect(converted.commit.entityId).toBe(converted.jobDescription.id);
+    expect(converted.listing.jobDescriptionId).toBe(converted.jobDescription.id);
     expect(converted.listing.convertedAt).toBe(LATER);
     expect(converted.draft.status).toBe("committed");
-    expect(converted.draft.revision).toBe(parsed.draft.revision + 1);
+    expect(converted.draft.revision).toBe(reviewed.revision + 1);
   });
 
-  it("is idempotent on conversion retry with the same commitId", async () => {
+  it("is idempotent on conversion retry with the same consumed confirmation and commitId", async () => {
     const { repository } = makeDb();
     const ingested = await ingestA(repository);
     await parseCandidateToDraft(repository, { listingId: ingested.listing.id, draftId: "draft_a", now: LATER });
-    await convertA(repository);
-    const retry = await convertA(repository);
+    await prepareReviewedDraft(repository);
+    const confirmation = await createConfirmationA(repository);
+    const first = await convertA(repository, { confirmation });
+    expect(first.idempotent).toBe(false);
+    // 同一 commitId 的重试：consumed 确认幂等重放，不产生第二个岗位。
+    const retry = await convertA(repository, { confirmation });
     expect(retry.idempotent).toBe(true);
-    expect(retry.jobDescription.id).toBe("job_a");
-    expect((await repository.listJobDescriptions()).filter((job) => job.id === "job_a")).toHaveLength(1);
+    expect(retry.jobDescription.id).toBe(first.jobDescription.id);
+    expect((await repository.listJobDescriptions()).filter((job) => job.id === first.jobDescription.id)).toHaveLength(1);
   });
 
-  it("rolls back the whole conversion when any step fails mid-transaction (no half-commit)", async () => {
+  it("rolls back the whole conversion when the draft changes after the confirmation (no half-commit)", async () => {
     const { repository } = makeDb();
     const ingested = await ingestA(repository);
     await parseCandidateToDraft(repository, { listingId: ingested.listing.id, draftId: "draft_a", now: LATER });
+    await prepareReviewedDraft(repository);
+    const confirmation = await createConfirmationA(repository);
 
-    // expectedDraftRevision 过期：commitJobDraft 抛 RevisionConflictError，
-    // 整个事务（含尚未发生的 listing 转换）必须回滚。
-    await expect(convertA(repository, { expectedDraftRevision: 7 })).rejects.toThrow();
+    // 确认之后草稿又发生变化（revision 前进）：内容指纹失效，整个事务回滚。
+    const current = await repository.getJobAnalysisDraft("draft_a");
+    await repository.saveJobAnalysisDraftRevision({ ...JobAnalysisDraftSchema.parse(current), updatedAt: EVEN_LATER }, current!.revision);
+
+    await expect(convertA(repository, { confirmation })).rejects.toThrow("conversion_confirmation_stale_content");
     expect(await repository.getJobDescription("job_a")).toBeUndefined();
     const listing = await repository.getJobListing(ingested.listing.id);
     expect(listing?.jobDescriptionId).toBeUndefined();
     expect(listing?.convertedAt).toBeUndefined();
-    expect((await repository.getJobAnalysisDraft("draft_a"))?.revision).toBe(0);
+    // 确认记录随事务回滚，仍是 pending：修正内容后可重新消费。
+    const stillOpen = await repository.findOpenConversionConfirmations("draft_a", LATER);
+    expect(stillOpen.map((item) => item.confirmationId)).toContain(confirmation.confirmationId);
   });
 
   it("runs the consume → formal write → complete chain in one multi-table transaction", async () => {
@@ -296,26 +363,26 @@ describe("V4-P2-B stage 3-5: draft, user-confirmed conversion, no half-commit", 
       now: NOW
     });
 
+    await prepareReviewedDraft(repository);
+    const confirmation = await createConfirmationA(repository);
     const converted = await convertA(repository, {
+      confirmation,
       pendingProposal: { proposalId: proposal.id, answer: "有三年经验", at: LATER }
     });
     expect(converted.consumedProposal?.candidateAnswer).toBe("有三年经验");
     // 多表事务一次落位：草稿已提交、岗位已建、候选已转换、确认已消费。
     expect(converted.draft.status).toBe("committed");
-    expect(converted.listing.jobDescriptionId).toBe("job_a");
+    expect(converted.listing.jobDescriptionId).toBe(converted.jobDescription.id);
     expect((await repository.getConsumedConfirmation(proposal.id))?.candidateAnswer).toBe("有三年经验");
     expect(await repository.getPendingConfirmation(proposal.id)).toBeUndefined();
 
-    // 目标写入已成功：显式完成清理；再次转换幂等。
+    // 目标写入已成功：显式完成清理；同一确认 + commitId 的重试幂等重放，
+    // 不再触碰已清理的提议。
     await repository.completePendingConfirmation(proposal.id);
     expect(await repository.getConsumedConfirmation(proposal.id)).toBeUndefined();
-    // 完成之后提议记录已清理：携带陈旧 proposalId 的重试会被拒绝，
-    // 不带 pendingProposal 的重试（同一 commitId）保持幂等。
-    await expect(convertA(repository, {
-      pendingProposal: { proposalId: proposal.id, answer: "有三年经验", at: LATER }
-    })).rejects.toThrow("fact_proposal_missing");
-    const retry = await convertA(repository);
-    expect(retry.idempotent).toBe(true);
+    const replay = await convertA(repository, { confirmation });
+    expect(replay.idempotent).toBe(true);
+    expect(replay.jobDescription.id).toBe(converted.jobDescription.id);
   });
 
   it("rolls back the entire conversion when the pending confirmation is expired, keeping the proposal usable", async () => {
@@ -337,31 +404,42 @@ describe("V4-P2-B stage 3-5: draft, user-confirmed conversion, no half-commit", 
       now: NOW
     });
 
+    await prepareReviewedDraft(repository);
+    const confirmation = await createConfirmationA(repository);
+
     // 过期确认与转换在同一事务：consume 抛错 → 全部回滚。
     await expect(convertA(repository, {
+      confirmation,
       pendingProposal: { proposalId: proposal.id, answer: "上海", at: "2027-01-01T00:00:00.000Z" }
     })).rejects.toThrow("fact_proposal_expired");
 
     expect(await repository.getJobDescription("job_a")).toBeUndefined();
     const listing = await repository.getJobListing(ingested.listing.id);
     expect(listing?.jobDescriptionId).toBeUndefined();
-    expect((await repository.getJobAnalysisDraft("draft_a"))?.status).toBe("raw_saved");
+    expect((await repository.getJobAnalysisDraft("draft_a"))?.status).toBe("editing");
 
     // 待确认记录未受损：修正时间后同一确认与转换可以完整重放。
     const recovered = await convertA(repository, {
+      confirmation,
       pendingProposal: { proposalId: proposal.id, answer: "上海", at: LATER }
     });
     expect(recovered.consumedProposal?.candidateAnswer).toBe("上海");
-    expect(recovered.listing.jobDescriptionId).toBe("job_a");
+    expect(recovered.listing.jobDescriptionId).toBe(recovered.jobDescription.id);
   });
 
   it("survives a restart: persisted state is intact and a rerun of the same conversion stays idempotent", async () => {
     const dbName = `careeradapt-v4p2b-restart-${crypto.randomUUID()}`;
+    let confirmationId = "";
+    let convertedJobId = "";
     {
       const { repository } = makeDb(dbName);
       const ingested = await ingestA(repository);
       await parseCandidateToDraft(repository, { listingId: ingested.listing.id, draftId: "draft_a", now: LATER });
+      await prepareReviewedDraft(repository);
+      const confirmation = await createConfirmationA(repository);
+      confirmationId = confirmation.confirmationId;
       await convertA(repository, {
+        confirmation,
         pendingProposal: {
           proposalId: (await repository.createPendingConfirmation({
             proposal: {
@@ -380,6 +458,8 @@ describe("V4-P2-B stage 3-5: draft, user-confirmed conversion, no half-commit", 
           at: LATER
         }
       });
+      const firstAfterConvert = await repository.getJobListing("listing_a");
+      convertedJobId = firstAfterConvert?.jobDescriptionId ?? "";
       db?.close();
       db = undefined;
     }
@@ -388,15 +468,16 @@ describe("V4-P2-B stage 3-5: draft, user-confirmed conversion, no half-commit", 
       db = reopened;
       const repository = new WorkspaceRepository(reopened);
       const listing = await repository.getJobListing("listing_a");
-      expect(listing?.jobDescriptionId).toBe("job_a");
+      expect(listing?.jobDescriptionId).toBe(convertedJobId);
       expect((await repository.getJobAnalysisDraft("draft_a"))?.status).toBe("committed");
       expect((await repository.listJobSnapshots("listing_a"))).toHaveLength(1);
 
-      // 崩溃在 complete 之前：consumed 记录仍在，重放转换幂等后可完成清理。
+      // 崩溃在 complete 之前：consumed 记录仍在，同一确认重放幂等后可完成清理。
       const consumed = await repository.getConsumedConfirmation("proposal_restart");
       expect(consumed?.candidateAnswer).toBe("接受");
-      const rerun = await convertA(repository);
+      const rerun = await convertA(repository, { confirmation: { confirmationId } as never });
       expect(rerun.idempotent).toBe(true);
+      expect(rerun.jobDescription.id).toBe(convertedJobId);
       expect(await repository.completePendingConfirmation("proposal_restart")).toEqual({ completed: true, existed: true });
 
       // 重启后重复摄取同一 fixture 仍然幂等。
@@ -406,12 +487,87 @@ describe("V4-P2-B stage 3-5: draft, user-confirmed conversion, no half-commit", 
   });
 });
 
+describe("V4-P2-B round 2: agent commitJob shares the candidate pipeline", () => {
+  it("ingests through the manual identity, binds the same draft chain, and converts with a real confirmation", async () => {
+    const { db: database, repository } = makeDb();
+    const service = new BrowserAgentToolService(repository);
+    const profilesBefore = await database.profiles.toArray();
+    const graph = analyzeJobDescriptionV4({ rawText: JD_A }).graph;
+    const result = await service.commitJob({
+      title: "Go 工程师",
+      company: "Acme",
+      rawText: JD_A,
+      graph
+    }, "op-agent-job-1", undefined, {
+      operationId: "op-agent-job-1",
+      careerSessionBinding: {
+        personId: "person-1", profileId: "profile-1",
+        profileVersionNumber: 1, profileRevision: 0, agentSessionId: "session-1"
+      }
+    });
+
+    // 与 UI 入口共用同一管道：manual 身份、候选 listing、快照、草稿链。
+    const listings = await repository.listJobListings();
+    expect(listings).toHaveLength(1);
+    expect(listings[0].sourceKey).toBe("local.manual");
+    expect(listings[0].canonicalSourceKind).toBe("external_job_source");
+    expect(listings[0].jobDescriptionId).toBe(result.jobId);
+    expect((await repository.listJobSnapshots(listings[0].id))).toHaveLength(1);
+    const draft = await repository.getJobAnalysisDraft(`job-draft-agent-${stableHashText("op-agent-job-1").slice(0, 20)}`);
+    expect(draft?.status).toBe("committed");
+    expect(draft?.rawInputId).toBeTruthy();
+
+    // 转换确认绑定 agent 会话且已消费。
+    const confirmation = await repository.findOpenConversionConfirmations(draft!.id);
+    expect(confirmation).toHaveLength(0);
+
+    // 资料库零写入。
+    expect(await database.profiles.toArray()).toEqual(profilesBefore);
+
+    // 已转换候选的新一次提交（如用户重跑 Agent 流程）：幂等返回既有正式岗位。
+    const replay = await service.commitJob({
+      title: "Go 工程师",
+      company: "Acme",
+      rawText: JD_A,
+      graph
+    }, "op-agent-job-2", undefined, {
+      operationId: "op-agent-job-2",
+      careerSessionBinding: {
+        personId: "person-1", profileId: "profile-1",
+        profileVersionNumber: 1, profileRevision: 0, agentSessionId: "session-1"
+      }
+    });
+    expect(replay.jobId).toBe(result.jobId);
+    expect((replay as { idempotent?: boolean }).idempotent).toBe(true);
+    expect(await repository.listJobListings()).toHaveLength(1);
+    expect((await repository.listJobDescriptions()).filter((job) => job.id === result.jobId)).toHaveLength(1);
+  });
+
+  it("refuses conversion without a pending confirmation record even for an agent-shaped payload", async () => {
+    const { repository } = makeDb();
+    const ingested = await ingestA(repository);
+    await parseCandidateToDraft(repository, { listingId: ingested.listing.id, draftId: "draft_a", now: LATER });
+    await prepareReviewedDraft(repository);
+    // 不存在确认记录：没有用户批准的凭证，转换不可能发生。
+    await expect(repository.convertCandidateListing({
+      listingId: ingested.listing.id,
+      draftId: "draft_a",
+      commitId: "commit_agent",
+      confirmationId: "convconf_agent_missing",
+      now: LATER
+    })).rejects.toThrow("conversion_confirmation_missing");
+    expect(ingested.listing.jobDescriptionId).toBeUndefined();
+  });
+});
+
 describe("V4-P2-B: applicationDraft linkage and submit gating", () => {
   async function setupConvertedCandidate() {
     const { db: database, repository } = makeDb();
     const ingested = await ingestA(repository);
     await parseCandidateToDraft(repository, { listingId: ingested.listing.id, draftId: "draft_a", now: LATER });
-    await convertA(repository);
+    await prepareReviewedDraft(repository);
+    const converted = await convertA(repository);
+    const convertedJobId = converted.jobDescription.id;
     const draft = await repository.createApplicationAssistDraft({
       draft: {
         id: "draft_apply", schemaVersion: "application-draft-v1",
@@ -420,7 +576,7 @@ describe("V4-P2-B: applicationDraft linkage and submit gating", () => {
       },
       now: LATER
     });
-    return { db: database, repository, draft, listingId: ingested.listing.id };
+    return { db: database, repository, draft, listingId: ingested.listing.id, convertedJobId };
   }
 
   function applicationFixture(id: string, jobId: string) {
@@ -450,7 +606,7 @@ describe("V4-P2-B: applicationDraft linkage and submit gating", () => {
   }
 
   it("links an applicationId only when the formal ApplicationRecord exists and matches the converted job", async () => {
-    const { db: database, repository } = await setupConvertedCandidate();
+    const { db: database, repository, convertedJobId } = await setupConvertedCandidate();
 
     await expect(repository.updateApplicationAssistStep({
       draftId: "draft_apply", step: "login_required", applicationId: "app_missing", now: EVEN_LATER
@@ -461,7 +617,7 @@ describe("V4-P2-B: applicationDraft linkage and submit gating", () => {
       draftId: "draft_apply", step: "login_required", applicationId: "app_other", now: EVEN_LATER
     })).rejects.toThrow("application_job_mismatch");
 
-    await database.applications.put(applicationFixture("app_1", "job_a"));
+    await database.applications.put(applicationFixture("app_1", convertedJobId));
     const linked = await repository.updateApplicationAssistStep({
       draftId: "draft_apply", step: "login_required", applicationId: "app_1", now: EVEN_LATER
     });
@@ -489,6 +645,7 @@ describe("V4-P2-B: applicationDraft linkage and submit gating", () => {
     const { repository } = makeDb();
     const ingested = await ingestA(repository);
     await parseCandidateToDraft(repository, { listingId: ingested.listing.id, draftId: "draft_a", now: LATER });
+    await prepareReviewedDraft(repository);
     await convertA(repository);
 
     await expect(repository.createApplicationAssistDraft({
