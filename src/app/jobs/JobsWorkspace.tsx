@@ -9,7 +9,7 @@ import { invokeStageBAi, invokeStructuredAi } from "@/ai/client";
 import { promptVersions } from "@/ai/prompts/versions";
 import { analyzeJobDescriptionV4, projectJobGraphV4ToAnalyzerOutput } from "@/domain/jobOptimization";
 import {
-  ingestCandidateFixture,
+  ingestCandidateListing,
   manualCandidateIdentity,
   parseCandidateToDraft,
   MANUAL_JOB_SOURCE_KEY,
@@ -192,7 +192,7 @@ export function JobsWorkspace() {
         company: validated.company,
         ...(decision ? { dedupDecision: decision, duplicateListingId } : {})
       };
-      const ingest = await ingestCandidateFixture(repository, ingestInput);
+      const ingest = await ingestCandidateListing(repository, ingestInput);
       if (ingest.status === "waiting_input") {
         const candidate = ingest.dedup.candidates[0];
         if (!candidate) throw new Error("duplicate_candidate_missing");
@@ -333,7 +333,8 @@ export function JobsWorkspace() {
         listingId: candidateListing.id,
         draftId: draft.id,
         commitId: `commit-job-${draft.id}-${draft.revision}`,
-        confirmationId: confirmation.confirmationId
+        confirmationId: confirmation.confirmationId,
+        expectedConfirmation: { channel: "jobs_workspace", operationId: confirmation.operationId }
       });
       workspace.upsertJob(result.jobDescription);
       setConversionResult({ jobId: result.jobDescription.id, listingId: candidateListing.id });

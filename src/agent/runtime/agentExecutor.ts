@@ -37,6 +37,8 @@ export class AgentExecutor {
     confirmed?: boolean;
     confirmationCount?: number;
     careerSessionBinding?: CareerSessionBinding;
+    /** P2-B 稳定化：转换确认绑定触发本次调用的用户消息。 */
+    userMessageId?: string;
     requireSessionBinding?: boolean;
     retryFailedOperation?: boolean;
   }) {
@@ -72,7 +74,10 @@ export class AgentExecutor {
       });
     }
 
-    const result = await this.registry.execute(input.toolName, input.toolInput, input.operationId, input.signal, input.careerSessionBinding ? { careerSessionBinding: input.careerSessionBinding } : undefined);
+    const result = await this.registry.execute(input.toolName, input.toolInput, input.operationId, input.signal, {
+      ...(input.careerSessionBinding ? { careerSessionBinding: input.careerSessionBinding } : {}),
+      ...(input.userMessageId ? { userMessageId: input.userMessageId } : {})
+    });
     if (tool.idempotent || result.ok) {
       this.results.set(input.operationId, result);
       this.operationBindings.set(input.operationId, input.careerSessionBinding);

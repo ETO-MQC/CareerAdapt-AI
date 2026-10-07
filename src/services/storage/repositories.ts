@@ -2,6 +2,7 @@ import Dexie from "dexie";
 import { z } from "zod";
 import { CommittedJobDescriptionSchema } from "@/domain/schemas";
 import { mapJobDraftToJobDescription } from "@/domain/mappers/jobDraftMapper";
+import { findDuplicateCandidates, isValidDuplicateReference, type DuplicateCandidate } from "@/domain/jobAssets/jobDeduplication";
 import { draftCommittableError } from "@/services/jobs/jobWorkflow";
 import { demoJobDescriptions } from "@/data/demoJobs";
 import {
@@ -8375,6 +8376,204 @@ export class WorkspaceRepository {
   }
 
   /**
+   * P2-B 稳定化：候选岗位摄取的原子事务。去重评估、listing upsert、
+   * snapshot 追加、latestSnapshotId 与 crawlState 修正全部在同一个
+   * rw 事务内完成——任一步失败整体回滚，不会出现"listing 已建而快照缺失"
+   * 的半提交。指纹与规范化在调用方（candidatePipeline）完成；本方法只做
+   * 存储与决策应用。AI 分析不在此处。
+   */
+  async ingestCandidateListing(input: {
+    sourceKey: string;
+    externalId: string;
+    listingId?: string;
+    rawText: string;
+    title: string;
+    company: string;
+    contentHash: string;
+    contentFingerprint: string;
+    companyTitleFingerprint: string;
+    canonicalSourceUrl?: string;
+    applyUrl?: string;
+    listingKind?: JobListing["listingKind"];
+    location?: string;
+    salaryText?: string;
+    education?: string;
+    experience?: string;
+    publishedAt?: string;
+    dedupDecision?: "merge_existing" | "keep_separate";
+    duplicateListingId?: string;
+    /** 失败注入点：缺省为 candidatePipeline 版本号。 */
+    normalizerVersion?: string;
+    capturedBy?: string;
+    now?: string;
+  }): Promise<
+    | { status: "waiting_input"; code: "duplicate_decision_required"; candidates: DuplicateCandidate[] }
+    | { status: "created" | "updated" | "unchanged" | "merged"; listing: JobListing; snapshot: JobSnapshot; snapshotCreated: boolean }
+  > {
+    const now = input.now ?? new Date().toISOString();
+    return this.db.transaction("rw", this.db.jobListings, this.db.jobSnapshots, async () => {
+      const existing = await this.db.jobListings.toArray();
+      const parsedExisting = existing.map((listing) => JobListingSchema.parse(listing));
+      // 幂等重试不是去重问题：同一 [sourceKey+externalId] 的 listing 是自身，
+      // 必须排除在候选之外，否则重摄同一岗位会要求用户做无意义的合并决定。
+      const pool = parsedExisting.filter((listing) =>
+        !(listing.sourceKey === input.sourceKey && listing.externalId === input.externalId));
+      const evaluation = findDuplicateCandidates(
+        pool.map((listing) => ({
+          id: listing.id,
+          sourceName: listing.sourceKey,
+          sourceJobId: listing.externalId,
+          title: listing.title,
+          companyName: listing.company,
+          companyTitleFingerprint: listing.companyTitleFingerprint,
+          contentFingerprint: listing.contentFingerprint
+        })),
+        {
+          sourceName: input.sourceKey,
+          sourceJobId: input.externalId,
+          title: input.title,
+          companyName: input.company,
+          companyTitleFingerprint: input.companyTitleFingerprint,
+          contentFingerprint: input.contentFingerprint
+        }
+      );
+      const putListing = async (listing: JobListing) => {
+        await this.db.jobListings.put(JobListingSchema.parse(listing));
+      };
+      const appendSnapshot = async (jobListingId: string, operation: string, sourceName: string) => {
+        // 同内容幂等：同一 listing 下相同 contentHash 的快照已存在时直接复用，
+        // 不产生新版本（撞 [jobListingId+contentHash] 唯一索引前先短路）。
+        const sameContent = await this.db.jobSnapshots
+          .where("[jobListingId+contentHash]")
+          .equals([jobListingId, input.contentHash])
+          .first();
+        if (sameContent) {
+          return { snapshot: JobSnapshotSchema.parse(sameContent), created: false };
+        }
+        // 失败注入点：normalizerVersion 为空串时快照校验失败，整个事务回滚
+        // （此时 listing 的写入一并撤销，验证无半提交）。
+        const snapshot = JobSnapshotSchema.parse({
+          id: `snapshot_${crypto.randomUUID()}`,
+          createdAt: now,
+          updatedAt: now,
+          schemaVersion: "job-snapshot-v1",
+          jobListingId,
+          version: ((await this.db.jobSnapshots
+            .where("[jobListingId+version]")
+            .between([jobListingId, Dexie.minKey], [jobListingId, Dexie.maxKey])
+            .last())?.version ?? 0) + 1,
+          contentHash: input.contentHash,
+          rawText: input.rawText,
+          normalizerVersion: input.normalizerVersion ?? "careeradapt-jd-normalizer-v1",
+          capturedBy: input.capturedBy ?? "candidate-pipeline",
+          provenance: {
+            sourceName,
+            sourceKind: "external_job_source",
+            operation,
+            adapterId: input.capturedBy ?? "candidate-pipeline",
+            adapterVersion: input.capturedBy ?? "candidate-pipeline",
+            capturedAt: now
+          },
+          redactionStatus: "raw",
+          contentSize: input.rawText.length,
+          capturedAt: now
+        });
+        await this.db.jobSnapshots.put(snapshot);
+        await putListing(JobListingSchema.parse({
+          ...JobListingSchema.parse((await this.db.jobListings.get(jobListingId))!),
+          latestSnapshotId: snapshot.id,
+          updatedAt: now
+        }));
+        return { snapshot, created: true };
+      };
+
+      if (evaluation.candidates.length > 0 && input.dedupDecision === undefined) {
+        return { status: "waiting_input" as const, code: "duplicate_decision_required" as const, candidates: evaluation.candidates };
+      }
+
+      if (input.dedupDecision === "merge_existing") {
+        const targetId = input.duplicateListingId ?? evaluation.candidates[0]?.jobPostingId;
+        if (!targetId || !isValidDuplicateReference(evaluation, targetId)) {
+          throw new Error("invalid_duplicate_reference");
+        }
+        const targetRecord = await this.db.jobListings.get(targetId);
+        if (!targetRecord) throw new Error("listing_missing");
+        const target = JobListingSchema.parse(targetRecord);
+        await putListing(JobListingSchema.parse({
+          ...target,
+          ...(input.canonicalSourceUrl ?? target.canonicalSourceUrl
+            ? { canonicalSourceUrl: input.canonicalSourceUrl ?? target.canonicalSourceUrl }
+            : {}),
+          contentFingerprint: input.contentFingerprint,
+          companyTitleFingerprint: input.companyTitleFingerprint,
+          title: input.title,
+          company: input.company,
+          ...(input.location ?? target.location ? { location: input.location ?? target.location } : {}),
+          ...(input.salaryText ?? target.salaryText ? { salaryText: input.salaryText ?? target.salaryText } : {}),
+          updatedAt: now
+        }));
+        const { snapshot, created: snapshotCreated } = await appendSnapshot(target.id, "candidate_merge", target.sourceKey);
+        const fresh = JobListingSchema.parse((await this.db.jobListings.get(target.id))!);
+        const crawlState = snapshotCreated ? "changed" : "unchanged";
+        let listing = fresh;
+        if (crawlState !== fresh.crawlState) {
+          await putListing(JobListingSchema.parse({ ...fresh, crawlState, updatedAt: now }));
+          listing = JobListingSchema.parse((await this.db.jobListings.get(target.id))!);
+        }
+        return { status: "merged" as const, listing, snapshot, snapshotCreated };
+      }
+
+      const existingSelf = parsedExisting.find((listing) =>
+        listing.sourceKey === input.sourceKey && listing.externalId === input.externalId);
+      // id 在此确定一次并贯穿整个事务：putListing、appendSnapshot、回读共用。
+      const listingId = existingSelf?.id ?? input.listingId ?? `listing_${crypto.randomUUID()}`;
+      await putListing(JobListingSchema.parse({
+        ...(existingSelf ?? {}),
+        id: listingId,
+        schemaVersion: "job-listing-v1",
+        sourceKey: input.sourceKey,
+        externalId: input.externalId,
+        ...(input.canonicalSourceUrl ? { canonicalSourceUrl: input.canonicalSourceUrl } : {}),
+        ...(input.applyUrl ? { applyUrl: input.applyUrl } : {}),
+        contentFingerprint: input.contentFingerprint,
+        companyTitleFingerprint: input.companyTitleFingerprint,
+        listingKind: input.listingKind ?? "job_posting",
+        canonicalSourceKind: "external_job_source",
+        title: input.title,
+        company: input.company,
+        ...(input.location ? { location: input.location } : {}),
+        ...(input.salaryText ? { salaryText: input.salaryText } : {}),
+        ...(input.education ? { education: input.education } : {}),
+        ...(input.experience ? { experience: input.experience } : {}),
+        ...(input.publishedAt ? { publishedAt: input.publishedAt } : {}),
+        crawlState: existingSelf ? existingSelf.crawlState : "new",
+        policyStatus: existingSelf?.policyStatus ?? "allowed",
+        ...(existingSelf?.blockedReason ? { blockedReason: existingSelf.blockedReason } : {}),
+        // 候选 → 正式的转换状态只能经 markJobListingConverted 变更。
+        jobDescriptionId: existingSelf?.jobDescriptionId,
+        convertedAt: existingSelf?.convertedAt,
+        firstSeenAt: existingSelf?.firstSeenAt ?? now,
+        lastSeenAt: now,
+        createdAt: existingSelf?.createdAt ?? now,
+        updatedAt: now
+      }));
+      const selfId = listingId;
+      const created = !existingSelf;
+      const { snapshot, created: snapshotCreated } = await appendSnapshot(selfId, "candidate_ingest", input.sourceKey);
+      // appendSnapshot 会更新 latestSnapshotId：之后的所有读取必须基于最新记录。
+      const self = JobListingSchema.parse((await this.db.jobListings.get(selfId))!);
+      const status: "created" | "updated" | "unchanged" = created ? "created" : snapshotCreated ? "updated" : "unchanged";
+      const crawlState = created ? "new" : snapshotCreated ? "changed" : "unchanged";
+      let listing = self;
+      if (crawlState !== self.crawlState) {
+        await putListing(JobListingSchema.parse({ ...self, crawlState, updatedAt: now }));
+        listing = JobListingSchema.parse((await this.db.jobListings.get(selfId))!);
+      }
+      return { status, listing, snapshot, snapshotCreated };
+    });
+  }
+
+  /**
    * 候选岗位解析为分析草稿：一个事务内创建 RawInputDocument（保存原文）与
    * JobAnalysisDraft（raw_saved，未做任何 AI 分析），并把
    * parsedSnapshotId/analysisDraftId 绑回 listing。rawText/normalizerVersion/
@@ -8529,6 +8728,13 @@ export class WorkspaceRepository {
     draftId: string;
     commitId: string;
     confirmationId: string;
+    /** P2-B 稳定化：消费时逐字段校验确认绑定，防止跨渠道/跨会话/跨操作重放。 */
+    expectedConfirmation?: {
+      channel?: ConversionConfirmation["channel"];
+      operationId?: string;
+      userMessageId?: string;
+      careerSessionBinding?: ConversionConfirmation["careerSessionBinding"];
+    };
     pendingProposal?: { proposalId: string; answer?: string; at: string };
     now?: string;
   }) {
@@ -8539,6 +8745,22 @@ export class WorkspaceRepository {
       const confirmation = this.parseConversionConfirmation(confirmationRecord.value);
       if (confirmation.listingId !== input.listingId || confirmation.draftId !== input.draftId) {
         throw new Error("conversion_confirmation_target_mismatch");
+      }
+      const expected = input.expectedConfirmation;
+      if (expected) {
+        if (expected.channel !== undefined && confirmation.channel !== expected.channel) {
+          throw new Error("conversion_confirmation_channel_mismatch");
+        }
+        if (expected.operationId !== undefined && confirmation.operationId !== expected.operationId) {
+          throw new Error("conversion_confirmation_operation_mismatch");
+        }
+        if (expected.userMessageId !== undefined && confirmation.userMessageId !== expected.userMessageId) {
+          throw new Error("conversion_confirmation_user_message_mismatch");
+        }
+        if (expected.careerSessionBinding !== undefined
+          && JSON.stringify(confirmation.careerSessionBinding ?? null) !== JSON.stringify(expected.careerSessionBinding)) {
+          throw new Error("conversion_confirmation_session_mismatch");
+        }
       }
 
       const draftRecord = await this.db.jobAnalysisDrafts.get(input.draftId);

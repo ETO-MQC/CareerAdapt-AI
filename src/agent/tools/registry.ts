@@ -213,7 +213,10 @@ const JobParseInputSchema = z.object({
 const JobCommitInputSchema = JobParseInputSchema.extend({
   title: z.string().min(1).max(160),
   company: z.string().min(1).max(160),
-  graph: z.unknown()
+  graph: z.unknown(),
+  /** P2-B 稳定化：重复岗位命中时用户的选择；缺省时工具返回候选等待决策。 */
+  dedupDecision: z.enum(["merge_existing", "keep_separate"]).optional(),
+  duplicateListingId: z.string().min(1).optional()
 }).strict();
 
 const EntitySelectionSchema = z.object({
@@ -435,7 +438,7 @@ export class AgentToolRegistry {
     }));
   }
 
-  async execute(name: string, rawInput: unknown, operationId: string, signal?: AbortSignal, context?: { careerSessionBinding?: AgentToolExecutionContext["careerSessionBinding"] }): Promise<AgentToolResult> {
+  async execute(name: string, rawInput: unknown, operationId: string, signal?: AbortSignal, context?: { careerSessionBinding?: AgentToolExecutionContext["careerSessionBinding"]; userMessageId?: string }): Promise<AgentToolResult> {
     const tool = this.require(name);
     let input: unknown;
     try {
@@ -461,7 +464,12 @@ export class AgentToolRegistry {
       throw error;
     }
     try {
-      const output = tool.outputSchema.parse(await tool.execute(input, { operationId, signal, ...(context?.careerSessionBinding ? { careerSessionBinding: context.careerSessionBinding } : {}) }));
+      const output = tool.outputSchema.parse(await tool.execute(input, {
+        operationId,
+        signal,
+        ...(context?.careerSessionBinding ? { careerSessionBinding: context.careerSessionBinding } : {}),
+        ...(context?.userMessageId ? { userMessageId: context.userMessageId } : {})
+      }));
       return {
         ok: true,
         operationId,

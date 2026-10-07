@@ -16,17 +16,11 @@
  */
 
 import {
-  JD_NORMALIZER_VERSION,
   companyTitleFingerprint,
   jdContentHash,
   normalizeJd
 } from "@/domain/jobAssets/jdNormalization";
-import {
-  findDuplicateCandidates,
-  isValidDuplicateReference,
-  type DedupDecision,
-  type DedupExistingPosting
-} from "@/domain/jobAssets/jobDeduplication";
+import type { DedupDecision } from "@/domain/jobAssets/jobDeduplication";
 import type { ListingKind } from "@/domain/schemas/jobDiscovery";
 import type { JobListing, JobSnapshot } from "@/domain/schemas/jobDiscovery";
 import type { WorkspaceRepository } from "@/services/storage/repositories";
@@ -70,6 +64,8 @@ export type CandidateIngestInput = {
   /** 三级去重命中时的用户决定；缺省返回 waiting_input。 */
   dedupDecision?: DedupDecision;
   duplicateListingId?: string;
+  /** 失败注入点（测试）：缺省为 JD_NORMALIZER_VERSION。 */
+  normalizerVersion?: string;
   now?: string;
 };
 
@@ -78,193 +74,85 @@ export type CandidateIngestResult = {
   listing: JobListing;
   snapshot: JobSnapshot;
   snapshotCreated: boolean;
-  dedup: ReturnType<typeof findDuplicateCandidates>;
+  dedup: { candidates: CandidateIngestCandidate[]; algorithm: "careeradapt-dedup-v1" };
 };
 
 export type CandidateIngestWaiting = {
   status: "waiting_input";
   code: "duplicate_decision_required";
-  dedup: ReturnType<typeof findDuplicateCandidates>;
+  dedup: { candidates: CandidateIngestCandidate[]; algorithm: "careeradapt-dedup-v1" };
 };
-
-function toDedupPosting(listing: JobListing): DedupExistingPosting {
-  // 去重的"来源身份"轴是 (sourceKey, externalId)——与 jobListings 的唯一键一致。
-  return {
-    id: listing.id,
-    sourceName: listing.sourceKey,
-    sourceJobId: listing.externalId,
-    title: listing.title,
-    companyName: listing.company,
-    companyTitleFingerprint: listing.companyTitleFingerprint,
-    contentFingerprint: listing.contentFingerprint
-  };
-}
 
 /**
  * 摄取一个确定性 fixture 岗位：规范化 → 哈希 → 三级去重 → upsert listing →
  * 追加 snapshot。重复摄取完全幂等；内容变化产生新 snapshot 版本并把
  * crawlState 标为 changed。
  */
-export async function ingestCandidateFixture(
+export type CandidateIngestCandidate = {
+  jobPostingId: string;
+  rule: "source_id" | "company_title" | "content";
+  title: string;
+  companyName: string;
+};
+
+/**
+ * 摄取一个候选岗位：规范化 → 哈希 → 三级去重 → 原子写入 listing 与 snapshot。
+ * 存储与决策应用全部在 Repository 的单个事务内完成（listing、snapshot、
+ * latestSnapshotId、crawlState 不会半提交）；本函数只做纯逻辑与决策结果
+ * 映射。重复摄取完全幂等；内容变化产生新 snapshot 版本并把 crawlState
+ * 标为 changed。
+ */
+export async function ingestCandidateListing(
   repository: WorkspaceRepository,
   input: CandidateIngestInput
 ): Promise<CandidateIngestResult | CandidateIngestWaiting> {
-  const now = input.now ?? new Date().toISOString();
   const normalized = normalizeJd(input.rawText);
   if (!normalized) throw new Error("candidate_jd_empty");
   const contentHash = jdContentHash(input.rawText);
   // listing 的 contentFingerprint 取"纯规范化内容哈希"：三级去重的 content
   // 规则据此才能命中"同 JD 正文、不同标题/公司"的重复（companyTitle 指纹
   // 保持 title+company 语义）。
-  const contentFingerprintValue = contentHash;
-  const companyTitleFingerprintValue = companyTitleFingerprint(input.title, input.company);
-
-  const existing = await repository.listJobListings();
-  // 幂等重试不是去重问题：同一 [sourceKey+externalId] 的 listing 是自身，
-  // 必须排除在候选之外，否则重摄同一 fixture 会要求用户做无意义的合并决定。
-  const dedupPool = existing.filter((listing) =>
-    !(listing.sourceKey === input.sourceKey && listing.externalId === input.externalId));
-  const evaluation = findDuplicateCandidates(
-    dedupPool.map(toDedupPosting),
-    {
-      sourceName: input.sourceKey,
-      sourceJobId: input.externalId,
-      title: input.title,
-      companyName: input.company,
-      companyTitleFingerprint: companyTitleFingerprintValue,
-      contentFingerprint: contentFingerprintValue
-    }
-  );
-  if (evaluation.candidates.length > 0 && input.dedupDecision === undefined) {
-    return { status: "waiting_input", code: "duplicate_decision_required", dedup: evaluation };
-  }
-
-  if (input.dedupDecision === "merge_existing") {
-    const targetId = input.duplicateListingId ?? evaluation.candidates[0]?.jobPostingId;
-    if (!targetId || !isValidDuplicateReference(evaluation, targetId)) {
-      throw new Error("invalid_duplicate_reference");
-    }
-    const target = await repository.getJobListing(targetId);
-    if (!target) throw new Error("listing_missing");
-    // 合并语义：内容进入目标 listing 的 snapshot 历史，不新建岗位。
-    const upsert = await repository.upsertJobListing({
-      listing: {
-        id: target.id,
-        schemaVersion: "job-listing-v1",
-        sourceKey: target.sourceKey,
-        externalId: target.externalId,
-        ...(input.canonicalSourceUrl ?? target.canonicalSourceUrl
-          ? { canonicalSourceUrl: input.canonicalSourceUrl ?? target.canonicalSourceUrl }
-          : {}),
-        contentFingerprint: contentFingerprintValue,
-        companyTitleFingerprint: companyTitleFingerprintValue,
-        listingKind: target.listingKind,
-        canonicalSourceKind: "external_job_source",
-        title: input.title,
-        company: input.company,
-        ...(input.location ?? target.location ? { location: input.location ?? target.location } : {}),
-        ...(input.salaryText ?? target.salaryText ? { salaryText: input.salaryText ?? target.salaryText } : {}),
-        crawlState: target.crawlState,
-        policyStatus: target.policyStatus,
-        ...(target.blockedReason ? { blockedReason: target.blockedReason } : {})
-      },
-      now
-    });
-    const appended = await repository.appendJobSnapshot({
-      jobListingId: target.id,
-      rawText: input.rawText,
-      contentHash,
-      normalizerVersion: JD_NORMALIZER_VERSION,
-      capturedBy: CANDIDATE_PIPELINE_VERSION,
-      provenance: {
-        sourceName: target.sourceKey,
-        sourceKind: "external_job_source",
-        operation: "candidate_fixture_merge",
-        adapterId: CANDIDATE_PIPELINE_VERSION,
-        adapterVersion: CANDIDATE_PIPELINE_VERSION,
-        capturedAt: now
-      },
-      redactionStatus: "raw",
-      capturedAt: now,
-      now
-    });
-    const crawlState = appended.created ? "changed" : "unchanged";
-    // 追加快照会更新 listing.latestSnapshotId；状态修正必须基于最新记录，
-    // 不能用追加前的陈旧对象覆盖回去。
-    const listing = crawlState === target.crawlState
-      ? upsert.listing
-      : (await repository.upsertJobListing({
-        listing: { ...(await repository.getJobListing(target.id))!, crawlState },
-        now
-      })).listing;
+  const result = await repository.ingestCandidateListing({
+    sourceKey: input.sourceKey,
+    externalId: input.externalId,
+    ...(input.listingId ? { listingId: input.listingId } : {}),
+    rawText: input.rawText,
+    title: input.title,
+    company: input.company,
+    contentHash,
+    contentFingerprint: contentHash,
+    companyTitleFingerprint: companyTitleFingerprint(input.title, input.company),
+    ...(input.canonicalSourceUrl ? { canonicalSourceUrl: input.canonicalSourceUrl } : {}),
+    ...(input.applyUrl ? { applyUrl: input.applyUrl } : {}),
+    ...(input.listingKind ? { listingKind: input.listingKind } : {}),
+    ...(input.location ? { location: input.location } : {}),
+    ...(input.salaryText ? { salaryText: input.salaryText } : {}),
+    ...(input.education ? { education: input.education } : {}),
+    ...(input.experience ? { experience: input.experience } : {}),
+    ...(input.publishedAt ? { publishedAt: input.publishedAt } : {}),
+    ...(input.dedupDecision ? { dedupDecision: input.dedupDecision } : {}),
+    ...(input.duplicateListingId ? { duplicateListingId: input.duplicateListingId } : {}),
+    ...(input.normalizerVersion !== undefined ? { normalizerVersion: input.normalizerVersion } : {}),
+    capturedBy: CANDIDATE_PIPELINE_VERSION,
+    ...(input.now ? { now: input.now } : {})
+  });
+  if (result.status === "waiting_input") {
     return {
-      status: "merged",
-      listing,
-      snapshot: appended.snapshot,
-      snapshotCreated: appended.created,
-      dedup: evaluation
+      status: "waiting_input",
+      code: "duplicate_decision_required",
+      dedup: { candidates: result.candidates, algorithm: "careeradapt-dedup-v1" }
     };
   }
-
-  // keep_separate 或无候选：按调用方身份 upsert（同 [sourceKey+externalId]
-  // 的重复摄取在这里天然幂等）。
-  const upsert = await repository.upsertJobListing({
-    listing: {
-      id: input.listingId ?? `listing_${crypto.randomUUID()}`,
-      schemaVersion: "job-listing-v1",
-      sourceKey: input.sourceKey,
-      externalId: input.externalId,
-      ...(input.canonicalSourceUrl ? { canonicalSourceUrl: input.canonicalSourceUrl } : {}),
-      ...(input.applyUrl ? { applyUrl: input.applyUrl } : {}),
-      contentFingerprint: contentFingerprintValue,
-      companyTitleFingerprint: companyTitleFingerprintValue,
-      listingKind: input.listingKind ?? "job_posting",
-      canonicalSourceKind: "external_job_source",
-      title: input.title,
-      company: input.company,
-      ...(input.location ? { location: input.location } : {}),
-      ...(input.salaryText ? { salaryText: input.salaryText } : {}),
-      ...(input.education ? { education: input.education } : {}),
-      ...(input.experience ? { experience: input.experience } : {}),
-      ...(input.publishedAt ? { publishedAt: input.publishedAt } : {}),
-      crawlState: "new",
-      policyStatus: "allowed"
-    },
-    now
-  });
-  const appended = await repository.appendJobSnapshot({
-    jobListingId: upsert.listing.id,
-    rawText: input.rawText,
-    contentHash,
-    normalizerVersion: JD_NORMALIZER_VERSION,
-    capturedBy: CANDIDATE_PIPELINE_VERSION,
-    provenance: {
-      sourceName: input.sourceKey,
-      sourceKind: "external_job_source",
-      operation: "candidate_fixture_ingest",
-      adapterId: CANDIDATE_PIPELINE_VERSION,
-      adapterVersion: CANDIDATE_PIPELINE_VERSION,
-      capturedAt: now
-    },
-    redactionStatus: "raw",
-    capturedAt: now,
-    now
-  });
-  const status: CandidateIngestResult["status"] = upsert.created
-    ? "created"
-    : appended.created
-      ? "updated"
-      : "unchanged";
-  const crawlState = upsert.created ? "new" : appended.created ? "changed" : "unchanged";
-  // 同上：基于追加快照后的最新 listing 修正 crawlState，避免覆盖
-  // latestSnapshotId。
-  const listing = crawlState === upsert.listing.crawlState
-    ? upsert.listing
-    : (await repository.upsertJobListing({
-      listing: { ...(await repository.getJobListing(upsert.listing.id))!, crawlState },
-      now
-    })).listing;
-  return { status, listing, snapshot: appended.snapshot, snapshotCreated: appended.created, dedup: evaluation };
+  return {
+    status: result.status,
+    listing: result.listing,
+    snapshot: result.snapshot,
+    snapshotCreated: result.snapshotCreated,
+    dedup: {
+      candidates: [] as CandidateIngestCandidate[],
+      algorithm: "careeradapt-dedup-v1"
+    }
+  };
 }
 
 export type CandidateParseResult = {

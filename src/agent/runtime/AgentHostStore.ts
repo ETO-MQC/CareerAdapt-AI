@@ -5785,7 +5785,9 @@ export class AgentHostStore {
       toolInput: confirmation.validatedInput ?? call.input,
       operationId: call.operationId,
       confirmed: true,
-      ...(careerSessionBinding ? { careerSessionBinding, requireSessionBinding: true } : {})
+      ...(careerSessionBinding ? { careerSessionBinding, requireSessionBinding: true } : {}),
+      // P2-B 稳定化：转换确认绑定触发本次调用的用户消息。
+      userMessageId: current.activeTurn?.sourceUserMessageId ?? current.activeTurn?.userMessageId
     });
     current = upsertAgentActivity(current, {
       id: `agent-tool-${call.operationId}`,

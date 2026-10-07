@@ -10,7 +10,7 @@ import {
   TailoringIntensitySchema,
   TailoringModeSchema
 } from "@/domain/schemas";
-import { ingestCandidateFixture, manualCandidateIdentity, parseCandidateToDraft } from "@/domain/jobDiscovery/candidatePipeline";
+import { ingestCandidateListing, manualCandidateIdentity, parseCandidateToDraft } from "@/domain/jobDiscovery/candidatePipeline";
 import type { AgentToolExecutionContext } from "@/agent/contracts/agentTool";
 import { projectJobGraphV4ToAnalyzerOutput } from "@/domain/jobOptimization/v3/project";
 import { parseUserPreferences } from "@/domain/resumeComposition/ResumeCompositionPreferences";
@@ -1617,21 +1617,40 @@ export class BrowserAgentToolService implements AgentToolServices {
    */
   async commitJob(rawInput: unknown, operationId: string, signal?: AbortSignal, context?: AgentToolExecutionContext) {
     assertNotAborted(signal);
-    const input = rawInput as { title: string; company: string; rawText: string; graph: unknown };
+    const input = rawInput as {
+      title: string; company: string; rawText: string; graph: unknown;
+      dedupDecision?: "merge_existing" | "keep_separate";
+      duplicateListingId?: string;
+    };
     const graph = JobRequirementGraphV4Schema.parse(input.graph);
     const now = new Date().toISOString();
     const identity = manualCandidateIdentity(input.title, input.company);
-    const ingest = await ingestCandidateFixture(this.repository, {
+    const ingest = await ingestCandidateListing(this.repository, {
       sourceKey: identity.sourceKey,
       externalId: identity.externalId,
       listingId: identity.listingId,
       rawText: input.rawText,
       title: input.title,
       company: input.company,
-      dedupDecision: "keep_separate",
+      // P2-B 稳定化：重复岗位不再自动 keep_separate——命中候选时返回清单，
+      // 等待用户在下一条消息里明确选择后再带决策重试。
+      ...(input.dedupDecision ? { dedupDecision: input.dedupDecision } : {}),
+      ...(input.duplicateListingId ? { duplicateListingId: input.duplicateListingId } : {}),
       now
     });
-    if (ingest.status === "waiting_input") throw new Error("candidate_duplicate_decision_required");
+    if (ingest.status === "waiting_input") {
+      return {
+        status: "duplicate_decision_required",
+        operationId,
+        message: "发现可能的重复岗位：请用户选择合并到已有岗位或保存为独立岗位后重试。在用户明确选择前不会保存。",
+        candidates: ingest.dedup.candidates.map((candidate) => ({
+          listingId: candidate.jobPostingId,
+          rule: candidate.rule,
+          title: candidate.title,
+          company: candidate.companyName
+        }))
+      };
+    }
     const draftId = `job-draft-agent-${stableHashText(operationId).slice(0, 20)}`;
     const parsed = await parseCandidateToDraft(this.repository, {
       listingId: ingest.listing.id,
@@ -1681,6 +1700,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       listingId: ingest.listing.id,
       draftId,
       ...(context?.careerSessionBinding ? { careerSessionBinding: context.careerSessionBinding } : {}),
+      ...(context?.userMessageId ? { userMessageId: context.userMessageId } : {}),
       now
     });
     const committed = await this.repository.convertCandidateListing({
@@ -1688,6 +1708,12 @@ export class BrowserAgentToolService implements AgentToolServices {
       draftId,
       commitId: `commit-job-${draftId}-${analyzedDraft.revision}`,
       confirmationId: confirmation.confirmationId,
+      expectedConfirmation: {
+        channel: "agent",
+        operationId,
+        ...(context?.userMessageId ? { userMessageId: context.userMessageId } : {}),
+        ...(context?.careerSessionBinding ? { careerSessionBinding: context.careerSessionBinding } : {})
+      },
       now
     });
     return {

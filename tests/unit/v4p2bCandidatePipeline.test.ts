@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  ingestCandidateFixture,
+  ingestCandidateListing,
   parseCandidateToDraft,
   CANDIDATE_PIPELINE_VERSION
 } from "@/domain/jobDiscovery/candidatePipeline";
@@ -66,10 +66,10 @@ function confirmedRequirementFixture() {
   });
 }
 
-type IngestResult = Exclude<Awaited<ReturnType<typeof ingestCandidateFixture>>, { status: "waiting_input" }>;
+type IngestResult = Exclude<Awaited<ReturnType<typeof ingestCandidateListing>>, { status: "waiting_input" }>;
 
 async function ingestA(repository: WorkspaceRepository): Promise<IngestResult> {
-  const result = await ingestCandidateFixture(repository, fixtureInput());
+  const result = await ingestCandidateListing(repository, fixtureInput());
   if (result.status === "waiting_input") throw new Error("expected ingest to succeed");
   return result;
 }
@@ -149,7 +149,7 @@ describe("V4-P2-B stage 1-2: deterministic ingest (normalize, hash, dedupe, snap
     // 规范化器有意保留，sourceSpan 才能回到原文）。
     const { repository } = makeDb();
     await ingestA(repository);
-    const variant = await ingestCandidateFixture(repository, fixtureInput({ rawText: JD_A_WHITESPACE_VARIANT }));
+    const variant = await ingestCandidateListing(repository, fixtureInput({ rawText: JD_A_WHITESPACE_VARIANT }));
     expect(variant.status).toBe("unchanged");
     if (variant.status === "waiting_input") throw new Error("expected ingest to succeed");
     expect(variant.snapshot.version).toBe(1);
@@ -159,7 +159,7 @@ describe("V4-P2-B stage 1-2: deterministic ingest (normalize, hash, dedupe, snap
   it("produces a new snapshot version and marks crawlState=changed when content changes", async () => {
     const { repository } = makeDb();
     await ingestA(repository);
-    const changed = await ingestCandidateFixture(repository, fixtureInput({ rawText: JD_B }));
+    const changed = await ingestCandidateListing(repository, fixtureInput({ rawText: JD_B }));
     expect(changed.status).toBe("updated");
     if (changed.status === "waiting_input") throw new Error("expected ingest to succeed");
     expect(changed.snapshot.version).toBe(2);
@@ -172,7 +172,7 @@ describe("V4-P2-B stage 1-2: deterministic ingest (normalize, hash, dedupe, snap
   it("asks for a user decision when the same content arrives under a new external id", async () => {
     const { repository } = makeDb();
     await ingestA(repository);
-    const waiting = await ingestCandidateFixture(repository, fixtureInput({
+    const waiting = await ingestCandidateListing(repository, fixtureInput({
       listingId: "listing_b",
       externalId: "job-002"
     }));
@@ -186,7 +186,7 @@ describe("V4-P2-B stage 1-2: deterministic ingest (normalize, hash, dedupe, snap
   it("merges into the existing listing on merge_existing without creating a second listing", async () => {
     const { repository } = makeDb();
     await ingestA(repository);
-    const merged = await ingestCandidateFixture(repository, fixtureInput({
+    const merged = await ingestCandidateListing(repository, fixtureInput({
       listingId: "listing_b",
       externalId: "job-002",
       dedupDecision: "merge_existing"
@@ -198,7 +198,7 @@ describe("V4-P2-B stage 1-2: deterministic ingest (normalize, hash, dedupe, snap
     expect(merged.snapshot.version).toBe(1);
     expect(merged.snapshotCreated).toBe(false);
     expect(await repository.listJobListings()).toHaveLength(1);
-    await expect(ingestCandidateFixture(repository, fixtureInput({
+    await expect(ingestCandidateListing(repository, fixtureInput({
       listingId: "listing_c",
       externalId: "job-003",
       dedupDecision: "merge_existing",
@@ -209,7 +209,7 @@ describe("V4-P2-B stage 1-2: deterministic ingest (normalize, hash, dedupe, snap
   it("creates a separate listing on keep_separate", async () => {
     const { repository } = makeDb();
     await ingestA(repository);
-    const separate = await ingestCandidateFixture(repository, fixtureInput({
+    const separate = await ingestCandidateListing(repository, fixtureInput({
       listingId: "listing_b",
       externalId: "job-002",
       dedupDecision: "keep_separate"

@@ -46,7 +46,8 @@ export type AgentToolRisk = z.infer<typeof AgentToolRiskSchema>;
 export type AgentToolExecutionContext = {
   operationId: string;
   signal?: AbortSignal;
-  /** 转换确认需要绑定 agent 会话身份；只读透传，不参与其余工具。 */
+  /** 转换确认需要绑定 agent 会话身份与触发用户消息；只读透传，不参与其余工具。 */
+  userMessageId?: string;
   careerSessionBinding?: {
     personId: string;
     profileId: string;
