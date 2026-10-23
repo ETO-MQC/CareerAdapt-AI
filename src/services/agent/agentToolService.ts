@@ -1585,7 +1585,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       importId: string;
       expectedDraftRevision: number;
       expectedReconciliationRevision?: number;
-      target: { mode: "existing"; profileId: string } | { mode: "new"; profileName: string; createGeneralResume: true };
+      target: { mode: "existing"; profileId: string; createGeneralResume?: true } | { mode: "new"; profileName: string; createGeneralResume: true };
     };
     return this.repository.confirmImportedResume({ ...input, operationId });
   }

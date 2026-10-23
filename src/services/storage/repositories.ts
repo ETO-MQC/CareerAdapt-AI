@@ -2578,6 +2578,11 @@ export class WorkspaceRepository {
           branchId: built?.branch.id,
           revisionId: built?.firstRevision.id,
           presentationRevision: presentationConfig?.presentationRevision,
+          ...(!built ? {
+            branchDisposition: existingGeneralResumeCount > 0
+              ? "merged_into_existing_general_resume"
+              : "no_new_resume_content"
+          } : {}),
           idempotent: false
         });
         await this.db.appMeta.put({

@@ -22,7 +22,16 @@ environment.HERMES_RUNTIME_ROOT = environment.HERMES_RUNTIME_ROOT
   || path.join(projectRoot, ".electron-build", "hermes-runtime-v4");
 const preferredAppPort = parsePort(environment.CAREERADAPT_APP_PORT || environment.PORT, 3000);
 const preferredAppUrl = `http://${host}:${preferredAppPort}`;
-const appAlreadyRunning = await isAppReady(preferredAppUrl);
+const webControlEnabled = (environment.HERMES_WEB_CONTROL_ENABLED ?? "true").trim().toLowerCase() !== "false";
+const existingAppResponding = await isAppReady(preferredAppUrl);
+const existingWebControlEnabled = webControlEnabled
+  && existingAppResponding
+  && await isWebControlAvailable(preferredAppUrl);
+// Do not silently reuse a UI-only/old Next process when the canonical `pnpm dev`
+// entry point is expected to provide the Web Supervisor. Otherwise the launcher
+// advertises Web control in its own environment while the already-running Next
+// process still has HERMES_WEB_CONTROL_ENABLED=false.
+const appAlreadyRunning = existingAppResponding && (!webControlEnabled || existingWebControlEnabled);
 const existingAppHealth = appAlreadyRunning ? await readAppHealth(preferredAppUrl) : undefined;
 const appPort = appAlreadyRunning
   ? preferredAppPort
@@ -46,8 +55,11 @@ if (runtimeAllocation.environment.HERMES_RUNTIME_URL) {
 }
 const appUrl = environment.CAREERADAPT_BASE_URL;
 const logPath = path.join(projectRoot, ".next", "dev", "logs", "hermes-runtime.log");
-const webControlEnabled = (environment.HERMES_WEB_CONTROL_ENABLED ?? "true").trim().toLowerCase() !== "false";
 environment.HERMES_WEB_CONTROL_ENABLED = webControlEnabled ? "true" : "false";
+
+if (existingAppResponding && webControlEnabled && !existingWebControlEnabled) {
+  console.warn(`[CareerAdapt] Existing app at ${preferredAppUrl} has no Web Supervisor; starting the full Web debug server at ${appUrl} instead of reusing it.`);
+}
 
 let nextProcess;
 let hermesHandle;
@@ -138,6 +150,18 @@ async function shutdown(code) {
 async function isAppReady(url) {
   try {
     const response = await fetch(`${url}/api/agent/mcp`, { signal: AbortSignal.timeout(1_500) });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function isWebControlAvailable(url) {
+  try {
+    const response = await fetch(`${url}/api/agent/runtime/hermes/control`, {
+      headers: { Origin: url },
+      signal: AbortSignal.timeout(1_500)
+    });
     return response.ok;
   } catch {
     return false;

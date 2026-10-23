@@ -1,0 +1,2298 @@
+{
+  "$comment": "V4-P2-C 生成的 Agent 能力矩阵。由 tests/unit/v4p2cCapabilityMatrix.test.ts 从真实 AgentToolRegistry 派生并校验，不得手工编辑。",
+  "totals": {
+    "tools": 48,
+    "read": 27,
+    "write": 21,
+    "confirmationWrite": 10,
+    "sessionOnly": 6,
+    "readToolsWritingWorkflowState": [
+      "plan_resume_composition",
+      "reconcile_profile_intake",
+      "reconcile_resume_import"
+    ],
+    "writeToolsNotIdempotentOrResumable": [],
+    "unimplementedIntents": [
+      "manage_application_record",
+      "assist_ats_application",
+      "mock_interview"
+    ]
+  },
+  "intents": {
+    "record_profile_facts": {
+      "label": "记录个人资料 / 简历事实",
+      "implemented": true,
+      "tools": [
+        "capture_profile_intake",
+        "synthesize_profile_intake",
+        "review_profile_intake",
+        "reconcile_profile_intake",
+        "resolve_profile_intake_conflict",
+        "commit_profile_intake"
+      ]
+    },
+    "import_or_record_resume": {
+      "label": "导入或记录简历",
+      "implemented": true,
+      "tools": [
+        "prepare_resume_import",
+        "review_resume_import",
+        "reconcile_resume_import",
+        "resolve_resume_reconciliation",
+        "parse_resume_file",
+        "create_resume_import_draft",
+        "commit_resume_import"
+      ]
+    },
+    "record_job": {
+      "label": "记录岗位",
+      "implemented": true,
+      "tools": [
+        "parse_job_description",
+        "commit_job"
+      ]
+    },
+    "analyze_job_fit": {
+      "label": "分析岗位与简历匹配",
+      "implemented": true,
+      "tools": [
+        "recommend_resume_source",
+        "analyze_job_fit"
+      ]
+    },
+    "create_job_specific_resume": {
+      "label": "创建岗位定制简历",
+      "implemented": true,
+      "tools": [
+        "create_job_resume_from_profile",
+        "create_resume_from_profile",
+        "build_resume_evidence_graph",
+        "plan_resume_composition",
+        "review_resume_composition",
+        "compose_resume",
+        "ensure_general_resume_from_profile",
+        "create_tailoring_session",
+        "answer_tailoring_question",
+        "generate_tailoring_changes",
+        "review_tailoring_diff",
+        "preview_tailoring_changes",
+        "apply_tailoring_changes"
+      ]
+    },
+    "edit_and_export_resume": {
+      "label": "修改并导出简历",
+      "implemented": true,
+      "tools": [
+        "apply_tailoring_changes",
+        "archive_resume",
+        "restore_resume",
+        "export_resume"
+      ]
+    },
+    "manage_application_record": {
+      "label": "管理投递记录",
+      "implemented": false,
+      "tools": []
+    },
+    "assist_ats_application": {
+      "label": "ATS 半自动填写",
+      "implemented": false,
+      "tools": []
+    },
+    "mock_interview": {
+      "label": "模拟面试",
+      "implemented": false,
+      "tools": []
+    },
+    "read_career_context": {
+      "label": "读取职业上下文",
+      "implemented": true,
+      "tools": [
+        "list_profiles",
+        "get_active_profile",
+        "get_profile",
+        "search_profile_facts",
+        "retrieve_career_context"
+      ]
+    },
+    "read_resume_and_job": {
+      "label": "读取简历与岗位",
+      "implemented": true,
+      "tools": [
+        "list_resumes",
+        "list_jobs",
+        "get_resume",
+        "get_resume_revision",
+        "get_job"
+      ]
+    },
+    "runtime_diagnostics": {
+      "label": "运行时诊断",
+      "implemented": true,
+      "tools": [
+        "get_agent_task_context",
+        "get_agent_runtime_status",
+        "get_agent_current_task",
+        "get_agent_last_failure",
+        "search_agent_sessions"
+      ]
+    }
+  },
+  "rows": [
+    {
+      "tool": "list_resumes",
+      "domain": "简历",
+      "category": "resume",
+      "dataScope": "resume_summary",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "none",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "只读，无需恢复；重读即可",
+      "intents": [
+        "read_resume_and_job"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [],
+        "properties": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "list_profiles",
+      "domain": "个人资料库",
+      "category": "profile",
+      "dataScope": "profile_summary",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "none",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "只读，无需恢复；重读即可",
+      "intents": [
+        "read_career_context"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [],
+        "properties": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "list_jobs",
+      "domain": "岗位",
+      "category": "job",
+      "dataScope": "job_summary",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "none",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "只读，无需恢复；重读即可",
+      "intents": [
+        "read_resume_and_job"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [],
+        "properties": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "get_active_profile",
+      "domain": "个人资料库",
+      "category": "profile",
+      "dataScope": "active_profile",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "none",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "只读，无需恢复；重读即可",
+      "intents": [
+        "read_career_context"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [],
+        "properties": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "get_profile",
+      "domain": "个人资料库",
+      "category": "profile",
+      "dataScope": "career_profile",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "none",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "只读，无需恢复；重读即可",
+      "intents": [
+        "read_career_context"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "profileId"
+        ],
+        "properties": [
+          "profileId"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "search_profile_facts",
+      "domain": "个人资料库",
+      "category": "profile",
+      "dataScope": "profile_facts",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "none",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "只读，无需恢复；重读即可",
+      "intents": [
+        "read_career_context"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "limit",
+          "profileId",
+          "query"
+        ],
+        "properties": [
+          "limit",
+          "profileId",
+          "query",
+          "sectionTypes"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "retrieve_career_context",
+      "domain": "个人资料库",
+      "category": "profile",
+      "dataScope": "career_context",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "none",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "只读，无需恢复；重读即可",
+      "intents": [
+        "read_career_context"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "maxFacts",
+          "profileId",
+          "query"
+        ],
+        "properties": [
+          "intent",
+          "jobId",
+          "maxFacts",
+          "profileId",
+          "query",
+          "resumeId",
+          "targetText"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "careerContextResultSummary",
+          "facts",
+          "intent",
+          "operationId",
+          "profileId",
+          "query",
+          "sourceSummary",
+          "targetSignals",
+          "unsupportedClaims"
+        ],
+        "properties": [
+          "careerContextResultSummary",
+          "facts",
+          "intent",
+          "operationId",
+          "profileId",
+          "query",
+          "sourceSummary",
+          "targetSignals",
+          "unsupportedClaims"
+        ]
+      }
+    },
+    {
+      "tool": "get_resume",
+      "domain": "简历",
+      "category": "resume",
+      "dataScope": "resume_detail",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "none",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "只读，无需恢复；重读即可",
+      "intents": [
+        "read_resume_and_job"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "resumeId"
+        ],
+        "properties": [
+          "resumeId"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "get_resume_revision",
+      "domain": "简历",
+      "category": "resume",
+      "dataScope": "resume_revision",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "none",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "只读，无需恢复；重读即可",
+      "intents": [
+        "read_resume_and_job"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "resumeId"
+        ],
+        "properties": [
+          "resumeId",
+          "revisionId"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "get_job",
+      "domain": "岗位",
+      "category": "job",
+      "dataScope": "job_detail",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "none",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "只读，无需恢复；重读即可",
+      "intents": [
+        "read_resume_and_job"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "jobId"
+        ],
+        "properties": [
+          "jobId"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "recommend_resume_source",
+      "domain": "岗位匹配",
+      "category": "tailoring",
+      "dataScope": "career_assets",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "none",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "只读推荐；用户可直接覆盖来源选择",
+      "intents": [
+        "analyze_job_fit"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "jobId",
+          "profileId"
+        ],
+        "properties": [
+          "jobId",
+          "profileId"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "create_job_resume_from_profile",
+      "domain": "岗位定制",
+      "category": "tailoring",
+      "dataScope": "resume_revision",
+      "risk": "write",
+      "access": "write",
+      "requiresConfirmation": true,
+      "writeKind": "confirmation_write",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "persistent",
+      "producesArtifact": true,
+      "businessRecords": [
+        "resumeBranches",
+        "resumeRevisions",
+        "resumeBranchOperations"
+      ],
+      "workflowStateRecords": [],
+      "recovery": "未确认时零写入；来源简历不变；同来源指纹重复派生需显式新建",
+      "intents": [
+        "create_job_specific_resume"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "jobId",
+          "profileId"
+        ],
+        "properties": [
+          "jobId",
+          "name",
+          "profileId"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "create_resume_from_profile",
+      "domain": "简历组装",
+      "category": "resume",
+      "dataScope": "resume_revision",
+      "risk": "write",
+      "access": "write",
+      "requiresConfirmation": true,
+      "writeKind": "confirmation_write",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "persistent",
+      "producesArtifact": true,
+      "businessRecords": [
+        "resumeBranches",
+        "resumeRevisions",
+        "resumeBranchOperations"
+      ],
+      "workflowStateRecords": [],
+      "recovery": "未确认时零写入；不覆盖既有简历",
+      "intents": [
+        "create_job_specific_resume"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "expectedProfileVersion",
+          "selectedFactIds",
+          "targetProfileId"
+        ],
+        "properties": [
+          "acknowledgedActiveProfileId",
+          "expectedProfileVersion",
+          "name",
+          "selectedFactIds",
+          "targetProfileId"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "build_resume_evidence_graph",
+      "domain": "简历组装",
+      "category": "resume",
+      "dataScope": "resume_evidence_graph",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "none",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "只读构图；Profile 缺失返回 needs_profile",
+      "intents": [
+        "create_job_specific_resume"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "expectedProfileRevision",
+          "mode",
+          "profileId"
+        ],
+        "properties": [
+          "acknowledgedActiveProfileId",
+          "checkpointId",
+          "companyType",
+          "expectedProfileRevision",
+          "generalResumeMode",
+          "jobId",
+          "mode",
+          "name",
+          "profileId",
+          "sourceResumeId",
+          "targetAudience",
+          "targetDirection",
+          "userPreferences"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "plan_resume_composition",
+      "domain": "简历组装",
+      "category": "resume",
+      "dataScope": "resume_blueprint",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "persistent",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [
+        "appMeta:resume-composition-checkpoint"
+      ],
+      "recovery": "V4-P2-C 发现：risk=read 但会持久化组装 checkpoint；以同一 checkpointId 续跑，保留可重放",
+      "intents": [
+        "create_job_specific_resume"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "expectedProfileRevision",
+          "mode",
+          "profileId"
+        ],
+        "properties": [
+          "acknowledgedActiveProfileId",
+          "checkpointId",
+          "companyType",
+          "expectedProfileRevision",
+          "generalResumeMode",
+          "jobId",
+          "mode",
+          "name",
+          "profileId",
+          "sourceResumeId",
+          "targetAudience",
+          "targetDirection",
+          "userPreferences"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "review_resume_composition",
+      "domain": "简历组装",
+      "category": "resume",
+      "dataScope": "resume_review",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "none",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "只读审查；未形成 proposal 时不可声称完成",
+      "intents": [
+        "create_job_specific_resume"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "expectedProfileRevision",
+          "mode",
+          "profileId"
+        ],
+        "properties": [
+          "acknowledgedActiveProfileId",
+          "checkpointId",
+          "companyType",
+          "expectedProfileRevision",
+          "generalResumeMode",
+          "jobId",
+          "mode",
+          "name",
+          "profileId",
+          "sourceResumeId",
+          "targetAudience",
+          "targetDirection",
+          "userPreferences"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "compose_resume",
+      "domain": "简历组装",
+      "category": "resume",
+      "dataScope": "resume_revision",
+      "risk": "write",
+      "access": "write",
+      "requiresConfirmation": true,
+      "writeKind": "confirmation_write",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "persistent",
+      "producesArtifact": true,
+      "businessRecords": [
+        "resumeBranches",
+        "resumeRevisions",
+        "resumeBranchOperations"
+      ],
+      "workflowStateRecords": [
+        "appMeta:resume-composition-checkpoint"
+      ],
+      "recovery": "未确认时零写入；失败保留 checkpoint，可从当前步骤重试；同一 operationId 幂等",
+      "intents": [
+        "create_job_specific_resume"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "expectedProfileRevision",
+          "mode",
+          "profileId"
+        ],
+        "properties": [
+          "acknowledgedActiveProfileId",
+          "checkpointId",
+          "companyType",
+          "expectedProfileRevision",
+          "generalResumeMode",
+          "jobId",
+          "mode",
+          "name",
+          "profileId",
+          "sourceResumeId",
+          "targetAudience",
+          "targetDirection",
+          "userPreferences"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "get_agent_task_context",
+      "domain": "运行时诊断",
+      "category": "agent",
+      "dataScope": "task_context",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "none",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "只读，无需恢复；重读即可",
+      "intents": [
+        "runtime_diagnostics"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "sessionId"
+        ],
+        "properties": [
+          "sessionId"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "get_agent_runtime_status",
+      "domain": "运行时诊断",
+      "category": "agent",
+      "dataScope": "runtime_status",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "none",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "只读，无需恢复；重读即可",
+      "intents": [
+        "runtime_diagnostics"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "sessionId"
+        ],
+        "properties": [
+          "sessionId"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "get_agent_current_task",
+      "domain": "运行时诊断",
+      "category": "agent",
+      "dataScope": "current_task",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "none",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "只读，无需恢复；重读即可",
+      "intents": [
+        "runtime_diagnostics"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "sessionId"
+        ],
+        "properties": [
+          "sessionId"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "get_agent_last_failure",
+      "domain": "运行时诊断",
+      "category": "agent",
+      "dataScope": "last_failure",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "none",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "只读，无需恢复；重读即可",
+      "intents": [
+        "runtime_diagnostics"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "sessionId"
+        ],
+        "properties": [
+          "sessionId"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "search_agent_sessions",
+      "domain": "运行时诊断",
+      "category": "agent",
+      "dataScope": "episodic_memory",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "none",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "只读，无需恢复；重读即可",
+      "intents": [
+        "runtime_diagnostics"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "limit",
+          "query"
+        ],
+        "properties": [
+          "limit",
+          "query"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "prepare_resume_import",
+      "domain": "简历导入",
+      "category": "resume",
+      "dataScope": "import_draft",
+      "risk": "write",
+      "access": "write",
+      "requiresConfirmation": false,
+      "writeKind": "safe_write",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "persistent",
+      "producesArtifact": true,
+      "businessRecords": [],
+      "workflowStateRecords": [
+        "appMeta:importedResumeDraft"
+      ],
+      "recovery": "同一附件 attachmentId 重放复用既有草稿；附件在草稿前丢失需重新选择文件",
+      "intents": [
+        "import_or_record_resume"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "attachmentId"
+        ],
+        "properties": [
+          "attachmentId"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "review_resume_import",
+      "domain": "简历导入",
+      "category": "resume",
+      "dataScope": "import_draft",
+      "risk": "user_declared",
+      "access": "write",
+      "requiresConfirmation": false,
+      "writeKind": "declaration_write",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "persistent",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [
+        "appMeta:importedResumeDraft"
+      ],
+      "recovery": "expectedDraftRevision 幂等；过期时重读草稿后重放",
+      "intents": [
+        "import_or_record_resume"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "decision",
+          "expectedDraftRevision",
+          "importId"
+        ],
+        "properties": [
+          "decision",
+          "expectedDraftRevision",
+          "importId"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "reconcile_resume_import",
+      "domain": "简历导入",
+      "category": "resume",
+      "dataScope": "import_draft",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": false,
+      "persistence": "persistent",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [
+        "appMeta:profile-reconciliation-plan"
+      ],
+      "recovery": "只读计划；resumable=false 表示计划本身不可跨暂停续跑，需重跑对账",
+      "intents": [
+        "import_or_record_resume"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "expectedDraftRevision",
+          "importId",
+          "profileId"
+        ],
+        "properties": [
+          "expectedDraftRevision",
+          "importId",
+          "profileId"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "resolve_resume_reconciliation",
+      "domain": "简历导入",
+      "category": "resume",
+      "dataScope": "import_draft",
+      "risk": "user_declared",
+      "access": "write",
+      "requiresConfirmation": false,
+      "writeKind": "declaration_write",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "persistent",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [
+        "appMeta:profile-reconciliation-plan"
+      ],
+      "recovery": "按 expectedPlanRevision 幂等；stale 计划需重新对账",
+      "intents": [
+        "import_or_record_resume"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "expectedPlanRevision",
+          "importId",
+          "incomingItemId",
+          "resolution"
+        ],
+        "properties": [
+          "editedValue",
+          "expectedPlanRevision",
+          "importId",
+          "incomingItemId",
+          "resolution"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "capture_profile_intake",
+      "domain": "个人资料库",
+      "category": "profile",
+      "dataScope": "conversation_intake",
+      "risk": "write",
+      "access": "write",
+      "requiresConfirmation": false,
+      "writeKind": "safe_write",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "persistent",
+      "producesArtifact": true,
+      "businessRecords": [],
+      "workflowStateRecords": [
+        "appMeta:importedResumeDraft",
+        "appMeta:profile-intake-source-turn"
+      ],
+      "recovery": "按 (sessionId, messageId, turnId) 幂等重放同一 capture；retry=true 走独立 capture 不新增用户轮次",
+      "intents": [
+        "record_profile_facts"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "capturedAt",
+          "expectedProfileVersion",
+          "messageId",
+          "sessionId",
+          "targetProfileId",
+          "text",
+          "turnId"
+        ],
+        "properties": [
+          "acknowledgedActiveProfileId",
+          "capturedAt",
+          "expectedDraftRevision",
+          "expectedProfileVersion",
+          "importId",
+          "intakeCandidateId",
+          "intakeDimension",
+          "intakeQuestionId",
+          "messageId",
+          "retry",
+          "sessionId",
+          "sourceContentHash",
+          "targetProfileId",
+          "text",
+          "turnId"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "artifactPayload",
+          "candidateCount",
+          "candidates",
+          "expectedDraftRevision",
+          "expectedProfileVersion",
+          "extractionStatus",
+          "idempotent",
+          "importId",
+          "interviewPlan",
+          "needsConfirmationCount",
+          "operationId",
+          "persistenceStatus",
+          "providerStatus",
+          "quarantinedCandidateCount",
+          "reviewProjection",
+          "safeDiagnostics",
+          "targetProfileId",
+          "usableCandidateCount"
+        ],
+        "properties": [
+          "artifactPayload",
+          "candidateCount",
+          "candidates",
+          "expectedDraftRevision",
+          "expectedProfileVersion",
+          "extractionStatus",
+          "followUpQuestion",
+          "idempotent",
+          "importId",
+          "intakeSession",
+          "interactionPlan",
+          "interviewPlan",
+          "needsConfirmationCount",
+          "nextTurnPlan",
+          "operationId",
+          "persistenceReceipt",
+          "persistenceStatus",
+          "providerStatus",
+          "quarantinedCandidateCount",
+          "reviewProjection",
+          "safeDiagnostics",
+          "targetProfileId",
+          "usableCandidateCount"
+        ]
+      }
+    },
+    {
+      "tool": "synthesize_profile_intake",
+      "domain": "个人资料库",
+      "category": "profile",
+      "dataScope": "conversation_intake",
+      "risk": "write",
+      "access": "write",
+      "requiresConfirmation": false,
+      "writeKind": "safe_write",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "persistent",
+      "producesArtifact": true,
+      "businessRecords": [],
+      "workflowStateRecords": [
+        "appMeta:importedResumeDraft"
+      ],
+      "recovery": "以同一 importId + expectedDraftRevision 重试；Provider 失败保留原始 Draft 与 needsNormalization",
+      "intents": [
+        "record_profile_facts"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "expectedDraftRevision",
+          "importId"
+        ],
+        "properties": [
+          "expectedDraftRevision",
+          "importId"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "review_profile_intake",
+      "domain": "个人资料库",
+      "category": "profile",
+      "dataScope": "conversation_intake",
+      "risk": "user_declared",
+      "access": "write",
+      "requiresConfirmation": false,
+      "writeKind": "declaration_write",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "persistent",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [
+        "appMeta:importedResumeDraft"
+      ],
+      "recovery": "按 candidateId + draftRevision 幂等；过期 revision 返回 stale 且不覆盖既有候选",
+      "intents": [
+        "record_profile_facts"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "decision",
+          "expectedDraftRevision",
+          "importId"
+        ],
+        "properties": [
+          "candidateId",
+          "decision",
+          "editedLabel",
+          "evidence",
+          "expectedDraftRevision",
+          "importId",
+          "sectionType",
+          "structuredPatch",
+          "userCorrection"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "reconcile_profile_intake",
+      "domain": "个人资料库",
+      "category": "profile",
+      "dataScope": "profile_reconciliation",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "persistent",
+      "producesArtifact": true,
+      "businessRecords": [],
+      "workflowStateRecords": [
+        "appMeta:profile-reconciliation-plan"
+      ],
+      "recovery": "V4-P2-C 发现：risk=read 但会持久化对账计划；这是工作流状态而非业务事实，重跑覆盖同键即可",
+      "intents": [
+        "record_profile_facts"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "expectedDraftRevision",
+          "expectedProfileVersion",
+          "importId",
+          "targetProfileId"
+        ],
+        "properties": [
+          "acknowledgedActiveProfileId",
+          "expectedDraftRevision",
+          "expectedProfileVersion",
+          "importId",
+          "targetProfileId"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "resolve_profile_intake_conflict",
+      "domain": "个人资料库",
+      "category": "profile",
+      "dataScope": "profile_reconciliation",
+      "risk": "user_declared",
+      "access": "write",
+      "requiresConfirmation": false,
+      "writeKind": "declaration_write",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "persistent",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [
+        "appMeta:profile-reconciliation-plan"
+      ],
+      "recovery": "按 incomingItemId 幂等；stale 计划需重新对账后再解决",
+      "intents": [
+        "record_profile_facts"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "expectedPlanRevision",
+          "importId",
+          "incomingItemId",
+          "resolution",
+          "targetProfileId"
+        ],
+        "properties": [
+          "editedValue",
+          "expectedPlanRevision",
+          "importId",
+          "incomingItemId",
+          "resolution",
+          "targetProfileId"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "commit_profile_intake",
+      "domain": "个人资料库",
+      "category": "profile",
+      "dataScope": "career_profile",
+      "risk": "write",
+      "access": "write",
+      "requiresConfirmation": true,
+      "writeKind": "confirmation_write",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "persistent",
+      "producesArtifact": true,
+      "businessRecords": [
+        "profiles"
+      ],
+      "workflowStateRecords": [
+        "appMeta:profile-reconciliation-plan",
+        "appMeta:importedResumeDraft"
+      ],
+      "recovery": "expectedProfileVersion 不匹配返回 stale 且零写入；重取版本后以新 operationId 重试",
+      "intents": [
+        "record_profile_facts"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "expectedDraftRevision",
+          "expectedProfileVersion",
+          "expectedReconciliationRevision",
+          "importId",
+          "targetProfileId"
+        ],
+        "properties": [
+          "acknowledgedActiveProfileId",
+          "expectedDraftRevision",
+          "expectedProfileVersion",
+          "expectedReconciliationRevision",
+          "importId",
+          "targetProfileId"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "ensure_general_resume_from_profile",
+      "domain": "简历组装",
+      "category": "resume",
+      "dataScope": "resume_revision",
+      "risk": "write",
+      "access": "write",
+      "requiresConfirmation": true,
+      "writeKind": "confirmation_write",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "persistent",
+      "producesArtifact": true,
+      "businessRecords": [
+        "resumeBranches",
+        "resumeRevisions",
+        "resumeBranchOperations"
+      ],
+      "workflowStateRecords": [],
+      "recovery": "mode=update_existing 时 expectedProfileVersion 过期返回 stale 且零写入",
+      "intents": [
+        "create_job_specific_resume"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "expectedProfileVersion",
+          "targetProfileId"
+        ],
+        "properties": [
+          "acknowledgedActiveProfileId",
+          "expectedProfileVersion",
+          "mode",
+          "name",
+          "targetProfileId"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "parse_resume_file",
+      "domain": "简历导入（兼容）",
+      "category": "resume",
+      "dataScope": "import_source",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "none",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "只读解析；失败保留原始文本供改用 canonical 导入",
+      "intents": [
+        "import_or_record_resume"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "fileName",
+          "mimeType",
+          "text"
+        ],
+        "properties": [
+          "fileName",
+          "mimeType",
+          "text"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "create_resume_import_draft",
+      "domain": "简历导入（兼容）",
+      "category": "resume",
+      "dataScope": "import_draft",
+      "risk": "write",
+      "access": "write",
+      "requiresConfirmation": false,
+      "writeKind": "safe_write",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "persistent",
+      "producesArtifact": true,
+      "businessRecords": [],
+      "workflowStateRecords": [
+        "appMeta:importedResumeDraft"
+      ],
+      "recovery": "兼容路径；正式导入应改用 prepare_resume_import",
+      "intents": [
+        "import_or_record_resume"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "parsedResume"
+        ],
+        "properties": [
+          "parsedResume"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "commit_resume_import",
+      "domain": "简历导入",
+      "category": "resume",
+      "dataScope": "career_profile",
+      "risk": "write",
+      "access": "write",
+      "requiresConfirmation": true,
+      "writeKind": "confirmation_write",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "persistent",
+      "producesArtifact": true,
+      "businessRecords": [
+        "profiles",
+        "resumeBranches",
+        "resumeRevisions",
+        "resumeBranchOperations"
+      ],
+      "workflowStateRecords": [
+        "appMeta:importedResumeDraft",
+        "appMeta:resume-import-operation"
+      ],
+      "recovery": "同一 operationId 幂等返回既有结果；未决对账抛 profile_reconciliation_unresolved 且整事务回滚，草稿保持 reviewing；无分支结果必须给出 branchDisposition",
+      "intents": [
+        "import_or_record_resume"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "expectedDraftRevision",
+          "importId",
+          "target"
+        ],
+        "properties": [
+          "expectedDraftRevision",
+          "expectedReconciliationRevision",
+          "importId",
+          "target"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "parse_job_description",
+      "domain": "岗位",
+      "category": "job",
+      "dataScope": "job_draft",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "none",
+      "producesArtifact": true,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "只读解析；AI 无效输出保留原始 JD 并生成可提交本地草稿",
+      "intents": [
+        "record_job"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "rawText"
+        ],
+        "properties": [
+          "company",
+          "rawText",
+          "title"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "commit_job",
+      "domain": "岗位",
+      "category": "job",
+      "dataScope": "job_detail",
+      "risk": "write",
+      "access": "write",
+      "requiresConfirmation": true,
+      "writeKind": "confirmation_write",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "persistent",
+      "producesArtifact": true,
+      "businessRecords": [
+        "jobListings",
+        "jobSnapshots",
+        "jobDescriptions"
+      ],
+      "workflowStateRecords": [
+        "appMeta:raw-input",
+        "appMeta:job-analysis-draft",
+        "appMeta:conversion-confirmation"
+      ],
+      "recovery": "未确认时返回 agent_confirmation_required 且零写入；缺 Agent 绑定快速失败 agent_confirmation_binding_missing；重复岗位返回 duplicate_decision_required 等待用户决策；同 operationId 重放幂等",
+      "intents": [
+        "record_job"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "company",
+          "graph",
+          "rawText",
+          "title"
+        ],
+        "properties": [
+          "company",
+          "dedupDecision",
+          "duplicateListingId",
+          "graph",
+          "rawText",
+          "title"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "analyze_job_fit",
+      "domain": "岗位匹配",
+      "category": "analysis",
+      "dataScope": "career_assets",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "none",
+      "producesArtifact": true,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "只读分析；缺 jobId/targetSnapshot 返回 needs_user_input",
+      "intents": [
+        "analyze_job_fit"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "profileId",
+          "resumeId"
+        ],
+        "properties": [
+          "jobId",
+          "jobRevision",
+          "profileId",
+          "profileVersion",
+          "resumeId",
+          "resumeRevisionId",
+          "targetSnapshot"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "create_tailoring_session",
+      "domain": "岗位定制",
+      "category": "tailoring",
+      "dataScope": "career_assets",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "session_only",
+      "producesArtifact": true,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "刷新后定制会话不存活，需用 create_tailoring_session 以同一简历与岗位重建；来源简历与岗位不受影响",
+      "intents": [
+        "create_job_specific_resume"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "profileId",
+          "resumeId"
+        ],
+        "properties": [
+          "intensity",
+          "jobId",
+          "jobRevision",
+          "mode",
+          "profileId",
+          "profileVersion",
+          "resumeId",
+          "resumeRevisionId",
+          "targetSnapshot"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "answer_tailoring_question",
+      "domain": "岗位定制",
+      "category": "tailoring",
+      "dataScope": "tailoring_session",
+      "risk": "user_declared",
+      "access": "write",
+      "requiresConfirmation": false,
+      "writeKind": "declaration_write",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "session_only",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "刷新后定制会话不存活，需重建会话并重新回答；按 questionId 幂等，不影响已落盘简历",
+      "intents": [
+        "create_job_specific_resume"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "answer",
+          "questionId",
+          "session"
+        ],
+        "properties": [
+          "answer",
+          "proficiency",
+          "questionId",
+          "session"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "generate_tailoring_changes",
+      "domain": "岗位定制",
+      "category": "tailoring",
+      "dataScope": "career_assets",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "session_only",
+      "producesArtifact": true,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "刷新后定制会话不存活，需重建会话并重新回答后生成；问题未完成返回可重试的 tailoring_questions_incomplete",
+      "intents": [
+        "create_job_specific_resume"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "session"
+        ],
+        "properties": [
+          "session"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "review_tailoring_diff",
+      "domain": "岗位定制",
+      "category": "tailoring",
+      "dataScope": "tailoring_session",
+      "risk": "user_declared",
+      "access": "write",
+      "requiresConfirmation": false,
+      "writeKind": "declaration_write",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "session_only",
+      "producesArtifact": false,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "刷新后定制会话不存活，需重建会话并重新生成建议；按 diffId 幂等，不影响已落盘简历",
+      "intents": [
+        "create_job_specific_resume"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "decision",
+          "diffId",
+          "session"
+        ],
+        "properties": [
+          "decision",
+          "diffId",
+          "editedValue",
+          "session"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "preview_tailoring_changes",
+      "domain": "岗位定制",
+      "category": "tailoring",
+      "dataScope": "resume_preview",
+      "risk": "read",
+      "access": "read",
+      "requiresConfirmation": false,
+      "writeKind": "none",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "session_only",
+      "producesArtifact": true,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "刷新后定制会话不存活，需重建会话再预览；非法路径白名单拒绝且不写入",
+      "intents": [
+        "create_job_specific_resume"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "confirmedRequirementIds",
+          "selectedDiffs",
+          "session"
+        ],
+        "properties": [
+          "confirmedRequirementIds",
+          "selectedDiffs",
+          "session"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "apply_tailoring_changes",
+      "domain": "岗位定制",
+      "category": "tailoring",
+      "dataScope": "resume_revision",
+      "risk": "write",
+      "access": "write",
+      "requiresConfirmation": true,
+      "writeKind": "confirmation_write",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "persistent",
+      "producesArtifact": true,
+      "businessRecords": [
+        "resumeBranches",
+        "resumeRevisions",
+        "resumeBranchOperations"
+      ],
+      "workflowStateRecords": [
+        "appMeta:resume-artifact-write-checkpoint",
+        "appMeta:resume-artifact-receipt"
+      ],
+      "recovery": "未确认时零写入；应用失败保留已采纳 diff 与 checkpoint，回到 confirm_apply/waiting_for_user 可从当前步骤重试；同 operationId 幂等",
+      "intents": [
+        "create_job_specific_resume",
+        "edit_and_export_resume"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "confirmedRequirementIds",
+          "selectedDiffs",
+          "session"
+        ],
+        "properties": [
+          "confirmedRequirementIds",
+          "selectedDiffs",
+          "session"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "archive_resume",
+      "domain": "简历生命周期",
+      "category": "resume",
+      "dataScope": "resume_lifecycle",
+      "risk": "write",
+      "access": "write",
+      "requiresConfirmation": true,
+      "writeKind": "confirmation_write",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "persistent",
+      "producesArtifact": false,
+      "businessRecords": [
+        "resumeBranches"
+      ],
+      "workflowStateRecords": [],
+      "recovery": "expectedRevision 过期返回 stale 且零写入；归档可由 restore_resume 撤销",
+      "intents": [
+        "edit_and_export_resume"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "expectedRevision",
+          "resumeId"
+        ],
+        "properties": [
+          "expectedRevision",
+          "resumeId"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "restore_resume",
+      "domain": "简历生命周期",
+      "category": "resume",
+      "dataScope": "resume_lifecycle",
+      "risk": "write",
+      "access": "write",
+      "requiresConfirmation": true,
+      "writeKind": "confirmation_write",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "persistent",
+      "producesArtifact": false,
+      "businessRecords": [
+        "resumeBranches"
+      ],
+      "workflowStateRecords": [],
+      "recovery": "expectedRevision 过期返回 stale 且零写入",
+      "intents": [
+        "edit_and_export_resume"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "expectedRevision",
+          "resumeId"
+        ],
+        "properties": [
+          "expectedRevision",
+          "resumeId"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    },
+    {
+      "tool": "export_resume",
+      "domain": "简历导出",
+      "category": "export",
+      "dataScope": "resume_export",
+      "risk": "write",
+      "access": "write",
+      "requiresConfirmation": false,
+      "writeKind": "safe_write",
+      "idempotent": true,
+      "resumable": true,
+      "persistence": "session_only",
+      "producesArtifact": true,
+      "businessRecords": [],
+      "workflowStateRecords": [],
+      "recovery": "刷新后导出入口失效，需重新调用生成；只产出导出入口与 route，不直接写 PDF，失败由既有导出状态机重试",
+      "intents": [
+        "edit_and_export_resume"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "resumeId"
+        ],
+        "properties": [
+          "resumeId",
+          "templateId"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "operationId"
+        ],
+        "properties": [
+          "operationId"
+        ]
+      }
+    }
+  ]
+}

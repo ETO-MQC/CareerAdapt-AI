@@ -199,7 +199,8 @@ const ResumeCommitInputSchema = z.object({
   expectedDraftRevision: z.number().int().min(0),
   expectedReconciliationRevision: z.number().int().min(0).optional(),
   target: z.union([
-    z.object({ mode: z.literal("existing"), profileId: z.string().min(1) }).strict(),
+    // V4-P2-C：existing 模式允许显式请求创建通用简历分支（记录简历能力补全）。
+    z.object({ mode: z.literal("existing"), profileId: z.string().min(1), createGeneralResume: z.literal(true).optional() }).strict(),
     z.object({ mode: z.literal("new"), profileName: z.string().min(1).max(120), createGeneralResume: z.literal(true) }).strict()
   ])
 }).strict();
@@ -519,6 +520,9 @@ function isRetryableToolError(code: string) {
 
 export const agentToolNames = [
   "list_resumes", "list_profiles", "list_jobs", "get_active_profile", "get_profile", "search_profile_facts",
+  // V4-P2-C：该工具此前已在 createAgentToolRegistry 注册但漏在此清单外，
+  // 导致 AgentWorkspace 的 allowedToolManifestForStep 永远不会允许它。
+  "retrieve_career_context",
   "get_resume", "get_resume_revision", "get_job", "get_agent_task_context", "get_agent_runtime_status", "get_agent_current_task", "get_agent_last_failure", "search_agent_sessions",
   "recommend_resume_source",
   "prepare_resume_import", "review_resume_import", "reconcile_resume_import",

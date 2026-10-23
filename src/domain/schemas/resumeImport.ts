@@ -632,6 +632,17 @@ export const ImportedResumeProfileOnlyConfirmResultSchema = z.object({
   branchId: z.undefined().optional(),
   revisionId: z.undefined().optional(),
   presentationRevision: z.undefined().optional(),
+  /**
+   * V4-P2-C：为什么本次确认没有创建简历分支。历史缺陷（v4-plan.md §2 第 2 条）
+   * 是 JSON 导入确认后 resumeBranches 无记录且无原因——该字段让"未建分支"
+   * 成为显式、可观测的结果而不是静默缺失。
+   */
+  branchDisposition: z.enum([
+    /** 内容已并入资料库，且该资料库已有活跃通用简历（不重复建分支）。 */
+    "merged_into_existing_general_resume",
+    /** 对账后没有产生需要记录为分支的新内容（全部为精确重复或仅基本信息变化）。 */
+    "no_new_resume_content"
+  ]).optional(),
   idempotent: z.boolean()
 });
 
