@@ -4467,10 +4467,15 @@ small,
   margin-left: 4px;
 }
 
-.resume-card-rename-button {
-  width: 32px;
-  padding-inline: 0;
+.resume-card-more-popover button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  white-space: nowrap;
 }
+
+.resume-card-more-popover button svg { flex-shrink: 0; }
 
 .resume-create-inline-panel {
   border-top: 1px solid var(--line);
@@ -12066,3 +12071,54 @@ html[data-theme="dark"] .inspector-tab-active {
 /* Keep the date in the right slot even when an optional role/title is absent. */
 .resume-presentation-heading > strong { grid-column: 2; }
 .resume-presentation-heading > time { grid-column: 3; }
+/* Import entry: compact controls above a generous file drop area. */
+.resume-import-modal:has(.resume-import-wizard:not(.resume-import-wizard-review)) {
+  height: min(624px, calc(80dvh - 38px));
+  width: min(65.6vw, 1184px);
+}
+.resume-import-modal-body:has(.resume-import-wizard:not(.resume-import-wizard-review)) { flex: 1; min-height: 0; overflow: auto; }
+.resume-import-modal .resume-import-wizard:not(.resume-import-wizard-review) {
+  min-height: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: auto minmax(240px, 1fr) auto;
+  align-items: stretch;
+  gap: 16px;
+}
+.resume-import-modal .resume-import-wizard:not(.resume-import-wizard-review) .import-target-picker { min-height: 0; padding: 12px 16px; }
+.import-target-controls { display: contents; }
+.resume-import-wizard:not(.resume-import-wizard-review) .import-target-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 16px; }
+.resume-import-wizard:not(.resume-import-wizard-review) .import-target-options { gap: 8px; }
+.resume-import-wizard:not(.resume-import-wizard-review) .import-existing-profile-fields,
+.resume-import-wizard:not(.resume-import-wizard-review) .import-new-profile-fields { display: flex; flex: 1; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 12px; }
+.resume-import-wizard:not(.resume-import-wizard-review) .import-target-field { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.resume-import-wizard:not(.resume-import-wizard-review) .import-target-field select { min-width: 96px; max-width: 160px; }
+.resume-import-wizard:not(.resume-import-wizard-review) .import-target-field input { min-width: 100px; max-width: 180px; }
+.resume-import-wizard:not(.resume-import-wizard-review) .inline-toggle { white-space: nowrap; font-size: 12px; }
+.resume-import-modal .resume-import-wizard:not(.resume-import-wizard-review) .import-recognition-panel { min-height: 0; padding: 16px; }
+.resume-import-modal .resume-import-wizard:not(.resume-import-wizard-review) .import-dropzone { align-content: center; min-height: 240px; }
+.resume-import-wizard-review .import-target-controls { display: contents; }
+@media (max-width: 1100px) {
+  .resume-import-modal .resume-import-wizard:not(.resume-import-wizard-review) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .resume-import-modal .resume-import-wizard:not(.resume-import-wizard-review) { display: flex; flex-direction: column; }
+  .resume-import-modal .resume-import-wizard:not(.resume-import-wizard-review) .import-dropzone { flex: 1; }
+}
+.resume-import-wizard:not(.resume-import-wizard-review) .import-target-field select,
+.resume-import-wizard:not(.resume-import-wizard-review) .import-target-field input { background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; }
+@media (min-width: 761px) and (max-width: 1500px) {
+  .resume-import-wizard:not(.resume-import-wizard-review) .import-target-controls { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; }
+  .resume-import-wizard:not(.resume-import-wizard-review) .import-existing-profile-fields,
+  .resume-import-wizard:not(.resume-import-wizard-review) .import-new-profile-fields { display: contents; }
+  .resume-import-wizard:not(.resume-import-wizard-review) .import-target-field { grid-column: 2; grid-row: 1; justify-self: end; flex-wrap: wrap; }
+  .resume-import-wizard:not(.resume-import-wizard-review) .inline-toggle { grid-column: 1 / -1; justify-self: end; }
+  .resume-import-wizard:not(.resume-import-wizard-review) .import-target-options { flex-wrap: nowrap; }
+  .resume-import-wizard:not(.resume-import-wizard-review) .import-target-option { padding: 8px; font-size: 12px; }
+}
+
+@media (max-width: 1100px) {
+  .resume-import-modal:has(.resume-import-wizard:not(.resume-import-wizard-review)) { width: min(800px, calc(100vw - 32px)); }
+  .resume-import-wizard:not(.resume-import-wizard-review) .import-target-controls { display: flex; }
+  .resume-import-wizard:not(.resume-import-wizard-review) .import-existing-profile-fields,
+  .resume-import-wizard:not(.resume-import-wizard-review) .import-new-profile-fields { display: flex; }
+}

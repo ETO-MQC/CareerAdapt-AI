@@ -1212,6 +1212,7 @@ export function ResumeImportWizard(props: {
       <input ref={fileInputRef} className="visually-hidden" type="file" name="resume-file" aria-label="选择要导入的简历文件" accept={RESUME_IMPORT_ACCEPT} onChange={handleFileChange} />
       <fieldset className="import-target-picker">
         <legend>导入目标</legend>
+        <div className="import-target-controls">
         <div className="import-target-options">
           <label className={targetMode === "existing" ? "import-target-option active" : "import-target-option"}>
             <input type="radio" name="import-target" checked={targetMode === "existing"} disabled={(props.profiles ?? []).length === 0 && !props.profile} onChange={() => { setTargetMode("existing"); setCreateGeneralResume(true); setBasicMergeActions((current) => ({ ...current, name: "keep_existing" })); }} />
@@ -1229,7 +1230,7 @@ export function ResumeImportWizard(props: {
                 {(props.profiles?.length ? props.profiles : props.profile ? [props.profile] : []).map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
               </select>
             </label>
-            <label className="inline-toggle"><input name="import-create-general-resume" type="checkbox" checked={createGeneralResume} onChange={(event) => setCreateGeneralResume(event.target.checked)} />同时创建一份新的通用简历</label>
+            <label className="inline-toggle"><input name="import-create-general-resume" type="checkbox" checked={createGeneralResume} onChange={(event) => setCreateGeneralResume(event.target.checked)} />同时创建通用简历</label>
           </div>
         ) : (
           <div className="import-new-profile-fields">
@@ -1237,6 +1238,7 @@ export function ResumeImportWizard(props: {
             <label className="inline-toggle"><input name="import-create-general-resume" type="checkbox" checked={createGeneralResume} onChange={(event) => setCreateGeneralResume(event.target.checked)} />同时创建通用简历</label>
           </div>
         )}
+        </div>
         {nameMismatch ? <p className="import-target-warning" role="alert">导入姓名与当前人物不一致，请重新选择“导入到已有资料”以保留当前姓名，或选择“创建新人物”。</p> : null}
       </fieldset>
       <section
@@ -1293,15 +1295,14 @@ export function ResumeImportWizard(props: {
                 </details>
               </div>
             </div>
-            <details className="import-recognition-advanced">
-              <summary>高级设置</summary>
+            <div className="import-recognition-advanced">
               <div role="group" aria-label="高级识别路线">
                 <button type="button" className={`route-auto ${activeRouteSelection === "auto" ? "active" : ""}`} aria-pressed={activeRouteSelection === "auto"} disabled={importBusy} onClick={() => { void chooseImportRoute("auto"); }}>自动提取</button>
                 <button type="button" className={`route-text-layer ${activeRouteSelection === "text_layer" ? "active" : ""}`} aria-pressed={activeRouteSelection === "text_layer"} disabled={importBusy} onClick={() => { void chooseImportRoute("text_layer"); }}>PDF.js 文本层</button>
                 <button type="button" className={`route-local-ocr ${activeRouteSelection === "local_ocr" ? "active" : ""}`} aria-pressed={activeRouteSelection === "local_ocr"} disabled={importBusy || !documentPreferences.localOcrEnabled} onClick={() => { void chooseImportRoute("local_ocr"); }}>本地 OCR</button>
                 <button type="button" className={`route-manual-review ${activeRouteSelection === "manual_review" ? "active" : ""}`} aria-pressed={activeRouteSelection === "manual_review"} disabled={importBusy} onClick={() => { void chooseImportRoute("manual_review"); }}>人工核对</button>
               </div>
-            </details>
+            </div>
             {pendingConsentImport ? <p className="import-recognition-note" role="status">已读取文件，请选择识别方式继续。</p> : null}
             {aiFailureRecovery ? (
               <div className="import-recognition-recovery" role="alert">

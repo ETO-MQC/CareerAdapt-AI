@@ -195,7 +195,7 @@ test.describe("AI workspace shell", () => {
 
     await page.getByRole("link", { name: "个人资料库" }).click();
     await expect(page).toHaveURL(/\/profile$/);
-    await page.getByRole("link", { name: "返回任务" }).click();
+    await page.getByRole("link", { name: "AI 助手", exact: true }).click();
     await expect(page).toHaveURL(/\/ai-workspace$/);
     await expect.poll(() => readActiveSession(page)).toMatchObject({ sessionId: activeSessionId, hermesRunId: "run-cross-page-1" });
     await expect(page.getByText("请保留这条跨页面消息")).toBeVisible();
@@ -338,7 +338,7 @@ test.describe("AI workspace shell", () => {
     await page.goto("/resume");
     await expect(page.getByText("正在处理")).toBeVisible();
     await expect(page.getByRole("status")).toContainText("正在处理");
-    await page.getByRole("link", { name: "返回任务" }).click();
+    await page.getByRole("link", { name: "AI 助手", exact: true }).click();
     await expect(page.getByText("请选择用于岗位定制的通用简历。", { exact: true })).toBeVisible();
     await expect(page.locator(".agent-workspace-body")).toHaveAttribute("data-agent-workflow-id", "tailor_resume");
 
@@ -385,7 +385,7 @@ test.describe("AI workspace shell", () => {
     await page.goto("/resume");
     await expect(page.getByText("正在处理")).toBeVisible();
     await expect(page.getByRole("status")).toContainText("正在处理");
-    await page.getByRole("link", { name: "返回任务" }).click();
+    await page.getByRole("link", { name: "AI 助手", exact: true }).click();
     await expect(page.getByText("测试通用简历", { exact: true }).last()).toBeVisible();
     await expect(taskShell).toHaveAttribute("data-agent-workflow-id", "tailor_resume");
     await expect(taskShell).toHaveAttribute("data-agent-task-stage", "choose_job");

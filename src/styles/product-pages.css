@@ -1639,3 +1639,193 @@
     width: 100%;
   }
 }
+/* Resume center: creation rail and library share one aligned workspace. */
+.ai-asset-content .resume-workspace-center .resume-entry-grid {
+  grid-template-columns: 248px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 16px;
+}
+.ai-asset-content .resume-workspace-center .resume-create-panel {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.ai-asset-content .resume-workspace-center .resume-create-card-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+.ai-asset-content .resume-workspace-center .resume-create-card {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  min-height: 100px;
+  padding: 16px;
+  gap: 8px;
+  align-content: center;
+  border-radius: 12px;
+  box-shadow: none;
+}
+.ai-asset-content .resume-workspace-center .resume-create-card:first-child {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+}
+.ai-asset-content .resume-workspace-center .resume-create-card strong {
+  font-size: 15px;
+  line-height: 1.5;
+}
+.ai-asset-content .resume-workspace-center .resume-create-card span {
+  font-weight: 400;
+  line-height: 1.6;
+}
+.ai-asset-content .resume-workspace-center .resume-library-panel {
+  min-width: 0;
+  min-height: 448px;
+  padding: 0 20px 20px;
+}
+.resume-library-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-height: 60px;
+  padding-block: 16px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.resume-library-heading h2 { margin: 0; font: var(--product-font-section-title); }
+.resume-library-heading > span { color: var(--muted); font: var(--product-font-caption); }
+.ai-asset-content .resume-workspace-center .resume-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding-block: 12px;
+  margin: 0 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+.ai-asset-content .resume-workspace-center .resume-filter-row button { padding: 6px 12px; }
+.ai-asset-content .resume-workspace-center .resume-card-empty {
+  padding: 72px 16px;
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.8;
+}
+@media (max-width: 1100px) {
+  .ai-asset-content .resume-workspace-center .resume-entry-grid { grid-template-columns: 208px minmax(0, 1fr); gap: 12px; }
+  .ai-asset-content .resume-workspace-center .resume-library-panel { padding-inline: 16px; }
+}
+@media (max-width: 760px) {
+  .ai-asset-content .resume-workspace-center .resume-entry-grid { grid-template-columns: minmax(0, 1fr); }
+  .ai-asset-content .resume-workspace-center .resume-create-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* Keep the selected filter readable in both themes. */
+.ai-asset-content .resume-workspace-center .resume-filter-row [aria-selected="true"] {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  color: var(--accent-strong);
+}
+/* Fill the available page without stretching creation controls. */
+.ai-asset-content > .resume-workspace-center {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 10px;
+  overflow: hidden;
+}
+.ai-asset-content .resume-workspace-center > .product-topbar,
+.ai-asset-content .resume-workspace-center > .career-context-entry-bar { flex-shrink: 0; }
+.ai-asset-content .resume-workspace-center .resume-entry-grid {
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 0;
+}
+.ai-asset-content .resume-workspace-center .resume-create-panel { min-height: 0; overflow: auto; }
+.ai-asset-content .resume-workspace-center .resume-create-card-grid {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+.ai-asset-content .resume-workspace-center .resume-create-card { min-height: 88px; flex-shrink: 0; padding: 12px 16px; }
+.resume-create-placeholder {
+  flex: 1;
+  min-height: 88px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+.resume-create-placeholder strong { font-size: 13px; font-weight: 500; }
+.resume-create-placeholder span { font-size: 12px; line-height: 1.6; }
+.ai-asset-content .resume-workspace-center .resume-library-panel {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+}
+.ai-asset-content .resume-workspace-center .resume-library-panel::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 134px;
+  bottom: 20px;
+  border-left: 1px dashed var(--line);
+  pointer-events: none;
+}
+.ai-asset-content .resume-workspace-center .resume-library-heading,
+.ai-asset-content .resume-workspace-center .resume-filter-row { flex-shrink: 0; }
+.ai-asset-content .resume-workspace-center .resume-card-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 16px 24px;
+  overflow: auto;
+  min-height: 0;
+  padding: 0 2px 12px;
+}
+.ai-asset-content .resume-workspace-center .resume-card { min-width: 0; padding: 14px; gap: 12px; }
+.ai-asset-content .resume-workspace-center .resume-card-actions { flex-wrap: nowrap; gap: 6px; margin: 0; }
+.ai-asset-content .resume-workspace-center .resume-card-empty {
+  margin: auto 0;
+  padding: 24px 16px;
+  position: relative;
+  z-index: 1;
+  background: var(--surface);
+}
+@media (max-width: 760px) {
+  .ai-asset-content > .resume-workspace-center { overflow: auto; }
+  .ai-asset-content .resume-workspace-center .resume-entry-grid { flex: none; }
+  .ai-asset-content .resume-workspace-center .resume-create-card-grid { display: grid; }
+  .ai-asset-content .resume-workspace-center .resume-library-panel { min-height: 400px; }
+  .ai-asset-content .resume-workspace-center .resume-card-list { grid-template-columns: minmax(0, 1fr); }
+  .ai-asset-content .resume-workspace-center .resume-library-panel::after { display: none; }
+}
+.ai-asset-content .resume-workspace-center > .product-topbar,
+.ai-asset-content .resume-workspace-center > .career-context-entry-bar { margin-bottom: 0; }
+.ai-asset-content .resume-workspace-center .resume-card-list { max-height: none; grid-auto-rows: max-content; flex: 1; }
+.ai-asset-content .resume-workspace-center .resume-card { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.ai-asset-content .resume-workspace-center .resume-card-empty { min-height: 0; }
+.resume-card-icon { display: inline-block; vertical-align: -3px; margin-right: 6px; color: var(--accent); }
+.ai-asset-content .resume-workspace-center .resume-card { height: auto; min-height: 84px; }
+.ai-asset-content .resume-workspace-center .resume-card-actions > button,
+.ai-asset-content .resume-workspace-center .resume-card-more > summary {
+  min-height: 32px;    /* 按钮高度 */
+  padding: 0 12px;     /* 上下、左右内边距 */
+  font-size: 13.5px;     /* 字号 */
+  white-space: nowrap;
+}
+.ai-asset-content .resume-workspace-center .resume-card-more > summary {
+  /* Size and padding follow the shared compact button styles. */
+  white-space: nowrap;
+}
+.ai-asset-content .resume-workspace-center .resume-card-main strong { font-size: 14px; }
+.ai-asset-content .resume-workspace-center .resume-card-main > span,
+.ai-asset-content .resume-workspace-center .resume-card-main > small { font-size: 11px; }
+
+.ai-asset-content .resume-workspace-center .resume-create-card:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface));
+}

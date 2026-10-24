@@ -12,6 +12,7 @@ const repository = new WorkspaceRepository();
 
 export type CareerContextEntryBarProps = {
   variant?: "profile" | "resume" | "compact";
+  hideResumeActions?: boolean;
   onImport?: () => void;
   onExport?: () => void;
   onNewResume?: () => void;
@@ -21,7 +22,7 @@ export type CareerContextEntryBarProps = {
   onTrashVersion?: () => void;
 };
 
-export function CareerContextEntryBar({ variant = "profile", onImport, onExport, onNewResume, onFromCurrentProfile, onCreateVersion, onArchiveVersion, onTrashVersion }: CareerContextEntryBarProps) {
+export function CareerContextEntryBar({ variant = "profile", hideResumeActions = false, onImport, onExport, onNewResume, onFromCurrentProfile, onCreateVersion, onArchiveVersion, onTrashVersion }: CareerContextEntryBarProps) {
   const career = useCareerContextStore();
   const launcherRef = useRef<HTMLButtonElement>(null);
   const [managerOpen, setManagerOpen] = useState(false);
@@ -67,7 +68,7 @@ export function CareerContextEntryBar({ variant = "profile", onImport, onExport,
       </div>
       <div className="career-context-entry-actions">
         <button ref={launcherRef} type="button" className="secondary-button compact" onClick={() => setManagerOpen(true)} aria-haspopup="dialog" aria-expanded={managerOpen}><Settings2 aria-hidden="true" /> 管理人物与版本</button>
-        {variant === "profile" ? <><button type="button" className="secondary-button compact" onClick={onImport}><Download aria-hidden="true" /> 导入资料</button><button type="button" className="secondary-button compact" onClick={onExport}><Upload aria-hidden="true" /> 导出 JSON</button></> : <><button type="button" className="secondary-button compact" onClick={onImport}><FileDown aria-hidden="true" /> 导入简历</button><button type="button" className="primary-button compact" onClick={onNewResume}><Plus aria-hidden="true" /> 新建简历</button><button type="button" className="secondary-button compact" onClick={onFromCurrentProfile}><FileDown aria-hidden="true" /> 从当前资料生成</button></>}
+        {variant === "profile" ? <><button type="button" className="secondary-button compact" onClick={onImport}><Download aria-hidden="true" /> 导入资料</button><button type="button" className="secondary-button compact" onClick={onExport}><Upload aria-hidden="true" /> 导出 JSON</button></> : !hideResumeActions ? <><button type="button" className="secondary-button compact" onClick={onImport}><FileDown aria-hidden="true" /> 导入简历</button><button type="button" className="primary-button compact" onClick={onNewResume}><Plus aria-hidden="true" /> 新建简历</button><button type="button" className="secondary-button compact" onClick={onFromCurrentProfile}><FileDown aria-hidden="true" /> 从当前资料生成</button></> : null}
         <details className="career-context-entry-overflow"><summary aria-label="更多人物与版本操作" title="更多人物与版本操作"><MoreHorizontal aria-hidden="true" /></summary><div className="career-context-entry-menu" role="menu"><button type="button" role="menuitem" onClick={createVersion}><Plus aria-hidden="true" /> 新建版本</button><button type="button" role="menuitem" onClick={onArchiveVersion ?? (() => setManagerOpen(true))}><Archive aria-hidden="true" /> 归档版本</button><button type="button" role="menuitem" onClick={onTrashVersion ?? (() => setManagerOpen(true))}><Trash2 aria-hidden="true" /> 删除资料版本</button></div></details>
       </div>
       <PersonVersionManager open={managerOpen} onClose={() => setManagerOpen(false)} launcherRef={launcherRef} />

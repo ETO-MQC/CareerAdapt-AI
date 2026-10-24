@@ -19,7 +19,7 @@ test("reviews scan semantics, explicitly excludes unmapped content and opens a s
     await route.fulfill({ json: { ok: true, task: "resume-document-mapper", promptVersion: "test", output, meta: { provider: "test", model: "vision-test", latencyMs: 1 } } });
   });
   await page.goto("/resume");
-  await page.getByRole("button", { name: "导入简历", exact: true }).click();
+  await page.locator(".resume-create-card").filter({ hasText: "导入已有简历" }).click();
   const png = Buffer.from(await page.evaluate(() => {
     const canvas = document.createElement("canvas"); canvas.width = 300; canvas.height = 100;
     canvas.getContext("2d")!.fillText("Anonymous", 10, 30);

@@ -1,22 +1,17 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowLeft, CircleDot } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { getAgentSessionDisplayTitle, type AgentSession, type AgentWorkflowState } from "@/agent/contracts/agentSession";
+import { useEffect } from "react";
 import { useAgentPageContext } from "@/components/agent/context/AgentPageContextProvider";
 import { AgentSidebar } from "@/components/agent/shell/AgentSidebar";
 import { AgentSessionStore } from "@/services/agent/agentSessionStore";
 import { WorkspaceRepository } from "@/services/storage/repositories";
-import { ACTIVE_SESSION_KEY } from "@/components/agent/shell/AgentSidebar";
 
 const assetRoutes = ["/resume", "/profile", "/jobs", "/applications", "/recycle"];
 
 export function AiShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/";
   const isAssetPage = assetRoutes.some((route) => pathname.startsWith(route));
-  const [session, setSession] = useState<AgentSession>();
   const { updateContext } = useAgentPageContext();
 
   useEffect(() => {
@@ -24,7 +19,6 @@ export function AiShell({ children }: { children: React.ReactNode }) {
     void new AgentSessionStore().list(1).then(async (items) => {
       if (!active) return;
       const current = items[0];
-      setSession(current);
       const branch = current?.activeResumeId
         ? await new WorkspaceRepository().getResumeBranch(current.activeResumeId)
         : undefined;
@@ -62,37 +56,12 @@ export function AiShell({ children }: { children: React.ReactNode }) {
     <div className="ai-shell">
       <AgentSidebar />
       <div className="ai-shell-main">
-        {isAssetPage ? (
-          <div className="ai-context-bar" role="status">
-            <div>
-              <span>正在处理</span>
-              <strong>{session ? getAgentSessionDisplayTitle(session) : "浏览求职资产"}</strong>
-            </div>
-            <span className="ai-context-status"><CircleDot aria-hidden="true" /> {statusLabel(session?.workflowState?.status)}</span>
-            <Link
-              href="/ai-workspace"
-              onClick={() => {
-                if (session) window.localStorage.setItem(ACTIVE_SESSION_KEY, session.id);
-              }}
-            >
-              <ArrowLeft aria-hidden="true" /> 返回任务
-            </Link>
-          </div>
-        ) : null}
         <div className={isAssetPage ? "ai-shell-content ai-asset-content" : "ai-shell-content"}>
           {children}
         </div>
       </div>
     </div>
   );
-}
-
-function statusLabel(status?: AgentWorkflowState["status"]) {
-  if (status === "running") return "处理中";
-  if (status === "completed") return "已完成";
-  if (status === "failed") return "需要处理";
-  if (status === "waiting_for_confirmation") return "等待确认";
-  return "等待继续";
 }
 
 function routeTitle(pathname: string) {

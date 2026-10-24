@@ -3641,6 +3641,7 @@ export function ResumeWorkspace() {
 
       {!selectedBranch ? <CareerContextEntryBar
         variant="resume"
+        hideResumeActions
         onImport={() => openImportDialog("file")}
         onNewResume={() => { if (profile) void createGeneralResume({ fromProfile: false }); }}
         onFromCurrentProfile={() => { if (profile) void createGeneralResume({ fromProfile: true }); }}
@@ -3707,6 +3708,10 @@ export function ResumeWorkspace() {
                   <strong>从零创建</strong>
                   <span>不带入资料库内容，从空白字段开始</span>
                 </button>
+                <div className="resume-create-placeholder">
+                  <strong>更多功能，敬请期待</strong>
+                  <span>新的简历工具将在这里与你见面</span>
+                </div>
               </div>
               {showJobCreatePanel ? (
                 <div className="resume-create-inline-panel" data-testid="resume-job-create-panel">
@@ -3743,16 +3748,16 @@ export function ResumeWorkspace() {
             </article>
 
             <article className="panel resume-library-panel">
-              <div className="section-heading compact-heading">
-                <div>
-                  <h2>简历中心</h2>
-                  <p>{activeBranches.length} 份当前简历 / {archivedBranches.length} 份已归档 / {trashedBranches.length} 份在回收站</p>
-                </div>
+              <div className="resume-library-heading">
+                <h2>简历中心</h2>
+                <span>（{activeBranches.length} 份当前简历 / {archivedBranches.length} 份已归档 / {trashedBranches.length} 份在回收站）</span>
               </div>
               <div className="resume-filter-row" role="tablist" aria-label="简历筛选">
                 {resumeListFilters.map((filter) => (
                   <button
                     key={filter.key}
+                    role="tab"
+                    aria-selected={resumeListFilter === filter.key}
                     type="button"
                     className={resumeListFilter === filter.key ? "secondary-button compact filter-active" : "secondary-button compact"}
                     onClick={() => setResumeListFilter(filter.key)}
@@ -3822,27 +3827,17 @@ export function ResumeWorkspace() {
                             </span>
                           ) : (
                             <strong className="resume-card-title">
+                              <FileText aria-hidden="true" size={18} className="resume-card-icon" />
                               {branch.name}
                               {branchTargetRole ? <span className="resume-card-target-role">（{branchTargetRole}）</span> : null}
                             </strong>
                           )}
-                          <span>{branchPurposeLabel(branch.branchPurpose)}{branch.targetSnapshot && !branch.jobId ? " / 未保存岗位" : ""} / {branchStatusLabel(branch)} / {syncStatusLabel(branch.syncStatusCache.status)}</span>
+                          <span title={syncStatusLabel(branch.syncStatusCache.status)}>{branchPurposeLabel(branch.branchPurpose)}{branch.targetSnapshot && !branch.jobId ? " / 未保存岗位" : ""} · {branchStatusLabel(branch)}</span>
                           <small>更新于 {formatLocalDateTime(branch.updatedAt)}</small>
                         </div>
                         <div className="resume-card-actions">
                           {branch.lifecycleStatus === "active" ? (
                             <>
-                              <button
-                                className="secondary-button compact resume-card-rename-button"
-                                type="button"
-                                aria-label="重命名简历"
-                                disabled={!branchEditable || renameBranchPending}
-                                onClick={() => {
-                                  setRenamingBranchId(branch.id);
-                                  setRenameBranchDraft(branch.name);
-                                  setRenameBranchError(undefined);
-                                }}
-                              ><Pencil aria-hidden="true" size={15} /></button>
                               <button className="primary-button compact" type="button" disabled={!branchEditable} onClick={() => openResumeBranch(branch.id)}>打开</button>
                               <button className="secondary-button compact" type="button" disabled={!branchEditable} onClick={() => {
                                 openResumeBranch(branch.id);
@@ -3853,6 +3848,17 @@ export function ResumeWorkspace() {
                               <details className="resume-card-more">
                                 <summary className="secondary-button compact">更多</summary>
                                 <div className="resume-card-more-popover">
+                              <button
+                                className="resume-card-rename-button"
+                                type="button"
+                                aria-label="重命名简历"
+                                disabled={!branchEditable || renameBranchPending}
+                                onClick={() => {
+                                  setRenamingBranchId(branch.id);
+                                  setRenameBranchDraft(branch.name);
+                                  setRenameBranchError(undefined);
+                                }}
+                              ><Pencil aria-hidden="true" size={15} /> 重命名</button>
                                   <button type="button" disabled={!branchEditable} onClick={() => {
                                     openResumeBranch(branch.id);
                                     setStudioMode("style");

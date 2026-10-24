@@ -45,7 +45,7 @@ test.describe("P4.3i identity and background execution", () => {
     await page.getByRole("button", { name: "管理人物与版本" }).click();
     await expect(page.getByRole("dialog", { name: "人物与版本" })).toBeVisible();
     await page.getByRole("button", { name: "关闭人物与版本选择器" }).click();
-    await page.getByRole("link", { name: "返回任务" }).click();
+    await page.getByRole("link", { name: "AI 助手", exact: true }).click();
     await expect(page).toHaveURL(/\/ai-workspace$/);
     await expect(page.locator(".career-context-trigger")).toContainText("张三 · V1");
   });
