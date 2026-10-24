@@ -105,7 +105,7 @@ function CanonicalItemForm(props: {
   async function save() {
     setSaving(true);
     try {
-      await props.onSave(draft);
+      await props.onSave(normalizeCanonicalFormLists(draft));
     } finally {
       setSaving(false);
     }
@@ -172,7 +172,7 @@ function CanonicalItemForm(props: {
   );
 }
 
-function CanonicalField(props: { idPrefix: string; field: ResumeFieldDefinition; value: unknown; onChange: (value: unknown) => void }) {
+export function CanonicalField(props: { idPrefix: string; field: ResumeFieldDefinition; value: unknown; onChange: (value: unknown) => void }) {
   const id = `canonical-${props.idPrefix}-${props.field.id}`;
   if (props.field.valueType === "boolean") {
     return (
@@ -189,7 +189,7 @@ function CanonicalField(props: { idPrefix: string; field: ResumeFieldDefinition;
     return (
       <div className="field-input-group">
         <label className="field-input-label" htmlFor={id}>{props.field.label}</label>
-        <textarea id={id} className="field-input field-textarea" rows={isList ? 3 : 4} value={text} onChange={(event) => props.onChange(isList ? event.target.value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean) : event.target.value || undefined)} />
+        <textarea id={id} className="field-input field-textarea" rows={isList ? 3 : 4} value={text} onChange={(event) => props.onChange(isList ? event.target.value.split(/\r?\n/) : event.target.value || undefined)} />
         {isList ? <span className="field-help-text">每行一项</span> : null}
       </div>
     );
@@ -200,12 +200,27 @@ function CanonicalField(props: { idPrefix: string; field: ResumeFieldDefinition;
       <input
         id={id}
         className="field-input"
-        type={props.field.valueType === "date" ? "month" : props.field.valueType === "number" ? "number" : props.field.valueType === "url" ? "url" : "text"}
+        type={props.field.valueType === "number" ? "number" : props.field.valueType === "url" ? "url" : "text"}
+        placeholder={props.field.valueType === "date" ? "YYYY / YYYY-MM / YYYY-MM-DD" : undefined}
+        step={props.field.valueType === "number" ? "any" : undefined}
         value={text}
         onChange={(event) => props.onChange(props.field.valueType === "number" ? (event.target.value ? Number(event.target.value) : undefined) : event.target.value || undefined)}
       />
     </div>
   );
+}
+
+/** Preserve blank editing lines until save; only committed list values must be nonempty. */
+export function normalizeCanonicalFormLists(item: ResumeItemV2): ResumeItemV2 {
+  const record = item as unknown as Record<string, unknown>;
+  const lists = Object.fromEntries(resumeFieldCatalog
+    .filter(field => field.sectionType === item.sectionType && field.valueType === "string_list")
+    .flatMap(field => {
+      const name = field.id.split(".").at(-1)!;
+      const values = record[name] as string[] | undefined;
+      return values ? [[name, values.map(value => value.trim()).filter(Boolean)]] : [];
+    }));
+  return { ...item, ...lists } as ResumeItemV2;
 }
 
 function customFieldText(field: CustomFieldValue) {

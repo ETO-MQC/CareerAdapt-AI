@@ -20,6 +20,7 @@ const seeds: Partial<Record<Exclude<ResumeSectionTypeV2, "custom">, readonly Fie
     ["endDate", "结束日期", "date", ["to"], "date"], ["expectedEndDate", "预计结束日期", "date", ["expectedGraduationDate"], "date"], ["current", "在读", "boolean", ["present"], "checkbox"],
     ["gpa", "GPA", "number", ["gradePointAverage"], "number"], ["gpaScale", "GPA 满分", "number", ["gpaMax"], "number"],
     ["rankPosition", "排名", "number", ["rank"], "number"], ["rankTotal", "排名总人数", "number", ["cohortSize"], "number"],
+    ["rankPercent", "排名前百分比（%）", "number", ["topPercent", "rankPercentage"], "number"],
     ["courses", "主修课程", "string_list", ["coursework"], "tags"], ["honors", "荣誉", "string_list", ["academicHonors"], "tags"],
     ["description", "说明", "text", ["details"], "textarea"], ["highlights", "亮点", "string_list", ["bullets", "achievements"], "tags"]
   ],
@@ -45,6 +46,14 @@ const seeds: Partial<Record<Exclude<ResumeSectionTypeV2, "custom">, readonly Fie
   ],
   campus: experienceSeeds(),
   volunteer: experienceSeeds(),
+  training: [
+    ["institution", "培训机构", "string", ["provider", "organization"], "text"],
+    ["title", "培训项目", "string", ["course", "program"], "text"],
+    ["location", "培训地点", "string", ["city"], "text"],
+    ["startDate", "开始日期", "date", ["from"], "date"], ["endDate", "结束日期", "date", ["to"], "date"],
+    ["current", "进行中", "boolean", ["present"], "checkbox"],
+    ["description", "培训内容", "text", ["details"], "textarea"], ["highlights", "成果与要点", "string_list", ["bullets"], "tags"]
+  ],
   awards: [
     ["name", "奖项名称", "string", ["title"], "text"], ["issuer", "颁发方", "string", ["organization"], "text"],
     ["level", "级别", "string", ["scope"], "select"], ["awardedAt", "获奖月份", "date", ["date"], "date"],

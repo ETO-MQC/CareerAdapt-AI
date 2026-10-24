@@ -33,8 +33,8 @@ export function StructuredProjectForm({ value, onChange, idPrefix, onFocus }: St
         <FieldInput id={`${idPrefix}-location`} label="项目地点" value={value.location} onChange={(next) => update("location", next)} onFocus={onFocus} />
       </div>
       <div className="section-fields-grid-2">
-        <FieldInput id={`${idPrefix}-start`} label="开始日期" type="month" value={value.startDate} onChange={(next) => update("startDate", next)} onFocus={onFocus} />
-        <FieldInput id={`${idPrefix}-end`} label="结束日期" type="month" value={value.endDate} disabled={value.current} onChange={(next) => update("endDate", next)} onFocus={onFocus} />
+        <FieldInput id={`${idPrefix}-start`} label="开始日期" type="text" placeholder="YYYY / YYYY-MM / YYYY-MM-DD" value={value.startDate} onChange={(next) => update("startDate", next)} onFocus={onFocus} />
+        <FieldInput id={`${idPrefix}-end`} label="结束日期" type="text" placeholder="YYYY / YYYY-MM / YYYY-MM-DD" value={value.endDate} disabled={value.current} onChange={(next) => update("endDate", next)} onFocus={onFocus} />
       </div>
       <label className="field-input-checkbox-label profile-current-toggle">
         <input type="checkbox" checked={value.current} onChange={(event) => update("current", event.target.checked)} />

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ResumeImportTimeoutSecondsSchema } from "@/domain/resumeImport/timeouts";
 
 export const DocumentParsingModeSchema = z.enum([
   "auto",
@@ -25,7 +26,9 @@ export const DocumentRecognitionPreferencesSchema = z.object({
   modelDirectory: z.string().max(1024),
   modelId: DocumentRecognitionModelIdSchema,
   openDataLoaderExperimental: z.boolean(),
-  allowManualRouteSelection: z.boolean()
+  allowManualRouteSelection: z.boolean(),
+  visionTimeoutSeconds: ResumeImportTimeoutSecondsSchema.optional(),
+  mappingTimeoutSeconds: ResumeImportTimeoutSecondsSchema.optional()
 }).strict();
 
 export const DocumentEngineHealthSchema = z.object({

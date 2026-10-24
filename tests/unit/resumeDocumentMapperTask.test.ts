@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { aiTaskRegistry } from "@/ai/tasks/registry";
+import { RESUME_AI_ITEM_FIELD_CONTRACT } from "@/domain/resumeFields";
 import type { AiCareerAdaptResumeV2MapperOutput } from "@/domain/schemas";
 import {
   coerceResumeDocumentMapperOutput,
@@ -22,6 +23,22 @@ const input = {
 };
 
 describe("resume-document-mapper canonical v2 boundary", () => {
+  it("converts exact numeric strings before Schema validation and preserves source grounding", () => {
+    const normalized = normalizeResumeMapperBoundaryOutput({
+      resume: { schemaVersion: "careeradapt-resume-v2", basics: {}, sections: [{
+        sectionType: "education", title: "教育经历", items: [{ school: "示例大学", gpa: "3.8", gpaScale: "4", rankPosition: "3", rankTotal: "50" }]
+      }] }, sourceRefs: [{ path: "/sections/0/items/0", blockIds: ["edu"] }]
+    }, [{ id: "edu", text: "示例大学 GPA 3.8/4 排名 3/50" }]);
+    expect(normalized.resume.sections[0].items[0]).toMatchObject({ school: "示例大学", gpa: 3.8, gpaScale: 4, rankPosition: 3, rankTotal: 50 });
+    expect(normalized.mapperDiagnostics?.shapeRepairs).toContain("numeric_string_to_number:gpa");
+  });
+  it.each(["3.8/4", "前10%", true, { value: 3.8 }])("does not guess a GPA from an ambiguous or invalid value: %j", (gpa) => {
+    expect(() => normalizeResumeMapperBoundaryOutput({
+      resume: { schemaVersion: "careeradapt-resume-v2", basics: {}, sections: [{
+        sectionType: "education", items: [{ school: "示例大学", gpa }]
+      }] }, sourceRefs: [{ path: "/sections/0/items/0", blockIds: ["edu"] }]
+    }, [{ id: "edu", text: "示例大学 GPA 3.8/4" }])).toThrow();
+  });
   it("prompts for canonical v2 output with compact sourceRefs", () => {
     const prompt = JSON.parse(definition.buildUserPrompt(input)) as Record<string, unknown>;
     expect(prompt).toMatchObject({ schemaVersion: "resume-import-v2" });
@@ -29,6 +46,8 @@ describe("resume-document-mapper canonical v2 boundary", () => {
     expect(prompt).not.toHaveProperty("normalizedSourceBlocks");
     expect(prompt.outputContract).toHaveProperty("resume");
     expect(prompt.outputContract).toHaveProperty("sourceRefs");
+    expect((prompt.targetSchema as { sections: { itemFieldsBySection: unknown } }).sections.itemFieldsBySection).toEqual(RESUME_AI_ITEM_FIELD_CONTRACT);
+    expect(definition.buildUserPrompt(input).length).toBeLessThan(7000);
     expect(definition.systemPrompt).toContain("CareerAdapt Resume JSON v2");
     expect(definition.systemPrompt).toContain("Never flatten");
     expect(definition.systemPrompt).toContain("Never echo source text or sourceValues");

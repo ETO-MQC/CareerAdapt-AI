@@ -174,6 +174,7 @@ export function mapSemanticItemToResumeItem(input: {
     sectionType: input.sectionType as "work" | "internship" | "campus" | "volunteer",
     organization: read(input.item.organizationBlockIds) || undefined, role: read(input.item.roleBlockIds) || undefined,
     description: body || undefined, startDate, endDate, current, highlights };
+  else if (input.sectionType === "training") candidate = { ...common, sectionType: "training", institution: read(input.item.organizationBlockIds) || read(input.item.titleBlockIds) || undefined, title: read(input.item.roleBlockIds) || undefined, description: body || undefined, startDate, endDate, current, highlights };
   else if (input.sectionType === "project") candidate = { ...common, sectionType: "project", title: read(input.item.titleBlockIds) || undefined,
     role: read(input.item.roleBlockIds) || undefined, description: body || undefined, startDate, endDate, current,
     tools: [], highlights, outcomes: [] };

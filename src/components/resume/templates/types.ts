@@ -40,6 +40,7 @@ export type TemplateRenderContext = {
   presentationConfig?: ResumePresentationConfig;
   thumbnail?: boolean;
   measurement?: boolean;
+  inlineDepartment?: boolean;
   pagination?: {
     pageNumber: number;
     pageCount: number;

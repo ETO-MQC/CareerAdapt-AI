@@ -1,5 +1,6 @@
 import type { AiSettings } from "@/services/storage/aiSettings";
 import { normalizeAiProviderIdentity } from "@/services/agent/aiRuntimeConfiguration";
+import { resolveHermesProviderBinding } from "../../../electron/hermesProviderBinding.js";
 
 type Environment = Record<string, string | undefined>;
 type ConfigurationSource = "custom_header" | "secure_store" | "server_env" | "default" | "missing";
@@ -44,6 +45,11 @@ export function resolveEffectiveAiConfiguration(
     baseUrl: environment.AI_BASE_URL?.trim() ?? "",
     apiKey: environment.AI_API_KEY?.trim() ?? ""
   };
+  const binding = resolveHermesProviderBinding({
+    provider: custom.provider || fromEnvironment.provider,
+    baseUrl: custom.baseUrl || fromEnvironment.baseUrl
+  });
+  fromEnvironment.apiKey = environment[binding.credentialEnvName]?.trim() || fromEnvironment.apiKey;
   // V4-P0 S-0: on desktop the OS-encrypted main-process store is the authoritative credential.
   // It is surfaced here as process.env.AI_API_KEY, which electron/main.js populates from the
   // store at boot and on every update, so the provider routes need no Electron-specific code.

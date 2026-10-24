@@ -66,6 +66,7 @@ export const ExportSnapshotPresentationSchema = z.object({
     pageBreakBeforeSections: z.array(ResumeRenderSectionTypeSchema)
   }),
   highlightListStyle: PresentationHighlightListStyleSchema.default("bullet"),
+  departmentPlacement: z.enum(["auto", "inline", "stacked"]).optional(),
   itemHeaderMiddleAlignment: PresentationItemHeaderMiddleAlignmentSchema.default("balanced")
 });
 

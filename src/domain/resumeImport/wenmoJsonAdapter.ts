@@ -165,6 +165,10 @@ function mapEntry(
       organization: title || undefined, role: subtitle || undefined, department: department || undefined,
       description: description || undefined, ...date, highlights, customFields };
   }
+  if (sectionType === "training") {
+    if (!title && !subtitle && !description && !highlights.length) return undefined;
+    return { id, sectionType, institution: title || undefined, title: subtitle || undefined, description: description || undefined, ...date, highlights, customFields };
+  }
   if (sectionType === "project") {
     if (!title && !subtitle && !highlights.length) return undefined;
     return { id, sectionType, title: title || undefined, role: subtitle || undefined,
@@ -197,6 +201,7 @@ function mapEntry(
 function classifySection(rawType: unknown, title: string): ResumeJsonV2Section["sectionType"] {
   const type = cleanExternalResumeText(rawType).toLowerCase();
   const heading = title.normalize("NFKC");
+  if (type === "training" || /培训/.test(heading)) return "training";
   if (type === "education" || /教育|学历/.test(heading)) return "education";
   if (/项目/.test(heading)) return "project";
   if (/研究|科研/.test(heading)) return "research";
@@ -212,6 +217,7 @@ function entryTraces(entry: JsonRecord, sectionType: ResumeJsonV2Section["sectio
     education: [["title", "education.school"], ["subtitle", "education.major"], ["extra", "education.degree"], ["date", "education.startDate"]],
     internship: [["title", "internship.organization"], ["subtitle", "internship.role"], ["date", "internship.startDate"], ["bullets", "internship.highlights"]],
     project: [["title", "project.title"], ["subtitle", "project.role"], ["date", "project.startDate"], ["bullets", "project.highlights"]],
+    training: [["title", "training.institution"], ["subtitle", "training.title"], ["date", "training.startDate"], ["bullets", "training.highlights"]],
     research: [["title", "research.title"], ["subtitle", "research.authorRole"], ["date", "research.startDate"], ["bullets", "research.highlights"]],
     skills: [["title", "skills.name"], ["description", "skills.description"]],
     certificates: [["title", "certificates.name"], ["description", "certificates.description"]]

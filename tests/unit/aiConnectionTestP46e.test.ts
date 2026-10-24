@@ -131,7 +131,7 @@ describe("P4.6e candidate connection test", () => {
     expect(body).toMatchObject({
       ok: false,
       code: "provider_http_401",
-      message: "API Key 无效或没有模型权限。"
+      message: "服务商拒绝了当前已保存的 API Key（HTTP 401），请核对密钥及其所属服务商。"
     });
     expect(mocks.fetch).toHaveBeenCalledTimes(1);
   });

@@ -14,11 +14,11 @@ const fixtures = createP48bTemplateFixtures();
 
 describe("P4.8b template presentation matrix", () => {
   it("keeps at least three high-readability ATS metadata templates", () => {
-    expect(resumeTemplates.filter((template) => template.atsLevel === "high")).toHaveLength(4);
+    expect(resumeTemplates.filter((template) => template.atsLevel === "high")).toHaveLength(5);
   });
 
   it.each(fixtures.map((fixture) => [fixture.name, fixture] as const))(
-    "%s preserves every available section and item through all six renderers",
+    "%s preserves every available section and item through all registered renderers",
     (_name, fixture) => {
       const source = presentationCoverage(fixture.model);
       const renderedMarkup = new Map<string, string>();

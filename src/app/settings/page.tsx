@@ -9,6 +9,7 @@ import type {
   DocumentRecognitionPreferences
 } from "@/domain/schemas";
 import { DOCUMENT_RECOGNITION_MODEL_OPTIONS } from "@/domain/documentRecognition/modelCatalog";
+import { DEFAULT_VISION_TIMEOUT_SECONDS, DEFAULT_MAPPING_TIMEOUT_SECONDS } from "@/domain/resumeImport/timeouts";
 import { runResumeOcrAdapter } from "@/domain/resumeImport/ocrAdapter";
 import { readDeveloperMode, writeDeveloperMode } from "@/services/preferences/developerMode";
 import {
@@ -16,7 +17,7 @@ import {
   writeDocumentRecognitionPreferences
 } from "@/services/preferences/documentRecognition";
 import { clearAiSettings, readAiSettings, writeAiSettings, type AiSettings } from "@/services/storage/aiSettings";
-import { normalizeAiRuntimeConfigDraft, validateAiRuntimeConfigDraft } from "@/services/agent/aiRuntimeConfiguration";
+import { normalizeAiProviderIdentity, normalizeAiRuntimeConfigDraft, validateAiRuntimeConfigDraft } from "@/services/agent/aiRuntimeConfiguration";
 import { AgentSessionStore } from "@/services/agent/agentSessionStore";
 import type { AgentSession } from "@/agent/contracts/agentSession";
 import {
@@ -101,7 +102,12 @@ export default function SettingsPage() {
   const [candidateProviderLatencyTest, setCandidateProviderLatencyTest] = useState<HermesProviderTestResult>();
   const [hermesLogs, setHermesLogs] = useState<HermesLogs>();
   const [hermesStarting, setHermesStarting] = useState(false);
-  const [hermesFeedback, setHermesFeedback] = useState("应用启动时会自动启动 AI Agent；异常退出后可在此恢复。");
+  const [hermesFeedbackState, setHermesFeedbackState] = useState({
+    message: "应用启动时会自动启动 AI Agent；异常退出后可在此恢复。", followsRuntime: false
+  });
+  function setHermesFeedback(message: string, followsRuntime = false) {
+    setHermesFeedbackState({ message, followsRuntime });
+  }
   const [documentPreferences, setDocumentPreferences] = useState<DocumentRecognitionPreferences>(() =>
     typeof window === "undefined" ? readDocumentRecognitionPreferences() : readDocumentRecognitionPreferences()
   );
@@ -459,8 +465,9 @@ export default function SettingsPage() {
         return;
       }
       if (!result.ok) throw new Error(result.reason ?? "Hermes 启动失败。");
+      if (result.snapshot) agentHost.runtimeStatus.recordSupervisorStatus(result.snapshot);
       const snapshot = agentHost.runtimeStatus.getSnapshot().controlSnapshot;
-      setHermesFeedback(snapshot ? hermesControlFeedback(snapshot) : "Hermes 已接受启动请求，正在同步 Career 工具。");
+      setHermesFeedback(snapshot ? hermesControlFeedback(snapshot) : "Hermes 已接受启动请求，正在同步 Career 工具。", true);
     } catch (error) {
       setHermesFeedback(error instanceof Error ? error.message : "Hermes 启动失败，请查看运行日志。");
     } finally {
@@ -480,8 +487,9 @@ export default function SettingsPage() {
         return;
       }
       if (result && !result.ok) throw new Error(result.reason ?? "Hermes 控制操作未完成。");
+      if (result?.snapshot) agentHost.runtimeStatus.recordSupervisorStatus(result.snapshot);
       const snapshot = agentHost.runtimeStatus.getSnapshot().controlSnapshot;
-      setHermesFeedback(snapshot ? hermesControlFeedback(snapshot) : successMessage);
+      setHermesFeedback(snapshot ? hermesControlFeedback(snapshot) : successMessage, true);
     } catch (error) {
       setHermesFeedback(error instanceof Error ? error.message : "Hermes 控制操作未完成，请查看日志。");
     } finally {
@@ -546,6 +554,11 @@ export default function SettingsPage() {
 
   async function saveAiConfiguration() {
     if (aiSavingRef.current || aiSaving) return;
+    const draft = normalizeAiRuntimeConfigDraft(aiSettings);
+    const active = hermesSnapshot.runtimeConfig.active;
+    const modelOnly = Boolean(active && !draft.apiKey && draft.credentialAction !== "clear"
+      && active.provider === normalizeAiProviderIdentity(draft.provider, draft.baseUrl)
+      && active.baseUrl.replace(/\/+$/u, "") === draft.baseUrl.replace(/\/+$/u, ""));
     const session = agentHost.state.getSnapshot().activeSession;
     let sessionBindingToRelease: string | undefined;
     const activeRun = Boolean(
@@ -554,17 +567,16 @@ export default function SettingsPage() {
         && (session.activeTurn?.status === "running"
           || ["queued", "running", "waiting_for_approval", "stopping"].includes(session.hermesRun?.status ?? "")))
     );
-    if (activeRun && !window.confirm("当前 AI 正在处理任务。切换模型需要停止当前运行，但对话和任务进度会保留。是否立即切换？")) return;
+    if (activeRun && !modelOnly && !window.confirm("当前 AI 正在处理任务。更换连接配置需要停止当前运行，但对话和任务进度会保留。是否立即切换？")) return;
     aiSavingRef.current = true;
     setAiSaving(true);
     try {
-      const draft = normalizeAiRuntimeConfigDraft(aiSettings);
       const validationReason = validateAiRuntimeConfigDraft(draft);
       if (validationReason) {
         setHermesFeedback(aiRuntimeConfigFeedback(validationReason));
         return;
       }
-      if (activeRun && session) {
+      if (activeRun && !modelOnly && session) {
         await agentHost.interruptRun(session.id, createRunStopReason({
           requestedBy: "user",
           reasonCode: "runtime_config_update",
@@ -592,12 +604,12 @@ export default function SettingsPage() {
       const controlResult = storeResult ? storeResult.control : await requestHermesConfigUpdate(draft);
 
       if (storeResult && !storeResult.ok) {
-        // Nothing was stored (web mode, or no OS keychain). Drop the typed key instead of
+        // Nothing was applied. Drop the typed key instead of
         // silently keeping it in the page, and point the user at the supported configuration.
         setAiSettings((previous) => ({ ...previous, apiKey: "", credentialAction: "unchanged" }));
         setCredentialState(storeResult);
         setHermesFeedback(storeResult.available
-          ? "API Key 未能写入系统安全存储，请查看运行诊断后重试。"
+          ? "API Key 未能应用，请查看运行诊断后重试。"
           : "当前环境没有可用的系统安全存储，API Key 未保存。请改用服务端环境变量配置 AI 凭据。");
         return;
       }
@@ -616,11 +628,15 @@ export default function SettingsPage() {
         // Do not keep the typed key in component state once the main process owns it.
         setAiSettings((previous) => ({ ...previous, apiKey: "", credentialAction: "unchanged" }));
         setAiSaved(true);
-        if (session) sessionBindingToRelease = session.id;
+        if (session && controlResult?.receipt?.restartPerformed) sessionBindingToRelease = session.id;
       }
+      if (controlResult?.snapshot) agentHost.runtimeStatus.recordSupervisorStatus(controlResult.snapshot);
       setHermesFeedback(controlResult?.ok
-        ? hermesControlFeedback(controlResult.controlSnapshot ?? agentHost.runtimeStatus.getSnapshot().controlSnapshot ?? hermesSnapshot)
-        : aiRuntimeConfigFeedback(controlResult?.reason ?? applyStatus ?? "unknown"));
+        ? controlResult.receipt?.restartPerformed === false
+          ? "配置已应用，下一轮任务使用所选模型；当前运行不受影响。"
+          : hermesControlFeedback(controlResult.controlSnapshot ?? agentHost.runtimeStatus.getSnapshot().controlSnapshot ?? hermesSnapshot)
+        : aiRuntimeConfigFeedback(controlResult?.reason ?? applyStatus ?? "unknown"),
+        controlResult?.ok === true && controlResult.receipt?.restartPerformed !== false);
     } catch (error) {
       setHermesFeedback(error instanceof Error
         ? `AI 配置未应用：${error.message}`
@@ -650,7 +666,7 @@ async function clearAiCredentialFromSettings() {
       setAiSettings((prev) => ({ ...prev, apiKey: "", credentialAction: "unchanged", apiKeyConfigured: false }));
       writeAiSettings({ ...aiSettings, apiKey: "", credentialAction: "unchanged", apiKeyConfigured: false });
       setHermesFeedback(status.available
-        ? "已清除系统安全存储中的 API Key，并已重启 AI Agent 应用该变更。"
+        ? "已清除 API Key，并已更新 AI 服务配置。"
         : "当前环境没有可用的系统安全存储，未保存过 API Key。");
     } catch (error) {
       setHermesFeedback(error instanceof Error
@@ -696,9 +712,10 @@ async function clearAiCredentialFromSettings() {
         setAiSettings(readAiSettings());
         if (session) sessionBindingToRelease = session.id;
       }
+      if (result.snapshot) agentHost.runtimeStatus.recordSupervisorStatus(result.snapshot);
       setHermesFeedback(result.ok
         ? hermesControlFeedback(result.controlSnapshot ?? agentHost.runtimeStatus.getSnapshot().controlSnapshot ?? hermesSnapshot)
-        : aiRuntimeConfigFeedback(result.reason ?? "reset_failed"));
+        : aiRuntimeConfigFeedback(result.reason ?? "reset_failed"), result.ok);
     } catch (error) {
       setHermesFeedback(error instanceof Error ? `恢复默认配置失败：${error.message}` : "恢复默认配置失败，请稍后重试。");
     } finally {
@@ -739,9 +756,10 @@ async function clearAiCredentialFromSettings() {
       const result = await requestHermesEnvironmentReload();
       setAiSettings(readAiSettings());
       if (result.ok && session) sessionBindingToRelease = session.id;
+      if (result.snapshot) agentHost.runtimeStatus.recordSupervisorStatus(result.snapshot);
       setHermesFeedback(result.ok
         ? hermesControlFeedback(result.controlSnapshot ?? agentHost.runtimeStatus.getSnapshot().controlSnapshot ?? hermesSnapshot)
-        : aiRuntimeConfigFeedback(result.reason ?? "reload_failed"));
+        : aiRuntimeConfigFeedback(result.reason ?? "reload_failed"), result.ok);
     } catch (error) {
       setHermesFeedback(error instanceof Error ? `环境配置重载失败：${error.message}` : "环境配置重载失败，请稍后重试。");
     } finally {
@@ -754,6 +772,9 @@ async function clearAiCredentialFromSettings() {
   const hermesSnapshot = runtimeStatus.controlSnapshot ?? createInitialHermesControlSnapshot(hermesRuntimeEnvironment());
   const activeConfig = hermesSnapshot.runtimeConfig.active;
   const applyStatus = hermesSnapshot.runtimeConfig.applyStatus;
+  const hermesFeedback = hermesFeedbackState.followsRuntime
+    ? hermesSnapshot.ready && !["failed", "rolled_back"].includes(applyStatus) ? "" : hermesControlFeedback(hermesSnapshot)
+    : hermesFeedbackState.message;
   const runtimeConfigAttention = applyStatus === "failed" || applyStatus === "rolled_back";
   const runtimeConfigReason = hermesSnapshot.runtimeConfig.reasonCode
     ?? hermesSnapshot.diagnosticReasonCode
@@ -846,6 +867,24 @@ async function clearAiCredentialFromSettings() {
                     onChange={(event) => updateDocumentPreferences({ allowManualRouteSelection: event.target.checked })}
                   />
                 </label>
+              </section>
+
+              <section className="settings-group" aria-labelledby="resume-ai-timeout-heading">
+                <div className="settings-group-heading"><div>
+                  <h3 id="resume-ai-timeout-heading">AI 导入等待时间</h3>
+                  <p>慢速模型或较长简历可以多等一会儿。修改后自动保存，下一次识别或重试生效，无需重启 AI。</p>
+                </div></div>
+                {([
+                  ["visionTimeoutSeconds", "每页图像识别最长等待", DEFAULT_VISION_TIMEOUT_SECONDS],
+                  ["mappingTimeoutSeconds", "每批字段整理最长等待", DEFAULT_MAPPING_TIMEOUT_SECONDS]
+                ] as const).map(([key, label, fallback]) => <label className="field-label" key={key}>
+                  {label}
+                  <select name={key} value={(documentPreferences[key] ?? fallback) / 60}
+                    onChange={(event) => updateDocumentPreferences({ [key]: Number(event.target.value) * 60 })}>
+                    {Array.from({ length: 30 }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1} 分钟</option>)}
+                  </select>
+                </label>)}
+                <p>默认识图 8 分钟、字段整理 10 分钟；可分别设为 1～30 分钟。多页或分批处理各自计时，字段格式修复重试共用本批时间；等待期间可随时取消。</p>
               </section>
 
               <section className="settings-group" aria-labelledby="local-ocr-heading">
@@ -997,7 +1036,7 @@ async function clearAiCredentialFromSettings() {
               <div className="section-heading compact-heading">
                 <div>
                   <h2>AI 模型</h2>
-                  <p>保存后由 AI Agent 重启并应用新配置。重启期间会中断当前运行中的对话与任务，任务进度会保留。</p>
+                  <p>同地址、同密钥切换模型将在下一轮任务生效；更换地址或密钥会重启 AI 服务，对话和任务进度会保留。</p>
                 </div>
               </div>
               <section className="settings-group ai-runtime-settings-card" aria-labelledby="ai-runtime-config-heading">
@@ -1033,6 +1072,7 @@ async function clearAiCredentialFromSettings() {
                     <div className="ai-api-key-field">
                       <input
                         id="ai-api-key"
+                        aria-label="API Key"
                         name="aiApiKey"
                         type={showApiKey ? "text" : "password"}
                         autoComplete="off"
@@ -1058,11 +1098,13 @@ async function clearAiCredentialFromSettings() {
                   {/* Kept outside the label so the accessible name stays exactly "API Key".
                       The stored key is never sent back to the page, so state is shown as a fact,
                       not as a value. This is also why the field always starts empty. */}
-                  <p className="field-help">
+                  <p className="field-help ai-runtime-credential-help">
                     {credentialState?.available
-                      ? credentialState.configured
-                        ? "已配置。出于安全考虑不会回显，需要更换请直接输入新 Key。"
-                        : "尚未保存。输入后由系统安全存储加密保存，不会保存在浏览器中。"
+                      ? credentialState.source === "session_memory"
+                        ? `${credentialState.configured ? "已配置，不回显。" : "尚未配置。"}开发模式：Key 仅保留在本机服务端内存中，不写入浏览器；关闭开发服务后需重新输入。`
+                        : credentialState.configured
+                          ? "已配置。出于安全考虑不会回显，需要更换请直接输入新 Key。"
+                          : "尚未保存。输入后由系统安全存储加密保存，不会保存在浏览器中。"
                       : "当前环境没有可用的系统安全存储，仅支持读取服务端环境变量配置。"}
                   </p>
                   <label className="field-label" htmlFor="ai-model">
@@ -1083,7 +1125,7 @@ async function clearAiCredentialFromSettings() {
                   </label>
                 </div>
               </section>
-              <div className="settings-save-state" role="status" aria-live="polite">{hermesFeedback}</div>
+              {hermesFeedback ? <div className="settings-save-state ai-runtime-save-state" role="status" aria-live="polite">{hermesFeedback}</div> : null}
               {runtimeConfigAttention ? (
                 <div className={`ai-runtime-result ${applyStatus === "rolled_back" ? "is-rollback" : "is-error"}`} role="alert">
                   <strong>{applyStatus === "rolled_back" ? "新配置未通过检查，已回滚" : "配置应用失败"}</strong>
@@ -1109,6 +1151,7 @@ async function clearAiCredentialFromSettings() {
                   className="button button-secondary"
                   disabled={aiTesting || aiLatencyTesting || aiSaving}
                   onClick={() => void testHermesProviderFromSettings()}
+                  title="检查连接和模型列表；OpenRouter 同时验证已保存的密钥，模型生成可用性请用测速验证"
                 >
                   {aiTesting ? "测试连接中…" : "测试连接"}
                 </button>
@@ -1127,7 +1170,7 @@ async function clearAiCredentialFromSettings() {
                   disabled={aiSaving || aiTesting || aiLatencyTesting}
                   onClick={() => void saveAiConfiguration()}
                 >
-                  {aiSaving ? "正在重启并应用…" : aiSaved ? "已应用 ✓" : "保存并重启应用"}
+                  {aiSaving ? "正在应用…" : aiSaved ? "已应用 ✓" : "保存并应用"}
                 </button>
               </div>
               <details className="settings-help-details ai-runtime-more">
@@ -1170,7 +1213,7 @@ async function clearAiCredentialFromSettings() {
                 </div>
               </section>
 
-              <p className="settings-save-state" role="status" aria-live="polite">{hermesFeedback}</p>
+              {hermesFeedback ? <p className="settings-save-state" role="status" aria-live="polite">{hermesFeedback}</p> : null}
               <div className="hermes-settings-actions hermes-primary-action-row">
                 {hermesSnapshot.capabilities.canStartService && (hermesSnapshot.serviceState === "stopped" || hermesSnapshot.serviceState === "unavailable") ? <button type="button" className="button button-primary" disabled={hermesStarting} onClick={() => void startHermesFromSettings()}>{hermesStarting ? "启动中…" : "启动 AI Agent"}</button> : null}
                 {hermesSnapshot.capabilities.canRestartService && hermesSnapshot.serviceState !== "stopped" && hermesSnapshot.serviceState !== "unavailable" ? <button type="button" className="button button-primary" disabled={hermesStarting} onClick={() => void restartHermesFromSettings()}>{hermesStarting ? "重启中…" : "重启 AI Agent"}</button> : null}
@@ -1586,8 +1629,10 @@ function candidateProviderTestFeedback(result: HermesProviderTestResult) {
   const descriptions: Record<string, string> = {
     missing_ai_config: "请填写 API Key 和模型后再测试。",
     provider_protocol_mismatch: "请确认 API 地址提供 OpenAI 兼容接口。",
-    provider_http_401: "API Key 无效或没有模型权限。",
-    provider_http_403: "API Key 无效或没有模型权限。",
+    credential_save_required: "新 API Key 尚未应用，请先点击“保存并应用”，再测试或测速。",
+    provider_http_401: "服务商拒绝了当前已保存的 API Key（HTTP 401），请核对密钥及其所属服务商。",
+    provider_http_402: "服务商返回 HTTP 402，请检查账户余额或模型额度。",
+    provider_http_403: "服务商拒绝了此次请求（HTTP 403），请检查模型权限、区域或数据策略。",
     provider_model_not_found: "未找到这个模型，请检查模型名称。",
     provider_dns_failed: "无法连接 API 地址，请检查地址和网络。",
     provider_connection_failed: "无法连接 API 地址，请检查地址和网络。",
@@ -1598,7 +1643,7 @@ function candidateProviderTestFeedback(result: HermesProviderTestResult) {
     provider_http_503: "模型服务暂时不可用，请稍后再试。",
     model_output_too_large: "模型返回内容过长，但连接本身正常。",
   };
-  return descriptions[result.safeErrorCode ?? ""] ?? result.message ?? "请检查 API 地址、模型和凭证。";
+  return result.message ?? descriptions[result.safeErrorCode ?? ""] ?? "请检查 API 地址、模型和凭证。";
 }
 
 function candidateProviderLatencyTestFeedback(result: HermesProviderTestResult) {

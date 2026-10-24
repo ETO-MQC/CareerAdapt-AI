@@ -60,11 +60,11 @@ export function StructuredExperienceForm({
         </div>
       )}
       <div className="section-fields-grid-2">
-        <FieldInput id={`${idPrefix}-start`} label={labels.startDate} type="month" value={value.startDate} onChange={(next) => update("startDate", next)} onFocus={onFocus} />
+        <FieldInput id={`${idPrefix}-start`} label={labels.startDate} type="text" placeholder="YYYY / YYYY-MM / YYYY-MM-DD" value={value.startDate} onChange={(next) => update("startDate", next)} onFocus={onFocus} />
         <FieldInput
           id={`${idPrefix}-end`}
           label={category === "education" && value.current ? "预计毕业时间" : labels.endDate}
-          type="month"
+          type="text" placeholder="YYYY / YYYY-MM / YYYY-MM-DD"
           value={category === "education" && value.current ? value.expectedEndDate ?? "" : value.endDate}
           disabled={category !== "education" && value.current}
           onChange={(next) => update(category === "education" && value.current ? "expectedEndDate" : "endDate", next)}

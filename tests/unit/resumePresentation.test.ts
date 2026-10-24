@@ -8,10 +8,10 @@ import {
 } from "@/domain/resumePresentation/projector";
 
 describe("resume presentation contract", () => {
-  it("normalizes year and month dates without inventing a day", () => {
+  it("preserves year, month and day precision without inventing a day", () => {
     expect(formatResumePresentationDate("2024")).toBe("2024");
     expect(formatResumePresentationDate("2024-09")).toBe("2024.09");
-    expect(formatResumePresentationDate("2024-09-01")).toBe("2024.09");
+    expect(formatResumePresentationDate("2024-09-01")).toBe("2024.09.01");
     expect(formatResumePresentationDateRange("2024-09", "2028-06")).toBe("2024.09–2028.06");
     expect(formatResumePresentationDateRange("2024-09", undefined, true)).toBe("2024.09–至今");
   });

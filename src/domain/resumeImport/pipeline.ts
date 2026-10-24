@@ -72,10 +72,11 @@ export function buildImportQualityReportV2(input: {
     && replacementCharacterRatio <= RESUME_IMPORT_QUALITY_THRESHOLDS.maximumReplacementCharacterRatio
     && lineFragmentationScore <= RESUME_IMPORT_QUALITY_THRESHOLDS.maximumLineFragmentationScore;
   const ocrCompleted = input.blocks.some((block) => block.sourceEngine === "paddleocr_vl" && block.normalizedText.trim().length > 0);
-  const recommendedPipeline = pipelineRoute(input.classification, hasUsableTextLayer, ocrCompleted);
+  const visionCompleted = input.blocks.some((block) => block.sourceEngine === "vision_ai" && block.normalizedText.trim().length > 0);
+  const recommendedPipeline = visionCompleted ? "vision_ai" : pipelineRoute(input.classification, hasUsableTextLayer, ocrCompleted);
   const legacyRoute = recommendedPipeline === "ocr_local"
     ? "ocr_ai"
-    : recommendedPipeline === "manual_review" || (recommendedPipeline === "digital_pdf_layout" && input.legacyReport?.readingOrderConfidence !== "high")
+    : recommendedPipeline === "vision_ai" || recommendedPipeline === "manual_review" || (recommendedPipeline === "digital_pdf_layout" && input.legacyReport?.readingOrderConfidence !== "high")
       ? "ai_text"
       : "deterministic";
 
@@ -96,7 +97,7 @@ export function buildImportQualityReportV2(input: {
     pageCount: input.pageCount,
     coordinateCoverage,
     hasUsableTextLayer,
-    ocrRequiredPages: [...new Set(input.ocrRequiredPages ?? (hasUsableTextLayer || ocrCompleted ? [] : pageNumbers(input.blocks, input.pageCount)))],
+    ocrRequiredPages: [...new Set(input.ocrRequiredPages ?? (hasUsableTextLayer || ocrCompleted || visionCompleted ? [] : pageNumbers(input.blocks, input.pageCount)))],
     thresholds: RESUME_IMPORT_QUALITY_THRESHOLDS,
     warnings: input.legacyReport?.warnings ?? []
   });

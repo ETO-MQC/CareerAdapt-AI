@@ -400,6 +400,7 @@ export const ExportRecordPresentationSnapshotSchema = z.object({
     pageBreakBeforeSections: z.array(z.enum(["summary", "experience", "skills", "certificates"]))
   }).optional(),
   highlightListStyle: z.enum(["bullet", "numbered", "none"]).optional(),
+  departmentPlacement: z.enum(["auto", "inline", "stacked"]).optional(),
   itemHeaderMiddleAlignment: z.enum(["fixed-column", "balanced", "flow"]).optional()
 });
 

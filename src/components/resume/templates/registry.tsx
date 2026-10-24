@@ -2,6 +2,7 @@ import type { ResumeRenderModel, TemplateId } from "@/domain/schemas";
 import { RESUME_SECTION_TYPES_V2 } from "@/domain/resumeFields";
 import { renderAtsMinimal } from "./atsMinimal";
 import { renderBusinessConsulting } from "./businessConsulting";
+import { renderCampusReference } from "./campusReference";
 import { renderCampusClean } from "./campusClean";
 import { renderClassicTechnical } from "./classicTechnical";
 import { renderModernOperations } from "./modernOperations";
@@ -201,6 +202,19 @@ export const resumeTemplates: ResumeTemplateDefinition[] = [
     defaultPresentationStyle: PROFESSIONAL_STYLE,
     className: "template-professional-classic",
     render: renderProfessionalClassic
+  }),
+  definition({
+    id: "campus-reference", name: "校园浅底", shortName: "校园浅底",
+    description: "居中姓名、浅底栏目条与三段式经历标题；培训独立展示，技能与证书合并呈现。",
+    category: "campus", layout: "single-column", atsLevel: "high",
+    suitableRoles: ["校招", "实习", "行政", "数据分析"], tags: ["校园", "单栏", "浅底栏目", "教育优先"],
+    defaultPresentationStyle: {
+      ...DEFAULT_TEMPLATE_STYLE_CONFIG,
+      typography: { ...DEFAULT_TEMPLATE_STYLE_CONFIG.typography, chineseFont: "source_han_serif", englishFont: "georgia", bodyTextScale: "large" },
+      spacing: { pageMargin: "narrow", sectionGap: "tight", itemGap: "tight" },
+      theme: { ...DEFAULT_TEMPLATE_STYLE_CONFIG.theme, primaryColor: "graphite", accentColor: "blue", density: "compact" }
+    },
+    className: "template-campus-reference", render: renderCampusReference
   })
 ];
 

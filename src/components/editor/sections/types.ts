@@ -15,6 +15,7 @@ export const SECTION_ORDER: ResumeStudioSectionKey[] = [
   "campus",
   "research",
   "volunteer",
+  "training",
   "skills",
   "awards",
   "certificates",

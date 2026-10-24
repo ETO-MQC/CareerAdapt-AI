@@ -9,6 +9,7 @@ export type DocumentImportRoute =
   | "docx"
   | "text"
   | "local_ocr"
+  | "vision_ai"
   | "manual_review"
   | "opendataloader";
 

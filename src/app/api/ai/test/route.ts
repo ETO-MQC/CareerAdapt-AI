@@ -127,6 +127,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const code = aiProviderErrorCode(error, { requestSignal: request.signal });
     const diagnostic = classifyAiTransportError(error, { requestSignal: request.signal });
+    if (diagnostic.providerMessage && configuration.apiKey) {
+      diagnostic.providerMessage = diagnostic.providerMessage.split(configuration.apiKey).join("[redacted]");
+    }
     console.warn("ai_provider_connection_test_failed", {
       code,
       configuration: { ...provider.configurationDiagnostic, configFingerprint }
@@ -134,7 +137,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: false,
       code,
-      message: safeTransportMessage(code),
+      message: connectionTestMessage(code, diagnostic.providerMessage),
       configuration: { ...provider.configurationDiagnostic, configFingerprint },
       configFingerprint,
       diagnostics: connectionDiagnosticsWithHttp(
@@ -163,6 +166,20 @@ function emptyProbeFromProvider() {
 async function readProviderModels(configuration: { baseUrl: string; apiKey: string; model: string }, requestSignal: AbortSignal) {
   const startedAt = Date.now();
   try {
+    // OpenRouter's model catalog is public: GET /models cannot verify a key.
+    if (new URL(configuration.baseUrl).hostname === "openrouter.ai") {
+      const auth = await fetch(`${configuration.baseUrl.replace(/\/$/u, "")}/key`, {
+        headers: { Authorization: `Bearer ${configuration.apiKey}`, Accept: "application/json" },
+        signal: AbortSignal.any([requestSignal, AbortSignal.timeout(10_000)]), cache: "no-store"
+      });
+      if (!auth.ok) {
+        return {
+          kind: "error" as const, code: `provider_http_${auth.status}`,
+          message: connectionTestMessage(`provider_http_${auth.status}`),
+          http: { status: "reached" as const, statusCode: auth.status, latencyMs: Date.now() - startedAt }
+        };
+      }
+    }
     const response = await fetch(`${configuration.baseUrl.replace(/\/$/u, "")}/models`, {
       method: "GET",
       headers: { Authorization: `Bearer ${configuration.apiKey}`, Accept: "application/json" },
@@ -182,7 +199,7 @@ async function readProviderModels(configuration: { baseUrl: string; apiKey: stri
       return {
         kind: "error" as const,
         code: `provider_http_${response.status}`,
-        message: response.status === 401 ? "API Key 无效或没有模型权限。" : "API Key 无效或没有模型权限。",
+        message: connectionTestMessage(`provider_http_${response.status}`),
         http: { status: "reached" as const, statusCode: response.status, latencyMs }
       };
     }
@@ -227,6 +244,18 @@ async function readProviderModels(configuration: { baseUrl: string; apiKey: stri
     }
     return { kind: "fallback" as const };
   }
+}
+
+function connectionTestMessage(code: string, providerMessage?: string) {
+  const descriptions: Record<string, string> = {
+    provider_http_401: "服务商拒绝了当前已保存的 API Key（HTTP 401），请核对密钥及其所属服务商。",
+    provider_http_402: "服务商返回 HTTP 402，请检查账户余额或模型额度。",
+    provider_http_403: "服务商拒绝了此次请求（HTTP 403），请检查模型权限、区域或数据策略。",
+    provider_http_429: "服务商限流或免费额度已用尽（HTTP 429），请稍后重试。",
+    provider_http_404: "未找到模型或接口（HTTP 404），请核对模型名称与 API 地址。"
+  };
+  const message = descriptions[code] ?? safeTransportMessage(code);
+  return providerMessage ? `${message} 服务商提示：${providerMessage}` : message;
 }
 
 function modelIds(payload: unknown) {

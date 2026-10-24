@@ -26,6 +26,9 @@ export type OpenAiCompatibleRequest = {
   systemPrompt: string;
   userPrompt: string;
   maxOutputChars: number;
+  images?: string[];
+  stream?: boolean;
+  reasoningEffort?: "low";
   signal?: AbortSignal;
 };
 
@@ -68,6 +71,7 @@ constructor(settings?: AiSettings, resolved?: EffectiveAiConfiguration) {
   readonly configurationDiagnostic: SafeAiConfigurationDiagnostic;
 
   async invoke(request: OpenAiCompatibleRequest): Promise<OpenAiCompatibleResponse> {
+    const startedAt = Date.now();
     if (!this.apiKey || !this.model) {
       throw createAiProviderError("missing_ai_config", "AI_API_KEY and AI_MODEL are required.");
     }
@@ -86,15 +90,57 @@ constructor(settings?: AiSettings, resolved?: EffectiveAiConfiguration) {
       },
       body: JSON.stringify({
         model: this.model,
+        ...(request.stream ? { stream: true } : {}),
+        ...(request.reasoningEffort && this.provider === "openrouter"
+          ? { reasoning: { effort: request.reasoningEffort } } : {}),
+        // Extraction only: custom Qwen deployments expose the documented template switch.
+        // Do not send vendor extensions to unrelated models or normal Agent conversations.
+        ...(request.reasoningEffort && /qwen/iu.test(this.model) && this.provider.startsWith("custom:")
+          ? { chat_template_kwargs: { enable_thinking: false } } : {}),
         messages: [
           { role: "system", content: request.systemPrompt },
-          { role: "user", content: request.userPrompt }
+          { role: "user", content: request.images?.length ? [
+            { type: "text", text: request.userPrompt },
+            ...request.images.map((url) => ({ type: "image_url", image_url: { url } }))
+          ] : request.userPrompt }
         ],
         temperature: 0.1
       }),
       signal: request.signal
     });
 
+    if (request.stream) console.info("[ai:structured-transport]", JSON.stringify({ model: this.model, stage: "response_headers", elapsedMs: Date.now() - startedAt,
+      status: response.status, streaming: response.headers.get("content-type")?.includes("text/event-stream") ?? false }));
+    if (response.ok && response.headers.get("content-type")?.includes("text/event-stream")) {
+      if (!response.body) throw createAiProviderError("empty_stream_body", "Provider returned an empty stream body.");
+      let content = "";
+      let finishReason: string | undefined;
+      let reasoningSeen = false;
+      for await (const frame of parseOpenAiJsonSse(response.body)) {
+        if (frame.error) throw createAiProviderError("provider_stream_error", "Provider reported a stream error.");
+        const choice = Array.isArray(frame.choices) ? frame.choices[0] as Record<string, unknown> | undefined : undefined;
+        const message = (choice?.delta ?? choice?.message) as Record<string, unknown> | undefined;
+        if (!reasoningSeen && (message?.reasoning || message?.reasoning_content)) {
+          reasoningSeen = true;
+          console.info("[ai:structured-transport]", JSON.stringify({ model: this.model, stage: "reasoning_started", elapsedMs: Date.now() - startedAt }));
+        }
+        if (typeof message?.content === "string") {
+          if (!content && message.content) console.info("[ai:structured-transport]", JSON.stringify({ model: this.model, stage: "content_started", elapsedMs: Date.now() - startedAt }));
+          content += normalizeProviderFrame(content, message.content);
+        }
+        if (content.length > request.maxOutputChars) throw createAiProviderError("model_output_too_large", "Provider output exceeded the task limit.");
+        if (typeof choice?.finish_reason === "string") {
+          finishReason = choice.finish_reason;
+          break;
+        }
+      }
+      if (finishReason === "length") throw createAiProviderError("model_output_truncated", "Provider stopped because the output length limit was reached.");
+      if (!content.trim()) throw createAiProviderError("empty_model_output", "Provider returned empty content.");
+      console.info("[ai:structured-transport]", JSON.stringify({ model: this.model, stage: "content_complete",
+        elapsedMs: Date.now() - startedAt, outputChars: content.length, finishReason }));
+      return { output: parseJsonContent(content), provider: this.provider, model: this.model,
+        outputLength: content.length, finishReason, responseShape: ["stream:chat.completion.chunk"] };
+    }
     const responseText = await response.text();
     if (!response.ok) {
       const providerMessage = extractProviderErrorMessage(responseText);

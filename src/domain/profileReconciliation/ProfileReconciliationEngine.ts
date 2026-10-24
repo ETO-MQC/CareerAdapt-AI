@@ -498,7 +498,7 @@ function normalizedItemFields(item: ResumeItemV2): Record<string, string> {
     case "education": return compactFields({
       school: normalizeText(item.school), degree: normalizeText(item.degree), major: normalizeText(item.major),
       location: normalizeText(item.location), startDate: normalizeDate(item.startDate), endDate: normalizeDate(item.endDate),
-      gpa: numberText(item.gpa), rank: item.rankPosition ? `${item.rankPosition}/${item.rankTotal ?? ""}` : ""
+      gpa: numberText(item.gpa), rankPercent: numberText(item.rankPercent), rank: item.rankPosition ? `${item.rankPosition}/${item.rankTotal ?? ""}` : ""
     });
     case "work":
     case "internship":
@@ -508,6 +508,7 @@ function normalizedItemFields(item: ResumeItemV2): Record<string, string> {
         organization: normalizeText(item.organization), role: normalizeText(item.role), location: normalizeText(item.location),
         startDate: normalizeDate(item.startDate), endDate: normalizeDate(item.endDate)
       });
+    case "training": return compactFields({ institution: normalizeText(item.institution), title: normalizeTitle(item.title), startDate: normalizeDate(item.startDate), endDate: normalizeDate(item.endDate) });
     case "project": return compactFields({
       title: normalizeTitle(item.title), organization: normalizeText(item.organization), role: normalizeText(item.role),
       url: normalizeUrl(item.url), startDate: normalizeDate(item.startDate), endDate: normalizeDate(item.endDate)

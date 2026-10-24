@@ -9,6 +9,7 @@ import {
   type ResumeSectionTypeV2
 } from "@/domain/schemas";
 import { getResumeSectionDefinition, RESUME_AI_ITEM_FIELD_CONTRACT, RESUME_SECTION_TYPES_V2 } from "@/domain/resumeFields";
+import { isPoliticalIdentityLabel } from "@/domain/resumeImport/basicClassification";
 
 const OUTPUT_KEYS = new Set(["resume", "sourceRefs", "unclassifiedRefs", "mapperDiagnostics"]);
 const RESUME_KEYS = new Set(["schemaVersion", "locale", "basics", "sections", "unclassifiedBlocks"]);
@@ -35,9 +36,9 @@ const ARRAY_FIELDS = new Set([
   "portfolioLinks", "otherLinks", "links", "courses", "honors", "highlights",
   "tools", "outcomes", "methods", "authors", "inventors"
 ]);
-const NUMBER_FIELDS = new Set(["gpa", "gpaScale", "rankPosition", "rankTotal"]);
+const NUMBER_FIELDS = new Set(["gpa", "gpaScale", "rankPosition", "rankTotal", "rankPercent"]);
 const DATE_FIELDS = new Set([
-  "startDate", "endDate", "awardedAt", "issuedAt", "expiresAt", "publishedAt",
+  "startDate", "endDate", "expectedEndDate", "awardedAt", "issuedAt", "expiresAt", "publishedAt",
   "filedAt", "grantedAt", "createdAt"
 ]);
 const CURRENT_WORD_PATTERN = /(?:至今|现在|目前|current|present|ongoing|now)/iu;
@@ -251,6 +252,10 @@ function unwrapOutput(rawOutput: unknown): unknown {
 
 function coerceBasics(resume: Record<string, unknown>, diagnostics: ResumeMapperBoundaryDiagnostics) {
   const basics = isRecord(resume.basics) ? sanitizeRecord(resume.basics) : {};
+  if (typeof basics.headline === "string" && isPoliticalIdentityLabel(basics.headline)) {
+    delete basics.headline;
+    addRepair(diagnostics.shapeRepairs, "political_identity_not_job_target");
+  }
   applyAlias(basics, "objective", "headline", diagnostics, "basic_objective_to_headline");
   applyAlias(basics, "position", "headline", diagnostics, "basic_position_to_headline");
   if (!hasFactualData(basics.headline) && hasFactualData(basics.targetRole)) {
@@ -356,6 +361,11 @@ function coerceItem(
     alias("organization", "school", "education_organization_to_school");
     alias("fieldOfStudy", "major", "education_field_to_major");
     alias("qualification", "degree", "education_qualification_to_degree");
+  } else if (sectionType === "training") {
+    alias("provider", "institution", "training_provider_to_institution");
+    alias("organization", "institution", "training_organization_to_institution");
+    alias("name", "title", "training_name_to_title");
+    alias("bullets", "highlights", "bullets_to_highlights");
   } else if (["work", "internship", "campus", "volunteer"].includes(sectionType)) {
     alias("company", "organization", "experience_company_to_organization");
     alias("institution", "organization", "experience_institution_to_organization");
@@ -419,6 +429,16 @@ function coerceItem(
     alias("bullets", "highlights", "bullets_to_highlights");
   }
   const allowed = new Set(["id", "sectionType", "customFields", ...SECTION_ITEM_FIELDS[sectionType]]);
+  for (const field of NUMBER_FIELDS) {
+    const value = item[field];
+    if (allowed.has(field) && typeof value === "string" && /^\d+(?:\.\d+)?$/u.test(value.trim())) {
+      const numeric = Number(value);
+      if (Number.isFinite(numeric)) {
+        item[field] = numeric;
+        addRepair(diagnostics.shapeRepairs, `numeric_string_to_number:${field}`);
+      }
+    }
+  }
   assertNoUnknownKeys(item, allowed, path);
   if (sourceBlockIds.length) {
     const sectionIndex = path[2];
@@ -521,6 +541,10 @@ function normalizeBasics(
     }
     const value = cleanString(raw);
     if (!value) continue;
+    if (key === "headline" && isPoliticalIdentityLabel(value)) {
+      addRepair(diagnostics.shapeRepairs, "political_identity_not_job_target");
+      continue;
+    }
     const path = `/basics/${key}`;
     if (groundFactualValue(value, refLookup.refsForField(path), refLookup, diagnostics, path, rejectedSourceIds)) {
       basics[key] = value;
@@ -566,6 +590,20 @@ function normalizeItem(input: {
     if (NUMBER_FIELDS.has(field)) {
       const numberValue = typeof raw === "number" ? raw : Number(cleanString(raw));
       if (!Number.isFinite(numberValue)) continue;
+      const evidence = input.refLookup.evidenceTexts(refs).map((text) => text.normalize("NFKC").replace(/\s+/gu, ""));
+      if (input.sectionType === "education" && field === "rankPosition" && input.rawItem.rankTotal === undefined
+        && evidence.some((text) => [...text.matchAll(/(?:排名|top)前?(\d+(?:\.\d+)?)%/giu)].some((match) => Number(match[1]) === numberValue))) {
+        if (groundFactualValue(numberValue, refs, input.refLookup, input.diagnostics, fieldPath, input.rejectedSourceIds)) {
+          item.rankPercent = numberValue;
+          keptRefs.push(...refs);
+          addRepair(input.diagnostics.shapeRepairs, "rank_percentage_not_position");
+        }
+        continue;
+      }
+      if (field === "rankPercent" && !evidence.some((text) => [...text.matchAll(/(?:排名|top)前?(\d+(?:\.\d+)?)%/giu)].some((match) => Number(match[1]) === numberValue))) {
+        rejectField(input.diagnostics, fieldPath, refs, input.refLookup, input.rejectedSourceIds);
+        continue;
+      }
       if (groundFactualValue(numberValue, refs, input.refLookup, input.diagnostics, fieldPath, input.rejectedSourceIds)) {
         item[field] = numberValue;
         keptRefs.push(...refs);
@@ -777,31 +815,32 @@ function isGroundedString(value: string, sourceText: string) {
 }
 
 function normalizeDateValue(value: unknown) {
-  const raw = cleanString(value);
+  const raw = cleanString(value)?.normalize("NFKC").replace(/\s+/gu, "");
   if (!raw || INVALID_DATE_WORD_PATTERN.test(raw)) return undefined;
-  const normalized = raw
-    .replace(/[./年]/g, "-")
-    .replace(/月$/u, "")
-    .replace(/--+/g, "-")
-    .replace(/-(\d)(?:$|-)/, "-0$1");
-  const yearMonth = normalized.match(/^(\d{4})-(\d{1,2})$/);
-  if (yearMonth) {
-    const month = Number(yearMonth[2]);
-    return month >= 1 && month <= 12 ? `${yearMonth[1]}-${String(month).padStart(2, "0")}` : undefined;
-  }
-  if (/^\d{4}$/.test(normalized)) return normalized;
-  return undefined;
+  const match = /^(\d{4})(?:(?:[-./年])(\d{1,2})(?:(?:[-./月])(\d{1,2})日?)?月?)?年?$/u.exec(raw);
+  if (!match) return undefined;
+  const [, year, monthText, dayText] = match;
+  if (!monthText) return year;
+  const month = Number(monthText);
+  if (month < 1 || month > 12) return undefined;
+  const yearMonth = `${year}-${String(month).padStart(2, "0")}`;
+  if (!dayText) return yearMonth;
+  const day = Number(dayText);
+  const daysInMonth = new Date(Date.UTC(Number(year), month, 0)).getUTCDate();
+  return day >= 1 && day <= daysInMonth ? `${yearMonth}-${String(day).padStart(2, "0")}` : undefined;
 }
 
 function dateAppearsInSource(value: string, sourceText: string) {
-  const [year, month] = value.split("-");
-  if (!sourceText.includes(year)) return false;
-  if (!month) return true;
-  return new RegExp(`(?:^|\\D)0?${Number(month)}(?:\\D|$)`, "u").test(sourceText);
+  const normalizedSource = sourceText.normalize("NFKC");
+  const dates = normalizedSource.match(/(?<!\d)\d{4}(?:(?:\s*[-./年]\s*)\d{1,2}(?:(?:\s*[-./月]\s*)\d{1,2}日?)?月?)?/gu) ?? [];
+  return dates.some((date) => {
+    const normalized = normalizeDateValue(date);
+    return normalized === value || normalized?.startsWith(`${value}-`);
+  });
 }
 
 function isDateLike(value: string) {
-  return /^\d{4}(?:-\d{2})?$/.test(value);
+  return /^\d{4}(?:-\d{2}(?:-\d{2})?)?$/.test(value);
 }
 
 function hasCanonicalBasicPath(resume: CareerAdaptResumeJsonV2, path: string) {
@@ -963,7 +1002,7 @@ function normalizeBoolean(value: unknown) {
 }
 
 function hasCurrentField(sectionType: Exclude<ResumeSectionTypeV2, "basics">) {
-  return ["education", "work", "internship", "project", "research", "campus", "volunteer"].includes(sectionType);
+  return ["education", "work", "internship", "project", "research", "campus", "volunteer", "training"].includes(sectionType);
 }
 
 function hasMeaningfulItemValue(item: Record<string, unknown>) {

@@ -19,8 +19,9 @@ const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
  * Consequences, which are EXPECTED rather than defects:
  *   - `testCapability()` reports `supported: false`, so `nativeModelConfigSupported` stays
  *     false and `HermesSupervisor` uses `applyConfigurationWithLifecycleRestart()`.
- *   - Every method below is therefore a no-op path that returns an "endpoint missing" error.
- *   - The restart fallback is the supported, tested apply path. See
+ *   - Global configuration mutations require the restart path. Model-only updates can use the
+ *     managed config file and readModelOptions() to verify the next-turn default.
+ *   - The restart fallback remains the supported path for address/credential changes. See
  *     `tests/unit/v4p0NativeConfigFallback.test.ts`.
  *
  * This client is retained on purpose: it is the correct adapter for a Hermes build that does
@@ -44,6 +45,11 @@ class HermesModelConfigClient {
       baseUrl: stringValue(payload.base_url) || stringValue(payload.baseUrl),
       capabilities: isRecord(payload.capabilities) ? payload.capabilities : {}
     };
+  }
+
+  async readModelOptions() {
+    const payload = await this.#request("/api/model/options", { method: "GET" });
+    return { model: stringValue(payload.model), provider: stringValue(payload.provider) };
   }
 
   async testCapability() {

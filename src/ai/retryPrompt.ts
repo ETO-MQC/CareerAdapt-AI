@@ -87,7 +87,7 @@ export function buildRetryPrompt({
       const keys = issue.unrecognizedKeys?.length
         ? ` (${issue.unrecognizedKeys.join(", ")})`
         : "";
-      return `- ${issue.path || "<root>"}: ${issue.code}${keys}`;
+      return `- ${issue.path || "<root>"}: ${issue.code}${issue.expected ? ` expected=${issue.expected}` : ""}${issue.received ? ` received=${issue.received}` : ""}${keys}`;
     });
     return [
       baseUserPrompt,

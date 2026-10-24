@@ -612,7 +612,7 @@ export const aiTaskRegistry = {
           basics: { supportedKeys: basicsFields },
           sections: [{
             allowedKeys: ["sectionType", "title", "items"],
-            itemShapeBySection: RESUME_AI_ITEM_FIELD_CONTRACT
+            itemShapeBySection: "Use targetSchema.sections.itemFieldsBySection below."
           }]
         },
         sourceRefs: [
@@ -645,7 +645,7 @@ export const aiTaskRegistry = {
           "Uncited source blocks are preserved locally; do not fabricate unclassified source references."
         ],
         instructions: "Return only the canonical Resume Schema v2 object described by targetSchema. Do not return structuredDraft, mappingDecisions, sourceValues, included, parser metadata, or review metadata. Skills may use the canonical category field. Explicit 求职意向/Target Role goes to basics.headline. Every basic field needs a field-level sourceRef and each item needs an item-level sourceRef covering its factual fields."
-      }, null, 2);
+      });
     },
     coerceRawOutput(rawOutput: unknown, input?: ResumeDocumentMapperTaskInput) {
       const blocks = input ? parseAndRedactDocumentMapperBlocks(input.rawText) : [];

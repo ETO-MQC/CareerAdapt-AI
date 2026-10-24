@@ -3,7 +3,9 @@ import type { z } from "zod";
 import { AiLogSchema, type AiLog, type AiTask } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
 import { readAiSettings, encodeAiSettingsForHeader } from "@/services/storage/aiSettings";
-import type { SafeSchemaIssue } from "@/ai/resumeDocumentMapperDiagnostics";
+import type { SafeSchemaIssue, ResumeMapperResponseSnapshot } from "@/ai/resumeDocumentMapperDiagnostics";
+import { readDocumentRecognitionPreferences } from "@/services/preferences/documentRecognition";
+import { DEFAULT_MAPPING_TIMEOUT_SECONDS, RESUME_IMPORT_TIMEOUT_HEADER } from "@/domain/resumeImport/timeouts";
 
 type StructuredAiResponse<TOutput> =
   | {
@@ -36,6 +38,7 @@ type StructuredAiResponse<TOutput> =
         safeErrorCode?: string;
         providerMessage?: string;
         failedIssues?: SafeSchemaIssue[];
+        responseSnapshots?: ResumeMapperResponseSnapshot[];
         attempt?: number;
       };
     };
@@ -67,6 +70,9 @@ type StructuredAiDiagnostics = {
 
   if (hasCustomSettings) {
     headers["x-ai-config"] = encodeAiSettingsForHeader(aiSettings);
+  }
+  if (input.task === "resume-document-mapper") {
+    headers[RESUME_IMPORT_TIMEOUT_HEADER] = String(readDocumentRecognitionPreferences().mappingTimeoutSeconds ?? DEFAULT_MAPPING_TIMEOUT_SECONDS);
   }
 
   const requestInit: RequestInit = {
@@ -143,6 +149,7 @@ type StructuredAiDiagnostics = {
         ? {
             safeErrorCode: payload.meta?.safeErrorCode ?? errorCode,
             failedIssues: payload.meta?.failedIssues ?? [],
+            responseSnapshots: payload.meta?.responseSnapshots,
             provider: payload.meta?.provider,
             model: payload.meta?.model,
             providerMessage: payload.meta?.providerMessage,

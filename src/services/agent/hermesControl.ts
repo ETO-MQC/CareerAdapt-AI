@@ -44,14 +44,13 @@ export type HermesCredentialSource = "server_env" | "secure_store" | "managed_co
  * Secure credential channel status (V4-P0 S-0). Renderer-safe by construction: it reports whether
  * a credential exists and where an effective one would come from, never the value itself.
  *
- * `available: false` means no OS-backed store exists (web mode, or a platform without a keychain).
- * In that case the UI must only read server-side environment configuration and must not offer to
- * save a key, because there is nowhere safe to put it.
+ * Desktop uses OS-backed storage. An explicitly enabled local development server can instead
+ * accept a write-only key into server process memory; production Web remains environment-only.
  */
 export type ProviderCredentialStatus = {
   available: boolean;
   configured: boolean;
-  source: "secure_store" | "server_env";
+  source: "secure_store" | "server_env" | "session_memory";
   reason?: string;
 };
 
@@ -974,9 +973,8 @@ export async function requestHermesConfigReset() {
 // Desktop: the key is stored by the Electron main process with `safeStorage`, so it is never
 // readable by the renderer and never enters localStorage or a request header.
 //
-// Web: there is no main process and no OS-backed store, so per the S-0 rule the only permitted
-// source is server-side environment configuration. These calls report `available: false` rather
-// than pretending a write succeeded, so the UI can tell the user to configure the server env.
+// Local development Web uses the same-origin control endpoint for write-only process-memory
+// credentials. Production/disabled Web control remains server-environment-only.
 const SERVER_ENV_ONLY_CREDENTIAL_STATUS: ProviderCredentialStatus = {
   available: false,
   configured: false,
@@ -986,7 +984,13 @@ const SERVER_ENV_ONLY_CREDENTIAL_STATUS: ProviderCredentialStatus = {
 
 export async function describeProviderCredential(): Promise<ProviderCredentialStatus> {
   const desktop = typeof window !== "undefined" ? window.careerAdaptDesktop : undefined;
-  if (!desktop) return SERVER_ENV_ONLY_CREDENTIAL_STATUS;
+  if (!desktop) {
+    if (typeof window === "undefined") return SERVER_ENV_ONLY_CREDENTIAL_STATUS;
+    const response = await fetch(WEB_HERMES_CONTROL_ENDPOINT, { cache: "no-store" });
+    if (!response.ok) return SERVER_ENV_ONLY_CREDENTIAL_STATUS;
+    const payload = await response.json() as { credentialStatus?: ProviderCredentialStatus };
+    return payload.credentialStatus ?? SERVER_ENV_ONLY_CREDENTIAL_STATUS;
+  }
   return desktop.describeProviderCredential();
 }
 
@@ -1003,14 +1007,28 @@ export type ProviderCredentialWriteResult = ProviderCredentialStatus & {
 
 export async function storeProviderCredential(credential: ProviderCredentialWrite): Promise<ProviderCredentialWriteResult> {
   const desktop = typeof window !== "undefined" ? window.careerAdaptDesktop : undefined;
-  if (!desktop) return SERVER_ENV_ONLY_CREDENTIAL_STATUS;
+  if (!desktop) return requestWebCredential("set_credential", credential);
   return desktop.setProviderCredential(credential);
 }
 
 export async function clearStoredProviderCredential(): Promise<ProviderCredentialStatus> {
   const desktop = typeof window !== "undefined" ? window.careerAdaptDesktop : undefined;
-  if (!desktop) return SERVER_ENV_ONLY_CREDENTIAL_STATUS;
+  if (!desktop) {
+    const result = await requestWebCredential("clear_credential");
+    if (!result.ok) throw new Error("API Key 清除未生效，请查看 AI 服务状态后重试。");
+    return result;
+  }
   return desktop.clearProviderCredential();
+}
+
+async function requestWebCredential(action: "set_credential" | "clear_credential", credential?: ProviderCredentialWrite): Promise<ProviderCredentialWriteResult> {
+  const response = await fetch(WEB_HERMES_CONTROL_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action, ...(credential ? { credential } : {}) })
+  });
+  if (!response.ok) return { ...SERVER_ENV_ONLY_CREDENTIAL_STATUS, ok: false };
+  return response.json() as Promise<ProviderCredentialWriteResult>;
 }
 
 export async function requestHermesProviderTest(settings = readAiSettings()): Promise<HermesProviderTestResult> {
@@ -1022,6 +1040,14 @@ export async function requestHermesProviderLatencyTest(settings = readAiSettings
 }
 
 async function requestHermesProviderTestRequest(settings: AiSettings, mode?: "latency"): Promise<HermesProviderTestResult> {
+  if (settings.apiKey.trim()) {
+    return {
+      ok: false, provider: settings.provider, model: settings.model,
+      credentialConfigured: false, credentialSource: "missing", checkedAt: new Date().toISOString(),
+      safeErrorCode: "credential_save_required",
+      message: "新 API Key 尚未应用，请先点击“保存并应用”，再测试或测速。"
+    };
+  }
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (hasCustomSettings(settings)) headers["x-ai-config"] = encodeAiSettingsForHeader(settings);
   if (mode) headers["x-ai-test-mode"] = mode;

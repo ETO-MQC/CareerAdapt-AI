@@ -111,7 +111,7 @@ export function ResumeImportWizard(props: {
   const fileIntentRef = useRef<"auto" | "pdf" | "docx" | "json" | "ocr">("auto");
   const abortRef = useRef<AbortController | undefined>(undefined);
   const [status, setStatus] = useState<ImportStatus>("idle");
-  const [message, setMessage] = useState("文件仅在本地解析，写入前可核对。");
+  const [message, setMessage] = useState("选择或拖入简历，AI 将自动识别；写入前可核对。");
   const [draft, setDraft] = useState<ImportedResumeDraft | undefined>();
   const [pages, setPages] = useState<PdfPageText[]>([]);
   const [selectedPageNumber, setSelectedPageNumber] = useState(1);
@@ -253,6 +253,7 @@ export function ResumeImportWizard(props: {
   const pendingReviewCount = fieldCandidateReviewCount + structureReviewCount + unreviewedUnclassifiedCount + structureConflictCount;
   const unsafeTextLayerBlocked = draft?.qualityReport?.recommendedRoute === "ocr_ai"
     && routingDecision.route !== "manual_review";
+  const recoveryHasVisionText = aiFailureRecovery?.draft.sourceBlocks.some((block) => block.sourceEngine === "vision_ai") ?? false;
   const targetProfile = (props.profiles ?? []).find((item) => item.id === targetProfileId) ?? props.profile;
   const activeReconciliationPlan = reconciliationPlan
     && draft
@@ -391,8 +392,8 @@ export function ResumeImportWizard(props: {
   } = {}) {
     const effectivePreferences = options.modeOverride
       ? { ...documentPreferences, parsingMode: options.modeOverride }
-      : documentPreferences;
-    if (!options.modeOverride && documentPreferences.parsingMode === "local_ocr" && documentPreferences.localOcrEnabled) {
+      : semanticModeRef.current === "ai" ? { ...documentPreferences, parsingMode: "auto" as const } : documentPreferences;
+    if (semanticModeRef.current !== "ai" && !options.modeOverride && documentPreferences.parsingMode === "local_ocr" && documentPreferences.localOcrEnabled) {
       await startOcrImport(file, { fallbackToText: true });
       return;
     }
@@ -656,7 +657,7 @@ export function ResumeImportWizard(props: {
     const recovery = aiFailureRecovery;
     if (!recovery || recovery.draft.schemaVersion !== "resume-import-v2") return;
     setStatus("classifying_sections");
-    setMessage("AI 正在识别简历内容…");
+    setMessage("AI 正在整理已提取内容的简历字段…");
     try {
       const mapped = await new ResumeDocumentSemanticMapper(props.repository).map(
         recovery.draft,
@@ -676,7 +677,9 @@ export function ResumeImportWizard(props: {
           diagnostics: error.diagnostics
         } : current);
       }
-      fail(`${error instanceof Error ? error.message : "AI 简历语义识别暂时不可用。"} 原始文件和本地解析结果仍已保留，可直接点击“使用本地结果”。`);
+      fail(`${error instanceof Error ? error.message : "AI 简历字段整理暂时不可用。"} ${recoveryHasVisionText
+        ? "AI 图像识别文本仍已保留，可点击“直接核对已识别内容”。"
+        : "原始文件和本地解析结果仍已保留，可直接点击“使用本地结果”。"}`);
     }
   }
 
@@ -688,7 +691,7 @@ export function ResumeImportWizard(props: {
       recovery.draft.revision
     );
     showRecoveredDraft(saved, recovery.pages, recovery.routingDecision);
-    setMessage("已切换为仅本地解析结果，请逐项人工核对。");
+    setMessage(recoveryHasVisionText ? "已保留 AI 图像识别文本，使用本地字段整理进入人工核对。" : "已切换为仅本地解析结果，请逐项人工核对。");
   }
 
   function showRecoveredDraft(
@@ -812,6 +815,12 @@ export function ResumeImportWizard(props: {
       userEdited: false,
       userConfirmed: false
     });
+  }
+
+  async function discardUnclassifiedBlock(key: string) {
+    await patchDraft((current) => ({ ...current,
+      unclassifiedBlocks: current.unclassifiedBlocks.filter((block) => unclassifiedBlockKey(block) !== key)
+    }));
   }
 
   async function confirmCurrentSemanticStructure() {
@@ -1277,10 +1286,10 @@ export function ResumeImportWizard(props: {
                 </button>
               </div>
               <div className="import-recognition-privacy">
-                <span>本地提取并脱敏后由 AI 整理结构 · 原始文件不发送</span>
+                <span>默认 AI 自动识别；扫描 PDF 和图片会发送页面图像给当前模型</span>
                 <details>
                   <summary>隐私说明</summary>
-                  <p>仅发送脱敏后的文本与必要布局信息；电话、邮箱、身份证号、详细地址及高置信姓名优先在本地替换。</p>
+                  <p>可读取的文本在本地提取并脱敏后发送。扫描 PDF 和图片发送页面图像，图像中的个人信息无法预先完整脱敏；仅本地模式不会发送图像。所有结果均需核对确认。</p>
                 </details>
               </div>
             </div>
@@ -1297,13 +1306,13 @@ export function ResumeImportWizard(props: {
             {aiFailureRecovery ? (
               <div className="import-recognition-recovery" role="alert">
                 <span>
-                  <strong>{aiFailureRecovery.diagnostics?.safeErrorCode === "model_schema_invalid" ? "● AI 识别未完成：结构校验未通过" : "● AI 识别未完成，本地结果仍可继续使用"}</strong>
+                  <strong>{recoveryHasVisionText ? "● AI 图像识别已完成，字段整理未完成" : aiFailureRecovery.diagnostics?.safeErrorCode === "model_schema_invalid" ? "● AI 识别未完成：结构校验未通过" : "● AI 识别未完成，本地结果仍可继续使用"}</strong>
                   <small>{aiFailureRecovery.diagnostics?.safeErrorCode === "model_schema_invalid" ? "模型输出格式需要修正；" : null}{message}</small>
-                  <small>原始文件和本地解析结果已保留。只想完成导入时，点击“使用本地结果”；需要再次尝试智能整理时，点击“重试 AI”。</small>
+                  <small>{recoveryHasVisionText ? "AI 已读出的文字已保留，无需重新识图。可重试字段整理，或直接核对已识别内容；确认前不会写入正式资料。" : "原始文件和本地解析结果已保留。只想完成导入时，点击“使用本地结果”；需要再次尝试智能整理时，点击“重试 AI”。"}</small>
                 </span>
                 <div>
-                  <button className="primary-button compact" type="button" onClick={() => { void retryAiMapping(); }}>重试 AI</button>
-                  <button className="secondary-button compact" type="button" onClick={() => { void acceptLocalFallback(); }}>使用本地结果</button>
+                  <button className="primary-button compact" type="button" disabled={importBusy} onClick={() => { void retryAiMapping(); }}>{recoveryHasVisionText ? "重试字段整理" : "重试 AI"}</button>
+                  <button className="secondary-button compact" type="button" disabled={importBusy} onClick={() => { void acceptLocalFallback(); }}>{recoveryHasVisionText ? "直接核对已识别内容" : "使用本地结果"}</button>
                 </div>
                 {aiFailureRecovery.errorCode ? (
                   <details>
@@ -1317,10 +1326,15 @@ export function ResumeImportWizard(props: {
                       {aiFailureRecovery.diagnostics?.failedIssues.map((issue, index) => (
                         <div key={`${issue.path}-${issue.code}-${index}`}>
                           <dt>{issue.path || "&lt;root&gt;"}</dt>
-                          <dd>{issue.code}{issue.unrecognizedKeys?.length ? ` (${issue.unrecognizedKeys.join(", ")})` : ""}</dd>
+                          <dd>{issue.code}{issue.expected ? ` · 期望 ${issue.expected}` : ""}{issue.received ? ` · 实际 ${issue.received}` : ""}{issue.unrecognizedKeys?.length ? ` (${issue.unrecognizedKeys.join(", ")})` : ""}</dd>
                         </div>
                       ))}
                     </dl>
+                    {aiFailureRecovery.diagnostics?.responseSnapshots?.map((snapshot) => <details key={snapshot.attempt}>
+                      <summary>第 {snapshot.attempt} 次模型返回 JSON（脱敏）</summary>
+                      <p>保留结构、类型和成绩/排名数值，其他文本已脱敏；仅保留在本次页面会话，不会自动入库。{snapshot.truncated ? "展示内容过长已截断，不代表模型输出被截断。" : ""}</p>
+                      <textarea className="textarea compact-textarea" aria-label={`第 ${snapshot.attempt} 次模型返回 JSON（脱敏）`} readOnly spellCheck={false} value={snapshot.json} />
+                    </details>)}
                   </details>
                 ) : null}
               </div>
@@ -1349,7 +1363,7 @@ export function ResumeImportWizard(props: {
         >
           <span className="import-dropzone-icon" aria-hidden="true">↑</span>
           <strong>拖放简历到这里</strong>
-          <span>PDF · DOCX · MD · TXT · JSON</span>
+          <span>PDF · DOCX · MD · TXT · JSON · PNG · JPG</span>
           {!aiFailureRecovery && status !== "idle" ? <small>{importStatusLabel(status)} · {message}</small> : null}
         </div>
       ) : null}
@@ -1679,11 +1693,12 @@ export function ResumeImportWizard(props: {
                 ))}
               </article>
             ))}
-            {draft.unclassifiedBlocks.length > 0 ? <section className="review-row import-unclassified-blocks"><strong>未识别内容（{draft.unclassifiedBlocks.length}）</strong><p>这些字段没有被丢弃，也不会自动写入正式简历。请确认保留为来源记录。</p>{draft.unclassifiedBlocks.map((block) => {
+            {draft.unclassifiedBlocks.length > 0 ? <section className="review-row import-unclassified-blocks"><strong>未映射内容（{draft.unclassifiedBlocks.length}）</strong><p>这些内容不会自动写入正式简历。可保留为来源记录，或选择不导入；原始来源文本仍保留。</p>{draft.unclassifiedBlocks.map((block) => {
               const key = unclassifiedBlockKey(block);
               const value = "sourceValue" in block ? block.sourceValue : block.text;
               const reviewed = reviewedUnclassifiedKeys.includes(key);
-              return <div className="import-unclassified-item" key={key}><details><summary>{key}</summary><pre>{stringifyUnknown(value)}</pre></details><button className="secondary-button compact" type="button" disabled={reviewed} onClick={() => setReviewedUnclassifiedKeys((current) => [...new Set([...current, key])])}>{reviewed ? "已核对保留" : "核对并保留来源"}</button></div>;
+              const label = typeof value === "string" ? value.split(/\r?\n/u)[0].slice(0, 60) : "待核对内容";
+              return <div className="import-unclassified-item" key={key}><details><summary>{label || "待核对内容"}</summary><small>来源编号：{key}</small><pre>{stringifyUnknown(value)}</pre></details><div className="action-row"><button className="secondary-button compact" type="button" disabled={reviewed} onClick={() => setReviewedUnclassifiedKeys((current) => [...new Set([...current, key])])}>{reviewed ? "已核对保留" : "核对并保留来源"}</button><button className="secondary-button compact" type="button" onClick={() => { void discardUnclassifiedBlock(key); }}>不导入此内容</button></div></div>;
             })}</section> : null}
           </div>
         </div>
@@ -2072,13 +2087,14 @@ function structuredItemFields(item: ResumeItemV2): Array<[string, string]> {
   const record = item as unknown as Record<string, unknown>;
   const labelsByType: Record<string, Array<[string, string]>> = {
     summary: [["text", "内容"]],
-    education: [["school", "学校"], ["degree", "学历"], ["major", "专业"], ["department", "院系"], ["location", "地点"], ["startDate", "开始日期"], ["endDate", "结束日期"], ["current", "在读状态"], ["gpa", "GPA"], ["gpaScale", "GPA 满分"], ["rankPosition", "排名"], ["rankTotal", "总人数"], ["courses", "课程"], ["honors", "荣誉"], ["description", "说明"], ["highlights", "亮点"]],
+    education: [["school", "学校"], ["degree", "学历"], ["major", "专业"], ["department", "院系"], ["location", "地点"], ["startDate", "开始日期"], ["endDate", "结束日期"], ["current", "在读状态"], ["gpa", "GPA"], ["gpaScale", "GPA 满分"], ["rankPosition", "排名"], ["rankTotal", "总人数"], ["rankPercent", "排名前百分比（%）"], ["courses", "课程"], ["honors", "荣誉"], ["description", "说明"], ["highlights", "亮点"]],
     work: [["organization", "组织"], ["role", "职位"], ["department", "部门"], ["location", "地点"], ["startDate", "开始日期"], ["endDate", "结束日期"], ["current", "当前状态"], ["description", "说明"], ["highlights", "职责与成果"]],
     internship: [["organization", "组织"], ["role", "职位"], ["department", "部门"], ["location", "地点"], ["startDate", "开始日期"], ["endDate", "结束日期"], ["current", "当前状态"], ["description", "说明"], ["highlights", "职责与成果"]],
     campus: [["organization", "组织"], ["role", "角色"], ["department", "部门"], ["location", "地点"], ["startDate", "开始日期"], ["endDate", "结束日期"], ["current", "当前状态"], ["description", "说明"], ["highlights", "职责与成果"]],
     volunteer: [["organization", "组织"], ["role", "角色"], ["department", "部门"], ["location", "地点"], ["startDate", "开始日期"], ["endDate", "结束日期"], ["current", "当前状态"], ["description", "说明"], ["highlights", "职责与成果"]],
     project: [["title", "项目名称"], ["role", "角色"], ["organization", "组织"], ["location", "地点"], ["startDate", "开始日期"], ["endDate", "结束日期"], ["current", "当前状态"], ["url", "链接"], ["tools", "工具"], ["background", "背景"], ["description", "说明"], ["highlights", "亮点"], ["outcomes", "成果"]],
     research: [["title", "研究题目"], ["authorRole", "作者身份"], ["institution", "机构"], ["startDate", "开始日期"], ["endDate", "结束日期"], ["current", "当前状态"], ["methods", "方法"], ["samples", "样本"], ["publication", "关联论文"], ["publicationStatus", "发表状态"], ["url", "链接"], ["description", "说明"], ["highlights", "亮点"]],
+    training: [["institution", "培训机构"], ["title", "培训项目"], ["location", "培训地点"], ["startDate", "开始日期"], ["endDate", "结束日期"], ["current", "当前状态"], ["description", "培训内容"], ["highlights", "成果与要点"]],
     skills: [["category", "类别"], ["name", "技能"], ["level", "熟练度"], ["description", "说明"]],
     awards: [["name", "奖项"], ["issuer", "颁发方"], ["level", "级别"], ["awardedAt", "获奖时间"], ["rank", "名次"], ["description", "说明"]],
     certificates: [["name", "证书"], ["issuer", "颁发方"], ["issuedAt", "颁发日期"], ["expiresAt", "到期日期"], ["credentialId", "证书编号"], ["status", "状态"], ["description", "说明"]],
@@ -2180,6 +2196,7 @@ function pipelineRouteLabel(draft: ImportedResumeDraft) {
     text_structure: "文本结构提取",
     digital_pdf_layout: "坐标阅读顺序",
     ocr_local: "需要本地识别",
+    vision_ai: "AI 图像识别",
     manual_review: "本地识别后核对"
   }[draft.qualityReport.recommendedPipeline];
 }
@@ -2190,6 +2207,7 @@ function documentImportRouteLabel(route: DocumentImportRoutingDecision["route"])
     docx: "DOCX 结构解析",
     text: "文本结构解析",
     local_ocr: "本地 OCR",
+    vision_ai: "AI 图像识别",
     manual_review: "仅人工核对",
     opendataloader: "OpenDataLoader（实验）"
   }[route];

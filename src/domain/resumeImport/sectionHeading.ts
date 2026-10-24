@@ -67,6 +67,7 @@ function toImportedCategory(sectionType: ResumeSectionTypeV2): ImportedResumeCat
     case "publications": return "custom";
     case "patents": return "custom";
     case "portfolio": return "custom";
+    case "training": return "custom";
     case "other": return "custom";
     case "basics": return "custom";
     case "custom": return "custom";
@@ -85,6 +86,7 @@ type SectionPatternEntry = {
  * Ordered by specificity (more specific patterns first).
  */
 const SECTION_HEADING_PATTERNS: SectionPatternEntry[] = [
+  { sectionType: "training", confidence: "high", pattern: /^(?:培训经历|培训教育|专业培训|培训|professionaltraining|training)\s*[:：]?$/i },
   // Summary
   { sectionType: "summary", confidence: "high", pattern: /^(?:个人总结|个人概述|个人简介|自我评价|求职意向|summary|profile|objective)\s*[:：]?$/i },
 
@@ -117,6 +119,17 @@ const SECTION_HEADING_PATTERNS: SectionPatternEntry[] = [
   // Languages
   { sectionType: "languages", confidence: "high", pattern: /^(?:语言(?:能力)?|languages?)\s*[:：]?$/i }
 ];
+
+/** A printed heading can group several canonical sections without changing stored item types. */
+export function resumeHeadingRepresentedSections(text: string): ResumeSectionTypeV2[] {
+  const normalized = normalizeResumeHeading(text);
+  if (/^(?:技能[与和及、/&]+证书|证书[与和及、/&]+技能|skills?(?:and|与)(?:certificates?|certifications?))$/iu.test(normalized)) {
+    return ["skills", "certificates", "languages"];
+  }
+  const match = matchResumeSectionHeading(text);
+  if (match?.kind === "canonical_section" && match.sectionType === "training") return ["training", "other"];
+  return match?.kind === "canonical_section" ? [match.sectionType] : [];
+}
 
 /**
  * Match a line of text against known section heading patterns.
@@ -178,7 +191,7 @@ export function detectSectionType(text: string): ResumeSectionTypeV2 | undefined
  * Section types that support date fields (startDate, endDate, current) in the catalog.
  */
 const DATE_SECTION_TYPES = new Set<ResumeSectionTypeV2>([
-  "education", "work", "internship", "project", "research", "campus", "volunteer"
+  "education", "work", "internship", "project", "research", "campus", "volunteer", "training"
 ]);
 
 /**

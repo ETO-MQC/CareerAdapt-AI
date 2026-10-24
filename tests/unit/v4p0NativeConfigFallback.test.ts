@@ -73,8 +73,9 @@ function createHealth(overrides: Record<string, unknown> = {}) {
  * Mirrors production: the gateway answers /api/model/info and /api/model/set with 404, exactly
  * as api_server.py's route table does, and the companion starts with the requested environment.
  */
-function createGatewayHarness(options: { nativeModelConfig?: boolean } = {}) {
+function createGatewayHarness(options: { nativeModelConfig?: boolean; hotModel?: boolean; readbackMismatch?: boolean } = {}) {
   const nativeEnabled = options.nativeModelConfig === true;
+  const hermesHome = options.hotModel ? mkdtempSync(path.join(tmpdir(), "careeradapt-model-switch-")) : undefined;
   let currentHealth = createHealth();
   let startCount = 0;
   let modelInfoCount = 0;
@@ -85,6 +86,12 @@ function createGatewayHarness(options: { nativeModelConfig?: boolean } = {}) {
   const startCompanion = async (input: { environment?: Record<string, string> }) => {
     startCount += 1;
     const environment = input.environment ?? {};
+    if (hermesHome) ensureManagedHermesConfig(hermesHome, {
+      provider: environment.AI_PROVIDER || "openai-compatible",
+      baseUrl: environment.AI_BASE_URL,
+      model: environment.AI_MODEL,
+      genericApiKey: SECRET
+    });
     startEnvironments.push(environment);
     currentHealth = {
       ...currentHealth,
@@ -97,6 +104,7 @@ function createGatewayHarness(options: { nativeModelConfig?: boolean } = {}) {
       ok: true,
       owned: true,
       child,
+      ...(hermesHome ? { childEnvironment: { HERMES_HOME: hermesHome } } : {}),
       runtime: { baseUrl: "http://127.0.0.1:18642" },
       // Resolved at runtime from the OS temp dir so no machine-specific path is committed; the
       // harness never spawns a real process, so nothing is written to it.
@@ -110,7 +118,13 @@ function createGatewayHarness(options: { nativeModelConfig?: boolean } = {}) {
     if (url.endsWith("/v1/capabilities")) return { ok: true, status: 200, json: async () => ({ features: { streaming: true } }) };
     if (url.endsWith("/v1/skills")) return { ok: true, status: 200, json: async () => ({ skills: [] }) };
     if (url.endsWith("/v1/toolsets")) return { ok: true, status: 200, json: async () => ({ toolsets: [] }) };
-    if (url.endsWith("/api/model/options")) return { ok: true, status: 200, json: async () => ({ providers: [] }) };
+    if (url.endsWith("/api/model/options")) return { ok: true, status: 200, json: async () => ({
+      providers: [],
+      ...(hermesHome ? {
+        model: options.readbackMismatch ? "wrong-model" : JSON.parse(readFileSync(path.join(hermesHome, "config.yaml"), "utf8").match(/^  default: (.+)$/mu)![1]),
+        provider: "custom:careeradapt"
+      } : {})
+    }) };
     if (url.endsWith("/api/model/info")) {
       modelInfoCount += 1;
       if (nativeEnabled) return { ok: true, status: 200, json: async () => ({ provider: "openrouter", model: "model-before", base_url: "https://provider.example/v1", capabilities: {} }) };
@@ -151,11 +165,57 @@ function createGatewayHarness(options: { nativeModelConfig?: boolean } = {}) {
     getModelInfoCount: () => modelInfoCount,
     getModelSetCount: () => modelSetCount,
     getStartEnvironments: () => startEnvironments,
+    getManagedConfig: () => hermesHome ? readFileSync(path.join(hermesHome, "config.yaml"), "utf8") : "",
     setHealth: (health: ReturnType<typeof createHealth> | Record<string, unknown>) => { currentHealth = health as ReturnType<typeof createHealth>; }
   };
 }
 
 describe("V4-P0 native model config 404 fallback", () => {
+  it("switches the next task model without restarting or stopping an active run", async () => {
+    const harness = createGatewayHarness({ hotModel: true });
+    await harness.supervisor.rendererHostReady();
+    harness.setHealth({ ...createHealth(), activeRunId: "ongoing-run" });
+    await harness.supervisor.start();
+    const starts = harness.getStartCount();
+    const beforeConfig = harness.getManagedConfig();
+    const applied = await harness.supervisor.updateConfig({
+      provider: "openai-compatible", baseUrl: "https://provider.example/v1", model: "next-model",
+      apiKey: "", credentialAction: "unchanged"
+    });
+    expect(harness.getStartCount()).toBe(starts);
+    expect(applied.activeRunId).toBe("ongoing-run");
+    expect(applied.model).toBe("next-model");
+    expect(applied.runtimeConfig).toMatchObject({ applyStatus: "applied", restartPerformed: false, verified: true });
+    expect(harness.getManagedConfig().replaceAll("next-model", "model-before")).toBe(beforeConfig);
+    expect(harness.getManagedConfig()).not.toContain(SECRET);
+  });
+
+  it("restores the old model without restarting when runtime readback disagrees", async () => {
+    const harness = createGatewayHarness({ hotModel: true, readbackMismatch: true });
+    await harness.supervisor.rendererHostReady();
+    const starts = harness.getStartCount();
+    const applied = await harness.supervisor.updateConfig({
+      provider: "openai-compatible", baseUrl: "https://provider.example/v1", model: "next-model",
+      apiKey: "", credentialAction: "unchanged"
+    });
+    expect(harness.getStartCount()).toBe(starts);
+    expect(applied.model).toBe("model-before");
+    expect(applied.runtimeConfig).toMatchObject({ applyStatus: "rolled_back", restartPerformed: false, rollbackOccurred: true });
+    expect(harness.getManagedConfig()).toContain('default: "model-before"');
+    expect(harness.getManagedConfig()).not.toContain("next-model");
+  });
+
+  it("restarts when the credential changes even if only the model field also changes", async () => {
+    const harness = createGatewayHarness({ hotModel: true });
+    await harness.supervisor.rendererHostReady();
+    const starts = harness.getStartCount();
+    await harness.supervisor.updateConfig({
+      provider: "openai-compatible", baseUrl: "https://provider.example/v1", model: "next-model",
+      apiKey: "replacement-test-key", credentialAction: "replace"
+    });
+    expect(harness.getStartCount()).toBeGreaterThan(starts);
+  });
+
   it("probes /api/model/info and marks native model config unsupported on 404", async () => {
     const harness = createGatewayHarness();
     await harness.supervisor.rendererHostReady();

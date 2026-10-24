@@ -3,6 +3,7 @@ import {
   type DocumentRecognitionPreferences
 } from "@/domain/schemas";
 import { DEFAULT_DOCUMENT_RECOGNITION_MODEL_ID } from "@/domain/documentRecognition/modelCatalog";
+import { DEFAULT_VISION_TIMEOUT_SECONDS, DEFAULT_MAPPING_TIMEOUT_SECONDS } from "@/domain/resumeImport/timeouts";
 
 export const documentRecognitionStorageKey = "careeradapt.documentRecognition";
 
@@ -13,7 +14,9 @@ export const DEFAULT_DOCUMENT_RECOGNITION_PREFERENCES: DocumentRecognitionPrefer
   modelDirectory: "",
   modelId: DEFAULT_DOCUMENT_RECOGNITION_MODEL_ID,
   openDataLoaderExperimental: false,
-  allowManualRouteSelection: true
+  allowManualRouteSelection: true,
+  visionTimeoutSeconds: DEFAULT_VISION_TIMEOUT_SECONDS,
+  mappingTimeoutSeconds: DEFAULT_MAPPING_TIMEOUT_SECONDS
 };
 
 export function readDocumentRecognitionPreferences(): DocumentRecognitionPreferences {
@@ -38,7 +41,7 @@ export function writeDocumentRecognitionPreferences(preferences: DocumentRecogni
 
 export function migrateDocumentRecognitionPreferences(value: unknown): DocumentRecognitionPreferences {
   const current = DocumentRecognitionPreferencesSchema.safeParse(value);
-  if (current.success) return current.data;
+  if (current.success) return { ...DEFAULT_DOCUMENT_RECOGNITION_PREFERENCES, ...current.data };
   if (!value || typeof value !== "object") return { ...DEFAULT_DOCUMENT_RECOGNITION_PREFERENCES };
   const legacy = value as Record<string, unknown>;
   const parsingMode = legacy.parsingMode === "text_first"

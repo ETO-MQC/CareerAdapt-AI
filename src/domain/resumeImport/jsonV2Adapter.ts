@@ -115,6 +115,7 @@ export function createResumeJsonV2Example(): CareerAdaptResumeJsonV2 {
       { id: "publications", sectionType: "publications", title: "论文与出版物", order: 12, visible: true, items: [{ id: "publication-1", sectionType: "publications", title: "示例论文", authors: ["陈同学"], authorRole: "第一作者", publisher: "示例期刊", publishedAt: "2025-02", status: "已发表", doi: "10.0000/example", url: "https://example.com/publication", description: "公开示例。", customFields: [] }] },
       { id: "patents", sectionType: "patents", title: "专利", order: 13, visible: true, items: [{ id: "patent-1", sectionType: "patents", title: "示例专利", inventors: ["陈同学"], patentNumber: "CN000000", office: "示例受理机构", filedAt: "2024-01", grantedAt: "2025-01", status: "已授权", url: "https://example.com/patent", description: "公开示例。", customFields: [] }] },
       { id: "portfolio", sectionType: "portfolio", title: "作品集", order: 14, visible: true, items: [{ id: "portfolio-1", sectionType: "portfolio", title: "数据作品集", type: "网页", role: "作者", url: "https://example.com/work", createdAt: "2025-03", tools: ["TypeScript"], description: "展示公开练习项目。", highlights: ["保留复核说明"], customFields: [] }] },
+      { id: "training", sectionType: "training", title: "培训经历", order: 17, visible: true, items: [{ id: "training-1", sectionType: "training", institution: "示例培训机构", title: "数据实践训练", location: "杭州", startDate: "2026-07-01", endDate: "2026-09-01", current: false, description: "完成数据库实践训练。", highlights: ["核对训练结果"], customFields: [] }] },
       { id: "other", sectionType: "other", title: "其他内容", order: 15, visible: true, items: [{ id: "other-1", sectionType: "other", title: "补充说明", description: "仅用于字段覆盖测试。", highlights: ["不包含真实个人信息"], customFields: [] }] },
       { id: "custom-example", sectionType: "custom", title: "自定义栏目", order: 16, visible: true, items: [{ id: "custom-item-1", sectionType: "custom", title: "开源贡献", description: "维护示例组件。", highlights: ["提交文档修订"], customFields: [{ id: "stars", label: "Stars", valueType: "number", value: 120, order: 0, sensitive: false }] }] }
     ],
@@ -173,12 +174,12 @@ export function jsonV2ToLegacyMapperOutput(input: CareerAdaptResumeJsonV2): Resu
   const resume = CareerAdaptResumeJsonV2Schema.parse(input);
   const categoryBySection = {
     summary: "summary", education: "education", work: "work", internship: "work", project: "project", research: "custom",
-    campus: "campus", volunteer: "campus", awards: "award", skills: "skill", certificates: "certificate", languages: "language",
+    campus: "campus", volunteer: "campus", training: "custom", awards: "award", skills: "skill", certificates: "certificate", languages: "language",
     publications: "custom", patents: "custom", portfolio: "custom", other: "custom", custom: "custom"
   } as const;
   const renderTypeBySection = {
     summary: "summary", education: "experience", work: "experience", internship: "experience", project: "experience", research: "experience",
-    campus: "experience", volunteer: "experience", awards: "certificates", skills: "skills", certificates: "certificates", languages: "certificates",
+    campus: "experience", volunteer: "experience", training: "experience", awards: "certificates", skills: "skills", certificates: "certificates", languages: "certificates",
     publications: "unknown", patents: "unknown", portfolio: "unknown", other: "unknown", custom: "unknown"
   } as const;
   return {
@@ -236,6 +237,7 @@ const v2Builders = {
   project: (item: V1Item, id: string) => ({ ...base(item, id), sectionType: "project" as const, title: item.organization, role: item.role, location: item.location, startDate: item.startDate, endDate: item.endDate, current: item.current ?? false, tools: [], outcomes: [] }),
   campus: (item: V1Item, id: string) => ({ ...base(item, id), sectionType: "campus" as const, organization: item.organization, role: item.role, location: item.location, startDate: item.startDate, endDate: item.endDate, current: item.current ?? false }),
   volunteer: (item: V1Item, id: string) => ({ ...base(item, id), sectionType: "volunteer" as const, organization: item.organization, role: item.role, location: item.location, startDate: item.startDate, endDate: item.endDate, current: item.current ?? false }),
+  training: (item: V1Item, id: string) => ({ ...base(item, id), sectionType: "training" as const, institution: item.organization, title: item.role, location: item.location, startDate: item.startDate, endDate: item.endDate, current: item.current ?? false }),
   research: (item: V1Item, id: string) => ({ ...base(item, id), sectionType: "research" as const, title: item.organization, authorRole: item.role, startDate: item.startDate, endDate: item.endDate, current: item.current ?? false, methods: [] }),
   awards: (item: V1Item, id: string) => requiredText(item) ? ({ id, sectionType: "awards" as const, name: requiredText(item)!, description: item.text, customFields: [] }) : undefined,
   skills: (item: V1Item, id: string) => requiredText(item) ? ({ id, sectionType: "skills" as const, name: requiredText(item)!, description: item.text, customFields: [] }) : undefined,

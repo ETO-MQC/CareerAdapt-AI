@@ -359,6 +359,28 @@ function ensureManagedHermesConfig(hermesHome, values) {
   }
 }
 
+// Hermes reads model.default when creating each agent; credentials remain in the child env.
+// Update only the managed model fields, preserving toolsets and all user-owned settings.
+function updateManagedHermesModel(hermesHome, model) {
+  const configPath = path.join(hermesHome, "config.yaml");
+  const previous = fs.readFileSync(configPath, "utf8");
+  const marker = /(# BEGIN CAREERADAPT MANAGED CONFIG\r?\n)([\s\S]*?)(# END CAREERADAPT MANAGED CONFIG)/gu;
+  const blocks = [...previous.matchAll(marker)];
+  if (blocks.length !== 1 || !/^model:\r?\n  default: .+$/mu.test(blocks[0][2])) {
+    throw Object.assign(new Error("hermes_managed_model_config_missing"), { code: "hermes_managed_model_config_missing" });
+  }
+  const content = previous.replace(marker, (_, begin, block, end) => begin + block
+    .replace(/^(  default: ).+$/mu, (_, prefix) => prefix + yamlScalar(model))
+    .replace(/^(    model: ).+$/mu, (_, prefix) => prefix + yamlScalar(model)) + end);
+  const write = (value) => {
+    const temporaryPath = `${configPath}.model-update`;
+    fs.writeFileSync(temporaryPath, value, { mode: 0o600 });
+    fs.renameSync(temporaryPath, configPath);
+  };
+  write(content);
+  return () => write(previous);
+}
+
 function preserveUserHermesConfig(existing) {
   if (!existing.trim()) return [];
   const lines = existing.replace(/\r\n/gu, "\n").split("\n");
@@ -1094,6 +1116,7 @@ module.exports = {
   resolveRuntimeConfig,
   parsePort,
   ensureManagedHermesConfig,
+  updateManagedHermesModel,
   preserveUserHermesConfig,
   mcpSectionWithoutCareerAdapt,
   addManagedCareerAdaptMcpServer,

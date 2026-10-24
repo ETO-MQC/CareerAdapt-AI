@@ -4107,7 +4107,7 @@ small,
 }
 
 .resume-import-modal:has(.resume-import-wizard:not(.resume-import-wizard-review)) {
-  grid-template-rows: auto auto;
+  grid-template-rows: auto minmax(0, 1fr);
   height: auto;
 }
 
@@ -4160,6 +4160,7 @@ small,
 .resume-import-modal-body {
   min-height: 0;
   overflow: auto;
+  scrollbar-gutter: stable;
   overscroll-behavior: contain;
   padding: 16px;
 }
@@ -6268,6 +6269,10 @@ html[data-theme="dark"] .resume-export-recovery-secondary {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
+.resume-import-wizard:not(.resume-import-wizard-review):has(.import-recognition-recovery) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .resume-import-wizard:not(.resume-import-wizard-review) > .visually-hidden,
 .resume-import-wizard:not(.resume-import-wizard-review) > .import-dropzone,
 .resume-import-wizard:not(.resume-import-wizard-review) > .import-entry-secondary-actions {
@@ -6813,6 +6818,17 @@ html[data-theme="dark"] .resume-export-recovery-secondary {
 
 .import-recognition-recovery > details {
   grid-column: 1 / -1;
+}
+
+.import-recognition-recovery textarea[readonly] {
+  height: clamp(160px, 24dvh, 260px);
+  min-height: 120px;
+  max-height: 32dvh;
+  max-width: 100%;
+  overflow: auto;
+  resize: vertical;
+  font-family: monospace;
+  white-space: pre;
 }
 
 .resume-preview-compatibility-notice {
@@ -8719,6 +8735,14 @@ html[data-theme="dark"] .resume-export-recovery-secondary {
 .ai-runtime-fields .field-label:last-child {
   grid-column: 1 / -1;
 }
+.ai-runtime-fields .ai-runtime-credential-help {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.settings-panel .ai-runtime-save-state {
+  max-width: none;
+  text-align: left;
+}
 .ai-api-key-field {
   position: relative;
 }
@@ -9076,7 +9100,7 @@ html[data-theme="dark"] .resume-export-recovery-secondary {
   }
 
   .resume-import-modal {
-    max-height: none;
+    max-height: calc(100dvh - 20px);
     width: 100%;
   }
 
@@ -9424,6 +9448,11 @@ html[data-theme="dark"] .resume-export-recovery-secondary {
 
   .import-recognition-recovery > details {
     grid-column: 1;
+  }
+
+  .import-recognition-diagnostics > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
   }
 
   .settings-save-state {
@@ -11977,3 +12006,63 @@ html[data-theme="dark"] .inspector-tab-active {
     transition-duration: 0.01ms;
   }
 }
+
+/* Single-column reference template: typographic hierarchy follows the supplied campus resume. */
+.template-campus-reference .resume-template-header {
+  display: block;
+  text-align: center;
+  border: 0;
+  padding: 0 0 4mm;
+  margin-bottom: 0;
+}
+.template-campus-reference .resume-template-header h1 {
+  font-size: calc(var(--resume-header-title-size, 21pt) * .76);
+  font-weight: 500;
+  margin-bottom: 2mm;
+}
+.template-campus-reference .resume-template-header address {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1mm 5mm;
+  text-align: center;
+  font-size: var(--resume-body-font-size);
+}
+.template-campus-reference .resume-template-section {
+  border: 0;
+  padding: 0;
+  margin: 0 0 var(--resume-section-padding-bottom, 2.8mm);
+}
+.template-campus-reference .resume-template-section h2 {
+  background: #eff3f6;
+  border: 0;
+  border-left: .7mm solid var(--resume-accent-color, #315d86);
+  border-radius: 0 1mm 1mm 0;
+  color: #171b20;
+  padding: 1.1mm 2.4mm;
+  margin: 0 0 2mm;
+  font-size: var(--resume-section-title-size, 11.2pt);
+  font-weight: 700;
+}
+.template-campus-reference .resume-template-section h2::after { display: none; }
+.template-campus-reference .resume-presentation-heading { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) max-content; gap: 2mm; }
+.template-campus-reference .resume-presentation-heading strong { text-align: center; }
+.template-campus-reference .resume-presentation-heading h3,
+.template-campus-reference .resume-presentation-heading strong,
+.template-campus-reference .resume-presentation-heading time { font-size: var(--resume-body-font-size); font-weight: 700; color: #171b20; }
+.template-campus-reference .resume-presentation-description,
+.template-campus-reference .resume-presentation-highlights,
+.template-campus-reference .resume-presentation-custom-rows p { color: #222; }
+.template-campus-reference .resume-presentation-highlights { padding-left: 4.2mm; }
+.template-campus-reference .resume-canonical-item { border: 0; padding: 0; }
+.template-campus-reference .resume-block-list { gap: var(--resume-item-gap, 2mm); }
+.canonical-extra-fields { padding-top: 12px; border-top: 1px solid var(--line); }
+
+.resume-skill-group-uncategorized { grid-template-columns: minmax(0, 1fr); }
+.template-campus-reference .resume-skill-item { display: block; }
+.template-campus-reference .resume-skill-description { display: inline; }
+.template-campus-reference .resume-skill-description::before { content: "："; }
+
+/* Keep the date in the right slot even when an optional role/title is absent. */
+.resume-presentation-heading > strong { grid-column: 2; }
+.resume-presentation-heading > time { grid-column: 3; }

@@ -1212,6 +1212,8 @@ function projectStructuredItemForLegacy(item: ResumeItemV2) {
   if (item.sectionType === "summary") return item.text;
   const header = item.sectionType === "education"
     ? [item.school, item.degree, item.major]
+    : item.sectionType === "training"
+      ? [item.institution, item.title]
     : item.sectionType === "project"
       ? [item.title, item.role]
       : ["organization" in item ? item.organization : undefined, "role" in item ? item.role : undefined];
@@ -1233,6 +1235,7 @@ function projectStructuredItemForLegacy(item: ResumeItemV2) {
 function structuredOrganization(item: ResumeItemV2 | undefined) {
   if (!item) return undefined;
   if (item.sectionType === "education") return item.school;
+  if (item.sectionType === "training") return item.institution ?? item.title;
   if (item.sectionType === "project") return item.title;
   if ("organization" in item) return item.organization;
   if (item.sectionType === "awards" || item.sectionType === "certificates" || item.sectionType === "skills") return item.name;
@@ -1243,6 +1246,7 @@ function structuredOrganization(item: ResumeItemV2 | undefined) {
 function structuredRole(item: ResumeItemV2 | undefined) {
   if (!item) return undefined;
   if (item.sectionType === "education") return item.degree ?? item.major;
+  if (item.sectionType === "training") return item.title;
   if (item.sectionType === "project") return item.role;
   if ("role" in item) return item.role;
   return undefined;

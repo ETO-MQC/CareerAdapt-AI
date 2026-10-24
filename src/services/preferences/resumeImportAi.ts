@@ -16,21 +16,21 @@ export function currentResumeImportProviderFingerprint() {
 }
 
 export function readResumeImportSemanticPreference(): ResumeImportSemanticPreference {
-  if (typeof window === "undefined") return "unset";
+  if (typeof window === "undefined") return "ai";
   try {
     const raw = window.localStorage.getItem(resumeImportAiPreferenceStorageKey);
-    if (!raw) return "unset";
+    if (!raw) return "ai";
     const parsed = JSON.parse(raw) as Partial<StoredResumeImportAiPreference>;
     if (
       parsed.schemaVersion !== "resume-import-ai-preference-v1"
       || (parsed.mode !== "ai" && parsed.mode !== "local")
       || parsed.providerFingerprint !== currentResumeImportProviderFingerprint()
     ) {
-      return "unset";
+      return "ai";
     }
     return parsed.mode;
   } catch {
-    return "unset";
+    return "ai";
   }
 }
 

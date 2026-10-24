@@ -82,6 +82,49 @@ function legacyHeaderRequest() {
 }
 
 describe("V4-P0 S-2 provider route credential contract", () => {
+  it("does not report success from OpenRouter's public catalog when key validation fails", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", STORED_KEY);
+    mocks.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ error: { message: "Unauthorized" } }), { status: 401 }));
+    const response = await postAiTest(new NextRequest("http://127.0.0.1/api/ai/test", {
+      method: "POST", headers: { "x-ai-config": encodeAiSettingsForHeader({ ...settings,
+        provider: "openrouter", baseUrl: "https://openrouter.ai/api/v1", apiKey: "" }) }
+    }));
+    const payload = await response.json();
+    expect(payload).toMatchObject({ ok: false, code: "provider_http_401" });
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    expect(mocks.fetch.mock.calls[0][0]).toBe("https://openrouter.ai/api/v1/key");
+    expect(JSON.stringify(payload)).not.toContain(STORED_KEY);
+  });
+
+  it("validates the OpenRouter key before checking the selected model catalog", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", STORED_KEY);
+    mocks.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ data: { label: "test-key" } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: [{ id: "candidate-model" }] }), { status: 200 }));
+    const response = await postAiTest(new NextRequest("http://127.0.0.1/api/ai/test", {
+      method: "POST", headers: { "x-ai-config": encodeAiSettingsForHeader({ ...settings,
+        provider: "openrouter", baseUrl: "https://openrouter.ai/api/v1", apiKey: "" }) }
+    }));
+    expect((await response.json()).ok).toBe(true);
+    expect(mocks.fetch.mock.calls.map((call) => call[0])).toEqual([
+      "https://openrouter.ai/api/v1/key", "https://openrouter.ai/api/v1/models"
+    ]);
+  });
+
+  it("reports the actual generation error with its safe detail and the saved provider key", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", STORED_KEY);
+    mocks.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ error: {
+      message: `Missing Authentication header ${STORED_KEY}`
+    } }), { status: 401 }));
+    const response = await postAiTest(new NextRequest("http://127.0.0.1/api/ai/test", {
+      method: "POST", headers: { "x-ai-test-mode": "latency", "x-ai-config": encodeAiSettingsForHeader({ ...settings,
+        provider: "openrouter", baseUrl: "https://openrouter.ai/api/v1", apiKey: "" }) }
+    }));
+    const text = await response.text();
+    expect(text).toContain("provider_http_401");
+    expect(text).toContain("Missing Authentication header");
+    expect(text).not.toContain(STORED_KEY);
+    expect((mocks.fetch.mock.calls[0][1] as RequestInit).headers).toMatchObject({ Authorization: `Bearer ${STORED_KEY}` });
+  });
   it("ignores a credential supplied in the header and uses the server configuration", async () => {
     const response = await postAiTest(legacyHeaderRequest());
     const payload = await response.json();

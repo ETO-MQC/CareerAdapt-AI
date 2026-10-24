@@ -24,16 +24,17 @@ const CAPABILITY_KEYS: Array<keyof TemplateCapabilities> = [
 ];
 
 describe("P4.8b template registry", () => {
-  it("registers the preserved four templates plus exactly two new templates", () => {
-    expect(resumeTemplates).toHaveLength(6);
-    expect(new Set(resumeTemplates.map((template) => template.id)).size).toBe(6);
+  it("registers the six existing templates plus the reference campus template", () => {
+    expect(resumeTemplates).toHaveLength(7);
+    expect(new Set(resumeTemplates.map((template) => template.id)).size).toBe(7);
     expect(resumeTemplates.map((template) => template.id)).toEqual([
       "classic-technical",
       "modern-operations",
       "ats-minimal",
       "business-consulting",
       "campus-clean",
-      "professional-classic"
+      "professional-classic",
+      "campus-reference"
     ]);
     expect(new Set(resumeTemplates.map((template) => template.id)).size).toBe(resumeTemplates.length);
   });
@@ -120,13 +121,13 @@ describe("P4.8b template registry", () => {
       "business",
       "campus"
     ]);
-    expect(filterResumeTemplates("all")).toHaveLength(6);
-    expect(filterResumeTemplates("ats").map((template) => template.id)).toEqual(["classic-technical", "ats-minimal", "campus-clean", "professional-classic"]);
-    expect(filterResumeTemplates("single-column").map((template) => template.id)).toEqual(["classic-technical", "ats-minimal", "campus-clean", "professional-classic"]);
+    expect(filterResumeTemplates("all")).toHaveLength(7);
+    expect(filterResumeTemplates("ats").map((template) => template.id)).toEqual(["classic-technical", "ats-minimal", "campus-clean", "professional-classic", "campus-reference"]);
+    expect(filterResumeTemplates("single-column").map((template) => template.id)).toEqual(["classic-technical", "ats-minimal", "campus-clean", "professional-classic", "campus-reference"]);
     expect(filterResumeTemplates("two-column").map((template) => template.id)).toEqual(["modern-operations", "business-consulting"]);
     expect(filterResumeTemplates("technical").map((template) => template.id)).toEqual(["classic-technical", "ats-minimal"]);
     expect(filterResumeTemplates("business").map((template) => template.id)).toEqual(["business-consulting", "professional-classic"]);
-    expect(filterResumeTemplates("campus").map((template) => template.id)).toEqual(["campus-clean"]);
+    expect(filterResumeTemplates("campus").map((template) => template.id)).toEqual(["campus-clean", "campus-reference"]);
   });
 
   it("resolves target defaults while preserving explicit presentation overrides", () => {

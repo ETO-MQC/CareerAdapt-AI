@@ -22,9 +22,12 @@ import {
   debugRedactedResumeMapperRaw,
   describeResumeMapperOutputShape,
   summarizeSchemaIssues,
+  createResumeMapperResponseSnapshot,
+  type ResumeMapperResponseSnapshot,
   type SafeSchemaIssue
 } from "@/ai/resumeDocumentMapperDiagnostics";
 import { dedupeCareerWriting } from "@/domain/profileIntake/CareerWritingQuality";
+import { DEFAULT_MAPPING_TIMEOUT_SECONDS, RESUME_IMPORT_TIMEOUT_HEADER, ResumeImportTimeoutSecondsSchema } from "@/domain/resumeImport/timeouts";
 
 const StructuredAiRequestSchema = z
   .object({
@@ -36,6 +39,9 @@ const StructuredAiRequestSchema = z
 export async function POST(request: NextRequest) {
   const startedAt = Date.now();
   let provider: OpenAiCompatibleProvider | undefined;
+  let deadline = startedAt + 60_000;
+  let providerAttempt = 0;
+  const responseSnapshots: ResumeMapperResponseSnapshot[] = [];
 
   try {
     const body = StructuredAiRequestSchema.safeParse(await request.json());
@@ -92,10 +98,16 @@ export async function POST(request: NextRequest) {
     const baseUserPrompt = taskDefinition.buildUserPrompt(input.data);
     let lastValidationFailure: string | undefined;
     let lastSchemaIssues: SafeSchemaIssue[] | undefined;
-    const totalBudgetMs = taskDefinition.task === "resume-document-mapper" ? 180_000 : 60_000;
-    const deadline = startedAt + totalBudgetMs;
+    const timeoutHeader = request.headers.get(RESUME_IMPORT_TIMEOUT_HEADER);
+    const mappingTimeout = ResumeImportTimeoutSecondsSchema.safeParse(timeoutHeader === null ? DEFAULT_MAPPING_TIMEOUT_SECONDS : Number(timeoutHeader));
+    if (taskDefinition.task === "resume-document-mapper" && !mappingTimeout.success) {
+      return aiError("invalid_timeout", "Resume field mapping timeout must be between 1 and 30 minutes.", 400, startedAt);
+    }
+    const totalBudgetMs = taskDefinition.task === "resume-document-mapper" && mappingTimeout.success ? mappingTimeout.data * 1000 : 60_000;
+    deadline = startedAt + totalBudgetMs;
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
+      providerAttempt = attempt + 1;
       const remainingMs = deadline - Date.now();
       if (remainingMs <= 0) {
         return aiError("provider_timeout", "AI request exceeded its total time budget.", 504, startedAt, {
@@ -114,6 +126,8 @@ export async function POST(request: NextRequest) {
             issues: lastSchemaIssues
           }),
           maxOutputChars: taskDefinition.maxOutputChars,
+          stream: taskDefinition.task === "resume-document-mapper",
+          ...(taskDefinition.task === "resume-document-mapper" ? { reasoningEffort: "low" as const } : {}),
           signal: AbortSignal.any([request.signal, AbortSignal.timeout(remainingMs)])
         });
       } catch (error) {
@@ -125,7 +139,7 @@ export async function POST(request: NextRequest) {
         throw error;
       }
 
-      console.info("[ai:attempt]", {
+      console.info("[ai:attempt]", JSON.stringify({
         task: taskDefinition.task,
         attempt: attempt + 1,
         failureCode: lastValidationFailure,
@@ -135,7 +149,7 @@ export async function POST(request: NextRequest) {
         inputChars: baseUserPrompt.length,
         outputChars: response.outputLength,
         finishReason: response.finishReason
-      });
+      }));
       if (taskDefinition.task === "resume-document-mapper") {
         debugRedactedResumeMapperRaw(response.output);
       }
@@ -166,7 +180,8 @@ export async function POST(request: NextRequest) {
             }
           );
         }
-        const issues = summarizeSchemaIssues(error);
+        const issues = summarizeSchemaIssues(error, response.output);
+        if (taskDefinition.task === "resume-document-mapper") responseSnapshots.push(createResumeMapperResponseSnapshot(response.output, attempt + 1));
         if (process.env.NODE_ENV === "development" && body.data.task.startsWith("resume-tailor")) {
           console.warn("[resume-tailor:normalization-failed]", issues.map((issue, suggestionIndex) => ({
             suggestionIndex,
@@ -198,13 +213,15 @@ export async function POST(request: NextRequest) {
           outputLength: response.outputLength,
           safeErrorCode: "model_schema_invalid",
           failedIssues: issues,
+          responseSnapshots,
           attempt: attempt + 1
         });
       }
       const parsedOutput = taskDefinition.outputSchema.safeParse(normalized);
 
       if (!parsedOutput.success) {
-        const issues = summarizeSchemaIssues(parsedOutput);
+        const issues = summarizeSchemaIssues(parsedOutput, normalized);
+        if (taskDefinition.task === "resume-document-mapper") responseSnapshots.push(createResumeMapperResponseSnapshot(response.output, attempt + 1));
         if (process.env.NODE_ENV === "development") {
           if (taskDefinition.task === "resume-document-mapper") {
             console.warn("[resume-document-mapper:schema-failed]", JSON.stringify({
@@ -236,6 +253,7 @@ export async function POST(request: NextRequest) {
           outputLength: response.outputLength,
           safeErrorCode: "model_schema_invalid",
           failedIssues: issues,
+          responseSnapshots,
           attempt: attempt + 1
         });
       }
@@ -300,12 +318,14 @@ export async function POST(request: NextRequest) {
       inputLength: estimateInputLength(input.data)
     });
   } catch (error) {
-    const code = providerErrorCode(error, request.signal, startedAt + 60_000);
+    const code = providerErrorCode(error, request.signal, deadline);
     const status = code === "request_cancelled" ? 499 : code === "provider_timeout" ? 504 : code === "missing_ai_config" ? 503 : 502;
     return aiError(code, "AI request failed.", status, startedAt, {
       provider: provider?.configurationDiagnostic.provider,
       model: provider?.configurationDiagnostic.model,
       safeErrorCode: code,
+      attempt: providerAttempt,
+      ...(responseSnapshots.length ? { responseSnapshots } : {}),
       ...(error instanceof AiProviderError && error.diagnostic?.providerMessage
         ? { providerMessage: error.diagnostic.providerMessage }
         : {})
@@ -348,6 +368,7 @@ function aiError(
     safeErrorCode: string;
     providerMessage: string;
     failedIssues: SafeSchemaIssue[];
+    responseSnapshots: ResumeMapperResponseSnapshot[];
     attempt: number;
   }> = {}
 ) {
@@ -363,7 +384,7 @@ function aiError(
         latencyMs: Date.now() - startedAt
       }
     },
-    { status }
+    { status, headers: { "Cache-Control": "no-store" } }
   );
 }
 

@@ -31,6 +31,7 @@ import type {
   DocumentRecognitionPreferences,
   ExtractedSourceBlock,
   ImportedResumeDraft,
+  ImportedResumeSource,
   ImportQualityReport,
   PdfImportSession,
   PdfPageText,
@@ -40,6 +41,7 @@ import type {
 } from "@/domain/schemas";
 import { sourceDocumentFromDraft } from "@/domain/resumeImport/sourceDocument";
 import { extractTextFromPdfBuffer } from "@/services/pdf/extractText";
+import { extractResumeVision } from "./visionExtraction";
 import { hashBytes, hashText } from "@/services/security/text";
 import type { WorkspaceRepository } from "@/services/storage/repositories";
 import {
@@ -172,7 +174,9 @@ export class ResumeImportOrchestrator {
           );
           throw new ResumeImportOrchestratorError(
             `resume_import_${error.code}`,
-            `${error.message} 来源文档和本地解析结果已保留，可重试 AI 或改用仅本地解析。`,
+            `${error.message} ${extracted.fallbackDraft.sourceBlocks.some((block) => block.sourceEngine === "vision_ai")
+              ? "AI 图像识别已完成，识别文本已保留；可重试字段整理，或直接核对已识别内容。"
+              : "来源文档和本地解析结果已保留，可重试 AI 或改用仅本地解析。"}`,
              "retry_ai",
              fallback,
              error.diagnostics
@@ -222,10 +226,14 @@ export class ResumeImportOrchestrator {
     if (!format) {
       throw new ResumeImportOrchestratorError(
         "resume_import_unsupported_file",
-        "当前仅支持 PDF、DOCX、JSON、Markdown 和 TXT 简历文件。"
+        "当前支持 PDF、DOCX、JSON、Markdown、TXT、PNG 和 JPG 简历文件。"
       );
     }
     if (format === "pdf") return this.preparePdf(source, context);
+    if (format === "image") {
+      if (context.semanticMode !== "ai") throw new ResumeImportOrchestratorError("resume_import_ocr_required", "图片简历请选择 AI 智能识别，或从高级设置使用本地 OCR。", "manual_ocr");
+      return this.prepareVision(source, context);
+    }
     if (format === "docx") return this.prepareDocx(source, context);
     if (format === "markdown" || format === "text") {
       return this.prepareTextDocument(source, format, context);
@@ -278,6 +286,7 @@ export class ResumeImportOrchestrator {
         errorMessage: extracted.message
       });
       if (extracted.code === "no_text_layer") {
+        if (context.semanticMode === "ai") return this.prepareVision(source, context, session);
         throw new ResumeImportOrchestratorError(
           "resume_import_ocr_required",
           "PDF 没有可用文本层。Agent OCR 尚未开放，请使用本地 OCR 手动导入。",
@@ -295,6 +304,7 @@ export class ResumeImportOrchestrator {
         errorMessage: prepared.message
       });
       if (prepared.code === "no_text_layer" || prepared.code === "empty_extracted_text") {
+        if (context.semanticMode === "ai") return this.prepareVision(source, context, session);
         throw new ResumeImportOrchestratorError(
           "resume_import_ocr_required",
           "PDF 没有可用文本层。Agent OCR 尚未开放，请使用本地 OCR 手动导入。",
@@ -304,6 +314,9 @@ export class ResumeImportOrchestrator {
       throw new ResumeImportOrchestratorError(prepared.code, prepared.message);
     }
 
+    if (context.semanticMode === "ai" && extracted.pages.some((page) => page.classification === "scanned_pdf")) {
+      return this.prepareVision(source, context, session);
+    }
     emit(context, "normalizing", "正在还原阅读顺序并规范化来源块。");
     const sourceBlocks = normalizeExtractedSourceBlocks(extracted.pages.flatMap((page) => page.blocks));
     const analyzedQuality = analyzeImportQuality({ sourceType: "text_pdf", blocks: sourceBlocks });
@@ -330,6 +343,7 @@ export class ResumeImportOrchestrator {
       qualityReport: quality
     });
     if (decision.route === "local_ocr" || decision.route === "manual_review") {
+      if (context.semanticMode === "ai" && quality.recommendedRoute === "ocr_ai") return this.prepareVision(source, context, session);
       throw new ResumeImportOrchestratorError(
         "resume_import_ocr_required",
         decision.reason,
@@ -423,6 +437,27 @@ export class ResumeImportOrchestrator {
       now
     });
     return this.persistAndResult(draft, pages, decision, context);
+  }
+
+  private async prepareVision(source: ResumeImportLocalSource, context: InternalPrepareContext, session?: PdfImportSession) {
+    emit(context, "extracting", "正在准备简历页面，由当前 AI 模型读取图像…");
+    const recognized = await extractResumeVision(source.file, context.signal, (message) => emit(context, "extracting", message));
+    const fileHash = session?.fileHash ?? await hashBytes(new Uint8Array(await source.file.arrayBuffer()));
+    const text = recognized.blocks.map((block) => block.text).join("\n");
+    if (session) await this.repository.updatePdfImportSession({
+      ...session, status: "extracted", pageCount: recognized.pageCount, textLength: text.length,
+      errorCode: undefined, errorMessage: undefined, updatedAt: new Date().toISOString()
+    });
+    return this.persistTextDraft({
+      source: { ...source, mimeType: session ? "application/pdf" : /\.png$/iu.test(source.fileName) ? "image/png" : "image/jpeg" },
+      fileHash, sourceSessionId: session?.id,
+      sourceKind: session ? "scanned_pdf" : "image", text,
+      sourceBlocks: recognized.blocks, pageCount: recognized.pageCount,
+      routingDecision: { route: "vision_ai", reason: "当前 AI 模型直接读取页面图像，再按统一简历字段生成核对草稿。",
+        canUseOcr: true, ocrExpectedSlow: false, experimental: false, fallbackRoute: "local_ocr" },
+      extraWarnings: ["页面文字由多模态 AI 识别，可能存在读错或遗漏；请对照原文件核对，未确认内容不会写入正式简历。",
+        ...recognized.emptyPages.map((page) => `第 ${page} 页未识别到文字，请对照原页确认是否为空白或无法辨认。`)]
+    }, context);
   }
 
   private async prepareDocx(
@@ -536,7 +571,7 @@ export class ResumeImportOrchestrator {
       source: ResumeImportLocalSource;
       fileHash: string;
       sourceSessionId?: string;
-      sourceKind: "docx" | "markdown" | "text" | "text_pdf";
+      sourceKind: "docx" | "markdown" | "text" | "text_pdf" | "scanned_pdf" | "image";
       text: string;
       sourceBlocks: ExtractedSourceBlock[];
       pageCount?: number;
@@ -567,7 +602,7 @@ export class ResumeImportOrchestrator {
       source: {
         sourceSessionId: input.sourceSessionId,
         fileName: input.source.fileName,
-        mimeType: input.source.mimeType as "application/pdf" | "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        mimeType: input.source.mimeType as ImportedResumeSource["mimeType"],
         fileHash: input.fileHash,
         normalizedTextHash,
         pageCount: pages.length,
@@ -661,6 +696,7 @@ function buildPrepareResult(
 function detectFormat(source: ResumeImportLocalSource) {
   const lower = source.fileName.toLowerCase();
   if (source.mimeType === "application/pdf" || lower.endsWith(".pdf")) return "pdf";
+  if (["image/png", "image/jpeg"].includes(source.mimeType) || /\.(?:png|jpe?g)$/u.test(lower)) return "image";
   if (
     source.mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     || lower.endsWith(".docx")

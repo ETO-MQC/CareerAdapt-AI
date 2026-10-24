@@ -88,6 +88,7 @@ export function presentationSnapshotFromConfig(config: ResumePresentationConfig)
     pagination: config.pagination,
     sectionStyleOverrides: config.sectionStyleOverrides,
     highlightListStyle: config.highlightListStyle,
+    departmentPlacement: config.departmentPlacement,
     itemHeaderMiddleAlignment: config.itemHeaderMiddleAlignment
   };
 }
@@ -110,6 +111,7 @@ export function presentationConfigFromExportSnapshot(snapshot: ResumePdfExportSn
     pagination: snapshot.presentation.pagination,
     sectionStyleOverrides: snapshot.presentation.sectionStyleOverrides,
     highlightListStyle: snapshot.presentation.highlightListStyle,
+    departmentPlacement: snapshot.presentation.departmentPlacement,
     itemHeaderMiddleAlignment: snapshot.presentation.itemHeaderMiddleAlignment,
     presentationRevision: snapshot.presentationRevision,
     updatedAt: snapshot.generatedAt

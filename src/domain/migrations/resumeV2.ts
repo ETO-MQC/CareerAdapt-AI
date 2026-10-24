@@ -215,6 +215,7 @@ function legacyBranchData(item: BranchContentItem): ResumeItemV2 {
     case "project": return { ...base, sectionType: "project", current: false, tools: [], outcomes: [] };
     case "campus": return { ...base, sectionType: "campus", current: false };
     case "volunteer": return { ...base, sectionType: "volunteer", current: false };
+    case "training": return { ...base, sectionType: "training", current: false };
     case "research": return { ...base, sectionType: "research", title: item.text, methods: [], current: false };
     case "awards": return { id: item.id, sectionType: "awards", name: item.text, customFields: [] };
     case "skills": return { id: item.id, sectionType: "skills", name: item.text, customFields: [] };

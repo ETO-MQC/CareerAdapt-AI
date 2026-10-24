@@ -1,13 +1,16 @@
 "use client";
 
 import { invokeStructuredAi } from "@/ai/client";
+import { resumeDocumentMapperPrompt } from "@/ai/prompts/resumeDocumentMapper";
+import { readDocumentRecognitionPreferences } from "@/services/preferences/documentRecognition";
+import { DEFAULT_MAPPING_TIMEOUT_SECONDS } from "@/domain/resumeImport/timeouts";
 import { createImportedResumeDraftFromStructuredJson } from "@/domain/resumeImport/parser";
 import {
   buildSemanticMappingBatches,
   sourceDocumentFromDraft,
   tokenizeResumeSourceDocument
 } from "@/domain/resumeImport/sourceDocument";
-import { matchResumeSectionHeading } from "@/domain/resumeImport/sectionHeading";
+import { resumeHeadingRepresentedSections } from "@/domain/resumeImport/sectionHeading";
 import { auditResumeImportInvariants } from "@/domain/resumeImport/invariants";
 import {
   AiCareerAdaptResumeV2MapperOutputSchema,
@@ -27,11 +30,12 @@ import {
   sensitiveTransportTokenShapes
 } from "@/services/security/text";
 import type { WorkspaceRepository } from "@/services/storage/repositories";
-import type { SafeSchemaIssue } from "@/ai/resumeDocumentMapperDiagnostics";
+import type { SafeSchemaIssue, ResumeMapperResponseSnapshot } from "@/ai/resumeDocumentMapperDiagnostics";
 
 export type ResumeMapperSafeDiagnostics = {
   safeErrorCode: string;
   failedIssues: SafeSchemaIssue[];
+  responseSnapshots?: ResumeMapperResponseSnapshot[];
   provider?: string;
   model?: string;
   providerMessage?: string;
@@ -79,16 +83,17 @@ export class ResumeDocumentSemanticMapper {
     const batches = buildSemanticMappingBatches(redactedDocument);
 
     const outputs: AiCareerAdaptResumeV2MapperOutput[] = [];
+    const timeoutMinutes = (readDocumentRecognitionPreferences().mappingTimeoutSeconds ?? DEFAULT_MAPPING_TIMEOUT_SECONDS) / 60;
     const logs = [];
     for (let index = 0; index < batches.length; index += 1) {
       input.onProgress?.(
         batches.length > 1
-          ? `AI 正在识别简历内容（${index + 1}/${batches.length}）…`
-          : "AI 正在识别简历内容…"
+          ? `AI 正在整理简历字段（${index + 1}/${batches.length}），本批最长等待 ${timeoutMinutes} 分钟…`
+          : `图文提取已完成，AI 正在整理统一简历字段，最长等待 ${timeoutMinutes} 分钟…`
       );
       const rawText = JSON.stringify(batches[index]);
       const inputHash = await hashText(
-        `${rawText}|${sourceDraft.parserVersion}|resume-document-mapper.v6`
+        `${rawText}|${sourceDraft.parserVersion}|${resumeDocumentMapperPrompt.version}`
       );
       const result = await invokeStructuredAi({
         task: "resume-document-mapper",
@@ -222,7 +227,7 @@ function classifyMapperError(errorCode: string): {
     return { code: "request_cancelled", message: "AI 识别已取消。" };
   }
   if (errorCode === "provider_timeout") {
-    return { code: "provider_timeout", message: "AI 服务超时，可重试或使用本地解析。" };
+    return { code: "provider_timeout", message: "AI 字段整理超时；已提取内容仍可核对，也可重试字段整理。" };
   }
   if (errorCode === "model_output_truncated") {
     return { code: "model_output_truncated", message: "AI 输出被截断，请重试或使用本地解析。" };
@@ -317,8 +322,7 @@ function recomputeFinalUnclassifiedRefs(
   const canonicalSectionTypes = new Set(draft.sections.map((section) => section.sectionType));
   const structuralBlockIds = new Set(
     sourceBlocks.flatMap((block) => {
-      const match = matchResumeSectionHeading(block.normalizedText);
-      return match?.kind === "canonical_section" && canonicalSectionTypes.has(match.sectionType)
+      return resumeHeadingRepresentedSections(block.normalizedText).some((sectionType) => canonicalSectionTypes.has(sectionType))
         ? [block.id]
         : [];
     })

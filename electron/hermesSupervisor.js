@@ -12,7 +12,8 @@ const {
   recordRuntimeControlKeyDiagnostic,
   resolveHermesProviderBinding,
   startHermesCompanion,
-  stopHermesCompanion
+  stopHermesCompanion,
+  updateManagedHermesModel
 } = require("./hermesCompanion");
 const { HermesModelConfigClient } = require("./hermesModelConfigClient");
 
@@ -603,6 +604,10 @@ class HermesSupervisor {
       return this.applyConfigurationWithLifecycleRestart(settings, options, targetFingerprint, previous);
     }
 
+    if (options.forceRestart !== true && this.canApplyModelWithoutRestart(targetEnvironment)) {
+      return this.applyModelWithoutRestart(settings, targetEnvironment, targetFingerprint);
+    }
+
     // The bundled Hermes gateway serves /v1/capabilities, /v1/skills, /v1/toolsets and
     // /api/model/options, but NOT /api/model/info, /api/model/set, /api/env or
     // /api/providers/*. Those exist only in the dashboard server, so the native path below is
@@ -638,6 +643,51 @@ class HermesSupervisor {
     }
 
     return this.applyConfigurationWithLifecycleRestart(settings, options, targetFingerprint, previous);
+  }
+
+  canApplyModelWithoutRestart(targetEnvironment) {
+    const active = this.runtimeProcessState.activeEnvironment;
+    const home = this.handle?.childEnvironment?.HERMES_HOME || this.hermesHome;
+    if (!active || !home || !this.handle?.owned || !this.snapshot.processReady || !this.snapshot.providerReady) return false;
+    const before = configurationValue(active, "", 0, "runtime_readback");
+    const after = configurationValue(targetEnvironment, "", 0, "runtime_readback");
+    return before.model !== after.model && Boolean(after.model)
+      && before.provider === after.provider
+      && before.baseUrl.replace(/\/+$/u, "") === after.baseUrl.replace(/\/+$/u, "")
+      && providerCredential(active) === providerCredential(targetEnvironment);
+  }
+
+  async applyModelWithoutRestart(settings, targetEnvironment, targetFingerprint) {
+    let restore;
+    try {
+      restore = updateManagedHermesModel(this.handle?.childEnvironment?.HERMES_HOME || this.hermesHome,
+        configurationValue(targetEnvironment, "", 0, "runtime_readback").model);
+      this.setConfigurationApplyStatus("verifying", undefined, { restartPerformed: false, verified: false, rollbackOccurred: false });
+      const client = this.createModelConfigClient();
+      const applied = await client.readModelOptions();
+      const expected = this.runtimeConfigState.desired;
+      if (applied.model !== expected.model || !providerIdentitiesMatch(applied.provider, expected.provider)) {
+        throw Object.assign(new Error("hermes_model_readback_mismatch"), { code: "hermes_model_readback_mismatch" });
+      }
+      this.environment = { ...targetEnvironment };
+      this.baseEnvironment = { ...this.baseEnvironment, ...environmentFromHermesSettings(settings) };
+      applyProviderEnvironment(this.environment);
+      this.runtimeProcessState.observedConfiguration = { provider: applied.provider, model: applied.model };
+      this.runtimeProcessState.observedProviderDiagnostic = undefined;
+      this.commitActiveConfiguration(targetEnvironment, { targetFingerprint, requestedSettings: settings });
+      this.runtimeConfigState.lastApplyReceipt = this.createApplyReceipt(true, false, undefined);
+      this.setConfigurationApplyStatus("applied", undefined, { restartPerformed: false, verified: true, rollbackOccurred: false });
+      return this.getStatus();
+    } catch (error) {
+      if (restore) restore();
+      this.runtimeProcessState.pendingTargetFingerprint = undefined;
+      this.runtimeConfigState.desired = this.runtimeConfigState.active;
+      this.setConfigurationApplyStatus(restore ? "rolled_back" : "failed", safeReason(error.code || "hermes_model_apply_failed"), {
+        restartPerformed: false, verified: false, rollbackOccurred: Boolean(restore)
+      });
+      this.runtimeConfigState.lastApplyReceipt = this.createApplyReceipt(false, Boolean(restore), this.runtimeConfigState.reasonCode);
+      return this.getStatus();
+    }
   }
 
   async applyNativeModelConfiguration(settings, targetEnvironment, targetFingerprint, options = {}) {

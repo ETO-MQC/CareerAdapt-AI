@@ -332,7 +332,11 @@ function hasDeterministicExperienceShape(sourceText: string, sectionType: Resume
 }
 
 function missingPrimaryIdentity(item: ResumeItemV2) {
+  if (item.sectionType === "training" && !item.institution?.trim() && !item.title?.trim()) return "missing_training_identity";
   if (item.sectionType === "education" && !item.school?.trim()) return "missing_school";
+  // A class role or volunteering assignment can be the complete source identity;
+  // do not invent an organization just to repair an already typed item.
+  if ((item.sectionType === "campus" || item.sectionType === "volunteer") && item.role?.trim()) return undefined;
   if (["work", "internship", "campus", "volunteer"].includes(item.sectionType) && !textValue((item as unknown as Record<string, unknown>).organization)) return "missing_organization";
   if (item.sectionType === "project" && !item.title?.trim()) return "missing_project_title";
   if (["research", "portfolio", "publications", "patents"].includes(item.sectionType) && !textValue((item as unknown as Record<string, unknown>).title)) return "missing_title";

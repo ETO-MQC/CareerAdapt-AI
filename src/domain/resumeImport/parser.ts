@@ -593,7 +593,7 @@ function inferStructuredCategory(title: string, sectionType: ImportedResumeSecti
   if (sectionType === "awards") return "award";
   if (sectionType === "languages") return "language";
   if (sectionType === "certificates") return "certificate";
-  if (["research", "publications", "patents", "portfolio", "other", "custom"].includes(sectionType)) return "custom";
+  if (["training", "research", "publications", "patents", "portfolio", "other", "custom"].includes(sectionType)) return "custom";
   if (sectionType === "work" || sectionType === "internship") return "work";
   if (/教育|education/i.test(title)) return "education";
   if (/项目|project/i.test(title)) return "project";

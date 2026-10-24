@@ -20,9 +20,9 @@ export const RESUME_PRESENTATION_ALLOWED_LABELS = {
 export function formatResumePresentationDate(value?: string): string | undefined {
   const normalized = clean(value);
   if (!normalized) return undefined;
-  const match = /^(\d{4})(?:-(\d{2})(?:-\d{2})?)?$/.exec(normalized);
+  const match = /^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$/.exec(normalized);
   if (!match) return normalized;
-  return match[2] ? `${match[1]}.${match[2]}` : match[1];
+  return match[3] ? `${match[1]}.${match[2]}.${match[3]}` : match[2] ? `${match[1]}.${match[2]}` : match[1];
 }
 
 export function formatResumePresentationDateRange(startDate?: string, endDate?: string, current = false): string | undefined {
@@ -89,6 +89,14 @@ export function projectResumePresentationItem(item: ResumeItemV2): ResumePresent
         secondaryMeta: item.description && item.background ? [item.background] : [],
         highlights: [...item.highlights, ...item.outcomes],
         links: compact([item.url])
+      };
+      break;
+    case "training":
+      projected = {
+        primaryTitle: item.institution ?? item.title,
+        secondaryTitle: item.institution ? item.title : undefined,
+        dateRange: formatResumePresentationDateRange(item.startDate, item.endDate, item.current),
+        location: item.location, description: item.description, highlights: item.highlights
       };
       break;
     case "research":
@@ -192,7 +200,7 @@ export function projectResumePresentationItem(item: ResumeItemV2): ResumePresent
 
 function educationRows(item: Extract<ResumeItemV2, { sectionType: "education" }>): ResumePresentationCustomRow[] {
   const gpa = item.gpa === undefined ? undefined : item.gpaScale === undefined ? `${item.gpa}` : `${item.gpa}/${item.gpaScale}`;
-  const rank = item.rankPosition === undefined ? undefined : item.rankTotal === undefined ? `${item.rankPosition}` : `${item.rankPosition}/${item.rankTotal}`;
+  const rank = item.rankPercent !== undefined ? `前 ${item.rankPercent}%` : item.rankPosition === undefined ? undefined : item.rankTotal === undefined ? `${item.rankPosition}` : `${item.rankPosition}/${item.rankTotal}`;
   return [
     ...labeledRow(RESUME_PRESENTATION_ALLOWED_LABELS.gpa, gpa),
     ...labeledRow(RESUME_PRESENTATION_ALLOWED_LABELS.rank, rank),

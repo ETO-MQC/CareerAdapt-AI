@@ -424,13 +424,13 @@ describe("P4.2a.3b canonical task runtime", () => {
       }),
       expect.objectContaining({
         id: "png",
-        productStatus: "partial",
-        entrypoints: { manual: "partial", agent: "unavailable" }
+        productStatus: "available",
+        entrypoints: { manual: "available", agent: "available" }
       }),
       expect.objectContaining({
         id: "jpeg",
-        productStatus: "partial",
-        entrypoints: { manual: "partial", agent: "unavailable" }
+        productStatus: "available",
+        entrypoints: { manual: "available", agent: "available" }
       })
     ]));
     expect(AgentProductCapabilityManifest.supportedExportFormats.map((item) => item.id)).toEqual(["pdf", "json"]);

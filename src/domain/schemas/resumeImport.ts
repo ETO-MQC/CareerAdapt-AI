@@ -53,6 +53,7 @@ export const ResumeImportPipelineRouteSchema = z.enum([
   "text_structure",
   "digital_pdf_layout",
   "ocr_local",
+  "vision_ai",
   "manual_review"
 ]);
 
@@ -62,6 +63,7 @@ export const ResumeSourceEngineSchema = z.enum([
   "pdfjs",
   "opendataloader",
   "paddleocr_vl",
+  "vision_ai",
   "markdown_parser",
   "plain_text"
 ]);
@@ -715,11 +717,13 @@ export const AiCareerAdaptResumeItemV2DraftSchema = z.discriminatedUnion("sectio
     location: AiOptionalStringSchema,
     startDate: AiOptionalStringSchema,
     endDate: AiOptionalStringSchema,
+    expectedEndDate: AiOptionalStringSchema,
     current: AiOptionalBooleanSchema,
     gpa: AiOptionalNumberSchema,
     gpaScale: AiOptionalNumberSchema,
     rankPosition: AiOptionalNumberSchema,
     rankTotal: AiOptionalNumberSchema,
+    rankPercent: AiOptionalNumberSchema,
     courses: AiStringListSchema,
     honors: AiStringListSchema,
     description: AiOptionalStringSchema,
@@ -763,6 +767,7 @@ export const AiCareerAdaptResumeItemV2DraftSchema = z.discriminatedUnion("sectio
   }).strict(),
   z.object({ ...AiCareerAdaptResumeItemBaseShape, sectionType: z.literal("campus"), ...AiExperienceItemShape }).strict(),
   z.object({ ...AiCareerAdaptResumeItemBaseShape, sectionType: z.literal("volunteer"), ...AiExperienceItemShape }).strict(),
+  z.object({ ...AiCareerAdaptResumeItemBaseShape, sectionType: z.literal("training"), institution: AiOptionalStringSchema, title: AiOptionalStringSchema, location: AiOptionalStringSchema, startDate: AiOptionalStringSchema, endDate: AiOptionalStringSchema, current: AiOptionalBooleanSchema, description: AiOptionalStringSchema, highlights: AiStringListSchema }).strict(),
   z.object({
     ...AiCareerAdaptResumeItemBaseShape,
     sectionType: z.literal("awards"),

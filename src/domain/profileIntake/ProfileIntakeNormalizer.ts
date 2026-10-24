@@ -24,6 +24,7 @@ export const ProfileIntakeStructuredPatchSchema = z.object({
   gpaScale: z.number().positive().optional(),
   rankPosition: z.number().int().positive().optional(),
   rankTotal: z.number().int().positive().optional(),
+  rankPercent: z.number().positive().max(100).optional(),
   courses: PatchStringListSchema,
   honors: PatchStringListSchema,
   awardedAt: OptionalPatchTextSchema,
@@ -549,7 +550,7 @@ function isHardPatchField(field: string) {
   return [
     "title", "name", "organization", "institution", "role", "school", "degree", "major",
     "department", "location", "startDate", "endDate", "current", "gpa", "gpaScale",
-    "rankPosition", "rankTotal", "courses", "honors", "awardedAt", "level", "category",
+    "rankPosition", "rankTotal", "rankPercent", "courses", "honors", "awardedAt", "level", "category",
     "language", "testName", "score", "issuer", "issuedAt", "expiresAt", "credentialId",
     "status", "rank", "authorRole", "publisher", "publishedAt", "patentNumber", "office",
     "filedAt", "grantedAt", "url", "tools", "methods", "authors", "inventors", "samples", "publication",

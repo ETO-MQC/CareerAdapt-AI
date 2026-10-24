@@ -35,7 +35,6 @@ import {
   type ResumePdfExportRequest,
   type ResumeBranch,
   type ResumePresentationConfig,
-  type ResumeRenderSectionType,
   type ResumeRenderModel,
   type ResumeItemV2,
   type ResumeRevision,
@@ -943,7 +942,7 @@ export function ResumeWorkspace() {
       observer.disconnect();
       window.removeEventListener("resize", updateFitZoom);
     };
-  }, [canvasZoomMode]);
+  }, [canvasZoomMode, activeBranchId, studioMode]);
 
   const runDiagnostics = useCallback(async () => {
     if (!selectedBranch || !renderModel || !presentationConfig) {
@@ -1264,6 +1263,9 @@ export function ResumeWorkspace() {
     const nextProfile = await repository.getProfile(result.profileId);
     if (nextProfile) {
       setProfileOverride(nextProfile);
+      // Import commits the active person/profile in Repository. Refresh the shared
+      // context before opening its branch, so rendering uses that branch's owner.
+      await workspace.refetch();
       await refreshLists(nextProfile.id);
     }
     if (result.branchId) {
@@ -2078,6 +2080,16 @@ export function ResumeWorkspace() {
     });
   }
 
+  async function updateDepartmentPlacement(departmentPlacement: ResumePresentationConfig["departmentPlacement"]) {
+    if (!selectedBranch || !presentationConfig) return;
+    enqueuePresentation(async (current) => savePresentationConfig({
+      nextConfig: buildNextPresentationConfig({ current, branch: selectedBranch, patch: { departmentPlacement } }),
+      beforeConfig: current,
+      operationId: `department-placement-${selectedBranch.id}-${current.presentationRevision}-${departmentPlacement}`,
+      successMessage: "部门位置已保存。"
+    }));
+  }
+
   async function updateItemHeaderAlignment(itemHeaderMiddleAlignment: ResumePresentationConfig["itemHeaderMiddleAlignment"]) {
     if (!selectedBranch || !presentationConfig) return;
     enqueuePresentation(async (current) => {
@@ -2511,7 +2523,9 @@ export function ResumeWorkspace() {
       setSectionTitleError("栏目标题不能为空。");
       return;
     }
-    const currentTitle = renderModel?.sections.find((section) => section.type === sectionType)?.title;
+    const currentTitle = renderModel?.schemaVersion === "resume-render-v2"
+      ? renderModel.structuredSections.find((section) => section.sectionId === sectionType)?.title
+      : renderModel?.sections.find((section) => section.type === sectionType)?.title;
     if (nextTitle === currentTitle) {
       cancelSectionTitleEdit();
       notify({ type: "info", title: "未变化", message: "栏目标题未变化，没有创建新的展示版本。" });
@@ -4343,6 +4357,7 @@ export function ResumeWorkspace() {
                 <label className="field-label">
                   模板
                   <select
+                    aria-label="模板"
                     value={effectiveTemplateId}
                     disabled={!presentationConfig || Boolean(pendingTemplateApplyId)}
                     onChange={(event) => { void updatePresentationTemplate(event.target.value as TemplateId); }}
@@ -4534,6 +4549,11 @@ export function ResumeWorkspace() {
                             <option value="prefer_one_page">优先一页</option>
                             <option value="one_page_strict">严格一页</option>
                             <option value="up_to_two_pages">最多两页</option>
+                          </select>
+                        </label>
+                        <label className="field-input-group"><span className="field-input-label">部门位置</span>
+                          <select aria-label="部门位置" value={presentationConfig?.departmentPlacement ?? "auto"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => { void updateDepartmentPlacement(event.target.value as ResumePresentationConfig["departmentPlacement"]); }}>
+                            <option value="auto">跟随模板</option><option value="inline">与职位同行</option><option value="stacked">独立一行</option>
                           </select>
                         </label>
                         <label className="field-label">条目头部
@@ -5242,7 +5262,7 @@ function buildNextPresentationConfig(input: {
   branch: ResumeBranch;
   patch: Partial<Pick<
     ResumePresentationConfig,
-    "templateId" | "itemOrderBySection" | "hiddenItemIds" | "typography" | "spacing" | "theme" | "pagination" | "sectionOrder" | "sectionStyleOverrides" | "itemHeaderMiddleAlignment"
+    "templateId" | "itemOrderBySection" | "hiddenItemIds" | "typography" | "spacing" | "theme" | "pagination" | "sectionOrder" | "sectionStyleOverrides" | "itemHeaderMiddleAlignment" | "departmentPlacement"
   >>;
 }): ResumePresentationConfig {
   if (!input.branch.currentRevisionId) {
@@ -5600,11 +5620,10 @@ function revisionSourceLabel(value: string) {
   return labels[value] ?? "内容修改";
 }
 
-function sectionTitleFieldType(fieldId: string | undefined): ResumeRenderSectionType | undefined {
+function sectionTitleFieldType(fieldId: string | undefined): ResumeSectionTypeV2 | "experience" | undefined {
   const value = fieldId?.replace(/^section-title:/, "");
-  if (value === "summary" || value === "experience" || value === "skills" || value === "certificates") {
-    return value;
-  }
+  if (value === "experience") return value;
+  if (resumeSectionCatalog.some((section) => section.id === value)) return value as ResumeSectionTypeV2;
   return undefined;
 }
 

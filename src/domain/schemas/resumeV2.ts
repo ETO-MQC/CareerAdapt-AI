@@ -77,6 +77,7 @@ export const EducationItemV2Schema = z.object({
   gpaScale: z.number().positive().optional(),
   rankPosition: z.number().int().positive().optional(),
   rankTotal: z.number().int().positive().optional(),
+  rankPercent: z.number().positive().max(100).optional(),
   courses: StringListSchema,
   honors: StringListSchema,
   description: OptionalTextSchema,
@@ -90,6 +91,13 @@ export const WorkItemV2Schema = experienceItem("work");
 export const InternshipItemV2Schema = experienceItem("internship");
 export const CampusItemV2Schema = experienceItem("campus");
 export const VolunteerItemV2Schema = experienceItem("volunteer");
+
+export const TrainingItemV2Schema = z.object({
+  ...ItemBaseShape, sectionType: z.literal("training"),
+  institution: OptionalTextSchema, title: OptionalTextSchema,
+  location: OptionalTextSchema, startDate: OptionalTextSchema, endDate: OptionalTextSchema,
+  current: z.boolean().default(false), description: OptionalTextSchema, highlights: StringListSchema
+}).strict();
 
 export const ProjectItemV2Schema = z.object({
   ...ItemBaseShape, sectionType: z.literal("project"), title: OptionalTextSchema, role: OptionalTextSchema,
@@ -145,7 +153,7 @@ export const ResumeItemV2Schema = z.discriminatedUnion("sectionType", [
   SummaryItemV2Schema, EducationItemV2Schema, WorkItemV2Schema, InternshipItemV2Schema, ProjectItemV2Schema,
   ResearchItemV2Schema, CampusItemV2Schema, VolunteerItemV2Schema, AwardItemV2Schema, SkillItemV2Schema,
   CertificateItemV2Schema, LanguageItemV2Schema, PublicationItemV2Schema, PatentItemV2Schema,
-  PortfolioItemV2Schema, OtherItemV2Schema, FlexibleItemV2Schema
+  PortfolioItemV2Schema, TrainingItemV2Schema, OtherItemV2Schema, FlexibleItemV2Schema
 ]).superRefine((item, context) => {
   if ("current" in item && item.current && item.endDate) context.addIssue({ code: "custom", path: ["endDate"], message: "current item must not have endDate" });
   if (item.sectionType === "education") {

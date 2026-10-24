@@ -828,6 +828,7 @@ function candidateCategory(sectionType: ConversationIntakeCandidate["sectionType
     research: "custom",
     campus: "campus",
     volunteer: "custom",
+    training: "custom",
     awards: "award",
     skills: "skill",
     certificates: "certificate",

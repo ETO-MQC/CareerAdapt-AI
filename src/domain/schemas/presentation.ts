@@ -74,12 +74,7 @@ const SectionStyleOverrideSchema = z.object({
   titleOverride: z.string().trim().min(1).max(80).optional()
 });
 
-const SectionStyleOverridesSchema = z.object({
-  summary: SectionStyleOverrideSchema.optional(),
-  experience: SectionStyleOverrideSchema.optional(),
-  skills: SectionStyleOverrideSchema.optional(),
-  certificates: SectionStyleOverrideSchema.optional()
-}).default({});
+const SectionStyleOverridesSchema = z.record(z.string().min(1).max(120), SectionStyleOverrideSchema).default({});
 
 const PresentationTypographySchema = z.preprocess((value) => {
   if (!value || typeof value !== "object") {
@@ -206,6 +201,7 @@ export const ResumePresentationConfigSchema = z.object({
   pagination: PresentationPaginationSchema.default(DEFAULT_PAGINATION),
   sectionStyleOverrides: SectionStyleOverridesSchema,
   highlightListStyle: PresentationHighlightListStyleSchema.default("bullet"),
+  departmentPlacement: z.enum(["auto", "inline", "stacked"]).optional(),
   itemHeaderMiddleAlignment: PresentationItemHeaderMiddleAlignmentSchema.default("balanced"),
   presentationRevision: z.number().int().min(0),
   updatedAt: IsoDateStringSchema

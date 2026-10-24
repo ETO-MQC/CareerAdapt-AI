@@ -12,6 +12,7 @@ const SECTION_LABELS: Record<string, string> = {
   internship: "实习经历",
   campus: "校园经历",
   volunteer: "志愿经历",
+  training: "培训经历",
   project: "项目经历",
   research: "科研经历",
   awards: "奖项",

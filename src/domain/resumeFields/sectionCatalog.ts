@@ -10,6 +10,7 @@ export const resumeSectionCatalog = [
   { id: "research", label: "科研经历", aliases: ["researches", "researchExperience"], repeatable: true, defaultVisible: false, addable: true, displayOrder: 70 },
   { id: "campus", label: "校园经历", aliases: ["activities", "campusExperience"], repeatable: true, defaultVisible: false, addable: true, displayOrder: 80 },
   { id: "volunteer", label: "志愿经历", aliases: ["volunteering", "communityService"], repeatable: true, defaultVisible: false, addable: true, displayOrder: 90 },
+  { id: "training", label: "培训经历", aliases: ["trainingExperience", "professionalTraining"], repeatable: true, defaultVisible: false, addable: true, displayOrder: 95 },
   { id: "awards", label: "奖项荣誉", aliases: ["award", "honors", "competitions"], repeatable: true, defaultVisible: false, addable: true, displayOrder: 100 },
   { id: "skills", label: "专业技能", aliases: ["skill", "technicalSkills"], repeatable: true, defaultVisible: true, addable: false, displayOrder: 110 },
   { id: "certificates", label: "证书", aliases: ["certificate", "certifications"], repeatable: true, defaultVisible: false, addable: true, displayOrder: 120 },

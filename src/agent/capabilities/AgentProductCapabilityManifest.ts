@@ -19,14 +19,13 @@ export const RESUME_IMPORT_ACCEPT = RESUME_IMPORT_FORMATS
 
 export const AgentProductCapabilityManifest = {
   inputFormats: RESUME_IMPORT_FORMATS.map(({ id, label }) => {
-    const imageRequiresPartialOcr = id === "png" || id === "jpeg";
     return {
       id,
       label,
-      productStatus: imageRequiresPartialOcr ? "partial" as const : "available" as const,
+      productStatus: "available" as const,
       entrypoints: {
-        manual: imageRequiresPartialOcr ? "partial" as const : "available" as const,
-        agent: imageRequiresPartialOcr ? "unavailable" as const : "available" as const
+        manual: "available" as const,
+        agent: "available" as const
       }
     };
   }),

@@ -4,6 +4,7 @@ import {
   webHermesControlEnabled
 } from "@/server/agent/webHermesSupervisor";
 import { decodeAiSettingsFromHeader } from "@/services/storage/aiSettings";
+import { resolveEffectiveAiConfiguration } from "@/ai/providers/effectiveConfiguration";
 import type {
   HermesControlAction,
   HermesControlResult,
@@ -35,7 +36,8 @@ export async function GET(request: Request) {
     ok: true,
     snapshot: supervisor.getStatus(),
     config,
-    configSchema
+    configSchema,
+    credentialStatus: webCredentialStatus(supervisor.getStatus())
   }, { headers: { "Cache-Control": "no-store" } });
 }
 
@@ -44,18 +46,37 @@ export async function POST(request: Request) {
   if (requestContext.response) return requestContext.response;
 
   const body = await request.json().catch(() => ({})) as Record<string, unknown>;
-  const action = body.action;
+  const credentialAction = body.action === "set_credential" || body.action === "clear_credential" ? body.action : undefined;
+  const action = credentialAction ? "update_config" : body.action;
   if (typeof action !== "string" || !CONTROL_ACTIONS.has(action as HermesControlAction)) {
     return errorResponse("hermes_control_action_invalid", 400);
   }
 
   const supervisor = getWebHermesSupervisor(requestContext.origin);
-  const requestedSettings = decodeAiSettingsFromHeader(request.headers.get("x-ai-config") ?? "");
+  let requestedSettings: HermesStartSettings | undefined = decodeAiSettingsFromHeader(request.headers.get("x-ai-config") ?? "");
+  if (credentialAction) {
+    const credential = body.credential as Record<string, unknown> | undefined;
+    if (credentialAction === "set_credential" && (!credential || typeof credential.apiKey !== "string"
+      || !credential.apiKey.trim() || credential.apiKey.length > 20_000)) {
+      return errorResponse("credential_invalid", 400);
+    }
+    const active = supervisor.getStatus().runtimeConfig?.active;
+    requestedSettings = {
+      provider: typeof credential?.provider === "string" ? credential.provider : active?.provider ?? "openai-compatible",
+      baseUrl: typeof credential?.baseUrl === "string" ? credential.baseUrl : active?.baseUrl ?? "",
+      model: typeof credential?.model === "string" ? credential.model : active?.model ?? "",
+      apiKey: credentialAction === "set_credential" ? (credential!.apiKey as string).trim() : "",
+      credentialAction: credentialAction === "set_credential" ? "replace" : "clear"
+    };
+  }
   const previous = supervisor.getStatus();
   const requestedAt = new Date().toISOString();
 
   try {
-    const snapshot = await runAction(supervisor, action as HermesControlAction, body, requestedSettings);
+    // Clearing is deliberate, so do not retain a healthy old-key runtime for automatic rollback.
+    if (credentialAction === "clear_credential") await supervisor.stop();
+    const snapshot = await runAction(supervisor, action as HermesControlAction,
+      credentialAction ? { ...body, rendererReady: true } : body, requestedSettings);
     const safeReasonCode = snapshot.reasonCode || `${action}_completed`;
     const configAction = ["update_config", "reload_config", "reset_config"].includes(action);
     const runtimeConfig = snapshot.runtimeConfig;
@@ -89,7 +110,10 @@ export async function POST(request: Request) {
         } : {})
       }
     };
-    return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json(credentialAction
+      ? { ...webCredentialStatus(snapshot), ok: credentialAction === "clear_credential"
+        ? !resolveEffectiveAiConfiguration().apiKey : result.ok, control: result }
+      : result, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const safeReasonCode = safeControlReason(error, `${action}_failed`);
     return NextResponse.json({
@@ -145,6 +169,10 @@ function resolveWebControlRequest(request: Request): { origin: string; response?
   const requestUrl = new URL(request.url);
   const hostHeader = request.headers.get("host")?.trim();
   const originHeader = request.headers.get("origin")?.trim();
+  if ((request.method !== "GET" && (!originHeader || originHeader === "null"))
+    || request.headers.get("sec-fetch-site") === "cross-site") {
+    return { response: errorResponse("web_control_local_only", 403) };
+  }
   let originUrl;
   try {
     // Next dev can normalize request.url to localhost even when the browser
@@ -216,4 +244,12 @@ function readRestartOptions(value: unknown) {
 
 function emptySettings(): HermesStartSettings {
   return { baseUrl: "", apiKey: "", model: "", provider: "openai-compatible" };
+}
+
+function webCredentialStatus(snapshot: ReturnType<ReturnType<typeof getWebHermesSupervisor>["getStatus"]>) {
+  return {
+    available: true,
+    configured: snapshot.runtimeConfig?.active?.credentialConfigured ?? Boolean(resolveEffectiveAiConfiguration().apiKey),
+    source: "session_memory" as const
+  };
 }

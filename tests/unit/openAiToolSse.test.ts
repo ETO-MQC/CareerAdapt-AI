@@ -2,6 +2,17 @@ import { describe, expect, it } from "vitest";
 import { parseOpenAiJsonSse } from "@/ai/providers/openAiToolSse";
 
 describe("OpenAI native tool SSE", () => {
+  it("honors DONE on an open CRLF stream and releases the reader", async () => {
+    let cancelled = false;
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) { controller.enqueue(new TextEncoder().encode('data: {"ok":true}\r\n\r\ndata: [DONE]\r\n\r\n')); },
+      cancel() { cancelled = true; }
+    });
+    const payloads = [];
+    for await (const payload of parseOpenAiJsonSse(stream)) payloads.push(payload);
+    expect(payloads).toEqual([{ ok: true }]);
+    expect(cancelled).toBe(true); expect(stream.locked).toBe(false);
+  }, 1000);
   it("parses tool-call argument fragments split across network chunks", async () => {
     const frames = [
       `data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: "call-1", function: { name: "commit_job", arguments: '{"title":"AI' } }] } }] })}\n\n`,

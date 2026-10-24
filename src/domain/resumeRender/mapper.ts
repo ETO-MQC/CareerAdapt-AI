@@ -179,7 +179,8 @@ export function mapBranchToResumeRenderModel(input: {
   const structuredSections = [...new Set(structuredItems.map((item) => item.sectionId))].map((sectionId, order) => {
     const items = structuredItems.filter((item) => item.sectionId === sectionId);
     const sectionType = items[0]!.sectionType;
-    return { sectionId, sectionType, title: sectionType === "custom" ? "自定义栏目" : getResumeSectionDefinition(sectionType).label, order, items };
+    const override = input.presentationConfig?.sectionStyleOverrides[sectionId];
+    return { sectionId, sectionType, title: override?.titleOverride ?? (sectionType === "custom" ? "自定义栏目" : getResumeSectionDefinition(sectionType).label), showTitle: override?.showTitle, order, items };
   });
 
   const modelInput = {

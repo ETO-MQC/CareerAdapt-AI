@@ -106,7 +106,7 @@ export function resumeTemplateStyleVars(
 
   return {
     "--resume-font-family": fontFamilyToken(style.typography.chineseFont, style.typography.englishFont),
-    "--resume-body-font-size": bodyTextScale.fontSize,
+    "--resume-body-font-size": template.id === "campus-reference" ? `calc(${bodyTextScale.fontSize} * 1.1)` : bodyTextScale.fontSize,
     "--resume-line-height": lineHeightToken(style.typography.lineHeight),
     "--resume-section-title-size": titleTextScale.sectionTitleSize,
     "--resume-header-title-size": titleTextScale.headerTitleSize,

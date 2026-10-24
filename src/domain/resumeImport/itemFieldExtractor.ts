@@ -52,6 +52,8 @@ export function extractSegmentedItemFields(item: SegmentedResumeItem): ResumeIte
         highlights: educationHighlights
       });
     }
+    case "training":
+      return ResumeItemV2Schema.parse({ ...base, sectionType: "training", institution: primary || undefined, title: secondary || undefined, location, startDate, endDate, current, highlights });
     case "work":
     case "internship":
     case "campus":

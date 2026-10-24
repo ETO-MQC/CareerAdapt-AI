@@ -18,6 +18,8 @@ import {
 } from "@/domain/resumeFields/catalog";
 import { StructuredExperienceForm } from "../StructuredExperienceForm";
 import { StructuredProjectForm } from "../StructuredProjectForm";
+import { CanonicalField, normalizeCanonicalFormLists } from "./CanonicalSectionPage";
+import { resumeFieldCatalog } from "@/domain/resumeFields";
 import { AccordionList } from "../AccordionList";
 import { SectionShell } from "../SectionShell";
 import { contentItemTypeLabel, guardStatusLabel } from "../helpers";
@@ -342,6 +344,10 @@ function ExperienceItemFields(props: {
   const latestProjectFieldsRef = useRef(projectFields);
   const dirtyRef = useRef(false);
   const saveTimerRef = useRef<number | undefined>(undefined);
+  const [extraValues, setExtraValues] = useState<Record<string, unknown>>({});
+  const extraValuesRef = useRef<Record<string, unknown>>({});
+  const extraFields = resumeFieldCatalog.filter((field) => field.sectionType === props.canonicalItem?.sectionType
+    && ["gpa", "gpaScale", "rankPosition", "rankTotal", "rankPercent", "honors", "department"].includes(field.id.split(".").at(-1)!));
 
   async function save(origin: "manual" | "auto") {
     if (saveTimerRef.current !== undefined) window.clearTimeout(saveTimerRef.current);
@@ -355,7 +361,7 @@ function ExperienceItemFields(props: {
     } else if (props.canonicalItem && props.onSaveStructuredItem) {
       await props.onSaveStructuredItem(
         props.itemId,
-        patchCanonicalExperienceFields(props.canonicalItem, latestFieldsRef.current),
+        normalizeCanonicalFormLists({ ...patchCanonicalExperienceFields(props.canonicalItem, latestFieldsRef.current), ...extraValuesRef.current } as ResumeItemV2),
         { origin }
       );
     } else {
@@ -409,6 +415,22 @@ function ExperienceItemFields(props: {
         />
       )}
       {props.warning}
+      {extraFields.length ? <div className="section-fields-grid-2 canonical-extra-fields">
+        {extraFields.map((field) => {
+          const name = field.id.split(".").at(-1)!;
+          const original = (props.canonicalItem as unknown as Record<string, unknown>)[name];
+          return <CanonicalField key={field.id} idPrefix={props.itemId} field={field}
+            value={Object.hasOwn(extraValues, name) ? extraValues[name] : original}
+            onChange={(value) => {
+              const next = { ...extraValuesRef.current, [name]: value };
+              extraValuesRef.current = next;
+              setExtraValues(next);
+              dirtyRef.current = true;
+              if (saveTimerRef.current !== undefined) window.clearTimeout(saveTimerRef.current);
+              saveTimerRef.current = window.setTimeout(() => { void save("auto"); }, 1200);
+            }} />;
+        })}
+      </div> : null}
       <div className="experience-item-actions">
         <button
           type="button"

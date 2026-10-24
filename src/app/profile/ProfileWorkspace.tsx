@@ -149,6 +149,7 @@ const profileCategoryIcons: Record<ProfileCategoryId, typeof UserRound> = {
   research: FlaskConical,
   campus: School,
   volunteer: Heart,
+  training: GraduationCap,
   award: Award,
   skill: Wrench,
   certificate: BadgeCheck,

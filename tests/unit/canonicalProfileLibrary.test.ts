@@ -8,7 +8,7 @@ describe("canonical Profile library adapter", () => {
     expect(profileSectionCatalog.map(({ id, label }) => ({ id, label }))).toEqual([
       ["basics", "基本信息"], ["summary", "自我评价"], ["education", "教育经历"],
       ["work", "工作经历"], ["internship", "实习经历"], ["project", "项目经历"],
-      ["research", "科研经历"], ["campus", "校园经历"], ["volunteer", "志愿经历"],
+      ["research", "科研经历"], ["campus", "校园经历"], ["volunteer", "志愿经历"], ["training", "培训经历"],
       ["awards", "奖项荣誉"], ["skills", "专业技能"], ["certificates", "证书"],
       ["languages", "语言能力"], ["publications", "论文与出版物"], ["patents", "专利"],
       ["portfolio", "作品集"], ["other", "其他内容"], ["custom", "自定义栏目"]

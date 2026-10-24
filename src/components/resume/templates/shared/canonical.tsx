@@ -18,11 +18,13 @@ export function orderCanonicalSections(
 export function RenderCanonicalSections({
   sections,
   context,
-  compact = false
+  compact = false,
+  groupedHeadingSectionIds = []
 }: {
   sections: ResumeRenderStructuredSectionV2[];
   context?: TemplateRenderContext;
   compact?: boolean;
+  groupedHeadingSectionIds?: readonly string[];
 }) {
   return <>
     {sections.map((section) => (
@@ -33,7 +35,7 @@ export function RenderCanonicalSections({
         data-render-section-primary={section.showTitle === false ? "false" : "true"}
         key={section.sectionId}
       >
-        {section.showTitle !== false ? <h2 {...canonicalSectionTitleAttrs(section, context)}>{section.title}</h2> : null}
+        {section.showTitle !== false && !groupedHeadingSectionIds.includes(section.sectionId) ? <h2 {...canonicalSectionTitleAttrs(section, context)}>{section.title}</h2> : null}
         <RenderPresentationItems items={section.items.map((item) => item.presentation)} context={context} />
       </section>
     ))}
@@ -54,37 +56,19 @@ function RenderSkillPresentation({ items, context }: { items: ResumePresentation
   }
   return <div className="resume-skill-groups">
     {[...groups.entries()].map(([label, groupItems]) => (
-      <div className="resume-skill-group" key={label || "uncategorized"}>
+      <div className={`resume-skill-group ${label ? "" : "resume-skill-group-uncategorized"}`} key={label || "uncategorized"}>
         {label ? <strong>{label}</strong> : null}
         <div className="resume-skill-values">
-          {context?.measurement
-            ? groupItems.map((item) => (
-                <div {...presentationItemAttrs(item, context, "resume-skill-item")} data-pagination-unit="content" key={item.id}>
-                  <span className="resume-skill-heading">
-                    <strong className="resume-skill-name">{item.primaryTitle}</strong>
-                    {item.secondaryTitle ? <span className="resume-skill-level">（{item.secondaryTitle}）</span> : null}
-                  </span>
-                  {item.description ? <span className="resume-skill-description">{item.description}</span> : null}
-                </div>
-              ))
-            : (
-                <div {...presentationItemAttrs(groupItems[0], context, "resume-skill-item")} data-pagination-unit="content">
-                  <span className="resume-skill-heading">
-                    <strong className="resume-skill-name">{groupItems.map((item) => item.primaryTitle).filter(Boolean).join(" · ")}</strong>
-                    {groupItems.some((item) => item.secondaryTitle) ? <span className="resume-skill-level">（{groupItems.map((item) => item.secondaryTitle).filter(Boolean).join(" · ")}）</span> : null}
-                  </span>
-                  {groupItems.map((item) => item.description).filter(Boolean).length ? <span className="resume-skill-description">{groupItems.map((item) => item.description).filter(Boolean).join("；")}</span> : null}
-                  {groupItems.slice(1).map((item) => (
-                    <span
-                      aria-hidden="true"
-                      className="resume-skill-coverage-marker"
-                      data-coverage-item-id={item.sourceItemId ?? item.id}
-                      data-render-fragment-index={item.fragmentIndex ?? 0}
-                      key={`coverage:${item.id}`}
-                    />
-                  ))}
-                </div>
-              )}
+          {groupItems.map((item) => (
+            <div {...presentationItemAttrs(item, context, "resume-skill-item")} data-pagination-unit="content" key={item.id}>
+              <span className="resume-skill-heading">
+                <strong className="resume-skill-name">{item.primaryTitle}</strong>
+                {item.secondaryTitle ? <span className="resume-skill-level">（{item.secondaryTitle}）</span> : null}
+              </span>
+              {item.description ? <span className="resume-skill-description">{item.description}</span> : null}
+              <RenderCustomRows rows={item.customRows} context={context} />
+            </div>
+          ))}
         </div>
       </div>
     ))}
@@ -114,18 +98,22 @@ function RenderPresentationItem({ item, context }: { item: ResumePresentationIte
     </div>;
   }
   const unlistedLinks = item.links.filter((link) => !item.inlineMeta.includes(link) && !item.secondaryMeta.includes(link));
+  const placement = context?.presentationConfig?.departmentPlacement ?? "auto";
+  const inlineDepartment = ["work", "internship", "campus", "volunteer"].includes(item.sectionType)
+    && (placement === "inline" || placement === "auto" && context?.inlineDepartment);
+  const secondaryTitle = inlineDepartment ? joinPresentationValues([...item.secondaryMeta, item.secondaryTitle]) : item.secondaryTitle;
   return (
     <article {...presentationItemAttrs(item, context, "resume-template-item resume-canonical-item")}>
       {(item.primaryTitle || item.secondaryTitle || item.dateRange) ? (
         <div className={`resume-presentation-heading resume-presentation-heading-${context?.presentationConfig?.itemHeaderMiddleAlignment ?? "balanced"}`} data-pagination-unit="heading">
           {item.primaryTitle ? <h3>{item.primaryTitle}</h3> : <span />}
-          {item.secondaryTitle ? <strong>{item.secondaryTitle}</strong> : null}
+          {secondaryTitle && secondaryTitle !== item.primaryTitle ? <strong>{secondaryTitle}</strong> : null}
           {item.dateRange ? <time>{item.dateRange}</time> : null}
         </div>
       ) : null}
       {item.tertiaryTitle || item.location ? <p className="resume-presentation-subtitle" data-pagination-unit="subtitle">{joinPresentationValues([item.location, item.tertiaryTitle])}</p> : null}
       {item.inlineMeta.length ? <p className="resume-presentation-meta" data-pagination-unit="inline-meta"><RenderMetaValues values={item.inlineMeta} /></p> : null}
-      {item.secondaryMeta.map((meta, index) => <p className="resume-presentation-secondary" data-pagination-unit={`secondary-meta:${index}`} key={meta}>{meta}</p>)}
+      {!inlineDepartment ? item.secondaryMeta.map((meta, index) => <p className="resume-presentation-secondary" data-pagination-unit={`secondary-meta:${index}`} key={meta}>{meta}</p>) : null}
       {item.description ? <p className="resume-presentation-description" data-pagination-unit="description">{item.description}</p> : null}
       {item.highlights.length ? <RenderHighlights highlights={item.highlights.map((highlight, index) => ({ value: highlight, key: `highlight:${index}` }))} context={context} /> : null}
       {unlistedLinks.length ? <p className="resume-presentation-links" data-pagination-unit="links"><RenderMetaValues values={unlistedLinks} /></p> : null}

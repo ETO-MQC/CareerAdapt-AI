@@ -468,6 +468,7 @@ function assetImportance(item: ResumeItemV2) {
     research: 0.96,
     campus: 0.82,
     volunteer: 0.7,
+    training: 0.5, // Retain the existing other/custom importance for reclassified training.
     work: 1,
     internship: 1,
     awards: 0.66,

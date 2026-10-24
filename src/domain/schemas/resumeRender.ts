@@ -13,7 +13,8 @@ export const TemplateIdSchema = z.enum([
   "ats-minimal",
   "business-consulting",
   "campus-clean",
-  "professional-classic"
+  "professional-classic",
+  "campus-reference"
 ]);
 
 export const ResumePaginationStatusSchema = z.enum([
