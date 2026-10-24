@@ -242,7 +242,7 @@ describe("P4.6a resume structural integrity", () => {
     expect(renderedProject?.presentation).toMatchObject({
       primaryTitle: "项目一",
       secondaryTitle: "核心开发",
-      dateRange: "2024.09–2025.06",
+      dateRange: "2024.09.01–2025.06.01",
       inlineMeta: ["示例团队", "Python", "FastAPI"]
     });
     expect(renderedProject?.presentation.highlights).toContain("岗位验证结果");

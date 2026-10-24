@@ -50,7 +50,7 @@ test("canonical fixture stays editable while Preview and PDF use formal presenta
   const captureViewports = [
     { width: 1024, height: 768 },
     { width: 1366, height: 768 },
-    ...(process.env.P38B_EXTENDED_SCREENSHOTS === "1" ? [{ width: 1280, height: 800 }, { width: 1920, height: 1080 }] : [])
+    { width: 1440, height: 900 }, { width: 1920, height: 1080 }
   ];
   for (const viewport of captureViewports) {
     await page.setViewportSize(viewport);
@@ -58,6 +58,29 @@ test("canonical fixture stays editable while Preview and PDF use formal presenta
     await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 20_000 });
     await expect(previewStage.getByTestId("resume-a4-page")).toHaveCount(2, { timeout: 20_000 });
     await page.screenshot({ path: resolve(outputDir, `${viewport.width}x${viewport.height}.png`), fullPage: false });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const settings = page.getByTestId("resume-layout-inspector");
+    if (viewport.width > 1200) {
+      await expect(settings).toBeVisible();
+      const bounds = await settings.boundingBox();
+      const canvas = await previewStage.boundingBox();
+      expect(canvas!.x + canvas!.width).toBeLessThanOrEqual(bounds!.x);
+      await settings.getByRole("tab", { name: "字体", exact: true }).click();
+      await expect(settings.getByLabel("正文字号")).toBeVisible();
+      await page.screenshot({ path: resolve(outputDir, `${viewport.width}-typography.png`) });
+      await settings.getByRole("tab", { name: "页面", exact: true }).click();
+      await expect(settings.getByTestId("page-policy-selector")).toBeVisible();
+      await page.screenshot({ path: resolve(outputDir, `${viewport.width}-page.png`) });
+    } else {
+      await expect(settings).toBeHidden();
+    }
+    const visiblePaper = await previewStage.getByTestId("resume-a4-page").first().boundingBox();
+    const canvasBounds = await previewStage.boundingBox();
+    expect(visiblePaper!.x).toBeGreaterThanOrEqual(canvasBounds!.x);
+    expect(visiblePaper!.x + visiblePaper!.width).toBeLessThanOrEqual(canvasBounds!.x + canvasBounds!.width + 1);
+    const toolbar = await page.locator(".resume-canvas-toolbar").boundingBox();
+    const scroller = await page.getByTestId("resume-document-scroller").boundingBox();
+    expect(scroller!.y + scroller!.height).toBeLessThanOrEqual(toolbar!.y);
     const metrics = await previewStage.evaluate((node) => {
       const rect = node.getBoundingClientRect();
       const style = getComputedStyle(node);
@@ -130,19 +153,21 @@ test("one-page and relaxed two-page presets preserve natural order and all conte
 });
 
 async function importCanonicalFixture(page: Page) {
+  await page.addInitScript(() => localStorage.setItem("careeradapt-ai-settings", JSON.stringify({ provider: "openrouter", baseUrl: "https://openrouter.ai/api/v1", model: "test", apiKeyConfigured: true })));
   await page.goto("/resume");
-  await page.getByRole("button", { name: "导入", exact: true }).click();
-  await page.getByText("粘贴结构化 JSON", { exact: true }).click();
+  await page.getByRole("button", { name: /^导入已有简历/ }).click();
+  await page.getByTestId("resume-import-dock").locator("summary").filter({ hasText: /^粘贴 JSON$/ }).click();
   await page.locator(".import-json-details textarea").fill(JSON.stringify(canonicalFixture()));
   await page.locator(".import-json-details button.primary-button").click();
   await page.getByLabel("创建新人物").check();
-  while (await page.getByRole("button", { name: "确认此字段", exact: true }).count()) {
-    await page.getByRole("button", { name: "确认此字段", exact: true }).first().click();
+  while (await page.getByRole("button", { name: "确认字段映射", exact: true }).count()) {
+    await page.getByRole("button", { name: "确认字段映射", exact: true }).first().click();
   }
   while (await page.getByRole("button", { name: "核对并保留来源", exact: true }).count()) {
     await page.getByRole("button", { name: "核对并保留来源", exact: true }).first().click();
   }
-  await page.locator(".import-review-footer button.primary-button").click();
+  await expect(page.getByRole("button", { name: "确认导入", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "确认导入", exact: true }).click();
   const openButton = page.getByRole("button", { name: "打开", exact: true });
   if (await openButton.isVisible()) await openButton.click();
   await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 20_000 });

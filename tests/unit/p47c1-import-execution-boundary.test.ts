@@ -10,6 +10,7 @@ import { createAgentToolRegistry } from "@/agent/tools/registry";
 import { BrowserAgentToolService } from "@/services/agent/agentToolService";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 import { CareerAdaptDb } from "@/services/storage/db";
+import * as importPreferences from "@/services/preferences/resumeImportAi";
 import { writeResumeImportSemanticPreference } from "@/services/preferences/resumeImportAi";
 import { agentAttachmentStore } from "@/services/agent/AgentAttachmentStore";
 import { demoCareerProfile } from "@/data/demoProfile";
@@ -103,6 +104,8 @@ describe("P4.7c.1 production import execution boundary", () => {
       });
       vi.stubGlobal("fetch", provider);
       if (!consent) writeResumeImportSemanticPreference(mode);
+      // The production default is now AI. Explicitly exercise the retained unset/consent path.
+      if (consent) vi.spyOn(importPreferences, "readResumeImportSemanticPreference").mockReturnValueOnce("unset");
       let session = await f.host.dispatch({ type: "composer_submit", files: [new File(["张三\n邮箱：test@example.com\n工作经历\n示例公司 工程师\n开发数据系统并完成测试。"], "resume.txt", { type: "text/plain" })] }, f.context);
       if (consent) {
         expect(f.execute).not.toHaveBeenCalled();

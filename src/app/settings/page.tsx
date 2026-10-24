@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { readAppAccent, persistAppAccent, subscribeAppAccent, type AppAccent } from "@/services/preferences/appAccent";
 import { notify } from "@/services/notifications/store";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 import type {
@@ -83,6 +84,7 @@ export default function SettingsPage() {
   const runtimeStatus = useSyncExternalStore(agentHost.runtimeStatus.subscribe, agentHost.runtimeStatus.getSnapshot, agentHost.runtimeStatus.getSnapshot);
   const ocrTestInputRef = useRef<HTMLInputElement | null>(null);
   const [category, setCategory] = useState<SettingsCategory>("appearance");
+  const appAccent = useSyncExternalStore(subscribeAppAccent, readAppAccent, () => "green" as AppAccent);
   const [theme, setTheme] = useState<ThemePreference>(() => typeof window === "undefined" ? "system" : readThemePreference());
   const [density, setDensity] = useState<DensityPreference>(() => typeof window === "undefined" ? "compact" : readDensityPreference());
   const [developerMode, setDeveloperMode] = useState(() => typeof window !== "undefined" && readDeveloperMode());
@@ -817,6 +819,13 @@ async function clearAiCredentialFromSettings() {
                   <option value="light">明亮</option>
                   <option value="dark">暗黑</option>
                 </ProductSelect>
+              </ProductField>
+              <ProductField label="应用强调色">
+                <ProductSelect aria-label="应用强调色" value={appAccent} onChange={(event) => persistAppAccent(event.target.value as AppAccent)}>
+                  <option value="green">品牌绿</option>
+                  <option value="burgundy">酒红</option>
+                </ProductSelect>
+                <p>仅改变应用界面的强调色；简历配色在编辑器中独立设置。</p>
               </ProductField>
               <ProductField label="显示密度">
                 <ProductSelect aria-label="显示密度" value={density} onChange={(event) => updateDensity(event.target.value as DensityPreference)}>

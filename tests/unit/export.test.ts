@@ -104,7 +104,7 @@ describe("V2 G3a direct PDF export", () => {
     expect(ResumePdfExportRequestSchema.safeParse(request).success).toBe(true);
     expect(request.snapshot).toMatchObject({
       renderSchemaVersion: "resume-render-v2",
-      catalogVersion: "resume-field-catalog-v2.1.1",
+      catalogVersion: "resume-field-catalog-v2.2.0",
       templateVersion: 1
     });
     expect(verifyExportSnapshotHash(request.snapshot)).toBe(true);

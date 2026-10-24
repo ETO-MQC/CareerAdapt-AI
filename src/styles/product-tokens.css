@@ -71,3 +71,22 @@
   --product-space-5: 24px;
   --product-space-6: 28px;
 }
+
+/* Accent changes share the existing surfaces, geometry and density tokens. */
+:root[data-app-accent="burgundy"] {
+  --product-accent: #ad3037;
+  --product-accent-hover: #92272e;
+  --product-accent-ink: #ffffff;
+  --ai-accent: #ad3037;
+  --ai-accent-strong: #92272e;
+  --ai-accent-ink: #ffffff;
+}
+
+:root[data-theme="dark"][data-app-accent="burgundy"] {
+  --product-accent: #f19aa3;
+  --product-accent-hover: #ffb5bd;
+  --product-accent-ink: #381016;
+  --ai-accent: #f19aa3;
+  --ai-accent-strong: #ffb5bd;
+  --ai-accent-ink: #381016;
+}

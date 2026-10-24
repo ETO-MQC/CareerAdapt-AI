@@ -916,16 +916,15 @@ export function ResumeWorkspace() {
       return;
     }
     const updateFitZoom = () => {
-      const rect = stage.getBoundingClientRect();
+      const scroller = stage.querySelector<HTMLElement>(".resume-document-scroller")!;
+      const styles = getComputedStyle(scroller);
+      const availableWidth = scroller.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight);
+      const availableHeight = scroller.clientHeight - parseFloat(styles.paddingTop) - parseFloat(styles.paddingBottom) - 28;
       if (canvasZoomMode === "fit-page") {
-        // A4纸左右各留8px
-        const availableWidth = rect.width - 16;
         const nextZoom = clampNumber(availableWidth / A4_PAGE_WIDTH_PX, MIN_CANVAS_ZOOM, 1);
         setCanvasZoom(Number(nextZoom.toFixed(2)));
       } else {
-        // 整页模式：宽高都适配，保证看到完整一页
-        const availableWidth = rect.width - 16;
-        const availableHeight = rect.height - 16;
+        // Fit the scrollable canvas, excluding its padding, page label and toolbar.
         const nextZoom = clampNumber(
           Math.min(availableWidth / A4_PAGE_WIDTH_PX, availableHeight / A4_PAGE_HEIGHT_PX),
           MIN_CANVAS_ZOOM,
@@ -3603,15 +3602,418 @@ export function ResumeWorkspace() {
     );
   }
 
-  const showManualFormattingPanel = studioMode === "style"
+  const showManualFormattingPanel = (studioMode === "style" || studioMode === "edit")
     && (styleInspectorTab === "colors"
       || styleInspectorTab === "font"
       || styleInspectorTab === "page");
   const showDocumentStyleControls = styleInspectorTab === "colors"
     || styleInspectorTab === "font"
     || styleInspectorTab === "page";
+
   const showSectionStyleControls = false;
   const showBlockStyleControls = false;
+  const styleControls = (
+              <>
+                {styleInspectorTab === "template" ? (
+                  <>
+                <label className="field-label">
+                  模板
+                  <select
+                    aria-label="模板"
+                    value={effectiveTemplateId}
+                    disabled={!presentationConfig || Boolean(pendingTemplateApplyId)}
+                    onChange={(event) => { void updatePresentationTemplate(event.target.value as TemplateId); }}
+                  >
+                    {resumeTemplates.map((template) => (
+                      <option key={template.id} value={template.id}>{template.name} / {template.shortName}</option>
+                    ))}
+                  </select>
+                </label>
+                <div className="template-style-reset">
+                  <button
+                    type="button"
+                    className="secondary-button compact"
+                    aria-label="恢复此模板默认排版"
+                    disabled={!presentationConfig || !selectedBranchEditable}
+                    onClick={() => { void resetTemplateStyle(); }}
+                  >
+                    恢复此模板默认排版
+                  </button>
+                  <p>只重置当前模板的排版，内容、顺序和隐藏项保持不变。</p>
+                </div>
+                <div className="action-row template-center-entry">
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => {
+                      setStyleInspectorTab("template");
+                      setIsTemplateCenterOpen((current) => !current);
+                    }}
+                  >
+                    模板中心
+                  </button>
+                </div>
+                  </>
+                ) : null}
+                <TemplateCenter
+                  open={styleInspectorTab === "template" && isTemplateCenterOpen}
+                  model={renderModel}
+                  presentationConfig={presentationConfig}
+                  currentTemplateId={effectiveTemplateId}
+                  canApply={selectedBranchEditable && Boolean(presentationConfig) && !pendingTemplateApplyId}
+                  pendingTemplateId={pendingTemplateApplyId}
+                  onApply={(nextTemplateId) => { void updatePresentationTemplate(nextTemplateId); }}
+                  onClose={() => setIsTemplateCenterOpen(false)}
+                />
+                {showManualFormattingPanel ? (
+                  <div className="property-panel-body" data-testid="resume-property-panel">
+                {showDocumentStyleControls ? (
+                  <div className="property-section" data-testid="document-style-panel">
+                    {styleInspectorTab === "colors" ? (
+                      <>
+                        {([
+                          ["主色", "primaryColor"],
+                          ["强调色", "accentColor"],
+                          ["分隔线颜色", "dividerColor"]
+                        ] as const).map(([label, key]) => (
+                          <div className="field-label" key={key}>
+                            {label}
+                            <div className="color-swatch-row">
+                              {(["graphite", "emerald", "blue", "rose"] as const).map((color) => (
+                                <button
+                                  key={color}
+                                  type="button"
+                                  className={`color-swatch ${presentationConfig?.theme[key] === color ? "color-swatch-active" : ""}`}
+                                  style={{ backgroundColor: accentSwatchColor(color) }}
+                                  aria-label={`${label}：${accentColorLabel(color)}`}
+                                  aria-pressed={presentationConfig?.theme[key] === color}
+                                  disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.capabilities.supportsAccentColor}
+                                  onClick={() => {
+                                    void updatePresentationStyle((current) => ({
+                                      theme: { ...current.theme, [key]: color }
+                                    }), `${label}已保存。`);
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    ) : null}
+
+                    {styleInspectorTab === "font" ? (
+                      <div className="property-control-grid">
+                        <label className="field-label">中文字体
+                          <select aria-label="中文字体" value={presentationConfig?.typography.chineseFont ?? "system_sans"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
+                            const chineseFont = event.target.value as ResumePresentationConfig["typography"]["chineseFont"];
+                            void updatePresentationStyle((current) => ({ typography: { ...current.typography, chineseFont } }), "中文字体已保存。");
+                          }}>
+                            <option value="system_sans">系统黑体</option>
+                            <option value="source_han_sans">思源黑体</option>
+                            <option value="source_han_serif">思源宋体</option>
+                          </select>
+                        </label>
+                        <label className="field-label">英文字体
+                          <select aria-label="英文字体" value={presentationConfig?.typography.englishFont ?? "system_sans"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
+                            const englishFont = event.target.value as ResumePresentationConfig["typography"]["englishFont"];
+                            void updatePresentationStyle((current) => ({ typography: { ...current.typography, englishFont } }), "英文字体已保存。");
+                          }}>
+                            <option value="system_sans">System Sans</option>
+                            <option value="arial">Arial</option>
+                            <option value="georgia">Georgia</option>
+                          </select>
+                        </label>
+                        {([
+                          ["正文字号", "bodyTextScale", scaleLabel],
+                          ["标题字号", "titleTextScale", scaleLabel],
+                          ["行距", "lineHeight", spacingLabel]
+                        ] as const).map(([label, key, format]) => (
+                          <label className="field-label" key={key}>{label}
+                            <select aria-label={label} value={presentationConfig?.typography[key] ?? "normal"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
+                              const value = event.target.value;
+                              void updatePresentationStyle((current) => ({
+                                typography: { ...current.typography, [key]: value }
+                              }), `${label}已保存。`);
+                            }}>
+                              {(["small", "normal", "large"] as const)
+                                .filter((value) => key !== "lineHeight" || value === "normal")
+                                .map((value) => <option key={value} value={value}>{format(value as never)}</option>)}
+                              {key === "lineHeight" ? <>
+                                <option value="tight">紧凑</option>
+                                <option value="relaxed">宽松</option>
+                              </> : null}
+                            </select>
+                          </label>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {styleInspectorTab === "page" ? (
+                      <div className="property-control-grid pagination-controls" data-testid="pagination-controls">
+                        <div className="preset-buttons-row">
+                          <button className="secondary-button compact" type="button" disabled={!presentationConfig || !selectedBranchEditable} onClick={() => { void optimizeForOnePage(); }}>一页优化</button>
+                          <button className="secondary-button compact" type="button" disabled={!presentationConfig || !selectedBranchEditable} onClick={() => { void relaxForTwoPages(); }}>两页舒展</button>
+                        </div>
+                        <label className="field-label">页边距
+                          <select aria-label="页边距" value={presentationConfig?.spacing.pageMargin ?? "normal"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
+                            const pageMargin = event.target.value as ResumePresentationConfig["spacing"]["pageMargin"];
+                            void updatePresentationStyle((current) => ({ spacing: { ...current.spacing, pageMargin } }), "页边距已保存。");
+                          }}>
+                            <option value="narrow">窄</option><option value="normal">标准</option><option value="wide">宽</option>
+                          </select>
+                        </label>
+                        <label className="field-label">模块间距
+                          <select aria-label="模块间距" value={presentationConfig?.spacing.sectionGap ?? "normal"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
+                            const sectionGap = event.target.value as ResumePresentationConfig["spacing"]["sectionGap"];
+                            void updatePresentationStyle((current) => ({ spacing: { ...current.spacing, sectionGap } }), "模块间距已保存。");
+                          }}>
+                            {(["tight", "normal", "relaxed"] as const).map((value) => <option key={value} value={value}>{spacingLabel(value)}</option>)}
+                          </select>
+                        </label>
+                        <label className="field-label">条目间距
+                          <select aria-label="条目间距" value={presentationConfig?.spacing.itemGap ?? "normal"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
+                            const itemGap = event.target.value as ResumePresentationConfig["spacing"]["itemGap"];
+                            void updatePresentationStyle((current) => ({ spacing: { ...current.spacing, itemGap } }), "条目间距已保存。");
+                          }}>
+                            {(["tight", "normal", "relaxed"] as const).map((value) => <option key={value} value={value}>{spacingLabel(value)}</option>)}
+                          </select>
+                        </label>
+                        <label className="field-label">排版密度
+                          <select aria-label="排版密度" value={presentationConfig?.theme.density ?? "balanced"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
+                            const density = event.target.value as ResumePresentationConfig["theme"]["density"];
+                            void updatePresentationStyle((current) => ({ theme: { ...current.theme, density } }), "排版密度已保存。");
+                          }}>
+                            <option value="compact">紧凑</option><option value="balanced">均衡</option><option value="spacious">舒展</option>
+                          </select>
+                        </label>
+                        <label className="field-label">建议页数
+                          <select aria-label="建议页数" value={presentationConfig?.pagination.preferredPageCount ?? 2} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
+                            void updatePaginationSettings({ preferredPageCount: Number(event.target.value) as 1 | 2 }, "建议页数已保存。");
+                          }}>
+                            <option value={1}>1 页</option><option value={2}>2 页</option>
+                          </select>
+                        </label>
+                        <label className="field-label">最大建议页数
+                          <input aria-label="最大建议页数" value="4 页" readOnly />
+                        </label>
+                        <label className="field-label">页眉页脚
+                          <select aria-label="页眉页脚" value={presentationConfig?.pagination.headerFooter ?? "none"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
+                            void updatePaginationSettings({ headerFooter: event.target.value as "none" | "page_number" }, "页眉页脚已保存。");
+                          }}>
+                            <option value="none">不显示</option><option value="page_number">显示页码</option>
+                          </select>
+                        </label>
+                        <label className="field-label">页面策略
+                          <select data-testid="page-policy-selector" aria-label="页面策略" value={presentationConfig?.pagination.pagePolicy ?? "natural"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
+                            void updatePagePolicy(event.target.value as ResumePresentationConfig["pagination"]["pagePolicy"]);
+                          }}>
+                            <option value="natural">自然分页</option>
+                            <option value="prefer_one_page">优先一页</option>
+                            <option value="one_page_strict">严格一页</option>
+                            <option value="up_to_two_pages">最多两页</option>
+                          </select>
+                        </label>
+                        <label className="field-input-group"><span className="field-input-label">部门位置</span>
+                          <select aria-label="部门位置" value={presentationConfig?.departmentPlacement ?? "auto"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => { void updateDepartmentPlacement(event.target.value as ResumePresentationConfig["departmentPlacement"]); }}>
+                            <option value="auto">跟随模板</option><option value="inline">与职位同行</option><option value="stacked">独立一行</option>
+                          </select>
+                        </label>
+                        <label className="field-label">条目头部
+                          <select aria-label="条目头部对齐" value={presentationConfig?.itemHeaderMiddleAlignment ?? "balanced"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
+                            void updateItemHeaderAlignment(event.target.value as ResumePresentationConfig["itemHeaderMiddleAlignment"]);
+                          }}>
+                            <option value="fixed-column">固定列</option><option value="balanced">均衡</option><option value="flow">紧凑流式</option>
+                          </select>
+                        </label>
+                        <label className="inline-toggle">
+                          <input type="checkbox" checked={presentationConfig?.pagination.showPhoto ?? false} disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.capabilities.supportsPhoto} onChange={(event) => {
+                            void updatePaginationSettings({ showPhoto: event.target.checked }, "照片显示设置已保存。");
+                          }} />
+                          显示照片
+                        </label>
+                        {!selectedTemplate.capabilities.supportsPhoto ? <p className="save-status">当前模板不支持照片。</p> : null}
+                        <div className="pagination-summary" data-testid="pagination-summary">
+                          <strong>当前：{pagination.plan?.actualPageCount ?? "测量中"} 页</strong>
+                          <span>{paginationStatusLabel(pagination.status)}</span>
+                          {pagination.plan?.pages.map((page) => <span key={page.pageNumber}>第 {page.pageNumber} 页利用率：{Math.round((page.utilization?.ratio ?? 0) * 100)}%</span>)}
+                          {pagination.plan?.issues?.map((issue) => <span className="save-status save-status-failed" key={issue}>{paginationIssueLabel(issue)}</span>)}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {showSectionStyleControls && activePropertyTab === "section" && selectedStudioSection && selectedStudioBlock ? (
+                  <div className="property-section" data-testid="section-style-panel">
+                    <div className="property-summary compact-property-summary">
+                      <strong>{selectedStudioSection.title}</strong>
+                      <span>栏目 / {sectionTypeLabel(selectedStudioSection.type)}</span>
+                    </div>
+                    <label className="inline-toggle">
+                      <input
+                        type="checkbox"
+                        checked={presentationConfig?.sectionStyleOverrides[selectedStudioSection.type]?.showTitle !== false}
+                        disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.capabilities.supportsSectionTitleVisibility}
+                        onChange={(event) => { void setSectionTitleVisibility(selectedStudioSection.type, event.target.checked); }}
+                      />
+                      显示栏目标题
+                    </label>
+                    <label className="inline-toggle">
+                      <input
+                        type="checkbox"
+                        checked={selectedSectionPageBreakEnabled}
+                        disabled={!presentationConfig || !selectedBranchEditable || !selectedSectionCanPageBreak}
+                        onChange={(event) => { void setSectionPageBreak(selectedStudioSection.type, event.target.checked); }}
+                      />
+                      从下一页开始
+                    </label>
+                    {selectedStudioSection.type === firstVisibleSectionType ? (
+                      <p className="save-status">第一个可见栏目不能从下一页开始。</p>
+                    ) : null}
+                    <button
+                      className="secondary-button compact"
+                      disabled={!presentationConfig || !selectedBranchEditable}
+                      onClick={() => { void resetSectionStyle(selectedStudioSection.type); }}
+                    >
+                      恢复当前栏目默认值
+                    </button>
+                  </div>
+                ) : null}
+
+                {showBlockStyleControls && activePropertyTab === "block" && selectedStudioBlock ? (
+                  <div className="property-section" data-testid="block-style-panel">
+                    <div className="property-summary compact-property-summary">
+                      <strong>{selectedStudioBlock.text.slice(0, 36)}</strong>
+                      <span>段落 / {contentItemTypeLabel(selectedStudioBlock.itemType)} / {guardStatusLabel(selectedStudioBlock.guardStatus)}</span>
+                    </div>
+                    <label className="inline-toggle">
+                      <input
+                        type="checkbox"
+                        checked={selectedStudioBlock.visible}
+                        disabled={!selectedBranchEditable || !presentationConfig || !selectedStudioBlock.contentVisible}
+                        onChange={(event) => { void setPresentationItemVisibility(selectedStudioBlock.contentItemId, event.target.checked); }}
+                      />
+                      显示
+                    </label>
+                    <div className="action-row resume-structure-actions">
+                      <button className="secondary-button compact" disabled={!selectedBranchEditable || !presentationConfig} onClick={() => { void movePresentationItem(selectedStudioBlock.contentItemId, "up"); }}>
+                        上移
+                      </button>
+                      <button className="secondary-button compact" disabled={!selectedBranchEditable || !presentationConfig} onClick={() => { void movePresentationItem(selectedStudioBlock.contentItemId, "down"); }}>
+                        下移
+                      </button>
+                      <button className="secondary-button compact" disabled={!selectedBranchEditable || !presentationConfig} onClick={() => { void setPresentationItemVisibility(selectedStudioBlock.contentItemId, false); }}>
+                        隐藏
+                      </button>
+                      <button className="secondary-button compact" disabled={!selectedBranchEditable || !selectedStudioBlock.contentVisible} onClick={() => { void duplicateContentItem(selectedStudioBlock.contentItemId); }}>
+                        复制
+                      </button>
+                      <button className="danger-button compact" disabled={!selectedBranchEditable || !selectedStudioBlock.contentVisible} onClick={() => { void setContentItemVisibility(selectedStudioBlock.contentItemId, false); }}>
+                        删除
+                      </button>
+                    </div>
+                    <button
+                      className="primary-button compact"
+                      disabled={!selectedStudioBlock.editable || !selectedBranchEditable}
+                      onClick={() => startStudioEdit(selectedStudioBlock.contentItemId)}
+                    >
+                      编辑
+                    </button>
+                  </div>
+                ) : null}
+                  </div>
+                ) : null}
+                {styleInspectorTab === "page" && presentationHiddenBlocks.length > 0 ? (
+                  <div className="hidden-block-list">
+                    <strong>已隐藏内容</strong>
+                    {presentationHiddenBlocks.map((block) => (
+                      <button
+                        key={block.contentItemId}
+                        className="secondary-button compact hidden-block-button"
+                        disabled={!selectedBranchEditable || !presentationConfig}
+                        onClick={() => { void setPresentationItemVisibility(block.contentItemId, true); }}
+                      >
+                        显示：{block.text.slice(0, 18)}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                {styleInspectorTab === "page" ? (
+                <div className={`overflow-status overflow-status-${pagination.status}`} data-testid="overflow-status">
+                  <strong>{paginationStatusLabel(pagination.status)}</strong>
+                  <span>
+                    {pagination.plan
+                      ? `实际 ${pagination.plan.actualPageCount} 页 / 上限 ${pagination.plan.requestedMaxPages} 页 / 剩余 ${Math.floor(pagination.plan.measurement.remainingPx)}px`
+                      : "正在测量分页"}
+                  </span>
+                </div>
+                ) : null}
+                {styleInspectorTab === "page" && renderCoverageReport && renderCoverageHasBlockingFailure(renderCoverageReport) && !exportRecoveryAvailable ? (
+                  <div className="warning-box" data-testid="render-coverage-warning" role="status" aria-live="polite">
+                    <p>
+                      检测到内容在{renderCoverageStageLabel(renderCoverageReport.diagnostics.failedStage)}阶段丢失或重复，已停止正式导出。
+                    </p>
+                    {renderCoverageReport.diagnostics.droppedItems.length > 0 ? (
+                      <p>受影响条目：{renderCoverageReport.diagnostics.droppedItems.slice(0, 3).map((item) => item.label).join("、")}。</p>
+                    ) : null}
+                    <p>已保留当前版本。确认接受这条提示后，仍可按兼容预览继续生成文件；未确认的内容仍不会进入导出。</p>
+                    <div className="action-row">
+                      <button className="section-action-button section-action-button-primary" type="button" disabled={isPdfExportBusy} onClick={() => { void downloadPdf(true); }}>
+                        仍然下载兼容 PDF
+                      </button>
+                      <button className="section-action-button" type="button" disabled={isPdfExportBusy} onClick={() => { void exportPdf(true); }}>
+                        仍然打印 / 保存
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+                {styleInspectorTab === "page" && renderModel?.safety.ruleOnlyItemIds.length ? (
+                  <div className="warning-box">该简历包含仅由规则检查通过的内容，工作台已显示校验状态；PDF 正文不会加入内部风险标签。</div>
+                ) : null}
+                {styleInspectorTab === "page" && (pagination.status === "near_one_page_limit" || pagination.status === "near_limit") ? (
+                  <div className="warning-box">当前接近单页上限，建议导出前在打印预览中复核。</div>
+                ) : null}
+                {styleInspectorTab === "page" && pagination.plan && pagination.plan.actualPageCount > 4 ? (
+                  <div className="warning-box">
+                    <p>当前简历为 {pagination.plan.actualPageCount} 页，超过建议的 4 页；预览与 PDF 仍会保留全部内容。</p>
+                    {reductionHints.length > 0 ? (
+                      <ul>
+                        {reductionHints.map((hint) => <li key={hint}>{hint}</li>)}
+                      </ul>
+                    ) : null}
+                  </div>
+                ) : null}
+                {styleInspectorTab === "page" ? (
+                <div className="export-control-stack" data-testid="pdf-export-controls">
+                  <button
+                    className="primary-button"
+                    onClick={() => { void downloadPdf(); }}
+                    disabled={!renderModel || !presentationConfig || isPdfExportBusy || pagination.blocked || pagination.status === "measuring"}
+                  >
+                    {isPdfExportBusy ? "生成 PDF 中" : "下载 PDF"}
+                  </button>
+                  <button
+                    className="secondary-button"
+                    onClick={() => { void exportPdf(); }}
+                    disabled={!renderModel || isPdfExportBusy}
+                  >
+                    打印 / 保存 PDF
+                  </button>
+                  <p
+                    className={`save-status export-status-text ${pdfExportState.status === "failed" || pdfExportState.status === "blocked_overflow" ? "save-status-failed" : ""}`}
+                    aria-live="polite"
+                    data-testid="pdf-export-status"
+                  >
+                    {exportStatusLabel(pdfExportState)}
+                  </p>
+                  {pdfExportState.status === "failed" && pdfExportState.canUseFallback ? (
+                    <p className="save-status">可重试下载，或使用浏览器打印 fallback。</p>
+                  ) : null}
+                </div>
+                ) : null}
+              </>
+  );
+
 
   const sectionNavContext: SectionNavContext = {
     activeSection: activeResumeSection,
@@ -4356,407 +4758,7 @@ export function ResumeWorkspace() {
                 />
               )
             ) : null}
-            {studioMode === "style" ? (
-              <>
-                {styleInspectorTab === "template" ? (
-                  <>
-                <label className="field-label">
-                  模板
-                  <select
-                    aria-label="模板"
-                    value={effectiveTemplateId}
-                    disabled={!presentationConfig || Boolean(pendingTemplateApplyId)}
-                    onChange={(event) => { void updatePresentationTemplate(event.target.value as TemplateId); }}
-                  >
-                    {resumeTemplates.map((template) => (
-                      <option key={template.id} value={template.id}>{template.name} / {template.shortName}</option>
-                    ))}
-                  </select>
-                </label>
-                <div className="template-style-reset">
-                  <button
-                    type="button"
-                    className="secondary-button compact"
-                    aria-label="恢复此模板默认排版"
-                    disabled={!presentationConfig || !selectedBranchEditable}
-                    onClick={() => { void resetTemplateStyle(); }}
-                  >
-                    恢复此模板默认排版
-                  </button>
-                  <p>只重置当前模板的排版，内容、顺序和隐藏项保持不变。</p>
-                </div>
-                <div className="action-row template-center-entry">
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={() => {
-                      setStyleInspectorTab("template");
-                      setIsTemplateCenterOpen((current) => !current);
-                    }}
-                  >
-                    模板中心
-                  </button>
-                </div>
-                  </>
-                ) : null}
-                <TemplateCenter
-                  open={styleInspectorTab === "template" && isTemplateCenterOpen}
-                  model={renderModel}
-                  presentationConfig={presentationConfig}
-                  currentTemplateId={effectiveTemplateId}
-                  canApply={selectedBranchEditable && Boolean(presentationConfig) && !pendingTemplateApplyId}
-                  pendingTemplateId={pendingTemplateApplyId}
-                  onApply={(nextTemplateId) => { void updatePresentationTemplate(nextTemplateId); }}
-                  onClose={() => setIsTemplateCenterOpen(false)}
-                />
-                {showManualFormattingPanel ? (
-                  <div className="property-panel-body" data-testid="resume-property-panel">
-                {showDocumentStyleControls ? (
-                  <div className="property-section" data-testid="document-style-panel">
-                    {styleInspectorTab === "colors" ? (
-                      <>
-                        {([
-                          ["主色", "primaryColor"],
-                          ["强调色", "accentColor"],
-                          ["分隔线颜色", "dividerColor"]
-                        ] as const).map(([label, key]) => (
-                          <div className="field-label" key={key}>
-                            {label}
-                            <div className="color-swatch-row">
-                              {(["graphite", "emerald", "blue", "rose"] as const).map((color) => (
-                                <button
-                                  key={color}
-                                  type="button"
-                                  className={`color-swatch ${presentationConfig?.theme[key] === color ? "color-swatch-active" : ""}`}
-                                  style={{ backgroundColor: accentSwatchColor(color) }}
-                                  aria-label={`${label}：${accentColorLabel(color)}`}
-                                  aria-pressed={presentationConfig?.theme[key] === color}
-                                  disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.capabilities.supportsAccentColor}
-                                  onClick={() => {
-                                    void updatePresentationStyle((current) => ({
-                                      theme: { ...current.theme, [key]: color }
-                                    }), `${label}已保存。`);
-                                  }}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </>
-                    ) : null}
-
-                    {styleInspectorTab === "font" ? (
-                      <div className="property-control-grid">
-                        <label className="field-label">中文字体
-                          <select aria-label="中文字体" value={presentationConfig?.typography.chineseFont ?? "system_sans"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
-                            const chineseFont = event.target.value as ResumePresentationConfig["typography"]["chineseFont"];
-                            void updatePresentationStyle((current) => ({ typography: { ...current.typography, chineseFont } }), "中文字体已保存。");
-                          }}>
-                            <option value="system_sans">系统黑体</option>
-                            <option value="source_han_sans">思源黑体</option>
-                            <option value="source_han_serif">思源宋体</option>
-                          </select>
-                        </label>
-                        <label className="field-label">英文字体
-                          <select aria-label="英文字体" value={presentationConfig?.typography.englishFont ?? "system_sans"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
-                            const englishFont = event.target.value as ResumePresentationConfig["typography"]["englishFont"];
-                            void updatePresentationStyle((current) => ({ typography: { ...current.typography, englishFont } }), "英文字体已保存。");
-                          }}>
-                            <option value="system_sans">System Sans</option>
-                            <option value="arial">Arial</option>
-                            <option value="georgia">Georgia</option>
-                          </select>
-                        </label>
-                        {([
-                          ["正文字号", "bodyTextScale", scaleLabel],
-                          ["标题字号", "titleTextScale", scaleLabel],
-                          ["行距", "lineHeight", spacingLabel]
-                        ] as const).map(([label, key, format]) => (
-                          <label className="field-label" key={key}>{label}
-                            <select aria-label={label} value={presentationConfig?.typography[key] ?? "normal"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
-                              const value = event.target.value;
-                              void updatePresentationStyle((current) => ({
-                                typography: { ...current.typography, [key]: value }
-                              }), `${label}已保存。`);
-                            }}>
-                              {(["small", "normal", "large"] as const)
-                                .filter((value) => key !== "lineHeight" || value === "normal")
-                                .map((value) => <option key={value} value={value}>{format(value as never)}</option>)}
-                              {key === "lineHeight" ? <>
-                                <option value="tight">紧凑</option>
-                                <option value="relaxed">宽松</option>
-                              </> : null}
-                            </select>
-                          </label>
-                        ))}
-                      </div>
-                    ) : null}
-
-                    {styleInspectorTab === "page" ? (
-                      <div className="property-control-grid pagination-controls" data-testid="pagination-controls">
-                        <div className="preset-buttons-row">
-                          <button className="secondary-button compact" type="button" disabled={!presentationConfig || !selectedBranchEditable} onClick={() => { void optimizeForOnePage(); }}>一页优化</button>
-                          <button className="secondary-button compact" type="button" disabled={!presentationConfig || !selectedBranchEditable} onClick={() => { void relaxForTwoPages(); }}>两页舒展</button>
-                        </div>
-                        <label className="field-label">页边距
-                          <select aria-label="页边距" value={presentationConfig?.spacing.pageMargin ?? "normal"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
-                            const pageMargin = event.target.value as ResumePresentationConfig["spacing"]["pageMargin"];
-                            void updatePresentationStyle((current) => ({ spacing: { ...current.spacing, pageMargin } }), "页边距已保存。");
-                          }}>
-                            <option value="narrow">窄</option><option value="normal">标准</option><option value="wide">宽</option>
-                          </select>
-                        </label>
-                        <label className="field-label">模块间距
-                          <select aria-label="模块间距" value={presentationConfig?.spacing.sectionGap ?? "normal"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
-                            const sectionGap = event.target.value as ResumePresentationConfig["spacing"]["sectionGap"];
-                            void updatePresentationStyle((current) => ({ spacing: { ...current.spacing, sectionGap } }), "模块间距已保存。");
-                          }}>
-                            {(["tight", "normal", "relaxed"] as const).map((value) => <option key={value} value={value}>{spacingLabel(value)}</option>)}
-                          </select>
-                        </label>
-                        <label className="field-label">条目间距
-                          <select aria-label="条目间距" value={presentationConfig?.spacing.itemGap ?? "normal"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
-                            const itemGap = event.target.value as ResumePresentationConfig["spacing"]["itemGap"];
-                            void updatePresentationStyle((current) => ({ spacing: { ...current.spacing, itemGap } }), "条目间距已保存。");
-                          }}>
-                            {(["tight", "normal", "relaxed"] as const).map((value) => <option key={value} value={value}>{spacingLabel(value)}</option>)}
-                          </select>
-                        </label>
-                        <label className="field-label">排版密度
-                          <select aria-label="排版密度" value={presentationConfig?.theme.density ?? "balanced"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
-                            const density = event.target.value as ResumePresentationConfig["theme"]["density"];
-                            void updatePresentationStyle((current) => ({ theme: { ...current.theme, density } }), "排版密度已保存。");
-                          }}>
-                            <option value="compact">紧凑</option><option value="balanced">均衡</option><option value="spacious">舒展</option>
-                          </select>
-                        </label>
-                        <label className="field-label">建议页数
-                          <select aria-label="建议页数" value={presentationConfig?.pagination.preferredPageCount ?? 2} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
-                            void updatePaginationSettings({ preferredPageCount: Number(event.target.value) as 1 | 2 }, "建议页数已保存。");
-                          }}>
-                            <option value={1}>1 页</option><option value={2}>2 页</option>
-                          </select>
-                        </label>
-                        <label className="field-label">最大建议页数
-                          <input aria-label="最大建议页数" value="4 页" readOnly />
-                        </label>
-                        <label className="field-label">页眉页脚
-                          <select aria-label="页眉页脚" value={presentationConfig?.pagination.headerFooter ?? "none"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
-                            void updatePaginationSettings({ headerFooter: event.target.value as "none" | "page_number" }, "页眉页脚已保存。");
-                          }}>
-                            <option value="none">不显示</option><option value="page_number">显示页码</option>
-                          </select>
-                        </label>
-                        <label className="field-label">页面策略
-                          <select data-testid="page-policy-selector" aria-label="页面策略" value={presentationConfig?.pagination.pagePolicy ?? "natural"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
-                            void updatePagePolicy(event.target.value as ResumePresentationConfig["pagination"]["pagePolicy"]);
-                          }}>
-                            <option value="natural">自然分页</option>
-                            <option value="prefer_one_page">优先一页</option>
-                            <option value="one_page_strict">严格一页</option>
-                            <option value="up_to_two_pages">最多两页</option>
-                          </select>
-                        </label>
-                        <label className="field-input-group"><span className="field-input-label">部门位置</span>
-                          <select aria-label="部门位置" value={presentationConfig?.departmentPlacement ?? "auto"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => { void updateDepartmentPlacement(event.target.value as ResumePresentationConfig["departmentPlacement"]); }}>
-                            <option value="auto">跟随模板</option><option value="inline">与职位同行</option><option value="stacked">独立一行</option>
-                          </select>
-                        </label>
-                        <label className="field-label">条目头部
-                          <select aria-label="条目头部对齐" value={presentationConfig?.itemHeaderMiddleAlignment ?? "balanced"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
-                            void updateItemHeaderAlignment(event.target.value as ResumePresentationConfig["itemHeaderMiddleAlignment"]);
-                          }}>
-                            <option value="fixed-column">固定列</option><option value="balanced">均衡</option><option value="flow">紧凑流式</option>
-                          </select>
-                        </label>
-                        <label className="inline-toggle">
-                          <input type="checkbox" checked={presentationConfig?.pagination.showPhoto ?? false} disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.capabilities.supportsPhoto} onChange={(event) => {
-                            void updatePaginationSettings({ showPhoto: event.target.checked }, "照片显示设置已保存。");
-                          }} />
-                          显示照片
-                        </label>
-                        {!selectedTemplate.capabilities.supportsPhoto ? <p className="save-status">当前模板不支持照片。</p> : null}
-                        <div className="pagination-summary" data-testid="pagination-summary">
-                          <strong>当前：{pagination.plan?.actualPageCount ?? "测量中"} 页</strong>
-                          <span>{paginationStatusLabel(pagination.status)}</span>
-                          {pagination.plan?.pages.map((page) => <span key={page.pageNumber}>第 {page.pageNumber} 页利用率：{Math.round((page.utilization?.ratio ?? 0) * 100)}%</span>)}
-                          {pagination.plan?.issues?.map((issue) => <span className="save-status save-status-failed" key={issue}>{paginationIssueLabel(issue)}</span>)}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {showSectionStyleControls && activePropertyTab === "section" && selectedStudioSection && selectedStudioBlock ? (
-                  <div className="property-section" data-testid="section-style-panel">
-                    <div className="property-summary compact-property-summary">
-                      <strong>{selectedStudioSection.title}</strong>
-                      <span>栏目 / {sectionTypeLabel(selectedStudioSection.type)}</span>
-                    </div>
-                    <label className="inline-toggle">
-                      <input
-                        type="checkbox"
-                        checked={presentationConfig?.sectionStyleOverrides[selectedStudioSection.type]?.showTitle !== false}
-                        disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.capabilities.supportsSectionTitleVisibility}
-                        onChange={(event) => { void setSectionTitleVisibility(selectedStudioSection.type, event.target.checked); }}
-                      />
-                      显示栏目标题
-                    </label>
-                    <label className="inline-toggle">
-                      <input
-                        type="checkbox"
-                        checked={selectedSectionPageBreakEnabled}
-                        disabled={!presentationConfig || !selectedBranchEditable || !selectedSectionCanPageBreak}
-                        onChange={(event) => { void setSectionPageBreak(selectedStudioSection.type, event.target.checked); }}
-                      />
-                      从下一页开始
-                    </label>
-                    {selectedStudioSection.type === firstVisibleSectionType ? (
-                      <p className="save-status">第一个可见栏目不能从下一页开始。</p>
-                    ) : null}
-                    <button
-                      className="secondary-button compact"
-                      disabled={!presentationConfig || !selectedBranchEditable}
-                      onClick={() => { void resetSectionStyle(selectedStudioSection.type); }}
-                    >
-                      恢复当前栏目默认值
-                    </button>
-                  </div>
-                ) : null}
-
-                {showBlockStyleControls && activePropertyTab === "block" && selectedStudioBlock ? (
-                  <div className="property-section" data-testid="block-style-panel">
-                    <div className="property-summary compact-property-summary">
-                      <strong>{selectedStudioBlock.text.slice(0, 36)}</strong>
-                      <span>段落 / {contentItemTypeLabel(selectedStudioBlock.itemType)} / {guardStatusLabel(selectedStudioBlock.guardStatus)}</span>
-                    </div>
-                    <label className="inline-toggle">
-                      <input
-                        type="checkbox"
-                        checked={selectedStudioBlock.visible}
-                        disabled={!selectedBranchEditable || !presentationConfig || !selectedStudioBlock.contentVisible}
-                        onChange={(event) => { void setPresentationItemVisibility(selectedStudioBlock.contentItemId, event.target.checked); }}
-                      />
-                      显示
-                    </label>
-                    <div className="action-row resume-structure-actions">
-                      <button className="secondary-button compact" disabled={!selectedBranchEditable || !presentationConfig} onClick={() => { void movePresentationItem(selectedStudioBlock.contentItemId, "up"); }}>
-                        上移
-                      </button>
-                      <button className="secondary-button compact" disabled={!selectedBranchEditable || !presentationConfig} onClick={() => { void movePresentationItem(selectedStudioBlock.contentItemId, "down"); }}>
-                        下移
-                      </button>
-                      <button className="secondary-button compact" disabled={!selectedBranchEditable || !presentationConfig} onClick={() => { void setPresentationItemVisibility(selectedStudioBlock.contentItemId, false); }}>
-                        隐藏
-                      </button>
-                      <button className="secondary-button compact" disabled={!selectedBranchEditable || !selectedStudioBlock.contentVisible} onClick={() => { void duplicateContentItem(selectedStudioBlock.contentItemId); }}>
-                        复制
-                      </button>
-                      <button className="danger-button compact" disabled={!selectedBranchEditable || !selectedStudioBlock.contentVisible} onClick={() => { void setContentItemVisibility(selectedStudioBlock.contentItemId, false); }}>
-                        删除
-                      </button>
-                    </div>
-                    <button
-                      className="primary-button compact"
-                      disabled={!selectedStudioBlock.editable || !selectedBranchEditable}
-                      onClick={() => startStudioEdit(selectedStudioBlock.contentItemId)}
-                    >
-                      编辑
-                    </button>
-                  </div>
-                ) : null}
-                  </div>
-                ) : null}
-                {styleInspectorTab === "page" && presentationHiddenBlocks.length > 0 ? (
-                  <div className="hidden-block-list">
-                    <strong>已隐藏内容</strong>
-                    {presentationHiddenBlocks.map((block) => (
-                      <button
-                        key={block.contentItemId}
-                        className="secondary-button compact hidden-block-button"
-                        disabled={!selectedBranchEditable || !presentationConfig}
-                        onClick={() => { void setPresentationItemVisibility(block.contentItemId, true); }}
-                      >
-                        显示：{block.text.slice(0, 18)}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-                {styleInspectorTab === "page" ? (
-                <div className={`overflow-status overflow-status-${pagination.status}`} data-testid="overflow-status">
-                  <strong>{paginationStatusLabel(pagination.status)}</strong>
-                  <span>
-                    {pagination.plan
-                      ? `实际 ${pagination.plan.actualPageCount} 页 / 上限 ${pagination.plan.requestedMaxPages} 页 / 剩余 ${Math.floor(pagination.plan.measurement.remainingPx)}px`
-                      : "正在测量分页"}
-                  </span>
-                </div>
-                ) : null}
-                {styleInspectorTab === "page" && renderCoverageReport && renderCoverageHasBlockingFailure(renderCoverageReport) && !exportRecoveryAvailable ? (
-                  <div className="warning-box" data-testid="render-coverage-warning" role="status" aria-live="polite">
-                    <p>
-                      检测到内容在{renderCoverageStageLabel(renderCoverageReport.diagnostics.failedStage)}阶段丢失或重复，已停止正式导出。
-                    </p>
-                    {renderCoverageReport.diagnostics.droppedItems.length > 0 ? (
-                      <p>受影响条目：{renderCoverageReport.diagnostics.droppedItems.slice(0, 3).map((item) => item.label).join("、")}。</p>
-                    ) : null}
-                    <p>已保留当前版本。确认接受这条提示后，仍可按兼容预览继续生成文件；未确认的内容仍不会进入导出。</p>
-                    <div className="action-row">
-                      <button className="section-action-button section-action-button-primary" type="button" disabled={isPdfExportBusy} onClick={() => { void downloadPdf(true); }}>
-                        仍然下载兼容 PDF
-                      </button>
-                      <button className="section-action-button" type="button" disabled={isPdfExportBusy} onClick={() => { void exportPdf(true); }}>
-                        仍然打印 / 保存
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-                {styleInspectorTab === "page" && renderModel?.safety.ruleOnlyItemIds.length ? (
-                  <div className="warning-box">该简历包含仅由规则检查通过的内容，工作台已显示校验状态；PDF 正文不会加入内部风险标签。</div>
-                ) : null}
-                {styleInspectorTab === "page" && (pagination.status === "near_one_page_limit" || pagination.status === "near_limit") ? (
-                  <div className="warning-box">当前接近单页上限，建议导出前在打印预览中复核。</div>
-                ) : null}
-                {styleInspectorTab === "page" && pagination.plan && pagination.plan.actualPageCount > 4 ? (
-                  <div className="warning-box">
-                    <p>当前简历为 {pagination.plan.actualPageCount} 页，超过建议的 4 页；预览与 PDF 仍会保留全部内容。</p>
-                    {reductionHints.length > 0 ? (
-                      <ul>
-                        {reductionHints.map((hint) => <li key={hint}>{hint}</li>)}
-                      </ul>
-                    ) : null}
-                  </div>
-                ) : null}
-                {styleInspectorTab === "page" ? (
-                <div className="export-control-stack" data-testid="pdf-export-controls">
-                  <button
-                    className="primary-button"
-                    onClick={() => { void downloadPdf(); }}
-                    disabled={!renderModel || !presentationConfig || isPdfExportBusy || pagination.blocked || pagination.status === "measuring"}
-                  >
-                    {isPdfExportBusy ? "生成 PDF 中" : "下载 PDF"}
-                  </button>
-                  <button
-                    className="secondary-button"
-                    onClick={() => { void exportPdf(); }}
-                    disabled={!renderModel || isPdfExportBusy}
-                  >
-                    打印 / 保存 PDF
-                  </button>
-                  <p
-                    className={`save-status export-status-text ${pdfExportState.status === "failed" || pdfExportState.status === "blocked_overflow" ? "save-status-failed" : ""}`}
-                    aria-live="polite"
-                    data-testid="pdf-export-status"
-                  >
-                    {exportStatusLabel(pdfExportState)}
-                  </p>
-                  {pdfExportState.status === "failed" && pdfExportState.canUseFallback ? (
-                    <p className="save-status">可重试下载，或使用浏览器打印 fallback。</p>
-                  ) : null}
-                </div>
-                ) : null}
-              </>
-            ) : null}
+            {studioMode === "style" ? styleControls : null}
             {renderResult.warning ? (
               <div className="warning-box" data-testid="render-compatibility-warning" role="status" aria-live="polite">
                 <p><strong>已显示兼容预览</strong></p>
@@ -4897,6 +4899,20 @@ export function ResumeWorkspace() {
               }
             }}
           />
+
+          {studioMode === "edit" ? (
+            <aside className="panel no-print resume-layout-inspector" aria-label="简历排版设置" data-testid="resume-layout-inspector">
+              <div className="property-panel-heading"><h2>页面排版</h2><p>调整样式并实时查看预览</p></div>
+              <div className="inspector-tablist" role="tablist" aria-label="排版设置">
+                {(["template", "font", "colors", "page"] as const).map((tab) => (
+                  <button key={tab} type="button" role="tab" aria-selected={styleInspectorTab === tab}
+                    className={styleInspectorTab === tab ? "inspector-tab inspector-tab-active" : "inspector-tab"}
+                    onClick={() => setStyleInspectorTab(tab)}>{styleInspectorTabLabel(tab)}</button>
+                ))}
+              </div>
+              {styleControls}
+            </aside>
+          ) : null}
 
           <div className="resume-preview-stage" ref={previewStageRef}>
             <div className="resume-document-scroller" data-testid="resume-document-scroller">

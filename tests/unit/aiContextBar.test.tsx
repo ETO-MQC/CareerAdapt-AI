@@ -21,11 +21,11 @@ vi.mock("@/services/agent/agentSessionStore", () => ({
 }));
 
 describe("AI context bar", () => {
-  it("has one task link instead of duplicate AI workspace links", () => {
+  it("keeps asset content without the retired task context bar", () => {
     render(<AiShell><div>asset</div></AiShell>);
-    const links = screen.getAllByRole("link");
-    expect(links).toHaveLength(1);
-    expect(links[0]).toHaveAttribute("href", "/ai-workspace");
+    expect(screen.getByText("asset")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "返回任务" })).toBeNull();
+    expect(document.querySelector(".ai-context-bar")).toBeNull();
     expect(screen.queryByText("打开 AI 助手")).toBeNull();
   });
 });

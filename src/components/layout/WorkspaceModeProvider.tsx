@@ -1,5 +1,6 @@
 "use client";
 
+import { applyAppAccent, subscribeAppAccent } from "@/services/preferences/appAccent";
 import {
   createContext,
   useCallback,
@@ -38,10 +39,15 @@ export function WorkspaceModeProvider({
   );
 
   useEffect(() => {
+    applyAppAccent();
+    const unsubscribeAccent = subscribeAppAccent(applyAppAccent);
     applyInitialAppearance(mode);
     const handlePreferenceChange = () => applyInitialAppearance(mode, true);
     window.addEventListener("careeradapt-preferences-change", handlePreferenceChange);
-    return () => window.removeEventListener("careeradapt-preferences-change", handlePreferenceChange);
+    return () => {
+      unsubscribeAccent();
+      window.removeEventListener("careeradapt-preferences-change", handlePreferenceChange);
+    };
   }, [mode]);
 
   const setMode = useCallback((nextMode: WorkspaceMode) => {

@@ -1829,3 +1829,72 @@
 .ai-asset-content .resume-workspace-center .resume-create-card:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent) 15%, var(--surface));
 }
+
+/* UI Ultimate workspace: application surfaces never target the resume renderer. */
+.resume-workspace .resume-studio-workbar {
+  border-radius: var(--product-radius-4);
+  box-shadow: var(--product-shadow-subtle);
+  padding: 10px 14px;
+}
+.resume-studio-shell .resume-preview-stage {
+  grid-template-columns: minmax(0, 1fr);
+  background: var(--product-surface-subtle);
+  border: 1px solid var(--product-border);
+  border-radius: var(--product-radius-4);
+}
+.resume-studio-shell .resume-document-scroller { padding: 24px 20px; }
+.resume-studio-shell .resume-canvas-toolbar {
+  justify-self: center;
+  width: max-content;
+  max-width: calc(100% - 24px);
+  margin: 8px 12px 12px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--product-surface-elevated);
+  box-shadow: var(--product-shadow-subtle);
+  flex-wrap: wrap;
+}
+.resume-studio-shell .resume-inspector,
+.resume-studio-shell .resume-layout-inspector {
+  background: var(--product-surface);
+  border: 1px solid var(--product-border);
+  border-radius: var(--product-radius-4);
+  box-shadow: var(--product-shadow-subtle);
+  min-height: 0;
+  padding: 16px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.resume-layout-inspector { display: grid; align-content: start; gap: 16px; min-width: 0; }
+.resume-layout-inspector .property-panel-heading { display: block; }
+.resume-layout-inspector .property-panel-heading h2 { font-size: 17px; margin: 0; }
+.resume-layout-inspector .property-panel-heading p { color: var(--product-text-secondary); font-size: 12px; margin: 6px 0 0; }
+.resume-layout-inspector .inspector-tablist { display: flex; padding: 4px; gap: 2px; border-radius: 999px; background: var(--product-surface-subtle); }
+.resume-layout-inspector .inspector-tab { flex: 1; min-width: 0; padding: 7px 4px; border-radius: 999px; font-size: 12px; }
+.resume-layout-inspector .property-control-grid { grid-template-columns: 1fr; }
+@media (min-width: 1201px) {
+  .resume-studio-shell-edit,
+  .resume-studio-shell-edit:has(.resume-section-nav-panel-collapsed) {
+    grid-template-columns: var(--resume-section-nav-width, 80px) minmax(260px, var(--resume-field-panel-width, 320px)) 10px minmax(0, 1fr) 264px;
+    gap: 0 8px;
+  }
+  .resume-studio-shell-edit .resume-section-nav-panel { grid-column: 1; grid-row: 1; }
+  .resume-studio-shell-edit .branch-editor { grid-column: 2; grid-row: 1; }
+  .resume-studio-shell-edit .studio-resize-handle { grid-column: 3; grid-row: 1; }
+  .resume-studio-shell-edit .resume-preview-stage { grid-column: 4; grid-row: 1; }
+  .resume-studio-shell-edit .resume-layout-inspector { grid-column: 5; grid-row: 1; }
+}
+@media (max-width: 1200px) {
+  /* Existing style mode remains the accessible settings surface on small screens. */
+  .resume-layout-inspector { display: none !important; }
+}
+
+@media (min-width: 761px) and (max-width: 1200px) {
+  .resume-studio-shell-edit,
+  .resume-studio-shell-edit:has(.resume-section-nav-panel-collapsed) {
+    grid-template-columns: var(--resume-section-nav-width, 80px) minmax(260px, 292px) 8px minmax(0, 1fr);
+    gap: 0 6px;
+  }
+  .resume-studio-shell .resume-document-scroller { padding: 16px 8px; }
+  .resume-studio-shell .resume-canvas-toolbar { gap: 4px; padding: 6px; margin: 6px; max-width: calc(100% - 12px); }
+}

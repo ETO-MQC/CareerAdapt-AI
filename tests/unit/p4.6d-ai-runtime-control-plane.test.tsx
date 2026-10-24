@@ -24,6 +24,7 @@ vi.mock("@/services/agent/hermesControl", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/services/agent/hermesControl")>();
   return {
     ...actual,
+    describeProviderCredential: vi.fn(async () => ({ available: true, configured: true, source: "session_memory" as const })),
     requestHermesConfigUpdate: mocks.configUpdate,
     requestHermesProviderLatencyTest: mocks.providerLatencyTest,
     requestHermesProviderTest: mocks.providerTest,
@@ -191,11 +192,11 @@ describe("P4.6d AI runtime control plane", () => {
     expect(screen.getByRole("button", { name: "测试连接中…" })).toBeDisabled();
 
     resolveTest(candidateFailure());
-    await screen.findByText("API Key 无效或没有模型权限。", { selector: "p" });
+    await screen.findByText("服务商拒绝了当前已保存的 API Key（HTTP 401），请核对密钥及其所属服务商。", { selector: "p" });
     mocks.providerTest.mockResolvedValue(candidateFailure());
     for (let index = 1; index < 5; index += 1) {
       fireEvent.click(screen.getByRole("button", { name: "测试连接" }));
-      await screen.findByText("API Key 无效或没有模型权限。", { selector: "p" });
+      await screen.findByText("服务商拒绝了当前已保存的 API Key（HTTP 401），请核对密钥及其所属服务商。", { selector: "p" });
     }
     expect(screen.getByText("mimo-v2.5-pro")).toBeInTheDocument();
     expect(mocks.providerTest).toHaveBeenCalledTimes(5);
@@ -256,9 +257,9 @@ describe("P4.6d AI runtime control plane", () => {
     render(<SettingsPage />);
     fireEvent.click(screen.getByRole("button", { name: /AI 配置/ }));
 
-    const saveButton = screen.getByRole("button", { name: "保存并重启应用" });
+    const saveButton = screen.getByRole("button", { name: "保存并应用" });
     for (let index = 0; index < 20; index += 1) fireEvent.click(saveButton);
-    expect(screen.getByRole("button", { name: "正在重启并应用…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "正在应用…" })).toBeDisabled();
     expect(mocks.configUpdate).toHaveBeenCalledTimes(1);
 
     resolveApply({ ok: true, receipt: { applyStatus: "applied" }, controlSnapshot: readySnapshot("new-model") });
@@ -277,7 +278,7 @@ describe("P4.6d AI runtime control plane", () => {
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     render(<SettingsPage />);
     fireEvent.click(screen.getByRole("button", { name: /AI 配置/ }));
-    fireEvent.click(screen.getByRole("button", { name: "保存并重启应用" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存并应用" }));
 
     await waitFor(() => expect(mocks.configUpdate).toHaveBeenCalledTimes(1));
     expect(confirm).toHaveBeenCalledTimes(1);
@@ -291,7 +292,7 @@ describe("P4.6d AI runtime control plane", () => {
     mocks.configUpdate.mockReturnValue(applyPromise);
     const view = render(<SettingsPage />);
     fireEvent.click(screen.getByRole("button", { name: /AI 配置/ }));
-    fireEvent.click(screen.getByRole("button", { name: "保存并重启应用" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存并应用" }));
     fireEvent.click(screen.getByRole("button", { name: /AI Agent服务/ }));
     expect(mocks.configUpdate).toHaveBeenCalledTimes(1);
 
