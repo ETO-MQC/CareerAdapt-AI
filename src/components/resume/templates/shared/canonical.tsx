@@ -107,8 +107,8 @@ function RenderPresentationItem({ item, context }: { item: ResumePresentationIte
       {(item.primaryTitle || item.secondaryTitle || item.dateRange) ? (
         <div className={`resume-presentation-heading resume-presentation-heading-${context?.presentationConfig?.itemHeaderMiddleAlignment ?? "balanced"}`} data-pagination-unit="heading">
           {item.primaryTitle ? <h3>{item.primaryTitle}</h3> : <span />}
-          {secondaryTitle && secondaryTitle !== item.primaryTitle ? <strong>{secondaryTitle}</strong> : null}
-          {item.dateRange ? <time>{item.dateRange}</time> : null}
+          {secondaryTitle && secondaryTitle !== item.primaryTitle ? <strong>{secondaryTitle.split(" · ").map((part, index) => <span key={`${index}-${part}`}>{index > 0 ? " · " : ""}<span>{part}</span></span>)}</strong> : null}
+          {item.dateRange ? <time>{item.dateRange.split("–").map((part, index) => <span key={`${index}-${part}`}>{index > 0 ? "–" : ""}<span data-editor-date={index === 0 ? "start" : "end"}>{part}</span></span>)}</time> : null}
         </div>
       ) : null}
       {item.tertiaryTitle || item.location ? <p className="resume-presentation-subtitle" data-pagination-unit="subtitle">{joinPresentationValues([item.location, item.tertiaryTitle])}</p> : null}
@@ -123,7 +123,8 @@ function RenderPresentationItem({ item, context }: { item: ResumePresentationIte
 }
 
 function RenderHighlights({ highlights, context }: { highlights: Array<{ value: string; key: string }>; context?: TemplateRenderContext }) {
-  const listStyle = context?.presentationConfig?.highlightListStyle ?? "bullet";
+  const bullet = context?.presentationConfig?.precision?.bulletStyle;
+  const listStyle = bullet === "decimal" ? "numbered" : bullet === "none" ? "none" : bullet ? "bullet" : context?.presentationConfig?.highlightListStyle ?? "bullet";
   if (!highlights.length) return null;
   if (listStyle === "none") {
     return <ul className="resume-presentation-highlights resume-presentation-highlights-none">
@@ -212,7 +213,7 @@ export function ResumeHeader({
         {(() => {
           const emailCount = model.candidate.contacts.filter((c) => c.includes("@")).length;
           return model.candidate.contacts.map((contact, index) => (
-            <span key={`${contact}-${index}`} {...profileFieldAttrs(profileFieldIdForContact(contact, index, emailCount), context)}>{contact}</span>
+            <span key={`${contact}-${index}`} {...profileFieldAttrs(profileFieldIdForContact(contact, index, emailCount), context)}>{context?.presentationConfig?.precision?.contactIcons ? <span className="resume-contact-icon" aria-hidden="true">{contact.includes("@") ? "✉" : /^https?:/.test(contact) ? "↗" : /[0-9]{6}/.test(contact) ? "☎" : "⌖"} </span> : null}{contact}</span>
           ));
         })()}
       </address>

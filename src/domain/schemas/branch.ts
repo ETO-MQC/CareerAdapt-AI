@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PresentationPrecisionSchema } from "./presentationPrecision";
 import { EntityBaseSchema, IsoDateStringSchema, RiskLevelSchema } from "./common";
 import { ResumeItemV2Schema } from "./resumeV2";
 import { ResumeJsonV2MappingTraceSchema } from "./resumeJsonV2";
@@ -374,6 +375,7 @@ export const ExportOverflowStatusSchema = z.enum([
 ]);
 
 export const ExportRecordPresentationSnapshotSchema = z.object({
+  precision: PresentationPrecisionSchema.optional(),
   templateId: z.string().min(1),
   sectionOrder: z.array(z.string().min(1)).optional(),
   itemOrderBySection: z.record(z.string(), z.array(z.string().min(1))),

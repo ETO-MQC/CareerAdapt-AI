@@ -1,6 +1,8 @@
 "use client";
+import { precisionStyleVars } from "@/components/resume/templates/precisionStyles";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { PrecisionInspector } from "@/components/resume/PrecisionInspector";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   User,
@@ -161,6 +163,8 @@ type StudioLayoutState = {
   sectionNavCollapsed: boolean;
   fieldPanelCollapsed: boolean;
   fieldPanelWidth: number;
+  settingsWidth: number;
+  settingsCollapsed: boolean;
 };
 
 type PresentationHistoryState = {
@@ -187,10 +191,14 @@ const RESUME_STUDIO_LAYOUT_KEY = "careeradapt.resumeStudioLayout";
 const DEFAULT_STUDIO_LAYOUT: StudioLayoutState = {
   sectionNavCollapsed: false,
   fieldPanelCollapsed: false,
+  settingsWidth: 340,
+  settingsCollapsed: false,
   fieldPanelWidth: 420
 };
 const MIN_FIELD_PANEL_WIDTH = 320;
 const MAX_FIELD_PANEL_WIDTH = 560;
+const MIN_SETTINGS_WIDTH = 280;
+const MAX_SETTINGS_WIDTH = 520;
 const MIN_CANVAS_ZOOM = 0.3;
 const MAX_CANVAS_ZOOM = 1.16;
 const A4_PAGE_WIDTH_PX = 794;
@@ -270,7 +278,49 @@ export function ResumeWorkspace() {
   const [aiInspectorTab, setAiInspectorTab] = useState<AiInspectorTab>("suggestions");
   const [aiFloatingOpen, setAiFloatingOpen] = useState(true);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
-  const [styleInspectorTab, setStyleInspectorTab] = useState<StyleInspectorTab>("template");
+  const [styleInspectorTab, setStyleInspectorTab] = useState<StyleInspectorTab>("font");
+  const [studioLayout, setStudioLayout] = useState<StudioLayoutState>(() => readInitialStudioLayout());
+  const studioShellRef = useRef<HTMLElement>(null);
+  const [settingsWidthLimit, setSettingsWidthLimit] = useState(MAX_SETTINGS_WIDTH);
+  const effectiveSettingsWidth = Math.min(studioLayout.settingsWidth, settingsWidthLimit);
+  const [compactSettingsOpen, setCompactSettingsOpen] = useState(false);
+  const settingsScrollRef = useRef<HTMLDivElement>(null);
+  const settingsTabsRef = useRef<HTMLDivElement>(null);
+  const settingsToggleRef = useRef<HTMLButtonElement>(null);
+  const settingsScrollPositions = useRef<Partial<Record<StyleInspectorTab, number>>>({});
+  const contentPanelRef = useRef<HTMLElement>(null);
+  const contentScrollPositions = useRef<Record<StudioMode, number>>({ edit: 0, ai: 0, style: 0 });
+
+  useLayoutEffect(() => {
+    if (contentPanelRef.current) contentPanelRef.current.scrollTop = contentScrollPositions.current[studioMode];
+  }, [studioMode]);
+
+  function selectSettingsTab(tab: StyleInspectorTab) {
+    if (settingsScrollRef.current) settingsScrollPositions.current[styleInspectorTab] = settingsScrollRef.current.scrollTop;
+    setStyleInspectorTab(tab);
+  }
+
+  function closeCompactSettings() {
+    setCompactSettingsOpen(false);
+    settingsToggleRef.current?.focus();
+  }
+
+  useLayoutEffect(() => {
+    if (settingsScrollRef.current) settingsScrollRef.current.scrollTop = settingsScrollPositions.current[styleInspectorTab] ?? 0;
+  }, [styleInspectorTab, studioLayout.settingsCollapsed, compactSettingsOpen, studioMode]);
+
+  useEffect(() => {
+    if (!compactSettingsOpen) return;
+    settingsTabsRef.current?.querySelector<HTMLButtonElement>('[role="tab"][aria-selected="true"]')?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeCompactSettings();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [compactSettingsOpen]);
   const [activeResumeSection, setActiveResumeSection] = useState<ResumeStudioSectionKey>("basics");
   const [enabledSectionsByBranch, setEnabledSectionsByBranch] = useState<Record<string, ResumeStudioSectionKey[]>>({});
   const [hiddenSectionsByBranch, setHiddenSectionsByBranch] = useState<Record<string, ResumeStudioSectionKey[]>>({});
@@ -282,7 +332,6 @@ export function ResumeWorkspace() {
   const sectionMenuRef = useRef<HTMLDivElement>(null);
   const [canvasZoom, setCanvasZoom] = useState(0.8);
   const [canvasZoomMode, setCanvasZoomMode] = useState<CanvasZoomMode>("fit-page");
-  const [studioLayout, setStudioLayout] = useState<StudioLayoutState>(() => readInitialStudioLayout());
   const [pendingTemplateApplyId, setPendingTemplateApplyId] = useState<TemplateId | undefined>();
   const [activePropertyTab, setActivePropertyTab] = useState<PropertyPanelTab>("document");
   const [pdfExportState, setPdfExportState] = useState<PdfExportState>({ status: "idle" });
@@ -308,6 +357,8 @@ export function ResumeWorkspace() {
     structuredItem?: ResumeItemV2;
   } | undefined>();
 
+  const [presentationSaving, setPresentationSaving] = useState(false);
+  const presentationPendingCount = useRef(0);
   const presentationQueueRef = useRef<{
     promise: Promise<void>;
     latestConfig: ResumePresentationConfig | undefined;
@@ -321,8 +372,42 @@ export function ResumeWorkspace() {
   });
   const diagnosticRunSeqRef = useRef(0);
 
+  const precisionFrameRef = useRef<number | undefined>(undefined);
+  const precisionPreviewPatchRef = useRef<Partial<NonNullable<ResumePresentationConfig["precision"]>>>({});
+  function previewPrecision(patch: Partial<NonNullable<ResumePresentationConfig["precision"]>>) {
+    precisionPreviewPatchRef.current = { ...precisionPreviewPatchRef.current, ...patch };
+    if (precisionFrameRef.current !== undefined) return;
+    precisionFrameRef.current = requestAnimationFrame(() => {
+      precisionFrameRef.current = undefined;
+      const config = presentationQueueRef.current.latestConfig;
+      if (!config) return;
+      const vars = precisionStyleVars({ ...config, precision: { ...config.precision, ...precisionPreviewPatchRef.current } });
+      previewStageRef.current?.querySelectorAll<HTMLElement>(".resume-a4-page:not([data-resume-pagination-measurement])").forEach(node => {
+        for (const [key, value] of Object.entries(vars)) node.style.setProperty(key, String(value));
+      });
+    });
+  }
+  function commitPrecision(patch: Partial<NonNullable<ResumePresentationConfig["precision"]>>) {
+    if (precisionFrameRef.current !== undefined) { cancelAnimationFrame(precisionFrameRef.current); precisionFrameRef.current = undefined; }
+    precisionPreviewPatchRef.current = {};
+    const branchId = presentationQueueRef.current.latestConfig?.branchId;
+    void updatePresentationStyle(current => ({ precision: { ...current.precision, ...patch } }));
+    void presentationQueueRef.current.promise.then(() => {
+      const config = presentationQueueRef.current.latestConfig;
+      if (!config || config.branchId !== branchId) return;
+      const vars = precisionStyleVars(config);
+      previewStageRef.current?.querySelectorAll<HTMLElement>(".resume-a4-page:not([data-resume-pagination-measurement])").forEach(node => {
+        for (const key of ["--resume-contact-x", "--resume-contact-y", "--resume-header-height", "--resume-header-gap"]) node.style.removeProperty(key);
+        for (const [key, value] of Object.entries(vars)) node.style.setProperty(key, String(value));
+      });
+    });
+  }
+  useEffect(() => () => { if (precisionFrameRef.current !== undefined) cancelAnimationFrame(precisionFrameRef.current); }, []);
+
   function enqueuePresentation(operation: (config: ResumePresentationConfig) => Promise<ResumePresentationConfig | undefined>) {
     const queue = presentationQueueRef.current;
+    presentationPendingCount.current += 1;
+    setPresentationSaving(true);
     queue.promise = queue.promise.then(async () => {
       const config = queue.latestConfig ?? presentationConfig;
       if (!config) {
@@ -335,6 +420,9 @@ export function ResumeWorkspace() {
       }
     }).catch((error) => {
       console.error("Presentation queue error:", error);
+    }).finally(() => {
+      presentationPendingCount.current -= 1;
+      if (presentationPendingCount.current === 0) setPresentationSaving(false);
     });
     return queue.promise;
   }
@@ -607,10 +695,58 @@ export function ResumeWorkspace() {
       : undefined,
     selectedBranch.syncStatusCache.status !== "in_sync" ? syncStatusMessage(selectedBranch.syncStatusCache.status) : undefined
   ].filter((item): item is string => Boolean(item)) : [];
+  useEffect(() => {
+    if (!activeBranchId || activeBranchId === BRANCH_LIST_SENTINEL) return;
+    window.dispatchEvent(new CustomEvent("careeradapt-resume-studio-active", { detail: true }));
+    return () => { window.dispatchEvent(new CustomEvent("careeradapt-resume-studio-active", { detail: false })); };
+  }, [activeBranchId]);
+
   const studioLayoutStyle = {
     "--resume-section-nav-width": studioLayout.sectionNavCollapsed ? "44px" : "80px",
-    "--resume-field-panel-width": studioLayout.fieldPanelCollapsed ? "20px" : `${studioLayout.fieldPanelWidth}px`
+    "--resume-field-panel-width": studioLayout.fieldPanelCollapsed ? "20px" : `${studioLayout.fieldPanelWidth}px`,
+    "--resume-settings-width": `${effectiveSettingsWidth}px`
   } as CSSProperties;
+
+  useEffect(() => {
+    const shell = studioShellRef.current;
+    if (!shell) return;
+    const measure = () => {
+      const fields = shell.querySelector<HTMLElement>(".branch-editor");
+      const nav = shell.querySelector<HTMLElement>(".resume-section-nav-panel");
+      setSettingsWidthLimit(Math.max(MIN_SETTINGS_WIDTH, Math.min(MAX_SETTINGS_WIDTH,
+        shell.clientWidth - (fields?.offsetWidth ?? 420) - (nav?.offsetWidth ?? 80) - (window.innerWidth <= 1200 ? 28 : 280))));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(shell);
+    return () => observer.disconnect();
+  }, [studioLayout.fieldPanelWidth, studioLayout.fieldPanelCollapsed, studioLayout.sectionNavCollapsed, studioMode, selectedBranch?.id]);
+
+  function collapseSettings() {
+    if (settingsScrollRef.current) settingsScrollPositions.current[styleInspectorTab] = settingsScrollRef.current.scrollTop;
+    setStudioLayout(current => ({ ...current, settingsCollapsed: true }));
+    setCompactSettingsOpen(false);
+  }
+  function restoreSettings() {
+    setStudioLayout(current => ({ ...current, settingsCollapsed: false }));
+    setCompactSettingsOpen(true);
+  }
+  function startSettingsResize(event: React.PointerEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    const startX = event.clientX;
+    const initialWidth = effectiveSettingsWidth;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const move = (next: globalThis.PointerEvent) => setStudioLayout(current => ({ ...current,
+      settingsWidth: clampNumber(initialWidth + startX - next.clientX, MIN_SETTINGS_WIDTH, settingsWidthLimit) }));
+    const stop = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+      window.removeEventListener("pointercancel", stop);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+    window.addEventListener("pointercancel", stop);
+  }
 
   const refreshLists = useCallback(async (profileId: string) => {
     const [nextDrafts, nextBranches] = await Promise.all([
@@ -736,9 +872,11 @@ export function ResumeWorkspace() {
         setIsStylePanelOpen(parsed.stylePanelOpen);
       }
       if (requestedMode === "edit" || requestedMode === "ai" || requestedMode === "style") {
-        setStudioMode(requestedMode);
+        setStudioMode(requestedMode === "style" ? "edit" : requestedMode);
+        if (requestedMode === "style") restoreSettings();
       } else if (parsed.studioMode) {
-        setStudioMode(parsed.studioMode);
+        setStudioMode(parsed.studioMode === "style" ? "edit" : parsed.studioMode);
+        if (parsed.studioMode === "style") restoreSettings();
       }
       if (parsed.manualTab) {
         setManualInspectorTab(parsed.manualTab);
@@ -919,18 +1057,18 @@ export function ResumeWorkspace() {
       const scroller = stage.querySelector<HTMLElement>(".resume-document-scroller")!;
       const styles = getComputedStyle(scroller);
       const availableWidth = scroller.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight);
-      const availableHeight = scroller.clientHeight - parseFloat(styles.paddingTop) - parseFloat(styles.paddingBottom) - 28;
+      const availableHeight = scroller.clientHeight - parseFloat(styles.paddingTop) - Math.min(parseFloat(styles.paddingBottom), 24) - 28;
       if (canvasZoomMode === "fit-page") {
-        const nextZoom = clampNumber(availableWidth / A4_PAGE_WIDTH_PX, MIN_CANVAS_ZOOM, 1);
-        setCanvasZoom(Number(nextZoom.toFixed(2)));
+        const nextZoom = clampNumber(availableWidth / A4_PAGE_WIDTH_PX, 0.12, 1);
+        setCanvasZoom(Math.floor(nextZoom * 100) / 100);
       } else {
         // Fit the scrollable canvas, excluding its padding, page label and toolbar.
         const nextZoom = clampNumber(
           Math.min(availableWidth / A4_PAGE_WIDTH_PX, availableHeight / A4_PAGE_HEIGHT_PX),
-          MIN_CANVAS_ZOOM,
+          0.12,
           1
         );
-        setCanvasZoom(Number(nextZoom.toFixed(2)));
+        setCanvasZoom(Math.floor(nextZoom * 100) / 100);
       }
     };
     updateFitZoom();
@@ -1093,7 +1231,7 @@ export function ResumeWorkspace() {
       return;
     }
 
-    setStudioMode("style");
+    setStudioMode("edit"); restoreSettings();
     setStyleInspectorTab("page");
     window.requestAnimationFrame(() => {
       const sectionId = target?.sectionId;
@@ -1969,7 +2107,7 @@ export function ResumeWorkspace() {
       const nextConfig = buildNextPresentationConfig({
         current,
         branch: selectedBranch,
-        patch: defaults
+        patch: { ...defaults, precision: undefined }
       });
       return await savePresentationConfig({
         nextConfig,
@@ -2042,6 +2180,7 @@ export function ResumeWorkspace() {
         current,
         branch: selectedBranch,
         patch: {
+          precision: { ...current.precision, fontSizePx: 11.73, lineHeight: 1.34, sectionGapPx: 14.36, marginTopMm: 10, marginBottomMm: 10, marginLeftMm: 12, marginRightMm: 12 },
           typography: { ...current.typography, bodyTextScale: "small", lineHeight: "tight" },
           spacing: { pageMargin: "narrow", sectionGap: "tight", itemGap: "tight" },
           theme: { ...current.theme, density: "compact" },
@@ -2064,6 +2203,7 @@ export function ResumeWorkspace() {
         current,
         branch: selectedBranch,
         patch: {
+          precision: { ...current.precision, fontSizePx: 12.4, lineHeight: 1.62, sectionGapPx: 22.68, marginTopMm: 12, marginBottomMm: 12, marginLeftMm: 14, marginRightMm: 14 },
           typography: { ...current.typography, bodyTextScale: "normal", lineHeight: "relaxed" },
           spacing: { pageMargin: "normal", sectionGap: "relaxed", itemGap: "relaxed" },
           theme: { ...current.theme, density: "spacious" },
@@ -2369,6 +2509,34 @@ export function ResumeWorkspace() {
         .querySelector(`.resume-preview-stage [data-source-item-id="${cssEscape(itemId)}"]`)
         ?.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
     });
+  }
+
+  function navigatePreviewField(sourceItemId: string, text: string, fieldHint?: string) {
+    const itemId = sourceItemId.split("::fragment:")[0];
+    setStudioMode("edit");
+    setCompactSettingsOpen(false);
+    setStudioLayout(current => ({ ...current, fieldPanelCollapsed: false }));
+    if (itemId.startsWith("profile:") || itemId === "branch:targetRole" || itemId.startsWith("derived-summary:")) selectProfileField(itemId, text);
+    else if (itemId.startsWith("section-title:")) { selectSectionTitle(itemId, text); setEditingSectionTitleId(itemId); }
+    else selectStudioItem(itemId);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const panel = contentPanelRef.current;
+      if (!panel) return;
+      const item = Array.from(panel.querySelectorAll<HTMLElement>("[data-content-item-id]")).find(node => node.dataset.contentItemId === itemId);
+      if (item instanceof HTMLDetailsElement) item.open = true;
+      const root = item ?? panel;
+      const titleInput = panel.querySelector<HTMLInputElement>("#studio-section-title");
+      if (itemId.startsWith("section-title:") && titleInput) { titleInput.focus(); return; }
+      const fields = Array.from(root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>("input:not([type=checkbox]), textarea, select"));
+      const ids: Record<string, string> = { "profile:name": "basics-name", "profile:email": "basics-email", "profile:phone": "basics-phone", "profile:location": "basics-address", "profile:link:0": "basics-linkedin", "branch:targetRole": "basics-headline" };
+      const dateField = fieldHint === "date" ? fields.find(field => /(?:-start|startDate|awardedAt)$/.test(field.id)) : fieldHint === "date-end" ? fields.find(field => /(?:-end|endDate|expectedEndDate)$/.test(field.id)) : undefined;
+      const target = dateField ?? fields.find(field => field.id === ids[itemId]) ?? fields.find(field => field.value.trim() === text.trim())
+        ?? fields.find(field => text.trim() && field.value.includes(text.trim()))
+        ?? fields.find(field => field.value.trim().length > 1 && text.includes(field.value.trim()))
+        ?? fields.find(field => field instanceof HTMLSelectElement && Array.from(field.selectedOptions).some(option => (option.textContent ?? "").trim().length > 1 && text.includes((option.textContent ?? "").trim()))) ?? fields[0];
+      target?.scrollIntoView({ block: "center", behavior: "instant" });
+      target?.focus({ preventScroll: true });
+    }));
   }
 
   function selectStudioItem(itemId: string) {
@@ -3985,20 +4153,6 @@ export function ResumeWorkspace() {
                 ) : null}
                 {styleInspectorTab === "page" ? (
                 <div className="export-control-stack" data-testid="pdf-export-controls">
-                  <button
-                    className="primary-button"
-                    onClick={() => { void downloadPdf(); }}
-                    disabled={!renderModel || !presentationConfig || isPdfExportBusy || pagination.blocked || pagination.status === "measuring"}
-                  >
-                    {isPdfExportBusy ? "生成 PDF 中" : "下载 PDF"}
-                  </button>
-                  <button
-                    className="secondary-button"
-                    onClick={() => { void exportPdf(); }}
-                    disabled={!renderModel || isPdfExportBusy}
-                  >
-                    打印 / 保存 PDF
-                  </button>
                   <p
                     className={`save-status export-status-text ${pdfExportState.status === "failed" || pdfExportState.status === "blocked_overflow" ? "save-status-failed" : ""}`}
                     aria-live="polite"
@@ -4243,7 +4397,7 @@ export function ResumeWorkspace() {
                               <button className="primary-button compact" type="button" disabled={!branchEditable} onClick={() => openResumeBranch(branch.id)}>打开</button>
                               <button className="secondary-button compact" type="button" disabled={!branchEditable} onClick={() => {
                                 openResumeBranch(branch.id);
-                                setStudioMode("style");
+                                setStudioMode("edit"); restoreSettings();
                                 setStyleInspectorTab("page");
                                 notify({ type: "info", title: "已打开", message: "可在右上角导出 PDF。" });
                               }}>导出</button>
@@ -4263,7 +4417,7 @@ export function ResumeWorkspace() {
                               ><Pencil aria-hidden="true" size={15} /> 重命名</button>
                                   <button type="button" disabled={!branchEditable} onClick={() => {
                                     openResumeBranch(branch.id);
-                                    setStudioMode("style");
+                                    setStudioMode("edit"); restoreSettings();
                                     setStyleInspectorTab("page");
                                   }}>历史与页面</button>
                                   <button type="button" disabled={!canManageBranch(branch)} onClick={() => { void archiveBranch(branch); }}>归档</button>
@@ -4341,38 +4495,22 @@ export function ResumeWorkspace() {
           </div>
 
           <nav className="resume-mode-rail no-print" aria-label="编辑模式">
-            <button type="button" className={studioMode === "edit" ? "mode-rail-button mode-rail-button-active" : "mode-rail-button"} onClick={() => setStudioMode("edit")} title="编辑">
+            <button type="button" className={studioMode === "edit" ? "mode-rail-button mode-rail-button-active" : "mode-rail-button"} onClick={() => setStudioMode("edit")} aria-pressed={studioMode === "edit"} title="编辑">
               <span>编辑</span>
             </button>
-            <button type="button" className={studioMode === "ai" ? "mode-rail-button mode-rail-button-active" : "mode-rail-button"} onClick={() => setStudioMode("ai")} title="AI岗位优化">
+            <button type="button" className={studioMode === "ai" ? "mode-rail-button mode-rail-button-active" : "mode-rail-button"} onClick={() => setStudioMode("ai")} aria-pressed={studioMode === "ai"} title="AI岗位优化">
               <span>AI优化</span>
             </button>
-            <button type="button" className={studioMode === "style" ? "mode-rail-button mode-rail-button-active" : "mode-rail-button"} onClick={() => {
-              setStudioMode("style");
-              setActivePropertyTab("document");
-            }} title="样式">
-              <span>样式</span>
-            </button>
+            <button ref={settingsToggleRef} type="button" className="mode-rail-button resume-settings-toggle"
+              aria-expanded={compactSettingsOpen} aria-controls="resume-layout-settings"
+              onClick={() => {
+                if (compactSettingsOpen) closeCompactSettings();
+                else { setStudioMode("edit"); restoreSettings(); }
+              }}>排版设置</button>
           </nav>
 
           <div className="resume-studio-toolbar" aria-label="简历工作栏">
             <div className="resume-workbar-actions">
-              <button
-                type="button"
-                className="secondary-button compact"
-                data-testid="open-resume-import"
-                onClick={(event) => openImportDialog("file", event.currentTarget)}
-              >
-                导入
-              </button>
-              <button
-                type="button"
-                className="secondary-button compact"
-                onClick={() => { void openProfileSyncDialog(); }}
-                disabled={profileFieldPending}
-              >
-                {profileFieldPending ? "处理中…" : "从资料库更新简历"}
-              </button>
               {workbarWarnings.length > 0 ? (
                 <details className="resume-review-chip">
                   <summary>{workbarWarnings.length} 条需复核</summary>
@@ -4398,17 +4536,34 @@ export function ResumeWorkspace() {
               <button
                 className="primary-button compact"
                 onClick={() => { void downloadPdf(); }}
-                disabled={!renderModel || renderModel.safety.visibleItemCount === 0 || !presentationConfig || isPdfExportBusy || pagination.blocked || pagination.status === "measuring"}
+                disabled={!renderModel || renderModel.safety.visibleItemCount === 0 || !presentationConfig || isPdfExportBusy || presentationSaving || pagination.blocked || pagination.status === "measuring"}
                 title="下载 PDF"
               >
-                {isPdfExportBusy ? "生成中" : "导出PDF"}
+                {isPdfExportBusy ? "生成中" : "下载 PDF"}
               </button>
             <details className="toolbar-more">
               <summary className="secondary-button compact">更多</summary>
               <div className="toolbar-more-popover">
-                <button type="button" onClick={refreshSync}>重新检查</button>
+              <button
+                type="button"
+                className="secondary-button compact"
+                data-testid="open-resume-import"
+                onClick={(event) => openImportDialog("file", event.currentTarget)}
+              >
+                导入
+              </button>
+              <button
+                type="button"
+                className="secondary-button compact"
+                onClick={() => { void openProfileSyncDialog(); }}
+                disabled={profileFieldPending}
+              >
+                {profileFieldPending ? "处理中…" : "从资料库更新简历"}
+              </button>
+
+                {workbarWarnings.length === 0 ? <button type="button" onClick={refreshSync}>重新检查</button> : null}
                 <button type="button" onClick={downloadStructuredJson} disabled={!renderModel}>导出 JSON</button>
-                <button type="button" onClick={() => { void exportPdf(); }} disabled={!renderModel || renderModel.safety.visibleItemCount === 0 || isPdfExportBusy}>打印 / 保存 PDF</button>
+                <button type="button" onClick={() => { void exportPdf(); }} disabled={!renderModel || renderModel.safety.visibleItemCount === 0 || isPdfExportBusy || presentationSaving}>打印 / 保存 PDF</button>
                 <label className="inline-toggle studio-edit-toggle">
                   <input
                     type="checkbox"
@@ -4420,9 +4575,8 @@ export function ResumeWorkspace() {
                   />
                   画布直接编辑
                 </label>
-                <button type="button" onClick={() => notify({ type: "info", title: "版本记录", message: `当前简历共有 ${revisions.length} 个版本记录。` })}>查看历史</button>
-                <button type="button" onClick={() => { void undoPresentationChange(); }} disabled={!presentationHistory.undoStack.length || !presentationConfig}>回退展示</button>
-                <button type="button" onClick={() => { void redoPresentationChange(); }} disabled={!presentationHistory.redoStack.length || !presentationConfig}>重做展示</button>
+                <span className="toolbar-history-label">历史版本（{revisions.length}）</span>
+                <button type="button" onClick={() => { void undoPresentationChange(); }} disabled={!presentationHistory.undoStack.length || !presentationConfig}>仅回退排版</button>
                 <button type="button" onClick={() => { void archiveBranch(selectedBranch); }} disabled={!canManageBranch(selectedBranch)}>归档</button>
                 {revisions.slice(0, 3).map((revision) => (
                   <button
@@ -4542,6 +4696,9 @@ export function ResumeWorkspace() {
         <section
           className={`resume-preview-layout resume-studio-shell resume-studio-shell-${studioMode}`}
           data-testid="resume-studio-shell"
+          data-settings-open={compactSettingsOpen}
+          ref={studioShellRef}
+          data-settings-collapsed={studioLayout.settingsCollapsed}
           style={studioLayoutStyle}
         >
           {studioMode === "edit" ? (
@@ -4650,7 +4807,8 @@ export function ResumeWorkspace() {
               ) : null}
             </aside>
           ) : null}
-          <aside className={`panel no-print resume-export-panel resume-inspector ${studioMode === "edit" ? "branch-editor" : ""}`} data-testid="resume-active-section-fields">
+          <aside ref={contentPanelRef} className={`panel no-print resume-export-panel resume-inspector ${studioMode === "edit" ? "branch-editor" : ""}`} data-testid="resume-active-section-fields"
+            onScroll={(event) => { contentScrollPositions.current[studioMode] = event.currentTarget.scrollTop; }}>
             {studioMode !== "edit" ? <div className="property-panel-heading">
               {studioMode === "style" ? <h2>样式</h2> : null}
             </div> : null}
@@ -4663,14 +4821,16 @@ export function ResumeWorkspace() {
                     role="tab"
                     aria-selected={styleInspectorTab === tab}
                     className={styleInspectorTab === tab ? "inspector-tab inspector-tab-active" : "inspector-tab"}
-                    onClick={() => setStyleInspectorTab(tab)}
+                    onClick={() => selectSettingsTab(tab)}
                   >
                     {styleInspectorTabLabel(tab)}
                   </button>
                 ))}
               </div>
             ) : null}
-            {studioMode === "edit" ? (
+            <div className="resume-content-pane" hidden={studioMode !== "edit"}>
+              {editingSectionTitleId ? <label className="field-label studio-section-title-field">栏目标题<input id="studio-section-title" aria-label="栏目标题" value={sectionTitleDraftText} disabled={!selectedBranchEditable || sectionTitlePending} onChange={event => setSectionTitleDraftText(event.target.value)} onBlur={() => { void saveSectionTitleEdit(); }} />{sectionTitleError ? <span role="alert">{sectionTitleError}</span> : null}</label> : null}
+              {
               activeResumeSection === "basics" ? (
                 <BasicsSectionPage
                   profile={profile}
@@ -4757,7 +4917,8 @@ export function ResumeWorkspace() {
                   nav={sectionNavContext}
                 />
               )
-            ) : null}
+              }
+            </div>
             {studioMode === "style" ? styleControls : null}
             {renderResult.warning ? (
               <div className="warning-box" data-testid="render-compatibility-warning" role="status" aria-live="polite">
@@ -4900,19 +5061,47 @@ export function ResumeWorkspace() {
             }}
           />
 
-          {studioMode === "edit" ? (
-            <aside className="panel no-print resume-layout-inspector" aria-label="简历排版设置" data-testid="resume-layout-inspector">
-              <div className="property-panel-heading"><h2>页面排版</h2><p>调整样式并实时查看预览</p></div>
-              <div className="inspector-tablist" role="tablist" aria-label="排版设置">
-                {(["template", "font", "colors", "page"] as const).map((tab) => (
+          {studioMode === "edit" ? <>
+            <button type="button" role="separator" aria-orientation="vertical" aria-label="调整设置栏宽度"
+              aria-valuemin={MIN_SETTINGS_WIDTH} aria-valuemax={settingsWidthLimit} aria-valuenow={effectiveSettingsWidth}
+              className="settings-resize-handle no-print" onPointerDown={startSettingsResize}
+              onKeyDown={event => {
+                if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+                event.preventDefault();
+                setStudioLayout(current => ({ ...current, settingsWidth: clampNumber(effectiveSettingsWidth + (event.key === "ArrowLeft" ? 16 : -16), MIN_SETTINGS_WIDTH, settingsWidthLimit) }));
+              }} />
+            {studioLayout.settingsCollapsed ? <button className="settings-restore no-print" type="button" aria-label="展开设置栏" onClick={restoreSettings}>‹</button> : null}
+            <aside id="resume-layout-settings" className="panel no-print resume-layout-inspector" aria-label="简历排版设置" data-testid="resume-layout-inspector">
+              <div className="property-panel-heading"><h2>页面排版</h2><p>调整字体、间距、主题色。</p>
+                <button className="settings-collapse" type="button" aria-label="折叠设置栏" title="折叠设置栏" onClick={collapseSettings}>›</button>
+                <button className="secondary-button compact resume-settings-close" type="button" onClick={closeCompactSettings}>返回预览</button>
+              </div>
+              <div ref={settingsTabsRef} className="inspector-tablist" role="tablist" aria-label="排版设置">
+                {(["font", "colors", "page", "template"] as const).map((tab) => (
                   <button key={tab} type="button" role="tab" aria-selected={styleInspectorTab === tab}
                     className={styleInspectorTab === tab ? "inspector-tab inspector-tab-active" : "inspector-tab"}
-                    onClick={() => setStyleInspectorTab(tab)}>{styleInspectorTabLabel(tab)}</button>
+                    onClick={() => selectSettingsTab(tab)}>{styleInspectorTabLabel(tab)}</button>
                 ))}
               </div>
-              {styleControls}
+              <div ref={settingsScrollRef} className="resume-settings-body" onScroll={event => { settingsScrollPositions.current[styleInspectorTab] = event.currentTarget.scrollTop; }}>
+                {styleInspectorTab === "template" ? styleControls : presentationConfig ? <PrecisionInspector
+                  config={presentationConfig} tab={styleInspectorTab} disabled={!selectedBranchEditable}
+                  supportsPhoto={selectedTemplate.capabilities.supportsPhoto}
+                  onPrecisionPreview={previewPrecision}
+                  onPrecision={commitPrecision}
+                  onTypography={patch => { void updatePresentationStyle(current => ({ typography: { ...current.typography, ...patch } })); }}
+                  onDensity={density => { void updatePresentationStyle(current => ({ theme: { ...current.theme, density }, precision: { ...current.precision, lineHeight: density === "compact" ? 1.24 : density === "spacious" ? 1.7 : 1.48, sectionGapPx: density === "compact" ? 8 : density === "spacious" ? 24 : 16 } })); }}
+                  onMultiPage={enabled => { void updatePagePolicy(enabled ? "natural" : "one_page_strict"); }}
+                  extraPageControls={<fieldset disabled={!selectedBranchEditable}>
+                    <div className="page-policy-presets"><button type="button" className="secondary-button compact" onClick={() => { void optimizeForOnePage(); }}>一页优化</button><button type="button" className="secondary-button compact" onClick={() => { void relaxForTwoPages(); }}>两页舒展</button></div>
+                    <label className="precision-select">页数策略<select data-testid="page-policy-selector" aria-label="页数策略" value={presentationConfig.pagination.pagePolicy} onChange={e => { void updatePagePolicy(e.target.value as ResumePresentationConfig["pagination"]["pagePolicy"]); }}><option value="natural">自然分页</option><option value="prefer_one_page">优先一页</option><option value="one_page_strict">严格单页</option><option value="up_to_two_pages">建议两页</option></select></label>
+                    <label className="precision-select">页眉页脚<select aria-label="页眉页脚" value={presentationConfig.pagination.headerFooter} onChange={e => { void updatePaginationSettings({ headerFooter: e.target.value as "none" | "page_number" }, "页脚已保存。"); }}><option value="none">不显示</option><option value="page_number">显示页码</option></select></label>
+                    <label className="precision-select">部门位置<select aria-label="部门位置" value={presentationConfig.departmentPlacement ?? "auto"} onChange={e => { void updateDepartmentPlacement(e.target.value as ResumePresentationConfig["departmentPlacement"]); }}><option value="auto">跟随模板</option><option value="inline">同行</option><option value="stacked">独立行</option></select></label>
+                  </fieldset>}
+                /> : null}
+              </div>
             </aside>
-          ) : null}
+          </> : null}
 
           <div className="resume-preview-stage" ref={previewStageRef}>
             <div className="resume-document-scroller" data-testid="resume-document-scroller">
@@ -4950,6 +5139,7 @@ export function ResumeWorkspace() {
                   profileError: profileFieldError,
                   sectionTitleError,
                   pending: Boolean(pendingStudioOperationId) || profileFieldPending || sectionTitlePending,
+                  onNavigateToField: navigatePreviewField,
                   onSelect: selectStudioItem,
                   onStartEdit: startStudioEdit,
                   onDraftTextChange: setStudioDraftText,
@@ -4989,9 +5179,9 @@ export function ResumeWorkspace() {
                 {pagination.plan ? `${pagination.plan.actualPageCount} 页` : "测量页数"}
               </span>
               <div className="zoom-control" role="group" aria-label="画布缩放">
-                <button className="secondary-button compact" type="button" aria-label="缩小预览" onClick={() => updateCanvasZoom((value) => value - 0.08)}>-</button>
+                <button className="secondary-button compact" type="button" aria-label="缩小预览" disabled={canvasZoom <= MIN_CANVAS_ZOOM} onClick={() => updateCanvasZoom((value) => value - 0.08)}>-</button>
                 <span>{Math.round(canvasZoom * 100)}%</span>
-                <button className="secondary-button compact" type="button" aria-label="放大预览" onClick={() => updateCanvasZoom((value) => value + 0.08)}>+</button>
+                <button className="secondary-button compact" type="button" aria-label="放大预览" disabled={canvasZoom >= MAX_CANVAS_ZOOM} onClick={() => updateCanvasZoom((value) => value + 0.08)}>+</button>
                 <button className={canvasZoomMode === "fit-page" ? "primary-button compact" : "secondary-button compact"} type="button" onClick={() => setCanvasZoomMode("fit-page")}>
                   适合宽度
                 </button>
@@ -5284,7 +5474,7 @@ function buildNextPresentationConfig(input: {
   branch: ResumeBranch;
   patch: Partial<Pick<
     ResumePresentationConfig,
-    "templateId" | "itemOrderBySection" | "hiddenItemIds" | "typography" | "spacing" | "theme" | "pagination" | "sectionOrder" | "sectionStyleOverrides" | "itemHeaderMiddleAlignment" | "departmentPlacement"
+    "precision" | "templateId" | "itemOrderBySection" | "hiddenItemIds" | "typography" | "spacing" | "theme" | "pagination" | "sectionOrder" | "sectionStyleOverrides" | "itemHeaderMiddleAlignment" | "departmentPlacement"
   >>;
 }): ResumePresentationConfig {
   if (!input.branch.currentRevisionId) {
@@ -5308,6 +5498,7 @@ function presentationSnapshotPatch(config: ResumePresentationConfig) {
     sectionOrder: config.sectionOrder,
     itemOrderBySection: config.itemOrderBySection,
     hiddenItemIds: config.hiddenItemIds,
+    precision: config.precision,
     typography: config.typography,
     spacing: config.spacing,
     theme: config.theme,
@@ -5318,6 +5509,7 @@ function presentationSnapshotPatch(config: ResumePresentationConfig) {
 
 function presentationStylePatch(config: ResumePresentationConfig): ResumeTemplateStyleConfig {
   return {
+    precision: config.precision,
     typography: config.typography,
     spacing: config.spacing,
     theme: config.theme,
@@ -5413,6 +5605,8 @@ function parseStudioLayoutState(value: string | null): StudioLayoutState | undef
   try {
     const parsed = JSON.parse(value) as Partial<StudioLayoutState>;
     return {
+      settingsCollapsed: parsed.settingsCollapsed === true,
+      settingsWidth: clampNumber(typeof parsed.settingsWidth === "number" && Number.isFinite(parsed.settingsWidth) ? parsed.settingsWidth : DEFAULT_STUDIO_LAYOUT.settingsWidth, MIN_SETTINGS_WIDTH, MAX_SETTINGS_WIDTH),
       sectionNavCollapsed: typeof parsed.sectionNavCollapsed === "boolean" ? parsed.sectionNavCollapsed : DEFAULT_STUDIO_LAYOUT.sectionNavCollapsed,
       fieldPanelCollapsed: typeof parsed.fieldPanelCollapsed === "boolean" ? parsed.fieldPanelCollapsed : DEFAULT_STUDIO_LAYOUT.fieldPanelCollapsed,
       fieldPanelWidth: clampNumber(
@@ -5710,8 +5904,8 @@ function profileFieldLabel(fieldId?: string) {
 function styleInspectorTabLabel(tab: StyleInspectorTab) {
   const labels: Record<StyleInspectorTab, string> = {
     template: "模板",
-    colors: "颜色",
-    font: "字体",
+    colors: "样式",
+    font: "排版",
     page: "页面"
   };
   return labels[tab];

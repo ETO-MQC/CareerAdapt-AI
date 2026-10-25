@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PresentationPrecisionSchema } from "./presentationPrecision";
 import { IsoDateStringSchema } from "./common";
 import {
   OverflowStatusSchema,
@@ -31,6 +32,7 @@ export const SafePdfFileNameSchema = z.string()
 
 export const ExportSnapshotPresentationSchema = z.object({
   templateId: TemplateIdSchema,
+  precision: PresentationPrecisionSchema.optional(),
   sectionOrder: z.array(ResumeRenderSectionTypeSchema),
   itemOrderBySection: z.record(z.string(), z.array(z.string().min(1))),
   hiddenItemIds: z.array(z.string().min(1)),

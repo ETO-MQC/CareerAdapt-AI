@@ -1,4 +1,5 @@
 "use client";
+import { precisionAttrs } from "@/components/resume/templates/precisionStyles";
 
 import { useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type MouseEvent, type RefObject } from "react";
 import type { ResumePaginationPlan, ResumePresentationConfig, ResumeRenderModel } from "@/domain/schemas";
@@ -24,6 +25,7 @@ export type ResumeStudioEditorProps = {
   profileError?: string;
   sectionTitleError?: string;
   pending: boolean;
+  onNavigateToField?: (itemId: string, text: string, fieldHint?: string) => void;
   onSelect: (itemId: string) => void;
   onStartEdit: (itemId: string) => void;
   onDraftTextChange: (text: string) => void;
@@ -106,6 +108,7 @@ export function A4ResumePreview({
     const sourceNode = findSourceNode(event.target);
     const itemId = sourceNode?.dataset.sourceItemId;
     if (itemId) {
+      if (editor.onNavigateToField) { event.preventDefault(); editor.onNavigateToField(itemId, (event.target as HTMLElement).textContent ?? "", (event.target as HTMLElement).closest("[data-editor-date=\"end\"]") ? "date-end" : (event.target as HTMLElement).closest("time") ? "date" : undefined); return; }
       positionOverlay(sourceNode, event.currentTarget);
       if (isProfileFieldId(itemId) && editor.onSelectProfileField) {
         editor.onSelectProfileField(itemId, sourceNode.textContent ?? "");
@@ -124,6 +127,7 @@ export function A4ResumePreview({
     const sourceNode = findSourceNode(event.target);
     const itemId = sourceNode?.dataset.sourceItemId;
     if (itemId) {
+      if (editor.onNavigateToField) { event.preventDefault(); editor.onNavigateToField(itemId, (event.target as HTMLElement).textContent ?? "", (event.target as HTMLElement).closest("[data-editor-date=\"end\"]") ? "date-end" : (event.target as HTMLElement).closest("time") ? "date" : undefined); return; }
       positionOverlay(sourceNode, event.currentTarget);
       if (isProfileFieldId(itemId) && editor.onSelectProfileField && editor.onStartProfileFieldEdit) {
         const currentText = sourceNode.textContent ?? "";
@@ -142,6 +146,11 @@ export function A4ResumePreview({
 
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
     if (!editor?.enabled) {
+      return;
+    }
+    if (editor.onNavigateToField && (event.key === "Enter" || event.key === "F2")) {
+      const itemId = editor.selectedProfileFieldId ?? editor.selectedSectionTitleId ?? editor.selectedItemId;
+      if (itemId) { event.preventDefault(); editor.onNavigateToField(itemId, ""); }
       return;
     }
     if (event.nativeEvent.isComposing) {
@@ -215,6 +224,7 @@ export function A4ResumePreview({
   const previewZoomStyle = { "--resume-preview-zoom": zoom } as CSSProperties;
 
   function renderEditorOverlay() {
+    if (editor?.onNavigateToField) return null;
     if (!editor?.enabled || (!editor.selectedBlock && !editor.selectedProfileFieldId && !editor.selectedSectionTitleId)) {
       return null;
     }
@@ -385,6 +395,7 @@ export function A4ResumePreview({
         ref={pageRef}
         className={`resume-a4-page ${template.className} resume-pagination-measurement-page no-print`}
         style={resumeTemplateStyleVars(template, presentationConfig)}
+        {...precisionAttrs(presentationConfig)}
         data-testid="resume-pagination-measurement-page"
         data-resume-pagination-measurement="true"
         aria-hidden="true"
@@ -398,6 +409,7 @@ export function A4ResumePreview({
             <article
               className={`resume-a4-page ${template.className} ${editor?.enabled ? "resume-studio-edit-enabled" : ""}`}
               style={resumeTemplateStyleVars(template, presentationConfig)}
+        {...precisionAttrs(presentationConfig)}
               data-testid="resume-a4-page"
               aria-label={`A4 简历预览第 ${index + 1} 页`}
               tabIndex={editor?.enabled ? 0 : undefined}

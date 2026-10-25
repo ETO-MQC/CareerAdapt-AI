@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { NotificationProvider } from "@/components/notifications/NotificationProvider";
 import { useWorkspaceMode } from "@/components/layout/WorkspaceModeProvider";
 import { WORKSPACE_MODE_OPTIONS } from "@/services/preferences/workspaceMode";
@@ -62,7 +62,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const hasSidebarPreference = sidebarPreference !== null;
   const sidebarCollapsed = sidebarPreference === "true";
   const isCompactResumeViewport = useMediaQuery("(max-width: 1400px)");
-  const sidebarVisuallyCollapsed = sidebarCollapsed
+  const [studioActive, setStudioActive] = useState(false);
+  const [studioExpanded, setStudioExpanded] = useState(false);
+  useEffect(() => {
+    const update = (event: Event) => { setStudioActive((event as CustomEvent<boolean>).detail); setStudioExpanded(false); };
+    window.addEventListener("careeradapt-resume-studio-active", update);
+    return () => window.removeEventListener("careeradapt-resume-studio-active", update);
+  }, []);
+  const sidebarVisuallyCollapsed = studioActive ? !studioExpanded : sidebarCollapsed
     || (!hasSidebarPreference && pathname.startsWith("/resume") && isCompactResumeViewport);
 
   useEffect(() => {
@@ -101,7 +108,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             aria-label={sidebarVisuallyCollapsed ? "展开主导航" : "收起主导航"}
             title={sidebarVisuallyCollapsed ? "展开主导航" : "收起主导航"}
             onClick={() => {
-              persistSidebarPreference(!sidebarVisuallyCollapsed);
+              if (studioActive) setStudioExpanded(sidebarVisuallyCollapsed);
+              else persistSidebarPreference(!sidebarVisuallyCollapsed);
             }}
           >
             <ShellIcon name={sidebarVisuallyCollapsed ? "expand" : "collapse"} />

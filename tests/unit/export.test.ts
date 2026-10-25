@@ -9,7 +9,7 @@ import {
 } from "@/domain/schemas";
 import { buildResumePdfFileName, contentDispositionAttachment, isSafePdfFileName, PDF_MIME_TYPE } from "@/services/export/filename";
 import { createResumePaginationPlan } from "@/services/export/pagination";
-import { createResumePdfExportRequest, stableStringify, verifyExportSnapshotHash } from "@/services/export/snapshot";
+import { createResumePdfExportRequest, presentationConfigFromExportSnapshot, stableStringify, verifyExportSnapshotHash } from "@/services/export/snapshot";
 import { renderResumePdfHtml } from "@/services/export/pdfHtml";
 import { CareerAdaptDb } from "@/services/storage/db";
 import { WorkspaceRepository } from "@/services/storage/repositories";
@@ -26,6 +26,31 @@ afterEach(async () => {
 });
 
 describe("V2 G3a direct PDF export", () => {
+  it("round trips precision through signed snapshot and formal HTML without altering content", async () => {
+    const { branch, presentationConfig, job } = await createBranchFixture("CareerAdaptPrecisionExportDb");
+    const precision = { fontSizePx: 15, nameScale: 1.55, lineHeight: 1.24, letterSpacingPx: .2, sectionGapPx: 8,
+      marginTopMm: 8, marginRightMm: 10, marginBottomMm: 9, marginLeftMm: 11,
+      primaryColor: "#91353e", accentColor: "#397550", dividerColor: "#485158", titleFollowColor: true,
+      titleStyle: "underline" as const, entryStyle: "stacked" as const, linkStyle: "accent" as const,
+      bulletStyle: "square" as const, bulletScale: 1.3, underlineWidth: 1.5, titleBar: true,
+      contactIcons: true, headerLayout: "center" as const, verticalAlign: "bottom" as const,
+      contactOffsetX: 3, contactOffsetY: -2, headerHeightPx: 118, headerGapPx: 5 };
+    const config = ResumePresentationConfigSchema.parse({ ...presentationConfig, precision });
+    const model = mapBranchToResumeRenderModel({ branch, profile: demoCareerProfile, job, presentationConfig: config });
+    const request = createResumePdfExportRequest({ exportId: "precision-export", renderModel: model,
+      presentationConfig: config, generatedAt: "2026-07-04T12:00:00.000Z", filename: "precision.pdf",
+      overflowStatus: "fits_one_page", paginationPlan: createPaginationPlanFixture(model, config) });
+    expect(ResumePdfExportRequestSchema.parse(request).snapshot.presentation.precision).toEqual(precision);
+    expect(presentationConfigFromExportSnapshot(request.snapshot).precision).toEqual(precision);
+    expect(verifyExportSnapshotHash(request.snapshot)).toBe(true);
+    expect(verifyExportSnapshotHash({ ...request.snapshot, presentation: { ...request.snapshot.presentation,
+      precision: { ...precision, fontSizePx: 16 } } })).toBe(false);
+    const html = await renderResumePdfHtml(request.snapshot);
+    for (const value of ['--resume-body-font-size:15px', '--resume-margin-left:11mm', '--resume-header-height:118px',
+      'data-precision-header="center"', 'data-precision-bullet="square"', 'data-precision-align="bottom"', '#91353e']) expect(html).toContain(value);
+    expect(model).toEqual(mapBranchToResumeRenderModel({ branch, profile: demoCareerProfile, job, presentationConfig }));
+  });
+
   it("builds safe Windows filenames without internal ids or duplicate extensions", () => {
     const filename = buildResumePdfFileName({
       candidateName: " 陈:同/学.pdf ",

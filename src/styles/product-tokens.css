@@ -1,4 +1,5 @@
 :root {
+  --product-inspector-surface: #f7f6f1;
   --product-app-bg: #f3f6f4;
   --product-sidebar: #eaf0ec;
   --product-surface: #fbfcfb;
@@ -45,6 +46,7 @@
 }
 
 :root[data-theme="dark"] {
+  --product-inspector-surface: #1a1e20;
   --product-app-bg: #0d1214;
   --product-sidebar: #090d0f;
   --product-surface: #141a1d;

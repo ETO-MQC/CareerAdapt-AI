@@ -7,7 +7,7 @@ export async function openManualContentTab(page: Page) {
 
 export async function openManualTypographyTab(page: Page) {
   await openResumeStyleTab(page, 2);
-  await expect(page.getByLabel("正文字号")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByLabel("全局字号", { exact: true })).toBeVisible({ timeout: 15_000 });
 }
 
 export async function openManualLayoutTab(page: Page) {
@@ -17,6 +17,8 @@ export async function openManualLayoutTab(page: Page) {
 
 export async function openManualPageTab(page: Page) {
   await openResumeStyleTab(page, 3);
+  const advanced = page.getByTestId("resume-layout-inspector").locator("details.precision-advanced");
+  if (!await advanced.getAttribute("open").then(value => value !== null)) await advanced.locator("summary").click();
   await expect(page.getByTestId("page-policy-selector")).toBeVisible({ timeout: 15_000 });
 }
 
@@ -86,11 +88,9 @@ async function openResumeEditMode(page: Page) {
 }
 
 async function openResumeStyleTab(page: Page, index: number) {
-  await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 15_000 });
-  const modeRail = page.locator(".resume-mode-rail button");
-  await expect(modeRail.nth(2)).toBeVisible({ timeout: 15_000 });
-  await modeRail.nth(2).click();
-  const styleTabs = page.locator(".resume-inspector .inspector-tablist button");
-  await expect(styleTabs.nth(index)).toBeVisible({ timeout: 15_000 });
-  await styleTabs.nth(index).click();
+  await openResumeEditMode(page);
+  const panel = page.getByTestId("resume-layout-inspector");
+  if (!await panel.isVisible()) await page.getByRole("button", { name: "排版设置", exact: true }).click();
+  const labels = ["模板", "样式", "排版", "页面"];
+  await panel.getByRole("tab", { name: labels[index], exact: true }).click();
 }

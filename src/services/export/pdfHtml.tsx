@@ -1,3 +1,4 @@
+import { precisionAttrs } from "@/components/resume/templates/precisionStyles";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { renderToReadableStream } from "react-dom/server.edge";
@@ -24,6 +25,7 @@ export async function renderResumePdfHtml(
         <article
           className={`resume-a4-page ${template.className} resume-pagination-measurement-page no-print`}
           style={resumeTemplateStyleVars(template, presentationConfig)}
+        {...precisionAttrs(presentationConfig)}
           data-testid="resume-pagination-measurement-page"
           data-resume-pagination-measurement="true"
           aria-hidden="true"
@@ -37,6 +39,7 @@ export async function renderResumePdfHtml(
             <article
               className={`resume-a4-page ${template.className}`}
               style={resumeTemplateStyleVars(template, presentationConfig)}
+        {...precisionAttrs(presentationConfig)}
               data-testid="resume-a4-page"
               aria-label={`A4 简历 PDF 第 ${index + 1} 页`}
             >

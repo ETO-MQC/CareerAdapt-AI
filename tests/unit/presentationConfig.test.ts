@@ -21,6 +21,25 @@ afterEach(async () => {
 });
 
 describe("V2 G1a resume presentation config", () => {
+  it("persists precision without changing facts, source evidence or content revisions", async () => {
+    const { repository, branch } = await createBranchFixture("CareerAdaptPrecisionDb");
+    const initial = await repository.getResumePresentationConfig(branch.id);
+    const beforeBranch = await repository.getResumeBranch(branch.id);
+    const beforeRevisions = await repository.listResumeRevisions(branch.id);
+    const precision = { fontSizePx: 15, lineHeight: 1.24, marginLeftMm: 9, headerLayout: "center" as const, primaryColor: "#91353e" };
+    const nextConfig = { ...nextPresentationConfig(initial, branch, {}), precision };
+    const saved = await repository.saveResumePresentationConfig({ branchId: branch.id,
+      expectedBranchRevision: branch.revision, expectedRevisionId: branch.currentRevisionId!,
+      expectedPresentationRevision: initial.presentationRevision, operationId: "precision-settings", nextConfig });
+    expect(saved.config.precision).toEqual(precision);
+    expect((await repository.getResumePresentationConfig(branch.id)).precision).toEqual(precision);
+    expect(await repository.getResumeBranch(branch.id)).toEqual(beforeBranch);
+    expect(await repository.listResumeRevisions(branch.id)).toEqual(beforeRevisions);
+    for (const precision of [{ fontSizePx: 0 }, { marginLeftMm: -1 }, { lineHeight: Infinity }, { primaryColor: "red" }, { unsupported: 1 }]) {
+      expect(ResumePresentationConfigSchema.safeParse({ ...initial, precision }).success).toBe(false);
+    }
+  });
+
   it("rejects duplicate hidden ids and duplicate order ids at schema level", () => {
     expect(() => ResumePresentationConfigSchema.parse({
       schemaVersion: "resume-presentation-v1",

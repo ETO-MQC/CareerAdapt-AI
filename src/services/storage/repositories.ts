@@ -6479,6 +6479,7 @@ export class WorkspaceRepository {
       sectionOrder?: string[];
       itemOrderBySection: Record<string, string[]>;
       hiddenItemIds: string[];
+      precision?: ResumePresentationConfig["precision"];
       typography?: ResumePresentationConfig["typography"];
       spacing?: ResumePresentationConfig["spacing"];
       theme?: ResumePresentationConfig["theme"];

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PresentationPrecisionSchema } from "./presentationPrecision";
 import { IsoDateStringSchema } from "./common";
 import { ResumeRenderSectionTypeSchema, TemplateIdSchema } from "./resumeRender";
 import { defaultResumeRenderSectionOrder } from "@/domain/resumeFields/catalog";
@@ -10,7 +11,7 @@ export const PresentationSpacingScaleSchema = z.enum(["tight", "normal", "relaxe
 export const PresentationAccentColorSchema = z.enum(["graphite", "emerald", "blue", "rose"]);
 export const PresentationDensitySchema = z.enum(["compact", "balanced", "spacious"]);
 export const PresentationFontFamilySchema = z.enum(["system_sans", "source_han_sans", "source_han_serif"]);
-export const PresentationEnglishFontFamilySchema = z.enum(["system_sans", "arial", "georgia"]);
+export const PresentationEnglishFontFamilySchema = z.enum(["system_sans", "arial", "georgia", "times_new_roman"]);
 export const PresentationPageMarginSchema = z.enum(["narrow", "normal", "wide"]);
 export const PresentationHeaderFooterSchema = z.enum(["none", "page_number"]);
 export const ResumePagePolicySchema = z.enum(["natural", "prefer_one_page", "one_page_strict", "up_to_two_pages"]);
@@ -200,6 +201,7 @@ export const ResumePresentationConfigSchema = z.object({
   theme: PresentationThemeSchema.default(DEFAULT_THEME),
   pagination: PresentationPaginationSchema.default(DEFAULT_PAGINATION),
   sectionStyleOverrides: SectionStyleOverridesSchema,
+  precision: PresentationPrecisionSchema.optional(),
   highlightListStyle: PresentationHighlightListStyleSchema.default("bullet"),
   departmentPlacement: z.enum(["auto", "inline", "stacked"]).optional(),
   itemHeaderMiddleAlignment: PresentationItemHeaderMiddleAlignmentSchema.default("balanced"),
@@ -260,7 +262,7 @@ function normalizeChineseFont(value: unknown) {
 }
 
 function normalizeEnglishFont(value: unknown) {
-  if (value === "system_sans" || value === "arial" || value === "georgia") {
+  if (value === "system_sans" || value === "arial" || value === "georgia" || value === "times_new_roman") {
     return value;
   }
   return DEFAULT_TYPOGRAPHY.englishFont;

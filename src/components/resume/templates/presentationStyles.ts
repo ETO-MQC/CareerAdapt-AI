@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { precisionStyleVars } from "./precisionStyles";
 import type { ResumePresentationConfig } from "@/domain/schemas";
 import type { ResumeTemplateDefinition, ResumeTemplateStyleConfig } from "./types";
 
@@ -33,6 +34,7 @@ export function cloneTemplateStyleConfig(style: ResumeTemplateStyleConfig): Resu
     typography: { ...style.typography },
     spacing: { ...style.spacing },
     theme: { ...style.theme },
+    ...(style.precision ? { precision: { ...style.precision } } : {}),
     sectionStyleOverrides: { ...style.sectionStyleOverrides }
   };
 }
@@ -48,6 +50,7 @@ export function resolveTemplateStyleConfig(
     typography: { ...presentationConfig.typography },
     spacing: { ...presentationConfig.spacing },
     theme: { ...presentationConfig.theme },
+    precision: presentationConfig.precision,
     sectionStyleOverrides: { ...presentationConfig.sectionStyleOverrides }
   };
 }
@@ -86,6 +89,7 @@ export function resolveTemplateSwitchStyle(
       dividerColor: adoptDefault(currentStyle.theme.dividerColor, source.theme.dividerColor, target.theme.dividerColor),
       density: adoptDefault(currentStyle.theme.density, source.theme.density, target.theme.density)
     },
+    ...(currentStyle.precision ? { precision: { ...currentStyle.precision } } : {}),
     sectionStyleOverrides: { ...currentStyle.sectionStyleOverrides }
   };
 }
@@ -125,7 +129,8 @@ export function resumeTemplateStyleVars(
     "--resume-bullet-color": accent.bullet,
     "--resume-primary-color": primary.accent,
     "--resume-primary-strong": primary.strong,
-    "--resume-divider-color": divider.border
+    "--resume-divider-color": divider.border,
+    ...precisionStyleVars(presentationConfig)
   } as CSSProperties;
 }
 
@@ -163,8 +168,8 @@ function fontFamilyToken(
     : chineseFont === "source_han_sans"
       ? '"Source Han Sans SC", "Noto Sans CJK SC", "Microsoft YaHei"'
       : '"Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC"';
-  const english = englishFont === "georgia" ? "Georgia" : englishFont === "arial" ? "Arial" : '"Segoe UI", Arial';
-  return `${chinese}, ${english}, sans-serif`;
+  const english = englishFont === "times_new_roman" ? '"Times New Roman", Times' : englishFont === "georgia" ? "Georgia" : englishFont === "arial" ? "Arial" : '"Segoe UI", Arial';
+  return englishFont === "system_sans" ? `${chinese}, ${english}, sans-serif` : `${english}, ${chinese}, sans-serif`;
 }
 
 function bodyTextScaleTokens(scale: ResumePresentationConfig["typography"]["bodyTextScale"]) {

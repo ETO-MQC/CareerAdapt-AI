@@ -43,11 +43,19 @@ export function AgentSidebar() {
   const pathname = usePathname() || "/";
   const router = useRouter();
   const { mode, setMode } = useWorkspaceMode();
-  const collapsed = useSyncExternalStore(
+  const preferredCollapsed = useSyncExternalStore(
     subscribeToSidebarPreference,
     readSidebarCollapsed,
     () => false
   );
+  const [studioActive, setStudioActive] = useState(false);
+  const [studioExpanded, setStudioExpanded] = useState(false);
+  const collapsed = studioActive ? !studioExpanded : preferredCollapsed;
+  useEffect(() => {
+    const update = (event: Event) => { setStudioActive((event as CustomEvent<boolean>).detail); setStudioExpanded(false); };
+    window.addEventListener("careeradapt-resume-studio-active", update);
+    return () => window.removeEventListener("careeradapt-resume-studio-active", update);
+  }, []);
   const [sessions, setSessions] = useState<AgentSession[]>([]);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -95,6 +103,7 @@ export function AgentSidebar() {
   };
 
   const setSidebarCollapsed = (next: boolean) => {
+    if (studioActive) { setStudioExpanded(!next); return; }
     window.localStorage.setItem(COLLAPSED_KEY, String(next));
     window.dispatchEvent(new CustomEvent("careeradapt-agent-sidebar-preference-change"));
   };
