@@ -1,3 +1,4 @@
+import { FormattedText, fieldAppearanceFor } from "./FormattedText";
 import type { ResumePresentationItem, ResumeRenderBlock, ResumeRenderModel, ResumeRenderSection, ResumeRenderStructuredSectionV2 } from "@/domain/schemas";
 import { RESUME_SECTION_TYPES_V2, type ResumeSectionTypeV2 } from "@/domain/resumeFields";
 import { compactSkillCategory } from "@/domain/resumeComposition/ResumeSkillTaxonomy";
@@ -5,14 +6,20 @@ import type { TemplateRenderContext } from "../types";
 
 export function orderCanonicalSections(
   sections: ResumeRenderStructuredSectionV2[],
-  preferredTypes: ResumeSectionTypeV2[] = [...RESUME_SECTION_TYPES_V2]
+  preferredTypes: ResumeSectionTypeV2[] = [...RESUME_SECTION_TYPES_V2],
+  context?: TemplateRenderContext
 ) {
+  if (hasUserSectionOrder(context)) return sections;
   const preferredOrder = new Map(preferredTypes.map((type, index) => [type, index]));
   return [...sections].sort((left, right) => {
     const leftRank = preferredOrder.get(left.sectionType) ?? preferredTypes.length;
     const rightRank = preferredOrder.get(right.sectionType) ?? preferredTypes.length;
     return leftRank - rightRank || left.order - right.order || left.sectionId.localeCompare(right.sectionId);
   });
+}
+
+export function hasUserSectionOrder(context?: TemplateRenderContext) {
+  return Boolean(context?.presentationConfig?.canonicalSectionOrder?.length);
 }
 
 export function RenderCanonicalSections({
@@ -49,23 +56,25 @@ function RenderPresentationItems({ items, context }: { items: ResumePresentation
 }
 
 function RenderSkillPresentation({ items, context }: { items: ResumePresentationItem[]; context?: TemplateRenderContext }) {
-  const groups = new Map<string, ResumePresentationItem[]>();
+  const groups: Array<[string, ResumePresentationItem[]]> = [];
   for (const item of items) {
     const label = compactSkillCategory(item.groupLabel ?? "");
-    groups.set(label, [...(groups.get(label) ?? []), item]);
+    const previous = groups.at(-1);
+    if (previous?.[0] === label) previous[1].push(item);
+    else groups.push([label, [item]]);
   }
   return <div className="resume-skill-groups">
-    {[...groups.entries()].map(([label, groupItems]) => (
-      <div className={`resume-skill-group ${label ? "" : "resume-skill-group-uncategorized"}`} key={label || "uncategorized"}>
+    {groups.map(([label, groupItems], index) => (
+      <div className={`resume-skill-group ${label ? "" : "resume-skill-group-uncategorized"}`} key={`${label || "uncategorized"}-${index}`}>
         {label ? <strong>{label}</strong> : null}
         <div className="resume-skill-values">
           {groupItems.map((item) => (
             <div {...presentationItemAttrs(item, context, "resume-skill-item")} data-pagination-unit="content" key={item.id}>
               <span className="resume-skill-heading">
-                <strong className="resume-skill-name">{item.primaryTitle}</strong>
-                {item.secondaryTitle ? <span className="resume-skill-level">（{item.secondaryTitle}）</span> : null}
+                <strong className="resume-skill-name"><FormattedText text={item.primaryTitle ?? ""} itemId={item.sourceItemId ?? item.id} fields={["name", "language"]} context={context}/></strong>
+                {item.secondaryTitle ? <span className="resume-skill-level">（<FormattedText text={item.secondaryTitle} itemId={item.sourceItemId ?? item.id} fields={["level"]} context={context}/>）</span> : null}
               </span>
-              {item.description ? <span className="resume-skill-description">{item.description}</span> : null}
+              {item.description ? <span className="resume-skill-description"><FormattedText text={item.description} itemId={item.sourceItemId ?? item.id} fields={["description"]} context={context}/></span> : null}
               <RenderCustomRows rows={item.customRows} context={context} />
             </div>
           ))}
@@ -79,7 +88,7 @@ function RenderLanguagePresentation({ items, context }: { items: ResumePresentat
   return <div className="resume-language-list">
     {items.map((item, index) => (
       <div {...presentationItemAttrs(item, context, "resume-language-row")} data-pagination-unit="content" key={item.id}>
-        {index > 0 ? "，" : ""}{[item.primaryTitle, item.secondaryTitle, item.description].filter(Boolean).join("")}
+        {index > 0 ? "，" : ""}{[item.primaryTitle, ...(item.secondaryTitle?.split(" · ") ?? []), item.description].filter(Boolean).map((text, at) => <FormattedText key={at} text={text!} itemId={item.sourceItemId ?? item.id} fields={["language", "level", "description", "testName", "score"]} context={context}/>)}
         <RenderCustomRows rows={item.customRows} />
       </div>
     ))}
@@ -87,13 +96,14 @@ function RenderLanguagePresentation({ items, context }: { items: ResumePresentat
 }
 
 function RenderPresentationItem({ item, context }: { item: ResumePresentationItem; context?: TemplateRenderContext }) {
+  const format = (text: string, fields: string[]) => <FormattedText text={text} itemId={item.sourceItemId ?? item.id} fields={fields} context={context}/>;
   if (item.sectionType === "summary") {
-    return <div {...presentationItemAttrs(item, context, "resume-presentation-summary")}><p data-pagination-unit="description">{item.description}</p></div>;
+    return <div {...presentationItemAttrs(item, context, "resume-presentation-summary")}><p data-pagination-unit="description">{format(item.description ?? "", ["text", "description"])}</p></div>;
   }
   if (item.sectionType === "languages") {
     return <div {...presentationItemAttrs(item, context, "resume-language-row")} data-pagination-unit="content">
-      <strong>{item.primaryTitle}</strong>{item.secondaryTitle ? <><span aria-hidden="true">：</span><span>{item.secondaryTitle}</span></> : null}
-      {item.description ? <span className="resume-language-description"> · {item.description}</span> : null}
+      <strong><FormattedText text={item.primaryTitle ?? ""} itemId={item.sourceItemId ?? item.id} fields={["name", "language"]} context={context}/></strong>{item.secondaryTitle ? <><span aria-hidden="true">：</span><span>{item.secondaryTitle}</span></> : null}
+      {item.description ? <span className="resume-language-description"> · <FormattedText text={item.description} itemId={item.sourceItemId ?? item.id} fields={["description"]} context={context}/></span> : null}
       <RenderCustomRows rows={item.customRows} />
     </div>;
   }
@@ -106,43 +116,46 @@ function RenderPresentationItem({ item, context }: { item: ResumePresentationIte
     <article {...presentationItemAttrs(item, context, "resume-template-item resume-canonical-item")}>
       {(item.primaryTitle || item.secondaryTitle || item.dateRange) ? (
         <div className={`resume-presentation-heading resume-presentation-heading-${context?.presentationConfig?.itemHeaderMiddleAlignment ?? "balanced"}`} data-pagination-unit="heading">
-          {item.primaryTitle ? <h3>{item.primaryTitle}</h3> : <span />}
-          {secondaryTitle && secondaryTitle !== item.primaryTitle ? <strong>{secondaryTitle.split(" · ").map((part, index) => <span key={`${index}-${part}`}>{index > 0 ? " · " : ""}<span>{part}</span></span>)}</strong> : null}
-          {item.dateRange ? <time>{item.dateRange.split("–").map((part, index) => <span key={`${index}-${part}`}>{index > 0 ? "–" : ""}<span data-editor-date={index === 0 ? "start" : "end"}>{part}</span></span>)}</time> : null}
+          {item.primaryTitle ? <h3>{format(item.primaryTitle, item.sectionType === "education" ? ["school"] : ["work", "internship", "campus", "volunteer"].includes(item.sectionType) ? ["organization"] : ["title", "name", "institution"])}</h3> : <span />}
+          {secondaryTitle && secondaryTitle !== item.primaryTitle ? <strong>{secondaryTitle.split(" · ").map((part, index) => <span key={`${index}-${part}`}>{index > 0 ? " · " : ""}<span>{format(part, ["role", "degree", "major", "department", "authorRole", "issuer", "level", "status", "type"])}</span></span>)}</strong> : null}
+          {item.dateRange ? <time>{item.dateRange.split("–").map((part, index) => <span key={`${index}-${part}`}>{index > 0 ? "–" : ""}<span data-editor-date={index === 0 ? "start" : "end"}>{format(part, index === 0 ? ["startDate", "awardedAt", "issuedAt", "publishedAt", "createdAt", "filedAt"] : ["endDate", "expectedEndDate", "expiresAt", "grantedAt"])}</span></span>)}</time> : null}
         </div>
       ) : null}
-      {item.tertiaryTitle || item.location ? <p className="resume-presentation-subtitle" data-pagination-unit="subtitle">{joinPresentationValues([item.location, item.tertiaryTitle])}</p> : null}
-      {item.inlineMeta.length ? <p className="resume-presentation-meta" data-pagination-unit="inline-meta"><RenderMetaValues values={item.inlineMeta} /></p> : null}
-      {!inlineDepartment ? item.secondaryMeta.map((meta, index) => <p className="resume-presentation-secondary" data-pagination-unit={`secondary-meta:${index}`} key={meta}>{meta}</p>) : null}
-      {item.description ? <p className="resume-presentation-description" data-pagination-unit="description">{item.description}</p> : null}
-      {item.highlights.length ? <RenderHighlights highlights={item.highlights.map((highlight, index) => ({ value: highlight, key: `highlight:${index}` }))} context={context} /> : null}
-      {unlistedLinks.length ? <p className="resume-presentation-links" data-pagination-unit="links"><RenderMetaValues values={unlistedLinks} /></p> : null}
+      {item.tertiaryTitle || item.location ? <p className="resume-presentation-subtitle" data-pagination-unit="subtitle">{[item.location, item.tertiaryTitle].filter(Boolean).map((value, index) => <span key={index}>{index ? " · " : ""}{format(value!, ["location", "department", "institution", "level", "publisher", "office"])}</span>)}</p> : null}
+      {item.inlineMeta.length ? <p className="resume-presentation-meta" data-pagination-unit="inline-meta"><RenderMetaValues values={item.inlineMeta} context={context} itemId={item.sourceItemId ?? item.id} fields={["organization", "tools", "authors", "inventors"]} /></p> : null}
+      {!inlineDepartment ? item.secondaryMeta.map((meta, index) => <p className="resume-presentation-secondary" data-pagination-unit={`secondary-meta:${index}`} key={meta}>{format(meta, ["department", "background"])}</p>) : null}
+      {item.description ? <p className="resume-presentation-description" data-pagination-unit="description">{format(item.description, ["description", "background"])}</p> : null}
+      {item.highlights.length ? <RenderHighlights highlights={item.highlights.map((highlight, index) => ({ value: highlight, key: `highlight:${index}` }))} itemId={item.sourceItemId ?? item.id} fields={["highlights", "outcomes", "honors", "methods"]} context={context} /> : null}
+      {unlistedLinks.length ? <p className="resume-presentation-links" data-pagination-unit="links"><RenderMetaValues values={unlistedLinks} context={context} itemId={item.sourceItemId ?? item.id} fields={["url"]} /></p> : null}
       <RenderCustomRows rows={item.customRows} context={context} />
     </article>
   );
 }
 
-function RenderHighlights({ highlights, context }: { highlights: Array<{ value: string; key: string }>; context?: TemplateRenderContext }) {
+function RenderHighlights({ highlights: source, context, itemId, fields = [] }: { highlights: Array<{ value: string; key: string }>; context?: TemplateRenderContext; itemId?: string; fields?: string[] }) {
+  const highlights = source.filter(h => !itemId || !fieldAppearanceFor(context, itemId, fields, h.value).some(entry => entry.hidden));
+  const text = (value: string) => itemId ? <FormattedText text={value} itemId={itemId} fields={fields} context={context}/> : value;
   const bullet = context?.presentationConfig?.precision?.bulletStyle;
   const listStyle = bullet === "decimal" ? "numbered" : bullet === "none" ? "none" : bullet ? "bullet" : context?.presentationConfig?.highlightListStyle ?? "bullet";
   if (!highlights.length) return null;
   if (listStyle === "none") {
     return <ul className="resume-presentation-highlights resume-presentation-highlights-none">
-      {highlights.map((h) => <li data-pagination-unit={h.key} key={h.key}>{h.value}</li>)}
+      {highlights.map((h) => <li data-pagination-unit={h.key} key={h.key}>{text(h.value)}</li>)}
     </ul>;
   }
   if (listStyle === "numbered") {
     return <ol className="resume-presentation-highlights">
-      {highlights.map((h) => <li data-pagination-unit={h.key} key={h.key}>{h.value}</li>)}
+      {highlights.map((h) => <li data-pagination-unit={h.key} key={h.key}>{text(h.value)}</li>)}
     </ol>;
   }
   return <ul className="resume-presentation-highlights">
-    {highlights.map((h) => <li data-pagination-unit={h.key} key={h.key}>{h.value}</li>)}
+    {highlights.map((h) => <li data-pagination-unit={h.key} key={h.key}>{text(h.value)}</li>)}
   </ul>;
 }
 
-function RenderMetaValues({ values }: { values: string[] }) {
-  return <>{values.map((value, index) => <span key={value}>{index > 0 ? " · " : ""}{isUrl(value) ? <a href={value}>{value}</a> : value}</span>)}</>;
+function RenderMetaValues({ values, context, itemId, fields = [] }: { values: string[]; context?: TemplateRenderContext; itemId?: string; fields?: string[] }) {
+  const render = (value: string) => itemId ? <FormattedText text={value} itemId={itemId} fields={fields} context={context}/> : value;
+  return <>{values.map((value, index) => <span key={value}>{index > 0 ? " · " : ""}{isUrl(value) ? <a href={value}>{render(value)}</a> : render(value)}</span>)}</>;
 }
 
 function RenderCustomRows({ rows, context }: { rows: ResumePresentationItem["customRows"]; context?: TemplateRenderContext }) {
@@ -206,14 +219,14 @@ export function ResumeHeader({
   return (
     <header className={`resume-template-header ${compact ? "resume-template-header-compact" : ""} ${plain ? "resume-template-header-plain" : ""}`}>
       <div>
-        <h1 {...profileFieldAttrs("profile:name", context)}>{model.candidate.name}</h1>
-        {model.candidate.targetRole?.trim() ? <p {...profileFieldAttrs("branch:targetRole", context)}>{model.candidate.targetRole}</p> : null}
+        <h1 {...profileFieldAttrs("profile:name", context)}><FormattedText text={model.candidate.name} itemId="basics" fields={["name"]} context={context}/></h1>
+        {model.candidate.targetRole?.trim() ? <p {...profileFieldAttrs("branch:targetRole", context)}><FormattedText text={model.candidate.targetRole} itemId="basics" fields={["headline", "targetRole"]} context={context}/></p> : null}
       </div>
       <address>
         {(() => {
           const emailCount = model.candidate.contacts.filter((c) => c.includes("@")).length;
           return model.candidate.contacts.map((contact, index) => (
-            <span key={`${contact}-${index}`} {...profileFieldAttrs(profileFieldIdForContact(contact, index, emailCount), context)}>{context?.presentationConfig?.precision?.contactIcons ? <span className="resume-contact-icon" aria-hidden="true">{contact.includes("@") ? "✉" : /^https?:/.test(contact) ? "↗" : /[0-9]{6}/.test(contact) ? "☎" : "⌖"} </span> : null}{contact}</span>
+            <span key={`${contact}-${index}`} {...profileFieldAttrs(profileFieldIdForContact(contact, index, emailCount), context)}>{context?.presentationConfig?.precision?.contactIcons ? <span className="resume-contact-icon" aria-hidden="true">{contact.includes("@") ? "✉" : /^https?:/.test(contact) ? "↗" : /[0-9]{6}/.test(contact) ? "☎" : "⌖"} </span> : null}<FormattedText text={contact} itemId="basics" fields={["email", "phone", "address", "location", "linkedin", "homepage"]} context={context}/></span>
           ));
         })()}
       </address>

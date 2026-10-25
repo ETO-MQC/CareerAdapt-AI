@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
+import { useSidebarEditor } from "./SidebarEditorContext";
 
 export type TipTapEditorMode = "paragraph" | "highlight-list";
 
@@ -26,12 +27,18 @@ export function TipTapEditor({
   ariaLabel = "内容编辑器",
   mode = "paragraph"
 }: TipTapEditorProps) {
+  const embedded = useSidebarEditor();
   const lastEmittedRef = useRef(value);
   const isHighlightList = mode === "highlight-list";
 
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
+        bold: embedded ? false : undefined,
+        italic: embedded ? false : undefined,
+        underline: embedded ? false : undefined,
+        strike: embedded ? false : undefined,
+        code: embedded ? false : undefined,
         heading: false,
         codeBlock: false,
         horizontalRule: false,
@@ -92,7 +99,7 @@ export function TipTapEditor({
 
   return (
     <div className="tiptap-editor">
-      {!isHighlightList ? (
+      {!isHighlightList && !embedded ? (
         <div className="tiptap-toolbar" role="toolbar" aria-label="文本格式">
           <button
             type="button"

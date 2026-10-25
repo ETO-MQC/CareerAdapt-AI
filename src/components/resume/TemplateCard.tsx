@@ -39,7 +39,7 @@ export function TemplateCard({
           {current ? <span className="template-current-badge">当前使用</span> : null}
         </div>
         <div className="template-meta-row" aria-label={`${template.name} 模板元数据`}>
-          <span className="template-layout-badge">{layoutLabel(template.layout)}</span>
+          <span className="template-layout-badge">{presentationConfig?.canonicalSectionOrder?.length && template.layout === "two-column" ? "自定义顺序 · 连续排布" : layoutLabel(template.layout)}</span>
           <span className="template-readability-badge" aria-label={`可读性：${atsLevelLabel(template.atsLevel)}`}>ATS友好：{atsLevelLabel(template.atsLevel)}</span>
           <span>v{template.version}</span>
         </div>

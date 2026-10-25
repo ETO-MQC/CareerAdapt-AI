@@ -177,11 +177,19 @@ export function mapBranchToResumeRenderModel(input: {
     });
   }
   const structuredSections = [...new Set(structuredItems.map((item) => item.sectionId))].map((sectionId, order) => {
-    const items = structuredItems.filter((item) => item.sectionId === sectionId);
+    const blockPositions = new Map(document.blocks.map((block, index) => [block.contentItemId, index]));
+    const items = structuredItems.filter((item) => item.sectionId === sectionId).sort((a, b) => (blockPositions.get(a.itemId) ?? 0) - (blockPositions.get(b.itemId) ?? 0));
     const sectionType = items[0]!.sectionType;
     const override = input.presentationConfig?.sectionStyleOverrides[sectionId];
     return { sectionId, sectionType, title: override?.titleOverride ?? (sectionType === "custom" ? "自定义栏目" : getResumeSectionDefinition(sectionType).label), showTitle: override?.showTitle, order, items };
   });
+
+  const canonicalOrder = input.presentationConfig?.canonicalSectionOrder ?? [];
+  structuredSections.sort((a, b) => {
+    const rank = (id: string) => canonicalOrder.includes(id) ? canonicalOrder.indexOf(id) : canonicalOrder.length;
+    return rank(a.sectionId) - rank(b.sectionId) || a.order - b.order;
+  });
+  structuredSections.forEach((section, order) => { section.order = order; });
 
   const modelInput = {
     schemaVersion: "resume-render-v2",

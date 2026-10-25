@@ -7,8 +7,9 @@ import {
   type StructuredExperienceFields
 } from "@/domain/resumeFields/catalog";
 import { FieldInput } from "./FieldInput";
-import { TipTapEditor } from "./TipTapEditor";
-import { editorHtmlToExperienceDocument, experienceDocumentToEditorHtml } from "./helpers";
+import { StringListEditor, AutoTextarea } from "./StringListEditor";
+import { FieldFormatting } from "./FieldFormatting";
+import { useState } from "react";
 
 type StructuredExperienceFormProps = {
   category: Extract<ResumeFieldCategoryId, "education" | "work" | "internship" | "project" | "campus">;
@@ -34,19 +35,12 @@ export function StructuredExperienceForm({
     onChange(next);
   };
 
-  const editorDocument = {
-    description: value.description,
-    highlights: value.highlights,
-    outcomes: value.outcomes ?? [],
-    tools: value.tools ?? [],
-    background: value.background ?? ""
-  };
-
+  const [showDescription, setShowDescription] = useState(Boolean(value.description));
   return (
     <div className="section-fields profile-structured-fields">
       <div className="section-fields-grid-2">
-        <FieldInput id={`${idPrefix}-organization`} label={labels.organization} required value={value.organization} onChange={(next) => update("organization", next)} onFocus={onFocus} />
-        <FieldInput id={`${idPrefix}-role`} label={labels.role} value={category === "education" ? value.degree : value.role} onChange={(next) => update(category === "education" ? "degree" : "role", next)} onFocus={onFocus} />
+        <FieldInput id={`${idPrefix}-organization`} formatField={category === "education" ? "school" : "organization"} label={labels.organization} required value={value.organization} onChange={(next) => update("organization", next)} onFocus={onFocus} />
+        <FieldInput id={`${idPrefix}-role`} formatField={category === "education" ? "degree" : "role"} label={labels.role} value={category === "education" ? value.degree : value.role} onChange={(next) => update(category === "education" ? "degree" : "role", next)} onFocus={onFocus} />
       </div>
       {category === "education" ? (
         <div className="section-fields-grid-2">
@@ -56,13 +50,14 @@ export function StructuredExperienceForm({
       ) : (
         <div className="section-fields-grid-2">
           <FieldInput id={`${idPrefix}-location`} label={labels.location} value={value.location} onChange={(next) => update("location", next)} onFocus={onFocus} />
-          {extraField ?? <span />}
+          {extraField ?? <FieldInput id={`${idPrefix}-department`} label="部门" value={value.department ?? ""} onChange={next => update("department", next)} onFocus={onFocus}/>}
         </div>
       )}
       <div className="section-fields-grid-2">
-        <FieldInput id={`${idPrefix}-start`} label={labels.startDate} type="text" placeholder="YYYY / YYYY-MM / YYYY-MM-DD" value={value.startDate} onChange={(next) => update("startDate", next)} onFocus={onFocus} />
+        <FieldInput id={`${idPrefix}-start`} calendar formatField="startDate" label={labels.startDate} type="text" placeholder="YYYY / YYYY-MM / YYYY-MM-DD" value={value.startDate} onChange={(next) => update("startDate", next)} onFocus={onFocus} />
         <FieldInput
           id={`${idPrefix}-end`}
+          calendar formatField={category === "education" && value.current ? "expectedEndDate" : "endDate"}
           label={category === "education" && value.current ? "预计毕业时间" : labels.endDate}
           type="text" placeholder="YYYY / YYYY-MM / YYYY-MM-DD"
           value={category === "education" && value.current ? value.expectedEndDate ?? "" : value.endDate}
@@ -78,25 +73,9 @@ export function StructuredExperienceForm({
       {category === "education" ? (
         <FieldInput id={`${idPrefix}-courses`} label="主修课程" value={value.courses} placeholder="用顿号或逗号分隔" onChange={(next) => update("courses", next)} onFocus={onFocus} />
       ) : null}
-      <div className="experience-description-field" data-profile-editor="experience-content">
-        <label className="field-input-label">{labels.description}</label>
-        <TipTapEditor
-          value={experienceDocumentToEditorHtml(editorDocument)}
-          onChange={(html) => {
-            const next = editorHtmlToExperienceDocument(html, editorDocument);
-            onChange({
-              ...value,
-              description: next.description,
-              highlights: next.highlights,
-              outcomes: next.outcomes,
-              tools: next.tools,
-              background: next.background
-            });
-          }}
-          placeholder={category === "education" ? "概述教育经历与亮点…" : "写清经历内容、行动与可验证成果…"}
-          minRows={5}
-        />
-      </div>
+      {showDescription || value.description ? <div className="field-input-group"><label className="field-input-label" htmlFor={`${idPrefix}-description`}>经历概述</label><FieldFormatting field="description" value={value.description} label="经历概述" onDelete={() => update("description", "")}><AutoTextarea id={`${idPrefix}-description`} label="经历概述" value={value.description} onChange={next => update("description", next)} onFocus={onFocus}/></FieldFormatting></div> : <button type="button" className="field-add-description" onClick={() => setShowDescription(true)}>＋ 添加经历概述</button>}
+      <StringListEditor field="highlights" label="描述" idPrefix={`${idPrefix}-highlights`} values={value.highlights} onChange={next => update("highlights", next)} onFocus={onFocus}/>
+
     </div>
   );
 }

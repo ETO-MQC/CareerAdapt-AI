@@ -14,7 +14,7 @@ export const renderProfessionalClassic: TemplateRenderer = (model: ResumeRenderM
     return <>
       {!context?.pagination?.isContinuation ? <ResumeHeader model={model} plain context={context} /> : null}
       <div className="resume-professional-classic-layout">
-        <RenderCanonicalSections sections={orderCanonicalSections(model.structuredSections, PROFESSIONAL_SECTION_ORDER)} context={context} />
+        <RenderCanonicalSections sections={orderCanonicalSections(model.structuredSections, PROFESSIONAL_SECTION_ORDER, context)} context={context} />
       </div>
     </>;
   }

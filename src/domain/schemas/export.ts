@@ -1,3 +1,4 @@
+import { FieldAppearancesSchema } from "./fieldAppearance";
 import { z } from "zod";
 import { PresentationPrecisionSchema } from "./presentationPrecision";
 import { IsoDateStringSchema } from "./common";
@@ -33,6 +34,8 @@ export const SafePdfFileNameSchema = z.string()
 export const ExportSnapshotPresentationSchema = z.object({
   templateId: TemplateIdSchema,
   precision: PresentationPrecisionSchema.optional(),
+  fieldAppearances: FieldAppearancesSchema,
+  canonicalSectionOrder: z.array(z.string().min(1).max(200)).max(200).refine(order => new Set(order).size === order.length, "duplicate section key").optional(),
   sectionOrder: z.array(ResumeRenderSectionTypeSchema),
   itemOrderBySection: z.record(z.string(), z.array(z.string().min(1))),
   hiddenItemIds: z.array(z.string().min(1)),

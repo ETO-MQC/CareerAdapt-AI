@@ -3,8 +3,8 @@
 import { useState } from "react";
 import type { StructuredProjectFields } from "@/domain/resumeFields/catalog";
 import { FieldInput } from "./FieldInput";
-import { TipTapEditor } from "./TipTapEditor";
-import { editorHtmlToExperienceDocument, experienceDocumentToEditorHtml } from "./helpers";
+import { StringListEditor } from "./StringListEditor";
+import { FieldFormatting } from "./FieldFormatting";
 
 type StructuredProjectFormProps = {
   value: StructuredProjectFields;
@@ -15,13 +15,6 @@ type StructuredProjectFormProps = {
 
 export function StructuredProjectForm({ value, onChange, idPrefix, onFocus }: StructuredProjectFormProps) {
   const update = <Key extends keyof StructuredProjectFields>(key: Key, next: StructuredProjectFields[Key]) => onChange({ ...value, [key]: next });
-  const editorDocument = {
-    description: value.description,
-    highlights: value.highlights,
-    outcomes: value.outcomes,
-    tools: value.tools,
-    background: value.background
-  };
   return (
     <div className="section-fields profile-structured-fields structured-project-form">
       <div className="section-fields-grid-2">
@@ -33,8 +26,8 @@ export function StructuredProjectForm({ value, onChange, idPrefix, onFocus }: St
         <FieldInput id={`${idPrefix}-location`} label="项目地点" value={value.location} onChange={(next) => update("location", next)} onFocus={onFocus} />
       </div>
       <div className="section-fields-grid-2">
-        <FieldInput id={`${idPrefix}-start`} label="开始日期" type="text" placeholder="YYYY / YYYY-MM / YYYY-MM-DD" value={value.startDate} onChange={(next) => update("startDate", next)} onFocus={onFocus} />
-        <FieldInput id={`${idPrefix}-end`} label="结束日期" type="text" placeholder="YYYY / YYYY-MM / YYYY-MM-DD" value={value.endDate} disabled={value.current} onChange={(next) => update("endDate", next)} onFocus={onFocus} />
+        <FieldInput id={`${idPrefix}-start`} calendar formatField="startDate" label="开始日期" type="text" placeholder="YYYY / YYYY-MM / YYYY-MM-DD" value={value.startDate} onChange={(next) => update("startDate", next)} onFocus={onFocus} />
+        <FieldInput id={`${idPrefix}-end`} calendar formatField="endDate" label="结束日期" type="text" placeholder="YYYY / YYYY-MM / YYYY-MM-DD" value={value.endDate} disabled={value.current} onChange={(next) => update("endDate", next)} onFocus={onFocus} />
       </div>
       <label className="field-input-checkbox-label profile-current-toggle">
         <input type="checkbox" checked={value.current} onChange={(event) => update("current", event.target.checked)} />
@@ -43,19 +36,10 @@ export function StructuredProjectForm({ value, onChange, idPrefix, onFocus }: St
       <FieldInput id={`${idPrefix}-url`} label="项目链接" type="url" value={value.url} placeholder="https://…" onChange={(next) => update("url", next)} onFocus={onFocus} />
       <TokenEditor idPrefix={`${idPrefix}-tools`} label="技术栈 / 工具" values={value.tools} onChange={(next) => update("tools", next)} onFocus={onFocus} placeholder="输入后按 Enter 添加，例如 React" />
       <TextAreaField id={`${idPrefix}-background`} label="项目背景" value={value.background} onChange={(next) => update("background", next)} onFocus={onFocus} placeholder="只写来源中已有的背景，不需要补充推测。" />
-      <div className="experience-description-field" data-profile-editor="experience-content">
-        <label className="field-input-label">经历内容与成果</label>
-        <TipTapEditor
-          value={experienceDocumentToEditorHtml(editorDocument)}
-          onChange={(html) => {
-            const next = editorHtmlToExperienceDocument(html, editorDocument);
-            onChange({ ...value, description: next.description, highlights: next.highlights, outcomes: next.outcomes });
-          }}
-          placeholder="概括经历内容，再用列表写清行动与可验证成果…"
-          minRows={7}
-          ariaLabel="经历内容与成果"
-        />
-      </div>
+      <TextAreaField id={`${idPrefix}-description`} label="项目概述" value={value.description} onChange={next => update("description", next)} onFocus={onFocus}/>
+      <StringListEditor field="highlights" label="描述" idPrefix={`${idPrefix}-highlights`} values={value.highlights} onChange={next => update("highlights", next)} onFocus={onFocus}/>
+      <StringListEditor field="outcomes" label="成果" idPrefix={`${idPrefix}-outcomes`} values={value.outcomes} onChange={next => update("outcomes", next)} onFocus={onFocus}/>
+
     </div>
   );
 }
@@ -64,7 +48,7 @@ function TextAreaField({ id, label, value, onChange, onFocus, placeholder }: { i
   return (
     <div className="field-input-group structured-project-textarea">
       <label htmlFor={id} className="field-input-label">{label}</label>
-      <textarea id={id} className="field-input structured-project-textarea-input" value={value} placeholder={placeholder} rows={3} onChange={(event) => onChange(event.target.value)} onFocus={onFocus} />
+      <FieldFormatting field={id.split("-").at(-1)!} value={value} label={label} onDelete={() => onChange("")}><textarea id={id} className="field-input structured-project-textarea-input" value={value} placeholder={placeholder} rows={3} onChange={(event) => onChange(event.target.value)} onFocus={onFocus} /></FieldFormatting>
     </div>
   );
 }

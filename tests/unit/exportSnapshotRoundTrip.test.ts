@@ -44,6 +44,7 @@ describe("export snapshot layout round-trip", () => {
 
   it("preserves section order and item order through the round trip", () => {
     const config = baseConfig({
+      canonicalSectionOrder: ["education", "custom:unknown", "work"],
       sectionOrder: ["skills", "summary", "experience", "certificates"],
       itemOrderBySection: { experience: ["w-2", "w-1"], certificates: ["c-1"] }
     });
@@ -55,6 +56,8 @@ describe("export snapshot layout round-trip", () => {
       filename: "resume.pdf"
     } as never);
 
+    expect(restored.canonicalSectionOrder).toEqual(["education", "custom:unknown", "work"]);
+    expect(() => baseConfig({ canonicalSectionOrder: ["work", "work"] })).toThrow();
     expect(restored.sectionOrder).toEqual(["skills", "summary", "experience", "certificates"]);
     expect(restored.itemOrderBySection).toEqual({ experience: ["w-2", "w-1"], certificates: ["c-1"] });
   });
@@ -110,6 +113,8 @@ describe("legacy export snapshots stay readable", () => {
 
     expect(restored.highlightListStyle).toBe("bullet");
     expect(restored.itemHeaderMiddleAlignment).toBe("balanced");
+    expect(restored.canonicalSectionOrder).toBeUndefined();
+    expect(() => baseConfig({ canonicalSectionOrder: ["work", "work"] })).toThrow();
     expect(restored.sectionOrder).toEqual(["summary", "experience", "skills", "certificates"]);
   });
 

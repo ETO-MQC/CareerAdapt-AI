@@ -1,7 +1,10 @@
 "use client";
+import { FieldAppearanceContext, FieldOwner } from "@/components/editor/FieldAppearanceContext";
 import { precisionStyleVars } from "@/components/resume/templates/precisionStyles";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { ResumeSectionCard } from "@/components/editor/ResumeSectionCard";
+import { Fragment } from "react";
 import { PrecisionInspector } from "@/components/resume/PrecisionInspector";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -18,8 +21,6 @@ import {
   Globe,
   Sparkles,
   Plus,
-  PanelLeftOpen,
-  PanelLeftClose,
   Pencil
 } from "lucide-react";
 import {
@@ -106,12 +107,9 @@ import { resolveResumeTargetRole } from "@/domain/branch/targetRole";
 const repository = new WorkspaceRepository();
 const DEFAULT_TEMPLATE_ID: TemplateId = "classic-technical";
 const BRANCH_LIST_SENTINEL = "__resume_branch_list__";
-const OPTIONAL_STUDIO_SECTIONS: ReadonlyArray<{ key: ResumeStudioSectionKey; label: string }> = [
-  { key: "research", label: "科研" }, { key: "campus", label: "校园" }, { key: "volunteer", label: "志愿" },
-  { key: "awards", label: "奖项" }, { key: "certificates", label: "证书" }, { key: "languages", label: "语言" },
-  { key: "publications", label: "论文" }, { key: "patents", label: "专利" }, { key: "portfolio", label: "作品集" },
-  { key: "other", label: "其他" }
-];
+const OPTIONAL_STUDIO_SECTIONS: ReadonlyArray<{ key: ResumeStudioSectionKey; label: string }> = resumeSectionCatalog
+  .filter(section => section.id !== "basics" && section.id !== "custom")
+  .map(section => ({ key: section.id, label: section.label }));
 
 type WorkbenchState = {
   activeBranchId?: string | null;
@@ -325,11 +323,8 @@ export function ResumeWorkspace() {
   const [enabledSectionsByBranch, setEnabledSectionsByBranch] = useState<Record<string, ResumeStudioSectionKey[]>>({});
   const [hiddenSectionsByBranch, setHiddenSectionsByBranch] = useState<Record<string, ResumeStudioSectionKey[]>>({});
   const [customSectionsByBranch, setCustomSectionsByBranch] = useState<Record<string, CustomStudioSection[]>>({});
-  const [isSectionMenuOpen, setIsSectionMenuOpen] = useState(false);
   const [customSectionTitle, setCustomSectionTitle] = useState("");
   const [customSectionError, setCustomSectionError] = useState<string>();
-  const sectionMenuButtonRef = useRef<HTMLButtonElement>(null);
-  const sectionMenuRef = useRef<HTMLDivElement>(null);
   const [canvasZoom, setCanvasZoom] = useState(0.8);
   const [canvasZoomMode, setCanvasZoomMode] = useState<CanvasZoomMode>("fit-page");
   const [pendingTemplateApplyId, setPendingTemplateApplyId] = useState<TemplateId | undefined>();
@@ -539,6 +534,20 @@ export function ResumeWorkspace() {
     void loadJobContextSummary();
     return () => { active = false; };
   }, [profile, selectedBranch, selectedBranchJob]);
+  const [contentEditorEpoch, setContentEditorEpoch] = useState(0);
+  const [collapsedSections, setCollapsedSections] = useState<string[]>(() => resumeSectionCatalog.map(section => section.id));
+  function reorderContentSection(from: string, to: string) {
+    const order = resumeSectionNavItems.filter(item => item.key !== "basics" && item.key !== "add").map(item => item.key as string);
+    if (from === to || !order.includes(from) || !order.includes(to)) return;
+    void updatePresentationStyle(current => {
+      const persisted = current.canonicalSectionOrder ?? [];
+      const next = [...persisted, ...order.filter(key => !persisted.includes(key))];
+      const destination = next.indexOf(to);
+      next.splice(next.indexOf(from), 1);
+      next.splice(destination, 0, from);
+      return { canonicalSectionOrder: next };
+    }, "板块顺序已保存。");
+  }
   const resumeSectionNavItems = useMemo(() => buildResumeStudioSections({
     resumeDocument,
     branch: selectedBranch,
@@ -546,33 +555,13 @@ export function ResumeWorkspace() {
     enabledSections: selectedBranch ? enabledSectionsByBranch[selectedBranch.id] ?? [] : [],
     hiddenSections: selectedBranch ? hiddenSectionsByBranch[selectedBranch.id] ?? [] : [],
     customSections: selectedBranch ? customSectionsByBranch[selectedBranch.id] ?? [] : []
-  }), [resumeDocument, selectedBranch, profile, enabledSectionsByBranch, hiddenSectionsByBranch, customSectionsByBranch]);
+  }).sort((a, b) => {
+    const order = presentationConfig?.canonicalSectionOrder ?? [];
+    const rank = (key: string) => key === "basics" ? -1 : key === "add" ? 10000 : order.includes(key) ? order.indexOf(key) : order.length;
+    return rank(a.key) - rank(b.key);
+  }), [resumeDocument, selectedBranch, profile, enabledSectionsByBranch, hiddenSectionsByBranch, customSectionsByBranch, presentationConfig]);
   const activeSectionItem = resumeSectionNavItems.find((item) => item.key === activeResumeSection)
     ?? resumeSectionNavItems[0];
-  const activeSectionBlocks = useMemo(() => {
-    if (!resumeDocument) {
-      return [];
-    }
-    const contentBlocks = resumeDocument.blocks.filter((block) => block.itemType !== "structural" && block.contentVisible);
-    if (activeResumeSection === "basics" || activeResumeSection === "add") {
-      return [];
-    }
-    if (activeResumeSection.startsWith("custom:")) {
-      return contentBlocks.filter((block) =>
-        block.itemType === "custom" && block.sourceSectionId === activeResumeSection
-      );
-    }
-    const canonicalIds = new Set(selectedBranch?.structuredContentItems
-      ?.filter((item) => item.data.sectionType === activeResumeSection)
-      .map((item) => item.id) ?? []);
-    return contentBlocks.filter((block) => block.derivedFrom === "resumeBasics.summary" || canonicalIds.has(block.contentItemId));
-  }, [activeResumeSection, resumeDocument, selectedBranch]);
-  const activeStructuredItems = useMemo(() => activeResumeSection === "basics" || activeResumeSection === "add" || activeResumeSection.startsWith("custom:")
-    ? []
-    : (selectedBranch?.structuredContentItems ?? [])
-      .filter((item) => item.visible && item.data.sectionType === activeResumeSection)
-      .sort((left, right) => left.order - right.order),
-  [activeResumeSection, selectedBranch]);
   const visibleSectionTypes = useMemo(() => {
     return resumeDocument?.sections
       .filter((section) => section.blocks.some((block) => block.visible && block.renderable))
@@ -1029,17 +1018,7 @@ export function ResumeWorkspace() {
     } satisfies WorkbenchState);
   }, [profile, workbenchStateHydrated, activeBranchId, effectiveTemplateId, isStylePanelOpen, studioMode, manualInspectorTab, aiInspectorTab, styleInspectorTab, enabledSectionsByBranch, hiddenSectionsByBranch, customSectionsByBranch]);
 
-  useEffect(() => {
-    if (!isSectionMenuOpen) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      setIsSectionMenuOpen(false);
-      window.requestAnimationFrame(() => sectionMenuButtonRef.current?.focus());
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    window.requestAnimationFrame(() => sectionMenuRef.current?.querySelector<HTMLElement>("button, input")?.focus());
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isSectionMenuOpen]);
+
 
   useEffect(() => {
     window.localStorage.setItem(RESUME_STUDIO_LAYOUT_KEY, JSON.stringify(studioLayout));
@@ -1408,6 +1387,7 @@ export function ResumeWorkspace() {
     if (result.branchId) {
       openResumeBranch(result.branchId);
       setStudioMode("edit");
+      setCollapsedSections(current => current.filter(key => key !== "basics"));
       setActiveResumeSection("basics");
       setIsStudioEditMode(true);
     } else {
@@ -1434,6 +1414,7 @@ export function ResumeWorkspace() {
       await refreshLists(profile.id);
       openResumeBranch(result.branch.id);
       setStudioMode("edit");
+      setCollapsedSections(current => current.filter(key => key !== "basics"));
       setActiveResumeSection("basics");
       notify({ type: "success", title: "创建成功", message: options.fromProfile
         ? "已从个人资料库创建独立简历副本；之后资料库变化不会自动覆盖这份简历。"
@@ -1841,7 +1822,9 @@ export function ResumeWorkspace() {
     }
     setHiddenSectionsByBranch((current) => ({ ...current, [branchId]: (current[branchId] ?? []).filter((key) => key !== section) }));
     setEnabledSectionsByBranch((current) => ({ ...current, [branchId]: [...new Set([...(current[branchId] ?? []), section])] }));
+    setCollapsedSections(current => current.filter(key => key !== section));
     setActiveResumeSection(section);
+    requestAnimationFrame(() => contentPanelRef.current?.querySelector<HTMLElement>(`[data-section-key="${section}"]`)?.scrollIntoView({ block: "nearest" }));
   }
 
   function addCustomStudioSection() {
@@ -1863,11 +1846,11 @@ export function ResumeWorkspace() {
       return { ...current, [selectedBranch.id]: [...sections, { id, title, order: sections.length + 1 }] };
     });
     setEnabledSectionsByBranch((current) => ({ ...current, [selectedBranch.id]: [...new Set([...(current[selectedBranch.id] ?? []), key])] }));
+    void updatePresentationStyle(current => ({ sectionStyleOverrides: { ...current.sectionStyleOverrides, [key]: { ...current.sectionStyleOverrides[key], titleOverride: title } } }));
     setCustomSectionTitle("");
     setCustomSectionError(undefined);
-    setIsSectionMenuOpen(false);
     setActiveResumeSection(key);
-    window.requestAnimationFrame(() => sectionMenuButtonRef.current?.focus());
+    window.requestAnimationFrame(() => contentPanelRef.current?.querySelector<HTMLButtonElement>(`[data-section-key="${key}"] .sidebar-section-name`)?.focus());
   }
 
   async function savePendingResumeOnlyEdit(syncAfterSave: boolean) {
@@ -2333,56 +2316,36 @@ export function ResumeWorkspace() {
   }
 
   async function movePresentationItem(itemId: string, direction: "up" | "down") {
-    if (!selectedBranch || !presentationConfig || !resumeDocument) {
-      return;
-    }
     const block = resumeDocumentBlocksById.get(itemId);
-    if (!block) {
-      notify({ type: "error", title: "排序失败", message: "找不到对应区块。" });
-      return;
-    }
-    const section = resumeDocument.sections.find((candidate) => candidate.type === block.sectionType);
-    const sectionBlocks = section?.blocks ?? [];
-    const currentIndex = sectionBlocks.findIndex((candidate) => candidate.contentItemId === itemId);
-    const nextIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
-    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= sectionBlocks.length) {
-      notify({ type: "warning", title: "提示", message: "当前区块已经在该栏目边界。" });
-      return;
-    }
+    if (!block || !resumeDocument) return;
+    const siblings = resumeDocument.blocks.filter(candidate => candidate.contentVisible && studioSectionForBlock(candidate) === studioSectionForBlock(block));
+    const index = siblings.findIndex(candidate => candidate.contentItemId === itemId);
+    const target = siblings[index + (direction === "up" ? -1 : 1)];
+    if (target) await reorderPresentationItems(itemId, target.contentItemId);
+  }
 
-    enqueuePresentation(async (current) => {
-      const currentSectionOrder = current.itemOrderBySection[block.sectionType] ?? [];
-      const sectionItemIds = new Set(sectionBlocks.map((candidate) => candidate.contentItemId));
-      const orderedIds = currentSectionOrder.filter((id) => sectionItemIds.has(id));
-      const fallbackIds = sectionBlocks.map((candidate) => candidate.contentItemId);
-      const effectiveOrder = orderedIds.length === fallbackIds.length ? orderedIds : fallbackIds;
-      const idx = effectiveOrder.indexOf(itemId);
-      if (idx < 0) {
-        return current;
-      }
-      const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-      if (swapIdx < 0 || swapIdx >= effectiveOrder.length) {
-        return current;
-      }
-      const nextOrder = [...effectiveOrder];
-      const [moved] = nextOrder.splice(idx, 1);
-      nextOrder.splice(swapIdx, 0, moved);
-      const nextConfig = buildNextPresentationConfig({
-        current,
-        branch: selectedBranch,
-        patch: {
-          itemOrderBySection: {
-            ...current.itemOrderBySection,
-            [block.sectionType]: nextOrder
-          }
-        }
-      });
-      return await savePresentationConfig({
-        nextConfig,
-        beforeConfig: current,
-        operationId: `v2-g1a-reorder-${selectedBranch.id}-${selectedBranch.revision}-${current.presentationRevision}-${block.sectionType}-${stableHashText(nextOrder.join("|"))}`,
-        successMessage: "排序已保存到当前简历展示配置，未创建内容版本。"
-      });
+  async function reorderPresentationItems(from: string, to: string) {
+    if (!selectedBranch || !presentationConfig || !resumeDocument || from === to) return;
+    const block = resumeDocumentBlocksById.get(from);
+    const target = resumeDocumentBlocksById.get(to);
+    if (!block || !target || studioSectionForBlock(block) !== studioSectionForBlock(target)) return;
+    const all = resumeDocument.blocks.filter(candidate => candidate.sectionType === block.sectionType);
+    const siblingIds = new Set(all.filter(candidate => studioSectionForBlock(candidate) === studioSectionForBlock(block)).map(candidate => candidate.contentItemId));
+    enqueuePresentation(async current => {
+      const fallback = all.map(candidate => candidate.contentItemId);
+      const known = new Set(fallback);
+      const configured = (current.itemOrderBySection[block.sectionType] ?? []).filter(id => known.has(id));
+      const order = [...configured, ...fallback.filter(id => !configured.includes(id))];
+      const siblings = order.filter(id => siblingIds.has(id));
+      const destination = siblings.indexOf(to);
+      siblings.splice(siblings.indexOf(from), 1);
+      siblings.splice(destination, 0, from);
+      let index = 0;
+      const nextOrder = order.map(id => siblingIds.has(id) ? siblings[index++] : id);
+      return await savePresentationConfig({ beforeConfig: current,
+        nextConfig: buildNextPresentationConfig({ current, branch: selectedBranch, patch: { itemOrderBySection: { ...current.itemOrderBySection, [block.sectionType]: nextOrder } } }),
+        operationId: `sidebar-item-order-${selectedBranch.id}-${current.presentationRevision}-${stableHashText(nextOrder.join("|"))}`,
+        successMessage: "条目顺序已保存，未创建内容版本。" });
     });
   }
 
@@ -2479,6 +2442,7 @@ export function ResumeWorkspace() {
         operationId: `d1-restore-${selectedBranch.id}-${selectedBranch.revision}-${revisionId}`
       });
       replaceBranch(result.branch);
+      setContentEditorEpoch(current => current + 1);
       notify({ type: "success", title: "已恢复", message: "已恢复旧版本；恢复操作已作为新的版本记录。" });
     } catch {
       notify({ type: "error", title: "恢复失败", message: "版本链缺失、版本冲突或简历不可编辑。" });
@@ -2497,6 +2461,7 @@ export function ResumeWorkspace() {
         operationId: `d1-undo-${selectedBranch.id}-${selectedBranch.revision}`
       });
       replaceBranch(result.branch);
+      setContentEditorEpoch(current => current + 1);
       notify({ type: "success", title: "已撤销", message: "已撤销最近一次简历修改。" });
     } catch {
       notify({ type: "error", title: "撤销失败", message: "没有可撤销版本或当前简历已变化。" });
@@ -2534,6 +2499,8 @@ export function ResumeWorkspace() {
         ?? fields.find(field => text.trim() && field.value.includes(text.trim()))
         ?? fields.find(field => field.value.trim().length > 1 && text.includes(field.value.trim()))
         ?? fields.find(field => field instanceof HTMLSelectElement && Array.from(field.selectedOptions).some(option => (option.textContent ?? "").trim().length > 1 && text.includes((option.textContent ?? "").trim()))) ?? fields[0];
+      const details = target?.closest("details");
+      if (details) details.open = true;
       target?.scrollIntoView({ block: "center", behavior: "instant" });
       target?.focus({ preventScroll: true });
     }));
@@ -2546,6 +2513,7 @@ export function ResumeWorkspace() {
     const block = resumeDocumentBlocksById.get(itemId);
     if (block) {
       const targetSection = studioSectionForBlock(block);
+      setCollapsedSections(current => current.filter(key => key !== targetSection));
       if (targetSection !== activeResumeSection) {
         setActiveResumeSection(targetSection);
       }
@@ -2656,6 +2624,7 @@ export function ResumeWorkspace() {
     setProfileFieldError(undefined);
     setPendingStudioOperationId(undefined);
     setActivePropertyTab("section");
+    setCollapsedSections(current => current.filter(key => key !== (sectionType === "experience" ? "work" : sectionType)));
     setActiveResumeSection(sectionType === "experience" ? "work" : sectionType);
     scrollCanvasItemIntoView(fieldId);
   }
@@ -3744,10 +3713,51 @@ export function ResumeWorkspace() {
     void repository.listResumeRevisions(branch.id).then(setRevisions);
   }
 
+  async function addStructuredContentItem(draft: ResumeItemV2) {
+    if (!selectedBranch || !selectedBranchEditable) throw new Error("当前简历不可编辑。");
+    const item = ResumeItemV2Schema.parse(draft);
+    const text = projectResumeItemV2(item);
+    if (!text.trim()) throw new Error("请先填写条目内容。");
+    const itemType = item.sectionType === "summary" ? "summary" : item.sectionType === "skills" ? "skill" : item.sectionType === "certificates" ? "certificate" : "custom";
+    const result = await repository.addResumeContentItem({ branchId: selectedBranch.id, expectedRevision: selectedBranch.revision,
+      operationId: `sidebar-add-${selectedBranch.id}-${selectedBranch.revision}-${stableHashText(JSON.stringify(item))}`,
+      section: item.sectionType, itemType, text, structuredItem: item, syncToProfile: false });
+    replaceBranch(result.branch, { preserveDrafts: true });
+    setSelectedStudioItemId(result.newItemId);
+    notify({ type: "success", title: "条目已添加", message: "已保存到当前简历，个人资料库未改变。" });
+  }
+
+  async function setContentSectionVisibility(key: string, visible: boolean) {
+    if (!selectedBranch || !presentationConfig || !resumeDocument) return;
+    const ids = new Set(resumeDocument.blocks.filter(block => block.contentVisible && studioSectionForBlock(block) === key).map(block => block.contentItemId));
+    enqueuePresentation(async current => {
+      const hiddenItemIds = visible ? current.hiddenItemIds.filter(id => !ids.has(id)) : [...new Set([...current.hiddenItemIds, ...ids])];
+      return await savePresentationConfig({ beforeConfig: current,
+        nextConfig: buildNextPresentationConfig({ current, branch: selectedBranch, patch: { hiddenItemIds } }),
+        operationId: `sidebar-visibility-${selectedBranch.id}-${current.presentationRevision}-${key}-${visible}`,
+        successMessage: visible ? "板块已恢复显示。" : "板块已隐藏，内容完整保留。" });
+    });
+  }
+
+  async function deleteContentSection(key: string) {
+    if (!selectedBranch || !selectedBranchEditable) return;
+    const blocks = (resumeDocument?.blocks ?? []).filter(block => block.contentVisible && studioSectionForBlock(block) === key);
+    const edits = blocks.filter(block => !block.derivedFrom).map(block => ({ itemId: block.contentItemId, visible: false }));
+    try {
+      if (edits.length) {
+        const result = await repository.editResumeBranch({ branchId: selectedBranch.id, expectedRevision: selectedBranch.revision, operationId: `section-delete-${selectedBranch.id}-${selectedBranch.revision}-${key}`, edits });
+        replaceBranch(result.branch, { preserveDrafts: true });
+      }
+      for (const block of blocks.filter(block => block.derivedFrom)) await setPresentationItemVisibility(block.contentItemId, false);
+    } catch (error) {
+      notify({ type: "error", title: "板块移除失败", message: error instanceof Error ? error.message : "无法保存当前版本。" });
+    }
+  }
+
   const canUndoBranch = Boolean(selectedBranch && selectedBranch.revision > 0);
   const canUndoAny = canUndoBranch || presentationHistory.undoStack.length > 0;
   const undoLatestChange = () => {
-    if (presentationHistory.undoStack.length > 0) {
+    if (presentationHistory.undoStack.length > 0 && (!selectedBranch || !presentationConfig || presentationConfig.updatedAt >= selectedBranch.updatedAt)) {
       void undoPresentationChange();
       return;
     }
@@ -4701,77 +4711,165 @@ export function ResumeWorkspace() {
           data-settings-collapsed={studioLayout.settingsCollapsed}
           style={studioLayoutStyle}
         >
-          {studioMode === "edit" ? (
-            <aside
-              className={`panel no-print resume-section-nav-panel ${studioLayout.sectionNavCollapsed ? "resume-section-nav-panel-collapsed" : ""}`}
-              data-testid="resume-section-nav"
-              aria-label="简历栏目导航"
-            >
-              <button
-                className="section-nav-collapse-toggle"
-                type="button"
-                aria-label={studioLayout.sectionNavCollapsed ? "展开栏目导航" : "收起栏目导航"}
-                onClick={() => setStudioLayout((current) => ({ ...current, sectionNavCollapsed: !current.sectionNavCollapsed }))}
-                title={studioLayout.sectionNavCollapsed ? "展开栏目导航" : "收起栏目导航"}
-              >
-                {studioLayout.sectionNavCollapsed ? (
-                  <PanelLeftOpen size={18} strokeWidth={1.5} />
-                ) : (
-                  <PanelLeftClose size={18} strokeWidth={1.5} />
-                )}
-              </button>
-              <nav className="resume-section-nav">
-                {resumeSectionNavItems.map((item) => (
+          <aside ref={contentPanelRef} className={`panel no-print resume-export-panel resume-inspector ${studioMode === "edit" ? "branch-editor" : ""}`} data-testid="resume-active-section-fields"
+            onScroll={(event) => { contentScrollPositions.current[studioMode] = event.currentTarget.scrollTop; }}>
+            {studioMode !== "edit" ? <div className="property-panel-heading">
+              {studioMode === "style" ? <h2>样式</h2> : null}
+            </div> : null}
+            {studioMode === "ai" ? null : studioMode === "style" ? (
+              <div className="inspector-tablist" role="tablist" aria-label="样式工具">
+                {(["template", "colors", "font", "page"] as const).map((tab) => (
                   <button
-                    key={item.key}
-                    ref={item.key === "add" ? sectionMenuButtonRef : undefined}
+                    key={tab}
                     type="button"
-                    className={activeSectionItem?.key === item.key ? "resume-section-nav-button resume-section-nav-button-active" : "resume-section-nav-button"}
-                    onClick={() => {
-                      if (item.key === "add") {
-                        setIsSectionMenuOpen((current) => !current);
-                        return;
-                      }
-                      if (item.firstItemId) {
-                        selectStudioItem(item.firstItemId);
-                      } else {
-                        clearStudioEditor();
-                      }
-                      setActiveResumeSection(item.key);
-                    }}
-                    aria-expanded={item.key === "add" ? isSectionMenuOpen : undefined}
-                    aria-controls={item.key === "add" ? "resume-add-section-menu" : undefined}
-                    aria-current={activeSectionItem?.key === item.key ? "page" : undefined}
-                    aria-label={sectionNavAccessibleLabel(item.key, item.label)}
-                    title={studioLayout.sectionNavCollapsed ? item.label : undefined}
+                    role="tab"
+                    aria-selected={styleInspectorTab === tab}
+                    className={styleInspectorTab === tab ? "inspector-tab inspector-tab-active" : "inspector-tab"}
+                    onClick={() => selectSettingsTab(tab)}
                   >
-                    {studioLayout.sectionNavCollapsed ? (
-                      <span className="section-nav-icon">{sectionNavIcon(item.key)}</span>
-                    ) : (
-                      <>
-                        <span className="section-nav-label">
-                          {splitSectionNavLabel(item.label).map((line) => <span key={line}>{line}</span>)}
-                        </span>
-                        {item.count > 0 ? <strong>{item.count}</strong> : null}
-                      </>
-                    )}
+                    {styleInspectorTabLabel(tab)}
                   </button>
                 ))}
+              </div>
+            ) : null}
+            <FieldAppearanceContext.Provider value={{ entries: presentationConfig?.fieldAppearances ?? [], onChange: update => { void updatePresentationStyle(current => ({ fieldAppearances: update(current.fieldAppearances ?? []) })); } }}>
+            <div className="resume-content-pane" hidden={studioMode !== "edit"}>
+              <div className="sidebar-content-heading"><h2>简历内容</h2><p>编辑个人信息、调整板块顺序，并实时查看预览。</p></div>
+              <nav className="sidebar-section-stack" data-testid="resume-section-nav" aria-label="简历内容管理">
+
+
+              {editingSectionTitleId ? <label className="field-label studio-section-title-field">栏目标题<input id="studio-section-title" aria-label="栏目标题" value={sectionTitleDraftText} disabled={!selectedBranchEditable || sectionTitlePending} onChange={event => setSectionTitleDraftText(event.target.value)} onBlur={() => { void saveSectionTitleEdit(); }} />{sectionTitleError ? <span role="alert">{sectionTitleError}</span> : null}</label> : null}
+              {resumeSectionNavItems.filter(section => section.key !== "add").map((section, index) => {
+                const activeResumeSection = section.key;
+                const activeSectionItem = section;
+                const activeSectionBlocks = (resumeDocument?.blocks ?? []).filter(block => block.contentVisible && studioSectionForBlock(block) === section.key);
+                const positions = new Map(activeSectionBlocks.map((block, index) => [block.contentItemId, index]));
+                const activeStructuredItems = (selectedBranch?.structuredContentItems ?? []).filter(item => item.visible && positions.has(item.id)).sort((a,b) => positions.get(a.id)! - positions.get(b.id)!);
+                return <Fragment key={`${selectedBranch.id}:${section.key}:${contentEditorEpoch}`}>
+                  {index === 1 ? <div className="sidebar-blocks-heading"><div><h3>简历板块</h3><small>{resumeSectionNavItems.length - 2} 个板块</small></div><div><button type="button" onClick={() => setCollapsedSections([])}>展开全部</button><button type="button" onClick={() => setCollapsedSections(resumeSectionNavItems.map(item => item.key))}>收起全部</button></div></div> : null}
+                  <ResumeSectionCard
+                    sectionKey={section.key} label={section.label} count={section.count} icon={sectionNavIcon(section.key)} personal={section.key === "basics"}
+                    expanded={!collapsedSections.includes(section.key)} selected={sectionNavContext.activeSection === section.key}
+                    visible={activeSectionBlocks.some(block => block.visible)} override={presentationConfig?.sectionStyleOverrides[section.key]}
+                    canMoveUp={index > 1} canMoveDown={index < resumeSectionNavItems.length - 2}
+                    onMove={direction => { const target = resumeSectionNavItems[index + (direction === "up" ? -1 : 1)]; if (target) reorderContentSection(section.key, target.key); }}
+                    onDropSection={key => reorderContentSection(key, section.key)}
+                    onToggle={() => { if (collapsedSections.includes(section.key)) { setCollapsedSections(current => current.filter(key => key !== section.key)); setActiveResumeSection(section.key); if (section.firstItemId) selectStudioItem(section.firstItemId); } else setCollapsedSections(current => [...current, section.key]); }}
+                    onSelect={() => { setCollapsedSections(current => current.filter(key => key !== section.key)); setActiveResumeSection(section.key); if (section.firstItemId) selectStudioItem(section.firstItemId); }}
+                    onEdit={() => { setCollapsedSections(current => current.filter(key => key !== section.key)); setActiveResumeSection(section.key); if (section.firstItemId) navigatePreviewField(section.firstItemId, ""); }}
+                    onVisibility={() => { void setContentSectionVisibility(section.key, !activeSectionBlocks.some(block => block.visible)); }}
+                    onDelete={() => { if (section.count === 0) toggleStudioSection(section.key); else if (window.confirm(`从当前简历移除${section.label}中的 ${section.count} 条内容？资料库不受影响，可撤销恢复。`)) void deleteContentSection(section.key); }}
+                    onStyle={override => { void updatePresentationStyle(current => { const overrides = { ...current.sectionStyleOverrides }; if (override) overrides[section.key] = override; else delete overrides[section.key]; return { sectionStyleOverrides: overrides }; }); }}
+                  ><div className="sidebar-section-editor" onFocusCapture={() => setActiveResumeSection(section.key)}>
+
+              {activeResumeSection === "basics" ? (
+                <FieldOwner itemId="basics"><BasicsSectionPage
+                  profile={profile}
+                  branch={selectedBranch}
+                  branchEditable={selectedBranchEditable}
+                  profileFieldError={profileFieldError}
+                  onSaveProfileField={(...args) => saveProfileFieldText(...args)}
+                  onSaveBranchBasicsField={(_field, value) => { void saveProfileFieldText("branch:targetRole", value); }}
+                  nav={{ ...sectionNavContext, activeSection: section.key }}
+                />
+                </FieldOwner>
+              ) : activeResumeSection === "summary" ? (
+                <SummarySectionPage
+                  blocks={activeSectionBlocks}
+                  profile={profile}
+                  branch={selectedBranch}
+                  editTexts={editTexts}
+                  onEditTextChange={(itemId, text) => setEditTexts((prev) => ({ ...prev, [itemId]: text }))}
+                  onSave={(...args) => saveItem(...args)}
+                  onAdd={(text) => void addContentItem(activeResumeSection, text)}
+                  onSetPresentationVisibility={(itemId, visible) => { void setPresentationItemVisibility(itemId, visible); }}
+                  onDelete={(itemId) => { void setContentItemVisibility(itemId, false); }}
+                  onSyncToProfile={(itemId) => { void syncContentItemToProfile(itemId); }}
+                  allowSyncToProfile={selectedBranch?.branchPurpose === "general"}
+                  nav={{ ...sectionNavContext, activeSection: section.key }}
+                />
+              ) : activeResumeSection === "work"
+                || activeResumeSection === "internship"
+                || activeResumeSection === "education"
+                || activeResumeSection === "project"
+                || activeResumeSection === "campus" ? (
+                <ExperienceSectionPage
+                  sectionLabel={activeSectionItem?.label ?? "经历"}
+                  blocks={activeSectionBlocks}
+                  branch={selectedBranch}
+                  structuredItems={activeStructuredItems}
+                  editTexts={editTexts}
+                  selectedItemId={selectedStudioItemId}
+                  onEditTextChange={(itemId, text) => setEditTexts((prev) => ({ ...prev, [itemId]: text }))}
+                  onSave={(...args) => saveItem(...args)}
+                  onSaveStructuredItem={(...args) => saveStructuredItem(...args)}
+                  onSelectItem={(...args) => selectStudioItem(...args)}
+                  onSetPresentationVisibility={(itemId, visible) => { void setPresentationItemVisibility(itemId, visible); }}
+                  onDelete={(itemId) => { void setContentItemVisibility(itemId, false); }}
+                  onDuplicate={(itemId) => void duplicateContentItem(itemId)}
+                  onReorder={(from, to) => void reorderPresentationItems(from, to)}
+                  onMoveUp={(itemId) => void movePresentationItem(itemId, "up")}
+                  onMoveDown={(itemId) => void movePresentationItem(itemId, "down")}
+                  onAdd={(draft, syncToProfile) => void addContentItem(activeResumeSection, draft, syncToProfile)}
+                  onSyncToProfile={(itemId) => { void syncContentItemToProfile(itemId); }}
+                  allowSyncToProfile={selectedBranch?.branchPurpose === "general"}
+                  onOpenLibrary={() => { setActiveResumeSection(section.key); setProfileLibraryOpen(true); }}
+                  nav={{ ...sectionNavContext, activeSection: section.key }}
+                />
+              ) : activeResumeSection.startsWith("custom:") ? (
+                <SkillsSectionPage
+                  sectionLabel={activeSectionItem?.label ?? "内容"}
+                  blocks={activeSectionBlocks}
+                  editTexts={editTexts}
+                  selectedItemId={selectedStudioItemId}
+                  onEditTextChange={(itemId, text) => setEditTexts((prev) => ({ ...prev, [itemId]: text }))}
+                  onSave={(...args) => saveItem(...args)}
+                  onSetPresentationVisibility={(itemId, visible) => { void setPresentationItemVisibility(itemId, visible); }}
+                  onDelete={(itemId) => { void setContentItemVisibility(itemId, false); }}
+                  onDuplicate={(itemId) => void duplicateContentItem(itemId)}
+                  onReorder={(from, to) => void reorderPresentationItems(from, to)}
+                  onMoveUp={(itemId) => void movePresentationItem(itemId, "up")}
+                  onMoveDown={(itemId) => void movePresentationItem(itemId, "down")}
+                  onAdd={(text) => void addContentItem(activeResumeSection, text)}
+                  onOpenLibrary={() => { setActiveResumeSection(section.key); setProfileLibraryOpen(true); }}
+                  nav={{ ...sectionNavContext, activeSection: section.key }}
+                />
+              ) : (
+                <CanonicalSectionPage
+                  sectionType={activeResumeSection as Exclude<ResumeSectionTypeV2, "basics">}
+                  sectionLabel={activeSectionItem?.label ?? "内容"}
+                  items={activeStructuredItems}
+                  blocks={activeSectionBlocks}
+                  selectedItemId={selectedStudioItemId}
+                  onSave={(...args) => saveStructuredItem(...args)}
+                  onAdd={item => addStructuredContentItem(item)}
+                  onSetPresentationVisibility={(itemId, visible) => { void setPresentationItemVisibility(itemId, visible); }}
+                  onDelete={(itemId) => { void setContentItemVisibility(itemId, false); }}
+                  onDuplicate={(itemId) => void duplicateContentItem(itemId)}
+                  onReorder={(from, to) => void reorderPresentationItems(from, to)}
+                  onMoveUp={(itemId) => void movePresentationItem(itemId, "up")}
+                  onMoveDown={(itemId) => void movePresentationItem(itemId, "down")}
+                  onOpenLibrary={() => { setActiveResumeSection(section.key); setProfileLibraryOpen(true); }}
+                  nav={{ ...sectionNavContext, activeSection: section.key }}
+                />
+              )
+              }
+                </div></ResumeSectionCard></Fragment>;
+              })}
               </nav>
-              {isSectionMenuOpen && selectedBranch ? (
+              {selectedBranch ? (
                 <div
                   id="resume-add-section-menu"
-                  ref={sectionMenuRef}
-                  className="resume-add-section-menu"
-                  role="dialog"
+                  className="resume-add-section-menu sidebar-add-card"
+                  role="region"
                   aria-label="添加或管理简历栏目"
                 >
                   <div className="resume-add-section-menu-heading">
-                    <strong>添加栏目</strong>
-                    <button type="button" className="secondary-button compact" aria-label="关闭添加栏目" onClick={() => { setIsSectionMenuOpen(false); sectionMenuButtonRef.current?.focus(); }}>×</button>
+                    <strong>添加板块</strong>
+
                   </div>
                   <div className="resume-add-section-options">
-                    {OPTIONAL_STUDIO_SECTIONS.map((section) => {
+                    {OPTIONAL_STUDIO_SECTIONS.filter(section => !resumeSectionNavItems.some(item => item.key === section.key)).map((section) => {
                       const navItem = resumeSectionNavItems.find((item) => item.key === section.key);
                       const enabled = Boolean(navItem);
                       return (
@@ -4805,120 +4903,8 @@ export function ResumeWorkspace() {
                   <button type="button" className="primary-button compact" onClick={addCustomStudioSection}>创建自定义栏目</button>
                 </div>
               ) : null}
-            </aside>
-          ) : null}
-          <aside ref={contentPanelRef} className={`panel no-print resume-export-panel resume-inspector ${studioMode === "edit" ? "branch-editor" : ""}`} data-testid="resume-active-section-fields"
-            onScroll={(event) => { contentScrollPositions.current[studioMode] = event.currentTarget.scrollTop; }}>
-            {studioMode !== "edit" ? <div className="property-panel-heading">
-              {studioMode === "style" ? <h2>样式</h2> : null}
-            </div> : null}
-            {studioMode === "ai" ? null : studioMode === "style" ? (
-              <div className="inspector-tablist" role="tablist" aria-label="样式工具">
-                {(["template", "colors", "font", "page"] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    role="tab"
-                    aria-selected={styleInspectorTab === tab}
-                    className={styleInspectorTab === tab ? "inspector-tab inspector-tab-active" : "inspector-tab"}
-                    onClick={() => selectSettingsTab(tab)}
-                  >
-                    {styleInspectorTabLabel(tab)}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-            <div className="resume-content-pane" hidden={studioMode !== "edit"}>
-              {editingSectionTitleId ? <label className="field-label studio-section-title-field">栏目标题<input id="studio-section-title" aria-label="栏目标题" value={sectionTitleDraftText} disabled={!selectedBranchEditable || sectionTitlePending} onChange={event => setSectionTitleDraftText(event.target.value)} onBlur={() => { void saveSectionTitleEdit(); }} />{sectionTitleError ? <span role="alert">{sectionTitleError}</span> : null}</label> : null}
-              {
-              activeResumeSection === "basics" ? (
-                <BasicsSectionPage
-                  profile={profile}
-                  branch={selectedBranch}
-                  branchEditable={selectedBranchEditable}
-                  profileFieldError={profileFieldError}
-                  onSaveProfileField={saveProfileFieldText}
-                  onSaveBranchBasicsField={(_field, value) => { void saveProfileFieldText("branch:targetRole", value); }}
-                  nav={sectionNavContext}
-                />
-              ) : activeResumeSection === "summary" ? (
-                <SummarySectionPage
-                  blocks={activeSectionBlocks}
-                  profile={profile}
-                  branch={selectedBranch}
-                  editTexts={editTexts}
-                  onEditTextChange={(itemId, text) => setEditTexts((prev) => ({ ...prev, [itemId]: text }))}
-                  onSave={saveItem}
-                  onAdd={(text) => void addContentItem(activeResumeSection, text)}
-                  onSetPresentationVisibility={(itemId, visible) => { void setPresentationItemVisibility(itemId, visible); }}
-                  onDelete={(itemId) => { void setContentItemVisibility(itemId, false); }}
-                  onSyncToProfile={(itemId) => { void syncContentItemToProfile(itemId); }}
-                  allowSyncToProfile={selectedBranch?.branchPurpose === "general"}
-                  nav={sectionNavContext}
-                />
-              ) : activeResumeSection === "work"
-                || activeResumeSection === "internship"
-                || activeResumeSection === "education"
-                || activeResumeSection === "project"
-                || activeResumeSection === "campus" ? (
-                <ExperienceSectionPage
-                  sectionLabel={activeSectionItem?.label ?? "经历"}
-                  blocks={activeSectionBlocks}
-                  branch={selectedBranch}
-                  structuredItems={activeStructuredItems}
-                  editTexts={editTexts}
-                  selectedItemId={selectedStudioItemId}
-                  onEditTextChange={(itemId, text) => setEditTexts((prev) => ({ ...prev, [itemId]: text }))}
-                  onSave={saveItem}
-                  onSaveStructuredItem={saveStructuredItem}
-                  onSelectItem={selectStudioItem}
-                  onSetPresentationVisibility={(itemId, visible) => { void setPresentationItemVisibility(itemId, visible); }}
-                  onDelete={(itemId) => { void setContentItemVisibility(itemId, false); }}
-                  onDuplicate={(itemId) => void duplicateContentItem(itemId)}
-                  onMoveUp={(itemId) => void movePresentationItem(itemId, "up")}
-                  onMoveDown={(itemId) => void movePresentationItem(itemId, "down")}
-                  onAdd={(draft, syncToProfile) => void addContentItem(activeResumeSection, draft, syncToProfile)}
-                  onSyncToProfile={(itemId) => { void syncContentItemToProfile(itemId); }}
-                  allowSyncToProfile={selectedBranch?.branchPurpose === "general"}
-                  onOpenLibrary={() => setProfileLibraryOpen(true)}
-                  nav={sectionNavContext}
-                />
-              ) : activeResumeSection.startsWith("custom:") ? (
-                <SkillsSectionPage
-                  sectionLabel={activeSectionItem?.label ?? "内容"}
-                  blocks={activeSectionBlocks}
-                  editTexts={editTexts}
-                  selectedItemId={selectedStudioItemId}
-                  onEditTextChange={(itemId, text) => setEditTexts((prev) => ({ ...prev, [itemId]: text }))}
-                  onSave={saveItem}
-                  onSetPresentationVisibility={(itemId, visible) => { void setPresentationItemVisibility(itemId, visible); }}
-                  onDelete={(itemId) => { void setContentItemVisibility(itemId, false); }}
-                  onDuplicate={(itemId) => void duplicateContentItem(itemId)}
-                  onMoveUp={(itemId) => void movePresentationItem(itemId, "up")}
-                  onMoveDown={(itemId) => void movePresentationItem(itemId, "down")}
-                  onAdd={(text) => void addContentItem(activeResumeSection, text)}
-                  onOpenLibrary={() => setProfileLibraryOpen(true)}
-                  nav={sectionNavContext}
-                />
-              ) : (
-                <CanonicalSectionPage
-                  sectionType={activeResumeSection as Exclude<ResumeSectionTypeV2, "basics">}
-                  sectionLabel={activeSectionItem?.label ?? "内容"}
-                  items={activeStructuredItems}
-                  blocks={activeSectionBlocks}
-                  selectedItemId={selectedStudioItemId}
-                  onSave={saveStructuredItem}
-                  onSetPresentationVisibility={(itemId, visible) => { void setPresentationItemVisibility(itemId, visible); }}
-                  onDelete={(itemId) => { void setContentItemVisibility(itemId, false); }}
-                  onDuplicate={(itemId) => void duplicateContentItem(itemId)}
-                  onMoveUp={(itemId) => void movePresentationItem(itemId, "up")}
-                  onMoveDown={(itemId) => void movePresentationItem(itemId, "down")}
-                  onOpenLibrary={() => setProfileLibraryOpen(true)}
-                  nav={sectionNavContext}
-                />
-              )
-              }
             </div>
+            </FieldAppearanceContext.Provider>
             {studioMode === "style" ? styleControls : null}
             {renderResult.warning ? (
               <div className="warning-box" data-testid="render-compatibility-warning" role="status" aria-live="polite">
@@ -5444,13 +5430,14 @@ function buildResumeStudioSections(input: {
     ...input.customSections.map((section) => ({ key: `custom:${section.id}` as const, label: section.title, blocks: customBySource(`custom:${section.id}`), defaultVisible: false, order: 180 + section.order }))
   ];
   const sections = candidates
-    .filter((section) => section.defaultVisible || (!input.hiddenSections.includes(section.key) && (section.blocks.length > 0 || input.enabledSections.includes(section.key) || profileHasSection(section.key))))
+    .filter((section) => !input.hiddenSections.includes(section.key) && (section.defaultVisible || section.blocks.length > 0 || input.enabledSections.includes(section.key) || profileHasSection(section.key)))
     .sort((left, right) => left.order - right.order)
     .map((section) => ({ key: section.key, label: section.label, count: section.key === "basics" ? (verifiedContentCount > 0 ? 1 : 0) : section.blocks.length, firstItemId: section.blocks[0]?.contentItemId }));
   return [...sections, { key: "add", label: "添加栏目", count: 0 }];
 }
 
 function studioSectionForBlock(block: ResumeDocumentBlock): ResumeStudioSectionKey {
+  if (block.canonicalSectionType && isResumeStudioSectionKey(block.canonicalSectionType) && !(block.sourceSectionId?.startsWith("custom:"))) return block.canonicalSectionType;
   if (block.itemType === "custom") {
     if (block.sourceSectionId && isResumeStudioSectionKey(block.sourceSectionId)) {
       return block.sourceSectionId;
@@ -5474,7 +5461,7 @@ function buildNextPresentationConfig(input: {
   branch: ResumeBranch;
   patch: Partial<Pick<
     ResumePresentationConfig,
-    "precision" | "templateId" | "itemOrderBySection" | "hiddenItemIds" | "typography" | "spacing" | "theme" | "pagination" | "sectionOrder" | "sectionStyleOverrides" | "itemHeaderMiddleAlignment" | "departmentPlacement"
+    "fieldAppearances" | "canonicalSectionOrder" | "precision" | "templateId" | "itemOrderBySection" | "hiddenItemIds" | "typography" | "spacing" | "theme" | "pagination" | "sectionOrder" | "sectionStyleOverrides" | "itemHeaderMiddleAlignment" | "departmentPlacement"
   >>;
 }): ResumePresentationConfig {
   if (!input.branch.currentRevisionId) {
@@ -5495,6 +5482,8 @@ function buildNextPresentationConfig(input: {
 function presentationSnapshotPatch(config: ResumePresentationConfig) {
   return {
     templateId: config.templateId,
+    fieldAppearances: config.fieldAppearances,
+    canonicalSectionOrder: config.canonicalSectionOrder,
     sectionOrder: config.sectionOrder,
     itemOrderBySection: config.itemOrderBySection,
     hiddenItemIds: config.hiddenItemIds,
@@ -5509,6 +5498,8 @@ function presentationSnapshotPatch(config: ResumePresentationConfig) {
 
 function presentationStylePatch(config: ResumePresentationConfig): ResumeTemplateStyleConfig {
   return {
+    fieldAppearances: config.fieldAppearances,
+    canonicalSectionOrder: config.canonicalSectionOrder,
     precision: config.precision,
     typography: config.typography,
     spacing: config.spacing,
@@ -5999,30 +5990,12 @@ function sectionNavIcon(key: string): React.ReactNode {
     certificates: <Scroll size={iconSize} strokeWidth={iconStrokeWidth} />,
     languages: <Globe size={iconSize} strokeWidth={iconStrokeWidth} />,
     custom: <Sparkles size={iconSize} strokeWidth={iconStrokeWidth} />,
+    research: <FileText size={iconSize} strokeWidth={iconStrokeWidth} />,
+    training: <GraduationCap size={iconSize} strokeWidth={iconStrokeWidth} />,
+    other: <FileText size={iconSize} strokeWidth={iconStrokeWidth} />,
     add: <Plus size={iconSize} strokeWidth={iconStrokeWidth} />
   };
   return icons[key] ?? <span style={{ fontSize: '18px' }}>•</span>;
-}
-
-function sectionNavAccessibleLabel(key: ResumeStudioSectionKey, label: string) {
-  return label;
-}
-
-function splitSectionNavLabel(label: string) {
-  const parts = label.split(/\s*\/\s*/);
-  const lines: string[] = [];
-  for (let i = 0; i < parts.length; i++) {
-    if (i > 0) {
-      lines.push("/");
-    }
-    const part = parts[i];
-    if (!part) continue;
-    const characters = Array.from(part);
-    for (let index = 0; index < characters.length; index += 2) {
-      lines.push(characters.slice(index, index + 2).join(""));
-    }
-  }
-  return lines;
 }
 
 function experienceMatchesResumeSection(

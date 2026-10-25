@@ -79,6 +79,24 @@ it("preserves daily training dates and rank percentage from import through repos
     expect(host.textContent).toContain("示例培训机构"); expect(host.textContent).toContain("2026.07.01");
     expect(host.textContent).toContain("前 15%");
   }
+  const manualConfig = { ...config, canonicalSectionOrder: model.structuredSections.map(section => section.sectionId).reverse() };
+  const manualModel = mapBranchToResumeRenderModel({ branch, profile, presentationConfig: manualConfig });
+  if (manualModel.schemaVersion !== "resume-render-v2") throw new Error("canonical model required");
+  for (const template of resumeTemplates) {
+    const host = document.createElement("div");
+    host.innerHTML = renderToStaticMarkup(template.render(manualModel, { presentationConfig: manualConfig }));
+    expect(Array.from(host.querySelectorAll("[data-render-section-id]")).map(node => node.getAttribute("data-render-section-id")), template.id).toEqual(manualConfig.canonicalSectionOrder);
+    expect(host.textContent, template.id).toContain("示例培训机构");
+    expect(host.querySelectorAll("[data-render-section-id] h2").length, template.id).toBe(manualModel.structuredSections.filter(section => section.showTitle !== false).length);
+  }
+  const skillSection = manualModel.structuredSections.find(section => section.sectionType === "skills")!;
+  expect(skillSection.items).toHaveLength(3);
+  skillSection.items.forEach((item, index) => { item.presentation.groupLabel = index === 1 ? "工程开发" : "数据分析"; });
+  for (const template of resumeTemplates) {
+    const host = document.createElement("div");
+    host.innerHTML = renderToStaticMarkup(template.render(manualModel, { presentationConfig: manualConfig }));
+    expect(Array.from(host.querySelectorAll('[data-presentation-item="skills"]')).map(node => node.getAttribute("data-source-item-id")), template.id).toEqual(skillSection.items.map(item => item.itemId));
+  }
   const presentation = presentationSnapshotFromConfig(config);
   const restored = presentationConfigFromExportSnapshot({ presentation, templateId: config.templateId, renderModel: { branchId: branch.id }, filename: "anonymous.pdf" } as never);
   expect(restored.departmentPlacement).toBe("inline");

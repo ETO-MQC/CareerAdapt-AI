@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { projectResumeItemV2 } from "@/domain/migrations/resumeV2";
 import { demoCareerProfile } from "@/data/demoProfile";
 import { demoJobDescriptions } from "@/data/demoJobs";
 import { createRuleRequirementMatches } from "@/domain/match/matcher";
 import { mapBranchToResumeDocument } from "@/domain/resumeDocument/mapper";
 import { mapBranchToResumeRenderModel } from "@/domain/resumeRender/mapper";
-import { ResumePresentationConfigSchema, type ResumePresentationConfig, type ResumeRenderSectionType } from "@/domain/schemas";
+import { ResumeItemV2Schema, ResumePresentationConfigSchema, type ResumePresentationConfig, type ResumeRenderSectionType } from "@/domain/schemas";
 import { sourceVisibleCoverage } from "@/services/export/renderCoverage";
 import { CareerAdaptDb } from "@/services/storage/db";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
@@ -21,6 +22,44 @@ afterEach(async () => {
 });
 
 describe("V2 G1a resume presentation config", () => {
+  it("persists field appearance as presentation without changing facts, branch content or content versions", async () => {
+    const { repository, branch } = await createBranchFixture("CareerAdaptFieldAppearanceDb");
+    const initial = await repository.getResumePresentationConfig(branch.id);
+    const before = await repository.getResumeBranch(branch.id);
+    const profile = await repository.getProfile(branch.profileId);
+    const versions = await repository.listResumeRevisions(branch.id);
+    const fieldAppearances = [{ itemId: branch.contentItems[0].id, field: "highlights", text: "原文", occurrence: 0, ranges: [{ from: 0, to: 2, bold: true }] }];
+    await repository.saveResumePresentationConfig({ branchId: branch.id, expectedBranchRevision: branch.revision, expectedRevisionId: branch.currentRevisionId!, expectedPresentationRevision: initial.presentationRevision, operationId: "field-style", nextConfig: { ...nextPresentationConfig(initial, branch, {}), fieldAppearances } });
+    expect((await repository.getResumePresentationConfig(branch.id)).fieldAppearances).toEqual(fieldAppearances);
+    expect(await repository.getResumeBranch(branch.id)).toEqual(before);
+    expect(await repository.getProfile(branch.profileId)).toEqual(profile);
+    expect(await repository.listResumeRevisions(branch.id)).toEqual(versions);
+  });
+
+  it("creates canonical training without reparsing its text projection or writing profile facts", async () => {
+    const { repository, branch } = await createBranchFixture("CareerAdaptTrainingCreateDb");
+    const beforeProfile = await repository.getProfile(branch.profileId);
+    const data = ResumeItemV2Schema.parse({ id: "draft-training", sectionType: "training", institution: "示例培训机构", title: "工程实践课程", startDate: "2025-07", endDate: "2025-08" });
+    const result = await repository.addResumeContentItem({ branchId: branch.id, expectedRevision: branch.revision, operationId: "add-canonical-training", section: "training", itemType: "custom", text: projectResumeItemV2(data), structuredItem: data });
+    const saved = await repository.getResumeBranch(branch.id);
+    expect(saved!.structuredContentItems!.find(item => item.id === result.newItemId)?.data).toEqual({ ...data, id: result.newItemId });
+    expect(saved!.contentItems.find(item => item.id === result.newItemId)?.userConfirmation?.scope).toBe("resume_only");
+    expect(saved!.revision).toBe(branch.revision + 1);
+    expect(await repository.getProfile(branch.profileId)).toEqual(beforeProfile);
+  });
+
+  it("persists canonical section ordering and unknown keys without changing content or evidence", async () => {
+    const { repository, branch } = await createBranchFixture("CareerAdaptCanonicalOrderDb");
+    const initial = await repository.getResumePresentationConfig(branch.id);
+    const before = await repository.getResumeBranch(branch.id);
+    const revisions = await repository.listResumeRevisions(branch.id);
+    const nextConfig = { ...nextPresentationConfig(initial, branch, {}), canonicalSectionOrder: ["work", "custom:retained", "education"] };
+    await repository.saveResumePresentationConfig({ branchId: branch.id, expectedBranchRevision: branch.revision, expectedRevisionId: branch.currentRevisionId!, expectedPresentationRevision: initial.presentationRevision, operationId: "canonical-order", nextConfig });
+    expect((await repository.getResumePresentationConfig(branch.id)).canonicalSectionOrder).toEqual(nextConfig.canonicalSectionOrder);
+    expect(await repository.getResumeBranch(branch.id)).toEqual(before);
+    expect(await repository.listResumeRevisions(branch.id)).toEqual(revisions);
+  });
+
   it("persists precision without changing facts, source evidence or content revisions", async () => {
     const { repository, branch } = await createBranchFixture("CareerAdaptPrecisionDb");
     const initial = await repository.getResumePresentationConfig(branch.id);

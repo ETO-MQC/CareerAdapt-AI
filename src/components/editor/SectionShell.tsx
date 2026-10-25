@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode } from "react";
+import { useSidebarEditor } from "./SidebarEditorContext";
 
 type SectionShellProps = {
   icon: ReactNode;
@@ -35,6 +36,8 @@ export function SectionShell({
   hasNext = true,
   headerAction
 }: SectionShellProps) {
+  const embedded = useSidebarEditor();
+  if (embedded) return <div className="sidebar-embedded-section"><div className="sidebar-embedded-fields">{children}</div>{headerAction ? <div className="sidebar-library-action">{headerAction}</div> : null}</div>;
   return (
     <div className="section-shell">
       <div className="section-shell-body">

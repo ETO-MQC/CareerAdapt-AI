@@ -3,7 +3,8 @@
 import { useState } from "react";
 import type { ResumeDocumentBlock } from "@/domain/resumeDocument/mapper";
 import { TipTapEditor } from "../TipTapEditor";
-import { AccordionList } from "../AccordionList";
+import { ResumeItemTools } from "../ResumeItemTools";
+import { AccordionList, type AccordionItem } from "../AccordionList";
 import { SectionShell } from "../SectionShell";
 import { contentItemTypeLabel, guardStatusLabel, plainTextToHtml, htmlToPlainText } from "../helpers";
 import { type SectionNavContext, prevSection, nextSection } from "./types";
@@ -18,6 +19,7 @@ type SkillsSectionPageProps = {
   onSetPresentationVisibility: (itemId: string, visible: boolean) => void;
   onDelete: (itemId: string) => void;
   onDuplicate: (itemId: string) => void;
+  onReorder?: (from: string, to: string) => void;
   onMoveUp: (itemId: string) => void;
   onMoveDown: (itemId: string) => void;
   onAdd: (text: string) => void;
@@ -53,6 +55,7 @@ export function SkillsSectionPage({
   onSetPresentationVisibility,
   onDelete,
   onDuplicate,
+  onReorder,
   onMoveUp,
   onMoveDown,
   onAdd,
@@ -63,7 +66,7 @@ export function SkillsSectionPage({
   const next = nextSection(nav.activeSection);
   const [adding, setAdding] = useState(false);
 
-  const accordionItems = blocks.map((block, index) => {
+  const accordionItems: AccordionItem[] = blocks.map((block, index) => {
     const currentText = editTexts[block.contentItemId] ?? block.text;
     const displayText = currentText.split("\n")[0]?.slice(0, 40) || `${sectionLabel} ${index + 1}`;
     const isOpen = selectedItemId ? selectedItemId === block.contentItemId : index === 0;
@@ -74,6 +77,7 @@ export function SkillsSectionPage({
       subtitle: `${contentItemTypeLabel(block.itemType)} / ${guardStatusLabel(block.guardStatus)}`,
       badge: !block.visible ? "已隐藏" : undefined,
       defaultOpen: isOpen,
+      actions: <ResumeItemTools title={displayText} visible={block.visible} onMoveUp={() => onMoveUp(block.contentItemId)} onMoveDown={() => onMoveDown(block.contentItemId)} onVisibility={() => onSetPresentationVisibility(block.contentItemId, !block.visible)} onDelete={() => onDelete(block.contentItemId)} />,
       content: (
         <div className="skill-item-fields">
           <div className="skill-editor">
@@ -95,6 +99,7 @@ export function SkillsSectionPage({
             >
               保存
             </button>
+            <details className="sidebar-entry-more"><summary>更多操作</summary><div className="sidebar-entry-menu">
             <button type="button" className="section-action-button" aria-label={`上移${displayText}`} onClick={() => onMoveUp(block.contentItemId)}>↑</button>
             <button type="button" className="section-action-button" aria-label={`下移${displayText}`} onClick={() => onMoveDown(block.contentItemId)}>↓</button>
             <label className="field-input-checkbox-label field-inline-toggle">
@@ -103,6 +108,7 @@ export function SkillsSectionPage({
             </label>
             <button type="button" className="section-action-button" onClick={() => onDuplicate(block.contentItemId)}>复制</button>
             <button type="button" className="section-action-button section-action-button-danger" onClick={() => onDelete(block.contentItemId)}>删除</button>
+            </div></details>
           </div>
         </div>
       )
@@ -146,6 +152,7 @@ export function SkillsSectionPage({
       headerAction={<button type="button" className="section-action-button" onClick={onOpenLibrary}>资料库</button>}
     >
       <AccordionList
+        onReorder={onReorder}
         items={accordionItems}
         emptyHint={undefined}
         addButton={blocks.length > 0 && !adding ? (

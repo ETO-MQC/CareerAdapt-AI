@@ -12184,3 +12184,6 @@ html[data-theme="dark"] .inspector-tab-active {
 .resume-a4-page[data-precision-header="center"] .resume-template-header address { justify-content: center; }
 .resume-a4-page[data-precision-header="split"] .resume-template-header address { justify-content: flex-end; }
 .resume-a4-page[data-precision-title] .resume-template-section h2::after { display: none; }
+
+/* User section order overrides fixed template columns in both preview and PDF. */
+.resume-user-section-flow { grid-template-columns:minmax(0,1fr); }

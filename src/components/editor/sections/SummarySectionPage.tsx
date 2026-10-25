@@ -3,9 +3,10 @@
 import { useState } from "react";
 import type { ResumeDocumentBlock } from "@/domain/resumeDocument/mapper";
 import type { CareerProfile, ResumeBranch } from "@/domain/schemas";
-import { TipTapEditor } from "../TipTapEditor";
+import { FieldOwner } from "../FieldAppearanceContext";
+import { FieldFormatting } from "../FieldFormatting";
+import { AutoTextarea } from "../StringListEditor";
 import { SectionShell } from "../SectionShell";
-import { plainTextToHtml, htmlToPlainText } from "../helpers";
 import { type SectionNavContext, prevSection, nextSection } from "./types";
 
 type SummarySectionPageProps = {
@@ -61,16 +62,9 @@ export function SummarySectionPage({
       onNext={() => next && nav.onNavigate(next)}
     >
       <div className="section-summary-editor">
-        <TipTapEditor
-          value={plainTextToHtml(currentText)}
-          onChange={(html) => {
-            const text = htmlToPlainText(html);
-            if (block) onEditTextChange(block.contentItemId, text);
-            else setNewSummary(text);
-          }}
-          placeholder="例如：可靠的人，学习快，团队合作好。"
-          minRows={8}
-        />
+        <FieldOwner itemId={block?.contentItemId ?? "basics"}><FieldFormatting field="text" value={currentText} label="自我评价" onDelete={() => block ? onEditTextChange(block.contentItemId, "") : setNewSummary("")}>
+          <AutoTextarea id="summary-text" label="自我评价正文" value={currentText} onChange={text => { if (block) onEditTextChange(block.contentItemId, text); else setNewSummary(text); }}/>
+        </FieldFormatting></FieldOwner>
         {block ? (
           <>
             {block.presentationHidden ? <div className="field-warning-box">该内容仅从当前简历预览中隐藏，仍保留在正文中。</div> : null}

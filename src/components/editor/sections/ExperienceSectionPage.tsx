@@ -20,7 +20,9 @@ import { StructuredExperienceForm } from "../StructuredExperienceForm";
 import { StructuredProjectForm } from "../StructuredProjectForm";
 import { CanonicalField, normalizeCanonicalFormLists } from "./CanonicalSectionPage";
 import { resumeFieldCatalog } from "@/domain/resumeFields";
-import { AccordionList } from "../AccordionList";
+import { FieldOwner } from "../FieldAppearanceContext";
+import { ResumeItemTools } from "../ResumeItemTools";
+import { AccordionList, type AccordionItem } from "../AccordionList";
 import { SectionShell } from "../SectionShell";
 import { contentItemTypeLabel, guardStatusLabel } from "../helpers";
 import { type SectionNavContext, prevSection, nextSection } from "./types";
@@ -42,6 +44,7 @@ type ExperienceSectionPageProps = {
   onSetPresentationVisibility: (itemId: string, visible: boolean) => void;
   onDelete: (itemId: string) => void;
   onDuplicate: (itemId: string) => void;
+  onReorder?: (from: string, to: string) => void;
   onMoveUp: (itemId: string) => void;
   onMoveDown: (itemId: string) => void;
   onAdd: (draft: { text: string; organization?: string; title?: string; role?: string; location?: string; degree?: string; major?: string; courses?: string[]; startDate?: string; endDate?: string; expectedEndDate?: string; current?: boolean; url?: string; tools?: string[]; background?: string; description?: string; highlights?: string[]; outcomes?: string[] }, syncToProfile: boolean) => void;
@@ -148,6 +151,7 @@ export function ExperienceSectionPage({
   onSetPresentationVisibility,
   onDelete,
   onDuplicate,
+  onReorder,
   onMoveUp,
   onMoveDown,
   onAdd,
@@ -164,7 +168,7 @@ export function ExperienceSectionPage({
     return new Map(structuredItems.map((item) => [item.id, item]));
   }, [structuredItems]);
 
-  const accordionItems = blocks.map((block, index) => {
+  const accordionItems: AccordionItem[] = blocks.map((block, index) => {
     const category = experienceCategoryFromLabel(sectionLabel);
     const sourceItem = branch?.contentItems.find((item) => item.id === block.contentItemId);
     const canonicalItem = structuredMap?.get(block.contentItemId);
@@ -194,8 +198,9 @@ export function ExperienceSectionPage({
       subtitle: `${contentItemTypeLabel(block.itemType)} / ${guardStatusLabel(block.guardStatus)}`,
       badge: !block.visible ? "已隐藏" : undefined,
       defaultOpen: isOpen,
+      actions: <ResumeItemTools title={titleText} visible={block.visible} onMoveUp={() => onMoveUp(block.contentItemId)} onMoveDown={() => onMoveDown(block.contentItemId)} onVisibility={() => onSetPresentationVisibility(block.contentItemId, !block.visible)} onDelete={() => onDelete(block.contentItemId)} />,
       content: (
-        <ExperienceItemFields
+        <FieldOwner itemId={block.contentItemId}><ExperienceItemFields
           itemId={block.contentItemId}
           category={category}
           initialFields={structuredFields}
@@ -265,7 +270,7 @@ export function ExperienceSectionPage({
             ) : (
               <span className="resume-sync-state resume-sync-state-synced">已关联资料库</span>
             )}
-        </ExperienceItemFields>
+        </ExperienceItemFields></FieldOwner>
       )
     };
   });
@@ -308,6 +313,7 @@ export function ExperienceSectionPage({
       headerAction={<button type="button" className="section-action-button" onClick={onOpenLibrary}>资料库</button>}
     >
       <AccordionList
+        onReorder={onReorder}
         items={accordionItems}
         emptyHint={undefined}
         addButton={blocks.length > 0 && !adding ? (
@@ -347,7 +353,7 @@ function ExperienceItemFields(props: {
   const [extraValues, setExtraValues] = useState<Record<string, unknown>>({});
   const extraValuesRef = useRef<Record<string, unknown>>({});
   const extraFields = resumeFieldCatalog.filter((field) => field.sectionType === props.canonicalItem?.sectionType
-    && ["gpa", "gpaScale", "rankPosition", "rankTotal", "rankPercent", "honors", "department"].includes(field.id.split(".").at(-1)!));
+    && (["gpa", "gpaScale", "rankPosition", "rankTotal", "rankPercent", "honors"].includes(field.id.split(".").at(-1)!) || props.category === "education" && field.id === "education.department"));
 
   async function save(origin: "manual" | "auto") {
     if (saveTimerRef.current !== undefined) window.clearTimeout(saveTimerRef.current);
@@ -439,7 +445,7 @@ function ExperienceItemFields(props: {
         >
           保存
         </button>
-        {props.children}
+        <details className="sidebar-entry-more"><summary>更多操作</summary><div className="sidebar-entry-menu">{props.children}</div></details>
       </div>
     </div>
   );

@@ -2,10 +2,16 @@
 
 import { useMemo, useState } from "react";
 import type { CustomFieldValue, ResumeContentItemV2, ResumeItemV2 } from "@/domain/schemas";
+import { ResumeItemV2Schema } from "@/domain/schemas";
 import type { ResumeDocumentBlock } from "@/domain/resumeDocument/mapper";
 import { normalizeAwardedAt } from "@/domain/migrations/resumeV2";
 import { resumeFieldCatalog, type ResumeFieldDefinition, type ResumeSectionTypeV2 } from "@/domain/resumeFields";
 import { resolveCareerAssetDisplayIdentity } from "@/domain/resumeComposition/CareerAssetDisplayIdentity";
+import { FieldOwner } from "../FieldAppearanceContext";
+import { FieldFormatting } from "../FieldFormatting";
+import { StringListEditor } from "../StringListEditor";
+import { DatePicker } from "../DatePicker";
+import { ResumeItemTools } from "../ResumeItemTools";
 import { AccordionList } from "../AccordionList";
 import { SectionShell } from "../SectionShell";
 import { type SectionNavContext, nextSection, prevSection } from "./types";
@@ -17,6 +23,8 @@ type CanonicalSectionPageProps = {
   blocks: ResumeDocumentBlock[];
   selectedItemId?: string;
   onSave: (itemId: string, item: ResumeItemV2, options?: { origin?: "manual" | "auto" }) => Promise<void> | void;
+  onAdd?: (item: ResumeItemV2) => Promise<void>;
+  onReorder?: (from: string, to: string) => void;
   onSetPresentationVisibility: (itemId: string, visible: boolean) => void;
   onDelete: (itemId: string) => void;
   onDuplicate: (itemId: string) => void;
@@ -27,6 +35,7 @@ type CanonicalSectionPageProps = {
 };
 
 export function CanonicalSectionPage(props: CanonicalSectionPageProps) {
+  const [adding, setAdding] = useState(false);
   const fields = useMemo(
     () => resumeFieldCatalog.filter((field) => field.sectionType === props.sectionType),
     [props.sectionType]
@@ -47,9 +56,10 @@ export function CanonicalSectionPage(props: CanonicalSectionPageProps) {
       subtitle: item.data.sectionType,
       badge: presentationVisible ? undefined : "已隐藏",
       defaultOpen: props.selectedItemId ? props.selectedItemId === item.id : index === 0,
+      actions: <ResumeItemTools title={title} visible={presentationVisible} onMoveUp={() => props.onMoveUp(item.id)} onMoveDown={() => props.onMoveDown(item.id)} onVisibility={() => props.onSetPresentationVisibility(item.id, !presentationVisible)} onDelete={() => props.onDelete(item.id)} />,
       content: (
-        <CanonicalItemForm
-          key={`${item.id}:${JSON.stringify(item.data)}:${presentationVisible}`}
+        <FieldOwner itemId={item.id}><CanonicalItemForm
+          key={`${item.id}:${JSON.stringify(item.data)}`}
           item={item.data}
           fields={fields}
           visible={presentationVisible}
@@ -60,7 +70,7 @@ export function CanonicalSectionPage(props: CanonicalSectionPageProps) {
           onDuplicate={() => props.onDuplicate(item.id)}
           onMoveUp={() => props.onMoveUp(item.id)}
           onMoveDown={() => props.onMoveDown(item.id)}
-        />
+        /></FieldOwner>
       )
     };
   });
@@ -81,9 +91,29 @@ export function CanonicalSectionPage(props: CanonicalSectionPageProps) {
       onNext={() => next && props.nav.onNavigate(next)}
       headerAction={<button type="button" className="section-action-button" onClick={props.onOpenLibrary}>资料库</button>}
     >
-      <AccordionList items={accordionItems} emptyHint={`暂无${props.sectionLabel}`} />
+      <AccordionList items={accordionItems} onReorder={props.onReorder} emptyHint={`暂无${props.sectionLabel}`} />
+      {adding && props.onAdd ? <CanonicalNewItemForm sectionType={props.sectionType} fields={fields} onAdd={props.onAdd} onDone={() => setAdding(false)} /> : props.onAdd ? <button type="button" className="sidebar-add-entry" onClick={() => setAdding(true)}>＋ 添加{props.sectionLabel}</button> : null}
     </SectionShell>
   );
+}
+
+function CanonicalNewItemForm(props: { sectionType: Exclude<ResumeSectionTypeV2, "basics">; fields: readonly ResumeFieldDefinition[]; onAdd: (item: ResumeItemV2) => Promise<void>; onDone: () => void }) {
+  const [values, setValues] = useState<Record<string, unknown>>({});
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  async function save() {
+    const normalizedValues = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, Array.isArray(value) ? value.map(line => String(line).trim()).filter(Boolean) : value]));
+    const result = ResumeItemV2Schema.safeParse({ ...normalizedValues, id: `draft-${props.sectionType}`, sectionType: props.sectionType, customFields: [] });
+    if (!result.success) { setError(result.error.issues.map(issue => `${props.fields.find(field => field.id.endsWith(`.${String(issue.path[0])}`))?.label ?? issue.path.join(".")}：请检查必填内容和格式`).join("；")); return; }
+    setSaving(true); setError("");
+    try { await props.onAdd(normalizeCanonicalFormLists(result.data)); props.onDone(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "保存失败，请重试。"); }
+    finally { setSaving(false); }
+  }
+  return <div className="sidebar-new-item-card" aria-label="新条目草稿"><strong>新条目 · 尚未保存</strong><div className="canonical-item-fields">{props.fields.map(field => {
+    const name = field.id.split(".").at(-1)!;
+    return <CanonicalField key={field.id} idPrefix={`new-${props.sectionType}`} field={field} value={values[name]} onChange={value => setValues(current => ({ ...current, [name]: value }))} />;
+  })}</div>{error ? <p role="alert" className="field-error">{error}</p> : null}<div className="sidebar-draft-actions"><button type="button" className="section-action-button section-action-button-primary" disabled={saving} onClick={() => void save()}>{saving ? "保存中…" : "保存并确认"}</button><button type="button" className="section-action-button" disabled={saving} onClick={props.onDone}>取消</button></div></div>;
 }
 
 function CanonicalItemForm(props: {
@@ -125,7 +155,7 @@ function CanonicalItemForm(props: {
           />
         );
       })}
-      <div className="canonical-custom-fields" aria-label="自定义字段">
+      {draft.customFields.length > 0 ? <div className="canonical-custom-fields" aria-label="自定义字段">
         <strong>自定义字段</strong>
         {draft.customFields.length === 0 ? <p className="field-help-text">暂无自定义字段</p> : null}
         {draft.customFields.map((field, index) => (
@@ -144,9 +174,10 @@ function CanonicalItemForm(props: {
             />
           </div>
         ))}
-      </div>
+      </div> : null}
       <div className="experience-item-actions">
         <button type="button" className="section-action-button section-action-button-primary" disabled={saving} onClick={() => void save()}>{saving ? "保存中…" : "保存"}</button>
+        <details className="sidebar-entry-more"><summary>更多操作</summary><div className="sidebar-entry-menu">
         <button type="button" className="section-action-button" aria-label="上移" onClick={props.onMoveUp}>↑</button>
         <button type="button" className="section-action-button" aria-label="下移" onClick={props.onMoveDown}>↓</button>
         <label className="field-input-checkbox-label field-inline-toggle">
@@ -167,6 +198,7 @@ function CanonicalItemForm(props: {
         >
           删除
         </button>
+        </div></details>
       </div>
     </div>
   );
@@ -185,11 +217,12 @@ export function CanonicalField(props: { idPrefix: string; field: ResumeFieldDefi
   const isList = props.field.valueType === "string_list";
   const rawText = isList ? (Array.isArray(props.value) ? props.value.join("\n") : "") : props.value == null ? "" : String(props.value);
   const text = props.field.id === "awards.awardedAt" ? normalizeAwardedAt(rawText) ?? "" : rawText;
-  if (props.field.uiControl === "textarea" || isList) {
+  if (isList) return <StringListEditor field={props.field.id.split(".").at(-1)!} label={props.field.label} idPrefix={id} values={Array.isArray(props.value) ? props.value : []} onChange={props.onChange}/>;
+  if (props.field.uiControl === "textarea") {
     return (
       <div className="field-input-group">
         <label className="field-input-label" htmlFor={id}>{props.field.label}</label>
-        <textarea id={id} className="field-input field-textarea" rows={isList ? 3 : 4} value={text} onChange={(event) => props.onChange(isList ? event.target.value.split(/\r?\n/) : event.target.value || undefined)} />
+        <FieldFormatting field={props.field.id.split(".").at(-1)!} value={text} label={props.field.label} onDelete={() => props.onChange(undefined)}><textarea id={id} className="field-input field-textarea" rows={isList ? 3 : 4} value={text} onChange={(event) => props.onChange(isList ? event.target.value.split(/\r?\n/) : event.target.value || undefined)} /></FieldFormatting>
         {isList ? <span className="field-help-text">每行一项</span> : null}
       </div>
     );
@@ -197,7 +230,7 @@ export function CanonicalField(props: { idPrefix: string; field: ResumeFieldDefi
   return (
     <div className="field-input-group">
       <label className="field-input-label" htmlFor={id}>{props.field.label}</label>
-      <input
+      <FieldFormatting field={props.field.id.split(".").at(-1)!} value={text} label={props.field.label} onDelete={() => props.onChange(undefined)}><div className={props.field.valueType === "date" ? "date-text-input" : undefined}><input
         id={id}
         className="field-input"
         type={props.field.valueType === "number" ? "number" : props.field.valueType === "url" ? "url" : "text"}
@@ -205,7 +238,7 @@ export function CanonicalField(props: { idPrefix: string; field: ResumeFieldDefi
         step={props.field.valueType === "number" ? "any" : undefined}
         value={text}
         onChange={(event) => props.onChange(props.field.valueType === "number" ? (event.target.value ? Number(event.target.value) : undefined) : event.target.value || undefined)}
-      />
+      />{props.field.valueType === "date" ? <DatePicker label={props.field.label} value={text} onChange={props.onChange}/> : null}</div></FieldFormatting>
     </div>
   );
 }

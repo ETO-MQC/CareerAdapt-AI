@@ -92,7 +92,7 @@ test("canonical fixture stays editable while Preview and PDF use formal presenta
     expect(metrics.display).not.toBe("none");
   }
 
-  await page.getByTestId("resume-section-nav").getByRole("button", { name: /教育经历/ }).click();
+  await page.getByTestId("resume-section-nav").getByRole("button", { name: "教育经历", exact: true }).click();
   const fields = page.getByTestId("resume-active-section-fields");
   await expect(fields.getByLabel("学校名称").first()).toBeVisible();
   await expect(fields.getByLabel("学历").first()).toBeVisible();
@@ -176,11 +176,15 @@ test("settings keep unsaved fields, selection and canvas state without business 
     } finally { database.close(); }
   });
   const originalData = await businessSnapshot();
-  await page.getByTestId("resume-section-nav").getByRole("button", { name: /教育经历/ }).click();
+  await page.getByTestId("resume-section-nav").getByRole("button", { name: "教育经历", exact: true }).click();
   const fields = page.getByTestId("resume-active-section-fields");
   await fields.getByRole("button", { name: /添加教育经历/ }).click();
   const draft = fields.getByRole("textbox", { name: /^学校名称/ }).last();
   await draft.fill("尚未保存的学校草稿");
+  await page.getByTestId("resume-section-nav").getByRole("button", { name: "工作经历", exact: true }).click();
+  await page.locator('[data-section-key="education"] .sidebar-section-header').hover();
+  await page.getByTestId("resume-section-nav").getByRole("button", { name: "编辑板块：教育经历", exact: true }).click();
+  await expect(draft).toHaveValue("尚未保存的学校草稿");
   const settings = page.getByTestId("resume-layout-inspector");
   const scroller = page.getByTestId("resume-document-scroller");
   const selectedIds = () => page.locator('.resume-preview-stage [data-testid="resume-a4-page"] [data-selected="true"][data-source-item-id]').evaluateAll(nodes => nodes.map(node => (node as HTMLElement).dataset.sourceItemId));
@@ -339,6 +343,8 @@ test("precision settings persist, resize and collapse while formal PDF keeps all
   await expect(settings.getByLabel("全局字号", { exact: true })).toHaveValue("13");
   for (const width of [1920, 1366, 1024]) {
     await page.setViewportSize({ width, height: width === 1920 ? 1080 : 768 });
+    // Let the responsive grid and its ResizeObserver settle before clicking tabs.
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
     if (!await settings.isVisible()) await page.getByRole("button", { name: "排版设置", exact: true }).click();
     for (const tab of ["排版", "样式", "页面", "模板"]) {
       await settings.getByRole("tab", { name: tab, exact: true }).click();
@@ -457,6 +463,8 @@ test("compact editor links preview fields and previews slider frames before one 
   await expect(settings.getByLabel("距正文间距", { exact: true })).toHaveValue("32");
   for (const width of [1920, 1366, 1024]) {
     await page.setViewportSize({ width, height: width === 1920 ? 1080 : 768 });
+    // Let the responsive grid and its ResizeObserver settle before clicking tabs.
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
     if (!await settings.isVisible()) await page.getByRole("button", { name: "排版设置", exact: true }).click();
     await settings.getByRole("tab", { name: "排版", exact: true }).click();
     await expect(settings.getByLabel("全局字号", { exact: true })).toBeVisible();
@@ -525,3 +533,46 @@ function canonicalFixture() {
     { id: "languages", sectionType: "languages", title: "语言能力", order: 6, visible: true, items: [{ ...common, id: "language-1", sectionType: "languages", language: "中文母语，英语四级备考中" }] }
   ] };
 }
+
+
+test("content section keyboard sorting persists in the shared preview", async ({ page }) => {
+  test.setTimeout(120_000);
+  await importCanonicalFixture(page);
+  await page.setViewportSize({ width: 1366, height: 768 });
+  const nav = page.getByTestId("resume-section-nav");
+  const handles = nav.locator(".content-drag-handle");
+  const before = await handles.evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")));
+  await handles.nth(1).focus();
+  await handles.nth(1).press("Alt+ArrowUp");
+  await expect.poll(() => handles.evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")))).not.toEqual(before);
+  const after = await handles.evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")));
+  await page.reload();
+  await expect.poll(() => handles.evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")))).toEqual(after);
+  let snapshot: ResumePdfExportSnapshot | undefined;
+  page.on("request", request => { if (request.url().includes("/api/resume-export/pdf")) snapshot = request.postDataJSON().snapshot; });
+  const responsePromise = page.waitForResponse(response => response.url().includes("/api/resume-export/pdf") && response.request().method() === "POST");
+  const downloadPromise = page.waitForEvent("download", { timeout: 120_000 });
+  await page.getByRole("button", { name: "下载 PDF", exact: true }).click();
+  const [response, download] = await Promise.all([responsePromise, downloadPromise]);
+  expect(response.status()).toBe(200);
+  expect(snapshot!.presentation.canonicalSectionOrder?.slice(0, 2)).toEqual(["education", "summary"]);
+  const model = snapshot!.renderModel;
+  expect(model.schemaVersion).toBe("resume-render-v2");
+  if (model.schemaVersion !== "resume-render-v2") throw new Error("expected v2 model");
+  expect(model.structuredSections.slice(0, 2).map(section => section.sectionId)).toEqual(["education", "summary"]);
+  const pdfPath = resolve(outputDir, "content-order.pdf");
+  await download.saveAs(pdfPath);
+  const text = execFileSync(PDFTOTEXT, [pdfPath, "-"], { encoding: "utf8" });
+  expect(text.indexOf("示例大学")).toBeLessThan(text.indexOf("关注可靠工程交付"));
+  for (const width of [1366, 1024]) {
+    await page.setViewportSize({ width, height: 768 });
+    await page.screenshot({ path: resolve(outputDir, `content-${width}.png`) });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  await handles.nth(1).dragTo(handles.nth(0));
+  await expect.poll(() => handles.evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")))).not.toEqual(after);
+  const dragged = await handles.evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")));
+  await page.reload();
+  await expect.poll(() => handles.evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")))).toEqual(dragged);
+
+});

@@ -14,7 +14,7 @@ export const renderCampusClean: TemplateRenderer = (model: ResumeRenderModel, co
     return <>
       {!context?.pagination?.isContinuation ? <ResumeHeader model={model} context={context} /> : null}
       <div className="resume-campus-clean-layout">
-        <RenderCanonicalSections sections={orderCanonicalSections(model.structuredSections, CAMPUS_SECTION_ORDER)} context={context} />
+        <RenderCanonicalSections sections={orderCanonicalSections(model.structuredSections, CAMPUS_SECTION_ORDER, context)} context={context} />
       </div>
     </>;
   }

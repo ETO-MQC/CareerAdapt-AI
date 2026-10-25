@@ -28,6 +28,16 @@
   display: none;
 }
 
+.agent-sidebar.is-collapsed .agent-brand,
+.agent-sidebar.is-collapsed .agent-session-actions,
+.agent-sidebar.is-collapsed .agent-mode-switcher {
+  display: none;
+}
+
+.agent-sidebar.is-collapsed .agent-sidebar-brand {
+  justify-content: center;
+}
+
 .agent-sidebar-brand,
 .agent-sidebar-primary,
 .agent-sidebar-assets,

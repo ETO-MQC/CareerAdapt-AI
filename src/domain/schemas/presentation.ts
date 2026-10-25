@@ -1,3 +1,4 @@
+import { FieldAppearancesSchema } from "./fieldAppearance";
 import { z } from "zod";
 import { PresentationPrecisionSchema } from "./presentationPrecision";
 import { IsoDateStringSchema } from "./common";
@@ -193,6 +194,8 @@ export const ResumePresentationConfigSchema = z.object({
     branchRevision: z.number().int().min(0),
     currentRevisionId: z.string().min(1)
   }),
+  fieldAppearances: FieldAppearancesSchema,
+  canonicalSectionOrder: z.array(z.string().min(1).max(200)).max(200).refine(order => new Set(order).size === order.length, "duplicate section key").optional(),
   sectionOrder: z.array(ResumeRenderSectionTypeSchema).default([...defaultResumeRenderSectionOrder]),
   itemOrderBySection: ItemOrderBySectionSchema,
   hiddenItemIds: z.array(z.string().min(1)).default([]),

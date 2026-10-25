@@ -1,9 +1,13 @@
 "use client";
 
+import { FieldFormatting } from "./FieldFormatting";
+import { DatePicker } from "./DatePicker";
 import { useId } from "react";
 
 type FieldInputProps = {
   label: string;
+  formatField?: string;
+  calendar?: boolean;
   id?: string;
   value: string;
   onChange: (value: string) => void;
@@ -22,6 +26,8 @@ type FieldInputProps = {
 
 export function FieldInput({
   label,
+  formatField,
+  calendar,
   id: externalId,
   value,
   onChange,
@@ -47,7 +53,8 @@ export function FieldInput({
         {label}
         {required ? <span className="field-input-required" aria-label="必填">*</span> : null}
       </label>
-      <input
+      <FieldFormatting field={formatField ?? fieldId.split("-").at(-1)!} value={value} label={label} onDelete={disabled ? undefined : () => onChange("")}>
+      <div className={calendar ? "date-text-input" : undefined}><input
         id={fieldId}
         name={fieldId}
         type={type}
@@ -63,6 +70,7 @@ export function FieldInput({
         onBlur={onBlur}
         onFocus={onFocus}
       />
+      {calendar ? <DatePicker label={label} value={value} onChange={onChange} disabled={disabled}/> : null}</div></FieldFormatting>
       {hint && !error ? <p className="field-input-hint">{hint}</p> : null}
       {error ? <p id={errorId} className="field-input-error" role="alert">{error}</p> : null}
     </div>

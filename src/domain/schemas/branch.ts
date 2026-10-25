@@ -1,3 +1,4 @@
+import { FieldAppearancesSchema } from "./fieldAppearance";
 import { z } from "zod";
 import { PresentationPrecisionSchema } from "./presentationPrecision";
 import { EntityBaseSchema, IsoDateStringSchema, RiskLevelSchema } from "./common";
@@ -377,6 +378,8 @@ export const ExportOverflowStatusSchema = z.enum([
 export const ExportRecordPresentationSnapshotSchema = z.object({
   precision: PresentationPrecisionSchema.optional(),
   templateId: z.string().min(1),
+  fieldAppearances: FieldAppearancesSchema,
+  canonicalSectionOrder: z.array(z.string().min(1).max(200)).max(200).refine(order => new Set(order).size === order.length, "duplicate section key").optional(),
   sectionOrder: z.array(z.string().min(1)).optional(),
   itemOrderBySection: z.record(z.string(), z.array(z.string().min(1))),
   hiddenItemIds: z.array(z.string().min(1)),

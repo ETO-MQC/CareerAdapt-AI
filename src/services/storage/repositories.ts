@@ -5385,7 +5385,8 @@ export class WorkspaceRepository {
           );
           const structuredItems = input.structuredItem
             ? [
-                ...syncStructuredContentItems(branch, nextItems).filter((item) => item.id !== newItemId),
+                // The new item already has canonical data; do not rehydrate it from its legacy text projection.
+                ...syncStructuredContentItems(branch, nextItems.filter((item) => item.id !== newItemId)),
                 ResumeContentItemV2Schema.parse({
                   id: newItemId,
                   schemaVersion: "resume-content-item-v2",
@@ -6476,6 +6477,8 @@ export class WorkspaceRepository {
     presentationRevision?: number;
     presentationSnapshot?: {
       templateId: string;
+      fieldAppearances?: ResumePresentationConfig["fieldAppearances"];
+      canonicalSectionOrder?: string[];
       sectionOrder?: string[];
       itemOrderBySection: Record<string, string[]>;
       hiddenItemIds: string[];

@@ -1,11 +1,17 @@
 import type { ResumeRenderModel } from "@/domain/schemas";
-import { RenderCanonicalSections, ResumeHeader } from "./shared/canonical";
+import { hasUserSectionOrder, RenderCanonicalSections, ResumeHeader } from "./shared/canonical";
 import { findSection, RenderSection } from "./shared/legacy";
 import type { TemplateRenderContext, TemplateRenderer } from "./types";
 import type { ResumeSectionTypeV2 } from "@/domain/resumeFields";
 
 export const renderBusinessConsulting: TemplateRenderer = (model: ResumeRenderModel, context?: TemplateRenderContext) => {
   if (model.schemaVersion === "resume-render-v2" && model.structuredSections.length > 0) {
+    // Manual sequence takes precedence over the template's default sidebar grouping.
+    if (hasUserSectionOrder(context)) return <>
+      {!context?.pagination?.isContinuation ? <ResumeHeader model={model} compact context={context} /> : null}
+      <div className="resume-business-grid resume-user-section-flow"><div><RenderCanonicalSections sections={model.structuredSections} context={context} /></div></div>
+    </>;
+
     const sidebarTypes = new Set<ResumeSectionTypeV2>(["skills", "certificates", "languages", "awards"]);
     return <>
       {!context?.pagination?.isContinuation ? <ResumeHeader model={model} compact context={context} /> : null}
