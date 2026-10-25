@@ -1,4 +1,6 @@
+import { orderContactDetails } from "@/domain/resumePresentation/contacts";
 import { FormattedText, fieldAppearanceFor } from "./FormattedText";
+import { localResumePhoto } from "@/domain/schemas/resumePhoto";
 import type { ResumePresentationItem, ResumeRenderBlock, ResumeRenderModel, ResumeRenderSection, ResumeRenderStructuredSectionV2 } from "@/domain/schemas";
 import { RESUME_SECTION_TYPES_V2, type ResumeSectionTypeV2 } from "@/domain/resumeFields";
 import { compactSkillCategory } from "@/domain/resumeComposition/ResumeSkillTaxonomy";
@@ -109,6 +111,8 @@ function RenderPresentationItem({ item, context }: { item: ResumePresentationIte
   }
   const unlistedLinks = item.links.filter((link) => !item.inlineMeta.includes(link) && !item.secondaryMeta.includes(link));
   const placement = context?.presentationConfig?.departmentPlacement ?? "auto";
+  const entryStyle = context?.presentationConfig?.precision?.entryStyle;
+  const headerLocation = (entryStyle === "stacked" || entryStyle === "compact") && Boolean(item.primaryTitle || item.secondaryTitle || item.dateRange);
   const inlineDepartment = ["work", "internship", "campus", "volunteer"].includes(item.sectionType)
     && (placement === "inline" || placement === "auto" && context?.inlineDepartment);
   const secondaryTitle = inlineDepartment ? joinPresentationValues([...item.secondaryMeta, item.secondaryTitle]) : item.secondaryTitle;
@@ -118,10 +122,12 @@ function RenderPresentationItem({ item, context }: { item: ResumePresentationIte
         <div className={`resume-presentation-heading resume-presentation-heading-${context?.presentationConfig?.itemHeaderMiddleAlignment ?? "balanced"}`} data-pagination-unit="heading">
           {item.primaryTitle ? <h3>{format(item.primaryTitle, item.sectionType === "education" ? ["school"] : ["work", "internship", "campus", "volunteer"].includes(item.sectionType) ? ["organization"] : ["title", "name", "institution"])}</h3> : <span />}
           {secondaryTitle && secondaryTitle !== item.primaryTitle ? <strong>{secondaryTitle.split(" · ").map((part, index) => <span key={`${index}-${part}`}>{index > 0 ? " · " : ""}<span>{format(part, ["role", "degree", "major", "department", "authorRole", "issuer", "level", "status", "type"])}</span></span>)}</strong> : null}
-          {item.dateRange ? <time>{item.dateRange.split("–").map((part, index) => <span key={`${index}-${part}`}>{index > 0 ? "–" : ""}<span data-editor-date={index === 0 ? "start" : "end"}>{format(part, index === 0 ? ["startDate", "awardedAt", "issuedAt", "publishedAt", "createdAt", "filedAt"] : ["endDate", "expectedEndDate", "expiresAt", "grantedAt"])}</span></span>)}</time> : null}
+          {item.dateRange ? <time>{item.dateRange.split("–").map((part, index) => <span key={`${index}-${part}`}>{index > 0 ? "–" : ""}<span data-editor-date={index === 0 ? "start" : "end"}>{format(part, index === 0 ? ["startDate", "awardedAt", "issuedAt", "publishedAt", "createdAt", "filedAt"] : ["endDate", "expectedEndDate", "expiresAt", "grantedAt"])}</span></span>)}{entryStyle === "compact" && item.location ? <span className="resume-entry-inline-location"> · {format(item.location, ["location"])}</span> : null}</time> : null}
+          {entryStyle === "compact" && item.location && !item.dateRange ? <span className="resume-entry-inline-location">{format(item.location, ["location"])}</span> : null}
+          {entryStyle === "stacked" && item.location ? <span className="resume-entry-location">{format(item.location, ["location"])}</span> : null}
         </div>
       ) : null}
-      {item.tertiaryTitle || item.location ? <p className="resume-presentation-subtitle" data-pagination-unit="subtitle">{[item.location, item.tertiaryTitle].filter(Boolean).map((value, index) => <span key={index}>{index ? " · " : ""}{format(value!, ["location", "department", "institution", "level", "publisher", "office"])}</span>)}</p> : null}
+      {item.tertiaryTitle || item.location && !headerLocation ? <p className="resume-presentation-subtitle" data-pagination-unit="subtitle">{[headerLocation ? undefined : item.location, item.tertiaryTitle].filter(Boolean).map((value, index) => <span key={index}>{index ? " · " : ""}{format(value!, ["location", "department", "institution", "level", "publisher", "office"])}</span>)}</p> : null}
       {item.inlineMeta.length ? <p className="resume-presentation-meta" data-pagination-unit="inline-meta"><RenderMetaValues values={item.inlineMeta} context={context} itemId={item.sourceItemId ?? item.id} fields={["organization", "tools", "authors", "inventors"]} /></p> : null}
       {!inlineDepartment ? item.secondaryMeta.map((meta, index) => <p className="resume-presentation-secondary" data-pagination-unit={`secondary-meta:${index}`} key={meta}>{format(meta, ["department", "background"])}</p>) : null}
       {item.description ? <p className="resume-presentation-description" data-pagination-unit="description">{format(item.description, ["description", "background"])}</p> : null}
@@ -209,26 +215,32 @@ export function ResumeHeader({
   model,
   context,
   compact = false,
-  plain = false
+  plain = false,
+  supportsPhoto = true
 }: {
   model: ResumeRenderModel;
   context?: TemplateRenderContext;
   compact?: boolean;
   plain?: boolean;
+  supportsPhoto?: boolean;
 }) {
+  const photo = supportsPhoto && context?.presentationConfig?.pagination.showPhoto ? localResumePhoto(model.candidate.photo) : undefined;
+  // Standalone PDF HTML cannot use Next's client image component; uploads are already resized locally.
+  // eslint-disable-next-line @next/next/no-img-element
+  const photoElement = photo ? <img className="resume-candidate-photo" src={photo} alt="简历照片" width={84} height={112} onError={event => { event.currentTarget.style.visibility = "hidden"; }} /> : null;
   return (
-    <header className={`resume-template-header ${compact ? "resume-template-header-compact" : ""} ${plain ? "resume-template-header-plain" : ""}`}>
+    <header className={`resume-template-header ${photo ? "resume-template-header-with-photo" : ""} ${compact ? "resume-template-header-compact" : ""} ${plain ? "resume-template-header-plain" : ""}`}>
+      {photoElement}
       <div>
         <h1 {...profileFieldAttrs("profile:name", context)}><FormattedText text={model.candidate.name} itemId="basics" fields={["name"]} context={context}/></h1>
         {model.candidate.targetRole?.trim() ? <p {...profileFieldAttrs("branch:targetRole", context)}><FormattedText text={model.candidate.targetRole} itemId="basics" fields={["headline", "targetRole"]} context={context}/></p> : null}
       </div>
-      <address>
-        {(() => {
-          const emailCount = model.candidate.contacts.filter((c) => c.includes("@")).length;
-          return model.candidate.contacts.map((contact, index) => (
-            <span key={`${contact}-${index}`} {...profileFieldAttrs(profileFieldIdForContact(contact, index, emailCount), context)}>{context?.presentationConfig?.precision?.contactIcons ? <span className="resume-contact-icon" aria-hidden="true">{contact.includes("@") ? "✉" : /^https?:/.test(contact) ? "↗" : /[0-9]{6}/.test(contact) ? "☎" : "⌖"} </span> : null}<FormattedText text={contact} itemId="basics" fields={["email", "phone", "address", "location", "linkedin", "homepage"]} context={context}/></span>
-          ));
-        })()}
+      <address className="resume-personal-contacts">
+        {orderContactDetails(model.candidate.contactDetails ?? model.candidate.contacts.map((value, index) => ({ id: `legacy:${index}`, label: value.includes("@") ? "邮箱" : /^https?:/.test(value) ? "个人网站" : /[0-9]{6}/.test(value) ? "手机号" : "地址", value })), context?.presentationConfig?.contactOrder).filter(detail => detail.value.trim() || detail.id.startsWith("break:")).map(detail => detail.id.startsWith("break:")
+          ? <span key={detail.id} className="resume-contact-break" aria-hidden="true" />
+          : <span key={detail.id} data-contact-id={detail.id} {...(detail.id.startsWith("custom:") ? {} : profileFieldAttrs(detail.id === "phone" ? "profile:phone" : detail.id === "email" ? "profile:email" : detail.id === "location" ? "profile:location" : "profile:link:0", context))}>
+            {context?.presentationConfig?.precision?.contactIcons ? <span className="resume-contact-label">{detail.label}：</span> : null}<FormattedText text={detail.value} itemId="basics" fields={["email", "phone", "address", "location", "linkedin", "homepage"]} context={context}/>
+          </span>)}
       </address>
     </header>
   );
@@ -265,6 +277,7 @@ export function sectionTitleAttrs(section: ResumeRenderSection, context?: Templa
     "data-selected": selected ? "true" : "false"
   };
 }
+
 
 export function profileFieldIdForContact(contact: string, index: number, contactCount: number) {
   if (contact.includes("@")) return contactCount <= 1 ? "profile:email" : `profile:email:link:${index}`;

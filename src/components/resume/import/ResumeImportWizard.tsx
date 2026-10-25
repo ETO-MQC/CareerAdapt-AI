@@ -1,7 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { type ChangeEvent, type DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import { nanoid } from "nanoid";
+import { localResumePhoto } from "@/domain/schemas/resumePhoto";
 import { RESUME_IMPORT_ACCEPT } from "@/agent/capabilities/AgentProductCapabilityManifest";
 import { runResumeOcrAdapter } from "@/domain/resumeImport/ocrAdapter";
 import {
@@ -238,7 +240,7 @@ export function ResumeImportWizard(props: {
   const fieldCandidateReviewCount = useMemo(() => {
     if (!draft) return 0;
     const fields = [draft.basics.name, draft.basics.email, draft.basics.phone, draft.basics.location, draft.basics.targetRole, draft.basics.summary, ...draft.basics.links];
-    return fields.filter((field) => field?.mapping?.needsConfirmation).length
+    return (draft.basics.additionalFields ?? []).filter(field => field.sourceStatus !== "located" && !field.userConfirmed).length + (draft.basics.photo && !draft.basics.photo.userConfirmed ? 1 : 0) + fields.filter((field) => field?.mapping?.needsConfirmation).length
       + draft.sections.flatMap((section) => section.items).filter((item) => !item.structuredItem && item.mapping?.needsConfirmation).length
       + (draft.schemaVersion === "resume-import-v2" ? draft.fieldCandidates.filter((candidate) => candidate.reviewStatus === "needs_review").length : 0);
   }, [draft]);
@@ -1580,6 +1582,13 @@ export function ResumeImportWizard(props: {
 
             <div className="review-row">
               <strong>基本信息</strong>
+              {draft.basics.additionalFields?.length ? <div className="personal-import-fields"><strong>新增个人信息 · 保存到本次简历</strong>{draft.basics.additionalFields.map(field => <p key={field.customField.id}>{field.customField.label}：{field.value}</p>)}<button className="secondary-button compact" type="button" disabled={draft.basics.additionalFields.every(field => field.userConfirmed)} onClick={() => { void patchDraft(current => ({ ...current, basics: { ...current.basics, additionalFields: current.basics.additionalFields?.map(field => ({ ...field, userConfirmed: true })) } })); }}>确认新增个人信息</button><button className="secondary-button compact" type="button" onClick={() => { void patchDraft(current => ({ ...current, basics: { ...current.basics, additionalFields: undefined } })); }}>不导入新增个人信息</button></div> : null}
+              {draft.basics.photo ? <div className="resume-photo-input">
+                <strong>导入照片 · 仅保存到当前简历</strong>
+                {localResumePhoto(draft.basics.photo.value) ? <Image unoptimized loading="eager" src={draft.basics.photo.value} alt="待确认的导入照片" width={84} height={112} /> : <p>外部照片链接将保留；请在编辑器重新上传本地图片以用于预览和 PDF。</p>}
+                <button className="secondary-button compact" type="button" disabled={draft.basics.photo.userConfirmed} onClick={() => { void patchDraft(current => ({ ...current, basics: { ...current.basics, photo: current.basics.photo ? { ...current.basics.photo, userConfirmed: true } : undefined } })); }}>{draft.basics.photo.userConfirmed ? "照片已确认" : "确认照片"}</button>
+                <button className="secondary-button compact" type="button" onClick={() => { void patchDraft(current => ({ ...current, basics: { ...current.basics, photo: undefined } })); }}>不导入照片</button>
+              </div> : null}
               <div className="form-grid compact-form-grid">
                 {REVIEW_BASIC_FIELD_KEYS.map((key) => (
                   <div className="import-basic-field" key={key}>

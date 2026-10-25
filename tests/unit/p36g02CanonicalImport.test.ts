@@ -50,6 +50,7 @@ function draft(id: string) {
   if (raw.schemaVersion !== "resume-import-v2") return raw;
   return {
     ...raw,
+    basics: { ...raw.basics, photo: raw.basics.photo ? { ...raw.basics.photo, userConfirmed: true } : undefined },
     sections: raw.sections.map((section) => ({
       ...section,
       items: section.items.map((item) => item.sourceStatus === "ambiguous" ? { ...item, sourceStatus: "located" as const } : item)

@@ -11,11 +11,11 @@ export function resolvedPrecision(config: ResumePresentationConfig) {
     letterSpacingPx: 0, sectionGapPx: { tight: 14.36, normal: 18.9, relaxed: 22.68 }[config.spacing.sectionGap],
     nameScale: 2.26, sectionScale: 1.2, contactScale: 0.95, descriptionScale: 1, entryScale: 1, targetScale: 1.07,
     primaryColor: colors[config.theme.primaryColor], accentColor: colors[config.theme.accentColor], dividerColor: "#c9cec8",
-    titleFollowColor: true, titleStyle: "plain" as const, entryStyle: "inline" as const, linkStyle: "underline" as const,
+    titleFollowColor: true, titleStyle: "plain" as const, entryStyle: "inline" as const, entryAlignment: "center" as const, linkStyle: "underline" as const,
     bulletStyle: config.highlightListStyle === "numbered" ? "decimal" as const : config.highlightListStyle === "none" ? "none" as const : "disc" as const,
     bulletScale: 1, underlineWidth: 1, titleBar: false, neutralDividers: false, contactIcons: false,
     marginTopMm: margin[0], marginRightMm: margin[1], marginBottomMm: margin[0], marginLeftMm: margin[1],
-    headerLayout: "split" as const, verticalAlign: "top" as const, contactOffsetX: 0, contactOffsetY: 0, headerHeightPx: 0, headerGapPx: 0,
+    headerLayout: "center" as const, headerDivider: true, verticalAlign: "top" as const, contactOffsetX: 0, contactOffsetY: 0, headerHeightPx: 0, headerGapPx: 0,
     ...config.precision
   };
 }
@@ -23,9 +23,10 @@ export function resolvedPrecision(config: ResumePresentationConfig) {
 export function precisionAttrs(config?: ResumePresentationConfig) {
   const p = config?.precision;
   return {
-    "data-precision-title": p?.titleStyle, "data-precision-entry": p?.entryStyle,
+    "data-precision-title": p?.titleStyle, "data-precision-entry": p?.entryStyle, "data-precision-entry-align": p?.entryAlignment,
     "data-precision-link": p?.linkStyle, "data-precision-bullet": p?.bulletStyle,
-    "data-precision-header": p?.headerLayout, "data-precision-align": p?.verticalAlign,
+    "data-precision-header": config ? p?.headerLayout ?? "center" : undefined, "data-precision-align": p?.verticalAlign,
+    "data-precision-header-divider": p?.headerDivider === undefined ? undefined : p.headerDivider ? "on" : "off",
     "data-precision-bar": p?.titleBar === undefined ? undefined : p.titleBar ? "on" : "off"
   };
 }

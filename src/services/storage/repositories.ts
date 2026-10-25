@@ -6479,6 +6479,7 @@ export class WorkspaceRepository {
       templateId: string;
       fieldAppearances?: ResumePresentationConfig["fieldAppearances"];
       canonicalSectionOrder?: string[];
+      contactOrder?: string[];
       sectionOrder?: string[];
       itemOrderBySection: Record<string, string[]>;
       hiddenItemIds: string[];

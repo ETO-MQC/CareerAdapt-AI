@@ -50,7 +50,7 @@ export const templateFilterOptions: Array<{ key: TemplateFilterKey; label: strin
 const ALL_STYLE_CAPABILITIES: TemplateCapabilities = {
   supportedSections: [...RESUME_SECTION_TYPES_V2],
   supportedFields: "*",
-  supportsPhoto: false,
+  supportsPhoto: true,
   supportsCustomSections: true,
   fallbackBehavior: {
     unsupportedField: "render_plain",
@@ -97,7 +97,7 @@ function definition(input: {
 }): ResumeTemplateDefinition {
   return {
     ...input,
-    capabilities: ALL_STYLE_CAPABILITIES,
+    capabilities: { ...ALL_STYLE_CAPABILITIES, supportsPhoto: input.id !== "ats-minimal" },
     version: 1,
     status: "active",
     renderThumbnail: (model, context) => input.render(model, { ...context, thumbnail: true })
@@ -233,9 +233,7 @@ export function assessTemplateCompatibility(model: ResumeRenderModel, template: 
   for (const section of model.structuredSections) {
     if (!supportedSections.has(section.sectionType)) warnings.push(`模板不直接支持栏目“${section.title}”，将按 ${template.capabilities.fallbackBehavior.unsupportedSection} 保留。`);
   }
-  if (model.candidate.contacts.length > 0 && !template.capabilities.supportsPhoto) {
-    // Photo is not represented in the v1-compatible candidate yet; capability is still declared explicitly.
-  }
+  if (model.candidate.photo && !template.capabilities.supportsPhoto) warnings.push("当前模板不支持照片；照片仍保留在简历中，切换到支持照片的模板可显示。");
   return warnings;
 }
 

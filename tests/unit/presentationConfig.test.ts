@@ -60,6 +60,25 @@ describe("V2 G1a resume presentation config", () => {
     expect(await repository.listResumeRevisions(branch.id)).toEqual(revisions);
   });
 
+  it("keeps custom content and stable unlisted sections while rejecting invalid canonical order", async () => {
+    const { repository, branch, job } = await createBranchFixture("CareerAdaptClosureOrderDb");
+    const data = ResumeItemV2Schema.parse({ id: "draft-custom", sectionType: "custom", title: "独立栏目", description: "用户确认的自定义内容。" });
+    const added = await repository.addResumeContentItem({ branchId: branch.id, expectedRevision: branch.revision, operationId: "closure-custom", section: "custom:closure", itemType: "custom", text: projectResumeItemV2(data), structuredItem: data });
+    const profile = (await repository.getProfile(branch.profileId))!;
+    const base = await repository.getResumePresentationConfig(branch.id);
+    const before = mapBranchToResumeRenderModel({ branch: added.branch, profile, job, presentationConfig: base });
+    if (before.schemaVersion !== "resume-render-v2") throw new Error("V2 expected");
+    const config = { ...base, canonicalSectionOrder: ["custom:closure", "unknown:future"] };
+    const ordered = mapBranchToResumeRenderModel({ branch: added.branch, profile, job, presentationConfig: config });
+    if (ordered.schemaVersion !== "resume-render-v2") throw new Error("V2 expected");
+    expect(ordered.structuredSections.map(section => section.sectionId)).toEqual(["custom:closure", ...before.structuredSections.map(section => section.sectionId).filter(id => id !== "custom:closure")]);
+    expect(ordered.structuredSections[0].items[0].plainText).toContain("用户确认的自定义内容。");
+    expect(ordered.structuredSections.flatMap(section => section.items).map(item => item.itemId).sort()).toEqual(before.structuredSections.flatMap(section => section.items).map(item => item.itemId).sort());
+    expect(ResumePresentationConfigSchema.safeParse({ ...config, canonicalSectionOrder: ["custom:closure", "custom:closure"] }).success).toBe(false);
+    expect(ResumePresentationConfigSchema.safeParse({ ...config, canonicalSectionOrder: [""] }).success).toBe(false);
+    expect(await repository.getResumeBranch(branch.id)).toEqual(added.branch);
+  });
+
   it("persists precision without changing facts, source evidence or content revisions", async () => {
     const { repository, branch } = await createBranchFixture("CareerAdaptPrecisionDb");
     const initial = await repository.getResumePresentationConfig(branch.id);

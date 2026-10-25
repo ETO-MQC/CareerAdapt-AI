@@ -35,6 +35,7 @@ import type { LayoutDocument } from "./layoutDocument";
 import type { LayoutGraph } from "./layoutGraph";
 import { mapSemanticItemToResumeItem, type ResumeSemanticTree } from "./resumeSemanticTree";
 import { isSensitiveTransportToken } from "@/services/security/text";
+import { customContactValue } from "@/domain/resumePresentation/contacts";
 
 export const RESUME_IMPORT_PARSER_VERSION = "resume-import.local-rules.v2";
 
@@ -325,6 +326,8 @@ export function createImportedResumeDraftFromStructuredJson(input: {
   ] as Array<readonly [string, string | undefined]>).flatMap(([path, value]) => value ? [[path, value] as const] : []) : [];
   const basics = {
     name: canonicalBasics?.name ? canonicalJsonField("/basics/name", canonicalBasics.name) : structuredDraft.basics.name ? structuredField(structuredDraft.basics.name, "high") : undefined,
+    photo: canonicalBasics?.photo ? canonicalJsonField("/basics/photo", canonicalBasics.photo) : undefined,
+    additionalFields: canonicalBasics?.customFields.map((customField, index) => ({ ...canonicalJsonField(`/basics/customFields/${index}`, customContactValue(customField.value) || customField.label), customField })),
     email: canonicalBasics?.email ? canonicalJsonField("/basics/email", canonicalBasics.email) : structuredDraft.basics.email ? structuredField(structuredDraft.basics.email, "high") : undefined,
     phone: canonicalBasics?.phone ? canonicalJsonField("/basics/phone", canonicalBasics.phone, abnormalCanonicalPhone) : structuredDraft.basics.phone ? structuredField(structuredDraft.basics.phone, "medium") : undefined,
     location: canonicalBasics?.location ? canonicalJsonField("/basics/location", canonicalBasics.location) : structuredDraft.basics.location ? structuredField(structuredDraft.basics.location, "medium") : undefined,
@@ -528,6 +531,8 @@ function structuredJsonToReviewText(draft: StructuredResumeDraft) {
 function canonicalResumeToReviewText(resume: CareerAdaptResumeJsonV2) {
   const lines = [
     resume.basics.name,
+    resume.basics.photo,
+    ...resume.basics.customFields.map(field => `${field.label}：${customContactValue(field.value)}`),
     resume.basics.headline,
     resume.basics.summary,
     resume.basics.email,

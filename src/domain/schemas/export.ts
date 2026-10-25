@@ -32,6 +32,7 @@ export const SafePdfFileNameSchema = z.string()
   .refine((value) => !value.includes("..") && !value.endsWith(".pdf.pdf"), "unsafe pdf filename");
 
 export const ExportSnapshotPresentationSchema = z.object({
+  contactOrder: z.array(z.string().min(1).max(200)).max(100).refine(order => new Set(order).size === order.length, "duplicate contact key").optional(),
   templateId: TemplateIdSchema,
   precision: PresentationPrecisionSchema.optional(),
   fieldAppearances: FieldAppearancesSchema,

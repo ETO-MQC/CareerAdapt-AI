@@ -1,3 +1,5 @@
+import { localResumePhoto } from "@/domain/schemas/resumePhoto";
+import { resumeContactDetails } from "@/domain/resumePresentation/contacts";
 import {
   ResumeRenderModelSchema,
   type CareerProfile,
@@ -201,6 +203,8 @@ export function mapBranchToResumeRenderModel(input: {
     company: job?.company ?? "通用简历",
     candidate: {
       name: basics.name,
+      photo: localResumePhoto(branch.resumeBasics?.photo),
+      contactDetails: resumeContactDetails(basics),
       summary: basics.summary || undefined,
       contacts: [
         basics.location,

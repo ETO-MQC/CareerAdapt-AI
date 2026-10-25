@@ -79,6 +79,7 @@ export function createResumeExportSnapshot(input: {
 export function presentationSnapshotFromConfig(config: ResumePresentationConfig): ResumePdfExportSnapshot["presentation"] {
   return {
     templateId: config.templateId,
+    ...(config.contactOrder ? { contactOrder: config.contactOrder } : {}),
     ...(config.canonicalSectionOrder ? { canonicalSectionOrder: config.canonicalSectionOrder } : {}),
     ...(config.fieldAppearances ? { fieldAppearances: config.fieldAppearances } : {}),
     sectionOrder: config.sectionOrder,
@@ -101,6 +102,7 @@ export function presentationConfigFromExportSnapshot(snapshot: ResumePdfExportSn
     schemaVersion: "resume-presentation-v1",
     branchId: snapshot.branchId,
     templateId: snapshot.templateId,
+    ...(snapshot.presentation.contactOrder ? { contactOrder: snapshot.presentation.contactOrder } : {}),
     contentRevision: {
       branchRevision: snapshot.branchRevision,
       currentRevisionId: snapshot.currentRevisionId

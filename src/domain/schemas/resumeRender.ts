@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LocalResumePhotoSchema } from "./resumePhoto";
 import {
   BranchContentItemTypeSchema,
   BranchGuardModeSchema,
@@ -59,6 +60,8 @@ export const ResumeRenderSectionSchema = z.object({
 });
 
 export const ResumeRenderCandidateSchema = z.object({
+  contactDetails: z.array(z.object({ id: z.string().min(1), label: z.string().min(1), value: z.string() })).optional(),
+  photo: LocalResumePhotoSchema.optional(),
   name: z.string(),
   summary: z.string().optional(),
   contacts: z.array(z.string().min(1)).default([]),

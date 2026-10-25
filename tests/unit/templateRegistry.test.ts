@@ -130,7 +130,7 @@ describe("P4.8b template registry", () => {
     expect(filterResumeTemplates("campus").map((template) => template.id)).toEqual(["campus-clean", "campus-reference"]);
   });
 
-  it("resolves target defaults while preserving explicit presentation overrides", () => {
+  it("preserves saved settings including values equal to source defaults", () => {
     const source = getResumeTemplate("classic-technical");
     const target = getResumeTemplate("campus-clean");
     const next = resolveTemplateSwitchStyle(source, target, {
@@ -139,7 +139,7 @@ describe("P4.8b template registry", () => {
       sectionStyleOverrides: { summary: { showTitle: false } }
     });
 
-    expect(next.theme.primaryColor).toBe(target.defaultPresentationStyle.theme.primaryColor);
+    expect(next.theme.primaryColor).toBe(source.defaultPresentationStyle.theme.primaryColor);
     expect(next.theme.accentColor).toBe("rose");
     expect(next.sectionStyleOverrides).toEqual({ summary: { showTitle: false } });
   });

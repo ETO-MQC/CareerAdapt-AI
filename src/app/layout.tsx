@@ -10,6 +10,7 @@ import {
   WORKSPACE_MODE_COOKIE_KEY
 } from "@/services/preferences/workspaceMode";
 import "./globals.css";
+import "@/styles/resume-fonts.css";
 import "@/styles/agent-tokens.css";
 import "@/styles/agent-shell.css";
 import "@/styles/agent-workspace.css";

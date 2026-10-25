@@ -1,10 +1,17 @@
 import { render, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ProfileCategoryFields, type ProfileItemDraft } from "@/app/profile/ProfileWorkspace";
 import { emptyStructuredExperienceFields, emptyStructuredProjectFields } from "@/domain/resumeFields/catalog";
 
 describe("P4.5c.1.18 Profile route editor projection", () => {
-  it("mounts one TipTap content editor with four visible bullets and no duplicate content textarea", async () => {
+  // jsdom has no layout observer; these tests verify content projection and rehydration.
+  beforeAll(() => vi.stubGlobal("ResizeObserver", class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }));
+  afterAll(() => vi.unstubAllGlobals());
+  it("mounts one canonical description list with four entries and no duplicate legacy editor", async () => {
     const draft: ProfileItemDraft = {
       ...emptyStructuredExperienceFields,
       ...emptyStructuredProjectFields,
@@ -30,11 +37,13 @@ describe("P4.5c.1.18 Profile route editor projection", () => {
       />
     );
 
-    await waitFor(() => expect(container.querySelector(".tiptap-prosemirror")).toBeTruthy());
-    expect(container.querySelectorAll('[data-profile-editor="experience-content"]').length).toBe(1);
-    expect(container.querySelectorAll('[data-profile-editor="experience-content"] .tiptap-prosemirror').length).toBe(1);
-    expect(container.querySelectorAll('[data-profile-editor="experience-content"] ul > li').length).toBe(4);
-    expect(container.querySelectorAll('[data-profile-editor="experience-content"] textarea').length).toBe(0);
+    const selector = '.string-list-editor[aria-label="描述逐条编辑"]';
+    await waitFor(() => expect(container.querySelector(selector)).toBeTruthy());
+    expect(container.querySelectorAll(selector).length).toBe(1);
+    expect(container.querySelectorAll(`${selector} textarea`).length).toBe(4);
+    expect(Array.from(container.querySelectorAll<HTMLTextAreaElement>(`${selector} textarea`)).map(item => item.value)).toEqual(["A", "B", "C", "D"]);
+    expect(container.querySelectorAll('.tiptap-prosemirror').length).toBe(0);
+    expect(container.querySelectorAll('[data-profile-editor="experience-content"]').length).toBe(0);
   });
 
   it("rehydrates the same route editor when switching project A to B and back", async () => {
@@ -59,13 +68,13 @@ describe("P4.5c.1.18 Profile route editor projection", () => {
       <ProfileCategoryFields category="project" draft={draft("项目 A", ["A1", "A2"])} onChange={vi.fn()} />
     );
 
-    await waitFor(() => expect(container.querySelector('[data-profile-editor="experience-content"]')).toBeTruthy());
-    expect(Array.from(container.querySelectorAll('[data-profile-editor="experience-content"] li')).map((item) => item.textContent)).toEqual(["A1", "A2"]);
+    await waitFor(() => expect(container.querySelector('.string-list-editor[aria-label="描述逐条编辑"]')).toBeTruthy());
+    expect(Array.from(container.querySelectorAll<HTMLTextAreaElement>('.string-list-editor[aria-label="描述逐条编辑"] textarea')).map((item) => item.value)).toEqual(["A1", "A2"]);
 
     rerender(<ProfileCategoryFields category="project" draft={draft("项目 B", ["B1", "B2", "B3"])} onChange={vi.fn()} />);
-    await waitFor(() => expect(Array.from(container.querySelectorAll('[data-profile-editor="experience-content"] li')).map((item) => item.textContent)).toEqual(["B1", "B2", "B3"]));
+    await waitFor(() => expect(Array.from(container.querySelectorAll<HTMLTextAreaElement>('.string-list-editor[aria-label="描述逐条编辑"] textarea')).map((item) => item.value)).toEqual(["B1", "B2", "B3"]));
 
     rerender(<ProfileCategoryFields category="project" draft={draft("项目 A", ["A1", "A2"])} onChange={vi.fn()} />);
-    await waitFor(() => expect(Array.from(container.querySelectorAll('[data-profile-editor="experience-content"] li')).map((item) => item.textContent)).toEqual(["A1", "A2"]));
+    await waitFor(() => expect(Array.from(container.querySelectorAll<HTMLTextAreaElement>('.string-list-editor[aria-label="描述逐条编辑"] textarea')).map((item) => item.value)).toEqual(["A1", "A2"]));
   });
 });

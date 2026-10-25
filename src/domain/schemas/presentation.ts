@@ -11,8 +11,8 @@ export const PresentationLineHeightSchema = z.enum(["tight", "normal", "relaxed"
 export const PresentationSpacingScaleSchema = z.enum(["tight", "normal", "relaxed"]);
 export const PresentationAccentColorSchema = z.enum(["graphite", "emerald", "blue", "rose"]);
 export const PresentationDensitySchema = z.enum(["compact", "balanced", "spacious"]);
-export const PresentationFontFamilySchema = z.enum(["system_sans", "source_han_sans", "source_han_serif"]);
-export const PresentationEnglishFontFamilySchema = z.enum(["system_sans", "arial", "georgia", "times_new_roman"]);
+export const PresentationFontFamilySchema = z.enum(["system_sans", "source_han_sans", "source_han_serif", "pingfang"]);
+export const PresentationEnglishFontFamilySchema = z.enum(["system_sans", "arial", "georgia", "times_new_roman", "inter", "roboto", "eb_garamond", "helvetica_neue", "palatino"]);
 export const PresentationPageMarginSchema = z.enum(["narrow", "normal", "wide"]);
 export const PresentationHeaderFooterSchema = z.enum(["none", "page_number"]);
 export const ResumePagePolicySchema = z.enum(["natural", "prefer_one_page", "one_page_strict", "up_to_two_pages"]);
@@ -187,6 +187,7 @@ const PresentationPaginationSchema = z.preprocess((value) => {
 }));
 
 export const ResumePresentationConfigSchema = z.object({
+  contactOrder: z.array(z.string().min(1).max(200)).max(100).refine(order => new Set(order).size === order.length, "duplicate contact key").optional(),
   schemaVersion: z.literal("resume-presentation-v1"),
   branchId: z.string().min(1),
   templateId: TemplateIdSchema,
@@ -258,17 +259,13 @@ function normalizeBodyTextScale(value: unknown) {
 }
 
 function normalizeChineseFont(value: unknown) {
-  if (value === "system_sans" || value === "source_han_sans" || value === "source_han_serif") {
-    return value;
-  }
-  return DEFAULT_TYPOGRAPHY.chineseFont;
+  const parsed = PresentationFontFamilySchema.safeParse(value);
+  return parsed.success ? parsed.data : DEFAULT_TYPOGRAPHY.chineseFont;
 }
 
 function normalizeEnglishFont(value: unknown) {
-  if (value === "system_sans" || value === "arial" || value === "georgia" || value === "times_new_roman") {
-    return value;
-  }
-  return DEFAULT_TYPOGRAPHY.englishFont;
+  const parsed = PresentationEnglishFontFamilySchema.safeParse(value);
+  return parsed.success ? parsed.data : DEFAULT_TYPOGRAPHY.englishFont;
 }
 
 function normalizePageMargin(value: unknown) {

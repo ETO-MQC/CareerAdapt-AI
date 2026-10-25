@@ -1,4 +1,5 @@
 "use client";
+import { useEditorDraftStatus } from "../EditorDraftStatus";
 
 import { useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ResumeDocumentBlock } from "@/domain/resumeDocument/mapper";
@@ -351,6 +352,7 @@ function ExperienceItemFields(props: {
   const dirtyRef = useRef(false);
   const saveTimerRef = useRef<number | undefined>(undefined);
   const [extraValues, setExtraValues] = useState<Record<string, unknown>>({});
+  useEditorDraftStatus(props.itemId, JSON.stringify(fields) !== JSON.stringify(props.initialFields) || JSON.stringify(projectFields) !== JSON.stringify(props.initialProjectFields ?? emptyStructuredProjectFields) || Object.keys(extraValues).length > 0);
   const extraValuesRef = useRef<Record<string, unknown>>({});
   const extraFields = resumeFieldCatalog.filter((field) => field.sectionType === props.canonicalItem?.sectionType
     && (["gpa", "gpaScale", "rankPosition", "rankTotal", "rankPercent", "honors"].includes(field.id.split(".").at(-1)!) || props.category === "education" && field.id === "education.department"));

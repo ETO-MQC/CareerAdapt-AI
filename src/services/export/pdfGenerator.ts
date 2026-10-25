@@ -194,12 +194,20 @@ async function generateResumePdfAttempt(snapshot: ResumePdfExportSnapshot, page:
 }
 
 async function waitForStableLayout(page: Page) {
-  await page.evaluate(async () => {
+  const imagesReady = await page.evaluate(async () => {
     if ("fonts" in document) {
       await document.fonts.ready;
     }
+    const decoded = await Promise.all(Array.from(document.images, async image => {
+      try { await image.decode(); }
+      catch { return false; }
+      return Boolean(image.naturalWidth && image.naturalHeight);
+    }));
+    if (!decoded.every(Boolean)) return false;
     await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    return true;
   });
+  if (!imagesReady) throw new ResumePdfGenerationError("resume_photo_decode_failed");
 }
 
 async function launchChromium(): Promise<Browser> {

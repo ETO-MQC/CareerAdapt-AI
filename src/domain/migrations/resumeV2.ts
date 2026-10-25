@@ -138,7 +138,10 @@ export function migrateBranchContentItem(item: BranchContentItem): ResumeContent
 export function projectResumeItemV2(item: ResumeItemV2): string {
   if (item.sectionType === "summary") return item.text;
   const record = item as unknown as Record<string, unknown>;
-  const lines = resumeFieldCatalog.filter((field) => field.sectionType === item.sectionType).flatMap((field) => {
+  // Flexible items have no catalog seed, but their canonical body still belongs in the projection.
+  const lines = item.sectionType === "custom"
+    ? [item.title ? `标题：${item.title}` : "", item.description ? `内容：${item.description}` : "", item.highlights.length ? `要点：${item.highlights.join("；")}` : ""].filter(Boolean)
+    : resumeFieldCatalog.filter((field) => field.sectionType === item.sectionType).flatMap((field) => {
     const key = field.id.split(".").at(-1)!;
     const value = record[key];
     if (value === undefined || value === "" || value === false || (Array.isArray(value) && value.length === 0)) return [];

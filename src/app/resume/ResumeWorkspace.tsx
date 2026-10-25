@@ -90,6 +90,7 @@ import { hashBytes, stableHashText } from "@/services/security/text";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
 import { subscribeResumeRepositoryMutation } from "@/services/storage/resumeRepositoryEvents";
 import { notify } from "@/services/notifications/store";
+import { EditorDraftStatusContext } from "@/components/editor/EditorDraftStatus";
 import { countProfileContent, profileCountSummary } from "@/domain/profile/profileCounts";
 import { useWorkspace } from "@/services/workspace/useWorkspace";
 import { WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState } from "@/components/workspace/WorkspaceStates";
@@ -201,14 +202,6 @@ const MIN_CANVAS_ZOOM = 0.3;
 const MAX_CANVAS_ZOOM = 1.16;
 const A4_PAGE_WIDTH_PX = 794;
 const A4_PAGE_HEIGHT_PX = 1123;
-const CONTENT_AUTO_SAVE_LABELS: Record<ContentAutoSaveState, string> = {
-  idle: "自动保存已开启",
-  dirty: "等待自动保存",
-  saving: "正在保存…",
-  saved: "已自动保存",
-  needs_confirmation: "需要确认保存范围",
-  error: "自动保存失败"
-};
 
 export function ResumeWorkspace() {
   const router = useRouter();
@@ -241,6 +234,9 @@ export function ResumeWorkspace() {
   const [revisions, setRevisions] = useState<ResumeRevision[]>([]);
   const [draftName, setDraftName] = useState("");
   const [editTexts, setEditTexts] = useState<Record<string, string>>({});
+  const [editorDraftKeys, setEditorDraftKeys] = useState<string[]>([]);
+  const [editorSaveError, setEditorSaveError] = useState(false);
+  const reportEditorDraft = useCallback((key: string, dirty: boolean) => setEditorDraftKeys(current => dirty ? current.includes(key) ? current : [...current, key] : current.includes(key) ? current.filter(item => item !== key) : current), []);
   const [contentAutoSaveState, setContentAutoSaveState] = useState<ContentAutoSaveState>("idle");
   const [isStudioEditMode, setIsStudioEditMode] = useState(true);
   const [selectedStudioItemId, setSelectedStudioItemId] = useState<string | undefined>();
@@ -930,6 +926,8 @@ export function ResumeWorkspace() {
       setEditTexts({});
       editTextsRef.current = {};
       setContentAutoSaveState("idle");
+      setEditorSaveError(false);
+      setEditorDraftKeys([]);
       clearStudioEditor();
       setPdfExportState({ status: "idle" });
       const queue = presentationQueueRef.current;
@@ -1505,10 +1503,7 @@ export function ResumeWorkspace() {
         replaceBranch(result.branch, { preserveDrafts: true });
         clearSavedDraft();
         if (origin === "manual") {
-          const sourceItem = result.branch.contentItems.find((item) => item.id === itemId);
-          notify({ type: "success", title: "已保存", message: sourceItem?.userConfirmation?.scope === "resume_only"
-            ? "内容已保存到当前简历；个人资料库未被修改。"
-            : "简历内容已保存，事实安全检查已重新计算。" });
+          setEditorSaveError(false); setContentAutoSaveState("saved");
         }
       } catch (error) {
         if (error instanceof Error && error.message === "branch_edit_fact_guard_blocked") {
@@ -1517,7 +1512,8 @@ export function ResumeWorkspace() {
           return;
         }
         setContentAutoSaveState("error");
-        notify({ type: "error", title: "保存失败", message: error instanceof RevisionConflictError
+        setEditorSaveError(true);
+      notify({ type: "error", title: "保存失败", message: error instanceof RevisionConflictError
           ? "简历版本已变化，请刷新后重试。"
           : "当前简历不可编辑或事实引用已失效。" });
       }
@@ -1583,7 +1579,7 @@ export function ResumeWorkspace() {
         }
         replaceBranch(result.branch, { preserveDrafts: true });
         setContentAutoSaveState("saved");
-        if (origin === "manual") notify({ type: "success", title: "已保存", message: "结构字段和自定义字段已保存到当前简历。" });
+        if (origin === "manual") setEditorSaveError(false); setContentAutoSaveState("saved");
       } catch (error) {
         if (error instanceof Error && error.message === "branch_edit_fact_guard_blocked") {
           setContentAutoSaveState("needs_confirmation");
@@ -1665,7 +1661,7 @@ export function ResumeWorkspace() {
       });
       replaceBranch(result.branch);
       setSelectedStudioItemId(result.duplicatedItemId);
-      notify({ type: "success", title: "已复制", message: result.idempotent ? "该内容已复制过，未重复创建版本。" : "内容已复制，并创建新的内容版本。" });
+      setEditorSaveError(false); setContentAutoSaveState("saved");
     } catch {
       notify({ type: "error", title: "复制失败", message: "版本冲突、引用失效或当前简历不可编辑。" });
     }
@@ -1701,7 +1697,7 @@ export function ResumeWorkspace() {
       replaceBranch(result.branch, { select: false });
       setRenamingBranchId(undefined);
       setRenameBranchDraft("");
-      notify({ type: "success", title: "已重命名", message: "简历名称已更新。" });
+      setEditorSaveError(false); setContentAutoSaveState("saved");
     } catch {
       setRenameBranchError("重命名失败，请刷新后重试");
     } finally {
@@ -1800,9 +1796,7 @@ export function ResumeWorkspace() {
       replaceBranch(result.branch);
       setSelectedBranchId(result.branch.id);
       setSelectedStudioItemId(result.newItemId);
-      notify({ type: "success", title: "已添加", message: syncToProfile
-        ? "新内容已加入简历，并从通用简历补充资料。"
-        : "新内容已保存到当前简历。需要补充资料时，请使用“从通用简历补充资料”。" });
+      setEditorSaveError(false); setContentAutoSaveState("saved");
     } catch {
       notify({ type: "error", title: "添加失败", message: "当前简历可能不可编辑。" });
     }
@@ -1881,10 +1875,9 @@ export function ResumeWorkspace() {
       setContentAutoSaveState(Object.keys(nextDrafts).length > 0 ? "dirty" : "saved");
       if (pending.source === "preview") cancelStudioEdit();
       setPendingResumeOnlyEdit(undefined);
-      notify({ type: "success", title: "已保存", message: syncAfterSave
-        ? "修改已保存，并从通用简历补充资料。"
-        : "修改已仅保存到当前简历；个人资料库未被修改。" });
+      setEditorSaveError(false); setContentAutoSaveState("saved");
     } catch (error) {
+      setEditorSaveError(true);
       notify({ type: "error", title: "保存失败", message: error instanceof RevisionConflictError
         ? "简历版本已变化，请刷新后重试。"
         : "当前简历或资料库状态已变化，请重试。" });
@@ -1963,17 +1956,19 @@ export function ResumeWorkspace() {
     operationId: string;
     successMessage: string;
     recordHistory?: boolean;
+    branchOverride?: ResumeBranch;
   }) {
-    if (!selectedBranch || !selectedBranchEditable || !selectedBranch.currentRevisionId) {
+    const savingBranch = input.branchOverride ?? selectedBranch;
+    if (!savingBranch || !canEditBranch(savingBranch) || !savingBranch.currentRevisionId) {
       notify({ type: "warning", title: "不可保存", message: "当前简历不可保存展示配置：旧数据、归档、引用失效或缺少当前版本。" });
       return undefined;
     }
 
     try {
       const result = await repository.saveResumePresentationConfig({
-        branchId: selectedBranch.id,
-        expectedBranchRevision: selectedBranch.revision,
-        expectedRevisionId: selectedBranch.currentRevisionId,
+        branchId: savingBranch.id,
+        expectedBranchRevision: savingBranch.revision,
+        expectedRevisionId: savingBranch.currentRevisionId,
         expectedPresentationRevision: input.beforeConfig.presentationRevision,
         operationId: input.operationId,
         nextConfig: input.nextConfig
@@ -1990,9 +1985,10 @@ export function ResumeWorkspace() {
           redoStack: queue.redoStack
         });
       }
-      notify({ type: "success", title: "已保存", message: result.idempotent ? "该展示操作已保存过，未重复写入。" : input.successMessage });
+      setEditorSaveError(false); setContentAutoSaveState("saved");
       return result.config;
     } catch (error) {
+      setEditorSaveError(true);
       notify({ type: "error", title: "保存失败", message: error instanceof RevisionConflictError
         ? "展示配置保存失败：内容版本或展示版本已变化，请刷新后重试。"
         : "展示配置保存失败：可能隐藏了全部内容、简历不可编辑或配置不合法。" });
@@ -2443,7 +2439,7 @@ export function ResumeWorkspace() {
       });
       replaceBranch(result.branch);
       setContentEditorEpoch(current => current + 1);
-      notify({ type: "success", title: "已恢复", message: "已恢复旧版本；恢复操作已作为新的版本记录。" });
+      setEditorSaveError(false); setContentAutoSaveState("saved");
     } catch {
       notify({ type: "error", title: "恢复失败", message: "版本链缺失、版本冲突或简历不可编辑。" });
     }
@@ -2462,7 +2458,7 @@ export function ResumeWorkspace() {
       });
       replaceBranch(result.branch);
       setContentEditorEpoch(current => current + 1);
-      notify({ type: "success", title: "已撤销", message: "已撤销最近一次简历修改。" });
+      setEditorSaveError(false); setContentAutoSaveState("saved");
     } catch {
       notify({ type: "error", title: "撤销失败", message: "没有可撤销版本或当前简历已变化。" });
     }
@@ -2697,6 +2693,27 @@ export function ResumeWorkspace() {
     await saveProfileFieldText(editingProfileFieldId, profileFieldDraftText);
   }
 
+  async function saveBasicsPatch(patch: Partial<NonNullable<ResumeBranch["resumeBasics"]>>, showPhoto = false) {
+    if (!selectedBranch || !selectedBranchEditable) throw new Error("当前简历不可编辑。");
+    setProfileFieldPending(true); setEditorSaveError(false);
+    try {
+      const result = await repository.editResumeBranchBasics({ branchId: selectedBranch.id, expectedRevision: selectedBranch.revision, operationId: `resume-basics-${crypto.randomUUID()}`, basics: patch });
+      replaceBranch(result.branch, { preserveDrafts: true });
+      if (showPhoto && selectedTemplate.capabilities.supportsPhoto) {
+        let visibilitySaved = false;
+        await enqueuePresentation(async current => {
+        const next = buildNextPresentationConfig({ current, branch: result.branch, patch: { pagination: { ...current.pagination, showPhoto: true } } });
+        const saved = await savePresentationConfig({ nextConfig: next, beforeConfig: current, branchOverride: result.branch, operationId: `resume-photo-show-${crypto.randomUUID()}`, successMessage: "照片显示设置已保存。" });
+        visibilitySaved = Boolean(saved);
+        return saved;
+        });
+        if (!visibilitySaved) throw new Error("照片已保存，但显示设置保存失败，请开启照片显示后重试。");
+      }
+      setContentAutoSaveState("saved");
+    } catch (cause) { setEditorSaveError(true); throw cause; }
+    finally { setProfileFieldPending(false); }
+  }
+
   async function saveProfileFieldText(fieldId: string, draftText: string): Promise<boolean> {
     if (!profile || !selectedBranch || !selectedBranchEditable) {
       return false;
@@ -2719,6 +2736,7 @@ export function ResumeWorkspace() {
       ? currentBasics.links[profileLinkIndex(fieldId)] ?? ""
       : currentBasics[key] ?? "";
     if (text === currentValue) {
+      setEditorSaveError(false); setContentAutoSaveState("saved");
       setEditingProfileFieldId(undefined);
       setProfileFieldError(undefined);
       return true;
@@ -2751,9 +2769,8 @@ export function ResumeWorkspace() {
       setSelectedProfileFieldId(undefined);
       setProfileFieldDraftText("");
       setProfileFieldError(undefined);
-      notify({ type: "success", title: "已保存", message: key === "summary"
-        ? (text ? "自我评价已保存到当前简历；个人资料库未被修改。" : "自我评价已从当前简历中移除；个人资料库未被修改。")
-        : "这份简历的个人信息已保存；个人资料库未被修改。" });
+      setContentAutoSaveState("saved");
+      setEditorSaveError(false); setContentAutoSaveState("saved");
       return true;
     } catch {
       setProfileFieldError("保存失败：版本已变化，请刷新后重试。");
@@ -2941,7 +2958,7 @@ export function ResumeWorkspace() {
         delete next[block.contentItemId];
         return next;
       });
-      notify({ type: "success", title: "已保存", message: result.idempotent ? "该编辑已保存过，未重复创建版本。" : "简历内容已保存，并创建新的内容版本。" });
+      setEditorSaveError(false); setContentAutoSaveState("saved");
     } catch (error) {
       setPendingStudioOperationId(undefined);
       if (error instanceof Error && error.message === "branch_edit_fact_guard_blocked") {
@@ -3045,7 +3062,7 @@ export function ResumeWorkspace() {
       });
       replaceBranch(result.branch, { select: false });
       setResumeListFilter("all");
-      notify({ type: "success", title: "已恢复", message: "简历已恢复到当前简历，可继续编辑。" });
+      setEditorSaveError(false); setContentAutoSaveState("saved");
     } catch (error) {
       notify({ type: "error", title: "恢复失败", message: error instanceof RevisionConflictError ? "简历版本已变化。" : "当前生命周期状态不允许恢复。" });
     }
@@ -3074,7 +3091,7 @@ export function ResumeWorkspace() {
       });
       replaceBranch(result.branch, { select: false });
       setResumeListFilter("archived");
-      notify({ type: "success", title: "已恢复", message: "简历已从回收站恢复到归档。" });
+      setEditorSaveError(false); setContentAutoSaveState("saved");
     } catch (error) {
       notify({ type: "error", title: "恢复失败", message: error instanceof RevisionConflictError ? "简历版本已变化。" : "当前简历不在回收站中。" });
     }
@@ -3105,6 +3122,7 @@ export function ResumeWorkspace() {
   }
 
   async function downloadPdf(allowCoverageWarnings = false) {
+    if (profileFieldPending) return;
     if (!selectedBranch || !renderModel) {
       notify({ type: "error", title: "无法导出", message: "当前简历无法生成正式预览，不能导出。" });
       setPdfExportState({
@@ -3489,6 +3507,7 @@ export function ResumeWorkspace() {
   }
 
   async function exportPdf(allowCoverageWarnings = false) {
+    if (profileFieldPending) return;
     if (!selectedBranch || !renderModel) {
       notify({ type: "error", title: "无法导出", message: "当前简历无法生成正式预览，不能导出。" });
       return;
@@ -3556,6 +3575,8 @@ export function ResumeWorkspace() {
         presentationConfig,
         coveragePolicy: "warn"
       });
+
+      await waitForStableClientLayout();
 
       if (isPaginationPlanBlocked(paginationPlan)) {
         await repository.createResumeExportRecord({
@@ -3724,7 +3745,7 @@ export function ResumeWorkspace() {
       section: item.sectionType, itemType, text, structuredItem: item, syncToProfile: false });
     replaceBranch(result.branch, { preserveDrafts: true });
     setSelectedStudioItemId(result.newItemId);
-    notify({ type: "success", title: "条目已添加", message: "已保存到当前简历，个人资料库未改变。" });
+    setEditorSaveError(false); setContentAutoSaveState("saved");
   }
 
   async function setContentSectionVisibility(key: string, visible: boolean) {
@@ -3753,6 +3774,10 @@ export function ResumeWorkspace() {
       notify({ type: "error", title: "板块移除失败", message: error instanceof Error ? error.message : "无法保存当前版本。" });
     }
   }
+
+  const editorSaveStatus = editorSaveError || profileFieldError || contentAutoSaveState === "error" ? "error"
+    : profileFieldPending || presentationSaving || contentAutoSaveState === "saving" ? "saving"
+      : editorDraftKeys.length > 0 || contentAutoSaveState === "dirty" || contentAutoSaveState === "needs_confirmation" ? "dirty" : "saved";
 
   const canUndoBranch = Boolean(selectedBranch && selectedBranch.revision > 0);
   const canUndoAny = canUndoBranch || presentationHistory.undoStack.length > 0;
@@ -4494,13 +4519,7 @@ export function ResumeWorkspace() {
             <div>
               <span className="resume-workbar-label">{branchPurposeLabel(selectedBranch.branchPurpose)} / {branchStatusLabel(selectedBranch)}</span>
               <h2>{selectedBranch.name}</h2>
-              <span
-                className={`resume-autosave-status resume-autosave-status-${contentAutoSaveState}`}
-                data-testid="resume-autosave-status"
-                aria-live="polite"
-              >
-                {CONTENT_AUTO_SAVE_LABELS[contentAutoSaveState]}
-              </span>
+              <span className="resume-save-indicators"><span className="resume-autosave-label">自动保存已开启</span><span className={`resume-save-badge resume-save-badge-${editorSaveStatus}`} data-testid="resume-autosave-status" data-save-state={editorSaveStatus} role="status" aria-live="polite">{editorSaveStatus === "saved" ? "已保存" : editorSaveStatus === "saving" ? "保存中…" : editorSaveStatus === "error" ? "未保存 · 保存失败" : contentAutoSaveState === "needs_confirmation" ? "未保存 · 待确认" : "未保存"}</span></span>
             </div>
           </div>
 
@@ -4546,7 +4565,7 @@ export function ResumeWorkspace() {
               <button
                 className="primary-button compact"
                 onClick={() => { void downloadPdf(); }}
-                disabled={!renderModel || renderModel.safety.visibleItemCount === 0 || !presentationConfig || isPdfExportBusy || presentationSaving || pagination.blocked || pagination.status === "measuring"}
+                disabled={!renderModel || renderModel.safety.visibleItemCount === 0 || !presentationConfig || isPdfExportBusy || profileFieldPending || presentationSaving || pagination.blocked || pagination.status === "measuring"}
                 title="下载 PDF"
               >
                 {isPdfExportBusy ? "生成中" : "下载 PDF"}
@@ -4573,7 +4592,7 @@ export function ResumeWorkspace() {
 
                 {workbarWarnings.length === 0 ? <button type="button" onClick={refreshSync}>重新检查</button> : null}
                 <button type="button" onClick={downloadStructuredJson} disabled={!renderModel}>导出 JSON</button>
-                <button type="button" onClick={() => { void exportPdf(); }} disabled={!renderModel || renderModel.safety.visibleItemCount === 0 || isPdfExportBusy || presentationSaving}>打印 / 保存 PDF</button>
+                <button type="button" onClick={() => { void exportPdf(); }} disabled={!renderModel || renderModel.safety.visibleItemCount === 0 || isPdfExportBusy || profileFieldPending || presentationSaving}>打印 / 保存 PDF</button>
                 <label className="inline-toggle studio-edit-toggle">
                   <input
                     type="checkbox"
@@ -4732,7 +4751,7 @@ export function ResumeWorkspace() {
                 ))}
               </div>
             ) : null}
-            <FieldAppearanceContext.Provider value={{ entries: presentationConfig?.fieldAppearances ?? [], onChange: update => { void updatePresentationStyle(current => ({ fieldAppearances: update(current.fieldAppearances ?? []) })); } }}>
+            <EditorDraftStatusContext.Provider value={reportEditorDraft}><FieldAppearanceContext.Provider value={{ entries: presentationConfig?.fieldAppearances ?? [], onChange: update => { void updatePresentationStyle(current => ({ fieldAppearances: update(current.fieldAppearances ?? []) })); } }}>
             <div className="resume-content-pane" hidden={studioMode !== "edit"}>
               <div className="sidebar-content-heading"><h2>简历内容</h2><p>编辑个人信息、调整板块顺序，并实时查看预览。</p></div>
               <nav className="sidebar-section-stack" data-testid="resume-section-nav" aria-label="简历内容管理">
@@ -4769,7 +4788,14 @@ export function ResumeWorkspace() {
                   branchEditable={selectedBranchEditable}
                   profileFieldError={profileFieldError}
                   onSaveProfileField={(...args) => saveProfileFieldText(...args)}
-                  onSaveBranchBasicsField={(_field, value) => { void saveProfileFieldText("branch:targetRole", value); }}
+                  onSaveBranchBasicsField={(_field, value) => saveProfileFieldText("branch:targetRole", value)}
+                  contactOrder={presentationConfig?.contactOrder}
+                  onContactOrder={contactOrder => { void updatePresentationStyle(() => ({ contactOrder })); }}
+                  onSaveCustomFields={customFields => saveBasicsPatch({ customFields })}
+                  photoVisible={Boolean(presentationConfig?.pagination.showPhoto)}
+                  supportsPhoto={selectedTemplate.capabilities.supportsPhoto}
+                  onPhotoVisibility={showPhoto => { void updatePaginationSettings({ showPhoto }, "照片显示设置已保存。"); }}
+                  onSavePhoto={photo => saveBasicsPatch({ photo }, Boolean(photo))}
                   nav={{ ...sectionNavContext, activeSection: section.key }}
                 />
                 </FieldOwner>
@@ -4904,7 +4930,7 @@ export function ResumeWorkspace() {
                 </div>
               ) : null}
             </div>
-            </FieldAppearanceContext.Provider>
+            </FieldAppearanceContext.Provider></EditorDraftStatusContext.Provider>
             {studioMode === "style" ? styleControls : null}
             {renderResult.warning ? (
               <div className="warning-box" data-testid="render-compatibility-warning" role="status" aria-live="polite">
@@ -5073,11 +5099,14 @@ export function ResumeWorkspace() {
                 {styleInspectorTab === "template" ? styleControls : presentationConfig ? <PrecisionInspector
                   config={presentationConfig} tab={styleInspectorTab} disabled={!selectedBranchEditable}
                   supportsPhoto={selectedTemplate.capabilities.supportsPhoto}
+                  hasPhoto={Boolean(renderModel?.candidate.photo)}
                   onPrecisionPreview={previewPrecision}
                   onPrecision={commitPrecision}
                   onTypography={patch => { void updatePresentationStyle(current => ({ typography: { ...current.typography, ...patch } })); }}
                   onDensity={density => { void updatePresentationStyle(current => ({ theme: { ...current.theme, density }, precision: { ...current.precision, lineHeight: density === "compact" ? 1.24 : density === "spacious" ? 1.7 : 1.48, sectionGapPx: density === "compact" ? 8 : density === "spacious" ? 24 : 16 } })); }}
                   onMultiPage={enabled => { void updatePagePolicy(enabled ? "natural" : "one_page_strict"); }}
+                  onReferencePreset={() => { void updatePresentationStyle(current => ({ typography: { ...current.typography, chineseFont: "source_han_sans", englishFont: "inter" }, precision: { ...current.precision, headerLayout: "center", headerHeightPx: 0, headerGapPx: 8, headerDivider: false, titleStyle: "underline", titleBar: false, entryStyle: "inline", entryAlignment: "center", primaryColor: "#202522", accentColor: "#40494f", dividerColor: "#30363b", sectionGapPx: 14, fontSizePx: 12.4, lineHeight: 1.35 } })); }}
+                  onShowPhoto={showPhoto => { void updatePaginationSettings({ showPhoto }, "照片显示设置已保存。"); }}
                   extraPageControls={<fieldset disabled={!selectedBranchEditable}>
                     <div className="page-policy-presets"><button type="button" className="secondary-button compact" onClick={() => { void optimizeForOnePage(); }}>一页优化</button><button type="button" className="secondary-button compact" onClick={() => { void relaxForTwoPages(); }}>两页舒展</button></div>
                     <label className="precision-select">页数策略<select data-testid="page-policy-selector" aria-label="页数策略" value={presentationConfig.pagination.pagePolicy} onChange={e => { void updatePagePolicy(e.target.value as ResumePresentationConfig["pagination"]["pagePolicy"]); }}><option value="natural">自然分页</option><option value="prefer_one_page">优先一页</option><option value="one_page_strict">严格单页</option><option value="up_to_two_pages">建议两页</option></select></label>
@@ -5482,6 +5511,7 @@ function buildNextPresentationConfig(input: {
 function presentationSnapshotPatch(config: ResumePresentationConfig) {
   return {
     templateId: config.templateId,
+    contactOrder: config.contactOrder,
     fieldAppearances: config.fieldAppearances,
     canonicalSectionOrder: config.canonicalSectionOrder,
     sectionOrder: config.sectionOrder,
@@ -5498,6 +5528,7 @@ function presentationSnapshotPatch(config: ResumePresentationConfig) {
 
 function presentationStylePatch(config: ResumePresentationConfig): ResumeTemplateStyleConfig {
   return {
+    contactOrder: config.contactOrder,
     fieldAppearances: config.fieldAppearances,
     canonicalSectionOrder: config.canonicalSectionOrder,
     precision: config.precision,
@@ -5647,6 +5678,7 @@ async function waitForStableClientLayout() {
   if ("fonts" in document) {
     await document.fonts.ready;
   }
+  await Promise.all(Array.from(document.querySelectorAll<HTMLImageElement>(".resume-preview-stage .resume-candidate-photo"), image => image.decode()));
   await new Promise<void>((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve())));
 }
 

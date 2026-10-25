@@ -8,7 +8,7 @@ import type { CanonicalFieldId, ResumeSectionTypeV2 } from "@/domain/resumeField
 
 export type ResumeTemplateStyleConfig = Pick<
   ResumePresentationConfig,
-  "fieldAppearances" | "canonicalSectionOrder" | "typography" | "spacing" | "theme" | "sectionStyleOverrides" | "precision"
+  "contactOrder" | "fieldAppearances" | "canonicalSectionOrder" | "typography" | "spacing" | "theme" | "sectionStyleOverrides" | "precision"
 >;
 
 export type TemplateCapabilities = {

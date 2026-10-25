@@ -11,6 +11,7 @@ import { FieldOwner } from "../FieldAppearanceContext";
 import { FieldFormatting } from "../FieldFormatting";
 import { StringListEditor } from "../StringListEditor";
 import { DatePicker } from "../DatePicker";
+import { useEditorDraftStatus } from "../EditorDraftStatus";
 import { ResumeItemTools } from "../ResumeItemTools";
 import { AccordionList } from "../AccordionList";
 import { SectionShell } from "../SectionShell";
@@ -99,6 +100,7 @@ export function CanonicalSectionPage(props: CanonicalSectionPageProps) {
 
 function CanonicalNewItemForm(props: { sectionType: Exclude<ResumeSectionTypeV2, "basics">; fields: readonly ResumeFieldDefinition[]; onAdd: (item: ResumeItemV2) => Promise<void>; onDone: () => void }) {
   const [values, setValues] = useState<Record<string, unknown>>({});
+  useEditorDraftStatus(`new:${props.sectionType}`, Object.keys(values).length > 0);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   async function save() {
@@ -129,6 +131,7 @@ function CanonicalItemForm(props: {
   onMoveDown: () => void;
 }) {
   const [draft, setDraft] = useState<ResumeItemV2>(props.item);
+  useEditorDraftStatus(props.item.id, JSON.stringify(draft) !== JSON.stringify(props.item));
   const [saving, setSaving] = useState(false);
   const record = draft as unknown as Record<string, unknown>;
 

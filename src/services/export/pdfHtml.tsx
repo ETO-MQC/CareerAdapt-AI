@@ -6,6 +6,7 @@ import type { ResumePaginationPlan, ResumePdfExportSnapshot } from "@/domain/sch
 import { getResumeTemplate, resumeTemplateStyleVars } from "@/components/resume/templates/templateRegistry";
 import { paginateResumeRenderModel } from "@/services/export/pagination";
 import { presentationConfigFromExportSnapshot } from "./snapshot";
+import { embeddedResumeFontCss } from "./fonts";
 
 export async function renderResumePdfHtml(
   snapshot: ResumePdfExportSnapshot,
@@ -14,6 +15,7 @@ export async function renderResumePdfHtml(
   const css = await readResumeCss();
   const template = getResumeTemplate(snapshot.templateId);
   const presentationConfig = presentationConfigFromExportSnapshot(snapshot);
+  const fontCss = await embeddedResumeFontCss(presentationConfig.typography);
   const paginationPlan = options.paginationPlan ?? snapshot.paginationPlan;
   const pageModels = options.includeMeasurement
     ? []
@@ -70,7 +72,7 @@ export async function renderResumePdfHtml(
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(snapshot.filename)}</title>
-  <style>${css}</style>
+  <style>${fontCss}\n${css}</style>
   <style>
     /*
      * globals.css is read from source, so its \`@tailwind base\` never survives readResumeCss()

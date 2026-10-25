@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ResumePhotoSchema } from "./resumePhoto";
 import { RESUME_SECTION_TYPES_V2 } from "@/domain/resumeFields/types";
 
 const NonEmptyStringSchema = z.string().trim().min(1);
@@ -44,7 +45,7 @@ const ExperienceShape = {
 
 export const ResumeBasicsV2Schema = z.object({
   name: OptionalTextSchema,
-  photo: OptionalUrlSchema,
+  photo: ResumePhotoSchema.optional(),
   headline: OptionalTextSchema,
   targetRole: OptionalTextSchema,
   summary: OptionalTextSchema,

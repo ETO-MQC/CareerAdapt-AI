@@ -12,6 +12,8 @@ export type ProfileBranchBuildResult = { branch: ResumeBranch; firstRevision: Re
 export function resumeBasicsFromProfile(profile: CareerProfile, summary?: string, targetRole?: string): ResumeBranchBasics {
   return {
     name: profile.basics.name,
+    photo: profile.structuredBasics?.photo,
+    customFields: profile.structuredBasics?.customFields,
     ...(targetRole?.trim() ? { targetRole: targetRole.trim() } : {}),
     email: profile.basics.email ?? "",
     phone: profile.basics.phone ?? "",

@@ -132,8 +132,10 @@ export function exportCareerAdaptResumeJsonV2(input: {
   const branchBasics = branch.resumeBasics;
   const basics = {
     ...profile.structuredBasics,
+    photo: branchBasics ? branchBasics.photo : profile.structuredBasics.photo,
+    customFields: branchBasics ? branchBasics.customFields ?? [] : profile.structuredBasics.customFields,
     targetRole: branchBasics && Object.prototype.hasOwnProperty.call(branchBasics, "targetRole")
-      ? branchBasics.targetRole
+      ? branchBasics.targetRole?.trim() || undefined
       : profile.structuredBasics.targetRole,
     name: branchBasics?.name || profile.structuredBasics.name,
     email: branchBasics?.email || profile.structuredBasics.email,

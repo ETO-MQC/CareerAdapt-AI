@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ResumePhotoSchema } from "./resumePhoto";
 import { EntityBaseSchema, IsoDateStringSchema } from "./common";
 import { ResumeRenderSectionTypeSchema } from "./resumeRender";
 import { isCanonicalFieldId } from "@/domain/resumeFields";
@@ -523,6 +524,8 @@ const ImportedResumeDraftBaseSchema = EntityBaseSchema.extend({
   qualityReport: ImportQualityReportSchema.optional(),
   basics: z.object({
     name: ImportedResumeFieldSchema.optional(),
+    photo: ImportedResumeFieldSchema.extend({ value: ResumePhotoSchema }).optional(),
+    additionalFields: z.array(ImportedResumeFieldSchema.extend({ customField: CustomFieldValueSchema })).optional(),
     email: ImportedResumeFieldSchema.optional(),
     phone: ImportedResumeFieldSchema.optional(),
     location: ImportedResumeFieldSchema.optional(),

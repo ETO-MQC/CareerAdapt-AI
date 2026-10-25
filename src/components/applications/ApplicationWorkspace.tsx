@@ -1015,6 +1015,7 @@ function presentationConfigFromApplication(context: ApplicationContext): ResumeP
       branchRevision: context.application.selectedBranchRevision,
       currentRevisionId: context.application.selectedRevisionId
     },
+    contactOrder: snapshot.contactOrder,
     sectionOrder: snapshot.sectionOrder ?? [...defaultResumeRenderSectionOrder],
     itemOrderBySection: snapshot.itemOrderBySection,
     hiddenItemIds: snapshot.hiddenItemIds,

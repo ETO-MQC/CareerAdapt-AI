@@ -1,3 +1,4 @@
+import { CHINESE_FONTS, ENGLISH_FONTS } from "@/domain/resumePresentation/fonts";
 import type { CSSProperties } from "react";
 import { precisionStyleVars } from "./precisionStyles";
 import type { ResumePresentationConfig } from "@/domain/schemas";
@@ -31,6 +32,7 @@ export function getTemplateDefaultStyleConfig(template: ResumeTemplateDefinition
 
 export function cloneTemplateStyleConfig(style: ResumeTemplateStyleConfig): ResumeTemplateStyleConfig {
   return {
+    ...(style.contactOrder ? { contactOrder: [...style.contactOrder] } : {}),
     typography: { ...style.typography },
     spacing: { ...style.spacing },
     theme: { ...style.theme },
@@ -55,43 +57,15 @@ export function resolveTemplateStyleConfig(
   };
 }
 
-/**
- * Converts the existing full-token config into the target template's resolved
- * style. Values equal to the source defaults are defaults, while explicit
- * user values remain overrides. This keeps the persisted schema compatible
- * without adding a second override store.
+/** Saved values are user choices, including choices equal to a template default.
+ * Template defaults apply on creation or explicit reset, never implicitly on switch.
  */
 export function resolveTemplateSwitchStyle(
-  sourceTemplate: ResumeTemplateDefinition,
-  targetTemplate: ResumeTemplateDefinition,
+  _sourceTemplate: ResumeTemplateDefinition,
+  _targetTemplate: ResumeTemplateDefinition,
   currentStyle: ResumeTemplateStyleConfig
 ): ResumeTemplateStyleConfig {
-  const source = sourceTemplate.defaultPresentationStyle;
-  const target = targetTemplate.defaultPresentationStyle;
-  const adoptDefault = <T>(value: T, sourceDefault: T, targetDefault: T) => value === sourceDefault ? targetDefault : value;
-
-  return {
-    typography: {
-      chineseFont: adoptDefault(currentStyle.typography.chineseFont, source.typography.chineseFont, target.typography.chineseFont),
-      englishFont: adoptDefault(currentStyle.typography.englishFont, source.typography.englishFont, target.typography.englishFont),
-      bodyTextScale: adoptDefault(currentStyle.typography.bodyTextScale, source.typography.bodyTextScale, target.typography.bodyTextScale),
-      titleTextScale: adoptDefault(currentStyle.typography.titleTextScale, source.typography.titleTextScale, target.typography.titleTextScale),
-      lineHeight: adoptDefault(currentStyle.typography.lineHeight, source.typography.lineHeight, target.typography.lineHeight)
-    },
-    spacing: {
-      pageMargin: adoptDefault(currentStyle.spacing.pageMargin, source.spacing.pageMargin, target.spacing.pageMargin),
-      sectionGap: adoptDefault(currentStyle.spacing.sectionGap, source.spacing.sectionGap, target.spacing.sectionGap),
-      itemGap: adoptDefault(currentStyle.spacing.itemGap, source.spacing.itemGap, target.spacing.itemGap)
-    },
-    theme: {
-      primaryColor: adoptDefault(currentStyle.theme.primaryColor, source.theme.primaryColor, target.theme.primaryColor),
-      accentColor: adoptDefault(currentStyle.theme.accentColor, source.theme.accentColor, target.theme.accentColor),
-      dividerColor: adoptDefault(currentStyle.theme.dividerColor, source.theme.dividerColor, target.theme.dividerColor),
-      density: adoptDefault(currentStyle.theme.density, source.theme.density, target.theme.density)
-    },
-    ...(currentStyle.precision ? { precision: { ...currentStyle.precision } } : {}),
-    sectionStyleOverrides: { ...currentStyle.sectionStyleOverrides }
-  };
+  return cloneTemplateStyleConfig(currentStyle);
 }
 
 export function resumeTemplateStyleVars(
@@ -163,12 +137,8 @@ function fontFamilyToken(
   chineseFont: ResumePresentationConfig["typography"]["chineseFont"],
   englishFont: ResumePresentationConfig["typography"]["englishFont"]
 ) {
-  const chinese = chineseFont === "source_han_serif"
-    ? '"Source Han Serif SC", "Noto Serif CJK SC", SimSun'
-    : chineseFont === "source_han_sans"
-      ? '"Source Han Sans SC", "Noto Sans CJK SC", "Microsoft YaHei"'
-      : '"Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC"';
-  const english = englishFont === "times_new_roman" ? '"Times New Roman", Times' : englishFont === "georgia" ? "Georgia" : englishFont === "arial" ? "Arial" : '"Segoe UI", Arial';
+  const chinese = CHINESE_FONTS.find(font => font.id === chineseFont)!.family;
+  const english = ENGLISH_FONTS.find(font => font.id === englishFont)!.family;
   return englishFont === "system_sans" ? `${chinese}, ${english}, sans-serif` : `${english}, ${chinese}, sans-serif`;
 }
 

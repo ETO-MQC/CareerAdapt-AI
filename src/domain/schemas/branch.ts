@@ -1,8 +1,9 @@
 import { FieldAppearancesSchema } from "./fieldAppearance";
 import { z } from "zod";
+import { ResumePhotoSchema } from "./resumePhoto";
 import { PresentationPrecisionSchema } from "./presentationPrecision";
 import { EntityBaseSchema, IsoDateStringSchema, RiskLevelSchema } from "./common";
-import { ResumeItemV2Schema } from "./resumeV2";
+import { CustomFieldValueSchema, ResumeItemV2Schema } from "./resumeV2";
 import { ResumeJsonV2MappingTraceSchema } from "./resumeJsonV2";
 import { JobTargetSnapshotSchema } from "./jobTarget";
 
@@ -86,6 +87,8 @@ export const BranchUserConfirmationSchema = z.object({
 });
 
 export const ResumeBranchBasicsSchema = z.object({
+  customFields: z.array(CustomFieldValueSchema).optional(),
+  photo: ResumePhotoSchema.optional(),
   name: z.string().default(""),
   // Optional keeps historical branches distinguishable from an explicitly cleared role.
   targetRole: z.string().optional(),
@@ -376,6 +379,7 @@ export const ExportOverflowStatusSchema = z.enum([
 ]);
 
 export const ExportRecordPresentationSnapshotSchema = z.object({
+  contactOrder: z.array(z.string().min(1).max(200)).max(100).refine(order => new Set(order).size === order.length, "duplicate contact key").optional(),
   precision: PresentationPrecisionSchema.optional(),
   templateId: z.string().min(1),
   fieldAppearances: FieldAppearancesSchema,

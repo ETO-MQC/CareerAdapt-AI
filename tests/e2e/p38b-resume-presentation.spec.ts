@@ -2,8 +2,9 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { openManualPageTab, openManualTypographyTab } from "./support/g7b2Ui";
+import { openManualPageTab, openManualTypographyTab, openManualTemplateTab } from "./support/g7b2Ui";
 import type { ResumePdfExportSnapshot } from "@/domain/schemas";
+import { hashExportSnapshot } from "@/services/export/snapshot";
 
 const DEBUG_LABELS = [
   "学校：", "专业：", "学位/学历：", "所在地：", "开始日期：", "结束日期：", "至今：", "进行中：",
@@ -297,7 +298,9 @@ test("precision settings persist, resize and collapse while formal PDF keeps all
   await settings.getByRole("button", { name: "主色：#91353e", exact: true }).click();
   await settings.getByRole("button", { name: "强调色：#397550", exact: true }).click();
   await settings.getByRole("button", { name: "分隔线颜色：#485158", exact: true }).click();
+  await settings.locator('[data-style-picker="title"] > summary').click();
   await settings.getByRole("button", { name: "板块标题样式：底线", exact: true }).click();
+  await settings.locator('[data-style-picker="entry"] > summary').click();
   await settings.getByRole("button", { name: "经历条目样式：双行", exact: true }).click();
   await settings.getByLabel("正文链接样式").selectOption("accent");
   await settings.getByLabel("列表符号").selectOption("square");
@@ -374,10 +377,10 @@ test("precision settings persist, resize and collapse while formal PDF keeps all
   await expect.poll(() => measurement.locator(".resume-template-section h2").first().evaluate(node => getComputedStyle(node).color)).toBe("rgb(32, 37, 34)");
   await settings.getByRole("switch", { name: "分隔线使用中性灰色", exact: true }).click();
   await expect.poll(() => measurement.evaluate(node => getComputedStyle(node).getPropertyValue("--resume-divider-color"))).toBe("#c9c8c3");
-  await settings.getByRole("switch", { name: "显示个人信息图标", exact: true }).click();
-  await expect(measurement.locator(".resume-contact-icon")).toHaveCount(3);
-  await settings.getByRole("switch", { name: "显示个人信息图标", exact: true }).click();
-  await expect(measurement.locator(".resume-contact-icon")).toHaveCount(0);
+  await settings.getByRole("switch", { name: "显示个人信息标签", exact: true }).click();
+  await expect(measurement.locator(".resume-contact-label")).toHaveCount(3);
+  await settings.getByRole("switch", { name: "显示个人信息标签", exact: true }).click();
+  await expect(measurement.locator(".resume-contact-label")).toHaveCount(0);
   await settings.getByRole("tab", { name: "模板", exact: true }).click();
   await settings.getByRole("button", { name: "恢复此模板默认排版", exact: true }).click();
   await expect.poll(() => measurement.evaluate(node => getComputedStyle(node).getPropertyValue("--resume-header-gap"))).toBe("");
@@ -484,12 +487,12 @@ test("compact editor links preview fields and previews slider frames before one 
   await download.saveAs(resolve("artifacts/ui-tune/slider.pdf"));
 });
 
-async function importCanonicalFixture(page: Page) {
+async function importCanonicalFixture(page: Page, fixture: unknown = canonicalFixture()) {
   await page.addInitScript(() => localStorage.setItem("careeradapt-ai-settings", JSON.stringify({ provider: "openrouter", baseUrl: "https://openrouter.ai/api/v1", model: "test", apiKeyConfigured: true })));
   await page.goto("/resume");
   await page.getByRole("button", { name: /^导入已有简历/ }).click();
   await page.getByTestId("resume-import-dock").locator("summary").filter({ hasText: /^粘贴 JSON$/ }).click();
-  await page.locator(".import-json-details textarea").fill(JSON.stringify(canonicalFixture()));
+  await page.locator(".import-json-details textarea").fill(JSON.stringify(fixture));
   await page.locator(".import-json-details button.primary-button").click();
   await page.getByLabel("创建新人物").check();
   while (await page.getByRole("button", { name: "确认字段映射", exact: true }).count()) {
@@ -575,4 +578,327 @@ test("content section keyboard sorting persists in the shared preview", async ({
   await page.reload();
   await expect.poll(() => handles.evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")))).toEqual(dragged);
 
+});
+
+test("editor closure: photo upload, templates, order, persistence and actual PDF images", async ({ page }) => {
+  test.setTimeout(300_000);
+  page.setDefaultTimeout(20_000);
+  const dir = resolve(process.cwd(), "artifacts/editor-closure");
+  mkdirSync(dir, { recursive: true });
+  await page.setViewportSize({ width: 1366, height: 768 });
+  const baseFixture = canonicalFixture();
+  await importCanonicalFixture(page, { ...baseFixture, sections: [...baseFixture.sections, { id: "custom-closure", sectionType: "custom", title: "自定义栏目", order: 7, visible: true, items: [{ id: "custom-closure-1", sectionType: "custom", title: "独立内容", description: "自定义正文完整保留。", highlights: ["自定义要点"], customFields: [] }] }] });
+  console.log("closure: imported");
+  const measurement = page.getByTestId("resume-pagination-measurement-page");
+  const sectionOrder = () => measurement.locator("[data-render-section-id]").evaluateAll(nodes => nodes.map(node => node.getAttribute("data-render-section-id")));
+  const handles = page.getByTestId("resume-section-nav").locator(".content-drag-handle");
+  await expect(page.getByRole("button", { name: "下载 PDF", exact: true })).toBeEnabled();
+  await handles.nth(1).focus();
+  await handles.nth(1).press("Alt+ArrowUp");
+  await expect.poll(sectionOrder).toEqual(["education", "summary", "work", "project", "awards", "skills", "languages", "custom"]);
+  if (await page.getByRole("button", { name: "基本信息", exact: true }).getAttribute("aria-expanded") !== "true") await page.getByRole("button", { name: "基本信息", exact: true }).click();
+  await expect(page.getByRole("button", { name: "添加照片", exact: true })).toBeVisible();
+  await page.getByLabel("目标职位", { exact: true }).fill("前端工程师");
+  await page.getByLabel("全名", { exact: true }).focus();
+  await expect(measurement).toContainText("前端工程师");
+  await page.screenshot({ path: resolve(dir, "before-upload-1366.png") });
+  const photo = async (color: string) => page.evaluate(color => {
+    const canvas = document.createElement("canvas"); canvas.width = 1800; canvas.height = 2400;
+    const ctx = canvas.getContext("2d")!; ctx.fillStyle = color; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#f5dfc4"; ctx.beginPath(); ctx.arc(900, 850, 400, 0, Math.PI * 2); ctx.fill();
+    return canvas.toDataURL("image/png").split(",")[1];
+  }, color);
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "添加照片", exact: true }).click();
+  await (await chooser).setFiles({ name: "invalid.png", mimeType: "image/png", buffer: Buffer.from("not an image") });
+  await expect(page.locator(".resume-photo-input").getByRole("alert")).toContainText("无法读取图片");
+  await page.getByLabel("上传简历照片").setInputFiles({ name: "photo.png", mimeType: "image/png", buffer: Buffer.from(await photo("#a63c49"), "base64") });
+  await expect(page.getByAltText("已保存的简历照片")).toBeVisible();
+  const firstPhoto = await page.getByAltText("已保存的简历照片").getAttribute("src");
+  expect(firstPhoto).toMatch(/^data:image\/jpeg;base64,/);
+  console.log("closure: uploaded");
+  await openManualPageTab(page);
+  await expect(page.getByRole("switch", { name: "显示照片", exact: true })).toBeChecked();
+  await expect(measurement.locator(".resume-candidate-photo")).toHaveCount(1);
+  await page.getByTestId("resume-layout-inspector").getByRole("tab", { name: "样式", exact: true }).click();
+  await page.getByLabel("预设组合").selectOption("serif");
+  let snapshot: ResumePdfExportSnapshot | undefined;
+  page.on("request", request => { if (request.url().includes("/api/resume-export/pdf")) snapshot = request.postDataJSON().snapshot; });
+  async function download(name: string, hasImage: boolean) {
+    const responsePromise = page.waitForResponse(response => response.url().includes("/api/resume-export/pdf") && response.request().method() === "POST", { timeout: 120_000 });
+    const downloadPromise = page.waitForEvent("download", { timeout: 120_000 });
+    await page.getByRole("button", { name: "下载 PDF", exact: true }).click();
+    downloadPromise.catch(() => {});
+    const response = await responsePromise;
+    console.log(`closure: ${name} PDF HTTP ${response.status()}`);
+    expect(response.status(), response.status() === 200 ? "" : await response.text()).toBe(200);
+    const file = await downloadPromise;
+    const path = resolve(dir, `${name}.pdf`); await file.saveAs(path);
+    const text = execFileSync(PDFTOTEXT, [path, "-"], { encoding: "utf8" });
+    for (const value of ["示例大学", "演示候选人", "前端工程师", "candidate@example.com", "工作条目一", "工作条目二", "项目一", "项目四", "奖项一", "奖项二", "中文母语，英语四级备考中", "独立内容", "自定义正文完整保留。", "自定义要点"]) expect(normalizeText(text)).toContain(normalizeText(value));
+    expect(text.indexOf("示例大学")).toBeLessThan(text.indexOf("关注可靠工程交付"));
+    const imageList = execFileSync(PDFTOTEXT.replace("pdftotext", "pdfimages"), ["-list", path], { encoding: "utf8" });
+    const imageRows = imageList.split("\n").filter(line => /^\s*\d+\s+\d+\s+image\s/.test(line));
+    expect(imageRows.length > 0).toBe(hasImage);
+    if (hasImage) expect(imageRows[0]).toMatch(/450\s+600/);
+    expect(snapshot!.presentation.canonicalSectionOrder?.slice(0, 2)).toEqual(["education", "summary"]);
+    return path;
+  }
+  await openManualTemplateTab(page);
+  for (const id of ["campus-reference", "modern-operations", "business-consulting", "campus-clean", "professional-classic", "classic-technical", "ats-minimal"]) {
+    console.log(`closure: template ${id}`);
+    await page.getByLabel("模板", { exact: true }).selectOption(id);
+    await expect(measurement).toHaveClass(new RegExp(`template-${id}`));
+    await expect(page.getByLabel("模板", { exact: true })).toBeEnabled();
+    await expect(page.getByTestId("resume-autosave-status")).toHaveText("已保存");
+    await expect(measurement.locator(".resume-candidate-photo")).toHaveCount(id === "ats-minimal" ? 0 : 1);
+    expect(await sectionOrder()).toEqual(["education", "summary", "work", "project", "awards", "skills", "languages", "custom"]);
+    const path = await download(id, id !== "ats-minimal");
+    expect(snapshot!.templateId).toBe(id);
+    expect(snapshot!.presentation.typography.chineseFont).toBe("source_han_serif");
+    expect(snapshot!.renderModel.candidate.photo).toBe(firstPhoto);
+    if (id === "campus-reference") {
+      execFileSync(PDFTOTEXT.replace("pdftotext", "pdftoppm"), ["-f", "1", "-singlefile", "-scale-to", "1400", "-png", path, resolve(dir, "photo-pdf-page")]);
+      await page.emulateMedia({ media: "print" });
+      const printPath = resolve(dir, "browser-print.pdf");
+      await page.pdf({ path: printPath, format: "A4", printBackground: true, preferCSSPageSize: true });
+      await page.emulateMedia({ media: "screen" });
+      const printed = execFileSync(PDFTOTEXT, [printPath, "-"], { encoding: "utf8" });
+      expect(printed).toContain("演示候选人");
+      expect(printed).toContain("前端工程师");
+      expect(printed.indexOf("示例大学")).toBeLessThan(printed.indexOf("关注可靠工程交付"));
+      expect(printed).toContain("工作条目二");
+      expect(printed).toContain("中文母语，英语四级备考中");
+      expect(printed).toContain("自定义正文完整保留。");
+      expect(execFileSync(PDFTOTEXT.replace("pdftotext", "pdfimages"), ["-list", printPath], { encoding: "utf8" })).toMatch(/450\s+600/);
+    }
+    if (id !== "ats-minimal") {
+      const bounds = await measurement.locator(".resume-template-header").evaluate(header => {
+        const photo = header.querySelector("img")!.getBoundingClientRect();
+        const center = (header.getBoundingClientRect().left + header.getBoundingClientRect().right) / 2;
+        return Array.from(header.querySelectorAll("h1, address, p")).map(node => { const r = node.getBoundingClientRect(); return r.right <= photo.left && r.bottom <= header.getBoundingClientRect().bottom && Math.abs((r.left + r.right) / 2 - center) < 1 && getComputedStyle(node).textAlign === "center"; });
+      });
+      expect(bounds.every(Boolean)).toBe(true);
+    }
+  }
+  await openManualPageTab(page);
+  await expect(page.getByLabel("显示照片", { exact: true })).toBeDisabled();
+  await expect(page.getByText("当前模板不支持照片。", { exact: true })).toBeVisible();
+  await openManualTemplateTab(page);
+  await page.getByLabel("模板", { exact: true }).selectOption("campus-reference");
+  await expect(measurement).toHaveClass(/template-campus-reference/);
+  await expect(page.getByLabel("模板", { exact: true })).toBeEnabled();
+  await page.reload();
+  await expect(measurement.locator(".resume-candidate-photo")).toHaveAttribute("src", firstPhoto!);
+  expect(await sectionOrder()).toEqual(["education", "summary", "work", "project", "awards", "skills", "languages", "custom"]);
+  if (await page.getByRole("button", { name: "基本信息", exact: true }).getAttribute("aria-expanded") !== "true") await page.getByRole("button", { name: "基本信息", exact: true }).click();
+  await expect(page.getByRole("button", { name: "更换照片", exact: true })).toBeVisible();
+  await page.screenshot({ path: resolve(dir, "after-upload-1366.png") });
+  await page.getByLabel("上传简历照片").setInputFiles({ name: "replacement.png", mimeType: "image/png", buffer: Buffer.from(await photo("#315e8f"), "base64") });
+  await expect(measurement.locator(".resume-candidate-photo")).not.toHaveAttribute("src", firstPhoto!);
+  await expect(page.getByRole("button", { name: "移除照片", exact: true })).toBeEnabled();
+  await download("replacement", true);
+  await openManualPageTab(page);
+  await page.getByRole("switch", { name: "显示照片", exact: true }).click();
+  await expect(measurement.locator(".resume-candidate-photo")).toHaveCount(0);
+  await download("hidden", false);
+  await page.getByRole("switch", { name: "显示照片", exact: true }).click();
+  await page.getByRole("button", { name: "移除照片", exact: true }).click();
+  await expect(page.getByRole("button", { name: "添加照片", exact: true })).toBeEnabled();
+  await page.reload();
+  await expect(measurement.locator(".resume-candidate-photo")).toHaveCount(0);
+  await download("removed", false);
+  expect(snapshot!.renderModel.candidate.photo).toBeUndefined();
+  const corrupt = structuredClone(snapshot!);
+  corrupt.renderModel.candidate.photo = "data:image/png;base64,AAAA";
+  const { snapshotHash: previousHash, ...unsigned } = corrupt;
+  expect(previousHash).toBeTruthy();
+  corrupt.snapshotHash = hashExportSnapshot(unsigned);
+  const failedPhoto = await page.request.post("/api/resume-export/pdf", { data: { schemaVersion: "resume-direct-pdf-v1", exportId: "closure-corrupt-photo", exportMethod: "direct_pdf", snapshot: corrupt } });
+  expect(failedPhoto.status()).toBe(500);
+  expect(await failedPhoto.json()).toEqual({ code: "resume_photo_decode_failed", recoveryAttempt: false });
+});
+
+test("reference refinement: photo visibility, personal fields, header space, save badge and component styles", async ({ page }) => {
+  test.setTimeout(240_000);
+  page.setDefaultTimeout(20_000);
+  const dir = resolve(process.cwd(), "artifacts/editor-refinement"); mkdirSync(dir, { recursive: true });
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await importCanonicalFixture(page);
+  const measure = page.getByTestId("resume-pagination-measurement-page");
+  const status = page.getByTestId("resume-autosave-status");
+  const basics = page.getByRole("button", { name: "基本信息", exact: true });
+  if (await basics.getAttribute("aria-expanded") !== "true") await basics.click();
+  await page.getByLabel("目标职位", { exact: true }).fill("前端工程师");
+  await expect(status).toHaveAttribute("data-save-state", "dirty");
+  await page.getByLabel("全名", { exact: true }).focus();
+  await expect(status).toHaveText("已保存");
+  await page.evaluate(() => {
+    const original = IDBObjectStore.prototype.put;
+    (window as unknown as { restoreResumePut: () => void }).restoreResumePut = () => { IDBObjectStore.prototype.put = original; };
+    IDBObjectStore.prototype.put = function (...args: Parameters<IDBObjectStore["put"]>) {
+      if (this.name === "resumeBranches") throw new DOMException("Controlled test write failure", "QuotaExceededError");
+      return original.apply(this, args);
+    };
+  });
+  await page.getByLabel("全名", { exact: true }).fill("未保存的匿名姓名");
+  await page.getByLabel("目标职位", { exact: true }).focus();
+  await expect(status).toHaveAttribute("data-save-state", "error");
+  await expect(page.getByLabel("全名", { exact: true })).toHaveValue("未保存的匿名姓名");
+  await page.evaluate(() => (window as unknown as { restoreResumePut: () => void }).restoreResumePut());
+  await page.getByLabel("全名", { exact: true }).focus(); await page.getByLabel("目标职位", { exact: true }).focus();
+  await expect(status).toHaveText("已保存");
+  await page.getByLabel("全名", { exact: true }).fill("演示候选人"); await page.getByLabel("目标职位", { exact: true }).focus();
+  await expect(status).toHaveText("已保存");
+  await expect(page.getByText("保存失败：版本已变化，请刷新后重试。", { exact: true })).toHaveCount(0);
+  await expect(page.locator(".app-notification-success strong").filter({ hasText: /^已保存$/ })).toHaveCount(0);
+  const photo = await page.evaluate(() => { const c = document.createElement("canvas"); c.width = 300; c.height = 400; const ctx = c.getContext("2d")!; ctx.fillStyle = "#397550"; ctx.fillRect(0, 0, 300, 400); return c.toDataURL("image/png").split(",")[1]; });
+  await page.getByLabel("上传简历照片").setInputFiles({ name: "anonymous.png", mimeType: "image/png", buffer: Buffer.from(photo, "base64") });
+  await expect(page.locator(".resume-preview-pages .resume-candidate-photo").first()).toBeVisible();
+  await expect(measure.locator(".resume-candidate-photo")).toHaveCount(1);
+  await expect(page.getByLabel("显示简历照片", { exact: true })).toBeChecked();
+  await expect(status).toHaveText("已保存");
+  await page.getByRole("button", { name: "增加字段", exact: true }).click();
+  await page.getByRole("button", { name: "微信", exact: true }).click();
+  await page.getByLabel("微信：", { exact: true }).fill("demo-wechat");
+  await expect(status).toHaveAttribute("data-save-state", "dirty");
+  await page.getByLabel("全名", { exact: true }).focus();
+  await expect(measure).toContainText("demo-wechat");
+  await page.getByRole("button", { name: "上移个人信息：微信", exact: true }).click();
+  await expect(status).toHaveText("已保存");
+  await page.getByRole("button", { name: "插入换行", exact: false }).click();
+  await expect(measure.locator(".resume-contact-break")).toHaveCount(1);
+  await page.getByRole("button", { name: "增加字段", exact: true }).click();
+  await page.getByLabel("自定义字段名称").fill("个人说明");
+  await page.locator(".personal-custom-field").getByRole("button", { name: "添加", exact: true }).click();
+  await page.getByLabel("个人说明：", { exact: true }).fill("用户确认的个人信息");
+  await page.getByLabel("全名", { exact: true }).focus();
+  await expect(measure).toContainText("用户确认的个人信息");
+  await expect(status).toHaveText("已保存");
+  await openManualPageTab(page);
+  const positions = () => measure.evaluate(root => ({ name: root.querySelector("h1")!.getBoundingClientRect().top, contacts: root.querySelector("address")!.getBoundingClientRect().top, body: root.querySelector("[data-render-section]")!.getBoundingClientRect().top }));
+  const before = await positions();
+  await page.getByLabel("抬头高度", { exact: true }).fill("40");
+  await expect(status).toHaveText("已保存");
+  await expect.poll(async () => (await positions()).name - before.name).toBeCloseTo(40, 0);
+  const after = await positions();
+  expect(after.contacts - before.contacts).toBeCloseTo(40, 0); expect(after.body - before.body).toBeCloseTo(40, 0);
+  const settings = page.getByTestId("resume-layout-inspector");
+  await settings.getByRole("tab", { name: "样式", exact: true }).click();
+  await settings.getByRole("switch", { name: "显示个人信息标签", exact: true }).click();
+  await expect(measure.locator("address")).toContainText("手机号："); await expect(measure.locator("address")).toContainText("邮箱："); await expect(measure.locator(".resume-contact-icon")).toHaveCount(0);
+  for (const [label, key] of [["竖线", "rail"], ["短强调线", "accent_line"], ["圆角浅底", "soft"]]) {
+    await settings.locator('[data-style-picker="title"] > summary').click(); await settings.getByRole("button", { name: `板块标题样式：${label}`, exact: true }).click(); await expect(measure).toHaveAttribute("data-precision-title", key);
+  }
+  await settings.locator('[data-style-picker="entry"] > summary').click();
+  await settings.getByRole("button", { name: "经历条目样式：紧凑同行", exact: true }).click();
+  await expect(measure.locator(".resume-presentation-heading").first()).toHaveCSS("display", "flex");
+  await settings.getByRole("button", { name: /应用参考排版/ }).click();
+  await expect(measure).toHaveAttribute("data-precision-title", "underline");
+  await expect(settings.getByLabel("预设组合")).toHaveValue("inter-sans");
+  await page.evaluate(() => document.fonts.ready);
+  expect(await page.evaluate(() => document.fonts.check('12px "CareerAdapt Inter"') && document.fonts.check('12px "CareerAdapt Source Han Sans"'))).toBe(true);
+  await expect(status).toHaveText("已保存");
+  await page.reload();
+  await expect(page.locator(".resume-preview-pages .resume-candidate-photo").first()).toBeVisible();
+  await expect(measure.locator(".resume-candidate-photo")).toHaveCount(1);
+  await expect(measure).toContainText("demo-wechat"); await expect(measure).toContainText("用户确认的个人信息");
+  await expect(measure.locator(".resume-contact-break")).toHaveCount(1); await expect(measure.locator("address")).toContainText("微信：");
+  await expect(status).toHaveText("已保存");
+  await page.screenshot({ path: resolve(dir, "after-1366.png") });
+  if (await basics.getAttribute("aria-expanded") !== "true") await basics.click();
+  await page.screenshot({ path: resolve(dir, "personal-1366.png") });
+  const response = page.waitForResponse(r => r.url().includes("/api/resume-export/pdf") && r.request().method() === "POST");
+  const download = page.waitForEvent("download", { timeout: 120_000 }); download.catch(() => {});
+  await page.getByRole("button", { name: "下载 PDF", exact: true }).click();
+  const result = await response; expect(result.status(), result.status() === 200 ? "" : await result.text()).toBe(200);
+  const pdfPath = resolve(dir, "refined.pdf"); await (await download).saveAs(pdfPath);
+  const text = execFileSync(PDFTOTEXT, [pdfPath, "-"], { encoding: "utf8" });
+  for (const value of ["前端工程师", "demo-wechat", "用户确认的个人信息", "手机号", "邮箱", "工作条目二", "项目四", "中文母语，英语四级备考中"]) expect(normalizeText(text)).toContain(normalizeText(value));
+  const fontList = execFileSync(PDFTOTEXT.replace("pdftotext", "pdffonts"), [pdfPath], { encoding: "utf8" });
+  expect(fontList).toContain("Inter"); expect(fontList).toContain("SourceHanSans");
+  execFileSync(PDFTOTEXT.replace("pdftotext", "pdftoppm"), ["-f", "1", "-singlefile", "-scale-to", "1400", "-png", pdfPath, resolve(dir, "refined-pdf")]);
+  for (const width of [1920, 1024]) {
+    await page.setViewportSize({ width, height: width === 1920 ? 1080 : 768 });
+    await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: resolve(dir, `personal-${width}.png`) });
+  }
+});
+
+
+test("final annotated polish keeps contacts centered and personal controls compact", async ({ page }) => {
+  test.setTimeout(120_000);
+  const dir = resolve("artifacts/editor-final-polish"); mkdirSync(dir, { recursive: true });
+  await page.addInitScript(() => localStorage.setItem("careeradapt.theme", "light"));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await importCanonicalFixture(page);
+  await openManualTemplateTab(page);
+  await page.getByLabel("模板", { exact: true }).selectOption("campus-reference");
+  const measurement = page.getByTestId("resume-pagination-measurement-page");
+  await expect(measurement).toHaveClass(/template-campus-reference/);
+  const basics = page.getByRole("button", { name: "基本信息", exact: true });
+  if (await basics.getAttribute("aria-expanded") !== "true") await basics.click();
+  const photo = await page.evaluate(() => { const c = document.createElement("canvas"); c.width = 300; c.height = 400; const ctx = c.getContext("2d")!; ctx.fillStyle = "#778694"; ctx.fillRect(0, 0, 300, 400); return c.toDataURL("image/png").split(",")[1]; });
+  await page.getByLabel("上传简历照片").setInputFiles({ name: "anonymous.png", mimeType: "image/png", buffer: Buffer.from(photo, "base64") });
+  const visibility = page.getByLabel("显示简历照片", { exact: true });
+  await expect(visibility).toBeChecked();
+  await page.screenshot({ path: resolve(dir, `${process.env.EDITOR_POLISH_CAPTURE ?? "after"}-photo.png`) });
+  await expect(visibility.locator("..")).toHaveCSS("align-items", "center");
+  const checkboxRow = await visibility.locator("..").evaluate(label => {
+    const checkbox = label.querySelector("input")!.getBoundingClientRect();
+    const text = label.querySelector("span")?.getBoundingClientRect();
+    return text ? Math.abs((checkbox.top + checkbox.bottom - text.top - text.bottom) / 2) : 999;
+  });
+  expect(checkboxRow).toBeLessThan(2);
+  const space = await page.locator(".basics-identity-with-photo").evaluate(row => {
+    const hint = row.querySelector(".field-input-hint")!.getBoundingClientRect();
+    return row.getBoundingClientRect().bottom - hint.bottom;
+  });
+  expect(space).toBeLessThan(45);
+  const phone = page.locator('.personal-contact-row[data-contact-id="phone"]');
+  await phone.hover();
+  const drag = phone.getByRole("button", { name: "拖动个人信息：手机号", exact: true });
+  const down = phone.getByRole("button", { name: "下移个人信息：手机号", exact: true });
+  await page.screenshot({ path: resolve(dir, "after-field-controls.png") });
+  const dragBounds = await drag.boundingBox(); const downBounds = await down.boundingBox(); const inputBounds = await phone.locator("input").boundingBox();
+  expect(dragBounds!.x + dragBounds!.width).toBeLessThan(inputBounds!.x);
+  expect(downBounds!.x).toBeGreaterThanOrEqual(inputBounds!.x + inputBounds!.width);
+  await down.click();
+  await expect(page.getByTestId("resume-autosave-status")).toHaveText("已保存");
+  expect(await page.locator(".personal-contact-row").first().getAttribute("data-contact-id")).toBe("email");
+  await visibility.click();
+  await expect(visibility).not.toBeChecked();
+  await expect(measurement.locator(".resume-candidate-photo")).toHaveCount(0);
+  await expect(measurement.locator("address")).toHaveCSS("justify-content", "center");
+  const centered = () => measurement.locator("header").evaluate(header => {
+    const h = header.getBoundingClientRect();
+    const contacts = Array.from(header.querySelectorAll("address > span:not(.resume-contact-break)"), node => node.getBoundingClientRect());
+    const left = Math.min(...contacts.map(r => r.left)); const right = Math.max(...contacts.map(r => r.right));
+    return { centerError: Math.abs((left + right - h.left - h.right) / 2), gap: contacts.length > 1 ? Math.abs(contacts[0].left - contacts[1].right) : 0, width: right - left, headerWidth: h.width };
+  });
+  const bounds = await centered(); expect(bounds.centerError).toBeLessThan(1); expect(bounds.width).toBeLessThan(bounds.headerWidth - 30);
+  await page.screenshot({ path: resolve(dir, "after-no-photo.png") });
+  await openManualPageTab(page);
+  const settings = page.getByTestId("resume-layout-inspector");
+  await settings.getByRole("button", { name: "左对齐", exact: true }).click();
+  await expect(measurement.locator("address")).toHaveCSS("justify-content", "flex-start");
+  await settings.getByRole("button", { name: "居中对齐", exact: true }).click();
+  await expect(measurement.locator("address")).toHaveCSS("justify-content", "center");
+  await settings.getByRole("tab", { name: "样式", exact: true }).click();
+  await settings.getByRole("button", { name: /应用参考排版/ }).click();
+  await expect(measurement).toHaveAttribute("data-precision-title", "underline");
+  await expect(measurement.locator(".resume-template-section h2").first()).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(measurement.locator(".resume-template-section h2").first()).toHaveCSS("border-bottom-width", "1px");
+  await expect(page.getByTestId("resume-autosave-status")).toHaveText("已保存");
+  await page.reload();
+  await expect(measurement.locator("address")).toHaveCSS("justify-content", "center");
+  const response = page.waitForResponse(r => r.url().includes("/api/resume-export/pdf") && r.request().method() === "POST", { timeout: 120_000 });
+  const download = page.waitForEvent("download", { timeout: 120_000 }); download.catch(() => {});
+  await page.getByRole("button", { name: "下载 PDF", exact: true }).click();
+  expect((await response).status()).toBe(200);
+  const path = resolve(dir, "final-polish.pdf"); await (await download).saveAs(path);
+  const text = execFileSync(PDFTOTEXT, [path, "-"], { encoding: "utf8" });
+  for (const value of ["演示候选人", "13800000000", "candidate@example.com", "工作条目二", "项目四", "中文母语"]) expect(normalizeText(text)).toContain(normalizeText(value));
+  execFileSync(PDFTOTEXT.replace("pdftotext", "pdftoppm"), ["-f", "1", "-singlefile", "-scale-to", "1400", "-png", path, resolve(dir, "final-polish-pdf")]);
 });

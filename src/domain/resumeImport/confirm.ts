@@ -95,6 +95,8 @@ export function buildResumeImportConfirmation(input: {
       message: "General branch is in sync with its source profile."
     },
     resumeBasics: {
+      photo: input.draft.basics.photo?.value,
+      customFields: input.draft.basics.additionalFields?.map(field => field.customField),
       name: profile.basics.name,
       targetRole: input.draft.basics.targetRole?.value ?? "",
       email: profile.basics.email ?? "",
@@ -169,6 +171,8 @@ export function buildResumeImportReconciledProfileOnly(input: {
 }
 
 function validateImportedResumeSources(draft: ImportedResumeDraft) {
+  if (draft.basics.photo && !draft.basics.photo.userConfirmed) throw new Error("resume_import_photo_unconfirmed");
+  if (draft.basics.additionalFields?.some(field => field.sourceStatus !== "located" && !field.userConfirmed)) throw new Error("resume_import_personal_fields_unconfirmed");
   if (containsUnresolvedSensitivePlaceholder(draft)) {
     throw new Error("resume_import_unresolved_sensitive_placeholder");
   }
@@ -188,7 +192,7 @@ function validateImportedResumeSources(draft: ImportedResumeDraft) {
   if (draft.sourceBlocks.length === 0) return;
   const blockIds = new Set(draft.sourceBlocks.map((block) => block.id));
   const sourcePaths = new Set(draft.sourceBlocks.flatMap((block) => block.sourcePath ? [block.sourcePath] : []));
-  const fields = [draft.basics.name, draft.basics.email, draft.basics.phone, draft.basics.location, draft.basics.summary, ...draft.basics.links].filter(Boolean);
+  const fields = [draft.basics.name, draft.basics.photo, ...(draft.basics.additionalFields ?? []), draft.basics.email, draft.basics.phone, draft.basics.location, draft.basics.summary, ...draft.basics.links].filter(Boolean);
   for (const field of fields) {
     if (!field) continue;
     const located = field.sourceBlockIds.some((id) => blockIds.has(id)) || field.mapping?.sourcePaths.some((path) => sourcePaths.has(path));
