@@ -1,25 +1,23 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { ArrowDown, ArrowUp, GripVertical } from "lucide-react";
+import { useAnimatedDragSort } from "./useAnimatedDragSort";
 import { FieldFormatting } from "./FieldFormatting";
 
 export function StringListEditor({ values, onChange, field, label, idPrefix, onFocus }: { values: string[]; onChange: (values: string[]) => void; field: string; label: string; idPrefix: string; onFocus?: () => void }) {
-  const [drop, setDrop] = useState<number>();
   const root = useRef<HTMLDivElement>(null);
+  const sort = useAnimatedDragSort(values.map((_, index) => String(index)), `application/careeradapt-line-${idPrefix.toLowerCase()}`, order => onChange(order.map(id => values[Number(id)])));
   function move(from: number, to: number) {
     if (from === to || from < 0 || to < 0 || from >= values.length || to >= values.length) return;
     const next = [...values]; const [value] = next.splice(from, 1); next.splice(to, 0, value); onChange(next);
     requestAnimationFrame(() => root.current?.querySelector<HTMLTextAreaElement>(`[data-line-index="${to}"] textarea`)?.focus());
   }
-  return <div ref={root} className="string-list-editor" aria-label={`${label}逐条编辑`}>
-    <span className="field-input-label">{label}</span>
-    {values.map((value, index) => <div key={index} className="string-list-row" data-line-index={index} data-drop-target={drop === index}
-      onDragOver={event => { if (event.dataTransfer.types.includes(`application/careeradapt-line-${idPrefix.toLowerCase()}`)) { event.preventDefault(); event.stopPropagation(); setDrop(index); } }}
-      onDragLeave={() => setDrop(undefined)} onDrop={event => { const raw = event.dataTransfer.getData(`application/careeradapt-line-${idPrefix.toLowerCase()}`); if (raw !== "") { event.preventDefault(); event.stopPropagation(); move(Number(raw), index); } setDrop(undefined); }}>
-      <div className="string-list-handle-group"><button type="button" className="sidebar-icon-button string-list-grip" draggable aria-label={`拖动${label}第${index + 1}条`} title="拖拽或 Alt＋上下方向键排序"
-        onDragStart={event => { event.stopPropagation(); event.dataTransfer.setData(`application/careeradapt-line-${idPrefix.toLowerCase()}`, String(index)); event.dataTransfer.effectAllowed = "move"; }} onDragEnd={() => setDrop(undefined)}
-        onKeyDown={event => { if (event.altKey && ["ArrowUp", "ArrowDown"].includes(event.key)) { event.preventDefault(); move(index, index + (event.key === "ArrowUp" ? -1 : 1)); } }}><GripVertical size={14}/></button>
+  return <div ref={node => { root.current = node; sort.rootRef(node); }} {...sort.rootProps} className="string-list-editor" aria-label={`${label}逐条编辑`}>
+    <div className="string-list-heading"><span className="field-input-label">{label}</span>{field === "honors" ? <div><button type="button" className="section-action-button" disabled={values.length < 2} onClick={() => onChange([values.join("；")])}>合并为一段</button><button type="button" className="section-action-button" disabled={!values.some(value => /[；;\n]/.test(value))} onClick={() => onChange(values.flatMap(value => value.split(/[；;\n]+/).map(part => part.trim()).filter(Boolean)))}>拆分为多条</button></div> : null}</div>
+    {values.map((value, index) => <div key={index} className="string-list-row" data-line-index={index} {...sort.itemProps(String(index))}>
+      <div className="string-list-handle-group"><button type="button" className="sidebar-icon-button string-list-grip" aria-label={`拖动${label}第${index + 1}条`} title="拖拽或 Alt＋上下方向键排序"
+        {...sort.handleProps(String(index))} onKeyDown={event => { if (event.altKey && ["ArrowUp", "ArrowDown"].includes(event.key)) { event.preventDefault(); move(index, index + (event.key === "ArrowUp" ? -1 : 1)); } }}><GripVertical size={14}/></button>
         <button type="button" className="sidebar-icon-button string-list-step" aria-label={`上移${label}第${index + 1}条`} disabled={index === 0} onClick={() => move(index, index - 1)}><ArrowUp size={11}/></button>
         <button type="button" className="sidebar-icon-button string-list-step" aria-label={`下移${label}第${index + 1}条`} disabled={index === values.length - 1} onClick={() => move(index, index + 1)}><ArrowDown size={11}/></button>
       </div>

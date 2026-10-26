@@ -58,7 +58,10 @@ it("imports mixed headings and training into canonical sections, then renders st
   const retained = JSON.stringify(prepared.draft.unclassifiedBlocks);
   expect(retained).not.toContain('"text":"技能与证书"'); expect(retained).not.toContain('"text":"培训经历"');
   expect(prepared.draft.sections.map((section) => section.sectionType)).toEqual(expect.arrayContaining(["campus", "other", "certificates"]));
-  const confirmed = await repository.confirmImportedResume({ importId: prepared.importId, expectedDraftRevision: prepared.draftRevision,
+  expect(prepared.draft.basics.additionalFields?.[0].customField.label).toBe("政治面貌");
+  prepared.draft.basics.additionalFields!.forEach(field => { field.userConfirmed = true; });
+  const reviewed = await repository.saveImportedResumeDraft(prepared.draft, prepared.draftRevision);
+  const confirmed = await repository.confirmImportedResume({ importId: prepared.importId, expectedDraftRevision: reviewed.revision,
     operationId: "semantic-routing-confirm", target: { mode: "new", profileName: "匿名测试", createGeneralResume: true } });
   const branch = await repository.getResumeBranch(confirmed.branchId!);
   const profile = await repository.getProfile(branch!.profileId);

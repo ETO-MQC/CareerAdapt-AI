@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ResumePhotoInput } from "../ResumePhotoInput";
 import { GripVertical, ArrowUp, ArrowDown, X, Plus } from "lucide-react";
 import { orderContactDetails, PERSONAL_FIELD_PRESETS, customContactValue, editCustomContactValue } from "@/domain/resumePresentation/contacts";
+import { useAnimatedDragSort } from "../useAnimatedDragSort";
 import { useEditorDraftStatus } from "../EditorDraftStatus";
 import type { CustomFieldValue, CareerProfile, ResumeBranch } from "@/domain/schemas";
 import { FieldInput } from "../FieldInput";
@@ -85,6 +86,7 @@ export function BasicsSectionPage(props: BasicsSectionPageProps) {
   ];
   const details = [...standard.map(row => ({ id: row.id, label: row.label, value: getValue(row.field) })), ...customFields.map(field => ({ id: `custom:${field.id}`, label: field.label, value: customDrafts[field.id] ?? customContactValue(field.value) }))];
   const rows = orderContactDetails(details, props.contactOrder);
+  const sort = useAnimatedDragSort(rows.map(row => row.id), "personal-contact", props.onContactOrder);
   const move = (from: string, to: string) => { const order = rows.map(row => row.id); const source = order.indexOf(from); const target = order.indexOf(to); if (source < 0 || target < 0 || source === target) return; order.splice(source, 1); order.splice(target, 0, from); props.onContactOrder(order); };
   async function saveFields(fields: CustomFieldValue[]) {
     setFieldSaving(true); setFieldError("");
@@ -145,11 +147,11 @@ export function BasicsSectionPage(props: BasicsSectionPageProps) {
         <small className="field-help-text">照片支持 JPG / PNG / WebP，最多 5 MB；上传后直接显示，仅保存到当前简历。</small>
         <div className="personal-fields-heading"><strong>基础信息</strong><div><button type="button" className="section-action-button" onClick={() => props.onContactOrder([...rows.map(row => row.id), `break:${crypto.randomUUID()}`])}>↵ 插入换行</button><button type="button" className="section-action-button" aria-expanded={addingField} onClick={() => setAddingField(value => !value)}><Plus size={14}/> 增加字段</button></div></div>
         {addingField ? <div className="personal-field-picker"><div className="personal-field-presets">{PERSONAL_FIELD_PRESETS.map(label => <button type="button" className="section-action-button" disabled={fieldSaving} key={label} onClick={() => void addField(label)}>{label}</button>)}</div><div className="personal-custom-field"><input className="field-input" aria-label="自定义字段名称" placeholder="自定义字段名称" value={fieldLabel} onChange={event => setFieldLabel(event.target.value)} /><button type="button" className="section-action-button" disabled={fieldSaving || !fieldLabel.trim()} onClick={() => void addField(fieldLabel)}>添加</button></div></div> : null}
-        <div className="personal-contact-fields">{rows.map((row, index) => {
+        <div ref={node => sort.rootRef(node)} {...sort.rootProps} className="personal-contact-fields">{rows.map((row, index) => {
           const standardField = standard.find(field => field.id === row.id);
           const custom = customFields.find(field => `custom:${field.id}` === row.id);
-          return <div className="personal-contact-row" data-contact-id={row.id} key={row.id} onDragOver={event => { if (event.dataTransfer.types.includes("application/careeradapt-contact")) event.preventDefault(); }} onDrop={event => { const from = event.dataTransfer.getData("application/careeradapt-contact"); if (from) { event.preventDefault(); move(from, row.id); } }}>
-            <div className="personal-contact-tools"><button type="button" className="sidebar-icon-button" draggable aria-label={`拖动个人信息：${row.label}`} onDragStart={event => event.dataTransfer.setData("application/careeradapt-contact", row.id)} onKeyDown={event => { if (event.altKey && ["ArrowUp", "ArrowDown"].includes(event.key)) { event.preventDefault(); const to = rows[index + (event.key === "ArrowUp" ? -1 : 1)]; if (to) move(row.id, to.id); } }}><GripVertical size={14}/></button></div>
+          return <div className="personal-contact-row" data-contact-id={row.id} key={row.id} {...sort.itemProps(row.id)}>
+            <div className="personal-contact-tools"><button type="button" className="sidebar-icon-button" aria-label={`拖动个人信息：${row.label}`} {...sort.handleProps(row.id)} onKeyDown={event => { if (event.altKey && ["ArrowUp", "ArrowDown"].includes(event.key)) { event.preventDefault(); const to = rows[index + (event.key === "ArrowUp" ? -1 : 1)]; if (to) move(row.id, to.id); } }}><GripVertical size={14}/></button></div>
             {row.id.startsWith("break:") ? <span className="personal-contact-break">↵ 联系信息换行</span> : <label className="personal-contact-label" htmlFor={standardField ? `basics-${standardField.field === "linkedin" ? "linkedin" : standardField.field === "location" ? "address" : standardField.field}` : `basics-custom-${custom?.id}`}>{row.label}：</label>}
             {!row.id.startsWith("break:") ? <input className="field-input" id={standardField ? `basics-${standardField.field === "linkedin" ? "linkedin" : standardField.field === "location" ? "address" : standardField.field}` : `basics-custom-${custom?.id}`} value={row.value} placeholder={row.label} disabled={fieldSaving} onChange={event => { if (standardField) handleChange(standardField.field, event.target.value); else if (custom) setCustomDrafts(previous => ({ ...previous, [custom.id]: event.target.value })); }} onBlur={() => { if (standardField) void handleBlur(standardField.field); else if (custom) void saveCustomField(custom); }} /> : null}
             <div className="personal-contact-actions"><button type="button" className="sidebar-icon-button" disabled={index === 0} aria-label={`上移个人信息：${row.label}`} onClick={() => move(row.id, rows[index - 1].id)}><ArrowUp size={12}/></button><button type="button" className="sidebar-icon-button" disabled={index === rows.length - 1} aria-label={`下移个人信息：${row.label}`} onClick={() => move(row.id, rows[index + 1].id)}><ArrowDown size={12}/></button></div>

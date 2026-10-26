@@ -2,9 +2,11 @@
 
 import { useState, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Eye, EyeOff, Globe, GripVertical, Pencil, Trash2 } from "lucide-react";
+import type { AnimatedDragSort } from "./useAnimatedDragSort";
 import { SidebarEditorContext } from "./SidebarEditorContext";
 
 type Props = {
+  dragSort?: AnimatedDragSort;
   sectionKey: string;
   label: string;
   count: number;
@@ -37,11 +39,11 @@ export function ResumeSectionCard(props: Props) {
     <section className={`sidebar-section-card${personal ? " sidebar-personal-card" : ""}`} data-section-key={props.sectionKey} data-expanded={props.expanded} data-selected={props.selected} data-dragging={dragging} data-drop-target={dropTarget}
       onDragOver={event => { if (!personal && event.dataTransfer.types.includes("application/careeradapt-section")) { event.preventDefault(); event.dataTransfer.dropEffect = "move"; setDropTarget(true); } }}
       onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropTarget(false); }}
-      onDrop={event => { const key = event.dataTransfer.getData("application/careeradapt-section"); if (!key || personal) return; event.preventDefault(); props.onDropSection(key); setDropTarget(false); }}>
+      onDrop={event => { const key = event.dataTransfer.getData("application/careeradapt-section"); if (!key || personal) return; event.preventDefault(); props.onDropSection(key); setDropTarget(false); }} {...(!personal ? props.dragSort?.itemProps(props.sectionKey) : {})}>
       <div className="sidebar-section-header">
         {!personal ? <button type="button" className="sidebar-icon-button content-drag-handle" draggable aria-label={`拖动排序：${props.label}，Alt加方向键移动`} title="拖动排序，也可按 Alt＋上下方向键"
           onDragStart={event => { event.dataTransfer.setData("application/careeradapt-section", props.sectionKey); event.dataTransfer.effectAllowed = "move"; setDragging(true); }} onDragEnd={() => { setDragging(false); setDropTarget(false); }}
-          onKeyDown={event => { if (event.altKey && ["ArrowUp", "ArrowDown"].includes(event.key)) { event.preventDefault(); props.onMove(event.key === "ArrowUp" ? "up" : "down"); } }}><GripVertical size={16} /></button> : null}
+          {...props.dragSort?.handleProps(props.sectionKey)} onKeyDown={event => { if (event.altKey && ["ArrowUp", "ArrowDown"].includes(event.key)) { event.preventDefault(); props.onMove(event.key === "ArrowUp" ? "up" : "down"); } }}><GripVertical size={16} /></button> : null}
         <span className="sidebar-section-icon" aria-hidden="true">{props.icon}</span>
         <button type="button" className="sidebar-section-name" aria-label={props.label} aria-expanded={props.expanded} aria-controls={`sidebar-body-${props.sectionKey}`} aria-current={props.selected ? "page" : undefined} onClick={props.onToggle}>
           <strong>{personal ? "个人信息" : props.label}</strong>

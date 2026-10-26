@@ -1,3 +1,4 @@
+import { ResumeLayoutPresetSchema, ResumeLayoutPresetsSchema, type ResumeLayoutStyle } from "@/domain/resumePresentation/layoutPresets";
 import Dexie from "dexie";
 import { z } from "zod";
 import { CommittedJobDescriptionSchema } from "@/domain/schemas";
@@ -7304,6 +7305,27 @@ export class WorkspaceRepository {
       });
       await this.db.applications.put(next);
       return { application: next, idempotent: false };
+    });
+  }
+
+  async getResumeLayoutPresets() {
+    const stored = await this.getMeta("resume-layout-presets-v1");
+    return ResumeLayoutPresetsSchema.parse(stored?.value ?? []);
+  }
+
+  async saveResumeLayoutPreset(name: string, style: ResumeLayoutStyle) {
+    const preset = ResumeLayoutPresetSchema.parse({ id: crypto.randomUUID(), name, createdAt: new Date().toISOString(), style });
+    await this.db.transaction("rw", this.db.appMeta, async () => {
+      const presets = await this.getResumeLayoutPresets();
+      await this.setMeta("resume-layout-presets-v1", ResumeLayoutPresetsSchema.parse([...presets, preset]));
+    });
+    return preset;
+  }
+
+  async deleteResumeLayoutPreset(id: string) {
+    await this.db.transaction("rw", this.db.appMeta, async () => {
+      const presets = await this.getResumeLayoutPresets();
+      await this.setMeta("resume-layout-presets-v1", presets.filter(preset => preset.id !== id));
     });
   }
 

@@ -26,6 +26,12 @@ export function resumeContactDetails(basics: ResumeBranchBasics): ContactDetail[
   ];
 }
 export function orderContactDetails(details: ContactDetail[], order: string[] = []) {
+  if (order.length === 0) {
+    const identity = details.filter(detail => detail.label === "政治面貌");
+    const regular = details.filter(detail => detail.label !== "政治面貌");
+    regular.splice(Math.max(0, regular.findIndex(detail => detail.id === "email") + 1), 0, ...identity);
+    details = regular;
+  }
   const byId = new Map(details.map(detail => [detail.id, detail]));
   const keys = [...new Set([...order, ...details.map(detail => detail.id)])];
   return keys.flatMap(id => id.startsWith("break:") ? [{ id, label: "换行", value: "" }] : byId.has(id) ? [byId.get(id)!] : []);

@@ -1,3 +1,4 @@
+import { isPoliticalIdentityLabel } from "./basicClassification";
 import { nanoid } from "nanoid";
 import {
   ImportedResumeDraftSchema,
@@ -312,6 +313,7 @@ export function createImportedResumeDraftFromStructuredJson(input: {
     };
   };
   const canonicalBasics = input.canonicalResume?.basics;
+  const detectedPersonal = input.sourceBlocks?.length && !canonicalBasics?.customFields.some(field => field.label === "政治面貌") ? detectBasicsFromBlocks(normalizedSourceBlocks, pageSources).additionalFields : [];
   const abnormalCanonicalPhone = Boolean(
     canonicalBasics?.phone
     && !isSensitiveTransportToken(canonicalBasics.phone)
@@ -327,7 +329,7 @@ export function createImportedResumeDraftFromStructuredJson(input: {
   const basics = {
     name: canonicalBasics?.name ? canonicalJsonField("/basics/name", canonicalBasics.name) : structuredDraft.basics.name ? structuredField(structuredDraft.basics.name, "high") : undefined,
     photo: canonicalBasics?.photo ? canonicalJsonField("/basics/photo", canonicalBasics.photo) : undefined,
-    additionalFields: canonicalBasics?.customFields.map((customField, index) => ({ ...canonicalJsonField(`/basics/customFields/${index}`, customContactValue(customField.value) || customField.label), customField })),
+    additionalFields: [...(canonicalBasics?.customFields.map((customField, index) => ({ ...canonicalJsonField(`/basics/customFields/${index}`, customContactValue(customField.value) || customField.label, customField.label === "政治面貌"), customField: customField.label === "政治面貌" ? { ...customField, sensitive: true } : customField })) ?? []), ...detectedPersonal],
     email: canonicalBasics?.email ? canonicalJsonField("/basics/email", canonicalBasics.email) : structuredDraft.basics.email ? structuredField(structuredDraft.basics.email, "high") : undefined,
     phone: canonicalBasics?.phone ? canonicalJsonField("/basics/phone", canonicalBasics.phone, abnormalCanonicalPhone) : structuredDraft.basics.phone ? structuredField(structuredDraft.basics.phone, "medium") : undefined,
     location: canonicalBasics?.location ? canonicalJsonField("/basics/location", canonicalBasics.location) : structuredDraft.basics.location ? structuredField(structuredDraft.basics.location, "medium") : undefined,
@@ -642,6 +644,7 @@ function detectBasicsFromBlocks(
     && !PHONE_PATTERN.test(entry.value)
     && !LINK_PATTERN.test(entry.value)
     && !/(远程|Remote|通用简历|未指定岗位)/i.test(entry.value)
+    && !isPoliticalIdentityLabel(entry.value)
     && entry.value !== locationMatch?.match?.[0]
     && (entry.value.length > 1 || (entry.block.fontSize ?? 0) >= maximumFontSize * 0.9)
   ).sort((left, right) => right.score - left.score)[0];
@@ -663,6 +666,7 @@ function detectBasicsFromBlocks(
   const contactHeadline = emailMatch ? emailMatch.block.normalizedText
     .replace(EMAIL_PATTERN, "")
     .replace(PHONE_PATTERN, "")
+    .replace(/(?:^|[\s|｜·,，;；])(?:政治面貌[：:]?\s*)?(?:中共预备党员|中共党员|共产党员|共青团员|无党派人士|民主党派成员|群众)(?=$|[\s|｜·,，;；])/gu, "")
     .replace(new RegExp(LINK_PATTERN, "gi"), "")
     .replace(locationMatch?.match?.[0] ?? /$^/, "")
     .replace(/^[\s|｜·•/／-]+|[\s|｜·•/／-]+$/g, "")
@@ -685,6 +689,10 @@ function detectBasicsFromBlocks(
         : undefined,
     location: locationMatch?.match ? makeBlockField(locationMatch.match[0], locationMatch.block, "high", locationMatch.match.index) : undefined,
     links: linkMatches.map(({ block, match }) => makeBlockField(match[0], block, "high", match.index)),
+    additionalFields: identityBlocks.flatMap(block => Array.from(block.normalizedText.matchAll(/(?:^|[\s|｜·,，;；])(?:政治面貌[：:]?\s*)?(中共预备党员|中共党员|共产党员|共青团员|无党派人士|民主党派成员|群众)(?=$|[\s|｜·,，;；])/gu)).map((match, index) => ({
+      ...makeBlockField(match[1], block, "high", (match.index ?? 0) + match[0].indexOf(match[1])), sourceStatus: "ambiguous" as const,
+      customField: { id: `political-${block.id}-${index}`, label: "政治面貌", valueType: "string" as const, value: match[1], sensitive: true, order: index }
+    }))),
     targetRole: targetRoleBlock
       ? makeBlockField(targetRoleBlock.normalizedText.trim(), targetRoleBlock, "high")
       : contactHeadline && emailMatch
@@ -958,7 +966,8 @@ function collectStructureConsumedRanges(input: {
     input.basics.location,
     input.basics.targetRole,
     input.basics.summary,
-    ...input.basics.links
+    ...input.basics.links,
+    ...input.basics.additionalFields
   ];
   for (const field of fields) {
     for (const range of field?.sourceRanges ?? []) {

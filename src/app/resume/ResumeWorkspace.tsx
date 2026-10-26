@@ -3,8 +3,10 @@ import { FieldAppearanceContext, FieldOwner } from "@/components/editor/FieldApp
 import { precisionStyleVars } from "@/components/resume/templates/precisionStyles";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { useAnimatedDragSort } from "@/components/editor/useAnimatedDragSort";
 import { ResumeSectionCard } from "@/components/editor/ResumeSectionCard";
 import { Fragment } from "react";
+import { ResumeLayoutPresets } from "@/components/resume/ResumeLayoutPresets";
 import { PrecisionInspector } from "@/components/resume/PrecisionInspector";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -556,6 +558,7 @@ export function ResumeWorkspace() {
     const rank = (key: string) => key === "basics" ? -1 : key === "add" ? 10000 : order.includes(key) ? order.indexOf(key) : order.length;
     return rank(a.key) - rank(b.key);
   }), [resumeDocument, selectedBranch, profile, enabledSectionsByBranch, hiddenSectionsByBranch, customSectionsByBranch, presentationConfig]);
+  const sectionDragSort = useAnimatedDragSort(resumeSectionNavItems.filter(section => section.key !== "basics" && section.key !== "add").map(section => section.key), "application/careeradapt-section", order => updatePresentationStyle(() => ({ canonicalSectionOrder: order })));
   const activeSectionItem = resumeSectionNavItems.find((item) => item.key === activeResumeSection)
     ?? resumeSectionNavItems[0];
   const visibleSectionTypes = useMemo(() => {
@@ -3832,6 +3835,7 @@ export function ResumeWorkspace() {
                     ))}
                   </select>
                 </label>
+                {presentationConfig ? <ResumeLayoutPresets repository={repository} config={presentationConfig} disabled={!selectedBranchEditable || presentationSaving} onApply={style => { void updatePresentationStyle(() => style); }} /> : null}
                 <div className="template-style-reset">
                   <button
                     type="button"
@@ -4754,7 +4758,7 @@ export function ResumeWorkspace() {
             <EditorDraftStatusContext.Provider value={reportEditorDraft}><FieldAppearanceContext.Provider value={{ entries: presentationConfig?.fieldAppearances ?? [], onChange: update => { void updatePresentationStyle(current => ({ fieldAppearances: update(current.fieldAppearances ?? []) })); } }}>
             <div className="resume-content-pane" hidden={studioMode !== "edit"}>
               <div className="sidebar-content-heading"><h2>简历内容</h2><p>编辑个人信息、调整板块顺序，并实时查看预览。</p></div>
-              <nav className="sidebar-section-stack" data-testid="resume-section-nav" aria-label="简历内容管理">
+              <nav className="sidebar-section-stack" ref={node => sectionDragSort.rootRef(node)} {...sectionDragSort.rootProps} data-testid="resume-section-nav" aria-label="简历内容管理">
 
 
               {editingSectionTitleId ? <label className="field-label studio-section-title-field">栏目标题<input id="studio-section-title" aria-label="栏目标题" value={sectionTitleDraftText} disabled={!selectedBranchEditable || sectionTitlePending} onChange={event => setSectionTitleDraftText(event.target.value)} onBlur={() => { void saveSectionTitleEdit(); }} />{sectionTitleError ? <span role="alert">{sectionTitleError}</span> : null}</label> : null}
@@ -4766,7 +4770,7 @@ export function ResumeWorkspace() {
                 const activeStructuredItems = (selectedBranch?.structuredContentItems ?? []).filter(item => item.visible && positions.has(item.id)).sort((a,b) => positions.get(a.id)! - positions.get(b.id)!);
                 return <Fragment key={`${selectedBranch.id}:${section.key}:${contentEditorEpoch}`}>
                   {index === 1 ? <div className="sidebar-blocks-heading"><div><h3>简历板块</h3><small>{resumeSectionNavItems.length - 2} 个板块</small></div><div><button type="button" onClick={() => setCollapsedSections([])}>展开全部</button><button type="button" onClick={() => setCollapsedSections(resumeSectionNavItems.map(item => item.key))}>收起全部</button></div></div> : null}
-                  <ResumeSectionCard
+                  <ResumeSectionCard dragSort={sectionDragSort}
                     sectionKey={section.key} label={section.label} count={section.count} icon={sectionNavIcon(section.key)} personal={section.key === "basics"}
                     expanded={!collapsedSections.includes(section.key)} selected={sectionNavContext.activeSection === section.key}
                     visible={activeSectionBlocks.some(block => block.visible)} override={presentationConfig?.sectionStyleOverrides[section.key]}

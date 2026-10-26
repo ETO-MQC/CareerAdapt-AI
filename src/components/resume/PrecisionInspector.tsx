@@ -1,5 +1,5 @@
 "use client";
-import { useId, useRef, useEffect, type ReactNode } from "react";
+import { useId, useRef, useEffect, useState, type ReactNode } from "react";
 import type { ResumePresentationConfig } from "@/domain/schemas";
 import type { PresentationPrecision } from "@/domain/schemas/presentationPrecision";
 import { CHINESE_FONTS, ENGLISH_FONTS, FONT_PRESETS } from "@/domain/resumePresentation/fonts";
@@ -20,6 +20,17 @@ type Props = {
 const palette = ["#202522", "#485158", "#745827", "#304e7b", "#536d70", "#397550", "#91353e", "#b84963", "#b56b35", "#665475"];
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, Number(value.toFixed(3))));
 
+export function DeferredNumberInput({ value, min, max, onCommit, ...props }: Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "onBlur" | "onKeyDown" | "min" | "max"> & { value: number; min: number; max: number; onCommit(value: number): void }) {
+  const [draft, setDraft] = useState<{ base: number; text: string }>();
+  const text = draft?.base === value ? draft.text : String(Number(value.toFixed(3)));
+  function commit() {
+    const next = text.trim() === "" ? value : Number(text);
+    setDraft(undefined);
+    if (Number.isFinite(next) && clamp(next, min, max) !== value) onCommit(clamp(next, min, max));
+  }
+  return <input {...props} type="number" min={min} max={max} value={text} onChange={event => setDraft({ base: value, text: event.target.value })} onBlur={commit}
+    onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } else if (event.key === "Escape") { event.preventDefault(); setDraft(undefined); } }} />;
+}
 export function NumberControl({ label, value, min, max, step = 1, unit, onChange, disabled = false, compact = false }: {
   label: string; value: number; min: number; max: number; step?: number; unit?: string; disabled?: boolean; compact?: boolean; onChange(value: number): void;
 }) {
@@ -28,8 +39,7 @@ export function NumberControl({ label, value, min, max, step = 1, unit, onChange
     <label htmlFor={id}>{label}</label><div className="precision-number-with-unit">
       <div className="precision-stepper">
         <button type="button" aria-label={`减少${label}`} disabled={disabled || value <= min} onClick={() => onChange(clamp(value - step, min, max))}>−</button>
-        <input id={id} aria-label={label} type="number" min={min} max={max} step={step} value={Number(value.toFixed(3))} disabled={disabled}
-          onChange={e => { if (e.target.value !== "" && Number.isFinite(e.target.valueAsNumber)) onChange(clamp(e.target.valueAsNumber, min, max)); }} />
+        <DeferredNumberInput id={id} aria-label={label} min={min} max={max} step={step} value={value} disabled={disabled} onCommit={onChange} />
         <button type="button" aria-label={`增加${label}`} disabled={disabled || value >= max} onClick={() => onChange(clamp(value + step, min, max))}>+</button>
       </div>{unit ? <small>{unit}</small> : null}
     </div>
@@ -38,17 +48,17 @@ export function NumberControl({ label, value, min, max, step = 1, unit, onChange
 function Slider({ label, value, min, max, disabled, onChange, onPreview }: { label: string; value: number; min: number; max: number; disabled?: boolean; onChange(value: number): void; onPreview?(value: number): void }) {
   const id = useId();
   const rangeRef = useRef<HTMLInputElement>(null);
-  const numberRef = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<{ base: number; value: number }>();
   useEffect(() => {
     if (rangeRef.current) rangeRef.current.value = String(value);
-    if (numberRef.current) numberRef.current.value = String(value);
+
   }, [value]);
   const commit = () => { if (rangeRef.current && !disabled) onChange(rangeRef.current.valueAsNumber); };
   return <div className="precision-slider"><label htmlFor={id}>{label}</label><div>
     <input ref={rangeRef} id={id} type="range" min={min} max={max} step={1} defaultValue={value} disabled={disabled} aria-label={`${label}滑杆`}
-      onInput={event => { const next = event.currentTarget.valueAsNumber; if (numberRef.current) numberRef.current.value = String(next); onPreview?.(next); }}
+      onInput={event => { const next = event.currentTarget.valueAsNumber; setPreview({ base: value, value: next }); onPreview?.(next); }}
       onPointerUp={commit} onPointerCancel={commit} onKeyUp={commit} onBlur={commit} />
-    <input ref={numberRef} type="number" min={min} max={max} step={1} defaultValue={value} disabled={disabled} aria-label={label} onChange={e => { if (e.target.value !== "" && Number.isFinite(e.target.valueAsNumber)) onChange(clamp(e.target.valueAsNumber, min, max)); }} /><small>px</small>
+    <DeferredNumberInput min={min} max={max} step={1} value={preview?.base === value ? preview.value : value} disabled={disabled} aria-label={label} onCommit={next => { setPreview(undefined); onChange(next); }} /><small>px</small>
   </div></div>;
 }
 function Switch({ label, checked, disabled, onChange }: { label: string; checked: boolean; disabled?: boolean; onChange(value: boolean): void }) {

@@ -2213,3 +2213,32 @@
 
 .resume-layout-inspector .template-style-reset,.resume-layout-inspector .template-center-entry,.resume-layout-inspector .resume-settings-body > .field-label { padding:16px; transition:background .16s,box-shadow .16s; }
 .resume-layout-inspector .template-style-reset:hover,.resume-layout-inspector .template-center-entry:hover,.resume-layout-inspector .resume-settings-body > .field-label:hover,.resume-layout-inspector .precision-advanced:hover { background:color-mix(in srgb,var(--product-surface) 80%,var(--product-surface-elevated)); box-shadow:0 5px 18px #0000000d; }
+
+/* Lists use the full width in both canonical and experience extension grids. */
+.sidebar-section-editor .section-fields-grid-2 > .string-list-editor { grid-column:1 / -1; width:100%; }
+.string-list-heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:6px; }
+.string-list-heading > div { display:flex; gap:4px; }
+.string-list-heading .section-action-button { padding:4px 6px; font-size:10px; }
+
+.resume-layout-presets { display:grid; gap:10px; padding:16px; border-radius:16px; background:var(--product-surface); }
+.resume-layout-presets h3 { margin:0; font-size:14px; }
+.resume-layout-presets > small { color:var(--product-text-secondary); font-size:11px; }
+
+[data-sort-id] { position:relative; }
+[data-sort-dragging="true"] { opacity:.5; background:var(--product-surface-subtle); outline:1px dashed var(--product-border); outline-offset:-1px; }
+.sort-drag-ghost { opacity:.5; border-radius:12px; background:var(--product-surface); box-shadow:0 8px 24px #0003; }
+
+/* Keep DOM nodes mounted during pointer drag; CSS order provides the live placeholder. */
+.sidebar-section-stack > .sidebar-personal-card { order:-2; }
+.sidebar-section-stack > .sidebar-blocks-heading,.string-list-heading { order:-1; }
+.accordion-add-bar:last-child,.string-list-add { order:10000; }
+.accordion-add-bar:first-child { order:-1; }
+
+.sidebar-section-stack { display:flex; flex-direction:column; }
+
+[data-sort-root][data-sort-active="true"] [data-sort-id], [data-sort-root][data-sort-active="true"] [data-sort-id] * { pointer-events:none !important; }
+
+.content-drag-handle,.sidebar-item-grip,.string-list-grip { touch-action:none; }
+
+.personal-contact-fields { display:flex; flex-direction:column; }
+.personal-contact-tools > button { touch-action:none; }
