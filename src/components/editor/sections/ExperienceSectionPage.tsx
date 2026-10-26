@@ -3,7 +3,7 @@ import { useEditorDraftStatus } from "../EditorDraftStatus";
 
 import { useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ResumeDocumentBlock } from "@/domain/resumeDocument/mapper";
-import type { ResumeBranch, ResumeContentItemV2, ResumeItemV2 } from "@/domain/schemas";
+import { ResumeItemV2Schema, type ResumeBranch, type ResumeContentItemV2, type ResumeItemV2 } from "@/domain/schemas";
 import {
   emptyStructuredExperienceFields,
   canonicalToStructuredExperienceFields,
@@ -38,9 +38,9 @@ type ExperienceSectionPageProps = {
   editTexts: Record<string, string>;
   selectedItemId?: string;
   onEditTextChange: (itemId: string, text: string) => void;
-  onSave: (itemId: string) => void;
+  onSave: (itemId: string) => Promise<boolean>;
   /** Save canonical structured item (v2 path). Called when structuredItems are available. */
-  onSaveStructuredItem?: (itemId: string, item: ResumeItemV2, options?: { origin?: "manual" | "auto" }) => Promise<void> | void;
+  onSaveStructuredItem?: (itemId: string, item: ResumeItemV2, options?: { origin?: "manual" | "auto" }) => Promise<boolean>;
   onSelectItem: (itemId: string) => void;
   onSetPresentationVisibility: (itemId: string, visible: boolean) => void;
   onDelete: (itemId: string) => void;
@@ -338,7 +338,7 @@ function ExperienceItemFields(props: {
   initialProjectFields?: StructuredProjectFields;
   canonicalItem?: ResumeItemV2;
   onEditTextChange: (itemId: string, text: string) => void;
-  onSave: (itemId: string) => void;
+  onSave: (itemId: string) => Promise<boolean>;
   onSaveStructuredItem?: ExperienceSectionPageProps["onSaveStructuredItem"];
   onSelectItem: (itemId: string) => void;
   allowSyncToProfile: boolean;
@@ -352,7 +352,19 @@ function ExperienceItemFields(props: {
   const dirtyRef = useRef(false);
   const saveTimerRef = useRef<number | undefined>(undefined);
   const [extraValues, setExtraValues] = useState<Record<string, unknown>>({});
-  useEditorDraftStatus(props.itemId, JSON.stringify(fields) !== JSON.stringify(props.initialFields) || JSON.stringify(projectFields) !== JSON.stringify(props.initialProjectFields ?? emptyStructuredProjectFields) || Object.keys(extraValues).length > 0);
+  const editVersion = useRef(0);
+  const [draftVersion, setDraftVersion] = useState(0);
+  const [savedVersion, setSavedVersion] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const [saveError, setSaveError] = useState("");
+  const currentDraft = props.canonicalItem ? ResumeItemV2Schema.safeParse(props.canonicalItem.sectionType === "project"
+    ? patchCanonicalProjectFields(props.canonicalItem, projectFields)
+    : normalizeCanonicalFormLists({ ...patchCanonicalExperienceFields(props.canonicalItem, fields), ...extraValues } as ResumeItemV2)) : undefined;
+  const matchesPersisted = currentDraft?.success ? JSON.stringify(currentDraft.data) === JSON.stringify(props.canonicalItem) : false;
+  const hasUnsavedChanges = draftVersion !== savedVersion && !matchesPersisted;
+  useEditorDraftStatus(props.itemId, hasUnsavedChanges);
+  function markDirty() { editVersion.current += 1; setDraftVersion(editVersion.current); dirtyRef.current = true; setSaveError(""); }
   const extraValuesRef = useRef<Record<string, unknown>>({});
   const extraFields = resumeFieldCatalog.filter((field) => field.sectionType === props.canonicalItem?.sectionType
     && (["gpa", "gpaScale", "rankPosition", "rankTotal", "rankPercent", "honors"].includes(field.id.split(".").at(-1)!) || props.category === "education" && field.id === "education.department"));
@@ -360,23 +372,32 @@ function ExperienceItemFields(props: {
   async function save(origin: "manual" | "auto") {
     if (saveTimerRef.current !== undefined) window.clearTimeout(saveTimerRef.current);
     saveTimerRef.current = undefined;
-    if (props.canonicalItem?.sectionType === "project" && props.onSaveStructuredItem) {
-      await props.onSaveStructuredItem(
-        props.itemId,
-        patchCanonicalProjectFields(props.canonicalItem, latestProjectFieldsRef.current),
-        { origin }
-      );
-    } else if (props.canonicalItem && props.onSaveStructuredItem) {
-      await props.onSaveStructuredItem(
-        props.itemId,
-        normalizeCanonicalFormLists({ ...patchCanonicalExperienceFields(props.canonicalItem, latestFieldsRef.current), ...extraValuesRef.current } as ResumeItemV2),
-        { origin }
-      );
-    } else {
-      props.onEditTextChange(props.itemId, serializeStructuredExperienceText(latestFieldsRef.current, props.category));
-      props.onSave(props.itemId);
+    if (savingRef.current) return;
+    savingRef.current = true; setSaving(true); setSaveError("");
+    const submittedVersion = editVersion.current;
+    let saved = false;
+    try {
+      if (props.canonicalItem && props.onSaveStructuredItem) {
+        const item = props.canonicalItem.sectionType === "project"
+          ? patchCanonicalProjectFields(props.canonicalItem, latestProjectFieldsRef.current)
+          : normalizeCanonicalFormLists({ ...patchCanonicalExperienceFields(props.canonicalItem, latestFieldsRef.current), ...extraValuesRef.current } as ResumeItemV2);
+        saved = await props.onSaveStructuredItem(props.itemId, item, { origin });
+      } else {
+        props.onEditTextChange(props.itemId, serializeStructuredExperienceText(latestFieldsRef.current, props.category));
+        saved = await props.onSave(props.itemId);
+      }
+      if (!saved) { setSaveError("尚未保存，请检查保存提示或确认本次修改后重试。"); return; }
+      setSavedVersion(submittedVersion);
+      if (editVersion.current === submittedVersion) {
+        dirtyRef.current = false;
+        extraValuesRef.current = {}; setExtraValues({});
+      }
+    } catch (cause) {
+      setSaveError(cause instanceof Error ? cause.message : "保存失败，请重试。");
+    } finally {
+      savingRef.current = false; setSaving(false);
+      if (saved && editVersion.current !== submittedVersion && saveTimerRef.current === undefined) saveTimerRef.current = window.setTimeout(() => { void save("auto"); }, 1200);
     }
-    dirtyRef.current = false;
   }
 
   const flushPendingSave = useEffectEvent(() => {
@@ -391,7 +412,7 @@ function ExperienceItemFields(props: {
   function updateFields(next: StructuredExperienceFields) {
     setFields(next);
     latestFieldsRef.current = next;
-    dirtyRef.current = true;
+    markDirty();
     if (saveTimerRef.current !== undefined) window.clearTimeout(saveTimerRef.current);
     saveTimerRef.current = window.setTimeout(() => { void save("auto"); }, 1200);
   }
@@ -399,7 +420,7 @@ function ExperienceItemFields(props: {
   function updateProjectFields(next: StructuredProjectFields) {
     setProjectFields(next);
     latestProjectFieldsRef.current = next;
-    dirtyRef.current = true;
+    markDirty();
     if (saveTimerRef.current !== undefined) window.clearTimeout(saveTimerRef.current);
     saveTimerRef.current = window.setTimeout(() => { void save("auto"); }, 1200);
   }
@@ -433,19 +454,21 @@ function ExperienceItemFields(props: {
               const next = { ...extraValuesRef.current, [name]: value };
               extraValuesRef.current = next;
               setExtraValues(next);
-              dirtyRef.current = true;
+              markDirty();
               if (saveTimerRef.current !== undefined) window.clearTimeout(saveTimerRef.current);
               saveTimerRef.current = window.setTimeout(() => { void save("auto"); }, 1200);
             }} />;
         })}
       </div> : null}
+      {saveError && hasUnsavedChanges ? <p className="field-error" role="alert">{saveError}</p> : null}
       <div className="experience-item-actions">
         <button
           type="button"
           className="section-action-button section-action-button-primary"
+          disabled={saving || !hasUnsavedChanges}
           onClick={() => { void save("manual"); }}
         >
-          保存
+          {saving ? "保存中…" : hasUnsavedChanges ? "保存" : "已保存"}
         </button>
         <details className="sidebar-entry-more"><summary>更多操作</summary><div className="sidebar-entry-menu">{props.children}</div></details>
       </div>

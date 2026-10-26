@@ -23,7 +23,7 @@ type CanonicalSectionPageProps = {
   items: ResumeContentItemV2[];
   blocks: ResumeDocumentBlock[];
   selectedItemId?: string;
-  onSave: (itemId: string, item: ResumeItemV2, options?: { origin?: "manual" | "auto" }) => Promise<void> | void;
+  onSave: (itemId: string, item: ResumeItemV2, options?: { origin?: "manual" | "auto" }) => Promise<boolean>;
   onAdd?: (item: ResumeItemV2) => Promise<void>;
   onReorder?: (from: string, to: string) => void;
   onSetPresentationVisibility: (itemId: string, visible: boolean) => void;
@@ -123,7 +123,7 @@ function CanonicalItemForm(props: {
   fields: readonly ResumeFieldDefinition[];
   visible: boolean;
   visibilityLabel: string;
-  onSave: (item: ResumeItemV2) => Promise<void> | void;
+  onSave: (item: ResumeItemV2) => Promise<boolean>;
   onSetPresentationVisibility: (visible: boolean) => void;
   onDelete: () => void;
   onDuplicate: () => void;
@@ -133,19 +133,24 @@ function CanonicalItemForm(props: {
   const [draft, setDraft] = useState<ResumeItemV2>(props.item);
   useEditorDraftStatus(props.item.id, JSON.stringify(draft) !== JSON.stringify(props.item));
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const dirty = JSON.stringify(draft) !== JSON.stringify(props.item);
   const record = draft as unknown as Record<string, unknown>;
 
   async function save() {
     setSaving(true);
     try {
-      await props.onSave(normalizeCanonicalFormLists(draft));
-    } finally {
+      const normalized = ResumeItemV2Schema.parse(normalizeCanonicalFormLists(draft));
+      if (await props.onSave(normalized)) { setDraft(normalized); setSaveError(""); }
+      else setSaveError("尚未保存，请检查保存提示或确认本次修改后重试。");
+    } catch (cause) { setSaveError(cause instanceof Error ? cause.message : "保存失败，请重试。"); }
+    finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="section-fields canonical-item-fields" data-content-item-id={props.item.id}>
+    <fieldset disabled={saving} className="section-fields canonical-item-fields" data-content-item-id={props.item.id}>
       {props.fields.map((field) => {
         const name = field.id.split(".").at(-1)!;
         return (
@@ -178,8 +183,9 @@ function CanonicalItemForm(props: {
           </div>
         ))}
       </div> : null}
+      {saveError ? <p className="field-error" role="alert">{saveError}</p> : null}
       <div className="experience-item-actions">
-        <button type="button" className="section-action-button section-action-button-primary" disabled={saving} onClick={() => void save()}>{saving ? "保存中…" : "保存"}</button>
+        <button type="button" className="section-action-button section-action-button-primary" disabled={saving || (!dirty && !saveError)} onClick={() => void save()}>{saving ? "保存中…" : saveError ? "重试保存" : dirty ? "保存" : "已保存"}</button>
         <details className="sidebar-entry-more"><summary>更多操作</summary><div className="sidebar-entry-menu">
         <button type="button" className="section-action-button" aria-label="上移" onClick={props.onMoveUp}>↑</button>
         <button type="button" className="section-action-button" aria-label="下移" onClick={props.onMoveDown}>↓</button>
@@ -203,7 +209,7 @@ function CanonicalItemForm(props: {
         </button>
         </div></details>
       </div>
-    </div>
+    </fieldset>
   );
 }
 

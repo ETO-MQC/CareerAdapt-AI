@@ -218,8 +218,12 @@ export function ResumeWorkspace() {
   const pendingImportedBranchIdRef = useRef<string | undefined>(undefined);
   const branchesRef = useRef<ResumeBranch[]>([]);
   const editTextsRef = useRef<Record<string, string>>({});
+  function updateContentDraft(itemId: string, text: string) {
+    const nextDrafts = { ...editTextsRef.current, [itemId]: text };
+    editTextsRef.current = nextDrafts; setEditTexts(nextDrafts);
+  }
   const contentSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const saveItemRef = useRef<(itemId: string, options?: { origin?: "manual" | "auto" }) => Promise<void>>(async () => undefined);
+  const saveItemRef = useRef<(itemId: string, options?: { origin?: "manual" | "auto" }) => Promise<boolean | void>>(async () => undefined);
   const [drafts, setDrafts] = useState<JobAdaptationDraft[]>([]);
   const [branches, setBranches] = useState<ResumeBranch[]>([]);
   const [jobContextSummary, setJobContextSummary] = useState<{ matchUpdatedAt?: string; suggestionCount: number; risk: "low" | "medium" | "high" }>({ suggestionCount: 0, risk: "low" });
@@ -1425,13 +1429,18 @@ export function ResumeWorkspace() {
     }
   }
 
-  async function saveItem(itemId: string, options: { origin?: "manual" | "auto" } = {}) {
+  async function saveItem(itemId: string, options: { origin?: "manual" | "auto" } = {}): Promise<boolean> {
     const origin = options.origin ?? "manual";
     const branchId = activeBranchId;
     const derivedSummaryBlock = resumeDocumentBlocksById.get(itemId);
     if (derivedSummaryBlock?.derivedFrom === "resumeBasics.summary" && editTextsRef.current[itemId] !== undefined) {
-      await saveProfileFieldText(itemId, editTextsRef.current[itemId]!);
-      return;
+      const text = editTextsRef.current[itemId]!;
+      const saved = await saveProfileFieldText(itemId, text);
+      if (saved && editTextsRef.current[itemId] === text) {
+        const nextDrafts = { ...editTextsRef.current }; delete nextDrafts[itemId]; editTextsRef.current = nextDrafts; setEditTexts(nextDrafts);
+        setContentAutoSaveState(Object.keys(nextDrafts).length ? "dirty" : "saved");
+      }
+      return saved;
     }
     const queuedText = editTextsRef.current[itemId]?.trim();
     if (!branchId || !queuedText) {
@@ -1440,14 +1449,14 @@ export function ResumeWorkspace() {
           ? "当前简历不可编辑：旧数据、归档、引用失效或缺少当前版本。"
           : "请先填写要保存的文本。" });
       }
-      return;
+      return false;
     }
 
     setContentAutoSaveState("saving");
     const operation = async () => {
       const text = editTextsRef.current[itemId]?.trim();
       if (!text) {
-        return;
+        return false;
       }
       let branch = branchesRef.current.find((item) => item.id === branchId);
       if (!branch || !canEditBranch(branch)) {
@@ -1455,14 +1464,14 @@ export function ResumeWorkspace() {
         if (origin === "manual") {
           notify({ type: "warning", title: "不可编辑", message: "当前简历不可编辑：旧数据、归档、引用失效或缺少当前版本。" });
         }
-        return;
+        return false;
       }
 
       const clearSavedDraft = () => {
         const currentDrafts = editTextsRef.current;
         if (currentDrafts[itemId]?.trim() !== text) {
           setContentAutoSaveState("dirty");
-          return;
+          return false;
         }
         const nextDrafts = { ...currentDrafts };
         delete nextDrafts[itemId];
@@ -1473,7 +1482,8 @@ export function ResumeWorkspace() {
 
       if (branch.contentItems.find((item) => item.id === itemId)?.text.trim() === text) {
         clearSavedDraft();
-        return;
+        setEditorSaveError(false);
+        return true;
       }
 
       const persist = async (currentBranch: ResumeBranch) => {
@@ -1505,41 +1515,43 @@ export function ResumeWorkspace() {
         }
         replaceBranch(result.branch, { preserveDrafts: true });
         clearSavedDraft();
-        if (origin === "manual") {
-          setEditorSaveError(false); setContentAutoSaveState("saved");
-        }
+        setEditorSaveError(false);
+        return true;
       } catch (error) {
         if (error instanceof Error && error.message === "branch_edit_fact_guard_blocked") {
           setContentAutoSaveState("needs_confirmation");
           setPendingResumeOnlyEdit({ itemId, text, source: "form" });
-          return;
+          return false;
         }
         setContentAutoSaveState("error");
         setEditorSaveError(true);
       notify({ type: "error", title: "保存失败", message: error instanceof RevisionConflictError
           ? "简历版本已变化，请刷新后重试。"
           : "当前简历不可编辑或事实引用已失效。" });
+        return false;
       }
     };
 
     const queued = contentSaveQueueRef.current.then(operation);
-    contentSaveQueueRef.current = queued.catch((error) => {
+    contentSaveQueueRef.current = queued.then(() => undefined).catch((error) => {
       console.error("Resume content save queue error:", error);
     });
-    await queued;
+    return queued;
   }
 
-  async function saveStructuredItem(itemId: string, item: ResumeItemV2, options: { origin?: "manual" | "auto" } = {}) {
+  async function saveStructuredItem(itemId: string, item: ResumeItemV2, options: { origin?: "manual" | "auto" } = {}): Promise<boolean> {
     const origin = options.origin ?? "manual";
     const branchId = activeBranchId;
     if (!branchId) {
       if (origin === "manual") notify({ type: "warning", title: "不可编辑", message: "当前简历不可编辑。" });
-      return;
+      return false;
     }
+    try { item = ResumeItemV2Schema.parse(item); }
+    catch { setContentAutoSaveState("error"); if (origin === "manual") notify({ type: "error", title: "保存失败", message: "字段格式不正确，请检查后重试。" }); return false; }
     const text = projectResumeItemV2(item).trim();
     if (!text) {
       if (origin === "manual") notify({ type: "warning", title: "内容不能为空", message: "请至少填写一个字段。" });
-      return;
+      return false;
     }
 
     setContentAutoSaveState("saving");
@@ -1549,18 +1561,18 @@ export function ResumeWorkspace() {
         if (!branch || !canEditBranch(branch)) {
           if (origin === "manual") notify({ type: "warning", title: "不可编辑", message: "当前简历不可编辑。" });
           setContentAutoSaveState("error");
-          return;
+          return false;
         }
         const legacy = branch.contentItems.find((candidate) => candidate.id === itemId);
         if (!legacy) {
           if (origin === "manual") notify({ type: "error", title: "保存失败", message: "找不到对应的简历条目。" });
           setContentAutoSaveState("error");
-          return;
+          return false;
         }
         const currentStructured = branch.structuredContentItems?.find((candidate) => candidate.id === itemId);
         if (currentStructured && JSON.stringify(currentStructured.data) === JSON.stringify(item)) {
-          setContentAutoSaveState("saved");
-          return;
+          setEditorSaveError(false); setContentAutoSaveState("saved");
+          return true;
         }
 
         const persist = (currentBranch: ResumeBranch, sourceItem: ResumeBranch["contentItems"][number]) => repository.editResumeBranch({
@@ -1582,23 +1594,25 @@ export function ResumeWorkspace() {
         }
         replaceBranch(result.branch, { preserveDrafts: true });
         setContentAutoSaveState("saved");
-        if (origin === "manual") setEditorSaveError(false); setContentAutoSaveState("saved");
+        setEditorSaveError(false);
+        return true;
       } catch (error) {
         if (error instanceof Error && error.message === "branch_edit_fact_guard_blocked") {
           setContentAutoSaveState("needs_confirmation");
           if (origin === "manual") {
             setPendingResumeOnlyEdit({ itemId, text, structuredItem: item, source: "form" });
           }
-          return;
+          return false;
         }
         setContentAutoSaveState("error");
         if (origin === "manual") notify({ type: "error", title: "保存失败", message: error instanceof RevisionConflictError ? "简历版本已变化，请刷新后重试。" : "结构字段未保存，请重试。" });
+        return false;
       }
     };
 
     const queued = contentSaveQueueRef.current.then(operation);
-    contentSaveQueueRef.current = queued.catch((error) => console.error("Resume structured save queue error:", error));
-    await queued;
+    contentSaveQueueRef.current = queued.then(() => undefined).catch((error) => console.error("Resume structured save queue error:", error));
+    return queued;
   }
 
   useEffect(() => {
@@ -2767,7 +2781,7 @@ export function ResumeWorkspace() {
       });
       const nextProfile = profile ? await repository.getProfile(profile.id) : undefined;
       if (nextProfile) setProfileOverride(nextProfile);
-      replaceBranch(result.branch);
+      replaceBranch(result.branch, { preserveDrafts: true });
       setEditingProfileFieldId(undefined);
       setSelectedProfileFieldId(undefined);
       setProfileFieldDraftText("");
@@ -3780,7 +3794,7 @@ export function ResumeWorkspace() {
 
   const editorSaveStatus = editorSaveError || profileFieldError || contentAutoSaveState === "error" ? "error"
     : profileFieldPending || presentationSaving || contentAutoSaveState === "saving" ? "saving"
-      : editorDraftKeys.length > 0 || contentAutoSaveState === "dirty" || contentAutoSaveState === "needs_confirmation" ? "dirty" : "saved";
+      : editorDraftKeys.length > 0 || Object.keys(editTexts).length > 0 || contentAutoSaveState === "dirty" || contentAutoSaveState === "needs_confirmation" ? "dirty" : "saved";
 
   const canUndoBranch = Boolean(selectedBranch && selectedBranch.revision > 0);
   const canUndoAny = canUndoBranch || presentationHistory.undoStack.length > 0;
@@ -4809,7 +4823,7 @@ export function ResumeWorkspace() {
                   profile={profile}
                   branch={selectedBranch}
                   editTexts={editTexts}
-                  onEditTextChange={(itemId, text) => setEditTexts((prev) => ({ ...prev, [itemId]: text }))}
+                  onEditTextChange={updateContentDraft}
                   onSave={(...args) => saveItem(...args)}
                   onAdd={(text) => void addContentItem(activeResumeSection, text)}
                   onSetPresentationVisibility={(itemId, visible) => { void setPresentationItemVisibility(itemId, visible); }}
@@ -4830,7 +4844,7 @@ export function ResumeWorkspace() {
                   structuredItems={activeStructuredItems}
                   editTexts={editTexts}
                   selectedItemId={selectedStudioItemId}
-                  onEditTextChange={(itemId, text) => setEditTexts((prev) => ({ ...prev, [itemId]: text }))}
+                  onEditTextChange={updateContentDraft}
                   onSave={(...args) => saveItem(...args)}
                   onSaveStructuredItem={(...args) => saveStructuredItem(...args)}
                   onSelectItem={(...args) => selectStudioItem(...args)}
@@ -4852,7 +4866,7 @@ export function ResumeWorkspace() {
                   blocks={activeSectionBlocks}
                   editTexts={editTexts}
                   selectedItemId={selectedStudioItemId}
-                  onEditTextChange={(itemId, text) => setEditTexts((prev) => ({ ...prev, [itemId]: text }))}
+                  onEditTextChange={updateContentDraft}
                   onSave={(...args) => saveItem(...args)}
                   onSetPresentationVisibility={(itemId, visible) => { void setPresentationItemVisibility(itemId, visible); }}
                   onDelete={(itemId) => { void setContentItemVisibility(itemId, false); }}

@@ -994,3 +994,116 @@ test("animated drag crosses the halfway point before previewing order and persis
   await expect.poll(() => page.evaluate(() => (window as unknown as { presentationWrites: number }).presentationWrites)).toBe(writes + 1);
   await page.reload(); await expect.poll(visualOrder).toEqual(moved);
 });
+
+
+test("save acknowledgement: education honors clear the unsaved badge after auto and manual save", async ({ page }) => {
+  test.setTimeout(120_000);
+  page.setDefaultTimeout(20_000);
+  const fixture = canonicalFixture();
+  await importCanonicalFixture(page, { ...fixture, sections: fixture.sections.map(section => section.sectionType === "education" ? { ...section, items: section.items.map(item => ({ ...item, honors: ["匿名荣誉甲", "匿名荣誉乙"] })) } : section) });
+  const status = page.getByTestId("resume-autosave-status");
+  const education = page.getByRole("button", { name: "教育经历", exact: true });
+  if (await education.getAttribute("aria-expanded") !== "true") await education.click();
+  const list = page.getByLabel("荣誉逐条编辑", { exact: true });
+  await list.getByRole("button", { name: "合并为一段", exact: true }).click();
+  const form = list.locator("xpath=ancestor::div[contains(@class,'experience-item-fields')]");
+  await form.getByRole("button", { name: "保存", exact: true }).click();
+  await expect(page.getByTestId("resume-pagination-measurement-page")).toContainText("匿名荣誉甲；匿名荣誉乙");
+  await expect(status).toHaveText("已保存");
+  await page.reload();
+  await expect(page.getByTestId("resume-pagination-measurement-page")).toContainText("匿名荣誉甲；匿名荣誉乙");
+  await expect(status).toHaveText("已保存");
+  const summary = page.locator('.sidebar-section-card[data-section-key="summary"]');
+  if (await summary.locator(".sidebar-section-name").getAttribute("aria-expanded") !== "true") await summary.locator(".sidebar-section-name").click();
+  await summary.getByLabel("自我评价正文", { exact: true }).fill("核对后的匿名自我评价。");
+  await summary.getByRole("button", { name: "保存", exact: true }).click();
+  const confirmSummary = page.getByRole("dialog", { name: "是否从通用简历补充资料？", exact: true });
+  await expect.poll(async () => await confirmSummary.isVisible() ? "confirm" : await status.textContent() === "已保存" ? "saved" : "pending").not.toBe("pending");
+  if (await confirmSummary.isVisible()) await confirmSummary.getByRole("button", { name: "仅保存到简历", exact: true }).click();
+  await expect(status).toHaveText("已保存");
+  await page.reload(); await expect(page.getByTestId("resume-pagination-measurement-page")).toContainText("核对后的匿名自我评价。");
+  async function persist(form: ReturnType<Page["locator"]>) {
+    const confirm = page.getByRole("dialog", { name: "是否从通用简历补充资料？", exact: true });
+    if (await form.evaluate(node => node.tagName) === "FIELDSET") await form.getByRole("button", { name: /^(保存|重试保存)$/ }).click();
+    else {
+      // Experience fields autosave. If facts need review, wait for that result before manually confirming.
+      await expect.poll(async () => {
+        if ((await status.textContent())?.includes("待确认")) return "confirm-required";
+        if (await form.getByRole("button", { name: "已保存", exact: true }).isVisible() && await status.textContent() === "已保存") return "saved";
+        return "pending";
+      }).not.toBe("pending");
+      if ((await status.textContent())?.includes("待确认")) await form.getByRole("button", { name: "保存", exact: true }).click();
+    }
+    await expect.poll(async () => await confirm.isVisible() ? "confirm" : await status.textContent() === "已保存" ? "saved" : "pending").not.toBe("pending");
+    if (await confirm.isVisible()) await confirm.getByRole("button", { name: "仅保存到简历", exact: true }).click();
+    await expect(status).toHaveText("已保存");
+    await expect(form.getByRole("button", { name: "已保存", exact: true })).toBeDisabled();
+  }
+
+  if (await education.getAttribute("aria-expanded") !== "true") await education.click();
+  await form.getByLabel("GPA", { exact: true }).fill("3.7"); await persist(form);
+  for (const [section, label, value] of [["work", "公司 / 组织", "匿名工作机构修订"], ["project", "项目名称", "匿名项目修订"]]) {
+    const card = page.locator(`.sidebar-section-card[data-section-key="${section}"]`);
+    const toggle = card.locator(".sidebar-section-name"); if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
+    const itemForm = card.locator(".experience-item-fields").first(); await itemForm.getByRole("textbox", { name: new RegExp(`^${label}`) }).fill(value); await persist(itemForm);
+  }
+  const awards = page.locator('.sidebar-section-card[data-section-key="awards"]');
+  if (await awards.locator(".sidebar-section-name").getAttribute("aria-expanded") !== "true") await awards.locator(".sidebar-section-name").click();
+  const awardForm = awards.locator("fieldset.canonical-item-fields").first(); await awardForm.getByLabel("奖项名称", { exact: true }).fill("匿名奖项修订"); await persist(awardForm);
+  await page.reload();
+  const preview = page.getByTestId("resume-pagination-measurement-page");
+  for (const text of ["3.7", "匿名工作机构修订", "匿名项目修订", "匿名奖项修订"]) await expect(preview).toContainText(text);
+  await expect(status).toHaveText("已保存");
+
+});
+
+
+test("save failure keeps experience and canonical drafts editable and retryable", async ({ page }) => {
+  test.setTimeout(120_000);
+  page.setDefaultTimeout(20_000);
+  const fixture = canonicalFixture();
+  await importCanonicalFixture(page, { ...fixture, sections: fixture.sections.map(section => section.sectionType === "education" ? { ...section, items: section.items.map(item => ({ ...item, honors: ["匿名荣誉甲", "匿名荣誉乙"] })) } : section) });
+  const status = page.getByTestId("resume-autosave-status");
+  const education = page.locator('.sidebar-section-card[data-section-key="education"]');
+  if (await education.locator(".sidebar-section-name").getAttribute("aria-expanded") !== "true") await education.locator(".sidebar-section-name").click();
+  async function failReads() { await page.evaluate(() => { const original = IDBObjectStore.prototype.get; (window as unknown as { restoreRead: () => void }).restoreRead = () => { IDBObjectStore.prototype.get = original; }; IDBObjectStore.prototype.get = function (...args: Parameters<IDBObjectStore["get"]>) { if (this.name === "resumeBranches") throw new DOMException("Controlled test read failure", "InvalidStateError"); return original.apply(this, args); }; }); }
+  async function restoreReads() { await page.evaluate(() => (window as unknown as { restoreRead: () => void }).restoreRead()); }
+  const form = education.locator(".experience-item-fields").first(); const list = form.getByLabel("荣誉逐条编辑", { exact: true });
+  await failReads(); await list.getByRole("button", { name: "合并为一段", exact: true }).click(); await form.getByRole("button", { name: "保存", exact: true }).click();
+  await expect(form.getByRole("alert")).toContainText("尚未保存"); await expect(status).toHaveAttribute("data-save-state", "error");
+  await expect(list.getByRole("textbox")).toHaveValue("匿名荣誉甲；匿名荣誉乙");
+  await restoreReads(); await form.getByRole("button", { name: "保存", exact: true }).click(); await expect(status).toHaveText("已保存");
+  const awards = page.locator('.sidebar-section-card[data-section-key="awards"]'); if (await awards.locator(".sidebar-section-name").getAttribute("aria-expanded") !== "true") await awards.locator(".sidebar-section-name").click();
+  const awardForm = awards.locator("fieldset.canonical-item-fields").first(); await awardForm.getByLabel("奖项名称", { exact: true }).fill("可重试匿名奖项");
+  await failReads(); await awardForm.getByRole("button", { name: "保存", exact: true }).click();
+  await expect(awardForm.getByRole("alert")).toContainText("尚未保存"); await expect(status).toHaveAttribute("data-save-state", "error"); await expect(awardForm.getByLabel("奖项名称", { exact: true })).toHaveValue("可重试匿名奖项");
+  await restoreReads(); await awardForm.getByRole("button", { name: "重试保存", exact: true }).click();
+  const confirm = page.getByRole("dialog", { name: "是否从通用简历补充资料？", exact: true });
+  await expect.poll(async () => await confirm.isVisible() ? "confirm" : await status.textContent() === "已保存" ? "saved" : "pending").not.toBe("pending");
+  if (await confirm.isVisible()) await confirm.getByRole("button", { name: "仅保存到简历", exact: true }).click();
+  await expect(status).toHaveText("已保存"); await page.reload(); await expect(page.getByTestId("resume-pagination-measurement-page")).toContainText("可重试匿名奖项");
+});
+
+test("an older in-flight save never clears a newer honors draft", async ({ page }) => {
+  test.setTimeout(120_000);
+  page.setDefaultTimeout(20_000);
+  const fixture = canonicalFixture();
+  await importCanonicalFixture(page, { ...fixture, sections: fixture.sections.map(section => section.sectionType === "education" ? { ...section, items: section.items.map(item => ({ ...item, honors: ["匿名荣誉甲", "匿名荣誉乙"] })) } : section) });
+  const education = page.locator('.sidebar-section-card[data-section-key="education"]'); if (await education.locator(".sidebar-section-name").getAttribute("aria-expanded") !== "true") await education.locator(".sidebar-section-name").click();
+  await page.evaluate(() => {
+    const get = IDBObjectStore.prototype.get; let hold = true;
+    IDBObjectStore.prototype.get = function (...args: Parameters<IDBObjectStore["get"]>) { const request = get.apply(this, args); if (hold && this.name === "resumeBranches") { hold = false; request.addEventListener("success", event => { event.stopImmediatePropagation(); setTimeout(() => request.onsuccess?.call(request, event), 800); }, { once: true }); } return request; };
+    const counts: number[] = []; (window as unknown as { savedHonorCounts: number[] }).savedHonorCounts = counts;
+    const put = IDBObjectStore.prototype.put; IDBObjectStore.prototype.put = function (...args: Parameters<IDBObjectStore["put"]>) { if (this.name === "resumeBranches") { const item = args[0]?.structuredContentItems?.find((item: { data: { sectionType: string } }) => item.data.sectionType === "education"); if (item) counts.push(item.data.honors.length); } return put.apply(this, args); };
+  });
+  const form = education.locator(".experience-item-fields").first(); const list = form.getByLabel("荣誉逐条编辑", { exact: true });
+  await list.getByRole("button", { name: "合并为一段", exact: true }).click(); await form.getByRole("button", { name: "保存", exact: true }).click();
+  await expect(form.getByRole("button", { name: "保存中…", exact: true })).toBeDisabled();
+  await list.getByRole("button", { name: "拆分为多条", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { savedHonorCounts: number[] }).savedHonorCounts)).toContain(1);
+  await expect(list.getByRole("textbox")).toHaveCount(2);
+  await expect(page.getByTestId("resume-autosave-status")).not.toHaveText("已保存");
+  await expect.poll(() => page.evaluate(() => (window as unknown as { savedHonorCounts: number[] }).savedHonorCounts)).toEqual([1, 2]);
+  await expect(page.getByTestId("resume-autosave-status")).toHaveText("已保存");
+  await page.reload(); await expect(page.getByTestId("resume-autosave-status")).toHaveText("已保存");
+});

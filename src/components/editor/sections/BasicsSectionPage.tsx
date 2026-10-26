@@ -66,7 +66,7 @@ export function BasicsSectionPage(props: BasicsSectionPageProps) {
     const dirtyValue = dirtyValues[field];
     if (dirtyValue === undefined) return;
     if (await FIELD_SAVE_MAP[field](dirtyValue, props) === false) return;
-    setDirtyValues(previous => { const next = { ...previous }; delete next[field]; return next; });
+    setDirtyValues(previous => { if (previous[field] !== dirtyValue) return previous; const next = { ...previous }; delete next[field]; return next; });
   }
 
   function getValue(field: DraftField): string {
@@ -101,9 +101,10 @@ export function BasicsSectionPage(props: BasicsSectionPageProps) {
   }
   async function saveCustomField(custom: CustomFieldValue) {
     if (customDrafts[custom.id] === undefined) return;
+    const submitted = customDrafts[custom.id];
     try {
-      const next = editCustomContactValue(custom, customDrafts[custom.id]);
-      if (await saveFields(customFields.map(field => field.id === custom.id ? next : field))) setCustomDrafts(previous => { const values = { ...previous }; delete values[custom.id]; return values; });
+      const next = editCustomContactValue(custom, submitted);
+      if (await saveFields(customFields.map(field => field.id === custom.id ? next : field))) setCustomDrafts(previous => { if (previous[custom.id] !== submitted) return previous; const values = { ...previous }; delete values[custom.id]; return values; });
     } catch (cause) { setFieldError(cause instanceof Error ? cause.message : "字段格式无效。"); }
   }
 
