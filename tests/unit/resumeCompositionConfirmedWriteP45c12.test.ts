@@ -218,6 +218,21 @@ describe("P4.5c.1.2 confirmed composition write boundary", () => {
       composition: fixture.checkpoint.compositionResult,
       mode: "create_new"
     });
+    const source = await fixture.repository.getResumeSourceFingerprint(seeded.branch.id);
+    const selectedCheckpoint = await fixture.repository.saveResumeCompositionCheckpoint(createResumeCompositionCheckpoint({
+      composition: { ...fixture.checkpoint.compositionResult, sourceResumeId: seeded.branch.id },
+      source: source!
+    }));
+    expect(selectedCheckpoint.sourceBranchId).toBe(seeded.branch.id);
+    const updateSpy = vi.spyOn(fixture.repository, "ensureGeneralResumeFromProfile");
+    // Another branch can be more recently updated without becoming the target.
+    const other = await fixture.repository.ensureGeneralResumeFromProfile({
+      profileId: fixture.profile.id, operationId: "other-general", mode: "create_new"
+    });
+    const otherBefore = await fixture.repository.getResumeBranch(other.branch.id);
+    fixture.sessions.set("session-update", await new AgentSessionStore(fixture.repository).save(
+      { ...makeSession("session-update", fixture.profile, selectedCheckpoint), sessionRevision: fixture.sessions.get("session-update")!.sessionRevision }
+    ));
     const host = fixture.createHost("session-update");
     const session = fixture.sessions.get("session-update")!;
     const pageContext = fixture.pageContext(session.id);
@@ -229,7 +244,9 @@ describe("P4.5c.1.2 confirmed composition write boundary", () => {
 
     expect(prepared.event).toMatchObject({
       type: "confirm_resume_composition",
-      branchMode: "update_existing"
+      branchMode: "update_existing",
+      sourceResumeId: seeded.branch.id,
+      sourceFingerprint: source
     });
     const completed = await host.executeConfirmedResumeComposition({
       session: prepared.session,
@@ -237,9 +254,11 @@ describe("P4.5c.1.2 confirmed composition write boundary", () => {
       pageContext,
       turnId: prepared.turnId
     });
-    expect(completed?.taskState?.stage).toBe("resume_ready");
-    expect((await fixture.repository.listResumeBranches(fixture.profile.id)).map((branch) => branch.id)).toEqual([seeded.branch.id]);
+    expect(completed?.taskState?.stage, JSON.stringify(completed?.messages.at(-1))).toBe("resume_ready");
+    expect(updateSpy.mock.calls.at(-1)?.[0]).toMatchObject({ sourceResumeId: seeded.branch.id, expectedSourceRevisionId: seeded.branch.currentRevisionId });
+    expect((await fixture.repository.listResumeBranches(fixture.profile.id)).map((branch) => branch.id).sort()).toEqual([seeded.branch.id, other.branch.id].sort());
     expect(await fixture.repository.listResumeRevisions(seeded.branch.id)).toHaveLength(2);
+    expect(await fixture.repository.getResumeBranch(other.branch.id)).toEqual(otherBefore);
   });
 
   it("keeps a transport-failed checkpoint recoverable and writes nothing", async () => {

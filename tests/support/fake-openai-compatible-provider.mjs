@@ -65,6 +65,7 @@ function chooseResponse({ mode, messages, tools }) {
   }
   if (lastToolResult) {
     const name = typeof lastToolResult.name === "string" ? lastToolResult.name : "CareerAdapt tool";
+    if (name.includes("job_intake")) return { content: "岗位解析已完成，请核对后保存。" };
     if (name.includes("profile_intake_turn")) return { content: "已进入 Profile Intake，并停在下一步资料补充边界。" };
     if (name.includes("profile_intake_finalize")) return { content: "Profile Intake 已整理为待用户复核的草稿。" };
     if (name.includes("job_fit")) return { content: "已完成岗位匹配比较，并保留证据缺口。" };
@@ -76,6 +77,13 @@ function chooseResponse({ mode, messages, tools }) {
   }
   if (mode === "integration") {
     const userText = latestUserText(messages);
+    if (userText.includes("CORE-JD")) {
+      const toolName = findToolName(tools, "career.workflow.job_intake");
+      if (toolName) return { toolCall: { name: toolName, arguments: JSON.stringify({
+        rawText: "公司：Core Test\n岗位：数据分析实习生 CORE-JD\n岗位职责\n1. 参与数据清洗与分析。\n任职要求\n1. 了解 Python 或 SQL。\n2. 具备团队协作能力。",
+        persistence: "save"
+      }) } };
+    }
     if (/从零|没有简历|开始帮我做/u.test(userText)) {
       const toolName = findToolName(tools, "career.workflow.profile_intake_turn");
       if (toolName) return { toolCall: { name: toolName, arguments: JSON.stringify({ userTurn: userText }) } };

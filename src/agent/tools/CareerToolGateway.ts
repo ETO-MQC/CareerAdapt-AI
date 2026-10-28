@@ -751,6 +751,7 @@ export class CareerToolGatewayExecutor extends AgentExecutor {
       confirmed: input.confirmed,
       confirmationCount: input.confirmationCount,
       careerSessionBinding: input.careerSessionBinding,
+      userMessageId: input.userMessageId,
       requireSessionBinding: input.requireSessionBinding,
       retryFailedOperation: input.retryFailedOperation
     });
@@ -767,6 +768,7 @@ export class CareerToolGatewayExecutor extends AgentExecutor {
       confirmed: input.confirmed,
       confirmationCount: input.confirmationCount,
       careerSessionBinding: input.careerSessionBinding,
+      userMessageId: input.userMessageId,
       requireSessionBinding: input.requireSessionBinding,
       retryFailedOperation: input.retryFailedOperation
     });
@@ -907,6 +909,7 @@ type ExecutionTrace = {
 };
 
 const TRANSACTIONAL_WORKFLOW_NAMES = new Set([
+  "career.workflow.job_intake",
   "career.workflow.profile_intake_turn",
   "career.workflow.profile_intake_finalize",
   "career.workflow.resume_import",

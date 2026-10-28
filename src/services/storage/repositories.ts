@@ -472,7 +472,14 @@ function applyTailoringClaimsToBranch(
       userConfirmation: confirmation
     });
   });
-  return { contentItems, structuredContentItems };
+  // Both representations describe the same committed item. A field rewrite
+  // changes source/guard metadata on the text projection; leaving the typed
+  // item on its old metadata makes the V2 codec treat it as stale and rebuild
+  // project identity from body text, which cannot recover the title or dates.
+  return {
+    contentItems,
+    structuredContentItems: syncStructuredContentItems({ ...branch, structuredContentItems }, contentItems)
+  };
 }
 
 export function resumeBranchContentHash(value: ResumeBranch | { resumeBasics?: unknown; contentItems: unknown; structuredContentItems?: unknown }) {
@@ -3490,6 +3497,8 @@ export class WorkspaceRepository {
     name?: string;
     composition?: ResumeCompositionResult;
     mode?: "create_new" | "update_existing";
+    sourceResumeId?: string;
+    expectedSourceRevisionId?: string;
   }) {
     const profile = input.composition ? undefined : await this.getProfile(input.profileId);
     const composition = input.composition ?? (profile ? compileResumeComposition({ profile, mode: "general" }) : undefined);
@@ -3508,10 +3517,16 @@ export class WorkspaceRepository {
       });
       return { ...created, mode: "created" as const };
     }
-    const activeGeneral = (await this.listResumeBranches(input.profileId))
+    if (input.composition && (!input.sourceResumeId || !input.expectedSourceRevisionId)) {
+      throw new Error("resume_composition_source_required");
+    }
+    const activeGeneral = input.sourceResumeId
+      ? await this.getResumeBranch(input.sourceResumeId)
+      : (await this.listResumeBranches(input.profileId))
       .filter((branch) => branch.branchPurpose === "general" && branch.lifecycleStatus === "active")
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
     if (!activeGeneral) {
+      if (input.sourceResumeId) throw new Error("resume_composition_source_missing");
       const created = await this.createGeneralResumeBranch({
         profileId: input.profileId,
         operationId: input.operationId,
@@ -3529,9 +3544,13 @@ export class WorkspaceRepository {
       type: "create_from_profile",
       source: "created_from_profile",
       mutate: async ({ branch, profile, now }) => {
-        if (branch.profileId !== profile.id || profile.id !== input.profileId) {
+        if (branch.profileId !== profile.id || profile.id !== input.profileId || branch.branchPurpose !== "general") {
           throw new Error("resume_profile_ownership_mismatch");
         }
+        if (input.expectedSourceRevisionId && branch.currentRevisionId !== input.expectedSourceRevisionId) {
+          throw new RevisionConflictError();
+        }
+        if (input.composition && profile.version !== input.composition.profileRevision) throw new RevisionConflictError();
         const built = buildGeneralBranchFromProfile({
           profile,
           operationId: input.operationId,
@@ -3603,6 +3622,7 @@ export class WorkspaceRepository {
     expectedSourceRevisionId?: string;
     expectedSourceContentHash?: string;
     expectedSourcePresentationHash?: string;
+    expectedJobRevision?: string;
   }) {
     return this.db.transaction(
       "rw",
@@ -3636,6 +3656,8 @@ export class WorkspaceRepository {
         const job = input.targetSnapshot
           ? jobTargetSnapshotToJobDescription(input.targetSnapshot)
           : JobDescriptionSchema.parse(storedJob);
+        if (input.expectedJobRevision && job.updatedAt !== input.expectedJobRevision) throw new RevisionConflictError();
+        if (input.composition && profile.version !== input.composition.profileRevision) throw new RevisionConflictError();
         if (input.sourceResumeId) {
           if (!sourceBranch) throw new Error("resume_composition_source_missing");
           const parsedSource = ResumeBranchSchema.parse(sourceBranch);
@@ -3680,7 +3702,15 @@ export class WorkspaceRepository {
           createdAt: now,
           updatedAt: now
         });
-        const presentationConfig = createDefaultPresentationConfig({ branch: built.branch, now });
+        const presentationConfig = sourceBranch
+          ? sanitizePresentationConfigForBranch(ResumePresentationConfigSchema.parse({
+              ...await this.getResumePresentationConfig(sourceBranch.id),
+              branchId: built.branch.id,
+              contentRevision: { branchRevision: built.branch.revision, currentRevisionId: built.firstRevision.id },
+              presentationRevision: 0,
+              updatedAt: now
+            }), built.branch)
+          : createDefaultPresentationConfig({ branch: built.branch, now });
         await this.db.resumeBranches.put(built.branch);
         await this.db.resumeRevisions.put(built.firstRevision);
         await this.db.resumeBranchOperations.put(operation);
@@ -8605,6 +8635,15 @@ export class WorkspaceRepository {
     });
   }
 
+  /** Keep the existing ingestion, analysis and conversion steps atomic for a
+   * confirmed Agent save. The callback only performs repository operations. */
+  async withCandidateJobCommit<T>(commit: () => Promise<T>): Promise<T> {
+    return this.db.transaction("rw", [
+      this.db.jobListings, this.db.jobSnapshots, this.db.rawInputs,
+      this.db.jobAnalysisDrafts, this.db.jobDescriptions, this.db.draftCommits, this.db.appMeta
+    ], commit);
+  }
+
   /**
    * 候选岗位解析为分析草稿：一个事务内创建 RawInputDocument（保存原文）与
    * JobAnalysisDraft（raw_saved，未做任何 AI 分析），并把
@@ -8630,7 +8669,7 @@ export class WorkspaceRepository {
       const snapshot = await this.db.jobSnapshots.get(snapshotId);
       if (!snapshot || snapshot.jobListingId !== parsedListing.id) throw new Error("snapshot_mismatch");
 
-      if (parsedListing.analysisDraftId) {
+      if (parsedListing.analysisDraftId && parsedListing.parsedSnapshotId === snapshotId) {
         const existingDraft = await this.db.jobAnalysisDrafts.get(parsedListing.analysisDraftId);
         if (existingDraft) {
           return { draft: JobAnalysisDraftSchema.parse(existingDraft), rawInputId: JobAnalysisDraftSchema.parse(existingDraft).rawInputId, reused: true };
@@ -8857,8 +8896,10 @@ export class WorkspaceRepository {
       });
       await this.db.appMeta.put({ key: conversionConfirmationKey(input.confirmationId), value: consumedConfirmation, updatedAt: now });
 
+      const sourceListing = await this.db.jobListings.get(input.listingId);
+      if (!sourceListing || sourceListing.analysisDraftId !== draft.id) throw new Error("conversion_draft_listing_mismatch");
       const jobDescription = CommittedJobDescriptionSchema.parse(
-        mapJobDraftToJobDescription({ draft, rawInput: RawInputDocumentSchema.parse(rawInput), now })
+        mapJobDraftToJobDescription({ draft, rawInput: RawInputDocumentSchema.parse(rawInput), jobId: sourceListing.jobDescriptionId, now })
       );
       const consumed = input.pendingProposal
         ? await this.consumePendingConfirmation({

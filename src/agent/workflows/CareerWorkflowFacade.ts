@@ -78,6 +78,15 @@ const ProfileIntakeFinalizeInputSchema = z.object({
 
 const ResumeImportInputSchema = z.object({ attachmentId: z.string().min(1) }).strict();
 const JobFitInputSchema = z.object({ profileId: z.string().min(1), resumeId: z.string().min(1), jobId: z.string().min(1) }).strict();
+const JobIntakeInputSchema = z.object({
+  rawText: z.string().min(20).max(24_000),
+  title: z.string().trim().min(1).max(160).optional(),
+  company: z.string().trim().min(1).max(160).optional(),
+  sourceUrl: z.url().optional(),
+  persistence: z.enum(["analyze_only", "save"]),
+  dedupDecision: z.enum(["merge_existing", "keep_separate"]).optional(),
+  duplicateListingId: z.string().min(1).optional()
+}).strict();
 const ProfileToResumeInputSchema = z.object({
   targetProfileId: z.string().min(1),
   expectedProfileVersion: z.number().int().min(0),
@@ -125,6 +134,7 @@ export type CareerWorkflowFacadeDefinition = {
 };
 
 export const CAREER_WORKFLOW_FACADE_DEFINITIONS: CareerWorkflowFacadeDefinition[] = [
+  { name: "career.workflow.job_intake", description: "Use when the user provides a pasted Job/JD to analyze or save. Do not use for candidate facts, Job Fit, or Resume changes. Reads source-backed requirements and AND/OR groups, keeps unknown identity explicit, deduplicates and versions through the existing candidate pipeline. persistence analyze_only writes nothing; save crosses the Host confirmation boundary. Exact repeats reuse the saved Job; ambiguous duplicates stop for a user decision.", inputSchema: JobIntakeInputSchema, personProfileBinding: "none" },
   { name: "career.workflow.profile_intake_turn", description: "Use when the user wants to create or complete their CareerProfile from scratch, or answer the next active Profile Intake question. Do not use for story coaching, Job/JD comparison, resume creation, or resume review. Reads the bound draft/profile and source ledger, writes only provisional intake state without confirming Profile facts, and may stop for one question or a review boundary.", inputSchema: ProfileIntakeTurnInputSchema, personProfileBinding: "required" },
   { name: "career.workflow.profile_intake_finalize", description: "Use when Profile Intake source turns are complete and the user asks to finalize or review the profile. Do not use for a single new answer or resume work. Reads the source turns and provisional draft, writes no confirmed Profile facts, and stops for user review and confirmation before any commit.", inputSchema: ProfileIntakeFinalizeInputSchema, personProfileBinding: "required" },
   { name: "career.workflow.resume_import", description: "Use when the user explicitly asks to import an attached resume or document into CareerAdapt. Do not use for pasted career narration or for creating or tailoring a resume. Reads one staged attachment, writes import/provenance checkpoint state, never accepts file bytes or paths, and stops for review and explicit confirmation before Profile changes. A bound Profile is optional while parsing; target selection happens after the attachment is read when needed.", inputSchema: ResumeImportInputSchema, personProfileBinding: "optional" },
@@ -307,6 +317,67 @@ export async function executeCareerWorkflowFacade(
     operationId: `${operationId}-${index + 1}`
   });
 
+  if (name === "career.workflow.job_intake") {
+    const parsed = await call("career.job.parse", {
+      rawText: input.rawText,
+      ...(input.title ? { title: input.title } : {}),
+      ...(input.company ? { company: input.company } : {})
+    });
+    const analysis = objectValue(parsed.data);
+    const title = stringValue(analysis.candidateTitle);
+    const company = stringValue(analysis.candidateCompany);
+    const checkpoint = {
+      kind: "job_intake",
+      identity: { title: title ?? "unknown", company: company ?? "unknown", location: stringValue(analysis.candidateLocation) ?? "unknown" },
+      graph: analysis.graph,
+      missingIdentityFields: analysis.missingIdentityFields,
+      sourceUrl: input.sourceUrl,
+      persistence: input.persistence,
+      input
+    };
+    if (!parsed.ok || input.persistence === "analyze_only" || !title || !company) {
+      return facadeFromAtomic(name, operationId, parsed,
+        input.persistence === "save" && (!title || !company) ? "waiting_for_user" : "completed",
+        input.persistence === "save" ? "review_job_identity" : "explain_job_requirements", undefined, checkpoint, context);
+    }
+    let binding = context.careerSessionBinding;
+    if (!binding) {
+      // Conversion confirmations already require a Career session binding.
+      // Resolve the existing active context using the same policy as tailoring;
+      // no candidate facts are read or changed by this selection.
+      const active = await call("career.profile.active", {}, 1);
+      if (!active.ok) return facadeFromAtomic(name, operationId, active, "failed", "select_profile", undefined, checkpoint, context);
+      const value = objectValue(active.data);
+      const resolution = careerContextBindingResolver.resolveProfile({
+        sessionId: context.agentSessionId,
+        profiles: [],
+        ...(value.selected === true && stringValue(value.profileId) ? {
+          activeProfile: { ...value, id: stringValue(value.profileId)! } as CareerProfileCandidate
+        } : {})
+      });
+      binding = resolution.state === "bound" ? resolution.binding : undefined;
+      if (!binding) return facadeFromAtomic(name, operationId, parsed, "waiting_for_user", "select_profile",
+        "请先选择本次操作所属的个人资料版本，再确认保存岗位。", checkpoint, context);
+    }
+    const committed = await call("career.job.commit", {
+      rawText: input.rawText, title, company, graph: analysis.graph,
+      ...(input.sourceUrl ? { sourceUrl: input.sourceUrl } : {}),
+      ...(input.dedupDecision ? { dedupDecision: input.dedupDecision } : {}),
+      ...(input.duplicateListingId ? { duplicateListingId: input.duplicateListingId } : {})
+    }, 2, { careerSessionBinding: binding, requireSessionBinding: true });
+    const data = objectValue(committed.data);
+    if (data.status === "duplicate_decision_required") {
+      return facadeFromAtomic(name, operationId, committed, "waiting_for_user", "choose_duplicate_job", stringValue(data.message), {
+        ...checkpoint, candidates: data.candidates
+      }, context);
+    }
+    return facadeFromAtomic(name, operationId, committed, "completed", "use_saved_job", undefined,
+      committed.ok ? {
+        kind: "job_intake", jobId: data.jobId, jobRevision: data.jobRevision,
+        summary: `${company} · ${title}`, idempotent: data.idempotent
+      } : { ...checkpoint, careerSessionBinding: binding }, context);
+  }
+
   if (name === "career.workflow.profile_intake_turn") {
     const result = await call("career.profile.capture_intake", {
       sessionId: requiredString(input.agentSessionId, "agentSessionId"),
@@ -362,7 +433,7 @@ export async function executeCareerWorkflowFacade(
       profileId: input.profileId,
       resumeId: input.resumeId,
       jobId: input.jobId,
-      result: compactData(result.data, ["fitAnalysisId", "score", "matched", "gaps", "artifactId", "resumeRevision"])
+      result: compactData(result.data, ["analysis", "dependencies", "fitAnalysisId", "score", "matched", "gaps", "artifactId", "resumeRevision"])
     }, context);
   }
   if (name === "career.workflow.tailor_resume") {

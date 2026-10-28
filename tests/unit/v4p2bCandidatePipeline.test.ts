@@ -8,7 +8,6 @@ import { companyTitleFingerprint, jdContentHash } from "@/domain/jobAssets/jdNor
 import { JobAnalysisDraftSchema, JdAnalyzerRequirementSchema } from "@/domain/schemas";
 import { BrowserAgentToolService } from "@/services/agent/agentToolService";
 import { analyzeJobDescriptionV4 } from "@/domain/jobOptimization";
-import { stableHashText } from "@/services/security/text";
 import { CareerAdaptDb } from "@/services/storage/db";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 
@@ -514,7 +513,7 @@ describe("V4-P2-B round 2: agent commitJob shares the candidate pipeline", () =>
     expect(listings[0].canonicalSourceKind).toBe("external_job_source");
     expect(listings[0].jobDescriptionId).toBe(result.jobId);
     expect((await repository.listJobSnapshots(listings[0].id))).toHaveLength(1);
-    const draft = await repository.getJobAnalysisDraft(`job-draft-agent-${stableHashText("op-agent-job-1").slice(0, 20)}`);
+    const draft = await repository.getJobAnalysisDraft(listings[0].analysisDraftId!);
     expect(draft?.status).toBe("committed");
     expect(draft?.rawInputId).toBeTruthy();
 

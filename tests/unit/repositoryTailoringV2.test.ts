@@ -8,6 +8,8 @@ import { analyzeJobFit } from "@/services/jobs/tailoringService";
 import { JobDescriptionSchema } from "@/domain/schemas";
 import { tailoringValueHash } from "@/domain/jobOptimization";
 import { tailoringDiffId } from "@/services/jobs/tailoringCommands";
+import { migrateResumeBranchToV2 } from "@/domain/migrations/resumeV2";
+import { mapBranchToResumeRenderModel } from "@/domain/resumeRender/mapper";
 
 const NOW = "2026-07-20T08:00:00.000Z";
 let db: CareerAdaptDb | undefined;
@@ -69,6 +71,10 @@ describe("Tailoring Engine v2 repository application", () => {
     const updated = applied.branch.structuredContentItems![0].data;
     if (updated.sectionType !== "project") throw new Error("project_result_expected");
     expect(updated.highlights).toEqual(after);
+    expect(migrateResumeBranchToV2(applied.branch).structuredContentItems[0].data).toMatchObject({ title: structured.data.title, role: structured.data.role });
+    expect(() => mapBranchToResumeRenderModel({ branch: applied.branch, profile,
+      job: JobDescriptionSchema.parse({ id: "job-ai", title: "AI 软件工程师", company: "测试公司", rawText: "负责 AI 软件工程与质量验证", source: "manual", requirements: [], createdAt: NOW, updatedAt: NOW })
+    })).not.toThrow();
     expect({ title: updated.title, role: updated.role, startDate: updated.startDate, endDate: updated.endDate }).toEqual({ title: structured.data.title, role: structured.data.role, startDate: structured.data.startDate, endDate: structured.data.endDate });
     const legacy = applied.branch.contentItems.find((item) => item.id === structured.id)?.text ?? "";
     expect(legacy).toContain(after[0]);

@@ -17,6 +17,7 @@ export type ResumeCompositionSourceFingerprint = {
 export function createResumeCompositionCheckpoint(input: {
   composition: ResumeCompositionResult;
   source?: ResumeCompositionSourceFingerprint;
+  jobRevision?: string;
   createdAt?: string;
 }): ResumeCompositionCheckpoint {
   const composition = ResumeCompositionResultSchema.parse(input.composition);
@@ -34,6 +35,7 @@ export function createResumeCompositionCheckpoint(input: {
     profileRevision: composition.profileRevision,
     mode: composition.mode,
     jobId: composition.jobId,
+    jobRevision: input.jobRevision,
     sourceResumeId: composition.sourceResumeId,
     targetContext,
     evidenceGraphHash,
@@ -51,6 +53,7 @@ export function createResumeCompositionCheckpoint(input: {
     profileRevision: composition.profileRevision,
     mode: composition.mode,
     ...(composition.jobId ? { jobId: composition.jobId } : {}),
+    ...(input.jobRevision ? { jobRevision: input.jobRevision } : {}),
     ...(composition.sourceResumeId ? { sourceResumeId: composition.sourceResumeId } : {}),
     targetContext,
     evidenceGraphHash,

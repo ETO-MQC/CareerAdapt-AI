@@ -374,6 +374,7 @@ export const ResumeCompositionCheckpointSchema = z.object({
   profileRevision: z.number().int().min(1),
   mode: ResumeCompositionModeSchema,
   jobId: z.string().min(1).optional(),
+  jobRevision: z.string().min(1).optional(),
   sourceResumeId: z.string().min(1).optional(),
   targetContext: ResumeCompositionTargetContextSchema,
   evidenceGraphHash: z.string().min(8),

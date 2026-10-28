@@ -814,6 +814,11 @@ export class BrowserAgentToolService implements AgentToolServices {
       userPreferences?: unknown;
     };
     const context = await this.loadCompositionContext(input);
+    // Capture the selected base before invoking the writer, so edits made
+    // while generation is in flight invalidate the proposal as well.
+    const source = input.sourceResumeId || input.mode === "job_specific"
+      ? await this.requireCompositionSource(input.sourceResumeId, context.profile.id)
+      : undefined;
     const userPreferences = parseUserPreferences(input.userPreferences);
     const graph = buildResumeEvidenceGraph({ profile: context.profile });
     const blueprint = planResumeBlueprint({ profile: context.profile, graph, mode: input.mode, job: context.job, targetDirection: input.targetDirection, targetAudience: input.targetAudience, companyType: input.companyType });
@@ -821,11 +826,9 @@ export class BrowserAgentToolService implements AgentToolServices {
       { profile: context.profile, mode: input.mode, job: context.job, sourceResumeId: input.sourceResumeId, targetDirection: input.targetDirection, targetAudience: input.targetAudience, companyType: input.companyType, userPreferences, signal },
       { graph, blueprint, writingService: this.careerResumeWriter }
     );
-    const source = input.mode === "job_specific"
-      ? await this.requireCompositionSource(input.sourceResumeId, context.profile.id)
-      : undefined;
     const checkpoint = await this.repository.saveResumeCompositionCheckpoint(createResumeCompositionCheckpoint({
       composition,
+      ...(context.job ? { jobRevision: context.job.updatedAt } : {}),
       ...(source ? { source } : {})
     }));
     return {
@@ -948,7 +951,9 @@ export class BrowserAgentToolService implements AgentToolServices {
         composition,
         // Card 4 is a new independent general branch by default. Updating an
         // existing branch is only reachable through the explicit mode.
-        mode: input.generalResumeMode ?? "create_new"
+        mode: input.generalResumeMode ?? "create_new",
+        sourceResumeId: checkpoint.sourceBranchId,
+        expectedSourceRevisionId: checkpoint.sourceRevisionId
       });
       return {
         profileId: context.profile.id,
@@ -990,7 +995,8 @@ export class BrowserAgentToolService implements AgentToolServices {
       expectedSourceRevision: (await this.repository.getResumeBranch(source.branchId))?.revision,
       expectedSourceRevisionId: source.revisionId,
       expectedSourceContentHash: source.contentHash,
-      expectedSourcePresentationHash: source.presentationHash
+      expectedSourcePresentationHash: source.presentationHash,
+      expectedJobRevision: checkpoint.jobRevision
     });
     const sourceAfter = await this.repository.getResumeSourceFingerprint(source.branchId);
     if (!sourceAfter || sourceAfter.contentHash !== source.contentHash || sourceAfter.presentationHash !== source.presentationHash || sourceAfter.revisionId !== source.revisionId) {
@@ -1031,6 +1037,9 @@ export class BrowserAgentToolService implements AgentToolServices {
     }
     if (input.sourceResumeId && checkpoint.sourceResumeId !== input.sourceResumeId) {
       throw toolError("resume_composition_checkpoint_source_mismatch", "组装提案对应的来源简历已变化，请重新生成。");
+    }
+    if (jobId && checkpoint.jobRevision !== (await this.repository.getJobDescription(jobId))?.updatedAt) {
+      throw toolError("resume_composition_job_stale", "岗位版本已变化，请重新生成岗位简历提案。");
     }
     return checkpoint;
   }
@@ -1599,6 +1608,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       ...analyzed,
       candidateTitle,
       candidateCompany,
+      candidateLocation: extractJobLocation(input.rawText)?.value,
       missingIdentityFields: [
         ...(candidateTitle ? [] : ["title"]),
         ...(candidateCompany ? [] : ["company"])
@@ -1621,114 +1631,124 @@ export class BrowserAgentToolService implements AgentToolServices {
       title: string; company: string; rawText: string; graph: unknown;
       dedupDecision?: "merge_existing" | "keep_separate";
       duplicateListingId?: string;
+      sourceUrl?: string;
     };
     const graph = JobRequirementGraphV4Schema.parse(input.graph);
-    const now = new Date().toISOString();
-    const identity = manualCandidateIdentity(input.title, input.company);
-    const ingest = await ingestCandidateListing(this.repository, {
-      sourceKey: identity.sourceKey,
-      externalId: identity.externalId,
-      listingId: identity.listingId,
-      rawText: input.rawText,
-      title: input.title,
-      company: input.company,
-      // P2-B 稳定化：重复岗位不再自动 keep_separate——命中候选时返回清单，
-      // 等待用户在下一条消息里明确选择后再带决策重试。
-      ...(input.dedupDecision ? { dedupDecision: input.dedupDecision } : {}),
-      ...(input.duplicateListingId ? { duplicateListingId: input.duplicateListingId } : {}),
-      now
-    });
-    if (ingest.status === "waiting_input") {
-      return {
-        status: "duplicate_decision_required",
-        operationId,
-        message: "发现可能的重复岗位：请用户选择合并到已有岗位或保存为独立岗位后重试。在用户明确选择前不会保存。",
-        candidates: ingest.dedup.candidates.map((candidate) => ({
-          listingId: candidate.jobPostingId,
-          rule: candidate.rule,
-          title: candidate.title,
-          company: candidate.companyName
-        }))
-      };
-    }
-    const draftId = `job-draft-agent-${stableHashText(operationId).slice(0, 20)}`;
-    const parsed = await parseCandidateToDraft(this.repository, {
-      listingId: ingest.listing.id,
-      snapshotId: ingest.snapshot.id,
-      draftId,
-      now
-    });
-    if (parsed.draft.status === "committed" && parsed.draft.committedJobId) {
-      // 该候选岗位已经转换为正式岗位：幂等返回既有结果，不重复分析或转换。
-      const existing = await this.repository.getJobDescription(parsed.draft.committedJobId);
-      if (existing) {
+    if (!context?.careerSessionBinding || !context?.userMessageId) throw new Error("agent_confirmation_binding_missing");
+    return this.repository.withCandidateJobCommit(async () => {
+      const now = new Date().toISOString();
+      const location = extractJobLocation(input.rawText);
+      const identity = manualCandidateIdentity(input.title, input.company);
+      const ingest = await ingestCandidateListing(this.repository, {
+        sourceKey: identity.sourceKey,
+        externalId: identity.externalId,
+        listingId: identity.listingId,
+        rawText: input.rawText,
+        title: input.title,
+        company: input.company,
+        ...(input.sourceUrl ? { canonicalSourceUrl: input.sourceUrl } : {}),
+        ...(location ? { location: location.value } : {}),
+        // P2-B 稳定化：重复岗位不再自动 keep_separate——命中候选时返回清单，
+        // 等待用户在下一条消息里明确选择后再带决策重试。
+        ...(input.dedupDecision ? { dedupDecision: input.dedupDecision } : {}),
+        ...(input.duplicateListingId ? { duplicateListingId: input.duplicateListingId } : {}),
+        now
+      });
+      if (ingest.status === "waiting_input") {
         return {
-          jobId: existing.id,
-          jobRevision: existing.updatedAt,
-          jobGraphHash: stableHashText(JSON.stringify(existing.requirementGraph ?? existing.requirements)),
-          jobDescription: existing,
-          draft: parsed.draft,
-          idempotent: true
+          status: "duplicate_decision_required",
+          operationId,
+          message: "发现可能的重复岗位：请用户选择合并到已有岗位或保存为独立岗位后重试。在用户明确选择前不会保存。",
+          candidates: ingest.dedup.candidates.map((candidate) => ({
+            listingId: candidate.jobPostingId,
+            rule: candidate.rule,
+            title: candidate.title,
+            company: candidate.companyName
+          }))
         };
       }
-    }
-    const analyzerOutput = projectJobGraphV4ToAnalyzerOutput({
-      graph,
-      title: input.title,
-      company: input.company,
-      now
-    });
-    const analyzedDraft = JobAnalysisDraftSchema.parse({
-      ...parsed.draft,
-      title: input.title,
-      company: input.company,
-      status: graph.needsReview ? "needs_review" : "ai_validated",
-      promptVersion: "agent-command.v1",
-      attemptCount: parsed.draft.attemptCount + 1,
-      analyzerOutput,
-      requirementGraph: graph,
-      analysisIssues: graph.sourceCoverage.unclassifiedSpans.map((span) => span.text),
-      manualRequirements: [],
-      riskNotes: analyzerOutput.riskNotes,
-      analysisRunStatus: "review_ready",
-      updatedAt: now
-    });
-    await this.repository.saveJobAnalysisDraftRevision(analyzedDraft, parsed.draft.revision);
-    if (!context?.careerSessionBinding || !context?.userMessageId) {
-      // P2-B 最终收口：Agent 通道的转换确认必须绑定会话与用户消息；字段缺失
-      // 时快速失败，不允许降级执行。
-      throw new Error("agent_confirmation_binding_missing");
-    }
-    const confirmation = await this.repository.createConversionConfirmation({
-      channel: "agent",
-      operationId,
-      listingId: ingest.listing.id,
-      draftId,
-      careerSessionBinding: context.careerSessionBinding,
-      userMessageId: context.userMessageId,
-      now
-    });
-    const committed = await this.repository.convertCandidateListing({
-      listingId: ingest.listing.id,
-      draftId,
-      commitId: `commit-job-${draftId}-${analyzedDraft.revision}`,
-      confirmationId: confirmation.confirmationId,
-      expectedConfirmation: {
+      const draftId = `job-draft-agent-${stableHashText(`${ingest.listing.id}:${ingest.snapshot.id}`).slice(0, 20)}`;
+      const parsed = await parseCandidateToDraft(this.repository, {
+        listingId: ingest.listing.id,
+        snapshotId: ingest.snapshot.id,
+        draftId,
+        now
+      });
+      if (parsed.draft.status === "committed" && parsed.draft.committedJobId) {
+        // 该候选岗位已经转换为正式岗位：幂等返回既有结果，不重复分析或转换。
+        const existing = await this.repository.getJobDescription(parsed.draft.committedJobId);
+        if (existing) {
+          return {
+            jobId: existing.id,
+            jobRevision: existing.updatedAt,
+            jobGraphHash: stableHashText(JSON.stringify(existing.requirementGraph ?? existing.requirements)),
+            jobDescription: existing,
+            draft: parsed.draft,
+            idempotent: true
+          };
+        }
+      }
+      const analyzerOutput = projectJobGraphV4ToAnalyzerOutput({
+        graph,
+        title: input.title,
+        company: input.company,
+        now
+      });
+      analyzerOutput.location = location;
+      const analyzedDraft = JobAnalysisDraftSchema.parse({
+        ...parsed.draft,
+        title: input.title,
+        company: input.company,
+        status: graph.needsReview ? "needs_review" : "ai_validated",
+        promptVersion: "agent-command.v1",
+        attemptCount: parsed.draft.attemptCount + 1,
+        analyzerOutput,
+        requirementGraph: graph,
+        analysisIssues: graph.sourceCoverage.unclassifiedSpans.map((span) => span.text),
+        manualRequirements: [],
+        riskNotes: analyzerOutput.riskNotes,
+        analysisRunStatus: "review_ready",
+        updatedAt: now
+      });
+      await this.repository.saveJobAnalysisDraftRevision(analyzedDraft, parsed.draft.revision);
+      assertNotAborted(signal);
+      if (!context?.careerSessionBinding || !context?.userMessageId) {
+        // P2-B 最终收口：Agent 通道的转换确认必须绑定会话与用户消息；字段缺失
+        // 时快速失败，不允许降级执行。
+        throw new Error("agent_confirmation_binding_missing");
+      }
+      const confirmation = await this.repository.createConversionConfirmation({
         channel: "agent",
         operationId,
+        listingId: ingest.listing.id,
+        draftId,
+        careerSessionBinding: context.careerSessionBinding,
         userMessageId: context.userMessageId,
-        careerSessionBinding: context.careerSessionBinding
-      },
-      now
+        now
+      });
+      const committed = await this.repository.convertCandidateListing({
+        listingId: ingest.listing.id,
+        draftId,
+        commitId: `commit-job-${draftId}-${analyzedDraft.revision}`,
+        confirmationId: confirmation.confirmationId,
+        expectedConfirmation: {
+          channel: "agent",
+          operationId,
+          userMessageId: context.userMessageId,
+          careerSessionBinding: context.careerSessionBinding
+        },
+        now
+      });
+      assertNotAborted(signal);
+      return {
+        jobId: committed.jobDescription.id,
+        jobRevision: committed.jobDescription.updatedAt,
+        jobGraphHash: stableHashText(JSON.stringify(
+          committed.jobDescription.requirementGraph ?? committed.jobDescription.requirements
+        )),
+        ...committed
+      };
     });
-    return {
-      jobId: committed.jobDescription.id,
-      jobRevision: committed.jobDescription.updatedAt,
-      jobGraphHash: stableHashText(JSON.stringify(
-        committed.jobDescription.requirementGraph ?? committed.jobDescription.requirements
-      )),
-      ...committed
-    };
   }
 
   async analyzeJobFit(rawInput: unknown, operationId: string, signal?: AbortSignal) {
@@ -2170,6 +2190,16 @@ function inferJobCompany(rawText: string) {
     /^(公司|企业|company)\s*[:：]/i.test(value)
   );
   return line?.replace(/^[^:：]+[:：]\s*/, "").slice(0, 160) || undefined;
+}
+
+function extractJobLocation(rawText: string) {
+  const match = /^[^\S\r\n]*(?:工作地点|办公地点|地点|城市|location)\s*[:：][^\S\r\n]*([^\r\n]+)/imu.exec(rawText);
+  if (!match?.[1]?.trim()) return undefined;
+  return {
+    value: match[1].trim(), sourceQuote: match[0],
+    sourceSpan: { start: match.index, end: match.index + match[0].length, text: match[0] },
+    confidenceLevel: "high" as const, confidenceReason: "原文明确标注工作地点。", needsConfirmation: false
+  };
 }
 
 function parseTailoringChanges(rawInput: unknown) {

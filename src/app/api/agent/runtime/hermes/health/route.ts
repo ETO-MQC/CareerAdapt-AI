@@ -73,9 +73,8 @@ async function proxy(url: string, mcp: ReturnType<typeof statusCareerAdaptMcpBri
       signal: AbortSignal.timeout(HERMES_HEALTH_REQUEST_TIMEOUT_MS),
       cache: "no-store"
     });
-    // Hermes 0.19's official backend serves its health contract at
-    // /api/health while older companion builds expose /health. Keep the
-    // configured runtime root stable and accept both official shapes here.
+    // The locked Hermes 0.19 API Server serves /health (public liveness).
+    // Retain /api/health only as a 404 compatibility path for other builds.
     if (response.status === 404 && /\/health$/u.test(url)) {
       response = await fetch(url.replace(/\/health$/u, "/api/health"), {
           method: "GET",

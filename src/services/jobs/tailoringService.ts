@@ -11,6 +11,7 @@ import {
   validateTailoringDelta
 } from "@/domain/jobOptimization";
 import { buildConfirmableClaim, resolveConfirmableClaim } from "@/domain/jobOptimization/confirmation";
+import { buildResumeEvidenceGraph } from "@/domain/resumeComposition/ResumeEvidenceGraph";
 import {
   capabilityAllowsProficiency,
   capabilityIsMaterialOnly,
@@ -71,6 +72,12 @@ export type TailoringServiceResult = {
   status: "ready" | "needs_confirmation" | "completed" | "blocked";
   summary: string;
   report?: JobCoverageReportV2;
+  evidenceMapping?: {
+    requirements: ReturnType<typeof buildCanonicalJobRequirementGraph>["nodes"];
+    evaluations: ReturnType<typeof evaluateRequirementEvidence>["evaluations"];
+    evidenceUnits: ReturnType<typeof buildCandidateEvidenceUnits>;
+    resumeEvidenceGraph: ReturnType<typeof buildResumeEvidenceGraph>;
+  };
   plan?: ResumeTailoringPlan;
   confirmationGroups?: ClaimConfirmationGroup[];
   resultRefs?: { branchId?: string; revisionId?: string; planId?: string };
@@ -86,7 +93,13 @@ export function analyzeJobFit(input: { profile: CareerProfile; branch: ResumeBra
   return {
     status: "ready",
     summary: `当前岗位适配度 ${report.overallCoverage} 分；未覆盖项会作为可补充项，不阻止创建岗位简历。`,
-    report
+    report,
+    evidenceMapping: {
+      requirements: graph.nodes,
+      evaluations: matrix.evaluations,
+      evidenceUnits,
+      resumeEvidenceGraph: buildResumeEvidenceGraph({ profile: input.profile })
+    }
   };
 }
 

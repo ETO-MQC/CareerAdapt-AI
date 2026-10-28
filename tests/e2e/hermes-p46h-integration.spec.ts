@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { completeCoreResumeWorkflow, prepareCoreSourceResume } from "./support/p51CoreWorkflow";
 
 test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
   test("CASE A — ordinary greeting completes through official Hermes Runs", async ({ page }) => {
@@ -77,6 +78,37 @@ test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
     await send(page, "导出这份简历");
     await expectAssistant(page, "已准备简历导出产物。");
     await expectToolNames(trace, ["career.workflow.resume_export"]);
+  });
+
+  test("CASE I — pasted JD crosses real Hermes and MCP, then one Host confirmation saves the Job", async ({ page }) => {
+    test.setTimeout(240_000);
+    const trace = observeRuntimeAndBridge(page);
+    await openWorkspace(page);
+    await prepareCoreSourceResume(page);
+    await page.goto("/ai-workspace");
+    await resetHermesForCase(page);
+    await send(page, "保存这个岗位 CORE-JD：公司 Core Test，数据分析实习生，负责数据清洗，要求了解 Python 或 SQL。");
+    await expectAssistant(page, "岗位解析已完成，请核对后保存。");
+    await expectToolNames(trace, ["career.workflow.job_intake"]);
+    await expect(page.locator(".agent-confirmation")).toContainText("确认执行 Career 操作");
+    await page.locator(".agent-confirmation").getByRole("button", { name: "确认", exact: true }).click();
+    await expectAssistant(page, "已按你的确认完成当前 Career 工作流。");
+    expect(trace.runtimeActions.filter(action => action === "run_start")).toHaveLength(1);
+    expect(trace.resultActions).toContain("result");
+    const jobs = await page.evaluate(() => new Promise<Array<{ id: string; title: string; rawText: string }>>((resolve, reject) => {
+      const request = indexedDB.open("CareerAdaptDb");
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const database = request.result;
+        const result = database.transaction("jobDescriptions", "readonly").objectStore("jobDescriptions").getAll();
+        result.onerror = () => reject(result.error);
+        result.onsuccess = () => { database.close(); resolve(result.result); };
+      };
+    }));
+    const saved = jobs.filter(job => job.title.includes("CORE-JD"));
+    expect(saved).toHaveLength(1);
+    expect(saved[0].rawText).toContain("Python 或 SQL");
+    await completeCoreResumeWorkflow(page, saved[0].id);
   });
 });
 

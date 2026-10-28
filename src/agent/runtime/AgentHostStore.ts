@@ -1774,7 +1774,7 @@ export class AgentHostStore {
         binding
       };
     }
-    if (command.mode === "job_specific") {
+    if (command.mode === "job_specific" || branchMode === "update_existing") {
       const sourceBranchId = checkpoint.sourceBranchId ?? checkpoint.sourceResumeId;
       if (!sourceBranchId || !command.sourceFingerprint) {
         return {
@@ -9619,8 +9619,7 @@ function buildResumeCompositionConfirmationCommand(
     || task.knownSlots.resumeCompositionDecision !== "generate"
     || task.knownSlots.resumeCompositionExplicitConfirmation !== true
   ) return undefined;
-  const sourceFingerprint = mode === "job_specific"
-    && stringRecordValue(checkpoint.sourceBranchId)
+  const sourceFingerprint = stringRecordValue(checkpoint.sourceBranchId)
     && stringRecordValue(checkpoint.sourceRevisionId)
     && stringRecordValue(checkpoint.sourceContentHash)
     && stringRecordValue(checkpoint.sourcePresentationHash)
@@ -11621,6 +11620,13 @@ function runtimeArtifactResultData(stableName: string, value: unknown) {
  * produced.
  */
 function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, value: unknown): AgentSession {
+  if (toolName === "career.workflow.job_intake" && !session.taskState) {
+    const reducer = new AgentTaskStateReducer();
+    const task = reducer.reduce(reducer.create(session), {
+      type: "new_root_task", goal: "job_ingestion", workflowId: "job_ingestion", stage: "parse_job"
+    });
+    session = projectTaskStateIntoSession(session, task);
+  }
   if (!toolName.startsWith("career.workflow.") || !session.taskState) return session;
   const facade = objectRecordValue(value);
   const checkpoint = objectRecordValue(facade.workflowCheckpoint);
@@ -11850,6 +11856,19 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
       updatedAt: new Date().toISOString()
     }
   };
+  if (toolName === "career.workflow.job_intake") {
+    const binding = objectRecordValue(checkpoint.careerSessionBinding);
+    if (binding.agentSessionId === session.id && stringValue(binding.personId) && stringValue(binding.profileId)
+      && numberValue(binding.profileRevision) !== undefined && numberValue(binding.profileVersionNumber) !== undefined) {
+      Object.assign(nextSession, {
+        personId: binding.personId, activeProfileId: binding.profileId,
+        profileRevision: binding.profileRevision, profileVersionNumber: binding.profileVersionNumber
+      });
+    }
+    nextSession.taskState.workflowId = "job_ingestion";
+    nextSession.taskState.stage = status === "completed" ? "completed" : "review_job";
+    if (stringValue(checkpoint.jobId)) nextSession.taskState.selectedEntities.jobId = stringValue(checkpoint.jobId);
+  }
   return projectTaskStateIntoSession(nextSession, normalizeAgentTaskState(nextSession.taskState));
 }
 

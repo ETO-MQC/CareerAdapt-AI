@@ -215,6 +215,7 @@ const JobCommitInputSchema = JobParseInputSchema.extend({
   title: z.string().min(1).max(160),
   company: z.string().min(1).max(160),
   graph: z.unknown(),
+  sourceUrl: z.url().optional(),
   /** P2-B 稳定化：重复岗位命中时用户的选择；缺省时工具返回候选等待决策。 */
   dedupDecision: z.enum(["merge_existing", "keep_separate"]).optional(),
   duplicateListingId: z.string().min(1).optional()

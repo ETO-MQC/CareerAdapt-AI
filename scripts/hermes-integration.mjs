@@ -100,6 +100,15 @@ try {
   console.error(`[Hermes integration] FAIL: ${error instanceof Error ? error.message : String(error)}`);
   process.exitCode = 1;
 } finally {
+  if (provider) {
+    fs.mkdirSync(path.join(projectRoot, ".tmp"), { recursive: true });
+    fs.writeFileSync(path.join(projectRoot, ".tmp/hermes-integration-summary.json"), JSON.stringify({
+      suite, exitCode: process.exitCode || 0,
+      requests: provider.requests.map(request => ({ model: request.model,
+        providerAuthorizationMatches: request.authorization === `Bearer ${provider.apiKey}`,
+        toolNames: request.toolNames }))
+    }, null, 2));
+  }
   if (isConfigR1 && provider) fs.writeFileSync(path.join(projectRoot, ".tmp/r1-provider-attempts.json"), JSON.stringify({ baseUrl: provider.baseUrl, models: provider.requests.map((request) => request.model), authMatches: provider.requests.map((request) => request.authorization === `Bearer ${provider.apiKey}`) }, null, 2));
   await stopWebSupervisor(appUrl);
   if (appProcess && appProcess.exitCode === null) await terminateProcessTree(appProcess);
@@ -136,7 +145,8 @@ async function runPlaywright(environment, url, selectedSuite) {
       "exec",
       "playwright",
       "test",
-      `--config=${selectedSuite === "config-r1" ? "playwright.hermes-r1.config.ts" : selectedSuite === "career-agent-eval" ? "playwright.career-agent-eval.config.ts" : selectedSuite === "career-agent-real" ? "playwright.career-agent-real.config.ts" : "playwright.hermes-integration.config.ts"}`
+      `--config=${selectedSuite === "config-r1" ? "playwright.hermes-r1.config.ts" : selectedSuite === "career-agent-eval" ? "playwright.career-agent-eval.config.ts" : selectedSuite === "career-agent-real" ? "playwright.career-agent-real.config.ts" : "playwright.hermes-integration.config.ts"}`,
+      ...process.argv.slice(3)
     ];
     const child = spawnPnpm(args, {
       cwd: projectRoot,

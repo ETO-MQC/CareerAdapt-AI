@@ -1,0 +1,403 @@
+{
+  "dateLocal": "2026-10-28",
+  "baseline": "4c0cf96976704bbc5b98f5fd1892663c8a8c2665",
+  "status": "PARTIAL_NOT_FROZEN",
+  "runtimeCapture": {
+    "baseline": "4c0cf96976704bbc5b98f5fd1892663c8a8c2665",
+    "phases": [
+      {
+        "restored": false,
+        "startedAt": "2026-10-28T09:40:28.881Z",
+        "states": [
+          {
+            "at": "2026-10-28T09:40:35.429Z",
+            "state": "stopped",
+            "reason": "hermes_renderer_not_ready"
+          },
+          {
+            "at": "2026-10-28T09:40:37.257Z",
+            "state": "starting",
+            "reason": "hermes_start_requested"
+          },
+          {
+            "at": "2026-10-28T09:40:42.889Z",
+            "state": "api_ready",
+            "reason": "hermes_api_ready"
+          },
+          {
+            "at": "2026-10-28T09:40:47.042Z",
+            "state": "syncing_career_tools",
+            "reason": "career_tool_surface_syncing"
+          },
+          {
+            "at": "2026-10-28T09:40:49.600Z",
+            "state": "ready"
+          }
+        ],
+        "pid": 68776,
+        "credential": {
+          "available": true,
+          "configured": false,
+          "source": "server_env",
+          "reason": "credential_store_not_configured"
+        },
+        "status": {
+          "state": "ready",
+          "runtimeUrl": "http://127.0.0.1:1419",
+          "processReady": true,
+          "apiReady": true,
+          "providerReady": true,
+          "careerMcpReady": true,
+          "lifecycle": [
+            {
+              "at": "2026-10-28T09:40:36.969Z",
+              "message": "Renderer MCP/domain host READY",
+              "state": "stopped",
+              "reasonCode": "renderer_mcp_ready"
+            },
+            {
+              "at": "2026-10-28T09:40:36.970Z",
+              "message": "Hermes desired configuration staged",
+              "state": "stopped"
+            },
+            {
+              "at": "2026-10-28T09:40:36.971Z",
+              "message": "Hermes start requested",
+              "state": "starting",
+              "reasonCode": "hermes_start_requested"
+            },
+            {
+              "at": "2026-10-28T09:40:42.629Z",
+              "message": "Hermes API ready",
+              "state": "api_ready",
+              "reasonCode": "hermes_api_ready"
+            },
+            {
+              "at": "2026-10-28T09:40:46.671Z",
+              "message": "Hermes capability discovery complete",
+              "state": "api_ready"
+            },
+            {
+              "at": "2026-10-28T09:40:46.671Z",
+              "message": "Synchronizing Career tool surface",
+              "state": "syncing_career_tools",
+              "reasonCode": "career_tool_surface_syncing"
+            },
+            {
+              "at": "2026-10-28T09:40:49.083Z",
+              "message": "Hermes READY",
+              "state": "ready"
+            },
+            {
+              "at": "2026-10-28T09:40:49.083Z",
+              "message": "Hermes active configuration verified",
+              "state": "ready"
+            }
+          ]
+        },
+        "probe": {
+          "runtimeUrl": "http://127.0.0.1:1419",
+          "keyConfigured": true,
+          "probes": [
+            {
+              "suffix": "/health",
+              "authenticated": true,
+              "status": 200
+            },
+            {
+              "suffix": "/health",
+              "authenticated": false,
+              "status": 200
+            },
+            {
+              "suffix": "/api/health",
+              "authenticated": true,
+              "status": 404
+            },
+            {
+              "suffix": "/api/health",
+              "authenticated": false,
+              "status": 404
+            }
+          ]
+        },
+        "nextHealth": {
+          "httpStatus": 200,
+          "runtimeUrl": "http://127.0.0.1:1419",
+          "providerStatus": "ready"
+        },
+        "saved": {
+          "ok": true,
+          "applied": "applied"
+        },
+        "exitCode": 0
+      },
+      {
+        "restored": true,
+        "startedAt": "2026-10-28T09:40:50.094Z",
+        "states": [
+          {
+            "at": "2026-10-28T09:40:56.822Z",
+            "state": "stopped",
+            "reason": "hermes_renderer_not_ready"
+          },
+          {
+            "at": "2026-10-28T09:40:58.804Z",
+            "state": "starting",
+            "reason": "hermes_start_requested"
+          },
+          {
+            "at": "2026-10-28T09:41:03.394Z",
+            "state": "api_ready",
+            "reason": "hermes_api_ready"
+          },
+          {
+            "at": "2026-10-28T09:41:07.469Z",
+            "state": "syncing_career_tools",
+            "reason": "career_tool_surface_syncing"
+          },
+          {
+            "at": "2026-10-28T09:41:09.523Z",
+            "state": "degraded",
+            "reason": "hermes_health_check_failed"
+          }
+        ],
+        "pid": 78268,
+        "credential": {
+          "available": true,
+          "configured": true,
+          "source": "secure_store"
+        },
+        "status": {
+          "state": "degraded",
+          "reason": "hermes_health_check_failed",
+          "runtimeUrl": "http://127.0.0.1:1419",
+          "processReady": true,
+          "apiReady": false,
+          "providerReady": false,
+          "careerMcpReady": true,
+          "lifecycle": [
+            {
+              "at": "2026-10-28T09:40:58.293Z",
+              "message": "Renderer MCP/domain host READY",
+              "state": "stopped",
+              "reasonCode": "renderer_mcp_ready"
+            },
+            {
+              "at": "2026-10-28T09:40:58.295Z",
+              "message": "Hermes desired configuration staged",
+              "state": "stopped"
+            },
+            {
+              "at": "2026-10-28T09:40:58.297Z",
+              "message": "Hermes start requested",
+              "state": "starting",
+              "reasonCode": "hermes_start_requested"
+            },
+            {
+              "at": "2026-10-28T09:41:03.043Z",
+              "message": "Hermes API ready",
+              "state": "api_ready",
+              "reasonCode": "hermes_api_ready"
+            },
+            {
+              "at": "2026-10-28T09:41:07.085Z",
+              "message": "Hermes capability discovery complete",
+              "state": "api_ready"
+            },
+            {
+              "at": "2026-10-28T09:41:07.085Z",
+              "message": "Synchronizing Career tool surface",
+              "state": "syncing_career_tools",
+              "reasonCode": "career_tool_surface_syncing"
+            },
+            {
+              "at": "2026-10-28T09:41:09.379Z",
+              "message": "Hermes readiness: hermes_health_check_failed",
+              "state": "degraded",
+              "reasonCode": "hermes_health_check_failed"
+            }
+          ]
+        },
+        "probe": {
+          "runtimeUrl": "http://127.0.0.1:1419",
+          "keyConfigured": true,
+          "probes": [
+            {
+              "suffix": "/health",
+              "authenticated": true,
+              "status": 200
+            },
+            {
+              "suffix": "/health",
+              "authenticated": false,
+              "status": 200
+            },
+            {
+              "suffix": "/api/health",
+              "authenticated": true,
+              "status": 404
+            },
+            {
+              "suffix": "/api/health",
+              "authenticated": false,
+              "status": 404
+            }
+          ]
+        },
+        "nextHealth": {
+          "httpStatus": 503,
+          "reason": "hermes_health_check_failed",
+          "runtimeUrl": "http://127.0.0.1:1419",
+          "providerStatus": "unknown"
+        },
+        "exitCode": 0
+      }
+    ],
+    "status": "FAILED",
+    "failure": "actual product readiness failed; single capture stops here\n+ actual - expected\n\n+ 'degraded'\n- 'ready'\n",
+    "providerRequests": []
+  },
+  "runtimeConclusion": {
+    "issue": "R2-RDY-01",
+    "status": "OPEN",
+    "observed": "Electron direct /health 200; Next aggregate 503 after restore; same runtime URL",
+    "rootCauseProven": false,
+    "postRestoreModelSwitch": "BLOCKED",
+    "postRestoreModelRequest": "BLOCKED"
+  },
+  "hermesIntegration": {
+    "command": "pnpm hermes:integration",
+    "exitCode": 1,
+    "passed": 8,
+    "failed": 1,
+    "failedCase": "CASE I: new JD Host confirmation",
+    "followupCommands": [
+      "node scripts/hermes-integration.mjs integration --grep \"CASE I\""
+    ],
+    "note": "Windows argument joining split the spaced pattern; both followups ran nine tests. New CASE I timed out twice after confirmation; stopped. Latest deterministic unbound/terminal-before-confirmation fix has no successful full real-Hermes rerun."
+  },
+  "realProvider": {
+    "command": "pnpm test:career-agent-real",
+    "launcherExitCode": 0,
+    "status": "BLOCKED",
+    "reason": "credentials absent; launcher SKIP is not certification"
+  },
+  "packaged": "BLOCKED; not built per user scope",
+  "businessE2E": {
+    "status": "PASS",
+    "command": "PLAYWRIGHT_BASE_URL=http://127.0.0.1:3410 pnpm exec playwright test tests/e2e/p51-core-business.spec.ts --workers=1 --output=.tmp/p51-business-results-final",
+    "exitCode": 0,
+    "tests": 1,
+    "testDurationSeconds": 25.7,
+    "durationSeconds": 27.3,
+    "sample": "Confirmed canonical import -> pasted JD -> requirements review/save -> job branch -> grounded field rewrite -> negative clarification -> confirmed Revision -> strict preview -> direct PDF",
+    "externalAi": "Controlled writing HTTP responses; optional semantic Provider explicitly unavailable. Actual domain, Fact Guard, Repository, preview and PDF."
+  },
+  "checks": {
+    "baselineTypecheck": 0,
+    "baselineUnit": {
+      "files": 3,
+      "tests": 43,
+      "exitCode": 0
+    },
+    "relatedUnit": {
+      "files": 15,
+      "tests": 144,
+      "exitCode": 0,
+      "log": ".tmp/p51-final-unit.log"
+    },
+    "bundleCheck": 0,
+    "build": {
+      "command": "$env:CAREERAD_NEXT_DIST_DIR='.tmp/p51-core-final-build'; pnpm build",
+      "exitCode": 0
+    },
+    "finalChecks": "PASS; Next generated files restored to starting HEAD bytes",
+    "lint": {
+      "command": "pnpm lint",
+      "exitCode": 0
+    },
+    "typecheck": {
+      "command": "pnpm typecheck",
+      "exitCode": 0
+    },
+    "diffCheckExitCode": 0,
+    "newFileWhitespaceExitCode": 0,
+    "addedCredentialPatternScanExitCode": 0
+  },
+  "git": "not committed, not pushed; no package; no deletions",
+  "hermesCareerToolFinal": {
+    "command": "node scripts/hermes-integration.mjs integration --grep=CASE.C",
+    "exitCode": 0,
+    "tests": 1,
+    "durationSeconds": 39.9,
+    "provider": {
+      "suite": "integration",
+      "exitCode": 0,
+      "requests": [
+        {
+          "model": "careeradapt-test",
+          "providerAuthorizationMatches": true,
+          "toolNames": [
+            "mcp__careeradapt__career_context_retrieve",
+            "mcp__careeradapt__career_job_list",
+            "mcp__careeradapt__career_profile_get",
+            "mcp__careeradapt__career_resume_list",
+            "mcp__careeradapt__career_workflow_compose_resume",
+            "mcp__careeradapt__career_workflow_job_fit",
+            "mcp__careeradapt__career_workflow_job_intake",
+            "mcp__careeradapt__career_workflow_profile_intake_finalize",
+            "mcp__careeradapt__career_workflow_profile_intake_turn",
+            "mcp__careeradapt__career_workflow_resume_export",
+            "mcp__careeradapt__career_workflow_resume_import",
+            "mcp__careeradapt__career_workflow_tailor_resume",
+            "skill_manage",
+            "skill_view",
+            "skills_list"
+          ]
+        },
+        {
+          "model": "careeradapt-test",
+          "providerAuthorizationMatches": true,
+          "toolNames": [
+            "mcp__careeradapt__career_context_retrieve",
+            "mcp__careeradapt__career_job_list",
+            "mcp__careeradapt__career_profile_get",
+            "mcp__careeradapt__career_resume_list",
+            "mcp__careeradapt__career_workflow_compose_resume",
+            "mcp__careeradapt__career_workflow_job_fit",
+            "mcp__careeradapt__career_workflow_job_intake",
+            "mcp__careeradapt__career_workflow_profile_intake_finalize",
+            "mcp__careeradapt__career_workflow_profile_intake_turn",
+            "mcp__careeradapt__career_workflow_resume_export",
+            "mcp__careeradapt__career_workflow_resume_import",
+            "mcp__careeradapt__career_workflow_tailor_resume",
+            "skill_manage",
+            "skill_view",
+            "skills_list"
+          ]
+        }
+      ]
+    }
+  },
+  "codecRootCause": {
+    "code": "V2 projection metadata out of sync",
+    "symptom": "migrateResumeBranchToV2 rebuilds typed project from body text, drops title, strict render raises missing_project_title",
+    "regressionBeforeExitCode": 1,
+    "regressionAfterExitCode": 0,
+    "fix": "sync final text/typed item source/guard/fact metadata via existing syncStructuredContentItems; typed identity preserved",
+    "thresholdsChanged": false
+  },
+  "pdf": {
+    "path": "artifacts/p51-core/targeted-resume.pdf",
+    "bytes": 47581,
+    "pages": 1,
+    "pageSize": "A4",
+    "contentMatchesFormalRevision": true,
+    "exportRecordVerified": true,
+    "popplerExitCode": 0,
+    "visualInspection": "PASS; no clipping/missing project identity; synthetic sample only"
+  },
+  "remoteMainVerified": "4c0cf96976704bbc5b98f5fd1892663c8a8c2665",
+  "gitStatus": " M docs/P5_STAGE_REPORT.md\n M docs/architecture/CareerAdapt_AI_P5.1_Agent_Architecture_Development_Plan.md\n M docs/architecture/p5.1.1-r2-handoff-20261028.md\n M scripts/hermes-integration.mjs\n M src/agent/runtime/AgentHostStore.ts\n M src/agent/tools/CareerToolGateway.ts\n M src/agent/tools/registry.ts\n M src/agent/workflows/CareerWorkflowFacade.ts\n M src/app/api/agent/runtime/hermes/health/route.ts\n M src/domain/resumeComposition/ResumeCompositionCheckpoint.ts\n M src/domain/resumeComposition/contracts.ts\n M src/services/agent/agentToolService.ts\n M src/services/jobs/tailoringService.ts\n M src/services/storage/repositories.ts\n M tests/e2e/hermes-p46h-integration.spec.ts\n M tests/support/fake-openai-compatible-provider.mjs\n M tests/unit/p45b4-hermes-mcp-closure.test.ts\n M tests/unit/p47a-agent-capability-contract.test.ts\n M tests/unit/repositoryTailoringV2.test.ts\n M tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts\n M tests/unit/v4p2bCandidatePipeline.test.ts\n?? docs/architecture/p5.1-core-01-20261028.md\n?? docs/architecture/p5.1-core-01-evidence-20261028.json\n?? scripts/electron-core-readiness.cjs\n?? tests/e2e/p51-core-business.spec.ts\n?? tests/e2e/support/p51CoreWorkflow.ts\n?? tests/unit/p51-core-workflow.test.ts\n"
+}
