@@ -239,3 +239,51 @@ Next 历史日志只保留了三条 `ai_provider_connection_test_failed {}`，�
 - 修改前 `pnpm typecheck` 退出 **0**；`pnpm exec vitest run tests/unit/electronCredentialStartupR1.test.ts tests/unit/v4p0ProviderCredentialStore.test.ts tests/unit/hermesSupervisor.test.ts tests/unit/v4p0NativeConfigFallback.test.ts` 4 文件 **50 项**、退出 **0**。
 - 最终 `pnpm exec eslint scripts/electron-credential-closure.cjs tests/support/electron-product-closure.cjs --max-warnings=0`、`pnpm typecheck` 和 `git diff --check` 均退出 **0**。只新增诊断/测试与文档，未重跑生产构建或全量门禁。
 - Next 自动修改的 tsconfig.json/next-env.d.ts 已按任务开始字节恢复；原有三项工作区成果保留。plan4/history4 已同步；最终 Git 状态见 Closure JSON。未自动提交、推送或打包，停止于 R1 Closure 的部分验收状态。
+
+## 10. 最终单次定向采集与阶段交接（2026-10-28，情况 A）
+
+基线与远程 main 均核对为 `e07c617fafad06202f68665ccac247f01d5f0f1f`。本轮是用户在历史两轮之后**另行明确授权的一次**定向采集；仅一次脚本调用，没有失败重跑、延长等待或重新执行完整 R1 门禁。
+
+证据：[最终定向采集 JSON](p5.1.0-r1-closure-final-evidence-20261028.json)。历史 Closure 的 round1/round2 原始失败保留，新结果不回填旧轮次。
+
+### 已验证：跨进程凭据恢复 PASS
+
+同一独立 userData 下保存合成 Key，实际产品正常退出；新进程环境中的 AI_API_KEY/HERMES_CUSTOM_CAREERADAPT_API_KEY 为空。新进程 IPC 页面可用后，在任何 READY 等待之前，真实 preload IPC `describeProviderCredential()` 返回：
+
+```json
+{"available":true,"configured":true,"source":"secure_store"}
+```
+
+新进程未捕获 `credential_store_read_failed`，没有启动错误事件，两个产品进程均正常退出码 0。因此按用户给定情况 A，将**跨进程凭据恢复**子项标为通过。结合此前及本次首进程的加密写入、磁盘无明文、配置故意失败仍保留凭据的证据，当前没有证明需修复的凭据存储/恢复产品缺陷。
+
+### 独立问题：Runtime Readiness OPEN（R2-RDY-01）
+
+新进程最终真实 IPC 快照为：
+
+| 字段 | 观测值 |
+|---|---|
+| overallState | degraded |
+| reasonCode（原始 JSON 字段 reason） | hermes_companion_unreachable |
+| providerReady | false |
+| careerMcpReady | true |
+| runtimeConfig.applyStatus | idle |
+
+保留这项真实失败；没有修改 READY 门禁、产品状态或断言。原诊断脚本等待原定 90 秒预算后因 READY 断言失败，**进程退出 1**，不等于凭据恢复子项失败。原因码只能证明当前运行时被判断为不可达，不能进一步断言网络、控制鉴权、进程或服务商的具体根因，更不能当作 Key 丢失或额度不足。
+
+### 未验证项与下一阶段边界
+
+- 恢复后切模型的完整应用、恢复后的模型实际请求：脚本未到达，仍未验证，不宣称通过。
+- 原生产品坏密文启动场景：未到达，不用旧单测代替。
+- 正式 packaged：保持 BLOCKED，未使用旧安装包或 VM 模拟结果替代。
+- 初始进程环境预置合成 Key 以建立 READY；这不是“全部环境凭据为空的首次配置”认证。本轮恢复结论只依据后续空 Key 环境新进程的真实 secure_store IPC 回执。
+- 本轮模拟 Provider 请求不代表 AMD/其他真实 Provider 认证；没有实际远端 429 新测试。
+
+用户已要求准备 P5.1.1/R2；交接见 [R2 准备文档](p5.1.1-r2-handoff-20261028.md)。R2 优先 Agent 错误诊断、工具反馈、配置状态可观测性及失败处理，沿用 Hermes/MCP。凭据恢复的剩余证据缺口已解除；独立 Readiness 问题不能无限期阻塞不依赖真实 READY 的 R2 工作。这里只准备交接，不实施 R2，不重写 Runtime，不增全局重试、队列或限流。
+
+### 本轮修改与检查
+
+`credentialAtIpc` 和 `lastRuntimeStatus` 已先于 READY 断言采集，但旧脚本要等清理结束才写文件。仅修改 `scripts/electron-credential-closure.cjs` 的**证据保存顺序**：原子检查点在取得 IPC/状态后、catch 后和清理前落盘；退出回调补存退出码，排除内存 Promise 字段。没有修改运行场景、等待预算、错误判定或生产代码。
+
+实际唯一命令：PowerShell 设置 `CLOSURE_ROUND=1`、`CLOSURE_EVIDENCE_PATH=.tmp/r1-closure-final-e07c617.json` 后执行 `node scripts/electron-credential-closure.cjs`；退出 **1**（上述独立 READY 失败），证据完整保存。runner 内部旧 baseline 标签仍为 d8c31c3；最终证据外层 codeBaseline 是本轮实际核对的 e07c617，不把旧标签作为运行代码来源。
+
+本轮只运行诊断脚本语法检查、修改脚本 ESLint、typecheck、JSON/引用/秘密扫描与 diff 检查；不重跑全量测试、构建或实际 Electron 诊断。Next 自动修改按起始字节恢复，原有 A03 修改及两份未跟踪文档逐个 SHA-256 核对保留。本轮进程清理结果及最终 Git 状态记录于最终 JSON。没有提交、推送或打包，完成采集与阶段准备后停止。

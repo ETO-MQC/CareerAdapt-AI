@@ -108,7 +108,10 @@ async function send(page: Page, message: string) {
 }
 
 async function resetHermesForCase(page: Page) {
-  const response = await page.request.post("/api/agent/runtime/hermes/control", { data: { action: "restart" } });
+  const response = await page.request.post("/api/agent/runtime/hermes/control", {
+    headers: { Origin: new URL(page.url()).origin },
+    data: { action: "restart" }
+  });
   expect(response.ok()).toBe(true);
   await expect(page.locator(".agent-runtime-status")).toHaveAttribute("aria-label", /AI Runtime Hermes，状态 Ready/u, { timeout: 90_000 });
 }

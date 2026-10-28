@@ -205,12 +205,13 @@
   "closure": {
     "dateLocal": "2026-10-28",
     "evidence": "p5.1.0-r1-closure-evidence-20261028.json",
-    "status": "PARTIAL; restarted runtime degraded; no third diagnostic round",
+    "status": "Credential restoration PASS; Runtime Readiness independent OPEN; model switch unverified; packaged BLOCKED",
     "productionCodeChanged": false,
     "credentialWriteAndApplyAndMockRequestPassedInFirstVerifiedProcess": true,
-    "crossProcessCredentialRestoreIndependentReceiptVerified": false,
+    "crossProcessCredentialRestoreIndependentReceiptVerified": true,
     "modelOnlySwitchAfterRestart": "BLOCKED",
     "corruptCipherActualProduct": "BLOCKED",
-    "packaged": "BLOCKED"
+    "packaged": "BLOCKED",
+    "latestFinalCapture": "p5.1.0-r1-closure-final-evidence-20261028.json"
   }
 }

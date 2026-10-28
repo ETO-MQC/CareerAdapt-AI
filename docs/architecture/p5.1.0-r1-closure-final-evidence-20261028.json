@@ -1,0 +1,184 @@
+{
+  "dateLocal": "2026-10-28",
+  "codeBaseline": "e07c617fafad06202f68665ccac247f01d5f0f1f",
+  "remoteMainVerified": "e07c617fafad06202f68665ccac247f01d5f0f1f",
+  "case": "A",
+  "scope": "One authorized directed capture invocation, no retries or production changes",
+  "invocation": {
+    "command": "$env:CLOSURE_ROUND='1'; $env:CLOSURE_EVIDENCE_PATH='.tmp/r1-closure-final-e07c617.json'; node scripts/electron-credential-closure.cjs",
+    "count": 1,
+    "exitCode": 1,
+    "note": "Existing full-script READY assertion failed; credential capture remains valid and is not rewritten as overall success."
+  },
+  "credentialRestoration": {
+    "status": "PASS",
+    "channel": "actual Electron preload IPC describeProviderCredential before READY wait",
+    "available": true,
+    "configured": true,
+    "source": "secure_store",
+    "credentialStoreReadFailedObserved": false,
+    "sameIsolatedProfileAcrossTwoProcesses": true,
+    "restoredLaunchProviderKeysInEnvironment": "AI_API_KEY and HERMES_CUSTOM_CAREERADAPT_API_KEY were blank",
+    "normalProcessExitCodes": [
+      0,
+      0
+    ]
+  },
+  "runtimeReadiness": {
+    "status": "OPEN independent issue R2-RDY-01",
+    "state": "degraded",
+    "reason": "hermes_companion_unreachable",
+    "providerReady": false,
+    "careerMcpReady": true,
+    "applyStatus": "idle",
+    "reasonCode": "hermes_companion_unreachable",
+    "note": "This code does not identify the underlying network/control/process root cause or imply missing credentials."
+  },
+  "remaining": {
+    "postRestoreModelSwitch": "NOT VERIFIED; original READY gate stopped before this step",
+    "postRestoreModelRequest": "NOT VERIFIED",
+    "corruptCipherActualProduct": "NOT VERIFIED; not reached",
+    "packaged": "BLOCKED; no new package tested"
+  },
+  "productDefectAssessment": {
+    "credentialPersistenceDefectProven": false,
+    "readinessFailureObserved": true,
+    "readinessRootCauseProven": false,
+    "productionFixApplied": false
+  },
+  "handoff": {
+    "R2Preparation": "documented only; no implementation",
+    "credentialRestorationIsBlockingR2": false,
+    "readinessDoesNotBlockIndependentDiagnosticsAndFeedbackWork": true,
+    "forbidden": "No Runtime rewrite, global retry, request queue, rate limiter, commit, push or packaging"
+  },
+  "rawCapture": {
+    "baseline": "d8c31c3",
+    "kind": "actual Electron development product + real IPC + synthetic Provider",
+    "attempts": 1,
+    "verificationHypothesis": "Await IPC status in Node polling; async waitForFunction predicates can resolve false without waiting. Use normal window shutdown and check process exit plus Local State.",
+    "phases": [
+      {
+        "restoredLaunch": false,
+        "corruptLaunch": false,
+        "events": [
+          {
+            "closureEvent": "ready",
+            "electron": "43.2.0",
+            "sessionDataMatchesUserData": true
+          }
+        ],
+        "pid": 71260,
+        "credentialAtIpc": {
+          "available": true,
+          "configured": false,
+          "source": "server_env",
+          "reason": "credential_store_not_configured"
+        },
+        "lastRuntimeStatus": {
+          "state": "ready",
+          "providerReady": true,
+          "careerMcpReady": true,
+          "applyStatus": "applied"
+        },
+        "rendererAndRuntimeReady": true,
+        "beforeSave": {
+          "available": true,
+          "configured": false,
+          "source": "server_env",
+          "reason": "credential_store_not_configured"
+        },
+        "save": {
+          "credentialWriteOk": true,
+          "credentialConfigured": true,
+          "credentialSource": "secure_store",
+          "configurationOk": true,
+          "applyStatus": "applied",
+          "verified": true,
+          "restartPerformed": false
+        },
+        "encryptedAtRest": true,
+        "modelRequest": {
+          "localHttpStatus": 200,
+          "ok": true,
+          "model": "closure-model",
+          "credentialSource": "secure_store"
+        },
+        "failedConfigurationWrite": {
+          "credentialWriteOk": true,
+          "credentialConfigured": true,
+          "credentialSource": "secure_store",
+          "configurationOk": false,
+          "applyStatus": "failed",
+          "verified": false,
+          "restartPerformed": false,
+          "reason": "provider_base_url_invalid"
+        },
+        "afterFailedApply": {
+          "available": true,
+          "configured": true,
+          "source": "secure_store"
+        },
+        "exitCode": 0,
+        "signal": null,
+        "localStateOnDisk": true
+      },
+      {
+        "restoredLaunch": true,
+        "corruptLaunch": false,
+        "events": [
+          {
+            "closureEvent": "ready",
+            "electron": "43.2.0",
+            "sessionDataMatchesUserData": true
+          }
+        ],
+        "pid": 67044,
+        "credentialAtIpc": {
+          "available": true,
+          "configured": true,
+          "source": "secure_store"
+        },
+        "lastRuntimeStatus": {
+          "state": "degraded",
+          "reason": "hermes_companion_unreachable",
+          "providerReady": false,
+          "careerMcpReady": true,
+          "applyStatus": "idle"
+        },
+        "exitCode": 0,
+        "signal": null
+      }
+    ],
+    "requests": [
+      {
+        "model": "closure-model",
+        "path": "/v1/chat/completions",
+        "authenticated": true,
+        "status": 200
+      }
+    ],
+    "packaged": "BLOCKED; no new package built",
+    "status": "BLOCKED_OR_FAILED",
+    "failure": "actual awaited product READY not reached\n+ actual - expected\n\n+ 'degraded'\n- 'ready'\n",
+    "remainingTestPid": 67044
+  },
+  "rawRunnerBaselineLabelNote": "rawCapture.baseline is a legacy hardcoded runner label; codeBaseline above is the verified actual HEAD.",
+  "checks": {
+    "nodeSyntaxExitCode": 0,
+    "changedScriptLintExitCode": 0,
+    "typecheckExitCode": 0,
+    "diffCheckExitCode": 0,
+    "preexistingThreeFilesHashPreserved": true,
+    "nextGeneratedFilesRestored": true
+  },
+  "cleanup": {
+    "allObservedProductProcessExitCodes": [
+      0,
+      0
+    ],
+    "noRemainingObservedElectronOrDirectChildProcesses": true,
+    "rawRemainingPidWasRecordedBeforeCleanup": true
+  },
+  "finalGitStatus": "M docs/architecture/api429-hermes-diagnosis-20261028.md\n M docs/architecture/p5.1.0-r1-closure-evidence-20261028.json\n M docs/architecture/p5.1.0-r1-evidence-20261028.json\n M scripts/electron-credential-closure.cjs\n M tests/e2e/hermes-p46h-integration.spec.ts\n?? docs/architecture/CareerAdapt_AI_P5.1_Agent_Architecture_Development_Plan.md\n?? docs/architecture/p5.1-baseline-audit.md\n?? docs/architecture/p5.1.0-r1-closure-final-evidence-20261028.json\n?? docs/architecture/p5.1.1-r2-handoff-20261028.md"
+}

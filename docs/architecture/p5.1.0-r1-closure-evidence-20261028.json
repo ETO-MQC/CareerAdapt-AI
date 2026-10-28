@@ -1,7 +1,7 @@
 {
   "dateLocal": "2026-10-28",
   "baseline": "d8c31c34d00002cdbd1a81c60a58b577a783e4dd",
-  "status": "PARTIAL; BLOCKED on restored product runtime readiness",
+  "status": "Cross-process credential restoration PASS; Runtime Readiness OPEN independently; post-restore model switch unverified; packaged BLOCKED",
   "budget": {
     "diagnosticRounds": 1,
     "hypothesisVerifications": 1,
@@ -145,10 +145,10 @@
     "successfulAuthenticatedMockProviderRequest": true,
     "invalidConfigurationPreservesStoredCredential": true,
     "firstProductNormalExitCode": 0,
-    "localStateFlushed": true
+    "localStateFlushed": true,
+    "crossProcessCredentialRestorationByNativeIpc": true
   },
   "notCompleted": {
-    "restoredCredentialIndependentIpcReceipt": "Not captured: original runner waited for Hermes READY before collecting storage status; no retrospective pass.",
     "modelOnlySwitchAfterRelaunch": "Not reached because restored runtime stayed degraded within 90 seconds.",
     "corruptCipherProductStartup": "Not reached; existing store tests are not substituted for this scenario.",
     "packaged": "BLOCKED; no newly built package tested."
@@ -156,7 +156,7 @@
   "blockingEvidence": {
     "restoredProductHttpWindowAndStatusIpcReached": true,
     "finalRuntimeState": "degraded",
-    "specificReasonCode": "not captured in executed runner; do not infer Provider/key/MCP cause",
+    "specificReasonCode": "Final capture: hermes_companion_unreachable; providerReady=false; careerMcpReady=true; applyStatus=idle",
     "runtimeLog": "Second Hermes API Server health check passed, so a failed READY is not evidence of failed credential decryption.",
     "credentialStoreReadFailed": "Not reproduced as a startup error during normal relaunch; independent restore confirmation still incomplete."
   },
@@ -183,5 +183,32 @@
     "profilesRetained": true,
     "noForcedExitUsedAsNormalExitEvidence": true
   },
-  "finalGitStatus": "M docs/architecture/api429-hermes-diagnosis-20261028.md\n M docs/architecture/p5.1.0-r1-evidence-20261028.json\n M tests/e2e/hermes-p46h-integration.spec.ts\n?? docs/architecture/CareerAdapt_AI_P5.1_Agent_Architecture_Development_Plan.md\n?? docs/architecture/p5.1-baseline-audit.md\n?? docs/architecture/p5.1.0-r1-closure-evidence-20261028.json\n?? scripts/electron-credential-closure.cjs\n?? tests/support/electron-product-closure.cjs"
+  "finalGitStatus": "M docs/architecture/api429-hermes-diagnosis-20261028.md\n M docs/architecture/p5.1.0-r1-evidence-20261028.json\n M tests/e2e/hermes-p46h-integration.spec.ts\n?? docs/architecture/CareerAdapt_AI_P5.1_Agent_Architecture_Development_Plan.md\n?? docs/architecture/p5.1-baseline-audit.md\n?? docs/architecture/p5.1.0-r1-closure-evidence-20261028.json\n?? scripts/electron-credential-closure.cjs\n?? tests/support/electron-product-closure.cjs",
+  "historicalNotCompleted": {
+    "restoredCredentialIndependentIpcReceipt": "Not captured: original runner waited for Hermes READY before collecting storage status; no retrospective pass.",
+    "modelOnlySwitchAfterRelaunch": "Not reached because restored runtime stayed degraded within 90 seconds.",
+    "corruptCipherProductStartup": "Not reached; existing store tests are not substituted for this scenario.",
+    "packaged": "BLOCKED; no newly built package tested."
+  },
+  "historicalBlockingEvidence": {
+    "restoredProductHttpWindowAndStatusIpcReached": true,
+    "finalRuntimeState": "degraded",
+    "specificReasonCode": "not captured in executed runner; do not infer Provider/key/MCP cause",
+    "runtimeLog": "Second Hermes API Server health check passed, so a failed READY is not evidence of failed credential decryption.",
+    "credentialStoreReadFailed": "Not reproduced as a startup error during normal relaunch; independent restore confirmation still incomplete."
+  },
+  "latestFinalCapture": {
+    "evidence": "p5.1.0-r1-closure-final-evidence-20261028.json",
+    "case": "A",
+    "codeBaseline": "e07c617fafad06202f68665ccac247f01d5f0f1f",
+    "invocations": 1,
+    "credentialRestoration": "PASS",
+    "available": true,
+    "configured": true,
+    "source": "secure_store",
+    "credentialStoreReadFailedObserved": false,
+    "runtimeReadiness": "Independent OPEN issue R2-RDY-01",
+    "diagnosticExitCode": 1,
+    "R2Preparation": "p5.1.1-r2-handoff-20261028.md; preparation only"
+  }
 }

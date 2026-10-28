@@ -20,6 +20,12 @@ let child;
 let browser;
 let provider;
 
+function saveEvidence() {
+  const content = JSON.stringify(evidence, (name, value) => name === "exited" ? undefined : value, 2);
+  fs.writeFileSync(`${evidencePath}.pending`, content);
+  fs.renameSync(`${evidencePath}.pending`, evidencePath);
+}
+
 function timeout(promise, ms, label) {
   let timer;
   return Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(label)), ms); })]).finally(() => clearTimeout(timer));
@@ -76,10 +82,11 @@ async function main() {
     delete env.ELECTRON_RUN_AS_NODE;
     const phase = { restoredLaunch: restore, corruptLaunch: corrupt, events: [] };
     evidence.phases.push(phase);
+    saveEvidence();
     child = spawn(require("electron"), [`--remote-debugging-port=${debugPort}`, path.join(root, "tests/support/electron-product-closure.cjs")], { cwd: root, env, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
     const processHandle = child;
     phase.pid = processHandle.pid;
-    phase.exited = new Promise(resolve => processHandle.once("exit", (code, signal) => { phase.exitCode = code; phase.signal = signal; resolve(); }));
+    phase.exited = new Promise(resolve => processHandle.once("exit", (code, signal) => { phase.exitCode = code; phase.signal = signal; saveEvidence(); resolve(); }));
     const consume = stream => {
       let pending = "";
       stream.on("data", chunk => {
@@ -89,6 +96,7 @@ async function main() {
           if (line.startsWith('{"closureEvent"')) phase.events.push(JSON.parse(line));
           if (/credential_store_read_failed|hermes_renderer_not_ready|careeradapt_app_not_ready/u.test(line)) phase.safeStartupReason = line.includes("credential_store_read_failed") ? "credential_store_read_failed" : line.includes("hermes_renderer_not_ready") ? "hermes_renderer_not_ready" : "careeradapt_app_not_ready";
         }
+        saveEvidence();
       });
     };
     consume(child.stdout); consume(child.stderr);
@@ -114,11 +122,13 @@ async function main() {
     await connected.waitForFunction(() => Boolean(window.careerAdaptDesktop), null, { timeout: 15_000 });
     // Capture storage independently, even when runtime readiness later blocks the scenario.
     phase.credentialAtIpc = await connected.evaluate(() => window.careerAdaptDesktop.describeProviderCredential());
+    saveEvidence();
     const readyDeadline = Date.now() + 90_000;
     let status;
     while (Date.now() < readyDeadline) {
       status = await connected.evaluate(() => window.careerAdaptDesktop.getHermesStatus());
       phase.lastRuntimeStatus = { state: status?.overallState, reason: status?.reasonCode, providerReady: status?.providerReady, careerMcpReady: status?.careerMcpReady, applyStatus: status?.runtimeConfig?.applyStatus };
+      saveEvidence();
       if (status?.overallState === "ready") break;
       await new Promise(resolve => setTimeout(resolve, 250));
     }
@@ -133,6 +143,7 @@ async function main() {
     await timeout(phase.exited, 25_000, "normal product exit did not complete");
     assert.equal(phase.exitCode, 0);
     phase.localStateOnDisk = fs.existsSync(path.join(profile, "Local State"));
+    saveEvidence();
     assert.equal(phase.localStateOnDisk, true);
     delete phase.exited;
     browser = undefined; child = undefined;
@@ -152,17 +163,20 @@ async function main() {
   assert.equal(phase.beforeSave.configured, false);
   const saved = await page.evaluate(({ key, baseUrl }) => window.careerAdaptDesktop.setProviderCredential({ apiKey: key, provider: "openai-compatible", baseUrl, model: "closure-model" }), { key, baseUrl });
   phase.save = receipt(saved);
+  saveEvidence();
   assert.equal(saved.ok, true); assert.equal(saved.control.ok, true);
   assert.equal(saved.control.receipt.applyStatus, "applied");
   phase.encryptedAtRest = !fs.readFileSync(path.join(profile, "provider-credentials.json"), "utf8").includes(key);
   assert.equal(phase.encryptedAtRest, true);
   phase.modelRequest = await requestModel(page, "closure-model");
+  saveEvidence();
 
   const rejected = await page.evaluate(key => window.careerAdaptDesktop.setProviderCredential({ apiKey: key, provider: "openai-compatible", baseUrl: "invalid-url", model: "closure-model" }), key);
   phase.failedConfigurationWrite = receipt(rejected);
   assert.equal(rejected.ok, true); assert.equal(rejected.control.ok, false);
   assert.equal(rejected.control.receipt.applyStatus, "failed");
   phase.afterFailedApply = await page.evaluate(() => window.careerAdaptDesktop.describeProviderCredential());
+  saveEvidence();
   assert.equal(phase.afterFailedApply.configured, true);
   // Explicitly restore valid coordinates after the deliberate validation failure.
   const valid = await page.evaluate(baseUrl => window.careerAdaptDesktop.updateHermesConfig({ provider: "openai-compatible", baseUrl, model: "closure-model", apiKey: "", credentialAction: "unchanged" }), baseUrl);
@@ -171,6 +185,7 @@ async function main() {
 
   ({ page, phase } = await launch(true));
   phase.recoveredCredential = await page.evaluate(() => window.careerAdaptDesktop.describeProviderCredential());
+  saveEvidence();
   assert.equal(phase.recoveredCredential.configured, true);
   assert.equal(phase.recoveredCredential.source, "secure_store");
   phase.modelRequest = await requestModel(page, "closure-model");
@@ -195,9 +210,11 @@ main().catch(error => {
   evidence.status = "BLOCKED_OR_FAILED";
   evidence.failure = String(error.message).split(key).join("[redacted]").replace(/Bearer\s+\S+/giu, "Bearer [redacted]").slice(0, 1200);
   process.exitCode = 1;
+  saveEvidence();
 }).finally(async () => {
   // Never turn a stuck exit into normal-exit evidence. No forced process termination here.
   if (child?.exitCode === null) evidence.remainingTestPid = child.pid;
+  saveEvidence();
   if (browser) {
     const productPage = browser.contexts().flatMap(context => context.pages()).find(page => page.url().startsWith("http://127.0.0.1:"));
     if (productPage) await productPage.evaluate(() => window.close()).catch(() => undefined);
@@ -207,6 +224,6 @@ main().catch(error => {
   }
   if (provider) { provider.closeAllConnections(); await new Promise(resolve => provider.close(resolve)); }
   for (const phase of evidence.phases) delete phase.exited;
-  fs.writeFileSync(evidencePath, JSON.stringify(evidence, null, 2));
+  saveEvidence();
   console.log(JSON.stringify(evidence, null, 2));
 });
