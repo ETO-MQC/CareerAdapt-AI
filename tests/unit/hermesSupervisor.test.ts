@@ -204,6 +204,19 @@ function createHarness(initialHealth = createHealth(), options: Record<string, u
 }
 
 describe("Hermes Supervisor lifecycle", () => {
+  it("keeps restored secure-store provenance in the active configuration and health diagnostic", async () => {
+    const diagnostic = { credentialConfigured: true, credentialSource: "secure_store" };
+    const harness = createHarness(createHealth({ providerDiagnostic: diagnostic }), {
+      environment: {
+        HERMES_RUNTIME_URL: "http://127.0.0.1:18642", API_SERVER_KEY: "local-test-secret",
+        AI_BASE_URL: "https://provider.example/v1", AI_MODEL: "mimo-v2.5-pro",
+        HERMES_CUSTOM_CAREERADAPT_API_KEY: "initial-secret", CAREERADAPT_CREDENTIAL_SOURCE: "secure_store"
+      }
+    });
+    const ready = await harness.supervisor.rendererHostReady();
+    expect(ready).toMatchObject({ overallState: "ready", credentialSource: "secure_store",
+      providerDiagnostic: diagnostic, runtimeConfig: { active: { credentialSource: "secure_store" } } });
+  });
   it("does not launch before renderer MCP READY and reaches Ready once", async () => {
     const harness = createHarness();
     const beforeReady = await harness.supervisor.start();

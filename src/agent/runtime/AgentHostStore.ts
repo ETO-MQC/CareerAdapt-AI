@@ -11622,7 +11622,7 @@ function runtimeArtifactResultData(stableName: string, value: unknown) {
 function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, value: unknown): AgentSession {
   if (toolName === "career.workflow.job_intake" && !session.taskState) {
     const reducer = new AgentTaskStateReducer();
-    const task = reducer.reduce(reducer.create(session), {
+    const task = reducer.reduce(reducer.create(session, "job_ingestion", { workflowId: "job_ingestion", step: "parse_job" }), {
       type: "new_root_task", goal: "job_ingestion", workflowId: "job_ingestion", stage: "parse_job"
     });
     session = projectTaskStateIntoSession(session, task);

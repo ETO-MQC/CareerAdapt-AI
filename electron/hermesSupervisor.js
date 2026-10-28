@@ -1618,7 +1618,7 @@ function configurationValue(environment, configFingerprint, configGeneration, so
     credentialSource: credentialSourceOverride || (source === "managed_config" && apiKey
       ? "managed_config"
       : apiKey
-        ? "server_env"
+        ? environment.CAREERADAPT_CREDENTIAL_SOURCE === "secure_store" ? "secure_store" : "server_env"
         : "missing"),
     configFingerprint,
     configGeneration,
@@ -1825,7 +1825,7 @@ function normalizeRunState(value) {
 
 function safeProviderDiagnostic(value) {
   const record = asRecord(value);
-  const credentialSource = ["server_env", "managed_config", "custom_header", "default", "missing", "unknown"].includes(record.credentialSource)
+  const credentialSource = ["server_env", "secure_store", "managed_config", "custom_header", "default", "missing", "unknown"].includes(record.credentialSource)
     ? record.credentialSource
     : undefined;
   if (typeof record.credentialConfigured !== "boolean" && !credentialSource && typeof record.safeErrorCode !== "string") return undefined;

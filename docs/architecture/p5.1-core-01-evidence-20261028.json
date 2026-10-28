@@ -399,5 +399,1276 @@
     "visualInspection": "PASS; no clipping/missing project identity; synthetic sample only"
   },
   "remoteMainVerified": "4c0cf96976704bbc5b98f5fd1892663c8a8c2665",
-  "gitStatus": " M docs/P5_STAGE_REPORT.md\n M docs/architecture/CareerAdapt_AI_P5.1_Agent_Architecture_Development_Plan.md\n M docs/architecture/p5.1.1-r2-handoff-20261028.md\n M scripts/hermes-integration.mjs\n M src/agent/runtime/AgentHostStore.ts\n M src/agent/tools/CareerToolGateway.ts\n M src/agent/tools/registry.ts\n M src/agent/workflows/CareerWorkflowFacade.ts\n M src/app/api/agent/runtime/hermes/health/route.ts\n M src/domain/resumeComposition/ResumeCompositionCheckpoint.ts\n M src/domain/resumeComposition/contracts.ts\n M src/services/agent/agentToolService.ts\n M src/services/jobs/tailoringService.ts\n M src/services/storage/repositories.ts\n M tests/e2e/hermes-p46h-integration.spec.ts\n M tests/support/fake-openai-compatible-provider.mjs\n M tests/unit/p45b4-hermes-mcp-closure.test.ts\n M tests/unit/p47a-agent-capability-contract.test.ts\n M tests/unit/repositoryTailoringV2.test.ts\n M tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts\n M tests/unit/v4p2bCandidatePipeline.test.ts\n?? docs/architecture/p5.1-core-01-20261028.md\n?? docs/architecture/p5.1-core-01-evidence-20261028.json\n?? scripts/electron-core-readiness.cjs\n?? tests/e2e/p51-core-business.spec.ts\n?? tests/e2e/support/p51CoreWorkflow.ts\n?? tests/unit/p51-core-workflow.test.ts\n"
+  "gitStatus": " M docs/P5_STAGE_REPORT.md\n M docs/architecture/CareerAdapt_AI_P5.1_Agent_Architecture_Development_Plan.md\n M docs/architecture/p5.1.1-r2-handoff-20261028.md\n M scripts/hermes-integration.mjs\n M src/agent/runtime/AgentHostStore.ts\n M src/agent/tools/CareerToolGateway.ts\n M src/agent/tools/registry.ts\n M src/agent/workflows/CareerWorkflowFacade.ts\n M src/app/api/agent/runtime/hermes/health/route.ts\n M src/domain/resumeComposition/ResumeCompositionCheckpoint.ts\n M src/domain/resumeComposition/contracts.ts\n M src/services/agent/agentToolService.ts\n M src/services/jobs/tailoringService.ts\n M src/services/storage/repositories.ts\n M tests/e2e/hermes-p46h-integration.spec.ts\n M tests/support/fake-openai-compatible-provider.mjs\n M tests/unit/p45b4-hermes-mcp-closure.test.ts\n M tests/unit/p47a-agent-capability-contract.test.ts\n M tests/unit/repositoryTailoringV2.test.ts\n M tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts\n M tests/unit/v4p2bCandidatePipeline.test.ts\n?? docs/architecture/p5.1-core-01-20261028.md\n?? docs/architecture/p5.1-core-01-evidence-20261028.json\n?? scripts/electron-core-readiness.cjs\n?? tests/e2e/p51-core-business.spec.ts\n?? tests/e2e/support/p51CoreWorkflow.ts\n?? tests/unit/p51-core-workflow.test.ts\n",
+  "closeoutRounds": [
+    {
+      "dateLocal": "2026-10-28",
+      "task": "P5.1-Core-01-CLOSEOUT",
+      "baseline": "9bd0d80c51479f300718cbdbf2da100e0bcb7165",
+      "remoteMainVerified": "9bd0d80c51479f300718cbdbf2da100e0bcb7165",
+      "initialWorktree": "clean",
+      "status": "PARTIAL_NOT_FROZEN",
+      "userObservation": "Web latency tests currently normal without 429, per user; not Electron/real Provider certification.",
+      "caseI": {
+        "firstCommand": "node scripts/hermes-integration.mjs integration --grep=CASE.I --output=.tmp/closeout-case-i-results",
+        "firstExitCode": 1,
+        "actualTests": 1,
+        "rootCause": "Conversation session lacks workflowState/taskState. Confirmed Repository save succeeds but applyRuntimeFacadeCheckpoint calls reducer.create without initial workflow and throws agent_task_state_requires_workflow. Previous unit precreated workflow session.",
+        "failureSafeEvents": [
+          {
+            "action": "run_start",
+            "httpStatus": 200,
+            "sessionId": "hermes-agent-session-dxE5vFrSJfZA",
+            "turnId": "runtime-turn-354e01cb-16cb-4dca-aaa6-7a6065b36f83",
+            "response": {}
+          },
+          {
+            "action": "run_events",
+            "httpStatus": 200,
+            "runId": "run_f4930646e0584ce2890fa4629845ee45"
+          }
+        ],
+        "regressionBefore": {
+          "exitCode": 1,
+          "failed": 1,
+          "passed": 11
+        },
+        "regressionAfter": {
+          "exitCode": 0,
+          "tests": 12
+        },
+        "recheckCommand": "node scripts/hermes-integration.mjs integration --grep=CASE.I --output=.tmp/closeout-case-i-recheck-results",
+        "recheckExitCode": 0,
+        "tests": 1,
+        "durationSeconds": 51.7,
+        "providerSummary": {
+          "suite": "integration",
+          "exitCode": 0,
+          "requestCount": 2,
+          "models": [
+            "careeradapt-test",
+            "careeradapt-test"
+          ],
+          "allProviderAuthorizationMatches": true,
+          "toolSurface": [
+            "mcp__careeradapt__career_context_retrieve",
+            "mcp__careeradapt__career_job_list",
+            "mcp__careeradapt__career_profile_get",
+            "mcp__careeradapt__career_resume_list",
+            "mcp__careeradapt__career_workflow_compose_resume",
+            "mcp__careeradapt__career_workflow_job_fit",
+            "mcp__careeradapt__career_workflow_job_intake",
+            "mcp__careeradapt__career_workflow_profile_intake_finalize",
+            "mcp__careeradapt__career_workflow_profile_intake_turn",
+            "mcp__careeradapt__career_workflow_resume_export",
+            "mcp__careeradapt__career_workflow_resume_import",
+            "mcp__careeradapt__career_workflow_tailor_resume",
+            "skill_manage",
+            "skill_view",
+            "skills_list"
+          ],
+          "fullSafeLocalEvidence": ".tmp/closeout-case-i-provider-summary.json"
+        },
+        "continuationBoundary": "Existing CASE I verifies one Hermes Run returning pending confirmation, Host confirmed save and completion, then actual business UI/PDF. It does not prove the terminal Hermes Run receives the confirmed save result and autonomously continues. No assertion weakened. Successful in-memory attachment was not retained by line reporter as standalone file; no successful per-event transcript claimed."
+      },
+      "fullIntegration": {
+        "command": "pnpm hermes:integration",
+        "exitCode": 0,
+        "tests": 9,
+        "passed": 9,
+        "durationReported": "3.4m",
+        "log": ".tmp/closeout-full-integration-run.log",
+        "providerSummary": {
+          "suite": "integration",
+          "exitCode": 0,
+          "requestCount": 16,
+          "models": [
+            "careeradapt-test",
+            "careeradapt-test",
+            "careeradapt-test",
+            "careeradapt-test",
+            "careeradapt-test",
+            "careeradapt-test",
+            "careeradapt-test",
+            "careeradapt-test",
+            "careeradapt-test",
+            "careeradapt-test",
+            "careeradapt-test",
+            "careeradapt-test",
+            "careeradapt-test",
+            "careeradapt-test",
+            "careeradapt-test",
+            "careeradapt-test"
+          ],
+          "allProviderAuthorizationMatches": true,
+          "toolSurface": [
+            "mcp__careeradapt__career_context_retrieve",
+            "mcp__careeradapt__career_job_list",
+            "mcp__careeradapt__career_profile_get",
+            "mcp__careeradapt__career_resume_list",
+            "mcp__careeradapt__career_workflow_compose_resume",
+            "mcp__careeradapt__career_workflow_job_fit",
+            "mcp__careeradapt__career_workflow_job_intake",
+            "mcp__careeradapt__career_workflow_profile_intake_finalize",
+            "mcp__careeradapt__career_workflow_profile_intake_turn",
+            "mcp__careeradapt__career_workflow_resume_export",
+            "mcp__careeradapt__career_workflow_resume_import",
+            "mcp__careeradapt__career_workflow_tailor_resume",
+            "skill_manage",
+            "skill_view",
+            "skills_list"
+          ],
+          "fullSafeLocalEvidence": ".tmp/closeout-full-provider-summary.json"
+        },
+        "launcherOnlyFailure": {
+          "command": "pnpm hermes:integration --output=.tmp/closeout-full-results",
+          "exitCode": 1,
+          "testsExecuted": 0,
+          "reason": "Argument parsed as suite; corrected command then ran suite once."
+        }
+      },
+      "readiness": {
+        "issue": "R2-RDY-01",
+        "status": "FIXED_AND_REGRESSION_VERIFIED_WITH_SIMULATED_PROVIDER",
+        "rootCause": "RuntimeHealthSchema.providerDiagnostic.credentialSource omitted secure_store while effectiveConfiguration and HermesHealthSchema accepted it. withRuntimeHealth threw ZodError; catch presented generic Companion health failure.",
+        "diagnosticCommand": "node scripts/electron-core-readiness.cjs",
+        "diagnosticExitCode": 1,
+        "diagnostic": {
+          "baseline": "9bd0d80c51479f300718cbdbf2da100e0bcb7165",
+          "provider": "simulated",
+          "phases": [
+            {
+              "restored": false,
+              "startedAt": "2026-10-28T14:09:03.134Z",
+              "states": [
+                {
+                  "at": "2026-10-28T14:09:09.989Z",
+                  "state": "stopped",
+                  "reason": "hermes_renderer_not_ready"
+                },
+                {
+                  "at": "2026-10-28T14:09:11.967Z",
+                  "state": "starting",
+                  "reason": "hermes_start_requested"
+                },
+                {
+                  "at": "2026-10-28T14:09:16.062Z",
+                  "state": "api_ready",
+                  "reason": "hermes_api_ready"
+                },
+                {
+                  "at": "2026-10-28T14:09:20.138Z",
+                  "state": "syncing_career_tools",
+                  "reason": "career_tool_surface_syncing"
+                },
+                {
+                  "at": "2026-10-28T14:09:22.694Z",
+                  "state": "ready"
+                }
+              ],
+              "pid": 55332,
+              "credential": {
+                "available": true,
+                "configured": false,
+                "source": "server_env",
+                "reason": "credential_store_not_configured"
+              },
+              "capturedAt": "2026-10-28T14:09:22.695Z",
+              "status": {
+                "state": "ready",
+                "runtimeUrl": "http://127.0.0.1:23345",
+                "processReady": true,
+                "apiReady": true,
+                "providerReady": true,
+                "careerMcpReady": true,
+                "toolSurfaceReady": true,
+                "runReady": true,
+                "runtimeConfig": {
+                  "active": {
+                    "provider": "custom:careeradapt",
+                    "baseUrl": "http://127.0.0.1:23343/v1",
+                    "baseUrlHostPath": "127.0.0.1:23343/v1",
+                    "model": "careeradapt-test",
+                    "credentialConfigured": true,
+                    "credentialSource": "server_env",
+                    "configFingerprint": "0a0332676ba879c73fed36eadd30824ec6fccf8d54ebd5c689621e731e38cad5",
+                    "configGeneration": 1,
+                    "source": "runtime_readback",
+                    "lastAppliedAt": "2026-10-28T14:09:22.226Z"
+                  },
+                  "desired": {
+                    "provider": "custom:careeradapt",
+                    "baseUrl": "http://127.0.0.1:23343/v1",
+                    "baseUrlHostPath": "127.0.0.1:23343/v1",
+                    "model": "careeradapt-test",
+                    "credentialConfigured": true,
+                    "credentialSource": "server_env",
+                    "configFingerprint": "0a0332676ba879c73fed36eadd30824ec6fccf8d54ebd5c689621e731e38cad5",
+                    "configGeneration": 1,
+                    "source": "environment"
+                  },
+                  "activeFingerprint": "0a0332676ba879c73fed36eadd30824ec6fccf8d54ebd5c689621e731e38cad5",
+                  "activeGeneration": 1,
+                  "desiredFingerprint": "0a0332676ba879c73fed36eadd30824ec6fccf8d54ebd5c689621e731e38cad5",
+                  "desiredGeneration": 1,
+                  "applyStatus": "applied",
+                  "restartPerformed": false,
+                  "verified": true,
+                  "rollbackOccurred": false,
+                  "updatedAt": "2026-10-28T14:09:22.226Z"
+                },
+                "health": {
+                  "runtimeAvailable": true,
+                  "companionReady": true,
+                  "providerConfigured": true,
+                  "providerReachable": true,
+                  "providerReady": true,
+                  "providerStatus": "ready",
+                  "mcpConnected": true,
+                  "browserCareerDomainHostConnected": true,
+                  "careerMcpServerReachable": true,
+                  "hermesMcpRegistered": true,
+                  "hermesMcpToolCount": 12,
+                  "hermesCareerFacadeCount": 8,
+                  "careerToolContractReady": true,
+                  "careerToolContractVersion": "career-tool-contract-v4",
+                  "runReady": true,
+                  "lastCheckedAt": "2026-10-28T14:09:22.221Z",
+                  "providerDiagnostic": {
+                    "provider": "custom:careeradapt",
+                    "model": "careeradapt-test",
+                    "credentialConfigured": true,
+                    "credentialSource": "server_env",
+                    "configFingerprint": "0a0332676ba879c73fed36eadd30824ec6fccf8d54ebd5c689621e731e38cad5",
+                    "configGeneration": 1,
+                    "lastCheckedAt": "2026-10-28T14:09:20.101Z",
+                    "lastHttpStatus": 200
+                  },
+                  "requiredCareerFacadesMissing": [],
+                  "careerToolContractMismatches": []
+                },
+                "lifecycle": [
+                  {
+                    "at": "2026-10-28T14:09:11.439Z",
+                    "message": "Renderer MCP/domain host READY",
+                    "state": "stopped",
+                    "reasonCode": "renderer_mcp_ready"
+                  },
+                  {
+                    "at": "2026-10-28T14:09:11.441Z",
+                    "message": "Hermes desired configuration staged",
+                    "state": "stopped"
+                  },
+                  {
+                    "at": "2026-10-28T14:09:11.442Z",
+                    "message": "Hermes start requested",
+                    "state": "starting",
+                    "reasonCode": "hermes_start_requested"
+                  },
+                  {
+                    "at": "2026-10-28T14:09:16.045Z",
+                    "message": "Hermes API ready",
+                    "state": "api_ready",
+                    "reasonCode": "hermes_api_ready"
+                  },
+                  {
+                    "at": "2026-10-28T14:09:20.076Z",
+                    "message": "Hermes capability discovery complete",
+                    "state": "api_ready"
+                  },
+                  {
+                    "at": "2026-10-28T14:09:20.077Z",
+                    "message": "Synchronizing Career tool surface",
+                    "state": "syncing_career_tools",
+                    "reasonCode": "career_tool_surface_syncing"
+                  },
+                  {
+                    "at": "2026-10-28T14:09:22.225Z",
+                    "message": "Hermes READY",
+                    "state": "ready"
+                  },
+                  {
+                    "at": "2026-10-28T14:09:22.226Z",
+                    "message": "Hermes active configuration verified",
+                    "state": "ready"
+                  }
+                ]
+              },
+              "probe": {
+                "runtimeUrl": "http://127.0.0.1:23345",
+                "keyConfigured": true,
+                "probes": [
+                  {
+                    "suffix": "/health",
+                    "authenticated": true,
+                    "status": 200,
+                    "health": {
+                      "status": "ok",
+                      "version": "0.19.0"
+                    }
+                  },
+                  {
+                    "suffix": "/health",
+                    "authenticated": false,
+                    "status": 200,
+                    "health": {
+                      "status": "ok",
+                      "version": "0.19.0"
+                    }
+                  },
+                  {
+                    "suffix": "/health/detailed",
+                    "authenticated": true,
+                    "status": 200,
+                    "health": {
+                      "status": "ok",
+                      "version": "0.19.0"
+                    }
+                  },
+                  {
+                    "suffix": "/health/detailed",
+                    "authenticated": false,
+                    "status": 401,
+                    "health": {}
+                  }
+                ]
+              },
+              "nextHealth": {
+                "httpStatus": 200,
+                "runtimeUrl": "http://127.0.0.1:23345",
+                "runtimeHealth": {
+                  "runtimeAvailable": true,
+                  "companionReady": true,
+                  "providerConfigured": true,
+                  "providerReachable": true,
+                  "providerReady": true,
+                  "providerStatus": "ready",
+                  "providerDiagnostic": {
+                    "provider": "custom:careeradapt",
+                    "model": "careeradapt-test",
+                    "credentialConfigured": true,
+                    "credentialSource": "server_env",
+                    "configFingerprint": "0a0332676ba879c73fed36eadd30824ec6fccf8d54ebd5c689621e731e38cad5",
+                    "configGeneration": 1,
+                    "lastCheckedAt": "2026-10-28T14:09:22.847Z",
+                    "lastHttpStatus": 200
+                  },
+                  "mcpConnected": true,
+                  "browserCareerDomainHostConnected": true,
+                  "careerMcpServerReachable": true,
+                  "hermesMcpRegistered": true,
+                  "hermesMcpToolCount": 12,
+                  "hermesCareerFacadeCount": 8,
+                  "careerToolContractReady": true,
+                  "careerToolContractVersion": "career-tool-contract-v4",
+                  "careerToolContractMismatches": [],
+                  "requiredCareerFacadesMissing": [],
+                  "lastCheckedAt": "2026-10-28T14:09:22.868Z",
+                  "runReady": true
+                },
+                "providerDiagnostic": {
+                  "provider": "custom:careeradapt",
+                  "model": "careeradapt-test",
+                  "credentialConfigured": true,
+                  "credentialSource": "server_env",
+                  "configFingerprint": "0a0332676ba879c73fed36eadd30824ec6fccf8d54ebd5c689621e731e38cad5",
+                  "configGeneration": 1,
+                  "lastCheckedAt": "2026-10-28T14:09:22.847Z",
+                  "lastHttpStatus": 200
+                },
+                "providerStatus": "ready"
+              },
+              "listener": {
+                "port": 23345,
+                "pid": 78168,
+                "createdAt": "2026-10-28T14:09:11.4525820Z"
+              },
+              "saved": {
+                "ok": true,
+                "applied": "applied"
+              },
+              "exitCode": 0
+            },
+            {
+              "restored": true,
+              "startedAt": "2026-10-28T14:09:25.346Z",
+              "states": [
+                {
+                  "at": "2026-10-28T14:09:31.477Z",
+                  "state": "stopped",
+                  "reason": "hermes_renderer_not_ready"
+                },
+                {
+                  "at": "2026-10-28T14:09:33.587Z",
+                  "state": "starting",
+                  "reason": "hermes_start_requested"
+                },
+                {
+                  "at": "2026-10-28T14:09:38.181Z",
+                  "state": "api_ready",
+                  "reason": "hermes_api_ready"
+                },
+                {
+                  "at": "2026-10-28T14:09:41.749Z",
+                  "state": "syncing_career_tools",
+                  "reason": "career_tool_surface_syncing"
+                },
+                {
+                  "at": "2026-10-28T14:09:44.303Z",
+                  "state": "degraded",
+                  "reason": "hermes_health_check_failed"
+                }
+              ],
+              "pid": 70732,
+              "credential": {
+                "available": true,
+                "configured": true,
+                "source": "secure_store"
+              },
+              "capturedAt": "2026-10-28T14:09:44.303Z",
+              "status": {
+                "state": "degraded",
+                "reason": "hermes_health_check_failed",
+                "runtimeUrl": "http://127.0.0.1:23345",
+                "processReady": true,
+                "apiReady": false,
+                "providerReady": false,
+                "careerMcpReady": true,
+                "toolSurfaceReady": true,
+                "runReady": false,
+                "runtimeConfig": {
+                  "desired": {
+                    "provider": "custom:careeradapt",
+                    "baseUrl": "http://127.0.0.1:23343/v1",
+                    "baseUrlHostPath": "127.0.0.1:23343/v1",
+                    "model": "careeradapt-test",
+                    "credentialConfigured": true,
+                    "credentialSource": "server_env",
+                    "configFingerprint": "f91bee4d667ce7ac72741fbfbd84bb1f9e3a0db3f16e01ef3423509576ff6665",
+                    "configGeneration": 1,
+                    "source": "environment"
+                  },
+                  "desiredFingerprint": "f91bee4d667ce7ac72741fbfbd84bb1f9e3a0db3f16e01ef3423509576ff6665",
+                  "desiredGeneration": 1,
+                  "applyStatus": "idle",
+                  "restartPerformed": false,
+                  "verified": false,
+                  "rollbackOccurred": false,
+                  "updatedAt": "2026-10-28T14:09:43.998Z"
+                },
+                "health": {
+                  "runtimeAvailable": false,
+                  "companionReady": false,
+                  "providerConfigured": false,
+                  "providerReachable": false,
+                  "providerReady": false,
+                  "providerStatus": "unknown",
+                  "mcpConnected": true,
+                  "browserCareerDomainHostConnected": true,
+                  "careerMcpServerReachable": true,
+                  "hermesMcpRegistered": true,
+                  "hermesMcpToolCount": 12,
+                  "hermesCareerFacadeCount": 8,
+                  "careerToolContractReady": true,
+                  "careerToolContractVersion": "career-tool-contract-v4",
+                  "runReady": false,
+                  "safeErrorCode": "hermes_health_check_failed",
+                  "lastCheckedAt": "2026-10-28T14:09:43.996Z",
+                  "requiredCareerFacadesMissing": [],
+                  "careerToolContractMismatches": []
+                },
+                "lifecycle": [
+                  {
+                    "at": "2026-10-28T14:09:32.956Z",
+                    "message": "Renderer MCP/domain host READY",
+                    "state": "stopped",
+                    "reasonCode": "renderer_mcp_ready"
+                  },
+                  {
+                    "at": "2026-10-28T14:09:32.957Z",
+                    "message": "Hermes desired configuration staged",
+                    "state": "stopped"
+                  },
+                  {
+                    "at": "2026-10-28T14:09:32.958Z",
+                    "message": "Hermes start requested",
+                    "state": "starting",
+                    "reasonCode": "hermes_start_requested"
+                  },
+                  {
+                    "at": "2026-10-28T14:09:37.672Z",
+                    "message": "Hermes API ready",
+                    "state": "api_ready",
+                    "reasonCode": "hermes_api_ready"
+                  },
+                  {
+                    "at": "2026-10-28T14:09:41.720Z",
+                    "message": "Hermes capability discovery complete",
+                    "state": "api_ready"
+                  },
+                  {
+                    "at": "2026-10-28T14:09:41.720Z",
+                    "message": "Synchronizing Career tool surface",
+                    "state": "syncing_career_tools",
+                    "reasonCode": "career_tool_surface_syncing"
+                  },
+                  {
+                    "at": "2026-10-28T14:09:43.998Z",
+                    "message": "Hermes readiness: hermes_health_check_failed",
+                    "state": "degraded",
+                    "reasonCode": "hermes_health_check_failed"
+                  }
+                ]
+              },
+              "probe": {
+                "runtimeUrl": "http://127.0.0.1:23345",
+                "keyConfigured": true,
+                "probes": [
+                  {
+                    "suffix": "/health",
+                    "authenticated": true,
+                    "status": 200,
+                    "health": {
+                      "status": "ok",
+                      "version": "0.19.0"
+                    }
+                  },
+                  {
+                    "suffix": "/health",
+                    "authenticated": false,
+                    "status": 200,
+                    "health": {
+                      "status": "ok",
+                      "version": "0.19.0"
+                    }
+                  },
+                  {
+                    "suffix": "/health/detailed",
+                    "authenticated": true,
+                    "status": 200,
+                    "health": {
+                      "status": "ok",
+                      "version": "0.19.0"
+                    }
+                  },
+                  {
+                    "suffix": "/health/detailed",
+                    "authenticated": false,
+                    "status": 401,
+                    "health": {}
+                  }
+                ]
+              },
+              "nextHealth": {
+                "httpStatus": 503,
+                "reason": "hermes_health_check_failed",
+                "runtimeUrl": "http://127.0.0.1:23345",
+                "runtimeHealth": {
+                  "runtimeAvailable": false,
+                  "companionReady": false,
+                  "providerConfigured": false,
+                  "providerReachable": false,
+                  "providerReady": false,
+                  "providerStatus": "unknown",
+                  "mcpConnected": true,
+                  "browserCareerDomainHostConnected": true,
+                  "careerMcpServerReachable": true,
+                  "hermesMcpRegistered": true,
+                  "hermesMcpToolCount": 12,
+                  "hermesCareerFacadeCount": 8,
+                  "careerToolContractReady": true,
+                  "careerToolContractVersion": "career-tool-contract-v4",
+                  "careerToolContractMismatches": [],
+                  "requiredCareerFacadesMissing": [],
+                  "lastCheckedAt": "2026-10-28T14:09:44.429Z",
+                  "safeErrorCode": "hermes_health_check_failed",
+                  "runReady": false,
+                  "runtimeFailureDiagnostics": {
+                    "failureLayer": "companion",
+                    "safeErrorCode": "hermes_health_check_failed",
+                    "safeErrorMessage": "Hermes 健康检查失败，原因尚未确定。",
+                    "upstreamErrorCode": "ZodError",
+                    "safeErrorCategory": "unknown",
+                    "safeMessageCategory": "unknown",
+                    "retryable": true
+                  }
+                },
+                "providerStatus": "unknown"
+              },
+              "listener": {
+                "port": 23345,
+                "pid": 78760,
+                "createdAt": "2026-10-28T14:09:33.0632138Z"
+              },
+              "exitCode": 0
+            }
+          ],
+          "status": "FAILED",
+          "failure": "actual product readiness failed; single capture stops here\n+ actual - expected\n\n+ 'degraded'\n- 'ready'\n",
+          "providerRequests": [],
+          "fullSafeLocalEvidence": ".tmp/p51-core-readiness-1793196543122.json"
+        },
+        "regressionBefore": {
+          "command": "pnpm exec vitest run tests/unit/p511-r2-observability.test.ts",
+          "exitCode": 1,
+          "failed": 2,
+          "passed": 22
+        },
+        "regressionAfter": {
+          "exitCode": 0,
+          "tests": 24
+        },
+        "recheckCommand": "node scripts/electron-core-readiness.cjs",
+        "recheckExitCode": 1,
+        "recheck": {
+          "baseline": "9bd0d80c51479f300718cbdbf2da100e0bcb7165",
+          "provider": "simulated",
+          "phases": [
+            {
+              "restored": false,
+              "startedAt": "2026-10-28T14:13:19.204Z",
+              "states": [
+                {
+                  "at": "2026-10-28T14:13:29.088Z",
+                  "state": "stopped",
+                  "reason": "hermes_renderer_not_ready"
+                },
+                {
+                  "at": "2026-10-28T14:13:31.096Z",
+                  "state": "starting",
+                  "reason": "hermes_start_requested"
+                },
+                {
+                  "at": "2026-10-28T14:13:36.916Z",
+                  "state": "api_ready",
+                  "reason": "hermes_api_ready"
+                },
+                {
+                  "at": "2026-10-28T14:13:41.116Z",
+                  "state": "syncing_career_tools",
+                  "reason": "career_tool_surface_syncing"
+                },
+                {
+                  "at": "2026-10-28T14:13:43.157Z",
+                  "state": "ready"
+                }
+              ],
+              "pid": 73820,
+              "credential": {
+                "available": true,
+                "configured": false,
+                "source": "server_env",
+                "reason": "credential_store_not_configured"
+              },
+              "capturedAt": "2026-10-28T14:13:43.157Z",
+              "status": {
+                "state": "ready",
+                "runtimeUrl": "http://127.0.0.1:7731",
+                "processReady": true,
+                "apiReady": true,
+                "providerReady": true,
+                "careerMcpReady": true,
+                "toolSurfaceReady": true,
+                "runReady": true,
+                "runtimeConfig": {
+                  "active": {
+                    "provider": "custom:careeradapt",
+                    "baseUrl": "http://127.0.0.1:7729/v1",
+                    "baseUrlHostPath": "127.0.0.1:7729/v1",
+                    "model": "careeradapt-test",
+                    "credentialConfigured": true,
+                    "credentialSource": "server_env",
+                    "configFingerprint": "bdd3a81a952ebc18375322fff9da33cbe249fe7ca2b8d5dcf925ed1b2b67a860",
+                    "configGeneration": 1,
+                    "source": "runtime_readback",
+                    "lastAppliedAt": "2026-10-28T14:13:42.911Z"
+                  },
+                  "desired": {
+                    "provider": "custom:careeradapt",
+                    "baseUrl": "http://127.0.0.1:7729/v1",
+                    "baseUrlHostPath": "127.0.0.1:7729/v1",
+                    "model": "careeradapt-test",
+                    "credentialConfigured": true,
+                    "credentialSource": "server_env",
+                    "configFingerprint": "bdd3a81a952ebc18375322fff9da33cbe249fe7ca2b8d5dcf925ed1b2b67a860",
+                    "configGeneration": 1,
+                    "source": "environment"
+                  },
+                  "activeFingerprint": "bdd3a81a952ebc18375322fff9da33cbe249fe7ca2b8d5dcf925ed1b2b67a860",
+                  "activeGeneration": 1,
+                  "desiredFingerprint": "bdd3a81a952ebc18375322fff9da33cbe249fe7ca2b8d5dcf925ed1b2b67a860",
+                  "desiredGeneration": 1,
+                  "applyStatus": "applied",
+                  "restartPerformed": false,
+                  "verified": true,
+                  "rollbackOccurred": false,
+                  "updatedAt": "2026-10-28T14:13:42.911Z"
+                },
+                "health": {
+                  "runtimeAvailable": true,
+                  "companionReady": true,
+                  "providerConfigured": true,
+                  "providerReachable": true,
+                  "providerReady": true,
+                  "providerStatus": "ready",
+                  "mcpConnected": true,
+                  "browserCareerDomainHostConnected": true,
+                  "careerMcpServerReachable": true,
+                  "hermesMcpRegistered": true,
+                  "hermesMcpToolCount": 12,
+                  "hermesCareerFacadeCount": 8,
+                  "careerToolContractReady": true,
+                  "careerToolContractVersion": "career-tool-contract-v4",
+                  "runReady": true,
+                  "lastCheckedAt": "2026-10-28T14:13:42.908Z",
+                  "providerDiagnostic": {
+                    "provider": "custom:careeradapt",
+                    "model": "careeradapt-test",
+                    "credentialConfigured": true,
+                    "credentialSource": "server_env",
+                    "configFingerprint": "bdd3a81a952ebc18375322fff9da33cbe249fe7ca2b8d5dcf925ed1b2b67a860",
+                    "configGeneration": 1,
+                    "lastCheckedAt": "2026-10-28T14:13:40.630Z",
+                    "lastHttpStatus": 200
+                  },
+                  "requiredCareerFacadesMissing": [],
+                  "careerToolContractMismatches": []
+                },
+                "lifecycle": [
+                  {
+                    "at": "2026-10-28T14:13:30.949Z",
+                    "message": "Renderer MCP/domain host READY",
+                    "state": "stopped",
+                    "reasonCode": "renderer_mcp_ready"
+                  },
+                  {
+                    "at": "2026-10-28T14:13:30.950Z",
+                    "message": "Hermes desired configuration staged",
+                    "state": "stopped"
+                  },
+                  {
+                    "at": "2026-10-28T14:13:30.951Z",
+                    "message": "Hermes start requested",
+                    "state": "starting",
+                    "reasonCode": "hermes_start_requested"
+                  },
+                  {
+                    "at": "2026-10-28T14:13:36.576Z",
+                    "message": "Hermes API ready",
+                    "state": "api_ready",
+                    "reasonCode": "hermes_api_ready"
+                  },
+                  {
+                    "at": "2026-10-28T14:13:40.608Z",
+                    "message": "Hermes capability discovery complete",
+                    "state": "api_ready"
+                  },
+                  {
+                    "at": "2026-10-28T14:13:40.609Z",
+                    "message": "Synchronizing Career tool surface",
+                    "state": "syncing_career_tools",
+                    "reasonCode": "career_tool_surface_syncing"
+                  },
+                  {
+                    "at": "2026-10-28T14:13:42.911Z",
+                    "message": "Hermes READY",
+                    "state": "ready"
+                  },
+                  {
+                    "at": "2026-10-28T14:13:42.911Z",
+                    "message": "Hermes active configuration verified",
+                    "state": "ready"
+                  }
+                ]
+              },
+              "probe": {
+                "runtimeUrl": "http://127.0.0.1:7731",
+                "keyConfigured": true,
+                "probes": [
+                  {
+                    "suffix": "/health",
+                    "authenticated": true,
+                    "status": 200,
+                    "health": {
+                      "status": "ok",
+                      "version": "0.19.0"
+                    }
+                  },
+                  {
+                    "suffix": "/health",
+                    "authenticated": false,
+                    "status": 200,
+                    "health": {
+                      "status": "ok",
+                      "version": "0.19.0"
+                    }
+                  },
+                  {
+                    "suffix": "/health/detailed",
+                    "authenticated": true,
+                    "status": 200,
+                    "health": {
+                      "status": "ok",
+                      "version": "0.19.0"
+                    }
+                  },
+                  {
+                    "suffix": "/health/detailed",
+                    "authenticated": false,
+                    "status": 401,
+                    "health": {}
+                  }
+                ]
+              },
+              "nextHealth": {
+                "httpStatus": 200,
+                "runtimeUrl": "http://127.0.0.1:7731",
+                "runtimeHealth": {
+                  "runtimeAvailable": true,
+                  "companionReady": true,
+                  "providerConfigured": true,
+                  "providerReachable": true,
+                  "providerReady": true,
+                  "providerStatus": "ready",
+                  "providerDiagnostic": {
+                    "provider": "custom:careeradapt",
+                    "model": "careeradapt-test",
+                    "credentialConfigured": true,
+                    "credentialSource": "server_env",
+                    "configFingerprint": "bdd3a81a952ebc18375322fff9da33cbe249fe7ca2b8d5dcf925ed1b2b67a860",
+                    "configGeneration": 1,
+                    "lastCheckedAt": "2026-10-28T14:13:43.246Z",
+                    "lastHttpStatus": 200
+                  },
+                  "mcpConnected": true,
+                  "browserCareerDomainHostConnected": true,
+                  "careerMcpServerReachable": true,
+                  "hermesMcpRegistered": true,
+                  "hermesMcpToolCount": 12,
+                  "hermesCareerFacadeCount": 8,
+                  "careerToolContractReady": true,
+                  "careerToolContractVersion": "career-tool-contract-v4",
+                  "careerToolContractMismatches": [],
+                  "requiredCareerFacadesMissing": [],
+                  "lastCheckedAt": "2026-10-28T14:13:43.270Z",
+                  "runReady": true
+                },
+                "providerDiagnostic": {
+                  "provider": "custom:careeradapt",
+                  "model": "careeradapt-test",
+                  "credentialConfigured": true,
+                  "credentialSource": "server_env",
+                  "configFingerprint": "bdd3a81a952ebc18375322fff9da33cbe249fe7ca2b8d5dcf925ed1b2b67a860",
+                  "configGeneration": 1,
+                  "lastCheckedAt": "2026-10-28T14:13:43.246Z",
+                  "lastHttpStatus": 200
+                },
+                "providerStatus": "ready"
+              },
+              "listener": {
+                "port": 7731,
+                "pid": 71564,
+                "createdAt": "2026-10-28T14:13:30.9686012Z"
+              },
+              "saved": {
+                "ok": true,
+                "applied": "applied"
+              },
+              "exitCode": 0
+            },
+            {
+              "restored": true,
+              "startedAt": "2026-10-28T14:13:46.036Z",
+              "states": [
+                {
+                  "at": "2026-10-28T14:13:53.232Z",
+                  "state": "stopped",
+                  "reason": "hermes_renderer_not_ready"
+                },
+                {
+                  "at": "2026-10-28T14:13:55.248Z",
+                  "state": "starting",
+                  "reason": "hermes_start_requested"
+                },
+                {
+                  "at": "2026-10-28T14:13:59.824Z",
+                  "state": "api_ready",
+                  "reason": "hermes_api_ready"
+                },
+                {
+                  "at": "2026-10-28T14:14:03.906Z",
+                  "state": "syncing_career_tools",
+                  "reason": "career_tool_surface_syncing"
+                },
+                {
+                  "at": "2026-10-28T14:14:05.984Z",
+                  "state": "ready"
+                }
+              ],
+              "pid": 81636,
+              "credential": {
+                "available": true,
+                "configured": true,
+                "source": "secure_store"
+              },
+              "capturedAt": "2026-10-28T14:14:05.985Z",
+              "status": {
+                "state": "ready",
+                "runtimeUrl": "http://127.0.0.1:7731",
+                "processReady": true,
+                "apiReady": true,
+                "providerReady": true,
+                "careerMcpReady": true,
+                "toolSurfaceReady": true,
+                "runReady": true,
+                "runtimeConfig": {
+                  "active": {
+                    "provider": "custom:careeradapt",
+                    "baseUrl": "http://127.0.0.1:7729/v1",
+                    "baseUrlHostPath": "127.0.0.1:7729/v1",
+                    "model": "careeradapt-test",
+                    "credentialConfigured": true,
+                    "credentialSource": "secure_store",
+                    "configFingerprint": "e183327028fade25c76072491bf55a1187cd857ea2814f73a0f07cd873faed41",
+                    "configGeneration": 1,
+                    "source": "runtime_readback",
+                    "lastAppliedAt": "2026-10-28T14:14:05.744Z"
+                  },
+                  "desired": {
+                    "provider": "custom:careeradapt",
+                    "baseUrl": "http://127.0.0.1:7729/v1",
+                    "baseUrlHostPath": "127.0.0.1:7729/v1",
+                    "model": "careeradapt-test",
+                    "credentialConfigured": true,
+                    "credentialSource": "secure_store",
+                    "configFingerprint": "e183327028fade25c76072491bf55a1187cd857ea2814f73a0f07cd873faed41",
+                    "configGeneration": 1,
+                    "source": "environment"
+                  },
+                  "activeFingerprint": "e183327028fade25c76072491bf55a1187cd857ea2814f73a0f07cd873faed41",
+                  "activeGeneration": 1,
+                  "desiredFingerprint": "e183327028fade25c76072491bf55a1187cd857ea2814f73a0f07cd873faed41",
+                  "desiredGeneration": 1,
+                  "applyStatus": "applied",
+                  "restartPerformed": false,
+                  "verified": true,
+                  "rollbackOccurred": false,
+                  "updatedAt": "2026-10-28T14:14:05.744Z"
+                },
+                "health": {
+                  "runtimeAvailable": true,
+                  "companionReady": true,
+                  "providerConfigured": true,
+                  "providerReachable": true,
+                  "providerReady": true,
+                  "providerStatus": "ready",
+                  "mcpConnected": true,
+                  "browserCareerDomainHostConnected": true,
+                  "careerMcpServerReachable": true,
+                  "hermesMcpRegistered": true,
+                  "hermesMcpToolCount": 12,
+                  "hermesCareerFacadeCount": 8,
+                  "careerToolContractReady": true,
+                  "careerToolContractVersion": "career-tool-contract-v4",
+                  "runReady": true,
+                  "lastCheckedAt": "2026-10-28T14:14:05.741Z",
+                  "providerDiagnostic": {
+                    "provider": "custom:careeradapt",
+                    "model": "careeradapt-test",
+                    "credentialConfigured": true,
+                    "credentialSource": "secure_store",
+                    "configFingerprint": "e183327028fade25c76072491bf55a1187cd857ea2814f73a0f07cd873faed41",
+                    "configGeneration": 1,
+                    "lastCheckedAt": "2026-10-28T14:14:03.523Z",
+                    "lastHttpStatus": 200
+                  },
+                  "requiredCareerFacadesMissing": [],
+                  "careerToolContractMismatches": []
+                },
+                "lifecycle": [
+                  {
+                    "at": "2026-10-28T14:13:54.769Z",
+                    "message": "Renderer MCP/domain host READY",
+                    "state": "stopped",
+                    "reasonCode": "renderer_mcp_ready"
+                  },
+                  {
+                    "at": "2026-10-28T14:13:54.770Z",
+                    "message": "Hermes desired configuration staged",
+                    "state": "stopped"
+                  },
+                  {
+                    "at": "2026-10-28T14:13:54.771Z",
+                    "message": "Hermes start requested",
+                    "state": "starting",
+                    "reasonCode": "hermes_start_requested"
+                  },
+                  {
+                    "at": "2026-10-28T14:13:59.472Z",
+                    "message": "Hermes API ready",
+                    "state": "api_ready",
+                    "reasonCode": "hermes_api_ready"
+                  },
+                  {
+                    "at": "2026-10-28T14:14:03.510Z",
+                    "message": "Hermes capability discovery complete",
+                    "state": "api_ready"
+                  },
+                  {
+                    "at": "2026-10-28T14:14:03.510Z",
+                    "message": "Synchronizing Career tool surface",
+                    "state": "syncing_career_tools",
+                    "reasonCode": "career_tool_surface_syncing"
+                  },
+                  {
+                    "at": "2026-10-28T14:14:05.743Z",
+                    "message": "Hermes READY",
+                    "state": "ready"
+                  },
+                  {
+                    "at": "2026-10-28T14:14:05.744Z",
+                    "message": "Hermes active configuration verified",
+                    "state": "ready"
+                  }
+                ]
+              },
+              "probe": {
+                "runtimeUrl": "http://127.0.0.1:7731",
+                "keyConfigured": true,
+                "probes": [
+                  {
+                    "suffix": "/health",
+                    "authenticated": true,
+                    "status": 200,
+                    "health": {
+                      "status": "ok",
+                      "version": "0.19.0"
+                    }
+                  },
+                  {
+                    "suffix": "/health",
+                    "authenticated": false,
+                    "status": 200,
+                    "health": {
+                      "status": "ok",
+                      "version": "0.19.0"
+                    }
+                  },
+                  {
+                    "suffix": "/health/detailed",
+                    "authenticated": true,
+                    "status": 200,
+                    "health": {
+                      "status": "ok",
+                      "version": "0.19.0"
+                    }
+                  },
+                  {
+                    "suffix": "/health/detailed",
+                    "authenticated": false,
+                    "status": 401,
+                    "health": {}
+                  }
+                ]
+              },
+              "nextHealth": {
+                "httpStatus": 200,
+                "runtimeUrl": "http://127.0.0.1:7731",
+                "runtimeHealth": {
+                  "runtimeAvailable": true,
+                  "companionReady": true,
+                  "providerConfigured": true,
+                  "providerReachable": true,
+                  "providerReady": true,
+                  "providerStatus": "ready",
+                  "providerDiagnostic": {
+                    "provider": "custom:careeradapt",
+                    "model": "careeradapt-test",
+                    "credentialConfigured": true,
+                    "credentialSource": "secure_store",
+                    "configFingerprint": "e183327028fade25c76072491bf55a1187cd857ea2814f73a0f07cd873faed41",
+                    "configGeneration": 1,
+                    "lastCheckedAt": "2026-10-28T14:14:06.058Z",
+                    "lastHttpStatus": 200
+                  },
+                  "mcpConnected": true,
+                  "browserCareerDomainHostConnected": true,
+                  "careerMcpServerReachable": true,
+                  "hermesMcpRegistered": true,
+                  "hermesMcpToolCount": 12,
+                  "hermesCareerFacadeCount": 8,
+                  "careerToolContractReady": true,
+                  "careerToolContractVersion": "career-tool-contract-v4",
+                  "careerToolContractMismatches": [],
+                  "requiredCareerFacadesMissing": [],
+                  "lastCheckedAt": "2026-10-28T14:14:06.078Z",
+                  "runReady": true
+                },
+                "providerDiagnostic": {
+                  "provider": "custom:careeradapt",
+                  "model": "careeradapt-test",
+                  "credentialConfigured": true,
+                  "credentialSource": "secure_store",
+                  "configFingerprint": "e183327028fade25c76072491bf55a1187cd857ea2814f73a0f07cd873faed41",
+                  "configGeneration": 1,
+                  "lastCheckedAt": "2026-10-28T14:14:06.058Z",
+                  "lastHttpStatus": 200
+                },
+                "providerStatus": "ready"
+              },
+              "listener": {
+                "port": 7731,
+                "pid": 78164,
+                "createdAt": "2026-10-28T14:13:54.8750300Z"
+              },
+              "switched": {
+                "ok": false,
+                "receipt": {
+                  "action": "update_config",
+                  "requestedAt": "2026-10-28T14:14:08.253Z",
+                  "accepted": true,
+                  "executed": true,
+                  "previousState": "running",
+                  "nextState": "running",
+                  "safeReasonCode": "update_config_completed",
+                  "controlOwner": "electron_supervisor",
+                  "applyStatus": "rolled_back",
+                  "desiredFingerprint": "e183327028fade25c76072491bf55a1187cd857ea2814f73a0f07cd873faed41",
+                  "activeFingerprint": "e183327028fade25c76072491bf55a1187cd857ea2814f73a0f07cd873faed41",
+                  "restartPerformed": false,
+                  "verified": false,
+                  "rollbackOccurred": true,
+                  "reasonCode": "23"
+                }
+              },
+              "exitCode": 0
+            }
+          ],
+          "status": "FAILED",
+          "failure": "Expected values to be strictly equal:\n\nfalse !== true\n",
+          "providerRequests": [],
+          "fullSafeLocalEvidence": ".tmp/p51-core-readiness-1793196799192.json"
+        },
+        "readinessSubcheck": "PASS: restored secure_store and overall ready, all readiness dimensions true; active/desired fingerprint equal, applied and verified. Overall harness FAILED on subsequent model switch.",
+        "failureTimeSnapshot": "Absent: initial startup never had true runReady. Supervisor only captures true-to-false transitions. Actual capture timestamp/lifecycle/health/config retained without synthetic snapshot."
+      },
+      "postRestoreModelSwitch": {
+        "status": "FAILED_BLOCKING_CLOSEOUT",
+        "provider": "simulated",
+        "attempts": 1,
+        "receipt": {
+          "ok": false,
+          "receipt": {
+            "action": "update_config",
+            "requestedAt": "2026-10-28T14:14:08.253Z",
+            "accepted": true,
+            "executed": true,
+            "previousState": "running",
+            "nextState": "running",
+            "safeReasonCode": "update_config_completed",
+            "controlOwner": "electron_supervisor",
+            "applyStatus": "rolled_back",
+            "desiredFingerprint": "e183327028fade25c76072491bf55a1187cd857ea2814f73a0f07cd873faed41",
+            "activeFingerprint": "e183327028fade25c76072491bf55a1187cd857ea2814f73a0f07cd873faed41",
+            "restartPerformed": false,
+            "verified": false,
+            "rollbackOccurred": true,
+            "reasonCode": "23"
+          }
+        },
+        "confirmedRootCause": false,
+        "missingEvidence": "Underlying exception name and protected /api/model/options HTTP response at failed model readback. Numeric reasonCode 23 alone does not prove timeout/network/auth/Provider cause. No further restart or retry."
+      },
+      "postRestoreModelRequest": {
+        "status": "BLOCKED",
+        "requests": 0,
+        "reason": "Model switch rolled back; prerequisite failed."
+      },
+      "realProvider": {
+        "status": "BLOCKED",
+        "requests": 0,
+        "reason": "Only isolated synthetic secure-store credentials accessible through harness. No safe supported access to current real configured credentials established. No real key read/exported, Provider changed or real request sent."
+      },
+      "checks": {
+        "baselineTypecheck": 0,
+        "baselineUnit": {
+          "files": 2,
+          "tests": 23,
+          "exitCode": 0
+        },
+        "relatedUnit": {
+          "command": "pnpm exec vitest run tests/unit/p51-core-workflow.test.ts tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts tests/unit/p511-r2-observability.test.ts tests/unit/hermesSupervisor.test.ts tests/unit/p45b4-hermes-mcp-closure.test.ts tests/unit/p47a-agent-capability-contract.test.ts tests/unit/repositoryTailoringV2.test.ts tests/unit/v4p2bCandidatePipeline.test.ts tests/unit/v4p0NativeConfigFallback.test.ts tests/unit/p45c17-hermes-reliability.test.ts tests/unit/hermesControlCapabilityP45c123.test.ts tests/unit/p46c6-ai-runtime-configuration.test.ts",
+          "files": 12,
+          "tests": 148,
+          "exitCode": 0,
+          "log": ".tmp/closeout-final-unit.log"
+        },
+        "typecheck": {
+          "command": "pnpm typecheck",
+          "exitCode": 0
+        },
+        "lint": {
+          "command": "pnpm lint",
+          "exitCode": 0
+        },
+        "changedFilesLint": {
+          "exitCode": 0
+        },
+        "build": {
+          "command": "$env:CAREERAD_NEXT_DIST_DIR='.tmp/closeout-final-build'; pnpm build",
+          "exitCode": 0
+        },
+        "bundleCheck": {
+          "command": "pnpm hermes:bundle-check",
+          "exitCode": 0
+        },
+        "diffCheck": {
+          "command": "git diff --check",
+          "exitCode": 0,
+          "note": "Initial Next-generated tsconfig whitespace failure; next-env.d.ts/tsconfig.json restored byte-for-byte from clean HEAD after build, final check passed."
+        }
+      },
+      "cleanup": [
+        {
+          "evidence": ".tmp/p51-core-readiness-1793196543122.json",
+          "restored": false,
+          "electronPid": 55332,
+          "electronStillRunning": false,
+          "runtimePort": 23345,
+          "listenerStillPresent": false,
+          "exitCode": 0
+        },
+        {
+          "evidence": ".tmp/p51-core-readiness-1793196543122.json",
+          "restored": true,
+          "electronPid": 70732,
+          "electronStillRunning": false,
+          "runtimePort": 23345,
+          "listenerStillPresent": false,
+          "exitCode": 0
+        },
+        {
+          "evidence": ".tmp/p51-core-readiness-1793196799192.json",
+          "restored": false,
+          "electronPid": 73820,
+          "electronStillRunning": false,
+          "runtimePort": 7731,
+          "listenerStillPresent": false,
+          "exitCode": 0
+        },
+        {
+          "evidence": ".tmp/p51-core-readiness-1793196799192.json",
+          "restored": true,
+          "electronPid": 81636,
+          "electronStillRunning": false,
+          "runtimePort": 7731,
+          "listenerStillPresent": false,
+          "exitCode": 0
+        }
+      ],
+      "packaged": "NOT_BUILT_NOT_CERTIFIED",
+      "git": "uncommitted; no push/package/deletion; previous work retained",
+      "nextStep": "Inspect failed model readback exception/HTTP response once, and resolve explicit post-confirmation Hermes continuation contract before full closeout. No automatic next-stage development."
+    }
+  ]
 }

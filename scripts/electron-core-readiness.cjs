@@ -2,12 +2,13 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const net = require("node:net");
+const { execFileSync } = require("node:child_process");
 const assert = require("node:assert/strict");
 const { _electron } = require("playwright-core");
 
 const root = path.resolve(__dirname, "..");
-const evidence = { baseline: "4c0cf96976704bbc5b98f5fd1892663c8a8c2665", phases: [], status: "RUNNING" };
-const output = path.join(root, ".tmp/p51-core-readiness.json");
+const evidence = { baseline: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8", windowsHide: true }).trim(), provider: "simulated", phases: [], status: "RUNNING" };
+const output = path.join(root, `.tmp/p51-core-readiness-${Date.now()}.json`);
 let application;
 let productProcess;
 let provider;
@@ -64,18 +65,23 @@ async function main() {
       if (status?.overallState === "ready" || status?.overallState === "degraded") break;
       await new Promise(resolve => setTimeout(resolve, 500));
     } while (Date.now() < deadline);
+    phase.capturedAt = new Date().toISOString();
     phase.status = { state: status?.overallState, reason: status?.reasonCode, runtimeUrl: status?.runtimeUrl,
       processReady: status?.processReady, apiReady: status?.apiReady, providerReady: status?.providerReady,
-      careerMcpReady: status?.careerMcpReady, lifecycle: status?.latestLifecycleEntries };
+      careerMcpReady: status?.careerMcpReady, toolSurfaceReady: status?.toolSurfaceReady, runReady: status?.runReady,
+      failureTimeSnapshot: status?.failureTimeSnapshot, runtimeConfig: status?.runtimeConfig,
+      health: status?.health, lifecycle: status?.latestLifecycleEntries };
     phase.probe = await application.evaluate(async () => {
       const runtimeUrl = process.env.HERMES_RUNTIME_URL;
       const key = process.env.API_SERVER_KEY;
       const probes = [];
-      for (const suffix of ["/health", "/api/health"]) {
+      for (const suffix of ["/health", "/health/detailed"]) {
         for (const authenticated of [true, false]) {
           try {
             const result = await fetch(`${runtimeUrl}${suffix}`, { headers: authenticated ? { Authorization: `Bearer ${key}` } : {}, signal: AbortSignal.timeout(4_000) });
-            probes.push({ suffix, authenticated, status: result.status });
+            const body = await result.json().catch(() => ({}));
+            probes.push({ suffix, authenticated, status: result.status,
+              health: { status: body.status, version: body.version, activeRuns: body.active_runs } });
           } catch (error) { probes.push({ suffix, authenticated, code: error.cause?.code || error.name }); }
         }
       }
@@ -84,7 +90,11 @@ async function main() {
     const health = await page.request.get(`${appUrl}/api/agent/runtime/hermes/health`);
     const body = await health.json();
     phase.nextHealth = { httpStatus: health.status(), reason: body.reason, runtimeUrl: body.runtimeUrl,
-      diagnostics: body.runtimeHealth?.diagnostics, providerStatus: body.providerStatus };
+      runtimeHealth: body.runtimeHealth, providerDiagnostic: body.providerDiagnostic, providerStatus: body.providerStatus };
+    const listenerPort = Number(new URL(status.runtimeUrl).port);
+    phase.listener = JSON.parse(execFileSync("powershell", ["-NoProfile", "-Command",
+      `$listeners = Get-NetTCPConnection -LocalPort ${listenerPort} -State Listen -ErrorAction SilentlyContinue; @($listeners | ForEach-Object { $owner = Get-Process -Id $_.OwningProcess; [pscustomobject]@{ port = $_.LocalPort; pid = $_.OwningProcess; createdAt = $owner.StartTime.ToUniversalTime().ToString('o') } }) | ConvertTo-Json -Compress`],
+      { encoding: "utf8", windowsHide: true }).trim() || "[]");
     save();
     assert.equal(status?.overallState, "ready", "actual product readiness failed; single capture stops here");
     if (!restored) {
@@ -96,11 +106,34 @@ async function main() {
       assert.equal(phase.credential.source, "secure_store");
       const result = await page.evaluate(baseUrl => window.careerAdaptDesktop.updateHermesConfig({ provider: "openai-compatible", baseUrl, model: "Qwen3.8-27B", apiKey: "", credentialAction: "unchanged" }), provider.baseUrl);
       phase.switched = { ok: result.ok, receipt: result.receipt };
+      phase.afterSwitch = await page.evaluate(() => window.careerAdaptDesktop.getHermesStatus());
+      save();
       assert.equal(result.ok, true);
-      const config = Buffer.from(encodeURIComponent(JSON.stringify({ provider: "openai-compatible", baseUrl: provider.baseUrl, model: "Qwen3.8-27B" }))).toString("base64");
-      const response = await page.request.post(`${appUrl}/api/ai/test`, { headers: { "x-ai-test-mode": "latency", "x-ai-config": config } });
-      phase.request = { status: response.status(), ok: (await response.json()).ok };
-      assert.equal(phase.request.ok, true);
+      assert.equal(phase.afterSwitch.runtimeConfig?.verified, true);
+      assert.equal(phase.afterSwitch.runtimeConfig?.activeFingerprint, phase.afterSwitch.runtimeConfig?.desiredFingerprint);
+      phase.readback = await application.evaluate(async () => {
+        const response = await fetch(`${process.env.HERMES_RUNTIME_URL}/api/model/options`, {
+          headers: { Authorization: `Bearer ${process.env.API_SERVER_KEY}` }, signal: AbortSignal.timeout(5_000)
+        });
+        const body = await response.json();
+        return { httpStatus: response.status, model: body.model, provider: body.provider };
+      });
+      const requestsBefore = provider.requests.length;
+      await page.goto(`${appUrl}/ai-workspace`);
+      await page.getByLabel("描述你的求职任务").fill("你好");
+      const startResponse = page.waitForResponse(response => {
+        if (!response.url().endsWith("/api/agent/runtime/hermes")) return false;
+        return response.request().postDataJSON()?.action === "run_start";
+      });
+      await page.getByRole("button", { name: "发送消息", exact: true }).click();
+      const response = await startResponse;
+      await page.waitForFunction(() => Array.from(document.querySelectorAll('[data-message-role="assistant"]'))
+        .some(message => message.textContent.includes("你好，Hermes hermetic runtime 已就绪。")), null, { timeout: 60_000 });
+      phase.request = { httpStatus: response.status(), providerRequests: provider.requests.length - requestsBefore,
+        model: provider.requests.at(-1)?.model, uiCompleted: true };
+      assert.equal(phase.request.httpStatus, 200);
+      assert.equal(phase.request.providerRequests, 1);
+      assert.equal(phase.request.model, "Qwen3.8-27B");
     }
     await application.close();
     phase.exitCode = productProcess.exitCode;
@@ -115,5 +148,5 @@ main().catch(error => { evidence.status = "FAILED"; evidence.failure = error.mes
   evidence.providerRequests = provider?.requests.map(request => ({ model: request.model, authenticated: request.authorization === `Bearer ${provider.apiKey}` }));
   await provider?.close();
   save();
-  console.log(JSON.stringify(evidence, null, 2));
+  console.log(JSON.stringify({ evidenceFile: path.relative(root, output), status: evidence.status, phases: evidence.phases.map(phase => ({ restored: phase.restored, state: phase.status?.state, reason: phase.status?.reason, exitCode: phase.exitCode })) }, null, 2));
 });

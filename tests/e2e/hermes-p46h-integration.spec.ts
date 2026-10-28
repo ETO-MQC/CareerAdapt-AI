@@ -2,6 +2,28 @@ import { expect, test, type Page } from "@playwright/test";
 import { completeCoreResumeWorkflow, prepareCoreSourceResume } from "./support/p51CoreWorkflow";
 
 test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
+  test.afterEach(async ({ page }, testInfo) => {
+    if (!testInfo.title.startsWith("CASE I")) return;
+    const sessions = await page.evaluate(() => new Promise((resolve, reject) => {
+      const request = indexedDB.open("CareerAdaptDb");
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const database = request.result;
+        const result = database.transaction("agentSessions", "readonly").objectStore("agentSessions").getAll();
+        result.onerror = () => reject(result.error);
+        result.onsuccess = () => {
+          database.close();
+          resolve(result.result.map(session => ({
+            sessionId: session.id, activeTurn: session.activeTurn,
+            pendingConfirmation: session.pendingConfirmation ? { operationId: session.pendingConfirmation.operationId, turnId: session.pendingConfirmation.turnId } : null,
+            task: session.taskState ? { workflowId: session.taskState.workflowId, stage: session.taskState.stage, completionStatus: session.taskState.completionStatus, selectedEntities: session.taskState.selectedEntities } : null,
+            messages: session.messages?.map((message: { id: string; role: string; turnId?: string; status?: string }) => ({ id: message.id, role: message.role, turnId: message.turnId, status: message.status }))
+          })));
+        };
+      };
+    }));
+    await testInfo.attach("host-confirmation-receipt", { body: JSON.stringify(sessions, null, 2), contentType: "application/json" });
+  });
   test("CASE A — ordinary greeting completes through official Hermes Runs", async ({ page }) => {
     const trace = observeRuntimeAndBridge(page);
     await openWorkspace(page);

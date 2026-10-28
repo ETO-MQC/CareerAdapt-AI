@@ -73,10 +73,12 @@ describe("P5.1 Core production workflow boundaries", () => {
       mode: "job_specific", jobId: job.id, sourceResumeId: source.branch.id, checkpointId: checkpoint.checkpointId })).rejects.toMatchObject({ code: "resume_composition_job_stale" });
     expect(await f.repository.listResumeBranches()).toHaveLength(1);
   });
-  it("projects one resumable Host confirmation and saves without a second semantic Run", async () => {
+  it.each(["workflow", "conversation"])("projects one resumable Host confirmation from a %s session and saves without a second semantic Run", async (kind) => {
     const f = await fixture();
     const persistence = new AgentSessionStore(f.repository);
-    const initial = await persistence.save(AgentRuntime.create("agent_quick_action", "collecting_intent"));
+    const initial = await persistence.save(kind === "conversation"
+      ? AgentRuntime.createConversationSession()
+      : AgentRuntime.create("agent_quick_action", "collecting_intent"));
     const host = new AgentHostStore({ kernel: {} as never, repository: f.repository, persistence,
       executor: new CareerToolGatewayExecutor(f.registry, f.gateway) });
     host.adopt(initial);

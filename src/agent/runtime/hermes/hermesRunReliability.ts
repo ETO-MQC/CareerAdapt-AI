@@ -439,10 +439,13 @@ export function companionHealthFailure(error: unknown): HermesRunFailureDiagnost
   const cause = record.cause?.code;
   const networkCode = typeof cause === "string" && ["ECONNREFUSED", "ECONNRESET", "ENOTFOUND", "EHOSTUNREACH", "ETIMEDOUT", "UND_ERR_CONNECT_TIMEOUT"].includes(cause) ? cause : undefined;
   const timeout = record.name === "TimeoutError";
+  const exceptionType = typeof record.name === "string"
+    && ["TypeError", "ReferenceError", "SyntaxError", "RangeError", "ZodError", "AbortError"].includes(record.name)
+    ? record.name : undefined;
   return classifyHermesRunFailure({
     code: networkCode || timeout ? "hermes_companion_unreachable" : "hermes_health_check_failed",
     failureLayer: "companion",
-    upstreamErrorCode: networkCode ?? (timeout ? "TimeoutError" : undefined),
+    upstreamErrorCode: networkCode ?? (timeout ? "TimeoutError" : exceptionType),
     safeErrorCategory: networkCode || timeout ? "transport_failure" : "unknown",
     message: networkCode || timeout ? "Hermes Companion 健康检查连接失败。" : "Hermes 健康检查失败，原因尚未确定。"
   });

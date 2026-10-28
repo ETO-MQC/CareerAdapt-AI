@@ -1,5 +1,14 @@
 # CareerAdapt AI --- P5.1 Agent 架构优化开发计划
 
+## 2026-10-28 CLOSEOUT最新交接：仍未冻结
+
+起始HEAD/远程main均9bd0d80、工作区干净。Web当前无429为用户观察，不等同Electron/真实Provider通过。CASE I聊天会话确认后缺少workflow导致投影异常，最小修复后定向1/1、完整Hermes9/9通过（分别2/16次模拟Provider请求）。现有CASE I的确认后执行属于Host+业务UI，尚未证明已终态Hermes收到保存结果并自主继续，不扩写成完整链已通过。
+
+R2-RDY-01直接证据为控制鉴权200/401正常、Next503+ZodError；RuntimeHealthSchema遗漏secure_store已对齐，实际路由/Supervisor回归通过。修复后一次复验恢复READY、凭据secure_store、applied/verified及活动/期望指纹一致；随后单次模型切换rolled_back/reasonCode=23、底层原因未证实，请求未执行，停止重启/重试。整体原生harness仍退出1，真实Provider/正式包BLOCKED。四个诊断产品进程均退出0，PID及端口清理检查通过。
+
+最终12文件148项相关测试、typecheck、全量lint、build、bundle-check、diff退出0。未删除文件、提交、推送或打包。Core-01保持PARTIAL_NOT_FROZEN；完整命令/历史失败/限制见[Core-01报告](p5.1-core-01-20261028.md)与证据JSON的closeoutRounds。下一步仅采集失败模型读回的直接证据及明确续跑契约，不自动扩展阶段。
+
+
 ## 2026-10-28：P5.1-Core-01 当前执行覆盖
 
 用户本轮授权 A～D 顺序实施核心链路，覆盖本计划部分 P5.1.1/3/4/5/6；不自动提交推送打包，不恢复全部 V4。当前为部分交付/未冻结：JD 高层录入、确认消息透传、证据矩阵返回、A01/A02 与版本事务约束已实施；R2-RDY-01、恢复后完整请求和真实 JD 确认端到端仍有未验收项。最终范围、门禁与阻塞以 [Core-01 报告](p5.1-core-01-20261028.md) 和 [安全证据](p5.1-core-01-evidence-20261028.json) 为准；不能把这些跨阶段局部交付记为 P5.1.1～P5.1.9 全部完成。原逐阶段路线保留。

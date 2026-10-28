@@ -24,7 +24,7 @@ export type AiRuntimeConfigValue = {
   baseUrlHostPath?: string;
   model: string;
   credentialConfigured: boolean;
-  credentialSource: "server_env" | "managed_config" | "custom_header" | "default" | "missing" | "unknown";
+  credentialSource: "server_env" | "secure_store" | "managed_config" | "custom_header" | "default" | "missing" | "unknown";
   configFingerprint: string;
   configGeneration: number;
   source: AiRuntimeConfigSource;

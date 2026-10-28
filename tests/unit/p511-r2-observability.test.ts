@@ -15,6 +15,37 @@ function degraded(overrides: Partial<HermesSupervisorSnapshot> = {}): HermesSupe
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 describe("R2-OBS-01 evidence-based error propagation", () => {
+  it.each([200, 401])("preserves restored secure-store provenance through the actual health route with Provider HTTP %s", async (providerHttpStatus) => {
+    vi.stubEnv("HERMES_RUNTIME_URL", "http://127.0.0.1:18643");
+    vi.stubEnv("API_SERVER_KEY", "r2-control-synthetic");
+    vi.stubEnv("AI_PROVIDER", "openai-compatible");
+    vi.stubEnv("HERMES_PROVIDER", "openai-compatible");
+    vi.stubEnv("AI_BASE_URL", "http://127.0.0.1:18644/v1");
+    vi.stubEnv("HERMES_BASE_URL", "http://127.0.0.1:18644/v1");
+    vi.stubEnv("AI_API_KEY", "r2-provider-synthetic");
+    vi.stubEnv("HERMES_CUSTOM_CAREERADAPT_API_KEY", "r2-provider-synthetic");
+    vi.stubEnv("AI_MODEL", "r2-test");
+    vi.stubEnv("HERMES_MODEL", "r2-test");
+    vi.stubEnv("CAREERADAPT_CREDENTIAL_SOURCE", "secure_store");
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (url.endsWith("/health")) return Response.json({ status: "ok", version: "0.19.0" });
+      if (url.endsWith("/models")) return Response.json({ data: [{ id: "r2-test" }] }, { status: providerHttpStatus });
+      return Response.json({}, { status: 503 });
+    }));
+    const { GET } = await import("@/app/api/agent/runtime/hermes/health/route");
+    const response = await GET(new Request("http://127.0.0.1:3000/api/agent/runtime/hermes/health"));
+    const payload = await response.json();
+    expect(response.status).toBe(200);
+    expect(payload.runtimeHealth).toMatchObject({ companionReady: true, providerReady: providerHttpStatus === 200,
+      providerDiagnostic: { credentialConfigured: true, credentialSource: "secure_store", lastHttpStatus: providerHttpStatus } });
+    expect(JSON.stringify(payload)).not.toContain("r2-provider-synthetic");
+  });
+  it("exports an allowlisted exception type without its sensitive message", () => {
+    expect(companionHealthFailure(Object.assign(new Error("private-key"), { name: "ZodError" })))
+      .toMatchObject({ safeErrorCode: "hermes_health_check_failed", upstreamErrorCode: "ZodError", safeErrorCategory: "unknown" });
+    expect(JSON.stringify(companionHealthFailure(new TypeError("private-key")))).not.toContain("private-key");
+    expect(companionHealthFailure({ name: "private-key" }).upstreamErrorCode).toBeUndefined();
+  });
   it("keeps restored storage, unreachable Companion and ready MCP independent", () => {
     const snapshot = createHermesControlSnapshot({ environment: "electron", supervisor: degraded() });
     expect(snapshot).toMatchObject({ ready: false, apiReady: false, providerReady: false, careerMcpReady: true,
