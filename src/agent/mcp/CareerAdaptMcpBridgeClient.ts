@@ -4,7 +4,7 @@ import type {
   CareerToolResult
 } from "@/agent/tools/CareerToolGateway";
 import type { CareerAdaptMcpGateway } from "./CareerAdaptMcpAdapter";
-import type { CareerSessionBinding } from "../runtime/careerSessionBinding";
+import { CareerSessionBindingSchema, type CareerSessionBinding } from "../runtime/careerSessionBinding";
 import {
   CareerToolFailureDiagnosticsSchema,
   safeCareerToolArgumentShape,
@@ -26,6 +26,7 @@ type BridgeRequest = {
   agentSessionId?: string;
   careerSessionBinding?: CareerSessionBinding;
   requireSessionBinding?: boolean;
+  expiresAt?: number;
 };
 
 export type CareerAdaptMcpBridgeClientStatus = {
@@ -95,6 +96,20 @@ export class CareerAdaptMcpBridgeClient {
   private registrationChain: Promise<void> = Promise.resolve();
   private currentBinding?: CareerSessionBinding;
   private turnContextSyncChain: Promise<void> = Promise.resolve();
+  private pendingWrites = new Map<string, { sessionId: string; turnId: string; resolve: (confirmed: boolean) => void }>();
+
+  hasPendingWrite(sessionId: string, turnId: string, operationId: string) {
+    const pending = this.pendingWrites.get(operationId);
+    return pending?.sessionId === sessionId && pending.turnId === turnId;
+  }
+
+  resolvePendingWrite(sessionId: string, turnId: string, operationId: string, confirmed: boolean) {
+    if (!this.hasPendingWrite(sessionId, turnId, operationId)) return false;
+    const pending = this.pendingWrites.get(operationId)!;
+    this.pendingWrites.delete(operationId);
+    pending.resolve(confirmed);
+    return true;
+  }
 
   async start(
     gateway: CareerAdaptMcpGateway,
@@ -120,6 +135,8 @@ export class CareerAdaptMcpBridgeClient {
 
   setConfirmationContext(context?: CareerAdaptMcpConfirmationContext) {
     if (context?.turnId !== this.confirmationContext?.turnId) {
+      for (const pending of this.pendingWrites.values()) pending.resolve(false);
+      this.pendingWrites.clear();
       this.noProgress = undefined;
       this.invalidCallGuard = undefined;
       this.confirmationPendingTurnId = undefined;
@@ -139,6 +156,8 @@ export class CareerAdaptMcpBridgeClient {
   }
 
   async stop() {
+    for (const pending of this.pendingWrites.values()) pending.resolve(false);
+    this.pendingWrites.clear();
     ++this.lifecycleGeneration;
     this.stopped = true;
     if (this.pollTimer) clearTimeout(this.pollTimer);
@@ -372,7 +391,7 @@ export class CareerAdaptMcpBridgeClient {
         careerSessionBinding: request.careerSessionBinding,
         requireSessionBinding: request.requireSessionBinding === true,
         tailoringAnswer: confirmationContext?.tailoringAnswer,
-        userMessageId: confirmationContext?.userMessageId,
+        userMessageId: request.sourceUserMessageId ?? confirmationContext?.userMessageId,
       };
       const callKey = `${request.name}:${stableJson(toolInput)}`;
       const turnId = logicalTurnId ?? "unbound-turn";
@@ -422,13 +441,52 @@ export class CareerAdaptMcpBridgeClient {
         const contract = this.gateway.listContracts().find((candidate) => candidate.name === request.name);
         const input = asRecord(toolInput);
         if (contract) {
-          await Promise.resolve(this.onConfirmation({
-            ...confirmationContext,
-            toolName: request.name,
-            operationId: request.operationId,
-            input,
-            contract
-          })).catch(() => undefined);
+          // A transactional JD save is still the original MCP tool call. Keep
+          // that response pending; Hermes owns the next reasoning step after
+          // the confirmed result returns. Proposal/review workflows retain
+          // their existing completed-turn interaction boundaries.
+          const waitForWrite = request.name === "career.workflow.job_intake";
+          const generation = this.lifecycleGeneration;
+          let decision: Promise<boolean> | undefined;
+          if (waitForWrite) {
+            await this.onResult?.({ request, result, confirmationContext });
+            decision = new Promise(resolve => this.pendingWrites.set(request.operationId, {
+              sessionId: confirmationContext.sessionId, turnId: confirmationContext.turnId, resolve
+            }));
+          }
+          let expiry: ReturnType<typeof setTimeout> | undefined;
+          if (decision && request.expiresAt !== undefined) expiry = setTimeout(() => {
+            this.resolvePendingWrite(confirmationContext.sessionId, confirmationContext.turnId, request.operationId, false);
+          }, Math.max(0, request.expiresAt - Date.now()));
+          try {
+            await this.onConfirmation({
+              ...confirmationContext,
+              toolName: request.name,
+              operationId: request.operationId,
+              input,
+              contract
+            });
+            if (decision) {
+              const confirmed = await decision;
+              this.confirmationPendingTurnId = undefined;
+              const binding = request.careerSessionBinding ?? asRecord(asRecord(result.data).workflowCheckpoint).careerSessionBinding;
+              const expired = request.expiresAt !== undefined && request.expiresAt <= Date.now();
+              const interrupted = this.stopped || generation !== this.lifecycleGeneration
+                || this.confirmationContext?.sessionId !== confirmationContext.sessionId
+                || this.confirmationContext?.turnId !== confirmationContext.turnId;
+              result = expired ? failedResult(request, "mcp_bridge_timeout")
+                : interrupted ? failedResult(request, "mcp_bridge_stopped")
+                : confirmed ? await this.gateway.execute(request.name, toolInput, { ...context,
+                    careerSessionBinding: CareerSessionBindingSchema.parse(binding), requireSessionBinding: true,
+                    confirmed: true, confirmationCount: 1 })
+                : { ok: false, artifacts: [], receipt: { ...result.receipt, status: "failed" },
+                    error: { code: "user_confirmation_rejected", category: "conflict", message: "用户未确认，未执行写入。", recoverable: false } };
+              result = withMcpCallTrace(result, request, true, toolInput);
+            }
+          } finally {
+            if (expiry) clearTimeout(expiry);
+            this.pendingWrites.delete(request.operationId);
+          }
         }
       }
       await Promise.resolve(this.onResult?.({ request, result, confirmationContext })).catch(() => undefined);

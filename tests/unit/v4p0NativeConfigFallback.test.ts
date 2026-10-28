@@ -74,13 +74,14 @@ function createHealth(overrides: Record<string, unknown> = {}) {
  * Mirrors production: the gateway answers /api/model/info and /api/model/set with 404, exactly
  * as api_server.py's route table does, and the companion starts with the requested environment.
  */
-function createGatewayHarness(options: { nativeModelConfig?: boolean; hotModel?: boolean; readbackMismatch?: boolean; failRecovery?: boolean; recoveryReadbackMismatch?: boolean; recoveryBaseUrlMismatch?: boolean; runtimeBusy?: boolean; activityUnavailable?: boolean } = {}) {
+function createGatewayHarness(options: { nativeModelConfig?: boolean; hotModel?: boolean; readbackMismatch?: boolean; readbackTimeout?: boolean; failRecovery?: boolean; recoveryReadbackMismatch?: boolean; recoveryBaseUrlMismatch?: boolean; runtimeBusy?: boolean; activityUnavailable?: boolean } = {}) {
   const nativeEnabled = options.nativeModelConfig === true;
   const hermesHome = options.hotModel ? mkdtempSync(path.join(tmpdir(), "careeradapt-model-switch-")) : undefined;
   let currentHealth = createHealth();
   let startCount = 0;
   let modelInfoCount = 0;
   let modelSetCount = 0;
+  let modelOptionsCount = 0;
   const startEnvironments: Array<Record<string, string>> = [];
   const children: Array<EventEmitter & { exitCode: number | null }> = [];
 
@@ -121,13 +122,19 @@ function createGatewayHarness(options: { nativeModelConfig?: boolean; hotModel?:
     if (url.endsWith("/v1/capabilities")) return { ok: true, status: 200, json: async () => ({ features: { streaming: true } }) };
     if (url.endsWith("/v1/skills")) return { ok: true, status: 200, json: async () => ({ skills: [] }) };
     if (url.endsWith("/v1/toolsets")) return { ok: true, status: 200, json: async () => ({ toolsets: [] }) };
-    if (url.endsWith("/api/model/options")) return { ok: true, status: 200, json: async () => ({
+    if (url.endsWith("/api/model/options")) {
+      modelOptionsCount += 1;
+      if (options.readbackTimeout && hermesHome && readFileSync(path.join(hermesHome, "config.yaml"), "utf8").includes('default: "next-model"')) {
+        throw new DOMException("private endpoint details", "TimeoutError");
+      }
+      return { ok: true, status: 200, json: async () => ({
       providers: [],
       ...(hermesHome ? {
         model: options.readbackMismatch || (options.recoveryReadbackMismatch && startCount === 2) ? "wrong-model" : JSON.parse(readFileSync(path.join(hermesHome, "config.yaml"), "utf8").match(/^  default: (.+)$/mu)![1]),
         provider: "custom:careeradapt"
       } : {})
     }) };
+    }
     if (url.endsWith("/api/model/info")) {
       modelInfoCount += 1;
       if (nativeEnabled) return { ok: true, status: 200, json: async () => ({ provider: "openrouter", model: "model-before", base_url: "https://provider.example/v1", capabilities: {} }) };
@@ -167,6 +174,7 @@ function createGatewayHarness(options: { nativeModelConfig?: boolean; hotModel?:
     getStartCount: () => startCount,
     getModelInfoCount: () => modelInfoCount,
     getModelSetCount: () => modelSetCount,
+    getModelOptionsCount: () => modelOptionsCount,
     getStartEnvironments: () => startEnvironments,
     getManagedConfig: () => hermesHome ? readFileSync(path.join(hermesHome, "config.yaml"), "utf8") : "",
     setManagedConfig: (content: string) => writeFileSync(path.join(hermesHome!, "config.yaml"), content),
@@ -177,6 +185,21 @@ function createGatewayHarness(options: { nativeModelConfig?: boolean; hotModel?:
 
 describe("V4-P0 native model config 404 fallback", () => {
   const target = { provider: "openai-compatible", baseUrl: "https://provider.example/v1", model: "next-model", apiKey: "", credentialAction: "unchanged" };
+
+  it("rolls back on the captured model readback TimeoutError without numeric code or retry", async () => {
+    const harness = createGatewayHarness({ hotModel: true, readbackTimeout: true });
+    await harness.supervisor.rendererHostReady();
+    const starts = harness.getStartCount();
+    const reads = harness.getModelOptionsCount();
+    const before = harness.getManagedConfig();
+    const applied = await harness.supervisor.updateConfig(target);
+    expect(applied.runtimeConfig).toMatchObject({ applyStatus: "rolled_back", verified: false, rollbackOccurred: true });
+    expect((await harness.supervisor.getConfig()).lastApplyReceipt).toMatchObject({ reasonCode: "hermes_model_config_timeout", verified: false, rollbackOccurred: true });
+    expect(applied.model).toBe("model-before");
+    expect(harness.getManagedConfig()).toBe(before);
+    expect(harness.getStartCount()).toBe(starts);
+    expect(harness.getModelOptionsCount() - reads).toBe(1);
+  });
 
   it("recovers after the current bundled Hermes really saves YAML and preserves all user values", async () => {
     const harness = createGatewayHarness({ hotModel: true });

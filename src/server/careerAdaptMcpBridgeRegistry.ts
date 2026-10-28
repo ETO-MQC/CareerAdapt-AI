@@ -28,6 +28,7 @@ type BridgeRequest = {
   careerSessionBinding?: CareerSessionBinding;
   requireSessionBinding?: boolean;
   createdAt: number;
+  expiresAt: number;
 };
 
 export type CareerAdaptMcpBridgeTurnContext = {
@@ -243,7 +244,8 @@ export function createCareerAdaptMcpBridgeGateway(surface: CareerAdaptMcpSurface
           logicalTurnId: context.logicalTurnId,
           taskId: context.taskId,
           incidentTraceId: context.incidentTraceId,
-          createdAt: Date.now()
+          createdAt: Date.now(),
+          expiresAt: Date.now()
         }, "career_tool_not_exposed", "当前 Hermes 生产工具面不暴露该 Career 原子工具。"));
       }
       return enqueueCall(_name, _input, context);
@@ -282,7 +284,8 @@ function enqueueCall(name: string, input: unknown, context: CareerToolExecutionC
     agentSessionId,
     careerSessionBinding: context.careerSessionBinding ?? bridge.careerSessionBinding,
     requireSessionBinding: context.requireSessionBinding,
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    expiresAt: Date.now() + CALL_TIMEOUT_MS
   };
   bridge.queue.push(request);
   return new Promise((resolve) => {

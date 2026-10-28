@@ -14,10 +14,12 @@ import { migrateCareerProfileToV2 } from "@/domain/migrations/resumeV2";
 import { compileResumeComposition, createResumeCompositionCheckpoint, type CareerResumeWritingService } from "@/domain/resumeComposition";
 import { classifyHermesRunFailure } from "@/agent/runtime/hermes/hermesRunReliability";
 import { mapBranchToResumeRenderModel } from "@/domain/resumeRender/mapper";
+import { CareerAdaptMcpBridgeClient } from "@/agent/mcp/CareerAdaptMcpBridgeClient";
+import type { CareerToolResult } from "@/agent/tools/CareerToolGateway";
 
 const JD = "公司：Core Test\n岗位：前端工程师\n工作地点：上海\n岗位职责\n1. 负责 React 应用开发。\n任职要求\n1. 熟悉 TypeScript 或 JavaScript。\n2. 具备团队协作能力。";
 let db: CareerAdaptDb;
-afterEach(async () => { db?.close(); if (db) await db.delete(); });
+afterEach(async () => { vi.unstubAllGlobals(); db?.close(); if (db) await db.delete(); });
 async function fixture() {
   db = new CareerAdaptDb(`Core51-${crypto.randomUUID()}`);
   const repository = new WorkspaceRepository(db);
@@ -34,6 +36,64 @@ async function fixture() {
   return { repository, profile, service, registry, gateway, context };
 }
 describe("P5.1 Core production workflow boundaries", () => {
+  it("accepts a confirmed JD receipt as the canonical ingest_job goal at Hermes terminal", async () => {
+    const f = await fixture();
+    const persistence = new AgentSessionStore(f.repository);
+    const initial = await persistence.save(AgentRuntime.createConversationSession());
+    const host = new AgentHostStore({ kernel: {} as never, repository: f.repository, persistence,
+      executor: new CareerToolGatewayExecutor(f.registry, f.gateway) });
+    host.adopt(initial);
+    const prepared = await host.prepareRuntimeTask({ session: initial, userMessage: "保存这个岗位" });
+    const shell = await host.beginRuntimeShell({ session: prepared, userMessage: "保存这个岗位", runtimeId: "hermes" });
+    const result = await f.gateway.execute("career.workflow.job_intake", { rawText: JD, persistence: "save" }, {
+      ...f.context, careerSessionBinding: { ...f.context.careerSessionBinding, agentSessionId: initial.id },
+      operationId: "completed-job", userMessageId: shell.userMessageId
+    });
+    await host.applyRuntimeEvent({ type: "tool_call_completed", sessionId: initial.id, turnId: shell.turnId,
+      timestamp: new Date().toISOString(), toolName: "career.workflow.job_intake", operationId: "completed-job", data: { result } }, shell.assistantMessageId);
+    const terminal = await host.applyRuntimeEvent({ type: "turn_completed", sessionId: initial.id, turnId: shell.turnId,
+      timestamp: new Date().toISOString(), message: "Hermes 已收到岗位保存结果。" }, shell.assistantMessageId);
+    expect(terminal?.taskState).toMatchObject({ rootGoal: "ingest_job", workflowId: "job_ingestion", completionStatus: "completed" });
+    expect(terminal?.activeTurn?.status).toBe("completed");
+    expect(terminal?.messages.find(message => message.id === shell.assistantMessageId)?.content).toContain("Hermes 已收到岗位保存结果。");
+    expect(await f.repository.listJobDescriptions()).toHaveLength(1);
+  });
+  it.each(["accept", "reject", "stop", "expired"])("keeps the original MCP response pending until the scoped confirmation: %s", async (decision) => {
+    const f = await fixture();
+    const client = new CareerAdaptMcpBridgeClient();
+    const responses: CareerToolResult[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url: unknown, init?: RequestInit) => {
+      const body = init?.body ? JSON.parse(String(init.body)) : {};
+      if (body.action === "result") responses.push(body.result);
+      return Response.json({ ok: true, bridgeId: "core-bridge", token: "synthetic-token", requests: [] });
+    }));
+    let notify: () => void = () => undefined;
+    const shown = new Promise<void>(resolve => { notify = resolve; });
+    const context = { sessionId: "core-session", turnId: "core-turn", assistantMessageId: "core-assistant", userMessageId: "core-user" };
+    const request = { id: "original-mcp-call", operationId: "pending-job", name: "career.workflow.job_intake",
+      input: { rawText: JD, persistence: "save" }, careerSessionBinding: f.context.careerSessionBinding,
+      sourceUserMessageId: "core-user", ...(decision === "expired" ? { expiresAt: Date.now() - 1 } : {}) };
+    try {
+      await client.start(f.gateway, undefined, () => { notify(); });
+      await client.setConfirmationContext(context);
+      const executing = (client as unknown as { execute(value: typeof request): Promise<void> }).execute(request);
+      await shown;
+      expect(responses).toHaveLength(0);
+      expect(await f.repository.listJobDescriptions()).toHaveLength(0);
+      expect(client.resolvePendingWrite("other-session", context.turnId, request.operationId, true)).toBe(false);
+      if (decision === "stop") await client.stop();
+      else if (decision === "expired") client.resolvePendingWrite(context.sessionId, context.turnId, request.operationId, true);
+      else {
+        expect(client.resolvePendingWrite(context.sessionId, context.turnId, request.operationId, decision !== "reject")).toBe(true);
+        expect(client.resolvePendingWrite(context.sessionId, context.turnId, request.operationId, true)).toBe(false);
+      }
+      await executing;
+      expect(await f.repository.listJobDescriptions()).toHaveLength(decision === "accept" ? 1 : 0);
+      if (decision === "accept") expect(responses[0]).toMatchObject({ ok: true, data: { status: "completed" } });
+      else expect(responses[0]).toMatchObject({ ok: false, error: { code: decision === "expired" ? "mcp_bridge_timeout"
+        : decision === "stop" ? "mcp_bridge_tool_failed" : "user_confirmation_rejected" } });
+    } finally { await client.stop(); }
+  });
   it("strictly renders a confirmed Repository general branch", async () => {
     const f = await fixture();
     const source = await f.repository.ensureGeneralResumeFromProfile({ profileId: f.profile.id, operationId: "source", mode: "create_new" });
@@ -96,6 +156,8 @@ describe("P5.1 Core production workflow boundaries", () => {
       data: { contract: { sourceToolName: "career.workflow.job_intake" }, input: { rawText: JD, persistence: "save" } }
     }, shell.assistantMessageId);
     expect(projected?.pendingToolCall).toMatchObject({ toolName: "career.workflow.job_intake", input: { rawText: JD } });
+    expect(host.getSnapshot().turnStatus).toBe("waiting_for_confirmation");
+    expect(projected?.activeTurn?.status).toBe("waiting_for_confirmation");
     expect(await f.repository.listJobDescriptions()).toHaveLength(0);
     await host.applyRuntimeEvent({ type: "turn_completed", sessionId: initial.id, turnId: shell.turnId,
       timestamp: new Date().toISOString(), message: "岗位解析已完成，请核对后保存。" }, shell.assistantMessageId);

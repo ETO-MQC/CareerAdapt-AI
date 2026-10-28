@@ -34,7 +34,7 @@ async function main() {
     const phase = { restored, startedAt: new Date().toISOString(), states: [] };
     evidence.phases.push(phase);
     save();
-    const env = { ...process.env, NODE_ENV: "development", CLOSURE_PROFILE: profile,
+    const env = { ...process.env, NODE_ENV: "development", CLOSURE_PROFILE: profile, CORE_MODEL_DIAGNOSTICS: "true",
       CAREERAD_NEXT_DIST_DIR: path.relative(root, path.join(fixture, "next")),
       CAREERADAPT_APP_PORT: String(appPort), PORT: String(appPort),
       CAREERADAPT_HERMES_HOME: path.join(profile, "hermes"), HERMES_HOME: path.join(profile, "hermes"),
@@ -107,6 +107,7 @@ async function main() {
       const result = await page.evaluate(baseUrl => window.careerAdaptDesktop.updateHermesConfig({ provider: "openai-compatible", baseUrl, model: "Qwen3.8-27B", apiKey: "", credentialAction: "unchanged" }), provider.baseUrl);
       phase.switched = { ok: result.ok, receipt: result.receipt };
       phase.afterSwitch = await page.evaluate(() => window.careerAdaptDesktop.getHermesStatus());
+      phase.modelDiagnostics = await application.evaluate(() => globalThis.__coreModelDiagnostics);
       save();
       assert.equal(result.ok, true);
       assert.equal(phase.afterSwitch.runtimeConfig?.verified, true);

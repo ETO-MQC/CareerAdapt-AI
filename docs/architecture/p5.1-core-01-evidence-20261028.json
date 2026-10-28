@@ -1670,5 +1670,625 @@
       "git": "uncommitted; no push/package/deletion; previous work retained",
       "nextStep": "Inspect failed model readback exception/HTTP response once, and resolve explicit post-confirmation Hermes continuation contract before full closeout. No automatic next-stage development."
     }
+  ],
+  "currentStatus": "PARTIAL_CARRY_FORWARD",
+  "currentDateLocal": "2026-10-29",
+  "finalRounds": [
+    {
+      "dateLocal": "2026-10-29",
+      "task": "P5.1-Core-01-FINAL",
+      "baseline": "0a978bab60c1472c98f961b4d64d835cb413f73c",
+      "remoteMainVerified": "0a978bab60c1472c98f961b4d64d835cb413f73c",
+      "initialWorktree": "clean",
+      "status": "PARTIAL_CARRY_FORWARD",
+      "careerAgentCoreFrozen": true,
+      "canEnterP512": true,
+      "p512Started": false,
+      "runtimeLock": {
+        "hermesVersion": "0.19.0",
+        "hermesGitCommit": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+        "hermesSourceTreeHash": "eb32a7abb5b92a27a25c89de3d4f0698dc8684abb84837a9c6171a5851598ab8",
+        "pythonVersion": "3.11.13",
+        "sitePackagesFingerprint": "962cc1380c454dbba3213991523454642698609fa01e14b52067d5dec47f9e59",
+        "careerAdaptPatchVersion": "careeradapt-api-toolsets-v1"
+      },
+      "reason23": {
+        "status": "PROVEN_SOURCE_AND_SAFE_CODE_FIXED",
+        "actualException": {
+          "name": "TimeoutError",
+          "numericCode": 23
+        },
+        "endpoint": "/api/model/options",
+        "httpStatus": null,
+        "responseBody": null,
+        "timeoutMs": 10000,
+        "path": [
+          "HermesModelConfigClient.#fetch AbortSignal.timeout(timeoutMs) aborts the fetch with DOMException TimeoutError, code 23",
+          "readModelOptions -> #request -> #fetch originally propagated the raw exception",
+          "HermesSupervisor.applyModelWithoutRestart catch: restore managed YAML, safeReason(error.code || hermes_model_apply_failed)",
+          "setConfigurationApplyStatus rolled_back -> createApplyReceipt reasonCode string 23 -> Electron IPC receipt"
+        ],
+        "writeMechanism": "updateManagedHermesModel writes managed YAML in-process; no HTTP model-write endpoint or config-write Python/Node subprocess was invoked. Runtime process is a separately supervised Python process, not an exit-code source here.",
+        "fix": "Only TimeoutError is normalized to hermes_model_config_timeout at the existing config client boundary. No timeout increase, retry, model/provider switch or rollback suppression.",
+        "diagnosticCommand": "node scripts/electron-core-readiness.cjs",
+        "diagnosticExitCode": 1,
+        "modelSwitchAttempts": 1,
+        "restored": {
+          "capturedAt": "2026-10-28T16:00:53.546Z",
+          "credential": {
+            "available": true,
+            "configured": true,
+            "source": "secure_store"
+          },
+          "listener": {
+            "port": 53651,
+            "pid": 73220,
+            "createdAt": "2026-10-28T16:00:42.2917039Z"
+          },
+          "status": {
+            "state": "ready",
+            "runtimeUrl": "http://127.0.0.1:53651",
+            "processReady": true,
+            "apiReady": true,
+            "providerReady": true,
+            "careerMcpReady": true,
+            "toolSurfaceReady": true,
+            "runReady": true,
+            "runtimeConfig": {
+              "active": {
+                "provider": "custom:careeradapt",
+                "baseUrl": "http://127.0.0.1:53649/v1",
+                "baseUrlHostPath": "127.0.0.1:53649/v1",
+                "model": "careeradapt-test",
+                "credentialConfigured": true,
+                "credentialSource": "secure_store",
+                "configFingerprint": "7c162feb013a061d2cad088235aec174fb4e2f328e9532f1e45c8e7165e3c682",
+                "configGeneration": 1,
+                "source": "runtime_readback",
+                "lastAppliedAt": "2026-10-28T16:00:53.186Z"
+              },
+              "desired": {
+                "provider": "custom:careeradapt",
+                "baseUrl": "http://127.0.0.1:53649/v1",
+                "baseUrlHostPath": "127.0.0.1:53649/v1",
+                "model": "careeradapt-test",
+                "credentialConfigured": true,
+                "credentialSource": "secure_store",
+                "configFingerprint": "7c162feb013a061d2cad088235aec174fb4e2f328e9532f1e45c8e7165e3c682",
+                "configGeneration": 1,
+                "source": "environment"
+              },
+              "activeFingerprint": "7c162feb013a061d2cad088235aec174fb4e2f328e9532f1e45c8e7165e3c682",
+              "activeGeneration": 1,
+              "desiredFingerprint": "7c162feb013a061d2cad088235aec174fb4e2f328e9532f1e45c8e7165e3c682",
+              "desiredGeneration": 1,
+              "applyStatus": "applied",
+              "restartPerformed": false,
+              "verified": true,
+              "rollbackOccurred": false,
+              "updatedAt": "2026-10-28T16:00:53.186Z"
+            },
+            "health": {
+              "runtimeAvailable": true,
+              "companionReady": true,
+              "providerConfigured": true,
+              "providerReachable": true,
+              "providerReady": true,
+              "providerStatus": "ready",
+              "mcpConnected": true,
+              "browserCareerDomainHostConnected": true,
+              "careerMcpServerReachable": true,
+              "hermesMcpRegistered": true,
+              "hermesMcpToolCount": 12,
+              "hermesCareerFacadeCount": 8,
+              "careerToolContractReady": true,
+              "runReady": true,
+              "providerDiagnostic": {
+                "provider": "custom:careeradapt",
+                "model": "careeradapt-test",
+                "credentialConfigured": true,
+                "credentialSource": "secure_store",
+                "configFingerprint": "7c162feb013a061d2cad088235aec174fb4e2f328e9532f1e45c8e7165e3c682",
+                "configGeneration": 1,
+                "lastCheckedAt": "2026-10-28T16:00:50.959Z",
+                "lastHttpStatus": 200
+              },
+              "requiredCareerFacadesMissing": []
+            }
+          },
+          "probe": {
+            "runtimeUrl": "http://127.0.0.1:53651",
+            "keyConfigured": true,
+            "probes": [
+              {
+                "suffix": "/health",
+                "authenticated": true,
+                "status": 200,
+                "health": {
+                  "status": "ok",
+                  "version": "0.19.0"
+                }
+              },
+              {
+                "suffix": "/health",
+                "authenticated": false,
+                "status": 200,
+                "health": {
+                  "status": "ok",
+                  "version": "0.19.0"
+                }
+              },
+              {
+                "suffix": "/health/detailed",
+                "authenticated": true,
+                "status": 200,
+                "health": {
+                  "status": "ok",
+                  "version": "0.19.0"
+                }
+              },
+              {
+                "suffix": "/health/detailed",
+                "authenticated": false,
+                "status": 401,
+                "health": {}
+              }
+            ]
+          },
+          "switch": {
+            "ok": false,
+            "receipt": {
+              "action": "update_config",
+              "requestedAt": "2026-10-28T16:00:55.887Z",
+              "accepted": true,
+              "executed": true,
+              "previousState": "running",
+              "nextState": "running",
+              "safeReasonCode": "update_config_completed",
+              "controlOwner": "electron_supervisor",
+              "applyStatus": "rolled_back",
+              "desiredFingerprint": "7c162feb013a061d2cad088235aec174fb4e2f328e9532f1e45c8e7165e3c682",
+              "activeFingerprint": "7c162feb013a061d2cad088235aec174fb4e2f328e9532f1e45c8e7165e3c682",
+              "restartPerformed": false,
+              "verified": false,
+              "rollbackOccurred": true,
+              "reasonCode": "23"
+            }
+          },
+          "afterSwitchRuntimeConfig": {
+            "active": {
+              "provider": "custom:careeradapt",
+              "baseUrl": "http://127.0.0.1:53649/v1",
+              "baseUrlHostPath": "127.0.0.1:53649/v1",
+              "model": "careeradapt-test",
+              "credentialConfigured": true,
+              "credentialSource": "secure_store",
+              "configFingerprint": "7c162feb013a061d2cad088235aec174fb4e2f328e9532f1e45c8e7165e3c682",
+              "configGeneration": 1,
+              "source": "runtime_readback",
+              "lastAppliedAt": "2026-10-28T16:00:53.186Z"
+            },
+            "desired": {
+              "provider": "custom:careeradapt",
+              "baseUrl": "http://127.0.0.1:53649/v1",
+              "baseUrlHostPath": "127.0.0.1:53649/v1",
+              "model": "careeradapt-test",
+              "credentialConfigured": true,
+              "credentialSource": "secure_store",
+              "configFingerprint": "7c162feb013a061d2cad088235aec174fb4e2f328e9532f1e45c8e7165e3c682",
+              "configGeneration": 1,
+              "source": "runtime_readback",
+              "lastAppliedAt": "2026-10-28T16:00:53.186Z"
+            },
+            "activeFingerprint": "7c162feb013a061d2cad088235aec174fb4e2f328e9532f1e45c8e7165e3c682",
+            "activeGeneration": 1,
+            "desiredFingerprint": "7c162feb013a061d2cad088235aec174fb4e2f328e9532f1e45c8e7165e3c682",
+            "desiredGeneration": 1,
+            "applyStatus": "rolled_back",
+            "restartPerformed": false,
+            "verified": false,
+            "rollbackOccurred": true,
+            "reasonCode": "23",
+            "updatedAt": "2026-10-28T16:01:05.897Z"
+          },
+          "modelDiagnostics": [
+            {
+              "at": "2026-10-28T16:00:48.925Z",
+              "endpoint": "/api/model/options",
+              "exception": {
+                "name": "TimeoutError",
+                "code": 23
+              },
+              "finishedAt": "2026-10-28T16:00:50.938Z"
+            },
+            {
+              "at": "2026-10-28T16:00:55.888Z",
+              "applyStatus": "saving",
+              "activeModel": "careeradapt-test",
+              "desiredModel": "Qwen3.8-27B",
+              "activeFingerprint": "7c162feb013a061d2cad088235aec174fb4e2f328e9532f1e45c8e7165e3c682",
+              "desiredFingerprint": "51f3dbb3215bfcff0da121b333141bc393827066553e9ac46ecbf5c33dd27d1c"
+            },
+            {
+              "at": "2026-10-28T16:00:55.893Z",
+              "applyStatus": "verifying",
+              "activeModel": "careeradapt-test",
+              "desiredModel": "Qwen3.8-27B",
+              "activeFingerprint": "7c162feb013a061d2cad088235aec174fb4e2f328e9532f1e45c8e7165e3c682",
+              "desiredFingerprint": "51f3dbb3215bfcff0da121b333141bc393827066553e9ac46ecbf5c33dd27d1c"
+            },
+            {
+              "at": "2026-10-28T16:00:55.893Z",
+              "endpoint": "/api/model/options",
+              "exception": {
+                "name": "TimeoutError",
+                "code": 23
+              },
+              "finishedAt": "2026-10-28T16:01:05.895Z"
+            },
+            {
+              "at": "2026-10-28T16:01:05.898Z",
+              "applyStatus": "rolled_back",
+              "reasonCode": "23",
+              "activeModel": "careeradapt-test",
+              "desiredModel": "careeradapt-test",
+              "activeFingerprint": "7c162feb013a061d2cad088235aec174fb4e2f328e9532f1e45c8e7165e3c682",
+              "desiredFingerprint": "7c162feb013a061d2cad088235aec174fb4e2f328e9532f1e45c8e7165e3c682"
+            }
+          ]
+        },
+        "managedModelAfterRollback": {
+          "modelConfigAfterRollback": [
+            "\"careeradapt-test\""
+          ],
+          "providerRequests": [],
+          "note": "Only model scalar fields from isolated harness config, no YAML or credentials exported."
+        },
+        "nextModelRequest": "NOT_EXECUTED: failed configuration prerequisite",
+        "postRollbackRuntimeReadback": "Not certified: readback fetch had no HTTP response; only restored managed model scalar and Supervisor active configuration were captured.",
+        "remaining": "Why the locked model/options inventory did not return before the deadline is still OPEN. No claim that hot model switching was fixed.",
+        "carryForwardId": "P518-RUNTIME-MODEL-READBACK-01",
+        "cleanup": [
+          {
+            "restored": false,
+            "electronPid": 42912,
+            "electronStillRunning": false,
+            "runtimePort": 53651,
+            "listenerStillPresent": false,
+            "exitCode": 0
+          },
+          {
+            "restored": true,
+            "electronPid": 62324,
+            "electronStillRunning": false,
+            "runtimePort": 53651,
+            "listenerStillPresent": false,
+            "exitCode": 0
+          }
+        ]
+      },
+      "sameRunContinuation": {
+        "status": "PASS",
+        "mechanism": "Keep the original standard MCP response pending across the Host confirmation. Host persists session/permission/UI state only. Gateway executes the scoped confirmed transaction and returns its result through that same MCP request; locked Hermes resumes its existing model loop. No second semantic Run, native fallback or custom Hermes continuation protocol.",
+        "additionalRootCausesFixed": [
+          "approval_required did not set Host waiting_for_confirmation, leaving the confirmation button disabled while Hermes was waiting",
+          "workflow ID job_ingestion was used as rootGoal; use existing canonical goal ingest_job so the unchanged completion guard accepts authoritative receipt"
+        ],
+        "targeted": {
+          "command": "node scripts/hermes-integration.mjs integration --grep=CASE.I",
+          "exitCode": 0,
+          "tests": 1,
+          "durationSeconds": 54.5,
+          "evidence": {
+            "before": {
+              "sessionId": "agent-session-MdmQrO08Oz6U",
+              "runId": "run_f7a8c305f44145688d2f7427dd9a7f3b",
+              "runStatus": "running",
+              "userMessageId": "agent-user-511aeda7-7879-44f4-a388-165185e352d7",
+              "confirmationId": "confirmation-mcp-career-PozqAt2KX94MKpRg",
+              "operationId": "mcp-career-PozqAt2KX94MKpRg"
+            },
+            "after": {
+              "sessionId": "agent-session-MdmQrO08Oz6U",
+              "runId": "run_f7a8c305f44145688d2f7427dd9a7f3b",
+              "runStatus": "completed",
+              "userMessageId": "agent-user-511aeda7-7879-44f4-a388-165185e352d7"
+            },
+            "toolCallId": "fake-chat-1-tool",
+            "confirmedAt": 1793205897504,
+            "providerRequestsBeforeConfirmation": 1,
+            "providerRequestsAfterConfirmation": 1,
+            "continued": [
+              {
+                "at": "2026-10-28T16:44:58.210Z",
+                "model": "careeradapt-test",
+                "toolResults": [
+                  {
+                    "toolCallId": "fake-chat-1-tool",
+                    "jobId": "job-N0bFyWnHj3"
+                  }
+                ]
+              }
+            ],
+            "firstEventAfterConfirmation": {
+              "event": "tool.completed",
+              "runId": "run_f7a8c305f44145688d2f7427dd9a7f3b",
+              "tool": "mcp__careeradapt__career_workflow_job_intake",
+              "timestamp": 1793205897.8263068
+            },
+            "events": [
+              {
+                "event": "tool.started",
+                "runId": "run_f7a8c305f44145688d2f7427dd9a7f3b",
+                "tool": "mcp__careeradapt__career_workflow_job_intake",
+                "timestamp": 1793205896.3017166
+              },
+              {
+                "event": "tool.completed",
+                "runId": "run_f7a8c305f44145688d2f7427dd9a7f3b",
+                "tool": "mcp__careeradapt__career_workflow_job_intake",
+                "timestamp": 1793205897.8263068
+              },
+              {
+                "event": "message.delta",
+                "runId": "run_f7a8c305f44145688d2f7427dd9a7f3b",
+                "timestamp": 1793205898.214374
+              },
+              {
+                "event": "reasoning.available",
+                "runId": "run_f7a8c305f44145688d2f7427dd9a7f3b",
+                "timestamp": 1793205898.215381
+              },
+              {
+                "event": "run.completed",
+                "runId": "run_f7a8c305f44145688d2f7427dd9a7f3b",
+                "timestamp": 1793205898.2243803
+              }
+            ],
+            "returnedToolResults": [
+              {
+                "requestId": "mcp-request--XS0JklHPRIZ9ovT",
+                "ok": true,
+                "status": "completed",
+                "at": "2026-10-28T16:44:57.709Z"
+              }
+            ]
+          },
+          "provider": {
+            "suite": "integration",
+            "exitCode": 0,
+            "requestCount": 2,
+            "allProviderAuthorizationMatches": true,
+            "models": [
+              "careeradapt-test",
+              "careeradapt-test"
+            ],
+            "toolSurface": [
+              "mcp__careeradapt__career_context_retrieve",
+              "mcp__careeradapt__career_job_list",
+              "mcp__careeradapt__career_profile_get",
+              "mcp__careeradapt__career_resume_list",
+              "mcp__careeradapt__career_workflow_compose_resume",
+              "mcp__careeradapt__career_workflow_job_fit",
+              "mcp__careeradapt__career_workflow_job_intake",
+              "mcp__careeradapt__career_workflow_profile_intake_finalize",
+              "mcp__careeradapt__career_workflow_profile_intake_turn",
+              "mcp__careeradapt__career_workflow_resume_export",
+              "mcp__careeradapt__career_workflow_resume_import",
+              "mcp__careeradapt__career_workflow_tailor_resume",
+              "skill_manage",
+              "skill_view",
+              "skills_list"
+            ]
+          }
+        },
+        "full": {
+          "command": "pnpm hermes:integration",
+          "exitCode": 0,
+          "passed": 9,
+          "failed": 0,
+          "durationReported": "3.5m",
+          "evidence": {
+            "before": {
+              "sessionId": "agent-session-TcrALDpu3sn0",
+              "runId": "run_bfb13f5e9abf4e87aa411eb578198b6a",
+              "runStatus": "running",
+              "userMessageId": "agent-user-4b9e2c11-ad02-477f-8a8c-8ee2460995d2",
+              "confirmationId": "confirmation-mcp-career-IXjanG0hk9kLtq61",
+              "operationId": "mcp-career-IXjanG0hk9kLtq61"
+            },
+            "after": {
+              "sessionId": "agent-session-TcrALDpu3sn0",
+              "runId": "run_bfb13f5e9abf4e87aa411eb578198b6a",
+              "runStatus": "completed",
+              "userMessageId": "agent-user-4b9e2c11-ad02-477f-8a8c-8ee2460995d2"
+            },
+            "toolCallId": "fake-chat-15-tool",
+            "confirmedAt": 1793206156031,
+            "providerRequestsBeforeConfirmation": 15,
+            "providerRequestsAfterConfirmation": 1,
+            "continued": [
+              {
+                "at": "2026-10-28T16:49:16.648Z",
+                "model": "careeradapt-test",
+                "toolResults": [
+                  {
+                    "toolCallId": "fake-chat-15-tool",
+                    "jobId": "job-ZhuX0VacaO"
+                  }
+                ]
+              }
+            ],
+            "firstEventAfterConfirmation": {
+              "event": "tool.completed",
+              "runId": "run_bfb13f5e9abf4e87aa411eb578198b6a",
+              "tool": "mcp__careeradapt__career_workflow_job_intake",
+              "timestamp": 1793206156.3664267
+            },
+            "events": [
+              {
+                "event": "tool.started",
+                "runId": "run_bfb13f5e9abf4e87aa411eb578198b6a",
+                "tool": "mcp__careeradapt__career_workflow_job_intake",
+                "timestamp": 1793206154.7966816
+              },
+              {
+                "event": "tool.completed",
+                "runId": "run_bfb13f5e9abf4e87aa411eb578198b6a",
+                "tool": "mcp__careeradapt__career_workflow_job_intake",
+                "timestamp": 1793206156.3664267
+              },
+              {
+                "event": "message.delta",
+                "runId": "run_bfb13f5e9abf4e87aa411eb578198b6a",
+                "timestamp": 1793206156.6497548
+              },
+              {
+                "event": "reasoning.available",
+                "runId": "run_bfb13f5e9abf4e87aa411eb578198b6a",
+                "timestamp": 1793206156.650752
+              },
+              {
+                "event": "run.completed",
+                "runId": "run_bfb13f5e9abf4e87aa411eb578198b6a",
+                "timestamp": 1793206156.663769
+              }
+            ],
+            "returnedToolResults": [
+              {
+                "requestId": "mcp-request-RxsZUE2G8m9RpMkE",
+                "ok": true,
+                "status": "completed",
+                "at": "2026-10-28T16:49:16.243Z"
+              }
+            ]
+          },
+          "provider": {
+            "suite": "integration",
+            "exitCode": 0,
+            "requestCount": 16,
+            "allProviderAuthorizationMatches": true,
+            "models": [
+              "careeradapt-test",
+              "careeradapt-test",
+              "careeradapt-test",
+              "careeradapt-test",
+              "careeradapt-test",
+              "careeradapt-test",
+              "careeradapt-test",
+              "careeradapt-test",
+              "careeradapt-test",
+              "careeradapt-test",
+              "careeradapt-test",
+              "careeradapt-test",
+              "careeradapt-test",
+              "careeradapt-test",
+              "careeradapt-test",
+              "careeradapt-test"
+            ],
+            "toolSurface": [
+              "mcp__careeradapt__career_context_retrieve",
+              "mcp__careeradapt__career_job_list",
+              "mcp__careeradapt__career_profile_get",
+              "mcp__careeradapt__career_resume_list",
+              "mcp__careeradapt__career_workflow_compose_resume",
+              "mcp__careeradapt__career_workflow_job_fit",
+              "mcp__careeradapt__career_workflow_job_intake",
+              "mcp__careeradapt__career_workflow_profile_intake_finalize",
+              "mcp__careeradapt__career_workflow_profile_intake_turn",
+              "mcp__careeradapt__career_workflow_resume_export",
+              "mcp__careeradapt__career_workflow_resume_import",
+              "mcp__careeradapt__career_workflow_tailor_resume",
+              "skill_manage",
+              "skill_view",
+              "skills_list"
+            ]
+          }
+        },
+        "writeAssertions": "CASE I asserts exactly one run_start, one saved CORE-JD Job, no confirmation remaining, same session/run/userMessageId, original Provider Tool Call ID plus saved Job ID in the post-confirmation request. Existing real business UI/PDF workflow also passes.",
+        "safetyTests": "Reject, stop, expired bridge deadline, wrong-session and duplicate confirmation paths do not produce unauthorized or duplicate writes. Existing bridge deadline is transmitted as expiresAt, not extended.",
+        "priorAttempts": [
+          {
+            "log": ".tmp/final01-case-i.log",
+            "exitCode": 1,
+            "cause": "Evidence capture awaited entire SSE response body; changed to incremental safe event capture."
+          },
+          {
+            "log": ".tmp/final01-case-i-recheck.log",
+            "exitCode": 1,
+            "cause": "Actual confirmation card disabled until original MCP request expired; fixed Host waiting state."
+          },
+          {
+            "log": ".tmp/final01-case-i-verified.log",
+            "exitCode": 1,
+            "cause": "Unknown goal job_ingestion caused completion guard to replace terminal narration; fixed canonical ingest_job mapping."
+          },
+          {
+            "log": ".tmp/final01-case-i-final.log",
+            "exitCode": 1,
+            "cause": "Tool observation checked before confirmation producer became ready; reordered to actual confirmation boundary without increasing waits."
+          },
+          {
+            "log": ".tmp/final01-case-i-acceptance.log",
+            "exitCode": 1,
+            "cause": "Fake Provider ignored existing untrusted_tool_result wrapper although it received the saved receipt; fixture parser and public-API regression fixed. Production envelope remains intact."
+          }
+        ]
+      },
+      "checks": {
+        "baselineTypecheck": 0,
+        "baselineUnit": {
+          "files": 2,
+          "tests": 32,
+          "exitCode": 0
+        },
+        "relatedUnit": {
+          "command": "pnpm exec vitest run tests/unit/p51-core-workflow.test.ts tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts tests/unit/p511-r2-observability.test.ts tests/unit/hermesSupervisor.test.ts tests/unit/p45b4-hermes-mcp-closure.test.ts tests/unit/p47a-agent-capability-contract.test.ts tests/unit/repositoryTailoringV2.test.ts tests/unit/v4p2bCandidatePipeline.test.ts tests/unit/p45c17-hermes-reliability.test.ts tests/unit/hermesControlCapabilityP45c123.test.ts tests/unit/p46c6-ai-runtime-configuration.test.ts tests/unit/p44c-mcp.test.ts tests/unit/hermesModelConfigTimeout.test.ts tests/unit/fakeProviderContinuation.test.ts",
+          "files": 14,
+          "tests": 143,
+          "exitCode": 0,
+          "log": ".tmp/final01-final-unit-complete.log"
+        },
+        "modelRollbackUnit": {
+          "command": "pnpm exec vitest run tests/unit/v4p0NativeConfigFallback.test.ts -t 'rolls back on the captured model readback TimeoutError'",
+          "passed": 1,
+          "notExecutedByNameFilter": 20,
+          "exitCode": 0,
+          "note": "20 unmatched cases were not run or counted PASS; no source skip was introduced. This avoids unrelated recursive filesystem cleanup in a pre-existing test."
+        },
+        "typecheck": {
+          "command": "pnpm typecheck",
+          "exitCode": 0,
+          "log": ".tmp/final01-typecheck-verified.log",
+          "priorFailure": "Missing .mjs fixture declaration corrected with an explicit .d.mts interface; no suppression."
+        },
+        "lint": {
+          "command": "pnpm lint",
+          "exitCode": 0,
+          "fixtureDeclarationLintExitCode": 0
+        },
+        "build": {
+          "command": "$env:CAREERAD_NEXT_DIST_DIR='.tmp/final01-final-production-build'; pnpm build",
+          "exitCode": 0
+        },
+        "bundleCheck": {
+          "command": "pnpm hermes:bundle-check",
+          "exitCode": 0
+        },
+        "diffCheck": {
+          "command": "git diff --check",
+          "exitCode": 0,
+          "note": "Next-generated next-env.d.ts/tsconfig.json restored byte-for-byte from the starting clean HEAD after all runtime/build processes ended."
+        }
+      },
+      "realProvider": {
+        "status": "NOT_CERTIFIED",
+        "requests": 0,
+        "note": "All model/secure-store test credentials were synthetic and isolated; no current real credentials read/exported, no real provider settings changed."
+      },
+      "packaged": "NOT_BUILT_NOT_CERTIFIED; deferred to a separate Release Gate",
+      "git": "uncommitted; no push, package or file deletion",
+      "nextStep": "P5.1.2 is allowed as the next user-selected stage; not implemented here. Model-readback timeout belongs to the explicit P5.1.8 carry-forward item."
+    }
   ]
 }

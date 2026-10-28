@@ -1,5 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
+import { writeFile } from "node:fs/promises";
 import { completeCoreResumeWorkflow, prepareCoreSourceResume } from "./support/p51CoreWorkflow";
+
+type SafeHermesEvent = { event?: string; runId?: string; tool?: string; timestamp?: number };
+declare global { interface Window { __caseIEvents?: SafeHermesEvent[] } }
 
 test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
   test.afterEach(async ({ page }, testInfo) => {
@@ -110,11 +114,36 @@ test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
     await page.goto("/ai-workspace");
     await resetHermesForCase(page);
     await send(page, "保存这个岗位 CORE-JD：公司 Core Test，数据分析实习生，负责数据清洗，要求了解 Python 或 SQL。");
-    await expectAssistant(page, "岗位解析已完成，请核对后保存。");
-    await expectToolNames(trace, ["career.workflow.job_intake"]);
     await expect(page.locator(".agent-confirmation")).toContainText("确认执行 Career 操作");
+    await expectToolNames(trace, ["career.workflow.job_intake"]);
+    await expect(page.locator(".agent-confirmation").getByRole("button", { name: "确认", exact: true })).toBeEnabled();
+    const before = await readCaseISession(page);
+    const providerBefore = await readProviderEvidence(page);
+    expect(before.confirmationId).toBeTruthy();
+    expect(before.runId).toBeTruthy();
+    expect(trace.resultActions).toHaveLength(0);
+    const confirmedAt = Date.now();
     await page.locator(".agent-confirmation").getByRole("button", { name: "确认", exact: true }).click();
     await expectAssistant(page, "已按你的确认完成当前 Career 工作流。");
+    await expect.poll(() => page.evaluate(() => window.__caseIEvents?.some(event => event.event === "run.completed"))).toBe(true);
+    const events = await page.evaluate(() => window.__caseIEvents ?? []);
+    const after = await readCaseISession(page);
+    const providerAfter = await readProviderEvidence(page);
+    const continued = providerAfter.requests.slice(providerBefore.requests.length);
+    expect(continued.length).toBeGreaterThanOrEqual(1);
+    const toolCallId = providerBefore.requests.at(-1)?.responseToolCallId;
+    expect(toolCallId).toBeTruthy();
+    expect(continued.some(request => request.toolResults.some(result => result.toolCallId === toolCallId && Boolean(result.jobId)))).toBe(true);
+    expect(after).toMatchObject({ runId: before.runId, sessionId: before.sessionId, userMessageId: before.userMessageId, runStatus: "completed" });
+    expect(after.confirmationId).toBeUndefined();
+    expect(events.filter(event => event.runId).every(event => event.runId === before.runId)).toBe(true);
+    const evidencePath = `.tmp/final01-case-i-${Date.now()}.json`;
+    await writeFile(evidencePath, JSON.stringify({ before, after, toolCallId, confirmedAt,
+      providerRequestsBeforeConfirmation: providerBefore.requests.length,
+      providerRequestsAfterConfirmation: continued.length, continued,
+      firstEventAfterConfirmation: events.find(event => event.timestamp && event.timestamp * 1000 >= confirmedAt),
+      events, returnedToolResults: trace.returnedToolResults }, null, 2));
+    console.log(`CASE_I_EVIDENCE=${evidencePath}`);
     expect(trace.runtimeActions.filter(action => action === "run_start")).toHaveLength(1);
     expect(trace.resultActions).toContain("result");
     const jobs = await page.evaluate(() => new Promise<Array<{ id: string; title: string; rawText: string }>>((resolve, reject) => {
@@ -135,6 +164,39 @@ test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
 });
 
 async function openWorkspace(page: Page) {
+  await page.addInitScript(() => {
+    window.__caseIEvents = [];
+    const original = window.fetch.bind(window);
+    window.fetch = async (...args: Parameters<typeof fetch>) => {
+      const response = await original(...args);
+      const url = new URL(typeof args[0] === "string" ? args[0] : args[0] instanceof Request ? args[0].url : args[0].href, location.origin);
+      if (url.pathname !== "/api/agent/runtime/hermes" || !response.headers.get("content-type")?.includes("text/event-stream")) return response;
+      const reader = response.clone().body?.getReader();
+      if (reader) void (async () => {
+        const decoder = new TextDecoder();
+        let buffer = "";
+        try {
+          while (true) {
+            const chunk = await reader.read();
+            if (chunk.done) break;
+            buffer += decoder.decode(chunk.value, { stream: true });
+            let newline: number;
+            while ((newline = buffer.indexOf("\n")) >= 0) {
+              const line = buffer.slice(0, newline); buffer = buffer.slice(newline + 1);
+              if (!line.startsWith("data: ")) continue;
+              const data = JSON.parse(line.slice(6));
+              window.__caseIEvents!.push({ event: data.event, runId: data.run_id, tool: data.tool, timestamp: data.timestamp });
+              if (data.event === "run.completed" || data.event === "run.failed") {
+                void reader.cancel().catch(() => undefined);
+                return;
+              }
+            }
+          }
+        } catch { window.__caseIEvents!.push({ event: "capture.failed" }); }
+      })();
+      return response;
+    };
+  });
   const providerBaseUrl = process.env.HERMES_INTEGRATION_PROVIDER_URL;
   const providerApiKey = process.env.HERMES_INTEGRATION_PROVIDER_KEY;
   if (!providerBaseUrl || !providerApiKey) throw new Error("hermes_integration_provider_settings_missing");
@@ -185,6 +247,7 @@ async function expectToolNames(trace: ReturnType<typeof observeRuntimeAndBridge>
 }
 
 function observeRuntimeAndBridge(page: Page) {
+  const returnedToolResults: Array<{ requestId?: string; ok?: boolean; status?: string; at: string }> = [];
   const runtimeActions: string[] = [];
   const resultActions: string[] = [];
   const toolRequests: Array<{ name: string; input: unknown }> = [];
@@ -197,18 +260,53 @@ function observeRuntimeAndBridge(page: Page) {
     }
     if (url.pathname.endsWith("/api/agent/mcp") && url.searchParams.get("bridge") === "1") {
       const body = parseJson(request.postData());
-      if (body?.action === "result") resultActions.push("result");
+      if (body?.action === "result") {
+        resultActions.push("result");
+        const result = body.result as { ok?: boolean; data?: { status?: string } } | undefined;
+        returnedToolResults.push({ requestId: body.requestId as string | undefined, ok: result?.ok, status: result?.data?.status, at: new Date().toISOString() });
+      }
     }
   });
   page.on("response", async (response) => {
     const url = new URL(response.url());
+    if (url.pathname.endsWith("/api/agent/runtime/hermes") && parseJson(response.request().postData())?.action === "run_events") {
+      return;
+    }
     if (!url.pathname.endsWith("/api/agent/mcp") || url.searchParams.get("bridge") !== "1" || response.request().method() !== "GET") return;
     const payload = await response.json().catch(() => undefined) as { requests?: Array<{ name?: string; input?: unknown }> } | undefined;
     for (const request of payload?.requests ?? []) {
       if (typeof request.name === "string") toolRequests.push({ name: request.name, input: request.input });
     }
   });
-  return { runtimeActions, resultActions, toolRequests };
+  return { runtimeActions, resultActions, toolRequests, returnedToolResults };
+}
+
+async function readProviderEvidence(page: Page): Promise<{ requests: Array<{ at: string; responseToolCallId?: string; toolResults: Array<{ toolCallId: string; jobId?: string }> }> }> {
+  const response = await page.request.get(`${process.env.HERMES_INTEGRATION_PROVIDER_URL}/integration-evidence`, {
+    headers: { Authorization: `Bearer ${process.env.HERMES_INTEGRATION_PROVIDER_KEY}` }
+  });
+  expect(response.ok()).toBe(true);
+  return response.json();
+}
+
+async function readCaseISession(page: Page) {
+  return page.evaluate(() => new Promise<{ sessionId: string; runId: string; runStatus: string; userMessageId: string; confirmationId?: string; operationId?: string }>((resolve, reject) => {
+    const request = indexedDB.open("CareerAdaptDb");
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const result = db.transaction("agentSessions", "readonly").objectStore("agentSessions").getAll();
+      result.onerror = () => reject(result.error);
+      result.onsuccess = () => {
+        db.close();
+        const session = result.result.find(session => session.hermesRun);
+        if (!session) { reject(new Error("Hermes session receipt missing")); return; }
+        resolve({ sessionId: session.id, runId: session.hermesRun.runId, runStatus: session.hermesRun.status,
+          userMessageId: session.activeTurn?.sourceUserMessageId ?? session.activeTurn?.userMessageId,
+          confirmationId: session.pendingConfirmation?.id, operationId: session.pendingConfirmation?.operationId });
+      };
+    };
+  }));
 }
 
 function parseJson(value: string | null) {

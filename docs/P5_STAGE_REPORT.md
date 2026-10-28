@@ -1,9 +1,17 @@
 # P5 阶段报告与智能体优化交接
 
-- 更新日期：2026-10-28。
-- 当前阶段：P5.0 已归档；P5.1-Core-01 核心工作包部分交付，完整集成仍有 BLOCKED 项，未冻结。
-- 本轮代码基线：`4c0cf96976704bbc5b98f5fd1892663c8a8c2665` 加本轮未提交成果；不代表新安装包。P5.0 历史产品基线为 `c3a71a5`。
+- 更新日期：2026-10-29。
+- 当前阶段：P5.0已归档；Core-01职业Agent核心冻结（PARTIAL+CARRY FORWARD），模型热切换单项移交P5.1.8；P5.1.2可启动但本轮未实施。
+- 本轮代码基线：`0a978bab60c1472c98f961b4d64d835cb413f73c`加本轮未提交成果；不代表新安装包。下文旧轮次保留为历史。
 - 远程开发入口：先读本报告，再读 [P5.0 成果总结](P5.0_OUTCOMES.md)，随后只读取本次任务相关源码、测试和专项报告。
+
+## 2026-10-29 FINAL：职业核心冻结，PARTIAL + CARRY FORWARD
+
+基线HEAD/远程main均0a978ba，起始工作区干净。同一Hermes Run确认后自主续跑已获真实锁定Runtime/MCP证据：确认前1次/确认后新增1次模拟Provider请求，原Tool Call ID及正式Job ID返回，同Run terminal/completed；CASE I定向1/1退出0，完整Hermes9/9退出0（16次模拟Provider请求），岗位简历/正式PDF断言保留。Host只管理确认/状态，Gateway正式写入，Hermes继续语义循环，无第二个Run或新续跑协议。
+
+数字23已直接证明为model/options读回10秒后TimeoutError的DOM异常code，经旧配置客户端原样传播、Supervisor safeReason转字符串进入回滚回执。已最小修复为hermes_model_config_timeout，保留回滚/无重试；端点迟延原因仍OPEN，移交P518-RUNTIME-MODEL-READBACK-01（P5.1.8），不再阻塞P5.1.2。恢复READY/secure_store/配置指纹一致证据保留，实际热切换仍失败且恢复后模型请求未执行，不宣称全部Runtime问题已修复。
+
+最终14文件143项相关测试+1条超时回滚定向测试、typecheck、lint、build、bundle-check及diff均退出0；被名称过滤的20项未执行、不计PASS。真实Provider未认证/真实请求0，正式包未构建。旧失败和本轮5次过程失败保留，当前结果见[Core-01报告](architecture/p5.1-core-01-20261028.md)及JSON的finalRounds。职业Agent核心可冻结，可正式进入P5.1.2；本轮未实施P5.1.2/P5.1.8，未提交、推送或打包。
 
 ## 2026-10-28 CLOSEOUT最新交接：仍未冻结
 

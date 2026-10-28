@@ -1,5 +1,14 @@
 # CareerAdapt AI --- P5.1 Agent 架构优化开发计划
 
+## 2026-10-29 FINAL：职业核心冻结，PARTIAL + CARRY FORWARD
+
+基线HEAD/远程main均0a978ba，起始工作区干净。同一Hermes Run确认后自主续跑已获真实锁定Runtime/MCP证据：确认前1次/确认后新增1次模拟Provider请求，原Tool Call ID及正式Job ID返回，同Run terminal/completed；CASE I定向1/1退出0，完整Hermes9/9退出0（16次模拟Provider请求），岗位简历/正式PDF断言保留。Host只管理确认/状态，Gateway正式写入，Hermes继续语义循环，无第二个Run或新续跑协议。
+
+数字23已直接证明为model/options读回10秒后TimeoutError的DOM异常code，经旧配置客户端原样传播、Supervisor safeReason转字符串进入回滚回执。已最小修复为hermes_model_config_timeout，保留回滚/无重试；端点迟延原因仍OPEN，移交P518-RUNTIME-MODEL-READBACK-01（P5.1.8），不再阻塞P5.1.2。恢复READY/secure_store/配置指纹一致证据保留，实际热切换仍失败且恢复后模型请求未执行，不宣称全部Runtime问题已修复。
+
+最终14文件143项相关测试+1条超时回滚定向测试、typecheck、lint、build、bundle-check及diff均退出0；被名称过滤的20项未执行、不计PASS。真实Provider未认证/真实请求0，正式包未构建。旧失败和本轮5次过程失败保留，当前结果见[Core-01报告](p5.1-core-01-20261028.md)及JSON的finalRounds。职业Agent核心可冻结，可正式进入P5.1.2；本轮未实施P5.1.2/P5.1.8，未提交、推送或打包。
+
+
 ## 2026-10-28 CLOSEOUT最新交接：仍未冻结
 
 起始HEAD/远程main均9bd0d80、工作区干净。Web当前无429为用户观察，不等同Electron/真实Provider通过。CASE I聊天会话确认后缺少workflow导致投影异常，最小修复后定向1/1、完整Hermes9/9通过（分别2/16次模拟Provider请求）。现有CASE I的确认后执行属于Host+业务UI，尚未证明已终态Hermes收到保存结果并自主继续，不扩写成完整链已通过。
@@ -466,6 +475,11 @@ Skills：`candidate-profile-interview`、`career-story-mining`、`job-fit-analys
 必过或面试概率。
 
 ## P5.1.8 --- 性能与运行可靠性
+
+### Core-01移交：P518-RUNTIME-MODEL-READBACK-01（OPEN，不阻塞P5.1.2）
+
+恢复进程READY且secure_store/配置指纹正常；单次模型切换的managed YAML写入后，锁定model/options读回在10秒截止抛TimeoutError(code=23)，未取得HTTP响应。数字来源已修复为稳定hermes_model_config_timeout并保持回滚，但端点迟延根因未证明。只允许在P5.1.8被明确选中后，对该端点内部inventory/锁/外部目录调用取得有界安全耗时证据，再作最小adapter/lifecycle修复；不得重复无目的重启、增加重试或简单放宽超时。验收须证明成功读回/活动期望指纹一致、下一次真实Runtime请求使用目标模型，以及失败仍回滚且已有Run不被中断。真实Provider与模拟结果分开，见Core-01 FINAL证据。本轮仅移交，不实施该项。
+
 
 **目标：** 按实测瓶颈减少延迟、重复工具调用和恢复失败。
 

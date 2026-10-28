@@ -2652,8 +2652,12 @@ export class AgentHostStore {
           operationId,
           input: objectValue(data.input)
         },
-          ...(next.workflowState ? { workflowState: { ...next.workflowState, status: "waiting_for_confirmation" as const } } : {})
+          ...(next.workflowState ? { workflowState: { ...next.workflowState, status: "waiting_for_confirmation" as const } } : {}),
+          ...(next.activeTurn ? { activeTurn: { ...next.activeTurn, status: "waiting_for_confirmation" as const, completedAt: undefined } } : {})
       };
+      const saved = await this.dependencies.persistence.save(next);
+      this.patchSession(saved, { turnStatus: "waiting_for_confirmation", activeTurnId: event.turnId });
+      return saved;
     }
     if (event.type === "turn_completed" || event.type === "turn_failed") {
       if (next.taskState) {
@@ -5608,6 +5612,27 @@ export class AgentHostStore {
       .finally(() => this.confirmationExecutions.delete(executionKey));
     this.confirmationExecutions.set(executionKey, execution);
     return execution;
+  }
+
+  async resolveMcpWriteConfirmation(confirmed: boolean, expected: { sessionId: string; turnId: string; operationId: string }) {
+    const session = this.snapshot.activeSession;
+    if (!session || session.id !== expected.sessionId
+      || session.pendingConfirmation?.operationId !== expected.operationId
+      || session.pendingToolCall?.turnId !== expected.turnId) return undefined;
+    let current: AgentSession = {
+      ...markConfirmationResolution(session, confirmed ? "confirmed" : "rejected"),
+      pendingConfirmation: undefined, pendingToolCall: undefined,
+      activeTurn: session.activeTurn ? { ...session.activeTurn, status: "running", completedAt: undefined } : undefined,
+      hermesRun: session.hermesRun ? { ...session.hermesRun, status: "running" } : undefined
+    };
+    if (current.taskState) current = projectTaskStateIntoSession(current, {
+      ...current.taskState, completionStatus: "active", updatedAt: new Date().toISOString(),
+      knownSlots: { ...current.taskState.knownSlots, pendingConfirmation: undefined }
+    });
+    this.patchSession(current, { turnStatus: "running" });
+    const saved = await this.dependencies.persistence.save(current);
+    this.patchSession(saved, { turnStatus: "running" });
+    return saved;
   }
 
   private async resolveConfirmationOnce(confirmed: boolean, pageContext: AgentPageContext, requestedSession: AgentSession) {
@@ -11622,8 +11647,8 @@ function runtimeArtifactResultData(stableName: string, value: unknown) {
 function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, value: unknown): AgentSession {
   if (toolName === "career.workflow.job_intake" && !session.taskState) {
     const reducer = new AgentTaskStateReducer();
-    const task = reducer.reduce(reducer.create(session, "job_ingestion", { workflowId: "job_ingestion", step: "parse_job" }), {
-      type: "new_root_task", goal: "job_ingestion", workflowId: "job_ingestion", stage: "parse_job"
+    const task = reducer.reduce(reducer.create(session, "ingest_job", { workflowId: "job_ingestion", step: "parse_job" }), {
+      type: "new_root_task", goal: "ingest_job", workflowId: "job_ingestion", stage: "parse_job"
     });
     session = projectTaskStateIntoSession(session, task);
   }

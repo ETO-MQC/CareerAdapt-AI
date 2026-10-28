@@ -194,7 +194,12 @@ class HermesModelConfigClient {
       ...(init.headers || {})
     };
     const signal = init.signal || AbortSignal.timeout(this.timeoutMs);
-    return this.fetchImpl(`${this.runtimeUrl}${pathname}`, { ...init, headers, signal, cache: "no-store" });
+    try {
+      return await this.fetchImpl(`${this.runtimeUrl}${pathname}`, { ...init, headers, signal, cache: "no-store" });
+    } catch (error) {
+      if (error?.name === "TimeoutError") throw requestError("hermes_model_config_timeout");
+      throw error;
+    }
   }
 }
 

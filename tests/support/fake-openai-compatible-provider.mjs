@@ -18,6 +18,15 @@ export async function startFakeOpenAiProvider(options = {}) {
       writeJson(response, 200, { object: "list", data: [{ id: "careeradapt-test", object: "model", owned_by: "careeradapt" }] });
       return;
     }
+    if (mode === "integration" && request.method === "GET" && pathname === "/v1/integration-evidence") {
+      writeJson(response, 200, { requests: requests.map(record => ({
+        at: record.at, model: record.model, responseToolCallId: record.responseToolCallId,
+        toolResults: record.messages.filter(message => message.role === "tool").map(message => ({
+          toolCallId: message.tool_call_id, jobId: savedJobId(message.content)
+        }))
+      })) });
+      return;
+    }
     if (request.method !== "POST" || pathname !== "/v1/chat/completions") {
       writeJson(response, 404, { error: { message: "fake provider route not found", code: "not_found" } });
       return;
@@ -26,6 +35,7 @@ export async function startFakeOpenAiProvider(options = {}) {
     const messages = Array.isArray(payload.messages) ? payload.messages : [];
     const tools = Array.isArray(payload.tools) ? payload.tools : [];
     const requestRecord = {
+      at: new Date().toISOString(),
       model: payload.model,
       authorization,
       messages,
@@ -40,6 +50,7 @@ export async function startFakeOpenAiProvider(options = {}) {
     if (options.delayMs) await new Promise((resolve) => setTimeout(resolve, options.delayMs));
     const responseMessage = chooseResponse({ mode, messages, tools });
     const responseId = `fake-chat-${requests.length}`;
+    requestRecord.responseToolCallId = responseMessage.toolCall ? `${responseId}-tool` : undefined;
     if (payload.stream === true) {
       writeStream(response, responseMessage, responseId);
       return;
@@ -58,6 +69,27 @@ export async function startFakeOpenAiProvider(options = {}) {
   };
 }
 
+function savedJobId(value, depth = 0) {
+  if (depth > 12) return undefined;
+  if (typeof value === "string") {
+    try { return savedJobId(JSON.parse(value), depth + 1); } catch {
+      // Locked Hermes wraps MCP results in an untrusted_tool_result block.
+      // The fixture reads only the JSON receipt inside that existing envelope.
+      if (!value.includes("<untrusted_tool_result")) return undefined;
+      const start = value.indexOf("{");
+      const end = value.lastIndexOf("}");
+      if (start < 0 || end < start) return undefined;
+      try { return savedJobId(JSON.parse(value.slice(start, end + 1)), depth + 1); } catch { return undefined; }
+    }
+  }
+  if (!value || typeof value !== "object") return undefined;
+  if (typeof value.jobId === "string") return value.jobId;
+  for (const entry of Object.values(value)) {
+    const id = savedJobId(entry, depth + 1);
+    if (id) return id;
+  }
+}
+
 function chooseResponse({ mode, messages, tools }) {
   const lastToolResult = [...messages].reverse().find((message) => message && message.role === "tool");
   if (mode === "career-agent-eval") {
@@ -65,7 +97,8 @@ function chooseResponse({ mode, messages, tools }) {
   }
   if (lastToolResult) {
     const name = typeof lastToolResult.name === "string" ? lastToolResult.name : "CareerAdapt tool";
-    if (name.includes("job_intake")) return { content: "岗位解析已完成，请核对后保存。" };
+    if (name.includes("job_intake")) return { content: savedJobId(lastToolResult.content)
+      ? "已按你的确认完成当前 Career 工作流。" : "岗位解析已完成，请核对后保存。" };
     if (name.includes("profile_intake_turn")) return { content: "已进入 Profile Intake，并停在下一步资料补充边界。" };
     if (name.includes("profile_intake_finalize")) return { content: "Profile Intake 已整理为待用户复核的草稿。" };
     if (name.includes("job_fit")) return { content: "已完成岗位匹配比较，并保留证据缺口。" };

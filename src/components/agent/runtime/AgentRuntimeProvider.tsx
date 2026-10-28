@@ -508,6 +508,13 @@ function createAgentHost() {
         incidentTraceId: session.activeTurn?.incidentTraceId
       }));
     }
+    if (event.type === "confirmation" && session.pendingConfirmation && session.pendingToolCall?.turnId
+      && mcpBridge.hasPendingWrite(session.id, session.pendingToolCall.turnId, session.pendingConfirmation.operationId)) {
+      const identity = { sessionId: session.id, turnId: session.pendingToolCall.turnId, operationId: session.pendingConfirmation.operationId };
+      const saved = await state.resolveMcpWriteConfirmation(event.confirmed, identity);
+      if (saved) mcpBridge.resolvePendingWrite(identity.sessionId, identity.turnId, identity.operationId, event.confirmed);
+      return saved ?? session;
+    }
     if (event.type === "confirmation" && session.hermesRun?.status === "waiting_for_approval") {
       await hermesRuntime.approve(session.id, event.confirmed);
       return runTurn({
