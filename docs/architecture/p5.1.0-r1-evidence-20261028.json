@@ -201,5 +201,16 @@
     "pythonAstExitCode": 0,
     "diffCheckExitCode": 0
   },
-  "finalGitStatus": "M electron/hermesCompanion.js\n M electron/hermesModelConfigClient.js\n M electron/hermesSupervisor.js\n M electron/main.js\n M electron/providerCredentialStore.js\n M playwright.config.ts\n M scripts/hermes-integration.mjs\n M tests/e2e/hermes-p46h-integration.spec.ts\n M tests/support/fake-openai-compatible-provider.mjs\n M tests/unit/v4p0NativeConfigFallback.test.ts\n M tests/unit/v4p0ProviderCredentialStore.test.ts\n?? docs/architecture/CareerAdapt_AI_P5.1_Agent_Architecture_Development_Plan.md\n?? docs/architecture/api429-hermes-diagnosis-20261028.md\n?? docs/architecture/api429-hermes-evidence-20261028.json\n?? docs/architecture/p5.1-baseline-audit.md\n?? docs/architecture/p5.1.0-r1-evidence-20261028.json\n?? electron/mergeHermesConfig.py\n?? playwright.hermes-r1.config.ts\n?? scripts/test-electron-credentials.cjs\n?? tests/e2e/hermes-config-r1.spec.ts\n?? tests/support/electron-credential-smoke.cjs\n?? tests/unit/electronCredentialStartupR1.test.ts"
+  "finalGitStatus": "M electron/hermesCompanion.js\n M electron/hermesModelConfigClient.js\n M electron/hermesSupervisor.js\n M electron/main.js\n M electron/providerCredentialStore.js\n M playwright.config.ts\n M scripts/hermes-integration.mjs\n M tests/e2e/hermes-p46h-integration.spec.ts\n M tests/support/fake-openai-compatible-provider.mjs\n M tests/unit/v4p0NativeConfigFallback.test.ts\n M tests/unit/v4p0ProviderCredentialStore.test.ts\n?? docs/architecture/CareerAdapt_AI_P5.1_Agent_Architecture_Development_Plan.md\n?? docs/architecture/api429-hermes-diagnosis-20261028.md\n?? docs/architecture/api429-hermes-evidence-20261028.json\n?? docs/architecture/p5.1-baseline-audit.md\n?? docs/architecture/p5.1.0-r1-evidence-20261028.json\n?? electron/mergeHermesConfig.py\n?? playwright.hermes-r1.config.ts\n?? scripts/test-electron-credentials.cjs\n?? tests/e2e/hermes-config-r1.spec.ts\n?? tests/support/electron-credential-smoke.cjs\n?? tests/unit/electronCredentialStartupR1.test.ts",
+  "closure": {
+    "dateLocal": "2026-10-28",
+    "evidence": "p5.1.0-r1-closure-evidence-20261028.json",
+    "status": "PARTIAL; restarted runtime degraded; no third diagnostic round",
+    "productionCodeChanged": false,
+    "credentialWriteAndApplyAndMockRequestPassedInFirstVerifiedProcess": true,
+    "crossProcessCredentialRestoreIndependentReceiptVerified": false,
+    "modelOnlySwitchAfterRestart": "BLOCKED",
+    "corruptCipherActualProduct": "BLOCKED",
+    "packaged": "BLOCKED"
+  }
 }

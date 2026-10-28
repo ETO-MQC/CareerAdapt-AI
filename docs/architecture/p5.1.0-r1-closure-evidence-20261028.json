@@ -1,0 +1,187 @@
+{
+  "dateLocal": "2026-10-28",
+  "baseline": "d8c31c34d00002cdbd1a81c60a58b577a783e4dd",
+  "status": "PARTIAL; BLOCKED on restored product runtime readiness",
+  "budget": {
+    "diagnosticRounds": 1,
+    "hypothesisVerifications": 1,
+    "additionalProductLaunchRounds": 0
+  },
+  "productionCodeChanged": false,
+  "round1": {
+    "baseline": "d8c31c3",
+    "kind": "actual Electron development product + real IPC + synthetic Provider",
+    "attempts": 1,
+    "phases": [
+      {
+        "restoredLaunch": false,
+        "corruptLaunch": false,
+        "events": [
+          {
+            "closureEvent": "ready",
+            "electron": "43.2.0",
+            "sessionDataMatchesUserData": true
+          }
+        ],
+        "pid": 77320,
+        "rendererAndRuntimeReady": true,
+        "beforeSave": {
+          "available": true,
+          "configured": false,
+          "source": "server_env",
+          "reason": "credential_store_not_configured"
+        },
+        "save": {
+          "credentialWriteOk": true,
+          "credentialConfigured": true,
+          "credentialSource": "secure_store",
+          "configurationOk": false,
+          "applyStatus": "failed",
+          "verified": false,
+          "restartPerformed": false,
+          "reason": "hermes_renderer_not_ready"
+        }
+      }
+    ],
+    "requests": [],
+    "packaged": "BLOCKED; no new package built",
+    "status": "BLOCKED_OR_FAILED",
+    "failure": "Expected values to be strictly equal:\n\nfalse !== true\n",
+    "remainingTestPid": 77320
+  },
+  "round2": {
+    "baseline": "d8c31c3",
+    "kind": "actual Electron development product + real IPC + synthetic Provider",
+    "attempts": 2,
+    "verificationHypothesis": "Await IPC status in Node polling; async waitForFunction predicates can resolve false without waiting. Use normal window shutdown and check process exit plus Local State.",
+    "phases": [
+      {
+        "restoredLaunch": false,
+        "corruptLaunch": false,
+        "events": [
+          {
+            "closureEvent": "ready",
+            "electron": "43.2.0",
+            "sessionDataMatchesUserData": true
+          }
+        ],
+        "pid": 68228,
+        "rendererAndRuntimeReady": true,
+        "beforeSave": {
+          "available": true,
+          "configured": false,
+          "source": "server_env",
+          "reason": "credential_store_not_configured"
+        },
+        "save": {
+          "credentialWriteOk": true,
+          "credentialConfigured": true,
+          "credentialSource": "secure_store",
+          "configurationOk": true,
+          "applyStatus": "applied",
+          "verified": true,
+          "restartPerformed": false
+        },
+        "encryptedAtRest": true,
+        "modelRequest": {
+          "localHttpStatus": 200,
+          "ok": true,
+          "model": "closure-model",
+          "credentialSource": "secure_store"
+        },
+        "failedConfigurationWrite": {
+          "credentialWriteOk": true,
+          "credentialConfigured": true,
+          "credentialSource": "secure_store",
+          "configurationOk": false,
+          "applyStatus": "failed",
+          "verified": false,
+          "restartPerformed": false,
+          "reason": "provider_base_url_invalid"
+        },
+        "afterFailedApply": {
+          "available": true,
+          "configured": true,
+          "source": "secure_store"
+        },
+        "exitCode": 0,
+        "signal": null,
+        "localStateOnDisk": true
+      },
+      {
+        "restoredLaunch": true,
+        "corruptLaunch": false,
+        "events": [
+          {
+            "closureEvent": "ready",
+            "electron": "43.2.0",
+            "sessionDataMatchesUserData": true
+          }
+        ],
+        "pid": 67100
+      }
+    ],
+    "requests": [
+      {
+        "model": "closure-model",
+        "path": "/v1/chat/completions",
+        "authenticated": true,
+        "status": 200
+      }
+    ],
+    "packaged": "BLOCKED; no new package built",
+    "status": "BLOCKED_OR_FAILED",
+    "failure": "actual awaited product READY not reached\n+ actual - expected\n\n+ 'degraded'\n- 'ready'\n",
+    "remainingTestPid": 67100
+  },
+  "predicateProof": {
+    "asyncFalsePredicateReturnedWithoutTimeout": true,
+    "laterProductState": "degraded",
+    "note": "The first round rendererAndRuntimeReady field is an invalid test self-report. async false-predicate behavior was reproduced on its actual browser."
+  },
+  "confirmed": {
+    "writeThroughNativeIpc": true,
+    "applyThroughNativeIpcAfterAwaitedReady": true,
+    "successfulAuthenticatedMockProviderRequest": true,
+    "invalidConfigurationPreservesStoredCredential": true,
+    "firstProductNormalExitCode": 0,
+    "localStateFlushed": true
+  },
+  "notCompleted": {
+    "restoredCredentialIndependentIpcReceipt": "Not captured: original runner waited for Hermes READY before collecting storage status; no retrospective pass.",
+    "modelOnlySwitchAfterRelaunch": "Not reached because restored runtime stayed degraded within 90 seconds.",
+    "corruptCipherProductStartup": "Not reached; existing store tests are not substituted for this scenario.",
+    "packaged": "BLOCKED; no newly built package tested."
+  },
+  "blockingEvidence": {
+    "restoredProductHttpWindowAndStatusIpcReached": true,
+    "finalRuntimeState": "degraded",
+    "specificReasonCode": "not captured in executed runner; do not infer Provider/key/MCP cause",
+    "runtimeLog": "Second Hermes API Server health check passed, so a failed READY is not evidence of failed credential decryption.",
+    "credentialStoreReadFailed": "Not reproduced as a startup error during normal relaunch; independent restore confirmation still incomplete."
+  },
+  "limitations": [
+    "A mock Provider HTTP request is not an AMD Provider certification.",
+    "The test trace distinguishes store result.ok from result.control.ok/applyStatus.",
+    "No third product round; no production fix without evidence.",
+    "Runner capture points improved after the second round to record storage and runtime reason independently; those extra fields have not been runtime-verified."
+  ],
+  "checks": {
+    "baselineTypecheckExitCode": 0,
+    "baselineTests": {
+      "files": 4,
+      "tests": 50,
+      "exitCode": 0
+    },
+    "finalTypecheckExitCode": 0,
+    "changedScriptLintExitCode": 0,
+    "finalDiffCheckExitCode": 0
+  },
+  "round1ReadinessClaimInvalidated": true,
+  "cleanup": {
+    "noRemainingDiagnosticElectronOrDirectChildProcesses": true,
+    "profilesRetained": true,
+    "noForcedExitUsedAsNormalExitEvidence": true
+  },
+  "finalGitStatus": "M docs/architecture/api429-hermes-diagnosis-20261028.md\n M docs/architecture/p5.1.0-r1-evidence-20261028.json\n M tests/e2e/hermes-p46h-integration.spec.ts\n?? docs/architecture/CareerAdapt_AI_P5.1_Agent_Architecture_Development_Plan.md\n?? docs/architecture/p5.1-baseline-audit.md\n?? docs/architecture/p5.1.0-r1-closure-evidence-20261028.json\n?? scripts/electron-credential-closure.cjs\n?? tests/support/electron-product-closure.cjs"
+}

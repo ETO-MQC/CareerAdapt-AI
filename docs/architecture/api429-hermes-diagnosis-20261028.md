@@ -190,3 +190,52 @@ Next 历史日志只保留了三条 `ai_provider_connection_test_failed {}`，�
 ### 提交范围更新
 
 2026-10-28 用户随后明确授权提交并推送本对话改动。本次纳入专项诊断、R1 修复、回归测试及脱敏证据共 19 个文件；保留未纳入的原有 A03 测试修改、P5.1 开发计划和基线审计报告。上文“未提交/推送”为修复验收当时状态；提交号与远程回读结果记录在本地 plan4/history4。Desktop BLOCKED 项保持，不打包、不进入后续阶段。
+
+## 9. R1 Closure：产品级凭据持久化收尾诊断（部分通过，仍 BLOCKED）
+
+2026-10-28，基线 `d8c31c34d00002cdbd1a81c60a58b577a783e4dd`。开始时仅原有 A03 测试修改和两份未跟踪 P5.1 文档；均保留。按用户限制执行一轮完整定向诊断、一次有明确假设的复验后停止，没有第三轮启动，没有修改生产源码或开始 R2，没有提交/推送/打包。
+
+证据：[p5.1.0-r1-closure-evidence-20261028.json](p5.1.0-r1-closure-evidence-20261028.json)。保留两轮真实输出，不追溯把未采集状态补成通过。
+
+### 沿实际调用链的结论
+
+1. `providerCredentialStore.write()` 的 `ok` 只表示 safeStorage 写入；真实 `careeradapt:credentials:set` IPC 将此结果与独立的 `control.ok / receipt.applyStatus` 一起返回。二者不能混为一项成功。
+2. `main.js` 在 Next/Supervisor/renderer 启动前调用现有安全恢复；`describe()` 区分不可用、未配置、不可解密。模型配置校验失败不会删除已保存密文。
+3. Supervisor 保留 `rendererReady` 门禁。第一轮真实 IPC 写入已成功，但配置回执为 `failed / hermes_renderer_not_ready`，没有假报应用成功。这个错误不是 Provider 429，也不是凭据丢失的证据。
+4. **已证实的测试缺陷**：本次初版 runner 使用 `page.waitForFunction(async () => …getHermesStatus()… === 'ready')`。当前 Playwright 1.61.1 的执行代码同步判断 `predicate()` 的返回值，Promise 为真值，随后可解析成 false 而结束等待。本机实际页面执行 `async () => false` 已验证未超时而返回 false。因此第一轮输出中 `rendererAndRuntimeReady=true` 是无效的测试自报状态，不能作为真实 READY 证据。原 R1 `.tmp` 窗口脚本根本没有等待真实 Runtime READY，存在同类提前操作问题；不能据此断言其历史每一次失败都具有完全相同原因。
+5. 将等待改为 Node 端逐次 **await 实际 IPC 结果** 后，复验中的同一产品保存流程取得 `control.ok=true / applied / verified=true`。这支持“提前发 IPC 导致门禁拒绝”的定位，不需要修改产品来绕过门禁。
+
+### 四个独立状态与实际验收
+
+| 状态/场景 | 本轮真实结果 | 限制 |
+|---|---|---|
+| 凭据写入成功 | PASS：实际 Electron 43.2.0 产品窗口、真实 preload/IPC、safeStorage 可用；写入后 configured=true/source=secure_store；文件无明文测试 Key。 | 合成 Key、独立 userData。首次进程环境中预置同一合成 Key 以完成初始 READY；不是“所有环境凭据均为空”的首次配置验收。 |
+| 模型配置应用成功 | PASS：实际等待 READY 后保存返回 applied/verified；随后故意提交无效 URL，回执为 failed/provider_base_url_invalid。 | 不把 store.ok=true 当作 control.ok=true。 |
+| 实际模型请求成功 | PASS：产品 Next `/api/ai/test` latency 发出实际 HTTP 请求，模拟 Provider 记录鉴权匹配并返回 200；应用返回 ok=true、model=closure-model、credentialSource=secure_store。 | 这是模拟 Provider 的真实网络请求；不是 AMD 成功认证，也不是一次完整 Hermes Agent 工具任务。 |
+| 配置失败后已存凭据仍在 | PASS：故意 URL 校验失败后，真实 describe IPC 仍返回 configured=true/source=secure_store。 | 保留失败状态，没有伪造成功。 |
+| 保存后正常退出 | PASS：真实 window.close → 产品 window-all-closed/app.quit；首个复验进程退出码 0，Local State 落盘；未用 taskkill/app.exit 冒充正常退出。 | 正常退出本身不能单独证明下一进程恢复成功。 |
+| 新进程恢复凭据 | **未独立验收完成**：正常退出后确实启动了新产品进程，进入 HTTP 页面并能够调用 getHermesStatus IPC；未出现被捕获的 credential_store_read_failed 启动错误。 | 执行版本在读取独立 describe 回执前等待 Hermes READY；最终停在 degraded，因而没有取得新的 describe/鉴权请求证明。不标记恢复 PASS，也不以 degraded 推断凭据恢复失败。 |
+| 重启后不改 Key 切模型 | BLOCKED：未到达此步骤。 | 不以此前 R1 Web 集成或 VM 测试替代本次产品证据。 |
+| 密文存在但不可解密的实际产品启动 | BLOCKED：未到达专用坏密文步骤。 | 修改前现有相关存储测试通过，但不是该原生产品场景的运行证据。 |
+| 正式 packaged | BLOCKED：没有测试新打包产物。 | 不使用旧安装包或 VM 结果替代。 |
+
+### 第二轮的具体阻塞与停止
+
+新进程的实际 IPC 状态在 90 秒预算内保持 **degraded**，没有达到 ready。其 Hermes 日志记录了第二次 API Server health check passed；这只说明基础进程健康探测通过，不能代替 MCP/Provider/工具面整体 READY。
+
+执行版本未保存最后 snapshot 的 `reasonCode/providerReady/careerMcpReady`，因此不能把阻塞进一步归因为密钥、Provider、MCP、旧进程或其他具体模块。没有新增 429 证据，也没有修改产品规避该状态。结束后核对没有残留的本轮 Electron 进程或这些进程的直属子进程。
+
+对旧 `credential_store_read_failed`：本轮正常退出后的新启动没有复现被捕获的同名启动错误，但由于独立恢复回执缺失，尚不足以完全关闭该事项。之前中断测试进程、强退导致 Chromium 加密 Local State 未落盘仍是与历史证据一致的解释，不能在本轮将它升级为全部历史事故的已证实根因。
+
+按照用户“两轮上限”停止，不第三次启动。下一步所需条件是单独授权一次围绕重启 degraded 的采集：IPC 页面可用后先记录 describe，独立记录 runtime snapshot/具体 reason 及 Provider/MCP 状态，不把采集本身依赖于 READY。
+
+### 修改与验证
+
+- **没有生产修复文件**：证实的提前调用问题在测试等待中；剩余运行时原因证据不足，不修改 `providerCredentialStore.js/main.js/HermesRuntime` 来迎合测试。
+- 新增 `scripts/electron-credential-closure.cjs`：直接启动真实 Electron，通过 CDP 操作产品页面和真实 IPC；独立目录、合成 Key/Provider、真实请求、安全结果投影、正常关闭及跨进程序列。没有自动重试启动循环。
+- 新增 `tests/support/electron-product-closure.cjs`：只设置独立 userData、抑制开发 DevTools/隐藏测试窗口并捕获启动错误对话框；加载实际 `electron/main.js`，没有 mock store、IPC、Next、Supervisor 或人工发送 READY。
+- 两次实际命令均为 `node scripts/electron-credential-closure.cjs`，各自执行当时版本：第一轮退出 **1**（提前 READY 等待导致配置被拒）；第二轮退出 **1**（新进程 runtime degraded 超过预算）。原始两轮结果保留在 Closure JSON。失败没有改写为测试通过。
+- 第二轮停止后，仅完善 runner 采集点：IPC 可用即记录 storage，保存最终 runtime reason，并给正常退出清理增加有限等待。这些新增采集字段**未再次原生运行验证**，不回填到本轮运行证据；下一轮只能由用户另行授权。
+- 修改前 `pnpm typecheck` 退出 **0**；`pnpm exec vitest run tests/unit/electronCredentialStartupR1.test.ts tests/unit/v4p0ProviderCredentialStore.test.ts tests/unit/hermesSupervisor.test.ts tests/unit/v4p0NativeConfigFallback.test.ts` 4 文件 **50 项**、退出 **0**。
+- 最终 `pnpm exec eslint scripts/electron-credential-closure.cjs tests/support/electron-product-closure.cjs --max-warnings=0`、`pnpm typecheck` 和 `git diff --check` 均退出 **0**。只新增诊断/测试与文档，未重跑生产构建或全量门禁。
+- Next 自动修改的 tsconfig.json/next-env.d.ts 已按任务开始字节恢复；原有三项工作区成果保留。plan4/history4 已同步；最终 Git 状态见 Closure JSON。未自动提交、推送或打包，停止于 R1 Closure 的部分验收状态。
