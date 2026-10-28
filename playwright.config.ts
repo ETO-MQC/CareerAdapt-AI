@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 const externalBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
 const uiBaseUrl = externalBaseUrl ?? "http://127.0.0.1:3000";
 const nonUiSuites = [
+  "**/hermes-config-r1.spec.ts",
   "**/hermes-p46h-integration.spec.ts",
   "**/hermes-career-agent-eval.spec.ts",
   "**/hermes-career-agent-real-eval.spec.ts",

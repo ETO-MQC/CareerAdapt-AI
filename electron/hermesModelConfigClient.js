@@ -52,6 +52,16 @@ class HermesModelConfigClient {
     return { model: stringValue(payload.model), provider: stringValue(payload.provider) };
   }
 
+  async readRuntimeActivity() {
+    const payload = await this.#request("/health/detailed", { method: "GET" });
+    const queues = payload.readiness?.checks?.background_queues;
+    const counts = [queues?.active_api_runs, queues?.process_completions, queues?.active_delegations, payload.active_agents];
+    if (!counts.every((value) => Number.isInteger(value) && value >= 0)) {
+      throw requestError("hermes_runtime_activity_unverified");
+    }
+    return { busy: payload.gateway_busy === true || counts.some((value) => value > 0) };
+  }
+
   async testCapability() {
     const response = await this.#fetch("/api/model/info", { method: "GET" });
     if (response.status === 404 || response.status === 405) return { supported: false };

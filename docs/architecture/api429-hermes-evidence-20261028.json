@@ -1,0 +1,154 @@
+{
+  "dateLocal": "2026-10-28",
+  "timezone": "Asia/Shanghai",
+  "direct": {
+    "kind": "direct-equivalent-latency-request",
+    "at": "2026-10-27T18:09:33.936Z",
+    "target": "https://developer.amd.com.cn/radeon/api/v1/chat/completions",
+    "finalUrl": "https://developer.amd.com.cn/radeon/api/v1/chat/completions",
+    "model": "Qwen3.8-Flash-Next",
+    "status": 429,
+    "elapsedMs": 163,
+    "attempts": 1,
+    "retries": 0,
+    "headers": {
+      "retry-after": "1",
+      "server": "nginx",
+      "x-trace-id": "ad752bf53b135a68dbec0c9b544b2b69"
+    },
+    "body": "{\"detail\":{\"error\":{\"message\":\"Model API rate limit exceeded; please retry later\",\"type\":\"rate_limit_error\",\"code\":\"process_concurrency_rate_limit_exceeded\"}}}"
+  },
+  "appRoute": {
+    "kind": "actual-app-latency-route",
+    "at": "2026-10-27T18:11:02.300Z",
+    "localStatus": 502,
+    "elapsedMs": 355,
+    "localRequests": 1,
+    "clientRetries": 0,
+    "payload": {
+      "ok": false,
+      "code": "provider_http_429",
+      "message": "服务商限流或免费额度已用尽（HTTP 429），请稍后重试。 服务商提示：{\"detail\":{\"error\":{\"message\":\"Model API rate limit exceeded; please retry later\",\"type\":\"rate_limit_error\",\"code\":\"process_concurrency_rate_limit_exceeded\"}}}",
+      "configuration": {
+        "provider": "custom:careeradapt",
+        "model": "Qwen3.8-Flash-Next",
+        "baseUrlHostPath": "developer.amd.com.cn/radeon/api/v1",
+        "credentialPresent": true,
+        "authMode": "bearer_server_env",
+        "sources": {
+          "provider": "custom_header",
+          "model": "custom_header",
+          "baseUrl": "custom_header",
+          "credential": "server_env"
+        },
+        "configFingerprint": "80254ea957805ae29b27898136129042250aea2647f16f825ce479e83b771f3f"
+      },
+      "configFingerprint": "80254ea957805ae29b27898136129042250aea2647f16f825ce479e83b771f3f",
+      "diagnostics": {
+        "runtime": "v24.15.0",
+        "dns": {
+          "status": "skipped"
+        },
+        "tcp": {
+          "status": "skipped"
+        },
+        "tls": {
+          "status": "skipped"
+        },
+        "http": {
+          "status": "reached",
+          "statusCode": 429,
+          "safeErrorCode": "provider_http_429",
+          "phase": "http"
+        },
+        "latencyMs": 0
+      }
+    }
+  },
+  "control": {
+    "kind": "reported-control-snapshot",
+    "capturedAt": "2026-10-27T18:11:55.564Z",
+    "httpStatus": 200,
+    "state": "ready",
+    "model": "Qwen3.8-Flash-Next",
+    "config": {
+      "active": {
+        "provider": "custom:careeradapt",
+        "baseUrl": "https://developer.amd.com.cn/radeon/api/v1",
+        "baseUrlHostPath": "developer.amd.com.cn/radeon/api/v1",
+        "model": "Qwen3.8-Flash-Next",
+        "credentialConfigured": true,
+        "credentialSource": "managed_config",
+        "configFingerprint": "80254ea957805ae29b27898136129042250aea2647f16f825ce479e83b771f3f",
+        "configGeneration": 2,
+        "source": "runtime_readback",
+        "lastAppliedAt": "2026-10-27T17:29:55.145Z"
+      },
+      "desired": {
+        "provider": "custom:careeradapt",
+        "baseUrl": "https://developer.amd.com.cn/radeon/api/v1",
+        "baseUrlHostPath": "developer.amd.com.cn/radeon/api/v1",
+        "model": "Qwen3.8-Flash-Next",
+        "credentialConfigured": true,
+        "credentialSource": "managed_config",
+        "configFingerprint": "80254ea957805ae29b27898136129042250aea2647f16f825ce479e83b771f3f",
+        "configGeneration": 2,
+        "source": "runtime_readback",
+        "lastAppliedAt": "2026-10-27T17:29:55.145Z"
+      },
+      "applyStatus": "applied",
+      "verified": true,
+      "restartPerformed": false
+    },
+    "credentialStatus": {
+      "available": true,
+      "configured": true,
+      "source": "session_memory"
+    }
+  },
+  "syntheticLocal": {
+    "at": "2026-10-27T18:12:15.937Z",
+    "config": {
+      "generatedConfigUpdate": true,
+      "markerLossCode": "hermes_managed_model_config_missing",
+      "markerLossLeavesFileUnchanged": true,
+      "bundledSaveExit": 0,
+      "bundledSaveMarkersPresent": false,
+      "afterBundledSave": "hermes_managed_model_config_missing"
+    },
+    "ui": {
+      "immediateDoubleClickRequests": 1,
+      "request": {
+        "mode": "latency",
+        "settings": {
+          "baseUrl": "https://provider.example/v1",
+          "model": "candidate-model",
+          "provider": "openai-compatible",
+          "credentialAction": "unchanged"
+        }
+      },
+      "activeModel": "active-model",
+      "formModel": "candidate-model",
+      "failureVisible": true,
+      "actualProviderRequests": 0,
+      "note": "isolated browser context; route intercepted; no production config mutation"
+    }
+  },
+  "scope": "No production config changes; supplied credential used only in direct request memory. App request used server-resolved credential; equality to supplied credential not independently verified.",
+  "historicalLog": {
+    "file": ".next/dev/logs/hermes-runtime.log",
+    "lines": [
+      2921,
+      2923,
+      2925,
+      2926
+    ],
+    "dateLocal": "2026-10-23",
+    "model": "DeepSeek-V4.1-Flash",
+    "status": 429,
+    "code": "model_concurrency_rate_limit_exceeded",
+    "reportedModelConcurrencyLimit": 16,
+    "observedAttempts": 3,
+    "note": "Historical Hermes Agent request; not current Qwen latency test."
+  }
+}

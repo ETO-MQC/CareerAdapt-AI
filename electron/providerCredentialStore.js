@@ -92,11 +92,11 @@ function createProviderCredentialStore(options = {}) {
     }
     let configured = false;
     try {
-      configured = readStoredPayload() !== undefined;
+      configured = read() !== undefined;
     } catch {
       return { available: true, configured: false, source: "server_env", reason: CREDENTIAL_STORE_REASONS.read_failed };
     }
-    return { available: true, configured, source: configured ? "secure_store" : "server_env" };
+    return { available: true, configured, source: configured ? "secure_store" : "server_env", ...(!configured ? { reason: CREDENTIAL_STORE_REASONS.not_configured } : {}) };
   }
 
   /** Main-process only. Returns the plaintext key, or undefined when nothing is stored. */
@@ -106,16 +106,17 @@ function createProviderCredentialStore(options = {}) {
     try {
       payload = readStoredPayload();
     } catch {
-      return undefined;
+      throw credentialStoreError(CREDENTIAL_STORE_REASONS.read_failed, "credential_store_read_failed");
     }
     if (!payload) return undefined;
     try {
       const apiKey = safeStorage.decryptString(Buffer.from(payload.encryptedApiKey, "base64"));
-      return typeof apiKey === "string" && apiKey.trim() ? apiKey : undefined;
+      if (typeof apiKey !== "string" || !apiKey.trim()) throw new Error("invalid credential");
+      return apiKey;
     } catch {
       // A payload encrypted by another OS user or a re-imaged keychain is unusable. Report it
       // rather than returning a wrong value; `describe()` surfaces the same failure.
-      return undefined;
+      throw credentialStoreError(CREDENTIAL_STORE_REASONS.read_failed, "credential_store_read_failed");
     }
   }
 
@@ -126,7 +127,7 @@ function createProviderCredentialStore(options = {}) {
     }
     const value = typeof apiKey === "string" ? apiKey.trim() : "";
     if (!value) {
-      return { ok: false, reason: CREDENTIAL_STORE_REASONS.invalid_payload, ...describe() };
+      return { ok: false, ...describe(), reason: CREDENTIAL_STORE_REASONS.invalid_payload };
     }
     try {
       const encryptedApiKey = safeStorage.encryptString(value).toString("base64");
@@ -145,7 +146,7 @@ function createProviderCredentialStore(options = {}) {
       }
       return { ok: true, ...describe() };
     } catch {
-      return { ok: false, reason: CREDENTIAL_STORE_REASONS.write_failed, ...describe() };
+      return { ok: false, ...describe(), reason: CREDENTIAL_STORE_REASONS.write_failed };
     }
   }
 
@@ -160,6 +161,23 @@ function createProviderCredentialStore(options = {}) {
   }
 
   return { available, describe, read, write, clear };
+}
+
+function restoreProviderCredential(environment, store) {
+  const status = store.describe();
+  if (status.reason === CREDENTIAL_STORE_REASONS.read_failed) {
+    throw credentialStoreError(CREDENTIAL_STORE_REASONS.read_failed, "credential_store_read_failed");
+  }
+  if (status.configured) {
+    const apiKey = store.read();
+    if (!apiKey) throw credentialStoreError(CREDENTIAL_STORE_REASONS.read_failed, "credential_store_read_failed");
+    const { resolveHermesProviderBinding } = require("./hermesProviderBinding");
+    const binding = resolveHermesProviderBinding({ provider: environment.HERMES_PROVIDER || environment.AI_PROVIDER, baseUrl: environment.HERMES_BASE_URL || environment.AI_BASE_URL });
+    environment.AI_API_KEY = apiKey;
+    environment[binding.credentialEnvName] = apiKey;
+    environment.CAREERADAPT_CREDENTIAL_SOURCE = "secure_store";
+  }
+  return status;
 }
 
 function credentialStoreError(code, message) {
@@ -182,5 +200,6 @@ module.exports = {
   STORE_VERSION,
   createProviderCredentialStore,
   createUserDataCredentialStore,
+  restoreProviderCredential,
   resolveElectronSafeStorage
 };

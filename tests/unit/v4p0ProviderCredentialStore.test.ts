@@ -157,7 +157,7 @@ describe("V4-P0 S-0 secure provider credential store", () => {
       writeFileSync(storePath, "{ not json", "utf8");
 
       expect(store.describe()).toMatchObject({ available: true, configured: false, reason: CREDENTIAL_STORE_REASONS.read_failed });
-      expect(store.read()).toBeUndefined();
+      expect(() => store.read()).toThrow("credential_store_read_failed");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -178,10 +178,9 @@ describe("V4-P0 S-0 secure provider credential store", () => {
           decryptString: () => { throw new Error("decryption failed"); }
         }
       });
-      expect(rekeyed.read()).toBeUndefined();
-      // Still reports configured, because the ciphertext is present; read() stays empty so the
-      // key never reaches the provider by accident.
-      expect(rekeyed.describe().configured).toBe(true);
+      expect(() => rekeyed.read()).toThrow("credential_store_read_failed");
+      // Ciphertext presence cannot stand in for successful OS decryption.
+      expect(rekeyed.describe()).toMatchObject({ configured: false, reason: CREDENTIAL_STORE_REASONS.read_failed });
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

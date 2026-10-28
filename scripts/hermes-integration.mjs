@@ -13,17 +13,18 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const suite = process.argv[2] || "integration";
 const isCareerAgentEval = suite === "career-agent-eval";
 const isCareerAgentReal = suite === "career-agent-real";
-if (!isCareerAgentEval && !isCareerAgentReal && suite !== "integration") {
+const isConfigR1 = suite === "config-r1";
+if (!isCareerAgentEval && !isCareerAgentReal && !isConfigR1 && suite !== "integration") {
   throw new Error(`unknown Hermes integration suite: ${suite}`);
 }
 const bundleRoot = path.resolve(process.env.HERMES_RUNTIME_ROOT?.trim() || path.join(projectRoot, ".electron-build", "hermes-runtime-v4"));
-const appPort = await companion.findAvailablePort({ host: "127.0.0.1", preferredPort: 3010, maxAttempts: 100 });
+const appPort = await companion.findAvailablePort({ host: "127.0.0.1", preferredPort: isConfigR1 ? 3315 : 3010, maxAttempts: 100 });
 if (!appPort) throw new Error("no free port for hermetic CareerAdapt integration");
-const runtimePort = await companion.findAvailablePort({ host: "127.0.0.1", preferredPort: 19742, reservedPorts: [appPort], maxAttempts: 100 });
+const runtimePort = await companion.findAvailablePort({ host: "127.0.0.1", preferredPort: isConfigR1 ? 29742 : 19742, reservedPorts: [appPort], maxAttempts: 100 });
 if (!runtimePort) throw new Error("no free port for hermetic Hermes integration");
 const provider = isCareerAgentReal
   ? undefined
-  : await startFakeOpenAiProvider({ mode: isCareerAgentEval ? "career-agent-eval" : "integration" });
+  : await startFakeOpenAiProvider({ mode: isCareerAgentEval ? "career-agent-eval" : "integration", ...(isConfigR1 ? { delayMs: 2_000 } : {}) });
 const realProviderBaseUrl = isCareerAgentReal
   ? (process.env.CAREER_AGENT_REAL_BASE_URL || process.env.HERMES_BASE_URL || process.env.AI_BASE_URL || "").trim()
   : undefined;
@@ -38,7 +39,7 @@ if (isCareerAgentReal && (!realProviderBaseUrl || !realProviderApiKey || !realPr
   process.exit(0);
 }
 const hermesHome = fs.mkdtempSync(path.join(os.tmpdir(), "careerad-hermes-integration-"));
-const nextDistDir = path.join(projectRoot, ".next", `integration-${appPort}-${Date.now()}`);
+const nextDistDir = path.join(projectRoot, isConfigR1 ? ".tmp" : ".next", `integration-${appPort}-${Date.now()}`);
 const appUrl = `http://127.0.0.1:${appPort}`;
 const childEnvironment = {
   ...process.env,
@@ -87,12 +88,19 @@ try {
   if (provider) {
     assert(provider.requests.length > 0, "fake provider did not receive integration requests");
     assert(provider.requests.every((request) => request.authorization === `Bearer ${provider.apiKey}`), "integration control key crossed into Provider Authorization");
+    if (isConfigR1) {
+      const models = provider.requests.map((request) => request.model);
+      assert(JSON.stringify(models) === JSON.stringify(["careeradapt-test", "r1-hot-model", "Qwen3.8-27B"]), "R1 next-task model sequence mismatch");
+      fs.mkdirSync(path.join(projectRoot, ".tmp"), { recursive: true });
+      fs.writeFileSync(path.join(projectRoot, ".tmp/r1-provider-models.json"), JSON.stringify({ models }, null, 2));
+    }
   }
   console.log(`[Hermes integration] PASS suite=${suite} app=${appUrl}${provider ? ` providerCalls=${provider.requests.length}` : " provider=real"}`);
 } catch (error) {
   console.error(`[Hermes integration] FAIL: ${error instanceof Error ? error.message : String(error)}`);
   process.exitCode = 1;
 } finally {
+  if (isConfigR1 && provider) fs.writeFileSync(path.join(projectRoot, ".tmp/r1-provider-attempts.json"), JSON.stringify({ baseUrl: provider.baseUrl, models: provider.requests.map((request) => request.model), authMatches: provider.requests.map((request) => request.authorization === `Bearer ${provider.apiKey}`) }, null, 2));
   await stopWebSupervisor(appUrl);
   if (appProcess && appProcess.exitCode === null) await terminateProcessTree(appProcess);
   await provider?.close();
@@ -128,7 +136,7 @@ async function runPlaywright(environment, url, selectedSuite) {
       "exec",
       "playwright",
       "test",
-      `--config=${selectedSuite === "career-agent-eval" ? "playwright.career-agent-eval.config.ts" : selectedSuite === "career-agent-real" ? "playwright.career-agent-real.config.ts" : "playwright.hermes-integration.config.ts"}`
+      `--config=${selectedSuite === "config-r1" ? "playwright.hermes-r1.config.ts" : selectedSuite === "career-agent-eval" ? "playwright.career-agent-eval.config.ts" : selectedSuite === "career-agent-real" ? "playwright.career-agent-real.config.ts" : "playwright.hermes-integration.config.ts"}`
     ];
     const child = spawnPnpm(args, {
       cwd: projectRoot,

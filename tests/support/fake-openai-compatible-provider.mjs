@@ -26,6 +26,7 @@ export async function startFakeOpenAiProvider(options = {}) {
     const messages = Array.isArray(payload.messages) ? payload.messages : [];
     const tools = Array.isArray(payload.tools) ? payload.tools : [];
     const requestRecord = {
+      model: payload.model,
       authorization,
       messages,
       toolNames: tools.flatMap((tool) => {
@@ -36,6 +37,7 @@ export async function startFakeOpenAiProvider(options = {}) {
       stream: payload.stream === true
     };
     requests.push(requestRecord);
+    if (options.delayMs) await new Promise((resolve) => setTimeout(resolve, options.delayMs));
     const responseMessage = chooseResponse({ mode, messages, tools });
     const responseId = `fake-chat-${requests.length}`;
     if (payload.stream === true) {

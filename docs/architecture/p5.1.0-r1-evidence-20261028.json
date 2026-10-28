@@ -1,0 +1,205 @@
+{
+  "dateLocal": "2026-10-28",
+  "baseline": "9d7ccb03ef3531accf063f5b9e3510806742da0e",
+  "scope": "P5.1.0-R1 only; synthetic credentials and providers; no packaging/commit/push",
+  "unit": {
+    "files": 8,
+    "tests": 79,
+    "exitCode": 0
+  },
+  "browser": {
+    "command": "node scripts/hermes-integration.mjs config-r1",
+    "exitCode": 0,
+    "tests": 1,
+    "durationSeconds": 51.1,
+    "result": {
+      "hot": {
+        "active": {
+          "provider": "custom:careeradapt",
+          "baseUrl": "http://127.0.0.1:57782/v1",
+          "baseUrlHostPath": "127.0.0.1:57782/v1",
+          "model": "r1-hot-model",
+          "credentialConfigured": true,
+          "credentialSource": "managed_config",
+          "configFingerprint": "40114785c138ee71c7e8cbea4d87a1a31178f131e02c094cfab7e1e667f3b5f7",
+          "configGeneration": 2,
+          "source": "runtime_readback",
+          "lastAppliedAt": "2026-10-28T03:27:39.791Z"
+        },
+        "desired": {
+          "provider": "custom:careeradapt",
+          "baseUrl": "http://127.0.0.1:57782/v1",
+          "baseUrlHostPath": "127.0.0.1:57782/v1",
+          "model": "r1-hot-model",
+          "credentialConfigured": true,
+          "credentialSource": "managed_config",
+          "configFingerprint": "40114785c138ee71c7e8cbea4d87a1a31178f131e02c094cfab7e1e667f3b5f7",
+          "configGeneration": 2,
+          "source": "managed_config"
+        },
+        "activeFingerprint": "40114785c138ee71c7e8cbea4d87a1a31178f131e02c094cfab7e1e667f3b5f7",
+        "activeGeneration": 2,
+        "desiredFingerprint": "40114785c138ee71c7e8cbea4d87a1a31178f131e02c094cfab7e1e667f3b5f7",
+        "desiredGeneration": 2,
+        "applyStatus": "applied",
+        "restartPerformed": false,
+        "verified": true,
+        "rollbackOccurred": false,
+        "updatedAt": "2026-10-28T03:27:39.791Z"
+      },
+      "deferred": {
+        "active": {
+          "provider": "custom:careeradapt",
+          "baseUrl": "http://127.0.0.1:57782/v1",
+          "baseUrlHostPath": "127.0.0.1:57782/v1",
+          "model": "r1-hot-model",
+          "credentialConfigured": true,
+          "credentialSource": "managed_config",
+          "configFingerprint": "40114785c138ee71c7e8cbea4d87a1a31178f131e02c094cfab7e1e667f3b5f7",
+          "configGeneration": 2,
+          "source": "runtime_readback",
+          "lastAppliedAt": "2026-10-28T03:27:39.791Z"
+        },
+        "desired": {
+          "provider": "custom:careeradapt",
+          "baseUrl": "http://127.0.0.1:57782/v1",
+          "baseUrlHostPath": "127.0.0.1:57782/v1",
+          "model": "Qwen3.8-27B",
+          "credentialConfigured": true,
+          "credentialSource": "managed_config",
+          "configFingerprint": "e15006f4ca5ab06798e79986f474efaefffbb358470ef97e1dd341a8cab292b5",
+          "configGeneration": 3,
+          "source": "managed_config"
+        },
+        "activeFingerprint": "40114785c138ee71c7e8cbea4d87a1a31178f131e02c094cfab7e1e667f3b5f7",
+        "activeGeneration": 2,
+        "desiredFingerprint": "e15006f4ca5ab06798e79986f474efaefffbb358470ef97e1dd341a8cab292b5",
+        "desiredGeneration": 3,
+        "applyStatus": "deferred",
+        "restartPerformed": false,
+        "verified": false,
+        "rollbackOccurred": false,
+        "reasonCode": "hermes_config_recovery_deferred_active_run",
+        "updatedAt": "2026-10-28T03:27:44.557Z"
+      },
+      "recovered": {
+        "active": {
+          "provider": "custom:careeradapt",
+          "baseUrl": "http://127.0.0.1:57782/v1",
+          "baseUrlHostPath": "127.0.0.1:57782/v1",
+          "model": "Qwen3.8-27B",
+          "credentialConfigured": true,
+          "credentialSource": "managed_config",
+          "configFingerprint": "e15006f4ca5ab06798e79986f474efaefffbb358470ef97e1dd341a8cab292b5",
+          "configGeneration": 3,
+          "source": "runtime_readback",
+          "lastAppliedAt": "2026-10-28T03:27:58.041Z"
+        },
+        "desired": {
+          "provider": "custom:careeradapt",
+          "baseUrl": "http://127.0.0.1:57782/v1",
+          "baseUrlHostPath": "127.0.0.1:57782/v1",
+          "model": "Qwen3.8-27B",
+          "credentialConfigured": true,
+          "credentialSource": "managed_config",
+          "configFingerprint": "e15006f4ca5ab06798e79986f474efaefffbb358470ef97e1dd341a8cab292b5",
+          "configGeneration": 3,
+          "source": "managed_config"
+        },
+        "activeFingerprint": "e15006f4ca5ab06798e79986f474efaefffbb358470ef97e1dd341a8cab292b5",
+        "activeGeneration": 3,
+        "desiredFingerprint": "e15006f4ca5ab06798e79986f474efaefffbb358470ef97e1dd341a8cab292b5",
+        "desiredGeneration": 3,
+        "applyStatus": "applied",
+        "restartPerformed": true,
+        "verified": true,
+        "rollbackOccurred": false,
+        "updatedAt": "2026-10-28T03:27:58.041Z"
+      },
+      "oldRunPreserved": true,
+      "userValuesRetained": true
+    },
+    "provider": {
+      "baseUrl": "http://127.0.0.1:57782/v1",
+      "models": [
+        "careeradapt-test",
+        "r1-hot-model",
+        "Qwen3.8-27B"
+      ],
+      "authMatches": [
+        true,
+        true,
+        true
+      ]
+    }
+  },
+  "nativeSecureStore": {
+    "command": "node scripts/test-electron-credentials.cjs",
+    "exitCode": 0,
+    "processes": [
+      {
+        "phase": "write",
+        "exitCode": 0,
+        "signal": null,
+        "localStatePresent": true,
+        "results": [
+          {
+            "phase": "write",
+            "nativeElectronVersion": "43.2.0",
+            "status": {
+              "available": true,
+              "configured": true,
+              "source": "secure_store"
+            },
+            "restored": true,
+            "encryptedAtRest": true
+          }
+        ]
+      },
+      {
+        "phase": "read",
+        "exitCode": 0,
+        "signal": null,
+        "localStatePresent": true,
+        "results": [
+          {
+            "phase": "read",
+            "nativeElectronVersion": "43.2.0",
+            "status": {
+              "available": true,
+              "configured": true,
+              "source": "secure_store"
+            },
+            "restored": true,
+            "encryptedAtRest": true
+          }
+        ]
+      }
+    ]
+  },
+  "desktopProduct": {
+    "status": "BLOCKED",
+    "selfStartupAndIpcEncryptedWriteObserved": true,
+    "selfRuntimeApplyStatus": "failed",
+    "normalProductRelaunchVerified": false,
+    "reuseActualStatus": "BLOCKED",
+    "packagedActualStatus": "BLOCKED",
+    "reason": "Full-window automation timed out; interrupted harness later reported credential_store_read_failed. This does not prove normal product restart success or a normal-exit product failure."
+  },
+  "build": {
+    "command": "$env:CAREERAD_NEXT_DIST_DIR='.tmp/r1-production-build-final'; pnpm build",
+    "exitCode": 0
+  },
+  "limits": [
+    "Base URL reread from owned child config; provider/model reread from official runtime options; no claim official options exposes Base URL.",
+    "YAML semantics retained; comment/order/quoting not byte-preserved on success; failure original and private backup retained.",
+    "No real AMD request in R1."
+  ],
+  "engineering": {
+    "typecheckExitCode": 0,
+    "changedFilesLintExitCode": 0,
+    "pythonAstExitCode": 0,
+    "diffCheckExitCode": 0
+  },
+  "finalGitStatus": "M electron/hermesCompanion.js\n M electron/hermesModelConfigClient.js\n M electron/hermesSupervisor.js\n M electron/main.js\n M electron/providerCredentialStore.js\n M playwright.config.ts\n M scripts/hermes-integration.mjs\n M tests/e2e/hermes-p46h-integration.spec.ts\n M tests/support/fake-openai-compatible-provider.mjs\n M tests/unit/v4p0NativeConfigFallback.test.ts\n M tests/unit/v4p0ProviderCredentialStore.test.ts\n?? docs/architecture/CareerAdapt_AI_P5.1_Agent_Architecture_Development_Plan.md\n?? docs/architecture/api429-hermes-diagnosis-20261028.md\n?? docs/architecture/api429-hermes-evidence-20261028.json\n?? docs/architecture/p5.1-baseline-audit.md\n?? docs/architecture/p5.1.0-r1-evidence-20261028.json\n?? electron/mergeHermesConfig.py\n?? playwright.hermes-r1.config.ts\n?? scripts/test-electron-credentials.cjs\n?? tests/e2e/hermes-config-r1.spec.ts\n?? tests/support/electron-credential-smoke.cjs\n?? tests/unit/electronCredentialStartupR1.test.ts"
+}

@@ -16,7 +16,7 @@ const {
   resolveRuntimeControlKey
 } = require("./hermesCompanion");
 const { HermesSupervisor } = require("./hermesSupervisor");
-const { createUserDataCredentialStore } = require("./providerCredentialStore");
+const { createUserDataCredentialStore, restoreProviderCredential } = require("./providerCredentialStore");
 const { ensureCredentialFingerprintPepper } = require("./credentialFingerprintPepper");
 
 let mainWindow;
@@ -304,6 +304,8 @@ async function startPackagedServer(appPath, port) {
 async function startServer() {
   const appPath = getAppPath();
   const environment = loadCareerAdaptEnvironment(appPath);
+  // All launch paths initialize and decrypt before starting Next/Supervisor or opening a renderer.
+  providerCredentialStore = createUserDataCredentialStore(app.getPath("userData"));
   const preferredAppPort = parsePort(
     environment.CAREERADAPT_APP_PORT || readSavedAppPort() || environment.PORT,
     DEFAULT_APP_PORT
@@ -332,6 +334,8 @@ async function startServer() {
   await configureHermesDefaults(appPath, environment, {
     preserveRuntimeUrl: reuseExistingDevelopmentServer && Boolean(environment.HERMES_RUNTIME_URL)
   });
+  const credentialStatus = restoreProviderCredential(environment, providerCredentialStore);
+  if (!credentialStatus.available) console.warn("credential_store_unavailable");
   configureOcrDefaults();
   await startLocalOcrSidecar(appPath);
   ocrBootstrapTimer = setInterval(() => { void startLocalOcrSidecar(appPath); }, 5000);
@@ -355,20 +359,6 @@ async function startServer() {
   console.log("Packaged:", app.isPackaged);
 
   if (reuseExistingDevelopmentServer) {
-applyEnvironment(environment);
-
-  // V4-P0 S-0: desktop-first credential resolution. The OS-encrypted store wins over the env
-  // file so the key the user entered in Settings is the one actually used, and it is injected
-  // into this process only -- never written back to .env, config.yaml, or any other file.
-  providerCredentialStore = createUserDataCredentialStore(app.getPath("userData"));
-  const storedProviderCredential = providerCredentialStore.read();
-  if (storedProviderCredential) {
-    environment.AI_API_KEY = storedProviderCredential;
-    process.env.AI_API_KEY = storedProviderCredential;
-    // Lets the provider routes report an accurate credential source without inspecting the value.
-    environment.CAREERADAPT_CREDENTIAL_SOURCE = "secure_store";
-    process.env.CAREERADAPT_CREDENTIAL_SOURCE = "secure_store";
-  }
     console.warn(`端口 ${serverPort} 已有开发服务器，直接复用：${getServerUrl()}`);
     createHermesSupervisor(appPath, environment, runtimeControlKey);
     saveAppPort(serverPort);

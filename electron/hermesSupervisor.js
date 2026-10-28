@@ -10,6 +10,7 @@ const {
   normalizeProviderIdentity,
   providerCredential,
   recordRuntimeControlKeyDiagnostic,
+  readHermesModelConfiguration,
   resolveHermesProviderBinding,
   startHermesCompanion,
   stopHermesCompanion,
@@ -605,7 +606,7 @@ class HermesSupervisor {
     }
 
     if (options.forceRestart !== true && this.canApplyModelWithoutRestart(targetEnvironment)) {
-      return this.applyModelWithoutRestart(settings, targetEnvironment, targetFingerprint);
+      return this.applyModelWithoutRestart(settings, targetEnvironment, targetFingerprint, previous);
     }
 
     // The bundled Hermes gateway serves /v1/capabilities, /v1/skills, /v1/toolsets and
@@ -657,7 +658,7 @@ class HermesSupervisor {
       && providerCredential(active) === providerCredential(targetEnvironment);
   }
 
-  async applyModelWithoutRestart(settings, targetEnvironment, targetFingerprint) {
+  async applyModelWithoutRestart(settings, targetEnvironment, targetFingerprint, previous) {
     let restore;
     try {
       restore = updateManagedHermesModel(this.handle?.childEnvironment?.HERMES_HOME || this.hermesHome,
@@ -679,6 +680,9 @@ class HermesSupervisor {
       this.setConfigurationApplyStatus("applied", undefined, { restartPerformed: false, verified: true, rollbackOccurred: false });
       return this.getStatus();
     } catch (error) {
+      if (!restore && error.code === "hermes_managed_model_config_missing") {
+        return this.recoverManagedModelConfiguration(settings, targetEnvironment, targetFingerprint, previous);
+      }
       if (restore) restore();
       this.runtimeProcessState.pendingTargetFingerprint = undefined;
       this.runtimeConfigState.desired = this.runtimeConfigState.active;
@@ -687,6 +691,47 @@ class HermesSupervisor {
       });
       this.runtimeConfigState.lastApplyReceipt = this.createApplyReceipt(false, Boolean(restore), this.runtimeConfigState.reasonCode);
       return this.getStatus();
+    }
+  }
+
+  async recoverManagedModelConfiguration(settings, targetEnvironment, targetFingerprint, previous) {
+    if (this.hasActiveSemanticRun()) return this.deferMaintenance("hermes_config_recovery_deferred_active_run");
+    try {
+      if ((await this.createModelConfigClient().readRuntimeActivity()).busy) {
+        return this.deferMaintenance("hermes_config_recovery_deferred_active_run");
+      }
+    } catch {
+      this.setConfigurationApplyStatus("failed", "hermes_runtime_activity_unverified", { verified: false, rollbackOccurred: false });
+      this.runtimeConfigState.lastApplyReceipt = this.createApplyReceipt(false, false, "hermes_runtime_activity_unverified");
+      return this.getStatus();
+    }
+    const home = this.handle?.childEnvironment?.HERMES_HOME || this.hermesHome;
+    const configPath = path.join(home, "config.yaml");
+    const original = fs.readFileSync(configPath);
+    // Keep a recoverable, private original even if restart/rollback fails or the app exits.
+    fs.writeFileSync(`${configPath}.recovery-${require("crypto").randomUUID()}.bak`, original, { mode: 0o600, flag: "wx" });
+    this.managedRecoveryVerification = { home, targetFingerprint };
+    try {
+      const snapshot = await this.applyConfigurationWithLifecycleRestart(settings, {}, targetFingerprint, previous);
+      if (snapshot.runtimeConfig?.applyStatus !== "applied") {
+        fs.writeFileSync(configPath, original, { mode: 0o600 });
+        return snapshot;
+      }
+      // startInternal verifies YAML coordinates and runtime readback before committing active.
+      return this.getStatus();
+    } catch (error) {
+      const reason = safeReason(error.code || "hermes_config_recovery_failed");
+      let result;
+      if (previous) result = await this.rollbackToHealthy(previous, reason);
+      else {
+        this.setConfigurationApplyStatus("failed", reason, { verified: false, rollbackOccurred: false });
+        this.runtimeConfigState.lastApplyReceipt = this.createApplyReceipt(false, false, reason);
+        result = this.getStatus();
+      }
+      fs.writeFileSync(configPath, original, { mode: 0o600 });
+      return result;
+    } finally {
+      this.managedRecoveryVerification = undefined;
     }
   }
 
@@ -746,6 +791,7 @@ class HermesSupervisor {
       rollbackOccurred: false
     });
     const snapshot = await this.start(settings, { ...options, forceRestart: true });
+    if (this.runtimeConfigState.applyStatus === "deferred") return snapshot;
     const applied = snapshot.overallState === "ready"
       && this.runtimeConfigState.active?.configFingerprint === targetFingerprint;
     if (applied) {
@@ -1172,7 +1218,22 @@ class HermesSupervisor {
     await this.discoverCapabilities();
     const snapshot = await this.synchronizeCareerReadiness();
     const readbackFingerprint = options.targetFingerprint || this.runtimeProcessState.pendingTargetFingerprint || handle.configurationFingerprint || hermesConfigurationFingerprint(this.environment);
-    if (snapshot.overallState === "ready" && this.configurationReadbackMatches(readbackFingerprint, targetGeneration)) {
+    let recoveryVerified = true;
+    if (snapshot.overallState === "ready" && this.managedRecoveryVerification?.targetFingerprint === readbackFingerprint) {
+      try {
+        const readback = readHermesModelConfiguration(this.managedRecoveryVerification.home, this.environment, {
+          projectRoot: this.projectRoot, hermesRuntimeRoot: this.hermesRuntimeRoot
+        });
+        const expected = configurationValue(this.environment, readbackFingerprint, targetGeneration, "runtime_readback");
+        const observed = await this.createModelConfigClient().readModelOptions();
+        recoveryVerified = readback.provider === expected.provider && readback.model === expected.model
+          && readback.baseUrl?.replace(/\/+$/u, "") === expected.baseUrl.replace(/\/+$/u, "")
+          && observed.model === expected.model && providerIdentitiesMatch(observed.provider, expected.provider);
+      } catch {
+        recoveryVerified = false;
+      }
+    }
+    if (snapshot.overallState === "ready" && recoveryVerified && this.configurationReadbackMatches(readbackFingerprint, targetGeneration)) {
       this.commitActiveConfiguration(this.environment, {
         targetFingerprint: readbackFingerprint,
         targetGeneration,

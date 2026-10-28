@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import { EventEmitter } from "node:events";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync, readdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -73,7 +74,7 @@ function createHealth(overrides: Record<string, unknown> = {}) {
  * Mirrors production: the gateway answers /api/model/info and /api/model/set with 404, exactly
  * as api_server.py's route table does, and the companion starts with the requested environment.
  */
-function createGatewayHarness(options: { nativeModelConfig?: boolean; hotModel?: boolean; readbackMismatch?: boolean } = {}) {
+function createGatewayHarness(options: { nativeModelConfig?: boolean; hotModel?: boolean; readbackMismatch?: boolean; failRecovery?: boolean; recoveryReadbackMismatch?: boolean; recoveryBaseUrlMismatch?: boolean; runtimeBusy?: boolean; activityUnavailable?: boolean } = {}) {
   const nativeEnabled = options.nativeModelConfig === true;
   const hermesHome = options.hotModel ? mkdtempSync(path.join(tmpdir(), "careeradapt-model-switch-")) : undefined;
   let currentHealth = createHealth();
@@ -88,11 +89,12 @@ function createGatewayHarness(options: { nativeModelConfig?: boolean; hotModel?:
     const environment = input.environment ?? {};
     if (hermesHome) ensureManagedHermesConfig(hermesHome, {
       provider: environment.AI_PROVIDER || "openai-compatible",
-      baseUrl: environment.AI_BASE_URL,
+      baseUrl: options.recoveryBaseUrlMismatch && startCount === 2 ? "https://wrong.example/v1" : environment.AI_BASE_URL,
       model: environment.AI_MODEL,
       genericApiKey: SECRET
     });
     startEnvironments.push(environment);
+    if (options.failRecovery && environment.AI_MODEL === "next-model") return { ok: false, reason: "hermes_recovery_test_failed" };
     currentHealth = {
       ...currentHealth,
       ...(environment.AI_BASE_URL ? { provider: environment.AI_BASE_URL } : {}),
@@ -113,6 +115,7 @@ function createGatewayHarness(options: { nativeModelConfig?: boolean; hotModel?:
   };
 
   const fetchImpl = async (url: string, init: RequestInit = {}) => {
+    if (url.endsWith("/health/detailed")) return { ok: !options.activityUnavailable, status: options.activityUnavailable ? 503 : 200, json: async () => ({ active_agents: 0, readiness: { checks: { background_queues: { active_api_runs: options.runtimeBusy ? 1 : 0, process_completions: 0, active_delegations: 0 } } } }) };
     if (url.includes("/api/agent/runtime/hermes/health")) return { ok: true, status: 200, json: async () => currentHealth };
     // The gateway does serve these three; capability discovery must see them as supported.
     if (url.endsWith("/v1/capabilities")) return { ok: true, status: 200, json: async () => ({ features: { streaming: true } }) };
@@ -121,7 +124,7 @@ function createGatewayHarness(options: { nativeModelConfig?: boolean; hotModel?:
     if (url.endsWith("/api/model/options")) return { ok: true, status: 200, json: async () => ({
       providers: [],
       ...(hermesHome ? {
-        model: options.readbackMismatch ? "wrong-model" : JSON.parse(readFileSync(path.join(hermesHome, "config.yaml"), "utf8").match(/^  default: (.+)$/mu)![1]),
+        model: options.readbackMismatch || (options.recoveryReadbackMismatch && startCount === 2) ? "wrong-model" : JSON.parse(readFileSync(path.join(hermesHome, "config.yaml"), "utf8").match(/^  default: (.+)$/mu)![1]),
         provider: "custom:careeradapt"
       } : {})
     }) };
@@ -166,11 +169,117 @@ function createGatewayHarness(options: { nativeModelConfig?: boolean; hotModel?:
     getModelSetCount: () => modelSetCount,
     getStartEnvironments: () => startEnvironments,
     getManagedConfig: () => hermesHome ? readFileSync(path.join(hermesHome, "config.yaml"), "utf8") : "",
+    setManagedConfig: (content: string) => writeFileSync(path.join(hermesHome!, "config.yaml"), content),
+    hermesHome,
     setHealth: (health: ReturnType<typeof createHealth> | Record<string, unknown>) => { currentHealth = health as ReturnType<typeof createHealth>; }
   };
 }
 
 describe("V4-P0 native model config 404 fallback", () => {
+  const target = { provider: "openai-compatible", baseUrl: "https://provider.example/v1", model: "next-model", apiKey: "", credentialAction: "unchanged" };
+
+  it("recovers after the current bundled Hermes really saves YAML and preserves all user values", async () => {
+    const harness = createGatewayHarness({ hotModel: true });
+    await harness.supervisor.rendererHostReady();
+    const root = path.resolve(".electron-build/hermes-runtime-v4");
+    const python = path.join(root, "python/python.exe");
+    const pythonEnv = { ...process.env, HERMES_HOME: harness.hermesHome!, PYTHONPATH: [path.join(root, "source"), path.join(root, "site-packages")].join(path.delimiter), PYTHONUTF8: "1" };
+    execFileSync(python, ["-c", `from hermes_cli.config import load_config, save_config
+c=load_config()
+c['model']['temperature']=0.37
+c['model']['fallbacks']=[{'provider':'user-provider','model':'keep-model'}]
+c['custom_providers'].append({'name':'user-provider','model':'keep-model','base_url':'https://user.example/v1','user_option':True})
+c['custom_providers'][0]['user_option']='retained'
+c['platform_toolsets']['api_server'].append('user-toolset')
+c['platform_toolsets']['telegram']=['user-tools']
+c['mcp_servers']['user-server']={'command':'user-command','args':['--keep']}
+c['gateway']['user_option']='keep'
+c['user_unknown']={'nested':[1,2,3]}
+save_config(c)`], { env: pythonEnv, windowsHide: true });
+    const saved = harness.getManagedConfig();
+    expect(saved).not.toContain("# BEGIN CAREERADAPT MANAGED CONFIG");
+    const read = () => JSON.parse(execFileSync(python, ["-c", "import yaml,json,os; print(json.dumps(yaml.safe_load(open(os.path.join(os.environ['HERMES_HOME'],'config.yaml'),encoding='utf-8'))))"], { env: pythonEnv, encoding: "utf8", windowsHide: true }));
+    const before = read();
+    const starts = harness.getStartCount();
+    const result = await harness.supervisor.updateConfig(target);
+    expect(result.runtimeConfig).toMatchObject({ applyStatus: "applied", verified: true, restartPerformed: true, active: { provider: "custom:careeradapt", baseUrl: target.baseUrl, model: target.model } });
+    expect(harness.getStartCount()).toBe(starts + 1);
+    const after = read();
+    before.model.default = target.model;
+    before.custom_providers[0].model = target.model;
+    expect(after).toEqual(before);
+    expect(readdirSync(harness.hermesHome!).some(p => p.includes('.recovery-') && readFileSync(path.join(harness.hermesHome!, p), 'utf8') === saved)).toBe(true);
+    const hot = await harness.supervisor.updateConfig({ ...target, model: "next-next-model" });
+    expect(hot.runtimeConfig).toMatchObject({ applyStatus: "applied", restartPerformed: false });
+    expect(read().custom_providers[1].model).toBe("keep-model");
+  });
+
+  it.each(["missing", "duplicate", "default_missing", "custom_model_missing"])("recovers %s managed structure without discarding user settings", async (kind) => {
+    const harness = createGatewayHarness({ hotModel: true });
+    await harness.supervisor.rendererHostReady();
+    let config = harness.getManagedConfig();
+    if (kind === "missing") config = config.replaceAll(/# (?:BEGIN|END) CAREERADAPT MANAGED CONFIG/gu, "# marker removed");
+    if (kind === "duplicate") config += "\n# BEGIN CAREERADAPT MANAGED CONFIG\n# empty duplicate\n# END CAREERADAPT MANAGED CONFIG\n";
+    if (kind === "default_missing") config = config.replace(/^  default: .+\n/mu, "");
+    if (kind === "custom_model_missing") config = config.replace(/^    model: .+\n/mu, "");
+    harness.setManagedConfig(config + "\nuser_unknown: keep\n");
+    const applied = await harness.supervisor.updateConfig(target);
+    expect(applied.runtimeConfig).toMatchObject({ applyStatus: "applied", verified: true, restartPerformed: true });
+    expect(harness.getManagedConfig()).toContain("user_unknown: keep");
+  });
+
+  it("defers recovery during an active run without touching its config or process", async () => {
+    const harness = createGatewayHarness({ hotModel: true });
+    await harness.supervisor.rendererHostReady();
+    harness.setHealth(createHealth({ activeRunId: "active-run" }));
+    await harness.supervisor.start();
+    const config = harness.getManagedConfig().replaceAll(/# (?:BEGIN|END) CAREERADAPT MANAGED CONFIG/gu, "# marker removed");
+    harness.setManagedConfig(config);
+    const starts = harness.getStartCount();
+    const result = await harness.supervisor.updateConfig(target);
+    expect(result.runtimeConfig).toMatchObject({ applyStatus: "deferred", active: { model: "model-before" } });
+    expect(result.activeRunId).toBe("active-run");
+    expect(harness.getStartCount()).toBe(starts);
+    expect(harness.getManagedConfig()).toBe(config);
+    harness.setHealth(createHealth({ activeRunId: null }));
+    await harness.supervisor.start();
+    expect((await harness.supervisor.updateConfig(target)).runtimeConfig).toMatchObject({ applyStatus: "applied" });
+  });
+
+  it.each(["start", "readback", "base_url"])("rolls back a recovery %s failure and keeps the original file", async (failure) => {
+    const harness = createGatewayHarness({ hotModel: true, failRecovery: failure === "start", recoveryReadbackMismatch: failure === "readback", recoveryBaseUrlMismatch: failure === "base_url" });
+    await harness.supervisor.rendererHostReady();
+    const config = harness.getManagedConfig().replaceAll(/# (?:BEGIN|END) CAREERADAPT MANAGED CONFIG/gu, "# marker removed");
+    harness.setManagedConfig(config);
+    const applied = await harness.supervisor.updateConfig(target);
+    expect(applied.runtimeConfig).toMatchObject({ applyStatus: "rolled_back", verified: false, rollbackOccurred: true, active: { model: "model-before" } });
+    expect(applied.model).toBe("model-before");
+    expect(harness.getManagedConfig()).toBe(config);
+  });
+
+  it("rejects ambiguous duplicate YAML keys without overwriting the original", async () => {
+    const harness = createGatewayHarness({ hotModel: true });
+    await harness.supervisor.rendererHostReady();
+    const config = harness.getManagedConfig().replaceAll(/# (?:BEGIN|END) CAREERADAPT MANAGED CONFIG/gu, "# marker removed") + "\nuser_value: one\nuser_value: two\n";
+    harness.setManagedConfig(config);
+    const result = await harness.supervisor.updateConfig(target);
+    expect(result.runtimeConfig).toMatchObject({ applyStatus: "failed", verified: false });
+    expect(result.model).toBe("model-before");
+    expect(harness.getManagedConfig()).toBe(config);
+  });
+
+  it.each([true, false])("does not restart when real activity is busy/unverifiable (busy=%s)", async busy => {
+    const harness = createGatewayHarness({ hotModel: true, runtimeBusy: busy, activityUnavailable: !busy });
+    await harness.supervisor.rendererHostReady();
+    const config = harness.getManagedConfig().replaceAll(/# (?:BEGIN|END) CAREERADAPT MANAGED CONFIG/gu, "# marker removed");
+    harness.setManagedConfig(config);
+    const starts = harness.getStartCount();
+    const result = await harness.supervisor.updateConfig(target);
+    expect(result.runtimeConfig).toMatchObject({ applyStatus: busy ? "deferred" : "failed", active: { model: "model-before" } });
+    expect(harness.getStartCount()).toBe(starts);
+    expect(harness.getManagedConfig()).toBe(config);
+  });
+
   it("switches the next task model without restarting or stopping an active run", async () => {
     const harness = createGatewayHarness({ hotModel: true });
     await harness.supervisor.rendererHostReady();

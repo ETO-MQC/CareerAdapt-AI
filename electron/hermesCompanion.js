@@ -252,6 +252,7 @@ function prepareHermesEnvironment(environment, options = {}) {
       genericApiKey: providerApiKey,
       appBaseUrl,
       runtimeUrl: runtime.baseUrl,
+      bundledRuntime,
       includeCareerAdaptMcp: options.includeCareerAdaptMcp
     });
   }
@@ -311,7 +312,9 @@ function ensureManagedHermesConfig(hermesHome, values) {
     ? (developerMode ? ["hermes-api-server", "careeradapt"] : ["skills", "careeradapt"])
     : ["skills"];
   const existing = fs.existsSync(configPath) ? fs.readFileSync(configPath, "utf8") : "";
-  const preserved = preserveUserHermesConfig(existing);
+  // Existing YAML may have been reserialized by Hermes, losing our comments.
+  // Merge its values structurally instead of dropping whole user-owned blocks.
+  const preserved = [];
   const hasUserMcpServers = preserved.some((line) => line === "mcp_servers:");
   const managedCareerAdaptMcp = [
     "  careeradapt:",
@@ -353,9 +356,40 @@ function ensureManagedHermesConfig(hermesHome, values) {
     "# END CAREERADAPT MANAGED CONFIG",
     ""
   ];
-  const content = lines.join("\n");
+  let content = lines.join("\n");
+  if (existing.trim()) {
+    const bundled = values.bundledRuntime || resolveBundledHermesRuntime({}, { projectRoot: path.resolve(__dirname, "..") });
+    if (!bundled) throw Object.assign(new Error("hermes_config_parser_unavailable"), { code: "hermes_config_parser_unavailable" });
+    try {
+      content = execFileSync(bundled.pythonExecutable, ["-c", fs.readFileSync(path.join(__dirname, "mergeHermesConfig.py"), "utf8")], {
+        input: JSON.stringify({ existing, managed: content }),
+        encoding: "utf8", windowsHide: true, timeout: 15_000,
+        env: { ...process.env, PYTHONHOME: bundled.pythonRoot, PYTHONPATH: bundled.sitePackagesRoot, PYTHONUTF8: "1" },
+        stdio: ["pipe", "pipe", "pipe"]
+      });
+    } catch {
+      throw Object.assign(new Error("hermes_managed_config_invalid"), { code: "hermes_managed_config_invalid" });
+    }
+  }
   if (!fs.existsSync(configPath) || fs.readFileSync(configPath, "utf8") !== content) {
-    fs.writeFileSync(configPath, content, "utf8");
+    const temporaryPath = `${configPath}.managed-update`;
+    fs.writeFileSync(temporaryPath, content, { mode: 0o600 });
+    fs.renameSync(temporaryPath, configPath);
+  }
+}
+
+function readHermesModelConfiguration(hermesHome, environment, options) {
+  const bundled = resolveBundledHermesRuntime(environment, options);
+  if (!bundled) throw Object.assign(new Error("hermes_config_parser_unavailable"), { code: "hermes_config_parser_unavailable" });
+  try {
+    return JSON.parse(execFileSync(bundled.pythonExecutable, ["-c", fs.readFileSync(path.join(__dirname, "mergeHermesConfig.py"), "utf8")], {
+      input: JSON.stringify({ action: "read_model", existing: fs.readFileSync(path.join(hermesHome, "config.yaml"), "utf8") }),
+      encoding: "utf8", windowsHide: true, timeout: 15_000,
+      env: { ...process.env, PYTHONHOME: bundled.pythonRoot, PYTHONPATH: bundled.sitePackagesRoot, PYTHONUTF8: "1" },
+      stdio: ["pipe", "pipe", "pipe"]
+    }));
+  } catch {
+    throw Object.assign(new Error("hermes_model_readback_failed"), { code: "hermes_model_readback_failed" });
   }
 }
 
@@ -369,9 +403,31 @@ function updateManagedHermesModel(hermesHome, model) {
   if (blocks.length !== 1 || !/^model:\r?\n  default: .+$/mu.test(blocks[0][2])) {
     throw Object.assign(new Error("hermes_managed_model_config_missing"), { code: "hermes_managed_model_config_missing" });
   }
-  const content = previous.replace(marker, (_, begin, block, end) => begin + block
-    .replace(/^(  default: ).+$/mu, (_, prefix) => prefix + yamlScalar(model))
-    .replace(/^(    model: ).+$/mu, (_, prefix) => prefix + yamlScalar(model)) + end);
+  const content = previous.replace(marker, (_, begin, block, end) => {
+    let updated = block.replace(/^(model:\r?\n  default: ).+$/mu, (_, prefix) => prefix + yamlScalar(model));
+    if (/^  provider: ["']?custom:careeradapt["']?$/mu.test(block)) {
+      const newline = updated.includes("\r\n") ? "\r\n" : "\n";
+      const lines = updated.split(/\r?\n/u);
+      const section = lines.indexOf("custom_providers:");
+      let sectionEnd = section + 1;
+      while (sectionEnd < lines.length && !/^[A-Za-z_][A-Za-z0-9_-]*:/u.test(lines[sectionEnd])) sectionEnd += 1;
+      const candidates = lines.map((line, index) => ({ line, index })).filter(({ line, index }) => index > section && index < sectionEnd && line === "  - name: careeradapt");
+      if (section < 0 || candidates.length !== 1) throw Object.assign(new Error("hermes_managed_model_config_missing"), { code: "hermes_managed_model_config_missing" });
+      const start = candidates[0].index;
+      let index = start + 1;
+      let found = 0;
+      while (index < lines.length && lines[index].startsWith("    ")) {
+        if (lines[index].startsWith("    model: ")) {
+          lines[index] = `    model: ${yamlScalar(model)}`;
+          found += 1;
+        }
+        index += 1;
+      }
+      if (found !== 1) throw Object.assign(new Error("hermes_managed_model_config_missing"), { code: "hermes_managed_model_config_missing" });
+      updated = lines.join(newline);
+    }
+    return begin + updated + end;
+  });
   const write = (value) => {
     const temporaryPath = `${configPath}.model-update`;
     fs.writeFileSync(temporaryPath, value, { mode: 0o600 });
@@ -1117,6 +1173,7 @@ module.exports = {
   parsePort,
   ensureManagedHermesConfig,
   updateManagedHermesModel,
+  readHermesModelConfiguration,
   preserveUserHermesConfig,
   mcpSectionWithoutCareerAdapt,
   addManagedCareerAdaptMcpServer,
