@@ -51,7 +51,8 @@ describe("P4.5c.1.7 Hermes runtime reliability", () => {
         throw createHermesRunFailure({
           code: "hermes_run_start_failed",
           message: "provider rejected credentials",
-          httpStatus: 401
+          httpStatus: 401,
+          failureLayer: "provider"
         });
       }
     });

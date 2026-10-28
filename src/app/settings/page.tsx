@@ -26,6 +26,8 @@ import {
   describeProviderCredential,
   getHermesLogs,
   hermesControlFeedback,
+  humanHermesReason,
+  providerCredentialFeedback,
   hermesControlStatusLabel,
   hermesRuntimeEnvironment,
   openHermesLogs,
@@ -603,6 +605,10 @@ export default function SettingsPage() {
           model: draft.model
         })
         : undefined;
+      if (storeResult) {
+        setCredentialState(storeResult);
+        setAiSettings((previous) => ({ ...previous, apiKey: "", credentialAction: "unchanged", apiKeyConfigured: storeResult.configured }));
+      }
       const controlResult = storeResult ? storeResult.control : await requestHermesConfigUpdate(draft);
 
       if (storeResult && !storeResult.ok) {
@@ -641,7 +647,7 @@ export default function SettingsPage() {
         controlResult?.ok === true && controlResult.receipt?.restartPerformed !== false);
     } catch (error) {
       setHermesFeedback(error instanceof Error
-        ? `AI 配置未应用：${error.message}`
+        ? "AI 配置未应用，请查看安全诊断代码后重试。"
         : "AI 配置未应用，请查看运行诊断后重试。");
     } finally {
       if (sessionBindingToRelease) agentHost.hermesRuntime?.releaseSessionBinding?.(sessionBindingToRelease);
@@ -1107,6 +1113,7 @@ async function clearAiCredentialFromSettings() {
                   {/* Kept outside the label so the accessible name stays exactly "API Key".
                       The stored key is never sent back to the page, so state is shown as a fact,
                       not as a value. This is also why the field always starts empty. */}
+                  <p className="field-help" role="status">{providerCredentialFeedback(credentialState)}</p>
                   <p className="field-help ai-runtime-credential-help">
                     {credentialState?.available
                       ? credentialState.source === "session_memory"
@@ -1222,6 +1229,7 @@ async function clearAiCredentialFromSettings() {
                 </div>
               </section>
 
+              <p className="field-help" role="status">Companion：{hermesSnapshot.apiReady ? "可达" : "未就绪"} · Provider：{hermesSnapshot.providerReady ? "就绪" : "未就绪"} · MCP：{hermesSnapshot.careerMcpReady ? "就绪" : "未就绪"} · 配置应用：{applyStatus}。{hermesControlFeedback(hermesSnapshot)}</p>
               {hermesFeedback ? <p className="settings-save-state" role="status" aria-live="polite">{hermesFeedback}</p> : null}
               <div className="hermes-settings-actions hermes-primary-action-row">
                 {hermesSnapshot.capabilities.canStartService && (hermesSnapshot.serviceState === "stopped" || hermesSnapshot.serviceState === "unavailable") ? <button type="button" className="button button-primary" disabled={hermesStarting} onClick={() => void startHermesFromSettings()}>{hermesStarting ? "启动中…" : "启动 AI Agent"}</button> : null}
@@ -1687,7 +1695,7 @@ function aiRuntimeConfigFeedback(reason: string) {
     hermes_companion_start_failed: "AI Agent 启动失败。",
     hermes_process_crashed: "AI Agent 启动失败。",
   };
-  return descriptions[reason] ?? "配置未应用，请检查 API 地址、模型和 API Key。";
+  return humanHermesReason(reason) ?? descriptions[reason] ?? "配置未应用，请查看应用回执和运行诊断。";
 }
 
 function loadingHealth(engine: string): DocumentEngineHealth {

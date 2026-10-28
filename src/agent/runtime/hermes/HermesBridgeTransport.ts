@@ -251,10 +251,12 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
           payload.error?.code ?? `hermes_${action}_failed`,
           payload.error?.message ?? "Hermes bridge request failed.",
           {
-            httpStatus: response.status,
-            failureLayer: payload.error?.failureLayer === "provider"
+            httpStatus: payload.error?.diagnostics?.httpStatus ?? payload.error?.httpStatus ?? response.status,
+            failureLayer: payload.error?.diagnostics?.failureLayer ?? (payload.error?.failureLayer === "provider"
               ? "provider"
-              : payload.error?.failureLayer === "control_plane" ? "control_plane" : "bridge_http",
+              : payload.error?.failureLayer === "control_plane" ? "control_plane"
+                : payload.error?.failureLayer === "mcp" ? "mcp"
+                  : payload.error?.failureLayer === "companion" ? "companion" : "bridge_http"),
             upstreamErrorCode: payload.error?.code,
             hermesRunId: safeString(input.runId),
             diagnostics: payload.error?.diagnostics
@@ -288,8 +290,8 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
       const payload = await safeJson(response);
       const action = String(input.action);
       const error = bridgeError(payload?.error?.code ?? `hermes_${action}_failed`, payload?.error?.message ?? "Hermes turn stream is unavailable.", {
-        httpStatus: response.status,
-        failureLayer: payload?.error?.failureLayer === "control_plane" ? "control_plane" : "bridge_http",
+        httpStatus: payload?.error?.diagnostics?.httpStatus ?? response.status,
+        failureLayer: payload?.error?.diagnostics?.failureLayer ?? (payload?.error?.failureLayer === "control_plane" ? "control_plane" : "bridge_http"),
         upstreamErrorCode: payload?.error?.code,
         hermesRunId: safeString(input.runId),
         diagnostics: payload?.error?.diagnostics
@@ -680,7 +682,8 @@ function officialToolFailure(payload: Record<string, unknown>) {
     ? nested.code
     : typeof errorRecord?.safeErrorCode === "string"
       ? errorRecord.safeErrorCode
-      : typeof payload.code === "string" ? payload.code : "hermes_tool_failed";
+      : typeof errorRecord?.code === "string" ? errorRecord.code
+        : typeof payload.code === "string" ? payload.code : "hermes_tool_failed";
   const message = typeof nested.message === "string"
     ? nested.message
     : typeof errorRecord?.error === "string"
@@ -689,7 +692,8 @@ function officialToolFailure(payload: Record<string, unknown>) {
   const recoverable = typeof nested.recoverable === "boolean"
     ? nested.recoverable
     : typeof errorRecord?.recoverable === "boolean" ? errorRecord.recoverable : true;
-  return { code, message, recoverable };
+  const diagnostics = classifyHermesRunFailure({ code, message, failureLayer: "mcp", retryable: recoverable });
+  return { code: diagnostics.upstreamErrorCode ?? diagnostics.safeErrorCode, message: diagnostics.safeErrorMessage, recoverable };
 }
 
 function officialResponseCandidates(payload: Record<string, unknown>) {

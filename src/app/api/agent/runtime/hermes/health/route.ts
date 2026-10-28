@@ -11,7 +11,7 @@ import {
   statusCareerAdaptMcpBridge
 } from "@/server/careerAdaptMcpBridgeRegistry";
 import { readHermesRunReadiness } from "@/agent/runtime/hermes/hermesRunReadiness";
-import { classifyHermesRunFailure } from "@/agent/runtime/hermes/hermesRunReliability";
+import { classifyHermesRunFailure, companionHealthFailure } from "@/agent/runtime/hermes/hermesRunReliability";
 import { appBuildTechnicalDiagnostics } from "@/services/diagnostics/appBuildInfo";
 import { resolveEffectiveAiConfiguration } from "@/ai/providers/effectiveConfiguration";
 import {
@@ -149,17 +149,18 @@ async function proxy(url: string, mcp: ReturnType<typeof statusCareerAdaptMcpBri
       status: health.data.available ? 200 : 503,
       headers: { "Cache-Control": "no-store" }
     });
-  } catch {
+  } catch (error) {
+    const diagnostics = companionHealthFailure(error);
     const legacy: HermesHealth = {
       available: false,
       runtimeId: "hermes",
-      reason: "hermes_companion_unreachable",
-      providerStatus: "unreachable",
+      reason: diagnostics.safeErrorCode,
+      providerStatus: "unknown",
       mcpServer: mcp.server,
       mcpConnected: mcp.connected,
       discoveredToolCount: mcp.discoveredToolCount
     };
-    return NextResponse.json(await withRuntimeHealth(legacy, mcp, rootUrl(url), appBaseUrl), { status: 503, headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json(await withRuntimeHealth(legacy, mcp, rootUrl(url), appBaseUrl, diagnostics), { status: 503, headers: { "Cache-Control": "no-store" } });
   }
 }
 

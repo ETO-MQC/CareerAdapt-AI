@@ -751,10 +751,10 @@ export function hermesControlFeedback(snapshot: HermesControlSnapshot) {
   if (snapshot.runtimeConfig.applyStatus === "restarting_runtime") return "正在重启 AI Agent…";
   if (["validating", "testing", "saving", "verifying"].includes(snapshot.runtimeConfig.applyStatus)) return "正在应用模型…";
   if (snapshot.runtimeConfig.applyStatus === "rolled_back") return "新配置未通过检查，已恢复原来的模型。";
-  if (snapshot.runtimeConfig.applyStatus === "failed") return humanHermesReason(reasonCode) ?? "配置未应用，请检查 API 地址、模型和 API Key。";
+  if (snapshot.runtimeConfig.applyStatus === "failed") return humanHermesReason(reasonCode) ?? "配置未应用，请查看应用回执和运行诊断。";
   if (snapshot.ready) return "AI Agent 已就绪。";
   if (reasonCode) return humanHermesReason(reasonCode) ?? "AI Agent 当前不可用，请查看开发者诊断。";
-  if (snapshot.status === "configuration_required") return "API Key 无效或没有模型权限。";
+  if (snapshot.status === "configuration_required") return "运行配置尚未就绪，请查看配置与 Provider 诊断。";
   if (snapshot.apiState === "reachable" && !snapshot.careerMcpReady) return "Career 工具连接失败。";
   if (snapshot.apiState === "reachable") return "AI Agent 正在检查运行条件。";
   if (snapshot.controlOwner === "external_environment") return "当前为 Web 调试模式，Hermes 服务进程由外部环境管理。";
@@ -762,8 +762,13 @@ export function hermesControlFeedback(snapshot: HermesControlSnapshot) {
   return "AI Agent 当前不可用，请查看开发者诊断。";
 }
 
-function humanHermesReason(reasonCode?: string) {
+export function humanHermesReason(reasonCode?: string) {
   if (!reasonCode) return undefined;
+  if (reasonCode === "hermes_companion_unreachable" || reasonCode === "hermes_companion_unavailable") return "Hermes Companion 不可达，请查看运行地址和本地服务诊断；此状态不能确定 Provider 或凭据故障。";
+  if (reasonCode === "credential_store_read_failed") return "安全凭据读取失败，请查看系统安全存储诊断。";
+  if (reasonCode === "credential_store_unavailable") return "系统安全存储不可用，请检查当前系统环境。";
+  if (reasonCode === "credential_store_not_configured" || reasonCode === "provider_credential_missing") return "尚未配置凭据，请在 AI 配置中保存。";
+  if (reasonCode === "provider_http_429") return "Provider 返回 HTTP 429，请查看服务商请求限制与用量；该状态不能确定额度已耗尽。";
   if (["provider_auth_invalid", "provider_http_401", "provider_http_403"].includes(reasonCode)) return "API Key 无效或没有模型权限。";
   if (reasonCode === "provider_model_not_found") return "未找到这个模型，请检查模型名称。";
   if (reasonCode === "configuration_desync") return "运行时读回配置与提交值不一致，请打开 AI Runtime 诊断查看 Supervisor 日志。";
@@ -1176,4 +1181,14 @@ function hasCustomSettings(settings: HermesStartSettings) {
     || settings.model.trim()
     || settings.provider !== "openai-compatible"
     || settings.credentialAction === "clear");
+}
+
+/** Storage receipt is independent of runtime configuration/readiness. Never accept a key here. */
+export function providerCredentialFeedback(status?: ProviderCredentialStatus) {
+  if (!status) return "凭据状态尚未读取。";
+  if (status.reason === "credential_store_read_failed") return "安全凭据读取失败，请查看系统安全存储诊断。";
+  if (status.configured && status.source === "secure_store") return "API Key 已安全保存；配置应用与模型请求状态请分别查看。";
+  if (status.configured) return "凭据已配置；配置应用与模型请求状态请分别查看。";
+  if (!status.available) return "系统安全存储不可用。";
+  return "尚未配置凭据。";
 }
