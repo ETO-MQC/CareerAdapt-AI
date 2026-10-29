@@ -1,5 +1,6 @@
 import { ResumeLayoutPresetSchema, ResumeLayoutPresetsSchema, type ResumeLayoutStyle } from "@/domain/resumePresentation/layoutPresets";
 import Dexie from "dexie";
+import { MaterialIntakeArtifactSchema, type MaterialIntakeArtifact } from "@/domain/materialIntake/materialIntake";
 import { z } from "zod";
 import { CommittedJobDescriptionSchema } from "@/domain/schemas";
 import { mapJobDraftToJobDescription } from "@/domain/mappers/jobDraftMapper";
@@ -1753,6 +1754,26 @@ export class WorkspaceRepository {
     const parsed = RawInputDocumentSchema.parse(rawInput);
     await this.db.rawInputs.put(parsed);
     return parsed;
+  }
+
+  async saveMaterialIntake(artifact: MaterialIntakeArtifact) {
+    const parsed = MaterialIntakeArtifactSchema.parse(artifact);
+    await this.setMeta(`material-intake:${parsed.sessionId}:${parsed.attachmentId}`, parsed);
+    return parsed;
+  }
+
+  async getMaterialIntake(attachmentId: string, sessionId: string) {
+    const value = await this.getMeta(`material-intake:${sessionId}:${attachmentId}`);
+    return value ? MaterialIntakeArtifactSchema.parse(value.value) : undefined;
+  }
+
+  async saveAttachmentSource(ref: { id: string; agentSessionId?: string }, bytes: Uint8Array) {
+    if (!ref.agentSessionId) throw new Error("agent_attachment_session_required");
+    await this.setMeta(`attachment-source:${ref.id}`, { ref, bytes });
+  }
+
+  async getAttachmentSource(id: string) {
+    return (await this.getMeta(`attachment-source:${id}`))?.value;
   }
 
   async getRawInput(id: string) {

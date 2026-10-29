@@ -48,6 +48,7 @@ export async function startFakeOpenAiProvider(options = {}) {
     };
     requests.push(requestRecord);
     if (options.delayMs) await new Promise((resolve) => setTimeout(resolve, options.delayMs));
+    if (mode === "integration" && latestUserText(messages).includes("P512-QUEUE-FIRST")) await new Promise((resolve) => setTimeout(resolve, 4000));
     const responseMessage = chooseResponse({ mode, messages, tools });
     const responseId = `fake-chat-${requests.length}`;
     requestRecord.responseToolCallId = responseMessage.toolCall ? `${responseId}-tool` : undefined;
@@ -90,10 +91,38 @@ function savedJobId(value, depth = 0) {
   }
 }
 
+function materialArtifact(value, depth = 0) {
+  if (depth > 14) return undefined;
+  if (typeof value === "string") {
+    const start = value.indexOf("{"); const end = value.lastIndexOf("}");
+    if (start < 0 || end < start) return undefined;
+    try { return materialArtifact(JSON.parse(value.slice(start, end + 1)), depth + 1); } catch { return undefined; }
+  }
+  if (!value || typeof value !== "object") return undefined;
+  if (value.schemaVersion === "career-material-intake-v1") return value;
+  for (const item of Object.values(value)) { const found = materialArtifact(item, depth + 1); if (found) return found; }
+  return undefined;
+}
+
 function chooseResponse({ mode, messages, tools }) {
   const lastToolResult = [...messages].reverse().find((message) => message && message.role === "tool");
   if (mode === "career-agent-eval") {
     return chooseCareerAgentEvalResponse({ messages, tools, lastToolResult });
+  }
+  if (mode === "integration" && latestUserText(messages).includes("P512-MATERIAL")) {
+    const name = findToolName(tools, "career.workflow.material_intake");
+    const artifact = materialArtifact(lastToolResult?.content);
+    if (artifact?.classification) return { content: "已识别为证书，已生成候选资料，请核对后确认保存。" };
+    if (artifact) {
+      const block = artifact.sourceDocument.blocks[0];
+      return { toolCall: { name, arguments: JSON.stringify({ attachmentId: artifact.attachmentId, destination: "profile", classification: {
+        materialKind: "certificate", confidence: 0.9, candidateDestinations: ["profile"], suggestedAction: "整理到资料库并核对",
+        evidence: [{ blockId: block.id, quote: block.normalizedText }]
+      } }) } };
+    }
+    const attachmentId = JSON.stringify(messages).match(/agent-attachment-[a-f0-9-]+/u)?.[0];
+    if (name && attachmentId) return { toolCall: { name, arguments: JSON.stringify({ attachmentId }) } };
+    return { content: "P512 fixture did not receive an attachment reference." };
   }
   if (lastToolResult) {
     const name = typeof lastToolResult.name === "string" ? lastToolResult.name : "CareerAdapt tool";

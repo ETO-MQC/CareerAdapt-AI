@@ -140,6 +140,39 @@ export function AgentWorkspace() {
   const draft = draftsBySession[session.id] ?? "";
   const draftReference = draftReferencesBySession[session.id];
   const attachments = attachmentsBySession[session.id] ?? [];
+  const attachmentPersistence = useRef(Promise.resolve());
+  const composerAttachmentRefs = useRef(new Map<string, string>());
+  const attachmentSessionSaves = useRef(new Map<string, Promise<AgentSession>>());
+  const hydratedAttachmentSessions = useRef(new Set<string>());
+  useEffect(() => {
+    const id = session.id;
+    if (hydratedAttachmentSessions.current.has(id)) return;
+    hydratedAttachmentSessions.current.add(id);
+    void agentImportRepository.getMeta(`composer-attachments:${id}`).then(async (row) => {
+      if (!Array.isArray(row?.value)) return;
+      const restored = await Promise.all(row.value.map(async (attachmentId: string) => {
+        const { ref, file } = await agentAttachmentStore.restore(attachmentId, id);
+        return { attachmentId: ref.id, clientId: ref.id, file, fileName: ref.fileName, mimeType: ref.mimeType, size: ref.size, status: "staged" as const };
+      }));
+      setAttachmentsBySession((current) => ({ ...current, [id]: [
+        ...restored.filter((saved) => !(current[id] ?? []).some((draft) => (draft.attachmentId ?? composerAttachmentRefs.current.get(draft.clientId)) === saved.attachmentId)),
+        ...(current[id] ?? [])
+      ] }));
+    }).catch((error) => notify({ type: "error", title: "附件恢复失败", message: error instanceof Error ? error.message : "请重新选择文件。" }));
+  }, [session.id]);
+  useEffect(() => {
+    const entries = Object.entries(attachmentsBySession);
+    attachmentPersistence.current = attachmentPersistence.current.then(async () => {
+      for (const [id, drafts] of entries) {
+        const refs = await Promise.all(drafts.map(async (draft) => {
+          const attachmentId = draft.attachmentId ?? composerAttachmentRefs.current.get(draft.clientId) ?? (await agentAttachmentStore.register(draft.file, { agentSessionId: id })).id;
+          composerAttachmentRefs.current.set(draft.clientId, attachmentId);
+          return attachmentId;
+        }));
+        await agentImportRepository.setMeta(`composer-attachments:${id}`, refs);
+      }
+    }).catch((error) => { notify({ type: "error", title: "附件暂存失败", message: error instanceof Error ? error.message : "请重新选择文件。" }); });
+  }, [attachmentsBySession]);
   const intakeProjectionResult = ProfileIntakeReviewProjectionSchema.safeParse(session.taskState?.knownSlots.profileIntakeReviewProjection);
   const intakeProjection = intakeProjectionResult.success ? intakeProjectionResult.data : undefined;
   const intakeCandidates = intakeProjection?.candidates
@@ -226,6 +259,11 @@ export function AgentWorkspace() {
     const liveSession = host.state.getSnapshot().activeSession;
     const submitSession = liveSession?.id === session.id ? liveSession : session;
     window.localStorage.setItem(ACTIVE_SESSION_KEY, submitSession.id);
+    const savedSession = host.store.get(submitSession.id).then((stored) => stored ?? host.store.save(submitSession));
+    attachmentSessionSaves.current.set(submitSession.id, savedSession);
+    void savedSession.catch((error) => {
+      notify({ type: "error", title: "附件所属对话未保存", message: error instanceof Error ? error.message : "请重试。" });
+    });
     if (pendingImportQuickActionRef.current) {
       pendingImportQuickActionRef.current = false;
       void host.state.dispatch(
@@ -257,9 +295,12 @@ export function AgentWorkspace() {
         status: "staged" as const
       }))
     ]);
-  }, [host.state, pageContext, session, setSessionAttachments]);
+  }, [host.state, host.store, pageContext, session, setSessionAttachments]);
 
   const removeComposerAttachment = useCallback((clientId: string) => {
+    const attachmentId = composerAttachmentRefs.current.get(clientId);
+    if (attachmentId) agentAttachmentStore.release(attachmentId);
+    composerAttachmentRefs.current.delete(clientId);
     setSessionAttachments((current) => current.filter((attachment) => attachment.clientId !== clientId));
   }, [setSessionAttachments]);
 
@@ -279,8 +320,9 @@ export function AgentWorkspace() {
     // against the card result or be sent with the pre-card task state.
     const pendingQuickAction = quickActionDispatchRef.current;
     if (pendingQuickAction) await pendingQuickAction.catch(() => undefined);
+    const attachmentSession = await attachmentSessionSaves.current.get(session.id);
     const liveSession = host.state.getSnapshot().activeSession;
-    const submitSession = liveSession?.id === session.id ? liveSession : session;
+    const submitSession = liveSession?.id === session.id ? liveSession : attachmentSession ?? session;
     window.localStorage.setItem(ACTIVE_SESSION_KEY, submitSession.id);
     setSessionAttachments((current) => current.map((attachment) => ({ ...attachment, status: "registering" as const, errorCode: undefined })));
     // Clear the controlled composer immediately after the submit event. Host
@@ -297,7 +339,10 @@ export function AgentWorkspace() {
       const hermesAttachmentTurn = hermesAttachmentRequested;
       if (hermesAttachmentTurn) {
         for (const attachment of input.attachments) {
-          registeredAttachments.push(await agentAttachmentStore.register(attachment.file, { agentSessionId: submitSession.id }));
+          const attachmentId = attachment.attachmentId ?? composerAttachmentRefs.current.get(attachment.clientId);
+          registeredAttachments.push(attachmentId
+            ? (await agentAttachmentStore.restore(attachmentId, submitSession.id)).ref
+            : await agentAttachmentStore.register(attachment.file, { agentSessionId: submitSession.id }));
         }
         if (readResumeImportSemanticPreference() === "unset" && registeredAttachments.some((attachment) => attachment.mimeType !== "application/json")) {
           setPendingHermesAttachmentTurn({ sessionId: submitSession.id, text: input.text, attachments: registeredAttachments });
@@ -312,6 +357,9 @@ export function AgentWorkspace() {
       const workflowCheckpointAnswer = input.attachments.length === 0
         && Boolean(input.text.trim())
         && Boolean(submitSession.taskState?.workflowUserInputCheckpoint);
+      // The registered source belongs to the pending Turn now. Keep the composer
+      // free for the next queued Turn while Hermes streams the current one.
+      setAttachmentsBySession((current) => ({ ...current, [submitSession.id]: (current[submitSession.id] ?? []).filter((attachment) => !input.attachments.some((sent) => sent.clientId === attachment.clientId)) }));
       const result = tailoringQuestionAnswer || workflowCheckpointAnswer
         ? await host.runUserEvent(
             { type: "text_message", text: input.text },
@@ -320,7 +368,7 @@ export function AgentWorkspace() {
         : (input.attachments.length === 0 && input.text.trim()) || hermesAttachmentTurn
         ? await host.runTurn({
             sessionId: submitSession.id,
-            userMessage: input.text,
+            userMessage: input.text || (registeredAttachments.length ? "请识别这些职业材料，并建议下一步。" : ""),
             pageContext: pageContext(submitSession),
             session: submitSession,
             attachments: registeredAttachments.map((attachment) => ({
@@ -339,16 +387,24 @@ export function AgentWorkspace() {
       if (!["queued", "running", "waiting_for_approval", "stopping"].includes(result.hermesRun?.status ?? "completed")) {
         agentAttachmentStore.releaseMany(registeredAttachments.filter((attachment) => agentAttachmentStore.has(attachment.id)).map((attachment) => attachment.id));
       }
-      setAttachmentsBySession((current) => ({ ...current, [session.id]: [] }));
+      setAttachmentsBySession((current) => ({ ...current, [submitSession.id]: (current[submitSession.id] ?? []).filter((attachment) => !input.attachments.some((sent) => sent.clientId === attachment.clientId)) }));
       setSessionDraftReference(undefined);
-      setSession(result);
-      window.localStorage.setItem(ACTIVE_SESSION_KEY, result.id);
+      if (host.state.getSnapshot().activeSession?.id === submitSession.id) {
+        setSession(result);
+        window.localStorage.setItem(ACTIVE_SESSION_KEY, result.id);
+      }
       window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
     } catch (error) {
       agentAttachmentStore.releaseMany(registeredAttachments.map((attachment) => attachment.id));
       const errorCode = error instanceof Error && "code" in error && typeof error.code === "string" ? error.code : "composer_submit_failed";
-      setSessionDraft(input.text);
-      setSessionAttachments((current) => current.map((attachment) => ({ ...attachment, status: "failed" as const, errorCode })));
+      const restoredDrafts = { ...draftsBySessionRef.current, [submitSession.id]: draftsBySessionRef.current[submitSession.id] || input.text };
+      draftsBySessionRef.current = restoredDrafts;
+      setDraftsBySession(restoredDrafts);
+      persistSessionComposerDrafts(restoredDrafts);
+      setAttachmentsBySession((current) => {
+        const retained = current[submitSession.id] ?? [];
+        return { ...current, [submitSession.id]: [...input.attachments.filter((sent) => !retained.some((attachment) => attachment.clientId === sent.clientId)).map((attachment) => ({ ...attachment, status: "failed" as const, errorCode })), ...retained] };
+      });
       notify({
         type: "error",
         title: input.attachments.length ? "附件发送失败" : "消息发送失败",
@@ -1178,7 +1234,10 @@ export function AgentWorkspace() {
         data-agent-checkpoint-kind={workflowCheckpoint?.kind ?? ""}
         data-agent-branch-id={session.activeBranchId}
       >
-        <section className="agent-conversation-panel">
+        <section className="agent-conversation-panel" onDragOver={(event) => { if (event.dataTransfer.types.includes("Files")) event.preventDefault(); }} onDrop={(event) => {
+          if (event.defaultPrevented || !event.dataTransfer.files.length) return;
+          event.preventDefault(); stageComposerFiles(Array.from(event.dataTransfer.files));
+        }}>
           {showZeroState ? (
             <AgentZeroState onSelect={dispatchQuickAction} />
           ) : (
@@ -1401,6 +1460,7 @@ export function AgentWorkspace() {
             profiles={profiles}
             initialImportId={floatingAction.importId}
             initialTargetMode={floatingAction.targetMode}
+            initialCreateGeneralResume={!floatingAction.importId.startsWith("material-profile:")}
             variant="agent"
             onImported={async (result) => {
               const action = floatingAction;
@@ -1429,15 +1489,20 @@ export function AgentWorkspace() {
     if (!attachmentId) return;
     writeResumeImportSemanticPreference(mode);
     setPendingResumeImportAttachmentId(undefined);
+    if (pendingHermesAttachmentTurn && pendingHermesAttachmentTurn.sessionId !== session.id) {
+      cancelPendingResumeConsent();
+      return;
+    }
     if (pendingHermesAttachmentTurn?.sessionId === session.id) {
       const pending = pendingHermesAttachmentTurn;
       setPendingHermesAttachmentTurn(undefined);
       try {
         const current = host.state.getSnapshot().activeSession ?? session;
+        if (current.id !== pending.sessionId) throw new Error("对话已切换，附件已恢复到原对话，请返回后重试。");
         const next = await host.runTurn({
           sessionId: current.id,
           userMessage: pending.text,
-          pageContext: pageContext(),
+          pageContext: pageContext(current),
           session: current,
           attachments: pending.attachments.map((attachment) => ({
             id: attachment.id,
@@ -1449,6 +1514,15 @@ export function AgentWorkspace() {
         });
         if (next) setSession(next);
       } catch (error) {
+        const restored = await Promise.all(pending.attachments.map(async (attachment) => {
+          const { file } = await agentAttachmentStore.restore(attachment.id, pending.sessionId);
+          return { attachmentId: attachment.id, clientId: attachment.id, file, fileName: attachment.fileName, mimeType: attachment.mimeType, size: attachment.size, status: "failed" as const };
+        }));
+        setAttachmentsBySession((current) => ({ ...current, [pending.sessionId]: [...(current[pending.sessionId] ?? []), ...restored] }));
+        const nextDrafts = { ...draftsBySessionRef.current, [pending.sessionId]: draftsBySessionRef.current[pending.sessionId] || pending.text };
+        draftsBySessionRef.current = nextDrafts;
+        setDraftsBySession(nextDrafts);
+        persistSessionComposerDrafts(nextDrafts);
         notify({ type: "error", title: "简历导入未启动", message: error instanceof Error ? error.message : "请重新选择附件后重试。" });
       } finally {
         agentAttachmentStore.releaseMany(pending.attachments.filter((attachment) => agentAttachmentStore.has(attachment.id)).map((attachment) => attachment.id));
@@ -1465,6 +1539,10 @@ export function AgentWorkspace() {
     setPendingResumeImportAttachmentId(undefined);
     const pending = pendingHermesAttachmentTurn;
     if (!pending) return;
+    const nextDrafts = { ...draftsBySessionRef.current, [pending.sessionId]: draftsBySessionRef.current[pending.sessionId] || pending.text };
+    draftsBySessionRef.current = nextDrafts;
+    setDraftsBySession(nextDrafts);
+    persistSessionComposerDrafts(nextDrafts);
     const restored = pending.attachments.flatMap((attachment) => {
       try {
         const { file } = agentAttachmentStore.resolve(attachment.id);

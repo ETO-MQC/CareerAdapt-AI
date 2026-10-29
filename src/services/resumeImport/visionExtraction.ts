@@ -6,6 +6,13 @@ import { encodeAiSettingsForHeader, readAiSettings } from "@/services/storage/ai
 import { readDocumentRecognitionPreferences } from "@/services/preferences/documentRecognition";
 import { DEFAULT_VISION_TIMEOUT_SECONDS, RESUME_IMPORT_TIMEOUT_HEADER } from "@/domain/resumeImport/timeouts";
 
+export async function materialVisionSupported(signal?: AbortSignal) {
+  const response = await fetch("/api/resume-import/vision", { method: "GET", headers: { "x-ai-config": encodeAiSettingsForHeader(readAiSettings()) }, signal, cache: "no-store" });
+  if (!response.ok) return false;
+  const result = await response.json() as { supported?: boolean };
+  return result.supported === true;
+}
+
 export async function extractResumeVision(file: File, signal?: AbortSignal, onProgress?: (message: string) => void) {
   if (file.size > PDF_IMPORT_LIMITS.maxFileBytes) throw new Error("简历文件不能超过 8 MB。");
   const images = await renderResumeImages(file, signal);

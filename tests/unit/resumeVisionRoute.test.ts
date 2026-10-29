@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { POST } from "@/app/api/resume-import/vision/route";
+import { GET, POST } from "@/app/api/resume-import/vision/route";
 
 vi.mock("server-only", () => ({}));
 const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==";
@@ -18,6 +18,21 @@ function request(image = png, timeout?: string) {
   });
 }
 describe("resume vision extraction boundary", () => {
+  it("requires explicit image input capability metadata before sending a material image", async () => {
+    vi.stubEnv("AI_MODEL", "capability-image-model");
+    fetchMock.mockResolvedValue(Response.json({ data: [{ id: "capability-image-model", architecture: { input_modalities: ["text", "image"] } }] }));
+    const result = await GET(new Request("http://localhost/api/resume-import/vision"));
+    expect(await result.json()).toEqual({ supported: true, reason: "provider_model_metadata" });
+    expect(fetchMock.mock.calls[0][0]).toBe("https://vision.example/v1/models");
+    expect(fetchMock.mock.calls[0][1].body).toBeUndefined();
+  });
+  it("keeps a text-only or unknown provider on OCR/manual review", async () => {
+    vi.stubEnv("AI_MODEL", "capability-text-model");
+    fetchMock.mockResolvedValue(Response.json({ data: [{ id: "capability-text-model", input_modalities: ["text"] }] }));
+    expect(await (await GET(new Request("http://localhost/api/resume-import/vision"))).json()).toMatchObject({ supported: false });
+    fetchMock.mockRejectedValue(new Error("offline"));
+    expect(await (await GET(new Request("http://localhost/api/resume-import/vision"))).json()).toMatchObject({ supported: false, reason: "vision_capability_unavailable" });
+  });
   it.each([[undefined, 480_000], ["720", 720_000]])("uses the independent vision budget: %s", async (header, expectedMs) => {
     const timer = vi.spyOn(AbortSignal, "timeout");
     fetchMock.mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: '{"text":"Python"}' } }] })));

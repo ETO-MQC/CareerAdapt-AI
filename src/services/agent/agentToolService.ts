@@ -1,3 +1,4 @@
+import { MaterialIntakeService } from "@/services/materialIntake/MaterialIntakeService";
 import {
   ImportedResumeDraftSchema,
   JobAnalysisDraftSchema,
@@ -53,7 +54,7 @@ import { canonicalProfileLibraryItems, canonicalProfileSectionCounts } from "@/d
 import { recommendSourceRoute } from "@/agent/orchestration/sourceRouteRecommendation";
 import { analyzeProfileLibrarySource } from "@/services/jobs/jobResumeSourceModes";
 import { agentAttachmentStore } from "@/services/agent/AgentAttachmentStore";
-import { ResumeImportOrchestrator } from "@/services/resumeImport/ResumeImportOrchestrator";
+import { ResumeImportOrchestrator, type ResumeImportExtractionResult } from "@/services/resumeImport/ResumeImportOrchestrator";
 import {
   applyResumeImportReviewDecision,
   type ResumeImportReviewDecision
@@ -116,11 +117,20 @@ export class BrowserAgentToolService implements AgentToolServices {
     private readonly careerResumeWriter = new CareerResumeWritingService()
   ) {}
 
+  async prepareMaterialIntake(rawInput: unknown, signal?: AbortSignal) {
+    const { sessionId, ...input } = rawInput as Record<string, unknown>;
+    if (typeof sessionId !== "string") throw new Error("agent_attachment_session_required");
+    return new MaterialIntakeService(this.repository).prepare(input, sessionId, signal);
+  }
+
   async prepareResumeImport(rawInput: unknown, signal?: AbortSignal) {
     assertNotAborted(signal);
     const semanticPreference = readResumeImportSemanticPreference();
     const input = rawInput as { attachmentId: string };
-    const { ref, file } = agentAttachmentStore.resolve(input.attachmentId);
+    const { ref, file } = await agentAttachmentStore.restore(input.attachmentId);
+    const extraction = ref.agentSessionId
+      ? (await this.repository.getMeta(`material-source-extraction:${ref.agentSessionId}:${ref.id}`))?.value as ResumeImportExtractionResult | undefined
+      : undefined;
     const canonicalJson = ref.mimeType === "application/json"
       && await isCanonicalCareerAdaptJsonFile(file);
     if (semanticPreference === "unset" && !canonicalJson) {
@@ -134,8 +144,8 @@ export class BrowserAgentToolService implements AgentToolServices {
     }, {
       signal,
       semanticMode: semanticPreference === "ai" && !canonicalJson ? "ai" : "local",
-      onProgress: (progress) => agentImportProgressBus.emit(progress)
-    });
+      onProgress: (progress) => agentImportProgressBus.emit({ ...progress, agentSessionId: ref.agentSessionId })
+    }, extraction);
     agentAttachmentStore.release(input.attachmentId);
     return {
       importId: prepared.importId,
@@ -1632,9 +1642,11 @@ export class BrowserAgentToolService implements AgentToolServices {
       dedupDecision?: "merge_existing" | "keep_separate";
       duplicateListingId?: string;
       sourceUrl?: string;
+      attachmentId?: string;
     };
     const graph = JobRequirementGraphV4Schema.parse(input.graph);
     if (!context?.careerSessionBinding || !context?.userMessageId) throw new Error("agent_confirmation_binding_missing");
+    const attachmentSessionId = context.careerSessionBinding.agentSessionId;
     return this.repository.withCandidateJobCommit(async () => {
       const now = new Date().toISOString();
       const location = extractJobLocation(input.rawText);
@@ -1674,6 +1686,16 @@ export class BrowserAgentToolService implements AgentToolServices {
         draftId,
         now
       });
+      if (input.attachmentId) {
+        const material = await this.repository.getMaterialIntake(input.attachmentId, attachmentSessionId);
+        if (!material || material.reviewState === "manual_review") throw new Error("material_job_source_missing");
+        const raw = await this.repository.getRawInput(parsed.rawInputId);
+        if (!raw) throw new Error("material_job_raw_input_missing");
+        await this.repository.saveRawInput({ ...raw, materialSource: {
+          sourceId: material.sourceId, attachmentId: material.attachmentId, sessionId: material.sessionId,
+          hash: material.hash, blockIds: material.sourceDocument.blocks.map((block) => block.id)
+        } });
+      }
       if (parsed.draft.status === "committed" && parsed.draft.committedJobId) {
         // 该候选岗位已经转换为正式岗位：幂等返回既有结果，不重复分析或转换。
         const existing = await this.repository.getJobDescription(parsed.draft.committedJobId);

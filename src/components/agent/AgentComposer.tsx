@@ -13,11 +13,13 @@ import {
   X
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { ImportReviewDialog } from "@/components/resume/import/ImportReviewDialog";
 import type { AgentUiAction } from "@/agent/contracts/agentActions";
 import type { AgentMessageReference, WorkflowUserInputCheckpoint } from "@/agent/contracts/agentSession";
 import { AGENT_RESUME_IMPORT_ACCEPT } from "@/agent/capabilities/AgentProductCapabilityManifest";
 
 export type ComposerAttachmentDraft = {
+  attachmentId?: string;
   clientId: string;
   file: File;
   fileName: string;
@@ -56,6 +58,7 @@ export function AgentComposer(props: {
   const [localMessage, setLocalMessage] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const [uploadHighlighted, setUploadHighlighted] = useState(false);
+  const [preview, setPreview] = useState<ComposerAttachmentDraft>();
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const message = props.draft ?? localMessage;
@@ -90,7 +93,7 @@ export function AgentComposer(props: {
     const selected = Array.from(files).filter((file) => file.size >= 0);
     if (selected.length) props.onFilesSelected(selected);
   };
-  const canSubmit = Boolean(message.trim() || props.attachments.length);
+  const canSubmit = Boolean(message.trim() || props.attachments.length) && !props.attachments.some((attachment) => attachment.status === "registering");
 
   return (
     <form
@@ -128,8 +131,8 @@ export function AgentComposer(props: {
         <div className="agent-attachment-list" aria-live="polite">
           {props.attachments.map((attachment) => (
             <span className={`agent-attachment-chip is-${attachment.status}`} key={attachment.clientId}>
-              {attachment.status === "registering" ? <LoaderCircle aria-hidden="true" className="is-spinning" /> : <FileText aria-hidden="true" />}
-              <span title={attachment.fileName}>{attachment.fileName}</span>
+              {attachment.status === "registering" ? <LoaderCircle aria-hidden="true" className="is-spinning" /> : attachment.file.type.startsWith("image/") ? <AttachmentImage file={attachment.file} thumbnail /> : <FileText aria-hidden="true" />}
+              <button className="agent-attachment-preview-button" type="button" title={attachment.fileName} aria-label={`预览附件 ${attachment.fileName}`} onClick={() => setPreview(attachment)}>{attachment.fileName}</button>
               <small>{statusLabel(attachment.status, attachment.errorCode)}</small>
               <button type="button" aria-label={`移除附件 ${attachment.fileName}`} onClick={() => props.onRemoveAttachment(attachment.clientId)}><X aria-hidden="true" /></button>
             </span>
@@ -178,8 +181,47 @@ export function AgentComposer(props: {
         </div>
       </div>
       <span className="agent-drop-hint"><Paperclip aria-hidden="true" /> 松开即可添加文件</span>
+      <ImportReviewDialog open={Boolean(preview)} title={preview?.fileName ?? "附件预览"} onClose={() => setPreview(undefined)}>
+        {preview ? <AttachmentPreview key={preview.clientId} attachment={preview} /> : null}
+      </ImportReviewDialog>
     </form>
   );
+}
+
+function AttachmentImage({ file, thumbnail = false }: { file: File; thumbnail?: boolean }) {
+  const ref = useRef<HTMLImageElement>(null);
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    if (ref.current) ref.current.src = url;
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+  // Local blob previews have no remote image optimizer and must recreate URLs on effect replay.
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img ref={ref} alt={thumbnail ? "" : file.name} width={thumbnail ? 28 : 1200} height={thumbnail ? 28 : 900} className={thumbnail ? "agent-attachment-thumbnail" : "agent-attachment-image"} />;
+}
+
+function AttachmentPreview({ attachment }: { attachment: ComposerAttachmentDraft }) {
+  const [text, setText] = useState("");
+  useEffect(() => {
+    let active = true;
+    if (/\.(txt|md|markdown|json)$/iu.test(attachment.fileName)) {
+      void attachment.file.text().then((value) => { if (active) setText(value); });
+    }
+    return () => { active = false; };
+  }, [attachment]);
+  if (attachment.file.type.startsWith("image/")) return <AttachmentImage file={attachment.file} />;
+  if (attachment.mimeType === "application/pdf" || /\.pdf$/iu.test(attachment.fileName)) return <AttachmentPdf file={attachment.file} />;
+  return <div><p>{attachment.fileName} · {Math.ceil(attachment.size / 1024)} KB</p>{text ? <pre className="agent-attachment-text-preview">{text}</pre> : <p>发送后可在来源核对中查看文档解析内容。</p>}</div>;
+}
+
+function AttachmentPdf({ file }: { file: File }) {
+  const ref = useRef<HTMLIFrameElement>(null);
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    if (ref.current) ref.current.src = url;
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+  return <iframe ref={ref} className="agent-attachment-pdf" title={file.name} sandbox="allow-same-origin" />;
 }
 
 function statusLabel(status: ComposerAttachmentDraft["status"], errorCode?: string) {

@@ -118,6 +118,7 @@ export const RawInputDocumentSchema = EntityBaseSchema.extend({
   fileName: z.string().min(1).optional(),
   fileSize: z.number().int().min(0).optional(),
   mimeType: z.string().optional(),
+  materialSource: z.object({ sourceId: z.string().min(1), attachmentId: z.string().min(1), sessionId: z.string().min(1), hash: z.string().min(16), blockIds: z.array(z.string().min(1)) }).strict().optional(),
   pageCount: z.number().int().min(1).optional(),
   sourcePages: z.array(RawInputSourcePageSchema).optional()
 });

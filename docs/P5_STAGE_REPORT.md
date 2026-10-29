@@ -1,9 +1,17 @@
 # P5 阶段报告与智能体优化交接
 
 - 更新日期：2026-10-29。
-- 当前阶段：P5.0已归档；Core-01职业Agent核心冻结（PARTIAL+CARRY FORWARD），模型热切换单项移交P5.1.8；P5.1.2可启动但本轮未实施。
-- 本轮代码基线：`0a978bab60c1472c98f961b4d64d835cb413f73c`加本轮未提交成果；不代表新安装包。下文旧轮次保留为历史。
+- 当前阶段：P5.1.2 A→F已实施并完成定向验收；Core-01冻结与P5.1.8模型读回结转保持。P5.1.3未启动。
+- 本轮代码基线：`b7a691af7b597ea3dc561d31c7648c8dbd7f39f7`加P5.1.2未提交成果；不代表新安装包。下文旧轮次保留为历史。
 - 远程开发入口：先读本报告，再读 [P5.0 成果总结](P5.0_OUTCOMES.md)，随后只读取本次任务相关源码、测试和专项报告。
+
+## 2026-10-29：P5.1.2 多模态职业材料摄取交付
+
+基线 HEAD/远程 main 均为 `b7a691af7b597ea3dc561d31c7648c8dbd7f39f7`，起始干净。按用户授权完成 A→F：沿用 SourceDocument v2 与原解析/字段映射/核对链路，增加持久化附件来源、provisional material_intake、Hermes 的 12 类材料分类协议、Profile/Resume/Job 目的地复用，以及简历中心第 5 个“导入资料”入口。附件支持整区拖放、缩略图/预览、刷新恢复、发送失败回到原 Session、忙时进入下一 Hermes Turn；没有新增第二个 Composer、解析器、Planner、Runtime、Dexie 表或生产依赖。
+
+当前为 A→F 实现与定向验收完成。已取得 11/11 锁定 Hermes 场景退出 0（23 次模拟 Provider 请求，包含同 Run 材料链、忙时附件下一 Turn、既有岗位确认和正式 PDF）；15 文件 130 项相关测试、UI 2/2、lint、typecheck、生产 build、diff 均退出 0；详细证据见[专项交付报告](architecture/p5.1.2-material-intake-20261029.md)。所有正式事实继续经 review/confirmation/WorkspaceRepository；通用简历与岗位分支隔离，Fact Guard 未改。
+
+本机 OCR 未配置，实际 health 已确认降级；OCR/复杂材料采用固定匿名响应验证协议，不代表真实 OCR 质量通过。真实 Provider/用户原件、替代引擎 benchmark 和安装包未验。Hermes 锁定版本及 bundle 不变，P518-RUNTIME-MODEL-READBACK-01 继续 OPEN。用户已追加授权本轮提交并推送；具体提交号与远程状态以 Git 和最新交接为准。未打包，不进入 P5.1.3。
 
 ## 2026-10-29 FINAL：职业核心冻结，PARTIAL + CARRY FORWARD
 

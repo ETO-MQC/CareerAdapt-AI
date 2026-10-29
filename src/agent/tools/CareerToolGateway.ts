@@ -1,3 +1,4 @@
+import { agentAttachmentStore } from "@/services/agent/AgentAttachmentStore";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import type { AgentToolResult } from "../contracts/agentTool";
@@ -178,6 +179,7 @@ type CareerToolDefinition = {
 };
 
 const CAREER_TOOL_DEFINITIONS: CareerToolDefinition[] = [
+  { name: "career.material.prepare", sourceToolName: "prepare_material_intake", namespace: "career.material", readWrite: "write", personProfileBinding: "optional" },
   { name: "career.system.runtime_status", sourceToolName: "get_agent_runtime_status", namespace: "career.system", readWrite: "read", personProfileBinding: "none" },
   { name: "career.system.current_task", sourceToolName: "get_agent_current_task", namespace: "career.system", readWrite: "read", personProfileBinding: "none" },
   { name: "career.system.last_failure", sourceToolName: "get_agent_last_failure", namespace: "career.system", readWrite: "read", personProfileBinding: "none" },
@@ -444,6 +446,11 @@ export class CareerToolGateway {
           operationId
         });
       }
+      if (["career.resume.import.prepare", "career.material.prepare"].includes(name)) {
+        const sessionId = context.agentSessionId ?? context.careerSessionBinding?.agentSessionId;
+        if (!sessionId) throw Object.assign(new Error("当前对话身份缺失。"), { code: "agent_attachment_session_required" });
+        await agentAttachmentStore.restore((input as { attachmentId: string }).attachmentId, sessionId);
+      }
       trace.firstInternalOperationAt = new Date().toISOString();
       const raw = await this.executeSourceTool(definition.sourceToolName, input, operationId, context);
       const mapped = this.mapResult<T>(name, definition, raw, context.careerSessionBinding);
@@ -470,6 +477,7 @@ export class CareerToolGateway {
     if (executor) {
       return executor.execute({
         toolName: sourceToolName,
+        agentSessionId: context.agentSessionId,
         toolInput: input,
         operationId,
         logicalToolOperationId: context.logicalToolOperationId,
@@ -742,6 +750,7 @@ export class CareerToolGatewayExecutor extends AgentExecutor {
       return this.executeWorkflowConfirmation(input);
     }
     return this.gateway.executeForAgent(input.toolName, input.toolInput, {
+      agentSessionId: input.agentSessionId,
       operationId: input.operationId,
       logicalToolOperationId: input.logicalToolOperationId,
       logicalTurnId: input.logicalTurnId,
@@ -759,6 +768,7 @@ export class CareerToolGatewayExecutor extends AgentExecutor {
 
   private async executeWorkflowConfirmation(input: Parameters<AgentExecutor["execute"]>[0]): Promise<AgentToolResult> {
     const result = await this.gateway.execute(input.toolName, input.toolInput, {
+      agentSessionId: input.agentSessionId,
       operationId: input.operationId,
       logicalToolOperationId: input.logicalToolOperationId,
       logicalTurnId: input.logicalTurnId,

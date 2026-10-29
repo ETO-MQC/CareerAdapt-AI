@@ -1,13 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
 import { writeFile } from "node:fs/promises";
-import { completeCoreResumeWorkflow, prepareCoreSourceResume } from "./support/p51CoreWorkflow";
+import { completeCoreResumeWorkflow, prepareCoreSourceResume, readStore } from "./support/p51CoreWorkflow";
 
 type SafeHermesEvent = { event?: string; runId?: string; tool?: string; timestamp?: number };
 declare global { interface Window { __caseIEvents?: SafeHermesEvent[] } }
 
 test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
   test.afterEach(async ({ page }, testInfo) => {
-    if (!testInfo.title.startsWith("CASE I")) return;
+    if (!/^CASE [IJK]/u.test(testInfo.title)) return;
     const sessions = await page.evaluate(() => new Promise((resolve, reject) => {
       const request = indexedDB.open("CareerAdaptDb");
       request.onerror = () => reject(request.error);
@@ -18,10 +18,10 @@ test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
         result.onsuccess = () => {
           database.close();
           resolve(result.result.map(session => ({
-            sessionId: session.id, activeTurn: session.activeTurn,
+            sessionId: session.id, activeTurn: session.activeTurn, hermesRun: session.hermesRun, activeConversationBranchId: session.activeConversationBranchId,
             pendingConfirmation: session.pendingConfirmation ? { operationId: session.pendingConfirmation.operationId, turnId: session.pendingConfirmation.turnId } : null,
             task: session.taskState ? { workflowId: session.taskState.workflowId, stage: session.taskState.stage, completionStatus: session.taskState.completionStatus, selectedEntities: session.taskState.selectedEntities } : null,
-            messages: session.messages?.map((message: { id: string; role: string; turnId?: string; status?: string }) => ({ id: message.id, role: message.role, turnId: message.turnId, status: message.status }))
+            messages: session.messages?.map((message: { id: string; role: string; turnId?: string; status?: string; conversationBranchId?: string }) => ({ id: message.id, role: message.role, turnId: message.turnId, status: message.status, conversationBranchId: message.conversationBranchId }))
           })));
         };
       };
@@ -104,6 +104,53 @@ test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
     await send(page, "导出这份简历");
     await expectAssistant(page, "已准备简历导出产物。");
     await expectToolNames(trace, ["career.workflow.resume_export"]);
+  });
+
+  test("CASE K — an attachment submitted while busy executes in the next Hermes Turn", async ({ page }) => {
+    const trace = observeRuntimeAndBridge(page);
+    await openWorkspace(page);
+    await page.evaluate(() => {
+      const settings = JSON.parse(localStorage.getItem("careeradapt-ai-settings") ?? "{}");
+      localStorage.setItem("careeradapt.resumeImportAiPreference", JSON.stringify({ schemaVersion: "resume-import-ai-preference-v1", mode: "local", providerFingerprint: [settings.provider, settings.baseUrl, settings.model].join("|") }));
+    });
+    await send(page, "P512-QUEUE-FIRST");
+    await expect(page.getByRole("button", { name: "排队发送消息", exact: true })).toBeVisible();
+    await page.locator('.agent-composer input[type="file"]').setInputFiles({ name: "queued-certificate.txt", mimeType: "text/plain", buffer: Buffer.from("证书\n大学英语六级 2025-06") });
+    await page.getByLabel("描述你的求职任务").fill("P512-MATERIAL，把这个证书整理到资料库");
+    await page.getByRole("button", { name: "排队发送消息", exact: true }).click();
+    await expectAssistant(page, "已识别为证书，已生成候选资料，请核对后确认保存。");
+    expect(trace.runtimeActions.filter(action => action === "run_start")).toHaveLength(2);
+    await expect.poll(() => trace.toolRequests.filter(request => request.name === "career.workflow.material_intake").length).toBe(2);
+    await expect(page.locator('.agent-message-attachments')).toContainText("queued-certificate.txt");
+  });
+
+  test("CASE J — material source, Hermes classification and Profile draft continue in one Run", async ({ page }) => {
+    const trace = observeRuntimeAndBridge(page);
+    await openWorkspace(page);
+    await expect.poll(async () => (await readStore(page, "appMeta")).some(row => row.key === "demoSeededAt")).toBe(true);
+    const profilesBefore = await readStore(page, "profiles");
+    await page.evaluate(() => {
+      const settings = JSON.parse(localStorage.getItem("careeradapt-ai-settings") ?? "{}");
+      localStorage.setItem("careeradapt.resumeImportAiPreference", JSON.stringify({ schemaVersion: "resume-import-ai-preference-v1", mode: "local", providerFingerprint: [settings.provider, settings.baseUrl, settings.model].join("|") }));
+    });
+    await page.locator('.agent-composer input[type="file"]').setInputFiles({ name: "certificate.txt", mimeType: "text/plain", buffer: Buffer.from("证书\n大学英语六级 2025-06") });
+    await send(page, "P512-MATERIAL，把这个证书整理到资料库");
+    await expectAssistant(page, "已识别为证书，已生成候选资料，请核对后确认保存。");
+    expect(trace.runtimeActions.filter(action => action === "run_start")).toHaveLength(1);
+    await expect.poll(() => trace.toolRequests.filter(request => request.name === "career.workflow.material_intake").length).toBe(2);
+    const receipt = await page.evaluate(() => new Promise<{ sessions: Array<{ hermesRun?: { runId: string; status: string }; artifactRefs: Array<{ kind: string; entityId: string }> }>; formalProfiles: number }>((resolve, reject) => {
+      const request = indexedDB.open("CareerAdaptDb"); request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result; const tx = db.transaction(["agentSessions", "profiles"], "readonly");
+        const sessions = tx.objectStore("agentSessions").getAll(); const profiles = tx.objectStore("profiles").count();
+        tx.oncomplete = () => { db.close(); resolve({ sessions: sessions.result, formalProfiles: profiles.result }); };
+      };
+    }));
+    const current = receipt.sessions.find(session => session.hermesRun);
+    expect(current?.hermesRun?.status).toBe("completed");
+    expect(current?.artifactRefs).toEqual(expect.arrayContaining([expect.objectContaining({ kind: "resume_import_review", entityId: expect.stringMatching(/^material-profile:/u) })]));
+    expect(receipt.formalProfiles).toBe(profilesBefore.length);
+    expect(await readStore(page, "profiles")).toEqual(profilesBefore);
   });
 
   test("CASE I — pasted JD crosses real Hermes and MCP, then one Host confirmation saves the Job", async ({ page }) => {

@@ -116,6 +116,17 @@ describe("P4.7c.1 production import execution boundary", () => {
       expect(provider.mock.calls.length).toBe(mode === "ai" ? 1 : 0);
     });
   }
+  it("restores a cache-evicted owned source before continuing the original consent workflow", async () => {
+    const f = await fixture();
+    vi.spyOn(importPreferences, "readResumeImportSemanticPreference").mockReturnValueOnce("unset");
+    const staged = await f.host.dispatch({ type: "composer_submit", files: [new File(["技能\nTypeScript"], "resume.txt", { type: "text/plain" })] }, f.context);
+    const attachmentId = staged!.taskState!.attachment!.id;
+    agentAttachmentStore.release(attachmentId);
+    expect(agentAttachmentStore.has(attachmentId)).toBe(false);
+    const restored = await f.host.dispatch({ type: "resume_import_consent", attachmentId, mode: "local" }, { ...f.context, session: staged! });
+    assertReview(restored, f);
+    expect(f.startTurn).not.toHaveBeenCalled();
+  });
   it("retains parser failures and retries without a Native turn", async () => {
     const f = await fixture(true); writeResumeImportSemanticPreference("local");
     let session = await f.host.dispatch({ type: "composer_submit", files: [new File(["invalid"], "resume.pdf", { type: "application/pdf" })] }, f.context);
@@ -139,7 +150,8 @@ describe("P4.7c.1 production import execution boundary", () => {
     const f = await fixture();
     const ref = await agentAttachmentStore.register(new File(["test"], "resume.txt"), { agentSessionId: "another-session" });
     if (lost) agentAttachmentStore.release(ref.id);
-    await expect(f.host.dispatch({ type: "resume_import_consent", attachmentId: ref.id, mode: "local" }, f.context)).rejects.toMatchObject({ code: lost ? "agent_attachment_lost" : "agent_attachment_session_mismatch" });
+    const targetId = lost ? `agent-attachment-missing-${crypto.randomUUID()}` : ref.id;
+    await expect(f.host.dispatch({ type: "resume_import_consent", attachmentId: targetId, mode: "local" }, f.context)).rejects.toMatchObject({ code: lost ? "agent_attachment_lost" : "agent_attachment_session_mismatch" });
     expect(f.execute).not.toHaveBeenCalled(); agentAttachmentStore.release(ref.id);
   });
   it("imports canonical JSON through review, confirmation and rich Profile editor readback", async () => {

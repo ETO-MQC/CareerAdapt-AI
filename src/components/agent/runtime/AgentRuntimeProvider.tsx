@@ -164,7 +164,10 @@ function createAgentHost() {
     // race to an already active operation. In that case `claim.operation` is
     // the authoritative receipt; the requested id is intentionally absent
     // from the registry.
-    if (claim && !claim.accepted) return claim.operation.promise as Promise<AgentSession | undefined>;
+    if (claim && !claim.accepted) {
+      if (!claim.existing && input.session && (input.userMessage.trim() || input.attachments?.length)) return state.enqueueHermesInput({ ...input, session: input.session });
+      return claim.operation.promise as Promise<AgentSession | undefined>;
+    }
     const operation = state.getTurnOperation(operationId);
     if (!operation) throw new Error("turn_operation_claim_missing");
     if (operation.cancelled) {
@@ -183,6 +186,7 @@ function createAgentHost() {
     }).then(
       (result) => {
         state.finishTurnOperation(operationId);
+        if (!operation.cancelled) void state.resumePendingRuntimeInput(input.sessionId);
         return result;
       },
       (error) => {
@@ -262,6 +266,7 @@ function createAgentHost() {
     }
     const runtimeShell = canStartHermesShell && runtimeRequest.session
         ? await state.beginRuntimeShell({
+            attachments: runtimeRequest.attachments,
             session: runtimeRequest.session,
             userMessage: runtimeRequest.userMessage,
             runtimeId: "hermes",
@@ -619,6 +624,7 @@ function createAgentHost() {
       state.interrupt(sessionId, stopReason);
     }
   };
+  state.setHermesQueueHandler(runTurn);
   return {
     service,
     registry,

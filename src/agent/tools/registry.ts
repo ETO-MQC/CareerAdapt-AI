@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MaterialIntakeInputSchema } from "@/domain/materialIntake/materialIntake";
 import {
   isProviderTransportFailureCode,
   isRetryableAiProviderErrorCode,
@@ -48,6 +49,7 @@ export type AgentToolServices = {
   getAgentLastFailure?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   searchAgentSessions?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   prepareResumeImport?(input: unknown, signal?: AbortSignal): Promise<unknown>;
+  prepareMaterialIntake?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   reviewResumeImport?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   reconcileResumeImport?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   resolveResumeReconciliation?(input: unknown, signal?: AbortSignal): Promise<unknown>;
@@ -212,6 +214,7 @@ const JobParseInputSchema = z.object({
 }).strict();
 
 const JobCommitInputSchema = JobParseInputSchema.extend({
+  attachmentId: z.string().min(1).optional(),
   title: z.string().min(1).max(160),
   company: z.string().min(1).max(160),
   graph: z.unknown(),
@@ -353,6 +356,7 @@ export function createAgentToolRegistry(services: AgentToolServices) {
     define(services, meta("get_agent_current_task", "读取一个 Agent Session 当前任务、阶段、完成状态和缺失槽位；只读诊断。", "read", false, true, true, TaskContextInputSchema, "agent", "current_task"), (input, _, signal) => services.getAgentCurrentTask ? services.getAgentCurrentTask(input, signal) : unavailableTool("get_agent_current_task")),
     define(services, meta("get_agent_last_failure", "读取一个 Agent Session 最近一次运行或工具失败的安全摘要；只读诊断。", "read", false, true, true, TaskContextInputSchema, "agent", "last_failure"), (input, _, signal) => services.getAgentLastFailure ? services.getAgentLastFailure(input, signal) : unavailableTool("get_agent_last_failure")),
     define(services, meta("search_agent_sessions", "按标题、摘要和用户修正检索历史 Agent Session。", "read", false, true, true, SessionSearchInputSchema, "agent", "episodic_memory"), (input, _, signal) => services.searchAgentSessions ? services.searchAgentSessions(input, signal) : unavailableTool("search_agent_sessions")),
+    define(services, meta("prepare_material_intake", "读取当前对话附件为可追溯职业材料；只生成来源与待确认草稿。", "write", false, true, true, MaterialIntakeInputSchema.extend({ sessionId: z.string().min(1) }), "resume", "import_draft", true), (input, _, signal) => services.prepareMaterialIntake ? services.prepareMaterialIntake(input, signal) : unavailableTool("prepare_material_intake")),
     define(services, meta("prepare_resume_import", "通过本地附件引用解析 PDF、DOCX 或 JSON，并创建可恢复的简历导入核对草稿。不得传入文件二进制或提取文本。", "write", false, true, true, ResumeImportPrepareInputSchema, "resume", "import_draft", true), (input, _, signal) => services.prepareResumeImport ? services.prepareResumeImport(input, signal) : unavailableTool("prepare_resume_import")),
     define(services, meta("review_resume_import", "记录用户对导入草稿不确定内容的明确采用或忽略决定，并推进草稿 revision。", "user_declared", false, true, true, ResumeImportReviewInputSchema, "resume", "import_draft"), (input, _, signal) => services.reviewResumeImport ? services.reviewResumeImport(input, signal) : unavailableTool("review_resume_import")),
     define(services, meta("reconcile_resume_import", "使用确定性 Profile Reconciliation Engine 比对导入草稿与指定已有资料库；只生成计划，不写入 Profile。", "read", false, true, false, ResumeImportReconcileInputSchema, "resume", "import_draft"), (input, _, signal) => services.reconcileResumeImport ? services.reconcileResumeImport(input, signal) : unavailableTool("reconcile_resume_import")),

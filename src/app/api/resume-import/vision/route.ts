@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { OpenAiCompatibleProvider } from "@/ai/providers/openAiCompatibleProvider";
 import { resolveEffectiveAiConfiguration } from "@/ai/providers/effectiveConfiguration";
 import { aiProviderErrorCode } from "@/ai/providers/transportError";
@@ -8,6 +9,32 @@ import { DEFAULT_VISION_TIMEOUT_SECONDS, RESUME_IMPORT_TIMEOUT_HEADER, ResumeImp
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+const verifiedVisionConfigurations = new Set<string>();
+function visionConfigurationKey(configuration: ReturnType<typeof resolveEffectiveAiConfiguration>) {
+  return createHash("sha256").update(JSON.stringify(configuration)).digest("hex");
+}
+
+/** No material is transmitted during capability discovery. Unknown stays manual/OCR. */
+export async function GET(request: Request) {
+  const configuration = resolveEffectiveAiConfiguration(decodeAiSettingsFromHeader(request.headers.get("x-ai-config") ?? ""));
+  const reply = (supported: boolean, reason: string) => NextResponse.json({ supported, reason }, { headers: { "Cache-Control": "no-store" } });
+  if (!configuration.apiKey || !configuration.model) return reply(false, "vision_not_configured");
+  if (verifiedVisionConfigurations.has(visionConfigurationKey(configuration))) return reply(true, "verified_image_request");
+  try {
+    const response = await fetch(`${configuration.baseUrl.replace(/\/$/u, "")}/models`, {
+      headers: { Authorization: `Bearer ${configuration.apiKey}` },
+      signal: AbortSignal.any([request.signal, AbortSignal.timeout(10_000)]), cache: "no-store"
+    });
+    if (!response.ok) return reply(false, "vision_capability_unverified");
+    const payload = await response.json() as { data?: Array<{ id?: string; input_modalities?: string[]; architecture?: { input_modalities?: string[] } }> };
+    const model = Array.isArray(payload.data) ? payload.data.find((entry) => entry.id === configuration.model) : undefined;
+    const modalities = model?.input_modalities ?? model?.architecture?.input_modalities;
+    return reply(Array.isArray(modalities) && modalities.includes("image"), "provider_model_metadata");
+  } catch (error) {
+    if (request.signal.aborted) throw error;
+    return reply(false, "vision_capability_unavailable");
+  }
+}
 
 export async function POST(request: Request) {
   const timeoutHeader = request.headers.get(RESUME_IMPORT_TIMEOUT_HEADER);
@@ -29,12 +56,13 @@ export async function POST(request: Request) {
   try {
     const result = await new OpenAiCompatibleProvider(undefined, configuration).invoke({
       systemPrompt: resumeVisionPrompt,
-      userPrompt: `Transcribe resume page ${parsed.data.pageNumber}. Return the required JSON.`,
+      userPrompt: `Transcribe career material page ${parsed.data.pageNumber}. Return the required JSON.`,
       images: [parsed.data.image], maxOutputChars: 24_000, stream: true,
       signal: AbortSignal.any([request.signal, AbortSignal.timeout(timeout.data * 1000)])
     });
     const output = ResumeVisionOutputSchema.safeParse(result.output);
     if (!output.success) return failure("vision_invalid_output", "AI 图像识别未返回有效文本，原文件未写入正式资料，请重试。", 502);
+    verifiedVisionConfigurations.add(visionConfigurationKey(configuration));
     return NextResponse.json({ ok: true, text: output.data.text, provider: result.provider, model: result.model }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const code = aiProviderErrorCode(error, { requestSignal: request.signal });

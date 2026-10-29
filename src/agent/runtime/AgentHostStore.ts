@@ -15,7 +15,7 @@ import {
 } from "@/agent/contracts/agentSession";
 import type { AgentPageContext } from "@/agent/contracts/agentContext";
 import type { AgentStreamEvent } from "@/agent/runtime/agentSse";
-import type { AgentRuntimeEvent } from "@/agent/runtime/agentRuntime";
+import type { AgentRuntimeEvent, AgentRuntimeAttachment, AgentRuntimeTurnInput } from "@/agent/runtime/agentRuntime";
 import { isHermesRuntimeFailureCode } from "@/agent/runtime/hermes/hermesRunReliability";
 import { isCareerDomainPreconditionCode } from "@/agent/runtime/careerContextBindingResolver";
 import {
@@ -358,6 +358,8 @@ export type AgentHostSnapshot = {
 };
 
 type PendingUserInput = {
+  runtimeId?: "hermes";
+  attachments?: AgentRuntimeAttachment[];
   sessionId: string;
   userMessage: string;
   userMessageId: string;
@@ -366,6 +368,23 @@ type PendingUserInput = {
 };
 
 export class AgentHostStore {
+  private hermesQueueHandler?: (input: AgentRuntimeTurnInput) => Promise<AgentSession | undefined>;
+  private hermesQueueWrite: Promise<unknown> = Promise.resolve();
+
+  setHermesQueueHandler(handler: (input: AgentRuntimeTurnInput) => Promise<AgentSession | undefined>) {
+    this.hermesQueueHandler = handler;
+  }
+
+  enqueueHermesInput(input: AgentRuntimeTurnInput & { session: AgentSession }) {
+    const write = () => this.enqueueUserInput({ ...input, queuedRuntimeId: "hermes" as const });
+    const result = this.hermesQueueWrite.then(write, write);
+    this.hermesQueueWrite = result;
+    return result;
+  }
+
+  resumePendingRuntimeInput(sessionId: string) {
+    return this.drainPendingInput(sessionId);
+  }
   private snapshot: AgentHostSnapshot = {
     turnStatus: "idle",
     controllerState: "idle",
@@ -402,13 +421,14 @@ export class AgentHostStore {
     agentImportProgressBus.subscribe((progress) => {
       const sessionId = this.snapshot.activeSessionId;
       if (!sessionId || !this.executionCoordinator.isRunning(sessionId)) return;
+      if (progress.agentSessionId && progress.agentSessionId !== sessionId) return;
       this.markProgress(sessionId);
       const activeSession = this.snapshot.activeSession;
       const progressedSession = activeSession
         ? {
             ...activeSession,
             messages: activeSession.messages.map((message) =>
-              message.toolName === "prepare_resume_import" && message.status === "pending"
+              ["prepare_resume_import", "prepare_material_intake", "career.workflow.resume_import", "career.workflow.material_intake"].includes(message.toolName ?? "") && message.status === "pending"
                 ? {
                     ...message,
                     content: progress.message,
@@ -2024,6 +2044,7 @@ export class AgentHostStore {
    * for the first model token before showing progress.
    */
   async beginRuntimeShell(input: {
+    attachments?: AgentRuntimeAttachment[];
     session: AgentSession;
     userMessage: string;
     runtimeId: string;
@@ -2078,9 +2099,14 @@ export class AgentHostStore {
           id: userMessageId,
           turnId,
           status: "complete",
-          metadata: { executionState: "running", runtimeId: input.runtimeId }
+          metadata: { executionState: "running", runtimeId: input.runtimeId, ...(input.attachments?.length ? { attachments: input.attachments } : {}) }
         })
       : current;
+    if (!appendUserMessage && input.userMessageId) current = {
+      ...current, messages: current.messages.map((message) => message.id === input.userMessageId && message.metadata?.executionState === "queued"
+        ? { ...message, turnId, status: "complete" as const, metadata: { ...message.metadata, executionState: "running", runtimeId: input.runtimeId } }
+        : message)
+    };
     if (appendUserMessage && current.taskState) {
       // Persist the UserMessage and capture its same-turn target before any
       // Hermes event can request a Career facade. This is context binding,
@@ -2958,6 +2984,7 @@ export class AgentHostStore {
       });
     }
     if (input.type === "resume_import_consent") {
+      await agentAttachmentStore.restore(input.attachmentId, session.id);
       const ref = agentAttachmentStore.assertOwned(input.attachmentId, session.id);
       const consentAttachmentIds = Array.isArray(session.taskState?.knownSlots.resumeImportAttachmentIds)
         ? session.taskState.knownSlots.resumeImportAttachmentIds.filter((id): id is string => typeof id === "string")
@@ -2968,7 +2995,7 @@ export class AgentHostStore {
           { code: "agent_attachment_action_mismatch", recovery: "reselect_file" }
         );
       }
-      const consentAttachmentRefs = consentAttachmentIds.map((id) => agentAttachmentStore.assertOwned(id, session.id));
+      const consentAttachmentRefs = await Promise.all(consentAttachmentIds.map(async (id) => (await agentAttachmentStore.restore(id, session.id)).ref));
       if (input.mode === "ai" || input.mode === "local") {
         const { writeResumeImportSemanticPreference } = await import("@/services/preferences/resumeImportAi");
         writeResumeImportSemanticPreference(input.mode);
@@ -3481,6 +3508,7 @@ export class AgentHostStore {
       requestConsent?: boolean;
     } = {}
   ) {
+    await agentAttachmentStore.restore(attachment.id, session.id);
     agentAttachmentStore.assertOwned(attachment.id, session.id);
     const snapshot = await this.readQuickActionContext(session);
     const reducer = new AgentTaskStateReducer();
@@ -3587,6 +3615,7 @@ export class AgentHostStore {
     this.patchSession(current, { turnStatus: "running", activeTurnId: turnId, uiAction: undefined });
     const result = await this.dependencies.executor.execute({
       toolName, toolInput: { attachmentId: attachment.id }, operationId,
+      agentSessionId: current.id,
       logicalTurnId: turnId, retryFailedOperation: true
     });
     current = upsertAgentActivity(current, {
@@ -7912,7 +7941,7 @@ export class AgentHostStore {
             ]
           };
         }
-        if (event.ok && event.toolName === "prepare_resume_import") {
+        if (event.ok && (event.toolName === "prepare_resume_import" || event.toolName === "prepare_material_intake") && (event.toolName !== "prepare_material_intake" || typeof objectValue(objectValue(current.taskState?.lastObservation).value ?? this.snapshot.currentObservation).importId === "string")) {
           const now = new Date().toISOString();
           const artifactId = event.artifactIds?.[0] ?? `agent-artifact-prepare_resume_import-${event.operationId}`;
           const observation = objectValue(this.snapshot.currentObservation);
@@ -8335,6 +8364,8 @@ export class AgentHostStore {
   }
 
   private async enqueueUserInput(input: {
+    queuedRuntimeId?: "hermes";
+    attachments?: AgentRuntimeAttachment[];
     session: AgentSession;
     userMessage: string;
     pageContext: AgentPageContext;
@@ -8350,12 +8381,17 @@ export class AgentHostStore {
       references: input.references?.length ? input.references : undefined,
       metadata: {
         executionState: "queued",
+        queuedRuntimeId: input.queuedRuntimeId,
+        queuedAttachments: input.attachments,
+        ...(input.attachments?.length ? { attachments: input.attachments } : {}),
         queuedPageContext: input.pageContext
       }
     });
     const saved = await this.dependencies.persistence.save(queued);
     const queue = this.pendingInputs.get(session.id) ?? [];
     queue.push({
+      runtimeId: input.queuedRuntimeId,
+      attachments: input.attachments,
       sessionId: session.id,
       userMessage: input.userMessage,
       userMessageId,
@@ -8363,6 +8399,7 @@ export class AgentHostStore {
       references: input.references
     });
     this.pendingInputs.set(session.id, queue);
+    this.executionCoordinator.setPendingInputCount(session.id, queue.length);
     this.patchSession(saved, { pendingInputCount: queue.length });
     return saved;
   }
@@ -8370,6 +8407,8 @@ export class AgentHostStore {
   private async drainPendingInput(sessionId: string) {
     if (this.executionCoordinator.isRunning(sessionId)) return;
     const queue = this.pendingInputs.get(sessionId);
+    if (queue?.[0]?.runtimeId === "hermes" && this.snapshot.activeSessionId !== sessionId) return;
+    if (queue?.[0]?.runtimeId === "hermes" && !this.hermesQueueHandler) return;
     const next = queue?.shift();
     if (!next) {
       this.pendingInputs.delete(sessionId);
@@ -8386,6 +8425,13 @@ export class AgentHostStore {
     if (!session) return;
     this.executionCoordinator.setPendingInputCount(sessionId, queue?.length ?? 0);
     if (this.snapshot.activeSessionId === sessionId) this.patch({ pendingInputCount: queue?.length ?? 0 });
+    if (next.runtimeId === "hermes") {
+      await this.hermesQueueHandler!({
+        sessionId, session, userMessage: next.userMessage, pageContext: next.pageContext, attachments: next.attachments,
+        metadata: { prePersistedUserMessageId: next.userMessageId, turnOperationKind: "user_turn" }
+      });
+      return;
+    }
     await this.startTurn({
       session,
       userMessage: next.userMessage,
@@ -10313,6 +10359,10 @@ function recoverPersistedQueuedInputs(session: AgentSession): {
     const queuedPageContext = parseQueuedPageContext(message.metadata.queuedPageContext);
     if (queuedPageContext) {
       pendingInputs.push({
+        ...(message.metadata?.queuedRuntimeId === "hermes" ? {
+          runtimeId: "hermes" as const,
+          attachments: Array.isArray(message.metadata.queuedAttachments) ? message.metadata.queuedAttachments as AgentRuntimeAttachment[] : []
+        } : {}),
         sessionId: session.id,
         userMessage: message.content,
         userMessageId: message.id,
@@ -11088,7 +11138,7 @@ function artifactDescriptor(toolName: string, workflowId?: string, rootGoal?: st
   if (["capture_profile_intake", "synthesize_profile_intake"].includes(toolName)) {
     return { kind: "profile_intake_review", title: toolName === "synthesize_profile_intake" ? "最终资料草稿" : "经历核对", entityType: "profile_intake_draft" };
   }
-  if (toolName === "prepare_resume_import") {
+  if (toolName === "prepare_resume_import" || toolName === "prepare_material_intake") {
     return { kind: "resume_import_review", title: "简历导入核对", entityType: "resume_import_draft" };
   }
   if (toolName === "analyze_job_fit" && (workflowId === "analyze_job_fit" || rootGoal === "analyze_job_fit")) {
@@ -11319,7 +11369,9 @@ function attachConfirmedToolArtifact(
       ?? session.taskState?.selectedEntities.jobId
       ?? stringRecordValue(value.resumeId)
       ?? `pending-${toolName}`
-    : compositionResumeId;
+    : descriptor.entityType === "resume_import_draft"
+      ? stringRecordValue(value.importId)
+      : compositionResumeId;
   if (!entityId) return session;
   const now = new Date().toISOString();
   const artifactId = descriptor.kind === "tailoring_workspace"
@@ -11551,6 +11603,7 @@ function runtimeArtifactSourceToolName(stableName: string, declaredSource?: stri
     "career.workflow.profile_intake_turn": "capture_profile_intake",
     "career.workflow.profile_intake_finalize": "synthesize_profile_intake",
     "career.workflow.resume_import": "prepare_resume_import",
+    "career.workflow.material_intake": "prepare_material_intake",
     "career.workflow.job_fit": "analyze_job_fit",
     "career.workflow.tailor_resume": "create_tailoring_session",
     "career.workflow.profile_to_resume": "ensure_general_resume_from_profile",
@@ -11628,6 +11681,7 @@ function runtimeArtifactResultData(stableName: string, value: unknown) {
     "career.workflow.profile_intake_turn": "understood",
     "career.workflow.profile_intake_finalize": "synthesis",
     "career.workflow.resume_import": "import",
+    "career.workflow.material_intake": "import",
     "career.workflow.job_fit": "result",
     "career.workflow.tailor_resume": "session",
     "career.workflow.profile_to_resume": "result",
@@ -11649,6 +11703,13 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
     const reducer = new AgentTaskStateReducer();
     const task = reducer.reduce(reducer.create(session, "ingest_job", { workflowId: "job_ingestion", step: "parse_job" }), {
       type: "new_root_task", goal: "ingest_job", workflowId: "job_ingestion", stage: "parse_job"
+    });
+    session = projectTaskStateIntoSession(session, task);
+  }
+  if (toolName === "career.workflow.material_intake" && objectValue(objectValue(value).workflowCheckpoint).kind === "resume_import_review" && session.taskState?.workflowId !== "resume_import") {
+    const reducer = new AgentTaskStateReducer();
+    const task = reducer.reduce(reducer.create(session, "import_resume", { workflowId: "resume_import", step: "import_review" }), {
+      type: "new_root_task", goal: "import_resume", workflowId: "resume_import", stage: "import_review"
     });
     session = projectTaskStateIntoSession(session, task);
   }
@@ -11750,7 +11811,7 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
             ? "review_composition"
             : toolName === "career.workflow.resume_export" && completionStatus === "completed"
               ? "export_ready"
-              : toolName === "career.workflow.resume_import"
+              : toolName === "career.workflow.resume_import" || checkpoint.kind === "resume_import_review"
                 ? "import_review"
                 : toolName === "career.workflow.profile_intake_finalize"
                   ? "final_review"

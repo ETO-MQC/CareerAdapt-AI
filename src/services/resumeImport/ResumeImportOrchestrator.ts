@@ -41,7 +41,8 @@ import type {
 } from "@/domain/schemas";
 import { sourceDocumentFromDraft } from "@/domain/resumeImport/sourceDocument";
 import { extractTextFromPdfBuffer } from "@/services/pdf/extractText";
-import { extractResumeVision } from "./visionExtraction";
+import { extractResumeVision, materialVisionSupported } from "./visionExtraction";
+import { createLocalPaddleOcrAdapter } from "@/domain/resumeImport/ocrAdapter";
 import { hashBytes, hashText } from "@/services/security/text";
 import type { WorkspaceRepository } from "@/services/storage/repositories";
 import {
@@ -64,6 +65,7 @@ export type ResumeImportProgressStage =
   | "failed";
 
 export type ResumeImportProgress = {
+  agentSessionId?: string;
   stage: ResumeImportProgressStage;
   message: string;
   heartbeat: boolean;
@@ -113,6 +115,8 @@ export type ResumeImportPrepareResult = {
 };
 
 export type ResumeImportPrepareContext = {
+  /** Material intake prefers local OCR; Vision is explicitly enabled after consent. */
+  materialIntake?: boolean;
   signal?: AbortSignal;
   preferences?: DocumentRecognitionPreferences;
   semanticMode?: "ai" | "local";
@@ -148,10 +152,11 @@ export class ResumeImportOrchestrator {
 
   async prepare(
     source: ResumeImportLocalSource,
-    context: ResumeImportPrepareContext = {}
+    context: ResumeImportPrepareContext = {},
+    extraction?: ResumeImportExtractionResult
   ): Promise<ResumeImportPrepareResult> {
     try {
-      const extracted = await this.extractSourceDocument(source, context);
+      const extracted = extraction ?? await this.extractSourceDocument(source, context);
       let draft = extracted.fallbackDraft;
       if (
         context.semanticMode === "ai"
@@ -231,6 +236,7 @@ export class ResumeImportOrchestrator {
     }
     if (format === "pdf") return this.preparePdf(source, context);
     if (format === "image") {
+      if (context.materialIntake) return this.prepareMaterialOcr(source, context);
       if (context.semanticMode !== "ai") throw new ResumeImportOrchestratorError("resume_import_ocr_required", "图片简历请选择 AI 智能识别，或从高级设置使用本地 OCR。", "manual_ocr");
       return this.prepareVision(source, context);
     }
@@ -286,6 +292,7 @@ export class ResumeImportOrchestrator {
         errorMessage: extracted.message
       });
       if (extracted.code === "no_text_layer") {
+        if (context.materialIntake) return this.prepareMaterialOcr(source, context, session);
         if (context.semanticMode === "ai") return this.prepareVision(source, context, session);
         throw new ResumeImportOrchestratorError(
           "resume_import_ocr_required",
@@ -304,6 +311,7 @@ export class ResumeImportOrchestrator {
         errorMessage: prepared.message
       });
       if (prepared.code === "no_text_layer" || prepared.code === "empty_extracted_text") {
+        if (context.materialIntake) return this.prepareMaterialOcr(source, context, session);
         if (context.semanticMode === "ai") return this.prepareVision(source, context, session);
         throw new ResumeImportOrchestratorError(
           "resume_import_ocr_required",
@@ -315,6 +323,7 @@ export class ResumeImportOrchestrator {
     }
 
     if (context.semanticMode === "ai" && extracted.pages.some((page) => page.classification === "scanned_pdf")) {
+      if (context.materialIntake) return this.prepareMaterialOcr(source, context, session);
       return this.prepareVision(source, context, session);
     }
     emit(context, "normalizing", "正在还原阅读顺序并规范化来源块。");
@@ -343,6 +352,7 @@ export class ResumeImportOrchestrator {
       qualityReport: quality
     });
     if (decision.route === "local_ocr" || decision.route === "manual_review") {
+      if (context.materialIntake) return this.prepareMaterialOcr(source, context, session);
       if (context.semanticMode === "ai" && quality.recommendedRoute === "ocr_ai") return this.prepareVision(source, context, session);
       throw new ResumeImportOrchestratorError(
         "resume_import_ocr_required",
@@ -460,6 +470,40 @@ export class ResumeImportOrchestrator {
     }, context);
   }
 
+  private async prepareMaterialOcr(source: ResumeImportLocalSource, context: InternalPrepareContext, session?: PdfImportSession) {
+    emit(context, "extracting", "正在使用本地 OCR 读取职业材料…");
+    const recognized = await createLocalPaddleOcrAdapter().recognize(source.file, { signal: context.signal });
+    assertNotAborted(context.signal);
+    if (!recognized.ok) {
+      // Unsupported Vision providers need no new task: keep the durable source and manual recovery.
+      if (recognized.code === "engine_unavailable" && context.semanticMode === "ai") {
+        try {
+          if (!(await materialVisionSupported(context.signal))) throw new Error("当前模型未确认支持图片，已保留附件，请使用本地 OCR 或手动核对。");
+          return await this.prepareVision(source, context, session);
+        }
+        catch (error) {
+          assertNotAborted(context.signal);
+          throw new ResumeImportOrchestratorError("material_manual_review_required", error instanceof Error ? error.message : "图像识别不可用，请核对原件。", "manual_review");
+        }
+      }
+      throw new ResumeImportOrchestratorError(`material_ocr_${recognized.code}`, recognized.message, "manual_review");
+    }
+    const fileHash = await hashBytes(new Uint8Array(await source.file.arrayBuffer()));
+    return this.persistTextDraft({
+      source, fileHash, sourceSessionId: session?.id,
+      sourceKind: session ? "scanned_pdf" : "image",
+      text: recognized.text,
+      sourceBlocks: recognized.blocks.map((block) => ({
+        ...block,
+        sourceEngine: "paddleocr_vl" as const, sourceEngineVersion: recognized.engineVersion,
+        extractionConfidence: block.confidence
+      })),
+      pageCount: recognized.pageCount,
+      routingDecision: { route: "local_ocr", reason: "本地 OCR 读取来源，后续语义判断交给 Hermes。", canUseOcr: true, ocrExpectedSlow: true, experimental: false },
+      extraWarnings: [...recognized.warnings, "OCR 内容尚未确认，请对照原件核对。"]
+    }, context);
+  }
+
   private async prepareDocx(
     source: ResumeImportLocalSource,
     context: InternalPrepareContext
@@ -503,6 +547,12 @@ export class ResumeImportOrchestrator {
     emit(context, "mapping", "正在应用 JSON v2、v1 或外部格式适配器。");
     const adapted = adaptResumeJsonToV2(parsed.value);
     if (!adapted.ok) {
+      if (context.materialIntake) return this.persistTextDraft({
+        source, fileHash: await hashBytes(new Uint8Array(await source.file.arrayBuffer())),
+        sourceKind: "external_json", text: rawText,
+        sourceBlocks: normalizeExtractedSourceBlocks(createJsonSourceBlocks(parsed.value)),
+        routingDecision: { route: "text", reason: "读取 JSON 来源键值，材料用途由 Hermes 判断。", canUseOcr: false, ocrExpectedSlow: false, experimental: false }
+      }, context);
       throw new ResumeImportOrchestratorError("json_adapter_failed", adapted.message);
     }
     const mapped: ResumeJsonMapperOutput = {
@@ -571,7 +621,7 @@ export class ResumeImportOrchestrator {
       source: ResumeImportLocalSource;
       fileHash: string;
       sourceSessionId?: string;
-      sourceKind: "docx" | "markdown" | "text" | "text_pdf" | "scanned_pdf" | "image";
+      sourceKind: "docx" | "markdown" | "text" | "text_pdf" | "scanned_pdf" | "image" | "external_json";
       text: string;
       sourceBlocks: ExtractedSourceBlock[];
       pageCount?: number;

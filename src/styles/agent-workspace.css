@@ -2003,6 +2003,22 @@
   width: 24px;
 }
 
+.agent-attachment-chip .agent-attachment-preview-button {
+  display: block;
+  width: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.agent-attachment-thumbnail { border-radius: 4px; object-fit: cover; flex-shrink: 0; }
+.agent-attachment-image { width: 100%; height: auto; max-height: 70vh; object-fit: contain; }
+.agent-attachment-pdf { width: 100%; height: 65vh; border: 0; }
+.agent-attachment-text-preview { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 60vh; overflow: auto; }
+.material-intake-entry { display: grid; gap: 16px; padding: 8px; }
+
 .agent-drop-hint {
   align-items: center;
   background: color-mix(in srgb, var(--ai-accent) 12%, var(--ai-surface));

@@ -298,10 +298,10 @@ describe("ResumeImportOrchestrator", () => {
 });
 
 describe("Agent local attachment and import task state", () => {
-  it("truthfully exposes Markdown/TXT while keeping Agent OCR unavailable", async () => {
+  it("truthfully exposes Markdown/TXT and conditional material OCR", async () => {
     expect(AGENT_RESUME_IMPORT_ACCEPT).toContain(".md");
     expect(AGENT_RESUME_IMPORT_ACCEPT).toContain(".txt");
-    expect(AgentProductCapabilityManifest.ocr.entrypoints.agent).toBe("unavailable");
+    expect(AgentProductCapabilityManifest.ocr.entrypoints.agent).toBe("partial");
     const store = new AgentAttachmentStore();
     const markdown = await store.register(new File(["# Resume"], "resume.md"));
     const text = await store.register(new File(["Resume"], "resume.txt"));

@@ -1,5 +1,13 @@
 # CareerAdapt AI --- P5.1 Agent 架构优化开发计划
 
+## 2026-10-29：P5.1.2 多模态职业材料摄取交付
+
+基线 HEAD/远程 main 均为 `b7a691af7b597ea3dc561d31c7648c8dbd7f39f7`，起始干净。按用户授权完成 A→F：沿用 SourceDocument v2 与原解析/字段映射/核对链路，增加持久化附件来源、provisional material_intake、Hermes 的 12 类材料分类协议、Profile/Resume/Job 目的地复用，以及简历中心第 5 个“导入资料”入口。附件支持整区拖放、缩略图/预览、刷新恢复、发送失败回到原 Session、忙时进入下一 Hermes Turn；没有新增第二个 Composer、解析器、Planner、Runtime、Dexie 表或生产依赖。
+
+当前为 A→F 实现与定向验收完成。已取得 11/11 锁定 Hermes 场景退出 0（23 次模拟 Provider 请求，包含同 Run 材料链、忙时附件下一 Turn、既有岗位确认和正式 PDF）；15 文件 130 项相关测试、UI 2/2、lint、typecheck、生产 build、diff 均退出 0；详细证据见[专项交付报告](p5.1.2-material-intake-20261029.md)。所有正式事实继续经 review/confirmation/WorkspaceRepository；通用简历与岗位分支隔离，Fact Guard 未改。
+
+本机 OCR 未配置，实际 health 已确认降级；OCR/复杂材料采用固定匿名响应验证协议，不代表真实 OCR 质量通过。真实 Provider/用户原件、替代引擎 benchmark 和安装包未验。Hermes 锁定版本及 bundle 不变，P518-RUNTIME-MODEL-READBACK-01 继续 OPEN。用户已追加授权本轮提交并推送；具体提交号与远程状态以 Git 和最新交接为准。未打包，不进入 P5.1.3。
+
 ## 2026-10-29 FINAL：职业核心冻结，PARTIAL + CARRY FORWARD
 
 基线HEAD/远程main均0a978ba，起始工作区干净。同一Hermes Run确认后自主续跑已获真实锁定Runtime/MCP证据：确认前1次/确认后新增1次模拟Provider请求，原Tool Call ID及正式Job ID返回，同Run terminal/completed；CASE I定向1/1退出0，完整Hermes9/9退出0（16次模拟Provider请求），岗位简历/正式PDF断言保留。Host只管理确认/状态，Gateway正式写入，Hermes继续语义循环，无第二个Run或新续跑协议。
@@ -189,7 +197,7 @@ Runtime。
   P5.1.1                  Hermes                     复用 Hermes Run/UI 机制，收敛高层工具契约
                           交互、意图与工具边界
 
-  P5.1.2                  文件附件与简历导入统一     对话附件和导入入口共用同一解析/核对链路
+  P5.1.2                  多模态职业材料摄取与交互     对话附件和导入入口共用同一解析/核对链路
 
   P5.1.3                  简历修改与模板数据一致性   正确绑定简历、Branch、Revision、JSON 和模板
 
@@ -278,7 +286,9 @@ Hermes 锁定版本源码及官方交互实现
 模型可见工具清单与文档一致；明确意图不触发重复确认或第二次分类调用；歧义时只问一个必要问题；运行、停止、失败状态清楚；不新增第二套
 Agent Runtime。
 
-## P5.1.2 --- 文件附件与简历导入统一
+## P5.1.2 --- Hermes 多模态职业材料摄取与统一交互
+
+2026-10-29 用户授权将原阶段扩展为 A→F 连续实施：A 附件交互与持久化，B 通用来源兼容包装，C 原生解析/OCR/已验证 Vision/人工核对，D Hermes 分类与 material_intake，E Profile/Resume/Job 正式工作流复用，F 两个产品入口。实施与实际证据以[专项报告](p5.1.2-material-intake-20261029.md)为准；下列原步骤作为兼容验收约束保留。不自动进入 P5.1.3。
 
 **目标：**
 从导入入口上传与直接在聊天中附上文件，都进入同一条可追溯管线。

@@ -103,6 +103,7 @@ export function ResumeImportWizard(props: {
   profile?: CareerProfile;
   profiles?: CareerProfile[];
   initialImportId?: string;
+  initialCreateGeneralResume?: boolean;
   initialMode?: "file" | "json";
   initialTargetMode?: "existing" | "new";
   variant?: "resume" | "agent";
@@ -115,7 +116,7 @@ export function ResumeImportWizard(props: {
   const [status, setStatus] = useState<ImportStatus>("idle");
   const [message, setMessage] = useState("选择或拖入简历，AI 将自动识别；写入前可核对。");
   const [draft, setDraft] = useState<ImportedResumeDraft | undefined>();
-  const [pages, setPages] = useState<PdfPageText[]>([]);
+  const [, setPages] = useState<PdfPageText[]>([]);
   const [selectedPageNumber, setSelectedPageNumber] = useState(1);
   const [selectedItemId, setSelectedItemId] = useState<string | undefined>();
   const [selectedBasicFieldKey, setSelectedBasicFieldKey] = useState<BasicFieldKey | undefined>();
@@ -144,7 +145,7 @@ export function ResumeImportWizard(props: {
   const [targetMode, setTargetMode] = useState<"existing" | "new">(props.initialTargetMode ?? (props.profile ? "existing" : "new"));
   const [targetProfileId, setTargetProfileId] = useState(props.profile?.id ?? "");
   const [newProfileName, setNewProfileName] = useState("");
-  const [createGeneralResume, setCreateGeneralResume] = useState(true);
+  const [createGeneralResume, setCreateGeneralResume] = useState(props.initialCreateGeneralResume ?? true);
   const [reviewedUnclassifiedKeys, setReviewedUnclassifiedKeys] = useState<string[]>([]);
   const [reconciliationPlan, setReconciliationPlan] = useState<ProfileReconciliationPlan>();
   const [reconciliationStatus, setReconciliationStatus] = useState<"idle" | "loading" | "ready" | "failed">("idle");
@@ -1522,7 +1523,7 @@ export function ResumeImportWizard(props: {
                 : highlightSourceText(selectedPage?.normalizedText ?? "", selectedCandidate?.sourceQuote ?? selectedItem?.pageRefs[0]?.quote)}
             </pre>
             <div className="import-source-footer">
-              <p>{draft.source.mimeType === "application/json" ? "原始 JSON 保留在当前导入窗口，正式提交前不会写入简历。" : `${pages.length} 页来源文本已保存；原始文件未长期保存。`}</p>
+              <p>{`${draft.sourceBlocks.length} 个来源块已保存；请对照原文件核对。`}</p>
               {draft.source.mimeType === "application/json" && jsonText ? <details><summary>查看原始 JSON</summary><pre>{jsonText}</pre></details> : null}
             </div>
           </aside>

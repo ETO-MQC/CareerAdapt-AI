@@ -66,7 +66,8 @@ export const ResumeSourceEngineSchema = z.enum([
   "paddleocr_vl",
   "vision_ai",
   "markdown_parser",
-  "plain_text"
+  "plain_text",
+  "manual_transcription"
 ]);
 
 export const ExtractedSourceBlockTypeSchema = z.enum([

@@ -1,4 +1,5 @@
 "use client";
+import { MaterialIntakeDialog } from "@/components/resume/import/MaterialIntakeDialog";
 import { FieldAppearanceContext, FieldOwner } from "@/components/editor/FieldAppearanceContext";
 import { precisionStyleVars } from "@/components/resume/templates/precisionStyles";
 
@@ -207,6 +208,7 @@ const A4_PAGE_HEIGHT_PX = 1123;
 
 export function ResumeWorkspace() {
   const router = useRouter();
+  const [materialImportOpen, setMaterialImportOpen] = useState(false);
   const searchParams = useSearchParams();
   const requestedImportId = searchParams.get("importId") ?? undefined;
   const requestedImportTarget = searchParams.get("importTarget");
@@ -4317,10 +4319,11 @@ export function ResumeWorkspace() {
                   <strong>从零创建</strong>
                   <span>不带入资料库内容，从空白字段开始</span>
                 </button>
-                <div className="resume-create-placeholder">
-                  <strong>更多功能，敬请期待</strong>
-                  <span>新的简历工具将在这里与你见面</span>
-                </div>
+                <button className="resume-create-card" type="button" onClick={() => setMaterialImportOpen(true)}>
+                  <strong>导入资料</strong>
+                  <span>证书、奖项、成绩单与经历证明</span>
+                </button>
+                <MaterialIntakeDialog key={materialImportOpen ? "open" : "closed"} open={materialImportOpen} onClose={() => setMaterialImportOpen(false)} profile={profile} profiles={profile ? [profile] : []} />
               </div>
               {showJobCreatePanel ? (
                 <div className="resume-create-inline-panel" data-testid="resume-job-create-panel">

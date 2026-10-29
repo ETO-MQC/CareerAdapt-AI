@@ -38,7 +38,7 @@ export const AgentProductCapabilityManifest = {
     productStatus: "partial",
     entrypoints: {
       manual: "partial",
-      agent: "unavailable"
+      agent: "partial"
     },
     runtime: "optional_local_service",
     fallback: "manual_review_required"
@@ -49,6 +49,7 @@ export const AgentProductCapabilityManifest = {
     externalTools: "availability_is_runtime_discovered"
   },
   capabilities: [
+    "career_material_intake",
     "profile_management",
     "resume_analysis",
     "job_fit_analysis",
