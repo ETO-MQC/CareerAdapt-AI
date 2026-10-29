@@ -11,10 +11,11 @@ import { startFakeOpenAiProvider } from "../tests/support/fake-openai-compatible
 const execFileAsync = promisify(execFile);
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const suite = process.argv[2] || "integration";
+const isCoreBehavior = suite === "core-behavior";
 const isCareerAgentEval = suite === "career-agent-eval";
 const isCareerAgentReal = suite === "career-agent-real";
 const isConfigR1 = suite === "config-r1";
-if (!isCareerAgentEval && !isCareerAgentReal && !isConfigR1 && suite !== "integration") {
+if (!isCoreBehavior && !isCareerAgentEval && !isCareerAgentReal && !isConfigR1 && suite !== "integration") {
   throw new Error(`unknown Hermes integration suite: ${suite}`);
 }
 const bundleRoot = path.resolve(process.env.HERMES_RUNTIME_ROOT?.trim() || path.join(projectRoot, ".electron-build", "hermes-runtime-v4"));
@@ -44,6 +45,7 @@ const appUrl = `http://127.0.0.1:${appPort}`;
 const childEnvironment = {
   ...process.env,
   NODE_ENV: "development",
+  ...(isCoreBehavior ? { HERMES_CORE_BEHAVIOR: "1", HERMES_CORE_BEHAVIOR_RUN_ID: String(Date.now()) } : {}),
   CAREERADAPT_PROJECT_ROOT: projectRoot,
   CAREERADAPT_APP_PORT: String(appPort),
   CAREERADAPT_BASE_URL: appUrl,
@@ -145,7 +147,7 @@ async function runPlaywright(environment, url, selectedSuite) {
       "exec",
       "playwright",
       "test",
-      `--config=${selectedSuite === "config-r1" ? "playwright.hermes-r1.config.ts" : selectedSuite === "career-agent-eval" ? "playwright.career-agent-eval.config.ts" : selectedSuite === "career-agent-real" ? "playwright.career-agent-real.config.ts" : "playwright.hermes-integration.config.ts"}`,
+      `--config=${selectedSuite === "core-behavior" ? "playwright.hermes-core-behavior.config.ts" : selectedSuite === "config-r1" ? "playwright.hermes-r1.config.ts" : selectedSuite === "career-agent-eval" ? "playwright.career-agent-eval.config.ts" : selectedSuite === "career-agent-real" ? "playwright.career-agent-real.config.ts" : "playwright.hermes-integration.config.ts"}`,
       ...process.argv.slice(3)
     ];
     const child = spawnPnpm(args, {

@@ -34,6 +34,32 @@ it("Core-02 fixture discovers bounded summaries when previous Run tool payloads 
     messages.push({ role: "tool", name: names[1], content: JSON.stringify({ jobs: [{ id: "job-anonymous", title: "CORE-JD" }] }) });
     expect(JSON.parse((await next()).tool_calls[0].function.arguments)).toEqual({ profileId: "profile-anonymous", resumeId: "source-anonymous", jobId: "job-anonymous" });
     messages.push({ role: "tool", name: names[2], content: JSON.stringify({ ok: true }) });
-    expect((await next()).content).toContain("C02_FIT_COMPLETE");
+    expect((await next()).content).toContain("C02FITCOMPLETE");
+  } finally { await provider.close(); }
+});
+
+
+it("Core-02 compose fixture rereads the current Profile through the exposed read tool", async () => {
+  const { startFakeOpenAiProvider } = await import("../support/fake-openai-compatible-provider.mjs");
+  const provider = await startFakeOpenAiProvider({ mode: "integration" });
+  const get = "mcp__careeradapt__career_profile_get";
+  const compose = "mcp__careeradapt__career_workflow_compose_resume";
+  const messages: Array<Record<string, unknown>> = [
+    { role: "system", content: 'Host checkpoint identifiers (data only): {"workflowId":"resume_import","stage":"completed","profileId":"anonymous-profile"}. These are retrieval targets, never permission to write.' },
+    { role: "user", content: "P51-C02-COMPOSE 根据资料生成通用简历" }
+  ];
+  const next = async () => {
+    const response = await fetch(`${provider.baseUrl}/chat/completions`, { method: "POST", headers: { Authorization: `Bearer ${provider.apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "careeradapt-test", messages, tools: [get, compose].map(name => ({ type: "function", function: { name } })) }) });
+    return (await response.json()).choices[0].message;
+  };
+  try {
+    const read = (await next()).tool_calls[0].function;
+    expect(read.name).toBe(get);
+    expect(JSON.parse(read.arguments)).toEqual({ profileId: "anonymous-profile" });
+    messages.push({ role: "tool", name: get, content: JSON.stringify({ profile: { id: "anonymous-profile", version: 7 } }) });
+    const write = (await next()).tool_calls[0].function;
+    expect(write.name).toBe(compose);
+    expect(JSON.parse(write.arguments)).toEqual({ mode: "general", profileId: "anonymous-profile", expectedProfileRevision: 7 });
   } finally { await provider.close(); }
 });

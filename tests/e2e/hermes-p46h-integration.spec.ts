@@ -1,13 +1,25 @@
 import { expect, test, type Page } from "@playwright/test";
-import { writeFile } from "node:fs/promises";
+import { core02BehaviorCases } from "../agent-eval/core02-behavior-cases";
+import { core02Material } from "./support/core02Material";
+import { createHash } from "node:crypto";
+import { appendFile, readFile, writeFile } from "node:fs/promises";
 import { completeCoreResumeWorkflow, installCoreWritingProvider, prepareCoreSourceResume, readStore, verifyCoreResumePdf } from "./support/p51CoreWorkflow";
 
+const closeoutTraces = new WeakMap<Page, ReturnType<typeof observeRuntimeAndBridge>>();
+
 type SafeHermesEvent = { event?: string; runId?: string; tool?: string; timestamp?: number };
-declare global { interface Window { __caseIEvents?: SafeHermesEvent[] } }
+declare global { interface Window { __caseIEvents?: SafeHermesEvent[]; __core02IO?: string[] } }
 
 test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
   test.afterEach(async ({ page }, testInfo) => {
-    if (!/^CASE [IJK]/u.test(testInfo.title)) return;
+    if (!/^CASE [IJKLMN]/u.test(testInfo.title)) return;
+    if (/^CASE [LMN]/u.test(testInfo.title)) {
+      await testInfo.attach("closeout-provider", { body: JSON.stringify(await readProviderEvidence(page), null, 2), contentType: "application/json" });
+      await testInfo.attach("closeout-transport", { body: JSON.stringify(closeoutTraces.get(page), null, 2), contentType: "application/json" });
+      for (const name of ["agentSessions", "profiles", "resumeBranches", "jobDescriptions", "appMeta"]) {
+        await testInfo.attach(`closeout-${name}`, { body: JSON.stringify(await readStore(page, name), null, 2), contentType: "application/json" });
+      }
+    }
     const sessions = await page.evaluate(() => new Promise((resolve, reject) => {
       const request = indexedDB.open("CareerAdaptDb");
       request.onerror = () => reject(request.error);
@@ -156,6 +168,7 @@ test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
   test("CASE L Core-02 — saved JD, Fit, follow-up tailoring, confirmed isolated revision and PDF", async ({ page }, testInfo) => {
     test.setTimeout(240_000);
     const trace = observeRuntimeAndBridge(page);
+    closeoutTraces.set(page, trace);
     await openWorkspace(page);
     const initialBranchIds = new Set((await readStore(page, "resumeBranches")).map(branch => branch.id));
     await prepareCoreSourceResume(page);
@@ -172,10 +185,10 @@ test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
     await expectAssistant(page, "已按你的确认完成当前 Career 工作流。");
     const jobsBefore = await readStore(page, "jobDescriptions");
     await send(page, "P51-C02-FIT 这个岗位适合我吗？");
-    await expectAssistant(page, "C02_FIT_COMPLETE");
+    await expectAssistant(page, "C02FITCOMPLETE");
     await installCoreWritingProvider(page);
     await send(page, "P51-C02-TAILOR 那按它帮我改简历，别改模板，只改内容。");
-    await expectAssistant(page, "C02_TAILOR_READY");
+    await expectTailoringReview(page, trace);
     const inline = page.locator(".agent-tailoring-inline");
     await expect(inline).toBeVisible();
     if (!await inline.evaluate(element => (element as HTMLDetailsElement).open)) await inline.locator("summary").click();
@@ -208,6 +221,112 @@ test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
     await page.goto(`/resume?branchId=${encodeURIComponent(String(target.id))}`);
     await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
     await verifyCoreResumePdf(page, String(target.id));
+  });
+
+  test("CASE M Core-02 — new material to confirmed Profile, General Resume, Job, isolated tailoring and PDF", async ({ page }, testInfo) => {
+    test.setTimeout(240_000);
+    const trace = observeRuntimeAndBridge(page);
+    closeoutTraces.set(page, trace);
+    await openWorkspace(page);
+    const beforeProfiles = await readStore(page, "profiles");
+    const beforeBranches = await readStore(page, "resumeBranches");
+    await page.evaluate(() => {
+      const settings = JSON.parse(localStorage.getItem("careeradapt-ai-settings") ?? "{}");
+      localStorage.setItem("careeradapt.resumeImportAiPreference", JSON.stringify({ schemaVersion: "resume-import-ai-preference-v1", mode: "local", providerFingerprint: [settings.provider, settings.baseUrl, settings.model].join("|") }));
+    });
+    await page.locator('.agent-composer input[type="file"]').setInputFiles({ name: "anonymous-career.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(core02Material)) });
+    await send(page, "P51-C02-MATERIAL，把这份职业材料整理到资料库");
+    await expectAssistant(page, "已生成候选资料");
+    await page.getByRole("button", { name: "查看来源与逐项核对", exact: true }).click();
+    const dialog = page.getByTestId("agent-import-review-dialog");
+    await expect(dialog).toBeVisible();
+    await dialog.locator("label.import-target-option").filter({ hasText: "创建新人物" }).click();
+    for (let index = 0; index < 40 && await dialog.getByRole("button", { name: "确认此字段", exact: true }).count(); index++) {
+      await dialog.getByRole("button", { name: "确认此字段", exact: true }).first().click();
+    }
+    for (let index = 0; index < 40 && await dialog.getByRole("button", { name: "核对并保留来源", exact: true }).count(); index++) {
+      await dialog.getByRole("button", { name: "核对并保留来源", exact: true }).first().click();
+    }
+    await dialog.locator(".import-review-footer button.primary-button").click();
+    await expect(dialog).not.toBeVisible();
+    const profiles = await readStore(page, "profiles");
+    expect(profiles).toHaveLength(beforeProfiles.length + 1);
+    const profile = profiles.find(value => !beforeProfiles.some(old => old.id === value.id))!;
+    expect(await readStore(page, "resumeBranches")).toEqual(beforeBranches);
+    await installCoreWritingProvider(page);
+    await send(page, "P51-C02-COMPOSE 根据这些资料帮我生成一份通用简历。");
+    await expectAssistant(page, "C02COMPOSEREADY");
+    await send(page, "确认生成");
+    await expect.poll(async () => (await readStore(page, "resumeBranches")).filter(branch => branch.profileId === profile.id && branch.branchPurpose === "general").length).toBe(1);
+    const source = (await readStore(page, "resumeBranches")).find(branch => branch.profileId === profile.id && branch.branchPurpose === "general")!;
+    expect(source.profileId).toBe(profile.id);
+    await send(page, "保存这个岗位 CORE-JD：公司 Core Test，数据分析实习生，负责数据清洗，要求了解 Python 或 SQL。");
+    await expect(page.locator(".agent-confirmation")).toBeVisible();
+    await page.locator(".agent-confirmation").getByRole("button", { name: "确认", exact: true }).click();
+    await expectAssistant(page, "已按你的确认完成当前 Career 工作流。");
+    await send(page, "P51-C02-FIT 这个岗位适合我吗？");
+    await expectAssistant(page, "C02FITCOMPLETE");
+    await send(page, "P51-C02-TAILOR 那按它帮我改简历，别改模板，只改内容。");
+    await expectTailoringReview(page, trace);
+    const inline = page.locator(".agent-tailoring-inline");
+    await expect(inline).toBeVisible();
+    for (let index = 0; index < 8 && await inline.getByRole("button", { name: "采用", exact: true }).count(); index++) await inline.getByRole("button", { name: "采用", exact: true }).first().click();
+    await inline.getByRole("button", { name: "提交本次选择", exact: true }).click();
+    await page.locator(".agent-confirmation").getByRole("button", { name: "确认", exact: true }).click();
+    await expect.poll(async () => (await readStore(page, "resumeBranches")).filter(branch => branch.profileId === profile.id && branch.branchPurpose === "job_specific").length).toBe(1);
+    const branches = await readStore(page, "resumeBranches");
+    const target = branches.find(branch => branch.profileId === profile.id && branch.branchPurpose === "job_specific")!;
+    expect(branches.find(branch => branch.id === source.id)).toEqual(source);
+    expect(await readStore(page, "profiles")).toEqual(profiles);
+    expect(target.sourceBranchId).toBe(source.id);
+    expect((await readStore(page, "jobDescriptions")).filter(job => String(job.title).includes("CORE-JD"))).toHaveLength(1);
+    await page.goto(`/resume?branchId=${encodeURIComponent(String(target.id))}`);
+    await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
+    await verifyCoreResumePdf(page, String(target.id));
+    await testInfo.attach("core02-M-tools", { body: JSON.stringify(trace), contentType: "application/json" });
+  });
+
+  test("CASE N Scenario D — content-only Hermes tailoring inherits Presentation through official PDF", async ({ page }, testInfo) => {
+    test.setTimeout(240_000);
+    const trace = observeRuntimeAndBridge(page);
+    closeoutTraces.set(page, trace);
+    await openWorkspace(page);
+    const beforeIds = new Set((await readStore(page, "resumeBranches")).map(branch => branch.id));
+    await prepareCoreSourceResume(page);
+    const source = (await readStore(page, "resumeBranches")).find(branch => !beforeIds.has(branch.id) && branch.branchPurpose === "general")!;
+    const profilesBefore = await readStore(page, "profiles");
+    const metaBefore = await readStore(page, "appMeta");
+    const sourcePresentation = metaBefore.find(row => row.key === `resumePresentationConfig:${source.id}`)!.value as Record<string, unknown>;
+    const visual = (value: Record<string, unknown>) => Object.fromEntries(Object.entries(value).filter(([key]) => !["branchId", "contentRevision", "presentationRevision", "updatedAt"].includes(key)));
+    await page.goto("/ai-workspace");
+    await startFreshConversation(page);
+    await send(page, "P51-C02-JOB-AI CORE-JD 保存这个岗位：AI 产品实习生，参与需求梳理、原型设计和功能验收。");
+    await expect(page.locator(".agent-confirmation")).toBeVisible();
+    await page.locator(".agent-confirmation").getByRole("button", { name: "确认", exact: true }).click();
+    await expectAssistant(page, "已按你的确认完成当前 Career 工作流。");
+    await installCoreWritingProvider(page);
+    await send(page, "P51-C02-TAILOR 按这个岗位优化，只改内容，别改模板。");
+    await expectTailoringReview(page, trace);
+    const inline = page.locator(".agent-tailoring-inline");
+    await expect(inline).toBeVisible();
+    for (let index = 0; index < 8 && await inline.getByRole("button", { name: "采用", exact: true }).count(); index++) await inline.getByRole("button", { name: "采用", exact: true }).first().click();
+    await inline.getByRole("button", { name: "提交本次选择", exact: true }).click();
+    await page.locator(".agent-confirmation").getByRole("button", { name: "确认", exact: true }).click();
+    await expect.poll(async () => (await readStore(page, "resumeBranches")).some(branch => branch.sourceBranchId === source.id && branch.branchPurpose === "job_specific")).toBe(true);
+    const branches = await readStore(page, "resumeBranches");
+    const target = branches.find(branch => branch.sourceBranchId === source.id && branch.branchPurpose === "job_specific")!;
+    expect(branches.find(branch => branch.id === source.id)).toEqual(source);
+    expect(await readStore(page, "profiles")).toEqual(profilesBefore);
+    expect(target.structuredContentItems).not.toEqual(source.structuredContentItems);
+    const targetPresentation = (await readStore(page, "appMeta")).find(row => row.key === `resumePresentationConfig:${target.id}`)!.value as Record<string, unknown>;
+    expect(visual(targetPresentation)).toEqual(visual(sourcePresentation));
+    await page.goto(`/resume?branchId=${encodeURIComponent(String(target.id))}`);
+    await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
+    await verifyCoreResumePdf(page, String(target.id));
+    expect(visual((await readStore(page, "appMeta")).find(row => row.key === `resumePresentationConfig:${target.id}`)!.value as Record<string, unknown>)).toEqual(visual(sourcePresentation));
+    await testInfo.attach("scenario-D-presentation", { body: JSON.stringify({ sourceId: source.id, targetId: target.id,
+      sourceRevision: source.currentRevisionId, targetRevision: target.currentRevisionId, templateId: sourcePresentation.templateId,
+      presentationSHA256: createHash("sha256").update(JSON.stringify(visual(sourcePresentation))).digest("hex"), trace }), contentType: "application/json" });
   });
 
   test("CASE I — pasted JD crosses real Hermes and MCP, then one Host confirmation saves the Job", async ({ page }) => {
@@ -269,6 +388,24 @@ test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
 
 async function openWorkspace(page: Page) {
   await page.addInitScript(() => {
+    window.__core02IO = [];
+    const record = (value: string) => { window.__core02IO!.push(value); if (window.__core02IO!.length > 200) window.__core02IO!.shift(); };
+    const arrayBuffer = Blob.prototype.arrayBuffer;
+    Blob.prototype.arrayBuffer = async function () {
+      record("blob:start");
+      const bytes = await arrayBuffer.call(this);
+      record("blob:complete");
+      return bytes;
+    };
+    const put = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function (...args: Parameters<typeof put>) {
+      const request = put.apply(this, args);
+      const name = this.name;
+      record(`put:${name}:start`);
+      request.addEventListener("success", () => record(`put:${name}:success`));
+      request.addEventListener("error", () => record(`put:${name}:error`));
+      return request;
+    };
     window.__caseIEvents = [];
     const original = window.fetch.bind(window);
     window.fetch = async (...args: Parameters<typeof fetch>) => {
@@ -320,6 +457,22 @@ async function openWorkspace(page: Page) {
     const payload = await response.json() as { status?: { connected?: boolean; discoveredToolCount?: number } };
     return payload.status;
   }, { timeout: 60_000, intervals: [250, 500, 1_000] }).toMatchObject({ connected: true, discoveredToolCount: expect.any(Number) });
+  await expect.poll(async () => (await readStore(page, "appMeta")).some(row => row.key === "demoSeededAt")).toBe(true);
+}
+
+async function startFreshConversation(page: Page) {
+  const previous = await page.evaluate(() => localStorage.getItem("careeradapt.agent.activeSessionId"));
+  await page.getByRole("button", { name: "新任务", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("careeradapt.agent.activeSessionId"))).not.toBe(previous);
+  await expect(page.getByLabel("描述你的求职任务")).toBeEnabled();
+}
+
+async function expectTailoringReview(page: Page, trace: ReturnType<typeof observeRuntimeAndBridge>) {
+  await expect.poll(() => trace.toolReceipts.some(value => {
+    const receipt = value as { result?: { ok?: boolean; data?: { status?: string; workflowStage?: string } } };
+    return receipt.result?.ok && receipt.result.data?.status === "review_ready" && receipt.result.data.workflowStage === "preview_changes";
+  })).toBe(true);
+  await expect(page.locator(".agent-tailoring-inline")).toBeVisible();
 }
 
 async function send(page: Page, message: string) {
@@ -353,6 +506,9 @@ async function expectToolNames(trace: ReturnType<typeof observeRuntimeAndBridge>
 function observeRuntimeAndBridge(page: Page) {
   const returnedToolResults: Array<{ requestId?: string; ok?: boolean; status?: string; at: string }> = [];
   const runtimeActions: string[] = [];
+  const runRequests: unknown[] = [];
+  const runReceipts: unknown[] = [];
+  const toolReceipts: unknown[] = [];
   const resultActions: string[] = [];
   const toolRequests: Array<{ name: string; input: unknown }> = [];
   page.on("request", (request) => {
@@ -360,12 +516,14 @@ function observeRuntimeAndBridge(page: Page) {
     if (url.pathname.endsWith("/api/agent/runtime/hermes")) {
       const body = parseJson(request.postData());
       if (typeof body?.action === "string") runtimeActions.push(body.action);
+      if (body?.action === "run_start") runRequests.push(body);
       return;
     }
     if (url.pathname.endsWith("/api/agent/mcp") && url.searchParams.get("bridge") === "1") {
       const body = parseJson(request.postData());
       if (body?.action === "result") {
         resultActions.push("result");
+        toolReceipts.push(body);
         const result = body.result as { ok?: boolean; data?: { status?: string } } | undefined;
         returnedToolResults.push({ requestId: body.requestId as string | undefined, ok: result?.ok, status: result?.data?.status, at: new Date().toISOString() });
       }
@@ -373,6 +531,9 @@ function observeRuntimeAndBridge(page: Page) {
   });
   page.on("response", async (response) => {
     const url = new URL(response.url());
+    if (url.pathname.endsWith("/api/agent/runtime/hermes") && parseJson(response.request().postData())?.action === "run_start") {
+      runReceipts.push(await response.json());
+    }
     if (url.pathname.endsWith("/api/agent/runtime/hermes") && parseJson(response.request().postData())?.action === "run_events") {
       return;
     }
@@ -382,7 +543,7 @@ function observeRuntimeAndBridge(page: Page) {
       if (typeof request.name === "string") toolRequests.push({ name: request.name, input: request.input });
     }
   });
-  return { runtimeActions, resultActions, toolRequests, returnedToolResults };
+  return { runtimeActions, resultActions, toolRequests, returnedToolResults, runRequests, runReceipts, toolReceipts };
 }
 
 async function readProviderEvidence(page: Page): Promise<{ requests: Array<{ at: string; responseToolCallId?: string; toolResults: Array<{ toolCallId: string; jobId?: string }> }> }> {
@@ -422,3 +583,120 @@ function parseJson(value: string | null) {
     return undefined;
   }
 }
+
+
+test.describe("Core Hermes Behavior Baseline", () => {
+  test.afterAll(async () => {
+    if (!process.env.HERMES_CORE_BEHAVIOR) return;
+    const records = (await readFile(`.tmp/core02-behavior-${process.env.HERMES_CORE_BEHAVIOR_RUN_ID}.jsonl`, "utf8")).trim().split("\n").map(line => JSON.parse(line));
+    await writeFile(".tmp/core02-hermes-behavior.json", JSON.stringify({
+      providerKind: "simulated", scope: "Locked Hermes + MCP + Host; scripted Provider, not natural-language model quality certification",
+      manifestCount: core02BehaviorCases.length, executedCount: records.length,
+      cases: records
+    }, null, 2));
+  });
+  for (const definition of core02BehaviorCases) {
+    test(`BEHAVIOR ${definition.id}`, async ({ page }, testInfo) => {
+      test.setTimeout(180_000);
+      const item = definition as typeof definition & { source?: boolean; savedJob?: boolean; cancel?: boolean; terminal?: string; expectedFailure?: boolean };
+      const trace = observeRuntimeAndBridge(page);
+      const result: Record<string, unknown> = { id: item.id, category: item.category, status: "failed" };
+      let before: unknown;
+      let startTool = 0;
+      let providerStart = 0;
+      try {
+        await openWorkspace(page);
+        if (item.source) {
+          await prepareCoreSourceResume(page);
+          await page.goto("/ai-workspace");
+          await startFreshConversation(page);
+          await expect(page.locator(".agent-runtime-status")).toHaveAttribute("aria-label", /状态 Ready/u, { timeout: 90_000 });
+        }
+        if (item.savedJob) {
+          await send(page, "CORE-JD 保存这个岗位");
+          await expect(page.locator(".agent-confirmation")).toBeVisible();
+          await page.locator(".agent-confirmation").getByRole("button", { name: "确认", exact: true }).click();
+          await expectAssistant(page, "已按你的确认完成当前 Career 工作流。");
+        }
+        await installCoreWritingProvider(page);
+        startTool = trace.toolRequests.length;
+        const providerBefore = await readProviderEvidence(page);
+        providerStart = providerBefore.requests.length;
+        const formal = async () => Object.fromEntries(await Promise.all(["profiles", "resumeBranches", "resumeRevisions", "jobDescriptions"].map(async name => [name, await readStore(page, name)])));
+        before = await formal();
+        if (item.category === "material") {
+          await page.evaluate(() => {
+            const settings = JSON.parse(localStorage.getItem("careeradapt-ai-settings") ?? "{}");
+            localStorage.setItem("careeradapt.resumeImportAiPreference", JSON.stringify({ schemaVersion: "resume-import-ai-preference-v1", mode: "local", providerFingerprint: [settings.provider, settings.baseUrl, settings.model].join("|") }));
+          });
+          const resumeMaterial = item.id === "material-resume";
+          await page.locator('.agent-composer input[type="file"]').setInputFiles({ name: resumeMaterial ? "career.json" : "certificate.txt", mimeType: resumeMaterial ? "application/json" : "text/plain", buffer: Buffer.from(resumeMaterial ? JSON.stringify(core02Material) : "证书\n大学英语六级 2025-06") });
+        }
+        await send(page, item.text);
+        if (item.cancel) {
+          await expect(page.locator(".agent-confirmation")).toBeVisible();
+          await page.locator(".agent-confirmation").getByRole("button", { name: "取消", exact: true }).click();
+        } else if (item.expectedFailure) {
+          await expect.poll(async () => (await readStore(page, "agentSessions")).some(session => {
+            const run = session.hermesRun as { status?: string } | undefined;
+            return run && ["failed", "completed"].includes(String(run.status));
+          }), { timeout: 60_000 }).toBe(true);
+        } else if (item.id === "tailor-followup") {
+          await expectTailoringReview(page, trace);
+        } else {
+          await expectAssistant(page, item.terminal!);
+        }
+        const after = await formal();
+        const tools = trace.toolRequests.slice(startTool);
+        const names = tools.map(tool => tool.name);
+        const requests = (await readProviderEvidence(page)).requests.slice(providerBefore.requests.length);
+        const sessions = await readStore(page, "agentSessions");
+        const current = sessions.find(session => session.hermesRun)!;
+        const task = current.taskState as { completionStatus?: string; pendingQuestions?: unknown[]; knownSlots?: Record<string, unknown> } | undefined;
+        const signatures = tools.map(tool => JSON.stringify([tool.name, tool.input]));
+        const noWrites = JSON.stringify(after) === JSON.stringify(before);
+        Object.assign(result, { toolSequence: names, toolChoiceAccuracy: JSON.stringify(names) === JSON.stringify(item.tools) ? 1 : 0,
+          repeatedToolCallCount: signatures.length - new Set(signatures).size,
+          providerRequestCount: requests.length, runCount: trace.runReceipts.length,
+          runReceipts: trace.runReceipts, careerCheckpoints: trace.runRequests,
+          hostPendingQuestionCount: task?.pendingQuestions?.length ?? 0,
+          formalStateUnchanged: noWrites, wrongTargetWriteCount: noWrites ? 0 : "REQUIRES_REVIEW",
+          unsupportedFormalClaimCount: noWrites ? 0 : "REQUIRES_REVIEW",
+          finalCompletion: task?.completionStatus ?? "no_workflow", finalRun: current.hermesRun,
+          expectedFailure: item.expectedFailure ?? false, toolResults: trace.toolReceipts });
+        expect(names).toEqual([...item.tools]);
+        expect(noWrites).toBe(true);
+        result.status = "passed";
+      } finally {
+        const tools = trace.toolRequests.slice(startTool);
+        const signatures = tools.map(tool => JSON.stringify([tool.name, tool.input]));
+        const requests = (await readProviderEvidence(page)).requests.slice(providerStart);
+        const sessions = await readStore(page, "agentSessions");
+        const current = sessions.find(session => session.hermesRun);
+        const task = current?.taskState as { completionStatus?: string; pendingQuestions?: unknown[] } | undefined;
+        const after = Object.fromEntries(await Promise.all(["profiles", "resumeBranches", "resumeRevisions", "jobDescriptions"].map(async name => [name, await readStore(page, name)])));
+        const unchanged = before !== undefined && JSON.stringify(before) === JSON.stringify(after);
+        Object.assign(result, {
+          toolSequence: tools.map(tool => tool.name),
+          toolChoiceAccuracy: JSON.stringify(tools.map(tool => tool.name)) === JSON.stringify(item.tools) ? 1 : 0,
+          repeatedToolCallCount: signatures.length - new Set(signatures).size,
+          providerRequestCount: requests.length,
+          hostPendingQuestionCount: task?.pendingQuestions?.length ?? 0,
+          unnecessaryClarificationCount: task?.pendingQuestions?.length ?? 0,
+          clarificationOracle: "No clarification required in these scripted scenarios; Host pending questions observed at boundary",
+          unsupportedClaimCount: unchanged ? 0 : "UNMEASURED_FORMAL_STATE_CHANGED",
+          wrongTargetWriteCount: unchanged ? 0 : "UNMEASURED_FORMAL_STATE_CHANGED",
+          formalStateUnchanged: unchanged,
+          finalCompletion: task?.completionStatus === "completed",
+          finalWorkflowStatus: task?.completionStatus ?? "none",
+          finalRun: current?.hermesRun,
+          toolResults: trace.toolReceipts, providerRequests: requests,
+          runReceipts: trace.runReceipts, runRequests: trace.runRequests
+        });
+        result.io = await page.evaluate(() => window.__core02IO);
+        await appendFile(`.tmp/core02-behavior-${process.env.HERMES_CORE_BEHAVIOR_RUN_ID}.jsonl`, `${JSON.stringify(result)}\n`);
+        await testInfo.attach("behavior-receipt", { body: JSON.stringify({ ...result, trace }, null, 2), contentType: "application/json" });
+      }
+    });
+  }
+});

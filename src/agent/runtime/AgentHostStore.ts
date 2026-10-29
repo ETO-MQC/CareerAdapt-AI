@@ -3179,6 +3179,16 @@ export class AgentHostStore {
 
   private async resolveExternalResumeImportConfirmation(session: AgentSession, rawObservation: unknown) {
     const observation = objectValue(rawObservation);
+    const importId = stringValue(observation.importId);
+    const repository = this.getCareerRepository();
+    const draft = importId ? await repository.getImportedResumeDraft(importId) : undefined;
+    if (!draft || draft.status !== "confirmed" || draft.confirmedProfileId !== observation.profileId
+      || (draft.source.sourceSessionId && draft.source.sourceSessionId !== session.id)
+      || draft.confirmedBranchId !== stringValue(observation.branchId ?? observation.resumeId)) {
+      throw new Error("resume_import_confirmation_receipt_mismatch");
+    }
+    const profile = await repository.getProfile(draft.confirmedProfileId!);
+    if (!profile?.personId || profile.archivedAt) throw new Error("career_context_target_invalid");
     const reducer = new AgentTaskStateReducer();
     const taskState = reducer.reduce(session.taskState!, {
       type: "tool_observation",
@@ -3187,7 +3197,7 @@ export class AgentHostStore {
     });
     const now = new Date().toISOString();
     let current = projectTaskStateIntoSession(
-      appendAgentMessage(session, "assistant", "已确认导入，并将资料与通用简历保存到本地工作区。", {
+      appendAgentMessage(session, "assistant", draft.confirmedBranchId ? "已确认导入，并将资料与通用简历保存到本地工作区。" : "已确认导入，并将资料保存到本地资料库。", {
         id: `agent-import-confirmed-${String(observation.importId ?? session.id)}`,
         kind: "text",
         type: "text",
@@ -3196,7 +3206,17 @@ export class AgentHostStore {
       }),
       taskState
     );
-    const branchId = stringValue(observation.branchId ?? observation.resumeId);
+    current = {
+      ...current,
+      personId: profile.personId,
+      activeProfileId: profile.id,
+      profileVersionNumber: profile.profileVersionNumber ?? 1,
+      profileRevision: profile.version,
+      taskState: { ...current.taskState!, selectedEntities: {
+        ...current.taskState!.selectedEntities, profileId: profile.id, profileVersion: profile.version
+      } }
+    };
+    const branchId = draft.confirmedBranchId;
     if (branchId) {
       const artifactId = `agent-artifact-import-complete-${branchId}`;
       current = {

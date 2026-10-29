@@ -1,3 +1,5 @@
+import { NextRequest } from "next/server";
+import { POST } from "@/app/api/agent/runtime/hermes/route";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { classifyHermesRunFailure, companionHealthFailure } from "@/agent/runtime/hermes/hermesRunReliability";
 import { HttpHermesBridgeTransport, mapOfficialHermesEvent } from "@/agent/runtime/hermes/HermesBridgeTransport";
@@ -15,6 +17,19 @@ function degraded(overrides: Partial<HermesSupervisorSnapshot> = {}): HermesSupe
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 describe("R2-OBS-01 evidence-based error propagation", () => {
+  it.each([
+    [{ code: "auth_failed" }, "control_plane", "runtime_control_auth"],
+    [{ code: "auth_failed", failureLayer: "provider", httpStatus: 401 }, "provider", "provider_auth"],
+    [{ code: "provider_http_401" }, "provider", "provider_auth"]
+  ] as const)("preserves structured auth evidence through the real Next run boundary: %j", async (error, layer, category) => {
+    vi.stubEnv("HERMES_RUNTIME_URL", "http://127.0.0.1:18643");
+    vi.stubEnv("API_SERVER_KEY", "synthetic-control");
+    vi.stubEnv("HERMES_RUNTIME_PROTOCOL", "official");
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ error }, { status: 401 })));
+    const response = await POST(new NextRequest("http://localhost/api/agent/runtime/hermes", { method: "POST", body: JSON.stringify({ action: "run_start", sessionId: "anonymous-session", userMessage: "hello" }) }));
+    expect((await response.json()).error.diagnostics).toMatchObject({ failureLayer: layer, safeErrorCategory: category, httpStatus: 401 });
+  });
+
   it.each([200, 401])("preserves restored secure-store provenance through the actual health route with Provider HTTP %s", async (providerHttpStatus) => {
     vi.stubEnv("HERMES_RUNTIME_URL", "http://127.0.0.1:18643");
     vi.stubEnv("API_SERVER_KEY", "r2-control-synthetic");

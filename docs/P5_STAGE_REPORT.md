@@ -1,5 +1,14 @@
 # P5 阶段报告与智能体优化交接
 
+## 2026-10-29 Core-02-CLOSEOUT：PARTIAL / 未冻结
+
+最新基线 HEAD/origin/main 为 `229ad9db`，起始工作区干净。本轮修复材料切人物重勾创建简历、导入确认后 Session Profile 绑定缺失、JD 确认绑定补齐导致解析 operation 冲突，以及明确 Provider 401 证据被 Next 覆盖；旧 bare401 断言按现行契约更新，classifier/CAS/Fact Guard 未放宽。
+
+L 唯一复验在创建 Run 前 ECONNRESET；M 达两次长等待后停止；D 两次失败后定位夹具严格 Schema 不符，已修未复验。B/C 服务多步骤集成通过，完整 Hermes B/C/D 与材料→PDF 仍未认证。12 项独立 Hermes 行为基线实际执行，第二轮10通过/2失败、13 Run/34模拟请求；40/40仍仅安全oracle映射。目录14 CASE不是通过数；完整 Gate 因 L/M/D 前置未过未执行，既有 C/J/I 定向1通过/1失败/1未执行。
+
+最终相关26文件236项、lint/build/bundle-check/typecheck通过；UI3/3及最终正式PDF1/1通过。真实Provider=REAL_PROVIDER_BLOCKED（无安全配置，真实请求0），OCR/安装包未认证。不能冻结或进入Skills Quality；P518仍OPEN。用户已追加授权提交并推送，提交号与远程状态以 Git 和最新交接为准；未打包。历史失败保留，细节见[专项报告第10节](architecture/p5.1-core-02-career-intelligence-20261029.md)及 evidence 的 closeout20261029。
+
+
 ## 2026-10-29：P5.1-Core-02 部分交付，完整 Hermes 链未验收
 
 本轮用户授权 A～F，基线 HEAD/远程 main 均为 `bfad45ea`、起始干净。保留 Core-01/P5.1.2 已有能力，仅补 Career Context 的版本/成熟度/来源与跨 Run ID checkpoint、版本绑定 Evidence Matrix、Fit→TailoringSession/Composition→Writer/Reviewer 接线、Profile/Job 原子 CAS 和目标切换拒绝，以及三个独立诊断维度。固定 40 个匿名场景映射基线与六个 Skills 哈希已记录；没有新表、生产依赖、第二运行时或 PDF renderer，没有修改 Fact Guard 阈值。

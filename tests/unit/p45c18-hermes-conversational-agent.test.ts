@@ -132,7 +132,10 @@ describe("P4.5c.1.8 Hermes conversational career agent", () => {
   });
 
   it("classifies the common run_start failure layers and carries one logical ID", async () => {
-    expect(classifyHermesRunFailure({ httpStatus: 401, code: "auth_failed" }).safeErrorCode).toBe("hermes_provider_auth_failed");
+    expect(classifyHermesRunFailure({ httpStatus: 401, code: "auth_failed" })).toMatchObject({ safeErrorCode: "hermes_run_start_http_failed", failureLayer: "bridge_http" });
+    expect(classifyHermesRunFailure({ httpStatus: 401, code: "auth_failed", failureLayer: "control_plane" })).toMatchObject({ safeErrorCategory: "runtime_control_auth", failureLayer: "control_plane" });
+    expect(classifyHermesRunFailure({ httpStatus: 401, code: "auth_failed", failureLayer: "provider" })).toMatchObject({ safeErrorCode: "hermes_provider_auth_failed", failureLayer: "provider" });
+    expect(classifyHermesRunFailure({ code: "provider_http_401" })).toMatchObject({ safeErrorCode: "hermes_provider_auth_failed", failureLayer: "provider" });
     expect(classifyHermesRunFailure({ httpStatus: 409, code: "conflict" }).safeErrorCode).toBe("hermes_active_run_conflict");
     expect(classifyHermesRunFailure({ code: "timeout" }).safeErrorCode).toBe("hermes_run_start_timeout");
     expect(classifyHermesRunFailure({ code: "invalid_run" }).safeErrorCode).toBe("hermes_run_start_invalid_response");

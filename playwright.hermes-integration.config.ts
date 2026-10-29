@@ -6,6 +6,7 @@ export default defineConfig({
   timeout: 120_000,
   expect: { timeout: 30_000 },
   fullyParallel: false,
+  grep: /CASE [A-N]/u,
   workers: 1,
   reporter: "line",
   use: {

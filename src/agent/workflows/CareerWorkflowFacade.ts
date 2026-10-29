@@ -332,7 +332,7 @@ export async function executeCareerWorkflowFacade(
   }
   if (name === "career.workflow.job_intake") {
     if (input.attachmentId) {
-      const extracted = await call("career.material.prepare", { attachmentId: input.attachmentId, destination: "inspect", sessionId: requiredString(context.agentSessionId ?? context.careerSessionBinding?.agentSessionId, "agentSessionId") }, 3);
+      const extracted = await call("career.material.prepare", { attachmentId: input.attachmentId, destination: "inspect", sessionId: requiredString(context.agentSessionId ?? context.careerSessionBinding?.agentSessionId, "agentSessionId") }, 3, { careerSessionBinding: undefined, requireSessionBinding: false });
       if (!extracted.ok) return facadeFromAtomic(name, operationId, extracted, "failed", "review_source", undefined, { kind: "material_intake" }, context);
       const source = objectValue(extracted.data);
       if (source.nextAction === "manual_review") return facadeFromAtomic(name, operationId, extracted, "waiting_for_user", "manual_review", stringValue(source.userPrompt), { kind: "material_intake", result: source }, context);
@@ -347,7 +347,9 @@ export async function executeCareerWorkflowFacade(
       rawText: input.rawText,
       ...(input.title ? { title: input.title } : {}),
       ...(input.company ? { company: input.company } : {})
-    });
+    }, 0, { careerSessionBinding: undefined, requireSessionBinding: false });
+    // Parsing is person-independent. Confirmation can resolve a Profile binding,
+    // but must still reuse the same source analysis; commit remains bound below.
     const analysis = objectValue(parsed.data);
     const title = stringValue(analysis.candidateTitle);
     const company = stringValue(analysis.candidateCompany);

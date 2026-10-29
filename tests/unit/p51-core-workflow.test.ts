@@ -1,3 +1,5 @@
+import { AgentTaskStateSchema } from "@/agent/contracts/agentSession";
+import { executeCareerWorkflowFacade } from "@/agent/workflows/CareerWorkflowFacade";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CareerAdaptDb } from "@/services/storage/db";
 import { WorkspaceRepository } from "@/services/storage/repositories";
@@ -196,6 +198,20 @@ describe("P5.1 Core production workflow boundaries", () => {
     expect(await db.rawInputs.count()).toBe(0);
   });
 
+  it("reuses a person-independent JD parse after confirmation adds the resolved session binding", async () => {
+    const f = await fixture();
+    const parse = vi.spyOn(f.service, "parseJobDescription");
+    const operationId = "binding-added-after-confirmation";
+    const input = { rawText: JD, persistence: "save" };
+    const first = await f.gateway.execute("career.workflow.job_intake", input, { agentSessionId: "core-session", operationId, userMessageId: "same-user" });
+    expect(first.ok).toBe(false);
+    const confirmed = await f.gateway.execute("career.workflow.job_intake", input, { ...f.context, operationId, userMessageId: "same-user" });
+    expect(confirmed.ok, JSON.stringify(confirmed.error)).toBe(true);
+    expect(confirmed.data).toMatchObject({ status: "completed" });
+    expect(parse).toHaveBeenCalledTimes(1);
+    expect(await f.repository.listJobDescriptions()).toHaveLength(1);
+  });
+
   it("saves idempotently, versions a changed JD under the same Job, and keeps raw sources", async () => {
     const f = await fixture();
     const before = await f.repository.getProfile(f.profile.id);
@@ -260,6 +276,33 @@ describe("P5.1 Core production workflow boundaries", () => {
     })).rejects.toThrow();
     expect(await f.repository.listResumeBranches()).toEqual(before);
     expect(await f.repository.getResumeBranch(b.branch.id)).toEqual(b.branch);
+  });
+
+  it("Scenario C: switching Job regenerates the real EvidenceMatrix and rejects the unchanged old proposal", async () => {
+    const f = await fixture();
+    await f.gateway.execute("career.workflow.job_intake", { rawText: JD, persistence: "save" }, { ...f.context, operationId: "job-A" });
+    const jobA = (await f.repository.listJobDescriptions())[0];
+    await f.gateway.execute("career.workflow.job_intake", { rawText: JD.replace("前端工程师", "数据分析师").replace("React 应用开发", "SQL 数据分析"), persistence: "save" }, { ...f.context, operationId: "job-B" });
+    const jobB = (await f.repository.listJobDescriptions()).find(job => job.id !== jobA.id)!;
+    const source = (await f.repository.ensureGeneralResumeFromProfile({ profileId: f.profile.id, operationId: "switch-source", mode: "create_new" })).branch;
+    const a = (await f.service.createTailoringSession({ profileId: f.profile.id, resumeId: source.id, jobId: jobA.id }, "proposal-A")).session;
+    const oldSnapshot = structuredClone(a);
+    const task = AgentTaskStateSchema.parse({ rootGoal: "tailor_existing_resume", activeGoal: "tailor_existing_resume", workflowId: "tailor_existing_resume",
+      stage: "preview_changes", updatedAt: new Date().toISOString(), selectedEntities: { profileId: f.profile.id, sourceResumeId: source.id, jobId: jobB.id },
+      knownSlots: { tailoringSession: a } });
+    const call = vi.fn();
+    const rejected = await executeCareerWorkflowFacade("career.workflow.tailor_resume", { checkpointId: a.id },
+      { ...f.context, authoritativeTaskState: task }, "wrong-target-attempt", call);
+    expect(rejected.data).toMatchObject({ status: "failed", safeError: { code: "tailoring_checkpoint_target_mismatch" } });
+    expect(call).not.toHaveBeenCalled();
+    const b = (await f.service.createTailoringSession({ profileId: f.profile.id, resumeId: source.id, jobId: jobB.id }, "proposal-B")).session;
+    expect(b.candidateEvidenceMatrix!.binding.jobId).toBe(jobB.id);
+    expect(a.candidateEvidenceMatrix!.binding.jobId).toBe(jobA.id);
+    expect(b.candidateEvidenceMatrix!.analysisId).not.toBe(a.candidateEvidenceMatrix!.analysisId);
+    expect(a).toEqual(oldSnapshot);
+    expect(await f.repository.getJobDescription(jobA.id)).toEqual(jobA);
+    expect(await f.repository.getResumeBranch(source.id)).toEqual(source);
+    expect(await f.repository.listResumeBranches()).toHaveLength(1);
   });
 
   it("inherits the selected source template, typography, and section order in Profile-to-Job composition", async () => {

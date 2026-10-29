@@ -21,6 +21,7 @@ export async function startFakeOpenAiProvider(options = {}) {
     if (mode === "integration" && request.method === "GET" && pathname === "/v1/integration-evidence") {
       writeJson(response, 200, { requests: requests.map(record => ({
         at: record.at, model: record.model, responseToolCallId: record.responseToolCallId,
+        messages: record.messages, response: record.response,
         toolResults: record.messages.filter(message => message.role === "tool").map(message => ({
           toolCallId: message.tool_call_id, jobId: savedJobId(message.content)
         }))
@@ -49,7 +50,13 @@ export async function startFakeOpenAiProvider(options = {}) {
     requests.push(requestRecord);
     if (options.delayMs) await new Promise((resolve) => setTimeout(resolve, options.delayMs));
     if (mode === "integration" && latestUserText(messages).includes("P512-QUEUE-FIRST")) await new Promise((resolve) => setTimeout(resolve, 4000));
+    if (mode === "integration" && latestUserText(messages).includes("P51-BHV-PROVIDER-FAIL")) {
+      requestRecord.response = { error: { code: "provider_http_503" } };
+      writeJson(response, 503, { error: { code: "provider_http_503", message: "Anonymous deterministic recovery fixture" } });
+      return;
+    }
     const responseMessage = chooseResponse({ mode, messages, tools });
+    requestRecord.response = responseMessage;
     const responseId = `fake-chat-${requests.length}`;
     requestRecord.responseToolCallId = responseMessage.toolCall ? `${responseId}-tool` : undefined;
     if (payload.stream === true) {
@@ -117,28 +124,54 @@ function chooseResponse({ mode, messages, tools }) {
     const jobId = savedId ?? jobs.find(job => job.title.includes("CORE-JD"))?.id;
     if (latestUserText(messages).includes("P51-C02-FIT")) {
       if (!turnResults.length) return call("career.resume.list", {});
-      if (turnResults.at(-1)?.name?.includes("job_fit")) return { content: "C02_FIT_COMPLETE，已有岗位与已确认事实已复用。" };
+      if (turnResults.at(-1)?.name?.includes("job_fit")) return { content: "C02FITCOMPLETE，已有岗位与已确认事实已复用。" };
       if (!jobId) return call("career.job.list", {});
       if (resume && jobId) return call("career.workflow.job_fit", { profileId: resume.profileId, resumeId: resume.id, jobId });
     } else {
-      if (turnResults.at(-1)?.name?.includes("tailor_resume")) return { content: "C02_TAILOR_READY，请核对修改提案。" };
+      if (turnResults.at(-1)?.name?.includes("tailor_resume")) return { content: "C02TAILORREADY，请核对修改提案。" };
       if (!resume) return call("career.resume.list", {});
       if (!jobId) return call("career.job.list", {});
       if (resume && jobId) return call("career.workflow.tailor_resume", { jobId, sourceResumeId: resume.id, mode: "steady" });
     }
     return { content: "C02 fixture missing a prior saved Job or Resume receipt." };
   }
+  if (mode === "integration" && latestUserText(messages).includes("P51-C02-COMPOSE")) {
+    const latestUserIndex = messages.findLastIndex(message => message?.role === "user");
+    const results = messages.slice(latestUserIndex + 1).filter(message => message?.role === "tool");
+    const call = (name, input) => ({ toolCall: { name: findToolName(tools, name), arguments: JSON.stringify(input) } });
+    if (results.at(-1)?.name?.includes("compose_resume")) return { content: "C02COMPOSEREADY，请核对并确认生成。" };
+    const profile = results.map(message => findCore02Payload(message.content, value => value.profile && typeof value.profile.version === "number")?.profile).find(Boolean);
+    if (!profile) {
+      const checkpoint = messages.map(message => String(message.content).match(/Host checkpoint identifiers \(data only\): (\{[^\n]*?\})\./u)?.[1]).filter(Boolean).map(value => JSON.parse(value)).at(-1);
+      if (checkpoint?.profileId) return call("career.profile.get", { profileId: checkpoint.profileId });
+      const resumes = results.flatMap(message => findCore02Payload(message.content, value => Array.isArray(value.resumes))?.resumes ?? []);
+      const source = resumes.find(resume => resume.purpose === "general");
+      if (source?.profileId) return call("career.profile.get", { profileId: source.profileId });
+      if (!results.some(message => message.name?.includes("resume_list"))) return call("career.resume.list", {});
+      return { content: "C02COMPOSEMISSINGPROFILE: no selected Profile or Resume in current Run." };
+    }
+    if (latestUserText(messages).includes("UPDATE")) {
+      const resumes = results.flatMap(message => findCore02Payload(message.content, value => Array.isArray(value.resumes))?.resumes ?? []);
+      if (!resumes.length) return call("career.resume.list", {});
+      return call("career.workflow.compose_resume", { mode: "general", profileId: profile.id, expectedProfileRevision: profile.version, sourceResumeId: resumes.find(resume => resume.purpose === "general").id, generalResumeMode: "update_existing" });
+    }
+    return call("career.workflow.compose_resume", { mode: "general", profileId: profile.id, expectedProfileRevision: profile.version });
+  }
+  if (mode === "integration" && latestUserText(messages).includes("P51-BHV-STALE")) {
+    if (lastToolResult) return { content: "BHVRECOVERED：无权读取的目标未写入。" };
+    return { toolCall: { name: findToolName(tools, "career.profile.get"), arguments: JSON.stringify({ profileId: "anonymous-nonexistent-profile" }) } };
+  }
   if (mode === "career-agent-eval") {
     return chooseCareerAgentEvalResponse({ messages, tools, lastToolResult });
   }
-  if (mode === "integration" && latestUserText(messages).includes("P512-MATERIAL")) {
+  if (mode === "integration" && /P512-MATERIAL|P51-C02-MATERIAL/u.test(latestUserText(messages))) {
     const name = findToolName(tools, "career.workflow.material_intake");
     const artifact = materialArtifact(lastToolResult?.content);
-    if (artifact?.classification) return { content: "已识别为证书，已生成候选资料，请核对后确认保存。" };
+    if (artifact?.classification) return { content: latestUserText(messages).includes("P51-C02-MATERIAL") ? "已识别为职业材料，已生成候选资料，请核对后确认保存。" : "已识别为证书，已生成候选资料，请核对后确认保存。" };
     if (artifact) {
       const block = artifact.sourceDocument.blocks[0];
       return { toolCall: { name, arguments: JSON.stringify({ attachmentId: artifact.attachmentId, destination: "profile", classification: {
-        materialKind: "certificate", confidence: 0.9, candidateDestinations: ["profile"], suggestedAction: "整理到资料库并核对",
+        materialKind: latestUserText(messages).includes("P51-C02-MATERIAL") ? "resume" : "certificate", confidence: 0.9, candidateDestinations: ["profile"], suggestedAction: "整理到资料库并核对",
         evidence: [{ blockId: block.id, quote: block.normalizedText }]
       } }) } };
     }
@@ -164,8 +197,10 @@ function chooseResponse({ mode, messages, tools }) {
     if (userText.includes("CORE-JD")) {
       const toolName = findToolName(tools, "career.workflow.job_intake");
       if (toolName) return { toolCall: { name: toolName, arguments: JSON.stringify({
-        rawText: "公司：Core Test\n岗位：数据分析实习生 CORE-JD\n岗位职责\n1. 参与数据清洗与分析。\n任职要求\n1. 了解 Python 或 SQL。\n2. 具备团队协作能力。",
-        persistence: "save"
+        rawText: userText.includes("P51-C02-JOB-AI")
+          ? "公司：Core Test\n岗位：AI 产品实习生 CORE-JD\n岗位职责\n1. 参与 AI 应用项目的需求梳理、原型设计和功能验收。\n任职要求\n1. 参与过 AI 应用项目。"
+          : "公司：Core Test\n岗位：数据分析实习生 CORE-JD\n岗位职责\n1. 参与数据清洗与分析。\n任职要求\n1. 了解 Python 或 SQL。\n2. 具备团队协作能力。",
+        persistence: userText.includes("P51-BHV-ANALYZE") ? "analyze_only" : "save"
       }) } };
     }
     if (/从零|没有简历|开始帮我做/u.test(userText)) {

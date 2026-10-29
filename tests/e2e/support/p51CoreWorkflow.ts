@@ -4,7 +4,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { openManualPageTab } from "./g7b2Ui";
 import { mapBranchToResumeRenderModel } from "@/domain/resumeRender/mapper";
-import { CareerProfileSchema, JobDescriptionSchema, ResumeBranchSchema } from "@/domain/schemas";
+import { CareerProfileSchema, JobDescriptionSchema, ResumeBranchSchema, ResumeTailoringDiffModelOutputSchema } from "@/domain/schemas";
 
 export async function prepareCoreSourceResume(page: Page) {
     await page.goto("/resume");
@@ -139,16 +139,21 @@ export async function installCoreWritingProvider(page: Page) {
     const body = route.request().postDataJSON() as { task: string; input: Record<string, unknown> };
     const meta = { provider: "isolated-test", model: "core-writer", inputLength: 1, outputLength: 1, latencyMs: 1 };
     let output: unknown;
-    if (body.task === "resume-tailor-diff") {
+    if (body.task === "resume-career-writer") {
+      const assets = body.input.assets as Array<{ sourceAssetId: string; displayIdentity: string; canonicalItem: { role?: string; highlights?: string[] }; factStatements: string[] }>;
+      output = { assets: assets.map(asset => ({ sourceAssetId: asset.sourceAssetId, title: asset.displayIdentity,
+        ...(asset.canonicalItem.role ? { role: asset.canonicalItem.role } : {}), techStack: [],
+        highlights: (asset.canonicalItem.highlights ?? asset.factStatements).slice(0, 4) })), skillGroups: [] };
+    } else if (body.task === "resume-tailor-diff") {
       const input = body.input as unknown as { target: { sectionId: string; itemId: string; fieldPath: string }; currentContent: { fieldValue: string | string[] }; relevantRequirements: Array<{ requirementId: string }>; allowedEvidenceRefs: unknown[] };
       const original = input.currentContent.fieldValue;
       const rephrase = (line: string) => line.includes("需求梳理")
         ? "参与需求梳理、原型设计和功能验收等 AI 应用项目工作。" : line;
       const value = Array.isArray(original) ? original.map(rephrase) : rephrase(original);
-      output = { diffs: JSON.stringify(original) === JSON.stringify(value) ? [] : [{ target: input.target,
+      output = ResumeTailoringDiffModelOutputSchema.parse({ diffs: JSON.stringify(original) === JSON.stringify(value) ? [] : [{ target: { sectionId: input.target.sectionId, itemId: input.target.itemId, fieldPath: input.target.fieldPath },
         operation: "replace", original, value, reason: "重排已确认职责，保留参与边界与来源",
         requirementIds: input.relevantRequirements.map(row => row.requirementId), targetKeywords: [],
-        evidenceRefs: input.allowedEvidenceRefs, supportLevel: "verified" }], clarifications: [] };
+        evidenceRefs: input.allowedEvidenceRefs, supportLevel: "verified" }], clarifications: [] });
     } else if (body.task === "resume-optimization-planner") {
       const sections = body.input.sections as Array<{ itemId: string }>;
       output = { assessments: sections.map(section => ({ itemId: section.itemId, action: "rewrite_from_evidence", reason: "保留已确认事实并统一句末标点", suggestedKeywords: [], relatedRequirementIds: [], clarificationQuestions: [] })) };

@@ -16,6 +16,8 @@ test("material center opens the shared review with Profile-only default", async 
   await dialog.getByLabel("选择职业材料").setInputFiles({ name: "certificate.txt", mimeType: "text/plain", buffer: Buffer.from("证书\n大学英语六级 2025-06") });
   await expect(dialog.locator('input[name="import-create-general-resume"]').first()).toBeVisible();
   await expect(dialog.locator('input[name="import-create-general-resume"]').first()).not.toBeChecked();
+  await dialog.locator("label.import-target-option").filter({ hasText: "创建新人物" }).click();
+  await expect(dialog.locator('input[name="import-create-general-resume"]').first()).not.toBeChecked();
   await expect(dialog.getByText("certificate.txt", { exact: false }).first()).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("material-center-review.png"), fullPage: true });
 });

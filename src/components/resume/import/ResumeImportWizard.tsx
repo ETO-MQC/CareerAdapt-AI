@@ -1218,11 +1218,11 @@ export function ResumeImportWizard(props: {
         <div className="import-target-controls">
         <div className="import-target-options">
           <label className={targetMode === "existing" ? "import-target-option active" : "import-target-option"}>
-            <input type="radio" name="import-target" checked={targetMode === "existing"} disabled={(props.profiles ?? []).length === 0 && !props.profile} onChange={() => { setTargetMode("existing"); setCreateGeneralResume(true); setBasicMergeActions((current) => ({ ...current, name: "keep_existing" })); }} />
+            <input type="radio" name="import-target" checked={targetMode === "existing"} disabled={(props.profiles ?? []).length === 0 && !props.profile} onChange={() => { setTargetMode("existing"); setBasicMergeActions((current) => ({ ...current, name: "keep_existing" })); }} />
             导入到已有资料
           </label>
           <label className={targetMode === "new" ? "import-target-option active" : "import-target-option"}>
-            <input type="radio" name="import-target" checked={targetMode === "new"} onChange={() => { setTargetMode("new"); setCreateGeneralResume(true); if (!newProfileName.trim() && draft?.basics.name?.value) setNewProfileName(draft.basics.name.value); }} />
+            <input type="radio" name="import-target" checked={targetMode === "new"} onChange={() => { setTargetMode("new"); if (!newProfileName.trim() && draft?.basics.name?.value) setNewProfileName(draft.basics.name.value); }} />
             创建新人物
           </label>
         </div>

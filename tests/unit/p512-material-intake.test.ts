@@ -1,3 +1,6 @@
+import { demoCareerProfile } from "@/data/demoProfile";
+import { migrateCareerProfileToV2 } from "@/domain/migrations/resumeV2";
+import { compileResumeComposition, createResumeCompositionCheckpoint } from "@/domain/resumeComposition";
 import { Blob as NodeBlob } from "node:buffer";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { readFile } from "node:fs/promises";
@@ -15,6 +18,7 @@ import { AgentSessionStore } from "@/services/agent/agentSessionStore";
 import { BrowserAgentToolService } from "@/services/agent/agentToolService";
 import { createAgentToolRegistry } from "@/agent/tools/registry";
 import { AgentExecutor } from "@/agent/runtime/agentExecutor";
+import { AgentTaskStateSchema } from "@/agent/contracts/agentSession";
 import { CareerToolGateway } from "@/agent/tools/CareerToolGateway";
 const pdf = vi.hoisted(() => vi.fn());
 vi.mock("@/services/pdf/extractText", () => ({ extractTextFromPdfBuffer: pdf }));
@@ -201,6 +205,41 @@ describe("P5.1.2 material source and attachment boundaries", () => {
       expect(await f.repository.listJobDescriptions()).toHaveLength(0);
     } finally { agentAttachmentStore.release(ref.id); }
   });
+  it("Scenario B: confirmed new certificate invalidates the old composition and updates only the selected General Resume", async () => {
+    const f = fixture();
+    const profile = migrateCareerProfileToV2(demoCareerProfile);
+    await f.repository.saveProfile(profile);
+    await f.repository.setActiveProfileId(profile.id);
+    const general = await f.repository.ensureGeneralResumeFromProfile({ profileId: profile.id, operationId: "before-certificate", mode: "create_new" });
+    const fingerprint = (await f.repository.getResumeSourceFingerprint(general.branch.id))!;
+    const old = compileResumeComposition({ profile, mode: "general", sourceResumeId: general.branch.id });
+    const checkpoint = await f.repository.saveResumeCompositionCheckpoint(createResumeCompositionCheckpoint({ composition: old, source: fingerprint }));
+    const ref = await f.store.register(new File([JSON.stringify({ schemaVersion: "careeradapt-resume-v2", locale: "zh-CN", basics: { name: profile.basics.name, portfolioLinks: [], otherLinks: [], customFields: [] },
+      sections: [{ id: "certificate", sectionType: "certificates", title: "证书", order: 0, visible: true, items: [{ id: "anonymous-certificate", sectionType: "certificates", name: "匿名测试证书", issuer: "测试机构", issuedAt: "2025-06", customFields: [] }] }], unclassifiedBlocks: [] })], "certificate.json", { type: "application/json" }), { agentSessionId: "scenario-B" });
+    const material = await f.service.prepare({ attachmentId: ref.id, destination: "profile" }, "scenario-B");
+    const draft = (await f.repository.getImportedResumeDraft(material.importId!))!;
+    const reviewed = await f.repository.saveImportedResumeDraft(applyResumeImportReviewDecision(draft, "accept_all"), draft.revision);
+    expect((await f.repository.getProfile(profile.id))!.version).toBe(profile.version);
+    await f.repository.confirmImportedResume({ importId: reviewed.importId, expectedDraftRevision: reviewed.revision, operationId: "confirm-certificate",
+      target: { mode: "existing", profileId: profile.id, createGeneralResume: false } });
+    const updated = (await f.repository.getProfile(profile.id))!;
+    expect(updated.version).toBe(profile.version + 1);
+    const service = new BrowserAgentToolService(f.repository);
+    await expect(service.reviewResumeComposition({ mode: "general", profileId: profile.id, expectedProfileRevision: updated.version,
+      sourceResumeId: general.branch.id, checkpointId: checkpoint.checkpointId })).rejects.toMatchObject({ code: "resume_composition_checkpoint_stale" });
+    expect(await f.repository.getResumeBranch(general.branch.id)).toEqual(general.branch);
+    const composition = compileResumeComposition({ profile: updated, mode: "general", sourceResumeId: general.branch.id });
+    await f.repository.ensureGeneralResumeFromProfile({ profileId: profile.id,
+      operationId: "refresh-general", mode: "update_existing", sourceResumeId: general.branch.id,
+      expectedSourceRevisionId: general.branch.currentRevisionId!, composition });
+    const branches = await f.repository.listResumeBranches();
+    expect(branches).toHaveLength(1);
+    expect(branches[0]).toMatchObject({ id: general.branch.id, branchPurpose: "general", sourceProfileVersion: updated.version });
+    expect(JSON.stringify(branches[0])).toContain("匿名测试证书");
+    expect(await f.repository.listProfiles()).toHaveLength(1);
+    expect(await f.repository.listJobDescriptions()).toHaveLength(0);
+  });
+
   it("writes Profile only after explicit review and Repository confirmation, then reports a repeated material as saved", async () => {
     const f = fixture();
     const bytes = await readFile("tests/fixtures/resume-import/reconciliation-v2.json");
@@ -213,6 +252,22 @@ describe("P5.1.2 material source and attachment boundaries", () => {
       operationId: "material-explicit-confirmation", target: { mode: "new", profileName: "Material Test", createGeneralResume: false } });
     expect(saved.profileId).toBeTruthy();
     expect(await f.repository.listProfiles()).toHaveLength(1);
+    expect(await f.repository.listResumeBranches()).toHaveLength(0);
+    const persistence = new AgentSessionStore(f.repository);
+    const initial = AgentRuntime.createConversationSession();
+    const session = await persistence.save({ ...initial, id: "confirm-session", taskState: AgentTaskStateSchema.parse({
+      workflowId: "resume_import", rootGoal: "import_resume", activeGoal: "import_resume", stage: "review_import", updatedAt: new Date().toISOString(),
+      selectedEntities: {}, knownSlots: { importId: reviewed.importId }
+    }) });
+    const host = new AgentHostStore({ kernel: {} as never, executor: {} as never, repository: f.repository, persistence });
+    const pageContext = { route: "/ai-workspace", query: {} };
+    const observation = { importId: reviewed.importId, profileId: saved.profileId, status: "completed" };
+    await expect(host.dispatch({ type: "external_event", toolName: "confirm_resume_import", observation: { ...observation, profileId: "another-profile" } }, { session, pageContext })).rejects.toThrow("resume_import_confirmation_receipt_mismatch");
+    const confirmed = await host.dispatch({ type: "external_event", toolName: "confirm_resume_import", observation }, { session, pageContext });
+    const formal = await f.repository.getProfile(saved.profileId);
+    expect(confirmed).toMatchObject({ activeProfileId: saved.profileId, personId: formal!.personId, profileRevision: formal!.version,
+      taskState: { selectedEntities: { profileId: saved.profileId, profileVersion: formal!.version } } });
+    expect(confirmed!.messages.at(-1)!.content).not.toContain("通用简历");
     expect(await f.repository.listResumeBranches()).toHaveLength(0);
     const again = await f.service.prepare({ attachmentId: ref.id, destination: "profile" }, "confirm-session");
     expect(again).toMatchObject({ status: "already_saved", profileId: saved.profileId, formalWrites: false });

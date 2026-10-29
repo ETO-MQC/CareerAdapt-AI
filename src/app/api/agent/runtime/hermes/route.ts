@@ -60,8 +60,7 @@ async function officialHermesRequest(baseUrl: string, action: z.infer<typeof Her
         const diagnostics = classifyHermesRunFailure({
           code: typeof rawError.code === "string" ? rawError.code : "hermes_run_start_failed",
           message: typeof rawError.message === "string" ? rawError.message : undefined,
-          httpStatus: response.status,
-          failureLayer: response.status === 401 || response.status === 403 ? "control_plane" : "bridge_http",
+          ...upstreamFailureEvidence(response.status, rawError),
           upstreamErrorCode: typeof rawError.code === "string" ? rawError.code : undefined,
           upstreamErrorType: safeDiagnosticString(rawError.type ?? rawError.error_type),
           runStartKind: "new",
@@ -168,6 +167,18 @@ async function officialHermesRequest(baseUrl: string, action: z.infer<typeof Her
   }
 }
 
+function upstreamFailureEvidence(status: number, error: Record<string, unknown>) {
+  const metadata = asRecord(error.diagnostics);
+  const code = typeof error.code === "string" ? error.code : "";
+  const provider = error.failureLayer === "provider" || metadata.failureLayer === "provider"
+    || /^(?:hermes_)?provider_(?:http_401|http_403|auth_failed|auth_invalid)$/u.test(code);
+  const providerStatus = metadata.httpStatus ?? error.httpStatus;
+  return {
+    failureLayer: provider ? "provider" as const : status === 401 || status === 403 ? "control_plane" as const : "bridge_http" as const,
+    httpStatus: provider && typeof providerStatus === "number" && Number.isInteger(providerStatus) && providerStatus >= 100 && providerStatus <= 599 ? providerStatus : status
+  };
+}
+
 function upstreamError(status: number, value: unknown, fallbackCode: string, context: Partial<ReturnType<typeof classifyHermesRunFailure>> = {}) {
   const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
   const rawError = record.error;
@@ -180,8 +191,7 @@ function upstreamError(status: number, value: unknown, fallbackCode: string, con
   const diagnostics = classifyHermesRunFailure({
     code: typeof error.code === "string" ? error.code : fallbackCode,
     message,
-    httpStatus: status || 502,
-    failureLayer: status === 401 || status === 403 ? "control_plane" : "bridge_http",
+    ...upstreamFailureEvidence(status || 502, error),
     upstreamErrorCode: typeof error.code === "string" ? error.code : fallbackCode,
     upstreamErrorType: safeDiagnosticString(error.type ?? error.error_type),
     ...context
