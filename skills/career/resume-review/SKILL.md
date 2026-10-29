@@ -128,6 +128,12 @@ claim to improve the score.
 
 ## OUTPUT
 
+Core-02 contract: keep Job Fit, content quality and ATS/structure diagnostics
+separate. Reuse the version-bound evidence matrix when one exists. Truth,
+ownership and target/revision safety are hard gates; prose quality cannot
+offset them. PDF text extractability and reading order remain unknown until
+the actual renderer/export has been checked.
+
 Return findings with severity, location, evidence status, recommendation,
 confirmation requirement, evidence-eligibility versus final ATS coverage,
 page/compression metrics, and a preview/export release checklist. Include the

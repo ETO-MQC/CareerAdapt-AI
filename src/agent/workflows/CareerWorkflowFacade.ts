@@ -629,6 +629,19 @@ async function executeTailoringResumeFacade(
     const failure = syntheticTailoringResult(operationId, "tailoring_checkpoint_not_found", "当前定制 checkpoint 不存在或已变化，已保留当前岗位和简历选择。", false);
     return tailoringFacadeProgress(operationId, input, context, results.concat(failure), {}, undefined, "failed");
   }
+  if (checkpointId) {
+    const boundProfileId = stringValue(objectValue(persistedSession.profile).id);
+    const boundSourceId = stringValue(objectValue(persistedSession.branch).id);
+    const boundJobId = stringValue(objectValue(persistedSession.job).id);
+    const selectedSnapshotId = context.authoritativeTaskState?.selectedEntities.targetSnapshotId;
+    if ((profileId && boundProfileId && profileId !== boundProfileId)
+      || (sourceResumeId && boundSourceId && sourceResumeId !== boundSourceId)
+      || (!targetSnapshot && jobId && boundJobId && jobId !== boundJobId)
+      || (targetSnapshot && selectedSnapshotId && targetSnapshot.id !== selectedSnapshotId)) {
+      const failure = syntheticTailoringResult(operationId, "tailoring_checkpoint_target_mismatch", "当前选择已切换，旧定制提案不能用于新目标。请基于当前选择重新生成。", false);
+      return tailoringFacadeProgress(operationId, input, context, results.concat(failure), {}, undefined, "failed");
+    }
+  }
 
   let callIndex = 0;
   if (!checkpointId && targetInput?.type === "pasted_jd") {

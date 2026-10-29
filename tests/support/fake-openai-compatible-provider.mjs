@@ -106,6 +106,28 @@ function materialArtifact(value, depth = 0) {
 
 function chooseResponse({ mode, messages, tools }) {
   const lastToolResult = [...messages].reverse().find((message) => message && message.role === "tool");
+  if (mode === "integration" && /P51-C02-(?:FIT|TAILOR)/u.test(latestUserText(messages))) {
+    const latestUserIndex = messages.findLastIndex(message => message?.role === "user");
+    const turnResults = messages.slice(latestUserIndex + 1).filter(message => message?.role === "tool");
+    const call = (name, input) => ({ toolCall: { name: findToolName(tools, name), arguments: JSON.stringify(input) } });
+    const allResumes = messages.filter(message => message?.role === "tool").flatMap(message => findCore02Payload(message.content, value => Array.isArray(value.resumes))?.resumes ?? []);
+    const resume = allResumes.find(value => value.purpose === "general");
+    const savedId = messages.filter(message => message?.role === "tool" && message.name?.includes("job_intake")).map(message => savedJobId(message.content)).filter(Boolean).at(-1);
+    const jobs = messages.filter(message => message?.role === "tool").flatMap(message => findCore02Payload(message.content, value => Array.isArray(value.jobs))?.jobs ?? []);
+    const jobId = savedId ?? jobs.find(job => job.title.includes("CORE-JD"))?.id;
+    if (latestUserText(messages).includes("P51-C02-FIT")) {
+      if (!turnResults.length) return call("career.resume.list", {});
+      if (turnResults.at(-1)?.name?.includes("job_fit")) return { content: "C02_FIT_COMPLETE，已有岗位与已确认事实已复用。" };
+      if (!jobId) return call("career.job.list", {});
+      if (resume && jobId) return call("career.workflow.job_fit", { profileId: resume.profileId, resumeId: resume.id, jobId });
+    } else {
+      if (turnResults.at(-1)?.name?.includes("tailor_resume")) return { content: "C02_TAILOR_READY，请核对修改提案。" };
+      if (!resume) return call("career.resume.list", {});
+      if (!jobId) return call("career.job.list", {});
+      if (resume && jobId) return call("career.workflow.tailor_resume", { jobId, sourceResumeId: resume.id, mode: "steady" });
+    }
+    return { content: "C02 fixture missing a prior saved Job or Resume receipt." };
+  }
   if (mode === "career-agent-eval") {
     return chooseCareerAgentEvalResponse({ messages, tools, lastToolResult });
   }
@@ -176,6 +198,19 @@ function chooseResponse({ mode, messages, tools }) {
     }
   }
   return { content: "你好，Hermes hermetic runtime 已就绪。" };
+}
+
+function findCore02Payload(value, predicate, depth = 0) {
+  if (depth > 16) return undefined;
+  if (typeof value === "string") {
+    const start = value.indexOf("{"); const end = value.lastIndexOf("}");
+    if (start < 0 || end < start) return undefined;
+    try { return findCore02Payload(JSON.parse(value.slice(start, end + 1)), predicate, depth + 1); } catch { return undefined; }
+  }
+  if (!value || typeof value !== "object") return undefined;
+  if (predicate(value)) return value;
+  for (const entry of Object.values(value)) { const found = findCore02Payload(entry, predicate, depth + 1); if (found) return found; }
+  return undefined;
 }
 
 function chooseCareerAgentEvalResponse({ messages, tools, lastToolResult }) {

@@ -3002,8 +3002,10 @@ export class WorkspaceRepository {
     operationId: string;
     expectedBranchRevision: number;
     expectedRevisionId: string;
+    expectedProfileRevision?: number;
+    expectedJobRevision?: string;
   }) {
-    const result = await this.db.transaction("rw", [this.db.resumeBranches, this.db.resumeRevisions, this.db.resumeBranchOperations, this.db.appMeta], async () => {
+    const result = await this.db.transaction("rw", [this.db.profiles, this.db.jobDescriptions, this.db.resumeBranches, this.db.resumeRevisions, this.db.resumeBranchOperations, this.db.appMeta], async () => {
       const existing = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
       if (existing?.revisionId) {
         const branch = await this.db.resumeBranches.get(input.branchId);
@@ -3035,6 +3037,8 @@ export class WorkspaceRepository {
       const branch = await this.requireEditableResumeBranch(input.branchId);
       if (branch.branchPurpose !== "job_specific" || branch.jobId !== input.jobId) throw new Error("tailoring_plan_target_invalid");
       if (branch.revision !== input.expectedBranchRevision || branch.currentRevisionId !== input.expectedRevisionId) throw new RevisionConflictError();
+      if (input.expectedProfileRevision !== undefined && (await this.db.profiles.get(branch.profileId))?.version !== input.expectedProfileRevision) throw new RevisionConflictError();
+      if (input.expectedJobRevision !== undefined && (await this.db.jobDescriptions.get(input.jobId))?.updatedAt !== input.expectedJobRevision) throw new RevisionConflictError();
       const presentationBaseline = await this.getResumePresentationConfig(branch.id);
       const presentationBefore = presentationSnapshotFromConfig(presentationBaseline);
       await this.db.appMeta.put({
@@ -3168,6 +3172,8 @@ export class WorkspaceRepository {
     targetSnapshot?: import("@/domain/schemas").JobTargetSnapshot;
     expectedSourceRevision: number;
     expectedSourceRevisionId: string;
+    expectedProfileRevision?: number;
+    expectedJobRevision?: string;
     diffs: ResumeTailoringDiff[];
     confirmedRequirementIds?: string[];
     operationId: string;
@@ -3182,7 +3188,9 @@ export class WorkspaceRepository {
         confirmedRequirementIds: input.confirmedRequirementIds,
         operationId: input.operationId,
         expectedBranchRevision: input.expectedSourceRevision,
-        expectedRevisionId: input.expectedSourceRevisionId
+        expectedRevisionId: input.expectedSourceRevisionId,
+        expectedProfileRevision: input.expectedProfileRevision,
+        expectedJobRevision: input.targetSnapshot ? undefined : input.expectedJobRevision
       });
     }
     const result = await this.db.transaction(
@@ -3245,6 +3253,8 @@ export class WorkspaceRepository {
         const job = input.targetSnapshot
           ? jobTargetSnapshotToJobDescription(input.targetSnapshot)
           : JobDescriptionSchema.parse(jobRecord);
+        if (input.expectedProfileRevision !== undefined && profile.version !== input.expectedProfileRevision) throw new RevisionConflictError();
+        if (input.expectedJobRevision !== undefined && job.updatedAt !== input.expectedJobRevision) throw new RevisionConflictError();
         const matches = matchRecords
           .map((match) => RequirementMatchSchema.parse(match))
           .filter((match) => matchesResumeSource(match, {

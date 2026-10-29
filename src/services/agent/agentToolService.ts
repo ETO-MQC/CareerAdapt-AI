@@ -32,6 +32,7 @@ import { jobTargetSnapshotHash, jobTargetSnapshotToJobDescription } from "@/doma
 import { invokeStructuredAi } from "@/ai/client";
 import { ResumeTailoringDiffModelOutputSchema, type ResumeTailoringDiffTaskInput } from "@/domain/schemas";
 import { analyzeJobFit, tailoringAnswerRevisionHash } from "@/services/jobs/tailoringService";
+import { CareerIntelligenceCache } from "@/domain/jobOptimization/careerIntelligence";
 import { stableHashText } from "@/services/security/text";
 import {
   readTailoringValue,
@@ -111,6 +112,7 @@ import {
 } from "@/ai/providers/transportError";
 
 export class BrowserAgentToolService implements AgentToolServices {
+  private readonly careerIntelligence = new CareerIntelligenceCache();
   constructor(
     private readonly repository = new WorkspaceRepository(),
     private readonly profileIntakeSemantic = new ProfileIntakeSemanticService(),
@@ -829,11 +831,18 @@ export class BrowserAgentToolService implements AgentToolServices {
     const source = input.sourceResumeId || input.mode === "job_specific"
       ? await this.requireCompositionSource(input.sourceResumeId, context.profile.id)
       : undefined;
+    const sourceBranch = source ? await this.repository.getResumeBranch(source.branchId) : undefined;
+    if (source && (!sourceBranch || sourceBranch.currentRevisionId !== source.revisionId)) {
+      throw toolError("resume_composition_source_stale", "来源简历已变化，请重新生成提案。");
+    }
     const userPreferences = parseUserPreferences(input.userPreferences);
     const graph = buildResumeEvidenceGraph({ profile: context.profile });
     const blueprint = planResumeBlueprint({ profile: context.profile, graph, mode: input.mode, job: context.job, targetDirection: input.targetDirection, targetAudience: input.targetAudience, companyType: input.companyType });
     const composition = await compileResumeCompositionWithAi(
-      { profile: context.profile, mode: input.mode, job: context.job, sourceResumeId: input.sourceResumeId, targetDirection: input.targetDirection, targetAudience: input.targetAudience, companyType: input.companyType, userPreferences, signal },
+      { profile: context.profile, mode: input.mode, job: context.job, sourceResumeId: input.sourceResumeId,
+        candidateEvidenceMatrix: context.job && sourceBranch ? this.careerIntelligence.get({ profile: context.profile,
+          branch: sourceBranch, job: context.job }).candidateEvidenceMatrix : undefined,
+        targetDirection: input.targetDirection, targetAudience: input.targetAudience, companyType: input.companyType, userPreferences, signal },
       { graph, blueprint, writingService: this.careerResumeWriter }
     );
     const checkpoint = await this.repository.saveResumeCompositionCheckpoint(createResumeCompositionCheckpoint({
@@ -926,6 +935,7 @@ export class BrowserAgentToolService implements AgentToolServices {
           profile: context.profile,
           mode: input.mode,
           job: context.job,
+          candidateEvidenceMatrix: composition.candidateEvidenceMatrix,
           sourceResumeId: input.sourceResumeId ?? checkpoint.sourceResumeId,
           targetDirection: input.targetDirection ?? composition.targetDirection,
           targetAudience: input.targetAudience ?? composition.targetAudience,
@@ -1778,7 +1788,7 @@ export class BrowserAgentToolService implements AgentToolServices {
     const { profile, branch, job, targetSnapshot } = await this.loadSelection(rawInput);
     return {
       operationId,
-      analysis: analyzeJobFit({ profile, branch, job }),
+      analysis: analyzeJobFit({ profile, branch, job }, this.careerIntelligence.get({ profile, branch, job })),
       dependencies: selectionDependencies(profile, branch, job, targetSnapshot)
     };
   }
@@ -1794,7 +1804,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       ...(targetSnapshot ? { targetSnapshot } : {}),
       intensity: input.intensity === undefined ? undefined : TailoringIntensitySchema.parse(input.intensity),
       mode: input.mode === undefined ? undefined : TailoringModeSchema.parse(input.mode)
-    }, signal);
+    }, signal, this.careerIntelligence.get({ profile, branch, job }));
     return {
       ...created,
       appliedDiffs: [],
@@ -1882,7 +1892,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       checkpointId,
       workflowId: "tailor_existing_resume",
       profileId: session.branch.profileId,
-      expectedProfileRevision: profile.version,
+      expectedProfileRevision: session.profile.version,
       sourceResumeId: session.branch.id,
         sourceResumeRevisionId: session.branch.currentRevisionId,
         jobId: session.job.id,
@@ -1909,6 +1919,8 @@ export class BrowserAgentToolService implements AgentToolServices {
         ...(session.targetSnapshot ? { targetSnapshot: session.targetSnapshot } : {}),
         expectedSourceRevision: session.branch.revision,
         expectedSourceRevisionId: session.branch.currentRevisionId,
+        expectedProfileRevision: session.profile.version,
+        expectedJobRevision: session.job.updatedAt,
         diffs: reviewed,
         confirmedRequirementIds: input.confirmedRequirementIds,
         operationId,

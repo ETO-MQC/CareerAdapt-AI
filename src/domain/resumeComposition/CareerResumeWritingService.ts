@@ -19,6 +19,7 @@ import {
 import { canonicalTechnicalTerm, compactSkillCategory, normalizeSkillGroups, technicalTermCategory } from "./ResumeSkillTaxonomy";
 import { stableHashText } from "@/services/security/text";
 import { CareerResumeQualityPolicyV1, careerResumeQualityWarnings, resumeRoleInstructions } from "./CareerResumeQualityPolicyV1";
+import type { CandidateEvidenceMatrix } from "@/domain/jobOptimization/careerIntelligence";
 
 export type CareerResumeWritingResult = {
   output?: CareerResumeWritingOutput;
@@ -27,6 +28,7 @@ export type CareerResumeWritingResult = {
 
 export class CareerResumeWritingService {
   async write(input: {
+    candidateEvidenceMatrix?: CandidateEvidenceMatrix;
     profile: CareerProfile;
     graph: ResumeEvidenceGraph;
     blueprint: ResumeBlueprint;
@@ -42,6 +44,7 @@ export class CareerResumeWritingService {
   }
 
   async writeWithExecution(input: {
+    candidateEvidenceMatrix?: CandidateEvidenceMatrix;
     profile: CareerProfile;
     graph: ResumeEvidenceGraph;
     blueprint: ResumeBlueprint;
@@ -97,6 +100,7 @@ export class CareerResumeWritingService {
 
 function buildBusinessInput(
   input: {
+    candidateEvidenceMatrix?: CandidateEvidenceMatrix;
     graph: ResumeEvidenceGraph;
     blueprint: ResumeBlueprint;
     mode: "general" | "job_specific";
@@ -112,6 +116,7 @@ function buildBusinessInput(
 ) {
   const preferenceDirectives = renderCompositionPreferenceDirectives(input.userPreferences);
   return {
+    ...(input.candidateEvidenceMatrix ? { requirementEvidence: input.candidateEvidenceMatrix } : {}),
     mode: input.mode,
     ...(input.job?.title ? { targetRole: input.job.title } : {}),
     ...((input.targetDirection ?? input.blueprint.targetDirection) ? { targetDirection: input.targetDirection ?? input.blueprint.targetDirection } : {}),

@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { ResumeItemV2Schema, type ResumeItemV2 } from "@/domain/schemas/resumeV2";
 import { FactMaturitySchema } from "@/domain/schemas/common";
+import { CandidateEvidenceMatrixSchema } from "@/domain/schemas/careerIntelligence";
+import { ResumeQualityDiagnosticsSchema } from "./qualityDiagnostics";
 
 const StringListSchema = z.array(z.string().trim().min(1)).default([]);
 
@@ -284,6 +286,8 @@ export const ResumeCompositionMetricsSchema = z.object({
 export type ResumeCompositionMetrics = z.infer<typeof ResumeCompositionMetricsSchema>;
 
 export const ResumeReviewResultSchema = z.object({
+  diagnostics: ResumeQualityDiagnosticsSchema.optional(),
+  analysisId: z.string().optional(),
   status: z.enum(["PASS", "NEEDS_REVIEW"]),
   findings: z.array(z.string().min(1)),
   diffs: z.array(z.object({
@@ -342,6 +346,7 @@ export const ResumeCompositionProposalSchema = z.object({
 export type ResumeCompositionProposal = z.infer<typeof ResumeCompositionProposalSchema>;
 
 export const ResumeCompositionResultSchema = z.object({
+  candidateEvidenceMatrix: CandidateEvidenceMatrixSchema.optional(),
   schemaVersion: z.literal("resume-composition-v1"),
   mode: ResumeCompositionModeSchema,
   profileId: z.string().min(1),

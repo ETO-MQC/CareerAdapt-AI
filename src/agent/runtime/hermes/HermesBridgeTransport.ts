@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { AgentPageContext } from "../../contracts/agentContext";
 import type { AgentRuntimeAttachment } from "../agentRuntime";
 import type { CareerSessionBinding } from "../careerSessionBinding";
+import type { CareerSessionCheckpoint } from "../careerSessionCheckpoint";
 import { RuntimeHealthSchema, type RuntimeHealth } from "../runtimeHealth";
 import {
   classifyHermesRunFailure,
@@ -77,6 +78,7 @@ export type HermesTurnRequest = {
   pageContext: AgentPageContext;
   toolContracts: Array<Record<string, unknown>>;
   careerSessionBinding?: CareerSessionBinding;
+  careerCheckpoint?: CareerSessionCheckpoint;
   attachments?: AgentRuntimeAttachment[];
   conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
   metadata?: Record<string, unknown>;

@@ -1,0 +1,692 @@
+{
+  "date": "2026-10-29",
+  "stage": "P5.1-Core-02",
+  "status": "PARTIAL_NOT_FULL_CHAIN_ACCEPTED",
+  "baselineHead": "bfad45ea37d9941b6132c9725c502e50083f4ef6",
+  "baselineRemoteMain": "bfad45ea37d9941b6132c9725c502e50083f4ef6",
+  "baselineWorktree": "clean",
+  "commitStatus": "user_authorized_commit_and_push_this_partial_delivery",
+  "packaged": false,
+  "finalUnitIntegration": {
+    "command": "pnpm exec vitest run tests/unit/core02EvalBaseline.test.ts tests/unit/core02SessionCheckpoint.test.ts tests/unit/fakeProviderContinuation.test.ts tests/unit/jobOptimizationV2.test.ts tests/unit/p45b4-hermes-mcp-closure.test.ts tests/unit/p45c17-hermes-reliability.test.ts tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts tests/unit/p45c1c15-career-context-binding.test.ts tests/unit/p45c1c16-career-tool-contract.test.ts tests/unit/p45c1c17-content-integrity.test.ts tests/unit/p46a-resume-structural-integrity.test.ts tests/unit/p47a-agent-capability-contract.test.ts tests/unit/p48a-career-resume-intelligence.test.ts tests/unit/p51-core-02-intelligence.test.ts tests/unit/p51-core-workflow.test.ts tests/unit/p512-material-intake.test.ts tests/unit/presentationConfig.test.ts tests/unit/repositoryTailoringV2.test.ts tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts tests/unit/resumeCompositionP45b.test.ts tests/unit/tailoringCommands.test.ts tests/unit/tailoringFieldSafety.test.ts --reporter=default --reporter=json --outputFile=.tmp/core02-unit-final.json",
+    "exitCode": 0,
+    "testFiles": 22,
+    "passedAssertions": 192,
+    "files": [
+      {
+        "file": "unit/core02EvalBaseline.test.ts",
+        "status": "passed",
+        "passed": 1
+      },
+      {
+        "file": "unit/core02SessionCheckpoint.test.ts",
+        "status": "passed",
+        "passed": 4
+      },
+      {
+        "file": "unit/fakeProviderContinuation.test.ts",
+        "status": "passed",
+        "passed": 2
+      },
+      {
+        "file": "unit/jobOptimizationV2.test.ts",
+        "status": "passed",
+        "passed": 11
+      },
+      {
+        "file": "unit/p45b4-hermes-mcp-closure.test.ts",
+        "status": "passed",
+        "passed": 4
+      },
+      {
+        "file": "unit/p45c17-hermes-reliability.test.ts",
+        "status": "passed",
+        "passed": 6
+      },
+      {
+        "file": "unit/p45c1c14-career-workflow-transactional-closure.test.ts",
+        "status": "passed",
+        "passed": 10
+      },
+      {
+        "file": "unit/p45c1c15-career-context-binding.test.ts",
+        "status": "passed",
+        "passed": 6
+      },
+      {
+        "file": "unit/p45c1c16-career-tool-contract.test.ts",
+        "status": "passed",
+        "passed": 6
+      },
+      {
+        "file": "unit/p45c1c17-content-integrity.test.ts",
+        "status": "passed",
+        "passed": 6
+      },
+      {
+        "file": "unit/p46a-resume-structural-integrity.test.ts",
+        "status": "passed",
+        "passed": 6
+      },
+      {
+        "file": "unit/p47a-agent-capability-contract.test.ts",
+        "status": "passed",
+        "passed": 9
+      },
+      {
+        "file": "unit/p48a-career-resume-intelligence.test.ts",
+        "status": "passed",
+        "passed": 8
+      },
+      {
+        "file": "unit/p51-core-02-intelligence.test.ts",
+        "status": "passed",
+        "passed": 15
+      },
+      {
+        "file": "unit/p51-core-workflow.test.ts",
+        "status": "passed",
+        "passed": 17
+      },
+      {
+        "file": "unit/p512-material-intake.test.ts",
+        "status": "passed",
+        "passed": 22
+      },
+      {
+        "file": "unit/presentationConfig.test.ts",
+        "status": "passed",
+        "passed": 24
+      },
+      {
+        "file": "unit/repositoryTailoringV2.test.ts",
+        "status": "passed",
+        "passed": 5
+      },
+      {
+        "file": "unit/resumeCompositionConfirmedWriteP45c12.test.ts",
+        "status": "passed",
+        "passed": 12
+      },
+      {
+        "file": "unit/resumeCompositionP45b.test.ts",
+        "status": "passed",
+        "passed": 9
+      },
+      {
+        "file": "unit/tailoringCommands.test.ts",
+        "status": "passed",
+        "passed": 2
+      },
+      {
+        "file": "unit/tailoringFieldSafety.test.ts",
+        "status": "passed",
+        "passed": 7
+      }
+    ],
+    "log": ".tmp/core02-unit-final.log"
+  },
+  "gates": {
+    "typecheck": {
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "log": ".tmp/core02-typecheck-final.log",
+      "configuration": "Next-generated tsconfig.json and next-env.d.ts restored to clean HEAD baseline before final typecheck"
+    },
+    "lint": {
+      "command": "pnpm lint",
+      "exitCode": 0,
+      "log": ".tmp/core02-lint-final.log"
+    },
+    "build": {
+      "command": "CAREERAD_NEXT_DIST_DIR=.tmp/core02-production-final pnpm build",
+      "exitCode": 0,
+      "log": ".tmp/core02-build-final.log"
+    },
+    "bundleCheck": {
+      "command": "pnpm hermes:bundle-check",
+      "exitCode": 0,
+      "version": "0.19.0",
+      "commit": "eb52760564db",
+      "patch": "careeradapt-api-toolsets-v1"
+    },
+    "diffCheck": {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  },
+  "mappedEval": {
+    "baselineVersion": "core02-eval-1",
+    "provider": "mapped-unit-integration-oracles",
+    "realModelQualityEvaluated": false,
+    "inputReport": ".tmp/core02-unit-final.json",
+    "total": 40,
+    "passed": 40,
+    "results": [
+      {
+        "id": "C02-intent-01",
+        "category": "intent",
+        "userTurn": "把这个证书加到资料库",
+        "invariant": "Profile requires review and confirmation",
+        "testFile": "tests/unit/p512-material-intake.test.ts",
+        "testTitle": "writes Profile only after explicit review",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-intent-02",
+        "category": "intent",
+        "userTurn": "这个岗位适合我吗",
+        "invariant": "Comparison returns requirement evidence without Profile write",
+        "testFile": "tests/unit/p51-core-workflow.test.ts",
+        "testTitle": "returns each requirement's real evidence",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-intent-03",
+        "category": "intent",
+        "userTurn": "帮我改这份简历",
+        "invariant": "General updates require selected target",
+        "testFile": "tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts",
+        "testTitle": "keeps update_existing behind an explicit user selection",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-intent-04",
+        "category": "intent",
+        "userTurn": "根据这份JD改简历",
+        "invariant": "External target remains tailoring",
+        "testFile": "tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts",
+        "testTitle": "keeps direct external targetText on tailor semantics",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-intent-05",
+        "category": "intent",
+        "userTurn": "生成通用简历",
+        "invariant": "Host owns confirmed composition",
+        "testFile": "tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts",
+        "testTitle": "executes the confirmed checkpoint once",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-intent-06",
+        "category": "intent",
+        "userTurn": "[仅上传附件，无文字]",
+        "invariant": "Material classification remains provisional",
+        "testFile": "tests/unit/p512-material-intake.test.ts",
+        "testTitle": "stores all 12 Hermes material kinds",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-intent-07",
+        "category": "intent",
+        "userTurn": "[上传混合材料] 整理一下",
+        "invariant": "Classification must have source-backed evidence",
+        "testFile": "tests/unit/p512-material-intake.test.ts",
+        "testTitle": "stores all 12 Hermes material kinds",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-intent-08",
+        "category": "intent",
+        "userTurn": "继续刚才的任务",
+        "invariant": "Resume reuses durable checkpoint, not a new write",
+        "testFile": "tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts",
+        "testTitle": "keeps a runtime composition proposal actionable",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-intake-01",
+        "category": "intake",
+        "userTurn": "[resume.docx] 导入",
+        "invariant": "Existing DOCX parser is reused",
+        "testFile": "tests/unit/p512-material-intake.test.ts",
+        "testTitle": "uses the real existing DOCX parser",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-intake-02",
+        "category": "intake",
+        "userTurn": "[certificate.txt] 这是我的证书",
+        "invariant": "No automatic formal facts",
+        "testFile": "tests/unit/p512-material-intake.test.ts",
+        "testTitle": "writes Profile only after explicit review",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-intake-03",
+        "category": "intake",
+        "userTurn": "[award.png] 这是获奖材料",
+        "invariant": "Vision eligibility before sending image",
+        "testFile": "tests/unit/p512-material-intake.test.ts",
+        "testTitle": "never sends an image to an unverified Vision provider",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-intake-04",
+        "category": "intake",
+        "userTurn": "[job.txt] 分析岗位",
+        "invariant": "Attachment and paste share Job analyzer",
+        "testFile": "tests/unit/p512-material-intake.test.ts",
+        "testTitle": "routes attached JD plus pasted JD",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-intake-05",
+        "category": "intake",
+        "userTurn": "[mixed.json] 整理材料",
+        "invariant": "Shared source-block adapter",
+        "testFile": "tests/unit/p512-material-intake.test.ts",
+        "testTitle": "extracts non-resume JSON",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-intake-06",
+        "category": "intake",
+        "userTurn": "再次上传同一个文件",
+        "invariant": "Hash identity is idempotent",
+        "testFile": "tests/unit/p512-material-intake.test.ts",
+        "testTitle": "reuses exact hash identity per session",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-intake-07",
+        "category": "intake",
+        "userTurn": "另一个会话读取刚才的附件",
+        "invariant": "Cross-session attachment denied",
+        "testFile": "tests/unit/p512-material-intake.test.ts",
+        "testTitle": "restores the exact raw file after reload and rejects a different session",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-intake-08",
+        "category": "intake",
+        "userTurn": "刷新后继续附件任务",
+        "invariant": "Durable queue restores into Hermes",
+        "testFile": "tests/unit/p512-material-intake.test.ts",
+        "testTitle": "persists a Hermes attachment queue through reload",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-job-01",
+        "category": "job",
+        "userTurn": "保存这个新岗位",
+        "invariant": "One Job with raw source",
+        "testFile": "tests/unit/p51-core-workflow.test.ts",
+        "testTitle": "saves idempotently, versions a changed JD",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-job-02",
+        "category": "job",
+        "userTurn": "再保存相同JD",
+        "invariant": "Exact duplicate reuses ID",
+        "testFile": "tests/unit/p51-core-workflow.test.ts",
+        "testTitle": "saves idempotently, versions a changed JD",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-job-03",
+        "category": "job",
+        "userTurn": "岗位要求更新了",
+        "invariant": "Keep previous raw snapshots",
+        "testFile": "tests/unit/p51-core-workflow.test.ts",
+        "testTitle": "saves idempotently, versions a changed JD",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-job-04",
+        "category": "job",
+        "userTurn": "只分析不要保存",
+        "invariant": "No business persistence",
+        "testFile": "tests/unit/p51-core-workflow.test.ts",
+        "testTitle": "analyzes without any persistence",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-job-05",
+        "category": "job",
+        "userTurn": "[JD未给公司与职位]",
+        "invariant": "Unknown identity is explicit",
+        "testFile": "tests/unit/p51-core-workflow.test.ts",
+        "testTitle": "analyzes without any persistence",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-job-06",
+        "category": "job",
+        "userTurn": "复用这个版本的岗位分析",
+        "invariant": "Exact snapshots reuse analysis",
+        "testFile": "tests/unit/p51-core-02-intelligence.test.ts",
+        "testTitle": "reuses exact versioned snapshots",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-job-07",
+        "category": "job",
+        "userTurn": "别重复解析刚才的JD",
+        "invariant": "Canonical graph source/IDs retained",
+        "testFile": "tests/unit/p51-core-02-intelligence.test.ts",
+        "testTitle": "preserves canonical requirement identity",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-job-08",
+        "category": "job",
+        "userTurn": "岗位变化后提交旧提案",
+        "invariant": "Job-version CAS rejects",
+        "testFile": "tests/unit/p51-core-workflow.test.ts",
+        "testTitle": "rejects a composition checkpoint after the target Job version changes",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-resume_safety-01",
+        "category": "resume_safety",
+        "userTurn": "只改一条经历",
+        "invariant": "Field patch retains typed structure",
+        "testFile": "tests/unit/tailoringFieldSafety.test.ts",
+        "testTitle": "builds a claim whose formal target is only the typed field patch",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-resume_safety-02",
+        "category": "resume_safety",
+        "userTurn": "用户编辑后采用旧建议",
+        "invariant": "Stale source cannot overwrite",
+        "testFile": "tests/unit/p51-core-workflow.test.ts",
+        "testTitle": "rejects a stale general proposal",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-resume_safety-03",
+        "category": "resume_safety",
+        "userTurn": "切换目标后采用原建议",
+        "invariant": "Old proposals cannot cross selected Job/Resume targets",
+        "testFile": "tests/unit/core02SessionCheckpoint.test.ts",
+        "testTitle": "does not resume an old tailoring proposal after switching the selected",
+        "status": "passed",
+        "matchedAssertions": 2
+      },
+      {
+        "id": "C02-resume_safety-04",
+        "category": "resume_safety",
+        "userTurn": "只切换模板",
+        "invariant": "Presentation does not mutate body/revision",
+        "testFile": "tests/unit/presentationConfig.test.ts",
+        "testTitle": "switches to new template ids without mutating resume content",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-resume_safety-05",
+        "category": "resume_safety",
+        "userTurn": "帮我写提升了999%",
+        "invariant": "Unsupported claims cannot pass quality gate",
+        "testFile": "tests/unit/p51-core-02-intelligence.test.ts",
+        "testTitle": "does not let attractive prose offset",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-resume_safety-06",
+        "category": "resume_safety",
+        "userTurn": "把参与改成独立负责",
+        "invariant": "Fact Guard prevents ungrounded composition",
+        "testFile": "tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts",
+        "testTitle": "uses the Fact Guard fallback",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-resume_safety-07",
+        "category": "resume_safety",
+        "userTurn": "确认新证书后更新简历",
+        "invariant": "Profile revision invalidates prior checkpoint",
+        "testFile": "tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts",
+        "testTitle": "rejects a same-checkpoint retry after the bound Profile revision changes",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-resume_safety-08",
+        "category": "resume_safety",
+        "userTurn": "加入未经确认的事实",
+        "invariant": "Pending facts excluded from retrieval",
+        "testFile": "tests/unit/p51-core-02-intelligence.test.ts",
+        "testTitle": "keeps unconfirmed and high-risk provenance out",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-fit-01",
+        "category": "fit",
+        "userTurn": "我有直接证据吗",
+        "invariant": "Evidence IDs are grounded",
+        "testFile": "tests/unit/p51-core-02-intelligence.test.ts",
+        "testTitle": "preserves canonical requirement identity",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-fit-02",
+        "category": "fit",
+        "userTurn": "经历相近但行业不同",
+        "invariant": "Transferable is distinct from direct",
+        "testFile": "tests/unit/jobOptimizationV2.test.ts",
+        "testTitle": "semantic rerank accepts recalled IDs",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-fit-03",
+        "category": "fit",
+        "userTurn": "资料没写Kubernetes是否就是不会",
+        "invariant": "Absence remains unknown",
+        "testFile": "tests/unit/p51-core-02-intelligence.test.ts",
+        "testTitle": "does not infer candidate Kubernetes",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-fit-04",
+        "category": "fit",
+        "userTurn": "没有必备证书怎么办",
+        "invariant": "Hard gaps never generate claims",
+        "testFile": "tests/unit/jobOptimizationV2.test.ts",
+        "testTitle": "does not hide hard gaps",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-recovery-01",
+        "category": "recovery",
+        "userTurn": "取消保存",
+        "invariant": "No formal write after cancel",
+        "testFile": "tests/unit/p51-core-workflow.test.ts",
+        "testTitle": "does not save without Host confirmation",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-recovery-02",
+        "category": "recovery",
+        "userTurn": "Provider超时",
+        "invariant": "Checkpoint recoverable; no content writes",
+        "testFile": "tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts",
+        "testTitle": "keeps a transport-failed checkpoint recoverable",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-recovery-03",
+        "category": "recovery",
+        "userTurn": "MCP调用失败",
+        "invariant": "Tool failure stays distinct from Provider",
+        "testFile": "tests/unit/p51-core-workflow.test.ts",
+        "testTitle": "keeps MCP failure distinct",
+        "status": "passed",
+        "matchedAssertions": 1
+      },
+      {
+        "id": "C02-recovery-04",
+        "category": "recovery",
+        "userTurn": "重复点击确认",
+        "invariant": "One branch and revision",
+        "testFile": "tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts",
+        "testTitle": "executes the confirmed checkpoint once",
+        "status": "passed",
+        "matchedAssertions": 1
+      }
+    ]
+  },
+  "skillsBaselineSHA256": {
+    "candidate-profile-interview": "53cbb903e88157132a0b6c656ea1e2d64edaba538637da05447115e48376d557",
+    "career-story-mining": "9ce2cb63f98397867e8f0081665aac0098eca9c03c6d81cbe8aadb3f5d50bbde",
+    "job-fit-analysis": "b4a70be83c7a10b5631a371d077a47757a0b60bd2c14de6c402f02a16c63402c",
+    "resume-composition": "056d5d8732d86ebbe500761aafa4c492860445c7a3980f2fa02bb60d27725453",
+    "resume-review": "39aa1cbf8f35228b6d630859d97f09e1090eca876ac9e3d503599d6ffd7d902e",
+    "resume-tailoring": "520a39231b77486a33207f393fb7cba3dfd7135f232a57d71a777fdd0d2ae054"
+  },
+  "hermesIntegrationIntermediate": {
+    "command": "pnpm hermes:integration",
+    "exitCode": 0,
+    "passed": 11,
+    "simulatedProviderRequests": 23,
+    "realProviderRequests": 0,
+    "log": ".tmp/core02-hermes.log",
+    "scope": "Existing suite before later CAS/checkpoint/target-switch additions; not final Core-02 full-chain acceptance"
+  },
+  "businessUI": {
+    "command": "pnpm exec playwright test tests/e2e/p51-core-business.spec.ts --workers=1",
+    "exitCode": 0,
+    "passed": 1,
+    "pdf": "real renderer and text extraction",
+    "scope": "Business UI, not full Hermes autonomy",
+    "log": ".tmp/core02-ui.log"
+  },
+  "core02NewHermesE2E": {
+    "case": "CASE L Core-02",
+    "status": "FAILED_UNVERIFIED_AFTER_FIXTURE_FIX",
+    "exitCode": 1,
+    "observedToolSequence": [
+      "career.workflow.job_intake",
+      "career.resume.list"
+    ],
+    "expectedToolSequence": [
+      "career.workflow.job_intake",
+      "career.resume.list",
+      "career.job.list",
+      "career.workflow.job_fit",
+      "career.workflow.tailor_resume"
+    ],
+    "timeouts": 2,
+    "timeoutMs": 90000,
+    "stoppedRerunningPerAGENTS": true,
+    "logs": [
+      ".tmp/core02-e2e.log",
+      ".tmp/core02-e2e-attempt2.log",
+      ".tmp/core02-e2e-attempt3.log",
+      ".tmp/core02-e2e-attempt4.log"
+    ],
+    "earlySetupFailures": [
+      "Space-containing CLI grep yielded no tests",
+      "Fixture read source branch from absent URL parameter"
+    ],
+    "timeoutObservations": [
+      "Job confirmation returned an incomplete workflow; product failure code not independently captured",
+      "Next Run simulated Provider lacked a prior Job/Resume receipt"
+    ],
+    "fixtureFix": "Read bounded Resume and Job summaries instead of relying on unsent prior Run tool payloads; verified by fake Provider HTTP unit test only",
+    "finalEntityIds": null,
+    "runContinuations": null,
+    "clarificationCount": null,
+    "providerRequestCount": null,
+    "skillLoads": null,
+    "mcpCallCount": null,
+    "repositoryWriteCount": null
+  },
+  "knownHistoricalFailure": {
+    "file": "tests/unit/p45c18-hermes-conversational-agent.test.ts",
+    "test": "classifies the common run_start failure layers and carries one logical ID",
+    "expected": "hermes_provider_auth_failed",
+    "actual": "hermes_run_start_http_failed",
+    "input": {
+      "httpStatus": 401,
+      "code": "auth_failed"
+    },
+    "productionClassifierChangedThisTask": false,
+    "excludedFromPassedRelatedSet": true,
+    "log": ".tmp/core02-context-tests.log"
+  },
+  "realProvider": {
+    "executed": false,
+    "requests": 0,
+    "qualityCertified": false
+  },
+  "carryForward": [
+    "P518-RUNTIME-MODEL-READBACK-01"
+  ],
+  "remaining": [
+    "Final Core-02 Hermes E2E including initial material upload",
+    "Full multi-turn A/B/C/D UI and model validation",
+    "Final checkpoint transport Hermes runtime revalidation",
+    "Real Provider/OCR/complex original quality",
+    "General semantic contradiction detection and independent quality calibration"
+  ],
+  "nextStagesStarted": [],
+  "hermesIntegrationFinalTargeted": {
+    "command": "node scripts/hermes-integration.mjs integration --grep=CASE.[CIJ]",
+    "exitCode": 0,
+    "passed": 3,
+    "simulatedProviderRequests": 7,
+    "realProviderRequests": 0,
+    "log": ".tmp/core02-hermes-final-targeted.log",
+    "scope": "Existing personal-read, same-Run Job confirmation and material-classification regressions on final code; does not rerun or certify CASE L",
+    "caseI": {
+      "before": {
+        "sessionId": "agent-session-yJZH9qrLpw10",
+        "runId": "run_4a46b60f11a94dfb903c28a9abae3314",
+        "runStatus": "running",
+        "userMessageId": "agent-user-9809b260-15a3-4f33-b015-901a0c61b71d",
+        "confirmationId": "confirmation-mcp-career-WAqurBxCdN_IfcGW",
+        "operationId": "mcp-career-WAqurBxCdN_IfcGW"
+      },
+      "after": {
+        "sessionId": "agent-session-yJZH9qrLpw10",
+        "runId": "run_4a46b60f11a94dfb903c28a9abae3314",
+        "runStatus": "completed",
+        "userMessageId": "agent-user-9809b260-15a3-4f33-b015-901a0c61b71d"
+      },
+      "toolCallId": "fake-chat-6-tool",
+      "providerRequestsBeforeConfirmation": 6,
+      "providerRequestsAfterConfirmation": 1
+    }
+  },
+  "commitVerification": "See Git HEAD, origin/main and latest local handoff; no acceptance status changed."
+}

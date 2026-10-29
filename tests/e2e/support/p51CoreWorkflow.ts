@@ -88,6 +88,11 @@ export async function completeCoreResumeWorkflow(page: Page, jobId: string) {
       profile: CareerProfileSchema.parse(profileBefore.find(profile => profile.id === after.profileId)),
       job: JobDescriptionSchema.parse(jobBeforePdf)
     })).not.toThrow();
+    await verifyCoreResumePdf(page, branchId);
+}
+
+export async function verifyCoreResumePdf(page: Page, branchId: string) {
+    const after = (await readStore(page, "resumeBranches")).find(branch => branch.id === branchId)!;
     await openManualPageTab(page);
     const downloadPromise = page.waitForEvent("download", { timeout: 120_000 });
     const responsePromise = page.waitForResponse(response => response.url().includes("/api/resume-export/pdf") && response.request().method() === "POST");
@@ -127,14 +132,24 @@ export async function readStore(page: Page, name: string): Promise<Array<Record<
   }), name);
 }
 
-async function installCoreWritingProvider(page: Page) {
+export async function installCoreWritingProvider(page: Page) {
   // Only external writing responses are controlled; domain validation,
   // Fact Guard, review, Repository, preview and PDF remain the real product.
   await page.route("**/api/ai/structured", async route => {
     const body = route.request().postDataJSON() as { task: string; input: Record<string, unknown> };
     const meta = { provider: "isolated-test", model: "core-writer", inputLength: 1, outputLength: 1, latencyMs: 1 };
     let output: unknown;
-    if (body.task === "resume-optimization-planner") {
+    if (body.task === "resume-tailor-diff") {
+      const input = body.input as unknown as { target: { sectionId: string; itemId: string; fieldPath: string }; currentContent: { fieldValue: string | string[] }; relevantRequirements: Array<{ requirementId: string }>; allowedEvidenceRefs: unknown[] };
+      const original = input.currentContent.fieldValue;
+      const rephrase = (line: string) => line.includes("需求梳理")
+        ? "参与需求梳理、原型设计和功能验收等 AI 应用项目工作。" : line;
+      const value = Array.isArray(original) ? original.map(rephrase) : rephrase(original);
+      output = { diffs: JSON.stringify(original) === JSON.stringify(value) ? [] : [{ target: input.target,
+        operation: "replace", original, value, reason: "重排已确认职责，保留参与边界与来源",
+        requirementIds: input.relevantRequirements.map(row => row.requirementId), targetKeywords: [],
+        evidenceRefs: input.allowedEvidenceRefs, supportLevel: "verified" }], clarifications: [] };
+    } else if (body.task === "resume-optimization-planner") {
       const sections = body.input.sections as Array<{ itemId: string }>;
       output = { assessments: sections.map(section => ({ itemId: section.itemId, action: "rewrite_from_evidence", reason: "保留已确认事实并统一句末标点", suggestedKeywords: [], relatedRequirementIds: [], clarificationQuestions: [] })) };
     } else if (body.task === "resume-tailor-batch") {

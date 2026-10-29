@@ -9,6 +9,7 @@ import type { HermesRunHandle } from "../../contracts/agentSession";
 import type { CareerToolGateway } from "../../tools/CareerToolGateway";
 import { logicalToolOperationId, type HermesBridgeEvent, type HermesBridgeTransport, type HermesRunStatus, type HermesRunTraceContext } from "./HermesBridgeTransport";
 import { resolveCareerSessionBinding } from "../careerSessionBinding";
+import { careerSessionCheckpoint } from "../careerSessionCheckpoint";
 import { HermesCareerToolCatalog } from "./HermesCareerToolCatalog";
 import {
   classifyHermesRunFailure,
@@ -360,6 +361,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
             // sends no executable callback contract or second tool loop here.
             toolContracts: [],
             careerSessionBinding: binding,
+            careerCheckpoint: careerSessionCheckpoint(input.session?.taskState),
             incidentTraceId,
             logicalTurnId: turnId,
             attemptTraceId,

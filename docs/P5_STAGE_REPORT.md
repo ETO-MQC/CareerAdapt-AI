@@ -1,8 +1,17 @@
 # P5 阶段报告与智能体优化交接
 
+## 2026-10-29：P5.1-Core-02 部分交付，完整 Hermes 链未验收
+
+本轮用户授权 A～F，基线 HEAD/远程 main 均为 `bfad45ea`、起始干净。保留 Core-01/P5.1.2 已有能力，仅补 Career Context 的版本/成熟度/来源与跨 Run ID checkpoint、版本绑定 Evidence Matrix、Fit→TailoringSession/Composition→Writer/Reviewer 接线、Profile/Job 原子 CAS 和目标切换拒绝，以及三个独立诊断维度。固定 40 个匿名场景映射基线与六个 Skills 哈希已记录；没有新表、生产依赖、第二运行时或 PDF renderer，没有修改 Fact Guard 阈值。
+
+最终相关 22 文件 192 项 Unit/Integration、typecheck、lint、独立生产 build、bundle-check、diff 通过；固定场景映射 40/40 不代表 40 次独立模型评测。既有 Hermes 中途回归 11/11（23 次模拟 Provider 请求），最终代码另有 C/I/J 三条既有 Hermes 定向回归 3/3（7 次模拟请求），独立业务 UI/正式 PDF 1/1。新增 Core-02 CASE L 两次 90 秒超时后按 AGENTS 停止重跑；已修跨 Run fixture 的旧工具回执依赖并以 HTTP 单测验证，但最终全链 E2E、四个多轮场景与最后 checkpoint 传输的 Hermes 复验仍未完成。旧 HTTP 401 分类断言失败单独保留；真实 Provider/OCR、复杂材料质量未认证。不能宣称 Core-02 完成或全量通过。
+
+详情：[Core-02 报告](architecture/p5.1-core-02-career-intelligence-20261029.md)及[evidence JSON](architecture/p5.1-core-02-evidence-20261029.json)。用户已追加授权提交并推送本轮部分成果；提交号与远程状态以 Git 和最新交接为准，未打包；P518-RUNTIME-MODEL-READBACK-01 保持 OPEN。后续仅继续本阶段未验收项，不自动开始 Skills Quality、P5.1.8 或 P5.1.9。
+
+
 - 更新日期：2026-10-29。
-- 当前阶段：P5.1.2 A→F已实施并完成定向验收；Core-01冻结与P5.1.8模型读回结转保持。P5.1.3未启动。
-- 本轮代码基线：`b7a691af7b597ea3dc561d31c7648c8dbd7f39f7`加P5.1.2未提交成果；不代表新安装包。下文旧轮次保留为历史。
+- 当前阶段：P5.1-Core-02部分交付/完整链未验收；P518模型读回结转保持；不自动进入后续阶段。
+- 本轮代码基线：`bfad45ea37d9941b6132c9725c502e50083f4ef6`加Core-02未提交成果；不代表新安装包。下文旧轮次保留为历史。
 - 远程开发入口：先读本报告，再读 [P5.0 成果总结](P5.0_OUTCOMES.md)，随后只读取本次任务相关源码、测试和专项报告。
 
 ## 2026-10-29：P5.1.2 多模态职业材料摄取交付

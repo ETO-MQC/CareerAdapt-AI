@@ -155,6 +155,12 @@ change aborts the apply transaction.
 
 ## OUTPUT
 
+Core-02 contract: retain the selected Job version's requirement IDs and the
+version-bound `candidateEvidenceMatrix.analysisId`. Use only relevant evidence
+rows for each field. Preserve unsupported requirements as `withheld` with a
+reason; never translate an unknown capability into a negative personal fact.
+Do not request the JD again when the session already binds its saved version.
+
 Return a requirement-to-evidence map and gap scorecard, reversible diff items,
 provenance, unsupported-claim warnings, evidence-eligibility versus final ATS
 coverage, confidence, review findings, and a confirmation checklist. State

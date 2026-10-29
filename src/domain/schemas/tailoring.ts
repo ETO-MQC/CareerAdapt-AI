@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CandidateEvidenceMatrixSchema } from "./careerIntelligence";
 import { FactMaturitySchema } from "./common";
 import { MatchEvidenceRefSchema } from "./job";
 import { ResumeItemV2Schema } from "./resumeV2";
@@ -328,6 +329,7 @@ export const ResumeTailorModelOutputSchema = z.object({
 }).passthrough();
 
 export const ResumeTailoringDiffTaskInputSchema = ResumeTailorTaskInputV2BaseSchema.extend({
+  requirementEvidence: z.object({ analysisId: z.string().min(1), rows: CandidateEvidenceMatrixSchema.shape.rows }).strict().optional(),
   target: ResumeTailorTaskInputV2BaseSchema.shape.target.extend({
     fieldPath: ResumeFieldPathSchema
   }).strict(),

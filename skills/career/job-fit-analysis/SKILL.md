@@ -110,6 +110,13 @@ step to retry; never mutate the general profile as recovery.
 
 ## OUTPUT
 
+Core-02 contract: reuse the saved JobRequirementGraph for the selected Job version.
+Carry `candidateEvidenceMatrix.analysisId` and its profile/resume/job revision
+binding into tailoring and review. Keep unknown separate from mismatch; absence
+in a Profile is not evidence that a candidate lacks a capability. Separate
+must-have coverage, preferred coverage, evidence strength, material gaps and
+unknowns. Coverage scores are diagnostics, never interview probabilities.
+
 Return a requirement-to-evidence matrix, fit summary, material gaps, candidate
 questions, confidence, and tailoring priorities. Include requirement IDs and
 source references so later changes remain reviewable.

@@ -10,13 +10,15 @@ import {
 } from "./contracts";
 import { resolveCareerAssetDisplayIdentity } from "./CareerAssetDisplayIdentity";
 import { assessResumeBullet, careerResumeQualityWarnings } from "./CareerResumeQualityPolicyV1";
+import { diagnoseResumeQuality } from "./qualityDiagnostics";
 
 export function reviewResumeComposition(result: ResumeCompositionResult, input: { job?: JobDescription } = {}) {
   const firstPass = reviewResumeCompositionPass(result, input, true);
-  if (!firstPass.didRepair) return firstPass.result;
+  if (!firstPass.didRepair) return withDiagnostics(firstPass.result);
   const repairedPass = reviewResumeCompositionPass(firstPass.result, input, false).result;
   const reviewResult = ResumeReviewResultSchema.parse({
     ...repairedPass.reviewResult,
+    analysisId: result.candidateEvidenceMatrix?.analysisId,
     status: firstPass.result.reviewResult.status === "NEEDS_REVIEW" || repairedPass.reviewResult.status === "NEEDS_REVIEW"
       ? "NEEDS_REVIEW"
       : "PASS",
@@ -29,11 +31,17 @@ export function reviewResumeComposition(result: ResumeCompositionResult, input: 
       ...repairedPass.reviewResult.diffs
     ].map((diff) => [diff.id, diff])).values()]
   });
-  return ResumeCompositionResultSchema.parse({
+  return withDiagnostics(ResumeCompositionResultSchema.parse({
     ...repairedPass,
     reviewResult,
     telemetry: repairedPass.telemetry ? { ...repairedPass.telemetry, reviewStatus: reviewResult.status } : undefined
-  });
+  }));
+}
+
+function withDiagnostics(result: ResumeCompositionResult) {
+  const diagnostics = diagnoseResumeQuality(result);
+  return ResumeCompositionResultSchema.parse({ ...result, reviewResult: { ...result.reviewResult, diagnostics,
+    ...(diagnostics.hardGate.status === "blocked" ? { status: "NEEDS_REVIEW" } : {}) } });
 }
 
 function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { job?: JobDescription }, allowRepair: boolean) {
@@ -232,6 +240,7 @@ function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { j
   };
   const status = reviewDiffs.length || findings.some((finding) => /职责表述|项目段落|项目仍包含|研究段落|ATS keywords|口语|ownership|paragraph|unsupported|density|semantic components|resume_quality|重复/iu.test(finding)) ? "NEEDS_REVIEW" : "PASS";
   const reviewResult = ResumeReviewResultSchema.parse({
+    analysisId: result.candidateEvidenceMatrix?.analysisId,
     status,
     findings,
     diffs: reviewDiffs,

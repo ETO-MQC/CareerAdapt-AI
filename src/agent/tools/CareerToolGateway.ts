@@ -436,6 +436,14 @@ export class CareerToolGateway {
       if (stageError) return this.failure(name, operationId, stageError.code, stageError.message, true, undefined, "failed", finishFailureTrace(trace, stageError.code, "gateway_policy"));
       const contract = this.toContract(definition);
       attachContractIdentity(trace, contract);
+      const taskState = context.authoritativeTaskState ?? this.asDependencies().getAuthoritativeTaskState?.();
+      if (name === "career.context.retrieve" && input && typeof input === "object" && !Array.isArray(input)
+        && (!taskState?.selectedEntities.profileId || taskState.selectedEntities.profileId === context.careerSessionBinding?.profileId)) {
+        const request = input as Record<string, unknown>;
+        input = { ...request, profileId: request.profileId ?? context.careerSessionBinding?.profileId,
+          ...(request.resumeId === undefined && taskState?.selectedEntities.resumeId ? { resumeId: taskState.selectedEntities.resumeId } : {}),
+          ...(request.jobId === undefined && taskState?.selectedEntities.jobId ? { jobId: taskState.selectedEntities.jobId } : {}) };
+      }
       const bindingError = await this.verifyExecutionBinding(contract, input, context);
       if (bindingError) return this.failure(name, operationId, bindingError.code, bindingError.message, false, undefined, "failed", finishFailureTrace(trace, bindingError.code, "gateway_policy"));
       if (!context.workflowFacadeInternal && isTransactionalAtomic(definition.sourceToolName)) {
@@ -454,6 +462,9 @@ export class CareerToolGateway {
       trace.firstInternalOperationAt = new Date().toISOString();
       const raw = await this.executeSourceTool(definition.sourceToolName, input, operationId, context);
       const mapped = this.mapResult<T>(name, definition, raw, context.careerSessionBinding);
+      if (name === "career.context.retrieve" && mapped.ok && mapped.data && taskState) {
+        mapped.data = { ...mapped.data, workflowCheckpoint: { workflowId: taskState.workflowId, stage: taskState.stage } };
+      }
       return withExecutionDiagnostics(mapped, trace, mapped.error?.code);
     } catch (error) {
       if (error instanceof AgentConfirmationRequiredError) {

@@ -1,5 +1,14 @@
 # CareerAdapt portable skills
 
+Core-02 baseline (2026-10-29): Profile/Repository owns career facts;
+Session/checkpoint owns task state; Skills own procedure. Hermes long-term
+Memory may hold stable lightweight preferences, never full Profiles, resumes,
+JDs, attachments or unconfirmed model inferences. Retrieve only task-relevant
+confirmed facts and sources through `career.context.retrieve`. Do not ask the
+user to resupply session-bound facts or materials. Changing a bound target or
+revision invalidates its previous proposal. Quality A/B work is deferred to
+P5.1-Skills-Quality and uses `tests/agent-eval/core02-cases.ts`.
+
 This folder contains six portable, evidence-first career skills. Each
 `SKILL.md` follows Hermes portable-skill metadata and section conventions, but
 the documents remain workflow guidance: they do not depend on CareerAdapt's

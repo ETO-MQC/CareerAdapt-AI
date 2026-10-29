@@ -5,7 +5,7 @@ import { z } from "zod";
  * product phase.  Bumping this value is required whenever a published tool
  * schema changes so a stale Hermes tool surface cannot report Ready.
  */
-export const CAREER_TOOL_CONTRACT_VERSION = "career-tool-contract-v4";
+export const CAREER_TOOL_CONTRACT_VERSION = "career-tool-contract-v5";
 
 const CAREER_TARGET_PERSISTENCE_VALUES = ["ask", "save", "session_only"] as const;
 const CAREER_TAILORING_MODE_VALUES = ["steady", "competitive", "max_fit"] as const;

@@ -36,8 +36,10 @@ import { normalizeSkillGroups } from "./ResumeSkillTaxonomy";
 import { CareerResumeWritingService } from "./CareerResumeWritingService";
 import { stableHashText } from "@/services/security/text";
 import { assessResumeBullet } from "./CareerResumeQualityPolicyV1";
+import type { CandidateEvidenceMatrix } from "@/domain/jobOptimization/careerIntelligence";
 
 export type ResumeWriterInput = {
+  candidateEvidenceMatrix?: CandidateEvidenceMatrix;
   profile: CareerProfile;
   graph: ResumeEvidenceGraph;
   blueprint: ResumeBlueprint;
@@ -131,6 +133,7 @@ export function writeResumeComposition(input: ResumeWriterInput): ResumeComposit
     actions: input.blueprint.informationNeeds.length ? ["generate", "supplement", "adjust", "cancel"] : ["generate", "adjust", "cancel"]
   });
   const draft = ResumeCompositionResultSchema.parse({
+    candidateEvidenceMatrix: input.candidateEvidenceMatrix,
     schemaVersion: "resume-composition-v1",
     mode: input.mode,
     profileId: profile.id,
@@ -163,6 +166,7 @@ export function writeResumeComposition(input: ResumeWriterInput): ResumeComposit
 }
 
 export function compileResumeComposition(input: {
+  candidateEvidenceMatrix?: CandidateEvidenceMatrix;
   profile: CareerProfile;
   mode: ResumeCompositionMode;
   job?: JobDescription;
@@ -177,6 +181,7 @@ export function compileResumeComposition(input: {
 }
 
 export async function compileResumeCompositionWithAi(input: {
+  candidateEvidenceMatrix?: CandidateEvidenceMatrix;
   profile: CareerProfile;
   mode: ResumeCompositionMode;
   job?: JobDescription;
@@ -194,6 +199,7 @@ export async function compileResumeCompositionWithAi(input: {
   const graph = options.graph ?? buildResumeEvidenceGraph({ profile: input.profile });
   const blueprint = options.blueprint ?? planResumeBlueprint({ profile: input.profile, graph, mode: input.mode, job: input.job, targetDirection: input.targetDirection, targetAudience: input.targetAudience, companyType: input.companyType });
   const writingResult = await (options.writingService ?? new CareerResumeWritingService()).writeWithExecution({
+    candidateEvidenceMatrix: input.candidateEvidenceMatrix,
     profile: input.profile,
     graph,
     blueprint,

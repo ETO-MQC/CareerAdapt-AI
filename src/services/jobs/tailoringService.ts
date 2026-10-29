@@ -2,12 +2,10 @@ import {
   buildCanonicalJobRequirementGraph,
   buildCanonicalJobRequirementGraphV3,
   buildCandidateEvidenceUnits,
-  buildJobCoverageReport,
   buildTailoringJobContext,
   createDeterministicTailoringSuggestions,
   createResumeTailorTaskInputs,
   evaluateRequirementEvidence,
-  recallEvidenceCandidates,
   validateTailoringDelta
 } from "@/domain/jobOptimization";
 import { buildConfirmableClaim, resolveConfirmableClaim } from "@/domain/jobOptimization/confirmation";
@@ -59,6 +57,7 @@ import type { WorkspaceRepository } from "@/services/storage/repositories";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import { resolveTailoringClaimPolicy } from "@/domain/jobOptimization/tailoringClaimPolicy";
 import { maturityForTailoringAnswer } from "@/domain/profile/factMaturity";
+import { buildCareerIntelligence, type CandidateEvidenceMatrix } from "@/domain/jobOptimization/careerIntelligence";
 
 export type ClaimConfirmationGroup = {
   id: string;
@@ -72,6 +71,8 @@ export type TailoringServiceResult = {
   status: "ready" | "needs_confirmation" | "completed" | "blocked";
   summary: string;
   report?: JobCoverageReportV2;
+  candidateEvidenceMatrix?: CandidateEvidenceMatrix;
+  jobFit?: ReturnType<typeof buildCareerIntelligence>["jobFit"];
   evidenceMapping?: {
     requirements: ReturnType<typeof buildCanonicalJobRequirementGraph>["nodes"];
     evaluations: ReturnType<typeof evaluateRequirementEvidence>["evaluations"];
@@ -84,16 +85,14 @@ export type TailoringServiceResult = {
   taskInputs?: ResumeTailorTaskInputV2[];
 };
 
-export function analyzeJobFit(input: { profile: CareerProfile; branch: ResumeBranch; job: JobDescription }): TailoringServiceResult {
-  const graph = buildCanonicalJobRequirementGraph(input.job);
-  const evidenceUnits = buildCandidateEvidenceUnits({ profile: input.profile, branch: input.branch });
-  const recalls = recallEvidenceCandidates({ graph, evidenceUnits });
-  const matrix = evaluateRequirementEvidence({ profile: input.profile, graph, evidenceUnits, recalls });
-  const report = buildJobCoverageReport({ graph, matrix });
+export function analyzeJobFit(input: { profile: CareerProfile; branch: ResumeBranch; job: JobDescription }, analysis = buildCareerIntelligence(input)): TailoringServiceResult {
+  const { graph, evidenceUnits, matrix, report } = analysis;
   return {
     status: "ready",
-    summary: `当前岗位适配度 ${report.overallCoverage} 分；未覆盖项会作为可补充项，不阻止创建岗位简历。`,
+    summary: `当前已确认材料的要求覆盖诊断为 ${report.overallCoverage} 分；未找到证据的要求保持未知，不代表不具备能力，也不是面试概率。`,
     report,
+    candidateEvidenceMatrix: analysis.candidateEvidenceMatrix,
+    jobFit: analysis.jobFit,
     evidenceMapping: {
       requirements: graph.nodes,
       evaluations: matrix.evaluations,
@@ -111,8 +110,8 @@ export function createTailoringPlan(input: {
   mode?: TailoringMode;
   operationId: string;
   now?: string;
-}): TailoringServiceResult {
-  const analyzed = analyzeJobFit(input);
+}, analysis?: ReturnType<typeof buildCareerIntelligence>): TailoringServiceResult {
+  const analyzed = analyzeJobFit(input, analysis);
   const report = analyzed.report!;
   const mode = resolveTailoringMode({ mode: input.mode, intensity: input.intensity });
   const intensity = intensityForTailoringMode(mode);
@@ -164,6 +163,8 @@ export function createTailoringPlan(input: {
     summary: `已生成 ${claims.length} 条${tailoringModeLabel(mode)}建议。`,
     report,
     plan,
+    candidateEvidenceMatrix: analyzed.candidateEvidenceMatrix,
+    jobFit: analyzed.jobFit,
     confirmationGroups,
     taskInputs,
     resultRefs: { branchId: input.branch.id, planId: plan.id }

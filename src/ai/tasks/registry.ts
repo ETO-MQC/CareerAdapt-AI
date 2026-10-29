@@ -1,6 +1,7 @@
 import { nanoid } from "nanoid";
 import { resumeRoleInstructions } from "@/domain/resumeComposition/CareerResumeQualityPolicyV1";
 import { z } from "zod";
+import { CandidateEvidenceMatrixSchema } from "@/domain/schemas/careerIntelligence";
 import {
   AiTaskSchema,
   EvidenceMatcherOutputSchema,
@@ -103,6 +104,7 @@ export const ProfileIntakeFinalCareerSynthesisTaskInputSchema = ProfileIntakeFin
 export const ResumeJsonMapperTaskInputSchema = BaseAiInputSchema;
 export const ResumeDocumentMapperTaskInputSchema = BaseAiInputSchema;
 export const ResumeCareerWritingTaskInputSchema = z.object({
+  requirementEvidence: CandidateEvidenceMatrixSchema.optional(),
   mode: z.enum(["general", "job_specific"]),
   targetRole: z.string().max(160).optional(),
   // Presentation context is deliberately separate from CareerProfile facts.
@@ -559,6 +561,7 @@ export const aiTaskRegistry = {
     maxOutputChars: 24_000,
     buildUserPrompt(input: ResumeCareerWritingTaskInput) {
       return JSON.stringify({
+        requirementEvidence: input.requirementEvidence,
         mode: input.mode,
         targetRole: input.targetRole,
         targetDirection: input.targetDirection,
@@ -1228,6 +1231,7 @@ export const aiTaskRegistry = {
           allowedFacts: input.allowedFacts
         },
         REQUIREMENT: {
+          requirementEvidence: input.requirementEvidence,
           relevantRequirements: input.relevantRequirements,
           requirementDetails: input.requirementDetails
         },

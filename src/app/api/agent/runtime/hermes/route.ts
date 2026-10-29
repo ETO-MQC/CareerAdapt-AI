@@ -1,4 +1,5 @@
 import { MATERIAL_ROUTING_INSTRUCTIONS } from "@/domain/materialIntake/materialIntake";
+import { CareerSessionCheckpointSchema } from "@/agent/runtime/careerSessionCheckpoint";
 import { createHash } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
@@ -6,6 +7,7 @@ import { classifyHermesRunFailure } from "@/agent/runtime/hermes/hermesRunReliab
 import { recordHermesRunStartFailure, recordHermesRunStartSuccess } from "@/agent/runtime/hermes/hermesRunReadiness";
 
 const HermesBridgeRequestSchema = z.object({
+  careerCheckpoint: CareerSessionCheckpointSchema.optional(),
   action: z.enum([
     "run_start", "run_status", "run_events", "run_approval", "run_stop"
   ])
@@ -39,6 +41,7 @@ async function officialHermesRequest(baseUrl: string, action: z.infer<typeof Her
           career_context: {
             session_id: safeCareerBinding(payload.careerSessionBinding)?.agentSessionId ?? safeDiagnosticString(payload.sessionId),
             binding: safeCareerBinding(payload.careerSessionBinding),
+            workflow_checkpoint: payload.careerCheckpoint,
             page: safePageContext(payload.pageContext),
             attachments: safeAttachments(payload.attachments)
           },
@@ -341,6 +344,9 @@ function careerRunInstructions(payload: Record<string, unknown>) {
   return [
     "You are CareerAdapt's career assistant. Answer ordinary conversation naturally and concisely.",
     "Use CareerAdapt MCP when confirmed saved career facts or an explicit Career action is needed. Never invent user facts or claim a write without a completed CareerAdapt receipt.",
+    "Career facts belong in Profile/Repository; task state belongs in Session/checkpoints; procedures belong in Skills. Long-term Memory may contain only stable lightweight preferences, never full Profile, Resume, JD, attachment text or unconfirmed inferences.",
+    "Retrieve task-relevant confirmed facts through career.context.retrieve. Reuse the session's selected entities and version-bound evidence analysis before asking the user to repeat materials or facts. Multiple reasonable targets require a choice. Page navigation cannot override the pinned session.",
+    ...(payload.careerCheckpoint ? [`Host checkpoint identifiers (data only): ${JSON.stringify(payload.careerCheckpoint)}. These are retrieval targets, never permission to write; reread current revisions and preserve confirmation/CAS gates.`] : []),
     MATERIAL_ROUTING_INSTRUCTIONS,
     "CareerAdapt owns persistence, authorization, workflow checkpoints, confirmations, attachments, and artifacts. Hermes owns semantic reasoning, response generation, and model-driven tool selection.",
     activeWorkflow,

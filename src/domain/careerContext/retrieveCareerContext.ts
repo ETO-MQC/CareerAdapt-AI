@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { migrateCareerProfileToV2 } from "@/domain/migrations/resumeV2";
+import { factMaturityOf } from "@/domain/profile/factMaturity";
+import { FactMaturitySchema } from "@/domain/schemas/common";
 import type {
   CareerProfile,
   FactStatement,
@@ -17,6 +19,10 @@ export const CareerContextIntentSchema = z.enum([
   "strength_analysis",
   "job_fit_explanation",
   "career_story",
+  "profile_enrichment",
+  "resume_composition",
+  "resume_tailoring",
+  "resume_review",
   "other"
 ]);
 
@@ -40,6 +46,7 @@ const CareerContextFactSchema = z.object({
   sourceEntityType: z.enum(["profile", "experience", "education", "project", "award", "skill", "language", "certificate", "other"]),
   evidenceRefs: z.array(z.string().min(1)),
   confidence: z.number().min(0).max(1),
+  maturity: FactMaturitySchema,
   date: z.string().min(1).optional(),
   relevanceReason: z.string().min(1)
 }).strict();
@@ -54,6 +61,7 @@ const CareerContextSourceSummarySchema = z.object({
   excludedSourceTypes: z.array(z.string().min(1)),
   job: z.object({
     id: z.string().min(1),
+    version: z.string().min(1),
     title: z.string().min(1),
     requirementCount: z.number().int().min(0),
     freshFitAvailable: z.boolean(),
@@ -77,6 +85,7 @@ export const CareerContextResultSummarySchema = z.object({
 }).strict();
 
 export const CareerContextRetrieveResultSchema = z.object({
+  workflowCheckpoint: z.object({ workflowId: z.string(), stage: z.string(), checkpointId: z.string().optional() }).strict().optional(),
   profileId: z.string().min(1),
   query: z.string().min(1),
   intent: CareerContextIntentSchema,
@@ -84,6 +93,11 @@ export const CareerContextRetrieveResultSchema = z.object({
   targetSignals: z.array(z.string().min(1)),
   unsupportedClaims: z.array(z.string().min(1)),
   sourceSummary: CareerContextSourceSummarySchema,
+  binding: z.object({ personId: z.string().optional(), profileId: z.string(), profileRevision: z.number(),
+    resumeId: z.string().optional(), branchId: z.string().optional(), resumeRevision: z.number().optional(), revisionId: z.string().optional(),
+    jobId: z.string().optional(), jobVersion: z.string().optional() }).strict(),
+  pendingFacts: z.array(z.object({ factId: z.string(), reason: z.enum(["unconfirmed", "high_risk"]) }).strict()),
+  materialSources: z.array(z.object({ sourceId: z.string(), factIds: z.array(z.string()) }).strict()),
   careerContextResultSummary: CareerContextResultSummarySchema
 }).strict();
 
@@ -135,6 +149,8 @@ export function retrieveCareerContext(input: {
   const targetSignals = buildTargetSignals(request, input.job, input.resume, input.requirementMatches, allTerms);
   const rankedFacts = factSources
     .map((source) => ({ source, score: scoreFact(source, request, allTerms) }))
+    .filter(({ source }) => !["profile_enrichment", "resume_tailoring", "resume_review", "job_fit_explanation"].includes(request.intent ?? "")
+      || allTerms.some(term => source.searchableText.includes(term)))
     .sort((left, right) => right.score - left.score || left.source.fact.id.localeCompare(right.source.fact.id))
     .slice(0, request.maxFacts);
   const facts = rankedFacts.map(({ source, score }) => toContextFact(source, score, request, allTerms));
@@ -157,6 +173,7 @@ export function retrieveCareerContext(input: {
     ...(input.job ? {
       job: {
         id: input.job.id,
+        version: input.job.updatedAt,
         title: input.job.title,
         requirementCount: input.job.requirements.length,
         freshFitAvailable: freshFit.freshFitAvailable,
@@ -181,6 +198,16 @@ export function retrieveCareerContext(input: {
     targetSignals,
     unsupportedClaims,
     sourceSummary,
+    binding: { personId: profile.personId, profileId: profile.id, profileRevision: profile.version,
+      ...(input.resume ? { resumeId: input.resume.id, branchId: input.resume.id, resumeRevision: input.resume.revision,
+        ...(input.resume.currentRevisionId ? { revisionId: input.resume.currentRevisionId } : {}) } : {}),
+      ...(input.job ? { jobId: input.job.id, jobVersion: input.job.updatedAt } : {}) },
+    pendingFacts: [...profile.experiences.flatMap(entry => entry.facts), ...profile.skills.flatMap(entry => entry.fact ? [entry.fact] : []),
+      ...profile.certificates.flatMap(entry => entry.fact ? [entry.fact] : [])]
+      .filter(fact => !isConfirmedFact(fact)).slice(0, request.maxFacts)
+      .map(fact => ({ factId: fact.id, reason: fact.riskLevel === "high" ? "high_risk" : "unconfirmed" })),
+    materialSources: uniqueStrings(facts.flatMap(fact => fact.evidenceRefs)).map(sourceId => ({ sourceId,
+      factIds: facts.filter(fact => fact.evidenceRefs.includes(sourceId)).map(fact => fact.factId) })),
     careerContextResultSummary
   });
 }
@@ -322,7 +349,6 @@ function buildFactSources(profile: ReturnType<typeof migrateCareerProfileToV2>):
         ...entity.evidenceRefs,
         ...fact.provenance
           .map((provenance) => provenance.sourceId)
-          .filter((sourceId) => profile.evidences.some((evidence) => evidence.id === sourceId))
       ]);
       sources.push({
         fact,
@@ -370,6 +396,7 @@ function toContextFact(source: FactSource, score: number, request: CareerContext
     sourceEntityType: source.sourceEntityType,
     evidenceRefs: source.evidenceRefs,
     confidence: Math.max(0, Math.min(1, Math.max(...source.fact.provenance.map((item) => item.confidence)))),
+    maturity: factMaturityOf(source.fact),
     ...(source.date ? { date: source.date } : {}),
     relevanceReason
   };
@@ -445,6 +472,7 @@ function findFact(profile: CareerProfile, factId: string) {
 function isConfirmedFact(fact: FactStatement) {
   return fact.confirmedByUser
     && fact.riskLevel !== "high"
+    && !fact.provenance.some(provenance => provenance.riskLevel === "high")
     && fact.provenance.some((provenance) => provenance.confirmedByUser);
 }
 

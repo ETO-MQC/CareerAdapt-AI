@@ -31,12 +31,15 @@ import type { WorkspaceRepository } from "@/services/storage/repositories";
 import { stableHashText } from "@/services/security/text";
 import { consumeTailoringQuestionAnswer, createTailoringPlan, createTailoringQuestionPlan, isTailoringQuestionPlanComplete, tailoringAnswerRevisionHash } from "./tailoringService";
 import { tailoringDiffId } from "./tailoringDiffId";
+import { CandidateEvidenceMatrixSchema } from "@/domain/schemas/careerIntelligence";
+import type { buildCareerIntelligence } from "@/domain/jobOptimization/careerIntelligence";
 
 export { tailoringDiffId } from "./tailoringDiffId";
 
 const OperationIdSchema = z.string().min(8).max(160);
 
 export const TailoringSessionSchema = z.object({
+  candidateEvidenceMatrix: CandidateEvidenceMatrixSchema.optional(),
   tailoringRuntimeVersion: z.number().int().min(1).default(2),
   id: z.string().min(1),
   operationId: OperationIdSchema,
@@ -157,7 +160,7 @@ export function analyzeJobCommand(input: z.input<typeof AnalyzeJobCommandInputSc
   });
 }
 
-export function createTailoringSessionCommand(input: z.input<typeof CreateTailoringSessionCommandInputSchema>, signal?: AbortSignal) {
+export function createTailoringSessionCommand(input: z.input<typeof CreateTailoringSessionCommandInputSchema>, signal?: AbortSignal, analysis?: ReturnType<typeof buildCareerIntelligence>) {
   assertNotCancelled(signal);
   const parsed = CreateTailoringSessionCommandInputSchema.parse(input);
   const planned = createTailoringPlan({
@@ -167,7 +170,7 @@ export function createTailoringSessionCommand(input: z.input<typeof CreateTailor
     intensity: parsed.intensity,
     mode: parsed.mode,
     operationId: parsed.operationId
-  });
+  }, analysis);
   if (!planned.plan || !planned.taskInputs) throw commandError("tailoring_plan_unavailable");
   const gaps = analyzeKeywordAndCapabilityGaps({
     job: parsed.job,
@@ -199,6 +202,7 @@ export function createTailoringSessionCommand(input: z.input<typeof CreateTailor
     diffs: []
   });
   const session = TailoringSessionSchema.parse({
+    candidateEvidenceMatrix: planned.candidateEvidenceMatrix,
     id: sessionId,
     operationId: parsed.operationId,
     profile: parsed.profile,
@@ -245,6 +249,10 @@ export async function generateTailoringDiffsCommand(input: {
       },
       allowedOperation: "replace",
       requirementDetails: requirementDetailsFor(taskInput.relevantRequirements),
+      requirementEvidence: parsed.session.candidateEvidenceMatrix ? {
+        analysisId: parsed.session.candidateEvidenceMatrix.analysisId,
+        rows: parsed.session.candidateEvidenceMatrix.rows.filter(row => taskInput.relevantRequirements.some(requirement => requirement.requirementId === row.requirementId))
+      } : undefined,
       evidenceBundle: mergeAnswerContext(taskInput.evidenceBundle, answerContext),
       wholeResumeContext: {
         ...(taskInput.wholeResumeContext ?? {}),
@@ -588,6 +596,9 @@ function reviewTailoringDiffResult(operationId: string, session: TailoringSessio
   const selectedDiffs = reviewedTailoringDiffs(session);
   const counts = tailoringReviewCounts(session);
   return {
+    analysisId: session.candidateEvidenceMatrix?.analysisId,
+    withheld: session.candidateEvidenceMatrix?.rows.filter(row => row.evidenceStatus === "unknown" || row.evidenceStatus === "conflicting" || row.evidenceStatus === "mismatch")
+      .map(row => ({ requirementId: row.requirementId, status: "withheld", rationale: row.rationale })),
     operationId,
     session,
     selectedDiffs,
@@ -660,7 +671,9 @@ export async function applyTailoringSessionCommand(input: {
     confirmedRequirementIds: parsed.confirmedRequirementIds,
     operationId: parsed.operationId,
     expectedBranchRevision: parsed.session.branch.revision,
-    expectedRevisionId: parsed.session.branch.currentRevisionId ?? ""
+    expectedRevisionId: parsed.session.branch.currentRevisionId ?? "",
+    expectedProfileRevision: parsed.session.profile.version,
+    expectedJobRevision: parsed.session.targetSnapshot ? undefined : parsed.session.job.updatedAt
   });
   assertNotCancelled(input.signal);
   if (

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { writeFile } from "node:fs/promises";
-import { completeCoreResumeWorkflow, prepareCoreSourceResume, readStore } from "./support/p51CoreWorkflow";
+import { completeCoreResumeWorkflow, installCoreWritingProvider, prepareCoreSourceResume, readStore, verifyCoreResumePdf } from "./support/p51CoreWorkflow";
 
 type SafeHermesEvent = { event?: string; runId?: string; tool?: string; timestamp?: number };
 declare global { interface Window { __caseIEvents?: SafeHermesEvent[] } }
@@ -151,6 +151,63 @@ test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
     expect(current?.artifactRefs).toEqual(expect.arrayContaining([expect.objectContaining({ kind: "resume_import_review", entityId: expect.stringMatching(/^material-profile:/u) })]));
     expect(receipt.formalProfiles).toBe(profilesBefore.length);
     expect(await readStore(page, "profiles")).toEqual(profilesBefore);
+  });
+
+  test("CASE L Core-02 — saved JD, Fit, follow-up tailoring, confirmed isolated revision and PDF", async ({ page }, testInfo) => {
+    test.setTimeout(240_000);
+    const trace = observeRuntimeAndBridge(page);
+    await openWorkspace(page);
+    const initialBranchIds = new Set((await readStore(page, "resumeBranches")).map(branch => branch.id));
+    await prepareCoreSourceResume(page);
+    const branches = await readStore(page, "resumeBranches");
+    const source = branches.find(branch => !initialBranchIds.has(branch.id) && branch.branchPurpose === "general")!;
+    expect(source).toBeTruthy();
+    const profilesBefore = await readStore(page, "profiles");
+    await page.goto("/ai-workspace");
+    await resetHermesForCase(page);
+    const providerBefore = await readProviderEvidence(page);
+    await send(page, "保存这个岗位 CORE-JD：公司 Core Test，数据分析实习生，负责数据清洗，要求了解 Python 或 SQL。");
+    await expect(page.locator(".agent-confirmation")).toBeVisible();
+    await page.locator(".agent-confirmation").getByRole("button", { name: "确认", exact: true }).click();
+    await expectAssistant(page, "已按你的确认完成当前 Career 工作流。");
+    const jobsBefore = await readStore(page, "jobDescriptions");
+    await send(page, "P51-C02-FIT 这个岗位适合我吗？");
+    await expectAssistant(page, "C02_FIT_COMPLETE");
+    await installCoreWritingProvider(page);
+    await send(page, "P51-C02-TAILOR 那按它帮我改简历，别改模板，只改内容。");
+    await expectAssistant(page, "C02_TAILOR_READY");
+    const inline = page.locator(".agent-tailoring-inline");
+    await expect(inline).toBeVisible();
+    if (!await inline.evaluate(element => (element as HTMLDetailsElement).open)) await inline.locator("summary").click();
+    for (let index = 0; index < 8 && await inline.getByRole("button", { name: "采用", exact: true }).count(); index++) {
+      await inline.getByRole("button", { name: "采用", exact: true }).first().click();
+    }
+    await inline.getByRole("button", { name: "提交本次选择", exact: true }).click();
+    await expect(page.locator(".agent-confirmation")).toBeVisible();
+    await page.locator(".agent-confirmation").getByRole("button", { name: "确认", exact: true }).click();
+    await expect.poll(async () => (await readStore(page, "resumeBranches")).filter(branch => branch.branchPurpose === "job_specific").length).toBeGreaterThan(0);
+    const after = await readStore(page, "resumeBranches");
+    const target = after.find(branch => branch.branchPurpose === "job_specific" && branch.sourceBranchId === source.id)!;
+    expect(target).toBeTruthy();
+    expect(after.find(branch => branch.id === source.id)).toEqual(source);
+    expect(await readStore(page, "profiles")).toEqual(profilesBefore);
+    expect(await readStore(page, "jobDescriptions")).toEqual(jobsBefore);
+    expect(trace.toolRequests.map(request => request.name)).toEqual([
+      "career.workflow.job_intake", "career.resume.list", "career.job.list", "career.workflow.job_fit", "career.workflow.tailor_resume"
+    ]);
+    const providerAfter = await readProviderEvidence(page);
+    const sessions = await readStore(page, "agentSessions");
+    await testInfo.attach("core02-tool-trace", { body: JSON.stringify({
+      providerKind: "simulated", providerRequests: providerAfter.requests.length - providerBefore.requests.length,
+      clarificationCount: 0, toolSequence: trace.toolRequests.map(request => request.name),
+      runStarts: trace.runtimeActions.filter(action => action === "run_start").length,
+      entityIds: { profileId: source.profileId, sourceResumeId: source.id, targetResumeId: target.id, revisionId: target.currentRevisionId, jobId: target.jobId },
+      repositoryWrites: { newResumeBranches: after.length - branches.length, generalUnchanged: true, profileUnchanged: true },
+      taskStates: sessions.map(session => session.taskState)
+    }, null, 2), contentType: "application/json" });
+    await page.goto(`/resume?branchId=${encodeURIComponent(String(target.id))}`);
+    await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
+    await verifyCoreResumePdf(page, String(target.id));
   });
 
   test("CASE I — pasted JD crosses real Hermes and MCP, then one Host confirmation saves the Job", async ({ page }) => {
