@@ -76,7 +76,7 @@ function writePack(evaluation) {
     ...evaluation.fixture.cases.flatMap(row => [`## ${row.id} / ${row.skill}`, "", row.prompt,
       ...row.followUpTurns.map(turn => `\n固定后续回答：${turn}`), "", `验收：${row.rubric}`, ""])
   ].join("\n");
-  fs.writeFileSync(out, text + "\n");
+  fs.writeFileSync(out, text.trimEnd() + "\n");
   const records = evaluation.fixture.cases.flatMap(row => ["before", "after"].map(arm => makeRecord(row, arm, evaluation.skills[row.skill], "PENDING", [])));
   const resultFile = path.join(root, "docs/quality/skills-quality-v1-ab-results.json");
   // Never overwrite an existing reviewed result with empty placeholders.
