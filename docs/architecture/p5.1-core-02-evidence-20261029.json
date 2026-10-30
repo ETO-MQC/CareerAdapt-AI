@@ -7132,5 +7132,2941 @@
         ]
       }
     ]
+  },
+  "latestRound": "finalFreeze20261030",
+  "currentStatus": "COMPLETE_HERMETIC_FUNCTIONAL_FREEZE",
+  "final20261030": {
+    "date": "2026-10-30",
+    "status": "PARTIAL_FINAL_CONFIRMATION_AUDIT",
+    "baselineHead": "0079b7bd168f9fe53fee159e443725ab0e279206",
+    "baselineOriginMain": "0079b7bd168f9fe53fee159e443725ab0e279206",
+    "baselineWorktree": "clean",
+    "commitStatus": "尚未提交",
+    "pushed": false,
+    "packaged": false,
+    "infrastructure": {
+      "runtimeLifecycle": "one owned runtime per suite; reused across business cases; stopped in runner finally",
+      "caseIsolation": [
+        "fresh Playwright BrowserContext/IndexedDB",
+        "post-seed official new task with Profile binding",
+        "stateless message-scoped fake Provider routing",
+        "explicit readiness preflight"
+      ],
+      "normalCaseRestarts": 0,
+      "preflight": [
+        "Next reachable",
+        "control GET",
+        "processReady",
+        "Hermes health proxy",
+        "Runtime ready/runReady",
+        "Browser MCP connected/bridge ID",
+        "all required Career Facades ready",
+        "fake Provider models endpoint"
+      ],
+      "windowsGrepArgumentsQuoted": true,
+      "serialSkipCascadeRemoved": true,
+      "perRunEvidencePreserved": true,
+      "testHarnessStability": "RESOLVED; complete stable 14-case evidence obtained"
+    },
+    "productFixes": [
+      {
+        "file": "src/agent/runtime/AgentHostStore.ts",
+        "root": "stale Session revision could reject the local shell while a remote Run still started, leaving every event quarantined",
+        "fix": "drain event/stream queues, read latest persisted Session, refuse a rejected shell without remote Run",
+        "regression": "real Repository test failed before fix; passed after"
+      },
+      {
+        "file": "src/agent/runtime/AgentHostStore.ts",
+        "root": "Job Facade changed workflow but retained previous import root goal and blocked completion receipt",
+        "fix": "Job receipt projects ingest_job root/active goal",
+        "regression": "real Host/Repository test failed before fix; passed after"
+      }
+    ],
+    "caseL": {
+      "status": "PASS",
+      "entityIds": {
+        "id": "branch-profile-MsKTXqijNq-job-UUY8muPW7Q-fnv-610cf1b5-110",
+        "profileId": "profile-MsKTXqijNq",
+        "jobId": "job-UUY8muPW7Q",
+        "sourceBranchId": "branch-general-resume-import-NWXU8LWhVk-6tN8Ix",
+        "sourceRevisionId": "resume-revision-fnv-dbefbb1a-100",
+        "currentRevisionId": "resume-revision-fnv-34ef160b-203",
+        "revision": 1
+      },
+      "sourceRevisionId": "resume-revision-fnv-dbefbb1a-100",
+      "sourceContentUnchanged": true,
+      "profileUnchangedAfterTailoring": true,
+      "targetContentChanged": true,
+      "savedCoreJobs": 1,
+      "templateId": "classic-technical",
+      "sourcePresentationSHA256": "bd025e0a27b0f41df854b092d671dc1055cb4da39ab3eb3916ae07987a1de07d",
+      "targetPresentationSHA256": "bd025e0a27b0f41df854b092d671dc1055cb4da39ab3eb3916ae07987a1de07d",
+      "finalTaskStage": "quality_result",
+      "finalTaskCompletion": "completed",
+      "lastHermesHandleStatus": "cancelled",
+      "pdf": {
+        "status": "PASS",
+        "branchId": "branch-profile-MsKTXqijNq-job-UUY8muPW7Q-fnv-610cf1b5-110",
+        "revisionId": "resume-revision-fnv-34ef160b-203",
+        "checks": [
+          "official PDF HTTP 200",
+          "ExportRecord exact branch/current revision",
+          "preview and extracted PDF confirmed highlights"
+        ]
+      }
+    },
+    "caseM": {
+      "status": "PASS",
+      "entityIds": {
+        "id": "branch-profile-0wC2c5jpsD-job-y7etS5yQgk-fnv-6594277a-110",
+        "profileId": "profile-0wC2c5jpsD",
+        "jobId": "job-y7etS5yQgk",
+        "sourceBranchId": "branch-general-Fmymf2afk_",
+        "sourceRevisionId": "resume-revision-fnv-b6454ab3-62",
+        "currentRevisionId": "resume-revision-fnv-7c7065aa-202",
+        "revision": 1
+      },
+      "sourceRevisionId": "resume-revision-fnv-b6454ab3-62",
+      "sourceContentUnchanged": true,
+      "profileUnchangedAfterTailoring": true,
+      "targetContentChanged": true,
+      "savedCoreJobs": 1,
+      "templateId": "classic-technical",
+      "sourcePresentationSHA256": "257e123e3e43a92e3b9ff10a3efc7b360eb2ccd0904bc97d0ef80e2c868ac663",
+      "targetPresentationSHA256": "257e123e3e43a92e3b9ff10a3efc7b360eb2ccd0904bc97d0ef80e2c868ac663",
+      "finalTaskStage": "quality_result",
+      "finalTaskCompletion": "completed",
+      "lastHermesHandleStatus": "completed",
+      "pdf": {
+        "status": "PASS",
+        "branchId": "branch-profile-0wC2c5jpsD-job-y7etS5yQgk-fnv-6594277a-110",
+        "revisionId": "resume-revision-fnv-7c7065aa-202",
+        "checks": [
+          "official PDF HTTP 200",
+          "ExportRecord exact branch/current revision",
+          "preview and extracted PDF confirmed highlights"
+        ]
+      },
+      "profileBindingBeforeNextRunVerified": [
+        "personId",
+        "activeProfileId",
+        "profileRevision",
+        "taskState.selectedEntities.profileId"
+      ],
+      "checkpointGrantsWritePermission": false
+    },
+    "caseN": {
+      "status": "PASS",
+      "entityIds": {
+        "id": "branch-profile-xBxOSGliKd-job-LB7YiYkVKy-fnv-f700df7b-110",
+        "profileId": "profile-xBxOSGliKd",
+        "jobId": "job-LB7YiYkVKy",
+        "sourceBranchId": "branch-general-resume-import-mNKmJXc_XL-Z71j0e",
+        "sourceRevisionId": "resume-revision-fnv-b7a5fcb0-100",
+        "currentRevisionId": "resume-revision-fnv-bbdf914a-203",
+        "revision": 1
+      },
+      "sourceRevisionId": "resume-revision-fnv-b7a5fcb0-100",
+      "sourceContentUnchanged": true,
+      "profileUnchangedAfterTailoring": true,
+      "targetContentChanged": true,
+      "savedCoreJobs": 1,
+      "templateId": "classic-technical",
+      "sourcePresentationSHA256": "bd025e0a27b0f41df854b092d671dc1055cb4da39ab3eb3916ae07987a1de07d",
+      "targetPresentationSHA256": "bd025e0a27b0f41df854b092d671dc1055cb4da39ab3eb3916ae07987a1de07d",
+      "finalTaskStage": "quality_result",
+      "finalTaskCompletion": "completed",
+      "lastHermesHandleStatus": "completed",
+      "pdf": {
+        "status": "PASS",
+        "branchId": "branch-profile-xBxOSGliKd-job-LB7YiYkVKy-fnv-f700df7b-110",
+        "revisionId": "resume-revision-fnv-bbdf914a-203",
+        "checks": [
+          "official PDF HTTP 200",
+          "ExportRecord exact branch/current revision",
+          "preview and extracted PDF confirmed highlights"
+        ]
+      }
+    },
+    "multiTurn": {
+      "report": ".tmp/core02-core-multiturn-1793290676080-playwright.json",
+      "exitCode": 0,
+      "passed": 2,
+      "suiteRunCount": 8,
+      "suiteProviderRequests": 25,
+      "B": {
+        "status": "PASS",
+        "runIds": [
+          "run_3fc4dc647f5a42f385e62c0fff047b83",
+          "run_9b4e51b97b9a4beebefef78d0b124b9b",
+          "run_5e2e1a6903b747c69e38c5a11aeac0e5"
+        ],
+        "toolSequence": [
+          "career.resume.list",
+          "career.profile.get",
+          "career.workflow.compose_resume",
+          "career.workflow.material_intake",
+          "career.workflow.material_intake",
+          "career.profile.get",
+          "career.resume.list",
+          "career.workflow.compose_resume"
+        ],
+        "profileRevision": 2,
+        "sourceId": "branch-general-resume-import-zOiD5S4BMa-V7WkqC",
+        "oldCheckpointId": "resume-composition-0a52e817-12619",
+        "freshCheckpointId": "resume-composition-37e5d60b-15140",
+        "freshCheckpointProfileRevision": 2,
+        "oldCheckpointReused": false,
+        "oldCheckpointRejectionEvidence": "p512-material-intake.test.ts Scenario B: real Repository/Service rejects stale checkpoint; Hermes Facade replans from fresh Profile before confirmation",
+        "generalResumeUpdated": true
+      },
+      "C": {
+        "status": "PASS",
+        "runIds": [
+          "run_ea037fa2c2154130860f0ae7cd2187a2",
+          "run_713d8a9791d04651bc447310e9fbab0b",
+          "run_e84d368cbf954bf2a88f68b9dd374332",
+          "run_a7afd62cbfec4da0b7639addf0cb9ffa",
+          "run_b22631fa28ea405bbaa98a1d86cb5d5d"
+        ],
+        "toolSequence": [
+          "career.workflow.job_intake",
+          "career.resume.list",
+          "career.job.list",
+          "career.workflow.tailor_resume",
+          "career.workflow.job_intake",
+          "career.resume.list",
+          "career.job.list",
+          "career.workflow.tailor_resume",
+          "career.workflow.tailor_resume"
+        ],
+        "jobA": "job-gvht0WmIdd",
+        "jobB": "job-7XGMvh_e3l",
+        "proposalA": "tailoring-session-fnv-d8b742a5-29",
+        "proposalB": "tailoring-session-fnv-e7b6c742-29",
+        "matrixA": "analysis-fnv-2eb6b064-3491",
+        "matrixB": "analysis-fnv-547718a5-3515",
+        "rejectedOldCheckpointCode": "tailoring_checkpoint_not_found",
+        "aTaskAndProposalPreserved": true,
+        "aSessionMetadataMayRefresh": true,
+        "scope": "A task kept; B selected in a separate new task before A confirmation",
+        "generalResumeUnchanged": true
+      }
+    },
+    "behavior": {
+      "status": "PASS",
+      "executed": 12,
+      "passed": 12,
+      "exitCode": 0,
+      "suiteProviderRequests": 37,
+      "evaluatedTurnProviderRequests": 32,
+      "suiteRunCount": 14,
+      "toolChoiceAccuracy": 1,
+      "repeatedToolCallCount": 0,
+      "unnecessaryClarificationCount": 0,
+      "formalStateUnchanged": true,
+      "wrongTargetWriteCount": 0,
+      "unsupportedFormalClaimCount": 0,
+      "cases": [
+        {
+          "id": "intent-greeting",
+          "status": "passed",
+          "toolSequence": [],
+          "toolChoiceAccuracy": 1,
+          "repeatedToolCallCount": 0,
+          "providerRequestCount": 1,
+          "unnecessaryClarificationCount": 0,
+          "formalStateUnchanged": true,
+          "wrongTargetWriteCount": 0,
+          "finalWorkflowStatus": "none"
+        },
+        {
+          "id": "intent-advice",
+          "status": "passed",
+          "toolSequence": [],
+          "toolChoiceAccuracy": 1,
+          "repeatedToolCallCount": 0,
+          "providerRequestCount": 1,
+          "unnecessaryClarificationCount": 0,
+          "formalStateUnchanged": true,
+          "wrongTargetWriteCount": 0,
+          "finalWorkflowStatus": "none"
+        },
+        {
+          "id": "material-certificate",
+          "status": "passed",
+          "toolSequence": [
+            "career.workflow.material_intake",
+            "career.workflow.material_intake"
+          ],
+          "toolChoiceAccuracy": 1,
+          "repeatedToolCallCount": 0,
+          "providerRequestCount": 3,
+          "unnecessaryClarificationCount": 0,
+          "formalStateUnchanged": true,
+          "wrongTargetWriteCount": 0,
+          "finalWorkflowStatus": "waiting_for_user"
+        },
+        {
+          "id": "material-resume",
+          "status": "passed",
+          "toolSequence": [
+            "career.workflow.material_intake",
+            "career.workflow.material_intake"
+          ],
+          "toolChoiceAccuracy": 1,
+          "repeatedToolCallCount": 0,
+          "providerRequestCount": 3,
+          "unnecessaryClarificationCount": 0,
+          "formalStateUnchanged": true,
+          "wrongTargetWriteCount": 0,
+          "finalWorkflowStatus": "waiting_for_user"
+        },
+        {
+          "id": "job-analyze",
+          "status": "passed",
+          "toolSequence": [
+            "career.workflow.job_intake"
+          ],
+          "toolChoiceAccuracy": 1,
+          "repeatedToolCallCount": 0,
+          "providerRequestCount": 2,
+          "unnecessaryClarificationCount": 0,
+          "formalStateUnchanged": true,
+          "wrongTargetWriteCount": 0,
+          "finalWorkflowStatus": "completed"
+        },
+        {
+          "id": "job-cancel",
+          "status": "passed",
+          "toolSequence": [
+            "career.workflow.job_intake"
+          ],
+          "toolChoiceAccuracy": 1,
+          "repeatedToolCallCount": 0,
+          "providerRequestCount": 1,
+          "unnecessaryClarificationCount": 0,
+          "formalStateUnchanged": true,
+          "wrongTargetWriteCount": 0,
+          "finalWorkflowStatus": "active"
+        },
+        {
+          "id": "resume-create",
+          "status": "passed",
+          "toolSequence": [
+            "career.resume.list",
+            "career.profile.get",
+            "career.workflow.compose_resume"
+          ],
+          "toolChoiceAccuracy": 1,
+          "repeatedToolCallCount": 0,
+          "providerRequestCount": 4,
+          "unnecessaryClarificationCount": 0,
+          "formalStateUnchanged": true,
+          "wrongTargetWriteCount": 0,
+          "finalWorkflowStatus": "none"
+        },
+        {
+          "id": "resume-update",
+          "status": "passed",
+          "toolSequence": [
+            "career.resume.list",
+            "career.profile.get",
+            "career.workflow.compose_resume"
+          ],
+          "toolChoiceAccuracy": 1,
+          "repeatedToolCallCount": 0,
+          "providerRequestCount": 4,
+          "unnecessaryClarificationCount": 0,
+          "formalStateUnchanged": true,
+          "wrongTargetWriteCount": 0,
+          "finalWorkflowStatus": "none"
+        },
+        {
+          "id": "fit-existing-job",
+          "status": "passed",
+          "toolSequence": [
+            "career.resume.list",
+            "career.job.list",
+            "career.workflow.job_fit"
+          ],
+          "toolChoiceAccuracy": 1,
+          "repeatedToolCallCount": 0,
+          "providerRequestCount": 4,
+          "unnecessaryClarificationCount": 0,
+          "formalStateUnchanged": true,
+          "wrongTargetWriteCount": 0,
+          "finalWorkflowStatus": "completed"
+        },
+        {
+          "id": "tailor-followup",
+          "status": "passed",
+          "toolSequence": [
+            "career.resume.list",
+            "career.job.list",
+            "career.workflow.tailor_resume"
+          ],
+          "toolChoiceAccuracy": 1,
+          "repeatedToolCallCount": 0,
+          "providerRequestCount": 4,
+          "unnecessaryClarificationCount": 0,
+          "formalStateUnchanged": true,
+          "wrongTargetWriteCount": 0,
+          "finalWorkflowStatus": "waiting_for_user"
+        },
+        {
+          "id": "recovery-wrong-profile",
+          "status": "passed",
+          "toolSequence": [
+            "career.profile.get"
+          ],
+          "toolChoiceAccuracy": 1,
+          "repeatedToolCallCount": 0,
+          "providerRequestCount": 2,
+          "unnecessaryClarificationCount": 0,
+          "formalStateUnchanged": true,
+          "wrongTargetWriteCount": 0,
+          "finalWorkflowStatus": "none"
+        },
+        {
+          "id": "recovery-provider",
+          "status": "passed",
+          "toolSequence": [],
+          "toolChoiceAccuracy": 1,
+          "repeatedToolCallCount": 0,
+          "providerRequestCount": 3,
+          "unnecessaryClarificationCount": 0,
+          "formalStateUnchanged": true,
+          "wrongTargetWriteCount": 0,
+          "finalWorkflowStatus": "none"
+        }
+      ],
+      "rawReport": ".tmp/core02-hermes-behavior.json",
+      "log": ".tmp/core02-final-behavior2.log"
+    },
+    "hermesGate": {
+      "status": "PASS",
+      "command": "pnpm hermes:integration integration --output=.tmp/core02-final-gate3-results",
+      "exitCode": 0,
+      "passed": 14,
+      "skipped": 0,
+      "flaky": 0,
+      "runCount": 22,
+      "providerRequests": 63,
+      "formalWriteCount": 35,
+      "formalWriteScope": "committed IndexedDB add/put for profiles, resumeBranches, resumeRevisions, jobDescriptions; includes source import fixtures; excludes drafts, appMeta and exportRecords",
+      "cases": [
+        {
+          "case": "A",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 1,
+          "runIds": [
+            "run_08af406ecd804ec0898d79cde97c53e3"
+          ],
+          "toolSequence": [],
+          "checkpointTransitions": [],
+          "formalWriteCount": 0,
+          "formalWrites": [],
+          "expectedBoundary": "completed"
+        },
+        {
+          "case": "B",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 1,
+          "runIds": [
+            "run_02c323e3faeb4bde8294f6db36a5457b"
+          ],
+          "toolSequence": [],
+          "checkpointTransitions": [],
+          "formalWriteCount": 0,
+          "formalWrites": [],
+          "expectedBoundary": "completed"
+        },
+        {
+          "case": "C",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 2,
+          "runIds": [
+            "run_e464d0cd805e4df3829315c2afd57e03"
+          ],
+          "toolSequence": [
+            "career.profile.get"
+          ],
+          "checkpointTransitions": [
+            {
+              "tool": "career.profile.get",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            }
+          ],
+          "formalWriteCount": 0,
+          "formalWrites": [],
+          "expectedBoundary": "read_result"
+        },
+        {
+          "case": "D",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 6,
+          "runIds": [
+            "run_5d41a63f588749e38f4e137dcbf2f0a7"
+          ],
+          "toolSequence": [
+            "career.workflow.profile_intake_turn"
+          ],
+          "checkpointTransitions": [
+            {
+              "tool": "career.workflow.profile_intake_turn",
+              "ok": true,
+              "status": "waiting_for_user",
+              "stage": "collect_experience",
+              "checkpointId": null,
+              "profileId": "profile-demo-student",
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            }
+          ],
+          "formalWriteCount": 0,
+          "formalWrites": [],
+          "expectedBoundary": "waiting_for_user"
+        },
+        {
+          "case": "E",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 4,
+          "runIds": [
+            "run_62ec698e1e6f46e68de0a6a056a24999"
+          ],
+          "toolSequence": [
+            "career.resume.list",
+            "career.profile.get",
+            "career.workflow.compose_resume"
+          ],
+          "checkpointTransitions": [
+            {
+              "tool": "career.resume.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.profile.get",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.compose_resume",
+              "ok": true,
+              "status": "waiting_for_confirmation",
+              "stage": "review_composition",
+              "checkpointId": "resume-composition-cb36056b-12619",
+              "profileId": "profile-embKepKQHe",
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            }
+          ],
+          "formalWriteCount": 3,
+          "formalWrites": [
+            {
+              "store": "profiles",
+              "key": "profile-embKepKQHe",
+              "at": "2026-10-29T16:47:40.543Z"
+            },
+            {
+              "store": "resumeBranches",
+              "key": "branch-general-resume-import-C6s1OEopBE-t_8nLB",
+              "at": "2026-10-29T16:47:40.544Z"
+            },
+            {
+              "store": "resumeRevisions",
+              "key": "resume-revision-fnv-b7f6d572-100",
+              "at": "2026-10-29T16:47:40.544Z"
+            }
+          ],
+          "expectedBoundary": "waiting_for_confirmation"
+        },
+        {
+          "case": "F",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 2,
+          "runIds": [
+            "run_761f966ff18d4a208ac70f828b6c814a"
+          ],
+          "toolSequence": [
+            "career.workflow.tailor_resume"
+          ],
+          "checkpointTransitions": [
+            {
+              "tool": "career.workflow.tailor_resume",
+              "ok": false,
+              "status": "waiting_for_confirmation",
+              "stage": "choose_resume_source",
+              "checkpointId": null,
+              "profileId": "profile-demo-student",
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": "agent_confirmation_required"
+            }
+          ],
+          "formalWriteCount": 0,
+          "formalWrites": [],
+          "expectedBoundary": "waiting_for_confirmation"
+        },
+        {
+          "case": "G",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 3,
+          "runIds": [
+            "run_17f3a408bc78465c97bcb689e8f30e78"
+          ],
+          "toolSequence": [
+            "career.resume.list",
+            "career.workflow.job_fit"
+          ],
+          "checkpointTransitions": [
+            {
+              "tool": "career.resume.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.job_fit",
+              "ok": true,
+              "status": "completed",
+              "stage": "review_result",
+              "checkpointId": null,
+              "profileId": "profile-suwSu8QOZW",
+              "resumeId": "branch-general-resume-import-RK2SG7S1K0-06Kt3j",
+              "jobId": "job-data-analyst-intern",
+              "safeErrorCode": null
+            }
+          ],
+          "formalWriteCount": 3,
+          "formalWrites": [
+            {
+              "store": "profiles",
+              "key": "profile-suwSu8QOZW",
+              "at": "2026-10-29T16:48:00.842Z"
+            },
+            {
+              "store": "resumeBranches",
+              "key": "branch-general-resume-import-RK2SG7S1K0-06Kt3j",
+              "at": "2026-10-29T16:48:00.842Z"
+            },
+            {
+              "store": "resumeRevisions",
+              "key": "resume-revision-fnv-442c8223-100",
+              "at": "2026-10-29T16:48:00.842Z"
+            }
+          ],
+          "expectedBoundary": "completed"
+        },
+        {
+          "case": "H",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 3,
+          "runIds": [
+            "run_45b6d65a1b0f435392e24f9732c290c8"
+          ],
+          "toolSequence": [
+            "career.resume.list",
+            "career.workflow.resume_export"
+          ],
+          "checkpointTransitions": [
+            {
+              "tool": "career.resume.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.resume_export",
+              "ok": true,
+              "status": "completed",
+              "stage": "export_ready",
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": "branch-general-resume-import-aL0ka2DWMQ-oztXvi",
+              "jobId": null,
+              "safeErrorCode": null
+            }
+          ],
+          "formalWriteCount": 3,
+          "formalWrites": [
+            {
+              "store": "profiles",
+              "key": "profile-S5IzWI8-BP",
+              "at": "2026-10-29T16:48:10.673Z"
+            },
+            {
+              "store": "resumeBranches",
+              "key": "branch-general-resume-import-aL0ka2DWMQ-oztXvi",
+              "at": "2026-10-29T16:48:10.673Z"
+            },
+            {
+              "store": "resumeRevisions",
+              "key": "resume-revision-fnv-56e9052b-100",
+              "at": "2026-10-29T16:48:10.673Z"
+            }
+          ],
+          "expectedBoundary": "completed"
+        },
+        {
+          "case": "I",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 2,
+          "runIds": [
+            "run_8a2198b0587e4874997c395289b2b201"
+          ],
+          "toolSequence": [
+            "career.workflow.job_intake"
+          ],
+          "checkpointTransitions": [
+            {
+              "tool": "career.workflow.job_intake",
+              "ok": true,
+              "status": "completed",
+              "stage": "completed",
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": "job-XRpE11k8kR",
+              "safeErrorCode": null
+            }
+          ],
+          "formalWriteCount": 8,
+          "formalWrites": [
+            {
+              "store": "profiles",
+              "key": "profile-s1eCBe2bXM",
+              "at": "2026-10-29T16:50:14.923Z"
+            },
+            {
+              "store": "resumeBranches",
+              "key": "branch-general-resume-import-KoyQ4eH3sa-DYdtbD",
+              "at": "2026-10-29T16:50:14.923Z"
+            },
+            {
+              "store": "resumeRevisions",
+              "key": "resume-revision-fnv-52943182-100",
+              "at": "2026-10-29T16:50:14.923Z"
+            },
+            {
+              "store": "jobDescriptions",
+              "key": "job-XRpE11k8kR",
+              "at": "2026-10-29T16:50:20.186Z"
+            },
+            {
+              "store": "resumeBranches",
+              "key": "branch-profile-s1eCBe2bXM-job-XRpE11k8kR-fnv-b5a4dc16-114",
+              "at": "2026-10-29T16:50:23.590Z"
+            },
+            {
+              "store": "resumeRevisions",
+              "key": "resume-revision-fnv-9b6ec7c2-179",
+              "at": "2026-10-29T16:50:23.590Z"
+            },
+            {
+              "store": "resumeBranches",
+              "key": "branch-profile-s1eCBe2bXM-job-XRpE11k8kR-fnv-b5a4dc16-114",
+              "at": "2026-10-29T16:50:26.043Z"
+            },
+            {
+              "store": "resumeRevisions",
+              "key": "resume-revision-fnv-8829c0f8-148",
+              "at": "2026-10-29T16:50:26.044Z"
+            }
+          ],
+          "expectedBoundary": "completed"
+        },
+        {
+          "case": "J",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 3,
+          "runIds": [
+            "run_e97aa7fb3dbf40b798560e2647fcac6c"
+          ],
+          "toolSequence": [
+            "career.workflow.material_intake",
+            "career.workflow.material_intake"
+          ],
+          "checkpointTransitions": [
+            {
+              "tool": "career.workflow.material_intake",
+              "ok": true,
+              "status": "completed",
+              "stage": "material_ready",
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.material_intake",
+              "ok": true,
+              "status": "waiting_for_user",
+              "stage": "import_review",
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            }
+          ],
+          "formalWriteCount": 0,
+          "formalWrites": [],
+          "expectedBoundary": "waiting_for_user"
+        },
+        {
+          "case": "K",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 4,
+          "runIds": [
+            "run_aeabb9f413b54fa1a1f7f9efb7b8f2dd",
+            "run_18542efb2dc64274aa0716682282f918"
+          ],
+          "toolSequence": [
+            "career.workflow.material_intake",
+            "career.workflow.material_intake"
+          ],
+          "checkpointTransitions": [
+            {
+              "tool": "career.workflow.material_intake",
+              "ok": true,
+              "status": "completed",
+              "stage": "material_ready",
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.material_intake",
+              "ok": true,
+              "status": "waiting_for_user",
+              "stage": "import_review",
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            }
+          ],
+          "formalWriteCount": 0,
+          "formalWrites": [],
+          "expectedBoundary": "waiting_for_user"
+        },
+        {
+          "case": "L",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 10,
+          "runIds": [
+            "run_2ecb0c3373a84dd99b979c1ce42f2f62",
+            "run_e222ac7de5ac47bd896a2b19407fe287",
+            "run_ee684589f4794e7b80d5cb7baf11db3e"
+          ],
+          "toolSequence": [
+            "career.workflow.job_intake",
+            "career.resume.list",
+            "career.job.list",
+            "career.workflow.job_fit",
+            "career.resume.list",
+            "career.job.list",
+            "career.workflow.tailor_resume"
+          ],
+          "checkpointTransitions": [
+            {
+              "tool": "career.workflow.job_intake",
+              "ok": true,
+              "status": "completed",
+              "stage": "completed",
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": "job-UUY8muPW7Q",
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.resume.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.job.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.job_fit",
+              "ok": true,
+              "status": "completed",
+              "stage": "review_result",
+              "checkpointId": null,
+              "profileId": "profile-MsKTXqijNq",
+              "resumeId": "branch-general-resume-import-NWXU8LWhVk-6tN8Ix",
+              "jobId": "job-UUY8muPW7Q",
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.resume.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.job.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.tailor_resume",
+              "ok": true,
+              "status": "review_ready",
+              "stage": "preview_changes",
+              "checkpointId": "tailoring-session-fnv-87d87f2d-29",
+              "profileId": "profile-MsKTXqijNq",
+              "resumeId": "branch-general-resume-import-NWXU8LWhVk-6tN8Ix",
+              "jobId": "job-UUY8muPW7Q",
+              "safeErrorCode": null
+            }
+          ],
+          "formalWriteCount": 6,
+          "formalWrites": [
+            {
+              "store": "profiles",
+              "key": "profile-MsKTXqijNq",
+              "at": "2026-10-29T16:48:45.076Z"
+            },
+            {
+              "store": "resumeBranches",
+              "key": "branch-general-resume-import-NWXU8LWhVk-6tN8Ix",
+              "at": "2026-10-29T16:48:45.077Z"
+            },
+            {
+              "store": "resumeRevisions",
+              "key": "resume-revision-fnv-dbefbb1a-100",
+              "at": "2026-10-29T16:48:45.077Z"
+            },
+            {
+              "store": "jobDescriptions",
+              "key": "job-UUY8muPW7Q",
+              "at": "2026-10-29T16:48:50.373Z"
+            },
+            {
+              "store": "resumeBranches",
+              "key": "branch-profile-MsKTXqijNq-job-UUY8muPW7Q-fnv-610cf1b5-110",
+              "at": "2026-10-29T16:49:05.115Z"
+            },
+            {
+              "store": "resumeRevisions",
+              "key": "resume-revision-fnv-34ef160b-203",
+              "at": "2026-10-29T16:49:05.115Z"
+            }
+          ],
+          "expectedBoundary": "review_ready"
+        },
+        {
+          "case": "M",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 16,
+          "runIds": [
+            "run_01c78cea7b7447828d75adab0362bc1f",
+            "run_9f6f8faf35274a11932c5b2aa37f3200",
+            "run_400ced93a83c4e5e998a991ac55c4a75",
+            "run_2b18abe9cf7940199bc0befa6bd64957",
+            "run_8ac687da6a1e41b097988babd015506b"
+          ],
+          "toolSequence": [
+            "career.workflow.material_intake",
+            "career.workflow.material_intake",
+            "career.profile.get",
+            "career.workflow.compose_resume",
+            "career.workflow.job_intake",
+            "career.resume.list",
+            "career.job.list",
+            "career.workflow.job_fit",
+            "career.resume.list",
+            "career.job.list",
+            "career.workflow.tailor_resume"
+          ],
+          "checkpointTransitions": [
+            {
+              "tool": "career.workflow.material_intake",
+              "ok": true,
+              "status": "completed",
+              "stage": "material_ready",
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.material_intake",
+              "ok": true,
+              "status": "waiting_for_user",
+              "stage": "import_review",
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.profile.get",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.compose_resume",
+              "ok": true,
+              "status": "waiting_for_confirmation",
+              "stage": "review_composition",
+              "checkpointId": "resume-composition-952b4152-12295",
+              "profileId": "profile-0wC2c5jpsD",
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.job_intake",
+              "ok": true,
+              "status": "completed",
+              "stage": "completed",
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": "job-y7etS5yQgk",
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.resume.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.job.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.job_fit",
+              "ok": true,
+              "status": "completed",
+              "stage": "review_result",
+              "checkpointId": null,
+              "profileId": "profile-0wC2c5jpsD",
+              "resumeId": "branch-general-Fmymf2afk_",
+              "jobId": "job-y7etS5yQgk",
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.resume.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.job.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.tailor_resume",
+              "ok": true,
+              "status": "review_ready",
+              "stage": "preview_changes",
+              "checkpointId": "tailoring-session-fnv-16415d0d-29",
+              "profileId": "profile-0wC2c5jpsD",
+              "resumeId": "branch-general-Fmymf2afk_",
+              "jobId": "job-y7etS5yQgk",
+              "safeErrorCode": null
+            }
+          ],
+          "formalWriteCount": 6,
+          "formalWrites": [
+            {
+              "store": "profiles",
+              "key": "profile-0wC2c5jpsD",
+              "at": "2026-10-29T16:49:18.746Z"
+            },
+            {
+              "store": "resumeBranches",
+              "key": "branch-general-Fmymf2afk_",
+              "at": "2026-10-29T16:49:23.659Z"
+            },
+            {
+              "store": "resumeRevisions",
+              "key": "resume-revision-fnv-b6454ab3-62",
+              "at": "2026-10-29T16:49:23.659Z"
+            },
+            {
+              "store": "jobDescriptions",
+              "key": "job-y7etS5yQgk",
+              "at": "2026-10-29T16:49:29.223Z"
+            },
+            {
+              "store": "resumeBranches",
+              "key": "branch-profile-0wC2c5jpsD-job-y7etS5yQgk-fnv-6594277a-110",
+              "at": "2026-10-29T16:49:44.672Z"
+            },
+            {
+              "store": "resumeRevisions",
+              "key": "resume-revision-fnv-7c7065aa-202",
+              "at": "2026-10-29T16:49:44.673Z"
+            }
+          ],
+          "expectedBoundary": "review_ready"
+        },
+        {
+          "case": "N",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 6,
+          "runIds": [
+            "run_84e3e2032e9245389d5110f676506f65",
+            "run_b5257456543d4c3786af4c8c3b25465f"
+          ],
+          "toolSequence": [
+            "career.workflow.job_intake",
+            "career.resume.list",
+            "career.job.list",
+            "career.workflow.tailor_resume"
+          ],
+          "checkpointTransitions": [
+            {
+              "tool": "career.workflow.job_intake",
+              "ok": true,
+              "status": "completed",
+              "stage": "completed",
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": "job-LB7YiYkVKy",
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.resume.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.job.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.tailor_resume",
+              "ok": true,
+              "status": "review_ready",
+              "stage": "preview_changes",
+              "checkpointId": "tailoring-session-fnv-b8701294-29",
+              "profileId": "profile-xBxOSGliKd",
+              "resumeId": "branch-general-resume-import-mNKmJXc_XL-Z71j0e",
+              "jobId": "job-LB7YiYkVKy",
+              "safeErrorCode": null
+            }
+          ],
+          "formalWriteCount": 6,
+          "formalWrites": [
+            {
+              "store": "profiles",
+              "key": "profile-xBxOSGliKd",
+              "at": "2026-10-29T16:49:54.087Z"
+            },
+            {
+              "store": "resumeBranches",
+              "key": "branch-general-resume-import-mNKmJXc_XL-Z71j0e",
+              "at": "2026-10-29T16:49:54.087Z"
+            },
+            {
+              "store": "resumeRevisions",
+              "key": "resume-revision-fnv-b7a5fcb0-100",
+              "at": "2026-10-29T16:49:54.087Z"
+            },
+            {
+              "store": "jobDescriptions",
+              "key": "job-LB7YiYkVKy",
+              "at": "2026-10-29T16:49:59.801Z"
+            },
+            {
+              "store": "resumeBranches",
+              "key": "branch-profile-xBxOSGliKd-job-LB7YiYkVKy-fnv-f700df7b-110",
+              "at": "2026-10-29T16:50:07.024Z"
+            },
+            {
+              "store": "resumeRevisions",
+              "key": "resume-revision-fnv-bbdf914a-203",
+              "at": "2026-10-29T16:50:07.024Z"
+            }
+          ],
+          "expectedBoundary": "review_ready"
+        }
+      ],
+      "rawReport": ".tmp/core02-integration-1793292410671-playwright.json",
+      "rawCaseReceipts": ".tmp/core02-case-gate-integration-1793292410671.jsonl",
+      "log": ".tmp/core02-final-gate3.log"
+    },
+    "engineeringGates": {
+      "unitIntegration": {
+        "exitCode": 0,
+        "testFiles": 26,
+        "passed": 238,
+        "json": ".tmp/core02-final-unit.json",
+        "log": ".tmp/core02-final-unit.log"
+      },
+      "postFixtureUnit": {
+        "exitCode": 0,
+        "files": 2,
+        "passed": 4
+      },
+      "lint": {
+        "command": "pnpm lint",
+        "exitCode": 0,
+        "log": ".tmp/core02-final-lint3.log"
+      },
+      "typecheck": {
+        "command": "pnpm typecheck",
+        "exitCode": 0,
+        "log": ".tmp/core02-final-typecheck.log"
+      },
+      "build": {
+        "command": "pnpm build",
+        "distDir": ".tmp/core02-final-production",
+        "exitCode": 0,
+        "log": ".tmp/core02-final-build.log"
+      },
+      "bundleCheck": {
+        "exitCode": 0,
+        "version": "0.19.0",
+        "commit": "eb52760564db",
+        "patch": "careeradapt-api-toolsets-v1",
+        "log": ".tmp/core02-final-bundle.log"
+      },
+      "uiAndPdf": {
+        "exitCode": 0,
+        "passed": 3,
+        "tests": [
+          "p51-core-business.spec.ts",
+          "p512-material-intake.spec.ts"
+        ],
+        "realPdfPassed": true,
+        "log": ".tmp/core02-final-ui.log"
+      },
+      "diff": {
+        "command": "git diff --check",
+        "exitCode": 0
+      }
+    },
+    "failureHistory": {
+      "previousEvidencePreserved": true,
+      "failedAttemptLogs": [
+        ".tmp/core02-final-b5.log",
+        ".tmp/core02-final-b6.log",
+        ".tmp/core02-final-b7.log",
+        ".tmp/core02-final-b8.log",
+        ".tmp/core02-final-bc.log",
+        ".tmp/core02-final-bc2.log",
+        ".tmp/core02-final-bc3.log",
+        ".tmp/core02-final-bc4.log",
+        ".tmp/core02-final-fixture-ch.log",
+        ".tmp/core02-final-fixture-ch2.log",
+        ".tmp/core02-final-gate.log",
+        ".tmp/core02-final-gate1.log",
+        ".tmp/core02-final-gate2.log",
+        ".tmp/core02-final-lmn.log",
+        ".tmp/core02-final-lmn2.log",
+        ".tmp/core02-final-lmn3.log",
+        ".tmp/core02-final-smoke.log",
+        ".tmp/core02-final-smoke2.log"
+      ],
+      "fullGateRounds": [
+        {
+          "log": ".tmp/core02-final-gate1.log",
+          "passed": 11,
+          "failed": 3,
+          "skipped": 0,
+          "root": "unbound demo Session and nonexistent resume fixture caused three domain errors then locked Hermes MCP circuit breaker"
+        },
+        {
+          "log": ".tmp/core02-final-gate2.log",
+          "passed": 13,
+          "failed": 1,
+          "skipped": 0,
+          "root": "M fixture did not open the new-task artifact drawer"
+        }
+      ],
+      "classifications": {
+        "ProductDefect": [
+          "stale shell revision",
+          "import root goal retained after Job save"
+        ],
+        "TestFixtureDefect": [
+          "confirmation selectors/boundaries",
+          "new-task hydration sentinel",
+          "missing seeded Profile binding",
+          "nonexistent resume-general-1",
+          "material local preference/artifact drawer",
+          "stale error expectation during Facade replanning"
+        ],
+        "TestInfrastructureFailure": [
+          "Windows grep shell pipeline/argument quoting",
+          "per-case restart lifecycle removed",
+          "serial skip cascade removed"
+        ]
+      },
+      "noNewPreRunInfrastructureFailureInFinalGate": true
+    },
+    "certification": {
+      "realProvider": "REAL_PROVIDER_BLOCKED",
+      "realProviderRequests": 0,
+      "ocrRealQuality": "NOT_CERTIFIED",
+      "packagedElectron": "NOT_CERTIFIED",
+      "P518-RUNTIME-MODEL-READBACK-01": "OPEN"
+    },
+    "sourceSHA256": {
+      "src/agent/runtime/AgentHostStore.ts": "9f1d13ab753989654028e0344f0b091f1f243172edc480dfb36ccb85c62a16b5",
+      "scripts/hermes-integration.mjs": "73688b27b363d330569c5f8186c354dcd88a3fdb430f0f347fedbfb13dac5c8d",
+      "tests/e2e/hermes-p46h-integration.spec.ts": "efb85fd481c53787a629083337aa781ad1e456f203a5ff5ba19d1cb3869b4635",
+      "tests/e2e/support/p51CoreWorkflow.ts": "890f9c1a1c66746cb2246719f37c3b805f6cd0dda71256def201ab309e97632f",
+      "tests/support/fake-openai-compatible-provider.mjs": "38cf0963aa2772bb6ee41c977e62a129451e74b7e1185c1bed0ea496048b4311",
+      "tests/unit/p51-core-workflow.test.ts": "4224267067a2a8f0f2a1590f45b05f7e55fa9a7a0cd10f82aa36b67141b61f14",
+      "playwright.hermes-core-multiturn.config.ts": "074001d4be2798da34d8c6c900f5cae753d462bc66fc4750b44b37a4e1f9dee7"
+    },
+    "freezeAllowed": false,
+    "skillsQualityAllowed": false,
+    "nextStagesStarted": [],
+    "confirmationAudit": "Formal writes and PDFs pass; raw Session still retains consumed apply confirmation as pending. Fix and revalidation in progress."
+  },
+  "finalFreeze20261030": {
+    "date": "2026-10-30",
+    "status": "COMPLETE_HERMETIC_FUNCTIONAL_FREEZE",
+    "baselineHead": "0079b7bd168f9fe53fee159e443725ab0e279206",
+    "baselineOriginMain": "0079b7bd168f9fe53fee159e443725ab0e279206",
+    "baselineWorktree": "clean",
+    "commitStatus": "本轮成果随本次Git提交保存，未推送",
+    "pushed": false,
+    "packaged": false,
+    "infrastructure": {
+      "runtimeLifecycle": "one owned runtime per suite; reused across business cases; stopped in runner finally",
+      "caseIsolation": [
+        "fresh Playwright BrowserContext/IndexedDB",
+        "post-seed official new task with Profile binding",
+        "stateless message-scoped fake Provider routing",
+        "explicit readiness preflight"
+      ],
+      "normalCaseRestarts": 0,
+      "preflight": [
+        "Next reachable",
+        "control GET",
+        "processReady",
+        "Hermes health proxy",
+        "Runtime ready/runReady",
+        "Browser MCP connected/bridge ID",
+        "all required Career Facades ready",
+        "fake Provider models endpoint"
+      ],
+      "windowsGrepArgumentsQuoted": true,
+      "serialSkipCascadeRemoved": true,
+      "perRunEvidencePreserved": true,
+      "testHarnessStability": "RESOLVED; complete stable 14-case evidence obtained",
+      "finiteProbesUseConnectionClose": true,
+      "failureSnapshotCapturedBeforeCleanup": true
+    },
+    "productFixes": [
+      {
+        "file": "src/agent/runtime/AgentHostStore.ts",
+        "root": "stale Session revision could reject the local shell while a remote Run still started, leaving every event quarantined",
+        "fix": "drain event/stream queues, read latest persisted Session, refuse a rejected shell without remote Run",
+        "regression": "real Repository test failed before fix; passed after"
+      },
+      {
+        "file": "src/agent/runtime/AgentHostStore.ts",
+        "root": "Job Facade changed workflow but retained previous import root goal and blocked completion receipt",
+        "fix": "Job receipt projects ingest_job root/active goal",
+        "regression": "real Host/Repository test failed before fix; passed after"
+      },
+      {
+        "file": "src/agent/runtime/AgentHostStore.ts",
+        "root": "A competing metadata checkpoint can make the write-pending CAS return the old pending confirmation even though apply succeeds",
+        "fix": "Consume Session/Task pending confirmation again in the durable apply-success projection",
+        "regression": "Real Repository race test and M consumption assertions failed before the fix; Unit and L/M/N pass after it"
+      }
+    ],
+    "caseL": {
+      "status": "PASS",
+      "entityIds": {
+        "id": "branch-profile-dBLnlaQl3M-job-QHYdbm6eNf-fnv-d13cf9b5-110",
+        "profileId": "profile-dBLnlaQl3M",
+        "jobId": "job-QHYdbm6eNf",
+        "sourceBranchId": "branch-general-resume-import-phSqTtwpUD-GKhmof",
+        "sourceRevisionId": "resume-revision-fnv-50eac9ef-100",
+        "currentRevisionId": "resume-revision-fnv-edc7e13d-203",
+        "revision": 1
+      },
+      "sourceRevisionId": "resume-revision-fnv-50eac9ef-100",
+      "sourceContentUnchanged": true,
+      "profileUnchangedAfterTailoring": true,
+      "targetContentChanged": true,
+      "savedCoreJobs": 1,
+      "templateId": "classic-technical",
+      "sourcePresentationSHA256": "bd025e0a27b0f41df854b092d671dc1055cb4da39ab3eb3916ae07987a1de07d",
+      "targetPresentationSHA256": "bd025e0a27b0f41df854b092d671dc1055cb4da39ab3eb3916ae07987a1de07d",
+      "finalTaskStage": "quality_result",
+      "finalTaskCompletion": "completed",
+      "lastHermesHandleStatus": "completed",
+      "pdf": {
+        "status": "PASS",
+        "branchId": "branch-profile-dBLnlaQl3M-job-QHYdbm6eNf-fnv-d13cf9b5-110",
+        "revisionId": "resume-revision-fnv-edc7e13d-203",
+        "checks": [
+          "official PDF HTTP 200",
+          "ExportRecord exact branch/current revision",
+          "preview and extracted PDF confirmed highlights"
+        ]
+      },
+      "pendingConfirmationConsumed": true,
+      "taskConfirmationConsumed": true
+    },
+    "caseM": {
+      "status": "PASS",
+      "entityIds": {
+        "id": "branch-profile-cUXqwiyNMl-job-JYmkEPSXjn-fnv-2a5d9a0e-110",
+        "profileId": "profile-cUXqwiyNMl",
+        "jobId": "job-JYmkEPSXjn",
+        "sourceBranchId": "branch-general-GMuGvO3wtS",
+        "sourceRevisionId": "resume-revision-fnv-241f7235-62",
+        "currentRevisionId": "resume-revision-fnv-591ffaeb-202",
+        "revision": 1
+      },
+      "sourceRevisionId": "resume-revision-fnv-241f7235-62",
+      "sourceContentUnchanged": true,
+      "profileUnchangedAfterTailoring": true,
+      "targetContentChanged": true,
+      "savedCoreJobs": 1,
+      "templateId": "classic-technical",
+      "sourcePresentationSHA256": "2168f6c3cf9bc5ed4117e996716d7107cd4a64bb5a8c1c53f7748419717d49a6",
+      "targetPresentationSHA256": "2168f6c3cf9bc5ed4117e996716d7107cd4a64bb5a8c1c53f7748419717d49a6",
+      "finalTaskStage": "quality_result",
+      "finalTaskCompletion": "completed",
+      "lastHermesHandleStatus": "completed",
+      "pdf": {
+        "status": "PASS",
+        "branchId": "branch-profile-cUXqwiyNMl-job-JYmkEPSXjn-fnv-2a5d9a0e-110",
+        "revisionId": "resume-revision-fnv-591ffaeb-202",
+        "checks": [
+          "official PDF HTTP 200",
+          "ExportRecord exact branch/current revision",
+          "preview and extracted PDF confirmed highlights"
+        ]
+      },
+      "profileBindingBeforeNextRunVerified": [
+        "personId",
+        "activeProfileId",
+        "profileRevision",
+        "taskState.selectedEntities.profileId"
+      ],
+      "checkpointGrantsWritePermission": false,
+      "pendingConfirmationConsumed": true,
+      "taskConfirmationConsumed": true
+    },
+    "caseN": {
+      "status": "PASS",
+      "entityIds": {
+        "id": "branch-profile-fueHTmL48e-job-8Qt_Wff4lh-fnv-969cc1ec-110",
+        "profileId": "profile-fueHTmL48e",
+        "jobId": "job-8Qt_Wff4lh",
+        "sourceBranchId": "branch-general-resume-import-CTQp5w1weB-NnvkLB",
+        "sourceRevisionId": "resume-revision-fnv-02d712be-100",
+        "currentRevisionId": "resume-revision-fnv-97bfcc64-203",
+        "revision": 1
+      },
+      "sourceRevisionId": "resume-revision-fnv-02d712be-100",
+      "sourceContentUnchanged": true,
+      "profileUnchangedAfterTailoring": true,
+      "targetContentChanged": true,
+      "savedCoreJobs": 1,
+      "templateId": "classic-technical",
+      "sourcePresentationSHA256": "bd025e0a27b0f41df854b092d671dc1055cb4da39ab3eb3916ae07987a1de07d",
+      "targetPresentationSHA256": "bd025e0a27b0f41df854b092d671dc1055cb4da39ab3eb3916ae07987a1de07d",
+      "finalTaskStage": "quality_result",
+      "finalTaskCompletion": "completed",
+      "lastHermesHandleStatus": "completed",
+      "pdf": {
+        "status": "PASS",
+        "branchId": "branch-profile-fueHTmL48e-job-8Qt_Wff4lh-fnv-969cc1ec-110",
+        "revisionId": "resume-revision-fnv-97bfcc64-203",
+        "checks": [
+          "official PDF HTTP 200",
+          "ExportRecord exact branch/current revision",
+          "preview and extracted PDF confirmed highlights"
+        ]
+      },
+      "pendingConfirmationConsumed": true,
+      "taskConfirmationConsumed": true
+    },
+    "multiTurn": {
+      "report": ".tmp/core02-core-multiturn-1793290676080-playwright.json",
+      "exitCode": 0,
+      "passed": 2,
+      "suiteRunCount": 8,
+      "suiteProviderRequests": 25,
+      "B": {
+        "status": "PASS",
+        "runIds": [
+          "run_3fc4dc647f5a42f385e62c0fff047b83",
+          "run_9b4e51b97b9a4beebefef78d0b124b9b",
+          "run_5e2e1a6903b747c69e38c5a11aeac0e5"
+        ],
+        "toolSequence": [
+          "career.resume.list",
+          "career.profile.get",
+          "career.workflow.compose_resume",
+          "career.workflow.material_intake",
+          "career.workflow.material_intake",
+          "career.profile.get",
+          "career.resume.list",
+          "career.workflow.compose_resume"
+        ],
+        "profileRevision": 2,
+        "sourceId": "branch-general-resume-import-zOiD5S4BMa-V7WkqC",
+        "oldCheckpointId": "resume-composition-0a52e817-12619",
+        "freshCheckpointId": "resume-composition-37e5d60b-15140",
+        "freshCheckpointProfileRevision": 2,
+        "oldCheckpointReused": false,
+        "oldCheckpointRejectionEvidence": "p512-material-intake.test.ts Scenario B: real Repository/Service rejects stale checkpoint; Hermes Facade replans from fresh Profile before confirmation",
+        "generalResumeUpdated": true
+      },
+      "C": {
+        "status": "PASS",
+        "runIds": [
+          "run_ea037fa2c2154130860f0ae7cd2187a2",
+          "run_713d8a9791d04651bc447310e9fbab0b",
+          "run_e84d368cbf954bf2a88f68b9dd374332",
+          "run_a7afd62cbfec4da0b7639addf0cb9ffa",
+          "run_b22631fa28ea405bbaa98a1d86cb5d5d"
+        ],
+        "toolSequence": [
+          "career.workflow.job_intake",
+          "career.resume.list",
+          "career.job.list",
+          "career.workflow.tailor_resume",
+          "career.workflow.job_intake",
+          "career.resume.list",
+          "career.job.list",
+          "career.workflow.tailor_resume",
+          "career.workflow.tailor_resume"
+        ],
+        "jobA": "job-gvht0WmIdd",
+        "jobB": "job-7XGMvh_e3l",
+        "proposalA": "tailoring-session-fnv-d8b742a5-29",
+        "proposalB": "tailoring-session-fnv-e7b6c742-29",
+        "matrixA": "analysis-fnv-2eb6b064-3491",
+        "matrixB": "analysis-fnv-547718a5-3515",
+        "rejectedOldCheckpointCode": "tailoring_checkpoint_not_found",
+        "aTaskAndProposalPreserved": true,
+        "aSessionMetadataMayRefresh": true,
+        "scope": "A task kept; B selected in a separate new task before A confirmation",
+        "generalResumeUnchanged": true
+      },
+      "command": "node scripts/hermes-integration.mjs core-multiturn --output=.tmp/core02-final-bc-canonical-results"
+    },
+    "behavior": {
+      "status": "PASS",
+      "executed": 12,
+      "passed": 12,
+      "exitCode": 0,
+      "suiteProviderRequests": 37,
+      "evaluatedTurnProviderRequests": 32,
+      "suiteRunCount": 14,
+      "toolChoiceAccuracy": 1,
+      "repeatedToolCallCount": 0,
+      "unnecessaryClarificationCount": 0,
+      "formalStateUnchanged": true,
+      "wrongTargetWriteCount": 0,
+      "unsupportedFormalClaimCount": 0,
+      "cases": [
+        {
+          "id": "intent-greeting",
+          "status": "passed",
+          "toolSequence": [],
+          "toolChoiceAccuracy": 1,
+          "repeatedToolCallCount": 0,
+          "providerRequestCount": 1,
+          "unnecessaryClarificationCount": 0,
+          "formalStateUnchanged": true,
+          "wrongTargetWriteCount": 0,
+          "finalWorkflowStatus": "none"
+        },
+        {
+          "id": "intent-advice",
+          "status": "passed",
+          "toolSequence": [],
+          "toolChoiceAccuracy": 1,
+          "repeatedToolCallCount": 0,
+          "providerRequestCount": 1,
+          "unnecessaryClarificationCount": 0,
+          "formalStateUnchanged": true,
+          "wrongTargetWriteCount": 0,
+          "finalWorkflowStatus": "none"
+        },
+        {
+          "id": "material-certificate",
+          "status": "passed",
+          "toolSequence": [
+            "career.workflow.material_intake",
+            "career.workflow.material_intake"
+          ],
+          "toolChoiceAccuracy": 1,
+          "repeatedToolCallCount": 0,
+          "providerRequestCount": 3,
+          "unnecessaryClarificationCount": 0,
+          "formalStateUnchanged": true,
+          "wrongTargetWriteCount": 0,
+          "finalWorkflowStatus": "waiting_for_user"
+        },
+        {
+          "id": "material-resume",
+          "status": "passed",
+          "toolSequence": [
+            "career.workflow.material_intake",
+            "career.workflow.material_intake"
+          ],
+          "toolChoiceAccuracy": 1,
+          "repeatedToolCallCount": 0,
+          "providerRequestCount": 3,
+          "unnecessaryClarificationCount": 0,
+          "formalStateUnchanged": true,
+          "wrongTargetWriteCount": 0,
+          "finalWorkflowStatus": "waiting_for_user"
+        },
+        {
+          "id": "job-analyze",
+          "status": "passed",
+          "toolSequence": [
+            "career.workflow.job_intake"
+          ],
+          "toolChoiceAccuracy": 1,
+          "repeatedToolCallCount": 0,
+          "providerRequestCount": 2,
+          "unnecessaryClarificationCount": 0,
+          "formalStateUnchanged": true,
+          "wrongTargetWriteCount": 0,
+          "finalWorkflowStatus": "completed"
+        },
+        {
+          "id": "job-cancel",
+          "status": "passed",
+          "toolSequence": [
+            "career.workflow.job_intake"
+          ],
+          "toolChoiceAccuracy": 1,
+          "repeatedToolCallCount": 0,
+          "providerRequestCount": 1,
+          "unnecessaryClarificationCount": 0,
+          "formalStateUnchanged": true,
+          "wrongTargetWriteCount": 0,
+          "finalWorkflowStatus": "active"
+        },
+        {
+          "id": "resume-create",
+          "status": "passed",
+          "toolSequence": [
+            "career.resume.list",
+            "career.profile.get",
+            "career.workflow.compose_resume"
+          ],
+          "toolChoiceAccuracy": 1,
+          "repeatedToolCallCount": 0,
+          "providerRequestCount": 4,
+          "unnecessaryClarificationCount": 0,
+          "formalStateUnchanged": true,
+          "wrongTargetWriteCount": 0,
+          "finalWorkflowStatus": "none"
+        },
+        {
+          "id": "resume-update",
+          "status": "passed",
+          "toolSequence": [
+            "career.resume.list",
+            "career.profile.get",
+            "career.workflow.compose_resume"
+          ],
+          "toolChoiceAccuracy": 1,
+          "repeatedToolCallCount": 0,
+          "providerRequestCount": 4,
+          "unnecessaryClarificationCount": 0,
+          "formalStateUnchanged": true,
+          "wrongTargetWriteCount": 0,
+          "finalWorkflowStatus": "none"
+        },
+        {
+          "id": "fit-existing-job",
+          "status": "passed",
+          "toolSequence": [
+            "career.resume.list",
+            "career.job.list",
+            "career.workflow.job_fit"
+          ],
+          "toolChoiceAccuracy": 1,
+          "repeatedToolCallCount": 0,
+          "providerRequestCount": 4,
+          "unnecessaryClarificationCount": 0,
+          "formalStateUnchanged": true,
+          "wrongTargetWriteCount": 0,
+          "finalWorkflowStatus": "completed"
+        },
+        {
+          "id": "tailor-followup",
+          "status": "passed",
+          "toolSequence": [
+            "career.resume.list",
+            "career.job.list",
+            "career.workflow.tailor_resume"
+          ],
+          "toolChoiceAccuracy": 1,
+          "repeatedToolCallCount": 0,
+          "providerRequestCount": 4,
+          "unnecessaryClarificationCount": 0,
+          "formalStateUnchanged": true,
+          "wrongTargetWriteCount": 0,
+          "finalWorkflowStatus": "waiting_for_user"
+        },
+        {
+          "id": "recovery-wrong-profile",
+          "status": "passed",
+          "toolSequence": [
+            "career.profile.get"
+          ],
+          "toolChoiceAccuracy": 1,
+          "repeatedToolCallCount": 0,
+          "providerRequestCount": 2,
+          "unnecessaryClarificationCount": 0,
+          "formalStateUnchanged": true,
+          "wrongTargetWriteCount": 0,
+          "finalWorkflowStatus": "none"
+        },
+        {
+          "id": "recovery-provider",
+          "status": "passed",
+          "toolSequence": [],
+          "toolChoiceAccuracy": 1,
+          "repeatedToolCallCount": 0,
+          "providerRequestCount": 3,
+          "unnecessaryClarificationCount": 0,
+          "formalStateUnchanged": true,
+          "wrongTargetWriteCount": 0,
+          "finalWorkflowStatus": "none"
+        }
+      ],
+      "rawReport": ".tmp/core02-hermes-behavior.json",
+      "log": ".tmp/core02-final-behavior2.log",
+      "command": "node scripts/hermes-integration.mjs core-behavior --output=.tmp/core02-final-behavior2-results"
+    },
+    "hermesGate": {
+      "status": "PASS",
+      "command": "pnpm hermes:integration integration --output=.tmp/core02-final-gate6-results",
+      "exitCode": 0,
+      "passed": 14,
+      "skipped": 0,
+      "flaky": 0,
+      "runCount": 22,
+      "providerRequests": 63,
+      "formalWriteCount": 35,
+      "formalWriteScope": "committed IndexedDB add/put for profiles, resumeBranches, resumeRevisions, jobDescriptions; includes source import fixtures; excludes drafts, appMeta and exportRecords",
+      "cases": [
+        {
+          "case": "A",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 1,
+          "runIds": [
+            "run_fc2278b5efe2456d95ef0e7e72462fae"
+          ],
+          "toolSequence": [],
+          "checkpointTransitions": [],
+          "formalWriteCount": 0,
+          "formalWrites": [],
+          "expectedBoundary": "completed"
+        },
+        {
+          "case": "B",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 1,
+          "runIds": [
+            "run_e941012ad7234b23a3aeb8a077ea0005"
+          ],
+          "toolSequence": [],
+          "checkpointTransitions": [],
+          "formalWriteCount": 0,
+          "formalWrites": [],
+          "expectedBoundary": "completed"
+        },
+        {
+          "case": "C",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 2,
+          "runIds": [
+            "run_93512fe8b5314aaab283e601218a8303"
+          ],
+          "toolSequence": [
+            "career.profile.get"
+          ],
+          "checkpointTransitions": [
+            {
+              "tool": "career.profile.get",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            }
+          ],
+          "formalWriteCount": 0,
+          "formalWrites": [],
+          "expectedBoundary": "read_result"
+        },
+        {
+          "case": "D",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 6,
+          "runIds": [
+            "run_0db9355fe0cb4e5e8e07365828e6403b"
+          ],
+          "toolSequence": [
+            "career.workflow.profile_intake_turn"
+          ],
+          "checkpointTransitions": [
+            {
+              "tool": "career.workflow.profile_intake_turn",
+              "ok": true,
+              "status": "waiting_for_user",
+              "stage": "collect_experience",
+              "checkpointId": null,
+              "profileId": "profile-demo-student",
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            }
+          ],
+          "formalWriteCount": 0,
+          "formalWrites": [],
+          "expectedBoundary": "waiting_for_user"
+        },
+        {
+          "case": "E",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 4,
+          "runIds": [
+            "run_2653619227164e8790e58ab95e14a481"
+          ],
+          "toolSequence": [
+            "career.resume.list",
+            "career.profile.get",
+            "career.workflow.compose_resume"
+          ],
+          "checkpointTransitions": [
+            {
+              "tool": "career.resume.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.profile.get",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.compose_resume",
+              "ok": true,
+              "status": "waiting_for_confirmation",
+              "stage": "review_composition",
+              "checkpointId": "resume-composition-b508462b-12619",
+              "profileId": "profile-j6KhlNU10r",
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            }
+          ],
+          "formalWriteCount": 3,
+          "formalWrites": [
+            {
+              "store": "profiles",
+              "key": "profile-j6KhlNU10r",
+              "at": "2026-10-29T17:23:43.790Z"
+            },
+            {
+              "store": "resumeBranches",
+              "key": "branch-general-resume-import--69sxt9IMu-To-IMw",
+              "at": "2026-10-29T17:23:43.790Z"
+            },
+            {
+              "store": "resumeRevisions",
+              "key": "resume-revision-fnv-5c9e4f54-100",
+              "at": "2026-10-29T17:23:43.790Z"
+            }
+          ],
+          "expectedBoundary": "waiting_for_confirmation"
+        },
+        {
+          "case": "F",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 2,
+          "runIds": [
+            "run_8efc0a62145849fd953b4d27a1b53d74"
+          ],
+          "toolSequence": [
+            "career.workflow.tailor_resume"
+          ],
+          "checkpointTransitions": [
+            {
+              "tool": "career.workflow.tailor_resume",
+              "ok": false,
+              "status": "waiting_for_confirmation",
+              "stage": "choose_resume_source",
+              "checkpointId": null,
+              "profileId": "profile-demo-student",
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": "agent_confirmation_required"
+            }
+          ],
+          "formalWriteCount": 0,
+          "formalWrites": [],
+          "expectedBoundary": "waiting_for_confirmation"
+        },
+        {
+          "case": "G",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 3,
+          "runIds": [
+            "run_3a28729d2de741fa91a3d1325a9ca59e"
+          ],
+          "toolSequence": [
+            "career.resume.list",
+            "career.workflow.job_fit"
+          ],
+          "checkpointTransitions": [
+            {
+              "tool": "career.resume.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.job_fit",
+              "ok": true,
+              "status": "completed",
+              "stage": "review_result",
+              "checkpointId": null,
+              "profileId": "profile-lIB2uI5DAV",
+              "resumeId": "branch-general-resume-import-TOj4_V7gvx-X-wqCl",
+              "jobId": "job-data-analyst-intern",
+              "safeErrorCode": null
+            }
+          ],
+          "formalWriteCount": 3,
+          "formalWrites": [
+            {
+              "store": "profiles",
+              "key": "profile-lIB2uI5DAV",
+              "at": "2026-10-29T17:24:06.141Z"
+            },
+            {
+              "store": "resumeBranches",
+              "key": "branch-general-resume-import-TOj4_V7gvx-X-wqCl",
+              "at": "2026-10-29T17:24:06.141Z"
+            },
+            {
+              "store": "resumeRevisions",
+              "key": "resume-revision-fnv-e6fce3c7-100",
+              "at": "2026-10-29T17:24:06.141Z"
+            }
+          ],
+          "expectedBoundary": "completed"
+        },
+        {
+          "case": "H",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 3,
+          "runIds": [
+            "run_c678d435c4334641ab535fb0d2625501"
+          ],
+          "toolSequence": [
+            "career.resume.list",
+            "career.workflow.resume_export"
+          ],
+          "checkpointTransitions": [
+            {
+              "tool": "career.resume.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.resume_export",
+              "ok": true,
+              "status": "completed",
+              "stage": "export_ready",
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": "branch-general-resume-import-YCWXSmrIwk-noHvGG",
+              "jobId": null,
+              "safeErrorCode": null
+            }
+          ],
+          "formalWriteCount": 3,
+          "formalWrites": [
+            {
+              "store": "profiles",
+              "key": "profile-6h-YgR0ygN",
+              "at": "2026-10-29T17:24:19.129Z"
+            },
+            {
+              "store": "resumeBranches",
+              "key": "branch-general-resume-import-YCWXSmrIwk-noHvGG",
+              "at": "2026-10-29T17:24:19.130Z"
+            },
+            {
+              "store": "resumeRevisions",
+              "key": "resume-revision-fnv-b121bcf4-100",
+              "at": "2026-10-29T17:24:19.130Z"
+            }
+          ],
+          "expectedBoundary": "completed"
+        },
+        {
+          "case": "I",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 2,
+          "runIds": [
+            "run_07e2c0cefb094ecdb136892a1aa99945"
+          ],
+          "toolSequence": [
+            "career.workflow.job_intake"
+          ],
+          "checkpointTransitions": [
+            {
+              "tool": "career.workflow.job_intake",
+              "ok": true,
+              "status": "completed",
+              "stage": "completed",
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": "job-rcUePmWtUL",
+              "safeErrorCode": null
+            }
+          ],
+          "formalWriteCount": 8,
+          "formalWrites": [
+            {
+              "store": "profiles",
+              "key": "profile-c7FMx8eV4c",
+              "at": "2026-10-29T17:26:37.819Z"
+            },
+            {
+              "store": "resumeBranches",
+              "key": "branch-general-resume-import-rr2Wu21V0o--_sjZA",
+              "at": "2026-10-29T17:26:37.819Z"
+            },
+            {
+              "store": "resumeRevisions",
+              "key": "resume-revision-fnv-0f0b8e93-100",
+              "at": "2026-10-29T17:26:37.819Z"
+            },
+            {
+              "store": "jobDescriptions",
+              "key": "job-rcUePmWtUL",
+              "at": "2026-10-29T17:26:43.583Z"
+            },
+            {
+              "store": "resumeBranches",
+              "key": "branch-profile-c7FMx8eV4c-job-rcUePmWtUL-fnv-1eb47070-114",
+              "at": "2026-10-29T17:26:47.210Z"
+            },
+            {
+              "store": "resumeRevisions",
+              "key": "resume-revision-fnv-95302e12-179",
+              "at": "2026-10-29T17:26:47.210Z"
+            },
+            {
+              "store": "resumeBranches",
+              "key": "branch-profile-c7FMx8eV4c-job-rcUePmWtUL-fnv-1eb47070-114",
+              "at": "2026-10-29T17:26:49.825Z"
+            },
+            {
+              "store": "resumeRevisions",
+              "key": "resume-revision-fnv-357a09f0-148",
+              "at": "2026-10-29T17:26:49.825Z"
+            }
+          ],
+          "expectedBoundary": "completed"
+        },
+        {
+          "case": "J",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 3,
+          "runIds": [
+            "run_9becbc3869ea42048150750f7aed7bf1"
+          ],
+          "toolSequence": [
+            "career.workflow.material_intake",
+            "career.workflow.material_intake"
+          ],
+          "checkpointTransitions": [
+            {
+              "tool": "career.workflow.material_intake",
+              "ok": true,
+              "status": "completed",
+              "stage": "material_ready",
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.material_intake",
+              "ok": true,
+              "status": "waiting_for_user",
+              "stage": "import_review",
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            }
+          ],
+          "formalWriteCount": 0,
+          "formalWrites": [],
+          "expectedBoundary": "waiting_for_user"
+        },
+        {
+          "case": "K",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 4,
+          "runIds": [
+            "run_2838c8ee05fa4a97894ce1a33d2466b2",
+            "run_6bf6dda61cb845eb8f4653d1dcbf0663"
+          ],
+          "toolSequence": [
+            "career.workflow.material_intake",
+            "career.workflow.material_intake"
+          ],
+          "checkpointTransitions": [
+            {
+              "tool": "career.workflow.material_intake",
+              "ok": true,
+              "status": "completed",
+              "stage": "material_ready",
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.material_intake",
+              "ok": true,
+              "status": "waiting_for_user",
+              "stage": "import_review",
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            }
+          ],
+          "formalWriteCount": 0,
+          "formalWrites": [],
+          "expectedBoundary": "waiting_for_user"
+        },
+        {
+          "case": "L",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 10,
+          "runIds": [
+            "run_64a4ca8d98fa4391be760e934819b6ff",
+            "run_f928f620964a4aaeaae065fe48764bd1",
+            "run_dc0b96fb5c5a4232801e05f86677a989"
+          ],
+          "toolSequence": [
+            "career.workflow.job_intake",
+            "career.resume.list",
+            "career.job.list",
+            "career.workflow.job_fit",
+            "career.resume.list",
+            "career.job.list",
+            "career.workflow.tailor_resume"
+          ],
+          "checkpointTransitions": [
+            {
+              "tool": "career.workflow.job_intake",
+              "ok": true,
+              "status": "completed",
+              "stage": "completed",
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": "job-QHYdbm6eNf",
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.resume.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.job.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.job_fit",
+              "ok": true,
+              "status": "completed",
+              "stage": "review_result",
+              "checkpointId": null,
+              "profileId": "profile-dBLnlaQl3M",
+              "resumeId": "branch-general-resume-import-phSqTtwpUD-GKhmof",
+              "jobId": "job-QHYdbm6eNf",
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.resume.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.job.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.tailor_resume",
+              "ok": true,
+              "status": "review_ready",
+              "stage": "preview_changes",
+              "checkpointId": "tailoring-session-fnv-01cd066f-29",
+              "profileId": "profile-dBLnlaQl3M",
+              "resumeId": "branch-general-resume-import-phSqTtwpUD-GKhmof",
+              "jobId": "job-QHYdbm6eNf",
+              "safeErrorCode": null
+            }
+          ],
+          "formalWriteCount": 6,
+          "formalWrites": [
+            {
+              "store": "profiles",
+              "key": "profile-dBLnlaQl3M",
+              "at": "2026-10-29T17:24:57.210Z"
+            },
+            {
+              "store": "resumeBranches",
+              "key": "branch-general-resume-import-phSqTtwpUD-GKhmof",
+              "at": "2026-10-29T17:24:57.210Z"
+            },
+            {
+              "store": "resumeRevisions",
+              "key": "resume-revision-fnv-50eac9ef-100",
+              "at": "2026-10-29T17:24:57.211Z"
+            },
+            {
+              "store": "jobDescriptions",
+              "key": "job-QHYdbm6eNf",
+              "at": "2026-10-29T17:25:02.699Z"
+            },
+            {
+              "store": "resumeBranches",
+              "key": "branch-profile-dBLnlaQl3M-job-QHYdbm6eNf-fnv-d13cf9b5-110",
+              "at": "2026-10-29T17:25:19.722Z"
+            },
+            {
+              "store": "resumeRevisions",
+              "key": "resume-revision-fnv-edc7e13d-203",
+              "at": "2026-10-29T17:25:19.722Z"
+            }
+          ],
+          "expectedBoundary": "review_ready"
+        },
+        {
+          "case": "M",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 16,
+          "runIds": [
+            "run_5f021d0d83174071bd71c715276c006b",
+            "run_3e70cbd9151b49b5a89f285a76f8b5cc",
+            "run_d2c9775d92bf4622810b486edba65173",
+            "run_58dce9e71b4b4eae8d4492650dd26d24",
+            "run_64176e8c67f045c690d8b5836398ff95"
+          ],
+          "toolSequence": [
+            "career.workflow.material_intake",
+            "career.workflow.material_intake",
+            "career.profile.get",
+            "career.workflow.compose_resume",
+            "career.workflow.job_intake",
+            "career.resume.list",
+            "career.job.list",
+            "career.workflow.job_fit",
+            "career.resume.list",
+            "career.job.list",
+            "career.workflow.tailor_resume"
+          ],
+          "checkpointTransitions": [
+            {
+              "tool": "career.workflow.material_intake",
+              "ok": true,
+              "status": "completed",
+              "stage": "material_ready",
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.material_intake",
+              "ok": true,
+              "status": "waiting_for_user",
+              "stage": "import_review",
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.profile.get",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.compose_resume",
+              "ok": true,
+              "status": "waiting_for_confirmation",
+              "stage": "review_composition",
+              "checkpointId": "resume-composition-7d4db4a5-12295",
+              "profileId": "profile-cUXqwiyNMl",
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.job_intake",
+              "ok": true,
+              "status": "completed",
+              "stage": "completed",
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": "job-JYmkEPSXjn",
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.resume.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.job.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.job_fit",
+              "ok": true,
+              "status": "completed",
+              "stage": "review_result",
+              "checkpointId": null,
+              "profileId": "profile-cUXqwiyNMl",
+              "resumeId": "branch-general-GMuGvO3wtS",
+              "jobId": "job-JYmkEPSXjn",
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.resume.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.job.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.tailor_resume",
+              "ok": true,
+              "status": "review_ready",
+              "stage": "preview_changes",
+              "checkpointId": "tailoring-session-fnv-704cc1e8-29",
+              "profileId": "profile-cUXqwiyNMl",
+              "resumeId": "branch-general-GMuGvO3wtS",
+              "jobId": "job-JYmkEPSXjn",
+              "safeErrorCode": null
+            }
+          ],
+          "formalWriteCount": 6,
+          "formalWrites": [
+            {
+              "store": "profiles",
+              "key": "profile-cUXqwiyNMl",
+              "at": "2026-10-29T17:25:35.886Z"
+            },
+            {
+              "store": "resumeBranches",
+              "key": "branch-general-GMuGvO3wtS",
+              "at": "2026-10-29T17:25:41.707Z"
+            },
+            {
+              "store": "resumeRevisions",
+              "key": "resume-revision-fnv-241f7235-62",
+              "at": "2026-10-29T17:25:41.707Z"
+            },
+            {
+              "store": "jobDescriptions",
+              "key": "job-JYmkEPSXjn",
+              "at": "2026-10-29T17:25:47.284Z"
+            },
+            {
+              "store": "resumeBranches",
+              "key": "branch-profile-cUXqwiyNMl-job-JYmkEPSXjn-fnv-2a5d9a0e-110",
+              "at": "2026-10-29T17:26:04.080Z"
+            },
+            {
+              "store": "resumeRevisions",
+              "key": "resume-revision-fnv-591ffaeb-202",
+              "at": "2026-10-29T17:26:04.080Z"
+            }
+          ],
+          "expectedBoundary": "review_ready"
+        },
+        {
+          "case": "N",
+          "started": true,
+          "status": "PASS",
+          "providerCalls": 6,
+          "runIds": [
+            "run_c499d57d27cb43f09846ea2443bdbd5e",
+            "run_81edc668b5384d31837905a1097a89cc"
+          ],
+          "toolSequence": [
+            "career.workflow.job_intake",
+            "career.resume.list",
+            "career.job.list",
+            "career.workflow.tailor_resume"
+          ],
+          "checkpointTransitions": [
+            {
+              "tool": "career.workflow.job_intake",
+              "ok": true,
+              "status": "completed",
+              "stage": "completed",
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": "job-8Qt_Wff4lh",
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.resume.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.job.list",
+              "ok": true,
+              "status": null,
+              "stage": null,
+              "checkpointId": null,
+              "profileId": null,
+              "resumeId": null,
+              "jobId": null,
+              "safeErrorCode": null
+            },
+            {
+              "tool": "career.workflow.tailor_resume",
+              "ok": true,
+              "status": "review_ready",
+              "stage": "preview_changes",
+              "checkpointId": "tailoring-session-fnv-0ff4ceef-29",
+              "profileId": "profile-fueHTmL48e",
+              "resumeId": "branch-general-resume-import-CTQp5w1weB-NnvkLB",
+              "jobId": "job-8Qt_Wff4lh",
+              "safeErrorCode": null
+            }
+          ],
+          "formalWriteCount": 6,
+          "formalWrites": [
+            {
+              "store": "profiles",
+              "key": "profile-fueHTmL48e",
+              "at": "2026-10-29T17:26:14.658Z"
+            },
+            {
+              "store": "resumeBranches",
+              "key": "branch-general-resume-import-CTQp5w1weB-NnvkLB",
+              "at": "2026-10-29T17:26:14.658Z"
+            },
+            {
+              "store": "resumeRevisions",
+              "key": "resume-revision-fnv-02d712be-100",
+              "at": "2026-10-29T17:26:14.658Z"
+            },
+            {
+              "store": "jobDescriptions",
+              "key": "job-8Qt_Wff4lh",
+              "at": "2026-10-29T17:26:20.804Z"
+            },
+            {
+              "store": "resumeBranches",
+              "key": "branch-profile-fueHTmL48e-job-8Qt_Wff4lh-fnv-969cc1ec-110",
+              "at": "2026-10-29T17:26:29.064Z"
+            },
+            {
+              "store": "resumeRevisions",
+              "key": "resume-revision-fnv-97bfcc64-203",
+              "at": "2026-10-29T17:26:29.064Z"
+            }
+          ],
+          "expectedBoundary": "review_ready"
+        }
+      ],
+      "rawReport": ".tmp\\core02-integration-1793294574979-playwright.json",
+      "rawCaseReceipts": ".tmp/core02-case-gate-integration-1793294574979.jsonl",
+      "log": ".tmp/core02-final-gate6.log"
+    },
+    "engineeringGates": {
+      "unitIntegration": {
+        "command": "pnpm exec vitest run tests/unit/agentArtifactRuntimeP43d1.test.ts tests/unit/core02BehaviorCatalog.test.ts tests/unit/core02EvalBaseline.test.ts tests/unit/core02SessionCheckpoint.test.ts tests/unit/fakeProviderContinuation.test.ts tests/unit/jobOptimizationV2.test.ts tests/unit/p45b4-hermes-mcp-closure.test.ts tests/unit/p45c17-hermes-reliability.test.ts tests/unit/p45c18-hermes-conversational-agent.test.ts tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts tests/unit/p45c1c15-career-context-binding.test.ts tests/unit/p45c1c16-career-tool-contract.test.ts tests/unit/p45c1c17-content-integrity.test.ts tests/unit/p46a-resume-structural-integrity.test.ts tests/unit/p47a-agent-capability-contract.test.ts tests/unit/p48a-career-resume-intelligence.test.ts tests/unit/p51-core-02-intelligence.test.ts tests/unit/p51-core-workflow.test.ts tests/unit/p511-r2-observability.test.ts tests/unit/p512-material-intake.test.ts tests/unit/presentationConfig.test.ts tests/unit/repositoryTailoringV2.test.ts tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts tests/unit/resumeCompositionP45b.test.ts tests/unit/resumeImportTarget.test.ts tests/unit/tailoringCommands.test.ts tests/unit/tailoringFieldSafety.test.ts --reporter=default --reporter=json --outputFile=.tmp/core02-final-unit2.json",
+        "exitCode": 0,
+        "testFiles": 27,
+        "passed": 242,
+        "json": ".tmp/core02-final-unit2.json",
+        "log": ".tmp/core02-final-unit2.log"
+      },
+      "postFixtureUnit": {
+        "exitCode": 0,
+        "files": 2,
+        "passed": 4
+      },
+      "lint": {
+        "command": "pnpm lint",
+        "exitCode": 0,
+        "log": ".tmp/core02-final-lint5.log",
+        "finalChangedFilesLint": {
+          "exitCode": 0,
+          "log": ".tmp/core02-final-changed-lint2.log"
+        }
+      },
+      "typecheck": {
+        "command": "pnpm typecheck",
+        "exitCode": 0,
+        "log": ".tmp/core02-final-typecheck2.log"
+      },
+      "build": {
+        "command": "pnpm build",
+        "distDir": ".tmp/core02-final-production2",
+        "exitCode": 0,
+        "log": ".tmp/core02-final-build2.log"
+      },
+      "bundleCheck": {
+        "exitCode": 0,
+        "version": "0.19.0",
+        "commit": "eb52760564db",
+        "patch": "careeradapt-api-toolsets-v1",
+        "log": ".tmp/core02-final-bundle.log",
+        "command": "pnpm hermes:bundle-check"
+      },
+      "uiAndPdf": {
+        "exitCode": 0,
+        "passed": 3,
+        "tests": [
+          "p51-core-business.spec.ts",
+          "p512-material-intake.spec.ts"
+        ],
+        "realPdfPassed": true,
+        "log": ".tmp/core02-final-ui2.log"
+      },
+      "diff": {
+        "command": "git diff --check",
+        "exitCode": 0
+      }
+    },
+    "failureHistory": {
+      "previousEvidencePreserved": true,
+      "failedAttemptLogs": [
+        ".tmp/core02-final-b5.log",
+        ".tmp/core02-final-b6.log",
+        ".tmp/core02-final-b7.log",
+        ".tmp/core02-final-b8.log",
+        ".tmp/core02-final-bc.log",
+        ".tmp/core02-final-bc2.log",
+        ".tmp/core02-final-bc3.log",
+        ".tmp/core02-final-bc4.log",
+        ".tmp/core02-final-confirmation-before.log",
+        ".tmp/core02-final-fixture-ch.log",
+        ".tmp/core02-final-fixture-ch2.log",
+        ".tmp/core02-final-gate.log",
+        ".tmp/core02-final-gate1.log",
+        ".tmp/core02-final-gate2.log",
+        ".tmp/core02-final-gate4.log",
+        ".tmp/core02-final-gate5.log",
+        ".tmp/core02-final-lmn.log",
+        ".tmp/core02-final-lmn2.log",
+        ".tmp/core02-final-lmn3.log",
+        ".tmp/core02-final-smoke.log",
+        ".tmp/core02-final-smoke2.log"
+      ],
+      "fullGateRounds": [
+        {
+          "log": ".tmp/core02-final-gate1.log",
+          "passed": 11,
+          "failed": 3,
+          "skipped": 0,
+          "root": "unbound demo Session and nonexistent resume fixture caused three domain errors then locked Hermes MCP circuit breaker"
+        },
+        {
+          "log": ".tmp/core02-final-gate2.log",
+          "passed": 13,
+          "failed": 1,
+          "skipped": 0,
+          "root": "M fixture did not open the new-task artifact drawer"
+        },
+        {
+          "log": ".tmp/core02-final-gate3.log",
+          "passed": 14,
+          "failed": 0,
+          "skipped": 0,
+          "freezeQualified": false,
+          "auditFinding": "Consumed confirmation remained pending; fixed afterwards"
+        },
+        {
+          "log": ".tmp/core02-final-gate4.log",
+          "passed": 13,
+          "failed": 1,
+          "skipped": 0,
+          "root": "L fixture returned to an old Profile-bound task"
+        },
+        {
+          "log": ".tmp/core02-final-gate5.log",
+          "passed": 13,
+          "failed": 1,
+          "skipped": 0,
+          "root": "G beforeEach fake Provider evidence probe ECONNRESET; no business Run"
+        }
+      ],
+      "classifications": {
+        "ProductDefect": [
+          "stale shell revision",
+          "import root goal retained after Job save",
+          "consumed apply confirmation revived by competing metadata CAS checkpoint"
+        ],
+        "TestFixtureDefect": [
+          "confirmation selectors/boundaries",
+          "new-task hydration sentinel",
+          "missing seeded Profile binding",
+          "nonexistent resume-general-1",
+          "material local preference/artifact drawer",
+          "stale error expectation during Facade replanning",
+          "L reused prior Profile-bound task after source import; official new task and explicit source binding now asserted"
+        ],
+        "TestInfrastructureFailure": [
+          "Windows grep shell pipeline/argument quoting",
+          "per-case restart lifecycle removed",
+          "serial skip cascade removed"
+        ]
+      },
+      "noNewPreRunInfrastructureFailureInFinalGate": true,
+      "infrastructureIncident": {
+        "id": "P51-TEST-HARNESS-STABILITY",
+        "event": "G beforeEach fake Provider evidence GET ECONNRESET before page navigation / Run creation",
+        "classification": "Test Infrastructure Failure",
+        "status": "RESOLVED_BY_COMPLETE_STABLE_GATE",
+        "request": {
+          "method": "GET",
+          "url": "http://127.0.0.1:3992/v1/integration-evidence",
+          "monotonicStartMs": 62272.235,
+          "timestampUtc": "2026-10-29T17:15:59.529987+00:00"
+        },
+        "nextPid": null,
+        "hermesPid": null,
+        "pidLimitation": "The suite had already completed cleanup before audit; PIDs were not captured in this historical round. No PID inferred from unrelated worker warnings. New runner captures process tree before cleanup on future failure.",
+        "runtimePort": 19742,
+        "providerPort": 3992,
+        "appPort": 3010,
+        "currentPageBrowserMcpBridgeId": null,
+        "previousCasePreflight": {
+          "startedAt": "2026-10-29T17:15:54.205Z",
+          "bridgeId": "careeradapt-bridge-TsYoSkbewTt-",
+          "runtimeUrl": "http://127.0.0.1:19742",
+          "requiredCareerFacadesReady": 8
+        },
+        "controlAction": "none",
+        "connectionState": "APIRequestContext GET reset at fake Provider evidence endpoint; remaining business cases completed, including L/M/N",
+        "requestReachedNextControlRoute": false,
+        "supervisorReceivedControlAction": false,
+        "lifecycleEntries": null,
+        "lifecycleLimitation": "not captured at occurrence; previous case Runtime READY preflight is preserved",
+        "businessRunCreated": false,
+        "diagnosis": "Failure is isolated to test evidence HTTP transport, not product control/restart/Run execution. Exact OS socket-close origin was not observed. Finite probes now explicitly close HTTP connections instead of pooling across Context disposal/idle-close boundaries.",
+        "retryAdded": false,
+        "targetedValidation": {
+          "log": ".tmp/core02-final-probe-smoke.log",
+          "passed": 3,
+          "providerCalls": 8,
+          "exitCode": 0
+        },
+        "rawTrace": ".tmp/core02-final-gate5-results/hermes-p46h-integration-P4-c4446-stays-a-comparison-workflow/trace.zip",
+        "log": ".tmp/core02-final-gate5.log",
+        "finalGateLog": ".tmp/core02-final-gate6.log"
+      }
+    },
+    "certification": {
+      "realProvider": "REAL_PROVIDER_BLOCKED",
+      "realProviderRequests": 0,
+      "ocrRealQuality": "NOT_CERTIFIED",
+      "packagedElectron": "NOT_CERTIFIED",
+      "P518-RUNTIME-MODEL-READBACK-01": "OPEN"
+    },
+    "sourceSHA256": {
+      "src/agent/runtime/AgentHostStore.ts": "2b8b5891e68412b6364694f6791b0912df07ecfa60305b77e298f52322838afe",
+      "scripts/hermes-integration.mjs": "60c39abeaadfff0c3f35bc442ba7a818e07c80801bf5a8f989ede4242bf71dab",
+      "tests/e2e/hermes-p46h-integration.spec.ts": "69f5f77c8bbe6bc40e9a7a889dcdf5e6b211f8cb224ab64465f10c15a022d073",
+      "tests/e2e/support/p51CoreWorkflow.ts": "890f9c1a1c66746cb2246719f37c3b805f6cd0dda71256def201ab309e97632f",
+      "tests/support/fake-openai-compatible-provider.mjs": "38cf0963aa2772bb6ee41c977e62a129451e74b7e1185c1bed0ea496048b4311",
+      "tests/unit/p51-core-workflow.test.ts": "4224267067a2a8f0f2a1590f45b05f7e55fa9a7a0cd10f82aa36b67141b61f14",
+      "playwright.hermes-core-multiturn.config.ts": "074001d4be2798da34d8c6c900f5cae753d462bc66fc4750b44b37a4e1f9dee7",
+      "tests/unit/agentArtifactRuntimeP43d1.test.ts": "d154ccad497c9f6cc5bba1a427122db05e9ee10c6163bf494199b5de7c6d3670"
+    },
+    "freezeAllowed": true,
+    "skillsQualityAllowed": true,
+    "nextStagesStarted": [],
+    "confirmationConsumptionAudit": {
+      "status": "PASS",
+      "beforeFix": {
+        "status": "FAIL",
+        "rawSessionsHadPendingConfirmation": true,
+        "unitLog": ".tmp/core02-final-confirmation-unit-race-before.log",
+        "unitExitCode": 1,
+        "hermesLog": ".tmp/core02-final-confirmation-before.log",
+        "hermesExitCode": 1
+      },
+      "afterFix": {
+        "unitLog": ".tmp/core02-final-confirmation-unit-after.log",
+        "unitExitCode": 0,
+        "targetedLog": ".tmp/core02-final-confirmation-lmn.log",
+        "targetedExitCode": 0,
+        "passed": 3,
+        "finalGateIncludesConsumptionAssertions": true
+      }
+    },
+    "freezeScope": "Hermetic functional Core-02 only; not natural-model, real OCR, or packaged Electron certification"
   }
 }

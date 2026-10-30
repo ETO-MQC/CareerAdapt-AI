@@ -1,5 +1,14 @@
 # CareerAdapt AI --- P5.1 Agent 架构优化开发计划
 
+## 2026-10-30 Core-02-FINAL：COMPLETE / hermetic functional freeze
+
+基线/远程起始main均0079b7bd，工作区干净。L/M/N（最终确认消费与正式PDF）、B/C Hermes多轮、Behavior12/12、完整Hermes14/14（22Run/63模拟请求，0skip/0flaky）、401及来源/版本/模板不变量通过；27文件242项、UI/PDF3/3、typecheck/lint/build/bundle-check/diff全部退出0。修复旧revision对话壳、Job根目标和成功apply遗留pending确认；harness改为suite复用Runtime、独立Context/正式绑定Session、preflight与真实ID fixture，短探针关闭连接，无新增重试。
+
+**Core-02允许冻结；允许后续由用户选择进入Skills Quality，本轮未启动Skills Quality/P5.1.8/P5.1.9。** REAL_PROVIDER_BLOCKED、OCR/安装包NOT CERTIFIED、P518 OPEN按既定边界结转。本轮成果随本次 Git 提交保存，未推送、未打包。此前失败、审计前14/14与确认消费失败全部保留；当前以专项报告第11节和evidence.latestRound=finalFreeze20261030为准，旧状态均为历史轮次。
+
+详见[最终冻结记录](p5.1-core-02-career-intelligence-20261029.md)及同目录证据JSON。
+
+
 ## 2026-10-29 Core-02-CLOSEOUT：PARTIAL / 未冻结
 
 最新基线 HEAD/origin/main 为 `229ad9db`，起始工作区干净。本轮修复材料切人物重勾创建简历、导入确认后 Session Profile 绑定缺失、JD 确认绑定补齐导致解析 operation 冲突，以及明确 Provider 401 证据被 Next 覆盖；旧 bare401 断言按现行契约更新，classifier/CAS/Fact Guard 未放宽。

@@ -113,6 +113,12 @@ function materialArtifact(value, depth = 0) {
 
 function chooseResponse({ mode, messages, tools }) {
   const lastToolResult = [...messages].reverse().find((message) => message && message.role === "tool");
+  if (mode === "integration" && latestUserText(messages).includes("P51-C02-OLD-TAILOR")) {
+    const latestUserIndex = messages.findLastIndex(message => message?.role === "user");
+    if (messages.slice(latestUserIndex + 1).some(message => message?.role === "tool")) return { content: "C02STALECHECKED" };
+    const checkpointId = latestUserText(messages).match(/OLD-CHECKPOINT=([\w-]+)/u)?.[1];
+    return { toolCall: { name: findToolName(tools, "career.workflow.tailor_resume"), arguments: JSON.stringify({ checkpointId }) } };
+  }
   if (mode === "integration" && /P51-C02-(?:FIT|TAILOR)/u.test(latestUserText(messages))) {
     const latestUserIndex = messages.findLastIndex(message => message?.role === "user");
     const turnResults = messages.slice(latestUserIndex + 1).filter(message => message?.role === "tool");
@@ -121,7 +127,9 @@ function chooseResponse({ mode, messages, tools }) {
     const resume = allResumes.find(value => value.purpose === "general");
     const savedId = messages.filter(message => message?.role === "tool" && message.name?.includes("job_intake")).map(message => savedJobId(message.content)).filter(Boolean).at(-1);
     const jobs = messages.filter(message => message?.role === "tool").flatMap(message => findCore02Payload(message.content, value => Array.isArray(value.jobs))?.jobs ?? []);
-    const jobId = savedId ?? jobs.find(job => job.title.includes("CORE-JD"))?.id;
+    const jobId = latestUserText(messages).includes("JOB-B")
+      ? jobs.find(job => job.title.includes("JOB-B"))?.id
+      : savedId ?? jobs.find(job => job.title.includes("CORE-JD"))?.id;
     if (latestUserText(messages).includes("P51-C02-FIT")) {
       if (!turnResults.length) return call("career.resume.list", {});
       if (turnResults.at(-1)?.name?.includes("job_fit")) return { content: "C02FITCOMPLETE，已有岗位与已确认事实已复用。" };
@@ -179,6 +187,30 @@ function chooseResponse({ mode, messages, tools }) {
     if (name && attachmentId) return { toolCall: { name, arguments: JSON.stringify({ attachmentId }) } };
     return { content: "P512 fixture did not receive an attachment reference." };
   }
+  if (mode === "integration") {
+    const text = latestUserText(messages);
+    const workflow = /看看.*简历|优化.*通用|这份简历.*问题/u.test(text) && !/岗位|JD/u.test(text)
+      ? "career.workflow.compose_resume"
+      : /匹配/u.test(text) && /岗位/u.test(text) ? "career.workflow.job_fit"
+        : /导出.*简历/u.test(text) ? "career.workflow.resume_export" : undefined;
+    if (workflow) {
+      const latest = messages.findLastIndex(message => message?.role === "user");
+      const results = messages.slice(latest + 1).filter(message => message?.role === "tool");
+      const call = (name, input) => ({ toolCall: { name: findToolName(tools, name), arguments: JSON.stringify(input) } });
+      const source = results.flatMap(message => findCore02Payload(message.content, value => Array.isArray(value.resumes))?.resumes ?? []).find(resume => resume.purpose === "general");
+      if (!source) return call("career.resume.list", {});
+      if (results.at(-1)?.name === findToolName(tools, workflow)) return { content: workflow === "career.workflow.compose_resume"
+        ? "已完成通用简历检查，并停在用户确认边界。" : workflow === "career.workflow.job_fit"
+          ? "已完成岗位匹配比较，并保留证据缺口。" : "已准备简历导出产物。" };
+      if (workflow === "career.workflow.compose_resume") {
+        const profile = results.map(message => findCore02Payload(message.content, value => value.profile && typeof value.profile.version === "number")?.profile).find(Boolean);
+        if (!profile) return call("career.profile.get", { profileId: source.profileId });
+        return call(workflow, { mode: "general", profileId: profile.id, expectedProfileRevision: profile.version,
+          sourceResumeId: source.id, generalResumeMode: "update_existing" });
+      }
+      return call(workflow, { resumeId: source.id, ...(workflow === "career.workflow.job_fit" ? { profileId: source.profileId, jobId: "job-data-analyst-intern" } : {}) });
+    }
+  }
   if (lastToolResult) {
     const name = typeof lastToolResult.name === "string" ? lastToolResult.name : "CareerAdapt tool";
     if (name.includes("job_intake")) return { content: savedJobId(lastToolResult.content)
@@ -198,7 +230,7 @@ function chooseResponse({ mode, messages, tools }) {
       const toolName = findToolName(tools, "career.workflow.job_intake");
       if (toolName) return { toolCall: { name: toolName, arguments: JSON.stringify({
         rawText: userText.includes("P51-C02-JOB-AI")
-          ? "公司：Core Test\n岗位：AI 产品实习生 CORE-JD\n岗位职责\n1. 参与 AI 应用项目的需求梳理、原型设计和功能验收。\n任职要求\n1. 参与过 AI 应用项目。"
+          ? `公司：Core Test\n岗位：AI 产品实习生 CORE-JD${userText.includes("JOB-B") ? " JOB-B" : ""}\n岗位职责\n1. 参与 AI 应用项目的需求梳理、原型设计和功能验收。\n任职要求\n1. 参与过 AI 应用项目。`
           : "公司：Core Test\n岗位：数据分析实习生 CORE-JD\n岗位职责\n1. 参与数据清洗与分析。\n任职要求\n1. 了解 Python 或 SQL。\n2. 具备团队协作能力。",
         persistence: userText.includes("P51-BHV-ANALYZE") ? "analyze_only" : "save"
       }) } };
@@ -210,18 +242,6 @@ function chooseResponse({ mode, messages, tools }) {
     if (/根据.*JD.*生成.*岗位简历/u.test(userText)) {
       const toolName = findToolName(tools, "career.workflow.tailor_resume");
       if (toolName) return { toolCall: { name: toolName, arguments: JSON.stringify({ targetText: "数据分析实习生，负责数据清洗、分析与报告，要求 Python 和 SQL 能力。" }) } };
-    }
-    if (/匹配/u.test(userText) && /岗位/u.test(userText)) {
-      const toolName = findToolName(tools, "career.workflow.job_fit");
-      if (toolName) return { toolCall: { name: toolName, arguments: JSON.stringify({ profileId: "profile-demo-student", resumeId: "resume-general-1", jobId: "job-data-analyst-intern" }) } };
-    }
-    if (/看看.*简历|优化.*通用|这份简历.*问题/u.test(userText) && !/岗位|JD/u.test(userText)) {
-      const toolName = findToolName(tools, "career.workflow.compose_resume");
-      if (toolName) return { toolCall: { name: toolName, arguments: JSON.stringify({ mode: "general", profileId: "profile-demo-student", expectedProfileRevision: 1, sourceResumeId: "resume-general-1", generalResumeMode: "update_existing" }) } };
-    }
-    if (/导出.*简历|导出这份简历/u.test(userText)) {
-      const toolName = findToolName(tools, "career.workflow.resume_export");
-      if (toolName) return { toolCall: { name: toolName, arguments: JSON.stringify({ resumeId: "resume-general-1" }) } };
     }
     if (/资料|个人资料|姓名|项目经历|经历|适合哪些岗位|profile/u.test(userText)) {
       const toolName = findToolName(tools, "career.profile.get");

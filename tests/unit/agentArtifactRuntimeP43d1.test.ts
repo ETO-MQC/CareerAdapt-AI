@@ -403,7 +403,17 @@ describe("P4.3d.1 artifact action runtime", () => {
       return { ok: true, operationId: input.operationId, toolName: input.toolName, data, artifactIds: [], completedAt: now };
     });
     const sessionStore = new AgentSessionStore(repository);
-    const save = vi.fn((value: AgentSession) => sessionStore.save(value));
+    let confirmationCheckpointAdvanced = false;
+    const save = vi.fn(async (value: AgentSession) => {
+      // A late metadata checkpoint can advance CAS after the UI consumes its
+      // confirmation but before the write-pending snapshot is persisted.
+      if (!confirmationCheckpointAdvanced && value.taskState?.knownSlots.artifactWriteCheckpoint) {
+        confirmationCheckpointAdvanced = true;
+        const checkpoint = await sessionStore.get(value.id);
+        if (checkpoint) await sessionStore.save(checkpoint);
+      }
+      return sessionStore.save(value);
+    });
     const resumeTurn = vi.fn(async (input: { session: AgentSession; observation: unknown }) => {
       const taskState = new AgentTaskStateReducer().reduce(input.session.taskState!, {
         type: "tool_observation",
@@ -448,6 +458,9 @@ describe("P4.3d.1 artifact action runtime", () => {
       pageContext: { pathname: "/ai-workspace", query: {} }
     });
     const qualityResult = confirmed?.taskState?.knownSlots.qualityResult as Record<string, unknown> | undefined;
+    expect(confirmed?.pendingConfirmation).toBeUndefined();
+    expect(confirmed?.pendingToolCall).toBeUndefined();
+    expect(confirmed?.taskState?.knownSlots.pendingConfirmation).toBeUndefined();
     expect(qualityResult).toMatchObject({
       acceptedDiffIds: [tailoringDiffId(diff)],
       acceptedDiffCount: 1,

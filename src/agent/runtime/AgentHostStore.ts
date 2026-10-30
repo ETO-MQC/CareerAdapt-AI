@@ -2055,6 +2055,18 @@ export class AgentHostStore {
     appendUserMessage?: boolean;
     runtimeDiagnostics?: Partial<Pick<NonNullable<AgentSession["activeTurn"]>, "preferredRuntime" | "attemptedRuntime" | "finalRuntime" | "executionOwner" | "fallbackUsed" | "fallbackReasonCode" | "hermesRunId" | "nextHermesRunId" | "firstEventAt" | "runtimeFailureAt" | "incidentTraceId" | "runtimeAttempts" | "primaryCausalChain" | "secondaryRecoveryFailures" | "transportReattachAttempted" | "semanticRetryAttempted" | "runtimeRestartAttempted" | "turnStartSnapshot" | "runtimeFailureSnapshot" | "previousRuntimeIncidents" | "runtimeFailureDiagnostics" | "cancellation" | "abortTraces" | "recoveryAttempted">>;
   }) {
+    // Drain the previous turn's streaming checkpoint before creating a shell.
+    // Repository CAS can legitimately advance while the composer still holds
+    // its previous snapshot; use the persisted context rather than starting
+    // a remote Run whose locally rejected shell can never accept its events.
+    await this.runtimeEventQueue;
+    await this.flushStreamingCheckpoint();
+    const persistedSession = typeof this.dependencies.persistence.get === "function"
+      ? await this.dependencies.persistence.get(input.session.id)
+      : undefined;
+    if (persistedSession && persistedSession.sessionRevision > input.session.sessionRevision) {
+      input = { ...input, session: persistedSession };
+    }
     if (input.signal?.aborted) {
       return {
         session: input.session,
@@ -2180,6 +2192,11 @@ export class AgentHostStore {
     };
     if (input.signal?.aborted) return { session: current, turnId, userMessageId, assistantMessageId };
     const saved = await this.dependencies.persistence.save(current);
+    if (!input.signal?.aborted && saved.activeTurn?.id !== turnId) {
+      throw Object.assign(new Error("Hermes 对话起始版本已变化，未启动远程 Run。"), {
+        code: "agent_runtime_shell_revision_conflict"
+      });
+    }
     if (input.signal?.aborted) {
       const latest = typeof this.dependencies.persistence.get === "function"
         ? await this.dependencies.persistence.get(current.id)
@@ -6000,6 +6017,15 @@ export class AgentHostStore {
       if (receipt?.success) current = withOpenArtifactOption(current, assistantId, receipt.data.resultResumeId);
       current = {
         ...current,
+        // A competing metadata checkpoint may have made the write-pending
+        // save return the prior pending confirmation through Repository CAS.
+        // The durable apply receipt consumes that permission exactly once.
+        pendingConfirmation: undefined,
+        pendingToolCall: undefined,
+        taskState: current.taskState ? {
+          ...current.taskState,
+          knownSlots: { ...current.taskState.knownSlots, pendingConfirmation: undefined }
+        } : current.taskState,
         activeTurn: current.activeTurn
           ? { ...current.activeTurn, status: "completed", completedAt: new Date().toISOString(), visibleAssistantMessageId: assistantId }
           : current.activeTurn,
@@ -11972,6 +11998,8 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
       });
     }
     nextSession.taskState.workflowId = "job_ingestion";
+    nextSession.taskState.rootGoal = "ingest_job";
+    nextSession.taskState.activeGoal = "ingest_job";
     nextSession.taskState.stage = status === "completed" ? "completed" : "review_job";
     if (stringValue(checkpoint.jobId)) nextSession.taskState.selectedEntities.jobId = stringValue(checkpoint.jobId);
   }

@@ -38,6 +38,42 @@ async function fixture() {
   return { repository, profile, service, registry, gateway, context };
 }
 describe("P5.1 Core production workflow boundaries", () => {
+  it("starts the next Hermes shell from the latest persisted session revision", async () => {
+    const f = await fixture();
+    const persistence = new AgentSessionStore(f.repository);
+    const initial = await persistence.save(AgentRuntime.createConversationSession());
+    const host = new AgentHostStore({ repository: f.repository, persistence,
+      executor: new CareerToolGatewayExecutor(f.registry, f.gateway) });
+    host.adopt(initial);
+    // A transcript/stream checkpoint can advance the Repository CAS revision
+    // while the composer still holds the just-completed turn's snapshot.
+    const checkpointed = await persistence.save(initial);
+    expect(checkpointed.sessionRevision).toBeGreaterThan(initial.sessionRevision);
+    const shell = await host.beginRuntimeShell({ session: initial, userMessage: "继续改简历", runtimeId: "hermes" });
+    expect(shell.session.activeTurn?.id).toBe(shell.turnId);
+    expect(shell.session.messages.find(message => message.id === shell.assistantMessageId)?.turnId).toBe(shell.turnId);
+  });
+  it("replaces a completed import goal when Hermes saves the next Job", async () => {
+    const f = await fixture();
+    const persistence = new AgentSessionStore(f.repository);
+    const initial = await persistence.save({ ...AgentRuntime.createConversationSession(),
+      taskState: AgentTaskStateSchema.parse({ workflowId: "resume_import", rootGoal: "import_resume",
+        activeGoal: "import_resume", stage: "completed", completionStatus: "completed",
+        selectedEntities: {}, knownSlots: {}, updatedAt: new Date().toISOString() }) });
+    const host = new AgentHostStore({ repository: f.repository, persistence,
+      executor: new CareerToolGatewayExecutor(f.registry, f.gateway) });
+    host.adopt(initial);
+    const shell = await host.beginRuntimeShell({ session: initial, userMessage: "保存这个岗位", runtimeId: "hermes" });
+    const result = await f.gateway.execute("career.workflow.job_intake", { rawText: JD, persistence: "save" }, {
+      ...f.context, careerSessionBinding: { ...f.context.careerSessionBinding, agentSessionId: initial.id },
+      operationId: "after-import-job", userMessageId: shell.userMessageId });
+    await host.applyRuntimeEvent({ type: "tool_call_completed", sessionId: initial.id, turnId: shell.turnId,
+      timestamp: new Date().toISOString(), toolName: "career.workflow.job_intake", operationId: "after-import-job", data: { result } }, shell.assistantMessageId);
+    const terminal = await host.applyRuntimeEvent({ type: "turn_completed", sessionId: initial.id, turnId: shell.turnId,
+      timestamp: new Date().toISOString(), message: "岗位已保存" }, shell.assistantMessageId);
+    expect(terminal?.taskState).toMatchObject({ rootGoal: "ingest_job", workflowId: "job_ingestion", completionStatus: "completed" });
+    expect(terminal?.messages.find(message => message.id === shell.assistantMessageId)?.content).toContain("岗位已保存");
+  });
   it("accepts a confirmed JD receipt as the canonical ingest_job goal at Hermes terminal", async () => {
     const f = await fixture();
     const persistence = new AgentSessionStore(f.repository);

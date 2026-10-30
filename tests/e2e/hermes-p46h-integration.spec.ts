@@ -5,13 +5,28 @@ import { createHash } from "node:crypto";
 import { appendFile, readFile, writeFile } from "node:fs/promises";
 import { completeCoreResumeWorkflow, installCoreWritingProvider, prepareCoreSourceResume, readStore, verifyCoreResumePdf } from "./support/p51CoreWorkflow";
 
+test.use({ actionTimeout: 15_000 });
+
 const closeoutTraces = new WeakMap<Page, ReturnType<typeof observeRuntimeAndBridge>>();
+const providerOffsets = new WeakMap<Page, number>();
 
 type SafeHermesEvent = { event?: string; runId?: string; tool?: string; timestamp?: number };
 declare global { interface Window { __caseIEvents?: SafeHermesEvent[]; __core02IO?: string[] } }
 
-test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
+test.describe("P4.6h hermetic Web + browser MCP integration", () => {
+  test.beforeEach(async ({ page }) => {
+    providerOffsets.set(page, (await readProviderEvidence(page)).requests.length);
+  });
   test.afterEach(async ({ page }, testInfo) => {
+    const trace = closeoutTraces.get(page);
+    const caseReceipt = { case: testInfo.title.match(/^CASE ([A-N])/u)?.[1], started: true,
+      status: testInfo.status, toolSequence: trace?.toolRequests.map(request => request.name),
+      runReceipts: trace?.runReceipts, checkpointTransitions: trace?.toolReceipts,
+      providerCalls: (await readProviderEvidence(page)).requests.length - (providerOffsets.get(page) ?? 0),
+      formalWriteCount: trace?.formalWrites.length, formalWrites: trace?.formalWrites,
+      writeScope: "Committed renderer IndexedDB add/put operations after initial fixture readiness, including explicit source import fixtures" };
+    await testInfo.attach("case-gate-receipt", { body: JSON.stringify(caseReceipt), contentType: "application/json" });
+    await appendFile(`.tmp/core02-case-gate-${process.env.HERMES_INTEGRATION_RUN_ID}.jsonl`, `${JSON.stringify(caseReceipt)}\n`);
     if (!/^CASE [IJKLMN]/u.test(testInfo.title)) return;
     if (/^CASE [LMN]/u.test(testInfo.title)) {
       await testInfo.attach("closeout-provider", { body: JSON.stringify(await readProviderEvidence(page), null, 2), contentType: "application/json" });
@@ -61,10 +76,11 @@ test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
   test("CASE C — personal career questions use a read-only Career tool", async ({ page }) => {
     const trace = observeRuntimeAndBridge(page);
     await openWorkspace(page);
-    await resetHermesForCase(page);
+    await assertHermesReadyForCase(page);
     await send(page, "根据我的经历，你觉得我适合哪些岗位？");
     await expectAssistant(page, "当前示例资料包含 2 个项目经历。");
     await expectToolNames(trace, ["career.profile.get"]);
+    expect(trace.toolReceipts.every(value => (value as { result?: { ok?: boolean } }).result?.ok === true)).toBe(true);
     expect(trace.resultActions).toContain("result");
     expect(trace.toolRequests.every((request) => request.name.startsWith("career.") && !request.name.includes("workflow"))).toBe(true);
   });
@@ -72,29 +88,38 @@ test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
   test("CASE D — building from zero starts Profile Intake through a facade", async ({ page }) => {
     const trace = observeRuntimeAndBridge(page);
     await openWorkspace(page);
-    await resetHermesForCase(page);
+    await assertHermesReadyForCase(page);
     await send(page, "我没有简历，从零开始帮我做一份。");
     await expectAssistant(page, "已进入 Profile Intake，并停在下一步资料补充边界。");
     await expectToolNames(trace, ["career.workflow.profile_intake_turn"]);
+    expect(trace.toolReceipts.every(value => (value as { result?: { ok?: boolean } }).result?.ok === true)).toBe(true);
   });
 
   test("CASE E — general Resume review uses compose update_existing", async ({ page }) => {
     const trace = observeRuntimeAndBridge(page);
     await openWorkspace(page);
-    await resetHermesForCase(page);
+    await prepareCoreSourceResume(page);
+    await page.goto("/ai-workspace");
+    await startFreshConversation(page);
+    await installCoreWritingProvider(page);
+    await assertHermesReadyForCase(page);
     await send(page, "帮我看看这份简历有什么问题");
     await expectAssistant(page, "已完成通用简历检查，并停在用户确认边界。");
-    await expectToolNames(trace, ["career.workflow.compose_resume"]);
-    expect(trace.toolRequests[0]?.input).toMatchObject({ mode: "general", generalResumeMode: "update_existing" });
+    await expectToolNames(trace, ["career.resume.list", "career.profile.get", "career.workflow.compose_resume"]);
+    expect(trace.toolReceipts.every(value => (value as { result?: { ok?: boolean } }).result?.ok === true)).toBe(true);
+    expect(trace.toolRequests.at(-1)?.input).toMatchObject({ mode: "general", generalResumeMode: "update_existing" });
   });
 
   test("CASE F — pasted JD tailoring uses the canonical workflow facade", async ({ page }) => {
     const trace = observeRuntimeAndBridge(page);
     await openWorkspace(page);
-    await resetHermesForCase(page);
+    await assertHermesReadyForCase(page);
     await send(page, "根据这个 JD 帮我生成岗位简历");
     await expectAssistant(page, "已读取当前示例岗位，并停在用户确认边界。");
     await expectToolNames(trace, ["career.workflow.tailor_resume"]);
+    expect(trace.toolReceipts).toEqual([expect.objectContaining({ result: expect.objectContaining({
+      error: expect.objectContaining({ code: "agent_confirmation_required" })
+    }) })]);
     expect(trace.toolRequests[0]?.input).toMatchObject({ targetText: expect.any(String) });
     expect(trace.toolRequests.some((request) => request.name.startsWith("career.tailoring."))).toBe(false);
     expect(trace.resultActions).toContain("result");
@@ -103,19 +128,27 @@ test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
   test("CASE G — Job Fit stays a comparison workflow", async ({ page }) => {
     const trace = observeRuntimeAndBridge(page);
     await openWorkspace(page);
-    await resetHermesForCase(page);
+    await prepareCoreSourceResume(page);
+    await page.goto("/ai-workspace");
+    await startFreshConversation(page);
+    await assertHermesReadyForCase(page);
     await send(page, "分析一下我和这个岗位匹不匹配");
     await expectAssistant(page, "已完成岗位匹配比较，并保留证据缺口。");
-    await expectToolNames(trace, ["career.workflow.job_fit"]);
+    await expectToolNames(trace, ["career.resume.list", "career.workflow.job_fit"]);
+    expect(trace.toolReceipts.every(value => (value as { result?: { ok?: boolean } }).result?.ok === true)).toBe(true);
   });
 
   test("CASE H — export uses the dedicated export facade", async ({ page }) => {
     const trace = observeRuntimeAndBridge(page);
     await openWorkspace(page);
-    await resetHermesForCase(page);
+    await prepareCoreSourceResume(page);
+    await page.goto("/ai-workspace");
+    await startFreshConversation(page);
+    await assertHermesReadyForCase(page);
     await send(page, "导出这份简历");
     await expectAssistant(page, "已准备简历导出产物。");
-    await expectToolNames(trace, ["career.workflow.resume_export"]);
+    await expectToolNames(trace, ["career.resume.list", "career.workflow.resume_export"]);
+    expect(trace.toolReceipts.every(value => (value as { result?: { ok?: boolean } }).result?.ok === true)).toBe(true);
   });
 
   test("CASE K — an attachment submitted while busy executes in the next Hermes Turn", async ({ page }) => {
@@ -177,7 +210,12 @@ test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
     expect(source).toBeTruthy();
     const profilesBefore = await readStore(page, "profiles");
     await page.goto("/ai-workspace");
-    await resetHermesForCase(page);
+    await startFreshConversation(page);
+    await assertHermesReadyForCase(page);
+    await expect.poll(async () => {
+      const id = await page.evaluate(() => localStorage.getItem("careeradapt.agent.activeSessionId"));
+      return (await readStore(page, "agentSessions")).find(row => row.id === id)?.activeProfileId;
+    }).toBe(source.profileId);
     const providerBefore = await readProviderEvidence(page);
     await send(page, "保存这个岗位 CORE-JD：公司 Core Test，数据分析实习生，负责数据清洗，要求了解 Python 或 SQL。");
     await expect(page.locator(".agent-confirmation")).toBeVisible();
@@ -196,8 +234,8 @@ test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
       await inline.getByRole("button", { name: "采用", exact: true }).first().click();
     }
     await inline.getByRole("button", { name: "提交本次选择", exact: true }).click();
-    await expect(page.locator(".agent-confirmation")).toBeVisible();
-    await page.locator(".agent-confirmation").getByRole("button", { name: "确认", exact: true }).click();
+    await expect(page.getByRole("region", { name: "应用这些简历修改？" })).toBeVisible();
+    await page.getByRole("button", { name: "生成岗位简历", exact: true }).click();
     await expect.poll(async () => (await readStore(page, "resumeBranches")).filter(branch => branch.branchPurpose === "job_specific").length).toBeGreaterThan(0);
     const after = await readStore(page, "resumeBranches");
     const target = after.find(branch => branch.branchPurpose === "job_specific" && branch.sourceBranchId === source.id)!;
@@ -205,8 +243,9 @@ test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
     expect(after.find(branch => branch.id === source.id)).toEqual(source);
     expect(await readStore(page, "profiles")).toEqual(profilesBefore);
     expect(await readStore(page, "jobDescriptions")).toEqual(jobsBefore);
+    await assertCoreTarget(page, source, target);
     expect(trace.toolRequests.map(request => request.name)).toEqual([
-      "career.workflow.job_intake", "career.resume.list", "career.job.list", "career.workflow.job_fit", "career.workflow.tailor_resume"
+      "career.workflow.job_intake", "career.resume.list", "career.job.list", "career.workflow.job_fit", "career.resume.list", "career.job.list", "career.workflow.tailor_resume"
     ]);
     const providerAfter = await readProviderEvidence(page);
     const sessions = await readStore(page, "agentSessions");
@@ -237,6 +276,7 @@ test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
     await page.locator('.agent-composer input[type="file"]').setInputFiles({ name: "anonymous-career.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(core02Material)) });
     await send(page, "P51-C02-MATERIAL，把这份职业材料整理到资料库");
     await expectAssistant(page, "已生成候选资料");
+    await page.getByRole("button", { name: "产物 1", exact: true }).click();
     await page.getByRole("button", { name: "查看来源与逐项核对", exact: true }).click();
     const dialog = page.getByTestId("agent-import-review-dialog");
     await expect(dialog).toBeVisible();
@@ -253,10 +293,19 @@ test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
     expect(profiles).toHaveLength(beforeProfiles.length + 1);
     const profile = profiles.find(value => !beforeProfiles.some(old => old.id === value.id))!;
     expect(await readStore(page, "resumeBranches")).toEqual(beforeBranches);
+    await expect.poll(async () => {
+      const sessions = await readStore(page, "agentSessions");
+      const id = await page.evaluate(() => localStorage.getItem("careeradapt.agent.activeSessionId"));
+      const session = sessions.find(value => value.id === id);
+      const task = session?.taskState as { selectedEntities?: { profileId?: string } } | undefined;
+      return { personId: session?.personId, profileId: session?.activeProfileId,
+        profileRevision: session?.profileRevision, checkpointProfileId: task?.selectedEntities?.profileId };
+    }).toEqual({ personId: profile.personId, profileId: profile.id,
+      profileRevision: profile.version, checkpointProfileId: profile.id });
     await installCoreWritingProvider(page);
     await send(page, "P51-C02-COMPOSE 根据这些资料帮我生成一份通用简历。");
-    await expectAssistant(page, "C02COMPOSEREADY");
-    await send(page, "确认生成");
+    await expect(page.locator(".agent-confirmation")).toBeVisible();
+    await page.locator(".agent-confirmation").getByRole("button", { name: "确认", exact: true }).click();
     await expect.poll(async () => (await readStore(page, "resumeBranches")).filter(branch => branch.profileId === profile.id && branch.branchPurpose === "general").length).toBe(1);
     const source = (await readStore(page, "resumeBranches")).find(branch => branch.profileId === profile.id && branch.branchPurpose === "general")!;
     expect(source.profileId).toBe(profile.id);
@@ -272,13 +321,15 @@ test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
     await expect(inline).toBeVisible();
     for (let index = 0; index < 8 && await inline.getByRole("button", { name: "采用", exact: true }).count(); index++) await inline.getByRole("button", { name: "采用", exact: true }).first().click();
     await inline.getByRole("button", { name: "提交本次选择", exact: true }).click();
-    await page.locator(".agent-confirmation").getByRole("button", { name: "确认", exact: true }).click();
+    await expect(page.getByRole("region", { name: "应用这些简历修改？" })).toBeVisible();
+    await page.getByRole("button", { name: "生成岗位简历", exact: true }).click();
     await expect.poll(async () => (await readStore(page, "resumeBranches")).filter(branch => branch.profileId === profile.id && branch.branchPurpose === "job_specific").length).toBe(1);
     const branches = await readStore(page, "resumeBranches");
     const target = branches.find(branch => branch.profileId === profile.id && branch.branchPurpose === "job_specific")!;
     expect(branches.find(branch => branch.id === source.id)).toEqual(source);
     expect(await readStore(page, "profiles")).toEqual(profiles);
     expect(target.sourceBranchId).toBe(source.id);
+    await assertCoreTarget(page, source, target);
     expect((await readStore(page, "jobDescriptions")).filter(job => String(job.title).includes("CORE-JD"))).toHaveLength(1);
     await page.goto(`/resume?branchId=${encodeURIComponent(String(target.id))}`);
     await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
@@ -311,13 +362,15 @@ test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
     await expect(inline).toBeVisible();
     for (let index = 0; index < 8 && await inline.getByRole("button", { name: "采用", exact: true }).count(); index++) await inline.getByRole("button", { name: "采用", exact: true }).first().click();
     await inline.getByRole("button", { name: "提交本次选择", exact: true }).click();
-    await page.locator(".agent-confirmation").getByRole("button", { name: "确认", exact: true }).click();
+    await expect(page.getByRole("region", { name: "应用这些简历修改？" })).toBeVisible();
+    await page.getByRole("button", { name: "生成岗位简历", exact: true }).click();
     await expect.poll(async () => (await readStore(page, "resumeBranches")).some(branch => branch.sourceBranchId === source.id && branch.branchPurpose === "job_specific")).toBe(true);
     const branches = await readStore(page, "resumeBranches");
     const target = branches.find(branch => branch.sourceBranchId === source.id && branch.branchPurpose === "job_specific")!;
     expect(branches.find(branch => branch.id === source.id)).toEqual(source);
     expect(await readStore(page, "profiles")).toEqual(profilesBefore);
     expect(target.structuredContentItems).not.toEqual(source.structuredContentItems);
+    await assertCoreTarget(page, source, target);
     const targetPresentation = (await readStore(page, "appMeta")).find(row => row.key === `resumePresentationConfig:${target.id}`)!.value as Record<string, unknown>;
     expect(visual(targetPresentation)).toEqual(visual(sourcePresentation));
     await page.goto(`/resume?branchId=${encodeURIComponent(String(target.id))}`);
@@ -335,7 +388,7 @@ test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
     await openWorkspace(page);
     await prepareCoreSourceResume(page);
     await page.goto("/ai-workspace");
-    await resetHermesForCase(page);
+    await assertHermesReadyForCase(page);
     await send(page, "保存这个岗位 CORE-JD：公司 Core Test，数据分析实习生，负责数据清洗，要求了解 Python 或 SQL。");
     await expect(page.locator(".agent-confirmation")).toContainText("确认执行 Career 操作");
     await expectToolNames(trace, ["career.workflow.job_intake"]);
@@ -386,6 +439,131 @@ test.describe.serial("P4.6h hermetic Web + browser MCP integration", () => {
   });
 });
 
+test.describe("Core-02 Hermes multi-turn", () => {
+  test("SCENARIO B — confirmed certificate refreshes Profile and General Resume", async ({ page }, testInfo) => {
+    test.setTimeout(180_000);
+    const trace = observeRuntimeAndBridge(page);
+    await openWorkspace(page);
+    const ids = new Set((await readStore(page, "resumeBranches")).map(row => row.id));
+    await prepareCoreSourceResume(page);
+    const source = (await readStore(page, "resumeBranches")).find(row => !ids.has(row.id))!;
+    const profile = (await readStore(page, "profiles")).find(row => row.id === source.profileId)!;
+    await page.goto("/ai-workspace");
+    await startFreshConversation(page);
+    await installCoreWritingProvider(page);
+    await send(page, "P51-C02-COMPOSE UPDATE 用资料库更新我的通用简历，先生成方案。");
+    await expect(page.locator(".agent-confirmation")).toBeVisible();
+    await expect.poll(() => trace.toolReceipts.some(value => Boolean((value as { result?: { data?: { workflowCheckpoint?: { checkpointId?: string } } } }).result?.data?.workflowCheckpoint?.checkpointId))).toBe(true);
+    const old = trace.toolReceipts.map(value => (value as { result?: { data?: { workflowCheckpoint?: { checkpointId?: string } } } }).result?.data?.workflowCheckpoint).find(value => value?.checkpointId)!;
+    await page.locator(".agent-confirmation").getByRole("button", { name: "确认", exact: true }).click();
+    await expect.poll(async () => (await readStore(page, "resumeBranches")).find(row => row.id === source.id)?.revision).toBe(Number(source.revision) + 1);
+    await expectAssistant(page, "已按你的确认完成当前 Career 工作流。");
+    await startFreshConversation(page);
+    expect(old?.checkpointId).toBeTruthy();
+    const certificate = { ...core02Material, sections: [{ id: "certificate", sectionType: "certificates", title: "证书", order: 0, visible: true,
+      items: [{ id: "core-new-certificate", sectionType: "certificates", name: "匿名测试证书", issuer: "测试机构", issuedAt: "2025-06", customFields: [] }] }] };
+    await page.evaluate(() => {
+      const settings = JSON.parse(localStorage.getItem("careeradapt-ai-settings") ?? "{}");
+      localStorage.setItem("careeradapt.resumeImportAiPreference", JSON.stringify({ schemaVersion: "resume-import-ai-preference-v1", mode: "local", providerFingerprint: [settings.provider, settings.baseUrl, settings.model].join("|") }));
+    });
+    await page.locator('.agent-composer input[type="file"]').setInputFiles({ name: "certificate.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(certificate)) });
+    await send(page, "P51-C02-MATERIAL 把这个加入资料库，然后更新我的通用简历。");
+    await expectAssistant(page, "已生成候选资料");
+    await testInfo.attach("scenario-B-material-session", { body: JSON.stringify({ sessions: await readStore(page, "agentSessions"), trace }), contentType: "application/json" });
+    await page.getByRole("button", { name: "产物 1", exact: true }).click();
+    await page.getByRole("button", { name: "查看来源与逐项核对", exact: true }).click();
+    const dialog = page.getByTestId("agent-import-review-dialog");
+    await dialog.locator("label.import-target-option").filter({ hasText: "导入到已有资料" }).click();
+    await dialog.locator('select[name="import-target-profile"]').selectOption(String(profile.id));
+    await dialog.locator('input[name="import-create-general-resume"]').uncheck();
+    for (let index = 0; index < 40 && await dialog.getByRole("button", { name: "确认此字段", exact: true }).count(); index++) await dialog.getByRole("button", { name: "确认此字段", exact: true }).first().click();
+    for (let index = 0; index < 40 && await dialog.getByRole("button", { name: "核对并保留来源", exact: true }).count(); index++) await dialog.getByRole("button", { name: "核对并保留来源", exact: true }).first().click();
+    await dialog.locator(".import-review-footer button.primary-button").click();
+    await expect(dialog).not.toBeVisible();
+    const updated = (await readStore(page, "profiles")).find(row => row.id === profile.id)!;
+    expect(updated.version).toBe(Number(profile.version) + 1);
+    await send(page, "P51-C02-COMPOSE UPDATE 重新读取最新资料并更新我的通用简历。");
+    await expect(page.locator(".agent-confirmation")).toBeVisible();
+    const fresh = trace.toolReceipts.map(value => (value as { result?: { data?: { workflowCheckpoint?: { checkpointId?: string; profileRevision?: number } } } }).result?.data?.workflowCheckpoint).filter(value => value?.checkpointId).at(-1)!;
+    expect(fresh.checkpointId).not.toBe(old.checkpointId);
+    expect(fresh.profileRevision).toBe(updated.version);
+    expect((await readStore(page, "resumeBranches")).find(row => row.id === source.id)?.revision).toBe(Number(source.revision) + 1);
+    await page.locator(".agent-confirmation").getByRole("button", { name: "确认", exact: true }).click();
+    await expect.poll(async () => (await readStore(page, "resumeBranches")).find(row => row.id === source.id)?.sourceProfileVersion).toBe(updated.version);
+    expect(JSON.stringify((await readStore(page, "resumeBranches")).find(row => row.id === source.id))).toContain("匿名测试证书");
+    const compose = trace.toolRequests.filter(request => request.name === "career.workflow.compose_resume").at(-1)!;
+    expect(compose.input).toMatchObject({ profileId: profile.id, expectedProfileRevision: updated.version, sourceResumeId: source.id, generalResumeMode: "update_existing" });
+    await testInfo.attach("scenario-B-receipt", { body: JSON.stringify({ sourceId: source.id, oldCheckpointId: old.checkpointId, profileRevision: updated.version, trace }), contentType: "application/json" });
+  });
+
+  test("SCENARIO C — switching Job rejects A proposal and regenerates B", async ({ page }, testInfo) => {
+    test.setTimeout(180_000);
+    const trace = observeRuntimeAndBridge(page);
+    await openWorkspace(page);
+    const ids = new Set((await readStore(page, "resumeBranches")).map(row => row.id));
+    await prepareCoreSourceResume(page);
+    const source = (await readStore(page, "resumeBranches")).find(row => !ids.has(row.id))!;
+    await page.goto("/ai-workspace");
+    await startFreshConversation(page);
+    await installCoreWritingProvider(page);
+    let sessionA: Record<string, unknown> | undefined;
+    for (const label of ["JOB-A", "JOB-B"]) {
+      await send(page, `P51-C02-JOB-AI CORE-JD ${label} 保存这个岗位`);
+      await expect(page.locator(".agent-confirmation")).toBeVisible();
+      await page.locator(".agent-confirmation").getByRole("button", { name: "确认", exact: true }).click();
+      await expectAssistant(page, "已按你的确认完成当前 Career 工作流。");
+      if (label === "JOB-A") {
+        await send(page, "P51-C02-TAILOR 按岗位 A 准备修改提案，先不确认。");
+        await expectTailoringReview(page, trace);
+        await expect.poll(async () => (await readStore(page, "agentSessions")).some(row => (row.taskState as { stage?: string } | undefined)?.stage === "preview_changes")).toBe(true);
+        sessionA = (await readStore(page, "agentSessions")).find(row => (row.taskState as { stage?: string } | undefined)?.stage === "preview_changes");
+        await startFreshConversation(page);
+      }
+    }
+    const proposals = () => trace.toolReceipts.flatMap(value => {
+      const checkpoint = (value as { result?: { data?: { workflowCheckpoint?: Record<string, unknown> } } }).result?.data?.workflowCheckpoint;
+      return checkpoint?.kind === "tailoring_session" ? [checkpoint] : [];
+    });
+    const a = proposals()[0];
+    expect(a?.checkpointId).toBeTruthy();
+    await send(page, "P51-C02-TAILOR JOB-B 确认前切换到岗位 B，重新生成它自己的提案。");
+    await expect.poll(() => proposals().length).toBe(2);
+    const b = proposals()[1];
+    expect(b.jobId).not.toBe(a.jobId);
+    const matrix = (checkpoint: Record<string, unknown>) => {
+      const session = checkpoint.session as { candidateEvidenceMatrix?: { analysisId: string; binding: { jobId: string } } };
+      return session.candidateEvidenceMatrix!;
+    };
+    expect(matrix(b).binding.jobId).toBe(b.jobId);
+    expect(matrix(b).analysisId).not.toBe(matrix(a).analysisId);
+    await send(page, `P51-C02-OLD-TAILOR OLD-CHECKPOINT=${a.checkpointId} 试图把旧方案提交到当前岗位 B。`);
+    await expect.poll(() => trace.toolReceipts.some(value => JSON.stringify(value).includes("tailoring_checkpoint_not_found"))).toBe(true);
+    const preservedA = (await readStore(page, "agentSessions")).find(row => row.id === sessionA?.id)!;
+    expect(preservedA.taskState).toEqual(sessionA?.taskState);
+    expect(preservedA.activeProfileId).toBe(sessionA?.activeProfileId);
+    expect((await readStore(page, "resumeBranches")).find(row => row.id === source.id)).toEqual(source);
+    expect((await readStore(page, "resumeBranches")).filter(row => row.sourceBranchId === source.id)).toHaveLength(0);
+    await testInfo.attach("scenario-C-receipt", { body: JSON.stringify({ a, b, trace }), contentType: "application/json" });
+  });
+});
+
+async function assertCoreTarget(page: Page, source: Record<string, unknown>, target: Record<string, unknown>) {
+  expect(target).toMatchObject({ sourceBranchId: source.id, sourceRevisionId: source.currentRevisionId, jobId: expect.any(String) });
+  expect(target.structuredContentItems).not.toEqual(source.structuredContentItems);
+  const meta = await readStore(page, "appMeta");
+  const presentation = (id: unknown) => meta.find(row => row.key === `resumePresentationConfig:${id}`)!.value as Record<string, unknown>;
+  const visual = (value: Record<string, unknown>) => Object.fromEntries(Object.entries(value).filter(([key]) => !["branchId", "contentRevision", "presentationRevision", "updatedAt"].includes(key)));
+  expect(presentation(target.id).templateId).toBe(presentation(source.id).templateId);
+  expect(visual(presentation(target.id))).toEqual(visual(presentation(source.id)));
+  await expect.poll(async () => {
+    const id = await page.evaluate(() => localStorage.getItem("careeradapt.agent.activeSessionId"));
+    const session = (await readStore(page, "agentSessions")).find(row => row.id === id)!;
+    const task = session.taskState as { completionStatus?: string; knownSlots: Record<string, unknown> };
+    return { completionStatus: task.completionStatus, confirmation: session.pendingConfirmation,
+      toolCall: session.pendingToolCall, taskConfirmation: task.knownSlots.pendingConfirmation };
+  }).toEqual({ completionStatus: "completed", confirmation: undefined, toolCall: undefined, taskConfirmation: undefined });
+}
+
 async function openWorkspace(page: Page) {
   await page.addInitScript(() => {
     window.__core02IO = [];
@@ -401,9 +579,23 @@ async function openWorkspace(page: Page) {
     IDBObjectStore.prototype.put = function (...args: Parameters<typeof put>) {
       const request = put.apply(this, args);
       const name = this.name;
+      const transaction = this.transaction;
       record(`put:${name}:start`);
       request.addEventListener("success", () => record(`put:${name}:success`));
+      request.addEventListener("success", () => transaction.addEventListener("complete", () => {
+        if (["profiles", "resumeBranches", "resumeRevisions", "jobDescriptions"].includes(name)) console.debug("CORE02_FORMAL_WRITE", JSON.stringify({ store: name, key: request.result, at: new Date().toISOString() }));
+      }, { once: true }));
       request.addEventListener("error", () => record(`put:${name}:error`));
+      return request;
+    };
+    const add = IDBObjectStore.prototype.add;
+    IDBObjectStore.prototype.add = function (...args: Parameters<typeof add>) {
+      const request = add.apply(this, args);
+      const name = this.name;
+      const transaction = this.transaction;
+      request.addEventListener("success", () => transaction.addEventListener("complete", () => {
+        if (["profiles", "resumeBranches", "resumeRevisions", "jobDescriptions"].includes(name)) console.debug("CORE02_FORMAL_WRITE", JSON.stringify({ store: name, key: request.result, at: new Date().toISOString() }));
+      }, { once: true }));
       return request;
     };
     window.__caseIEvents = [];
@@ -453,18 +645,35 @@ async function openWorkspace(page: Page) {
   await page.goto("/ai-workspace");
   await expect(page.locator(".agent-runtime-status")).toHaveAttribute("aria-label", /AI Runtime Hermes，状态 Ready/u, { timeout: 90_000 });
   await expect.poll(async () => {
-    const response = await page.request.get("/api/agent/mcp");
+    const response = await page.request.get("/api/agent/mcp", { headers: { Connection: "close" } });
     const payload = await response.json() as { status?: { connected?: boolean; discoveredToolCount?: number } };
     return payload.status;
   }, { timeout: 60_000, intervals: [250, 500, 1_000] }).toMatchObject({ connected: true, discoveredToolCount: expect.any(Number) });
   await expect.poll(async () => (await readStore(page, "appMeta")).some(row => row.key === "demoSeededAt")).toBe(true);
+  // Seeding and the workspace's first Session hydrate independently. Create
+  // the business fixture only after the official active context exists;
+  // restarting Hermes used to hide these unbound demo Sessions.
+  await startFreshConversation(page);
+  await expect.poll(async () => {
+    const id = await page.evaluate(() => localStorage.getItem("careeradapt.agent.activeSessionId"));
+    return (await readStore(page, "agentSessions")).find(row => row.id === id)?.activeProfileId;
+  }).toBe("profile-demo-student");
+  await integrationPreflight(page);
+  const trace = closeoutTraces.get(page);
+  if (trace) trace.formalWrites.length = 0;
 }
 
 async function startFreshConversation(page: Page) {
   const previous = await page.evaluate(() => localStorage.getItem("careeradapt.agent.activeSessionId"));
   await page.getByRole("button", { name: "新任务", exact: true }).click();
   await expect.poll(() => page.evaluate(() => localStorage.getItem("careeradapt.agent.activeSessionId"))).not.toBe(previous);
+  await expect.poll(async () => {
+    const id = await page.evaluate(() => localStorage.getItem("careeradapt.agent.activeSessionId"));
+    return (await readStore(page, "agentSessions")).some(value => value.id === id && value.id !== previous);
+  }).toBe(true);
   await expect(page.getByLabel("描述你的求职任务")).toBeEnabled();
+  await expect(page.locator(".agent-runtime-status")).toHaveAttribute("aria-label", /状态 Ready/u, { timeout: 90_000 });
+  await integrationPreflight(page);
 }
 
 async function expectTailoringReview(page: Page, trace: ReturnType<typeof observeRuntimeAndBridge>) {
@@ -480,13 +689,48 @@ async function send(page: Page, message: string) {
   await page.getByRole("button", { name: "发送消息", exact: true }).click();
 }
 
-async function resetHermesForCase(page: Page) {
-  const response = await page.request.post("/api/agent/runtime/hermes/control", {
-    headers: { Origin: new URL(page.url()).origin },
-    data: { action: "restart" }
-  });
-  expect(response.ok()).toBe(true);
-  await expect(page.locator(".agent-runtime-status")).toHaveAttribute("aria-label", /AI Runtime Hermes，状态 Ready/u, { timeout: 90_000 });
+async function assertHermesReadyForCase(page: Page) {
+  // Playwright owns a fresh Context/IndexedDB/Session for every case. The MCP
+  // HTTP gateway resolves the currently registered Browser Host on each call;
+  // restarting the shared process adds no business isolation.
+  await integrationPreflight(page);
+}
+
+async function integrationPreflight(page: Page) {
+  let stage = "next_endpoint";
+  const startedAt = new Date().toISOString();
+  try {
+    const bridgeResponse = await page.request.get("/api/agent/mcp", { headers: { Connection: "close" } });
+    expect(bridgeResponse.ok()).toBe(true);
+    const bridge = await bridgeResponse.json();
+    stage = "browser_mcp";
+    expect(bridge.status.connected).toBe(true);
+    expect(bridge.status.bridgeId).toBeTruthy();
+    stage = "control_get";
+    const control = await page.request.get("/api/agent/runtime/hermes/control", { headers: { Connection: "close" } });
+    expect(control.ok()).toBe(true);
+    const { snapshot } = await control.json();
+    stage = "runtime_ready";
+    expect(snapshot).toMatchObject({ overallState: "ready", processReady: true,
+      apiReady: true, runReady: true, careerMcpReady: true, toolSurfaceReady: true });
+    stage = "career_facades";
+    expect(snapshot.requiredCareerFacadesTotal).toBeGreaterThan(0);
+    expect(snapshot.requiredCareerFacadesReady).toBe(snapshot.requiredCareerFacadesTotal);
+    stage = "hermes_health";
+    const health = await page.request.get("/api/agent/runtime/hermes/health", { headers: { Connection: "close" } });
+    expect(health.ok()).toBe(true);
+    stage = "fake_provider";
+    const provider = await page.request.get(`${process.env.HERMES_INTEGRATION_PROVIDER_URL}/models`, {
+      headers: { Authorization: `Bearer ${process.env.HERMES_INTEGRATION_PROVIDER_KEY}`, Connection: "close" }
+    });
+    expect(provider.ok()).toBe(true);
+    console.log("INTEGRATION_PREFLIGHT_PASS", JSON.stringify({ startedAt,
+      bridgeId: bridge.status.bridgeId, runtimeUrl: snapshot.runtimeUrl,
+      requiredCareerFacadesReady: snapshot.requiredCareerFacadesReady }));
+  } catch (error) {
+    console.error("INTEGRATION_PREFLIGHT_FAIL", JSON.stringify({ stage, startedAt }));
+    throw error;
+  }
 }
 
 async function expectAssistant(page: Page, text: string) {
@@ -494,6 +738,13 @@ async function expectAssistant(page: Page, text: string) {
     const messages = page.locator('[data-message-role="assistant"]');
     return await messages.last().textContent();
   }, { timeout: 90_000, intervals: [250, 500, 1_000] }).toContain(text);
+  // Narration can arrive before Host terminal persistence. A following turn
+  // must not start against the previous turn's in-flight snapshot.
+  await expect.poll(async () => {
+    const id = await page.evaluate(() => localStorage.getItem("careeradapt.agent.activeSessionId"));
+    const session = (await readStore(page, "agentSessions")).find(value => value.id === id);
+    return (session?.hermesRun as { status?: string } | undefined)?.status;
+  }, { timeout: 15_000 }).toMatch(/^(completed|failed|cancelled)$/u);
 }
 
 async function expectToolNames(trace: ReturnType<typeof observeRuntimeAndBridge>, names: string[]) {
@@ -504,6 +755,10 @@ async function expectToolNames(trace: ReturnType<typeof observeRuntimeAndBridge>
 }
 
 function observeRuntimeAndBridge(page: Page) {
+  const formalWrites: Array<{ store: string; key: string; at: string }> = [];
+  page.on("console", message => {
+    if (message.text().startsWith("CORE02_FORMAL_WRITE ")) formalWrites.push(JSON.parse(message.text().slice("CORE02_FORMAL_WRITE ".length)));
+  });
   const returnedToolResults: Array<{ requestId?: string; ok?: boolean; status?: string; at: string }> = [];
   const runtimeActions: string[] = [];
   const runRequests: unknown[] = [];
@@ -543,12 +798,16 @@ function observeRuntimeAndBridge(page: Page) {
       if (typeof request.name === "string") toolRequests.push({ name: request.name, input: request.input });
     }
   });
-  return { runtimeActions, resultActions, toolRequests, returnedToolResults, runRequests, runReceipts, toolReceipts };
+  const trace = { runtimeActions, resultActions, toolRequests, returnedToolResults, runRequests, runReceipts, toolReceipts, formalWrites };
+  closeoutTraces.set(page, trace);
+  return trace;
 }
 
 async function readProviderEvidence(page: Page): Promise<{ requests: Array<{ at: string; responseToolCallId?: string; toolResults: Array<{ toolCallId: string; jobId?: string }> }> }> {
+  // Finite test probes must not inherit a pooled socket across disposed
+  // BrowserContexts or race Node's idle keep-alive close. No request retry.
   const response = await page.request.get(`${process.env.HERMES_INTEGRATION_PROVIDER_URL}/integration-evidence`, {
-    headers: { Authorization: `Bearer ${process.env.HERMES_INTEGRATION_PROVIDER_KEY}` }
+    headers: { Authorization: `Bearer ${process.env.HERMES_INTEGRATION_PROVIDER_KEY}`, Connection: "close" }
   });
   expect(response.ok()).toBe(true);
   return response.json();

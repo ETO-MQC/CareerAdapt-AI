@@ -11,11 +11,13 @@ import { startFakeOpenAiProvider } from "../tests/support/fake-openai-compatible
 const execFileAsync = promisify(execFile);
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const suite = process.argv[2] || "integration";
+const integrationRunId = `${suite}-${Date.now()}`;
 const isCoreBehavior = suite === "core-behavior";
+const isCoreMultiturn = suite === "core-multiturn";
 const isCareerAgentEval = suite === "career-agent-eval";
 const isCareerAgentReal = suite === "career-agent-real";
 const isConfigR1 = suite === "config-r1";
-if (!isCoreBehavior && !isCareerAgentEval && !isCareerAgentReal && !isConfigR1 && suite !== "integration") {
+if (!isCoreBehavior && !isCoreMultiturn && !isCareerAgentEval && !isCareerAgentReal && !isConfigR1 && suite !== "integration") {
   throw new Error(`unknown Hermes integration suite: ${suite}`);
 }
 const bundleRoot = path.resolve(process.env.HERMES_RUNTIME_ROOT?.trim() || path.join(projectRoot, ".electron-build", "hermes-runtime-v4"));
@@ -45,6 +47,8 @@ const appUrl = `http://127.0.0.1:${appPort}`;
 const childEnvironment = {
   ...process.env,
   NODE_ENV: "development",
+  HERMES_INTEGRATION_RUN_ID: integrationRunId,
+  PLAYWRIGHT_JSON_OUTPUT_NAME: path.join(projectRoot, ".tmp", `core02-${integrationRunId}-playwright.json`),
   ...(isCoreBehavior ? { HERMES_CORE_BEHAVIOR: "1", HERMES_CORE_BEHAVIOR_RUN_ID: String(Date.now()) } : {}),
   CAREERADAPT_PROJECT_ROOT: projectRoot,
   CAREERADAPT_APP_PORT: String(appPort),
@@ -101,15 +105,38 @@ try {
 } catch (error) {
   console.error(`[Hermes integration] FAIL: ${error instanceof Error ? error.message : String(error)}`);
   process.exitCode = 1;
+  // Capture before cleanup while the owned Next/Hermes processes still exist.
+  // Do not retry the failed request or restart a process to collect evidence.
+  const diagnostic = { recordedAt: new Date().toISOString(), appUrl, runtimeUrl: childEnvironment.HERMES_RUNTIME_URL,
+    appLauncherPid: appProcess?.pid, controlAction: "none (diagnostic GET only)", processes: [], runtime: undefined, bridge: undefined };
+  if (process.platform === "win32" && appProcess?.pid) {
+    const query = `$all=@(Get-CimInstance Win32_Process); $ids=[System.Collections.Generic.HashSet[int]]::new(); $null=$ids.Add(${appProcess.pid}); do { $changed=$false; foreach($p in $all) { if($ids.Contains([int]$p.ParentProcessId) -and $ids.Add([int]$p.ProcessId)) { $changed=$true } } } while($changed); @($all | Where-Object { $ids.Contains([int]$_.ProcessId) } | ForEach-Object { $role=if($_.CommandLine -match 'next[\\/]|next-server') {'next'} elseif($_.CommandLine -match 'hermes|api_server') {'hermes'} else {'launcher'}; @{pid=$_.ProcessId; parentPid=$_.ParentProcessId; name=$_.Name; role=$role} }) | ConvertTo-Json -Compress`;
+    const observed = await execFileAsync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", query], { windowsHide: true, timeout: 5_000 }).catch(() => undefined);
+    if (observed?.stdout.trim()) diagnostic.processes = JSON.parse(observed.stdout);
+  }
+  for (const [key, endpoint] of [["runtime", "/api/agent/runtime/hermes/control"], ["bridge", "/api/agent/mcp"]]) {
+    const response = await fetch(`${appUrl}${endpoint}`, { headers: { Connection: "close" }, signal: AbortSignal.timeout(5_000) }).catch(() => undefined);
+    const payload = response ? await response.json().catch(() => undefined) : undefined;
+    const snapshot = payload?.snapshot;
+    diagnostic[key] = key === "bridge" ? payload?.status : snapshot ? {
+      overallState: snapshot.overallState, processReady: snapshot.processReady, apiReady: snapshot.apiReady,
+      runReady: snapshot.runReady, careerMcpReady: snapshot.careerMcpReady,
+      latestLifecycleEntries: snapshot.latestLifecycleEntries
+    } : undefined;
+  }
+  fs.mkdirSync(path.join(projectRoot, ".tmp"), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, ".tmp", `hermes-${integrationRunId}-incident.json`), JSON.stringify(diagnostic, null, 2));
 } finally {
   if (provider) {
     fs.mkdirSync(path.join(projectRoot, ".tmp"), { recursive: true });
-    fs.writeFileSync(path.join(projectRoot, ".tmp/hermes-integration-summary.json"), JSON.stringify({
+    const summary = JSON.stringify({
       suite, exitCode: process.exitCode || 0,
       requests: provider.requests.map(request => ({ model: request.model,
         providerAuthorizationMatches: request.authorization === `Bearer ${provider.apiKey}`,
         toolNames: request.toolNames }))
-    }, null, 2));
+    }, null, 2);
+    fs.writeFileSync(path.join(projectRoot, ".tmp", `hermes-${integrationRunId}-summary.json`), summary);
+    fs.writeFileSync(path.join(projectRoot, ".tmp/hermes-integration-summary.json"), summary);
   }
   if (isConfigR1 && provider) fs.writeFileSync(path.join(projectRoot, ".tmp/r1-provider-attempts.json"), JSON.stringify({ baseUrl: provider.baseUrl, models: provider.requests.map((request) => request.model), authMatches: provider.requests.map((request) => request.authorization === `Bearer ${provider.apiKey}`) }, null, 2));
   await stopWebSupervisor(appUrl);
@@ -120,9 +147,16 @@ try {
 
 function spawnPnpm(args, options) {
   if (process.platform !== "win32") return spawn("pnpm", args, options);
-  return spawn(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", ["pnpm.cmd", ...args].join(" ")], {
+  // cmd.exe otherwise interprets Playwright grep alternation as a pipeline.
+  // Arguments here are CLI values; refuse shell expansion/control characters.
+  const quotedArgs = args.map(argument => {
+    if (/["%\r\n]/u.test(argument)) throw new Error("unsupported Windows CLI argument");
+    return `"${argument}"`;
+  });
+  return spawn(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", ["pnpm.cmd", ...quotedArgs].join(" ")], {
     ...options,
-    shell: false
+    shell: false,
+    windowsVerbatimArguments: true
   });
 }
 
@@ -147,7 +181,8 @@ async function runPlaywright(environment, url, selectedSuite) {
       "exec",
       "playwright",
       "test",
-      `--config=${selectedSuite === "core-behavior" ? "playwright.hermes-core-behavior.config.ts" : selectedSuite === "config-r1" ? "playwright.hermes-r1.config.ts" : selectedSuite === "career-agent-eval" ? "playwright.career-agent-eval.config.ts" : selectedSuite === "career-agent-real" ? "playwright.career-agent-real.config.ts" : "playwright.hermes-integration.config.ts"}`,
+      "--reporter=line,json",
+      `--config=${selectedSuite === "core-behavior" ? "playwright.hermes-core-behavior.config.ts" : selectedSuite === "core-multiturn" ? "playwright.hermes-core-multiturn.config.ts" : selectedSuite === "config-r1" ? "playwright.hermes-r1.config.ts" : selectedSuite === "career-agent-eval" ? "playwright.career-agent-eval.config.ts" : selectedSuite === "career-agent-real" ? "playwright.career-agent-real.config.ts" : "playwright.hermes-integration.config.ts"}`,
       ...process.argv.slice(3)
     ];
     const child = spawnPnpm(args, {
