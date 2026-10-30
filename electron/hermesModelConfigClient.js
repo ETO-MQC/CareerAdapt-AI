@@ -48,7 +48,11 @@ class HermesModelConfigClient {
   }
 
   async readModelOptions() {
-    const payload = await this.#request("/api/model/options", { method: "GET" });
+    // The interactive catalog performs unrelated external discovery/pricing.
+    // Require the pinned runtime's selection-only contract; never accept an old
+    // runtime silently ignoring this query as a verified configuration apply.
+    const payload = await this.#request("/api/model/options?selection_only=true", { method: "GET" });
+    if (payload.selection_only !== true) throw requestError("hermes_model_selection_readback_unsupported");
     return { model: stringValue(payload.model), provider: stringValue(payload.provider) };
   }
 

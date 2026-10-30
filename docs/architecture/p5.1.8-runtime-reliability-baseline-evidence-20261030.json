@@ -1,0 +1,1539 @@
+{
+  "schemaVersion": "p518-runtime-reliability-baseline-v1",
+  "date": "2026-10-30",
+  "status": "P5.1.8-A COMPLETE",
+  "scope": "runtime readback closure, bounded baseline and provider transport diagnosis only",
+  "git": {
+    "branch": "main",
+    "startingHead": "5002989044ef6554b4d26937d73017fd401ebb06",
+    "originMainAfterFetch": "5002989044ef6554b4d26937d73017fd401ebb06",
+    "fetchExitCode": 0,
+    "startingStatus": "clean",
+    "recentCommits": [
+      "5002989044ef6554b4d26937d73017fd401ebb06 fix: close scoped resume claim consumption and SQ1 validation",
+      "53eb83256b706eb9d8facb72e994734e56288743 fix: normalize generated skills evaluation pack ending",
+      "b1d7e145d7859c818b1ed77c107194de1fa529b2 feat: improve guided resume skills and claim safety contracts",
+      "1573e267614ff93363eff2ed2bade34ff01ed078 fix: stabilize Hermes acceptance and freeze Core-02",
+      "0079b7bd168f9fe53fee159e443725ab0e279206 fix: preserve Career session bindings and provider auth evidence"
+    ],
+    "committed": false,
+    "pushed": false,
+    "packaged": false,
+    "finalHead": "5002989044ef6554b4d26937d73017fd401ebb06",
+    "finalStatus": [
+      "M docs/architecture/CareerAdapt_AI_P5.1_Agent_Architecture_Development_Plan.md",
+      " M electron/hermesModelConfigClient.js",
+      " M scripts/hermes-bundle-check.mjs",
+      " M scripts/hermes-runtime-lock.json",
+      " M scripts/prepare-hermes-runtime.mjs",
+      " M tests/e2e/hermes-p46h-integration.spec.ts",
+      " M tests/support/fake-openai-compatible-provider.mjs",
+      " M tests/unit/hermesModelConfigTimeout.test.ts",
+      " M tests/unit/v4p0NativeConfigFallback.test.ts",
+      "?? docs/architecture/p5.1.8-runtime-reliability-baseline-20261030.md",
+      "?? docs/architecture/p5.1.8-runtime-reliability-baseline-evidence-20261030.json",
+      "?? scripts/hermes-inventory-timing.py",
+      "?? scripts/hermes-model-selection-patch.d.mts",
+      "?? scripts/hermes-model-selection-patch.mjs",
+      "?? tests/unit/hermesModelSelectionPatch.test.ts"
+    ]
+  },
+  "runtimeLock": {
+    "hermesVersion": "0.19.0",
+    "hermesGitCommit": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+    "hermesSourceTreeHash": "eb32a7abb5b92a27a25c89de3d4f0698dc8684abb84837a9c6171a5851598ab8",
+    "pythonVersion": "3.11.13",
+    "sitePackagesFingerprint": "962cc1380c454dbba3213991523454642698609fa01e14b52067d5dec47f9e59",
+    "careerAdaptPatchVersion": "careeradapt-api-toolsets-selection-v2"
+  },
+  "readback": {
+    "issue": "P518-RUNTIME-MODEL-READBACK-01",
+    "status": "CLOSED",
+    "classification": "configuration verification coupled to unrelated interactive external catalog discovery",
+    "historicalExactSlowSubcall": "not recoverable from old uninstrumented process; no retrospective attribution",
+    "callPath": [
+      "CareerAdapt HermesModelConfigClient readModelOptions",
+      "authenticated API-server _handle_model_options",
+      "asyncio.to_thread _build_payload",
+      "load_picker_context/load_config",
+      "build_model_options_payload",
+      "list_authenticated_providers",
+      "models.dev + Nous remote catalog + other inventory enrichment",
+      "JSON serialization/HTTP"
+    ],
+    "boundedDirectInventoryProbe": [
+      {
+        "atMs": 423.1,
+        "event": "imports_complete"
+      },
+      {
+        "atMs": 423.19,
+        "event": "start",
+        "module": "hermes_cli.inventory",
+        "function": "load_picker_context"
+      },
+      {
+        "atMs": 423.21,
+        "event": "start",
+        "module": "hermes_cli.config",
+        "function": "load_config"
+      },
+      {
+        "atMs": 433.87,
+        "event": "end",
+        "module": "hermes_cli.config",
+        "function": "load_config",
+        "ms": 10.65
+      },
+      {
+        "atMs": 433.93,
+        "event": "end",
+        "module": "hermes_cli.inventory",
+        "function": "load_picker_context",
+        "ms": 10.74
+      },
+      {
+        "atMs": 433.95,
+        "event": "start",
+        "module": "hermes_cli.inventory",
+        "function": "build_model_options_payload"
+      },
+      {
+        "atMs": 433.96,
+        "event": "start",
+        "module": "hermes_cli.inventory",
+        "function": "build_models_payload"
+      },
+      {
+        "atMs": 433.97,
+        "event": "start",
+        "module": "hermes_cli.model_switch",
+        "function": "list_authenticated_providers"
+      },
+      {
+        "atMs": 574.28,
+        "event": "start",
+        "module": "agent.models_dev",
+        "function": "fetch_models_dev"
+      },
+      {
+        "atMs": 576.59,
+        "event": "http_start",
+        "host": "models.dev"
+      },
+      {
+        "atMs": 11509.73,
+        "event": "http_headers",
+        "host": "models.dev",
+        "status": 200
+      },
+      {
+        "atMs": 11509.81,
+        "event": "http_return",
+        "host": "models.dev",
+        "ms": 10933.23
+      },
+      {
+        "atMs": 11925.62,
+        "event": "end",
+        "module": "agent.models_dev",
+        "function": "fetch_models_dev",
+        "ms": 11351.33
+      },
+      {
+        "atMs": 11925.68,
+        "event": "start",
+        "module": "hermes_cli.models",
+        "function": "get_curated_nous_model_ids"
+      },
+      {
+        "atMs": 11925.71,
+        "event": "start",
+        "module": "hermes_cli.config",
+        "function": "load_config"
+      },
+      {
+        "atMs": 11927.11,
+        "event": "end",
+        "module": "hermes_cli.config",
+        "function": "load_config",
+        "ms": 1.39
+      },
+      {
+        "atMs": 11927.15,
+        "event": "start",
+        "module": "hermes_cli.model_catalog",
+        "function": "get_catalog"
+      },
+      {
+        "atMs": 11927.17,
+        "event": "start",
+        "module": "hermes_cli.config",
+        "function": "load_config"
+      },
+      {
+        "atMs": 11928.49,
+        "event": "end",
+        "module": "hermes_cli.config",
+        "function": "load_config",
+        "ms": 1.31
+      },
+      {
+        "atMs": 28874.38,
+        "event": "end",
+        "module": "hermes_cli.model_catalog",
+        "function": "get_catalog",
+        "ms": 16947.21
+      },
+      {
+        "atMs": 28874.46,
+        "event": "end",
+        "module": "hermes_cli.models",
+        "function": "get_curated_nous_model_ids",
+        "ms": 16948.78
+      },
+      {
+        "atMs": 28874.5,
+        "event": "start",
+        "module": "hermes_cli.models",
+        "function": "fetch_ollama_cloud_models"
+      },
+      {
+        "atMs": 28874.8,
+        "event": "start",
+        "module": "agent.models_dev",
+        "function": "fetch_models_dev"
+      },
+      {
+        "atMs": 28874.85,
+        "event": "end",
+        "module": "agent.models_dev",
+        "function": "fetch_models_dev",
+        "ms": 0.05
+      },
+      {
+        "atMs": 28878.31,
+        "event": "end",
+        "module": "hermes_cli.models",
+        "function": "fetch_ollama_cloud_models",
+        "ms": 3.81
+      },
+      {
+        "atMs": 28879.75,
+        "event": "start",
+        "module": "hermes_cli.config",
+        "function": "load_config"
+      },
+      {
+        "atMs": 28880.88,
+        "event": "end",
+        "module": "hermes_cli.config",
+        "function": "load_config",
+        "ms": 1.13
+      },
+      {
+        "atMs": 28880.99,
+        "event": "start",
+        "module": "hermes_cli.config",
+        "function": "load_config"
+      },
+      {
+        "atMs": 28882.27,
+        "event": "end",
+        "module": "hermes_cli.config",
+        "function": "load_config",
+        "ms": 1.28
+      },
+      {
+        "atMs": 28882.47,
+        "event": "start",
+        "module": "hermes_cli.config",
+        "function": "load_config"
+      },
+      {
+        "atMs": 28884.61,
+        "event": "end",
+        "module": "hermes_cli.config",
+        "function": "load_config",
+        "ms": 2.14
+      },
+      {
+        "atMs": 28884.7,
+        "event": "start",
+        "module": "hermes_cli.config",
+        "function": "load_config"
+      },
+      {
+        "atMs": 28885.87,
+        "event": "end",
+        "module": "hermes_cli.config",
+        "function": "load_config",
+        "ms": 1.17
+      },
+      {
+        "atMs": 28885.97,
+        "event": "start",
+        "module": "hermes_cli.config",
+        "function": "load_config"
+      },
+      {
+        "atMs": 28887.36,
+        "event": "end",
+        "module": "hermes_cli.config",
+        "function": "load_config",
+        "ms": 1.39
+      },
+      {
+        "atMs": 35001.56,
+        "event": "bounded_stop",
+        "budgetMs": 35000
+      }
+    ],
+    "preliminaryProfilerProbe": [
+      {
+        "atMs": 306.63,
+        "event": "return",
+        "module": "config",
+        "function": "_inject_profile_env_vars",
+        "ms": 105.57
+      },
+      {
+        "atMs": 393.08,
+        "event": "return",
+        "module": "config",
+        "function": "load_config",
+        "ms": 41.84
+      },
+      {
+        "atMs": 393.21,
+        "event": "return",
+        "module": "inventory",
+        "function": "load_picker_context",
+        "ms": 349.23
+      },
+      {
+        "atMs": 12694.68,
+        "event": "return",
+        "module": "models_dev",
+        "function": "_save_disk_cache",
+        "ms": 9092
+      },
+      {
+        "atMs": 12695.92,
+        "event": "return",
+        "module": "models_dev",
+        "function": "fetch_models_dev",
+        "ms": 11786.26
+      },
+      {
+        "atMs": 12724.65,
+        "event": "return",
+        "module": "config",
+        "function": "load_config",
+        "ms": 26.19
+      },
+      {
+        "atMs": 12747.52,
+        "event": "return",
+        "module": "config",
+        "function": "load_config",
+        "ms": 22.73
+      },
+      {
+        "atMs": 18408.3,
+        "event": "return",
+        "module": "request",
+        "function": "do_open",
+        "ms": 5646.65
+      },
+      {
+        "atMs": 18408.39,
+        "event": "return",
+        "module": "request",
+        "function": "https_open",
+        "ms": 5646.79
+      },
+      {
+        "atMs": 18408.42,
+        "event": "return",
+        "module": "request",
+        "function": "_call_chain",
+        "ms": 5656.27
+      },
+      {
+        "atMs": 18408.45,
+        "event": "return",
+        "module": "request",
+        "function": "_open",
+        "ms": 5656.3
+      },
+      {
+        "atMs": 26518.7,
+        "event": "return",
+        "module": "request",
+        "function": "do_open",
+        "ms": 8105.12
+      },
+      {
+        "atMs": 26518.94,
+        "event": "return",
+        "module": "request",
+        "function": "https_open",
+        "ms": 8105.37
+      },
+      {
+        "atMs": 26519.05,
+        "event": "return",
+        "module": "request",
+        "function": "_call_chain",
+        "ms": 8107.33
+      },
+      {
+        "atMs": 26519.08,
+        "event": "return",
+        "module": "request",
+        "function": "_open",
+        "ms": 8107.38
+      },
+      {
+        "atMs": 26519.11,
+        "event": "return",
+        "module": "request",
+        "function": "open",
+        "ms": 8107.46
+      },
+      {
+        "atMs": 26519.13,
+        "event": "return",
+        "module": "request",
+        "function": "http_error_302",
+        "ms": 8110.61
+      },
+      {
+        "atMs": 26519.16,
+        "event": "return",
+        "module": "request",
+        "function": "_call_chain",
+        "ms": 8110.65
+      },
+      {
+        "atMs": 26519.18,
+        "event": "return",
+        "module": "request",
+        "function": "error",
+        "ms": 8110.68
+      },
+      {
+        "atMs": 26519.2,
+        "event": "return",
+        "module": "request",
+        "function": "http_response",
+        "ms": 8110.71
+      },
+      {
+        "atMs": 26519.22,
+        "event": "return",
+        "module": "request",
+        "function": "open",
+        "ms": 13767.12
+      },
+      {
+        "atMs": 26519.24,
+        "event": "return",
+        "module": "request",
+        "function": "urlopen",
+        "ms": 13769.97
+      },
+      {
+        "atMs": 26522.99,
+        "event": "return",
+        "module": "model_catalog",
+        "function": "_fetch_manifest",
+        "ms": 13775.01
+      },
+      {
+        "atMs": 34631.13,
+        "event": "return",
+        "module": "request",
+        "function": "do_open",
+        "ms": 8105.31
+      },
+      {
+        "atMs": 34631.27,
+        "event": "return",
+        "module": "request",
+        "function": "https_open",
+        "ms": 8105.48
+      },
+      {
+        "atMs": 34631.36,
+        "event": "return",
+        "module": "request",
+        "function": "_call_chain",
+        "ms": 8107.92
+      },
+      {
+        "atMs": 34631.39,
+        "event": "return",
+        "module": "request",
+        "function": "_open",
+        "ms": 8107.97
+      },
+      {
+        "atMs": 34631.4,
+        "event": "return",
+        "module": "request",
+        "function": "open",
+        "ms": 8108.07
+      },
+      {
+        "atMs": 34631.42,
+        "event": "return",
+        "module": "request",
+        "function": "urlopen",
+        "ms": 8108.09
+      },
+      {
+        "atMs": 34632.95,
+        "event": "return",
+        "module": "model_catalog",
+        "function": "_fetch_manifest",
+        "ms": 8109.86
+      },
+      {
+        "atMs": 34632.99,
+        "event": "return",
+        "module": "model_catalog",
+        "function": "_fetch_manifest_with_fallback",
+        "ms": 21885.06
+      },
+      {
+        "atMs": 34633,
+        "event": "return",
+        "module": "model_catalog",
+        "function": "get_catalog",
+        "ms": 21908.27
+      },
+      {
+        "atMs": 34633.02,
+        "event": "return",
+        "module": "model_catalog",
+        "function": "_get_provider_block",
+        "ms": 21934.62
+      },
+      {
+        "atMs": 34633.04,
+        "event": "return",
+        "module": "model_catalog",
+        "function": "get_curated_nous_models",
+        "ms": 21934.63
+      },
+      {
+        "atMs": 34633.05,
+        "event": "return",
+        "module": "models",
+        "function": "get_curated_nous_model_ids",
+        "ms": 21935.74
+      },
+      {
+        "atMs": 34669.19,
+        "event": "return",
+        "module": "config",
+        "function": "load_config",
+        "ms": 24.09
+      },
+      {
+        "atMs": 34697.69,
+        "event": "return",
+        "module": "config",
+        "function": "load_config",
+        "ms": 27.96
+      },
+      {
+        "atMs": 34723.92,
+        "event": "return",
+        "module": "config",
+        "function": "load_config",
+        "ms": 25.51
+      },
+      {
+        "atMs": 34747.92,
+        "event": "return",
+        "module": "config",
+        "function": "load_config",
+        "ms": 23.55
+      },
+      {
+        "atMs": 34776.53,
+        "event": "return",
+        "module": "config",
+        "function": "load_config",
+        "ms": 28.07
+      },
+      {
+        "atMs": 35021.03,
+        "event": "bounded_stop",
+        "budgetMs": 35000
+      }
+    ],
+    "preliminaryProbeCaveat": "global profiling can inflate durations; authoritative timing uses selective wrappers",
+    "fixedContract": "same authenticated endpoint, selection_only=true; runtime parses current disk config without inventory, never client-side YAML inference; required selection_only marker",
+    "unchanged": [
+      "10000ms timeout",
+      "rollback",
+      "provider and credential identity",
+      "existing run lifecycle",
+      "normal interactive inventory endpoint behavior"
+    ],
+    "live": {
+      "providerKind": "simulated",
+      "readbacks": [
+        {
+          "model": "careeradapt-test",
+          "writeMs": 0.000699999999596912,
+          "readbackMs": 5.51929999999993
+        },
+        {
+          "model": "p518-target",
+          "writeMs": 3.0882999999994354,
+          "readbackMs": 4.854499999999462
+        }
+      ],
+      "modelSequence": [
+        "careeradapt-test",
+        "p518-target"
+      ],
+      "restartCount": 0,
+      "startupMs": 4129.5702,
+      "status": "PASS",
+      "childExitCode": 1
+    },
+    "supervisor": {
+      "hot": {
+        "applyStatus": "applied",
+        "verified": true,
+        "restartPerformed": false,
+        "rollbackOccurred": false,
+        "activeModel": "r1-hot-model",
+        "desiredModel": "r1-hot-model",
+        "activeFingerprint": "c22dcf08a4b6623fec7e42b52e717fed3454dd6e3c26afe56f9df05dd31f6ff4",
+        "desiredFingerprint": "c22dcf08a4b6623fec7e42b52e717fed3454dd6e3c26afe56f9df05dd31f6ff4",
+        "fingerprintsMatch": true
+      },
+      "deferred": {
+        "applyStatus": "deferred",
+        "verified": false,
+        "restartPerformed": false,
+        "rollbackOccurred": false,
+        "activeModel": "r1-hot-model",
+        "desiredModel": "Qwen3.8-27B",
+        "activeFingerprint": "c22dcf08a4b6623fec7e42b52e717fed3454dd6e3c26afe56f9df05dd31f6ff4",
+        "desiredFingerprint": "85472855ff4c48c8bea692a556cc60ccc7edaba429b16f4000041d2d7ffce725",
+        "fingerprintsMatch": false
+      },
+      "recovered": {
+        "applyStatus": "applied",
+        "verified": true,
+        "restartPerformed": true,
+        "rollbackOccurred": false,
+        "activeModel": "Qwen3.8-27B",
+        "desiredModel": "Qwen3.8-27B",
+        "activeFingerprint": "85472855ff4c48c8bea692a556cc60ccc7edaba429b16f4000041d2d7ffce725",
+        "desiredFingerprint": "85472855ff4c48c8bea692a556cc60ccc7edaba429b16f4000041d2d7ffce725",
+        "fingerprintsMatch": true
+      },
+      "oldRunPreserved": true,
+      "userValuesRetained": true,
+      "nextTaskModelSequence": [
+        "careeradapt-test",
+        "r1-hot-model",
+        "Qwen3.8-27B"
+      ]
+    },
+    "rollback": {
+      "command": "pnpm exec vitest run tests/unit/v4p0NativeConfigFallback.test.ts -t 'rolls back on the captured model readback TimeoutError'",
+      "exitCode": 0,
+      "activeRunPreserved": true,
+      "configBytesRestored": true,
+      "attemptCount": 1,
+      "restartCount": 0,
+      "safeCode": "hermes_model_config_timeout"
+    },
+    "limitations": [
+      "live provider selection tests use simulated provider; real provider model hot-switch not certified",
+      "standalone companion stop returned Windows child exitCode 1; not a graceful-shutdown certification"
+    ]
+  },
+  "provider": {
+    "classification": "HISTORICAL_TIMEOUT_NOT_REPRODUCED_CURRENT_NONSTREAM_PROTOCOL_PASS",
+    "minimal": {
+      "scenario": "anonymous minimal non-stream completion",
+      "budgetMs": 120000,
+      "stream": false,
+      "model": "deepseek-v4-flash-0731",
+      "providerOrigin": "https://discovery-api.intern-ai.org.cn",
+      "configured": true,
+      "payloadBytes": 121,
+      "headersMs": 16977.614899999997,
+      "httpStatus": 200,
+      "contentType": "application/json",
+      "firstBodyByteMs": 16978.9322,
+      "responseBytes": 558,
+      "bodyEndMs": 16980.3635,
+      "jsonValid": true,
+      "contentPresent": true,
+      "finishReason": "stop",
+      "status": "COMPLETED"
+    },
+    "existingFirstTurn": {
+      "scenario": "SQ1 existing jd_understanding-01 before first turn",
+      "budgetMs": 120000,
+      "stream": false,
+      "model": "deepseek-v4-flash-0731",
+      "providerOrigin": "https://discovery-api.intern-ai.org.cn",
+      "configured": true,
+      "payloadBytes": 5091,
+      "headersMs": 41206.767100000005,
+      "httpStatus": 200,
+      "contentType": "application/json",
+      "firstBodyByteMs": 41207.762,
+      "responseBytes": 7264,
+      "bodyEndMs": 41215.7508,
+      "jsonValid": true,
+      "contentPresent": true,
+      "finishReason": "stop",
+      "status": "COMPLETED"
+    },
+    "evalScript": {
+      "providerOrigin": "https://discovery-api.intern-ai.org.cn",
+      "model": "deepseek-v4-flash-0731",
+      "scope": "existing first case, first turn only, both arms; transport smoke, no quality certification",
+      "requests": [
+        {
+          "requestBytes": 5091,
+          "startedAt": "2026-10-30T15:43:12.848Z",
+          "headersMs": 55609.1883,
+          "status": 200,
+          "contentType": "application/json",
+          "bodyEndMs": 55612.3778,
+          "finishReason": "stop",
+          "contentPresent": true
+        },
+        {
+          "requestBytes": 7569,
+          "startedAt": "2026-10-30T15:44:08.464Z",
+          "headersMs": 39159.3295,
+          "status": 200,
+          "contentType": "application/json",
+          "bodyEndMs": 39164.8319,
+          "finishReason": "stop",
+          "contentPresent": true
+        }
+      ],
+      "recordsSaved": 2,
+      "status": "PASS"
+    },
+    "diagnosis": {
+      "dnsTcpTls": "individual durations unavailable; successful HTTPS completion confirms current path works",
+      "authentication": "no current rejection; completion accepted",
+      "httpStatus": "200",
+      "responseHeaders": "application/json, observed separately from body end",
+      "nonstream": "valid JSON content and finish_reason=stop, body end observed",
+      "streaming": "not used by skills-quality-eval; SSE not tested",
+      "bodyConsumption": "completed and parsed; saved 2 anonymous smoke records",
+      "inference": "cannot isolate inference from pre-header network/service wait",
+      "historicalTimeout": "client 120s deadline known; old phase unknown",
+      "payload": "121-byte minimal, 5091-byte before, 7569-byte after; no context overflow observed",
+      "connectionCleanup": "smoke processes exited 0; no timeout or socket failure observed; detailed socket lifecycle not instrumented"
+    },
+    "clientCodeChange": false,
+    "qualityCertification": "SQ1_IMPLEMENTATION_COMPLETE / QUALITY_CERTIFICATION_BLOCKED",
+    "fullABRun": false
+  },
+  "baseline": {
+    "statistics": "one observation per distinct scenario; no p95, no pooled mean; durations include harness overhead",
+    "scenarios": [
+      {
+        "scenario": "CASE A — ordinary greeting completes through official Hermes Runs",
+        "status": "passed",
+        "providerKind": "simulated",
+        "sampleCount": 1,
+        "environment": "fresh browser and first shared runtime; includes cold Next compilation",
+        "testWallMs": 24161,
+        "runCount": 1,
+        "providerRequestCount": 1,
+        "hermesSkillViewCount": 0,
+        "domainSkillLoadCount": null,
+        "mcpToolCount": 0,
+        "repositoryObservedTransactions": 0,
+        "repositoryObservedTransactionsAfterFirstRun": 0,
+        "repositoryCountScope": "committed add/put in profiles/resumeBranches/resumeRevisions/jobDescriptions; not all repository calls or transaction latency",
+        "phases": {
+          "runDispatchToFirstProviderMs": 5565,
+          "runDispatchToFirstAssistantEventMs": 5572.361572265625,
+          "runDispatchToHermesTerminalMs": 5586.580078125,
+          "providerObservedResponseMs": [
+            2
+          ],
+          "providerObservedTotalMs": 2,
+          "mcpToolEvents": [],
+          "jobWorkflowMs": null,
+          "fitWorkflowMs": null,
+          "tailoringWorkflowMs": null,
+          "confirmationToBranchObservedMs": null,
+          "pdfRequestToHeadersMs": null,
+          "pdfRequestToEndMs": null
+        },
+        "payloadBytes": [
+          29815
+        ],
+        "executedProviderToolNames": [],
+        "timeline": [],
+        "transport": [
+          {
+            "stage": "runtime:run_start:dispatch",
+            "at": 1793374799865
+          },
+          {
+            "stage": "runtime:run_start:headers",
+            "at": 1793374800042,
+            "status": 200
+          },
+          {
+            "stage": "runtime:run_start:end",
+            "at": 1793374800044,
+            "durationMs": 174.833
+          },
+          {
+            "stage": "runtime:run_events:dispatch",
+            "at": 1793374800076
+          },
+          {
+            "stage": "runtime:run_events:headers",
+            "at": 1793374805440,
+            "status": 200
+          },
+          {
+            "stage": "runtime:run_events:end",
+            "at": 1793374805455,
+            "durationMs": 5379.159
+          }
+        ],
+        "unobservable": [
+          "DNS/TCP/TLS and provider inference internals",
+          "renderer visible token timestamp (assistant event is a proxy)",
+          "domain skill load count/time",
+          "domain tool internal time vs MCP transport split",
+          "repository method latency",
+          "M stream event capture reset by page navigation; use existing workflow timeline and stream HTTP end"
+        ]
+      },
+      {
+        "scenario": "CASE G — Job Fit stays a comparison workflow",
+        "status": "passed",
+        "providerKind": "simulated",
+        "sampleCount": 1,
+        "environment": "fresh browser, shared runtime reused; workload/setup differs",
+        "testWallMs": 12395,
+        "runCount": 1,
+        "providerRequestCount": 3,
+        "hermesSkillViewCount": 0,
+        "domainSkillLoadCount": null,
+        "mcpToolCount": 2,
+        "repositoryObservedTransactions": 3,
+        "repositoryObservedTransactionsAfterFirstRun": 0,
+        "repositoryCountScope": "committed add/put in profiles/resumeBranches/resumeRevisions/jobDescriptions; not all repository calls or transaction latency",
+        "phases": {
+          "runDispatchToFirstProviderMs": 2369,
+          "runDispatchToFirstAssistantEventMs": 4459.69140625,
+          "runDispatchToHermesTerminalMs": 4468.693115234375,
+          "providerObservedResponseMs": [
+            1,
+            1,
+            2
+          ],
+          "providerObservedTotalMs": 4,
+          "mcpToolEvents": [
+            {
+              "name": "mcp__careeradapt__career_resume_list",
+              "durationMs": 419.80791091918945
+            },
+            {
+              "name": "mcp__careeradapt__career_workflow_job_fit",
+              "durationMs": 1009.9904537200928
+            }
+          ],
+          "jobWorkflowMs": null,
+          "fitWorkflowMs": null,
+          "tailoringWorkflowMs": null,
+          "confirmationToBranchObservedMs": null,
+          "pdfRequestToHeadersMs": null,
+          "pdfRequestToEndMs": null
+        },
+        "payloadBytes": [
+          29851,
+          35696,
+          98365
+        ],
+        "executedProviderToolNames": [
+          "mcp__careeradapt__career_resume_list",
+          "mcp__careeradapt__career_workflow_job_fit"
+        ],
+        "timeline": [],
+        "transport": [
+          {
+            "stage": "runtime:run_start:dispatch",
+            "at": 1793374813220
+          },
+          {
+            "stage": "runtime:run_start:headers",
+            "at": 1793374813232,
+            "status": 200
+          },
+          {
+            "stage": "runtime:run_start:end",
+            "at": 1793374813233,
+            "durationMs": 9.542
+          },
+          {
+            "stage": "runtime:run_events:dispatch",
+            "at": 1793374813263
+          },
+          {
+            "stage": "runtime:run_events:headers",
+            "at": 1793374815606,
+            "status": 200
+          },
+          {
+            "stage": "mcp:result:dispatch",
+            "at": 1793374815908
+          },
+          {
+            "stage": "mcp:result:end",
+            "at": 1793374816016,
+            "durationMs": 12.872
+          },
+          {
+            "stage": "mcp:result:dispatch",
+            "at": 1793374817242
+          },
+          {
+            "stage": "mcp:result:end",
+            "at": 1793374817309,
+            "durationMs": 10.758
+          },
+          {
+            "stage": "runtime:run_events:end",
+            "at": 1793374817697,
+            "durationMs": 4428.988
+          }
+        ],
+        "unobservable": [
+          "DNS/TCP/TLS and provider inference internals",
+          "renderer visible token timestamp (assistant event is a proxy)",
+          "domain skill load count/time",
+          "domain tool internal time vs MCP transport split",
+          "repository method latency",
+          "M stream event capture reset by page navigation; use existing workflow timeline and stream HTTP end"
+        ]
+      },
+      {
+        "scenario": "CASE M Core-02 — new material to confirmed Profile, General Resume, Job, isolated tailoring and PDF",
+        "status": "passed",
+        "providerKind": "simulated",
+        "sampleCount": 1,
+        "environment": "fresh browser, shared runtime reused; workload/setup differs",
+        "testWallMs": 43240,
+        "runCount": 5,
+        "providerRequestCount": 16,
+        "hermesSkillViewCount": 0,
+        "domainSkillLoadCount": null,
+        "mcpToolCount": 11,
+        "repositoryObservedTransactions": 6,
+        "repositoryObservedTransactionsAfterFirstRun": 6,
+        "repositoryCountScope": "committed add/put in profiles/resumeBranches/resumeRevisions/jobDescriptions; not all repository calls or transaction latency",
+        "phases": {
+          "runDispatchToFirstProviderMs": 2402,
+          "runDispatchToFirstAssistantEventMs": null,
+          "runDispatchToHermesTerminalMs": null,
+          "providerObservedResponseMs": [
+            1,
+            2,
+            1,
+            1,
+            1,
+            1,
+            0,
+            1,
+            0,
+            0,
+            1,
+            3,
+            1,
+            0,
+            1,
+            4
+          ],
+          "providerObservedTotalMs": 18,
+          "mcpToolEvents": [],
+          "jobWorkflowMs": 5291,
+          "fitWorkflowMs": 8141,
+          "tailoringWorkflowMs": 7031,
+          "confirmationToBranchObservedMs": 265,
+          "pdfRequestToHeadersMs": 2543,
+          "pdfRequestToEndMs": 2544
+        },
+        "payloadBytes": [
+          30206,
+          85030,
+          121448,
+          30560,
+          39825,
+          103154,
+          31030,
+          43626,
+          31201,
+          37040,
+          43584,
+          120553,
+          31452,
+          37291,
+          43835,
+          168793
+        ],
+        "executedProviderToolNames": [
+          "mcp__careeradapt__career_workflow_material_intake",
+          "mcp__careeradapt__career_workflow_material_intake",
+          "mcp__careeradapt__career_profile_get",
+          "mcp__careeradapt__career_workflow_compose_resume",
+          "mcp__careeradapt__career_workflow_job_intake",
+          "mcp__careeradapt__career_resume_list",
+          "mcp__careeradapt__career_job_list",
+          "mcp__careeradapt__career_workflow_job_fit",
+          "mcp__careeradapt__career_resume_list",
+          "mcp__careeradapt__career_job_list",
+          "mcp__careeradapt__career_workflow_tailor_resume"
+        ],
+        "timeline": [
+          {
+            "stage": "case_start",
+            "at": "2026-10-30T15:40:18.344Z",
+            "elapsedMs": 0
+          },
+          {
+            "stage": "run_start",
+            "at": "2026-10-30T15:40:20.282Z",
+            "elapsedMs": 1938
+          },
+          {
+            "stage": "run_start",
+            "at": "2026-10-30T15:40:28.743Z",
+            "elapsedMs": 10399
+          },
+          {
+            "stage": "composition_terminal_observed",
+            "at": "2026-10-30T15:40:33.965Z",
+            "elapsedMs": 15621
+          },
+          {
+            "stage": "job_start",
+            "at": "2026-10-30T15:40:33.965Z",
+            "elapsedMs": 15621
+          },
+          {
+            "stage": "run_start",
+            "at": "2026-10-30T15:40:34.285Z",
+            "elapsedMs": 15941
+          },
+          {
+            "stage": "job_complete",
+            "at": "2026-10-30T15:40:39.256Z",
+            "elapsedMs": 20912
+          },
+          {
+            "stage": "fit_start",
+            "at": "2026-10-30T15:40:39.256Z",
+            "elapsedMs": 20912
+          },
+          {
+            "stage": "run_start",
+            "at": "2026-10-30T15:40:41.173Z",
+            "elapsedMs": 22829
+          },
+          {
+            "stage": "fit_complete",
+            "at": "2026-10-30T15:40:47.397Z",
+            "elapsedMs": 29053
+          },
+          {
+            "stage": "tailoring_start",
+            "at": "2026-10-30T15:40:47.397Z",
+            "elapsedMs": 29053
+          },
+          {
+            "stage": "run_start",
+            "at": "2026-10-30T15:40:47.653Z",
+            "elapsedMs": 29309
+          },
+          {
+            "stage": "tailoring_proposal_complete",
+            "at": "2026-10-30T15:40:54.428Z",
+            "elapsedMs": 36084
+          },
+          {
+            "stage": "tailoring_confirmation",
+            "at": "2026-10-30T15:40:55.219Z",
+            "elapsedMs": 36875
+          },
+          {
+            "stage": "repository_branch_observed",
+            "at": "2026-10-30T15:40:55.484Z",
+            "elapsedMs": 37140
+          },
+          {
+            "stage": "revision_observed",
+            "at": "2026-10-30T15:40:55.567Z",
+            "elapsedMs": 37223
+          },
+          {
+            "stage": "host_terminal_observed",
+            "at": "2026-10-30T15:40:55.692Z",
+            "elapsedMs": 37348
+          },
+          {
+            "stage": "pdf_verify_start",
+            "at": "2026-10-30T15:40:57.189Z",
+            "elapsedMs": 38845
+          },
+          {
+            "stage": "pdf_request_start",
+            "at": "2026-10-30T15:40:58.515Z",
+            "elapsedMs": 40171
+          },
+          {
+            "stage": "pdf_response_headers",
+            "at": "2026-10-30T15:41:01.058Z",
+            "elapsedMs": 42714,
+            "status": 200
+          },
+          {
+            "stage": "pdf_response_end",
+            "at": "2026-10-30T15:41:01.059Z",
+            "elapsedMs": 42715
+          },
+          {
+            "stage": "pdf_verify_complete",
+            "at": "2026-10-30T15:41:01.461Z",
+            "elapsedMs": 43117
+          }
+        ],
+        "transport": [
+          {
+            "stage": "runtime:run_start:dispatch",
+            "at": 1793374820282
+          },
+          {
+            "stage": "runtime:run_start:headers",
+            "at": 1793374820295,
+            "status": 200
+          },
+          {
+            "stage": "runtime:run_start:end",
+            "at": 1793374820296,
+            "durationMs": 11.639
+          },
+          {
+            "stage": "runtime:run_events:dispatch",
+            "at": 1793374820329
+          },
+          {
+            "stage": "runtime:run_events:headers",
+            "at": 1793374822722,
+            "status": 200
+          },
+          {
+            "stage": "mcp:result:dispatch",
+            "at": 1793374823969
+          },
+          {
+            "stage": "mcp:result:end",
+            "at": 1793374824050,
+            "durationMs": 13.601
+          },
+          {
+            "stage": "mcp:result:dispatch",
+            "at": 1793374825283
+          },
+          {
+            "stage": "mcp:result:end",
+            "at": 1793374825374,
+            "durationMs": 9.018
+          },
+          {
+            "stage": "runtime:run_events:end",
+            "at": 1793374825771,
+            "durationMs": 5433.131
+          },
+          {
+            "stage": "runtime:run_start:dispatch",
+            "at": 1793374828743
+          },
+          {
+            "stage": "runtime:run_start:headers",
+            "at": 1793374828755,
+            "status": 200
+          },
+          {
+            "stage": "runtime:run_start:end",
+            "at": 1793374828756,
+            "durationMs": 12.355
+          },
+          {
+            "stage": "runtime:run_events:dispatch",
+            "at": 1793374828799
+          },
+          {
+            "stage": "runtime:run_events:headers",
+            "at": 1793374831165,
+            "status": 200
+          },
+          {
+            "stage": "mcp:result:dispatch",
+            "at": 1793374831908
+          },
+          {
+            "stage": "mcp:result:end",
+            "at": 1793374832001,
+            "durationMs": 15.49
+          },
+          {
+            "stage": "mcp:result:dispatch",
+            "at": 1793374833380
+          },
+          {
+            "stage": "mcp:result:end",
+            "at": 1793374833468,
+            "durationMs": 18.103
+          },
+          {
+            "stage": "runtime:run_events:end",
+            "at": 1793374833910,
+            "durationMs": 5100.653
+          },
+          {
+            "stage": "runtime:run_start:dispatch",
+            "at": 1793374834285
+          },
+          {
+            "stage": "runtime:run_start:headers",
+            "at": 1793374834297,
+            "status": 200
+          },
+          {
+            "stage": "runtime:run_start:end",
+            "at": 1793374834298,
+            "durationMs": 13.751
+          },
+          {
+            "stage": "runtime:run_events:dispatch",
+            "at": 1793374834362
+          },
+          {
+            "stage": "runtime:run_events:headers",
+            "at": 1793374836640,
+            "status": 200
+          },
+          {
+            "stage": "mcp:result:dispatch",
+            "at": 1793374838575
+          },
+          {
+            "stage": "mcp:result:end",
+            "at": 1793374838649,
+            "durationMs": 14.211
+          },
+          {
+            "stage": "runtime:run_events:end",
+            "at": 1793374839027,
+            "durationMs": 4648.721
+          },
+          {
+            "stage": "runtime:run_start:dispatch",
+            "at": 1793374841173
+          },
+          {
+            "stage": "runtime:run_start:headers",
+            "at": 1793374841184,
+            "status": 200
+          },
+          {
+            "stage": "runtime:run_start:end",
+            "at": 1793374841185,
+            "durationMs": 10.542
+          },
+          {
+            "stage": "runtime:run_events:dispatch",
+            "at": 1793374841244
+          },
+          {
+            "stage": "runtime:run_events:headers",
+            "at": 1793374843649,
+            "status": 200
+          },
+          {
+            "stage": "mcp:result:dispatch",
+            "at": 1793374844116
+          },
+          {
+            "stage": "mcp:result:end",
+            "at": 1793374844216,
+            "durationMs": 15.057
+          },
+          {
+            "stage": "mcp:result:dispatch",
+            "at": 1793374845371
+          },
+          {
+            "stage": "mcp:result:end",
+            "at": 1793374845461,
+            "durationMs": 13.609
+          },
+          {
+            "stage": "mcp:result:dispatch",
+            "at": 1793374846709
+          },
+          {
+            "stage": "mcp:result:end",
+            "at": 1793374846798,
+            "durationMs": 19.614
+          },
+          {
+            "stage": "runtime:run_events:end",
+            "at": 1793374847184,
+            "durationMs": 5922.743
+          },
+          {
+            "stage": "runtime:run_start:dispatch",
+            "at": 1793374847653
+          },
+          {
+            "stage": "runtime:run_start:headers",
+            "at": 1793374847672,
+            "status": 200
+          },
+          {
+            "stage": "runtime:run_start:end",
+            "at": 1793374847675,
+            "durationMs": 16.772
+          },
+          {
+            "stage": "runtime:run_events:dispatch",
+            "at": 1793374847780
+          },
+          {
+            "stage": "runtime:run_events:headers",
+            "at": 1793374850062,
+            "status": 200
+          },
+          {
+            "stage": "mcp:result:dispatch",
+            "at": 1793374851195
+          },
+          {
+            "stage": "mcp:result:end",
+            "at": 1793374851292,
+            "durationMs": 12.741
+          },
+          {
+            "stage": "mcp:result:dispatch",
+            "at": 1793374852478
+          },
+          {
+            "stage": "mcp:result:end",
+            "at": 1793374852565,
+            "durationMs": 12.26
+          },
+          {
+            "stage": "mcp:result:dispatch",
+            "at": 1793374853870
+          },
+          {
+            "stage": "mcp:result:end",
+            "at": 1793374853971,
+            "durationMs": 18.234
+          },
+          {
+            "stage": "runtime:run_events:end",
+            "at": 1793374854324,
+            "durationMs": 6539.717
+          },
+          {
+            "stage": "pdf:dispatch",
+            "at": 1793374858514
+          },
+          {
+            "stage": "pdf:headers",
+            "at": 1793374861058,
+            "status": 200
+          },
+          {
+            "stage": "pdf:end",
+            "at": 1793374861059,
+            "durationMs": 2548.478
+          }
+        ],
+        "unobservable": [
+          "DNS/TCP/TLS and provider inference internals",
+          "renderer visible token timestamp (assistant event is a proxy)",
+          "domain skill load count/time",
+          "domain tool internal time vs MCP transport split",
+          "repository method latency",
+          "M stream event capture reset by page navigation; use existing workflow timeline and stream HTTP end"
+        ]
+      }
+    ]
+  },
+  "gates": [
+    {
+      "command": "pnpm typecheck (before changes)",
+      "exitCode": 0,
+      "result": "baseline"
+    },
+    {
+      "command": "pnpm exec vitest run tests/unit/hermesModelConfigTimeout.test.ts tests/unit/p45c17-hermes-reliability.test.ts tests/unit/p45c1c12-hermes-incident-trace.test.ts",
+      "exitCode": 0,
+      "result": "3 files / 13 tests baseline"
+    },
+    {
+      "command": "pnpm exec vitest run tests/unit/hermesModelConfigTimeout.test.ts tests/unit/hermesModelSelectionPatch.test.ts tests/unit/hermesSupervisor.test.ts tests/unit/p45c17-hermes-reliability.test.ts tests/unit/p45c1c12-hermes-incident-trace.test.ts tests/unit/hermesCompanionDiagnostics.test.ts tests/unit/hermesWebControlRoute.test.ts",
+      "exitCode": 0,
+      "result": "7 files / 43 tests"
+    },
+    {
+      "command": "pnpm exec vitest run tests/unit/hermesModelConfigTimeout.test.ts tests/unit/v4p0NativeConfigFallback.test.ts -t 'model|readback|rolls back'",
+      "exitCode": 0,
+      "result": "2 files / 24 tests"
+    },
+    {
+      "command": "pnpm exec vitest run tests/unit/v4p0NativeConfigFallback.test.ts -t 'managed|recovery|active run|rolls back|readback|switches'",
+      "exitCode": 0,
+      "result": "11 tests; 10 not selected"
+    },
+    {
+      "command": "pnpm exec vitest run tests/unit/v4p0NativeConfigFallback.test.ts -t 'rolls back on the captured model readback TimeoutError'",
+      "exitCode": 0,
+      "result": "1 test; 20 not selected; updated ongoing-run assertion"
+    },
+    {
+      "command": "pnpm exec vitest run tests/unit/fakeProviderContinuation.test.ts tests/unit/hermesModelConfigTimeout.test.ts tests/unit/hermesModelSelectionPatch.test.ts",
+      "exitCode": 0,
+      "result": "3 files / 8 tests"
+    },
+    {
+      "command": "P518_RUNTIME_BASELINE=1 node scripts/hermes-integration.mjs integration --grep 'CASE [AGM] '",
+      "exitCode": 0,
+      "result": "3/3; 20 simulated provider calls"
+    },
+    {
+      "command": "node scripts/hermes-integration.mjs config-r1",
+      "exitCode": 0,
+      "result": "1/1; 3 simulated provider calls"
+    },
+    {
+      "command": "node scripts/hermes-integration.mjs core-behavior --grep 'BEHAVIOR (intent-greeting|recovery-provider)'",
+      "exitCode": 0,
+      "result": "2/2; 4 simulated provider calls"
+    },
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "result": "final accepted after restoring generated files"
+    },
+    {
+      "command": "pnpm exec eslint electron/hermesModelConfigClient.js scripts/hermes-bundle-check.mjs scripts/prepare-hermes-runtime.mjs scripts/hermes-model-selection-patch.mjs tests/e2e/hermes-p46h-integration.spec.ts tests/support/fake-openai-compatible-provider.mjs tests/unit/hermesModelConfigTimeout.test.ts tests/unit/hermesModelSelectionPatch.test.ts tests/unit/v4p0NativeConfigFallback.test.ts --max-warnings=0",
+      "exitCode": 0,
+      "result": "final changed-files lint"
+    },
+    {
+      "command": "CAREERAD_NEXT_DIST_DIR=.tmp/p518-production-build pnpm build",
+      "exitCode": 0,
+      "result": "production build, no installer"
+    },
+    {
+      "command": "pnpm hermes:bundle-check",
+      "exitCode": 0,
+      "result": "pinned v2 patch and API-server hash checked"
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0,
+      "result": "final whitespace check"
+    }
+  ],
+  "processFailures": [
+    "first preliminary inventory diagnostic lacked hard watchdog; explicitly stopped owned Python process, replaced with 35s hard deadline",
+    "temporary baseline-edit helper had JS syntax error; corrected before applying changes",
+    "first E2E grep used start anchor against full title and collected zero tests; corrected, 3 cases executed and passed",
+    "standalone companion shutdown child exit 1 retained as cleanup limitation; no successful graceful shutdown claim"
+  ],
+  "unresolved": [
+    "historical SQ1 timeout phase remains unknown; current protocol works, no quality certification",
+    "real provider hot-switch, full quality AB, graceful shutdown and installer remain outside this certification",
+    "internal skill/domain/repository stage gaps explicitly null; baseline is a minimum observable boundary baseline"
+  ],
+  "next": "stop at P5.1.8-A; user may choose P5.1.8-B or independent SQ1 quality evaluation later",
+  "modifiedFiles": [
+    "docs/architecture/CareerAdapt_AI_P5.1_Agent_Architecture_Development_Plan.md",
+    "electron/hermesModelConfigClient.js",
+    "scripts/hermes-bundle-check.mjs",
+    "scripts/hermes-runtime-lock.json",
+    "scripts/prepare-hermes-runtime.mjs",
+    "tests/e2e/hermes-p46h-integration.spec.ts",
+    "tests/support/fake-openai-compatible-provider.mjs",
+    "tests/unit/hermesModelConfigTimeout.test.ts",
+    "tests/unit/v4p0NativeConfigFallback.test.ts",
+    "docs/architecture/p5.1.8-runtime-reliability-baseline-20261030.md",
+    "docs/architecture/p5.1.8-runtime-reliability-baseline-evidence-20261030.json",
+    "scripts/hermes-inventory-timing.py",
+    "scripts/hermes-model-selection-patch.d.mts",
+    "scripts/hermes-model-selection-patch.mjs",
+    "tests/unit/hermesModelSelectionPatch.test.ts"
+  ],
+  "sourceHashes": {
+    "docs/architecture/CareerAdapt_AI_P5.1_Agent_Architecture_Development_Plan.md": "826e333006e902876259713006b4952facc4a06e9347c3f39e1aa52b0d934961",
+    "electron/hermesModelConfigClient.js": "a747147767474161d75d90d590412e78b39c6aab95d191aa746d2141efddd742",
+    "scripts/hermes-bundle-check.mjs": "fa1b34f5d66ff62d507f8f877b26781d016fd860971b4f7af5e8bd7de396c335",
+    "scripts/hermes-runtime-lock.json": "98b87a6839777a5cbc0076b2f1747fac30f822a758839db5fe96c454a59c73d3",
+    "scripts/prepare-hermes-runtime.mjs": "3529e22e79fc05bb827e11d3380556ac46a49b5e0211dcf8447c91cf83dea005",
+    "tests/e2e/hermes-p46h-integration.spec.ts": "3a00065e28ed0d87efae49821bd341a679992418eaffbba8d17592e7fae15418",
+    "tests/support/fake-openai-compatible-provider.mjs": "5dcd1e2c98452dbb870db95333471e11c9305dc27a022a6fef4b9abd49119303",
+    "tests/unit/hermesModelConfigTimeout.test.ts": "fd312ad594a275db90a438f4a8812a0903124286e317eb95ae388b112072e44f",
+    "tests/unit/v4p0NativeConfigFallback.test.ts": "1e05304f1ff9be5e97f9aef2ffbe7b1adeb4a485d599a3c59bafabe1d0f3f3eb",
+    "docs/architecture/p5.1.8-runtime-reliability-baseline-20261030.md": "fc54a0c8ada4f6e3cbd9bef3b2a92637affdfe4229dc98b813c5d977f35ab718",
+    "scripts/hermes-inventory-timing.py": "610468470a00ff8269e5ebfff70f732b1c27cd622fd22aad2dcf09fcfa315edf",
+    "scripts/hermes-model-selection-patch.d.mts": "21dd4f9b542320cd9797d90edcebb2d2845bda3e3ff12f74928f86be0fbe2f08",
+    "scripts/hermes-model-selection-patch.mjs": "125f3d17ec1b847d6d9f8b63dec73b0b8f55ed8c21a67e0c7e0b462652448aec",
+    "tests/unit/hermesModelSelectionPatch.test.ts": "bb5652d33d4d7c0bab1524f279bba65fe929cc689992d1e041ec757ae1779124"
+  },
+  "localHandoff": {
+    "files": [
+      "plan4.md",
+      "history4.md"
+    ],
+    "saved": true,
+    "ignoredAsBefore": true
+  },
+  "finalReview": {
+    "generatedConfigRestored": true,
+    "bodyContentSavedInEvidence": false,
+    "credentialsSavedInEvidence": false,
+    "productionDependenciesAdded": false,
+    "bulkDeletionPerformed": false
+  },
+  "commitPreparation": {
+    "date": "2026-10-31",
+    "change": "normalize diagnostic Python UTF-8/LF after staged whitespace check caught CR on final line; no semantic change",
+    "sourceHashesVerified": true,
+    "credentialPatternScanPassed": true
+  }
+}

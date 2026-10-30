@@ -20,7 +20,8 @@ export async function startFakeOpenAiProvider(options = {}) {
     }
     if (mode === "integration" && request.method === "GET" && pathname === "/v1/integration-evidence") {
       writeJson(response, 200, { requests: requests.map(record => ({
-        at: record.at, model: record.model, responseToolCallId: record.responseToolCallId,
+        at: record.at, finishedAt: record.finishedAt, payloadBytes: record.payloadBytes,
+        selectedTool: record.response?.toolCall?.name, model: record.model, responseToolCallId: record.responseToolCallId,
         messages: record.messages, response: record.response,
         toolResults: record.messages.filter(message => message.role === "tool").map(message => ({
           toolCallId: message.tool_call_id, jobId: savedJobId(message.content)
@@ -47,6 +48,8 @@ export async function startFakeOpenAiProvider(options = {}) {
       }),
       stream: payload.stream === true
     };
+    requestRecord.payloadBytes = Buffer.byteLength(JSON.stringify(payload));
+    response.once("finish", () => { requestRecord.finishedAt = new Date().toISOString(); });
     requests.push(requestRecord);
     if (options.delayMs) await new Promise((resolve) => setTimeout(resolve, options.delayMs));
     if (mode === "integration" && latestUserText(messages).includes("P512-QUEUE-FIRST")) await new Promise((resolve) => setTimeout(resolve, 4000));

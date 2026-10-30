@@ -10,6 +10,7 @@ test.use({ actionTimeout: 15_000 });
 const closeoutTraces = new WeakMap<Page, ReturnType<typeof observeRuntimeAndBridge>>();
 const differentialTimelines = new WeakMap<Page, Array<{ stage: string; at: string; elapsedMs: number; status?: number }>>();
 const providerOffsets = new WeakMap<Page, number>();
+const baselineTimings = new WeakMap<Page, Array<{ stage: string; at: number; durationMs?: number; status?: number }>>();
 
 type SafeHermesEvent = { event?: string; runId?: string; tool?: string; timestamp?: number };
 declare global { interface Window { __caseIEvents?: SafeHermesEvent[]; __core02IO?: string[] } }
@@ -17,9 +18,37 @@ declare global { interface Window { __caseIEvents?: SafeHermesEvent[]; __core02I
 test.describe("P4.6h hermetic Web + browser MCP integration", () => {
   test.beforeEach(async ({ page }) => {
     providerOffsets.set(page, (await readProviderEvidence(page)).requests.length);
+    if (process.env.P518_RUNTIME_BASELINE === "1") {
+      const rows: Array<{ stage: string; at: number; durationMs?: number; status?: number }> = [];
+      baselineTimings.set(page, rows);
+      const stage = (url: string, body: string | null) => {
+        const pathname = new URL(url).pathname;
+        if (pathname === "/api/agent/runtime/hermes") return `runtime:${parseJson(body)?.action ?? "unknown"}`;
+        if (pathname.includes("/api/agent/mcp")) return `mcp:${parseJson(body)?.action ?? "poll"}`;
+        if (pathname.includes("pdf")) return "pdf";
+        return undefined;
+      };
+      page.on("request", request => { const name = stage(request.url(), request.postData()); if (name) rows.push({ stage: `${name}:dispatch`, at: Date.now() }); });
+      page.on("response", response => { const name = stage(response.url(), response.request().postData()); if (name) rows.push({ stage: `${name}:headers`, at: Date.now(), status: response.status() }); });
+      page.on("requestfinished", request => { const name = stage(request.url(), request.postData()); if (name) rows.push({ stage: `${name}:end`, at: Date.now(), durationMs: request.timing().responseEnd }); });
+    }
   });
   test.afterEach(async ({ page }, testInfo) => {
     const trace = closeoutTraces.get(page);
+    if (process.env.P518_RUNTIME_BASELINE === "1") {
+      const provider = (await readProviderEvidence(page)).requests.slice(providerOffsets.get(page) ?? 0);
+      const events = await page.evaluate(() => window.__caseIEvents ?? []);
+      const safe = { scenario: testInfo.title, status: testInfo.status, providerKind: "simulated", sampleCount: 1,
+        testDurationMs: testInfo.duration, requests: baselineTimings.get(page), events,
+        provider: provider.map(row => ({ at: row.at, finishedAt: row.finishedAt, payloadBytes: row.payloadBytes })),
+        providerCalls: provider.length, hermesSkillViewCount: provider.filter(row => row.selectedTool === "skill_view").length,
+        domainSkillLoadCount: null,
+        mcpToolCount: trace?.toolRequests.length, toolNames: trace?.toolRequests.map(row => row.name),
+        formalWriteCount: trace?.formalWrites.length, formalWrites: trace?.formalWrites.map(row => ({ store: row.store, at: row.at })),
+        unobservable: ["provider internal inference", "domain tool internal start/end", "repository method latency", "skill load if Hermes emits no skill event"],
+        timeline: differentialTimelines.get(page) };
+      await appendFile(".tmp/p518-baseline-" + process.env.HERMES_INTEGRATION_RUN_ID + ".jsonl", JSON.stringify(safe) + "\n");
+    }
     const caseReceipt = { timeline: differentialTimelines.get(page), case: testInfo.title.match(/^CASE ([A-N])/u)?.[1], started: true,
       status: testInfo.status, toolSequence: trace?.toolRequests.map(request => request.name),
       runReceipts: trace?.runReceipts, checkpointTransitions: trace?.toolReceipts,
@@ -870,7 +899,7 @@ function observeRuntimeAndBridge(page: Page) {
   return trace;
 }
 
-async function readProviderEvidence(page: Page): Promise<{ requests: Array<{ at: string; responseToolCallId?: string; toolResults: Array<{ toolCallId: string; jobId?: string }> }> }> {
+async function readProviderEvidence(page: Page): Promise<{ requests: Array<{ at: string; finishedAt?: string; payloadBytes?: number; selectedTool?: string; responseToolCallId?: string; toolResults: Array<{ toolCallId: string; jobId?: string }> }> }> {
   // Finite test probes must not inherit a pooled socket across disposed
   // BrowserContexts or race Node's idle keep-alive close. No request retry.
   const response = await page.request.get(`${process.env.HERMES_INTEGRATION_PROVIDER_URL}/integration-evidence`, {

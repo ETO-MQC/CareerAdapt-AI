@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -24,7 +25,7 @@ try {
   ]) {
     assert(typeof manifest[field] === "string" && manifest[field].trim(), `runtime manifest field missing: ${field}`);
   }
-  assert(manifest.careerAdaptPatchVersion === "careeradapt-api-toolsets-v1", "CareerAdapt runtime patch version is not pinned");
+  assert(manifest.careerAdaptPatchVersion === readJson(path.join(projectRoot, "scripts/hermes-runtime-lock.json")).careerAdaptPatchVersion, "CareerAdapt runtime patch version is not pinned");
 
   const requiredPaths = [
     ".build-complete",
@@ -42,6 +43,9 @@ try {
   const pythonExecutable = process.platform === "win32" ? path.join(pythonRoot, "python.exe") : path.join(pythonRoot, "bin", "python");
   assert(fs.existsSync(pythonExecutable), `bundled Python executable missing: ${pythonExecutable}`);
   const sourceRoot = path.join(bundleRoot, manifest.sourceRoot || "source");
+  const apiServerSource = fs.readFileSync(path.join(sourceRoot, "gateway/platforms/api_server.py"), "utf8");
+  assert(crypto.createHash("sha256").update(apiServerSource).digest("hex") === manifest.careerAdaptPatchHash, "Hermes API-server patch hash mismatch");
+  assert(apiServerSource.includes("# CareerAdapt selection-only readback:"), "Hermes selection readback patch missing");
   const sitePackagesRoot = path.join(bundleRoot, manifest.sitePackagesRoot || "site-packages");
   const pythonEnvironment = {
     ...process.env,

@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { patchModelSelectionReadback } from "./hermes-model-selection-patch.mjs";
 import crypto from "node:crypto";
 import os from "node:os";
 import path from "node:path";
@@ -87,7 +88,11 @@ for (const entry of fs.readdirSync(sourceRoot, { withFileTypes: true })) {
   copyTree(path.join(sourceRoot, entry.name), path.join(sourceTarget, entry.name));
 }
 
-const careerAdaptPatchHash = patchApiServerMcpToolsets(sourceTarget);
+patchApiServerMcpToolsets(sourceTarget);
+const apiServerPath = path.join(sourceTarget, "gateway", "platforms", "api_server.py");
+const patchedApiServer = patchModelSelectionReadback(fs.readFileSync(apiServerPath, "utf8"));
+fs.writeFileSync(apiServerPath, patchedApiServer);
+const careerAdaptPatchHash = crypto.createHash("sha256").update(patchedApiServer).digest("hex");
 
 const careerSkillsSource = path.join(projectRoot, "skills", "career");
 assertDirectory(careerSkillsSource, "CareerAdapt Hermes skills");

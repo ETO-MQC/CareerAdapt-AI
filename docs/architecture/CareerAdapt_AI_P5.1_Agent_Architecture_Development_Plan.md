@@ -1,5 +1,10 @@
 # CareerAdapt AI --- P5.1 Agent 架构优化开发计划
 
+## 2026-10-30 P5.1.8-A：COMPLETE
+
+用户单独启动 Runtime Reliability Baseline & Model Readback Closure；本阶段已完成，停止于此。模型读回依赖完整外部目录的耦合有直接证据，既有鉴权端点 selection_only 分支及锁定补丁已修复；保持10秒预算/回滚/旧Run，真实Hermes+模拟Provider下一任务模型与指纹验证通过。A/G/M三场景基线、config-r1、两条Behavior及相关工程门禁通过。真实Provider单案例首轮两臂协议smoke完整返回/保存，历史120秒超时未复现且阶段未知；SQ1仍IMPLEMENTATION_COMPLETE / QUALITY_CERTIFICATION_BLOCKED。详见[阶段报告](p5.1.8-runtime-reliability-baseline-20261030.md)及同名evidence JSON。未提交/推送/打包，不进入P518-B/P519/SQ2/完整A/B。下方OPEN移交及旧状态为历史记录，当前以本节为准。
+
+
 ## 2026-10-30 SQ1-CLOSEOUT：实现完成 / 质量认证BLOCKED
 
 最新状态：**SQ1_IMPLEMENTATION_COMPLETE / QUALITY_CERTIFICATION_BLOCKED**。会话明确技能声明已贯通通用/既有简历提案、确认、Repository Revision与正式PDF，Profile和其他分支隔离；CASE M终态观察harness修正后冻结/当前同路径各1/1通过，未重跑完整14 Case。31文件286项及最终声明/Skill30项、40规则映射、Behavior12/12、UI/PDF1/1和工程门禁通过。现成真实Provider两次未完成首arm，真实30案例质量及人工13维认证仍BLOCKED，不能宣称SQ1 COMPLETE。历史失败保留；未启动P518/P519，尚未提交/推送/打包。最新完整范围与证据见[SQ1报告第14节](p5.1-skills-quality-v1-20261030.md)及对应evidence.closeout20261030；下方同日旧记录为此前轮次。

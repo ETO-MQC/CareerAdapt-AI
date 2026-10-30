@@ -122,13 +122,13 @@ function createGatewayHarness(options: { nativeModelConfig?: boolean; hotModel?:
     if (url.endsWith("/v1/capabilities")) return { ok: true, status: 200, json: async () => ({ features: { streaming: true } }) };
     if (url.endsWith("/v1/skills")) return { ok: true, status: 200, json: async () => ({ skills: [] }) };
     if (url.endsWith("/v1/toolsets")) return { ok: true, status: 200, json: async () => ({ toolsets: [] }) };
-    if (url.endsWith("/api/model/options")) {
+    if (new URL(url).pathname === "/api/model/options") {
       modelOptionsCount += 1;
       if (options.readbackTimeout && hermesHome && readFileSync(path.join(hermesHome, "config.yaml"), "utf8").includes('default: "next-model"')) {
         throw new DOMException("private endpoint details", "TimeoutError");
       }
       return { ok: true, status: 200, json: async () => ({
-      providers: [],
+      providers: [], selection_only: new URL(url).searchParams.get("selection_only") === "true",
       ...(hermesHome ? {
         model: options.readbackMismatch || (options.recoveryReadbackMismatch && startCount === 2) ? "wrong-model" : JSON.parse(readFileSync(path.join(hermesHome, "config.yaml"), "utf8").match(/^  default: (.+)$/mu)![1]),
         provider: "custom:careeradapt"
@@ -189,6 +189,8 @@ describe("V4-P0 native model config 404 fallback", () => {
   it("rolls back on the captured model readback TimeoutError without numeric code or retry", async () => {
     const harness = createGatewayHarness({ hotModel: true, readbackTimeout: true });
     await harness.supervisor.rendererHostReady();
+    harness.setHealth({ ...createHealth(), activeRunId: "ongoing-run" });
+    await harness.supervisor.start();
     const starts = harness.getStartCount();
     const reads = harness.getModelOptionsCount();
     const before = harness.getManagedConfig();
@@ -199,6 +201,7 @@ describe("V4-P0 native model config 404 fallback", () => {
     expect(harness.getManagedConfig()).toBe(before);
     expect(harness.getStartCount()).toBe(starts);
     expect(harness.getModelOptionsCount() - reads).toBe(1);
+    expect(applied.activeRunId).toBe("ongoing-run");
   });
 
   it("recovers after the current bundled Hermes really saves YAML and preserves all user values", async () => {
