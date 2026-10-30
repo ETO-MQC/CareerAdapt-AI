@@ -25,7 +25,7 @@ const DEFINITIONS: SkillDefinition[] = [
   { name: "REST API", category: "后端", aliases: ["REST API", "RESTful API", "REST接口"] },
   { name: "SQLx", category: "后端", aliases: ["SQLx"] },
   ...["SQL", "SQLite", "MySQL", "PostgreSQL", "MongoDB", "Redis"].map((name) => ({ name, category: "数据库" as const, aliases: [name] })),
-  ...["RPA", "RAG", "LLM", "TensorFlow", "PyTorch", "机器学习", "深度学习", "数据处理", "数据分析", "数据可视化", "爬虫"].map((name) => ({ name, category: "数据与 AI" as const, aliases: [name] })),
+  ...["Pandas", "NumPy", "RPA", "RAG", "LLM", "TensorFlow", "PyTorch", "机器学习", "深度学习", "数据处理", "数据分析", "数据可视化", "爬虫"].map((name) => ({ name, category: "数据与 AI" as const, aliases: [name] })),
   ...["ESP32", "Arduino", "PlatformIO"].map((name) => ({ name, category: "嵌入式 / IoT" as const, aliases: [name] })),
   ...["Git", "Docker", "Linux", "Figma", "Playwright", "Vitest"].map((name) => ({ name, category: "工程与测试" as const, aliases: [name] }))
 ];

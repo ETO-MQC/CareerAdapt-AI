@@ -1,3 +1,4 @@
+import { addSessionConfirmedSkills, sessionClaimPrefix, type CompositionSourceTurn } from "@/domain/resumeComposition/sessionConfirmedSkills";
 import { MaterialIntakeService } from "@/services/materialIntake/MaterialIntakeService";
 import {
   ImportedResumeDraftSchema,
@@ -813,6 +814,8 @@ export class BrowserAgentToolService implements AgentToolServices {
   async planResumeComposition(rawInput: unknown, signal?: AbortSignal) {
     assertNotAborted(signal);
     const input = rawInput as {
+      sessionSource?: CompositionSourceTurn;
+      sessionScopeId?: string;
       profileId: string;
       expectedProfileRevision: number;
       mode: ResumeCompositionMode;
@@ -836,7 +839,16 @@ export class BrowserAgentToolService implements AgentToolServices {
       throw toolError("resume_composition_source_stale", "来源简历已变化，请重新生成提案。");
     }
     const userPreferences = parseUserPreferences(input.userPreferences);
-    const graph = buildResumeEvidenceGraph({ profile: context.profile });
+    if (input.sessionSource && input.sessionSource.sessionId !== input.sessionScopeId) {
+      throw toolError("resume_composition_session_mismatch", "声明不属于当前会话，请重新生成提案。");
+    }
+    // Continuations may reuse only the same persisted, session/target-bound
+    // proposal. Never scan unrelated session history for candidate facts.
+    const priorCheckpoint = input.checkpointId
+      ? await this.requireCompositionCheckpoint(input, context.profile.id, context.job?.id)
+      : undefined;
+    const baseGraph = priorCheckpoint?.compositionResult.evidenceGraph ?? buildResumeEvidenceGraph({ profile: context.profile });
+    const graph = input.sessionSource ? addSessionConfirmedSkills(baseGraph, input.sessionSource) : baseGraph;
     const blueprint = planResumeBlueprint({ profile: context.profile, graph, mode: input.mode, job: context.job, targetDirection: input.targetDirection, targetAudience: input.targetAudience, companyType: input.companyType });
     const composition = await compileResumeCompositionWithAi(
       { profile: context.profile, mode: input.mode, job: context.job, sourceResumeId: input.sourceResumeId,
@@ -1042,6 +1054,7 @@ export class BrowserAgentToolService implements AgentToolServices {
   }
 
   private async requireCompositionCheckpoint(input: {
+    sessionScopeId?: string;
     checkpointId?: string;
     profileId: string;
     expectedProfileRevision: number;
@@ -1052,6 +1065,13 @@ export class BrowserAgentToolService implements AgentToolServices {
     if (!input.checkpointId) throw toolError("resume_composition_checkpoint_required", "请先生成并确认当前简历组装提案。");
     const checkpoint = await this.repository.getResumeCompositionCheckpoint(input.checkpointId);
     if (!checkpoint) throw toolError("resume_composition_checkpoint_missing", "当前组装提案已不存在，请重新生成。");
+    const sessionNodes = checkpoint.compositionResult.evidenceGraph.nodes.filter(node => node.id.startsWith("session-claim:"));
+    if (sessionNodes.length && (!input.sessionScopeId || sessionNodes.some(node => !node.id.startsWith(sessionClaimPrefix(input.sessionScopeId!))))) {
+      throw toolError("resume_composition_session_mismatch", "声明不属于当前会话，请重新生成提案。");
+    }
+    if (sessionNodes.length && checkpoint.sourceResumeId !== input.sourceResumeId) {
+      throw toolError("resume_composition_checkpoint_source_mismatch", "声明对应的简历已变化，请重新生成提案。");
+    }
     if (checkpoint.profileId !== profileId || checkpoint.profileRevision !== input.expectedProfileRevision || checkpoint.mode !== input.mode || checkpoint.jobId !== jobId) {
       throw toolError("resume_composition_checkpoint_stale", "组装提案与当前资料或岗位版本不一致，请重新生成。");
     }

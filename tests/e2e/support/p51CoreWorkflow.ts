@@ -117,6 +117,7 @@ export async function verifyCoreResumePdf(page: Page, branchId: string) {
         expect(normalize(text)).toContain(normalize(highlight));
       }
     }
+    return { text, previewText, revisionId: after.currentRevisionId };
 }
 
 export async function readStore(page: Page, name: string): Promise<Array<Record<string, unknown>>> {

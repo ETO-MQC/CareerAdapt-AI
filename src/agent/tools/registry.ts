@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CompositionSourceTurnSchema } from "@/domain/resumeComposition/sessionConfirmedSkills";
 import { MaterialIntakeInputSchema } from "@/domain/materialIntake/materialIntake";
 import {
   isProviderTransportFailureCode,
@@ -291,6 +292,8 @@ const JobIdInputSchema = z.object({ jobId: z.string().min(1) }).strict();
 const SourceRouteInputSchema = z.object({ profileId: z.string().min(1), jobId: z.string().min(1) }).strict();
 const ProfileJobResumeInputSchema = SourceRouteInputSchema.extend({ name: z.string().min(1).max(120).optional() }).strict();
 const ResumeCompositionInputSchema = z.object({
+  sessionSource: CompositionSourceTurnSchema.optional(),
+  sessionScopeId: z.string().min(1).optional(),
   profileId: z.string().min(1),
   expectedProfileRevision: z.number().int().min(1),
   mode: z.enum(["general", "job_specific"]),

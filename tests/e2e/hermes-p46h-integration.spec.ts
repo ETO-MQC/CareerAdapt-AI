@@ -8,6 +8,7 @@ import { completeCoreResumeWorkflow, installCoreWritingProvider, prepareCoreSour
 test.use({ actionTimeout: 15_000 });
 
 const closeoutTraces = new WeakMap<Page, ReturnType<typeof observeRuntimeAndBridge>>();
+const differentialTimelines = new WeakMap<Page, Array<{ stage: string; at: string; elapsedMs: number; status?: number }>>();
 const providerOffsets = new WeakMap<Page, number>();
 
 type SafeHermesEvent = { event?: string; runId?: string; tool?: string; timestamp?: number };
@@ -19,7 +20,7 @@ test.describe("P4.6h hermetic Web + browser MCP integration", () => {
   });
   test.afterEach(async ({ page }, testInfo) => {
     const trace = closeoutTraces.get(page);
-    const caseReceipt = { case: testInfo.title.match(/^CASE ([A-N])/u)?.[1], started: true,
+    const caseReceipt = { timeline: differentialTimelines.get(page), case: testInfo.title.match(/^CASE ([A-N])/u)?.[1], started: true,
       status: testInfo.status, toolSequence: trace?.toolRequests.map(request => request.name),
       runReceipts: trace?.runReceipts, checkpointTransitions: trace?.toolReceipts,
       providerCalls: (await readProviderEvidence(page)).requests.length - (providerOffsets.get(page) ?? 0),
@@ -264,6 +265,24 @@ test.describe("P4.6h hermetic Web + browser MCP integration", () => {
 
   test("CASE M Core-02 — new material to confirmed Profile, General Resume, Job, isolated tailoring and PDF", async ({ page }, testInfo) => {
     test.setTimeout(240_000);
+    const startedAt = Date.now();
+    const timeline: Array<{ stage: string; at: string; elapsedMs: number; status?: number }> = [];
+    differentialTimelines.set(page, timeline);
+    const mark = (stage: string, status?: number) => timeline.push({ stage, at: new Date().toISOString(), elapsedMs: Date.now() - startedAt, ...(status === undefined ? {} : { status }) });
+    mark("case_start");
+    page.on("request", request => {
+      if (request.url().includes("/api/resume-export/pdf") && request.method() === "POST") mark("pdf_request_start");
+      if (request.url().includes("/api/agent/runtime/hermes") && parseJson(request.postData())?.action === "run_start") mark("run_start");
+    });
+    page.on("response", response => {
+      if (response.url().includes("/api/resume-export/pdf") && response.request().method() === "POST") mark("pdf_response_headers", response.status());
+    });
+    page.on("requestfinished", request => {
+      if (request.url().includes("/api/resume-export/pdf") && request.method() === "POST") mark("pdf_response_end");
+    });
+    page.on("requestfailed", request => {
+      if (request.url().includes("/api/resume-export/pdf") && request.method() === "POST") mark("pdf_request_failed");
+    });
     const trace = observeRuntimeAndBridge(page);
     closeoutTraces.set(page, trace);
     await openWorkspace(page);
@@ -309,32 +328,80 @@ test.describe("P4.6h hermetic Web + browser MCP integration", () => {
     await expect.poll(async () => (await readStore(page, "resumeBranches")).filter(branch => branch.profileId === profile.id && branch.branchPurpose === "general").length).toBe(1);
     const source = (await readStore(page, "resumeBranches")).find(branch => branch.profileId === profile.id && branch.branchPurpose === "general")!;
     expect(source.profileId).toBe(profile.id);
+    // A committed branch is not the Hermes terminal receipt. Starting the
+    // Job turn here can race the composition Run's final acknowledgement.
+    await expect.poll(async () => {
+      const id = await page.evaluate(() => localStorage.getItem("careeradapt.agent.activeSessionId"));
+      const session = (await readStore(page, "agentSessions")).find(value => value.id === id);
+      return (session?.hermesRun as { status?: string } | undefined)?.status;
+    }, { timeout: 15_000 }).toMatch(/^(completed|failed|cancelled)$/u);
+    mark("composition_terminal_observed");
+    mark("job_start");
     await send(page, "保存这个岗位 CORE-JD：公司 Core Test，数据分析实习生，负责数据清洗，要求了解 Python 或 SQL。");
     await expect(page.locator(".agent-confirmation")).toBeVisible();
     await page.locator(".agent-confirmation").getByRole("button", { name: "确认", exact: true }).click();
     await expectAssistant(page, "已按你的确认完成当前 Career 工作流。");
+    mark("job_complete");
+    mark("fit_start");
     await send(page, "P51-C02-FIT 这个岗位适合我吗？");
     await expectAssistant(page, "C02FITCOMPLETE");
+    mark("fit_complete");
+    mark("tailoring_start");
     await send(page, "P51-C02-TAILOR 那按它帮我改简历，别改模板，只改内容。");
     await expectTailoringReview(page, trace);
+    mark("tailoring_proposal_complete");
     const inline = page.locator(".agent-tailoring-inline");
     await expect(inline).toBeVisible();
     for (let index = 0; index < 8 && await inline.getByRole("button", { name: "采用", exact: true }).count(); index++) await inline.getByRole("button", { name: "采用", exact: true }).first().click();
     await inline.getByRole("button", { name: "提交本次选择", exact: true }).click();
     await expect(page.getByRole("region", { name: "应用这些简历修改？" })).toBeVisible();
+    mark("tailoring_confirmation");
     await page.getByRole("button", { name: "生成岗位简历", exact: true }).click();
     await expect.poll(async () => (await readStore(page, "resumeBranches")).filter(branch => branch.profileId === profile.id && branch.branchPurpose === "job_specific").length).toBe(1);
+    mark("repository_branch_observed");
     const branches = await readStore(page, "resumeBranches");
     const target = branches.find(branch => branch.profileId === profile.id && branch.branchPurpose === "job_specific")!;
     expect(branches.find(branch => branch.id === source.id)).toEqual(source);
     expect(await readStore(page, "profiles")).toEqual(profiles);
     expect(target.sourceBranchId).toBe(source.id);
+    mark("revision_observed");
     await assertCoreTarget(page, source, target);
+    mark("host_terminal_observed");
     expect((await readStore(page, "jobDescriptions")).filter(job => String(job.title).includes("CORE-JD"))).toHaveLength(1);
     await page.goto(`/resume?branchId=${encodeURIComponent(String(target.id))}`);
     await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
+    mark("pdf_verify_start");
     await verifyCoreResumePdf(page, String(target.id));
+    mark("pdf_verify_complete");
     await testInfo.attach("core02-M-tools", { body: JSON.stringify(trace), contentType: "application/json" });
+  });
+
+  test("SQ1 CLAIM — current user skill reaches confirmed General Resume and official PDF without Profile sync", async ({ page }) => {
+    test.setTimeout(240_000);
+    const trace = observeRuntimeAndBridge(page);
+    closeoutTraces.set(page, trace);
+    await openWorkspace(page);
+    await prepareCoreSourceResume(page);
+    const profilesBefore = await readStore(page, "profiles");
+    const branchesBefore = await readStore(page, "resumeBranches");
+    await page.goto("/ai-workspace");
+    await startFreshConversation(page);
+    await installCoreWritingProvider(page);
+    await send(page, "P51-C02-COMPOSE 根据资料生成通用简历。SQL 基础查询我能独立完成，只用于这份简历，不加入资料库。我只学过 Pandas，没有正式项目。");
+    await expect(page.locator(".agent-confirmation")).toBeVisible();
+    expect(await readStore(page, "resumeBranches")).toEqual(branchesBefore);
+    await page.locator(".agent-confirmation").getByRole("button", { name: "确认", exact: true }).click();
+    await expect.poll(async () => (await readStore(page, "resumeBranches")).length).toBe(branchesBefore.length + 1);
+    const target = (await readStore(page, "resumeBranches")).find(branch => !branchesBefore.some(before => before.id === branch.id))!;
+    expect(JSON.stringify(target.structuredContentItems)).toContain("SQL");
+    expect(JSON.stringify(target.structuredContentItems)).toContain("Pandas（基础接触）");
+    expect(await readStore(page, "profiles")).toEqual(profilesBefore);
+    for (const before of branchesBefore) expect((await readStore(page, "resumeBranches")).find(branch => branch.id === before.id)).toEqual(before);
+    await page.goto(`/resume?branchId=${encodeURIComponent(String(target.id))}`);
+    await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
+    const pdf = await verifyCoreResumePdf(page, String(target.id));
+    expect(pdf.text.replace(/\s/gu, "")).toContain("SQL");
+    expect(pdf.text.replace(/\s/gu, "")).toContain("Pandas（基础接触）");
   });
 
   test("CASE N Scenario D — content-only Hermes tailoring inherits Presentation through official PDF", async ({ page }, testInfo) => {

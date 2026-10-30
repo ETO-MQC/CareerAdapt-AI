@@ -153,16 +153,25 @@ function profileContentItems(profile: CareerProfile, now: string, composition?: 
 function compositionContentItems(profile: CareerProfile, now: string, composition: ResumeCompositionResult) {
   return composition.items.flatMap((entry, order) => {
     const factRefs = resolveProfileFactRefs(profile, entry.factIds);
-    if (entry.data.sectionType !== "summary" && (!factRefs.length || factRefs.length !== entry.factIds.length)) {
+    const sessionClaims = entry.claimIds.map(id => composition.claims.find(claim => claim.id === id))
+      .filter(claim => claim?.evidenceNodeIds.some(id => id.startsWith("session-claim:")));
+    const sessionSkill = entry.data.sectionType === "skills" && sessionClaims.length > 0
+      && sessionClaims.every(claim => claim?.classification === "SUPPORTED" && claim.guardStatus === "pass" && claim.sourceTurnIds.length > 0)
+      && entry.data.name.split(" · ").every(label => entry.claimIds.some(id => {
+        const claim = composition.claims.find(candidate => candidate.id === id);
+        return claim?.text === label && claim.classification === "SUPPORTED" && claim.guardStatus === "pass";
+      }));
+    if (entry.data.sectionType !== "summary" && ((!factRefs.length && !sessionSkill) || factRefs.length !== entry.factIds.length)) {
       throw new Error(`profile_fact_reference_unresolved:${entry.data.id}`);
     }
     const text = projectResumeItemV2(entry.data);
     if (!text.trim()) return [];
     const id = `branch-item-composed-${entry.data.id}-${nanoid(6)}`;
+    const userConfirmation = sessionSkill ? { scope: "resume_only" as const, confirmedTextHash: stableHashText(text), confirmedAt: now } : undefined;
     const legacy = BranchContentItemSchema.parse({
       id,
       itemType: canonicalItemType(entry.data.sectionType),
-      source: "adaptation_draft",
+      source: sessionSkill ? "user_manual" : "adaptation_draft",
       sourceSectionId: entry.data.sectionType,
       text,
       originalText: text,
@@ -171,6 +180,7 @@ function compositionContentItems(profile: CareerProfile, now: string, compositio
       requirementIds: [],
       sourceSuggestionIds: [],
       factRefs,
+      userConfirmation,
       guardMode: "rule_verified",
       guardStatus: "pass",
       guardRiskLevel: "low",
@@ -191,7 +201,8 @@ function compositionContentItems(profile: CareerProfile, now: string, compositio
       guardFindings: [],
       legacyTextProjection: text,
       sourceBlockIds: entry.sourceBlockIds,
-      sourceExcerpt: entry.sourceExcerpt
+      sourceExcerpt: entry.sourceExcerpt,
+      userConfirmation
     });
     return [{ legacy, structured }];
   });

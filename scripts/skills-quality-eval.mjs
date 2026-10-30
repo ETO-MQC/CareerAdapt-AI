@@ -41,6 +41,7 @@ export async function runRealEvaluation({ fixture, skills }, settings, request =
       const answers = [];
       for (const turn of [null, ...scenario.followUpTurns]) {
         if (turn) messages.push({ role: "user", content: turn });
+        settings.onRequest?.({ caseId: scenario.id, arm, turnIndex: answers.length });
         const response = await request(`${settings.baseUrl.replace(/\/$/u, "")}/chat/completions`, {
           method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${settings.apiKey}` },
           body: JSON.stringify({ model: settings.model, messages, temperature: 0 }), signal: AbortSignal.timeout(120_000)
@@ -100,11 +101,28 @@ async function main() {
   const output = path.join(root, ".tmp", `skills-quality-real-${Date.now()}.json`);
   fs.mkdirSync(path.dirname(output), { recursive: true });
   const results = [];
+  let requestsAttempted = 0;
+  let activeRequest;
+  const metadata = { providerOrigin: url.origin, model: settings.model, baselineCommit: baseline.baselineCommit,
+    parameters: { temperature: 0 }, order: "fixture order, before then after, fixed follow-up order" };
+  const save = (status, diagnostics) => fs.writeFileSync(output, JSON.stringify({ schemaVersion: "skills-quality-eval-v1", status,
+    ...metadata, requestsAttempted, activeRequest, ...(diagnostics ? { diagnostics } : {}), results }, null, 2) + "\n");
+  settings.onRequest = request => { requestsAttempted++; activeRequest = request; save("RUNNING"); };
   settings.onRecord = record => {
     results.push(record);
-    fs.writeFileSync(output, JSON.stringify({ schemaVersion: "skills-quality-eval-v1", status: "PENDING_HUMAN_REVIEW", results }, null, 2) + "\n");
+    save("PENDING_HUMAN_REVIEW");
   };
-  await runRealEvaluation(evaluation, settings);
+  try {
+    await runRealEvaluation(evaluation, settings);
+  } catch (error) {
+    const diagnostics = { errorName: error.name,
+      ...(error.message.startsWith("quality_") ? { code: error.message } : {}),
+      ...(typeof error.cause?.code === "string" && /^[A-Z_]+$/u.test(error.cause.code) ? { transportCode: error.cause.code } : {}) };
+    save("REAL_QUALITY_EVAL_BLOCKED", diagnostics);
+    console.log(`REAL_QUALITY_EVAL_BLOCKED: ${requestsAttempted} requests attempted, ${results.length} arms completed; safe evidence: ${path.relative(root, output)}`);
+    process.exitCode = 2;
+    return;
+  }
   console.log(`Policy A/B responses saved: ${path.relative(root, output)}; human rubric review required.`);
 }
 

@@ -177,5 +177,749 @@
     "pushed": false,
     "packaged": false
   },
-  "nextStagesStarted": []
+  "nextStagesStarted": [],
+  "latestRound": "closeout20261030",
+  "closeout20261030": {
+    "date": "2026-10-30",
+    "status": "SQ1_IMPLEMENTATION_COMPLETE / QUALITY_CERTIFICATION_BLOCKED",
+    "startingHead": "53eb83256b706eb9d8facb72e994734e56288743",
+    "finalHead": "53eb83256b706eb9d8facb72e994734e56288743",
+    "branch": "main",
+    "originMainAfterFetch": "53eb83256b706eb9d8facb72e994734e56288743",
+    "fetchExitCode": 0,
+    "initialWorkingTree": "clean",
+    "finalWorkingTree": "modified, not committed",
+    "committed": false,
+    "pushed": false,
+    "packaged": false,
+    "modifiedFiles": [
+      "playwright.sq1-claims.config.ts",
+      "scripts/skills-quality-eval.mjs",
+      "src/agent/tools/CareerToolGateway.ts",
+      "src/agent/tools/registry.ts",
+      "src/agent/workflows/CareerWorkflowFacade.ts",
+      "src/domain/branch/profileBranch.ts",
+      "src/domain/resumeComposition/ResumeSkillTaxonomy.ts",
+      "src/domain/resumeComposition/ResumeWriter.ts",
+      "src/domain/resumeComposition/qualityDiagnostics.ts",
+      "src/domain/resumeComposition/sessionConfirmedSkills.ts",
+      "src/services/agent/agentToolService.ts",
+      "tests/e2e/hermes-p46h-integration.spec.ts",
+      "tests/e2e/support/p51CoreWorkflow.ts",
+      "tests/unit/sessionConfirmedSkills.test.ts",
+      "docs/architecture/p5.1-skills-quality-v1-20261030.md",
+      "docs/architecture/p5.1-skills-quality-v1-evidence-20261030.json",
+      "docs/P5_STAGE_REPORT.md",
+      "docs/architecture/CareerAdapt_AI_P5.1_Agent_Architecture_Development_Plan.md"
+    ],
+    "sourceSHA256": {
+      "playwright.sq1-claims.config.ts": "8f2d05bd6d0b47f40fbce452be7a9adbddf6a49af1afe1b1e35ecc5445d0a618",
+      "scripts/skills-quality-eval.mjs": "90d6411541b12293f12d51eae81baddf23387ab11117f2f5712193a6eeb40ddb",
+      "src/agent/tools/CareerToolGateway.ts": "032f5e8e1261f1ea977f116223c9009cdae6766e15f3ea487c58b1e0889da660",
+      "src/agent/tools/registry.ts": "41f60dc7d618616e5b83557af6fe6a7281ccf1159615662143c1f77b81717001",
+      "src/agent/workflows/CareerWorkflowFacade.ts": "2361e55351c5ed72e5fa9c352dbc262fd910a88ef53662dcbd49646b6b7441e9",
+      "src/domain/branch/profileBranch.ts": "8ba1b2f34d75fe9cb886accd82a44c4361ba58dce64a1367741dc01940461680",
+      "src/domain/resumeComposition/ResumeSkillTaxonomy.ts": "a72d00536247708b5e8aa8a945d9b7fbc48ad97e00ae8d27f69500274be4e05e",
+      "src/domain/resumeComposition/ResumeWriter.ts": "a64dc9cc9ed13b864ac321f8b799eb0302fd8c64e8a1cbeb66cfb0bc177a92ad",
+      "src/domain/resumeComposition/qualityDiagnostics.ts": "b970f8b06a2fd3d0a20be89491030ab8f07cdf7eb8a62fc0c5d7e3b4422eeb44",
+      "src/domain/resumeComposition/sessionConfirmedSkills.ts": "b643c71baaf16f04afa8ecf7db626955cc5f25f244445f5c3df66e7afba40bff",
+      "src/services/agent/agentToolService.ts": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c",
+      "tests/e2e/hermes-p46h-integration.spec.ts": "3ede899efc125c99c8ac202cbc3f8bb482adb3f4599af39ce23fa4f407b50215",
+      "tests/e2e/support/p51CoreWorkflow.ts": "8eb008c7fd1fa38bccdedabe09c300391e904f23798ce2bc11480770d390fec5",
+      "tests/unit/sessionConfirmedSkills.test.ts": "4fdb687b43e393899bf64bb8bb42c86df342565902555f37f7928529e5d7df84"
+    },
+    "sessionClaimConsumption": {
+      "generalResume": "PASS: actual facade -> service -> proposal -> explicit confirmation -> Repository -> Revision -> official PDF",
+      "existingResume": "PASS: update_existing retains selected branch identity and creates a new revision",
+      "jobResume": "existing tailoring answer/claim/diff/confirmation pipeline retained and related integration tests passed",
+      "profileSync": "overlay is resume_only; explicit resume_and_profile still uses separate existing Profile confirmation, never whole-Resume reverse sync",
+      "sourceTurn": "Host-resolved persisted UserMessage; sourceTurnIds and exact excerpts retained in immutable composition checkpoint; excerpt plus resume-only confirmation retained in Revision snapshot",
+      "maturity": "confirmed_capability/familiar/learning retained; Pandas and NumPy included in existing taxonomy",
+      "isolation": "Profile, other General and Job branches unchanged; cross-session and changed-source checkpoints rejected",
+      "continuation": "only same-session/target/version checkpoint can carry prior overlay; explicit maturity correction/retraction covered",
+      "limits": "bounded direct skill declarations from existing technical taxonomy; no speculative examples, open-ended hard-fact narration or project/ownership inference"
+    },
+    "realAB": {
+      "status": "REAL_QUALITY_EVAL_BLOCKED",
+      "providerOrigin": "https://discovery-api.intern-ai.org.cn",
+      "model": "deepseek-v4-flash-0731",
+      "beforeCommit": "1573e267614ff93363eff2ed2bade34ff01ed078",
+      "beforeAfterSkillSHA256": {
+        "candidate-profile-interview": {
+          "beforeSHA256": "53cbb903e88157132a0b6c656ea1e2d64edaba538637da05447115e48376d557",
+          "beforeVersion": "1.0.0",
+          "afterSHA256": "b58f72952350ad3efd154f6b482f0c81a6cf9dff58fc12dfdf555eb1f668f579",
+          "afterVersion": "2.0.0"
+        },
+        "career-story-mining": {
+          "beforeSHA256": "9ce2cb63f98397867e8f0081665aac0098eca9c03c6d81cbe8aadb3f5d50bbde",
+          "beforeVersion": "1.0.0",
+          "afterSHA256": "03a9ea1a8ac24b27db7203f84a9cf763ebaae7b75421e4728dc3a0c4c4401abf",
+          "afterVersion": "2.0.0"
+        },
+        "job-fit-analysis": {
+          "beforeSHA256": "b4a70be83c7a10b5631a371d077a47757a0b60bd2c14de6c402f02a16c63402c",
+          "beforeVersion": "1.0.0",
+          "afterSHA256": "ce7b5a1e58331756b807e0b6862e662613f5e1d2eed06190528b0880054dceb9",
+          "afterVersion": "2.0.0"
+        },
+        "resume-composition": {
+          "beforeSHA256": "056d5d8732d86ebbe500761aafa4c492860445c7a3980f2fa02bb60d27725453",
+          "beforeVersion": "1.0.0",
+          "afterSHA256": "037b450b0ef6f0ea24ce0b2bc27884e2f41599cf9dcb039c3506fca464de2721",
+          "afterVersion": "2.0.0"
+        },
+        "resume-review": {
+          "beforeSHA256": "39aa1cbf8f35228b6d630859d97f09e1090eca876ac9e3d503599d6ffd7d902e",
+          "beforeVersion": "1.0.0",
+          "afterSHA256": "c00fb5549a76c720c5cf5454e45873c029094362ba9d30d5b589f2022195585a",
+          "afterVersion": "2.0.0"
+        },
+        "resume-tailoring": {
+          "beforeSHA256": "520a39231b77486a33207f393fb7cba3dfd7135f232a57d71a777fdd0d2ae054",
+          "beforeVersion": "1.0.0",
+          "afterSHA256": "1ebab591afa239861a518fb0e260cc999b2b019c4731ca8207f0a0ee639f240f",
+          "afterVersion": "2.0.0"
+        }
+      },
+      "parameters": {
+        "temperature": 0
+      },
+      "order": "fixture order, before then after, fixed follow-up order",
+      "completedCases": 0,
+      "completedArms": 0,
+      "blockedCases": 30,
+      "attempts": [
+        {
+          "log": ".tmp/sq1-closeout-real.log",
+          "wrapperExitCode": 1,
+          "completedArms": 0,
+          "diagnostics": "original script exposed only skills_quality_eval_failed; do not infer its cause"
+        },
+        {
+          "log": ".tmp/sq1-closeout-real2.log",
+          "wrapperExitCode": 1,
+          "safeResult": ".tmp/skills-quality-real-1793338093601.json",
+          "requestsAttempted": 1,
+          "completedArms": 0,
+          "diagnostics": {
+            "errorName": "TimeoutError"
+          }
+        }
+      ],
+      "connectivityProbe": {
+        "httpStatus": 200,
+        "log": ".tmp/sq1-closeout-provider-probe.log",
+        "scope": "HTTP headers only, not a completed quality evaluation"
+      },
+      "safetyRegressions": null,
+      "questionQuality": null,
+      "recruiterRelevance": null,
+      "jdCoverage": null,
+      "unsupportedClaims": null,
+      "wrongOwnership": null,
+      "fabricatedMetrics": null,
+      "humanReview": "NOT_PERFORMED; all 13 rubric fields remain null",
+      "repeatPolicy": "two incomplete/timeout attempts retained; no third A/B attempt"
+    },
+    "caseM": {
+      "classification": "B: reproduced test harness terminal-observation race; fixed and paired validation passed",
+      "historicalFailuresClassification": "F: prior FIT marker / PDF pending-response failures remain cause-unknown; do not attribute them retrospectively",
+      "sameEnvironment": "same Windows host, installed dependencies and locked Hermes bundle; detached Core-02 worktree, identical instrumented test fixture and terminal-wait harness; isolated app/runtime/Provider processes",
+      "frozen": {
+        "file": ".tmp/sq1-closeout-frozen/.tmp/core02-case-gate-integration-1793339328625.jsonl",
+        "status": "passed",
+        "timeline": [
+          {
+            "stage": "case_start",
+            "at": "2026-10-30T05:48:53.764Z",
+            "elapsedMs": 0
+          },
+          {
+            "stage": "run_start",
+            "at": "2026-10-30T05:49:08.197Z",
+            "elapsedMs": 14433
+          },
+          {
+            "stage": "run_start",
+            "at": "2026-10-30T05:49:19.642Z",
+            "elapsedMs": 25878
+          },
+          {
+            "stage": "composition_terminal_observed",
+            "at": "2026-10-30T05:49:25.383Z",
+            "elapsedMs": 31619
+          },
+          {
+            "stage": "job_start",
+            "at": "2026-10-30T05:49:25.383Z",
+            "elapsedMs": 31619
+          },
+          {
+            "stage": "run_start",
+            "at": "2026-10-30T05:49:25.602Z",
+            "elapsedMs": 31838
+          },
+          {
+            "stage": "job_complete",
+            "at": "2026-10-30T05:49:29.416Z",
+            "elapsedMs": 35652
+          },
+          {
+            "stage": "fit_start",
+            "at": "2026-10-30T05:49:29.416Z",
+            "elapsedMs": 35652
+          },
+          {
+            "stage": "run_start",
+            "at": "2026-10-30T05:49:29.606Z",
+            "elapsedMs": 35842
+          },
+          {
+            "stage": "fit_complete",
+            "at": "2026-10-30T05:49:36.579Z",
+            "elapsedMs": 42815
+          },
+          {
+            "stage": "tailoring_start",
+            "at": "2026-10-30T05:49:36.579Z",
+            "elapsedMs": 42815
+          },
+          {
+            "stage": "run_start",
+            "at": "2026-10-30T05:49:38.497Z",
+            "elapsedMs": 44733
+          },
+          {
+            "stage": "tailoring_proposal_complete",
+            "at": "2026-10-30T05:49:44.661Z",
+            "elapsedMs": 50897
+          },
+          {
+            "stage": "tailoring_confirmation",
+            "at": "2026-10-30T05:49:45.234Z",
+            "elapsedMs": 51470
+          },
+          {
+            "stage": "repository_branch_observed",
+            "at": "2026-10-30T05:49:45.542Z",
+            "elapsedMs": 51778
+          },
+          {
+            "stage": "revision_observed",
+            "at": "2026-10-30T05:49:45.593Z",
+            "elapsedMs": 51829
+          },
+          {
+            "stage": "host_terminal_observed",
+            "at": "2026-10-30T05:49:45.702Z",
+            "elapsedMs": 51938
+          },
+          {
+            "stage": "pdf_verify_start",
+            "at": "2026-10-30T05:49:48.658Z",
+            "elapsedMs": 54894
+          },
+          {
+            "stage": "pdf_request_start",
+            "at": "2026-10-30T05:49:50.155Z",
+            "elapsedMs": 56391
+          },
+          {
+            "stage": "pdf_response_headers",
+            "at": "2026-10-30T05:49:52.766Z",
+            "elapsedMs": 59002,
+            "status": 200
+          },
+          {
+            "stage": "pdf_response_end",
+            "at": "2026-10-30T05:49:52.767Z",
+            "elapsedMs": 59003
+          },
+          {
+            "stage": "pdf_verify_complete",
+            "at": "2026-10-30T05:49:53.160Z",
+            "elapsedMs": 59396
+          }
+        ],
+        "runReceipts": [
+          {
+            "ok": true,
+            "data": {
+              "runId": "run_c108142ed23c47a19e92b061063459b5",
+              "status": "started"
+            }
+          },
+          {
+            "ok": true,
+            "data": {
+              "runId": "run_760bc6e4f14642af933f3e0739d8e9ea",
+              "status": "started"
+            }
+          },
+          {
+            "ok": true,
+            "data": {
+              "runId": "run_f29ea00ab07f42f58bb2f349131a8997",
+              "status": "started"
+            }
+          },
+          {
+            "ok": true,
+            "data": {
+              "runId": "run_5a38afba46e740658e7d692b932264dd",
+              "status": "started"
+            }
+          },
+          {
+            "ok": true,
+            "data": {
+              "runId": "run_a22c8ace4b07410b9580a281eca9e9d9",
+              "status": "started"
+            }
+          }
+        ],
+        "formalWrites": [
+          {
+            "store": "profiles",
+            "key": "profile-CisLwq3apX",
+            "at": "2026-10-30T05:49:17.487Z"
+          },
+          {
+            "store": "resumeBranches",
+            "key": "branch-general-MykT95FpUF",
+            "at": "2026-10-30T05:49:25.197Z"
+          },
+          {
+            "store": "resumeRevisions",
+            "key": "resume-revision-fnv-8a53cb89-62",
+            "at": "2026-10-30T05:49:25.198Z"
+          },
+          {
+            "store": "jobDescriptions",
+            "key": "job-WBoWFQ2YFH",
+            "at": "2026-10-30T05:49:28.663Z"
+          },
+          {
+            "store": "resumeBranches",
+            "key": "branch-profile-CisLwq3apX-job-WBoWFQ2YFH-fnv-1dc0cd60-110",
+            "at": "2026-10-30T05:49:45.495Z"
+          },
+          {
+            "store": "resumeRevisions",
+            "key": "resume-revision-fnv-3c696cb8-202",
+            "at": "2026-10-30T05:49:45.495Z"
+          }
+        ],
+        "providerCalls": 16,
+        "terminal": [
+          {
+            "run": {
+              "runId": "run_a22c8ace4b07410b9580a281eca9e9d9",
+              "status": "completed",
+              "startedAt": "2026-10-30T05:49:36.875Z",
+              "lastEventAt": "2026-10-30T05:49:44.352Z"
+            },
+            "task": {
+              "workflowId": "tailor_resume",
+              "stage": "quality_result",
+              "completionStatus": "completed"
+            },
+            "pendingConfirmation": false
+          }
+        ],
+        "durationMs": {
+          "job": 4033,
+          "fit": 7163,
+          "tailoringProposal": 8082,
+          "confirmationToBranchObservation": 308,
+          "pdfRequestToHeaders": 2611,
+          "pdfRequestToEnd": 2612,
+          "caseTotal": 59396
+        }
+      },
+      "current": {
+        "file": ".tmp/core02-case-gate-integration-1793338469113.jsonl",
+        "status": "passed",
+        "timeline": [
+          {
+            "stage": "case_start",
+            "at": "2026-10-30T05:34:34.990Z",
+            "elapsedMs": 0
+          },
+          {
+            "stage": "run_start",
+            "at": "2026-10-30T05:34:51.655Z",
+            "elapsedMs": 16665
+          },
+          {
+            "stage": "run_start",
+            "at": "2026-10-30T05:35:02.133Z",
+            "elapsedMs": 27143
+          },
+          {
+            "stage": "composition_terminal_observed",
+            "at": "2026-10-30T05:35:07.375Z",
+            "elapsedMs": 32385
+          },
+          {
+            "stage": "job_start",
+            "at": "2026-10-30T05:35:07.375Z",
+            "elapsedMs": 32385
+          },
+          {
+            "stage": "run_start",
+            "at": "2026-10-30T05:35:07.651Z",
+            "elapsedMs": 32661
+          },
+          {
+            "stage": "job_complete",
+            "at": "2026-10-30T05:35:13.720Z",
+            "elapsedMs": 38730
+          },
+          {
+            "stage": "fit_start",
+            "at": "2026-10-30T05:35:13.720Z",
+            "elapsedMs": 38730
+          },
+          {
+            "stage": "run_start",
+            "at": "2026-10-30T05:35:15.702Z",
+            "elapsedMs": 40712
+          },
+          {
+            "stage": "fit_complete",
+            "at": "2026-10-30T05:35:22.961Z",
+            "elapsedMs": 47971
+          },
+          {
+            "stage": "tailoring_start",
+            "at": "2026-10-30T05:35:22.961Z",
+            "elapsedMs": 47971
+          },
+          {
+            "stage": "run_start",
+            "at": "2026-10-30T05:35:23.334Z",
+            "elapsedMs": 48344
+          },
+          {
+            "stage": "tailoring_proposal_complete",
+            "at": "2026-10-30T05:35:30.053Z",
+            "elapsedMs": 55063
+          },
+          {
+            "stage": "tailoring_confirmation",
+            "at": "2026-10-30T05:35:30.823Z",
+            "elapsedMs": 55833
+          },
+          {
+            "stage": "repository_branch_observed",
+            "at": "2026-10-30T05:35:31.082Z",
+            "elapsedMs": 56092
+          },
+          {
+            "stage": "revision_observed",
+            "at": "2026-10-30T05:35:31.136Z",
+            "elapsedMs": 56146
+          },
+          {
+            "stage": "host_terminal_observed",
+            "at": "2026-10-30T05:35:31.252Z",
+            "elapsedMs": 56262
+          },
+          {
+            "stage": "pdf_verify_start",
+            "at": "2026-10-30T05:35:34.568Z",
+            "elapsedMs": 59578
+          },
+          {
+            "stage": "pdf_request_start",
+            "at": "2026-10-30T05:35:35.960Z",
+            "elapsedMs": 60970
+          },
+          {
+            "stage": "pdf_response_headers",
+            "at": "2026-10-30T05:35:38.572Z",
+            "elapsedMs": 63582,
+            "status": 200
+          },
+          {
+            "stage": "pdf_response_end",
+            "at": "2026-10-30T05:35:38.573Z",
+            "elapsedMs": 63583
+          },
+          {
+            "stage": "pdf_verify_complete",
+            "at": "2026-10-30T05:35:38.939Z",
+            "elapsedMs": 63949
+          }
+        ],
+        "runReceipts": [
+          {
+            "ok": true,
+            "data": {
+              "runId": "run_b9e65b651e064c76a0ddc219b47d7e76",
+              "status": "started"
+            }
+          },
+          {
+            "ok": true,
+            "data": {
+              "runId": "run_71b77d4c09b944efa3e8168eef522b7e",
+              "status": "started"
+            }
+          },
+          {
+            "ok": true,
+            "data": {
+              "runId": "run_a60fe41f7295481daef4b52da00bcd01",
+              "status": "started"
+            }
+          },
+          {
+            "ok": true,
+            "data": {
+              "runId": "run_fcc06c12ef5a4d059467a9b7101e26c7",
+              "status": "started"
+            }
+          },
+          {
+            "ok": true,
+            "data": {
+              "runId": "run_6ca4c2f45de84bd4b9b72289eaf4e2e3",
+              "status": "started"
+            }
+          }
+        ],
+        "formalWrites": [
+          {
+            "store": "profiles",
+            "key": "profile-OHE89a3e46",
+            "at": "2026-10-30T05:35:00.067Z"
+          },
+          {
+            "store": "resumeBranches",
+            "key": "branch-general-ZruqcXqKy0",
+            "at": "2026-10-30T05:35:07.323Z"
+          },
+          {
+            "store": "resumeRevisions",
+            "key": "resume-revision-fnv-deec1d17-62",
+            "at": "2026-10-30T05:35:07.323Z"
+          },
+          {
+            "store": "jobDescriptions",
+            "key": "job-OrHzE68_an",
+            "at": "2026-10-30T05:35:12.924Z"
+          },
+          {
+            "store": "resumeBranches",
+            "key": "branch-profile-OHE89a3e46-job-OrHzE68_an-fnv-5a5b4a84-110",
+            "at": "2026-10-30T05:35:31.039Z"
+          },
+          {
+            "store": "resumeRevisions",
+            "key": "resume-revision-fnv-9dedd702-202",
+            "at": "2026-10-30T05:35:31.040Z"
+          }
+        ],
+        "providerCalls": 16,
+        "terminal": [
+          {
+            "run": {
+              "runId": "run_6ca4c2f45de84bd4b9b72289eaf4e2e3",
+              "status": "completed",
+              "startedAt": "2026-10-30T05:35:23.295Z",
+              "lastEventAt": "2026-10-30T05:35:30.025Z"
+            },
+            "task": {
+              "workflowId": "tailor_resume",
+              "stage": "quality_result",
+              "completionStatus": "completed"
+            },
+            "pendingConfirmation": false
+          }
+        ],
+        "durationMs": {
+          "job": 6345,
+          "fit": 9241,
+          "tailoringProposal": 7092,
+          "confirmationToBranchObservation": 259,
+          "pdfRequestToHeaders": 2612,
+          "pdfRequestToEnd": 2613,
+          "caseTotal": 63949
+        }
+      },
+      "diagnosticFailure": {
+        "file": ".tmp/core02-case-gate-integration-1793338153445.jsonl",
+        "status": "failed",
+        "timeline": [
+          {
+            "stage": "case_start",
+            "at": "2026-10-30T05:29:19.881Z",
+            "elapsedMs": 0
+          },
+          {
+            "stage": "run_start",
+            "at": "2026-10-30T05:29:39.797Z",
+            "elapsedMs": 19916
+          },
+          {
+            "stage": "run_start",
+            "at": "2026-10-30T05:29:48.633Z",
+            "elapsedMs": 28752
+          },
+          {
+            "stage": "job_start",
+            "at": "2026-10-30T05:29:54.575Z",
+            "elapsedMs": 34694
+          }
+        ],
+        "runReceipts": [
+          {
+            "ok": true,
+            "data": {
+              "runId": "run_09dd0f2df0054044835333e24788cbac",
+              "status": "started"
+            }
+          },
+          {
+            "ok": true,
+            "data": {
+              "runId": "run_52f353147ced41d89b2dd981be3e3b2c",
+              "status": "started"
+            }
+          }
+        ],
+        "formalWrites": [
+          {
+            "store": "profiles",
+            "key": "profile-KRQ38NNA2L",
+            "at": "2026-10-30T05:29:48.222Z"
+          },
+          {
+            "store": "resumeBranches",
+            "key": "branch-general-DlW-nwOsoM",
+            "at": "2026-10-30T05:29:54.463Z"
+          },
+          {
+            "store": "resumeRevisions",
+            "key": "resume-revision-fnv-e7e54ef8-62",
+            "at": "2026-10-30T05:29:54.463Z"
+          }
+        ],
+        "providerCalls": 6,
+        "terminal": [
+          {
+            "run": {
+              "runId": "run_52f353147ced41d89b2dd981be3e3b2c",
+              "status": "running",
+              "startedAt": "2026-10-30T05:29:48.601Z",
+              "lastEventAt": "2026-10-30T05:29:54.440Z"
+            },
+            "task": {
+              "workflowId": "resume_import",
+              "stage": "resolve_target",
+              "completionStatus": "active"
+            },
+            "pendingConfirmation": false
+          }
+        ]
+      },
+      "directEvidence": "current diagnostic committed General Resume at 05:29:54.463Z; Job sent at 05:29:54.575Z; persisted Run remained running and HermesCareerAgentRuntime reported an active answer. Waiting for the already-required terminal status using the existing 15-second budget removed this harness race. No Runtime or PDF implementation changed.",
+      "fixed": true,
+      "runtimeOrPdfFix": false,
+      "full14Rerun": false,
+      "full14Decision": "targeted M passed both frozen/current; no basis to rerun all 14 just to obtain a number",
+      "carryForward": "historical root causes stay unknown; no proof of a PDF latency or SQ1 prompt regression; existing P518 model-readback issue unchanged"
+    },
+    "gates": {
+      "unitIntegration": {
+        "files": 31,
+        "passed": 286,
+        "exitCode": 0,
+        "log": ".tmp/sq1-closeout-unit-final.log",
+        "json": ".tmp/sq1-closeout-unit-final.json"
+      },
+      "finalConsumptionAndSkills": {
+        "files": 2,
+        "passed": 30,
+        "consumptionTests": 17,
+        "exitCode": 0,
+        "log": ".tmp/sq1-closeout-consumption-accepted.log"
+      },
+      "safetyOracle": {
+        "passed": 40,
+        "total": 40,
+        "exitCode": 0,
+        "log": ".tmp/sq1-closeout-oracle-final.log",
+        "scope": "deterministic mapped regression assertions, not natural-model quality"
+      },
+      "hermesBehavior": {
+        "passed": 12,
+        "total": 12,
+        "providerCalls": 37,
+        "exitCode": 0,
+        "log": ".tmp/sq1-closeout-behavior-final.log"
+      },
+      "hermesM": {
+        "frozen": "1/1 exit 0",
+        "current": "1/1 exit 0"
+      },
+      "uiPdf": {
+        "passed": 1,
+        "exitCode": 0,
+        "log": ".tmp/sq1-closeout-claim-ui-accepted.log",
+        "scope": "new SQL/Pandas resume_only -> official PDF; existing source/Profile unchanged"
+      },
+      "typecheck": {
+        "exitCode": 0,
+        "log": ".tmp/sq1-closeout-typecheck-final-accepted.log"
+      },
+      "lint": {
+        "fullExitCode": 0,
+        "fullLog": ".tmp/sq1-closeout-lint-final.log",
+        "finalChangedFilesExitCode": 0,
+        "finalLog": ".tmp/sq1-closeout-lint-accepted.log"
+      },
+      "build": {
+        "exitCode": 0,
+        "log": ".tmp/sq1-closeout-build-accepted.log",
+        "distDir": ".tmp/sq1-closeout-production-accepted"
+      },
+      "bundleCheck": {
+        "exitCode": 0,
+        "log": ".tmp/sq1-closeout-bundle-final.log",
+        "version": "0.19.0",
+        "commit": "eb52760564db",
+        "patch": "careeradapt-api-toolsets-v1"
+      },
+      "diff": {
+        "exitCode": 0,
+        "log": ".tmp/sq1-closeout-diff.log"
+      },
+      "secretScan": {
+        "exitCode": 0,
+        "scope": "all added tracked lines and new files checked against configured secret values and key patterns; values never printed"
+      }
+    },
+    "processFailuresPreserved": [
+      "Initial two new fixture assertions compared normalized saved Profile against the pre-save object; corrected to compare actual persisted before/after snapshots.",
+      "First broad-unit launcher had incorrect PowerShell argument splatting and ran no tests; Python argv launcher completed 286 tests.",
+      "An incorrect NEXT_DIST_DIR variable let the first build use .next and remove live Behavior dev output. Affected Behavior run explicitly aborted; independent CAREERAD_NEXT_DIST_DIR production build and fresh Behavior 12/12 passed.",
+      "The first claim-test command collected no tests under the 14-case config; separate opt-in config added.",
+      "PDF helper return initially placed inside the item loop; typecheck caught possible undefined. Return moved after all assertions; final UI/PDF and typecheck passed."
+    ],
+    "scope": {
+      "newDexieTables": false,
+      "newProductionDependencies": false,
+      "factGuardThresholdChanged": false,
+      "runtimeImplementationChanged": false,
+      "pdfRendererChanged": false,
+      "newProfileOrResumeSchema": false,
+      "p518Started": false,
+      "p519Started": false
+    },
+    "nextStep": "User chooses anonymous manual quality certification, SQ2 input, or explicit P5.1.8; no automatic continuation"
+  }
 }

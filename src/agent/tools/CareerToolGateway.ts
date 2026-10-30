@@ -1,5 +1,6 @@
 import { agentAttachmentStore } from "@/services/agent/AgentAttachmentStore";
 import { nanoid } from "nanoid";
+import type { CompositionSourceTurn } from "@/domain/resumeComposition/sessionConfirmedSkills";
 import { z } from "zod";
 import type { AgentToolResult } from "../contracts/agentTool";
 import { AgentConfirmationRequiredError, AgentExecutor } from "../runtime/agentExecutor";
@@ -133,6 +134,8 @@ export type CareerToolExecutionContext = {
   sourceUserMessageId?: string;
   /** Host-resolved source text. Ephemeral: never persisted or sent over MCP. */
   sourceUserMessage?: string;
+  /** Host-resolved turn for composition; never supplied by Hermes. */
+  compositionSourceTurn?: CompositionSourceTurn;
   /** Browser/Host-owned answer for the current tailoring checkpoint. */
   tailoringAnswer?: {
     checkpointId: string;

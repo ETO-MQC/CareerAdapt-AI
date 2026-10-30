@@ -204,6 +204,15 @@ export function prepareCareerWorkflowInvocation(
     input,
     context: {
       ...contextWithoutSource,
+      ...(name === "career.workflow.compose_resume" && context.sourceUserMessage && context.logicalTurnId
+        && context.sourceUserMessageId && context.careerSessionBinding ? {
+          compositionSourceTurn: {
+            sessionId: context.careerSessionBinding.agentSessionId,
+            messageId: context.sourceUserMessageId,
+            turnId: context.logicalTurnId,
+            exactSourceText: context.sourceUserMessage
+          }
+        } : {}),
       logicalToolOperationId: context.logicalToolOperationId ?? operationId,
     },
     sameTurnTarget: turnScopedInput.sameTurnTarget
@@ -483,7 +492,7 @@ export async function executeCareerWorkflowFacade(
       return profileBindingRequiredFacade(name, operationId, input, context);
     }
     if (context.confirmed && typeof input.checkpointId === "string" && input.checkpointId.trim()) {
-      const composed = await call("career.resume.compose", input, 1);
+      const composed = await call("career.resume.compose", { ...input, sessionScopeId: context.careerSessionBinding?.agentSessionId }, 1);
       const composedData = objectValue(composed.data);
       return facadeFromAtomic(name, operationId, composed, "completed", "open_resume", undefined, {
         kind: "resume_composition",
@@ -498,7 +507,9 @@ export async function executeCareerWorkflowFacade(
         result: compactData(composed.data, ["resumeId", "revisionId", "revision", "mode", "idempotent"])
       }, context);
     }
-    const plan = await call("career.resume.plan_composition", input);
+    const plan = await call("career.resume.plan_composition", { ...input,
+      sessionScopeId: context.careerSessionBinding?.agentSessionId,
+      ...(context.compositionSourceTurn ? { sessionSource: context.compositionSourceTurn } : {}) });
     if (!plan.ok) {
       return facadeFromAtomic(name, operationId, plan, "failed", "retry_composition", "组装方案暂时没有完成；请重试当前步骤。", {
         kind: "resume_composition",
@@ -538,6 +549,7 @@ export async function executeCareerWorkflowFacade(
     }
     const composed = await call("career.resume.compose", {
       ...input,
+      sessionScopeId: context.careerSessionBinding?.agentSessionId,
       checkpointId: stringValue(planned.checkpointId) ?? stringValue(persistedCheckpoint.checkpointId)
     }, 1);
     return facadeFromAtomic(name, operationId, composed, "completed", "open_resume", undefined, {

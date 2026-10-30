@@ -42,7 +42,7 @@ export function diagnoseResumeQuality(result: ResumeCompositionResult) {
       specificity: observation(metrics.lowDensityBullets > 0, `${metrics.lowDensityBullets} low-density bullets.`),
       relevance: result.candidateEvidenceMatrix ? observation(result.candidateEvidenceMatrix.rows.some(row => row.evidenceStatus === "unknown"), "Requirement evidence coverage; missing evidence remains unknown.") : unknown("No selected Job analysis."),
       clarity: observation(metrics.fillerBullets > 0 || metrics.paragraphHeavyItems > 0, "Filler and paragraph-density rule observations."),
-      evidenceDensity: claims.length ? observation(claims.some(claim => !claim.factIds.length), "Claim-to-fact references, without treating keyword presence as evidence.") : unknown("No claims."),
+      evidenceDensity: claims.length ? observation(claims.some(claim => !claim.factIds.length && !claim.sourceTurnIds.length), "Claim-to-fact or confirmed source-turn references, without treating keyword presence as evidence.") : unknown("No claims."),
       redundancy: observation(metrics.duplicateBullets > 0, `${metrics.duplicateBullets} duplicate bullets.`),
       ownershipAccuracy: unknown("Ownership is checked against source wording by Writer/Reviewer; this diagnostic has no independent semantic calibration.")
     },

@@ -370,8 +370,12 @@ function claimFor(input: {
 }) {
   const sourceFacts = input.factIds.map((id) => input.facts.get(id)).filter((fact): fact is FactStatement => Boolean(fact));
   const evidenceRefs = evidenceRefsForFacts(sourceFacts);
-  const guard = runRuleFactGuard({ originalText: input.originalText, checkedText: input.text, usedEvidenceRefs: evidenceRefs });
-  const allConfirmed = sourceFacts.length > 0 && sourceFacts.every(isConfirmedFact);
+  const sessionNodes = input.graph.nodes.filter(node => node.id.startsWith("session-claim:")
+    && input.sourceAssetIds.includes(node.id) && node.type === "skill"
+    && node.confirmationStatus === "confirmed" && node.sourceTurnIds.length > 0
+    && node.sourceExcerpts.length > 0 && input.text === resumeSkillLabel({ name: node.value, maturity: node.maturity }));
+  const guard = runRuleFactGuard({ originalText: [input.originalText, ...sessionNodes.flatMap(node => node.sourceExcerpts)].join("\n"), checkedText: input.text, usedEvidenceRefs: evidenceRefs });
+  const allConfirmed = sourceFacts.length > 0 && sourceFacts.every(isConfirmedFact) || sessionNodes.length === 1;
   const classification = !allConfirmed || guard.status === "blocked_high_risk"
     ? "UNSUPPORTED"
     : guard.status === "needs_edit"
@@ -383,7 +387,7 @@ function claimFor(input: {
     classification,
     sourceAssetIds: input.sourceAssetIds,
     factIds: input.factIds,
-    sourceTurnIds: input.factIds.flatMap((id) => input.facts.get(id)?.provenance.map((source) => source.sourceTurnId).filter((value): value is string => Boolean(value)) ?? []),
+    sourceTurnIds: unique([...input.factIds.flatMap((id) => input.facts.get(id)?.provenance.map((source) => source.sourceTurnId).filter((value): value is string => Boolean(value)) ?? []), ...sessionNodes.flatMap(node => node.sourceTurnIds)]),
     evidenceNodeIds: input.sourceAssetIds.flatMap((assetId) => input.graph.nodes.filter((node) => node.sourceAssetIds.includes(assetId)).map((node) => node.id)),
     reason: classification === "UNSUPPORTED" ? "来源证据不足或规则守卫阻止该表达进入简历。" : input.reason,
     guardStatus: guard.status === "pass" ? "pass" : guard.status === "needs_edit" ? "needs_edit" : guard.status === "blocked_high_risk" ? "blocked" : "not_run"
@@ -438,7 +442,7 @@ function derivedSkills(graph: ResumeEvidenceGraph, facts: Map<string, FactStatem
     claimIds: group.claimIds,
     factIds: group.factIds,
     sourceBlockIds: [],
-    sourceExcerpt: group.names.join("、")
+    sourceExcerpt: [...group.names, ...graph.nodes.filter(node => group.sourceAssetIds.includes(node.id) && node.id.startsWith("session-claim:")).flatMap(node => node.sourceExcerpts)].join("\n")
   }));
   return { items, claims: skillClaims, names: [...grouped.values()].flatMap((group) => group.names) };
 }
