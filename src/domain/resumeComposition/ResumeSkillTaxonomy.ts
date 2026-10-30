@@ -72,13 +72,18 @@ export function extractTechnicalTerms(item: ResumeItemV2, text: string) {
 export function normalizeSkillGroups(skills: ResumeSkillEvidence[]) {
   const grouped = new Map<string, string[]>();
   for (const skill of skills) {
-    if (skill.maturity === "familiar" || skill.maturity === "learning") continue;
     const canonical = canonicalTechnicalTerm(skill.name) ?? skill.name.trim();
     const category = compactSkillCategory(technicalTermCategory(canonical) ?? skill.category);
     if (!canonical || !category || !isUsefulSkillName(canonical)) continue;
-    grouped.set(category, unique([...(grouped.get(category) ?? []), canonical]));
+    grouped.set(category, unique([...(grouped.get(category) ?? []), resumeSkillLabel({ ...skill, name: canonical })]));
   }
   return Object.fromEntries([...grouped.entries()].map(([category, values]) => [category, values.slice(0, 16)]));
+}
+
+/** Preserve capability maturity whenever a skill is projected into resume text. */
+export function resumeSkillLabel(skill: Pick<ResumeSkillEvidence, "name" | "maturity">) {
+  return skill.maturity === "learning" ? `${skill.name}（正在学习）`
+    : skill.maturity === "familiar" ? `${skill.name}（基础接触）` : skill.name;
 }
 
 export function isUsefulSkillName(value: string) {

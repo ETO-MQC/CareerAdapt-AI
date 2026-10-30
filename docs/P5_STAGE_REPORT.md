@@ -1,5 +1,15 @@
 # P5 阶段报告与智能体优化交接
 
+## 2026-10-30 P5.1-SQ1：实现落地 / 部分验收，尚未全量通过
+
+用户授权 Guided Resume Intelligence / Skills Quality；起始HEAD与fetch后origin/main均1573e267，Git干净，Core-02冻结证据及六Skill SHA逐项核对。六Skills升级2.0.0，统一Claim Safety v2、澄清/故事挖掘/岗位表达/四视角评审；共享Writer/Intake/Guard提示词，修复通用生成丢弃familiar/learning技能，保留成熟度限定和source turn。Runtime/Repository/CAS/Fact Guard阈值未改，无新表/依赖/Planner/Profile/Resume模型或PDF renderer。
+
+最终相关30文件270项及最后测试类型修正后13项复跑、40/40安全oracle映射、Hermes Behavior12/12（37模拟请求）、定向UI/PDF3/3、typecheck/lint/build/bundle-check/diff退出0。完整Hermes两轮均13/14、退出1：M先等待FIT回复标记90秒超时，第二轮到PDF回执15秒超时（trace有pending PDF POST，状态-1，无完成响应），按规则停止第三次重跑，不宣称14/14。
+
+30匿名case覆盖六类/六Skills；同组before/after哈希、60记录、13维rubric和Web评测包已准备。模拟adapter64响应只证明评测管线；真实专用Provider配置缺失，命令退出2、请求0、REAL_PROVIDER_BLOCKED，文案/提问/HR质量不认证。通用编译对任意当前会话resume_only新声明的专用摄入仍未实现，保留为提案而非隐式写Profile。
+
+后续仅按用户选择复核M直接证据或执行匿名真实质量包；原Core-02历史冻结不改写，OCR/正式包/P518结转。尚未提交、未推送、未打包，不进入P5.1.8/P5.1.9，本轮停止。详见[SQ1阶段报告](architecture/p5.1-skills-quality-v1-20261030.md)及[机器证据](architecture/p5.1-skills-quality-v1-evidence-20261030.json)。
+
 ## 2026-10-30 Core-02-FINAL：COMPLETE / hermetic functional freeze
 
 基线/远程起始main均0079b7bd，工作区干净。L/M/N（最终确认消费与正式PDF）、B/C Hermes多轮、Behavior12/12、完整Hermes14/14（22Run/63模拟请求，0skip/0flaky）、401及来源/版本/模板不变量通过；27文件242项、UI/PDF3/3、typecheck/lint/build/bundle-check/diff全部退出0。修复旧revision对话壳、Job根目标和成功apply遗留pending确认；harness改为suite复用Runtime、独立Context/正式绑定Session、preflight与真实ID fixture，短探针关闭连接，无新增重试。

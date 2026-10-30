@@ -994,8 +994,8 @@ export function buildClarificationQuestions(input: { job: JobDescription; taskIn
     return [{
       id: `clarification-${requirement.id}-${index + 1}`,
       question: mode === "max_fit"
-        ? `为了提高与“${requirementText}”的匹配度，你的实际情况是哪一种？`
-        : group?.relation === "any_of" ? `以下 ${group.requirementIds.length} 项满足任一项即可；你具备其中哪一项真实经历或可核验材料？` : `你是否具备"${requirementText}"相关的真实经历或可核验材料？`,
+        ? `这个岗位看重“${requirementText}”。资料里没写不代表你没做过，你更接近下面哪种情况？也可以自由回答或跳过。`
+        : group?.relation === "any_of" ? `以下 ${group.requirementIds.length} 项满足任一项即可；你做过或学过哪一项？可以说说课程、练习或项目中的情况，也可以跳过。` : `这个岗位看重“${requirementText}”。资料里没有明确记录，你在课程、练习或项目中接触过吗？可以自由描述，也可以跳过。`,
       requirementText,
       requirementCategory: requirement.kind,
       requirementPriority: requirement.priority,
@@ -1034,11 +1034,11 @@ function isMaterialTailoringRequirement(statement: string) {
 }
 
 function evidenceNeedForRequirement(category: string, statement: string) {
-  if (category === "tool_or_technology") return "请提供实际使用场景、项目范围和可核验结果";
+  if (category === "tool_or_technology") return "可以说说课程、练习或项目里怎么用过；只学过或没用过也可以，不需要另传证明";
   if (category === "verification" || /作品集|仓库|链接|材料|证据|可核验/u.test(statement)) return "请提供可核验材料、来源或链接";
   if (category === "responsibility") return "请提供你实际负责的任务、方法和结果";
   if (category === "experience_depth") return "请提供对应项目或工作经历、时间和交付结果";
-  return "请提供真实经历、使用场景和结果证据";
+  return "可以描述你做过或学过什么，以及具体负责哪部分；不确定也可以跳过";
 }
 
 export function clarificationAnswerType(statement: string, capability?: CapabilityEntity): "boolean" | "proficiency" | "text" | "url" | "multi_select" {

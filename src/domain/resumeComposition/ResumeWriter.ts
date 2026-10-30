@@ -32,7 +32,7 @@ import { buildResumeEvidenceGraph } from "./ResumeEvidenceGraph";
 import { planResumeBlueprint } from "./ResumeBlueprint";
 import { reviewResumeComposition } from "./ResumeReviewer";
 import { resolveCareerAssetDisplayIdentity } from "./CareerAssetDisplayIdentity";
-import { normalizeSkillGroups } from "./ResumeSkillTaxonomy";
+import { normalizeSkillGroups, resumeSkillLabel } from "./ResumeSkillTaxonomy";
 import { CareerResumeWritingService } from "./CareerResumeWritingService";
 import { stableHashText } from "@/services/security/text";
 import { assessResumeBullet } from "./CareerResumeQualityPolicyV1";
@@ -298,6 +298,10 @@ function compressProfessionalBullet(value: string, tools: string[]) {
 
 function compileItem(input: { entry: NonNullable<ReturnType<typeof migrateCareerProfileToV2>["structuredFacts"]>[number]; asset: ResumeBlueprint["assets"][number]; writingAsset?: CareerResumeWritingAsset; sourceFacts: FactStatement[]; graph: ResumeEvidenceGraph }): ResumeItemV2 {
   const item = input.entry.data;
+  if (item.sectionType === "skills") {
+    const maturity = input.graph.nodes.find(node => node.id === `asset:${item.id}`)?.maturity;
+    return { ...item, name: resumeSkillLabel({ name: item.name, maturity }) };
+  }
   if (item.sectionType === "project") {
     return {
       ...item,
@@ -398,9 +402,10 @@ function derivedSkills(graph: ResumeEvidenceGraph, facts: Map<string, FactStatem
   const skillClaims: ResumeClaim[] = [];
   const grouped = new Map<string, { names: string[]; claimIds: string[]; factIds: string[]; sourceAssetIds: string[] }>();
   for (const skill of graph.skillMatrix) {
+    const label = resumeSkillLabel(skill);
     const claim = claimFor({
       id: `claim:skill:${skill.name}`,
-      text: skill.name,
+      text: label,
       classification: "SUPPORTED",
       sourceAssetIds: skill.sourceAssetIds,
       factIds: skill.factIds,
@@ -414,7 +419,7 @@ function derivedSkills(graph: ResumeEvidenceGraph, facts: Map<string, FactStatem
     skillClaims.push(claim);
     if (claim.classification === "SUPPORTED" || claim.classification === "DERIVED_PRESENTATION") {
       const group = grouped.get(skill.category) ?? { names: [], claimIds: [], factIds: [], sourceAssetIds: [] };
-      group.names = unique([...group.names, skill.name]);
+      group.names = unique([...group.names, label]);
       group.claimIds = unique([...group.claimIds, claim.id]);
       group.factIds = unique([...group.factIds, ...skill.factIds]);
       group.sourceAssetIds = unique([...group.sourceAssetIds, ...skill.sourceAssetIds]);

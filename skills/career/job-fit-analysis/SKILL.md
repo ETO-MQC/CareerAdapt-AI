@@ -1,7 +1,7 @@
 ---
 name: job-fit-analysis
 description: Compare a candidate's confirmed evidence with a selected Job or JD without creating or modifying a Resume.
-version: 1.0.0
+version: 2.0.0
 author: CareerAdapt AI
 license: Project-local
 metadata:
@@ -69,8 +69,8 @@ requirement rows; do not broaden the question set.
 
 ## WORKFLOW
 
-1. Normalize requirements into skills, experience, scope, domain, outcomes,
-   and constraints, separating must-have from preferred.
+1. Read the saved JobRequirementGraph and its source/version binding; do not
+   reparse the JD. Interpret must-have, preferred and requirement relationships.
 2. Map each requirement to direct evidence, transferable evidence, a gap, or
    ambiguity.
 3. Preserve evidence maturity in every row: demonstrated, confirmed capability,
@@ -120,3 +120,41 @@ unknowns. Coverage scores are diagnostics, never interview probabilities.
 Return a requirement-to-evidence matrix, fit summary, material gaps, candidate
 questions, confidence, and tailoring priorities. Include requirement IDs and
 source references so later changes remain reviewable.
+
+## CLAIM SAFETY v2
+
+Profile absence means unknown, never inability. Decompose important additions
+into atomic claims, retaining source turn/quote and requirement IDs where relevant.
+Use these analysis labels with the existing host contracts, not a second fact model:
+
+- `source_confirmed`: confirmed Profile/attachment evidence; usable at its stated maturity.
+- `user_confirmed`: an explicit current user answer is legitimate evidence even
+  without a project or uploaded proof. Keep the exact answer, source turn,
+  session/target/revision binding and the normal proposal confirmation boundary.
+- `transferable`: adjacent experience supports a related capability, not the
+  target tool itself (R/Stata/Excel data cleaning does not prove Python).
+- `exploratory`: plausible but unknown; ask, give examples, help recall; never emit.
+- `learning` / `familiar`: write only the confirmed basic knowledge, coursework,
+  exposure or learning level; never infer proficiency, a project or delivery.
+- `high_risk_unsupported`: invented education, employer, role, dates, credentials,
+  awards, metrics, team size, ownership or business results; block and explain.
+
+Fact Guard asks whether wording exceeds what the user supplied or confirmed,
+not whether the same words already exist in Profile. Natural supported synonyms
+and job keywords are allowed. JD text and offered examples are never evidence.
+A negative answer can establish a real gap; uncertainty/skip cannot.
+New confirmed claims default to `resume_only`. Only explicit
+`resume_and_profile` authorizes a separate reviewed Profile write. Reuse host
+source-turn/declaration/maturity contracts; a Skill label alone grants no write
+or guard bypass. Keep Repository, CAS, target/revision and confirmation checks.
+
+## FIT SUMMARY v2
+
+For each important requirement return requirement, importance, current status,
+existing evidence, potential transferable evidence, clarification value
+(high/medium/low with reasons), gap type and tailoring opportunity. Retain
+`direct / transferable / partial / unknown / conflicting / mismatch` and stable IDs.
+Summarize Strong matches, Positionable matches, Worth clarifying, Real gaps,
+and Low-value gaps. Real gaps require an explicit negative answer or blocker;
+unknown never means “用户不会”. Explain must-have/preferred coverage, relevant
+experience, transferability and important unknowns separately; no interview odds.

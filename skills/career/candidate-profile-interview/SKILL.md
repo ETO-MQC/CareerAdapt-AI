@@ -1,7 +1,7 @@
 ---
 name: candidate-profile-interview
 description: Create or complete a CareerProfile from user-provided experience, or answer an active Profile Intake question with evidence-bound facts.
-version: 1.0.0
+version: 2.0.0
 author: CareerAdapt AI
 license: Project-local
 metadata:
@@ -69,7 +69,9 @@ a write. Never turn a recovery step into a new factual assertion.
 1. Resolve the turn against the active question before generic intent rules.
 2. Classify answer, correction, skip, reference, workflow control, new asset,
    or casual conversation.
-3. Capture only the active asset and retain the exact source quote and turn ID.
+3. Identify multiple career assets in a natural turn, retaining the exact source
+   quote and turn ID for each. During an active targeted follow-up, patch only
+   its bound asset; unrelated assets remain separate proposals.
 4. Record a skip so the same question is not asked again.
 5. Ask at most one highest-value next question and leave gaps visible.
 
@@ -118,3 +120,38 @@ state and return a concise retry instruction.
 Return a structured resolution with `kind`, question identifiers, confidence,
 reason, source-bound patch or skip entry, unresolved fields, and one next-turn
 plan. Include no unconfirmed resume-ready prose.
+
+## CLAIM SAFETY v2
+
+Profile absence means unknown, never inability. Decompose important additions
+into atomic claims, retaining source turn/quote and requirement IDs where relevant.
+Use these analysis labels with the existing host contracts, not a second fact model:
+
+- `source_confirmed`: confirmed Profile/attachment evidence; usable at its stated maturity.
+- `user_confirmed`: an explicit current user answer is legitimate evidence even
+  without a project or uploaded proof. Keep the exact answer, source turn,
+  session/target/revision binding and the normal proposal confirmation boundary.
+- `transferable`: adjacent experience supports a related capability, not the
+  target tool itself (R/Stata/Excel data cleaning does not prove Python).
+- `exploratory`: plausible but unknown; ask, give examples, help recall; never emit.
+- `learning` / `familiar`: write only the confirmed basic knowledge, coursework,
+  exposure or learning level; never infer proficiency, a project or delivery.
+- `high_risk_unsupported`: invented education, employer, role, dates, credentials,
+  awards, metrics, team size, ownership or business results; block and explain.
+
+Fact Guard asks whether wording exceeds what the user supplied or confirmed,
+not whether the same words already exist in Profile. Natural supported synonyms
+and job keywords are allowed. JD text and offered examples are never evidence.
+A negative answer can establish a real gap; uncertainty/skip cannot.
+New confirmed claims default to `resume_only`. Only explicit
+`resume_and_profile` authorizes a separate reviewed Profile write. Reuse host
+source-turn/declaration/maturity contracts; a Skill label alone grants no write
+or guard bypass. Keep Repository, CAS, target/revision and confirmation checks.
+
+## NATURAL INTAKE v2
+
+Collect useful career assets, not every empty schema field. One turn can contain
+several facts. Ask only the most valuable missing dimension; do not force a
+capability into a fabricated Project achievement. A statement such as “SQL 基础
+查询我能独立完成” can support a bounded capability without a project source.
+Preserve session binding, Profile revision, source turns and final confirmation.

@@ -1,7 +1,7 @@
 ---
 name: resume-composition
 description: Create or update an isolated general/base Resume from confirmed CareerProfile evidence, without a target Job or JD.
-version: 1.0.0
+version: 2.0.0
 author: CareerAdapt AI
 license: Project-local
 metadata:
@@ -88,10 +88,10 @@ Guard, Reviewer, and ATS re-check. Cut low-relevance lines before changing
 safe typography.
 
 The proposal should expose three to four reusable confirmed fact bullets when
-+the Profile evidence supports them. Preserve exact source links and avoid
-+mechanical phrases, empty adjectives, keyword lists, or job-description
-+parroting. Do not persist a `ResumeDocument`; it remains a derived projection
-+of the confirmed branch/revision.
+the Profile evidence supports them. Preserve exact source links and avoid
+mechanical phrases, empty adjectives, keyword lists, or job-description
+parroting. Do not persist a `ResumeDocument`; it remains a derived projection
+of the confirmed branch/revision.
 Return the proposal/checkpoint before confirmation and the new resume/revision
 only after confirmation. Preview and PDF remain derived from the persisted
 revision; verify the text layer before export.
@@ -112,3 +112,39 @@ Stop at `waiting_for_confirmation` before a write, at `waiting_for_user` for
 an optional question, or at `partial`/`failed` with the checkpoint and safe
 error. Stop composition when the Profile revision, source branch, or session
 binding is stale; reread and replan rather than replaying a write.
+
+## CLAIM SAFETY v2
+
+Profile absence means unknown, never inability. Decompose important additions
+into atomic claims, retaining source turn/quote and requirement IDs where relevant.
+Use these analysis labels with the existing host contracts, not a second fact model:
+
+- `source_confirmed`: confirmed Profile/attachment evidence; usable at its stated maturity.
+- `user_confirmed`: an explicit current user answer is legitimate evidence even
+  without a project or uploaded proof. Keep the exact answer, source turn,
+  session/target/revision binding and the normal proposal confirmation boundary.
+- `transferable`: adjacent experience supports a related capability, not the
+  target tool itself (R/Stata/Excel data cleaning does not prove Python).
+- `exploratory`: plausible but unknown; ask, give examples, help recall; never emit.
+- `learning` / `familiar`: write only the confirmed basic knowledge, coursework,
+  exposure or learning level; never infer proficiency, a project or delivery.
+- `high_risk_unsupported`: invented education, employer, role, dates, credentials,
+  awards, metrics, team size, ownership or business results; block and explain.
+
+Fact Guard asks whether wording exceeds what the user supplied or confirmed,
+not whether the same words already exist in Profile. Natural supported synonyms
+and job keywords are allowed. JD text and offered examples are never evidence.
+A negative answer can establish a real gap; uncertainty/skip cannot.
+New confirmed claims default to `resume_only`. Only explicit
+`resume_and_profile` authorizes a separate reviewed Profile write. Reuse host
+source-turn/declaration/maturity contracts; a Skill label alone grants no write
+or guard bypass. Keep Repository, CAS, target/revision and confirmation checks.
+
+## GENERAL RESUME v2
+
+General resumes may use source_confirmed, user_confirmed and explicitly
+confirmed familiar/basic capability, at accurate maturity. Do not demand an
+attachment for a direct user statement. Use existing host evidence contracts;
+if a current answer is not yet available to the composition checkpoint, keep
+it as a proposal and obtain the host confirmation rather than forcing Profile
+synchronization. Exclude job-specific exploratory claims from General Resume.

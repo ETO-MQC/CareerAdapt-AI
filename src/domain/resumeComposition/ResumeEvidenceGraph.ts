@@ -139,7 +139,6 @@ export function buildResumeEvidenceGraph(input: ResumeEvidenceGraphInput): Resum
     const term = canonicalTechnicalTerm(skill.name);
     if (!term || !isConfirmedFact(skill.fact)) continue;
     const maturity = factMaturityOf(skill.fact);
-    if (maturity === "familiar" || maturity === "learning") continue;
     const existing = skillEvidence.get(term);
     const category = technicalTermCategory(term) ?? "其他";
     if (existing) {
@@ -251,7 +250,8 @@ function isExcludedAsset(item: ResumeItemV2, text: string, status: ResumeEvidenc
   const normalized = `${assetTitle(item)} ${text}`.trim();
   const declarationOnlyExperience = maturity === "confirmed_capability"
     && !["skills", "languages"].includes(item.sectionType);
-  const immatureCoreAsset = maturity === "familiar" || maturity === "learning" || declarationOnlyExperience;
+  const immatureCoreAsset = ((maturity === "familiar" || maturity === "learning")
+    && !["skills", "languages"].includes(item.sectionType)) || declarationOnlyExperience;
   return !normalized || status !== "confirmed" || immatureCoreAsset || /empty-resume-placeholder|待整理|暂无可靠内容|fallback|diagnostic|placeholder|negative|失败原因|不采用|Other\b/iu.test(normalized);
 }
 

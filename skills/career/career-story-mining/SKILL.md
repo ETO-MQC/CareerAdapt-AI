@@ -1,7 +1,7 @@
 ---
 name: career-story-mining
 description: Extract actions, methods, challenges, results, and evidence from one user-described career experience without changing Profile or Resume data.
-version: 1.0.0
+version: 2.0.0
 author: CareerAdapt AI
 license: Project-local
 metadata:
@@ -116,3 +116,41 @@ return the preserved quote and a targeted clarification; do not retry a write.
 Return target asset IDs, candidate patches, exact evidence links, confidence,
 unresolved fields, and one next-question proposal. Each patch must be scoped
 to one asset and must not replace unrelated facts.
+
+## CLAIM SAFETY v2
+
+Profile absence means unknown, never inability. Decompose important additions
+into atomic claims, retaining source turn/quote and requirement IDs where relevant.
+Use these analysis labels with the existing host contracts, not a second fact model:
+
+- `source_confirmed`: confirmed Profile/attachment evidence; usable at its stated maturity.
+- `user_confirmed`: an explicit current user answer is legitimate evidence even
+  without a project or uploaded proof. Keep the exact answer, source turn,
+  session/target/revision binding and the normal proposal confirmation boundary.
+- `transferable`: adjacent experience supports a related capability, not the
+  target tool itself (R/Stata/Excel data cleaning does not prove Python).
+- `exploratory`: plausible but unknown; ask, give examples, help recall; never emit.
+- `learning` / `familiar`: write only the confirmed basic knowledge, coursework,
+  exposure or learning level; never infer proficiency, a project or delivery.
+- `high_risk_unsupported`: invented education, employer, role, dates, credentials,
+  awards, metrics, team size, ownership or business results; block and explain.
+
+Fact Guard asks whether wording exceeds what the user supplied or confirmed,
+not whether the same words already exist in Profile. Natural supported synonyms
+and job keywords are allowed. JD text and offered examples are never evidence.
+A negative answer can establish a real gap; uncertainty/skip cannot.
+New confirmed claims default to `resume_only`. Only explicit
+`resume_and_profile` authorizes a separate reviewed Profile write. Reuse host
+source-turn/declaration/maturity contracts; a Skill label alone grants no write
+or guard bypass. Keep Repository, CAS, target/revision and confirmation checks.
+
+## STORY MINING v2
+
+Use Context → Task → Action → Method → Challenge → Result → Ownership as an
+internal lens, not a STAR form. Ask only the most useful current layer:
+1. What happened / what problem? 2. What did you do? 3. How/tools/method?
+4. What changed or was delivered? Preserve team versus individual contribution.
+If answering is difficult, offer 3–5 context-specific examples, with free text:
+“数据清洗更接近缺失值处理、异常值排查、多表合并、格式统一、口径核对哪种？”
+Only the user's selection/answer establishes a claim; never save the examples.
+A real qualitative deliverable is useful without a metric. Do not chase a number.

@@ -1,0 +1,181 @@
+{
+  "date": "2026-10-30",
+  "stage": "P5.1-SQ1",
+  "status": "IMPLEMENTED_PARTIAL_ACCEPTANCE",
+  "baselineHead": "1573e267614ff93363eff2ed2bade34ff01ed078",
+  "originMain": "1573e267614ff93363eff2ed2bade34ff01ed078",
+  "initialWorktree": "clean",
+  "core02FreezeVerified": true,
+  "scope": {
+    "runtimeChanged": false,
+    "repositoryCasChanged": false,
+    "factGuardThresholdChanged": false,
+    "newTables": false,
+    "newProductionDependencies": false,
+    "newPlanner": false,
+    "newProfileModel": false,
+    "newResumeModel": false,
+    "pdfRendererChanged": false
+  },
+  "skills": {
+    "candidate-profile-interview": {
+      "beforeSHA256": "53cbb903e88157132a0b6c656ea1e2d64edaba538637da05447115e48376d557",
+      "beforeVersion": "1.0.0",
+      "afterSHA256": "b58f72952350ad3efd154f6b482f0c81a6cf9dff58fc12dfdf555eb1f668f579",
+      "afterVersion": "2.0.0"
+    },
+    "career-story-mining": {
+      "beforeSHA256": "9ce2cb63f98397867e8f0081665aac0098eca9c03c6d81cbe8aadb3f5d50bbde",
+      "beforeVersion": "1.0.0",
+      "afterSHA256": "03a9ea1a8ac24b27db7203f84a9cf763ebaae7b75421e4728dc3a0c4c4401abf",
+      "afterVersion": "2.0.0"
+    },
+    "job-fit-analysis": {
+      "beforeSHA256": "b4a70be83c7a10b5631a371d077a47757a0b60bd2c14de6c402f02a16c63402c",
+      "beforeVersion": "1.0.0",
+      "afterSHA256": "ce7b5a1e58331756b807e0b6862e662613f5e1d2eed06190528b0880054dceb9",
+      "afterVersion": "2.0.0"
+    },
+    "resume-composition": {
+      "beforeSHA256": "056d5d8732d86ebbe500761aafa4c492860445c7a3980f2fa02bb60d27725453",
+      "beforeVersion": "1.0.0",
+      "afterSHA256": "037b450b0ef6f0ea24ce0b2bc27884e2f41599cf9dcb039c3506fca464de2721",
+      "afterVersion": "2.0.0"
+    },
+    "resume-review": {
+      "beforeSHA256": "39aa1cbf8f35228b6d630859d97f09e1090eca876ac9e3d503599d6ffd7d902e",
+      "beforeVersion": "1.0.0",
+      "afterSHA256": "c00fb5549a76c720c5cf5454e45873c029094362ba9d30d5b589f2022195585a",
+      "afterVersion": "2.0.0"
+    },
+    "resume-tailoring": {
+      "beforeSHA256": "520a39231b77486a33207f393fb7cba3dfd7135f232a57d71a777fdd0d2ae054",
+      "beforeVersion": "1.0.0",
+      "afterSHA256": "1ebab591afa239861a518fb0e260cc999b2b019c4731ca8207f0a0ee639f240f",
+      "afterVersion": "2.0.0"
+    }
+  },
+  "gates": {
+    "preChange": {
+      "typecheckExit": 0,
+      "relatedUnit": 30,
+      "unitFiles": 4
+    },
+    "unitIntegration": {
+      "command": "pnpm exec vitest run tests/unit/agentArtifactRuntimeP43d1.test.ts tests/unit/core02BehaviorCatalog.test.ts tests/unit/core02EvalBaseline.test.ts tests/unit/core02SessionCheckpoint.test.ts tests/unit/fakeProviderContinuation.test.ts tests/unit/jobOptimizationV2.test.ts tests/unit/p45b4-hermes-mcp-closure.test.ts tests/unit/p45c17-hermes-reliability.test.ts tests/unit/p45c18-hermes-conversational-agent.test.ts tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts tests/unit/p45c1c15-career-context-binding.test.ts tests/unit/p45c1c16-career-tool-contract.test.ts tests/unit/p45c1c17-content-integrity.test.ts tests/unit/p46a-resume-structural-integrity.test.ts tests/unit/p46b-tailoring-quality.test.ts tests/unit/p47a-agent-capability-contract.test.ts tests/unit/p48a-career-resume-intelligence.test.ts tests/unit/p51-core-02-intelligence.test.ts tests/unit/p51-core-workflow.test.ts tests/unit/p511-r2-observability.test.ts tests/unit/p512-material-intake.test.ts tests/unit/presentationConfig.test.ts tests/unit/repositoryTailoringV2.test.ts tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts tests/unit/resumeCompositionP45b.test.ts tests/unit/resumeImportTarget.test.ts tests/unit/resumeTailorTask.test.ts tests/unit/skillsQualityV1.test.ts tests/unit/tailoringCommands.test.ts tests/unit/tailoringFieldSafety.test.ts --reporter=default --reporter=json --outputFile=.tmp/sq1-unit-final2.json",
+      "exitCode": 0,
+      "files": 30,
+      "passed": 270,
+      "failed": 0,
+      "log": ".tmp/sq1-unit-final2.log",
+      "note": "Final test-only required-array typing correction subsequently rerun: 13/13, exit 0 (.tmp/sq1-quality-final.log)."
+    },
+    "safetyOracle": {
+      "command": "node scripts/core02-eval.mjs .tmp/sq1-unit-final2.json",
+      "exitCode": 0,
+      "passed": 40,
+      "total": 40,
+      "scope": "mapped deterministic assertions, not model evaluations"
+    },
+    "skillsQuality": {
+      "command": "pnpm exec vitest run tests/unit/skillsQualityV1.test.ts",
+      "exitCode": 0,
+      "passed": 13,
+      "anonymousScenarios": 30,
+      "arms": 2,
+      "simulatedResponses": 64,
+      "qualityVerdict": "NOT_EVALUATED",
+      "humanMetricValues": null
+    },
+    "behavior": {
+      "command": "node scripts/hermes-integration.mjs core-behavior --output=.tmp/sq1-behavior-results",
+      "exitCode": 0,
+      "passed": 12,
+      "total": 12,
+      "providerCalls": 37,
+      "log": ".tmp/sq1-behavior.log"
+    },
+    "hermesIntegrationRounds": [
+      {
+        "command": "node scripts/hermes-integration.mjs integration --output=.tmp/sq1-hermes-results",
+        "exitCode": 1,
+        "passed": 13,
+        "total": 14,
+        "providerCalls": 59,
+        "failedCase": "M",
+        "failure": "C02FITCOMPLETE narration sentinel absent for 90s; generic confirmed-workflow reply observed",
+        "log": ".tmp/sq1-hermes.log"
+      },
+      {
+        "command": "node scripts/hermes-integration.mjs integration --output=.tmp/sq1-hermes-final-results",
+        "exitCode": 1,
+        "passed": 13,
+        "total": 14,
+        "providerCalls": 63,
+        "failedCase": "M",
+        "failure": "PDF response wait timed out at 15s; trace contains one pending PDF POST, status -1, no completed response observed",
+        "log": ".tmp/sq1-hermes-final.log"
+      }
+    ],
+    "uiPdf": {
+      "command": "pnpm exec playwright test tests/e2e/p51-core-business.spec.ts tests/e2e/p512-material-intake.spec.ts --config=playwright.config.ts --output=.tmp/sq1-ui-results",
+      "exitCode": 0,
+      "passed": 3,
+      "total": 3,
+      "log": ".tmp/sq1-ui.log"
+    },
+    "typecheck": {
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "log": ".tmp/sq1-typecheck-final2.log"
+    },
+    "lint": {
+      "command": "pnpm lint",
+      "exitCode": 0,
+      "log": ".tmp/sq1-lint-final2.log"
+    },
+    "build": {
+      "command": "CAREERAD_NEXT_DIST_DIR=.tmp/sq1-production-final pnpm build",
+      "exitCode": 0,
+      "log": ".tmp/sq1-build-final.log"
+    },
+    "bundleCheck": {
+      "command": "pnpm hermes:bundle-check",
+      "exitCode": 0,
+      "log": ".tmp/sq1-bundle.log"
+    },
+    "realProvider": {
+      "command": "node scripts/skills-quality-eval.mjs --real-provider",
+      "exitCode": 2,
+      "status": "REAL_PROVIDER_BLOCKED",
+      "requests": 0,
+      "reason": "Dedicated SKILLS_QUALITY_BASE_URL/API_KEY/MODEL not configured",
+      "webPack": "docs/quality/skills-quality-eval-v1-web-pack.md"
+    },
+    "skillValidation": {
+      "hermesProductionContract": "PASS via p47a-agent-capability-contract in 270 tests",
+      "genericCodexQuickValidate": "INCOMPATIBLE_WITH_EXISTING_HERMES_FRONTMATTER",
+      "reason": "Codex validator rejects existing Hermes author/version keys. First Windows GBK error resolved with python -X utf8; no production metadata stripped."
+    },
+    "diff": {
+      "command": "git diff --check",
+      "exitCode": 0
+    },
+    "finalChangedFilesLint": {
+      "command": "pnpm exec eslint tests/unit/skillsQualityV1.test.ts scripts/skills-quality-eval.mjs --max-warnings=0",
+      "exitCode": 0
+    }
+  },
+  "openItems": [
+    "Hermes full Gate M timed out twice; no third run per AGENTS. Full 14/14 not certified this round.",
+    "Natural-provider A/B, question usefulness, HR judgment and writing quality pending independent human rubric review.",
+    "General composition still consumes host evidence graph; arbitrary new resume-only conversation declarations do not yet have a dedicated general-composition ingestion path. Skills keep them provisional, never implicitly sync Profile.",
+    "REAL_PROVIDER/OCR/packaged Electron certification and P518 remain inherited limitations."
+  ],
+  "git": {
+    "committed": false,
+    "pushed": false,
+    "packaged": false
+  },
+  "nextStagesStarted": []
+}

@@ -1,7 +1,7 @@
 ---
 name: resume-tailoring
 description: Create or tailor a job-specific Resume when the user supplies or selects a target Job or JD, while keeping claims evidence-bound.
-version: 1.0.0
+version: 2.0.0
 author: CareerAdapt AI
 license: Project-local
 metadata:
@@ -53,13 +53,15 @@ missing detail that can be handled as a visible conservative gap.
 
 ### QUESTION BUDGET
 
-Use zero questions when possible; `steady` asks zero, `competitive` asks at
-most one highest-value question, and `max_fit` asks no more than three.
+Ordinary tailoring asks 0–1 high-value questions; `steady` may use zero.
+`competitive` asks at most two and `max_fit` at most three, one at a time.
+The host may freeze a smaller budget; never reopen or exceed that plan.
+If the user says “先别问了，直接生成”, stop optional questions and draft safely.
 
 ### WHEN TO PROCEED
 
 Continue conservatively when the user is unsure, preserve the unsupported
-requirement as a gap, and wait only at the review or confirmation boundary.
+requirement as unknown, and wait only at the review or confirmation boundary.
 
 ### STOP CONDITION
 
@@ -84,7 +86,7 @@ Use one explicit mode for every new tailoring plan:
   user-confirmed capability, and clearly transferable evidence while keeping
   maturity-bound wording.
 - `max_fit` / 最大匹配: surface important JD gaps and ask no more than three
-  bounded questions. For a missing capability, offer exactly these factual
+  bounded questions. For a missing capability, offer these optional factual
   choices: `实际做过`, `能够独立完成基础任务`, `接触 / 学习过`,
   `没有使用过`, `不确定`, or `跳过`. The answer is not itself resume copy;
   translate it into a bounded claim and keep it pending confirmation.
@@ -165,3 +167,51 @@ Return a requirement-to-evidence map and gap scorecard, reversible diff items,
 provenance, unsupported-claim warnings, evidence-eligibility versus final ATS
 coverage, confidence, review findings, and a confirmation checklist. State
 clearly whether the result is proposal-only or approved.
+
+## CLAIM SAFETY v2
+
+Profile absence means unknown, never inability. Decompose important additions
+into atomic claims, retaining source turn/quote and requirement IDs where relevant.
+Use these analysis labels with the existing host contracts, not a second fact model:
+
+- `source_confirmed`: confirmed Profile/attachment evidence; usable at its stated maturity.
+- `user_confirmed`: an explicit current user answer is legitimate evidence even
+  without a project or uploaded proof. Keep the exact answer, source turn,
+  session/target/revision binding and the normal proposal confirmation boundary.
+- `transferable`: adjacent experience supports a related capability, not the
+  target tool itself (R/Stata/Excel data cleaning does not prove Python).
+- `exploratory`: plausible but unknown; ask, give examples, help recall; never emit.
+- `learning` / `familiar`: write only the confirmed basic knowledge, coursework,
+  exposure or learning level; never infer proficiency, a project or delivery.
+- `high_risk_unsupported`: invented education, employer, role, dates, credentials,
+  awards, metrics, team size, ownership or business results; block and explain.
+
+Fact Guard asks whether wording exceeds what the user supplied or confirmed,
+not whether the same words already exist in Profile. Natural supported synonyms
+and job keywords are allowed. JD text and offered examples are never evidence.
+A negative answer can establish a real gap; uncertainty/skip cannot.
+New confirmed claims default to `resume_only`. Only explicit
+`resume_and_profile` authorizes a separate reviewed Profile write. Reuse host
+source-turn/declaration/maturity contracts; a Skill label alone grants no write
+or guard bypass. Keep Repository, CAS, target/revision and confirmation checks.
+
+## GUIDED CLARIFICATION AND WRITING
+
+Analyze before asking. Reuse JobRequirementGraph and CandidateEvidenceMatrix;
+never parse a saved JD again. Rank unanswered important requirements as
+`high / medium / low value to clarify`, explaining importance, evidence
+certainty, likely resume impact, answerability and duplication. Do not invent
+probabilities. Ask only the highest-value unresolved question within the frozen
+budget; do not repeat answered/skipped facts or turn the task into a questionnaire.
+
+Help answer: “这个岗位很看重 Python 数据处理。资料里没写不代表你没用过。
+你更接近哪种：项目/比赛用过、课程练习能做基础任务、学过 Pandas/NumPy、
+简单接触、没用过？也可以自由回答。” Examples are prompts, not claims.
+On a vague ownership correction, ask which part: design, execution or delivery.
+
+Optimize in order: select relevant existing experience; prioritize sections and
+bullets; re-express supported experience in JD language; add confirmed current
+answers; align supported ATS terms; remove low-value content. Never stuff a
+missing keyword. Each important addition exposes requirementId → evidence or
+question → exact user answer/source turn → claim state/maturity → resume diff.
+Confirm factual accuracy and scope separately from approval to apply the proposal.

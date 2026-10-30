@@ -2,7 +2,7 @@ import { invokeStructuredAi } from "@/ai/client";
 import { promptVersions } from "@/ai/prompts/versions";
 import { migrateCareerProfileToV2 } from "@/domain/migrations/resumeV2";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
-import type { CareerProfile, FactStatement, JobDescription, MatchEvidenceRef } from "@/domain/schemas";
+import type { CareerProfile, FactMaturity, FactStatement, JobDescription, MatchEvidenceRef } from "@/domain/schemas";
 import { dedupeCareerWriting, isFiller, isRawOrNegativeSpeech } from "@/domain/profileIntake/CareerWritingQuality";
 import {
   CareerResumeWritingOutputSchema,
@@ -16,7 +16,7 @@ import {
   renderCompositionPreferenceDirectives,
   type ResumeCompositionPreferences
 } from "./ResumeCompositionPreferences";
-import { canonicalTechnicalTerm, compactSkillCategory, normalizeSkillGroups, technicalTermCategory } from "./ResumeSkillTaxonomy";
+import { canonicalTechnicalTerm, compactSkillCategory, normalizeSkillGroups, resumeSkillLabel, technicalTermCategory } from "./ResumeSkillTaxonomy";
 import { stableHashText } from "@/services/security/text";
 import { CareerResumeQualityPolicyV1, careerResumeQualityWarnings, resumeRoleInstructions } from "./CareerResumeQualityPolicyV1";
 import type { CandidateEvidenceMatrix } from "@/domain/jobOptimization/careerIntelligence";
@@ -221,7 +221,7 @@ function roleLikeValue(value: unknown) {
 function sanitizeSkillGroups(
   requested: CareerResumeWritingOutput["skillGroups"],
   deterministic: Record<string, string[]>,
-  allowed: Map<string, { name: string; category: string }>
+  allowed: Map<string, { name: string; category: string; maturity?: FactMaturity }>
 ) {
   const requestedByCategory = new Map<string, string[]>();
   for (const group of requested) {
@@ -230,7 +230,7 @@ function sanitizeSkillGroups(
       const source = allowed.get(canonical);
       if (!source) continue;
       const category = compactSkillCategory(technicalTermCategory(canonical) ?? source.category ?? group.category);
-      requestedByCategory.set(category, unique([...(requestedByCategory.get(category) ?? []), canonical]));
+      requestedByCategory.set(category, unique([...(requestedByCategory.get(category) ?? []), resumeSkillLabel({ ...source, name: canonical })]));
     }
   }
   return Object.entries(deterministic).map(([category, skills]) => ({

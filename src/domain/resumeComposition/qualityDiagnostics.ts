@@ -5,6 +5,8 @@ const ObservationSchema = z.object({ status: z.enum(["pass", "needs_review", "un
 export const ResumeQualityDiagnosticsSchema = z.object({
   ruleVersion: z.literal("resume-diagnostics-1"),
   hardGate: z.object({ status: z.enum(["pass", "blocked", "unknown"]), violations: z.array(z.string()) }).strict(),
+  recruiterScan: z.object({ positioning: ObservationSchema, scanClarity: ObservationSchema, strongestExperience: ObservationSchema }).strict().optional(),
+  claimRisk: z.object({ level: z.enum(["low", "needs_confirmation", "high_risk"]), claimIds: z.array(z.string()) }).strict().optional(),
   contentQuality: z.object({ factualFidelity: ObservationSchema, specificity: ObservationSchema, relevance: ObservationSchema,
     clarity: ObservationSchema, evidenceDensity: ObservationSchema, redundancy: ObservationSchema, ownershipAccuracy: ObservationSchema }).strict(),
   atsStructure: z.object({ textExtractability: ObservationSchema, sectionStructure: ObservationSchema, fieldCompleteness: ObservationSchema,
@@ -23,6 +25,18 @@ export function diagnoseResumeQuality(result: ResumeCompositionResult) {
   return ResumeQualityDiagnosticsSchema.parse({
     ruleVersion: "resume-diagnostics-1",
     hardGate: { status: violations.length ? "blocked" : claims.length ? "pass" : "unknown", violations },
+    recruiterScan: {
+      positioning: result.candidateEvidenceMatrix
+        ? observation(!result.candidateEvidenceMatrix.rows.some(row => row.evidenceStatus === "direct" || row.evidenceStatus === "transferable"), "Selected Job evidence coverage; not a calibrated recruiter judgment.")
+        : unknown("No target Job; assess general positioning with the user."),
+      scanClarity: observation(metrics.fillerBullets > 0 || metrics.paragraphHeavyItems > 0, "Text-only filler and paragraph observations; first-screen layout requires rendered inspection."),
+      strongestExperience: unknown("Requires semantic comparison of experience and actual first-screen order.")
+    },
+    claimRisk: {
+      level: claims.some(claim => claim.classification === "UNSUPPORTED" || claim.guardStatus === "blocked")
+        ? "high_risk" : violations.length || !claims.length ? "needs_confirmation" : "low",
+      claimIds: claims.filter(claim => violations.includes(`unverified_claim:${claim.id}`)).map(claim => claim.id)
+    },
     contentQuality: {
       factualFidelity: claims.length ? observation(violations.length > 0, "Only emitted, source-bound claims with a passed Fact Guard count.") : unknown("No emitted claims to audit."),
       specificity: observation(metrics.lowDensityBullets > 0, `${metrics.lowDensityBullets} low-density bullets.`),
