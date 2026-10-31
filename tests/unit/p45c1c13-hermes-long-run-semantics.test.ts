@@ -335,6 +335,7 @@ describe("P4.5c.1.13 Hermes long-run semantics and non-destructive recovery", ()
     vi.stubGlobal("fetch", vi.fn(async () => new Response("missing", { status: 404 })));
     try {
       const iterator = new HttpHermesBridgeTransport("/hermes").runEvents!("run-old", undefined, { runId: "run-old" })[Symbol.asyncIterator]();
+      expect((await iterator.next()).value).toMatchObject({ type: "progress", data: { reconciliation: "status_unavailable" } });
       await expect(iterator.next()).rejects.toMatchObject({
         code: "hermes_run_events_failed",
         diagnostics: { safeErrorCode: "hermes_run_events_failed", httpStatus: 404 }

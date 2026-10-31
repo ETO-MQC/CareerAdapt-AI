@@ -612,16 +612,13 @@ function createAgentHost() {
       runId: current?.id === sessionId ? current.hermesRun?.runId : undefined,
       incidentTraceId: current?.id === sessionId ? current.activeTurn?.incidentTraceId : undefined
     });
-    try {
-      if (current?.id === sessionId && current.hermesRun?.runId) {
-        runtimeStatus.recordRunState("stopping", current.hermesRun.runId);
-        const stopped = await hermesRuntime.stopCurrentRun(current.hermesRun.runId, stopReason);
-        runtimeStatus.recordRunState(stopped.status === "failed" ? "failed" : "completed");
-      } else {
-        await hermesRuntime.interrupt(sessionId, stopReason);
-      }
-    } finally {
-      state.interrupt(sessionId, stopReason);
+    state.interrupt(sessionId, stopReason);
+    if (current?.id === sessionId && current.hermesRun?.runId) {
+      runtimeStatus.recordRunState("stopping", current.hermesRun.runId);
+      const stopped = await hermesRuntime.stopCurrentRun(current.hermesRun.runId, stopReason);
+      runtimeStatus.recordRunState(stopped.status === "failed" ? "failed" : "completed");
+    } else {
+      await hermesRuntime.interrupt(sessionId, stopReason);
     }
   };
   state.setHermesQueueHandler(runTurn);

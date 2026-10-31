@@ -2311,6 +2311,7 @@ export class AgentHostStore {
       || current.activeTurn.id !== event.turnId
       || assistant?.turnId !== event.turnId
     ) return undefined;
+    if (current.hermesRun?.turnId === event.turnId && ["completed", "failed", "cancelled"].includes(current.hermesRun.status)) return current;
     if (event.eventId && current.activeTurn.projectedHermesEventIds?.includes(event.eventId)) return current;
     let next = current;
     if (event.eventId) {
@@ -2866,13 +2867,17 @@ export class AgentHostStore {
     });
     if (activeSession && activeTurn) {
       const next = {
-        ...activeSession,
+        ...completeTurn(activeSession, "aborted"),
+        ...(activeSession.hermesRun && !["completed", "failed", "cancelled"].includes(activeSession.hermesRun.status)
+          ? { hermesRun: { ...activeSession.hermesRun, status: "cancelled" as const, lastEventAt: new Date().toISOString() } } : {}),
         activeTurn: {
           ...activeTurn,
+          status: "aborted" as const,
           ...(reason ? { cancellation: reason } : {}),
           abortTraces: [...(activeTurn.abortTraces ?? []), abortTrace].slice(-32)
         }
       };
+      this.patchSession(next);
       void this.dependencies.persistence.save(next).then((saved) => {
         const current = this.snapshot.activeSession;
         if (current?.id === saved.id && current.activeTurn?.id === activeTurn.id) this.patchSession(saved);

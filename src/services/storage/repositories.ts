@@ -929,6 +929,14 @@ export class WorkspaceRepository {
       const stored = storedRaw
         ? migrateAgentSessionToCurrentSchema(storedRaw as unknown as Record<string, unknown>)
         : undefined;
+      // Terminal ownership is absorbing for the same Run, including Stop.
+      // Do not append late transcript/tool results from a competing consumer.
+      if (stored?.hermesRun && incoming.hermesRun?.runId === stored.hermesRun.runId
+        && ["completed", "failed", "cancelled"].includes(stored.hermesRun.status)
+        && incoming.hermesRun.status !== stored.hermesRun.status) {
+        persisted = stored;
+        return;
+      }
       // Compare-and-swap metadata. A stale snapshot must never append its
       // unseen transcript or roll workflow metadata back over a newer shell.
       // Equal revisions are only accepted when their timestamps are not older;

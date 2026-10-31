@@ -28,7 +28,7 @@ const runtimePort = await companion.findAvailablePort({ host: "127.0.0.1", prefe
 if (!runtimePort) throw new Error("no free port for hermetic Hermes integration");
 const provider = isCareerAgentReal
   ? undefined
-  : await startFakeOpenAiProvider({ mode: isCareerAgentEval ? "career-agent-eval" : "integration", ...(isConfigR1 ? { delayMs: 2_000 } : {}), ...(isSlowProvider ? { delayScheduleMs: [185000, 5000] } : {}) });
+  : await startFakeOpenAiProvider({ mode: isCareerAgentEval ? "career-agent-eval" : "integration", ...(isConfigR1 ? { delayMs: 2_000 } : {}), ...(isSlowProvider ? { delayScheduleMs: process.env.P518B_PREFLIGHT === "1" ? [8000, 5000] : [190000, 5000] } : {}) });
 const realProviderBaseUrl = isCareerAgentReal
   ? (process.env.CAREER_AGENT_REAL_BASE_URL || process.env.HERMES_BASE_URL || process.env.AI_BASE_URL || "").trim()
   : undefined;

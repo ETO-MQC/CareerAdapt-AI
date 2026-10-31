@@ -1,7 +1,7 @@
 {
   "schemaVersion": "p518b-runtime-efficiency.v1",
   "date": "2026-10-31",
-  "status": "P5.1.8-B PARTIAL",
+  "status": "P5.1.8-B COMPLETE",
   "gitBaseline": {
     "branch": "main",
     "startingHEAD": "7d5e9f44c73066ed94320095856fdac3627ec987",
@@ -10843,28 +10843,10 @@
     "MLastContextAfter": 93996
   },
   "slowProviderUX": {
-    "status": "NOT_FULLY_VERIFIED",
-    "existingObservedUI": [
-      "处理中",
-      "正在回复",
-      "停止运行"
-    ],
-    "fullLongBrowserGate": "OPEN",
-    "attempts": [
-      {
-        "log": ".tmp/p518b-slow-ux.log",
-        "stage": "before Provider business request",
-        "failure": "fresh test context redirected to setup; READY selector90s timeout"
-      },
-      {
-        "log": ".tmp/p518b-slow-ux-second.log",
-        "stage": "after actual Run started and persisted running at30s",
-        "failure": "test expected 停止任务, actual accessible button is 停止运行; 30s selector timeout"
-      }
-    ],
-    "selectorCorrected": true,
-    "thirdRunNotAttempted": true,
-    "reason": "AGENTS.md §5/§13: 同一长测试连续两次超时后停止重跑并报告. Do not claim 60/180s, refresh recovery or cancelled late result passed from these incomplete runs."
+    "status": "PASS",
+    "fullLongBrowserGate": "CLOSED",
+    "acceptedEvidence": ".tmp/p518b-slow-ux-slow-provider-1793429042800.json",
+    "r2": "reconciliationCloseout20261031"
   },
   "telemetry": {
     "newSystemAdded": false,
@@ -10933,10 +10915,7 @@
     "First exact-equality MCP projection had no effect because HTTP adds different diagnostics to structuredContent. After measuring the difference, compare all business fields and retain diagnostic delta; final context reductions observed.",
     "Two long-browser selector/setup timeouts retained; corrected test settings/button name, stopped third rerun per project rule."
   ],
-  "blockers": [
-    "Full long-browser30/60/180s + refresh reattach + cancellation/late-result gate has not passed. This prevents P5.1.8-B COMPLETE.",
-    "Delayed actual AMD-wire proof closes at real AIAgent/SDK; end-to-end Host slow-provider gate remains open."
-  ],
+  "blockers": [],
   "certification": {
     "SQ1": "SQ1 QUALITY COLLECTION BLOCKED",
     "realABContinued": false,
@@ -10967,5 +10946,159 @@
     "tests/support/p518b-patch-contracts.py": "8096ce4427d5def92708abb6aa1d5fc6b8ffd48c84962ea2e3827defc4ff43e1",
     "tests/hermes-efficiency-patch.test.mjs": "466a8bd62d7a717e61ff22789b9b4badd575991d2c5ec6a6f45ca4ef72c19c3f",
     "playwright.hermes-slow-provider.config.ts": "0c161d01b5a0ea1c9c0a08865f7d85c23c2c8814618ddd30990d81f9d3b23ac8"
+  },
+  "closeout20261031": {
+    "status": "PARTIAL",
+    "baseline": {
+      "branch": "main",
+      "head": "7ab651cbc887f78aa996e09f5a20d151845b89c0",
+      "originMain": "7ab651cbc887f78aa996e09f5a20d151845b89c0",
+      "clean": true,
+      "fetchExit": 0
+    },
+    "realProviderRequests": 0,
+    "newUserAuthorization": true,
+    "longGateStarted": false,
+    "cancelLateGateAccepted": false,
+    "preflight": "FAIL",
+    "candidatePatch": "UNACCEPTED",
+    "directEvidence": ".tmp/p518b-slow-ux-slow-provider-1793425832880.json",
+    "postPatchLog": ".tmp/p518b-closeout-preflight5.log",
+    "postPatchExit": 1,
+    "postPatchFailure": "fake evidence GET pending until 300000ms test timeout",
+    "gates": {
+      "unit": "62 PASS",
+      "node": "5 PASS",
+      "pythonOwnership": "PASS",
+      "typecheck": "PASS",
+      "changedLint": "PASS",
+      "isolatedBuild": "PASS",
+      "bundleCheck": "PASS",
+      "AGM": "3/3 PASS;20 fake calls",
+      "behavior": "11 passed,1 worker crash (intent-advice;3221226505),exit1;not accepted"
+    },
+    "uncommitted": true
+  },
+  "blockersBeforeR2": [
+    "Full long-browser30/60/180s + refresh reattach + cancellation/late-result gate has not passed. This prevents P5.1.8-B COMPLETE.",
+    "Delayed actual AMD-wire proof closes at real AIAgent/SDK; end-to-end Host slow-provider gate remains open."
+  ],
+  "slowProviderUXBeforeR2": {
+    "status": "NOT_FULLY_VERIFIED",
+    "existingObservedUI": [
+      "处理中",
+      "正在回复",
+      "停止运行"
+    ],
+    "fullLongBrowserGate": "OPEN",
+    "attempts": [
+      {
+        "log": ".tmp/p518b-slow-ux.log",
+        "stage": "before Provider business request",
+        "failure": "fresh test context redirected to setup; READY selector90s timeout"
+      },
+      {
+        "log": ".tmp/p518b-slow-ux-second.log",
+        "stage": "after actual Run started and persisted running at30s",
+        "failure": "test expected 停止任务, actual accessible button is 停止运行; 30s selector timeout"
+      }
+    ],
+    "selectorCorrected": true,
+    "thirdRunNotAttempted": true,
+    "reason": "AGENTS.md §5/§13: 同一长测试连续两次超时后停止重跑并报告. Do not claim 60/180s, refresh recovery or cancelled late result passed from these incomplete runs."
+  },
+  "reconciliationCloseout20261031": {
+    "status": "COMPLETE",
+    "baseline": {
+      "branch": "main",
+      "HEAD": "7ab651cbc887f78aa996e09f5a20d151845b89c0",
+      "originMain": "7ab651cbc887f78aa996e09f5a20d151845b89c0",
+      "fetchExit": 0,
+      "preexistingCloseoutDiffPreserved": true
+    },
+    "productionSeam": "existing HttpHermesBridgeTransport -> runtime events -> Host -> WorkspaceRepository CAS transaction",
+    "authoritativeStatusCheck": "initial and 2-second interval; no new Run/prompt/tool submission",
+    "terminalOwnership": "same-run terminal absorbing; rejected before transcript append; new turn allowed",
+    "candidateConsumerPatch": "removed from production; candidate source/tests archived .tmp/p518b-r2-retired-*",
+    "externalLLMRequests": 0,
+    "longGate": {
+      "providerKind": "delayed_simulated",
+      "checkpoints": [
+        {
+          "targetSeconds": 30,
+          "elapsedMs": 30058,
+          "runStatus": "running",
+          "providerCalls": 1
+        },
+        {
+          "targetSeconds": 60,
+          "elapsedMs": 60045,
+          "runStatus": "running",
+          "providerCalls": 1
+        },
+        {
+          "targetSeconds": 180,
+          "elapsedMs": 180110,
+          "runStatus": "running",
+          "providerCalls": 1
+        }
+      ],
+      "status": "PASS",
+      "runId": "run_7d2e616aaf2b4caf9afe0f7372e05d24",
+      "completedElapsedMs": 191685,
+      "preflight": false,
+      "firstRunCompleted": true,
+      "formalWrites": 0,
+      "cancelledLateResultFenced": true,
+      "nextRunIsolated": true
+    },
+    "providerCalls": {
+      "longAndCancelAndNext": 3,
+      "slowRunOnly": 1,
+      "AGM": 20,
+      "intentAdvice": 1
+    },
+    "formalWrites": 0,
+    "toolExecutionsInSlowAndCancelledFixtures": 0,
+    "gates": {
+      "reconciliationUnit": "12 PASS; includes blocked SSE and high-revision late message rejection",
+      "relatedUnitIntegration": "9 files / 74 PASS",
+      "shortGate": "PASS, 49.2s, 3 fake calls",
+      "longGate": "PASS; 30/60/180s running; completion191685ms; refresh same Run; cancelled late result fenced; next Run isolated",
+      "AGM": "3/3 PASS; exit0",
+      "intentAdvice": "1/1 PASS,24.8s; single targeted rerun; historical worker crash retained",
+      "nodePolicyAndContext": "4 PASS",
+      "typecheck": "PASS",
+      "changedFilesLint": "PASS",
+      "isolatedBuild": "PASS; .tmp/p518b-r2-build",
+      "bundleCheck": "PASS",
+      "diffCheck": "PASS"
+    },
+    "retainedFailures": [
+      "old setup/selector twice",
+      "CLOSEOUT refresh divergence",
+      "CLOSEOUT preflight5 apparent evidence timeout",
+      "R2 short1 Stop persisted running",
+      "R2 short2 cleanup masked original failure",
+      "R2 long1 core passed then next-run harness TypeError"
+    ],
+    "notCertified": [
+      "SQ1 real quality collection",
+      "OCR",
+      "installer"
+    ],
+    "committed": false,
+    "pushed": false,
+    "nextPhaseStarted": false,
+    "sourceHashes": {
+      "src/agent/runtime/hermes/HermesBridgeTransport.ts": "281974b308eeceb2ec8e342e74394e68159c5232668e3e0756e4f45fac094ad5",
+      "src/agent/runtime/AgentHostStore.ts": "672d5aca3b1ee1c78a2e11f9ae903ba1e2b7fc4a70f2cc25931392070d241e10",
+      "src/components/agent/runtime/AgentRuntimeProvider.tsx": "d5b92d23f0128ef3876be1315b567254f4b165c09776bf52a1c0779a3818c3d7",
+      "src/services/storage/repositories.ts": "a719af4b946e9f65f925651073895c1a6d1992a91e678f2bb2d13064d2ba4679",
+      "scripts/hermes-integration.mjs": "846e511f116119a20360516d0489cc9bac5c0147f8e8b23e89f717076bbc85a5",
+      "tests/e2e/hermes-slow-provider.spec.ts": "30e413f21eedea21ce60f7d8599616502679f7a1f481d0037e4ff366dd0bee8a",
+      "tests/unit/hermesTerminalReconciliation.test.ts": "fa673da768f4ac34b6e3e65b3e78e221dd2758681a24b9b692f2a8636b3cf49e",
+      "tests/unit/p45c1c13-hermes-long-run-semantics.test.ts": "582033059e23415ae25b5fffdf9b87f9036d9f90583cf10b95d568c101089e68"
+    }
   }
 }

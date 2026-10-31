@@ -217,8 +217,49 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
     return HermesRunStatusSchema.parse(result);
   }
 
-  runEvents(runId: string, signal?: AbortSignal, trace?: HermesRunTraceContext) {
-    return this.streamRequest({ action: "run_events", runId, ...(trace?.eventCursor ? { eventCursor: trace.eventCursor } : {}) }, signal, { ...trace, runId });
+  async *runEvents(runId: string, signal?: AbortSignal, trace?: HermesRunTraceContext): AsyncIterable<HermesBridgeEvent> {
+    const controller = new AbortController();
+    const streamSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
+    const stream = this.streamRequest({ action: "run_events", runId, ...(trace?.eventCursor ? { eventCursor: trace.eventCursor } : {}) }, streamSignal, { ...trace, runId })[Symbol.asyncIterator]();
+    let pending: ReturnType<typeof stream.next> | undefined;
+    let statusAt = 0;
+    try {
+      for (;;) {
+        // Status is the recovery authority even when a prior SSE consumer
+        // received the terminal event. A failed read never invents a terminal.
+        if (Date.now() >= statusAt) try {
+          statusAt = Date.now() + 2000;
+          const status = await this.getRun(runId, streamSignal, trace);
+          if (status.status === "completed") {
+            yield { type: "turn_completed", message: typeof status.output === "string" ? status.output : undefined, data: { reconciliation: "authoritative_status" } };
+            return;
+          }
+          if (["failed", "cancelled", "stopped"].includes(status.status)) {
+            yield { type: "turn_failed", code: status.status === "failed" ? "hermes_run_failed" : "hermes_run_cancelled", message: "Hermes run " + status.status, recoverable: false, data: { reconciliation: "authoritative_status" } };
+            return;
+          }
+        } catch (error) {
+          if (streamSignal.aborted) throw error;
+          yield { type: "progress", data: { reconciliation: "status_unavailable" } };
+        }
+        pending ??= stream.next();
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const item = await Promise.race([
+          pending,
+          new Promise<undefined>(resolve => { timer = setTimeout(() => resolve(undefined), 2000); })
+        ]).finally(() => clearTimeout(timer));
+        if (!item) continue;
+        pending = undefined;
+        if (item.done) return;
+        yield item.value;
+        if (item.value.type === "turn_completed" || item.value.type === "turn_failed") return;
+      }
+    } finally {
+      controller.abort();
+      // The pending read observes the local abort; it cannot become an
+      // unhandled rejection after authoritative completion wins the race.
+      if (pending) await pending.catch(() => undefined);
+    }
   }
 
   async approveRun(runId: string, choice: "once" | "session" | "always" | "deny", signal?: AbortSignal, trace?: HermesRunTraceContext) {
