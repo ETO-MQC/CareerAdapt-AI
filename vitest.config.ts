@@ -11,6 +11,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+      "@hermes/plugin-sdk": fileURLToPath(new URL("./poc/profile-plugin/test-sdk.ts", import.meta.url)),
       "server-only": fileURLToPath(new URL("./tests/ai-real/_server-only-mock.ts", import.meta.url))
     }
   }

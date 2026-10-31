@@ -1,0 +1,57 @@
+{
+  "status": "PASS",
+  "root": "E:\\DEF\\CareerAdapt AI\\.artifacts\\p520a-profile-plugin\\smoke-1793465734745",
+  "mode": "Real locked Desktop Electron main/preload/renderer, Vite development serving; isolated home; offline provider",
+  "errors": [],
+  "consoleErrors": [],
+  "route": "#/career-profile",
+  "text": "CAREERADAPT · PROFILE\n\n同学\n只读概念验证 · 示例资料\n基础资料\n姓名\n同学\nsummary\n经济管理方向本科生，关注数据分析、AI应用和跨境业务流程。\n电话\n138****0000\n邮箱\ndemo.student@example.com\n所在地\n杭州\n实习经历\n某政府部门\n\n综合事务实习生\n\n组织：某政府部门\n职位/角色：综合事务实习生\n开始日期：2025-07\n结束日期：2025-08\n说明：协助处理公文流转与热线记录，保持信息记录准确、分类清晰。\n亮点：处理公文流转和热线记录，关注记录准确性与信息整理。\n原始资料草稿：协助处理公文流转与热线记录，保持信息记录准确、分类清晰。\n原始标签：信息整理；沟通记录\n\n项目经历\nAI 求职应用课程项目\n\n产品与验收协作\n\n项目名称：AI 求职应用课程项目\n角色：产品与验收协作\n开始日期：2025-09\n结束日期：2025-12\n说明：参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n原始资料草稿：参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。\n原始标签：需求梳理；原型设计；功能验收\n\n奖项荣誉\n数据分析成员\n\n统计建模竞赛项目\n\n奖项名称：数据分析成员\n颁发方：统计建模竞赛项目\n说明：使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。\n原始资料草稿：使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。\n原始标签：Stata；数据清洗；统计分析\n原始证据引用：evidence-stat-report\n\n专业技能\nStata\n\nfamiliar\n\n技能名称：Stata\n熟练度：familiar\n说明：使用 Stata 完成数据清洗和统计分析。\n\nExcel\n\nfamiliar\n\n技能名称：Excel\n熟练度：familiar\n说明：能使用 Excel 整理表格数据和基础分析结果。\n\n证书\nCET-4\n\n全国大学英语四、六级考试委员会\n\n证书名称：CET-4\n颁发方：全国大学英语四、六级考试委员会\n颁发日期：2024-12\n\n其他内容\n外贸课程与语言学习\n\n标题：外贸课程与语言学习\n内容：CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。\n要点：CET-4 成绩 601，了解基础外贸业务流程。\n原始资料草稿：CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。\n原始标签：英语；外贸流程；信息整理",
+  "styleCount": 1,
+  "themes": [
+    {
+      "mode": "light",
+      "color": "color(srgb 0.0901961 0.0901961 0.101961 / 0.94)",
+      "background": "color(srgb 0.97098 0.978196 0.996235)",
+      "styles": 1
+    },
+    {
+      "mode": "dark",
+      "color": "color(srgb 1 0.901961 0.796078 / 0.94)",
+      "background": "color(srgb 0.0509804 0.149647 0.403137)",
+      "styles": 1
+    },
+    {
+      "mode": "light",
+      "color": "color(srgb 0.0901961 0.0901961 0.101961 / 0.94)",
+      "background": "color(srgb 0.97098 0.978196 0.996235)",
+      "styles": 1
+    }
+  ],
+  "lifecycle": [
+    {
+      "cycle": 0,
+      "disabledStyles": 0,
+      "enabledStyles": 1,
+      "diskHotReloadStyles": 1
+    },
+    {
+      "cycle": 1,
+      "disabledStyles": 0,
+      "enabledStyles": 1,
+      "diskHotReloadStyles": 1
+    },
+    {
+      "cycle": 2,
+      "disabledStyles": 0,
+      "enabledStyles": 1,
+      "diskHotReloadStyles": 1
+    }
+  ],
+  "inventory": {
+    "id": "careeradapt-profile-poc",
+    "name": "Career Profile (read-only PoC)",
+    "kind": "disk",
+    "file": "E:\\DEF\\CareerAdapt AI\\.artifacts\\p520a-profile-plugin\\smoke-1793465734745\\home\\desktop-plugins\\careeradapt-profile-poc/plugin.js",
+    "status": "loaded"
+  }
+}

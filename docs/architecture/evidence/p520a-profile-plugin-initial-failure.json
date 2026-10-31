@@ -1,0 +1,8 @@
+{
+  "status": "FAIL",
+  "phase": "initial real Desktop disk load",
+  "failure": "unsupported import: ],",
+  "cause": "Locked loader regex matches literal from in canonical field catalog",
+  "screenshot": "p520a-profile-loader-failure.png",
+  "cleanup": "Initial app.close hung; exec session interrupted. Final harness uses isolated Electron app.exit. No exit-0 claim for initial run."
+}
