@@ -1,0 +1,813 @@
+{
+  "stage": "P5.2.0-B",
+  "date": "2026-11-01",
+  "status": "PARTIAL",
+  "completion": "BLOCKED",
+  "formalPageMigrationAllowed": false,
+  "baseline": {
+    "branch": "main",
+    "head": "2f7a4601c1aa482e074283dd3f7edeedd43f1e30",
+    "originMain": "2f7a4601c1aa482e074283dd3f7edeedd43f1e30",
+    "requestedBase": "d80593315a3b01aa217402809ae927b96dfed2a4",
+    "difference": "one committed P5.2.0-A PASS commit",
+    "fetchExitCode": 0,
+    "initialWorktreeClean": true,
+    "previousPocPreserved": true
+  },
+  "hermes": {
+    "version": "0.19.0",
+    "commit": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+    "desktopPackageVersion": "0.17.0",
+    "declaredDesktopElectron": "40.10.2",
+    "upgraded": false
+  },
+  "engineProbe": {
+    "developerNode": "v24.15.0",
+    "builtinSqlite": "3.51.3",
+    "electronSqliteVerified": false,
+    "productionDependencyAdded": false,
+    "prototypeEngine": "immutable tagged snapshot file; not SQLite"
+  },
+  "audit": {
+    "methods": 238,
+    "directDexieMethods": 187,
+    "transactionMethods": 84
+  },
+  "auditFile": "poc/career-domain-persistence/evidence/dependency-audit.json",
+  "sourceHashes": {
+    "src/services/storage/repositories.ts": "a719af4b946e9f65f925651073895c1a6d1992a91e678f2bb2d13064d2ba4679",
+    "src/services/storage/db.ts": "7170668b1c36e29ca33e6c0e17385b7ab8639328a1fb10ccc7326b0135f9d2de",
+    "electron/main.js": "c27ac42caae8a6a05c6b74ba2649146f056eb9b1317c823ede481fbb4b4832e0",
+    "electron/preload.js": "8f084baf0f07991fc66770ec86a565d8c998d33efbfd137f8afbbdf2e9102291",
+    "electron/hermesSupervisor.js": "4d757496850297c7158b525d13db30aa16b8e554c2e176afbe0c140373a030b1",
+    "scripts/hermes-runtime-lock.json": "4939b630fa15f410ae1287b495e9e16912ab3e71a7a619df1f005050c6fe8ceb",
+    "src/domain/schemas/resumeV2.ts": "bb31fc56f3abf016edbb2ba4f27b699f5a86cb695b418db2eae061655f9402e7",
+    "src/domain/adaptation/factGuard.ts": "49fa8cb684696b604980504e99aae72da02f56613941bd716d642fb5fb59cc4c",
+    "src/ai/prompts/claimSafetyV2.ts": "9bbb38eadd5666ce50c24bb8b73cc2dfa2ec638c3ad41357b214291add7b2977",
+    "src/domain/branch/profileBranch.ts": "8ba1b2f34d75fe9cb886accd82a44c4361ba58dce64a1367741dc01940461680",
+    "src/domain/schemas/profileReconciliation.ts": "857cfec20683d31fc6529a70bb0530c0f0cc1baccd640d1c602a0166375a0a6a"
+  },
+  "migration": {
+    "source": "synthetic fake-indexeddb v11; not real browser or user data",
+    "tables": 28,
+    "entities": 10,
+    "hash": "2acdbe6b0964342464b3f77237c64a2785cf057f2379e3ec4a4d5b06e6a98129",
+    "parity": true,
+    "sourceUnchanged": true,
+    "manifest": {
+      "adaptationSnapshots": {
+        "keyPath": "id",
+        "count": 0,
+        "ids": [],
+        "hashes": []
+      },
+      "agentMessages": {
+        "keyPath": "id",
+        "count": 0,
+        "ids": [],
+        "hashes": []
+      },
+      "agentSessions": {
+        "keyPath": "id",
+        "count": 0,
+        "ids": [],
+        "hashes": []
+      },
+      "aiLogs": {
+        "keyPath": "id",
+        "count": 0,
+        "ids": [],
+        "hashes": []
+      },
+      "aiSuggestions": {
+        "keyPath": "id",
+        "count": 0,
+        "ids": [],
+        "hashes": []
+      },
+      "applicationDrafts": {
+        "keyPath": "id",
+        "count": 0,
+        "ids": [],
+        "hashes": []
+      },
+      "applications": {
+        "keyPath": "id",
+        "count": 1,
+        "ids": [
+          "application-fnv-c3f295ed-19"
+        ],
+        "hashes": [
+          "67aef6051ebb872332e7326cb0210cebddceaf2e047613407902d9ebc9a1be1c"
+        ]
+      },
+      "appMeta": {
+        "keyPath": "key",
+        "count": 3,
+        "ids": [
+          "attachment-source:fixture-attachment",
+          "careerPerson:v1:person-profile-demo-student",
+          "careerPersons:v1"
+        ],
+        "hashes": [
+          "3c22e2caa89ea9b55afd6494983a0421938336de34529d3e06cc4073d3bb6525",
+          "1b1eaea4a1e0bd596e1f5a43dcb3845850d841d961e83388cd0e2d7393e6f79c",
+          "60efe6322acc45e404328a30f6d6a9b4117dd84c2734707c29c0880fa1327f8b"
+        ]
+      },
+      "crawlRuns": {
+        "keyPath": "id",
+        "count": 0,
+        "ids": [],
+        "hashes": []
+      },
+      "crawlSources": {
+        "keyPath": "id",
+        "count": 0,
+        "ids": [],
+        "hashes": []
+      },
+      "draftCommits": {
+        "keyPath": "commitId",
+        "count": 0,
+        "ids": [],
+        "hashes": []
+      },
+      "exportRecords": {
+        "keyPath": "id",
+        "count": 0,
+        "ids": [],
+        "hashes": []
+      },
+      "jobAdaptationDrafts": {
+        "keyPath": "id",
+        "count": 0,
+        "ids": [],
+        "hashes": []
+      },
+      "jobAnalysisDrafts": {
+        "keyPath": "id",
+        "count": 0,
+        "ids": [],
+        "hashes": []
+      },
+      "jobDescriptions": {
+        "keyPath": "id",
+        "count": 1,
+        "ids": [
+          "job-data-analyst-intern"
+        ],
+        "hashes": [
+          "07d01a0542ba3b9d4379b18694d41c2585fefb291d9a92e13afa6784659d9834"
+        ]
+      },
+      "jobListings": {
+        "keyPath": "id",
+        "count": 0,
+        "ids": [],
+        "hashes": []
+      },
+      "jobSnapshots": {
+        "keyPath": "id",
+        "count": 0,
+        "ids": [],
+        "hashes": []
+      },
+      "matchOperations": {
+        "keyPath": "id",
+        "count": 0,
+        "ids": [],
+        "hashes": []
+      },
+      "pdfImportSessions": {
+        "keyPath": "id",
+        "count": 0,
+        "ids": [],
+        "hashes": []
+      },
+      "pdfPageTexts": {
+        "keyPath": "id",
+        "count": 0,
+        "ids": [],
+        "hashes": []
+      },
+      "profileImportDrafts": {
+        "keyPath": "id",
+        "count": 0,
+        "ids": [],
+        "hashes": []
+      },
+      "profiles": {
+        "keyPath": "id",
+        "count": 1,
+        "ids": [
+          "profile-demo-student"
+        ],
+        "hashes": [
+          "136d6b3beec39dca712f062fe308c45391410177319146a250d3b33693fb9b5c"
+        ]
+      },
+      "rawInputs": {
+        "keyPath": "id",
+        "count": 0,
+        "ids": [],
+        "hashes": []
+      },
+      "requirementMatches": {
+        "keyPath": "id",
+        "count": 0,
+        "ids": [],
+        "hashes": []
+      },
+      "resumeBranches": {
+        "keyPath": "id",
+        "count": 2,
+        "ids": [
+          "branch-general-fixture-10",
+          "branch-job-profile-fnv-928e9877-56"
+        ],
+        "hashes": [
+          "66ac1ec58a62f4c46d96bb4d2243fa8a5da00bd8334ace1cc05ea23b86382dec",
+          "bb68708d09feb4336fbd96880e4d31143d76b396374208a7bf99331153ff5ce4"
+        ]
+      },
+      "resumeBranchOperations": {
+        "keyPath": "id",
+        "count": 0,
+        "ids": [],
+        "hashes": []
+      },
+      "resumeRevisions": {
+        "keyPath": "id",
+        "count": 2,
+        "ids": [
+          "resume-revision-fnv-2bd8bde0-46",
+          "resume-revision-fnv-71665cbb-53"
+        ],
+        "hashes": [
+          "8573a64f0f6c1a97aa2efd06af00e8b59931fee8cf072deb90990548d94af1b9",
+          "53907fcdc618c56caa1efe90b15bcbd826ead71581a3ccaa545a6e1a24516c59"
+        ]
+      },
+      "suggestionOperations": {
+        "keyPath": "id",
+        "count": 0,
+        "ids": [],
+        "hashes": []
+      }
+    },
+    "branchReferences": [
+      {
+        "id": "branch-general-fixture-10",
+        "profileId": "profile-demo-student",
+        "currentRevisionId": "resume-revision-fnv-2bd8bde0-46"
+      },
+      {
+        "id": "branch-job-profile-fnv-928e9877-56",
+        "profileId": "profile-demo-student",
+        "currentRevisionId": "resume-revision-fnv-71665cbb-53"
+      }
+    ],
+    "revisionReferences": [
+      {
+        "id": "resume-revision-fnv-2bd8bde0-46",
+        "branchId": "branch-general-fixture-10",
+        "revisionNumber": 0
+      },
+      {
+        "id": "resume-revision-fnv-71665cbb-53",
+        "branchId": "branch-job-profile-fnv-928e9877-56",
+        "revisionNumber": 0
+      }
+    ]
+  },
+  "gates": {
+    "legacyAlgorithm": "PASS synthetic fake-indexeddb; real old-origin bridge NOT EXECUTED",
+    "targetImport": "PASS isolated snapshot only",
+    "hashCountParity": "PASS fixture",
+    "idempotency": "PASS identical package replay and concurrent publication",
+    "interruption": "PASS staging-before-publication exception; no OS kill/power-loss claim",
+    "references": "PARTIAL bounded explicit graph, not complete namespace validation",
+    "attachments": "PARTIAL Uint8Array bytes preserved; external files rejected",
+    "workerRestart": "PASS two fresh Node readback workers",
+    "domainServiceRestart": "NOT EXECUTED",
+    "rendererRestart": "NOT EXECUTED",
+    "hermesHostRestart": "NOT EXECUTED",
+    "canonicalRepositoryCAS": "PASS original Dexie Repository, not target service",
+    "rollbackAfterNewWrites": "BLOCKED; tested explicit refusal, not successful rollback",
+    "domainApi": "strict preliminary envelope validation; all mutations refused",
+    "claimSafetyFactGuard": "existing rules unchanged; targeted adaptation/material checks passed, broader observed suite has one HTTP transport failure"
+  },
+  "tests": {
+    "finalTargeted": {
+      "passed": 77,
+      "failed": 0,
+      "total": 77,
+      "success": true,
+      "files": [
+        {
+          "file": "tests/unit/adaptation.test.ts",
+          "status": "passed",
+          "tests": [
+            {
+              "name": "stage C2 adaptation draft and fact guard creates JobAdaptationDraft only from non-stale C1 matches",
+              "status": "passed"
+            },
+            {
+              "name": "stage C2 adaptation draft and fact guard blocks stale matches before creating C2 draft",
+              "status": "passed"
+            },
+            {
+              "name": "stage C2 adaptation draft and fact guard detects unsupported numbers, tools, and responsibility upgrades",
+              "status": "passed"
+            },
+            {
+              "name": "stage C2 adaptation draft and fact guard keeps rule findings when AI fact guard fails",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "file": "tests/unit/applicationMaterialGuards.test.ts",
+          "status": "passed",
+          "tests": [
+            {
+              "name": "Application material Fact Guard re-runs guard after user edits and blocks unsupported SQL claims",
+              "status": "passed"
+            },
+            {
+              "name": "Application material Fact Guard does not treat JD requirements as user facts",
+              "status": "passed"
+            },
+            {
+              "name": "Application material Fact Guard only claims attachments when the Application has a successful PDF export",
+              "status": "passed"
+            },
+            {
+              "name": "Application material Fact Guard rejects blocked material status when attempting completion",
+              "status": "passed"
+            },
+            {
+              "name": "Application material Fact Guard does not treat neutral job title and company as fabricated facts",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "file": "tests/unit/branch.test.ts",
+          "status": "passed",
+          "tests": [
+            {
+              "name": "D1 resume branch domain builds profile-backed and blank general branches with independent basic information",
+              "status": "passed"
+            },
+            {
+              "name": "D1 resume branch domain removes profile-backed content only from the resume branch and can undo it",
+              "status": "passed"
+            },
+            {
+              "name": "D1 resume branch domain persists blank resume basics and keeps newly confirmed content resume-only by default",
+              "status": "passed"
+            },
+            {
+              "name": "D1 resume branch domain normalizes award dates and syncs profile changes back to an existing resume item",
+              "status": "passed"
+            },
+            {
+              "name": "D1 resume branch domain adds confirmed profile experience to a resume without duplicating profile data",
+              "status": "passed"
+            },
+            {
+              "name": "D1 resume branch domain reuses skills and certificates by fact reference and rejects duplicates",
+              "status": "passed"
+            },
+            {
+              "name": "D1 resume branch domain maps a non-stale adaptation draft into a verified branch and first revision",
+              "status": "passed"
+            },
+            {
+              "name": "D1 resume branch domain allows ai_failed_rule_kept only as rule_only_verified when rule findings have no high block",
+              "status": "passed"
+            },
+            {
+              "name": "D1 resume branch domain blocks stale source versions before branch creation",
+              "status": "passed"
+            },
+            {
+              "name": "D1 resume branch repository creates branch and first revision atomically, edits with rule guard, and undoes through previousRevisionId",
+              "status": "passed"
+            },
+            {
+              "name": "D1 resume branch repository migrates legacy v4 placeholder branches as read-only legacy_unverified",
+              "status": "passed"
+            },
+            {
+              "name": "D1 resume branch repository keeps edit operationId idempotent and blocks archived or invalid-reference edits",
+              "status": "passed"
+            },
+            {
+              "name": "D1 resume branch repository parses ResumeRevision with null previousRevisionId and restoredFromRevisionId from IndexedDB",
+              "status": "passed"
+            },
+            {
+              "name": "D1 resume branch repository parses ResumeBranch with null currentRevisionId from IndexedDB",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "file": "tests/unit/p520b-persistence.test.ts",
+          "status": "passed",
+          "tests": [
+            {
+              "name": "P5.2.0-B isolated migration proof exports every v11 table in a read-only transaction and preserves IDs, bytes, content and source DB",
+              "status": "passed"
+            },
+            {
+              "name": "P5.2.0-B isolated migration proof survives interruption before publication; retries publish once; concurrent identical imports coalesce",
+              "status": "passed"
+            },
+            {
+              "name": "P5.2.0-B isolated migration proof rejects tampered hashes, missing revision references and wrong ownership",
+              "status": "passed"
+            },
+            {
+              "name": "P5.2.0-B isolated migration proof rejects missing external attachments and unsupported codecs, with no writes to source",
+              "status": "passed"
+            },
+            {
+              "name": "P5.2.0-B isolated migration proof fails closed for all validated write actions and explicitly blocks rollback after writes",
+              "status": "passed"
+            },
+            {
+              "name": "P5.2.0-B isolated migration proof detects corrupted persisted snapshot on independent readback",
+              "status": "passed"
+            },
+            {
+              "name": "P5.2.0-B isolated migration proof retains canonical Repository CAS concurrency; does not claim target service writes",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "file": "tests/unit/profileReconciliation.test.ts",
+          "status": "passed",
+          "tests": [
+            {
+              "name": "ProfileReconciliationEngine deterministic matching A/J classifies the exact same fact and source as an idempotent exact duplicate",
+              "status": "passed"
+            },
+            {
+              "name": "ProfileReconciliationEngine deterministic matching B recognizes the same experience with changed narrative as a compatible update",
+              "status": "passed"
+            },
+            {
+              "name": "ProfileReconciliationEngine deterministic matching C ignores reordered structured bullet text while retaining new evidence",
+              "status": "passed"
+            },
+            {
+              "name": "ProfileReconciliationEngine deterministic matching D/F splits skills before identity matching without unsafe substring matches",
+              "status": "passed"
+            },
+            {
+              "name": "ProfileReconciliationEngine deterministic matching F reconciles a repeated combined skill item after the initial import split",
+              "status": "passed"
+            },
+            {
+              "name": "ProfileReconciliationEngine deterministic matching E normalizes harmless project-title formatting",
+              "status": "passed"
+            },
+            {
+              "name": "ProfileReconciliationEngine deterministic matching F creates a real conflict for materially different dates",
+              "status": "passed"
+            },
+            {
+              "name": "ProfileReconciliationEngine deterministic matching keeps a materially different basic identity behind explicit confirmation",
+              "status": "passed"
+            },
+            {
+              "name": "ProfileReconciliationEngine deterministic matching G/I keeps one fact identity while a second file extends evidence",
+              "status": "passed"
+            },
+            {
+              "name": "ProfileReconciliationEngine deterministic matching E detects a compatible additional field without fabricating a conflict",
+              "status": "passed"
+            },
+            {
+              "name": "ProfileReconciliationEngine deterministic matching G uses certificate credential ID before fallback identity",
+              "status": "passed"
+            },
+            {
+              "name": "ProfileReconciliationEngine deterministic matching does not let a matching credential ID hide a conflicting issuer",
+              "status": "passed"
+            },
+            {
+              "name": "ProfileReconciliationEngine deterministic matching H matches a structured project entity while reconciling facts independently",
+              "status": "passed"
+            },
+            {
+              "name": "ProfileReconciliationEngine deterministic matching K keeps materially distinct similar projects out of automatic merge",
+              "status": "passed"
+            },
+            {
+              "name": "ProfileReconciliationEngine deterministic matching L keeps unresolved conflicts as one stable blocking review unit",
+              "status": "passed"
+            },
+            {
+              "name": "ProfileReconciliationEngine deterministic matching I/J fuses two sources once and keeps the same source fully idempotent",
+              "status": "passed"
+            },
+            {
+              "name": "ProfileReconciliationEngine deterministic matching L blocks repository commit until the conflict has an explicit non-deferred resolution",
+              "status": "passed"
+            },
+            {
+              "name": "ProfileReconciliationEngine deterministic matching uses imported conflicting fields as one authoritative update with provenance after reload",
+              "status": "passed"
+            },
+            {
+              "name": "ProfileReconciliationEngine deterministic matching keeps a reviewed similar item as a distinct canonical asset with unique provenance after reload",
+              "status": "passed"
+            },
+            {
+              "name": "ProfileReconciliationEngine deterministic matching R invalidates a reconciliation plan when the authoritative Profile version changes",
+              "status": "passed"
+            },
+            {
+              "name": "ProfileReconciliationEngine deterministic matching P exposes the same persisted plan to Manual Wizard and Agent clients",
+              "status": "passed"
+            },
+            {
+              "name": "ProfileReconciliationEngine deterministic matching Q reload preserves unresolved reconciliation decisions and revision",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "file": "tests/unit/repositoryTailoringV2.test.ts",
+          "status": "passed",
+          "tests": [
+            {
+              "name": "Tailoring Engine v2 repository application patches only the canonical highlights field, creates a revision, and leaves the general resume unchanged",
+              "status": "passed"
+            },
+            {
+              "name": "Tailoring Engine v2 repository application creates a legal resume-only SkillItemV2 only from a confirmed append patch",
+              "status": "passed"
+            },
+            {
+              "name": "Tailoring Engine v2 repository application writes an explicitly selected tailoring claim to Profile as a new confirmed fact",
+              "status": "passed"
+            },
+            {
+              "name": "Tailoring Engine v2 repository application applies valid diffs independently, preserves presentation, and supports undo",
+              "status": "passed"
+            },
+            {
+              "name": "Tailoring Engine v2 repository application does not create an empty revision when every diff is rejected",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "file": "tests/unit/storage.test.ts",
+          "status": "passed",
+          "tests": [
+            {
+              "name": "WorkspaceRepository persists the current Agent Session projection when listing a legacy record",
+              "status": "passed"
+            },
+            {
+              "name": "WorkspaceRepository migrates legacy agent message options before archive and rename writes",
+              "status": "passed"
+            },
+            {
+              "name": "WorkspaceRepository persists only an existing profile as the active profile context",
+              "status": "passed"
+            },
+            {
+              "name": "WorkspaceRepository copies a user-entered profile summary into a new general resume",
+              "status": "passed"
+            },
+            {
+              "name": "WorkspaceRepository deletes an unreferenced profile and blocks deletion after a resume references it",
+              "status": "passed"
+            },
+            {
+              "name": "WorkspaceRepository renames an untouched legacy demo profile without overwriting a user rename",
+              "status": "passed"
+            },
+            {
+              "name": "WorkspaceRepository restores profile items and jobs from the unified recycle bin",
+              "status": "passed"
+            },
+            {
+              "name": "WorkspaceRepository restores structured profile items from the recycle bin without losing fields or evidence",
+              "status": "passed"
+            },
+            {
+              "name": "WorkspaceRepository writes, reads, updates, and exports the demo workspace",
+              "status": "passed"
+            },
+            {
+              "name": "WorkspaceRepository migrates stage B Dexie v2 data to v3 without losing profile, job, raw inputs, or drafts",
+              "status": "passed"
+            },
+            {
+              "name": "WorkspaceRepository migrates stage C1 Dexie v3 data to v4 with empty C2 tables",
+              "status": "passed"
+            },
+            {
+              "name": "WorkspaceRepository saves resume branches, AI logs, export records, and app meta",
+              "status": "passed"
+            },
+            {
+              "name": "WorkspaceRepository persists C2 draft, suggestions, idempotent accept, rejection, edit guard, and undo",
+              "status": "passed"
+            },
+            {
+              "name": "WorkspaceRepository prevents accepting blocked high-risk suggestions",
+              "status": "passed"
+            },
+            {
+              "name": "WorkspaceRepository saves stage B profile drafts with revision checks and idempotent commits",
+              "status": "passed"
+            },
+            {
+              "name": "WorkspaceRepository saves stage B JD drafts with revision checks and idempotent commits",
+              "status": "passed"
+            },
+            {
+              "name": "WorkspaceRepository revision conflict prevents concurrent profile draft overwrites",
+              "status": "passed"
+            },
+            {
+              "name": "WorkspaceRepository draft persists through simulated refresh for recovery",
+              "status": "passed"
+            },
+            {
+              "name": "WorkspaceRepository JD draft also persists through simulated refresh",
+              "status": "passed"
+            },
+            {
+              "name": "WorkspaceRepository provider failure fallback: raw text preserved, manual mode draft created",
+              "status": "passed"
+            }
+          ]
+        }
+      ]
+    },
+    "broaderObservedSafety": {
+      "passed": 18,
+      "failed": 1,
+      "total": 19,
+      "success": false,
+      "files": [
+        {
+          "file": "tests/unit/adaptation.test.ts",
+          "status": "passed",
+          "tests": [
+            {
+              "name": "stage C2 adaptation draft and fact guard creates JobAdaptationDraft only from non-stale C1 matches",
+              "status": "passed"
+            },
+            {
+              "name": "stage C2 adaptation draft and fact guard blocks stale matches before creating C2 draft",
+              "status": "passed"
+            },
+            {
+              "name": "stage C2 adaptation draft and fact guard detects unsupported numbers, tools, and responsibility upgrades",
+              "status": "passed"
+            },
+            {
+              "name": "stage C2 adaptation draft and fact guard keeps rule findings when AI fact guard fails",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "file": "tests/unit/applicationMaterialGuards.test.ts",
+          "status": "passed",
+          "tests": [
+            {
+              "name": "Application material Fact Guard re-runs guard after user edits and blocks unsupported SQL claims",
+              "status": "passed"
+            },
+            {
+              "name": "Application material Fact Guard does not treat JD requirements as user facts",
+              "status": "passed"
+            },
+            {
+              "name": "Application material Fact Guard only claims attachments when the Application has a successful PDF export",
+              "status": "passed"
+            },
+            {
+              "name": "Application material Fact Guard rejects blocked material status when attempting completion",
+              "status": "passed"
+            },
+            {
+              "name": "Application material Fact Guard does not treat neutral job title and company as fabricated facts",
+              "status": "passed"
+            }
+          ]
+        },
+        {
+          "file": "tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts",
+          "status": "failed",
+          "tests": [
+            {
+              "name": "P4.5c.1.14 Career workflow transactional closure allows only one active Hermes event consumer and permits reattach after closure",
+              "status": "passed"
+            },
+            {
+              "name": "P4.5c.1.14 Career workflow transactional closure serializes one LogicalTurn/Task and reports a recoverable busy observation",
+              "status": "passed"
+            },
+            {
+              "name": "P4.5c.1.14 Career workflow transactional closure returns safe gateway diagnostics without exposing invalid target text",
+              "status": "passed"
+            },
+            {
+              "name": "P4.5c.1.14 Career workflow transactional closure keeps direct external targetText on tailor semantics and out of compose",
+              "status": "passed"
+            },
+            {
+              "name": "P4.5c.1.14 Career workflow transactional closure publishes the canonical target contract and keeps compose explicitly general/base",
+              "status": "passed"
+            },
+            {
+              "name": "P4.5c.1.14 Career workflow transactional closure requires authoritative result proof before a canonical job resume can complete",
+              "status": "passed"
+            },
+            {
+              "name": "P4.5c.1.14 Career workflow transactional closure uses the Fact Guard fallback instead of presenting an ungrounded composition",
+              "status": "passed"
+            },
+            {
+              "name": "P4.5c.1.14 Career workflow transactional closure projects MCP tool failures with a scope-specific diagnostic",
+              "status": "passed"
+            },
+            {
+              "name": "P4.5c.1.14 Career workflow transactional closure narrates MCP transport failure separately from Hermes startup failure",
+              "status": "passed"
+            },
+            {
+              "name": "P4.5c.1.14 Career workflow transactional closure normalizes contradictory official tool completion payloads as failures",
+              "status": "failed"
+            }
+          ]
+        }
+      ]
+    },
+    "broaderFailure": "normalizes contradictory official tool completion payloads as failures: Response body object should not be disturbed or locked; no runtime source modified; root cause not investigated in this scope"
+  },
+  "checks": {
+    "baselineTypecheck": {
+      "exitCode": 0
+    },
+    "baselineCanonicalTests": {
+      "passed": 3,
+      "exitCode": 0
+    },
+    "prototypeBuild": {
+      "command": "node poc/career-domain-persistence/build.mjs",
+      "exitCode": 0
+    },
+    "changedFilesLint": {
+      "command": "pnpm exec eslint poc/career-domain-persistence tests/unit/p520b-persistence.test.ts --max-warnings=0",
+      "exitCode": 0
+    },
+    "typecheck": {
+      "command": "pnpm typecheck",
+      "exitCode": 0
+    },
+    "diffCheck": {
+      "command": "git diff --check",
+      "exitCode": 0
+    },
+    "nextBuild": "NOT RUN: no production build boundary changed",
+    "playwright": "NOT RUN: no UI or production bridge changed"
+  },
+  "blockers": [
+    "No canonical persistence port or mutable service backend; production actions deliberately denied",
+    "No reverse journal/replay preserving post-cutover writes; rollback blocked",
+    "No authenticated broker integration or real service/Renderer/Hermes lifecycle verification",
+    "Incomplete source/reference/opaque appMeta and external file coverage; fixture uses several empty tables",
+    "No actual old-origin browser bridge or production engine/package/crash durability evidence",
+    "One observed unrelated existing Hermes HTTP transport test failure"
+  ],
+  "failuresDuringTask": [
+    "Initial read-only subset rejected binary/undefined; replaced with tagged codec and tested",
+    "Fixture job branch creation rejected empty canonical selection; corrected with existing canonical Profile IDs",
+    "Wrong locked Desktop package path and PowerShell rg glob corrected during audit"
+  ],
+  "productionChanges": false,
+  "realUserDataAccessed": false,
+  "llmRequests": 0,
+  "newDexieTables": 0,
+  "dualWrites": false,
+  "committed": false,
+  "pushed": false,
+  "packaged": false,
+  "nextStageStarted": false
+}

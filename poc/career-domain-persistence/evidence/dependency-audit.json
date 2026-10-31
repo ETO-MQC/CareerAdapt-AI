@@ -1,0 +1,2972 @@
+{
+  "schemaVersion": 11,
+  "tables": [
+    {
+      "name": "profiles",
+      "indexes": "id, name, updatedAt"
+    },
+    {
+      "name": "jobDescriptions",
+      "indexes": "id, title, company, updatedAt"
+    },
+    {
+      "name": "rawInputs",
+      "indexes": "id, kind, inputHash, sourceSessionId, updatedAt"
+    },
+    {
+      "name": "pdfImportSessions",
+      "indexes": "id, status, fileHash, normalizedTextHash, rawInputId, draftId, updatedAt"
+    },
+    {
+      "name": "pdfPageTexts",
+      "indexes": "id, sessionId, [sessionId+pageNumber], pageNumber, updatedAt"
+    },
+    {
+      "name": "profileImportDrafts",
+      "indexes": "id, rawInputId, status, updatedAt"
+    },
+    {
+      "name": "jobAnalysisDrafts",
+      "indexes": "id, rawInputId, status, updatedAt"
+    },
+    {
+      "name": "draftCommits",
+      "indexes": "commitId, draftId, kind, entityId"
+    },
+    {
+      "name": "requirementMatches",
+      "indexes": "id, [profileId+jobId], requirementId, isStale, updatedAt"
+    },
+    {
+      "name": "matchOperations",
+      "indexes": "id, operationId, requirementMatchId, [profileId+jobId], type, occurredAt"
+    },
+    {
+      "name": "jobAdaptationDrafts",
+      "indexes": "id, [profileId+jobId], status, updatedAt"
+    },
+    {
+      "name": "aiSuggestions",
+      "indexes": "id, draftId, status, type, updatedAt"
+    },
+    {
+      "name": "adaptationSnapshots",
+      "indexes": "id, draftId, revision, operationId, updatedAt"
+    },
+    {
+      "name": "suggestionOperations",
+      "indexes": "id, operationId, draftId, suggestionId, type, occurredAt"
+    },
+    {
+      "name": "resumeBranches",
+      "indexes": "id, profileId, jobId, sourceAdaptationDraftId, lifecycleStatus, migrationStatus, updatedAt"
+    },
+    {
+      "name": "resumeRevisions",
+      "indexes": "id, branchId, revisionNumber, operationId, source, createdAt"
+    },
+    {
+      "name": "resumeBranchOperations",
+      "indexes": "id, &operationId, branchId, sourceAdaptationDraftId, type, occurredAt"
+    },
+    {
+      "name": "aiLogs",
+      "indexes": "id, task, provider, createdAt"
+    },
+    {
+      "name": "exportRecords",
+      "indexes": "id, &operationId, branchId, branchRevision, templateId, exportStatus, exportedAt"
+    },
+    {
+      "name": "applications",
+      "indexes": "id, profileId, jobId, jobSpecificBranchId, status, updatedAt, [profileId+status]"
+    },
+    {
+      "name": "agentSessions",
+      "indexes": "id, updatedAt, createdAt, sessionRevision, [workflowState.status+updatedAt]"
+    },
+    {
+      "name": "agentMessages",
+      "indexes": "id, sessionId, &[sessionId+sequence], [sessionId+createdAt], role, kind"
+    },
+    {
+      "name": "crawlSources",
+      "indexes": "id, &key, channelType, complianceStatus, enabled, updatedAt"
+    },
+    {
+      "name": "jobListings",
+      "indexes": "id, sourceKey, &[sourceKey+externalId], &canonicalSourceUrl, contentFingerprint, companyTitleFingerprint, listingKind, crawlState, policyStatus, updatedAt"
+    },
+    {
+      "name": "jobSnapshots",
+      "indexes": "id, contentHash, &[jobListingId+contentHash], &[jobListingId+version], [jobListingId+capturedAt]"
+    },
+    {
+      "name": "crawlRuns",
+      "indexes": "id, sourceKey, status, trigger, startedAt"
+    },
+    {
+      "name": "applicationDrafts",
+      "indexes": "id, jobListingId, applicationId, platform, step, updatedAt"
+    },
+    {
+      "name": "appMeta",
+      "indexes": "key"
+    }
+  ],
+  "imports": [
+    "@/domain/resumePresentation/layoutPresets",
+    "dexie",
+    "@/domain/materialIntake/materialIntake",
+    "zod",
+    "@/domain/schemas",
+    "@/domain/mappers/jobDraftMapper",
+    "@/domain/jobAssets/jobDeduplication",
+    "@/services/jobs/jobWorkflow",
+    "@/data/demoJobs",
+    "@/domain/schemas/jobDiscovery",
+    "@/domain/factProposal",
+    "@/data/demoProfile",
+    "@/domain/migrations/resumeV2",
+    "@/domain/profile/canonicalLibrary",
+    "@/domain/profile/profileWriteContract",
+    "@/domain/profile/factMaturity",
+    "@/domain/profile/profileSyncDiagnostics",
+    "@/domain/profile/profileContentRecovery",
+    "@/domain/schemas",
+    "@/agent/contracts/agentSession",
+    "@/agent/contracts/resumeArtifactWrite",
+    "@/domain/profileIntake/ProfileIntakeSourceTurn",
+    "@/agent/runtime/AgentSessionMigration",
+    "@/domain/jobOptimization/tailoringDiff",
+    "@/domain/application",
+    "@/domain/applicationPreparation",
+    "@/domain/branch/mapper",
+    "@/domain/branch/revision",
+    "@/domain/branch/validation",
+    "@/domain/branch/profileBranch",
+    "@/domain/jobTarget/jobTargetSnapshot",
+    "@/domain/resumeFields/catalog",
+    "@/domain/resumeImport/confirm",
+    "@/domain/profileReconciliation/ProfileReconciliationEngine",
+    "@/domain/resumeComposition",
+    "@/domain/resumeIntegrity",
+    "@/domain/adaptation/factGuard",
+    "@/domain/adaptation/draft",
+    "@/domain/jobOptimization",
+    "@/services/jobs/tailoringDiffId",
+    "@/domain/jobOptimization/suggestions",
+    "@/services/export/snapshot",
+    "@/domain/match/matcher",
+    "@/services/security/text",
+    "./db",
+    "./resumeRepositoryEvents"
+  ],
+  "methods": [
+    {
+      "method": "getCareerPersonWithoutMigration",
+      "line": 871,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "ensurePersonForProfileInTransaction",
+      "line": 877,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "putProfileInTransaction",
+      "line": 900,
+      "directDexie": true,
+      "tables": [
+        "profiles"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "markCurrentProfileInTransaction",
+      "line": 906,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "profiles"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "saveAgentSession",
+      "line": 924,
+      "directDexie": true,
+      "tables": [
+        "agentMessages",
+        "agentSessions",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": false
+    },
+    {
+      "method": "getAgentSession",
+      "line": 964,
+      "directDexie": true,
+      "tables": [
+        "agentSessions"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "listAgentSessions",
+      "line": 970,
+      "directDexie": true,
+      "tables": [
+        "agentSessions"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "listArchivedAgentSessions",
+      "line": 975,
+      "directDexie": true,
+      "tables": [
+        "agentSessions"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "archiveAgentSession",
+      "line": 980,
+      "directDexie": true,
+      "tables": [
+        "agentSessions"
+      ],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": false
+    },
+    {
+      "method": "unarchiveAgentSession",
+      "line": 991,
+      "directDexie": true,
+      "tables": [
+        "agentSessions"
+      ],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": false
+    },
+    {
+      "method": "renameAgentSession",
+      "line": 1002,
+      "directDexie": true,
+      "tables": [
+        "agentSessions"
+      ],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": false
+    },
+    {
+      "method": "deleteAgentSession",
+      "line": 1013,
+      "directDexie": true,
+      "tables": [
+        "agentMessages",
+        "agentSessions",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "appendAgentMessages",
+      "line": 1020,
+      "directDexie": true,
+      "tables": [
+        "agentMessages"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "hydrateAgentSession",
+      "line": 1037,
+      "directDexie": true,
+      "tables": [
+        "agentMessages",
+        "agentSessions"
+      ],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": false
+    },
+    {
+      "method": "seedDemoWorkspace",
+      "line": 1088,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "ensureDemoWorkspace",
+      "line": 1096,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "saveProfile",
+      "line": 1125,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "profiles",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "ensureCareerIdentityMigration",
+      "line": 1165,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "profiles",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "listCareerPersons",
+      "line": 1233,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getCareerPerson",
+      "line": 1244,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getProfilesForPerson",
+      "line": 1251,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getActiveCareerContext",
+      "line": 1259,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "profiles"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "setActiveCareerContext",
+      "line": 1299,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "profiles"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "clearActiveCareerContext",
+      "line": 1322,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "createPerson",
+      "line": 1329,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "profiles",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "createProfileVersion",
+      "line": 1362,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "repairProfileContent",
+      "line": 1393,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "profiles",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "renameProfileVersion",
+      "line": 1485,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "setCurrentProfileVersion",
+      "line": 1492,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "archivePerson",
+      "line": 1506,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "restoreArchivedPerson",
+      "line": 1526,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "trashPerson",
+      "line": 1546,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "restorePersonFromTrash",
+      "line": 1573,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "archiveProfileVersion",
+      "line": 1592,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "restoreArchivedProfileVersion",
+      "line": 1626,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "profiles",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "trashProfileVersion",
+      "line": 1650,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "profiles",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "restoreProfileVersionFromTrash",
+      "line": 1675,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "profiles",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "permanentlyDeleteProfileVersion",
+      "line": 1698,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "profiles",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "permanentlyDeletePerson",
+      "line": 1726,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "profiles",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "saveRawInput",
+      "line": 1761,
+      "directDexie": true,
+      "tables": [
+        "rawInputs"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "saveMaterialIntake",
+      "line": 1767,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getMaterialIntake",
+      "line": 1773,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "saveAttachmentSource",
+      "line": 1778,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getAttachmentSource",
+      "line": 1783,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getRawInput",
+      "line": 1787,
+      "directDexie": true,
+      "tables": [
+        "rawInputs"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "listRawInputs",
+      "line": 1792,
+      "directDexie": true,
+      "tables": [
+        "rawInputs"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "createPdfImportSession",
+      "line": 1797,
+      "directDexie": true,
+      "tables": [
+        "pdfImportSessions"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "updatePdfImportSession",
+      "line": 1803,
+      "directDexie": true,
+      "tables": [
+        "pdfImportSessions"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getPdfImportSession",
+      "line": 1812,
+      "directDexie": true,
+      "tables": [
+        "pdfImportSessions"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getLatestPdfImportSession",
+      "line": 1817,
+      "directDexie": true,
+      "tables": [
+        "pdfImportSessions"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "findPdfImportByFileHash",
+      "line": 1822,
+      "directDexie": true,
+      "tables": [
+        "pdfImportSessions"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "savePdfPageTexts",
+      "line": 1830,
+      "directDexie": true,
+      "tables": [
+        "pdfPageTexts",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "listPdfPageTexts",
+      "line": 1841,
+      "directDexie": true,
+      "tables": [
+        "pdfPageTexts"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "deletePdfImportSession",
+      "line": 1848,
+      "directDexie": true,
+      "tables": [
+        "pdfImportSessions",
+        "pdfPageTexts",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "createProfileImportDraft",
+      "line": 1855,
+      "directDexie": true,
+      "tables": [
+        "profileImportDrafts"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getProfileImportDraft",
+      "line": 1861,
+      "directDexie": true,
+      "tables": [
+        "profileImportDrafts"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getLatestProfileImportDraft",
+      "line": 1866,
+      "directDexie": true,
+      "tables": [
+        "profileImportDrafts"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "saveProfileImportDraftRevision",
+      "line": 1871,
+      "directDexie": true,
+      "tables": [
+        "profileImportDrafts",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": false
+    },
+    {
+      "method": "commitProfileDraft",
+      "line": 1904,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "draftCommits",
+        "profileImportDrafts",
+        "profiles",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": false
+    },
+    {
+      "method": "saveImportedResumeDraft",
+      "line": 1967,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": false
+    },
+    {
+      "method": "getImportedResumeDraft",
+      "line": 2011,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "saveProfileIntakeSourceTurn",
+      "line": 2017,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "updateProfileIntakeSourceTurn",
+      "line": 2024,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getProfileIntakeSourceTurn",
+      "line": 2039,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "listProfileIntakeSourceTurns",
+      "line": 2045,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "saveAgentProtocolDiagnostic",
+      "line": 2058,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "findConversationIntakeBySourceIdentity",
+      "line": 2066,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getLatestImportedResumeDraft",
+      "line": 2101,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getLatestImportedResumeDraftForProfile",
+      "line": 2114,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "cancelImportedResumeDraft",
+      "line": 2128,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": false
+    },
+    {
+      "method": "reconcileImportedResume",
+      "line": 2139,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getProfileReconciliationPlan",
+      "line": 2169,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "resolveProfileReconciliation",
+      "line": 2175,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "profiles",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "confirmProfileIntake",
+      "line": 2216,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "profiles",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "confirmImportedResume",
+      "line": 2336,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "confirmImportedResume",
+      "line": 2344,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "confirmImportedResume",
+      "line": 2352,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "pdfImportSessions",
+        "profiles",
+        "resumeBranchOperations",
+        "resumeBranches",
+        "resumeRevisions",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "getProfile",
+      "line": 2635,
+      "directDexie": true,
+      "tables": [
+        "profiles"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "listProfiles",
+      "line": 2641,
+      "directDexie": true,
+      "tables": [
+        "profiles"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getActiveProfileId",
+      "line": 2647,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "setActiveProfileId",
+      "line": 2651,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getProfileDeleteBlockers",
+      "line": 2657,
+      "directDexie": true,
+      "tables": [
+        "applications",
+        "draftCommits",
+        "jobAdaptationDrafts",
+        "matchOperations",
+        "requirementMatches",
+        "resumeBranches"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "deleteProfileIfUnreferenced",
+      "line": 2669,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "profiles",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "clearProfileBlockers",
+      "line": 2682,
+      "directDexie": true,
+      "tables": [
+        "applications",
+        "draftCommits",
+        "jobAdaptationDrafts",
+        "matchOperations",
+        "requirementMatches",
+        "resumeBranches"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "forceDeleteProfile",
+      "line": 2709,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "profiles",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getOrphanedDataCounts",
+      "line": 2717,
+      "directDexie": true,
+      "tables": [
+        "pdfImportSessions",
+        "profileImportDrafts",
+        "profiles",
+        "rawInputs"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "clearOrphanedData",
+      "line": 2742,
+      "directDexie": true,
+      "tables": [
+        "pdfImportSessions",
+        "profileImportDrafts",
+        "rawInputs",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "saveJobDescription",
+      "line": 2752,
+      "directDexie": true,
+      "tables": [
+        "jobDescriptions"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "createJobAnalysisDraft",
+      "line": 2758,
+      "directDexie": true,
+      "tables": [
+        "jobAnalysisDrafts"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getJobAnalysisDraft",
+      "line": 2764,
+      "directDexie": true,
+      "tables": [
+        "jobAnalysisDrafts"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getLatestJobAnalysisDraft",
+      "line": 2769,
+      "directDexie": true,
+      "tables": [
+        "jobAnalysisDrafts"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getLatestActiveJobAnalysisDraft",
+      "line": 2774,
+      "directDexie": true,
+      "tables": [
+        "jobAnalysisDrafts"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "saveJobAnalysisDraftRevision",
+      "line": 2781,
+      "directDexie": true,
+      "tables": [
+        "jobAnalysisDrafts",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": false
+    },
+    {
+      "method": "commitJobDraft",
+      "line": 2814,
+      "directDexie": true,
+      "tables": [
+        "draftCommits",
+        "jobAnalysisDrafts",
+        "jobDescriptions",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": false
+    },
+    {
+      "method": "saveJobDescriptions",
+      "line": 2882,
+      "directDexie": true,
+      "tables": [
+        "jobDescriptions"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "listJobDescriptions",
+      "line": 2888,
+      "directDexie": true,
+      "tables": [
+        "jobDescriptions"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getJobDescription",
+      "line": 2893,
+      "directDexie": true,
+      "tables": [
+        "jobDescriptions"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "saveResumeBranch",
+      "line": 2898,
+      "directDexie": true,
+      "tables": [
+        "resumeBranches"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "applyTailoringPlan",
+      "line": 2904,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "profiles",
+        "resumeBranchOperations",
+        "resumeBranches",
+        "resumeRevisions",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "applyTailoringDiffs",
+      "line": 3005,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "jobDescriptions",
+        "profiles",
+        "resumeBranchOperations",
+        "resumeBranches",
+        "resumeRevisions",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "deriveAndApplyTailoringDiffsAtomic",
+      "line": 3177,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "jobDescriptions",
+        "profiles",
+        "requirementMatches",
+        "resumeBranchOperations",
+        "resumeBranches",
+        "resumeRevisions",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "createGeneralResumeBranch",
+      "line": 3471,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "profiles",
+        "resumeBranchOperations",
+        "resumeBranches",
+        "resumeRevisions",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "ensureGeneralResumeFromProfile",
+      "line": 3533,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "createJobSpecificBranchFromProfile",
+      "line": 3650,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "jobDescriptions",
+        "profiles",
+        "requirementMatches",
+        "resumeBranchOperations",
+        "resumeBranches",
+        "resumeRevisions",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "createResumeBranchFromDraft",
+      "line": 3771,
+      "directDexie": true,
+      "tables": [
+        "aiSuggestions",
+        "jobAdaptationDrafts",
+        "jobDescriptions",
+        "profiles",
+        "requirementMatches",
+        "resumeBranchOperations",
+        "resumeBranches",
+        "resumeRevisions",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "findDerivedJobBranches",
+      "line": 3860,
+      "directDexie": true,
+      "tables": [
+        "resumeBranches"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "deriveJobSpecificBranchFromBranch",
+      "line": 3878,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "jobDescriptions",
+        "profiles",
+        "requirementMatches",
+        "resumeBranchOperations",
+        "resumeBranches",
+        "resumeRevisions",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "saveRuleRequirementMatches",
+      "line": 4062,
+      "directDexie": true,
+      "tables": [
+        "matchOperations",
+        "requirementMatches",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "saveAiRequirementMatches",
+      "line": 4099,
+      "directDexie": true,
+      "tables": [
+        "matchOperations",
+        "requirementMatches",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "saveManualMatchOverride",
+      "line": 4140,
+      "directDexie": true,
+      "tables": [
+        "matchOperations",
+        "requirementMatches",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "listRequirementMatches",
+      "line": 4208,
+      "directDexie": true,
+      "tables": [
+        "requirementMatches"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "markStaleRequirementMatches",
+      "line": 4213,
+      "directDexie": true,
+      "tables": [
+        "matchOperations",
+        "requirementMatches",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "resolveEffectiveMatch",
+      "line": 4248,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "createJobAdaptationDraft",
+      "line": 4252,
+      "directDexie": true,
+      "tables": [
+        "adaptationSnapshots",
+        "jobAdaptationDrafts",
+        "suggestionOperations",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "getLatestJobAdaptationDraft",
+      "line": 4296,
+      "directDexie": true,
+      "tables": [
+        "jobAdaptationDrafts"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getJobAdaptationDraft",
+      "line": 4302,
+      "directDexie": true,
+      "tables": [
+        "jobAdaptationDrafts"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "listJobAdaptationDrafts",
+      "line": 4307,
+      "directDexie": true,
+      "tables": [
+        "jobAdaptationDrafts"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "listAiSuggestions",
+      "line": 4315,
+      "directDexie": true,
+      "tables": [
+        "aiSuggestions"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "saveGeneratedSuggestions",
+      "line": 4320,
+      "directDexie": true,
+      "tables": [
+        "adaptationSnapshots",
+        "aiSuggestions",
+        "jobAdaptationDrafts",
+        "suggestionOperations",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "saveGeneratedBlockSuggestion",
+      "line": 4374,
+      "directDexie": true,
+      "tables": [
+        "adaptationSnapshots",
+        "aiSuggestions",
+        "jobAdaptationDrafts",
+        "suggestionOperations",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "rejectSuggestion",
+      "line": 4438,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "ignoreSuggestion",
+      "line": 4450,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "editSuggestionGuarded",
+      "line": 4462,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "rerunSuggestionGuard",
+      "line": 4483,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "acceptSuggestion",
+      "line": 4504,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "applyResumeBlockSuggestion",
+      "line": 4536,
+      "directDexie": true,
+      "tables": [
+        "adaptationSnapshots",
+        "aiSuggestions",
+        "jobAdaptationDrafts",
+        "jobDescriptions",
+        "profiles",
+        "requirementMatches",
+        "resumeBranchOperations",
+        "resumeBranches",
+        "resumeRevisions",
+        "suggestionOperations",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "undoSuggestion",
+      "line": 4768,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "listResumeBranches",
+      "line": 4793,
+      "directDexie": true,
+      "tables": [
+        "resumeBranches"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getResumeBranch",
+      "line": 4800,
+      "directDexie": true,
+      "tables": [
+        "resumeBranches"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getResumePresentationConfig",
+      "line": 4805,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "resumeBranches"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "saveResumePresentationConfig",
+      "line": 4832,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "resumeBranches",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "listResumeRevisions",
+      "line": 4903,
+      "directDexie": true,
+      "tables": [
+        "resumeRevisions"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getResumeRevision",
+      "line": 4910,
+      "directDexie": true,
+      "tables": [
+        "resumeRevisions"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "editResumeBranch",
+      "line": 4915,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "editResumeBranchBasics",
+      "line": 5024,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "saveResumeCompositionCheckpoint",
+      "line": 5055,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getResumeCompositionCheckpoint",
+      "line": 5072,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "saveResumeArtifactWriteCheckpoint",
+      "line": 5078,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "getResumeArtifactWriteCheckpoint",
+      "line": 5108,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "listResumeArtifactWriteCheckpoints",
+      "line": 5114,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "saveResumeArtifactReceipt",
+      "line": 5124,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "getResumeArtifactReceipt",
+      "line": 5141,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "verifyResumeArtifactReceipt",
+      "line": 5147,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getResumeSourceFingerprint",
+      "line": 5179,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "syncResumeBranchFromProfile",
+      "line": 5193,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "renameResumeBranch",
+      "line": 5280,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "duplicateResumeContentItem",
+      "line": 5305,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "addResumeContentItem",
+      "line": 5375,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "syncResumeContentItemToProfile",
+      "line": 5671,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "syncResumeBasicsSummaryToProfile",
+      "line": 5995,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "addResumeContentItemFromProfile",
+      "line": 6042,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "addResumeContentItemFromProfileReference",
+      "line": 6142,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "restoreResumeRevision",
+      "line": 6313,
+      "directDexie": true,
+      "tables": [
+        "resumeRevisions"
+      ],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "undoResumeBranch",
+      "line": 6345,
+      "directDexie": true,
+      "tables": [
+        "resumeRevisions"
+      ],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "refreshResumeBranchSyncStatus",
+      "line": 6384,
+      "directDexie": true,
+      "tables": [
+        "jobDescriptions",
+        "profiles",
+        "resumeBranchOperations",
+        "resumeBranches",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "archiveResumeBranch",
+      "line": 6448,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "restoreArchivedResumeBranch",
+      "line": 6463,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "moveResumeBranchToTrash",
+      "line": 6473,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "restoreResumeBranchFromTrash",
+      "line": 6483,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "deleteResumeBranchPermanently",
+      "line": 6493,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "applications",
+        "exportRecords",
+        "resumeBranchOperations",
+        "resumeBranches",
+        "resumeRevisions",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": false
+    },
+    {
+      "method": "saveAiLogs",
+      "line": 6524,
+      "directDexie": true,
+      "tables": [
+        "aiLogs"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "saveExportRecord",
+      "line": 6530,
+      "directDexie": true,
+      "tables": [
+        "exportRecords"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "createResumeExportRecord",
+      "line": 6536,
+      "directDexie": true,
+      "tables": [
+        "exportRecords",
+        "resumeBranches",
+        "resumeRevisions",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "listApplicationsByProfile",
+      "line": 6677,
+      "directDexie": true,
+      "tables": [
+        "applications"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getApplication",
+      "line": 6686,
+      "directDexie": true,
+      "tables": [
+        "applications"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "listExportRecordsForBranch",
+      "line": 6691,
+      "directDexie": true,
+      "tables": [
+        "exportRecords"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getApplicationContext",
+      "line": 6698,
+      "directDexie": true,
+      "tables": [
+        "exportRecords",
+        "jobDescriptions",
+        "profiles",
+        "resumeBranches",
+        "resumeRevisions"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getApplicationPreparationContext",
+      "line": 6742,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "loadApplicationPreparationPack",
+      "line": 6759,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "saveApplicationPreparationPack",
+      "line": 6793,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "applications",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "getApplicationPreparationPackInTransaction",
+      "line": 6858,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getApplicationReadiness",
+      "line": 6867,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "createApplicationFromBranch",
+      "line": 6885,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "applications",
+        "exportRecords",
+        "jobDescriptions",
+        "profiles",
+        "resumeBranches",
+        "resumeRevisions",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "updateApplicationStatus",
+      "line": 7032,
+      "directDexie": true,
+      "tables": [
+        "applications",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "updateApplicationDetails",
+      "line": 7090,
+      "directDexie": true,
+      "tables": [
+        "applications",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "linkApplicationRevision",
+      "line": 7207,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "applications",
+        "exportRecords",
+        "resumeBranches",
+        "resumeRevisions",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "attachApplicationExport",
+      "line": 7272,
+      "directDexie": true,
+      "tables": [
+        "applications",
+        "exportRecords",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "archiveApplication",
+      "line": 7327,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "restoreApplication",
+      "line": 7340,
+      "directDexie": true,
+      "tables": [
+        "applications",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "getResumeLayoutPresets",
+      "line": 7380,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "saveResumeLayoutPreset",
+      "line": 7385,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "deleteResumeLayoutPreset",
+      "line": 7394,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "setMeta",
+      "line": 7401,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getMeta",
+      "line": 7412,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getRecycleBinState",
+      "line": 7416,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "addProfileRecycleItem",
+      "line": 7422,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "restoreProfileRecycleItem",
+      "line": 7433,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "profiles",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "deleteProfileRecycleItemPermanently",
+      "line": 7489,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getProfileItemReferenceCount",
+      "line": 7499,
+      "directDexie": true,
+      "tables": [
+        "resumeBranches"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "moveJobToRecycleBin",
+      "line": 7508,
+      "directDexie": true,
+      "tables": [
+        "jobDescriptions"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "restoreJobFromRecycleBin",
+      "line": 7516,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "deleteJobPermanently",
+      "line": 7523,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "applications",
+        "jobAdaptationDrafts",
+        "jobDescriptions",
+        "requirementMatches",
+        "resumeBranches",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "exportWorkspaceJson",
+      "line": 7541,
+      "directDexie": true,
+      "tables": [
+        "adaptationSnapshots",
+        "aiLogs",
+        "aiSuggestions",
+        "appMeta",
+        "applications",
+        "draftCommits",
+        "exportRecords",
+        "jobAdaptationDrafts",
+        "jobAnalysisDrafts",
+        "matchOperations",
+        "pdfImportSessions",
+        "pdfPageTexts",
+        "profileImportDrafts",
+        "requirementMatches",
+        "resumeBranchOperations",
+        "resumeRevisions",
+        "suggestionOperations"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "findApplicationByOperationInTransaction",
+      "line": 7572,
+      "directDexie": true,
+      "tables": [
+        "applications"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "requireApplicationForWrite",
+      "line": 7586,
+      "directDexie": true,
+      "tables": [
+        "applications"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "findLatestSuccessfulExportForSelection",
+      "line": 7608,
+      "directDexie": true,
+      "tables": [
+        "exportRecords"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "resolveSourceGeneralBranchId",
+      "line": 7624,
+      "directDexie": true,
+      "tables": [
+        "resumeBranches"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "transitionResumeBranchLifecycle",
+      "line": 7638,
+      "directDexie": true,
+      "tables": [
+        "resumeBranchOperations",
+        "resumeBranches",
+        "resumeRevisions",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "withProfileSyncDiagnostics",
+      "line": 7700,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "mutateResumeBranch",
+      "line": 7744,
+      "directDexie": true,
+      "tables": [
+        "jobDescriptions",
+        "profiles",
+        "resumeBranchOperations",
+        "resumeBranches",
+        "resumeRevisions",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "requireEditableResumeBranch",
+      "line": 7845,
+      "directDexie": true,
+      "tables": [
+        "resumeBranches"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getResumeRevisionInTransaction",
+      "line": 7867,
+      "directDexie": true,
+      "tables": [
+        "resumeRevisions"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "requireDraftRevision",
+      "line": 7872,
+      "directDexie": true,
+      "tables": [
+        "jobAdaptationDrafts"
+      ],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": false
+    },
+    {
+      "method": "createAdaptationSnapshot",
+      "line": 7880,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "createSuggestionOperation",
+      "line": 7899,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "mutateSuggestion",
+      "line": 7926,
+      "directDexie": true,
+      "tables": [
+        "adaptationSnapshots",
+        "aiSuggestions",
+        "jobAdaptationDrafts",
+        "suggestionOperations",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": true
+    },
+    {
+      "method": "resolveCrawlSourceId",
+      "line": 8008,
+      "directDexie": true,
+      "tables": [
+        "crawlSources"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getCrawlSource",
+      "line": 8013,
+      "directDexie": true,
+      "tables": [
+        "crawlSources"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "createCrawlSource",
+      "line": 8018,
+      "directDexie": true,
+      "tables": [
+        "crawlSources",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "updateCrawlSourcePolicy",
+      "line": 8033,
+      "directDexie": true,
+      "tables": [
+        "crawlSources",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "createCrawlRun",
+      "line": 8067,
+      "directDexie": true,
+      "tables": [
+        "crawlRuns",
+        "crawlSources",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "finishCrawlRun",
+      "line": 8105,
+      "directDexie": true,
+      "tables": [
+        "crawlRuns",
+        "crawlSources",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "upsertJobListing",
+      "line": 8147,
+      "directDexie": true,
+      "tables": [
+        "jobListings",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getJobListingByExternalId",
+      "line": 8179,
+      "directDexie": true,
+      "tables": [
+        "jobListings"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "appendJobSnapshot",
+      "line": 8187,
+      "directDexie": true,
+      "tables": [
+        "jobListings",
+        "jobSnapshots",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "listJobSnapshots",
+      "line": 8246,
+      "directDexie": true,
+      "tables": [
+        "jobSnapshots"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "markJobListingParsed",
+      "line": 8254,
+      "directDexie": true,
+      "tables": [
+        "jobListings",
+        "jobSnapshots",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "markJobListingConverted",
+      "line": 8272,
+      "directDexie": true,
+      "tables": [
+        "jobDescriptions",
+        "jobListings",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "createApplicationAssistDraft",
+      "line": 8299,
+      "directDexie": true,
+      "tables": [
+        "applicationDrafts",
+        "jobListings",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "updateApplicationAssistStep",
+      "line": 8319,
+      "directDexie": true,
+      "tables": [
+        "applicationDrafts",
+        "applications",
+        "jobListings",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "listApplicationDrafts",
+      "line": 8364,
+      "directDexie": true,
+      "tables": [
+        "applicationDrafts"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "createPendingConfirmation",
+      "line": 8379,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "parsePendingConfirmationEnvelope",
+      "line": 8392,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getPendingConfirmation",
+      "line": 8401,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getConsumedConfirmation",
+      "line": 8408,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "consumePendingConfirmation",
+      "line": 8415,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "restorePendingConfirmation",
+      "line": 8439,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "completePendingConfirmation",
+      "line": 8453,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "listJobListings",
+      "line": 8469,
+      "directDexie": true,
+      "tables": [
+        "jobListings"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getJobListing",
+      "line": 8474,
+      "directDexie": true,
+      "tables": [
+        "jobListings"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "ingestCandidateListing",
+      "line": 8486,
+      "directDexie": true,
+      "tables": [
+        "jobListings",
+        "jobSnapshots",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "withCandidateJobCommit",
+      "line": 8679,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "draftCommits",
+        "jobAnalysisDrafts",
+        "jobDescriptions",
+        "jobListings",
+        "jobSnapshots",
+        "rawInputs",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "createCandidateAnalysisDraft",
+      "line": 8694,
+      "directDexie": true,
+      "tables": [
+        "jobAnalysisDrafts",
+        "jobListings",
+        "jobSnapshots",
+        "rawInputs",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "createConversionConfirmation",
+      "line": 8770,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "jobAnalysisDrafts",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": false,
+      "operationId": true
+    },
+    {
+      "method": "parseConversionConfirmation",
+      "line": 8808,
+      "directDexie": false,
+      "tables": [],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "getConversionConfirmation",
+      "line": 8812,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "findOpenConversionConfirmations",
+      "line": 8818,
+      "directDexie": true,
+      "tables": [
+        "appMeta"
+      ],
+      "transaction": false,
+      "revisionCheck": false,
+      "operationId": false
+    },
+    {
+      "method": "convertCandidateListing",
+      "line": 8836,
+      "directDexie": true,
+      "tables": [
+        "appMeta",
+        "draftCommits",
+        "jobAnalysisDrafts",
+        "jobDescriptions",
+        "jobListings",
+        "rawInputs",
+        "transaction"
+      ],
+      "transaction": true,
+      "revisionCheck": true,
+      "operationId": true
+    }
+  ],
+  "summary": {
+    "methods": 238,
+    "directDexieMethods": 187,
+    "transactionMethods": 84
+  },
+  "sourceHashes": {
+    "src/services/storage/repositories.ts": "a719af4b946e9f65f925651073895c1a6d1992a91e678f2bb2d13064d2ba4679",
+    "src/services/storage/db.ts": "7170668b1c36e29ca33e6c0e17385b7ab8639328a1fb10ccc7326b0135f9d2de",
+    "electron/main.js": "c27ac42caae8a6a05c6b74ba2649146f056eb9b1317c823ede481fbb4b4832e0",
+    "electron/preload.js": "8f084baf0f07991fc66770ec86a565d8c998d33efbfd137f8afbbdf2e9102291",
+    "electron/hermesSupervisor.js": "4d757496850297c7158b525d13db30aa16b8e554c2e176afbe0c140373a030b1",
+    "scripts/hermes-runtime-lock.json": "4939b630fa15f410ae1287b495e9e16912ab3e71a7a619df1f005050c6fe8ceb",
+    "src/domain/schemas/resumeV2.ts": "bb31fc56f3abf016edbb2ba4f27b699f5a86cb695b418db2eae061655f9402e7",
+    "src/domain/adaptation/factGuard.ts": "49fa8cb684696b604980504e99aae72da02f56613941bd716d642fb5fb59cc4c",
+    "src/ai/prompts/claimSafetyV2.ts": "9bbb38eadd5666ce50c24bb8b73cc2dfa2ec638c3ad41357b214291add7b2977",
+    "src/domain/branch/profileBranch.ts": "8ba1b2f34d75fe9cb886accd82a44c4361ba58dce64a1367741dc01940461680",
+    "src/domain/schemas/profileReconciliation.ts": "857cfec20683d31fc6529a70bb0530c0f0cc1baccd640d1c602a0166375a0a6a"
+  }
+}
