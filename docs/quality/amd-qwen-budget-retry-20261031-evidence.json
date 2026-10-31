@@ -1,0 +1,118 @@
+{
+  "schemaVersion": "amd-qwen-budget-retry.v1",
+  "date": "2026-10-31",
+  "timezone": "Asia/Shanghai",
+  "status": "AFTER_PROBE_STILL_BLOCKED",
+  "authorization": "User explicitly authorized 8192, then one doubling to 16384 only on failure; stop at first success or after second failure.",
+  "branch": "main",
+  "head": "7d5e9f44c73066ed94320095856fdac3627ec987",
+  "scenario": "jd_understanding-01 / after",
+  "providerOrigin": "https://developer.amd.com.cn",
+  "model": "Qwen3.8-27B",
+  "temperature": 0,
+  "reasoningEffort": "low",
+  "timeoutMs": 120000,
+  "requestsAttempted": 2,
+  "rounds": [
+    {
+      "maxTokens": 8192,
+      "path": "docs/quality/amd-qwen-low-reasoning-after-probe-8192-20261031.json",
+      "status": "AMD_QWEN_LOW_REASONING_STILL_BLOCKED",
+      "errorClassification": "TIMEOUT",
+      "requestsAttempted": 1,
+      "requestJournal": {
+        "requestedAt": "2026-10-30T18:01:15.146Z",
+        "requestBytes": 7601,
+        "model": "Qwen3.8-27B",
+        "reasoning_effort": "low",
+        "max_tokens": 8192,
+        "temperature": 0
+      },
+      "timing": {
+        "turnIndex": 0,
+        "requestedAt": "2026-10-30T18:01:15.144Z",
+        "requestBytes": 7601,
+        "parameters": {
+          "temperature": 0,
+          "reasoningEffort": "low",
+          "maxTokens": 8192
+        },
+        "totalMs": 120003.4658
+      },
+      "observedShellExitCode": 1
+    },
+    {
+      "maxTokens": 16384,
+      "path": "docs/quality/amd-qwen-low-reasoning-after-probe-16384-20261031.json",
+      "status": "AMD_QWEN_LOW_REASONING_STILL_BLOCKED",
+      "errorClassification": "TIMEOUT",
+      "requestsAttempted": 1,
+      "requestJournal": {
+        "requestedAt": "2026-10-30T18:03:24.770Z",
+        "requestBytes": 7602,
+        "model": "Qwen3.8-27B",
+        "reasoning_effort": "low",
+        "max_tokens": 16384,
+        "temperature": 0
+      },
+      "timing": {
+        "turnIndex": 0,
+        "requestedAt": "2026-10-30T18:03:24.768Z",
+        "requestBytes": 7602,
+        "parameters": {
+          "temperature": 0,
+          "reasoningEffort": "low",
+          "maxTokens": 16384
+        },
+        "totalMs": 120004.25159999999
+      },
+      "observedShellExitCode": 1
+    }
+  ],
+  "defaultEvalMaxTokensUnchanged": 2048,
+  "productionMaxTokensUnchanged": true,
+  "skillsUnchanged": true,
+  "skillSHA256": "ce7b5a1e58331756b807e0b6862e662613f5e1d2eed06190528b0880054dceb9",
+  "certification": {
+    "status": "SQ1 QUALITY COLLECTION BLOCKED",
+    "fullCollectionRun": false,
+    "legacyBeforeRequested": false,
+    "legacyGenerationPolicyMatches": false,
+    "note": "These are transport/budget probes, not a matched before/after certification pair. Original collection and history are preserved."
+  },
+  "verification": {
+    "nodeTests": {
+      "tests": 10,
+      "exit": 0
+    },
+    "typecheck": {
+      "exit": 0
+    },
+    "changedFilesLint": {
+      "exit": 0
+    },
+    "diffCheck": {
+      "exit": 0
+    },
+    "skillHashes": {
+      "skills": 6,
+      "bothArms": true,
+      "status": "PASS"
+    },
+    "build": "Not repeated: only explicit evaluator budget/probe controls changed; production request policy/cap and Hermes bundle unchanged.",
+    "realRequestCountGuard": "PASS",
+    "credentialScan": "PASS"
+  },
+  "gitStatus": "M .env.example\n M electron/hermesCompanion.js\n M electron/mergeHermesConfig.py\n M scripts/hermes-bundle-check.mjs\n M scripts/hermes-runtime-lock.json\n M scripts/prepare-hermes-runtime.mjs\n M scripts/skills-quality-eval.mjs\n M src/ai/providers/openAiCompatibleProvider.ts\n M tests/unit/openAiCompatibleProvider.test.ts\n?? docs/quality/amd-qwen-budget-retry-20261031-evidence.json\n?? docs/quality/amd-qwen-budget-retry-20261031.md\n?? docs/quality/amd-qwen-low-reasoning-after-probe-16384-20261031.json\n?? docs/quality/amd-qwen-low-reasoning-after-probe-20261031.json\n?? docs/quality/amd-qwen-low-reasoning-after-probe-8192-20261031.json\n?? docs/quality/amd-qwen-reasoning-patched-wire-20261031.json\n?? docs/quality/amd-qwen-reasoning-timeout-fix-20261031-evidence.json\n?? docs/quality/amd-qwen-reasoning-timeout-fix-20261031.md\n?? docs/quality/amd-qwen-reasoning-unpatched-wire-20261031.json\n?? docs/quality/p5.1-sq1-quality-certification-20261031-amd-collection.json\n?? docs/quality/p5.1-sq1-quality-certification-20261031-amd-evidence.json\n?? docs/quality/p5.1-sq1-quality-certification-20261031-amd-probe.json\n?? docs/quality/p5.1-sq1-quality-certification-20261031-amd.md\n?? docs/quality/p5.1-sq1-quality-certification-20261031-collection.json\n?? docs/quality/p5.1-sq1-quality-certification-20261031-evidence.json\n?? docs/quality/p5.1-sq1-quality-certification-20261031.md\n?? electron/providerGenerationPolicy.d.ts\n?? electron/providerGenerationPolicy.js\n?? scripts/amd-qwen-after-probe.mjs\n?? scripts/hermes-amd-reasoning-patch.mjs\n?? scripts/skills-quality-blind-review.mjs\n?? scripts/skills-quality-certification.mjs\n?? scripts/test-hermes-amd-wire.mjs\n?? tests/hermes-amd-policy.test.mjs\n?? tests/skills-quality-harness.test.mjs\n?? tests/support/hermes-amd-wire.py",
+  "submitted": false,
+  "pushed": false,
+  "packaged": false,
+  "fileHashes": {
+    "electron/providerGenerationPolicy.js": "003219259ba9f867bcf16b3bf2b3171249d51895ca1321632791f40eeafd98c3",
+    "electron/providerGenerationPolicy.d.ts": "db2e709e04f5a8607636df87b21557cd69e24e267c6922e6e27be5f9aaf16a54",
+    "scripts/amd-qwen-after-probe.mjs": "f07a6c402a34ed7f8dda8f7347a1f5c10892bd10a515bb9259a8a6bd2862c6b3",
+    "tests/skills-quality-harness.test.mjs": "2280de03f37443eafa6b27d26ab9fa9a3a75553575db125338899d3dd3d278c6",
+    "docs/quality/amd-qwen-low-reasoning-after-probe-8192-20261031.json": "b60c2ffd2c1c6bc4628e369e6080706d05dc124aad1583527af6ace35658f8b1",
+    "docs/quality/amd-qwen-low-reasoning-after-probe-16384-20261031.json": "d854343328064c4d029e70fdde8310e3bfa69bfcc816383c23159587aeb767ab"
+  }
+}

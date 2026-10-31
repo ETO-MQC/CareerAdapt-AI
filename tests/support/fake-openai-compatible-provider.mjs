@@ -1,4 +1,5 @@
 import http from "node:http";
+import crypto from "node:crypto";
 
 const DEFAULT_API_KEY = "careeradapt-test-provider-key";
 
@@ -22,7 +23,7 @@ export async function startFakeOpenAiProvider(options = {}) {
       writeJson(response, 200, { requests: requests.map(record => ({
         at: record.at, finishedAt: record.finishedAt, payloadBytes: record.payloadBytes,
         selectedTool: record.response?.toolCall?.name, model: record.model, responseToolCallId: record.responseToolCallId,
-        messages: record.messages, response: record.response,
+        messages: record.messages, response: record.response, safeMetrics: record.safeMetrics,
         toolResults: record.messages.filter(message => message.role === "tool").map(message => ({
           toolCallId: message.tool_call_id, jobId: savedJobId(message.content)
         }))
@@ -49,9 +50,18 @@ export async function startFakeOpenAiProvider(options = {}) {
       stream: payload.stream === true
     };
     requestRecord.payloadBytes = Buffer.byteLength(JSON.stringify(payload));
+    const hash = value => crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
+    const results = messages.filter(message => message.role === "tool");
+    requestRecord.safeMetrics = { stream: payload.stream === true, reasoningEffort: payload.reasoning_effort ?? null,
+      maxTokens: payload.max_tokens ?? payload.max_completion_tokens ?? null, toolCount: tools.length,
+      contextBytes: Buffer.byteLength(JSON.stringify(messages)), toolSchemaBytes: Buffer.byteLength(JSON.stringify(tools)),
+      priorToolResultBytes: Buffer.byteLength(JSON.stringify(results)), priorToolResultCount: results.length,
+      toolSchemaHash: hash(tools), contextHash: hash(messages), lastUserHash: hash(latestUserText(messages)),
+      selectedSkill: null };
     response.once("finish", () => { requestRecord.finishedAt = new Date().toISOString(); });
     requests.push(requestRecord);
-    if (options.delayMs) await new Promise((resolve) => setTimeout(resolve, options.delayMs));
+    const delayMs = options.delayScheduleMs?.[requests.length - 1] ?? options.delayMs;
+    if (delayMs) await new Promise((resolve) => setTimeout(resolve, delayMs));
     if (mode === "integration" && latestUserText(messages).includes("P512-QUEUE-FIRST")) await new Promise((resolve) => setTimeout(resolve, 4000));
     if (mode === "integration" && latestUserText(messages).includes("P51-BHV-PROVIDER-FAIL")) {
       requestRecord.response = { error: { code: "provider_http_503" } };

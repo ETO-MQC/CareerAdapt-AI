@@ -46,7 +46,15 @@ test.describe("P4.6h hermetic Web + browser MCP integration", () => {
         mcpToolCount: trace?.toolRequests.length, toolNames: trace?.toolRequests.map(row => row.name),
         formalWriteCount: trace?.formalWrites.length, formalWrites: trace?.formalWrites.map(row => ({ store: row.store, at: row.at })),
         unobservable: ["provider internal inference", "domain tool internal start/end", "repository method latency", "skill load if Hermes emits no skill event"],
-        timeline: differentialTimelines.get(page) };
+        timeline: differentialTimelines.get(page),
+        ...(process.env.P518B_CALL_GRAPH === "1" ? { callGraph: provider.map((row, index) => {
+          const run = trace?.runTimings.filter(run => run.at <= Date.parse(row.at)).at(-1);
+          return { index: index + 1, at: row.at, finishedAt: row.finishedAt, runId: run?.runId ?? null,
+            workflowStage: run?.workflowStage ?? null, selectedTool: row.selectedTool ?? null,
+            producesToolCall: Boolean(row.selectedTool), producesFinalText: !row.selectedTool,
+            responseToolCallId: row.responseToolCallId ?? null, toolResults: row.toolResults,
+            ...row.safeMetrics };
+        }) } : {}) };
       await appendFile(".tmp/p518-baseline-" + process.env.HERMES_INTEGRATION_RUN_ID + ".jsonl", JSON.stringify(safe) + "\n");
     }
     const caseReceipt = { timeline: differentialTimelines.get(page), case: testInfo.title.match(/^CASE ([A-N])/u)?.[1], started: true,
@@ -859,6 +867,8 @@ function observeRuntimeAndBridge(page: Page) {
   const runtimeActions: string[] = [];
   const runRequests: unknown[] = [];
   const runReceipts: unknown[] = [];
+  const runTimings: Array<{ at: number; runId?: string; workflowStage?: string }> = [];
+  const timingByRequest = new WeakMap<object, typeof runTimings[number]>();
   const toolReceipts: unknown[] = [];
   const resultActions: string[] = [];
   const toolRequests: Array<{ name: string; input: unknown }> = [];
@@ -867,7 +877,11 @@ function observeRuntimeAndBridge(page: Page) {
     if (url.pathname.endsWith("/api/agent/runtime/hermes")) {
       const body = parseJson(request.postData());
       if (typeof body?.action === "string") runtimeActions.push(body.action);
-      if (body?.action === "run_start") runRequests.push(body);
+      if (body?.action === "run_start") {
+        runRequests.push(body);
+        const timing = { at: Date.now(), workflowStage: typeof body.workflowStage === "string" ? body.workflowStage : undefined };
+        runTimings.push(timing); timingByRequest.set(request, timing);
+      }
       return;
     }
     if (url.pathname.endsWith("/api/agent/mcp") && url.searchParams.get("bridge") === "1") {
@@ -883,7 +897,10 @@ function observeRuntimeAndBridge(page: Page) {
   page.on("response", async (response) => {
     const url = new URL(response.url());
     if (url.pathname.endsWith("/api/agent/runtime/hermes") && parseJson(response.request().postData())?.action === "run_start") {
-      runReceipts.push(await response.json());
+      const receipt = await response.json();
+      runReceipts.push(receipt);
+      const timing = timingByRequest.get(response.request());
+      if (timing) timing.runId = receipt.data?.runId;
     }
     if (url.pathname.endsWith("/api/agent/runtime/hermes") && parseJson(response.request().postData())?.action === "run_events") {
       return;
@@ -894,12 +911,12 @@ function observeRuntimeAndBridge(page: Page) {
       if (typeof request.name === "string") toolRequests.push({ name: request.name, input: request.input });
     }
   });
-  const trace = { runtimeActions, resultActions, toolRequests, returnedToolResults, runRequests, runReceipts, toolReceipts, formalWrites };
+  const trace = { runtimeActions, resultActions, toolRequests, returnedToolResults, runRequests, runReceipts, runTimings, toolReceipts, formalWrites };
   closeoutTraces.set(page, trace);
   return trace;
 }
 
-async function readProviderEvidence(page: Page): Promise<{ requests: Array<{ at: string; finishedAt?: string; payloadBytes?: number; selectedTool?: string; responseToolCallId?: string; toolResults: Array<{ toolCallId: string; jobId?: string }> }> }> {
+async function readProviderEvidence(page: Page): Promise<{ requests: Array<{ at: string; finishedAt?: string; payloadBytes?: number; selectedTool?: string; responseToolCallId?: string; safeMetrics?: Record<string, unknown>; toolResults: Array<{ toolCallId: string; jobId?: string }> }> }> {
   // Finite test probes must not inherit a pooled socket across disposed
   // BrowserContexts or race Node's idle keep-alive close. No request retry.
   const response = await page.request.get(`${process.env.HERMES_INTEGRATION_PROVIDER_URL}/integration-evidence`, {

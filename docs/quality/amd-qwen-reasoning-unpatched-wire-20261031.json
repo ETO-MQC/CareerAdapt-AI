@@ -1,0 +1,26 @@
+{
+  "status": "PASS",
+  "mode": "unpatched",
+  "network": "loopback only; SDK transport rewrites all upstream URLs",
+  "scope": "CareerAdapt managed YAML -> bundled Hermes resolver and transport -> real OpenAI SDK serialization -> local HTTP server; not a full CareerAdapt Run",
+  "requests": [
+    {
+      "baseUrl": "https://developer.amd.com.cn/radeon/api/v1",
+      "model": "Qwen3.8-27B",
+      "resolvedReasoning": {
+        "enabled": true,
+        "effort": "low"
+      },
+      "wireBody": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "Synthetic offline wire capture"
+          }
+        ],
+        "model": "Qwen3.8-27B",
+        "max_tokens": 7777
+      }
+    }
+  ]
+}

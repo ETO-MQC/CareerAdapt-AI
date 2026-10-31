@@ -1,0 +1,89 @@
+{
+  "schemaVersion": "skills-quality-eval-v1",
+  "status": "REAL_QUALITY_EVAL_BLOCKED",
+  "providerOrigin": "https://discovery-api.intern-ai.org.cn",
+  "model": "deepseek-v4-flash-0731",
+  "baselineCommit": "1573e267614ff93363eff2ed2bade34ff01ed078",
+  "parameters": {
+    "temperature": 0,
+    "timeoutMs": 120000
+  },
+  "order": "fixture order, before then after, fixed follow-up order",
+  "fixtureSHA256": "33a0cbf61ffff5c025687dd674a2f58e5f9eded291ace57073daa8c5e5e2c5c3",
+  "skillHashes": {
+    "candidate-profile-interview": {
+      "before": "53cbb903e88157132a0b6c656ea1e2d64edaba538637da05447115e48376d557",
+      "after": "b58f72952350ad3efd154f6b482f0c81a6cf9dff58fc12dfdf555eb1f668f579"
+    },
+    "career-story-mining": {
+      "before": "9ce2cb63f98397867e8f0081665aac0098eca9c03c6d81cbe8aadb3f5d50bbde",
+      "after": "03a9ea1a8ac24b27db7203f84a9cf763ebaae7b75421e4728dc3a0c4c4401abf"
+    },
+    "job-fit-analysis": {
+      "before": "b4a70be83c7a10b5631a371d077a47757a0b60bd2c14de6c402f02a16c63402c",
+      "after": "ce7b5a1e58331756b807e0b6862e662613f5e1d2eed06190528b0880054dceb9"
+    },
+    "resume-composition": {
+      "before": "056d5d8732d86ebbe500761aafa4c492860445c7a3980f2fa02bb60d27725453",
+      "after": "037b450b0ef6f0ea24ce0b2bc27884e2f41599cf9dcb039c3506fca464de2721"
+    },
+    "resume-review": {
+      "before": "39aa1cbf8f35228b6d630859d97f09e1090eca876ac9e3d503599d6ffd7d902e",
+      "after": "c00fb5549a76c720c5cf5454e45873c029094362ba9d30d5b589f2022195585a"
+    },
+    "resume-tailoring": {
+      "before": "520a39231b77486a33207f393fb7cba3dfd7135f232a57d71a777fdd0d2ae054",
+      "after": "1ebab591afa239861a518fb0e260cc999b2b019c4731ca8207f0a0ee639f240f"
+    }
+  },
+  "requestsAttempted": 2,
+  "activeRequest": {
+    "caseId": "jd_understanding-01",
+    "arm": "before",
+    "turnIndex": 0
+  },
+  "diagnostics": {
+    "errorName": "TimeoutError"
+  },
+  "attempts": [
+    {
+      "caseId": "jd_understanding-01",
+      "category": "jd_understanding",
+      "arm": "before",
+      "attemptNumber": 1,
+      "previousFailure": null,
+      "requestedAt": "2026-10-30T17:11:58.226Z",
+      "turns": [
+        {
+          "turnIndex": 0,
+          "requestedAt": "2026-10-30T17:11:58.230Z",
+          "headersMs": 269.59330000000006,
+          "httpStatus": 429,
+          "totalMs": 269.64529999999996
+        }
+      ],
+      "completionStatus": "FAILED",
+      "errorClassification": "HTTP_ERROR",
+      "partialResponses": []
+    },
+    {
+      "caseId": "jd_understanding-01",
+      "category": "jd_understanding",
+      "arm": "before",
+      "attemptNumber": 2,
+      "previousFailure": "HTTP_ERROR",
+      "requestedAt": "2026-10-30T17:12:27.300Z",
+      "turns": [
+        {
+          "turnIndex": 0,
+          "requestedAt": "2026-10-30T17:12:27.306Z",
+          "totalMs": 120015.0119
+        }
+      ],
+      "completionStatus": "FAILED",
+      "errorClassification": "TIMEOUT",
+      "partialResponses": []
+    }
+  ],
+  "results": []
+}

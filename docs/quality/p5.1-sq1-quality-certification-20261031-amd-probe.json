@@ -1,0 +1,15 @@
+{
+  "providerOrigin": "https://developer.amd.com.cn",
+  "baseUrl": "https://developer.amd.com.cn/radeon/api/v1",
+  "model": "Qwen3.8-27B",
+  "temperature": 0,
+  "budgetMs": 120000,
+  "requestedAt": "2026-10-30T17:23:16.048Z",
+  "headersMs": 1989.2519000000002,
+  "httpStatus": 200,
+  "finishReason": "stop",
+  "contentPresent": true,
+  "response": "\n\nOK",
+  "status": "COMPLETED",
+  "totalMs": 1990.4386000000002
+}

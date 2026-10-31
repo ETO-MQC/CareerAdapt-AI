@@ -1,0 +1,73 @@
+{
+  "status": "AMD_QWEN_LOW_REASONING_STILL_BLOCKED",
+  "caseId": "jd_understanding-01",
+  "arm": "after",
+  "providerOrigin": "https://developer.amd.com.cn",
+  "model": "Qwen3.8-27B",
+  "parameters": {
+    "temperature": 0,
+    "reasoningEffort": "low",
+    "maxTokens": 2048,
+    "timeoutMs": 120000
+  },
+  "skillSHA256": "ce7b5a1e58331756b807e0b6862e662613f5e1d2eed06190528b0880054dceb9",
+  "legacyBefore": {
+    "path": "docs/quality/p5.1-sq1-quality-certification-20261031-amd-collection.json",
+    "preserved": true,
+    "durationMs": 86450.9461,
+    "sameGenerationPolicy": false,
+    "note": "Legacy default-xhigh before is not comparable to this explicit-low after. No certification pair is created."
+  },
+  "requestsAttempted": 1,
+  "attempts": [
+    {
+      "caseId": "jd_understanding-01",
+      "category": "jd_understanding",
+      "arm": "after",
+      "attemptNumber": 1,
+      "previousFailure": null,
+      "requestedAt": "2026-10-30T17:51:50.435Z",
+      "turns": [
+        {
+          "turnIndex": 0,
+          "requestedAt": "2026-10-30T17:51:50.437Z",
+          "requestBytes": 7601,
+          "parameters": {
+            "temperature": 0,
+            "reasoningEffort": "low",
+            "maxTokens": 2048
+          },
+          "headersMs": 72461.5999,
+          "httpStatus": 200,
+          "bodyMs": 72463.4166,
+          "finishReason": "length",
+          "reasoningPresent": true,
+          "reasoningChars": 8554,
+          "usage": {
+            "prompt_tokens": 1586,
+            "completion_tokens": 2048,
+            "completion_tokens_details": {
+              "reasoning_tokens": 2048
+            }
+          },
+          "contentChars": 0,
+          "totalMs": 72463.5656
+        }
+      ],
+      "completionStatus": "FAILED",
+      "errorClassification": "QUALITY_OUTPUT_BUDGET_EXHAUSTED",
+      "partialResponses": []
+    }
+  ],
+  "results": [],
+  "requestJournal": {
+    "requestedAt": "2026-10-30T17:51:50.438Z",
+    "requestBytes": 7601,
+    "model": "Qwen3.8-27B",
+    "reasoning_effort": "low",
+    "max_tokens": 2048,
+    "temperature": 0
+  },
+  "errorName": "Error",
+  "errorClassification": "QUALITY_OUTPUT_BUDGET_EXHAUSTED"
+}

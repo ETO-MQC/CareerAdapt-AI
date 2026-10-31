@@ -1,5 +1,7 @@
 import fs from "node:fs";
 import { patchModelSelectionReadback } from "./hermes-model-selection-patch.mjs";
+import { patchAmdReasoningTransport, patchAmdReasoningSummary } from "./hermes-amd-reasoning-patch.mjs";
+import { patchCareerAdaptTimeoutLookup, patchCareerAdaptMcpDedup } from "./hermes-efficiency-patch.mjs";
 import crypto from "node:crypto";
 import os from "node:os";
 import path from "node:path";
@@ -93,8 +95,27 @@ const apiServerPath = path.join(sourceTarget, "gateway", "platforms", "api_serve
 const patchedApiServer = patchModelSelectionReadback(fs.readFileSync(apiServerPath, "utf8"));
 fs.writeFileSync(apiServerPath, patchedApiServer);
 const careerAdaptPatchHash = crypto.createHash("sha256").update(patchedApiServer).digest("hex");
+const careerAdaptReasoningPatchHashes = {};
+for (const [relative, patch] of [
+  ["agent/transports/chat_completions.py", patchAmdReasoningTransport],
+  ["agent/chat_completion_helpers.py", patchAmdReasoningSummary]
+]) {
+  const target = path.join(sourceTarget, relative);
+  const patched = patch(fs.readFileSync(target, "utf8"));
+  fs.writeFileSync(target, patched);
+  careerAdaptReasoningPatchHashes[relative] = crypto.createHash("sha256").update(patched).digest("hex");
+}
 
 const careerSkillsSource = path.join(projectRoot, "skills", "career");
+const careerAdaptEfficiencyPatchHashes = {};
+for (const [relative, patch] of [
+  ["hermes_cli/timeouts.py", patchCareerAdaptTimeoutLookup], ["tools/mcp_tool.py", patchCareerAdaptMcpDedup]
+]) {
+  const target = path.join(sourceTarget, relative);
+  const patched = patch(fs.readFileSync(target, "utf8"));
+  fs.writeFileSync(target, patched);
+  careerAdaptEfficiencyPatchHashes[relative] = crypto.createHash("sha256").update(patched).digest("hex");
+}
 assertDirectory(careerSkillsSource, "CareerAdapt Hermes skills");
 copyTree(careerSkillsSource, path.join(skillsTarget, "careeradapt"));
 
@@ -132,6 +153,8 @@ const manifest = {
   sitePackagesFingerprint,
   careerAdaptPatchVersion: runtimeLock.careerAdaptPatchVersion,
   careerAdaptPatchHash,
+  careerAdaptReasoningPatchHashes,
+  careerAdaptEfficiencyPatchHashes,
   careerSkillsHash,
   sourceRoot: "source",
   pythonRoot: "python",

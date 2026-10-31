@@ -46,7 +46,16 @@ try {
   const apiServerSource = fs.readFileSync(path.join(sourceRoot, "gateway/platforms/api_server.py"), "utf8");
   assert(crypto.createHash("sha256").update(apiServerSource).digest("hex") === manifest.careerAdaptPatchHash, "Hermes API-server patch hash mismatch");
   assert(apiServerSource.includes("# CareerAdapt selection-only readback:"), "Hermes selection readback patch missing");
+  for (const relative of ["agent/transports/chat_completions.py", "agent/chat_completion_helpers.py"]) {
+    const source = fs.readFileSync(path.join(sourceRoot, relative), "utf8");
+    assert(crypto.createHash("sha256").update(source).digest("hex") === manifest.careerAdaptReasoningPatchHashes?.[relative], `Hermes AMD reasoning patch hash mismatch: ${relative}`);
+    assert(source.includes("# CareerAdapt AMD"), `Hermes AMD reasoning patch missing: ${relative}`);
+  }
   const sitePackagesRoot = path.join(bundleRoot, manifest.sitePackagesRoot || "site-packages");
+  for (const relative of ["hermes_cli/timeouts.py", "tools/mcp_tool.py"]) {
+    const source = fs.readFileSync(path.join(sourceRoot, relative), "utf8");
+    assert(crypto.createHash("sha256").update(source).digest("hex") === manifest.careerAdaptEfficiencyPatchHashes?.[relative], `Hermes efficiency patch hash mismatch: ${relative}`);
+  }
   const pythonEnvironment = {
     ...process.env,
     HERMES_RUNTIME_MODE: "bundled",

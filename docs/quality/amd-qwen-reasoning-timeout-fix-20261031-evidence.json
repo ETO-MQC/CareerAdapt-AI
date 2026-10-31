@@ -1,0 +1,369 @@
+{
+  "schemaVersion": "amd-qwen-reasoning-fix.v1",
+  "date": "2026-10-31",
+  "timezone": "Asia/Shanghai",
+  "status": "AMD_QWEN_LOW_REASONING_STILL_BLOCKED",
+  "git": {
+    "branch": "main",
+    "startingHEAD": "7d5e9f44c73066ed94320095856fdac3627ec987",
+    "originMainAfterFetch": "7d5e9f44c73066ed94320095856fdac3627ec987",
+    "fetchExitCode": 0,
+    "startingStatus": "Prior user changes retained: .env.example, evaluator, untracked SQ1 scripts/evidence. Tracked diff at start: 2 files, 76 insertions, 9 deletions.",
+    "finalStatus": "M .env.example\n M electron/hermesCompanion.js\n M electron/mergeHermesConfig.py\n M scripts/hermes-bundle-check.mjs\n M scripts/hermes-runtime-lock.json\n M scripts/prepare-hermes-runtime.mjs\n M scripts/skills-quality-eval.mjs\n M src/ai/providers/openAiCompatibleProvider.ts\n M tests/unit/openAiCompatibleProvider.test.ts\n?? docs/quality/amd-qwen-low-reasoning-after-probe-20261031.json\n?? docs/quality/amd-qwen-reasoning-patched-wire-20261031.json\n?? docs/quality/amd-qwen-reasoning-timeout-fix-20261031-evidence.json\n?? docs/quality/amd-qwen-reasoning-timeout-fix-20261031.md\n?? docs/quality/amd-qwen-reasoning-unpatched-wire-20261031.json\n?? docs/quality/p5.1-sq1-quality-certification-20261031-amd-collection.json\n?? docs/quality/p5.1-sq1-quality-certification-20261031-amd-evidence.json\n?? docs/quality/p5.1-sq1-quality-certification-20261031-amd-probe.json\n?? docs/quality/p5.1-sq1-quality-certification-20261031-amd.md\n?? docs/quality/p5.1-sq1-quality-certification-20261031-collection.json\n?? docs/quality/p5.1-sq1-quality-certification-20261031-evidence.json\n?? docs/quality/p5.1-sq1-quality-certification-20261031.md\n?? electron/providerGenerationPolicy.d.ts\n?? electron/providerGenerationPolicy.js\n?? scripts/amd-qwen-after-probe.mjs\n?? scripts/hermes-amd-reasoning-patch.mjs\n?? scripts/skills-quality-blind-review.mjs\n?? scripts/skills-quality-certification.mjs\n?? scripts/test-hermes-amd-wire.mjs\n?? tests/hermes-amd-policy.test.mjs\n?? tests/skills-quality-harness.test.mjs\n?? tests/support/hermes-amd-wire.py",
+    "submitted": false,
+    "pushed": false,
+    "packaged": false
+  },
+  "officialProtocol": {
+    "url": "https://amd-aim.github.io/radeon-cloud-docs/models/qwen3-8-27b/",
+    "verifiedDate": "2026-10-31",
+    "defaultReasoning": "xhigh",
+    "allowedEfforts": [
+      "low",
+      "medium",
+      "xhigh"
+    ],
+    "sharedReasoningAndAnswerTokenBudget": true,
+    "reasoningField": "choices[0].message.reasoning"
+  },
+  "rootCause": {
+    "confirmedMissingEvalFields": [
+      "reasoning_effort",
+      "max_tokens"
+    ],
+    "oldEvalFields": [
+      "model",
+      "messages",
+      "temperature=0"
+    ],
+    "confirmedProductionGap": "Managed low config resolves correctly, but unpatched locked custom-provider SDK wire omitted top-level reasoning_effort.",
+    "latencyAttribution": "Default-xhigh/config-to-wire defects confirmed and repaired; sole low probe remains blocked, so they are not established as the only wall-time cause.",
+    "promptComplexity": {
+      "beforeChars": 4532,
+      "afterChars": 6960,
+      "beforeBytes": 4532,
+      "afterBytes": 6972,
+      "added": [
+        "CLAIM SAFETY v2 atomic claims/source-turn/maturity/confirmation scope",
+        "FIT SUMMARY v2 clarification value and six evidence/gap states"
+      ],
+      "skillHashesUnchanged": true
+    }
+  },
+  "evaluationPolicy": {
+    "temperature": 0,
+    "reasoningEffort": "low",
+    "maxTokens": 2048,
+    "timeoutMs": 120000,
+    "scope": "Both arms share the same centrally resolved host/model policy",
+    "exhaustion": "QUALITY_OUTPUT_BUDGET_EXHAUSTED; stop, no retry or budget extension",
+    "diagnostics": "Only reasoning presence/length, safe token counters, finish reason and timings; no reasoning text"
+  },
+  "production": {
+    "modelOverride": "agent.reasoning_overrides.Qwen3.8-27B=low for AMD managed config; explicit existing per-model tiers retained",
+    "globalReasoningUnchanged": true,
+    "productionMaxTokensChanged": false,
+    "offlineWireBefore": {
+      "status": "PASS",
+      "mode": "unpatched",
+      "network": "loopback only; SDK transport rewrites all upstream URLs",
+      "scope": "CareerAdapt managed YAML -> bundled Hermes resolver and transport -> real OpenAI SDK serialization -> local HTTP server; not a full CareerAdapt Run",
+      "requests": [
+        {
+          "baseUrl": "https://developer.amd.com.cn/radeon/api/v1",
+          "model": "Qwen3.8-27B",
+          "resolvedReasoning": {
+            "enabled": true,
+            "effort": "low"
+          },
+          "wireBody": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Synthetic offline wire capture"
+              }
+            ],
+            "model": "Qwen3.8-27B",
+            "max_tokens": 7777
+          }
+        }
+      ]
+    },
+    "offlineWireAfter": {
+      "status": "PASS",
+      "mode": "patched",
+      "network": "loopback only; SDK transport rewrites all upstream URLs",
+      "scope": "CareerAdapt managed YAML -> bundled Hermes resolver and transport -> real OpenAI SDK serialization -> local HTTP server; not a full CareerAdapt Run",
+      "requests": [
+        {
+          "baseUrl": "https://developer.amd.com.cn/radeon/api/v1",
+          "model": "Qwen3.8-27B",
+          "resolvedReasoning": {
+            "enabled": true,
+            "effort": "low"
+          },
+          "wireBody": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Synthetic offline wire capture"
+              }
+            ],
+            "model": "Qwen3.8-27B",
+            "max_tokens": 7777,
+            "reasoning_effort": "low"
+          }
+        },
+        {
+          "baseUrl": "https://developer.amd.com.cn/radeon/api/v1",
+          "model": "Qwen3.8-27B",
+          "resolvedReasoning": {
+            "enabled": true,
+            "effort": "medium"
+          },
+          "wireBody": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Synthetic offline wire capture"
+              }
+            ],
+            "model": "Qwen3.8-27B",
+            "max_tokens": 7777,
+            "reasoning_effort": "medium"
+          }
+        },
+        {
+          "baseUrl": "https://developer.amd.com.cn/radeon/api/v1",
+          "model": "Qwen3.8-27B",
+          "resolvedReasoning": {
+            "enabled": true,
+            "effort": "xhigh"
+          },
+          "wireBody": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Synthetic offline wire capture"
+              }
+            ],
+            "model": "Qwen3.8-27B",
+            "max_tokens": 7777,
+            "reasoning_effort": "xhigh"
+          }
+        },
+        {
+          "baseUrl": "https://developer.amd.com.cn/radeon/api/v1",
+          "model": "OtherModel",
+          "resolvedReasoning": {
+            "enabled": true,
+            "effort": "medium"
+          },
+          "wireBody": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Synthetic offline wire capture"
+              }
+            ],
+            "model": "OtherModel",
+            "max_tokens": 7777
+          }
+        },
+        {
+          "baseUrl": "https://self-hosted.invalid/v1",
+          "model": "Qwen3.8-27B",
+          "resolvedReasoning": {
+            "enabled": true,
+            "effort": "low"
+          },
+          "wireBody": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Synthetic offline wire capture"
+              }
+            ],
+            "model": "Qwen3.8-27B",
+            "max_tokens": 7777
+          }
+        }
+      ]
+    },
+    "wireScope": "Managed YAML -> bundled Hermes resolver/transport -> real OpenAI SDK serialization -> loopback HTTP; not a complete natural-language CareerAdapt Hermes sentinel.",
+    "runtime": {
+      "hermesVersion": "0.19.0",
+      "hermesGitCommit": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+      "careerAdaptPatchVersion": "careeradapt-api-toolsets-selection-amd-reasoning-v3",
+      "careerAdaptPatchHash": "832539ff6e36dcf49543d6afb6df1cbdc5ac57b0ab3404b7cd32f9ffef967f4e",
+      "careerAdaptReasoningPatchHashes": {
+        "agent/transports/chat_completions.py": "b3ee2105d590f17de5a4b5c887fdd48122b9f2db93c2c5dcde3c8285ea453802",
+        "agent/chat_completion_helpers.py": "ea0975177f6631422ec1f0df3d10d6c59815dc449d2e5c080c1431a4cb4ae9eb"
+      }
+    },
+    "structuredProvider": "AMD Qwen invoke/streamText/tool request paths send top-level low; legacy self-hosted Qwen extraction retains its template switch; no output ceiling imposed"
+  },
+  "realProbe": {
+    "path": "docs/quality/amd-qwen-low-reasoning-after-probe-20261031.json",
+    "requestsAttempted": 1,
+    "requestJournal": {
+      "requestedAt": "2026-10-30T17:51:50.438Z",
+      "requestBytes": 7601,
+      "model": "Qwen3.8-27B",
+      "reasoning_effort": "low",
+      "max_tokens": 2048,
+      "temperature": 0
+    },
+    "timing": {
+      "turnIndex": 0,
+      "requestedAt": "2026-10-30T17:51:50.437Z",
+      "requestBytes": 7601,
+      "parameters": {
+        "temperature": 0,
+        "reasoningEffort": "low",
+        "maxTokens": 2048
+      },
+      "headersMs": 72461.5999,
+      "httpStatus": 200,
+      "bodyMs": 72463.4166,
+      "finishReason": "length",
+      "reasoningPresent": true,
+      "reasoningChars": 8554,
+      "usage": {
+        "prompt_tokens": 1586,
+        "completion_tokens": 2048,
+        "completion_tokens_details": {
+          "reasoning_tokens": 2048
+        }
+      },
+      "contentChars": 0,
+      "totalMs": 72463.5656
+    },
+    "status": "AMD_QWEN_LOW_REASONING_STILL_BLOCKED",
+    "errorClassification": "QUALITY_OUTPUT_BUDGET_EXHAUSTED",
+    "followOnRequests": 0,
+    "beforeRequested": false,
+    "resultInterpretation": "HTTP200 in 72.464s; finish_reason=length; 2048 completion tokens and 2048 reasoning tokens; empty content. QUALITY_OUTPUT_BUDGET_EXHAUSTED, not a timeout. No budget increase or retry."
+  },
+  "certification": {
+    "status": "SQ1 QUALITY COLLECTION BLOCKED",
+    "legacyArms": 1,
+    "legacyPairs": 0,
+    "legacyCollectionPreserved": true,
+    "newProbeIsCertificationPair": false,
+    "reason": "Default-xhigh legacy before and explicit-low after do not share generation policy. Do not mix them into a certification pair.",
+    "resume": "Same-policy cohorts can resume and skip completed arms. Existing legacy cohort is intentionally rejected by CLI configuration validation after policy change. A future explicitly authorized low-policy cohort needs a low-policy before as well; none requested this round."
+  },
+  "verification": {
+    "baseline": {
+      "typecheckExit": 0,
+      "unitFiles": 3,
+      "unitTests": 11,
+      "exit": 0
+    },
+    "finalUnit": {
+      "files": 7,
+      "tests": 70,
+      "exit": 0
+    },
+    "nodeScriptTests": {
+      "tests": 9,
+      "exit": 0
+    },
+    "offlineWire": {
+      "unpatched": 1,
+      "patched": 5,
+      "status": "PASS"
+    },
+    "prepare": {
+      "exit": 0
+    },
+    "bundleCheck": {
+      "exit": 0
+    },
+    "build": {
+      "exit": 0
+    },
+    "typecheck": {
+      "exit": 0
+    },
+    "changedFilesLint": {
+      "exit": 0
+    },
+    "diffCheck": {
+      "exit": 0
+    },
+    "liveReadback": {
+      "providerKind": "simulated",
+      "readbacks": [
+        {
+          "model": "careeradapt-test",
+          "writeMs": 0.0017000000007101335,
+          "readbackMs": 5.814400000000205
+        },
+        {
+          "model": "p518-target",
+          "writeMs": 2.973200000000361,
+          "readbackMs": 4.833699999999226
+        }
+      ],
+      "modelSequence": [
+        "careeradapt-test",
+        "p518-target"
+      ],
+      "restartCount": 0,
+      "startupMs": 4119.1089,
+      "status": "PASS",
+      "childExitCode": 1,
+      "note": "Two real bundled Runtime Runs use simulated Provider; childExitCode=1 during controlled cleanup retained, not a graceful-shutdown certification."
+    },
+    "historicalEvidenceHash": {
+      "path": "docs/quality/p5.1-sq1-quality-certification-20261031-amd-collection.json",
+      "status": "UNCHANGED"
+    },
+    "skillHashValidation": {
+      "skills": 6,
+      "bothArms": true,
+      "status": "PASS"
+    },
+    "realAfterCommand": "node scripts/amd-qwen-after-probe.mjs",
+    "configuredNodeProbeExitCode": 2,
+    "observedShellProbeExitCode": 1,
+    "credentialScan": {
+      "status": "PASS",
+      "files": 31
+    },
+    "singleRequestAndNoReasoningText": "PASS"
+  },
+  "processFailures": [
+    {
+      "stage": "Initial offline wire launcher",
+      "error": "Called non-exported resolveBundledHermesRuntime",
+      "resolution": "Use explicit pinned bundle paths; subsequent unpatched/patched loopback captures passed; no Provider request."
+    },
+    {
+      "stage": "Final scan shell inline launcher",
+      "error": "PowerShell quote parsing caused JavaScript SyntaxError",
+      "resolution": "Moved scan into explicit script file; no Provider request or credential printed."
+    }
+  ],
+  "fileHashes": {
+    "electron/providerGenerationPolicy.js": "4563005983dd20dddea17fb926b32e0421415ddb236d27f74a1c804c0e6a3d0b",
+    "electron/providerGenerationPolicy.d.ts": "346d163cfffc5fe40b943bce0892cc15f3a06ffb8fd92ee13aa1cb45d1365b7e",
+    "electron/hermesCompanion.js": "2e70f2db51638506179c80e319a21bacceb67c880f22c97ec3c5fcffe4e6a58b",
+    "electron/mergeHermesConfig.py": "237e32ea86ae4fe56345c18148e425d5cd09c78f72396201ac7a21909ee43090",
+    "src/ai/providers/openAiCompatibleProvider.ts": "c0d878ee06fef72b91a226ff82765f9c78ac49352d77ca89c09732290e9db846",
+    "scripts/skills-quality-eval.mjs": "c6ebde7174e58d51a3fa32b6f50255e6508059e7784839ccfcb33c4f66bc17b4",
+    "scripts/hermes-amd-reasoning-patch.mjs": "a62d159d384963e6316ae80694f73de6dcad2cb874b4ea10af38879ec92f1dc2",
+    "scripts/prepare-hermes-runtime.mjs": "77ac410325c1a25301b4c6d74d8679eeb25f2f91f8ce89d15f43771cecd3fc9e",
+    "scripts/hermes-runtime-lock.json": "63050623184f3511fbf30dc20380433b7d1bc2b033e2bbc71268f70b8c1abdba",
+    "scripts/hermes-bundle-check.mjs": "274606a690d86fb7e3118dd6a09be550c2755bed5430a4159053b789d32c411f",
+    "scripts/amd-qwen-after-probe.mjs": "ac0f714fb84921fd418588fffbf4a7cf83a7226f35bac33a28c0151e26f3c47c",
+    "scripts/test-hermes-amd-wire.mjs": "de61fb032c56f86746450f9611c0ff403c4c0d42502b6c6c36e4723ee17b5607",
+    "tests/support/hermes-amd-wire.py": "3cda631a766aab2a464401d31906d74b14dc68673011ffc709cf1117030e1f77",
+    "tests/hermes-amd-policy.test.mjs": "bb264c5006c31c722bb2f318ac206c098b3373817637e3d78d62c2d3d9c0e54e",
+    "tests/skills-quality-harness.test.mjs": "bc289da03c0ca2aa67a2d04241b8bc05bd1a0143f421490c72840aaa60687d5c",
+    "tests/unit/openAiCompatibleProvider.test.ts": "589a66d1217de98803a64b58cccd2906997c664db152e2e5853f5ebde281fe29"
+  },
+  "next": "Stop. No second real probe, remaining arms, P518-B/P519/SQ2, commit, push or packaging. If low still blocked, separately authorize streaming/queue/server latency investigation."
+}

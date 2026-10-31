@@ -50,6 +50,27 @@ def merge(existing, managed):
     # Keep the two hot-switch scalar targets first and unambiguous.
     model = {"default": model.pop("default"), **model}
     result["model"] = model
+    if "agent" in managed:
+        agent = dict(mapping(result.get("agent", {})))
+        overrides = dict(mapping(agent.get("reasoning_overrides", {})))
+        # Install a model-specific default; preserve explicitly configured valid tiers.
+        for key, value in managed["agent"]["reasoning_overrides"].items():
+            overrides.setdefault(key, value)
+        agent["reasoning_overrides"] = overrides
+        result["agent"] = agent
+    if "providers" in managed:
+        providers = dict(mapping(result.get("providers", {})))
+        for name, value in managed["providers"].items():
+            provider = dict(mapping(providers.get(name, {})))
+            models = dict(mapping(provider.get("models", {})))
+            for model_name, defaults in value["models"].items():
+                model_config = dict(mapping(models.get(model_name, {})))
+                for key, default in defaults.items():
+                    model_config.setdefault(key, default)
+                models[model_name] = model_config
+            provider["models"] = models
+            providers[name] = provider
+        result["providers"] = providers
     if "custom_providers" in managed:
         providers = result.get("custom_providers", [])
         if not isinstance(providers, list) or any(not isinstance(p, dict) for p in providers):

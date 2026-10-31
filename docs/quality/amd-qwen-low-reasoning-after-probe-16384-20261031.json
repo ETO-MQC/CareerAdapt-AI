@@ -1,0 +1,59 @@
+{
+  "status": "AMD_QWEN_LOW_REASONING_STILL_BLOCKED",
+  "caseId": "jd_understanding-01",
+  "arm": "after",
+  "providerOrigin": "https://developer.amd.com.cn",
+  "model": "Qwen3.8-27B",
+  "parameters": {
+    "temperature": 0,
+    "reasoningEffort": "low",
+    "maxTokens": 16384,
+    "timeoutMs": 120000
+  },
+  "skillSHA256": "ce7b5a1e58331756b807e0b6862e662613f5e1d2eed06190528b0880054dceb9",
+  "legacyBefore": {
+    "path": "docs/quality/p5.1-sq1-quality-certification-20261031-amd-collection.json",
+    "preserved": true,
+    "durationMs": 86450.9461,
+    "sameGenerationPolicy": false,
+    "note": "Legacy default-xhigh before is not comparable to this explicit-low after. No certification pair is created."
+  },
+  "requestsAttempted": 1,
+  "attempts": [
+    {
+      "caseId": "jd_understanding-01",
+      "category": "jd_understanding",
+      "arm": "after",
+      "attemptNumber": 1,
+      "previousFailure": null,
+      "requestedAt": "2026-10-30T18:03:24.766Z",
+      "turns": [
+        {
+          "turnIndex": 0,
+          "requestedAt": "2026-10-30T18:03:24.768Z",
+          "requestBytes": 7602,
+          "parameters": {
+            "temperature": 0,
+            "reasoningEffort": "low",
+            "maxTokens": 16384
+          },
+          "totalMs": 120004.25159999999
+        }
+      ],
+      "completionStatus": "FAILED",
+      "errorClassification": "TIMEOUT",
+      "partialResponses": []
+    }
+  ],
+  "results": [],
+  "requestJournal": {
+    "requestedAt": "2026-10-30T18:03:24.770Z",
+    "requestBytes": 7602,
+    "model": "Qwen3.8-27B",
+    "reasoning_effort": "low",
+    "max_tokens": 16384,
+    "temperature": 0
+  },
+  "errorName": "TimeoutError",
+  "errorClassification": "TIMEOUT"
+}

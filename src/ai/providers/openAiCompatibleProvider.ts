@@ -1,4 +1,5 @@
 import "server-only";
+import { isAmdQwenRoute } from "../../../electron/providerGenerationPolicy";
 import type { AiSettings } from "@/services/storage/aiSettings";
 import {
   resolveEffectiveAiConfiguration,
@@ -50,6 +51,7 @@ export class OpenAiCompatibleProvider {
   readonly model: string;
   private readonly baseUrl: string;
   private readonly apiKey: string;
+  private readonly amdQwen: boolean;
 
   /**
  * Accepts either raw renderer settings or an already-resolved configuration.
@@ -65,6 +67,7 @@ constructor(settings?: AiSettings, resolved?: EffectiveAiConfiguration) {
     this.model = configuration.model;
     this.baseUrl = configuration.baseUrl;
     this.apiKey = configuration.apiKey;
+    this.amdQwen = isAmdQwenRoute({ baseUrl: this.baseUrl, model: this.model });
     this.configurationDiagnostic = safeAiConfigurationDiagnostic(configuration);
   }
 
@@ -91,11 +94,14 @@ constructor(settings?: AiSettings, resolved?: EffectiveAiConfiguration) {
       body: JSON.stringify({
         model: this.model,
         ...(request.stream ? { stream: true } : {}),
-        ...(request.reasoningEffort && this.provider === "openrouter"
+        ...(this.amdQwen
+          ? { reasoning_effort: "low" } : {}),
+        ...(request.reasoningEffort && !this.amdQwen && this.provider === "openrouter"
           ? { reasoning: { effort: request.reasoningEffort } } : {}),
         // Extraction only: custom Qwen deployments expose the documented template switch.
         // Do not send vendor extensions to unrelated models or normal Agent conversations.
         ...(request.reasoningEffort && /qwen/iu.test(this.model) && this.provider.startsWith("custom:")
+          && !this.amdQwen
           ? { chat_template_kwargs: { enable_thinking: false } } : {}),
         messages: [
           { role: "system", content: request.systemPrompt },
@@ -208,6 +214,7 @@ constructor(settings?: AiSettings, resolved?: EffectiveAiConfiguration) {
           }
         })),
         tool_choice: request.tools.length ? "auto" : undefined,
+        ...(this.amdQwen ? { reasoning_effort: "low" } : {}),
         temperature: 0.1
       }),
       signal: request.signal
@@ -256,6 +263,7 @@ constructor(settings?: AiSettings, resolved?: EffectiveAiConfiguration) {
         model: this.model,
         stream: true,
         stream_options: { include_usage: true },
+        ...(this.amdQwen ? { reasoning_effort: "low" } : {}),
         messages: [
           { role: "system", content: request.systemPrompt },
           ...request.messages.map(toOpenAiMessage)
@@ -357,6 +365,7 @@ constructor(settings?: AiSettings, resolved?: EffectiveAiConfiguration) {
           { role: "system", content: request.systemPrompt },
           { role: "user", content: request.userPrompt }
         ],
+        ...(this.amdQwen ? { reasoning_effort: "low" } : {}),
         temperature: 0.2
       }),
       signal: request.signal

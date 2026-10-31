@@ -6,6 +6,7 @@ const net = require("net");
 const path = require("path");
 const { execFile, execFileSync, spawn } = require("child_process");
 const { resolveHermesProviderBinding } = require("./hermesProviderBinding");
+const { isAmdQwenRoute } = require("./providerGenerationPolicy");
 const { credentialFingerprintPepper } = require("./credentialFingerprintPepper");
 
 const DEFAULT_RUNTIME_URL = "http://127.0.0.1:8642";
@@ -337,6 +338,11 @@ function ensureManagedHermesConfig(hermesHome, values) {
       `    key_env: ${binding.credentialEnvName}`,
       "    api_mode: chat_completions",
       `    model: ${yamlScalar(model)}`
+    ] : []),
+    ...(baseUrl && isAmdQwenRoute({ baseUrl, model: "Qwen3.8-27B" }) ? [
+      "agent:", "  reasoning_overrides:", '    "Qwen3.8-27B": low',
+      "providers:", '  "custom:careeradapt":', "    models:", '      "Qwen3.8-27B":',
+      "        timeout_seconds: 480", "        stale_timeout_seconds: 480"
     ] : []),
     "platform_toolsets:",
     "  api_server:",

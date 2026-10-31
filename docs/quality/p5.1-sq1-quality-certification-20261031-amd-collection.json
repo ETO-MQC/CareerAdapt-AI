@@ -1,0 +1,157 @@
+{
+  "schemaVersion": "skills-quality-eval-v1",
+  "status": "REAL_QUALITY_EVAL_BLOCKED",
+  "providerOrigin": "https://developer.amd.com.cn",
+  "model": "Qwen3.8-27B",
+  "baselineCommit": "1573e267614ff93363eff2ed2bade34ff01ed078",
+  "parameters": {
+    "temperature": 0,
+    "timeoutMs": 120000
+  },
+  "order": "fixture order, before then after, fixed follow-up order",
+  "fixtureSHA256": "33a0cbf61ffff5c025687dd674a2f58e5f9eded291ace57073daa8c5e5e2c5c3",
+  "skillHashes": {
+    "candidate-profile-interview": {
+      "before": "53cbb903e88157132a0b6c656ea1e2d64edaba538637da05447115e48376d557",
+      "after": "b58f72952350ad3efd154f6b482f0c81a6cf9dff58fc12dfdf555eb1f668f579"
+    },
+    "career-story-mining": {
+      "before": "9ce2cb63f98397867e8f0081665aac0098eca9c03c6d81cbe8aadb3f5d50bbde",
+      "after": "03a9ea1a8ac24b27db7203f84a9cf763ebaae7b75421e4728dc3a0c4c4401abf"
+    },
+    "job-fit-analysis": {
+      "before": "b4a70be83c7a10b5631a371d077a47757a0b60bd2c14de6c402f02a16c63402c",
+      "after": "ce7b5a1e58331756b807e0b6862e662613f5e1d2eed06190528b0880054dceb9"
+    },
+    "resume-composition": {
+      "before": "056d5d8732d86ebbe500761aafa4c492860445c7a3980f2fa02bb60d27725453",
+      "after": "037b450b0ef6f0ea24ce0b2bc27884e2f41599cf9dcb039c3506fca464de2721"
+    },
+    "resume-review": {
+      "before": "39aa1cbf8f35228b6d630859d97f09e1090eca876ac9e3d503599d6ffd7d902e",
+      "after": "c00fb5549a76c720c5cf5454e45873c029094362ba9d30d5b589f2022195585a"
+    },
+    "resume-tailoring": {
+      "before": "520a39231b77486a33207f393fb7cba3dfd7135f232a57d71a777fdd0d2ae054",
+      "after": "1ebab591afa239861a518fb0e260cc999b2b019c4731ca8207f0a0ee639f240f"
+    }
+  },
+  "requestsAttempted": 3,
+  "activeRequest": {
+    "caseId": "jd_understanding-01",
+    "arm": "after",
+    "turnIndex": 0
+  },
+  "diagnostics": {
+    "errorName": "TimeoutError"
+  },
+  "attempts": [
+    {
+      "caseId": "jd_understanding-01",
+      "category": "jd_understanding",
+      "arm": "before",
+      "attemptNumber": 1,
+      "previousFailure": null,
+      "requestedAt": "2026-10-30T17:23:24.813Z",
+      "turns": [
+        {
+          "turnIndex": 0,
+          "requestedAt": "2026-10-30T17:23:24.818Z",
+          "headersMs": 86449.2033,
+          "httpStatus": 200,
+          "bodyMs": 86450.9315,
+          "finishReason": "stop",
+          "totalMs": 86450.9461
+        }
+      ],
+      "completionStatus": "COMPLETED"
+    },
+    {
+      "caseId": "jd_understanding-01",
+      "category": "jd_understanding",
+      "arm": "after",
+      "attemptNumber": 1,
+      "previousFailure": null,
+      "requestedAt": "2026-10-30T17:24:51.278Z",
+      "turns": [
+        {
+          "turnIndex": 0,
+          "requestedAt": "2026-10-30T17:24:51.281Z",
+          "totalMs": 120008.3282
+        }
+      ],
+      "completionStatus": "FAILED",
+      "errorClassification": "TIMEOUT",
+      "partialResponses": []
+    },
+    {
+      "caseId": "jd_understanding-01",
+      "category": "jd_understanding",
+      "arm": "after",
+      "attemptNumber": 2,
+      "previousFailure": "TIMEOUT",
+      "requestedAt": "2026-10-30T17:27:22.817Z",
+      "turns": [
+        {
+          "turnIndex": 0,
+          "requestedAt": "2026-10-30T17:27:22.821Z",
+          "totalMs": 120018.64439999999
+        }
+      ],
+      "completionStatus": "FAILED",
+      "errorClassification": "TIMEOUT",
+      "partialResponses": []
+    }
+  ],
+  "results": [
+    {
+      "caseId": "jd_understanding-01",
+      "arm": "before",
+      "skill": "job-fit-analysis",
+      "skillSHA256": "b4a70be83c7a10b5631a371d077a47757a0b60bd2c14de6c402f02a16c63402c",
+      "model": "Qwen3.8-27B",
+      "anonymizedResult": [
+        "\n\n结论：基于当前资料，**不能确认满足必须项 SQL**；Python 也暂无证据。Excel 数据整理可作为数据处理/数据整理的可迁移证据，但**不能替代 SQL 掌握证明**。\n\n> 若在系统内执行，应调用高层工具 `mcp__careeradapt__career_workflow_job_fit`；本次仅基于给定事实分析，不执行或声称任何简历/Profile 写入。\n\n## 1. 需求归一化\n\n| 需求ID | 需求 | 类型 | 说明 |\n|---|---|---:|---|\n| REQ-01 | 必须掌握 SQL | Must-have | 需要可验证的 SQL 查询、数据库取数、报表或数据分析证据 |\n| REQ-02 | Python 优先 | Preferred | 有 Python 数据处理/自动化/分析经验可加分，但非必须 |\n\n## 2. 需求-证据矩阵\n\n| 需求ID | 需求 | 证据ID | 候选证据 | 证据成熟度 | 匹配状态 | 说明 |\n|---|---|---|---|---|---|---|\n| REQ-01 | 必须掌握 SQL | EV-01 | Excel 数据整理 | 基础/可迁移 | 未确认，证据不足 | Excel 数据整理可体现数据处理、清洗、整理能力，但不能证明 SQL 查询、数据库操作或“掌握 SQL” |\n| REQ-02 | Python 优先 | — | 无 | 未知 | 未确认 | 当前资料未提供 Python 项目、代码、自动化或分析经验 |\n\n## 3. 匹配摘要\n\n- **Must-have 覆盖**：0/1 已确认；1 项未确认。\n- **Preferred 覆盖**：0/1 已确认；1 项未确认。\n- **证据强度**：弱。\n- **总体判断**：当前资料不足以支持“匹配”结论；这不是明确不匹配，而是**关键必须项证据缺失**。\n\n## 4. 材料差距\n\n1. **SQL 证据缺失**\n   - 没有 SQL 查询、数据库取数、报表、数据分析或项目成果证据。\n   - “Excel 数据整理”不能证明 SQL 能力。\n\n2. **Python 证据缺失**\n   - 没有 Python 脚本、数据处理、自动化、分析或项目经验。\n   - 由于是优先项，缺失影响竞争力，但不直接阻断。\n\n3. **Excel 证据可迁移但有限**\n   - 可支持：数据整理、数据清洗、表格处理、基础数据分析。\n   - 不可支持：SQL 掌握、数据库操作、Python 能力。\n\n## 5. 候选问题\n\n最多聚焦一个关键问题：\n\n> 是否有可验证的 SQL 经历？例如：编写 SELECT/JOIN/聚合查询、从数据库取数、生成报表、完成数据分析任务，或相关项目/课程/工作成果？\n\n## 6. 置信度\n\n**低**。  \n原因：必须项 SQL 无直接证据，且当前资料仅包含 Excel 数据整理。\n\n## 7. 简历/投递优先级建议\n\n1. **如果确实有 SQL 经验**：补充具体 SQL 证据，例如查询任务、数据库、取数场景、报表结果或项目成果。\n2. **如果没有 SQL 经验**：不要将 Excel 数据整理包装成 SQL 能力；该岗位必须项风险较高。\n3. **Excel 数据整理**：可作为辅助证据，定位为“数据整理/数据清洗/表格分析”，不要作为核心 SQL 证明。\n4. **Python**：如有经验可补充；如无经验，不建议作为主要卖点。"
+      ],
+      "questionCount": 2,
+      "toolTrace": [],
+      "toolTraceScope": "intended_only_no_host_execution",
+      "rubric": "区分 must 与 preferred；SQL/Python 未知，不能说不会。",
+      "metrics": {
+        "correctTool": null,
+        "unnecessaryQuestions": null,
+        "questionUsefulness": null,
+        "repeatQuestions": null,
+        "jdRequirementCoverage": null,
+        "supportedKeywordCoverage": null,
+        "userConfirmedNewClaimsUsed": null,
+        "unsupportedObjectiveClaims": null,
+        "wrongOwnership": null,
+        "fabricatedMetrics": null,
+        "recruiterRelevance": null,
+        "verbosity": null,
+        "completionRate": null
+      },
+      "reviewStatus": "PENDING_HUMAN_REVIEW",
+      "category": "jd_understanding",
+      "completionStatus": "COMPLETED",
+      "errorClassification": null,
+      "providerOrigin": "https://developer.amd.com.cn",
+      "turnCount": 1,
+      "questionCountMethod": "question-mark count; semantic multi-question review pending",
+      "attemptNumber": 1,
+      "requestTiming": [
+        {
+          "turnIndex": 0,
+          "requestedAt": "2026-10-30T17:23:24.818Z",
+          "headersMs": 86449.2033,
+          "httpStatus": 200,
+          "bodyMs": 86450.9315,
+          "finishReason": "stop",
+          "totalMs": 86450.9461
+        }
+      ],
+      "requestedAt": "2026-10-30T17:23:24.813Z"
+    }
+  ]
+}

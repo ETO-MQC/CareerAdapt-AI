@@ -17,7 +17,8 @@ const isCoreMultiturn = suite === "core-multiturn";
 const isCareerAgentEval = suite === "career-agent-eval";
 const isCareerAgentReal = suite === "career-agent-real";
 const isConfigR1 = suite === "config-r1";
-if (!isCoreBehavior && !isCoreMultiturn && !isCareerAgentEval && !isCareerAgentReal && !isConfigR1 && suite !== "integration") {
+const isSlowProvider = suite === "slow-provider";
+if (!isCoreBehavior && !isCoreMultiturn && !isCareerAgentEval && !isCareerAgentReal && !isConfigR1 && !isSlowProvider && suite !== "integration") {
   throw new Error(`unknown Hermes integration suite: ${suite}`);
 }
 const bundleRoot = path.resolve(process.env.HERMES_RUNTIME_ROOT?.trim() || path.join(projectRoot, ".electron-build", "hermes-runtime-v4"));
@@ -27,7 +28,7 @@ const runtimePort = await companion.findAvailablePort({ host: "127.0.0.1", prefe
 if (!runtimePort) throw new Error("no free port for hermetic Hermes integration");
 const provider = isCareerAgentReal
   ? undefined
-  : await startFakeOpenAiProvider({ mode: isCareerAgentEval ? "career-agent-eval" : "integration", ...(isConfigR1 ? { delayMs: 2_000 } : {}) });
+  : await startFakeOpenAiProvider({ mode: isCareerAgentEval ? "career-agent-eval" : "integration", ...(isConfigR1 ? { delayMs: 2_000 } : {}), ...(isSlowProvider ? { delayScheduleMs: [185000, 5000] } : {}) });
 const realProviderBaseUrl = isCareerAgentReal
   ? (process.env.CAREER_AGENT_REAL_BASE_URL || process.env.HERMES_BASE_URL || process.env.AI_BASE_URL || "").trim()
   : undefined;
@@ -48,6 +49,7 @@ const childEnvironment = {
   ...process.env,
   NODE_ENV: "development",
   HERMES_INTEGRATION_RUN_ID: integrationRunId,
+  ...(isSlowProvider ? { P518B_SLOW_PROVIDER: "1" } : {}),
   PLAYWRIGHT_JSON_OUTPUT_NAME: path.join(projectRoot, ".tmp", `core02-${integrationRunId}-playwright.json`),
   ...(isCoreBehavior ? { HERMES_CORE_BEHAVIOR: "1", HERMES_CORE_BEHAVIOR_RUN_ID: String(Date.now()) } : {}),
   CAREERADAPT_PROJECT_ROOT: projectRoot,
@@ -182,7 +184,7 @@ async function runPlaywright(environment, url, selectedSuite) {
       "playwright",
       "test",
       "--reporter=line,json",
-      `--config=${selectedSuite === "core-behavior" ? "playwright.hermes-core-behavior.config.ts" : selectedSuite === "core-multiturn" ? "playwright.hermes-core-multiturn.config.ts" : selectedSuite === "config-r1" ? "playwright.hermes-r1.config.ts" : selectedSuite === "career-agent-eval" ? "playwright.career-agent-eval.config.ts" : selectedSuite === "career-agent-real" ? "playwright.career-agent-real.config.ts" : "playwright.hermes-integration.config.ts"}`,
+      `--config=${selectedSuite === "slow-provider" ? "playwright.hermes-slow-provider.config.ts" : selectedSuite === "core-behavior" ? "playwright.hermes-core-behavior.config.ts" : selectedSuite === "core-multiturn" ? "playwright.hermes-core-multiturn.config.ts" : selectedSuite === "config-r1" ? "playwright.hermes-r1.config.ts" : selectedSuite === "career-agent-eval" ? "playwright.career-agent-eval.config.ts" : selectedSuite === "career-agent-real" ? "playwright.career-agent-real.config.ts" : "playwright.hermes-integration.config.ts"}`,
       ...process.argv.slice(3)
     ];
     const child = spawnPnpm(args, {

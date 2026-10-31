@@ -13,6 +13,31 @@ afterEach(() => {
 });
 
 describe("OpenAI-compatible structured requests", () => {
+  it.each([undefined, "low"] as const)("uses Radeon top-level low for extraction with requested effort %s", async reasoningEffort => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: '{"ok":true}' }, finish_reason: "stop" }] })));
+    vi.stubGlobal("fetch", fetchMock);
+    await new OpenAiCompatibleProvider({ ...settings, provider: "custom:amd", baseUrl: "https://developer.amd.com.cn/radeon/api/v1", model: "Qwen3.8-27B" })
+      .invoke({ systemPrompt: "JSON", userPrompt: "anonymous", maxOutputChars: 1000, reasoningEffort });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.reasoning_effort).toBe("low");
+    expect(body).not.toHaveProperty("chat_template_kwargs");
+    expect(body).not.toHaveProperty("reasoning");
+    expect(body).not.toHaveProperty("max_tokens");
+  });
+
+  it("keeps Radeon low on streamed direct text without imposing the evaluator ceiling", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(
+      `data: ${JSON.stringify({ choices: [{ delta: { content: "OK" }, finish_reason: "stop" }] })}\n\n`,
+      { headers: { "Content-Type": "text/event-stream" } }
+    ));
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new OpenAiCompatibleProvider({ ...settings, baseUrl: "https://developer.amd.com.cn/radeon/api/v1", provider: "custom:amd", model: "Qwen3.8-27B" });
+    for await (const chunk of provider.streamText({ systemPrompt: "Brief", userPrompt: "Test", maxOutputChars: 100 })) void chunk;
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.reasoning_effort).toBe("low");
+    expect(body).not.toHaveProperty("max_tokens");
+    expect(body).not.toHaveProperty("chat_template_kwargs");
+  });
   it("finishes structured JSON on the terminal stream frame without waiting for HTTP close", async () => {
     const cancel = vi.fn();
     const bytes = new TextEncoder().encode([

@@ -1,0 +1,120 @@
+{
+  "schemaVersion": "amd-qwen-final-long-timeout.v1",
+  "date": "2026-10-31",
+  "timezone": "Asia/Shanghai",
+  "status": "FINAL_LONG_TIMEOUT_PROBE_PASSED",
+  "authorization": "User explicitly requested one last attempt, extending timeout to 5–8 minutes. Selected 8 minutes, same prior 16384-token after request. No second request authorized or issued.",
+  "git": {
+    "branch": "main",
+    "head": "7d5e9f44c73066ed94320095856fdac3627ec987",
+    "priorUncommittedWorkPreserved": true,
+    "submitted": false,
+    "pushed": false,
+    "packaged": false,
+    "finalStatus": "M .env.example\n M electron/hermesCompanion.js\n M electron/mergeHermesConfig.py\n M scripts/hermes-bundle-check.mjs\n M scripts/hermes-runtime-lock.json\n M scripts/prepare-hermes-runtime.mjs\n M scripts/skills-quality-eval.mjs\n M src/ai/providers/openAiCompatibleProvider.ts\n M tests/unit/openAiCompatibleProvider.test.ts\n?? docs/quality/amd-qwen-budget-retry-20261031-evidence.json\n?? docs/quality/amd-qwen-budget-retry-20261031.md\n?? docs/quality/amd-qwen-final-long-timeout-20261031-evidence.json\n?? docs/quality/amd-qwen-final-long-timeout-20261031.md\n?? docs/quality/amd-qwen-low-reasoning-after-probe-16384-20261031.json\n?? docs/quality/amd-qwen-low-reasoning-after-probe-16384-480000ms-20261031.json\n?? docs/quality/amd-qwen-low-reasoning-after-probe-20261031.json\n?? docs/quality/amd-qwen-low-reasoning-after-probe-8192-20261031.json\n?? docs/quality/amd-qwen-reasoning-patched-wire-20261031.json\n?? docs/quality/amd-qwen-reasoning-timeout-fix-20261031-evidence.json\n?? docs/quality/amd-qwen-reasoning-timeout-fix-20261031.md\n?? docs/quality/amd-qwen-reasoning-unpatched-wire-20261031.json\n?? docs/quality/p5.1-sq1-quality-certification-20261031-amd-collection.json\n?? docs/quality/p5.1-sq1-quality-certification-20261031-amd-evidence.json\n?? docs/quality/p5.1-sq1-quality-certification-20261031-amd-probe.json\n?? docs/quality/p5.1-sq1-quality-certification-20261031-amd.md\n?? docs/quality/p5.1-sq1-quality-certification-20261031-collection.json\n?? docs/quality/p5.1-sq1-quality-certification-20261031-evidence.json\n?? docs/quality/p5.1-sq1-quality-certification-20261031.md\n?? electron/providerGenerationPolicy.d.ts\n?? electron/providerGenerationPolicy.js\n?? scripts/amd-qwen-after-probe.mjs\n?? scripts/hermes-amd-reasoning-patch.mjs\n?? scripts/skills-quality-blind-review.mjs\n?? scripts/skills-quality-certification.mjs\n?? scripts/test-hermes-amd-wire.mjs\n?? tests/hermes-amd-policy.test.mjs\n?? tests/skills-quality-harness.test.mjs\n?? tests/support/hermes-amd-wire.py"
+  },
+  "probe": {
+    "path": "docs/quality/amd-qwen-low-reasoning-after-probe-16384-480000ms-20261031.json",
+    "status": "AMD_QWEN_LONG_TIMEOUT_PROBE_SUCCEEDED",
+    "errorClassification": null,
+    "errorName": null,
+    "requestsAttempted": 1,
+    "requestJournal": {
+      "requestedAt": "2026-10-31T02:15:39.728Z",
+      "requestBytes": 7602,
+      "model": "Qwen3.8-27B",
+      "reasoning_effort": "low",
+      "max_tokens": 16384,
+      "temperature": 0
+    },
+    "parameters": {
+      "temperature": 0,
+      "reasoningEffort": "low",
+      "maxTokens": 16384,
+      "timeoutMs": 480000
+    },
+    "timing": {
+      "turnIndex": 0,
+      "requestedAt": "2026-10-31T02:15:39.725Z",
+      "requestBytes": 7602,
+      "parameters": {
+        "temperature": 0,
+        "reasoningEffort": "low",
+        "maxTokens": 16384
+      },
+      "timeoutMs": 480000,
+      "headersMs": 299961.93679999997,
+      "httpStatus": 200,
+      "bodyMs": 299984.1814,
+      "finishReason": "stop",
+      "reasoningPresent": true,
+      "reasoningChars": 16228,
+      "usage": {
+        "prompt_tokens": 1586,
+        "completion_tokens": 5104,
+        "completion_tokens_details": {
+          "reasoning_tokens": 3758
+        }
+      },
+      "contentChars": 3261,
+      "totalMs": 299984.2067
+    },
+    "resultCount": 1,
+    "caseId": "jd_understanding-01",
+    "arm": "after"
+  },
+  "policy": {
+    "provider": "AMD",
+    "model": "Qwen3.8-27B",
+    "reasoningEffort": "low",
+    "temperature": 0,
+    "maxTokens": 16384,
+    "timeoutMs": 480000,
+    "onlyChangedRequestParameterComparedWithLastAttempt": "timeoutMs 120000 -> 480000",
+    "productionTimeoutChanged": false,
+    "productionMaxTokensChanged": false,
+    "defaultEvaluationTimeoutUnchanged": 120000,
+    "defaultEvaluationMaxTokensUnchanged": 2048
+  },
+  "conclusion": "This request completed with HTTP200, nonempty content and finish_reason=stop under the extended deadline. It is transport evidence, not full SQ1 quality certification or a multi-sample root-cause proof.",
+  "certification": {
+    "status": "SQ1 QUALITY COLLECTION BLOCKED",
+    "beforeRequested": false,
+    "fullABCollectionRun": false,
+    "actualHermesSentinelRun": false,
+    "matchedPairCreated": false,
+    "reason": "Legacy before uses a different generation policy; this is one isolated after probe only."
+  },
+  "validation": {
+    "nodeTests": {
+      "count": 11,
+      "exit": 0
+    },
+    "typecheck": {
+      "exit": 0
+    },
+    "changedFilesLint": {
+      "exit": 0
+    },
+    "diffCheck": {
+      "exit": 0
+    },
+    "skillSHAs": {
+      "count": 6,
+      "bothArms": true,
+      "status": "PASS"
+    },
+    "build": "Not required/repeated: evaluation timeout override only; product transport and bundled Hermes unchanged.",
+    "credentialScan": "PASS",
+    "realProbeObservedShellExit": 0,
+    "actualRealRequestCount": 1
+  },
+  "skillSHA256": "ce7b5a1e58331756b807e0b6862e662613f5e1d2eed06190528b0880054dceb9",
+  "fileHashes": {
+    "scripts/skills-quality-eval.mjs": "06c91bdc7125f4ee5143f7275d3856d1aa2292c8bddc7f50850c903588cefa24",
+    "scripts/amd-qwen-after-probe.mjs": "acb85dc9c9c618cb809b94d41eb2752dd1d46762464f1e56353fdd532ba1c565",
+    "tests/skills-quality-harness.test.mjs": "9a9ad4539e08da609cc3e83d7a0685cd266aebd44a025813e2524214e01c62d0",
+    "docs/quality/amd-qwen-low-reasoning-after-probe-16384-480000ms-20261031.json": "8edc4d744b9494f5a424d0035f77eb8e698c0fa96130c3b029e99dc55aa922be"
+  },
+  "next": "Stop after this final attempt. No extra Provider calls, no remaining arms, no subsequent phase; user decides further action."
+}

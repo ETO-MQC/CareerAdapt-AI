@@ -1,0 +1,55 @@
+{
+  "status": "PASS",
+  "scope": "CareerAdapt managed config -> real bundled AIAgent.run_conversation -> OpenAI SDK stream -> delayed loopback Provider",
+  "scale": {
+    "legacyStale": 1.8,
+    "newStale": 4.8,
+    "firstResponse": 3.0
+  },
+  "cases": [
+    {
+      "mode": "legacy",
+      "resolved": {
+        "request": null,
+        "stale": null
+      },
+      "elapsedSeconds": 2.859000000054948,
+      "success": false,
+      "actualProviderId": "custom",
+      "wire": [
+        {
+          "model": "Qwen3.8-27B",
+          "stream": true,
+          "reasoning_effort": "low",
+          "max_tokens": 65536,
+          "tools_present": true,
+          "at": 989060.437
+        }
+      ],
+      "completed": false,
+      "errorType": "MODEL_REQUEST_FAILED"
+    },
+    {
+      "mode": "scoped",
+      "resolved": {
+        "request": 4.8,
+        "stale": 4.8
+      },
+      "elapsedSeconds": 4.422000000020489,
+      "success": true,
+      "actualProviderId": "custom",
+      "wire": [
+        {
+          "model": "Qwen3.8-27B",
+          "stream": true,
+          "reasoning_effort": "low",
+          "max_tokens": 65536,
+          "tools_present": true,
+          "at": 989066.359
+        }
+      ],
+      "completed": true,
+      "errorType": null
+    }
+  ]
+}
