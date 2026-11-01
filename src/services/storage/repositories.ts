@@ -1,3 +1,5 @@
+import { DexieCareerPersistenceAdapter } from "./persistence/dexieCareerPersistenceAdapter";
+import type { CareerPersistencePort } from "./persistence/careerPersistencePort";
 import { ResumeLayoutPresetSchema, ResumeLayoutPresetsSchema, type ResumeLayoutStyle } from "@/domain/resumePresentation/layoutPresets";
 import Dexie from "dexie";
 import { MaterialIntakeArtifactSchema, type MaterialIntakeArtifact } from "@/domain/materialIntake/materialIntake";
@@ -866,7 +868,11 @@ export type ApplicationContext = {
 };
 
 export class WorkspaceRepository {
-  constructor(private readonly db: CareerAdaptDb = careerAdaptDb) {}
+  private readonly persistence: CareerPersistencePort;
+
+  constructor(private readonly db: CareerAdaptDb = careerAdaptDb) {
+    this.persistence = new DexieCareerPersistenceAdapter(db);
+  }
 
   private async getCareerPersonWithoutMigration(personId: string) {
     const row = await this.db.appMeta.get(careerPersonMetaKey(personId));
@@ -7755,28 +7761,28 @@ export class WorkspaceRepository {
       now: string;
     }) => Promise<ResumeBranch>;
   }) {
-    return this.db.transaction("rw", this.db.resumeBranches, this.db.resumeRevisions, this.db.resumeBranchOperations, this.db.profiles, this.db.jobDescriptions, async () => {
-      const existingOperation = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
+    return this.persistence.withBranchMutation(async unit => {
+      const existingOperation = await unit.findOperation(input.operationId);
       if (existingOperation) {
-        const branch = await this.db.resumeBranches.get(input.branchId);
+        const branch = await unit.readBranch(input.branchId);
         if (!branch) {
           throw new Error("resume_branch_missing_for_operation");
         }
         return {
           branch: ResumeBranchSchema.parse(branch),
-          revision: existingOperation.revisionId ? await this.getResumeRevisionInTransaction(existingOperation.revisionId) : undefined,
+          revision: existingOperation.revisionId ? await this.parsePersistedResumeRevision(unit.readRevision(existingOperation.revisionId)) : undefined,
           idempotent: true
         };
       }
 
-      const branch = await this.requireEditableResumeBranch(input.branchId);
+      const branch = this.validateEditableResumeBranch(await unit.readBranch(input.branchId));
       if (branch.revision !== input.expectedRevision) {
         throw new RevisionConflictError();
       }
 
       const [profile, job] = await Promise.all([
-        this.db.profiles.get(branch.profileId),
-        branch.jobId ? this.db.jobDescriptions.get(branch.jobId) : Promise.resolve(undefined)
+        unit.readProfile(branch.profileId),
+        branch.jobId ? unit.readJob(branch.jobId) : Promise.resolve(undefined)
       ]);
       if (!profile || (branch.branchPurpose !== "general" && !job)) {
         throw new Error("branch_source_missing");
@@ -7786,7 +7792,7 @@ export class WorkspaceRepository {
       const parsedProfile = CareerProfileSchema.parse(profile);
       const parsedJob = job ? JobDescriptionSchema.parse(job) : undefined;
       const changed = await input.mutate({ branch, profile: parsedProfile, job: parsedJob, now });
-      const latestProfileRecord = await this.db.profiles.get(branch.profileId);
+      const latestProfileRecord = await unit.readProfile(branch.profileId);
       const latestProfile = latestProfileRecord ? CareerProfileSchema.parse(latestProfileRecord) : parsedProfile;
       const nextBranchBase = ResumeBranchSchema.parse({
         ...changed,
@@ -7835,15 +7841,18 @@ export class WorkspaceRepository {
         updatedAt: now
       });
 
-      await this.db.resumeBranches.put(nextBranch);
-      await this.db.resumeRevisions.put(revision);
-      await this.db.resumeBranchOperations.put(operation);
+      await unit.saveBranch(nextBranch);
+      await unit.appendRevision(revision);
+      await unit.saveOperation(operation);
       return { branch: nextBranch, revision, idempotent: false };
     });
   }
 
   private async requireEditableResumeBranch(branchId: string, options: { allowInvalidReference?: boolean } = {}) {
-    const branch = await this.db.resumeBranches.get(branchId);
+    return this.validateEditableResumeBranch(await this.db.resumeBranches.get(branchId), options);
+  }
+
+  private validateEditableResumeBranch(branch: ResumeBranch | undefined, options: { allowInvalidReference?: boolean } = {}) {
     if (!branch) {
       throw new Error("resume_branch_missing");
     }
@@ -7862,6 +7871,11 @@ export class WorkspaceRepository {
       throw new Error("invalid_reference_resume_branch_read_only");
     }
     return parsed;
+  }
+
+  private async parsePersistedResumeRevision(record: Promise<ResumeRevision | undefined>) {
+    const revision = await record;
+    return revision ? ResumeRevisionSchema.parse(revision) : undefined;
   }
 
   private async getResumeRevisionInTransaction(revisionId: string) {

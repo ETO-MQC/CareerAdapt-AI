@@ -1,0 +1,241 @@
+{
+  "stage": "P5.2.0-B1",
+  "date": "2026-11-01",
+  "status": "PARTIAL",
+  "firstPortableEditSlice": "PASS",
+  "runtimeQualification": "GO_FOR_TESTED_LOCAL_RUNTIMES_ONLY",
+  "productionDomainWrites": "DENIED",
+  "baseline": {
+    "branch": "main",
+    "head": "a2fa3eca634c8b8d19643eff7b022c3097387a42",
+    "originMain": "a2fa3eca634c8b8d19643eff7b022c3097387a42",
+    "fetchExitCode": 0,
+    "initialWorktreeClean": true,
+    "handoffDifference": "B was committed before this task; historical plan/history said uncommitted"
+  },
+  "runtimeEvidence": "docs/architecture/p5.2.0b1-runtime-results.json",
+  "runtimeDecision": {
+    "hermesElectron40": "GO local builtin node:sqlite qualification",
+    "careerElectron43": "GO local builtin node:sqlite qualification",
+    "sidecarNode24": "GO candidate qualification; NOT selected or distributed as production runtime",
+    "externalNativeDriver": "NO-GO: better-sqlite3/sqlite3 absent; ABI not verified; no installation"
+  },
+  "port": {
+    "api": "CareerPersistencePort.withBranchMutation",
+    "readStores": [
+      "resumeBranches",
+      "resumeRevisions",
+      "resumeBranchOperations",
+      "profiles",
+      "jobDescriptions"
+    ],
+    "canonicalWriteStores": [
+      "resumeBranches",
+      "resumeRevisions",
+      "resumeBranchOperations"
+    ],
+    "legacyCallbackMayWrite": [
+      "profiles"
+    ],
+    "transactionMode": "rw across original five tables, async Dexie transaction callback",
+    "portableEntryPoints": [
+      "editResumeBranch",
+      "editResumeBranchBasics"
+    ],
+    "sharedMutationCallers": [
+      "ensureGeneralResumeFromProfile",
+      "editResumeBranch",
+      "editResumeBranchBasics",
+      "syncResumeBranchFromProfile",
+      "renameResumeBranch",
+      "duplicateResumeContentItem",
+      "addResumeContentItem",
+      "syncResumeContentItemToProfile",
+      "syncResumeBasicsSummaryToProfile",
+      "addResumeContentItemFromProfile",
+      "addResumeContentItemFromProfileReference",
+      "restoreResumeRevision",
+      "undoResumeBranch"
+    ],
+    "notMigrated": [
+      "branch creation transactions including appMeta presentation writes",
+      "Profile sync callbacks and Profile repository persistence",
+      "restore/undo callbacks still read Dexie",
+      "Job creation/query persistence",
+      "appMeta receipts and binary metadata",
+      "all other Repository direct Dexie operations"
+    ],
+    "cas": "existing branch.revision comparison inside same serialized write transaction; not compare-and-swap outside transaction",
+    "replay": "existing unique operationId lookup before CAS; preserved existing target semantics"
+  },
+  "verification": [
+    {
+      "command": "pnpm typecheck (before)",
+      "exit": 0
+    },
+    {
+      "command": "pnpm exec vitest run branch.test.ts jobResumeSourceModes.test.ts resumeCompositionConfirmedWriteP45c12.test.ts (before)",
+      "exit": 0,
+      "tests": 30
+    },
+    {
+      "command": "pnpm exec vitest run [nine files listed in report]",
+      "exit": 0,
+      "tests": 97,
+      "log": ".tmp/p520b1-all-final.log"
+    },
+    {
+      "command": "pnpm exec vitest run tests/unit/p520b-persistence.test.ts",
+      "exit": 0,
+      "log": ".tmp/p520b1-prior-poc-tests.log",
+      "tests": 7
+    },
+    {
+      "command": "pnpm typecheck (final)",
+      "exit": 0,
+      "log": ".tmp/p520b1-typecheck-final2.log"
+    },
+    {
+      "command": "pnpm exec eslint [seven changed JS/TS files] --max-warnings=0",
+      "exit": 0,
+      "log": ".tmp/p520b1-lint-final2.log"
+    },
+    {
+      "command": "pnpm build",
+      "exit": 0,
+      "log": ".tmp/p520b1-build.log"
+    },
+    {
+      "command": "node scripts/p520b1-runtime-qualification.mjs",
+      "exit": 0,
+      "log": ".tmp/p520b1-runtime-final.log"
+    },
+    {
+      "command": "git diff --check",
+      "exit": 0
+    },
+    {
+      "command": "Protected source normalized SHA/content comparison and Git status review",
+      "result": "PASS: schema/db/guards/Hermes lock/original HTTP test/B artifacts unchanged; no skip/test.only added"
+    }
+  ],
+  "httpFailure": {
+    "classification": "TEST_HARNESS_ISSUE",
+    "originalResult": {
+      "exit": 1,
+      "passed": 9,
+      "failed": 1
+    },
+    "originalTestUnchanged": true,
+    "diagnosis": "run_status response.json consumes the shared ReadableStream; second new Response(sharedStream) for run_events throws before transport can read it. Neither Response.clone nor a second reader on the same network Response is involved. Real HTTP requests have distinct response bodies.",
+    "independentDiagnosticTests": 2,
+    "recommendation": "Separate action-specific run_status JSON and run_events fresh SSE bodies; requires separate scope confirmation before editing original test. Production transport change is not justified by this fixture failure.",
+    "rawBaselineLog": "\n RUN  v4.1.9 E:/DEF/CareerAdapt AI\n\n ❯ tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts (10 tests | 1 failed) 122ms\n     × normalizes contradictory official tool completion payloads as failures 10ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts > P4.5c.1.14 Career workflow transactional closure > normalizes contradictory official tool completion payloads as failures\nHermesRunFailureError: Response body object should not be disturbed or locked\n ❯ createHermesRunFailure src/agent/runtime/hermes/hermesRunReliability.ts:164:17\n    162| export function createHermesRunFailure(input: HermesRunFailureInput): …\n    163|   const classified = classifyHermesRunFailure(input);\n    164|   const error = new Error(classified.safeErrorMessage) as HermesRunFai…\n       |                 ^\n    165|   error.name = \"HermesRunFailureError\";\n    166|   error.code = classified.safeErrorCode;\n ❯ bridgeError src/agent/runtime/hermes/HermesBridgeTransport.ts:1025:10\n ❯ HttpHermesBridgeTransport.request src/agent/runtime/hermes/HermesBridgeTransport.ts:473:13\n ❯ HttpHermesBridgeTransport.streamRequest src/agent/runtime/hermes/HermesBridgeTransport.ts:322:18\n ❯ HttpHermesBridgeTransport.runEvents src/agent/runtime/hermes/HermesBridgeTransport.ts:247:22\n ❯ tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts:325:24\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed (1)\n      Tests  1 failed | 9 passed (10)\n   Start at  17:05:01\n   Duration  4.43s (transform 2.04s, setup 172ms, import 2.63s, tests 122ms, environment 1.27s)\n\n"
+  },
+  "implementationFailures": [
+    {
+      "reason": "non-async wrapper around Dexie transaction lost async scope; PrematureCommitError in Profile sync tests",
+      "resolution": "async transaction callback restored, original 30 tests pass",
+      "log": "\n RUN  v4.1.9 E:/DEF/CareerAdapt AI\n\n ❯ tests/unit/branch.test.ts (14 tests | 2 failed) 387ms\n     × persists blank resume basics and keeps newly confirmed content resume-only by default 65ms\n     × normalizes award dates and syncs profile changes back to an existing resume item 60ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  tests/unit/branch.test.ts > D1 resume branch domain > persists blank resume basics and keeps newly confirmed content resume-only by default\nPrematureCommitError: Transaction committed too early. See http://bit.ly/2kdckMn\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯\n\n FAIL  tests/unit/branch.test.ts > D1 resume branch domain > normalizes award dates and syncs profile changes back to an existing resume item\nPrematureCommitError: Transaction committed too early. See http://bit.ly/2kdckMn\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯\n\n\n Test Files  1 failed | 2 passed (3)\n      Tests  2 failed | 28 passed (30)\n   Start at  17:07:04\n   Duration  6.47s (transform 4.52s, setup 521ms, import 6.59s, tests 2.78s, environment 2.91s)\n\n"
+    },
+    {
+      "reason": "new tests initially read appMeta through Repository in five-table transaction, assumed 1-based revision, selected no Job facts; corrected fixtures to actual storage/query boundary, revision0 and canonical IDs",
+      "log": "\n RUN  v4.1.9 E:/DEF/CareerAdapt AI\n\n ❯ tests/unit/p520b1-persistence-port.test.ts (10 tests | 3 failed) 246ms\n     × reads the exact Profile/Job IDs and never substitutes another owner 34ms\n     × uses the adapter in the real edit path and persists linked revisions and receipt 39ms\n     × isolates another General, another Profile and a Job Branch during a portable edit 33ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  tests/unit/p520b1-persistence-port.test.ts > canonical Branch mutation persistence port > reads the exact Profile/Job IDs and never substitutes another owner\nSubTransactionError: Table appMeta not included in parent transaction.\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯\n\n FAIL  tests/unit/p520b1-persistence-port.test.ts > canonical Branch mutation persistence port > uses the adapter in the real edit path and persists linked revisions and receipt\nAssertionError: expected [ +0, 1 ] to deeply equal [ 1, 2 ]\n\n- Expected\n+ Received\n\n  [\n+   0,\n    1,\n-   2,\n  ]\n\n ❯ tests/unit/p520b1-persistence-port.test.ts:42:92\n\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯\n\n FAIL  tests/unit/p520b1-persistence-port.test.ts > canonical Branch mutation persistence port > isolates another General, another Profile and a Job Branch during a portable edit\nError: profile_library_selection_empty\n ❯ buildJobBranchFromProfile src/domain/branch/profileBranch.ts:81:33\n     79|   const selected = new Set(input.selectedCanonicalItemIds);\n     80|   const pairs = profileContentItems(input.profile, now, input.composit…\n     81|   if (pairs.length === 0) throw new Error(\"profile_library_selection_e…\n       |                                 ^\n     82|   const sourceProfileSnapshotId = `profile-snapshot-${input.profile.id…\n     83|   const branchBase = ResumeBranchSchema.parse({\n ❯ Transaction.<anonymous> src/services/storage/repositories.ts:3723:23\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯\n\n\n Test Files  1 failed (1)\n      Tests  3 failed | 7 passed (10)\n   Start at  17:08:42\n   Duration  3.29s (transform 1.40s, setup 149ms, import 1.81s, tests 246ms, environment 867ms)\n\n"
+    },
+    {
+      "reason": "HTTP diagnostic initially used run_get/runId rather than actual run_status/run_id; corrected fixture, preserved first-event and error assertions",
+      "logs": [
+        ".tmp/p520b1-safety-http-tests.log",
+        ".tmp/p520b1-safety-http-tests2.log"
+      ]
+    },
+    {
+      "reason": "CommonJS runtime probe triggered no-require-imports lint; documented CJS-only Electron main entry and scoped lint exception; final lint passes"
+    },
+    {
+      "reason": "Python default GBK read rejected UTF-8 source before line-ending normalization; retried explicit UTF-8, final repository diff 27 additions/13 removals"
+    }
+  ],
+  "sourceHashes": {
+    "src/services/storage/repositories.ts": "31fc4765d8c30858ae95cae8b4ac4e891ce899e193c45e558dca68b24130d2f1",
+    "src/services/storage/persistence/careerPersistencePort.ts": "e2864820a25495a13b1975c7f0fd83c03a77babf9b208ba579b210f0afaa9fc7",
+    "src/services/storage/persistence/dexieCareerPersistenceAdapter.ts": "2be1c3410e2648ea5522f68eb870bca0285e49f993291907db4cf3c1fef45667",
+    "tests/unit/p520b1-persistence-port.test.ts": "b087ebe18d96e59532a21f754d14b81fc6a66db7cfe51b57d5694770635ada8d",
+    "tests/unit/p520b1-http-harness-diagnosis.test.ts": "a4244825a6abd4964c36457c0cbc1387a27eefc2e9da3da18a5e416595218ddb",
+    "scripts/p520b1-runtime-probe.cjs": "0ed59d75236636f3a1bc275dfafc3639df191a679159f0a3cd6be33383a67320",
+    "scripts/p520b1-runtime-qualification.mjs": "11d3a74f8fad2fdae7aec722458a59e5d20656a17a62776d605b2471104de3af"
+  },
+  "unchangedBoundaries": {
+    "src/services/storage/db.ts": {
+      "headSha256": "7170668b1c36e29ca33e6c0e17385b7ab8639328a1fb10ccc7326b0135f9d2de",
+      "currentSha256": "7170668b1c36e29ca33e6c0e17385b7ab8639328a1fb10ccc7326b0135f9d2de",
+      "unchanged": true,
+      "byteIdenticalToGitBlob": true
+    },
+    "src/domain/schemas/resumeV2.ts": {
+      "headSha256": "bb31fc56f3abf016edbb2ba4f27b699f5a86cb695b418db2eae061655f9402e7",
+      "currentSha256": "bb31fc56f3abf016edbb2ba4f27b699f5a86cb695b418db2eae061655f9402e7",
+      "unchanged": true,
+      "byteIdenticalToGitBlob": true
+    },
+    "src/domain/adaptation/factGuard.ts": {
+      "headSha256": "287b081f7728d19e0d7206f24c3e5ba1c6b9a105ed6746499678baa69b49bea2",
+      "currentSha256": "49fa8cb684696b604980504e99aae72da02f56613941bd716d642fb5fb59cc4c",
+      "unchanged": true,
+      "byteIdenticalToGitBlob": false,
+      "note": "existing worktree CRLF versus Git LF; normalized content identical; file not modified by this task"
+    },
+    "src/ai/prompts/claimSafetyV2.ts": {
+      "headSha256": "9bbb38eadd5666ce50c24bb8b73cc2dfa2ec638c3ad41357b214291add7b2977",
+      "currentSha256": "9bbb38eadd5666ce50c24bb8b73cc2dfa2ec638c3ad41357b214291add7b2977",
+      "unchanged": true,
+      "byteIdenticalToGitBlob": true
+    },
+    "poc/career-domain-persistence/client.ts": {
+      "headSha256": "41b5d4a018360b93ddfe385aecb245dac8ffc7139bce0d01696e9cbc16cfb6b6",
+      "currentSha256": "41b5d4a018360b93ddfe385aecb245dac8ffc7139bce0d01696e9cbc16cfb6b6",
+      "unchanged": true,
+      "byteIdenticalToGitBlob": true
+    },
+    "docs/architecture/p5.2.0b-career-domain-persistence-adr.md": {
+      "headSha256": "f5e394c4c7bec0e192fed88c00fb297816bc654080f72fa855bb2f4a7ffddc36",
+      "currentSha256": "f5e394c4c7bec0e192fed88c00fb297816bc654080f72fa855bb2f4a7ffddc36",
+      "unchanged": true,
+      "byteIdenticalToGitBlob": true
+    },
+    "docs/architecture/p5.2.0b-career-domain-persistence-evidence.json": {
+      "headSha256": "2fbeb9aad11b775c5fe358d2a77cdc09c683b1b174c88a4cde3c0e8f5c05e145",
+      "currentSha256": "2fbeb9aad11b775c5fe358d2a77cdc09c683b1b174c88a4cde3c0e8f5c05e145",
+      "unchanged": true,
+      "byteIdenticalToGitBlob": true
+    },
+    "scripts/hermes-runtime-lock.json": {
+      "headSha256": "4939b630fa15f410ae1287b495e9e16912ab3e71a7a619df1f005050c6fe8ceb",
+      "currentSha256": "4939b630fa15f410ae1287b495e9e16912ab3e71a7a619df1f005050c6fe8ceb",
+      "unchanged": true,
+      "byteIdenticalToGitBlob": true
+    },
+    "tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts": {
+      "headSha256": "ad7b83e15da2809037393d6b7fff589bc671b37365b9283e382b19674473a3a4",
+      "currentSha256": "ad7b83e15da2809037393d6b7fff589bc671b37365b9283e382b19674473a3a4",
+      "unchanged": true,
+      "byteIdenticalToGitBlob": true
+    }
+  },
+  "limitations": [
+    "original independent HTTP gate remains 9/10; cannot claim all safety tests passed",
+    "shared mutation infrastructure is ported but legacy callbacks are not a portable SQLite-ready Repository",
+    "no sidecar runtime distribution pin, updater, package/backup/reverse-journal certification",
+    "no real user IndexedDB, production database, schema changes, migration, new dependencies, Hermes Core changes, installer, commit or push"
+  ],
+  "nextStep": "User review of this first slice and separate HTTP fixture repair proposal; no B2/B3/C/FINAL GO/P521 execution",
+  "commit": "not committed",
+  "handoff": {
+    "plan4": "updated local ignored handoff",
+    "history4": "updated local ignored handoff",
+    "status": "PARTIAL",
+    "firstSlice": "PASS",
+    "runtime": "PASS",
+    "commit": "not committed"
+  }
+}
