@@ -1,7 +1,7 @@
 {
   "stage": "P5.2.0-B1",
   "date": "2026-11-01",
-  "status": "PARTIAL",
+  "status": "COMPLETE",
   "firstPortableEditSlice": "PASS",
   "runtimeQualification": "GO_FOR_TESTED_LOCAL_RUNTIMES_ONLY",
   "productionDomainWrites": "DENIED",
@@ -130,7 +130,8 @@
     "diagnosis": "run_status response.json consumes the shared ReadableStream; second new Response(sharedStream) for run_events throws before transport can read it. Neither Response.clone nor a second reader on the same network Response is involved. Real HTTP requests have distinct response bodies.",
     "independentDiagnosticTests": 2,
     "recommendation": "Separate action-specific run_status JSON and run_events fresh SSE bodies; requires separate scope confirmation before editing original test. Production transport change is not justified by this fixture failure.",
-    "rawBaselineLog": "\n RUN  v4.1.9 E:/DEF/CareerAdapt AI\n\n ❯ tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts (10 tests | 1 failed) 122ms\n     × normalizes contradictory official tool completion payloads as failures 10ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts > P4.5c.1.14 Career workflow transactional closure > normalizes contradictory official tool completion payloads as failures\nHermesRunFailureError: Response body object should not be disturbed or locked\n ❯ createHermesRunFailure src/agent/runtime/hermes/hermesRunReliability.ts:164:17\n    162| export function createHermesRunFailure(input: HermesRunFailureInput): …\n    163|   const classified = classifyHermesRunFailure(input);\n    164|   const error = new Error(classified.safeErrorMessage) as HermesRunFai…\n       |                 ^\n    165|   error.name = \"HermesRunFailureError\";\n    166|   error.code = classified.safeErrorCode;\n ❯ bridgeError src/agent/runtime/hermes/HermesBridgeTransport.ts:1025:10\n ❯ HttpHermesBridgeTransport.request src/agent/runtime/hermes/HermesBridgeTransport.ts:473:13\n ❯ HttpHermesBridgeTransport.streamRequest src/agent/runtime/hermes/HermesBridgeTransport.ts:322:18\n ❯ HttpHermesBridgeTransport.runEvents src/agent/runtime/hermes/HermesBridgeTransport.ts:247:22\n ❯ tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts:325:24\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed (1)\n      Tests  1 failed | 9 passed (10)\n   Start at  17:05:01\n   Duration  4.43s (transform 2.04s, setup 172ms, import 2.63s, tests 122ms, environment 1.27s)\n\n"
+    "rawBaselineLog": "\n RUN  v4.1.9 E:/DEF/CareerAdapt AI\n\n ❯ tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts (10 tests | 1 failed) 122ms\n     × normalizes contradictory official tool completion payloads as failures 10ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts > P4.5c.1.14 Career workflow transactional closure > normalizes contradictory official tool completion payloads as failures\nHermesRunFailureError: Response body object should not be disturbed or locked\n ❯ createHermesRunFailure src/agent/runtime/hermes/hermesRunReliability.ts:164:17\n    162| export function createHermesRunFailure(input: HermesRunFailureInput): …\n    163|   const classified = classifyHermesRunFailure(input);\n    164|   const error = new Error(classified.safeErrorMessage) as HermesRunFai…\n       |                 ^\n    165|   error.name = \"HermesRunFailureError\";\n    166|   error.code = classified.safeErrorCode;\n ❯ bridgeError src/agent/runtime/hermes/HermesBridgeTransport.ts:1025:10\n ❯ HttpHermesBridgeTransport.request src/agent/runtime/hermes/HermesBridgeTransport.ts:473:13\n ❯ HttpHermesBridgeTransport.streamRequest src/agent/runtime/hermes/HermesBridgeTransport.ts:322:18\n ❯ HttpHermesBridgeTransport.runEvents src/agent/runtime/hermes/HermesBridgeTransport.ts:247:22\n ❯ tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts:325:24\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed (1)\n      Tests  1 failed | 9 passed (10)\n   Start at  17:05:01\n   Duration  4.43s (transform 2.04s, setup 172ms, import 2.63s, tests 122ms, environment 1.27s)\n\n",
+    "recordScope": "Historical initial B1 failure and investigation, before separately authorized closeout; raw failure evidence preserved."
   },
   "implementationFailures": [
     {
@@ -219,23 +220,89 @@
       "headSha256": "ad7b83e15da2809037393d6b7fff589bc671b37365b9283e382b19674473a3a4",
       "currentSha256": "ad7b83e15da2809037393d6b7fff589bc671b37365b9283e382b19674473a3a4",
       "unchanged": true,
-      "byteIdenticalToGitBlob": true
+      "byteIdenticalToGitBlob": true,
+      "recordScope": "Historical initial B1 comparison. Original test was unchanged then; separately authorized closeout fixture change is recorded in httpFixtureCloseout."
     }
   },
   "limitations": [
+    "shared mutation infrastructure is ported but legacy callbacks are not a portable SQLite-ready Repository",
+    "no sidecar runtime distribution pin, updater, package/backup/reverse-journal certification",
+    "no real user IndexedDB, production database, schema changes, migration, new dependencies, Hermes Core changes, installer, commit or push"
+  ],
+  "nextStep": "User review only; B1 first-slice complete, no B2/B3/C or writable Domain Service authorization.",
+  "commit": "not committed",
+  "handoff": {
+    "plan4": "updated local ignored handoff",
+    "history4": "updated local ignored handoff",
+    "status": "COMPLETE",
+    "firstSlice": "PASS",
+    "runtime": "PASS",
+    "commit": "not committed",
+    "closeout": "HTTP test fixture repaired; no production runtime impact"
+  },
+  "initialDeliveryStatus": "PARTIAL",
+  "initialDeliveryLimitations": [
     "original independent HTTP gate remains 9/10; cannot claim all safety tests passed",
     "shared mutation infrastructure is ported but legacy callbacks are not a portable SQLite-ready Repository",
     "no sidecar runtime distribution pin, updater, package/backup/reverse-journal certification",
     "no real user IndexedDB, production database, schema changes, migration, new dependencies, Hermes Core changes, installer, commit or push"
   ],
-  "nextStep": "User review of this first slice and separate HTTP fixture repair proposal; no B2/B3/C/FINAL GO/P521 execution",
-  "commit": "not committed",
-  "handoff": {
-    "plan4": "updated local ignored handoff",
-    "history4": "updated local ignored handoff",
-    "status": "PARTIAL",
-    "firstSlice": "PASS",
-    "runtime": "PASS",
-    "commit": "not committed"
+  "httpFixtureCloseout": {
+    "date": "2026-11-01",
+    "status": "COMPLETE",
+    "baseline": {
+      "head": "57f3cc971cf13112336f7f36ef32eac7384dd01e",
+      "originMain": "57f3cc971cf13112336f7f36ef32eac7384dd01e",
+      "initialWorktreeClean": true,
+      "originalTestMatchesB1Evidence": true,
+      "transportMatchesCurrentHeadAndB1StartingSource": true
+    },
+    "originalFailure": "TEST_HARNESS_ISSUE; original 9 pass/1 fail retained in httpFailure.rawBaselineLog",
+    "repair": "Action-specific fresh JSON run_status Response and fresh SSE stream/Response for every run_events request; no clone or request-flow bypass",
+    "originalAssertionsPayloadAndCleanupPreservedVerbatim": true,
+    "productionRuntimeChanged": false,
+    "transportSha256Before": "281974b308eeceb2ec8e342e74394e68159c5232668e3e0756e4f45fac094ad5",
+    "transportSha256After": "281974b308eeceb2ec8e342e74394e68159c5232668e3e0756e4f45fac094ad5",
+    "testSha256Before": "ad7b83e15da2809037393d6b7fff589bc671b37365b9283e382b19674473a3a4",
+    "testSha256After": "3dd741039cdd5ec2292106f3e667dcb718280a36d6f70a6da8cecdb5946448ae",
+    "checks": [
+      {
+        "command": "pnpm exec vitest run tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts",
+        "exitCode": 0,
+        "tests": 10,
+        "passed": 10,
+        "log": ".tmp/p520b1-closeout-original-test.log"
+      },
+      {
+        "command": "pnpm exec vitest run tests/unit/hermesTerminalReconciliation.test.ts tests/unit/p45c1c13-hermes-long-run-semantics.test.ts tests/unit/p45c1c12-hermes-incident-trace.test.ts tests/unit/p45c17-hermes-reliability.test.ts tests/unit/p520b1-http-harness-diagnosis.test.ts",
+        "exitCode": 0,
+        "files": 5,
+        "tests": 37,
+        "passed": 37,
+        "log": ".tmp/p520b1-closeout-workflow-tests.log"
+      },
+      {
+        "command": "pnpm typecheck",
+        "exitCode": 0,
+        "log": ".tmp/p520b1-closeout-typecheck.log"
+      },
+      {
+        "command": "pnpm exec eslint tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts --max-warnings=0",
+        "exitCode": 0,
+        "log": ".tmp/p520b1-closeout-lint.log"
+      },
+      {
+        "command": "git diff --check; assertion/payload/transport/scope/saved-document verification",
+        "exitCode": 0
+      }
+    ],
+    "postRepairFailures": [],
+    "scope": "Test fixture and handoff/report/evidence only",
+    "priorB1Validation": "Port/safety tests, build and runtime qualification retained from initial delivery; no production changes in closeout",
+    "parentFormalMigration": "BLOCKED",
+    "commit": "not committed",
+    "push": false,
+    "packaging": false,
+    "documentationCheckCorrection": "First post-documentation diff check flagged generated CRLF as trailing whitespace; saved changed tracked documents as UTF-8/LF and reran diff check. No code or test behavior changed."
   }
 }
