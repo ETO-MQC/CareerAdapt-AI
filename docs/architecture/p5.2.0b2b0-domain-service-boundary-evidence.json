@@ -1,0 +1,765 @@
+{
+  "package": "P5.2.0-B2-B0",
+  "date": "2026-11-02",
+  "status": "BLOCKED",
+  "auditDeliverables": "COMPLETE",
+  "parentFormalMigration": "BLOCKED",
+  "reason": "No production runtime/distribution qualification or trusted Host integration approved",
+  "baseline": {
+    "fetchExitCode": 0,
+    "branch": "main",
+    "head": "5e86e6f90991aad5efbb56f3c54fa4974ccfe718",
+    "originMain": "5e86e6f90991aad5efbb56f3c54fa4974ccfe718",
+    "initialStatus": [
+      " M src/services/storage/repositories.ts",
+      "?? docs/architecture/p5.2.0b2a-sqlite-adapter-evidence.json",
+      "?? docs/architecture/p5.2.0b2a-sqlite-adapter-parity.md",
+      "?? poc/career-domain-persistence/build-sqlite.mjs",
+      "?? poc/career-domain-persistence/sqliteCareerPersistenceAdapter.ts",
+      "?? poc/career-domain-persistence/sqliteFixtureWorker.ts",
+      "?? tests/unit/p520b2a-sqlite-parity.test.ts"
+    ],
+    "trackedDiff": "src/services/storage/repositories.ts | 4 ++--\n 1 file changed, 2 insertions(+), 2 deletions(-)",
+    "initialDiffCheckExitCode": 0,
+    "worktrees": "worktree E:/DEF/CareerAdapt AI\nHEAD 5e86e6f90991aad5efbb56f3c54fa4974ccfe718\nbranch refs/heads/main\n\nworktree E:/DEF/CareerAdapt AI/.tmp/editor-closure-baseline\nHEAD 5b5cf1e53da42c1f9e9e1269dd542bdcb9258b56\ndetached\n\nworktree E:/DEF/CareerAdapt AI/.tmp/sq1-closeout-frozen\nHEAD 1573e267614ff93363eff2ed2bade34ff01ed078\ndetached\n\nworktree E:/DEF/CareerAdapt-competition-5.1.8\nHEAD b6d3ef311c8386cc282a133643e1f653ededefb9\nbranch refs/heads/competition/5.1.8",
+    "legacyWorkspaceIsSeparate": true
+  },
+  "protectedFiles": [
+    {
+      "file": "src/services/storage/repositories.ts",
+      "expected": "10dc464283aaab494620e1a4e4b6ceccd95aa98b2d50ba38792033185183d7a0",
+      "actual": "10dc464283aaab494620e1a4e4b6ceccd95aa98b2d50ba38792033185183d7a0",
+      "matches": true
+    },
+    {
+      "file": "poc/career-domain-persistence/sqliteCareerPersistenceAdapter.ts",
+      "expected": "4706c2f8aeed1f507b1cb2028d2646f486c1a6060b944ca3cdc096e94e0c4f6e",
+      "actual": "4706c2f8aeed1f507b1cb2028d2646f486c1a6060b944ca3cdc096e94e0c4f6e",
+      "matches": true
+    },
+    {
+      "file": "poc/career-domain-persistence/sqliteFixtureWorker.ts",
+      "expected": "0165c5e58535974e59aa93b949933a6866c4c6e5a33019a1f5a000f24f5cf4de",
+      "actual": "0165c5e58535974e59aa93b949933a6866c4c6e5a33019a1f5a000f24f5cf4de",
+      "matches": true
+    },
+    {
+      "file": "poc/career-domain-persistence/build-sqlite.mjs",
+      "expected": "3bec31d549bb47c39beaadc3518a657d528b3a1a847e695da01c409b517671f3",
+      "actual": "3bec31d549bb47c39beaadc3518a657d528b3a1a847e695da01c409b517671f3",
+      "matches": true
+    },
+    {
+      "file": "tests/unit/p520b2a-sqlite-parity.test.ts",
+      "expected": "882e3e0b998b3996c1913d6724590c9aacb40d37271aa9cf12341954bf8c48a1",
+      "actual": "882e3e0b998b3996c1913d6724590c9aacb40d37271aa9cf12341954bf8c48a1",
+      "matches": true
+    },
+    {
+      "file": "docs/architecture/p5.2.0b2a-sqlite-adapter-parity.md",
+      "expected": "1855770cc20e8b9197f9b1601c99bbee6951bc704219a0d1796255dadd749102",
+      "actual": "1855770cc20e8b9197f9b1601c99bbee6951bc704219a0d1796255dadd749102",
+      "matches": true
+    }
+  ],
+  "sourceHashes": {
+    "src/services/storage/persistence/careerPersistencePort.ts": "e2864820a25495a13b1975c7f0fd83c03a77babf9b208ba579b210f0afaa9fc7",
+    "src/services/storage/persistence/dexieCareerPersistenceAdapter.ts": "2be1c3410e2648ea5522f68eb870bca0285e49f993291907db4cf3c1fef45667",
+    "src/services/storage/db.ts": "7170668b1c36e29ca33e6c0e17385b7ab8639328a1fb10ccc7326b0135f9d2de",
+    "src/app/profile/ProfileWorkspace.tsx": "f00758cc97786b18e398a5c19edf0bf26eafe54d44761c29a28fcc266d205b5d",
+    "src/app/resume/ResumeWorkspace.tsx": "02b360c975399ffd0f2ea96ec1d3aa0c851032eebb7083a1cc9c121b8db7b1d8",
+    "src/agent/mcp/CareerAdaptMcpBridgeClient.ts": "caf013d5467a73d8a90d79587447c7bf2aa1b1747b5b2bbc7285ba18b52f2718",
+    "src/agent/mcp/CareerAdaptMcpAdapter.ts": "da3883caf97325e77f3a004ab13ffba60710ffee1d47f339d4777367c4a51d11",
+    "src/agent/runtime/hermes/HermesCareerAgentRuntime.ts": "569f5c6aadae4d6e49087d708f41d981bdb85d443efdd01d0fc1410162f77fd1",
+    "src/agent/runtime/hermes/HermesBridgeTransport.ts": "281974b308eeceb2ec8e342e74394e68159c5232668e3e0756e4f45fac094ad5",
+    "src/agent/tools/CareerToolGateway.ts": "032f5e8e1261f1ea977f116223c9009cdae6766e15f3ea487c58b1e0889da660",
+    "electron/main.js": "c27ac42caae8a6a05c6b74ba2649146f056eb9b1317c823ede481fbb4b4832e0",
+    "electron/preload.js": "8f084baf0f07991fc66770ec86a565d8c998d33efbfd137f8afbbdf2e9102291",
+    "electron/hermesSupervisor.js": "4d757496850297c7158b525d13db30aa16b8e554c2e176afbe0c140373a030b1",
+    "poc/profile-plugin/plugin.tsx": "3ecee41b2a96eb4f2bd5877a5e72bbd753e1f670d047ba319807b499fe6f9028",
+    "poc/career-domain-persistence/client.ts": "41b5d4a018360b93ddfe385aecb245dac8ffc7139bce0d01696e9cbc16cfb6b6",
+    "scripts/hermes-runtime-lock.json": "4939b630fa15f410ae1287b495e9e16912ab3e71a7a619df1f005050c6fe8ceb",
+    "docs/architecture/p5.2.0a-profile-plugin-poc.md": "662dd32f7ea6608ad44d486a2e9a8eeee9e955a45016c308f661e0a23a07c007",
+    "docs/architecture/p5.2.0b-career-domain-persistence-adr.md": "f5e394c4c7bec0e192fed88c00fb297816bc654080f72fa855bb2f4a7ffddc36",
+    "docs/architecture/p5.2.0b-career-domain-persistence-evidence.json": "2fbeb9aad11b775c5fe358d2a77cdc09c683b1b174c88a4cde3c0e8f5c05e145",
+    "docs/architecture/p5.2.0b1-persistence-port-runtime.md": "37a9fcc9ffa76f479007c951dbc45ff2626bef8af9bb3e15e6e1b628f9536ef1",
+    "docs/architecture/p5.2.0b1-persistence-port-evidence.json": "7cc479f86adbfabb3824b845a1e8d695d2101409e321d1d884825ae9284f1ed5",
+    "docs/architecture/p5.2.0b1-runtime-results.json": "fc0957532501ce7013a0d5068e7456986a7c8861e92fdce57db51ffcf7eedb1e",
+    "docs/architecture/p5.2.0b2a-sqlite-adapter-evidence.json": "8b91ccaef448a3990f2322a65b7a345973690c53d2dd584c74bf43b95e7b185a"
+  },
+  "hermes": {
+    "head": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+    "dirtyStatusEntryCount": 166,
+    "hostFiles": [
+      {
+        "file": "apps/desktop/package.json",
+        "sha256": "330edca012ae548e0fdd75a64df9eb3123a24d38d89b826dee6b12f98afd83bd",
+        "diffFromHead": ""
+      },
+      {
+        "file": "apps/desktop/src/contrib/plugin.ts",
+        "sha256": "34c2713ab2bf0d5e77826a42cdd22da80fc5ff051d2d143c2a8ba22c1e26c2db",
+        "diffFromHead": ""
+      },
+      {
+        "file": "apps/desktop/src/contrib/runtime-loader.ts",
+        "sha256": "545d39f9acfe21702384c19120f30cc06413e9489d4f9f0882301fa831a60999",
+        "diffFromHead": ""
+      },
+      {
+        "file": "hermes_cli/web_server.py",
+        "sha256": "d58955ad73dcab6f8ec57cb6932970e68fdaec7baa554082d7a43860ba7e8fed",
+        "diffFromHead": ""
+      },
+      {
+        "file": "plugins/kanban/dashboard/plugin_api.py",
+        "sha256": "4b4baece3e64a2572545114e4e3e180ba71884a7f70e141ed803a929dc26d563",
+        "diffFromHead": ""
+      }
+    ]
+  },
+  "runtime": {
+    "freshMemoryProbes": [
+      {
+        "name": "standalone-node",
+        "mode": "node / ELECTRON_RUN_AS_NODE; not a fresh Main probe",
+        "executableSha256": "3331e1ffe19874215472217c5e94f5a0c6d8e18c4ac7111d3937aa0ad5e9b4a5",
+        "executableBytes": 91694408,
+        "exitCode": 0,
+        "error": null,
+        "stderr": "",
+        "result": {
+          "versions": {
+            "node": "24.15.0",
+            "acorn": "8.16.0",
+            "ada": "3.4.4",
+            "amaro": "1.1.8",
+            "ares": "1.34.6",
+            "brotli": "1.2.0",
+            "cldr": "48.0",
+            "icu": "78.2",
+            "llhttp": "9.3.1",
+            "merve": "1.2.2",
+            "modules": "137",
+            "napi": "10",
+            "nbytes": "0.1.3",
+            "ncrypto": "0.0.1",
+            "nghttp2": "1.68.0",
+            "openssl": "3.5.5",
+            "simdjson": "4.5.0",
+            "simdutf": "6.4.0",
+            "sqlite": "3.51.3",
+            "tz": "2026a",
+            "undici": "7.24.4",
+            "unicode": "17.0",
+            "uv": "1.51.0",
+            "uvwasi": "0.0.23",
+            "v8": "13.6.233.17-node.48",
+            "zlib": "1.3.1-e00f703",
+            "zstd": "1.5.7"
+          },
+          "platform": "win32",
+          "sqlite": {
+            "version": "3.51.3"
+          },
+          "rows": [
+            {
+              "id": 1,
+              "v": 10
+            }
+          ],
+          "integrity": {
+            "integrity_check": "ok"
+          }
+        }
+      },
+      {
+        "name": "hermes-embedded-node",
+        "mode": "node / ELECTRON_RUN_AS_NODE; not a fresh Main probe",
+        "executableSha256": "5c4718cd0863732b5c16d6b4001ceda79f6da2f2c068e135326d115712d459b4",
+        "executableBytes": 213947904,
+        "exitCode": 0,
+        "error": null,
+        "stderr": "",
+        "result": {
+          "versions": {
+            "node": "24.15.0",
+            "acorn": "8.16.0",
+            "ada": "3.4.4",
+            "amaro": "1.1.8",
+            "ares": "1.34.6",
+            "brotli": "1.0.9",
+            "cldr": "47.0",
+            "icu": "77.1",
+            "llhttp": "9.3.1",
+            "merve": "1.2.2",
+            "modules": "143",
+            "napi": "10",
+            "nbytes": "0.1.3",
+            "ncrypto": "0.0.1",
+            "nghttp2": "1.68.0",
+            "openssl": "0.0.0",
+            "simdjson": "4.5.0",
+            "simdutf": "7.7.0",
+            "sqlite": "3.51.3",
+            "tz": "2025b",
+            "undici": "7.24.4",
+            "unicode": "16.0",
+            "uv": "1.51.0",
+            "uvwasi": "0.0.23",
+            "v8": "14.4.258.32-electron.0",
+            "zlib": "1.3.1",
+            "zstd": "1.5.8",
+            "electron": "40.10.2",
+            "chrome": "144.0.7559.236"
+          },
+          "platform": "win32",
+          "sqlite": {
+            "version": "3.51.3"
+          },
+          "rows": [
+            {
+              "id": 1,
+              "v": 10
+            }
+          ],
+          "integrity": {
+            "integrity_check": "ok"
+          }
+        }
+      },
+      {
+        "name": "careeradap-embedded-node",
+        "mode": "node / ELECTRON_RUN_AS_NODE; not a fresh Main probe",
+        "executableSha256": "8593db40c0c6e5e3c4b6b0a225b1dc9a549ecdf10f6cf2010cf5b6ce869ce07f",
+        "executableBytes": 225613824,
+        "exitCode": 0,
+        "error": null,
+        "stderr": "",
+        "result": {
+          "versions": {
+            "node": "24.18.0",
+            "acorn": "8.16.0",
+            "ada": "3.4.4",
+            "amaro": "1.1.9",
+            "ares": "1.34.6",
+            "brotli": "1.2.0",
+            "cldr": "48.0",
+            "icu": "78.2",
+            "llhttp": "9.4.2",
+            "merve": "1.2.2",
+            "modules": "148",
+            "napi": "10",
+            "nbytes": "0.1.4",
+            "ncrypto": "0.0.1",
+            "nghttp2": "1.69.0",
+            "nghttp3": "",
+            "ngtcp2": "",
+            "openssl": "0.0.0",
+            "simdjson": "4.6.4",
+            "simdutf": "7.7.0",
+            "sqlite": "3.53.1",
+            "tz": "2025c",
+            "undici": "7.28.0",
+            "unicode": "17.0",
+            "uv": "1.52.1",
+            "uvwasi": "0.0.23",
+            "v8": "15.0.1240245-electron.0",
+            "zlib": "1.3.2.1-motley",
+            "zstd": "1.6.0",
+            "electron": "43.2.0",
+            "chrome": "150.0.7871.129"
+          },
+          "platform": "win32",
+          "sqlite": {
+            "version": "3.53.1"
+          },
+          "rows": [
+            {
+              "id": 1,
+              "v": 10
+            }
+          ],
+          "integrity": {
+            "integrity_check": "ok"
+          }
+        }
+      }
+    ],
+    "historicalMainEvidence": {
+      "file": "docs/architecture/p5.2.0b1-runtime-results.json",
+      "sha256": "fc0957532501ce7013a0d5068e7456986a7c8861e92fdce57db51ffcf7eedb1e",
+      "hermesExecutableStillMatches": true,
+      "results": [
+        {
+          "name": "hermes-main",
+          "exitCode": 0,
+          "versions": {
+            "node": "24.15.0",
+            "acorn": "8.16.0",
+            "ada": "3.4.4",
+            "amaro": "1.1.8",
+            "ares": "1.34.6",
+            "brotli": "1.0.9",
+            "cldr": "47.0",
+            "icu": "77.1",
+            "llhttp": "9.3.1",
+            "merve": "1.2.2",
+            "modules": "143",
+            "napi": "10",
+            "nbytes": "0.1.3",
+            "ncrypto": "0.0.1",
+            "nghttp2": "1.68.0",
+            "openssl": "0.0.0",
+            "simdjson": "4.5.0",
+            "simdutf": "7.7.0",
+            "sqlite": "3.51.3",
+            "tz": "2025b",
+            "undici": "7.24.4",
+            "unicode": "16.0",
+            "uv": "1.51.0",
+            "uvwasi": "0.0.23",
+            "v8": "14.4.258.32-electron.0",
+            "zlib": "1.3.1",
+            "zstd": "1.5.8",
+            "electron": "40.10.2",
+            "chrome": "144.0.7559.236"
+          },
+          "sqlite": "3.51.3",
+          "busy": {
+            "exit": 0,
+            "evidence": {
+              "code": "ERR_SQLITE_ERROR",
+              "errcode": 5,
+              "errstr": "database is locked",
+              "message": "database is locked"
+            }
+          },
+          "crash": {
+            "exit": 134,
+            "signal": null
+          },
+          "integrity": {
+            "integrity_check": "ok"
+          },
+          "restart": 0
+        },
+        {
+          "name": "hermes-node",
+          "exitCode": 0,
+          "versions": {
+            "node": "24.15.0",
+            "acorn": "8.16.0",
+            "ada": "3.4.4",
+            "amaro": "1.1.8",
+            "ares": "1.34.6",
+            "brotli": "1.0.9",
+            "cldr": "47.0",
+            "icu": "77.1",
+            "llhttp": "9.3.1",
+            "merve": "1.2.2",
+            "modules": "143",
+            "napi": "10",
+            "nbytes": "0.1.3",
+            "ncrypto": "0.0.1",
+            "nghttp2": "1.68.0",
+            "openssl": "0.0.0",
+            "simdjson": "4.5.0",
+            "simdutf": "7.7.0",
+            "sqlite": "3.51.3",
+            "tz": "2025b",
+            "undici": "7.24.4",
+            "unicode": "16.0",
+            "uv": "1.51.0",
+            "uvwasi": "0.0.23",
+            "v8": "14.4.258.32-electron.0",
+            "zlib": "1.3.1",
+            "zstd": "1.5.8",
+            "electron": "40.10.2",
+            "chrome": "144.0.7559.236"
+          },
+          "sqlite": "3.51.3",
+          "busy": {
+            "exit": 0,
+            "evidence": {
+              "code": "ERR_SQLITE_ERROR",
+              "errcode": 5,
+              "errstr": "database is locked",
+              "message": "database is locked"
+            }
+          },
+          "crash": {
+            "exit": 134,
+            "signal": null
+          },
+          "integrity": {
+            "integrity_check": "ok"
+          },
+          "restart": 0
+        },
+        {
+          "name": "sidecar-candidate",
+          "exitCode": 0,
+          "versions": {
+            "node": "24.15.0",
+            "acorn": "8.16.0",
+            "ada": "3.4.4",
+            "amaro": "1.1.8",
+            "ares": "1.34.6",
+            "brotli": "1.2.0",
+            "cldr": "48.0",
+            "icu": "78.2",
+            "llhttp": "9.3.1",
+            "merve": "1.2.2",
+            "modules": "137",
+            "napi": "10",
+            "nbytes": "0.1.3",
+            "ncrypto": "0.0.1",
+            "nghttp2": "1.68.0",
+            "openssl": "3.5.5",
+            "simdjson": "4.5.0",
+            "simdutf": "6.4.0",
+            "sqlite": "3.51.3",
+            "tz": "2026a",
+            "undici": "7.24.4",
+            "unicode": "17.0",
+            "uv": "1.51.0",
+            "uvwasi": "0.0.23",
+            "v8": "13.6.233.17-node.48",
+            "zlib": "1.3.1-e00f703",
+            "zstd": "1.5.7"
+          },
+          "sqlite": "3.51.3",
+          "busy": {
+            "exit": 0,
+            "evidence": {
+              "code": "ERR_SQLITE_ERROR",
+              "errcode": 5,
+              "errstr": "database is locked",
+              "message": "database is locked"
+            }
+          },
+          "crash": {
+            "exit": 134,
+            "signal": null
+          },
+          "integrity": {
+            "integrity_check": "ok"
+          },
+          "restart": 0
+        },
+        {
+          "name": "careeradap-electron-main",
+          "exitCode": 0,
+          "versions": {
+            "node": "24.18.0",
+            "acorn": "8.16.0",
+            "ada": "3.4.4",
+            "amaro": "1.1.9",
+            "ares": "1.34.6",
+            "brotli": "1.2.0",
+            "cldr": "48.0",
+            "icu": "78.2",
+            "llhttp": "9.4.2",
+            "merve": "1.2.2",
+            "modules": "148",
+            "napi": "10",
+            "nbytes": "0.1.4",
+            "ncrypto": "0.0.1",
+            "nghttp2": "1.69.0",
+            "nghttp3": "",
+            "ngtcp2": "",
+            "openssl": "0.0.0",
+            "simdjson": "4.6.4",
+            "simdutf": "7.7.0",
+            "sqlite": "3.53.1",
+            "tz": "2025c",
+            "undici": "7.28.0",
+            "unicode": "17.0",
+            "uv": "1.52.1",
+            "uvwasi": "0.0.23",
+            "v8": "15.0.1240245-electron.0",
+            "zlib": "1.3.2.1-motley",
+            "zstd": "1.6.0",
+            "electron": "43.2.0",
+            "chrome": "150.0.7871.129"
+          },
+          "sqlite": "3.53.1",
+          "busy": {
+            "exit": 0,
+            "evidence": {
+              "code": "ERR_SQLITE_ERROR",
+              "errcode": 5,
+              "errstr": "database is locked",
+              "message": "database is locked"
+            }
+          },
+          "crash": {
+            "exit": 134,
+            "signal": null
+          },
+          "integrity": {
+            "integrity_check": "ok"
+          },
+          "restart": 0
+        }
+      ]
+    },
+    "officialApiStability": {
+      "24.15.0": "1.2 Release candidate",
+      "24.18.0": "1.2 Release candidate"
+    },
+    "productionPin": false,
+    "measurements": {
+      "startupLatencyMs": null,
+      "rssBytes": null,
+      "installerDeltaBytes": null
+    },
+    "qualification": "local availability only; not production shipping approval"
+  },
+  "sourceFindings": {
+    "portableMethods": [
+      "editResumeBranch",
+      "editResumeBranchBasics"
+    ],
+    "remaining": [
+      "scoped public reads/lists",
+      "General creation with presentation appMeta",
+      "Job creation with requirementMatches/source metadata",
+      "undo/restore callback Dexie reads",
+      "proposal/confirmation atomicity",
+      "Domain receipt payload binding",
+      "attachments and source handles"
+    ],
+    "sdkTransport": "ctx.rest / ctx.socket plugin backend namespaces exist; Career custom Electron IPC does not exist",
+    "pluginSandbox": false
+  },
+  "decision": {
+    "A": "not selected",
+    "B": "preferred long-term candidate; production BLOCKED",
+    "C": "adopt module separation principle only; Main deployment not approved"
+  },
+  "blockers": [
+    "RUNTIME_RELEASE",
+    "HOST_TRANSPORT",
+    "TRUSTED_CONFIRMATION",
+    "PORT_COMPLETENESS",
+    "LIFECYCLE_DURABILITY",
+    "FORMAL_CUTOVER (parent B)"
+  ],
+  "next": "User review; no automatic B2-B1",
+  "validation": {
+    "freshRuntimeProbeExitCodes": [
+      0,
+      0,
+      0
+    ],
+    "b2aHashesMatch": true,
+    "typecheck": "not run: documentation audit",
+    "unit": "not run; historical results not relabeled",
+    "build": "not run: no product changes",
+    "playwright": "not run: no UI changes",
+    "runtimeProbeCommand": "node stdin orchestrator -> spawnSync(exact executable, [-e, in-memory DatabaseSync create/commit/rollback/integrity script]), 15s deadline, windowsHide, ELECTRON_RUN_AS_NODE=1 for Electron",
+    "final": {
+      "exitCode": 0,
+      "gitDiffCheckExitCode": 0,
+      "jsonParse": true,
+      "localReportLinks": 2,
+      "protectedHashesMatch": true,
+      "sourceHashesMatch": true,
+      "handoffReadback": true,
+      "newReportWhitespace": true,
+      "reportSha256": "7a77bfd54f459467c57c350ce77768fe3a48178b28a162cf1d0dbedd72789ac6",
+      "plan4Sha256": "1df90e267580053a6f6db125f38b99295ffa1aa8b6e6e11a0c36e2292835f1c1",
+      "history4Sha256": "6d6cac4d6fc75981fd6869d5c949942fc730ea68ae9a2ae4313049968b91f8a4"
+    },
+    "finalStatus": " M src/services/storage/repositories.ts\n?? docs/architecture/p5.2.0b2a-sqlite-adapter-evidence.json\n?? docs/architecture/p5.2.0b2a-sqlite-adapter-parity.md\n?? docs/architecture/p5.2.0b2b0-domain-service-boundary-audit.md\n?? docs/architecture/p5.2.0b2b0-domain-service-boundary-evidence.json\n?? poc/career-domain-persistence/build-sqlite.mjs\n?? poc/career-domain-persistence/sqliteCareerPersistenceAdapter.ts\n?? poc/career-domain-persistence/sqliteFixtureWorker.ts\n?? tests/unit/p520b2a-sqlite-parity.test.ts"
+  },
+  "officialSources": [
+    {
+      "title": "Electron 40.10.2",
+      "url": "https://releases.electronjs.org/release/v40.10.2",
+      "accessed": "2026-11-02"
+    },
+    {
+      "title": "Electron 43.2.0",
+      "url": "https://releases.electronjs.org/release/v43.2.0",
+      "accessed": "2026-11-02"
+    },
+    {
+      "title": "Node24.15 sqlite",
+      "url": "https://nodejs.org/download/release/v24.15.0/docs/api/sqlite.html",
+      "accessed": "2026-11-02"
+    },
+    {
+      "title": "Node24.18 sqlite",
+      "url": "https://nodejs.org/download/release/v24.18.0/docs/api/sqlite.html",
+      "accessed": "2026-11-02"
+    },
+    {
+      "title": "SQLite WAL",
+      "url": "https://www.sqlite.org/wal.html",
+      "accessed": "2026-11-02"
+    },
+    {
+      "title": "SQLite backup",
+      "url": "https://www.sqlite.org/backup.html",
+      "accessed": "2026-11-02"
+    },
+    {
+      "title": "Electron security",
+      "url": "https://www.electronjs.org/docs/latest/tutorial/security",
+      "accessed": "2026-11-02"
+    }
+  ],
+  "mutations": {
+    "productCode": false,
+    "previousArtifacts": false,
+    "hermesCore": false,
+    "dependencies": false,
+    "realUserData": false,
+    "dualWrite": false,
+    "packaging": false,
+    "commit": false,
+    "push": false
+  },
+  "retainedFailures": [
+    {
+      "kind": "probe harness syntax error",
+      "cause": "nested JS string removed SQL quote escapes before child eval; no DB opened",
+      "runs": [
+        {
+          "name": "standalone-node",
+          "mode": "node / ELECTRON_RUN_AS_NODE; not a fresh Main probe",
+          "executableSha256": "3331e1ffe19874215472217c5e94f5a0c6d8e18c4ac7111d3937aa0ad5e9b4a5",
+          "executableBytes": 91694408,
+          "exitCode": 1,
+          "error": null,
+          "stderr": "[eval]:1\r\nconst {DatabaseSync}=require('node:sqlite');const d=new DatabaseSync(':memory:');d.exec('CREATE TABLE t(id INTEGER PRIMARY KEY,v TEXT);BEGIN IMMEDIATE;INSERT INTO t VALUES(1,'ok');COMMIT;BEGIN;INSERT INTO t VALUES(2,'rollback');ROLLBACK');const result={versions:process.versions,platform:process.platform,sqlite:d.prepare('select sqlite_version() as version').get(),rows:d.prepare('select * from t').all(),integrity:d.prepare('pragma integrity_check').get()};d.close();console.log(JSON.stringify(result))\r\n                                                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nExpected ',', got 'ident'\r\n\r\nSyntaxError: missing ) after argument list\r\n    at makeContextifyScript (node:internal/vm:194:14)\r\n    at compileScript (node:internal/process/execution:388:10)\r\n    at evalTypeScript (node:internal/process/execution:260:22)\r\n    at node:internal/main/eval_string:71:3\r\n\r\nNode.js v24.15.0\r\n",
+          "result": null
+        },
+        {
+          "name": "hermes-embedded-node",
+          "mode": "node / ELECTRON_RUN_AS_NODE; not a fresh Main probe",
+          "executableSha256": "5c4718cd0863732b5c16d6b4001ceda79f6da2f2c068e135326d115712d459b4",
+          "executableBytes": 213947904,
+          "exitCode": 1,
+          "error": null,
+          "stderr": "[eval]:1\r\nconst {DatabaseSync}=require('node:sqlite');const d=new DatabaseSync(':memory:');d.exec('CREATE TABLE t(id INTEGER PRIMARY KEY,v TEXT);BEGIN IMMEDIATE;INSERT INTO t VALUES(1,'ok');COMMIT;BEGIN;INSERT INTO t VALUES(2,'rollback');ROLLBACK');const result={versions:process.versions,platform:process.platform,sqlite:d.prepare('select sqlite_version() as version').get(),rows:d.prepare('select * from t').all(),integrity:d.prepare('pragma integrity_check').get()};d.close();console.log(JSON.stringify(result))\r\n                                                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nExpected ',', got 'ident'\r\n\r\nSyntaxError: missing ) after argument list\r\n    at makeContextifyScript (node:internal/vm:194:14)\r\n    at compileScript (node:internal/process/execution:388:10)\r\n    at evalTypeScript (node:internal/process/execution:260:22)\r\n    at node:internal/main/eval_string:71:3\r\n\r\nNode.js v24.15.0\r\n",
+          "result": null
+        },
+        {
+          "name": "careeradap-embedded-node",
+          "mode": "node / ELECTRON_RUN_AS_NODE; not a fresh Main probe",
+          "executableSha256": "8593db40c0c6e5e3c4b6b0a225b1dc9a549ecdf10f6cf2010cf5b6ce869ce07f",
+          "executableBytes": 225613824,
+          "exitCode": 1,
+          "error": null,
+          "stderr": "[eval]:1\r\nconst {DatabaseSync}=require('node:sqlite');const d=new DatabaseSync(':memory:');d.exec('CREATE TABLE t(id INTEGER PRIMARY KEY,v TEXT);BEGIN IMMEDIATE;INSERT INTO t VALUES(1,'ok');COMMIT;BEGIN;INSERT INTO t VALUES(2,'rollback');ROLLBACK');const result={versions:process.versions,platform:process.platform,sqlite:d.prepare('select sqlite_version() as version').get(),rows:d.prepare('select * from t').all(),integrity:d.prepare('pragma integrity_check').get()};d.close();console.log(JSON.stringify(result))\r\n                                                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nExpected ',', got 'ident'\r\n\r\nSyntaxError: missing ) after argument list\r\n    at makeContextifyScript (node:internal/vm:194:14)\r\n    at compileScript (node:internal/process/execution:388:10)\r\n    at evalTypeScript (node:internal/process/execution:260:22)\r\n    at node:internal/main/eval_string:71:3\r\n\r\nNode.js v24.18.0\r\n",
+          "result": null
+        }
+      ]
+    }
+  ],
+  "priorEvidenceReview": [
+    {
+      "file": "docs/architecture/p5.2.0b-career-domain-persistence-evidence.json",
+      "topLevelKeys": [
+        "stage",
+        "date",
+        "status",
+        "completion",
+        "formalPageMigrationAllowed",
+        "baseline",
+        "hermes",
+        "engineProbe",
+        "audit",
+        "auditFile",
+        "sourceHashes",
+        "migration",
+        "gates",
+        "tests",
+        "checks",
+        "blockers",
+        "failuresDuringTask",
+        "productionChanges",
+        "realUserDataAccessed",
+        "llmRequests",
+        "newDexieTables",
+        "dualWrites",
+        "committed",
+        "pushed",
+        "packaged",
+        "nextStageStarted"
+      ],
+      "status": "PARTIAL",
+      "sha256": "2fbeb9aad11b775c5fe358d2a77cdc09c683b1b174c88a4cde3c0e8f5c05e145"
+    },
+    {
+      "file": "docs/architecture/p5.2.0b1-persistence-port-evidence.json",
+      "topLevelKeys": [
+        "stage",
+        "date",
+        "status",
+        "firstPortableEditSlice",
+        "runtimeQualification",
+        "productionDomainWrites",
+        "baseline",
+        "runtimeEvidence",
+        "runtimeDecision",
+        "port",
+        "verification",
+        "httpFailure",
+        "implementationFailures",
+        "sourceHashes",
+        "unchangedBoundaries",
+        "limitations",
+        "nextStep",
+        "commit",
+        "handoff",
+        "initialDeliveryStatus",
+        "initialDeliveryLimitations",
+        "httpFixtureCloseout"
+      ],
+      "status": "COMPLETE",
+      "sha256": "7cc479f86adbfabb3824b845a1e8d695d2101409e321d1d884825ae9284f1ed5"
+    },
+    {
+      "file": "docs/architecture/p5.2.0b2a-sqlite-adapter-evidence.json",
+      "topLevelKeys": [
+        "package",
+        "date",
+        "status",
+        "scope",
+        "parentFormalMigration",
+        "baseline",
+        "audit",
+        "runtime",
+        "schema",
+        "transactions",
+        "parity",
+        "lifecycle",
+        "safety",
+        "checks",
+        "testSummary",
+        "testResults",
+        "sourceHashes",
+        "unchangedBoundaries",
+        "retainedFailures",
+        "limitations",
+        "nextStep",
+        "commit",
+        "push",
+        "packaging",
+        "changedFiles",
+        "handoff"
+      ],
+      "status": "COMPLETE",
+      "sha256": "8b91ccaef448a3990f2322a65b7a345973690c53d2dd584c74bf43b95e7b185a"
+    }
+  ],
+  "handoff": {
+    "plan4": "saved and read back; existing ignore retained",
+    "history4": "saved and read back; existing ignore retained"
+  }
+}

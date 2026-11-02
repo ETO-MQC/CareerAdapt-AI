@@ -1,0 +1,709 @@
+{
+  "package": "P5.2.0-B2-A",
+  "date": "2026-11-02",
+  "status": "COMPLETE",
+  "scope": "isolated existing B1 portable editing slice only",
+  "parentFormalMigration": "BLOCKED",
+  "baseline": {
+    "fetchExitCode": 0,
+    "head": "5e86e6f90991aad5efbb56f3c54fa4974ccfe718",
+    "originMain": "5e86e6f90991aad5efbb56f3c54fa4974ccfe718",
+    "preExistingUncommittedFiles": []
+  },
+  "audit": {
+    "portUnchanged": true,
+    "dexieTypesExposed": false,
+    "readStores": [
+      "profiles",
+      "jobs",
+      "branches",
+      "revisions",
+      "operations"
+    ],
+    "writeStores": [
+      "branches",
+      "revisions",
+      "operations"
+    ],
+    "portableMethods": [
+      "editResumeBranch",
+      "editResumeBranchBasics"
+    ],
+    "notMigrated": [
+      "branch creation",
+      "legacy Profile callbacks",
+      "restore/undo callbacks",
+      "query/list persistence",
+      "appMeta",
+      "rest of Repository"
+    ],
+    "injection": "optional WorkspaceRepository second constructor argument; omitted selects existing Dexie Adapter"
+  },
+  "runtime": {
+    "selectedForPoC": "standalone Node 24.15.0 / SQLite 3.51.3 / Windows",
+    "qualificationReused": "docs/architecture/p5.2.0b1-runtime-results.json",
+    "module": "node:sqlite",
+    "officialStability": "1.2 Release candidate",
+    "officialSource": "https://nodejs.org/download/release/v24.15.0/docs/api/sqlite.html",
+    "productionPin": false,
+    "newDependency": false
+  },
+  "schema": {
+    "userVersion": 1,
+    "tables": [
+      "profiles",
+      "jobs",
+      "branches",
+      "revisions",
+      "operations"
+    ],
+    "operationIdUnique": true,
+    "primaryKeyPut": "UPSERT equivalent to Dexie put",
+    "extraForeignKeyOrRevisionUniqueness": false,
+    "reason": "match canonical Dexie constraints and Branch-before-Revision order",
+    "codec": "existing canonical/decode tagged Codec plus current domain Schema validation",
+    "wholeWorkspaceJSON": false
+  },
+  "transactions": {
+    "begin": "BEGIN IMMEDIATE before receipt read and CAS",
+    "ordering": [
+      "receipt replay",
+      "CAS",
+      "source reads",
+      "canonical business validation",
+      "Branch",
+      "Revision",
+      "Receipt",
+      "COMMIT"
+    ],
+    "sameConnectionQueue": true,
+    "independentConnectionLockRetry": "BEGIN only; 5ms async checks, default 1000ms deadline; business callback never retried",
+    "faultStages": [
+      "after Branch",
+      "after Revision",
+      "before Receipt",
+      "after Receipt"
+    ],
+    "formalAllFiveTablesCompared": true,
+    "casSameAdapter": "one commit / one RevisionConflict",
+    "casIndependentAdapters": "one commit / one RevisionConflict",
+    "casIndependentProcesses": "one commit / one RevisionConflict",
+    "busyIsNotCAS": true,
+    "operationReplayBeforeStaleCAS": true
+  },
+  "parity": {
+    "node": "24.15.0",
+    "sqlite": "3.51.3",
+    "fixtureHash": "aade46f3f3d715eec2e49bcc0d3d25c3b56844b8846f8764e5d342e7e10b76de",
+    "dexieHash": "ff83f9cf1ebcfc3d8f9e574a0ca4cdbfb1f479a99a1c844534ebd9b89674f028",
+    "sqliteHash": "ff83f9cf1ebcfc3d8f9e574a0ca4cdbfb1f479a99a1c844534ebd9b89674f028",
+    "normalizedFields": [],
+    "counts": {
+      "profiles": 2,
+      "jobs": 1,
+      "branches": 4,
+      "revisions": 6,
+      "operations": 6
+    }
+  },
+  "lifecycle": {
+    "newAdapterSameFile": "PASS exact five-table state and replay",
+    "terminatedSeedProcessThenNewReadProcess": "PASS exact five-table state",
+    "independentNodeWriterProcesses": "PASS",
+    "temporarySyntheticFilesOnly": true,
+    "workerRebuiltByTests": true
+  },
+  "safety": {
+    "unconfirmedNewClaim": "blocked; exact pre-state retained",
+    "explicitResumeOnlyConfirmation": "existing Repository policy; Profile/other branches unchanged",
+    "missingProfileOrJob": "blocked; no partial data",
+    "profileOtherGeneralJobIsolation": "PASS"
+  },
+  "checks": [
+    {
+      "command": "pnpm typecheck (baseline)",
+      "exitCode": 0,
+      "log": ".tmp/p520b2a-baseline-typecheck.log",
+      "logSha256": "c4a5c75725dfc7811f8769dc86252e789cc4d8d6989fc7204afcca1d8f6f212b"
+    },
+    {
+      "command": "pnpm exec vitest run [B1 Port, Branch, Job sources, confirmed-write] (41 tests)",
+      "exitCode": 0,
+      "log": ".tmp/p520b2a-baseline-tests.log",
+      "logSha256": "f6453d6d0d4686a646f1b3f15cf576915d055e53972c654dc403e8f174a477f7"
+    },
+    {
+      "command": "pnpm exec vitest run [7 files] --reporter=default --reporter=json --outputFile=.artifacts/p520b2a/test-results.json (88 tests)",
+      "exitCode": 0,
+      "log": ".tmp/p520b2a-accepted-tests.log",
+      "logSha256": "9041f61f1dd8a662c5d5a597f8a9b05728912d4534ab86d70937bee14afff591"
+    },
+    {
+      "command": "node poc/career-domain-persistence/build-sqlite.mjs",
+      "exitCode": 0,
+      "log": ".tmp/p520b2a-worker-build-final.log",
+      "logSha256": "a9d4bc01d0d7e38ae7e60020c195f2edb19ad4c0bd1c0ed212b1d83e0ea848ea"
+    },
+    {
+      "command": "pnpm typecheck (closeout)",
+      "exitCode": 0,
+      "log": ".tmp/p520b2a-typecheck-closeout.log",
+      "logSha256": "c4a5c75725dfc7811f8769dc86252e789cc4d8d6989fc7204afcca1d8f6f212b"
+    },
+    {
+      "command": "pnpm exec eslint [5 changed code files] --max-warnings=0",
+      "exitCode": 0,
+      "log": ".tmp/p520b2a-lint-accepted.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": "pnpm build",
+      "exitCode": 0,
+      "log": ".tmp/p520b2a-build.log",
+      "logSha256": "859884b3d0080770df870fb59c81b5bcbece1f3458ed5e318ebe559f2a101fd4"
+    },
+    {
+      "command": "git diff --check; untracked UTF-8/whitespace; saved report/evidence/handoff; source SHA and protected boundaries",
+      "exitCode": 0
+    }
+  ],
+  "testSummary": {
+    "files": 7,
+    "passed": 88,
+    "failed": 0,
+    "newSQLiteContractTests": 33,
+    "skipped": 0
+  },
+  "testResults": [
+    {
+      "file": "tests/unit/branch.test.ts",
+      "status": "passed",
+      "tests": [
+        {
+          "name": "D1 resume branch domain builds profile-backed and blank general branches with independent basic information",
+          "status": "passed"
+        },
+        {
+          "name": "D1 resume branch domain removes profile-backed content only from the resume branch and can undo it",
+          "status": "passed"
+        },
+        {
+          "name": "D1 resume branch domain persists blank resume basics and keeps newly confirmed content resume-only by default",
+          "status": "passed"
+        },
+        {
+          "name": "D1 resume branch domain normalizes award dates and syncs profile changes back to an existing resume item",
+          "status": "passed"
+        },
+        {
+          "name": "D1 resume branch domain adds confirmed profile experience to a resume without duplicating profile data",
+          "status": "passed"
+        },
+        {
+          "name": "D1 resume branch domain reuses skills and certificates by fact reference and rejects duplicates",
+          "status": "passed"
+        },
+        {
+          "name": "D1 resume branch domain maps a non-stale adaptation draft into a verified branch and first revision",
+          "status": "passed"
+        },
+        {
+          "name": "D1 resume branch domain allows ai_failed_rule_kept only as rule_only_verified when rule findings have no high block",
+          "status": "passed"
+        },
+        {
+          "name": "D1 resume branch domain blocks stale source versions before branch creation",
+          "status": "passed"
+        },
+        {
+          "name": "D1 resume branch repository creates branch and first revision atomically, edits with rule guard, and undoes through previousRevisionId",
+          "status": "passed"
+        },
+        {
+          "name": "D1 resume branch repository migrates legacy v4 placeholder branches as read-only legacy_unverified",
+          "status": "passed"
+        },
+        {
+          "name": "D1 resume branch repository keeps edit operationId idempotent and blocks archived or invalid-reference edits",
+          "status": "passed"
+        },
+        {
+          "name": "D1 resume branch repository parses ResumeRevision with null previousRevisionId and restoredFromRevisionId from IndexedDB",
+          "status": "passed"
+        },
+        {
+          "name": "D1 resume branch repository parses ResumeBranch with null currentRevisionId from IndexedDB",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/jobResumeSourceModes.test.ts",
+      "status": "passed",
+      "tests": [
+        {
+          "name": "job resume source modes builds deterministic profile-library recommendations from canonical facts",
+          "status": "passed"
+        },
+        {
+          "name": "job resume source modes uses an explainable deterministic source recommendation",
+          "status": "passed"
+        },
+        {
+          "name": "job resume source modes creates an independent job branch from selected canonical facts without changing Profile",
+          "status": "passed"
+        },
+        {
+          "name": "job resume source modes creates a job branch when selected real source content has no requirement evidence",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/p520b-persistence.test.ts",
+      "status": "passed",
+      "tests": [
+        {
+          "name": "P5.2.0-B isolated migration proof exports every v11 table in a read-only transaction and preserves IDs, bytes, content and source DB",
+          "status": "passed"
+        },
+        {
+          "name": "P5.2.0-B isolated migration proof survives interruption before publication; retries publish once; concurrent identical imports coalesce",
+          "status": "passed"
+        },
+        {
+          "name": "P5.2.0-B isolated migration proof rejects tampered hashes, missing revision references and wrong ownership",
+          "status": "passed"
+        },
+        {
+          "name": "P5.2.0-B isolated migration proof rejects missing external attachments and unsupported codecs, with no writes to source",
+          "status": "passed"
+        },
+        {
+          "name": "P5.2.0-B isolated migration proof fails closed for all validated write actions and explicitly blocks rollback after writes",
+          "status": "passed"
+        },
+        {
+          "name": "P5.2.0-B isolated migration proof detects corrupted persisted snapshot on independent readback",
+          "status": "passed"
+        },
+        {
+          "name": "P5.2.0-B isolated migration proof retains canonical Repository CAS concurrency; does not claim target service writes",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/p520b1-persistence-port.test.ts",
+      "status": "passed",
+      "tests": [
+        {
+          "name": "canonical Branch mutation persistence port reads the exact Profile/Job IDs and never substitutes another owner",
+          "status": "passed"
+        },
+        {
+          "name": "canonical Branch mutation persistence port uses the adapter in the real edit path and persists linked revisions and receipt",
+          "status": "passed"
+        },
+        {
+          "name": "canonical Branch mutation persistence port replays a duplicate operation before stale CAS without additional writes",
+          "status": "passed"
+        },
+        {
+          "name": "canonical Branch mutation persistence port serializes competing revisions: one commit, one conflict, no orphan writes",
+          "status": "passed"
+        },
+        {
+          "name": "canonical Branch mutation persistence port rolls back all stores if resumeRevisions fails after the Branch write",
+          "status": "passed"
+        },
+        {
+          "name": "canonical Branch mutation persistence port rolls back all stores if resumeBranchOperations fails after the Branch write",
+          "status": "passed"
+        },
+        {
+          "name": "canonical Branch mutation persistence port rolls back after every write including the receipt when the unit of work throws",
+          "status": "passed"
+        },
+        {
+          "name": "canonical Branch mutation persistence port preserves unique operationId and rolls back an attempted duplicate",
+          "status": "passed"
+        },
+        {
+          "name": "canonical Branch mutation persistence port isolates another General, another Profile and a Job Branch during a portable edit",
+          "status": "passed"
+        },
+        {
+          "name": "canonical Branch mutation persistence port edits a real Job Branch through the same port without modifying its source or Job",
+          "status": "passed"
+        },
+        {
+          "name": "canonical Branch mutation persistence port retains missing source validation and leaves no partial mutation",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/p520b2a-sqlite-parity.test.ts",
+      "status": "passed",
+      "tests": [
+        {
+          "name": "Dexie shared persistence contract creates Branch/Revision/Receipt records through the existing unit of work",
+          "status": "passed"
+        },
+        {
+          "name": "Dexie shared persistence contract reads exact Profile/Job/Branch/Revision/Receipt and missing keys",
+          "status": "passed"
+        },
+        {
+          "name": "Dexie shared persistence contract commits general edit, sequential revisions, receipt and idempotent replay before CAS",
+          "status": "passed"
+        },
+        {
+          "name": "Dexie shared persistence contract commits job edit, sequential revisions, receipt and idempotent replay before CAS",
+          "status": "passed"
+        },
+        {
+          "name": "Dexie shared persistence contract serializes two competing CAS edits with one winner and no orphan records",
+          "status": "passed"
+        },
+        {
+          "name": "Dexie shared persistence contract rolls back formal five-store state at saveBranch",
+          "status": "passed"
+        },
+        {
+          "name": "Dexie shared persistence contract rolls back formal five-store state at appendRevision",
+          "status": "passed"
+        },
+        {
+          "name": "Dexie shared persistence contract rolls back formal five-store state at beforeReceipt",
+          "status": "passed"
+        },
+        {
+          "name": "Dexie shared persistence contract rolls back formal five-store state at saveOperation",
+          "status": "passed"
+        },
+        {
+          "name": "Dexie shared persistence contract rejects duplicate operationId on another primary key and rolls back Branch",
+          "status": "passed"
+        },
+        {
+          "name": "Dexie shared persistence contract blocks unconfirmed new claims and permits explicit resume-only confirmation without Profile writes",
+          "status": "passed"
+        },
+        {
+          "name": "SQLite shared persistence contract creates Branch/Revision/Receipt records through the existing unit of work",
+          "status": "passed"
+        },
+        {
+          "name": "SQLite shared persistence contract reads exact Profile/Job/Branch/Revision/Receipt and missing keys",
+          "status": "passed"
+        },
+        {
+          "name": "SQLite shared persistence contract commits general edit, sequential revisions, receipt and idempotent replay before CAS",
+          "status": "passed"
+        },
+        {
+          "name": "SQLite shared persistence contract commits job edit, sequential revisions, receipt and idempotent replay before CAS",
+          "status": "passed"
+        },
+        {
+          "name": "SQLite shared persistence contract serializes two competing CAS edits with one winner and no orphan records",
+          "status": "passed"
+        },
+        {
+          "name": "SQLite shared persistence contract rolls back formal five-store state at saveBranch",
+          "status": "passed"
+        },
+        {
+          "name": "SQLite shared persistence contract rolls back formal five-store state at appendRevision",
+          "status": "passed"
+        },
+        {
+          "name": "SQLite shared persistence contract rolls back formal five-store state at beforeReceipt",
+          "status": "passed"
+        },
+        {
+          "name": "SQLite shared persistence contract rolls back formal five-store state at saveOperation",
+          "status": "passed"
+        },
+        {
+          "name": "SQLite shared persistence contract rejects duplicate operationId on another primary key and rolls back Branch",
+          "status": "passed"
+        },
+        {
+          "name": "SQLite shared persistence contract blocks unconfirmed new claims and permits explicit resume-only confirmation without Profile writes",
+          "status": "passed"
+        },
+        {
+          "name": "produces exact Dexie/SQLite persisted parity with identical canonical rules, time, IDs and inputs",
+          "status": "passed"
+        },
+        {
+          "name": "reopens the same file in a new Adapter with all rows and idempotency intact",
+          "status": "passed"
+        },
+        {
+          "name": "serializes independent SQLite instances so competing CAS is one success/one RevisionConflict",
+          "status": "passed"
+        },
+        {
+          "name": "preserves undefined/null/optional fields, dates, numeric types, nested objects and array order with explicit codec",
+          "status": "passed"
+        },
+        {
+          "name": "keeps SQLITE_BUSY distinct from CAS conflict and leaves no writes when lock acquisition expires",
+          "status": "passed"
+        },
+        {
+          "name": "maps LOCKED/corruption/other storage errors distinctly, retaining cause",
+          "status": "passed"
+        },
+        {
+          "name": "rejects corrupt files and unknown schema versions without modifying them",
+          "status": "passed"
+        },
+        {
+          "name": "round-trips all persisted rows across two terminated Node processes",
+          "status": "passed"
+        },
+        {
+          "name": "preserves CAS across two independent Node writer processes",
+          "status": "passed"
+        },
+        {
+          "name": "preserves identical missing Profile validation and complete rollback",
+          "status": "passed"
+        },
+        {
+          "name": "preserves identical missing Job validation and complete rollback",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts",
+      "status": "passed",
+      "tests": [
+        {
+          "name": "P4.5c.1.2 confirmed composition write boundary binds the active Career profile before a natural-language compose task starts",
+          "status": "passed"
+        },
+        {
+          "name": "P4.5c.1.2 confirmed composition write boundary uses one canonical Host command for typed text and the Direct Generate button",
+          "status": "passed"
+        },
+        {
+          "name": "P4.5c.1.2 confirmed composition write boundary executes the confirmed checkpoint once, projects resume_ready, and makes a second click idempotent",
+          "status": "passed"
+        },
+        {
+          "name": "P4.5c.1.2 confirmed composition write boundary does not let an MCP checkpoint call create a branch without Host confirmation",
+          "status": "passed"
+        },
+        {
+          "name": "P4.5c.1.2 confirmed composition write boundary rejects a stale checkpoint without writing and returns to review",
+          "status": "passed"
+        },
+        {
+          "name": "P4.5c.1.2 confirmed composition write boundary keeps update_existing behind an explicit user selection",
+          "status": "passed"
+        },
+        {
+          "name": "P4.5c.1.2 confirmed composition write boundary keeps a transport-failed checkpoint recoverable and writes nothing",
+          "status": "passed"
+        },
+        {
+          "name": "P4.5c.1.2 confirmed composition write boundary retries the same checkpoint after transport recovery and creates one branch and revision",
+          "status": "passed"
+        },
+        {
+          "name": "P4.5c.1.2 confirmed composition write boundary coalesces concurrent retries for the same failed checkpoint",
+          "status": "passed"
+        },
+        {
+          "name": "P4.5c.1.2 confirmed composition write boundary rejects a same-checkpoint retry after the bound Profile revision changes",
+          "status": "passed"
+        },
+        {
+          "name": "P4.5c.1.2 confirmed composition write boundary keeps a runtime composition proposal actionable without creating a pending artifact",
+          "status": "passed"
+        },
+        {
+          "name": "P4.5c.1.2 confirmed composition write boundary reprojects composition actions when the terminal runtime event arrives before the bridge result",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/tailoringFieldSafety.test.ts",
+      "status": "passed",
+      "tests": [
+        {
+          "name": "typed resume field patches keeps experience highlights as a string array and rejects flattened metadata",
+          "status": "passed"
+        },
+        {
+          "name": "typed resume field patches builds a claim whose formal target is only the typed field patch",
+          "status": "passed"
+        },
+        {
+          "name": "claim-level confirmation resolves proficiency into both the visible final sentence and target patch",
+          "status": "passed"
+        },
+        {
+          "name": "claim-level confirmation uses adopt/edit/reject for experience reframes instead of proficiency",
+          "status": "passed"
+        },
+        {
+          "name": "tailoring quality gates rejects a truncated summary and analytical boilerplate",
+          "status": "passed"
+        },
+        {
+          "name": "tailoring quality gates deduplicates keyword variants and separates decision groups",
+          "status": "passed"
+        },
+        {
+          "name": "tailoring quality gates prioritizes the most relevant AI Coding evidence",
+          "status": "passed"
+        }
+      ]
+    }
+  ],
+  "sourceHashes": {
+    "src/services/storage/repositories.ts": "10dc464283aaab494620e1a4e4b6ceccd95aa98b2d50ba38792033185183d7a0",
+    "poc/career-domain-persistence/sqliteCareerPersistenceAdapter.ts": "4706c2f8aeed1f507b1cb2028d2646f486c1a6060b944ca3cdc096e94e0c4f6e",
+    "poc/career-domain-persistence/sqliteFixtureWorker.ts": "0165c5e58535974e59aa93b949933a6866c4c6e5a33019a1f5a000f24f5cf4de",
+    "poc/career-domain-persistence/build-sqlite.mjs": "3bec31d549bb47c39beaadc3518a657d528b3a1a847e695da01c409b517671f3",
+    "tests/unit/p520b2a-sqlite-parity.test.ts": "882e3e0b998b3996c1913d6724590c9aacb40d37271aa9cf12341954bf8c48a1",
+    "docs/architecture/p5.2.0b2a-sqlite-adapter-parity.md": "1855770cc20e8b9197f9b1601c99bbee6951bc704219a0d1796255dadd749102"
+  },
+  "unchangedBoundaries": {
+    "src/services/storage/db.ts": {
+      "gitBlobSha256": "7170668b1c36e29ca33e6c0e17385b7ab8639328a1fb10ccc7326b0135f9d2de",
+      "worktreeSha256": "7170668b1c36e29ca33e6c0e17385b7ab8639328a1fb10ccc7326b0135f9d2de",
+      "normalizedUnchanged": true,
+      "byteIdentical": true
+    },
+    "src/domain/schemas/resumeV2.ts": {
+      "gitBlobSha256": "bb31fc56f3abf016edbb2ba4f27b699f5a86cb695b418db2eae061655f9402e7",
+      "worktreeSha256": "bb31fc56f3abf016edbb2ba4f27b699f5a86cb695b418db2eae061655f9402e7",
+      "normalizedUnchanged": true,
+      "byteIdentical": true
+    },
+    "src/domain/adaptation/factGuard.ts": {
+      "gitBlobSha256": "287b081f7728d19e0d7206f24c3e5ba1c6b9a105ed6746499678baa69b49bea2",
+      "worktreeSha256": "49fa8cb684696b604980504e99aae72da02f56613941bd716d642fb5fb59cc4c",
+      "normalizedUnchanged": true,
+      "byteIdentical": false
+    },
+    "src/ai/prompts/claimSafetyV2.ts": {
+      "gitBlobSha256": "9bbb38eadd5666ce50c24bb8b73cc2dfa2ec638c3ad41357b214291add7b2977",
+      "worktreeSha256": "9bbb38eadd5666ce50c24bb8b73cc2dfa2ec638c3ad41357b214291add7b2977",
+      "normalizedUnchanged": true,
+      "byteIdentical": true
+    },
+    "scripts/hermes-runtime-lock.json": {
+      "gitBlobSha256": "4939b630fa15f410ae1287b495e9e16912ab3e71a7a619df1f005050c6fe8ceb",
+      "worktreeSha256": "4939b630fa15f410ae1287b495e9e16912ab3e71a7a619df1f005050c6fe8ceb",
+      "normalizedUnchanged": true,
+      "byteIdentical": true
+    },
+    "docs/architecture/p5.2.0b-career-domain-persistence-adr.md": {
+      "gitBlobSha256": "f5e394c4c7bec0e192fed88c00fb297816bc654080f72fa855bb2f4a7ffddc36",
+      "worktreeSha256": "f5e394c4c7bec0e192fed88c00fb297816bc654080f72fa855bb2f4a7ffddc36",
+      "normalizedUnchanged": true,
+      "byteIdentical": true
+    },
+    "docs/architecture/p5.2.0b-career-domain-persistence-evidence.json": {
+      "gitBlobSha256": "2fbeb9aad11b775c5fe358d2a77cdc09c683b1b174c88a4cde3c0e8f5c05e145",
+      "worktreeSha256": "2fbeb9aad11b775c5fe358d2a77cdc09c683b1b174c88a4cde3c0e8f5c05e145",
+      "normalizedUnchanged": true,
+      "byteIdentical": true
+    },
+    "docs/architecture/p5.2.0b1-persistence-port-runtime.md": {
+      "gitBlobSha256": "37a9fcc9ffa76f479007c951dbc45ff2626bef8af9bb3e15e6e1b628f9536ef1",
+      "worktreeSha256": "37a9fcc9ffa76f479007c951dbc45ff2626bef8af9bb3e15e6e1b628f9536ef1",
+      "normalizedUnchanged": true,
+      "byteIdentical": true
+    },
+    "docs/architecture/p5.2.0b1-persistence-port-evidence.json": {
+      "gitBlobSha256": "7cc479f86adbfabb3824b845a1e8d695d2101409e321d1d884825ae9284f1ed5",
+      "worktreeSha256": "7cc479f86adbfabb3824b845a1e8d695d2101409e321d1d884825ae9284f1ed5",
+      "normalizedUnchanged": true,
+      "byteIdentical": true
+    },
+    "src/services/storage/persistence/careerPersistencePort.ts": {
+      "gitBlobSha256": "e2864820a25495a13b1975c7f0fd83c03a77babf9b208ba579b210f0afaa9fc7",
+      "worktreeSha256": "e2864820a25495a13b1975c7f0fd83c03a77babf9b208ba579b210f0afaa9fc7",
+      "normalizedUnchanged": true,
+      "byteIdentical": true
+    },
+    "src/services/storage/persistence/dexieCareerPersistenceAdapter.ts": {
+      "gitBlobSha256": "2be1c3410e2648ea5522f68eb870bca0285e49f993291907db4cf3c1fef45667",
+      "worktreeSha256": "2be1c3410e2648ea5522f68eb870bca0285e49f993291907db4cf3c1fef45667",
+      "normalizedUnchanged": true,
+      "byteIdentical": true
+    },
+    "poc/career-domain-persistence/migration.ts": {
+      "gitBlobSha256": "3c2ceee9db9285542d416bd32a2908db7091b0aa2adf74c0dff3c65bfd011923",
+      "worktreeSha256": "3c2ceee9db9285542d416bd32a2908db7091b0aa2adf74c0dff3c65bfd011923",
+      "normalizedUnchanged": true,
+      "byteIdentical": true
+    },
+    "next-env.d.ts": {
+      "gitBlobSha256": "7ad303e40d4fddf44f156129e397511953a71481c5cfd86b1862649aaaf240cc",
+      "worktreeSha256": "7ad303e40d4fddf44f156129e397511953a71481c5cfd86b1862649aaaf240cc",
+      "normalizedUnchanged": true,
+      "byteIdentical": true
+    },
+    "tsconfig.json": {
+      "gitBlobSha256": "35558c24225ff379bf0b3ab842c56e6ce8c0dc2e6bf72c04bbdca03c65edfea7",
+      "worktreeSha256": "35558c24225ff379bf0b3ab842c56e6ce8c0dc2e6bf72c04bbdca03c65edfea7",
+      "normalizedUnchanged": true,
+      "byteIdentical": true
+    }
+  },
+  "retainedFailures": [
+    {
+      "log": ".tmp/p520b2a-typecheck-first.log",
+      "cause": "optional operation.branchId requires nullable column and explicit SQL null binding",
+      "resolved": true
+    },
+    {
+      "log": ".tmp/p520b2a-first-tests.log",
+      "passed": 23,
+      "failed": 4,
+      "cause": "comparison used locale-dependent JS ordering versus SQL binary ordering",
+      "resolved": "explicit binary row keys on both backends; no fields omitted"
+    }
+  ],
+  "limitations": [
+    "only existing B1 edit slice portable; canonical creation fixture runs in Dexie",
+    "no production Domain API or SQLite default",
+    "no actual SQLITE_LOCKED recovery certification; numeric mapping tested synthetically",
+    "constructor initialization may surface genuine busy on simultaneous startup; service ownership policy deferred",
+    "no production runtime distribution/backup/reverse-journal certification",
+    "no real user DB, migration, dual write, installer or Hermes changes",
+    "no UI changes; no Playwright needed",
+    "existing Hermes Desktop esbuild developer tooling required for worker build"
+  ],
+  "nextStep": "user review; separately authorize B2-B scope, service lifecycle/runtime ownership and remaining abstraction work; parent migration gates retained",
+  "commit": "not committed",
+  "push": false,
+  "packaging": false,
+  "changedFiles": [
+    "src/services/storage/repositories.ts",
+    "poc/career-domain-persistence/sqliteCareerPersistenceAdapter.ts",
+    "poc/career-domain-persistence/sqliteFixtureWorker.ts",
+    "poc/career-domain-persistence/build-sqlite.mjs",
+    "tests/unit/p520b2a-sqlite-parity.test.ts",
+    "docs/architecture/p5.2.0b2a-sqlite-adapter-parity.md",
+    "docs/architecture/p5.2.0b2a-sqlite-adapter-evidence.json"
+  ],
+  "handoff": {
+    "plan4": "updated and saved (existing Git ignore retained)",
+    "history4": "updated and saved (existing Git ignore retained)",
+    "commit": "not committed"
+  }
+}

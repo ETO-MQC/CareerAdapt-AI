@@ -870,8 +870,8 @@ export type ApplicationContext = {
 export class WorkspaceRepository {
   private readonly persistence: CareerPersistencePort;
 
-  constructor(private readonly db: CareerAdaptDb = careerAdaptDb) {
-    this.persistence = new DexieCareerPersistenceAdapter(db);
+  constructor(private readonly db: CareerAdaptDb = careerAdaptDb, persistence?: CareerPersistencePort) {
+    this.persistence = persistence ?? new DexieCareerPersistenceAdapter(db);
   }
 
   private async getCareerPersonWithoutMigration(personId: string) {
