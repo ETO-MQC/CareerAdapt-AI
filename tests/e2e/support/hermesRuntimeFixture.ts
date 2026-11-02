@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 
 type HermesRun = {
+  status: "running" | "completed";
   userMessage: string;
   output: string;
   tailor: boolean;
@@ -84,7 +85,7 @@ export async function installHermesRuntimeFixture(page: Page): Promise<HermesRun
           ? "可以。请先选择一段你确认真实存在的经历，我会按背景、职责、成果逐步提问。"
           : "好的。请先提供这项任务需要的真实材料，我会逐步与你核对。";
       const toolCallId = tailor ? `tool-call-${sequence}` : undefined;
-      runs.set(runId, { userMessage, output, tailor, toolCallId });
+      runs.set(runId, { status: "running", userMessage, output, tailor, toolCallId });
       fixture.runStarts.push(runId);
       await route.fulfill({
         contentType: "application/json",
@@ -107,6 +108,7 @@ export async function installHermesRuntimeFixture(page: Page): Promise<HermesRun
         `data: ${JSON.stringify({ run_id: runId, output: run?.output ?? "当前任务已完成。" })}`,
         ""
       ];
+      if (run) run.status = "completed";
       await route.fulfill({
         contentType: "text/event-stream",
         body: events.join("\n")
@@ -123,7 +125,7 @@ export async function installHermesRuntimeFixture(page: Page): Promise<HermesRun
           ok: true,
           data: {
             run_id: runId,
-            status: "completed",
+            status: run?.status ?? "failed",
             output: run?.output ?? "当前任务已完成。"
           }
         })

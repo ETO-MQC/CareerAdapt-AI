@@ -410,6 +410,23 @@ test.describe("P4.6h hermetic Web + browser MCP integration", () => {
     mark("pdf_verify_start");
     await verifyCoreResumePdf(page, String(target.id));
     mark("pdf_verify_complete");
+    // COMP-01: inspect the real generated artifact without narrowing the composer.
+    await page.goto("/ai-workspace");
+    await page.setViewportSize({ width: 1024, height: 768 });
+    const artifactDrawer = page.getByRole("complementary", { name: "任务产物", exact: true });
+    await expect(artifactDrawer).toHaveClass(/is-overlay/);
+    await expect(artifactDrawer).toBeVisible();
+    const artifactBox = await artifactDrawer.boundingBox();
+    expect(artifactBox!.x).toBeGreaterThanOrEqual(0);
+    expect(artifactBox!.x + artifactBox!.width).toBeLessThanOrEqual(1024);
+    await page.screenshot({ path: "artifacts/comp01-real-artifact-1024.png", fullPage: true });
+    await page.getByRole("button", { name: "关闭任务产物", exact: true }).last().click();
+    await expect(artifactDrawer).toHaveCount(0);
+    await page.getByRole("button", { name: /^产物 \d+/ }).click();
+    await expect(artifactDrawer).toBeVisible();
+    await artifactDrawer.press("Escape");
+    await expect(artifactDrawer).toHaveCount(0);
+    await expect(page.getByLabel("描述你的求职任务")).toBeVisible();
     await testInfo.attach("core02-M-tools", { body: JSON.stringify(trace), contentType: "application/json" });
   });
 

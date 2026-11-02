@@ -244,7 +244,7 @@ test.describe("AI workspace shell", () => {
     await composer.fill("请帮我整理项目经历");
     await page.getByRole("button", { name: "发送消息" }).click();
     await expect(page.getByText("可以。请先选择一段你确认真实存在的经历，我会按背景、职责、成果逐步提问。")).toBeVisible();
-    await expect(page.getByText("AI 就绪", { exact: true })).toBeVisible();
+    await expect(page.locator('.agent-workflow-status[data-agent-run-state="completed"]')).toBeVisible();
 
     const userRow = page.locator(".agent-message-row.is-user").first();
     await userRow.getByRole("button", { name: "编辑并重发" }).click();

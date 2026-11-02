@@ -64,11 +64,15 @@ test("slow Provider stays running at 30/60/180s, reattaches after refresh and fe
     expect(authoritative.data.status).toBe("completed");
     evidence.firstRunCompleted = true;
     await page.getByRole("button", { name: "新任务", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "今天想从哪一步开始？" })).toBeVisible();
     await send(page);
     await expect.poll(async () => (await provider()).requests.length).toBe(2);
     await page.waitForTimeout(1000);
     await page.getByRole("button", { name: "停止运行", exact: true }).click();
     await expect.poll(async () => ((await current()).hermesRun as { status: string }).status).toBe("cancelled");
+    await expect(page.locator('.agent-workflow-status[data-agent-run-state="cancelled"]')).toHaveText("已停止");
+    await expect(page.getByRole("button", { name: "停止运行", exact: true })).toHaveCount(0);
+    await expect(page.locator(".agent-streaming-indicator, .agent-stream-cursor, .agent-tool-status-row.is-running")).toHaveCount(0);
     const cancelledId = ((await current()).hermesRun as { runId: string }).runId;
     await page.waitForTimeout(6500);
     const cancelled = (await current()).hermesRun as { runId: string; status: string };
@@ -83,6 +87,7 @@ test("slow Provider stays running at 30/60/180s, reattaches after refresh and fe
     {
       const cancelledSessionId = (await current()).id;
       await page.getByRole("button", { name: "新任务", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "今天想从哪一步开始？" })).toBeVisible();
       await send(page);
       await expect.poll(async () => (await provider()).requests.length).toBe(3);
       await expect.poll(async () => ((await current()).hermesRun as { status: string } | undefined)?.status).toBe("completed");
