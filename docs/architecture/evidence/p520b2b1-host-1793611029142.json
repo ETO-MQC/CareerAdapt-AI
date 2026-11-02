@@ -1,0 +1,238 @@
+{
+  "root": "E:\\DEF\\CareerAdapt AI\\.artifacts\\p520b2b1-1793610995541",
+  "host": "real locked Desktop; unmodified main/preload/renderer; isolated home; offline",
+  "observations": [
+    {
+      "name": "renderer_button_sdk_backend_stdio",
+      "hello": {
+        "requestId": "ui-hello",
+        "serviceEpoch": "f5d19cf8-dc9f-432d-af4e-cf9ade7b0145",
+        "result": {
+          "apiVersion": 1,
+          "serviceEpoch": "f5d19cf8-dc9f-432d-af4e-cf9ade7b0145",
+          "capabilities": [
+            "fixture.read"
+          ]
+        }
+      }
+    },
+    {
+      "name": "five_methods_concurrent_correlation",
+      "results": [
+        {
+          "requestId": "27e5ad6a-f9fb-4d88-b335-0eecb1084bdf",
+          "serviceEpoch": "f5d19cf8-dc9f-432d-af4e-cf9ade7b0145",
+          "result": {
+            "state": "READY"
+          }
+        },
+        {
+          "requestId": "108af4f6-e00a-4d0f-b0b3-bc511cd4d4b7",
+          "serviceEpoch": "f5d19cf8-dc9f-432d-af4e-cf9ade7b0145",
+          "result": {
+            "id": "fixture-profile",
+            "name": "Synthetic Candidate",
+            "revision": 0
+          }
+        },
+        {
+          "requestId": "ec840545-73d3-41e8-833d-7f68ba7e9462",
+          "serviceEpoch": "f5d19cf8-dc9f-432d-af4e-cf9ade7b0145",
+          "result": [
+            {
+              "id": "fixture-general",
+              "profileId": "fixture-profile",
+              "revision": 0,
+              "purpose": "general"
+            }
+          ]
+        },
+        {
+          "requestId": "eee71f91-3d8c-4cd0-ab45-f609b01b6f2f",
+          "serviceEpoch": "f5d19cf8-dc9f-432d-af4e-cf9ade7b0145",
+          "result": {
+            "id": "fixture-general",
+            "profileId": "fixture-profile",
+            "revision": 0,
+            "purpose": "general"
+          }
+        },
+        {
+          "requestId": "33b63be5-052a-4fbc-ad5c-ca32f38c5d1f",
+          "serviceEpoch": "f5d19cf8-dc9f-432d-af4e-cf9ade7b0145",
+          "result": {
+            "status": "notFound"
+          }
+        }
+      ]
+    },
+    {
+      "name": "rejection",
+      "expected": "UNSUPPORTED_VERSION",
+      "response": {
+        "requestId": "560d6d97-6ac7-4e0a-a666-60f1fca17818",
+        "serviceEpoch": "f5d19cf8-dc9f-432d-af4e-cf9ade7b0145",
+        "error": {
+          "code": "UNSUPPORTED_VERSION"
+        }
+      }
+    },
+    {
+      "name": "rejection",
+      "expected": "FORBIDDEN",
+      "response": {
+        "requestId": "06a236c4-1ec5-4f30-82a3-b88d8269fae8",
+        "serviceEpoch": "f5d19cf8-dc9f-432d-af4e-cf9ade7b0145",
+        "error": {
+          "code": "FORBIDDEN"
+        }
+      }
+    },
+    {
+      "name": "rejection",
+      "expected": "NOT_FOUND",
+      "response": {
+        "requestId": "ef83eafa-d2b1-41a4-930a-d1b473da0c43",
+        "serviceEpoch": "f5d19cf8-dc9f-432d-af4e-cf9ade7b0145",
+        "error": {
+          "code": "NOT_FOUND"
+        }
+      }
+    },
+    {
+      "name": "rejection",
+      "expected": "INVALID_REQUEST",
+      "response": {
+        "requestId": "a4ee552b-c2b7-4894-ad18-346f4ded23c0",
+        "serviceEpoch": "f5d19cf8-dc9f-432d-af4e-cf9ade7b0145",
+        "error": {
+          "code": "INVALID_REQUEST"
+        }
+      }
+    },
+    {
+      "name": "rejection",
+      "expected": "INVALID_REQUEST",
+      "response": {
+        "requestId": "432859b6-96b9-40e7-ad29-0f20a8f3e71b",
+        "serviceEpoch": "f5d19cf8-dc9f-432d-af4e-cf9ade7b0145",
+        "error": {
+          "code": "INVALID_REQUEST"
+        }
+      }
+    },
+    {
+      "name": "renderer_disabled_old_closure",
+      "response": {
+        "requestId": "32e8f45f-da5d-4176-a909-dd9e38d2f17a",
+        "serviceEpoch": "f5d19cf8-dc9f-432d-af4e-cf9ade7b0145",
+        "result": {
+          "state": "READY"
+        }
+      },
+      "expectedRevoked": true,
+      "actualRevoked": false
+    },
+    {
+      "name": "renderer_reenabled",
+      "response": {
+        "requestId": "36e45c90-4faf-401c-9597-4c213778c160",
+        "serviceEpoch": "f5d19cf8-dc9f-432d-af4e-cf9ade7b0145",
+        "result": {
+          "state": "READY"
+        }
+      }
+    },
+    {
+      "name": "backend_disabled",
+      "error": "Error: page.evaluate: Error: Error invoking remote method 'hermes:api': Error: 404: {\"detail\":\"Plugin not found\"}"
+    },
+    {
+      "name": "backend_reenabled",
+      "response": {
+        "requestId": "aadda2b0-24c6-4f32-b2cc-79d8bd452f4b",
+        "serviceEpoch": "f5d19cf8-dc9f-432d-af4e-cf9ade7b0145",
+        "result": {
+          "state": "READY"
+        }
+      }
+    },
+    {
+      "name": "broker_close",
+      "response": {
+        "state": "STOPPED",
+        "exitCode": 0,
+        "transitions": [
+          "STOPPED",
+          "STARTING",
+          "READY",
+          "DRAINING",
+          "STOPPED"
+        ]
+      }
+    },
+    {
+      "name": "disconnected_no_success",
+      "error": "Error: page.evaluate: Error: Error invoking remote method 'hermes:api': Error: 503: {\"detail\":\"SERVICE_UNAVAILABLE\"}"
+    },
+    {
+      "name": "broker_open",
+      "response": {
+        "state": "READY",
+        "pid": 14420
+      }
+    },
+    {
+      "name": "service_restart_old_epoch",
+      "hello": {
+        "requestId": "9e44c11d-2bc4-4207-8a9f-2318ce47566f",
+        "serviceEpoch": "2a70f567-4bb4-4466-964f-f89d81c397bd",
+        "result": {
+          "apiVersion": 1,
+          "serviceEpoch": "2a70f567-4bb4-4466-964f-f89d81c397bd",
+          "capabilities": [
+            "fixture.read"
+          ]
+        }
+      },
+      "stale": {
+        "requestId": "38f10e76-12be-4271-8990-ad82ac80b18c",
+        "serviceEpoch": "2a70f567-4bb4-4466-964f-f89d81c397bd",
+        "error": {
+          "code": "SERVICE_RESTARTED"
+        }
+      }
+    },
+    {
+      "name": "host_restart",
+      "hello": {
+        "requestId": "a3a106de-a3c3-4262-98b9-9014ccd3dae1",
+        "serviceEpoch": "4e98035a-969d-4392-a24e-5502fb0cb285",
+        "result": {
+          "apiVersion": 1,
+          "serviceEpoch": "4e98035a-969d-4392-a24e-5502fb0cb285",
+          "capabilities": [
+            "fixture.read"
+          ]
+        }
+      }
+    },
+    {
+      "name": "final_close",
+      "response": {
+        "state": "STOPPED",
+        "exitCode": 0,
+        "transitions": [
+          "STOPPED",
+          "STARTING",
+          "READY",
+          "DRAINING",
+          "STOPPED"
+        ]
+      }
+    }
+  ],
+  "errors": [],
+  "status": "PARTIAL",
+  "blocker": "Renderer disable does not revoke ctx.rest; Backend disable gates requests but does not close broker/process. Trusted confirmation absent."
+}

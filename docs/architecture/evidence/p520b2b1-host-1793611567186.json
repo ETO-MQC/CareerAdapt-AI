@@ -1,0 +1,369 @@
+{
+  "root": "E:\\DEF\\CareerAdapt AI\\.artifacts\\p520b2b1-1793611538712",
+  "host": "real locked Desktop; unmodified main/preload/renderer; isolated home; offline",
+  "observations": [
+    {
+      "name": "renderer_button_sdk_backend_stdio",
+      "hello": {
+        "requestId": "ui-hello",
+        "serviceEpoch": "48a334a5-83eb-4838-9269-5e190e1b3432",
+        "result": {
+          "apiVersion": 1,
+          "serviceEpoch": "48a334a5-83eb-4838-9269-5e190e1b3432",
+          "capabilities": [
+            "fixture.read"
+          ]
+        }
+      }
+    },
+    {
+      "name": "five_methods_concurrent_correlation",
+      "results": [
+        {
+          "requestId": "73168ca7-3231-4bad-8588-aa97e8826fb9",
+          "serviceEpoch": "48a334a5-83eb-4838-9269-5e190e1b3432",
+          "result": {
+            "state": "READY"
+          }
+        },
+        {
+          "requestId": "b328a016-b606-4c54-9ed5-449c1d7366c5",
+          "serviceEpoch": "48a334a5-83eb-4838-9269-5e190e1b3432",
+          "result": {
+            "id": "fixture-profile",
+            "name": "Synthetic Candidate",
+            "revision": 0
+          }
+        },
+        {
+          "requestId": "bce5836b-1ed6-40a5-ada5-668913cbb469",
+          "serviceEpoch": "48a334a5-83eb-4838-9269-5e190e1b3432",
+          "result": [
+            {
+              "id": "fixture-general",
+              "profileId": "fixture-profile",
+              "revision": 0,
+              "purpose": "general"
+            }
+          ]
+        },
+        {
+          "requestId": "d24c90a5-5f62-4842-bf45-7149c25c49b7",
+          "serviceEpoch": "48a334a5-83eb-4838-9269-5e190e1b3432",
+          "result": {
+            "id": "fixture-general",
+            "profileId": "fixture-profile",
+            "revision": 0,
+            "purpose": "general"
+          }
+        },
+        {
+          "requestId": "09d15255-6d16-48b4-926c-ad4a67907b30",
+          "serviceEpoch": "48a334a5-83eb-4838-9269-5e190e1b3432",
+          "result": {
+            "status": "notFound"
+          }
+        }
+      ]
+    },
+    {
+      "name": "rejection",
+      "expected": "UNSUPPORTED_VERSION",
+      "response": {
+        "requestId": "7717f6fa-e30f-4297-81ae-f9c5958201bc",
+        "serviceEpoch": "48a334a5-83eb-4838-9269-5e190e1b3432",
+        "error": {
+          "code": "UNSUPPORTED_VERSION"
+        }
+      }
+    },
+    {
+      "name": "rejection",
+      "expected": "FORBIDDEN",
+      "response": {
+        "requestId": "f9bb0073-f7ce-40bd-8b75-c7570da263f9",
+        "serviceEpoch": "48a334a5-83eb-4838-9269-5e190e1b3432",
+        "error": {
+          "code": "FORBIDDEN"
+        }
+      }
+    },
+    {
+      "name": "rejection",
+      "expected": "NOT_FOUND",
+      "response": {
+        "requestId": "2ca14e6c-1c8d-45a0-884a-c04691737b18",
+        "serviceEpoch": "48a334a5-83eb-4838-9269-5e190e1b3432",
+        "error": {
+          "code": "NOT_FOUND"
+        }
+      }
+    },
+    {
+      "name": "rejection",
+      "expected": "INVALID_REQUEST",
+      "response": {
+        "requestId": "0344fe09-e077-4b3b-9607-091ec44e593f",
+        "serviceEpoch": "48a334a5-83eb-4838-9269-5e190e1b3432",
+        "error": {
+          "code": "INVALID_REQUEST"
+        }
+      }
+    },
+    {
+      "name": "rejection",
+      "expected": "INVALID_REQUEST",
+      "response": {
+        "requestId": "53b34f1d-ab77-4f7a-b4a7-d2d4e2175368",
+        "serviceEpoch": "48a334a5-83eb-4838-9269-5e190e1b3432",
+        "error": {
+          "code": "INVALID_REQUEST"
+        }
+      }
+    },
+    {
+      "name": "host_sdk_surface",
+      "keys": [
+        "state",
+        "notify",
+        "notifyError",
+        "logs",
+        "navigate",
+        "onEvent",
+        "restartGateway",
+        "status",
+        "request"
+      ]
+    },
+    {
+      "name": "unsupported_confirmation_rejected_not_receipt_validation",
+      "payload": {
+        "confirmed": true
+      },
+      "response": {
+        "requestId": "72059000-bc8f-494c-a37c-3a7d79870e67",
+        "serviceEpoch": "48a334a5-83eb-4838-9269-5e190e1b3432",
+        "error": {
+          "code": "INVALID_REQUEST"
+        }
+      }
+    },
+    {
+      "name": "unsupported_confirmation_rejected_not_receipt_validation",
+      "payload": {
+        "proposalHash": "wrong"
+      },
+      "response": {
+        "requestId": "4aec5e92-2433-4b9b-994d-8cf7ea2192a1",
+        "serviceEpoch": "48a334a5-83eb-4838-9269-5e190e1b3432",
+        "error": {
+          "code": "INVALID_REQUEST"
+        }
+      }
+    },
+    {
+      "name": "unsupported_confirmation_rejected_not_receipt_validation",
+      "payload": {
+        "profileId": "other-profile"
+      },
+      "response": {
+        "requestId": "088ddc31-0bff-4e06-ae7a-7fb89d821d7d",
+        "serviceEpoch": "48a334a5-83eb-4838-9269-5e190e1b3432",
+        "error": {
+          "code": "INVALID_REQUEST"
+        }
+      }
+    },
+    {
+      "name": "unsupported_confirmation_rejected_not_receipt_validation",
+      "payload": {
+        "receipt": "replay"
+      },
+      "response": {
+        "requestId": "f37fcebb-ede5-43a0-9886-e2df4d1e9752",
+        "serviceEpoch": "48a334a5-83eb-4838-9269-5e190e1b3432",
+        "error": {
+          "code": "INVALID_REQUEST"
+        }
+      }
+    },
+    {
+      "name": "unsupported_confirmation_rejected_not_receipt_validation",
+      "payload": {
+        "revision": -1
+      },
+      "response": {
+        "requestId": "c3f9e115-7f83-4937-97d1-1a5b60ae52fe",
+        "serviceEpoch": "48a334a5-83eb-4838-9269-5e190e1b3432",
+        "error": {
+          "code": "INVALID_REQUEST"
+        }
+      }
+    },
+    {
+      "name": "unsupported_confirmation_rejected_not_receipt_validation",
+      "payload": {
+        "cancelled": true
+      },
+      "response": {
+        "requestId": "e025a111-8d6f-4e48-8b6d-1a320823997f",
+        "serviceEpoch": "48a334a5-83eb-4838-9269-5e190e1b3432",
+        "error": {
+          "code": "INVALID_REQUEST"
+        }
+      }
+    },
+    {
+      "name": "renderer_disabled_old_closure",
+      "response": {
+        "requestId": "17596817-1540-4a18-ba31-7bb6ef9f995d",
+        "serviceEpoch": "48a334a5-83eb-4838-9269-5e190e1b3432",
+        "result": {
+          "state": "READY"
+        }
+      },
+      "expectedRevoked": true,
+      "actualRevoked": false
+    },
+    {
+      "name": "renderer_reenabled",
+      "response": {
+        "requestId": "09d88b9f-9cc2-4048-8fcc-b551fdcfa7a5",
+        "serviceEpoch": "48a334a5-83eb-4838-9269-5e190e1b3432",
+        "result": {
+          "state": "READY"
+        }
+      }
+    },
+    {
+      "name": "backend_disabled",
+      "error": "Error: page.evaluate: Error: Error invoking remote method 'hermes:api': Error: 404: {\"detail\":\"Plugin not found\"}"
+    },
+    {
+      "name": "backend_reenabled",
+      "response": {
+        "requestId": "109cf483-343c-4995-a1e9-c5d350489c18",
+        "serviceEpoch": "48a334a5-83eb-4838-9269-5e190e1b3432",
+        "result": {
+          "state": "READY"
+        }
+      }
+    },
+    {
+      "name": "broker_close",
+      "response": {
+        "state": "STOPPED",
+        "exitCode": 0,
+        "transitions": [
+          "STOPPED",
+          "STARTING",
+          "READY",
+          "DRAINING",
+          "STOPPED"
+        ]
+      }
+    },
+    {
+      "name": "disconnected_no_success",
+      "error": "Error: page.evaluate: Error: Error invoking remote method 'hermes:api': Error: 503: {\"detail\":\"SERVICE_UNAVAILABLE\"}"
+    },
+    {
+      "name": "broker_open",
+      "response": {
+        "state": "READY",
+        "pid": 42676
+      }
+    },
+    {
+      "name": "service_restart_old_epoch",
+      "hello": {
+        "requestId": "3851df8c-c336-4b54-971a-565129df9b3e",
+        "serviceEpoch": "e9ac17de-331e-48d7-bb6d-d418445fd93a",
+        "result": {
+          "apiVersion": 1,
+          "serviceEpoch": "e9ac17de-331e-48d7-bb6d-d418445fd93a",
+          "capabilities": [
+            "fixture.read"
+          ]
+        }
+      },
+      "stale": {
+        "requestId": "6e0c9c82-17c1-40bb-a4d8-9c3be4d29377",
+        "serviceEpoch": "e9ac17de-331e-48d7-bb6d-d418445fd93a",
+        "error": {
+          "code": "SERVICE_RESTARTED"
+        }
+      }
+    },
+    {
+      "name": "service_crash_no_success",
+      "closeBeforeCrash": {
+        "state": "STOPPED",
+        "exitCode": 0,
+        "transitions": [
+          "STOPPED",
+          "STARTING",
+          "READY",
+          "DRAINING",
+          "STOPPED",
+          "STARTING",
+          "READY",
+          "DRAINING",
+          "STOPPED"
+        ]
+      },
+      "error": "Error: page.evaluate: Error: Error invoking remote method 'hermes:api': Error: 503: {\"detail\":\"SERVICE_EXITED\"}",
+      "failedClose": {
+        "state": "FAILED",
+        "exitCode": 1,
+        "transitions": [
+          "STOPPED",
+          "STARTING",
+          "READY",
+          "DRAINING",
+          "STOPPED",
+          "STARTING",
+          "READY",
+          "DRAINING",
+          "STOPPED",
+          "STARTING",
+          "READY",
+          "FAILED",
+          "DRAINING",
+          "FAILED"
+        ]
+      }
+    },
+    {
+      "name": "host_restart",
+      "hello": {
+        "requestId": "c56da96f-aeba-4532-9f1c-e08a81a6bd85",
+        "serviceEpoch": "a0aad8ec-e4e1-4edc-b4b1-b3712eb1e2ed",
+        "result": {
+          "apiVersion": 1,
+          "serviceEpoch": "a0aad8ec-e4e1-4edc-b4b1-b3712eb1e2ed",
+          "capabilities": [
+            "fixture.read"
+          ]
+        }
+      }
+    },
+    {
+      "name": "final_close",
+      "response": {
+        "state": "STOPPED",
+        "exitCode": 0,
+        "transitions": [
+          "STOPPED",
+          "STARTING",
+          "READY",
+          "DRAINING",
+          "STOPPED"
+        ]
+      }
+    }
+  ],
+  "errors": [],
+  "status": "PARTIAL",
+  "blocker": "Renderer disable does not revoke ctx.rest; Backend disable gates requests but does not close broker/process. Trusted confirmation absent."
+}
