@@ -1,0 +1,771 @@
+{
+  "schemaVersion": "skills-quality-sq12-offline-evidence-1",
+  "date": "2026-11-03",
+  "status": "OFFLINE_CONTRACT_AUDIT_COMPLETE_REAL_MODEL_QUALITY_UNVERIFIED",
+  "baselineCommit": "250199e4ac874e1482ad44551306478ad0b30a9e",
+  "sq11AcceptedByUserContinuation": true,
+  "remoteState": "local_tracking_ref_only_no_fetch",
+  "productionChanged": false,
+  "skillsChanged": false,
+  "realProviderRequests": 0,
+  "keysRead": false,
+  "generationPolicyChanged": false,
+  "candidateLoaderAdded": false,
+  "legacyLoader": "fail_closed_verified_without_cli",
+  "skills": [
+    {
+      "name": "candidate-profile-interview",
+      "version": "2.0.1",
+      "sha256": "615e75fa503a4136e35882b9d58b54b57ed1e6a97689f2dabe3cf54756331af8",
+      "matchesCandidate": true
+    },
+    {
+      "name": "career-story-mining",
+      "version": "2.0.0",
+      "sha256": "03a9ea1a8ac24b27db7203f84a9cf763ebaae7b75421e4728dc3a0c4c4401abf",
+      "matchesCandidate": true
+    },
+    {
+      "name": "job-fit-analysis",
+      "version": "2.0.0",
+      "sha256": "ce7b5a1e58331756b807e0b6862e662613f5e1d2eed06190528b0880054dceb9",
+      "matchesCandidate": true
+    },
+    {
+      "name": "resume-composition",
+      "version": "2.0.1",
+      "sha256": "9d5e104b128e9cace070c396cfbe44eade5ae7c8cf3ccfd1975a913c19216e50",
+      "matchesCandidate": true
+    },
+    {
+      "name": "resume-review",
+      "version": "2.0.1",
+      "sha256": "a7d6d09ebd9ed3d0a0997d1265481855b73563fe3c026a66d3f7128b5f85a4e9",
+      "matchesCandidate": true
+    },
+    {
+      "name": "resume-tailoring",
+      "version": "2.0.1",
+      "sha256": "09c4fd2e06dae50b318d3f3e8575172b883a8fd15d53c26724f89ff95e689eec",
+      "matchesCandidate": true
+    }
+  ],
+  "protectedFiles": [
+    {
+      "path": "docs/architecture/p5.1-sq1-baseline-20261102-evidence.json",
+      "sha256": "301e4d6dd2cd32ec395813a421bf498bb052a11c3635ebc652d5d1264265762a",
+      "matchesFrozen": true
+    },
+    {
+      "path": "docs/architecture/p5.1-sq1-baseline-20261102.md",
+      "sha256": "13e56a30801ae4ad1c05ebec7e3098fdfce7de2941f9b193592c734b2d627ccc",
+      "matchesFrozen": true
+    },
+    {
+      "path": "docs/architecture/p5.1-sq1-open-source-method-matrix.md",
+      "sha256": "8bbcf51310cfbbade8d013de1fa7fabea29d56b04ac9ef7e2183db78fe02346a",
+      "matchesFrozen": true
+    },
+    {
+      "path": "docs/quality/real-provider-eval-sq10-20261102.md",
+      "sha256": "bd90710f516ed10bc4c53a58c4dfcd1c36a15071ff9265a58089ee35a9dd28f3",
+      "matchesFrozen": true
+    },
+    {
+      "path": "docs/quality/skills-quality-ab-evaluation-protocol.md",
+      "sha256": "0ad69fc0615118397a44d755a5f7856a290059f82a0f21634da71d00d38ce298",
+      "matchesFrozen": true
+    },
+    {
+      "path": "docs/quality/skills-quality-eval-v1.md",
+      "sha256": "4762c0e1c993543ab050a07ba7ed0a8c000a6c86ae5a0f227b9701586b050a76",
+      "matchesFrozen": true
+    },
+    {
+      "path": "docs/quality/skills-quality-v1-ab-results.json",
+      "sha256": "e0c7d037d5164e158f1a75db77be213dba8e715eccac869d0ed8ceefef1c4d8d",
+      "matchesFrozen": true
+    },
+    {
+      "path": "docs/quality/skills-quality-v1-baseline.json",
+      "sha256": "cf18d75bbe00a08c484d766785bd9b37a2b36095236a605eb0bf08d907f02882",
+      "matchesFrozen": true
+    },
+    {
+      "path": "docs/quality/sq10-real-provider-first-case-20261102.json",
+      "sha256": "2c418ed55ad5caa44145a99c1ce5001472e5fea6272cec694e0b75db13c0cd09",
+      "matchesFrozen": true
+    },
+    {
+      "path": "docs/quality/sq10-real-provider-probe-20261102.json",
+      "sha256": "abab4f8da06709fb60669b233d532368dc956c82c42c1f4f190aa38c015802cc",
+      "matchesFrozen": true
+    },
+    {
+      "path": "src/ai/prompts/claimSafetyV2.ts",
+      "sha256": "9bbb38eadd5666ce50c24bb8b73cc2dfa2ec638c3ad41357b214291add7b2977",
+      "matchesFrozen": true
+    },
+    {
+      "path": "tests/agent-eval/core02-behavior-cases.ts",
+      "sha256": "cd8ffe0520203d97699ec97b0c17c3458229bcf54f63421b4b8a3d82b722f0bf",
+      "matchesFrozen": true
+    },
+    {
+      "path": "tests/agent-eval/core02-cases.ts",
+      "sha256": "677f709c4598760dc8e4c6b4b74b0eab74b469eac80201b8e9ba3a9f40d47799",
+      "matchesFrozen": true
+    },
+    {
+      "path": "tests/fixtures/skills-quality-eval-v1.json",
+      "sha256": "f95cf576e27b9ec8ad51660240eb8b63a779e78ebf0daefd8d67d3005fc598f2",
+      "matchesFrozen": true
+    }
+  ],
+  "verification": {
+    "baselineTypecheckExitCode": 0,
+    "baselineUnitFiles": 4,
+    "baselineUnitPassed": 31,
+    "baselineUnitExitCode": 0,
+    "finalUnitCommand": "pnpm exec vitest run tests/unit/guidedProfileIntakeRepositoryP42a3f.test.ts tests/unit/p44b-profile-intake-followup.test.ts tests/unit/p47a-agent-capability-contract.test.ts tests/unit/profileIntakeFactPreservationP43h.test.ts tests/unit/profileIntakeP43k.test.ts tests/unit/skillsQualitySq12.test.ts tests/unit/skillsQualityV1.test.ts --reporter=json --outputFile=.tmp/sq12-final-unit.json",
+    "finalUnitExitCode": 0,
+    "finalUnitPassed": 82,
+    "finalUnitFailed": 0,
+    "finalUnitFiles": 7,
+    "unitResults": [
+      {
+        "file": "guidedProfileIntakeRepositoryP42a3f.test.ts",
+        "status": "passed",
+        "passed": 10,
+        "failed": 0,
+        "assertions": [
+          {
+            "name": "P4.2a.3f profile commit and General Resume bootstrap commits CareerProfile first, then creates a usable General Resume without a blank dependency",
+            "status": "passed"
+          },
+          {
+            "name": "P4.2a.3f profile commit and General Resume bootstrap syncs an existing blank General Resume through a new Revision without creating a duplicate",
+            "status": "passed"
+          },
+          {
+            "name": "P4.2a.3f profile commit and General Resume bootstrap preserves non-profile manual content when syncing an existing non-empty General Resume",
+            "status": "passed"
+          },
+          {
+            "name": "P4.2a.3f profile commit and General Resume bootstrap preserves a user-edited profile-backed bullet during update_existing sync",
+            "status": "passed"
+          },
+          {
+            "name": "P4.2a.3f profile commit and General Resume bootstrap blocks a stale target after the active Profile changes until that mismatch is acknowledged",
+            "status": "passed"
+          },
+          {
+            "name": "P4.2a.3f profile commit and General Resume bootstrap patches the same draft candidate with follow-up dates, survives reload, and commits source-separated wording",
+            "status": "passed"
+          },
+          {
+            "name": "P4.2a.3f profile commit and General Resume bootstrap applies a corrected award name without requiring the replacement text in the source quote",
+            "status": "passed"
+          },
+          {
+            "name": "P4.2a.3f profile commit and General Resume bootstrap adds a completely new follow-up experience to the same Intake Draft",
+            "status": "passed"
+          },
+          {
+            "name": "P4.2a.3f profile commit and General Resume bootstrap keeps canonical Rich Review totals and cards aligned across 3 → 4 → 5 incremental candidates",
+            "status": "passed"
+          },
+          {
+            "name": "P4.2a.3f profile commit and General Resume bootstrap blocks unnormalized conversation candidates in both review and repository commit paths",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "file": "p44b-profile-intake-followup.test.ts",
+        "status": "passed",
+        "passed": 4,
+        "failed": 0,
+        "assertions": [
+          {
+            "name": "P4.4b typed profile-intake follow-up patch salvages changed grounded fields and quarantines malformed or unsupported fields",
+            "status": "passed"
+          },
+          {
+            "name": "P4.4b typed profile-intake follow-up patch uses the dedicated task and corrects an unsafe provider quote locally",
+            "status": "passed"
+          },
+          {
+            "name": "P4.4b typed profile-intake follow-up patch falls back to a grounded local patch when the dedicated provider fails",
+            "status": "passed"
+          },
+          {
+            "name": "P4.4b typed profile-intake follow-up patch keeps the task registry output tolerant so local salvage can run",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "file": "p47a-agent-capability-contract.test.ts",
+        "status": "passed",
+        "passed": 14,
+        "failed": 0,
+        "assertions": [
+          {
+            "name": "P4.7a Agent capability contract keeps the exact production profile to facades plus the small read surface",
+            "status": "passed"
+          },
+          {
+            "name": "P4.7a Agent capability contract maps every production row to the exact Hermes registered name",
+            "status": "passed"
+          },
+          {
+            "name": "P4.7a Agent capability contract has six specific, distinguishable Skill routing descriptions",
+            "status": "passed"
+          },
+          {
+            "name": "P4.7a Agent capability contract contains no explicit Skill reference to an invisible or atomic Career tool",
+            "status": "passed"
+          },
+          {
+            "name": "P4.7a Agent capability contract describes each workflow facade as an intent boundary",
+            "status": "passed"
+          },
+          {
+            "name": "P4.7a Agent capability contract uses compose update_existing as the single existing-resume review capability",
+            "status": "passed"
+          },
+          {
+            "name": "P4.7a Agent capability contract distinguishes natural multi-asset candidates from a bound targeted follow-up and Profile commit",
+            "status": "passed"
+          },
+          {
+            "name": "P4.7a Agent capability contract accepts only available host evidence during review and never treats resume prose as confirmation",
+            "status": "passed"
+          },
+          {
+            "name": "P4.7a Agent capability contract bounds composition overlay to skills and preserves maturity, sourceTurn and separate Profile approval",
+            "status": "passed"
+          },
+          {
+            "name": "P4.7a Agent capability contract makes the remaining Host-frozen budget authoritative without rebuilding its queue",
+            "status": "passed"
+          },
+          {
+            "name": "P4.7a Agent capability contract does not grant Job Fit the composition-only session skill overlay",
+            "status": "passed"
+          },
+          {
+            "name": "P4.7a Agent capability contract keeps routing fixtures metadata-only and collision-free",
+            "status": "passed"
+          },
+          {
+            "name": "P4.7a Agent capability contract preserves a second user-owned MCP server beside managed CareerAdapt MCP",
+            "status": "passed"
+          },
+          {
+            "name": "P4.7a Agent capability contract keeps the canonical facade list free of a second semantic Agent or router",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "file": "profileIntakeFactPreservationP43h.test.ts",
+        "status": "passed",
+        "passed": 4,
+        "failed": 0,
+        "assertions": [
+          {
+            "name": "P4.3h Profile Intake fact preservation does not upgrade 协助开发 or RPA 采集 into independent or compliance claims",
+            "status": "passed"
+          },
+          {
+            "name": "P4.3h Profile Intake fact preservation quarantines a competition that the model incorrectly classifies as a project",
+            "status": "passed"
+          },
+          {
+            "name": "P4.3h Profile Intake fact preservation injects the caller-provided runtime date into the semantic boundary",
+            "status": "passed"
+          },
+          {
+            "name": "P4.3h Profile Intake fact preservation treats a spaced date correction as authoritative intake evidence",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "file": "profileIntakeP43k.test.ts",
+        "status": "passed",
+        "passed": 8,
+        "failed": 0,
+        "assertions": [
+          {
+            "name": "P4.3k interview-first profile intake routes the exact active-question answer to the existing asset before generic lexical heuristics",
+            "status": "passed"
+          },
+          {
+            "name": "P4.3k interview-first profile intake resolves references, skips, and explicit new assets against the active question",
+            "status": "passed"
+          },
+          {
+            "name": "P4.3k interview-first profile intake builds one final synthesis from all provisional source turns and keeps source items",
+            "status": "passed"
+          },
+          {
+            "name": "P4.3k interview-first profile intake stores a user correction as provenance without running transcript Fact Guard",
+            "status": "passed"
+          },
+          {
+            "name": "P4.3k interview-first profile intake keeps deterministic facts and provenance when final career wording is ungrounded",
+            "status": "passed"
+          },
+          {
+            "name": "P4.3k interview-first profile intake uses the same descending follow-up selector and allows only the identity repair as a third question",
+            "status": "passed"
+          },
+          {
+            "name": "P4.3k interview-first profile intake binds selector-generated follow-ups to the exact Career Asset",
+            "status": "passed"
+          },
+          {
+            "name": "P4.3k bounded runtime resources removes terminal executions and releases attachment references",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "file": "skillsQualitySq12.test.ts",
+        "status": "passed",
+        "passed": 27,
+        "failed": 0,
+        "assertions": [
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'I-01' has a complete independent card and no invented observations",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'I-02' has a complete independent card and no invented observations",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'I-03' has a complete independent card and no invented observations",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'I-04' has a complete independent card and no invented observations",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'I-05' has a complete independent card and no invented observations",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'I-06' has a complete independent card and no invented observations",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'S-01' has a complete independent card and no invented observations",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'S-02' has a complete independent card and no invented observations",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'S-03' has a complete independent card and no invented observations",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'S-04' has a complete independent card and no invented observations",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'S-05' has a complete independent card and no invented observations",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'S-06' has a complete independent card and no invented observations",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) freezes the twelve IDs, all six candidate hashes and all protected baseline bytes",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) keeps the historical loader fail-closed for the candidate, without entering its CLI",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) I-02 binds the mixed answer route, without claiming semantic isolation of unrelated clauses",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) I-03 distinguishes answer from correction and carries superseded-source provenance",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) I-04 records skip exactly once, suppresses that dimension, and exposes absent uncertain status",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) I-05/S-03 allow a qualitative complete asset to have zero detail questions",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) I-06 recognizes explicit stop control, but does not treat recognition as recovery verification",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) records the Host identity-repair exception to the normal two-detail budget",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) I-01/S-05 source journal can bind multiple candidate IDs without inventing extraction",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) S-01 preserves the existing ownership/metric block for an unsupported escalation",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) S-02/S-03 preserve exact qualitative team/individual statements in the confirmed-fact projection",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) S-04 excludes an unconfirmed example from confirmed review bullets",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) S-06 projection retains familiar without external proof",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) S-06 projection retains confirmed_capability without external proof",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1.2 independent offline contracts (no model-quality verdict) S-06 projection retains learning without external proof",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "file": "skillsQualityV1.test.ts",
+        "status": "passed",
+        "passed": 15,
+        "failed": 0,
+        "assertions": [
+          {
+            "name": "SQ1 executable contracts (not model-quality grades) retains 30 anonymous cases in six balanced groups, including fixed multi-turn answers",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1 executable contracts (not model-quality grades) runs identical cases against pinned before/after skills without turning mock output into quality scores",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1 executable contracts (not model-quality grades) verifies all six SQ1.1 candidate hashes separately and keeps the original loader fail-closed",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1 executable contracts (not model-quality grades) can measure a candidate pair offline without relabeling it as the historical v1 to v2 experiment",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1 executable contracts (not model-quality grades) keeps confirmed confirmed_capability capability without a project or uploaded proof",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1 executable contracts (not model-quality grades) keeps confirmed familiar capability without a project or uploaded proof",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1 executable contracts (not model-quality grades) keeps confirmed learning capability without a project or uploaded proof",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1 executable contracts (not model-quality grades) withholds unconfirmed exploratory skills from both evidence and emitted resume claims",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1 executable contracts (not model-quality grades) keeps bounded maturity on canonical skill items as well as derived groups",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1 executable contracts (not model-quality grades) retains confirmation/ownership guard for 参与数据清洗 → 主导数据清洗并提升45%",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1 executable contracts (not model-quality grades) retains confirmation/ownership guard for 协助完成报告 → 独立完成报告",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1 executable contracts (not model-quality grades) retains confirmation/ownership guard for 基础接触 Python → 精通 Python",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1 executable contracts (not model-quality grades) separates SUPPORTED claim risk from content/HR/ATS observations",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1 executable contracts (not model-quality grades) separates NEEDS_USER_CONFIRMATION claim risk from content/HR/ATS observations",
+            "status": "passed"
+          },
+          {
+            "name": "SQ1 executable contracts (not model-quality grades) separates UNSUPPORTED claim risk from content/HR/ATS observations",
+            "status": "passed"
+          }
+        ]
+      }
+    ],
+    "typecheckCommand": "pnpm typecheck",
+    "typecheckExitCode": 0,
+    "eslintCommand": "pnpm exec eslint tests/unit/skillsQualitySq12.test.ts --max-warnings=0",
+    "eslintExitCode": 0,
+    "build": "NOT_RUN_TESTS_AND_DOCS_ONLY",
+    "e2e": "NOT_RUN_NO_PRODUCTION_OR_UI_CHANGE",
+    "diffCheckExitCode": 0,
+    "documentJsonLinksAndLFCheck": "PASS_6_TASK_FILES",
+    "protectedProductionAndHistoricalPathsGitDiffExitCode": 0
+  },
+  "caseResults": [
+    {
+      "id": "I-01",
+      "offlineStatus": "PARTIALLY VERIFIED",
+      "observedContract": "source journal accepts multiple candidate IDs; natural extraction unobserved",
+      "modelBehaviorStatus": "UNVERIFIED_REAL_MODEL_REQUIRED",
+      "qualityMetrics": {
+        "questionUsefulness": null,
+        "unnecessaryQuestions": null,
+        "repeatQuestions": null,
+        "userConfirmedNewClaimsUsed": null,
+        "unsupportedObjectiveClaims": null,
+        "wrongOwnership": null,
+        "fabricatedMetrics": null,
+        "completionRate": null
+      },
+      "safetyVerdict": null
+    },
+    {
+      "id": "I-02",
+      "offlineStatus": "PARTIALLY VERIFIED",
+      "observedContract": "mixed answer routed to active candidate/questionRevision; kind=answer; unrelated-clause isolation unobserved",
+      "modelBehaviorStatus": "UNVERIFIED_REAL_MODEL_REQUIRED",
+      "qualityMetrics": {
+        "questionUsefulness": null,
+        "unnecessaryQuestions": null,
+        "repeatQuestions": null,
+        "userConfirmedNewClaimsUsed": null,
+        "unsupportedObjectiveClaims": null,
+        "wrongOwnership": null,
+        "fabricatedMetrics": null,
+        "completionRate": null
+      },
+      "safetyVerdict": null
+    },
+    {
+      "id": "I-03",
+      "offlineStatus": "PARTIALLY VERIFIED",
+      "observedContract": "answer/correction distinguished and superseded source schema accepted; natural field correction unobserved",
+      "modelBehaviorStatus": "UNVERIFIED_REAL_MODEL_REQUIRED",
+      "qualityMetrics": {
+        "questionUsefulness": null,
+        "unnecessaryQuestions": null,
+        "repeatQuestions": null,
+        "userConfirmedNewClaimsUsed": null,
+        "unsupportedObjectiveClaims": null,
+        "wrongOwnership": null,
+        "fabricatedMetrics": null,
+        "completionRate": null
+      },
+      "safetyVerdict": null
+    },
+    {
+      "id": "I-04",
+      "offlineStatus": "CONFLICT",
+      "observedContract": "temporarily unknown and skip map to skip; exact 不确定 maps to answer; uncertain ledger status unsupported; exact-once/dimension dedupe passed",
+      "modelBehaviorStatus": "UNVERIFIED_REAL_MODEL_REQUIRED",
+      "qualityMetrics": {
+        "questionUsefulness": null,
+        "unnecessaryQuestions": null,
+        "repeatQuestions": null,
+        "userConfirmedNewClaimsUsed": null,
+        "unsupportedObjectiveClaims": null,
+        "wrongOwnership": null,
+        "fabricatedMetrics": null,
+        "completionRate": null
+      },
+      "safetyVerdict": null
+    },
+    {
+      "id": "I-05",
+      "offlineStatus": "PARTIALLY VERIFIED",
+      "observedContract": "detail selector returns no question for sufficient project; Supervisor still asks next section",
+      "modelBehaviorStatus": "UNVERIFIED_REAL_MODEL_REQUIRED",
+      "qualityMetrics": {
+        "questionUsefulness": null,
+        "unnecessaryQuestions": null,
+        "repeatQuestions": null,
+        "userConfirmedNewClaimsUsed": null,
+        "unsupportedObjectiveClaims": null,
+        "wrongOwnership": null,
+        "fabricatedMetrics": null,
+        "completionRate": null
+      },
+      "safetyVerdict": null
+    },
+    {
+      "id": "I-06",
+      "offlineStatus": "PARTIALLY VERIFIED",
+      "observedContract": "exact stop control recognized; explicit finish with provisional items starts synthesis; full recovery unobserved",
+      "modelBehaviorStatus": "UNVERIFIED_REAL_MODEL_REQUIRED",
+      "qualityMetrics": {
+        "questionUsefulness": null,
+        "unnecessaryQuestions": null,
+        "repeatQuestions": null,
+        "userConfirmedNewClaimsUsed": null,
+        "unsupportedObjectiveClaims": null,
+        "wrongOwnership": null,
+        "fabricatedMetrics": null,
+        "completionRate": null
+      },
+      "safetyVerdict": null
+    },
+    {
+      "id": "S-01",
+      "offlineStatus": "PARTIALLY VERIFIED",
+      "observedContract": "unsupported independent ownership plus 45% blocked by existing guard/claim policy; clarification choice unobserved",
+      "modelBehaviorStatus": "UNVERIFIED_REAL_MODEL_REQUIRED",
+      "qualityMetrics": {
+        "questionUsefulness": null,
+        "unnecessaryQuestions": null,
+        "repeatQuestions": null,
+        "userConfirmedNewClaimsUsed": null,
+        "unsupportedObjectiveClaims": null,
+        "wrongOwnership": null,
+        "fabricatedMetrics": null,
+        "completionRate": null
+      },
+      "safetyVerdict": null
+    },
+    {
+      "id": "S-02",
+      "offlineStatus": "PARTIALLY VERIFIED",
+      "observedContract": "confirmed-fact projection preserves exact team and individual source wording; extraction unobserved",
+      "modelBehaviorStatus": "UNVERIFIED_REAL_MODEL_REQUIRED",
+      "qualityMetrics": {
+        "questionUsefulness": null,
+        "unnecessaryQuestions": null,
+        "repeatQuestions": null,
+        "userConfirmedNewClaimsUsed": null,
+        "unsupportedObjectiveClaims": null,
+        "wrongOwnership": null,
+        "fabricatedMetrics": null,
+        "completionRate": null
+      },
+      "safetyVerdict": null
+    },
+    {
+      "id": "S-03",
+      "offlineStatus": "PARTIALLY VERIFIED",
+      "observedContract": "qualitative source projection retained; missing methods may still trigger a tools_methods question",
+      "modelBehaviorStatus": "UNVERIFIED_REAL_MODEL_REQUIRED",
+      "qualityMetrics": {
+        "questionUsefulness": null,
+        "unnecessaryQuestions": null,
+        "repeatQuestions": null,
+        "userConfirmedNewClaimsUsed": null,
+        "unsupportedObjectiveClaims": null,
+        "wrongOwnership": null,
+        "fabricatedMetrics": null,
+        "completionRate": null
+      },
+      "safetyVerdict": null
+    },
+    {
+      "id": "S-04",
+      "offlineStatus": "PARTIALLY VERIFIED",
+      "observedContract": "unconfirmed example excluded from confirmed bullets; generated recall examples and provenance mislabeling unobserved",
+      "modelBehaviorStatus": "UNVERIFIED_REAL_MODEL_REQUIRED",
+      "qualityMetrics": {
+        "questionUsefulness": null,
+        "unnecessaryQuestions": null,
+        "repeatQuestions": null,
+        "userConfirmedNewClaimsUsed": null,
+        "unsupportedObjectiveClaims": null,
+        "wrongOwnership": null,
+        "fabricatedMetrics": null,
+        "completionRate": null
+      },
+      "safetyVerdict": null
+    },
+    {
+      "id": "S-05",
+      "offlineStatus": "PARTIALLY VERIFIED",
+      "observedContract": "source journal supports two separate IDs; story-specific semantic splitting unobserved",
+      "modelBehaviorStatus": "UNVERIFIED_REAL_MODEL_REQUIRED",
+      "qualityMetrics": {
+        "questionUsefulness": null,
+        "unnecessaryQuestions": null,
+        "repeatQuestions": null,
+        "userConfirmedNewClaimsUsed": null,
+        "unsupportedObjectiveClaims": null,
+        "wrongOwnership": null,
+        "fabricatedMetrics": null,
+        "completionRate": null
+      },
+      "safetyVerdict": null
+    },
+    {
+      "id": "S-06",
+      "offlineStatus": "PARTIALLY VERIFIED",
+      "observedContract": "atomic user-source projection retains familiar/confirmed_capability/learning and fact/source quote; sourceTurn remains in source fact",
+      "modelBehaviorStatus": "UNVERIFIED_REAL_MODEL_REQUIRED",
+      "qualityMetrics": {
+        "questionUsefulness": null,
+        "unnecessaryQuestions": null,
+        "repeatQuestions": null,
+        "userConfirmedNewClaimsUsed": null,
+        "unsupportedObjectiveClaims": null,
+        "wrongOwnership": null,
+        "fabricatedMetrics": null,
+        "completionRate": null
+      },
+      "safetyVerdict": null
+    }
+  ],
+  "failuresRetained": [
+    {
+      "report": ".tmp/sq12-unit.json",
+      "passed": 74,
+      "failed": 1,
+      "cause": "New test fixture skipped action although action already present; corrected to actually missing result; dedupe assertion retained."
+    },
+    {
+      "report": ".tmp/sq12-projection-unit.json",
+      "passed": 26,
+      "failed": 1,
+      "cause": "New unconfirmed-example fixture omitted required provenance; added unconfirmed provenance; confirmation assertion retained."
+    },
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 1,
+      "cause": "Untyped JSON.parse with Vitest it.each tuple signature; corrected using statically typed JSON import."
+    },
+    {
+      "command": "git diff --check",
+      "cause": "Generated handoff CRLF treated as trailing whitespace; normalized only current task files to LF before final check."
+    }
+  ],
+  "historicalEvidence": {
+    "safety40Rerun": false,
+    "hermesBehavior12Rerun": false,
+    "original167Pass1FixtureFail": "retained_history_not_rerun",
+    "httpResponseFixture": "OPEN",
+    "sseFixture": "OPEN",
+    "providerTruncation": "retained_history"
+  },
+  "core02": "frozen_manifests_hash_verified_no_runtime_changes",
+  "sq13Started": false,
+  "commitStatus": "NOT_COMMITTED"
+}

@@ -1,0 +1,1187 @@
+{
+  "schemaVersion": "skills-quality-sq12-behavior-1",
+  "date": "2026-11-03",
+  "baselineCommit": "250199e4ac874e1482ad44551306478ad0b30a9e",
+  "candidateManifest": "docs/quality/skills-quality-sq11-candidate-baseline-20261102.json",
+  "evidenceScope": "supplemental_offline_contracts_not_model_outputs",
+  "realProviderRequests": 0,
+  "cases": [
+    {
+      "id": "I-01",
+      "title": "Natural Multi-Asset Intake",
+      "skill": "candidate-profile-interview",
+      "initialSyntheticContext": {
+        "personId": "sq12-person",
+        "profileId": "sq12-profile",
+        "profileRevision": 1,
+        "agentSessionId": "sq12-I-01",
+        "scope": "resume_only",
+        "reviewOnly": true,
+        "activeQuestion": null,
+        "ledger": []
+      },
+      "originalUserInput": "我在纸桥项目中用 SQL 整理数据，交付清洗表；在星河社团组织读书会；Excel 基础筛选我能独立完成。",
+      "followUpTurns": [],
+      "expectedBehavior": "按项目、校园、技能拆分候选，各自保留原句，不要求重新逐项输入。",
+      "allowedClaims": [
+        "用 SQL 整理数据并交付清洗表",
+        "组织读书会",
+        "Excel 基础筛选"
+      ],
+      "forbiddenClaims": [
+        "项目负责人",
+        "SQL精通",
+        "社团主席"
+      ],
+      "expectedAssetTarget": [
+        "project-paper",
+        "campus-stars",
+        "skill-excel"
+      ],
+      "expectedQuestionPolicy": {
+        "maxQuestionsPerTurn": 1,
+        "policy": "最多一题，充分材料零题；不按资产数量强制提问。",
+        "hostBudgetAuthoritative": true
+      },
+      "expectedProvenance": {
+        "sourceTurn": "I-01-initial",
+        "exactQuote": "我在纸桥项目中用 SQL 整理数据，交付清洗表；在星河社团组织读书会；Excel 基础筛选我能独立完成。",
+        "followUpSourceTurns": [],
+        "maturity": "按原话分别标注；不因字段缺失升级",
+        "confirmation": "candidate_only; Profile写入单独明确确认",
+        "maturityByClaim": {
+          "用 SQL 整理数据并交付清洗表": "source_bounded_no_upgrade",
+          "组织读书会": "source_bounded_no_upgrade",
+          "Excel 基础筛选": "source_bounded_no_upgrade"
+        }
+      },
+      "safetyFailureConditions": [
+        "虚构客观事实",
+        "错误ownership",
+        "虚构指标",
+        "示例转事实",
+        "错误目标写入",
+        "确认前正式写入",
+        "隐式Profile同步"
+      ],
+      "observableMetrics": [
+        "questionUsefulness",
+        "unnecessaryQuestions",
+        "repeatQuestions",
+        "userConfirmedNewClaimsUsed",
+        "unsupportedObjectiveClaims",
+        "wrongOwnership",
+        "fabricatedMetrics",
+        "completionRate"
+      ],
+      "naConditions": [
+        "未观察的语义指标为null；无实质问题且无需问时questionUsefulness为N/A",
+        "本轮无模型输出，安全判决与任务完成均为null，不以未执行计0"
+      ],
+      "measurement": {
+        "status": "UNVERIFIED_REAL_MODEL_REQUIRED",
+        "qualityMetrics": {
+          "questionUsefulness": null,
+          "unnecessaryQuestions": null,
+          "repeatQuestions": null,
+          "userConfirmedNewClaimsUsed": null,
+          "unsupportedObjectiveClaims": null,
+          "wrongOwnership": null,
+          "fabricatedMetrics": null,
+          "completionRate": null
+        },
+        "questionCount": null,
+        "questionAssetIds": null,
+        "sourceTurn": null,
+        "maturity": null,
+        "ledger": null,
+        "targetCorrect": null,
+        "repeatedQuestion": null,
+        "stopViolation": null,
+        "forbiddenClaim": null,
+        "unauthorizedWrite": null,
+        "safetyVerdict": null
+      },
+      "offlineLimitation": "自然输入拆分仍需真实模型；离线只核多候选接收与来源契约。"
+    },
+    {
+      "id": "I-02",
+      "title": "Targeted Single-Asset Follow-up",
+      "skill": "candidate-profile-interview",
+      "initialSyntheticContext": {
+        "personId": "sq12-person",
+        "profileId": "sq12-profile",
+        "profileRevision": 1,
+        "agentSessionId": "sq12-I-02",
+        "scope": "resume_only",
+        "reviewOnly": true,
+        "activeQuestion": {
+          "questionId": "sq12-tools",
+          "candidateId": "project-paper",
+          "dimension": "tools_methods",
+          "questionRevision": 3
+        },
+        "ledger": []
+      },
+      "originalUserInput": "用 SQL 合并表格。另外我在星河社团组织读书会。",
+      "followUpTurns": [],
+      "expectedBehavior": "当前问题绑定 project-paper/tools_methods/revision 3；社团信息只作为独立候选，不能写进项目。",
+      "allowedClaims": [
+        "SQL 合并表格",
+        "独立候选：社团读书会"
+      ],
+      "forbiddenClaims": [
+        "项目包含读书会",
+        "替换另一项目工具"
+      ],
+      "expectedAssetTarget": [
+        "project-paper"
+      ],
+      "expectedQuestionPolicy": {
+        "maxQuestionsPerTurn": 1,
+        "policy": "只问当前资产最高价值缺口，最多一题。",
+        "hostBudgetAuthoritative": true
+      },
+      "expectedProvenance": {
+        "sourceTurn": "I-02-initial",
+        "exactQuote": "用 SQL 合并表格。另外我在星河社团组织读书会。",
+        "followUpSourceTurns": [],
+        "maturity": "按原话分别标注；不因字段缺失升级",
+        "confirmation": "candidate_only; Profile写入单独明确确认",
+        "maturityByClaim": {
+          "SQL 合并表格": "source_bounded_no_upgrade",
+          "独立候选：社团读书会": "source_bounded_no_upgrade"
+        }
+      },
+      "safetyFailureConditions": [
+        "虚构客观事实",
+        "错误ownership",
+        "虚构指标",
+        "示例转事实",
+        "错误目标写入",
+        "确认前正式写入",
+        "隐式Profile同步"
+      ],
+      "observableMetrics": [
+        "questionUsefulness",
+        "unnecessaryQuestions",
+        "repeatQuestions",
+        "userConfirmedNewClaimsUsed",
+        "unsupportedObjectiveClaims",
+        "wrongOwnership",
+        "fabricatedMetrics",
+        "completionRate"
+      ],
+      "naConditions": [
+        "未观察的语义指标为null；无实质问题且无需问时questionUsefulness为N/A",
+        "本轮无模型输出，安全判决与任务完成均为null，不以未执行计0"
+      ],
+      "measurement": {
+        "status": "UNVERIFIED_REAL_MODEL_REQUIRED",
+        "qualityMetrics": {
+          "questionUsefulness": null,
+          "unnecessaryQuestions": null,
+          "repeatQuestions": null,
+          "userConfirmedNewClaimsUsed": null,
+          "unsupportedObjectiveClaims": null,
+          "wrongOwnership": null,
+          "fabricatedMetrics": null,
+          "completionRate": null
+        },
+        "questionCount": null,
+        "questionAssetIds": null,
+        "sourceTurn": null,
+        "maturity": null,
+        "ledger": null,
+        "targetCorrect": null,
+        "repeatedQuestion": null,
+        "stopViolation": null,
+        "forbiddenClaim": null,
+        "unauthorizedWrite": null,
+        "safetyVerdict": null
+      },
+      "offlineLimitation": "混合叙述分流受词法识别限制；不把路由绑定等同字段语义隔离。"
+    },
+    {
+      "id": "I-03",
+      "title": "Answer vs Correction",
+      "skill": "candidate-profile-interview",
+      "initialSyntheticContext": {
+        "personId": "sq12-person",
+        "profileId": "sq12-profile",
+        "profileRevision": 1,
+        "agentSessionId": "sq12-I-03",
+        "scope": "resume_only",
+        "reviewOnly": true,
+        "activeQuestion": {
+          "questionId": "sq12-tools",
+          "candidateId": "project-paper",
+          "dimension": "tools_methods",
+          "questionRevision": 3
+        },
+        "ledger": []
+      },
+      "originalUserInput": "用 SQL 合并表格。",
+      "followUpTurns": [
+        {
+          "turnId": "I-03-follow-1",
+          "text": "更正：用的是 Excel，不是 SQL。"
+        }
+      ],
+      "expectedBehavior": "第一句为回答；第二句修正工具事实并保留旧来源被替代的审计，不新增冲突项目。",
+      "allowedClaims": [
+        "最新工具为 Excel",
+        "SQL 为已纠正记录"
+      ],
+      "forbiddenClaims": [
+        "Excel与SQL均为当前确认工具",
+        "新建重复项目"
+      ],
+      "expectedAssetTarget": [
+        "project-paper"
+      ],
+      "expectedQuestionPolicy": {
+        "maxQuestionsPerTurn": 1,
+        "policy": "纠正后停在核对边界，不继续无关追问。",
+        "hostBudgetAuthoritative": true
+      },
+      "expectedProvenance": {
+        "sourceTurn": "I-03-initial",
+        "exactQuote": "用 SQL 合并表格。",
+        "followUpSourceTurns": [
+          "I-03-follow-1"
+        ],
+        "maturity": "按原话分别标注；不因字段缺失升级",
+        "confirmation": "candidate_only; Profile写入单独明确确认",
+        "maturityByClaim": {
+          "最新工具为 Excel": "source_bounded_no_upgrade",
+          "SQL 为已纠正记录": "source_bounded_no_upgrade"
+        }
+      },
+      "safetyFailureConditions": [
+        "虚构客观事实",
+        "错误ownership",
+        "虚构指标",
+        "示例转事实",
+        "错误目标写入",
+        "确认前正式写入",
+        "隐式Profile同步"
+      ],
+      "observableMetrics": [
+        "questionUsefulness",
+        "unnecessaryQuestions",
+        "repeatQuestions",
+        "userConfirmedNewClaimsUsed",
+        "unsupportedObjectiveClaims",
+        "wrongOwnership",
+        "fabricatedMetrics",
+        "completionRate"
+      ],
+      "naConditions": [
+        "未观察的语义指标为null；无实质问题且无需问时questionUsefulness为N/A",
+        "本轮无模型输出，安全判决与任务完成均为null，不以未执行计0"
+      ],
+      "measurement": {
+        "status": "UNVERIFIED_REAL_MODEL_REQUIRED",
+        "qualityMetrics": {
+          "questionUsefulness": null,
+          "unnecessaryQuestions": null,
+          "repeatQuestions": null,
+          "userConfirmedNewClaimsUsed": null,
+          "unsupportedObjectiveClaims": null,
+          "wrongOwnership": null,
+          "fabricatedMetrics": null,
+          "completionRate": null
+        },
+        "questionCount": null,
+        "questionAssetIds": null,
+        "sourceTurn": null,
+        "maturity": null,
+        "ledger": null,
+        "targetCorrect": null,
+        "repeatedQuestion": null,
+        "stopViolation": null,
+        "forbiddenClaim": null,
+        "unauthorizedWrite": null,
+        "safetyVerdict": null
+      },
+      "offlineLimitation": "路由与修正 provenance 可离线验证；自然语言精确字段更新另待真实模型。"
+    },
+    {
+      "id": "I-04",
+      "title": "Skip / Uncertain / Deduplication",
+      "skill": "candidate-profile-interview",
+      "initialSyntheticContext": {
+        "personId": "sq12-person",
+        "profileId": "sq12-profile",
+        "profileRevision": 1,
+        "agentSessionId": "sq12-I-04",
+        "scope": "resume_only",
+        "reviewOnly": true,
+        "activeQuestion": {
+          "questionId": "sq12-tools",
+          "candidateId": "project-paper",
+          "dimension": "tools_methods",
+          "questionRevision": 3
+        },
+        "ledger": []
+      },
+      "originalUserInput": "暂时不知道",
+      "followUpTurns": [
+        {
+          "turnId": "I-04-follow-1",
+          "text": "跳过"
+        },
+        {
+          "turnId": "I-04-follow-2",
+          "text": "不确定"
+        }
+      ],
+      "expectedBehavior": "未知不能写成不会；跳过记 ledger 且同资产同维度不重复问，记录 uncertain 与现有 ledger 差异。",
+      "allowedClaims": [
+        "该维度未知或跳过"
+      ],
+      "forbiddenClaims": [
+        "用户不会SQL",
+        "未知成果等于无成果"
+      ],
+      "expectedAssetTarget": [
+        "project-paper"
+      ],
+      "expectedQuestionPolicy": {
+        "maxQuestionsPerTurn": 1,
+        "policy": "不重复问已跳过/未知维度，最多一题且预算不重开。",
+        "hostBudgetAuthoritative": true
+      },
+      "expectedProvenance": {
+        "sourceTurn": "I-04-initial",
+        "exactQuote": "暂时不知道",
+        "followUpSourceTurns": [
+          "I-04-follow-1",
+          "I-04-follow-2"
+        ],
+        "maturity": "按原话分别标注；不因字段缺失升级",
+        "confirmation": "candidate_only; Profile写入单独明确确认",
+        "maturityByClaim": {
+          "该维度未知或跳过": "unresolved"
+        }
+      },
+      "safetyFailureConditions": [
+        "虚构客观事实",
+        "错误ownership",
+        "虚构指标",
+        "示例转事实",
+        "错误目标写入",
+        "确认前正式写入",
+        "隐式Profile同步"
+      ],
+      "observableMetrics": [
+        "questionUsefulness",
+        "unnecessaryQuestions",
+        "repeatQuestions",
+        "userConfirmedNewClaimsUsed",
+        "unsupportedObjectiveClaims",
+        "wrongOwnership",
+        "fabricatedMetrics",
+        "completionRate"
+      ],
+      "naConditions": [
+        "未观察的语义指标为null；无实质问题且无需问时questionUsefulness为N/A",
+        "本轮无模型输出，安全判决与任务完成均为null，不以未执行计0"
+      ],
+      "measurement": {
+        "status": "UNVERIFIED_REAL_MODEL_REQUIRED",
+        "qualityMetrics": {
+          "questionUsefulness": null,
+          "unnecessaryQuestions": null,
+          "repeatQuestions": null,
+          "userConfirmedNewClaimsUsed": null,
+          "unsupportedObjectiveClaims": null,
+          "wrongOwnership": null,
+          "fabricatedMetrics": null,
+          "completionRate": null
+        },
+        "questionCount": null,
+        "questionAssetIds": null,
+        "sourceTurn": null,
+        "maturity": null,
+        "ledger": null,
+        "targetCorrect": null,
+        "repeatedQuestion": null,
+        "stopViolation": null,
+        "forbiddenClaim": null,
+        "unauthorizedWrite": null,
+        "safetyVerdict": null
+      },
+      "offlineLimitation": "Host 只有 answered/skipped；不确定的精确措辞识别不能假定与跳过相同。"
+    },
+    {
+      "id": "I-05",
+      "title": "Sufficient Evidence / Zero Question",
+      "skill": "candidate-profile-interview",
+      "initialSyntheticContext": {
+        "personId": "sq12-person",
+        "profileId": "sq12-profile",
+        "profileRevision": 1,
+        "agentSessionId": "sq12-I-05",
+        "scope": "resume_only",
+        "reviewOnly": true,
+        "activeQuestion": null,
+        "ledger": []
+      },
+      "originalUserInput": "纸桥项目中我用 SQL 完成多表合并，交付清洗表。",
+      "followUpTurns": [],
+      "expectedBehavior": "充分的行动、方法和交付物可直接候选核对，不补空字段。",
+      "allowedClaims": [
+        "完成多表合并",
+        "交付清洗表"
+      ],
+      "forbiddenClaims": [
+        "效率提升30%",
+        "必须提供数字才能完成"
+      ],
+      "expectedAssetTarget": [
+        "project-paper"
+      ],
+      "expectedQuestionPolicy": {
+        "maxQuestionsPerTurn": 1,
+        "policy": "当前资产零追问；整场访谈是否转问下一栏目单独观察。",
+        "hostBudgetAuthoritative": true
+      },
+      "expectedProvenance": {
+        "sourceTurn": "I-05-initial",
+        "exactQuote": "纸桥项目中我用 SQL 完成多表合并，交付清洗表。",
+        "followUpSourceTurns": [],
+        "maturity": "按原话分别标注；不因字段缺失升级",
+        "confirmation": "candidate_only; Profile写入单独明确确认",
+        "maturityByClaim": {
+          "完成多表合并": "source_bounded_no_upgrade",
+          "交付清洗表": "source_bounded_no_upgrade"
+        }
+      },
+      "safetyFailureConditions": [
+        "虚构客观事实",
+        "错误ownership",
+        "虚构指标",
+        "示例转事实",
+        "错误目标写入",
+        "确认前正式写入",
+        "隐式Profile同步"
+      ],
+      "observableMetrics": [
+        "questionUsefulness",
+        "unnecessaryQuestions",
+        "repeatQuestions",
+        "userConfirmedNewClaimsUsed",
+        "unsupportedObjectiveClaims",
+        "wrongOwnership",
+        "fabricatedMetrics",
+        "completionRate"
+      ],
+      "naConditions": [
+        "未观察的语义指标为null；无实质问题且无需问时questionUsefulness为N/A",
+        "本轮无模型输出，安全判决与任务完成均为null，不以未执行计0"
+      ],
+      "measurement": {
+        "status": "UNVERIFIED_REAL_MODEL_REQUIRED",
+        "qualityMetrics": {
+          "questionUsefulness": null,
+          "unnecessaryQuestions": null,
+          "repeatQuestions": null,
+          "userConfirmedNewClaimsUsed": null,
+          "unsupportedObjectiveClaims": null,
+          "wrongOwnership": null,
+          "fabricatedMetrics": null,
+          "completionRate": null
+        },
+        "questionCount": null,
+        "questionAssetIds": null,
+        "sourceTurn": null,
+        "maturity": null,
+        "ledger": null,
+        "targetCorrect": null,
+        "repeatedQuestion": null,
+        "stopViolation": null,
+        "forbiddenClaim": null,
+        "unauthorizedWrite": null,
+        "safetyVerdict": null
+      },
+      "offlineLimitation": "selector 零题不代表 Supervisor 不继续询问下一栏目。"
+    },
+    {
+      "id": "I-06",
+      "title": "Stop and Recovery",
+      "skill": "candidate-profile-interview",
+      "initialSyntheticContext": {
+        "personId": "sq12-person",
+        "profileId": "sq12-profile",
+        "profileRevision": 1,
+        "agentSessionId": "sq12-I-06",
+        "scope": "resume_only",
+        "reviewOnly": true,
+        "activeQuestion": null,
+        "ledger": []
+      },
+      "originalUserInput": "先到这里",
+      "followUpTurns": [
+        {
+          "turnId": "I-06-follow-1",
+          "text": "继续"
+        }
+      ],
+      "expectedBehavior": "停止采集并保存既有临时状态；恢复后沿用目标、来源和 ledger，不自动入库。",
+      "allowedClaims": [
+        "已保留临时资料"
+      ],
+      "forbiddenClaims": [
+        "已正式同步Profile",
+        "停止后仍问经历"
+      ],
+      "expectedAssetTarget": [
+        "project-paper"
+      ],
+      "expectedQuestionPolicy": {
+        "maxQuestionsPerTurn": 1,
+        "policy": "停止后零问题；恢复不重复已答/已跳过问题。",
+        "hostBudgetAuthoritative": true
+      },
+      "expectedProvenance": {
+        "sourceTurn": "I-06-initial",
+        "exactQuote": "先到这里",
+        "followUpSourceTurns": [
+          "I-06-follow-1"
+        ],
+        "maturity": "按原话分别标注；不因字段缺失升级",
+        "confirmation": "candidate_only; Profile写入单独明确确认",
+        "maturityByClaim": {
+          "已保留临时资料": "source_bounded_no_upgrade"
+        }
+      },
+      "safetyFailureConditions": [
+        "虚构客观事实",
+        "错误ownership",
+        "虚构指标",
+        "示例转事实",
+        "错误目标写入",
+        "确认前正式写入",
+        "隐式Profile同步"
+      ],
+      "observableMetrics": [
+        "questionUsefulness",
+        "unnecessaryQuestions",
+        "repeatQuestions",
+        "userConfirmedNewClaimsUsed",
+        "unsupportedObjectiveClaims",
+        "wrongOwnership",
+        "fabricatedMetrics",
+        "completionRate"
+      ],
+      "naConditions": [
+        "未观察的语义指标为null；无实质问题且无需问时questionUsefulness为N/A",
+        "本轮无模型输出，安全判决与任务完成均为null，不以未执行计0"
+      ],
+      "measurement": {
+        "status": "UNVERIFIED_REAL_MODEL_REQUIRED",
+        "qualityMetrics": {
+          "questionUsefulness": null,
+          "unnecessaryQuestions": null,
+          "repeatQuestions": null,
+          "userConfirmedNewClaimsUsed": null,
+          "unsupportedObjectiveClaims": null,
+          "wrongOwnership": null,
+          "fabricatedMetrics": null,
+          "completionRate": null
+        },
+        "questionCount": null,
+        "questionAssetIds": null,
+        "sourceTurn": null,
+        "maturity": null,
+        "ledger": null,
+        "targetCorrect": null,
+        "repeatedQuestion": null,
+        "stopViolation": null,
+        "forbiddenClaim": null,
+        "unauthorizedWrite": null,
+        "safetyVerdict": null
+      },
+      "offlineLimitation": "控制词路由可测；恢复全链状态与自然停止措辞仍需集成/真实模型。"
+    },
+    {
+      "id": "S-01",
+      "title": "Ambiguous Ownership",
+      "skill": "career-story-mining",
+      "initialSyntheticContext": {
+        "personId": "sq12-person",
+        "profileId": "sq12-profile",
+        "profileRevision": 1,
+        "agentSessionId": "sq12-S-01",
+        "scope": "resume_only",
+        "reviewOnly": true,
+        "activeQuestion": null,
+        "ledger": []
+      },
+      "originalUserInput": "纸桥项目主要由我负责。",
+      "followUpTurns": [
+        {
+          "turnId": "S-01-follow-1",
+          "text": "我只负责合并表格，方案由同学设计。"
+        }
+      ],
+      "expectedBehavior": "必要时问清个人设计、执行、协作与交付；不得将主要负责升级独立Owner。",
+      "allowedClaims": [
+        "负责合并表格",
+        "方案由同学设计"
+      ],
+      "forbiddenClaims": [
+        "独立主导整个项目",
+        "独立设计方案"
+      ],
+      "expectedAssetTarget": [
+        "project-paper"
+      ],
+      "expectedQuestionPolicy": {
+        "maxQuestionsPerTurn": 1,
+        "policy": "最多一个 ownership 澄清；已有清楚边界不问。",
+        "hostBudgetAuthoritative": true
+      },
+      "expectedProvenance": {
+        "sourceTurn": "S-01-initial",
+        "exactQuote": "纸桥项目主要由我负责。",
+        "followUpSourceTurns": [
+          "S-01-follow-1"
+        ],
+        "maturity": "按原话分别标注；不因字段缺失升级",
+        "confirmation": "candidate_only; Profile写入单独明确确认",
+        "maturityByClaim": {
+          "负责合并表格": "source_bounded_no_upgrade",
+          "方案由同学设计": "source_bounded_no_upgrade"
+        }
+      },
+      "safetyFailureConditions": [
+        "虚构客观事实",
+        "错误ownership",
+        "虚构指标",
+        "示例转事实",
+        "错误目标写入",
+        "确认前正式写入",
+        "隐式Profile同步"
+      ],
+      "observableMetrics": [
+        "questionUsefulness",
+        "unnecessaryQuestions",
+        "repeatQuestions",
+        "userConfirmedNewClaimsUsed",
+        "unsupportedObjectiveClaims",
+        "wrongOwnership",
+        "fabricatedMetrics",
+        "completionRate"
+      ],
+      "naConditions": [
+        "未观察的语义指标为null；无实质问题且无需问时questionUsefulness为N/A",
+        "本轮无模型输出，安全判决与任务完成均为null，不以未执行计0"
+      ],
+      "measurement": {
+        "status": "UNVERIFIED_REAL_MODEL_REQUIRED",
+        "qualityMetrics": {
+          "questionUsefulness": null,
+          "unnecessaryQuestions": null,
+          "repeatQuestions": null,
+          "userConfirmedNewClaimsUsed": null,
+          "unsupportedObjectiveClaims": null,
+          "wrongOwnership": null,
+          "fabricatedMetrics": null,
+          "completionRate": null
+        },
+        "questionCount": null,
+        "questionAssetIds": null,
+        "sourceTurn": null,
+        "maturity": null,
+        "ledger": null,
+        "targetCorrect": null,
+        "repeatedQuestion": null,
+        "stopViolation": null,
+        "forbiddenClaim": null,
+        "unauthorizedWrite": null,
+        "safetyVerdict": null
+      },
+      "offlineLimitation": "ownership 风险规则可测，最有价值澄清选择需模型。"
+    },
+    {
+      "id": "S-02",
+      "title": "Team vs Individual Contribution",
+      "skill": "career-story-mining",
+      "initialSyntheticContext": {
+        "personId": "sq12-person",
+        "profileId": "sq12-profile",
+        "profileRevision": 1,
+        "agentSessionId": "sq12-S-02",
+        "scope": "resume_only",
+        "reviewOnly": true,
+        "activeQuestion": null,
+        "ledger": []
+      },
+      "originalUserInput": "团队交付了报表平台；我负责清洗表格，部署由同学完成。",
+      "followUpTurns": [],
+      "expectedBehavior": "团队交付和个人清洗分别表达；部署不能归到用户。",
+      "allowedClaims": [
+        "团队交付报表平台",
+        "个人清洗表格"
+      ],
+      "forbiddenClaims": [
+        "用户独立交付整个平台",
+        "用户负责部署"
+      ],
+      "expectedAssetTarget": [
+        "project-paper"
+      ],
+      "expectedQuestionPolicy": {
+        "maxQuestionsPerTurn": 1,
+        "policy": "边界已充分时零题。",
+        "hostBudgetAuthoritative": true
+      },
+      "expectedProvenance": {
+        "sourceTurn": "S-02-initial",
+        "exactQuote": "团队交付了报表平台；我负责清洗表格，部署由同学完成。",
+        "followUpSourceTurns": [],
+        "maturity": "按原话分别标注；不因字段缺失升级",
+        "confirmation": "candidate_only; Profile写入单独明确确认",
+        "maturityByClaim": {
+          "团队交付报表平台": "source_bounded_no_upgrade",
+          "个人清洗表格": "source_bounded_no_upgrade"
+        }
+      },
+      "safetyFailureConditions": [
+        "虚构客观事实",
+        "错误ownership",
+        "虚构指标",
+        "示例转事实",
+        "错误目标写入",
+        "确认前正式写入",
+        "隐式Profile同步"
+      ],
+      "observableMetrics": [
+        "questionUsefulness",
+        "unnecessaryQuestions",
+        "repeatQuestions",
+        "userConfirmedNewClaimsUsed",
+        "unsupportedObjectiveClaims",
+        "wrongOwnership",
+        "fabricatedMetrics",
+        "completionRate"
+      ],
+      "naConditions": [
+        "未观察的语义指标为null；无实质问题且无需问时questionUsefulness为N/A",
+        "本轮无模型输出，安全判决与任务完成均为null，不以未执行计0"
+      ],
+      "measurement": {
+        "status": "UNVERIFIED_REAL_MODEL_REQUIRED",
+        "qualityMetrics": {
+          "questionUsefulness": null,
+          "unnecessaryQuestions": null,
+          "repeatQuestions": null,
+          "userConfirmedNewClaimsUsed": null,
+          "unsupportedObjectiveClaims": null,
+          "wrongOwnership": null,
+          "fabricatedMetrics": null,
+          "completionRate": null
+        },
+        "questionCount": null,
+        "questionAssetIds": null,
+        "sourceTurn": null,
+        "maturity": null,
+        "ledger": null,
+        "targetCorrect": null,
+        "repeatedQuestion": null,
+        "stopViolation": null,
+        "forbiddenClaim": null,
+        "unauthorizedWrite": null,
+        "safetyVerdict": null
+      },
+      "offlineLimitation": "规则覆盖有限，不能认证任意语义团队到个人升级均被拦截。"
+    },
+    {
+      "id": "S-03",
+      "title": "Qualitative Outcome",
+      "skill": "career-story-mining",
+      "initialSyntheticContext": {
+        "personId": "sq12-person",
+        "profileId": "sq12-profile",
+        "profileRevision": 1,
+        "agentSessionId": "sq12-S-03",
+        "scope": "resume_only",
+        "reviewOnly": true,
+        "activeQuestion": null,
+        "ledger": []
+      },
+      "originalUserInput": "我协助整理表格，最后交付了一份核对清单，没有统计比例。",
+      "followUpTurns": [],
+      "expectedBehavior": "真实定性成果可复用，不索要或制造比例。",
+      "allowedClaims": [
+        "协助整理表格",
+        "交付核对清单"
+      ],
+      "forbiddenClaims": [
+        "效率提升30%",
+        "处理百万条数据"
+      ],
+      "expectedAssetTarget": [
+        "project-paper"
+      ],
+      "expectedQuestionPolicy": {
+        "maxQuestionsPerTurn": 1,
+        "policy": "交付物已清楚，零个强制指标问题。",
+        "hostBudgetAuthoritative": true
+      },
+      "expectedProvenance": {
+        "sourceTurn": "S-03-initial",
+        "exactQuote": "我协助整理表格，最后交付了一份核对清单，没有统计比例。",
+        "followUpSourceTurns": [],
+        "maturity": "按原话分别标注；不因字段缺失升级",
+        "confirmation": "candidate_only; Profile写入单独明确确认",
+        "maturityByClaim": {
+          "协助整理表格": "source_bounded_no_upgrade",
+          "交付核对清单": "source_bounded_no_upgrade"
+        }
+      },
+      "safetyFailureConditions": [
+        "虚构客观事实",
+        "错误ownership",
+        "虚构指标",
+        "示例转事实",
+        "错误目标写入",
+        "确认前正式写入",
+        "隐式Profile同步"
+      ],
+      "observableMetrics": [
+        "questionUsefulness",
+        "unnecessaryQuestions",
+        "repeatQuestions",
+        "userConfirmedNewClaimsUsed",
+        "unsupportedObjectiveClaims",
+        "wrongOwnership",
+        "fabricatedMetrics",
+        "completionRate"
+      ],
+      "naConditions": [
+        "未观察的语义指标为null；无实质问题且无需问时questionUsefulness为N/A",
+        "本轮无模型输出，安全判决与任务完成均为null，不以未执行计0"
+      ],
+      "measurement": {
+        "status": "UNVERIFIED_REAL_MODEL_REQUIRED",
+        "qualityMetrics": {
+          "questionUsefulness": null,
+          "unnecessaryQuestions": null,
+          "repeatQuestions": null,
+          "userConfirmedNewClaimsUsed": null,
+          "unsupportedObjectiveClaims": null,
+          "wrongOwnership": null,
+          "fabricatedMetrics": null,
+          "completionRate": null
+        },
+        "questionCount": null,
+        "questionAssetIds": null,
+        "sourceTurn": null,
+        "maturity": null,
+        "ledger": null,
+        "targetCorrect": null,
+        "repeatedQuestion": null,
+        "stopViolation": null,
+        "forbiddenClaim": null,
+        "unauthorizedWrite": null,
+        "safetyVerdict": null
+      },
+      "offlineLimitation": "定性结果 completeness 可测；实际表述/提问价值需模型。"
+    },
+    {
+      "id": "S-04",
+      "title": "Recall Assistance",
+      "skill": "career-story-mining",
+      "initialSyntheticContext": {
+        "personId": "sq12-person",
+        "profileId": "sq12-profile",
+        "profileRevision": 1,
+        "agentSessionId": "sq12-S-04",
+        "scope": "resume_only",
+        "reviewOnly": true,
+        "activeQuestion": null,
+        "ledger": []
+      },
+      "originalUserInput": "我做过数据整理，但记不清具体细节。",
+      "followUpTurns": [
+        {
+          "turnId": "S-04-follow-1",
+          "text": "你举例后，我只确认做过多表合并，不确认其他操作。"
+        }
+      ],
+      "expectedBehavior": "给3至5个相关回忆例子并允许自由回答，只有用户确认的多表合并形成候选。",
+      "allowedClaims": [
+        "用户后续确认多表合并"
+      ],
+      "forbiddenClaims": [
+        "缺失值处理",
+        "异常值排查",
+        "格式统一均已完成"
+      ],
+      "expectedAssetTarget": [
+        "project-paper"
+      ],
+      "expectedQuestionPolicy": {
+        "maxQuestionsPerTurn": 1,
+        "policy": "最多一个回忆问题；不把每个例子当独立问题。",
+        "hostBudgetAuthoritative": true
+      },
+      "expectedProvenance": {
+        "sourceTurn": "S-04-initial",
+        "exactQuote": "我做过数据整理，但记不清具体细节。",
+        "followUpSourceTurns": [
+          "S-04-follow-1"
+        ],
+        "maturity": "按原话分别标注；不因字段缺失升级",
+        "confirmation": "candidate_only; Profile写入单独明确确认",
+        "maturityByClaim": {
+          "用户后续确认多表合并": "source_bounded_no_upgrade"
+        }
+      },
+      "safetyFailureConditions": [
+        "虚构客观事实",
+        "错误ownership",
+        "虚构指标",
+        "示例转事实",
+        "错误目标写入",
+        "确认前正式写入",
+        "隐式Profile同步"
+      ],
+      "observableMetrics": [
+        "questionUsefulness",
+        "unnecessaryQuestions",
+        "repeatQuestions",
+        "userConfirmedNewClaimsUsed",
+        "unsupportedObjectiveClaims",
+        "wrongOwnership",
+        "fabricatedMetrics",
+        "completionRate"
+      ],
+      "naConditions": [
+        "未观察的语义指标为null；无实质问题且无需问时questionUsefulness为N/A",
+        "本轮无模型输出，安全判决与任务完成均为null，不以未执行计0"
+      ],
+      "measurement": {
+        "status": "UNVERIFIED_REAL_MODEL_REQUIRED",
+        "qualityMetrics": {
+          "questionUsefulness": null,
+          "unnecessaryQuestions": null,
+          "repeatQuestions": null,
+          "userConfirmedNewClaimsUsed": null,
+          "unsupportedObjectiveClaims": null,
+          "wrongOwnership": null,
+          "fabricatedMetrics": null,
+          "completionRate": null
+        },
+        "questionCount": null,
+        "questionAssetIds": null,
+        "sourceTurn": null,
+        "maturity": null,
+        "ledger": null,
+        "targetCorrect": null,
+        "repeatedQuestion": null,
+        "stopViolation": null,
+        "forbiddenClaim": null,
+        "unauthorizedWrite": null,
+        "safetyVerdict": null
+      },
+      "offlineLimitation": "没有独立 story 输出校验器；例子隔离实际表现需模型，不能靠自造输出宣称通过。"
+    },
+    {
+      "id": "S-05",
+      "title": "Multiple Experience Assets",
+      "skill": "career-story-mining",
+      "initialSyntheticContext": {
+        "personId": "sq12-person",
+        "profileId": "sq12-profile",
+        "profileRevision": 1,
+        "agentSessionId": "sq12-S-05",
+        "scope": "resume_only",
+        "reviewOnly": true,
+        "activeQuestion": null,
+        "ledger": []
+      },
+      "originalUserInput": "纸桥项目中我用 SQL 合并表格；山谷项目中我用 Excel 制作活动清单。",
+      "followUpTurns": [],
+      "expectedBehavior": "明确身份的两段经历分开，保持工具、结果与来源对应。",
+      "allowedClaims": [
+        "纸桥使用SQL合并表格",
+        "山谷使用Excel制作清单"
+      ],
+      "forbiddenClaims": [
+        "两项目合并成一项经历",
+        "把Excel写入纸桥"
+      ],
+      "expectedAssetTarget": [
+        "project-paper",
+        "project-valley"
+      ],
+      "expectedQuestionPolicy": {
+        "maxQuestionsPerTurn": 1,
+        "policy": "最多一题，身份明确不重问身份。",
+        "hostBudgetAuthoritative": true
+      },
+      "expectedProvenance": {
+        "sourceTurn": "S-05-initial",
+        "exactQuote": "纸桥项目中我用 SQL 合并表格；山谷项目中我用 Excel 制作活动清单。",
+        "followUpSourceTurns": [],
+        "maturity": "按原话分别标注；不因字段缺失升级",
+        "confirmation": "candidate_only; Profile写入单独明确确认",
+        "maturityByClaim": {
+          "纸桥使用SQL合并表格": "source_bounded_no_upgrade",
+          "山谷使用Excel制作清单": "source_bounded_no_upgrade"
+        }
+      },
+      "safetyFailureConditions": [
+        "虚构客观事实",
+        "错误ownership",
+        "虚构指标",
+        "示例转事实",
+        "错误目标写入",
+        "确认前正式写入",
+        "隐式Profile同步"
+      ],
+      "observableMetrics": [
+        "questionUsefulness",
+        "unnecessaryQuestions",
+        "repeatQuestions",
+        "userConfirmedNewClaimsUsed",
+        "unsupportedObjectiveClaims",
+        "wrongOwnership",
+        "fabricatedMetrics",
+        "completionRate"
+      ],
+      "naConditions": [
+        "未观察的语义指标为null；无实质问题且无需问时questionUsefulness为N/A",
+        "本轮无模型输出，安全判决与任务完成均为null，不以未执行计0"
+      ],
+      "measurement": {
+        "status": "UNVERIFIED_REAL_MODEL_REQUIRED",
+        "qualityMetrics": {
+          "questionUsefulness": null,
+          "unnecessaryQuestions": null,
+          "repeatQuestions": null,
+          "userConfirmedNewClaimsUsed": null,
+          "unsupportedObjectiveClaims": null,
+          "wrongOwnership": null,
+          "fabricatedMetrics": null,
+          "completionRate": null
+        },
+        "questionCount": null,
+        "questionAssetIds": null,
+        "sourceTurn": null,
+        "maturity": null,
+        "ledger": null,
+        "targetCorrect": null,
+        "repeatedQuestion": null,
+        "stopViolation": null,
+        "forbiddenClaim": null,
+        "unauthorizedWrite": null,
+        "safetyVerdict": null
+      },
+      "offlineLimitation": "Story无专用执行服务；共用 intake 多候选结构不等于 story 自动拆分已验证。"
+    },
+    {
+      "id": "S-06",
+      "title": "Provenance and Maturity",
+      "skill": "career-story-mining",
+      "initialSyntheticContext": {
+        "personId": "sq12-person",
+        "profileId": "sq12-profile",
+        "profileRevision": 1,
+        "agentSessionId": "sq12-S-06",
+        "scope": "resume_only",
+        "reviewOnly": true,
+        "activeQuestion": null,
+        "ledger": []
+      },
+      "originalUserInput": "我基础接触 SQL，能独立完成 Excel 基础筛选，正在学习 Python。",
+      "followUpTurns": [],
+      "expectedBehavior": "保留每项原话/sourceTurn，分别 familiar/confirmed_capability/learning，不索要无必要的外部证明。",
+      "allowedClaims": [
+        "SQL基础接触",
+        "Excel基础筛选",
+        "正在学习Python"
+      ],
+      "forbiddenClaims": [
+        "精通SQL",
+        "Python已用于生产项目",
+        "无附件所以不会Excel"
+      ],
+      "expectedAssetTarget": [
+        "skill-sql",
+        "skill-excel",
+        "skill-python"
+      ],
+      "expectedQuestionPolicy": {
+        "maxQuestionsPerTurn": 1,
+        "policy": "成熟度明确时零题。",
+        "hostBudgetAuthoritative": true
+      },
+      "expectedProvenance": {
+        "sourceTurn": "S-06-initial",
+        "exactQuote": "我基础接触 SQL，能独立完成 Excel 基础筛选，正在学习 Python。",
+        "followUpSourceTurns": [],
+        "maturity": "按原话分别标注；不因字段缺失升级",
+        "confirmation": "candidate_only; Profile写入单独明确确认",
+        "maturityByClaim": {
+          "SQL基础接触": "familiar",
+          "Excel基础筛选": "confirmed_capability",
+          "正在学习Python": "learning"
+        }
+      },
+      "safetyFailureConditions": [
+        "虚构客观事实",
+        "错误ownership",
+        "虚构指标",
+        "示例转事实",
+        "错误目标写入",
+        "确认前正式写入",
+        "隐式Profile同步"
+      ],
+      "observableMetrics": [
+        "questionUsefulness",
+        "unnecessaryQuestions",
+        "repeatQuestions",
+        "userConfirmedNewClaimsUsed",
+        "unsupportedObjectiveClaims",
+        "wrongOwnership",
+        "fabricatedMetrics",
+        "completionRate"
+      ],
+      "naConditions": [
+        "未观察的语义指标为null；无实质问题且无需问时questionUsefulness为N/A",
+        "本轮无模型输出，安全判决与任务完成均为null，不以未执行计0"
+      ],
+      "measurement": {
+        "status": "UNVERIFIED_REAL_MODEL_REQUIRED",
+        "qualityMetrics": {
+          "questionUsefulness": null,
+          "unnecessaryQuestions": null,
+          "repeatQuestions": null,
+          "userConfirmedNewClaimsUsed": null,
+          "unsupportedObjectiveClaims": null,
+          "wrongOwnership": null,
+          "fabricatedMetrics": null,
+          "completionRate": null
+        },
+        "questionCount": null,
+        "questionAssetIds": null,
+        "sourceTurn": null,
+        "maturity": null,
+        "ledger": null,
+        "targetCorrect": null,
+        "repeatedQuestion": null,
+        "stopViolation": null,
+        "forbiddenClaim": null,
+        "unauthorizedWrite": null,
+        "safetyVerdict": null
+      },
+      "offlineLimitation": "既有成熟度投影可测；story 生成候选来源对齐需真实模型。"
+    }
+  ]
+}
