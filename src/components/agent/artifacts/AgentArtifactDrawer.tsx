@@ -55,7 +55,7 @@ export function AgentArtifactDrawer({
     restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const drawer = drawerRef.current;
     const first = drawer?.querySelector<HTMLElement>("button, a, summary, input, textarea, select");
-    const compact = typeof window.matchMedia === "function" && window.matchMedia("(max-width: 860px)").matches;
+    const compact = typeof window.matchMedia === "function" && window.matchMedia("(max-width: 1100px)").matches;
     if (compact) first?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -81,7 +81,7 @@ export function AgentArtifactDrawer({
       document.removeEventListener("keydown", handleKeyDown);
       restoreFocusRef.current?.focus();
     };
-  }, [onStateChange, open]);
+  }, [onStateChange, open, state]);
 
   if (state === "closed" || artifacts.length === 0) return null;
   if (state === "collapsed") {
@@ -185,5 +185,5 @@ function clampArtifactWidth(value: number) {
 
 function isCompactViewport() {
   return typeof window !== "undefined" && typeof window.matchMedia === "function"
-    && window.matchMedia("(max-width: 860px)").matches;
+    && window.matchMedia("(max-width: 1100px)").matches;
 }

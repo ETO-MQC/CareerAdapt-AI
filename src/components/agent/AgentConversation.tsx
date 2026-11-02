@@ -32,6 +32,7 @@ import { AgentTailoringInlineDiffs } from "./AgentTailoringInlineDiffs";
 
 export function AgentConversation({
   messages,
+  interruptedTurnId,
   onUndoLastUser,
   onRegenerate,
   onEditUserMessage,
@@ -48,6 +49,7 @@ export function AgentConversation({
   children
 }: {
   messages: AgentMessage[];
+  interruptedTurnId?: string;
   onUndoLastUser?(): void;
   onRegenerate?(message: AgentMessage): Promise<void> | void;
   onEditUserMessage?(message: AgentMessage, content: string): Promise<void> | void;
@@ -72,7 +74,22 @@ export function AgentConversation({
       .map((message) => message.turnId)
       .filter((turnId): turnId is string => Boolean(turnId))
   );
-  const visibleMessages = dedupeWorkflowReviewMessages(dedupeProfileIntakeMessages(messages.filter((message) =>
+  // Cancellation fences execution immediately. Present a partial answer without
+  // reviving its streaming indicator; preserve the original durable transcript.
+  const presentedMessages = messages.filter((message) =>
+    !interruptedTurnId || message.turnId !== interruptedTurnId
+    || !["assistant_thinking"].includes(message.kind ?? message.type ?? "")
+  ).map((message): AgentMessage => {
+    if (!interruptedTurnId || message.turnId !== interruptedTurnId) return message;
+    if (isActivityMessage(message) && (message.status === "pending" || message.metadata?.activityState === "running")) {
+      return { ...message, status: "failed", content: "步骤已中断", metadata: { ...message.metadata, activityState: "failed" } };
+    }
+    if (message.role === "assistant" && isStreamingMessage(message)) {
+      return { ...message, streaming: false, kind: "text", type: "text", status: "failed", metadata: { ...message.metadata, interrupted: true } };
+    }
+    return message;
+  });
+  const visibleMessages = dedupeWorkflowReviewMessages(dedupeProfileIntakeMessages(presentedMessages.filter((message) =>
     message.role !== "system"
     && !(isActivityMessage(message) && message.turnId && runtimeFailureTurnIds.has(message.turnId))
     && (message.metadata?.retracted !== true || isWorkflowInteractionMessage(message))
@@ -94,17 +111,24 @@ export function AgentConversation({
   // projections that predate the collecting/clarifying phases.
   const showLegacyProfileIntakeCards = profileIntakeProjection?.phase === "collecting";
   const endRef = useRef<HTMLDivElement>(null);
+  const followLatestRef = useRef(true);
+  const [showLatest, setShowLatest] = useState(false);
   const [editing, setEditing] = useState<{ messageId: string; content: string }>();
   const [historyMessageId, setHistoryMessageId] = useState<string>();
   const [editSaving, setEditSaving] = useState(false);
   useEffect(() => {
-    if (typeof endRef.current?.scrollIntoView !== "function") return;
+    if (!followLatestRef.current || typeof endRef.current?.scrollIntoView !== "function") return;
     // Streaming can update several times per second. Re-starting a smooth
     // scroll for every delta makes the whole conversation appear to flicker.
     endRef.current.scrollIntoView({ block: "end", behavior: "auto" });
   }, [visibleMessages.length, latestMessageContent]);
   return (
-    <section className="agent-conversation" aria-label="AI 对话" aria-live="polite">
+    <section className="agent-conversation" aria-label="AI 对话" aria-live="polite" onScroll={(event) => {
+      const element = event.currentTarget;
+      const follows = element.scrollHeight - element.scrollTop - element.clientHeight < 80;
+      followLatestRef.current = follows;
+      setShowLatest(!follows);
+    }}>
       <div className="agent-conversation-inner">
         {conversationItems.map((item) => {
           if (item.type === "activity") {
@@ -237,6 +261,11 @@ export function AgentConversation({
         ) : null}
         <div ref={endRef} aria-hidden="true" />
       </div>
+      {showLatest ? <button className="agent-jump-latest" type="button" onClick={() => {
+        followLatestRef.current = true;
+        setShowLatest(false);
+        endRef.current?.scrollIntoView({ block: "end", behavior: "auto" });
+      }}>回到最新消息</button> : null}
     </section>
   );
 }
@@ -248,6 +277,7 @@ function AgentActivityGroup({ messages, identityKey }: { messages: AgentMessage[
   );
   const running = messages.some((message) => message.metadata?.activityState === "running" || message.status === "pending");
   const failed = messages.some((message) => message.metadata?.activityState === "failed" || message.status === "failed");
+  const currentStep = messages.findLast((message) => message.metadata?.activityState === "running" || message.status === "pending");
   const cheapContextDiscovery = messages.length > 0
     && messages.every((message) => ["get_active_profile", "list_resumes", "list_jobs"].includes(message.toolName ?? ""));
   return (
@@ -271,6 +301,7 @@ function AgentActivityGroup({ messages, identityKey }: { messages: AgentMessage[
           : failed
             ? "部分任务步骤需要处理"
             : cheapContextDiscovery ? "已加载简历和岗位信息" : `已完成 ${messages.length} 个任务步骤`}</strong>
+        {currentStep ? <span className="agent-current-tool-step">{toolStatus(currentStep)}</span> : null}
       </summary>
       <ul className="agent-tool-activity-list">
         {messages.map((message) => {
@@ -470,7 +501,7 @@ function AgentMessageBubble({ message }: { message: AgentMessage }) {
   const streaming = isStreamingMessage(message);
   const content = streaming && !message.content.trim()
     ? ""
-    : normalizeAgentMessageText(message.content);
+    : message.content;
   return (
     <div className="agent-message-bubble">
       {message.role === "user" && message.references?.length ? (
@@ -480,6 +511,7 @@ function AgentMessageBubble({ message }: { message: AgentMessage }) {
         </div>
       ) : null}
       {message.role === "user" ? <AgentAttachmentMetadata message={message} /> : null}
+      {message.metadata?.interrupted === true ? <small className="agent-interrupted-reply">已停止 · 回复未完成</small> : null}
       <AgentMessageContent content={content} streaming={streaming} />
     </div>
   );
@@ -938,8 +970,15 @@ function groupConversationItems(messages: AgentMessage[]) {
     | { type: "activity"; id: string; messages: AgentMessage[] }
     | { type: "assistant_turn"; id: string; message: AgentMessage; activity: AgentMessage[] }
   > = [];
+  const emittedActivityTurns = new Set<string>();
   for (const message of messages) {
-    if (isActivityMessage(message) && message.turnId) continue;
+    if (isActivityMessage(message) && message.turnId) {
+      if (!lastAssistantByTurn.has(message.turnId) && !emittedActivityTurns.has(message.turnId)) {
+        emittedActivityTurns.add(message.turnId);
+        items.push({ type: "activity", id: `turn-${message.turnId}`, messages: activityByTurn.get(message.turnId)! });
+      }
+      continue;
+    }
     const activity = message.turnId && lastAssistantByTurn.get(message.turnId) === message.id
       ? activityByTurn.get(message.turnId)
       : undefined;

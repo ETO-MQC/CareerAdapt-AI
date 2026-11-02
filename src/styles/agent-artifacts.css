@@ -1022,7 +1022,7 @@
   font-weight: 600;
 }
 
-@media (max-width: 860px) {
+@media (max-width: 1100px) {
   .agent-artifact-backdrop {
     background: rgba(0, 0, 0, 0.5);
     border: 0;

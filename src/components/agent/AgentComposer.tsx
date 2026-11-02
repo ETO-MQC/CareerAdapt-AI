@@ -37,6 +37,7 @@ export type ComposerSubmit = {
 export function AgentComposer(props: {
   disabled?: boolean;
   running?: boolean;
+  stopping?: boolean;
   queuedCount?: number;
   aiStatus?: string;
   checkpoint?: WorkflowUserInputCheckpoint;
@@ -58,6 +59,8 @@ export function AgentComposer(props: {
   const [localMessage, setLocalMessage] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const [uploadHighlighted, setUploadHighlighted] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const toolsRef = useRef<HTMLDivElement>(null);
   const [preview, setPreview] = useState<ComposerAttachmentDraft>();
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -88,6 +91,15 @@ export function AgentComposer(props: {
       window.clearTimeout(clearTimer);
     };
   }, [props.uploadFocusSignal]);
+
+  useEffect(() => {
+    if (!toolsOpen) return;
+    const outside = (event: PointerEvent) => {
+      if (!toolsRef.current?.contains(event.target as Node)) setToolsOpen(false);
+    };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [toolsOpen]);
 
   const stageFiles = (files: FileList | File[]) => {
     const selected = Array.from(files).filter((file) => file.size >= 0);
@@ -133,6 +145,7 @@ export function AgentComposer(props: {
             <span className={`agent-attachment-chip is-${attachment.status}`} key={attachment.clientId}>
               {attachment.status === "registering" ? <LoaderCircle aria-hidden="true" className="is-spinning" /> : attachment.file.type.startsWith("image/") ? <AttachmentImage file={attachment.file} thumbnail /> : <FileText aria-hidden="true" />}
               <button className="agent-attachment-preview-button" type="button" title={attachment.fileName} aria-label={`预览附件 ${attachment.fileName}`} onClick={() => setPreview(attachment)}>{attachment.fileName}</button>
+              <small title={attachment.mimeType}>{attachmentType(attachment)} · {formatFileSize(attachment.size)}</small>
               <small>{statusLabel(attachment.status, attachment.errorCode)}</small>
               <button type="button" aria-label={`移除附件 ${attachment.fileName}`} onClick={() => props.onRemoveAttachment(attachment.clientId)}><X aria-hidden="true" /></button>
             </span>
@@ -157,7 +170,7 @@ export function AgentComposer(props: {
           placeholder={interactionPlaceholder}
           onChange={(event) => setMessage(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.shiftKey) {
+            if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.keyCode !== 229) {
               event.preventDefault();
               event.currentTarget.form?.requestSubmit();
             }
@@ -166,18 +179,27 @@ export function AgentComposer(props: {
       </div>
 
       <div className="agent-composer-toolbar">
-        <button className={uploadHighlighted ? "agent-composer-icon-button is-highlighted" : "agent-composer-icon-button"} type="button" aria-label="上传文件" title="上传文件" disabled={props.disabled} onClick={() => inputRef.current?.click()}><Plus aria-hidden="true" /></button>
-        <input ref={inputRef} className="sr-only" type="file" multiple accept={AGENT_RESUME_IMPORT_ACCEPT} disabled={props.disabled} onChange={(event) => { stageFiles(event.target.files ?? []); event.currentTarget.value = ""; }} />
+        <div className="agent-composer-add" ref={toolsRef} onKeyDown={(event) => {
+          if (event.key === "Escape") { setToolsOpen(false); toolsRef.current?.querySelector("button")?.focus(); }
+        }}>
+          <button className={uploadHighlighted ? "agent-composer-icon-button is-highlighted" : "agent-composer-icon-button"} type="button" aria-label="添加材料与工具" title="添加材料与工具" aria-expanded={toolsOpen} disabled={props.disabled} onClick={() => setToolsOpen((open) => !open)}><Plus aria-hidden="true" /></button>
+          {toolsOpen ? <div className="agent-composer-add-menu" role="group" aria-label="添加材料与工具">
+            <button type="button" onClick={() => { setToolsOpen(false); inputRef.current?.click(); }}><Paperclip aria-hidden="true" />上传文件</button>
+            {([
+              ["选择简历", FileText, "open_resume_picker"],
+              ["导入岗位", BriefcaseBusiness, "open_job_import_dialog"],
+              ["从资料库", Database, "open_profile_browser"],
+              ["工具", Wrench, "open_tool_palette"]
+            ] as const).map(([label, Icon, type]) => <button key={type} type="button" onClick={() => { setToolsOpen(false); props.onUiAction?.({ type }); }}><Icon aria-hidden="true" />{label}</button>)}
+          </div> : null}
+        </div>
+        <input ref={inputRef} className="sr-only" aria-label="上传文件" type="file" multiple accept={AGENT_RESUME_IMPORT_ACCEPT} disabled={props.disabled} onChange={(event) => { stageFiles(event.target.files ?? []); event.currentTarget.value = ""; }} />
         <div className="agent-composer-tools">
-          <button type="button" onClick={() => props.onUiAction?.({ type: "open_resume_picker" })}><FileText aria-hidden="true" /><span>选择简历</span></button>
-          <button type="button" onClick={() => props.onUiAction?.({ type: "open_job_import_dialog" })}><BriefcaseBusiness aria-hidden="true" /><span>导入岗位</span></button>
-          <button type="button" onClick={() => props.onUiAction?.({ type: "open_profile_browser" })}><Database aria-hidden="true" /><span>从资料库</span></button>
-          <button type="button" onClick={() => props.onUiAction?.({ type: "open_tool_palette" })}><Wrench aria-hidden="true" /><span>工具</span></button>
           {props.canFinish ? <button type="button" disabled={props.disabled} onClick={() => void props.onFinish?.()}><span>完成整理</span></button> : null}
         </div>
         <div className="agent-composer-submit">
           <span>{props.aiStatus ?? (props.checkpoint ? "等待回答" : props.queuedCount ? `已排队 ${props.queuedCount} 条` : props.running ? "AI 正在处理，可继续发送排队" : "AI 就绪")}</span>
-          {props.running ? <><button className="agent-send-button" type="submit" disabled={props.disabled || !canSubmit} aria-label="排队发送消息"><Send aria-hidden="true" /></button><button className="agent-stop-button" type="button" aria-label="停止运行" onClick={props.onStop}><Square aria-hidden="true" /></button></> : <button className="agent-send-button" type="submit" disabled={props.disabled || !canSubmit} aria-label="发送消息"><Send aria-hidden="true" /></button>}
+          {props.stopping ? <button className="agent-stop-button" type="button" disabled aria-label="正在停止"><LoaderCircle aria-hidden="true" className="is-spinning" /></button> : props.running ? <><button className="agent-send-button" type="submit" disabled={props.disabled || !canSubmit} aria-label="排队发送消息"><Send aria-hidden="true" /></button><button className="agent-stop-button" type="button" aria-label="停止运行" onClick={props.onStop}><Square aria-hidden="true" /></button></> : <button className="agent-send-button" type="submit" disabled={props.disabled || !canSubmit} aria-label="发送消息"><Send aria-hidden="true" /></button>}
         </div>
       </div>
       <span className="agent-drop-hint"><Paperclip aria-hidden="true" /> 松开即可添加文件</span>
@@ -202,16 +224,17 @@ function AttachmentImage({ file, thumbnail = false }: { file: File; thumbnail?: 
 
 function AttachmentPreview({ attachment }: { attachment: ComposerAttachmentDraft }) {
   const [text, setText] = useState("");
+  const [readError, setReadError] = useState(false);
   useEffect(() => {
     let active = true;
     if (/\.(txt|md|markdown|json)$/iu.test(attachment.fileName)) {
-      void attachment.file.text().then((value) => { if (active) setText(value); });
+      void attachment.file.text().then((value) => { if (active) setText(value); }).catch(() => { if (active) setReadError(true); });
     }
     return () => { active = false; };
   }, [attachment]);
   if (attachment.file.type.startsWith("image/")) return <AttachmentImage file={attachment.file} />;
   if (attachment.mimeType === "application/pdf" || /\.pdf$/iu.test(attachment.fileName)) return <AttachmentPdf file={attachment.file} />;
-  return <div><p>{attachment.fileName} · {Math.ceil(attachment.size / 1024)} KB</p>{text ? <pre className="agent-attachment-text-preview">{text}</pre> : <p>发送后可在来源核对中查看文档解析内容。</p>}</div>;
+  return <div><p>{attachment.fileName} · {Math.ceil(attachment.size / 1024)} KB</p>{readError ? <p role="alert">文件预览读取失败，请移除附件后重新选择。</p> : text ? <pre className="agent-attachment-text-preview">{text}</pre> : <p>发送后可在来源核对中查看文档解析内容。</p>}</div>;
 }
 
 function AttachmentPdf({ file }: { file: File }) {
@@ -228,7 +251,7 @@ function statusLabel(status: ComposerAttachmentDraft["status"], errorCode?: stri
   if (status === "staged") return "待发送";
   if (status === "registering") return "登记中";
   if (status === "queued") return "已排队";
-  return errorCode ? `失败 · ${errorCode}` : "失败，可重试";
+  return errorCode ? `失败 · ${errorCode} · 可重新发送` : "失败，可重新发送";
 }
 
 function workflowInteractionPlaceholder(checkpoint: WorkflowUserInputCheckpoint) {
@@ -248,4 +271,12 @@ function workflowInteractionPlaceholder(checkpoint: WorkflowUserInputCheckpoint)
     default:
       return "补充当前步骤需要的信息…";
   }
+}
+
+function attachmentType(attachment: ComposerAttachmentDraft) {
+  return attachment.fileName.split(".").at(-1)?.toUpperCase() || attachment.mimeType;
+}
+
+function formatFileSize(bytes: number) {
+  return bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.ceil(bytes / 1024))} KB`;
 }

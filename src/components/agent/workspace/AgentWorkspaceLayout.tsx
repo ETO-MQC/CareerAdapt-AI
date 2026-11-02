@@ -22,6 +22,9 @@ export function AgentWorkspaceLayout({
   children,
   sessionTitle,
   status,
+  runState,
+  onExportConversation,
+  onExportDiagnostics,
   runtimeStatus,
   onStartHermes,
   onStopHermes,
@@ -38,6 +41,9 @@ export function AgentWorkspaceLayout({
   children: React.ReactNode;
   sessionTitle: string;
   status: string;
+  runState?: string;
+  onExportConversation?(): void;
+  onExportDiagnostics?(): void;
   runtimeStatus?: RuntimeStatusSnapshot;
   onStartHermes?: () => Promise<unknown>;
   onStopHermes?: () => Promise<unknown>;
@@ -87,7 +93,7 @@ export function AgentWorkspaceLayout({
               onOpenHermesLogs={onOpenHermesLogs}
             />
           ) : null}
-          <span className="agent-workflow-status">{status}</span>
+          <span className="agent-workflow-status" role="status" data-agent-run-state={runState}>{status}</span>
           <AgentArtifactLauncher count={artifactCount} onOpen={onOpenArtifacts} />
           <button type="button" aria-label="打开历史记录" title="历史记录" onClick={onOpenHistory}>
             <History aria-hidden="true" />
@@ -103,7 +109,9 @@ export function AgentWorkspaceLayout({
               <MoreHorizontal aria-hidden="true" />
             </button>
             {menuOpen ? (
-              <div className="agent-topbar-menu-popover" role="menu" aria-label="更多任务操作">
+              <div className="agent-topbar-menu-popover" role="menu" aria-label="更多任务操作" onKeyDown={(event) => { if (event.key === "Escape") { setMenuOpen(false); event.currentTarget.parentElement?.querySelector("button")?.focus(); } }}>
+                {onExportConversation ? <button type="button" role="menuitem" onClick={() => { onExportConversation(); setMenuOpen(false); }}>导出对话</button> : null}
+                {onExportDiagnostics ? <button type="button" role="menuitem" onClick={() => { onExportDiagnostics(); setMenuOpen(false); }}>导出技术诊断</button> : null}
                 <div className="agent-topbar-menu-group" role="group" aria-label="主题">
                   <span>主题</span>
                   {themeOptions.map((option) => {
@@ -160,7 +168,7 @@ function RuntimeStatusBadge({
   const activeConfig = controlSnapshot.runtimeConfig.active;
   const applyingConfiguration = ["validating", "testing", "saving", "restarting_runtime", "verifying"].includes(controlSnapshot.runtimeConfig.applyStatus);
   const statusLabel = hermesControlStatusLabel(controlSnapshot);
-  const runtimeLabel = applyingConfiguration ? statusLabel.replace(/…$/u, "") : "Agent";
+  const runtimeLabel = applyingConfiguration ? statusLabel.replace(/…$/u, "") : "服务";
   const details = `AI Agent · ${statusLabel}`;
   const runControl = async (action?: () => Promise<unknown>) => {
     if (!action || controlBusy) return;

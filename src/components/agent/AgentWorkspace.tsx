@@ -1,6 +1,6 @@
 "use client";
 
-import { History, Pause, Play, WifiOff } from "lucide-react";
+import { Pause, Play, WifiOff } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   getAgentSessionDisplayTitle,
@@ -19,10 +19,11 @@ import {
 } from "@/components/agent/shell/AgentSidebar";
 import { AgentArtifactDrawer, type AgentArtifactDrawerState } from "./artifacts/AgentArtifactDrawer";
 import { AgentComposer, type ComposerAttachmentDraft, type ComposerSubmit } from "./AgentComposer";
-import { AgentConversationTimeline, normalizeAgentMessageText } from "./AgentConversation";
+import { AgentConversationTimeline } from "./AgentConversation";
 import { activeBranchMessages } from "@/agent/runtime/activeBranchContext";
 import { AgentHistoryDialog } from "./AgentHistoryDialog";
 import { AgentZeroState } from "./workspace/AgentZeroState";
+import { agentRunPresentation } from "./workspace/agentRunPresentation";
 import { AgentWorkspaceLayout } from "./workspace/AgentWorkspaceLayout";
 import { ImportReviewDialog } from "@/components/resume/import/ImportReviewDialog";
 import { ResumeImportWizard } from "@/components/resume/import/ResumeImportWizard";
@@ -98,10 +99,11 @@ export function AgentWorkspace() {
   const [drawerState, setDrawerState] = useState<AgentArtifactDrawerState>(() => {
     if (typeof window === "undefined") return "split";
     const stored = window.localStorage.getItem(AGENT_ARTIFACT_STATE_KEY);
-    const compact = window.matchMedia("(max-width: 860px)").matches;
-    if (stored === "pinned") return "split";
+    const compact = window.matchMedia("(max-width: 1100px)").matches;
+    if (stored === "pinned" || stored === "split") return compact ? "overlay" : "split";
+    if (stored === "overlay") return compact ? "overlay" : "split";
     if (stored === "open") return compact ? "overlay" : "split";
-    return stored === "closed" || stored === "split" || stored === "overlay" || stored === "collapsed"
+    return stored === "closed" || stored === "collapsed"
       ? stored
       : compact ? "overlay" : "split";
   });
@@ -128,6 +130,7 @@ export function AgentWorkspace() {
   const [pendingRegenerateMessageId, setPendingRegenerateMessageId] = useState<string>();
   const quickActionDispatchRef = useRef<Promise<AgentSession | undefined> | undefined>(undefined);
   const pendingImportQuickActionRef = useRef(false);
+  const [stoppingSessionId, setStoppingSessionId] = useState<string>();
   const running = snapshot.turnStatus === "running";
   const workflowCheckpoint = session.taskState?.workflowUserInputCheckpoint;
   const checkpointTurnStatus = workflowCheckpoint
@@ -135,6 +138,7 @@ export function AgentWorkspace() {
       ? "waiting_for_confirmation" as const
       : "waiting_for_user" as const
     : snapshot.turnStatus;
+  const runPresentation = agentRunPresentation({ session, turnStatus: checkpointTurnStatus, runtimeStatus: runtimeStatus.status, stopping: stoppingSessionId === session.id });
   const liveHermesRun = ["queued", "running", "waiting_for_approval", "stopping"].includes(session.hermesRun?.status ?? "");
   const paused = snapshot.turnStatus === "paused";
   const draft = draftsBySession[session.id] ?? "";
@@ -202,7 +206,7 @@ export function AgentWorkspace() {
   }, []);
 
   useEffect(() => {
-    const media = window.matchMedia("(max-width: 860px)");
+    const media = window.matchMedia("(max-width: 1100px)");
     const normalize = () => setDrawerState((current) => {
       if (current === "split" && media.matches) return "overlay";
       if (current === "overlay" && !media.matches) return "split";
@@ -458,7 +462,7 @@ export function AgentWorkspace() {
       setSession(current.activeSession);
     }
     if (current.uiAction) {
-      if (current.uiAction.type === "open_artifact") updateDrawerState(window.matchMedia("(max-width: 860px)").matches ? "overlay" : "split");
+      if (current.uiAction.type === "open_artifact") updateDrawerState(window.matchMedia("(max-width: 1100px)").matches ? "overlay" : "split");
       else if (current.uiAction.type === "open_resume_upload") setUploadFocusSignal((value) => value + 1);
       else if (current.uiAction.type === "request_resume_import_consent") setPendingResumeImportAttachmentId(current.uiAction.attachmentId);
       else setFloatingAction(current.uiAction);
@@ -1181,24 +1185,41 @@ export function AgentWorkspace() {
   }, [host, session]);
 
   const stopCurrentHermesRun = useCallback(async () => {
-    const runId = runtimeStatus.controlSnapshot?.activeRunId ?? session.hermesRun?.runId;
-    if (!runId) return;
-    await host.interruptRun(session.id, createRunStopReason({
-      requestedBy: "user",
-      reasonCode: "user_stop",
-      sourceComponent: "AgentWorkspace.stopCurrentHermesRun",
-      sessionId: session.id,
-      logicalTurnId: session.activeTurn?.id,
-      runId,
-      incidentTraceId: session.activeTurn?.incidentTraceId
-    }));
-    await host.refreshHermesHealth();
-  }, [host, runtimeStatus.controlSnapshot?.activeRunId, session]);
+    const current = host.state.getSnapshot().activeSession;
+    if (!current || stoppingSessionId === current.id) return;
+    setStoppingSessionId(current.id);
+    try {
+      await host.interruptRun(current.id, createRunStopReason({
+        requestedBy: "user", reasonCode: "user_stop",
+        sourceComponent: "AgentWorkspace.stopCurrentHermesRun",
+        sessionId: current.id, logicalTurnId: current.activeTurn?.id,
+        runId: current.hermesRun?.runId, incidentTraceId: current.activeTurn?.incidentTraceId
+      }));
+    } catch (error) {
+      notify({ type: "error", title: "停止请求未完成", message: error instanceof Error ? error.message : "请在 Agent 控制中检查任务状态。" });
+    } finally {
+      setStoppingSessionId((id) => id === current.id ? undefined : id);
+    }
+  }, [host, stoppingSessionId]);
+
+  const exportConversation = () => {
+    const messages = session.messages.filter((message) => message.role !== "system");
+    if (!messages.length) return;
+    const url = URL.createObjectURL(new Blob([JSON.stringify(messages, null, 2)], { type: "application/json" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `ai-conversation-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <AgentWorkspaceLayout
       sessionTitle={getAgentSessionDisplayTitle(session)}
-      status={statusLabel(checkpointTurnStatus)}
+      status={runPresentation.label}
+      runState={runPresentation.state}
+      onExportConversation={exportConversation}
+      onExportDiagnostics={() => void exportTechnicalDiagnostics()}
       runtimeStatus={runtimeStatus}
       onStartHermes={host.startHermes}
       onStopHermes={async () => {
@@ -1222,8 +1243,8 @@ export function AgentWorkspace() {
       contextSelector={<CareerContextSelector onBeforeSelect={handleBeforeContextSelect} />}
       pinnedContextLabel={pinnedContextLabel}
       artifactCount={artifacts.length}
-      onOpenArtifacts={() => updateDrawerState(window.matchMedia("(max-width: 860px)").matches ? "overlay" : "split")}
-      onOpenHistory={() => setHistoryOpen(true)}
+      onOpenArtifacts={() => updateDrawerState(window.matchMedia("(max-width: 1100px)").matches ? "overlay" : "split")}
+      onOpenHistory={() => window.dispatchEvent(new Event("careeradapt-agent-history-open"))}
     >
       <div
         className={`agent-workspace-body is-drawer-${drawerState}`}
@@ -1245,25 +1266,6 @@ export function AgentWorkspace() {
               <div className="agent-conversation-toolbar">
                 {snapshot.turnStatus === "failed" ? <span><WifiOff aria-hidden="true" />本轮回答失败，可重试</span> : null}
                 {hasAutosavedIntake ? <span className="agent-autosave-receipt" aria-live="polite">已自动保存到本地</span> : null}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const messages = session.messages.filter((m) => m.role !== "system");
-                    if (!messages.length) return;
-                    const blob = new Blob([JSON.stringify(messages, null, 2)], { type: "application/json" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `ai-conversation-${new Date().toISOString().slice(0, 10)}.json`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  }}
-                >
-                  导出对话
-                </button>
-                <button type="button" onClick={() => void exportTechnicalDiagnostics()}>
-                  导出技术诊断
-                </button>
                 {session.taskState ? <button
                     type="button"
                     onClick={() => dispatchUi({ type: paused ? "resume_workflow" : "pause_workflow", workflowId: session.taskState!.workflowId })}
@@ -1271,16 +1273,14 @@ export function AgentWorkspace() {
                     {paused ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />}
                     {paused ? "继续任务" : "暂停任务"}
                   </button> : null}
-                <button type="button" onClick={() => setHistoryOpen(true)}>
-                  <History aria-hidden="true" />历史
-                </button>
+
               </div>
               {snapshot.stalled ? (
                 <div className="agent-stall-watchdog" role="status">
                   <span>{liveHermesRun ? "正在回复…" : "这一步响应时间较长"}</span>
                   <div>
                     <button type="button" onClick={() => host.state.continueWaiting()}>继续等待</button>
-                    <button type="button" onClick={() => host.state.interrupt()}>停止任务</button>
+                    <button type="button" onClick={() => void stopCurrentHermesRun()}>停止任务</button>
                     {!liveHermesRun ? <button
                         type="button"
                         disabled={!lastUserMessage || Boolean(session.pendingConfirmation)}
@@ -1294,6 +1294,7 @@ export function AgentWorkspace() {
               <AgentConversationTimeline
                 key={session.id}
                  messages={conversationMessages}
+                 interruptedTurnId={session.activeTurn?.status === "aborted" ? session.activeTurn.id : undefined}
                  pendingRegenerateMessageId={pendingRegenerateMessageId}
                  onRegenerate={async (message) => {
                    setPendingRegenerateMessageId(message.id);
@@ -1336,10 +1337,10 @@ export function AgentWorkspace() {
                     messageId: message.id,
                     role: message.role,
                     type: "assistant_message",
-                    excerpt: referenceExcerpt(normalizeAgentMessageText(message.content))
+                    excerpt: referenceExcerpt(message.content)
                   });
                 }}
-                onCopyMessage={(message) => void navigator.clipboard?.writeText(normalizeAgentMessageText(message.content))}
+                onCopyMessage={(message) => void navigator.clipboard?.writeText(message.content)}
                 onOption={dispatchOption}
                 confirmation={session.pendingToolCall ? session.pendingConfirmation : undefined}
                 confirmationBusy={running}
@@ -1358,7 +1359,9 @@ export function AgentWorkspace() {
           )}
           <AgentComposer
             disabled={paused}
-            running={running}
+            running={runPresentation.canStop}
+            stopping={runPresentation.state === "stopping"}
+            aiStatus={snapshot.pendingInputCount ? `${runPresentation.label} · 已排队 ${snapshot.pendingInputCount} 条` : runPresentation.label}
             checkpoint={workflowCheckpoint}
             queuedCount={snapshot.pendingInputCount}
             draft={draft}
@@ -1373,7 +1376,7 @@ export function AgentWorkspace() {
             onFinish={() => dispatchMessage("完成整理")}
             onUiAction={dispatchUi}
             uploadFocusSignal={uploadFocusSignal}
-            onStop={() => host.state.interrupt()}
+            onStop={() => void stopCurrentHermesRun()}
           />
         </section>
         <AgentArtifactDrawer
@@ -1431,7 +1434,9 @@ export function AgentWorkspace() {
       <AgentHistoryDialog
         key={historyOpen ? "open" : "closed"}
         open={historyOpen}
-        sessions={sessions}
+        sessions={sessions.some((item) => item.id === session.id)
+          ? sessions.map((item) => item.id === session.id ? session : item)
+          : [session, ...sessions]}
         onClose={() => setHistoryOpen(false)}
         onSelect={restoreSession}
       />
@@ -2012,18 +2017,6 @@ function floatingTitle(action: AgentUiAction) {
   return "任务产物";
 }
 
-function statusLabel(status: ReturnType<ReturnType<typeof useAgentHost>["state"]["getSnapshot"]>["turnStatus"]) {
-  const labels = {
-    idle: "等待开始",
-    running: "处理中…",
-    paused: "已暂停",
-    waiting_for_confirmation: "等待确认",
-    waiting_for_user: "等待输入",
-    completed: "已完成",
-    failed: "需要处理"
-  };
-  return labels[status];
-}
 
 export function upsertAgentErrorStatus(
   session: AgentSession,
