@@ -1,0 +1,417 @@
+{
+  "package": "P5.2.0-B2-B2",
+  "date": "2026-11-02",
+  "profilePluginPackagingPoc": "PASS",
+  "engineeringGate": "PARTIAL",
+  "productionMigration": "NO-GO",
+  "overallFeasibility": "NO-GO",
+  "baseline": {
+    "startingHead": "8833a5a84b4d3172220b645b285189dde5d03e6c",
+    "finalHead": "8833a5a84b4d3172220b645b285189dde5d03e6c",
+    "branch": "main",
+    "originMain": "8833a5a84b4d3172220b645b285189dde5d03e6c",
+    "fetchExitCode": 0,
+    "initialWorkingTree": "clean",
+    "finalWorkingTree": "new isolated PoC/scripts/tests/reports/evidence only; ignored plan/history updated; uncommitted"
+  },
+  "versions": {
+    "runtimePinnedAndHostFooter": "0.19.0",
+    "desktopPackageActual": "0.17.0",
+    "electronActual": "40.10.2",
+    "hermesCommit": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+    "sdkVersion": "source SDK at pinned commit; no independently versioned package",
+    "contract": "same pinned source tree, actual loader PASS; package/runtime labels differ; not installer qualification"
+  },
+  "missingRequiredMaterial": [
+    "docs/architecture/p5.2.0-hermes-vertical-distribution-audit.md (absent in current filesystem and HEAD docs tree)"
+  ],
+  "publicAPIs": [
+    "HermesPlugin default export: id/name/defaultEnabled/register",
+    "ctx.registerMany",
+    "ROUTES_AREA data.path/render",
+    "SIDEBAR_NAV_AREA data.path/label/codicon",
+    "react.useState/useEffect",
+    "react/jsx-runtime"
+  ],
+  "hostSources": [
+    {
+      "file": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop/src/sdk/index.ts",
+      "bytes": 11315,
+      "sha256": "3dcb00fea4b0c573797746840525e4155b676a6c2e914fdc517592192209840b",
+      "relativeSource": "apps/desktop/src/sdk/index.ts",
+      "diffFromPinnedHEAD": ""
+    },
+    {
+      "file": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop/src/sdk/runtime.ts",
+      "bytes": 2092,
+      "sha256": "6d38dfb12d567cf3f10474afdc9cd6798b2b05b4b23e7f2f4a383f8a265b0c07",
+      "relativeSource": "apps/desktop/src/sdk/runtime.ts",
+      "diffFromPinnedHEAD": ""
+    },
+    {
+      "file": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop/src/contrib/plugin.ts",
+      "bytes": 4903,
+      "sha256": "34c2713ab2bf0d5e77826a42cdd22da80fc5ff051d2d143c2a8ba22c1e26c2db",
+      "relativeSource": "apps/desktop/src/contrib/plugin.ts",
+      "diffFromPinnedHEAD": ""
+    },
+    {
+      "file": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop/src/contrib/runtime-loader.ts",
+      "bytes": 11465,
+      "sha256": "545d39f9acfe21702384c19120f30cc06413e9489d4f9f0882301fa831a60999",
+      "relativeSource": "apps/desktop/src/contrib/runtime-loader.ts",
+      "diffFromPinnedHEAD": ""
+    },
+    {
+      "file": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop/src/contrib/plugins-store.ts",
+      "bytes": 4026,
+      "sha256": "c22a449019a50ca68aa8af807c85678357aa981a2a2fb9fcee3ba7b58c90e01c",
+      "relativeSource": "apps/desktop/src/contrib/plugins-store.ts",
+      "diffFromPinnedHEAD": ""
+    },
+    {
+      "file": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop/src/app/routes.ts",
+      "bytes": 7028,
+      "sha256": "4cb91d3b9a25f11aba76e949767bdfbfaeb9d8cda0da44fd363bddd27f75746c",
+      "relativeSource": "apps/desktop/src/app/routes.ts",
+      "diffFromPinnedHEAD": ""
+    },
+    {
+      "file": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop/electron/main.ts",
+      "bytes": 392906,
+      "sha256": "0b184d8d114126ad77ca16ce5b42a410a677de13d5548825c1bc68f80eb6ab4e",
+      "relativeSource": "apps/desktop/electron/main.ts",
+      "diffFromPinnedHEAD": ""
+    },
+    {
+      "file": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop/electron/preload.ts",
+      "bytes": 15314,
+      "sha256": "0533209a7ecbdc77f9601660a375a92f4dd50f2cce950a8833ceb68278f9354b",
+      "relativeSource": "apps/desktop/electron/preload.ts",
+      "diffFromPinnedHEAD": ""
+    },
+    {
+      "file": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop/package.json",
+      "bytes": 10829,
+      "sha256": "330edca012ae548e0fdd75a64df9eb3123a24d38d89b826dee6b12f98afd83bd",
+      "relativeSource": "apps/desktop/package.json",
+      "diffFromPinnedHEAD": ""
+    },
+    {
+      "file": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/website/docs/developer-guide/desktop-plugin-sdk.md",
+      "bytes": 27047,
+      "sha256": "fa8510f3d29cda06e12a98a7782e7c86cb28e2eb11ea3f7f8453ab74266236bf",
+      "relativeSource": "website/docs/developer-guide/desktop-plugin-sdk.md",
+      "diffFromPinnedHEAD": ""
+    },
+    {
+      "file": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/hermes_cli/__init__.py",
+      "bytes": 3926,
+      "sha256": "e55f0bc43f490b898f62ef38540be0aa9779092e41346ce4b717ff1c8c0ed84a",
+      "relativeSource": "hermes_cli/__init__.py",
+      "diffFromPinnedHEAD": ""
+    }
+  ],
+  "bundle": {
+    "artifact": {
+      "file": ".artifacts/p520b2b2-profile-plugin/production-like/plugin.js",
+      "bytes": 6325,
+      "sha256": "96c10edadee6df61c158a5e9bd28307346c46cd34f8a43dec3ca084ec93e26c0"
+    },
+    "metrics": {
+      "production-like": {
+        "jsBytes": 6325,
+        "outputFiles": [
+          ".artifacts/p520b2b2-profile-plugin/production-like/plugin.js"
+        ],
+        "dynamicChunks": 0,
+        "unresolvedImports": [],
+        "sourceMaps": false,
+        "cssBytes": 1079,
+        "cssDelivery": "embedded in JS, no CSS sidecar",
+        "sourceMapBytes": 0,
+        "durationMs": 110.19929999999997,
+        "lockedLoaderLiteralWorkarounds": 0,
+        "bundledInputCount": 6,
+        "loadedModuleCount": null,
+        "imports": [
+          {
+            "path": "@hermes/plugin-sdk",
+            "kind": "import-statement",
+            "external": true
+          },
+          {
+            "path": "react",
+            "kind": "import-statement",
+            "external": true
+          },
+          {
+            "path": "react/jsx-runtime",
+            "kind": "import-statement",
+            "external": true
+          },
+          {
+            "path": "react/jsx-runtime",
+            "kind": "import-statement",
+            "external": true
+          },
+          {
+            "path": "react/jsx-runtime",
+            "kind": "import-statement",
+            "external": true
+          }
+        ],
+        "inputFiles": [
+          "poc/profile-plugin/profile.css",
+          "poc/profile-plugin/ProfileCareerView.tsx",
+          "poc/profile-packaging/fixture.ts",
+          "poc/profile-packaging/client.ts",
+          "poc/profile-packaging/ProfileHostAdapter.tsx",
+          "poc/profile-packaging/plugin.tsx"
+        ]
+      }
+    },
+    "externalImports": [
+      "@hermes/plugin-sdk",
+      "react",
+      "react/jsx-runtime"
+    ],
+    "nextResidual": 0,
+    "dexieResidual": 0,
+    "repositoryResidual": 0,
+    "nodeElectronResidual": 0,
+    "dynamicChunks": 0,
+    "unresolvedImports": [],
+    "productionArtifactFiles": [
+      "plugin.js"
+    ],
+    "localMetadata": "metafile.json is build diagnostics, not plugin output"
+  },
+  "host": {
+    "runs": [
+      "docs/architecture/evidence/p520b2b2-profile-plugin-smoke-final.json",
+      "docs/architecture/evidence/p520b2b2-profile-plugin-smoke-extended.json",
+      "docs/architecture/evidence/p520b2b2-profile-plugin-smoke-screenshots.json"
+    ],
+    "exitCodes": [
+      0,
+      0,
+      0
+    ],
+    "final": {
+      "status": "PASS",
+      "root": "E:\\DEF\\CareerAdapt AI\\.artifacts\\p520b2b2-profile-plugin\\smoke-1793615376204",
+      "mode": "Real locked Desktop Electron main/preload/renderer, Vite development serving; isolated home; offline provider",
+      "errors": [],
+      "consoleErrors": [],
+      "route": "#/careeradapt-profile",
+      "text": "CAREERADAPT · PROFILE\n\n虚构同学·星舟\n只读概念验证 · 示例资料\n基础资料\n姓名\n虚构同学·星舟\n邮箱\nxingzhou@example.invalid\n电话\n虚构电话（不可拨打）\n所在地\n虚构星舟城\n个人简介\n完全合成资料 · 只读演示\n教育经历\n虚构星舟学院\n\n虚构信息设计专业 · 2022–2026\n\n合成课程：界面设计、信息组织。\n\n工作经历\n虚构云帆实验室\n\n合成体验研究助理 · 2025\n\n整理虚构访谈样本并制作演示界面。\n\n项目经历\n虚构灯塔导航项目\n\n合成团队项目\n\n为不存在的校园设计合成导航原型。\n\n奖项\n虚构星云设计奖\n\n合成赛事 · 2025\n\n演示奖项，无现实获奖事实。\n\n技能\n信息设计\n\n合成技能\n\n用于展示只读字段，无真实能力声明。\n\n语言\n虚构星语\n\n合成语言\n\n完全虚构，用于验证语言板块。",
+      "styleCount": 1,
+      "clientRefresh": "PASS",
+      "pageRefresh": "PASS",
+      "navigateAwayReturn": "PASS",
+      "themes": [
+        {
+          "mode": "light",
+          "color": "color(srgb 0.0901961 0.0901961 0.101961 / 0.94)",
+          "background": "color(srgb 0.97098 0.978196 0.996235)",
+          "styles": 1
+        },
+        {
+          "mode": "dark",
+          "color": "color(srgb 1 0.901961 0.796078 / 0.94)",
+          "background": "color(srgb 0.0509804 0.149647 0.403137)",
+          "styles": 1
+        },
+        {
+          "mode": "light",
+          "color": "color(srgb 0.0901961 0.0901961 0.101961 / 0.94)",
+          "background": "color(srgb 0.97098 0.978196 0.996235)",
+          "styles": 1
+        }
+      ],
+      "lifecycle": [
+        {
+          "cycle": 0,
+          "disabledStyles": 0,
+          "enabledStyles": 1,
+          "diskHotReloadStyles": 1,
+          "contributionCounts": [
+            1,
+            1
+          ]
+        },
+        {
+          "cycle": 1,
+          "disabledStyles": 0,
+          "enabledStyles": 1,
+          "diskHotReloadStyles": 1,
+          "contributionCounts": [
+            1,
+            1
+          ]
+        },
+        {
+          "cycle": 2,
+          "disabledStyles": 0,
+          "enabledStyles": 1,
+          "diskHotReloadStyles": 1,
+          "contributionCounts": [
+            1,
+            1
+          ]
+        }
+      ],
+      "inventory": {
+        "id": "careeradapt-profile-packaging-poc",
+        "name": "CareerAdapt Profile",
+        "kind": "disk",
+        "file": "E:\\DEF\\CareerAdapt AI\\.artifacts\\p520b2b2-profile-plugin\\smoke-1793615376204\\home\\desktop-plugins\\careeradapt-profile-packaging-poc/plugin.js",
+        "status": "loaded"
+      },
+      "desktopVersion": "0.17.0",
+      "electronVersion": "40.10.2",
+      "revocation": "BLOCKED; B2-B1 evidence retained; no backend in this plugin"
+    },
+    "screenshots": {
+      "initial.png": "docs/architecture/evidence/p520b2b2-initial.png",
+      "profile.png": "docs/architecture/evidence/p520b2b2-profile.png",
+      "profile-full.png": "docs/architecture/evidence/p520b2b2-profile-full.png",
+      "profile-bottom.png": "docs/architecture/evidence/p520b2b2-profile-bottom.png",
+      "refreshed.png": "docs/architecture/evidence/p520b2b2-refreshed.png",
+      "away.png": "docs/architecture/evidence/p520b2b2-away.png",
+      "disabled-0.png": "docs/architecture/evidence/p520b2b2-disabled-0.png",
+      "enabled-0.png": "docs/architecture/evidence/p520b2b2-enabled-0.png",
+      "profile-dark.png": "docs/architecture/evidence/p520b2b2-profile-dark.png"
+    },
+    "scope": "actual pinned-source Electron main/preload and Vite renderer, independent HERMES_HOME/userData, offline provider; not installer"
+  },
+  "lifecycle": {
+    "load": "PASS",
+    "navigate": "PASS",
+    "refresh": "PASS",
+    "disable": "PASS",
+    "enable": "PASS",
+    "hotReload": "PASS",
+    "cssCleanup": "PASS",
+    "listeners": "PASS: no plugin-owned listeners/timers/observers/subscriptions; declarative React events",
+    "async": "active flag ignores late result after disposal",
+    "limit": "no duplicate CSS/route/nav/view observed; no heap profiling or general Host leak certification"
+  },
+  "security": {
+    "realCareerDataAccess": false,
+    "careerAdaptDbAccess": false,
+    "workspaceRepositoryAccess": false,
+    "careerWrites": false,
+    "credentials": false,
+    "genericRest": false,
+    "confirmationAPI": false,
+    "oldCtxRest": "BLOCKED; B2-B1 real Host closure still callable after Renderer disable, prior evidence retained; B2-B2 has no backend/rest closure",
+    "newRevocationEvidence": false
+  },
+  "tests": [
+    {
+      "command": "pnpm typecheck (baseline)",
+      "exitCode": 0
+    },
+    {
+      "command": "A/canonical baseline tests: 10 passed",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm typecheck (initial adapter)",
+      "exitCode": 2,
+      "log": {
+        "file": ".artifacts/p520b2b2/typecheck-initial.log",
+        "bytes": 418,
+        "sha256": "c52f6de0bea08f70f2021e916249375b18896afdcebb70e2c2a7dfba259f975d"
+      }
+    },
+    {
+      "command": "pnpm typecheck (final)",
+      "exitCode": 0,
+      "log": {
+        "file": ".artifacts/p520b2b2/typecheck-final.log",
+        "bytes": 81,
+        "sha256": "c4a5c75725dfc7811f8769dc86252e789cc4d8d6989fc7204afcca1d8f6f212b"
+      }
+    },
+    {
+      "command": "pnpm exec vitest run tests/unit/p520b2b2-profile-packaging.test.tsx tests/unit/p520a-profile-plugin.test.tsx tests/unit/canonicalProfileLibrary.test.ts: 23 passed",
+      "exitCode": 0,
+      "log": {
+        "file": ".artifacts/p520b2b2/tests-initial.log",
+        "bytes": 220,
+        "sha256": "f8f0903842a5b47f4535465c279614ccccafa860353040eec355bf5e0b6b1645"
+      }
+    },
+    {
+      "command": "pnpm lint",
+      "exitCode": 1,
+      "log": {
+        "file": ".artifacts/p520b2b2/lint.log",
+        "bytes": 419655,
+        "sha256": "c507e47af324f54ceb93e8b5dff56b6c99d6ffa4406caf2d0a23999b0511c3e8"
+      }
+    },
+    {
+      "command": "pnpm exec eslint poc/profile-packaging scripts/p520b2b2-profile-plugin-build.mjs scripts/p520b2b2-profile-plugin-smoke.mjs tests/unit/p520b2b2-profile-packaging.test.tsx --max-warnings=0",
+      "exitCode": 0,
+      "log": {
+        "file": ".artifacts/p520b2b2/changed-lint.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "command": "pnpm build",
+      "exitCode": 0,
+      "log": {
+        "file": ".artifacts/p520b2b2/build.log",
+        "bytes": 1447,
+        "sha256": "f8773ecba750335d5642c1c2678849ad3cf7a7ac949efe0ae983eb68fe53fde2"
+      }
+    },
+    {
+      "command": "node scripts/p520b2b2-profile-plugin-build.mjs",
+      "exitCode": 0
+    },
+    {
+      "command": "node scripts/bundle-electron-main.mjs --dev (locked Desktop)",
+      "exitCode": 0
+    },
+    {
+      "command": "node scripts/p520b2b2-profile-plugin-smoke.mjs (three real Host runs)",
+      "exitCode": 0,
+      "log": {
+        "file": ".artifacts/p520b2b2/host-screenshots.log",
+        "bytes": 2988,
+        "sha256": "77313d0220bb1a7b5907ccc246af322fdfde3ca31f461e04698b0719b27ad1ca"
+      }
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "failureHistory": [
+    "Initial adapter typecheck exited 2 (union narrowing); explicit discriminants fixed; final passed.",
+    "Full lint exited 1: 66 errors/2603 warnings in old/new generated .artifacts and existing .opencode/.pi. Changed source lint passed. No configuration/threshold changes.",
+    "Extended locator screenshot clipped nested Host scroll area; retained; final tall-viewport capture includes all seven sections. No Host test failures.",
+    "Exploratory guessed docs/routes.tsx/.venv paths absent; corrected source locations. Optional Python metadata command did not execute. Runtime identity uses pinned source and actual Host footer.",
+    "First evidence writer used system GBK default and failed before writes; rerun explicitly UTF-8."
+  ],
+  "decision": {
+    "Profile UI Reuse": "PASS",
+    "ESM Packaging": "PASS",
+    "Public SDK Compliance": "PASS",
+    "Hermes Desktop Loading": "PASS",
+    "CSS Lifecycle": "PASS",
+    "Hot Reload": "PASS",
+    "Read-only Synthetic Data": "PASS",
+    "Renderer Disable Revocation": "BLOCKED",
+    "Trusted Confirmation": "BLOCKED",
+    "Runtime Release": "BLOCKED"
+  },
+  "stop": "No commit/push/B2-B3/P5.2.1. Await review."
+}

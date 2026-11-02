@@ -1,0 +1,75 @@
+{
+  "status": "PASS",
+  "root": "E:\\DEF\\CareerAdapt AI\\.artifacts\\p520b2b2-profile-plugin\\smoke-1793615316131",
+  "mode": "Real locked Desktop Electron main/preload/renderer, Vite development serving; isolated home; offline provider",
+  "errors": [],
+  "consoleErrors": [],
+  "route": "#/careeradapt-profile",
+  "text": "CAREERADAPT · PROFILE\n\n虚构同学·星舟\n只读概念验证 · 示例资料\n基础资料\n姓名\n虚构同学·星舟\n邮箱\nxingzhou@example.invalid\n电话\n虚构电话（不可拨打）\n所在地\n虚构星舟城\n个人简介\n完全合成资料 · 只读演示\n教育经历\n虚构星舟学院\n\n虚构信息设计专业 · 2022–2026\n\n合成课程：界面设计、信息组织。\n\n工作经历\n虚构云帆实验室\n\n合成体验研究助理 · 2025\n\n整理虚构访谈样本并制作演示界面。\n\n项目经历\n虚构灯塔导航项目\n\n合成团队项目\n\n为不存在的校园设计合成导航原型。\n\n奖项\n虚构星云设计奖\n\n合成赛事 · 2025\n\n演示奖项，无现实获奖事实。\n\n技能\n信息设计\n\n合成技能\n\n用于展示只读字段，无真实能力声明。\n\n语言\n虚构星语\n\n合成语言\n\n完全虚构，用于验证语言板块。",
+  "styleCount": 1,
+  "clientRefresh": "PASS",
+  "pageRefresh": "PASS",
+  "navigateAwayReturn": "PASS",
+  "themes": [
+    {
+      "mode": "light",
+      "color": "color(srgb 0.0901961 0.0901961 0.101961 / 0.94)",
+      "background": "color(srgb 0.97098 0.978196 0.996235)",
+      "styles": 1
+    },
+    {
+      "mode": "dark",
+      "color": "color(srgb 1 0.901961 0.796078 / 0.94)",
+      "background": "color(srgb 0.0509804 0.149647 0.403137)",
+      "styles": 1
+    },
+    {
+      "mode": "light",
+      "color": "color(srgb 0.0901961 0.0901961 0.101961 / 0.94)",
+      "background": "color(srgb 0.97098 0.978196 0.996235)",
+      "styles": 1
+    }
+  ],
+  "lifecycle": [
+    {
+      "cycle": 0,
+      "disabledStyles": 0,
+      "enabledStyles": 1,
+      "diskHotReloadStyles": 1,
+      "contributionCounts": [
+        1,
+        1
+      ]
+    },
+    {
+      "cycle": 1,
+      "disabledStyles": 0,
+      "enabledStyles": 1,
+      "diskHotReloadStyles": 1,
+      "contributionCounts": [
+        1,
+        1
+      ]
+    },
+    {
+      "cycle": 2,
+      "disabledStyles": 0,
+      "enabledStyles": 1,
+      "diskHotReloadStyles": 1,
+      "contributionCounts": [
+        1,
+        1
+      ]
+    }
+  ],
+  "inventory": {
+    "id": "careeradapt-profile-packaging-poc",
+    "name": "CareerAdapt Profile",
+    "kind": "disk",
+    "file": "E:\\DEF\\CareerAdapt AI\\.artifacts\\p520b2b2-profile-plugin\\smoke-1793615316131\\home\\desktop-plugins\\careeradapt-profile-packaging-poc/plugin.js",
+    "status": "loaded"
+  },
+  "desktopVersion": "0.17.0",
+  "electronVersion": "40.10.2",
+  "revocation": "BLOCKED; B2-B1 evidence retained; no backend in this plugin"
+}

@@ -1,0 +1,56 @@
+{
+  "hermesCommit": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+  "metrics": {
+    "production-like": {
+      "jsBytes": 6325,
+      "outputFiles": [
+        ".artifacts/p520b2b2-profile-plugin/production-like/plugin.js"
+      ],
+      "dynamicChunks": 0,
+      "unresolvedImports": [],
+      "sourceMaps": false,
+      "cssBytes": 1079,
+      "cssDelivery": "embedded in JS, no CSS sidecar",
+      "sourceMapBytes": 0,
+      "durationMs": 110.19929999999997,
+      "lockedLoaderLiteralWorkarounds": 0,
+      "bundledInputCount": 6,
+      "loadedModuleCount": null,
+      "imports": [
+        {
+          "path": "@hermes/plugin-sdk",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "inputFiles": [
+        "poc/profile-plugin/profile.css",
+        "poc/profile-plugin/ProfileCareerView.tsx",
+        "poc/profile-packaging/fixture.ts",
+        "poc/profile-packaging/client.ts",
+        "poc/profile-packaging/ProfileHostAdapter.tsx",
+        "poc/profile-packaging/plugin.tsx"
+      ]
+    }
+  }
+}
