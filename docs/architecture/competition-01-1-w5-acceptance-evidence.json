@@ -1,0 +1,62 @@
+{
+  "workPackage": "COMP-01.1",
+  "startingHead": "65d6db96f0e3dd682a2dd017d82b0d6621d9fb83",
+  "productionCodeChanged": false,
+  "originalFailure": {
+    "file": "tests/e2e/agent-workspace.spec.ts",
+    "line": 386,
+    "assertion": "getByText(正在处理).toBeVisible",
+    "exitCode": 1,
+    "localLog": ".tmp/comp011-original-repro.log"
+  },
+  "stateEvidence": {
+    "sourceSnapshot": {
+      "sessionId": "agent-session-TU3cFGa0LemM",
+      "hermesRunId": "hermes-e2e-run-1",
+      "hermesRunStatus": "completed",
+      "activeTurnId": "runtime-turn-eb608674-8a8f-4140-a954-0b0b0066dafe",
+      "stage": "choose_resume_source",
+      "completionStatus": "waiting_for_user",
+      "checkpointKind": "resume_choice",
+      "checkpointState": "active",
+      "activeTurnStatus": "waiting_for_user",
+      "businessRowsSha256": "109352f46d2e9cb0d93f7e3614efabd0980b6bbb2c15a7d4bd443bb13d3e8489"
+    },
+    "jobSnapshot": {
+      "sessionId": "agent-session-TU3cFGa0LemM",
+      "hermesRunId": "hermes-e2e-run-2",
+      "hermesRunStatus": "completed",
+      "activeTurnId": "agent-turn-f50da7fd-cead-41ff-a693-fed10cea8434",
+      "stage": "choose_job",
+      "completionStatus": "waiting_for_user",
+      "checkpointKind": "clarification",
+      "checkpointState": "active",
+      "activeTurnStatus": "waiting_for_user",
+      "businessRowsSha256": "109352f46d2e9cb0d93f7e3614efabd0980b6bbb2c15a7d4bd443bb13d3e8489"
+    },
+    "runStarts": 2
+  },
+  "e2e": {
+    "passed": 2,
+    "exitCode": 0,
+    "localLog": ".tmp/comp011-contract-e2e.log"
+  },
+  "unit": {
+    "passed": 58,
+    "files": 5,
+    "exitCode": 0,
+    "localLog": ".tmp/comp011-unit-final.log"
+  },
+  "additionalHistoricalFailure": {
+    "file": "tests/unit/p44e-long-run-workflow.test.ts",
+    "test": "maps Hermes data-only SSE lifecycle events using the payload event name",
+    "actualExtraEvent": "progress / reconciliation=status_unavailable",
+    "scope": "unchanged historical transport fixture; not repaired",
+    "localLog": ".tmp/comp011-unit.log"
+  },
+  "genericApproval": {
+    "applicability": "NOT_APPLICABLE_CURRENT_CAREER_WORKFLOWS",
+    "interactionCertification": "UNVERIFIED"
+  },
+  "w5": "CLOSED_SCOPED"
+}

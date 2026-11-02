@@ -1,6 +1,6 @@
 # COMP-01 — Hermes-inspired Agent Workspace UX
 
-2026-11-02. **Implementation delivered; W5 PARTIAL.** One pre-existing simulated workflow assertion remains failed. This is not an all-green release gate.
+2026-11-02. **Implementation delivered; W5 CLOSED within current career workflow scope by COMP-01.1.** Original PARTIAL findings below are retained as historical evidence. See [W5 closeout](competition-01-1-w5-acceptance-closeout.md) and [new evidence](competition-01-1-w5-acceptance-evidence.json). Generic upstream approval is NOT_APPLICABLE to current career workflows and remains interaction-UNVERIFIED. This is not an all-green release gate.
 
 ## Scope, baseline and exclusions
 
@@ -114,3 +114,8 @@ Inspected before/after at both required sizes. Removed duplicate toolbar/history
 Audit commit 78dfda5; UI commit 243de04; regression commit 96bd2c8. Final evidence/report commit and push identity are recorded in the local plan/history and final response (a document cannot embed its own commit hash). Only competition branch is published for review; no merge into main. plan4/history4 remain ignored local handoff documents in this worktree; main's copies remain unchanged.
 
 **Remaining work:** review COMP-01 and independently reconcile the old simulated /resume busy-state assertion with the waiting-for-Job contract. W5 is PARTIAL until resolved. No automatic next phase, release certification, runtime migration, Skills Quality or installer work.
+
+
+## COMP-01.1 acceptance reconciliation — 2026-11-02
+
+The frozen HEAD reproduced the old line 386 busy-label failure. The task correctly waits for user input while its Hermes invocation is completed. Asset pages expose sidebar waiting status; the AI workspace exposes 等待你回答. Two reconciled browser journeys now pass, including same-session continuation, exactly one Run per user turn, navigation/reload stability and unchanged formal business rows. The pending PDF assertion now verifies an unsent attachment rather than claiming parsing before Send. No production code changed. Related 58 tests/typecheck/full lint/diff pass; an additional unchanged historical SSE fixture test remains OPEN. Full details, intermediate failures and bounded applicability are in the linked closeout; original failure records above are intentionally retained. W5 is closed for J1–J10 with existing COMP-01 evidence reused; generic approval actual interaction remains unverified.

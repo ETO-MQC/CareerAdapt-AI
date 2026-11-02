@@ -31,6 +31,10 @@ describe("COMP-01 run projection", () => {
   it.each(["queued", "waiting_for_approval", "stopping", "cancelled"] as const)("projects Hermes state %s", (state) => {
     expect(presentation("running", state).state).toBe(state);
   });
+  it.each(["running", "completed"] as const)("keeps a workflow waiting for input distinct from the Hermes %s invocation", status => {
+    expect(presentation("waiting_for_user", status)).toEqual({ state: "waiting_for_user", label: "等待你回答", canStop: false });
+    expect(presentation("running", "running")).toEqual({ state: "running", label: "正在处理", canStop: true });
+  });
   it("keeps stop pending ahead of locally fenced cancellation", () => {
     expect(presentation("paused", "cancelled", true)).toMatchObject({ state: "stopping", label: "正在停止", canStop: false });
     expect(presentation("paused", "cancelled")).toMatchObject({ state: "cancelled", label: "已停止", canStop: false });

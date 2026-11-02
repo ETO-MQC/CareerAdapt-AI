@@ -323,7 +323,7 @@ test.describe("AI workspace shell", () => {
     expect(reducedTransitionMs).toBeLessThanOrEqual(0.02);
   });
 
-  test("starts an explicit advanced workflow, preserves it across an asset page, and handles PDF as partial", async ({ page }) => {
+  test("starts an explicit advanced workflow, preserves it across an asset page, and keeps an unsent PDF pending", async ({ page }) => {
     await page.goto("/ai-workspace");
     await page.getByLabel("描述你的求职任务").fill("优化已有简历");
     await page.getByRole("button", { name: "发送消息" }).click();
@@ -336,15 +336,20 @@ test.describe("AI workspace shell", () => {
     await expect(taskShell).toHaveAttribute("data-agent-completion-status", "waiting_for_user");
 
     await page.goto("/resume");
-    await expect(page.getByText("正在处理")).toBeVisible();
-    await expect(page.getByRole("status")).toContainText("正在处理");
+    // Asset pages show the durable task in the sidebar, not the AI workspace header.
+    await expect(page.getByRole("region", { name: "最近任务" }).getByLabel("任务状态：等待输入").first()).toBeVisible();
+    await expect.poll(() => readActiveSession(page)).toMatchObject({ completionStatus: "waiting_for_user", activeTurnStatus: "waiting_for_user" });
+    await expect(page.getByText("正在处理", { exact: true })).toHaveCount(0);
     await page.getByRole("link", { name: "AI 助手", exact: true }).click();
     await expect(page.getByText("请选择用于岗位定制的通用简历。", { exact: true })).toBeVisible();
     await expect(page.locator(".agent-workspace-body")).toHaveAttribute("data-agent-workflow-id", "tailor_resume");
 
     await page.locator('input[type="file"]').setInputFiles("tests/fixtures/pdf/chinese-resume-reportlab.pdf");
     await expect(page.locator(".agent-artifact-drawer")).toBeVisible();
-    await expect(page.getByText(/简历已解析|简历导入|核对/).first()).toBeVisible();
+    // Selection queues an attachment; parsing requires an explicit send.
+    await expect(page.getByRole("button", { name: "预览附件 chinese-resume-reportlab.pdf" })).toBeVisible();
+    await expect(page.getByText(/PDF · .*待发送/)).toBeVisible();
+    await expect(page.getByText(/简历已解析/)).toHaveCount(0);
     await expect(page).toHaveURL(/\/ai-workspace$/);
     await page.getByRole("button", { name: "关闭任务产物" }).last().click();
     await expect(page.getByRole("button", { name: /产物 1/ })).toBeVisible();
@@ -363,7 +368,9 @@ test.describe("AI workspace shell", () => {
     expect(await page.locator("html").evaluate((node) => node.scrollWidth - node.clientWidth)).toBe(0);
   });
 
-  test("keeps the current tailoring facade checkpoint, source selection, and import artifact durable", async ({ page }) => {
+  test("keeps the current tailoring facade checkpoint, source selection, and pending PDF durable", async ({ page }) => {
+    let runStarts = 0;
+    page.on("request", request => { if (isHermesRunStart(request)) runStarts += 1; });
     await page.goto("/ai-workspace");
     await page.getByLabel("描述你的求职任务").fill("优化已有简历");
     await page.getByRole("button", { name: "发送消息" }).click();
@@ -375,24 +382,48 @@ test.describe("AI workspace shell", () => {
     await expect(taskShell).toHaveAttribute("data-agent-completion-status", "waiting_for_user");
     await expect(page.locator('textarea[data-agent-checkpoint-kind="resume_choice"]')).toBeVisible();
 
+    await expect.poll(() => readActiveSession(page)).toMatchObject({ activeTurnStatus: "waiting_for_user", completionStatus: "waiting_for_user", stage: "choose_resume_source", checkpointKind: "resume_choice", hermesRunStatus: "completed" });
+    const sourceSnapshot = await readActiveSession(page);
+    expect(runStarts).toBe(1);
     const checkpointInput = page.locator('textarea[data-agent-checkpoint-kind="resume_choice"]');
     await checkpointInput.fill("测试通用简历");
     await expect(page.getByRole("button", { name: "发送消息", exact: true })).toBeEnabled();
     await page.getByRole("button", { name: "发送消息" }).click();
     await expect(taskShell).toHaveAttribute("data-agent-task-stage", "choose_job");
     await expect(page.getByText("测试通用简历", { exact: true }).last()).toBeVisible();
+    await expect.poll(() => readActiveSession(page)).toMatchObject({ sessionId: sourceSnapshot.sessionId, activeTurnStatus: "waiting_for_user", completionStatus: "waiting_for_user", stage: "choose_job", checkpointState: "active" });
+    const jobSnapshot = await readActiveSession(page);
+    expect(jobSnapshot.activeTurnId).not.toBe(sourceSnapshot.activeTurnId);
+    expect(jobSnapshot.hermesRunId).not.toBe(sourceSnapshot.hermesRunId);
+    expect(jobSnapshot.hermesRunStatus).toBe("completed");
+    expect(jobSnapshot.businessRows).toEqual(sourceSnapshot.businessRows);
+    expect(runStarts).toBe(2);
+    const sourceState = { ...sourceSnapshot, businessRows: undefined };
+    const jobState = { ...jobSnapshot, businessRows: undefined };
+    console.log("COMP-01.1 source -> job", JSON.stringify({ sourceState, jobState, runStarts, businessRowsUnchanged: true }));
 
     await page.goto("/resume");
-    await expect(page.getByText("正在处理")).toBeVisible();
-    await expect(page.getByRole("status")).toContainText("正在处理");
+    // Asset pages show the durable task in the sidebar, not the AI workspace header.
+    await expect(page.getByRole("region", { name: "最近任务" }).getByLabel("任务状态：等待输入").first()).toBeVisible();
+    await expect.poll(() => readActiveSession(page)).toMatchObject({ completionStatus: "waiting_for_user", activeTurnStatus: "waiting_for_user" });
+    await expect(page.getByText("正在处理", { exact: true })).toHaveCount(0);
     await page.getByRole("link", { name: "AI 助手", exact: true }).click();
     await expect(page.getByText("测试通用简历", { exact: true }).last()).toBeVisible();
     await expect(taskShell).toHaveAttribute("data-agent-workflow-id", "tailor_resume");
     await expect(taskShell).toHaveAttribute("data-agent-task-stage", "choose_job");
+    await expect.poll(() => readActiveSession(page)).toEqual(jobSnapshot);
+    await page.reload();
+    await expect(page.locator('.agent-workflow-status[data-agent-run-state="waiting_for_user"]')).toContainText("等待你回答");
+    await expect.poll(() => readActiveSession(page)).toEqual(jobSnapshot);
+    expect(runStarts).toBe(2);
+    await expect(page.locator('[data-message-status="thinking"], [data-message-status="streaming"]')).toHaveCount(0);
 
     await page.locator('input[type="file"]').setInputFiles("tests/fixtures/pdf/chinese-resume-reportlab.pdf");
     await expect(page.locator(".agent-artifact-drawer")).toBeVisible();
-    await expect(page.getByText(/简历已解析|简历导入|核对/).first()).toBeVisible();
+    // Selection queues an attachment; parsing requires an explicit send.
+    await expect(page.getByRole("button", { name: "预览附件 chinese-resume-reportlab.pdf" })).toBeVisible();
+    await expect(page.getByText(/PDF · .*待发送/)).toBeVisible();
+    await expect(page.getByText(/简历已解析/)).toHaveCount(0);
     await expect(page).toHaveURL(/\/ai-workspace$/);
     await page.getByRole("button", { name: "关闭任务产物" }).last().click();
     await expect(page.getByRole("button", { name: /产物 1/ })).toBeVisible();
@@ -411,13 +442,27 @@ async function readActiveSession(page: Page) {
       request.onsuccess = () => resolve(request.result as Record<string, unknown>[]);
       request.onerror = () => reject(request.error);
     });
-    const activeId = localStorage.getItem("careerad.agent.activeSessionId");
+    const activeId = localStorage.getItem("careeradapt.agent.activeSessionId");
     const session = sessions.find((candidate) => candidate.id === activeId) ?? sessions.at(-1);
     const hermesRun = session?.hermesRun as Record<string, unknown> | undefined;
+    const task = session?.taskState as Record<string, unknown> | undefined;
+    const checkpoint = task?.workflowUserInputCheckpoint as Record<string, unknown> | undefined;
+    const businessRows = await Promise.all(["profiles", "resumeBranches", "resumeRevisions", "jobDescriptions"].map(name => new Promise<unknown[]>((resolve, reject) => {
+      const request = database.transaction(name, "readonly").objectStore(name).getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    })));
     database.close();
     return {
       sessionId: session?.id,
       hermesRunId: hermesRun?.runId,
+      hermesRunStatus: hermesRun?.status,
+      activeTurnId: (session?.activeTurn as Record<string, unknown> | undefined)?.id,
+      stage: task?.stage,
+      completionStatus: task?.completionStatus,
+      checkpointKind: checkpoint?.kind,
+      checkpointState: checkpoint?.state,
+      businessRows,
       activeTurnStatus: (session?.activeTurn as Record<string, unknown> | undefined)?.status
     };
   });
