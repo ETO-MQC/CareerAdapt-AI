@@ -1,0 +1,63 @@
+{
+  "date": "2026-11-02",
+  "scope": "single_case_direct_provider_policy_smoke_not_Hermes",
+  "model": "Qwen3.8-27B",
+  "caseId": "jd_understanding-01",
+  "state": {
+    "status": "BLOCKED",
+    "errorName": "Error",
+    "errorCode": "QUALITY_OUTPUT_BUDGET_EXHAUSTED"
+  },
+  "attempts": [
+    {
+      "caseId": "jd_understanding-01",
+      "category": "jd_understanding",
+      "arm": "before",
+      "attemptNumber": 1,
+      "previousFailure": null,
+      "requestedAt": "2026-11-02T09:22:49.741Z",
+      "turns": [
+        {
+          "turnIndex": 0,
+          "requestedAt": "2026-11-02T09:22:49.743Z",
+          "requestBytes": 5123,
+          "parameters": {
+            "temperature": 0,
+            "reasoningEffort": "low",
+            "maxTokens": 2048
+          },
+          "timeoutMs": 120000,
+          "headersMs": 96567.07549999999,
+          "httpStatus": 200,
+          "bodyMs": 96568.63889999999,
+          "finishReason": "length",
+          "reasoningPresent": true,
+          "reasoningChars": 6676,
+          "usage": {
+            "prompt_tokens": 1080,
+            "completion_tokens": 2048,
+            "completion_tokens_details": {
+              "reasoning_tokens": 1659
+            }
+          },
+          "contentChars": 766,
+          "totalMs": 96568.7062
+        }
+      ],
+      "completionStatus": "FAILED",
+      "errorClassification": "QUALITY_OUTPUT_BUDGET_EXHAUSTED",
+      "partialResponses": []
+    }
+  ],
+  "records": [],
+  "qualityCertified": false,
+  "baselineCommit": "1573e267614ff93363eff2ed2bade34ff01ed078",
+  "skillSHA256": {
+    "beforeSHA256": "b4a70be83c7a10b5631a371d077a47757a0b60bd2c14de6c402f02a16c63402c",
+    "beforeVersion": "1.0.0",
+    "afterSHA256": "ce7b5a1e58331756b807e0b6862e662613f5e1d2eed06190528b0880054dceb9",
+    "afterVersion": "2.0.0"
+  },
+  "fixtureSHA256": "f95cf576e27b9ec8ad51660240eb8b63a779e78ebf0daefd8d67d3005fc598f2",
+  "currentHead": "b6d3ef311c8386cc282a133643e1f653ededefb9"
+}

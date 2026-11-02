@@ -1,0 +1,187 @@
+{
+  "date": "2026-11-02",
+  "workPackage": "P5.1-SQ1.0",
+  "startingHead": "b6d3ef311c8386cc282a133643e1f653ededefb9",
+  "branch": "competition/5.1.8",
+  "originHeadAfterFetch": "b6d3ef311c8386cc282a133643e1f653ededefb9",
+  "fetchExitCode": 0,
+  "initialWorkingTree": "clean",
+  "productionChanged": false,
+  "skills": {
+    "candidate-profile-interview": {
+      "path": "skills/career/candidate-profile-interview/SKILL.md",
+      "version": "2.0.0",
+      "sha256": "b58f72952350ad3efd154f6b482f0c81a6cf9dff58fc12dfdf555eb1f668f579",
+      "matchesFrozenAfter": true
+    },
+    "career-story-mining": {
+      "path": "skills/career/career-story-mining/SKILL.md",
+      "version": "2.0.0",
+      "sha256": "03a9ea1a8ac24b27db7203f84a9cf763ebaae7b75421e4728dc3a0c4c4401abf",
+      "matchesFrozenAfter": true
+    },
+    "job-fit-analysis": {
+      "path": "skills/career/job-fit-analysis/SKILL.md",
+      "version": "2.0.0",
+      "sha256": "ce7b5a1e58331756b807e0b6862e662613f5e1d2eed06190528b0880054dceb9",
+      "matchesFrozenAfter": true
+    },
+    "resume-composition": {
+      "path": "skills/career/resume-composition/SKILL.md",
+      "version": "2.0.0",
+      "sha256": "037b450b0ef6f0ea24ce0b2bc27884e2f41599cf9dcb039c3506fca464de2721",
+      "matchesFrozenAfter": true
+    },
+    "resume-review": {
+      "path": "skills/career/resume-review/SKILL.md",
+      "version": "2.0.0",
+      "sha256": "c00fb5549a76c720c5cf5454e45873c029094362ba9d30d5b589f2022195585a",
+      "matchesFrozenAfter": true
+    },
+    "resume-tailoring": {
+      "path": "skills/career/resume-tailoring/SKILL.md",
+      "version": "2.0.0",
+      "sha256": "1ebab591afa239861a518fb0e260cc999b2b019c4731ca8207f0a0ee639f240f",
+      "matchesFrozenAfter": true
+    }
+  },
+  "frozenFiles": {
+    "tests/fixtures/skills-quality-eval-v1.json": {
+      "sha256": "f95cf576e27b9ec8ad51660240eb8b63a779e78ebf0daefd8d67d3005fc598f2",
+      "gitTrackedChanges": false
+    },
+    "tests/agent-eval/core02-cases.ts": {
+      "sha256": "677f709c4598760dc8e4c6b4b74b0eab74b469eac80201b8e9ba3a9f40d47799",
+      "gitTrackedChanges": false
+    },
+    "tests/agent-eval/core02-behavior-cases.ts": {
+      "sha256": "cd8ffe0520203d97699ec97b0c17c3458229bcf54f63421b4b8a3d82b722f0bf",
+      "gitTrackedChanges": false
+    },
+    "docs/quality/skills-quality-v1-baseline.json": {
+      "sha256": "cf18d75bbe00a08c484d766785bd9b37a2b36095236a605eb0bf08d907f02882",
+      "gitTrackedChanges": false
+    },
+    "docs/quality/skills-quality-v1-ab-results.json": {
+      "sha256": "e0c7d037d5164e158f1a75db77be213dba8e715eccac869d0ed8ceefef1c4d8d",
+      "gitTrackedChanges": false
+    },
+    "docs/quality/skills-quality-eval-v1-web-pack.md": {
+      "sha256": "d5b9e0d02212c7cc6be69e2a7aea6add41bba846dd69639a01249d47e0533afa",
+      "gitTrackedChanges": false
+    }
+  },
+  "unit": {
+    "primary": {
+      "files": 10,
+      "passed": 121,
+      "failed": 1,
+      "exitCode": 1,
+      "log": ".tmp/sq10-audit-unit.log",
+      "json": ".tmp/sq10-audit-unit.json",
+      "testFiles": [
+        "tests/unit/core02BehaviorCatalog.test.ts",
+        "tests/unit/core02EvalBaseline.test.ts",
+        "tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts",
+        "tests/unit/p47a-agent-capability-contract.test.ts",
+        "tests/unit/p51-core-02-intelligence.test.ts",
+        "tests/unit/p51-core-workflow.test.ts",
+        "tests/unit/p512-material-intake.test.ts",
+        "tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts",
+        "tests/unit/sessionConfirmedSkills.test.ts",
+        "tests/unit/skillsQualityV1.test.ts"
+      ]
+    },
+    "supplement": {
+      "files": 4,
+      "passed": 46,
+      "failed": 0,
+      "exitCode": 0,
+      "json": ".tmp/sq10-audit-supplement.json",
+      "testFiles": [
+        "tests/unit/core02SessionCheckpoint.test.ts",
+        "tests/unit/jobOptimizationV2.test.ts",
+        "tests/unit/presentationConfig.test.ts",
+        "tests/unit/tailoringFieldSafety.test.ts"
+      ]
+    },
+    "failures": [
+      {
+        "file": "tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts",
+        "title": "normalizes contradictory official tool completion payloads as failures",
+        "classification": "EXISTING_HTTP_FIXTURE_RESPONSE_BODY_DISTURBED_OR_LOCKED"
+      }
+    ]
+  },
+  "mappedSafetyOracle": {
+    "total": 40,
+    "passed": 40,
+    "exitCode": 0,
+    "scope": "mapped executable oracles, not 40 model runs",
+    "initialIncompleteSelection": 35,
+    "inputReports": [
+      ".tmp/sq10-audit-unit.json",
+      ".tmp/sq10-audit-supplement.json"
+    ]
+  },
+  "hermesBehavior": {
+    "manifestCases": 12,
+    "catalogVerifiedThisRound": true,
+    "executedThisRound": false,
+    "historicalLatestComplete": {
+      "passed": 12,
+      "requests": 37,
+      "provider": "scripted loopback"
+    },
+    "scope": "not current natural model quality"
+  },
+  "currentProvider": {
+    "initialSafeConfigPresence": {
+      "envLocal": false,
+      "base": false,
+      "model": false,
+      "key": false,
+      "dedicated": false
+    },
+    "subsequentUserAuthorizedConfig": true,
+    "connectivity": "HTTP200_finish_stop",
+    "firstCase": "HTTP200_finish_length_QUALITY_OUTPUT_BUDGET_EXHAUSTED",
+    "realRequests": 2,
+    "completedQualityArms": 0,
+    "completedPairs": 0,
+    "afterRequested": false,
+    "automaticRetries": 0,
+    "credentialsPersisted": false,
+    "scope": "direct-provider, no Hermes execution",
+    "evidence": [
+      "docs/quality/sq10-real-provider-probe-20261102.json",
+      "docs/quality/sq10-real-provider-first-case-20261102.json"
+    ],
+    "firstCaseProcessExitCode": 1,
+    "preparationFailure": "REPL_IMPORT_CJS_DEFAULT_EXPORT_INCOMPATIBILITY_NO_REQUEST"
+  },
+  "openSource": {
+    "queriedDate": "2026-11-02 Asia/Shanghai",
+    "githubApi": "403_RATE_LIMIT",
+    "commitMethod": "git ls-remote HEAD + pinned raw files",
+    "licenses": "five pinned LICENSE files MIT verified",
+    "stars": "official GitHub page displayed values; k is rounded"
+  },
+  "notExecuted": [
+    "production_build",
+    "typecheck",
+    "UI_matrix",
+    "full_Hermes_behavior_rerun",
+    "full_30_case_real_AB",
+    "human_quality_certification",
+    "SQ1.1-SQ1.5"
+  ],
+  "committed": false,
+  "pushed": false,
+  "verificationCommands": [
+    "pnpm exec vitest run <primary.testFiles> --reporter=json --outputFile=.tmp/sq10-audit-unit.json",
+    "pnpm exec vitest run <supplement.testFiles> --reporter=json --outputFile=.tmp/sq10-audit-supplement.json",
+    "node scripts/core02-eval.mjs .tmp/sq10-audit-combined.json",
+    "git diff --check"
+  ]
+}
