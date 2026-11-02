@@ -1,7 +1,7 @@
 ---
 name: resume-review
 description: Review or improve an existing general Resume for evidence, clarity, and release risk without a target Job.
-version: 2.0.0
+version: 2.0.1
 author: CareerAdapt AI
 license: Project-local
 metadata:
@@ -25,18 +25,23 @@ or creating a new general Resume from Profile evidence.
 
 ## INPUTS
 
-- Resume branch or composition result, revision identifier, and
-  rendered/text-layer representation.
+- Resume branch or composition result and revision identifier when available;
+  plain pasted resume text may be reviewed as text only.
 - Optional selected general Resume ID and revision identifier.
-- Profile evidence and provenance for every material included claim.
+- Available host evidence: confirmed Profile facts, or explicit current-session
+  confirmed skills with sourceTurn and maturity within the existing host support.
+  Resume text alone is a claim to assess, not independent confirmation. Mark
+  source-missing claims as needing confirmation and unsupported objective facts
+  as unsupported; Profile absence alone does not establish inability.
 - Fixed person/profile/session binding.
 
 ## INTERACTION POLICY
 
 ### WHAT TO READ FIRST
 
-Inspect the selected Resume revision, text layer, Profile evidence, and
-existing review findings after the review capability is activated. Do not
+Inspect the available Resume/text, host-provided evidence, and existing findings
+after the review capability is activated. Do not claim to have read session
+evidence that the facade has not supplied. Do not
 pre-read personal data before Hermes receives the user's turn.
 
 ### WHEN TO ASK
@@ -102,6 +107,11 @@ review/update capability. Stop at its proposal for review-only requests; an
 improvement may continue through the same facade only after explicit user
 confirmation. Never call atomic review, tailoring, or export tools and never
 edit `WorkspaceRepository` directly.
+
+For pasted text without a bound Resume, return textual findings without claiming
+formal Resume Review, tool execution, PDF extraction, or ATS parsing. Review-only
+never applies a proposal or writes formal Resume/Profile content. An unavailable
+rendered artifact leaves layout, text extraction, and reading order unknown.
 
 ## FACT SAFETY
 

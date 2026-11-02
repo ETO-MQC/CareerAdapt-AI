@@ -1,7 +1,7 @@
 ---
 name: resume-composition
-description: Create or update an isolated general/base Resume from confirmed CareerProfile evidence, without a target Job or JD.
-version: 2.0.0
+description: Create or update an isolated general/base Resume from confirmed CareerProfile evidence and host-supported session-confirmed skills, without a target Job or JD.
+version: 2.0.1
 author: CareerAdapt AI
 license: Project-local
 metadata:
@@ -15,7 +15,8 @@ metadata:
 
 ## PURPOSE
 
-Turn a confirmed CareerProfile into an isolated general/base ResumeRevision.
+Compose an isolated general/base ResumeRevision from confirmed Profile evidence
+and the existing host-supported session-confirmed skill overlay.
 Keep Profile data separate from the derived Resume. Use Resume Tailoring for
 any saved-job or external-target Resume.
 
@@ -27,12 +28,15 @@ any saved-job or external-target Resume.
   general Resume.
 - Confirmed structured facts, fact provenance, source excerpts, and any
   existing review context available through the host.
+- Host-supplied current-session skill evidence, retaining sourceTurn and maturity;
+  the model cannot submit or authorize its own sessionSource.
 
 ## WORKFLOW
 
 1. Read the current Profile through the host boundary. Build a deterministic
    `ResumeEvidenceGraph` from confirmed facts, canonical `structuredFacts`,
-   provenance, source excerpts, and cross-asset links. Do not mutate Profile.
+   provenance, source excerpts, and cross-asset links. Use the host's existing
+   session-confirmed skill overlay when supplied. Do not mutate Profile.
 2. Create a `ResumeBlueprint` proposal. Rank assets by evidence strength,
    relevance, and uniqueness for a general/base Resume.
    Prefer one page for an early-career profile and expose at most two optional
@@ -140,11 +144,14 @@ New confirmed claims default to `resume_only`. Only explicit
 source-turn/declaration/maturity contracts; a Skill label alone grants no write
 or guard bypass. Keep Repository, CAS, target/revision and confirmation checks.
 
-## GENERAL RESUME v2
+## SESSION-CONFIRMED SKILL OVERLAY
 
-General resumes may use source_confirmed, user_confirmed and explicitly
-confirmed familiar/basic capability, at accurate maturity. Do not demand an
-attachment for a direct user statement. Use existing host evidence contracts;
-if a current answer is not yet available to the composition checkpoint, keep
-it as a proposal and obtain the host confirmation rather than forcing Profile
-synchronization. Exclude job-specific exploratory claims from General Resume.
+The existing overlay accepts only host-recognized explicit skill declarations,
+with sourceTurn, quote, session/target binding and accurate maturity. Do not upgrade
+familiar, learning, or confirmed_capability into one another or into demonstrated
+project experience. Eligible skills default to resume_only; Profile synchronization
+remains a separate explicit reviewed action. If the host cannot consume a statement,
+retain it as an uncommitted proposal, not an assumed checkpoint claim.
+This is not a general fact-writing channel: education, employers, dates, results,
+numbers and ownership still follow the existing fact confirmation policy. Neither
+a Skill label nor user wording bypasses Guard, checkpoint approval or revision/CAS.

@@ -1,0 +1,127 @@
+{
+  "schemaVersion": "skills-quality-sq11-candidate-1",
+  "date": "2026-11-02",
+  "status": "CONTRACT_CANDIDATE_NOT_QUALITY_CERTIFIED",
+  "startingHead": "c77d29c8c661c1bc4a7cf15a6f1e04f17f2ea229",
+  "expectedStartingHead": "b6d3ef311c8386cc282a133643e1f653ededefb9",
+  "originBranchHeadAfterFetch": "b6d3ef311c8386cc282a133643e1f653ededefb9",
+  "branch": "competition/5.1.8",
+  "frozenV1Baseline": "docs/quality/skills-quality-v1-baseline.json",
+  "sq10OriginalSkillsCommit": "c77d29c8c661c1bc4a7cf15a6f1e04f17f2ea229",
+  "skills": [
+    {
+      "name": "candidate-profile-interview",
+      "path": "skills/career/candidate-profile-interview/SKILL.md",
+      "originalVersion": "2.0.0",
+      "originalSHA256": "b58f72952350ad3efd154f6b482f0c81a6cf9dff58fc12dfdf555eb1f668f579",
+      "candidateVersion": "2.0.1",
+      "candidateSHA256": "615e75fa503a4136e35882b9d58b54b57ed1e6a97689f2dabe3cf54756331af8",
+      "modified": true,
+      "reason": "Distinguish natural multi-asset candidate intake, targeted single-asset answer/correction and confirmed Profile commit."
+    },
+    {
+      "name": "career-story-mining",
+      "path": "skills/career/career-story-mining/SKILL.md",
+      "originalVersion": "2.0.0",
+      "originalSHA256": "03a9ea1a8ac24b27db7203f84a9cf763ebaae7b75421e4728dc3a0c4c4401abf",
+      "candidateVersion": "2.0.0",
+      "candidateSHA256": "03a9ea1a8ac24b27db7203f84a9cf763ebaae7b75421e4728dc3a0c4c4401abf",
+      "modified": false,
+      "reason": "No directly related conflict requiring a production text change; preserve existing Skill and facade read surface."
+    },
+    {
+      "name": "job-fit-analysis",
+      "path": "skills/career/job-fit-analysis/SKILL.md",
+      "originalVersion": "2.0.0",
+      "originalSHA256": "ce7b5a1e58331756b807e0b6862e662613f5e1d2eed06190528b0880054dceb9",
+      "candidateVersion": "2.0.0",
+      "candidateSHA256": "ce7b5a1e58331756b807e0b6862e662613f5e1d2eed06190528b0880054dceb9",
+      "modified": false,
+      "reason": "No directly related conflict requiring a production text change; preserve existing Skill and facade read surface."
+    },
+    {
+      "name": "resume-composition",
+      "path": "skills/career/resume-composition/SKILL.md",
+      "originalVersion": "2.0.0",
+      "originalSHA256": "037b450b0ef6f0ea24ce0b2bc27884e2f41599cf9dcb039c3506fca464de2721",
+      "candidateVersion": "2.0.1",
+      "candidateSHA256": "9d5e104b128e9cace070c396cfbe44eade5ae7c8cf3ccfd1975a913c19216e50",
+      "modified": true,
+      "reason": "Describe existing sourceTurn-bound skill-only overlay, exact maturity, resume_only and separate Profile confirmation."
+    },
+    {
+      "name": "resume-review",
+      "path": "skills/career/resume-review/SKILL.md",
+      "originalVersion": "2.0.0",
+      "originalSHA256": "c00fb5549a76c720c5cf5454e45873c029094362ba9d30d5b589f2022195585a",
+      "candidateVersion": "2.0.1",
+      "candidateSHA256": "a7d6d09ebd9ed3d0a0997d1265481855b73563fe3c026a66d3f7128b5f85a4e9",
+      "modified": true,
+      "reason": "Distinguish host-supplied Profile/session evidence from resume-only assertions; preserve text-only and review-only boundaries."
+    },
+    {
+      "name": "resume-tailoring",
+      "path": "skills/career/resume-tailoring/SKILL.md",
+      "originalVersion": "2.0.0",
+      "originalSHA256": "1ebab591afa239861a518fb0e260cc999b2b019c4731ca8207f0a0ee639f240f",
+      "candidateVersion": "2.0.1",
+      "candidateSHA256": "09c4fd2e06dae50b318d3f3e8575172b883a8fd15d53c26724f89ff95e689eec",
+      "modified": true,
+      "reason": "Use remaining Host-frozen question budget and ledger without expanding or rebuilding the queue."
+    }
+  ],
+  "protectedFileSHA256": {
+    "docs/architecture/p5.1-sq1-baseline-20261102-evidence.json": "301e4d6dd2cd32ec395813a421bf498bb052a11c3635ebc652d5d1264265762a",
+    "docs/architecture/p5.1-sq1-baseline-20261102.md": "13e56a30801ae4ad1c05ebec7e3098fdfce7de2941f9b193592c734b2d627ccc",
+    "docs/architecture/p5.1-sq1-open-source-method-matrix.md": "8bbcf51310cfbbade8d013de1fa7fabea29d56b04ac9ef7e2183db78fe02346a",
+    "docs/quality/real-provider-eval-sq10-20261102.md": "bd90710f516ed10bc4c53a58c4dfcd1c36a15071ff9265a58089ee35a9dd28f3",
+    "docs/quality/skills-quality-ab-evaluation-protocol.md": "0ad69fc0615118397a44d755a5f7856a290059f82a0f21634da71d00d38ce298",
+    "docs/quality/skills-quality-eval-v1.md": "4762c0e1c993543ab050a07ba7ed0a8c000a6c86ae5a0f227b9701586b050a76",
+    "docs/quality/skills-quality-v1-ab-results.json": "e0c7d037d5164e158f1a75db77be213dba8e715eccac869d0ed8ceefef1c4d8d",
+    "docs/quality/skills-quality-v1-baseline.json": "cf18d75bbe00a08c484d766785bd9b37a2b36095236a605eb0bf08d907f02882",
+    "docs/quality/sq10-real-provider-first-case-20261102.json": "2c418ed55ad5caa44145a99c1ce5001472e5fea6272cec694e0b75db13c0cd09",
+    "docs/quality/sq10-real-provider-probe-20261102.json": "abab4f8da06709fb60669b233d532368dc956c82c42c1f4f190aa38c015802cc",
+    "src/ai/prompts/claimSafetyV2.ts": "9bbb38eadd5666ce50c24bb8b73cc2dfa2ec638c3ad41357b214291add7b2977",
+    "tests/agent-eval/core02-behavior-cases.ts": "cd8ffe0520203d97699ec97b0c17c3458229bcf54f63421b4b8a3d82b722f0bf",
+    "tests/agent-eval/core02-cases.ts": "677f709c4598760dc8e4c6b4b74b0eab74b469eac80201b8e9ba3a9f40d47799",
+    "tests/fixtures/skills-quality-eval-v1.json": "f95cf576e27b9ec8ad51660240eb8b63a779e78ebf0daefd8d67d3005fc598f2"
+  },
+  "evaluation": {
+    "realProviderRequests": 0,
+    "keysReadOrModified": false,
+    "generationParametersChanged": false,
+    "fullABExecuted": false,
+    "qualityImprovementClaimed": false,
+    "futureBudgetSuggestionOnly": {
+      "max_tokens": 8196,
+      "timeoutSeconds": 4800,
+      "requiresIndependentCollectionAndIdenticalArmParameters": true
+    }
+  },
+  "verification": {
+    "baseline": {
+      "typecheckExitCode": 0,
+      "unitFiles": 3,
+      "unitPassed": 39,
+      "unitFailed": 0,
+      "unitExitCode": 0
+    },
+    "final": {
+      "typecheckExitCode": 0,
+      "changedTestEslintExitCode": 0,
+      "unitFiles": 6,
+      "unitPassed": 67,
+      "unitFailed": 0,
+      "unitExitCode": 0,
+      "report": ".tmp/sq11-final-unit.json"
+    },
+    "unchangedTrackedFilesVerifiedAgainstStartingBytes": 1148,
+    "existingAssertionLinesRetained": true,
+    "historicalSafetyOracle40Rerun": false,
+    "hermesBehavior12Rerun": false,
+    "realProviderRequests": 0,
+    "standaloneLegacyNodeHarnessExecuted": false,
+    "legacyDefaultLoaderRejectsCandidateHashes": true,
+    "verificationScriptPreparationFailure": "Initial Python subprocess text decoding used Windows GBK; rerun with explicit UTF-8; no test or source change."
+  }
+}

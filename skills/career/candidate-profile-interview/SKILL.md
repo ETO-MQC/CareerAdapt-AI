@@ -1,7 +1,7 @@
 ---
 name: candidate-profile-interview
 description: Create or complete a CareerProfile from user-provided experience, or answer an active Profile Intake question with evidence-bound facts.
-version: 2.0.0
+version: 2.0.1
 author: CareerAdapt AI
 license: Project-local
 metadata:
@@ -70,9 +70,11 @@ a write. Never turn a recovery step into a new factual assertion.
 2. Classify answer, correction, skip, reference, workflow control, new asset,
    or casual conversation.
 3. Identify multiple career assets in a natural turn, retaining the exact source
-   quote and turn ID for each. During an active targeted follow-up, patch only
-   its bound asset; unrelated assets remain separate proposals.
-4. Record a skip so the same question is not asked again.
+   quote and turn ID for each candidate patch. During an active targeted
+   single-asset follow-up, apply an answer or correction only to its bound
+   asset/question revision; unrelated assets remain separate candidate proposals.
+4. Keep answered, skipped, and correction dispositions in the existing ledger;
+   record a skip so the same question is not asked again.
 5. Ask at most one highest-value next question and leave gaps visible.
 
 ### FACT MATURITY AND COMMIT REVIEW
@@ -104,9 +106,12 @@ export until the host validates their evidence.
 
 ## STOP CONDITIONS
 
-Stop and ask for clarification when the target asset or question revision is
-missing, the answer supports multiple assets, or the candidate disputes the
-source. Stop before synthesis when evidence is ambiguous.
+For a targeted follow-up, stop when its bound asset/question revision is missing
+or the answer cannot be assigned safely to that asset. A natural turn containing
+multiple clearly identified assets is not a reason to stop. Preserve each as a
+candidate patch, not a confirmed Profile commit. Stop on disputed source evidence
+or ambiguous asset identity; final Profile commit still requires the existing
+factual review and explicit user confirmation.
 
 ## RECOVERY
 

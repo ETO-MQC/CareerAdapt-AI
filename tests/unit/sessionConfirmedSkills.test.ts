@@ -156,4 +156,25 @@ describe("SQ1 session-confirmed composition consumption", () => {
     expect(await repository.getProfile(profile.id)).toEqual(profileBefore);
     expect(await repository.listResumeBranches()).toHaveLength(1);
   });
+
+  it("keeps an existing-resume review proposal read-only across every formal content store", async () => {
+    const { repository } = await fixture();
+    const existing = await repository.ensureGeneralResumeFromProfile({ profileId: profile.id, operationId: "sq11-review-source" });
+    const baseline = composition("只审阅这份通用简历，不要应用修改。", existing.branch.id);
+    const writer = { writeWithExecution: async () => ({ output: baseline.writingOutput, execution: baseline.writingExecution }) } as unknown as CareerResumeWritingService;
+    const registry = createAgentToolRegistry(new BrowserAgentToolService(repository, undefined, writer));
+    const gateway = new CareerToolGateway({ registry, verifySessionBinding: async () => ({ valid: true }) });
+    const formalRows = async () => ({ profiles: await db!.profiles.toArray(), resumes: await db!.resumeBranches.toArray(),
+      revisions: await db!.resumeRevisions.toArray(), jobs: await db!.jobDescriptions.toArray() });
+    const before = await formalRows();
+    const planned = await gateway.execute<{ status: string; workflowCheckpoint: { checkpointId: string } }>("career.workflow.compose_resume", {
+      mode: "general", generalResumeMode: "update_existing", sourceResumeId: existing.branch.id
+    }, { operationId: "sq11-review-proposal", confirmed: false, confirmationCount: 0,
+      careerSessionBinding: { agentSessionId: "session-sq1", profileId: profile.id, profileRevision: profile.version, personId: profile.personId!, profileVersionNumber: 1 } });
+    expect(planned.ok, JSON.stringify(planned.error)).toBe(true);
+    expect(planned.data!.status).toBe("waiting_for_confirmation");
+    expect(planned.data!.workflowCheckpoint.checkpointId).toBeTruthy();
+    expect(await formalRows()).toEqual(before);
+    expect((await repository.getResumeBranch(existing.branch.id))?.currentRevisionId).toBe(existing.branch.currentRevisionId);
+  });
 });

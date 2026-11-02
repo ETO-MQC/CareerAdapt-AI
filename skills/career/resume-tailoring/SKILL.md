@@ -1,7 +1,7 @@
 ---
 name: resume-tailoring
 description: Create or tailor a job-specific Resume when the user supplies or selects a target Job or JD, while keeping claims evidence-bound.
-version: 2.0.0
+version: 2.0.1
 author: CareerAdapt AI
 license: Project-local
 metadata:
@@ -53,9 +53,11 @@ missing detail that can be handled as a visible conservative gap.
 
 ### QUESTION BUDGET
 
-Ordinary tailoring asks 0–1 high-value questions; `steady` may use zero.
-`competitive` asks at most two and `max_fit` at most three, one at a time.
-The host may freeze a smaller budget; never reopen or exceed that plan.
+The Host-frozen question plan is the execution boundary. Current mode defaults
+are `steady`: zero, `competitive`: at most one, `max_fit`: at most three,
+one at a time. Use only the remaining frozen budget; a Skill may tighten it,
+never expand or reopen it. Reuse the answered / skipped / uncertain ledger;
+do not redesign the queue or repeat resolved questions.
 If the user says “先别问了，直接生成”, stop optional questions and draft safely.
 
 ### WHEN TO PROCEED
@@ -106,7 +108,7 @@ Before drafting, map each important requirement to one explicit state:
 - `uncovered`: show the gap and do not stuff the keyword.
 
 Each row keeps requirement IDs, evidence refs, candidate items, missing
-keywords, and clarification IDs. Ask no more than three high-value questions;
+keywords, and clarification IDs. Ask only within the remaining Host-frozen budget;
 do not block a safe resume-only draft on optional detail.
 
 ## WORKFLOW

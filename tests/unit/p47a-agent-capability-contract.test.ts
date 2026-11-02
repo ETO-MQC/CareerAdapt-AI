@@ -7,7 +7,7 @@ import {
   HERMES_REQUIRED_CAREER_FACADES,
   hermesRegisteredCareerToolName
 } from "@/agent/runtime/hermes/HermesCareerToolCatalog";
-import { CAREER_WORKFLOW_FACADE_DEFINITIONS } from "@/agent/workflows/CareerWorkflowFacade";
+import { CAREER_WORKFLOW_FACADE_DEFINITIONS, prepareCareerWorkflowInvocation } from "@/agent/workflows/CareerWorkflowFacade";
 
 const require = createRequire(import.meta.url);
 const {
@@ -122,6 +122,66 @@ describe("P4.7a Agent capability contract", () => {
     expect(compose?.description).toContain("update_existing");
     expect(skillText("resume-review")).toContain("mcp__careeradapt__career_workflow_compose_resume");
     expect(skillText("resume-review")).toContain("generalResumeMode: \"update_existing\"");
+  });
+
+  it("distinguishes natural multi-asset candidates from a bound targeted follow-up and Profile commit", () => {
+    const intake = skillText("candidate-profile-interview").replace(/\s+/gu, " ");
+    expect(intake).toContain("multiple career assets in a natural turn");
+    expect(intake).toContain("single-asset follow-up, apply an answer or correction only to its bound asset/question revision");
+    expect(intake).toContain("answered, skipped, and correction dispositions");
+    expect(intake).toContain("multiple clearly identified assets is not a reason to stop");
+    expect(intake).toContain("candidate patch, not a confirmed Profile commit");
+    expect(intake).toContain("factual review and explicit user confirmation");
+    expect(intake).not.toContain("the answer supports multiple assets, or");
+  });
+
+  it("accepts only available host evidence during review and never treats resume prose as confirmation", () => {
+    const review = skillText("resume-review").replace(/\s+/gu, " ");
+    expect(review).toContain("confirmed Profile facts, or explicit current-session confirmed skills with sourceTurn and maturity");
+    expect(review).toContain("Resume text alone is a claim to assess, not independent confirmation");
+    expect(review).toContain("unsupported objective facts as unsupported");
+    expect(review).toContain("Do not claim to have read session evidence that the facade has not supplied");
+    expect(review).toContain("Review-only never applies a proposal or writes formal Resume/Profile content");
+    expect(review).toContain("without claiming formal Resume Review, tool execution, PDF extraction, or ATS parsing");
+    expect(review).not.toContain("Profile evidence and provenance for every material included claim");
+  });
+
+  it("bounds composition overlay to skills and preserves maturity, sourceTurn and separate Profile approval", () => {
+    const compose = skillText("resume-composition").replace(/\s+/gu, " ");
+    expect(compose).toContain("existing host-supported session-confirmed skill overlay");
+    expect(compose).toContain("model cannot submit or authorize its own sessionSource");
+    expect(compose).toContain("with sourceTurn, quote, session/target binding and accurate maturity");
+    expect(compose).toContain("Do not upgrade familiar, learning, or confirmed_capability into one another");
+    expect(compose).toContain("Eligible skills default to resume_only");
+    expect(compose).toContain("Profile synchronization remains a separate explicit reviewed action");
+    expect(compose).toContain("This is not a general fact-writing channel");
+    expect(compose).toContain("education, employers, dates, results, numbers and ownership still follow the existing fact confirmation policy");
+    expect(compose).toContain("commits that checkpoint exactly; it must not invoke the Writer a second time");
+  });
+
+  it("makes the remaining Host-frozen budget authoritative without rebuilding its queue", () => {
+    const tailor = skillText("resume-tailoring").replace(/\s+/gu, " ");
+    expect(tailor).toContain("Host-frozen question plan is the execution boundary");
+    expect(tailor).toContain("`steady`: zero, `competitive`: at most one, `max_fit`: at most three");
+    expect(tailor).toContain("a Skill may tighten it, never expand or reopen it");
+    expect(tailor).toContain("answered / skipped / uncertain ledger");
+    expect(tailor).toContain("do not redesign the queue or repeat resolved questions");
+    expect(tailor).toContain("stop optional questions and draft safely");
+    expect(tailor).toContain("Wait for explicit approval before applying or exporting");
+    expect(tailor).not.toContain("`competitive` asks at most two");
+  });
+
+  it("does not grant Job Fit the composition-only session skill overlay", () => {
+    const input = { profileId: "profile-sq11", resumeId: "resume-sq11", jobId: "job-sq11" };
+    const context = { sourceUserMessage: "我会 Python。", sourceUserMessageId: "message-sq11", logicalTurnId: "turn-sq11",
+      careerSessionBinding: { agentSessionId: "session-sq11", personId: "person-sq11", profileId: input.profileId, profileRevision: 1, profileVersionNumber: 1 } };
+    const prepared = prepareCareerWorkflowInvocation("career.workflow.job_fit", input, context, "fit-sq11");
+    expect(prepared.input).toEqual(input);
+    expect(prepared.context.sourceUserMessage).toBeUndefined();
+    expect(prepared.context.compositionSourceTurn).toBeUndefined();
+    expect(() => prepareCareerWorkflowInvocation("career.workflow.job_fit", {
+      ...input, sessionSource: { sessionId: "session-sq11", turnId: "turn-sq11", exactSourceText: "我会 Python。" }
+    }, context, "injected-fit-sq11")).toThrow();
   });
 
   it("keeps routing fixtures metadata-only and collision-free", () => {
