@@ -1,0 +1,143 @@
+{
+  "date": "2026-11-02",
+  "status": "PARTIAL",
+  "baseline": "d80593315a3b01aa217402809ae927b96dfed2a4",
+  "branch": "competition/5.1.8",
+  "scope": "Right-hand Agent Workspace only",
+  "unit": {
+    "status": "PASS",
+    "files": [
+      "tests/unit/comp01WorkspaceInteraction.test.tsx",
+      "tests/unit/agentConversationStructure.test.tsx",
+      "tests/unit/agentMessageEditing.test.ts",
+      "tests/unit/agentBranchIsolationP43e3.test.ts",
+      "tests/unit/hermesTerminalReconciliation.test.ts",
+      "tests/unit/p45c1c13-hermes-long-run-semantics.test.ts",
+      "tests/unit/p45c5-codex-agent-interaction-rebase.test.ts",
+      "tests/unit/p45c17-hermes-reliability.test.ts",
+      "tests/unit/p45c18-hermes-conversational-agent.test.ts",
+      "tests/unit/sessionConfirmedSkills.test.ts",
+      "tests/unit/agentArtifactActions.test.tsx",
+      "tests/unit/v4p1MarkdownSafety.test.ts",
+      "tests/unit/p45c19-durable-artifact-closure.test.ts",
+      "tests/unit/core02SessionCheckpoint.test.ts"
+    ],
+    "passed": 138,
+    "failed": 0,
+    "log": ".tmp/comp01-unit-delivery.log"
+  },
+  "lint": {
+    "status": "PASS",
+    "command": "pnpm lint",
+    "exitCode": 0,
+    "log": ".tmp/comp01-lint-delivery.log"
+  },
+  "build": {
+    "status": "PASS",
+    "command": "pnpm build",
+    "log": ".tmp/comp01-build-delivered.log",
+    "exitCode": 0
+  },
+  "typecheck": {
+    "status": "PASS",
+    "command": "pnpm typecheck",
+    "log": ".tmp/comp01-typecheck-delivery.log",
+    "exitCode": 0
+  },
+  "hermetic": [
+    {
+      "selection": "CASE [AGIM]",
+      "passed": 4,
+      "failed": 0,
+      "fakeProviderCalls": 22,
+      "log": ".tmp/comp01-hermetic-targeted.log"
+    },
+    {
+      "selection": "CASE M + real artifact at 1024",
+      "passed": 1,
+      "failed": 0,
+      "fakeProviderCalls": 16,
+      "log": ".tmp/comp01-real-artifact2.log"
+    },
+    {
+      "selection": "short delayed reload/cancel/next-run",
+      "passed": 1,
+      "failed": 0,
+      "fakeProviderCalls": 3,
+      "log": ".tmp/comp01-stop-final.log"
+    }
+  ],
+  "ui": {
+    "matrixCombinations": 8,
+    "matrixStatus": "PASS",
+    "attachment": "PASS",
+    "historyBranches": "PASS",
+    "legacyCheckpoint": "PARTIAL",
+    "historyBranchesLog": ".tmp/comp01-history-ui3.log"
+  },
+  "unresolved": [
+    {
+      "test": "agent-workspace.spec.ts: keeps the current tailoring facade checkpoint, source selection, and import artifact durable",
+      "initialFailure": "Frozen baseline also fails missing checkpoint because fixture status prematurely terminal. Fixture corrected.",
+      "remainingFailure": "Expected text 正在处理 on /resume while workflow waits for a Job. Original assertion retained.",
+      "log": ".tmp/comp01-ui-final.log"
+    }
+  ],
+  "diffCheck": "PASS",
+  "runtimeChanges": false,
+  "schemaChanges": false,
+  "repositoryChanges": false,
+  "productionDependencyChanges": false,
+  "realProviderRequests": 0,
+  "mainModified": false,
+  "screenshots": [
+    {
+      "path": "docs/architecture/evidence/comp01-after-1024-dark-green.png",
+      "sha256": "182959b289433783dde7e867236d38796b4b5ee4c202c80fa0dcf75954f6178d",
+      "bytes": 59148
+    },
+    {
+      "path": "docs/architecture/evidence/comp01-after-1024-light-burgundy.png",
+      "sha256": "7daf982294b6d6b8f906df5651bb54296635e87bfb77b89a9620ddbd1aee3926",
+      "bytes": 60534
+    },
+    {
+      "path": "docs/architecture/evidence/comp01-after-1440-light-green.png",
+      "sha256": "ee93091aed6103cb0b08682bc907e2eae2e4efcd64c94843e2cc0b6a715f038b",
+      "bytes": 67160
+    },
+    {
+      "path": "docs/architecture/evidence/comp01-before-1440.png",
+      "sha256": "56ed3ae82b738b4e602db64cacc9019a4bc09fe8818525fda8a24d9dfd7d5f32",
+      "bytes": 69041
+    },
+    {
+      "path": "docs/architecture/evidence/comp01-branch-history.png",
+      "sha256": "3e680e9803249c51aae33a414c8b348bda1f8366eb9d7b757d85b478292c12fe",
+      "bytes": 71389
+    },
+    {
+      "path": "docs/architecture/evidence/comp01-real-artifact-1024.png",
+      "sha256": "640031a6cc71e33ea096d1d27eb9e77e5d8b22923b66108c662428f4da829758",
+      "bytes": 94989
+    }
+  ],
+  "temporaryNextConfigRestored": true,
+  "sourceHashes": {
+    "src/components/agent/AgentComposer.tsx": "575414bff8ba48d60a6048e15671b5133e7ad35a9cfdccccdd7a676a6e3420f8",
+    "src/components/agent/AgentConversation.tsx": "6a2b3513c9927cc607f73ccb882e89e7438d84e2a72229dc33cbc02b07908ae6",
+    "src/components/agent/AgentHistoryDialog.tsx": "f937792d8e23be43d4415f8ca5daa7d7a18fa8c444b25c5e269c43476d51bac7",
+    "src/components/agent/AgentWorkspace.tsx": "09d7d820c9319314fa8d53acb7e51069c40951582a709bbca8ef26fb535b399e",
+    "src/components/agent/artifacts/AgentArtifactDrawer.tsx": "41c89a33f2dc5d639a485e06a20fd79ad8db587e87c734a0530fa289c3ea7bf4",
+    "src/components/agent/workspace/AgentWorkspaceLayout.tsx": "4d18581c3056b43dbafb0903ffac6e92e06e204a975e4f56376f8e24317a1352",
+    "src/components/agent/workspace/agentRunPresentation.ts": "397cba5841e4b6296225533af72856323a5ceddab4ad656a18a733d7821359da",
+    "src/styles/agent-artifacts.css": "941c4454bc5e424cb26a795c56941bd750b3587daf920be48fce77196b0fa57f",
+    "src/styles/agent-workspace.css": "8527e637930268ea717542bc6c9fd8e05ea8c535b6f7bc9a524352f1b8ae45c4",
+    "tests/e2e/agent-workspace.spec.ts": "cde10cc5cacf4b3d99f94c6c603af8e827ba7afbcfc9d3affc9c9570198e69b8",
+    "tests/e2e/comp01-workspace.spec.ts": "8979acb150f474e9a5eff185baba5fb853cec5fae3b9341961c756dbb26e6d9a",
+    "tests/e2e/hermes-p46h-integration.spec.ts": "677c1817fa207ac3f69790a01eb301e077281a1b9f788c84e3bfbb17cfaf9a1d",
+    "tests/e2e/hermes-slow-provider.spec.ts": "c6746eb60e8be3031c94881440e8ee576d1de32bd3cca8a2f391a5a95702def0",
+    "tests/e2e/support/hermesRuntimeFixture.ts": "254787f09162847ab81d1999193dcb5ef70a4f422ad4fecffac37f3edd1b7882",
+    "tests/unit/comp01WorkspaceInteraction.test.tsx": "70abb98445b67ae47eae468a7bd5f29e17016c58a10f4f09f3d7b95fb9118963"
+  }
+}
