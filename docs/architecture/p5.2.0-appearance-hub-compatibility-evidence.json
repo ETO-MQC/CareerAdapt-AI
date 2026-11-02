@@ -1,0 +1,1254 @@
+{
+  "auditDate": "2026-11-03",
+  "timezone": "Asia/Shanghai",
+  "scope": "SOURCE_AND_CONTRACT_AUDIT_ONLY",
+  "careerAdapt": {
+    "startingHead": "f761af80410c503e0cda429c2736dbd24360ac61",
+    "finalHead": "f761af80410c503e0cda429c2736dbd24360ac61",
+    "initialStatusShort": "",
+    "referencedB2B2HistoricalHead": "8833a5a84b4d3172220b645b285189dde5d03e6c",
+    "baselineDifference": "Current HEAD is later B2-B2 commit; no checkout/reset",
+    "protectedFiles": [
+      {
+        "path": "E:/DEF/CareerAdapt AI/scripts/hermes-runtime-lock.json",
+        "bytes": 403,
+        "sha256": "4939b630fa15f410ae1287b495e9e16912ab3e71a7a619df1f005050c6fe8ceb"
+      },
+      {
+        "path": "E:/DEF/CareerAdapt AI/poc/profile-plugin/ProfileCareerView.tsx",
+        "bytes": 1223,
+        "sha256": "0efaf400645b88f8666058cc1f061cc915a41b475d8b8e2f398a5d8f9505fa26"
+      },
+      {
+        "path": "E:/DEF/CareerAdapt AI/poc/profile-plugin/profile.css",
+        "bytes": 1079,
+        "sha256": "850b4887c8d22e940c74c231305bd5b11b9d455dd16d18baa4b10b14a2063de9"
+      },
+      {
+        "path": "E:/DEF/CareerAdapt AI/poc/profile-packaging/ProfileHostAdapter.tsx",
+        "bytes": 1798,
+        "sha256": "4b2efda1b15ed66075d172bb49447deb31b2bccecc7ae84d9796684536e044ef"
+      },
+      {
+        "path": "E:/DEF/CareerAdapt AI/poc/profile-packaging/plugin.tsx",
+        "bytes": 789,
+        "sha256": "a15df34b2a161e4da32e82151b87010e81775337293f92dc688ffb4b99742142"
+      },
+      {
+        "path": "E:/DEF/CareerAdapt AI/docs/architecture/p5.2.0-b2-b2-profile-plugin-packaging-poc.md",
+        "bytes": 16048,
+        "sha256": "4e1097ea5c32259222f4d0006dc008d032a838c559ddda9d8e6e988f6b6f0a3c"
+      },
+      {
+        "path": "E:/DEF/CareerAdapt AI/docs/architecture/p5.2.0-b2-b2-evidence.json",
+        "bytes": 16622,
+        "sha256": "395b491b15c03bfc5f5b80ade1af55d97b9e4a5c3679ebad46c8e6d40b249e76"
+      },
+      {
+        "path": "E:/DEF/CareerAdapt AI/src/components/resume/A4ResumePreview.tsx",
+        "bytes": 21609,
+        "sha256": "dfa7f536e9c87155d0cff90e685edb3ee7928c42a363840d46894cf80f90ce47"
+      },
+      {
+        "path": "E:/DEF/CareerAdapt AI/src/services/export/pdfHtml.tsx",
+        "bytes": 5034,
+        "sha256": "f4dee043a14e2df814b2491efe6a7dd8f44c12b2d97a04ba1d4b83b44fd156a1"
+      },
+      {
+        "path": "E:/DEF/CareerAdapt AI/src/services/export/pdfGenerator.ts",
+        "bytes": 9465,
+        "sha256": "757bd90a45197ece6c0a9506d216f7d08e245d2aa26d2a39fb75b0c27720990b"
+      },
+      {
+        "path": "E:/DEF/CareerAdapt AI/src/app/globals.css",
+        "bytes": 258667,
+        "sha256": "cdeb99972a86e4d2db04516bd33c3c18ec556e1a9bd1862ecefede55404a8947"
+      }
+    ]
+  },
+  "upstream": {
+    "repository": "Heybinshao/hermes-appearance-hub",
+    "resolvedOnceFrom": "main via GitHub connector commits API",
+    "commit": "4fde040424d25ebddd8253b747ae160db64de762",
+    "commitDate": "2026-10-23T04:00:47Z",
+    "version": "3.7.7",
+    "files": [
+      {
+        "path": "README.md",
+        "bytes": 8961,
+        "sha256": "ec78439a54ca42faebae82c86637d86914c81768bbfe5b8996fc2dc200ef8711",
+        "blobSha": "5808e5aab351320f0013a87b342540620881ce84",
+        "url": "https://raw.githubusercontent.com/Heybinshao/hermes-appearance-hub/4fde040424d25ebddd8253b747ae160db64de762/README.md"
+      },
+      {
+        "path": "LICENSE",
+        "bytes": 1064,
+        "sha256": "34bf9a9c8d229dfc3bf8dc72c35a6830b27cbb6cba29161f892e0c0486f5676f",
+        "blobSha": "abc359e1e95a9457b2c050be2ce3c251a9b98f4c",
+        "url": "https://raw.githubusercontent.com/Heybinshao/hermes-appearance-hub/4fde040424d25ebddd8253b747ae160db64de762/LICENSE"
+      },
+      {
+        "path": "plugin.yaml",
+        "bytes": 717,
+        "sha256": "eabe4b82b52054472498b2d3060a91fd51b041144cb4a768224ee27f59fe2498",
+        "blobSha": "0f8dcee6166f4ccd7c99cb5f7587f3e386e651c7",
+        "url": "https://raw.githubusercontent.com/Heybinshao/hermes-appearance-hub/4fde040424d25ebddd8253b747ae160db64de762/plugin.yaml"
+      },
+      {
+        "path": "desktop/plugin.js",
+        "bytes": 146680,
+        "sha256": "c794e212a9b6d136846777c82cdcd03e5f1c55745eb4d6a40395d49f5b89e155",
+        "blobSha": "2c95edd15b33fe26c7e3382468683c3be3c1bc3d",
+        "url": "https://raw.githubusercontent.com/Heybinshao/hermes-appearance-hub/4fde040424d25ebddd8253b747ae160db64de762/desktop/plugin.js"
+      },
+      {
+        "path": "scripts/build-live.mjs",
+        "bytes": 5750,
+        "sha256": "2676263c5575307cbe0bd451f3e789bb1197c41d1d4a18efc157c2b1f33a572b",
+        "blobSha": "27f7552fec7bd57a669825fa1ef99012046726bc",
+        "url": "https://raw.githubusercontent.com/Heybinshao/hermes-appearance-hub/4fde040424d25ebddd8253b747ae160db64de762/scripts/build-live.mjs"
+      }
+    ],
+    "license": "MIT Copyright (c) 2026 Binshao",
+    "installed": false,
+    "executed": false
+  },
+  "hermes": {
+    "lock": {
+      "hermesVersion": "0.19.0",
+      "hermesGitCommit": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+      "hermesSourceTreeHash": "eb32a7abb5b92a27a25c89de3d4f0698dc8684abb84837a9c6171a5851598ab8",
+      "pythonVersion": "3.11.13",
+      "sitePackagesFingerprint": "962cc1380c454dbba3213991523454642698609fa01e14b52067d5dec47f9e59",
+      "careerAdaptPatchVersion": "careeradapt-api-toolsets-selection-amd-efficiency-v4"
+    },
+    "actualCheckoutHead": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+    "desktopPackageVersion": "0.17.0",
+    "hostFooterVersion": {
+      "value": "0.19.0",
+      "provenance": "Existing B2-B2 actual Host observation; not rerun this audit"
+    },
+    "sdkVersion": "Unversioned source SDK at pinned Hermes commit",
+    "sdkSha256": "3dcb00fea4b0c573797746840525e4155b676a6c2e914fdc517592192209840b",
+    "sdkRuntimeSha256": "6d38dfb12d567cf3f10474afdc9cd6798b2b05b4b23e7f2f4a383f8a265b0c07",
+    "auditedFiles": [
+      {
+        "path": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop/src/sdk/index.ts",
+        "bytes": 11315,
+        "sha256": "3dcb00fea4b0c573797746840525e4155b676a6c2e914fdc517592192209840b",
+        "relativePath": "apps/desktop/src/sdk/index.ts",
+        "headBlobSha": "285f843dcc23720af2b1bf0e50aa8b4c147ca61e",
+        "headSha256": "5560d98b2b8af966025894f765788338ce8bc82b732af7d12a8ca136ede94bf8",
+        "matchesHeadNormalized": true,
+        "gitDiff": ""
+      },
+      {
+        "path": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop/src/sdk/runtime.ts",
+        "bytes": 2092,
+        "sha256": "6d38dfb12d567cf3f10474afdc9cd6798b2b05b4b23e7f2f4a383f8a265b0c07",
+        "relativePath": "apps/desktop/src/sdk/runtime.ts",
+        "headBlobSha": "449b9060b05d1dfda6715cc5101e3d5546ac58e7",
+        "headSha256": "f7d5e8c63f05de4884329b17e185da93f9f55837058fdca582d7b93ddd2ce1dc",
+        "matchesHeadNormalized": true,
+        "gitDiff": ""
+      },
+      {
+        "path": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop/src/contrib/plugin.ts",
+        "bytes": 4903,
+        "sha256": "34c2713ab2bf0d5e77826a42cdd22da80fc5ff051d2d143c2a8ba22c1e26c2db",
+        "relativePath": "apps/desktop/src/contrib/plugin.ts",
+        "headBlobSha": "551f626e62ff5dd82e449488a94c61974183c24f",
+        "headSha256": "6ef3572d49229eb7efac89f98c70bfb5c944e1c1dff5b429b6e0e3c8c6740b14",
+        "matchesHeadNormalized": true,
+        "gitDiff": ""
+      },
+      {
+        "path": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop/src/contrib/runtime-loader.ts",
+        "bytes": 11465,
+        "sha256": "545d39f9acfe21702384c19120f30cc06413e9489d4f9f0882301fa831a60999",
+        "relativePath": "apps/desktop/src/contrib/runtime-loader.ts",
+        "headBlobSha": "11545d5a996dbc9b9e0baf7c369e7b447efa214f",
+        "headSha256": "3864c6668a15bbf407de8a7e1705756dbbe67d9ca19875cc4dc990ece49bc9e3",
+        "matchesHeadNormalized": true,
+        "gitDiff": ""
+      },
+      {
+        "path": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop/src/contrib/plugins-store.ts",
+        "bytes": 4026,
+        "sha256": "c22a449019a50ca68aa8af807c85678357aa981a2a2fb9fcee3ba7b58c90e01c",
+        "relativePath": "apps/desktop/src/contrib/plugins-store.ts",
+        "headBlobSha": "9e90a4cc0be6d28843f0032f2ea720204fc6101b",
+        "headSha256": "fe827140b0d27cb2c8512c8d29eff0daee92974cebc6744816791c729bb221d2",
+        "matchesHeadNormalized": true,
+        "gitDiff": ""
+      },
+      {
+        "path": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop/src/themes/user-themes.ts",
+        "bytes": 6449,
+        "sha256": "435c93f0e4c0d0940eb1196989980af6bee3d8c9f69d43e14c78e12dccc7d723",
+        "relativePath": "apps/desktop/src/themes/user-themes.ts",
+        "headBlobSha": "3dfba148d4bab9e025fcaec245353b6cd9c0af84",
+        "headSha256": "8c2c3c5b949fc748e6460c4b659307603d0df6960ee7d13fd05480d6c8e9d9c2",
+        "matchesHeadNormalized": true,
+        "gitDiff": ""
+      },
+      {
+        "path": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop/src/themes/types.ts",
+        "bytes": 3172,
+        "sha256": "cb95622fa87309f48613d43400fa15da969fe32ca807a91bf4c6cc163d74ea2b",
+        "relativePath": "apps/desktop/src/themes/types.ts",
+        "headBlobSha": "3aefda3eaa3c6f994ee356c6f1eb807cc924adea",
+        "headSha256": "3c10dfc873de91325764972aee3aba0cd2048ff5cd4242671fb20d461dd7c8fc",
+        "matchesHeadNormalized": true,
+        "gitDiff": ""
+      },
+      {
+        "path": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop/src/themes/context.tsx",
+        "bytes": 17429,
+        "sha256": "04efd89a14deef6ebce0b5493007620044679c51016e10a1da56fcc867f5ac25",
+        "relativePath": "apps/desktop/src/themes/context.tsx",
+        "headBlobSha": "e618534c3107a51331fe116ddcf6c433e8f2c464",
+        "headSha256": "048474cf6bb641926696f4bbee49444b858470bfeb5fd8539e1e3b351ad8b57b",
+        "matchesHeadNormalized": true,
+        "gitDiff": ""
+      },
+      {
+        "path": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop/src/themes/presets.ts",
+        "bytes": 9149,
+        "sha256": "93419ea4ab3103f09900dd9fd6f579e4ef177bc12cc1f037f0956aec53c8a0f9",
+        "relativePath": "apps/desktop/src/themes/presets.ts",
+        "headBlobSha": "9cfb880c660feb8f82f9a5f1fda6bc697e4cae9d",
+        "headSha256": "d43962501e1bad5a07111129f347a92fce2207865336f3de1050bec510f3dec2",
+        "matchesHeadNormalized": true,
+        "gitDiff": ""
+      },
+      {
+        "path": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop/src/styles.css",
+        "bytes": 66780,
+        "sha256": "034cb5693a530351f155de9d900a25c25a53922ca3046668037818ea18906e95",
+        "relativePath": "apps/desktop/src/styles.css",
+        "headBlobSha": "0f7fdbdd3b47c7c8ac4430155e2c0f9d02acbf6c",
+        "headSha256": "af438c609beab27020f44f9db8ce9f11220fe31940836d03a64791844514a990",
+        "matchesHeadNormalized": true,
+        "gitDiff": ""
+      },
+      {
+        "path": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop/electron/preload.ts",
+        "bytes": 15314,
+        "sha256": "0533209a7ecbdc77f9601660a375a92f4dd50f2cce950a8833ceb68278f9354b",
+        "relativePath": "apps/desktop/electron/preload.ts",
+        "headBlobSha": "47d854a1938d4eaa5c97b948c1f6ad783c4b02f4",
+        "headSha256": "40c07f51630782de24ede7cf58ba54c06fd8d7774085a2b611122d7b044f04e6",
+        "matchesHeadNormalized": true,
+        "gitDiff": ""
+      },
+      {
+        "path": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop/package.json",
+        "bytes": 10829,
+        "sha256": "330edca012ae548e0fdd75a64df9eb3123a24d38d89b826dee6b12f98afd83bd",
+        "relativePath": "apps/desktop/package.json",
+        "headBlobSha": "0d2c07756af8e4d72ca5e6581c2291b975582c23",
+        "headSha256": "6c294de3f27769a75dc15cf12e869aad9040be4da4407759532867effafbc974",
+        "matchesHeadNormalized": true,
+        "gitDiff": ""
+      },
+      {
+        "path": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/website/docs/developer-guide/desktop-plugin-sdk.md",
+        "bytes": 27047,
+        "sha256": "fa8510f3d29cda06e12a98a7782e7c86cb28e2eb11ea3f7f8453ab74266236bf",
+        "relativePath": "website/docs/developer-guide/desktop-plugin-sdk.md",
+        "headBlobSha": "efc4fb3e83ce5946cd750c62b6014f3aec8cb6ed",
+        "headSha256": "273df233de75331611f1b87c390b59007fff82cce9191049dcae3e3df56305ce",
+        "matchesHeadNormalized": true,
+        "gitDiff": ""
+      }
+    ],
+    "wholeTreeDirty": true,
+    "existingStatusShort": " M package-lock.json\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/creative/creative-baoyu-infographic.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/creative/creative-claude-design.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/creative/creative-comfyui.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/creative/creative-design-md.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/creative/creative-excalidraw.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/creative/creative-humanizer.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/creative/creative-manim-video.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/creative/creative-p5js.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/creative/creative-popular-web-designs.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/creative/creative-pretext.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/creative/creative-sketch.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/creative/creative-songwriting-and-ai-music.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/creative/creative-touchdesigner-mcp.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/email/email-himalaya.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/github/github-codebase-inspection.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/github/github-github-auth.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/github/github-github-code-review.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/github/github-github-issues.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/github/github-github-pr-workflow.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/github/github-github-repo-management.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/media/media-gif-search.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/media/media-songsee.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/media/media-youtube-content.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/mlops/mlops-evaluation-evaluating-llms-harness.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/mlops/mlops-evaluation-weights-and-biases.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/mlops/mlops-huggingface-hub.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/mlops/mlops-inference-llama-cpp.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/mlops/mlops-inference-serving-llms-vllm.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/note-taking/note-taking-obsidian.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/productivity/productivity-airtable.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/productivity/productivity-google-workspace.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/productivity/productivity-maps.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/productivity/productivity-nano-pdf.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/productivity/productivity-notion.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/productivity/productivity-ocr-and-documents.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/productivity/productivity-powerpoint.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/productivity/productivity-teams-meeting-pipeline.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/research/research-arxiv.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/research/research-blogwatcher.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/research/research-llm-wiki.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/research/research-polymarket.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/research/research-research-paper-writing.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/smart-home/smart-home-openhue.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/social-media/social-media-xurl.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/software-development/software-development-dogfood.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/software-development/software-development-hermes-agent-skill-authoring.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/software-development/software-development-node-inspect-debugger.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/software-development/software-development-plan.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/software-development/software-development-python-debugpy.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/software-development/software-development-requesting-code-review.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/software-development/software-development-spike.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/software-development/software-development-systematic-debugging.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/software-development/software-development-test-driven-development.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/google-workspace.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-blackbox.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-honcho.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/blockchain/blockchain-evm.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/blockchain/blockchain-hyperliquid.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/blockchain/blockchain-solana.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/communication/communication-one-three-one-rule.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/creative/creative-audiocraft-audio-generation.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/creative/creative-blender-mcp.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/creative/creative-concept-diagrams.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/creative/creative-heartmula.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/creative/creative-hyperframes.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/creative/creative-kanban-video-orchestrator.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/creative/creative-meme-generation.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/data-science/data-science-jupyter-notebook.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/devops/devops-cli.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/devops/devops-docker-management.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/devops/devops-pinggy-tunnel.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/devops/devops-watchers.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/dogfood/dogfood-adversarial-ux-test.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/email/email-agentmail.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/finance/finance-3-statement-model.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/finance/finance-comps-analysis.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/finance/finance-dcf-model.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/finance/finance-excel-author.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/finance/finance-lbo-model.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/finance/finance-merger-model.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/finance/finance-pptx-author.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/finance/finance-stocks.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/health/health-fitness-nutrition.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/health/health-neuroskill-bci.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mcp/mcp-fastmcp.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mcp/mcp-mcporter.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/migration/migration-openclaw-migration.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-accelerate.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-chroma.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-clip.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-faiss.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-flash-attention.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-guidance.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-huggingface-tokenizers.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-inference-outlines.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-instructor.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-lambda-labs.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-llava.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-modal.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-models-segment-anything-model.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-nemo-curator.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-peft.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-pinecone.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-pytorch-fsdp.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-pytorch-lightning.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-qdrant.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-saelens.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-simpo.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-slime.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-stable-diffusion.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-tensorrt-llm.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-torchtitan.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-training-axolotl.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-training-trl-fine-tuning.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-training-unsloth.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/mlops/mlops-whisper.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/productivity/productivity-canvas.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/productivity/productivity-here-now.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/productivity/productivity-memento-flashcards.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/productivity/productivity-shop.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/productivity/productivity-shopify.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/productivity/productivity-siyuan.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/productivity/productivity-telephony.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/research/research-bioinformatics.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/research/research-darwinian-evolver.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/research/research-domain-intel.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/research/research-drug-discovery.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/research/research-duckduckgo-search.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/research/research-gitnexus-explorer.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/research/research-osint-investigation.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/research/research-parallel-cli.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/research/research-qmd.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/research/research-scrapling.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/research/research-searxng-search.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/security/security-1password.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/security/security-oss-forensics.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/security/security-sherlock.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/software-development/software-development-rest-graphql-debug.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/web-development/web-development-page-agent.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/optional/yuanbao/yuanbao-yuanbao.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/tui.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/windows-native.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/windows-wsl-quickstart.md\n M website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-stories.mdx\n M website/package-lock.json\n M website/package.json\n M website/scripts/extract-automation-blueprints.py\n M website/scripts/extract-skills.py\n M website/scripts/generate-llms-txt.py\n M website/scripts/generate-skill-docs.py\n M website/scripts/prebuild.mjs\n M website/sidebars.ts\n M website/src/components/AutomationBlueprintsCatalog/index.tsx\n M website/src/components/AutomationBlueprintsCatalog/styles.module.css\n M website/src/components/UserStoriesCollage/index.tsx\n M website/src/components/UserStoriesCollage/styles.module.css\n M website/src/css/custom.css\n M website/src/data/userStories.json\n M website/src/pages/skills/index.tsx\n M website/src/pages/skills/styles.module.css\n M website/static/api/model-catalog.json\n M website/static/img/docs/cli-layout.svg\n M website/static/img/docs/session-recap.svg\n M website/static/img/favicon.svg\n M website/tsconfig.json\n"
+  },
+  "apiCompatibilityMatrix": [
+    {
+      "能力 / 调用": "haptic、host.notify、icons、SegmentedControl、Input、Textarea、DropdownMenu 系列",
+      "分类": "A",
+      "锁定 0.19.0 结论": "SUPPORTED（导出层面）",
+      "证据与处理": "SDK index；上游 L17；组件具体样式仍须后续视觉验收"
+    },
+    {
+      "能力 / 调用": "usePluginI18n、useI18n、ctx.i18n.register、ctx.storage、ctx.register",
+      "分类": "A",
+      "锁定 0.19.0 结论": "SUPPORTED",
+      "证据与处理": "index/plugin.ts；自己的偏好可用命名空间 storage，不能借此改 Host 全局设置"
+    },
+    {
+      "能力 / 调用": "状态栏 `statusBar.right`、variant=menu、menuContent",
+      "分类": "A",
+      "锁定 0.19.0 结论": "SUPPORTED",
+      "证据与处理": "SDK STATUSBAR_AREAS / StatusbarItem；上游 L2568–2584"
+    },
+    {
+      "能力 / 调用": "`THEMES_AREA` + data 主题贡献",
+      "分类": "A",
+      "锁定 0.19.0 结论": "SUPPORTED",
+      "证据与处理": "index 明确 export；user-themes.ts 合并 built-in/contributed/backend/user；上游 L2497–2498"
+    },
+    {
+      "能力 / 调用": "`DesktopTheme`",
+      "分类": "B（类型导出）",
+      "锁定 0.19.0 结论": "SDK 不导出此类型；Core 内部有定义",
+      "证据与处理": "themes/types.ts，不是可从 SDK import 的公开类型；文档描述 data 契约不等于类型被导出"
+    },
+    {
+      "能力 / 调用": "`useTheme`",
+      "分类": "B",
+      "锁定 0.19.0 结论": "UNSUPPORTED",
+      "证据与处理": "Core themes/context.tsx L413 有内部 hook，SDK index 不导出；不得从内部路径补取"
+    },
+    {
+      "能力 / 调用": "`requestTheme`",
+      "分类": "B",
+      "锁定 0.19.0 结论": "UNSUPPORTED",
+      "证据与处理": "SDK 不导出，锁定 Desktop src 检索亦无该实现；上游 L1587 静态命名导入"
+    },
+    {
+      "能力 / 调用": "`host.settings.get/set/subscribe`",
+      "分类": "B",
+      "锁定 0.19.0 结论": "UNSUPPORTED",
+      "证据与处理": "SDK host 对象无 settings；不能将 preload.settings 或上游注释 PR 当公开 SDK"
+    },
+    {
+      "能力 / 调用": "`ctx.onDispose`",
+      "分类": "B/G",
+      "锁定 0.19.0 结论": "UNSUPPORTED",
+      "证据与处理": "PluginContext 无此成员；createPluginContext 第二参数 onDispose 是 loader 内部收集器，不是传给插件的属性"
+    },
+    {
+      "能力 / 调用": "`window.hermesDesktop.zoom`",
+      "分类": "C",
+      "锁定 0.19.0 结论": "私有 bridge 存在，公开 SDK UNSUPPORTED",
+      "证据与处理": "preload L96–106 对应 get/setPercent/onChanged IPC；不是插件授权 API"
+    },
+    {
+      "能力 / 调用": "`window.hermesDesktop.setTranslucency`",
+      "分类": "C",
+      "锁定 0.19.0 结论": "私有 bridge 存在，公开 SDK UNSUPPORTED",
+      "证据与处理": "preload L84，send hermes:translucency；平台效果未重测"
+    },
+    {
+      "能力 / 调用": "Ink & Paper `customCSS`",
+      "分类": "B/D",
+      "锁定 0.19.0 结论": "UNSUPPORTED 字段",
+      "证据与处理": "types.ts 无 customCSS；applyTheme 不消费；624 行/26111 UTF-8 字节不会因 data 贡献自动注入"
+    },
+    {
+      "能力 / 调用": "纸纹、字体、intro、Binshao patch、root bubble 变量",
+      "分类": "D/G",
+      "锁定 0.19.0 结论": "浏览器机制可执行，但不是公开 Host 定制契约",
+      "证据与处理": "上游 L450–795、L1405–1426；全局副作用不可直接采纳"
+    },
+    {
+      "能力 / 调用": "Host 全局偏好键、伪造 storage 事件、旧主题选择迁移",
+      "分类": "E",
+      "锁定 0.19.0 结论": "非公开持久化契约",
+      "证据与处理": "L241–267、349–385、875–893、1211–1265、1561–1591；不能移植"
+    },
+    {
+      "能力 / 调用": "OFFICIAL_CHANNEL / Vite mapDeps / 动态 import 内部 chunk",
+      "分类": "F",
+      "锁定 0.19.0 结论": "UNSUPPORTED / 禁止采纳",
+      "证据与处理": "L919–1208；抓主 bundle、扫描键、解析导出别名、找 atom/setter 并直接写入"
+    }
+  ],
+  "featurePortMatrix": [
+    {
+      "功能": "1 主题系统及贡献",
+      "原实现": "THEMES_AREA 注册两主题；useTheme 列表/明暗/切换；requestTheme 迁移",
+      "0.19.0 兼容 / 私有依赖": "贡献可用；读写切换不可用；另有 E/F",
+      "仅公开 SDK 能否实现": "贡献可以；自建全局选择器不可以",
+      "CareerAdapt 价值与推荐": "高；复用 Host 现有选择入口，Career UI 消费 token，不建立第二份主题状态"
+    },
+    {
+      "功能": "2 Ink & Paper",
+      "原实现": "完整明暗 palette/terminal + customCSS 大量 Host slot/utility 修饰",
+      "0.19.0 兼容 / 私有依赖": "palette 可贡献；customCSS 不受支持；完整外观不可复现",
+      "仅公开 SDK 能否实现": "基础 palette 可以；完整效果不可以",
+      "CareerAdapt 价值与推荐": "高；借鉴灰阶、清晰边界、墨色主操作，重做 Career 自有组件，不搬全局 CSS"
+    },
+    {
+      "功能": "3 Binshao",
+      "原实现": "暖纸明暗 palette/terminal + 单独注入 patch",
+      "0.19.0 兼容 / 私有依赖": "palette 可贡献；patch 为全局 D，且未清理",
+      "仅公开 SDK 能否实现": "基础 palette 可以；原完整效果不可以",
+      "CareerAdapt 价值与推荐": "中；可选暖中性色参考，非默认品牌替换；不带 patch"
+    },
+    {
+      "功能": "4 字体管理",
+      "原实现": "仅引用本机 LXGW/Mono；root !important；观察官方 inline font，最后操作胜",
+      "0.19.0 兼容 / 私有依赖": "CSS 可运行，仲裁依赖私有格式/DOM",
+      "仅公开 SDK 能否实现": "Career 自有字体偏好可以；全局字体仲裁不可以",
+      "CareerAdapt 价值与推荐": "中；业务 UI 跟随 Host sans，等宽字段用 mono；文档字体独立。未下载/安装字体"
+    },
+    {
+      "功能": "5 纸纹模拟",
+      "原实现": "data SVG feTurbulence、body prepend fixed layer、最高 z-index、观察明暗",
+      "0.19.0 兼容 / 私有依赖": "非 SDK 的全窗口注入",
+      "仅公开 SDK 能否实现": "自有容器装饰可以；原全局方案不采纳",
+      "CareerAdapt 价值与推荐": "低；不建议加入默认业务 UI，尤其排除文档、打印和 PDF"
+    },
+    {
+      "功能": "6 界面缩放",
+      "原实现": "hermesDesktop.zoom get/setPercent/onChanged",
+      "0.19.0 兼容 / 私有依赖": "私有 C 存在；公开 API UNSUPPORTED",
+      "仅公开 SDK 能否实现": "不可实现原生全局缩放",
+      "CareerAdapt 价值与推荐": "必需的可访问性能力由 Host 设置/View 菜单承担；不复制控件"
+    },
+    {
+      "功能": "7 聊天文字大小",
+      "原实现": "host.settings.chatTextScale → 内部 atom → global storage",
+      "0.19.0 兼容 / 私有依赖": "settings 缺失，依赖 F/E",
+      "仅公开 SDK 能否实现": "不可控制 Host 聊天；自身文字可用 CSS",
+      "CareerAdapt 价值与推荐": "Host 已有设置，交给 Host；不混同 Career 字号、文档字号"
+    },
+    {
+      "功能": "8 消息气泡",
+      "原实现": "settings/atom + --user-bubble-keep + 全局键",
+      "0.19.0 兼容 / 私有依赖": "B/F/D/E",
+      "仅公开 SDK 能否实现": "不可控制 Host 气泡；自己的聊天组件可独立样式",
+      "CareerAdapt 价值与推荐": "低；Career Profile 不需要此设置，保留 Host 权威"
+    },
+    {
+      "功能": "9 窗口透明",
+      "原实现": "translucency.v2 book、伪 storage 事件、setTranslucency；glassSupported=true",
+      "0.19.0 兼容 / 私有依赖": "私有 C/E；跨平台实际支持未验证",
+      "仅公开 SDK 能否实现": "不可以",
+      "CareerAdapt 价值与推荐": "低；Host 管理，不让业务插件宣称硬件/平台支持"
+    },
+    {
+      "功能": "10 开场标识",
+      "原实现": "查 Host intro slot，替换 textContent，observer，设置页程序化 click，原生键",
+      "0.19.0 兼容 / 私有依赖": "私有 DOM/E/F；缺可靠 cleanup",
+      "仅公开 SDK 能否实现": "自己业务页的空态可以；Host intro 不可以",
+      "CareerAdapt 价值与推荐": "中；只设计 Career 自有空态，不改 Hermes 标识或原设置"
+    },
+    {
+      "功能": "11 对话行为",
+      "原实现": "工具显示、折叠推理、embed、popout、标题栏操作；均走 settings/F/E",
+      "0.19.0 兼容 / 私有依赖": "公开设置 API 均 UNSUPPORTED",
+      "仅公开 SDK 能否实现": "不可控制 Host 行为",
+      "CareerAdapt 价值与推荐": "属 Host；embed=always 会改变外部加载行为，不应视为纯外观偏好；不纳入 Career 层"
+    },
+    {
+      "功能": "12 外观设置浮窗",
+      "原实现": "公开状态栏 menuContent + React/SDK 控件；固定 42rem 双栏、hover 帮助",
+      "0.19.0 兼容 / 私有依赖": "容器贡献可用；原面板因 useTheme 失败",
+      "仅公开 SDK 能否实现": "自身外观偏好面板可以；原 Host 全设置聚合不可以",
+      "CareerAdapt 价值与推荐": "中高；借鉴分组和即时预览，减少重复入口；后续需窄屏/高缩放/键盘帮助设计"
+    }
+  ],
+  "securityAndLifecycleAudit": [
+    {
+      "项目": "插件信任边界",
+      "发现及影响": "manifest 无工具/hooks/env/python依赖，不代表 Renderer 隔离；运行时 JS 可访问同源 DOM/storage/bridge。锁定 SDK 文档也明确 loader 仅错误隔离",
+      "严重性 / 处理": "高；不能将 capabilities=[] 解读成沙箱或无权限"
+    },
+    {
+      "项目": "内部代码反解",
+      "发现及影响": "OFFICIAL_CHANNEL.ensure 在 register 立即启动，非只在用户启用某设置时。fetch 同源主 bundle/chunks、动态 import、探测/修改 atom 和 setter",
+      "严重性 / 处理": "高；不保留此子系统；没有执行它来补齐 API"
+    },
+    {
+      "项目": "全局存储写入",
+      "发现及影响": "11 类官方设置键、translucency book、全局/各 profile 旧主题迁移均绕过公开 setter；伪造 StorageEvent；可能与当前内存状态不一致",
+      "严重性 / 处理": "高；只允许后续自身偏好走 ctx.storage，不自动迁移 Host 偏好"
+    },
+    {
+      "项目": "全局视觉污染",
+      "发现及影响": "paper z-index=2147483647、root font !important、Host slots、主题 root 变量；injectPaper 还删除旧 nous-paper-* 元素",
+      "严重性 / 处理": "中高；仅清理自身资源，不触碰他插件/Host DOM；全局覆盖不能进入预览"
+    },
+    {
+      "项目": "清理契约缺失",
+      "发现及影响": "ctx.onDispose 不存在；自定义 observer/listener/style 不会因为 registry 贡献自动移除而被清理",
+      "严重性 / 处理": "高；原样 disable/hot reload 安全不成立；本轮无运行认证"
+    },
+    {
+      "项目": "清理遗漏",
+      "发现及影响": "即便某未来 Host 支持 onDispose：回调没有移除 hub-binshao-patch；不会还原 bubble root 变量；全局偏好/缩放/透明状态仍持久存在",
+      "严重性 / 处理": "中高；README “不留残留/还原官方设置”不可作为验收证据"
+    },
+    {
+      "项目": "intro 订阅返回错误",
+      "发现及影响": "subscribeIntroMode(cb) 返回 unsubscribeIntroMode 本身，后者要求 cb；React cleanup 无参数调用，不能删除原 callback；只能寄望插件级 clear",
+      "严重性 / 处理": "中；重复开关面板可能保留旧回调，静态确认，未测实际堆泄漏"
+    },
+    {
+      "项目": "定时器和异步任务",
+      "发现及影响": "迁移重试 timer 没有保存/取消；ensure fetch/import 没有 Abort 或 generation；zoom get promise 无晚到隔离；intensity/fade debounce 挂在每 render 新函数属性，未见 unmount cleanup；0ms 更新未取消",
+      "严重性 / 处理": "中；禁用/重载可能晚到写全局状态。hover timer/intro 输入 effect 则有清理，不能一概称无清理"
+    },
+    {
+      "项目": "原状态恢复",
+      "发现及影响": "resetIntroOnDispose 强制把官方 intro 键设为 true，而不是恢复用户原值；字体清理仅移除注入；intro Map 直到 restore/clear 前可保留脱离 DOM 节点",
+      "严重性 / 处理": "中；清理不应写入新的 Host 用户偏好"
+    },
+    {
+      "项目": "错误路径",
+      "发现及影响": "register 中 try 内 const ti18n，catch 在作用域外引用 ti18n，错误通知本身可再抛 ReferenceError；onDispose 注册位置晚于多个副作用，langObserver 在其后声明",
+      "严重性 / 处理": "高（失败清理）；不能以宽泛 catch 宣称成功或已完整撤销"
+    },
+    {
+      "项目": "网络/代码执行",
+      "发现及影响": "已审五文件中运行期网络用途为抓取 Host assets；字体无 CDN；intro 使用 textContent 而非 innerHTML。未发现显式凭据窃取、Career 数据调用、eval/new Function",
+      "严重性 / 处理": "有限静态结论；不等同渗透测试、依赖/二进制或整个仓库恶意代码认证"
+    },
+    {
+      "项目": "build-live",
+      "发现及影响": "默认写 ~/.hermes/desktop-plugins/...，不按 HERMES_HOME/当前 profile 解析；插 composer font LIVE-ONLY；写真实文件后才 node --check，失败无原子回滚；临时检查还剥离 import",
+      "严重性 / 处理": "高；这是运行现场变更脚本，不是可复现纯构建。未执行。固定源 JS 与生成现场 JS 不是同一 SHA"
+    },
+    {
+      "项目": "许可/素材",
+      "发现及影响": "仓库 MIT ©2026 Binshao，复制实质代码/配色需保留版权与许可。LXGW 许可只是 README 的上游说明，本轮未审字体包；截图/附带素材权利未独立确认",
+      "严重性 / 处理": "本轮不分发；如以后复制须单独记录归属，方案 C 也不能把复制代码称纯思想借鉴"
+    }
+  ],
+  "themeTokenMappingProposalNotImplemented": [
+    {
+      "Hermes Theme Tokens": "--ui-text-primary / --ui-text-secondary",
+      "CareerAdapt UI Tokens（限定业务根容器）": "--ca-text / --ca-text-muted",
+      "CareerAdapt Components": "Profile 标题、正文、辅助信息"
+    },
+    {
+      "Hermes Theme Tokens": "--ui-bg-editor / --ui-bg-elevated",
+      "CareerAdapt UI Tokens（限定业务根容器）": "--ca-surface / --ca-surface-raised",
+      "CareerAdapt Components": "工作区、面板、表单"
+    },
+    {
+      "Hermes Theme Tokens": "--ui-stroke-secondary / --dt-border",
+      "CareerAdapt UI Tokens（限定业务根容器）": "--ca-border",
+      "CareerAdapt Components": "分隔线、控件边界"
+    },
+    {
+      "Hermes Theme Tokens": "--dt-primary / --dt-primary-foreground",
+      "CareerAdapt UI Tokens（限定业务根容器）": "--ca-action / --ca-on-action",
+      "CareerAdapt Components": "主操作"
+    },
+    {
+      "Hermes Theme Tokens": "--dt-ring",
+      "CareerAdapt UI Tokens（限定业务根容器）": "--ca-focus",
+      "CareerAdapt Components": "可见键盘焦点"
+    },
+    {
+      "Hermes Theme Tokens": "--dt-font-sans / --dt-font-mono",
+      "CareerAdapt UI Tokens（限定业务根容器）": "--ca-font-ui / --ca-font-code",
+      "CareerAdapt Components": "UI 文本、标识/等宽字段"
+    },
+    {
+      "Hermes Theme Tokens": "经审核的按主题语义配色",
+      "CareerAdapt UI Tokens（限定业务根容器）": "--ca-danger / --ca-warning / --ca-success / --ca-info 及各自背景/前景",
+      "CareerAdapt Components": "错误、事实待确认、保存状态、评分解释"
+    }
+  ],
+  "optionsComparison": [
+    {
+      "维度": "SDK 兼容性",
+      "A 直接适配 Appearance Hub": "当前两缺失 import 与 onDispose 阻断；完整功能无法保留",
+      "B Fork 为第一方外观插件": "只保留贡献/自有 UI 可兼容，大量功能需删去/重写",
+      "C 公开 SDK 的 Career Appearance Layer": "与锁定契约一致；缺失能力明确 UNSUPPORTED"
+    },
+    {
+      "维度": "维护成本",
+      "A 直接适配 Appearance Hub": "高：跟进其 fallback/内部变化",
+      "B Fork 为第一方外观插件": "中高：负责 fork、安全清理和双向合并",
+      "C 公开 SDK 的 Career Appearance Layer": "初始语义设计中等；长期边界小且清晰"
+    },
+    {
+      "维度": "上游升级影响",
+      "A 直接适配 Appearance Hub": "高度耦合 Hub 和 Host 内部变化",
+      "B Fork 为第一方外观插件": "可控制但需持续筛选合并",
+      "C 公开 SDK 的 Career Appearance Layer": "仅跟踪公开 SDK/token 契约，固定版本验证"
+    },
+    {
+      "维度": "全局主题一致性",
+      "A 直接适配 Appearance Hub": "第二入口同步依赖 B/F/E",
+      "B Fork 为第一方外观插件": "删私有链后可统一，但不能保留完整面板",
+      "C 公开 SDK 的 Career Appearance Layer": "由 Host 单一权威，Career 自动消费"
+    },
+    {
+      "维度": "安全边界",
+      "A 直接适配 Appearance Hub": "同源全局写/私有 IPC/内部 atom，不可接受",
+      "B Fork 为第一方外观插件": "可清除，必须逐项证明；fork 不自动授信",
+      "C 公开 SDK 的 Career Appearance Layer": "自身命名空间/React 生命周期，最小触面"
+    },
+    {
+      "维度": "UI 自定义",
+      "A 直接适配 Appearance Hub": "表面多，实际绑定 Host DOM",
+      "B Fork 为第一方外观插件": "可定制保留子集",
+      "C 公开 SDK 的 Career Appearance Layer": "Career 组件可充分自定义；原生窗口能力仍归 Host"
+    },
+    {
+      "维度": "用户体验",
+      "A 直接适配 Appearance Hub": "当前不可加载；大量设置与 Host 重复",
+      "B Fork 为第一方外观插件": "可精简，但原生高级控制缺失",
+      "C 公开 SDK 的 Career Appearance Layer": "统一外观与业务语义，避免两份全局设置"
+    },
+    {
+      "维度": "长期维护性",
+      "A 直接适配 Appearance Hub": "差",
+      "B Fork 为第一方外观插件": "中",
+      "C 公开 SDK 的 Career Appearance Layer": "最佳，符合 Hermes Host + Career UI 方向"
+    },
+    {
+      "维度": "决策",
+      "A 直接适配 Appearance Hub": "NO-GO",
+      "B Fork 为第一方外观插件": "不推荐当前立项；极小 palette-only fork 可另议",
+      "C 公开 SDK 的 Career Appearance Layer": "**推荐；仅设计方向 GO，实施待用户审核**"
+    }
+  ],
+  "staticLinkCheck": {
+    "method": "TypeScript AST SDK export inventory + Node ESM link only; no module evaluate, plugin register, Host install or bundle reverse parsing",
+    "imports": [
+      {
+        "module": "@hermes/plugin-sdk",
+        "names": [
+          "haptic",
+          "host",
+          "icons",
+          "SegmentedControl",
+          "Input",
+          "Textarea",
+          "DropdownMenu",
+          "DropdownMenuTrigger",
+          "DropdownMenuContent",
+          "DropdownMenuItem",
+          "usePluginI18n",
+          "useI18n",
+          "useTheme",
+          "requestTheme",
+          "THEMES_AREA"
+        ]
+      },
+      {
+        "module": "react",
+        "names": [
+          "useState",
+          "useEffect",
+          "useRef"
+        ]
+      },
+      {
+        "module": "react/jsx-runtime",
+        "names": [
+          "jsx",
+          "jsxs"
+        ]
+      }
+    ],
+    "sdkRuntimeExportNames": [
+      "Badge",
+      "Button",
+      "COMPOSER_AREAS",
+      "Checkbox",
+      "Codicon",
+      "ConfirmDialog",
+      "ContextMenu",
+      "ContextMenuContent",
+      "ContextMenuItem",
+      "ContextMenuSeparator",
+      "ContextMenuTrigger",
+      "Contribute",
+      "CopyButton",
+      "DecodeText",
+      "Dialog",
+      "DialogContent",
+      "DialogDescription",
+      "DialogFooter",
+      "DialogHeader",
+      "DialogTitle",
+      "DialogTrigger",
+      "DropdownMenu",
+      "DropdownMenuContent",
+      "DropdownMenuItem",
+      "DropdownMenuSeparator",
+      "DropdownMenuTrigger",
+      "EmptyState",
+      "ErrorState",
+      "GlyphSpinner",
+      "Input",
+      "KEYBINDS_AREA",
+      "Kbd",
+      "KbdGroup",
+      "Loader",
+      "LogView",
+      "PALETTE_AREA",
+      "PANES_AREA",
+      "Popover",
+      "PopoverContent",
+      "PopoverTrigger",
+      "ROUTES_AREA",
+      "SIDEBAR_NAV_AREA",
+      "STATUSBAR_AREAS",
+      "ScrollArea",
+      "SearchField",
+      "SegmentedControl",
+      "Select",
+      "SelectContent",
+      "SelectItem",
+      "SelectTrigger",
+      "SelectValue",
+      "Separator",
+      "Skeleton",
+      "StatusDot",
+      "Switch",
+      "THEMES_AREA",
+      "TITLEBAR_AREAS",
+      "Tabs",
+      "TabsList",
+      "TabsTrigger",
+      "Textarea",
+      "Tip",
+      "Tooltip",
+      "TooltipContent",
+      "TooltipProvider",
+      "TooltipTrigger",
+      "atom",
+      "cn",
+      "coarseElapsed",
+      "computed",
+      "evaluateRuntimeReadiness",
+      "fmtDateTime",
+      "fmtDayTime",
+      "haptic",
+      "host",
+      "icons",
+      "profileColor",
+      "profileColorSoft",
+      "queryClient",
+      "relativeTime",
+      "useI18n",
+      "useMutation",
+      "usePluginI18n",
+      "useQuery",
+      "useQueryClient",
+      "useValue"
+    ],
+    "missingSdkImports": [
+      "useTheme",
+      "requestTheme"
+    ],
+    "linkError": {
+      "name": "SyntaxError",
+      "message": "The requested module '@hermes/plugin-sdk' does not provide an export named 'requestTheme'"
+    },
+    "thirdPartyEvaluated": false
+  },
+  "sourceHitInventory": {
+    "privateBridge": [
+      {
+        "line": 8,
+        "excerpt": " *   - 「界面缩放」直接驱动 Hermes 原生缩放（window.hermesDesktop.zoom.setPercent）"
+      },
+      {
+        "line": 800,
+        "excerpt": "// 通过 window.hermesDesktop.zoom 读写，onChanged 让原生侧改动（View 菜单 / Cmd±）实时回灌 UI。"
+      },
+      {
+        "line": 802,
+        "excerpt": "  const z = window.hermesDesktop && window.hermesDesktop.zoom"
+      },
+      {
+        "line": 809,
+        "excerpt": "  const z = window.hermesDesktop && window.hermesDesktop.zoom"
+      },
+      {
+        "line": 832,
+        "excerpt": "  const z = window.hermesDesktop && window.hermesDesktop.zoom"
+      },
+      {
+        "line": 1273,
+        "excerpt": "    window.hermesDesktop?.setTranslucency?.({"
+      },
+      {
+        "line": 2533,
+        "excerpt": "      // 界面缩放走原生机制（window.hermesDesktop.zoom）。"
+      }
+    ],
+    "localStorage": [
+      {
+        "line": 353,
+        "excerpt": "    const raw = localStorage.getItem(key)"
+      },
+      {
+        "line": 362,
+        "excerpt": "    localStorage.setItem(key, String(on))"
+      },
+      {
+        "line": 380,
+        "excerpt": "      localStorage.removeItem(USER_BUBBLE_KEY)"
+      },
+      {
+        "line": 383,
+        "excerpt": "      localStorage.setItem(USER_BUBBLE_KEY, String(v))"
+      },
+      {
+        "line": 641,
+        "excerpt": "    localStorage.setItem(INTRO_NATIVE_KEY, value)"
+      },
+      {
+        "line": 794,
+        "excerpt": "    localStorage.setItem(INTRO_NATIVE_KEY, 'true')"
+      },
+      {
+        "line": 880,
+        "excerpt": "    const raw = localStorage.getItem(key)"
+      },
+      {
+        "line": 889,
+        "excerpt": "    localStorage.setItem(key, value)"
+      },
+      {
+        "line": 1214,
+        "excerpt": "  try { return localStorage.getItem(BACKDROP_KEY) === 'true' } catch { return false }"
+      },
+      {
+        "line": 1220,
+        "excerpt": "    localStorage.setItem(BACKDROP_KEY, String(on))"
+      },
+      {
+        "line": 1227,
+        "excerpt": "    const raw = JSON.parse(localStorage.getItem(TRANSLUCENCY_KEY) || 'null')"
+      },
+      {
+        "line": 1262,
+        "excerpt": "    localStorage.setItem(TRANSLUCENCY_KEY, JSON.stringify(book))"
+      },
+      {
+        "line": 1564,
+        "excerpt": "    const active = localStorage.getItem(THEME_STORE_KEY)"
+      },
+      {
+        "line": 1566,
+        "excerpt": "      localStorage.setItem(THEME_STORE_KEY, RETIRED_THEME_IDS[active])"
+      },
+      {
+        "line": 1569,
+        "excerpt": "    const raw = localStorage.getItem(PROFILE_THEMES_KEY)"
+      },
+      {
+        "line": 1580,
+        "excerpt": "        if (changed) localStorage.setItem(PROFILE_THEMES_KEY, JSON.stringify(record))"
+      },
+      {
+        "line": 1620,
+        "excerpt": "    return clampBubble(readOfficial(USER_BUBBLE_KEY, (() => { try { return localStorage.getItem(USER_BUBBLE_KEY) || 0 } catch { return 0 } })()))"
+      },
+      {
+        "line": 1667,
+        "excerpt": "      const raw = JSON.parse(localStorage.getItem(TRANSLUCENCY_KEY) || 'null')"
+      },
+      {
+        "line": 1674,
+        "excerpt": "      const raw = JSON.parse(localStorage.getItem(TRANSLUCENCY_KEY) || 'null')"
+      },
+      {
+        "line": 1681,
+        "excerpt": "      const raw = JSON.parse(localStorage.getItem(TRANSLUCENCY_KEY) || 'null')"
+      },
+      {
+        "line": 1688,
+        "excerpt": "      const raw = JSON.parse(localStorage.getItem(TRANSLUCENCY_KEY) || 'null')"
+      },
+      {
+        "line": 1697,
+        "excerpt": "    try { return localStorage.getItem(INTRO_NATIVE_KEY) !== 'false' } catch { return true }"
+      },
+      {
+        "line": 1813,
+        "excerpt": "      localStorage.setItem(TRANSLUCENCY_KEY, JSON.stringify(book))"
+      },
+      {
+        "line": 1832,
+        "excerpt": "      const book = JSON.parse(localStorage.getItem(TRANSLUCENCY_KEY) || '{}')"
+      },
+      {
+        "line": 1836,
+        "excerpt": "      localStorage.setItem(TRANSLUCENCY_KEY, JSON.stringify(book))"
+      },
+      {
+        "line": 2493,
+        "excerpt": "      applyUserBubble(clampBubble(readOfficial(USER_BUBBLE_KEY, (() => { try { return localStorage.getItem(USER_BUBBLE_KEY) || 0 } catch { return 0 } })())))"
+      },
+      {
+        "line": 2509,
+        "excerpt": "      const introInitialOn = readOfficial(INTRO_NATIVE_KEY, (() => { try { return localStorage.getItem(INTRO_NATIVE_KEY) !== 'false' } catch { return true } })())"
+      }
+    ],
+    "globalDom": [
+      {
+        "line": 379,
+        "excerpt": "      document.documentElement.style.removeProperty('--user-bubble-keep')"
+      },
+      {
+        "line": 382,
+        "excerpt": "      document.documentElement.style.setProperty('--user-bubble-keep', (100 - v) + '%')"
+      },
+      {
+        "line": 473,
+        "excerpt": "  const layer = document.getElementById(PAPER_LAYER_ID)"
+      },
+      {
+        "line": 475,
+        "excerpt": "  const html = document.documentElement"
+      },
+      {
+        "line": 496,
+        "excerpt": "  const oldLayer = document.getElementById('nous-paper-texture')"
+      },
+      {
+        "line": 498,
+        "excerpt": "  const oldStyle = document.getElementById('nous-paper-style')"
+      },
+      {
+        "line": 501,
+        "excerpt": "  let layer = document.getElementById(PAPER_LAYER_ID)"
+      },
+      {
+        "line": 505,
+        "excerpt": "    document.body.prepend(layer)"
+      },
+      {
+        "line": 519,
+        "excerpt": "    paperObserver.observe(document.documentElement, {"
+      },
+      {
+        "line": 527,
+        "excerpt": "  const layer = document.getElementById(PAPER_LAYER_ID)"
+      },
+      {
+        "line": 551,
+        "excerpt": "    const v = document.documentElement.style.getPropertyValue('--dt-font-sans')"
+      },
+      {
+        "line": 561,
+        "excerpt": "  let style = document.getElementById(FONT_STYLE_ID)"
+      },
+      {
+        "line": 565,
+        "excerpt": "    document.head.appendChild(style)"
+      },
+      {
+        "line": 608,
+        "excerpt": "  fontObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] })"
+      },
+      {
+        "line": 615,
+        "excerpt": "  const style = document.getElementById(FONT_STYLE_ID)"
+      },
+      {
+        "line": 667,
+        "excerpt": "    document.getElementById('setting-field-appearance.intro-splash') ||"
+      },
+      {
+        "line": 668,
+        "excerpt": "    Array.from(document.querySelectorAll('[id^=\"setting-field-\"]')).find((el) =>"
+      },
+      {
+        "line": 706,
+        "excerpt": "  const root = document.querySelector(INTRO_SLOT)"
+      },
+      {
+        "line": 745,
+        "excerpt": "  introObserver.observe(document.body, { childList: true, subtree: true, characterData: true })"
+      },
+      {
+        "line": 758,
+        "excerpt": "  let style = document.getElementById(INTRO_STYLE_ID)"
+      },
+      {
+        "line": 763,
+        "excerpt": "      document.head.appendChild(style)"
+      },
+      {
+        "line": 790,
+        "excerpt": "  const style = document.getElementById(INTRO_STYLE_ID)"
+      },
+      {
+        "line": 870,
+        "excerpt": "  return document.documentElement.classList.contains('dark') ||"
+      },
+      {
+        "line": 871,
+        "excerpt": "    document.documentElement.dataset.hermesMode === 'dark'"
+      },
+      {
+        "line": 1101,
+        "excerpt": "      const scriptEl = document.querySelector('script[src*=\"index-\"]')"
+      },
+      {
+        "line": 1422,
+        "excerpt": "  document.getElementById(BINSHAO_PATCH_ID)?.remove()"
+      },
+      {
+        "line": 1426,
+        "excerpt": "  document.head.appendChild(style)"
+      },
+      {
+        "line": 2524,
+        "excerpt": "          const style = document.getElementById(INTRO_STYLE_ID)"
+      },
+      {
+        "line": 2586,
+        "excerpt": "      let lastStatusbarLang = document.documentElement.lang"
+      },
+      {
+        "line": 2588,
+        "excerpt": "        const lang = document.documentElement.lang"
+      },
+      {
+        "line": 2593,
+        "excerpt": "      langObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] })"
+      }
+    ],
+    "internalChunks": [
+      {
+        "line": 321,
+        "excerpt": "  const v = OFFICIAL_CHANNEL.read(key, undefined)"
+      },
+      {
+        "line": 333,
+        "excerpt": "  return OFFICIAL_CHANNEL.write(key, value)"
+      },
+      {
+        "line": 346,
+        "excerpt": "  return OFFICIAL_CHANNEL.subscribe(key, cb)"
+      },
+      {
+        "line": 901,
+        "excerpt": "//      这里改从主 bundle 的 __vite__mapDeps 拿完整 chunk 依赖表（名字无关），"
+      },
+      {
+        "line": 919,
+        "excerpt": "const OFFICIAL_CHANNEL = (() => {"
+      },
+      {
+        "line": 1098,
+        "excerpt": "  // chunk 清单 = 主 bundle 的 __vite__mapDeps（完整依赖表，名字无关）"
+      },
+      {
+        "line": 1105,
+        "excerpt": "      const i = mainSrc.indexOf('__vite__mapDeps')"
+      },
+      {
+        "line": 1149,
+        "excerpt": "      try { mod = await import(/* @vite-ignore */ env.base + hit.name) } catch (e) {"
+      },
+      {
+        "line": 1212,
+        "excerpt": "  const v = OFFICIAL_CHANNEL.read(BACKDROP_KEY, undefined)"
+      },
+      {
+        "line": 2474,
+        "excerpt": "      // 反解通道（OFFICIAL_CHANNEL.ensure）：认领这 11 个键的官方 atom —— 网关"
+      },
+      {
+        "line": 2479,
+        "excerpt": "      OFFICIAL_CHANNEL.ensure()"
+      }
+    ],
+    "lifecycle": [
+      {
+        "line": 13,
+        "excerpt": " *       插件被禁用/重载时 onDispose 清理全部注入，不留残留。"
+      },
+      {
+        "line": 518,
+        "excerpt": "    paperObserver = new MutationObserver(applyPaperMode)"
+      },
+      {
+        "line": 530,
+        "excerpt": "    paperObserver.disconnect()"
+      },
+      {
+        "line": 592,
+        "excerpt": "  fontObserver = new MutationObserver(() => {"
+      },
+      {
+        "line": 611,
+        "excerpt": "  if (fontObserver) { fontObserver.disconnect(); fontObserver = null }"
+      },
+      {
+        "line": 626,
+        "excerpt": "// MutationObserver 兜两种情况：弹窗打开后才新渲染的 intro、React 重渲染写回的原生文案。"
+      },
+      {
+        "line": 733,
+        "excerpt": "  introObserver = new MutationObserver(() => {"
+      },
+      {
+        "line": 750,
+        "excerpt": "    introObserver.disconnect()"
+      },
+      {
+        "line": 1588,
+        "excerpt": "    if (attempts++ < 20) setTimeout(apply, 100)"
+      },
+      {
+        "line": 1713,
+        "excerpt": "  useEffect(() => () => clearTimeout(hoverTimer.current), [])"
+      },
+      {
+        "line": 1715,
+        "excerpt": "    clearTimeout(hoverTimer.current)"
+      },
+      {
+        "line": 1716,
+        "excerpt": "    hoverTimer.current = setTimeout(() => setHovered(descKey), 150)"
+      },
+      {
+        "line": 1819,
+        "excerpt": "    setTimeout(() => setIntensityState(currentIntensity()), 0)"
+      },
+      {
+        "line": 1825,
+        "excerpt": "    clearTimeout(changeIntensity._t)"
+      },
+      {
+        "line": 1826,
+        "excerpt": "    changeIntensity._t = setTimeout(() => writeIntensity(value), 250)"
+      },
+      {
+        "line": 1844,
+        "excerpt": "    clearTimeout(changeFade._t)"
+      },
+      {
+        "line": 1845,
+        "excerpt": "    changeFade._t = setTimeout(() => writeGlassField('fade', value), 250)"
+      },
+      {
+        "line": 1914,
+        "excerpt": "    const t = setTimeout(() => {"
+      },
+      {
+        "line": 1922,
+        "excerpt": "    return () => clearTimeout(t)"
+      },
+      {
+        "line": 2539,
+        "excerpt": "      ctx.onDispose(() => {"
+      },
+      {
+        "line": 2541,
+        "excerpt": "        langObserver.disconnect()"
+      },
+      {
+        "line": 2565,
+        "excerpt": "      // 故挂 MutationObserver 监听 <html lang>（I18nProvider 每次 setLocale 都会"
+      },
+      {
+        "line": 2587,
+        "excerpt": "      const langObserver = new MutationObserver(() => {"
+      }
+    ]
+  },
+  "profileReview": {
+    "foregroundAndBackground": "Host aliases supported; automatic CSS token updates",
+    "border": "Host src has no --border definition; PoC uses #888 fallback",
+    "borderDefinitionScan": [],
+    "font": "Fixed 14px system-ui; does not inherit Host --dt-font-sans",
+    "hardcodedFallbacks": [
+      "#242424",
+      "#faf9f7",
+      "#888"
+    ],
+    "realProfileConnected": false
+  },
+  "documentBoundary": {
+    "screenPreview": "Same DOM; template-specific --resume-* and explicit paper colors; broad CSS/overlays still a risk",
+    "pdf": "Independent snapshot-driven HTML/page; no dynamic Hermes style collection",
+    "runtimeThemePdfRegression": "NOT_RUN_NO_IMPLEMENTATION_CHANGE"
+  },
+  "recommendation": {
+    "option": "C",
+    "reason": "Host owns global appearance; Career owns scoped semantic UI; document template remains separate",
+    "implementationStarted": false
+  },
+  "decisions": {
+    "auditDelivery": "GO",
+    "upstreamAsIs": "NO-GO",
+    "fullPublicSdkPort": "NO-GO",
+    "scopedPublicSdkDesign": "GO_RECOMMENDATION_ONLY",
+    "productionAdoption": "NO-GO",
+    "existingTrustedWritesBlockers": "UNCHANGED"
+  },
+  "unresolved": [
+    "User review of C",
+    "Optional palette contribution selection",
+    "Semantic status colors and contrast",
+    "Host token stability",
+    "Future formal theme/settings SDK capability",
+    "Font and screenshot asset redistribution rights",
+    "Theme-independent screen/print/PDF regression after any future implementation"
+  ],
+  "validation": {
+    "sourceHashes": "PASS",
+    "specifiedBlobHashes": "PASS",
+    "hostFilesMatchPinnedHead": "PASS_NORMALIZED_CRLF_AND_EMPTY_GIT_DIFF",
+    "sdkImportContract": "EXPECTED_FAILURE_CONFIRMED",
+    "linkProbeExitCode": 0,
+    "pluginEvaluated": false,
+    "jsonParse": "PASS",
+    "tableCompleteness": "PASS_12_FEATURES",
+    "gitDiffCheck": "PASS",
+    "productionCodeChange": false,
+    "testsTypecheckBuildE2E": "NOT_RUN_DOCUMENT_AUDIT_ONLY",
+    "prohibitedActionsPerformed": [],
+    "limitations": [
+      "No actual Appearance Hub Desktop execution",
+      "No heap profiling or lifecycle runtime qualification",
+      "No platform translucency test",
+      "No font binaries or complete repository dependency audit"
+    ],
+    "exploratoryErrors": [
+      "Guessed paths absent; corrected using rg --files",
+      "Python GBK output interrupted once; reread using UTF-8",
+      "Node VM experimental warning; link-only check completed"
+    ],
+    "finalVerification": {
+      "jsonParse": "PASS",
+      "localReportLinks": "PASS",
+      "twelveFeatures": "PASS",
+      "protectedHashesUnchanged": "PASS",
+      "upstreamHashesUnchanged": "PASS",
+      "newFilesWhitespace": "PASS",
+      "gitDiffCheckExitCode": 0,
+      "headUnchanged": true,
+      "statusShort": "?? docs/architecture/p5.2.0-appearance-hub-compatibility-audit.md\n?? docs/architecture/p5.2.0-appearance-hub-compatibility-evidence.json\n",
+      "planHistorySaved": "PASS",
+      "scope": "Only two new tracked-candidate documents; ignored plan/history maintained; no production changes"
+    }
+  },
+  "handoff": {
+    "plan4Exists": true,
+    "history4Exists": true,
+    "ignoredByGit": true,
+    "updated": true,
+    "commit": "尚未提交",
+    "next": "STOP_WAIT_USER_REVIEW"
+  },
+  "auditArtifacts": [
+    {
+      "path": "E:/DEF/CareerAdapt AI/.artifacts/p520appearance-audit/static-link-check.cjs",
+      "bytes": 2600,
+      "sha256": "6d3f6691165bf02cd0edf738992218f3848494dcf4ce3398e70a4c9e2d3056d4"
+    },
+    {
+      "path": "E:/DEF/CareerAdapt AI/.artifacts/p520appearance-audit/static-link-result.json",
+      "bytes": 2726,
+      "sha256": "017a073a7bbf4c93dc303009249b615a5efba95285bac0102a05617146758383"
+    },
+    {
+      "path": "E:/DEF/CareerAdapt AI/.artifacts/p520appearance-audit/ink-paper-decoded.css",
+      "bytes": 26735,
+      "sha256": "5143b7d0882c69b4fa3fe2f1c0194ddb7c5a4301e833175f13f42df79bb5e75f"
+    }
+  ]
+}
