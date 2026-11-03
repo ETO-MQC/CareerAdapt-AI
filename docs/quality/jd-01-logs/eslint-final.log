@@ -1,0 +1,21 @@
+
+E:\DEF\CareerAdapt-competition-5.1.8\src\app\jobs\JobsWorkspace.tsx
+  178:61  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+E:\DEF\CareerAdapt-competition-5.1.8\src\app\jobs\JobsWorkspace.tsx:178:61
+  176 |   useEffect(() => {
+  177 |     if (!profile || !selectedJob) return;
+> 178 |     if (sourceMode === "resume" && !selectedBaseResumeId) { setMatches([]); return; }
+      |                                                             ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  179 |     let active = true;
+  180 |     void repository.listRequirementMatches(profile.id, selectedJob.id).then((stored) => {
+  181 |       if (active) setMatches(latestMatchesForResume(stored, sourceMode === "resume" ? selectedBaseResumeId : undefined));  react-hooks/set-state-in-effect
+
+✖ 1 problem (1 error, 0 warnings)
+

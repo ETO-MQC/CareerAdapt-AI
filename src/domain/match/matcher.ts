@@ -1,3 +1,4 @@
+import { containsKeywordTerm } from "@/domain/jobOptimization/keywordTaxonomy";
 import { nanoid } from "nanoid";
 import {
   MatchEvaluationSchema,
@@ -15,7 +16,7 @@ import {
 } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
 
-export const MATCHER_VERSION = "evidence-matcher.v1";
+export const MATCHER_VERSION = "evidence-matcher.v1.1";
 
 export type CandidateFact = {
   ref: MatchEvidenceRef;
@@ -153,7 +154,7 @@ export function recallCandidatesForRequirement(profile: CareerProfile, requireme
   const recalled = allCandidates
     .map((candidate) => ({
       candidate,
-      directHits: keywords.filter((keyword) => keyword.length > 0 && candidate.searchText.includes(keyword)),
+      directHits: keywords.filter((keyword) => keyword.length > 0 && containsKeywordTerm(candidate.searchText, keyword)),
       transferable: hasTransferableSignal(requirementText, candidate.searchText)
     }))
     .filter((item) => item.directHits.length > 0 || item.transferable)
@@ -189,10 +190,15 @@ export function evaluateRuleMatch(requirement: JobRequirement, candidates: Candi
 
   const keywords = normalizedRequirementKeywords(requirement);
   const best = candidates[0];
-  const hitCount = keywords.filter((keyword) => best.searchText.includes(keyword)).length;
+  const hitCount = keywords.filter((keyword) => containsKeywordTerm(best.searchText, keyword)).length;
   const transferable = hasTransferableSignal(normalizeSearchText([requirement.description, requirement.sourceSpan.text]), best.searchText);
   let matchLevel: MatchLevel = hitCount >= 2 ? "strong" : hitCount === 1 ? "weak" : transferable ? "transferable" : "none";
   const risks: MatchRisk[] = [];
+  // A combined condition cannot be satisfied by multiple tokens of one technology.
+  if (requirement.keywordLogic?.relation === "all_of" && matchLevel === "strong"
+    && !requirement.keywordLogic.terms.every((term) => candidates.some((candidate) => containsKeywordTerm(candidate.searchText, term)))) {
+    matchLevel = "weak";
+  }
 
   // 收紧1：「参与/协助/基础/接触/了解」等限定词不得判定strong
   const bestFactText = best.ref.factText;
@@ -253,7 +259,8 @@ export function computeCandidateSetHash(input: {
     requirement: {
       id: input.requirement.id,
       description: normalizeWhitespace(input.requirement.description),
-      sourceText: normalizeWhitespace(input.requirement.sourceSpan.text)
+      sourceText: normalizeWhitespace(input.requirement.sourceSpan.text),
+      ...(input.requirement.keywordLogic ? { keywordLogic: input.requirement.keywordLogic } : {})
     },
     candidates: input.candidates
       .map((candidate) => ({
@@ -554,8 +561,8 @@ function buildStructuredExplanation(
 
   const keywords = normalizedRequirementKeywords(requirement);
   const best = candidates[0];
-  const matchedKeywords = keywords.filter((keyword) => best.searchText.includes(keyword));
-  const missedKeywords = keywords.filter((keyword) => !best.searchText.includes(keyword));
+  const matchedKeywords = keywords.filter((keyword) => containsKeywordTerm(best.searchText, keyword));
+  const missedKeywords = keywords.filter((keyword) => !containsKeywordTerm(best.searchText, keyword));
 
   const supported = matchedKeywords.length > 0
     ? `技能/关键词匹配：${matchedKeywords.join("、")}`
@@ -574,6 +581,12 @@ function buildStructuredExplanation(
 
   const parts: string[] = [];
   parts.push(`[支持] ${supported}`);
+  if (requirement.keywordLogic) {
+    const { relation, terms } = requirement.keywordLogic;
+    const hits = terms.filter((term) => candidates.some((candidate) => containsKeywordTerm(candidate.searchText, term)));
+    const missingTerms = terms.filter((term) => !hits.includes(term));
+    parts.push(`[条件] ${relation === "any_of" ? "任选其一" : "需同时具备"}：${terms.join("、")}；${relation === "any_of" && hits.length ? "已召回可选技能证据，支持程度仍需核对" : missingTerms.length ? `证据不足：${missingTerms.join("、")}` : "已召回组合技能证据，支持程度仍需核对"}`);
+  }
   if (missing) {
     parts.push(`[缺失] ${missing}`);
   }

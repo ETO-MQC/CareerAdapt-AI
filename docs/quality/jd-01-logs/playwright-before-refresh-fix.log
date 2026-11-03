@@ -1,0 +1,44 @@
+
+Running 2 tests using 1 worker
+
+
+
+(node:38188) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1/2] [chromium] › tests\e2e\jd01-requirements.spec.ts:3:5 › JD-01 AI source segments survive confirmation, formal save and browser reload
+  1) [chromium] › tests\e2e\jd01-requirements.spec.ts:3:5 › JD-01 AI source segments survive confirmation, formal save and browser reload 
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: locator('.job-requirement-cards')
+    Expected substring: "来源段落：能完成接口设计，能定位生产故障并撰写技术文档"
+    Received string:    "岗位要求2 条已确认要求负责业务数据清洗、统计分析和周报支持。工作职责 · 高优先关联技能：数据清洗 · 统计分析 · 周报查看依据与匹配负责业务数据清洗、统计分析和周报支持原文位置 0–18 · 置信度 高尚未运行匹配熟悉 Excel 或 Stata。核心能力 · 高优先关联技能：Excel · Stata查看依据与匹配熟悉 Excel 或 Stata原文位置 0–16 · 置信度 高尚未运行匹配"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toContainText" with timeout 5000ms
+      - waiting for locator('.job-requirement-cards')
+        14 × locator resolved to <div class="job-requirement-cards">…</div>
+           - unexpected value "岗位要求2 条已确认要求负责业务数据清洗、统计分析和周报支持。工作职责 · 高优先关联技能：数据清洗 · 统计分析 · 周报查看依据与匹配负责业务数据清洗、统计分析和周报支持原文位置 0–18 · 置信度 高尚未运行匹配熟悉 Excel 或 Stata。核心能力 · 高优先关联技能：Excel · Stata查看依据与匹配熟悉 Excel 或 Stata原文位置 0–16 · 置信度 高尚未运行匹配"
+
+
+      48 |   expect(await readJob()).toEqual(saved);
+      49 |   await page.locator("[data-requirement-id]").first().locator("summary").click();
+    > 50 |   await expect(page.locator(".job-requirement-cards")).toContainText("来源段落：能完成接口设计，能定位生产故障并撰写技术文档");
+         |                                                        ^
+      51 |   await page.screenshot({ path: "docs/quality/jd-01-logs/jobs-requirements.png", fullPage: true });
+      52 |   expect(calls).toBe(1);
+      53 |   expect(errors).toEqual([]);
+        at E:\DEF\CareerAdapt-sq13b2-current-87360d1\tests\e2e\jd01-requirements.spec.ts:50:56
+
+    Error Context: test-results\jd01-requirements-JD-01-AI-50bf3-mal-save-and-browser-reload-chromium\error-context.md
+
+
+
+(node:53752) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[2/2] [chromium] › tests\e2e\job-semantic-v4.spec.ts:19:5 › AI 训练师 JD 编译为 3 条职责、1 个三项方向组并提示来源矛盾
+  1 failed
+    [chromium] › tests\e2e\jd01-requirements.spec.ts:3:5 › JD-01 AI source segments survive confirmation, formal save and browser reload 
+  1 passed (13.8s)

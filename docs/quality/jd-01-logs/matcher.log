@@ -1,0 +1,11 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+ ✓ tests/unit/matcher.test.ts (7 tests) 29ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  01:17:06
+   Duration  2.19s (transform 563ms, setup 146ms, import 849ms, tests 29ms, environment 939ms)
+
+JSON report written to E:/DEF/CareerAdapt-competition-5.1.8/docs/quality/jd-01-logs/matcher.json

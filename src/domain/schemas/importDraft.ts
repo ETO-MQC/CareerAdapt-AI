@@ -2,8 +2,8 @@ import { z } from "zod";
 import { EntityBaseSchema, IsoDateStringSchema, PdfLocatorStatusSchema, PdfSourceLocatorSchema, SourceSpanSchema } from "./common";
 import { ExperienceTypeSchema } from "./profile";
 import { JobRequirementCategorySchema } from "./job";
-import { JobRequirementGraphV3Schema } from "./jobOptimizationV3";
-import { JobRequirementGraphV4Schema } from "./jobOptimizationV4";
+import { RequirementKeywordLogicSchema, JobRequirementGraphV3Schema } from "./jobOptimizationV3";
+import { JdRequirementSegmentSchema, JobRequirementGraphV4Schema } from "./jobOptimizationV4";
 
 export const RawInputKindSchema = z.enum(["resume_text", "resume_pdf_text", "job_jd"]);
 
@@ -271,6 +271,7 @@ export const JdAnalyzerRequirementSchema = EntityBaseSchema.extend({
   hardConstraint: z.boolean(),
   sourceQuote: z.string().min(1),
   sourceSpan: SourceSpanSchema.optional(),
+  keywordLogic: RequirementKeywordLogicSchema.optional(),
   keywords: z.array(z.string()).default([]),
   confidenceLevel: ConfidenceLevelSchema,
   confidenceReason: z.string().min(1),
@@ -281,6 +282,7 @@ export const JdAnalyzerRequirementSchema = EntityBaseSchema.extend({
 export const JdUnitAssignmentSchema = z.object({
   sourceUnitId: z.string().min(1),
   verdict: z.enum(["accept", "override"]),
+  segments: z.array(JdRequirementSegmentSchema).min(2).max(32).optional(),
   disposition: z.enum(["heading", "context", "group_wrapper", "metadata", "requirement", "requirement_detail", "verification_material", "hiring_signal", "excluded", "unclassified"]).optional(),
   section: z.enum(["responsibility", "required", "preferred", "verification", "role_profile", "unknown"]).optional(),
   kind: z.enum(["responsibility", "hard_constraint", "core_competency", "tool_or_technology", "experience_depth", "education", "language", "soft_skill", "domain_knowledge", "preferred", "risk_or_uncertain"]).optional(),

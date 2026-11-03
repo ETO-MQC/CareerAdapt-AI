@@ -1,0 +1,157 @@
+{
+  "schemaVersion": "jd-01-implementation-evidence.v1",
+  "date": "2026-11-04",
+  "timezone": "Asia/Shanghai",
+  "status": "IMPLEMENTED_AND_ENGINEERING_VALIDATED",
+  "git": {
+    "branch": "competition/5.1.8",
+    "baselineHead": "82d465c042b39db903b49b3ad171b28a28f5e3ed",
+    "initialStatus": "clean",
+    "committed": false,
+    "pushed": false,
+    "packaged": false,
+    "otherBranchesMerged": false
+  },
+  "protocol": {
+    "before": "compact unitAssignments; no model requirements field",
+    "after": "optional source-relative segments; validated local child units; existing Graph compiler and single projection",
+    "promptVersion": "jd-analyzer.v4-source-segments",
+    "analyzerVersion": "jd-analyzer.semantic-ledger-v4.1",
+    "matcherVersion": "evidence-matcher.v1.1",
+    "confirmation": "AI override/split uses existing needsConfirmation gate; no confidence threshold change",
+    "snapshots": "optional fields only; old Graph readable without migration",
+    "mapping": "existing RequirementMatch requirementId and multiple evidenceRefs, per-match explanation/support/risks and original factQuote"
+  },
+  "checks": {
+    "baseline": {
+      "files": 4,
+      "tests": 29,
+      "typecheckExit": 0,
+      "testExit": 0
+    },
+    "unitIntegration": {
+      "files": 15,
+      "tests": 174,
+      "passed": 174,
+      "failed": 0,
+      "exitCode": 0,
+      "report": "jd-01-logs/unit-integration-qualified.json",
+      "skipped": 0
+    },
+    "newTests": {
+      "unit": 15,
+      "repositoryReactIntegration": 2,
+      "productionBrowser": 1
+    },
+    "playwright": {
+      "passed": 2,
+      "failed": 0,
+      "exitCode": 0,
+      "syntheticAiCalls": 1,
+      "realProviderCalls": 0,
+      "jd01PageErrors": 0,
+      "log": "jd-01-logs/playwright-final.log"
+    },
+    "typecheck": {
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "log": "jd-01-logs/typecheck-delivery.log"
+    },
+    "eslint": {
+      "changedFiles": 16,
+      "maxWarnings": 0,
+      "exitCode": 0,
+      "log": "jd-01-logs/eslint-qualified.log"
+    },
+    "build": {
+      "command": "pnpm build",
+      "exitCode": 0,
+      "log": "jd-01-logs/production-build.log"
+    },
+    "diffCheck": {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  },
+  "buildEnvironment": {
+    "root": "E:/DEF/CareerAdapt-sq13b2-current-87360d1",
+    "node": "v24.15.0",
+    "pnpm": "10.29.2",
+    "internalNodeModulesOrdinaryDirectory": true,
+    "frozenInstall": "B.2 qualified installation reused; no new installation or dependency changes",
+    "originalJunctionPreserved": true,
+    "originalJunctionTarget": "E:/DEF/CareerAdapt AI/node_modules",
+    "originalWorkspaceDirectBuildQualified": false,
+    "browserServing": "next start on isolated port 3411; standalone configuration warning retained, actual production assets/UI verified",
+    "sourceParity": {
+      "files": 478,
+      "mismatches": [],
+      "normalization": "CRLF to LF only"
+    },
+    "lockfileEqual": true,
+    "lockSha256": "cd40b7ccd7278e68c13cb2b255826229cf1dd162d708910a7ed3b6ecb0040606"
+  },
+  "coverage": [
+    "independent long paragraph requirements with original paragraph references",
+    "mixed columns and unknown heading retention",
+    "Java versus JavaScript boundaries in graph and recall",
+    "inline AND/OR; explicit any_of and all_of; compound alternatives remain atomic",
+    "mandatory versus preferred and bonus",
+    "registered AI coercion/schema and segments enter formal Graph",
+    "real component count equals reopened repository Graph",
+    "browser save/reload exact IDs and content, same selected job",
+    "repeat analysis stable Graph and idempotent commit",
+    "two requirements supported by two experiences, many-to-many original references",
+    "benefits/company not mandatory requirements"
+  ],
+  "failuresRetained": [
+    "initial broad heading rule captured any_of wrapper; fixed with old assertions retained",
+    "UI evidence_file factId union and fixture title typing corrected",
+    "integration .tsx was outside existing test include; changed to .test.ts/createElement and actually ran both tests",
+    "PowerShell ESLint array treated as one argument; explicit file parameters passed",
+    "effect synchronous setState lint fixed by clearing at user source-switch event",
+    "first browser run revealed refresh selecting demo job; existing jobId URL synchronized; original content assertion passed",
+    "long evidence-writing shell command rejected; used smaller explicit copies and structured patch"
+  ],
+  "boundaries": {
+    "newTables": 0,
+    "newProductionDependencies": 0,
+    "realProviderCalls": 0,
+    "apiKeysRead": false,
+    "realUserDataRead": false,
+    "resumeSchemaV2Changed": false,
+    "factGuardChanged": false,
+    "claimSafetyChanged": false,
+    "confirmationCasChanged": false,
+    "hermesRuntimeChanged": false,
+    "subagents": 0,
+    "jd02Started": false,
+    "sq13CStarted": false
+  },
+  "limitations": [
+    "UNVERIFIED_REAL_MODEL_REQUIRED: synthetic model output validates contracts, not natural-language quality",
+    "complex/shared conditions conservatively remain atomic; no arbitrary nested boolean solver",
+    "existing candidate cap and per-match evaluation retained; multiple evidence refs share a match-level evaluation, not independent per-ref AI scores",
+    "historical snapshots are not rewritten automatically",
+    "original Junction workspace direct build remains unqualified; B.2 internal dependency environment used"
+  ],
+  "sourceHashesLfSha256": {
+    "src/ai/prompts/jdAnalyzer.ts": "40e628ac0830f14188b47b597b28e92197301d82a95d2022efd21fdacdcef2a1",
+    "src/ai/prompts/versions.ts": "8c868906aec16cc01b33881c83b59decbc3f460ac3edad7f1f6e96c9ebde5503",
+    "src/ai/tasks/registry.ts": "2e6e89acfbbc969e70060975823828e26ccd24dfee268e30224e3d54ad3a614e",
+    "src/app/jobs/JobsWorkspace.tsx": "8137e215253a04e62bd19360655225640a2d48dbd80d4a455f348c99d2fa6f2e",
+    "src/domain/jobOptimization/v3/project.ts": "561ec1ea39b61d1ec62313a04523a787c0e49221ef3a0cf921703d45c9d7e823",
+    "src/domain/jobOptimization/v4/analyze.ts": "6a6d4414df72011879ddb637ee25a0dbab9d0cdccbf10cb931ad7ad7ad2c32bc",
+    "src/domain/mappers/jobDraftMapper.ts": "dc6c56d42bbfb65c97e4333b0067fde78e49f7cec6e7b23446df4e9197b5966c",
+    "src/domain/match/matcher.ts": "21e0aa9f23b3bdf1676ecf64b10e9f18a3139b5db5faf9552f27b732f5e47022",
+    "src/domain/schemas/importDraft.ts": "75c8a0ae94a52fc7b736681c537f09cfad2c9c97c7af55d79edb6ae37391f4d5",
+    "src/domain/schemas/job.ts": "8e448b56f3c4ce0c5b39863e01fab61175d5e39a5510ee181127f2ca7512d4d8",
+    "src/domain/schemas/jobOptimizationV3.ts": "183ca624f5ecec48eef4f0177a251ecf0a88b9e42f4773c84a7c50188f4ab0d2",
+    "src/domain/schemas/jobOptimizationV4.ts": "bf7cd898fcae8cc45d9d4783949596b40147a7ce685fbe47511131f73d2a592d"
+  },
+  "handoff": [
+    "plan4.md",
+    "history4.md",
+    "docs/architecture/p5.1-sq1-current-handoff.md"
+  ]
+}

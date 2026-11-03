@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { EntityBaseSchema, IsoDateStringSchema, RiskLevelSchema, SourceSpanSchema } from "./common";
-import { JobRequirementGraphV3Schema } from "./jobOptimizationV3";
+import { RequirementKeywordLogicSchema, JobRequirementGraphV3Schema } from "./jobOptimizationV3";
 import { JobRequirementGraphV4Schema } from "./jobOptimizationV4";
 
 export const JobSourceSchema = z.enum(["demo", "manual", "imported_text", "url"]);
@@ -87,6 +87,7 @@ export const JobRequirementSchema = EntityBaseSchema.extend({
   priority: PrioritySchema,
   hardConstraint: z.boolean(),
   sourceSpan: SourceSpanSchema,
+  keywordLogic: RequirementKeywordLogicSchema.optional(),
   keywords: z.array(z.string()).default([]),
   confidence: z.number().min(0).max(1)
 });

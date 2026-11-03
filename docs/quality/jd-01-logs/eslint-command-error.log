@@ -1,0 +1,8 @@
+
+Oops! Something went wrong! :(
+
+ESLint: 9.39.4
+
+No files matching the pattern "src/ai/prompts/jdAnalyzer.ts src/ai/prompts/versions.ts src/ai/tasks/registry.ts src/app/jobs/JobsWorkspace.tsx src/domain/jobOptimization/v3/project.ts src/domain/jobOptimization/v4/analyze.ts src/domain/mappers/jobDraftMapper.ts src/domain/match/matcher.ts src/domain/schemas/importDraft.ts src/domain/schemas/job.ts src/domain/schemas/jobOptimizationV3.ts src/domain/schemas/jobOptimizationV4.ts tests/unit/jd01RequirementGraph.test.ts tests/integration/jd01Persistence.test.ts tests/fixtures/jd01.ts tests/e2e/jd01-requirements.spec.ts" were found.
+Please check for typing mistakes in the pattern.
+

@@ -1,0 +1,7 @@
+
+> careeradapt-ai@0.9.3-rc.2 typecheck E:\DEF\CareerAdapt-competition-5.1.8
+> tsc --noEmit
+
+src/app/jobs/JobsWorkspace.tsx(663,138): error TS2339: Property 'factId' does not exist on type '{ type: "experience_fact"; experienceId: string; factId: string; factQuote: string; factText: string; } | { type: "skill_fact"; skillId: string; factId: string; factQuote: string; factText: string; } | { ...; } | { ...; }'.
+  Property 'factId' does not exist on type '{ type: "evidence_file"; evidenceId: string; linkedFactId: string; factQuote: string; factText: string; }'.
+ ELIFECYCLE  Command failed with exit code 2.

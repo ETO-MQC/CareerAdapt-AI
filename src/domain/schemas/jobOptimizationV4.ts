@@ -51,6 +51,7 @@ export const JdSemanticClassificationSchema = z.object({
 }).strict();
 
 export const JdSemanticFinalSchema = JdSemanticClassificationSchema.extend({
+  needsConfirmation: z.boolean().optional(),
   kind: RequirementKindV3Schema.optional(),
   priority: RequirementPriorityV3Schema.optional(),
   hardConstraint: z.boolean().optional(),
@@ -65,15 +66,30 @@ export const JdSemanticUnitSchema = z.object({
   id: z.string().min(1),
   text: z.string().min(1),
   sourceSpan: SourceSpanSchema,
+  originUnitId: z.string().min(1).optional(),
+  originSpan: SourceSpanSchema.optional(),
   lineNumber: z.number().int().min(1),
   lexical: JdSemanticLexicalSchema,
   provisional: JdSemanticClassificationSchema,
   final: JdSemanticFinalSchema.optional()
 }).strict();
 
+/** Offsets are relative to the referenced source unit; text/IDs remain locally owned. */
+export const JdRequirementSegmentSchema = z.object({
+  start: z.number().int().min(0),
+  end: z.number().int().positive(),
+  section: RequirementSectionV3Schema.optional(),
+  kind: RequirementKindV3Schema.optional(),
+  priority: RequirementPriorityV3Schema.optional(),
+  hardConstraint: z.boolean().optional(),
+  exactKeywords: z.array(z.string().min(1)).optional(),
+  semanticAliases: z.array(z.string().min(1)).optional()
+}).strict();
+
 export const JdSemanticAssignmentSchema = z.object({
   sourceUnitId: z.string().min(1),
   verdict: z.enum(["accept", "override"]),
+  segments: z.array(JdRequirementSegmentSchema).min(2).max(32).optional(),
   disposition: JdSemanticDispositionSchema.optional(),
   section: RequirementSectionV3Schema.optional(),
   parentUnitId: z.string().min(1).nullable().optional(),

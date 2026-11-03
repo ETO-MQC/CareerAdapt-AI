@@ -38,6 +38,7 @@ function projectJobGraphToAnalyzerOutput(input: {
       hardConstraint: node.hardConstraint,
       sourceQuote: node.sourceSpan.text,
       sourceSpan: node.sourceSpan,
+      keywordLogic: node.keywordLogic,
       keywords: node.exactKeywords,
       confidenceLevel: node.confidence >= 0.8 ? "high" : node.confidence >= 0.6 ? "medium" : "low",
       confidenceReason: "确定性分段与 AI 语义结果已按原文位置对账。",

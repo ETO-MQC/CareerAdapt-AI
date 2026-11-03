@@ -14,7 +14,7 @@ import {
 } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
 
-export const JOB_REQUIREMENT_ANALYZER_V4 = "jd-analyzer.semantic-ledger-v4.0";
+export const JOB_REQUIREMENT_ANALYZER_V4 = "jd-analyzer.semantic-ledger-v4.1";
 
 type Section = JdSemanticUnit["provisional"]["section"];
 type MutableUnit = Omit<JdSemanticUnit, "provisional" | "final"> & {
@@ -59,7 +59,7 @@ const TECH_TERMS = [
   "AI Coding", "Coding Agent", "Vibe Coding", "AI Agent", "复杂多轮指令", "复杂任务规划", "模型评测",
   "输出质量评估", "逻辑缺陷识别", "任务拆解", "回答纠错", "搜索任务", "Prompt Engineering", "RAG",
   "Verifier", "Benchmark", "Badcase", "Cursor", "Claude Code", "Codex", "Windsurf", "Playwright", "Vitest",
-  "Python", "FastAPI", "GitHub", "reward hacking", "long context", "multi-file"
+  "JavaScript", "Java", "Spring Boot", "TypeScript", "SQL", "Go", "Python", "FastAPI", "GitHub", "reward hacking", "long context", "multi-file"
 ];
 
 export type ReconciledJdSemanticLedger = {
@@ -146,6 +146,29 @@ export function createLexicalJdUnits(rawText: string): JdSemanticUnit[] {
   return result;
 }
 
+// Split only sentences with their own requirement predicate. Lists of technologies,
+// alternatives, examples, and shared qualifiers stay atomic for semantic review.
+function independentRequirementRanges(text: string) {
+  if (/如果|若|除非|否则|例如|比如|包括|任一|任意|或者|以及|同时满足|均需/.test(text)) return [];
+  const pieces = [...text.matchAll(/[^。；;]+[。；;]?/gu)];
+  const independent = /^(?:必须|至少|需具备|具备|熟悉|掌握|精通|负责|参与|设计|开发|维护|能够|拥有|本科|硕士|博士|有\s*\d|有.{0,24}经验|优先|加分)/;
+  if (pieces.length < 2 || !pieces.every((piece) => independent.test(piece[0].trim()))) return [];
+  return pieces.map((piece) => {
+    const start = piece.index! + piece[0].search(/\S/);
+    return { start, end: piece.index! + piece[0].trimEnd().length };
+  });
+}
+
+function sourceChild(unit: JdSemanticUnit, start: number, end: number): JdSemanticUnit {
+  const text = unit.text.slice(start, end);
+  const absoluteStart = unit.sourceSpan.start + start;
+  return JdSemanticUnitSchema.parse({
+    ...unit, id: `jd-unit-${stableHashText(`${absoluteStart}:${text}`)}`, text,
+    sourceSpan: { start: absoluteStart, end: unit.sourceSpan.start + end, text },
+    originUnitId: unit.originUnitId ?? unit.id, originSpan: unit.originSpan ?? unit.sourceSpan
+  });
+}
+
 export function buildProvisionalJdSemanticLedger(rawText: string): JdSemanticUnit[] {
   const units = createLexicalJdUnits(rawText).map((unit): MutableUnit => structuredClone(unit));
   let section: Section | "excluded" = "unknown";
@@ -171,12 +194,24 @@ export function buildProvisionalJdSemanticLedger(rawText: string): JdSemanticUni
       continue;
     }
 
+    // Preserve unfamiliar structural headings and reset inherited section semantics.
+    if (/[:：]$/.test(unit.text) && unit.text.length <= 24 && !wrapperRelation(unit.text)
+      && !DETAIL_WRAPPER_LEAD.test(unit.text) && !EXAMPLES_LEAD.test(unit.text)
+      && !INLINE_DETAIL_LEAD.test(unit.text) && !TOPIC_LIST_LEAD.test(unit.text)) {
+      unit.provisional = { disposition: "heading", section: "unknown" };
+      section = "unknown"; frame = undefined; numberedParent = undefined; indentedParent = undefined; lastRequirementUnitId = undefined;
+      continue;
+    }
+    if (/^(?:我们是(?:一家|一个)|本公司(?:成立|致力于)|公司成立于|福利(?:待遇)?[:：]|提供(?:五险一金|带薪年假)|享受(?:五险一金|带薪年假))/.test(unit.text)) {
+      unit.provisional = { disposition: "excluded", section: "unknown" };
+      continue;
+    }
     if (section === "excluded") {
       unit.provisional = { disposition: "excluded", section: "unknown" };
       continue;
     }
     const currentSection: Section = section === "unknown" ? inferDefaultSection(unit.text) : section;
-    if (section === "unknown") section = currentSection;
+
 
     if (METADATA.test(unit.text)) {
       unit.provisional = { disposition: "metadata", section: currentSection };
@@ -318,7 +353,14 @@ export function buildProvisionalJdSemanticLedger(rawText: string): JdSemanticUni
     }
   }
 
-  return units.map((unit) => JdSemanticUnitSchema.parse(unit));
+  return units.flatMap((mutable) => {
+    const unit = JdSemanticUnitSchema.parse(mutable);
+    // Classify hierarchy first: a multi-sentence item in an any_of branch remains
+    // one alternative, and detail/example blocks keep their parent semantics.
+    if (unit.provisional.disposition !== "requirement" || unit.provisional.parentUnitId || unit.provisional.groupRelation) return [unit];
+    const ranges = independentRequirementRanges(unit.text);
+    return ranges.length > 1 ? ranges.map((range) => sourceChild(unit, range.start, range.end)) : [unit];
+  });
 }
 
 export function reconcileJdSemanticLedger(input: {
@@ -333,7 +375,10 @@ export function reconcileJdSemanticLedger(input: {
 
   for (const rawAssignment of assignments) {
     const parsed = JdSemanticAssignmentSchema.safeParse(rawAssignment);
-    if (!parsed.success) continue;
+    if (!parsed.success) {
+      issues.push(issue("source_inconsistency", "AI assignment 未通过 Schema 校验，保留本地来源。", [], "error"));
+      continue;
+    }
     const assignment = parsed.data;
     if (!unitById.has(assignment.sourceUnitId)) {
       issues.push(issue("invented_source_id", `AI 返回不存在的 Source Unit：${assignment.sourceUnitId}`, [assignment.sourceUnitId], "error"));
@@ -350,12 +395,37 @@ export function reconcileJdSemanticLedger(input: {
     }
   }
 
-  const units = input.provisionalUnits.map((unit): JdSemanticUnit => {
+  const units = input.provisionalUnits.flatMap((unit): JdSemanticUnit[] => {
     const bucket = assignmentBuckets.get(unit.id) ?? [];
     const assignment = bucket.length === 1 ? bucket[0] : undefined;
     const base = inferFinal(unit);
-    if (!assignment || assignment.verdict === "accept") return JdSemanticUnitSchema.parse({ ...unit, final: base });
-    return JdSemanticUnitSchema.parse({
+    if (!assignment || assignment.verdict === "accept") return [JdSemanticUnitSchema.parse({ ...unit, final: base })];
+    if (assignment.segments) {
+      const segments = assignment.segments;
+      let cursor = 0;
+      const safe = base.disposition === "requirement" && !base.groupRelation && !base.parentUnitId && !input.provisionalUnits.some((child) => child.provisional.parentUnitId === unit.id)
+        && segments.every((segment) => {
+          const valid = segment.start >= cursor && segment.end > segment.start && segment.end <= unit.text.length
+            && !unit.text.slice(cursor, segment.start).trim() && Boolean(unit.text.slice(segment.start, segment.end).trim());
+          cursor = segment.end;
+          return valid;
+        }) && !unit.text.slice(cursor).trim()
+        && !/(?:\b(?:or|and)\b|或|和|任一|任意|如果|若|除非|否则|以及)/i.test(unit.text);
+      if (!safe) {
+        issues.push(issue("source_inconsistency", "AI 拆分未覆盖完整来源、破坏条件关系或目标不是独立要求，保留原单元。", [unit.id], "error"));
+        return [JdSemanticUnitSchema.parse({ ...unit, final: base })];
+      }
+      return segments.map((segment) => {
+        const child = sourceChild(unit, segment.start, segment.end);
+        const childBase = inferFinal({ ...child, provisional: { ...unit.provisional, section: segment.section ?? unit.provisional.section } });
+        return JdSemanticUnitSchema.parse({ ...child, final: {
+          ...childBase, ...Object.fromEntries(Object.entries(segment).filter(([key]) => !["start", "end"].includes(key))),
+          exactKeywords: segment.exactKeywords?.filter((term) => containsKeywordTerm(child.text, term)) ?? childBase.exactKeywords,
+          needsConfirmation: true, confidence: assignment.confidence ?? 0.7, reason: "AI 语义拆分，来源已校验，待用户核对。"
+        } });
+      });
+    }
+    return [JdSemanticUnitSchema.parse({
       ...unit,
       final: {
         ...base,
@@ -367,12 +437,12 @@ export function reconcileJdSemanticLedger(input: {
         ...(assignment.priority ? { priority: assignment.priority } : {}),
         ...(assignment.hardConstraint !== undefined ? { hardConstraint: assignment.hardConstraint } : {}),
         ...(assignment.normalizedIntent ? { normalizedIntent: assignment.normalizedIntent } : {}),
-        ...(assignment.exactKeywords ? { exactKeywords: unique(assignment.exactKeywords) } : {}),
+        ...(assignment.exactKeywords ? { exactKeywords: unique(assignment.exactKeywords.filter((term) => containsKeywordTerm(unit.text, term))) } : {}),
         ...(assignment.semanticAliases ? { semanticAliases: unique(assignment.semanticAliases) } : {}),
-        confidence: assignment.confidence ?? base.confidence,
+        needsConfirmation: true, confidence: assignment.confidence ?? base.confidence,
         ...(assignment.reason ? { reason: assignment.reason } : {})
       }
-    });
+    })];
   });
 
   const fallbackIds = validateParentsAndCycles(units, issues);
@@ -436,11 +506,11 @@ export function compileJobRequirementGraphV4(input: {
       };
       contextGroups.push(context);
       contextByUnitId.set(unit.id, context);
-    } else if (semantic.disposition === "group_wrapper" && ["any_of", "preferred_any_of", "evidence_bundle"].includes(semantic.groupRelation ?? "")) {
+    } else if (semantic.disposition === "group_wrapper" && ["all_of", "any_of", "preferred_any_of", "evidence_bundle"].includes(semantic.groupRelation ?? "") && !(semantic.groupRelation === "all_of" && semantic.parentUnitId)) {
       groups.push({
         id: `group-v4-${stableHashText(unit.id)}`,
         label: unit.text,
-        relation: semantic.groupRelation as "any_of" | "preferred_any_of" | "evidence_bundle",
+        relation: semantic.groupRelation as "all_of" | "any_of" | "preferred_any_of" | "evidence_bundle",
         ...(semantic.groupRelation === "any_of" ? { minimumSatisfied: 1 } : {}),
         requirementIds: [],
         sourceSpan: unit.sourceSpan
@@ -622,10 +692,11 @@ export function adaptJobRequirementGraphV4ToV3(graph: JobRequirementGraphV4): Jo
 function inferFinal(unit: JdSemanticUnit): NonNullable<JdSemanticUnit["final"]> {
   const provisional = unit.provisional;
   const requirement = provisional.disposition === "requirement";
-  const preferred = provisional.section === "preferred" || provisional.groupRelation === "preferred_any_of";
+  const preferred = provisional.section === "preferred" || provisional.groupRelation === "preferred_any_of" || PREFERRED.test(unit.text);
   const hardConstraint = requirement && !preferred && (MUST.test(unit.text) || provisional.groupRelation === "any_of");
   return {
     ...provisional,
+    ...(requirement && preferred ? { section: "preferred" as const } : {}),
     ...(requirement ? {
       kind: inferKind(unit.text, provisional.section, preferred),
       priority: preferred ? "nice_to_have" : hardConstraint ? "must" : provisional.section === "responsibility" ? "high" : "medium",
@@ -649,6 +720,7 @@ function toRequirement(unit: JdSemanticUnit, semantic: NonNullable<JdSemanticUni
     normalizedIntent: semantic.normalizedIntent ?? normalizeIntent(unit.text),
     priority: semantic.priority ?? (preferred ? "nice_to_have" : hardConstraint ? "must" : semantic.section === "responsibility" ? "high" : "medium"),
     hardConstraint,
+    ...(keywordLogic(unit.text) ? { keywordLogic: keywordLogic(unit.text) } : {}),
     exactKeywords: unique(semantic.exactKeywords ?? extractKeywords(unit.text)),
     semanticAliases: unique(semantic.semanticAliases ?? aliasesFor(unit.text)),
     sourceUnitId: unit.id,
@@ -656,7 +728,7 @@ function toRequirement(unit: JdSemanticUnit, semantic: NonNullable<JdSemanticUni
     sourceSpan: unit.sourceSpan,
     sourceSpans: [unit.sourceSpan],
     confidence: semantic.confidence,
-    needsConfirmation: semantic.confidence < 0.6
+    needsConfirmation: Boolean(semantic.needsConfirmation) || semantic.confidence < 0.6
   };
 }
 
@@ -746,6 +818,12 @@ function headingSection(text: string): Section | "excluded" | undefined {
   const explicit = SECTION_HEADINGS.find(([pattern]) => pattern.test(text));
   if (explicit) return explicit[1];
   const normalized = text.replace(/[:：]\s*$/, "").trim();
+  if (normalized.length <= 24 && /[:：]$/.test(text) && !wrapperRelation(text) && !DETAIL_WRAPPER_LEAD.test(text) && !EXAMPLES_LEAD.test(text)) {
+    if (/福利|待遇|公司|团队介绍|about|benefit/i.test(normalized)) return "excluded";
+    if (/加分|优先|preferred|bonus/i.test(normalized)) return "preferred";
+    if (/职责|工作内容|你将|做什么|responsibilit/i.test(normalized)) return "responsibility";
+    if (/要求|资格|条件|期待|需要你|qualificat/i.test(normalized)) return "required";
+  }
   if (normalized.length > 18 || /[。！？!?]/.test(normalized)) return undefined;
   if (/^(职责|要求|资格|条件|材料|画像|工作内容|任职条件|加分条件|关于团队)$/i.test(normalized)) {
     if (/材料/.test(normalized)) return "verification";
@@ -768,7 +846,7 @@ function wrapperRelation(text: string): JdSemanticGroupRelation | undefined {
 function inferDefaultSection(text: string): Section {
   if (PREFERRED.test(text)) return "preferred";
   if (VERIFICATION_SIGNAL.test(text) && /提供|提交|附上|准备/.test(text)) return "verification";
-  if (MUST.test(text) || EDUCATION.test(text)) return "required";
+  if (MUST.test(text) || EDUCATION.test(text) || /^(?:熟悉|掌握|精通|具备|拥有)/.test(text)) return "required";
   return "responsibility";
 }
 
@@ -810,6 +888,14 @@ function declaredCount(text: string) {
   if (!chinese) return undefined;
   const values: Record<string, number> = { 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
   return values[chinese[1]];
+}
+
+function keywordLogic(text: string): RequirementNodeV3["keywordLogic"] {
+  const terms = extractKeywords(text);
+  if (terms.length < 2) return undefined;
+  if (/或|\bor\b/i.test(text) && !/和|以及|\band\b/i.test(text)) return { relation: "any_of", terms };
+  if (/和|以及|、|\band\b/i.test(text) && !/或|\bor\b/i.test(text)) return { relation: "all_of", terms };
+  return undefined;
 }
 
 function extractKeywords(text: string) {

@@ -842,7 +842,7 @@ export const aiTaskRegistry = {
           deterministicGroups: input.deterministicGroups ?? [],
           deterministicHierarchy: input.deterministicHierarchy ?? [],
           redactions: redacted.redactions,
-          instructions: "Return compact JSON. Cover every sourceUnitId exactly once. Accept items contain only sourceUnitId and verdict. Override items contain changed semantic fields only. Never return source text, sourceSpan, compiled requirements, or invented IDs."
+          instructions: "Return compact JSON. Cover every sourceUnitId exactly once. Accept items contain only sourceUnitId and verdict. Override items contain changed semantic fields only. For independent requirements within one unit, use override with segments [{start,end,...semantic fields}], using relative UTF-16 offsets covering all non-whitespace text in order. Keep AND/OR conditions together. Never return source text, sourceSpan, compiled requirements, or invented IDs."
         },
         null,
         2
@@ -1434,6 +1434,7 @@ export function normalizeJdUnitAssignment(value: unknown): JdUnitAssignment | un
     hardConstraint: typeof raw.hardConstraint === "boolean" ? raw.hardConstraint : undefined,
     parentUnitId: raw.parentUnitId === null ? null : trimmed(raw.parentUnitId),
     groupRelation: enumValue(raw.groupRelation, JD_GROUP_RELATIONS),
+    segments: raw.segments,
     normalizedIntent: trimmed(raw.normalizedIntent),
     exactKeywords: uniqueStrings(raw.exactKeywords),
     semanticAliases: uniqueStrings(raw.semanticAliases),

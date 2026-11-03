@@ -1,0 +1,10 @@
+
+Running 2 tests using 1 worker
+
+
+
+(node:13512) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1/2] [chromium] › tests\e2e\jd01-requirements.spec.ts:3:5 › JD-01 AI source segments survive confirmation, formal save and browser reload
+[2/2] [chromium] › tests\e2e\job-semantic-v4.spec.ts:19:5 › AI 训练师 JD 编译为 3 条职责、1 个三项方向组并提示来源矛盾
+  2 passed (6.3s)

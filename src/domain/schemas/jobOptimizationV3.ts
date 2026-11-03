@@ -61,6 +61,8 @@ export const RequirementGroupSchema = z.object({
   sourceSpan: SourceSpanSchema
 }).strict();
 
+export const RequirementKeywordLogicSchema = z.object({ relation: z.enum(["all_of", "any_of"]), terms: z.array(z.string().min(1)).min(2) }).strict();
+
 export const RequirementNodeV3Schema = z.object({
   id: z.string().min(1),
   section: RequirementSectionV3Schema,
@@ -69,6 +71,7 @@ export const RequirementNodeV3Schema = z.object({
   normalizedIntent: z.string().min(1),
   priority: RequirementPriorityV3Schema,
   hardConstraint: z.boolean(),
+  keywordLogic: RequirementKeywordLogicSchema.optional(),
   exactKeywords: z.array(z.string().min(1)).default([]),
   semanticAliases: z.array(z.string().min(1)).default([]),
   parentGroupId: z.string().min(1).optional(),

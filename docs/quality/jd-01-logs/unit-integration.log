@@ -1,0 +1,24 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+ ✓ tests/unit/p40g-integration-pipeline.test.ts (1 test) 68ms
+ ✓ tests/unit/p40g-graph-v3.test.ts (35 tests) 155ms
+ ✓ tests/unit/p40g2-golden-jd.test.ts (5 tests) 127ms
+ ✓ tests/unit/jobSemanticCompilerV4.test.ts (4 tests) 111ms
+ ✓ tests/unit/jobOptimizationV2.test.ts (11 tests) 144ms
+ ✓ tests/unit/jdAnalyzerContract.test.ts (5 tests) 13ms
+ ✓ tests/unit/jd01RequirementGraph.test.ts (14 tests) 99ms
+ ✓ tests/unit/jobWorkflow.test.ts (15 tests) 20ms
+ ✓ tests/unit/jobOptimization.test.ts (7 tests) 774ms
+ ✓ tests/unit/repositoryTailoringV2.test.ts (5 tests) 527ms
+ ✓ tests/unit/storage.test.ts (20 tests) 1067ms
+ ✓ tests/integration/jd01Persistence.test.ts (2 tests) 269ms
+ ✓ tests/unit/p51-core-02-intelligence.test.ts (15 tests) 1684ms
+     ✓ preserves canonical requirement identity, relationships and raw sources without parsing the JD again  324ms
+
+ Test Files  13 passed (13)
+      Tests  139 passed (139)
+   Start at  01:16:04
+   Duration  10.72s (transform 24.84s, setup 7.04s, import 41.67s, tests 5.06s, environment 36.12s)
+
+JSON report written to E:/DEF/CareerAdapt-competition-5.1.8/docs/quality/jd-01-logs/unit-integration.json

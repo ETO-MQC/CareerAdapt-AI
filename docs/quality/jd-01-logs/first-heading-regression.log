@@ -1,0 +1,26 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+ ❯ tests/unit/jobSemanticCompilerV4.test.ts (4 tests | 1 failed) 67ms
+     × preserves the Coding Agent top-level groups and non-scoring details 17ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/jobSemanticCompilerV4.test.ts > Job Semantic Compiler V4 > preserves the Coding Agent top-level groups and non-scoring details
+AssertionError: Target cannot be null or undefined.
+ ❯ tests/unit/jobSemanticCompilerV4.test.ts:41:85
+     39|     expect(graph.requirements.filter((item) => item.section === "prefe…
+     40|     expect(graph.requirements.flatMap((item) => item.details)).toHaveL…
+     41|     expect(graph.groups.find((item) => item.relation === "any_of")?.re…
+       |                                                                                     ^
+     42|     expect(graph.groups.find((item) => item.relation === "preferred_an…
+     43|     expect(graph.verificationMaterials).toHaveLength(6);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 3 passed (4)
+      Tests  1 failed | 28 passed (29)
+   Start at  01:07:40
+   Duration  4.82s (transform 5.47s, setup 1.01s, import 7.91s, tests 161ms, environment 6.19s)
+

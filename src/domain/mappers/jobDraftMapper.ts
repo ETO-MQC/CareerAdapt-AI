@@ -44,6 +44,7 @@ export function mapJobDraftToJobDescription(input: {
         priority: requirement.priority,
         hardConstraint: requirement.hardConstraint,
         sourceSpan: requirement.sourceSpan,
+        keywordLogic: requirement.keywordLogic,
         keywords: requirement.keywords,
         confidence: confidenceToNumber(requirement.confidenceLevel),
         createdAt: now,
