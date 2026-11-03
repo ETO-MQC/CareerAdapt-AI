@@ -1,0 +1,81 @@
+{
+  "status": "PARTIAL",
+  "environment": "Locked source Desktop / existing Vite 5174 / offline loopback provider; fresh isolated profiles then immediate relaunch of each. Cold means application-profile cold, NOT OS/filesystem-cache cold. No credentials or real data.",
+  "runs": [
+    {
+      "pair": 1,
+      "kind": "profile-cold",
+      "T0": "NOT VERIFIED (OS birth)",
+      "T1": "NOT VERIFIED",
+      "T2": "NOT VERIFIED",
+      "T3": {
+        "timeOrigin": 1793723036739.2,
+        "paints": [
+          {
+            "name": "first-paint",
+            "startTime": 2344
+          },
+          {
+            "name": "first-contentful-paint",
+            "startTime": 3052
+          }
+        ],
+        "definition": "Renderer navigation-relative paint, not launch-relative; first window may include boot overlay"
+      },
+      "T4": "NOT VERIFIED",
+      "T5": {
+        "observedAfterLaunchRequestMs": 13419.1368,
+        "definition": "sidebar contribution visible upper bound"
+      },
+      "T6": "NOT VERIFIED",
+      "T7": "NOT VERIFIED",
+      "errors": [],
+      "launchAutomationAttachedMs": 960.2922000000001,
+      "pid": 63620,
+      "firstWindowObservedMs": 960.3775,
+      "status": "FAILED",
+      "failure": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('CareerAdapt', { exact: true }).first()\u001b[22m\n\u001b[2m    - locator resolved to <span class=\"min-w-0 flex-1 truncate\">CareerAdapt</span>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"fixed inset-0 z-1300 flex items-center justify-center bg-(--ui-chat-surface-background) p-6 transition-opacity duration-[520ms] ease-out opacity-100\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"fixed inset-0 z-1300 flex items-center justify-center bg-(--ui-chat-surface-background) p-6 transition-opacity duration-[520ms] ease-out opacity-100\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    19 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is visible, enabled and stable\u001b[22m\n\u001b[2m       - scrolling into view if needed\u001b[22m\n\u001b[2m       - done scrolling\u001b[22m\n\u001b[2m       - <div class=\"fixed inset-0 z-1300 flex items-center justify-center bg-(--ui-chat-surface-background) p-6 transition-opacity duration-[520ms] ease-out opacity-100\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m     - retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n\n    at E:\\DEF\\CareerAdapt AI\\prototype\\unified-workspace-ux01\\startup.mjs:28:61"
+    },
+    {
+      "pair": 1,
+      "kind": "profile-warm",
+      "T0": "NOT VERIFIED (OS birth)",
+      "T1": "NOT VERIFIED",
+      "T2": "NOT VERIFIED",
+      "T3": {
+        "timeOrigin": 1793723115921.4,
+        "paints": [
+          {
+            "name": "first-paint",
+            "startTime": 1288
+          },
+          {
+            "name": "first-contentful-paint",
+            "startTime": 2180
+          }
+        ],
+        "definition": "Renderer navigation-relative paint, not launch-relative; first window may include boot overlay"
+      },
+      "T4": "NOT VERIFIED",
+      "T5": {
+        "observedAfterLaunchRequestMs": 10960.516300000003,
+        "definition": "sidebar contribution visible upper bound"
+      },
+      "T6": "NOT VERIFIED",
+      "T7": "NOT VERIFIED",
+      "errors": [],
+      "launchAutomationAttachedMs": 763.7776000000013,
+      "pid": 52864,
+      "firstWindowObservedMs": 763.7854999999981,
+      "status": "FAILED",
+      "failure": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('CareerAdapt', { exact: true }).first()\u001b[22m\n\u001b[2m    - locator resolved to <span class=\"min-w-0 flex-1 truncate\">CareerAdapt</span>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"fixed inset-0 z-1300 flex items-center justify-center bg-(--ui-chat-surface-background) p-6 transition-opacity duration-[520ms] ease-out opacity-100\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"fixed inset-0 z-1300 flex items-center justify-center bg-(--ui-chat-surface-background) p-6 transition-opacity duration-[520ms] ease-out opacity-100\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    19 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is visible, enabled and stable\u001b[22m\n\u001b[2m       - scrolling into view if needed\u001b[22m\n\u001b[2m       - done scrolling\u001b[22m\n\u001b[2m       - <div class=\"fixed inset-0 z-1300 flex items-center justify-center bg-(--ui-chat-surface-background) p-6 transition-opacity duration-[520ms] ease-out opacity-100\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m     - retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n\n    at E:\\DEF\\CareerAdapt AI\\prototype\\unified-workspace-ux01\\startup.mjs:28:61"
+    }
+  ],
+  "limitations": [
+    "T0 is harness launch request, not OS process birth",
+    "T1 creation and T2 first-visible not reliably observed through late-attached public automation",
+    "T4 is navigation interaction probe, not full Host readiness",
+    "T5 is sidebar contribution visible, not exact module initialization duration",
+    "T7 Agent Runtime readiness NOT VERIFIED; no model request"
+  ]
+}

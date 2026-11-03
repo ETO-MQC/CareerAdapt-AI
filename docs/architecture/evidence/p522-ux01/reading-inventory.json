@@ -1,0 +1,104 @@
+{
+  "files": [
+    {
+      "path": "AGENTS.md",
+      "exists": true,
+      "sha256": "16ec88dd90256516113ebf10cd0b8af03c23587344e59029411d9623055e0119"
+    },
+    {
+      "path": "plan4.md",
+      "exists": true,
+      "sha256": "ec8c4b930b9b36e8d51465ff4b22c72de004be7a6f92a008a91c2742694dc088"
+    },
+    {
+      "path": "history4.md",
+      "exists": true,
+      "sha256": "d48778bce615e4b493b24315c2c6f5e1f5ea666cb2defe63da9ff4ac2cdf6bb3"
+    },
+    {
+      "path": "docs/architecture/p5.2.0-hermes-vertical-distribution-audit.md",
+      "exists": false,
+      "status": "MISSING; not claimed read"
+    },
+    {
+      "path": "docs/architecture/p5.2.0-appearance-hub-compatibility-audit.md",
+      "exists": true,
+      "sha256": "27edadb85028ac9c7f1777daf8a53f44940b450bf30c95fae8103fca09ec4129"
+    },
+    {
+      "path": "docs/architecture/p5.2.0-b2-b2-profile-plugin-packaging-poc.md",
+      "exists": true,
+      "sha256": "4e1097ea5c32259222f4d0006dc008d032a838c559ddda9d8e6e988f6b6f0a3c"
+    },
+    {
+      "path": "docs/architecture/p5.2.0b2b1-runtime-release-decision.md",
+      "exists": true,
+      "sha256": "cde0dad455370392f3e93d898f35b5ea7ce1c8d82644f5d996a2a970e505b0d0"
+    },
+    {
+      "path": "docs/architecture/p5.2.0b2b1-trusted-confirmation-audit.md",
+      "exists": true,
+      "sha256": "4952e0ec4f6c2bdb8e399b2bf16ad6ef025af436a2e197160412878da445eba5"
+    },
+    {
+      "path": "docs/architecture/p5.2.1-unified-design-system.md",
+      "exists": true,
+      "sha256": "2b98d645d38e7b9bfa4d9a1cae0fe83c9533df9a8cb468c571a1fb1ff4c4310c"
+    },
+    {
+      "path": "docs/architecture/p5.2.1-visual-direction.md",
+      "exists": true,
+      "sha256": "d9f9c60c7df413d52a9444426554c2ac95707b9d20b801a08984dffc9e58fa63"
+    },
+    {
+      "path": "docs/architecture/p5.2.1-unified-experience-design-audit.md",
+      "exists": true,
+      "sha256": "6d2e4f12c9c8a5eb841febe6bf6153827929708d99bb1a434cc01d0f7881a22a"
+    },
+    {
+      "path": "docs/architecture/p5.2.2-unified-ui-implementation-plan.md",
+      "exists": true,
+      "sha256": "3345ceeb57dbd4ef33a20f332e6cdfc8c14ab9e9e079b42f8d8392dfb2a006eb"
+    },
+    {
+      "path": "docs/architecture/p5.2.2-hermes-host-integration-vertical-slice-20261103.md",
+      "exists": true,
+      "sha256": "53a3be5ea855652a878298c07791653a4ca4ce9539c9ed11d801534eba1a1a57"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/delivery-manifest.json",
+      "exists": true,
+      "sha256": "7d611e570f1c1b58fcbd6d67c44858e0f310ba2e7633142e7d5768de9e831c96"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/sdk-capability-audit.json",
+      "exists": true,
+      "sha256": "2822ce9aa1dffed08858fafc94620f42e97d3c5d4d23e9411b31d48cc384fd52"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/host-visual-verification.json",
+      "exists": true,
+      "sha256": "7327d288edab3abc3ac496a488792b4063d8d2a65001c1efb5c6a3d5d884045a"
+    },
+    {
+      "path": "poc/host-experience/README.md",
+      "exists": true,
+      "sha256": "5085181362ead760b4021c2fca8b2ec7b9cc9cb851b26356b3655e179aea4e8c"
+    },
+    {
+      "path": "docs/design-reference/careeradapt-ui-ultimate/REFERENCE_IMAGE_INDEX.md",
+      "exists": false,
+      "status": "MISSING; not claimed read"
+    }
+  ],
+  "competition": {
+    "head": "87360d1f26113f5aaa82654b58dca8f62220e9b2",
+    "reports": [
+      "competition-01-agent-workspace-ux.md",
+      "competition-01-1-w5-acceptance-closeout.md"
+    ],
+    "mode": "Read-only existing separate worktree; no checkout or merge"
+  },
+  "skill": "careeradapt-editor-ultimate-design-system",
+  "missingTemplateIndex": "registry.tsx:207 confirms campus-reference / 校园浅底 / renderCampusReference; template untouched"
+}

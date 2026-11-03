@@ -1,0 +1,14 @@
+{
+  "publicRegistration": "PANES_AREA exported",
+  "adoption": "tree/store.ts silent insertAtGroup(...,false); active/hidden/collapsed/dismissed/zone can affect visibility",
+  "oldFailureRootCause": "NOT VERIFIED; mechanism is not proof of exact old state",
+  "reveal": "Internal revealTreePane exists; no demonstrated public typed parity",
+  "nativeParallel": "NOT VERIFIED",
+  "nativeResizeScrollRestore": "NOT VERIFIED",
+  "sessionTaskArtifactBinding": "NOT VERIFIED",
+  "keyboardSash": "Missing tabindex/key handler in audited tree-split.tsx",
+  "newNativeTestRuns": 0,
+  "oldTimeoutsPreserved": true,
+  "coreModified": false,
+  "prototypeIsSeparate": true
+}

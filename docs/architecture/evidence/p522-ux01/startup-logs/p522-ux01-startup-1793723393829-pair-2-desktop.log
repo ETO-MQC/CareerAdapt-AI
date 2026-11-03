@@ -1,0 +1,38 @@
+[hermes] [tls] trusting 514 Windows system CA certificate(s) for backend connections
+[hermes] [boot] Resolving Hermes backend
+[hermes] [boot] Resolving Hermes runtime
+[hermes] [boot] Using Hermes source at C:\Users\mqcin\AppData\Local\hermes\hermes-agent
+[hermes] [backend] `serve` supported for Hermes source at C:\Users\mqcin\AppData\Local\hermes\hermes-agent
+[hermes] [boot] Starting Hermes backend via Hermes source at C:\Users\mqcin\AppData\Local\hermes\hermes-agent
+[hermes] Starting Hermes backend via Hermes source at C:\Users\mqcin\AppData\Local\hermes\hermes-agent
+[hermes] [boot] Waiting for Hermes backend to launch
+[hermes] HERMES_BACKEND_READY port=8669
+[hermes] [boot] Waiting for Hermes backend to become ready
+[hermes] [boot] could not read served dashboard token (Hermes backend): 404: {"error":"Headless backend (hermes serve): web UI disabled — use `hermes dashboard` for the browser UI."}
+[hermes] [boot] Hermes backend is ready. Finalizing desktop startup
+[hermes] Hermes backend exited (1)
+[hermes] [boot] Resolving Hermes backend
+[hermes] [boot] Resolving Hermes runtime
+[hermes] [boot] Using Hermes source at C:\Users\mqcin\AppData\Local\hermes\hermes-agent
+[hermes] [boot] Starting Hermes backend via Hermes source at C:\Users\mqcin\AppData\Local\hermes\hermes-agent
+[hermes] Starting Hermes backend via Hermes source at C:\Users\mqcin\AppData\Local\hermes\hermes-agent
+[hermes] [boot] Waiting for Hermes backend to launch
+[hermes] [tls] trusting 514 Windows system CA certificate(s) for backend connections
+[hermes] [boot] Resolving Hermes backend
+[hermes] [boot] Resolving Hermes runtime
+[hermes] [boot] Using Hermes source at C:\Users\mqcin\AppData\Local\hermes\hermes-agent
+[hermes] [backend] `serve` supported for Hermes source at C:\Users\mqcin\AppData\Local\hermes\hermes-agent
+[hermes] [boot] Starting Hermes backend via Hermes source at C:\Users\mqcin\AppData\Local\hermes\hermes-agent
+[hermes] Starting Hermes backend via Hermes source at C:\Users\mqcin\AppData\Local\hermes\hermes-agent
+[hermes] [boot] Waiting for Hermes backend to launch
+[hermes] HERMES_BACKEND_READY port=57238
+[hermes] [boot] Waiting for Hermes backend to become ready
+[hermes] [boot] could not read served dashboard token (Hermes backend): 404: {"error":"Headless backend (hermes serve): web UI disabled — use `hermes dashboard` for the browser UI."}
+[hermes] [boot] Hermes backend is ready. Finalizing desktop startup
+[hermes] Hermes backend exited (1)
+[hermes] [boot] Resolving Hermes backend
+[hermes] [boot] Resolving Hermes runtime
+[hermes] [boot] Using Hermes source at C:\Users\mqcin\AppData\Local\hermes\hermes-agent
+[hermes] [boot] Starting Hermes backend via Hermes source at C:\Users\mqcin\AppData\Local\hermes\hermes-agent
+[hermes] Starting Hermes backend via Hermes source at C:\Users\mqcin\AppData\Local\hermes\hermes-agent
+[hermes] [boot] Waiting for Hermes backend to launch

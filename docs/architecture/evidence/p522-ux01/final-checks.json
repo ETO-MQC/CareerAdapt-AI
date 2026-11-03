@@ -1,0 +1,298 @@
+{
+  "date": "2026-11-04",
+  "checks": [
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "stdout": "\n> careeradapt-ai@0.9.3-rc.2 typecheck E:\\DEF\\CareerAdapt AI\n> tsc --noEmit\n\n",
+      "stderr": ""
+    },
+    {
+      "command": "pnpm exec eslint prototype/unified-workspace-ux01 --max-warnings=0",
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "unit": {
+    "command": "pnpm exec vitest run tests/unit/p522-host-experience.test.tsx tests/unit/p520b2b2-profile-packaging.test.tsx tests/unit/p520a-profile-plugin.test.tsx",
+    "exitCode": 0,
+    "files": 3,
+    "tests": 27
+  },
+  "prototypeBuild": {
+    "command": "node prototype/unified-workspace-ux01/build.mjs",
+    "exitCode": 0,
+    "output": ".artifacts/p522-ux01-prototype"
+  },
+  "browser": "PASS",
+  "protectedFiles": [
+    {
+      "path": "docs/architecture/evidence/p522/additional-reading.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/appearance-adapter-evidence.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/baseline.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/host-smoke-1793711173567.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/host-smoke-1793711786576.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/host-smoke-final.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/host-visual-verification.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/pane-probe-1793711309026.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/pane-probe-1793711394302.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/pane-probe-build.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/plugin-build.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/profile-integration-evidence.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/failures/host-smoke-final.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/failures/pane-probe-1793711309026.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/failures/pane-probe-1793711394302.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-profile-dark-1024.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-profile-dark-1440.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-profile-dark-1920.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-profile-light-1024.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-profile-light-1440.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-profile-light-1920.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-state-empty.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-state-error.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-state-invalid.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-state-loading.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-state-success.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-profile-dark-1024.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-profile-dark-1440.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-profile-dark-1920.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-profile-light-1024.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-profile-light-1440.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-profile-light-1920.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-state-empty.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-state-error.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-state-invalid.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-state-loading.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-state-success.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-dark-1024.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-dark-1440.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-dark-1920.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-light-1024.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-light-1440.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-light-1920.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-state-empty.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-state-error.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-state-invalid.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-state-loading.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-state-success.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/sdk-capability-audit.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/p5.2.2-hermes-host-integration-vertical-slice-20261103.md",
+      "matches": true
+    },
+    {
+      "path": "poc/host-experience/CareerExperience.tsx",
+      "matches": true
+    },
+    {
+      "path": "poc/host-experience/README.md",
+      "matches": true
+    },
+    {
+      "path": "poc/host-experience/components.tsx",
+      "matches": true
+    },
+    {
+      "path": "poc/host-experience/experience.css",
+      "matches": true
+    },
+    {
+      "path": "poc/host-experience/pane-probe.tsx",
+      "matches": true
+    },
+    {
+      "path": "poc/host-experience/plugin.tsx",
+      "matches": true
+    },
+    {
+      "path": "poc/host-experience/sdk-extension.d.ts",
+      "matches": true
+    },
+    {
+      "path": "scripts/p522-host-experience-build.mjs",
+      "matches": true
+    },
+    {
+      "path": "scripts/p522-host-experience-smoke.mjs",
+      "matches": true
+    },
+    {
+      "path": "scripts/p522-pane-probe-build.mjs",
+      "matches": true
+    },
+    {
+      "path": "scripts/p522-pane-probe-smoke.mjs",
+      "matches": true
+    },
+    {
+      "path": "scripts/p522-source-audit.mjs",
+      "matches": true
+    },
+    {
+      "path": "tests/unit/p522-host-experience.test.tsx",
+      "matches": true
+    }
+  ],
+  "status": "?? docs/architecture/evidence/p522-ux01/\n?? docs/architecture/p5.2.2-ux-01-information-architecture.md\n?? docs/architecture/p5.2.2-ux-01-legacy-ui-reconciliation.md\n?? docs/architecture/p5.2.2-ux-01-startup-performance-audit.md\n?? docs/architecture/p5.2.2-ux-01-unified-workspace-audit-20261104.md\n?? prototype/unified-workspace-ux01/\n",
+  "trackedFilesModified": "",
+  "knownFailures": [
+    "two startup interaction timeouts retained; no repeated pane test",
+    "initial audit guessed templateRegistry.ts instead of actual .tsx, corrected",
+    "Final manifest update read baseline with OS GBK default, corrected to explicit UTF-8; hashes rebuilt and verified"
+  ],
+  "productionBuild": "NOT RUN: isolated prototype only",
+  "commit": "NOT COMMITTED"
+}

@@ -1,0 +1,21 @@
+{
+  "hostCommit": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+  "public": [
+    "SIDEBAR_NAV_AREA",
+    "ROUTES_AREA"
+  ],
+  "sidebarPayload": [
+    "codicon",
+    "label",
+    "path"
+  ],
+  "order": "registry outer contribution.order; contributed rows appended after builtins",
+  "group": "No typed group/section/children in audited SidebarNavContribution",
+  "singlePhysicalMenu": "Feasible with flat contributed entries; full branded groups require Host extension",
+  "source": [
+    "apps/desktop/src/app/routes.ts",
+    "apps/desktop/src/app/chat/sidebar/index.tsx",
+    "apps/desktop/src/contrib/registry.ts"
+  ],
+  "productionMigration": "NOT IMPLEMENTED"
+}

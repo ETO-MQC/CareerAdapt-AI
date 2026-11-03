@@ -1,0 +1,766 @@
+{
+  "date": "2026-11-04",
+  "overall": "PARTIAL",
+  "head": "f1e70b44ff8f5fc1bf2e11e5716ec26c8f668f51",
+  "files": [
+    {
+      "path": "prototype/unified-workspace-ux01/audit.mjs",
+      "bytes": 3087,
+      "sha256": "3cd3b125704f2a9177adfd6be63d700f8f5de4e768dfbe60a2cd9c09ff043f2a",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "prototype/unified-workspace-ux01/build.mjs",
+      "bytes": 1263,
+      "sha256": "b8908ffa0bf4dca00e6ff5d1ead8eef9eadced228424b30762070a2a19c29543",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "prototype/unified-workspace-ux01/deliver.mjs",
+      "bytes": 7201,
+      "sha256": "82cc00c320b4b0647f334a72c15a37f306f672af041faf5a89c60883da4a0023",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "prototype/unified-workspace-ux01/main.tsx",
+      "bytes": 18604,
+      "sha256": "ea0b358a5bc66fc6442b39ca957a53b720338845b867a70ebdfb9f608476dfed",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "prototype/unified-workspace-ux01/observe-startup.mjs",
+      "bytes": 4332,
+      "sha256": "7dcde8dcd9e32c197e9e6338767145ab76be5367249c77cf1fe3c0944c7884c9",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "prototype/unified-workspace-ux01/README.md",
+      "bytes": 1548,
+      "sha256": "8e3814f53fcc57778cc5b9847ff02801368ed6fd5cc01d8ce1ecdc31c93cef66",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "prototype/unified-workspace-ux01/serve.mjs",
+      "bytes": 876,
+      "sha256": "fb41bf26c565f4252f8cba9c95e9d14ad9c18bd55eae0bd616b1168a488eea3e",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "prototype/unified-workspace-ux01/startup.mjs",
+      "bytes": 4370,
+      "sha256": "568ee7df71d874d27e1907a19877283a845e17ee1584bbeb1b158aed73e44c57",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "prototype/unified-workspace-ux01/styles.css",
+      "bytes": 8826,
+      "sha256": "a2c521be604c4a4456781b39cda476d35539e637446e82d0f8d4df6ff14bdb91",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "prototype/unified-workspace-ux01/verify.mjs",
+      "bytes": 5883,
+      "sha256": "33ffda039dbd5bc1a5af2adf55c080851068c06f6cd3bcd2967b2490a10a7639",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/baseline.json",
+      "bytes": 24108,
+      "sha256": "b9080afbfe2014088357da75a38ce15961e0c8ac4b79b06afe40b0bc6d32b34f",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/final-checks.json",
+      "bytes": 9506,
+      "sha256": "1c37dad563543080e8f6d948f4b3868521450c85c59fc4d39eb36d954a484dbd",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/legacy-ui-matrix.json",
+      "bytes": 6455,
+      "sha256": "225cda04115b6d4fcd1f4534621f7cb1e0ad8a51f35d7ddf9bcf30374c2400db",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/navigation-capability.json",
+      "bytes": 665,
+      "sha256": "a3bda86419adbb4a2b4e71577285318673165a90b857fc5db01e58354975d36b",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/pane-capability.json",
+      "bytes": 663,
+      "sha256": "b750e4d8582e297537cc5e6981fe94b5f05ed0bc92621d0c3b5899be8c2dd3da",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/prototype-verification.json",
+      "bytes": 12695,
+      "sha256": "6081461547ef744b1fb02c429043d8ce1ec9ab28c483ce489f6c7db1aadd7190",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/reading-inventory.json",
+      "bytes": 3839,
+      "sha256": "2289c4bcd1e390a881d1688ee2b4e8d2bb5b4ba42c2efe0919912a39f99499a7",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/source-inventory.json",
+      "bytes": 232025,
+      "sha256": "33b03f023a933135b6df8b4772e9a7489f8b22b6adff3656b6b99fe1f1c58aef",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/startup-observations.json",
+      "bytes": 11412,
+      "sha256": "5ccd6fce67b3b059eb232046b2277fb262109837e467dc063bc7297da3e16506",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/startup-timings.json",
+      "bytes": 6806,
+      "sha256": "3dfc0b34ec7ed62d401677779601d35f4049e477513f506f3534008e6d980ba8",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-dark-0.png",
+      "bytes": 101364,
+      "sha256": "9e5bcc138bb8998723c25f6832dc14bb816bb1af1a802c20e9a25f1f7b12b368",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-dark-1.png",
+      "bytes": 51301,
+      "sha256": "65c655badd3fa1289ec898e50f0adde6c8423a0cd1f3be1c18e75ed022d5cc46",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-dark-2.png",
+      "bytes": 68158,
+      "sha256": "c56a598b7f77d189485093b2a13ee9004714d02db167498d71736134c790b9d5",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-dark-3.png",
+      "bytes": 59580,
+      "sha256": "ab84a4418179a3c7e2e2963176863a4dffd5ba4b877587ec4905b71407aa50fd",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-dark-4.png",
+      "bytes": 57645,
+      "sha256": "3a20c1b2f4c0efc98770bb60e4ccbc3c416957134ec4136278af3ff1c4a81437",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-dark-5.png",
+      "bytes": 79360,
+      "sha256": "0eee3a883ad1c9b6be3b4d64e9452d672402bc237326647aa27f91df68de7260",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-dark-6.png",
+      "bytes": 54823,
+      "sha256": "0801f409f790dd571a5caf22b2715d38d6c142f6efceb8fc143f18554ec6e209",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-dark-7.png",
+      "bytes": 41949,
+      "sha256": "d022a25a873dc5eee1dd05c3b8c573c85bc513cf1c1433caaf073ecdb8483c70",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-light-0.png",
+      "bytes": 101590,
+      "sha256": "352be2836ad21d0d3f42ac1874be866c9ced7df6a6fae6c90e983507a0b11c72",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-light-1.png",
+      "bytes": 51584,
+      "sha256": "0e4308a64b9cd06b37d8aa708d01bc9dc1073c59bf63f4088d9f164291f14467",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-light-2.png",
+      "bytes": 68628,
+      "sha256": "5f6e52f8d3b9b02c4b28dfdb47cb27928836092dcb574210724aa4cf913392f0",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-light-3.png",
+      "bytes": 59657,
+      "sha256": "2a7c21d1cb4e22be9d1a366ea864cb04c0e02d712f3300352c0450f106c8318e",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-light-4.png",
+      "bytes": 57783,
+      "sha256": "61cf1623bd9a5733ed2a0ece031e3c673a664207bd677fec8b8796b9c760f395",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-light-5.png",
+      "bytes": 78964,
+      "sha256": "69105a7d9cf18f0a3e633a20c2bad47fa83e13872067ab031d0013f00cd062d0",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-light-6.png",
+      "bytes": 54741,
+      "sha256": "8421ccb184b51711e21a76b799d7799d368287d9ac291d73844c257c24c8d8f3",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-light-7.png",
+      "bytes": 41946,
+      "sha256": "3cda8022beb7005ad8d3104b05f9dffd3b9e6c152ce12cedd4fae03143e35328",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-dark-0.png",
+      "bytes": 134405,
+      "sha256": "bfc4d6edb8bd1cb1bd20f77ccebcb93c477ce314ab2125e53e42c0b91d1ffab8",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-dark-1.png",
+      "bytes": 54426,
+      "sha256": "3bdfe82da37a94b718bf9e570b0f722b3c67b2fb61c56114cf0effc7a32a9098",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-dark-2.png",
+      "bytes": 94882,
+      "sha256": "9d727b8f9833fdad2848bae14a86dce976a091f6b3b2523ba06a200523a76094",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-dark-3.png",
+      "bytes": 64802,
+      "sha256": "4a2a74fdf6b1e83129ebacb9ba32c35a327ee5ea523245c10db3b6b863389826",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-dark-4.png",
+      "bytes": 62570,
+      "sha256": "53c7ec7f6f0ce8b9b2fc00e1510ed4eda98ad907b1c290e4f9cb4f29f8a26f3a",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-dark-5.png",
+      "bytes": 85430,
+      "sha256": "e5cf62076078cb5420ad59b298bac36b4030554bd7a76e9516f06a0d21e3084b",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-dark-6.png",
+      "bytes": 60056,
+      "sha256": "47d8f8af0c05ad4037bd64a59fa78587d8851d30f876c7fa4be9865549ec1738",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-dark-7.png",
+      "bytes": 46360,
+      "sha256": "c162e94ac7bd15f06b561ee294868c3d9bd97f7321be252ee66da5437e5f461a",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-light-0.png",
+      "bytes": 134874,
+      "sha256": "f472bfc9b3ba1e0fee657e3c72bacae1723f8beb40f950dc020434911e291f94",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-light-1.png",
+      "bytes": 54642,
+      "sha256": "86aeae8cd8acb598d583c7604142877285740ba99346db89841c6f9342e2394d",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-light-2.png",
+      "bytes": 95130,
+      "sha256": "c6843dd6b24e10e738cf6ed3ff49985bf477a34c7b0e7a4b86988dddf11a6a60",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-light-3.png",
+      "bytes": 65041,
+      "sha256": "f92c7c9f831499f4c8c7a9b5e06cf70272827ba20ac1e3bd7614a82accbd68ce",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-light-4.png",
+      "bytes": 62689,
+      "sha256": "3b01fa4ddc751501a372e12f81c3cfcb54f16a2aa9031c014e9f94c5248b81fd",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-light-5.png",
+      "bytes": 85333,
+      "sha256": "3faeb27090b48273dd5a01426b17a461c4f8c1598c665b63e01f3fc80c9c0723",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-light-6.png",
+      "bytes": 60090,
+      "sha256": "fe50b09cd8c2e2a9f4cba1fef1cb488560033b4ee472865bfb147ff108d4f858",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-light-7.png",
+      "bytes": 46454,
+      "sha256": "6e977594c2d5894d9fcb0a6a58cf8cf1df44b726ab448c76400e3387bd832206",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-dark-0.png",
+      "bytes": 150573,
+      "sha256": "29dd2bdcd4a7422b5110a686b81c3a8ba3eb266af7f41f9dd89c430f37961b84",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-dark-1.png",
+      "bytes": 58063,
+      "sha256": "6de5e506757b1449a16470a69918b63d593b3ef8f2656e6ac94297b2a8e1c5d0",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-dark-2.png",
+      "bytes": 98733,
+      "sha256": "d5a44c570a39c7730d1d698bb1825c94bdedd25aee5915cc8643fc2d98107bda",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-dark-3.png",
+      "bytes": 68585,
+      "sha256": "4bb9e31145f5741e3274334676b4647f0ae8476291bb6f03c6957dc1315d9aec",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-dark-4.png",
+      "bytes": 66146,
+      "sha256": "2c3b2437c58d31952a7ec21ad9b96983e45deb048118c2128f2a8a253bd186d3",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-dark-5.png",
+      "bytes": 89285,
+      "sha256": "b5148e95be4ad736073d2dbead89107b85d0f15d6e9c1b927db20f9610142be1",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-dark-6.png",
+      "bytes": 63564,
+      "sha256": "bed47807220358424f80ef6a8df19200c9bd1ebbcd8aaf5c071b508d003ca35c",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-dark-7.png",
+      "bytes": 49588,
+      "sha256": "4a495c5768c7f8bebb3bb908585de99fd7d96dee1d1b164b4b983bdd870f9048",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-light-0.png",
+      "bytes": 150784,
+      "sha256": "aee9f0597bb3b37fabfb51f4147e63047b1fa70ce66b02b35bbace11883d8999",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-light-1.png",
+      "bytes": 57988,
+      "sha256": "c4e982f6498ac51ae6baa41635c028776f10e769f52482b7c699a246db5a5978",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-light-2.png",
+      "bytes": 99041,
+      "sha256": "014f1ac4f47178e8409eacd70c749c1a02ad3ed8b7d34476390c655267cdf7d9",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-light-3.png",
+      "bytes": 68773,
+      "sha256": "2b54b389bf1a7b4a0189f1bbc80218ae4d47c0fdb40b4ad548f278272fe9e6b5",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-light-4.png",
+      "bytes": 66330,
+      "sha256": "34e37f0692af764167b824b3ca93a1998542bbdb7b7d06614c3a7db0ed2076f3",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-light-5.png",
+      "bytes": 89306,
+      "sha256": "32862d92951ef86f29ff9c6481d44aba55f67083f6f912224a475bd18afa6773",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-light-6.png",
+      "bytes": 63677,
+      "sha256": "4f9a84a0817af498da30fcd97d2f0d1273e21118e361e39c86fcdff3e8cf6545",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-light-7.png",
+      "bytes": 49676,
+      "sha256": "4018d082631a3eb328353c5fb66b797c2afafe072e533ea3fd755a3a90e8bf22",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/startup-1-profile-cold.png",
+      "bytes": 39087,
+      "sha256": "c0dd3f80a303e71b05d39ea035c92cad692eedb899c21dbf90ce71499179028b",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/startup-1-profile-warm.png",
+      "bytes": 39217,
+      "sha256": "d7dd6cb6fc5b2456dc70ea0f03f6af6aba40b79061d03a2398e593e2b0c59d5f",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/startup-2-profile-cold.png",
+      "bytes": 39087,
+      "sha256": "c0dd3f80a303e71b05d39ea035c92cad692eedb899c21dbf90ce71499179028b",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/startup-2-profile-warm.png",
+      "bytes": 933145,
+      "sha256": "44478bc7a5c0601234e9fc33ce07ebcf9878ced2983e3b795dc2dc41ada83e57",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/startup-3-profile-cold.png",
+      "bytes": 39087,
+      "sha256": "c0dd3f80a303e71b05d39ea035c92cad692eedb899c21dbf90ce71499179028b",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/screenshots/startup-3-profile-warm.png",
+      "bytes": 39217,
+      "sha256": "d7dd6cb6fc5b2456dc70ea0f03f6af6aba40b79061d03a2398e593e2b0c59d5f",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/startup-logs/p522-ux01-startup-1793723035985-pair-1-desktop.log",
+      "bytes": 2468,
+      "sha256": "ff8f40d223bdff551e80c80e65e701ab130c95d841391fc8ad347243b5237b51",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/startup-logs/p522-ux01-startup-1793723393829-pair-1-desktop.log",
+      "bytes": 2904,
+      "sha256": "9c04f64737a9c8cb81db0e2dd1baeb60034f99dd8cdcfac132b50cfbeef8f3d0",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/startup-logs/p522-ux01-startup-1793723393829-pair-2-desktop.log",
+      "bytes": 2903,
+      "sha256": "1193169688ade06e44f02136f48721927e44c172e72e1e3a8ea28fb44b0e5777",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-ux01/startup-logs/p522-ux01-startup-1793723393829-pair-3-desktop.log",
+      "bytes": 2904,
+      "sha256": "037f12b7f376f22f0236d62d8c259cf696e7ed2f52da96d83a9160d951e32d89",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/p5.2.2-ux-01-information-architecture.md",
+      "bytes": 5816,
+      "sha256": "56a925fc65f719a4c8b985d53a5447dd9bf88d037ef6a483e50abf63e1eed175",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/p5.2.2-ux-01-legacy-ui-reconciliation.md",
+      "bytes": 8342,
+      "sha256": "7d3bbc0a7097cff37a8af4ae72152b94fa8519e24906b1a9b41e6098323f3930",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/p5.2.2-ux-01-startup-performance-audit.md",
+      "bytes": 5513,
+      "sha256": "b21a820c189de1a8bde46ad0681190382f6b7dae1da6f505e3258411f80bdc08",
+      "gitState": "new untracked this task"
+    },
+    {
+      "path": "docs/architecture/p5.2.2-ux-01-unified-workspace-audit-20261104.md",
+      "bytes": 6390,
+      "sha256": "116847b7e517c4916f44153d6d1d10865d8209536bc4a317f6ae93601b88c811",
+      "gitState": "new untracked this task"
+    }
+  ],
+  "modifiedIgnoredHandoff": [
+    {
+      "path": "plan4.md",
+      "sha256": "1e439d89b6e4bf53ef038860929dea1af24b97f7adc9945ce03e29fe1fda2770"
+    },
+    {
+      "path": "history4.md",
+      "sha256": "1cae80d3c505b65d7ef34b25e74b3be78ccb2d0d39c3cf883f1dbf5edba639ad"
+    }
+  ],
+  "protectedPriorDelivery": [
+    {
+      "path": "docs/architecture/evidence/p522/additional-reading.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/appearance-adapter-evidence.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/baseline.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/host-smoke-1793711173567.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/host-smoke-1793711786576.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/host-smoke-final.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/host-visual-verification.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/pane-probe-1793711309026.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/pane-probe-1793711394302.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/pane-probe-build.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/plugin-build.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/profile-integration-evidence.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/failures/host-smoke-final.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/failures/pane-probe-1793711309026.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/failures/pane-probe-1793711394302.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-profile-dark-1024.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-profile-dark-1440.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-profile-dark-1920.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-profile-light-1024.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-profile-light-1440.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-profile-light-1920.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-state-empty.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-state-error.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-state-invalid.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-state-loading.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-state-success.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-profile-dark-1024.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-profile-dark-1440.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-profile-dark-1920.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-profile-light-1024.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-profile-light-1440.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-profile-light-1920.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-state-empty.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-state-error.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-state-invalid.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-state-loading.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-state-success.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-dark-1024.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-dark-1440.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-dark-1920.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-light-1024.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-light-1440.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-light-1920.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-state-empty.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-state-error.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-state-invalid.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-state-loading.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-state-success.png",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/evidence/p522/sdk-capability-audit.json",
+      "matches": true
+    },
+    {
+      "path": "docs/architecture/p5.2.2-hermes-host-integration-vertical-slice-20261103.md",
+      "matches": true
+    },
+    {
+      "path": "poc/host-experience/CareerExperience.tsx",
+      "matches": true
+    },
+    {
+      "path": "poc/host-experience/README.md",
+      "matches": true
+    },
+    {
+      "path": "poc/host-experience/components.tsx",
+      "matches": true
+    },
+    {
+      "path": "poc/host-experience/experience.css",
+      "matches": true
+    },
+    {
+      "path": "poc/host-experience/pane-probe.tsx",
+      "matches": true
+    },
+    {
+      "path": "poc/host-experience/plugin.tsx",
+      "matches": true
+    },
+    {
+      "path": "poc/host-experience/sdk-extension.d.ts",
+      "matches": true
+    },
+    {
+      "path": "scripts/p522-host-experience-build.mjs",
+      "matches": true
+    },
+    {
+      "path": "scripts/p522-host-experience-smoke.mjs",
+      "matches": true
+    },
+    {
+      "path": "scripts/p522-pane-probe-build.mjs",
+      "matches": true
+    },
+    {
+      "path": "scripts/p522-pane-probe-smoke.mjs",
+      "matches": true
+    },
+    {
+      "path": "scripts/p522-source-audit.mjs",
+      "matches": true
+    },
+    {
+      "path": "tests/unit/p522-host-experience.test.tsx",
+      "matches": true
+    }
+  ],
+  "manifestSelf": "This manifest is excluded from its own hash list",
+  "productionChanges": [],
+  "commit": "尚未提交"
+}

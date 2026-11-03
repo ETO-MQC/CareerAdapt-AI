@@ -1,0 +1,259 @@
+{
+  "status": "PARTIAL",
+  "environment": "Locked source Desktop / existing Vite 5174 / offline loopback provider; fresh isolated profiles then immediate relaunch of each. Cold means application-profile cold, NOT OS/filesystem-cache cold. No credentials or real data.",
+  "runs": [
+    {
+      "pair": 1,
+      "kind": "profile-cold",
+      "T0": "NOT VERIFIED (OS birth)",
+      "T1": "NOT VERIFIED",
+      "T2": "NOT VERIFIED",
+      "T3": {
+        "timeOrigin": 1793723394427.7,
+        "paints": [
+          {
+            "name": "first-paint",
+            "startTime": 2096
+          },
+          {
+            "name": "first-contentful-paint",
+            "startTime": 2740
+          }
+        ],
+        "definition": "Renderer navigation-relative paint, not launch-relative; first window may include boot overlay"
+      },
+      "T4": "NOT VERIFIED: no interaction retry after two blocked samples",
+      "T5": {
+        "observedAfterLaunchRequestMs": 13686.0298,
+        "definition": "sidebar contribution visible upper bound"
+      },
+      "T6": "NOT VERIFIED: Host overlay; no forced click or private state mutation",
+      "T7": "NOT VERIFIED",
+      "errors": [],
+      "launchAutomationAttachedMs": 770.2022999999999,
+      "pid": 54844,
+      "firstWindowObservedMs": 770.2907,
+      "visibleText": "New session\nCtrl\nN\nCapabilities\nMessaging\nArtifacts\nCareerAdapt\n\nNo sessions yet\n\nNew project\n\nHERMES AGENT\n\nSearch the repo, edit files, run tests, open PRs. Tell me the goal and I'll handle the mechanical parts.\n\n⠋\nWaking up …\n⠧\nGateway\nchecking\nAgents\nCron\nWebhooks\nSmart\nv0.19.0 (+1)\neb52760\nLet's get you setup with Hermes Agent\n\nConnect a model provider to start chatting. Most options take one click.\n\nStarting Hermes…\n\nHermes Desktop is ready\n100%\nCONNECTING",
+      "windowVisibility": [
+        {
+          "visible": true,
+          "title": "Hermes"
+        }
+      ],
+      "screenshot": "docs/architecture/evidence/p522-ux01/screenshots/startup-1-profile-cold.png",
+      "status": "OBSERVED"
+    },
+    {
+      "pair": 1,
+      "kind": "profile-warm",
+      "T0": "NOT VERIFIED (OS birth)",
+      "T1": "NOT VERIFIED",
+      "T2": "NOT VERIFIED",
+      "T3": {
+        "timeOrigin": 1793723410022.3,
+        "paints": [
+          {
+            "name": "first-paint",
+            "startTime": 1344
+          },
+          {
+            "name": "first-contentful-paint",
+            "startTime": 2256
+          }
+        ],
+        "definition": "Renderer navigation-relative paint, not launch-relative; first window may include boot overlay"
+      },
+      "T4": "NOT VERIFIED: no interaction retry after two blocked samples",
+      "T5": {
+        "observedAfterLaunchRequestMs": 12543.471200000002,
+        "definition": "sidebar contribution visible upper bound"
+      },
+      "T6": "NOT VERIFIED: Host overlay; no forced click or private state mutation",
+      "T7": "NOT VERIFIED",
+      "errors": [],
+      "launchAutomationAttachedMs": 755.1747000000014,
+      "pid": 42260,
+      "firstWindowObservedMs": 755.222200000002,
+      "visibleText": "New session\nCtrl\nN\nCapabilities\nMessaging\nArtifacts\nCareerAdapt\n\nNo sessions yet\n\nNew project\n\nHERMES AGENT\n\nSearch the repo, edit files, run tests, open PRs. Tell me the goal and I'll handle the mechanical parts.\n\n⠋\nWaking up …\n⠋\nGateway\nchecking\nAgents\nCron\nWebhooks\nSmart\nv0.19.0\nLet's get you setup with Hermes Agent\n\nConnect a model provider to start chatting. Most options take one click.\n\nStarting Hermes…\n\nHermes Desktop is ready\n100%\nCONNECTING",
+      "windowVisibility": [
+        {
+          "visible": true,
+          "title": "Hermes"
+        }
+      ],
+      "screenshot": "docs/architecture/evidence/p522-ux01/screenshots/startup-1-profile-warm.png",
+      "status": "OBSERVED"
+    },
+    {
+      "pair": 2,
+      "kind": "profile-cold",
+      "T0": "NOT VERIFIED (OS birth)",
+      "T1": "NOT VERIFIED",
+      "T2": "NOT VERIFIED",
+      "T3": {
+        "timeOrigin": 1793723437323,
+        "paints": [
+          {
+            "name": "first-paint",
+            "startTime": 2156
+          },
+          {
+            "name": "first-contentful-paint",
+            "startTime": 2792
+          }
+        ],
+        "definition": "Renderer navigation-relative paint, not launch-relative; first window may include boot overlay"
+      },
+      "T4": "NOT VERIFIED: no interaction retry after two blocked samples",
+      "T5": {
+        "observedAfterLaunchRequestMs": 12661.386999999995,
+        "definition": "sidebar contribution visible upper bound"
+      },
+      "T6": "NOT VERIFIED: Host overlay; no forced click or private state mutation",
+      "T7": "NOT VERIFIED",
+      "errors": [],
+      "launchAutomationAttachedMs": 712.030399999996,
+      "pid": 16172,
+      "firstWindowObservedMs": 712.0463999999993,
+      "visibleText": "New session\nCtrl\nN\nCapabilities\nMessaging\nArtifacts\nCareerAdapt\n\nNo sessions yet\n\nNew project\n\nHERMES AGENT\n\nDrop a file path, a traceback, or a rough idea. I'll investigate, suggest next steps, and keep things reversible.\n\n⠋\nWaking up …\n⠇\nGateway\nchecking\nAgents\nCron\nWebhooks\nSmart\nv0.19.0\nLet's get you setup with Hermes Agent\n\nConnect a model provider to start chatting. Most options take one click.\n\nStarting Hermes…\n\nHermes Desktop is ready\n100%\nCONNECTING",
+      "windowVisibility": [
+        {
+          "visible": true,
+          "title": "Hermes"
+        }
+      ],
+      "screenshot": "docs/architecture/evidence/p522-ux01/screenshots/startup-2-profile-cold.png",
+      "status": "OBSERVED"
+    },
+    {
+      "pair": 2,
+      "kind": "profile-warm",
+      "T0": "NOT VERIFIED (OS birth)",
+      "T1": "NOT VERIFIED",
+      "T2": "NOT VERIFIED",
+      "T3": {
+        "timeOrigin": 1793723579511.6,
+        "paints": [
+          {
+            "name": "first-paint",
+            "startTime": 1176
+          },
+          {
+            "name": "first-contentful-paint",
+            "startTime": 2028
+          }
+        ],
+        "definition": "Renderer navigation-relative paint, not launch-relative; first window may include boot overlay"
+      },
+      "T4": "NOT VERIFIED: no interaction retry after two blocked samples",
+      "T5": {
+        "observedAfterLaunchRequestMs": 11130.792299999972,
+        "definition": "sidebar contribution visible upper bound"
+      },
+      "T6": "NOT VERIFIED: Host overlay; no forced click or private state mutation",
+      "T7": "NOT VERIFIED",
+      "errors": [],
+      "launchAutomationAttachedMs": 683.5753999999724,
+      "pid": 60424,
+      "firstWindowObservedMs": 683.5840999999782,
+      "visibleText": "New session\nCtrl\nN\nCapabilities\nMessaging\nArtifacts\nCareerAdapt\n\nNo sessions yet\n\nNew project\n\nHERMES AGENT\n\nDescribe the task in your own words. I'll pick the right tools, explain my plan, and check in before risky steps.\n\n⠋\nWaking up …\n⠏\nGateway\nchecking\nAgents\nCron\nWebhooks\nSmart\nv0.19.0 (+1)\neb52760\nCONNECTING\nUpdate ready\n\n1 new change available.\n\nSee what's new",
+      "windowVisibility": [
+        {
+          "visible": true,
+          "title": "Hermes"
+        }
+      ],
+      "screenshot": "docs/architecture/evidence/p522-ux01/screenshots/startup-2-profile-warm.png",
+      "status": "OBSERVED"
+    },
+    {
+      "pair": 3,
+      "kind": "profile-cold",
+      "T0": "NOT VERIFIED (OS birth)",
+      "T1": "NOT VERIFIED",
+      "T2": "NOT VERIFIED",
+      "T3": {
+        "timeOrigin": 1793723592968.1,
+        "paints": [
+          {
+            "name": "first-paint",
+            "startTime": 1960
+          },
+          {
+            "name": "first-contentful-paint",
+            "startTime": 2560
+          }
+        ],
+        "definition": "Renderer navigation-relative paint, not launch-relative; first window may include boot overlay"
+      },
+      "T4": "NOT VERIFIED: no interaction retry after two blocked samples",
+      "T5": {
+        "observedAfterLaunchRequestMs": 12471.796099999978,
+        "definition": "sidebar contribution visible upper bound"
+      },
+      "T6": "NOT VERIFIED: Host overlay; no forced click or private state mutation",
+      "T7": "NOT VERIFIED",
+      "errors": [],
+      "launchAutomationAttachedMs": 667.0195999999996,
+      "pid": 59888,
+      "firstWindowObservedMs": 667.0423999999766,
+      "visibleText": "New session\nCtrl\nN\nCapabilities\nMessaging\nArtifacts\nCareerAdapt\n\nNo sessions yet\n\nNew project\n\nHERMES AGENT\n\nDrop a file path, a traceback, or a rough idea. I'll investigate, suggest next steps, and keep things reversible.\n\n⠋\nWaking up …\n⠧\nGateway\nchecking\nAgents\nCron\nWebhooks\nSmart\nv0.19.0\nLet's get you setup with Hermes Agent\n\nConnect a model provider to start chatting. Most options take one click.\n\nStarting Hermes…\n\nHermes Desktop is ready\n100%\nCONNECTING",
+      "windowVisibility": [
+        {
+          "visible": true,
+          "title": "Hermes"
+        }
+      ],
+      "screenshot": "docs/architecture/evidence/p522-ux01/screenshots/startup-3-profile-cold.png",
+      "status": "OBSERVED"
+    },
+    {
+      "pair": 3,
+      "kind": "profile-warm",
+      "T0": "NOT VERIFIED (OS birth)",
+      "T1": "NOT VERIFIED",
+      "T2": "NOT VERIFIED",
+      "T3": {
+        "timeOrigin": 1793723618898.3,
+        "paints": [
+          {
+            "name": "first-paint",
+            "startTime": 1248
+          },
+          {
+            "name": "first-contentful-paint",
+            "startTime": 2184
+          }
+        ],
+        "definition": "Renderer navigation-relative paint, not launch-relative; first window may include boot overlay"
+      },
+      "T4": "NOT VERIFIED: no interaction retry after two blocked samples",
+      "T5": {
+        "observedAfterLaunchRequestMs": 12965.395900000003,
+        "definition": "sidebar contribution visible upper bound"
+      },
+      "T6": "NOT VERIFIED: Host overlay; no forced click or private state mutation",
+      "T7": "NOT VERIFIED",
+      "errors": [],
+      "launchAutomationAttachedMs": 668.796800000011,
+      "pid": 57856,
+      "firstWindowObservedMs": 668.8195000000123,
+      "visibleText": "New session\nCtrl\nN\nCapabilities\nMessaging\nArtifacts\nCareerAdapt\n\nNo sessions yet\n\nNew project\n\nHERMES AGENT\n\nDrop a file path, a traceback, or a rough idea. I'll investigate, suggest next steps, and keep things reversible.\n\n⠋\nWaking up …\n⠧\nGateway\nchecking\nAgents\nCron\nWebhooks\nSmart\nv0.19.0 (+1)\neb52760\nLet's get you setup with Hermes Agent\n\nConnect a model provider to start chatting. Most options take one click.\n\nStarting Hermes…\n\nHermes Desktop is ready\n100%\nCONNECTING",
+      "windowVisibility": [
+        {
+          "visible": true,
+          "title": "Hermes"
+        }
+      ],
+      "screenshot": "docs/architecture/evidence/p522-ux01/screenshots/startup-3-profile-warm.png",
+      "status": "OBSERVED"
+    }
+  ],
+  "limitations": [
+    "T0 is harness launch request, not OS process birth",
+    "T1 creation and T2 first-visible not reliably observed through late-attached public automation",
+    "T4 is navigation interaction probe, not full Host readiness",
+    "T5 is sidebar contribution visible, not exact module initialization duration",
+    "T7 Agent Runtime readiness NOT VERIFIED; no model request"
+  ]
+}

@@ -1,0 +1,682 @@
+{
+  "status": "PASS",
+  "errors": [],
+  "externalRequests": [],
+  "checks": [
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "light",
+      "page": "AI 工作台",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "light",
+      "page": "首页",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "light",
+      "page": "个人资料库",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "light",
+      "page": "岗位中心",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "light",
+      "page": "求职申请",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "light",
+      "page": "简历工作室",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "light",
+      "page": "资料导入",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "light",
+      "page": "设置",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "dark",
+      "page": "AI 工作台",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "dark",
+      "page": "首页",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "dark",
+      "page": "个人资料库",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "dark",
+      "page": "岗位中心",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "dark",
+      "page": "求职申请",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "dark",
+      "page": "简历工作室",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "dark",
+      "page": "资料导入",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "dark",
+      "page": "设置",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "theme": "light",
+      "page": "AI 工作台",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "theme": "light",
+      "page": "首页",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "theme": "light",
+      "page": "个人资料库",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "theme": "light",
+      "page": "岗位中心",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "theme": "light",
+      "page": "求职申请",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "theme": "light",
+      "page": "简历工作室",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "theme": "light",
+      "page": "资料导入",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "theme": "light",
+      "page": "设置",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "theme": "dark",
+      "page": "AI 工作台",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "theme": "dark",
+      "page": "首页",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "theme": "dark",
+      "page": "个人资料库",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "theme": "dark",
+      "page": "岗位中心",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "theme": "dark",
+      "page": "求职申请",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "theme": "dark",
+      "page": "简历工作室",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "theme": "dark",
+      "page": "资料导入",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "theme": "dark",
+      "page": "设置",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "theme": "light",
+      "page": "AI 工作台",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "theme": "light",
+      "page": "首页",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "theme": "light",
+      "page": "个人资料库",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "theme": "light",
+      "page": "岗位中心",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "theme": "light",
+      "page": "求职申请",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "theme": "light",
+      "page": "简历工作室",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "theme": "light",
+      "page": "资料导入",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "theme": "light",
+      "page": "设置",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "theme": "dark",
+      "page": "AI 工作台",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "theme": "dark",
+      "page": "首页",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "theme": "dark",
+      "page": "个人资料库",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "theme": "dark",
+      "page": "岗位中心",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "theme": "dark",
+      "page": "求职申请",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "theme": "dark",
+      "page": "简历工作室",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "theme": "dark",
+      "page": "资料导入",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "theme": "dark",
+      "page": "设置",
+      "geometry": {
+        "overflow": false,
+        "navs": 1,
+        "smallest": 11
+      }
+    }
+  ],
+  "screenshots": [
+    "1920-light-0.png",
+    "1920-light-1.png",
+    "1920-light-2.png",
+    "1920-light-3.png",
+    "1920-light-4.png",
+    "1920-light-5.png",
+    "1920-light-6.png",
+    "1920-light-7.png",
+    "1920-dark-0.png",
+    "1920-dark-1.png",
+    "1920-dark-2.png",
+    "1920-dark-3.png",
+    "1920-dark-4.png",
+    "1920-dark-5.png",
+    "1920-dark-6.png",
+    "1920-dark-7.png",
+    "1440-light-0.png",
+    "1440-light-1.png",
+    "1440-light-2.png",
+    "1440-light-3.png",
+    "1440-light-4.png",
+    "1440-light-5.png",
+    "1440-light-6.png",
+    "1440-light-7.png",
+    "1440-dark-0.png",
+    "1440-dark-1.png",
+    "1440-dark-2.png",
+    "1440-dark-3.png",
+    "1440-dark-4.png",
+    "1440-dark-5.png",
+    "1440-dark-6.png",
+    "1440-dark-7.png",
+    "1024-light-0.png",
+    "1024-light-1.png",
+    "1024-light-2.png",
+    "1024-light-3.png",
+    "1024-light-4.png",
+    "1024-light-5.png",
+    "1024-light-6.png",
+    "1024-light-7.png",
+    "1024-dark-0.png",
+    "1024-dark-1.png",
+    "1024-dark-2.png",
+    "1024-dark-3.png",
+    "1024-dark-4.png",
+    "1024-dark-5.png",
+    "1024-dark-6.png",
+    "1024-dark-7.png"
+  ],
+  "interactions": "navigation, keyboard/pointer resize, fold/restore preserving width, independent scroll, task switch, error isolation, profile categories/states, job selection/requirements, application list/status/materials, studio section/inspector, accent/nav toggles"
+}
