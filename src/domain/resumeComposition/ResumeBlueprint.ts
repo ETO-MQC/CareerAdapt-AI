@@ -1,3 +1,4 @@
+import { classifyKeywordRelation, containsKeywordTerm } from "@/domain/jobOptimization/keywordTaxonomy";
 import { migrateCareerProfileToV2, projectResumeItemV2 } from "@/domain/migrations/resumeV2";
 import type { CareerProfile, JobDescription, ResumeItemV2 } from "@/domain/schemas";
 import {
@@ -121,7 +122,7 @@ export function classifyJobKeywords(job: JobDescription, graph: ResumeEvidenceGr
   }
   return keywords.map((keyword) => {
     const normalized = keyword.toLocaleLowerCase();
-    const exact = [...searchableByAsset.entries()].filter(([, text]) => text.includes(normalized) && !isNegatedKeyword(text, normalized));
+    const exact = [...searchableByAsset.entries()].filter(([, text]) => ["direct", "synonym"].includes(classifyKeywordRelation(normalized, text)) && !isNegatedKeyword(text, normalized));
     if (exact.length) return {
       keyword,
       status: "SUPPORTED" as const,
@@ -143,7 +144,10 @@ export function classifyJobKeywords(job: JobDescription, graph: ResumeEvidenceGr
       status: "UNSUPPORTED" as const,
       sourceAssetIds: [],
       factIds: [],
-      reason: "当前已确认资料库没有足够证据支持该关键词。",
+      reason: [...searchableByAsset.values()].some((text) => classifyKeywordRelation(keyword, text) === "negative")
+        ? "原始来源明确否认该经验，不能改写为已具备。"
+        : [...searchableByAsset.values()].some((text) => classifyKeywordRelation(keyword, text) === "ambiguous")
+          ? "岗位术语范围有歧义，需要核对任务语境。" : "当前已确认资料库没有足够证据支持该关键词；未知不等于明确否认。",
       question: `你是否有「${keyword}」的已确认经历？没有也可以直接生成。`
     };
   });
@@ -333,7 +337,7 @@ function relatedEvidence(keyword: string, graph: ResumeEvidenceGraph, searchable
   };
   const aliases = relations[normalized] ?? [];
   return [...searchableByAsset.entries()]
-    .filter(([, text]) => aliases.some((alias) => text.includes(alias)))
+    .filter(([, text]) => (classifyKeywordRelation(keyword, text) === "adjacent" || aliases.some((alias) => containsKeywordTerm(text, alias))))
     .map(([id]) => id)
     .filter((id) => graph.sourceAssetIds.includes(id));
 }

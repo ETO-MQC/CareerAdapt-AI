@@ -29,27 +29,32 @@ export function writingOverlap(left: string, right: string) {
   return intersection / Math.min(a.size, b.size);
 }
 
+const OWNERSHIP = /独立完成|独立负责|主要负责|共同完成|共同负责|协助|参与|参加|配合|支持|负责|主导|带领/gu;
+const OWNERSHIP_LEVEL: Record<string, number> = { 协助: 1, 参与: 1, 参加: 1, 配合: 1, 支持: 1, 共同完成: 2, 共同负责: 2, 负责: 3, 主要负责: 4, 独立完成: 5, 独立负责: 5, 主导: 6, 带领: 6 };
+function responsibilityClaims(text: string) {
+  return text.split(/[。；;，,\n]/u).flatMap((clause) => [...clause.matchAll(OWNERSHIP)].map((match) => ({
+    phrase: match[0], level: OWNERSHIP_LEVEL[match[0]],
+    other: !/与|和|共同/u.test(clause.slice(0, match.index)) && /(?:团队|小组|负责人|同学|老师|他人|他们)[^我本人]*$/u.test(clause.slice(0, match.index)),
+    object: clause.slice(match.index! + match[0].length).replace(/^(?:使用|通过|完成|了)/u, "").trim()
+  })));
+}
+/** Summary for ranking only; never use this aggregate to authorize a claim. */
 export function ownershipStrength(text: string) {
-  const levels = [
-    ["协助|参与|配合|支持", 1],
-    ["共同完成|共同负责", 2],
-    ["主要负责", 3],
-    ["负责", 4],
-    ["独立完成|独立负责", 5],
-    ["主导|带领", 6]
-  ] as const;
-  let strength = 0;
-  for (const [pattern, level] of levels) {
-    if (new RegExp(pattern, "iu").test(text)) strength = Math.max(strength, level);
-  }
-  return strength;
+  return Math.max(0, ...responsibilityClaims(text).filter((claim) => !claim.other).map((claim) => claim.level));
 }
 
-/** A generated line may not strengthen the ownership stated by the source. */
+/** Check each action against its own source scope, excluding other people's actions. */
 export function preservesOwnership(sourceText: string, generatedText: string) {
-  const sourceStrength = ownershipStrength(sourceText);
-  const generatedStrength = ownershipStrength(generatedText);
-  return generatedStrength === 0 || (sourceStrength > 0 && generatedStrength <= sourceStrength);
+  const sources = responsibilityClaims(sourceText);
+  return responsibilityClaims(generatedText).every((claim) => sources.some((source) => {
+    if (source.other !== claim.other || source.level < claim.level) return false;
+    if (source.level <= 2 && source.phrase !== claim.phrase && !(["参与", "参加"].includes(source.phrase) && ["参与", "参加"].includes(claim.phrase))) return false;
+    if (/[及和、]/u.test(claim.object) && !source.object.includes(claim.object)) return false;
+    if (!source.object || !claim.object) return source.phrase === claim.phrase;
+    const tokens = claim.object.match(/[A-Za-z][A-Za-z0-9.+#-]*|[\u4e00-\u9fff]{2}/gu) ?? [];
+    return source.object.includes(claim.object) || claim.object.includes(source.object)
+      || tokens.filter((token) => source.object.includes(token)).length >= Math.max(1, Math.ceil(tokens.length * 0.5));
+  }));
 }
 
 export function isFiller(text: string) {

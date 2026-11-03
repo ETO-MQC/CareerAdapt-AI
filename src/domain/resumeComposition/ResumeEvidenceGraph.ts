@@ -1,3 +1,4 @@
+import { ownershipStrength } from "@/domain/profileIntake/CareerWritingQuality";
 import {
   migrateCareerProfileToV2,
   projectResumeItemV2
@@ -63,7 +64,7 @@ export function buildResumeEvidenceGraph(input: ResumeEvidenceGraphInput): Resum
       confirmationStatus,
       ...(maturity ? { maturity } : {}),
       ownershipStrength: Math.max(0, ...sourceFacts.map((fact) => ownershipStrength(`${fact.statement} ${fact.provenance.map((item) => item.sourceText).join(" ")}`))),
-      sourceExcerpts: unique([entry.sourceExcerpt ?? "", ...sourceFacts.flatMap((fact) => fact.provenance.map((item) => item.sourceQuote ?? item.sourceText))])
+      sourceExcerpts: unique(sourceFacts.filter(isConfirmedFact).flatMap((fact) => fact.provenance.filter((item) => item.confirmedByUser).map((item) => item.sourceQuote ?? item.sourceText)))
     };
     nodes.push(assetNode);
 
@@ -275,16 +276,6 @@ function sourceTurnIds(entry: ProfileStructuredFact, facts: FactStatement[]) {
 
 function sourceTurnIdsFromFacts(facts: FactStatement[]) {
   return unique(facts.flatMap((fact) => fact.provenance.map((source) => source.sourceTurnId).filter((value): value is string => Boolean(value))));
-}
-
-function ownershipStrength(text: string) {
-  if (/主导|带领/u.test(text)) return 6;
-  if (/独立完成|独立负责/u.test(text)) return 5;
-  if (/负责/u.test(text)) return 4;
-  if (/主要负责/u.test(text)) return 3;
-  if (/共同完成|共同负责/u.test(text)) return 2;
-  if (/协助|参与|配合|支持/u.test(text)) return 1;
-  return 0;
 }
 
 function unique(values: string[]) {

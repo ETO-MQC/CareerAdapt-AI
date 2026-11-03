@@ -1,3 +1,4 @@
+import { containsKeywordTerm } from "../keywordTaxonomy";
 import {
   JobRequirementGraphV4Schema,
   JdSemanticAssignmentSchema,
@@ -812,7 +813,7 @@ function declaredCount(text: string) {
 }
 
 function extractKeywords(text: string) {
-  return unique(TECH_TERMS.filter((term) => normalize(text).includes(normalize(term))).sort((a, b) => b.length - a.length));
+  return unique(TECH_TERMS.filter((term) => containsKeywordTerm(text, term)).sort((a, b) => b.length - a.length));
 }
 
 function aliasesFor(text: string) {

@@ -1,3 +1,4 @@
+import { containsKeywordTerm, classifyKeywordRelation } from "../keywordTaxonomy";
 import {
   CandidateEvidenceUnitSchema, RequirementEvidenceEvaluationV2Schema, RequirementEvidenceMatrixV2Schema,
   RequirementEvidenceRecallSchema, type CandidateEvidenceUnit, type CareerProfile, type JobRequirementGraphV2,
@@ -102,6 +103,13 @@ export function evaluateRequirementEvidence(input: {
       const allowed = allowedByRequirement.get(evaluation.requirementId) ?? new Set();
       if (new Set(evaluation.evidenceUnitIds).size !== evaluation.evidenceUnitIds.length) throw new Error("evidence_matcher_v2_duplicate_evidence_id");
       if (evaluation.evidenceUnitIds.some((id) => !allowed.has(id) || !unitById.has(id))) throw new Error("evidence_matcher_v2_evidence_outside_recall");
+      if (evaluation.matchLevel === "direct") {
+        const selectedUnits = evaluation.evidenceUnitIds.map((id) => unitById.get(id)!);
+        const demonstrated = selectedUnits.filter((unit) => unit.maturity === "demonstrated" || unit.maturity === undefined);
+        if (!demonstrated.length || (requirement.kind === "tool_or_technology" && !requirement.exactKeywords.every((term) => demonstrated.some((unit) => ["direct", "synonym"].includes(classifyKeywordRelation(term, unit.text)))))) {
+          throw new Error("evidence_matcher_v2_unsupported_direct_claim");
+        }
+      }
       return RequirementEvidenceEvaluationV2Schema.parse({ ...evaluation, evidenceRefs: resolveEvaluationRefs(input.profile, evaluation.evidenceUnitIds, unitById) });
     });
     const missing = input.graph.nodes.filter((node) => !seen.has(node.id));
@@ -146,7 +154,7 @@ function deterministicEvaluation(requirement: JobRequirementGraphV2["nodes"][num
   const units = top.map((item) => unitById.get(item.evidenceUnitId)!).filter(Boolean);
   const hasConfirmedCapability = units.some((unit) => unit.maturity === "confirmed_capability" || unit.supportLevel === "user_declared");
   const hasMaturityGap = units.some((unit) => unit.maturity === "familiar" || unit.maturity === "learning");
-  const direct = top[0].score >= 0.64 && units.some((unit) =>
+  const direct = requirement.exactKeywords.every((term) => units.some((unit) => ["direct", "synonym"].includes(classifyKeywordRelation(term, unit.text)))) && top[0].score >= 0.64 && units.some((unit) =>
     (unit.maturity === "demonstrated" || unit.maturity === undefined)
     && (["skill", "certificate", "education"].includes(unit.sourceType) || ngramDice(requirement.normalizedIntent, unit.normalizedText) >= 0.72)
   );
@@ -178,7 +186,7 @@ function stringList(value: unknown) { return Array.isArray(value) ? value.filter
 function normalize(text: string) { return text.toLowerCase().replace(/next\s*js/g, "next.js").replace(/react\s*js/g, "react").replace(/[^a-z0-9+#.\u4e00-\u9fa5]+/g, " ").trim(); }
 function tokenize(text: string) { return new Set([...(normalize(text).match(/[a-z0-9+#.]+/g) ?? []), ...(normalize(text).match(/[\u4e00-\u9fa5]{2,6}/g) ?? [])]); }
 function expandedTerms(values: string[]) { const base = new Set(values.flatMap((value) => [...tokenize(value)])); for (const term of [...base]) for (const [key, aliases] of Object.entries(ALIASES)) if (normalize(key) === term || aliases.some((alias) => normalize(alias) === term)) [key, ...aliases].forEach((alias) => base.add(normalize(alias))); return base; }
-function containsTerm(text: string, term: string) { const normalizedTerm = normalize(term); return normalizedTerm.length >= 2 && (` ${normalize(text)} `).includes(` ${normalizedTerm} `) || normalizedTerm.length >= 2 && normalize(text).includes(normalizedTerm); }
+function containsTerm(text: string, term: string) { return containsKeywordTerm(text, term); }
 function bm25Lite(query: Set<string>, document: Set<string>) { if (!query.size) return 0; let matches = 0; for (const term of query) if (document.has(term)) matches += 1; return matches / Math.sqrt(query.size * Math.max(1, document.size)); }
 function ngramDice(left: string, right: string) { const a = grams(normalize(left).replace(/\s/g, "")); const b = grams(normalize(right).replace(/\s/g, "")); if (!a.size || !b.size) return 0; let overlap = 0; for (const gram of a) if (b.has(gram)) overlap += 1; return (2 * overlap) / (a.size + b.size); }
 function grams(text: string) { const result = new Set<string>(); const size = /[\u4e00-\u9fa5]/.test(text) ? 2 : 3; for (let i = 0; i <= text.length - size; i += 1) result.add(text.slice(i, i + size)); return result; }

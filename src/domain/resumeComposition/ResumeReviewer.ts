@@ -12,7 +12,7 @@ import { resolveCareerAssetDisplayIdentity } from "./CareerAssetDisplayIdentity"
 import { assessResumeBullet, careerResumeQualityWarnings } from "./CareerResumeQualityPolicyV1";
 import { diagnoseResumeQuality } from "./qualityDiagnostics";
 
-export function reviewResumeComposition(result: ResumeCompositionResult, input: { job?: JobDescription } = {}) {
+export function reviewResumeComposition(result: ResumeCompositionResult, input: { job?: JobDescription; targetAssetIds?: string[] } = {}) {
   const firstPass = reviewResumeCompositionPass(result, input, true);
   if (!firstPass.didRepair) return withDiagnostics(firstPass.result);
   const repairedPass = reviewResumeCompositionPass(firstPass.result, input, false).result;
@@ -44,7 +44,7 @@ function withDiagnostics(result: ResumeCompositionResult) {
     ...(diagnostics.hardGate.status === "blocked" ? { status: "NEEDS_REVIEW" } : {}) } });
 }
 
-function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { job?: JobDescription }, allowRepair: boolean) {
+function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { job?: JobDescription; targetAssetIds?: string[] }, allowRepair: boolean) {
   const findings: string[] = [];
   let duplicateBullets = 0;
   let fillerBullets = 0;
@@ -53,12 +53,19 @@ function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { j
   let revisedBulletCount = 0;
   let bulletRepairCount = 0;
   let bulletRejectedCount = 0;
-  const seenBullets: string[] = [];
+
   const reviewDiffs: ResumeReviewResult["diffs"] = [];
 
   const items = result.items.map((item) => {
+    if (input.targetAssetIds && !input.targetAssetIds.includes(item.sourceAssetId)) {
+      revisedBulletCount += bulletCount(item.data);
+      return item.data;
+    }
+    const seenBullets: string[] = [];
     const data = item.data as unknown as Record<string, unknown>;
-    const sourceClaims = item.claimIds.map((id) => result.claims.find((claim) => claim.id === id)).filter((claim): claim is NonNullable<typeof claim> => Boolean(claim));
+    const originalSourceText = result.evidenceGraph.nodes
+      .filter((node) => node.id === `asset:${item.sourceAssetId}` && node.confirmationStatus === "confirmed")
+      .flatMap((node) => node.sourceExcerpts).join("；");
     let bullets = [
       ...(Array.isArray(data.highlights) ? data.highlights : []),
       ...(Array.isArray(data.outcomes) ? data.outcomes : [])
@@ -76,9 +83,14 @@ function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { j
     });
     const candidateBullets = bullets.filter((bullet, bulletIndex) => {
       const quality = assessResumeBullet(bullet, input.job?.title ?? result.targetDirection);
-      const sourceText = sourceClaims.filter((claim) => claim.classification === "SUPPORTED" || claim.classification === "DERIVED_PRESENTATION").map((claim) => claim.text).join(" ");
+      const sourceText = originalSourceText;
       const metrics = bullet.match(/(?:[$¥￥]\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?\s*(?:%|％|ms|毫秒|秒|QPS|万|亿|倍|美元|元|请求|文档|用户|次|条|个))/giu) ?? [];
+      const factReview = runRuleFactGuard({ originalText: sourceText, checkedText: bullet, usedEvidenceRefs: [] });
       const needsVerification = metrics.some((metric) => !sourceText.includes(metric));
+      if (factReview.status !== "pass") reviewDiffs.push({
+        id: `review-diff-${item.sourceAssetId}-${bulletIndex}-integrity`, kind: "verify", itemId: item.sourceAssetId,
+        fieldPath: "highlights", before: bullet, recommendation: "回到已确认原始证据核对事实、责任、指标及其任务对象。"
+      });
       const recommendation = needsVerification ? "这个数字需要确认来源；保留原文供核对，不默认为已验证。"
         : quality.evaluationGap ? "效果结论需要评测方法或证据支持，请核对降低幻觉或准确率的依据。"
         : quality.contributionGap ? "架构名称不能代替个人贡献，请补充实际构建的对象、动作及职责边界。"
@@ -127,13 +139,13 @@ function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { j
     });
     const repairedBullets = candidateBullets.length >= 2 || !allowRepair
       ? candidateBullets
-      : repairAffectedBullets({ item, bullets, result, sourceClaims });
+      : repairAffectedBullets({ item, bullets, result });
     bulletRepairCount += Math.max(0, repairedBullets.length - candidateBullets.length);
     bulletRejectedCount += Math.max(0, bullets.length - repairedBullets.length);
     bullets = dedupeCareerWriting(repairedBullets).filter((bullet) => assessResumeBullet(bullet).specific || semanticComponentCount(bullet) >= 2).slice(0, 4);
     revisedBulletCount += bullets.length;
     if (typeof data.description === "string" && data.description.length > 180) paragraphHeavyItems += 1;
-    const sourceText = sourceClaims.map((claim) => claim.text).join(" ");
+    const sourceText = originalSourceText;
     const displayIdentity = resolveCareerAssetDisplayIdentity(item.data).label;
     if (sourceText && bullets.some((bullet) => !preservesOwnership(sourceText, bullet))) {
       findings.push(`${displayIdentity}：职责表述需要再核对`);
@@ -188,6 +200,7 @@ function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { j
   const pageOverflow = projectedLines > 31 * result.blueprint.pageBudget.targetPages
     || result.blueprint.pageBudget.estimatedPageCount > result.blueprint.pageBudget.targetPages;
   for (const item of result.items) {
+    if (input.targetAssetIds && !input.targetAssetIds.includes(item.sourceAssetId)) continue;
     if (item.data.sectionType === "summary" && pageOverflow && careerResumeQualityWarnings({ summary: item.data.text }).length) {
       reviewDiffs.push({ id: `review-diff-${item.sourceAssetId}-page-utility`, kind: "remove", itemId: item.sourceAssetId,
         fieldPath: "text", before: item.data.text, recommendation: "当前页面空间紧张，这段摘要较泛或重复，建议优先移除；保留高相关、有证据的经历。" });
@@ -205,7 +218,8 @@ function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { j
       items: result.items.map((item, index) => ({ ...item, data: items[index] })),
       coverage: result.keywordCoverage,
       result,
-      reviewDiffs
+      reviewDiffs,
+      targetAssetIds: input.targetAssetIds
     })
     : { items: result.items.map((item, index) => ({ ...item, data: items[index] })), repairedCount: 0 };
   if (atsRepair.repairedCount) findings.push(`${atsRepair.repairedCount} evidence-backed ATS keywords proposed for review`);
@@ -263,7 +277,6 @@ function repairAffectedBullets(input: {
   item: ResumeCompositionResult["items"][number];
   bullets: string[];
   result: ResumeCompositionResult;
-  sourceClaims: ResumeCompositionResult["claims"];
 }) {
   const asset = input.result.blueprint.assets.find((candidate) => candidate.sourceAssetId === input.item.sourceAssetId);
   if (!asset || !asset.explicitTools.length) return input.bullets.filter((bullet) => assessResumeBullet(bullet).specific || semanticComponentCount(bullet) >= 2);
@@ -272,9 +285,7 @@ function repairAffectedBullets(input: {
   const repaired = input.bullets.flatMap((bullet) => {
     if (isFiller(bullet) || isRawOrNegativeSpeech(bullet) || assessResumeBullet(bullet).specific || semanticComponentCount(bullet) >= 2) return [bullet];
     const sourceText = [
-      ...input.sourceClaims.map((claim) => claim.text),
-      ...asset.bulletPlan,
-      ...asset.explicitTools
+      ...input.result.evidenceGraph.nodes.filter((node) => node.id === `asset:${input.item.sourceAssetId}` && node.confirmationStatus === "confirmed").flatMap((node) => node.sourceExcerpts)
     ].join(" ");
     const candidate = `${bullet.replace(/[。；;]+$/u, "")}，使用 ${safeTool}。`;
     const guard = runRuleFactGuard({ originalText: sourceText, checkedText: candidate, usedEvidenceRefs: [] });
@@ -301,10 +312,12 @@ function applySafeAtsRepairs(input: {
   coverage: ResumeCompositionResult["keywordCoverage"];
   result: ResumeCompositionResult;
   reviewDiffs: ResumeReviewResult["diffs"];
+  targetAssetIds?: string[];
 }) {
   let repairedCount = 0;
   const supportedMissing = input.coverage.filter((entry) => entry.status === "SUPPORTED" && entry.sourceAssetIds.length > 0);
   const items = input.items.map((compiledItem) => {
+    if (input.targetAssetIds && !input.targetAssetIds.includes(compiledItem.sourceAssetId)) return compiledItem;
     const item = compiledItem.data;
     if (item.sectionType !== "project") return compiledItem;
     const sourceAssetId = compiledItem.sourceAssetId;
@@ -322,10 +335,7 @@ function applySafeAtsRepairs(input: {
       .slice(0, 4);
     if (!additions.length) return compiledItem;
     const patched = { ...item, tools: [...item.tools, ...additions] };
-    const sourceText = [
-      JSON.stringify(item),
-      nodeText
-    ].join(" ");
+    const sourceText = nodeText;
     const guard = runRuleFactGuard({ originalText: sourceText, checkedText: JSON.stringify(patched), usedEvidenceRefs: [] });
     if (guard.status !== "pass") return compiledItem;
     repairedCount += additions.length;

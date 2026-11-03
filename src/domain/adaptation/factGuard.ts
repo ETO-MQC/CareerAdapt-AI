@@ -1,3 +1,5 @@
+import { preservesOwnership } from "@/domain/profileIntake/CareerWritingQuality";
+import { containsKeywordTerm } from "@/domain/jobOptimization/keywordTaxonomy";
 import {
   FactGuardAiReviewSchema,
   FactGuardResultSchema,
@@ -38,7 +40,7 @@ const TOOL_OR_SKILL_WORDS = [
   "项目管理"
 ];
 
-const NEW_OUTCOME_WORDS = ["提升", "增长", "降低", "优化", "转化", "留存", "交付", "落地", "获奖", "排名"];
+const NEW_OUTCOME_WORDS = ["提升", "增长", "降低", "优化", "增加", "减少", "缩短", "收入", "转化", "留存", "交付", "落地", "获奖", "排名"];
 const OWNER_WORDS = ["负责", "主导", "带领", "统筹", "独立"];
 const PARTICIPATION_WORDS = ["参与", "协助", "配合", "支持", "跟随"];
 const ASSIST_WORDS = ["协助", "配合", "支持"];
@@ -111,16 +113,28 @@ export function mergeAiFactGuardReview(input: {
 }
 
 function detectNewNumbers(originalText: string, checkedText: string, evidenceText: string): FactGuardFinding[] {
-  const numberPattern = /(?:\d+(?:\.\d+)?\s*%|\d+(?:\.\d+)?\s*(?:人|次|个|项|年|月|天|周|万|千|小时|份|页)|[一二三四五六七八九十百千万]+(?:个|项|人|次|年|月|天|周)?)/g;
-  return findNewMatches(numberPattern, originalText, checkedText).map((text) =>
-    buildFinding({
-      type: "new_number",
-      text,
-      severity: "high",
-      allowed: includesLoose(evidenceText, text),
-      message: "新增数字必须来自已确认事实证据。"
-    })
-  );
+  const numberPattern = /(?:[$¥￥]\s*)?\d+(?:\.\d+)?(?:\s*(?:%|％|ms|seconds?|s|QPS|TPS|毫秒|秒|分钟|小时|人|次|个|项|年|月|天|周|万|亿|千|份|页|元|美元|请求|用户|条|倍))?|[一二三四五六七八九十百千万]+(?:个|项|人|次|年|月|天|周)/giu;
+  const scopes = (text: string) => text.split(/[。；;\n]/u).flatMap((sentence) => {
+    let task = "";
+    return sentence.split(/[，,]/u).map((part) => {
+      const hasMetric = (part.match(numberPattern) ?? []).length > 0;
+      if (!hasMetric) { task = part; return part; }
+      const scoped = task && /^(?:延迟|耗时|QPS|TPS|效率|收入|准确率|提升|降低|从|达到|[$¥￥]|\d)/iu.test(part.trim()) ? `${task}，${part}` : part;
+      task = scoped;
+      return scoped;
+    });
+  });
+  const sources = scopes(`${originalText}；${evidenceText}`);
+  return scopes(checkedText).flatMap((clause) => (clause.match(numberPattern) ?? []).filter((metric) => {
+    const object = clause.replace(numberPattern, "").replace(/[，,：:\s]/gu, "");
+    return !sources.some((source) => {
+      if (!(source.match(numberPattern) ?? []).some((value) => normalizeToken(value) === normalizeToken(metric))) return false;
+      const sourceObject = source.replace(numberPattern, "").replace(/[，,：:\s]/gu, "");
+      if (sourceObject.includes(object) || object.includes(sourceObject) && sourceObject.length > 0) return true;
+      const tokens = object.match(/[A-Za-z]+|[\u4e00-\u9fff]{2}/gu) ?? [];
+      return tokens.length > 0 && tokens.every((token) => sourceObject.includes(token));
+    });
+  }).map((text) => buildFinding({ type: "new_number", text, severity: "high", allowed: false, message: "数字及其任务对象必须来自已确认原始证据。" })));
 }
 
 function detectNewEntities(originalText: string, checkedText: string, evidenceText: string): FactGuardFinding[] {
@@ -173,6 +187,10 @@ function detectNewOutcomes(originalText: string, checkedText: string, evidenceTe
 
 function detectResponsibilityUpgrades(originalText: string, checkedText: string, evidenceText: string): FactGuardFinding[] {
   const findings: FactGuardFinding[] = [];
+  if (!preservesOwnership(`${originalText}；${evidenceText}`, checkedText)) findings.push(buildFinding({
+    type: "participation_to_owner", text: "责任或主语范围变化", severity: "high", allowed: false,
+    message: "责任等级、共同限定和动作对象必须保留原始来源范围。"
+  }));
   if (hasAny(originalText, PARTICIPATION_WORDS) && !hasAny(originalText, OWNER_WORDS)
     && hasAny(checkedText, OWNER_WORDS) && !hasAny(evidenceText, OWNER_WORDS)) {
     findings.push(buildFinding({
@@ -268,7 +286,7 @@ function hasAny(text: string, words: string[]) {
 }
 
 function includesLoose(text: string, token: string) {
-  return normalizeToken(text).includes(normalizeToken(token));
+  return containsKeywordTerm(text, token);
 }
 
 function normalizeToken(text: string) {
