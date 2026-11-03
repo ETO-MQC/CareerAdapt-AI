@@ -1,0 +1,69 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+ ↓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 01 action + method without metric KEEP
+ ↓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 02 verified metric preserved
+ ↓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 03 generic claim requests rewrite without invented number
+ ↓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 04 participation never becomes ownership
+ ↓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 05 familiar and learning never become mastery
+ ↓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 06 absent Summary has no penalty or automatic filler
+ ↓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 07 generic Summary under pressure is removal candidate
+ ↓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 08 twenty-tool catalog gets redundancy warning
+ ↓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 09 Skills Redis plus Project Redis proof allowed
+ × tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 10 strong original requires zero rewrite 50ms
+   → expected [ { …(6) }, { …(6) } ] to deeply equal []
+ ↓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 11 long single causal chain is not split
+ ↓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 12 independent achievements receive split suggestion
+ ↓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 13 user precise metric without supporting source VERIFY
+ ↓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 14 generated unsupported metric BLOCK
+ ↓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 15 AI / Agent 应用工程师 evidence emphasis
+ ↓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 16 后端工程师 evidence emphasis
+ ↓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 17 前端工程师 evidence emphasis
+ ↓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 18 DevOps 基础设施工程师 evidence emphasis
+ ↓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 19 JD keyword without source cannot be parroted
+ ↓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 20 constrained selection preserves strongest relevant evidence
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 10 strong original requires zero rewrite
+AssertionError: expected [ { …(6) }, { …(6) } ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   {
++     "before": "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。",
++     "fieldPath": "highlights",
++     "id": "review-diff-asset-0-0-integrity",
++     "itemId": "asset-0",
++     "kind": "verify",
++     "recommendation": "回到已确认原始证据核对事实、责任、指标及其任务对象。",
++   },
++   {
++     "before": "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。",
++     "fieldPath": "highlights",
++     "id": "review-diff-asset-0-ownership",
++     "itemId": "asset-0",
++     "kind": "verify",
++     "recommendation": "回到来源事实核对参与、协助、负责或主导的边界。",
++   },
++ ]
+
+ ❯ tests/unit/p48c-corpus-calibration.test.ts:69:39
+     67|   it("10 strong original requires zero rewrite", () => {
+     68|     const result = reviewBullet(corpusBullets.infra);
+     69|     expect(result.reviewResult.diffs).toEqual([]);
+       |                                       ^
+     70|     expect(hasBullet(result, corpusBullets.infra)).toBe(true);
+     71|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 19 skipped (20)
+   Start at  22:42:05
+   Duration  2.80s (transform 979ms, setup 161ms, import 1.34s, tests 51ms, environment 997ms)
+

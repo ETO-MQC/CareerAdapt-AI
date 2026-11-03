@@ -1,0 +1,35 @@
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of E:\DEF\CareerAdapt-competition-5.1.8\pnpm-lock.yaml as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * E:\DEF\CareerAdapt-competition-5.1.8\.tmp\sq13-b1-baseline-64323f5\pnpm-lock.yaml
+
+▲ Next.js 16.2.9 (webpack)
+
+  Creating an optimized production build ...
+Failed to compile.
+
+node:crypto
+Module build failed: UnhandledSchemeError: Reading from "node:crypto" is not handled by plugins (Unhandled scheme).
+Webpack supports "data:" and "file:" URIs by default.
+You may need an additional plugin to handle "node:" URIs.
+    at E:\DEF\CareerAdapt AI\node_modules\.pnpm\next@16.2.9_@babel+core@7.2_f5a01388d40f06527c65a95c3f77c745\node_modules\next\dist\compiled\webpack\bundle5.js:29:408361
+    at Hook.eval [as callAsync] (eval at create (E:\DEF\CareerAdapt AI\node_modules\.pnpm\next@16.2.9_@babel+core@7.2_f5a01388d40f06527c65a95c3f77c745\node_modules\next\dist\compiled\webpack\bundle5.js:14:9224), <anonymous>:6:1)
+    at Hook.CALL_ASYNC_DELEGATE [as _callAsync] (E:\DEF\CareerAdapt AI\node_modules\.pnpm\next@16.2.9_@babel+core@7.2_f5a01388d40f06527c65a95c3f77c745\node_modules\next\dist\compiled\webpack\bundle5.js:14:6378)
+    at Object.processResource (E:\DEF\CareerAdapt AI\node_modules\.pnpm\next@16.2.9_@babel+core@7.2_f5a01388d40f06527c65a95c3f77c745\node_modules\next\dist\compiled\webpack\bundle5.js:29:408286)
+    at processResource (E:\DEF\CareerAdapt AI\node_modules\.pnpm\next@16.2.9_@babel+core@7.2_f5a01388d40f06527c65a95c3f77c745\node_modules\next\dist\compiled\loader-runner\LoaderRunner.js:1:5308)
+    at iteratePitchingLoaders (E:\DEF\CareerAdapt AI\node_modules\.pnpm\next@16.2.9_@babel+core@7.2_f5a01388d40f06527c65a95c3f77c745\node_modules\next\dist\compiled\loader-runner\LoaderRunner.js:1:4667)
+    at runLoaders (E:\DEF\CareerAdapt AI\node_modules\.pnpm\next@16.2.9_@babel+core@7.2_f5a01388d40f06527c65a95c3f77c745\node_modules\next\dist\compiled\loader-runner\LoaderRunner.js:1:8590)
+    at NormalModule._doBuild (E:\DEF\CareerAdapt AI\node_modules\.pnpm\next@16.2.9_@babel+core@7.2_f5a01388d40f06527c65a95c3f77c745\node_modules\next\dist\compiled\webpack\bundle5.js:29:408148)
+    at NormalModule.build (E:\DEF\CareerAdapt AI\node_modules\.pnpm\next@16.2.9_@babel+core@7.2_f5a01388d40f06527c65a95c3f77c745\node_modules\next\dist\compiled\webpack\bundle5.js:29:410161)
+    at E:\DEF\CareerAdapt AI\node_modules\.pnpm\next@16.2.9_@babel+core@7.2_f5a01388d40f06527c65a95c3f77c745\node_modules\next\dist\compiled\webpack\bundle5.js:29:82482
+
+Import trace for requested module:
+node:crypto
+./src/domain/jobAssets/jdNormalization.ts
+./src/domain/jobDiscovery/candidatePipeline.ts
+./src/app/jobs/JobsWorkspace.tsx
+
+
+> Build failed because of webpack errors

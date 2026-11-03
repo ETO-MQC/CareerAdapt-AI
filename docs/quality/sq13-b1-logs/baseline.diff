@@ -1,0 +1,1983 @@
+diff --git a/docs/architecture/p5.1-sq1-3-b-writing-integrity-closure-20261103.md b/docs/architecture/p5.1-sq1-3-b-writing-integrity-closure-20261103.md
+new file mode 100644
+index 0000000..8a58e70
+--- /dev/null
++++ b/docs/architecture/p5.1-sq1-3-b-writing-integrity-closure-20261103.md
+@@ -0,0 +1,94 @@
++# P5.1-SQ1.3-B Writing Intelligence & Fact Integrity Closure
++
++日期：2026-11-03，Asia/Shanghai。状态：**实现已交付，验收 PARTIAL，尚未提交；不自动进入 SQ1.3-C。**
++
++本轮按用户授权修复 SQ1.3-A 已定位的实现问题，另定位 JD 长段落/标题问题供下一轮处理。没有重做大范围静态审计。[独立机器证据](../quality/skills-quality-sq13-b-implementation-evidence-20261103.json)保存版本、逐项测试结果与限制。[SQ1.3-A 报告](p5.1-sq1-3-writing-semantic-baseline-20261103.md)及其证据未覆盖。
++
++## 1. 基线与范围
++
++实际起始 branch=`competition/5.1.8`，HEAD=`64323f5a03de85a7802e7dea3743961b8d7de754`（P5.1-SQ1.3-A）；A 报告记载的 b47c01d 是上一阶段 SQ1.2 的基线，不是本轮 HEAD。`git status --short`、`git diff --stat`、`git diff --name-only` 均空。已记录 `git log -10 --oneline` 到机器证据；未 fetch，不声称远程实时一致。未发现相关未提交源码，不覆盖用户工作。
++
++仅 8 个生产文件与独立测试新增/修改。无 Schema、Repository、数据库、Hermes、生产 Skill、Prompt、Provider、预算或 timeout 变更；Fact Guard 的 high→blocked / medium→needs_edit 标准及 Claim Confirmation 协议不变。未调用真实 Provider、读取 API Key、重试请求、开启 Multi-Agent、提交或推送。
++
++修改前 `pnpm typecheck` exit 0；4 文件 27 项既有直接相关测试 exit 0。后续阶段检查 6 文件 60 项、5 文件 52 项通过，仅为中间检查，不与最终集合累加。
++
++## 2. 修复根因、行为与案例
++
++| 缺陷 | 修复前根因 | 修复后行为 | 文件 / 函数 | 回归 |
++| --- | --- | --- | --- | --- |
++| 字面误等价 | Blueprint / V2 containsTerm / V4 keyword extraction 使用 includes | 拉丁词使用 identifier 边界，中文继续短语识别；JavaScript≠Java、React≠R、MySQL≠SQL | keywordTaxonomy.ts / containsKeywordTerm；ResumeBlueprint.ts / classifyJobKeywords；v2/evidence.ts / containsTerm；v4/analyze.ts / extractKeywords | A1、A3 |
++| 真同义漏判 | Blueprint 没消费已有 phrase taxonomy | Prompt Engineering / 提示词工程复用 PHRASE_CATALOG；关系为 synonym，覆盖可支持，不伪装词面 direct | keywordTaxonomy.ts / classifyKeywordRelation；ResumeBlueprint.ts / classifyJobKeywords | A2 |
++| 相邻经验或召回别名升级 | V2 高召回分可能判 direct，未逐项检查工具或成熟度 | direct 需已证明证据及明确术语/可信同义支持；AI 回包也不能把无依据工具或 familiar 设为 direct，失败抛诊断错误，既有 fallback 保留 | v2/evidence.ts / deterministicEvaluation、evaluateRequirementEvidence | A3/D3 新增 V2 子契约 |
++| 未知与否认混淆 | 单一未支持状态缺解释 | taxonomy 返回 direct/synonym/adjacent/transferable/unknown/negative/ambiguous；Blueprint 保留既有三态 Schema，并用 reason 区分否认、歧义及缺证据 | keywordTaxonomy.ts / classifyKeywordRelation；ResumeBlueprint.ts | A3、D1 |
++| 责任短词覆盖 | “负责”覆盖共同负责、主要负责；整段最高值用于授权 | 最长短语提取；逐动作核对责任、主语和对象；共同限定不能丢；协助/参与等低等级词不互换；他人主导不能授权本人主导 | CareerWritingQuality.ts / responsibilityClaims、preservesOwnership；ResumeEvidenceGraph.ts 复用 ownershipStrength；factGuard.ts / detectResponsibilityUpgrades | B1、B2、B3 |
++| 无来源指标漏检 | 数字正则漏 ms 等，已存在数字只比数字集合 | 覆盖数字/单位/比例/金额/数量/时间；核对完整 metric token 和任务上下文；180ms≠80ms、80ms≠80s；同资产另一测试有 80ms 不授权当前接口 | factGuard.ts / detectNewNumbers | C2 11 类指标、跨任务、完整 token/逗号范围 |
++| 新结果无来源 | 收入/增加/减少等未纳入既有结果词规则 | 扩展既有结果词识别；无来源结果仍 needs_edit，数字与责任高风险仍 blocked；合法定性原文可 pass | factGuard.ts / detectNewOutcomes | C1、C2 |
++| Reviewer 自证 | sourceText 使用生成 claims；repair 也引用 claim/bulletPlan | 来源只取对应 confirmed asset 的原始 provenance excerpts；factReview 与写作质量建议分别入 ledger，不用生成文本证明自身 | ResumeEvidenceGraph.ts / buildResumeEvidenceGraph；ResumeReviewer.ts / reviewResumeCompositionPass、repairAffectedBullets、applySafeAtsRepairs | C2 生成 claim 同步污染仍 verify |
++| 全局 repair 干扰 | 跨资产 seenBullets 可能影响另一资产；没有局部审核范围 | 去重限制资产内；Reviewer 可接收 targetAssetIds，内容处理、ATS repair 和条目建议跳过非目标，强句保留 | ResumeReviewer.ts / reviewResumeComposition、reviewResumeCompositionPass、applySafeAtsRepairs | C3 |
++
++没有建立向量检索或新的召回系统；V2 原有 ALIASES 仍只参与召回，不自动升级为 direct。Blueprint 的既有相邻关系和三态展示保留；本轮关系分类是现有 taxonomy 的词面判断，不能被解释为完整自然语言推理。
++
++Ownership 的 0–6 派生摘要仅用于排序及 Writer 参考，不授权责任升级。共同=2、负责=3、主要负责=4、独立=5、主导=6，纠正原本子串导致的共同/普通同级；没有新增持久化字段。已检索调用方：ProfileIntakeFinalCareerSynthesis 的 preservesOwnership、Reviewer、ResumeEvidenceGraph、Blueprint 排分、CareerResumeWritingService 的聚合摘要和 task schema。事实授权改用逐动作 preservesOwnership；没有把 Writer 的最大摘要视作事实证明。
++
++## 3. 独立 12 案例的确定性子契约
++
++新增 `tests/unit/skillsQualitySq13B.test.ts`，版本 v1，**27 项通过**。未覆盖或改写冻结 30 案例、40 oracle、历史 12 行为、SQ1.2 文件或 A 证据。
++
++| 案例 | 本轮可认证的子契约 | 无法据此认证 |
++| --- | --- | --- |
++| A1 | 已确认 Python 来源可被 Blueprint 支持 | 模型自然生成质量 |
++| A2 | 双语 taxonomy 同义召回，不将 JS/TS 邻近词当同义 | 所有任务语境的模型语义 |
++| A3 | Java/R/SQL 边界，相邻数据库，unknown/negative/ambiguous；V2 高分召回/AI回包门禁 | 整段复杂语义推理 |
++| B1 | 团队负责人发布与本人协助接口测试隔离 | 所有隐含人称或代词解析 |
++| B2 | 海报负责不能授权缓存讨论负责，项目架构不证明本人设计 | 任意自然表达的对象等价 |
++| B3 | 八种责任原词保持、共同限定、负责→主导/协助→独立拦截 | 真实模型责任保留率 |
++| C1 | 已有文档交接定性成果合法，不强制数字 | HR 对措辞价值判断 |
++| C2 | 11 类无来源指标阻断、原始合法数字保留、错单位/错数字/跨任务挪用阻断、Reviewer 不被生成 claim 自证欺骗 | 全部事实关系或所有新成果识别 |
++| C3 | 实际 Reviewer 修改 C3a 弱草稿；C3b SHA-256 保持、无 Python 挪用；输入 Profile 与 General/其他 Job Revision 合成快照、未选字段保持 | 正式持久化全链及真实用户 E2E |
++| D1 | R 课程清洗不升级 Python，taxonomy 区分 transferable 与 direct | 实际模型排序/沟通迁移判断 |
++| D2 | 真重复缓存句压缩，缓存失效复核句保留 | 所有同义句自然去重 |
++| D3 | 唯一恢复演练证据保留，familiar 不变 demonstrated，pageCountSource=blueprint_estimate | 一页真实 PDF 排版 |
++
++C3 使用真实纯函数、合成数据与 SHA-256(JSON.stringify(value)) 前后比较。修改目标内的内部草稿，验证处理后目标改变；非目标强句逐字数据哈希不变，目标没有借用 C3b 的 Python。Profile、General Resume 和其他 Job Revision 在该独立案例中是内存快照哨兵，不宣称已做正式数据库/PDF E2E。最终集合另含现有 storage、confirmed-write、commit-gate、workflow、tailoringCommands/FieldSafety 隔离测试；本轮未修改 Repository 或任何正式数据。
++
++本轮全部模型指标仍为 `null / UNVERIFIED_REAL_MODEL_REQUIRED`，真实响应 0/12，Provider 请求 0。新测试 27 项是 12 案例的确定性细分，不能作为 27 个真实质量样本。
++
++## 4. Reviewer 实际检查范围
++
++输入基准为已确认原始 Fact provenance → 对应 asset sourceExcerpts；候选 claim/bullet 为被核验对象；岗位信息用于质量方向及关键词覆盖。检查指标与对象、责任词/主语/动作范围、规则覆盖的新工具/实体/成果、重复/口语/具体性、页数估计、JD keyword coverage。原始 provenance 未确认的片段不进入来源 excerpts。
++
++它是确定性审核，**没有独立 AI 审稿、没有 LLM Reviewer 或额外 Provider 请求**。缺证据生成 verify ledger 和 NEEDS_REVIEW，不把合理表达优化自动认定为新增事实，也没有改动既有用户确认协议。无来源原始文本不会回退成生成 claim 来消除告警。来源图依然是内部可信构建结果，不是外部任意提交图的认证接口。
++
++## 5. 最终验证及未通过项
++
++- `pnpm exec vitest run <机器证据列出的22文件> --reporter=json --outputFile=.tmp/sq13b-final.json`：**233 项，232 通过 / 1 失败，exit 1**；新增独立文件 27/27 通过。逐项名字和状态永久保存在本轮证据 JSON；不依赖 .tmp 作为唯一交接。
++- `pnpm typecheck`：exit 0。
++- `pnpm exec eslint <8生产文件与新增测试> --max-warnings=0`：exit 0。
++- `git diff --check`：exit 0；Markdown/JSON/保护路径另作内容与链接检查。
++- `pnpm build`：exit 1，Turbopack 的 `node_modules` 链接指向项目 root 之外，尚未进入有效生产编译。
++- 备用 `pnpm exec next build --webpack`：exit 1，`node:crypto` → `src/domain/jobAssets/jdNormalization.ts` → `candidatePipeline.ts` → `JobsWorkspace.tsx` 的客户端导入错误；HEAD 中已存在该 node:crypto 导入，本轮上述文件未改。未修改配置、依赖或修复无关构建问题。
++- 未跑全量 Playwright、Release Gate、UI、真实 Provider、PDF、打包；无视觉结构变化，不扩展 UI 审计。
++
++**冻结测试冲突保留**：`tests/unit/p48c-corpus-calibration.test.ts` 第10例 `strong original requires zero rewrite`。helper 先 compose backend 原始来源，再把候选替换为另一条 infra 经历，仍要求 diffs=[]。现在原始证据核验正确要求 verify，因此失败。该断言和夹具未改、未 skip、未降标准。不能称为“与本轮无关的历史失败”：它是本轮加强来源核验后暴露的旧契约冲突；需用户审阅决定独立维护冻结测试或认可带注释的兼容门禁例外。本轮不伪造对应原始证据让它通过。
++
++中途新夹具先后缺 basics/name/preference、sourceSpan、verified factRefs 导致失败，已补齐 Schema 必要字段；跨任务数字测试先失败，修复对象绑定后通过；最初完整性提示遮住原结构改写/拆分提示，已分开 integrity ledger，恢复原建议。所有原断言保持，不把过程失败抹去。
++
++## 6. JD 长段落与标题：下一轮独立问题
++
++用户补充现象：长 JD 按段归为一条要求，标题也成要求。已定位实际实现限制，**本轮只诊断记录，没有改分句、Prompt、Schema 或页面流程**：
++
++1. `src/domain/jobOptimization/v4/analyze.ts:createLexicalJdUnits` 使用 `rawText.split(/\r?\n/)`，每个非空行只生成一个 Source Unit。单行 `熟悉Java。能够编写SQL；具备接口测试经验。` 在独立测试中仍是一个 Unit。
++2. `reconcileJdSemanticLedger` 以既有 sourceUnitId 接受分类/父子关系。未知 ID 被拒绝，同一个 Source Unit 多个 assignment 报 duplicate_assignment；AI 没有在一段内部创建多个有独立 span 的原子要求的表达通道。
++3. `src/app/jobs/JobsWorkspace.tsx:analyzeWithAi` **确实调用** jd-analyzer，传入 sourceUnits、groups、hierarchy，故不能直接说“完全没有给 AI 解析”。但是成功后主动把模型 `requirements` 清空，只消费 unitAssignments，再从图投影覆盖 requirements。这使模型即使能整理长段落，也不能通过返回 requirements 改变最终节点粒度。
++4. `headingSection` 使用固定、锚定的标题词表和简短规则，未识别的标题可能落入普通 requirement；用户实际标题未提供，不能声称已复现那一个标题或判断用户当时 Provider 是否调用/失败。
++5. AI 失败时仍保存本地图投影，UI 提示“岗位职责、条件和申请材料已经整理完成”，需要下一轮检查是否把本地结构化完成误呈现为充分语义分析完成。
++
++下一轮建议：独立 JD 原子要求与标题闭环；以真实失败 JD 的脱敏样例建立“多句同段、标题变体、编号/分组/AND/OR、来源 span、AI 成功与失败”测试。先确定源码偏移可追溯的原子单元与 AI assignment 合并契约，再修页面展示/完成状态；保留原文、人工核对和 Repository 门禁。不能只改界面拆行，也不以新增 Prompt 禁令代替实现修复。本轮不自动开始。
++
++## 7. 尚未解决与 SQ1.3-C 条件
++
++实现覆盖已定位的词边界、责任短语/主语/任务、指标漏识别/对象、Reviewer 来源自证和局部 repair 范围。选材复用现有 Blueprint，没有重建 Writer、排序或 PDF renderer。
++
++仍有界限：词面规则不能完整理解所有代词、隐含主语或复杂同义对象；保守核验可能要求合理改写补核对。任意多个指标与对象的复杂嵌套不因此获得普遍认证。Reviewer 仍只覆盖已定义确定性规则，不承诺所有新事实都可自动判别。C3 不是正式持久化 E2E；页面估计不是 PDF 实排；JD 长段落/标题留下一轮；历史 HTTP/SSE fixture 与 Provider 截断 OPEN 不因本轮关闭。
++
++**SQ1.3-C：本轮不具备“所有门禁通过即可自动进入”的条件。** 可审阅本轮实现和新增 27 项确定性证据；继续前需处理/明确接受冻结来源契约冲突，解决构建环境/既有客户端导入门禁，并由用户选择 C 范围。真实模型写作仍 UNVERIFIED_REAL_MODEL_REQUIRED，不能拿离线测试认证。当前停在 B，等待用户审阅，不改六 Skill/Prompt、不进入 SQ1.4、不提交推送。
+diff --git a/docs/architecture/p5.1-sq1-current-handoff.md b/docs/architecture/p5.1-sq1-current-handoff.md
+index ed530a6..60c08e6 100644
+--- a/docs/architecture/p5.1-sq1-current-handoff.md
++++ b/docs/architecture/p5.1-sq1-current-handoff.md
+@@ -1,6 +1,14 @@
+ # P5.1-SQ1 当前续接
+ 
+-更新：2026-11-03（Asia/Shanghai）。**SQ1.3-A离线写作/语义基线审计完成；真实模型质量未认证；等待用户审阅，不进入SQ1.3-B/SQ1.4。**
++更新：2026-11-03（Asia/Shanghai）。**SQ1.3-B 实现交付，验收 PARTIAL；尚未提交，真实模型未认证，停止等待审阅。**
++
++## SQ1.3-B 最新交接
++
++实际起始 HEAD=`64323f5a03de85a7802e7dea3743961b8d7de754`，competition/5.1.8，干净。用户明确授权B及JD问题只定位留下一轮。完成8生产文件最小修复和独立SQ13B v1 27项确定性测试；词边界/同义相邻、责任范围、指标对象、原始provenance Reviewer和局部repair隔离，未改Skill/Prompt/Schema/Repository/阈值/确认协议/Hermes。Provider0、未读Key、未提交推送或开启Multi-Agent。
++
++最终22文件233项232通过/1失败exit1：冻结p48c第10例用backend原始来源替换infra候选却要求零提示，与本轮原始来源审核冲突，原测试未改。typecheck/changed-file ESLint/diff通过。pnpm build因外链node_modules/Turbopack失败，备用webpack因既有node:crypto客户端导入失败；不称build通过。C3哈希为纯函数内存哨兵，未作新增正式写入/PDF E2E。真实模型全部UNVERIFIED_REAL_MODEL_REQUIRED。
++
++[实现报告](p5.1-sq1-3-b-writing-integrity-closure-20261103.md)与[独立机器证据](../quality/skills-quality-sq13-b-implementation-evidence-20261103.json)详列根因、修改、27项测试、完整233项结果及遗留。JD下一轮问题已定位：按行Unit、AI assignment不能拆分现有段、页面丢弃模型requirements改用图投影、标题固定词表；确有AI调用路径，不能据此判用户当时未调用。未改JD分句/协议/UI。当前验收PARTIAL，先由用户审阅冻结契约冲突与构建门禁，再选择SQ1.3-C或独立JD任务，不自动继续。下方SQ1.3-A为历史交接，其“不进入B”已由本节替代。
+ 
+ ## SQ1.3-A 最新交接
+ 
+diff --git a/docs/quality/skills-quality-sq13-b-implementation-evidence-20261103.json b/docs/quality/skills-quality-sq13-b-implementation-evidence-20261103.json
+new file mode 100644
+index 0000000..27f46ae
+--- /dev/null
++++ b/docs/quality/skills-quality-sq13-b-implementation-evidence-20261103.json
+@@ -0,0 +1,1234 @@
++{
++  "schemaVersion": "sq13-b-implementation-evidence.v1",
++  "date": "2026-11-03",
++  "timezone": "Asia/Shanghai",
++  "phase": "P5.1-SQ1.3-B",
++  "status": "IMPLEMENTED_ACCEPTANCE_PARTIAL",
++  "branch": "competition/5.1.8",
++  "baselineHead": "64323f5a03de85a7802e7dea3743961b8d7de754",
++  "auditReportedPreviousHead": "b47c01dcb7a5092bf9c4753f124dbd3120e11af0",
++  "preflight": {
++    "gitStatusShort": "",
++    "diffStat": "",
++    "diffNameOnly": [],
++    "log10": [
++      "64323f5 P5.1-SQ1.3-A",
++      "b47c01d P5.1-SQ1.2",
++      "250199e P5.1-SQ1.1",
++      "c77d29c P5.2.0-B2-B2",
++      "b6d3ef3 test(agent-ui): reconcile W5 workflow waiting state acceptance",
++      "65d6db9 docs: record competition workspace UX acceptance and remaining regression",
++      "96bd2c8 test(agent-ui): cover workspace lifecycle and history regressions",
++      "243de04 refactor(agent-ui): unify conversation workspace and run interactions",
++      "78dfda5 docs: add competition agent workspace UX audit",
++      "d805933 fix: reconcile Hermes terminal runs across refresh and cancellation"
++    ]
++  },
++  "productionFiles": [
++    {
++      "path": "src/domain/adaptation/factGuard.ts",
++      "sha256": "0447c53ebca7ff519fc35c3e60787eee4b68205fbf7bf86d0fa6fd06a3037e28"
++    },
++    {
++      "path": "src/domain/jobOptimization/keywordTaxonomy.ts",
++      "sha256": "0a508a29f9d0b2fb243b7216bd7395e2660ac384ce0316e64f6dde86ad112928"
++    },
++    {
++      "path": "src/domain/jobOptimization/v2/evidence.ts",
++      "sha256": "98e93b508edc56db1081a177c4ff0403294c66bb6559e1019ec70e40dd278ce9"
++    },
++    {
++      "path": "src/domain/jobOptimization/v4/analyze.ts",
++      "sha256": "6f7eeeb185a9312fec351ce9d8d572a4605f085b4d271ae8658b0a94f7a229ce"
++    },
++    {
++      "path": "src/domain/profileIntake/CareerWritingQuality.ts",
++      "sha256": "980dab4ebd82c1ea858d539f492fc486ccdfb22821c045c2824870e9e4910c5b"
++    },
++    {
++      "path": "src/domain/resumeComposition/ResumeBlueprint.ts",
++      "sha256": "d92a47010bf4b97dcd48d515cde6461522da208a1d49373ed561880ed13b8c9f"
++    },
++    {
++      "path": "src/domain/resumeComposition/ResumeEvidenceGraph.ts",
++      "sha256": "5e55c3a2e6321b197c6fe3b212338c3bfe1932c72a9fd2d42a23f70dbb77cb51"
++    },
++    {
++      "path": "src/domain/resumeComposition/ResumeReviewer.ts",
++      "sha256": "6c8ad2f9a83156978c19ff189285da153519eb39fa78436883826eb8bab47736"
++    }
++  ],
++  "testVersion": "tests/unit/skillsQualitySq13B.test.ts / v1",
++  "caseIds": [
++    "A1",
++    "A2",
++    "A3",
++    "B1",
++    "B2",
++    "B3",
++    "C1",
++    "C2",
++    "C3",
++    "D1",
++    "D2",
++    "D3"
++  ],
++  "newTests": {
++    "passed": 27,
++    "failed": 0
++  },
++  "finalTests": {
++    "files": 22,
++    "passed": 232,
++    "failed": 1,
++    "total": 233,
++    "exitCode": 1,
++    "suites": [
++      {
++        "file": "tests/unit/adaptation.test.ts",
++        "tests": [
++          {
++            "name": "stage C2 adaptation draft and fact guard creates JobAdaptationDraft only from non-stale C1 matches",
++            "status": "passed"
++          },
++          {
++            "name": "stage C2 adaptation draft and fact guard blocks stale matches before creating C2 draft",
++            "status": "passed"
++          },
++          {
++            "name": "stage C2 adaptation draft and fact guard detects unsupported numbers, tools, and responsibility upgrades",
++            "status": "passed"
++          },
++          {
++            "name": "stage C2 adaptation draft and fact guard keeps rule findings when AI fact guard fails",
++            "status": "passed"
++          }
++        ]
++      },
++      {
++        "file": "tests/unit/branch.test.ts",
++        "tests": [
++          {
++            "name": "D1 resume branch domain builds profile-backed and blank general branches with independent basic information",
++            "status": "passed"
++          },
++          {
++            "name": "D1 resume branch domain removes profile-backed content only from the resume branch and can undo it",
++            "status": "passed"
++          },
++          {
++            "name": "D1 resume branch domain persists blank resume basics and keeps newly confirmed content resume-only by default",
++            "status": "passed"
++          },
++          {
++            "name": "D1 resume branch domain normalizes award dates and syncs profile changes back to an existing resume item",
++            "status": "passed"
++          },
++          {
++            "name": "D1 resume branch domain adds confirmed profile experience to a resume without duplicating profile data",
++            "status": "passed"
++          },
++          {
++            "name": "D1 resume branch domain reuses skills and certificates by fact reference and rejects duplicates",
++            "status": "passed"
++          },
++          {
++            "name": "D1 resume branch domain maps a non-stale adaptation draft into a verified branch and first revision",
++            "status": "passed"
++          },
++          {
++            "name": "D1 resume branch domain allows ai_failed_rule_kept only as rule_only_verified when rule findings have no high block",
++            "status": "passed"
++          },
++          {
++            "name": "D1 resume branch domain blocks stale source versions before branch creation",
++            "status": "passed"
++          },
++          {
++            "name": "D1 resume branch repository creates branch and first revision atomically, edits with rule guard, and undoes through previousRevisionId",
++            "status": "passed"
++          },
++          {
++            "name": "D1 resume branch repository migrates legacy v4 placeholder branches as read-only legacy_unverified",
++            "status": "passed"
++          },
++          {
++            "name": "D1 resume branch repository keeps edit operationId idempotent and blocks archived or invalid-reference edits",
++            "status": "passed"
++          },
++          {
++            "name": "D1 resume branch repository parses ResumeRevision with null previousRevisionId and restoredFromRevisionId from IndexedDB",
++            "status": "passed"
++          },
++          {
++            "name": "D1 resume branch repository parses ResumeBranch with null currentRevisionId from IndexedDB",
++            "status": "passed"
++          }
++        ]
++      },
++      {
++        "file": "tests/unit/careerWritingQualityP45a.test.ts",
++        "tests": [
++          {
++            "name": "P4.5a career writing quality allows zero or one reliable highlight instead of filler bullets",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5a career writing quality removes exact, near, and filler duplicates without a vector index",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5a career writing quality preserves ownership strength",
++            "status": "passed"
++          }
++        ]
++      },
++      {
++        "file": "tests/unit/jobOptimization.test.ts",
++        "tests": [
++          {
++            "name": "V2-G5a job optimization renders imported and profile-backed general resumes",
++            "status": "passed"
++          },
++          {
++            "name": "V2-G5a job optimization maps confirmed job requirements to branch content blocks and summarizes fact gaps",
++            "status": "passed"
++          },
++          {
++            "name": "V2-G5a job optimization creates block suggestions with revision locks, evidence, guard preview, and stale detection",
++            "status": "passed"
++          },
++          {
++            "name": "V2-G5a job optimization derives a job branch and applies accepted block suggestions without mutating the general branch",
++            "status": "passed"
++          },
++          {
++            "name": "V2-G5a job optimization deduplicates only the exact source revision and creates a separate branch after the general resume changes",
++            "status": "passed"
++          },
++          {
++            "name": "V2-G5a job optimization keeps Job A and Job B sibling revisions isolated in both directions",
++            "status": "passed"
++          },
++          {
++            "name": "V2-G5a job optimization blocks high-risk accepted edits and stale branch revisions",
++            "status": "passed"
++          }
++        ]
++      },
++      {
++        "file": "tests/unit/jobOptimizationV2.test.ts",
++        "tests": [
++          {
++            "name": "JD Optimization Engine V2 parses headings, lists, independent constraints and preserves every source span",
++            "status": "passed"
++          },
++          {
++            "name": "JD Optimization Engine V2 filters JD headings and metadata while preserving canonical requirement IDs",
++            "status": "passed"
++          },
++          {
++            "name": "JD Optimization Engine V2 creates grounded matrix and honest coverage for 'AI 工程师'",
++            "status": "passed"
++          },
++          {
++            "name": "JD Optimization Engine V2 creates grounded matrix and honest coverage for '前端开发'",
++            "status": "passed"
++          },
++          {
++            "name": "JD Optimization Engine V2 creates grounded matrix and honest coverage for '外贸供应链'",
++            "status": "passed"
++          },
++          {
++            "name": "JD Optimization Engine V2 creates grounded matrix and honest coverage for '明显不匹配'",
++            "status": "passed"
++          },
++          {
++            "name": "JD Optimization Engine V2 rejects unknown, duplicate and out-of-recall AI evidence ids",
++            "status": "passed"
++          },
++          {
++            "name": "JD Optimization Engine V2 semantic rerank accepts recalled IDs and preserves deterministic results on AI failure",
++            "status": "passed"
++          },
++          {
++            "name": "JD Optimization Engine V2 does not hide hard gaps or create claims for missing years and certificates",
++            "status": "passed"
++          },
++          {
++            "name": "JD Optimization Engine V2 recalculates coverage from the patched branch and marks confirmed additions as user_declared",
++            "status": "passed"
++          },
++          {
++            "name": "JD Optimization Engine V2 meets the four-case grounding benchmark and records a V1/V2 comparison",
++            "status": "passed"
++          }
++        ]
++      },
++      {
++        "file": "tests/unit/jobSemanticCompilerV4.test.ts",
++        "tests": [
++          {
++            "name": "Job Semantic Compiler V4 uses dynamic numbered and colon hierarchy for the AI trainer fixture",
++            "status": "passed"
++          },
++          {
++            "name": "Job Semantic Compiler V4 preserves the Coding Agent top-level groups and non-scoring details",
++            "status": "passed"
++          },
++          {
++            "name": "Job Semantic Compiler V4 applies a real AI disposition override before graph compilation",
++            "status": "passed"
++          },
++          {
++            "name": "Job Semantic Compiler V4 rejects invented IDs and cyclic parents locally without losing source coverage",
++            "status": "passed"
++          }
++        ]
++      },
++      {
++        "file": "tests/unit/p46b-tailoring-quality.test.ts",
++        "tests": [
++          {
++            "name": "P4.6b deterministic tailoring quality closure A-D rejects no-op, mechanical prefix, ownership upgrade, and invented metric",
++            "status": "passed"
++          },
++          {
++            "name": "P4.6b deterministic tailoring quality closure E-G rejects generic proficiency, malformed Chinese, and internal field labels",
++            "status": "passed"
++          },
++          {
++            "name": "P4.6b deterministic tailoring quality closure H-I makes denied capability and weak proficiency answers binding",
++            "status": "passed"
++          },
++          {
++            "name": "P4.6b deterministic tailoring quality closure J keeps the first diff and conservatively rejects cross-target repetition",
++            "status": "passed"
++          },
++          {
++            "name": "P4.6b deterministic tailoring quality closure K ranks evidence-backed experience before generic skills and preserves diversity",
++            "status": "passed"
++          },
++          {
++            "name": "P4.6b deterministic tailoring quality closure L sends bounded FACT/REQUIREMENT/CONTEXT sections and retry diagnostics",
++            "status": "passed"
++          }
++        ]
++      },
++      {
++        "file": "tests/unit/p48a-career-resume-intelligence.test.ts",
++        "tests": [
++          {
++            "name": "P4.8a career resume intelligence keeps demonstrated, confirmed, familiar, and learning evidence distinct",
++            "status": "passed"
++          },
++          {
++            "name": "P4.8a career resume intelligence projects legacy facts from their confirmation and source contract without migrating them",
++            "status": "passed"
++          },
++          {
++            "name": "P4.8a career resume intelligence builds at most four exact, reusable confirmed fact bullets without project provenance",
++            "status": "passed"
++          },
++          {
++            "name": "P4.8a career resume intelligence uses explicit mode semantics and freezes a bounded question budget",
++            "status": "passed"
++          },
++          {
++            "name": "P4.8a career resume intelligence keeps a high-value missing dimension visible while allowing an incomplete review to finish",
++            "status": "passed"
++          },
++          {
++            "name": "P4.8a career resume intelligence records a max-fit answer as bounded resume-only evidence instead of copying the option text",
++            "status": "passed"
++          },
++          {
++            "name": "P4.8a career resume intelligence keeps hard fact findings blocking even when a claim is user-confirmed",
++            "status": "passed"
++          },
++          {
++            "name": "P4.8a career resume intelligence flags mechanical or empty-adjective resume wording for human review",
++            "status": "passed"
++          }
++        ]
++      },
++      {
++        "file": "tests/unit/p48c-corpus-calibration.test.ts",
++        "tests": [
++          {
++            "name": "P4.8c frozen 20 production scenarios 01 action + method without metric KEEP",
++            "status": "passed"
++          },
++          {
++            "name": "P4.8c frozen 20 production scenarios 02 verified metric preserved",
++            "status": "passed"
++          },
++          {
++            "name": "P4.8c frozen 20 production scenarios 03 generic claim requests rewrite without invented number",
++            "status": "passed"
++          },
++          {
++            "name": "P4.8c frozen 20 production scenarios 04 participation never becomes ownership",
++            "status": "passed"
++          },
++          {
++            "name": "P4.8c frozen 20 production scenarios 05 familiar and learning never become mastery",
++            "status": "passed"
++          },
++          {
++            "name": "P4.8c frozen 20 production scenarios 06 absent Summary has no penalty or automatic filler",
++            "status": "passed"
++          },
++          {
++            "name": "P4.8c frozen 20 production scenarios 07 generic Summary under pressure is removal candidate",
++            "status": "passed"
++          },
++          {
++            "name": "P4.8c frozen 20 production scenarios 08 twenty-tool catalog gets redundancy warning",
++            "status": "passed"
++          },
++          {
++            "name": "P4.8c frozen 20 production scenarios 09 Skills Redis plus Project Redis proof allowed",
++            "status": "passed"
++          },
++          {
++            "name": "P4.8c frozen 20 production scenarios 10 strong original requires zero rewrite",
++            "status": "failed"
++          },
++          {
++            "name": "P4.8c frozen 20 production scenarios 11 long single causal chain is not split",
++            "status": "passed"
++          },
++          {
++            "name": "P4.8c frozen 20 production scenarios 12 independent achievements receive split suggestion",
++            "status": "passed"
++          },
++          {
++            "name": "P4.8c frozen 20 production scenarios 13 user precise metric without supporting source VERIFY",
++            "status": "passed"
++          },
++          {
++            "name": "P4.8c frozen 20 production scenarios 14 generated unsupported metric BLOCK",
++            "status": "passed"
++          },
++          {
++            "name": "P4.8c frozen 20 production scenarios 15 AI / Agent 应用工程师 evidence emphasis",
++            "status": "passed"
++          },
++          {
++            "name": "P4.8c frozen 20 production scenarios 16 后端工程师 evidence emphasis",
++            "status": "passed"
++          },
++          {
++            "name": "P4.8c frozen 20 production scenarios 17 前端工程师 evidence emphasis",
++            "status": "passed"
++          },
++          {
++            "name": "P4.8c frozen 20 production scenarios 18 DevOps 基础设施工程师 evidence emphasis",
++            "status": "passed"
++          },
++          {
++            "name": "P4.8c frozen 20 production scenarios 19 JD keyword without source cannot be parroted",
++            "status": "passed"
++          },
++          {
++            "name": "P4.8c frozen 20 production scenarios 20 constrained selection preserves strongest relevant evidence",
++            "status": "passed"
++          }
++        ]
++      },
++      {
++        "file": "tests/unit/profileIntakeFactPreservationP43h.test.ts",
++        "tests": [
++          {
++            "name": "P4.3h Profile Intake fact preservation does not upgrade 协助开发 or RPA 采集 into independent or compliance claims",
++            "status": "passed"
++          },
++          {
++            "name": "P4.3h Profile Intake fact preservation quarantines a competition that the model incorrectly classifies as a project",
++            "status": "passed"
++          },
++          {
++            "name": "P4.3h Profile Intake fact preservation injects the caller-provided runtime date into the semantic boundary",
++            "status": "passed"
++          },
++          {
++            "name": "P4.3h Profile Intake fact preservation treats a spaced date correction as authoritative intake evidence",
++            "status": "passed"
++          }
++        ]
++      },
++      {
++        "file": "tests/unit/resumeCompositionCommitGateP45c1.test.ts",
++        "tests": [
++          {
++            "name": "P4.5c.1 resume composition commit quality gate does not persist a branch when AI Writer fell back",
++            "status": "passed"
++          }
++        ]
++      },
++      {
++        "file": "tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts",
++        "tests": [
++          {
++            "name": "P4.5c.1.2 confirmed composition write boundary binds the active Career profile before a natural-language compose task starts",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5c.1.2 confirmed composition write boundary uses one canonical Host command for typed text and the Direct Generate button",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5c.1.2 confirmed composition write boundary executes the confirmed checkpoint once, projects resume_ready, and makes a second click idempotent",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5c.1.2 confirmed composition write boundary does not let an MCP checkpoint call create a branch without Host confirmation",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5c.1.2 confirmed composition write boundary rejects a stale checkpoint without writing and returns to review",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5c.1.2 confirmed composition write boundary keeps update_existing behind an explicit user selection",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5c.1.2 confirmed composition write boundary keeps a transport-failed checkpoint recoverable and writes nothing",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5c.1.2 confirmed composition write boundary retries the same checkpoint after transport recovery and creates one branch and revision",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5c.1.2 confirmed composition write boundary coalesces concurrent retries for the same failed checkpoint",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5c.1.2 confirmed composition write boundary rejects a same-checkpoint retry after the bound Profile revision changes",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5c.1.2 confirmed composition write boundary keeps a runtime composition proposal actionable without creating a pending artifact",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5c.1.2 confirmed composition write boundary reprojects composition actions when the terminal runtime event arrives before the bridge result",
++            "status": "passed"
++          }
++        ]
++      },
++      {
++        "file": "tests/unit/resumeCompositionP45b.test.ts",
++        "tests": [
++          {
++            "name": "P4.5b resume compilation intelligence builds a grounded evidence graph and general resume without mutating Profile",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5b resume compilation intelligence classifies job keywords conservatively and keeps the job branch proposal-only until composition",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5b resume compilation intelligence round-trips all canonical project fields through the structured editor model",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5b resume compilation intelligence recovers explicit project technologies into the proposal without mutating Profile",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5b resume compilation intelligence lets the model improve phrasing while deterministic boundaries keep identity, tools, and skills grounded",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5b resume compilation intelligence uses section labels instead of internal IDs and filters generic technical noise",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5b resume compilation intelligence records writer execution, preserves target context, and creates an immutable checkpoint",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5b resume compilation intelligence records a deterministic fallback when the writer provider is unavailable",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5b resume compilation intelligence keeps writer target context in the strict task schema and prompt payload",
++            "status": "passed"
++          }
++        ]
++      },
++      {
++        "file": "tests/unit/resumeCompositionWorkflowP45b1.test.ts",
++        "tests": [
++          {
++            "name": "P4.5b.1 canonical resume composition journey does not consume Card 4's initial instruction as the target-direction answer",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5b.1 canonical resume composition journey captures a later target answer and makes direct generation an explicit confirmation",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5b.1 canonical resume composition journey keeps a short target answer in compose_resume even before the pause is marked waiting",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5b.1 canonical resume composition journey keeps the canonical tool permission set and removes the legacy raw writer",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5b.1 canonical resume composition journey migrates a completed legacy branch without reopening it as an unfinished composition",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5b.1 canonical resume composition journey blocks a resume-shaped fabricated answer until a proposal or result is grounded",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5b.1 canonical resume composition journey persists an external runtime's canonical task before it can call the model",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5b.1 canonical resume composition journey recognizes the three proposal continuations without lexical workflow switching",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5b.1 canonical resume composition journey closes the optional target-direction need when composition reaches resume_ready",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5b.1 canonical resume composition journey keeps ordinary career questions as a side turn while preserving the active composition",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5b.1 canonical resume composition journey requires a legal terminal result for the current turn",
++            "status": "passed"
++          },
++          {
++            "name": "P4.5b.1 canonical resume composition journey regenerates a failed composition turn from its canonical checkpoint",
++            "status": "passed"
++          }
++        ]
++      },
++      {
++        "file": "tests/unit/resumeRender.test.ts",
++        "tests": [
++          {
++            "name": "D2 resume render model maps only verified visible branch content into the render model",
++            "status": "passed"
++          },
++          {
++            "name": "D2 resume render model rejects legacy_unverified branches before template rendering",
++            "status": "passed"
++          },
++          {
++            "name": "D2 resume render model keeps rule_only_verified content in the model but exposes safety metadata only",
++            "status": "passed"
++          },
++          {
++            "name": "D2 overflow classification classifies fits, near_limit, and overflow from real container heights",
++            "status": "passed"
++          }
++        ]
++      },
++      {
++        "file": "tests/unit/skillsQualitySq12.test.ts",
++        "tests": [
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'I-01' has a complete independent card and no invented observations",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'I-02' has a complete independent card and no invented observations",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'I-03' has a complete independent card and no invented observations",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'I-04' has a complete independent card and no invented observations",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'I-05' has a complete independent card and no invented observations",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'I-06' has a complete independent card and no invented observations",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'S-01' has a complete independent card and no invented observations",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'S-02' has a complete independent card and no invented observations",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'S-03' has a complete independent card and no invented observations",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'S-04' has a complete independent card and no invented observations",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'S-05' has a complete independent card and no invented observations",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'S-06' has a complete independent card and no invented observations",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) freezes the twelve IDs, all six candidate hashes and all protected baseline bytes",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) keeps the historical loader fail-closed for the candidate, without entering its CLI",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) I-02 binds the mixed answer route, without claiming semantic isolation of unrelated clauses",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) I-03 distinguishes answer from correction and carries superseded-source provenance",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) I-04 records skip exactly once, suppresses that dimension, and exposes absent uncertain status",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) I-05/S-03 allow a qualitative complete asset to have zero detail questions",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) I-06 recognizes explicit stop control, but does not treat recognition as recovery verification",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) records the Host identity-repair exception to the normal two-detail budget",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) I-01/S-05 source journal can bind multiple candidate IDs without inventing extraction",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) S-01 preserves the existing ownership/metric block for an unsupported escalation",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) S-02/S-03 preserve exact qualitative team/individual statements in the confirmed-fact projection",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) S-04 excludes an unconfirmed example from confirmed review bullets",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) S-06 projection retains familiar without external proof",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) S-06 projection retains confirmed_capability without external proof",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.2 independent offline contracts (no model-quality verdict) S-06 projection retains learning without external proof",
++            "status": "passed"
++          }
++        ]
++      },
++      {
++        "file": "tests/unit/skillsQualitySq13B.test.ts",
++        "tests": [
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) A1 exact confirmed Python mapping",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) A2 taxonomy bilingual synonym without promoting unrelated aliases",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) A3 false equivalence, adjacency, uncertainty, denial and ambiguity",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) B1 separates team leader from personal assistance",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) A3/D3 V2 cannot promote recalled aliases or familiar skills to direct",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) B2 binds ownership to the task instead of the paragraph maximum",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) B3 longest phrases retain shared, primary, independent and leading responsibility",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C1 qualitative outcomes need no numeric decoration",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 rejects unsupported metric 80ms",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 rejects unsupported metric 2s",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 rejects unsupported metric 2 seconds",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 rejects unsupported metric QPS1000",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 rejects unsupported metric TPS200",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 rejects unsupported metric 99%",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 rejects unsupported metric ￥300",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 rejects unsupported metric 收入200元",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 rejects unsupported metric 10个用户",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 rejects unsupported metric 3个月",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 rejects unsupported metric 效率提升30%",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 rejects a metric borrowed from a different task",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 metric token equality and comma-separated task objects",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 reviewer compares generated claims against original confirmed evidence",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C3 preserves non-target strong asset hash and input profiles/revisions",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) D1 does not turn transferable R evidence into Python experience",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) D2 removes repeated cache wording but keeps invalidation verification",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) D3 preserves unique recovery evidence and labels page count as estimate",
++            "status": "passed"
++          },
++          {
++            "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) next-round JD finding: paragraph remains a single lexical unit",
++            "status": "passed"
++          }
++        ]
++      },
++      {
++        "file": "tests/unit/storage.test.ts",
++        "tests": [
++          {
++            "name": "WorkspaceRepository persists the current Agent Session projection when listing a legacy record",
++            "status": "passed"
++          },
++          {
++            "name": "WorkspaceRepository migrates legacy agent message options before archive and rename writes",
++            "status": "passed"
++          },
++          {
++            "name": "WorkspaceRepository persists only an existing profile as the active profile context",
++            "status": "passed"
++          },
++          {
++            "name": "WorkspaceRepository copies a user-entered profile summary into a new general resume",
++            "status": "passed"
++          },
++          {
++            "name": "WorkspaceRepository deletes an unreferenced profile and blocks deletion after a resume references it",
++            "status": "passed"
++          },
++          {
++            "name": "WorkspaceRepository renames an untouched legacy demo profile without overwriting a user rename",
++            "status": "passed"
++          },
++          {
++            "name": "WorkspaceRepository restores profile items and jobs from the unified recycle bin",
++            "status": "passed"
++          },
++          {
++            "name": "WorkspaceRepository restores structured profile items from the recycle bin without losing fields or evidence",
++            "status": "passed"
++          },
++          {
++            "name": "WorkspaceRepository writes, reads, updates, and exports the demo workspace",
++            "status": "passed"
++          },
++          {
++            "name": "WorkspaceRepository migrates stage B Dexie v2 data to v3 without losing profile, job, raw inputs, or drafts",
++            "status": "passed"
++          },
++          {
++            "name": "WorkspaceRepository migrates stage C1 Dexie v3 data to v4 with empty C2 tables",
++            "status": "passed"
++          },
++          {
++            "name": "WorkspaceRepository saves resume branches, AI logs, export records, and app meta",
++            "status": "passed"
++          },
++          {
++            "name": "WorkspaceRepository persists C2 draft, suggestions, idempotent accept, rejection, edit guard, and undo",
++            "status": "passed"
++          },
++          {
++            "name": "WorkspaceRepository prevents accepting blocked high-risk suggestions",
++            "status": "passed"
++          },
++          {
++            "name": "WorkspaceRepository saves stage B profile drafts with revision checks and idempotent commits",
++            "status": "passed"
++          },
++          {
++            "name": "WorkspaceRepository saves stage B JD drafts with revision checks and idempotent commits",
++            "status": "passed"
++          },
++          {
++            "name": "WorkspaceRepository revision conflict prevents concurrent profile draft overwrites",
++            "status": "passed"
++          },
++          {
++            "name": "WorkspaceRepository draft persists through simulated refresh for recovery",
++            "status": "passed"
++          },
++          {
++            "name": "WorkspaceRepository JD draft also persists through simulated refresh",
++            "status": "passed"
++          },
++          {
++            "name": "WorkspaceRepository provider failure fallback: raw text preserved, manual mode draft created",
++            "status": "passed"
++          }
++        ]
++      },
++      {
++        "file": "tests/unit/tailoring.test.ts",
++        "tests": [
++          {
++            "name": "Claim Guard turns new_tool into a confirmable capability",
++            "status": "passed"
++          },
++          {
++            "name": "Claim Guard turns new_skill into a confirmable capability",
++            "status": "passed"
++          },
++          {
++            "name": "Claim Guard turns know_to_proficient into a confirmable capability",
++            "status": "passed"
++          },
++          {
++            "name": "Claim Guard keeps new_number blocked",
++            "status": "passed"
++          },
++          {
++            "name": "Claim Guard keeps new_company blocked",
++            "status": "passed"
++          },
++          {
++            "name": "Claim Guard keeps participation_to_owner blocked",
++            "status": "passed"
++          },
++          {
++            "name": "Claim Guard accepts planner ask_user actions and bound clarification questions",
++            "status": "passed"
++          },
++          {
++            "name": "Claim Guard keeps an AI suggestion with a new tool selectable pending confirmation",
++            "status": "passed"
++          },
++          {
++            "name": "Claim Guard maps the four support levels to stable decisions",
++            "status": "passed"
++          },
++          {
++            "name": "Claim Guard keeps user-declared skills separate from verified evidence",
++            "status": "passed"
++          },
++          {
++            "name": "Claim Guard permanently blocks invented numeric outcomes",
++            "status": "passed"
++          },
++          {
++            "name": "tailoring intensity and section policy uses balanced as the middle recommendation",
++            "status": "passed"
++          },
++          {
++            "name": "tailoring intensity and section policy never rewrites immutable factual sections",
++            "status": "passed"
++          },
++          {
++            "name": "tailoring application service groups confirmation and defaults it to resume-only",
++            "status": "passed"
++          },
++          {
++            "name": "tailoring application service resolves proficient into proficiency-aware final text",
++            "status": "passed"
++          },
++          {
++            "name": "tailoring application service resolves familiar into proficiency-aware final text",
++            "status": "passed"
++          },
++          {
++            "name": "tailoring application service resolves aware into proficiency-aware final text",
++            "status": "passed"
++          },
++          {
++            "name": "tailoring application service resolves learning into proficiency-aware final text",
++            "status": "passed"
++          },
++          {
++            "name": "tailoring application service does not produce resolved text when the user chooses not to add",
++            "status": "passed"
++          },
++          {
++            "name": "tailoring application service does not erase deterministic claims when AI returns no suggestions",
++            "status": "passed"
++          },
++          {
++            "name": "tailoring application service turns a clarification answer into a resume-only confirmable claim",
++            "status": "passed"
++          },
++          {
++            "name": "tailoring application service records a negative clarification answer and does not create a claim",
++            "status": "passed"
++          },
++          {
++            "name": "tailoring application service builds a safe fallback patch when clarification has no deterministic suggestion",
++            "status": "passed"
++          }
++        ]
++      },
++      {
++        "file": "tests/unit/tailoringClosure.test.ts",
++        "tests": [
++          {
++            "name": "capability entity resolver classifies employers, platforms, tools, models, workflows and materials",
++            "status": "passed"
++          },
++          {
++            "name": "capability entity resolver never promotes Talents spelling variants to proficiency-capable entities",
++            "status": "passed"
++          },
++          {
++            "name": "tailoring closure invariants deduplicates clarification cards by capability and policy while merging requirements",
++            "status": "passed"
++          },
++          {
++            "name": "tailoring closure invariants captures the immutable branch revision value and merges requirement ids by semantic target",
++            "status": "passed"
++          },
++          {
++            "name": "tailoring closure invariants detects a changed revision without mutating the saved original snapshot",
++            "status": "passed"
++          },
++          {
++            "name": "tailoring closure invariants rejects Talents proficiency text and duplicate final sentences",
++            "status": "passed"
++          },
++          {
++            "name": "tailoring closure invariants does not create a skill claim from a Talents suggestion",
++            "status": "passed"
++          },
++          {
++            "name": "tailoring closure invariants appends a confirmed project bullet instead of prepending a generic proficiency sentence",
++            "status": "passed"
++          }
++        ]
++      },
++      {
++        "file": "tests/unit/tailoringCommands.test.ts",
++        "tests": [
++          {
++            "name": "headless tailoring commands analyzes a JD without UI state and returns a reviewable V4 graph",
++            "status": "passed"
++          },
++          {
++            "name": "headless tailoring commands retries only a rejected target once and keeps the successful retry",
++            "status": "passed"
++          }
++        ]
++      },
++      {
++        "file": "tests/unit/tailoringFieldSafety.test.ts",
++        "tests": [
++          {
++            "name": "typed resume field patches keeps experience highlights as a string array and rejects flattened metadata",
++            "status": "passed"
++          },
++          {
++            "name": "typed resume field patches builds a claim whose formal target is only the typed field patch",
++            "status": "passed"
++          },
++          {
++            "name": "claim-level confirmation resolves proficiency into both the visible final sentence and target patch",
++            "status": "passed"
++          },
++          {
++            "name": "claim-level confirmation uses adopt/edit/reject for experience reframes instead of proficiency",
++            "status": "passed"
++          },
++          {
++            "name": "tailoring quality gates rejects a truncated summary and analytical boilerplate",
++            "status": "passed"
++          },
++          {
++            "name": "tailoring quality gates deduplicates keyword variants and separates decision groups",
++            "status": "passed"
++          },
++          {
++            "name": "tailoring quality gates prioritizes the most relevant AI Coding evidence",
++            "status": "passed"
++          }
++        ]
++      }
++    ]
++  },
++  "checks": [
++    {
++      "command": "pnpm typecheck",
++      "exitCode": 0
++    },
++    {
++      "command": "pnpm exec eslint <8 changed production files and SQ13B test> --max-warnings=0",
++      "exitCode": 0
++    },
++    {
++      "command": "git diff --check",
++      "exitCode": 0
++    },
++    {
++      "command": "pnpm build",
++      "exitCode": 1,
++      "reason": "Turbopack rejects node_modules symlink outside project filesystem root"
++    },
++    {
++      "command": "pnpm exec next build --webpack",
++      "exitCode": 1,
++      "reason": "UnhandledSchemeError node:crypto; unchanged jdNormalization.ts -> candidatePipeline.ts -> JobsWorkspace.tsx"
++    }
++  ],
++  "isolation": {
++    "method": "SHA-256(JSON.stringify(value)) assertions around real deterministic reviewer; in-memory synthetic fixtures",
++    "target": "asset-0 / C3a",
++    "nonTarget": "asset-1 / C3b",
++    "targetChanged": true,
++    "nonTargetHashUnchanged": true,
++    "profileHashUnchanged": true,
++    "generalSnapshotHashUnchanged": true,
++    "otherJobRevisionSnapshotHashUnchanged": true,
++    "unselectedFieldHashUnchanged": true,
++    "persistenceE2E": "NOT_RUN; existing storage/confirmed-write/commit-gate/workflow unit suites included; no real user data"
++  },
++  "originalEvidence": {
++    "reviewSource": "confirmed asset node sourceExcerpts from user-confirmed Fact provenance",
++    "generatedClaimUsedAsSource": false,
++    "dimensions": [
++      "metric token and task object",
++      "ownership phrase and subject/task",
++      "new tools/entities/outcomes",
++      "deduplication",
++      "bullet specificity",
++      "estimated page budget",
++      "JD keyword coverage"
++    ],
++    "reviewer": "deterministic rules; no independent AI reviewer"
++  },
++  "frozenCompatibilityConflict": {
++    "file": "tests/unit/p48c-corpus-calibration.test.ts",
++    "case": "10 strong original requires zero rewrite",
++    "reason": "reviewBullet(infra) composes backend source, replaces candidate only, expects no diffs; raw-evidence review now correctly requests verification",
++    "historicalAssertionChanged": false
++  },
++  "jdNextRound": {
++    "status": "ROOT_CAUSE_LOCATED_NOT_IMPLEMENTED",
++    "paths": [
++      "src/domain/jobOptimization/v4/analyze.ts:createLexicalJdUnits/reconcileJdSemanticLedger/headingSection",
++      "src/app/jobs/JobsWorkspace.tsx:analyzeWithAi"
++    ],
++    "findings": [
++      "source units split only on newlines",
++      "assignments classify existing unit IDs; cannot subdivide one paragraph",
++      "duplicate source assignments are errors",
++      "model requirements discarded and regenerated from graph projection",
++      "heading detection uses fixed anchored patterns"
++    ],
++    "probe": "single-line 熟悉Java。能够编写SQL；具备接口测试经验。 remains exactly one lexical unit",
++    "realUserSession": "not reproduced; cannot infer whether provider ran or failed in user session"
++  },
++  "realModel": {
++    "status": "UNVERIFIED_REAL_MODEL_REQUIRED",
++    "responses": 0,
++    "providerRequests": 0,
++    "metrics": null
++  },
++  "protectedPathsUnchanged": [
++    "src/ai/prompts",
++    "src/domain/schemas",
++    "src/services/storage",
++    "electron",
++    "scripts/hermes-runtime-lock.json",
++    "tests/fixtures",
++    "docs/quality/skills-quality-sq13-isolated-evidence-20261103.json",
++    "tests/unit/skillsQualitySq12.test.ts"
++  ],
++  "thresholdsChanged": false,
++  "claimConfirmationProtocolChanged": false,
++  "schemaChanged": false,
++  "databaseChanged": false,
++  "skillsOrPromptsChanged": false,
++  "agentsSpawned": 0,
++  "apiKeyRead": false,
++  "committed": false,
++  "pushed": false,
++  "sq13C": "NOT_AUTO_APPROVED: frozen-test contract conflict and build gates remain open; user review required",
++  "intermediateFailures": [
++    "new fixture missing name/basics/preference/sourceSpan and verified factRefs; fixed without lowering assertions",
++    "metric object leakage first regression failed; implementation corrected",
++    "early integrity recommendation masked structural recommendations; separate integrity ledger fixed masking"
++  ]
++}
+diff --git a/src/domain/adaptation/factGuard.ts b/src/domain/adaptation/factGuard.ts
+index c5a347d..1d05903 100644
+--- a/src/domain/adaptation/factGuard.ts
++++ b/src/domain/adaptation/factGuard.ts
+@@ -1,3 +1,5 @@
++import { preservesOwnership } from "@/domain/profileIntake/CareerWritingQuality";
++import { containsKeywordTerm } from "@/domain/jobOptimization/keywordTaxonomy";
+ import {
+   FactGuardAiReviewSchema,
+   FactGuardResultSchema,
+@@ -38,7 +40,7 @@ const TOOL_OR_SKILL_WORDS = [
+   "项目管理"
+ ];
+ 
+-const NEW_OUTCOME_WORDS = ["提升", "增长", "降低", "优化", "转化", "留存", "交付", "落地", "获奖", "排名"];
++const NEW_OUTCOME_WORDS = ["提升", "增长", "降低", "优化", "增加", "减少", "缩短", "收入", "转化", "留存", "交付", "落地", "获奖", "排名"];
+ const OWNER_WORDS = ["负责", "主导", "带领", "统筹", "独立"];
+ const PARTICIPATION_WORDS = ["参与", "协助", "配合", "支持", "跟随"];
+ const ASSIST_WORDS = ["协助", "配合", "支持"];
+@@ -111,16 +113,28 @@ export function mergeAiFactGuardReview(input: {
+ }
+ 
+ function detectNewNumbers(originalText: string, checkedText: string, evidenceText: string): FactGuardFinding[] {
+-  const numberPattern = /(?:\d+(?:\.\d+)?\s*%|\d+(?:\.\d+)?\s*(?:人|次|个|项|年|月|天|周|万|千|小时|份|页)|[一二三四五六七八九十百千万]+(?:个|项|人|次|年|月|天|周)?)/g;
+-  return findNewMatches(numberPattern, originalText, checkedText).map((text) =>
+-    buildFinding({
+-      type: "new_number",
+-      text,
+-      severity: "high",
+-      allowed: includesLoose(evidenceText, text),
+-      message: "新增数字必须来自已确认事实证据。"
+-    })
+-  );
++  const numberPattern = /(?:[$¥￥]\s*)?\d+(?:\.\d+)?(?:\s*(?:%|％|ms|seconds?|s|QPS|TPS|毫秒|秒|分钟|小时|人|次|个|项|年|月|天|周|万|亿|千|份|页|元|美元|请求|用户|条|倍))?|[一二三四五六七八九十百千万]+(?:个|项|人|次|年|月|天|周)/giu;
++  const scopes = (text: string) => text.split(/[。；;\n]/u).flatMap((sentence) => {
++    let task = "";
++    return sentence.split(/[，,]/u).map((part) => {
++      const hasMetric = (part.match(numberPattern) ?? []).length > 0;
++      if (!hasMetric) { task = part; return part; }
++      const scoped = task && /^(?:延迟|耗时|QPS|TPS|效率|收入|准确率|提升|降低|从|达到|[$¥￥]|\d)/iu.test(part.trim()) ? `${task}，${part}` : part;
++      task = scoped;
++      return scoped;
++    });
++  });
++  const sources = scopes(`${originalText}；${evidenceText}`);
++  return scopes(checkedText).flatMap((clause) => (clause.match(numberPattern) ?? []).filter((metric) => {
++    const object = clause.replace(numberPattern, "").replace(/[，,：:\s]/gu, "");
++    return !sources.some((source) => {
++      if (!(source.match(numberPattern) ?? []).some((value) => normalizeToken(value) === normalizeToken(metric))) return false;
++      const sourceObject = source.replace(numberPattern, "").replace(/[，,：:\s]/gu, "");
++      if (sourceObject.includes(object) || object.includes(sourceObject) && sourceObject.length > 0) return true;
++      const tokens = object.match(/[A-Za-z]+|[\u4e00-\u9fff]{2}/gu) ?? [];
++      return tokens.length > 0 && tokens.every((token) => sourceObject.includes(token));
++    });
++  }).map((text) => buildFinding({ type: "new_number", text, severity: "high", allowed: false, message: "数字及其任务对象必须来自已确认原始证据。" })));
+ }
+ 
+ function detectNewEntities(originalText: string, checkedText: string, evidenceText: string): FactGuardFinding[] {
+@@ -173,6 +187,10 @@ function detectNewOutcomes(originalText: string, checkedText: string, evidenceTe
+ 
+ function detectResponsibilityUpgrades(originalText: string, checkedText: string, evidenceText: string): FactGuardFinding[] {
+   const findings: FactGuardFinding[] = [];
++  if (!preservesOwnership(`${originalText}；${evidenceText}`, checkedText)) findings.push(buildFinding({
++    type: "participation_to_owner", text: "责任或主语范围变化", severity: "high", allowed: false,
++    message: "责任等级、共同限定和动作对象必须保留原始来源范围。"
++  }));
+   if (hasAny(originalText, PARTICIPATION_WORDS) && !hasAny(originalText, OWNER_WORDS)
+     && hasAny(checkedText, OWNER_WORDS) && !hasAny(evidenceText, OWNER_WORDS)) {
+     findings.push(buildFinding({
+@@ -268,7 +286,7 @@ function hasAny(text: string, words: string[]) {
+ }
+ 
+ function includesLoose(text: string, token: string) {
+-  return normalizeToken(text).includes(normalizeToken(token));
++  return containsKeywordTerm(text, token);
+ }
+ 
+ function normalizeToken(text: string) {
+diff --git a/src/domain/jobOptimization/keywordTaxonomy.ts b/src/domain/jobOptimization/keywordTaxonomy.ts
+index 628f07e..a179c99 100644
+--- a/src/domain/jobOptimization/keywordTaxonomy.ts
++++ b/src/domain/jobOptimization/keywordTaxonomy.ts
+@@ -55,7 +55,7 @@ export function extractPhraseAwareKeywords(values: string[]): TailoringKeyword[]
+   const normalized = normalize(text);
+   const result: TailoringKeyword[] = [];
+   for (const entry of [...PHRASE_CATALOG].sort((left, right) => right.phrase.length - left.phrase.length)) {
+-    if ([entry.phrase, ...entry.aliases].some((candidate) => normalized.includes(normalize(candidate)))) result.push(entry);
++    if ([entry.phrase, ...entry.aliases].some((candidate) => containsKeywordTerm(normalized, candidate))) result.push(entry);
+   }
+   const technical = text.match(/\b(?:[A-Z][A-Za-z0-9.+#-]{1,}|[A-Za-z]+(?:\s+[A-Za-z]+){1,2})\b/g) ?? [];
+   for (const phrase of technical) {
+@@ -71,8 +71,8 @@ export function extractPhraseAwareKeywords(values: string[]): TailoringKeyword[]
+ 
+ export function keywordMatchScore(keyword: TailoringKeyword, text: string) {
+   const normalized = normalize(text);
+-  if (normalized.includes(normalize(keyword.phrase))) return keyword.weight;
+-  if (keyword.aliases.some((alias) => normalized.includes(normalize(alias)))) return keyword.weight * 0.8;
++  if (containsKeywordTerm(normalized, keyword.phrase)) return keyword.weight;
++  if (keyword.aliases.some((alias) => containsKeywordTerm(normalized, alias))) return keyword.weight * 0.8;
+   return 0;
+ }
+ 
+@@ -91,3 +91,34 @@ function addUnique(items: TailoringKeyword[], candidate: TailoringKeyword) {
+ function normalize(value: string) {
+   return value.toLowerCase().replace(/[\s_-]+/g, " ").trim();
+ }
++
++/** Latin identifiers must not match inside another identifier; Chinese stays phrase based. */
++export function containsKeywordTerm(text: string, term: string) {
++  const escaped = normalize(term).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
++  if (!escaped) return false;
++  return new RegExp(`${/^[a-z0-9]/i.test(term) ? "(?<![a-z0-9_])" : ""}${escaped}${/[a-z0-9]$/i.test(term) ? "(?![a-z0-9_])" : ""}`, "iu").test(normalize(text));
++}
++
++export type KeywordRelation = "direct" | "synonym" | "adjacent" | "transferable" | "unknown" | "negative" | "ambiguous";
++export function classifyKeywordRelation(term: string, text: string): KeywordRelation {
++  const clauses = text.split(/[。；;，,\n]/u);
++  const matches = clauses.filter((clause) => containsKeywordTerm(clause, term));
++  const negative = (clause: string) => /未涉及|未使用|没有|不会|不使用|不支持|不含/u.test(clause);
++  const uncertain = (clause: string) => /不确定|待确认|尚未确认|未知/u.test(clause);
++  if (matches.some((clause) => !negative(clause) && !uncertain(clause))) return "direct";
++  if (matches.some(uncertain)) return "unknown";
++  if (matches.length) return "negative";
++  const catalog = PHRASE_CATALOG.find((entry) => [entry.phrase, ...entry.aliases].some((alias) => normalize(alias) === normalize(term)));
++  if (catalog) {
++    const aliasClauses = clauses.filter((clause) => [catalog.phrase, ...catalog.aliases].some((alias) => containsKeywordTerm(clause, alias)));
++    if (aliasClauses.some((clause) => !negative(clause) && !uncertain(clause))) return "synonym";
++    if (aliasClauses.some(uncertain)) return "unknown";
++    if (aliasClauses.length) return "negative";
++  }
++  const adjacent: Record<string, string[]> = { postgresql: ["SQLite", "MySQL", "SQL"], sqlite: ["PostgreSQL", "MySQL"], mysql: ["SQL", "SQLite", "PostgreSQL"], sql: ["MySQL", "SQLite", "PostgreSQL"] };
++  if ((adjacent[normalize(term)] ?? []).some((alias) => containsKeywordTerm(text, alias))) return "adjacent";
++  const transferable: Record<string, string[]> = { backend: ["FastAPI", "Node.js", "Rust", "API"], frontend: ["React", "Next.js", "TypeScript"] };
++  if ((transferable[normalize(term)] ?? []).some((alias) => containsKeywordTerm(text, alias))) return "transferable";
++  if (/^(?:平台开发|平台|platform development)$/iu.test(term)) return "ambiguous";
++  return "unknown";
++}
+diff --git a/src/domain/jobOptimization/v2/evidence.ts b/src/domain/jobOptimization/v2/evidence.ts
+index 62f6079..6ca5c2f 100644
+--- a/src/domain/jobOptimization/v2/evidence.ts
++++ b/src/domain/jobOptimization/v2/evidence.ts
+@@ -1,3 +1,4 @@
++import { containsKeywordTerm, classifyKeywordRelation } from "../keywordTaxonomy";
+ import {
+   CandidateEvidenceUnitSchema, RequirementEvidenceEvaluationV2Schema, RequirementEvidenceMatrixV2Schema,
+   RequirementEvidenceRecallSchema, type CandidateEvidenceUnit, type CareerProfile, type JobRequirementGraphV2,
+@@ -102,6 +103,13 @@ export function evaluateRequirementEvidence(input: {
+       const allowed = allowedByRequirement.get(evaluation.requirementId) ?? new Set();
+       if (new Set(evaluation.evidenceUnitIds).size !== evaluation.evidenceUnitIds.length) throw new Error("evidence_matcher_v2_duplicate_evidence_id");
+       if (evaluation.evidenceUnitIds.some((id) => !allowed.has(id) || !unitById.has(id))) throw new Error("evidence_matcher_v2_evidence_outside_recall");
++      if (evaluation.matchLevel === "direct") {
++        const selectedUnits = evaluation.evidenceUnitIds.map((id) => unitById.get(id)!);
++        const demonstrated = selectedUnits.filter((unit) => unit.maturity === "demonstrated" || unit.maturity === undefined);
++        if (!demonstrated.length || (requirement.kind === "tool_or_technology" && !requirement.exactKeywords.every((term) => demonstrated.some((unit) => ["direct", "synonym"].includes(classifyKeywordRelation(term, unit.text)))))) {
++          throw new Error("evidence_matcher_v2_unsupported_direct_claim");
++        }
++      }
+       return RequirementEvidenceEvaluationV2Schema.parse({ ...evaluation, evidenceRefs: resolveEvaluationRefs(input.profile, evaluation.evidenceUnitIds, unitById) });
+     });
+     const missing = input.graph.nodes.filter((node) => !seen.has(node.id));
+@@ -146,7 +154,7 @@ function deterministicEvaluation(requirement: JobRequirementGraphV2["nodes"][num
+   const units = top.map((item) => unitById.get(item.evidenceUnitId)!).filter(Boolean);
+   const hasConfirmedCapability = units.some((unit) => unit.maturity === "confirmed_capability" || unit.supportLevel === "user_declared");
+   const hasMaturityGap = units.some((unit) => unit.maturity === "familiar" || unit.maturity === "learning");
+-  const direct = top[0].score >= 0.64 && units.some((unit) =>
++  const direct = requirement.exactKeywords.every((term) => units.some((unit) => ["direct", "synonym"].includes(classifyKeywordRelation(term, unit.text)))) && top[0].score >= 0.64 && units.some((unit) =>
+     (unit.maturity === "demonstrated" || unit.maturity === undefined)
+     && (["skill", "certificate", "education"].includes(unit.sourceType) || ngramDice(requirement.normalizedIntent, unit.normalizedText) >= 0.72)
+   );
+@@ -178,7 +186,7 @@ function stringList(value: unknown) { return Array.isArray(value) ? value.filter
+ function normalize(text: string) { return text.toLowerCase().replace(/next\s*js/g, "next.js").replace(/react\s*js/g, "react").replace(/[^a-z0-9+#.\u4e00-\u9fa5]+/g, " ").trim(); }
+ function tokenize(text: string) { return new Set([...(normalize(text).match(/[a-z0-9+#.]+/g) ?? []), ...(normalize(text).match(/[\u4e00-\u9fa5]{2,6}/g) ?? [])]); }
+ function expandedTerms(values: string[]) { const base = new Set(values.flatMap((value) => [...tokenize(value)])); for (const term of [...base]) for (const [key, aliases] of Object.entries(ALIASES)) if (normalize(key) === term || aliases.some((alias) => normalize(alias) === term)) [key, ...aliases].forEach((alias) => base.add(normalize(alias))); return base; }
+-function containsTerm(text: string, term: string) { const normalizedTerm = normalize(term); return normalizedTerm.length >= 2 && (` ${normalize(text)} `).includes(` ${normalizedTerm} `) || normalizedTerm.length >= 2 && normalize(text).includes(normalizedTerm); }
++function containsTerm(text: string, term: string) { return containsKeywordTerm(text, term); }
+ function bm25Lite(query: Set<string>, document: Set<string>) { if (!query.size) return 0; let matches = 0; for (const term of query) if (document.has(term)) matches += 1; return matches / Math.sqrt(query.size * Math.max(1, document.size)); }
+ function ngramDice(left: string, right: string) { const a = grams(normalize(left).replace(/\s/g, "")); const b = grams(normalize(right).replace(/\s/g, "")); if (!a.size || !b.size) return 0; let overlap = 0; for (const gram of a) if (b.has(gram)) overlap += 1; return (2 * overlap) / (a.size + b.size); }
+ function grams(text: string) { const result = new Set<string>(); const size = /[\u4e00-\u9fa5]/.test(text) ? 2 : 3; for (let i = 0; i <= text.length - size; i += 1) result.add(text.slice(i, i + size)); return result; }
+diff --git a/src/domain/jobOptimization/v4/analyze.ts b/src/domain/jobOptimization/v4/analyze.ts
+index c773890..46d88a4 100644
+--- a/src/domain/jobOptimization/v4/analyze.ts
++++ b/src/domain/jobOptimization/v4/analyze.ts
+@@ -1,3 +1,4 @@
++import { containsKeywordTerm } from "../keywordTaxonomy";
+ import {
+   JobRequirementGraphV4Schema,
+   JdSemanticAssignmentSchema,
+@@ -812,7 +813,7 @@ function declaredCount(text: string) {
+ }
+ 
+ function extractKeywords(text: string) {
+-  return unique(TECH_TERMS.filter((term) => normalize(text).includes(normalize(term))).sort((a, b) => b.length - a.length));
++  return unique(TECH_TERMS.filter((term) => containsKeywordTerm(text, term)).sort((a, b) => b.length - a.length));
+ }
+ 
+ function aliasesFor(text: string) {
+diff --git a/src/domain/profileIntake/CareerWritingQuality.ts b/src/domain/profileIntake/CareerWritingQuality.ts
+index c0a2b5f..04b36b1 100644
+--- a/src/domain/profileIntake/CareerWritingQuality.ts
++++ b/src/domain/profileIntake/CareerWritingQuality.ts
+@@ -29,27 +29,32 @@ export function writingOverlap(left: string, right: string) {
+   return intersection / Math.min(a.size, b.size);
+ }
+ 
++const OWNERSHIP = /独立完成|独立负责|主要负责|共同完成|共同负责|协助|参与|参加|配合|支持|负责|主导|带领/gu;
++const OWNERSHIP_LEVEL: Record<string, number> = { 协助: 1, 参与: 1, 参加: 1, 配合: 1, 支持: 1, 共同完成: 2, 共同负责: 2, 负责: 3, 主要负责: 4, 独立完成: 5, 独立负责: 5, 主导: 6, 带领: 6 };
++function responsibilityClaims(text: string) {
++  return text.split(/[。；;，,\n]/u).flatMap((clause) => [...clause.matchAll(OWNERSHIP)].map((match) => ({
++    phrase: match[0], level: OWNERSHIP_LEVEL[match[0]],
++    other: !/与|和|共同/u.test(clause.slice(0, match.index)) && /(?:团队|小组|负责人|同学|老师|他人|他们)[^我本人]*$/u.test(clause.slice(0, match.index)),
++    object: clause.slice(match.index! + match[0].length).replace(/^(?:使用|通过|完成|了)/u, "").trim()
++  })));
++}
++/** Summary for ranking only; never use this aggregate to authorize a claim. */
+ export function ownershipStrength(text: string) {
+-  const levels = [
+-    ["协助|参与|配合|支持", 1],
+-    ["共同完成|共同负责", 2],
+-    ["主要负责", 3],
+-    ["负责", 4],
+-    ["独立完成|独立负责", 5],
+-    ["主导|带领", 6]
+-  ] as const;
+-  let strength = 0;
+-  for (const [pattern, level] of levels) {
+-    if (new RegExp(pattern, "iu").test(text)) strength = Math.max(strength, level);
+-  }
+-  return strength;
++  return Math.max(0, ...responsibilityClaims(text).filter((claim) => !claim.other).map((claim) => claim.level));
+ }
+ 
+-/** A generated line may not strengthen the ownership stated by the source. */
++/** Check each action against its own source scope, excluding other people's actions. */
+ export function preservesOwnership(sourceText: string, generatedText: string) {
+-  const sourceStrength = ownershipStrength(sourceText);
+-  const generatedStrength = ownershipStrength(generatedText);
+-  return generatedStrength === 0 || (sourceStrength > 0 && generatedStrength <= sourceStrength);
++  const sources = responsibilityClaims(sourceText);
++  return responsibilityClaims(generatedText).every((claim) => sources.some((source) => {
++    if (source.other !== claim.other || source.level < claim.level) return false;
++    if (source.level <= 2 && source.phrase !== claim.phrase && !(["参与", "参加"].includes(source.phrase) && ["参与", "参加"].includes(claim.phrase))) return false;
++    if (/[及和、]/u.test(claim.object) && !source.object.includes(claim.object)) return false;
++    if (!source.object || !claim.object) return source.phrase === claim.phrase;
++    const tokens = claim.object.match(/[A-Za-z][A-Za-z0-9.+#-]*|[\u4e00-\u9fff]{2}/gu) ?? [];
++    return source.object.includes(claim.object) || claim.object.includes(source.object)
++      || tokens.filter((token) => source.object.includes(token)).length >= Math.max(1, Math.ceil(tokens.length * 0.5));
++  }));
+ }
+ 
+ export function isFiller(text: string) {
+diff --git a/src/domain/resumeComposition/ResumeBlueprint.ts b/src/domain/resumeComposition/ResumeBlueprint.ts
+index 877544e..a614b52 100644
+--- a/src/domain/resumeComposition/ResumeBlueprint.ts
++++ b/src/domain/resumeComposition/ResumeBlueprint.ts
+@@ -1,3 +1,4 @@
++import { classifyKeywordRelation, containsKeywordTerm } from "@/domain/jobOptimization/keywordTaxonomy";
+ import { migrateCareerProfileToV2, projectResumeItemV2 } from "@/domain/migrations/resumeV2";
+ import type { CareerProfile, JobDescription, ResumeItemV2 } from "@/domain/schemas";
+ import {
+@@ -121,7 +122,7 @@ export function classifyJobKeywords(job: JobDescription, graph: ResumeEvidenceGr
+   }
+   return keywords.map((keyword) => {
+     const normalized = keyword.toLocaleLowerCase();
+-    const exact = [...searchableByAsset.entries()].filter(([, text]) => text.includes(normalized) && !isNegatedKeyword(text, normalized));
++    const exact = [...searchableByAsset.entries()].filter(([, text]) => ["direct", "synonym"].includes(classifyKeywordRelation(normalized, text)) && !isNegatedKeyword(text, normalized));
+     if (exact.length) return {
+       keyword,
+       status: "SUPPORTED" as const,
+@@ -143,7 +144,10 @@ export function classifyJobKeywords(job: JobDescription, graph: ResumeEvidenceGr
+       status: "UNSUPPORTED" as const,
+       sourceAssetIds: [],
+       factIds: [],
+-      reason: "当前已确认资料库没有足够证据支持该关键词。",
++      reason: [...searchableByAsset.values()].some((text) => classifyKeywordRelation(keyword, text) === "negative")
++        ? "原始来源明确否认该经验，不能改写为已具备。"
++        : [...searchableByAsset.values()].some((text) => classifyKeywordRelation(keyword, text) === "ambiguous")
++          ? "岗位术语范围有歧义，需要核对任务语境。" : "当前已确认资料库没有足够证据支持该关键词；未知不等于明确否认。",
+       question: `你是否有「${keyword}」的已确认经历？没有也可以直接生成。`
+     };
+   });
+@@ -333,7 +337,7 @@ function relatedEvidence(keyword: string, graph: ResumeEvidenceGraph, searchable
+   };
+   const aliases = relations[normalized] ?? [];
+   return [...searchableByAsset.entries()]
+-    .filter(([, text]) => aliases.some((alias) => text.includes(alias)))
++    .filter(([, text]) => (classifyKeywordRelation(keyword, text) === "adjacent" || aliases.some((alias) => containsKeywordTerm(text, alias))))
+     .map(([id]) => id)
+     .filter((id) => graph.sourceAssetIds.includes(id));
+ }
+diff --git a/src/domain/resumeComposition/ResumeEvidenceGraph.ts b/src/domain/resumeComposition/ResumeEvidenceGraph.ts
+index e0f1d69..1031a0a 100644
+--- a/src/domain/resumeComposition/ResumeEvidenceGraph.ts
++++ b/src/domain/resumeComposition/ResumeEvidenceGraph.ts
+@@ -1,3 +1,4 @@
++import { ownershipStrength } from "@/domain/profileIntake/CareerWritingQuality";
+ import {
+   migrateCareerProfileToV2,
+   projectResumeItemV2
+@@ -63,7 +64,7 @@ export function buildResumeEvidenceGraph(input: ResumeEvidenceGraphInput): Resum
+       confirmationStatus,
+       ...(maturity ? { maturity } : {}),
+       ownershipStrength: Math.max(0, ...sourceFacts.map((fact) => ownershipStrength(`${fact.statement} ${fact.provenance.map((item) => item.sourceText).join(" ")}`))),
+-      sourceExcerpts: unique([entry.sourceExcerpt ?? "", ...sourceFacts.flatMap((fact) => fact.provenance.map((item) => item.sourceQuote ?? item.sourceText))])
++      sourceExcerpts: unique(sourceFacts.filter(isConfirmedFact).flatMap((fact) => fact.provenance.filter((item) => item.confirmedByUser).map((item) => item.sourceQuote ?? item.sourceText)))
+     };
+     nodes.push(assetNode);
+ 
+@@ -277,16 +278,6 @@ function sourceTurnIdsFromFacts(facts: FactStatement[]) {
+   return unique(facts.flatMap((fact) => fact.provenance.map((source) => source.sourceTurnId).filter((value): value is string => Boolean(value))));
+ }
+ 
+-function ownershipStrength(text: string) {
+-  if (/主导|带领/u.test(text)) return 6;
+-  if (/独立完成|独立负责/u.test(text)) return 5;
+-  if (/负责/u.test(text)) return 4;
+-  if (/主要负责/u.test(text)) return 3;
+-  if (/共同完成|共同负责/u.test(text)) return 2;
+-  if (/协助|参与|配合|支持/u.test(text)) return 1;
+-  return 0;
+-}
+-
+ function unique(values: string[]) {
+   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+ }
+diff --git a/src/domain/resumeComposition/ResumeReviewer.ts b/src/domain/resumeComposition/ResumeReviewer.ts
+index 2f2b012..189239b 100644
+--- a/src/domain/resumeComposition/ResumeReviewer.ts
++++ b/src/domain/resumeComposition/ResumeReviewer.ts
+@@ -12,7 +12,7 @@ import { resolveCareerAssetDisplayIdentity } from "./CareerAssetDisplayIdentity"
+ import { assessResumeBullet, careerResumeQualityWarnings } from "./CareerResumeQualityPolicyV1";
+ import { diagnoseResumeQuality } from "./qualityDiagnostics";
+ 
+-export function reviewResumeComposition(result: ResumeCompositionResult, input: { job?: JobDescription } = {}) {
++export function reviewResumeComposition(result: ResumeCompositionResult, input: { job?: JobDescription; targetAssetIds?: string[] } = {}) {
+   const firstPass = reviewResumeCompositionPass(result, input, true);
+   if (!firstPass.didRepair) return withDiagnostics(firstPass.result);
+   const repairedPass = reviewResumeCompositionPass(firstPass.result, input, false).result;
+@@ -44,7 +44,7 @@ function withDiagnostics(result: ResumeCompositionResult) {
+     ...(diagnostics.hardGate.status === "blocked" ? { status: "NEEDS_REVIEW" } : {}) } });
+ }
+ 
+-function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { job?: JobDescription }, allowRepair: boolean) {
++function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { job?: JobDescription; targetAssetIds?: string[] }, allowRepair: boolean) {
+   const findings: string[] = [];
+   let duplicateBullets = 0;
+   let fillerBullets = 0;
+@@ -53,12 +53,19 @@ function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { j
+   let revisedBulletCount = 0;
+   let bulletRepairCount = 0;
+   let bulletRejectedCount = 0;
+-  const seenBullets: string[] = [];
++
+   const reviewDiffs: ResumeReviewResult["diffs"] = [];
+ 
+   const items = result.items.map((item) => {
++    if (input.targetAssetIds && !input.targetAssetIds.includes(item.sourceAssetId)) {
++      revisedBulletCount += bulletCount(item.data);
++      return item.data;
++    }
++    const seenBullets: string[] = [];
+     const data = item.data as unknown as Record<string, unknown>;
+-    const sourceClaims = item.claimIds.map((id) => result.claims.find((claim) => claim.id === id)).filter((claim): claim is NonNullable<typeof claim> => Boolean(claim));
++    const originalSourceText = result.evidenceGraph.nodes
++      .filter((node) => node.id === `asset:${item.sourceAssetId}` && node.confirmationStatus === "confirmed")
++      .flatMap((node) => node.sourceExcerpts).join("；");
+     let bullets = [
+       ...(Array.isArray(data.highlights) ? data.highlights : []),
+       ...(Array.isArray(data.outcomes) ? data.outcomes : [])
+@@ -76,9 +83,14 @@ function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { j
+     });
+     const candidateBullets = bullets.filter((bullet, bulletIndex) => {
+       const quality = assessResumeBullet(bullet, input.job?.title ?? result.targetDirection);
+-      const sourceText = sourceClaims.filter((claim) => claim.classification === "SUPPORTED" || claim.classification === "DERIVED_PRESENTATION").map((claim) => claim.text).join(" ");
++      const sourceText = originalSourceText;
+       const metrics = bullet.match(/(?:[$¥￥]\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?\s*(?:%|％|ms|毫秒|秒|QPS|万|亿|倍|美元|元|请求|文档|用户|次|条|个))/giu) ?? [];
++      const factReview = runRuleFactGuard({ originalText: sourceText, checkedText: bullet, usedEvidenceRefs: [] });
+       const needsVerification = metrics.some((metric) => !sourceText.includes(metric));
++      if (factReview.status !== "pass") reviewDiffs.push({
++        id: `review-diff-${item.sourceAssetId}-${bulletIndex}-integrity`, kind: "verify", itemId: item.sourceAssetId,
++        fieldPath: "highlights", before: bullet, recommendation: "回到已确认原始证据核对事实、责任、指标及其任务对象。"
++      });
+       const recommendation = needsVerification ? "这个数字需要确认来源；保留原文供核对，不默认为已验证。"
+         : quality.evaluationGap ? "效果结论需要评测方法或证据支持，请核对降低幻觉或准确率的依据。"
+         : quality.contributionGap ? "架构名称不能代替个人贡献，请补充实际构建的对象、动作及职责边界。"
+@@ -127,13 +139,13 @@ function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { j
+     });
+     const repairedBullets = candidateBullets.length >= 2 || !allowRepair
+       ? candidateBullets
+-      : repairAffectedBullets({ item, bullets, result, sourceClaims });
++      : repairAffectedBullets({ item, bullets, result });
+     bulletRepairCount += Math.max(0, repairedBullets.length - candidateBullets.length);
+     bulletRejectedCount += Math.max(0, bullets.length - repairedBullets.length);
+     bullets = dedupeCareerWriting(repairedBullets).filter((bullet) => assessResumeBullet(bullet).specific || semanticComponentCount(bullet) >= 2).slice(0, 4);
+     revisedBulletCount += bullets.length;
+     if (typeof data.description === "string" && data.description.length > 180) paragraphHeavyItems += 1;
+-    const sourceText = sourceClaims.map((claim) => claim.text).join(" ");
++    const sourceText = originalSourceText;
+     const displayIdentity = resolveCareerAssetDisplayIdentity(item.data).label;
+     if (sourceText && bullets.some((bullet) => !preservesOwnership(sourceText, bullet))) {
+       findings.push(`${displayIdentity}：职责表述需要再核对`);
+@@ -188,6 +200,7 @@ function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { j
+   const pageOverflow = projectedLines > 31 * result.blueprint.pageBudget.targetPages
+     || result.blueprint.pageBudget.estimatedPageCount > result.blueprint.pageBudget.targetPages;
+   for (const item of result.items) {
++    if (input.targetAssetIds && !input.targetAssetIds.includes(item.sourceAssetId)) continue;
+     if (item.data.sectionType === "summary" && pageOverflow && careerResumeQualityWarnings({ summary: item.data.text }).length) {
+       reviewDiffs.push({ id: `review-diff-${item.sourceAssetId}-page-utility`, kind: "remove", itemId: item.sourceAssetId,
+         fieldPath: "text", before: item.data.text, recommendation: "当前页面空间紧张，这段摘要较泛或重复，建议优先移除；保留高相关、有证据的经历。" });
+@@ -205,7 +218,8 @@ function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { j
+       items: result.items.map((item, index) => ({ ...item, data: items[index] })),
+       coverage: result.keywordCoverage,
+       result,
+-      reviewDiffs
++      reviewDiffs,
++      targetAssetIds: input.targetAssetIds
+     })
+     : { items: result.items.map((item, index) => ({ ...item, data: items[index] })), repairedCount: 0 };
+   if (atsRepair.repairedCount) findings.push(`${atsRepair.repairedCount} evidence-backed ATS keywords proposed for review`);
+@@ -263,7 +277,6 @@ function repairAffectedBullets(input: {
+   item: ResumeCompositionResult["items"][number];
+   bullets: string[];
+   result: ResumeCompositionResult;
+-  sourceClaims: ResumeCompositionResult["claims"];
+ }) {
+   const asset = input.result.blueprint.assets.find((candidate) => candidate.sourceAssetId === input.item.sourceAssetId);
+   if (!asset || !asset.explicitTools.length) return input.bullets.filter((bullet) => assessResumeBullet(bullet).specific || semanticComponentCount(bullet) >= 2);
+@@ -272,9 +285,7 @@ function repairAffectedBullets(input: {
+   const repaired = input.bullets.flatMap((bullet) => {
+     if (isFiller(bullet) || isRawOrNegativeSpeech(bullet) || assessResumeBullet(bullet).specific || semanticComponentCount(bullet) >= 2) return [bullet];
+     const sourceText = [
+-      ...input.sourceClaims.map((claim) => claim.text),
+-      ...asset.bulletPlan,
+-      ...asset.explicitTools
++      ...input.result.evidenceGraph.nodes.filter((node) => node.id === `asset:${input.item.sourceAssetId}` && node.confirmationStatus === "confirmed").flatMap((node) => node.sourceExcerpts)
+     ].join(" ");
+     const candidate = `${bullet.replace(/[。；;]+$/u, "")}，使用 ${safeTool}。`;
+     const guard = runRuleFactGuard({ originalText: sourceText, checkedText: candidate, usedEvidenceRefs: [] });
+@@ -301,10 +312,12 @@ function applySafeAtsRepairs(input: {
+   coverage: ResumeCompositionResult["keywordCoverage"];
+   result: ResumeCompositionResult;
+   reviewDiffs: ResumeReviewResult["diffs"];
++  targetAssetIds?: string[];
+ }) {
+   let repairedCount = 0;
+   const supportedMissing = input.coverage.filter((entry) => entry.status === "SUPPORTED" && entry.sourceAssetIds.length > 0);
+   const items = input.items.map((compiledItem) => {
++    if (input.targetAssetIds && !input.targetAssetIds.includes(compiledItem.sourceAssetId)) return compiledItem;
+     const item = compiledItem.data;
+     if (item.sectionType !== "project") return compiledItem;
+     const sourceAssetId = compiledItem.sourceAssetId;
+@@ -322,10 +335,7 @@ function applySafeAtsRepairs(input: {
+       .slice(0, 4);
+     if (!additions.length) return compiledItem;
+     const patched = { ...item, tools: [...item.tools, ...additions] };
+-    const sourceText = [
+-      JSON.stringify(item),
+-      nodeText
+-    ].join(" ");
++    const sourceText = nodeText;
+     const guard = runRuleFactGuard({ originalText: sourceText, checkedText: JSON.stringify(patched), usedEvidenceRefs: [] });
+     if (guard.status !== "pass") return compiledItem;
+     repairedCount += additions.length;
+diff --git a/tests/unit/skillsQualitySq13B.test.ts b/tests/unit/skillsQualitySq13B.test.ts
+new file mode 100644
+index 0000000..799acff
+--- /dev/null
++++ b/tests/unit/skillsQualitySq13B.test.ts
+@@ -0,0 +1,155 @@
++import { createHash } from "node:crypto";
++import { describe, expect, it } from "vitest";
++import { CandidateEvidenceUnitSchema, CareerProfileSchema, JobDescriptionSchema } from "@/domain/schemas";
++import { analyzeJobDescriptionV2, evaluateRequirementEvidence } from "@/domain/jobOptimization";
++import { classifyKeywordRelation, containsKeywordTerm } from "@/domain/jobOptimization/keywordTaxonomy";
++import { preservesOwnership, ownershipStrength, dedupeCareerWriting } from "@/domain/profileIntake/CareerWritingQuality";
++import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
++import { compileResumeComposition, buildResumeEvidenceGraph, planResumeBlueprint } from "@/domain/resumeComposition";
++import { classifyJobKeywords } from "@/domain/resumeComposition/ResumeBlueprint";
++import { reviewResumeComposition } from "@/domain/resumeComposition/ResumeReviewer";
++import { createLexicalJdUnits } from "@/domain/jobOptimization/v4/analyze";
++
++const TIME = "2026-11-03T00:00:00.000Z";
++const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
++const guard = (originalText: string, checkedText: string) => runRuleFactGuard({ originalText, checkedText, usedEvidenceRefs: [], now: TIME });
++function profile(lines: string[], tools: string[][] = []) {
++  return CareerProfileSchema.parse({ id: "sq13b-profile", name: "合成候选人", basics: { name: "合成候选人" }, preference: {}, version: 1, createdAt: TIME, updatedAt: TIME,
++    experiences: lines.map((statement, index) => ({ id: `asset-${index}`, type: "project", organization: `课程项目${index}`, role: "成员", facts: [{
++      id: `fact-${index}`, statement, category: "experience", confirmedByUser: true, riskLevel: "low", createdAt: TIME, updatedAt: TIME,
++      provenance: [{ sourceType: "user_input", sourceId: `asset-${index}`, sourceTurnId: `turn-${index}`, sourceText: statement, sourceQuote: statement, confirmedByUser: true, confidence: 1, riskLevel: "low", createdAt: TIME }]
++    }], resumeDrafts: [], tags: [], evidenceIds: [], createdAt: TIME, updatedAt: TIME })),
++    skills: [], certificates: [], evidences: [], unclassifiedBlocks: [],
++    structuredFacts: lines.map((line, index) => ({ data: { id: `asset-${index}`, sectionType: "project", title: `课程项目${index}`, role: "成员", tools: tools[index] ?? [], highlights: [line], outcomes: [], current: false, customFields: [] }, factIds: [`fact-${index}`], sourceBlockIds: [], sourceRanges: [], mappingTrace: [] }))
++  });
++}
++function job(keywords: string[]) {
++  return JobDescriptionSchema.parse({ id: "sq13b-job", title: "实习生", company: "合成公司", rawText: keywords.join("；"), source: "manual", createdAt: TIME, updatedAt: TIME,
++    requirements: keywords.map((keyword, index) => ({ id: `req-${index}`, description: keyword, sourceSpan: { start: 0, end: keyword.length, text: keyword }, keywords: [keyword], category: "required_skill", priority: "high", hardConstraint: false, confidence: 1, createdAt: TIME, updatedAt: TIME })) });
++}
++
++describe("SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED)", () => {
++  it("A1 exact confirmed Python mapping", () => {
++    const p = profile(["负责使用Python清洗课程CSV数据，逐项核对空值并交付清洗脚本。"], [["Python"]]);
++    const graph = buildResumeEvidenceGraph({ profile: p });
++    expect(classifyJobKeywords(job(["Python"]), graph, new Map((p.structuredFacts ?? []).map((entry) => [entry.data.id, entry.data])))[0].status).toBe("SUPPORTED");
++  });
++  it("A2 taxonomy bilingual synonym without promoting unrelated aliases", () => {
++    expect(classifyKeywordRelation("Prompt Engineering", "参与提示词工程，调整客服问答提示模板")).toBe("synonym");
++    expect(classifyKeywordRelation("TypeScript", "使用JavaScript")).toBe("unknown");
++    const p = profile(["参与提示词工程，调整客服问答提示模板，并逐条核对资料引用。"]);
++    expect(classifyJobKeywords(job(["Prompt Engineering"]), buildResumeEvidenceGraph({ profile: p }), new Map((p.structuredFacts ?? []).map((entry) => [entry.data.id, entry.data])))[0].status).toBe("SUPPORTED");
++  });
++  it("A3 false equivalence, adjacency, uncertainty, denial and ambiguity", () => {
++    expect(containsKeywordTerm("JavaScript React MySQL", "Java")).toBe(false);
++    expect(containsKeywordTerm("React", "R")).toBe(false);
++    expect(containsKeywordTerm("MySQL", "SQL")).toBe(false);
++    expect(classifyKeywordRelation("PostgreSQL", "使用SQLite保存本地记录")).toBe("adjacent");
++    expect(classifyKeywordRelation("MySQL", "使用SQL")).toBe("adjacent");
++    expect(classifyKeywordRelation("frontend", "参与React组件开发")).toBe("transferable");
++    expect(classifyKeywordRelation("Java", "尚未确认Java经验")).toBe("unknown");
++    expect(classifyKeywordRelation("Java", "没有Java经验")).toBe("negative");
++    expect(classifyKeywordRelation("Java", "使用Python")).toBe("unknown");
++    expect(classifyKeywordRelation("平台开发", "课程页面")).toBe("ambiguous");
++  });
++  it("B1 separates team leader from personal assistance", () => {
++    const source = "团队负责人主导发布；我协助接口测试，复核缺陷修复结果。";
++    expect(preservesOwnership(source, "协助接口测试")).toBe(true);
++    expect(preservesOwnership(source, "主导发布")).toBe(false);
++    expect(guard(source, "主导发布").status).toBe("blocked_high_risk");
++  });
++  it("A3/D3 V2 cannot promote recalled aliases or familiar skills to direct", () => {
++    const p = profile(["使用JavaScript开发课程页面"]);
++    const graph = analyzeJobDescriptionV2({ rawText: "任职要求\n熟悉Java", now: TIME });
++    const requirement = graph.nodes[0];
++    requirement.exactKeywords = ["Java"];
++    requirement.kind = "tool_or_technology";
++    const unit = CandidateEvidenceUnitSchema.parse({ id: "evu-sq13b", itemId: "asset-0", sourceType: "skill", sectionType: "project", fieldPath: "tools.0", text: "JavaScript", normalizedText: "javascript", factRefs: [{ type: "experience_fact", experienceId: "asset-0", factId: "fact-0" }], sourceBlockIds: [], supportLevel: "verified", confirmed: true, maturity: "demonstrated" });
++    const recalls = [{ requirementId: requirement.id, candidates: [{ evidenceUnitId: unit.id, score: 0.99, reasons: ["语义别名：JavaScript"] }] }];
++    const input = { profile: p, graph, evidenceUnits: [unit], recalls, now: TIME };
++    expect(evaluateRequirementEvidence(input).evaluations[0].matchLevel).not.toBe("direct");
++    const aiOutput = [{ requirementId: requirement.id, matchLevel: "direct", evidenceUnitIds: [unit.id], evidenceRefs: [], coveredAspects: ["Java"], missingAspects: [], risks: [], explanation: "claim", confidence: 1 }];
++    expect(() => evaluateRequirementEvidence({ ...input, aiOutput })).toThrow("evidence_matcher_v2_unsupported_direct_claim");
++    unit.text = "Java";
++    unit.normalizedText = "java";
++    unit.maturity = "familiar";
++    expect(evaluateRequirementEvidence(input).evaluations[0].matchLevel).not.toBe("direct");
++    expect(() => evaluateRequirementEvidence({ ...input, aiOutput })).toThrow("evidence_matcher_v2_unsupported_direct_claim");
++  });
++  it("B2 binds ownership to the task instead of the paragraph maximum", () => {
++    expect(preservesOwnership("负责海报排版；参与缓存方案讨论", "负责缓存方案讨论")).toBe(false);
++    expect(preservesOwnership("项目采用缓存方案；我参加方案讨论，并整理讨论记录。", "主导缓存架构设计")).toBe(false);
++  });
++  it("B3 longest phrases retain shared, primary, independent and leading responsibility", () => {
++    const phrases = ["协助", "参与", "共同完成", "共同负责", "主要负责", "负责", "独立完成", "主导"];
++    for (const phrase of phrases) expect(preservesOwnership(`${phrase}接口测试`, `${phrase}接口测试`)).toBe(true);
++    expect(ownershipStrength("共同负责接口测试")).toBe(2);
++    expect(ownershipStrength("主要负责接口测试")).toBeGreaterThan(ownershipStrength("负责接口测试"));
++    for (const [source, candidate] of [["共同负责", "负责"], ["负责", "主导"], ["协助", "独立完成"]]) expect(guard(`${source}接口测试`, `${candidate}接口测试`).status).toBe("blocked_high_risk");
++  });
++  it("C1 qualitative outcomes need no numeric decoration", () => {
++    const text = "负责整理实验操作说明，按老师反馈修正文档，最终被课程小组用作交接材料。";
++    expect(guard(text, text).status).toBe("pass");
++  });
++  it.each(["80ms", "2s", "2 seconds", "QPS1000", "TPS200", "99%", "￥300", "收入200元", "10个用户", "3个月", "效率提升30%"])("C2 rejects unsupported metric %s", (metric) => {
++    expect(guard("负责接口测试", `负责接口测试，${metric}`).status).toBe("blocked_high_risk");
++    const text = `负责接口测试，${metric}`;
++    expect(guard(text, text).status).toBe("pass");
++  });
++  it("C2 rejects a metric borrowed from a different task", () => {
++    expect(guard("负责接口测试；负责渲染测试，延迟80ms", "负责接口测试，延迟80ms").status).toBe("blocked_high_risk");
++  });
++  it("C2 metric token equality and comma-separated task objects", () => {
++    expect(guard("负责接口测试，延迟180ms", "负责接口测试，延迟80ms").status).toBe("blocked_high_risk");
++    expect(guard("负责接口测试，延迟80ms", "负责接口测试，延迟80s").status).toBe("blocked_high_risk");
++    expect(guard("负责渲染测试，延迟80ms，负责接口测试，延迟100ms", "负责接口测试，延迟80ms").status).toBe("blocked_high_risk");
++  });
++  it("C2 reviewer compares generated claims against original confirmed evidence", () => {
++    const p = profile(["负责接口回归测试，记录失败请求并复核修复。"]);
++    const result = compileResumeComposition({ profile: p, mode: "general" });
++    const item = result.items.find((entry) => entry.sourceAssetId === "asset-0")!;
++    if (item.data.sectionType !== "project") throw new Error("fixture");
++    item.data.highlights = ["负责接口回归测试，延迟80ms"];
++    for (const claim of result.claims.filter((entry) => item.claimIds.includes(entry.id))) claim.text = item.data.highlights[0];
++    const reviewed = reviewResumeComposition(result);
++    expect(reviewed.reviewResult.diffs.some((diff) => diff.itemId === "asset-0" && diff.kind === "verify")).toBe(true);
++    expect(reviewed.reviewResult.status).toBe("NEEDS_REVIEW");
++  });
++  it("C3 preserves non-target strong asset hash and input profiles/revisions", () => {
++    const p = profile(["参与使用React封装表单组件，通过Vitest检查必填字段校验。", "负责使用Python清洗课程CSV数据，核对空值并交付脚本。"], [["React", "Vitest"], ["Python"]]);
++    const result = compileResumeComposition({ profile: p, mode: "general" });
++    const other = result.items.find((entry) => entry.sourceAssetId === "asset-1")!;
++    const sentinels = { profile: p, general: structuredClone(result), otherJobRevision: structuredClone(result), unselectedField: other.data };
++    const before = hash(sentinels);
++    const target = result.items.find((entry) => entry.sourceAssetId === "asset-0")!;
++    if (target.data.sectionType !== "project") throw new Error("fixture");
++    target.data.highlights = ["来源事实：内部草稿", "参与React表单组件封装，使用Vitest验证必填字段校验。"];
++    const reviewed = reviewResumeComposition(result, { targetAssetIds: ["asset-0"] });
++    expect(reviewed.items.find((entry) => entry.sourceAssetId === "asset-0")!.data).not.toEqual(target.data);
++    expect(hash(reviewed.items.find((entry) => entry.sourceAssetId === "asset-1")!.data)).toBe(hash(other.data));
++    expect(hash(sentinels)).toBe(before);
++    expect(JSON.stringify(reviewed.items.find((entry) => entry.sourceAssetId === "asset-0")!.data)).not.toContain("Python");
++  });
++  it("D1 does not turn transferable R evidence into Python experience", () => {
++    const p = profile(["参与使用R清洗课程数据，向老师汇报异常记录。", "负责校园海报排版并交付活动组。"], [["R"], []]);
++    const graph = buildResumeEvidenceGraph({ profile: p });
++    const bp = planResumeBlueprint({ profile: p, graph, mode: "job_specific", job: job(["Python"]) });
++    expect(bp.keywordCoverage.find((entry) => entry.keyword === "Python")?.status).toBe("UNSUPPORTED");
++  });
++  it("D2 removes repeated cache wording but keeps invalidation verification", () => {
++    const input = ["参与使用Redis缓存课程查询结果。", "参与使用Redis缓存课程查询结果。", "协助复核缓存失效后的接口返回。"];
++    expect(dedupeCareerWriting(input)).toEqual([input[0], input[2]]);
++  });
++  it("D3 preserves unique recovery evidence and labels page count as estimate", () => {
++    const p = profile(["参与制定课程服务恢复步骤，在演练中记录恢复过程并复核检查清单。", "参与旧活动签到表整理。"]);
++    const result = compileResumeComposition({ profile: p, mode: "general" });
++    expect(result.blueprint.assets.some((entry) => entry.sourceAssetId === "asset-0")).toBe(true);
++    p.experiences[0].facts[0].maturity = "familiar";
++    const familiar = buildResumeEvidenceGraph({ profile: p });
++    expect(familiar.nodes.some((node) => node.sourceAssetIds.includes("asset-0") && node.maturity === "demonstrated")).toBe(false);
++    expect(result.telemetry?.pageCountSource).toBe("blueprint_estimate");
++  });
++  it("next-round JD finding: paragraph remains a single lexical unit", () => {
++    expect(createLexicalJdUnits("熟悉Java。能够编写SQL；具备接口测试经验。")).toHaveLength(1);
++  });
++});

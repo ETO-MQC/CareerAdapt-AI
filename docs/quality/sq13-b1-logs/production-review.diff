@@ -1,0 +1,289 @@
+diff --git a/src/domain/adaptation/factGuard.ts b/src/domain/adaptation/factGuard.ts
+index c5a347d..1d05903 100644
+--- a/src/domain/adaptation/factGuard.ts
++++ b/src/domain/adaptation/factGuard.ts
+@@ -1,3 +1,5 @@
++import { preservesOwnership } from "@/domain/profileIntake/CareerWritingQuality";
++import { containsKeywordTerm } from "@/domain/jobOptimization/keywordTaxonomy";
+ import {
+   FactGuardAiReviewSchema,
+   FactGuardResultSchema,
+@@ -38,7 +40,7 @@ const TOOL_OR_SKILL_WORDS = [
+   "项目管理"
+ ];
+ 
+-const NEW_OUTCOME_WORDS = ["提升", "增长", "降低", "优化", "转化", "留存", "交付", "落地", "获奖", "排名"];
++const NEW_OUTCOME_WORDS = ["提升", "增长", "降低", "优化", "增加", "减少", "缩短", "收入", "转化", "留存", "交付", "落地", "获奖", "排名"];
+ const OWNER_WORDS = ["负责", "主导", "带领", "统筹", "独立"];
+ const PARTICIPATION_WORDS = ["参与", "协助", "配合", "支持", "跟随"];
+ const ASSIST_WORDS = ["协助", "配合", "支持"];
+@@ -111,16 +113,28 @@ export function mergeAiFactGuardReview(input: {
+ }
+ 
+ function detectNewNumbers(originalText: string, checkedText: string, evidenceText: string): FactGuardFinding[] {
+-  const numberPattern = /(?:\d+(?:\.\d+)?\s*%|\d+(?:\.\d+)?\s*(?:人|次|个|项|年|月|天|周|万|千|小时|份|页)|[一二三四五六七八九十百千万]+(?:个|项|人|次|年|月|天|周)?)/g;
+-  return findNewMatches(numberPattern, originalText, checkedText).map((text) =>
+-    buildFinding({
+-      type: "new_number",
+-      text,
+-      severity: "high",
+-      allowed: includesLoose(evidenceText, text),
+-      message: "新增数字必须来自已确认事实证据。"
+-    })
+-  );
++  const numberPattern = /(?:[$¥￥]\s*)?\d+(?:\.\d+)?(?:\s*(?:%|％|ms|seconds?|s|QPS|TPS|毫秒|秒|分钟|小时|人|次|个|项|年|月|天|周|万|亿|千|份|页|元|美元|请求|用户|条|倍))?|[一二三四五六七八九十百千万]+(?:个|项|人|次|年|月|天|周)/giu;
++  const scopes = (text: string) => text.split(/[。；;\n]/u).flatMap((sentence) => {
++    let task = "";
++    return sentence.split(/[，,]/u).map((part) => {
++      const hasMetric = (part.match(numberPattern) ?? []).length > 0;
++      if (!hasMetric) { task = part; return part; }
++      const scoped = task && /^(?:延迟|耗时|QPS|TPS|效率|收入|准确率|提升|降低|从|达到|[$¥￥]|\d)/iu.test(part.trim()) ? `${task}，${part}` : part;
++      task = scoped;
++      return scoped;
++    });
++  });
++  const sources = scopes(`${originalText}；${evidenceText}`);
++  return scopes(checkedText).flatMap((clause) => (clause.match(numberPattern) ?? []).filter((metric) => {
++    const object = clause.replace(numberPattern, "").replace(/[，,：:\s]/gu, "");
++    return !sources.some((source) => {
++      if (!(source.match(numberPattern) ?? []).some((value) => normalizeToken(value) === normalizeToken(metric))) return false;
++      const sourceObject = source.replace(numberPattern, "").replace(/[，,：:\s]/gu, "");
++      if (sourceObject.includes(object) || object.includes(sourceObject) && sourceObject.length > 0) return true;
++      const tokens = object.match(/[A-Za-z]+|[\u4e00-\u9fff]{2}/gu) ?? [];
++      return tokens.length > 0 && tokens.every((token) => sourceObject.includes(token));
++    });
++  }).map((text) => buildFinding({ type: "new_number", text, severity: "high", allowed: false, message: "数字及其任务对象必须来自已确认原始证据。" })));
+ }
+ 
+ function detectNewEntities(originalText: string, checkedText: string, evidenceText: string): FactGuardFinding[] {
+@@ -173,6 +187,10 @@ function detectNewOutcomes(originalText: string, checkedText: string, evidenceTe
+ 
+ function detectResponsibilityUpgrades(originalText: string, checkedText: string, evidenceText: string): FactGuardFinding[] {
+   const findings: FactGuardFinding[] = [];
++  if (!preservesOwnership(`${originalText}；${evidenceText}`, checkedText)) findings.push(buildFinding({
++    type: "participation_to_owner", text: "责任或主语范围变化", severity: "high", allowed: false,
++    message: "责任等级、共同限定和动作对象必须保留原始来源范围。"
++  }));
+   if (hasAny(originalText, PARTICIPATION_WORDS) && !hasAny(originalText, OWNER_WORDS)
+     && hasAny(checkedText, OWNER_WORDS) && !hasAny(evidenceText, OWNER_WORDS)) {
+     findings.push(buildFinding({
+@@ -268,7 +286,7 @@ function hasAny(text: string, words: string[]) {
+ }
+ 
+ function includesLoose(text: string, token: string) {
+-  return normalizeToken(text).includes(normalizeToken(token));
++  return containsKeywordTerm(text, token);
+ }
+ 
+ function normalizeToken(text: string) {
+diff --git a/src/domain/jobOptimization/keywordTaxonomy.ts b/src/domain/jobOptimization/keywordTaxonomy.ts
+index 628f07e..a179c99 100644
+--- a/src/domain/jobOptimization/keywordTaxonomy.ts
++++ b/src/domain/jobOptimization/keywordTaxonomy.ts
+@@ -55,7 +55,7 @@ export function extractPhraseAwareKeywords(values: string[]): TailoringKeyword[]
+   const normalized = normalize(text);
+   const result: TailoringKeyword[] = [];
+   for (const entry of [...PHRASE_CATALOG].sort((left, right) => right.phrase.length - left.phrase.length)) {
+-    if ([entry.phrase, ...entry.aliases].some((candidate) => normalized.includes(normalize(candidate)))) result.push(entry);
++    if ([entry.phrase, ...entry.aliases].some((candidate) => containsKeywordTerm(normalized, candidate))) result.push(entry);
+   }
+   const technical = text.match(/\b(?:[A-Z][A-Za-z0-9.+#-]{1,}|[A-Za-z]+(?:\s+[A-Za-z]+){1,2})\b/g) ?? [];
+   for (const phrase of technical) {
+@@ -71,8 +71,8 @@ export function extractPhraseAwareKeywords(values: string[]): TailoringKeyword[]
+ 
+ export function keywordMatchScore(keyword: TailoringKeyword, text: string) {
+   const normalized = normalize(text);
+-  if (normalized.includes(normalize(keyword.phrase))) return keyword.weight;
+-  if (keyword.aliases.some((alias) => normalized.includes(normalize(alias)))) return keyword.weight * 0.8;
++  if (containsKeywordTerm(normalized, keyword.phrase)) return keyword.weight;
++  if (keyword.aliases.some((alias) => containsKeywordTerm(normalized, alias))) return keyword.weight * 0.8;
+   return 0;
+ }
+ 
+@@ -91,3 +91,34 @@ function addUnique(items: TailoringKeyword[], candidate: TailoringKeyword) {
+ function normalize(value: string) {
+   return value.toLowerCase().replace(/[\s_-]+/g, " ").trim();
+ }
++
++/** Latin identifiers must not match inside another identifier; Chinese stays phrase based. */
++export function containsKeywordTerm(text: string, term: string) {
++  const escaped = normalize(term).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
++  if (!escaped) return false;
++  return new RegExp(`${/^[a-z0-9]/i.test(term) ? "(?<![a-z0-9_])" : ""}${escaped}${/[a-z0-9]$/i.test(term) ? "(?![a-z0-9_])" : ""}`, "iu").test(normalize(text));
++}
++
++export type KeywordRelation = "direct" | "synonym" | "adjacent" | "transferable" | "unknown" | "negative" | "ambiguous";
++export function classifyKeywordRelation(term: string, text: string): KeywordRelation {
++  const clauses = text.split(/[。；;，,\n]/u);
++  const matches = clauses.filter((clause) => containsKeywordTerm(clause, term));
++  const negative = (clause: string) => /未涉及|未使用|没有|不会|不使用|不支持|不含/u.test(clause);
++  const uncertain = (clause: string) => /不确定|待确认|尚未确认|未知/u.test(clause);
++  if (matches.some((clause) => !negative(clause) && !uncertain(clause))) return "direct";
++  if (matches.some(uncertain)) return "unknown";
++  if (matches.length) return "negative";
++  const catalog = PHRASE_CATALOG.find((entry) => [entry.phrase, ...entry.aliases].some((alias) => normalize(alias) === normalize(term)));
++  if (catalog) {
++    const aliasClauses = clauses.filter((clause) => [catalog.phrase, ...catalog.aliases].some((alias) => containsKeywordTerm(clause, alias)));
++    if (aliasClauses.some((clause) => !negative(clause) && !uncertain(clause))) return "synonym";
++    if (aliasClauses.some(uncertain)) return "unknown";
++    if (aliasClauses.length) return "negative";
++  }
++  const adjacent: Record<string, string[]> = { postgresql: ["SQLite", "MySQL", "SQL"], sqlite: ["PostgreSQL", "MySQL"], mysql: ["SQL", "SQLite", "PostgreSQL"], sql: ["MySQL", "SQLite", "PostgreSQL"] };
++  if ((adjacent[normalize(term)] ?? []).some((alias) => containsKeywordTerm(text, alias))) return "adjacent";
++  const transferable: Record<string, string[]> = { backend: ["FastAPI", "Node.js", "Rust", "API"], frontend: ["React", "Next.js", "TypeScript"] };
++  if ((transferable[normalize(term)] ?? []).some((alias) => containsKeywordTerm(text, alias))) return "transferable";
++  if (/^(?:平台开发|平台|platform development)$/iu.test(term)) return "ambiguous";
++  return "unknown";
++}
+diff --git a/src/domain/jobOptimization/v2/evidence.ts b/src/domain/jobOptimization/v2/evidence.ts
+index 62f6079..6ca5c2f 100644
+--- a/src/domain/jobOptimization/v2/evidence.ts
++++ b/src/domain/jobOptimization/v2/evidence.ts
+@@ -1,3 +1,4 @@
++import { containsKeywordTerm, classifyKeywordRelation } from "../keywordTaxonomy";
+ import {
+   CandidateEvidenceUnitSchema, RequirementEvidenceEvaluationV2Schema, RequirementEvidenceMatrixV2Schema,
+   RequirementEvidenceRecallSchema, type CandidateEvidenceUnit, type CareerProfile, type JobRequirementGraphV2,
+@@ -102,6 +103,13 @@ export function evaluateRequirementEvidence(input: {
+       const allowed = allowedByRequirement.get(evaluation.requirementId) ?? new Set();
+       if (new Set(evaluation.evidenceUnitIds).size !== evaluation.evidenceUnitIds.length) throw new Error("evidence_matcher_v2_duplicate_evidence_id");
+       if (evaluation.evidenceUnitIds.some((id) => !allowed.has(id) || !unitById.has(id))) throw new Error("evidence_matcher_v2_evidence_outside_recall");
++      if (evaluation.matchLevel === "direct") {
++        const selectedUnits = evaluation.evidenceUnitIds.map((id) => unitById.get(id)!);
++        const demonstrated = selectedUnits.filter((unit) => unit.maturity === "demonstrated" || unit.maturity === undefined);
++        if (!demonstrated.length || (requirement.kind === "tool_or_technology" && !requirement.exactKeywords.every((term) => demonstrated.some((unit) => ["direct", "synonym"].includes(classifyKeywordRelation(term, unit.text)))))) {
++          throw new Error("evidence_matcher_v2_unsupported_direct_claim");
++        }
++      }
+       return RequirementEvidenceEvaluationV2Schema.parse({ ...evaluation, evidenceRefs: resolveEvaluationRefs(input.profile, evaluation.evidenceUnitIds, unitById) });
+     });
+     const missing = input.graph.nodes.filter((node) => !seen.has(node.id));
+@@ -146,7 +154,7 @@ function deterministicEvaluation(requirement: JobRequirementGraphV2["nodes"][num
+   const units = top.map((item) => unitById.get(item.evidenceUnitId)!).filter(Boolean);
+   const hasConfirmedCapability = units.some((unit) => unit.maturity === "confirmed_capability" || unit.supportLevel === "user_declared");
+   const hasMaturityGap = units.some((unit) => unit.maturity === "familiar" || unit.maturity === "learning");
+-  const direct = top[0].score >= 0.64 && units.some((unit) =>
++  const direct = requirement.exactKeywords.every((term) => units.some((unit) => ["direct", "synonym"].includes(classifyKeywordRelation(term, unit.text)))) && top[0].score >= 0.64 && units.some((unit) =>
+     (unit.maturity === "demonstrated" || unit.maturity === undefined)
+     && (["skill", "certificate", "education"].includes(unit.sourceType) || ngramDice(requirement.normalizedIntent, unit.normalizedText) >= 0.72)
+   );
+@@ -178,7 +186,7 @@ function stringList(value: unknown) { return Array.isArray(value) ? value.filter
+ function normalize(text: string) { return text.toLowerCase().replace(/next\s*js/g, "next.js").replace(/react\s*js/g, "react").replace(/[^a-z0-9+#.\u4e00-\u9fa5]+/g, " ").trim(); }
+ function tokenize(text: string) { return new Set([...(normalize(text).match(/[a-z0-9+#.]+/g) ?? []), ...(normalize(text).match(/[\u4e00-\u9fa5]{2,6}/g) ?? [])]); }
+ function expandedTerms(values: string[]) { const base = new Set(values.flatMap((value) => [...tokenize(value)])); for (const term of [...base]) for (const [key, aliases] of Object.entries(ALIASES)) if (normalize(key) === term || aliases.some((alias) => normalize(alias) === term)) [key, ...aliases].forEach((alias) => base.add(normalize(alias))); return base; }
+-function containsTerm(text: string, term: string) { const normalizedTerm = normalize(term); return normalizedTerm.length >= 2 && (` ${normalize(text)} `).includes(` ${normalizedTerm} `) || normalizedTerm.length >= 2 && normalize(text).includes(normalizedTerm); }
++function containsTerm(text: string, term: string) { return containsKeywordTerm(text, term); }
+ function bm25Lite(query: Set<string>, document: Set<string>) { if (!query.size) return 0; let matches = 0; for (const term of query) if (document.has(term)) matches += 1; return matches / Math.sqrt(query.size * Math.max(1, document.size)); }
+ function ngramDice(left: string, right: string) { const a = grams(normalize(left).replace(/\s/g, "")); const b = grams(normalize(right).replace(/\s/g, "")); if (!a.size || !b.size) return 0; let overlap = 0; for (const gram of a) if (b.has(gram)) overlap += 1; return (2 * overlap) / (a.size + b.size); }
+ function grams(text: string) { const result = new Set<string>(); const size = /[\u4e00-\u9fa5]/.test(text) ? 2 : 3; for (let i = 0; i <= text.length - size; i += 1) result.add(text.slice(i, i + size)); return result; }
+diff --git a/src/domain/jobOptimization/v4/analyze.ts b/src/domain/jobOptimization/v4/analyze.ts
+index c773890..46d88a4 100644
+--- a/src/domain/jobOptimization/v4/analyze.ts
++++ b/src/domain/jobOptimization/v4/analyze.ts
+@@ -1,3 +1,4 @@
++import { containsKeywordTerm } from "../keywordTaxonomy";
+ import {
+   JobRequirementGraphV4Schema,
+   JdSemanticAssignmentSchema,
+@@ -812,7 +813,7 @@ function declaredCount(text: string) {
+ }
+ 
+ function extractKeywords(text: string) {
+-  return unique(TECH_TERMS.filter((term) => normalize(text).includes(normalize(term))).sort((a, b) => b.length - a.length));
++  return unique(TECH_TERMS.filter((term) => containsKeywordTerm(text, term)).sort((a, b) => b.length - a.length));
+ }
+ 
+ function aliasesFor(text: string) {
+diff --git a/src/domain/profileIntake/CareerWritingQuality.ts b/src/domain/profileIntake/CareerWritingQuality.ts
+index c0a2b5f..04b36b1 100644
+--- a/src/domain/profileIntake/CareerWritingQuality.ts
++++ b/src/domain/profileIntake/CareerWritingQuality.ts
+@@ -29,27 +29,32 @@ export function writingOverlap(left: string, right: string) {
+   return intersection / Math.min(a.size, b.size);
+ }
+ 
++const OWNERSHIP = /独立完成|独立负责|主要负责|共同完成|共同负责|协助|参与|参加|配合|支持|负责|主导|带领/gu;
++const OWNERSHIP_LEVEL: Record<string, number> = { 协助: 1, 参与: 1, 参加: 1, 配合: 1, 支持: 1, 共同完成: 2, 共同负责: 2, 负责: 3, 主要负责: 4, 独立完成: 5, 独立负责: 5, 主导: 6, 带领: 6 };
++function responsibilityClaims(text: string) {
++  return text.split(/[。；;，,\n]/u).flatMap((clause) => [...clause.matchAll(OWNERSHIP)].map((match) => ({
++    phrase: match[0], level: OWNERSHIP_LEVEL[match[0]],
++    other: !/与|和|共同/u.test(clause.slice(0, match.index)) && /(?:团队|小组|负责人|同学|老师|他人|他们)[^我本人]*$/u.test(clause.slice(0, match.index)),
++    object: clause.slice(match.index! + match[0].length).replace(/^(?:使用|通过|完成|了)/u, "").trim()
++  })));
++}
++/** Summary for ranking only; never use this aggregate to authorize a claim. */
+ export function ownershipStrength(text: string) {
+-  const levels = [
+-    ["协助|参与|配合|支持", 1],
+-    ["共同完成|共同负责", 2],
+-    ["主要负责", 3],
+-    ["负责", 4],
+-    ["独立完成|独立负责", 5],
+-    ["主导|带领", 6]
+-  ] as const;
+-  let strength = 0;
+-  for (const [pattern, level] of levels) {
+-    if (new RegExp(pattern, "iu").test(text)) strength = Math.max(strength, level);
+-  }
+-  return strength;
++  return Math.max(0, ...responsibilityClaims(text).filter((claim) => !claim.other).map((claim) => claim.level));
+ }
+ 
+-/** A generated line may not strengthen the ownership stated by the source. */
++/** Check each action against its own source scope, excluding other people's actions. */
+ export function preservesOwnership(sourceText: string, generatedText: string) {
+-  const sourceStrength = ownershipStrength(sourceText);
+-  const generatedStrength = ownershipStrength(generatedText);
+-  return generatedStrength === 0 || (sourceStrength > 0 && generatedStrength <= sourceStrength);
++  const sources = responsibilityClaims(sourceText);
++  return responsibilityClaims(generatedText).every((claim) => sources.some((source) => {
++    if (source.other !== claim.other || source.level < claim.level) return false;
++    if (source.level <= 2 && source.phrase !== claim.phrase && !(["参与", "参加"].includes(source.phrase) && ["参与", "参加"].includes(claim.phrase))) return false;
++    if (/[及和、]/u.test(claim.object) && !source.object.includes(claim.object)) return false;
++    if (!source.object || !claim.object) return source.phrase === claim.phrase;
++    const tokens = claim.object.match(/[A-Za-z][A-Za-z0-9.+#-]*|[\u4e00-\u9fff]{2}/gu) ?? [];
++    return source.object.includes(claim.object) || claim.object.includes(source.object)
++      || tokens.filter((token) => source.object.includes(token)).length >= Math.max(1, Math.ceil(tokens.length * 0.5));
++  }));
+ }
+ 
+ export function isFiller(text: string) {
+diff --git a/src/domain/resumeComposition/ResumeBlueprint.ts b/src/domain/resumeComposition/ResumeBlueprint.ts
+index 877544e..a614b52 100644
+--- a/src/domain/resumeComposition/ResumeBlueprint.ts
++++ b/src/domain/resumeComposition/ResumeBlueprint.ts
+@@ -1,3 +1,4 @@
++import { classifyKeywordRelation, containsKeywordTerm } from "@/domain/jobOptimization/keywordTaxonomy";
+ import { migrateCareerProfileToV2, projectResumeItemV2 } from "@/domain/migrations/resumeV2";
+ import type { CareerProfile, JobDescription, ResumeItemV2 } from "@/domain/schemas";
+ import {
+@@ -121,7 +122,7 @@ export function classifyJobKeywords(job: JobDescription, graph: ResumeEvidenceGr
+   }
+   return keywords.map((keyword) => {
+     const normalized = keyword.toLocaleLowerCase();
+-    const exact = [...searchableByAsset.entries()].filter(([, text]) => text.includes(normalized) && !isNegatedKeyword(text, normalized));
++    const exact = [...searchableByAsset.entries()].filter(([, text]) => ["direct", "synonym"].includes(classifyKeywordRelation(normalized, text)) && !isNegatedKeyword(text, normalized));
+     if (exact.length) return {
+       keyword,
+       status: "SUPPORTED" as const,
+@@ -143,7 +144,10 @@ export function classifyJobKeywords(job: JobDescription, graph: ResumeEvidenceGr
+       status: "UNSUPPORTED" as const,
+       sourceAssetIds: [],
+       factIds: [],
+-      reason: "当前已确认资料库没有足够证据支持该关键词。",
++      reason: [...searchableByAsset.values()].some((text) => classifyKeywordRelation(keyword, text) === "negative")
++        ? "原始来源明确否认该经验，不能改写为已具备。"
++        : [...searchableByAsset.values()].some((text) => classifyKeywordRelation(keyword, text) === "ambiguous")
++          ? "岗位术语范围有歧义，需要核对任务语境。" : "当前已确认资料库没有足够证据支持该关键词；未知不等于明确否认。",
+       question: `你是否有「${keyword}」的已确认经历？没有也可以直接生成。`
+     };
+   });
+@@ -333,7 +337,7 @@ function relatedEvidence(keyword: string, graph: ResumeEvidenceGraph, searchable
+   };
+   const aliases = relations[normalized] ?? [];
+   return [...searchableByAsset.entries()]
+-    .filter(([, text]) => aliases.some((alias) => text.includes(alias)))
++    .filter(([, text]) => (classifyKeywordRelation(keyword, text) === "adjacent" || aliases.some((alias) => containsKeywordTerm(text, alias))))
+     .map(([id]) => id)
+     .filter((id) => graph.sourceAssetIds.includes(id));
+ }

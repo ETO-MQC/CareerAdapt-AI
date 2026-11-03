@@ -1,0 +1,1774 @@
+{
+  "schemaVersion": "sq13-b1-acceptance.v1",
+  "date": "2026-11-03",
+  "timezone": "Asia/Shanghai",
+  "status": "B PARTIAL",
+  "phase": "P5.1-SQ1.3-B.1",
+  "git": {
+    "requestedBaseline": "64323f5a03de85a7802e7dea3743961b8d7de754",
+    "actualHead": "9068b947cb02eacda4e6f5ad5bf01802c59fe39b",
+    "branch": "competition/5.1.8",
+    "initialStatus": "",
+    "initialDiffStat": "",
+    "initialDiffNameOnly": [],
+    "discrepancy": "B already committed as 9068b94; prior uncommitted handoff is stale",
+    "newCommit": false,
+    "push": false
+  },
+  "frozenContract": {
+    "classification": "HISTORICAL_CONTRACT_OUTDATED_SOURCE_SEMANTICS_DIFFER",
+    "introducedFailureByB": true,
+    "productionRegressionFound": false,
+    "originalUnchanged": true,
+    "historyCommit": "ee71a31",
+    "approvalRequired": "Either give case10 infra provenance, or explicitly limit zero-rewrite assertion to quality proposals and require verify for source mismatch; original unchanged pending approval"
+  },
+  "productionReview": {
+    "files": [
+      "src/domain/adaptation/factGuard.ts",
+      "src/domain/jobOptimization/keywordTaxonomy.ts",
+      "src/domain/jobOptimization/v2/evidence.ts",
+      "src/domain/jobOptimization/v4/analyze.ts",
+      "src/domain/profileIntake/CareerWritingQuality.ts",
+      "src/domain/resumeComposition/ResumeBlueprint.ts",
+      "src/domain/resumeComposition/ResumeEvidenceGraph.ts",
+      "src/domain/resumeComposition/ResumeReviewer.ts"
+    ],
+    "newProductionChanges": [],
+    "focus": [
+      "identifier boundaries",
+      "synonym versus adjacent",
+      "ownership subject/action scope",
+      "metric token and unit",
+      "metric task binding",
+      "confirmed original provenance",
+      "target asset isolation"
+    ],
+    "hashes": {
+      "src/domain/adaptation/factGuard.ts": "0447c53ebca7ff519fc35c3e60787eee4b68205fbf7bf86d0fa6fd06a3037e28",
+      "src/domain/jobOptimization/keywordTaxonomy.ts": "0a508a29f9d0b2fb243b7216bd7395e2660ac384ce0316e64f6dde86ad112928",
+      "src/domain/jobOptimization/v2/evidence.ts": "98e93b508edc56db1081a177c4ff0403294c66bb6559e1019ec70e40dd278ce9",
+      "src/domain/jobOptimization/v4/analyze.ts": "6f7eeeb185a9312fec351ce9d8d572a4605f085b4d271ae8658b0a94f7a229ce",
+      "src/domain/profileIntake/CareerWritingQuality.ts": "980dab4ebd82c1ea858d539f492fc486ccdfb22821c045c2824870e9e4910c5b",
+      "src/domain/resumeComposition/ResumeBlueprint.ts": "d92a47010bf4b97dcd48d515cde6461522da208a1d49373ed561880ed13b8c9f",
+      "src/domain/resumeComposition/ResumeEvidenceGraph.ts": "5e55c3a2e6321b197c6fe3b212338c3bfe1932c72a9fd2d42a23f70dbb77cb51",
+      "src/domain/resumeComposition/ResumeReviewer.ts": "6c8ad2f9a83156978c19ff189285da153519eb39fa78436883826eb8bab47736"
+    }
+  },
+  "tests": {
+    "frozenSingle": {
+      "total": 20,
+      "passed": 0,
+      "failed": 1,
+      "tests": [
+        {
+          "name": "P4.8c frozen 20 production scenarios 01 action + method without metric KEEP",
+          "status": "skipped",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 02 verified metric preserved",
+          "status": "skipped",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 03 generic claim requests rewrite without invented number",
+          "status": "skipped",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 04 participation never becomes ownership",
+          "status": "skipped",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 05 familiar and learning never become mastery",
+          "status": "skipped",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 06 absent Summary has no penalty or automatic filler",
+          "status": "skipped",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 07 generic Summary under pressure is removal candidate",
+          "status": "skipped",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 08 twenty-tool catalog gets redundancy warning",
+          "status": "skipped",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 09 Skills Redis plus Project Redis proof allowed",
+          "status": "skipped",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 10 strong original requires zero rewrite",
+          "status": "failed",
+          "failureMessages": [
+            "AssertionError: expected [ { …(6) }, { …(6) } ] to deeply equal []\n    at E:/DEF/CareerAdapt-competition-5.1.8/tests/unit/p48c-corpus-calibration.test.ts:69:39\n    at file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+runner@4.1.9/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+runner@4.1.9/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26\n    at file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+runner@4.1.9/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20\n    at new Promise (<anonymous>)\n    at runWithCancel (file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+runner@4.1.9/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10)\n    at file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+runner@4.1.9/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+runner@4.1.9/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+runner@4.1.9/node_modules/@vitest/runner/dist/chunk-artifact.js:2955:64"
+          ]
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 11 long single causal chain is not split",
+          "status": "skipped",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 12 independent achievements receive split suggestion",
+          "status": "skipped",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 13 user precise metric without supporting source VERIFY",
+          "status": "skipped",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 14 generated unsupported metric BLOCK",
+          "status": "skipped",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 15 AI / Agent 应用工程师 evidence emphasis",
+          "status": "skipped",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 16 后端工程师 evidence emphasis",
+          "status": "skipped",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 17 前端工程师 evidence emphasis",
+          "status": "skipped",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 18 DevOps 基础设施工程师 evidence emphasis",
+          "status": "skipped",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 19 JD keyword without source cannot be parroted",
+          "status": "skipped",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 20 constrained selection preserves strongest relevant evidence",
+          "status": "skipped",
+          "failureMessages": []
+        }
+      ]
+    },
+    "regression22Files": {
+      "total": 233,
+      "passed": 232,
+      "failed": 1,
+      "tests": [
+        {
+          "name": "stage C2 adaptation draft and fact guard creates JobAdaptationDraft only from non-stale C1 matches",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "stage C2 adaptation draft and fact guard blocks stale matches before creating C2 draft",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "stage C2 adaptation draft and fact guard detects unsupported numbers, tools, and responsibility upgrades",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "stage C2 adaptation draft and fact guard keeps rule findings when AI fact guard fails",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "D1 resume branch domain builds profile-backed and blank general branches with independent basic information",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "D1 resume branch domain removes profile-backed content only from the resume branch and can undo it",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "D1 resume branch domain persists blank resume basics and keeps newly confirmed content resume-only by default",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "D1 resume branch domain normalizes award dates and syncs profile changes back to an existing resume item",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "D1 resume branch domain adds confirmed profile experience to a resume without duplicating profile data",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "D1 resume branch domain reuses skills and certificates by fact reference and rejects duplicates",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "D1 resume branch domain maps a non-stale adaptation draft into a verified branch and first revision",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "D1 resume branch domain allows ai_failed_rule_kept only as rule_only_verified when rule findings have no high block",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "D1 resume branch domain blocks stale source versions before branch creation",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "D1 resume branch repository creates branch and first revision atomically, edits with rule guard, and undoes through previousRevisionId",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "D1 resume branch repository migrates legacy v4 placeholder branches as read-only legacy_unverified",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "D1 resume branch repository keeps edit operationId idempotent and blocks archived or invalid-reference edits",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "D1 resume branch repository parses ResumeRevision with null previousRevisionId and restoredFromRevisionId from IndexedDB",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "D1 resume branch repository parses ResumeBranch with null currentRevisionId from IndexedDB",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5a career writing quality allows zero or one reliable highlight instead of filler bullets",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5a career writing quality removes exact, near, and filler duplicates without a vector index",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5a career writing quality preserves ownership strength",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "V2-G5a job optimization renders imported and profile-backed general resumes",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "V2-G5a job optimization maps confirmed job requirements to branch content blocks and summarizes fact gaps",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "V2-G5a job optimization creates block suggestions with revision locks, evidence, guard preview, and stale detection",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "V2-G5a job optimization derives a job branch and applies accepted block suggestions without mutating the general branch",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "V2-G5a job optimization deduplicates only the exact source revision and creates a separate branch after the general resume changes",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "V2-G5a job optimization keeps Job A and Job B sibling revisions isolated in both directions",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "V2-G5a job optimization blocks high-risk accepted edits and stale branch revisions",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "JD Optimization Engine V2 parses headings, lists, independent constraints and preserves every source span",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "JD Optimization Engine V2 filters JD headings and metadata while preserving canonical requirement IDs",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "JD Optimization Engine V2 creates grounded matrix and honest coverage for 'AI 工程师'",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "JD Optimization Engine V2 creates grounded matrix and honest coverage for '前端开发'",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "JD Optimization Engine V2 creates grounded matrix and honest coverage for '外贸供应链'",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "JD Optimization Engine V2 creates grounded matrix and honest coverage for '明显不匹配'",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "JD Optimization Engine V2 rejects unknown, duplicate and out-of-recall AI evidence ids",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "JD Optimization Engine V2 semantic rerank accepts recalled IDs and preserves deterministic results on AI failure",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "JD Optimization Engine V2 does not hide hard gaps or create claims for missing years and certificates",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "JD Optimization Engine V2 recalculates coverage from the patched branch and marks confirmed additions as user_declared",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "JD Optimization Engine V2 meets the four-case grounding benchmark and records a V1/V2 comparison",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "Job Semantic Compiler V4 uses dynamic numbered and colon hierarchy for the AI trainer fixture",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "Job Semantic Compiler V4 preserves the Coding Agent top-level groups and non-scoring details",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "Job Semantic Compiler V4 applies a real AI disposition override before graph compilation",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "Job Semantic Compiler V4 rejects invented IDs and cyclic parents locally without losing source coverage",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.6b deterministic tailoring quality closure A-D rejects no-op, mechanical prefix, ownership upgrade, and invented metric",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.6b deterministic tailoring quality closure E-G rejects generic proficiency, malformed Chinese, and internal field labels",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.6b deterministic tailoring quality closure H-I makes denied capability and weak proficiency answers binding",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.6b deterministic tailoring quality closure J keeps the first diff and conservatively rejects cross-target repetition",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.6b deterministic tailoring quality closure K ranks evidence-backed experience before generic skills and preserves diversity",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.6b deterministic tailoring quality closure L sends bounded FACT/REQUIREMENT/CONTEXT sections and retry diagnostics",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8a career resume intelligence keeps demonstrated, confirmed, familiar, and learning evidence distinct",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8a career resume intelligence projects legacy facts from their confirmation and source contract without migrating them",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8a career resume intelligence builds at most four exact, reusable confirmed fact bullets without project provenance",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8a career resume intelligence uses explicit mode semantics and freezes a bounded question budget",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8a career resume intelligence keeps a high-value missing dimension visible while allowing an incomplete review to finish",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8a career resume intelligence records a max-fit answer as bounded resume-only evidence instead of copying the option text",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8a career resume intelligence keeps hard fact findings blocking even when a claim is user-confirmed",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8a career resume intelligence flags mechanical or empty-adjective resume wording for human review",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 01 action + method without metric KEEP",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 02 verified metric preserved",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 03 generic claim requests rewrite without invented number",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 04 participation never becomes ownership",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 05 familiar and learning never become mastery",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 06 absent Summary has no penalty or automatic filler",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 07 generic Summary under pressure is removal candidate",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 08 twenty-tool catalog gets redundancy warning",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 09 Skills Redis plus Project Redis proof allowed",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 10 strong original requires zero rewrite",
+          "status": "failed",
+          "failureMessages": [
+            "AssertionError: expected [ { …(6) }, { …(6) } ] to deeply equal []\n    at E:/DEF/CareerAdapt-competition-5.1.8/tests/unit/p48c-corpus-calibration.test.ts:69:39\n    at file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+runner@4.1.9/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+runner@4.1.9/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26\n    at file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+runner@4.1.9/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20\n    at new Promise (<anonymous>)\n    at runWithCancel (file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+runner@4.1.9/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10)\n    at file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+runner@4.1.9/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+runner@4.1.9/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+runner@4.1.9/node_modules/@vitest/runner/dist/chunk-artifact.js:2955:64"
+          ]
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 11 long single causal chain is not split",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 12 independent achievements receive split suggestion",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 13 user precise metric without supporting source VERIFY",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 14 generated unsupported metric BLOCK",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 15 AI / Agent 应用工程师 evidence emphasis",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 16 后端工程师 evidence emphasis",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 17 前端工程师 evidence emphasis",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 18 DevOps 基础设施工程师 evidence emphasis",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 19 JD keyword without source cannot be parroted",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 20 constrained selection preserves strongest relevant evidence",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.3h Profile Intake fact preservation does not upgrade 协助开发 or RPA 采集 into independent or compliance claims",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.3h Profile Intake fact preservation quarantines a competition that the model incorrectly classifies as a project",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.3h Profile Intake fact preservation injects the caller-provided runtime date into the semantic boundary",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.3h Profile Intake fact preservation treats a spaced date correction as authoritative intake evidence",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1 resume composition commit quality gate does not persist a branch when AI Writer fell back",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1.2 confirmed composition write boundary binds the active Career profile before a natural-language compose task starts",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1.2 confirmed composition write boundary uses one canonical Host command for typed text and the Direct Generate button",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1.2 confirmed composition write boundary executes the confirmed checkpoint once, projects resume_ready, and makes a second click idempotent",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1.2 confirmed composition write boundary does not let an MCP checkpoint call create a branch without Host confirmation",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1.2 confirmed composition write boundary rejects a stale checkpoint without writing and returns to review",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1.2 confirmed composition write boundary keeps update_existing behind an explicit user selection",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1.2 confirmed composition write boundary keeps a transport-failed checkpoint recoverable and writes nothing",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1.2 confirmed composition write boundary retries the same checkpoint after transport recovery and creates one branch and revision",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1.2 confirmed composition write boundary coalesces concurrent retries for the same failed checkpoint",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1.2 confirmed composition write boundary rejects a same-checkpoint retry after the bound Profile revision changes",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1.2 confirmed composition write boundary keeps a runtime composition proposal actionable without creating a pending artifact",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1.2 confirmed composition write boundary reprojects composition actions when the terminal runtime event arrives before the bridge result",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5b resume compilation intelligence builds a grounded evidence graph and general resume without mutating Profile",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5b resume compilation intelligence classifies job keywords conservatively and keeps the job branch proposal-only until composition",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5b resume compilation intelligence round-trips all canonical project fields through the structured editor model",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5b resume compilation intelligence recovers explicit project technologies into the proposal without mutating Profile",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5b resume compilation intelligence lets the model improve phrasing while deterministic boundaries keep identity, tools, and skills grounded",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5b resume compilation intelligence uses section labels instead of internal IDs and filters generic technical noise",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5b resume compilation intelligence records writer execution, preserves target context, and creates an immutable checkpoint",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5b resume compilation intelligence records a deterministic fallback when the writer provider is unavailable",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5b resume compilation intelligence keeps writer target context in the strict task schema and prompt payload",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5b.1 canonical resume composition journey does not consume Card 4's initial instruction as the target-direction answer",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5b.1 canonical resume composition journey captures a later target answer and makes direct generation an explicit confirmation",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5b.1 canonical resume composition journey keeps a short target answer in compose_resume even before the pause is marked waiting",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5b.1 canonical resume composition journey keeps the canonical tool permission set and removes the legacy raw writer",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5b.1 canonical resume composition journey migrates a completed legacy branch without reopening it as an unfinished composition",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5b.1 canonical resume composition journey blocks a resume-shaped fabricated answer until a proposal or result is grounded",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5b.1 canonical resume composition journey persists an external runtime's canonical task before it can call the model",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5b.1 canonical resume composition journey recognizes the three proposal continuations without lexical workflow switching",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5b.1 canonical resume composition journey closes the optional target-direction need when composition reaches resume_ready",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5b.1 canonical resume composition journey keeps ordinary career questions as a side turn while preserving the active composition",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5b.1 canonical resume composition journey requires a legal terminal result for the current turn",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5b.1 canonical resume composition journey regenerates a failed composition turn from its canonical checkpoint",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "D2 resume render model maps only verified visible branch content into the render model",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "D2 resume render model rejects legacy_unverified branches before template rendering",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "D2 resume render model keeps rule_only_verified content in the model but exposes safety metadata only",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "D2 overflow classification classifies fits, near_limit, and overflow from real container heights",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'I-01' has a complete independent card and no invented observations",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'I-02' has a complete independent card and no invented observations",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'I-03' has a complete independent card and no invented observations",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'I-04' has a complete independent card and no invented observations",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'I-05' has a complete independent card and no invented observations",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'I-06' has a complete independent card and no invented observations",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'S-01' has a complete independent card and no invented observations",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'S-02' has a complete independent card and no invented observations",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'S-03' has a complete independent card and no invented observations",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'S-04' has a complete independent card and no invented observations",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'S-05' has a complete independent card and no invented observations",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) 'S-06' has a complete independent card and no invented observations",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) freezes the twelve IDs, all six candidate hashes and all protected baseline bytes",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) keeps the historical loader fail-closed for the candidate, without entering its CLI",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) I-02 binds the mixed answer route, without claiming semantic isolation of unrelated clauses",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) I-03 distinguishes answer from correction and carries superseded-source provenance",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) I-04 records skip exactly once, suppresses that dimension, and exposes absent uncertain status",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) I-05/S-03 allow a qualitative complete asset to have zero detail questions",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) I-06 recognizes explicit stop control, but does not treat recognition as recovery verification",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) records the Host identity-repair exception to the normal two-detail budget",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) I-01/S-05 source journal can bind multiple candidate IDs without inventing extraction",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) S-01 preserves the existing ownership/metric block for an unsupported escalation",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) S-02/S-03 preserve exact qualitative team/individual statements in the confirmed-fact projection",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) S-04 excludes an unconfirmed example from confirmed review bullets",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) S-06 projection retains familiar without external proof",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) S-06 projection retains confirmed_capability without external proof",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.2 independent offline contracts (no model-quality verdict) S-06 projection retains learning without external proof",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) A1 exact confirmed Python mapping",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) A2 taxonomy bilingual synonym without promoting unrelated aliases",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) A3 false equivalence, adjacency, uncertainty, denial and ambiguity",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) B1 separates team leader from personal assistance",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) A3/D3 V2 cannot promote recalled aliases or familiar skills to direct",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) B2 binds ownership to the task instead of the paragraph maximum",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) B3 longest phrases retain shared, primary, independent and leading responsibility",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C1 qualitative outcomes need no numeric decoration",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 rejects unsupported metric 80ms",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 rejects unsupported metric 2s",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 rejects unsupported metric 2 seconds",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 rejects unsupported metric QPS1000",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 rejects unsupported metric TPS200",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 rejects unsupported metric 99%",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 rejects unsupported metric ￥300",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 rejects unsupported metric 收入200元",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 rejects unsupported metric 10个用户",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 rejects unsupported metric 3个月",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 rejects unsupported metric 效率提升30%",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 rejects a metric borrowed from a different task",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 metric token equality and comma-separated task objects",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C2 reviewer compares generated claims against original confirmed evidence",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) C3 preserves non-target strong asset hash and input profiles/revisions",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) D1 does not turn transferable R evidence into Python experience",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) D2 removes repeated cache wording but keeps invalidation verification",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) D3 preserves unique recovery evidence and labels page count as estimate",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ1.3-B v1 deterministic contracts (real model UNVERIFIED_REAL_MODEL_REQUIRED) next-round JD finding: paragraph remains a single lexical unit",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "WorkspaceRepository persists the current Agent Session projection when listing a legacy record",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "WorkspaceRepository migrates legacy agent message options before archive and rename writes",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "WorkspaceRepository persists only an existing profile as the active profile context",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "WorkspaceRepository copies a user-entered profile summary into a new general resume",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "WorkspaceRepository deletes an unreferenced profile and blocks deletion after a resume references it",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "WorkspaceRepository renames an untouched legacy demo profile without overwriting a user rename",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "WorkspaceRepository restores profile items and jobs from the unified recycle bin",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "WorkspaceRepository restores structured profile items from the recycle bin without losing fields or evidence",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "WorkspaceRepository writes, reads, updates, and exports the demo workspace",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "WorkspaceRepository migrates stage B Dexie v2 data to v3 without losing profile, job, raw inputs, or drafts",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "WorkspaceRepository migrates stage C1 Dexie v3 data to v4 with empty C2 tables",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "WorkspaceRepository saves resume branches, AI logs, export records, and app meta",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "WorkspaceRepository persists C2 draft, suggestions, idempotent accept, rejection, edit guard, and undo",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "WorkspaceRepository prevents accepting blocked high-risk suggestions",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "WorkspaceRepository saves stage B profile drafts with revision checks and idempotent commits",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "WorkspaceRepository saves stage B JD drafts with revision checks and idempotent commits",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "WorkspaceRepository revision conflict prevents concurrent profile draft overwrites",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "WorkspaceRepository draft persists through simulated refresh for recovery",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "WorkspaceRepository JD draft also persists through simulated refresh",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "WorkspaceRepository provider failure fallback: raw text preserved, manual mode draft created",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "Claim Guard turns new_tool into a confirmable capability",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "Claim Guard turns new_skill into a confirmable capability",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "Claim Guard turns know_to_proficient into a confirmable capability",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "Claim Guard keeps new_number blocked",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "Claim Guard keeps new_company blocked",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "Claim Guard keeps participation_to_owner blocked",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "Claim Guard accepts planner ask_user actions and bound clarification questions",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "Claim Guard keeps an AI suggestion with a new tool selectable pending confirmation",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "Claim Guard maps the four support levels to stable decisions",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "Claim Guard keeps user-declared skills separate from verified evidence",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "Claim Guard permanently blocks invented numeric outcomes",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "tailoring intensity and section policy uses balanced as the middle recommendation",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "tailoring intensity and section policy never rewrites immutable factual sections",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "tailoring application service groups confirmation and defaults it to resume-only",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "tailoring application service resolves proficient into proficiency-aware final text",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "tailoring application service resolves familiar into proficiency-aware final text",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "tailoring application service resolves aware into proficiency-aware final text",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "tailoring application service resolves learning into proficiency-aware final text",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "tailoring application service does not produce resolved text when the user chooses not to add",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "tailoring application service does not erase deterministic claims when AI returns no suggestions",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "tailoring application service turns a clarification answer into a resume-only confirmable claim",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "tailoring application service records a negative clarification answer and does not create a claim",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "tailoring application service builds a safe fallback patch when clarification has no deterministic suggestion",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "capability entity resolver classifies employers, platforms, tools, models, workflows and materials",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "capability entity resolver never promotes Talents spelling variants to proficiency-capable entities",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "tailoring closure invariants deduplicates clarification cards by capability and policy while merging requirements",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "tailoring closure invariants captures the immutable branch revision value and merges requirement ids by semantic target",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "tailoring closure invariants detects a changed revision without mutating the saved original snapshot",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "tailoring closure invariants rejects Talents proficiency text and duplicate final sentences",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "tailoring closure invariants does not create a skill claim from a Talents suggestion",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "tailoring closure invariants appends a confirmed project bullet instead of prepending a generic proficiency sentence",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "headless tailoring commands analyzes a JD without UI state and returns a reviewable V4 graph",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "headless tailoring commands retries only a rejected target once and keeps the successful retry",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "typed resume field patches keeps experience highlights as a string array and rejects flattened metadata",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "typed resume field patches builds a claim whose formal target is only the typed field patch",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "claim-level confirmation resolves proficiency into both the visible final sentence and target patch",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "claim-level confirmation uses adopt/edit/reject for experience reframes instead of proficiency",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "tailoring quality gates rejects a truncated summary and analytical boilerplate",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "tailoring quality gates deduplicates keyword variants and separates decision groups",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "tailoring quality gates prioritizes the most relevant AI Coding evidence",
+          "status": "passed",
+          "failureMessages": []
+        }
+      ]
+    },
+    "independentContractV1": {
+      "total": 2,
+      "passed": 2,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "SQ13-B1 source contract v1 (independent of frozen p48c) keeps strong infra text without proposals when its original provenance supports it",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "SQ13-B1 source contract v1 (independent of frozen p48c) retains a strong but source-mismatched candidate and requires verification, not a quality rewrite",
+          "status": "passed",
+          "failureMessages": []
+        }
+      ]
+    },
+    "integration": {
+      "total": 13,
+      "passed": 12,
+      "failed": 1,
+      "tests": [
+        {
+          "name": "P4.5c.1 final control-loop closure drives Q1→Q2→Q3→diff review→confirmation into a real Job Revision",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1 final control-loop closure keeps one visible question through same-turn runtime events beyond 15 seconds",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1 final control-loop closure reads the canonical post-Q3 session before generate_changes",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1 final control-loop closure applies a bound answer button once when two clicks race",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1 final control-loop closure does not let delayed same-session hydration roll back a live question",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1 final control-loop closure does not invoke the Driver when the answer write loses its CAS race",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1 final control-loop closure rebases a typed tailoring answer after a CAS rejection",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1 final control-loop closure does not route an uncommitted typed answer into the Driver",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1 final control-loop closure retries a failed generation checkpoint without replaying resolved questions",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1.20 production golden journey replay resolves one persisted UserMessage across Hermes, MCP, Browser, Gateway and Facade",
+          "status": "failed",
+          "failureMessages": [
+            "AssertionError: expected { …(31) } to match object { …(6) }\n(34 matching properties omitted from actual)\n    at Proxy.<anonymous> (file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+expect@4.1.9/node_modules/@vitest/expect/dist/index.js:1283:10)\n    at Proxy.<anonymous> (file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+expect@4.1.9/node_modules/@vitest/expect/dist/index.js:1156:15)\n    at Proxy.methodWrapper (file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/chai@6.2.2/node_modules/chai/index.js:1700:25)\n    at E:/DEF/CareerAdapt-competition-5.1.8/tests/integration/p45c1c20-production-path-replay.test.ts:230:33\n    at processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+runner@4.1.9/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "name": "P4.5c.1.20 production golden journey replay derives one checkpoint and consumes the persisted text answer without Hermes",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1.20 production golden journey replay routes plain text resume choice through the generic checkpoint handler",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1.20 production golden journey replay settles canonical validation failure as a recoverable workflow checkpoint",
+          "status": "passed",
+          "failureMessages": []
+        }
+      ]
+    },
+    "baselineComparison": {
+      "total": 33,
+      "passed": 32,
+      "failed": 1,
+      "tests": [
+        {
+          "name": "P4.5c.1 final control-loop closure drives Q1→Q2→Q3→diff review→confirmation into a real Job Revision",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1 final control-loop closure keeps one visible question through same-turn runtime events beyond 15 seconds",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1 final control-loop closure reads the canonical post-Q3 session before generate_changes",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1 final control-loop closure applies a bound answer button once when two clicks race",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1 final control-loop closure does not let delayed same-session hydration roll back a live question",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1 final control-loop closure does not invoke the Driver when the answer write loses its CAS race",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1 final control-loop closure rebases a typed tailoring answer after a CAS rejection",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1 final control-loop closure does not route an uncommitted typed answer into the Driver",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1 final control-loop closure retries a failed generation checkpoint without replaying resolved questions",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1.20 production golden journey replay resolves one persisted UserMessage across Hermes, MCP, Browser, Gateway and Facade",
+          "status": "failed",
+          "failureMessages": [
+            "AssertionError: expected { …(31) } to match object { …(6) }\n(34 matching properties omitted from actual)\n    at Proxy.<anonymous> (file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+expect@4.1.9/node_modules/@vitest/expect/dist/index.js:1283:10)\n    at Proxy.<anonymous> (file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+expect@4.1.9/node_modules/@vitest/expect/dist/index.js:1156:15)\n    at Proxy.methodWrapper (file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/chai@6.2.2/node_modules/chai/index.js:1700:25)\n    at E:/DEF/CareerAdapt-competition-5.1.8/.tmp/sq13-b1-baseline-64323f5/tests/integration/p45c1c20-production-path-replay.test.ts:230:33\n    at processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+runner@4.1.9/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "name": "P4.5c.1.20 production golden journey replay derives one checkpoint and consumes the persisted text answer without Hermes",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1.20 production golden journey replay routes plain text resume choice through the generic checkpoint handler",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.5c.1.20 production golden journey replay settles canonical validation failure as a recoverable workflow checkpoint",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 01 action + method without metric KEEP",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 02 verified metric preserved",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 03 generic claim requests rewrite without invented number",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 04 participation never becomes ownership",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 05 familiar and learning never become mastery",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 06 absent Summary has no penalty or automatic filler",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 07 generic Summary under pressure is removal candidate",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 08 twenty-tool catalog gets redundancy warning",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 09 Skills Redis plus Project Redis proof allowed",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 10 strong original requires zero rewrite",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 11 long single causal chain is not split",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 12 independent achievements receive split suggestion",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 13 user precise metric without supporting source VERIFY",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 14 generated unsupported metric BLOCK",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 15 AI / Agent 应用工程师 evidence emphasis",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 16 后端工程师 evidence emphasis",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 17 前端工程师 evidence emphasis",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 18 DevOps 基础设施工程师 evidence emphasis",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 19 JD keyword without source cannot be parroted",
+          "status": "passed",
+          "failureMessages": []
+        },
+        {
+          "name": "P4.8c frozen 20 production scenarios 20 constrained selection preserves strongest relevant evidence",
+          "status": "passed",
+          "failureMessages": []
+        }
+      ]
+    }
+  },
+  "checks": {
+    "typecheck": 0,
+    "changedFilesEslint": 0,
+    "diffCheck": 0,
+    "turbopackBuild": 1,
+    "webpackBuild": 1,
+    "baselineTurbopackBuild": 1,
+    "baselineWebpackBuild": 1,
+    "finalTypecheck": 0,
+    "productionBytePreservation": true,
+    "documentLinksAndSavedHandoffs": true,
+    "newTextWhitespace": true
+  },
+  "builds": {
+    "turbopack": {
+      "classification": "PRE_EXISTING_BUILD_BLOCKER",
+      "kind": "ENVIRONMENT",
+      "junction": "E:/DEF/CareerAdapt-competition-5.1.8/node_modules",
+      "target": "E:/DEF/CareerAdapt AI/node_modules",
+      "reason": "Junction points outside filesystem root; failure before application compilation"
+    },
+    "webpack": {
+      "classification": "PRE_EXISTING_BUILD_BLOCKER",
+      "kind": "HISTORICAL_SOURCE",
+      "chain": [
+        "src/app/jobs/JobsWorkspace.tsx (use client)",
+        "src/domain/jobDiscovery/candidatePipeline.ts",
+        "src/domain/jobAssets/jdNormalization.ts",
+        "node:crypto"
+      ],
+      "baselineChainUnchanged": true,
+      "introductionCommit": "04fd950 (jdNormalization import)",
+      "reason": "UnhandledSchemeError in client bundle"
+    },
+    "baselineMethod": "git archive 64323f5 zip extraction into ignored .tmp, same dependency Junction, baseline webpack emitted multiple lockfile root warning; both same principal failures"
+  },
+  "additionalBaselineFailure": {
+    "test": "p45c1c20-production-path-replay.test.ts:230",
+    "classification": "PRE_EXISTING_TEST_BLOCKER",
+    "reason": "protocolDiagnostics object does not satisfy expected diagnostic metadata shape; same failure at baseline; not repaired"
+  },
+  "limits": [
+    "frozen assertion approval pending",
+    "both builds failed",
+    "existing integration diagnostics assertion failed",
+    "real model quality unverified",
+    "baseline archive retained in ignored .tmp; no tracked source switch"
+  ],
+  "nextStageBaseline": {
+    "cleanEngineeringAcceptance": false,
+    "traceableStartingCommit": "9068b947cb02eacda4e6f5ad5bf01802c59fe39b",
+    "jd01Started": false
+  },
+  "safety": {
+    "providerCalls": 0,
+    "apiKeyRead": false,
+    "skillsOrPromptsChanged": false,
+    "schemaOrRepositoryOrThresholdOrConfirmationChanged": false,
+    "hermesChanged": false,
+    "agentsSpawned": 0
+  },
+  "logs": [
+    {
+      "path": "docs/quality/sq13-b1-logs/baseline-tests.json",
+      "bytes": 12634,
+      "sha256": "3d7c07dcfa7893573b21760c93a94349bdfc9a5df36c4f11d0f96401ed9251d5"
+    },
+    {
+      "path": "docs/quality/sq13-b1-logs/baseline-tests.log",
+      "bytes": 107,
+      "sha256": "56a24cc9b2d954835ba82242f302cca4089de9ebeef0648948b8259027bf7e25"
+    },
+    {
+      "path": "docs/quality/sq13-b1-logs/baseline-turbopack.log",
+      "bytes": 3926,
+      "sha256": "fc032818ec326782d00fd4f6843731bd3fb5df2fab46ead3de5c2d16a0550b3d"
+    },
+    {
+      "path": "docs/quality/sq13-b1-logs/baseline-webpack.log",
+      "bytes": 3116,
+      "sha256": "b3552d52c36aca6a56512c62ae6e8caa515cfc8b891aeb2810104c740e220ea0"
+    },
+    {
+      "path": "docs/quality/sq13-b1-logs/baseline.diff",
+      "bytes": 116691,
+      "sha256": "29b76ad7f7045a13f8a24ce63b0825bac5057b5f4c3f44a597e3ef69e7ef6ef3"
+    },
+    {
+      "path": "docs/quality/sq13-b1-logs/contract-v1.json",
+      "bytes": 1540,
+      "sha256": "003e2133a88bdb70a097b1a4c072cfb0f289772fa72289e6461d0ca602ca77e3"
+    },
+    {
+      "path": "docs/quality/sq13-b1-logs/contract-v1.log",
+      "bytes": 104,
+      "sha256": "a3529f7097fc0ebcc17ba69a8837d0aac28699f7b8e5cce28e8eb5a9bd8f5e80"
+    },
+    {
+      "path": "docs/quality/sq13-b1-logs/eslint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/quality/sq13-b1-logs/integration.json",
+      "bytes": 6299,
+      "sha256": "23d677213ae7a60d06a380b994e5c23c5de52d010b13b663c446e93673c77921"
+    },
+    {
+      "path": "docs/quality/sq13-b1-logs/integration.log",
+      "bytes": 104,
+      "sha256": "7bd329e1b12b76b78f24136de41f025c2119332abce3793c3e77e940b6d5790f"
+    },
+    {
+      "path": "docs/quality/sq13-b1-logs/p48c-original-verbose.log",
+      "bytes": 4578,
+      "sha256": "20b01d81aa9c94dbdf4d3052e57066012171851dfe5002680f87860755bbc03a"
+    },
+    {
+      "path": "docs/quality/sq13-b1-logs/p48c-original.json",
+      "bytes": 7407,
+      "sha256": "b2c40503913f71b12913da0c8989007b92402df489ff90918475adc64b793697"
+    },
+    {
+      "path": "docs/quality/sq13-b1-logs/p48c-original.log",
+      "bytes": 106,
+      "sha256": "b00c2e81aa374873784f8cfd0e392583fcf3ca5f12159bb8e62a8497f38e2a94"
+    },
+    {
+      "path": "docs/quality/sq13-b1-logs/production-review.diff",
+      "bytes": 20192,
+      "sha256": "9b10284c7a9f18fecf7b9dd0b6a16de5fcd41f3d4f9b047dac5c13279b866d63"
+    },
+    {
+      "path": "docs/quality/sq13-b1-logs/regression.json",
+      "bytes": 87204,
+      "sha256": "8e9767a62aa3fb70c00ea9c42f492798458a7e12ce204f2e791da3793daaf1b4"
+    },
+    {
+      "path": "docs/quality/sq13-b1-logs/regression.log",
+      "bytes": 103,
+      "sha256": "2662f36cef3e436c9b4762e2a297953b141e76fb64d522a295d4b4b1a05c93ea"
+    },
+    {
+      "path": "docs/quality/sq13-b1-logs/turbopack.log",
+      "bytes": 3140,
+      "sha256": "03680b270ae51b91b3d0a029c78a720c36a9329ea00222e82058f4d3143829a1"
+    },
+    {
+      "path": "docs/quality/sq13-b1-logs/typecheck-final.log",
+      "bytes": 96,
+      "sha256": "a1d66846888bfa790dfb6513418034ed6acc59d209f60c7da8ed9d2108c1b36b"
+    },
+    {
+      "path": "docs/quality/sq13-b1-logs/typecheck.log",
+      "bytes": 96,
+      "sha256": "a1d66846888bfa790dfb6513418034ed6acc59d209f60c7da8ed9d2108c1b36b"
+    },
+    {
+      "path": "docs/quality/sq13-b1-logs/webpack.log",
+      "bytes": 2525,
+      "sha256": "4270d30ed39a43ee69fd4c8b5a24bad292cdbe7251d008b4c7f1c543aa59d038"
+    }
+  ],
+  "intermediateIssues": [
+    "Final diff check first failed on Python Windows CRLF rewrite of handoff; normalized only task documents to LF and reran. No test assertions changed."
+  ]
+}
