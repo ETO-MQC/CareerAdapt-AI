@@ -1,0 +1,271 @@
+{
+  "record": "docs/architecture/execution-records/20261103-1109-P5.2.1-execution-record.md",
+  "head": "f9a5ccfaeff39a091c8da6708afc168713af4e5a",
+  "files": [
+    {
+      "path": "prototype/unified-experience/audit-host.mjs",
+      "bytes": 5211,
+      "sha256": "f2e0cd440e6ab1dc53ce938762b0ac0521086a482cdd17c15630e47644f34c10"
+    },
+    {
+      "path": "prototype/unified-experience/build.mjs",
+      "bytes": 1252,
+      "sha256": "cd2246f41a435434f6ce6d23bd8fbb0c4b5bdb706b499e43debc045b5c8d417b"
+    },
+    {
+      "path": "prototype/unified-experience/main.tsx",
+      "bytes": 19959,
+      "sha256": "01bf1b41230336456077c85d37cde568619f42c57b1f2b8c66b5f40952a663b3"
+    },
+    {
+      "path": "prototype/unified-experience/README.md",
+      "bytes": 3636,
+      "sha256": "47931c12e4770b0d7ef4f312aefacd74101ee36bb1281137af02a0a61f6e2b23"
+    },
+    {
+      "path": "prototype/unified-experience/serve.mjs",
+      "bytes": 869,
+      "sha256": "690edc7b523aeab5a59eddb1cf5ecc0eb816724189317ab6709844ace993a232"
+    },
+    {
+      "path": "prototype/unified-experience/styles.css",
+      "bytes": 19096,
+      "sha256": "9259f9d46edb29d62217f36fa9747ca5629b3c35cbff6762c28c4515444eb7e9"
+    },
+    {
+      "path": "prototype/unified-experience/verify.mjs",
+      "bytes": 6616,
+      "sha256": "d8d0d52cf3a696350a12a1f09f0a1d8d9a71a552d135ebf8d72488668b0643c8"
+    },
+    {
+      "path": "docs/architecture/p5.2.1-unified-experience-design-audit.md",
+      "bytes": 18431,
+      "sha256": "6d2e4f12c9c8a5eb841febe6bf6153827929708d99bb1a434cc01d0f7881a22a"
+    },
+    {
+      "path": "docs/architecture/p5.2.1-unified-design-system.md",
+      "bytes": 12882,
+      "sha256": "2b98d645d38e7b9bfa4d9a1cae0fe83c9533df9a8cb468c571a1fb1ff4c4310c"
+    },
+    {
+      "path": "docs/architecture/p5.2.1-visual-direction.md",
+      "bytes": 6246,
+      "sha256": "d9f9c60c7df413d52a9444426554c2ac95707b9d20b801a08984dffc9e58fa63"
+    },
+    {
+      "path": "docs/architecture/p5.2.2-unified-ui-implementation-plan.md",
+      "bytes": 4544,
+      "sha256": "3345ceeb57dbd4ef33a20f332e6cdfc8c14ab9e9e079b42f8d8392dfb2a006eb"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/careeradapt-current-profile-1440.png",
+      "bytes": 109505,
+      "sha256": "ed36c35e7abc24e1e729ab15eddf18ee181033d3dcdb7c45bfc2b725ec20c29c"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/careeradapt-current-resumes-1440.png",
+      "bytes": 90301,
+      "sha256": "83a9ef9225c90ac69c5f7aa4d951409c9e80cbe9f4f57fe01ad664b9e3489602"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/careeradapt-current-ui.json",
+      "bytes": 3160,
+      "sha256": "ceb32c7eadf60c95819c7f341090a26fb1c4a5d44f5422f99a913b4f8729e63f"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/host-artifacts-1024.png",
+      "bytes": 28201,
+      "sha256": "7e6b5f68d37a712251821e0a26da28fa192a834f51e03b34b30082a3985e8ba7"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/host-artifacts-1440.png",
+      "bytes": 34325,
+      "sha256": "2305a392fd7309601ed499f68111109397c5ad7f7ef9fdb8a342cc1175525f80"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/host-artifacts-1920.png",
+      "bytes": 33566,
+      "sha256": "92a5fa0fbc364220212b265f1d84e49e9a0a2a33fb294467ed6b1480c27a73df"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/host-audit.json",
+      "bytes": 3306,
+      "sha256": "6c72efcc860a6be1e43d5d800c4d6b7c446bf7206de7bc188af401517ee538a9"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/host-home-1024.png",
+      "bytes": 273450,
+      "sha256": "aa43c8f270b0107c55ebba88e4f07cc4fc480d553c78989ebb93e81995e1260d"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/host-home-1440.png",
+      "bytes": 17080,
+      "sha256": "1b9f2ded69118dfc5f8b7e401228785ccd45dacbfd58526914bb347686f85e27"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/host-home-1920.png",
+      "bytes": 722919,
+      "sha256": "6c4a78b03e89e41427c16c6be3676f548aad3514684aa7b25bd8a31105f847de"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/host-plugins-1440.png",
+      "bytes": 61639,
+      "sha256": "61bc97a25c4011c59ff94e27f0c0025c951e2a12b4888db13ac861bacda21836"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/host-profile-1024.png",
+      "bytes": 65107,
+      "sha256": "b8ddd52c5026d6a34b567c573fc2b6bb9087179bdb0a348791f94c23948226a3"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/host-profile-1440.png",
+      "bytes": 75213,
+      "sha256": "89ac31f549a13640cdda6b11ecb6a432aa746d55a1d78fd46e1ab60021da0d81"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/host-profile-1920.png",
+      "bytes": 87304,
+      "sha256": "1eea5bd9ff27a168c045bb087c3fb3a530f9605aedf0ff99b5163edf0cfe1b7d"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/host-right-sidebar-1440.png",
+      "bytes": 448401,
+      "sha256": "15d0885b6ca649c9ec971010b0cb0ac0d98ddecebef8647f8d53e0f1a9ee8e63"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/host-settings-1024.png",
+      "bytes": 41611,
+      "sha256": "4a4805e83a0a4e11227be2ccb669e57410f9a86cce71441746610b7cbad657f5"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/host-settings-1440.png",
+      "bytes": 56417,
+      "sha256": "2a52584a1940e91e746a36dbf025bb5549ef8c4dbbe2fa96f4024bfcab2dfcf1"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/host-settings-1920.png",
+      "bytes": 44952,
+      "sha256": "600415c9950c0cb99b6aee1f310da415ffffbfeae4c7dc946851f6a1125159ee"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/host-sidebar-collapsed-1440.png",
+      "bytes": 569770,
+      "sha256": "04f0f7b7b5d076dd311a9df4a26c700dd1a2de090fb603c1d89b8d7a31dc3599"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/host-sidebar-expanded-1440.png",
+      "bytes": 459676,
+      "sha256": "faf22ad4a4c7fb9b849a31d20628857138eece5f9b251d00e18bd8fa4d831e21"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/host-synthetic-complete-1440.png",
+      "bytes": 459158,
+      "sha256": "3d8c01b24d6501741b9765efd2baa538c01e3881c47cf7bee9c708015d3bc835"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/host-synthetic-normal-1440.png",
+      "bytes": 460451,
+      "sha256": "b91aa182a69be20200ce06bc09439d3d1f49cacdf5bcd4964e57e87637e24084"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/host-synthetic-running-1440.png",
+      "bytes": 459777,
+      "sha256": "5eaf465c2450d13158e84878d06b6ffdf64ec2d42d501c632af6059e2bc3de6a"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/prototype-artifact-error-1440.png",
+      "bytes": 99344,
+      "sha256": "bba1f534c37270e51c0f3c949767aa0ba28b847d2f6b0b006d365d16dd0aed37"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/prototype-chat-dark-1024.png",
+      "bytes": 89697,
+      "sha256": "c5c37ed0932dee148c180ce7b32c6d82882010c255700926cd323edad86611c8"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/prototype-chat-dark-1440.png",
+      "bytes": 126977,
+      "sha256": "81ac4c61000d3d617d16a2f544bd6aa02ba4d586dd7fa988b265a8a00abf19c9"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/prototype-chat-dark-1920.png",
+      "bytes": 142864,
+      "sha256": "6444f1d1fd5df97c6ff906c5d7eef078bb5934ba9458ecd7b234d7cbfa1a2be5"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/prototype-chat-light-1024.png",
+      "bytes": 89322,
+      "sha256": "ad3027903bc1ddf343ed65a13fbcc924c36758266c12e1ae7ea59f515b510319"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/prototype-chat-light-1440.png",
+      "bytes": 126988,
+      "sha256": "61988f5f2e0cdfc88d23e57676844a6c0803276babd53070d4ad76b22d14d744"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/prototype-chat-light-1920.png",
+      "bytes": 142793,
+      "sha256": "a4f14723bd5df39bb1889e23b625f317bd5c1ac861b01073995a3fc16df0e98e"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/prototype-error-1440.png",
+      "bytes": 94604,
+      "sha256": "68aad6a038106f3165d8c0a927d1f3400843062c21d3ac818a1bafc425764f62"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/prototype-profile-dark-1024.png",
+      "bytes": 60974,
+      "sha256": "70838ae49f47085efcc5c1f733d54cae5f3f26c3969b3cc74a82acdd14af64e8"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/prototype-profile-dark-1440.png",
+      "bytes": 91559,
+      "sha256": "85498887a35117e2e337b79f89021da0657f71ded864c32e0a4271aefbfa4bc0"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/prototype-profile-dark-1920.png",
+      "bytes": 105026,
+      "sha256": "b93d3614c690b51d41e6d292d19b8e7aad5b2a0e3230aee9e8debc47d62ef96b"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/prototype-profile-light-1024.png",
+      "bytes": 60743,
+      "sha256": "0fe15f94dffbfd2f513d3d05ceb82c712a5dfd881f45f8d6ed40000e92f91213"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/prototype-profile-light-1440.png",
+      "bytes": 91416,
+      "sha256": "6cb1e18aa75d9483bab20954230d23c82543d5ba2736c0ad8fd0e8fb60d7ace9"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/prototype-profile-light-1920.png",
+      "bytes": 105029,
+      "sha256": "1876adf6e7908d49d8610f22d64a7abcf6cafe9db9480c8e2762ce95fb6ccbd3"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/prototype-profile-projects-dark-1024.png",
+      "bytes": 59462,
+      "sha256": "95c29ba52c23473460afbc6626d9d590db00d1161916899270e7f63b074773de"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/prototype-running-1440.png",
+      "bytes": 97288,
+      "sha256": "d082b9bede887912d56a2dd07ab6941f6ecb56e1a7d6776673a74bb30b6f1243"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/prototype-verification.json",
+      "bytes": 5613,
+      "sha256": "93a6979cc8bc84d6d318f8a0ce4f417f4331257f8af51d2bda8c32b457976094"
+    },
+    {
+      "path": "docs/architecture/evidence/p521/research-evidence.json",
+      "bytes": 19265,
+      "sha256": "67f06e298b16f438c8cab61236d5f91f6f869e1ac321e4841f0b2f41c98efe24"
+    }
+  ],
+  "prototypeStatus": "PASS",
+  "hostHarnessStatus": "PASS",
+  "productionMigration": "NOT STARTED",
+  "realProviderTools": "NOT VERIFIED",
+  "recordSha256": "02b8e976969d846a1d8fb337cb18deb682b390c01348c7be6266786d9786ac54"
+}

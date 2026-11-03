@@ -1,0 +1,238 @@
+{
+  "status": "PASS",
+  "errors": [],
+  "requests": [
+    "http://127.0.0.1:5181/",
+    "http://127.0.0.1:5181/main.js"
+  ],
+  "checks": [
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "theme": "light",
+      "geometry": {
+        "chat": {
+          "x": 228,
+          "y": 180.578125,
+          "width": 706.203125,
+          "height": 675.421875,
+          "right": 934.203125,
+          "bottom": 856
+        },
+        "artifact": {
+          "x": 943.203125,
+          "y": 180.578125,
+          "width": 476.796875,
+          "height": 675.421875,
+          "right": 1420,
+          "bottom": 856
+        },
+        "divider": {
+          "x": 934.203125,
+          "y": 180.578125,
+          "width": 9,
+          "height": 675.421875,
+          "right": 943.203125,
+          "bottom": 856
+        },
+        "horizontalOverflow": false
+      }
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "theme": "dark",
+      "geometry": {
+        "chat": {
+          "x": 228,
+          "y": 180.578125,
+          "width": 706.203125,
+          "height": 675.421875,
+          "right": 934.203125,
+          "bottom": 856
+        },
+        "artifact": {
+          "x": 943.203125,
+          "y": 180.578125,
+          "width": 476.796875,
+          "height": 675.421875,
+          "right": 1420,
+          "bottom": 856
+        },
+        "divider": {
+          "x": 934.203125,
+          "y": 180.578125,
+          "width": 9,
+          "height": 675.421875,
+          "right": 943.203125,
+          "bottom": 856
+        },
+        "horizontalOverflow": false
+      }
+    },
+    {
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "light",
+      "geometry": {
+        "chat": {
+          "x": 228,
+          "y": 180.578125,
+          "width": 994.203125,
+          "height": 855.421875,
+          "right": 1222.203125,
+          "bottom": 1036
+        },
+        "artifact": {
+          "x": 1231.203125,
+          "y": 180.578125,
+          "width": 668.796875,
+          "height": 855.421875,
+          "right": 1900,
+          "bottom": 1036
+        },
+        "divider": {
+          "x": 1222.203125,
+          "y": 180.578125,
+          "width": 9,
+          "height": 855.421875,
+          "right": 1231.203125,
+          "bottom": 1036
+        },
+        "horizontalOverflow": false
+      }
+    },
+    {
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "theme": "dark",
+      "geometry": {
+        "chat": {
+          "x": 228,
+          "y": 180.578125,
+          "width": 994.203125,
+          "height": 855.421875,
+          "right": 1222.203125,
+          "bottom": 1036
+        },
+        "artifact": {
+          "x": 1231.203125,
+          "y": 180.578125,
+          "width": 668.796875,
+          "height": 855.421875,
+          "right": 1900,
+          "bottom": 1036
+        },
+        "divider": {
+          "x": 1222.203125,
+          "y": 180.578125,
+          "width": 9,
+          "height": 855.421875,
+          "right": 1231.203125,
+          "bottom": 1036
+        },
+        "horizontalOverflow": false
+      }
+    },
+    {
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "theme": "light",
+      "geometry": {
+        "chat": {
+          "x": 68,
+          "y": 174.578125,
+          "width": 555,
+          "height": 549.421875,
+          "right": 623,
+          "bottom": 724
+        },
+        "artifact": {
+          "x": 632,
+          "y": 174.578125,
+          "width": 376,
+          "height": 549.421875,
+          "right": 1008,
+          "bottom": 724
+        },
+        "divider": {
+          "x": 623,
+          "y": 174.578125,
+          "width": 9,
+          "height": 549.421875,
+          "right": 632,
+          "bottom": 724
+        },
+        "horizontalOverflow": false
+      }
+    },
+    {
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "theme": "dark",
+      "geometry": {
+        "chat": {
+          "x": 68,
+          "y": 174.578125,
+          "width": 555,
+          "height": 549.421875,
+          "right": 623,
+          "bottom": 724
+        },
+        "artifact": {
+          "x": 632,
+          "y": 174.578125,
+          "width": 376,
+          "height": 549.421875,
+          "right": 1008,
+          "bottom": 724
+        },
+        "divider": {
+          "x": 623,
+          "y": 174.578125,
+          "width": 9,
+          "height": 549.421875,
+          "right": 632,
+          "bottom": 724
+        },
+        "horizontalOverflow": false
+      }
+    },
+    "Keyboard and pointer resize PASS",
+    "Independent scroll and collapse/restore PASS",
+    "Navigation collapse and restore PASS",
+    "Dialog Escape and focus restoration PASS",
+    "New chat, suggestion, attachment, send, stop, error, retry, completion synchronization PASS",
+    "Artifact error boundary and restore PASS"
+  ],
+  "screenshots": [
+    "prototype-chat-light-1440.png",
+    "prototype-profile-light-1440.png",
+    "prototype-chat-dark-1440.png",
+    "prototype-profile-dark-1440.png",
+    "prototype-chat-light-1920.png",
+    "prototype-profile-light-1920.png",
+    "prototype-chat-dark-1920.png",
+    "prototype-profile-dark-1920.png",
+    "prototype-chat-light-1024.png",
+    "prototype-profile-light-1024.png",
+    "prototype-chat-dark-1024.png",
+    "prototype-profile-dark-1024.png",
+    "prototype-profile-projects-dark-1024.png",
+    "prototype-running-1440.png",
+    "prototype-error-1440.png",
+    "prototype-artifact-error-1440.png"
+  ]
+}

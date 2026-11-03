@@ -1,0 +1,175 @@
+{
+  "root": "E:\\DEF\\CareerAdapt AI\\.artifacts\\p521-host-1793674502684",
+  "status": "PASS",
+  "errors": [],
+  "captures": [
+    "host-home-1440.png",
+    "host-settings-1440.png",
+    "host-artifacts-1440.png",
+    "host-profile-1440.png",
+    "host-home-1920.png",
+    "host-settings-1920.png",
+    "host-artifacts-1920.png",
+    "host-profile-1920.png",
+    "host-home-1024.png",
+    "host-settings-1024.png",
+    "host-artifacts-1024.png",
+    "host-profile-1024.png",
+    "host-plugins-1440.png",
+    "host-synthetic-normal-1440.png",
+    "host-synthetic-running-1440.png",
+    "host-synthetic-complete-1440.png",
+    "host-sidebar-collapsed-1440.png",
+    "host-sidebar-expanded-1440.png",
+    "host-right-sidebar-1440.png"
+  ],
+  "buttons": [
+    {
+      "label": "Hide sidebar",
+      "title": null,
+      "text": ""
+    },
+    {
+      "label": "Swap sidebar sides",
+      "title": null,
+      "text": ""
+    },
+    {
+      "label": "Layout editor",
+      "title": null,
+      "text": ""
+    },
+    {
+      "label": "Mute haptics",
+      "title": null,
+      "text": ""
+    },
+    {
+      "label": "Keyboard shortcuts",
+      "title": null,
+      "text": ""
+    },
+    {
+      "label": "Open settings",
+      "title": null,
+      "text": ""
+    },
+    {
+      "label": "Show right sidebar",
+      "title": null,
+      "text": ""
+    },
+    {
+      "label": null,
+      "title": null,
+      "text": "New sessionCtrlN"
+    },
+    {
+      "label": null,
+      "title": null,
+      "text": "Capabilities"
+    },
+    {
+      "label": null,
+      "title": null,
+      "text": "Messaging"
+    },
+    {
+      "label": null,
+      "title": null,
+      "text": "Artifacts"
+    },
+    {
+      "label": null,
+      "title": null,
+      "text": "CareerAdapt Profile"
+    },
+    {
+      "label": null,
+      "title": null,
+      "text": "New project"
+    },
+    {
+      "label": "default",
+      "title": null,
+      "text": ""
+    },
+    {
+      "label": "New profile",
+      "title": null,
+      "text": ""
+    },
+    {
+      "label": "Manage profiles…",
+      "title": null,
+      "text": ""
+    },
+    {
+      "label": "Add context",
+      "title": null,
+      "text": ""
+    },
+    {
+      "label": "Switch model",
+      "title": null,
+      "text": "⠴"
+    },
+    {
+      "label": "Voice dictation",
+      "title": null,
+      "text": ""
+    },
+    {
+      "label": "Read replies aloud",
+      "title": null,
+      "text": ""
+    },
+    {
+      "label": "Start voice conversation",
+      "title": null,
+      "text": ""
+    },
+    {
+      "label": null,
+      "title": null,
+      "text": ""
+    },
+    {
+      "label": null,
+      "title": null,
+      "text": "Gatewayready"
+    },
+    {
+      "label": null,
+      "title": null,
+      "text": "Agents"
+    },
+    {
+      "label": null,
+      "title": null,
+      "text": "Cron"
+    },
+    {
+      "label": null,
+      "title": null,
+      "text": "Webhooks"
+    },
+    {
+      "label": null,
+      "title": null,
+      "text": "Smart"
+    },
+    {
+      "label": null,
+      "title": null,
+      "text": ""
+    },
+    {
+      "label": null,
+      "title": null,
+      "text": "v0.19.0 (+1)eb52760"
+    }
+  ],
+  "syntheticStates": "Harness-only draft message atom injection in real renderer, no real runtime/tool execution",
+  "version": "0.17.0"
+}

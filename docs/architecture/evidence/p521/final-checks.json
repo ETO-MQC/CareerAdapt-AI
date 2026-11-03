@@ -1,0 +1,23 @@
+{
+  "status": "PASS",
+  "localLinksChecked": 29,
+  "textFilesChecked": 53,
+  "failures": [],
+  "trackedDiff": "empty",
+  "engineering": {
+    "changedFilesEslintExitCode": 0,
+    "typecheckExitCode": 0,
+    "relatedUnitExitCode": 0,
+    "relatedUnitFiles": 2,
+    "relatedUnitTests": 20,
+    "prototypeBuildExitCode": 0,
+    "prototypeBrowserExitCode": 0,
+    "hostHarnessExitCode": 0
+  },
+  "notRun": [
+    "Next production build (production source unchanged)",
+    "full lint/unit/E2E/release gate",
+    "real provider/tool runtime",
+    "PDF/installer qualification"
+  ]
+}

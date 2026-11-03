@@ -1,0 +1,404 @@
+{
+  "queryDate": "2026-11-03",
+  "timezone": "Asia/Shanghai",
+  "starsSource": "GitHub repository page displayed values read through browser tool; k values approximate; API rate limited",
+  "thirdPartyCodeCopied": false,
+  "projects": [
+    {
+      "repository": "Heybinshao/hermes-appearance-hub",
+      "commit": "4fde040424d25ebddd8253b747ae160db64de762",
+      "starsDisplayed": "16",
+      "license": "MIT",
+      "sourcesRead": [
+        {
+          "path": "desktop/plugin.js",
+          "bytes": 146680,
+          "sha256": "c794e212a9b6d136846777c82cdcd03e5f1c55745eb4d6a40395d49f5b89e155",
+          "url": "https://github.com/Heybinshao/hermes-appearance-hub/blob/4fde040424d25ebddd8253b747ae160db64de762/desktop/plugin.js"
+        },
+        {
+          "path": "scripts/build-live.mjs",
+          "bytes": 5750,
+          "sha256": "2676263c5575307cbe0bd451f3e789bb1197c41d1d4a18efc157c2b1f33a572b",
+          "url": "https://github.com/Heybinshao/hermes-appearance-hub/blob/4fde040424d25ebddd8253b747ae160db64de762/scripts/build-live.mjs"
+        },
+        {
+          "path": "plugin.yaml",
+          "bytes": 717,
+          "sha256": "eabe4b82b52054472498b2d3060a91fd51b041144cb4a768224ee27f59fe2498",
+          "url": "https://github.com/Heybinshao/hermes-appearance-hub/blob/4fde040424d25ebddd8253b747ae160db64de762/plugin.yaml"
+        },
+        {
+          "path": "LICENSE",
+          "bytes": 1064,
+          "sha256": "34bf9a9c8d229dfc3bf8dc72c35a6830b27cbb6cba29161f892e0c0486f5676f",
+          "url": "https://github.com/Heybinshao/hermes-appearance-hub/blob/4fde040424d25ebddd8253b747ae160db64de762/LICENSE"
+        }
+      ]
+    },
+    {
+      "repository": "danny-avila/LibreChat",
+      "commit": "f4154b649efa37e1345ccc517a4d8d1ed2178c82",
+      "starsDisplayed": "46.7k",
+      "license": "MIT",
+      "sourcesRead": [
+        {
+          "path": "client/src/components/Artifacts/ArtifactPreview.tsx",
+          "bytes": 1716,
+          "sha256": "14b41d04d19bf06e76c85bf7b8325ed657af839dbcd79afadc5298bd7c8008e7",
+          "url": "https://github.com/danny-avila/LibreChat/blob/f4154b649efa37e1345ccc517a4d8d1ed2178c82/client/src/components/Artifacts/ArtifactPreview.tsx"
+        },
+        {
+          "path": "client/src/components/Artifacts/Artifacts.tsx",
+          "bytes": 27289,
+          "sha256": "967e16f58461c2da9376cdb9fb1cabb1ca7a16ea050bdaaa33be20b1381bab1d",
+          "url": "https://github.com/danny-avila/LibreChat/blob/f4154b649efa37e1345ccc517a4d8d1ed2178c82/client/src/components/Artifacts/Artifacts.tsx"
+        },
+        {
+          "path": "client/src/components/Chat/ChatView.tsx",
+          "bytes": 8922,
+          "sha256": "7913185395c7f2f22476f01778113c5392c295649969713877564fd735b9467d",
+          "url": "https://github.com/danny-avila/LibreChat/blob/f4154b649efa37e1345ccc517a4d8d1ed2178c82/client/src/components/Chat/ChatView.tsx"
+        },
+        {
+          "path": "client/src/components/Chat/Input/ChatForm.tsx",
+          "bytes": 47899,
+          "sha256": "8054034d81167d4ed19a57c865276477366ce35408dde073f26325aae65cb38b",
+          "url": "https://github.com/danny-avila/LibreChat/blob/f4154b649efa37e1345ccc517a4d8d1ed2178c82/client/src/components/Chat/Input/ChatForm.tsx"
+        },
+        {
+          "path": "client/src/components/Chat/Messages/Content/ToolCall.tsx",
+          "bytes": 18452,
+          "sha256": "59eb5de5171f65fba9052111bb405c4f967513fb0526177f68926f8a6810c6d4",
+          "url": "https://github.com/danny-avila/LibreChat/blob/f4154b649efa37e1345ccc517a4d8d1ed2178c82/client/src/components/Chat/Messages/Content/ToolCall.tsx"
+        },
+        {
+          "path": "client/src/components/Nav/AccountSettings.tsx",
+          "bytes": 7894,
+          "sha256": "29407ac875c500f2966c01c8506bcccff0b33760aeae1d3771b2c735993722e0",
+          "url": "https://github.com/danny-avila/LibreChat/blob/f4154b649efa37e1345ccc517a4d8d1ed2178c82/client/src/components/Nav/AccountSettings.tsx"
+        },
+        {
+          "path": "client/src/components/Nav/Settings.tsx",
+          "bytes": 576,
+          "sha256": "66792aaf8d11faa763cae1cc47f26fef96bbacba7cadb40bf85bfd85954d7d72",
+          "url": "https://github.com/danny-avila/LibreChat/blob/f4154b649efa37e1345ccc517a4d8d1ed2178c82/client/src/components/Nav/Settings.tsx"
+        },
+        {
+          "path": "client/src/components/SidePanel/Nav.tsx",
+          "bytes": 536,
+          "sha256": "ee2c4d41f5f2f3b63abbafa699888b7e5c0ff50f3cb1f880aab458451ab95e9c",
+          "url": "https://github.com/danny-avila/LibreChat/blob/f4154b649efa37e1345ccc517a4d8d1ed2178c82/client/src/components/SidePanel/Nav.tsx"
+        },
+        {
+          "path": "client/src/components/UnifiedSidebar/Sidebar.tsx",
+          "bytes": 2973,
+          "sha256": "20bc8bf3924c0dbf7ac49d2275174e50c47f0cbd76ed99ac5b2f1419a0fa3832",
+          "url": "https://github.com/danny-avila/LibreChat/blob/f4154b649efa37e1345ccc517a4d8d1ed2178c82/client/src/components/UnifiedSidebar/Sidebar.tsx"
+        },
+        {
+          "path": "LICENSE",
+          "bytes": 1066,
+          "sha256": "1ce5c9d51e5ab764b44142cd44d1e687f5bfe32f807c7221c14d061007309b97",
+          "url": "https://github.com/danny-avila/LibreChat/blob/f4154b649efa37e1345ccc517a4d8d1ed2178c82/LICENSE"
+        }
+      ]
+    },
+    {
+      "repository": "assistant-ui/assistant-ui",
+      "commit": "288e365bda95dbf2fbe6ca8558bb9baac9357def",
+      "starsDisplayed": "12.9k",
+      "license": "MIT",
+      "sourcesRead": [
+        {
+          "path": "apps/docs/components/pages/docs/assistant/assistant-action-bar.tsx",
+          "bytes": 7990,
+          "sha256": "3da8ce79f4676d184904ccd4131f929e3584d846ff67a791a78f7afbc4044bf1",
+          "url": "https://github.com/assistant-ui/assistant-ui/blob/288e365bda95dbf2fbe6ca8558bb9baac9357def/apps/docs/components/pages/docs/assistant/assistant-action-bar.tsx"
+        },
+        {
+          "path": "apps/docs/components/pages/docs/assistant/composer.tsx",
+          "bytes": 5297,
+          "sha256": "be6e75ae5f975846f61c137f0b8540b13a1ceaaafc842a9e31745101f652f56c",
+          "url": "https://github.com/assistant-ui/assistant-ui/blob/288e365bda95dbf2fbe6ca8558bb9baac9357def/apps/docs/components/pages/docs/assistant/composer.tsx"
+        },
+        {
+          "path": "apps/docs/components/pages/docs/assistant/messages.tsx",
+          "bytes": 5189,
+          "sha256": "7ea08fdc47b4099d898b990dd0d9be4e797edbb524e5b53e9c7dc4421eaaccc8",
+          "url": "https://github.com/assistant-ui/assistant-ui/blob/288e365bda95dbf2fbe6ca8558bb9baac9357def/apps/docs/components/pages/docs/assistant/messages.tsx"
+        },
+        {
+          "path": "apps/docs/components/pages/docs/assistant/thread.tsx",
+          "bytes": 8950,
+          "sha256": "2bb27149c56b172488f0efcb0dffa09c261c00958c5a5f9fc03957344cfd7673",
+          "url": "https://github.com/assistant-ui/assistant-ui/blob/288e365bda95dbf2fbe6ca8558bb9baac9357def/apps/docs/components/pages/docs/assistant/thread.tsx"
+        },
+        {
+          "path": "apps/docs/components/pages/docs/samples/attachment.tsx",
+          "bytes": 3898,
+          "sha256": "9d89032500bd25d4bdb02c61aa557664a34c4a411c098f8619d550d524878427",
+          "url": "https://github.com/assistant-ui/assistant-ui/blob/288e365bda95dbf2fbe6ca8558bb9baac9357def/apps/docs/components/pages/docs/samples/attachment.tsx"
+        },
+        {
+          "path": "apps/docs/components/pages/docs/samples/tool-fallback.tsx",
+          "bytes": 5792,
+          "sha256": "0bdfa2f84794fdb97ad922a1c08d1952151b74545d80f69f7007eb89c2ef1bf2",
+          "url": "https://github.com/assistant-ui/assistant-ui/blob/288e365bda95dbf2fbe6ca8558bb9baac9357def/apps/docs/components/pages/docs/samples/tool-fallback.tsx"
+        },
+        {
+          "path": "LICENSE",
+          "bytes": 1073,
+          "sha256": "eafb05991a572efa34097474b31fef45b14a8879ed1d1a8fd77de62e6fa7d275",
+          "url": "https://github.com/assistant-ui/assistant-ui/blob/288e365bda95dbf2fbe6ca8558bb9baac9357def/LICENSE"
+        },
+        {
+          "path": "packages/ui/src/components/react/assistant-ui/elements/composer.tsx",
+          "bytes": 20176,
+          "sha256": "397fb48354d73ae3eb2e51fc4872601eb8cc863e981520a4a7de65865db65308",
+          "url": "https://github.com/assistant-ui/assistant-ui/blob/288e365bda95dbf2fbe6ca8558bb9baac9357def/packages/ui/src/components/react/assistant-ui/elements/composer.tsx"
+        },
+        {
+          "path": "packages/ui/src/components/react/assistant-ui/elements/message-attachment.tsx",
+          "bytes": 3517,
+          "sha256": "d577a91802b3caa44e4f1e9d2e2948893b5761c53b4654ef5d94ea66f9f1f30c",
+          "url": "https://github.com/assistant-ui/assistant-ui/blob/288e365bda95dbf2fbe6ca8558bb9baac9357def/packages/ui/src/components/react/assistant-ui/elements/message-attachment.tsx"
+        }
+      ]
+    },
+    {
+      "repository": "open-webui/open-webui",
+      "commit": "f7ac7ee10962ddec0017f5c29b6740d9b9c5faca",
+      "starsDisplayed": "157.6k",
+      "license": "Open WebUI License + historical licenses",
+      "sourcesRead": [
+        {
+          "path": "LICENSE",
+          "bytes": 2819,
+          "sha256": "5f1bd74c48bf13ab0f82e177ad9e637313b92533d20ead2593d49347a47fc232",
+          "url": "https://github.com/open-webui/open-webui/blob/f7ac7ee10962ddec0017f5c29b6740d9b9c5faca/LICENSE"
+        },
+        {
+          "path": "LICENSE_HISTORY",
+          "bytes": 2872,
+          "sha256": "b1567cc9763241a41569e01f08272a167dac57273f717b95b31ba7b5ec935e17",
+          "url": "https://github.com/open-webui/open-webui/blob/f7ac7ee10962ddec0017f5c29b6740d9b9c5faca/LICENSE_HISTORY"
+        },
+        {
+          "path": "LICENSE_NOTICE",
+          "bytes": 721,
+          "sha256": "9de72254becbb9a317410a459447be7e8f042b911a846c58307319c77e50df00",
+          "url": "https://github.com/open-webui/open-webui/blob/f7ac7ee10962ddec0017f5c29b6740d9b9c5faca/LICENSE_NOTICE"
+        },
+        {
+          "path": "src/lib/components/chat/Artifacts.svelte",
+          "bytes": 8943,
+          "sha256": "297b8d2ebcd990a049dd6d249370d0949ce8293ae21428a529cea9017adea6fe",
+          "url": "https://github.com/open-webui/open-webui/blob/f7ac7ee10962ddec0017f5c29b6740d9b9c5faca/src/lib/components/chat/Artifacts.svelte"
+        },
+        {
+          "path": "src/lib/components/chat/MessageInput.svelte",
+          "bytes": 98591,
+          "sha256": "b49bdbc4fffcf5613b94bff5b2aa8d0c21180805685cedb55dc1fa66355860b1",
+          "url": "https://github.com/open-webui/open-webui/blob/f7ac7ee10962ddec0017f5c29b6740d9b9c5faca/src/lib/components/chat/MessageInput.svelte"
+        },
+        {
+          "path": "src/lib/components/chat/Messages/ResponseMessage.svelte",
+          "bytes": 58670,
+          "sha256": "8dd0e4c6344d820f4147e396dce350a51faba00f41ce8785d5c7886d1558243b",
+          "url": "https://github.com/open-webui/open-webui/blob/f7ac7ee10962ddec0017f5c29b6740d9b9c5faca/src/lib/components/chat/Messages/ResponseMessage.svelte"
+        },
+        {
+          "path": "src/lib/components/chat/SettingsModal.svelte",
+          "bytes": 32725,
+          "sha256": "d592f69c6345eb9deb937850dcc6f97c9d1efefbf6c3ae6a13080447a402e27e",
+          "url": "https://github.com/open-webui/open-webui/blob/f7ac7ee10962ddec0017f5c29b6740d9b9c5faca/src/lib/components/chat/SettingsModal.svelte"
+        },
+        {
+          "path": "src/lib/components/layout/Sidebar.svelte",
+          "bytes": 60126,
+          "sha256": "1e155a1e97d33d2feacba9b47464749fd52430332076ee550389292f1903a6f2",
+          "url": "https://github.com/open-webui/open-webui/blob/f7ac7ee10962ddec0017f5c29b6740d9b9c5faca/src/lib/components/layout/Sidebar.svelte"
+        }
+      ]
+    },
+    {
+      "repository": "Chozzc/Lujie-Careerkit",
+      "commit": "123e6baf2a6b781af333c32a1e6d01bcbf4f6e96",
+      "starsDisplayed": "403",
+      "license": "Apache-2.0 + NOTICE",
+      "sourcesRead": [
+        {
+          "path": "LICENSE",
+          "bytes": 11336,
+          "sha256": "165b94093ab5dda7b617ccbfd24f0b68cdec73deb7004fc3f3a6898ab8f4f4eb",
+          "url": "https://github.com/Chozzc/Lujie-Careerkit/blob/123e6baf2a6b781af333c32a1e6d01bcbf4f6e96/LICENSE"
+        },
+        {
+          "path": "NOTICE",
+          "bytes": 438,
+          "sha256": "a65d0661e643c4f6c6710975c97cc59e1c6a50c1c64e442cd145078bf318a9ff",
+          "url": "https://github.com/Chozzc/Lujie-Careerkit/blob/123e6baf2a6b781af333c32a1e6d01bcbf4f6e96/NOTICE"
+        },
+        {
+          "path": "src/app/globals.css",
+          "bytes": 7418,
+          "sha256": "5d369fb80ee48acf055cf5d6153c4e933eec602b4ef282c1558633c404103b24",
+          "url": "https://github.com/Chozzc/Lujie-Careerkit/blob/123e6baf2a6b781af333c32a1e6d01bcbf4f6e96/src/app/globals.css"
+        },
+        {
+          "path": "src/components/ui/button.tsx",
+          "bytes": 3240,
+          "sha256": "d14549ab3ba7a9d5d1f424c2599233bffa0b317121abf3b6efa2fb902d5e2781",
+          "url": "https://github.com/Chozzc/Lujie-Careerkit/blob/123e6baf2a6b781af333c32a1e6d01bcbf4f6e96/src/components/ui/button.tsx"
+        },
+        {
+          "path": "src/components/ui/card.tsx",
+          "bytes": 2641,
+          "sha256": "a41b4d3d618416128d0093af2575048a2de8ef25c0926bcea4f19a24a59de476",
+          "url": "https://github.com/Chozzc/Lujie-Careerkit/blob/123e6baf2a6b781af333c32a1e6d01bcbf4f6e96/src/components/ui/card.tsx"
+        },
+        {
+          "path": "src/components/ui/dialog.tsx",
+          "bytes": 4075,
+          "sha256": "ccabf6cc674a68b09d9168904bb46b7c1075a67312cf6f51f3e38b8eeacd2fdb",
+          "url": "https://github.com/Chozzc/Lujie-Careerkit/blob/123e6baf2a6b781af333c32a1e6d01bcbf4f6e96/src/components/ui/dialog.tsx"
+        },
+        {
+          "path": "src/components/ui/input.tsx",
+          "bytes": 1040,
+          "sha256": "f7d6ecff9a4d631feeaf401c02bb87e26ddb38131c55d15a43b9290747390847",
+          "url": "https://github.com/Chozzc/Lujie-Careerkit/blob/123e6baf2a6b781af333c32a1e6d01bcbf4f6e96/src/components/ui/input.tsx"
+        },
+        {
+          "path": "src/components/ui/select.tsx",
+          "bytes": 6748,
+          "sha256": "4a5f60d4b60e14f6063f4840f24551729764dfcd10033fddd411c20ba1516b8b",
+          "url": "https://github.com/Chozzc/Lujie-Careerkit/blob/123e6baf2a6b781af333c32a1e6d01bcbf4f6e96/src/components/ui/select.tsx"
+        }
+      ]
+    }
+  ],
+  "host": {
+    "commit": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+    "desktopVersion": "0.17.0",
+    "runtimeVersion": "0.19.0",
+    "electronVersion": "40.10.2",
+    "files": [
+      {
+        "path": "src/sdk/index.ts",
+        "sha256": "3dcb00fea4b0c573797746840525e4155b676a6c2e914fdc517592192209840b",
+        "differsFromHead": false
+      },
+      {
+        "path": "src/themes/types.ts",
+        "sha256": "cb95622fa87309f48613d43400fa15da969fe32ca807a91bf4c6cc163d74ea2b",
+        "differsFromHead": false
+      },
+      {
+        "path": "src/themes/context.tsx",
+        "sha256": "04efd89a14deef6ebce0b5493007620044679c51016e10a1da56fcc867f5ac25",
+        "differsFromHead": false
+      },
+      {
+        "path": "src/themes/user-themes.ts",
+        "sha256": "435c93f0e4c0d0940eb1196989980af6bee3d8c9f69d43e14c78e12dccc7d723",
+        "differsFromHead": false
+      },
+      {
+        "path": "src/styles.css",
+        "sha256": "034cb5693a530351f155de9d900a25c25a53922ca3046668037818ea18906e95",
+        "differsFromHead": false
+      },
+      {
+        "path": "src/app/chat/index.tsx",
+        "sha256": "b41bf22bc983a8b79a9c31ea8fe5e1d12bb87373792dc62330a6bf5b705dadc5",
+        "differsFromHead": false
+      },
+      {
+        "path": "src/app/chat/session-view.tsx",
+        "sha256": "ae0510ce91a41e810be4fcefcc5814ef03b10ffc07cc3b0f325a88c3003615ab",
+        "differsFromHead": false
+      },
+      {
+        "path": "src/app/layout-constants.ts",
+        "sha256": "08fa0c0b919491231337a85dbad2abbb7ce53aedfd1ac2d40e456e8a214e4dd8",
+        "differsFromHead": false
+      },
+      {
+        "path": "src/app/right-sidebar/index.tsx",
+        "sha256": "51f20a3822f6713b1b9235cb5d97ba72a2dac3c6c5651e836a1eafb4d7672c3f",
+        "differsFromHead": false
+      },
+      {
+        "path": "src/app/artifacts/index.tsx",
+        "sha256": "a8bed89bc9a3f0be9b5c68251ac0285f3b07e4d91e20d0c6c41f6d8396c839f5",
+        "differsFromHead": false
+      }
+    ]
+  },
+  "careerAdapt": {
+    "startingHead": "f9a5ccfaeff39a091c8da6708afc168713af4e5a",
+    "branch": "main",
+    "startingStatus": "clean",
+    "protectedFiles": [
+      {
+        "path": "scripts/hermes-runtime-lock.json",
+        "sha256": "4939b630fa15f410ae1287b495e9e16912ab3e71a7a619df1f005050c6fe8ceb",
+        "differsFromHead": false
+      },
+      {
+        "path": "src/styles/product-tokens.css",
+        "sha256": "2877e805bf31db3b29ccd84608dcc65ee65c38059020e18c035085726e37357a",
+        "differsFromHead": false
+      },
+      {
+        "path": "src/components/ui/product/index.tsx",
+        "sha256": "aacdec67f2e05b23e029dafd98ac90bc366fb30eb77d0a9ba58c80db43532e20",
+        "differsFromHead": false
+      },
+      {
+        "path": "poc/profile-plugin/ProfileCareerView.tsx",
+        "sha256": "0efaf400645b88f8666058cc1f061cc915a41b475d8b8e2f398a5d8f9505fa26",
+        "differsFromHead": false
+      },
+      {
+        "path": "poc/profile-plugin/profile.css",
+        "sha256": "850b4887c8d22e940c74c231305bd5b11b9d455dd16d18baa4b10b14a2063de9",
+        "differsFromHead": false
+      },
+      {
+        "path": "poc/profile-packaging/fixture.ts",
+        "sha256": "c2415cd4f8e8b915ebac15e75d5c7a3f07cf7ea6fb5f4663aec4b16c8e7f8c6e",
+        "differsFromHead": false
+      },
+      {
+        "path": "src/services/storage/repositories.ts",
+        "sha256": "10dc464283aaab494620e1a4e4b6ceccd95aa98b2d50ba38792033185183d7a0",
+        "differsFromHead": false
+      },
+      {
+        "path": "src/services/export/pdfHtml.tsx",
+        "sha256": "f4dee043a14e2df814b2491efe6a7dd8f44c12b2d97a04ba1d4b83b44fd156a1",
+        "differsFromHead": false
+      },
+      {
+        "path": "package.json",
+        "sha256": "ef993297b7d1e0d80dddd4a895ed64e854b7372ea2316a178678cd94502a7f71",
+        "differsFromHead": false
+      },
+      {
+        "path": "pnpm-lock.yaml",
+        "sha256": "cd40b7ccd7278e68c13cb2b255826229cf1dd162d708910a7ed3b6ecb0040606",
+        "differsFromHead": false
+      }
+    ]
+  },
+  "limitations": [
+    "No real provider or agent tools executed",
+    "Host draft message injection is screenshot harness only",
+    "Host source has pre-existing unrelated changes; no Core files modified",
+    "Not an installer, production migration, PDF or Runtime release qualification",
+    "GitHub API 403; direct HTML SSL/reset failure; Git source and browser-displayed stars used instead"
+  ]
+}
