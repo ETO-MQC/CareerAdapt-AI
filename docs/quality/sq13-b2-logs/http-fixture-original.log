@@ -1,0 +1,42 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+ ✓ tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts > P4.5c.1.14 Career workflow transactional closure > allows only one active Hermes event consumer and permits reattach after closure 3ms
+ ✓ tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts > P4.5c.1.14 Career workflow transactional closure > serializes one LogicalTurn/Task and reports a recoverable busy observation 41ms
+ ✓ tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts > P4.5c.1.14 Career workflow transactional closure > returns safe gateway diagnostics without exposing invalid target text 36ms
+ ✓ tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts > P4.5c.1.14 Career workflow transactional closure > keeps direct external targetText on tailor semantics and out of compose 30ms
+ ✓ tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts > P4.5c.1.14 Career workflow transactional closure > publishes the canonical target contract and keeps compose explicitly general/base 4ms
+ ✓ tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts > P4.5c.1.14 Career workflow transactional closure > requires authoritative result proof before a canonical job resume can complete 5ms
+ ✓ tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts > P4.5c.1.14 Career workflow transactional closure > uses the Fact Guard fallback instead of presenting an ungrounded composition 1ms
+ ✓ tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts > P4.5c.1.14 Career workflow transactional closure > projects MCP tool failures with a scope-specific diagnostic 41ms
+ ✓ tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts > P4.5c.1.14 Career workflow transactional closure > narrates MCP transport failure separately from Hermes startup failure 4ms
+ × tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts > P4.5c.1.14 Career workflow transactional closure > normalizes contradictory official tool completion payloads as failures 13ms
+   → Response body object should not be disturbed or locked
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts > P4.5c.1.14 Career workflow transactional closure > normalizes contradictory official tool completion payloads as failures
+HermesRunFailureError: Response body object should not be disturbed or locked
+ ❯ createHermesRunFailure src/agent/runtime/hermes/hermesRunReliability.ts:164:17
+    162| export function createHermesRunFailure(input: HermesRunFailureInput): …
+    163|   const classified = classifyHermesRunFailure(input);
+    164|   const error = new Error(classified.safeErrorMessage) as HermesRunFai…
+       |                 ^
+    165|   error.name = "HermesRunFailureError";
+    166|   error.code = classified.safeErrorCode;
+ ❯ bridgeError src/agent/runtime/hermes/HermesBridgeTransport.ts:1025:10
+ ❯ HttpHermesBridgeTransport.request src/agent/runtime/hermes/HermesBridgeTransport.ts:473:13
+ ❯ HttpHermesBridgeTransport.streamRequest src/agent/runtime/hermes/HermesBridgeTransport.ts:322:18
+ ❯ HttpHermesBridgeTransport.runEvents src/agent/runtime/hermes/HermesBridgeTransport.ts:247:22
+ ❯ tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts:325:24
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'hermes_companion_unavailable', retryable: true, httpStatus: undefined, diagnostics: { failureLayer: 'companion', safeErrorCode: 'hermes_companion_unavailable', safeErrorMessage: 'Response body object should not be disturbed or locked', upstreamErrorCode: 'hermes_bridge_unavailable', safeErrorCategory: 'transport_failure', safeMessageCategory: 'transport', retryable: true } }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 9 passed (10)
+   Start at  00:19:17
+   Duration  5.61s (transform 2.62s, setup 290ms, import 3.40s, tests 179ms, environment 1.32s)
+

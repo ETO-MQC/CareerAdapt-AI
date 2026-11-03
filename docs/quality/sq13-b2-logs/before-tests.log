@@ -1,0 +1,133 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+ ✓ tests/unit/v4p1JdNormalization.test.ts > V4-P1 stage 1: JD normalization and content hash > collapses line endings, in-line whitespace, and blank runs while keeping line order 2ms
+ ✓ tests/unit/v4p1JdNormalization.test.ts > V4-P1 stage 1: JD normalization and content hash > trims leading and trailing blank lines but keeps interior structure for sourceSpan 0ms
+ ✓ tests/unit/v4p1JdNormalization.test.ts > V4-P1 stage 1: JD normalization and content hash > removes soft hyphens and decodes the supported HTML entity set 0ms
+ ✓ tests/unit/v4p1JdNormalization.test.ts > V4-P1 stage 1: JD normalization and content hash > keeps unknown entities and malformed numeric refs verbatim instead of guessing 0ms
+ ✓ tests/unit/v4p1JdNormalization.test.ts > V4-P1 stage 1: JD normalization and content hash > produces identical hashes for inputs that normalize to the same content 1ms
+ ✓ tests/unit/v4p1JdNormalization.test.ts > V4-P1 stage 1: JD normalization and content hash > changes the hash when content actually changes and versions the algorithm 1ms
+ ✓ tests/unit/v4p1JdNormalization.test.ts > V4-P1 stage 1: JD normalization and content hash > strips only an exact trailing salary copy from the title 0ms
+ ✓ tests/unit/v4p1JdNormalization.test.ts > V4-P1 stage 1: JD normalization and content hash > computes stable company/title/content fingerprints with case folding 0ms
+ ✓ tests/unit/v4p1JdNormalization.test.ts > V4-P1 stage 1: JD normalization and content hash > canonicalizes source URLs with explainable rules 9ms
+ ✓ tests/unit/v4p1JdNormalization.test.ts > V4-P1 stage 1: JD normalization and content hash > refuses non-http protocols, bare strings, and empty input 0ms
+ ✓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 01 action + method without metric KEEP 57ms
+ ✓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 02 verified metric preserved 14ms
+ ✓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 03 generic claim requests rewrite without invented number 15ms
+ ✓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 04 participation never becomes ownership 1ms
+ ✓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 05 familiar and learning never become mastery 2ms
+ ✓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 06 absent Summary has no penalty or automatic filler 10ms
+ ✓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 07 generic Summary under pressure is removal candidate 10ms
+ ✓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 08 twenty-tool catalog gets redundancy warning 1ms
+ ✓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 09 Skills Redis plus Project Redis proof allowed 0ms
+ × tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 10 strong original requires zero rewrite 15ms
+   → expected [ { …(6) }, { …(6) } ] to deeply equal []
+ ✓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 11 long single causal chain is not split 8ms
+ ✓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 12 independent achievements receive split suggestion 8ms
+ ✓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 13 user precise metric without supporting source VERIFY 10ms
+ ✓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 14 generated unsupported metric BLOCK 3ms
+ ✓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 15 AI / Agent 应用工程师 evidence emphasis 17ms
+ ✓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 16 后端工程师 evidence emphasis 12ms
+ ✓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 17 前端工程师 evidence emphasis 12ms
+ ✓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 18 DevOps 基础设施工程师 evidence emphasis 8ms
+ ✓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 19 JD keyword without source cannot be parroted 7ms
+ ✓ tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 20 constrained selection preserves strongest relevant evidence 27ms
+ ✓ tests/unit/v4p2bCandidatePipeline.test.ts > V4-P2-B stage 1-2: deterministic ingest (normalize, hash, dedupe, snapshot, listing) > ingests a fixture into jobListings + jobSnapshots with versioned hashes and preserved rawText 45ms
+ ✓ tests/unit/v4p2bCandidatePipeline.test.ts > V4-P2-B stage 1-2: deterministic ingest (normalize, hash, dedupe, snapshot, listing) > is idempotent on retry: same fixture yields the same listing, same snapshot, no new version 12ms
+ ✓ tests/unit/v4p2bCandidatePipeline.test.ts > V4-P2-B stage 1-2: deterministic ingest (normalize, hash, dedupe, snapshot, listing) > treats whitespace-only variants as the same content (normalized hash idempotency) 11ms
+ ✓ tests/unit/v4p2bCandidatePipeline.test.ts > V4-P2-B stage 1-2: deterministic ingest (normalize, hash, dedupe, snapshot, listing) > produces a new snapshot version and marks crawlState=changed when content changes 12ms
+ ✓ tests/unit/v4p2bCandidatePipeline.test.ts > V4-P2-B stage 1-2: deterministic ingest (normalize, hash, dedupe, snapshot, listing) > asks for a user decision when the same content arrives under a new external id 12ms
+ ✓ tests/unit/v4p2bCandidatePipeline.test.ts > V4-P2-B stage 1-2: deterministic ingest (normalize, hash, dedupe, snapshot, listing) > merges into the existing listing on merge_existing without creating a second listing 21ms
+ ✓ tests/unit/v4p2bCandidatePipeline.test.ts > V4-P2-B stage 1-2: deterministic ingest (normalize, hash, dedupe, snapshot, listing) > creates a separate listing on keep_separate 9ms
+ ✓ tests/unit/v4p2bCandidatePipeline.test.ts > V4-P2-B stage 3-5: draft, user-confirmed conversion, no half-commit > creates a raw_saved analysis draft once and reuses it on later calls, keeping the traceability chain 10ms
+ ✓ tests/unit/v4p2bCandidatePipeline.test.ts > V4-P2-B stage 3-5: draft, user-confirmed conversion, no half-commit > refuses conversion without a real confirmation record and writes nothing 13ms
+ ✓ tests/unit/v4p2bCandidatePipeline.test.ts > V4-P2-B stage 3-5: draft, user-confirmed conversion, no half-commit > refuses to hand out or use a conversion confirmation for a raw_saved draft 11ms
+ ✓ tests/unit/v4p2bCandidatePipeline.test.ts > V4-P2-B stage 3-5: draft, user-confirmed conversion, no half-commit > converts atomically after user review: DraftCommit, JobDescription, and listing conversion together 23ms
+ ✓ tests/unit/v4p2bCandidatePipeline.test.ts > V4-P2-B stage 3-5: draft, user-confirmed conversion, no half-commit > is idempotent on conversion retry with the same consumed confirmation and commitId 12ms
+ ✓ tests/unit/v4p2bCandidatePipeline.test.ts > V4-P2-B stage 3-5: draft, user-confirmed conversion, no half-commit > rolls back the whole conversion when the draft changes after the confirmation (no half-commit) 12ms
+ ✓ tests/unit/v4p2bCandidatePipeline.test.ts > V4-P2-B stage 3-5: draft, user-confirmed conversion, no half-commit > runs the consume → formal write → complete chain in one multi-table transaction 17ms
+ ✓ tests/unit/v4p2bCandidatePipeline.test.ts > V4-P2-B stage 3-5: draft, user-confirmed conversion, no half-commit > rolls back the entire conversion when the pending confirmation is expired, keeping the proposal usable 13ms
+ ✓ tests/unit/v4p2bCandidatePipeline.test.ts > V4-P2-B stage 3-5: draft, user-confirmed conversion, no half-commit > survives a restart: persisted state is intact and a rerun of the same conversion stays idempotent 25ms
+ ✓ tests/unit/v4p2bCandidatePipeline.test.ts > V4-P2-B round 2: agent commitJob shares the candidate pipeline > ingests through the manual identity, binds the same draft chain, and converts with a real confirmation 40ms
+ ✓ tests/unit/v4p2bCandidatePipeline.test.ts > V4-P2-B round 2: agent commitJob shares the candidate pipeline > refuses conversion without a pending confirmation record even for an agent-shaped payload 10ms
+ ✓ tests/unit/v4p2bCandidatePipeline.test.ts > V4-P2-B: applicationDraft linkage and submit gating > links an applicationId only when the formal ApplicationRecord exists and matches the converted job 15ms
+ ✓ tests/unit/v4p2bCandidatePipeline.test.ts > V4-P2-B: applicationDraft linkage and submit gating > refuses application linkage before the candidate is converted 14ms
+ ✓ tests/unit/v4p2bCandidatePipeline.test.ts > V4-P2-B: applicationDraft linkage and submit gating > keeps field plans safe and never lets the pipeline submit on the user's behalf 15ms
+ × tests/integration/p45c1c20-production-path-replay.test.ts > P4.5c.1.20 production golden journey replay > resolves one persisted UserMessage across Hermes, MCP, Browser, Gateway and Facade 220ms
+   → expected { …(31) } to match object { …(6) }
+(34 matching properties omitted from actual)
+ ✓ tests/integration/p45c1c20-production-path-replay.test.ts > P4.5c.1.20 production golden journey replay > derives one checkpoint and consumes the persisted text answer without Hermes 14ms
+ ✓ tests/integration/p45c1c20-production-path-replay.test.ts > P4.5c.1.20 production golden journey replay > routes plain text resume choice through the generic checkpoint handler 3ms
+ ✓ tests/integration/p45c1c20-production-path-replay.test.ts > P4.5c.1.20 production golden journey replay > settles canonical validation failure as a recoverable workflow checkpoint 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/p45c1c20-production-path-replay.test.ts > P4.5c.1.20 production golden journey replay > resolves one persisted UserMessage across Hermes, MCP, Browser, Gateway and Facade
+AssertionError: expected { …(31) } to match object { …(6) }
+(34 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "appBuildCommit": "workspace-source",
+    "appBuildTimestamp": "runtime-start",
+-   "careerToolContractVersion": "career-tool-contract-v4",
++   "careerToolContractVersion": "career-tool-contract-v5",
+    "facadeArgumentShape": Any<Object>,
+    "mcpHttpArgumentShape": Any<Object>,
+    "mcpJsonRpcArgumentShape": Any<Object>,
+  }
+
+ ❯ tests/integration/p45c1c20-production-path-replay.test.ts:230:33
+    228|     })).diagnostics);
+    229|     expect(protocolDiagnostics.logicalToolOperationId).toBe("logical-o…
+    230|     expect(protocolDiagnostics).toMatchObject({
+       |                                 ^
+    231|       mcpJsonRpcArgumentShape: expect.any(Object),
+    232|       mcpHttpArgumentShape: expect.any(Object),
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/unit/p48c-corpus-calibration.test.ts > P4.8c frozen 20 production scenarios > 10 strong original requires zero rewrite
+AssertionError: expected [ { …(6) }, { …(6) } ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   {
++     "before": "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。",
++     "fieldPath": "highlights",
++     "id": "review-diff-asset-0-0-integrity",
++     "itemId": "asset-0",
++     "kind": "verify",
++     "recommendation": "回到已确认原始证据核对事实、责任、指标及其任务对象。",
++   },
++   {
++     "before": "参与部署流程开发，配置双机热备与健康检查，通过故障切换演练验证恢复。",
++     "fieldPath": "highlights",
++     "id": "review-diff-asset-0-ownership",
++     "itemId": "asset-0",
++     "kind": "verify",
++     "recommendation": "回到来源事实核对参与、协助、负责或主导的边界。",
++   },
++ ]
+
+ ❯ tests/unit/p48c-corpus-calibration.test.ts:69:39
+     67|   it("10 strong original requires zero rewrite", () => {
+     68|     const result = reviewBullet(corpusBullets.infra);
+     69|     expect(result.reviewResult.diffs).toEqual([]);
+       |                                       ^
+     70|     expect(hasBullet(result, corpusBullets.infra)).toBe(true);
+     71|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  2 failed | 2 passed (4)
+      Tests  2 failed | 53 passed (55)
+   Start at  23:58:30
+   Duration  4.72s (transform 4.99s, setup 740ms, import 7.06s, tests 849ms, environment 4.58s)
+

@@ -6,6 +6,7 @@ import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import { validateEachTailoringDiffLocally } from "@/domain/jobOptimization";
 import type { ResumeBranch, ResumeTailoringDiff } from "@/domain/schemas";
 import { corpusBullets, corpusProfile } from "../fixtures/p48cCorpus";
+import { strongOriginalProfileV2 } from "../fixtures/p48cSourceContractV2";
 
 const compose = (bullets: string[], targetDirection?: string) => compileResumeComposition({ profile: corpusProfile(bullets), mode: "general", targetDirection });
 const highlights = (result: ReturnType<typeof compose>) => result.items.flatMap(({ data }) => data.sectionType === "project" ? data.highlights : []);
@@ -65,7 +66,7 @@ describe("P4.8c frozen 20 production scenarios", () => {
     expect(careerResumeQualityWarnings({ bullets: ["Redis", corpusBullets.backend] })).toEqual([]);
   });
   it("10 strong original requires zero rewrite", () => {
-    const result = reviewBullet(corpusBullets.infra);
+    const result = compileResumeComposition({ profile: strongOriginalProfileV2(), mode: "general" });
     expect(result.reviewResult.diffs).toEqual([]);
     expect(hasBullet(result, corpusBullets.infra)).toBe(true);
   });

@@ -233,7 +233,9 @@ describe("P4.5c.1.20 production golden journey replay", () => {
       facadeArgumentShape: expect.any(Object),
       appBuildCommit: expect.not.stringMatching(/^unknown$/u),
       appBuildTimestamp: expect.not.stringMatching(/^unknown$/u),
-      careerToolContractVersion: "career-tool-contract-v4"
+      // v5 added mandatory person/profile binding; replay must observe the
+      // current wire contract rather than the retired v4 diagnostics label.
+      careerToolContractVersion: "career-tool-contract-v5"
     });
     const completeness: Record<string, unknown> = {
       ...protocolDiagnostics,

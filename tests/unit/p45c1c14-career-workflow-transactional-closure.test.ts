@@ -308,7 +308,7 @@ describe("P4.5c.1.14 Career workflow transactional closure", () => {
 
   it("normalizes contradictory official tool completion payloads as failures", async () => {
     const encoder = new TextEncoder();
-    const stream = new ReadableStream<Uint8Array>({
+    const stream = () => new ReadableStream<Uint8Array>({
       start(controller) {
         controller.enqueue(encoder.encode(
           'event: tool.completed\ndata: {"tool_name":"career.workflow.tailor_resume","tool_call_id":"tool-closure-1","operation_id":"operation-closure-1","status":"completed","result":{"ok":false,"error":{"code":"fact_guard_failed","message":"事实核验失败","recoverable":false}}}\n\n'
@@ -316,10 +316,12 @@ describe("P4.5c.1.14 Career workflow transactional closure", () => {
         controller.close();
       }
     });
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(stream, {
-      status: 200,
-      headers: { "Content-Type": "text/event-stream" }
-    })));
+    vi.stubGlobal("fetch", vi.fn(async (_url: unknown, init?: RequestInit) => {
+      const { action } = JSON.parse(String(init?.body)) as { action: string };
+      if (action === "run_status") return Response.json({ run_id: "run-closure-official", status: "running" });
+      expect(action).toBe("run_events");
+      return new Response(stream(), { status: 200, headers: { "Content-Type": "text/event-stream" } });
+    }));
     try {
       const events = [];
       for await (const event of new HttpHermesBridgeTransport("/hermes").runEvents!("run-closure-official")) events.push(event);

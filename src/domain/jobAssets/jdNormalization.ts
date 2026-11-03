@@ -13,7 +13,7 @@
  * - URL canonicalization 规则可解释（见 canonicalizeJobSourceUrl）。
  */
 
-import { createHash } from "node:crypto";
+import { sha256Utf8 } from "./sha256";
 
 export const JD_NORMALIZER_VERSION = "careeradapt-jd-normalizer-v1";
 export const JD_CONTENT_HASH_ALGORITHM = "sha256-normalized-v1";
@@ -90,7 +90,7 @@ export function normalizeJd(description: string): string {
 
 /** sha256(normalizeJd(description))，十六进制小写。 */
 export function jdContentHash(description: string): string {
-  return createHash("sha256").update(normalizeJd(description), "utf8").digest("hex");
+  return sha256Utf8(normalizeJd(description));
 }
 
 /**
@@ -118,14 +118,14 @@ function jsCasefold(value: string): string {
 export function contentFingerprint(title: string, companyName: string, description: string): string {
   const value = [jsCasefold(title).trim(), jsCasefold(companyName).trim(), normalizeJd(description)]
     .join(FINGERPRINT_SEPARATOR);
-  return createHash("sha256").update(value, "utf8").digest("hex");
+  return sha256Utf8(value);
 }
 
 /** company+title 级指纹：不含正文，用于三级去重的第二级。 */
 export function companyTitleFingerprint(title: string, companyName: string): string {
   const value = [jsCasefold(title).trim(), jsCasefold(companyName).trim()]
     .join(FINGERPRINT_SEPARATOR);
-  return createHash("sha256").update(value, "utf8").digest("hex");
+  return sha256Utf8(value);
 }
 
 const TRACKING_QUERY_PREFIXES = ["utm_"];

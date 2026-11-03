@@ -1,0 +1,9 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+No test files found, exiting with code 1
+
+filter: tests/unit/p45c1c14-career-tool-closure.test.ts
+include: tests/unit/**/*.test.ts, tests/unit/**/*.test.tsx, tests/integration/**/*.test.ts
+exclude:  **/node_modules/**, **/.git/**
+

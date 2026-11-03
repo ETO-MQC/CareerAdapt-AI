@@ -1,0 +1,6 @@
+{
+  "entry": "src/app/jobs/JobsWorkspace.tsx",
+  "scope": "repository runtime imports; external packages validated by production build/browser test",
+  "visited": 162,
+  "forbidden": []
+}
