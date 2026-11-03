@@ -1,0 +1,12 @@
+[
+  {
+    "path": "docs/architecture/p5.2.0b2b1-evidence.json",
+    "bytes": 90866,
+    "sha256": "e8ebe97a1ba42e70cb4125c835efea2aa104a7e5b78c367ed29bb93ad67e9ddb"
+  },
+  {
+    "path": "docs/architecture/execution-records/20261103-1109-P5.2.1-execution-record.md",
+    "bytes": 9758,
+    "sha256": "02b8e976969d846a1d8fb337cb18deb682b390c01348c7be6266786d9786ac54"
+  }
+]

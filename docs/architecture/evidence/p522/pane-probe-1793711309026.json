@@ -1,0 +1,9 @@
+{
+  "status": "FAIL",
+  "root": "E:\\DEF\\CareerAdapt AI\\.artifacts\\p522-host-experience\\smoke-1793711276613",
+  "mode": "Real locked Desktop Electron main/preload/renderer, Vite development serving; isolated home; offline provider",
+  "errors": [],
+  "consoleErrors": [],
+  "failure": "TimeoutError: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByLabel('CareerAdapt Synthetic Artifact', { exact: true }) to be visible\u001b[22m\n\u001b[2m    26 × locator resolved to hidden <div class=\"ca-experience\" aria-label=\"CareerAdapt Synthetic Artifact\">…</div>\u001b[22m\n",
+  "body": "New session\nCtrl\nN\nCapabilities\nMessaging\nArtifacts\nCareerAdapt\n\nNo sessions yet\n\nNew project\n职适 AI\nCareerAdapt\nProfile\nJobs\nApplications\nResume Studio\n\n合成资料 · 只读展示\nHost 集成验证\n\nCAREER WORKSPACE\nJobs\n合成数据 / 未接入正式业务\n组件规范\nJobs 尚未接入\n\n本轮仅验证合成 Profile 展示；此入口保留信息架构，不提供正式业务操作。\n\n返回个人资料库\nGateway\nready\nAgents\nCron\nWebhooks\nSmart\nv0.19.0 (+1)\neb52760"
+}

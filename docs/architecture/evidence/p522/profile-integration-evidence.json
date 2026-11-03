@@ -1,0 +1,96 @@
+{
+  "status": "PASS",
+  "overall": "PARTIAL",
+  "syntheticOnly": true,
+  "formalDataAccess": false,
+  "source": "host-smoke-1793711786576.json",
+  "processExitCode": 0,
+  "route": "#/careeradapt-experience",
+  "versions": {
+    "desktop": "0.17.0",
+    "electron": "40.10.2",
+    "runtime": "0.19.0"
+  },
+  "states": [
+    {
+      "state": "loading",
+      "text": "重新加载合成资料\n\n正在加载合成资料…"
+    },
+    {
+      "state": "empty",
+      "text": "重新加载合成资料\n\n暂无合成资料"
+    },
+    {
+      "state": "error",
+      "text": "重新加载合成资料\n\n合成资料服务暂不可用，请重试。"
+    },
+    {
+      "state": "invalid",
+      "text": "重新加载合成资料\n\n合成资料响应格式无效"
+    },
+    {
+      "state": "success",
+      "text": "重新加载合成资料\n\nCAREERADAPT · PROFILE\n\n虚构同学·星舟\n只读概念验证 · 示例资料\n基础资料\n姓名\n虚构同学·星舟\n邮箱\nxingzhou@example.invalid\n电话\n虚构电话（不可拨打）\n所在地\n虚构星舟城\n个人简介\n完全合成资料 · 只读演示\n教育经历\n虚构星舟学院\n\n虚构信息设计专业 · 2022–2026\n\n合成课"
+    }
+  ],
+  "lifecycle": [
+    {
+      "cycle": 0,
+      "disabledStyles": 0,
+      "enabledStyles": 1,
+      "diskHotReloadStyles": 1,
+      "contributionCounts": [
+        1,
+        1
+      ]
+    },
+    {
+      "cycle": 1,
+      "disabledStyles": 0,
+      "enabledStyles": 1,
+      "diskHotReloadStyles": 1,
+      "contributionCounts": [
+        1,
+        1
+      ]
+    },
+    {
+      "cycle": 2,
+      "disabledStyles": 0,
+      "enabledStyles": 1,
+      "diskHotReloadStyles": 1,
+      "contributionCounts": [
+        1,
+        1
+      ]
+    }
+  ],
+  "refresh": "PASS",
+  "return": "PASS",
+  "relatedTests": {
+    "files": 3,
+    "tests": 27,
+    "exitCode": 0
+  },
+  "checks": [
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm exec eslint poc/host-experience scripts/p522-*.mjs tests/unit/p522-host-experience.test.tsx --max-warnings=0",
+      "exitCode": 0
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "nextBuild": "NOT RUN: no production source changes, actual plugin build performed",
+  "nativePane": "NOT VERIFIED; two bounded timeouts retained; stopped reruns",
+  "existingBlockers": [
+    "Renderer disable revocation",
+    "Trusted confirmation",
+    "Runtime production release"
+  ]
+}

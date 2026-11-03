@@ -1,0 +1,9 @@
+{
+  "status": "FAIL",
+  "root": "E:\\DEF\\CareerAdapt AI\\.artifacts\\p522-host-experience\\smoke-1793711347568",
+  "mode": "Real locked Desktop Electron main/preload/renderer, Vite development serving; isolated home; offline provider",
+  "errors": [],
+  "consoleErrors": [],
+  "failure": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'New session', exact: true }).first()\u001b[22m\n",
+  "body": "New session\nCtrl\nN\nCapabilities\nMessaging\nArtifacts\nCareerAdapt\n\nNo sessions yet\n\nNew project\n\nHERMES AGENT\n\nType a task, question, or snippet. I remember the session, cite my sources, and stop to ask when I'm unsure.\n\n⠋\nWaking up …\nPoc Offline · Med\nGateway\nready\nAgents\nCron\nWebhooks\nSmart\nv0.19.0 (+1)\neb52760"
+}

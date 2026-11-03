@@ -1,0 +1,37 @@
+{
+  "hermesCommit": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+  "metrics": {
+    "pane-probe": {
+      "jsBytes": 8585,
+      "outputFiles": [
+        ".artifacts/p522-host-experience/pane-probe/plugin.js"
+      ],
+      "dynamicChunks": 0,
+      "unresolvedImports": [],
+      "sourceMaps": false,
+      "cssBytes": 7570,
+      "cssDelivery": "embedded in JS, no CSS sidecar",
+      "sourceMapBytes": 0,
+      "durationMs": 109.16300000000001,
+      "lockedLoaderLiteralWorkarounds": 0,
+      "bundledInputCount": 2,
+      "loadedModuleCount": null,
+      "imports": [
+        {
+          "path": "@hermes/plugin-sdk",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "inputFiles": [
+        "poc/host-experience/experience.css",
+        "poc/host-experience/pane-probe.tsx"
+      ]
+    }
+  }
+}

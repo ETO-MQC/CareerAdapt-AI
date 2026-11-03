@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "scope": "Synthetic Profile route semantic adapter",
+  "hostSource": "sdk-capability-audit.json",
+  "tokens": "poc/host-experience/experience.css",
+  "proof": "host-visual-verification.json",
+  "globalThemeState": false,
+  "resumeVariablesModified": false,
+  "themeSetter": false,
+  "dialogAndTabs": "PASS",
+  "keyboard": {
+    "focused": true,
+    "outline": "solid"
+  },
+  "limitations": [
+    "Third-party palette contrast not certified",
+    "Full production design system not migrated",
+    "Artifact Container is optional unverified pane probe"
+  ]
+}

@@ -1,0 +1,331 @@
+{
+  "date": "2026-11-03",
+  "overall": "PARTIAL",
+  "branch": "main",
+  "head": "5a1a1fcaf0b432fa473531ecf14a7343cd129ad4",
+  "trackedFilesModified": [],
+  "allNewUntrackedFilesExceptThisManifest": [
+    {
+      "path": "docs/architecture/evidence/p522/additional-reading.json",
+      "bytes": 384,
+      "sha256": "dca89e2c3cce42b1c25c3cf2e762955aa95bf1b75871c3053c3a031938bc0729"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/appearance-adapter-evidence.json",
+      "bytes": 601,
+      "sha256": "fbee636d951ba75cdf1974ed2c876dcbd92a89e5873ce19c7dfc10b6aac5ded8"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/baseline.json",
+      "bytes": 13117,
+      "sha256": "106edbf1674827588587cbc28f8503a4748442243c168f5e8adadc3785b1eae6"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/host-smoke-1793711173567.json",
+      "bytes": 9045,
+      "sha256": "ced49cdca879dfb3dba912b042bb7cd85e706ca06fef81a5c766ce23a0abfbde"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/host-smoke-1793711786576.json",
+      "bytes": 9262,
+      "sha256": "f72ec92dbdc3291800ad08af3ec3b054249fe422da02b1f867774e92c0377a24"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/host-smoke-final.json",
+      "bytes": 9054,
+      "sha256": "ee657150cc01e5342ae9ca3ef19a9534e1cea87bfaebec52bd0feec246bb7471"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/host-visual-verification.json",
+      "bytes": 7001,
+      "sha256": "7327d288edab3abc3ac496a488792b4063d8d2a65001c1efb5c6a3d5d884045a"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/pane-probe-1793711309026.json",
+      "bytes": 1148,
+      "sha256": "2725392b66b59b7c36dc48431e9885849782d5b208d158d9fa47c2437c6b8669"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/pane-probe-1793711394302.json",
+      "bytes": 820,
+      "sha256": "915ae53ebe7c31ff88dee81ea70bb901e596645f8e17eac47fc01e7c87ecf7d0"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/pane-probe-build.json",
+      "bytes": 964,
+      "sha256": "1ffded12eb3852988f238f23de6441ec8b8e6de0cbaf13b9c9fb53ea0a2e2ba7"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/plugin-build.json",
+      "bytes": 2308,
+      "sha256": "a6b1d848da6fc11c1c3bcf9a0512716913c3e293c3709f1ba74014545a2fda83"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/profile-integration-evidence.json",
+      "bytes": 2601,
+      "sha256": "54754f38929ee8d42b11c6f39786fd24572ae52b663fbd9ba76262c44f57e679"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/failures/host-smoke-final.png",
+      "bytes": 97053,
+      "sha256": "44f923b4f3ff69b2412664e3dc800d7ee53338b71c41cf767e76756a42ba3412"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/failures/pane-probe-1793711309026.png",
+      "bytes": 51151,
+      "sha256": "9ede7653fee02d24d3f5e08fa823f67afad1807b67b5678ba6b7e3e4537d4ccb"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/failures/pane-probe-1793711394302.png",
+      "bytes": 470200,
+      "sha256": "cc5dda93ac58b75044dc942e126256f04422c5dadb422dc85b26a32db1e354a9"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-profile-dark-1024.png",
+      "bytes": 79007,
+      "sha256": "44a0a7e3a00e06229f8d24c8823d7accd122e3018ddeb8c4b300024d037d6241"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-profile-dark-1440.png",
+      "bytes": 95771,
+      "sha256": "1d2ea1d01b45833be47fa0b270c7a3ed10b42d0232d88c5fc1e24c21d7dd6346"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-profile-dark-1920.png",
+      "bytes": 111184,
+      "sha256": "21ad89dcd4f6a6841efe836f4e23826bd8aeb535f7b8ae245ecd1865b601d2ed"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-profile-light-1024.png",
+      "bytes": 80359,
+      "sha256": "156a3eb111e6bb49d29dca4e046e9c2d14a27aba1cf4ad4d264e3b8b1a3a0e8b"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-profile-light-1440.png",
+      "bytes": 97990,
+      "sha256": "d20460d3b7c0c46420eee7219dd0998152b43cfcb8f1c47068261ebd63fafe71"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-profile-light-1920.png",
+      "bytes": 113296,
+      "sha256": "470c3524a2d313c5689c67dbb469f27a52b6896d07c519798b60a21b5e90115a"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-state-empty.png",
+      "bytes": 64094,
+      "sha256": "ea6d120ab630ad2afd2fa2caf7008b9dd768b51a357ef76bf07ba91260f3cd68"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-state-error.png",
+      "bytes": 66251,
+      "sha256": "8ebc54a6acd6049981e90c639ce480f6bbe5a8b27549b373888d1417cf67a6f9"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-state-invalid.png",
+      "bytes": 65935,
+      "sha256": "473c3dad0f136c19cecfc5b7132330a68303eb9499f32b7f2c5d1599426b10c2"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-state-loading.png",
+      "bytes": 64295,
+      "sha256": "3f1c9c24b3c8802ac0c951d468ee58fba2e1dfaf759f3ad940cd5fd0b00da501"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/host-state-success.png",
+      "bytes": 96726,
+      "sha256": "5eb468537ecc7dab5d9b2f5b9e1cb209c99f5491a3cf17e65e1964445faf5bbd"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-profile-dark-1024.png",
+      "bytes": 80545,
+      "sha256": "ab0a5ecc11997fb03651d4f3f63df4224e3bff14ca764035901662cd3231f1f7"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-profile-dark-1440.png",
+      "bytes": 97243,
+      "sha256": "da63b58f8135a757ab5a89c8c1ef217c658b98109b04cb65ffb8e36f5f2e386e"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-profile-dark-1920.png",
+      "bytes": 112722,
+      "sha256": "d72ff121711f8fa63dd96fe23edeb1b51ebaa96f2ad5bbe4b327657829f8e561"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-profile-light-1024.png",
+      "bytes": 81816,
+      "sha256": "8f9058bf506d3fad95bd5251a247f858c8dfc1918907cf1f5e5a096b205d291e"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-profile-light-1440.png",
+      "bytes": 99403,
+      "sha256": "8fe69e924d67dda46a8bc4738d1485e69377b3fe4d143837a79a706aceea0720"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-profile-light-1920.png",
+      "bytes": 114783,
+      "sha256": "20af1e19a4ab393b1945058e9b20b46a2efd02b33276af1bda851cc72a31845f"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-state-empty.png",
+      "bytes": 65505,
+      "sha256": "8b0edebe31a86c4d98cc1dd86b1984ed7d75a5370000dca1b657e252f9fdb20c"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-state-error.png",
+      "bytes": 67652,
+      "sha256": "2089b4b3ed4cc4573aeac1f30bbb6e6b7a8be6bf7c2ef69100d160d38cf2aac8"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-state-invalid.png",
+      "bytes": 67362,
+      "sha256": "6ee005b22f5c7ab761f6bf3a60b14bd91c6933961a1764507480f79f38e598da"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-state-loading.png",
+      "bytes": 65712,
+      "sha256": "5ac7fe1dabf935ec7420bc71d2e61f3a6359771f3c87a8d8c6b553ee09bb03ab"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-state-success.png",
+      "bytes": 98175,
+      "sha256": "c6969cbe64c39710882be937089a9679c2f5ca8499c8dae45677a09c8c6170fe"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-dark-1024.png",
+      "bytes": 76321,
+      "sha256": "fbca1d3d3b9bf66a3d096df231e2538628516c75cd8f164285a99f1c47f3e0b4"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-dark-1440.png",
+      "bytes": 92797,
+      "sha256": "193e71e69efb5c2a6671f7bbf20dea244340207ff1cc32fb3df87089abe156fa"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-dark-1920.png",
+      "bytes": 108312,
+      "sha256": "ffc180377c7bd779772ad10cd2c0fd7278f454b904a3c66804a6f6551eb5b178"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-light-1024.png",
+      "bytes": 77028,
+      "sha256": "b9a7626711be752a6727db5b042c9aaeafa3775e97d0dafd64e59670f09090a1"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-light-1440.png",
+      "bytes": 94648,
+      "sha256": "65370247ec110fd7aaa75d124ae2dd7a15c58c5fb502ce4ff1ad0ad046116be9"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-light-1920.png",
+      "bytes": 110000,
+      "sha256": "5ab4e2efe80d06f417e2b0334fb22ad4278860f21a6ff5b2f3d46b651783ed5e"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-state-empty.png",
+      "bytes": 61037,
+      "sha256": "78098f321d2b5f1abfbdb6a1347984911c80f2ccb3bd845e96cba5bba2ec9dde"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-state-error.png",
+      "bytes": 63124,
+      "sha256": "f4d426a1b493b708dd5e4eab2142d693bf493a3eb5634a00856efaca481f39f4"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-state-invalid.png",
+      "bytes": 62808,
+      "sha256": "e29d2dd8cf039ffd81f7f00eb147bac97e915cfa003ceadcb525101c9c1aa2e9"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-state-loading.png",
+      "bytes": 61240,
+      "sha256": "dd0408b9aed61c00a07fbd60553d6042219c57fa65cf8edc393e3cedcc49c4b1"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-state-success.png",
+      "bytes": 93602,
+      "sha256": "f245dd1fcf3a38499dd492c69f4f01aa3965710c8da6c462f4f21eafed2c519c"
+    },
+    {
+      "path": "docs/architecture/evidence/p522/sdk-capability-audit.json",
+      "bytes": 11374,
+      "sha256": "2822ce9aa1dffed08858fafc94620f42e97d3c5d4d23e9411b31d48cc384fd52"
+    },
+    {
+      "path": "docs/architecture/p5.2.2-hermes-host-integration-vertical-slice-20261103.md",
+      "bytes": 13964,
+      "sha256": "53a3be5ea855652a878298c07791653a4ca4ce9539c9ed11d801534eba1a1a57"
+    },
+    {
+      "path": "poc/host-experience/CareerExperience.tsx",
+      "bytes": 4934,
+      "sha256": "9a60660836ea042d1c4c0b7a373ec2b9b5cdcaefb417a365969333ec734d9ef1"
+    },
+    {
+      "path": "poc/host-experience/README.md",
+      "bytes": 1722,
+      "sha256": "5085181362ead760b4021c2fca8b2ec7b9cc9cb851b26356b3655e179aea4e8c"
+    },
+    {
+      "path": "poc/host-experience/components.tsx",
+      "bytes": 2077,
+      "sha256": "7d6b477e74567620598bdb183d54b725735cdfbfbfbfa60d41c4bb567f65ef8e"
+    },
+    {
+      "path": "poc/host-experience/experience.css",
+      "bytes": 7570,
+      "sha256": "7212a7a273e4baf26da4a23f501c5a66d75ca3ce136b4c6fb25153b6f4a7b6fd"
+    },
+    {
+      "path": "poc/host-experience/pane-probe.tsx",
+      "bytes": 1013,
+      "sha256": "2182103627ffd9a81dbfda482c2f46d4505b5e17fe4f9195e1985eebe6b261dc"
+    },
+    {
+      "path": "poc/host-experience/plugin.tsx",
+      "bytes": 699,
+      "sha256": "f7c659e4edc0ffbd98155e019c3efb63fe4d7448d6f93dd6a592445edcb11cab"
+    },
+    {
+      "path": "poc/host-experience/sdk-extension.d.ts",
+      "bytes": 226,
+      "sha256": "ebc3af1ce1abe59439596042e2e3e8dfcba5db2eb13cb50b8d28eb7f3bd741b8"
+    },
+    {
+      "path": "scripts/p522-host-experience-build.mjs",
+      "bytes": 4441,
+      "sha256": "60253e869c64fa18c36bf366535b6c18519fc3aec5aab833d38791b6dfe369df"
+    },
+    {
+      "path": "scripts/p522-host-experience-smoke.mjs",
+      "bytes": 13497,
+      "sha256": "c30c6da9c94af3f576a8478ac30b91a6135e5c693d3e48c95261a6cb9f234b96"
+    },
+    {
+      "path": "scripts/p522-pane-probe-build.mjs",
+      "bytes": 4444,
+      "sha256": "1d2d279eaa800048252d79aff61d387c953d7736c3041892e6c55b6248d717ec"
+    },
+    {
+      "path": "scripts/p522-pane-probe-smoke.mjs",
+      "bytes": 4250,
+      "sha256": "281673170b2f0e01afb39a61cef9da59db5321c6817f0ab059b19a4b829c96da"
+    },
+    {
+      "path": "scripts/p522-source-audit.mjs",
+      "bytes": 4914,
+      "sha256": "91618d77fd3eb5fbc419cd0a399a463426c2a41e2e14ab402f27246d4e486073"
+    },
+    {
+      "path": "tests/unit/p522-host-experience.test.tsx",
+      "bytes": 3157,
+      "sha256": "aac33ef9de1947cdcd446cc6ca98e3ad44ccb37e4c308cab6860d657a1a20d6f"
+    }
+  ],
+  "manifestPath": "docs/architecture/evidence/p522/delivery-manifest.json",
+  "ignoredLocalFilesModified": [
+    "plan4.md",
+    "history4.md"
+  ],
+  "notCommitted": true,
+  "notPushed": true
+}

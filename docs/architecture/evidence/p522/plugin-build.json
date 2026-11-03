@@ -1,0 +1,85 @@
+{
+  "hermesCommit": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+  "metrics": {
+    "production-like": {
+      "jsBytes": 20857,
+      "outputFiles": [
+        ".artifacts/p522-host-experience/production-like/plugin.js"
+      ],
+      "dynamicChunks": 0,
+      "unresolvedImports": [],
+      "sourceMaps": false,
+      "cssBytes": 7570,
+      "cssDelivery": "embedded in JS, no CSS sidecar",
+      "sourceMapBytes": 0,
+      "durationMs": 101.2302,
+      "lockedLoaderLiteralWorkarounds": 0,
+      "bundledInputCount": 10,
+      "loadedModuleCount": null,
+      "imports": [
+        {
+          "path": "@hermes/plugin-sdk",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "inputFiles": [
+        "src/components/ui/product/index.tsx",
+        "poc/profile-plugin/profile.css",
+        "poc/profile-plugin/ProfileCareerView.tsx",
+        "poc/profile-packaging/fixture.ts",
+        "poc/profile-packaging/client.ts",
+        "poc/profile-packaging/ProfileHostAdapter.tsx",
+        "poc/host-experience/experience.css",
+        "poc/host-experience/components.tsx",
+        "poc/host-experience/CareerExperience.tsx",
+        "poc/host-experience/plugin.tsx"
+      ]
+    }
+  }
+}

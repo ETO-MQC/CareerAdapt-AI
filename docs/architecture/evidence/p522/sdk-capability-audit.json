@@ -1,0 +1,359 @@
+{
+  "sourceEvidence": [
+    {
+      "path": "apps/desktop/src/sdk/index.ts",
+      "sha256": "3dcb00fea4b0c573797746840525e4155b676a6c2e914fdc517592192209840b",
+      "diffFromHead": "",
+      "anchors": [
+        {
+          "line": 124,
+          "text": "export { type RouteContribution, ROUTES_AREA, SIDEBAR_NAV_AREA, type SidebarNavContribution } from '@/app/routes'"
+        },
+        {
+          "line": 223,
+          "text": "export const PANES_AREA = 'panes'"
+        },
+        {
+          "line": 235,
+          "text": "export { THEMES_AREA } from '@/themes/user-themes'"
+        }
+      ]
+    },
+    {
+      "path": "apps/desktop/src/sdk/runtime.ts",
+      "sha256": "6d38dfb12d567cf3f10474afdc9cd6798b2b05b4b23e7f2f4a383f8a265b0c07",
+      "diffFromHead": "",
+      "anchors": []
+    },
+    {
+      "path": "apps/desktop/src/contrib/plugin.ts",
+      "sha256": "34c2713ab2bf0d5e77826a42cdd22da80fc5ff051d2d143c2a8ba22c1e26c2db",
+      "diffFromHead": "",
+      "anchors": [
+        {
+          "line": 36,
+          "text": "export interface PluginContext {"
+        },
+        {
+          "line": 51,
+          "text": "*  accelerator over your polling, never a replacement. */"
+        }
+      ]
+    },
+    {
+      "path": "apps/desktop/src/contrib/runtime-loader.ts",
+      "sha256": "545d39f9acfe21702384c19120f30cc06413e9489d4f9f0882301fa831a60999",
+      "diffFromHead": "",
+      "anchors": [
+        {
+          "line": 97,
+          "text": "export function unloadRuntimePlugin(id: string): void {"
+        },
+        {
+          "line": 149,
+          "text": "unloadRuntimePlugin(plugin.id)"
+        },
+        {
+          "line": 156,
+          "text": "publishPlugin({ ...record, status: 'disabled' }, { activate, deactivate: () => unloadRuntimePlugin(plugin.id) })"
+        },
+        {
+          "line": 188,
+          "text": "// Panes land via placement adoption and STAY where the user drags them —"
+        },
+        {
+          "line": 219,
+          "text": "unloadRuntimePlugin(prevId)"
+        },
+        {
+          "line": 287,
+          "text": "unloadRuntimePlugin(record.id)"
+        }
+      ]
+    },
+    {
+      "path": "apps/desktop/src/contrib/plugins-store.ts",
+      "sha256": "c22a449019a50ca68aa8af807c85678357aa981a2a2fb9fcee3ba7b58c90e01c",
+      "diffFromHead": "",
+      "anchors": [
+        {
+          "line": 109,
+          "text": "export async function setPluginEnabled(id: string, enabled: boolean): Promise<void> {"
+        }
+      ]
+    },
+    {
+      "path": "apps/desktop/src/app/routes.ts",
+      "sha256": "4cb91d3b9a25f11aba76e949767bdfbfaeb9d8cda0da44fd363bddd27f75746c",
+      "diffFromHead": "",
+      "anchors": [
+        {
+          "line": 79,
+          "text": "export const ROUTES_AREA = 'routes'"
+        },
+        {
+          "line": 89,
+          "text": ".getArea(ROUTES_AREA)"
+        },
+        {
+          "line": 105,
+          "text": "// Pair with a ROUTES_AREA page: the row navigates to `path` and lights up"
+        },
+        {
+          "line": 108,
+          "text": "export const SIDEBAR_NAV_AREA = 'sidebar.nav'"
+        }
+      ]
+    },
+    {
+      "path": "apps/desktop/src/app/contrib/controller.tsx",
+      "sha256": "699cbb02e34c04c724a630ea83c7d08c8a0de384a1c1747ca36489b627acf766",
+      "diffFromHead": "",
+      "anchors": [
+        {
+          "line": 84,
+          "text": "// Pane contributions. `data.placement` = semantic role for grid presets;"
+        },
+        {
+          "line": 140,
+          "text": "// its default-ish spot beside main, not a random same-placement stack."
+        },
+        {
+          "line": 142,
+          "text": "placement: 'left',"
+        },
+        {
+          "line": 158,
+          "text": "placement: 'main',"
+        },
+        {
+          "line": 175,
+          "text": "data: { placement: 'bottom', height: '20vh', minHeight: '7.5rem', maxHeight: '80vh', revealOnPreset: true },"
+        },
+        {
+          "line": 184,
+          "text": "placement: 'right',"
+        },
+        {
+          "line": 204,
+          "text": "placement: 'right',"
+        },
+        {
+          "line": 219,
+          "text": "placement: 'right',"
+        },
+        {
+          "line": 236,
+          "text": "data: { placement: 'bottom', height: '20vh', minHeight: '7.5rem', maxHeight: '80vh', revealOnPreset: true },"
+        },
+        {
+          "line": 392,
+          "text": "// Plugin panes join the tree by their `placement` hint the moment they"
+        },
+        {
+          "line": 424,
+          "text": "placement: 'main',"
+        }
+      ]
+    },
+    {
+      "path": "apps/desktop/src/themes/context.tsx",
+      "sha256": "04efd89a14deef6ebce0b5493007620044679c51016e10a1da56fcc867f5ac25",
+      "diffFromHead": "",
+      "anchors": [
+        {
+          "line": 44,
+          "text": "const resolveMode = (mode: ThemeMode, systemDark = matchesQuery('(prefers-color-scheme: dark)')): 'light' | 'dark' =>"
+        },
+        {
+          "line": 45,
+          "text": "mode === 'system' ? (systemDark ? 'dark' : 'light') : mode"
+        },
+        {
+          "line": 191,
+          "text": "root.dataset.hermesMode = rendered"
+        },
+        {
+          "line": 354,
+          "text": "const systemDark = useMediaQuery('(prefers-color-scheme: dark)')"
+        },
+        {
+          "line": 355,
+          "text": "const resolvedMode = resolveMode(mode, systemDark)"
+        }
+      ]
+    },
+    {
+      "path": "apps/desktop/src/themes/types.ts",
+      "sha256": "cb95622fa87309f48613d43400fa15da969fe32ca807a91bf4c6cc163d74ea2b",
+      "diffFromHead": "",
+      "anchors": []
+    },
+    {
+      "path": "apps/desktop/src/themes/user-themes.ts",
+      "sha256": "435c93f0e4c0d0940eb1196989980af6bee3d8c9f69d43e14c78e12dccc7d723",
+      "diffFromHead": "",
+      "anchors": [
+        {
+          "line": 153,
+          "text": "export const THEMES_AREA = 'themes'"
+        },
+        {
+          "line": 159,
+          "text": "for (const c of registry.getArea(THEMES_AREA)) {"
+        }
+      ]
+    },
+    {
+      "path": "apps/desktop/src/styles.css",
+      "sha256": "034cb5693a530351f155de9d900a25c25a53922ca3046668037818ea18906e95",
+      "diffFromHead": "",
+      "anchors": []
+    },
+    {
+      "path": "apps/desktop/src/components/pane-shell/tree/store.ts",
+      "sha256": "ff31177dc2a8f734cd8f2f5f9d5eaaff5ac58f4bbc90f12bcad5edca414c8a8e",
+      "diffFromHead": "",
+      "anchors": [
+        {
+          "line": 10,
+          "text": "import { setPluginEnabled } from '@/contrib/plugins-store'"
+        },
+        {
+          "line": 431,
+          "text": "id => (panes.find(p => p.id === id)?.data as { placement?: string } | undefined)?.placement === 'main'"
+        },
+        {
+          "line": 490,
+          "text": "void setPluginEnabled(pluginId, false)"
+        },
+        {
+          "line": 553,
+          "text": "* Un-dismiss + re-adopt every registered pane whose placement maps to `side`"
+        },
+        {
+          "line": 573,
+          "text": "const placement = (pane.data as { placement?: string } | undefined)?.placement"
+        },
+        {
+          "line": 574,
+          "text": "const paneSide = placement === 'left' ? 'left' : placement === 'main' ? null : 'right'"
+        },
+        {
+          "line": 599,
+          "text": "*  the renderer's `rootChildSide`: ⌘B ⇔ the sessions column (left-placement"
+        },
+        {
+          "line": 615,
+          "text": "const placementOf = (id: string) =>"
+        },
+        {
+          "line": 616,
+          "text": "(registry.getArea('panes').find(c => c.id === id)?.data as { placement?: string } | undefined)?.placement"
+        },
+        {
+          "line": 618,
+          "text": "const placements = allPaneIds(child).map(placementOf)"
+        },
+        {
+          "line": 620,
+          "text": "if (placements.includes('main')) {"
+        },
+        {
+          "line": 624,
+          "text": "return placements.includes('left') ? 'left' : 'right'"
+        },
+        {
+          "line": 800,
+          "text": "*  - otherwise the semantic `placement` role infers the anchor: stack with"
+        },
+        {
+          "line": 801,
+          "text": "*    a settled pane of the same placement, main zone as last resort."
+        },
+        {
+          "line": 824,
+          "text": "panes.find(c => c.id === paneId)?.data as { placement?: string; dock?: PaneDockHint } | undefined"
+        },
+        {
+          "line": 826,
+          "text": "const placementOf = (paneId: string) => dataOf(paneId)?.placement"
+        },
+        {
+          "line": 827,
+          "text": "const mainId = panes.find(c => placementOf(c.id) === 'main')?.id"
+        },
+        {
+          "line": 850,
+          "text": "const placement = placementOf(pane.id) ?? 'right'"
+        },
+        {
+          "line": 854,
+          "text": "allPaneIds(next).find(id => id !== pane.id && placementOf(id) === placement) ??"
+        },
+        {
+          "line": 896,
+          "text": "// dragged (zone move / span / zone-menu split) keeps that placement; auto-"
+        },
+        {
+          "line": 898,
+          "text": "// Presets and resets hand placement back to the app."
+        },
+        {
+          "line": 944,
+          "text": "// The uncloseable main workspace (session tiles are placement:'main' too,"
+        },
+        {
+          "line": 947,
+          "text": "const data = c.data as { placement?: string; uncloseable?: boolean } | undefined"
+        },
+        {
+          "line": 949,
+          "text": "return data?.placement === 'main' && data.uncloseable"
+        },
+        {
+          "line": 960,
+          "text": "// placement fallback — clear the record so the two never disagree."
+        },
+        {
+          "line": 1003,
+          "text": "// a layout hands pane placement back to the app (auto-docking resumes)."
+        },
+        {
+          "line": 1255,
+          "text": "// placement back to the app (user-placed pins cleared)."
+        },
+        {
+          "line": 1264,
+          "text": "// Everything still missing (plugin panes) adopts by placement."
+        }
+      ]
+    },
+    {
+      "path": "apps/desktop/src/components/pane-shell/tree/renderer/tree-split.tsx",
+      "sha256": "2d9571cd54288c925c0a02774f860ed857869bdf573bea8c2084078d7fe5e0e8",
+      "diffFromHead": "",
+      "anchors": [
+        {
+          "line": 96,
+          "text": "return allPaneIds(child).some(id => paneChrome(paneFor(id)).placement === 'main')"
+        },
+        {
+          "line": 375,
+          "text": "// placement, NOT position, so a ⌘\\ flip moves the columns without"
+        }
+      ]
+    }
+  ],
+  "capabilities": {
+    "route": "PUBLIC: ROUTES_AREA; full page replaces workspace chat",
+    "sidebar": "PUBLIC: SIDEBAR_NAV_AREA",
+    "appliedTheme": "CSS tokens; no exported theme getter/setter",
+    "themeContribution": "PUBLIC: THEMES_AREA",
+    "scopedCSS": "React-owned style, local selectors",
+    "chatInlinePanel": "No dedicated Chat child slot in audited SDK",
+    "parallelPane": "PUBLIC PANES_AREA; actual Host probe required; not equivalent to dedicated artifact API",
+    "artifactBinding": "No typed Career task/artifact bridge demonstrated",
+    "lifecycle": "ctx.register disposers tracked; ctx.onDispose absent; UI cleanup does not certify revocation"
+  }
+}

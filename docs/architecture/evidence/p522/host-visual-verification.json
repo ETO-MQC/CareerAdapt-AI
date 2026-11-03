@@ -1,0 +1,156 @@
+{
+  "status": "PASS",
+  "scope": "Real locked Desktop Profile route only, not Chat/Artifact integration",
+  "source": "host-smoke-1793711786576.json",
+  "processExitCode": 0,
+  "visuallyInspected": true,
+  "reference": "docs/architecture/evidence/p521/prototype-profile-light-1024.png",
+  "correction": "Removed excess nav borders after screenshot comparison",
+  "matrix": [
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "mode": "light",
+      "file": "host-profile-light-1920.png",
+      "geometry": {
+        "width": 1683.0001220703125,
+        "right": 1920.0001373291016,
+        "viewport": 1920,
+        "overflow": false,
+        "font": "\"Segoe WPC\", \"Segoe UI\", -apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"SF Pro Display\", system-ui, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\", emoji",
+        "color": "color(srgb 0.0901961 0.0901961 0.101961 / 0.94)",
+        "background": "color(srgb 0.990824 0.990824 0.990824)",
+        "border": "color-mix(\r\n      in srgb,\r\n      #0053FD 16%,\r\n      color-mix(in srgb, #17171A 7%, transparent)\r\n    )",
+        "scrollable": true,
+        "minFont": 11
+      },
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-light-1920.png"
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "mode": "dark",
+      "file": "host-profile-dark-1920.png",
+      "geometry": {
+        "width": 1683.0001220703125,
+        "right": 1920.0001373291016,
+        "viewport": 1920,
+        "overflow": false,
+        "font": "\"Segoe WPC\", \"Segoe UI\", -apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"SF Pro Display\", system-ui, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\", emoji",
+        "color": "color(srgb 1 0.901961 0.796078 / 0.94)",
+        "background": "color(srgb 0.0803137 0.135451 0.271451)",
+        "border": "color-mix(\r\n      in srgb,\r\n      #0053FD 16%,\r\n      color-mix(in srgb, #FFE6CB 7%, transparent)\r\n    )",
+        "scrollable": true,
+        "minFont": 11
+      },
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-dark-1920.png"
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "mode": "light",
+      "file": "host-profile-light-1440.png",
+      "geometry": {
+        "width": 1203,
+        "right": 1440.000015258789,
+        "viewport": 1440,
+        "overflow": false,
+        "font": "\"Segoe WPC\", \"Segoe UI\", -apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"SF Pro Display\", system-ui, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\", emoji",
+        "color": "color(srgb 0.0901961 0.0901961 0.101961 / 0.94)",
+        "background": "color(srgb 0.990824 0.990824 0.990824)",
+        "border": "color-mix(\r\n      in srgb,\r\n      #0053FD 16%,\r\n      color-mix(in srgb, #17171A 7%, transparent)\r\n    )",
+        "scrollable": true,
+        "minFont": 11
+      },
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-light-1440.png"
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "mode": "dark",
+      "file": "host-profile-dark-1440.png",
+      "geometry": {
+        "width": 1203,
+        "right": 1440.000015258789,
+        "viewport": 1440,
+        "overflow": false,
+        "font": "\"Segoe WPC\", \"Segoe UI\", -apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"SF Pro Display\", system-ui, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\", emoji",
+        "color": "color(srgb 1 0.901961 0.796078 / 0.94)",
+        "background": "color(srgb 0.0803137 0.135451 0.271451)",
+        "border": "color-mix(\r\n      in srgb,\r\n      #0053FD 16%,\r\n      color-mix(in srgb, #FFE6CB 7%, transparent)\r\n    )",
+        "scrollable": true,
+        "minFont": 11
+      },
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-dark-1440.png"
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "light",
+      "file": "host-profile-light-1024.png",
+      "geometry": {
+        "width": 787.0000610351562,
+        "right": 1024.0000762939453,
+        "viewport": 1024,
+        "overflow": false,
+        "font": "\"Segoe WPC\", \"Segoe UI\", -apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"SF Pro Display\", system-ui, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\", emoji",
+        "color": "color(srgb 0.0901961 0.0901961 0.101961 / 0.94)",
+        "background": "color(srgb 0.990824 0.990824 0.990824)",
+        "border": "color-mix(\r\n      in srgb,\r\n      #0053FD 16%,\r\n      color-mix(in srgb, #17171A 7%, transparent)\r\n    )",
+        "scrollable": true,
+        "minFont": 11
+      },
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-light-1024.png"
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "dark",
+      "file": "host-profile-dark-1024.png",
+      "geometry": {
+        "width": 787.0000610351562,
+        "right": 1024.0000762939453,
+        "viewport": 1024,
+        "overflow": false,
+        "font": "\"Segoe WPC\", \"Segoe UI\", -apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"SF Pro Display\", system-ui, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\", emoji",
+        "color": "color(srgb 1 0.901961 0.796078 / 0.94)",
+        "background": "color(srgb 0.0803137 0.135451 0.271451)",
+        "border": "color-mix(\r\n      in srgb,\r\n      #0053FD 16%,\r\n      color-mix(in srgb, #FFE6CB 7%, transparent)\r\n    )",
+        "scrollable": true,
+        "minFont": 11
+      },
+      "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-dark-1024.png"
+    }
+  ],
+  "stateScreenshots": [
+    "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-state-empty.png",
+    "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-state-error.png",
+    "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-state-invalid.png",
+    "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-state-loading.png",
+    "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-state-success.png"
+  ],
+  "systemTheme": [
+    {
+      "mode": "dark",
+      "background": "color(srgb 0.0803137 0.135451 0.271451)"
+    },
+    {
+      "mode": "light",
+      "background": "color(srgb 0.990824 0.990824 0.990824)"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": []
+}

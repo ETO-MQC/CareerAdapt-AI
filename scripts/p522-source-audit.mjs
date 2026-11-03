@@ -1,0 +1,24 @@
+import fs from "node:fs";
+import path from "node:path";
+import crypto from "node:crypto";
+import { execFileSync } from "node:child_process";
+const hermes = process.env.HERMES_SOURCE_DIR || path.join(process.env.LOCALAPPDATA, "hermes/hermes-agent");
+const out = "docs/architecture/evidence/p522";
+fs.mkdirSync(out, { recursive: true });
+const git = (args, cwd = process.cwd()) => execFileSync("git", args, { cwd, encoding: "utf8", maxBuffer: 8e6 }).trim();
+const hash = p => crypto.createHash("sha256").update(fs.readFileSync(p)).digest("hex");
+const manifest = JSON.parse(fs.readFileSync("docs/architecture/evidence/p521/delivery-manifest.json", "utf8"));
+const protectedFiles = manifest.files.map(f => ({ path: f.path, matches: fs.existsSync(f.path) && hash(f.path) === f.sha256 }));
+if (protectedFiles.some(f => !f.matches)) throw new Error("P521 protected file mismatch");
+const sources = ["src/sdk/index.ts", "src/sdk/runtime.ts", "src/contrib/plugin.ts", "src/contrib/runtime-loader.ts", "src/contrib/plugins-store.ts", "src/app/routes.ts", "src/app/contrib/controller.tsx", "src/themes/context.tsx", "src/themes/types.ts", "src/themes/user-themes.ts", "src/styles.css", "src/components/pane-shell/tree/store.ts", "src/components/pane-shell/tree/renderer/tree-split.tsx"];
+const sourceEvidence = sources.map(p => {
+  const relative = "apps/desktop/" + p, file = path.join(hermes, relative);
+  const text = fs.readFileSync(file, "utf8");
+  return { path: relative, sha256: hash(file), diffFromHead: git(["diff", "HEAD", "--", relative], hermes), anchors: text.split(/\r?\n/).flatMap((line, i) => /PANES_AREA|ROUTES_AREA|SIDEBAR_NAV_AREA|THEMES_AREA|interface PluginContext|unloadRuntimePlugin|setPluginEnabled|placement|systemDark|hermesMode/.test(line) ? [{ line: i + 1, text: line.trim() }] : []) };
+});
+const required = ["AGENTS.md", "plan4.md", "history4.md", "docs/architecture/p5.2.1-unified-experience-design-audit.md", "docs/architecture/p5.2.1-unified-design-system.md", "docs/architecture/p5.2.1-visual-direction.md", "docs/architecture/p5.2.2-unified-ui-implementation-plan.md", "prototype/unified-experience/main.tsx", "prototype/unified-experience/styles.css", "prototype/unified-experience/README.md", "docs/architecture/evidence/p521/host-audit.json", "docs/architecture/evidence/p521/prototype-verification.json", "docs/architecture/evidence/p521/research-evidence.json", "docs/architecture/p5.2.0-appearance-hub-compatibility-audit.md", "docs/architecture/p5.2.0-appearance-hub-compatibility-evidence.json", "docs/architecture/p5.2.0-b2-b2-profile-plugin-packaging-poc.md", "docs/architecture/p5.2.0-b2-b2-evidence.json", "docs/architecture/p5.2.0b2b1-evidence.json", "docs/architecture/execution-records/20261103-1109-P5.2.1-execution-record.md", "docs/architecture/p5.2.0b2b1-runtime-release-decision.md", "docs/architecture/p5.2.0b2b1-trusted-confirmation-audit.md"];
+const baseline = { date: "2026-11-03", branch: git(["branch", "--show-current"]), head: git(["rev-parse", "HEAD"]), originMain: git(["rev-parse", "origin/main"]), initialStatusShort: "", fetchExitCode: 0, expectedHistoricalHead: manifest.head, difference: "P5.2.1 committed as 5a1a1fc; clean starting tree; no rollback", worktrees: git(["worktree", "list"]), log: git(["log", "-8", "--oneline"]), ignoredInventory: git(["status", "--ignored", "--short"]), protectedFiles, requiredReads: required.map(p => ({ path: p, bytes: fs.readFileSync(p).length, sha256: hash(p) })), optionalHandoffExists: fs.existsSync("CareerAdapt_AI_Project_Handoff_2026-11-03.md"), hermesHead: git(["rev-parse", "HEAD"], hermes), desktopPackage: JSON.parse(fs.readFileSync(path.join(hermes, "apps/desktop/package.json"), "utf8")).version, runtimeLockSha256: hash("scripts/hermes-runtime-lock.json") };
+if (baseline.branch !== "main" || baseline.hermesHead !== "eb52760564dbba2e5971fa54bd67384e281cd3b8") throw new Error("Wrong branch or Host version");
+fs.writeFileSync(out + "/baseline.json", JSON.stringify(baseline, null, 2) + "\n");
+fs.writeFileSync(out + "/sdk-capability-audit.json", JSON.stringify({ sourceEvidence, capabilities: { route: "PUBLIC: ROUTES_AREA; full page replaces workspace chat", sidebar: "PUBLIC: SIDEBAR_NAV_AREA", appliedTheme: "CSS tokens; no exported theme getter/setter", themeContribution: "PUBLIC: THEMES_AREA", scopedCSS: "React-owned style, local selectors", chatInlinePanel: "No dedicated Chat child slot in audited SDK", parallelPane: "PUBLIC PANES_AREA; actual Host probe required; not equivalent to dedicated artifact API", artifactBinding: "No typed Career task/artifact bridge demonstrated", lifecycle: "ctx.register disposers tracked; ctx.onDispose absent; UI cleanup does not certify revocation" } }, null, 2) + "\n");
+console.log(JSON.stringify({ protectedFiles: protectedFiles.length, intact: true, sources: sources.length, hermes: baseline.hermesHead, head: baseline.head }));
