@@ -1,0 +1,43 @@
+{
+  "note": "Preparation/type/unit failures recorded from observed tool outputs; only Host failure has full raw JSON/PNG. No retrospective claim of complete original console logs.",
+  "records": [
+    {
+      "command": "initial Vite launch at desktop/node_modules/vite",
+      "exitCode": 1,
+      "reason": "MODULE_NOT_FOUND; existing Vite is in Hermes root node_modules; corrected without installation"
+    },
+    {
+      "command": "first new pnpm typecheck",
+      "exitCode": 1,
+      "reason": "TS2339 State union message narrowing; changed to distinct discriminated variants; final typecheck exits0"
+    },
+    {
+      "command": "initial test-edit preparation",
+      "exitCode": 1,
+      "reason": "Windows Python default GBK cannot decode UTF8 Chinese; script aborted before edit; explicit UTF8 corrected"
+    },
+    {
+      "command": "first Unit after view replacement, before contract update",
+      "exitCode": 1,
+      "passed": 27,
+      "failed": 5,
+      "reason": "Historical tests expected removed seven-section article / second global navigation; updated to user-required single Profile route, 19 categories, list/detail and read-only states; registration/security/five-state assertions retained"
+    },
+    {
+      "command": "initial git diff --check",
+      "exitCode": 1,
+      "reason": "Windows generated CRLF treated as trailing whitespace; current task text normalized to LF"
+    },
+    {
+      "command": "first Slice1 Host smoke",
+      "exitCode": 1,
+      "raw": "host-smoke-1793726408087.json",
+      "reason": "Six visual cells passed; exact implicit Select label timed out30s. Explicit aria-label applied; final complete script exits0."
+    },
+    {
+      "command": "first System screenshot in full run",
+      "exitCode": 0,
+      "limitation": "captured color transition before controls settled; independent System script waits for actual computed input background and preserves initial shots"
+    }
+  ]
+}

@@ -1,0 +1,337 @@
+{
+  "marker": "合成示例 · 只读 · 未连接正式资料库",
+  "source": "src/data/demoProfile.ts canonical projection + 4 explicitly synthetic typed entries + 1 synthetic archived copy; basics.summary retained as summary",
+  "categories": [
+    {
+      "id": "basics",
+      "sectionType": "basics",
+      "label": "基本信息",
+      "repeatable": false
+    },
+    {
+      "id": "summary",
+      "sectionType": "summary",
+      "label": "自我评价",
+      "repeatable": false
+    },
+    {
+      "id": "education",
+      "sectionType": "education",
+      "label": "教育经历",
+      "repeatable": true
+    },
+    {
+      "id": "work",
+      "sectionType": "work",
+      "label": "工作经历",
+      "repeatable": true
+    },
+    {
+      "id": "internship",
+      "sectionType": "internship",
+      "label": "实习经历",
+      "repeatable": true
+    },
+    {
+      "id": "project",
+      "sectionType": "project",
+      "label": "项目经历",
+      "repeatable": true
+    },
+    {
+      "id": "research",
+      "sectionType": "research",
+      "label": "科研经历",
+      "repeatable": true
+    },
+    {
+      "id": "campus",
+      "sectionType": "campus",
+      "label": "校园经历",
+      "repeatable": true
+    },
+    {
+      "id": "volunteer",
+      "sectionType": "volunteer",
+      "label": "志愿经历",
+      "repeatable": true
+    },
+    {
+      "id": "training",
+      "sectionType": "training",
+      "label": "培训经历",
+      "repeatable": true
+    },
+    {
+      "id": "award",
+      "sectionType": "awards",
+      "label": "奖项荣誉",
+      "repeatable": true
+    },
+    {
+      "id": "skill",
+      "sectionType": "skills",
+      "label": "专业技能",
+      "repeatable": true
+    },
+    {
+      "id": "certificate",
+      "sectionType": "certificates",
+      "label": "证书",
+      "repeatable": true
+    },
+    {
+      "id": "language",
+      "sectionType": "languages",
+      "label": "语言能力",
+      "repeatable": true
+    },
+    {
+      "id": "publications",
+      "sectionType": "publications",
+      "label": "论文与出版物",
+      "repeatable": true
+    },
+    {
+      "id": "patents",
+      "sectionType": "patents",
+      "label": "专利",
+      "repeatable": true
+    },
+    {
+      "id": "portfolio",
+      "sectionType": "portfolio",
+      "label": "作品集",
+      "repeatable": true
+    },
+    {
+      "id": "other",
+      "sectionType": "other",
+      "label": "其他内容",
+      "repeatable": true
+    },
+    {
+      "id": "custom",
+      "sectionType": "custom",
+      "label": "自定义栏目",
+      "repeatable": true
+    }
+  ],
+  "items": [
+    {
+      "id": "basics",
+      "category": "basics",
+      "fieldKeys": [
+        "name",
+        "summary",
+        "phone",
+        "email",
+        "location"
+      ],
+      "sourceCount": 1,
+      "archived": false,
+      "used": true
+    },
+    {
+      "id": "exp-stat-modeling",
+      "category": "award",
+      "fieldKeys": [
+        "name",
+        "issuer",
+        "description",
+        "exp-stat-modeling:legacy-resume-drafts",
+        "exp-stat-modeling:legacy-tags",
+        "exp-stat-modeling:legacy-evidence-ids"
+      ],
+      "sourceCount": 1,
+      "archived": false,
+      "used": true
+    },
+    {
+      "id": "exp-ai-product",
+      "category": "project",
+      "fieldKeys": [
+        "title",
+        "role",
+        "startDate",
+        "endDate",
+        "current",
+        "description",
+        "highlights",
+        "exp-ai-product:legacy-resume-drafts",
+        "exp-ai-product:legacy-tags"
+      ],
+      "sourceCount": 1,
+      "archived": false,
+      "used": true
+    },
+    {
+      "id": "exp-gov-internship",
+      "category": "internship",
+      "fieldKeys": [
+        "organization",
+        "role",
+        "startDate",
+        "endDate",
+        "current",
+        "description",
+        "highlights",
+        "exp-gov-internship:legacy-resume-drafts",
+        "exp-gov-internship:legacy-tags"
+      ],
+      "sourceCount": 1,
+      "archived": false,
+      "used": true
+    },
+    {
+      "id": "exp-trade-learning",
+      "category": "other",
+      "fieldKeys": [
+        "title",
+        "description",
+        "highlights",
+        "exp-trade-learning:legacy-resume-drafts",
+        "exp-trade-learning:legacy-tags"
+      ],
+      "sourceCount": 1,
+      "archived": false,
+      "used": true
+    },
+    {
+      "id": "skill-stata",
+      "category": "skill",
+      "fieldKeys": [
+        "name",
+        "level",
+        "description"
+      ],
+      "sourceCount": 1,
+      "archived": false,
+      "used": false
+    },
+    {
+      "id": "skill-excel",
+      "category": "skill",
+      "fieldKeys": [
+        "name",
+        "level",
+        "description"
+      ],
+      "sourceCount": 1,
+      "archived": false,
+      "used": false
+    },
+    {
+      "id": "cert-cet4",
+      "category": "certificate",
+      "fieldKeys": [
+        "name",
+        "issuer",
+        "issuedAt"
+      ],
+      "sourceCount": 1,
+      "archived": false,
+      "used": false
+    },
+    {
+      "id": "summary",
+      "category": "summary",
+      "fieldKeys": [
+        "text"
+      ],
+      "sourceCount": 1,
+      "archived": false,
+      "used": false
+    },
+    {
+      "id": "synthetic-education",
+      "category": "education",
+      "fieldKeys": [
+        "school",
+        "major",
+        "degree",
+        "location",
+        "startDate",
+        "endDate",
+        "current",
+        "courses",
+        "description",
+        "highlights"
+      ],
+      "sourceCount": 1,
+      "archived": false,
+      "used": false
+    },
+    {
+      "id": "synthetic-work",
+      "category": "work",
+      "fieldKeys": [
+        "organization",
+        "role",
+        "department",
+        "startDate",
+        "current",
+        "description",
+        "highlights"
+      ],
+      "sourceCount": 1,
+      "archived": false,
+      "used": false
+    },
+    {
+      "id": "synthetic-project",
+      "category": "project",
+      "fieldKeys": [
+        "title",
+        "role",
+        "organization",
+        "startDate",
+        "endDate",
+        "current",
+        "tools",
+        "background",
+        "description",
+        "highlights",
+        "outcomes"
+      ],
+      "sourceCount": 1,
+      "archived": false,
+      "used": false
+    },
+    {
+      "id": "synthetic-language",
+      "category": "language",
+      "fieldKeys": [
+        "language",
+        "level",
+        "testName",
+        "score",
+        "description"
+      ],
+      "sourceCount": 1,
+      "archived": false,
+      "used": false
+    },
+    {
+      "id": "synthetic-archived-project",
+      "category": "project",
+      "fieldKeys": [
+        "title",
+        "role",
+        "startDate",
+        "endDate",
+        "current",
+        "description",
+        "highlights",
+        "exp-ai-product:legacy-resume-drafts",
+        "exp-ai-product:legacy-tags"
+      ],
+      "sourceCount": 1,
+      "archived": true,
+      "used": false
+    }
+  ],
+  "fixtureFile": "poc/host-experience/profile-fixture.json",
+  "sha256": "aebe5b02a24d1bc7dd6055a6e2328f9d6f70737245e0e342ce33fcff8ddf8ffe",
+  "renderer": "Only display JSON, schema and components. Canonical migration/demo imports confined to build-time generator."
+}

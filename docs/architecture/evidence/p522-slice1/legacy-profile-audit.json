@@ -1,0 +1,259 @@
+{
+  "status": "AUDITED",
+  "sources": [
+    {
+      "path": "src/app/profile/page.tsx",
+      "sha256": "bd81eb26be5d370eeeac1258597cd0d21eca3fe7dda81a39aa957349e753d04c",
+      "bytes": 134,
+      "lines": 6
+    },
+    {
+      "path": "src/app/profile/ProfileWorkspace.tsx",
+      "sha256": "f00758cc97786b18e398a5c19edf0bf26eafe54d44761c29a28fcc266d205b5d",
+      "bytes": 144296,
+      "lines": 3220
+    },
+    {
+      "path": "src/domain/profile/canonicalLibrary.ts",
+      "sha256": "26fbf68ea4493e41b0952d3f3844f34857f5756213f27daa1d5ba18d26ff6e2c",
+      "bytes": 2284,
+      "lines": 61
+    },
+    {
+      "path": "src/domain/profile/profileCategories.ts",
+      "sha256": "117b7363acd18a45287bb93622705039f37a4fcc4489d607062cc251bb5d269e",
+      "bytes": 1237,
+      "lines": 39
+    },
+    {
+      "path": "src/domain/profile/profileCounts.ts",
+      "sha256": "f8082d4079f127cae911bfe7feaf4a1978e15cfcddf8a59126cf397c26563838",
+      "bytes": 1565,
+      "lines": 44
+    },
+    {
+      "path": "src/domain/profile/profileProjectionRegistry.ts",
+      "sha256": "baf5a3a0f359349163a9a9f5e0baafe68af87d39cbd68a1272d62427b8dbd74c",
+      "bytes": 1561,
+      "lines": 39
+    },
+    {
+      "path": "src/domain/profile/profileWriteContract.ts",
+      "sha256": "e18dfb7c259efeb50477791d9dbecfaabe4e931ed10b494b726fd72853f413db",
+      "bytes": 16562,
+      "lines": 400
+    },
+    {
+      "path": "src/domain/schemas/profile.ts",
+      "sha256": "974f9ca5b65d10d3686d00bdccfd45fe4aeaa56e8f3f36db57fcf16f93782a24",
+      "bytes": 7204,
+      "lines": 181
+    },
+    {
+      "path": "src/components/ui/product/index.tsx",
+      "sha256": "aacdec67f2e05b23e029dafd98ac90bc366fb30eb77d0a9ba58c80db43532e20",
+      "bytes": 5209,
+      "lines": 160
+    },
+    {
+      "path": "src/components/career/CareerContextEntryBar.tsx",
+      "sha256": "ca04fe5d975e7b7966b4d810165d87972101db8f1eee0b91584f09d5a8793420",
+      "bytes": 6217,
+      "lines": 80
+    },
+    {
+      "path": "src/components/editor/FieldInput.tsx",
+      "sha256": "60269f4692660d15139d8bd1829bc19107e4b9033c46aa6d119e2e32d454dd66",
+      "bytes": 2306,
+      "lines": 79
+    },
+    {
+      "path": "src/components/editor/StructuredExperienceForm.tsx",
+      "sha256": "0f5bfd68362b2652d687416b2072a724758bb90a0399bf424aaa3c404f427ce6",
+      "bytes": 5074,
+      "lines": 82
+    },
+    {
+      "path": "src/components/editor/StructuredProjectForm.tsx",
+      "sha256": "512447accb724ca85dd80f5a9c1d2a8d684c2560eaf05e3d739b01c719264f87",
+      "bytes": 6414,
+      "lines": 92
+    },
+    {
+      "path": "src/styles/product-tokens.css",
+      "sha256": "2877e805bf31db3b29ccd84608dcc65ee65c38059020e18c035085726e37357a",
+      "bytes": 3055,
+      "lines": 95
+    },
+    {
+      "path": "src/styles/product-components.css",
+      "sha256": "d8c19227be7b7c2486da8f7d13c69782fbf431178da2110b15cb9133ea258f2c",
+      "bytes": 32569,
+      "lines": 576
+    },
+    {
+      "path": "src/app/globals.css",
+      "sha256": "cdeb99972a86e4d2db04516bd33c3c18ec556e1a9bd1862ecefede55404a8947",
+      "bytes": 258667,
+      "lines": 12315
+    },
+    {
+      "path": "src/data/demoProfile.ts",
+      "sha256": "c969a700e15e427cf9c26d8d6f005e898d6d2919d73d0a1b3e636aae3c8ec23b",
+      "bytes": 7059,
+      "lines": 230
+    },
+    {
+      "path": "poc/profile-plugin/read-client.ts",
+      "sha256": "8ef586a03e2333e9042d2f4309d1f91b750fd1520d0fd02cc62fbd98797f8140",
+      "bytes": 1655,
+      "lines": 29
+    },
+    {
+      "path": "poc/profile-packaging/ProfileHostAdapter.tsx",
+      "sha256": "4b2efda1b15ed66075d172bb49447deb31b2bccecc7ae84d9796684536e044ef",
+      "bytes": 1798,
+      "lines": 32
+    },
+    {
+      "path": "tests/unit/profileCategories.test.ts",
+      "sha256": "db9ae6fdbfdd32d63bcafac640237dbef68a7990b0fcf260ff26a5dbaef936f9",
+      "bytes": 672,
+      "lines": 19
+    },
+    {
+      "path": "tests/e2e/p3-profile-library-crud.spec.ts",
+      "sha256": "346c12b46973881405579a816e44110a6d05c759a532028a3dc169a7aafdf898",
+      "bytes": 13542,
+      "lines": 264
+    }
+  ],
+  "categories": [
+    {
+      "id": "basics",
+      "sectionType": "basics",
+      "label": "基本信息",
+      "repeatable": false
+    },
+    {
+      "id": "summary",
+      "sectionType": "summary",
+      "label": "自我评价",
+      "repeatable": false
+    },
+    {
+      "id": "education",
+      "sectionType": "education",
+      "label": "教育经历",
+      "repeatable": true
+    },
+    {
+      "id": "work",
+      "sectionType": "work",
+      "label": "工作经历",
+      "repeatable": true
+    },
+    {
+      "id": "internship",
+      "sectionType": "internship",
+      "label": "实习经历",
+      "repeatable": true
+    },
+    {
+      "id": "project",
+      "sectionType": "project",
+      "label": "项目经历",
+      "repeatable": true
+    },
+    {
+      "id": "research",
+      "sectionType": "research",
+      "label": "科研经历",
+      "repeatable": true
+    },
+    {
+      "id": "campus",
+      "sectionType": "campus",
+      "label": "校园经历",
+      "repeatable": true
+    },
+    {
+      "id": "volunteer",
+      "sectionType": "volunteer",
+      "label": "志愿经历",
+      "repeatable": true
+    },
+    {
+      "id": "training",
+      "sectionType": "training",
+      "label": "培训经历",
+      "repeatable": true
+    },
+    {
+      "id": "award",
+      "sectionType": "awards",
+      "label": "奖项荣誉",
+      "repeatable": true
+    },
+    {
+      "id": "skill",
+      "sectionType": "skills",
+      "label": "专业技能",
+      "repeatable": true
+    },
+    {
+      "id": "certificate",
+      "sectionType": "certificates",
+      "label": "证书",
+      "repeatable": true
+    },
+    {
+      "id": "language",
+      "sectionType": "languages",
+      "label": "语言能力",
+      "repeatable": true
+    },
+    {
+      "id": "publications",
+      "sectionType": "publications",
+      "label": "论文与出版物",
+      "repeatable": true
+    },
+    {
+      "id": "patents",
+      "sectionType": "patents",
+      "label": "专利",
+      "repeatable": true
+    },
+    {
+      "id": "portfolio",
+      "sectionType": "portfolio",
+      "label": "作品集",
+      "repeatable": true
+    },
+    {
+      "id": "other",
+      "sectionType": "other",
+      "label": "其他内容",
+      "repeatable": true
+    },
+    {
+      "id": "custom",
+      "sectionType": "custom",
+      "label": "自定义栏目",
+      "repeatable": true
+    }
+  ],
+  "structure": {
+    "topbar": "ProfileWorkspace ProductTopbar + count summary",
+    "context": "CareerContextEntryBar person/avatar/current version/date/count; repository/store controller cannot be reused in renderer",
+    "categories": "profileSectionCatalog -> canonical aliases; 19, not 7",
+    "list": "category/search/usage/archived filtering; title/subtitle/state; item key selection",
+    "details": "basics form, summary, canonical type fields; source/usage/date; project fields in StructuredProjectForm",
+    "otherBranches": "import paste/PDF/privacy/AI draft/fact confirmation/current profile/delete blockers/force-delete. Audited, not ported or enabled."
+  },
+  "decision": "Reuse pure Product components/styles and canonical field catalog at build time; do not import ProfileWorkspace, FieldInput rich editors, context controller, registry or write contract into renderer",
+  "referenceImage": "docs/architecture/evidence/p521/careeradapt-current-profile-1440.png",
+  "referenceImageSha256": "ed36c35e7abc24e1e729ab15eddf18ee181033d3dcdb7c45bfc2b725ec20c29c",
+  "missingReferenceIndex": "docs/design-reference/careeradapt-ui-ultimate/REFERENCE_IMAGE_INDEX.md absent; current product sources and actual screenshot remain authority"
+}

@@ -1,0 +1,1375 @@
+{
+  "marker": "合成示例 · 只读 · 未连接正式资料库",
+  "name": "同学",
+  "version": "V1 · 示例版本",
+  "createdAt": "2026/07/01",
+  "background": "数据分析实习 / 外贸/跨境运营实习",
+  "basics": [
+    {
+      "key": "name",
+      "label": "姓名",
+      "values": [
+        "同学"
+      ],
+      "multiline": false
+    },
+    {
+      "key": "summary",
+      "label": "职业简介",
+      "values": [
+        "经济管理方向本科生，关注数据分析、AI应用和跨境业务流程。"
+      ],
+      "multiline": true
+    },
+    {
+      "key": "phone",
+      "label": "电话",
+      "values": [
+        "138****0000"
+      ],
+      "multiline": false
+    },
+    {
+      "key": "email",
+      "label": "邮箱",
+      "values": [
+        "demo.student@example.com"
+      ],
+      "multiline": false
+    },
+    {
+      "key": "location",
+      "label": "所在地",
+      "values": [
+        "杭州"
+      ],
+      "multiline": false
+    }
+  ],
+  "categories": [
+    {
+      "id": "basics",
+      "sectionType": "basics",
+      "label": "基本信息",
+      "repeatable": false
+    },
+    {
+      "id": "summary",
+      "sectionType": "summary",
+      "label": "自我评价",
+      "repeatable": false
+    },
+    {
+      "id": "education",
+      "sectionType": "education",
+      "label": "教育经历",
+      "repeatable": true
+    },
+    {
+      "id": "work",
+      "sectionType": "work",
+      "label": "工作经历",
+      "repeatable": true
+    },
+    {
+      "id": "internship",
+      "sectionType": "internship",
+      "label": "实习经历",
+      "repeatable": true
+    },
+    {
+      "id": "project",
+      "sectionType": "project",
+      "label": "项目经历",
+      "repeatable": true
+    },
+    {
+      "id": "research",
+      "sectionType": "research",
+      "label": "科研经历",
+      "repeatable": true
+    },
+    {
+      "id": "campus",
+      "sectionType": "campus",
+      "label": "校园经历",
+      "repeatable": true
+    },
+    {
+      "id": "volunteer",
+      "sectionType": "volunteer",
+      "label": "志愿经历",
+      "repeatable": true
+    },
+    {
+      "id": "training",
+      "sectionType": "training",
+      "label": "培训经历",
+      "repeatable": true
+    },
+    {
+      "id": "award",
+      "sectionType": "awards",
+      "label": "奖项荣誉",
+      "repeatable": true
+    },
+    {
+      "id": "skill",
+      "sectionType": "skills",
+      "label": "专业技能",
+      "repeatable": true
+    },
+    {
+      "id": "certificate",
+      "sectionType": "certificates",
+      "label": "证书",
+      "repeatable": true
+    },
+    {
+      "id": "language",
+      "sectionType": "languages",
+      "label": "语言能力",
+      "repeatable": true
+    },
+    {
+      "id": "publications",
+      "sectionType": "publications",
+      "label": "论文与出版物",
+      "repeatable": true
+    },
+    {
+      "id": "patents",
+      "sectionType": "patents",
+      "label": "专利",
+      "repeatable": true
+    },
+    {
+      "id": "portfolio",
+      "sectionType": "portfolio",
+      "label": "作品集",
+      "repeatable": true
+    },
+    {
+      "id": "other",
+      "sectionType": "other",
+      "label": "其他内容",
+      "repeatable": true
+    },
+    {
+      "id": "custom",
+      "sectionType": "custom",
+      "label": "自定义栏目",
+      "repeatable": true
+    }
+  ],
+  "items": [
+    {
+      "id": "basics",
+      "category": "basics",
+      "title": "同学",
+      "subtitle": "demo.student@example.com / 138****0000 / 杭州",
+      "body": "经济管理方向本科生，关注数据分析、AI应用和跨境业务流程。",
+      "date": "",
+      "fields": [
+        {
+          "key": "name",
+          "label": "姓名",
+          "values": [
+            "同学"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "summary",
+          "label": "职业简介",
+          "values": [
+            "经济管理方向本科生，关注数据分析、AI应用和跨境业务流程。"
+          ],
+          "multiline": true
+        },
+        {
+          "key": "phone",
+          "label": "电话",
+          "values": [
+            "138****0000"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "email",
+          "label": "邮箱",
+          "values": [
+            "demo.student@example.com"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "location",
+          "label": "所在地",
+          "values": [
+            "杭州"
+          ],
+          "multiline": false
+        }
+      ],
+      "sources": [
+        "项目内置示例资料 · 非用户资料"
+      ],
+      "used": true,
+      "archived": false,
+      "updatedAt": "2026-07-01",
+      "data": {
+        "name": "同学",
+        "summary": "经济管理方向本科生，关注数据分析、AI应用和跨境业务流程。",
+        "phone": "138****0000",
+        "email": "demo.student@example.com",
+        "location": "杭州",
+        "portfolioLinks": [],
+        "otherLinks": [],
+        "customFields": []
+      }
+    },
+    {
+      "id": "exp-stat-modeling",
+      "category": "award",
+      "title": "数据分析成员",
+      "subtitle": "统计建模竞赛项目",
+      "body": "奖项名称：数据分析成员\n颁发方：统计建模竞赛项目\n说明：使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。\n原始资料草稿：使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。\n原始标签：Stata；数据清洗；统计分析\n原始证据引用：evidence-stat-report",
+      "date": "",
+      "fields": [
+        {
+          "key": "name",
+          "label": "奖项名称",
+          "values": [
+            "数据分析成员"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "issuer",
+          "label": "颁发方",
+          "values": [
+            "统计建模竞赛项目"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "description",
+          "label": "说明",
+          "values": [
+            "使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。"
+          ],
+          "multiline": true
+        },
+        {
+          "key": "exp-stat-modeling:legacy-resume-drafts",
+          "label": "原始资料草稿",
+          "values": [
+            "使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。"
+          ],
+          "multiline": true
+        },
+        {
+          "key": "exp-stat-modeling:legacy-tags",
+          "label": "原始标签",
+          "values": [
+            "Stata",
+            "数据清洗",
+            "统计分析"
+          ],
+          "multiline": true
+        },
+        {
+          "key": "exp-stat-modeling:legacy-evidence-ids",
+          "label": "原始证据引用",
+          "values": [
+            "evidence-stat-report"
+          ],
+          "multiline": true
+        }
+      ],
+      "sources": [
+        "合成示例来源 · demo · 统计建模：使用Stata清洗31个省级样本，完成描述统计、相关分析与区域差异分析。"
+      ],
+      "used": true,
+      "archived": false,
+      "updatedAt": "2026-07-01",
+      "data": {
+        "id": "exp-stat-modeling",
+        "customFields": [
+          {
+            "id": "exp-stat-modeling:legacy-resume-drafts",
+            "label": "原始资料草稿",
+            "valueType": "text",
+            "value": "使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。",
+            "order": 0,
+            "sensitive": false
+          },
+          {
+            "id": "exp-stat-modeling:legacy-tags",
+            "label": "原始标签",
+            "valueType": "string_list",
+            "value": [
+              "Stata",
+              "数据清洗",
+              "统计分析"
+            ],
+            "order": 1,
+            "sensitive": false
+          },
+          {
+            "id": "exp-stat-modeling:legacy-evidence-ids",
+            "label": "原始证据引用",
+            "valueType": "string_list",
+            "value": [
+              "evidence-stat-report"
+            ],
+            "order": 2,
+            "sensitive": false
+          }
+        ],
+        "sectionType": "awards",
+        "name": "数据分析成员",
+        "issuer": "统计建模竞赛项目",
+        "description": "使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。"
+      }
+    },
+    {
+      "id": "exp-ai-product",
+      "category": "project",
+      "title": "AI 求职应用课程项目",
+      "subtitle": "产品与验收协作",
+      "body": "项目名称：AI 求职应用课程项目\n角色：产品与验收协作\n开始日期：2025-09\n结束日期：2025-12\n说明：参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n原始资料草稿：参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。\n原始标签：需求梳理；原型设计；功能验收",
+      "date": "2025-09 — 2025-12",
+      "fields": [
+        {
+          "key": "title",
+          "label": "项目名称",
+          "values": [
+            "AI 求职应用课程项目"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "role",
+          "label": "角色",
+          "values": [
+            "产品与验收协作"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "startDate",
+          "label": "开始日期",
+          "values": [
+            "2025-09"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "endDate",
+          "label": "结束日期",
+          "values": [
+            "2025-12"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "current",
+          "label": "进行中",
+          "values": [
+            "否"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "description",
+          "label": "说明",
+          "values": [
+            "参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。"
+          ],
+          "multiline": true
+        },
+        {
+          "key": "highlights",
+          "label": "亮点",
+          "values": [
+            "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+          ],
+          "multiline": true
+        },
+        {
+          "key": "exp-ai-product:legacy-resume-drafts",
+          "label": "原始资料草稿",
+          "values": [
+            "参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。"
+          ],
+          "multiline": true
+        },
+        {
+          "key": "exp-ai-product:legacy-tags",
+          "label": "原始标签",
+          "values": [
+            "需求梳理",
+            "原型设计",
+            "功能验收"
+          ],
+          "multiline": true
+        }
+      ],
+      "sources": [
+        "合成示例来源 · demo · AI应用项目：参与需求梳理、原型设计和功能验收。"
+      ],
+      "used": true,
+      "archived": false,
+      "updatedAt": "2026-07-01",
+      "data": {
+        "id": "exp-ai-product",
+        "customFields": [
+          {
+            "id": "exp-ai-product:legacy-resume-drafts",
+            "label": "原始资料草稿",
+            "valueType": "text",
+            "value": "参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。",
+            "order": 0,
+            "sensitive": false
+          },
+          {
+            "id": "exp-ai-product:legacy-tags",
+            "label": "原始标签",
+            "valueType": "string_list",
+            "value": [
+              "需求梳理",
+              "原型设计",
+              "功能验收"
+            ],
+            "order": 1,
+            "sensitive": false
+          }
+        ],
+        "sectionType": "project",
+        "title": "AI 求职应用课程项目",
+        "role": "产品与验收协作",
+        "startDate": "2025-09",
+        "endDate": "2025-12",
+        "current": false,
+        "tools": [],
+        "description": "参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。",
+        "highlights": [
+          "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+        ],
+        "outcomes": []
+      }
+    },
+    {
+      "id": "exp-gov-internship",
+      "category": "internship",
+      "title": "某政府部门",
+      "subtitle": "综合事务实习生",
+      "body": "组织：某政府部门\n职位/角色：综合事务实习生\n开始日期：2025-07\n结束日期：2025-08\n说明：协助处理公文流转与热线记录，保持信息记录准确、分类清晰。\n亮点：处理公文流转和热线记录，关注记录准确性与信息整理。\n原始资料草稿：协助处理公文流转与热线记录，保持信息记录准确、分类清晰。\n原始标签：信息整理；沟通记录",
+      "date": "2025-07 — 2025-08",
+      "fields": [
+        {
+          "key": "organization",
+          "label": "组织",
+          "values": [
+            "某政府部门"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "role",
+          "label": "职位/角色",
+          "values": [
+            "综合事务实习生"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "startDate",
+          "label": "开始日期",
+          "values": [
+            "2025-07"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "endDate",
+          "label": "结束日期",
+          "values": [
+            "2025-08"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "current",
+          "label": "至今",
+          "values": [
+            "否"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "description",
+          "label": "说明",
+          "values": [
+            "协助处理公文流转与热线记录，保持信息记录准确、分类清晰。"
+          ],
+          "multiline": true
+        },
+        {
+          "key": "highlights",
+          "label": "亮点",
+          "values": [
+            "处理公文流转和热线记录，关注记录准确性与信息整理。"
+          ],
+          "multiline": true
+        },
+        {
+          "key": "exp-gov-internship:legacy-resume-drafts",
+          "label": "原始资料草稿",
+          "values": [
+            "协助处理公文流转与热线记录，保持信息记录准确、分类清晰。"
+          ],
+          "multiline": true
+        },
+        {
+          "key": "exp-gov-internship:legacy-tags",
+          "label": "原始标签",
+          "values": [
+            "信息整理",
+            "沟通记录"
+          ],
+          "multiline": true
+        }
+      ],
+      "sources": [
+        "合成示例来源 · demo · 政府部门实习：处理公文流转和市长热线记录。"
+      ],
+      "used": true,
+      "archived": false,
+      "updatedAt": "2026-07-01",
+      "data": {
+        "id": "exp-gov-internship",
+        "customFields": [
+          {
+            "id": "exp-gov-internship:legacy-resume-drafts",
+            "label": "原始资料草稿",
+            "valueType": "text",
+            "value": "协助处理公文流转与热线记录，保持信息记录准确、分类清晰。",
+            "order": 0,
+            "sensitive": false
+          },
+          {
+            "id": "exp-gov-internship:legacy-tags",
+            "label": "原始标签",
+            "valueType": "string_list",
+            "value": [
+              "信息整理",
+              "沟通记录"
+            ],
+            "order": 1,
+            "sensitive": false
+          }
+        ],
+        "sectionType": "internship",
+        "organization": "某政府部门",
+        "role": "综合事务实习生",
+        "startDate": "2025-07",
+        "endDate": "2025-08",
+        "current": false,
+        "description": "协助处理公文流转与热线记录，保持信息记录准确、分类清晰。",
+        "highlights": [
+          "处理公文流转和热线记录，关注记录准确性与信息整理。"
+        ]
+      }
+    },
+    {
+      "id": "exp-trade-learning",
+      "category": "other",
+      "title": "外贸课程与语言学习",
+      "subtitle": "",
+      "body": "标题：外贸课程与语言学习\n内容：CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。\n要点：CET-4 成绩 601，了解基础外贸业务流程。\n原始资料草稿：CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。\n原始标签：英语；外贸流程；信息整理",
+      "date": "",
+      "fields": [
+        {
+          "key": "title",
+          "label": "标题",
+          "values": [
+            "外贸课程与语言学习"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "description",
+          "label": "内容",
+          "values": [
+            "CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。"
+          ],
+          "multiline": true
+        },
+        {
+          "key": "highlights",
+          "label": "要点",
+          "values": [
+            "CET-4 成绩 601，了解基础外贸业务流程。"
+          ],
+          "multiline": true
+        },
+        {
+          "key": "exp-trade-learning:legacy-resume-drafts",
+          "label": "原始资料草稿",
+          "values": [
+            "CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。"
+          ],
+          "multiline": true
+        },
+        {
+          "key": "exp-trade-learning:legacy-tags",
+          "label": "原始标签",
+          "values": [
+            "英语",
+            "外贸流程",
+            "信息整理"
+          ],
+          "multiline": true
+        }
+      ],
+      "sources": [
+        "合成示例来源 · demo · 英语与外贸学习：CET-4 601，了解外贸业务流程。"
+      ],
+      "used": true,
+      "archived": false,
+      "updatedAt": "2026-07-01",
+      "data": {
+        "id": "exp-trade-learning",
+        "customFields": [
+          {
+            "id": "exp-trade-learning:legacy-resume-drafts",
+            "label": "原始资料草稿",
+            "valueType": "text",
+            "value": "CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。",
+            "order": 0,
+            "sensitive": false
+          },
+          {
+            "id": "exp-trade-learning:legacy-tags",
+            "label": "原始标签",
+            "valueType": "string_list",
+            "value": [
+              "英语",
+              "外贸流程",
+              "信息整理"
+            ],
+            "order": 1,
+            "sensitive": false
+          }
+        ],
+        "sectionType": "other",
+        "title": "外贸课程与语言学习",
+        "description": "CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。",
+        "highlights": [
+          "CET-4 成绩 601，了解基础外贸业务流程。"
+        ]
+      }
+    },
+    {
+      "id": "skill-stata",
+      "category": "skill",
+      "title": "Stata",
+      "subtitle": "familiar",
+      "body": "技能名称：Stata\n熟练度：familiar\n说明：使用 Stata 完成数据清洗和统计分析。",
+      "date": "",
+      "fields": [
+        {
+          "key": "name",
+          "label": "技能名称",
+          "values": [
+            "Stata"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "level",
+          "label": "熟练度",
+          "values": [
+            "familiar"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "description",
+          "label": "说明",
+          "values": [
+            "使用 Stata 完成数据清洗和统计分析。"
+          ],
+          "multiline": true
+        }
+      ],
+      "sources": [
+        "合成示例来源 · demo · 使用Stata清洗31个省级样本"
+      ],
+      "used": false,
+      "archived": false,
+      "updatedAt": "2026-07-01",
+      "data": {
+        "id": "skill-stata",
+        "customFields": [],
+        "sectionType": "skills",
+        "name": "Stata",
+        "level": "familiar",
+        "description": "使用 Stata 完成数据清洗和统计分析。"
+      }
+    },
+    {
+      "id": "skill-excel",
+      "category": "skill",
+      "title": "Excel",
+      "subtitle": "familiar",
+      "body": "技能名称：Excel\n熟练度：familiar\n说明：能使用 Excel 整理表格数据和基础分析结果。",
+      "date": "",
+      "fields": [
+        {
+          "key": "name",
+          "label": "技能名称",
+          "values": [
+            "Excel"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "level",
+          "label": "熟练度",
+          "values": [
+            "familiar"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "description",
+          "label": "说明",
+          "values": [
+            "能使用 Excel 整理表格数据和基础分析结果。"
+          ],
+          "multiline": true
+        }
+      ],
+      "sources": [
+        "合成示例来源 · demo · 数据清洗、样本整理和分析交付物"
+      ],
+      "used": false,
+      "archived": false,
+      "updatedAt": "2026-07-01",
+      "data": {
+        "id": "skill-excel",
+        "customFields": [],
+        "sectionType": "skills",
+        "name": "Excel",
+        "level": "familiar",
+        "description": "能使用 Excel 整理表格数据和基础分析结果。"
+      }
+    },
+    {
+      "id": "cert-cet4",
+      "category": "certificate",
+      "title": "CET-4",
+      "subtitle": "全国大学英语四、六级考试委员会",
+      "body": "证书名称：CET-4\n颁发方：全国大学英语四、六级考试委员会\n颁发日期：2024-12",
+      "date": "2024-12",
+      "fields": [
+        {
+          "key": "name",
+          "label": "证书名称",
+          "values": [
+            "CET-4"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "issuer",
+          "label": "颁发方",
+          "values": [
+            "全国大学英语四、六级考试委员会"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "issuedAt",
+          "label": "颁发日期",
+          "values": [
+            "2024-12"
+          ],
+          "multiline": false
+        }
+      ],
+      "sources": [
+        "合成示例来源 · demo · CET-4 601"
+      ],
+      "used": false,
+      "archived": false,
+      "updatedAt": "2026-07-01",
+      "data": {
+        "id": "cert-cet4",
+        "customFields": [],
+        "sectionType": "certificates",
+        "name": "CET-4",
+        "issuer": "全国大学英语四、六级考试委员会",
+        "issuedAt": "2024-12"
+      }
+    },
+    {
+      "id": "summary",
+      "category": "summary",
+      "title": "自我评价",
+      "subtitle": "用于简历概述，可在具体简历中独立修改",
+      "body": "经济管理方向本科生，关注数据分析、AI应用和跨境业务流程。",
+      "date": "",
+      "fields": [
+        {
+          "key": "text",
+          "label": "自我评价",
+          "values": [
+            "经济管理方向本科生，关注数据分析、AI应用和跨境业务流程。"
+          ],
+          "multiline": true
+        }
+      ],
+      "sources": [
+        "项目内置示例中的自我评价 · 合成资料"
+      ],
+      "used": false,
+      "archived": false,
+      "updatedAt": "2026-07-01",
+      "data": {
+        "text": "经济管理方向本科生，关注数据分析、AI应用和跨境业务流程。"
+      }
+    },
+    {
+      "id": "synthetic-education",
+      "category": "education",
+      "title": "虚构星舟学院",
+      "subtitle": "本科",
+      "body": "全合成教育条目，用于核验教育专用字段。",
+      "date": "2022-09 — 2026-06",
+      "fields": [
+        {
+          "key": "school",
+          "label": "学校",
+          "values": [
+            "虚构星舟学院"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "major",
+          "label": "专业",
+          "values": [
+            "经济管理（合成）"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "degree",
+          "label": "学位/学历",
+          "values": [
+            "本科"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "location",
+          "label": "所在地",
+          "values": [
+            "虚构星舟城"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "startDate",
+          "label": "开始日期",
+          "values": [
+            "2022-09"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "endDate",
+          "label": "结束日期",
+          "values": [
+            "2026-06"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "current",
+          "label": "在读",
+          "values": [
+            "否"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "courses",
+          "label": "主修课程",
+          "values": [
+            "统计学",
+            "数据分析"
+          ],
+          "multiline": true
+        },
+        {
+          "key": "description",
+          "label": "说明",
+          "values": [
+            "全合成教育条目，用于核验教育专用字段。"
+          ],
+          "multiline": true
+        },
+        {
+          "key": "highlights",
+          "label": "亮点",
+          "values": [
+            "完成合成课程研究。"
+          ],
+          "multiline": true
+        }
+      ],
+      "sources": [
+        "全合成资料 · 无外部来源文件或真实事实。"
+      ],
+      "used": false,
+      "archived": false,
+      "updatedAt": "2026-07-01",
+      "data": {
+        "id": "synthetic-education",
+        "customFields": [],
+        "sectionType": "education",
+        "school": "虚构星舟学院",
+        "major": "经济管理（合成）",
+        "degree": "本科",
+        "location": "虚构星舟城",
+        "startDate": "2022-09",
+        "endDate": "2026-06",
+        "current": false,
+        "courses": [
+          "统计学",
+          "数据分析"
+        ],
+        "honors": [],
+        "description": "全合成教育条目，用于核验教育专用字段。",
+        "highlights": [
+          "完成合成课程研究。"
+        ]
+      }
+    },
+    {
+      "id": "synthetic-work",
+      "category": "work",
+      "title": "虚构云帆研究室",
+      "subtitle": "资料研究助理（合成）",
+      "body": "全合成工作场景，不代表真实任职。",
+      "date": "2026-07 — 至今",
+      "fields": [
+        {
+          "key": "organization",
+          "label": "组织",
+          "values": [
+            "虚构云帆研究室"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "role",
+          "label": "职位/角色",
+          "values": [
+            "资料研究助理（合成）"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "department",
+          "label": "部门",
+          "values": [
+            "研究组"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "startDate",
+          "label": "开始日期",
+          "values": [
+            "2026-07"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "current",
+          "label": "至今",
+          "values": [
+            "是"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "description",
+          "label": "说明",
+          "values": [
+            "全合成工作场景，不代表真实任职。"
+          ],
+          "multiline": true
+        },
+        {
+          "key": "highlights",
+          "label": "亮点",
+          "values": [
+            "整理虚构研究记录并制作资料索引。"
+          ],
+          "multiline": true
+        }
+      ],
+      "sources": [
+        "全合成资料 · 无外部来源文件或真实事实。"
+      ],
+      "used": false,
+      "archived": false,
+      "updatedAt": "2026-07-01",
+      "data": {
+        "id": "synthetic-work",
+        "customFields": [],
+        "sectionType": "work",
+        "organization": "虚构云帆研究室",
+        "role": "资料研究助理（合成）",
+        "department": "研究组",
+        "startDate": "2026-07",
+        "current": true,
+        "description": "全合成工作场景，不代表真实任职。",
+        "highlights": [
+          "整理虚构研究记录并制作资料索引。"
+        ]
+      }
+    },
+    {
+      "id": "synthetic-project",
+      "category": "project",
+      "title": "虚构灯塔信息导航",
+      "subtitle": "设计与验证",
+      "body": "全合成项目，用于验证背景、职责与成果分开呈现。",
+      "date": "2025-03 — 2025-06",
+      "fields": [
+        {
+          "key": "title",
+          "label": "项目名称",
+          "values": [
+            "虚构灯塔信息导航"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "role",
+          "label": "角色",
+          "values": [
+            "设计与验证"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "organization",
+          "label": "组织",
+          "values": [
+            "虚构课程团队"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "startDate",
+          "label": "开始日期",
+          "values": [
+            "2025-03"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "endDate",
+          "label": "结束日期",
+          "values": [
+            "2025-06"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "current",
+          "label": "进行中",
+          "values": [
+            "否"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "tools",
+          "label": "技术工具",
+          "values": [
+            "Figma",
+            "TypeScript"
+          ],
+          "multiline": true
+        },
+        {
+          "key": "background",
+          "label": "项目背景",
+          "values": [
+            "为不存在的校园构建信息导航。"
+          ],
+          "multiline": true
+        },
+        {
+          "key": "description",
+          "label": "说明",
+          "values": [
+            "全合成项目，用于验证背景、职责与成果分开呈现。"
+          ],
+          "multiline": true
+        },
+        {
+          "key": "highlights",
+          "label": "亮点",
+          "values": [
+            "梳理信息层级。",
+            "制作交互流程并核对字段。"
+          ],
+          "multiline": true
+        },
+        {
+          "key": "outcomes",
+          "label": "成果",
+          "values": [
+            "形成一份合成原型及验收清单。"
+          ],
+          "multiline": true
+        }
+      ],
+      "sources": [
+        "全合成资料 · 无外部来源文件或真实事实。"
+      ],
+      "used": false,
+      "archived": false,
+      "updatedAt": "2026-07-01",
+      "data": {
+        "id": "synthetic-project",
+        "customFields": [],
+        "sectionType": "project",
+        "title": "虚构灯塔信息导航",
+        "role": "设计与验证",
+        "organization": "虚构课程团队",
+        "startDate": "2025-03",
+        "endDate": "2025-06",
+        "current": false,
+        "tools": [
+          "Figma",
+          "TypeScript"
+        ],
+        "background": "为不存在的校园构建信息导航。",
+        "description": "全合成项目，用于验证背景、职责与成果分开呈现。",
+        "highlights": [
+          "梳理信息层级。",
+          "制作交互流程并核对字段。"
+        ],
+        "outcomes": [
+          "形成一份合成原型及验收清单。"
+        ]
+      }
+    },
+    {
+      "id": "synthetic-language",
+      "category": "language",
+      "title": "虚构星语",
+      "subtitle": "熟悉",
+      "body": "完全虚构的语言条目。",
+      "date": "",
+      "fields": [
+        {
+          "key": "language",
+          "label": "语言",
+          "values": [
+            "虚构星语"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "level",
+          "label": "水平",
+          "values": [
+            "熟悉"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "testName",
+          "label": "考试名称",
+          "values": [
+            "合成语言测评"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "score",
+          "label": "成绩",
+          "values": [
+            "演示分数"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "description",
+          "label": "说明",
+          "values": [
+            "完全虚构的语言条目。"
+          ],
+          "multiline": true
+        }
+      ],
+      "sources": [
+        "全合成资料 · 无外部来源文件或真实事实。"
+      ],
+      "used": false,
+      "archived": false,
+      "updatedAt": "2026-07-01",
+      "data": {
+        "id": "synthetic-language",
+        "customFields": [],
+        "sectionType": "languages",
+        "language": "虚构星语",
+        "level": "熟悉",
+        "testName": "合成语言测评",
+        "score": "演示分数",
+        "description": "完全虚构的语言条目。"
+      }
+    },
+    {
+      "id": "synthetic-archived-project",
+      "category": "project",
+      "title": "虚构归档项目（合成）",
+      "subtitle": "产品与验收协作",
+      "body": "项目名称：AI 求职应用课程项目\n角色：产品与验收协作\n开始日期：2025-09\n结束日期：2025-12\n说明：参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n原始资料草稿：参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。\n原始标签：需求梳理；原型设计；功能验收",
+      "date": "2025-09 — 2025-12",
+      "fields": [
+        {
+          "key": "title",
+          "label": "项目名称",
+          "values": [
+            "AI 求职应用课程项目"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "role",
+          "label": "角色",
+          "values": [
+            "产品与验收协作"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "startDate",
+          "label": "开始日期",
+          "values": [
+            "2025-09"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "endDate",
+          "label": "结束日期",
+          "values": [
+            "2025-12"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "current",
+          "label": "进行中",
+          "values": [
+            "否"
+          ],
+          "multiline": false
+        },
+        {
+          "key": "description",
+          "label": "说明",
+          "values": [
+            "参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。"
+          ],
+          "multiline": true
+        },
+        {
+          "key": "highlights",
+          "label": "亮点",
+          "values": [
+            "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+          ],
+          "multiline": true
+        },
+        {
+          "key": "exp-ai-product:legacy-resume-drafts",
+          "label": "原始资料草稿",
+          "values": [
+            "参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。"
+          ],
+          "multiline": true
+        },
+        {
+          "key": "exp-ai-product:legacy-tags",
+          "label": "原始标签",
+          "values": [
+            "需求梳理",
+            "原型设计",
+            "功能验收"
+          ],
+          "multiline": true
+        }
+      ],
+      "sources": [
+        "全合成归档状态示例；没有执行真实归档。"
+      ],
+      "used": false,
+      "archived": true,
+      "updatedAt": "2026-07-01",
+      "data": {
+        "id": "exp-ai-product",
+        "customFields": [
+          {
+            "id": "exp-ai-product:legacy-resume-drafts",
+            "label": "原始资料草稿",
+            "valueType": "text",
+            "value": "参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。",
+            "order": 0,
+            "sensitive": false
+          },
+          {
+            "id": "exp-ai-product:legacy-tags",
+            "label": "原始标签",
+            "valueType": "string_list",
+            "value": [
+              "需求梳理",
+              "原型设计",
+              "功能验收"
+            ],
+            "order": 1,
+            "sensitive": false
+          }
+        ],
+        "sectionType": "project",
+        "title": "AI 求职应用课程项目",
+        "role": "产品与验收协作",
+        "startDate": "2025-09",
+        "endDate": "2025-12",
+        "current": false,
+        "tools": [],
+        "description": "参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。",
+        "highlights": [
+          "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+        ],
+        "outcomes": []
+      }
+    }
+  ]
+}

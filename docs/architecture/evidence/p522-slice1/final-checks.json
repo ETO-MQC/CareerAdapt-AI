@@ -1,0 +1,48 @@
+{
+  "date": "2026-11-04",
+  "baseline": {
+    "typecheck": 0,
+    "unitFiles": 3,
+    "unitTests": 19,
+    "unitExit": 0
+  },
+  "final": [
+    {
+      "command": "node scripts/p522-host-experience-build.mjs",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm exec eslint changed TS/TSX/MJS (9 files)",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm exec vitest run p522-host-experience p522-slice1-profile-projection p520a p520b2b2 profileCategories",
+      "files": 5,
+      "tests": 35,
+      "exitCode": 0
+    },
+    {
+      "command": "node scripts/p522-slice1-host-smoke.mjs (final full run 1793726858566)",
+      "exitCode": 0
+    },
+    {
+      "command": "P522_SYSTEM_ONLY=1 node scripts/p522-slice1-host-smoke.mjs (stable control colors)",
+      "exitCode": 0
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "bundleSha256": "906e5a3fb9bb4b10a85066d6df0592f3f6c2c48250a5afd7f041c68b2d6dff17",
+  "notRun": [
+    "Next production build: isolated PoC only",
+    "full historical Playwright / shards / C1 C2 / PDF / installers"
+  ],
+  "productionSrcModified": false,
+  "commitPush": false
+}

@@ -1,16 +1,21 @@
-# P5.2.2 CareerAdapt Host Experience
+# P5.2.2 CareerAdapt Profile in Hermes Host
 
-隔离、完全合成、只读 Profile 切片。默认插件只有公开 route/sidebar 两项贡献。原 P5.2.1 原型和 B2-B2 文件不变，不连接正式 Repository、用户数据库、Provider、预览或 PDF。
+Slice 1 restores the original Profile information structure using only synthetic read-only data. The existing plugin ID and route are unchanged. Hermes owns the only global sidebar and all theme state.
 
 ```powershell
 node scripts/p522-host-experience-build.mjs
-node scripts/p522-host-experience-smoke.mjs
+node scripts/p522-gate00-qualification.mjs
+node scripts/p522-slice1-host-smoke.mjs
 ```
 
-前提：已有锁定 Hermes checkout（eb527605），Desktop main/preload 已构建，原 Host Vite 在 `127.0.0.1:5174`。默认从 `%LOCALAPPDATA%/hermes/hermes-agent` 查找；可用 `HERMES_SOURCE_DIR` 指向相同版本的现有 checkout。不安装或升级任何依赖。smoke 创建时间戳隔离 home/userData/插件目录，不安装到用户真实环境；实际加载单 ESM，Host 版本为 Desktop 0.17.0、Runtime 0.19.0、Electron 40.10.2。
+Use the existing locked Hermes checkout at `%LOCALAPPDATA%/hermes/hermes-agent`, commit eb527605 / Runtime0.19.0 / Desktop0.17.0. Main/preload must already be built. Serve its actual renderer at 127.0.0.1:5174 using its existing root Vite installation; no install or Core modification is required. These tests launch real Electron with fresh isolated home/userData/plugin directories and an unreachable offline provider.
 
-Host 侧栏 CareerAdapt → 个人资料库。分类搜索、七板块、五种合成响应、刷新和规范弹窗可交互。Jobs、Applications、Resume Studio 明确未接业务。明暗/System 继续通过 Host 自身设置切换。
+The build projects `src/data/demoProfile.ts` and explicit synthetic additions into `profile-fixture.json`. Only this display DTO, response schema, pure view, original Product components and scoped styles enter the renderer. The source fixture builder, canonical migrations, Repository, AI, OCR and PDF controllers do not enter the plugin bundle. Original Product CSS is scoped at build time, not imported globally. Host applied Light/Dark/System selects the original brand palette; there is no theme setter or provider in the plugin.
 
-`pane-probe.tsx` 是另一个可选测试插件，**默认不安装**。`p522-pane-probe-build.mjs` 单独构建；旧 smoke 两次超时，当前保留为失败诊断复现材料，不应直接反复重跑。没有可见并排/拖动/折叠恢复的通过证据。不要把它当作正式 Artifact 实现。
+The page has person/version context, all 19 canonical categories, search/usage/archive filters, item selection, typed details and source evidence. Writes, import/export and person/version management are explicitly disabled. There is no additional Career sidebar, Chat, Pane or other business page entry.
 
-验证：`pnpm typecheck`，`pnpm exec vitest run tests/unit/p522-host-experience.test.tsx tests/unit/p520b2b2-profile-packaging.test.tsx tests/unit/p520a-profile-plugin.test.tsx`。报告及全部截图索引见 `docs/architecture/p5.2.2-hermes-host-integration-vertical-slice-20261103.md`。整体 PARTIAL；本目录不是生产迁移批准。
+Current test: `pnpm exec vitest run tests/unit/p522-host-experience.test.tsx tests/unit/p522-slice1-profile-projection.test.ts tests/unit/p520a-profile-plugin.test.tsx tests/unit/p520b2b2-profile-packaging.test.tsx tests/unit/profileCategories.test.ts`.
+
+Evidence and original/Host screenshot comparison: `docs/architecture/evidence/p522-slice1/comparison.html`. Reports: `p5.2.2-gate00-host-qualification.md` and `p5.2.2-slice1-profile-faithful-restoration.md` in `docs/architecture/`. User visual acceptance is pending; this is not a production data migration.
+
+The previous `p522-host-experience-smoke.mjs` targets the historical seven-section design and remains historical evidence, not the current Slice 1 acceptance script. The optional `pane-probe.tsx` remains unchanged and is not loaded by default; its old timeouts must not be rerun blindly.

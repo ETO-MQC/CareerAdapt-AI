@@ -1,0 +1,144 @@
+{
+  "status": "PASS",
+  "authority": "Host applied data-hermes-mode; native Appearance/System controls. No second theme state/provider/setter.",
+  "adapter": "Build-localized original product-tokens light/dark palette -> scoped --product-* and --ca-* aliases; Host blue never used as Career brand. Product CSS selectors prefixed via PostCSS.",
+  "scope": ".ca-experience",
+  "light": {
+    "brand": "#176b5b",
+    "canvas": "#f3f6f4",
+    "surface": "#fbfcfb",
+    "text": "#18201b"
+  },
+  "dark": {
+    "brand": "#72d58b",
+    "canvas": "#0d1214",
+    "surface": "#141a1d",
+    "text": "#eef4f0"
+  },
+  "emphasis": "#873b50 / #efa8bb on synthetic read-only marker",
+  "matrix": [
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "mode": "light",
+      "geometry": {
+        "right": 1920.0001373291016,
+        "width": 1683.0001220703125,
+        "viewport": 1920,
+        "overflow": false,
+        "background": "rgb(243, 246, 244)",
+        "text": "rgb(24, 32, 27)",
+        "action": "#176b5b",
+        "minFont": 11
+      },
+      "projectDetails": "PASS"
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "mode": "dark",
+      "geometry": {
+        "right": 1920.0001373291016,
+        "width": 1683.0001220703125,
+        "viewport": 1920,
+        "overflow": false,
+        "background": "rgb(13, 18, 20)",
+        "text": "rgb(238, 244, 240)",
+        "action": "#72d58b",
+        "minFont": 11
+      },
+      "projectDetails": "PASS"
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "mode": "light",
+      "geometry": {
+        "right": 1440.000015258789,
+        "width": 1203,
+        "viewport": 1440,
+        "overflow": false,
+        "background": "rgb(243, 246, 244)",
+        "text": "rgb(24, 32, 27)",
+        "action": "#176b5b",
+        "minFont": 11
+      },
+      "projectDetails": "PASS"
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "mode": "dark",
+      "geometry": {
+        "right": 1440.000015258789,
+        "width": 1203,
+        "viewport": 1440,
+        "overflow": false,
+        "background": "rgb(13, 18, 20)",
+        "text": "rgb(238, 244, 240)",
+        "action": "#72d58b",
+        "minFont": 11
+      },
+      "projectDetails": "PASS"
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "light",
+      "geometry": {
+        "right": 1024.0000762939453,
+        "width": 787.0000610351562,
+        "viewport": 1024,
+        "overflow": false,
+        "background": "rgb(243, 246, 244)",
+        "text": "rgb(24, 32, 27)",
+        "action": "#176b5b",
+        "minFont": 11
+      },
+      "projectDetails": "PASS"
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "dark",
+      "geometry": {
+        "right": 1024.0000762939453,
+        "width": 787.0000610351562,
+        "viewport": 1024,
+        "overflow": false,
+        "background": "rgb(13, 18, 20)",
+        "text": "rgb(238, 244, 240)",
+        "action": "#72d58b",
+        "minFont": 11
+      },
+      "projectDetails": "PASS"
+    }
+  ],
+  "system": [
+    {
+      "controlBackground": "rgb(26, 33, 36)",
+      "mode": "dark",
+      "background": "rgb(13, 18, 20)",
+      "text": "rgb(238, 244, 240)"
+    },
+    {
+      "controlBackground": "rgb(255, 255, 255)",
+      "mode": "light",
+      "background": "rgb(243, 246, 244)",
+      "text": "rgb(24, 32, 27)"
+    }
+  ],
+  "limitation": "Only applied Light/Dark/System qualified; arbitrary third-party theme palettes not certified. Resume tokens/templates untouched."
+}

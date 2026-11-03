@@ -1,0 +1,25 @@
+{
+  "status": "PASS",
+  "run": 1793726635513,
+  "root": "E:\\DEF\\CareerAdapt AI\\.artifacts\\p522-slice1-1793726635513",
+  "shots": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726635513",
+  "errors": [],
+  "consoleErrors": [],
+  "matrix": [],
+  "interactions": [],
+  "lifecycle": [],
+  "system": [
+    {
+      "controlBackground": "rgb(26, 33, 36)",
+      "mode": "dark",
+      "background": "rgb(13, 18, 20)",
+      "text": "rgb(238, 244, 240)"
+    },
+    {
+      "controlBackground": "rgb(255, 255, 255)",
+      "mode": "light",
+      "background": "rgb(243, 246, 244)",
+      "text": "rgb(24, 32, 27)"
+    }
+  ]
+}

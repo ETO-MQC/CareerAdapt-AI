@@ -1,0 +1,123 @@
+{
+  "status": "FAIL",
+  "run": 1793726408087,
+  "root": "E:\\DEF\\CareerAdapt AI\\.artifacts\\p522-slice1-1793726408087",
+  "shots": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726408087",
+  "errors": [],
+  "consoleErrors": [],
+  "matrix": [
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "mode": "light",
+      "geometry": {
+        "right": 1920.0001373291016,
+        "width": 1683.0001220703125,
+        "viewport": 1920,
+        "overflow": false,
+        "background": "rgb(243, 246, 244)",
+        "text": "rgb(24, 32, 27)",
+        "action": "#176b5b",
+        "minFont": 11
+      },
+      "projectDetails": "PASS"
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "mode": "dark",
+      "geometry": {
+        "right": 1920.0001373291016,
+        "width": 1683.0001220703125,
+        "viewport": 1920,
+        "overflow": false,
+        "background": "rgb(13, 18, 20)",
+        "text": "rgb(238, 244, 240)",
+        "action": "#72d58b",
+        "minFont": 11
+      },
+      "projectDetails": "PASS"
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "mode": "light",
+      "geometry": {
+        "right": 1440.000015258789,
+        "width": 1203,
+        "viewport": 1440,
+        "overflow": false,
+        "background": "rgb(243, 246, 244)",
+        "text": "rgb(24, 32, 27)",
+        "action": "#176b5b",
+        "minFont": 11
+      },
+      "projectDetails": "PASS"
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "mode": "dark",
+      "geometry": {
+        "right": 1440.000015258789,
+        "width": 1203,
+        "viewport": 1440,
+        "overflow": false,
+        "background": "rgb(13, 18, 20)",
+        "text": "rgb(238, 244, 240)",
+        "action": "#72d58b",
+        "minFont": 11
+      },
+      "projectDetails": "PASS"
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "light",
+      "geometry": {
+        "right": 1024.0000762939453,
+        "width": 787.0000610351562,
+        "viewport": 1024,
+        "overflow": false,
+        "background": "rgb(243, 246, 244)",
+        "text": "rgb(24, 32, 27)",
+        "action": "#176b5b",
+        "minFont": 11
+      },
+      "projectDetails": "PASS"
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "dark",
+      "geometry": {
+        "right": 1024.0000762939453,
+        "width": 787.0000610351562,
+        "viewport": 1024,
+        "overflow": false,
+        "background": "rgb(13, 18, 20)",
+        "text": "rgb(238, 244, 240)",
+        "action": "#72d58b",
+        "minFont": 11
+      },
+      "projectDetails": "PASS"
+    }
+  ],
+  "interactions": [
+    "19 categories rendered; education/work/internship/award/skill/certificate/language/empty inspected"
+  ],
+  "lifecycle": [],
+  "failure": "locator.selectOption: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByLabel('使用状态', { exact: true })\u001b[22m\n\n    at E:\\DEF\\CareerAdapt AI\\scripts\\p522-slice1-host-smoke.mjs:41:97"
+}

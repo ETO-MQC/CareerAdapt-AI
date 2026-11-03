@@ -1,0 +1,600 @@
+{
+  "date": "2026-11-04",
+  "gate00": "COMPLETE",
+  "slice1": "COMPLETE",
+  "userVisualAcceptance": "PENDING",
+  "head": "89d75418b3a7891ea96199d3191b542398e81c16",
+  "notCommitted": true,
+  "files": [
+    {
+      "path": "docs/architecture/evidence/p522-slice1/baseline.json",
+      "bytes": 67028,
+      "sha256": "69c643ff558d06047484b071c46a47c0c4d47edbd4e28ab54f164cd3a9532ff0"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/comparison.html",
+      "bytes": 1050,
+      "sha256": "167f17819d0e6de3faeafd4044755fe99b74d70f2e355bcda99b4ff341b521cb"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/eslint-final.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/final-checks.json",
+      "bytes": 1213,
+      "sha256": "f318605dd1b9009c5bda0dee0ab739d72ef7e5e077c798cc488db6a7ea62b8b4"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/gate00-before-interaction.png",
+      "bytes": 39087,
+      "sha256": "c0dd3f80a303e71b05d39ea035c92cad692eedb899c21dbf90ce71499179028b"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/gate00-final.png",
+      "bytes": 197823,
+      "sha256": "5be7e384549c0141f88897e64bc359579de276c7a213d7be8c97be2488b78c73"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/host-runtime-qualification.json",
+      "bytes": 3536,
+      "sha256": "ba28e377cf5691187d41445f048a34c711500af1f51abab03eed8dc75722ddc7"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/host-smoke-1793726408087.json",
+      "bytes": 3149,
+      "sha256": "1cc0587a42ecc1c3712df648922302a3efea6772af0eff5167deffd24fa8470a"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/host-smoke-1793726514160.json",
+      "bytes": 3618,
+      "sha256": "a46793a98d135c5002b850a9af391ceaa00599d3aa8713b0b67980c65573e707"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/host-smoke-1793726635513.json",
+      "bytes": 634,
+      "sha256": "608929537a089edd385e85e85ece0e5759fdf75a0f60ff60cbf0aaa86d0457a4"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/host-smoke-1793726858566.json",
+      "bytes": 3713,
+      "sha256": "d2fb1dcb7fd2d9598079c915f9426406566d50a94573794020df9f47fe4bc1d8"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/initial-failures.json",
+      "bytes": 1946,
+      "sha256": "0e3d3d5575d89afe50343a18b474bb7224d9f02fabdafe46ce819cd539a3071b"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/interaction-verification.json",
+      "bytes": 3713,
+      "sha256": "d2fb1dcb7fd2d9598079c915f9426406566d50a94573794020df9f47fe4bc1d8"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/legacy-profile-audit.json",
+      "bytes": 7699,
+      "sha256": "e9bc655592d266aa90719c04ea61e653d1afe4200f9396b54dfe94beea39caca"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/plugin-build.json",
+      "bytes": 7577,
+      "sha256": "c008f8eebfd60c60c4c584ba6e716bac9a94fbd08e618a66df16489421325ba0"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/profile-fixture.json",
+      "bytes": 7257,
+      "sha256": "062b9a70bf523612cb3f32e8d54a392edc7fed42c565b2a97ee790a8c9a4903d"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/profile-visual-verification.json",
+      "bytes": 4585,
+      "sha256": "e7642bc2572e25706207acd1aa3f9e295631f59790ce7102f9fc890f0a178a62"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726408087/category-专业技能.png",
+      "bytes": 129314,
+      "sha256": "d8e8a674d8aa69c704a5a798492812283306ed5785a1558e5592a2f562df731c"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726408087/category-奖项荣誉.png",
+      "bytes": 140654,
+      "sha256": "2017396ae44d6be2ba46de23812fe54c710adafb77da76ae115afb4d9dfc7e51"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726408087/category-实习经历.png",
+      "bytes": 129440,
+      "sha256": "7930f1ee83d068c08230f94e61d8b61d04fca17684d531650207a528ef2d88b6"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726408087/category-工作经历.png",
+      "bytes": 122670,
+      "sha256": "d1f5b9ff7de08520cdc129b0f53b85bae9e7c9bd793783b12c38977ccb97e4ae"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726408087/category-教育经历.png",
+      "bytes": 123932,
+      "sha256": "8f2a764f1c4c8c5f530bbcfbf2d3fcd5e6df79bb7ef80732fb1070ee6d156fa0"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726408087/category-科研经历.png",
+      "bytes": 105409,
+      "sha256": "36b96b6ef3f48a23548a8cfb0b6144b9727ff82a9ed3a7f9efbe8d8ec5363ca4"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726408087/category-自我评价.png",
+      "bytes": 105315,
+      "sha256": "76842650e44c6dc6822a8580dc775a8771562a539e445a9d197a1ff616883031"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726408087/category-证书.png",
+      "bytes": 125380,
+      "sha256": "b975f3cc090b72d1627982a91948c15223d87ff235d6e4259d9c818603b7b958"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726408087/category-语言能力.png",
+      "bytes": 117544,
+      "sha256": "bb010983d63a0fbf0494d204283dfe5e63954c414bdd6a104a8b49a98e1663d0"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726408087/failure.png",
+      "bytes": 123518,
+      "sha256": "0d834555adc34c6e29ec8840a6054471673ab81ed4bfbe8ded94e9e607786795"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726408087/profile-dark-1024.png",
+      "bytes": 94037,
+      "sha256": "c57c285d7f3e70569ab4f1b8e5985e7ff76578080a381cb0f3b8f10a4e57a782"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726408087/profile-dark-1440.png",
+      "bytes": 123517,
+      "sha256": "e95190683d81a53c587b5c0346c445aae67710cd7048efc84164ed30d07c15b5"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726408087/profile-dark-1920.png",
+      "bytes": 136520,
+      "sha256": "85e7cc8973bd453bc8376dfdc4f5c3eb6945482928f4e9ae5313ed93df61679c"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726408087/profile-light-1024.png",
+      "bytes": 95137,
+      "sha256": "6b595b7ab2af1dc2554bf2d6c5596a25ceff526f986eb3f12a80e4c75c8b5389"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726408087/profile-light-1440.png",
+      "bytes": 125242,
+      "sha256": "12dff197c3fe3231d70ee8e041c04ba23fda85e4ada382f78a9bd19a79d1eeeb"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726408087/profile-light-1920.png",
+      "bytes": 138539,
+      "sha256": "babc8ab74e1e0782afcab9de51a47b40693bad074a1b28929231e8feb07e3428"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726408087/project-dark-1024.png",
+      "bytes": 97106,
+      "sha256": "b6509bcdccec43d12b5e939e706e506f9a06617690098b2dcf5e32b06335c972"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726408087/project-dark-1440.png",
+      "bytes": 135269,
+      "sha256": "571f1a2c952f3d2aa9b997761c6d2fedb80681191f28b26b64766a8e83e58de7"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726408087/project-dark-1920.png",
+      "bytes": 164859,
+      "sha256": "78ac60dd88e326c6cf0346b25885d7c1121389e063dda82ebbed43a3934f42f9"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726408087/project-light-1024.png",
+      "bytes": 98283,
+      "sha256": "0992a220c90e03159d7d1f09e881bda4138e866568fa37788b5560d537648e18"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726408087/project-light-1440.png",
+      "bytes": 136970,
+      "sha256": "a06c745f5e37bfa9235444c3dd1ed709afbd56d98719fde730952046ca0dc661"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726408087/project-light-1920.png",
+      "bytes": 167525,
+      "sha256": "b93f6f7cbaf4a4dd412cbfca71a7c6787e93a8c2f15ea5d4d9c9a6143b0315dc"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/archived.png",
+      "bytes": 129096,
+      "sha256": "4423bfcdb3d5ef1fb95e6f92e4ec3d9fc49f267e677efc009292d45563b9626f"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/category-专业技能.png",
+      "bytes": 129344,
+      "sha256": "7bdf1afd8f272790146ad0badde42413e105840b82203d1123ec5dda9b5a1b71"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/category-奖项荣誉.png",
+      "bytes": 140631,
+      "sha256": "600ae55a3f31c397919a6b979497e0a62747ea0cd46a2d401528e089c4c31436"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/category-实习经历.png",
+      "bytes": 129423,
+      "sha256": "bec72b99669f77ec7bf7fecc6fe35cbfa1af21e3e0efeaea5ec8d5b22a356532"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/category-工作经历.png",
+      "bytes": 122652,
+      "sha256": "5e90e06a6e960ae3abb1fdb6c115a03ef0f605c154e4c42cb9cee25a10d40317"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/category-教育经历.png",
+      "bytes": 123916,
+      "sha256": "db9eb5febe3d8b783684af756eaa800eeba6d7d1fd2fbc839adf7cc275d2448f"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/category-科研经历.png",
+      "bytes": 105336,
+      "sha256": "edf5d2caf40cdcb4a635b8521bf5c360634a1dff362e9791ef19b434c2df70ca"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/category-自我评价.png",
+      "bytes": 128844,
+      "sha256": "c666f9eacabdd11122689be996bae14c024894de258ab1f0901950d11d8181d3"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/category-证书.png",
+      "bytes": 125369,
+      "sha256": "4481a270db9df7e4c2d39a9ff7ffc3116b74495b89452752bfc9c542dab88cc8"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/category-语言能力.png",
+      "bytes": 117534,
+      "sha256": "9777fd4ef3ff0ec21a5b445b8fb0067ae5bfcf2d37c7ed4a3ab6ba77b8fac1aa"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/profile-dark-1024.png",
+      "bytes": 93941,
+      "sha256": "f19e9d7ad892ad235616ab36289ef94494872670403a515a9228b1f9c4578691"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/profile-dark-1440.png",
+      "bytes": 123512,
+      "sha256": "0f88a32e7d9ba0547c029c80200d971c9f297f73b8540b9d2b42f5b8f476b6ab"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/profile-dark-1920.png",
+      "bytes": 136518,
+      "sha256": "be8e8ad4bc69da0968b68d95ffbb396b3acce67efafdc4716efd26ed3d963774"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/profile-light-1024.png",
+      "bytes": 95036,
+      "sha256": "a2da80441108fafa1d03edd39a80f0892d8c4aefd180ca0c8565ef24e184ccee"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/profile-light-1440.png",
+      "bytes": 125240,
+      "sha256": "4eeaebeb8bd749345828964f09514f038fe8203aeb54dc40f3efb9a8265de0cb"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/profile-light-1920.png",
+      "bytes": 138540,
+      "sha256": "dd2528f357e9f98d2b79f0f46eb2f41d6053c15c24bd479cdbcd31c7f641327a"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/project-dark-1024.png",
+      "bytes": 97012,
+      "sha256": "78f85bdafa4f1ed9711f05fd9f567b028818411bce24747c035ad81b5d4bef11"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/project-dark-1440.png",
+      "bytes": 135202,
+      "sha256": "b075c9dbf613cad5e685d335f5c0783929bbe42380cdc33798d07dc33968e90c"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/project-dark-1920.png",
+      "bytes": 164851,
+      "sha256": "d782f512e82e1b8f665d9c3ca10410cd978bef8fc3efd6ef82410fb95916d3ec"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/project-light-1024.png",
+      "bytes": 98182,
+      "sha256": "6caafd6c12f18987c4dae9ad3b07833b1759943a7e0f30a2a5d8ac82b09a4412"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/project-light-1440.png",
+      "bytes": 136974,
+      "sha256": "91edec236ef51d546cae139a252211176b975b6b5724d83b7e12227da974ccec"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/project-light-1920.png",
+      "bytes": 167508,
+      "sha256": "f94750d66ce9fa003263fe0761ab0f12ae46d44d29675e90aa0cc7b2011117fc"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/state-empty.png",
+      "bytes": 41220,
+      "sha256": "ccf69bce7ceffeea5c2ee34468db35cd7b95d04fb735144f36890e2aa968af72"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/state-error.png",
+      "bytes": 42577,
+      "sha256": "3fade875b6991989b1d4f350d4cb494feac1d0c52d44ab8a5321a9558380bd77"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/state-invalid.png",
+      "bytes": 42391,
+      "sha256": "10753fad533b6f4e8e0031a77695aba3a73bbdc4993e00ac20fe73ccda6ac3b8"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/state-loading.png",
+      "bytes": 41299,
+      "sha256": "06dc404a49ae77a0e93992e2f87fc4946c4372a43da703de195c417a87ecb35d"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/state-success.png",
+      "bytes": 123512,
+      "sha256": "0f88a32e7d9ba0547c029c80200d971c9f297f73b8540b9d2b42f5b8f476b6ab"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/system-dark.png",
+      "bytes": 122010,
+      "sha256": "d84072a4b8e72ecec868b338a79fcf7fa05c1f1f6226f4f3d98d7cfd987e8218"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726514160/system-light.png",
+      "bytes": 191912,
+      "sha256": "4531ab4c391a2bdf992bbcce859c29d24d594b27623a0569292f4ff1bcafd322"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726635513/system-dark.png",
+      "bytes": 261909,
+      "sha256": "2392fe46c2ce3e19430348553ef2b2c504a7b770d5a245b698705b925220fc88"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726635513/system-light.png",
+      "bytes": 262045,
+      "sha256": "d218673b15b9b84888c42e47c9d32de07d8d4c3ced689c38a6b84142247945b3"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/archived.png",
+      "bytes": 129052,
+      "sha256": "3ac6e15753256485aba98b5c9c89864548c9c0b3b2a74e4391d6cda5c5a827ec"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/category-专业技能.png",
+      "bytes": 129248,
+      "sha256": "e1225125028e4a1bd8388b44ce5bf2b27b7c441add99430203f30694d8a0819a"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/category-奖项荣誉.png",
+      "bytes": 140586,
+      "sha256": "91f3b1984124a90f55fa9c83050d2c7489eded8b6b8e0be4001e7b52cc89c3bb"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/category-实习经历.png",
+      "bytes": 129378,
+      "sha256": "e06de0abe43ae2e45d118f9b6eb96d50eb2814d12135764a2060db7ee09cfeea"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/category-工作经历.png",
+      "bytes": 121767,
+      "sha256": "2057dfc2aba88f19653a1e19686cb6be6c42c2e5446f44e9db9c23d218500fde"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/category-教育经历.png",
+      "bytes": 123034,
+      "sha256": "7a75cd19f1ca3bd18ca1d2b388077d11cb620cdac80e45f7afa9a37f7d582ae2"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/category-科研经历.png",
+      "bytes": 105343,
+      "sha256": "e4b3b51c72393c2ab4857103be4a204ab1e14eaabdf964983fe171084f832f08"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/category-自我评价.png",
+      "bytes": 128236,
+      "sha256": "115e38b825f02a8c98d68af730a91f7f50736f5487db04c169def694a5ce98af"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/category-证书.png",
+      "bytes": 125321,
+      "sha256": "5b8e1bc23ac2b3af7496829618a12f5682f2873ed83d5441cacb5e5a31672dc0"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/category-语言能力.png",
+      "bytes": 116738,
+      "sha256": "bfc40da9c8e36c5b415c853573994c6fe634355ee8c7741b0cc047dea9a32617"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/profile-dark-1024.png",
+      "bytes": 93880,
+      "sha256": "cb5d5e2a2465b1e01ec4d22727affe1913d5da4856d175ce7952830866e98bb4"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/profile-dark-1440.png",
+      "bytes": 122289,
+      "sha256": "1e03a934eec69f65bf32bccc2f520e309cf02237232c79ae7f29f7e5c84eaf6d"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/profile-dark-1920.png",
+      "bytes": 135259,
+      "sha256": "59d097cdc0288d0c816a7d3488bf26ae86f524cb7d9bd745d718b988038466f5"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/profile-light-1024.png",
+      "bytes": 94919,
+      "sha256": "3d3bb1a9ded2d5e27d92205bfb641817bc6f877b06ed00e17f0af54d7a4e4c35"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/profile-light-1440.png",
+      "bytes": 123933,
+      "sha256": "e71f673c5f4fadf36a4655b669f790fc155b3b8c553fa31af9a0dccdb797ea96"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/profile-light-1920.png",
+      "bytes": 137149,
+      "sha256": "1eadf76e7eff16090b77deb15e8afdfd6dc617e34830e2f11e00c9fb5f7030cb"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/project-dark-1024.png",
+      "bytes": 96946,
+      "sha256": "c583179dd2613f7d48f7e2ff4f5b33fda0fc585d63bf58f2bb9c8be6226ebbf1"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/project-dark-1440.png",
+      "bytes": 134528,
+      "sha256": "ae806745770f29480410640234fa6bc16ee1ba229ab65371b8ce8258e033667e"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/project-dark-1920.png",
+      "bytes": 164058,
+      "sha256": "6fa9e7761c8b3e8f0370ce990d56aa692f4f60e11b55554bb3e416d540b3c87e"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/project-light-1024.png",
+      "bytes": 98059,
+      "sha256": "c6fa9ee72fb686d24918e0f3151a4e4cce1a96db1ddb84f8fa3f71d2eab4cdfd"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/project-light-1440.png",
+      "bytes": 136246,
+      "sha256": "24fed57558c08c67887d215baa45e538a5a64f809719eb88474873a042970283"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/project-light-1920.png",
+      "bytes": 166595,
+      "sha256": "0e65387dc0d43f0b1502228b35f15bf638d8894a11b3a87e4bf63312e70803ac"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/state-empty.png",
+      "bytes": 41095,
+      "sha256": "0100997972efba5f703327353695d1a9ad640621645ee34fc37f58fedd5cfe2e"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/state-error.png",
+      "bytes": 42463,
+      "sha256": "7d389447a402213e68b965109b97845d3062ca6df50f23fae761fa5787e4ef80"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/state-invalid.png",
+      "bytes": 42279,
+      "sha256": "ca0e3da6a14e7b247efd5480d398bb626a42f3fb635dd694054b3bf483bd2380"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/state-loading.png",
+      "bytes": 41187,
+      "sha256": "9b9c1296f1ac555374fb6170e2a5820bd004eb3b12516dee6a1622c82bf32fc4"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/state-success.png",
+      "bytes": 122287,
+      "sha256": "81b8f44b7b2968108cf4506d1006814ec4f4406d6b5185c6fa071e858f300f81"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/system-dark.png",
+      "bytes": 122331,
+      "sha256": "931de5353a08ffcea60b6316171f89d8c595c86bdfac2b13dc6e3735095fcff2"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566/system-light.png",
+      "bytes": 124086,
+      "sha256": "586e68e38d34c7e58e58c13b882b3da843af86d984c38206047bdcf603993d73"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/semantic-token-audit.json",
+      "bytes": 3671,
+      "sha256": "f18f1d83c60ccfcdf7becc26a53d3cd07cc57f6169d133bf5a09b36a68899246"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/system-theme-verification.json",
+      "bytes": 634,
+      "sha256": "608929537a089edd385e85e85ece0e5759fdf75a0f60ff60cbf0aaa86d0457a4"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/typecheck-final.log",
+      "bytes": 81,
+      "sha256": "c4a5c75725dfc7811f8769dc86252e789cc4d8d6989fc7204afcca1d8f6f212b"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-slice1/unit-final.log",
+      "bytes": 221,
+      "sha256": "43ab68a15be02983510f6c2023f5bcb2668506cf34aee0f7e42c206edcaab630"
+    },
+    {
+      "path": "docs/architecture/p5.2.2-gate00-host-qualification.md",
+      "bytes": 2327,
+      "sha256": "4cb9bd395609c53048865cb62c8e3098492173c2fcbca064740ce12f3da5de67"
+    },
+    {
+      "path": "docs/architecture/p5.2.2-slice1-profile-faithful-restoration.md",
+      "bytes": 11146,
+      "sha256": "66601f771ca87b2ac5a042186b57f30e6a325d17a750990c18d7e677f668d012"
+    },
+    {
+      "path": "poc/host-experience/CareerExperience.tsx",
+      "bytes": 9145,
+      "sha256": "a19b072d64dc22b8b7f7f95a28cf06fd276b7266f7ef60de6b4419ad71d8d654"
+    },
+    {
+      "path": "poc/host-experience/README.md",
+      "bytes": 2508,
+      "sha256": "2453427a7429daa590d912a70259e9061443a8b9527abccd4c8a3bc9700cca0b"
+    },
+    {
+      "path": "poc/host-experience/experience.css",
+      "bytes": 8251,
+      "sha256": "0281376fcb7ea4e341972b883d35b0a1023a1074e3c1289bd80b3f0e456b31cf"
+    },
+    {
+      "path": "poc/host-experience/profile-fixture.json",
+      "bytes": 39060,
+      "sha256": "aebe5b02a24d1bc7dd6055a6e2328f9d6f70737245e0e342ce33fcff8ddf8ffe"
+    },
+    {
+      "path": "poc/host-experience/profile-fixture.ts",
+      "bytes": 6450,
+      "sha256": "305ad1d5a220211a68dc51b947291a0948e169b69c0ae58303811b1402fd5a3d"
+    },
+    {
+      "path": "poc/host-experience/profile-read-model.ts",
+      "bytes": 1599,
+      "sha256": "92d474c5bf64098a0f9237c479afb158571b2eaffd5c9cebccc95edd0df30ae9"
+    },
+    {
+      "path": "scripts/p522-gate00-qualification.mjs",
+      "bytes": 6978,
+      "sha256": "5da8d8ecf810382c67f0679cdfe0c51f18003a7c2c8b7c5c61c945d328d43464"
+    },
+    {
+      "path": "scripts/p522-host-experience-build.mjs",
+      "bytes": 5810,
+      "sha256": "ba327de2f18b2f5afe8edfdd7ba817b965a30a87f288d72285e252efc31ca22b"
+    },
+    {
+      "path": "scripts/p522-slice1-deliver.mjs",
+      "bytes": 8825,
+      "sha256": "1981586d013cd5c202a51daa2ee15939003f91e79b824956e45602a2f89d0dea"
+    },
+    {
+      "path": "scripts/p522-slice1-host-smoke.mjs",
+      "bytes": 9556,
+      "sha256": "bd1a1cc092967fe6a5c86892d2bef9802b709bec7f9c5faeab3a3bc21f7a3b82"
+    },
+    {
+      "path": "tests/unit/p522-host-experience.test.tsx",
+      "bytes": 4072,
+      "sha256": "803c9e3564a12c9d7c4618da4bc7eb5b2058396d66eeefa8c6ce83d74fe938f1"
+    },
+    {
+      "path": "tests/unit/p522-slice1-profile-projection.test.ts",
+      "bytes": 2900,
+      "sha256": "00891cfc1b8918a81754a7477cc3f46551299fade14cbb46a86a139897423cd0"
+    }
+  ],
+  "handoffIgnoredFiles": [
+    "plan4.md",
+    "history4.md"
+  ],
+  "scope": "No production src/Core/Main/Preload/Schema/Fact Guard/dependency/DB changes. No commit/push."
+}

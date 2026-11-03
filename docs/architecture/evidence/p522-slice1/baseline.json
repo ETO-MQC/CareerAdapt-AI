@@ -1,0 +1,1261 @@
+{
+  "date": "2026-11-04",
+  "branch": "main",
+  "head": "89d75418b3a7891ea96199d3191b542398e81c16",
+  "origin": "89d75418b3a7891ea96199d3191b542398e81c16",
+  "fetchExitCode": 0,
+  "worktrees": "E:/DEF/CareerAdapt AI                               89d7541 [main]\nE:/DEF/CareerAdapt AI/.tmp/editor-closure-baseline  5b5cf1e (detached HEAD)\nE:/DEF/CareerAdapt AI/.tmp/sq1-closeout-frozen      1573e26 (detached HEAD)\nE:/DEF/CareerAdapt-competition-5.1.8                82d465c [competition/5.1.8]\nE:/DEF/CareerAdapt-sq13b2-current-87360d1           87360d1 (detached HEAD)\nE:/DEF/CareerAdapt-sq13b2-start-64323f5             64323f5 (detached HEAD)",
+  "log": "89d7541 P5.2.2-UX-01\nf1e70b4 P5.2.2\n5a1a1fc P5.2.1\nf9a5ccf P5.2.0 — Hermes Appearance Hub Compatibility & Adoption Audit\nf761af8 P5.2.0-B2-B2\n8833a5a P5.2.0-B2-B1\naf67193 B2-B0 保持 BLOCKED\n5e86e6f B1 标记为 COMPLETE\n57f3cc9 P5.2.0-B1\na2fa3ec P5.2.0-B 当前为 PARTIAL，正式迁移 BLOCKED",
+  "ignored": "?? docs/architecture/evidence/p522-slice1/\n?? scripts/p522-gate00-qualification.mjs\n!! .agents/\n!! .artifacts/\n!! .claude/\n!! .codex/\n!! .electron-build/\n!! .entire/logs/\n!! .env.local\n!! .impeccable/\n!! .next/\n!! .qoder/\n!! .tmp/\n!! AGENTS.md\n!! Claude.md\n!! Plan.md\n!! Plan3.md\n!! artifacts/\n!! docs/MVP_V1_HANDOFF.md\n!! docs/RC_CLOSURE_0.9.3-rc.1.md\n!! docs/RC_CLOSURE_0.9.3-rc.2.md\n!! docs/TEST_INVENTORY.md\n!! docs/V2_START_HERE.md\n!! docs/v2/FIRST_GOAL.md\n!! docs/v2/G1B_STYLE_PANEL_PLAN.md\n!! docs/v2/G1_WYSIWYG_EDITOR_PLAN.md\n!! docs/v2/G7B2_UX_AUDIT.md\n!! docs/v2/G7B3_BESPREE_REFERENCE_IMPLEMENTATION.md\n!! docs/v2/G7B_OVERNIGHT_EXECUTION.md\n!! docs/v2/G7B_UX_AUDIT.md\n!! docs/v2/G7B_WORKSPACE_UX.md\n!! docs/v2/P36_MIMO_TEST_PLAN.md\n!! docs/v2/RESUME_SCHEMA_V2_MIMO_TEST_PLAN.md\n!! docs/v2/RESUME_SCHEMA_V2_MIMO_TEST_RESULT.md\n!! docs/v2/ROADMAP_AND_BACKLOG.md\n!! docs/v2/V1_TO_V2_MIGRATION.md\n!! electron/node_modules/\n!! electron/pnpm-lock.yaml\n!! history.md\n!! history2.md\n!! history3.md\n!! history4.md\n!! node_modules/\n!! plan2.md\n!! plan4.md\n!! poc/host-transport/__pycache__/\n!! release.json\n!! release/\n!! review_diff.txt\n!! scripts/g7b5-ui-audit.mjs\n!! scripts/p36-parser-benchmark.ts\n!! scripts/p36-targeted-ui-audit.mjs\n!! scripts/p36-universal-import-audit.mjs\n!! scripts/plan3-p34-visual-audit.mjs\n!! scripts/plan3-profile-fields-audit.mjs\n!! scripts/plan3-recycle-jobs-audit.mjs\n!! scripts/plan3-resume-audit.mjs\n!! scripts/plan3-resume-lifecycle-audit.mjs\n!! skills-lock.json\n!! skills/.redskill-lock.json\n!! skills/1234556/\n!! skills/resume-generator/\n!! skills/resume-master/\n!! test-results/\n!! tests/fixtures/p43f-real-provider-long-narrative.local.json\n!! tests/fixtures/pdf/corrupted.pdf\n!! tests/fixtures/pdf/empty-file.bin\n!! tests/fixtures/pdf/empty-page.pdf\n!! tests/fixtures/pdf/encrypted-like.pdf\n!! tests/fixtures/pdf/forged-ext.pdf\n!! tests/fixtures/pdf/forged-extension.pdf.txt\n!! tests/fixtures/pdf/multi-page-en.pdf\n!! tests/fixtures/pdf/not-a-pdf.txt\n!! tests/fixtures/pdf/repeated-header-en.pdf\n!! tests/fixtures/pdf/single-page-en.pdf\n!! tests/fixtures/pdf/six-pages.pdf\n!! tests/fixtures/pdf/two-column-pdflib.pdf\n!! tmp/\n!! tsconfig.tsbuildinfo\n!! \"\\345\\274\\200\\345\\217\\221\\345\\257\\271\\350\\257\\235.json\"\n!! \"\\346\\226\\260\\351\\207\\215\\346\\236\\204\\346\\226\\271\\346\\241\\210/\"\n!! \"\\346\\250\\241\\346\\235\\277/\"\n!! \"\\346\\257\\224\\350\\265\\233\\347\\256\\200\\344\\273\\213.md\"\n!! \"\\346\\265\\213\\350\\257\\225\\346\\240\\267\\346\\234\\254/\"\n!! \"\\350\\201\\214\\351\\200\\202AI_\\344\\272\\247\\345\\223\\201\\351\\234\\200\\346\\261\\202\\346\\226\\207\\346\\241\\243_PRD_v1.0.md\"",
+  "manifests": [
+    {
+      "file": "docs/architecture/evidence/p521/delivery-manifest.json",
+      "sha256": "84ce0e453fb8ec11b60fe831ac80d28860b762bb887e82be219bbf15f4f20d90",
+      "files": [
+        {
+          "path": "prototype/unified-experience/audit-host.mjs",
+          "expected": "f2e0cd440e6ab1dc53ce938762b0ac0521086a482cdd17c15630e47644f34c10",
+          "actual": "f2e0cd440e6ab1dc53ce938762b0ac0521086a482cdd17c15630e47644f34c10",
+          "matches": true
+        },
+        {
+          "path": "prototype/unified-experience/build.mjs",
+          "expected": "cd2246f41a435434f6ce6d23bd8fbb0c4b5bdb706b499e43debc045b5c8d417b",
+          "actual": "cd2246f41a435434f6ce6d23bd8fbb0c4b5bdb706b499e43debc045b5c8d417b",
+          "matches": true
+        },
+        {
+          "path": "prototype/unified-experience/main.tsx",
+          "expected": "01bf1b41230336456077c85d37cde568619f42c57b1f2b8c66b5f40952a663b3",
+          "actual": "01bf1b41230336456077c85d37cde568619f42c57b1f2b8c66b5f40952a663b3",
+          "matches": true
+        },
+        {
+          "path": "prototype/unified-experience/README.md",
+          "expected": "47931c12e4770b0d7ef4f312aefacd74101ee36bb1281137af02a0a61f6e2b23",
+          "actual": "47931c12e4770b0d7ef4f312aefacd74101ee36bb1281137af02a0a61f6e2b23",
+          "matches": true
+        },
+        {
+          "path": "prototype/unified-experience/serve.mjs",
+          "expected": "690edc7b523aeab5a59eddb1cf5ecc0eb816724189317ab6709844ace993a232",
+          "actual": "690edc7b523aeab5a59eddb1cf5ecc0eb816724189317ab6709844ace993a232",
+          "matches": true
+        },
+        {
+          "path": "prototype/unified-experience/styles.css",
+          "expected": "9259f9d46edb29d62217f36fa9747ca5629b3c35cbff6762c28c4515444eb7e9",
+          "actual": "9259f9d46edb29d62217f36fa9747ca5629b3c35cbff6762c28c4515444eb7e9",
+          "matches": true
+        },
+        {
+          "path": "prototype/unified-experience/verify.mjs",
+          "expected": "d8d0d52cf3a696350a12a1f09f0a1d8d9a71a552d135ebf8d72488668b0643c8",
+          "actual": "d8d0d52cf3a696350a12a1f09f0a1d8d9a71a552d135ebf8d72488668b0643c8",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/p5.2.1-unified-experience-design-audit.md",
+          "expected": "6d2e4f12c9c8a5eb841febe6bf6153827929708d99bb1a434cc01d0f7881a22a",
+          "actual": "6d2e4f12c9c8a5eb841febe6bf6153827929708d99bb1a434cc01d0f7881a22a",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/p5.2.1-unified-design-system.md",
+          "expected": "2b98d645d38e7b9bfa4d9a1cae0fe83c9533df9a8cb468c571a1fb1ff4c4310c",
+          "actual": "2b98d645d38e7b9bfa4d9a1cae0fe83c9533df9a8cb468c571a1fb1ff4c4310c",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/p5.2.1-visual-direction.md",
+          "expected": "d9f9c60c7df413d52a9444426554c2ac95707b9d20b801a08984dffc9e58fa63",
+          "actual": "d9f9c60c7df413d52a9444426554c2ac95707b9d20b801a08984dffc9e58fa63",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/p5.2.2-unified-ui-implementation-plan.md",
+          "expected": "3345ceeb57dbd4ef33a20f332e6cdfc8c14ab9e9e079b42f8d8392dfb2a006eb",
+          "actual": "3345ceeb57dbd4ef33a20f332e6cdfc8c14ab9e9e079b42f8d8392dfb2a006eb",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/careeradapt-current-profile-1440.png",
+          "expected": "ed36c35e7abc24e1e729ab15eddf18ee181033d3dcdb7c45bfc2b725ec20c29c",
+          "actual": "ed36c35e7abc24e1e729ab15eddf18ee181033d3dcdb7c45bfc2b725ec20c29c",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/careeradapt-current-resumes-1440.png",
+          "expected": "83a9ef9225c90ac69c5f7aa4d951409c9e80cbe9f4f57fe01ad664b9e3489602",
+          "actual": "83a9ef9225c90ac69c5f7aa4d951409c9e80cbe9f4f57fe01ad664b9e3489602",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/careeradapt-current-ui.json",
+          "expected": "ceb32c7eadf60c95819c7f341090a26fb1c4a5d44f5422f99a913b4f8729e63f",
+          "actual": "ceb32c7eadf60c95819c7f341090a26fb1c4a5d44f5422f99a913b4f8729e63f",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/host-artifacts-1024.png",
+          "expected": "7e6b5f68d37a712251821e0a26da28fa192a834f51e03b34b30082a3985e8ba7",
+          "actual": "7e6b5f68d37a712251821e0a26da28fa192a834f51e03b34b30082a3985e8ba7",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/host-artifacts-1440.png",
+          "expected": "2305a392fd7309601ed499f68111109397c5ad7f7ef9fdb8a342cc1175525f80",
+          "actual": "2305a392fd7309601ed499f68111109397c5ad7f7ef9fdb8a342cc1175525f80",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/host-artifacts-1920.png",
+          "expected": "92a5fa0fbc364220212b265f1d84e49e9a0a2a33fb294467ed6b1480c27a73df",
+          "actual": "92a5fa0fbc364220212b265f1d84e49e9a0a2a33fb294467ed6b1480c27a73df",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/host-audit.json",
+          "expected": "6c72efcc860a6be1e43d5d800c4d6b7c446bf7206de7bc188af401517ee538a9",
+          "actual": "6c72efcc860a6be1e43d5d800c4d6b7c446bf7206de7bc188af401517ee538a9",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/host-home-1024.png",
+          "expected": "aa43c8f270b0107c55ebba88e4f07cc4fc480d553c78989ebb93e81995e1260d",
+          "actual": "aa43c8f270b0107c55ebba88e4f07cc4fc480d553c78989ebb93e81995e1260d",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/host-home-1440.png",
+          "expected": "1b9f2ded69118dfc5f8b7e401228785ccd45dacbfd58526914bb347686f85e27",
+          "actual": "1b9f2ded69118dfc5f8b7e401228785ccd45dacbfd58526914bb347686f85e27",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/host-home-1920.png",
+          "expected": "6c4a78b03e89e41427c16c6be3676f548aad3514684aa7b25bd8a31105f847de",
+          "actual": "6c4a78b03e89e41427c16c6be3676f548aad3514684aa7b25bd8a31105f847de",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/host-plugins-1440.png",
+          "expected": "61bc97a25c4011c59ff94e27f0c0025c951e2a12b4888db13ac861bacda21836",
+          "actual": "61bc97a25c4011c59ff94e27f0c0025c951e2a12b4888db13ac861bacda21836",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/host-profile-1024.png",
+          "expected": "b8ddd52c5026d6a34b567c573fc2b6bb9087179bdb0a348791f94c23948226a3",
+          "actual": "b8ddd52c5026d6a34b567c573fc2b6bb9087179bdb0a348791f94c23948226a3",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/host-profile-1440.png",
+          "expected": "89ac31f549a13640cdda6b11ecb6a432aa746d55a1d78fd46e1ab60021da0d81",
+          "actual": "89ac31f549a13640cdda6b11ecb6a432aa746d55a1d78fd46e1ab60021da0d81",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/host-profile-1920.png",
+          "expected": "1eea5bd9ff27a168c045bb087c3fb3a530f9605aedf0ff99b5163edf0cfe1b7d",
+          "actual": "1eea5bd9ff27a168c045bb087c3fb3a530f9605aedf0ff99b5163edf0cfe1b7d",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/host-right-sidebar-1440.png",
+          "expected": "15d0885b6ca649c9ec971010b0cb0ac0d98ddecebef8647f8d53e0f1a9ee8e63",
+          "actual": "15d0885b6ca649c9ec971010b0cb0ac0d98ddecebef8647f8d53e0f1a9ee8e63",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/host-settings-1024.png",
+          "expected": "4a4805e83a0a4e11227be2ccb669e57410f9a86cce71441746610b7cbad657f5",
+          "actual": "4a4805e83a0a4e11227be2ccb669e57410f9a86cce71441746610b7cbad657f5",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/host-settings-1440.png",
+          "expected": "2a52584a1940e91e746a36dbf025bb5549ef8c4dbbe2fa96f4024bfcab2dfcf1",
+          "actual": "2a52584a1940e91e746a36dbf025bb5549ef8c4dbbe2fa96f4024bfcab2dfcf1",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/host-settings-1920.png",
+          "expected": "600415c9950c0cb99b6aee1f310da415ffffbfeae4c7dc946851f6a1125159ee",
+          "actual": "600415c9950c0cb99b6aee1f310da415ffffbfeae4c7dc946851f6a1125159ee",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/host-sidebar-collapsed-1440.png",
+          "expected": "04f0f7b7b5d076dd311a9df4a26c700dd1a2de090fb603c1d89b8d7a31dc3599",
+          "actual": "04f0f7b7b5d076dd311a9df4a26c700dd1a2de090fb603c1d89b8d7a31dc3599",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/host-sidebar-expanded-1440.png",
+          "expected": "faf22ad4a4c7fb9b849a31d20628857138eece5f9b251d00e18bd8fa4d831e21",
+          "actual": "faf22ad4a4c7fb9b849a31d20628857138eece5f9b251d00e18bd8fa4d831e21",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/host-synthetic-complete-1440.png",
+          "expected": "3d8c01b24d6501741b9765efd2baa538c01e3881c47cf7bee9c708015d3bc835",
+          "actual": "3d8c01b24d6501741b9765efd2baa538c01e3881c47cf7bee9c708015d3bc835",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/host-synthetic-normal-1440.png",
+          "expected": "b91aa182a69be20200ce06bc09439d3d1f49cacdf5bcd4964e57e87637e24084",
+          "actual": "b91aa182a69be20200ce06bc09439d3d1f49cacdf5bcd4964e57e87637e24084",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/host-synthetic-running-1440.png",
+          "expected": "5eaf465c2450d13158e84878d06b6ffdf64ec2d42d501c632af6059e2bc3de6a",
+          "actual": "5eaf465c2450d13158e84878d06b6ffdf64ec2d42d501c632af6059e2bc3de6a",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/prototype-artifact-error-1440.png",
+          "expected": "bba1f534c37270e51c0f3c949767aa0ba28b847d2f6b0b006d365d16dd0aed37",
+          "actual": "bba1f534c37270e51c0f3c949767aa0ba28b847d2f6b0b006d365d16dd0aed37",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/prototype-chat-dark-1024.png",
+          "expected": "c5c37ed0932dee148c180ce7b32c6d82882010c255700926cd323edad86611c8",
+          "actual": "c5c37ed0932dee148c180ce7b32c6d82882010c255700926cd323edad86611c8",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/prototype-chat-dark-1440.png",
+          "expected": "81ac4c61000d3d617d16a2f544bd6aa02ba4d586dd7fa988b265a8a00abf19c9",
+          "actual": "81ac4c61000d3d617d16a2f544bd6aa02ba4d586dd7fa988b265a8a00abf19c9",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/prototype-chat-dark-1920.png",
+          "expected": "6444f1d1fd5df97c6ff906c5d7eef078bb5934ba9458ecd7b234d7cbfa1a2be5",
+          "actual": "6444f1d1fd5df97c6ff906c5d7eef078bb5934ba9458ecd7b234d7cbfa1a2be5",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/prototype-chat-light-1024.png",
+          "expected": "ad3027903bc1ddf343ed65a13fbcc924c36758266c12e1ae7ea59f515b510319",
+          "actual": "ad3027903bc1ddf343ed65a13fbcc924c36758266c12e1ae7ea59f515b510319",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/prototype-chat-light-1440.png",
+          "expected": "61988f5f2e0cdfc88d23e57676844a6c0803276babd53070d4ad76b22d14d744",
+          "actual": "61988f5f2e0cdfc88d23e57676844a6c0803276babd53070d4ad76b22d14d744",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/prototype-chat-light-1920.png",
+          "expected": "a4f14723bd5df39bb1889e23b625f317bd5c1ac861b01073995a3fc16df0e98e",
+          "actual": "a4f14723bd5df39bb1889e23b625f317bd5c1ac861b01073995a3fc16df0e98e",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/prototype-error-1440.png",
+          "expected": "68aad6a038106f3165d8c0a927d1f3400843062c21d3ac818a1bafc425764f62",
+          "actual": "68aad6a038106f3165d8c0a927d1f3400843062c21d3ac818a1bafc425764f62",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/prototype-profile-dark-1024.png",
+          "expected": "70838ae49f47085efcc5c1f733d54cae5f3f26c3969b3cc74a82acdd14af64e8",
+          "actual": "70838ae49f47085efcc5c1f733d54cae5f3f26c3969b3cc74a82acdd14af64e8",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/prototype-profile-dark-1440.png",
+          "expected": "85498887a35117e2e337b79f89021da0657f71ded864c32e0a4271aefbfa4bc0",
+          "actual": "85498887a35117e2e337b79f89021da0657f71ded864c32e0a4271aefbfa4bc0",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/prototype-profile-dark-1920.png",
+          "expected": "b93d3614c690b51d41e6d292d19b8e7aad5b2a0e3230aee9e8debc47d62ef96b",
+          "actual": "b93d3614c690b51d41e6d292d19b8e7aad5b2a0e3230aee9e8debc47d62ef96b",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/prototype-profile-light-1024.png",
+          "expected": "0fe15f94dffbfd2f513d3d05ceb82c712a5dfd881f45f8d6ed40000e92f91213",
+          "actual": "0fe15f94dffbfd2f513d3d05ceb82c712a5dfd881f45f8d6ed40000e92f91213",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/prototype-profile-light-1440.png",
+          "expected": "6cb1e18aa75d9483bab20954230d23c82543d5ba2736c0ad8fd0e8fb60d7ace9",
+          "actual": "6cb1e18aa75d9483bab20954230d23c82543d5ba2736c0ad8fd0e8fb60d7ace9",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/prototype-profile-light-1920.png",
+          "expected": "1876adf6e7908d49d8610f22d64a7abcf6cafe9db9480c8e2762ce95fb6ccbd3",
+          "actual": "1876adf6e7908d49d8610f22d64a7abcf6cafe9db9480c8e2762ce95fb6ccbd3",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/prototype-profile-projects-dark-1024.png",
+          "expected": "95c29ba52c23473460afbc6626d9d590db00d1161916899270e7f63b074773de",
+          "actual": "95c29ba52c23473460afbc6626d9d590db00d1161916899270e7f63b074773de",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/prototype-running-1440.png",
+          "expected": "d082b9bede887912d56a2dd07ab6941f6ecb56e1a7d6776673a74bb30b6f1243",
+          "actual": "d082b9bede887912d56a2dd07ab6941f6ecb56e1a7d6776673a74bb30b6f1243",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/prototype-verification.json",
+          "expected": "93a6979cc8bc84d6d318f8a0ce4f417f4331257f8af51d2bda8c32b457976094",
+          "actual": "93a6979cc8bc84d6d318f8a0ce4f417f4331257f8af51d2bda8c32b457976094",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p521/research-evidence.json",
+          "expected": "67f06e298b16f438c8cab61236d5f91f6f869e1ac321e4841f0b2f41c98efe24",
+          "actual": "67f06e298b16f438c8cab61236d5f91f6f869e1ac321e4841f0b2f41c98efe24",
+          "matches": true
+        }
+      ]
+    },
+    {
+      "file": "docs/architecture/evidence/p522/delivery-manifest.json",
+      "sha256": "7d611e570f1c1b58fcbd6d67c44858e0f310ba2e7633142e7d5768de9e831c96",
+      "files": [
+        {
+          "path": "docs/architecture/evidence/p522/additional-reading.json",
+          "expected": "dca89e2c3cce42b1c25c3cf2e762955aa95bf1b75871c3053c3a031938bc0729",
+          "actual": "dca89e2c3cce42b1c25c3cf2e762955aa95bf1b75871c3053c3a031938bc0729",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/appearance-adapter-evidence.json",
+          "expected": "fbee636d951ba75cdf1974ed2c876dcbd92a89e5873ce19c7dfc10b6aac5ded8",
+          "actual": "fbee636d951ba75cdf1974ed2c876dcbd92a89e5873ce19c7dfc10b6aac5ded8",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/baseline.json",
+          "expected": "106edbf1674827588587cbc28f8503a4748442243c168f5e8adadc3785b1eae6",
+          "actual": "106edbf1674827588587cbc28f8503a4748442243c168f5e8adadc3785b1eae6",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/host-smoke-1793711173567.json",
+          "expected": "ced49cdca879dfb3dba912b042bb7cd85e706ca06fef81a5c766ce23a0abfbde",
+          "actual": "ced49cdca879dfb3dba912b042bb7cd85e706ca06fef81a5c766ce23a0abfbde",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/host-smoke-1793711786576.json",
+          "expected": "f72ec92dbdc3291800ad08af3ec3b054249fe422da02b1f867774e92c0377a24",
+          "actual": "f72ec92dbdc3291800ad08af3ec3b054249fe422da02b1f867774e92c0377a24",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/host-smoke-final.json",
+          "expected": "ee657150cc01e5342ae9ca3ef19a9534e1cea87bfaebec52bd0feec246bb7471",
+          "actual": "ee657150cc01e5342ae9ca3ef19a9534e1cea87bfaebec52bd0feec246bb7471",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/host-visual-verification.json",
+          "expected": "7327d288edab3abc3ac496a488792b4063d8d2a65001c1efb5c6a3d5d884045a",
+          "actual": "7327d288edab3abc3ac496a488792b4063d8d2a65001c1efb5c6a3d5d884045a",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/pane-probe-1793711309026.json",
+          "expected": "2725392b66b59b7c36dc48431e9885849782d5b208d158d9fa47c2437c6b8669",
+          "actual": "2725392b66b59b7c36dc48431e9885849782d5b208d158d9fa47c2437c6b8669",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/pane-probe-1793711394302.json",
+          "expected": "915ae53ebe7c31ff88dee81ea70bb901e596645f8e17eac47fc01e7c87ecf7d0",
+          "actual": "915ae53ebe7c31ff88dee81ea70bb901e596645f8e17eac47fc01e7c87ecf7d0",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/pane-probe-build.json",
+          "expected": "1ffded12eb3852988f238f23de6441ec8b8e6de0cbaf13b9c9fb53ea0a2e2ba7",
+          "actual": "1ffded12eb3852988f238f23de6441ec8b8e6de0cbaf13b9c9fb53ea0a2e2ba7",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/plugin-build.json",
+          "expected": "a6b1d848da6fc11c1c3bcf9a0512716913c3e293c3709f1ba74014545a2fda83",
+          "actual": "a6b1d848da6fc11c1c3bcf9a0512716913c3e293c3709f1ba74014545a2fda83",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/profile-integration-evidence.json",
+          "expected": "54754f38929ee8d42b11c6f39786fd24572ae52b663fbd9ba76262c44f57e679",
+          "actual": "54754f38929ee8d42b11c6f39786fd24572ae52b663fbd9ba76262c44f57e679",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/failures/host-smoke-final.png",
+          "expected": "44f923b4f3ff69b2412664e3dc800d7ee53338b71c41cf767e76756a42ba3412",
+          "actual": "44f923b4f3ff69b2412664e3dc800d7ee53338b71c41cf767e76756a42ba3412",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/failures/pane-probe-1793711309026.png",
+          "expected": "9ede7653fee02d24d3f5e08fa823f67afad1807b67b5678ba6b7e3e4537d4ccb",
+          "actual": "9ede7653fee02d24d3f5e08fa823f67afad1807b67b5678ba6b7e3e4537d4ccb",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/failures/pane-probe-1793711394302.png",
+          "expected": "cc5dda93ac58b75044dc942e126256f04422c5dadb422dc85b26a32db1e354a9",
+          "actual": "cc5dda93ac58b75044dc942e126256f04422c5dadb422dc85b26a32db1e354a9",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/host-profile-dark-1024.png",
+          "expected": "44a0a7e3a00e06229f8d24c8823d7accd122e3018ddeb8c4b300024d037d6241",
+          "actual": "44a0a7e3a00e06229f8d24c8823d7accd122e3018ddeb8c4b300024d037d6241",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/host-profile-dark-1440.png",
+          "expected": "1d2ea1d01b45833be47fa0b270c7a3ed10b42d0232d88c5fc1e24c21d7dd6346",
+          "actual": "1d2ea1d01b45833be47fa0b270c7a3ed10b42d0232d88c5fc1e24c21d7dd6346",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/host-profile-dark-1920.png",
+          "expected": "21ad89dcd4f6a6841efe836f4e23826bd8aeb535f7b8ae245ecd1865b601d2ed",
+          "actual": "21ad89dcd4f6a6841efe836f4e23826bd8aeb535f7b8ae245ecd1865b601d2ed",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/host-profile-light-1024.png",
+          "expected": "156a3eb111e6bb49d29dca4e046e9c2d14a27aba1cf4ad4d264e3b8b1a3a0e8b",
+          "actual": "156a3eb111e6bb49d29dca4e046e9c2d14a27aba1cf4ad4d264e3b8b1a3a0e8b",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/host-profile-light-1440.png",
+          "expected": "d20460d3b7c0c46420eee7219dd0998152b43cfcb8f1c47068261ebd63fafe71",
+          "actual": "d20460d3b7c0c46420eee7219dd0998152b43cfcb8f1c47068261ebd63fafe71",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/host-profile-light-1920.png",
+          "expected": "470c3524a2d313c5689c67dbb469f27a52b6896d07c519798b60a21b5e90115a",
+          "actual": "470c3524a2d313c5689c67dbb469f27a52b6896d07c519798b60a21b5e90115a",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/host-state-empty.png",
+          "expected": "ea6d120ab630ad2afd2fa2caf7008b9dd768b51a357ef76bf07ba91260f3cd68",
+          "actual": "ea6d120ab630ad2afd2fa2caf7008b9dd768b51a357ef76bf07ba91260f3cd68",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/host-state-error.png",
+          "expected": "8ebc54a6acd6049981e90c639ce480f6bbe5a8b27549b373888d1417cf67a6f9",
+          "actual": "8ebc54a6acd6049981e90c639ce480f6bbe5a8b27549b373888d1417cf67a6f9",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/host-state-invalid.png",
+          "expected": "473c3dad0f136c19cecfc5b7132330a68303eb9499f32b7f2c5d1599426b10c2",
+          "actual": "473c3dad0f136c19cecfc5b7132330a68303eb9499f32b7f2c5d1599426b10c2",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/host-state-loading.png",
+          "expected": "3f1c9c24b3c8802ac0c951d468ee58fba2e1dfaf759f3ad940cd5fd0b00da501",
+          "actual": "3f1c9c24b3c8802ac0c951d468ee58fba2e1dfaf759f3ad940cd5fd0b00da501",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/host-state-success.png",
+          "expected": "5eb468537ecc7dab5d9b2f5b9e1cb209c99f5491a3cf17e65e1964445faf5bbd",
+          "actual": "5eb468537ecc7dab5d9b2f5b9e1cb209c99f5491a3cf17e65e1964445faf5bbd",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-profile-dark-1024.png",
+          "expected": "ab0a5ecc11997fb03651d4f3f63df4224e3bff14ca764035901662cd3231f1f7",
+          "actual": "ab0a5ecc11997fb03651d4f3f63df4224e3bff14ca764035901662cd3231f1f7",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-profile-dark-1440.png",
+          "expected": "da63b58f8135a757ab5a89c8c1ef217c658b98109b04cb65ffb8e36f5f2e386e",
+          "actual": "da63b58f8135a757ab5a89c8c1ef217c658b98109b04cb65ffb8e36f5f2e386e",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-profile-dark-1920.png",
+          "expected": "d72ff121711f8fa63dd96fe23edeb1b51ebaa96f2ad5bbe4b327657829f8e561",
+          "actual": "d72ff121711f8fa63dd96fe23edeb1b51ebaa96f2ad5bbe4b327657829f8e561",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-profile-light-1024.png",
+          "expected": "8f9058bf506d3fad95bd5251a247f858c8dfc1918907cf1f5e5a096b205d291e",
+          "actual": "8f9058bf506d3fad95bd5251a247f858c8dfc1918907cf1f5e5a096b205d291e",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-profile-light-1440.png",
+          "expected": "8fe69e924d67dda46a8bc4738d1485e69377b3fe4d143837a79a706aceea0720",
+          "actual": "8fe69e924d67dda46a8bc4738d1485e69377b3fe4d143837a79a706aceea0720",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-profile-light-1920.png",
+          "expected": "20af1e19a4ab393b1945058e9b20b46a2efd02b33276af1bda851cc72a31845f",
+          "actual": "20af1e19a4ab393b1945058e9b20b46a2efd02b33276af1bda851cc72a31845f",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-state-empty.png",
+          "expected": "8b0edebe31a86c4d98cc1dd86b1984ed7d75a5370000dca1b657e252f9fdb20c",
+          "actual": "8b0edebe31a86c4d98cc1dd86b1984ed7d75a5370000dca1b657e252f9fdb20c",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-state-error.png",
+          "expected": "2089b4b3ed4cc4573aeac1f30bbb6e6b7a8be6bf7c2ef69100d160d38cf2aac8",
+          "actual": "2089b4b3ed4cc4573aeac1f30bbb6e6b7a8be6bf7c2ef69100d160d38cf2aac8",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-state-invalid.png",
+          "expected": "6ee005b22f5c7ab761f6bf3a60b14bd91c6933961a1764507480f79f38e598da",
+          "actual": "6ee005b22f5c7ab761f6bf3a60b14bd91c6933961a1764507480f79f38e598da",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-state-loading.png",
+          "expected": "5ac7fe1dabf935ec7420bc71d2e61f3a6359771f3c87a8d8c6b553ee09bb03ab",
+          "actual": "5ac7fe1dabf935ec7420bc71d2e61f3a6359771f3c87a8d8c6b553ee09bb03ab",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/run-1793711156290/host-state-success.png",
+          "expected": "c6969cbe64c39710882be937089a9679c2f5ca8499c8dae45677a09c8c6170fe",
+          "actual": "c6969cbe64c39710882be937089a9679c2f5ca8499c8dae45677a09c8c6170fe",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-dark-1024.png",
+          "expected": "fbca1d3d3b9bf66a3d096df231e2538628516c75cd8f164285a99f1c47f3e0b4",
+          "actual": "fbca1d3d3b9bf66a3d096df231e2538628516c75cd8f164285a99f1c47f3e0b4",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-dark-1440.png",
+          "expected": "193e71e69efb5c2a6671f7bbf20dea244340207ff1cc32fb3df87089abe156fa",
+          "actual": "193e71e69efb5c2a6671f7bbf20dea244340207ff1cc32fb3df87089abe156fa",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-dark-1920.png",
+          "expected": "ffc180377c7bd779772ad10cd2c0fd7278f454b904a3c66804a6f6551eb5b178",
+          "actual": "ffc180377c7bd779772ad10cd2c0fd7278f454b904a3c66804a6f6551eb5b178",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-light-1024.png",
+          "expected": "b9a7626711be752a6727db5b042c9aaeafa3775e97d0dafd64e59670f09090a1",
+          "actual": "b9a7626711be752a6727db5b042c9aaeafa3775e97d0dafd64e59670f09090a1",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-light-1440.png",
+          "expected": "65370247ec110fd7aaa75d124ae2dd7a15c58c5fb502ce4ff1ad0ad046116be9",
+          "actual": "65370247ec110fd7aaa75d124ae2dd7a15c58c5fb502ce4ff1ad0ad046116be9",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-profile-light-1920.png",
+          "expected": "5ab4e2efe80d06f417e2b0334fb22ad4278860f21a6ff5b2f3d46b651783ed5e",
+          "actual": "5ab4e2efe80d06f417e2b0334fb22ad4278860f21a6ff5b2f3d46b651783ed5e",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-state-empty.png",
+          "expected": "78098f321d2b5f1abfbdb6a1347984911c80f2ccb3bd845e96cba5bba2ec9dde",
+          "actual": "78098f321d2b5f1abfbdb6a1347984911c80f2ccb3bd845e96cba5bba2ec9dde",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-state-error.png",
+          "expected": "f4d426a1b493b708dd5e4eab2142d693bf493a3eb5634a00856efaca481f39f4",
+          "actual": "f4d426a1b493b708dd5e4eab2142d693bf493a3eb5634a00856efaca481f39f4",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-state-invalid.png",
+          "expected": "e29d2dd8cf039ffd81f7f00eb147bac97e915cfa003ceadcb525101c9c1aa2e9",
+          "actual": "e29d2dd8cf039ffd81f7f00eb147bac97e915cfa003ceadcb525101c9c1aa2e9",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-state-loading.png",
+          "expected": "dd0408b9aed61c00a07fbd60553d6042219c57fa65cf8edc393e3cedcc49c4b1",
+          "actual": "dd0408b9aed61c00a07fbd60553d6042219c57fa65cf8edc393e3cedcc49c4b1",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/screenshots/run-1793711769731/host-state-success.png",
+          "expected": "f245dd1fcf3a38499dd492c69f4f01aa3965710c8da6c462f4f21eafed2c519c",
+          "actual": "f245dd1fcf3a38499dd492c69f4f01aa3965710c8da6c462f4f21eafed2c519c",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522/sdk-capability-audit.json",
+          "expected": "2822ce9aa1dffed08858fafc94620f42e97d3c5d4d23e9411b31d48cc384fd52",
+          "actual": "2822ce9aa1dffed08858fafc94620f42e97d3c5d4d23e9411b31d48cc384fd52",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/p5.2.2-hermes-host-integration-vertical-slice-20261103.md",
+          "expected": "53a3be5ea855652a878298c07791653a4ca4ce9539c9ed11d801534eba1a1a57",
+          "actual": "53a3be5ea855652a878298c07791653a4ca4ce9539c9ed11d801534eba1a1a57",
+          "matches": true
+        },
+        {
+          "path": "poc/host-experience/CareerExperience.tsx",
+          "expected": "9a60660836ea042d1c4c0b7a373ec2b9b5cdcaefb417a365969333ec734d9ef1",
+          "actual": "9a60660836ea042d1c4c0b7a373ec2b9b5cdcaefb417a365969333ec734d9ef1",
+          "matches": true
+        },
+        {
+          "path": "poc/host-experience/README.md",
+          "expected": "5085181362ead760b4021c2fca8b2ec7b9cc9cb851b26356b3655e179aea4e8c",
+          "actual": "5085181362ead760b4021c2fca8b2ec7b9cc9cb851b26356b3655e179aea4e8c",
+          "matches": true
+        },
+        {
+          "path": "poc/host-experience/components.tsx",
+          "expected": "7d6b477e74567620598bdb183d54b725735cdfbfbfbfa60d41c4bb567f65ef8e",
+          "actual": "7d6b477e74567620598bdb183d54b725735cdfbfbfbfa60d41c4bb567f65ef8e",
+          "matches": true
+        },
+        {
+          "path": "poc/host-experience/experience.css",
+          "expected": "7212a7a273e4baf26da4a23f501c5a66d75ca3ce136b4c6fb25153b6f4a7b6fd",
+          "actual": "7212a7a273e4baf26da4a23f501c5a66d75ca3ce136b4c6fb25153b6f4a7b6fd",
+          "matches": true
+        },
+        {
+          "path": "poc/host-experience/pane-probe.tsx",
+          "expected": "2182103627ffd9a81dbfda482c2f46d4505b5e17fe4f9195e1985eebe6b261dc",
+          "actual": "2182103627ffd9a81dbfda482c2f46d4505b5e17fe4f9195e1985eebe6b261dc",
+          "matches": true
+        },
+        {
+          "path": "poc/host-experience/plugin.tsx",
+          "expected": "f7c659e4edc0ffbd98155e019c3efb63fe4d7448d6f93dd6a592445edcb11cab",
+          "actual": "f7c659e4edc0ffbd98155e019c3efb63fe4d7448d6f93dd6a592445edcb11cab",
+          "matches": true
+        },
+        {
+          "path": "poc/host-experience/sdk-extension.d.ts",
+          "expected": "ebc3af1ce1abe59439596042e2e3e8dfcba5db2eb13cb50b8d28eb7f3bd741b8",
+          "actual": "ebc3af1ce1abe59439596042e2e3e8dfcba5db2eb13cb50b8d28eb7f3bd741b8",
+          "matches": true
+        },
+        {
+          "path": "scripts/p522-host-experience-build.mjs",
+          "expected": "60253e869c64fa18c36bf366535b6c18519fc3aec5aab833d38791b6dfe369df",
+          "actual": "60253e869c64fa18c36bf366535b6c18519fc3aec5aab833d38791b6dfe369df",
+          "matches": true
+        },
+        {
+          "path": "scripts/p522-host-experience-smoke.mjs",
+          "expected": "c30c6da9c94af3f576a8478ac30b91a6135e5c693d3e48c95261a6cb9f234b96",
+          "actual": "c30c6da9c94af3f576a8478ac30b91a6135e5c693d3e48c95261a6cb9f234b96",
+          "matches": true
+        },
+        {
+          "path": "scripts/p522-pane-probe-build.mjs",
+          "expected": "1d2d279eaa800048252d79aff61d387c953d7736c3041892e6c55b6248d717ec",
+          "actual": "1d2d279eaa800048252d79aff61d387c953d7736c3041892e6c55b6248d717ec",
+          "matches": true
+        },
+        {
+          "path": "scripts/p522-pane-probe-smoke.mjs",
+          "expected": "281673170b2f0e01afb39a61cef9da59db5321c6817f0ab059b19a4b829c96da",
+          "actual": "281673170b2f0e01afb39a61cef9da59db5321c6817f0ab059b19a4b829c96da",
+          "matches": true
+        },
+        {
+          "path": "scripts/p522-source-audit.mjs",
+          "expected": "91618d77fd3eb5fbc419cd0a399a463426c2a41e2e14ab402f27246d4e486073",
+          "actual": "91618d77fd3eb5fbc419cd0a399a463426c2a41e2e14ab402f27246d4e486073",
+          "matches": true
+        },
+        {
+          "path": "tests/unit/p522-host-experience.test.tsx",
+          "expected": "aac33ef9de1947cdcd446cc6ca98e3ad44ccb37e4c308cab6860d657a1a20d6f",
+          "actual": "aac33ef9de1947cdcd446cc6ca98e3ad44ccb37e4c308cab6860d657a1a20d6f",
+          "matches": true
+        }
+      ]
+    },
+    {
+      "file": "docs/architecture/evidence/p522-ux01/delivery-manifest.json",
+      "sha256": "13859f279ba924692a8dc2c35ab9994d29ec24d4ed7c5d47b54bdd09ca939fe8",
+      "files": [
+        {
+          "path": "prototype/unified-workspace-ux01/audit.mjs",
+          "expected": "3cd3b125704f2a9177adfd6be63d700f8f5de4e768dfbe60a2cd9c09ff043f2a",
+          "actual": "3cd3b125704f2a9177adfd6be63d700f8f5de4e768dfbe60a2cd9c09ff043f2a",
+          "matches": true
+        },
+        {
+          "path": "prototype/unified-workspace-ux01/build.mjs",
+          "expected": "b8908ffa0bf4dca00e6ff5d1ead8eef9eadced228424b30762070a2a19c29543",
+          "actual": "b8908ffa0bf4dca00e6ff5d1ead8eef9eadced228424b30762070a2a19c29543",
+          "matches": true
+        },
+        {
+          "path": "prototype/unified-workspace-ux01/deliver.mjs",
+          "expected": "82cc00c320b4b0647f334a72c15a37f306f672af041faf5a89c60883da4a0023",
+          "actual": "82cc00c320b4b0647f334a72c15a37f306f672af041faf5a89c60883da4a0023",
+          "matches": true
+        },
+        {
+          "path": "prototype/unified-workspace-ux01/main.tsx",
+          "expected": "ea0b358a5bc66fc6442b39ca957a53b720338845b867a70ebdfb9f608476dfed",
+          "actual": "ea0b358a5bc66fc6442b39ca957a53b720338845b867a70ebdfb9f608476dfed",
+          "matches": true
+        },
+        {
+          "path": "prototype/unified-workspace-ux01/observe-startup.mjs",
+          "expected": "7dcde8dcd9e32c197e9e6338767145ab76be5367249c77cf1fe3c0944c7884c9",
+          "actual": "7dcde8dcd9e32c197e9e6338767145ab76be5367249c77cf1fe3c0944c7884c9",
+          "matches": true
+        },
+        {
+          "path": "prototype/unified-workspace-ux01/README.md",
+          "expected": "8e3814f53fcc57778cc5b9847ff02801368ed6fd5cc01d8ce1ecdc31c93cef66",
+          "actual": "8e3814f53fcc57778cc5b9847ff02801368ed6fd5cc01d8ce1ecdc31c93cef66",
+          "matches": true
+        },
+        {
+          "path": "prototype/unified-workspace-ux01/serve.mjs",
+          "expected": "fb41bf26c565f4252f8cba9c95e9d14ad9c18bd55eae0bd616b1168a488eea3e",
+          "actual": "fb41bf26c565f4252f8cba9c95e9d14ad9c18bd55eae0bd616b1168a488eea3e",
+          "matches": true
+        },
+        {
+          "path": "prototype/unified-workspace-ux01/startup.mjs",
+          "expected": "568ee7df71d874d27e1907a19877283a845e17ee1584bbeb1b158aed73e44c57",
+          "actual": "568ee7df71d874d27e1907a19877283a845e17ee1584bbeb1b158aed73e44c57",
+          "matches": true
+        },
+        {
+          "path": "prototype/unified-workspace-ux01/styles.css",
+          "expected": "a2c521be604c4a4456781b39cda476d35539e637446e82d0f8d4df6ff14bdb91",
+          "actual": "a2c521be604c4a4456781b39cda476d35539e637446e82d0f8d4df6ff14bdb91",
+          "matches": true
+        },
+        {
+          "path": "prototype/unified-workspace-ux01/verify.mjs",
+          "expected": "33ffda039dbd5bc1a5af2adf55c080851068c06f6cd3bcd2967b2490a10a7639",
+          "actual": "33ffda039dbd5bc1a5af2adf55c080851068c06f6cd3bcd2967b2490a10a7639",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/baseline.json",
+          "expected": "b9080afbfe2014088357da75a38ce15961e0c8ac4b79b06afe40b0bc6d32b34f",
+          "actual": "b9080afbfe2014088357da75a38ce15961e0c8ac4b79b06afe40b0bc6d32b34f",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/final-checks.json",
+          "expected": "1c37dad563543080e8f6d948f4b3868521450c85c59fc4d39eb36d954a484dbd",
+          "actual": "1c37dad563543080e8f6d948f4b3868521450c85c59fc4d39eb36d954a484dbd",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/legacy-ui-matrix.json",
+          "expected": "225cda04115b6d4fcd1f4534621f7cb1e0ad8a51f35d7ddf9bcf30374c2400db",
+          "actual": "225cda04115b6d4fcd1f4534621f7cb1e0ad8a51f35d7ddf9bcf30374c2400db",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/navigation-capability.json",
+          "expected": "a3bda86419adbb4a2b4e71577285318673165a90b857fc5db01e58354975d36b",
+          "actual": "a3bda86419adbb4a2b4e71577285318673165a90b857fc5db01e58354975d36b",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/pane-capability.json",
+          "expected": "b750e4d8582e297537cc5e6981fe94b5f05ed0bc92621d0c3b5899be8c2dd3da",
+          "actual": "b750e4d8582e297537cc5e6981fe94b5f05ed0bc92621d0c3b5899be8c2dd3da",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/prototype-verification.json",
+          "expected": "6081461547ef744b1fb02c429043d8ce1ec9ab28c483ce489f6c7db1aadd7190",
+          "actual": "6081461547ef744b1fb02c429043d8ce1ec9ab28c483ce489f6c7db1aadd7190",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/reading-inventory.json",
+          "expected": "2289c4bcd1e390a881d1688ee2b4e8d2bb5b4ba42c2efe0919912a39f99499a7",
+          "actual": "2289c4bcd1e390a881d1688ee2b4e8d2bb5b4ba42c2efe0919912a39f99499a7",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/source-inventory.json",
+          "expected": "33b03f023a933135b6df8b4772e9a7489f8b22b6adff3656b6b99fe1f1c58aef",
+          "actual": "33b03f023a933135b6df8b4772e9a7489f8b22b6adff3656b6b99fe1f1c58aef",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/startup-observations.json",
+          "expected": "5ccd6fce67b3b059eb232046b2277fb262109837e467dc063bc7297da3e16506",
+          "actual": "5ccd6fce67b3b059eb232046b2277fb262109837e467dc063bc7297da3e16506",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/startup-timings.json",
+          "expected": "3dfc0b34ec7ed62d401677779601d35f4049e477513f506f3534008e6d980ba8",
+          "actual": "3dfc0b34ec7ed62d401677779601d35f4049e477513f506f3534008e6d980ba8",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-dark-0.png",
+          "expected": "9e5bcc138bb8998723c25f6832dc14bb816bb1af1a802c20e9a25f1f7b12b368",
+          "actual": "9e5bcc138bb8998723c25f6832dc14bb816bb1af1a802c20e9a25f1f7b12b368",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-dark-1.png",
+          "expected": "65c655badd3fa1289ec898e50f0adde6c8423a0cd1f3be1c18e75ed022d5cc46",
+          "actual": "65c655badd3fa1289ec898e50f0adde6c8423a0cd1f3be1c18e75ed022d5cc46",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-dark-2.png",
+          "expected": "c56a598b7f77d189485093b2a13ee9004714d02db167498d71736134c790b9d5",
+          "actual": "c56a598b7f77d189485093b2a13ee9004714d02db167498d71736134c790b9d5",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-dark-3.png",
+          "expected": "ab84a4418179a3c7e2e2963176863a4dffd5ba4b877587ec4905b71407aa50fd",
+          "actual": "ab84a4418179a3c7e2e2963176863a4dffd5ba4b877587ec4905b71407aa50fd",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-dark-4.png",
+          "expected": "3a20c1b2f4c0efc98770bb60e4ccbc3c416957134ec4136278af3ff1c4a81437",
+          "actual": "3a20c1b2f4c0efc98770bb60e4ccbc3c416957134ec4136278af3ff1c4a81437",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-dark-5.png",
+          "expected": "0eee3a883ad1c9b6be3b4d64e9452d672402bc237326647aa27f91df68de7260",
+          "actual": "0eee3a883ad1c9b6be3b4d64e9452d672402bc237326647aa27f91df68de7260",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-dark-6.png",
+          "expected": "0801f409f790dd571a5caf22b2715d38d6c142f6efceb8fc143f18554ec6e209",
+          "actual": "0801f409f790dd571a5caf22b2715d38d6c142f6efceb8fc143f18554ec6e209",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-dark-7.png",
+          "expected": "d022a25a873dc5eee1dd05c3b8c573c85bc513cf1c1433caaf073ecdb8483c70",
+          "actual": "d022a25a873dc5eee1dd05c3b8c573c85bc513cf1c1433caaf073ecdb8483c70",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-light-0.png",
+          "expected": "352be2836ad21d0d3f42ac1874be866c9ced7df6a6fae6c90e983507a0b11c72",
+          "actual": "352be2836ad21d0d3f42ac1874be866c9ced7df6a6fae6c90e983507a0b11c72",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-light-1.png",
+          "expected": "0e4308a64b9cd06b37d8aa708d01bc9dc1073c59bf63f4088d9f164291f14467",
+          "actual": "0e4308a64b9cd06b37d8aa708d01bc9dc1073c59bf63f4088d9f164291f14467",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-light-2.png",
+          "expected": "5f6e52f8d3b9b02c4b28dfdb47cb27928836092dcb574210724aa4cf913392f0",
+          "actual": "5f6e52f8d3b9b02c4b28dfdb47cb27928836092dcb574210724aa4cf913392f0",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-light-3.png",
+          "expected": "2a7c21d1cb4e22be9d1a366ea864cb04c0e02d712f3300352c0450f106c8318e",
+          "actual": "2a7c21d1cb4e22be9d1a366ea864cb04c0e02d712f3300352c0450f106c8318e",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-light-4.png",
+          "expected": "61cf1623bd9a5733ed2a0ece031e3c673a664207bd677fec8b8796b9c760f395",
+          "actual": "61cf1623bd9a5733ed2a0ece031e3c673a664207bd677fec8b8796b9c760f395",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-light-5.png",
+          "expected": "69105a7d9cf18f0a3e633a20c2bad47fa83e13872067ab031d0013f00cd062d0",
+          "actual": "69105a7d9cf18f0a3e633a20c2bad47fa83e13872067ab031d0013f00cd062d0",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-light-6.png",
+          "expected": "8421ccb184b51711e21a76b799d7799d368287d9ac291d73844c257c24c8d8f3",
+          "actual": "8421ccb184b51711e21a76b799d7799d368287d9ac291d73844c257c24c8d8f3",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1024-light-7.png",
+          "expected": "3cda8022beb7005ad8d3104b05f9dffd3b9e6c152ce12cedd4fae03143e35328",
+          "actual": "3cda8022beb7005ad8d3104b05f9dffd3b9e6c152ce12cedd4fae03143e35328",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-dark-0.png",
+          "expected": "bfc4d6edb8bd1cb1bd20f77ccebcb93c477ce314ab2125e53e42c0b91d1ffab8",
+          "actual": "bfc4d6edb8bd1cb1bd20f77ccebcb93c477ce314ab2125e53e42c0b91d1ffab8",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-dark-1.png",
+          "expected": "3bdfe82da37a94b718bf9e570b0f722b3c67b2fb61c56114cf0effc7a32a9098",
+          "actual": "3bdfe82da37a94b718bf9e570b0f722b3c67b2fb61c56114cf0effc7a32a9098",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-dark-2.png",
+          "expected": "9d727b8f9833fdad2848bae14a86dce976a091f6b3b2523ba06a200523a76094",
+          "actual": "9d727b8f9833fdad2848bae14a86dce976a091f6b3b2523ba06a200523a76094",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-dark-3.png",
+          "expected": "4a2a74fdf6b1e83129ebacb9ba32c35a327ee5ea523245c10db3b6b863389826",
+          "actual": "4a2a74fdf6b1e83129ebacb9ba32c35a327ee5ea523245c10db3b6b863389826",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-dark-4.png",
+          "expected": "53c7ec7f6f0ce8b9b2fc00e1510ed4eda98ad907b1c290e4f9cb4f29f8a26f3a",
+          "actual": "53c7ec7f6f0ce8b9b2fc00e1510ed4eda98ad907b1c290e4f9cb4f29f8a26f3a",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-dark-5.png",
+          "expected": "e5cf62076078cb5420ad59b298bac36b4030554bd7a76e9516f06a0d21e3084b",
+          "actual": "e5cf62076078cb5420ad59b298bac36b4030554bd7a76e9516f06a0d21e3084b",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-dark-6.png",
+          "expected": "47d8f8af0c05ad4037bd64a59fa78587d8851d30f876c7fa4be9865549ec1738",
+          "actual": "47d8f8af0c05ad4037bd64a59fa78587d8851d30f876c7fa4be9865549ec1738",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-dark-7.png",
+          "expected": "c162e94ac7bd15f06b561ee294868c3d9bd97f7321be252ee66da5437e5f461a",
+          "actual": "c162e94ac7bd15f06b561ee294868c3d9bd97f7321be252ee66da5437e5f461a",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-light-0.png",
+          "expected": "f472bfc9b3ba1e0fee657e3c72bacae1723f8beb40f950dc020434911e291f94",
+          "actual": "f472bfc9b3ba1e0fee657e3c72bacae1723f8beb40f950dc020434911e291f94",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-light-1.png",
+          "expected": "86aeae8cd8acb598d583c7604142877285740ba99346db89841c6f9342e2394d",
+          "actual": "86aeae8cd8acb598d583c7604142877285740ba99346db89841c6f9342e2394d",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-light-2.png",
+          "expected": "c6843dd6b24e10e738cf6ed3ff49985bf477a34c7b0e7a4b86988dddf11a6a60",
+          "actual": "c6843dd6b24e10e738cf6ed3ff49985bf477a34c7b0e7a4b86988dddf11a6a60",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-light-3.png",
+          "expected": "f92c7c9f831499f4c8c7a9b5e06cf70272827ba20ac1e3bd7614a82accbd68ce",
+          "actual": "f92c7c9f831499f4c8c7a9b5e06cf70272827ba20ac1e3bd7614a82accbd68ce",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-light-4.png",
+          "expected": "3b01fa4ddc751501a372e12f81c3cfcb54f16a2aa9031c014e9f94c5248b81fd",
+          "actual": "3b01fa4ddc751501a372e12f81c3cfcb54f16a2aa9031c014e9f94c5248b81fd",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-light-5.png",
+          "expected": "3faeb27090b48273dd5a01426b17a461c4f8c1598c665b63e01f3fc80c9c0723",
+          "actual": "3faeb27090b48273dd5a01426b17a461c4f8c1598c665b63e01f3fc80c9c0723",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-light-6.png",
+          "expected": "fe50b09cd8c2e2a9f4cba1fef1cb488560033b4ee472865bfb147ff108d4f858",
+          "actual": "fe50b09cd8c2e2a9f4cba1fef1cb488560033b4ee472865bfb147ff108d4f858",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1440-light-7.png",
+          "expected": "6e977594c2d5894d9fcb0a6a58cf8cf1df44b726ab448c76400e3387bd832206",
+          "actual": "6e977594c2d5894d9fcb0a6a58cf8cf1df44b726ab448c76400e3387bd832206",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-dark-0.png",
+          "expected": "29dd2bdcd4a7422b5110a686b81c3a8ba3eb266af7f41f9dd89c430f37961b84",
+          "actual": "29dd2bdcd4a7422b5110a686b81c3a8ba3eb266af7f41f9dd89c430f37961b84",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-dark-1.png",
+          "expected": "6de5e506757b1449a16470a69918b63d593b3ef8f2656e6ac94297b2a8e1c5d0",
+          "actual": "6de5e506757b1449a16470a69918b63d593b3ef8f2656e6ac94297b2a8e1c5d0",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-dark-2.png",
+          "expected": "d5a44c570a39c7730d1d698bb1825c94bdedd25aee5915cc8643fc2d98107bda",
+          "actual": "d5a44c570a39c7730d1d698bb1825c94bdedd25aee5915cc8643fc2d98107bda",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-dark-3.png",
+          "expected": "4bb9e31145f5741e3274334676b4647f0ae8476291bb6f03c6957dc1315d9aec",
+          "actual": "4bb9e31145f5741e3274334676b4647f0ae8476291bb6f03c6957dc1315d9aec",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-dark-4.png",
+          "expected": "2c3b2437c58d31952a7ec21ad9b96983e45deb048118c2128f2a8a253bd186d3",
+          "actual": "2c3b2437c58d31952a7ec21ad9b96983e45deb048118c2128f2a8a253bd186d3",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-dark-5.png",
+          "expected": "b5148e95be4ad736073d2dbead89107b85d0f15d6e9c1b927db20f9610142be1",
+          "actual": "b5148e95be4ad736073d2dbead89107b85d0f15d6e9c1b927db20f9610142be1",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-dark-6.png",
+          "expected": "bed47807220358424f80ef6a8df19200c9bd1ebbcd8aaf5c071b508d003ca35c",
+          "actual": "bed47807220358424f80ef6a8df19200c9bd1ebbcd8aaf5c071b508d003ca35c",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-dark-7.png",
+          "expected": "4a495c5768c7f8bebb3bb908585de99fd7d96dee1d1b164b4b983bdd870f9048",
+          "actual": "4a495c5768c7f8bebb3bb908585de99fd7d96dee1d1b164b4b983bdd870f9048",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-light-0.png",
+          "expected": "aee9f0597bb3b37fabfb51f4147e63047b1fa70ce66b02b35bbace11883d8999",
+          "actual": "aee9f0597bb3b37fabfb51f4147e63047b1fa70ce66b02b35bbace11883d8999",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-light-1.png",
+          "expected": "c4e982f6498ac51ae6baa41635c028776f10e769f52482b7c699a246db5a5978",
+          "actual": "c4e982f6498ac51ae6baa41635c028776f10e769f52482b7c699a246db5a5978",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-light-2.png",
+          "expected": "014f1ac4f47178e8409eacd70c749c1a02ad3ed8b7d34476390c655267cdf7d9",
+          "actual": "014f1ac4f47178e8409eacd70c749c1a02ad3ed8b7d34476390c655267cdf7d9",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-light-3.png",
+          "expected": "2b54b389bf1a7b4a0189f1bbc80218ae4d47c0fdb40b4ad548f278272fe9e6b5",
+          "actual": "2b54b389bf1a7b4a0189f1bbc80218ae4d47c0fdb40b4ad548f278272fe9e6b5",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-light-4.png",
+          "expected": "34e37f0692af764167b824b3ca93a1998542bbdb7b7d06614c3a7db0ed2076f3",
+          "actual": "34e37f0692af764167b824b3ca93a1998542bbdb7b7d06614c3a7db0ed2076f3",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-light-5.png",
+          "expected": "32862d92951ef86f29ff9c6481d44aba55f67083f6f912224a475bd18afa6773",
+          "actual": "32862d92951ef86f29ff9c6481d44aba55f67083f6f912224a475bd18afa6773",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-light-6.png",
+          "expected": "4f9a84a0817af498da30fcd97d2f0d1273e21118e361e39c86fcdff3e8cf6545",
+          "actual": "4f9a84a0817af498da30fcd97d2f0d1273e21118e361e39c86fcdff3e8cf6545",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/1920-light-7.png",
+          "expected": "4018d082631a3eb328353c5fb66b797c2afafe072e533ea3fd755a3a90e8bf22",
+          "actual": "4018d082631a3eb328353c5fb66b797c2afafe072e533ea3fd755a3a90e8bf22",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/startup-1-profile-cold.png",
+          "expected": "c0dd3f80a303e71b05d39ea035c92cad692eedb899c21dbf90ce71499179028b",
+          "actual": "c0dd3f80a303e71b05d39ea035c92cad692eedb899c21dbf90ce71499179028b",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/startup-1-profile-warm.png",
+          "expected": "d7dd6cb6fc5b2456dc70ea0f03f6af6aba40b79061d03a2398e593e2b0c59d5f",
+          "actual": "d7dd6cb6fc5b2456dc70ea0f03f6af6aba40b79061d03a2398e593e2b0c59d5f",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/startup-2-profile-cold.png",
+          "expected": "c0dd3f80a303e71b05d39ea035c92cad692eedb899c21dbf90ce71499179028b",
+          "actual": "c0dd3f80a303e71b05d39ea035c92cad692eedb899c21dbf90ce71499179028b",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/startup-2-profile-warm.png",
+          "expected": "44478bc7a5c0601234e9fc33ce07ebcf9878ced2983e3b795dc2dc41ada83e57",
+          "actual": "44478bc7a5c0601234e9fc33ce07ebcf9878ced2983e3b795dc2dc41ada83e57",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/startup-3-profile-cold.png",
+          "expected": "c0dd3f80a303e71b05d39ea035c92cad692eedb899c21dbf90ce71499179028b",
+          "actual": "c0dd3f80a303e71b05d39ea035c92cad692eedb899c21dbf90ce71499179028b",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/screenshots/startup-3-profile-warm.png",
+          "expected": "d7dd6cb6fc5b2456dc70ea0f03f6af6aba40b79061d03a2398e593e2b0c59d5f",
+          "actual": "d7dd6cb6fc5b2456dc70ea0f03f6af6aba40b79061d03a2398e593e2b0c59d5f",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/startup-logs/p522-ux01-startup-1793723035985-pair-1-desktop.log",
+          "expected": "ff8f40d223bdff551e80c80e65e701ab130c95d841391fc8ad347243b5237b51",
+          "actual": "ff8f40d223bdff551e80c80e65e701ab130c95d841391fc8ad347243b5237b51",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/startup-logs/p522-ux01-startup-1793723393829-pair-1-desktop.log",
+          "expected": "9c04f64737a9c8cb81db0e2dd1baeb60034f99dd8cdcfac132b50cfbeef8f3d0",
+          "actual": "9c04f64737a9c8cb81db0e2dd1baeb60034f99dd8cdcfac132b50cfbeef8f3d0",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/startup-logs/p522-ux01-startup-1793723393829-pair-2-desktop.log",
+          "expected": "1193169688ade06e44f02136f48721927e44c172e72e1e3a8ea28fb44b0e5777",
+          "actual": "1193169688ade06e44f02136f48721927e44c172e72e1e3a8ea28fb44b0e5777",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/evidence/p522-ux01/startup-logs/p522-ux01-startup-1793723393829-pair-3-desktop.log",
+          "expected": "037f12b7f376f22f0236d62d8c259cf696e7ed2f52da96d83a9160d951e32d89",
+          "actual": "037f12b7f376f22f0236d62d8c259cf696e7ed2f52da96d83a9160d951e32d89",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/p5.2.2-ux-01-information-architecture.md",
+          "expected": "56a925fc65f719a4c8b985d53a5447dd9bf88d037ef6a483e50abf63e1eed175",
+          "actual": "56a925fc65f719a4c8b985d53a5447dd9bf88d037ef6a483e50abf63e1eed175",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/p5.2.2-ux-01-legacy-ui-reconciliation.md",
+          "expected": "7d3bbc0a7097cff37a8af4ae72152b94fa8519e24906b1a9b41e6098323f3930",
+          "actual": "7d3bbc0a7097cff37a8af4ae72152b94fa8519e24906b1a9b41e6098323f3930",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/p5.2.2-ux-01-startup-performance-audit.md",
+          "expected": "b21a820c189de1a8bde46ad0681190382f6b7dae1da6f505e3258411f80bdc08",
+          "actual": "b21a820c189de1a8bde46ad0681190382f6b7dae1da6f505e3258411f80bdc08",
+          "matches": true
+        },
+        {
+          "path": "docs/architecture/p5.2.2-ux-01-unified-workspace-audit-20261104.md",
+          "expected": "116847b7e517c4916f44153d6d1d10865d8209536bc4a317f6ae93601b88c811",
+          "actual": "116847b7e517c4916f44153d6d1d10865d8209536bc4a317f6ae93601b88c811",
+          "matches": true
+        }
+      ]
+    }
+  ],
+  "hermesHead": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+  "desktopVersion": "0.17.0",
+  "runtimeLock": {
+    "hermesVersion": "0.19.0",
+    "hermesGitCommit": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+    "hermesSourceTreeHash": "eb32a7abb5b92a27a25c89de3d4f0698dc8684abb84837a9c6171a5851598ab8",
+    "pythonVersion": "3.11.13",
+    "sitePackagesFingerprint": "962cc1380c454dbba3213991523454642698609fa01e14b52067d5dec47f9e59",
+    "careerAdaptPatchVersion": "careeradapt-api-toolsets-selection-amd-efficiency-v4"
+  },
+  "sdk": [
+    {
+      "path": "src/sdk/index.ts",
+      "sha256": "3dcb00fea4b0c573797746840525e4155b676a6c2e914fdc517592192209840b",
+      "diff": ""
+    },
+    {
+      "path": "src/sdk/runtime.ts",
+      "sha256": "6d38dfb12d567cf3f10474afdc9cd6798b2b05b4b23e7f2f4a383f8a265b0c07",
+      "diff": ""
+    },
+    {
+      "path": "src/contrib/plugin.ts",
+      "sha256": "34c2713ab2bf0d5e77826a42cdd22da80fc5ff051d2d143c2a8ba22c1e26c2db",
+      "diff": ""
+    },
+    {
+      "path": "src/contrib/runtime-loader.ts",
+      "sha256": "545d39f9acfe21702384c19120f30cc06413e9489d4f9f0882301fa831a60999",
+      "diff": ""
+    },
+    {
+      "path": "src/contrib/plugins-store.ts",
+      "sha256": "c22a449019a50ca68aa8af807c85678357aa981a2a2fb9fcee3ba7b58c90e01c",
+      "diff": ""
+    },
+    {
+      "path": "src/app/routes.ts",
+      "sha256": "4cb91d3b9a25f11aba76e949767bdfbfaeb9d8cda0da44fd363bddd27f75746c",
+      "diff": ""
+    },
+    {
+      "path": "src/themes/context.tsx",
+      "sha256": "04efd89a14deef6ebce0b5493007620044679c51016e10a1da56fcc867f5ac25",
+      "diff": ""
+    }
+  ],
+  "initialStatusShort": "",
+  "statusCapturedAfterAddingGateHarness": "?? docs/architecture/evidence/p522-slice1/\n?? scripts/p522-gate00-qualification.mjs"
+}

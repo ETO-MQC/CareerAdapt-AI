@@ -1,0 +1,138 @@
+{
+  "status": "PASS_WITH_DISCLOSED_ADAPTATIONS",
+  "reviewed": [
+    "original actual Profile 1440 dark",
+    "final Profile 1440 light/dark",
+    "final project 1920 dark",
+    "1024 light project",
+    "System dark after transitions settled"
+  ],
+  "original": "docs/architecture/evidence/p521/careeradapt-current-profile-1440.png",
+  "hostShots": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566",
+  "systemShots": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726635513",
+  "matrix": [
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "mode": "light",
+      "geometry": {
+        "right": 1920.0001373291016,
+        "width": 1683.0001220703125,
+        "viewport": 1920,
+        "overflow": false,
+        "background": "rgb(243, 246, 244)",
+        "text": "rgb(24, 32, 27)",
+        "action": "#176b5b",
+        "minFont": 11
+      },
+      "projectDetails": "PASS"
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "mode": "dark",
+      "geometry": {
+        "right": 1920.0001373291016,
+        "width": 1683.0001220703125,
+        "viewport": 1920,
+        "overflow": false,
+        "background": "rgb(13, 18, 20)",
+        "text": "rgb(238, 244, 240)",
+        "action": "#72d58b",
+        "minFont": 11
+      },
+      "projectDetails": "PASS"
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "mode": "light",
+      "geometry": {
+        "right": 1440.000015258789,
+        "width": 1203,
+        "viewport": 1440,
+        "overflow": false,
+        "background": "rgb(243, 246, 244)",
+        "text": "rgb(24, 32, 27)",
+        "action": "#176b5b",
+        "minFont": 11
+      },
+      "projectDetails": "PASS"
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "mode": "dark",
+      "geometry": {
+        "right": 1440.000015258789,
+        "width": 1203,
+        "viewport": 1440,
+        "overflow": false,
+        "background": "rgb(13, 18, 20)",
+        "text": "rgb(238, 244, 240)",
+        "action": "#72d58b",
+        "minFont": 11
+      },
+      "projectDetails": "PASS"
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "light",
+      "geometry": {
+        "right": 1024.0000762939453,
+        "width": 787.0000610351562,
+        "viewport": 1024,
+        "overflow": false,
+        "background": "rgb(243, 246, 244)",
+        "text": "rgb(24, 32, 27)",
+        "action": "#176b5b",
+        "minFont": 11
+      },
+      "projectDetails": "PASS"
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "dark",
+      "geometry": {
+        "right": 1024.0000762939453,
+        "width": 787.0000610351562,
+        "viewport": 1024,
+        "overflow": false,
+        "background": "rgb(13, 18, 20)",
+        "text": "rgb(238, 244, 240)",
+        "action": "#72d58b",
+        "minFont": 11
+      },
+      "projectDetails": "PASS"
+    }
+  ],
+  "differences": [
+    "Host native sidebar/window/status remain blue under its own palette; no Career AppShell duplicated",
+    "Original internal vertical category column becomes wrapped horizontal 19-category tabs; list/detail stay adjacent",
+    "Typed values shown read-only rather than active editors; original context controller/edit forms intentionally excluded",
+    "List rows include date/body/source preview and full details; more explicit than old two-line rows",
+    "At 1024 workspace scrolls vertically; all panels exist and project selection/details are reachable, but fewer fields appear above fold",
+    "Original screenshot is historical actual product dark capture, not a fresh identical-viewport/fixture capture; no numeric fidelity percentage claimed",
+    "Original field surfaces were affected by old global styles; this PoC uses original Product elevated surface tokens",
+    "Native Host scrollbars remain Host-styled; plugin does not recolor global scrollbar"
+  ],
+  "fidelity": "Main information structure, canonical category order, brand colors, body/section/title scales, controls/radii and selection hierarchy restored. Adapted display, not pixel-identical. User visual acceptance pending.",
+  "intermediateFailures": [
+    "host-smoke-1793726408087.json: 6-cell matrix passed, exact-label selector timed out; explicit aria-label added",
+    "Initial System screenshots in full run caught the 160ms transition; separate system verification waits for actual input background before capture. Old images preserved."
+  ]
+}

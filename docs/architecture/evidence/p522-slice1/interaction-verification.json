@@ -1,0 +1,154 @@
+{
+  "status": "PASS",
+  "run": 1793726858566,
+  "root": "E:\\DEF\\CareerAdapt AI\\.artifacts\\p522-slice1-1793726858566",
+  "shots": "docs/architecture/evidence/p522-slice1/screenshots/run-1793726858566",
+  "errors": [],
+  "consoleErrors": [],
+  "matrix": [
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "mode": "light",
+      "geometry": {
+        "right": 1920.0001373291016,
+        "width": 1683.0001220703125,
+        "viewport": 1920,
+        "overflow": false,
+        "background": "rgb(243, 246, 244)",
+        "text": "rgb(24, 32, 27)",
+        "action": "#176b5b",
+        "minFont": 11
+      },
+      "projectDetails": "PASS"
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "mode": "dark",
+      "geometry": {
+        "right": 1920.0001373291016,
+        "width": 1683.0001220703125,
+        "viewport": 1920,
+        "overflow": false,
+        "background": "rgb(13, 18, 20)",
+        "text": "rgb(238, 244, 240)",
+        "action": "#72d58b",
+        "minFont": 11
+      },
+      "projectDetails": "PASS"
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "mode": "light",
+      "geometry": {
+        "right": 1440.000015258789,
+        "width": 1203,
+        "viewport": 1440,
+        "overflow": false,
+        "background": "rgb(243, 246, 244)",
+        "text": "rgb(24, 32, 27)",
+        "action": "#176b5b",
+        "minFont": 11
+      },
+      "projectDetails": "PASS"
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "mode": "dark",
+      "geometry": {
+        "right": 1440.000015258789,
+        "width": 1203,
+        "viewport": 1440,
+        "overflow": false,
+        "background": "rgb(13, 18, 20)",
+        "text": "rgb(238, 244, 240)",
+        "action": "#72d58b",
+        "minFont": 11
+      },
+      "projectDetails": "PASS"
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "light",
+      "geometry": {
+        "right": 1024.0000762939453,
+        "width": 787.0000610351562,
+        "viewport": 1024,
+        "overflow": false,
+        "background": "rgb(243, 246, 244)",
+        "text": "rgb(24, 32, 27)",
+        "action": "#176b5b",
+        "minFont": 11
+      },
+      "projectDetails": "PASS"
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "dark",
+      "geometry": {
+        "right": 1024.0000762939453,
+        "width": 787.0000610351562,
+        "viewport": 1024,
+        "overflow": false,
+        "background": "rgb(13, 18, 20)",
+        "text": "rgb(238, 244, 240)",
+        "action": "#72d58b",
+        "minFont": 11
+      },
+      "projectDetails": "PASS"
+    }
+  ],
+  "interactions": [
+    "19 categories rendered; education/work/internship/award/skill/certificate/language/empty inspected",
+    "search empty clears details; archived/unused/used filters PASS",
+    "Loading/Empty/Error/Invalid/Success; roving tab focus and detail focus PASS",
+    "reload/page refresh/native route exit/re-entry PASS"
+  ],
+  "lifecycle": [
+    {
+      "cycle": 0,
+      "disabledStyles": 0,
+      "enabledAndReloadedStyles": 1
+    },
+    {
+      "cycle": 1,
+      "disabledStyles": 0,
+      "enabledAndReloadedStyles": 1
+    }
+  ],
+  "focus": {
+    "focused": true,
+    "outline": "solid"
+  },
+  "system": [
+    {
+      "controlBackground": "rgb(26, 33, 36)",
+      "mode": "dark",
+      "background": "rgb(13, 18, 20)",
+      "text": "rgb(238, 244, 240)"
+    },
+    {
+      "controlBackground": "rgb(255, 255, 255)",
+      "mode": "light",
+      "background": "rgb(243, 246, 244)",
+      "text": "rgb(24, 32, 27)"
+    }
+  ]
+}
