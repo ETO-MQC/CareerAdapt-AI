@@ -1,0 +1,121 @@
+{
+  "schemaVersion": "sq13-isolated-audit-evidence-1",
+  "date": "2026-11-03",
+  "branch": "competition/5.1.8",
+  "baselineCommit": "b47c01dcb7a5092bf9c4753f124dbd3120e11af0",
+  "scope": "isolated_current_helpers_not_model_or_persisted_workflow",
+  "realProviderRequests": 0,
+  "realModelStatus": "UNVERIFIED_REAL_MODEL_REQUIRED",
+  "probeCommand": "pnpm exec vitest run tests/unit/sq13BaselineAuditProbe.test.ts",
+  "probeSource": "import { it, expect } from \"vitest\";\nimport { writeFileSync } from \"node:fs\";\nimport { ownershipStrength, preservesOwnership } from \"@/domain/profileIntake/CareerWritingQuality\";\nimport { runRuleFactGuard } from \"@/domain/adaptation/factGuard\";\nimport { classifyJobKeywords } from \"@/domain/resumeComposition/ResumeBlueprint\";\nimport type { JobDescription, ResumeItemV2 } from \"@/domain/schemas\";\nimport type { ResumeEvidenceGraph } from \"@/domain/resumeComposition/contracts\";\n\nit(\"records isolated current helper behavior, not model quality\", () => {\n  const ownership = [\"协助\", \"参与\", \"共同完成\", \"共同负责\", \"主要负责\", \"负责\", \"独立完成\", \"主导\"].map(text => ({ text, strength: ownershipStrength(text) }));\n  const guard = (originalText: string, checkedText: string) => runRuleFactGuard({ originalText, checkedText, usedEvidenceRefs: [] }).status;\n  const mapping = (keyword: string, text: string) => {\n    const item = { id: \"audit-asset\", sectionType: \"project\", name: \"合成审计\", tools: [], highlights: [text], outcomes: [], customFields: [] } as unknown as ResumeItemV2;\n    const graph = { sourceAssetIds: [item.id], nodes: [{ id: `asset:${item.id}`, sourceAssetIds: [item.id], factIds: [\"audit-fact\"], sourceExcerpts: [text] }] } as unknown as ResumeEvidenceGraph;\n    const job = { requirements: [{ keywords: [keyword], description: keyword }], rawText: keyword } as unknown as JobDescription;\n    return classifyJobKeywords(job, graph, new Map([[item.id, item]])).find(row => row.keyword === keyword)?.status;\n  };\n  const results = {\n    ownership,\n    coOwnerToOwner: preservesOwnership(\"共同负责接口测试\", \"负责接口测试\"),\n    mixedSubject: preservesOwnership(\"负责人主导项目，我协助接口测试\", \"我主导接口测试\"),\n    assistToLeadGuard: guard(\"协助接口测试\", \"主导接口测试\"),\n    ownerToLeadGuard: guard(\"负责接口测试\", \"主导接口测试\"),\n    fabricatedPercentageGuard: guard(\"参与接口测试\", \"参与接口测试，准确率99%\"),\n    fabricatedLatencyGuard: guard(\"负责接口测试\", \"负责接口测试，延迟80ms\"),\n    exact: mapping(\"React\", \"使用React开发页面\"),\n    synonymOnly: mapping(\"Prompt Engineering\", \"参与提示词工程，验证模型输出\"),\n    falseSubstring: mapping(\"Java\", \"使用JavaScript开发页面\"),\n    adjacent: mapping(\"PostgreSQL\", \"使用SQLite实现数据查询\"),\n    unknown: mapping(\"Kubernetes\", \"使用React开发页面\")\n  };\n  writeFileSync(\".tmp/sq13-isolated-helpers.json\", JSON.stringify(results, null, 2));\n  expect(results.assistToLeadGuard).toBe(\"blocked_high_risk\");\n  expect(results.exact).toBe(\"SUPPORTED\");\n});\n",
+  "probeResults": {
+    "ownership": [
+      {
+        "text": "协助",
+        "strength": 1
+      },
+      {
+        "text": "参与",
+        "strength": 1
+      },
+      {
+        "text": "共同完成",
+        "strength": 2
+      },
+      {
+        "text": "共同负责",
+        "strength": 4
+      },
+      {
+        "text": "主要负责",
+        "strength": 4
+      },
+      {
+        "text": "负责",
+        "strength": 4
+      },
+      {
+        "text": "独立完成",
+        "strength": 5
+      },
+      {
+        "text": "主导",
+        "strength": 6
+      }
+    ],
+    "coOwnerToOwner": true,
+    "mixedSubject": true,
+    "assistToLeadGuard": "blocked_high_risk",
+    "ownerToLeadGuard": "pass",
+    "fabricatedPercentageGuard": "blocked_high_risk",
+    "fabricatedLatencyGuard": "pass",
+    "exact": "SUPPORTED",
+    "synonymOnly": "UNSUPPORTED",
+    "falseSubstring": "SUPPORTED",
+    "adjacent": "POTENTIALLY_SUPPORTED",
+    "unknown": "UNSUPPORTED"
+  },
+  "fixtureHistory": [
+    "Initial probe exit 1: customFields missing in synthetic ResumeItemV2; added customFields/outcomes arrays; no production changes.",
+    "Fixed probe exit 0; console suppressed by setup; subsequent execution wrote local JSON; repeated runs are not independent quality samples."
+  ],
+  "reproduction": "Restore probeSource to its probeCommand path in an isolated checkout with dependencies and an existing .tmp directory; execute once. No Provider or Repository invoked. The final repository does not retain this temporary test.",
+  "existingUnitTests": {
+    "files": 13,
+    "passed": 103,
+    "exitCodes": [
+      0,
+      0,
+      0
+    ]
+  },
+  "typecheck": {
+    "command": "pnpm typecheck",
+    "exitCode": 0
+  },
+  "metrics": {
+    "semanticMappingAccuracy": {
+      "value": null,
+      "status": "UNVERIFIED_REAL_MODEL_REQUIRED"
+    },
+    "falseSemanticEquivalence": {
+      "value": null,
+      "status": "UNVERIFIED_REAL_MODEL_REQUIRED"
+    },
+    "ownershipPreservation": {
+      "value": null,
+      "status": "UNVERIFIED_REAL_MODEL_REQUIRED"
+    },
+    "unsupportedClaimRate": {
+      "value": null,
+      "status": "UNVERIFIED_REAL_MODEL_REQUIRED"
+    },
+    "fabricatedMetricCount": {
+      "value": null,
+      "status": "UNVERIFIED_REAL_MODEL_REQUIRED"
+    },
+    "bulletSpecificity": {
+      "value": null,
+      "status": "UNVERIFIED_REAL_MODEL_REQUIRED"
+    },
+    "redundancy": {
+      "value": null,
+      "status": "UNVERIFIED_REAL_MODEL_REQUIRED"
+    },
+    "relevance": {
+      "value": null,
+      "status": "UNVERIFIED_REAL_MODEL_REQUIRED"
+    },
+    "evidenceCoverage": {
+      "value": null,
+      "status": "UNVERIFIED_REAL_MODEL_REQUIRED"
+    }
+  },
+  "designedCases": 12,
+  "executedRealModelCases": 0,
+  "limitations": [
+    "Probe results are local helper outputs, not model response safety scores.",
+    "Synthetic mapping graph intentionally minimal and passed directly to classifyJobKeywords; graph construction/eligibility and full product chain are not tested by that probe.",
+    "No new SQ1.3 model case was executed; no formal write, PDF, Hermes or E2E certification."
+  ]
+}
