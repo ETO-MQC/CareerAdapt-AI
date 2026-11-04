@@ -87,6 +87,7 @@ export function buildCanonicalJobRequirementGraph(job: JobDescription): JobRequi
       priority: node.priority,
       hardConstraint: node.hardConstraint,
       exactKeywords: node.exactKeywords,
+      keywordLogic: node.keywordLogic,
       semanticAliases: node.semanticAliases,
       sourceSpan: node.sourceSpan,
       sourceSpans: node.sourceSpans,
@@ -95,7 +96,7 @@ export function buildCanonicalJobRequirementGraph(job: JobDescription): JobRequi
       relatedRequirementIds: []
     }));
     linkRelatedNodes(nodes);
-    return JobRequirementGraphV2Schema.parse({ schemaVersion: "job-requirement-graph-v2", nodes, unclassifiedSourceSpans: job.requirementGraph.sourceCoverage.unclassifiedSpans, analyzedAt: new Date().toISOString(), analyzerVersion: `${job.requirementGraph.analyzerVersion}.v2-projection` });
+    return JobRequirementGraphV2Schema.parse({ schemaVersion: "job-requirement-graph-v2", nodes, groups: job.requirementGraph.groups, unclassifiedSourceSpans: job.requirementGraph.sourceCoverage.unclassifiedSpans, analyzedAt: new Date().toISOString(), analyzerVersion: `${job.requirementGraph.analyzerVersion}.v2-projection` });
   }
   if (job.requirements.length === 0) return analyzeJobDescriptionV2({ rawText: job.rawText });
   const nodes = job.requirements
@@ -120,6 +121,7 @@ export function buildCanonicalJobRequirementGraph(job: JobDescription): JobRequi
       hardConstraint: requirement.category === "verification_material" ? false : requirement.hardConstraint,
       exactKeywords: unique(requirement.keywords.length ? requirement.keywords : extractKeywords(requirement.description)),
       semanticAliases: aliasesFor(requirement.description),
+      keywordLogic: requirement.keywordLogic,
       sourceSpan: requirement.sourceSpan,
       sourceSpans: [requirement.sourceSpan],
       confidence: requirement.confidence,

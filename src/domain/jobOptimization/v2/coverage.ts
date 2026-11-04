@@ -7,7 +7,15 @@ const PRIORITY_WEIGHT = { must: 5, high: 3.5, medium: 2, nice_to_have: 1, uncert
 export function buildJobCoverageReport(input: { graph: JobRequirementGraphV2; matrix: RequirementEvidenceMatrixV2 }): JobCoverageReportV2 {
   const evaluationById = new Map(input.matrix.evaluations.map((item) => [item.requirementId, item]));
   const usedEvidence = new Map<string, number>();
-  const contributions = input.graph.nodes.map((requirement) => {
+  const optionalAlternatives = new Set<string>();
+  for (const group of input.graph.groups ?? []) {
+    if (!["any_of", "preferred_any_of"].includes(group.relation)) continue;
+    const supported = group.requirementIds.filter(id => evaluationById.get(id)?.matchLevel === "direct");
+    if (supported.length >= (group.minimumSatisfied ?? 1)) {
+      group.requirementIds.filter(id => !supported.includes(id)).forEach(id => optionalAlternatives.add(id));
+    }
+  }
+  const contributions = input.graph.nodes.filter(node => !optionalAlternatives.has(node.id)).map((requirement) => {
     const evaluation = evaluationById.get(requirement.id);
     const base = evaluation ? LEVEL_VALUE[evaluation.matchLevel] : 0;
     const duplicateUse = Math.max(0, ...(evaluation?.evidenceUnitIds.map((id) => usedEvidence.get(id) ?? 0) ?? [0]));
@@ -17,7 +25,7 @@ export function buildJobCoverageReport(input: { graph: JobRequirementGraphV2; ma
     return { requirement, evaluation, value: base * dedupeFactor, weight };
   });
   const weighted = weightedScore(contributions);
-  const hardGaps = contributions.filter((item) => item.requirement.hardConstraint && (!item.evaluation || ["none", "weak", "partial", "needs_confirmation"].includes(item.evaluation.matchLevel)));
+  const hardGaps = contributions.filter((item) => item.requirement.priority !== "nice_to_have" && item.requirement.hardConstraint && (!item.evaluation || ["none", "weak", "partial", "needs_confirmation"].includes(item.evaluation.matchLevel)));
   const hardPenalty = Math.min(38, hardGaps.reduce((total, item) => total + (item.requirement.priority === "must" ? 14 : 9), 0));
   const overallCoverage = clamp(Math.round(weighted - hardPenalty));
   const subScores = {
@@ -39,7 +47,7 @@ export function buildJobCoverageReport(input: { graph: JobRequirementGraphV2; ma
     blockingGaps: hardGaps.map((item) => item.requirement.statement),
     improvementOpportunities: contributions.filter((item) => !item.requirement.hardConstraint && item.value < 0.72).map((item) => item.requirement.statement),
     scoreVersion: JOB_COVERAGE_SCORE_VERSION,
-    scoreExplanation: `岗位证据覆盖度由已确认事实与 ${input.graph.nodes.length} 条岗位要求的逐项证据等级确定；必备缺口扣减 ${hardPenalty} 分。它不是 ATS 通过率、录取概率或招聘成功率。`
+    scoreExplanation: `岗位证据覆盖度由已确认事实与 ${input.graph.nodes.length} 条岗位要求的逐项证据等级确定；必备证据待核实扣减 ${hardPenalty} 分。缺少证据不代表不具备能力。它不是 ATS 通过率、录取概率或招聘成功率。`
   });
 }
 

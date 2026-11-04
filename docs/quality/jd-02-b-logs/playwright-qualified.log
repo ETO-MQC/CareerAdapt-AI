@@ -1,0 +1,11 @@
+
+Running 4 tests using 1 worker
+
+(node:25536) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 1 [chromium] › tests\e2e\jd02-job-fit.spec.ts:11:5 › JD02 read-only Fit isolates F1/F2, switches job/resume/source, restores and locates evidence (6.4s)
+  ok 2 [chromium] › tests\e2e\p40a1-job-source-modes.spec.ts:28:7 › P4.0a.1 job resume source modes › selects canonical profile content and creates an isolated job branch (7.7s)
+  ok 3 [chromium] › tests\e2e\p40a1-job-source-modes.spec.ts:51:7 › P4.0a.1 job resume source modes › analyzes one general resume and creates a branch without changing its source (14.5s)
+  ok 4 [chromium] › tests\e2e\p40a1-job-source-modes.spec.ts:81:7 › P4.0a.1 job resume source modes › creates Job A and Job B through the current source panel and preserves both after reload (21.8s)
+
+  4 passed (52.8s)

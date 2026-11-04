@@ -1,0 +1,11 @@
+
+> careeradapt-ai@0.9.3-rc.2 build E:\DEF\CareerAdapt-sq13b2-current-87360d1
+> next build
+
+▲ Next.js 16.2.9 (Turbopack)
+- Experiments (use with caution):
+  ⨯ turbopackFileSystemCacheForDev
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 7.7s
+  Running TypeScript ...

@@ -1,0 +1,205 @@
+{
+  "schemaVersion": "jd-02-b-implementation-evidence.v1",
+  "date": "2026-11-04",
+  "timezone": "Asia/Shanghai",
+  "status": "IMPLEMENTED_B5_PARTIAL_NOT_ALL_GREEN",
+  "git": {
+    "branch": "competition/5.1.8",
+    "expectedHead": "7facfde1853dda0c048f5cdcc31f16d5dd0a80f0",
+    "baselineHead": "7c8d28dd0e0d1504f85de0cd8fbd5cda35be076f",
+    "difference": "one audit-only commit; report and handoff; no production changes",
+    "initialStatus": "clean including untracked",
+    "committed": false,
+    "pushed": false,
+    "packaged": false,
+    "otherBranchesImported": false,
+    "remoteVerifiedThisTask": false
+  },
+  "stages": {
+    "B1": {
+      "status": "IMPLEMENTED_DIRECTED_CASES_PASS",
+      "cases": [
+        "F1 without F2",
+        "hidden items",
+        "cross-profile rejection",
+        "cross-identity stale with identical data",
+        "revision/matcher/graph invalidation",
+        "sourceMode/resumeId/jobId URL restoration",
+        "late read/save ignored after selection change"
+      ]
+    },
+    "B2": {
+      "status": "DIRECTED_CASES_PASS_CONSERVATIVE_INFERENCE",
+      "conditionTests": 15,
+      "cases": [
+        "any_of",
+        "all_of across evidence units",
+        "minimumSatisfied counts",
+        "Java != JavaScript",
+        "adjacent != synonym",
+        "preferred not blocking",
+        "years/responsibility/expiry pending",
+        "negative and learning pending",
+        "mixed maturity cannot upgrade learning fact"
+      ]
+    },
+    "B3": {
+      "status": "SHARED_ANALYSIS_IMPLEMENTED_COMPATIBILITY_ASSERTION_OPEN",
+      "canonical": "existing Core-02 CandidateEvidenceMatrix / JobFit",
+      "formalModel": "existing RequirementMatch only",
+      "analysisId": "shared stable derivation, not a new persisted match model"
+    },
+    "B4": {
+      "status": "PARTIAL_NEGATIVE_EVIDENCE_OPEN",
+      "emittedStates": [
+        "supported",
+        "partial",
+        "possible",
+        "insufficient"
+      ],
+      "confirmedAbsent": "not emitted without traceable requirement-bound explicit denial; no persistence change",
+      "decision": "docs/architecture/p5.1-jd-02-b-negative-evidence-decision.md"
+    },
+    "B5": {
+      "status": "PARTIAL",
+      "allGreen": false
+    }
+  },
+  "checks": {
+    "baseline": {
+      "typecheckExit": 0,
+      "testFiles": 4,
+      "testsPassed": 28
+    },
+    "unitIntegration": {
+      "files": 20,
+      "total": 208,
+      "passed": 207,
+      "failed": 1,
+      "skipped": 0,
+      "exitCode": 1,
+      "report": "jd-02-b-logs/unit-qualified.json",
+      "failures": [
+        {
+          "file": "unit/jobOptimization.test.ts",
+          "name": "V2-G5a job optimization maps confirmed job requirements to branch content blocks and summarizes fact gaps",
+          "message": "AssertionError: expected 'weak' to be 'strong' // Object.is equality\n    at E:/DEF/CareerAdapt-competition-5.1.8/tests/unit/jobOptimization.test.ts:75:34\n    at file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+runner@4.1.9/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+runner@4.1.9/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26\n    at file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+runner@4.1.9/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20\n    at new Promise (<anonymous>)\n    at runWithCancel (file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+runner@4.1.9/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10)\n    at file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+runner@4.1.9/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+runner@4.1.9/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///E:/DEF/CareerAdapt%20AI/node_modules/.pnpm/@vitest+runner@4.1.9/node_modules/@vitest/runner/dist/chunk-ar"
+        }
+      ]
+    },
+    "newDirectedCases": {
+      "files": 4,
+      "tests": 30,
+      "passed": 30,
+      "failed": 0,
+      "note": "all new unit/integration cases included in unit-qualified.json"
+    },
+    "playwright": {
+      "finalPassed": 4,
+      "failed": 0,
+      "exitCode": 0,
+      "log": "jd-02-b-logs/playwright-qualified.log",
+      "firstRegressionPassed": 2,
+      "firstLog": "jd-02-b-logs/playwright-first.log",
+      "productionBaseURL": "http://127.0.0.1:3412",
+      "browser": "Playwright chromium project / msedge",
+      "syntheticFixtures": true,
+      "cases": [
+        "read-only F1/F2, job/resume/source switch, resume and profile source reload",
+        "obsolete revision/matcher history freshly reanalyzed without business writes",
+        "evidence source expansion and resume item navigation",
+        "existing isolated profile-based branch creation",
+        "existing resume-based branch creation without source mutation",
+        "Job A and Job B branch creation/reload preservation"
+      ],
+      "readOnlySnapshotStores": [
+        "profiles",
+        "resumeBranches",
+        "resumeRevisions",
+        "requirementMatches"
+      ],
+      "lateAsync": "2 React/Repository integration tests; no real Provider late-response E2E",
+      "jd02AiRequests": 0,
+      "screenshot": "jd-02-b-logs/requirements.png"
+    },
+    "typecheck": {
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "log": "jd-02-b-logs/typecheck-complete.log"
+    },
+    "eslint": {
+      "files": 16,
+      "maxWarnings": 0,
+      "exitCode": 0,
+      "log": "jd-02-b-logs/eslint-delivery.log"
+    },
+    "build": {
+      "command": "pnpm build",
+      "exitCode": 0,
+      "log": "jd-02-b-logs/production-build-qualified.log"
+    },
+    "diff": {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  },
+  "buildEnvironment": {
+    "root": "E:/DEF/CareerAdapt-sq13b2-current-87360d1",
+    "node": "v24.15.0",
+    "pnpm": "10.29.2",
+    "internalNodeModulesOrdinaryDirectory": true,
+    "windowsAttributes": "Directory; LinkType empty; not ReparsePoint",
+    "lockSHA256": "cd40b7ccd7278e68c13cb2b255826229cf1dd162d708910a7ed3b6ecb0040606",
+    "lockMatches": true,
+    "dependencyInstallation": "B.2 existing frozen installation reused; no install/dependency configuration changes",
+    "originalJunctionPreserved": true,
+    "originalWorkspaceDirectBuildQualified": false,
+    "sourceFiles": 479,
+    "testFiles": 436,
+    "sourceAndTestMismatches": [],
+    "extraSourceFiles": [],
+    "additionalBuildInputDifferences": [],
+    "parityReport": "jd-02-b-logs/source-parity-qualified.json",
+    "warning": "next start standalone configuration warning retained; actual production resources tested, no Electron package validation",
+    "priorAttempt": "initial source-sync cwd error, build interrupted and not counted; explicit absolute source root used thereafter"
+  },
+  "versions": {
+    "matcher": "evidence-matcher.v1.2",
+    "careerIntelligence": "career-intelligence-2"
+  },
+  "productionFiles": [
+    "src/app/jobs/JobsWorkspace.tsx",
+    "src/app/resume/ResumeWorkspace.tsx",
+    "src/domain/jobOptimization/careerIntelligence.ts",
+    "src/domain/jobOptimization/v2/analyze.ts",
+    "src/domain/jobOptimization/v2/coverage.ts",
+    "src/domain/jobOptimization/v2/evidence.ts",
+    "src/domain/match/matcher.ts",
+    "src/domain/schemas/jobOptimizationV2.ts",
+    "src/services/jobs/jobResumeSourceModes.ts",
+    "src/domain/match/resumeSource.ts"
+  ],
+  "boundaryChecks": {
+    "newTables": 0,
+    "newProductionDependencies": 0,
+    "resumeSchemaV2Changed": false,
+    "factGuardChanged": false,
+    "claimSafetyChanged": false,
+    "confirmationCASRepositorySafetyChanged": false,
+    "sixSkillsChanged": false,
+    "runtimePlannerAdded": false,
+    "multiAgent": false,
+    "realProviderCalls": 0,
+    "apiKeysRead": false,
+    "automaticProfileWrites": false
+  },
+  "knownRisks": [
+    "one existing strong-level assertion remains failing after shared-analysis semantics; assertions untouched",
+    "negative evidence lifecycle not implemented",
+    "natural-language sufficiency remains rule-based and conservative",
+    "historical manual/AI records remain stored; page presents current rule evidence analysis",
+    "late async storage behavior covered in integration; real Provider delayed result test not applicable to synchronous Fit path"
+  ],
+  "readyForJD03": false,
+  "nextAction": "stop for user review; do not start JD03 or SQ1.3-C"
+}

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RequirementGroupSchema, RequirementKeywordLogicSchema } from "./jobOptimizationV3";
 import { CANDIDATE_EVIDENCE_SOURCE_TYPES } from "@/domain/sourceTaxonomy";
 import { BranchFactRefSchema } from "./branch";
 import { FactMaturitySchema, IsoDateStringSchema, SourceSpanSchema } from "./common";
@@ -25,6 +26,7 @@ export const JobRequirementNodeV2Schema = z.object({
   seniority: z.string().min(1).optional(),
   exactKeywords: z.array(z.string().min(1)).default([]),
   semanticAliases: z.array(z.string().min(1)).default([]),
+  keywordLogic: RequirementKeywordLogicSchema.optional(),
   sourceSpan: SourceSpanSchema,
   sourceSpans: z.array(SourceSpanSchema).min(1),
   confidence: z.number().min(0).max(1),
@@ -36,6 +38,7 @@ export const JobRequirementNodeV2Schema = z.object({
 export const JobRequirementGraphV2Schema = z.object({
   schemaVersion: z.literal("job-requirement-graph-v2"),
   nodes: z.array(JobRequirementNodeV2Schema),
+  groups: z.array(RequirementGroupSchema).optional(),
   unclassifiedSourceSpans: z.array(SourceSpanSchema).default([]),
   analyzedAt: IsoDateStringSchema,
   analyzerVersion: z.string().min(1)
@@ -47,6 +50,7 @@ export const CandidateEvidenceUnitSchema = z.object({
   id: z.string().min(1), sourceType: CandidateEvidenceSourceTypeSchema,
   sectionType: ResumeSectionTypeV2Schema, itemId: z.string().min(1), fieldPath: z.string().min(1),
   text: z.string().min(1), normalizedText: z.string().min(1),
+  recallContext: z.string().optional(),
   factRefs: z.array(BranchFactRefSchema).default([]), sourceBlockIds: z.array(z.string().min(1)).default([]),
   supportLevel: z.enum(["verified", "user_declared"]).default("verified"),
   maturity: FactMaturitySchema.optional(),

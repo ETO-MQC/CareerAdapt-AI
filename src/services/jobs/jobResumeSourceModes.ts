@@ -1,13 +1,6 @@
-import { buildGeneralBranchFromProfile } from "@/domain/branch/profileBranch";
+import { buildProfileCareerIntelligence } from "@/domain/jobOptimization/careerIntelligence";
 import { canonicalProfileLibraryItems, type CanonicalProfileLibraryItem } from "@/domain/profile/canonicalLibrary";
-import {
-  buildCanonicalJobRequirementGraph,
-  buildCandidateEvidenceUnits,
-  buildJobCoverageReport,
-  createResumeOptimizationPlan,
-  evaluateRequirementEvidence,
-  recallEvidenceCandidates
-} from "@/domain/jobOptimization/v2";
+import { createResumeOptimizationPlan } from "@/domain/jobOptimization/v2";
 import type { CareerProfile, JobDescription, JobCoverageReportV2, RequirementEvidenceMatrixV2, ResumeOptimizationPlanV2 } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
 
@@ -25,23 +18,14 @@ export type ProfileLibrarySourceAnalysis = {
   matrix: RequirementEvidenceMatrixV2;
   plan: ResumeOptimizationPlanV2;
   analysisHash: string;
+  analysisId: string;
 };
 
 export function analyzeProfileLibrarySource(input: { profile: CareerProfile; job: JobDescription; now?: string }): ProfileLibrarySourceAnalysis {
   const now = input.now ?? new Date().toISOString();
-  const ephemeral = buildGeneralBranchFromProfile({
-    profile: input.profile,
-    operationId: `profile-library-analysis-${input.profile.id}-${input.profile.version}-${input.job.id}`,
-    name: "资料库分析",
-    includeProfileFacts: true,
-    includeProfileBasics: true,
-    now
-  }).branch;
-  const graph = buildCanonicalJobRequirementGraph(input.job);
-  const evidenceUnits = buildCandidateEvidenceUnits({ profile: input.profile, branch: ephemeral });
-  const recalls = recallEvidenceCandidates({ graph, evidenceUnits });
-  const matrix = evaluateRequirementEvidence({ profile: input.profile, graph, evidenceUnits, recalls, now });
-  const coverage = buildJobCoverageReport({ graph, matrix });
+  const shared = buildProfileCareerIntelligence(input);
+  const ephemeral = shared.branch;
+  const { graph, evidenceUnits, matrix, report: coverage } = shared;
   const plan = createResumeOptimizationPlan({ profile: input.profile, branch: ephemeral, jobId: input.job.id, graph, evidenceUnits, matrix, coverage, now });
   const structuredByBranchItem = new Map((ephemeral.structuredContentItems ?? []).map((item) => [item.id, item.data.id]));
   const libraryById = new Map(canonicalProfileLibraryItems(input.profile).map((item) => [item.id, item]));
@@ -74,6 +58,7 @@ export function analyzeProfileLibrarySource(input: { profile: CareerProfile; job
     coverage,
     matrix,
     plan,
+    analysisId: shared.candidateEvidenceMatrix.analysisId,
     analysisHash: stableHashText(JSON.stringify({ profileVersion: input.profile.version, jobVersion: input.job.updatedAt, recommendations: recommendations.map((item) => [item.id, item.disposition]) }))
   };
 }

@@ -1,4 +1,6 @@
 import { containsKeywordTerm } from "@/domain/jobOptimization/keywordTaxonomy";
+import { buildCareerIntelligence, buildProfileCareerIntelligence } from "@/domain/jobOptimization/careerIntelligence";
+import type { ResumeBranch } from "@/domain/schemas";
 import { nanoid } from "nanoid";
 import {
   MatchEvaluationSchema,
@@ -16,7 +18,7 @@ import {
 } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
 
-export const MATCHER_VERSION = "evidence-matcher.v1.1";
+export const MATCHER_VERSION = "evidence-matcher.v1.2";
 
 export type CandidateFact = {
   ref: MatchEvidenceRef;
@@ -28,6 +30,8 @@ export type MatchContext = {
   profile: CareerProfile;
   job: JobDescription;
   matcherVersion?: string;
+  branch?: ResumeBranch;
+  analysis?: ReturnType<typeof buildCareerIntelligence>;
 };
 
 export type StaleCheck = {
@@ -47,6 +51,7 @@ export type ResumeMatchSource = {
 export function createRuleRequirementMatches(input: MatchContext, now = new Date().toISOString()) {
   const matcherVersion = input.matcherVersion ?? MATCHER_VERSION;
 
+  const analysis = input.analysis ?? (input.branch ? buildCareerIntelligence({ ...input, branch: input.branch }) : collectConfirmedCandidateFacts(input.profile).length ? buildProfileCareerIntelligence(input) : undefined);
   return input.job.requirements.map((requirement) => {
     const candidates = recallCandidatesForRequirement(input.profile, requirement);
     const candidateSetHash = computeCandidateSetHash({
@@ -56,7 +61,8 @@ export function createRuleRequirementMatches(input: MatchContext, now = new Date
       requirement,
       candidates
     });
-    const ruleEvaluation = evaluateRuleMatch(requirement, candidates, now);
+    const row = analysis?.matrix.evaluations.find(row => row.requirementId === requirement.id);
+    const ruleEvaluation = row ? MatchEvaluationSchema.parse({ source: "rule", matchLevel: row.matchLevel === "direct" ? "strong" : row.matchLevel === "strong_transferable" ? "transferable" : ["partial", "weak"].includes(row.matchLevel) ? "weak" : "none", riskLevel: row.risks.length ? "medium" : "low", risks: row.risks, evidenceRefs: [...row.evidenceRefs].sort((a, b) => evidenceRefKey(a).localeCompare(evidenceRefKey(b))), explanation: `[支持] ${row.coveredAspects.join("、") || "尚无充分证据"} [待核实] ${row.missingAspects.join("、") || "无"} ${row.explanation}`, evaluatedAt: now }) : evaluateRuleMatch(requirement, candidates, now);
 
     const match = RequirementMatchSchema.parse({
       id: `match-${requirement.id}-${nanoid(8)}`,
@@ -299,6 +305,8 @@ export function checkRequirementMatchStale(match: RequirementMatch, context: Mat
 
   return {
     isStale:
+      match.profileId !== context.profile.id ||
+      match.jobId !== context.job.id ||
       match.profileVersion !== context.profile.version ||
       match.jobVersion !== getJobVersion(context.job) ||
       match.matcherVersion !== matcherVersion ||
@@ -394,6 +402,7 @@ export function validateEvidenceRef(ref: MatchEvidenceRef, profile: CareerProfil
     if (!fact || !isConfirmedFact(fact)) {
       throw new MatchValidationError("experience_fact_not_confirmed_or_missing");
     }
+    validateFactQuote(ref, fact);
     return;
   }
 
@@ -402,6 +411,7 @@ export function validateEvidenceRef(ref: MatchEvidenceRef, profile: CareerProfil
     if (!skill?.fact || skill.fact.id !== ref.factId || !isConfirmedFact(skill.fact)) {
       throw new MatchValidationError("skill_fact_not_confirmed_or_missing");
     }
+    validateFactQuote(ref, skill.fact);
     return;
   }
 
@@ -410,6 +420,7 @@ export function validateEvidenceRef(ref: MatchEvidenceRef, profile: CareerProfil
     if (!certificate?.fact || certificate.fact.id !== ref.factId || !isConfirmedFact(certificate.fact)) {
       throw new MatchValidationError("certificate_fact_not_confirmed_or_missing");
     }
+    validateFactQuote(ref, certificate.fact);
     return;
   }
 
@@ -417,6 +428,12 @@ export function validateEvidenceRef(ref: MatchEvidenceRef, profile: CareerProfil
   const linkedFact = findConfirmedFact(profile, ref.linkedFactId);
   if (!evidence || !linkedFact) {
     throw new MatchValidationError("evidence_file_or_linked_fact_missing");
+  }
+}
+
+function validateFactQuote(ref: MatchEvidenceRef, fact: FactStatement) {
+  if (ref.factText !== fact.statement || !fact.provenance.some(source => source.confirmedByUser && source.sourceText === ref.factQuote)) {
+    throw new MatchValidationError("evidence_quote_not_in_confirmed_source");
   }
 }
 
@@ -434,7 +451,7 @@ export function evidenceRefKey(ref: MatchEvidenceRef) {
 }
 
 export function getJobVersion(job: JobDescription) {
-  return job.updatedAt;
+  return `${job.updatedAt}:${stableHashText(JSON.stringify(job.requirementGraph ?? job.requirements))}`;
 }
 
 export function stripInjectionFromText(text: string): string {
@@ -453,7 +470,7 @@ function isConfirmedFact(fact: FactStatement) {
 }
 
 function primarySourceText(fact: FactStatement) {
-  return fact.provenance[0]?.sourceText || fact.statement;
+  return fact.provenance.find(item => item.confirmedByUser)?.sourceText || fact.statement;
 }
 
 function findConfirmedFact(profile: CareerProfile, factId: string) {

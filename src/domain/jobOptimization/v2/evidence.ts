@@ -7,7 +7,7 @@ import {
 } from "@/domain/schemas";
 import { resolveBranchFactRefs } from "@/domain/branch/validation";
 import { migrateResumeBranchToV2 } from "@/domain/migrations/resumeV2";
-import { strongestFactMaturity } from "@/domain/profile/factMaturity";
+import { factMaturityOf, strongestFactMaturity } from "@/domain/profile/factMaturity";
 import { stableHashText } from "@/services/security/text";
 
 const ALIASES: Record<string, string[]> = {
@@ -17,6 +17,7 @@ const ALIASES: Record<string, string[]> = {
 };
 
 export function buildCandidateEvidenceUnits(input: { profile: CareerProfile; branch: ResumeBranch }): CandidateEvidenceUnit[] {
+  if (input.branch.profileId !== input.profile.id) return [];
   const branch = migrateResumeBranchToV2(input.branch);
   const units: CandidateEvidenceUnit[] = [];
   const factsById = new Map([
@@ -39,6 +40,7 @@ export function buildCandidateEvidenceUnits(input: { profile: CareerProfile; bra
         ? strongestFactMaturity(referencedFacts)
         : undefined;
     const common = {
+      recallContext: item.factRefs.flatMap(ref => ref.type === "experience_fact" ? input.profile.experiences.find(experience => experience.id === ref.experienceId)?.tags ?? [] : []).join(" "),
       sectionType: data.sectionType, itemId: item.id, factRefs: item.factRefs, sourceBlockIds: item.sourceBlockIds, supportLevel: userDeclared ? "user_declared" as const : "verified" as const,
       ...(maturity ? { maturity } : {}),
       organization: stringValue(data.organization) ?? stringValue(data.school) ?? stringValue(data.institution),
@@ -68,15 +70,16 @@ export function recallEvidenceCandidates(input: { graph: JobRequirementGraphV2; 
   return input.graph.nodes.map((requirement) => {
     const requirementTerms = expandedTerms([requirement.normalizedIntent, ...requirement.exactKeywords, ...requirement.semanticAliases]);
     const candidates = input.evidenceUnits.map((evidence) => {
-      const evidenceTerms = tokenize(evidence.normalizedText);
+      const evidenceTerms = tokenize([evidence.normalizedText, evidence.organization, evidence.role, evidence.recallContext].filter(Boolean).join(" "));
       const exact = requirement.exactKeywords.filter((term) => containsTerm(evidence.normalizedText, term));
+      const contextHits = requirement.exactKeywords.filter(term => containsTerm(evidence.recallContext ?? "", term));
       const alias = [...requirementTerms].filter((term) => evidenceTerms.has(term) && !requirement.exactKeywords.some((exactTerm) => normalize(exactTerm) === term));
       const lexical = bm25Lite(requirementTerms, evidenceTerms);
-      const character = ngramDice(requirement.normalizedIntent, evidence.normalizedText);
+      const character = ngramDice(requirement.normalizedIntent, [evidence.normalizedText, evidence.organization, evidence.role, evidence.recallContext].filter(Boolean).join(" "));
       const section = sectionCompatibility(requirement.kind, evidence);
       const factRefBoost = evidence.factRefs.length > 0 ? 0.08 : 0;
-      const score = Math.min(1, exact.length * 0.18 + alias.length * 0.08 + lexical * 0.34 + character * 0.22 + section + factRefBoost);
-      const reasons = [exact.length ? `精确术语：${exact.join("、")}` : "", alias.length ? `语义别名：${alias.slice(0, 3).join("、")}` : "", section ? "证据类型与要求类别一致" : "", lexical > 0.15 ? "文本主题相关" : "", factRefBoost ? "存在已确认事实引用" : ""].filter(Boolean);
+      const score = Math.min(1, Math.max(exact.length, contextHits.length) * 0.18 + alias.length * 0.08 + lexical * 0.34 + character * 0.22 + section + factRefBoost);
+      const reasons = [contextHits.length ? "经历标签仅用于召回，不证明能力" : "", exact.length ? `精确术语：${exact.join("、")}` : "", alias.length ? `语义别名：${alias.slice(0, 3).join("、")}` : "", section ? "证据类型与要求类别一致" : "", lexical > 0.15 ? "文本主题相关" : "", factRefBoost ? "存在已确认事实引用" : ""].filter(Boolean);
       return { evidenceUnitId: evidence.id, score: Number(score.toFixed(4)), reasons };
     }).filter((candidate) => candidate.score >= 0.12 && candidate.reasons.length > 0)
       .sort((a, b) => b.score - a.score || a.evidenceUnitId.localeCompare(b.evidenceUnitId)).slice(0, limit);
@@ -105,8 +108,8 @@ export function evaluateRequirementEvidence(input: {
       if (evaluation.evidenceUnitIds.some((id) => !allowed.has(id) || !unitById.has(id))) throw new Error("evidence_matcher_v2_evidence_outside_recall");
       if (evaluation.matchLevel === "direct") {
         const selectedUnits = evaluation.evidenceUnitIds.map((id) => unitById.get(id)!);
-        const demonstrated = selectedUnits.filter((unit) => unit.maturity === "demonstrated" || unit.maturity === undefined);
-        if (!demonstrated.length || (requirement.kind === "tool_or_technology" && !requirement.exactKeywords.every((term) => demonstrated.some((unit) => ["direct", "synonym"].includes(classifyKeywordRelation(term, unit.text)))))) {
+        const demonstrated = selectedUnits.filter((unit) => (unit.maturity === "demonstrated" || unit.maturity === undefined) && unit.supportLevel !== "user_declared" && !hasUnverifiedAssertion(unit.text));
+        if (!demonstrated.length || requirement.needsConfirmation || /\d+(?:\.\d+)?\s*(?:年|years?)|独立|主导|带领|有效期|有效证书|未过期/iu.test(requirement.statement) || (requirement.kind === "tool_or_technology" && !conditionSupport(requirement, demonstrated, input.profile).satisfied)) {
           throw new Error("evidence_matcher_v2_unsupported_direct_claim");
         }
       }
@@ -149,24 +152,26 @@ export async function evaluateRequirementEvidenceWithAi(input: {
 }
 
 function deterministicEvaluation(requirement: JobRequirementGraphV2["nodes"][number], recall: RequirementEvidenceRecall | undefined, profile: CareerProfile, unitById: Map<string, CandidateEvidenceUnit>) {
-  const top = recall?.candidates.filter((item) => item.score >= 0.2).slice(0, 3) ?? [];
+  const top = recall?.candidates.filter((item) => item.score >= 0.2) ?? [];
   if (!top.length) return noneEvaluation(requirement.id, "当前来源简历中没有召回到可引用的已确认事实。", requirement.statement);
   const units = top.map((item) => unitById.get(item.evidenceUnitId)!).filter(Boolean);
   const hasConfirmedCapability = units.some((unit) => unit.maturity === "confirmed_capability" || unit.supportLevel === "user_declared");
   const hasMaturityGap = units.some((unit) => unit.maturity === "familiar" || unit.maturity === "learning");
-  const direct = requirement.exactKeywords.every((term) => units.some((unit) => ["direct", "synonym"].includes(classifyKeywordRelation(term, unit.text)))) && top[0].score >= 0.64 && units.some((unit) =>
-    (unit.maturity === "demonstrated" || unit.maturity === undefined)
-    && (["skill", "certificate", "education"].includes(unit.sourceType) || ngramDice(requirement.normalizedIntent, unit.normalizedText) >= 0.72)
+  const demonstrated = units.filter(unit => (unit.maturity === "demonstrated" || unit.maturity === undefined) && unit.supportLevel !== "user_declared" && !hasUnverifiedAssertion(unit.text));
+  const support = conditionSupport(requirement, demonstrated, profile);
+  const requiresClarification = requirement.needsConfirmation || /\d+(?:\.\d+)?\s*(?:年|years?)|独立|主导|带领|有效期|有效证书|未过期|valid certification/iu.test(requirement.statement) || units.some(unit => hasUnverifiedAssertion(unit.text));
+  const direct = !requiresClarification && support.satisfied && (requirement.keywordLogic !== undefined || top[0].score >= 0.64) && demonstrated.some(unit =>
+    ["skill", "certificate", "education", "experience_highlight", "project_outcome"].includes(unit.sourceType) || ngramDice(requirement.normalizedIntent, unit.normalizedText) >= 0.72
   );
   const transferable = !direct && top[0].reasons.some((reason) => reason.startsWith("语义别名")) && top[0].score >= 0.32;
-  const level = direct ? "direct" : hasConfirmedCapability ? "partial" : hasMaturityGap ? "needs_confirmation" : transferable ? "strong_transferable" : top[0].score >= 0.3 ? "partial" : "weak";
+  const level = direct ? "direct" : requiresClarification ? "needs_confirmation" : hasConfirmedCapability ? "partial" : hasMaturityGap ? "needs_confirmation" : transferable ? "strong_transferable" : top[0].score >= 0.3 ? "partial" : "weak";
   return RequirementEvidenceEvaluationV2Schema.parse({
     requirementId: requirement.id, matchLevel: level, evidenceUnitIds: units.map((unit) => unit.id),
     evidenceRefs: resolveEvaluationRefs(profile, units.map((unit) => unit.id), unitById),
-    coveredAspects: requirement.exactKeywords.filter((term) => units.some((unit) => containsTerm(unit.normalizedText, term))),
-    missingAspects: level === "direct" ? [] : [requirement.statement],
+    coveredAspects: support.covered,
+    missingAspects: level === "direct" ? [] : support.missing.length ? support.missing : [requirement.statement],
     risks: level === "direct" ? [] : hasConfirmedCapability ? ["new_fact_risk"] : hasMaturityGap ? ["skill_level_risk"] : level === "weak" ? ["low_confidence"] : [],
-    explanation: level === "direct" ? "已确认事实直接覆盖要求中的核心对象或资格。" : hasConfirmedCapability ? "该内容是用户确认的能力或当前简历声明，按部分覆盖计入；它不是带项目来源的已证明经历。" : hasMaturityGap ? "当前只有熟悉、基础接触或学习中的表述，不能作为已完成岗位经历。" : level === "strong_transferable" ? "证据所处场景不同，但任务机制与能力可明确迁移；不等同于已承担完整岗位职责。" : level === "partial" ? "已确认事实只覆盖该要求的一部分。" : "仅存在弱相关证据，不能据此主张满足要求。",
+    explanation: level === "direct" ? "已确认事实逐项支持必要条件（任选条件按实际满足项计算）。" : requiresClarification ? "相关证据尚不能验证年限、责任范围、有效期或否定/限定表述，需要澄清；这不代表用户不具备能力。" : hasConfirmedCapability ? "该内容是用户确认的能力或当前简历声明，按部分覆盖计入；它不是带项目来源的已证明经历。" : hasMaturityGap ? "当前只有熟悉、基础接触或学习中的表述，不能作为已完成岗位经历。" : level === "strong_transferable" ? "证据所处场景不同，但任务机制与能力可明确迁移；不等同于已承担完整岗位职责。" : level === "partial" ? "已确认事实只覆盖该要求的一部分。" : "仅存在弱相关证据，不能据此主张满足要求。",
     confidence: Number(top[0].score.toFixed(2))
   });
 }
@@ -175,7 +180,11 @@ function noneEvaluation(requirementId: string, explanation: string, missing = "�
   return RequirementEvidenceEvaluationV2Schema.parse({ requirementId, matchLevel: "none", evidenceUnitIds: [], evidenceRefs: [], coveredAspects: [], missingAspects: [missing], risks: [], explanation, confidence: 1 });
 }
 function resolveEvaluationRefs(profile: CareerProfile, ids: string[], unitById: Map<string, CandidateEvidenceUnit>): MatchEvidenceRef[] {
-  const refs = ids.flatMap((id) => resolveBranchFactRefs(profile, unitById.get(id)?.factRefs ?? []));
+  const facts = [...profile.experiences.flatMap(item => item.facts), ...profile.skills.flatMap(item => item.fact ? [item.fact] : []), ...profile.certificates.flatMap(item => item.fact ? [item.fact] : [])];
+  const refs = ids.flatMap((id) => resolveBranchFactRefs(profile, unitById.get(id)?.factRefs ?? [])).map(ref => {
+    const fact = facts.find(fact => fact.id === (ref.type === "evidence_file" ? ref.linkedFactId : ref.factId));
+    return { ...ref, factQuote: fact?.provenance.find(source => source.confirmedByUser)?.sourceText ?? ref.factQuote };
+  });
   const seen = new Set<string>(); return refs.filter((ref) => { const key = JSON.stringify(ref); if (seen.has(key)) return false; seen.add(key); return true; });
 }
 function unit(input: Omit<CandidateEvidenceUnit, "id" | "normalizedText">): CandidateEvidenceUnit { return { ...input, id: `evu-${stableHashText(`${input.itemId}:${input.fieldPath}:${input.text}`)}`, normalizedText: normalize(input.text) }; }
@@ -191,3 +200,17 @@ function bm25Lite(query: Set<string>, document: Set<string>) { if (!query.size) 
 function ngramDice(left: string, right: string) { const a = grams(normalize(left).replace(/\s/g, "")); const b = grams(normalize(right).replace(/\s/g, "")); if (!a.size || !b.size) return 0; let overlap = 0; for (const gram of a) if (b.has(gram)) overlap += 1; return (2 * overlap) / (a.size + b.size); }
 function grams(text: string) { const result = new Set<string>(); const size = /[\u4e00-\u9fa5]/.test(text) ? 2 : 3; for (let i = 0; i <= text.length - size; i += 1) result.add(text.slice(i, i + size)); return result; }
 function sectionCompatibility(kind: JobRequirementGraphV2["nodes"][number]["kind"], unit: CandidateEvidenceUnit) { if (kind === "education" && unit.sourceType === "education") return 0.2; if (kind === "language" && unit.sectionType === "languages") return 0.2; if (kind === "tool_or_technology" && unit.sourceType === "skill") return 0.18; if (kind === "experience_depth" && unit.sourceType.startsWith("experience")) return 0.12; if (kind === "responsibility" && ["experience_highlight", "project_outcome"].includes(unit.sourceType)) return 0.1; return 0; }
+
+/** Adjacent skills are recall signals only; direct support requires direct or true synonym evidence. */
+function conditionSupport(requirement: JobRequirementGraphV2["nodes"][number], units: CandidateEvidenceUnit[], profile?: CareerProfile) {
+  const terms = requirement.keywordLogic?.terms ?? requirement.exactKeywords;
+  const facts = profile ? [...profile.experiences.flatMap(item => item.facts), ...profile.skills.flatMap(item => item.fact ? [item.fact] : []), ...profile.certificates.flatMap(item => item.fact ? [item.fact] : [])] : [];
+  const covered = terms.filter(term => units.some(unit => ["direct", "synonym"].includes(classifyKeywordRelation(term, unit.text)) && (!profile || unit.factRefs.some(ref => {
+    const fact = facts.find(fact => fact.id === (ref.type === "evidence_file" ? ref.linkedFactId : ref.factId));
+    return fact && fact.confirmedByUser && factMaturityOf(fact) === "demonstrated" && !hasUnverifiedAssertion(fact.statement)
+      && ["direct", "synonym"].includes(classifyKeywordRelation(term, fact.statement));
+  }))));
+  const satisfied = terms.length > 0 && (requirement.keywordLogic?.relation === "any_of" ? covered.length >= 1 : covered.length === terms.length);
+  return { covered, satisfied, missing: satisfied ? [] : terms.filter(term => !covered.includes(term)) };
+}
+function hasUnverifiedAssertion(text: string) { return /暂未|尚未|从未|未使用|未掌握|未做过|不会|不具备|没有.{0,8}(?:经验|经历)|未独立|正在学习|学习中|not\s+(?:yet|proficient|experienced)|no\s+experience|\bnever\b/iu.test(text); }

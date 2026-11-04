@@ -1166,6 +1166,24 @@ export function ResumeWorkspace() {
     selectedBranch
   ]);
 
+  const locatedJobFitItem = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const itemId = searchParams.get("itemId");
+    const branchId = searchParams.get("branchId");
+    if (!itemId || !branchId || selectedBranch?.id !== branchId || !resumeDocumentBlocksById.has(itemId)) return;
+    const key = `${branchId}:${itemId}`;
+    if (locatedJobFitItem.current === key) return;
+    locatedJobFitItem.current = key;
+    const block = resumeDocumentBlocksById.get(itemId)!;
+    queueMicrotask(() => {
+      setActiveResumeSection(studioSectionForBlock(block));
+      setIsStudioEditMode(true);
+      setSelectedStudioItemId(itemId);
+      setActivePropertyTab("block");
+      window.requestAnimationFrame(() => document.querySelector(`[data-source-item-id="${cssEscape(itemId)}"]`)?.scrollIntoView({ block: "center" }));
+    });
+  }, [searchParams, selectedBranch?.id, resumeDocumentBlocksById]);
+
   function locateDiagnosticIssue(issue: ResumeDiagnosticIssue) {
     const itemId = issue.contentItemIds[0];
     if (itemId) {

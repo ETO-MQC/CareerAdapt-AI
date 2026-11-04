@@ -5,7 +5,7 @@ import { Archive, BriefcaseBusiness, Database, FileText, KanbanSquare, ListCheck
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { invokeStageBAi, invokeStructuredAi } from "@/ai/client";
+import { invokeStageBAi } from "@/ai/client";
 import { promptVersions } from "@/ai/prompts/versions";
 import { analyzeJobDescriptionV4, projectJobGraphV4ToAnalyzerOutput } from "@/domain/jobOptimization";
 import {
@@ -18,25 +18,26 @@ import {
 import type { JobListing } from "@/domain/schemas/jobDiscovery";
 import type { ConversionConfirmation } from "@/services/storage/repositories";
 import {
-  EvidenceMatcherOutputSchema,
   JdAnalyzerModelOutputSchema,
-  MatchEvaluationSchema,
   type CareerProfile,
   type JdAnalyzerOutput,
   type JdAnalyzerRequirement,
   type JobAnalysisDraft,
   type JobDescription,
   type JobWorkflowErrorState,
-  type MatchEvaluation,
   type RawInputDocument,
   type RequirementMatch,
   type ResumeBranch
 } from "@/domain/schemas";
 import {
-  createRuleRequirementMatches,
-  recallCandidatesForRequirement,
-  withResolvedEffectiveMatch
+  checkRequirementMatchStale,
+  checkRequirementMatchResumeSourceStale,
+  MATCHER_VERSION,
+  getJobVersion,
+  createRuleRequirementMatches
 } from "@/domain/match/matcher";
+import { profileLimitedToResume } from "@/domain/match/resumeSource";
+import { buildCareerIntelligence, buildProfileCareerIntelligence, capabilityGapView } from "@/domain/jobOptimization/careerIntelligence";
 import { canonicalProfileLibraryItems } from "@/domain/profile/canonicalLibrary";
 import { WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState } from "@/components/workspace/WorkspaceStates";
 import { ProductTopbar } from "@/components/ui/product";
@@ -57,7 +58,6 @@ import {
   recommendJobResumeSource,
   type ProfileLibrarySourceAnalysis
 } from "@/services/jobs/jobResumeSourceModes";
-import { hasCustomAiSettings } from "@/services/storage/aiSettings";
 import { useWorkspace } from "@/services/workspace/useWorkspace";
 import { notify } from "@/services/notifications/store";
 import { createJobResume } from "@/services/jobs/tailoringService";
@@ -90,14 +90,14 @@ export function JobsWorkspace() {
   const [trashedJobIds, setTrashedJobIds] = useState<string[]>([]);
   const [tab, setTab] = useState<JobWorkspaceTab>("resumes");
   const [showJobMenu, setShowJobMenu] = useState(false);
-  const [sourceMode, setSourceMode] = useState<SourceMode>("profile");
+  const [sourceMode, setSourceMode] = useState<SourceMode>(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("sourceMode") === "resume" ? "resume" : "profile");
   const [resumeBranches, setResumeBranches] = useState<ResumeBranch[]>([]);
-  const [selectedBaseResumeId, setSelectedBaseResumeId] = useState("");
+  const [selectedBaseResumeId, setSelectedBaseResumeId] = useState(() => typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("resumeId") ?? "");
   const [matches, setMatches] = useState<RequirementMatch[]>([]);
   const [showMatchDetails, setShowMatchDetails] = useState(false);
   const [resumeActionStatus, setResumeActionStatus] = useState<JobResumeActionStatus>("idle");
   const [generationErrorCode, setGenerationErrorCode] = useState<JobResumeGenerationErrorCode>();
-  const [profileAnalysis, setProfileAnalysis] = useState<ProfileLibrarySourceAnalysis>();
+  const [profileAnalysisState, updateProfileAnalysis] = useState<{ key: string; value: ProfileLibrarySourceAnalysis }>();
   const [selectedProfileItemIds, setSelectedProfileItemIds] = useState<string[]>([]);
   const [existingJobBranch, setExistingJobBranch] = useState<ResumeBranch | null>(null);
   const [candidateListing, setCandidateListing] = useState<JobListing>();
@@ -150,9 +150,24 @@ export function JobsWorkspace() {
     window.history.replaceState(window.history.state, "", url);
   }, [selectedJob]);
 
-  const baseResumeOptions = resumeBranches.filter(isMatchBaseResume);
+  const baseResumeOptions = resumeBranches.filter(branch => branch.profileId === profile?.id && isMatchBaseResume(branch));
   const selectedBaseResume = baseResumeOptions.find((branch) => branch.id === selectedBaseResumeId);
-  const matchingProfile = profile && selectedBaseResume ? profileLimitedToResume(profile, selectedBaseResume) : undefined;
+  const matchingProfile = useMemo(() => profile && selectedBaseResume ? profileLimitedToResume(profile, selectedBaseResume) : undefined, [profile, selectedBaseResume]);
+  const selectionKey = JSON.stringify([profile?.id, profile?.version, selectedJob?.id, selectedJob ? getJobVersion(selectedJob) : undefined, sourceMode, selectedBaseResume?.id, selectedBaseResume?.revision, selectedBaseResume?.currentRevisionId, MATCHER_VERSION]);
+  const profileAnalysis = profileAnalysisState?.key === selectionKey ? profileAnalysisState.value : undefined;
+  function setProfileAnalysis(value: ProfileLibrarySourceAnalysis | undefined) { updateProfileAnalysis(value ? { key: selectionKey, value } : undefined); }
+  const currentSelection = useRef(selectionKey);
+  useEffect(() => { currentSelection.current = selectionKey; }, [selectionKey]);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("sourceMode", sourceMode);
+    if (selectedBaseResumeId) url.searchParams.set("resumeId", selectedBaseResumeId); else url.searchParams.delete("resumeId");
+    window.history.replaceState(window.history.state, "", url);
+  }, [sourceMode, selectedBaseResumeId]);
+  const fitAnalysis = useMemo(() => !profile || !selectedJob ? undefined : sourceMode === "resume"
+    ? selectedBaseResume ? buildCareerIntelligence({ profile, job: selectedJob, branch: selectedBaseResume }) : undefined
+    : buildProfileCareerIntelligence({ profile, job: selectedJob }), [profile, selectedJob, selectedBaseResume, sourceMode]);
+  const fitMatches = useMemo(() => profile && selectedJob && fitAnalysis ? createRuleRequirementMatches({ profile, job: selectedJob, branch: sourceMode === "resume" ? selectedBaseResume : undefined, analysis: fitAnalysis }) : [], [profile, selectedJob, selectedBaseResume, fitAnalysis, sourceMode]);
   const output = draft?.analyzerOutput ?? (draft ? { requirements: draft.manualRequirements, riskNotes: draft.riskNotes } : undefined);
   const redactionPreview = useMemo(() => redactSensitiveTextForModel(rawText), [rawText]);
   const availableProfileItems = profile ? canonicalProfileLibraryItems(profile).length : 0;
@@ -175,13 +190,13 @@ export function JobsWorkspace() {
 
   useEffect(() => {
     if (!profile || !selectedJob) return;
-    if (sourceMode === "resume" && !selectedBaseResumeId) return;
+    if (sourceMode === "resume" && (!selectedBaseResume || !matchingProfile)) return;
     let active = true;
     void repository.listRequirementMatches(profile.id, selectedJob.id).then((stored) => {
-      if (active) setMatches(latestMatchesForResume(stored, sourceMode === "resume" ? selectedBaseResumeId : undefined));
+      if (active) setMatches(latestMatchesForResume(stored, sourceMode === "resume" ? selectedBaseResumeId : undefined).map(match => ({ ...match, isStale: checkRequirementMatchStale(match, { profile: sourceMode === "resume" ? matchingProfile! : profile, job: selectedJob }).isStale || (sourceMode === "resume" && Boolean(selectedBaseResume) && checkRequirementMatchResumeSourceStale(match, { branchId: selectedBaseResume!.id, branchRevision: selectedBaseResume!.revision, revisionId: selectedBaseResume!.currentRevisionId! }).isStale) })));
     });
     return () => { active = false; };
-  }, [profile, selectedBaseResumeId, selectedJob, sourceMode]);
+  }, [profile, selectedBaseResumeId, selectedBaseResume, matchingProfile, selectedJob, sourceMode]);
 
   /**
    * P2-B 第二轮：粘贴/上传 JD 统一走候选岗位管道——摄取（manual 身份幂等）
@@ -389,30 +404,35 @@ export function JobsWorkspace() {
   async function createFromProfileLibrary() {
     if (!profile || !selectedJob || !profileAnalysis) { showGenerationError("matches_missing"); return; }
     if (!selectedProfileItemIds.length) { showGenerationError("matches_have_no_evidence"); return; }
+    const requestSelection = selectionKey;
     setResumeActionStatus("saving");
     try {
       const nextMatches = createRuleRequirementMatches({ profile, job: selectedJob });
       const savedMatches = await repository.saveRuleRequirementMatches({ profile, job: selectedJob, matches: nextMatches });
+      if (currentSelection.current !== requestSelection) return;
       const operationId = `profile-job-${profile.id}-${profile.version}-${selectedJob.id}-${profileAnalysis.analysisHash}-${stableHashText(selectedProfileItemIds.slice().sort().join(":"))}`;
       const result = await createJobResume({ repository, job: selectedJob, operationId,
         name: uniqueBranchName(`${selectedJob.title} - ${selectedJob.company} - ${profile.basics.name}`, resumeBranches),
         source: { type: "profile", profileId: profile.id, selectedCanonicalItemIds: selectedProfileItemIds, requirementMatchIds: savedMatches.map((match) => match.id) }
       });
+      if (currentSelection.current !== requestSelection) return;
       setResumeActionStatus("completed"); setGenerationErrorCode(undefined);
       notify({ type: "success", title: "岗位简历已创建", message: "个人资料库没有被修改，正在打开 Resume Studio。" });
       router.push(`/resume?branchId=${encodeURIComponent(result.resultRefs!.branchId!)}&mode=ai&fromJobId=${encodeURIComponent(selectedJob.id)}`);
-    } catch (error) { setResumeActionStatus("failed"); showGenerationError(mapJobResumeGenerationError(error)); }
+    } catch (error) { if (currentSelection.current !== requestSelection) return; setResumeActionStatus("failed"); showGenerationError(mapJobResumeGenerationError(error)); }
   }
 
   async function analyzeAndGenerateFromResume() {
     if (!profile || !selectedJob || !selectedBaseResume?.currentRevisionId || !matchingProfile) { showGenerationError(!selectedJob ? "no_job_selected" : "no_source_selected"); return; }
+    const requestSelection = selectionKey;
     setResumeActionStatus("matching"); setGenerationErrorCode(undefined);
     try {
-      const deterministic = createRuleRequirementMatches({ profile: matchingProfile, job: selectedJob }).map((match) => ({ ...match, sourceResumeBranchId: selectedBaseResume.id, sourceResumeBranchRevision: selectedBaseResume.revision, sourceResumeRevisionId: selectedBaseResume.currentRevisionId ?? undefined }));
-      let savedMatches = await repository.saveRuleRequirementMatches({ profile: matchingProfile, job: selectedJob, matches: deterministic });
+      const deterministic = createRuleRequirementMatches({ profile: matchingProfile, job: selectedJob, branch: selectedBaseResume, analysis: fitAnalysis }).map((match) => ({ ...match, sourceResumeBranchId: selectedBaseResume.id, sourceResumeBranchRevision: selectedBaseResume.revision, sourceResumeRevisionId: selectedBaseResume.currentRevisionId ?? undefined }));
+      const savedMatches = await repository.saveRuleRequirementMatches({ profile: matchingProfile, job: selectedJob, matches: deterministic });
+      if (currentSelection.current !== requestSelection) return;
       setMatches(savedMatches);
-      if (hasCustomAiSettings()) savedMatches = await runOptionalSemanticEvaluation({ profile: matchingProfile, job: selectedJob, branch: selectedBaseResume, matches: savedMatches });
       const existing = (await repository.findDerivedJobBranches({ sourceBranchId: selectedBaseResume.id, jobId: selectedJob.id, sourceRevisionId: selectedBaseResume.currentRevisionId }))[0];
+      if (currentSelection.current !== requestSelection) return;
       if (existing) {
         setResumeActionStatus("completed");
         setExistingJobBranch(existing);
@@ -424,9 +444,10 @@ export function JobsWorkspace() {
         name: uniqueBranchName(`${selectedJob.title} - ${selectedJob.company} - ${profile.basics.name}`, resumeBranches),
         source: { type: "resume", branch: selectedBaseResume }
       });
+      if (currentSelection.current !== requestSelection) return;
       setResumeActionStatus("completed"); notify({ type: "success", title: "岗位简历已创建", message: "原通用简历没有被修改，正在打开 Resume Studio。" });
       router.push(`/resume?branchId=${encodeURIComponent(result.resultRefs!.branchId!)}&mode=ai&fromJobId=${encodeURIComponent(selectedJob.id)}`);
-    } catch (error) { setResumeActionStatus("failed"); showGenerationError(mapJobResumeGenerationError(error)); }
+    } catch (error) { if (currentSelection.current !== requestSelection) return; setResumeActionStatus("failed"); showGenerationError(mapJobResumeGenerationError(error)); }
   }
 
   async function createNewJobBranchFromBase() {
@@ -443,28 +464,6 @@ export function JobsWorkspace() {
       setResumeActionStatus("completed"); notify({ type: "success", title: "新岗位简历已创建", message: "基于原始通用简历创建了新的岗位优化版本，正在打开 Resume Studio。" });
       router.push(`/resume?branchId=${encodeURIComponent(result.resultRefs!.branchId!)}&mode=ai&fromJobId=${encodeURIComponent(selectedJob.id)}`);
     } catch (error) { setResumeActionStatus("failed"); showGenerationError(mapJobResumeGenerationError(error)); }
-  }
-
-  async function runOptionalSemanticEvaluation(input: { profile: CareerProfile; job: JobDescription; branch: ResumeBranch; matches: RequirementMatch[] }) {
-    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-    const results = await Promise.all(input.matches.map(async (match, index) => {
-      if (index > 0) await sleep(500);
-      const requirement = input.job.requirements.find((item) => item.id === match.requirementId);
-      const candidates = requirement ? recallCandidatesForRequirement(input.profile, requirement) : [];
-      if (!requirement) return match;
-      const result = await invokeStructuredAi({
-        task: "evidence-matcher",
-        businessInput: { profileId: input.profile.id, jobId: input.job.id, profileVersion: input.profile.version, jobVersion: input.job.updatedAt, matcherVersion: match.matcherVersion, candidateSetHash: match.candidateSetHash, requirement: { id: requirement.id, description: requirement.description, sourceQuote: requirement.sourceSpan.text, hardConstraint: requirement.hardConstraint, keywords: requirement.keywords }, candidates: candidates.map((candidate) => ({ evidenceRef: candidate.ref, searchText: candidate.searchText })) },
-        outputSchema: EvidenceMatcherOutputSchema
-      });
-      await repository.saveAiLogs([result.log]);
-      const item = result.ok ? result.data.evaluations.find((candidate) => candidate.requirementId === requirement.id) : undefined;
-      if (!item) return match;
-      const aiEvaluation = MatchEvaluationSchema.parse({ source: "ai", matchLevel: item.matchLevel, riskLevel: item.riskLevel, risks: item.risks, evidenceRefs: item.evidenceRefs, explanation: item.explanation, evaluatedAt: new Date().toISOString() }) as MatchEvaluation & { source: "ai" };
-      return withResolvedEffectiveMatch({ ...match, aiEvaluation, updatedAt: new Date().toISOString() });
-    }));
-    const saved = await repository.saveAiRequirementMatches({ profile: input.profile, job: input.job, matches: results });
-    setMatches(saved); return saved;
   }
 
   function showGenerationError(code: JobResumeGenerationErrorCode) {
@@ -526,9 +525,10 @@ export function JobsWorkspace() {
         </header>
         <div className="job-primary-tabs" role="tablist" aria-label="岗位工作内容">{(["resumes", "info", "requirements", "applications"] as const).map((item) => { const Icon = tabIcon(item); return <button key={item} type="button" role="tab" aria-selected={tab === item} tabIndex={tab === item ? 0 : -1} className={tab === item ? "is-active" : ""} onClick={() => setTab(item)} onKeyDown={(event) => handleTabKeyDown(event, item)}><Icon size={20} aria-hidden="true" /><span>{tabLabel(item)}</span></button>; })}</div>
         <div className="selected-job-content local-scroll" role="tabpanel" tabIndex={0}>
-          {tab === "resumes" ? <ResumeSourcePanel mode={sourceMode} onMode={(mode) => { setSourceMode(mode); setMatches([]); }} recommendation={recommendation} profile={profile} profileAnalysis={profileAnalysis} selectedProfileItemIds={selectedProfileItemIds} onSelectedProfileItemIds={setSelectedProfileItemIds} onAnalyzeProfile={() => void analyzeProfileLibrary()} onCreateProfile={() => void createFromProfileLibrary()} baseResumeOptions={baseResumeOptions} selectedBaseResumeId={selectedBaseResumeId} onBaseResume={(id) => { setSelectedBaseResumeId(id); setMatches([]); setGenerationErrorCode(undefined); }} onAnalyzeResume={() => void analyzeAndGenerateFromResume()} matches={matches} showMatchDetails={showMatchDetails} onShowMatchDetails={() => setShowMatchDetails((current) => !current)} status={resumeActionStatus} generationErrorCode={generationErrorCode} onRetryMatch={() => sourceMode === "profile" ? void analyzeProfileLibrary() : void analyzeAndGenerateFromResume()} /> : null}
+          {tab === "resumes" ? <ResumeSourcePanel mode={sourceMode} onMode={(mode) => { setSourceMode(mode); setMatches([]); }} recommendation={recommendation} profile={profile} profileAnalysis={profileAnalysis} selectedProfileItemIds={selectedProfileItemIds} onSelectedProfileItemIds={setSelectedProfileItemIds} onAnalyzeProfile={() => void analyzeProfileLibrary()} onCreateProfile={() => void createFromProfileLibrary()} baseResumeOptions={baseResumeOptions} selectedBaseResumeId={selectedBaseResumeId} onBaseResume={(id) => { setSelectedBaseResumeId(id); setMatches([]); setGenerationErrorCode(undefined); }} onAnalyzeResume={() => void analyzeAndGenerateFromResume()} matches={fitMatches} showMatchDetails={showMatchDetails} onShowMatchDetails={() => setShowMatchDetails((current) => !current)} status={resumeActionStatus} generationErrorCode={generationErrorCode} onRetryMatch={() => sourceMode === "profile" ? void analyzeProfileLibrary() : void analyzeAndGenerateFromResume()} /> : null}
           {tab === "info" ? <JobInfo job={selectedJob} /> : null}
-          {tab === "requirements" ? <JobRequirements job={selectedJob} matches={matches} /> : null}
+          {tab === "requirements" && matches.some(match => match.isStale) ? <p role="status">历史匹配已过期；下方已按当前来源和版本重新分析，未写入资料或创建简历。</p> : null}
+          {tab === "requirements" ? <JobRequirements job={selectedJob} matches={fitMatches} analysis={fitAnalysis} branch={sourceMode === "resume" ? selectedBaseResume : undefined} /> : null}
           {tab === "applications" ? <ApplicationEmpty jobId={selectedJob.id} /> : null}
         </div>
         {existingJobBranch ? <div className="sync-dialog-overlay" onClick={() => setExistingJobBranch(null)}>
@@ -637,38 +637,40 @@ function ResumeSourcePanel(props: {
       <label className="field-label" htmlFor="job-match-base-resume">来源通用简历<select id="job-match-base-resume" value={props.selectedBaseResumeId} onChange={(event) => props.onBaseResume(event.target.value)}><option value="">请选择一份通用简历</option>{props.baseResumeOptions.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></label>
       <div className="source-confirm-actions"><span>{props.selectedBaseResumeId ? "将分析当前正式版本并生成岗位简历；如已存在优化版本，可选择前往或新建。" : "请选择来源简历。系统不会默认替你选择。"}</span><button className="primary-button" type="button" data-testid="analyze-and-generate-job-resume" disabled={!props.selectedBaseResumeId || ["matching", "saving"].includes(props.status)} onClick={props.onAnalyzeResume}>{props.status === "matching" ? "分析中…" : props.status === "saving" ? "创建中…" : "分析并生成岗位简历"}</button></div>
       <button className="text-button" type="button" onClick={props.onShowMatchDetails}>查看匹配详情</button>
-      {props.showMatchDetails ? <div className="match-detail-summary">{props.matches.length ? props.matches.map((match) => <div key={match.id}><strong>{match.requirementQuote.text}</strong><span>{match.isStale ? "匹配已过期" : match.effectiveEvaluation?.evidenceRefs.length ? "已有事实支持" : "暂无事实支持"}</span></div>) : <p>尚未运行岗位匹配。</p>}</div> : null}
+      {props.showMatchDetails ? <div className="match-detail-summary">{props.matches.length ? props.matches.map((match) => <div key={match.id}><strong>{match.requirementQuote.text}</strong><span>{match.isStale ? "匹配已过期" : match.effectiveEvaluation?.matchLevel === "strong" ? "有明确证据支持" : match.effectiveEvaluation?.matchLevel === "weak" || match.effectiveEvaluation?.matchLevel === "transferable" ? "有部分证据支持" : "信息不足，需要澄清"}</span></div>) : <p>尚未运行岗位匹配。</p>}</div> : null}
     </div>}
     {props.generationErrorCode ? <div className="warning-box job-resume-recovery" role="alert"><div><strong>{jobResumeGenerationFeedback(props.generationErrorCode).title}</strong><p>{jobResumeGenerationFeedback(props.generationErrorCode).message}</p><p>{jobResumeGenerationFeedback(props.generationErrorCode).nextStep}</p></div>{["matches_missing", "matches_incomplete", "matches_stale", "source_revision_changed"].includes(props.generationErrorCode) ? <button className="secondary-button compact" type="button" onClick={props.onRetryMatch}>重新运行匹配</button> : null}</div> : null}
   </div>;
 }
 
 function JobInfo({ job }: { job: JobDescription }) { return <div className="job-info-panel"><header><h3>岗位信息</h3><span>更新于 {formatJobDate(job.updatedAt)}</span></header><dl className="info-list"><div><dt>公司</dt><dd>{job.company}</dd></div><div><dt>岗位名称</dt><dd>{job.title}</dd></div><div><dt>地点</dt><dd>{job.location ?? "未填写"}</dd></div><div><dt>工作方式</dt><dd>{job.workType ?? "未填写"}</dd></div><div><dt>行业</dt><dd>{job.industry ?? "未填写"}</dd></div><div><dt>JD 来源</dt><dd>{jobSourceLabel(job.source)}</dd></div></dl><section className="raw-jd-section"><h4>原始 JD</h4><p>{job.rawText}</p></section></div>; }
-export function JobRequirements({ job, matches = [] }: { job: JobDescription; matches?: RequirementMatch[] }) {
+export function JobRequirements({ job, matches = [], analysis, branch }: { job: JobDescription; matches?: RequirementMatch[]; analysis?: ReturnType<typeof buildCareerIntelligence>; branch?: ResumeBranch }) {
   const graph = job.requirementGraph;
   return <div className="job-requirement-cards">
     <header><h3>岗位要求</h3><span>{job.requirements.length} 条已确认要求{graph ? ` · 来源覆盖 ${Math.round(graph.sourceCoverage.coverageRatio * 100)}%` : ""}</span></header>
-    {graph?.groups.filter((group) => group.relation !== "evidence_bundle").map((group) => <section key={group.id} className="job-requirement-group"><h4>{groupLabel(group.relation)}{group.minimumSatisfied ? `（至少满足 ${group.minimumSatisfied} 项）` : ""}</h4>{group.requirementIds.map((id) => {
+    {graph?.groups.filter((group) => group.relation !== "evidence_bundle").map((group) => <section key={group.id} className="job-requirement-group"><h4>{groupLabel(group.relation)}{group.minimumSatisfied ? `（至少满足 ${group.minimumSatisfied} 项）` : ""}</h4>{analysis ? <p>当前有明确证据支持 {group.requirementIds.filter(id => analysis.matrix.evaluations.some(row => row.requirementId === id && row.matchLevel === "direct")).length} / {group.requirementIds.length} 项；{["any_of", "preferred_any_of"].includes(group.relation) ? `满足 ${group.minimumSatisfied ?? 1} 项即可，其余选项不作为硬性缺口。` : "需逐项核实全部条件。"}</p> : null}{group.requirementIds.map((id) => {
       const requirement = job.requirements.find((item) => item.id === id);
-      return requirement ? <RequirementArticle key={id} requirement={requirement} job={job} matches={matches} /> : null;
+      return requirement ? <RequirementArticle key={id} requirement={requirement} job={job} matches={matches} analysis={analysis} branch={branch} /> : null;
     })}</section>)}
-    {graph ? job.requirements.filter((requirement) => !graph.groups.some((group) => group.requirementIds.includes(requirement.id))).map((requirement) => <RequirementArticle key={requirement.id} requirement={requirement} job={job} matches={matches} />) : job.requirements.map((requirement) => <RequirementArticle key={requirement.id} requirement={requirement} job={job} matches={matches} />)}
+    {graph ? job.requirements.filter((requirement) => !graph.groups.some((group) => group.requirementIds.includes(requirement.id))).map((requirement) => <RequirementArticle key={requirement.id} requirement={requirement} job={job} matches={matches} analysis={analysis} branch={branch} />) : job.requirements.map((requirement) => <RequirementArticle key={requirement.id} requirement={requirement} job={job} matches={matches} analysis={analysis} branch={branch} />)}
     {graph?.schemaVersion === "job-requirement-graph-v4" && graph.semanticUnits.some((unit) => unit.final?.disposition === "heading" && unit.final.section === "unknown") ? <details><summary>其他原始栏目</summary>{graph.semanticUnits.filter((unit) => unit.final?.disposition === "heading" && unit.final.section === "unknown").map((unit) => <p key={unit.id}>{unit.text}</p>)}</details> : null}
     {graph?.verificationMaterials.length ? <section className="job-requirement-group"><h4>申请材料清单</h4>{graph.verificationMaterials.map((item) => <article key={item.id}><strong>{item.label}</strong><span>验证材料，不计入技能匹配</span>{item.requiredComponents.length ? <small>{item.requiredComponents.join(" · ")}</small> : null}</article>)}</section> : null}
     {graph?.roleProfile.hiringSignals.length ? <section className="job-requirement-group"><h4>招聘方关注特征</h4>{graph.roleProfile.hiringSignals.map((item) => <article key={item.id}><strong>{item.statement}</strong><span>用于自我评价、项目叙事与面试准备，不作为硬条件</span></article>)}</section> : null}
   </div>;
 }
-function RequirementArticle({ requirement, job, matches }: { requirement: JobDescription["requirements"][number]; job: JobDescription; matches: RequirementMatch[] }) {
+function RequirementArticle({ requirement, job, matches, analysis, branch }: { requirement: JobDescription["requirements"][number]; job: JobDescription; matches: RequirementMatch[]; analysis?: ReturnType<typeof buildCareerIntelligence>; branch?: ResumeBranch }) {
   const node = job.requirementGraph?.requirements.find((item) => item.id === requirement.id);
   const unit = job.requirementGraph?.schemaVersion === "job-requirement-graph-v4" ? job.requirementGraph.semanticUnits.find((item) => item.id === node?.sourceUnitId) : undefined;
   const match = matches.find((item) => item.requirementId === requirement.id);
   const evaluation = match?.effectiveEvaluation ?? match?.ruleEvaluation;
+  const gap = analysis ? capabilityGapView(analysis, requirement.id) : undefined;
   return <article data-requirement-id={requirement.id}><strong>{requirement.description}</strong><span>{categoryLabel(requirement.category)} · {priorityLabel(requirement.priority)}</span>
     {requirement.keywords.length ? <small>关联技能：{requirement.keywords.join(" · ")}</small> : null}
     {node?.keywordLogic ? <small>{node.keywordLogic.relation === "any_of" ? "任选其一" : "需同时具备"}：{node.keywordLogic.terms.join(" · ")}</small> : null}
     <details><summary>查看依据与匹配</summary><p>{requirement.sourceSpan.text}</p><small>原文位置 {requirement.sourceSpan.start}–{requirement.sourceSpan.end} · 置信度 {confidenceLabel(requirement.confidence)}</small>
       {unit?.originSpan ? <p>来源段落：{unit.originSpan.text}</p> : null}
-      <p>{!evaluation ? "尚未运行匹配" : match?.isStale ? "匹配已过期，请重新分析" : `支持程度：${evaluation.matchLevel} · ${evaluation.source === "rule" ? "规则判断" : "AI 建议，需核对"}`}</p>
+      <p>{!evaluation ? "尚未运行匹配" : match?.isStale ? "匹配已过期，请重新分析" : `支持程度：${gap?.label ?? evaluation.matchLevel}`}</p>
+      {gap ? <><small>分析版本 {analysis?.candidateEvidenceMatrix.ruleVersion} · {analysis?.candidateEvidenceMatrix.analysisId}</small><p>已支持：{gap.coveredAspects.join("、") || "尚无充分证据"}</p><p>待补证/澄清：{gap.missingAspects.join("、") || "无"}</p>{gap.units.map(unit => <div key={unit.id}><p>当前条目：{unit.text}</p>{branch ? <Link href={`/resume?branchId=${encodeURIComponent(branch.id)}&itemId=${encodeURIComponent(unit.itemId)}&mode=edit`}>定位简历条目</Link> : <Link href="/profile">查看个人资料来源</Link>}</div>)}</> : null}
       {evaluation ? <><p>{evaluation.explanation}</p>{evaluation.evidenceRefs.map((ref) => <div key={JSON.stringify(ref)}><small>证据 {ref.type === "evidence_file" ? ref.linkedFactId : ref.factId} · 来源 {ref.type}</small><p>{ref.factText}</p><small>原始来源：{ref.factQuote}</small></div>)}</> : null}
     </details></article>;
 }
@@ -677,7 +679,6 @@ function ApplicationEmpty({ jobId }: { jobId: string }) { return <div className=
 
 const emptyProfile = { id: "empty", name: "空资料", basics: { name: "空资料", links: [] }, preference: { targetRoles: [], targetCities: [], industries: [] }, version: 1, experiences: [], skills: [], certificates: [], evidences: [], unclassifiedBlocks: [], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" } satisfies CareerProfile;
 
-function profileLimitedToResume(profile: CareerProfile, branch: ResumeBranch): CareerProfile { const experienceIds = new Set<string>(); const skillIds = new Set<string>(); const certificateIds = new Set<string>(); for (const item of branch.contentItems) for (const ref of item.factRefs) { if (ref.type === "experience_fact") experienceIds.add(ref.experienceId); if (ref.type === "skill_fact") skillIds.add(ref.skillId); if (ref.type === "certificate_fact") certificateIds.add(ref.certificateId); } return { ...profile, experiences: profile.experiences.filter((item) => experienceIds.has(item.id)), skills: profile.skills.filter((item) => skillIds.has(item.id)), certificates: profile.certificates.filter((item) => certificateIds.has(item.id)) }; }
 function isMatchBaseResume(branch: ResumeBranch) { return branch.branchPurpose === "general" && branch.lifecycleStatus === "active" && branch.migrationStatus === "verified" && Boolean(branch.currentRevisionId) && branch.syncStatusCache.status !== "invalid_reference"; }
 function latestMatchesForResume(matches: RequirementMatch[], branchId?: string) { const latest = new Map<string, RequirementMatch>(); for (const match of [...matches].filter((item) => item.sourceResumeBranchId === branchId).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))) if (!latest.has(match.requirementId)) latest.set(match.requirementId, match); return [...latest.values()]; }
 function uniqueBranchName(base: string, branches: ResumeBranch[]) { const names = new Set(branches.map((branch) => branch.name)); if (!names.has(base)) return base; const dated = `${base} - ${new Date().toISOString().slice(0, 10)}`; if (!names.has(dated)) return dated; let index = 2; while (names.has(`${dated} - ${index}`)) index += 1; return `${dated} - ${index}`; }

@@ -1,0 +1,11 @@
+
+> careeradapt-ai@0.9.3-rc.2 typecheck E:\DEF\CareerAdapt-competition-5.1.8
+> tsc --noEmit
+
+tests/integration/jd02LateResult.test.ts(20,83): error TS2345: Argument of type '{ id: string; createdAt: string; updatedAt: string; branchPurpose: "job_specific" | "general"; profileId: string; name: string; sourceProfileVersion: number; sourceDraftRevision: number; ... 25 more ...; structuredContentItems?: { ...; }[] | undefined; }[]' is not assignable to parameter of type 'ResumeBranchV2[]'.
+  Type '{ id: string; createdAt: string; updatedAt: string; branchPurpose: "job_specific" | "general"; profileId: string; name: string; sourceProfileVersion: number; sourceDraftRevision: number; ... 25 more ...; structuredContentItems?: { ...; }[] | undefined; }' is not assignable to type 'ResumeBranchV2'.
+    Type '{ id: string; createdAt: string; updatedAt: string; branchPurpose: "job_specific" | "general"; profileId: string; name: string; sourceProfileVersion: number; sourceDraftRevision: number; ... 25 more ...; structuredContentItems?: { ...; }[] | undefined; }' is not assignable to type '{ schemaVersion: "resume-branch-v2"; structuredContentItems: { id: string; schemaVersion: "resume-content-item-v2"; data: { sectionType: "custom"; highlights: string[]; id: string; customFields: { ...; }[]; title?: string | undefined; description?: string | undefined; } | ... 16 more ... | { ...; }; ... 12 more ...;...'.
+      Types of property 'schemaVersion' are incompatible.
+        Type '"resume-branch-v2" | undefined' is not assignable to type '"resume-branch-v2"'.
+          Type 'undefined' is not assignable to type '"resume-branch-v2"'.
+ ELIFECYCLE  Command failed with exit code 2.
