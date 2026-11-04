@@ -1,0 +1,91 @@
+{
+  "status": "PASS",
+  "DEFAULT_HERMES_SHELL_INTERACTION": "PASS",
+  "run": 1793801859844,
+  "electronVersion": "40.10.2",
+  "hermesCommit": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+  "optIn": false,
+  "renderer": "http://127.0.0.1:5187",
+  "nativeNavigationVisible": [
+    "New session",
+    "Capabilities",
+    "Messaging",
+    "Artifacts"
+  ],
+  "optionalOtherRoutes": "NOT EXERCISED; visibility only",
+  "nativeBrand": "HERMES AGENT visible",
+  "newSession": "Normal locator click PASS",
+  "composerEnabled": true,
+  "trialClick": true,
+  "unsentDraft": "DEFAULT-SHELL unsent verification",
+  "finalUrl": "http://127.0.0.1:5187/#/",
+  "userMessageCount": 0,
+  "session": {
+    "messages": 0,
+    "busy": false,
+    "activeSessionId": null
+  },
+  "promptSubmitRequests": 0,
+  "rpcMethodsDuringDraft": [],
+  "gatewayStates": [
+    {
+      "stage": "initial",
+      "at": "2026-11-04T14:17:44.066Z",
+      "buttons": [
+        "Gatewayoffline"
+      ]
+    },
+    {
+      "stage": "onboarding-closed",
+      "at": "2026-11-04T14:17:56.147Z",
+      "buttons": [
+        "Gatewayready"
+      ]
+    },
+    {
+      "stage": "ready",
+      "at": "2026-11-04T14:17:56.189Z",
+      "buttons": [
+        "Gatewayready"
+      ]
+    },
+    {
+      "stage": "draft",
+      "at": "2026-11-04T14:17:57.298Z",
+      "buttons": [
+        "Gatewayready"
+      ]
+    }
+  ],
+  "gatewayInterpretation": "Local startup status only. Configured offline endpoint is not a real Provider connectivity test.",
+  "noCareerResidue": {
+    "nav": 0,
+    "shell": 0,
+    "intro": 0,
+    "modules": []
+  },
+  "pageerror": [],
+  "consoleErrors": [],
+  "screenshots": [
+    {
+      "stage": "initial",
+      "file": "docs/architecture/evidence/p522-host-a01r-fb01/default-shell-1793801859844-initial.png"
+    },
+    {
+      "stage": "onboarding-closed",
+      "file": "docs/architecture/evidence/p522-host-a01r-fb01/default-shell-1793801859844-onboarding-closed.png"
+    },
+    {
+      "stage": "new-session",
+      "file": "docs/architecture/evidence/p522-host-a01r-fb01/default-shell-1793801859844-new-session.png"
+    },
+    {
+      "stage": "draft",
+      "file": "docs/architecture/evidence/p522-host-a01r-fb01/default-shell-1793801859844-draft.png"
+    }
+  ],
+  "manualReview": "All four real Electron screenshots viewed",
+  "realProvider": "NOT VERIFIED",
+  "streamingToolCallingAttachmentUpload": "NOT VERIFIED",
+  "userFinalVisualApproval": "PENDING"
+}

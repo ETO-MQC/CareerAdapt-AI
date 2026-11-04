@@ -1,0 +1,67 @@
+{
+  "status": "PASS",
+  "command": "node scripts/p522-host-a01-renderer.mjs --port=5187",
+  "optIn": false,
+  "port": 5187,
+  "startupLog": "renderer-stdout.log",
+  "configuration": "Source conditional plugins: [...(optIn?[integration]:[]),fontAssets,...config.plugins]; no integration plugin when optIn=false",
+  "moduleResponses": [
+    {
+      "file": "apps/desktop/src/app/contrib/controller.tsx",
+      "url": "http://127.0.0.1:5187/src/app/contrib/controller.tsx",
+      "httpStatus": 200,
+      "sha256": "d10a61824d2d0677f0f52a25e4cd3f782676dc51500ce149e5d9ed41ae1fda64",
+      "careerMarkers": []
+    },
+    {
+      "file": "apps/desktop/src/app/routes.ts",
+      "url": "http://127.0.0.1:5187/src/app/routes.ts",
+      "httpStatus": 200,
+      "sha256": "19b527507c0d8303d9975d1f47168a867d7abc4ce2efda0fcad4bbc083adbca9",
+      "careerMarkers": []
+    },
+    {
+      "file": "apps/desktop/src/app/contrib/surfaces.tsx",
+      "url": "http://127.0.0.1:5187/src/app/contrib/surfaces.tsx",
+      "httpStatus": 200,
+      "sha256": "bf9ab2cbed88dded9f3d59a7ac5d3d087b6303078ab55a4a6f65873ac9aa35e6",
+      "careerMarkers": []
+    },
+    {
+      "file": "apps/desktop/src/app/chat/index.tsx",
+      "url": "http://127.0.0.1:5187/src/app/chat/index.tsx",
+      "httpStatus": 200,
+      "sha256": "cc82873cb9423e1f5ff516436e87ada9aefdc9dbdceae119b04af096ed96764e",
+      "careerMarkers": []
+    },
+    {
+      "file": "apps/desktop/src/app/shell/hooks/use-statusbar-items.tsx",
+      "url": "http://127.0.0.1:5187/src/app/shell/hooks/use-statusbar-items.tsx",
+      "httpStatus": 200,
+      "sha256": "3fa577498e4d72b588210b6b5ef344a26bbc4cea92283210321c58dd027ba671",
+      "careerMarkers": []
+    },
+    {
+      "file": "apps/desktop/src/app/chat/sidebar/index.tsx",
+      "url": "http://127.0.0.1:5187/src/app/chat/sidebar/index.tsx",
+      "httpStatus": 200,
+      "sha256": "83071b388276587d9e84781b60b128c702a87bf253ea7585a2aba530a02677c1",
+      "careerMarkers": []
+    },
+    {
+      "file": "apps/desktop/src/app/chat/composer/hooks/use-composer-placeholder.ts",
+      "url": "http://127.0.0.1:5187/src/app/chat/composer/hooks/use-composer-placeholder.ts",
+      "httpStatus": 200,
+      "sha256": "fc2f7e185fbd98939500915ed6625446d6aa8ac0eb4b5adc916d43c2419ed30c",
+      "careerMarkers": []
+    },
+    {
+      "file": "apps/desktop/src/components/chat/intro.tsx",
+      "url": "http://127.0.0.1:5187/src/components/chat/intro.tsx",
+      "httpStatus": 200,
+      "sha256": "179f2cecc1141c45a2797b2fd14de4faa6b0d57b69d9c94c029ad37eee4440d3",
+      "careerMarkers": []
+    }
+  ],
+  "rendererUnmodified": true
+}

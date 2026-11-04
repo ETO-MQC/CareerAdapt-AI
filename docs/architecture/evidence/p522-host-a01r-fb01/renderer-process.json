@@ -1,0 +1,6 @@
+{
+  "pid": 53576,
+  "optIn": false,
+  "command": "node scripts/p522-host-a01-renderer.mjs --port=5187",
+  "started": "2026-11-04T14:16:21.1435923Z"
+}

@@ -1,0 +1,55 @@
+{
+  "date": "2026-11-04",
+  "scope": "Only default Shell requalification; no second Electron launch",
+  "DEFAULT_HERMES_SHELL_INTERACTION": "PASS",
+  "checks": [
+    {
+      "command": "git fetch origin",
+      "exitCode": 0
+    },
+    {
+      "command": "node scripts/p522-host-a01-renderer.mjs --port=5187",
+      "status": "Started optIn=false",
+      "pid": 53576,
+      "result": "renderer-opt-in-verification.json"
+    },
+    {
+      "command": "node scripts/p522-host-a01-fallback.mjs",
+      "exitCode": 0,
+      "attemptsThisTask": 1,
+      "run": 1793801859844,
+      "log": "fallback-electron.log"
+    },
+    {
+      "command": "node --check scripts/p522-host-a01-fallback.mjs",
+      "exitCode": 0,
+      "log": "syntax.log"
+    },
+    {
+      "command": "pnpm exec eslint scripts/p522-host-a01-fallback.mjs --max-warnings=0",
+      "exitCode": 0,
+      "log": "eslint.log"
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0,
+      "log": "diff.log"
+    },
+    {
+      "command": "41 protected upstream SHA + 8 patch-source SHA + historical evidence SHA verification",
+      "exitCode": 0,
+      "result": "final-verification.json"
+    }
+  ],
+  "notRun": [
+    "18-cell visual matrix",
+    "Full plugin lifecycle",
+    "Renderer build",
+    "98 native Unit",
+    "Full historical Playwright",
+    "PDF/C1/C2/installer",
+    "Real Provider/Streaming/Tool Calling/attachment upload"
+  ],
+  "retainedA01RPasses": "Existing 18 cells/plugin compatibility/portable build protected by SHA, not rerun",
+  "userFinalVisualApproval": "PENDING"
+}

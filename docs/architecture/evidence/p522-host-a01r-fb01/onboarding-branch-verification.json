@@ -1,0 +1,22 @@
+{
+  "status": "PASS",
+  "run": 1793801859844,
+  "branch": "B: configured readiness auto-dismissed onboarding",
+  "state": {
+    "configured": true,
+    "manual": false,
+    "firstRunSkipped": false
+  },
+  "chooseLaterClicked": false,
+  "messageTrialClick": "PASS; non-forced and no actual input",
+  "logic": "Original Promise.any unchanged; conditional visible ChooseLater click retained",
+  "notExercised": "Branch A was not taken; no second Electron launch to force coverage",
+  "initialScreenshot": {
+    "stage": "initial",
+    "file": "docs/architecture/evidence/p522-host-a01r-fb01/default-shell-1793801859844-initial.png"
+  },
+  "closedScreenshot": {
+    "stage": "onboarding-closed",
+    "file": "docs/architecture/evidence/p522-host-a01r-fb01/default-shell-1793801859844-onboarding-closed.png"
+  }
+}

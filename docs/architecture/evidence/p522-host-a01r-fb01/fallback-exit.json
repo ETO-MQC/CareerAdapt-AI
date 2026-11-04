@@ -1,0 +1,5 @@
+{
+  "command": "node scripts/p522-host-a01-fallback.mjs",
+  "exitCode": 0,
+  "attemptsThisTask": 1
+}

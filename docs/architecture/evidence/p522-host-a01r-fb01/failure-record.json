@@ -1,0 +1,26 @@
+{
+  "thisTaskElectronAttempts": 1,
+  "thisTaskElectronFailures": 0,
+  "status": "PASS",
+  "history": [
+    {
+      "code": "FIRST_ATTEMPT_FAILED_DUE_TO_TEST_ASSUMPTION",
+      "stage": "A01R",
+      "run": 1793775866783,
+      "result": "../p522-host-a01r/default-shell-verification-1793775866783.json",
+      "screenshot": "../p522-host-a01r/default-shell-failure-1793775866783.png",
+      "reason": "Required ChooseLater although native configured readiness auto-dismissed overlay"
+    },
+    {
+      "code": "SECOND_QUALIFIED_ATTEMPT_PASS",
+      "stage": "A01R-FB01",
+      "run": 1793801859844,
+      "result": "default-shell-verification-1793801859844.json"
+    }
+  ],
+  "olderA01Failures": "Preserved; second label is relative to A01R test-assumption failure, not all project history",
+  "baselineInventoryNote": "PowerShell combined read/inventory returned exit1 only because no listener found; explicit check confirmed 5187 FREE, git fetch captured exit0",
+  "productionFailuresObserved": [],
+  "noRetry": true,
+  "noDeletedEvidence": true
+}
