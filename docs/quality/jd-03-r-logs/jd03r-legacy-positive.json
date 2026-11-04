@@ -1,0 +1,156 @@
+{
+  "config": {
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "E:\\DEF\\CareerAdapt-competition-5.1.8\\node_modules\\@playwright\\test\\cli.js",
+      "test",
+      "tests/e2e/p51-core-business.spec.ts",
+      "--reporter=json"
+    ],
+    "configFile": "E:\\DEF\\CareerAdapt-competition-5.1.8\\playwright.config.ts",
+    "rootDir": "E:/DEF/CareerAdapt-competition-5.1.8/tests/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "E:/DEF/CareerAdapt-competition-5.1.8/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "E:/DEF/CareerAdapt-competition-5.1.8/tests/e2e",
+        "testIgnore": [
+          "**/hermes-config-r1.spec.ts",
+          "**/hermes-p46h-integration.spec.ts",
+          "**/hermes-career-agent-eval.spec.ts",
+          "**/hermes-career-agent-real-eval.spec.ts",
+          "**/p43c3-real-provider-import.spec.ts",
+          "**/p43c4-local-real-files.spec.ts",
+          "**/p43d-real-provider-tailoring.spec.ts",
+          "**/p43g-real-provider-workflows.spec.ts",
+          "**/p43h-authoritative-recovery.spec.ts",
+          "**/p44e-real-hermes-reproduction.spec.ts",
+          "**/p45c1-real-resume-artifacts.spec.ts"
+        ],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 45000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 11,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "p51-core-business.spec.ts",
+      "file": "p51-core-business.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "pasted JD through confirmed Jobs intake, targeted revision, preview and real PDF",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 64057,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('job-optimization-panel').getByRole('button', { name: '采用全部可直接应用建议', exact: true })\nExpected: visible\nTimeout: 60000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 60000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('job-optimization-panel').getByRole('button', { name: '采用全部可直接应用建议', exact: true })\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('job-optimization-panel').getByRole('button', { name: '采用全部可直接应用建议', exact: true })\nExpected: visible\nTimeout: 60000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 60000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('job-optimization-panel').getByRole('button', { name: '采用全部可直接应用建议', exact: true })\u001b[22m\n\n    at completeCoreResumeWorkflow (E:\\DEF\\CareerAdapt-competition-5.1.8\\tests\\e2e\\support\\p51CoreWorkflow.ts:63:83)\n    at E:\\DEF\\CareerAdapt-competition-5.1.8\\tests\\e2e\\p51-core-business.spec.ts:29:3",
+                    "location": {
+                      "file": "E:\\DEF\\CareerAdapt-competition-5.1.8\\tests\\e2e\\support\\p51CoreWorkflow.ts",
+                      "column": 83,
+                      "line": 63
+                    },
+                    "snippet": "\u001b[90m   at \u001b[39msupport\\p51CoreWorkflow.ts:63\n\n  61 |     }\n  62 |     await expect(panel.getByTestId(\"tailoring-suggestions\")).toBeVisible({ timeout: 60_000 });\n> 63 |     await expect(panel.getByRole(\"button\", { name: \"采用全部可直接应用建议\", exact: true })).toBeVisible({ timeout: 60_000 });\n     |                                                                                   ^\n  64 |     await panel.getByRole(\"button\", { name: \"采用全部可直接应用建议\", exact: true }).click();\n  65 |     await panel.getByRole(\"button\", { name: \"确认并应用\", exact: true }).click();\n  66 |     // JD03R: review is still a proposal; neither selection nor navigation writes a Revision."
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "E:\\DEF\\CareerAdapt-competition-5.1.8\\tests\\e2e\\support\\p51CoreWorkflow.ts",
+                        "column": 83,
+                        "line": 63
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('job-optimization-panel').getByRole('button', { name: '采用全部可直接应用建议', exact: true })\nExpected: visible\nTimeout: 60000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 60000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('job-optimization-panel').getByRole('button', { name: '采用全部可直接应用建议', exact: true })\u001b[22m\n\n\n   at support\\p51CoreWorkflow.ts:63\n\n  61 |     }\n  62 |     await expect(panel.getByTestId(\"tailoring-suggestions\")).toBeVisible({ timeout: 60_000 });\n> 63 |     await expect(panel.getByRole(\"button\", { name: \"采用全部可直接应用建议\", exact: true })).toBeVisible({ timeout: 60_000 });\n     |                                                                                   ^\n  64 |     await panel.getByRole(\"button\", { name: \"采用全部可直接应用建议\", exact: true }).click();\n  65 |     await panel.getByRole(\"button\", { name: \"确认并应用\", exact: true }).click();\n  66 |     // JD03R: review is still a proposal; neither selection nor navigation writes a Revision.\n    at completeCoreResumeWorkflow (E:\\DEF\\CareerAdapt-competition-5.1.8\\tests\\e2e\\support\\p51CoreWorkflow.ts:63:83)\n    at E:\\DEF\\CareerAdapt-competition-5.1.8\\tests\\e2e\\p51-core-business.spec.ts:29:3"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-04T14:07:54.539Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "E:\\DEF\\CareerAdapt-competition-5.1.8\\test-results\\p51-core-business-pasted-J-24c59-vision-preview-and-real-PDF-chromium\\error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "E:\\DEF\\CareerAdapt-competition-5.1.8\\tests\\e2e\\support\\p51CoreWorkflow.ts",
+                    "column": 83,
+                    "line": 63
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "351498550e79aac53fbd-6f606edfa0c46ce35063",
+          "file": "p51-core-business.spec.ts",
+          "line": 6,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-04T14:07:53.460Z",
+    "duration": 65736.359,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

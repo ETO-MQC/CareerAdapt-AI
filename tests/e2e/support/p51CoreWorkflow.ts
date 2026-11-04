@@ -49,9 +49,10 @@ export async function completeCoreResumeWorkflow(page: Page, jobId: string) {
     const branchId = new URL(page.url()).searchParams.get("branchId")!;
     const before = (await readStore(page, "resumeBranches")).find(branch => branch.id === branchId)!;
     const presentationBefore = await readStore(page, "appMeta");
+    const revisionsBefore = await readStore(page, "resumeRevisions");
     const panel = page.getByTestId("job-optimization-panel");
     await panel.getByRole("button", { name: "生成改写建议", exact: true }).click();
-    await expect.poll(async () => await panel.getByRole("button", { name: "采用全部可直接应用建议", exact: true }).isVisible()
+    await expect.poll(async () => (await panel.getByLabel("采用建议").count()) > 0
       || await panel.getByRole("button", { name: "没有", exact: true }).isVisible(), { timeout: 30_000 }).toBe(true);
     if (await panel.getByRole("button", { name: "没有", exact: true }).isVisible()) {
       // The isolated candidate has no additional evidence to offer; decline
@@ -59,19 +60,34 @@ export async function completeCoreResumeWorkflow(page: Page, jobId: string) {
       await panel.getByRole("button", { name: "没有", exact: true }).click();
       await panel.getByRole("button", { name: "提交回答", exact: true }).click();
     }
-    await expect(panel.getByTestId("tailoring-suggestions")).toBeVisible({ timeout: 60_000 });
+    await expect(panel.getByLabel("采用建议").first()).toBeVisible({ timeout: 30_000 });
+    await expect(panel.getByTestId("tailoring-suggestions")).toBeVisible({ timeout: 30_000 });
     await expect(panel.getByRole("button", { name: "采用全部可直接应用建议", exact: true })).toBeVisible({ timeout: 60_000 });
     await panel.getByRole("button", { name: "采用全部可直接应用建议", exact: true }).click();
     await panel.getByRole("button", { name: "确认并应用", exact: true }).click();
+    // JD03R: review is still a proposal; neither selection nor navigation writes a Revision.
+    expect((await readStore(page, "resumeBranches")).find(branch => branch.id === branchId)?.currentRevisionId).toBe(before.currentRevisionId);
+    expect(await readStore(page, "resumeRevisions")).toEqual(revisionsBefore);
     const confirmations = panel.locator(".tailoring-confirmation-card");
     for (let index = 0; index < await confirmations.count(); index++) {
       const accept = confirmations.nth(index).getByRole("button", { name: "确认采用", exact: true });
       if (await accept.count()) await accept.click();
     }
-    await panel.getByRole("button", { name: "应用选择并保存新版本" }).click();
+    const apply = panel.getByRole("button", { name: "应用选择并保存新版本" });
+    await expect(apply).toBeEnabled();
+    await apply.click();
     await expect.poll(async () => (await readStore(page, "resumeBranches")).find(branch => branch.id === branchId)?.revision).toBe(Number(before.revision) + 1);
     const after = (await readStore(page, "resumeBranches")).find(branch => branch.id === branchId)!;
     expect(after).toMatchObject({ jobId: jobId, sourceBranchId: sourceId });
+    const revisionsAfter = await readStore(page, "resumeRevisions");
+    expect(revisionsAfter).toHaveLength(revisionsBefore.length + 1);
+    // A second confirmation of this old proposal must be rejected by CAS, not
+    // create another revision or derive another Job branch.
+    await expect(apply).toBeEnabled();
+    await apply.click();
+    await expect(page.getByText("revision_conflict", { exact: true })).toBeVisible();
+    expect(await readStore(page, "resumeRevisions")).toEqual(revisionsAfter);
+    expect((await readStore(page, "resumeBranches")).find(branch => branch.id === branchId)).toEqual(after);
     expect((await readStore(page, "resumeBranches")).find(branch => branch.id === sourceId)).toEqual(branchesBefore.find(branch => branch.id === sourceId));
     expect(await readStore(page, "profiles")).toEqual(profileBefore);
     const presentationKey = `resumePresentationConfig:${branchId}`;
@@ -88,6 +104,10 @@ export async function completeCoreResumeWorkflow(page: Page, jobId: string) {
       profile: CareerProfileSchema.parse(profileBefore.find(profile => profile.id === after.profileId)),
       job: JobDescriptionSchema.parse(jobBeforePdf)
     })).not.toThrow();
+    await page.reload();
+    await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
+    expect(new URL(page.url()).searchParams.get("branchId")).toBe(branchId);
+    expect((await readStore(page, "resumeBranches")).find(branch => branch.id === branchId)).toEqual(after);
     await verifyCoreResumePdf(page, branchId);
 }
 
@@ -163,7 +183,7 @@ export async function installCoreWritingProvider(page: Page) {
       const targets = input.targets.filter(target => target.sectionType === "project"
         && (Array.isArray(target.before) ? target.before.join(" ") : target.before).includes("需求梳理"));
       const rephrase = (line: string) => line.includes("需求梳理")
-        ? "参与需求梳理、原型设计和功能验收等 AI 应用项目工作。" : line;
+        ? "AI 应用项目：参与需求梳理、原型设计和功能验收。" : line;
       output = { suggestions: targets.map(target => ({ id: `core-${target.itemId}`, intensity: input.intensity, operation: "rewrite",
         targetSectionType: target.sectionType, targetSectionId: target.sectionId, targetItemId: target.itemId, targetFieldPath: target.fieldPath,
         before: target.before, after: Array.isArray(target.before) ? target.before.map(rephrase) : rephrase(target.before),

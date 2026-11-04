@@ -2,7 +2,7 @@
   "task": "P5.1-JD-03",
   "date": "2026-11-04",
   "timezone": "Asia/Shanghai",
-  "status": "PARTIAL_WITH_VERIFIED_AGENTWORKSPACE_MAIN_FLOW",
+  "status": "CLOSED_WITH_DOCUMENTED_LIMITATIONS",
   "baseline": {
     "branch": "competition/5.1.8",
     "head": "4561b8d1dfd65b9c6d957a73495b79cb9308cecb",
@@ -81,7 +81,8 @@
       "evidence": [
         "jd-03-logs/legacy-editor-first-failure.json",
         "jd-03-logs/legacy-editor-relevant-fixture-failure.json"
-      ]
+      ],
+      "closure": "Resolved by JD-03-R; historical failures above retained. See legacyEntryClosure."
     },
     "pdf": {
       "pages": 1,
@@ -185,18 +186,156 @@
     "legacy production panel failed twice; stopped; not labelled unrelated or pre-existing without baseline proof"
   ],
   "limitations": [
-    "Legacy editor optimization entry regression remains unclosed",
     "Real Provider quality UNVERIFIED_REAL_MODEL_REQUIRED; no real Provider calls or user credentials read",
     "No long-resume/multi-template/whole-app regression certification",
     "Existing personal-career-os/resume-master research not found in current repository; no invented commits/licenses",
     "Temporary skip is navigation with pending review, not a new persisted skipped decision"
   ],
-  "jd04Readiness": "NOT_UNCONDITIONALLY_READY: resolve or explicitly accept legacy editor regression; real model quality requires separately authorized evaluation",
+  "jd04Readiness": "Superseded by user: next stage RESUME-01, not started in this task.",
   "git": {
     "committed": false,
     "pushed": false,
     "packaged": false
   },
   "noMultiAgent": true,
-  "testServerCleanup": "Owned production port 3043 listener stopped; Hermes harness completed own cleanup."
+  "testServerCleanup": "Owned production port 3043 listener stopped; Hermes harness completed own cleanup.",
+  "statusAtInitialDelivery": "PARTIAL_WITH_VERIFIED_AGENTWORKSPACE_MAIN_FLOW",
+  "limitationsAtInitialDelivery": [
+    "Legacy editor optimization entry regression remains unclosed",
+    "Real Provider quality UNVERIFIED_REAL_MODEL_REQUIRED; no real Provider calls or user credentials read",
+    "No long-resume/multi-template/whole-app regression certification",
+    "Existing personal-career-os/resume-master research not found in current repository; no invented commits/licenses",
+    "Temporary skip is navigation with pending review, not a new persisted skipped decision"
+  ],
+  "jd04ReadinessAtInitialDelivery": "NOT_UNCONDITIONALLY_READY: resolve or explicitly accept legacy editor regression; real model quality requires separately authorized evaluation",
+  "legacyEntryClosure": {
+    "task": "P5.1-JD-03-R",
+    "date": "2026-11-04",
+    "status": "CLOSED",
+    "baseline": {
+      "branch": "competition/5.1.8",
+      "head": "26e1dc3c809e659ff6a40cc0e67a5094b9b934dd",
+      "originSameHEAD": true,
+      "initialStatus": "clean",
+      "jd03AlreadyCommittedAndPushedByUser": true
+    },
+    "productionCodeModified": false,
+    "button": {
+      "label": "应用选择并保存新版本",
+      "meaning": "Apply reviewed existing proposal, not launch optimization",
+      "component": "src/components/resume/optimization/JobOptimizationPanel.tsx",
+      "disabledExpression": "pending || !canEdit || selectedClaims.length === 0 || conflictingClaimIds.size > 0",
+      "actualFailureCondition": "selectedClaims.length === 0; generatedCount=1, finalClaimsCount=1, suggestion blocked by current guard, select-auto clears selection"
+    },
+    "rootCause": {
+      "classification": "TEST_FIXTURE_AND_READINESS_CONTRACT",
+      "before": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+      "oldMockAfter": "参与需求梳理、原型设计和功能验收等 AI 应用项目工作。",
+      "guardFinding": "participation_to_owner, allowed=false",
+      "why": "preservesOwnership conservatively requires a compound responsibility object to remain within one source object; reordered and extended mock object fails existing contract. This is a deterministic safety finding, not a claim that humans necessarily view the wording as stronger ownership.",
+      "projection": "validateTailoringSuggestions -> unsupported_hard_fact/blocked -> Claims blocked -> select auto_applicable yields zero -> apply correctly disabled",
+      "additionalTestRace": "old test treated a visible select-all button during generation as proposal readiness and could miss the subsequent clarification; now waits actual claim or question"
+    },
+    "fix": {
+      "testOnly": true,
+      "safeMockAfter": "AI 应用项目：参与需求梳理、原型设计和功能验收。",
+      "oldOutputRetainedInNegativeUnitAndBrowser": true,
+      "readiness": "wait for actual proposal checkbox or question, not transient select-all control",
+      "assertionsRemoved": false,
+      "disabledGuardsChanged": false
+    },
+    "entryComparison": {
+      "legacy": "ResumeWorkspace -> JobOptimizationPanel.generatePlan/createTailoringPlan -> structured planner/batch -> validateTailoringSuggestions/withTailoringSuggestions -> local Plan/Claims review -> confirmTailoringClaims/applySelected -> applyTailoringPlan -> WorkspaceRepository.applyTailoringPlan",
+      "hermes": "AgentWorkspace -> Hermes Career workflow Facade -> createTailoringSessionCommand/generateTailoringDiffsCommand -> Session diff reviews -> AgentHostStore confirmation -> BrowserAgentToolService.applyTailoringChanges -> WorkspaceRepository.deriveAndApplyTailoringDiffsAtomic (or existing job branch applyTailoringDiffs)",
+      "sameSession": false,
+      "sameInputs": "persisted selected Job, Profile and branch/revision from WorkspaceRepository, shared analyzeJobFit/Resume v2/guard and storage boundaries; runtime-specific proposal state is separate",
+      "legacyContext": "jobs.find(job.id === branch.jobId), canEdit from canEditBranch(selectedBranch), plan binds branchId/jobId/basedOnBranchRevision/basedOnRevisionId; no Facade secretly present",
+      "confirmationSemantics": "Legacy starts from an explicitly created existing job branch; before final tailoring confirmation no additional formal revision is written. Hermes can atomically derive the job branch on final confirmation."
+    },
+    "verification": {
+      "baseline": {
+        "typecheckExit": 0,
+        "unitFiles": 3,
+        "passed": 27
+      },
+      "finalUnit": {
+        "exitCode": 0,
+        "files": 6,
+        "passed": 30,
+        "failed": 0,
+        "evidence": "jd-03-r-logs/jd03r-unit-final.json"
+      },
+      "typecheck": {
+        "exitCode": 0,
+        "evidence": "jd-03-r-logs/jd03r-typecheck-final.log"
+      },
+      "changedTestsESLint": {
+        "exitCode": 0,
+        "evidence": "jd-03-r-logs/jd03r-eslint-final.log"
+      },
+      "legacyBrowser": {
+        "exitCode": 0,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0,
+        "durationMs": 19829.08,
+        "productionServer": true,
+        "evidence": "jd-03-r-logs/jd03r-legacy-confirmation-final.json",
+        "assertions": [
+          "actual Job ID of writer matches selected job",
+          "blocked/unselected apply disabled; no branch/revision/Profile changes",
+          "before final confirmation exact same Revision table",
+          "after confirmation exactly one new Revision",
+          "second apply receives revision_conflict and creates no extra revision",
+          "general branch and Profile unchanged",
+          "reload same branch and full persisted content",
+          "exportRecords and PDF match confirmed Revision"
+        ]
+      },
+      "hermesBrowser": {
+        "exitCode": 0,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "durationMs": 61656.711,
+        "provider": "simulated only; actual bundled Hermes",
+        "evidence": "jd-03-r-logs/hermes-regression.json"
+      },
+      "productionBuild": {
+        "rerun": false,
+        "reason": "No production changes; existing qualified final JD03 build reused after all 479 source files matched current committed source",
+        "sourceParity": "jd-03-r-logs/jd03r-source-parity.json"
+      },
+      "pdf": {
+        "legacyActualDownload": "jd-03-r-logs/legacy-confirmed-resume.pdf",
+        "hermesActualDownload": "jd-03-r-logs/hermes-confirmed-resume.pdf",
+        "legacyPages": 1,
+        "pageSizePoints": [
+          594.96,
+          841.92
+        ],
+        "previewAndConfirmedHighlightEquality": true,
+        "exportRevisionBinding": true,
+        "visualReview": "legacy A4 render inspected; no overlap or clipping",
+        "render": "jd-03-r-logs/legacy-pdf-page.png"
+      },
+      "diffCheck": {
+        "exitCode": 0
+      }
+    },
+    "processFailures": [
+      "Initial diagnostic inherited unlimited click wait and timed out at 90s; bounded diagnostic then captured actual blocked claim",
+      "First positive retry exposed transient proposal-readiness wait and timed out at select-all; test wait fixed before successful positive and negative browser runs",
+      "Original JD03 failures retained unchanged"
+    ],
+    "limits": [
+      "No real Provider quality certification or credentials access",
+      "No Guard adjustment; its conservative compound-object behavior remains",
+      "No all-template or complex long-resume pagination certification"
+    ],
+    "next": "RESUME-01 only after separate user instruction; not started",
+    "committed": false,
+    "pushed": false,
+    "packaged": false
+  }
 }

@@ -1,0 +1,153 @@
+{
+  "config": {
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "E:\\DEF\\CareerAdapt-competition-5.1.8\\node_modules\\@playwright\\test\\cli.js",
+      "test",
+      "tests/e2e/jd03r-legacy-entry.spec.ts",
+      "--reporter=json"
+    ],
+    "configFile": "E:\\DEF\\CareerAdapt-competition-5.1.8\\playwright.config.ts",
+    "rootDir": "E:/DEF/CareerAdapt-competition-5.1.8/tests/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "E:/DEF/CareerAdapt-competition-5.1.8/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "E:/DEF/CareerAdapt-competition-5.1.8/tests/e2e",
+        "testIgnore": [
+          "**/hermes-config-r1.spec.ts",
+          "**/hermes-p46h-integration.spec.ts",
+          "**/hermes-career-agent-eval.spec.ts",
+          "**/hermes-career-agent-real-eval.spec.ts",
+          "**/p43c3-real-provider-import.spec.ts",
+          "**/p43c4-local-real-files.spec.ts",
+          "**/p43d-real-provider-tailoring.spec.ts",
+          "**/p43g-real-provider-workflows.spec.ts",
+          "**/p43h-authoritative-recovery.spec.ts",
+          "**/p44e-real-hermes-reproduction.spec.ts",
+          "**/p45c1-real-resume-artifacts.spec.ts"
+        ],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 45000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 11,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "jd03r-legacy-entry.spec.ts",
+      "file": "jd03r-legacy-entry.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "JD03R diagnostic actual legacy proposal",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "timedOut",
+                  "duration": 90092,
+                  "error": {
+                    "message": "\u001b[31mTest timeout of 90000ms exceeded.\u001b[39m",
+                    "stack": "\u001b[31mTest timeout of 90000ms exceeded.\u001b[39m"
+                  },
+                  "errors": [
+                    {
+                      "message": "\u001b[31mTest timeout of 90000ms exceeded.\u001b[39m"
+                    },
+                    {
+                      "location": {
+                        "file": "E:\\DEF\\CareerAdapt-competition-5.1.8\\tests\\e2e\\support\\p51CoreWorkflow.ts",
+                        "column": 15,
+                        "line": 124
+                      },
+                      "message": "Error: page.evaluate: Target page, context or browser has been closed\n\n   at support\\p51CoreWorkflow.ts:124\n\n  122 |\n  123 | export async function readStore(page: Page, name: string): Promise<Array<Record<string, unknown>>> {\n> 124 |   return page.evaluate(name => new Promise<Array<Record<string, unknown>>>((resolve, reject) => {\n      |               ^\n  125 |     const request = indexedDB.open(\"CareerAdaptDb\");\n  126 |     request.onerror = () => reject(request.error);\n  127 |     request.onsuccess = () => {\n    at readStore (E:\\DEF\\CareerAdapt-competition-5.1.8\\tests\\e2e\\support\\p51CoreWorkflow.ts:124:15)\n    at E:\\DEF\\CareerAdapt-competition-5.1.8\\tests\\e2e\\jd03r-legacy-entry.spec.ts:26:86"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-04T13:49:10.697Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "jd03r-actual-inputs",
+                      "contentType": "application/json",
+                      "body": "WwogIHsKICAgICJ0YXNrIjogInJlc3VtZS1vcHRpbWl6YXRpb24tcGxhbm5lciIsCiAgICAiaW5wdXQiOiB7CiAgICAgICJqb2JDb250ZXh0IjogewogICAgICAgICJ0aXRsZSI6ICLmlbDmja7liIbmnpDlrp7kuaDnlJ8gQ09SRS1CVVNJTkVTUyIsCiAgICAgICAgImNvbXBhbnkiOiAiQ29yZSBUZXN0IiwKICAgICAgICAicmF3VGV4dCI6ICLlspfkvY3ogYzotKNcbjEuIOWPguS4juaVsOaNrua4hea0l+S4juWIhuaekOOAglxu5Lu76IGM6KaB5rGCXG4xLiDkuobop6MgUHl0aG9uIOaIliBTUUzjgIJcbjIuIOWFt+Wkh+WboumYn+WNj+S9nOiDveWKm+OAgiIsCiAgICAgICAgInJvbGVNaXNzaW9uIjogIuWPguS4juaVsOaNrua4hea0l+S4juWIhuaekOOAgiIsCiAgICAgICAgInJlc3BvbnNpYmlsaXRpZXMiOiBbCiAgICAgICAgICAi5Y+C5LiO5pWw5o2u5riF5rSX5LiO5YiG5p6Q44CCIgogICAgICAgIF0sCiAgICAgICAgIm11c3RIYXZlIjogWwogICAgICAgICAgIuWPguS4juaVsOaNrua4hea0l+S4juWIhuaekOOAgiIKICAgICAgICBdLAogICAgICAgICJuaWNlVG9IYXZlIjogW10sCiAgICAgICAgInZlcmlmaWNhdGlvbk1hdGVyaWFscyI6IFtdLAogICAgICAgICJoaXJpbmdTaWduYWxzIjogW10sCiAgICAgICAgInRvb2xzIjogW10sCiAgICAgICAgImtleXdvcmRzIjogWwogICAgICAgICAgIlB5dGhvbiIsCiAgICAgICAgICAiU1FMIgogICAgICAgIF0KICAgICAgfSwKICAgICAgInJlcXVpcmVtZW50cyI6IFsKICAgICAgICB7CiAgICAgICAgICAiaWQiOiAianJ2NC1mbnYtMzg4ZWVkMTAtMjMiLAogICAgICAgICAgImRlc2NyaXB0aW9uIjogIuWPguS4juaVsOaNrua4hea0l+S4juWIhuaekOOAgiIsCiAgICAgICAgICAicHJpb3JpdHkiOiAiaGlnaCIsCiAgICAgICAgICAiY2F0ZWdvcnkiOiAicmVzcG9uc2liaWxpdHkiLAogICAgICAgICAgImtleXdvcmRzIjogW10KICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICJpZCI6ICJqcnY0LWZudi1hNzA1YzY1Ny0yMyIsCiAgICAgICAgICAiZGVzY3JpcHRpb24iOiAi5LqG6KejIFB5dGhvbiDmiJYgU1FM44CCIiwKICAgICAgICAgICJwcmlvcml0eSI6ICJtZWRpdW0iLAogICAgICAgICAgImNhdGVnb3J5IjogInRvb2wiLAogICAgICAgICAgImtleXdvcmRzIjogWwogICAgICAgICAgICAiUHl0aG9uIiwKICAgICAgICAgICAgIlNRTCIKICAgICAgICAgIF0KICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICJpZCI6ICJqcnY0LWZudi05NzljNTRhZS0yMyIsCiAgICAgICAgICAiZGVzY3JpcHRpb24iOiAi5YW35aSH5Zui6Zif5Y2P5L2c6IO95Yqb44CCIiwKICAgICAgICAgICJwcmlvcml0eSI6ICJtZWRpdW0iLAogICAgICAgICAgImNhdGVnb3J5IjogInNvZnRfc2tpbGwiLAogICAgICAgICAgImtleXdvcmRzIjogW10KICAgICAgICB9CiAgICAgIF0sCiAgICAgICJzZWN0aW9ucyI6IFsKICAgICAgICB7CiAgICAgICAgICAic2VjdGlvblR5cGUiOiAicHJvamVjdCIsCiAgICAgICAgICAiaXRlbUlkIjogImJyYW5jaC1pdGVtLWltcG9ydC1jb3JlLXByb2plY3QiLAogICAgICAgICAgImN1cnJlbnRUZXh0IjogIuWPguS4jiBBSSDlupTnlKjpobnnm67nmoTpnIDmsYLmorPnkIbjgIHljp/lnovorr7orqHlkozlip/og73pqozmlLbjgIIiLAogICAgICAgICAgInJlbGV2YW50UmVxdWlyZW1lbnRJZHMiOiBbCiAgICAgICAgICAgICJqcnY0LWZudi0zODhlZWQxMC0yMyIsCiAgICAgICAgICAgICJqcnY0LWZudi05NzljNTRhZS0yMyIsCiAgICAgICAgICAgICJqcnY0LWZudi1hNzA1YzY1Ny0yMyIKICAgICAgICAgIF0KICAgICAgICB9CiAgICAgIF0KICAgIH0KICB9LAogIHsKICAgICJ0YXNrIjogInJlc3VtZS10YWlsb3ItYmF0Y2giLAogICAgImlucHV0IjogewogICAgICAiZHJhZnRJZCI6ICJ0YWlsb3JpbmctZHJhZnQtYnJhbmNoLXByb2ZpbGUtSDdieEotaU55eC1qb2ItRVppVmNleDVkZS1mbnYtNmQwYTRkMWQtMTE0IiwKICAgICAgInByb2ZpbGVJZCI6ICJwcm9maWxlLUg3YnhKLWlOeXgiLAogICAgICAiam9iSWQiOiAiam9iLUVaaVZjZXg1ZGUiLAogICAgICAiaW50ZW5zaXR5IjogImJhbGFuY2VkIiwKICAgICAgImNvbXBhY3RKb2JDb250ZXh0IjogewogICAgICAgICJ0aXRsZSI6ICLmlbDmja7liIbmnpDlrp7kuaDnlJ8gQ09SRS1CVVNJTkVTUyIsCiAgICAgICAgInJvbGVNaXNzaW9uIjogIuWPguS4juaVsOaNrua4hea0l+S4juWIhuaekOOAgiIsCiAgICAgICAgInRvcFJlc3BvbnNpYmlsaXRpZXMiOiBbCiAgICAgICAgICAi5Y+C5LiO5pWw5o2u5riF5rSX5LiO5YiG5p6Q44CCIgogICAgICAgIF0sCiAgICAgICAgInRhcmdldEtleXdvcmRzIjogWwogICAgICAgICAgIlB5dGhvbiIsCiAgICAgICAgICAiU1FMIgogICAgICAgIF0KICAgICAgfSwKICAgICAgInRhcmdldHMiOiBbCiAgICAgICAgewogICAgICAgICAgIml0ZW1JZCI6ICJicmFuY2gtaXRlbS1pbXBvcnQtY29yZS1wcm9qZWN0IiwKICAgICAgICAgICJzZWN0aW9uVHlwZSI6ICJwcm9qZWN0IiwKICAgICAgICAgICJzZWN0aW9uSWQiOiAicHJvamVjdCIsCiAgICAgICAgICAiZmllbGRQYXRoIjogInNlY3Rpb25zLnByb2plY3QuaXRlbXMuYnJhbmNoLWl0ZW0taW1wb3J0LWNvcmUtcHJvamVjdC5oaWdobGlnaHRzIiwKICAgICAgICAgICJzdHJ1Y3R1cmVkSXRlbSI6IHsKICAgICAgICAgICAgImlkIjogImNvcmUtcHJvamVjdCIsCiAgICAgICAgICAgICJjdXN0b21GaWVsZHMiOiBbXSwKICAgICAgICAgICAgInNlY3Rpb25UeXBlIjogInByb2plY3QiLAogICAgICAgICAgICAidGl0bGUiOiAiQUkg5bqU55So6aG555uuIiwKICAgICAgICAgICAgInJvbGUiOiAi6aG555uu5oiQ5ZGYIiwKICAgICAgICAgICAgInN0YXJ0RGF0ZSI6ICIyMDI1LTAxIiwKICAgICAgICAgICAgImVuZERhdGUiOiAiMjAyNS0wNiIsCiAgICAgICAgICAgICJjdXJyZW50IjogZmFsc2UsCiAgICAgICAgICAgICJ0b29scyI6IFtdLAogICAgICAgICAgICAiZGVzY3JpcHRpb24iOiAi5Y+C5LiOIEFJIOW6lOeUqOmhueebrueahOmcgOaxguais+eQhuOAgeWOn+Wei+iuvuiuoeWSjOWKn+iDvemqjOaUtuOAgiIsCiAgICAgICAgICAgICJoaWdobGlnaHRzIjogWwogICAgICAgICAgICAgICLlj4LkuI4gQUkg5bqU55So6aG555uu55qE6ZyA5rGC5qKz55CG44CB5Y6f5Z6L6K6+6K6h5ZKM5Yqf6IO96aqM5pS244CCIgogICAgICAgICAgICBdLAogICAgICAgICAgICAib3V0Y29tZXMiOiBbXQogICAgICAgICAgfSwKICAgICAgICAgICJiZWZvcmUiOiBbCiAgICAgICAgICAgICLlj4LkuI4gQUkg5bqU55So6aG555uu55qE6ZyA5rGC5qKz55CG44CB5Y6f5Z6L6K6+6K6h5ZKM5Yqf6IO96aqM5pS244CCIgogICAgICAgICAgXSwKICAgICAgICAgICJyZW5kZXJlZFRleHQiOiAiQUkg5bqU55So6aG555uuIHwg6aG555uu5oiQ5ZGYXG4yMDI1LTAxIC0gMjAyNS0wNlxu5Y+C5LiOIEFJIOW6lOeUqOmhueebrueahOmcgOaxguais+eQhuOAgeWOn+Wei+iuvuiuoeWSjOWKn+iDvemqjOaUtuOAglxu5Y+C5LiOIEFJIOW6lOeUqOmhueebrueahOmcgOaxguais+eQhuOAgeWOn+Wei+iuvuiuoeWSjOWKn+iDvemqjOaUtuOAgiIsCiAgICAgICAgICAicmVsZXZhbnRSZXF1aXJlbWVudHMiOiBbCiAgICAgICAgICAgIHsKICAgICAgICAgICAgICAicmVxdWlyZW1lbnRJZCI6ICJqcnY0LWZudi0zODhlZWQxMC0yMyIsCiAgICAgICAgICAgICAgImRlc2NyaXB0aW9uIjogIuWPguS4juaVsOaNrua4hea0l+S4juWIhuaekOOAgiIsCiAgICAgICAgICAgICAgInByaW9yaXR5IjogImhpZ2giLAogICAgICAgICAgICAgICJjYXRlZ29yeSI6ICJyZXNwb25zaWJpbGl0eSIsCiAgICAgICAgICAgICAgImV2aWRlbmNlTmVlZCI6ICLlrp7pmYXotJ/otKPnmoTku7vliqHjgIHmlrnms5Xlkoznu5PmnpwiLAogICAgICAgICAgICAgICJrZXl3b3JkcyI6IFtdLAogICAgICAgICAgICAgICJyZWxldmFuY2VTY29yZSI6IDE0LAogICAgICAgICAgICAgICJkZXRhaWxDbGF1c2VzIjogW10sCiAgICAgICAgICAgICAgInNlbWFudGljQWxpYXNlcyI6IFtdLAogICAgICAgICAgICAgICJoYXJkQ29uc3RyYWludCI6IGZhbHNlCiAgICAgICAgICAgIH0sCiAgICAgICAgICAgIHsKICAgICAgICAgICAgICAicmVxdWlyZW1lbnRJZCI6ICJqcnY0LWZudi05NzljNTRhZS0yMyIsCiAgICAgICAgICAgICAgImRlc2NyaXB0aW9uIjogIuWFt+Wkh+WboumYn+WNj+S9nOiDveWKm+OAgiIsCiAgICAgICAgICAgICAgInByaW9yaXR5IjogIm1lZGl1bSIsCiAgICAgICAgICAgICAgImNhdGVnb3J5IjogInNvZnRfc2tpbGwiLAogICAgICAgICAgICAgICJldmlkZW5jZU5lZWQiOiAi55yf5a6e57uP5Y6G44CB5L2/55So5Zy65pmv5ZKM57uT5p6c6K+B5o2uIiwKICAgICAgICAgICAgICAia2V5d29yZHMiOiBbXSwKICAgICAgICAgICAgICAicmVsZXZhbmNlU2NvcmUiOiA1LAogICAgICAgICAgICAgICJkZXRhaWxDbGF1c2VzIjogW10sCiAgICAgICAgICAgICAgInNlbWFudGljQWxpYXNlcyI6IFtdLAogICAgICAgICAgICAgICJoYXJkQ29uc3RyYWludCI6IGZhbHNlCiAgICAgICAgICAgIH0sCiAgICAgICAgICAgIHsKICAgICAgICAgICAgICAicmVxdWlyZW1lbnRJZCI6ICJqcnY0LWZudi1hNzA1YzY1Ny0yMyIsCiAgICAgICAgICAgICAgImRlc2NyaXB0aW9uIjogIuS6huinoyBQeXRob24g5oiWIFNRTOOAgiIsCiAgICAgICAgICAgICAgInByaW9yaXR5IjogIm1lZGl1bSIsCiAgICAgICAgICAgICAgImNhdGVnb3J5IjogInRvb2xfb3JfdGVjaG5vbG9neSIsCiAgICAgICAgICAgICAgImV2aWRlbmNlTmVlZCI6ICLlrp7pmYXkvb/nlKjlnLrmma/jgIHpobnnm67ojIPlm7Tlkozlj6/moLjpqoznu5PmnpwiLAogICAgICAgICAgICAgICJrZXl3b3JkcyI6IFsKICAgICAgICAgICAgICAgICJQeXRob24iLAogICAgICAgICAgICAgICAgIlNRTCIKICAgICAgICAgICAgICBdLAogICAgICAgICAgICAgICJyZWxldmFuY2VTY29yZSI6IDUsCiAgICAgICAgICAgICAgImRldGFpbENsYXVzZXMiOiBbXSwKICAgICAgICAgICAgICAic2VtYW50aWNBbGlhc2VzIjogW10sCiAgICAgICAgICAgICAgImhhcmRDb25zdHJhaW50IjogZmFsc2UKICAgICAgICAgICAgfQogICAgICAgICAgXSwKICAgICAgICAgICJhbGxvd2VkRXZpZGVuY2VSZWZzIjogWwogICAgICAgICAgICB7CiAgICAgICAgICAgICAgInR5cGUiOiAiZXhwZXJpZW5jZV9mYWN0IiwKICAgICAgICAgICAgICAiZXhwZXJpZW5jZUlkIjogImV4cC1lZ01nSzlkUk43IiwKICAgICAgICAgICAgICAiZmFjdElkIjogImZhY3QtaW1wb3J0LVVkbzA5X2cxa2wiLAogICAgICAgICAgICAgICJmYWN0UXVvdGUiOiAi6aG555uu5ZCN56ew77yaQUkg5bqU55So6aG555uuXG7op5LoibLvvJrpobnnm67miJDlkZhcbuW8gOWni+aXpeacn++8mjIwMjUtMDFcbue7k+adn+aXpeacn++8mjIwMjUtMDZcbuivtOaYju+8muWPguS4jiBBSSDlupTnlKjpobnnm67nmoTpnIDmsYLmorPnkIbjgIHljp/lnovorr7orqHlkozlip/og73pqozmlLbjgIJcbuS6rueCue+8muWPguS4jiBBSSDlupTnlKjpobnnm67nmoTpnIDmsYLmorPnkIbjgIHljp/lnovorr7orqHlkozlip/og73pqozmlLbjgIIiLAogICAgICAgICAgICAgICJmYWN0VGV4dCI6ICLlj4LkuI4gQUkg5bqU55So6aG555uu55qE6ZyA5rGC5qKz55CG44CB5Y6f5Z6L6K6+6K6h5ZKM5Yqf6IO96aqM5pS244CCXG7lj4LkuI4gQUkg5bqU55So6aG555uu55qE6ZyA5rGC5qKz55CG44CB5Y6f5Z6L6K6+6K6h5ZKM5Yqf6IO96aqM5pS244CCIgogICAgICAgICAgICB9CiAgICAgICAgICBdLAogICAgICAgICAgImFsbG93ZWRGYWN0cyI6IFsKICAgICAgICAgICAgewogICAgICAgICAgICAgICJ2YWx1ZSI6ICLlj4LkuI4gQUkg5bqU55So6aG555uu55qE6ZyA5rGC5qKz55CG44CB5Y6f5Z6L6K6+6K6h5ZKM5Yqf6IO96aqM5pS244CCIiwKICAgICAgICAgICAgICAiZXZpZGVuY2VSZWZzIjogWwogICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAidHlwZSI6ICJleHBlcmllbmNlX2ZhY3QiLAogICAgICAgICAgICAgICAgICAiZXhwZXJpZW5jZUlkIjogImV4cC1lZ01nSzlkUk43IiwKICAgICAgICAgICAgICAgICAgImZhY3RJZCI6ICJmYWN0LWltcG9ydC1VZG8wOV9nMWtsIiwKICAgICAgICAgICAgICAgICAgImZhY3RRdW90ZSI6ICLpobnnm67lkI3np7DvvJpBSSDlupTnlKjpobnnm65cbuinkuiJsu+8mumhueebruaIkOWRmFxu5byA5aeL5pel5pyf77yaMjAyNS0wMVxu57uT5p2f5pel5pyf77yaMjAyNS0wNlxu6K+05piO77ya5Y+C5LiOIEFJIOW6lOeUqOmhueebrueahOmcgOaxguais+eQhuOAgeWOn+Wei+iuvuiuoeWSjOWKn+iDvemqjOaUtuOAglxu5Lqu54K577ya5Y+C5LiOIEFJIOW6lOeUqOmhueebrueahOmcgOaxguais+eQhuOAgeWOn+Wei+iuvuiuoeWSjOWKn+iDvemqjOaUtuOAgiIsCiAgICAgICAgICAgICAgICAgICJmYWN0VGV4dCI6ICLlj4LkuI4gQUkg5bqU55So6aG555uu55qE6ZyA5rGC5qKz55CG44CB5Y6f5Z6L6K6+6K6h5ZKM5Yqf6IO96aqM5pS244CCXG7lj4LkuI4gQUkg5bqU55So6aG555uu55qE6ZyA5rGC5qKz55CG44CB5Y6f5Z6L6K6+6K6h5ZKM5Yqf6IO96aqM5pS244CCIgogICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgIF0sCiAgICAgICAgICAgICAgIm1hdHVyaXR5IjogImRlbW9uc3RyYXRlZCIKICAgICAgICAgICAgfSwKICAgICAgICAgICAgewogICAgICAgICAgICAgICJ2YWx1ZSI6ICLlj4LkuI4gQUkg5bqU55So6aG555uu55qE6ZyA5rGC5qKz55CG44CB5Y6f5Z6L6K6+6K6h5ZKM5Yqf6IO96aqM5pS244CCIiwKICAgICAgICAgICAgICAiZXZpZGVuY2VSZWZzIjogWwogICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAidHlwZSI6ICJleHBlcmllbmNlX2ZhY3QiLAogICAgICAgICAgICAgICAgICAiZXhwZXJpZW5jZUlkIjogImV4cC1lZ01nSzlkUk43IiwKICAgICAgICAgICAgICAgICAgImZhY3RJZCI6ICJmYWN0LWltcG9ydC1VZG8wOV9nMWtsIiwKICAgICAgICAgICAgICAgICAgImZhY3RRdW90ZSI6ICLpobnnm67lkI3np7DvvJpBSSDlupTnlKjpobnnm65cbuinkuiJsu+8mumhueebruaIkOWRmFxu5byA5aeL5pel5pyf77yaMjAyNS0wMVxu57uT5p2f5pel5pyf77yaMjAyNS0wNlxu6K+05piO77ya5Y+C5LiOIEFJIOW6lOeUqOmhueebrueahOmcgOaxguais+eQhuOAgeWOn+Wei+iuvuiuoeWSjOWKn+iDvemqjOaUtuOAglxu5Lqu54K577ya5Y+C5LiOIEFJIOW6lOeUqOmhueebrueahOmcgOaxguais+eQhuOAgeWOn+Wei+iuvuiuoeWSjOWKn+iDvemqjOaUtuOAgiIsCiAgICAgICAgICAgICAgICAgICJmYWN0VGV4dCI6ICLlj4LkuI4gQUkg5bqU55So6aG555uu55qE6ZyA5rGC5qKz55CG44CB5Y6f5Z6L6K6+6K6h5ZKM5Yqf6IO96aqM5pS244CCXG7lj4LkuI4gQUkg5bqU55So6aG555uu55qE6ZyA5rGC5qKz55CG44CB5Y6f5Z6L6K6+6K6h5ZKM5Yqf6IO96aqM5pS244CCIgogICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgIF0sCiAgICAgICAgICAgICAgIm1hdHVyaXR5IjogImRlbW9uc3RyYXRlZCIKICAgICAgICAgICAgfQogICAgICAgICAgXSwKICAgICAgICAgICJjdXJyZW50U2VjdGlvbkNvbnRleHQiOiBbCiAgICAgICAgICAgICJBSSDlupTnlKjpobnnm64gfCDpobnnm67miJDlkZhcbjIwMjUtMDEgLSAyMDI1LTA2XG7lj4LkuI4gQUkg5bqU55So6aG555uu55qE6ZyA5rGC5qKz55CG44CB5Y6f5Z6L6K6+6K6h5ZKM5Yqf6IO96aqM5pS244CCXG7lj4LkuI4gQUkg5bqU55So6aG555uu55qE6ZyA5rGC5qKz55CG44CB5Y6f5Z6L6K6+6K6h5ZKM5Yqf6IO96aqM5pS244CCIgogICAgICAgICAgXSwKICAgICAgICAgICJldmlkZW5jZUJ1bmRsZSI6IHsKICAgICAgICAgICAgImRpcmVjdEV2aWRlbmNlIjogWwogICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICJ2YWx1ZSI6ICLlj4LkuI4gQUkg5bqU55So6aG555uu55qE6ZyA5rGC5qKz55CG44CB5Y6f5Z6L6K6+6K6h5ZKM5Yqf6IO96aqM5pS244CCIiwKICAgICAgICAgICAgICAgICJldmlkZW5jZVJlZnMiOiBbCiAgICAgICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAgICAidHlwZSI6ICJleHBlcmllbmNlX2ZhY3QiLAogICAgICAgICAgICAgICAgICAgICJleHBlcmllbmNlSWQiOiAiZXhwLWVnTWdLOWRSTjciLAogICAgICAgICAgICAgICAgICAgICJmYWN0SWQiOiAiZmFjdC1pbXBvcnQtVWRvMDlfZzFrbCIsCiAgICAgICAgICAgICAgICAgICAgImZhY3RRdW90ZSI6ICLpobnnm67lkI3np7DvvJpBSSDlupTnlKjpobnnm65cbuinkuiJsu+8mumhueebruaIkOWRmFxu5byA5aeL5pel5pyf77yaMjAyNS0wMVxu57uT5p2f5pel5pyf77yaMjAyNS0wNlxu6K+05piO77ya5Y+C5LiOIEFJIOW6lOeUqOmhueebrueahOmcgOaxguais+eQhuOAgeWOn+Wei+iuvuiuoeWSjOWKn+iDvemqjOaUtuOAglxu5Lqu54K577ya5Y+C5LiOIEFJIOW6lOeUqOmhueebrueahOmcgOaxguais+eQhuOAgeWOn+Wei+iuvuiuoeWSjOWKn+iDvemqjOaUtuOAgiIsCiAgICAgICAgICAgICAgICAgICAgImZhY3RUZXh0IjogIuWPguS4jiBBSSDlupTnlKjpobnnm67nmoTpnIDmsYLmorPnkIbjgIHljp/lnovorr7orqHlkozlip/og73pqozmlLbjgIJcbuWPguS4jiBBSSDlupTnlKjpobnnm67nmoTpnIDmsYLmorPnkIbjgIHljp/lnovorr7orqHlkozlip/og73pqozmlLbjgIIiCiAgICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgIF0sCiAgICAgICAgICAgICAgICAibWF0dXJpdHkiOiAiZGVtb25zdHJhdGVkIgogICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgInZhbHVlIjogIuWPguS4jiBBSSDlupTnlKjpobnnm67nmoTpnIDmsYLmorPnkIbjgIHljp/lnovorr7orqHlkozlip/og73pqozmlLbjgIIiLAogICAgICAgICAgICAgICAgImV2aWRlbmNlUmVmcyI6IFsKICAgICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICJ0eXBlIjogImV4cGVyaWVuY2VfZmFjdCIsCiAgICAgICAgICAgICAgICAgICAgImV4cGVyaWVuY2VJZCI6ICJleHAtZWdNZ0s5ZFJONyIsCiAgICAgICAgICAgICAgICAgICAgImZhY3RJZCI6ICJmYWN0LWltcG9ydC1VZG8wOV9nMWtsIiwKICAgICAgICAgICAgICAgICAgICAiZmFjdFF1b3RlIjogIumhueebruWQjeensO+8mkFJIOW6lOeUqOmhueebrlxu6KeS6Imy77ya6aG555uu5oiQ5ZGYXG7lvIDlp4vml6XmnJ/vvJoyMDI1LTAxXG7nu5PmnZ/ml6XmnJ/vvJoyMDI1LTA2XG7or7TmmI7vvJrlj4LkuI4gQUkg5bqU55So6aG555uu55qE6ZyA5rGC5qKz55CG44CB5Y6f5Z6L6K6+6K6h5ZKM5Yqf6IO96aqM5pS244CCXG7kuq7ngrnvvJrlj4LkuI4gQUkg5bqU55So6aG555uu55qE6ZyA5rGC5qKz55CG44CB5Y6f5Z6L6K6+6K6h5ZKM5Yqf6IO96aqM5pS244CCIiwKICAgICAgICAgICAgICAgICAgICAiZmFjdFRleHQiOiAi5Y+C5LiOIEFJIOW6lOeUqOmhueebrueahOmcgOaxguais+eQhuOAgeWOn+Wei+iuvuiuoeWSjOWKn+iDvemqjOaUtuOAglxu5Y+C5LiOIEFJIOW6lOeUqOmhueebrueahOmcgOaxguais+eQhuOAgeWOn+Wei+iuvuiuoeWSjOWKn+iDvemqjOaUtuOAgiIKICAgICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgXSwKICAgICAgICAgICAgICAgICJtYXR1cml0eSI6ICJkZW1vbnN0cmF0ZWQiCiAgICAgICAgICAgICAgfQogICAgICAgICAgICBdLAogICAgICAgICAgICAicmVsYXRlZFJlc3VtZUV2aWRlbmNlIjogW10sCiAgICAgICAgICAgICJyZWxhdGVkUHJvZmlsZUV2aWRlbmNlIjogW10sCiAgICAgICAgICAgICJjb25maXJtYWJsZVNpZ25hbHMiOiBbCiAgICAgICAgICAgICAgIlB5dGhvbiIsCiAgICAgICAgICAgICAgIlNRTCIKICAgICAgICAgICAgXSwKICAgICAgICAgICAgImNvbmZpcm1lZFVzZXJEZWNsYXJhdGlvbnMiOiBbXSwKICAgICAgICAgICAgIm5lZ2F0aXZlVXNlckRlY2xhcmF0aW9ucyI6IFtdLAogICAgICAgICAgICAidW5jZXJ0YWluVXNlckRlY2xhcmF0aW9ucyI6IFtdCiAgICAgICAgICB9CiAgICAgICAgfQogICAgICBdCiAgICB9CiAgfQpd"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "E:\\DEF\\CareerAdapt-competition-5.1.8\\test-results\\jd03r-legacy-entry-JD03R-diagnostic-actual-legacy-proposal-chromium\\error-context.md"
+                    }
+                  ]
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "d8945758841fa4d2621f-751fc3050c9571d0c560",
+          "file": "jd03r-legacy-entry.spec.ts",
+          "line": 3,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-04T13:49:09.577Z",
+    "duration": 91826.57400000001,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

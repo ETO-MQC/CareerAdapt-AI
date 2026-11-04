@@ -3,7 +3,7 @@ import { completeCoreResumeWorkflow, prepareCoreSourceResume, readStore } from "
 
 test.use({ actionTimeout: 15_000 });
 
-test("pasted JD through confirmed Jobs intake, targeted revision, preview and real PDF", async ({ page }) => {
+test("pasted JD through confirmed Jobs intake, targeted revision, preview and real PDF", async ({ page }, testInfo) => {
   test.setTimeout(180_000);
   await page.goto("/jobs");
   const skip = page.getByRole("button", { name: "跳过，先体验其他功能", exact: true });
@@ -26,5 +26,15 @@ test("pasted JD through confirmed Jobs intake, targeted revision, preview and re
   await expect(page.getByTestId("conversion-result")).toBeVisible();
   const job = (await readStore(page, "jobDescriptions")).find(job => String(job.title).includes("CORE-BUSINESS"))!;
   expect(job.id).toBeTruthy();
+  const batchJobs: string[] = [];
+  page.on("request", request => {
+    if (request.url().includes("/api/ai/structured")) {
+      const body = request.postDataJSON();
+      if (body.task === "resume-tailor-batch") batchJobs.push(body.input.jobId);
+    }
+  });
   await completeCoreResumeWorkflow(page, String(job.id));
+  expect(batchJobs.length).toBeGreaterThan(0);
+  expect(batchJobs.every(id => id === job.id)).toBe(true);
+  await testInfo.attach("jd03r-legacy-confirmed-a4", { body: await page.screenshot(), contentType: "image/png" });
 });

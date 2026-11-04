@@ -1,0 +1,2 @@
+  1 passed (1.0m)
+[Hermes integration] PASS suite=integration app=http://127.0.0.1:3010 providerCalls=10
