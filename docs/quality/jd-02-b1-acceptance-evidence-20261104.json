@@ -1,0 +1,252 @@
+{
+  "schemaVersion": "jd-02-b1-acceptance-evidence.v1",
+  "date": "2026-11-04",
+  "timezone": "Asia/Shanghai",
+  "status": "JD-02-B CLOSED WITH DOCUMENTED LIMITATIONS",
+  "git": {
+    "branch": "competition/5.1.8",
+    "handoffHead": "7c8d28dd0e0d1504f85de0cd8fbd5cda35be076f",
+    "baselineHead": "313046686eb2a5f4a0c6952dbffd2ede1a04214a",
+    "initialStatus": "clean including untracked",
+    "originBranchHeadAtStart": "313046686eb2a5f4a0c6952dbffd2ede1a04214a",
+    "changeSource": "JD-02-B committed before this task; historical handoff uncommitted status corrected",
+    "committed": false,
+    "pushed": false,
+    "packaged": false,
+    "importedBranches": []
+  },
+  "rootCause": {
+    "sqlConflictClassification": "B",
+    "additionalProductionDefectClassification": "A",
+    "C": false,
+    "D": false,
+    "legacyLevel": "strong",
+    "legacyReason": "two exact keyword hits SQL,reports; no maturity-aware sufficiency gate",
+    "actualRecall": {
+      "requirementId": "req-sql-reporting",
+      "candidates": [
+        {
+          "evidenceUnitId": "evu-fnv-a8d73742-107",
+          "score": 0.6228,
+          "reasons": [
+            "精确术语：SQL、reports",
+            "文本主题相关",
+            "存在已确认事实引用"
+          ]
+        },
+        {
+          "evidenceUnitId": "evu-fnv-f77616c4-77",
+          "score": 0.3885,
+          "reasons": [
+            "精确术语：SQL",
+            "文本主题相关",
+            "存在已确认事实引用"
+          ]
+        }
+      ]
+    },
+    "core02Level": "partial",
+    "coveredAspects": [
+      "SQL",
+      "reports"
+    ],
+    "missingAspects": [
+      "Build weekly SQL reports and maintain reporting workflows."
+    ],
+    "nonBooleanDirectThreshold": 0.64,
+    "formalLevel": "weak",
+    "finalUiLabel": "有部分证据支持",
+    "validEvidenceLost": false,
+    "workFactMaturity": "demonstrated, user confirmed with confirmed pdf_import provenance",
+    "defect": "any confirmed_capability unit incorrectly overrode presence of demonstrated SQL experience in explanation and gap view",
+    "fix": "only declaration-only evidence uses possible/declaration-only wording; mixed demonstrated+declaration retains partial support",
+    "thresholdsChanged": false,
+    "mappingChanged": false,
+    "originalFactsChanged": false,
+    "originalSqlJobChanged": false,
+    "testContractChanged": true,
+    "testContractBasis": "full canonical evaluation remains partial; legacy two-word strong is not the shared-analysis contract; original test and assertions retained with evidence-preservation and historical comparator assertions",
+    "positiveCase": "independent narrower job exactly matching the existing confirmed SQL action yields direct/strong; no new user fact",
+    "negativeCase": "isolated confirmed skill declarations without demonstrated experience remain partial/weak and possible",
+    "traceBefore": "jd-02-b1-logs/sql-baseline-trace.json",
+    "traceAfter": "jd-02-b1-logs/sql-qualified-trace.json",
+    "scopeLimitation": "partial is caused directly by the 0.6228<0.64 gate, not a semantic proof that workflow-maintenance capability is absent"
+  },
+  "checks": {
+    "baselineSqlFile": {
+      "tests": 7,
+      "passed": 6,
+      "failed": 1,
+      "exitCode": 1,
+      "report": "jd-02-b1-logs/sql-baseline-tests.json"
+    },
+    "unitIntegration": {
+      "files": 20,
+      "originalTestsPreserved": 208,
+      "newTests": 2,
+      "total": 210,
+      "passed": 210,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "report": "jd-02-b1-logs/unit-final.json",
+      "fileSet": [
+        "integration/jd01Persistence.test.ts",
+        "integration/jd02LateResult.test.ts",
+        "unit/jd01RequirementGraph.test.ts",
+        "unit/jd02Conditions.test.ts",
+        "unit/jd02SharedAnalysis.test.ts",
+        "unit/jd02SourceIsolation.test.ts",
+        "unit/jdAnalyzerContract.test.ts",
+        "unit/jobOptimization.test.ts",
+        "unit/jobOptimizationV2.test.ts",
+        "unit/jobResumeSourceModes.test.ts",
+        "unit/jobSemanticCompilerV4.test.ts",
+        "unit/jobWorkflow.test.ts",
+        "unit/matcher.test.ts",
+        "unit/p40g-graph-v3.test.ts",
+        "unit/p40g-integration-pipeline.test.ts",
+        "unit/p40g2-golden-jd.test.ts",
+        "unit/p51-core-02-intelligence.test.ts",
+        "unit/repositoryTailoringV2.test.ts",
+        "unit/skillsQualitySq13B.test.ts",
+        "unit/storage.test.ts"
+      ],
+      "command": "pnpm exec vitest run tests/integration/jd01Persistence.test.ts tests/integration/jd02LateResult.test.ts tests/unit/jd01RequirementGraph.test.ts tests/unit/jd02Conditions.test.ts tests/unit/jd02SharedAnalysis.test.ts tests/unit/jd02SourceIsolation.test.ts tests/unit/jdAnalyzerContract.test.ts tests/unit/jobOptimization.test.ts tests/unit/jobOptimizationV2.test.ts tests/unit/jobResumeSourceModes.test.ts tests/unit/jobSemanticCompilerV4.test.ts tests/unit/jobWorkflow.test.ts tests/unit/matcher.test.ts tests/unit/p40g-graph-v3.test.ts tests/unit/p40g-integration-pipeline.test.ts tests/unit/p40g2-golden-jd.test.ts tests/unit/p51-core-02-intelligence.test.ts tests/unit/repositoryTailoringV2.test.ts tests/unit/skillsQualitySq13B.test.ts tests/unit/storage.test.ts --reporter=json --outputFile=docs/quality/jd-02-b1-logs/unit-final.json"
+    },
+    "typecheck": {
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "log": "jd-02-b1-logs/typecheck.log"
+    },
+    "eslint": {
+      "files": 6,
+      "maxWarnings": 0,
+      "exitCode": 0,
+      "log": "jd-02-b1-logs/eslint.log"
+    },
+    "build": {
+      "command": "pnpm build",
+      "exitCode": 0,
+      "log": "jd-02-b1-logs/production-build.log",
+      "environment": "B.2 qualified internal dependency directory; original Junction not qualified"
+    },
+    "playwright": {
+      "passed": 2,
+      "failed": 0,
+      "exitCode": 0,
+      "durationSeconds": 10.7,
+      "log": "jd-02-b1-logs/playwright.log",
+      "baseURL": "http://127.0.0.1:3413",
+      "cases": [
+        "original SQL trace on actual production page; resume/profile/reload partial explanation; zero AI calls; four-store snapshots unchanged",
+        "existing JD02 job/resume/source switches, reload, stale reanalysis, exact evidence isolation and item navigation"
+      ],
+      "priorSourceGenerationBrowserEvidence": "JD-02-B 4/4 retained, not rerun as part of B.1",
+      "realProviderTested": false,
+      "command": "PLAYWRIGHT_BASE_URL=http://127.0.0.1:3413 pnpm exec playwright test tests/e2e/jd02-b1-sql-fit.spec.ts tests/e2e/jd02-job-fit.spec.ts --workers=1"
+    },
+    "diff": {
+      "command": "git diff --check",
+      "exitCode": 0
+    },
+    "traceRegeneration": "Set JD02_B1_TRACE_PATH=docs/quality/jd-02-b1-logs/sql-qualified-trace.json; pnpm exec vitest run tests/unit/jobOptimization.test.ts"
+  },
+  "productionFiles": [
+    "src/domain/jobOptimization/v2/evidence.ts",
+    "src/domain/jobOptimization/careerIntelligence.ts",
+    "src/domain/match/matcher.ts"
+  ],
+  "testFiles": [
+    "tests/unit/jobOptimization.test.ts",
+    "tests/fixtures/jd02SqlTrace.ts",
+    "tests/e2e/jd02-b1-sql-fit.spec.ts"
+  ],
+  "versions": {
+    "careerIntelligence": "career-intelligence-2.1",
+    "matcher": "evidence-matcher.v1.2.1"
+  },
+  "negativeEvidence": {
+    "implemented": false,
+    "disposition": "accepted documented product limitation; safe unknown / insufficient fallback",
+    "existingPartialContracts": [
+      "question requirementIds",
+      "answer/evidenceQuote/status",
+      "answerRevision/answerRevisionHash",
+      "answerMessageId and answerText receipt",
+      "separate sourceTurn exactSourceText/capturedAt",
+      "writer negativeUserDeclarations for task-local protection"
+    ],
+    "missingContracts": [
+      "uniform requirement-version-bound explicit negative intent",
+      "mandatory traceable original Turn across legacy paths",
+      "capability effective time and scope",
+      "correction/retraction lineage",
+      "explicit confirmation of the scoped negative conclusion"
+    ],
+    "skipUncertainLearningOrMissingConvertedToDenial": false,
+    "newTables": 0,
+    "newConfirmationSemantics": false
+  },
+  "stages": {
+    "B1": "PASS bounded engineering contracts",
+    "B2": "PASS bounded rule contracts; not natural-language quality certification",
+    "B3": "PASS shared Core-02 and formal projection",
+    "B4": "PASS WITH DOCUMENTED LIMITATION; fourth state not implemented",
+    "B5": "PASS approved engineering scope; not Release Gate"
+  },
+  "buildEnvironment": {
+    "root": "E:\\DEF\\CareerAdapt-sq13b2-current-87360d1",
+    "internalNodeModulesOrdinaryDirectory": true,
+    "node": "v24.15.0",
+    "pnpm": "10.29.2",
+    "lockSHA256": "cd40b7ccd7278e68c13cb2b255826229cf1dd162d708910a7ed3b6ecb0040606",
+    "sourceFilesCompared": 479,
+    "sourceMismatches": [],
+    "extraSourceFiles": [],
+    "changedSourceSHA256": {
+      "src/domain/jobOptimization/careerIntelligence.ts": "b278aed490fd02ccad39598bb83d9cbb0df8350efcd6e7dc4dccd841146a8c06",
+      "src/domain/jobOptimization/v2/evidence.ts": "2c7caa85c1c8112a6b9eb3b735c669f96fd2f506ef8c9dd028a7786fa7a3ba3c",
+      "src/domain/match/matcher.ts": "0f40028e737e5010de8abda6976b7e9cd4c345d06c307c9e9fc124a9bc378968"
+    },
+    "method": "one final LF-normalized byte comparison, no repeated whole-repository hash audit",
+    "report": "jd-02-b1-logs/build-source-parity.json"
+  },
+  "openSource": {
+    "matrix": "docs/architecture/p5.1-sq1-open-source-method-matrix.md",
+    "repository": "https://github.com/career-ops-hq/career-ops",
+    "commit": "6825dc60a06ca8fbd1e22437945d27b6cfcf8a0e",
+    "license": "MIT",
+    "inspected": [
+      "AGENTS.md source hierarchy",
+      "story-provenance-check.mjs",
+      "LICENSE"
+    ],
+    "principle": "separate evidence provenance and confirmation classes; unknown remains unknown",
+    "codeCopied": false,
+    "upstreamArchitectureImported": false,
+    "exactSameMixedMaturityAlgorithmFound": false
+  },
+  "safety": {
+    "resumeSchemaV2Changed": false,
+    "factGuardChanged": false,
+    "claimSafetyChanged": false,
+    "confirmationCASChanged": false,
+    "repositorySafetyChanged": false,
+    "runtimeChanged": false,
+    "sixSkillsChanged": false,
+    "dependenciesChanged": false,
+    "realProviderCalls": 0,
+    "apiKeysRead": false,
+    "multiAgentUsed": false
+  },
+  "knownLimitations": [
+    "fourth negative-evidence state lacks reliable confirmed scoped lifecycle",
+    "lexical sufficiency thresholds are conservative; no complete temporal/responsibility reasoning",
+    "legacy SQL synthetic source offsets and imported title-level quote are coarse; not silently repaired",
+    "real Provider quality not certified; no Electron package validation"
+  ],
+  "readyForJD03Engineering": true,
+  "requiresUserReviewBeforeNextStage": true,
+  "nextStageStarted": false
+}

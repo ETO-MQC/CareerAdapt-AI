@@ -7,7 +7,7 @@ import { buildCandidateEvidenceUnits, evaluateRequirementEvidence, recallEvidenc
 import { buildJobCoverageReport } from "./v2/coverage";
 import { stableHashText } from "@/services/security/text";
 
-export const CAREER_INTELLIGENCE_RULE_VERSION = "career-intelligence-2";
+export const CAREER_INTELLIGENCE_RULE_VERSION = "career-intelligence-2.1";
 
 /** Derived analysis only. No new fact store, model call, or persistence. */
 export function buildCareerIntelligence(input: { profile: CareerProfile; branch: ResumeBranch; job: JobDescription }) {
@@ -96,7 +96,8 @@ export type CapabilityGapStatus = "supported" | "partial" | "possible" | "confir
 export function capabilityGapView(analysis: ReturnType<typeof buildCareerIntelligence>, requirementId: string) {
   const evaluation = analysis.matrix.evaluations.find(row => row.requirementId === requirementId);
   const units = analysis.evidenceUnits.filter(unit => evaluation?.evidenceUnitIds.includes(unit.id));
-  const declared = units.some(unit => unit.supportLevel === "user_declared" || unit.maturity === "confirmed_capability");
+  const hasDemonstratedEvidence = units.some(unit => unit.supportLevel !== "user_declared" && unit.maturity === "demonstrated");
+  const declared = !hasDemonstratedEvidence && units.some(unit => unit.supportLevel === "user_declared" || unit.maturity === "confirmed_capability");
   const status: CapabilityGapStatus = evaluation?.matchLevel === "direct" ? "supported" : declared ? "possible"
     : evaluation && ["partial", "strong_transferable"].includes(evaluation.matchLevel) ? "partial" : "insufficient";
   return { status, label: { supported: "有明确证据支持", partial: "有部分证据支持", possible: "可能具备，但缺少证据", confirmed_absent: "已确认暂不具备", insufficient: "信息不足，需要澄清" }[status],

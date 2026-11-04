@@ -18,7 +18,7 @@ import {
 } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
 
-export const MATCHER_VERSION = "evidence-matcher.v1.2";
+export const MATCHER_VERSION = "evidence-matcher.v1.2.1";
 
 export type CandidateFact = {
   ref: MatchEvidenceRef;

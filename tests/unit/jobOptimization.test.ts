@@ -1,3 +1,5 @@
+import { writeFileSync } from "node:fs";
+import { traceSqlAcceptance } from "../fixtures/jd02SqlTrace";
 import { afterEach, describe, expect, it } from "vitest";
 import { createImportedResumeDraftFromPdf } from "@/domain/resumeImport/parser";
 import { buildResumeImportConfirmation } from "@/domain/resumeImport/confirm";
@@ -63,8 +65,9 @@ describe("V2-G5a job optimization", () => {
   });
 
   it("maps confirmed job requirements to branch content blocks and summarizes fact gaps", () => {
-    const { profile, branch } = buildImportedGeneralResume();
+    const { profile, branch, firstRevision } = buildImportedGeneralResume();
     const job = createSqlAnalystJob();
+    if (process.env.JD02_B1_TRACE_PATH) writeFileSync(process.env.JD02_B1_TRACE_PATH, JSON.stringify({ ...traceSqlAcceptance({ profile, branch, job }), firstRevision }, null, 2));
     const matches = createRuleRequirementMatches({ profile, job }, TEST_TIME);
     const blockMatches = buildRequirementBlockMatches({ profile, job, branch, matches, now: TEST_TIME });
     const summary = buildJobOptimizationSummary({ job, branch, matches: blockMatches });
@@ -72,13 +75,43 @@ describe("V2-G5a job optimization", () => {
     const sqlBlock = blockMatches.find((match) => match.requirementId === "req-sql-reporting" && match.contentItemId);
     const missingBlock = blockMatches.find((match) => match.requirementId === "req-salesforce-crm");
 
-    expect(sqlBlock?.matchLevel).toBe("strong");
+    // This block maps a partial Core-02 evaluation; two lexical hits no longer prove the full requirement.
+    const shared = traceSqlAcceptance({ profile, branch, job });
+    expect(shared.legacy.evaluation.matchLevel).toBe("strong");
+    expect(shared.profileAnalysis.evaluations.evaluations[0].matchLevel).toBe("partial");
+    expect(shared.resumeAnalysis.evaluations.evaluations[0].coveredAspects).toEqual(["SQL", "reports"]);
+    expect(shared.resumeAnalysis.evidenceUnits.some(unit => unit.maturity === "demonstrated" && unit.text === "Built weekly SQL reports for operation teams.")).toBe(true);
+    expect(shared.resumeAnalysis.gapView.status).toBe("partial");
+    expect(shared.resumeAnalysis.gapView.rationale).not.toContain("不是带项目来源的已证明经历");
+    expect(sqlBlock?.matchLevel).toBe("weak");
     expect(sqlBlock?.evidenceRefs.length).toBeGreaterThan(0);
     expect(missingBlock?.matchLevel).toBe("none");
     expect(missingBlock?.contentItemId).toBeUndefined();
     expect(summary.totalRequirements).toBe(2);
-    expect(summary.strong).toBe(1);
+    expect(summary.strong).toBe(0);
+    expect(summary.weak).toBe(1);
     expect(summary.none).toBe(1);
+  });
+
+  it("gives direct/strong support to the narrower SQL task actually demonstrated by the confirmed source", () => {
+    const { profile, branch } = buildImportedGeneralResume();
+    const job = createSqlAnalystJob();
+    const statement = "Built weekly SQL reports for operation teams.";
+    job.rawText = statement;
+    job.requirements = [{ ...job.requirements[0], description: statement, sourceSpan: sourceSpan(statement) }];
+    const trace = traceSqlAcceptance({ profile, branch, job });
+    expect(trace.resumeAnalysis.evaluations.evaluations[0].matchLevel).toBe("direct");
+    expect(trace.formalResumeMatches[0].ruleEvaluation.matchLevel).toBe("strong");
+    expect(trace.resumeAnalysis.gapView.status).toBe("supported");
+  });
+
+  it("does not upgrade a SQL skill declaration without demonstrated experience", () => {
+    const { profile, branch } = buildImportedGeneralResume();
+    const skillOnly = { ...profile, experiences: [], structuredFacts: profile.structuredFacts?.filter(item => item.data.sectionType === "skills") };
+    const trace = traceSqlAcceptance({ profile: skillOnly, branch: { ...branch, contentItems: branch.contentItems.filter(item => item.itemType === "skill"), structuredContentItems: branch.structuredContentItems?.filter(item => item.data.sectionType === "skills") }, job: createSqlAnalystJob() });
+    expect(trace.profileAnalysis.evaluations.evaluations[0].matchLevel).toBe("partial");
+    expect(trace.formalProfileMatches[0].ruleEvaluation.matchLevel).toBe("weak");
+    expect(trace.profileAnalysis.gapView.status).toBe("possible");
   });
 
   it("creates block suggestions with revision locks, evidence, guard preview, and stale detection", () => {
@@ -460,7 +493,7 @@ function buildImportedGeneralResume() {
     operationId: "confirm-g5a-domain",
     now: TEST_TIME
   });
-  return { profile: built.profile, branch: built.branch };
+  return { profile: built.profile, branch: built.branch, firstRevision: built.firstRevision };
 }
 
 async function confirmImportedGeneralResume(repository: WorkspaceRepository) {

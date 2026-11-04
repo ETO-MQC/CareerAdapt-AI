@@ -155,9 +155,9 @@ function deterministicEvaluation(requirement: JobRequirementGraphV2["nodes"][num
   const top = recall?.candidates.filter((item) => item.score >= 0.2) ?? [];
   if (!top.length) return noneEvaluation(requirement.id, "当前来源简历中没有召回到可引用的已确认事实。", requirement.statement);
   const units = top.map((item) => unitById.get(item.evidenceUnitId)!).filter(Boolean);
-  const hasConfirmedCapability = units.some((unit) => unit.maturity === "confirmed_capability" || unit.supportLevel === "user_declared");
   const hasMaturityGap = units.some((unit) => unit.maturity === "familiar" || unit.maturity === "learning");
   const demonstrated = units.filter(unit => (unit.maturity === "demonstrated" || unit.maturity === undefined) && unit.supportLevel !== "user_declared" && !hasUnverifiedAssertion(unit.text));
+  const hasConfirmedCapability = demonstrated.length === 0 && units.some(unit => unit.maturity === "confirmed_capability" || unit.supportLevel === "user_declared");
   const support = conditionSupport(requirement, demonstrated, profile);
   const requiresClarification = requirement.needsConfirmation || /\d+(?:\.\d+)?\s*(?:年|years?)|独立|主导|带领|有效期|有效证书|未过期|valid certification/iu.test(requirement.statement) || units.some(unit => hasUnverifiedAssertion(unit.text));
   const direct = !requiresClarification && support.satisfied && (requirement.keywordLogic !== undefined || top[0].score >= 0.64) && demonstrated.some(unit =>

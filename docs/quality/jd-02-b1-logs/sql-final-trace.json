@@ -1,0 +1,2219 @@
+{
+  "rawJob": {
+    "id": "job-g5a-sql-analyst",
+    "createdAt": "2026-07-05T09:00:00.000Z",
+    "updatedAt": "2026-07-05T09:00:00.000Z",
+    "title": "Data Analyst Intern",
+    "company": "ACME Analytics",
+    "industry": "Analytics",
+    "location": "Remote",
+    "workType": "Internship",
+    "rawText": "Data Analyst Intern requires SQL reporting and Tableau dashboard maintenance. Salesforce CRM is preferred.",
+    "source": "manual",
+    "parsedAt": "2026-07-05T09:00:00.000Z",
+    "requirements": [
+      {
+        "id": "req-sql-reporting",
+        "createdAt": "2026-07-05T09:00:00.000Z",
+        "updatedAt": "2026-07-05T09:00:00.000Z",
+        "category": "required_skill",
+        "description": "Build weekly SQL reports and maintain reporting workflows.",
+        "priority": "high",
+        "hardConstraint": true,
+        "sourceSpan": {
+          "start": 0,
+          "end": 13,
+          "text": "SQL reporting"
+        },
+        "keywords": [
+          "SQL",
+          "reports"
+        ],
+        "confidence": 0.96
+      },
+      {
+        "id": "req-salesforce-crm",
+        "createdAt": "2026-07-05T09:00:00.000Z",
+        "updatedAt": "2026-07-05T09:00:00.000Z",
+        "category": "preferred_skill",
+        "description": "Salesforce CRM experience is preferred.",
+        "priority": "nice_to_have",
+        "hardConstraint": false,
+        "sourceSpan": {
+          "start": 0,
+          "end": 14,
+          "text": "Salesforce CRM"
+        },
+        "keywords": [
+          "Salesforce",
+          "CRM"
+        ],
+        "confidence": 0.88
+      }
+    ]
+  },
+  "profileId": "profile-NpZxqICgwx",
+  "profileVersion": 1,
+  "facts": [
+    {
+      "id": "fact-import-gZCAC96OWw",
+      "createdAt": "2026-07-05T09:00:00.000Z",
+      "updatedAt": "2026-07-05T09:00:00.000Z",
+      "statement": "Data analyst focused on clean reporting and dashboard automation.",
+      "category": "other",
+      "provenance": [
+        {
+          "sourceType": "pdf_import",
+          "sourceId": "hash-g5a-domain-resume",
+          "sourceText": "Data analyst focused on clean reporting and dashboard automation.",
+          "confidence": 0.9,
+          "confirmedByUser": true,
+          "riskLevel": "low",
+          "createdAt": "2026-07-05T09:00:00.000Z",
+          "sourceSessionId": "pdf-session-g5a-domain",
+          "fileName": "g5a-domain.pdf",
+          "pageNumber": 1,
+          "pageRange": {
+            "startPage": 1,
+            "endPage": 1
+          },
+          "sourceQuote": "Data analyst focused on clean reporting and dashboard automation.",
+          "sourceLocatorStatus": "located",
+          "sourceLocator": {
+            "pageNumber": 1,
+            "pageStart": 47,
+            "pageEnd": 112,
+            "globalStart": 47,
+            "globalEnd": 112
+          }
+        }
+      ],
+      "confirmedByUser": true,
+      "riskLevel": "low",
+      "maturity": "demonstrated",
+      "resolvedMaturity": "demonstrated"
+    },
+    {
+      "id": "fact-import-tym3rHDfA-",
+      "createdAt": "2026-07-05T09:00:00.000Z",
+      "updatedAt": "2026-07-05T09:00:00.000Z",
+      "statement": "Built weekly SQL reports for operation teams.\nMaintained Tableau dashboards for sales review.",
+      "category": "experience",
+      "provenance": [
+        {
+          "sourceType": "pdf_import",
+          "sourceId": "hash-g5a-domain-resume",
+          "sourceText": "ACME Analytics | Data Analyst",
+          "confidence": 0.9,
+          "confirmedByUser": true,
+          "riskLevel": "low",
+          "createdAt": "2026-07-05T09:00:00.000Z",
+          "sourceSessionId": "pdf-session-g5a-domain",
+          "fileName": "g5a-domain.pdf",
+          "pageNumber": 1,
+          "pageRange": {
+            "startPage": 1,
+            "endPage": 1
+          },
+          "sourceQuote": "ACME Analytics | Data Analyst",
+          "sourceLocatorStatus": "located",
+          "sourceLocator": {
+            "pageNumber": 1,
+            "pageStart": 129,
+            "pageEnd": 158,
+            "globalStart": 129,
+            "globalEnd": 158
+          }
+        }
+      ],
+      "confirmedByUser": true,
+      "riskLevel": "low",
+      "maturity": "demonstrated",
+      "resolvedMaturity": "demonstrated"
+    },
+    {
+      "id": "fact-import-T2zfwauyUk",
+      "createdAt": "2026-07-05T09:00:00.000Z",
+      "updatedAt": "2026-07-05T09:00:00.000Z",
+      "statement": "Built a Python model for stock planning.",
+      "category": "experience",
+      "provenance": [
+        {
+          "sourceType": "pdf_import",
+          "sourceId": "hash-g5a-domain-resume",
+          "sourceText": "Inventory Forecasting Project",
+          "confidence": 0.9,
+          "confirmedByUser": true,
+          "riskLevel": "low",
+          "createdAt": "2026-07-05T09:00:00.000Z",
+          "sourceSessionId": "pdf-session-g5a-domain",
+          "fileName": "g5a-domain.pdf",
+          "pageNumber": 2,
+          "pageRange": {
+            "startPage": 2,
+            "endPage": 2
+          },
+          "sourceQuote": "Inventory Forecasting Project",
+          "sourceLocatorStatus": "located",
+          "sourceLocator": {
+            "pageNumber": 2,
+            "pageStart": 9,
+            "pageEnd": 38,
+            "globalStart": 266,
+            "globalEnd": 295
+          }
+        }
+      ],
+      "confirmedByUser": true,
+      "riskLevel": "low",
+      "maturity": "demonstrated",
+      "resolvedMaturity": "demonstrated"
+    },
+    {
+      "id": "fact-import-7obHrwgEu2",
+      "createdAt": "2026-07-05T09:00:00.000Z",
+      "updatedAt": "2026-07-05T09:00:00.000Z",
+      "statement": "SQL",
+      "category": "skill",
+      "provenance": [
+        {
+          "sourceType": "pdf_import",
+          "sourceId": "hash-g5a-domain-resume",
+          "sourceText": "SQL, Python, Tableau",
+          "confidence": 0.9,
+          "confirmedByUser": true,
+          "riskLevel": "low",
+          "createdAt": "2026-07-05T09:00:00.000Z",
+          "sourceSessionId": "pdf-session-g5a-domain",
+          "fileName": "g5a-domain.pdf",
+          "pageNumber": 2,
+          "pageRange": {
+            "startPage": 2,
+            "endPage": 2
+          },
+          "sourceQuote": "SQL, Python, Tableau",
+          "sourceLocatorStatus": "located",
+          "sourceLocator": {
+            "pageNumber": 2,
+            "pageStart": 89,
+            "pageEnd": 109,
+            "globalStart": 346,
+            "globalEnd": 366
+          }
+        }
+      ],
+      "confirmedByUser": true,
+      "riskLevel": "low",
+      "maturity": "confirmed_capability",
+      "resolvedMaturity": "confirmed_capability"
+    },
+    {
+      "id": "fact-import-HO544mAOA7",
+      "createdAt": "2026-07-05T09:00:00.000Z",
+      "updatedAt": "2026-07-05T09:00:00.000Z",
+      "statement": "Python",
+      "category": "skill",
+      "provenance": [
+        {
+          "sourceType": "pdf_import",
+          "sourceId": "hash-g5a-domain-resume",
+          "sourceText": "SQL, Python, Tableau",
+          "confidence": 0.9,
+          "confirmedByUser": true,
+          "riskLevel": "low",
+          "createdAt": "2026-07-05T09:00:00.000Z",
+          "sourceSessionId": "pdf-session-g5a-domain",
+          "fileName": "g5a-domain.pdf",
+          "pageNumber": 2,
+          "pageRange": {
+            "startPage": 2,
+            "endPage": 2
+          },
+          "sourceQuote": "SQL, Python, Tableau",
+          "sourceLocatorStatus": "located",
+          "sourceLocator": {
+            "pageNumber": 2,
+            "pageStart": 89,
+            "pageEnd": 109,
+            "globalStart": 346,
+            "globalEnd": 366
+          }
+        }
+      ],
+      "confirmedByUser": true,
+      "riskLevel": "low",
+      "maturity": "confirmed_capability",
+      "resolvedMaturity": "confirmed_capability"
+    },
+    {
+      "id": "fact-import-5a4j8U8M5b",
+      "createdAt": "2026-07-05T09:00:00.000Z",
+      "updatedAt": "2026-07-05T09:00:00.000Z",
+      "statement": "Tableau",
+      "category": "skill",
+      "provenance": [
+        {
+          "sourceType": "pdf_import",
+          "sourceId": "hash-g5a-domain-resume",
+          "sourceText": "SQL, Python, Tableau",
+          "confidence": 0.9,
+          "confirmedByUser": true,
+          "riskLevel": "low",
+          "createdAt": "2026-07-05T09:00:00.000Z",
+          "sourceSessionId": "pdf-session-g5a-domain",
+          "fileName": "g5a-domain.pdf",
+          "pageNumber": 2,
+          "pageRange": {
+            "startPage": 2,
+            "endPage": 2
+          },
+          "sourceQuote": "SQL, Python, Tableau",
+          "sourceLocatorStatus": "located",
+          "sourceLocator": {
+            "pageNumber": 2,
+            "pageStart": 89,
+            "pageEnd": 109,
+            "globalStart": 346,
+            "globalEnd": 366
+          }
+        }
+      ],
+      "confirmedByUser": true,
+      "riskLevel": "low",
+      "maturity": "confirmed_capability",
+      "resolvedMaturity": "confirmed_capability"
+    }
+  ],
+  "branch": {
+    "id": "branch-general-resume-import-g5a-domain-h2eqh9",
+    "revision": 0,
+    "currentRevisionId": "resume-revision-fnv-abe3f74c-72",
+    "snapshot": {
+      "name": "通用简历",
+      "lifecycleStatus": "active",
+      "resumeBasics": {
+        "customFields": [],
+        "name": "Alex Chen",
+        "targetRole": "",
+        "email": "alex@example.com",
+        "phone": "13800138000",
+        "location": "",
+        "summary": "",
+        "links": []
+      },
+      "contentItems": [
+        {
+          "id": "branch-item-import-segmented:summary:fallback:1:3:0",
+          "itemType": "summary",
+          "source": "resume_import",
+          "sourceSectionId": "summary",
+          "text": "Data analyst focused on clean reporting and dashboard automation.",
+          "originalText": "Data analyst focused on clean reporting and dashboard automation.",
+          "order": 0,
+          "visible": true,
+          "requirementIds": [],
+          "sourceSuggestionIds": [],
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "exp-RTakfeOAfB",
+              "factId": "fact-import-gZCAC96OWw"
+            }
+          ],
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardRiskLevel": "low",
+          "guardFindings": [],
+          "guardedAt": "2026-07-05T09:00:00.000Z",
+          "guardVersion": "resume-import.pipeline.v2.resume-import.local-rules.v2"
+        },
+        {
+          "id": "branch-item-import-segmented:work:fallback:1:5:0",
+          "itemType": "experience",
+          "source": "resume_import",
+          "sourceSectionId": "work",
+          "text": "ACME Analytics | Data Analyst\nBuilt weekly SQL reports for operation teams.\nMaintained Tableau dashboards for sales review.",
+          "originalText": "ACME Analytics | Data Analyst\n- Built weekly SQL reports for operation teams.\n- Maintained Tableau dashboards for sales review.",
+          "order": 1,
+          "visible": true,
+          "requirementIds": [],
+          "sourceSuggestionIds": [],
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "exp-4-drnHIAiH",
+              "factId": "fact-import-tym3rHDfA-"
+            }
+          ],
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardRiskLevel": "low",
+          "guardFindings": [],
+          "guardedAt": "2026-07-05T09:00:00.000Z",
+          "guardVersion": "resume-import.pipeline.v2.resume-import.local-rules.v2"
+        },
+        {
+          "id": "branch-item-import-segmented:project:fallback:2:9:0",
+          "itemType": "experience",
+          "source": "resume_import",
+          "sourceSectionId": "project",
+          "text": "Inventory Forecasting Project\nBuilt a Python model for stock planning.",
+          "originalText": "Inventory Forecasting Project\n- Built a Python model for stock planning.",
+          "order": 2,
+          "visible": true,
+          "requirementIds": [],
+          "sourceSuggestionIds": [],
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "exp-AzJ0EUJPh2",
+              "factId": "fact-import-T2zfwauyUk"
+            }
+          ],
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardRiskLevel": "low",
+          "guardFindings": [],
+          "guardedAt": "2026-07-05T09:00:00.000Z",
+          "guardVersion": "resume-import.pipeline.v2.resume-import.local-rules.v2"
+        },
+        {
+          "id": "branch-item-import-segmented:skills:fallback:2:12:0",
+          "itemType": "skill",
+          "source": "resume_import",
+          "sourceSectionId": "skills",
+          "text": "SQL, Python, Tableau",
+          "originalText": "SQL, Python, Tableau",
+          "order": 3,
+          "visible": true,
+          "requirementIds": [],
+          "sourceSuggestionIds": [],
+          "factRefs": [
+            {
+              "type": "skill_fact",
+              "skillId": "skill-fhfkt2PLNu",
+              "factId": "fact-import-7obHrwgEu2"
+            },
+            {
+              "type": "skill_fact",
+              "skillId": "skill-Az3fdqll1G",
+              "factId": "fact-import-HO544mAOA7"
+            },
+            {
+              "type": "skill_fact",
+              "skillId": "skill-P6DbRexFWu",
+              "factId": "fact-import-5a4j8U8M5b"
+            }
+          ],
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardRiskLevel": "low",
+          "guardFindings": [],
+          "guardedAt": "2026-07-05T09:00:00.000Z",
+          "guardVersion": "resume-import.pipeline.v2.resume-import.local-rules.v2"
+        }
+      ],
+      "structuredContentItems": [
+        {
+          "id": "branch-item-import-segmented:summary:fallback:1:3:0",
+          "schemaVersion": "resume-content-item-v2",
+          "data": {
+            "id": "segmented:summary:fallback:1:3:0",
+            "customFields": [],
+            "sectionType": "summary",
+            "text": "Data analyst focused on clean reporting and dashboard automation."
+          },
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "exp-RTakfeOAfB",
+              "factId": "fact-import-gZCAC96OWw"
+            }
+          ],
+          "source": "resume_import",
+          "order": 0,
+          "visible": true,
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardFindings": [],
+          "legacyTextProjection": "Data analyst focused on clean reporting and dashboard automation.",
+          "sourceBlockIds": [
+            "fallback:1:3"
+          ],
+          "sourceRanges": [
+            {
+              "blockId": "fallback:1:3",
+              "start": 0,
+              "end": 65
+            }
+          ],
+          "sourceExcerpt": "Data analyst focused on clean reporting and dashboard automation.",
+          "mappingTrace": []
+        },
+        {
+          "id": "branch-item-import-segmented:work:fallback:1:5:0",
+          "schemaVersion": "resume-content-item-v2",
+          "data": {
+            "id": "segmented:work:fallback:1:5:0",
+            "customFields": [],
+            "sectionType": "work",
+            "organization": "ACME Analytics",
+            "role": "Data Analyst",
+            "current": false,
+            "highlights": [
+              "Built weekly SQL reports for operation teams.",
+              "Maintained Tableau dashboards for sales review."
+            ]
+          },
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "exp-4-drnHIAiH",
+              "factId": "fact-import-tym3rHDfA-"
+            }
+          ],
+          "source": "resume_import",
+          "order": 1,
+          "visible": true,
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardFindings": [],
+          "legacyTextProjection": "ACME Analytics | Data Analyst\nBuilt weekly SQL reports for operation teams.\nMaintained Tableau dashboards for sales review.",
+          "sourceBlockIds": [
+            "fallback:1:5",
+            "fallback:1:6",
+            "fallback:1:7"
+          ],
+          "sourceRanges": [
+            {
+              "blockId": "fallback:1:5",
+              "start": 0,
+              "end": 29
+            },
+            {
+              "blockId": "fallback:1:6",
+              "start": 0,
+              "end": 47
+            },
+            {
+              "blockId": "fallback:1:7",
+              "start": 0,
+              "end": 49
+            }
+          ],
+          "sourceExcerpt": "ACME Analytics | Data Analyst\n- Built weekly SQL reports for operation teams.\n- Maintained Tableau dashboards for sales review.",
+          "mappingTrace": []
+        },
+        {
+          "id": "branch-item-import-segmented:project:fallback:2:9:0",
+          "schemaVersion": "resume-content-item-v2",
+          "data": {
+            "id": "segmented:project:fallback:2:9:0",
+            "customFields": [],
+            "sectionType": "project",
+            "title": "Inventory Forecasting Project",
+            "current": false,
+            "tools": [],
+            "highlights": [
+              "Built a Python model for stock planning."
+            ],
+            "outcomes": []
+          },
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "exp-AzJ0EUJPh2",
+              "factId": "fact-import-T2zfwauyUk"
+            }
+          ],
+          "source": "resume_import",
+          "order": 2,
+          "visible": true,
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardFindings": [],
+          "legacyTextProjection": "Inventory Forecasting Project\nBuilt a Python model for stock planning.",
+          "sourceBlockIds": [
+            "fallback:2:9",
+            "fallback:2:10"
+          ],
+          "sourceRanges": [
+            {
+              "blockId": "fallback:2:9",
+              "start": 0,
+              "end": 29
+            },
+            {
+              "blockId": "fallback:2:10",
+              "start": 0,
+              "end": 42
+            }
+          ],
+          "sourceExcerpt": "Inventory Forecasting Project\n- Built a Python model for stock planning.",
+          "mappingTrace": []
+        },
+        {
+          "id": "branch-item-import-segmented:skills:fallback:2:12:0",
+          "schemaVersion": "resume-content-item-v2",
+          "data": {
+            "id": "segmented:skills:fallback:2:12:0",
+            "customFields": [],
+            "sectionType": "skills",
+            "name": "SQL, Python, Tableau"
+          },
+          "factRefs": [
+            {
+              "type": "skill_fact",
+              "skillId": "skill-fhfkt2PLNu",
+              "factId": "fact-import-7obHrwgEu2"
+            },
+            {
+              "type": "skill_fact",
+              "skillId": "skill-Az3fdqll1G",
+              "factId": "fact-import-HO544mAOA7"
+            },
+            {
+              "type": "skill_fact",
+              "skillId": "skill-P6DbRexFWu",
+              "factId": "fact-import-5a4j8U8M5b"
+            }
+          ],
+          "source": "resume_import",
+          "order": 3,
+          "visible": true,
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardFindings": [],
+          "legacyTextProjection": "SQL, Python, Tableau",
+          "sourceBlockIds": [
+            "fallback:2:12"
+          ],
+          "sourceRanges": [
+            {
+              "blockId": "fallback:2:12",
+              "start": 0,
+              "end": 20
+            }
+          ],
+          "sourceExcerpt": "SQL, Python, Tableau",
+          "mappingTrace": []
+        }
+      ]
+    }
+  },
+  "legacy": {
+    "candidates": [
+      {
+        "ref": {
+          "type": "experience_fact",
+          "experienceId": "exp-4-drnHIAiH",
+          "factId": "fact-import-tym3rHDfA-",
+          "factQuote": "ACME Analytics | Data Analyst",
+          "factText": "Built weekly SQL reports for operation teams.\nMaintained Tableau dashboards for sales review."
+        },
+        "searchText": "built weekly sql reports for operation teams. maintained tableau dashboards for sales review. acme analytics | data analyst acme analytics data analyst workexperience",
+        "updatedAt": "2026-07-05T09:00:00.000Z"
+      },
+      {
+        "ref": {
+          "type": "skill_fact",
+          "skillId": "skill-Az3fdqll1G",
+          "factId": "fact-import-HO544mAOA7",
+          "factQuote": "SQL, Python, Tableau",
+          "factText": "Python"
+        },
+        "searchText": "python python sql, python, tableau",
+        "updatedAt": "2026-07-05T09:00:00.000Z"
+      },
+      {
+        "ref": {
+          "type": "skill_fact",
+          "skillId": "skill-fhfkt2PLNu",
+          "factId": "fact-import-7obHrwgEu2",
+          "factQuote": "SQL, Python, Tableau",
+          "factText": "SQL"
+        },
+        "searchText": "sql sql sql, python, tableau",
+        "updatedAt": "2026-07-05T09:00:00.000Z"
+      },
+      {
+        "ref": {
+          "type": "skill_fact",
+          "skillId": "skill-P6DbRexFWu",
+          "factId": "fact-import-5a4j8U8M5b",
+          "factQuote": "SQL, Python, Tableau",
+          "factText": "Tableau"
+        },
+        "searchText": "tableau tableau sql, python, tableau",
+        "updatedAt": "2026-07-05T09:00:00.000Z"
+      }
+    ],
+    "evaluation": {
+      "source": "rule",
+      "matchLevel": "strong",
+      "riskLevel": "low",
+      "risks": [],
+      "evidenceRefs": [
+        {
+          "type": "experience_fact",
+          "experienceId": "exp-4-drnHIAiH",
+          "factId": "fact-import-tym3rHDfA-",
+          "factQuote": "ACME Analytics | Data Analyst",
+          "factText": "Built weekly SQL reports for operation teams.\nMaintained Tableau dashboards for sales review."
+        },
+        {
+          "type": "skill_fact",
+          "skillId": "skill-Az3fdqll1G",
+          "factId": "fact-import-HO544mAOA7",
+          "factQuote": "SQL, Python, Tableau",
+          "factText": "Python"
+        },
+        {
+          "type": "skill_fact",
+          "skillId": "skill-fhfkt2PLNu",
+          "factId": "fact-import-7obHrwgEu2",
+          "factQuote": "SQL, Python, Tableau",
+          "factText": "SQL"
+        },
+        {
+          "type": "skill_fact",
+          "skillId": "skill-P6DbRexFWu",
+          "factId": "fact-import-5a4j8U8M5b",
+          "factQuote": "SQL, Python, Tableau",
+          "factText": "Tableau"
+        }
+      ],
+      "explanation": "[支持] 技能/关键词匹配：reports、sql [判定] 关键词直接命中≥2，证据充分。",
+      "evaluatedAt": "2026-11-04T03:05:47.768Z"
+    }
+  },
+  "profileAnalysis": {
+    "binding": {
+      "profileId": "profile-NpZxqICgwx",
+      "profileRevision": 1,
+      "resumeId": "profile-fit-profile-NpZxqICgwx",
+      "resumeRevision": 0,
+      "revisionId": "profile-fit-1",
+      "jobId": "job-g5a-sql-analyst",
+      "jobVersion": "2026-07-05T09:00:00.000Z",
+      "graphHash": "fnv-01c068b2-701"
+    },
+    "graph": {
+      "schemaVersion": "job-requirement-graph-v2",
+      "nodes": [
+        {
+          "id": "req-sql-reporting",
+          "kind": "hard_constraint",
+          "statement": "Build weekly SQL reports and maintain reporting workflows.",
+          "normalizedIntent": "buildweeklysqlreportsandmaintainreportingworkflows.",
+          "priority": "must",
+          "hardConstraint": true,
+          "exactKeywords": [
+            "SQL",
+            "reports"
+          ],
+          "semanticAliases": [],
+          "sourceSpan": {
+            "start": 0,
+            "end": 13,
+            "text": "SQL reporting"
+          },
+          "sourceSpans": [
+            {
+              "start": 0,
+              "end": 13,
+              "text": "SQL reporting"
+            }
+          ],
+          "confidence": 0.96,
+          "needsConfirmation": false,
+          "relatedRequirementIds": []
+        },
+        {
+          "id": "req-salesforce-crm",
+          "kind": "preferred",
+          "statement": "Salesforce CRM experience is preferred.",
+          "normalizedIntent": "salesforcecrmexperienceispreferred.",
+          "priority": "nice_to_have",
+          "hardConstraint": false,
+          "exactKeywords": [
+            "Salesforce",
+            "CRM"
+          ],
+          "semanticAliases": [],
+          "sourceSpan": {
+            "start": 0,
+            "end": 14,
+            "text": "Salesforce CRM"
+          },
+          "sourceSpans": [
+            {
+              "start": 0,
+              "end": 14,
+              "text": "Salesforce CRM"
+            }
+          ],
+          "confidence": 0.88,
+          "needsConfirmation": false,
+          "relatedRequirementIds": []
+        }
+      ],
+      "unclassifiedSourceSpans": [],
+      "analyzedAt": "2026-11-04T03:05:47.755Z",
+      "analyzerVersion": "jd-analyzer.deterministic-v2.0.canonical"
+    },
+    "evidenceUnits": [
+      {
+        "id": "evu-fnv-cbfee287-105",
+        "sourceType": "experience_highlight",
+        "sectionType": "work",
+        "itemId": "profile-fit-item-segmented:work:fallback:1:5:0",
+        "fieldPath": "highlights.0",
+        "text": "Built weekly SQL reports for operation teams.",
+        "normalizedText": "built weekly sql reports for operation teams.",
+        "recallContext": "workexperience",
+        "factRefs": [
+          {
+            "type": "experience_fact",
+            "experienceId": "exp-4-drnHIAiH",
+            "factId": "fact-import-tym3rHDfA-"
+          }
+        ],
+        "sourceBlockIds": [
+          "fallback:1:5",
+          "fallback:1:6",
+          "fallback:1:7"
+        ],
+        "supportLevel": "verified",
+        "maturity": "demonstrated",
+        "organization": "ACME Analytics",
+        "role": "Data Analyst",
+        "confirmed": true
+      },
+      {
+        "id": "evu-fnv-a0a01674-107",
+        "sourceType": "experience_highlight",
+        "sectionType": "work",
+        "itemId": "profile-fit-item-segmented:work:fallback:1:5:0",
+        "fieldPath": "highlights.1",
+        "text": "Maintained Tableau dashboards for sales review.",
+        "normalizedText": "maintained tableau dashboards for sales review.",
+        "recallContext": "workexperience",
+        "factRefs": [
+          {
+            "type": "experience_fact",
+            "experienceId": "exp-4-drnHIAiH",
+            "factId": "fact-import-tym3rHDfA-"
+          }
+        ],
+        "sourceBlockIds": [
+          "fallback:1:5",
+          "fallback:1:6",
+          "fallback:1:7"
+        ],
+        "supportLevel": "verified",
+        "maturity": "demonstrated",
+        "organization": "ACME Analytics",
+        "role": "Data Analyst",
+        "confirmed": true
+      },
+      {
+        "id": "evu-fnv-19116eda-103",
+        "sourceType": "experience_highlight",
+        "sectionType": "project",
+        "itemId": "profile-fit-item-segmented:project:fallback:2:9:0",
+        "fieldPath": "highlights.0",
+        "text": "Built a Python model for stock planning.",
+        "normalizedText": "built a python model for stock planning.",
+        "recallContext": "projects",
+        "factRefs": [
+          {
+            "type": "experience_fact",
+            "experienceId": "exp-AzJ0EUJPh2",
+            "factId": "fact-import-T2zfwauyUk"
+          }
+        ],
+        "sourceBlockIds": [
+          "fallback:2:9",
+          "fallback:2:10"
+        ],
+        "supportLevel": "verified",
+        "maturity": "demonstrated",
+        "role": "Inventory Forecasting Project",
+        "confirmed": true
+      },
+      {
+        "id": "evu-fnv-c4703ecd-75",
+        "sourceType": "skill",
+        "sectionType": "skills",
+        "itemId": "profile-fit-item-segmented:skills:fallback:2:12:0",
+        "fieldPath": "name",
+        "text": "SQL, Python, Tableau",
+        "normalizedText": "sql python tableau",
+        "recallContext": "",
+        "factRefs": [
+          {
+            "type": "skill_fact",
+            "skillId": "skill-fhfkt2PLNu",
+            "factId": "fact-import-7obHrwgEu2"
+          },
+          {
+            "type": "skill_fact",
+            "skillId": "skill-Az3fdqll1G",
+            "factId": "fact-import-HO544mAOA7"
+          },
+          {
+            "type": "skill_fact",
+            "skillId": "skill-P6DbRexFWu",
+            "factId": "fact-import-5a4j8U8M5b"
+          }
+        ],
+        "sourceBlockIds": [
+          "fallback:2:12"
+        ],
+        "supportLevel": "verified",
+        "maturity": "confirmed_capability",
+        "confirmed": true
+      }
+    ],
+    "recalls": [
+      {
+        "requirementId": "req-sql-reporting",
+        "candidates": [
+          {
+            "evidenceUnitId": "evu-fnv-cbfee287-105",
+            "score": 0.6228,
+            "reasons": [
+              "精确术语：SQL、reports",
+              "文本主题相关",
+              "存在已确认事实引用"
+            ]
+          },
+          {
+            "evidenceUnitId": "evu-fnv-c4703ecd-75",
+            "score": 0.3885,
+            "reasons": [
+              "精确术语：SQL",
+              "文本主题相关",
+              "存在已确认事实引用"
+            ]
+          }
+        ]
+      },
+      {
+        "requirementId": "req-salesforce-crm",
+        "candidates": [
+          {
+            "evidenceUnitId": "evu-fnv-a0a01674-107",
+            "score": 0.1335,
+            "reasons": [
+              "存在已确认事实引用"
+            ]
+          },
+          {
+            "evidenceUnitId": "evu-fnv-cbfee287-105",
+            "score": 0.1227,
+            "reasons": [
+              "存在已确认事实引用"
+            ]
+          }
+        ]
+      }
+    ],
+    "evaluations": {
+      "schemaVersion": "requirement-evidence-matrix-v2",
+      "evaluations": [
+        {
+          "requirementId": "req-sql-reporting",
+          "matchLevel": "partial",
+          "evidenceUnitIds": [
+            "evu-fnv-cbfee287-105",
+            "evu-fnv-c4703ecd-75"
+          ],
+          "evidenceRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "exp-4-drnHIAiH",
+              "factId": "fact-import-tym3rHDfA-",
+              "factQuote": "ACME Analytics | Data Analyst",
+              "factText": "Built weekly SQL reports for operation teams.\nMaintained Tableau dashboards for sales review."
+            },
+            {
+              "type": "skill_fact",
+              "skillId": "skill-fhfkt2PLNu",
+              "factId": "fact-import-7obHrwgEu2",
+              "factQuote": "SQL, Python, Tableau",
+              "factText": "SQL"
+            },
+            {
+              "type": "skill_fact",
+              "skillId": "skill-Az3fdqll1G",
+              "factId": "fact-import-HO544mAOA7",
+              "factQuote": "SQL, Python, Tableau",
+              "factText": "Python"
+            },
+            {
+              "type": "skill_fact",
+              "skillId": "skill-P6DbRexFWu",
+              "factId": "fact-import-5a4j8U8M5b",
+              "factQuote": "SQL, Python, Tableau",
+              "factText": "Tableau"
+            }
+          ],
+          "coveredAspects": [
+            "SQL",
+            "reports"
+          ],
+          "missingAspects": [
+            "Build weekly SQL reports and maintain reporting workflows."
+          ],
+          "risks": [],
+          "explanation": "已确认事实只覆盖该要求的一部分。",
+          "confidence": 0.62
+        },
+        {
+          "requirementId": "req-salesforce-crm",
+          "matchLevel": "none",
+          "evidenceUnitIds": [],
+          "evidenceRefs": [],
+          "coveredAspects": [],
+          "missingAspects": [
+            "Salesforce CRM experience is preferred."
+          ],
+          "risks": [],
+          "explanation": "当前来源简历中没有召回到可引用的已确认事实。",
+          "confidence": 1
+        }
+      ],
+      "evaluatedAt": "2026-11-04T03:05:47.763Z"
+    },
+    "candidateEvidenceMatrix": {
+      "schemaVersion": "candidate-evidence-matrix-1",
+      "ruleVersion": "career-intelligence-2",
+      "analysisId": "analysis-fnv-7d347a97-3652",
+      "binding": {
+        "profileId": "profile-NpZxqICgwx",
+        "profileRevision": 1,
+        "resumeId": "profile-fit-profile-NpZxqICgwx",
+        "resumeRevision": 0,
+        "revisionId": "profile-fit-1",
+        "jobId": "job-g5a-sql-analyst",
+        "jobVersion": "2026-07-05T09:00:00.000Z",
+        "graphHash": "fnv-01c068b2-701"
+      },
+      "rows": [
+        {
+          "requirementId": "req-sql-reporting",
+          "rawSourceRef": {
+            "start": 0,
+            "end": 13,
+            "text": "SQL reporting"
+          },
+          "normalizedRequirement": "buildweeklysqlreportsandmaintainreportingworkflows.",
+          "priority": "must",
+          "relationships": [],
+          "evidenceStatus": "partial",
+          "candidateFactIds": [
+            "fact-import-tym3rHDfA-",
+            "fact-import-7obHrwgEu2",
+            "fact-import-HO544mAOA7",
+            "fact-import-5a4j8U8M5b"
+          ],
+          "sourceIds": [
+            "fallback:1:5",
+            "fallback:1:6",
+            "fallback:1:7",
+            "fallback:2:12"
+          ],
+          "evidenceUnitIds": [
+            "evu-fnv-cbfee287-105",
+            "evu-fnv-c4703ecd-75"
+          ],
+          "confidence": 0.62,
+          "unresolvedAmbiguity": [
+            "Build weekly SQL reports and maintain reporting workflows."
+          ],
+          "rationale": "已确认事实只覆盖该要求的一部分。"
+        },
+        {
+          "requirementId": "req-salesforce-crm",
+          "rawSourceRef": {
+            "start": 0,
+            "end": 14,
+            "text": "Salesforce CRM"
+          },
+          "normalizedRequirement": "salesforcecrmexperienceispreferred.",
+          "priority": "nice_to_have",
+          "relationships": [],
+          "evidenceStatus": "unknown",
+          "candidateFactIds": [],
+          "sourceIds": [],
+          "evidenceUnitIds": [],
+          "confidence": 1,
+          "unresolvedAmbiguity": [
+            "Salesforce CRM experience is preferred."
+          ],
+          "rationale": "当前来源简历中没有召回到可引用的已确认事实。"
+        }
+      ]
+    },
+    "jobFit": {
+      "ruleVersion": "career-intelligence-2",
+      "mustHaveCoverage": {
+        "total": 1,
+        "direct": 0,
+        "unknown": 0
+      },
+      "preferredCoverage": {
+        "total": 1,
+        "direct": 0,
+        "unknown": 1
+      },
+      "evidenceStrength": [
+        {
+          "requirementId": "req-sql-reporting",
+          "status": "partial"
+        },
+        {
+          "requirementId": "req-salesforce-crm",
+          "status": "unknown"
+        }
+      ],
+      "materialGaps": [],
+      "unknowns": [
+        "req-salesforce-crm"
+      ]
+    },
+    "gapView": {
+      "status": "partial",
+      "label": "有部分证据支持",
+      "coveredAspects": [
+        "SQL",
+        "reports"
+      ],
+      "missingAspects": [
+        "Build weekly SQL reports and maintain reporting workflows."
+      ],
+      "rationale": "已确认事实只覆盖该要求的一部分。",
+      "units": [
+        {
+          "id": "evu-fnv-cbfee287-105",
+          "sourceType": "experience_highlight",
+          "sectionType": "work",
+          "itemId": "profile-fit-item-segmented:work:fallback:1:5:0",
+          "fieldPath": "highlights.0",
+          "text": "Built weekly SQL reports for operation teams.",
+          "normalizedText": "built weekly sql reports for operation teams.",
+          "recallContext": "workexperience",
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "exp-4-drnHIAiH",
+              "factId": "fact-import-tym3rHDfA-"
+            }
+          ],
+          "sourceBlockIds": [
+            "fallback:1:5",
+            "fallback:1:6",
+            "fallback:1:7"
+          ],
+          "supportLevel": "verified",
+          "maturity": "demonstrated",
+          "organization": "ACME Analytics",
+          "role": "Data Analyst",
+          "confirmed": true
+        },
+        {
+          "id": "evu-fnv-c4703ecd-75",
+          "sourceType": "skill",
+          "sectionType": "skills",
+          "itemId": "profile-fit-item-segmented:skills:fallback:2:12:0",
+          "fieldPath": "name",
+          "text": "SQL, Python, Tableau",
+          "normalizedText": "sql python tableau",
+          "recallContext": "",
+          "factRefs": [
+            {
+              "type": "skill_fact",
+              "skillId": "skill-fhfkt2PLNu",
+              "factId": "fact-import-7obHrwgEu2"
+            },
+            {
+              "type": "skill_fact",
+              "skillId": "skill-Az3fdqll1G",
+              "factId": "fact-import-HO544mAOA7"
+            },
+            {
+              "type": "skill_fact",
+              "skillId": "skill-P6DbRexFWu",
+              "factId": "fact-import-5a4j8U8M5b"
+            }
+          ],
+          "sourceBlockIds": [
+            "fallback:2:12"
+          ],
+          "supportLevel": "verified",
+          "maturity": "confirmed_capability",
+          "confirmed": true
+        }
+      ]
+    }
+  },
+  "resumeAnalysis": {
+    "binding": {
+      "profileId": "profile-NpZxqICgwx",
+      "profileRevision": 1,
+      "resumeId": "branch-general-resume-import-g5a-domain-h2eqh9",
+      "resumeRevision": 0,
+      "revisionId": "resume-revision-fnv-abe3f74c-72",
+      "jobId": "job-g5a-sql-analyst",
+      "jobVersion": "2026-07-05T09:00:00.000Z",
+      "graphHash": "fnv-01c068b2-701"
+    },
+    "graph": {
+      "schemaVersion": "job-requirement-graph-v2",
+      "nodes": [
+        {
+          "id": "req-sql-reporting",
+          "kind": "hard_constraint",
+          "statement": "Build weekly SQL reports and maintain reporting workflows.",
+          "normalizedIntent": "buildweeklysqlreportsandmaintainreportingworkflows.",
+          "priority": "must",
+          "hardConstraint": true,
+          "exactKeywords": [
+            "SQL",
+            "reports"
+          ],
+          "semanticAliases": [],
+          "sourceSpan": {
+            "start": 0,
+            "end": 13,
+            "text": "SQL reporting"
+          },
+          "sourceSpans": [
+            {
+              "start": 0,
+              "end": 13,
+              "text": "SQL reporting"
+            }
+          ],
+          "confidence": 0.96,
+          "needsConfirmation": false,
+          "relatedRequirementIds": []
+        },
+        {
+          "id": "req-salesforce-crm",
+          "kind": "preferred",
+          "statement": "Salesforce CRM experience is preferred.",
+          "normalizedIntent": "salesforcecrmexperienceispreferred.",
+          "priority": "nice_to_have",
+          "hardConstraint": false,
+          "exactKeywords": [
+            "Salesforce",
+            "CRM"
+          ],
+          "semanticAliases": [],
+          "sourceSpan": {
+            "start": 0,
+            "end": 14,
+            "text": "Salesforce CRM"
+          },
+          "sourceSpans": [
+            {
+              "start": 0,
+              "end": 14,
+              "text": "Salesforce CRM"
+            }
+          ],
+          "confidence": 0.88,
+          "needsConfirmation": false,
+          "relatedRequirementIds": []
+        }
+      ],
+      "unclassifiedSourceSpans": [],
+      "analyzedAt": "2026-11-04T03:05:47.766Z",
+      "analyzerVersion": "jd-analyzer.deterministic-v2.0.canonical"
+    },
+    "evidenceUnits": [
+      {
+        "id": "evu-fnv-a8d73742-107",
+        "sourceType": "experience_highlight",
+        "sectionType": "work",
+        "itemId": "branch-item-import-segmented:work:fallback:1:5:0",
+        "fieldPath": "highlights.0",
+        "text": "Built weekly SQL reports for operation teams.",
+        "normalizedText": "built weekly sql reports for operation teams.",
+        "recallContext": "workexperience",
+        "factRefs": [
+          {
+            "type": "experience_fact",
+            "experienceId": "exp-4-drnHIAiH",
+            "factId": "fact-import-tym3rHDfA-"
+          }
+        ],
+        "sourceBlockIds": [
+          "fallback:1:5",
+          "fallback:1:6",
+          "fallback:1:7"
+        ],
+        "supportLevel": "verified",
+        "maturity": "demonstrated",
+        "organization": "ACME Analytics",
+        "role": "Data Analyst",
+        "confirmed": true
+      },
+      {
+        "id": "evu-fnv-a20fb001-109",
+        "sourceType": "experience_highlight",
+        "sectionType": "work",
+        "itemId": "branch-item-import-segmented:work:fallback:1:5:0",
+        "fieldPath": "highlights.1",
+        "text": "Maintained Tableau dashboards for sales review.",
+        "normalizedText": "maintained tableau dashboards for sales review.",
+        "recallContext": "workexperience",
+        "factRefs": [
+          {
+            "type": "experience_fact",
+            "experienceId": "exp-4-drnHIAiH",
+            "factId": "fact-import-tym3rHDfA-"
+          }
+        ],
+        "sourceBlockIds": [
+          "fallback:1:5",
+          "fallback:1:6",
+          "fallback:1:7"
+        ],
+        "supportLevel": "verified",
+        "maturity": "demonstrated",
+        "organization": "ACME Analytics",
+        "role": "Data Analyst",
+        "confirmed": true
+      },
+      {
+        "id": "evu-fnv-8b76a96f-105",
+        "sourceType": "experience_highlight",
+        "sectionType": "project",
+        "itemId": "branch-item-import-segmented:project:fallback:2:9:0",
+        "fieldPath": "highlights.0",
+        "text": "Built a Python model for stock planning.",
+        "normalizedText": "built a python model for stock planning.",
+        "recallContext": "projects",
+        "factRefs": [
+          {
+            "type": "experience_fact",
+            "experienceId": "exp-AzJ0EUJPh2",
+            "factId": "fact-import-T2zfwauyUk"
+          }
+        ],
+        "sourceBlockIds": [
+          "fallback:2:9",
+          "fallback:2:10"
+        ],
+        "supportLevel": "verified",
+        "maturity": "demonstrated",
+        "role": "Inventory Forecasting Project",
+        "confirmed": true
+      },
+      {
+        "id": "evu-fnv-f77616c4-77",
+        "sourceType": "skill",
+        "sectionType": "skills",
+        "itemId": "branch-item-import-segmented:skills:fallback:2:12:0",
+        "fieldPath": "name",
+        "text": "SQL, Python, Tableau",
+        "normalizedText": "sql python tableau",
+        "recallContext": "",
+        "factRefs": [
+          {
+            "type": "skill_fact",
+            "skillId": "skill-fhfkt2PLNu",
+            "factId": "fact-import-7obHrwgEu2"
+          },
+          {
+            "type": "skill_fact",
+            "skillId": "skill-Az3fdqll1G",
+            "factId": "fact-import-HO544mAOA7"
+          },
+          {
+            "type": "skill_fact",
+            "skillId": "skill-P6DbRexFWu",
+            "factId": "fact-import-5a4j8U8M5b"
+          }
+        ],
+        "sourceBlockIds": [
+          "fallback:2:12"
+        ],
+        "supportLevel": "verified",
+        "maturity": "confirmed_capability",
+        "confirmed": true
+      }
+    ],
+    "recalls": [
+      {
+        "requirementId": "req-sql-reporting",
+        "candidates": [
+          {
+            "evidenceUnitId": "evu-fnv-a8d73742-107",
+            "score": 0.6228,
+            "reasons": [
+              "精确术语：SQL、reports",
+              "文本主题相关",
+              "存在已确认事实引用"
+            ]
+          },
+          {
+            "evidenceUnitId": "evu-fnv-f77616c4-77",
+            "score": 0.3885,
+            "reasons": [
+              "精确术语：SQL",
+              "文本主题相关",
+              "存在已确认事实引用"
+            ]
+          }
+        ]
+      },
+      {
+        "requirementId": "req-salesforce-crm",
+        "candidates": [
+          {
+            "evidenceUnitId": "evu-fnv-a20fb001-109",
+            "score": 0.1335,
+            "reasons": [
+              "存在已确认事实引用"
+            ]
+          },
+          {
+            "evidenceUnitId": "evu-fnv-a8d73742-107",
+            "score": 0.1227,
+            "reasons": [
+              "存在已确认事实引用"
+            ]
+          }
+        ]
+      }
+    ],
+    "evaluations": {
+      "schemaVersion": "requirement-evidence-matrix-v2",
+      "evaluations": [
+        {
+          "requirementId": "req-sql-reporting",
+          "matchLevel": "partial",
+          "evidenceUnitIds": [
+            "evu-fnv-a8d73742-107",
+            "evu-fnv-f77616c4-77"
+          ],
+          "evidenceRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "exp-4-drnHIAiH",
+              "factId": "fact-import-tym3rHDfA-",
+              "factQuote": "ACME Analytics | Data Analyst",
+              "factText": "Built weekly SQL reports for operation teams.\nMaintained Tableau dashboards for sales review."
+            },
+            {
+              "type": "skill_fact",
+              "skillId": "skill-fhfkt2PLNu",
+              "factId": "fact-import-7obHrwgEu2",
+              "factQuote": "SQL, Python, Tableau",
+              "factText": "SQL"
+            },
+            {
+              "type": "skill_fact",
+              "skillId": "skill-Az3fdqll1G",
+              "factId": "fact-import-HO544mAOA7",
+              "factQuote": "SQL, Python, Tableau",
+              "factText": "Python"
+            },
+            {
+              "type": "skill_fact",
+              "skillId": "skill-P6DbRexFWu",
+              "factId": "fact-import-5a4j8U8M5b",
+              "factQuote": "SQL, Python, Tableau",
+              "factText": "Tableau"
+            }
+          ],
+          "coveredAspects": [
+            "SQL",
+            "reports"
+          ],
+          "missingAspects": [
+            "Build weekly SQL reports and maintain reporting workflows."
+          ],
+          "risks": [],
+          "explanation": "已确认事实只覆盖该要求的一部分。",
+          "confidence": 0.62
+        },
+        {
+          "requirementId": "req-salesforce-crm",
+          "matchLevel": "none",
+          "evidenceUnitIds": [],
+          "evidenceRefs": [],
+          "coveredAspects": [],
+          "missingAspects": [
+            "Salesforce CRM experience is preferred."
+          ],
+          "risks": [],
+          "explanation": "当前来源简历中没有召回到可引用的已确认事实。",
+          "confidence": 1
+        }
+      ],
+      "evaluatedAt": "2026-11-04T03:05:47.767Z"
+    },
+    "candidateEvidenceMatrix": {
+      "schemaVersion": "candidate-evidence-matrix-1",
+      "ruleVersion": "career-intelligence-2",
+      "analysisId": "analysis-fnv-4face7ad-3694",
+      "binding": {
+        "profileId": "profile-NpZxqICgwx",
+        "profileRevision": 1,
+        "resumeId": "branch-general-resume-import-g5a-domain-h2eqh9",
+        "resumeRevision": 0,
+        "revisionId": "resume-revision-fnv-abe3f74c-72",
+        "jobId": "job-g5a-sql-analyst",
+        "jobVersion": "2026-07-05T09:00:00.000Z",
+        "graphHash": "fnv-01c068b2-701"
+      },
+      "rows": [
+        {
+          "requirementId": "req-sql-reporting",
+          "rawSourceRef": {
+            "start": 0,
+            "end": 13,
+            "text": "SQL reporting"
+          },
+          "normalizedRequirement": "buildweeklysqlreportsandmaintainreportingworkflows.",
+          "priority": "must",
+          "relationships": [],
+          "evidenceStatus": "partial",
+          "candidateFactIds": [
+            "fact-import-tym3rHDfA-",
+            "fact-import-7obHrwgEu2",
+            "fact-import-HO544mAOA7",
+            "fact-import-5a4j8U8M5b"
+          ],
+          "sourceIds": [
+            "fallback:1:5",
+            "fallback:1:6",
+            "fallback:1:7",
+            "fallback:2:12"
+          ],
+          "evidenceUnitIds": [
+            "evu-fnv-a8d73742-107",
+            "evu-fnv-f77616c4-77"
+          ],
+          "confidence": 0.62,
+          "unresolvedAmbiguity": [
+            "Build weekly SQL reports and maintain reporting workflows."
+          ],
+          "rationale": "已确认事实只覆盖该要求的一部分。"
+        },
+        {
+          "requirementId": "req-salesforce-crm",
+          "rawSourceRef": {
+            "start": 0,
+            "end": 14,
+            "text": "Salesforce CRM"
+          },
+          "normalizedRequirement": "salesforcecrmexperienceispreferred.",
+          "priority": "nice_to_have",
+          "relationships": [],
+          "evidenceStatus": "unknown",
+          "candidateFactIds": [],
+          "sourceIds": [],
+          "evidenceUnitIds": [],
+          "confidence": 1,
+          "unresolvedAmbiguity": [
+            "Salesforce CRM experience is preferred."
+          ],
+          "rationale": "当前来源简历中没有召回到可引用的已确认事实。"
+        }
+      ]
+    },
+    "jobFit": {
+      "ruleVersion": "career-intelligence-2",
+      "mustHaveCoverage": {
+        "total": 1,
+        "direct": 0,
+        "unknown": 0
+      },
+      "preferredCoverage": {
+        "total": 1,
+        "direct": 0,
+        "unknown": 1
+      },
+      "evidenceStrength": [
+        {
+          "requirementId": "req-sql-reporting",
+          "status": "partial"
+        },
+        {
+          "requirementId": "req-salesforce-crm",
+          "status": "unknown"
+        }
+      ],
+      "materialGaps": [],
+      "unknowns": [
+        "req-salesforce-crm"
+      ]
+    },
+    "gapView": {
+      "status": "partial",
+      "label": "有部分证据支持",
+      "coveredAspects": [
+        "SQL",
+        "reports"
+      ],
+      "missingAspects": [
+        "Build weekly SQL reports and maintain reporting workflows."
+      ],
+      "rationale": "已确认事实只覆盖该要求的一部分。",
+      "units": [
+        {
+          "id": "evu-fnv-a8d73742-107",
+          "sourceType": "experience_highlight",
+          "sectionType": "work",
+          "itemId": "branch-item-import-segmented:work:fallback:1:5:0",
+          "fieldPath": "highlights.0",
+          "text": "Built weekly SQL reports for operation teams.",
+          "normalizedText": "built weekly sql reports for operation teams.",
+          "recallContext": "workexperience",
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "exp-4-drnHIAiH",
+              "factId": "fact-import-tym3rHDfA-"
+            }
+          ],
+          "sourceBlockIds": [
+            "fallback:1:5",
+            "fallback:1:6",
+            "fallback:1:7"
+          ],
+          "supportLevel": "verified",
+          "maturity": "demonstrated",
+          "organization": "ACME Analytics",
+          "role": "Data Analyst",
+          "confirmed": true
+        },
+        {
+          "id": "evu-fnv-f77616c4-77",
+          "sourceType": "skill",
+          "sectionType": "skills",
+          "itemId": "branch-item-import-segmented:skills:fallback:2:12:0",
+          "fieldPath": "name",
+          "text": "SQL, Python, Tableau",
+          "normalizedText": "sql python tableau",
+          "recallContext": "",
+          "factRefs": [
+            {
+              "type": "skill_fact",
+              "skillId": "skill-fhfkt2PLNu",
+              "factId": "fact-import-7obHrwgEu2"
+            },
+            {
+              "type": "skill_fact",
+              "skillId": "skill-Az3fdqll1G",
+              "factId": "fact-import-HO544mAOA7"
+            },
+            {
+              "type": "skill_fact",
+              "skillId": "skill-P6DbRexFWu",
+              "factId": "fact-import-5a4j8U8M5b"
+            }
+          ],
+          "sourceBlockIds": [
+            "fallback:2:12"
+          ],
+          "supportLevel": "verified",
+          "maturity": "confirmed_capability",
+          "confirmed": true
+        }
+      ]
+    }
+  },
+  "formalProfileMatches": [
+    {
+      "id": "match-req-sql-reporting-xmXNv3X1",
+      "createdAt": "2026-11-04T03:05:47.770Z",
+      "updatedAt": "2026-11-04T03:05:47.770Z",
+      "profileId": "profile-NpZxqICgwx",
+      "jobId": "job-g5a-sql-analyst",
+      "profileVersion": 1,
+      "jobVersion": "2026-07-05T09:00:00.000Z:fnv-01c068b2-701",
+      "matcherVersion": "evidence-matcher.v1.2",
+      "candidateSetHash": "fnv-f7c185c6-995",
+      "isStale": false,
+      "requirementId": "req-sql-reporting",
+      "requirementQuote": {
+        "start": 0,
+        "end": 13,
+        "text": "SQL reporting"
+      },
+      "ruleEvaluation": {
+        "source": "rule",
+        "matchLevel": "weak",
+        "riskLevel": "low",
+        "risks": [],
+        "evidenceRefs": [
+          {
+            "type": "experience_fact",
+            "experienceId": "exp-4-drnHIAiH",
+            "factId": "fact-import-tym3rHDfA-",
+            "factQuote": "ACME Analytics | Data Analyst",
+            "factText": "Built weekly SQL reports for operation teams.\nMaintained Tableau dashboards for sales review."
+          },
+          {
+            "type": "skill_fact",
+            "skillId": "skill-Az3fdqll1G",
+            "factId": "fact-import-HO544mAOA7",
+            "factQuote": "SQL, Python, Tableau",
+            "factText": "Python"
+          },
+          {
+            "type": "skill_fact",
+            "skillId": "skill-fhfkt2PLNu",
+            "factId": "fact-import-7obHrwgEu2",
+            "factQuote": "SQL, Python, Tableau",
+            "factText": "SQL"
+          },
+          {
+            "type": "skill_fact",
+            "skillId": "skill-P6DbRexFWu",
+            "factId": "fact-import-5a4j8U8M5b",
+            "factQuote": "SQL, Python, Tableau",
+            "factText": "Tableau"
+          }
+        ],
+        "explanation": "[支持] SQL、reports [待核实] Build weekly SQL reports and maintain reporting workflows. 已确认事实只覆盖该要求的一部分。",
+        "evaluatedAt": "2026-11-04T03:05:47.770Z"
+      },
+      "effectiveEvaluation": {
+        "source": "rule",
+        "matchLevel": "weak",
+        "riskLevel": "low",
+        "risks": [],
+        "evidenceRefs": [
+          {
+            "type": "experience_fact",
+            "experienceId": "exp-4-drnHIAiH",
+            "factId": "fact-import-tym3rHDfA-",
+            "factQuote": "ACME Analytics | Data Analyst",
+            "factText": "Built weekly SQL reports for operation teams.\nMaintained Tableau dashboards for sales review."
+          },
+          {
+            "type": "skill_fact",
+            "skillId": "skill-Az3fdqll1G",
+            "factId": "fact-import-HO544mAOA7",
+            "factQuote": "SQL, Python, Tableau",
+            "factText": "Python"
+          },
+          {
+            "type": "skill_fact",
+            "skillId": "skill-fhfkt2PLNu",
+            "factId": "fact-import-7obHrwgEu2",
+            "factQuote": "SQL, Python, Tableau",
+            "factText": "SQL"
+          },
+          {
+            "type": "skill_fact",
+            "skillId": "skill-P6DbRexFWu",
+            "factId": "fact-import-5a4j8U8M5b",
+            "factQuote": "SQL, Python, Tableau",
+            "factText": "Tableau"
+          }
+        ],
+        "explanation": "[支持] SQL、reports [待核实] Build weekly SQL reports and maintain reporting workflows. 已确认事实只覆盖该要求的一部分。",
+        "evaluatedAt": "2026-11-04T03:05:47.770Z"
+      }
+    },
+    {
+      "id": "match-req-salesforce-crm-btaXKpim",
+      "createdAt": "2026-11-04T03:05:47.770Z",
+      "updatedAt": "2026-11-04T03:05:47.770Z",
+      "profileId": "profile-NpZxqICgwx",
+      "jobId": "job-g5a-sql-analyst",
+      "profileVersion": 1,
+      "jobVersion": "2026-07-05T09:00:00.000Z:fnv-01c068b2-701",
+      "matcherVersion": "evidence-matcher.v1.2",
+      "candidateSetHash": "fnv-2f419dbc-262",
+      "isStale": false,
+      "requirementId": "req-salesforce-crm",
+      "requirementQuote": {
+        "start": 0,
+        "end": 14,
+        "text": "Salesforce CRM"
+      },
+      "ruleEvaluation": {
+        "source": "rule",
+        "matchLevel": "none",
+        "riskLevel": "low",
+        "risks": [],
+        "evidenceRefs": [],
+        "explanation": "[支持] 尚无充分证据 [待核实] Salesforce CRM experience is preferred. 当前来源简历中没有召回到可引用的已确认事实。",
+        "evaluatedAt": "2026-11-04T03:05:47.770Z"
+      },
+      "effectiveEvaluation": {
+        "source": "rule",
+        "matchLevel": "none",
+        "riskLevel": "low",
+        "risks": [],
+        "evidenceRefs": [],
+        "explanation": "[支持] 尚无充分证据 [待核实] Salesforce CRM experience is preferred. 当前来源简历中没有召回到可引用的已确认事实。",
+        "evaluatedAt": "2026-11-04T03:05:47.770Z"
+      }
+    }
+  ],
+  "formalResumeMatches": [
+    {
+      "id": "match-req-sql-reporting-ooU6dOrk",
+      "createdAt": "2026-11-04T03:05:47.780Z",
+      "updatedAt": "2026-11-04T03:05:47.780Z",
+      "profileId": "profile-NpZxqICgwx",
+      "jobId": "job-g5a-sql-analyst",
+      "profileVersion": 1,
+      "jobVersion": "2026-07-05T09:00:00.000Z:fnv-01c068b2-701",
+      "matcherVersion": "evidence-matcher.v1.2",
+      "candidateSetHash": "fnv-f7c185c6-995",
+      "isStale": false,
+      "requirementId": "req-sql-reporting",
+      "requirementQuote": {
+        "start": 0,
+        "end": 13,
+        "text": "SQL reporting"
+      },
+      "ruleEvaluation": {
+        "source": "rule",
+        "matchLevel": "weak",
+        "riskLevel": "low",
+        "risks": [],
+        "evidenceRefs": [
+          {
+            "type": "experience_fact",
+            "experienceId": "exp-4-drnHIAiH",
+            "factId": "fact-import-tym3rHDfA-",
+            "factQuote": "ACME Analytics | Data Analyst",
+            "factText": "Built weekly SQL reports for operation teams.\nMaintained Tableau dashboards for sales review."
+          },
+          {
+            "type": "skill_fact",
+            "skillId": "skill-Az3fdqll1G",
+            "factId": "fact-import-HO544mAOA7",
+            "factQuote": "SQL, Python, Tableau",
+            "factText": "Python"
+          },
+          {
+            "type": "skill_fact",
+            "skillId": "skill-fhfkt2PLNu",
+            "factId": "fact-import-7obHrwgEu2",
+            "factQuote": "SQL, Python, Tableau",
+            "factText": "SQL"
+          },
+          {
+            "type": "skill_fact",
+            "skillId": "skill-P6DbRexFWu",
+            "factId": "fact-import-5a4j8U8M5b",
+            "factQuote": "SQL, Python, Tableau",
+            "factText": "Tableau"
+          }
+        ],
+        "explanation": "[支持] SQL、reports [待核实] Build weekly SQL reports and maintain reporting workflows. 已确认事实只覆盖该要求的一部分。",
+        "evaluatedAt": "2026-11-04T03:05:47.780Z"
+      },
+      "effectiveEvaluation": {
+        "source": "rule",
+        "matchLevel": "weak",
+        "riskLevel": "low",
+        "risks": [],
+        "evidenceRefs": [
+          {
+            "type": "experience_fact",
+            "experienceId": "exp-4-drnHIAiH",
+            "factId": "fact-import-tym3rHDfA-",
+            "factQuote": "ACME Analytics | Data Analyst",
+            "factText": "Built weekly SQL reports for operation teams.\nMaintained Tableau dashboards for sales review."
+          },
+          {
+            "type": "skill_fact",
+            "skillId": "skill-Az3fdqll1G",
+            "factId": "fact-import-HO544mAOA7",
+            "factQuote": "SQL, Python, Tableau",
+            "factText": "Python"
+          },
+          {
+            "type": "skill_fact",
+            "skillId": "skill-fhfkt2PLNu",
+            "factId": "fact-import-7obHrwgEu2",
+            "factQuote": "SQL, Python, Tableau",
+            "factText": "SQL"
+          },
+          {
+            "type": "skill_fact",
+            "skillId": "skill-P6DbRexFWu",
+            "factId": "fact-import-5a4j8U8M5b",
+            "factQuote": "SQL, Python, Tableau",
+            "factText": "Tableau"
+          }
+        ],
+        "explanation": "[支持] SQL、reports [待核实] Build weekly SQL reports and maintain reporting workflows. 已确认事实只覆盖该要求的一部分。",
+        "evaluatedAt": "2026-11-04T03:05:47.780Z"
+      }
+    },
+    {
+      "id": "match-req-salesforce-crm-sDCvtdts",
+      "createdAt": "2026-11-04T03:05:47.780Z",
+      "updatedAt": "2026-11-04T03:05:47.780Z",
+      "profileId": "profile-NpZxqICgwx",
+      "jobId": "job-g5a-sql-analyst",
+      "profileVersion": 1,
+      "jobVersion": "2026-07-05T09:00:00.000Z:fnv-01c068b2-701",
+      "matcherVersion": "evidence-matcher.v1.2",
+      "candidateSetHash": "fnv-2f419dbc-262",
+      "isStale": false,
+      "requirementId": "req-salesforce-crm",
+      "requirementQuote": {
+        "start": 0,
+        "end": 14,
+        "text": "Salesforce CRM"
+      },
+      "ruleEvaluation": {
+        "source": "rule",
+        "matchLevel": "none",
+        "riskLevel": "low",
+        "risks": [],
+        "evidenceRefs": [],
+        "explanation": "[支持] 尚无充分证据 [待核实] Salesforce CRM experience is preferred. 当前来源简历中没有召回到可引用的已确认事实。",
+        "evaluatedAt": "2026-11-04T03:05:47.780Z"
+      },
+      "effectiveEvaluation": {
+        "source": "rule",
+        "matchLevel": "none",
+        "riskLevel": "low",
+        "risks": [],
+        "evidenceRefs": [],
+        "explanation": "[支持] 尚无充分证据 [待核实] Salesforce CRM experience is preferred. 当前来源简历中没有召回到可引用的已确认事实。",
+        "evaluatedAt": "2026-11-04T03:05:47.780Z"
+      }
+    }
+  ],
+  "firstRevision": {
+    "id": "resume-revision-fnv-abe3f74c-72",
+    "createdAt": "2026-07-05T09:00:00.000Z",
+    "updatedAt": "2026-07-05T09:00:00.000Z",
+    "branchId": "branch-general-resume-import-g5a-domain-h2eqh9",
+    "revisionNumber": 0,
+    "source": "import_confirmed",
+    "operationId": "confirm-g5a-domain",
+    "snapshot": {
+      "name": "通用简历",
+      "lifecycleStatus": "active",
+      "resumeBasics": {
+        "customFields": [],
+        "name": "Alex Chen",
+        "targetRole": "",
+        "email": "alex@example.com",
+        "phone": "13800138000",
+        "location": "",
+        "summary": "",
+        "links": []
+      },
+      "contentItems": [
+        {
+          "id": "branch-item-import-segmented:summary:fallback:1:3:0",
+          "itemType": "summary",
+          "source": "resume_import",
+          "sourceSectionId": "summary",
+          "text": "Data analyst focused on clean reporting and dashboard automation.",
+          "originalText": "Data analyst focused on clean reporting and dashboard automation.",
+          "order": 0,
+          "visible": true,
+          "requirementIds": [],
+          "sourceSuggestionIds": [],
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "exp-RTakfeOAfB",
+              "factId": "fact-import-gZCAC96OWw"
+            }
+          ],
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardRiskLevel": "low",
+          "guardFindings": [],
+          "guardedAt": "2026-07-05T09:00:00.000Z",
+          "guardVersion": "resume-import.pipeline.v2.resume-import.local-rules.v2"
+        },
+        {
+          "id": "branch-item-import-segmented:work:fallback:1:5:0",
+          "itemType": "experience",
+          "source": "resume_import",
+          "sourceSectionId": "work",
+          "text": "ACME Analytics | Data Analyst\nBuilt weekly SQL reports for operation teams.\nMaintained Tableau dashboards for sales review.",
+          "originalText": "ACME Analytics | Data Analyst\n- Built weekly SQL reports for operation teams.\n- Maintained Tableau dashboards for sales review.",
+          "order": 1,
+          "visible": true,
+          "requirementIds": [],
+          "sourceSuggestionIds": [],
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "exp-4-drnHIAiH",
+              "factId": "fact-import-tym3rHDfA-"
+            }
+          ],
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardRiskLevel": "low",
+          "guardFindings": [],
+          "guardedAt": "2026-07-05T09:00:00.000Z",
+          "guardVersion": "resume-import.pipeline.v2.resume-import.local-rules.v2"
+        },
+        {
+          "id": "branch-item-import-segmented:project:fallback:2:9:0",
+          "itemType": "experience",
+          "source": "resume_import",
+          "sourceSectionId": "project",
+          "text": "Inventory Forecasting Project\nBuilt a Python model for stock planning.",
+          "originalText": "Inventory Forecasting Project\n- Built a Python model for stock planning.",
+          "order": 2,
+          "visible": true,
+          "requirementIds": [],
+          "sourceSuggestionIds": [],
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "exp-AzJ0EUJPh2",
+              "factId": "fact-import-T2zfwauyUk"
+            }
+          ],
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardRiskLevel": "low",
+          "guardFindings": [],
+          "guardedAt": "2026-07-05T09:00:00.000Z",
+          "guardVersion": "resume-import.pipeline.v2.resume-import.local-rules.v2"
+        },
+        {
+          "id": "branch-item-import-segmented:skills:fallback:2:12:0",
+          "itemType": "skill",
+          "source": "resume_import",
+          "sourceSectionId": "skills",
+          "text": "SQL, Python, Tableau",
+          "originalText": "SQL, Python, Tableau",
+          "order": 3,
+          "visible": true,
+          "requirementIds": [],
+          "sourceSuggestionIds": [],
+          "factRefs": [
+            {
+              "type": "skill_fact",
+              "skillId": "skill-fhfkt2PLNu",
+              "factId": "fact-import-7obHrwgEu2"
+            },
+            {
+              "type": "skill_fact",
+              "skillId": "skill-Az3fdqll1G",
+              "factId": "fact-import-HO544mAOA7"
+            },
+            {
+              "type": "skill_fact",
+              "skillId": "skill-P6DbRexFWu",
+              "factId": "fact-import-5a4j8U8M5b"
+            }
+          ],
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardRiskLevel": "low",
+          "guardFindings": [],
+          "guardedAt": "2026-07-05T09:00:00.000Z",
+          "guardVersion": "resume-import.pipeline.v2.resume-import.local-rules.v2"
+        }
+      ],
+      "structuredContentItems": [
+        {
+          "id": "branch-item-import-segmented:summary:fallback:1:3:0",
+          "schemaVersion": "resume-content-item-v2",
+          "data": {
+            "id": "segmented:summary:fallback:1:3:0",
+            "customFields": [],
+            "sectionType": "summary",
+            "text": "Data analyst focused on clean reporting and dashboard automation."
+          },
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "exp-RTakfeOAfB",
+              "factId": "fact-import-gZCAC96OWw"
+            }
+          ],
+          "source": "resume_import",
+          "order": 0,
+          "visible": true,
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardFindings": [],
+          "legacyTextProjection": "Data analyst focused on clean reporting and dashboard automation.",
+          "sourceBlockIds": [
+            "fallback:1:3"
+          ],
+          "sourceRanges": [
+            {
+              "blockId": "fallback:1:3",
+              "start": 0,
+              "end": 65
+            }
+          ],
+          "sourceExcerpt": "Data analyst focused on clean reporting and dashboard automation.",
+          "mappingTrace": []
+        },
+        {
+          "id": "branch-item-import-segmented:work:fallback:1:5:0",
+          "schemaVersion": "resume-content-item-v2",
+          "data": {
+            "id": "segmented:work:fallback:1:5:0",
+            "customFields": [],
+            "sectionType": "work",
+            "organization": "ACME Analytics",
+            "role": "Data Analyst",
+            "current": false,
+            "highlights": [
+              "Built weekly SQL reports for operation teams.",
+              "Maintained Tableau dashboards for sales review."
+            ]
+          },
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "exp-4-drnHIAiH",
+              "factId": "fact-import-tym3rHDfA-"
+            }
+          ],
+          "source": "resume_import",
+          "order": 1,
+          "visible": true,
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardFindings": [],
+          "legacyTextProjection": "ACME Analytics | Data Analyst\nBuilt weekly SQL reports for operation teams.\nMaintained Tableau dashboards for sales review.",
+          "sourceBlockIds": [
+            "fallback:1:5",
+            "fallback:1:6",
+            "fallback:1:7"
+          ],
+          "sourceRanges": [
+            {
+              "blockId": "fallback:1:5",
+              "start": 0,
+              "end": 29
+            },
+            {
+              "blockId": "fallback:1:6",
+              "start": 0,
+              "end": 47
+            },
+            {
+              "blockId": "fallback:1:7",
+              "start": 0,
+              "end": 49
+            }
+          ],
+          "sourceExcerpt": "ACME Analytics | Data Analyst\n- Built weekly SQL reports for operation teams.\n- Maintained Tableau dashboards for sales review.",
+          "mappingTrace": []
+        },
+        {
+          "id": "branch-item-import-segmented:project:fallback:2:9:0",
+          "schemaVersion": "resume-content-item-v2",
+          "data": {
+            "id": "segmented:project:fallback:2:9:0",
+            "customFields": [],
+            "sectionType": "project",
+            "title": "Inventory Forecasting Project",
+            "current": false,
+            "tools": [],
+            "highlights": [
+              "Built a Python model for stock planning."
+            ],
+            "outcomes": []
+          },
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "exp-AzJ0EUJPh2",
+              "factId": "fact-import-T2zfwauyUk"
+            }
+          ],
+          "source": "resume_import",
+          "order": 2,
+          "visible": true,
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardFindings": [],
+          "legacyTextProjection": "Inventory Forecasting Project\nBuilt a Python model for stock planning.",
+          "sourceBlockIds": [
+            "fallback:2:9",
+            "fallback:2:10"
+          ],
+          "sourceRanges": [
+            {
+              "blockId": "fallback:2:9",
+              "start": 0,
+              "end": 29
+            },
+            {
+              "blockId": "fallback:2:10",
+              "start": 0,
+              "end": 42
+            }
+          ],
+          "sourceExcerpt": "Inventory Forecasting Project\n- Built a Python model for stock planning.",
+          "mappingTrace": []
+        },
+        {
+          "id": "branch-item-import-segmented:skills:fallback:2:12:0",
+          "schemaVersion": "resume-content-item-v2",
+          "data": {
+            "id": "segmented:skills:fallback:2:12:0",
+            "customFields": [],
+            "sectionType": "skills",
+            "name": "SQL, Python, Tableau"
+          },
+          "factRefs": [
+            {
+              "type": "skill_fact",
+              "skillId": "skill-fhfkt2PLNu",
+              "factId": "fact-import-7obHrwgEu2"
+            },
+            {
+              "type": "skill_fact",
+              "skillId": "skill-Az3fdqll1G",
+              "factId": "fact-import-HO544mAOA7"
+            },
+            {
+              "type": "skill_fact",
+              "skillId": "skill-P6DbRexFWu",
+              "factId": "fact-import-5a4j8U8M5b"
+            }
+          ],
+          "source": "resume_import",
+          "order": 3,
+          "visible": true,
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardFindings": [],
+          "legacyTextProjection": "SQL, Python, Tableau",
+          "sourceBlockIds": [
+            "fallback:2:12"
+          ],
+          "sourceRanges": [
+            {
+              "blockId": "fallback:2:12",
+              "start": 0,
+              "end": 20
+            }
+          ],
+          "sourceExcerpt": "SQL, Python, Tableau",
+          "mappingTrace": []
+        }
+      ]
+    }
+  }
+}

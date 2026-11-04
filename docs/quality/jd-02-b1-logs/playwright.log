@@ -1,0 +1,9 @@
+
+Running 2 tests using 1 worker
+
+(node:48388) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 1 [chromium] › tests\e2e\jd02-b1-sql-fit.spec.ts:5:5 › JD02-B1 confirmed SQL experience remains partial support beside a skill declaration (3.5s)
+  ok 2 [chromium] › tests\e2e\jd02-job-fit.spec.ts:11:5 › JD02 read-only Fit isolates F1/F2, switches job/resume/source, restores and locates evidence (5.2s)
+
+  2 passed (10.7s)

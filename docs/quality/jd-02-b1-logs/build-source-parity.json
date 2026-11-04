@@ -1,0 +1,30 @@
+{
+  "root": "E:\\DEF\\CareerAdapt-sq13b2-current-87360d1",
+  "sourceComparison": "one final LF-normalized byte comparison, no repeated whole-repository hash audit",
+  "sourceFiles": 479,
+  "mismatches": [],
+  "extraSourceFiles": [],
+  "configurationMatches": [
+    "package.json",
+    "pnpm-lock.yaml",
+    "next.config.ts",
+    "tsconfig.json",
+    "tailwind.config.ts",
+    "postcss.config.mjs"
+  ],
+  "lockSHA256": "cd40b7ccd7278e68c13cb2b255826229cf1dd162d708910a7ed3b6ecb0040606",
+  "syncedFiles": [
+    "src/domain/jobOptimization/careerIntelligence.ts",
+    "src/domain/jobOptimization/v2/evidence.ts",
+    "src/domain/match/matcher.ts",
+    "tests/unit/jobOptimization.test.ts",
+    "tests/fixtures/jd02SqlTrace.ts",
+    "tests/e2e/jd02-b1-sql-fit.spec.ts",
+    "docs/quality/jd-02-b1-logs/sql-qualified-trace.json"
+  ],
+  "changedSourceSHA256": {
+    "src/domain/jobOptimization/careerIntelligence.ts": "b278aed490fd02ccad39598bb83d9cbb0df8350efcd6e7dc4dccd841146a8c06",
+    "src/domain/jobOptimization/v2/evidence.ts": "2c7caa85c1c8112a6b9eb3b735c669f96fd2f506ef8c9dd028a7786fa7a3ba3c",
+    "src/domain/match/matcher.ts": "0f40028e737e5010de8abda6976b7e9cd4c345d06c307c9e9fc124a9bc378968"
+  }
+}
