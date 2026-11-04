@@ -1,0 +1,12 @@
+{
+  "status": "PASS_SYNTHETIC_READ_ONLY",
+  "route": "/careeradapt-experience",
+  "pluginId": "careeradapt-experience-p522",
+  "view": "poc/host-experience/CareerExperience.tsx",
+  "viewSha256": "a19b072d64dc22b8b7f7f95a28cf06fd276b7266f7ef60de6b4419ad71d8d654",
+  "fixtureSha256": "aebe5b02a24d1bc7dd6055a6e2328f9d6f70737245e0e342ce33fcff8ddf8ffe",
+  "categories": 19,
+  "modificationsToSlice1": [],
+  "noFormalRepository": true,
+  "scope": "Display DTO/schema/Product components and scoped styles from existing single ESM build; no data writes"
+}

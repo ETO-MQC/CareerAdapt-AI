@@ -1,0 +1,374 @@
+{
+  "status": "PASS",
+  "matrix": [
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "colorScheme": "dark",
+      "page": "home",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "colorScheme": "dark",
+      "page": "profile",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "colorScheme": "dark",
+      "page": "chat",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "colorScheme": "light",
+      "page": "home",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "colorScheme": "light",
+      "page": "profile",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "colorScheme": "light",
+      "page": "chat",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "colorScheme": "dark",
+      "page": "home",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "colorScheme": "dark",
+      "page": "profile",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "colorScheme": "dark",
+      "page": "chat",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "colorScheme": "light",
+      "page": "home",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "colorScheme": "light",
+      "page": "profile",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "colorScheme": "light",
+      "page": "chat",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "colorScheme": "dark",
+      "page": "home",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "colorScheme": "dark",
+      "page": "profile",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "colorScheme": "dark",
+      "page": "chat",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "colorScheme": "light",
+      "page": "home",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "colorScheme": "light",
+      "page": "profile",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "colorScheme": "light",
+      "page": "chat",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    }
+  ],
+  "shots": "docs/architecture/evidence/p522-host-a01/screenshots/diagnostic-1793760979099",
+  "fonts": {
+    "loaded": [
+      {
+        "family": "KaTeX_AMS",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Caligraphic",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Caligraphic",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Fraktur",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Fraktur",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Main",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Main",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Main",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Main",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Math",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Math",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_SansSerif",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_SansSerif",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_SansSerif",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Script",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Size1",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Size2",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Size3",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Size4",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Typewriter",
+        "status": "unloaded"
+      },
+      {
+        "family": "codicon",
+        "status": "loaded"
+      },
+      {
+        "family": "Collapse",
+        "status": "loaded"
+      },
+      {
+        "family": "JetBrains Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "JetBrains Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "JetBrains Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "Courier Prime",
+        "status": "unloaded"
+      },
+      {
+        "family": "Courier Prime",
+        "status": "loaded"
+      },
+      {
+        "family": "Courier Prime",
+        "status": "unloaded"
+      },
+      {
+        "family": "Courier Prime",
+        "status": "loaded"
+      }
+    ],
+    "iconFamily": "codicon"
+  },
+  "reviewed": [
+    "profile-final.png",
+    "chat-dark-1440.png",
+    "native-attachments.png",
+    "home-light-1024.png"
+  ],
+  "themeAuthority": "Native System appearance + emulateMedia dark/light; no private store writes",
+  "limitations": [
+    "Native Chat intro still Hermes Agent and retains native blue backdrop; not final CareerAdapt visual acceptance",
+    "Native titlebar/statusbar/advanced settings remain native components",
+    "Preview Home does not replace original real HomeWorkspace",
+    "No pixel-fidelity score or production UI certification"
+  ]
+}

@@ -1,0 +1,22 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import {createRequire} from 'node:module';
+const host=path.join(process.env.LOCALAPPDATA,'hermes/hermes-agent'),desktop=path.join(host,'apps/desktop'),req=createRequire(path.join(desktop,'package.json')),ts=req('typescript');
+const evidence=path.resolve('docs/architecture/evidence/p522-host-a01');
+const configFile=path.join(desktop,'tsconfig.json');
+const config=ts.readConfigFile(configFile,ts.sys.readFile);
+const parsed=ts.parseJsonConfigFileContent(config.config,ts.sys,desktop,{noEmit:true,incremental:false});
+const manifest=JSON.parse(fs.readFileSync(path.join(evidence,'patch-manifest.json'),'utf8'));
+const patched=new Map(manifest.records.map(r=>[path.resolve(host,r.file).replaceAll('\\','/').toLowerCase(),fs.readFileSync(path.join(evidence,'patched',r.file+'.txt'),'utf8')]));
+const run=apply=>{
+ const compilerHost=ts.createCompilerHost(parsed.options);
+ const originalRead=compilerHost.readFile;
+ compilerHost.readFile=file=>apply&&patched.has(path.resolve(file).replaceAll('\\','/').toLowerCase())?patched.get(path.resolve(file).replaceAll('\\','/').toLowerCase()):originalRead(file);
+ const program=ts.createProgram({rootNames:parsed.fileNames,options:parsed.options,host:compilerHost});
+ return ts.getPreEmitDiagnostics(program).map(d=>({file:d.file?.fileName,code:d.code,message:ts.flattenDiagnosticMessageText(d.messageText,'\n')}));
+};
+const baseline=run(false),integrated=run(true);
+const identities=new Set(baseline.map(d=>JSON.stringify(d)));
+const introduced=integrated.filter(d=>!identities.has(JSON.stringify(d)));
+fs.writeFileSync(path.join(evidence,'native-typecheck.json'),JSON.stringify({method:'TypeScript compiler host overlays four recorded Renderer source patches; no upstream writes, no emit',baseline,integrated,introduced,status:introduced.length?'FAIL':'PASS_NO_NEW_DIAGNOSTICS'},null,2)+'\n');
+console.log(JSON.stringify({baseline:baseline.length,integrated:integrated.length,introduced}));if(introduced.length)process.exitCode=1;

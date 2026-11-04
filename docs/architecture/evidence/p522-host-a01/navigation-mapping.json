@@ -1,0 +1,137 @@
+{
+  "pages": [
+    {
+      "page": "Home",
+      "original": "src/app/HomeWorkspace.tsx",
+      "entry": "/",
+      "target": "/careeradapt-home",
+      "status": "Preview landing only; original real HomeWorkspace retained",
+      "dependencies": "next/link + useWorkspace + WorkspaceStates; adapt navigation/controller later"
+    },
+    {
+      "page": "AI Workspace",
+      "original": "Hermes apps/desktop/src/app/chat/index.tsx",
+      "entry": "Hermes / and /:sessionId",
+      "target": "Native / and /:sessionId retained",
+      "status": "Direct native reuse",
+      "dependencies": "ContribWiring actions, stores, root Providers, gateway"
+    },
+    {
+      "page": "Profile",
+      "original": "src/app/profile/ProfileWorkspace.tsx",
+      "entry": "/profile",
+      "target": "/careeradapt-experience",
+      "status": "Slice1 unchanged synthetic read-only DTO/view",
+      "dependencies": "Full original has Repository/AI/PDF/import/edit controllers; not bundled in Host"
+    },
+    {
+      "page": "Jobs",
+      "original": "src/app/jobs/JobsWorkspace.tsx",
+      "entry": "/jobs",
+      "target": "Reserved future /careeradapt-jobs, not registered",
+      "status": "Not migrated, no fake page",
+      "dependencies": "Next router/link; candidate draft/requirements/source/matches/Branch/CAS; isolate controller and typed Domain port"
+    },
+    {
+      "page": "Applications",
+      "original": "src/components/applications/ApplicationWorkspace.tsx",
+      "entry": "/applications",
+      "target": "Future /careeradapt-applications, not registered",
+      "status": "Not migrated",
+      "dependencies": "Repository/readiness/materials/export snapshots; do not carry ensureDemoWorkspace to formal Host"
+    },
+    {
+      "page": "Resume Studio",
+      "original": "src/app/resume/ResumeWorkspace.tsx",
+      "entry": "/resume",
+      "target": "Future /careeradapt-studio, not registered",
+      "status": "Not migrated; retain original full editor",
+      "dependencies": "Next router/search; TipTap/FieldAppearance/PrecisionInspector/A4/pagination/PDF; separate route, never Chat Markdown"
+    },
+    {
+      "page": "Material Intake",
+      "original": "src/components/resume/import/MaterialIntakeDialog.tsx",
+      "entry": "Dialog from ResumeWorkspace; not standalone original page",
+      "target": "Future /careeradapt-intake, not registered",
+      "status": "Audit/design only",
+      "dependencies": "AgentAttachmentStore, MaterialIntakeService.prepare, ImportReview/ResumeImportWizard, source evidence/Schema/confirmation/Repository"
+    },
+    {
+      "page": "Settings",
+      "original": "src/app/settings/page.tsx",
+      "entry": "/settings",
+      "target": "Native Hermes /settings; future Career settings section",
+      "status": "Native settings verified; Career settings not migrated",
+      "dependencies": "Keep Career privacy/recognition/preferences/backup distinct; reuse native provider/model/runtime/theme"
+    }
+  ],
+  "nativeMap": [
+    [
+      "New Session",
+      "AI 工作台 / 新建对话",
+      "Native onNavigate new-session + reset $newChatProfile"
+    ],
+    [
+      "Session History",
+      "AI 工作台 / 会话上下文",
+      "Original native session sections"
+    ],
+    [
+      "Chat / Messaging",
+      "AI 工作台 / 高级管理 Messaging",
+      "Native / + /messaging"
+    ],
+    [
+      "Capabilities / Skills",
+      "AI 能力与高级管理",
+      "/skills"
+    ],
+    [
+      "Artifacts",
+      "AI 能力与高级管理 / 产物",
+      "/artifacts; not equivalent to future Career Artifact binding"
+    ],
+    [
+      "Provider / Model",
+      "设置 / AI 配置 + 原生 Chat model selector",
+      "/settings + /profiles"
+    ],
+    [
+      "Gateway",
+      "原生 statusbar / 运行诊断",
+      "Native Gateway menu + /command-center"
+    ],
+    [
+      "Agents",
+      "AI 能力与高级管理",
+      "/agents"
+    ],
+    [
+      "Tool Activity",
+      "原生对话消息过程",
+      "Unchanged native tool message renderer"
+    ],
+    [
+      "Attachments",
+      "原生输入区 Add context",
+      "Native ContextMenu"
+    ],
+    [
+      "Cron / Webhooks",
+      "AI 能力与高级管理",
+      "/cron + /webhooks retained"
+    ],
+    [
+      "Starmap",
+      "AI 能力与高级管理",
+      "/starmap retained"
+    ]
+  ],
+  "mainNavigation": [
+    "首页",
+    "AI 工作台",
+    "个人资料库",
+    "设置"
+  ],
+  "noBlankBusinessPages": true
+}

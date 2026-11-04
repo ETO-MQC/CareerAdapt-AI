@@ -1,0 +1,149 @@
+{
+  "files": [
+    {
+      "file": "src/app/HomeWorkspace.tsx",
+      "sha256": "5407872e68c86d7721c76e3892ec16a53a069afbfb37dd30d41a30089f9b775f",
+      "bytes": 2619
+    },
+    {
+      "file": "src/app/profile/ProfileWorkspace.tsx",
+      "sha256": "f00758cc97786b18e398a5c19edf0bf26eafe54d44761c29a28fcc266d205b5d",
+      "bytes": 144296
+    },
+    {
+      "file": "src/app/jobs/JobsWorkspace.tsx",
+      "sha256": "d56e54ff1e98037b6cd17545afdb8b7a5b903b98d7ba35351a4bdf497bd3996c",
+      "bytes": 77308
+    },
+    {
+      "file": "src/components/applications/ApplicationWorkspace.tsx",
+      "sha256": "03bc30bc62178e74ccf7f6b7aa528fc514ea702f87aa596aced6523edc7d469d",
+      "bytes": 47808
+    },
+    {
+      "file": "src/app/resume/ResumeWorkspace.tsx",
+      "sha256": "02b360c975399ffd0f2ea96ec1d3aa0c851032eebb7083a1cc9c121b8db7b1d8",
+      "bytes": 310912
+    },
+    {
+      "file": "src/components/resume/import/MaterialIntakeDialog.tsx",
+      "sha256": "468c1a9fd16e36dd40cdd4f18c3eaa72827816cd87504fcc98b7427b1d9eacb2",
+      "bytes": 5084
+    },
+    {
+      "file": "src/app/settings/page.tsx",
+      "sha256": "bcaae4fa126061a33101625dee6437ad7ecfa481c1ec3bad09802aca37c9d995",
+      "bytes": 99193
+    },
+    {
+      "file": "src/agent/tools/CareerToolGateway.ts",
+      "sha256": "032f5e8e1261f1ea977f116223c9009cdae6766e15f3ea487c58b1e0889da660",
+      "bytes": 61923
+    },
+    {
+      "file": "src/agent/tools/registry.ts",
+      "sha256": "41f60dc7d618616e5b83557af6fe6a7281ccf1159615662143c1f77b81717001",
+      "bytes": 40773
+    },
+    {
+      "file": "src/agent/mcp/CareerAdaptMcpServer.ts",
+      "sha256": "70dc2b8fb46819a9b55a65970e41b2ce9e79f984c9a280e62331bd660d497cdb",
+      "bytes": 10520
+    },
+    {
+      "file": "src/agent/mcp/CareerAdaptMcpAdapter.ts",
+      "sha256": "da3883caf97325e77f3a004ab13ffba60710ffee1d47f339d4777367c4a51d11",
+      "bytes": 11521
+    },
+    {
+      "file": "src/agent/mcp/CareerAdaptMcpBridgeClient.ts",
+      "sha256": "caf013d5467a73d8a90d79587447c7bf2aa1b1747b5b2bbc7285ba18b52f2718",
+      "bytes": 34112
+    },
+    {
+      "file": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "sha256": "2361e55351c5ed72e5fa9c352dbc262fd910a88ef53662dcbd49646b6b7441e9",
+      "bytes": 78711
+    },
+    {
+      "file": "src/services/storage/repositories.ts",
+      "sha256": "10dc464283aaab494620e1a4e4b6ceccd95aa98b2d50ba38792033185183d7a0",
+      "bytes": 424495
+    },
+    {
+      "file": "src/services/storage/db.ts",
+      "sha256": "7170668b1c36e29ca33e6c0e17385b7ab8639328a1fb10ccc7326b0135f9d2de",
+      "bytes": 20825
+    },
+    {
+      "file": "src/domain/schemas/resumeV2.ts",
+      "sha256": "bb31fc56f3abf016edbb2ba4f27b699f5a86cb695b418db2eae061655f9402e7",
+      "bytes": 10314
+    },
+    {
+      "file": "src/components/ui/product/index.tsx",
+      "sha256": "aacdec67f2e05b23e029dafd98ac90bc366fb30eb77d0a9ba58c80db43532e20",
+      "bytes": 5209
+    },
+    {
+      "file": "poc/host-experience/plugin.tsx",
+      "sha256": "f7c659e4edc0ffbd98155e019c3efb63fe4d7448d6f93dd6a592445edcb11cab",
+      "bytes": 699
+    },
+    {
+      "file": "poc/host-experience/CareerExperience.tsx",
+      "sha256": "a19b072d64dc22b8b7f7f95a28cf06fd276b7266f7ef60de6b4419ad71d8d654",
+      "bytes": 9145
+    },
+    {
+      "file": "poc/host-experience/profile-read-model.ts",
+      "sha256": "92d474c5bf64098a0f9237c479afb158571b2eaffd5c9cebccc95edd0df30ae9",
+      "bytes": 1599
+    },
+    {
+      "file": "poc/host-experience/profile-fixture.json",
+      "sha256": "aebe5b02a24d1bc7dd6055a6e2328f9d6f70737245e0e342ce33fcff8ddf8ffe",
+      "bytes": 39060
+    }
+  ],
+  "capabilities": [
+    [
+      "get_profile",
+      "Implemented gateway career.profile.get -> get_profile; Browser Domain Host binding required"
+    ],
+    [
+      "search_profile_materials",
+      "Target name not implemented; existing career.profile.search_facts -> search_profile_facts + career.context.retrieve"
+    ],
+    [
+      "analyze_job",
+      "Target name not implemented; existing parse_job_description/analyze_job_fit + career.workflow.job_fit; not identical semantics"
+    ],
+    [
+      "compare_job_requirements",
+      "Underlying Jobs requirements/rule & AI matches exist; exact tool needs explicit contract"
+    ],
+    [
+      "tailor_resume",
+      "Existing career.workflow.tailor_resume facade and atomic tailoring tools; not connected to this isolated Host"
+    ],
+    [
+      "evaluate_resume",
+      "Review/composition/fit capabilities exist; exact general evaluation contract is not assumed"
+    ],
+    [
+      "import_material",
+      "Existing career.material.prepare -> prepare_material_intake and intake/import facades; confirmation and source staging still required"
+    ],
+    [
+      "validate_resume_changes",
+      "Underlying validation/fact/revision paths exist; exact target tool requires contract"
+    ],
+    [
+      "inspect_resume_revision",
+      "Existing career.resume revision contract -> get_resume_revision"
+    ]
+  ],
+  "integrationDecision": "No demo business tool registered. Existing read contracts are safe only with bound and authorized Domain Host; this preview deliberately has no Domain Host or real data. No fake fixture tool masquerades as business execution.",
+  "futureCallChain": "Native Chat -> Hermes Agent -> existing MCP client/bridge -> CareerAdaptMcpProtocolServer/Adapter -> CareerToolGateway -> Domain -> WorkspaceRepository; maintain session/person/revision binding and trusted confirmation."
+}

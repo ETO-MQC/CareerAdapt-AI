@@ -1,0 +1,31 @@
+{
+  "optIn": true,
+  "upstreamCommit": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+  "method": "Exact-anchor Vite pre-transform; upstream disk untouched",
+  "records": [
+    {
+      "file": "apps/desktop/src/app/contrib/controller.tsx",
+      "originalSha256": "699cbb02e34c04c724a630ea83c7d08c8a0de384a1c1747ca36489b627acf766",
+      "patchedSha256": "d7691d38b87c925031add45f41165653e75d68ca8124b1ac6955ad89b62863ef",
+      "upstreamFileWritten": false
+    },
+    {
+      "file": "apps/desktop/src/app/routes.ts",
+      "originalSha256": "4cb91d3b9a25f11aba76e949767bdfbfaeb9d8cda0da44fd363bddd27f75746c",
+      "patchedSha256": "a6713c05637172e765d873e44ad9730d8d7646006b15ce318c3353465a869d42",
+      "upstreamFileWritten": false
+    },
+    {
+      "file": "apps/desktop/src/app/contrib/surfaces.tsx",
+      "originalSha256": "f9d876b5ef70966f06a4a41632ce33d808ab085efad415d1d226e08347d3d203",
+      "patchedSha256": "25601d80151721425a34fff1b7fb611896ad7476edc08ab6a7a41c9d39bf4b8d",
+      "upstreamFileWritten": false
+    },
+    {
+      "file": "apps/desktop/src/app/chat/sidebar/index.tsx",
+      "originalSha256": "03e9cb1e09ffdca30016c25e74d680411a246005d852bf57e435b610f3d3a86c",
+      "patchedSha256": "30b78d061b84a0e7d7b2bd26b82a880e645935398812cc18f1de886d9befae16",
+      "upstreamFileWritten": false
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "status": "PARTIAL",
+  "finalIntegrationDiagnostic": "PASS",
+  "finalDiagnosticFile": "navigation-diagnostic.json",
+  "defaultShell": "FAIL",
+  "defaultDisplay": "Native renderer/default sidebar visible in default-shell-failure.png after startup; screenshot from failed interaction test, not PASS proof of interaction",
+  "limitations": [
+    "Complete smoke text-selector gate failed twice and stopped; final bounded diagnostic passes separately",
+    "Default-shell initial attachment-only check produced false-positive while onboarding visible; strengthened real-click checks failed and stopped",
+    "Default native New session visible name includes shortcut tokens; exact name harness needs correction, no more retries this turn",
+    "No live same-process Shell/Runtime hot-swap qualification",
+    "Real model Streaming/Tool Calling/Abort, populated Session history and full Runtime readiness NOT VERIFIED"
+  ],
+  "noRealModelRequests": true
+}

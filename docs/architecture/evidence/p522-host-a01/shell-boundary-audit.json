@@ -1,0 +1,23 @@
+{
+  "status": "PASS",
+  "upstreamDiskChanges": "",
+  "virtualPatchFiles": [
+    "apps/desktop/src/app/contrib/controller.tsx",
+    "apps/desktop/src/app/routes.ts",
+    "apps/desktop/src/app/contrib/surfaces.tsx",
+    "apps/desktop/src/app/chat/sidebar/index.tsx"
+  ],
+  "rootProviders": "main.tsx: StrictMode/ErrorBoundary/QueryClientProvider/I18nProvider/ThemeProvider/HapticsProvider/HashRouter unchanged",
+  "composition": "Sidebar original global group replaced by CareerNavigation; native session sections retained only for chat view; route table adds Home; route classifier reserves Home; controller adds palette scope class. No native session hooks/ChatView changes.",
+  "mainPreloadRuntimeChanges": [],
+  "themeAuthority": "Native ThemeProvider/data-hermes-mode only; Shell CSS adapts palette below .ca-host-shell; no new setter/store",
+  "couplings": [
+    "Sidebar has profile/project/session atoms and native action callbacks; it cannot simply be discarded",
+    "Overlay routes are global native routing, not ordinary chat pages",
+    "/:sessionId fallback requires Home to be reserved in APP_ROUTES",
+    "Native fresh draft action deliberately leaves per-thread composer content to ChatBar",
+    "Plugins route renderer remains registry driven; Profile navigation contribution is registered once, original top group is structurally replaced",
+    "Future third-party sidebar.nav contributions require explicit reconciliation before production"
+  ],
+  "scope": "Opt-in development integration, not production patch application"
+}

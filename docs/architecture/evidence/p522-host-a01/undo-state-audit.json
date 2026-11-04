@@ -1,0 +1,32 @@
+{
+  "trackedStatusAtStart": "clean",
+  "shell01TrackedFiles": "",
+  "shell01CommitSearch": "",
+  "reports": [
+    {
+      "path": "docs/architecture/p5.2.2-shell-ownership-architecture-audit.md",
+      "exists": false
+    },
+    {
+      "path": "docs/architecture/p5.2.2-shell-ownership-adr-draft.md",
+      "exists": false
+    },
+    {
+      "path": "docs/architecture/evidence/p522-shell01",
+      "exists": false
+    }
+  ],
+  "ignoredHandoffs": [
+    {
+      "path": "plan4.md",
+      "sha256": "f24953a2f9e20775f16ac2073bf461be81b2249307521547352c1d9cfb3ae489",
+      "retainsShell01": true
+    },
+    {
+      "path": "history4.md",
+      "sha256": "16f5925b1caa0180573e35f37335e4ade86ba5eb208bcfb0a3b484bca3e8b766",
+      "retainsShell01": true
+    }
+  ],
+  "decision": "Observable working-tree rollback complete for SHELL-01 deliverables; Codex Undo action itself not observable. Ignored handoff text retained as historical record and superseded by explicit HOST-A-01 authorization; no deletion/revert needed."
+}

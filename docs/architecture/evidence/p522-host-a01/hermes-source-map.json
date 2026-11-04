@@ -1,0 +1,1903 @@
+{
+  "commit": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+  "desktop": "0.17.0",
+  "runtime": "0.19.0",
+  "sourceMap": [
+    {
+      "layer": "Electron Main",
+      "file": "apps/desktop/electron/main.ts",
+      "sha256": "0b184d8d114126ad77ca16ce5b42a410a677de13d5548825c1bc68f80eb6ab4e",
+      "lines": 11082,
+      "anchors": []
+    },
+    {
+      "layer": "Electron Main",
+      "file": "apps/desktop/electron/backend-command.ts",
+      "sha256": "6931fbba023ebbc08abc907808c61a8e044797d6f355d3891f8bd1a956a7f537",
+      "lines": 49,
+      "anchors": [
+        {
+          "line": 18,
+          "text": "export function serveBackendArgs(profile?: string) {"
+        },
+        {
+          "line": 30,
+          "text": "export function dashboardFallbackArgs(args) {"
+        },
+        {
+          "line": 46,
+          "text": "export function sourceDeclaresServe(dashboardPySource) {"
+        }
+      ]
+    },
+    {
+      "layer": "Electron Main",
+      "file": "apps/desktop/electron/backend-health.ts",
+      "sha256": "52bd6e74458935bee8277531bab4642ec696daf6499a4e6ed10e8d54821a9fb7",
+      "lines": 170,
+      "anchors": [
+        {
+          "line": 1,
+          "text": "export const DEFAULT_BACKEND_READY_TIMEOUT_MS = 45_000"
+        },
+        {
+          "line": 2,
+          "text": "export const DEFAULT_BACKEND_READY_POLL_MS = 500"
+        },
+        {
+          "line": 8,
+          "text": "export const DEFAULT_HEALTH_PROBE_TIMEOUT_MS = 5_000"
+        },
+        {
+          "line": 38,
+          "text": "export const REMOTE_SESSION_EXPIRED_MESSAGE ="
+        },
+        {
+          "line": 41,
+          "text": "export function isMissingHealthEndpointError(error: unknown): boolean {"
+        },
+        {
+          "line": 52,
+          "text": "export function isAuthRejectionError(error: unknown): boolean {"
+        },
+        {
+          "line": 66,
+          "text": "export function isGatedMissingHealthError(error: unknown): boolean {"
+        },
+        {
+          "line": 73,
+          "text": "export function makeReauthRequiredError(detail?: string): Error {"
+        },
+        {
+          "line": 85,
+          "text": "export function isReauthRequiredError(error: unknown): boolean {"
+        }
+      ]
+    },
+    {
+      "layer": "Preload",
+      "file": "apps/desktop/electron/preload.ts",
+      "sha256": "0533209a7ecbdc77f9601660a375a92f4dd50f2cce950a8833ceb68278f9354b",
+      "lines": 273,
+      "anchors": []
+    },
+    {
+      "layer": "Renderer root and Shell",
+      "file": "apps/desktop/src/main.tsx",
+      "sha256": "d20373c7a5a0810887da8fae9bc365f83bc9f5e2dc229cf7ba8c5d1dd5e0b06b",
+      "lines": 58,
+      "anchors": [
+        {
+          "line": 34,
+          "text": "<QueryClientProvider client={queryClient}>"
+        },
+        {
+          "line": 36,
+          "text": "<ThemeProvider>"
+        },
+        {
+          "line": 47,
+          "text": "<HashRouter useTransitions={false}>"
+        }
+      ]
+    },
+    {
+      "layer": "Renderer root and Shell",
+      "file": "apps/desktop/src/app/index.tsx",
+      "sha256": "028d1c47b6c012b5e1775ded96fcfb923546526a1d5540388dedeedbeef6a17e",
+      "lines": 7,
+      "anchors": []
+    },
+    {
+      "layer": "Renderer root and Shell",
+      "file": "apps/desktop/src/app/contrib/controller.tsx",
+      "sha256": "699cbb02e34c04c724a630ea83c7d08c8a0de384a1c1747ca36489b627acf766",
+      "lines": 708,
+      "anchors": [
+        {
+          "line": 629,
+          "text": "export function ContribController() {"
+        },
+        {
+          "line": 691,
+          "text": "<LayoutTreeRoot />"
+        }
+      ]
+    },
+    {
+      "layer": "Renderer root and Shell",
+      "file": "apps/desktop/src/app/contrib/wiring.tsx",
+      "sha256": "836e7348673d51c570a69b239fe9f5992a1cc34c057061538738cdd953f1c711",
+      "lines": 1060,
+      "anchors": [
+        {
+          "line": 131,
+          "text": "export function ContribWiring({ children }: { children: ReactNode }) {"
+        },
+        {
+          "line": 793,
+          "text": "onCancel: cancelRun,"
+        },
+        {
+          "line": 815,
+          "text": "onPickFiles: () => void composer.pickContextPaths('file'),"
+        }
+      ]
+    },
+    {
+      "layer": "Renderer root and Shell",
+      "file": "apps/desktop/src/app/contrib/surfaces.tsx",
+      "sha256": "f9d876b5ef70966f06a4a41632ce33d808ab085efad415d1d226e08347d3d203",
+      "lines": 193,
+      "anchors": [
+        {
+          "line": 39,
+          "text": "export function LegacySessionRedirect() {"
+        },
+        {
+          "line": 45,
+          "text": "export const SidebarSurface = memo(function SidebarSurface({"
+        },
+        {
+          "line": 57,
+          "text": "export const TerminalSurface = memo(function TerminalSurface() {"
+        },
+        {
+          "line": 68,
+          "text": "export const StatusbarSurface = memo(function StatusbarSurface({"
+        },
+        {
+          "line": 109,
+          "text": "export const ChatRoutesSurface = memo(function ChatRoutesSurface({"
+        },
+        {
+          "line": 146,
+          "text": "<ChatView"
+        }
+      ]
+    },
+    {
+      "layer": "Renderer root and Shell",
+      "file": "apps/desktop/src/app/contrib/types.ts",
+      "sha256": "8554ecbdef5fa3235cbbf76d37e51e3bc1557957d0d87f58c4fa076f8d94766a",
+      "lines": 80,
+      "anchors": []
+    },
+    {
+      "layer": "Renderer root and Shell",
+      "file": "apps/desktop/src/app/routes.ts",
+      "sha256": "4cb91d3b9a25f11aba76e949767bdfbfaeb9d8cda0da44fd363bddd27f75746c",
+      "lines": 198,
+      "anchors": [
+        {
+          "line": 6,
+          "text": "export const SESSION_ROUTE_PREFIX = '/'"
+        },
+        {
+          "line": 7,
+          "text": "export const NEW_CHAT_ROUTE = '/'"
+        },
+        {
+          "line": 8,
+          "text": "export const SETTINGS_ROUTE = '/settings'"
+        },
+        {
+          "line": 9,
+          "text": "export const COMMAND_CENTER_ROUTE = '/command-center'"
+        },
+        {
+          "line": 10,
+          "text": "export const SKILLS_ROUTE = '/skills'"
+        },
+        {
+          "line": 11,
+          "text": "export const MESSAGING_ROUTE = '/messaging'"
+        },
+        {
+          "line": 12,
+          "text": "export const WEBHOOKS_ROUTE = '/webhooks'"
+        },
+        {
+          "line": 13,
+          "text": "export const ARTIFACTS_ROUTE = '/artifacts'"
+        },
+        {
+          "line": 14,
+          "text": "export const CRON_ROUTE = '/cron'"
+        },
+        {
+          "line": 15,
+          "text": "export const PROFILES_ROUTE = '/profiles'"
+        },
+        {
+          "line": 16,
+          "text": "export const AGENTS_ROUTE = '/agents'"
+        },
+        {
+          "line": 17,
+          "text": "export const STARMAP_ROUTE = '/starmap'"
+        },
+        {
+          "line": 56,
+          "text": "export const APP_ROUTES = ["
+        },
+        {
+          "line": 79,
+          "text": "export const ROUTES_AREA = 'routes'"
+        },
+        {
+          "line": 87,
+          "text": "export function contributedRoutes(): Array<{ key: string; path: string; title?: string; render: () => ReactNode }> {"
+        },
+        {
+          "line": 108,
+          "text": "export const SIDEBAR_NAV_AREA = 'sidebar.nav'"
+        },
+        {
+          "line": 122,
+          "text": "export const OVERLAY_VIEWS: ReadonlySet<AppView> = new Set(["
+        },
+        {
+          "line": 132,
+          "text": "export function isOverlayView(view: AppView): boolean {"
+        },
+        {
+          "line": 136,
+          "text": "export function isNewChatRoute(pathname: string): boolean {"
+        },
+        {
+          "line": 140,
+          "text": "export function routeSessionId(pathname: string): string | null {"
+        },
+        {
+          "line": 159,
+          "text": "export function primaryRouteSelectedSessionId(pathname: string, storeSelectedSessionId: string | null): string | null {"
+        },
+        {
+          "line": 167,
+          "text": "export function sessionRoute(sessionId: string): string {"
+        },
+        {
+          "line": 171,
+          "text": "export function appViewForPath(pathname: string): AppView {"
+        },
+        {
+          "line": 188,
+          "text": "export const $workspaceIsPage = atom(false)"
+        },
+        {
+          "line": 190,
+          "text": "export function syncWorkspaceIsPage(pathname: string): void {"
+        }
+      ]
+    },
+    {
+      "layer": "Renderer root and Shell",
+      "file": "apps/desktop/src/app/shell/hooks/use-overlay-routing.ts",
+      "sha256": "a71cbdc0056c477ae4426fb33d4c74ff79dfe8e84ba26cf86d42cc80712978cc",
+      "lines": 91,
+      "anchors": [
+        {
+          "line": 16,
+          "text": "export function useOverlayRouting() {"
+        }
+      ]
+    },
+    {
+      "layer": "Renderer root and Shell",
+      "file": "apps/desktop/src/app/contrib/hooks/use-desktop-integrations.ts",
+      "sha256": "54397e1cb91dbfcd31913c9cced05eeb5d73ae66670e513915dc6ca17854bc73",
+      "lines": 192,
+      "anchors": [
+        {
+          "line": 40,
+          "text": "export function useDesktopIntegrations({"
+        }
+      ]
+    },
+    {
+      "layer": "Conversation Workspace",
+      "file": "apps/desktop/src/app/chat/index.tsx",
+      "sha256": "b41bf22bc983a8b79a9c31ea8fe5e1d12bb87373792dc62330a6bf5b705dadc5",
+      "lines": 594,
+      "anchors": [
+        {
+          "line": 71,
+          "text": "onCancel: () => Promise<void> | void"
+        },
+        {
+          "line": 79,
+          "text": "onPickFiles: () => void"
+        },
+        {
+          "line": 168,
+          "text": "onCancel: () => Promise<void> | void"
+        },
+        {
+          "line": 235,
+          "text": "onCancel: async () => onCancel(),"
+        },
+        {
+          "line": 239,
+          "text": "return <AssistantRuntimeProvider runtime={runtime}>{children}</AssistantRuntimeProvider>"
+        },
+        {
+          "line": 242,
+          "text": "export function ChatView({"
+        }
+      ]
+    },
+    {
+      "layer": "Conversation Workspace",
+      "file": "apps/desktop/src/components/assistant-ui/thread/index.tsx",
+      "sha256": "11cac03907757a8476fba62ee91d6b59567b6dae318805e98d86d1ceb9db39c4",
+      "lines": 116,
+      "anchors": [
+        {
+          "line": 19,
+          "text": "export const Thread: FC<{"
+        }
+      ]
+    },
+    {
+      "layer": "Conversation Workspace",
+      "file": "apps/desktop/src/components/assistant-ui/thread/list.tsx",
+      "sha256": "6c4125f3f58e55317df25fff37917392fd5f5f6e015845a790d0135798c53ff4",
+      "lines": 440,
+      "anchors": [
+        {
+          "line": 62,
+          "text": "export function buildGroups(signature: string): MessageGroup[] {"
+        },
+        {
+          "line": 101,
+          "text": "export function firstVisibleGroupIndex(groups: readonly MessageGroup[], budget: number): number {"
+        },
+        {
+          "line": 130,
+          "text": "export const LIVE_TAIL_GROUPS = 6"
+        },
+        {
+          "line": 133,
+          "text": "export function isVirtualizedGroup(indexInVisible: number, visibleCount: number, liveTail = LIVE_TAIL_GROUPS): boolean {"
+        },
+        {
+          "line": 439,
+          "text": "export const ThreadMessageList = memo(ThreadMessageListInner)"
+        }
+      ]
+    },
+    {
+      "layer": "Conversation Workspace",
+      "file": "apps/desktop/src/components/assistant-ui/thread/assistant-message.tsx",
+      "sha256": "f5483037b30c5227f8147c259756c892afc1e528e483524a751f2ffb427f36fc",
+      "lines": 256,
+      "anchors": [
+        {
+          "line": 45,
+          "text": "export const AssistantMessage: FC<{"
+        }
+      ]
+    },
+    {
+      "layer": "Conversation Workspace",
+      "file": "apps/desktop/src/components/assistant-ui/tool/fallback.tsx",
+      "sha256": "81c8bda86e1c45779d5d5dda4e176af5778cd91ae841e89e8f24f3db037747fb",
+      "lines": 850,
+      "anchors": [
+        {
+          "line": 169,
+          "text": "export function technicalTrace(args: unknown, result: unknown): string {"
+        },
+        {
+          "line": 724,
+          "text": "export function isUnboundableTool(toolName: string): boolean {"
+        },
+        {
+          "line": 728,
+          "text": "export function shouldBoundToolGroup(childCount: number, hasUnboundable: boolean) {"
+        },
+        {
+          "line": 800,
+          "text": "export const ToolGroupSlot: FC<PropsWithChildren<{ endIndex: number; startIndex: number }>> = ({"
+        },
+        {
+          "line": 845,
+          "text": "export const ToolFallback = ({ toolCallId, toolName, args, isError, result }: ToolCallMessagePartProps) => {"
+        }
+      ]
+    },
+    {
+      "layer": "Conversation Workspace",
+      "file": "apps/desktop/src/app/chat/sidebar/index.tsx",
+      "sha256": "03e9cb1e09ffdca30016c25e74d680411a246005d852bf57e435b610f3d3a86c",
+      "lines": 1508,
+      "anchors": [
+        {
+          "line": 242,
+          "text": "export function ChatSidebar({"
+        }
+      ]
+    },
+    {
+      "layer": "Conversation Workspace",
+      "file": "apps/desktop/src/app/chat/sidebar/sessions-section.tsx",
+      "sha256": "6551708b4f41d8b700364443cdc4ee7300bb56f173df8a520e746f221b189554",
+      "lines": 418,
+      "anchors": [
+        {
+          "line": 31,
+          "text": "export const VIRTUALIZE_THRESHOLD = 25"
+        },
+        {
+          "line": 152,
+          "text": "export function SidebarSessionsSection({"
+        }
+      ]
+    },
+    {
+      "layer": "Conversation Workspace",
+      "file": "apps/desktop/src/app/chat/composer/index.tsx",
+      "sha256": "594b523d0190ce9f09085ad885e0abe098e170a04652d99b702929c7f62efef0",
+      "lines": 1093,
+      "anchors": [
+        {
+          "line": 65,
+          "text": "export function ChatBar({"
+        },
+        {
+          "line": 264,
+          "text": "onCancel: haltRun,"
+        },
+        {
+          "line": 700,
+          "text": "useComposerEscCancel({ awaitingInput, busy, onCancel: haltRun, target: scope.target })"
+        },
+        {
+          "line": 1071,
+          "text": "export function ChatBarFallback() {"
+        }
+      ]
+    },
+    {
+      "layer": "Conversation Workspace",
+      "file": "apps/desktop/src/app/chat/composer/context-menu.tsx",
+      "sha256": "b44164f40338779a48d753386c8fb3cd2cde168dd519d75d9e2e30e384f73e22",
+      "lines": 202,
+      "anchors": [
+        {
+          "line": 27,
+          "text": "export function ContextMenu({"
+        },
+        {
+          "line": 166,
+          "text": "export function ContextMenuItem({ children, disabled, icon: Icon, onSelect }: ContextMenuItemProps) {"
+        }
+      ]
+    },
+    {
+      "layer": "Conversation Workspace",
+      "file": "apps/desktop/src/app/chat/composer/attachments.tsx",
+      "sha256": "901e3086af9dd909c55f70b1d85dd16c7c8de69b557ef71a9474d5425b27ccf9",
+      "lines": 147,
+      "anchors": [
+        {
+          "line": 14,
+          "text": "export function AttachmentList({"
+        }
+      ]
+    },
+    {
+      "layer": "Conversation Workspace",
+      "file": "apps/desktop/src/app/chat/composer/hooks/use-composer-draft.ts",
+      "sha256": "f9ad5a1a40a774cf10d3881b59dea20074f9d6398fc0f4645ad836608d5f5565",
+      "lines": 414,
+      "anchors": [
+        {
+          "line": 45,
+          "text": "export function useComposerDraft({"
+        }
+      ]
+    },
+    {
+      "layer": "Conversation Workspace",
+      "file": "apps/desktop/src/app/chat/hooks/use-file-drop-zone.ts",
+      "sha256": "1407cf563a5a24dff500115778f3a1c7398a7bb563ea2279fcc959cbcec45ae3",
+      "lines": 149,
+      "anchors": [
+        {
+          "line": 33,
+          "text": "export function useFileDropZone({ enabled = true, onDropFiles }: FileDropZoneOptions) {"
+        }
+      ]
+    },
+    {
+      "layer": "Conversation Workspace",
+      "file": "apps/desktop/src/app/chat/hooks/use-composer-actions.ts",
+      "sha256": "f6dbfa6f305907881cfec7b18a9f4240889cd2432da2a2c3868d889c6e21c51f",
+      "lines": 663,
+      "anchors": [
+        {
+          "line": 39,
+          "text": "export function isImagePath(filePath: string): boolean {"
+        },
+        {
+          "line": 82,
+          "text": "export const HERMES_PATHS_MIME = 'application/x-hermes-paths'"
+        },
+        {
+          "line": 93,
+          "text": "export function extractDroppedFiles(transfer: DataTransfer): DroppedFile[] {"
+        },
+        {
+          "line": 240,
+          "text": "export function partitionDroppedFiles(candidates: DroppedFile[]): {"
+        },
+        {
+          "line": 279,
+          "text": "export function useComposerActions({"
+        }
+      ]
+    },
+    {
+      "layer": "State and events",
+      "file": "apps/desktop/src/store/session.ts",
+      "sha256": "d762c517764e9528f2c7c8af94c325122a682b787e6df0ca9c97f1ee95831ab0",
+      "lines": 514,
+      "anchors": [
+        {
+          "line": 44,
+          "text": "export const getRememberedSessionId = (profile?: null | string): null | string =>"
+        },
+        {
+          "line": 46,
+          "text": "export const setRememberedSessionId = (id: null | string, profile?: null | string) =>"
+        },
+        {
+          "line": 57,
+          "text": "export function rememberedSessionProfile("
+        },
+        {
+          "line": 77,
+          "text": "export const getRememberedRoute = (): null | string => storedString(LAST_ROUTE_KEY)"
+        },
+        {
+          "line": 78,
+          "text": "export const setRememberedRoute = (path: null | string) => persistString(LAST_ROUTE_KEY, path)"
+        },
+        {
+          "line": 93,
+          "text": "export const getRememberedWorkspaceCwd = (): string => storedString(workspaceCwdKey())?.trim() || ''"
+        },
+        {
+          "line": 96,
+          "text": "export const getConfiguredDefaultProjectDir = (): string => configuredDefaultProjectDir"
+        },
+        {
+          "line": 153,
+          "text": "export function applyConfiguredDefaultProjectDir(dir: null | string | undefined): void {"
+        },
+        {
+          "line": 169,
+          "text": "export const sessionPinId = (session: Pick<SessionInfo, '_lineage_root_id' | 'id'>): string =>"
+        },
+        {
+          "line": 175,
+          "text": "export const sessionMatchesStoredId = ("
+        },
+        {
+          "line": 188,
+          "text": "export function resolveComposerSessionKey("
+        },
+        {
+          "line": 224,
+          "text": "export function mergeSessionPage("
+        },
+        {
+          "line": 270,
+          "text": "export const $connection = atom<HermesConnection | null>(null)"
+        },
+        {
+          "line": 271,
+          "text": "export const $gatewayState = atom<ConnectionState>('idle')"
+        },
+        {
+          "line": 272,
+          "text": "export const $sessions = atom<SessionInfo[]>([])"
+        },
+        {
+          "line": 273,
+          "text": "export const $sessionsTotal = atom<number>(0)"
+        },
+        {
+          "line": 277,
+          "text": "export const $cronSessions = atom<SessionInfo[]>([])"
+        },
+        {
+          "line": 282,
+          "text": "export const CRON_SECTION_LIMIT = 50"
+        },
+        {
+          "line": 288,
+          "text": "export const $messagingSessions = atom<SessionInfo[]>([])"
+        },
+        {
+          "line": 289,
+          "text": "export const MESSAGING_SECTION_LIMIT = 100"
+        },
+        {
+          "line": 293,
+          "text": "export const $messagingPlatformTotals = atom<Record<string, number>>({})"
+        },
+        {
+          "line": 296,
+          "text": "export const $messagingTruncated = atom<boolean>(false)"
+        },
+        {
+          "line": 301,
+          "text": "export const $sessionProfileTotals = atom<Record<string, number>>({})"
+        },
+        {
+          "line": 302,
+          "text": "export const $sessionsLoading = atom(true)"
+        },
+        {
+          "line": 303,
+          "text": "export const $activeSessionId = atom<string | null>(null)"
+        },
+        {
+          "line": 304,
+          "text": "export const $selectedStoredSessionId = atom<string | null>(null)"
+        },
+        {
+          "line": 316,
+          "text": "export const $activeSessionStoredIdRotation = atom<ActiveSessionStoredIdRotation | null>(null)"
+        },
+        {
+          "line": 317,
+          "text": "export const $messages = atom<ChatMessage[]>([])"
+        },
+        {
+          "line": 324,
+          "text": "export const $messagesEmpty = computed($messages, messages => messages.length === 0)"
+        },
+        {
+          "line": 325,
+          "text": "export const $lastVisibleMessageIsUser = computed($messages, lastVisibleMessageIsUser)"
+        },
+        {
+          "line": 327,
+          "text": "export const $freshDraftReady = atom(false)"
+        },
+        {
+          "line": 328,
+          "text": "export const $busy = atom(false)"
+        },
+        {
+          "line": 329,
+          "text": "export const $awaitingResponse = atom(false)"
+        },
+        {
+          "line": 337,
+          "text": "export const $resumeFailedSessionId = atom<string | null>(null)"
+        },
+        {
+          "line": 346,
+          "text": "export const $resumeExhaustedSessionId = atom<string | null>(null)"
+        },
+        {
+          "line": 347,
+          "text": "export const $currentModel = atom(storedString(COMPOSER_MODEL_KEY) ?? '')"
+        },
+        {
+          "line": 348,
+          "text": "export const $currentProvider = atom(storedString(COMPOSER_PROVIDER_KEY) ?? '')"
+        },
+        {
+          "line": 349,
+          "text": "export const $currentReasoningEffort = atom(storedString(COMPOSER_EFFORT_KEY) ?? '')"
+        },
+        {
+          "line": 350,
+          "text": "export const $currentServiceTier = atom('')"
+        },
+        {
+          "line": 351,
+          "text": "export const $currentFastMode = atom(storedBoolean(COMPOSER_FAST_KEY, false))"
+        },
+        {
+          "line": 355,
+          "text": "export const $yoloActive = atom(false)"
+        },
+        {
+          "line": 356,
+          "text": "export const $currentCwd = atom(getRememberedWorkspaceCwd())"
+        },
+        {
+          "line": 357,
+          "text": "export const $newChatWorkspaceTarget = atom<NewChatWorkspaceTarget>(undefined)"
+        },
+        {
+          "line": 358,
+          "text": "export const $newChatWorkspaceTargetGeneration = atom(0)"
+        },
+        {
+          "line": 359,
+          "text": "export const $currentBranch = atom('')"
+        },
+        {
+          "line": 360,
+          "text": "export const $currentUsage = atom<UsageStats>({"
+        },
+        {
+          "line": 366,
+          "text": "export const $sessionStartedAt = atom<number | null>(null)"
+        },
+        {
+          "line": 367,
+          "text": "export const $turnStartedAt = atom<number | null>(null)"
+        },
+        {
+          "line": 368,
+          "text": "export const $introPersonality = atom('')"
+        },
+        {
+          "line": 369,
+          "text": "export const $currentPersonality = atom('')"
+        },
+        {
+          "line": 370,
+          "text": "export const $availablePersonalities = atom<string[]>([])"
+        },
+        {
+          "line": 371,
+          "text": "export const $introSeed = atom(0)"
+        },
+        {
+          "line": 372,
+          "text": "export const $contextSuggestions = atom<ContextSuggestion[]>([])"
+        },
+        {
+          "line": 373,
+          "text": "export const $modelPickerOpen = atom(false)"
+        },
+        {
+          "line": 374,
+          "text": "export const $sessionPickerOpen = atom(false)"
+        },
+        {
+          "line": 376,
+          "text": "export const setConnection = (next: Updater<HermesConnection | null>) => updateAtom($connection, next)"
+        },
+        {
+          "line": 377,
+          "text": "export const setGatewayState = (next: Updater<ConnectionState>) => updateAtom($gatewayState, next)"
+        },
+        {
+          "line": 378,
+          "text": "export const setSessions = (next: Updater<SessionInfo[]>) => updateAtom($sessions, next)"
+        },
+        {
+          "line": 379,
+          "text": "export const setSessionsTotal = (next: Updater<number>) => updateAtom($sessionsTotal, next)"
+        },
+        {
+          "line": 380,
+          "text": "export const setCronSessions = (next: Updater<SessionInfo[]>) => updateAtom($cronSessions, next)"
+        },
+        {
+          "line": 381,
+          "text": "export const setMessagingSessions = (next: Updater<SessionInfo[]>) => updateAtom($messagingSessions, next)"
+        },
+        {
+          "line": 382,
+          "text": "export const setMessagingPlatformTotals = (next: Updater<Record<string, number>>) =>"
+        },
+        {
+          "line": 384,
+          "text": "export const setMessagingTruncated = (next: Updater<boolean>) => updateAtom($messagingTruncated, next)"
+        },
+        {
+          "line": 385,
+          "text": "export const setSessionProfileTotals = (next: Updater<Record<string, number>>) =>"
+        },
+        {
+          "line": 387,
+          "text": "export const setSessionsLoading = (next: Updater<boolean>) => updateAtom($sessionsLoading, next)"
+        },
+        {
+          "line": 388,
+          "text": "export const setActiveSessionId = (next: Updater<string | null>) => updateAtom($activeSessionId, next)"
+        },
+        {
+          "line": 389,
+          "text": "export const setActiveSessionStoredIdRotation = (next: Updater<ActiveSessionStoredIdRotation | null>) =>"
+        },
+        {
+          "line": 394,
+          "text": "export const $unreadFinishedSessionIds = atom<string[]>([])"
+        },
+        {
+          "line": 396,
+          "text": "export const setSelectedStoredSessionId = (next: Updater<string | null>) => {"
+        },
+        {
+          "line": 406,
+          "text": "export const setMessages = (next: Updater<ChatMessage[]>) => updateAtom($messages, next)"
+        },
+        {
+          "line": 407,
+          "text": "export const setFreshDraftReady = (next: Updater<boolean>) => updateAtom($freshDraftReady, next)"
+        },
+        {
+          "line": 408,
+          "text": "export const setResumeFailedSessionId = (next: Updater<string | null>) => updateAtom($resumeFailedSessionId, next)"
+        },
+        {
+          "line": 409,
+          "text": "export const setResumeExhaustedSessionId = (next: Updater<string | null>) => updateAtom($resumeExhaustedSessionId, next)"
+        },
+        {
+          "line": 410,
+          "text": "export const setBusy = (next: Updater<boolean>) => updateAtom($busy, next)"
+        },
+        {
+          "line": 411,
+          "text": "export const setAwaitingResponse = (next: Updater<boolean>) => updateAtom($awaitingResponse, next)"
+        },
+        {
+          "line": 413,
+          "text": "export const setCurrentModel = (next: Updater<string>) => {"
+        },
+        {
+          "line": 418,
+          "text": "export const setCurrentProvider = (next: Updater<string>) => {"
+        },
+        {
+          "line": 423,
+          "text": "export const getCurrentModelSource = (): ComposerModelSource => {"
+        },
+        {
+          "line": 432,
+          "text": "export const $currentModelSource = atom<ComposerModelSource>(getCurrentModelSource())"
+        },
+        {
+          "line": 434,
+          "text": "export const setCurrentModelSource = (source: ComposerModelSource) => {"
+        },
+        {
+          "line": 445,
+          "text": "export const getComposerSelectionGeneration = (): number => composerSelectionGeneration"
+        },
+        {
+          "line": 447,
+          "text": "export const markComposerSelectionManual = (): void => {"
+        },
+        {
+          "line": 452,
+          "text": "export const setCurrentReasoningEffort = (next: Updater<string>) => {"
+        },
+        {
+          "line": 461,
+          "text": "export const $defaultReasoningEffort = atom('')"
+        },
+        {
+          "line": 463,
+          "text": "export const setDefaultReasoningEffort = (next: string) => updateAtom($defaultReasoningEffort, next)"
+        },
+        {
+          "line": 465,
+          "text": "export const setCurrentServiceTier = (next: Updater<string>) => updateAtom($currentServiceTier, next)"
+        },
+        {
+          "line": 467,
+          "text": "export const setCurrentFastMode = (next: Updater<boolean>) => {"
+        },
+        {
+          "line": 472,
+          "text": "export const setYoloActive = (next: Updater<boolean>) => updateAtom($yoloActive, next)"
+        },
+        {
+          "line": 474,
+          "text": "export const setCurrentCwd = (next: Updater<string>) => {"
+        },
+        {
+          "line": 479,
+          "text": "export const setCurrentCwdTransient = (next: Updater<string>) => updateAtom($currentCwd, next)"
+        },
+        {
+          "line": 481,
+          "text": "export const setNewChatWorkspaceTarget = (next: NewChatWorkspaceTarget): number => {"
+        },
+        {
+          "line": 489,
+          "text": "export const workspaceCwdForNewSession = (): string => {"
+        },
+        {
+          "line": 503,
+          "text": "export const setCurrentBranch = (next: Updater<string>) => updateAtom($currentBranch, next)"
+        },
+        {
+          "line": 504,
+          "text": "export const setCurrentUsage = (next: Updater<UsageStats>) => updateAtom($currentUsage, next)"
+        },
+        {
+          "line": 505,
+          "text": "export const setSessionStartedAt = (next: Updater<number | null>) => updateAtom($sessionStartedAt, next)"
+        },
+        {
+          "line": 506,
+          "text": "export const setTurnStartedAt = (next: Updater<number | null>) => updateAtom($turnStartedAt, next)"
+        },
+        {
+          "line": 507,
+          "text": "export const setIntroPersonality = (next: Updater<string>) => updateAtom($introPersonality, next)"
+        },
+        {
+          "line": 508,
+          "text": "export const setCurrentPersonality = (next: Updater<string>) => updateAtom($currentPersonality, next)"
+        },
+        {
+          "line": 509,
+          "text": "export const setAvailablePersonalities = (next: Updater<string[]>) => updateAtom($availablePersonalities, next)"
+        },
+        {
+          "line": 510,
+          "text": "export const setIntroSeed = (next: Updater<number>) => updateAtom($introSeed, next)"
+        },
+        {
+          "line": 511,
+          "text": "export const setContextSuggestions = (next: Updater<ContextSuggestion[]>) => updateAtom($contextSuggestions, next)"
+        },
+        {
+          "line": 512,
+          "text": "export const setModelPickerOpen = (next: Updater<boolean>) => updateAtom($modelPickerOpen, next)"
+        },
+        {
+          "line": 513,
+          "text": "export const setSessionPickerOpen = (next: Updater<boolean>) => updateAtom($sessionPickerOpen, next)"
+        }
+      ]
+    },
+    {
+      "layer": "State and events",
+      "file": "apps/desktop/src/store/session-states.ts",
+      "sha256": "8864055a61ad7f04c619125b74678cb88bbcad99c03c9d88941076120f513d38",
+      "lines": 735,
+      "anchors": [
+        {
+          "line": 46,
+          "text": "export const $sessionStates = atom<Record<string, ClientSessionState>>({})"
+        },
+        {
+          "line": 52,
+          "text": "export const $stalledSessionIds = atom<string[]>([])"
+        },
+        {
+          "line": 54,
+          "text": "export function setSessionStalled(storedSessionId: string | null | undefined, stalled: boolean) {"
+        },
+        {
+          "line": 70,
+          "text": "export const SESSION_WATCHDOG_TIMEOUT_MS = 8 * 60 * 1000"
+        },
+        {
+          "line": 115,
+          "text": "export function getRecentlySettledSessionIds(now: number = Date.now()): string[] {"
+        },
+        {
+          "line": 188,
+          "text": "export function publishSessionState(runtimeId: string, state: ClientSessionState) {"
+        },
+        {
+          "line": 194,
+          "text": "export function dropSessionState(runtimeId: string) {"
+        },
+        {
+          "line": 217,
+          "text": "export function clearAllSessionStates() {"
+        },
+        {
+          "line": 242,
+          "text": "export const $workingSessionIds = computed("
+        },
+        {
+          "line": 252,
+          "text": "export const $attentionSessionIds = computed("
+        },
+        {
+          "line": 368,
+          "text": "export const $sessionTiles = atom<SessionTile[]>(isSecondaryWindow() ? [] : [...(tilesByProfile[profileKey()] ?? [])])"
+        },
+        {
+          "line": 403,
+          "text": "export function patchSessionTile(storedSessionId: string, patch: Partial<SessionTile>) {"
+        },
+        {
+          "line": 409,
+          "text": "export function resetTileRuntimeBindings() {"
+        },
+        {
+          "line": 447,
+          "text": "export function setSessionTileDelegate(next: SessionTileDelegate) {"
+        },
+        {
+          "line": 451,
+          "text": "export function sessionTileDelegate(): SessionTileDelegate | null {"
+        },
+        {
+          "line": 462,
+          "text": "export function orderTilesByTree<T extends { storedSessionId: string }>("
+        },
+        {
+          "line": 511,
+          "text": "export function openSessionTile("
+        },
+        {
+          "line": 548,
+          "text": "export function nextSessionTileForWorkspace(): null | string {"
+        },
+        {
+          "line": 582,
+          "text": "export function focusOpenSession(storedSessionId: string): 'main' | 'tile' | null {"
+        },
+        {
+          "line": 613,
+          "text": "export function focusedSessionNeedsRoute(focused: 'main' | 'tile' | null, workspaceIsPage: boolean): boolean {"
+        },
+        {
+          "line": 623,
+          "text": "export function closeSessionTile(storedSessionId: string) {"
+        },
+        {
+          "line": 637,
+          "text": "export function discardSessionTile(storedSessionId: string) {"
+        },
+        {
+          "line": 649,
+          "text": "export function reopenLastClosedTile(): void {"
+        },
+        {
+          "line": 679,
+          "text": "export const $focusedStoredSessionId = computed("
+        },
+        {
+          "line": 690,
+          "text": "export const $focusedRuntimeId = computed("
+        },
+        {
+          "line": 702,
+          "text": "export const $focusedSessionState = computed([$focusedRuntimeId, $sessionStates], (runtimeId, states) =>"
+        },
+        {
+          "line": 710,
+          "text": "export const selectionHomesToWorkspace = (selected: null | string, tiles: readonly SessionTile[]): boolean =>"
+        }
+      ]
+    },
+    {
+      "layer": "State and events",
+      "file": "apps/desktop/src/store/composer.ts",
+      "sha256": "41aec56713f04484e36cae5bd757ffec14d75ea72690d3c1a80866dd8a152742",
+      "lines": 369,
+      "anchors": [
+        {
+          "line": 20,
+          "text": "export const $composerDraft = atom('')"
+        },
+        {
+          "line": 21,
+          "text": "export const $composerAttachments = atom<ComposerAttachment[]>([])"
+        },
+        {
+          "line": 22,
+          "text": "export const $composerTerminalSelections = atom<Record<string, string>>({})"
+        },
+        {
+          "line": 41,
+          "text": "export function createComposerAttachmentScope($attachments = atom<ComposerAttachment[]>([])): ComposerAttachmentScope {"
+        },
+        {
+          "line": 94,
+          "text": "export const mainComposerScope = createComposerAttachmentScope($composerAttachments)"
+        },
+        {
+          "line": 99,
+          "text": "export const SESSION_DRAFTS_STORAGE_KEY = 'hermes:composer-drafts:v3'"
+        },
+        {
+          "line": 153,
+          "text": "export function stashSessionDraft(scope: string | null | undefined, text: string, attachments: ComposerAttachment[]) {"
+        },
+        {
+          "line": 166,
+          "text": "export function takeSessionDraft(scope: string | null | undefined): SessionDraft {"
+        },
+        {
+          "line": 172,
+          "text": "export const clearSessionDraft = (scope: string | null | undefined) => stashSessionDraft(scope, '', [])"
+        },
+        {
+          "line": 183,
+          "text": "export function migrateSessionDraft(fromKey: string | null | undefined, toKey: string | null | undefined): boolean {"
+        },
+        {
+          "line": 209,
+          "text": "export function setComposerDraft(value: string) {"
+        },
+        {
+          "line": 213,
+          "text": "export function appendComposerDraft(value: string) {"
+        },
+        {
+          "line": 226,
+          "text": "export function appendComposerInline(value: string) {"
+        },
+        {
+          "line": 239,
+          "text": "export function clearComposerDraft() {"
+        },
+        {
+          "line": 244,
+          "text": "export const addComposerAttachment = (attachment: ComposerAttachment) => mainComposerScope.add(attachment)"
+        },
+        {
+          "line": 245,
+          "text": "export const removeComposerAttachment = (id: string) => mainComposerScope.remove(id)"
+        },
+        {
+          "line": 251,
+          "text": "export const updateComposerAttachment = (attachment: ComposerAttachment) => mainComposerScope.update(attachment)"
+        },
+        {
+          "line": 253,
+          "text": "export const clearComposerAttachments = () => mainComposerScope.clear()"
+        },
+        {
+          "line": 257,
+          "text": "export const setComposerAttachmentUploadState = (id: string, uploadState?: ComposerAttachment['uploadState']) =>"
+        },
+        {
+          "line": 288,
+          "text": "export function setComposerTerminalSelection(label: string, text: string) {"
+        },
+        {
+          "line": 308,
+          "text": "export function reconcileComposerTerminalSelections(draft: string) {"
+        },
+        {
+          "line": 329,
+          "text": "export function terminalContextBlocksFromDraft(draft: string) {"
+        },
+        {
+          "line": 349,
+          "text": "export function clearComposerTerminalSelections() {"
+        }
+      ]
+    },
+    {
+      "layer": "State and events",
+      "file": "apps/desktop/src/hermes.ts",
+      "sha256": "abcccb6d309ae6e30ece763f63fa1ff36cf43c2f05062157a28ff9bd72ea90d1",
+      "lines": 1714,
+      "anchors": [
+        {
+          "line": 81,
+          "text": "export const STARTUP_REQUEST_TIMEOUT_MS = 60_000"
+        },
+        {
+          "line": 92,
+          "text": "export const PROMPT_SUBMIT_REQUEST_TIMEOUT_MS = 1_800_000"
+        },
+        {
+          "line": 93,
+          "text": "export const AUDIO_SPEAK_MIN_REQUEST_TIMEOUT_MS = 180_000"
+        },
+        {
+          "line": 94,
+          "text": "export const AUDIO_SPEAK_MAX_REQUEST_TIMEOUT_MS = 600_000"
+        },
+        {
+          "line": 97,
+          "text": "export function audioSpeakRequestTimeoutMs(text: string): number {"
+        },
+        {
+          "line": 106,
+          "text": "export const AUDIO_TRANSCRIBE_MIN_REQUEST_TIMEOUT_MS = 180_000"
+        },
+        {
+          "line": 107,
+          "text": "export const AUDIO_TRANSCRIBE_MAX_REQUEST_TIMEOUT_MS = 600_000"
+        },
+        {
+          "line": 115,
+          "text": "export function audioTranscribeRequestTimeoutMs(dataUrl: string): number {"
+        },
+        {
+          "line": 222,
+          "text": "export class HermesGateway extends JsonRpcGatewayClient {"
+        },
+        {
+          "line": 242,
+          "text": "export function setApiRequestProfile(profile: null | string): void {"
+        },
+        {
+          "line": 305,
+          "text": "export function pluginSocket(pluginId: string, path: string, onMessage: (data: unknown) => void): () => void {"
+        },
+        {
+          "line": 456,
+          "text": "export function resetSidebarBatchCapability() {"
+        },
+        {
+          "line": 554,
+          "text": "export function setSessionArchived(id: string, archived: boolean, profile?: string | null): Promise<{ ok: boolean }> {"
+        },
+        {
+          "line": 567,
+          "text": "export function setSessionPinnedRemote(id: string, pinned: boolean, profile?: string | null): Promise<{ ok: boolean }> {"
+        },
+        {
+          "line": 576,
+          "text": "export function searchSessions(query: string): Promise<SessionSearchResponse> {"
+        },
+        {
+          "line": 586,
+          "text": "export function getSession(id: string, profile?: string | null): Promise<SessionInfo> {"
+        },
+        {
+          "line": 599,
+          "text": "export function getSessionMessages(id: string, profile?: string | null): Promise<SessionMessagesResponse> {"
+        },
+        {
+          "line": 608,
+          "text": "export function deleteSession(id: string, profile?: string | null): Promise<{ ok: boolean }> {"
+        },
+        {
+          "line": 616,
+          "text": "export function renameSession("
+        },
+        {
+          "line": 629,
+          "text": "export function getGlobalModelInfo(): Promise<ModelInfoResponse> {"
+        },
+        {
+          "line": 637,
+          "text": "export function getStatus(): Promise<StatusResponse> {"
+        },
+        {
+          "line": 644,
+          "text": "export function getLogs(params: {"
+        },
+        {
+          "line": 681,
+          "text": "export function getHermesConfig(profile?: string): Promise<HermesConfig> {"
+        },
+        {
+          "line": 689,
+          "text": "export function getHermesConfigRecord(): Promise<HermesConfigRecord> {"
+        },
+        {
+          "line": 696,
+          "text": "export function getHermesConfigDefaults(): Promise<HermesConfigRecord> {"
+        },
+        {
+          "line": 704,
+          "text": "export function getHermesConfigSchema(): Promise<ConfigSchemaResponse> {"
+        },
+        {
+          "line": 711,
+          "text": "export function saveHermesConfig(config: HermesConfigRecord): Promise<{ ok: boolean }> {"
+        },
+        {
+          "line": 721,
+          "text": "export function getMemoryProviderConfig(provider: string): Promise<MemoryProviderConfig> {"
+        },
+        {
+          "line": 728,
+          "text": "export function saveMemoryProviderConfig(provider: string, values: Record<string, string>): Promise<{ ok: boolean }> {"
+        },
+        {
+          "line": 737,
+          "text": "export function getEnvVars(): Promise<Record<string, EnvVarInfo>> {"
+        },
+        {
+          "line": 744,
+          "text": "export function setEnvVar(key: string, value: string): Promise<{ ok: boolean }> {"
+        },
+        {
+          "line": 753,
+          "text": "export function validateProviderCredential("
+        },
+        {
+          "line": 766,
+          "text": "export function getCustomEndpoints(): Promise<CustomEndpointsResponse> {"
+        },
+        {
+          "line": 772,
+          "text": "export function saveCustomEndpoint(endpoint: CustomEndpointUpdate): Promise<CustomEndpointsResponse> {"
+        },
+        {
+          "line": 780,
+          "text": "export function validateCustomEndpoint(endpoint: CustomEndpointUpdate): Promise<CustomEndpointValidationResponse> {"
+        },
+        {
+          "line": 788,
+          "text": "export function activateCustomEndpoint(id: string): Promise<{ ok: boolean; provider: string; model: string }> {"
+        },
+        {
+          "line": 795,
+          "text": "export function deleteCustomEndpoint(id: string): Promise<CustomEndpointsResponse> {"
+        },
+        {
+          "line": 802,
+          "text": "export function deleteEnvVar(key: string): Promise<{ ok: boolean }> {"
+        },
+        {
+          "line": 811,
+          "text": "export function revealEnvVar(key: string): Promise<{ key: string; value: string }> {"
+        },
+        {
+          "line": 820,
+          "text": "export function listOAuthProviders(): Promise<OAuthProvidersResponse> {"
+        },
+        {
+          "line": 827,
+          "text": "export function disconnectOAuthProvider(providerId: string): Promise<{ ok: boolean; provider: string }> {"
+        },
+        {
+          "line": 835,
+          "text": "export function startOAuthLogin(providerId: string): Promise<OAuthStartResponse> {"
+        },
+        {
+          "line": 844,
+          "text": "export function submitOAuthCode(providerId: string, sessionId: string, code: string): Promise<OAuthSubmitResponse> {"
+        },
+        {
+          "line": 853,
+          "text": "export function pollOAuthSession(providerId: string, sessionId: string): Promise<OAuthPollResponse> {"
+        },
+        {
+          "line": 860,
+          "text": "export function cancelOAuthSession(sessionId: string): Promise<{ ok: boolean }> {"
+        },
+        {
+          "line": 870,
+          "text": "export function startMemoryProviderOAuth(provider: string): Promise<MemoryProviderOAuthStatus> {"
+        },
+        {
+          "line": 878,
+          "text": "export function getMemoryProviderOAuthStatus(provider: string): Promise<MemoryProviderOAuthStatus> {"
+        },
+        {
+          "line": 885,
+          "text": "export function getSkills(): Promise<SkillInfo[]> {"
+        },
+        {
+          "line": 892,
+          "text": "export function getStarmapGraph(): Promise<StarmapGraph> {"
+        },
+        {
+          "line": 908,
+          "text": "export function getLearningNode(id: string): Promise<LearningNodeDetail> {"
+        },
+        {
+          "line": 915,
+          "text": "export function deleteLearningNode(id: string): Promise<{ message: string; ok: boolean }> {"
+        },
+        {
+          "line": 924,
+          "text": "export function editLearningNode(id: string, content: string): Promise<{ message: string; ok: boolean }> {"
+        },
+        {
+          "line": 933,
+          "text": "export function toggleSkill(name: string, enabled: boolean): Promise<{ ok: boolean; name: string; enabled: boolean }> {"
+        },
+        {
+          "line": 962,
+          "text": "export function testMcpServer(name: string): Promise<McpTestResult> {"
+        },
+        {
+          "line": 974,
+          "text": "export function saveMcpServers(servers: Record<string, Record<string, unknown>>): Promise<{ ok: boolean }> {"
+        },
+        {
+          "line": 984,
+          "text": "export function authMcpServer(name: string): Promise<McpOAuthFlow> {"
+        },
+        {
+          "line": 993,
+          "text": "export function getMcpOAuthFlow(flowId: string): Promise<McpOAuthFlow> {"
+        },
+        {
+          "line": 1000,
+          "text": "export function getToolsets(): Promise<ToolsetInfo[]> {"
+        },
+        {
+          "line": 1007,
+          "text": "export function toggleToolset("
+        },
+        {
+          "line": 1019,
+          "text": "export function getToolsetConfig(name: string): Promise<ToolsetConfig> {"
+        },
+        {
+          "line": 1026,
+          "text": "export function getToolsetModels(name: string, provider?: string): Promise<ToolsetModelsResponse> {"
+        },
+        {
+          "line": 1035,
+          "text": "export function selectToolsetModel("
+        },
+        {
+          "line": 1062,
+          "text": "export function selectToolsetProvider("
+        },
+        {
+          "line": 1075,
+          "text": "export function runToolsetPostSetup(name: string, key: string): Promise<ActionResponse & { key: string }> {"
+        },
+        {
+          "line": 1084,
+          "text": "export function getTerminalBackends(): Promise<TerminalBackendsResponse> {"
+        },
+        {
+          "line": 1091,
+          "text": "export function selectTerminalBackend(backend: string): Promise<{ ok: boolean; backend: string }> {"
+        },
+        {
+          "line": 1100,
+          "text": "export function getComputerUseStatus(): Promise<ComputerUseStatus> {"
+        },
+        {
+          "line": 1107,
+          "text": "export function grantComputerUsePermissions(): Promise<ActionResponse> {"
+        },
+        {
+          "line": 1115,
+          "text": "export function getMessagingPlatforms(): Promise<MessagingPlatformsResponse> {"
+        },
+        {
+          "line": 1121,
+          "text": "export function updateMessagingPlatform("
+        },
+        {
+          "line": 1132,
+          "text": "export function testMessagingPlatform(platformId: string): Promise<MessagingPlatformTestResponse> {"
+        },
+        {
+          "line": 1144,
+          "text": "export function getWebhooks(): Promise<WebhooksResponse> {"
+        },
+        {
+          "line": 1151,
+          "text": "export function enableWebhooks(): Promise<WebhookEnableResponse> {"
+        },
+        {
+          "line": 1159,
+          "text": "export function createWebhook(body: WebhookCreatePayload): Promise<WebhookCreateResponse> {"
+        },
+        {
+          "line": 1168,
+          "text": "export function deleteWebhook(name: string): Promise<{ ok: boolean }> {"
+        },
+        {
+          "line": 1176,
+          "text": "export function setWebhookEnabled("
+        },
+        {
+          "line": 1193,
+          "text": "export function getCronJobs(profile?: string): Promise<CronJob[]> {"
+        },
+        {
+          "line": 1203,
+          "text": "export function getCronJob(jobId: string): Promise<CronJob> {"
+        },
+        {
+          "line": 1231,
+          "text": "export function createCronJob(body: CronJobCreatePayload): Promise<CronJob> {"
+        },
+        {
+          "line": 1240,
+          "text": "export function updateCronJob(jobId: string, updates: CronJobUpdates): Promise<CronJob> {"
+        },
+        {
+          "line": 1249,
+          "text": "export function pauseCronJob(jobId: string): Promise<CronJob> {"
+        },
+        {
+          "line": 1257,
+          "text": "export function resumeCronJob(jobId: string): Promise<CronJob> {"
+        },
+        {
+          "line": 1265,
+          "text": "export function triggerCronJob(jobId: string): Promise<CronJob> {"
+        },
+        {
+          "line": 1273,
+          "text": "export function deleteCronJob(jobId: string): Promise<{ ok: boolean }> {"
+        },
+        {
+          "line": 1292,
+          "text": "export function getAutomationBlueprints(): Promise<{ blueprints: AutomationBlueprint[] }> {"
+        },
+        {
+          "line": 1300,
+          "text": "export function instantiateAutomationBlueprint("
+        },
+        {
+          "line": 1312,
+          "text": "export function getProfiles(): Promise<ProfilesResponse> {"
+        },
+        {
+          "line": 1319,
+          "text": "export function createProfile(body: ProfileCreatePayload): Promise<{ name: string; ok: boolean; path: string }> {"
+        },
+        {
+          "line": 1327,
+          "text": "export function renameProfile(name: string, newName: string): Promise<{ name: string; ok: boolean; path: string }> {"
+        },
+        {
+          "line": 1335,
+          "text": "export function deleteProfile(name: string): Promise<{ ok: boolean; path: string }> {"
+        },
+        {
+          "line": 1342,
+          "text": "export function getProfileSoul(name: string): Promise<ProfileSoul> {"
+        },
+        {
+          "line": 1348,
+          "text": "export function updateProfileSoul(name: string, content: string): Promise<{ ok: boolean }> {"
+        },
+        {
+          "line": 1356,
+          "text": "export function getProfileSetupCommand(name: string): Promise<ProfileSetupCommand> {"
+        },
+        {
+          "line": 1362,
+          "text": "export function getUsageAnalytics(days = 30): Promise<AnalyticsResponse> {"
+        },
+        {
+          "line": 1369,
+          "text": "export function getGlobalModelOptions(opts?: {"
+        },
+        {
+          "line": 1405,
+          "text": "export function getRecommendedDefaultModel(provider: string): Promise<RecommendedDefaultModel> {"
+        },
+        {
+          "line": 1412,
+          "text": "export function setGlobalModel("
+        },
+        {
+          "line": 1428,
+          "text": "export function getAuxiliaryModels(): Promise<AuxiliaryModelsResponse> {"
+        },
+        {
+          "line": 1435,
+          "text": "export function getMoaModels(): Promise<MoaConfigResponse> {"
+        },
+        {
+          "line": 1442,
+          "text": "export function saveMoaModels(body: MoaConfigResponse): Promise<MoaConfigResponse & { ok: boolean }> {"
+        },
+        {
+          "line": 1451,
+          "text": "export function setModelAssignment(body: ModelAssignmentRequest): Promise<ModelAssignmentResponse> {"
+        },
+        {
+          "line": 1460,
+          "text": "export function restartGateway(): Promise<ActionResponse> {"
+        },
+        {
+          "line": 1468,
+          "text": "export function updateHermes(): Promise<ActionResponse> {"
+        },
+        {
+          "line": 1479,
+          "text": "export function checkHermesUpdate(force = false): Promise<BackendUpdateCheckResponse> {"
+        },
+        {
+          "line": 1486,
+          "text": "export function getActionStatus(name: string, lines = 200): Promise<ActionStatusResponse> {"
+        },
+        {
+          "line": 1493,
+          "text": "export function transcribeAudio(dataUrl: string, mimeType?: string): Promise<AudioTranscriptionResponse> {"
+        },
+        {
+          "line": 1508,
+          "text": "export function speakText(text: string): Promise<AudioSpeakResponse> {"
+        },
+        {
+          "line": 1520,
+          "text": "export function getElevenLabsVoices(): Promise<ElevenLabsVoicesResponse> {"
+        },
+        {
+          "line": 1534,
+          "text": "export function getSkillHubSources(): Promise<SkillHubSourcesResponse> {"
+        },
+        {
+          "line": 1542,
+          "text": "export function searchSkillsHub(query: string, source = 'all', limit = 20): Promise<SkillHubSearchResponse> {"
+        },
+        {
+          "line": 1552,
+          "text": "export function previewSkillHub(identifier: string): Promise<SkillHubPreview> {"
+        },
+        {
+          "line": 1560,
+          "text": "export function scanSkillHub(identifier: string): Promise<SkillHubScanResult> {"
+        },
+        {
+          "line": 1568,
+          "text": "export function installSkillFromHub(identifier: string): Promise<ActionResponse> {"
+        },
+        {
+          "line": 1577,
+          "text": "export function uninstallSkillFromHub(name: string): Promise<ActionResponse> {"
+        },
+        {
+          "line": 1586,
+          "text": "export function updateSkillsFromHub(): Promise<ActionResponse> {"
+        },
+        {
+          "line": 1601,
+          "text": "export function listMcpServers(): Promise<{ servers: McpServerSummary[] }> {"
+        },
+        {
+          "line": 1608,
+          "text": "export function setMcpServerEnabled(name: string, enabled: boolean): Promise<{ ok: boolean }> {"
+        },
+        {
+          "line": 1617,
+          "text": "export function getMcpCatalog(): Promise<McpCatalogResponse> {"
+        },
+        {
+          "line": 1624,
+          "text": "export function installMcpCatalogEntry("
+        },
+        {
+          "line": 1641,
+          "text": "export function getMemoryStatus(): Promise<MemoryStatusResponse> {"
+        },
+        {
+          "line": 1648,
+          "text": "export function resetMemory(target: 'all' | 'memory' | 'user'): Promise<{ ok: boolean; deleted: string[] }> {"
+        },
+        {
+          "line": 1657,
+          "text": "export function getCuratorStatus(): Promise<CuratorStatusResponse> {"
+        },
+        {
+          "line": 1664,
+          "text": "export function setCuratorPaused(paused: boolean): Promise<{ ok: boolean; paused: boolean }> {"
+        },
+        {
+          "line": 1673,
+          "text": "export function runCurator(): Promise<ActionResponse> {"
+        },
+        {
+          "line": 1689,
+          "text": "export function runDoctor(): Promise<ActionResponse> {"
+        },
+        {
+          "line": 1693,
+          "text": "export function runSecurityAudit(): Promise<ActionResponse> {"
+        },
+        {
+          "line": 1697,
+          "text": "export function runBackup(): Promise<ActionResponse & { archive?: string }> {"
+        },
+        {
+          "line": 1705,
+          "text": "export function runDebugShare(): Promise<DebugShareResponse> {"
+        }
+      ]
+    },
+    {
+      "layer": "State and events",
+      "file": "apps/desktop/src/lib/gateway-rpc.ts",
+      "sha256": "eec5cc40fdaac31faac99006b5ba7f23fefc56e031c299a7172161ee0c30ff18",
+      "lines": 14,
+      "anchors": [
+        {
+          "line": 2,
+          "text": "export function isMissingRpcMethod(error: unknown): boolean {"
+        },
+        {
+          "line": 9,
+          "text": "export function isMissingPendingPromptRequest(error: unknown, key: string): boolean {"
+        }
+      ]
+    },
+    {
+      "layer": "State and events",
+      "file": "apps/desktop/src/lib/incremental-external-store-runtime.ts",
+      "sha256": "60154a45e798766d90aeac4225c75f43bcca4ab43a632b96e8f30239a2f54ff5",
+      "lines": 262,
+      "anchors": [
+        {
+          "line": 79,
+          "text": "export function syncRepositoryIncrementally("
+        },
+        {
+          "line": 241,
+          "text": "export function useIncrementalExternalStoreRuntime<T extends ThreadMessage>("
+        }
+      ]
+    },
+    {
+      "layer": "State and events",
+      "file": "apps/desktop/src/app/session/hooks/use-message-stream/index.ts",
+      "sha256": "d6a1c8e6ef488f9a12e91193f601dd8306d64cb92f05c944b6f4113a6ac5a164",
+      "lines": 676,
+      "anchors": [
+        {
+          "line": 65,
+          "text": "export function useMessageStream({"
+        }
+      ]
+    },
+    {
+      "layer": "State and events",
+      "file": "apps/desktop/src/app/session/hooks/use-message-stream/gateway-event.ts",
+      "sha256": "a8f280c7ae543312e5abf7c17887c30b6f8a55547c638abcbd4bd2506181fdb3",
+      "lines": 1043,
+      "anchors": [
+        {
+          "line": 158,
+          "text": "export function useGatewayEventHandler(deps: GatewayEventDeps) {"
+        }
+      ]
+    },
+    {
+      "layer": "State and events",
+      "file": "apps/desktop/src/app/session/hooks/use-prompt-actions/index.ts",
+      "sha256": "4918d34ced24d5748691250c6073140e76b40f0cd01be2118141c0f875adfb09",
+      "lines": 934,
+      "anchors": [
+        {
+          "line": 202,
+          "text": "export function usePromptActions({"
+        },
+        {
+          "line": 284,
+          "text": "const syncAttachmentsForSubmit = useCallback("
+        },
+        {
+          "line": 548,
+          "text": "const cancelRun = useCallback(async () => {"
+        },
+        {
+          "line": 555,
+          "text": "// from a new-chat draft), sending session.interrupt to the wrong session."
+        },
+        {
+          "line": 603,
+          "text": "await requestGateway('session.interrupt', { session_id: sessionId })"
+        },
+        {
+          "line": 622,
+          "text": "await requestGateway('session.interrupt', { session_id: recoveredId })"
+        }
+      ]
+    },
+    {
+      "layer": "State and events",
+      "file": "apps/desktop/src/app/session/hooks/use-prompt-actions/submit.ts",
+      "sha256": "859e0b6c2be7b5610a32c8da3d01ddb74129799166e3116159e2531a42b92a9e",
+      "lines": 678,
+      "anchors": [
+        {
+          "line": 87,
+          "text": "export function useSubmitPrompt(deps: SubmitPromptDeps) {"
+        }
+      ]
+    },
+    {
+      "layer": "State and events",
+      "file": "apps/desktop/src/app/session/hooks/use-session-actions/index.ts",
+      "sha256": "1f620fa503eecf3dc6e268eccfa88db17b77f1e2a690f632ea116dd669bd9ea1",
+      "lines": 1449,
+      "anchors": [
+        {
+          "line": 198,
+          "text": "export function useSessionActions({"
+        }
+      ]
+    },
+    {
+      "layer": "Models settings theme",
+      "file": "apps/desktop/src/app/shell/model-menu-panel.tsx",
+      "sha256": "7aec1b3c327fb00da0c0d2fc4092e4828d91b20312e20c03a96338abdb591767",
+      "lines": 473,
+      "anchors": [
+        {
+          "line": 46,
+          "text": "export const ModelMenuCloseContext = createContext<() => void>(() => {})"
+        },
+        {
+          "line": 68,
+          "text": "export function ModelMenuPanel({ gateway, onSelectModel, profile = 'default', requestGateway }: ModelMenuPanelProps) {"
+        }
+      ]
+    },
+    {
+      "layer": "Models settings theme",
+      "file": "apps/desktop/src/app/settings/index.tsx",
+      "sha256": "624fa59c638f08dd66a56740bd703127b77f156de91bd74302f420486f85d09f",
+      "lines": 333,
+      "anchors": [
+        {
+          "line": 60,
+          "text": "export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: SettingsPageProps) {"
+        }
+      ]
+    },
+    {
+      "layer": "Models settings theme",
+      "file": "apps/desktop/src/themes/context.tsx",
+      "sha256": "04efd89a14deef6ebce0b5493007620044679c51016e10a1da56fcc867f5ac25",
+      "lines": 414,
+      "anchors": [
+        {
+          "line": 69,
+          "text": "export const skinPref = profilePref(PROFILE_SKINS_KEY, SKIN_KEY, normalizeSkin)"
+        },
+        {
+          "line": 70,
+          "text": "export const modePref = profilePref(PROFILE_MODES_KEY, MODE_KEY, normalizeMode)"
+        },
+        {
+          "line": 118,
+          "text": "export function getBaseColors(skinName: string, mode: 'light' | 'dark'): DesktopThemeColors {"
+        },
+        {
+          "line": 268,
+          "text": "// Boot-time paint to avoid a flash before <ThemeProvider> mounts. Use the last"
+        },
+        {
+          "line": 313,
+          "text": "export function ThemeProvider({ children }: { children: ReactNode }) {"
+        },
+        {
+          "line": 413,
+          "text": "export const useTheme = (): ThemeContextValue => useContext(ThemeContext)"
+        }
+      ]
+    },
+    {
+      "layer": "Models settings theme",
+      "file": "apps/desktop/src/app/shell/hooks/use-statusbar-items.tsx",
+      "sha256": "cc07235ad146b397b159531a71ab5514d66d7e1095ae7629d60aeab7f39aa1e3",
+      "lines": 542,
+      "anchors": [
+        {
+          "line": 74,
+          "text": "export function useStatusbarItems({"
+        }
+      ]
+    }
+  ]
+}

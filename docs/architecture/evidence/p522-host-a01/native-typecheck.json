@@ -1,0 +1,7 @@
+{
+  "method": "TypeScript compiler host overlays four recorded Renderer source patches; no upstream writes, no emit",
+  "baseline": [],
+  "integrated": [],
+  "introduced": [],
+  "status": "PASS_NO_NEW_DIAGNOSTICS"
+}

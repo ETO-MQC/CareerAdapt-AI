@@ -1,0 +1,39 @@
+{
+  "date": "2026-11-04",
+  "overall": "PARTIAL",
+  "checks": [
+    {"command":"git fetch origin","exitCode":0,"scope":"Initial baseline; main/HEAD/origin 67505b957d486b7ea082f4cf82ce87ad44feee9b"},
+    {"command":"pnpm typecheck (before implementation)","exitCode":0},
+    {"command":"pnpm exec vitest run tests/unit/p522-slice1-profile-projection.test.ts tests/unit/p522-host-experience.test.tsx (baseline)","exitCode":0,"files":2,"tests":10},
+    {"command":"node scripts/p522-host-a01-audit.mjs (corrected manifest schema reader)","exitCode":0,"manifestEntries":314,"historicalDifferences":5,"latestSlice1Matches":true},
+    {"command":"node scripts/p522-host-a01-renderer.mjs --careeradapt --build (final)","exitCode":0,"log":"renderer-build-final.log","scope":"Hermes Renderer integration build only; no production Next/installer"},
+    {"command":"node scripts/p522-host-a01-native-typecheck.mjs (final)","exitCode":0,"baselineDiagnostics":0,"integratedDiagnostics":0,"log":"native-typecheck-final.log"},
+    {"command":"pnpm typecheck (final)","exitCode":0,"log":"typecheck-final.log"},
+    {"command":"pnpm exec eslint scripts/p522-host-a01-audit.mjs scripts/p522-host-a01-renderer.mjs scripts/p522-host-a01-smoke.mjs scripts/p522-host-a01-navigation-diagnostic.mjs scripts/p522-host-a01-native-typecheck.mjs scripts/p522-host-a01-fallback.mjs scripts/p522-host-a01-deliver.mjs poc/host-a01/navigation.tsx tests/unit/p522-host-a01-navigation.test.tsx --max-warnings=0","exitCode":0,"log":"eslint-final.log"},
+    {"command":"pnpm exec vitest run tests/unit/p522-host-a01-navigation.test.tsx tests/unit/p522-slice1-profile-projection.test.ts tests/unit/p522-host-experience.test.tsx","exitCode":0,"files":3,"tests":14,"log":"project-unit.log"},
+    {"command":"node <lockedHermesRoot>/node_modules/vitest/vitest.mjs run --root <lockedDesktop> --project ui src/app/routes.test.ts src/app/session/hooks/use-message-stream/stream-flush.test.tsx src/app/session/hooks/use-prompt-actions/index.test.tsx","exitCode":0,"files":3,"tests":98,"log":"native-unit.log","scope":"Existing native deterministic tests, not real model execution"},
+    {"command":"node scripts/p522-host-a01-navigation-diagnostic.mjs (final)","exitCode":0,"log":"navigation-diagnostic-final.log","result":"navigation-diagnostic.json","visualCells":18,"pageErrors":0,"consoleErrors":0},
+    {"command":"git diff --check","exitCode":0,"scope":"Tracked diff; new files separately checked for trailing whitespace/conflicts/JSON validity"}
+  ],
+  "retainedFailures": [
+    {"stage":"Initial attachment path read","result":"First two reads used mistyped UUID; exact supplied 4fb0 path discovered/read; no user file modified"},
+    {"stage":"Audit manifest reader","exitCode":1,"reason":"P522 uses allNewUntrackedFilesExceptThisManifest instead of files; schema branch corrected; baseline not overwritten"},
+    {"stage":"Renderer build first","exitCode":1,"reason":"Sidebar composition anchor mismatch on CRLF; normalize in-memory text only; initial error recorded from tool output"},
+    {"stage":"Renderer build second","exitCode":1,"log":"renderer-build-second.log","reason":"Cross-root react-router-dom resolution; ultimately removed local router dependency and delegated native actions"},
+    {"stage":"Initial changed ESLint","exitCode":1,"reason":"Unused pathToFileURL import removed; no warning allowance"},
+    {"stage":"Initial final project typecheck","exitCode":1,"reason":"Evidence .tsx snapshots entered root include; moved four explicit files to .txt; did not weaken tsconfig"},
+    {"stage":"Native virtual compile first","exitCode":1,"log":"native-typecheck.log","reason":"TS5097 explicit .tsx import extension; omitted extension; baseline/integrated now 0"},
+    {"stage":"Full smoke first","exitCode":1,"log":"smoke-first.log","reason":"Theme shortcut while native composer focused; one visual cell and Profile interactions passed before timeout"},
+    {"stage":"Full smoke second","exitCode":0,"log":"smoke-second.log","scope":"Earlier revision; six cells/Profile/Settings/System passed. Not final revision certification"},
+    {"stage":"Full smoke final attempt","exitCode":1,"log":"smoke-final.log","reason":"Six cells/attachments/Profile passed; native Settings Appearance selector timed out after reload"},
+    {"stage":"Full smoke completion/completion2","exitCode":1,"logs":["smoke-completion.log","smoke-completion2.log"],"reason":"Two 45s Gateway ready text-selector timeouts; label/detail are separate spans; full-smoke stopped, no further full-smoke rerun"},
+    {"stage":"Bounded native navigation diagnostic first","exitCode":1,"log":"navigation-diagnostic.log","reason":"Settings/System/attachments/draft roundtrip passed; new-session test incorrectly expected already-fresh composer to clear. Native source explicitly preserves per-thread draft; corrected to assert original behavior, no production change"},
+    {"stage":"Default Shell initial attachment-only check","exitCode":0,"log":"default-shell.log","interpretation":"NOT a qualified interaction PASS: initial screenshot still showed onboarding overlay. Stronger checks added"},
+    {"stage":"Default Shell strengthened interaction checks","exitCode":1,"logs":["default-shell-final.log","default-shell-qualified.log"],"reason":"First native onboarding interception/element replacement, then exact New session accessible-name mismatch with shortcut tokens; two failures, stopped. Regex selector corrected but not rerun; final default interaction NOT VERIFIED"},
+    {"stage":"Dev font transport","reason":"Codicon/Collapse returned 200 text/html from Vite /@fs URL. Exact two-font dev middleware supplies binary fonts; final diagnostic both loaded, early screenshots retained"}
+  ],
+  "notRun": ["Production Next build (no production boundary changed)","Full Playwright/four shards/C1/C2","PDF/template/installer","Real Provider Streaming/Tool Calling/Stop","Actual attachment file selection/drop/upload/parse/retry","Populated session history/restart restore","Same-process shell hot-swap"],
+  "limitations": ["Default fallback interaction remains NOT VERIFIED after stopped failures","Early fallback fixed-name failure screenshot was overwritten by the next fallback failure; both raw logs, original onboarding and final default screenshot remain. Runner now records unique run filenames but was not rerun","Final branding incomplete inside native Chat intro/backdrop","No real Career Domain Host/Repository integration","Existing trusted confirmation/revocation/runtime release blockers remain"],
+  "buildWarnings": ["Upstream CSS optimizer comment warning","Upstream large icon barrel warning","Upstream large renderer chunk warning; thresholds not increased"],
+  "noCommitPush": true
+}

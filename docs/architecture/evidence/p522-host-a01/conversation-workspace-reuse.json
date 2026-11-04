@@ -1,0 +1,72 @@
+{
+  "status": "PASS_SOURCE_AND_ISOLATED_UI",
+  "chain": [
+    "main.tsx root providers",
+    "ContribController + ContribWiring",
+    "ChatRoutesSurface chatView",
+    "ChatView + ChatRuntimeBoundary",
+    "AssistantRuntimeProvider + Thread + ChatBar",
+    "usePromptActions / useMessageStream / HermesGateway"
+  ],
+  "capabilities": [
+    {
+      "capability": "Chat",
+      "modules": [
+        "src/app/contrib/surfaces.tsx:ChatRoutesSurface",
+        "src/app/chat/index.tsx:ChatView",
+        "src/components/assistant-ui/thread/index.tsx:Thread"
+      ],
+      "state": "$messages/$sessionStates; incremental external store runtime",
+      "reuse": "Direct unchanged component; native input/UI verified; real model response NOT VERIFIED"
+    },
+    {
+      "capability": "Streaming",
+      "modules": [
+        "src/app/session/hooks/use-message-stream/index.ts",
+        "src/app/session/hooks/use-message-stream/gateway-event.ts",
+        "src/lib/incremental-external-store-runtime.ts"
+      ],
+      "state": "Gateway event handler updates per-session state then assistant-ui runtime",
+      "reuse": "Unchanged; deterministic upstream test PASS; real Provider stream NOT VERIFIED"
+    },
+    {
+      "capability": "Stop",
+      "modules": [
+        "src/app/contrib/wiring.tsx:onCancel: cancelRun",
+        "src/app/session/hooks/use-prompt-actions/index.ts:cancelRun"
+      ],
+      "state": "activeSessionIdRef; session.interrupt; local interrupted flags",
+      "reuse": "Unchanged; deterministic upstream test PASS; actual active run stop NOT VERIFIED"
+    },
+    {
+      "capability": "Attachments",
+      "modules": [
+        "src/app/chat/composer/context-menu.tsx:ContextMenu",
+        "src/app/chat/hooks/use-composer-actions.ts:useComposerActions",
+        "src/app/session/hooks/use-prompt-actions/index.ts:uploadComposerAttachment"
+      ],
+      "state": "$composerAttachments; per-thread scope; uploadState and attachedSessionId",
+      "reuse": "Native menu Files/Folder/Images/Paste/URL/snippets verified; actual picker/drop/upload/retry/history NOT VERIFIED"
+    },
+    {
+      "capability": "Tool Activity",
+      "modules": [
+        "src/components/assistant-ui/thread/assistant-message.tsx",
+        "src/components/assistant-ui/tool/fallback.tsx"
+      ],
+      "state": "Native structured tool-call message parts",
+      "reuse": "Unchanged; real tool invocation NOT VERIFIED"
+    },
+    {
+      "capability": "Session",
+      "modules": [
+        "src/app/chat/sidebar/sessions-section.tsx",
+        "src/app/session/hooks/use-session-actions/index.ts",
+        "src/store/session.ts",
+        "src/store/session-states.ts"
+      ],
+      "state": "Native list, selected/stored/runtime ids; native action delegates",
+      "reuse": "Empty session UI, native fresh-draft action and draft page roundtrip verified; populated history/restart restore NOT VERIFIED"
+    }
+  ]
+}

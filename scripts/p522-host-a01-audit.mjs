@@ -1,0 +1,21 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import {execFileSync} from 'node:child_process';
+const out='docs/architecture/evidence/p522-host-a01';
+fs.mkdirSync(out,{recursive:true});
+const git=(...args)=>execFileSync('git',args,{encoding:'utf8'}).trim();
+const sha=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+const write=(name,value)=>fs.writeFileSync(`${out}/${name}.json`,JSON.stringify(value,null,2)+'\n');
+if(!fs.existsSync(`${out}/baseline.json`))write('baseline',{date:'2026-11-04',branch:git('branch','--show-current'),head:git('rev-parse','HEAD'),origin:git('rev-parse','origin/main'),fetchExitCode:0,statusAtInitialInspection:'',statusAtEvidenceCapture:git('status','--short'),ignored:git('status','--ignored','--short'),worktrees:git('worktree','list'),log:git('log','-15','--oneline'),diff:git('diff'),cached:git('diff','--cached'),baselineChecks:{typecheck:0,unitFiles:2,unitTests:10,unitExitCode:0}});
+const manifests=['p521','p522','p522-ux01','p522-slice1'].map(folder=>{
+ const file=`docs/architecture/evidence/${folder}/delivery-manifest.json`;
+ const data=JSON.parse(fs.readFileSync(file,'utf8'));
+ const entries=data.files ?? data.allNewUntrackedFilesExceptThisManifest;
+ return {file,sha256:sha(file),files:entries.map(entry=>({path:entry.path,expected:entry.sha256,actual:fs.existsSync(entry.path)?sha(entry.path):null})).map(entry=>({...entry,match:entry.expected===entry.actual}))};
+});
+write('historical-manifest-verification',{manifests,mismatches:manifests.flatMap(m=>m.files.filter(f=>!f.match))});
+write('undo-state-audit',{trackedStatusAtStart:'clean',shell01TrackedFiles:git('ls-files','*shell01*','*shell-ownership*'),shell01CommitSearch:git('log','--all','--oneline','--grep=SHELL-01'),reports:['docs/architecture/p5.2.2-shell-ownership-architecture-audit.md','docs/architecture/p5.2.2-shell-ownership-adr-draft.md','docs/architecture/evidence/p522-shell01'].map(p=>({path:p,exists:fs.existsSync(p)})),ignoredHandoffs:['plan4.md','history4.md'].map(p=>({path:p,sha256:sha(p),retainsShell01:fs.readFileSync(p,'utf8').includes('P5.2.2-SHELL-01')})),decision:'Observable working-tree rollback complete for SHELL-01 deliverables; Codex Undo action itself not observable. Ignored handoff text retained as historical record and superseded by explicit HOST-A-01 authorization; no deletion/revert needed.'});
+const host=path.join(process.env.LOCALAPPDATA,'hermes/hermes-agent');
+write('external-source-baseline',{head:execFileSync('git',['-C',host,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),desktopStatus:execFileSync('git',['-C',host,'status','--short','--','apps/desktop'],{encoding:'utf8'}),entireTreeStatus:execFileSync('git',['-C',host,'status','--short'],{encoding:'utf8'}),scope:'Existing external changes preserved. Integration uses opt-in build-time patch, no upstream file mutation.'});
+console.log(JSON.stringify({manifests:manifests.length,files:manifests.reduce((n,m)=>n+m.files.length,0),mismatches:manifests.flatMap(m=>m.files.filter(f=>!f.match)).length}));

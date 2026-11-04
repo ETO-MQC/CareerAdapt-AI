@@ -1,0 +1,119 @@
+{
+  "status": "FAIL",
+  "run": 1793759526681,
+  "root": "E:\\DEF\\CareerAdapt AI\\.artifacts\\p522-host-a01-1793759526681",
+  "shots": "docs/architecture/evidence/p522-host-a01/screenshots/1793759526681",
+  "errors": [],
+  "consoleErrors": [],
+  "matrix": [
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "mode": "light",
+      "geometry": {
+        "navigationCount": 1,
+        "width": 201.00001525878906,
+        "viewport": 1920,
+        "overflow": false
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "mode": "dark",
+      "geometry": {
+        "navigationCount": 1,
+        "width": 201.00001525878906,
+        "viewport": 1920,
+        "overflow": false
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "mode": "light",
+      "geometry": {
+        "navigationCount": 1,
+        "width": 201.00001525878906,
+        "viewport": 1440,
+        "overflow": false
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "mode": "dark",
+      "geometry": {
+        "navigationCount": 1,
+        "width": 201.00001525878906,
+        "viewport": 1440,
+        "overflow": false
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "light",
+      "geometry": {
+        "navigationCount": 1,
+        "width": 201.00001525878906,
+        "viewport": 1024,
+        "overflow": false
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "dark",
+      "geometry": {
+        "navigationCount": 1,
+        "width": 201.00001525878906,
+        "viewport": 1024,
+        "overflow": false
+      }
+    }
+  ],
+  "checks": [
+    "Native attachment menu Files/Images reachable; no file selected/uploaded",
+    "19 categories; project selection/details; search; archived filter; synthetic read-only marker",
+    "Profile refresh"
+  ],
+  "realProvider": "NOT VERIFIED; offline isolated provider; no real credentials",
+  "chatInventory": [
+    {
+      "tag": "BUTTON",
+      "label": "New profile",
+      "placeholder": null,
+      "text": ""
+    },
+    {
+      "tag": "BUTTON",
+      "label": "Manage profiles…",
+      "placeholder": null,
+      "text": ""
+    },
+    {
+      "tag": "DIV",
+      "label": "Message",
+      "placeholder": null
+    },
+    {
+      "tag": "TEXTAREA",
+      "label": null,
+      "placeholder": null
+    }
+  ],
+  "failure": "locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Appearance', exact: true })\u001b[22m\n\n    at E:\\DEF\\CareerAdapt AI\\scripts\\p522-host-a01-smoke.mjs:53:127"
+}
