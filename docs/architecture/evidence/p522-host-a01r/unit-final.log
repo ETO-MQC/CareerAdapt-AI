@@ -1,0 +1,9 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt AI
+
+
+ Test Files  3 passed (3)
+      Tests  16 passed (16)
+   Start at  15:12:36
+   Duration  2.73s (transform 954ms, setup 535ms, import 1.87s, tests 783ms, environment 3.84s)
+

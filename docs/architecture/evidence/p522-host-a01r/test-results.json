@@ -1,0 +1,100 @@
+{
+  "date": "2026-11-04",
+  "overall": "PARTIAL",
+  "baseline": {
+    "typecheck": 0,
+    "navigationTests": 4,
+    "unitExitCode": 0
+  },
+  "checks": [
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "log": "typecheck-final.log"
+    },
+    {
+      "command": "pnpm exec vitest run tests/unit/p522-host-a01-navigation.test.tsx tests/unit/p522-slice1-profile-projection.test.ts tests/unit/p522-host-experience.test.tsx",
+      "exitCode": 0,
+      "log": "unit-final.log"
+    },
+    {
+      "command": "pnpm exec eslint poc/host-a01/navigation.tsx scripts/p522-host-a01-renderer.mjs scripts/p522-host-a01-fallback.mjs scripts/p522-host-a01-native-typecheck.mjs scripts/p522-host-a01r-smoke.mjs tests/unit/p522-host-a01-navigation.test.tsx --max-warnings=0",
+      "exitCode": 0,
+      "log": "eslint-final.log"
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0,
+      "log": "diff-final.log"
+    },
+    {
+      "command": "pnpm exec eslint scripts/p522-host-a01r-smoke.mjs --max-warnings=0 (after native notification dismissal addition)",
+      "exitCode": 0,
+      "log": "eslint-smoke-final.log"
+    },
+    {
+      "command": "node scripts/p522-host-a01-renderer.mjs --careeradapt --build",
+      "exitCode": 0,
+      "log": "renderer-build-final.log"
+    },
+    {
+      "command": "node scripts/p522-host-a01-native-typecheck.mjs",
+      "exitCode": 0,
+      "result": "native-typecheck.json",
+      "baseline": 0,
+      "integrated": 0,
+      "introduced": 0
+    },
+    {
+      "command": "node <lockedHermesRoot>/node_modules/vitest/vitest.mjs run --root <lockedDesktop> --project ui src/app/routes.test.ts src/app/session/hooks/use-message-stream/stream-flush.test.tsx src/app/session/hooks/use-prompt-actions/index.test.tsx",
+      "exitCode": 0,
+      "tests": 98,
+      "log": "native-unit.log"
+    },
+    {
+      "command": "node scripts/p522-host-a01-fallback.mjs",
+      "exitCode": 1,
+      "result": "default-shell-verification.json",
+      "attempts": 1,
+      "notRerun": true
+    },
+    {
+      "command": "node scripts/p522-host-a01r-smoke.mjs (final)",
+      "exitCode": 0,
+      "result": "navigation-diagnostic.json",
+      "run": 1793776565702,
+      "visualCells": 18,
+      "log": "host-smoke-visual-final.log"
+    },
+    {
+      "command": "upstream/snapshots/inputs SHA + build absolute-path scan",
+      "exitCode": 0,
+      "result": "patch-portability-verification.json"
+    },
+    {
+      "command": "git diff --check (final)",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm exec eslint scripts/p522-host-a01-fallback.mjs scripts/p522-host-a01r-smoke.mjs --max-warnings=0 (last runner changes)",
+      "exitCode": 0,
+      "log": "eslint-runners-final.log"
+    }
+  ],
+  "projectUnit": {
+    "files": 3,
+    "tests": 16
+  },
+  "warnings": [
+    "Upstream CSS optimizer comment warning",
+    "Upstream large Tabler barrel",
+    "Upstream large renderer chunk; thresholds not changed"
+  ],
+  "notRun": [
+    "Full historical E2E/four shards/C1/C2/PDF/installer",
+    "Real Provider streaming/tool/stop",
+    "Populated session history/restart",
+    "Default fallback after corrected dual onboarding branch"
+  ],
+  "noCommitPush": true
+}

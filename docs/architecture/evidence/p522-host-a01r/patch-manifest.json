@@ -1,0 +1,68 @@
+{
+  "optIn": true,
+  "upstreamCommit": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+  "method": "Opt-in exact-anchor pre-transform; portable virtual module resolved to project source; upstream disk untouched",
+  "virtualModules": {
+    "virtual:careeradapt-host/navigation": "poc/host-a01/navigation.tsx"
+  },
+  "careerInputs": [
+    {
+      "file": "poc/host-a01/navigation.tsx",
+      "sha256": "3c6f2bcdc19ca64e159e877373696e667729083c3f2b74d9fbb05afe0db2618e"
+    },
+    {
+      "file": "poc/host-a01/shell.css",
+      "sha256": "aa576a341fb8cfc74b8f7b818f0a9e104ddf3e8113cd21e8b546656b12d56f12"
+    }
+  ],
+  "records": [
+    {
+      "file": "apps/desktop/src/app/contrib/controller.tsx",
+      "originalSha256": "699cbb02e34c04c724a630ea83c7d08c8a0de384a1c1747ca36489b627acf766",
+      "patchedSha256": "d7691d38b87c925031add45f41165653e75d68ca8124b1ac6955ad89b62863ef",
+      "upstreamFileWritten": false
+    },
+    {
+      "file": "apps/desktop/src/app/routes.ts",
+      "originalSha256": "4cb91d3b9a25f11aba76e949767bdfbfaeb9d8cda0da44fd363bddd27f75746c",
+      "patchedSha256": "a6713c05637172e765d873e44ad9730d8d7646006b15ce318c3353465a869d42",
+      "upstreamFileWritten": false
+    },
+    {
+      "file": "apps/desktop/src/app/contrib/surfaces.tsx",
+      "originalSha256": "f9d876b5ef70966f06a4a41632ce33d808ab085efad415d1d226e08347d3d203",
+      "patchedSha256": "2302b5bfe6546ebfdc7d1228f61ac40635857aae91c929b27b6bcda1a29c4a5e",
+      "upstreamFileWritten": false
+    },
+    {
+      "file": "apps/desktop/src/app/chat/index.tsx",
+      "originalSha256": "b41bf22bc983a8b79a9c31ea8fe5e1d12bb87373792dc62330a6bf5b705dadc5",
+      "patchedSha256": "13d965806003ba43303ccb72723d2d43666514d7fce9ddfa7a20dc14a27903fc",
+      "upstreamFileWritten": false
+    },
+    {
+      "file": "apps/desktop/src/app/shell/hooks/use-statusbar-items.tsx",
+      "originalSha256": "cc07235ad146b397b159531a71ab5514d66d7e1095ae7629d60aeab7f39aa1e3",
+      "patchedSha256": "89ddd40a44eac899b827faf6431b971bf7031421d71be96ecf4f042f395cb7de",
+      "upstreamFileWritten": false
+    },
+    {
+      "file": "apps/desktop/src/app/chat/sidebar/index.tsx",
+      "originalSha256": "03e9cb1e09ffdca30016c25e74d680411a246005d852bf57e435b610f3d3a86c",
+      "patchedSha256": "b5407eca221f2c9abe4f898e1a3aa18d3fd3781d188feddb6174dc0f714dbee2",
+      "upstreamFileWritten": false
+    },
+    {
+      "file": "apps/desktop/src/app/chat/composer/hooks/use-composer-placeholder.ts",
+      "originalSha256": "e8a99b2eef19c4c4e35a334adc63534d90a0108a3a76a8c971c88e7fd71f3ab0",
+      "patchedSha256": "f26b09f14b2b4731f42e39dd115fd813425fed97c2e3ba3507a9edb33099a0ff",
+      "upstreamFileWritten": false
+    },
+    {
+      "file": "apps/desktop/src/components/chat/intro.tsx",
+      "originalSha256": "7c15a4bea4c3ded0d65f427286fdae62d0df91f94d359ce92dfeed3aaa4695d9",
+      "patchedSha256": "4e16143bb6bda33a3576581f6becd987ba8cdd0a57f2cd9d053890ac6c9f437e",
+      "upstreamFileWritten": false
+    }
+  ]
+}

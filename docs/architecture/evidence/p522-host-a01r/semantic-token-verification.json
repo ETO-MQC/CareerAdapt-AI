@@ -1,0 +1,94 @@
+{
+  "status": "PASS",
+  "scope": ".ca-host-shell",
+  "observed": [
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "colorScheme": "dark",
+      "tokens": {
+        "chat": "#111918",
+        "composer": "#1a2521",
+        "wordmark": "#72d58b"
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "colorScheme": "light",
+      "tokens": {
+        "chat": "#f3f6f4",
+        "composer": "#fff",
+        "wordmark": "#176b5b"
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "colorScheme": "dark",
+      "tokens": {
+        "chat": "#111918",
+        "composer": "#1a2521",
+        "wordmark": "#72d58b"
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "colorScheme": "light",
+      "tokens": {
+        "chat": "#f3f6f4",
+        "composer": "#fff",
+        "wordmark": "#176b5b"
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "colorScheme": "dark",
+      "tokens": {
+        "chat": "#111918",
+        "composer": "#1a2521",
+        "wordmark": "#72d58b"
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "colorScheme": "light",
+      "tokens": {
+        "chat": "#f3f6f4",
+        "composer": "#fff",
+        "wordmark": "#176b5b"
+      }
+    }
+  ],
+  "secondPass": "Corrected intro blue and inner composer dt-card inheritance after actual screenshots",
+  "theme": "Original ThemeProvider/System only",
+  "rootMutation": false,
+  "important": false,
+  "nativeBackdrop": "Retained; existing low-opacity image; no message or attachment renderer replacement",
+  "statusbar": {
+    "labels": {
+      "Gateway": "AI 连接",
+      "Agents": "协作代理",
+      "Cron": "定时任务",
+      "Webhooks": "外部触发"
+    },
+    "actions": "Original item objects/handlers/menus/contributions preserved by copy-only hook patch",
+    "retained": "Smart approval mode, engine version/update and advanced diagnostic English",
+    "futureExtension": "Host core statusbar copy/group customization API preserving action/menu/render slots"
+  }
+}

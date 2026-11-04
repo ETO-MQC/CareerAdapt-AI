@@ -1,0 +1,37 @@
+{
+  "overall": "PARTIAL",
+  "failures": [
+    {
+      "stage": "Default Hermes fallback",
+      "attemptsThisTurn": 1,
+      "status": "FAIL",
+      "result": "default-shell-verification.json",
+      "reason": "Required ChooseLater even when native configured readiness automatically dismissed overlay; 20s timeout",
+      "evidence": "default-shell-failure-1793775866783.png",
+      "resolution": "Runner now waits for native ChooseLater or unobscured Message using trial click; Gateway ready checked afterwards; NOT RERUN, stopped as requested"
+    },
+    {
+      "stage": "Python script edit",
+      "reason": "Windows default GBK read failed on UTF-8 renderer source; no partial edits in failed invocation",
+      "resolution": "Explicit UTF-8; corrected"
+    },
+    {
+      "stage": "Initial git diff --check",
+      "reason": "Python writes introduced CRLF seen as trailing whitespace",
+      "resolution": "Normalized individually named changed files to LF; final diff check exit0"
+    },
+    {
+      "stage": "Delivery link check ordering",
+      "reason": "Initial reference check ran before delivery-manifest was written, reporting that one future file missing",
+      "resolution": "Manifest now saved; references and all delivery hashes rechecked afterwards"
+    }
+  ],
+  "visualCorrectionHistory": [
+    "Early successful Career smoke had residual blue title/composer; retained screenshots",
+    "After renderer transform updates, restarted development server so final screenshots use all 8 final transformations",
+    "Native update notification blocked some early screenshots; final native Dismiss interaction removed obstruction"
+  ],
+  "preservedA01Evidence": true,
+  "noForceClick": true,
+  "noDOMOnboardingBypass": true
+}

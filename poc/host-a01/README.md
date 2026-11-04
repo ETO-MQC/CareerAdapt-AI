@@ -1,5 +1,14 @@
 # CareerAdapt Host A-01 隔离开发入口
 
+## 2026-11-04 A-01R 当前入口（整体 PARTIAL）
+
+下文 A-01 结果保留为历史。当前 renderer 仍用原命令启动；现在是8处内存补丁，导航通过 `virtual:careeradapt-host/navigation` 动态解析。build、虚拟 typecheck、fallback 的新证据写入 `docs/architecture/evidence/p522-host-a01r/`，不覆盖 A-01。
+
+真实 Career Shell 验证运行 `node scripts/p522-host-a01r-smoke.mjs`，包含合成第三方插件 route/启停、18格、原生设置/Gateway/附件/草稿。真实默认 Shell 本轮唯一验证因误要求 ChooseLater 按钮必出现而失败；已修正原生 readiness/ChooseLater 双分支，但未重跑，不宣布通过。不得用本说明替代实际结果。
+
+详见 [A-01R 报告](../../docs/architecture/p5.2.2-host-a01r-shell-closure.md)。不连接真实数据/Provider、不发行、不进入 A-02。
+
+
 main主线方案A。复用锁定Hermes Desktop，保留原生Chat/Runtime；本目录不是Conversation组件库。只读合成Profile仍在原`poc/host-experience/`。
 
 先运行：

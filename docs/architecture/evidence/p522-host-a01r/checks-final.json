@@ -1,0 +1,22 @@
+[
+  {
+    "command": "pnpm typecheck",
+    "exitCode": 0,
+    "log": "typecheck-final.log"
+  },
+  {
+    "command": "pnpm exec vitest run tests/unit/p522-host-a01-navigation.test.tsx tests/unit/p522-slice1-profile-projection.test.ts tests/unit/p522-host-experience.test.tsx",
+    "exitCode": 0,
+    "log": "unit-final.log"
+  },
+  {
+    "command": "pnpm exec eslint poc/host-a01/navigation.tsx scripts/p522-host-a01-renderer.mjs scripts/p522-host-a01-fallback.mjs scripts/p522-host-a01-native-typecheck.mjs scripts/p522-host-a01r-smoke.mjs tests/unit/p522-host-a01-navigation.test.tsx --max-warnings=0",
+    "exitCode": 0,
+    "log": "eslint-final.log"
+  },
+  {
+    "command": "git diff --check",
+    "exitCode": 0,
+    "log": "diff-final.log"
+  }
+]

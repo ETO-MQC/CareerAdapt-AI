@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "unit": "unit-final.log: 6 navigation tests, including 2 compatibility tests",
+  "hostRun": 1793776565702,
+  "host": "PASS: real SDK route contribution, native navigation, disable/enable; original Session context retained",
+  "route": "/a01r-board",
+  "nativeAction": "new-session; profile reset retained at Host callback",
+  "keybind": "Original global dispatcher untouched; TipKeybindLabel and metadata rendered",
+  "primaryEntries": 4,
+  "group": "Separate plugin extensions",
+  "details": "Original contribution object forwarded unchanged; native useContributions updates on enable/disable",
+  "screenshots": [
+    "docs/architecture/evidence/p522-host-a01r/screenshots/diagnostic-1793776565702/plugin-navigation.png",
+    "docs/architecture/evidence/p522-host-a01r/screenshots/diagnostic-1793776565702/advanced-menu.png"
+  ]
+}

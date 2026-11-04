@@ -1,0 +1,268 @@
+{
+  "status": "PASS_CAREER_MATRIX_DEFAULT_INTERACTION_INCOMPLETE",
+  "source": "Real locked Hermes Electron + Renderer, no independent browser screenshots",
+  "hostRun": 1793776565702,
+  "matrix": [
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "colorScheme": "dark",
+      "page": "home",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "colorScheme": "dark",
+      "page": "profile",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "colorScheme": "dark",
+      "page": "chat",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "colorScheme": "light",
+      "page": "home",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "colorScheme": "light",
+      "page": "profile",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "colorScheme": "light",
+      "page": "chat",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "colorScheme": "dark",
+      "page": "home",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "colorScheme": "dark",
+      "page": "profile",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "colorScheme": "dark",
+      "page": "chat",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "colorScheme": "light",
+      "page": "home",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "colorScheme": "light",
+      "page": "profile",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "colorScheme": "light",
+      "page": "chat",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "colorScheme": "dark",
+      "page": "home",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "colorScheme": "dark",
+      "page": "profile",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "colorScheme": "dark",
+      "page": "chat",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "colorScheme": "light",
+      "page": "home",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "colorScheme": "light",
+      "page": "profile",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "colorScheme": "light",
+      "page": "chat",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    }
+  ],
+  "geometry": "18/18 unique nav and no document horizontal overflow",
+  "manualReview": {
+    "viewedAll18": true,
+    "method": "Individual actual image viewing at 1024,1440,1920 in Light/Dark; separate from geometry",
+    "observations": [
+      "Career wordmark green; no HERMES AGENT Intro",
+      "Original Composer/attachment controls visible against neutral green-gray",
+      "Four primary icons visible; no duplicate full-height category sidebar",
+      "1024 Profile retains page/detail scrolling, no overlap",
+      "Native update notices closed using their original Dismiss button for final matrix"
+    ],
+    "corrections": [
+      "Blue Intro color",
+      "Inner Composer card/background tokens",
+      "Notification obstruction in earlier screenshots"
+    ],
+    "userApproval": "PENDING"
+  },
+  "additional": [
+    "docs/architecture/evidence/p522-host-a01r/screenshots/diagnostic-1793776565702/advanced-menu.png",
+    "docs/architecture/evidence/p522-host-a01r/screenshots/diagnostic-1793776565702/plugin-navigation.png",
+    "docs/architecture/evidence/p522-host-a01r/screenshots/diagnostic-1793776565702/native-gateway-menu.png",
+    "docs/architecture/evidence/p522-host-a01r/screenshots/diagnostic-1793776565702/native-attachments.png"
+  ],
+  "defaultShell": "Failed run screenshot retained; no qualified interaction or matrix claim",
+  "errors": [],
+  "consoleErrors": []
+}

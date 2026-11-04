@@ -1,0 +1,25 @@
+{
+  "status": "PASS",
+  "head": "cf09a193e4466cb6b19bf6fdc978f5fd1fdfc038",
+  "origin": "cf09a193e4466cb6b19bf6fdc978f5fd1fdfc038",
+  "branch": "main",
+  "upstreamUnchanged": true,
+  "historicalEvidenceUnchanged": true,
+  "historicalEvidenceFiles": 132,
+  "missingLinks": [],
+  "gitStatus": "M docs/architecture/p5.2.2-host-a01-next-stage-plan.md\n M poc/host-a01/README.md\n M poc/host-a01/navigation.tsx\n M poc/host-a01/shell.css\n M scripts/p522-host-a01-fallback.mjs\n M scripts/p522-host-a01-native-typecheck.mjs\n M scripts/p522-host-a01-renderer.mjs\n M tests/unit/p522-host-a01-navigation.test.tsx\n?? docs/architecture/evidence/p522-host-a01r/\n?? docs/architecture/p5.2.2-host-a01r-shell-closure.md\n?? scripts/p522-host-a01r-smoke.mjs",
+  "handoffs": [
+    {
+      "file": "plan4.md",
+      "sha256": "b3a8b0bc69ddfa7eb39f2c13a018415e23c22f548067acaf7f420deeda8ee7a7",
+      "latestIsA01RPartial": true
+    },
+    {
+      "file": "history4.md",
+      "sha256": "8cd70e22fcbe11138f91798242ca4047d21b05c625d7de55ef43251197d34e90",
+      "latestIsA01RPartial": true
+    }
+  ],
+  "services": "Both task-owned Vite servers stopped after Electron verification; no release processes started",
+  "notCommitted": true
+}

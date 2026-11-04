@@ -1,0 +1,9 @@
+
+ RUN  v4.1.9 C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop
+
+
+ Test Files  3 passed (3)
+      Tests  98 passed (98)
+   Start at  15:13:06
+   Duration  3.96s (transform 1.59s, setup 625ms, import 2.77s, tests 1.28s, environment 2.89s)
+

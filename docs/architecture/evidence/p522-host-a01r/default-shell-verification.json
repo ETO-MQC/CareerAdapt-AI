@@ -1,0 +1,9 @@
+{
+  "status": "FAIL",
+  "root": "E:\\DEF\\CareerAdapt AI\\.artifacts\\p522-host-a01-fallback-1793775866783",
+  "errors": [],
+  "consoleErrors": [],
+  "realProvider": "NOT VERIFIED",
+  "switchMethod": "Separate isolated launch without --careeradapt; no live runtime/shell hot-swap claim",
+  "failure": "locator.click: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'I\\'ll choose a provider later', exact: true })\u001b[22m\n\n    at E:\\DEF\\CareerAdapt AI\\scripts\\p522-host-a01-fallback.mjs:12:82"
+}

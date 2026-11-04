@@ -1,0 +1,472 @@
+{
+  "run": 1793776565702,
+  "status": "PASS",
+  "shots": "docs/architecture/evidence/p522-host-a01r/screenshots/diagnostic-1793776565702",
+  "errors": [],
+  "consoleErrors": [],
+  "checks": [
+    "Gateway status accessible button ready; label/detail are distinct spans",
+    "Native onNavigate opens native Settings/Appearance/System",
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "colorScheme": "dark",
+      "tokens": {
+        "chat": "#111918",
+        "composer": "#1a2521",
+        "wordmark": "#72d58b"
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "colorScheme": "light",
+      "tokens": {
+        "chat": "#f3f6f4",
+        "composer": "#fff",
+        "wordmark": "#176b5b"
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "colorScheme": "dark",
+      "tokens": {
+        "chat": "#111918",
+        "composer": "#1a2521",
+        "wordmark": "#72d58b"
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "colorScheme": "light",
+      "tokens": {
+        "chat": "#f3f6f4",
+        "composer": "#fff",
+        "wordmark": "#176b5b"
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "colorScheme": "dark",
+      "tokens": {
+        "chat": "#111918",
+        "composer": "#1a2521",
+        "wordmark": "#72d58b"
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "colorScheme": "light",
+      "tokens": {
+        "chat": "#f3f6f4",
+        "composer": "#fff",
+        "wordmark": "#176b5b"
+      }
+    },
+    "Native attachment menu; native unsent draft survives Profile/Chat navigation; no submission",
+    "Native new-session action invoked on already fresh draft; native code deliberately preserves the per-thread composer draft, no backend session created"
+  ],
+  "visualMatrix": [
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "colorScheme": "dark",
+      "page": "home",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "colorScheme": "dark",
+      "page": "profile",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "colorScheme": "dark",
+      "page": "chat",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "colorScheme": "light",
+      "page": "home",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "colorScheme": "light",
+      "page": "profile",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "colorScheme": "light",
+      "page": "chat",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "colorScheme": "dark",
+      "page": "home",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "colorScheme": "dark",
+      "page": "profile",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "colorScheme": "dark",
+      "page": "chat",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "colorScheme": "light",
+      "page": "home",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "colorScheme": "light",
+      "page": "profile",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1440,
+        "height": 900
+      },
+      "colorScheme": "light",
+      "page": "chat",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "colorScheme": "dark",
+      "page": "home",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "colorScheme": "dark",
+      "page": "profile",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "colorScheme": "dark",
+      "page": "chat",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "colorScheme": "light",
+      "page": "home",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "colorScheme": "light",
+      "page": "profile",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    },
+    {
+      "size": {
+        "width": 1024,
+        "height": 768
+      },
+      "colorScheme": "light",
+      "page": "chat",
+      "geometry": {
+        "navigationCount": 1,
+        "overflow": false,
+        "navBackground": "rgba(0, 0, 0, 0)"
+      }
+    }
+  ],
+  "scope": "A01R real locked Electron: native SDK plugin lifecycle, scoped Career brand/theme, 18-cell matrix, settings/Gateway/attachments/draft; no real Provider or Career data",
+  "gatewayButtons": [
+    "AI 连接offline"
+  ],
+  "fonts": {
+    "loaded": [
+      {
+        "family": "KaTeX_AMS",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Caligraphic",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Caligraphic",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Fraktur",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Fraktur",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Main",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Main",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Main",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Main",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Math",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Math",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_SansSerif",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_SansSerif",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_SansSerif",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Script",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Size1",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Size2",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Size3",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Size4",
+        "status": "unloaded"
+      },
+      {
+        "family": "KaTeX_Typewriter",
+        "status": "unloaded"
+      },
+      {
+        "family": "codicon",
+        "status": "loaded"
+      },
+      {
+        "family": "Collapse",
+        "status": "loaded"
+      },
+      {
+        "family": "JetBrains Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "JetBrains Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "JetBrains Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "Courier Prime",
+        "status": "unloaded"
+      },
+      {
+        "family": "Courier Prime",
+        "status": "loaded"
+      },
+      {
+        "family": "Courier Prime",
+        "status": "unloaded"
+      },
+      {
+        "family": "Courier Prime",
+        "status": "loaded"
+      }
+    ],
+    "iconFamily": "codicon"
+  },
+  "afterSettings": {
+    "url": "http://127.0.0.1:5186/#/settings",
+    "buttons": [
+      "首页",
+      "AI 工作台",
+      "个人资料库",
+      "设置",
+      "",
+      "AI 连接ready",
+      "协作代理",
+      "定时任务",
+      "外部触发",
+      "Smart",
+      "v0.19.0"
+    ]
+  },
+  "pluginNavigation": "PASS: real SDK route contribution, native navigation, disable/enable; original Session context retained",
+  "attachmentMenu": [
+    "Files…",
+    "Folder…",
+    "Images…",
+    "Paste image",
+    "URL…",
+    "Prompt snippets…"
+  ],
+  "newSessionDraft": "HOST-A01 unsent native draft"
+}

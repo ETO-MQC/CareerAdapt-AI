@@ -1,0 +1,17 @@
+{
+  "status": "PASS",
+  "hostRun": 1793776565702,
+  "brand": "CAREERADAPT AI",
+  "method": "Optional Intro brand prop via existing Thread.intro; no new Chat implementation",
+  "assertion": "All six chat cells wait for native Intro Career brand; assert HERMES AGENT accessible label count zero",
+  "nativeDefault": "Unpatched intro retains WORDMARK; default screenshot confirms it, interaction NOT VERIFIED",
+  "provider": "NOT VERIFIED",
+  "screenshots": [
+    "docs/architecture/evidence/p522-host-a01r/screenshots/diagnostic-1793776565702/chat-dark-1920.png",
+    "docs/architecture/evidence/p522-host-a01r/screenshots/diagnostic-1793776565702/chat-light-1920.png",
+    "docs/architecture/evidence/p522-host-a01r/screenshots/diagnostic-1793776565702/chat-dark-1440.png",
+    "docs/architecture/evidence/p522-host-a01r/screenshots/diagnostic-1793776565702/chat-light-1440.png",
+    "docs/architecture/evidence/p522-host-a01r/screenshots/diagnostic-1793776565702/chat-dark-1024.png",
+    "docs/architecture/evidence/p522-host-a01r/screenshots/diagnostic-1793776565702/chat-light-1024.png"
+  ]
+}
