@@ -1,0 +1,202 @@
+{
+  "task": "P5.1-JD-03",
+  "date": "2026-11-04",
+  "timezone": "Asia/Shanghai",
+  "status": "PARTIAL_WITH_VERIFIED_AGENTWORKSPACE_MAIN_FLOW",
+  "baseline": {
+    "branch": "competition/5.1.8",
+    "head": "4561b8d1dfd65b9c6d957a73495b79cb9308cecb",
+    "originReadback": "same HEAD via git ls-remote",
+    "initialWorkingTree": "clean",
+    "previousHandoffHead": "313046686eb2a5f4a0c6952dbffd2ede1a04214a",
+    "b1": "already independently committed and present on origin; no new commit"
+  },
+  "productionChanges": [
+    "src/components/agent/AgentTailoringInlineDiffs.tsx",
+    "src/components/agent/artifacts/AgentArtifactContent.tsx",
+    "src/services/agent/agentToolService.ts"
+  ],
+  "decisions": [
+    "Reuse existing Tailoring Session/Review/Confirmation and atomic Repository derivation",
+    "Display proposal requirement descriptions and original evidence, source/file/page when available, review state and missing-source warnings",
+    "Reuse original immutable receipt completion time on idempotent replay; preserve readback and payload equality checks",
+    "No Skills/Schema/tables/dependencies/Fact Guard/Claim Safety/runtime changes"
+  ],
+  "tests": {
+    "baseline": {
+      "typecheck": 0,
+      "unitFiles": 4,
+      "unitTests": 19,
+      "exitCode": 0
+    },
+    "finalUnit": {
+      "files": 11,
+      "passed": 81,
+      "failed": 0,
+      "exitCode": 0,
+      "evidence": "jd-03-logs/unit-final.json"
+    },
+    "guardRegression": {
+      "files": 4,
+      "passed": 48,
+      "failed": 0,
+      "exitCode": 0,
+      "evidence": "jd-03-logs/guard-regression.json"
+    },
+    "typecheck": {
+      "exitCode": 0,
+      "evidence": "jd-03-logs/typecheck.log"
+    },
+    "changedFilesESLint": {
+      "exitCode": 0,
+      "evidence": "jd-03-logs/eslint.log"
+    },
+    "productionBuild": {
+      "exitCode": 0,
+      "distDir": ".jd03-production",
+      "environment": "new owned detached worktree, frozen offline internal dependencies",
+      "sourceFiles": 479,
+      "sourceMismatches": 0,
+      "evidence": "jd-03-logs/production-build.log",
+      "parity": "jd-03-logs/build-source-parity.json"
+    },
+    "hermesBrowser": {
+      "case": "CASE L Core-02",
+      "provider": "simulated only; bundled Hermes real",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 57807.44,
+      "exitCode": 0,
+      "evidence": "jd-03-logs/hermes-browser-final.json"
+    },
+    "legacyProductionBrowser": {
+      "status": "FAILED_TWICE_STOPPED",
+      "exitCodes": [
+        1,
+        1
+      ],
+      "reason": "old optimization panel has zero selected edits; Apply disabled; cause not established",
+      "secondAttempt": "temporarily used explicitly relevant JD fixture; still failed; original fixture/assertions restored byte-for-byte",
+      "evidence": [
+        "jd-03-logs/legacy-editor-first-failure.json",
+        "jd-03-logs/legacy-editor-relevant-fixture-failure.json"
+      ]
+    },
+    "pdf": {
+      "pages": 1,
+      "pageSizePoints": [
+        594.96,
+        841.92
+      ],
+      "format": "A4",
+      "encrypted": false,
+      "httpStatus": 200,
+      "actualRevisionBound": true,
+      "confirmedHighlightEquality": true,
+      "visualReview": "No overlap, clipping or unexpected pagination in the single-project synthetic PDF; sparse sample is not long-resume pagination certification",
+      "artifact": "jd-03-logs/confirmed-hermes-resume.pdf",
+      "render": "jd-03-logs/pdf-page.png"
+    },
+    "diffCheck": {
+      "exitCode": 0
+    }
+  },
+  "syntheticCases": [
+    {
+      "id": "01",
+      "case": "直接匹配",
+      "result": "PASS_AT_STATED_LAYER",
+      "evidence": "jobOptimization.test.ts: gives direct/strong support to the narrower SQL task actually demonstrated by the confirmed source"
+    },
+    {
+      "id": "02",
+      "case": "部分匹配不升级",
+      "result": "PASS_AT_STATED_LAYER",
+      "evidence": "jobOptimization.test.ts: maps confirmed job requirements to branch content blocks and summarizes fact gaps; tailoring.test.ts: keeps user-declared skills separate from verified evidence"
+    },
+    {
+      "id": "03",
+      "case": "无证据保持未知",
+      "result": "PASS_AT_STATED_LAYER",
+      "evidence": "p51-core-02-intelligence.test.ts: does not infer candidate Kubernetes capability from the JD or equate absence with mismatch"
+    },
+    {
+      "id": "04",
+      "case": "团队经历不升级主导",
+      "result": "PASS_AT_STATED_LAYER",
+      "evidence": "p46b-tailoring-quality.test.ts: A-D rejects no-op, mechanical prefix, ownership upgrade, and invented metric"
+    },
+    {
+      "id": "05",
+      "case": "无数字定性交付",
+      "result": "PASS_AT_STATED_LAYER",
+      "evidence": "jd03TailoringIsolation.test.ts: two independent jobs; Hermes CASE L confirmed project bullet and extracted PDF"
+    },
+    {
+      "id": "06",
+      "case": "一经历多个要求",
+      "result": "PASS_AT_STATED_LAYER",
+      "evidence": "jd03EvidenceReview.test.tsx: multiple requirements, original quote and original file locator"
+    },
+    {
+      "id": "07",
+      "case": "无证据关键词不入简历",
+      "result": "PASS_AT_STATED_LAYER",
+      "evidence": "p46b-tailoring-quality.test.ts: H-I makes denied capability and weak proficiency answers binding; p51-core-02-intelligence.test.ts unknown Kubernetes"
+    },
+    {
+      "id": "08",
+      "case": "多岗位隔离",
+      "result": "PASS_AT_STATED_LAYER",
+      "evidence": "jd03TailoringIsolation.test.ts: two independent jobs; jobOptimization.test.ts: keeps Job A and Job B sibling revisions isolated in both directions"
+    },
+    {
+      "id": "09",
+      "case": "拒绝内容不写入",
+      "result": "PASS_AT_STATED_LAYER",
+      "evidence": "jd03TailoringIsolation.test.ts: rejected or unresolved proposals even when supplied in selectedDiffs"
+    },
+    {
+      "id": "10",
+      "case": "确认刷新恢复",
+      "result": "PASS_AT_STATED_LAYER",
+      "evidence": "Hermes CASE L: Host confirmation, source/profile/job unchanged, reload exact target branch; jd03TailoringIsolation database reopen exact Revision snapshot"
+    },
+    {
+      "id": "11",
+      "case": "重复确认幂等",
+      "result": "PASS_AT_STATED_LAYER",
+      "evidence": "jd03TailoringIsolation.test.ts: original receipt equality, same Revision ID and count"
+    },
+    {
+      "id": "12",
+      "case": "正式PDF一致",
+      "result": "PASS_AT_STATED_LAYER",
+      "evidence": "Hermes CASE L verifyCoreResumePdf: actual export HTTP200, exportRecords Revision binding, preview/extracted PDF highlights equality; Poppler A4 and visual render"
+    }
+  ],
+  "failuresPreserved": [
+    "new test initially imported TailoringSessionSchema from wrong barrels; corrected to tailoringCommands",
+    "new replay test reproduced resume_artifact_receipt_immutable_conflict; production timestamp fix verified",
+    "original Junction dev launch failed before readiness",
+    "first qualified Hermes run reached PDF200 then failed afterEach due missing .tmp",
+    "parallel build interfered with dev cache; serial Hermes rerun passed",
+    "legacy production panel failed twice; stopped; not labelled unrelated or pre-existing without baseline proof"
+  ],
+  "limitations": [
+    "Legacy editor optimization entry regression remains unclosed",
+    "Real Provider quality UNVERIFIED_REAL_MODEL_REQUIRED; no real Provider calls or user credentials read",
+    "No long-resume/multi-template/whole-app regression certification",
+    "Existing personal-career-os/resume-master research not found in current repository; no invented commits/licenses",
+    "Temporary skip is navigation with pending review, not a new persisted skipped decision"
+  ],
+  "jd04Readiness": "NOT_UNCONDITIONALLY_READY: resolve or explicitly accept legacy editor regression; real model quality requires separately authorized evaluation",
+  "git": {
+    "committed": false,
+    "pushed": false,
+    "packaged": false
+  },
+  "noMultiAgent": true,
+  "testServerCleanup": "Owned production port 3043 listener stopped; Hermes harness completed own cleanup."
+}

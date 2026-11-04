@@ -152,6 +152,7 @@ export function AgentTailoringInlineDiffs({
             <TailoringDiffRecord
               key={diffId ?? `inline-invalid-diff-${index}`}
               diff={diff}
+              session={tailoring}
               review={review}
               diffId={diffId}
               feedback={feedback.entityId === diffId ? feedback : undefined}

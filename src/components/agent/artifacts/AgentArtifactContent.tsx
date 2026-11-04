@@ -608,6 +608,7 @@ const tailoringDiagnostics = readTailoringDiagnostics(taskState?.knownSlots.tail
                 <TailoringDiffRecord
                   key={diffId ?? `invalid-diff-${index}`}
                   diff={diff}
+                  session={tailoringSession}
                   review={review}
                   diffId={diffId}
                   readOnly={tailoringReviewReadOnly}
@@ -1011,9 +1012,11 @@ export function TailoringDiffRecord({
   diffId,
   feedback,
   readOnly = false,
+  session,
   onDecision
 }: {
   diff: Record<string, unknown>;
+  session?: Record<string, unknown>;
   review: Record<string, unknown>;
   diffId?: string;
   feedback?: Record<string, unknown>;
@@ -1036,6 +1039,37 @@ export function TailoringDiffRecord({
       <p><del>{renderValue(diff.original)}</del></p>
       <p><ins>{status === "edited" ? renderValue(review.editedValue) : proposed}</ins></p>
       {typeof diff.reason === "string" ? <p className="agent-diff-rationale">{diff.reason}</p> : null}
+      <details className="agent-diff-rationale">
+        <summary>岗位要求与来源证据</summary>
+        <p>审核状态：{status === "accepted" ? "已选择采用" : status === "edited" ? "已编辑后选择采用" : status === "rejected" ? "已忽略" : "待审核"}；最终确认后才写入岗位简历。</p>
+        <p>支持类型：{diff.supportLevel === "verified" ? "来源支持" : diff.supportLevel === "user_declared" ? "用户陈述，需核对适用范围" : "合理推断，需核对"}</p>
+        <ul aria-label="对应岗位要求">
+          {(Array.isArray(diff.requirementIds) ? diff.requirementIds : []).map((id) => {
+            const requirements = asRecord(session?.job).requirements;
+            const requirement = Array.isArray(requirements) ? requirements.map(asRecord).find((item) => item.id === id) : undefined;
+            return <li key={String(id)}>{String(requirement?.description ?? "原岗位要求暂不可用，请重新核对岗位")}</li>;
+          })}
+        </ul>
+        <ul aria-label="原始来源证据">
+          {(Array.isArray(diff.evidenceRefs) ? diff.evidenceRefs : []).map((value, index) => {
+            const evidence = asRecord(value);
+            const profile = asRecord(session?.profile);
+            const entries = evidence.type === "experience_fact" ? profile.experiences : evidence.type === "skill_fact" ? profile.skills : profile.certificates;
+            const entryId = evidence.experienceId ?? evidence.skillId ?? evidence.certificateId;
+            const entry = Array.isArray(entries) ? entries.map(asRecord).find((item) => item.id === entryId) : undefined;
+            const facts = entry?.facts;
+            const fact = Array.isArray(facts) ? facts.map(asRecord).find((item) => item.id === evidence.factId) : undefined;
+            const sources = Array.isArray(fact?.provenance) ? fact.provenance.map(asRecord) : [];
+            return <li key={index}>
+              <strong>{String(entry?.title ?? entry?.name ?? (evidence.type === "evidence_file" ? "附件证据" : "原始事实"))}</strong>
+              <blockquote>{String(evidence.factQuote ?? evidence.factText ?? "来源内容暂不可用")}</blockquote>
+              {sources.map((source, sourceIndex) => <p key={sourceIndex}>原始来源：{String(source.sourceQuote ?? source.sourceText ?? "待核对来源")}{typeof source.fileName === "string" ? `（${source.fileName}${typeof source.pageNumber === "number" ? `，第 ${source.pageNumber} 页` : ""}）` : ""}</p>)}
+              {!fact && <p>当前快照未能定位原始事实，请核对来源后采用。</p>}
+            </li>;
+          })}
+        </ul>
+        {(!Array.isArray(diff.evidenceRefs) || !diff.evidenceRefs.length) && <p>此项没有附带来源引用，请先核对事实；接受文字不会同步个人资料库。</p>}
+      </details>
       {readOnly ? (
         <span className="agent-diff-feedback">{status === "suggested" ? "待在对话区核对" : "已暂存本轮选择"}</span>
       ) : editing ? (

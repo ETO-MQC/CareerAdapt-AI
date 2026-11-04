@@ -2003,7 +2003,12 @@ export class BrowserAgentToolService implements AgentToolServices {
         );
       }
 
-      const completedAt = new Date().toISOString();
+      // An operation replay keeps the immutable receipt's original completion
+      // time. All readback and receipt payload checks still run on the replay.
+      const previousReceipt = result.idempotent
+        ? await this.repository.getResumeArtifactReceipt(operationId)
+        : undefined;
+      const completedAt = previousReceipt?.completedAt ?? new Date().toISOString();
       const artifactReceipt = ResumeArtifactReceiptSchema.parse({
         schemaVersion: 1,
         operationId,

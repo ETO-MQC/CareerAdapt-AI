@@ -268,6 +268,13 @@ test.describe("P4.6h hermetic Web + browser MCP integration", () => {
     const inline = page.locator(".agent-tailoring-inline");
     await expect(inline).toBeVisible();
     if (!await inline.evaluate(element => (element as HTMLDetailsElement).open)) await inline.locator("summary").click();
+    // JD-03: inspect the actual proposal before review or any formal write.
+    await inline.getByText("岗位要求与来源证据", { exact: true }).click();
+    await expect(inline.getByLabel("对应岗位要求")).toBeVisible();
+    await expect(inline.getByLabel("原始来源证据")).toBeVisible();
+    await expect(inline).toContainText("最终确认后才写入岗位简历");
+    await testInfo.attach("jd03-evidence-review", { body: await page.screenshot(), contentType: "image/png" });
+    expect((await readStore(page, "resumeBranches")).filter(branch => branch.branchPurpose === "job_specific")).toHaveLength(0);
     for (let index = 0; index < 8 && await inline.getByRole("button", { name: "采用", exact: true }).count(); index++) {
       await inline.getByRole("button", { name: "采用", exact: true }).first().click();
     }
@@ -297,7 +304,12 @@ test.describe("P4.6h hermetic Web + browser MCP integration", () => {
     }, null, 2), contentType: "application/json" });
     await page.goto(`/resume?branchId=${encodeURIComponent(String(target.id))}`);
     await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
+    await page.reload();
+    await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
+    expect(new URL(page.url()).searchParams.get("branchId")).toBe(target.id);
+    expect((await readStore(page, "resumeBranches")).find(branch => branch.id === target.id)).toEqual(target);
     await verifyCoreResumePdf(page, String(target.id));
+    await testInfo.attach("jd03-confirmed-a4", { body: await page.screenshot(), contentType: "image/png" });
   });
 
   test("CASE M Core-02 — new material to confirmed Profile, General Resume, Job, isolated tailoring and PDF", async ({ page }, testInfo) => {

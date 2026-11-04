@@ -1,0 +1,16 @@
+{
+  "qualifiedRoot": "E:\\DEF\\CareerAdapt-jd03-qualified-4561b8d",
+  "sourceFiles": 479,
+  "mismatches": [],
+  "configurationMatches": [
+    "package.json",
+    "pnpm-lock.yaml",
+    "next.config.ts",
+    "tailwind.config.ts",
+    "postcss.config.mjs"
+  ],
+  "lockSHA256": "cd40b7ccd7278e68c13cb2b255826229cf1dd162d708910a7ed3b6ecb0040606",
+  "dependencyInstallation": "pnpm install --offline --frozen-lockfile; exit 0; internal node_modules; 743 reused, 0 downloaded",
+  "productionBuild": "CAREERAD_NEXT_DIST_DIR=.jd03-production pnpm build; exit 0",
+  "tsconfigGeneratedDifference": "Next adds only generated integration and .jd03-production types include globs in owned worktree; compilerOptions and all original includes/excludes unchanged. Not claimed byte-identical."
+}
