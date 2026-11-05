@@ -35,6 +35,7 @@ import {
 } from "@/agent/runtime/hermes/hermesIncidentTrace";
 import { evaluateGroundedResumeOutput } from "@/agent/kernel/GroundedResumeOutputGate";
 import { AgentGoalCompletionGuard } from "@/agent/kernel/AgentGoalCompletionGuard";
+import { businessFailureRecovery, unresolvedBusinessToolFailures } from "./businessWorkflowProgress";
 import {
   evaluateConversationContinuity,
   withTerminalState,
@@ -2311,7 +2312,14 @@ export class AgentHostStore {
       || current.activeTurn.id !== event.turnId
       || assistant?.turnId !== event.turnId
     ) return undefined;
-    if (current.hermesRun?.turnId === event.turnId && ["completed", "failed", "cancelled"].includes(current.hermesRun.status)) return current;
+    const knownPendingToolReceipt = current.hermesRun?.status === "completed"
+      && ["tool_call_completed", "tool_call_failed"].includes(event.type)
+      && event.operationId && current.messages.some(message => message.turnId === event.turnId
+        && message.operationId === event.operationId && message.toolName === event.toolName && message.status === "pending");
+    // A completed model Run can race its already-started bridge tool receipt.
+    // Accept only that known operation; cancelled/failed Runs remain fenced.
+    if (current.hermesRun?.turnId === event.turnId && ["completed", "failed", "cancelled"].includes(current.hermesRun.status)
+      && !knownPendingToolReceipt) return current;
     if (event.eventId && current.activeTurn.projectedHermesEventIds?.includes(event.eventId)) return current;
     let next = current;
     if (event.eventId) {
@@ -2327,8 +2335,13 @@ export class AgentHostStore {
     }
     let lateTailoringRecovery = false;
     const runHandleResult = HermesRunHandleSchema.safeParse(objectValue(event.data).runHandle);
+    const incomingRunId = runHandleResult.success ? runHandleResult.data.runId : stringValue(objectValue(event.data).runId);
+    if (runHandleResult.success && (runHandleResult.data.turnId !== event.turnId
+      || runHandleResult.data.careerAgentSessionId !== current.id)) return current;
+    if (incomingRunId && current.hermesRun?.turnId === event.turnId
+      && current.hermesRun.runId !== incomingRunId) return current;
     next = applyRuntimeEventDiagnostics(next, event, runHandleResult.success ? runHandleResult.data.runId : undefined);
-    if (runHandleResult.success) next = { ...next, hermesRun: runHandleResult.data };
+    if (runHandleResult.success && !knownPendingToolReceipt) next = { ...next, hermesRun: runHandleResult.data };
     if (
       next.taskState?.knownSlots.canonicalWorkflowFailure
       && !["turn_completed", "turn_failed"].includes(event.type)
@@ -2710,6 +2723,7 @@ export class AgentHostStore {
         if (questionState) next = projectActiveTailoringQuestionToChat(next, next.taskState!);
       }
       const tailoringQuestionWaiting = Boolean(getActiveTailoringQuestionProjection(next));
+      const unresolvedFailure = unresolvedBusinessToolFailures(next).at(-1);
       const domainFailureWaiting = isCareerDomainPreconditionCode(event.error?.code)
         || objectValue(event.data).domainFailure === true
         && objectValue(event.data).waitingForUser === true;
@@ -2742,7 +2756,9 @@ export class AgentHostStore {
           ?? objectValue(event.data).toolFailureDiagnostics
           ?? next.taskState?.knownSlots.canonicalWorkflowFailure
       );
-      const candidate = canonicalWorkflowFailure
+      const candidate = unresolvedFailure && !canonicalWorkflowFailure && !tailoringRecovery && !tailoringQuestionWaiting
+        ? businessFailureRecovery(unresolvedFailure.code)
+        : canonicalWorkflowFailure
         ? runtimeFailureRecoveryText(
             stringValue(terminalDiagnostics.safeDomainErrorCode)
               ?? stringValue(terminalDiagnostics.code)
@@ -2769,7 +2785,7 @@ export class AgentHostStore {
         ? evaluateGroundedResumeOutput({ text: candidate, taskState: next.taskState, artifactRefs: next.artifactRefs })
         : { allowed: true as const };
       const blocked = !canonicalWorkflowFailure && !tailoringQuestionWaiting && !completionWaiting && !tailoringRecovery && !tailoringQuestionRecovery && !grounding.allowed;
-      const terminalFailed = !canonicalWorkflowFailure && !tailoringQuestionWaiting && ((event.type === "turn_failed" && !tailoringRecovery && !tailoringQuestionRecovery) || blocked || completionBlocked);
+      const terminalFailed = !canonicalWorkflowFailure && !tailoringQuestionWaiting && ((event.type === "turn_failed" && !tailoringRecovery && !tailoringQuestionRecovery) || blocked || completionBlocked || Boolean(unresolvedFailure && !tailoringRecovery));
       const terminalWaiting = !terminalFailed && (canonicalWorkflowFailure || tailoringRecovery || tailoringQuestionRecovery || tailoringQuestionWaiting || completionWaiting);
       const text = blocked ? grounding.recoveryText : candidate;
       if (!tailoringQuestionWaiting) next = replaceRuntimeShellMessage(next, assistantMessageId, text, event, false, terminalFailed);
@@ -2791,9 +2807,8 @@ export class AgentHostStore {
             }
           : undefined,
         // Hermes owns the conversational turn, not the durable career workflow
-        // state. Keep the existing workflow status here unless the runtime has
-        // raised an approval boundary; native workflow execution remains the
-        // only path that can mark a workflow completed or failed.
+        // state. Only the existing Host/Facade/Repository workflow path can
+        // prove business completion; a terminal narration cannot do so.
         ...(next.pendingConfirmation && next.workflowState
           ? { workflowState: { ...next.workflowState, status: "waiting_for_confirmation" as const } }
           : {})
@@ -2836,6 +2851,19 @@ export class AgentHostStore {
         currentObservation: { type: "tailoring_question_waiting", message: "等待你的补充说明。" }
       });
       return saved;
+    }
+    // Business checkpoints and failures must be durable before actionable UI
+    // is published. Hermes may continue streaming after a bridge tool returns.
+    if (["tool_call_completed", "tool_call_failed"].includes(event.type)) {
+      if (knownPendingToolReceipt) {
+        const failure = unresolvedBusinessToolFailures(next).at(-1);
+        if (failure) {
+          next = replaceRuntimeShellMessage(next, assistantMessageId, businessFailureRecovery(failure.code),
+            { ...event, error: { code: failure.code, message: "具体操作尚未完成。", recoverable: failure.recoverable !== false } }, false, true);
+          next = { ...next, activeTurn: next.activeTurn ? { ...next.activeTurn, status: "failed" } : undefined };
+        }
+      }
+      next = await this.dependencies.persistence.save(next);
     }
     this.patchSession(next, {
       currentObservation: event.data ?? event.message,
@@ -11750,6 +11778,25 @@ function runtimeArtifactResultData(stableName: string, value: unknown) {
  * produced.
  */
 function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, value: unknown): AgentSession {
+  // Record the real facade boundary even for a read-only operation that has
+  // no durable task. Keep it on the existing turn checkpoint, not a new store.
+  const observation = objectValue(value);
+  const observationCheckpoint = objectValue(observation.workflowCheckpoint);
+  if (toolName.startsWith("career.workflow.") && typeof observation.status === "string"
+    && typeof observationCheckpoint.kind === "string" && session.activeTurn) {
+    session = { ...session, activeTurn: { ...session.activeTurn, workflowCheckpoint: {
+      ...session.activeTurn.workflowCheckpoint,
+      facadeObservation: {
+        toolName, status: observation.status, kind: observationCheckpoint.kind,
+        stage: observation.workflowStage,
+        safeError: observation.safeError,
+        ...(observationCheckpoint.kind === "job_intake" && observationCheckpoint.jobId
+          ? { savedJobId: observationCheckpoint.jobId } : {}),
+        hasCompletedReceipt: Array.isArray(observation.receipts)
+          && observation.receipts.some(receipt => objectValue(receipt).status === "completed")
+      }
+    } } };
+  }
   if (toolName === "career.workflow.profile_intake_turn"
     && objectValue(objectValue(value).workflowCheckpoint).kind === "profile_intake_turn"
     && session.taskState?.workflowId !== "guided_profile_intake") {

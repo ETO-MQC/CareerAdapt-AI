@@ -1,0 +1,43 @@
+
+Running 1 test using 1 worker
+
+(node:85096) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  x  1 [chromium] › tests\e2e\ux012-business-recovery.spec.ts:5:5 › UX012 persisted rate-limit recovery preserves input and requires an explicit new request (7.3s)
+
+
+  1) [chromium] › tests\e2e\ux012-business-recovery.spec.ts:5:5 › UX012 persisted rate-limit recovery preserves input and requires an explicit new request 
+
+    Error: expect(locator).toHaveAttribute(expected) failed
+
+    Locator: getByRole('status', { name: '业务进度' })
+    Expected: "failed"
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toHaveAttribute" with timeout 5000ms
+      - waiting for getByRole('status', { name: '业务进度' })
+
+
+      30 |   await page.reload();
+      31 |   const status = page.getByRole("status", { name: "业务进度" });
+    > 32 |   await expect(status).toHaveAttribute("data-business-state", "failed");
+         |                        ^
+      33 |   await expect(status).toContainText("不会自动重试或切换模型");
+      34 |   await expect(page.getByText(text, { exact: true })).toBeVisible();
+      35 |   expect(fixture.runStarts).toHaveLength(0);
+        at E:\DEF\CareerAdapt-competition-5.1.8\tests\e2e\ux012-business-recovery.spec.ts:32:24
+
+    Error Context: docs\quality\ux-01.2-logs\browser-results\ux012-business-recovery-UX-44bd5-res-an-explicit-new-request-chromium\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    docs\quality\ux-01.2-logs\browser-results\ux012-business-recovery-UX-44bd5-res-an-explicit-new-request-chromium\trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace docs\quality\ux-01.2-logs\browser-results\ux012-business-recovery-UX-44bd5-res-an-explicit-new-request-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [chromium] › tests\e2e\ux012-business-recovery.spec.ts:5:5 › UX012 persisted rate-limit recovery preserves input and requires an explicit new request 

@@ -1,0 +1,12 @@
+{
+  "checked": 1027,
+  "sourceChangesSinceFinalBuild": [],
+  "productionChangesSinceFinalBuild": [],
+  "isolatedInputMismatchesExcludingGenerated": [],
+  "nextGeneratedExceptions": {
+    "next-env.d.ts": "Next rewrote route import to .next-ux012/types/routes.d.ts",
+    "tsconfig.json": "Next appended .next-ux012 types/dev types include globs; compiler options unchanged"
+  },
+  "lockfileEqual": true,
+  "result": "PASS"
+}

@@ -1,0 +1,128 @@
+{
+  "stage": "P5.1-UX-01.2",
+  "status": "PARTIAL",
+  "started": "2026-11-05",
+  "completedWorkDate": "2026-11-06",
+  "branch": "competition/5.1.8",
+  "baselineHead": "37c5542e0a86607455e8e2f38e2b39a27c3dbc0b",
+  "baselineWorkingTree": "clean",
+  "commit": "not committed",
+  "pushed": false,
+  "packaged": false,
+  "nextStageAuthorized": false,
+  "changes": [
+    "Durable tool terminal checkpoints before actionable UI",
+    "Foreground run/session/turn identity fencing",
+    "Known pending bridge receipts accepted after same Run completion without reviving Run",
+    "Failed tool evidence overrides unsupported model success including no TaskState",
+    "Facade observation on existing turn checkpoint supports read-only review",
+    "Derived compact business status and recovery guidance in existing conversation",
+    "Confirmed results retained on later runtime failure/cancellation"
+  ],
+  "audit": {
+    "uxAOriginalTrace": "ux-01.1-r-logs/ux-a-trace.zip",
+    "finding": "Both premature test read and real Host persistence visibility gap; reproduced before production fix",
+    "baselineReproduction": {
+      "exitCode": 1,
+      "passed": 1,
+      "failed": 1,
+      "log": "ux-01.2-logs/checkpoint-repro.log"
+    },
+    "uxABrowserRuns": 0,
+    "uxBBrowserRuns": 0,
+    "awardContractReopened": false,
+    "upstream": "ux-01.2-logs/upstream-sources.json",
+    "backgroundReview": "Existing Hermes forks not removed; no independent full background receipts/cost telemetry; no inferred free/zero-cost claims"
+  },
+  "verification": {
+    "baselineTypecheck": {
+      "exitCode": 0,
+      "log": "ux-01.2-logs/baseline-typecheck.log"
+    },
+    "baselineTests": {
+      "exitCode": 0,
+      "log": "ux-01.2-logs/baseline-tests.log"
+    },
+    "finalTests": {
+      "exitCode": 0,
+      "files": 12,
+      "tests": 113,
+      "skipped": 0,
+      "log": "ux-01.2-logs/final-tests-delivered.log",
+      "kind": "Unit/Integration/Component; fake-indexeddb and controlled model/runtime boundaries; not real Hermes/model qualification"
+    },
+    "typecheck": {
+      "exitCode": 0,
+      "command": "pnpm typecheck",
+      "log": "ux-01.2-logs/final-typecheck-delivered.log"
+    },
+    "eslint": {
+      "exitCode": 0,
+      "changedCodeAndTestFiles": 11,
+      "log": "ux-01.2-logs/final-eslint-delivered.log"
+    },
+    "build": {
+      "exitCode": 0,
+      "command": "CAREERAD_NEXT_DIST_DIR=.next-ux012 pnpm build",
+      "cwd": ".tmp/rp011-app",
+      "log": "ux-01.2-logs/final-production-build-accepted.log",
+      "inputs": "ux-01.2-logs/final-build-inputs.json",
+      "finalProductionSourceCheck": "ux-01.2-logs/post-build-source-check.json",
+      "warnings": "Two pdfjs-dist worker/serverExternalPackages warnings; build succeeds; not PDF validation",
+      "generatedConfigExceptions": {
+        "next-env.d.ts": "Next rewrote route import to .next-ux012/types/routes.d.ts",
+        "tsconfig.json": "Next appended .next-ux012 types/dev types include globs; compiler options unchanged"
+      }
+    },
+    "diffCheck": {
+      "exitCode": 0,
+      "command": "git diff --check",
+      "log": "ux-01.2-logs/final-diff-check.log"
+    },
+    "browser": {
+      "exitCode": 1,
+      "runs": 1,
+      "retries": 0,
+      "command": "PLAYWRIGHT_BASE_URL=http://127.0.0.1:3212 pnpm exec playwright test tests/e2e/ux012-business-recovery.spec.ts --workers=1 --retries=0 --trace=on --output=docs/quality/ux-01.2-logs/browser-results",
+      "log": "ux-01.2-logs/browser.log",
+      "trace": "ux-01.2-logs/browser-results/ux012-business-recovery-UX-44bd5-res-an-explicit-new-request-chromium/trace.zip",
+      "cause": "5000ms initial business-state locator expectation timed out; original context shows first-run setup gate; isVisible precondition read before gate rendered",
+      "preconditionCorrected": true,
+      "rerun": false,
+      "verifiedBusinessRecovery": false,
+      "validBeforeAfterScreenshots": false,
+      "kind": "Production page + controlled Hermes HTTP fixture; no real Hermes or Provider"
+    }
+  },
+  "coverage": {
+    "runNormal": "read-only real Facade -> Host terminal result",
+    "runFailed": "tool failure / Runtime controlled failure tests",
+    "runCancelled": "derived state and existing terminal contracts, no real Hermes cancellation run",
+    "runTimeout": "structured timeout category projection; no real Provider timeout run",
+    "awaitingInput": "unit projection",
+    "awaitingConfirmation": "confirmed composition/Host contracts",
+    "toolFailureWithSuccessNarration": "Host integration including late known tool result",
+    "repositoryFailure": "real composition confirmation path with injected Repository method failure then recovery; one branch/Revision",
+    "casConflict": "existing stale checkpoint/Profile composition contracts",
+    "duplicateConfirmation": "existing concurrent/repeated confirmation and one Revision assertions",
+    "oldRunLateResult": "Host identity and terminal quarantine integration",
+    "foregroundBackgroundIsolation": "foreign identity quarantine + old/background turn projection; independent Hermes background telemetry remains unavailable",
+    "provider429": "controlled Hermes runtime startRun called exactly once",
+    "userRecovery": "same confirmation recovery and retained source input verified in layers; browser recovery NOT VERIFIED"
+  },
+  "limitations": [
+    "New browser state/recovery acceptance incomplete after one timeout, no automatic rerun",
+    "UX-A remains independent PARTIAL, no browser authorization reused",
+    "No real Provider/API keys/real Hermes acceptance this round",
+    "No complete new actual PDF or all four workflows browser qualification",
+    "No UX-01.3 entry until current browser gap reviewed"
+  ],
+  "preservedBoundaries": [
+    "Hermes only production Runtime",
+    "WorkspaceRepository formal writes",
+    "Resume Schema v2",
+    "Confirmation/CAS/Revision/Fact Guard thresholds",
+    "Existing Skills/tools/Provider config",
+    "No new DB table or production dependency"
+  ]
+}

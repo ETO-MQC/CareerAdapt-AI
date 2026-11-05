@@ -1,0 +1,28 @@
+{
+  "source": "docs\\quality\\ux-01.1-r-logs\\ux-a-trace.zip",
+  "traceSummary": [
+    {
+      "trace": "test.trace",
+      "events": 317,
+      "errors": [
+        {
+          "type": "error",
+          "message": "TypeError: Cannot read properties of undefined (reading 'knownSlots')",
+          "stack": [
+            {
+              "file": "E:\\DEF\\CareerAdapt-competition-5.1.8\\.tmp\\rp011-app\\tests\\e2e\\hermes-p46h-integration.spec.ts",
+              "line": 177,
+              "column": 31
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "trace": "0-trace.trace",
+      "events": 777,
+      "errors": []
+    }
+  ],
+  "finding": "UI candidate visible before durable taskState; original TypeError preserved; no browser execution"
+}

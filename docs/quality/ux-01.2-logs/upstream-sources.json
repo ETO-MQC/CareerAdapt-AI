@@ -1,0 +1,104 @@
+{
+  "date": "2026-11-06",
+  "method": "GitHub connector immutable file reads; design comparison only, no copied source",
+  "sources": [
+    {
+      "repository": "langgenius/dify",
+      "commit": "e994c3ffe9482797df8546a921142868db4dc6ac",
+      "path": "LICENSE",
+      "blobSha": "329ee302875f292fdd11e12e830562d0be9ade1c",
+      "url": "https://github.com/langgenius/dify/blob/e994c3ffe9482797df8546a921142868db4dc6ac/LICENSE",
+      "verified": true
+    },
+    {
+      "repository": "langgenius/dify",
+      "commit": "e994c3ffe9482797df8546a921142868db4dc6ac",
+      "path": "api/core/app/apps/common/graph_runtime_state_support.py",
+      "blobSha": "8f2f56cd3d92fe81639f998fa95a541482855b61",
+      "url": "https://github.com/langgenius/dify/blob/e994c3ffe9482797df8546a921142868db4dc6ac/api/core/app/apps/common/graph_runtime_state_support.py",
+      "verified": true
+    },
+    {
+      "repository": "langgenius/dify",
+      "commit": "e994c3ffe9482797df8546a921142868db4dc6ac",
+      "path": "api/services/workflow_pause_service.py",
+      "blobSha": "056bd23b37719278935581fe67516a72848ee2ca",
+      "url": "https://github.com/langgenius/dify/blob/e994c3ffe9482797df8546a921142868db4dc6ac/api/services/workflow_pause_service.py",
+      "verified": true
+    },
+    {
+      "repository": "langgenius/dify",
+      "commit": "e994c3ffe9482797df8546a921142868db4dc6ac",
+      "path": "api/services/workflow_event_snapshot_service.py",
+      "blobSha": "75d7340866971d4dde223f24c7fb47a14df1bb79",
+      "url": "https://github.com/langgenius/dify/blob/e994c3ffe9482797df8546a921142868db4dc6ac/api/services/workflow_event_snapshot_service.py",
+      "verified": true
+    },
+    {
+      "repository": "LibreChat-AI/LibreChat",
+      "commit": "f4154b649efa37e1345ccc517a4d8d1ed2178c82",
+      "path": "LICENSE",
+      "blobSha": "5ee6463dee826517754e332444f0acb7b3d106a0",
+      "url": "https://github.com/LibreChat-AI/LibreChat/blob/f4154b649efa37e1345ccc517a4d8d1ed2178c82/LICENSE",
+      "verified": true
+    },
+    {
+      "repository": "LibreChat-AI/LibreChat",
+      "commit": "f4154b649efa37e1345ccc517a4d8d1ed2178c82",
+      "path": "client/src/hooks/SSE/abort.ts",
+      "blobSha": "df676d7eb5bd78636b3edfda12858c555ef5efc7",
+      "url": "https://github.com/LibreChat-AI/LibreChat/blob/f4154b649efa37e1345ccc517a4d8d1ed2178c82/client/src/hooks/SSE/abort.ts",
+      "verified": true
+    },
+    {
+      "repository": "LibreChat-AI/LibreChat",
+      "commit": "f4154b649efa37e1345ccc517a4d8d1ed2178c82",
+      "path": "client/src/hooks/SSE/final.ts",
+      "blobSha": "e4426eebf2dcc83acc572d2168a006ccbbd35f02",
+      "url": "https://github.com/LibreChat-AI/LibreChat/blob/f4154b649efa37e1345ccc517a4d8d1ed2178c82/client/src/hooks/SSE/final.ts",
+      "verified": true
+    },
+    {
+      "repository": "LibreChat-AI/LibreChat",
+      "commit": "f4154b649efa37e1345ccc517a4d8d1ed2178c82",
+      "path": "client/src/hooks/SSE/resumable.ts",
+      "blobSha": "230b032d3650834499f94555310749baa4f498a8",
+      "url": "https://github.com/LibreChat-AI/LibreChat/blob/f4154b649efa37e1345ccc517a4d8d1ed2178c82/client/src/hooks/SSE/resumable.ts",
+      "verified": true
+    },
+    {
+      "repository": "LibreChat-AI/LibreChat",
+      "commit": "f4154b649efa37e1345ccc517a4d8d1ed2178c82",
+      "path": "client/src/hooks/SSE/useContentHandler.ts",
+      "blobSha": "ec17432e9a5368107861b106688879432e322a91",
+      "url": "https://github.com/LibreChat-AI/LibreChat/blob/f4154b649efa37e1345ccc517a4d8d1ed2178c82/client/src/hooks/SSE/useContentHandler.ts",
+      "verified": true
+    },
+    {
+      "repository": "open-webui/open-webui",
+      "commit": "c38885a1a737da4968f157092f304f3b5481d0bf",
+      "path": "LICENSE",
+      "blobSha": "99f39e7feff29c93342877adad2d5c15e707444c",
+      "url": "https://github.com/open-webui/open-webui/blob/c38885a1a737da4968f157092f304f3b5481d0bf/LICENSE",
+      "verified": true
+    },
+    {
+      "repository": "open-webui/open-webui",
+      "commit": "c38885a1a737da4968f157092f304f3b5481d0bf",
+      "path": "backend/open_webui/tasks.py",
+      "url": "https://api.github.com/repos/open-webui/open-webui/contents/backend/open_webui/tasks.py?ref=c38885a1a737da4968f157092f304f3b5481d0bf",
+      "verified": true
+    },
+    {
+      "repository": "open-webui/open-webui",
+      "commit": "c38885a1a737da4968f157092f304f3b5481d0bf",
+      "path": "src/lib/components/chat/Chat.svelte",
+      "url": "https://api.github.com/repos/open-webui/open-webui/contents/src/lib/components/chat/Chat.svelte?ref=c38885a1a737da4968f157092f304f3b5481d0bf",
+      "verified": true
+    }
+  ],
+  "accessLimitations": [
+    "Direct Python HTTPS handshake timed out; browser API open unavailable; connector succeeded for pinned source files",
+    "Recursive LibreChat/Open WebUI inventories timed out; limited directory/file reads succeeded; no exhaustive repository audit"
+  ]
+}

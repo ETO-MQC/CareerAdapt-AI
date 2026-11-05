@@ -1,0 +1,30 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+ ❯ tests/integration/businessWorkflowRecovery.test.ts (5 tests | 1 failed) 126ms
+   × accepts only a known pending bridge receipt after model completion and corrects a false success 19ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/businessWorkflowRecovery.test.ts > accepts only a known pending bridge receipt after model completion and corrects a false success
+AssertionError: expected 'failed' to be 'partial' // Object.is equality
+
+Expected: "partial"
+Received: "failed"
+
+ ❯ tests/integration/businessWorkflowRecovery.test.ts:86:34
+     84|   expect(saved?.activeTurn?.status).toBe("failed");
+     85|   expect(saved?.messages.find(m => m.id === shell.assistantMessageId)?…
+     86|   expect(progress(saved!).state).toBe("partial");
+       |                                  ^
+     87|   const before = host.getSnapshot().activeSession;
+     88|   await host.applyRuntimeEvent({ ...event, type: "text_delta", delta: …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 passed (5)
+   Start at  23:59:51
+   Duration  4.79s (transform 2.58s, setup 167ms, import 3.26s, tests 126ms, environment 1.00s)
+

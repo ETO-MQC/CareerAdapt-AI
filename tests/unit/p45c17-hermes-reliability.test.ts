@@ -9,6 +9,16 @@ import { CareerToolGateway } from "@/agent/tools/CareerToolGateway";
 import { AgentToolRegistry } from "@/agent/tools/registry";
 
 describe("P4.5c.1.7 Hermes runtime reliability", () => {
+  it("stops after Provider 429 without an automatic second Run or model switch", async () => {
+    const startRun = vi.fn(async () => {
+      throw createHermesRunFailure({ code: "hermes_run_start_failed", message: "rate limited", httpStatus: 429, failureLayer: "provider" });
+    });
+    const runtime = new HermesCareerAgentRuntime({ transport: runsTransport({ startRun }), careerToolGateway: emptyGateway() });
+    await expect((async () => {
+      for await (const event of runtime.runTurn({ sessionId: "session", turnId: "429-turn", userMessage: "原始任务", pageContext: { query: {} } })) void event;
+    })()).rejects.toThrow();
+    expect(startRun).toHaveBeenCalledTimes(1);
+  });
   it("keeps one transient run_start failure in Hermes and never performs a semantic retry", async () => {
     let starts = 0;
     const transport = runsTransport({

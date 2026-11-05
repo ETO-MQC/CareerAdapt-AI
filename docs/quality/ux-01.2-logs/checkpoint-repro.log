@@ -1,0 +1,131 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+ ❯ tests/integration/ux011Host.test.ts (2 tests | 1 failed) 356ms
+   × projects a Hermes intake into a bound editable Host task and keeps Profile untouched until confirmation 173ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/ux011Host.test.ts > projects a Hermes intake into a bound editable Host task and keeps Profile untouched until confirmation
+AssertionError: expected undefined to deeply equal { …(13) }
+
+- Expected:
+{
+  "candidates": [
+    {
+      "canAccept": true,
+      "confidence": 0.58,
+      "fieldEvidence": [],
+      "id": "intake-fnv-db2c6cad-40-0",
+      "needsConfirmation": true,
+      "professionalText": "匿名大学 / 匿名大学计算机",
+      "reason": "有字段需要你确认",
+      "sectionType": "education",
+      "sourceBadge": "needs_confirmation",
+      "sourceQuote": "帮我整理资料库：就读匿名大学计算机专业。获得匿名竞赛三等奖。",
+      "sourceSpan": {
+        "end": 30,
+        "start": 0,
+      },
+      "status": "uncertain",
+      "structuredItem": {
+        "courses": [],
+        "current": false,
+        "customFields": [],
+        "description": undefined,
+        "highlights": [],
+        "honors": [],
+        "id": "intake-fnv-db2c6cad-40-0",
+        "major": "匿名大学计算机",
+        "school": "匿名大学",
+        "sectionType": "education",
+      },
+      "uncertainFields": [],
+    },
+    {
+      "canAccept": true,
+      "confidence": 0.58,
+      "fieldEvidence": [
+        {
+          "confidence": 0.9,
+          "field": "name",
+          "needsConfirmation": false,
+          "sourceQuote": "获得匿名竞赛三等奖。",
+          "support": "explicit",
+        },
+      ],
+      "id": "intake-fnv-23e52a8f-16-1",
+      "needsConfirmation": true,
+      "professionalText": "匿名竞赛三等奖",
+      "reason": "有字段需要你确认",
+      "sectionType": "awards",
+      "sourceBadge": "needs_confirmation",
+      "sourceQuote": "获得匿名竞赛三等奖。",
+      "sourceSpan": {
+        "end": 30,
+        "start": 20,
+      },
+      "status": "uncertain",
+      "structuredItem": {
+        "awardedAt": undefined,
+        "customFields": [],
+        "description": undefined,
+        "id": "intake-fnv-23e52a8f-16-1",
+        "issuer": undefined,
+        "name": "匿名竞赛三等奖",
+        "sectionType": "awards",
+      },
+      "uncertainFields": [],
+    },
+  ],
+  "draftRevision": 0,
+  "extractionStatus": "partial",
+  "followUpQuestion": "关于“匿名竞赛三等奖”，由哪个学校、机构或平台颁发？",
+  "followUpQuestions": [
+    "关于“匿名竞赛三等奖”，由哪个学校、机构或平台颁发？",
+  ],
+  "importId": "conversation-intake-fnv-d7989108-105fnv-",
+  "phase": "clarifying",
+  "providerStatus": "available",
+  "reviewProgress": {
+    "accepted": 0,
+    "ignored": 0,
+    "proposed": 2,
+    "rejected": 0,
+    "reviewed": 0,
+    "total": 2,
+    "uncertain": 2,
+    "valid": 2,
+  },
+  "safeDiagnostics": {
+    "candidateCount": 2,
+    "extractionStatus": "partial",
+    "processingStatus": "partial",
+    "quarantinedCount": 0,
+    "quarantinedErrorCodes": [],
+    "quarantinedFields": [],
+  },
+  "sourceContentHash": "fnv-82bd0cf5-30",
+  "sourceMessageId": "agent-user-f105f482-6769-4884-bf54-99ac0c3fdc39",
+  "sourceTurnId": "runtime-turn-adfd11a2-5f4e-4008-811e-ae46f95b5b82",
+}
+
++ Received:
+undefined
+
+ ❯ tests/integration/ux011Host.test.ts:52:74
+     50|   const duringRun = await persistence.get(initial.id);
+     51|   expect(duringRun?.activeTurn?.status).toBe("running");
+     52|   expect(duringRun?.taskState?.knownSlots.profileIntakeReviewProjectio…
+       |                                                                          ^
+     53|     host.getSnapshot().activeSession?.taskState?.knownSlots.profileInt…
+     54|   );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  23:45:19
+   Duration  4.50s (transform 2.32s, setup 148ms, import 2.90s, tests 356ms, environment 874ms)
+

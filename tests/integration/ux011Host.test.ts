@@ -45,6 +45,14 @@ it("projects a Hermes intake into a bound editable Host task and keeps Profile u
   expect(result.ok).toBe(true);
   await host.applyRuntimeEvent({ type: "tool_call_completed", sessionId: initial.id, turnId: shell.turnId,
     timestamp: now, toolName: "career.workflow.profile_intake_turn", operationId: "ux-capture", data: { result } }, shell.assistantMessageId);
+  // A review card must never precede its durable business checkpoint, even
+  // while Hermes is still generating its final narration.
+  const duringRun = await persistence.get(initial.id);
+  expect(duringRun?.activeTurn?.status).toBe("running");
+  expect(duringRun?.taskState?.knownSlots.profileIntakeReviewProjection).toEqual(
+    host.getSnapshot().activeSession?.taskState?.knownSlots.profileIntakeReviewProjection
+  );
+  expect(duringRun?.taskState?.workflowId).toBe("guided_profile_intake");
   let session = await host.applyRuntimeEvent({ type: "turn_completed", sessionId: initial.id, turnId: shell.turnId,
     timestamp: now, message: "候选已准备，请核对。" }, shell.assistantMessageId);
   expect(session?.taskState).toMatchObject({ workflowId: "guided_profile_intake", completionStatus: "waiting_for_user",

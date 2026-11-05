@@ -1,5 +1,7 @@
 "use client";
 
+import { projectBusinessWorkflowProgress } from "@/agent/runtime/businessWorkflowProgress";
+
 import { Pause, Play, WifiOff } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
@@ -1346,6 +1348,7 @@ export function AgentWorkspace() {
                 confirmationBusy={running}
                 profileIntakeProjection={intakeProjection}
                 tailoringTaskState={session.taskState}
+                businessProgress={projectBusinessWorkflowProgress(session)}
                  onArtifactAction={dispatchArtifactAction}
                  onConfirmation={(confirmed) => void (async () => {
                    const next = await host.runUserEvent(

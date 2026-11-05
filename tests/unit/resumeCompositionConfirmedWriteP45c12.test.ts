@@ -33,6 +33,25 @@ afterEach(async () => {
 });
 
 describe("P4.5c.1.2 confirmed composition write boundary", () => {
+  it("preserves the proposal on Repository failure and recovers the same confirmation without duplicate Revisions", async () => {
+    const fixture = await createFixture();
+    const host = fixture.createHost("session-idempotent");
+    const session = fixture.sessions.get("session-idempotent")!;
+    const pageContext = fixture.pageContext(session.id);
+    const prepared = await host.prepareRuntimeUserEvent({ session, event: directGenerateEvent(), pageContext });
+    const command = prepared.event as ConfirmResumeCompositionCommand;
+    const write = vi.spyOn(fixture.repository, "ensureGeneralResumeFromProfile").mockRejectedValueOnce(new Error("simulated Repository write failure"));
+    const failed = await host.executeConfirmedResumeComposition({ session: prepared.session, command, pageContext, turnId: prepared.turnId });
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(failed?.taskState?.completionStatus).not.toBe("completed");
+    expect(failed?.taskState?.knownSlots.resumeCompositionCheckpoint).toMatchObject({ checkpointId: fixture.checkpoint.checkpointId });
+    expect(await fixture.repository.listResumeBranches(fixture.profile.id)).toHaveLength(0);
+    const recovered = await host.executeConfirmedResumeComposition({ session: failed!, command, pageContext, turnId: prepared.turnId });
+    expect(recovered?.taskState?.completionStatus).toBe("completed");
+    const branches = await fixture.repository.listResumeBranches(fixture.profile.id);
+    expect(branches).toHaveLength(1);
+    expect(await fixture.repository.listResumeRevisions(branches[0].id)).toHaveLength(1);
+  });
   it("binds the active Career profile before a natural-language compose task starts", async () => {
     const fixture = await createFixture();
     const host = fixture.createHost("session-natural");

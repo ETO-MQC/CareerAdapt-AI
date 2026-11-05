@@ -1,5 +1,8 @@
 "use client";
 
+import { AgentBusinessProgress } from "./AgentBusinessProgress";
+import type { BusinessWorkflowProgress } from "@/agent/runtime/businessWorkflowProgress";
+
 import type { AgentConfirmation, AgentMessage, AgentTaskState } from "@/agent/contracts/agentSession";
 import type { AgentOption } from "@/agent/contracts/agentActions";
 import type { AgentArtifactAction } from "@/agent/contracts/agentActions";
@@ -47,6 +50,7 @@ export function AgentConversation({
   profileIntakeProjection,
   onArtifactAction,
   tailoringTaskState,
+  businessProgress,
   children
 }: {
   messages: AgentMessage[];
@@ -64,6 +68,7 @@ export function AgentConversation({
   profileIntakeProjection?: ProfileIntakeReviewProjection;
   onArtifactAction?(action: AgentArtifactAction): Promise<unknown> | void;
   tailoringTaskState?: AgentTaskState;
+  businessProgress?: BusinessWorkflowProgress;
   children?: React.ReactNode;
 }) {
   // Keep the safe assistant failure in the transcript so a failed turn never
@@ -131,6 +136,7 @@ export function AgentConversation({
       setShowLatest(!follows);
     }}>
       <div className="agent-conversation-inner">
+        <AgentBusinessProgress progress={businessProgress} />
         {conversationItems.map((item) => {
           if (item.type === "activity") {
             return <AgentActivityGroup key={item.id} identityKey={item.id} messages={item.messages} />;
