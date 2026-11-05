@@ -1,0 +1,42 @@
+{
+  "provider": "local deterministic mock",
+  "report": "core02-integration-1793857454639-playwright.json",
+  "results": [
+    {
+      "title": "CASE D — building from zero starts Profile Intake through a facade",
+      "status": "passed",
+      "duration": 30027,
+      "attachments": [
+        "intake-case-gate-receipt.json"
+      ]
+    },
+    {
+      "title": "CASE L Core-02 — saved JD, Fit, follow-up tailoring, confirmed isolated revision and PDF",
+      "status": "passed",
+      "duration": 43393,
+      "attachments": [
+        "tailoring-jd03-evidence-review.png",
+        "tailoring-core02-tool-trace.json",
+        "tailoring-jd03-confirmed-a4.png",
+        "tailoring-case-gate-receipt.json",
+        "tailoring-closeout-provider.json",
+        "tailoring-closeout-transport.json",
+        "tailoring-closeout-agentSessions.json",
+        "tailoring-closeout-profiles.json",
+        "tailoring-closeout-resumeBranches.json",
+        "tailoring-closeout-jobDescriptions.json",
+        "tailoring-closeout-appMeta.json",
+        "tailoring-host-confirmation-receipt.json"
+      ]
+    },
+    {
+      "title": "RESUME01 real Hermes review-only then explicit confirmed improvement isolates Profile",
+      "status": "passed",
+      "duration": 20008,
+      "attachments": [
+        "review-review-only.png",
+        "review-confirmed-improvement.png"
+      ]
+    }
+  ]
+}

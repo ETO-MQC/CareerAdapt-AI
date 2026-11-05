@@ -1,0 +1,38 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+ ❯ tests/unit/rp011ProfileRouting.test.ts (3 tests | 2 failed) 15ms
+   × binds an explicit existing-library intake to the formal workflow: 帮我整理资料库。我在课程项目中用 Excel 合并三份数据，完成清洗并提交核对报告。 10ms
+   × binds an explicit existing-library intake to the formal workflow: 完善我的个人资料库：我有一段数据清洗项目经历。 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/rp011ProfileRouting.test.ts > binds an explicit existing-library intake to the formal workflow: 帮我整理资料库。我在课程项目中用 Excel 合并三份数据，完成清洗并提交核对报告。
+ FAIL  tests/unit/rp011ProfileRouting.test.ts > binds an explicit existing-library intake to the formal workflow: 完善我的个人资料库：我有一段数据清洗项目经历。
+AssertionError: expected undefined to match object { goal: 'profile_intake', …(1) }
+
+- Expected:
+{
+  "goal": "profile_intake",
+  "workflowId": "guided_profile_intake",
+}
+
++ Received:
+undefined
+
+ ❯ tests/unit/rp011ProfileRouting.test.ts:7:59
+      5| const taskState = AgentTaskStateSchema.parse({ rootGoal: 'conversation…
+      6| it.each(['帮我整理资料库。我在课程项目中用 Excel 合并三份数据，完成清洗并提交核对报告。', '完善我的个人资料库：我有一段…
+      7|   expect(classifyTurnIntent({ text, taskState }).newTask).toMatchObjec…
+       |                                                           ^
+      8| });
+      9| it('keeps a library read distinct from an intake request', () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 1 passed (3)
+   Start at  13:42:36
+   Duration  3.05s (transform 820ms, setup 251ms, import 1.12s, tests 15ms, environment 1.38s)
+

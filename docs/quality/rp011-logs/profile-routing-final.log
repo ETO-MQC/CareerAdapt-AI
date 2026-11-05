@@ -1,0 +1,9 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+
+ Test Files  3 passed (3)
+      Tests  12 passed (12)
+   Start at  13:42:54
+   Duration  5.25s (transform 4.55s, setup 922ms, import 6.30s, tests 184ms, environment 5.15s)
+

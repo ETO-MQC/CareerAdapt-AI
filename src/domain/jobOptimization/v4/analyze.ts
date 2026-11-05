@@ -59,7 +59,7 @@ const TECH_TERMS = [
   "AI Coding", "Coding Agent", "Vibe Coding", "AI Agent", "复杂多轮指令", "复杂任务规划", "模型评测",
   "输出质量评估", "逻辑缺陷识别", "任务拆解", "回答纠错", "搜索任务", "Prompt Engineering", "RAG",
   "Verifier", "Benchmark", "Badcase", "Cursor", "Claude Code", "Codex", "Windsurf", "Playwright", "Vitest",
-  "JavaScript", "Java", "Spring Boot", "TypeScript", "SQL", "Go", "Python", "FastAPI", "GitHub", "reward hacking", "long context", "multi-file"
+  "JavaScript", "Java", "Spring Boot", "TypeScript", "SQL", "Go", "Python", "R", "FastAPI", "GitHub", "reward hacking", "long context", "multi-file"
 ];
 
 export type ReconciledJdSemanticLedger = {

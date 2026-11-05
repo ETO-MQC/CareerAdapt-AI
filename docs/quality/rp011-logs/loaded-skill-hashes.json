@@ -1,0 +1,44 @@
+[
+  {
+    "name": "candidate-profile-interview",
+    "runId": "run_f427ffb8affd4d629d22468e58c49fa9",
+    "sourceSha256": "615e75fa503a4136e35882b9d58b54b57ed1e6a97689f2dabe3cf54756331af8",
+    "loadedSha256": "615e75fa503a4136e35882b9d58b54b57ed1e6a97689f2dabe3cf54756331af8",
+    "status": "PASS"
+  },
+  {
+    "name": "career-story-mining",
+    "runId": "run_2c05460674cd41ddb4755a1102b91411",
+    "sourceSha256": "03a9ea1a8ac24b27db7203f84a9cf763ebaae7b75421e4728dc3a0c4c4401abf",
+    "loadedSha256": "03a9ea1a8ac24b27db7203f84a9cf763ebaae7b75421e4728dc3a0c4c4401abf",
+    "status": "PASS"
+  },
+  {
+    "name": "job-fit-analysis",
+    "runId": "run_20f34cc08ba14957be8f0ec7794ff95e",
+    "sourceSha256": "ce7b5a1e58331756b807e0b6862e662613f5e1d2eed06190528b0880054dceb9",
+    "loadedSha256": "ce7b5a1e58331756b807e0b6862e662613f5e1d2eed06190528b0880054dceb9",
+    "status": "PASS"
+  },
+  {
+    "name": "resume-composition",
+    "runId": "run_9ed15e0165df47e3a4d9906ec93caf36",
+    "sourceSha256": "9d5e104b128e9cace070c396cfbe44eade5ae7c8cf3ccfd1975a913c19216e50",
+    "loadedSha256": "9d5e104b128e9cace070c396cfbe44eade5ae7c8cf3ccfd1975a913c19216e50",
+    "status": "PASS"
+  },
+  {
+    "name": "resume-review",
+    "runId": "run_b033c281a451451bb11eb09155e4c2c7",
+    "sourceSha256": "3c97785e3f7edc27194eb56454eb8c0cf2f5e9ed1079cebf65df844fa75fb83c",
+    "loadedSha256": "3c97785e3f7edc27194eb56454eb8c0cf2f5e9ed1079cebf65df844fa75fb83c",
+    "status": "PASS"
+  },
+  {
+    "name": "resume-tailoring",
+    "runId": "run_4536f195eb8645a9af904a43eaca2b93",
+    "sourceSha256": "09c4fd2e06dae50b318d3f3e8575172b883a8fd15d53c26724f89ff95e689eec",
+    "loadedSha256": "09c4fd2e06dae50b318d3f3e8575172b883a8fd15d53c26724f89ff95e689eec",
+    "status": "PASS"
+  }
+]

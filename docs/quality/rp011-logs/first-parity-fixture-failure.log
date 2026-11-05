@@ -1,0 +1,4 @@
+Transcribed from initial tool output (not a rerun):
+Initial parity test ran while preflight implementation was being edited: 1 passed / 1 failed.
+Error: RP01 Skill inventory mismatch: ATTRIBUTIONS.md, README.md, candidate-profile-interview, career-story-mining, job-fit-analysis, resume-composition, resume-review, resume-tailoring
+Correction: explicitly allow and hash root README.md and ATTRIBUTIONS.md; fixtures now copy all runtime files and aggregate manifest. Final parity: 6/6 PASS.

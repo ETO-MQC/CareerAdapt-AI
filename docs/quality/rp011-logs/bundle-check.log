@@ -1,0 +1,6 @@
+
+> careeradapt-ai@0.9.3-rc.2 hermes:bundle-check E:\DEF\CareerAdapt-competition-5.1.8
+> node scripts/hermes-bundle-check.mjs
+
+[Hermes bundle-check] PASS root=E:\DEF\CareerAdapt-competition-5.1.8\.electron-build\hermes-runtime-rp011
+[Hermes bundle-check] version=0.19.0 commit=eb52760564db patch=careeradapt-api-toolsets-selection-amd-efficiency-v4

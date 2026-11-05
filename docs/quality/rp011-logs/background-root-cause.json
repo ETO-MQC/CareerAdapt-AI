@@ -1,0 +1,21 @@
+{
+  "status": "PASS",
+  "originalLogUnchanged": true,
+  "matchingRequestSequences": [
+    51,
+    52,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    69
+  ],
+  "mechanism": "agent.turn_finalizer -> AIAgent._spawn_background_review -> daemon bg-review; not periodic agent.curator",
+  "maxIterations": 16,
+  "inheritMainProvider": true,
+  "productionConfigChanged": false,
+  "standaloneProbeExcludesBackground": true
+}

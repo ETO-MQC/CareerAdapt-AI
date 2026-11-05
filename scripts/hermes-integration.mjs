@@ -6,6 +6,7 @@ import { spawn, execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 import companion from "../electron/hermesCompanion.js";
+import { assertRp01RuntimeParity } from "./rp01-preflight.mjs";
 import { startFakeOpenAiProvider } from "../tests/support/fake-openai-compatible-provider.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -22,13 +23,14 @@ if (!isCoreBehavior && !isCoreMultiturn && !isCareerAgentEval && !isCareerAgentR
   throw new Error(`unknown Hermes integration suite: ${suite}`);
 }
 const bundleRoot = path.resolve(process.env.HERMES_RUNTIME_ROOT?.trim() || path.join(projectRoot, ".electron-build", "hermes-runtime-v4"));
+assertRp01RuntimeParity(projectRoot, bundleRoot);
 const appPort = await companion.findAvailablePort({ host: "127.0.0.1", preferredPort: isConfigR1 ? 3315 : 3010, maxAttempts: 100 });
 if (!appPort) throw new Error("no free port for hermetic CareerAdapt integration");
 const runtimePort = await companion.findAvailablePort({ host: "127.0.0.1", preferredPort: isConfigR1 ? 29742 : 19742, reservedPorts: [appPort], maxAttempts: 100 });
 if (!runtimePort) throw new Error("no free port for hermetic Hermes integration");
 const provider = isCareerAgentReal
   ? undefined
-  : await startFakeOpenAiProvider({ mode: isCareerAgentEval ? "career-agent-eval" : "integration", ...(isConfigR1 ? { delayMs: 2_000 } : {}), ...(isSlowProvider ? { delayScheduleMs: process.env.P518B_PREFLIGHT === "1" ? [8000, 5000] : [190000, 5000] } : {}) });
+  : await startFakeOpenAiProvider({ mode: isCareerAgentEval ? "career-agent-eval" : "integration", routeSkills: process.env.RP011_VERIFY_SKILL_ROUTES === "1", ...(isConfigR1 ? { delayMs: 2_000 } : {}), ...(isSlowProvider ? { delayScheduleMs: process.env.P518B_PREFLIGHT === "1" ? [8000, 5000] : [190000, 5000] } : {}) });
 const realProviderBaseUrl = isCareerAgentReal
   ? (process.env.CAREER_AGENT_REAL_BASE_URL || process.env.HERMES_BASE_URL || process.env.AI_BASE_URL || "").trim()
   : undefined;

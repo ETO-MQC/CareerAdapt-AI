@@ -1,0 +1,5 @@
+{
+  "checked": 494,
+  "mismatches": [],
+  "isolatedConfig": "turbopack.root=process.cwd(); Next-generated type paths; CLI NODE_PATH and internal dependency aliases only, no dependency install"
+}

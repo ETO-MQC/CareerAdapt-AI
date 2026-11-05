@@ -1,0 +1,247 @@
+[
+  {
+    "id": "branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+    "createdAt": "2026-11-05T05:44:57.348Z",
+    "updatedAt": "2026-11-05T05:44:57.348Z",
+    "schemaVersion": "resume-branch-v2",
+    "branchPurpose": "general",
+    "profileId": "profile-1-Kb8c0PH8",
+    "name": "通用简历",
+    "sourceProfileVersion": 1,
+    "sourceImportId": "resume-import-31pC5_ZnKT",
+    "sourceDraftRevision": 0,
+    "matcherVersion": "resume-import.pipeline.v2.resume-import.local-rules.v2.structured-json+resume-import.cleaner.v1+resume-import.cleaner.v1",
+    "sourceMatchSetHash": "b4f4fa73095c8bb7a997969928fcca21474ae6edad7dc88dea2252d39a3e7ba1",
+    "requirementMatchIds": [],
+    "revision": 0,
+    "currentRevisionId": "resume-revision-fnv-36b69ab7-100",
+    "lifecycleStatus": "active",
+    "migrationStatus": "verified",
+    "syncStatusCache": {
+      "status": "in_sync",
+      "sourceProfileVersion": 1,
+      "currentProfileVersion": 1,
+      "invalidFactRefs": [],
+      "checkedAt": "2026-11-05T05:44:57.348Z",
+      "message": "Branch is in sync with its source profile and job versions."
+    },
+    "resumeBasics": {
+      "customFields": [],
+      "name": "Core 候选人",
+      "targetRole": "",
+      "email": "core@example.org",
+      "phone": "",
+      "location": "",
+      "summary": "",
+      "links": []
+    },
+    "contentItems": [
+      {
+        "id": "branch-item-import-core-project",
+        "itemType": "experience",
+        "source": "resume_import",
+        "sourceSectionId": "project",
+        "text": "AI 应用项目 | 项目成员\n2025-01 - 2025-06\n参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+        "originalText": "0\ncore-project\nproject\nAI 应用项目\n项目成员\n2025-01\n2025-06\nfalse\n参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+        "order": 0,
+        "visible": true,
+        "requirementIds": [],
+        "sourceSuggestionIds": [],
+        "factRefs": [
+          {
+            "type": "experience_fact",
+            "experienceId": "exp-1ca7_0kIs-",
+            "factId": "fact-import-0Ozi9QqvVG"
+          }
+        ],
+        "guardMode": "rule_verified",
+        "guardStatus": "pass",
+        "guardRiskLevel": "low",
+        "guardFindings": [],
+        "guardedAt": "2026-11-05T05:44:57.348Z",
+        "guardVersion": "resume-import.pipeline.v2.resume-import.local-rules.v2.structured-json+resume-import.cleaner.v1+resume-import.cleaner.v1"
+      }
+    ],
+    "structuredContentItems": [
+      {
+        "id": "branch-item-import-core-project",
+        "schemaVersion": "resume-content-item-v2",
+        "data": {
+          "id": "core-project",
+          "customFields": [],
+          "sectionType": "project",
+          "title": "AI 应用项目",
+          "role": "项目成员",
+          "startDate": "2025-01",
+          "endDate": "2025-06",
+          "current": false,
+          "tools": [],
+          "description": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+          "highlights": [
+            "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+          ],
+          "outcomes": []
+        },
+        "factRefs": [
+          {
+            "type": "experience_fact",
+            "experienceId": "exp-1ca7_0kIs-",
+            "factId": "fact-import-0Ozi9QqvVG"
+          }
+        ],
+        "source": "resume_import",
+        "order": 0,
+        "visible": true,
+        "guardMode": "rule_verified",
+        "guardStatus": "pass",
+        "guardFindings": [],
+        "legacyTextProjection": "AI 应用项目 | 项目成员\n2025-01 - 2025-06\n参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+        "sourceBlockIds": [
+          "sections[0].order",
+          "sections[0].items[0].id",
+          "sections[0].items[0].sectionType",
+          "sections[0].items[0].title",
+          "sections[0].items[0].role",
+          "sections[0].items[0].startDate",
+          "sections[0].items[0].endDate",
+          "sections[0].items[0].current",
+          "sections[0].items[0].description",
+          "sections[0].items[0].highlights[0]"
+        ],
+        "sourceRanges": [],
+        "sourceExcerpt": "0\ncore-project\nproject\nAI 应用项目\n项目成员\n2025-01\n2025-06\nfalse\n参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+        "mappingTrace": []
+      }
+    ],
+    "tailoringAppliedCount": 0
+  },
+  {
+    "id": "branch-profile-1-Kb8c0PH8-job-8XezEygORM-fnv-68cc51fa-110",
+    "createdAt": "2026-11-05T05:45:26.430Z",
+    "updatedAt": "2026-11-05T05:45:26.430Z",
+    "schemaVersion": "resume-branch-v2",
+    "branchPurpose": "job_specific",
+    "profileId": "profile-1-Kb8c0PH8",
+    "jobId": "job-8XezEygORM",
+    "name": "通用简历 · 数据分析实习生 CORE-JD",
+    "sourceProfileVersion": 1,
+    "sourceJobVersion": "2026-11-05T05:45:08.844Z",
+    "sourceImportId": "resume-import-31pC5_ZnKT",
+    "sourceBranchId": "branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+    "sourceRevisionId": "resume-revision-fnv-36b69ab7-100",
+    "derivedAt": "2026-11-05T05:45:26.430Z",
+    "sourceDraftRevision": 0,
+    "matcherVersion": "evidence-matcher.v1",
+    "sourceMatchSetHash": "fnv-b3cc7fa5-978",
+    "requirementMatchIds": [],
+    "revision": 1,
+    "currentRevisionId": "resume-revision-fnv-2214e050-203",
+    "lifecycleStatus": "active",
+    "migrationStatus": "verified",
+    "syncStatusCache": {
+      "status": "job_updated",
+      "sourceProfileVersion": 1,
+      "currentProfileVersion": 1,
+      "sourceJobVersion": "2026-11-05T05:45:08.844Z",
+      "currentJobVersion": "2026-11-05T05:45:08.844Z:fnv-3bd50a99-6690",
+      "invalidFactRefs": [],
+      "checkedAt": "2026-11-05T05:45:26.430Z",
+      "message": "Job description has updates. Branch content was not automatically changed."
+    },
+    "resumeBasics": {
+      "customFields": [],
+      "name": "Core 候选人",
+      "targetRole": "数据分析实习生 CORE-JD",
+      "email": "core@example.org",
+      "phone": "",
+      "location": "",
+      "summary": "",
+      "links": []
+    },
+    "contentItems": [
+      {
+        "id": "branch-item-import-core-project",
+        "itemType": "experience",
+        "source": "adaptation_draft",
+        "sourceSectionId": "project",
+        "text": "参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与需求梳理、原型设计和功能验收等 AI 应用项目工作。",
+        "originalText": "0\ncore-project\nproject\nAI 应用项目\n项目成员\n2025-01\n2025-06\nfalse\n参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+        "order": 0,
+        "visible": true,
+        "requirementIds": [
+          "jrv4-fnv-1c715d81-23",
+          "jrv4-fnv-7bf14856-23",
+          "jrv4-fnv-43a43373-23"
+        ],
+        "sourceSuggestionIds": [
+          "tailoring-diff-artifact-tailoring-submit-agent-session-Bz1XjE6KtCGm-tailoring-session-fnv-1f961958-29-2-fnv-4278683f-92-apply-0"
+        ],
+        "factRefs": [
+          {
+            "type": "experience_fact",
+            "experienceId": "exp-1ca7_0kIs-",
+            "factId": "fact-import-0Ozi9QqvVG"
+          }
+        ],
+        "guardMode": "rule_verified",
+        "guardStatus": "pass",
+        "guardRiskLevel": "low",
+        "guardFindings": [],
+        "guardedAt": "2026-11-05T05:45:26.430Z",
+        "guardVersion": "tailoring-field-patch-v1"
+      }
+    ],
+    "structuredContentItems": [
+      {
+        "id": "branch-item-import-core-project",
+        "schemaVersion": "resume-content-item-v2",
+        "data": {
+          "id": "core-project",
+          "customFields": [],
+          "sectionType": "project",
+          "title": "AI 应用项目",
+          "role": "项目成员",
+          "startDate": "2025-01",
+          "endDate": "2025-06",
+          "current": false,
+          "tools": [],
+          "description": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+          "highlights": [
+            "参与需求梳理、原型设计和功能验收等 AI 应用项目工作。"
+          ],
+          "outcomes": []
+        },
+        "factRefs": [
+          {
+            "type": "experience_fact",
+            "experienceId": "exp-1ca7_0kIs-",
+            "factId": "fact-import-0Ozi9QqvVG"
+          }
+        ],
+        "source": "adaptation_draft",
+        "order": 0,
+        "visible": true,
+        "guardMode": "rule_verified",
+        "guardStatus": "pass",
+        "guardFindings": [],
+        "legacyTextProjection": "参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与需求梳理、原型设计和功能验收等 AI 应用项目工作。",
+        "sourceBlockIds": [
+          "sections[0].order",
+          "sections[0].items[0].id",
+          "sections[0].items[0].sectionType",
+          "sections[0].items[0].title",
+          "sections[0].items[0].role",
+          "sections[0].items[0].startDate",
+          "sections[0].items[0].endDate",
+          "sections[0].items[0].current",
+          "sections[0].items[0].description",
+          "sections[0].items[0].highlights[0]"
+        ],
+        "sourceRanges": [],
+        "sourceExcerpt": "0\ncore-project\nproject\nAI 应用项目\n项目成员\n2025-01\n2025-06\nfalse\n参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+        "mappingTrace": []
+      }
+    ],
+    "tailoringAppliedCount": 1
+  }
+]

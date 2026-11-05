@@ -1,0 +1,395 @@
+{
+  "task": "P5.1-RP-01.1",
+  "date": "2026-11-05",
+  "status": "PARTIAL",
+  "baseline": {
+    "branch": "competition/5.1.8",
+    "commit": "3d4c6eda559e723955842fb8cf4c04be8e0db85e",
+    "clean": true
+  },
+  "constraints": {
+    "realProviderRequests": 0,
+    "apiKeysRead": false,
+    "upstreamRequests": 0,
+    "newProductionDependencies": false,
+    "runtimeLockChanged": false,
+    "upstreamOrPatchChanged": false,
+    "skillTextsChanged": false,
+    "schemaOrGuardOrCasChanged": false,
+    "commit": false,
+    "push": false,
+    "electronPackaging": false
+  },
+  "layers": {
+    "bundleParity": "PASS",
+    "hermesRuntime": "PASS",
+    "careerAdaptMcp": "PASS",
+    "skillRouting": "PARTIAL",
+    "toolRouting": "PASS",
+    "workflowCompletion": "PARTIAL",
+    "repositorySafety": "PASS",
+    "uiState": "PARTIAL",
+    "pdfExport": "PASS",
+    "naturalModelSemantics": "UNKNOWN",
+    "backgroundCause": "PASS",
+    "loopRecovery": "PARTIAL",
+    "cancelRecovery": "PARTIAL"
+  },
+  "staging": {
+    "root": ".electron-build/hermes-runtime-rp011",
+    "manifest": {
+      "format": 2,
+      "runtime": "hermes-agent",
+      "hermesVersion": "0.19.0",
+      "hermesGitCommit": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+      "hermesSourceTreeHash": "eb32a7abb5b92a27a25c89de3d4f0698dc8684abb84837a9c6171a5851598ab8",
+      "pythonVersion": "3.11.13",
+      "sitePackagesFingerprint": "962cc1380c454dbba3213991523454642698609fa01e14b52067d5dec47f9e59",
+      "careerAdaptPatchVersion": "careeradapt-api-toolsets-selection-amd-efficiency-v4",
+      "careerAdaptPatchHash": "832539ff6e36dcf49543d6afb6df1cbdc5ac57b0ab3404b7cd32f9ffef967f4e",
+      "careerAdaptReasoningPatchHashes": {
+        "agent/transports/chat_completions.py": "b3ee2105d590f17de5a4b5c887fdd48122b9f2db93c2c5dcde3c8285ea453802",
+        "agent/chat_completion_helpers.py": "ea0975177f6631422ec1f0df3d10d6c59815dc449d2e5c080c1431a4cb4ae9eb"
+      },
+      "careerAdaptEfficiencyPatchHashes": {
+        "hermes_cli/timeouts.py": "9605d3f5490e08d44fce8e8ff390e896802a18f121f99e0f68f330d8beb3b9f2",
+        "tools/mcp_tool.py": "60af27c32fc78e1959fd4b436de67e1066dbebf195373cb0c1784be1d1b14cf2"
+      },
+      "careerSkillsHash": "7cb8371bcc17348a9efa63a4e395922a35f8fff5015c22a1885c32ee736723bb",
+      "sourceRoot": "source",
+      "pythonRoot": "python",
+      "sitePackagesRoot": "site-packages",
+      "bundledSkillsRoot": "skills",
+      "providerBaseUrl": "",
+      "model": "",
+      "generatedAt": "2026-11-05T05:22:41.824Z"
+    },
+    "parity": [
+      {
+        "name": "candidate-profile-interview",
+        "sourceSha256": "111ce288e96df7931c67ff5e7e0795de6dd610907d4091d0faad9b3b2cec8773",
+        "bundledSha256": "111ce288e96df7931c67ff5e7e0795de6dd610907d4091d0faad9b3b2cec8773"
+      },
+      {
+        "name": "career-story-mining",
+        "sourceSha256": "0ded284b46791560079825b8e0bd358026474856d62887a089c8f75a7d6b3cbc",
+        "bundledSha256": "0ded284b46791560079825b8e0bd358026474856d62887a089c8f75a7d6b3cbc"
+      },
+      {
+        "name": "job-fit-analysis",
+        "sourceSha256": "79b7b26e459a162da089f0a14f02d02891298f9cfc6a6ad8016d81bf62954f0d",
+        "bundledSha256": "79b7b26e459a162da089f0a14f02d02891298f9cfc6a6ad8016d81bf62954f0d"
+      },
+      {
+        "name": "resume-composition",
+        "sourceSha256": "e174923b58dea31febb56a82adb3eedda92913bfd9443f227b5a83ddc0154a4f",
+        "bundledSha256": "e174923b58dea31febb56a82adb3eedda92913bfd9443f227b5a83ddc0154a4f"
+      },
+      {
+        "name": "resume-review",
+        "sourceSha256": "c7bf15a115dbc55241ab4967baa00fb4c63c4c0ea28c1a4a91d9158cbac5c791",
+        "bundledSha256": "c7bf15a115dbc55241ab4967baa00fb4c63c4c0ea28c1a4a91d9158cbac5c791"
+      },
+      {
+        "name": "resume-tailoring",
+        "sourceSha256": "1326223ad10731916474e7789469a244382857e301f596782ec2c4ffe0b236cd",
+        "bundledSha256": "1326223ad10731916474e7789469a244382857e301f596782ec2c4ffe0b236cd"
+      }
+    ],
+    "loadedSkillHashes": [
+      {
+        "name": "candidate-profile-interview",
+        "runId": "run_f427ffb8affd4d629d22468e58c49fa9",
+        "sourceSha256": "615e75fa503a4136e35882b9d58b54b57ed1e6a97689f2dabe3cf54756331af8",
+        "loadedSha256": "615e75fa503a4136e35882b9d58b54b57ed1e6a97689f2dabe3cf54756331af8",
+        "status": "PASS"
+      },
+      {
+        "name": "career-story-mining",
+        "runId": "run_2c05460674cd41ddb4755a1102b91411",
+        "sourceSha256": "03a9ea1a8ac24b27db7203f84a9cf763ebaae7b75421e4728dc3a0c4c4401abf",
+        "loadedSha256": "03a9ea1a8ac24b27db7203f84a9cf763ebaae7b75421e4728dc3a0c4c4401abf",
+        "status": "PASS"
+      },
+      {
+        "name": "job-fit-analysis",
+        "runId": "run_20f34cc08ba14957be8f0ec7794ff95e",
+        "sourceSha256": "ce7b5a1e58331756b807e0b6862e662613f5e1d2eed06190528b0880054dceb9",
+        "loadedSha256": "ce7b5a1e58331756b807e0b6862e662613f5e1d2eed06190528b0880054dceb9",
+        "status": "PASS"
+      },
+      {
+        "name": "resume-composition",
+        "runId": "run_9ed15e0165df47e3a4d9906ec93caf36",
+        "sourceSha256": "9d5e104b128e9cace070c396cfbe44eade5ae7c8cf3ccfd1975a913c19216e50",
+        "loadedSha256": "9d5e104b128e9cace070c396cfbe44eade5ae7c8cf3ccfd1975a913c19216e50",
+        "status": "PASS"
+      },
+      {
+        "name": "resume-review",
+        "runId": "run_b033c281a451451bb11eb09155e4c2c7",
+        "sourceSha256": "3c97785e3f7edc27194eb56454eb8c0cf2f5e9ed1079cebf65df844fa75fb83c",
+        "loadedSha256": "3c97785e3f7edc27194eb56454eb8c0cf2f5e9ed1079cebf65df844fa75fb83c",
+        "status": "PASS"
+      },
+      {
+        "name": "resume-tailoring",
+        "runId": "run_4536f195eb8645a9af904a43eaca2b93",
+        "sourceSha256": "09c4fd2e06dae50b318d3f3e8575172b883a8fd15d53c26724f89ff95e689eec",
+        "loadedSha256": "09c4fd2e06dae50b318d3f3e8575172b883a8fd15d53c26724f89ff95e689eec",
+        "status": "PASS"
+      }
+    ],
+    "userRuntimeOverwritten": false
+  },
+  "runtime": {
+    "probe": "PASS",
+    "foregroundRuns": 6,
+    "simulatedRequests": 12,
+    "backgroundExcluded": true,
+    "log": "rp011-logs/runtime-probe.json"
+  },
+  "browser": {
+    "provider": "local deterministic mock",
+    "report": "core02-integration-1793857454639-playwright.json",
+    "results": [
+      {
+        "title": "CASE D — building from zero starts Profile Intake through a facade",
+        "status": "passed",
+        "duration": 30027,
+        "attachments": [
+          "intake-case-gate-receipt.json"
+        ]
+      },
+      {
+        "title": "CASE L Core-02 — saved JD, Fit, follow-up tailoring, confirmed isolated revision and PDF",
+        "status": "passed",
+        "duration": 43393,
+        "attachments": [
+          "tailoring-jd03-evidence-review.png",
+          "tailoring-core02-tool-trace.json",
+          "tailoring-jd03-confirmed-a4.png",
+          "tailoring-case-gate-receipt.json",
+          "tailoring-closeout-provider.json",
+          "tailoring-closeout-transport.json",
+          "tailoring-closeout-agentSessions.json",
+          "tailoring-closeout-profiles.json",
+          "tailoring-closeout-resumeBranches.json",
+          "tailoring-closeout-jobDescriptions.json",
+          "tailoring-closeout-appMeta.json",
+          "tailoring-host-confirmation-receipt.json"
+        ]
+      },
+      {
+        "title": "RESUME01 real Hermes review-only then explicit confirmed improvement isolates Profile",
+        "status": "passed",
+        "duration": 20008,
+        "attachments": [
+          "review-review-only.png",
+          "review-confirmed-improvement.png"
+        ]
+      }
+    ],
+    "scriptedSkillRouteMode": true,
+    "totalSimulatedRequests": 30,
+    "productionUserSettingsChanged": false,
+    "backgroundReviewNotPermanentlyDisabled": true
+  },
+  "scenarios": [
+    {
+      "id": 1,
+      "name": "资料库整理",
+      "status": "PARTIAL",
+      "evidence": "Formal intake route/Host/card unit tests + real Hermes from-zero entry; full supplied-experience review UI not closed"
+    },
+    {
+      "id": 2,
+      "name": "JD必须条件",
+      "status": "PASS",
+      "evidence": "SQL no evidence is Unknown; local rules/contracts, natural-model narration UNKNOWN"
+    },
+    {
+      "id": 3,
+      "name": "AND/OR",
+      "status": "PASS",
+      "evidence": "R OR/AND + Must/Preferred local regression; no score threshold changes"
+    },
+    {
+      "id": 4,
+      "name": "resume_only",
+      "status": "PASS",
+      "evidence": "Local sourceTurn/scope/Profile isolation tests; complete multi-turn runtime not claimed"
+    },
+    {
+      "id": 5,
+      "name": "明确否认",
+      "status": "PASS",
+      "evidence": "Local denied capability/claim/retraction tests; natural model re-questioning UNKNOWN"
+    },
+    {
+      "id": 6,
+      "name": "通用审阅",
+      "status": "PASS",
+      "evidence": "Real Hermes + mock Provider browser review-only then confirmed improvement"
+    },
+    {
+      "id": 7,
+      "name": "岗位定向简历",
+      "status": "PASS",
+      "evidence": "Real Hermes + mock Provider CASE L, selected Job, confirmation, isolated Revision, real PDF"
+    },
+    {
+      "id": 8,
+      "name": "精确二次修改",
+      "status": "PARTIAL",
+      "evidence": "Local diff/confirmed write/CAS/idempotency tests; exact second-edit Hermes UI not run"
+    },
+    {
+      "id": 9,
+      "name": "图片材料",
+      "status": "PARTIAL",
+      "evidence": "Local material intake session/schema/evidence/review boundaries; image Hermes UI not run"
+    }
+  ],
+  "checks": [
+    {
+      "name": "bundle-check",
+      "command": "pnpm hermes:bundle-check",
+      "log": "bundle-check.log",
+      "exitCode": 0
+    },
+    {
+      "name": "parity",
+      "command": "pnpm exec vitest run tests/unit/rp01Preflight.test.ts",
+      "log": "parity-unit.log",
+      "exitCode": 0
+    },
+    {
+      "name": "workflow",
+      "command": "pnpm exec vitest run tests/unit/rp011RunInstructions.test.ts tests/unit/core02SessionCheckpoint.test.ts tests/unit/jd02Conditions.test.ts tests/unit/jd02SourceIsolation.test.ts tests/unit/jd03TailoringIsolation.test.ts tests/unit/resume01Readiness.test.ts tests/unit/resume01ActualPdf.test.ts tests/unit/p512-material-intake.test.ts tests/unit/hermesTerminalReconciliation.test.ts tests/unit/rp01ProviderFaults.test.ts",
+      "log": "workflow-unit.log",
+      "exitCode": 0
+    },
+    {
+      "name": "semantics",
+      "command": "pnpm exec vitest run tests/unit/rp011EvidenceSemantics.test.ts tests/unit/jd01RequirementGraph.test.ts tests/unit/jd02Conditions.test.ts",
+      "log": "semantics-fixed.log",
+      "exitCode": 0
+    },
+    {
+      "name": "target",
+      "command": "pnpm exec vitest run tests/unit/rp011TargetRecovery.test.ts tests/unit/p45c1c18-turn-profile-integrity.test.ts tests/unit/rp01Preflight.test.ts",
+      "log": "target-parity-final.log",
+      "exitCode": 0
+    },
+    {
+      "name": "stop",
+      "command": "pnpm exec vitest run tests/unit/rp011StopRace.test.ts",
+      "log": "stop-race-final.log",
+      "exitCode": 0
+    },
+    {
+      "name": "final-unit",
+      "command": "pnpm exec vitest run tests/unit/rp01Preflight.test.ts tests/unit/rp011TargetRecovery.test.ts tests/unit/rp011EvidenceSemantics.test.ts tests/unit/rp011StopRace.test.ts tests/unit/rp011RunInstructions.test.ts tests/unit/profileIntakeP43k.test.ts tests/unit/p44b-profile-intake-followup.test.ts tests/unit/p46b-tailoring-quality.test.ts tests/unit/sessionConfirmedSkills.test.ts tests/unit/rp01ProviderFaults.test.ts tests/unit/hermesTerminalReconciliation.test.ts",
+      "log": "final-unit.log",
+      "exitCode": 0
+    },
+    {
+      "name": "profile-routing",
+      "command": "pnpm exec vitest run tests/unit/rp011ProfileRouting.test.ts tests/unit/profileIntakeRoutingP43e1.test.ts tests/unit/p45c1c11-job-target.test.ts",
+      "log": "profile-routing-scoped-final.log",
+      "exitCode": 0
+    },
+    {
+      "name": "precise-safety",
+      "command": "pnpm exec vitest run tests/unit/tailoringCommands.test.ts tests/unit/p45c1c14-career-workflow-transactional-closure.test.ts",
+      "log": "precise-safety-unit.log",
+      "exitCode": 0
+    },
+    {
+      "name": "browser",
+      "command": "RP011_VERIFY_SKILL_ROUTES=1 node scripts/hermes-integration.mjs integration --config=playwright.rp011.config.ts (isolated app)",
+      "log": "business-e2e-skills.log",
+      "exitCode": 0
+    },
+    {
+      "name": "typecheck",
+      "command": "pnpm typecheck",
+      "log": "typecheck-scoped-final.log",
+      "exitCode": 0
+    },
+    {
+      "name": "lint",
+      "command": "changed-files ESLint --max-warnings=0",
+      "log": "lint-scoped-final.log",
+      "exitCode": 0
+    },
+    {
+      "name": "production-build",
+      "command": "CAREERAD_NEXT_DIST_DIR=.tmp/rp011-production-scoped pnpm build (isolated app)",
+      "log": "production-build-scoped-final.log",
+      "exitCode": 0
+    },
+    {
+      "name": "source-parity",
+      "command": "SHA-256 compare 494 tracked src/skills/package inputs with isolated build copy",
+      "log": "build-source-parity.json",
+      "exitCode": 0
+    },
+    {
+      "name": "diff-check",
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "scopeLimits": [
+    "No blanket certification of all nine Runtime/UI/PDF paths",
+    "No new real Provider or A/B semantic quality certification",
+    "Current user development/release Bundle not switched",
+    "Standalone Skill probe excludes background review/curator",
+    "Existing frozen cases and RP01 originals retained"
+  ],
+  "sourceParity": {
+    "checked": 494,
+    "mismatches": []
+  },
+  "failuresRetained": [
+    "target-before.log",
+    "profile-routing-before.log",
+    "semantics-intake-unit.log",
+    "semantics-final.log",
+    "stop-race.log",
+    "business-e2e.log",
+    "business-e2e-isolated.log"
+  ],
+  "report": "../architecture/p5.1-rp-01.1-runtime-parity-business-recovery.md",
+  "protectedPaths": {
+    "status": "PASS",
+    "gitDiffExitCode": 0,
+    "paths": [
+      "skills/career",
+      "scripts/hermes-runtime-lock.json",
+      "scripts/hermes-model-selection-patch.mjs",
+      "scripts/hermes-amd-reasoning-patch.mjs",
+      "scripts/hermes-efficiency-patch.mjs",
+      "src/domain/schemas.ts",
+      "src/services/storage/repositories.ts",
+      "pnpm-lock.yaml",
+      "package.json",
+      "docs/quality/rp01-logs",
+      "tests/fixtures/skills-quality-eval-v1.json"
+    ]
+  },
+  "delivery": {
+    "status": "PARTIAL",
+    "handoffsSaved": [
+      "plan4.md",
+      "history4.md",
+      "docs/architecture/p5.1-sq1-current-handoff.md"
+    ],
+    "uxPlan": "report section 5, UX-01-1 through UX-01-7",
+    "stagingRetained": true,
+    "allFailuresRetained": true,
+    "awaitingUserReview": true
+  }
+}

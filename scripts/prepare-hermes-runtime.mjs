@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { careerSkillsTreeHash, assertRp01RuntimeParity } from "./rp01-preflight.mjs";
 import { patchModelSelectionReadback } from "./hermes-model-selection-patch.mjs";
 import { patchAmdReasoningTransport, patchAmdReasoningSummary } from "./hermes-amd-reasoning-patch.mjs";
 import { patchCareerAdaptTimeoutLookup, patchCareerAdaptMcpDedup } from "./hermes-efficiency-patch.mjs";
@@ -10,7 +11,10 @@ import { fileURLToPath } from "node:url";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(scriptDirectory, "..");
-const targetRoot = path.join(projectRoot, ".electron-build", "hermes-runtime-v4");
+const targetRoot = path.resolve(process.env.HERMES_RUNTIME_OUTPUT_DIR?.trim() || path.join(projectRoot, ".electron-build", "hermes-runtime-v4"));
+if (process.env.HERMES_RUNTIME_OUTPUT_DIR?.trim() && fs.existsSync(targetRoot)) {
+  throw new Error('Explicit staging output must be a new directory; refusing to overwrite a possibly active Bundle.');
+}
 const runtimeLock = JSON.parse(fs.readFileSync(path.join(scriptDirectory, "hermes-runtime-lock.json"), "utf8"));
 
 const sourceRoot = path.resolve(
@@ -57,7 +61,7 @@ const hermesSourceTreeHash = deterministicTreeHash(sourceRoot, {
   includeRootPython: true
 });
 const sitePackagesFingerprint = deterministicTreeHash(sitePackages, { roots: ["."] });
-const careerSkillsHash = deterministicTreeHash(path.join(projectRoot, "skills", "career"), { roots: ["."] });
+const careerSkillsHash = careerSkillsTreeHash(path.join(projectRoot, "skills", "career"));
 const pythonVersion = readPyvenvVersion(path.join(venvRoot, "pyvenv.cfg"));
 if (hermesSourceTreeHash !== runtimeLock.hermesSourceTreeHash
   || pythonVersion !== runtimeLock.pythonVersion
@@ -120,8 +124,8 @@ assertDirectory(careerSkillsSource, "CareerAdapt Hermes skills");
 copyTree(careerSkillsSource, path.join(skillsTarget, "careeradapt"));
 
 const buildEnvironment = {
-  ...readEnvFile(path.join(projectRoot, ".env")),
-  ...readEnvFile(path.join(projectRoot, ".env.local")),
+  ...(process.env.HERMES_RUNTIME_SKIP_ENV_FILES === "1" ? {} : readEnvFile(path.join(projectRoot, ".env"))),
+  ...(process.env.HERMES_RUNTIME_SKIP_ENV_FILES === "1" ? {} : readEnvFile(path.join(projectRoot, ".env.local"))),
   ...process.env
 };
 
@@ -165,6 +169,7 @@ const manifest = {
   generatedAt: new Date().toISOString()
 };
 fs.writeFileSync(path.join(targetRoot, "runtime-manifest.json"), JSON.stringify(manifest, null, 2) + "\n", "utf8");
+assertRp01RuntimeParity(projectRoot, targetRoot);
 fs.writeFileSync(path.join(targetRoot, ".build-complete"), `${new Date().toISOString()}\n`, "utf8");
 
 const fileCount = countFiles(targetRoot);

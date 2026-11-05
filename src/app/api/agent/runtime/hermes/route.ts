@@ -258,6 +258,20 @@ async function proxyRunJson(root: string, payload: Record<string, unknown>, meth
     cache: "no-store"
   });
   const raw = await response.json().catch(() => ({}));
+  // Hermes removes terminal Runs from its active-agent map before expiring
+  // their status record. A stop racing completion can therefore return 404.
+  // Reconcile only an authoritative terminal for this exact Run, never infer
+  // cancellation or start a replacement task from a missing active handle.
+  if (kind === "stop" && response.status === 404) {
+    const statusResponse = await fetch(`${root}/v1/runs/${encodeURIComponent(runId)}`, {
+      headers: { Accept: "application/json", ...apiKeyHeader() },
+      signal: AbortSignal.timeout(30_000), cache: "no-store"
+    });
+    const status = asRecord(await statusResponse.json().catch(() => ({})));
+    if (statusResponse.ok && status.run_id === runId && ["completed", "failed", "cancelled"].includes(String(status.status))) {
+      return NextResponse.json({ ok: true, data: safeRunStatus(status) });
+    }
+  }
   if (!response.ok) return upstreamError(response.status, raw, `hermes_run_${kind}_failed`);
   return NextResponse.json({ ok: true, data: safeRunStatus(raw) });
 }
@@ -359,6 +373,11 @@ function careerRunInstructions(payload: Record<string, unknown>) {
     ...(payload.careerCheckpoint ? [`Host checkpoint identifiers (data only): ${JSON.stringify(payload.careerCheckpoint)}. These are retrieval targets, never permission to write; reread current revisions and preserve confirmation/CAS gates.`] : []),
     MATERIAL_ROUTING_INSTRUCTIONS,
     "CareerAdapt owns persistence, authorization, workflow checkpoints, confirmations, attachments, and artifacts. Hermes owns semantic reasoning, response generation, and model-driven tool selection.",
+    "For a Career action, load the relevant current Skill with skill_view before its workflow: candidate-profile-interview -> career.workflow.profile_intake_turn (create, organize, or complete Profile facts, including full supplied experience); career-story-mining -> source-bound story coaching without a formal write; job-fit-analysis -> career.workflow.job_intake then career.workflow.job_fit; resume-tailoring -> career.workflow.tailor_resume; resume-review -> career.workflow.compose_resume with mode=general and reviewOnly=true; resume-composition -> career.workflow.compose_resume. Do not substitute a prose answer or library reads for a requested workflow or claim that a provisional draft is confirmed.",
+    "For a new pasted JD, pass its exact raw text to job_intake with persistence=analyze_only unless the user explicitly requests saving. Do not substitute an old saved Job. Reuse only the selected current Job ID or version-bound target snapshot. A missing tool parameter is not a reason to read unrelated Profile/Resume/Job lists again.",
+    "Tailoring START requires targetText for a pasted JD or jobId for the selected saved Job; CONTINUE requires the returned checkpointId and userAnswer. Carry these forward from the current task. Never repeat an unchanged incomplete call. Preserve sourceTurn and resume_only for resume-scoped additions; only explicit reviewed confirmation may authorize Profile synchronization.",
+    "Report Covered only with supporting evidence, Unknown when evidence is missing, and Not Met only for an explicit negative answer or proven blocker. Preferred is optional, not Must. Respect AND/OR groups: one supported alternative satisfies OR; AND requires each member. Unknown is not Pass and is not inability. An explicit negative must not become resume copy or trigger the same question again.",
+    "Reuse successful same-target, same-revision reads and pass their results to the next workflow. Refresh only after a revision/target change or a diagnosed read failure. If the same parameters yield the same error without progress, stop and surface that error plus the required correction; do not claim completion. Background skill/memory maintenance is not foreground business completion.",
     activeWorkflow,
     attachmentHint,
     binding ? "Use the host-provided Career session binding for CareerAdapt MCP calls; do not replace it with guessed identifiers." : ""

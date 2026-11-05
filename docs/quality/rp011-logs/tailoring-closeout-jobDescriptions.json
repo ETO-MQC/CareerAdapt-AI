@@ -1,0 +1,647 @@
+[
+  {
+    "id": "job-8XezEygORM",
+    "createdAt": "2026-11-05T05:45:08.827Z",
+    "updatedAt": "2026-11-05T05:45:08.844Z",
+    "title": "数据分析实习生 CORE-JD",
+    "company": "Core Test",
+    "rawText": "公司：Core Test\n岗位：数据分析实习生 CORE-JD\n岗位职责\n1. 参与数据清洗与分析。\n任职要求\n1. 了解 Python 或 SQL。\n2. 具备团队协作能力。",
+    "source": "imported_text",
+    "parsedAt": "2026-11-05T05:45:08.827Z",
+    "requirements": [
+      {
+        "id": "jrv4-fnv-1c715d81-23",
+        "createdAt": "2026-11-05T05:45:08.827Z",
+        "updatedAt": "2026-11-05T05:45:08.827Z",
+        "category": "responsibility",
+        "description": "公司：Core Test",
+        "priority": "high",
+        "hardConstraint": false,
+        "sourceSpan": {
+          "start": 0,
+          "end": 12,
+          "text": "公司：Core Test"
+        },
+        "keywords": [],
+        "confidence": 0.9
+      },
+      {
+        "id": "jrv4-fnv-7bf14856-23",
+        "createdAt": "2026-11-05T05:45:08.827Z",
+        "updatedAt": "2026-11-05T05:45:08.827Z",
+        "category": "responsibility",
+        "description": "岗位：数据分析实习生 CORE-JD",
+        "priority": "high",
+        "hardConstraint": false,
+        "sourceSpan": {
+          "start": 13,
+          "end": 31,
+          "text": "岗位：数据分析实习生 CORE-JD"
+        },
+        "keywords": [],
+        "confidence": 0.9
+      },
+      {
+        "id": "jrv4-fnv-43a43373-23",
+        "createdAt": "2026-11-05T05:45:08.827Z",
+        "updatedAt": "2026-11-05T05:45:08.827Z",
+        "category": "responsibility",
+        "description": "参与数据清洗与分析。",
+        "priority": "high",
+        "hardConstraint": false,
+        "sourceSpan": {
+          "start": 40,
+          "end": 50,
+          "text": "参与数据清洗与分析。"
+        },
+        "keywords": [],
+        "confidence": 0.9
+      },
+      {
+        "id": "jrv4-fnv-554af39a-23",
+        "createdAt": "2026-11-05T05:45:08.827Z",
+        "updatedAt": "2026-11-05T05:45:08.827Z",
+        "category": "tool",
+        "description": "了解 Python 或 SQL。",
+        "priority": "medium",
+        "hardConstraint": false,
+        "sourceSpan": {
+          "start": 59,
+          "end": 75,
+          "text": "了解 Python 或 SQL。"
+        },
+        "keywordLogic": {
+          "relation": "any_of",
+          "terms": [
+            "Python",
+            "SQL"
+          ]
+        },
+        "keywords": [
+          "Python",
+          "SQL"
+        ],
+        "confidence": 0.9
+      },
+      {
+        "id": "jrv4-fnv-33df0086-23",
+        "createdAt": "2026-11-05T05:45:08.827Z",
+        "updatedAt": "2026-11-05T05:45:08.827Z",
+        "category": "soft_skill",
+        "description": "具备团队协作能力。",
+        "priority": "medium",
+        "hardConstraint": false,
+        "sourceSpan": {
+          "start": 79,
+          "end": 88,
+          "text": "具备团队协作能力。"
+        },
+        "keywords": [],
+        "confidence": 0.9
+      }
+    ],
+    "requirementGraph": {
+      "schemaVersion": "job-requirement-graph-v4",
+      "roleProfile": {
+        "mission": "公司：Core Test",
+        "hiringSignals": []
+      },
+      "groups": [],
+      "requirements": [
+        {
+          "id": "jrv4-fnv-1c715d81-23",
+          "section": "responsibility",
+          "kind": "responsibility",
+          "statement": "公司：Core Test",
+          "normalizedIntent": "公司 core test",
+          "priority": "high",
+          "hardConstraint": false,
+          "exactKeywords": [],
+          "semanticAliases": [],
+          "sourceUnitId": "jd-unit-fnv-26940cc4-14",
+          "details": [],
+          "sourceSpan": {
+            "start": 0,
+            "end": 12,
+            "text": "公司：Core Test"
+          },
+          "sourceSpans": [
+            {
+              "start": 0,
+              "end": 12,
+              "text": "公司：Core Test"
+            }
+          ],
+          "confidence": 0.88,
+          "needsConfirmation": false
+        },
+        {
+          "id": "jrv4-fnv-7bf14856-23",
+          "section": "responsibility",
+          "kind": "responsibility",
+          "statement": "岗位：数据分析实习生 CORE-JD",
+          "normalizedIntent": "岗位 数据分析实习生 core-jd",
+          "priority": "high",
+          "hardConstraint": false,
+          "exactKeywords": [],
+          "semanticAliases": [],
+          "sourceUnitId": "jd-unit-fnv-b36ce430-21",
+          "details": [],
+          "sourceSpan": {
+            "start": 13,
+            "end": 31,
+            "text": "岗位：数据分析实习生 CORE-JD"
+          },
+          "sourceSpans": [
+            {
+              "start": 13,
+              "end": 31,
+              "text": "岗位：数据分析实习生 CORE-JD"
+            }
+          ],
+          "confidence": 0.88,
+          "needsConfirmation": false
+        },
+        {
+          "id": "jrv4-fnv-43a43373-23",
+          "section": "responsibility",
+          "kind": "responsibility",
+          "statement": "参与数据清洗与分析。",
+          "normalizedIntent": "参与数据清洗与分析",
+          "priority": "high",
+          "hardConstraint": false,
+          "exactKeywords": [],
+          "semanticAliases": [],
+          "sourceUnitId": "jd-unit-fnv-e0a80305-13",
+          "details": [],
+          "sourceSpan": {
+            "start": 40,
+            "end": 50,
+            "text": "参与数据清洗与分析。"
+          },
+          "sourceSpans": [
+            {
+              "start": 40,
+              "end": 50,
+              "text": "参与数据清洗与分析。"
+            }
+          ],
+          "confidence": 0.88,
+          "needsConfirmation": false
+        },
+        {
+          "id": "jrv4-fnv-554af39a-23",
+          "section": "required",
+          "kind": "tool_or_technology",
+          "statement": "了解 Python 或 SQL。",
+          "normalizedIntent": "了解 python 或 sql",
+          "priority": "medium",
+          "hardConstraint": false,
+          "keywordLogic": {
+            "relation": "any_of",
+            "terms": [
+              "Python",
+              "SQL"
+            ]
+          },
+          "exactKeywords": [
+            "Python",
+            "SQL"
+          ],
+          "semanticAliases": [],
+          "sourceUnitId": "jd-unit-fnv-90e91b8e-19",
+          "details": [],
+          "sourceSpan": {
+            "start": 59,
+            "end": 75,
+            "text": "了解 Python 或 SQL。"
+          },
+          "sourceSpans": [
+            {
+              "start": 59,
+              "end": 75,
+              "text": "了解 Python 或 SQL。"
+            }
+          ],
+          "confidence": 0.88,
+          "needsConfirmation": false
+        },
+        {
+          "id": "jrv4-fnv-33df0086-23",
+          "section": "required",
+          "kind": "soft_skill",
+          "statement": "具备团队协作能力。",
+          "normalizedIntent": "具备团队协作能力",
+          "priority": "medium",
+          "hardConstraint": false,
+          "exactKeywords": [],
+          "semanticAliases": [],
+          "sourceUnitId": "jd-unit-fnv-21149847-12",
+          "details": [],
+          "sourceSpan": {
+            "start": 79,
+            "end": 88,
+            "text": "具备团队协作能力。"
+          },
+          "sourceSpans": [
+            {
+              "start": 79,
+              "end": 88,
+              "text": "具备团队协作能力。"
+            }
+          ],
+          "confidence": 0.88,
+          "needsConfirmation": false
+        }
+      ],
+      "verificationMaterials": [],
+      "contextGroups": [],
+      "semanticUnits": [
+        {
+          "id": "jd-unit-fnv-26940cc4-14",
+          "text": "公司：Core Test",
+          "sourceSpan": {
+            "start": 0,
+            "end": 12,
+            "text": "公司：Core Test"
+          },
+          "lineNumber": 1,
+          "lexical": {
+            "indentation": 0,
+            "punctuation": "plain",
+            "blankLinesBefore": 0,
+            "blankLinesAfter": 0
+          },
+          "provisional": {
+            "disposition": "requirement",
+            "section": "responsibility"
+          },
+          "final": {
+            "disposition": "requirement",
+            "section": "responsibility",
+            "kind": "responsibility",
+            "priority": "high",
+            "hardConstraint": false,
+            "normalizedIntent": "公司 core test",
+            "exactKeywords": [],
+            "semanticAliases": [],
+            "confidence": 0.88
+          }
+        },
+        {
+          "id": "jd-unit-fnv-b36ce430-21",
+          "text": "岗位：数据分析实习生 CORE-JD",
+          "sourceSpan": {
+            "start": 13,
+            "end": 31,
+            "text": "岗位：数据分析实习生 CORE-JD"
+          },
+          "lineNumber": 2,
+          "lexical": {
+            "indentation": 0,
+            "punctuation": "plain",
+            "blankLinesBefore": 0,
+            "blankLinesAfter": 0
+          },
+          "provisional": {
+            "disposition": "requirement",
+            "section": "responsibility"
+          },
+          "final": {
+            "disposition": "requirement",
+            "section": "responsibility",
+            "kind": "responsibility",
+            "priority": "high",
+            "hardConstraint": false,
+            "normalizedIntent": "岗位 数据分析实习生 core-jd",
+            "exactKeywords": [],
+            "semanticAliases": [],
+            "confidence": 0.88
+          }
+        },
+        {
+          "id": "jd-unit-fnv-3403ad5b-7",
+          "text": "岗位职责",
+          "sourceSpan": {
+            "start": 32,
+            "end": 36,
+            "text": "岗位职责"
+          },
+          "lineNumber": 3,
+          "lexical": {
+            "indentation": 0,
+            "punctuation": "heading",
+            "blankLinesBefore": 0,
+            "blankLinesAfter": 0
+          },
+          "provisional": {
+            "disposition": "heading",
+            "section": "responsibility"
+          },
+          "final": {
+            "disposition": "heading",
+            "section": "responsibility",
+            "confidence": 0.88
+          }
+        },
+        {
+          "id": "jd-unit-fnv-e0a80305-13",
+          "text": "参与数据清洗与分析。",
+          "sourceSpan": {
+            "start": 40,
+            "end": 50,
+            "text": "参与数据清洗与分析。"
+          },
+          "lineNumber": 4,
+          "lexical": {
+            "indentation": 0,
+            "numberingLevel": 2,
+            "numberingToken": "1.",
+            "punctuation": "sentence",
+            "blankLinesBefore": 0,
+            "blankLinesAfter": 0
+          },
+          "provisional": {
+            "disposition": "requirement",
+            "section": "responsibility"
+          },
+          "final": {
+            "disposition": "requirement",
+            "section": "responsibility",
+            "kind": "responsibility",
+            "priority": "high",
+            "hardConstraint": false,
+            "normalizedIntent": "参与数据清洗与分析",
+            "exactKeywords": [],
+            "semanticAliases": [],
+            "confidence": 0.88
+          }
+        },
+        {
+          "id": "jd-unit-fnv-84dc8817-7",
+          "text": "任职要求",
+          "sourceSpan": {
+            "start": 51,
+            "end": 55,
+            "text": "任职要求"
+          },
+          "lineNumber": 5,
+          "lexical": {
+            "indentation": 0,
+            "punctuation": "heading",
+            "blankLinesBefore": 0,
+            "blankLinesAfter": 0
+          },
+          "provisional": {
+            "disposition": "heading",
+            "section": "required"
+          },
+          "final": {
+            "disposition": "heading",
+            "section": "required",
+            "confidence": 0.88
+          }
+        },
+        {
+          "id": "jd-unit-fnv-90e91b8e-19",
+          "text": "了解 Python 或 SQL。",
+          "sourceSpan": {
+            "start": 59,
+            "end": 75,
+            "text": "了解 Python 或 SQL。"
+          },
+          "lineNumber": 6,
+          "lexical": {
+            "indentation": 0,
+            "numberingLevel": 2,
+            "numberingToken": "1.",
+            "punctuation": "sentence",
+            "blankLinesBefore": 0,
+            "blankLinesAfter": 0
+          },
+          "provisional": {
+            "disposition": "requirement",
+            "section": "required"
+          },
+          "final": {
+            "disposition": "requirement",
+            "section": "required",
+            "kind": "tool_or_technology",
+            "priority": "medium",
+            "hardConstraint": false,
+            "normalizedIntent": "了解 python 或 sql",
+            "exactKeywords": [
+              "Python",
+              "SQL"
+            ],
+            "semanticAliases": [],
+            "confidence": 0.88
+          }
+        },
+        {
+          "id": "jd-unit-fnv-21149847-12",
+          "text": "具备团队协作能力。",
+          "sourceSpan": {
+            "start": 79,
+            "end": 88,
+            "text": "具备团队协作能力。"
+          },
+          "lineNumber": 7,
+          "lexical": {
+            "indentation": 0,
+            "numberingLevel": 2,
+            "numberingToken": "2.",
+            "punctuation": "sentence",
+            "blankLinesBefore": 0,
+            "blankLinesAfter": 0
+          },
+          "provisional": {
+            "disposition": "requirement",
+            "section": "required"
+          },
+          "final": {
+            "disposition": "requirement",
+            "section": "required",
+            "kind": "soft_skill",
+            "priority": "medium",
+            "hardConstraint": false,
+            "normalizedIntent": "具备团队协作能力",
+            "exactKeywords": [],
+            "semanticAliases": [],
+            "confidence": 0.88
+          }
+        }
+      ],
+      "issues": [],
+      "needsReview": false,
+      "sourceCoverage": {
+        "coveredSpans": [
+          {
+            "start": 0,
+            "end": 12,
+            "text": "公司：Core Test"
+          },
+          {
+            "start": 13,
+            "end": 31,
+            "text": "岗位：数据分析实习生 CORE-JD"
+          },
+          {
+            "start": 32,
+            "end": 36,
+            "text": "岗位职责"
+          },
+          {
+            "start": 40,
+            "end": 50,
+            "text": "参与数据清洗与分析。"
+          },
+          {
+            "start": 51,
+            "end": 55,
+            "text": "任职要求"
+          },
+          {
+            "start": 59,
+            "end": 75,
+            "text": "了解 Python 或 SQL。"
+          },
+          {
+            "start": 79,
+            "end": 88,
+            "text": "具备团队协作能力。"
+          }
+        ],
+        "unclassifiedSpans": [],
+        "totalMeaningfulUnits": 7,
+        "assignedUnits": 7,
+        "unassignedUnitIds": [],
+        "metadataUnitIds": [],
+        "excludedUnitIds": [],
+        "requirementUnitIds": [
+          "jd-unit-fnv-26940cc4-14",
+          "jd-unit-fnv-b36ce430-21",
+          "jd-unit-fnv-e0a80305-13",
+          "jd-unit-fnv-90e91b8e-19",
+          "jd-unit-fnv-21149847-12"
+        ],
+        "detailUnitIds": [],
+        "inventedReferenceCount": 0,
+        "coverageRatio": 1
+      },
+      "analyzerVersion": "jd-analyzer.semantic-ledger-v4.1",
+      "graphHash": "fnv-a59da8bb-2318",
+      "semanticEnrichmentHash": "fnv-8cc05d9c-1215"
+    },
+    "analysisStatus": "validated",
+    "analysisIssues": []
+  },
+  {
+    "id": "job-data-analyst-intern",
+    "createdAt": "2026-07-01T09:00:00.000Z",
+    "updatedAt": "2026-07-01T09:00:00.000Z",
+    "title": "数据分析实习生",
+    "company": "示例科技公司",
+    "industry": "互联网",
+    "location": "杭州",
+    "workType": "实习",
+    "rawText": "数据分析实习生：负责业务数据清洗、统计分析和周报支持；熟悉 Excel 或 Stata；具备清晰的数据表达能力，有统计建模经验优先。",
+    "source": "demo",
+    "parsedAt": "2026-07-01T09:00:00.000Z",
+    "requirements": [
+      {
+        "id": "req-data-cleaning",
+        "createdAt": "2026-07-01T09:00:00.000Z",
+        "updatedAt": "2026-07-01T09:00:00.000Z",
+        "category": "responsibility",
+        "description": "负责业务数据清洗、统计分析和周报支持。",
+        "priority": "high",
+        "hardConstraint": false,
+        "sourceSpan": {
+          "start": 0,
+          "end": 18,
+          "text": "负责业务数据清洗、统计分析和周报支持"
+        },
+        "keywords": [
+          "数据清洗",
+          "统计分析",
+          "周报"
+        ],
+        "confidence": 0.92
+      },
+      {
+        "id": "req-data-tools",
+        "createdAt": "2026-07-01T09:00:00.000Z",
+        "updatedAt": "2026-07-01T09:00:00.000Z",
+        "category": "core_skill",
+        "description": "熟悉 Excel 或 Stata。",
+        "priority": "high",
+        "hardConstraint": false,
+        "sourceSpan": {
+          "start": 0,
+          "end": 16,
+          "text": "熟悉 Excel 或 Stata"
+        },
+        "keywords": [
+          "Excel",
+          "Stata"
+        ],
+        "confidence": 0.95
+      }
+    ]
+  },
+  {
+    "id": "job-trade-operation-intern",
+    "createdAt": "2026-07-01T09:00:00.000Z",
+    "updatedAt": "2026-07-01T09:00:00.000Z",
+    "title": "外贸/跨境运营实习生",
+    "company": "示例跨境公司",
+    "industry": "跨境电商",
+    "location": "上海",
+    "workType": "实习",
+    "rawText": "外贸/跨境运营实习生：协助整理商品和订单信息，跟进跨境业务流程；要求英语读写能力、沟通协作和执行力；了解外贸流程优先。",
+    "source": "demo",
+    "parsedAt": "2026-07-01T09:00:00.000Z",
+    "requirements": [
+      {
+        "id": "req-trade-process",
+        "createdAt": "2026-07-01T09:00:00.000Z",
+        "updatedAt": "2026-07-01T09:00:00.000Z",
+        "category": "responsibility",
+        "description": "协助整理商品和订单信息，跟进跨境业务流程。",
+        "priority": "high",
+        "hardConstraint": false,
+        "sourceSpan": {
+          "start": 0,
+          "end": 20,
+          "text": "协助整理商品和订单信息，跟进跨境业务流程"
+        },
+        "keywords": [
+          "信息整理",
+          "跨境业务流程"
+        ],
+        "confidence": 0.9
+      },
+      {
+        "id": "req-english-writing",
+        "createdAt": "2026-07-01T09:00:00.000Z",
+        "updatedAt": "2026-07-01T09:00:00.000Z",
+        "category": "must_have",
+        "description": "具备英语读写能力、沟通协作和执行力。",
+        "priority": "high",
+        "hardConstraint": true,
+        "sourceSpan": {
+          "start": 0,
+          "end": 17,
+          "text": "要求英语读写能力、沟通协作和执行力"
+        },
+        "keywords": [
+          "英语",
+          "沟通",
+          "执行力"
+        ],
+        "confidence": 0.94
+      }
+    ]
+  }
+]

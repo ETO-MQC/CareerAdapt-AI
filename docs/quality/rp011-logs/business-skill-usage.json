@@ -1,0 +1,67 @@
+{
+  "candidate-profile-interview": {
+    "archived_at": null,
+    "created_at": "2026-11-05T05:44:47.705606+00:00",
+    "created_by": null,
+    "last_patched_at": null,
+    "last_used_at": "2026-11-05T05:44:47.709607+00:00",
+    "last_viewed_at": "2026-11-05T05:44:47.705606+00:00",
+    "patch_count": 0,
+    "pinned": false,
+    "state": "active",
+    "use_count": 1,
+    "view_count": 1
+  },
+  "job-fit-analysis": {
+    "archived_at": null,
+    "created_at": "2026-11-05T05:45:07.498184+00:00",
+    "created_by": null,
+    "last_patched_at": null,
+    "last_used_at": "2026-11-05T05:45:17.172766+00:00",
+    "last_viewed_at": "2026-11-05T05:45:17.168765+00:00",
+    "patch_count": 0,
+    "pinned": false,
+    "state": "active",
+    "use_count": 2,
+    "view_count": 2
+  },
+  "resume-composition": {
+    "archived_at": null,
+    "created_at": "2026-11-05T05:45:52.563203+00:00",
+    "created_by": null,
+    "last_patched_at": null,
+    "last_used_at": "2026-11-05T05:45:52.566202+00:00",
+    "last_viewed_at": "2026-11-05T05:45:52.563203+00:00",
+    "patch_count": 0,
+    "pinned": false,
+    "state": "active",
+    "use_count": 1,
+    "view_count": 1
+  },
+  "resume-review": {
+    "archived_at": null,
+    "created_at": "2026-11-05T05:45:43.527929+00:00",
+    "created_by": null,
+    "last_patched_at": null,
+    "last_used_at": "2026-11-05T05:45:43.530923+00:00",
+    "last_viewed_at": "2026-11-05T05:45:43.527929+00:00",
+    "patch_count": 0,
+    "pinned": false,
+    "state": "active",
+    "use_count": 1,
+    "view_count": 1
+  },
+  "resume-tailoring": {
+    "archived_at": null,
+    "created_at": "2026-11-05T05:45:23.982604+00:00",
+    "created_by": null,
+    "last_patched_at": null,
+    "last_used_at": "2026-11-05T05:45:23.986595+00:00",
+    "last_viewed_at": "2026-11-05T05:45:23.982604+00:00",
+    "patch_count": 0,
+    "pinned": false,
+    "state": "active",
+    "use_count": 1,
+    "view_count": 1
+  }
+}

@@ -1,0 +1,2264 @@
+
+> careeradapt-ai@0.9.3-rc.2 dev E:\DEF\CareerAdapt-competition-5.1.8\.tmp\rp011-app
+> node --max-old-space-size=4096 scripts/dev-with-hermes.mjs
+
+▲ Next.js 16.2.9 (Turbopack)
+- Local:         http://127.0.0.1:3010
+- Network:       http://127.0.0.1:3010
+✓ Ready in 631ms
+Creating turbopack project {
+  dir: 'E:\\DEF\\CareerAdapt-competition-5.1.8\\.tmp\\rp011-app',
+  testMode: true
+}
+
+  We detected TypeScript in your project and reconfigured your tsconfig.json file for you.
+  The following suggested values were added to your tsconfig.json. These values can be changed to fit your project's needs:
+
+  	- include was updated to add '.next/integration-3010-1793856977471/types/**/*.ts'
+  	- include was updated to add '.next/integration-3010-1793856977471/dev/types/**/*.ts'
+
+- Experiments (use with caution):
+  ⨯ turbopackFileSystemCacheForDev
+
+ GET /api/agent/mcp 200 in 18ms (next.js: 3ms, application-code: 15ms)
+[Hermes] Web Supervisor enabled; the browser bridge will start Hermes at http://127.0.0.1:19742.
+ GET /api/agent/mcp 200 in 25ms (next.js: 21ms, application-code: 4ms)
+
+Running 3 tests using 1 worker
+
+
+
+(node:83156) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1/3] tests\e2e\hermes-p46h-integration.spec.ts:126:7 › P4.6h hermetic Web + browser MCP integration › CASE D — building from zero starts Profile Intake through a facade
+○ Compiling /ai-workspace ...
+⨯ ./src/app/globals.css
+Error evaluating Node.js code
+Error: Cannot find module 'picocolors'
+    [at pico (turbopack:///[project]/node_modules/postcss/lib/css-syntax-error.js:3:5)]
+    [at Object.terminalHighlight (turbopack:///[project]/node_modules/postcss/lib/css-syntax-error.js:3:5)]
+    [at exec (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:650:21)]
+    [at runModuleExecutionHooksFn (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:69:5)]
+    [at instantiateModuleShared (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:648:5)]
+    [at instantiateModule (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:73:21)]
+    [at getOrInstantiateModuleFromParent (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:143:21)]
+    [at Context.commonJsRequire (turbopack:///[turbopack]/shared/runtime/runtime-utils.ts:440:10)]
+    [at Object.Symbol (turbopack:///[project]/node_modules/postcss/lib/node.js:3:5)]
+    [at <anonymous> (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:650:21)]
+
+Import trace:
+  Client Component Browser:
+    ./src/app/globals.css [Client Component Browser]
+    ./src/app/layout.tsx [Server Component]
+
+
+
+./src/styles/agent-artifacts.css
+Error evaluating Node.js code
+Error: Cannot find module 'picocolors'
+    [at pico (turbopack:///[project]/node_modules/postcss/lib/css-syntax-error.js:3:5)]
+    [at Object.terminalHighlight (turbopack:///[project]/node_modules/postcss/lib/css-syntax-error.js:3:5)]
+    [at exec (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:650:21)]
+    [at runModuleExecutionHooksFn (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:69:5)]
+    [at instantiateModuleShared (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:648:5)]
+    [at instantiateModule (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:73:21)]
+    [at getOrInstantiateModuleFromParent (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:143:21)]
+    [at Context.commonJsRequire (turbopack:///[turbopack]/shared/runtime/runtime-utils.ts:440:10)]
+    [at Object.Symbol (turbopack:///[project]/node_modules/postcss/lib/node.js:3:5)]
+    [at <anonymous> (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:650:21)]
+
+Import trace:
+  Client Component Browser:
+    ./src/styles/agent-artifacts.css [Client Component Browser]
+    ./src/app/layout.tsx [Server Component]
+
+
+
+./src/styles/agent-shell.css
+Error evaluating Node.js code
+Error: Cannot find module 'picocolors'
+    [at pico (turbopack:///[project]/node_modules/postcss/lib/css-syntax-error.js:3:5)]
+    [at Object.terminalHighlight (turbopack:///[project]/node_modules/postcss/lib/css-syntax-error.js:3:5)]
+    [at exec (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:650:21)]
+    [at runModuleExecutionHooksFn (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:69:5)]
+    [at instantiateModuleShared (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:648:5)]
+    [at instantiateModule (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:73:21)]
+    [at getOrInstantiateModuleFromParent (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:143:21)]
+    [at Context.commonJsRequire (turbopack:///[turbopack]/shared/runtime/runtime-utils.ts:440:10)]
+    [at Object.Symbol (turbopack:///[project]/node_modules/postcss/lib/node.js:3:5)]
+    [at <anonymous> (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:650:21)]
+
+Import trace:
+  Client Component Browser:
+    ./src/styles/agent-shell.css [Client Component Browser]
+    ./src/app/layout.tsx [Server Component]
+
+
+
+./src/styles/agent-tokens.css
+Error evaluating Node.js code
+Error: Cannot find module 'picocolors'
+    [at pico (turbopack:///[project]/node_modules/postcss/lib/css-syntax-error.js:3:5)]
+    [at Object.terminalHighlight (turbopack:///[project]/node_modules/postcss/lib/css-syntax-error.js:3:5)]
+    [at exec (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:650:21)]
+    [at runModuleExecutionHooksFn (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:69:5)]
+    [at instantiateModuleShared (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:648:5)]
+    [at instantiateModule (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:73:21)]
+    [at getOrInstantiateModuleFromParent (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:143:21)]
+    [at Context.commonJsRequire (turbopack:///[turbopack]/shared/runtime/runtime-utils.ts:440:10)]
+    [at Object.Symbol (turbopack:///[project]/node_modules/postcss/lib/node.js:3:5)]
+    [at <anonymous> (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:650:21)]
+
+Import trace:
+  Client Component Browser:
+    ./src/styles/agent-tokens.css [Client Component Browser]
+    ./src/app/layout.tsx [Server Component]
+
+
+
+./src/styles/agent-workspace.css
+Error evaluating Node.js code
+Error: Cannot find module 'picocolors'
+    [at pico (turbopack:///[project]/node_modules/postcss/lib/css-syntax-error.js:3:5)]
+    [at Object.terminalHighlight (turbopack:///[project]/node_modules/postcss/lib/css-syntax-error.js:3:5)]
+    [at exec (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:650:21)]
+    [at runModuleExecutionHooksFn (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:69:5)]
+    [at instantiateModuleShared (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:648:5)]
+    [at instantiateModule (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:73:21)]
+    [at getOrInstantiateModuleFromParent (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:143:21)]
+    [at Context.commonJsRequire (turbopack:///[turbopack]/shared/runtime/runtime-utils.ts:440:10)]
+    [at Object.Symbol (turbopack:///[project]/node_modules/postcss/lib/node.js:3:5)]
+    [at <anonymous> (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:650:21)]
+
+Import trace:
+  Client Component Browser:
+    ./src/styles/agent-workspace.css [Client Component Browser]
+    ./src/app/layout.tsx [Server Component]
+
+
+
+./src/styles/product-components.css
+Error evaluating Node.js code
+Error: Cannot find module 'picocolors'
+    [at pico (turbopack:///[project]/node_modules/postcss/lib/css-syntax-error.js:3:5)]
+    [at Object.terminalHighlight (turbopack:///[project]/node_modules/postcss/lib/css-syntax-error.js:3:5)]
+    [at exec (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:650:21)]
+    [at runModuleExecutionHooksFn (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:69:5)]
+    [at instantiateModuleShared (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:648:5)]
+    [at instantiateModule (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:73:21)]
+    [at getOrInstantiateModuleFromParent (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:143:21)]
+    [at Context.commonJsRequire (turbopack:///[turbopack]/shared/runtime/runtime-utils.ts:440:10)]
+    [at Object.Symbol (turbopack:///[project]/node_modules/postcss/lib/node.js:3:5)]
+    [at <anonymous> (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:650:21)]
+
+Import trace:
+  Client Component Browser:
+    ./src/styles/product-components.css [Client Component Browser]
+    ./src/app/layout.tsx [Server Component]
+
+
+
+./src/styles/product-pages.css
+Error evaluating Node.js code
+Error: Cannot find module 'picocolors'
+    [at pico (turbopack:///[project]/node_modules/postcss/lib/css-syntax-error.js:3:5)]
+    [at Object.terminalHighlight (turbopack:///[project]/node_modules/postcss/lib/css-syntax-error.js:3:5)]
+    [at exec (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:650:21)]
+    [at runModuleExecutionHooksFn (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:69:5)]
+    [at instantiateModuleShared (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:648:5)]
+    [at instantiateModule (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:73:21)]
+    [at getOrInstantiateModuleFromParent (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:143:21)]
+    [at Context.commonJsRequire (turbopack:///[turbopack]/shared/runtime/runtime-utils.ts:440:10)]
+    [at Object.Symbol (turbopack:///[project]/node_modules/postcss/lib/node.js:3:5)]
+    [at <anonymous> (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:650:21)]
+
+Import trace:
+  Client Component Browser:
+    ./src/styles/product-pages.css [Client Component Browser]
+    ./src/app/layout.tsx [Server Component]
+
+
+
+./src/styles/product-shell.css
+Error evaluating Node.js code
+Error: Cannot find module 'picocolors'
+    [at pico (turbopack:///[project]/node_modules/postcss/lib/css-syntax-error.js:3:5)]
+    [at Object.terminalHighlight (turbopack:///[project]/node_modules/postcss/lib/css-syntax-error.js:3:5)]
+    [at exec (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:650:21)]
+    [at runModuleExecutionHooksFn (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:69:5)]
+    [at instantiateModuleShared (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:648:5)]
+    [at instantiateModule (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:73:21)]
+    [at getOrInstantiateModuleFromParent (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:143:21)]
+    [at Context.commonJsRequire (turbopack:///[turbopack]/shared/runtime/runtime-utils.ts:440:10)]
+    [at Object.Symbol (turbopack:///[project]/node_modules/postcss/lib/node.js:3:5)]
+    [at <anonymous> (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:650:21)]
+
+Import trace:
+  Client Component Browser:
+    ./src/styles/product-shell.css [Client Component Browser]
+    ./src/app/layout.tsx [Server Component]
+
+
+
+./src/styles/product-tokens.css
+Error evaluating Node.js code
+Error: Cannot find module 'picocolors'
+    [at pico (turbopack:///[project]/node_modules/postcss/lib/css-syntax-error.js:3:5)]
+    [at Object.terminalHighlight (turbopack:///[project]/node_modules/postcss/lib/css-syntax-error.js:3:5)]
+    [at exec (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:650:21)]
+    [at runModuleExecutionHooksFn (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:69:5)]
+    [at instantiateModuleShared (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:648:5)]
+    [at instantiateModule (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:73:21)]
+    [at getOrInstantiateModuleFromParent (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:143:21)]
+    [at Context.commonJsRequire (turbopack:///[turbopack]/shared/runtime/runtime-utils.ts:440:10)]
+    [at Object.Symbol (turbopack:///[project]/node_modules/postcss/lib/node.js:3:5)]
+    [at <anonymous> (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:650:21)]
+
+Import trace:
+  Client Component Browser:
+    ./src/styles/product-tokens.css [Client Component Browser]
+    ./src/app/layout.tsx [Server Component]
+
+
+
+./src/styles/resume-fonts.css
+Error evaluating Node.js code
+Error: Cannot find module 'picocolors'
+    [at pico (turbopack:///[project]/node_modules/postcss/lib/css-syntax-error.js:3:5)]
+    [at Object.terminalHighlight (turbopack:///[project]/node_modules/postcss/lib/css-syntax-error.js:3:5)]
+    [at exec (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:650:21)]
+    [at runModuleExecutionHooksFn (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:69:5)]
+    [at instantiateModuleShared (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:648:5)]
+    [at instantiateModule (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:73:21)]
+    [at getOrInstantiateModuleFromParent (turbopack:///[turbopack]/nodejs/runtime/dev-base.ts:143:21)]
+    [at Context.commonJsRequire (turbopack:///[turbopack]/shared/runtime/runtime-utils.ts:440:10)]
+    [at Object.Symbol (turbopack:///[project]/node_modules/postcss/lib/node.js:3:5)]
+    [at <anonymous> (turbopack:///[turbopack]/shared/runtime/hmr-runtime.ts:650:21)]
+
+Import trace:
+  Client Component Browser:
+    ./src/styles/resume-fonts.css [Client Component Browser]
+    ./src/app/layout.tsx [Server Component]
+
+
+
+./node_modules/next/dist/client/app-index.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Client Component Browser:
+    ./node_modules/next/dist/client/app-index.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/client/components/app-router.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Client Component Browser:
+    ./node_modules/next/dist/client/components/app-router.js
+    ./node_modules/next/dist/client/app-index.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/client/components/builtin/error-styles.js:27:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import traces:
+  Client Component SSR:
+    ./node_modules/next/dist/client/components/builtin/error-styles.js [Client Component SSR]
+    ./node_modules/next/dist/client/components/builtin/global-error.js [Client Component SSR]
+    ./node_modules/next/dist/client/components/builtin/global-error.js [Server Component]
+
+  Client Component Browser:
+    ./node_modules/next/dist/client/components/builtin/error-styles.js
+    ./node_modules/next/dist/client/components/builtin/global-error.js
+    ./node_modules/next/dist/client/components/app-router.js
+    ./node_modules/next/dist/client/app-index.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/client/components/builtin/global-error.js:14:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import traces:
+  #1 [Client Component Browser]:
+    ./node_modules/next/dist/client/components/builtin/global-error.js [Client Component Browser]
+    ./node_modules/next/dist/client/components/builtin/global-error.js [Server Component]
+
+  #2 [Client Component SSR]:
+    ./node_modules/next/dist/client/components/builtin/global-error.js [Client Component SSR]
+    ./node_modules/next/dist/client/components/builtin/global-error.js [Server Component]
+
+  #3 [Client Component Browser]:
+    ./node_modules/next/dist/client/components/builtin/global-error.js
+    ./node_modules/next/dist/client/components/app-router.js
+    ./node_modules/next/dist/client/app-index.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/client/components/dev-root-http-access-fallback-boundary.js:24:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Client Component Browser:
+    ./node_modules/next/dist/client/components/dev-root-http-access-fallback-boundary.js
+    ./node_modules/next/dist/client/components/app-router.js
+    ./node_modules/next/dist/client/app-index.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/client/components/errors/root-error-boundary.js:12:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Client Component Browser:
+    ./node_modules/next/dist/client/components/errors/root-error-boundary.js
+    ./node_modules/next/dist/client/components/app-router.js
+    ./node_modules/next/dist/client/app-index.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/client/components/layout-router.js:27:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Client Component Browser:
+    ./node_modules/next/dist/client/components/layout-router.js [Client Component Browser]
+    ./node_modules/next/dist/esm/client/components/layout-router.js [Server Component]
+    ./node_modules/next/dist/esm/server/app-render/entry-base.js [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/client/dev/hot-reloader/app/hot-reloader-app.js:32:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Client Component Browser:
+    ./node_modules/next/dist/client/dev/hot-reloader/app/hot-reloader-app.js
+    ./node_modules/next/dist/client/dev/hot-reloader/app/web-socket.js
+    ./node_modules/next/dist/client/app-index.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/client/image-component.js:12:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/next/dist/client/image-component.js [Client Component Browser]
+    ./node_modules/next/dist/shared/lib/image-external.js [Client Component Browser]
+    ./node_modules/next/image.js [Client Component Browser]
+    ./src/components/resume/import/ResumeImportWizard.tsx [Client Component Browser]
+    ./src/components/agent/AgentWorkspace.tsx [Client Component Browser]
+    ./src/components/agent/AgentWorkspace.tsx [Server Component]
+    ./src/app/ai-workspace/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/next/dist/client/image-component.js [Client Component SSR]
+    ./node_modules/next/dist/shared/lib/image-external.js [Client Component SSR]
+    ./node_modules/next/image.js [Client Component SSR]
+    ./src/components/resume/import/ResumeImportWizard.tsx [Client Component SSR]
+    ./src/components/agent/AgentWorkspace.tsx [Client Component SSR]
+    ./src/components/agent/AgentWorkspace.tsx [Server Component]
+    ./src/app/ai-workspace/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/client/lib/console.js:23:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Client Component Browser:
+    ./node_modules/next/dist/client/lib/console.js
+    ./node_modules/next/dist/next-devtools/userspace/app/errors/use-error-handler.js
+    ./node_modules/next/dist/client/dev/hot-reloader/app/hot-reloader-app.js
+    ./node_modules/next/dist/client/components/app-router.js
+    ./node_modules/next/dist/client/app-index.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/client/react-client-callbacks/error-boundary-callbacks.js:24:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Client Component Browser:
+    ./node_modules/next/dist/client/react-client-callbacks/error-boundary-callbacks.js
+    ./node_modules/next/dist/client/app-index.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/client/react-client-callbacks/on-recoverable-error.js:24:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Client Component Browser:
+    ./node_modules/next/dist/client/react-client-callbacks/on-recoverable-error.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/next-devtools/userspace/app/app-dev-overlay-error-boundary.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Client Component Browser:
+    ./node_modules/next/dist/next-devtools/userspace/app/app-dev-overlay-error-boundary.js
+    ./node_modules/next/dist/next-devtools/userspace/app/client-entry.js
+    ./node_modules/next/dist/client/app-index.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/next-devtools/userspace/app/client-entry.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Client Component Browser:
+    ./node_modules/next/dist/next-devtools/userspace/app/client-entry.js
+    ./node_modules/next/dist/client/app-index.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/next-devtools/userspace/app/errors/intercept-console-error.js:23:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Client Component Browser:
+    ./node_modules/next/dist/next-devtools/userspace/app/errors/intercept-console-error.js
+    ./node_modules/next/dist/next-devtools/userspace/app/errors/index.js
+    ./node_modules/next/dist/client/react-client-callbacks/error-boundary-callbacks.js
+    ./node_modules/next/dist/client/app-index.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/next-devtools/userspace/app/errors/stitched-error.js:35:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Client Component Browser:
+    ./node_modules/next/dist/next-devtools/userspace/app/errors/stitched-error.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/next-devtools/userspace/app/errors/use-error-handler.js:31:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Client Component Browser:
+    ./node_modules/next/dist/next-devtools/userspace/app/errors/use-error-handler.js
+    ./node_modules/next/dist/client/dev/hot-reloader/app/hot-reloader-app.js
+    ./node_modules/next/dist/client/components/app-router.js
+    ./node_modules/next/dist/client/app-index.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/shared/lib/app-router-context.shared-runtime.js:36:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import traces:
+  #1 [Client Component Browser]:
+    ./node_modules/next/dist/shared/lib/app-router-context.shared-runtime.js
+    ./node_modules/next/dist/client/app-index.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+  #2 [Client Component Browser]:
+    ./node_modules/next/dist/shared/lib/app-router-context.shared-runtime.js [Client Component Browser]
+    ./node_modules/next/dist/client/app-dir/link.js [Client Component Browser]
+    ./src/components/layout/AppShell.tsx [Client Component Browser]
+    ./src/components/layout/ModeAwareAppShell.tsx [Client Component Browser]
+    ./src/components/layout/ModeAwareAppShell.tsx [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/shared/lib/format-webpack-messages.js:33:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Client Component Browser:
+    ./node_modules/next/dist/shared/lib/format-webpack-messages.js
+    ./node_modules/next/dist/client/dev/hot-reloader/app/hot-reloader-app.js
+    ./node_modules/next/dist/client/dev/hot-reloader/app/web-socket.js
+    ./node_modules/next/dist/client/app-index.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/shared/lib/head-manager-context.shared-runtime.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import traces:
+  #1 [Client Component Browser]:
+    ./node_modules/next/dist/shared/lib/head-manager-context.shared-runtime.js
+    ./node_modules/next/dist/client/app-index.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+  #2 [Client Component Browser]:
+    ./node_modules/next/dist/shared/lib/head-manager-context.shared-runtime.js [Client Component Browser]
+    ./node_modules/next/dist/shared/lib/head.js [Client Component Browser]
+    ./node_modules/next/dist/client/image-component.js [Client Component Browser]
+    ./node_modules/next/dist/shared/lib/image-external.js [Client Component Browser]
+    ./node_modules/next/image.js [Client Component Browser]
+    ./src/components/resume/import/ResumeImportWizard.tsx [Client Component Browser]
+    ./src/components/agent/AgentWorkspace.tsx [Client Component Browser]
+    ./src/components/agent/AgentWorkspace.tsx [Server Component]
+    ./src/app/ai-workspace/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/shared/lib/head.js:24:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/next/dist/shared/lib/head.js [Client Component Browser]
+    ./node_modules/next/dist/client/image-component.js [Client Component Browser]
+    ./node_modules/next/dist/shared/lib/image-external.js [Client Component Browser]
+    ./node_modules/next/image.js [Client Component Browser]
+    ./src/components/resume/import/ResumeImportWizard.tsx [Client Component Browser]
+    ./src/components/agent/AgentWorkspace.tsx [Client Component Browser]
+    ./src/components/agent/AgentWorkspace.tsx [Server Component]
+    ./src/app/ai-workspace/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/next/dist/shared/lib/head.js [Client Component SSR]
+    ./node_modules/next/dist/client/image-component.js [Client Component SSR]
+    ./node_modules/next/dist/shared/lib/image-external.js [Client Component SSR]
+    ./node_modules/next/image.js [Client Component SSR]
+    ./src/components/resume/import/ResumeImportWizard.tsx [Client Component SSR]
+    ./src/components/agent/AgentWorkspace.tsx [Client Component SSR]
+    ./src/components/agent/AgentWorkspace.tsx [Server Component]
+    ./src/app/ai-workspace/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/shared/lib/image-config-context.shared-runtime.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Client Component Browser:
+    ./node_modules/next/dist/shared/lib/image-config-context.shared-runtime.js [Client Component Browser]
+    ./node_modules/next/dist/client/image-component.js [Client Component Browser]
+    ./node_modules/next/dist/shared/lib/image-external.js [Client Component Browser]
+    ./node_modules/next/image.js [Client Component Browser]
+    ./src/components/resume/import/ResumeImportWizard.tsx [Client Component Browser]
+    ./src/components/agent/AgentWorkspace.tsx [Client Component Browser]
+    ./src/components/agent/AgentWorkspace.tsx [Server Component]
+    ./src/app/ai-workspace/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/shared/lib/image-external.js:23:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/next/dist/shared/lib/image-external.js [Client Component Browser]
+    ./node_modules/next/image.js [Client Component Browser]
+    ./src/components/resume/import/ResumeImportWizard.tsx [Client Component Browser]
+    ./src/components/agent/AgentWorkspace.tsx [Client Component Browser]
+    ./src/components/agent/AgentWorkspace.tsx [Server Component]
+    ./src/app/ai-workspace/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/next/dist/shared/lib/image-external.js [Client Component SSR]
+    ./node_modules/next/image.js [Client Component SSR]
+    ./src/components/resume/import/ResumeImportWizard.tsx [Client Component SSR]
+    ./src/components/agent/AgentWorkspace.tsx [Client Component SSR]
+    ./src/components/agent/AgentWorkspace.tsx [Server Component]
+    ./src/app/ai-workspace/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/shared/lib/router-context.shared-runtime.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Client Component Browser:
+    ./node_modules/next/dist/shared/lib/router-context.shared-runtime.js [Client Component Browser]
+    ./node_modules/next/dist/client/image-component.js [Client Component Browser]
+    ./node_modules/next/dist/shared/lib/image-external.js [Client Component Browser]
+    ./node_modules/next/image.js [Client Component Browser]
+    ./src/components/resume/import/ResumeImportWizard.tsx [Client Component Browser]
+    ./src/components/agent/AgentWorkspace.tsx [Client Component Browser]
+    ./src/components/agent/AgentWorkspace.tsx [Server Component]
+    ./src/app/ai-workspace/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/client/app-dir/link.js:33:35
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_wildcard'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_wildcard' inside of [project]/node_modules/next
+
+
+Import traces:
+  #1 [Client Component Browser]:
+    ./node_modules/next/dist/client/app-dir/link.js [Client Component Browser]
+    ./src/components/agent/workspace/AgentWorkspaceLayout.tsx [Client Component Browser]
+    ./src/components/agent/AgentWorkspace.tsx [Client Component Browser]
+    ./src/components/agent/AgentWorkspace.tsx [Server Component]
+    ./src/app/ai-workspace/page.tsx [Server Component]
+
+  #2 [Client Component Browser]:
+    ./node_modules/next/dist/client/app-dir/link.js [Client Component Browser]
+    ./src/components/layout/AppShell.tsx [Client Component Browser]
+    ./src/components/layout/ModeAwareAppShell.tsx [Client Component Browser]
+    ./src/components/layout/ModeAwareAppShell.tsx [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #3 [Client Component SSR]:
+    ./node_modules/next/dist/client/app-dir/link.js [Client Component SSR]
+    ./src/components/agent/workspace/AgentWorkspaceLayout.tsx [Client Component SSR]
+    ./src/components/agent/AgentWorkspace.tsx [Client Component SSR]
+    ./src/components/agent/AgentWorkspace.tsx [Server Component]
+    ./src/app/ai-workspace/page.tsx [Server Component]
+
+  #4 [Client Component SSR]:
+    ./node_modules/next/dist/client/app-dir/link.js [Client Component SSR]
+    ./src/components/layout/AppShell.tsx [Client Component SSR]
+    ./src/components/layout/ModeAwareAppShell.tsx [Client Component SSR]
+    ./src/components/layout/ModeAwareAppShell.tsx [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/client/components/app-router.js:12:35
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_wildcard'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_wildcard' inside of [project]/node_modules/next
+
+
+Import trace:
+  Client Component Browser:
+    ./node_modules/next/dist/client/components/app-router.js
+    ./node_modules/next/dist/client/app-index.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/client/components/error-boundary.js:24:35
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_wildcard'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_wildcard' inside of [project]/node_modules/next
+
+
+Import trace:
+  Client Component Browser:
+    ./node_modules/next/dist/client/components/error-boundary.js
+    ./node_modules/next/dist/client/react-client-callbacks/error-boundary-callbacks.js
+    ./node_modules/next/dist/client/app-index.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/client/components/http-access-fallback/error-boundary.js:12:35
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_wildcard'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_wildcard' inside of [project]/node_modules/next
+
+
+Import trace:
+  Client Component Browser:
+    ./node_modules/next/dist/client/components/http-access-fallback/error-boundary.js
+    ./node_modules/next/dist/client/components/dev-root-http-access-fallback-boundary.js
+    ./node_modules/next/dist/client/components/app-router.js
+    ./node_modules/next/dist/client/app-index.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/client/components/layout-router.js:28:35
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_wildcard'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_wildcard' inside of [project]/node_modules/next
+
+
+Import trace:
+  Client Component Browser:
+    ./node_modules/next/dist/client/components/layout-router.js [Client Component Browser]
+    ./node_modules/next/dist/esm/client/components/layout-router.js [Server Component]
+    ./node_modules/next/dist/esm/server/app-render/entry-base.js [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/client/components/navigation.js:85:35
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_wildcard'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_wildcard' inside of [project]/node_modules/next
+
+
+Import traces:
+  #1 [Client Component Browser]:
+    ./node_modules/next/dist/client/components/navigation.js
+    ./node_modules/next/dist/client/components/redirect-boundary.js
+    ./node_modules/next/dist/client/components/app-router.js
+    ./node_modules/next/dist/client/app-index.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+  #2 [Client Component Browser]:
+    ./node_modules/next/dist/client/components/navigation.js [Client Component Browser]
+    ./node_modules/next/navigation.js [Client Component Browser]
+    ./src/components/layout/ModeAwareAppShell.tsx [Client Component Browser]
+    ./src/components/layout/ModeAwareAppShell.tsx [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #3 [Client Component SSR]:
+    ./node_modules/next/dist/client/components/navigation.js [Client Component SSR]
+    ./node_modules/next/navigation.js [Client Component SSR]
+    ./src/components/layout/ModeAwareAppShell.tsx [Client Component SSR]
+    ./src/components/layout/ModeAwareAppShell.tsx [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/client/components/redirect-boundary.js:24:35
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_wildcard'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_wildcard' inside of [project]/node_modules/next
+
+
+Import trace:
+  Client Component Browser:
+    ./node_modules/next/dist/client/components/redirect-boundary.js
+    ./node_modules/next/dist/client/components/app-router.js
+    ./node_modules/next/dist/client/app-index.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/client/components/render-from-template-context.js:12:35
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_wildcard'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_wildcard' inside of [project]/node_modules/next
+
+
+Import trace:
+  Client Component Browser:
+    ./node_modules/next/dist/client/components/render-from-template-context.js [Client Component Browser]
+    ./node_modules/next/dist/esm/client/components/render-from-template-context.js [Server Component]
+    ./node_modules/next/dist/esm/server/app-render/entry-base.js [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/client/components/use-action-queue.js:31:35
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_wildcard'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_wildcard' inside of [project]/node_modules/next
+
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/next/dist/client/components/use-action-queue.js
+    ./node_modules/next/dist/client/components/app-router.js
+    ./node_modules/next/dist/client/app-index.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+  Client Component SSR:
+    ./node_modules/next/dist/client/components/use-action-queue.js [Client Component SSR]
+    ./node_modules/next/dist/client/components/router-reducer/ppr-navigations.js [Client Component SSR]
+    ./node_modules/next/dist/client/components/segment-cache/navigation.js [Client Component SSR]
+    ./node_modules/next/dist/client/components/segment-cache/cache.js [Client Component SSR]
+    ./node_modules/next/dist/client/components/segment-cache/scheduler.js [Client Component SSR]
+    ./node_modules/next/dist/client/components/links.js [Client Component SSR]
+    ./node_modules/next/dist/client/app-dir/link.js [Client Component SSR]
+    ./src/components/layout/AppShell.tsx [Client Component SSR]
+    ./src/components/layout/ModeAwareAppShell.tsx [Client Component SSR]
+    ./src/components/layout/ModeAwareAppShell.tsx [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/client/image-component.js:13:35
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_wildcard'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_wildcard' inside of [project]/node_modules/next
+
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/next/dist/client/image-component.js [Client Component Browser]
+    ./node_modules/next/dist/shared/lib/image-external.js [Client Component Browser]
+    ./node_modules/next/image.js [Client Component Browser]
+    ./src/components/resume/import/ResumeImportWizard.tsx [Client Component Browser]
+    ./src/components/agent/AgentWorkspace.tsx [Client Component Browser]
+    ./src/components/agent/AgentWorkspace.tsx [Server Component]
+    ./src/app/ai-workspace/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/next/dist/client/image-component.js [Client Component SSR]
+    ./node_modules/next/dist/shared/lib/image-external.js [Client Component SSR]
+    ./node_modules/next/image.js [Client Component SSR]
+    ./src/components/resume/import/ResumeImportWizard.tsx [Client Component SSR]
+    ./src/components/agent/AgentWorkspace.tsx [Client Component SSR]
+    ./src/components/agent/AgentWorkspace.tsx [Server Component]
+    ./src/app/ai-workspace/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/next-devtools/userspace/app/app-dev-overlay-error-boundary.js:12:35
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_wildcard'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_wildcard' inside of [project]/node_modules/next
+
+
+Import trace:
+  Client Component Browser:
+    ./node_modules/next/dist/next-devtools/userspace/app/app-dev-overlay-error-boundary.js
+    ./node_modules/next/dist/next-devtools/userspace/app/client-entry.js
+    ./node_modules/next/dist/client/app-index.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/shared/lib/head.js:25:35
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_wildcard'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_wildcard' inside of [project]/node_modules/next
+
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/next/dist/shared/lib/head.js [Client Component Browser]
+    ./node_modules/next/dist/client/image-component.js [Client Component Browser]
+    ./node_modules/next/dist/shared/lib/image-external.js [Client Component Browser]
+    ./node_modules/next/image.js [Client Component Browser]
+    ./src/components/resume/import/ResumeImportWizard.tsx [Client Component Browser]
+    ./src/components/agent/AgentWorkspace.tsx [Client Component Browser]
+    ./src/components/agent/AgentWorkspace.tsx [Server Component]
+    ./src/app/ai-workspace/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/next/dist/shared/lib/head.js [Client Component SSR]
+    ./node_modules/next/dist/client/image-component.js [Client Component SSR]
+    ./node_modules/next/dist/shared/lib/image-external.js [Client Component SSR]
+    ./node_modules/next/image.js [Client Component SSR]
+    ./src/components/resume/import/ResumeImportWizard.tsx [Client Component SSR]
+    ./src/components/agent/AgentWorkspace.tsx [Client Component SSR]
+    ./src/components/agent/AgentWorkspace.tsx [Server Component]
+    ./src/app/ai-workspace/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/shared/lib/router/utils/format-url.js:48:35
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_wildcard'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_wildcard' inside of [project]/node_modules/next
+
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/next/dist/shared/lib/router/utils/format-url.js [Client Component Browser]
+    ./node_modules/next/dist/client/app-dir/link.js [Client Component Browser]
+    ./src/components/layout/AppShell.tsx [Client Component Browser]
+    ./src/components/layout/ModeAwareAppShell.tsx [Client Component Browser]
+    ./src/components/layout/ModeAwareAppShell.tsx [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/next/dist/shared/lib/router/utils/format-url.js [Client Component SSR]
+    ./node_modules/next/dist/client/app-dir/link.js [Client Component SSR]
+    ./src/components/layout/AppShell.tsx [Client Component SSR]
+    ./src/components/layout/ModeAwareAppShell.tsx [Client Component SSR]
+    ./src/components/layout/ModeAwareAppShell.tsx [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/next/dist/shared/lib/server-inserted-html.shared-runtime.js:24:35
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_wildcard'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_wildcard' inside of [project]/node_modules/next
+
+
+Import trace:
+  Client Component Browser:
+    ./node_modules/next/dist/shared/lib/server-inserted-html.shared-runtime.js
+    ./node_modules/next/dist/client/components/navigation.js
+    ./node_modules/next/dist/client/components/redirect-boundary.js
+    ./node_modules/next/dist/client/components/app-router.js
+    ./node_modules/next/dist/client/app-index.js
+    ./node_modules/next/dist/client/app-next-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/postcss/lib/css-syntax-error.js:3:12
+Module not found: Can't resolve 'picocolors'
+  1 | 'use strict'
+  2 |
+> 3 | let pico = require('picocolors')
+    |            ^^^^^^^^^^^^^^^^^^^^^
+  4 |
+  5 | let terminalHighlight = require('./terminal-highlight')
+  6 |
+
+
+
+Import trace:
+  postcss:
+    ./node_modules/postcss/lib/css-syntax-error.js
+    ./node_modules/postcss/lib/postcss.js
+    ./node_modules/postcss/lib/postcss.mjs
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/postcss/lib/terminal-highlight.js:3:12
+Module not found: Can't resolve 'picocolors'
+  1 | 'use strict'
+  2 |
+> 3 | let pico = require('picocolors')
+    |            ^^^^^^^^^^^^^^^^^^^^^
+  4 |
+  5 | let tokenizer = require('./tokenize')
+  6 |
+
+
+
+Import trace:
+  postcss:
+    ./node_modules/postcss/lib/terminal-highlight.js
+    ./node_modules/postcss/lib/input.js
+    ./node_modules/postcss/lib/postcss.js
+    ./node_modules/postcss/lib/postcss.mjs
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/postcss/lib/input.js:5:49
+Module not found: Can't resolve 'source-map-js'
+  3 | let { nanoid } = require('nanoid/non-secure')
+  4 | let { isAbsolute, resolve } = require('path')
+> 5 | let { SourceMapConsumer, SourceMapGenerator } = require('source-map-js')
+    |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^
+  6 | let { fileURLToPath, pathToFileURL } = require('url')
+  7 |
+  8 | let CssSyntaxError = require('./css-syntax-error')
+
+
+
+Import trace:
+  postcss:
+    ./node_modules/postcss/lib/input.js
+    ./node_modules/postcss/lib/postcss.js
+    ./node_modules/postcss/lib/postcss.mjs
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/postcss/lib/map-generator.js:4:49
+Module not found: Can't resolve 'source-map-js'
+  2 |
+  3 | let { dirname, relative, resolve, sep } = require('path')
+> 4 | let { SourceMapConsumer, SourceMapGenerator } = require('source-map-js')
+    |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | let { pathToFileURL } = require('url')
+  6 |
+  7 | let Input = require('./input')
+
+
+
+Import trace:
+  postcss:
+    ./node_modules/postcss/lib/map-generator.js
+    ./node_modules/postcss/lib/lazy-result.js
+    ./node_modules/postcss/lib/postcss.js
+    ./node_modules/postcss/lib/postcss.mjs
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+./node_modules/postcss/lib/previous-map.js:5:49
+Module not found: Can't resolve 'source-map-js'
+  3 | let { existsSync, readFileSync } = require('fs')
+  4 | let { dirname, join } = require('path')
+> 5 | let { SourceMapConsumer, SourceMapGenerator } = require('source-map-js')
+    |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^
+  6 |
+  7 | function fromBase64(str) {
+  8 |   if (Buffer) {
+
+
+
+Import trace:
+  postcss:
+    ./node_modules/postcss/lib/previous-map.js
+    ./node_modules/postcss/lib/input.js
+    ./node_modules/postcss/lib/postcss.js
+    ./node_modules/postcss/lib/postcss.mjs
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⚠ ./src/services/pdf
+Package pdfjs-dist can't be external
+The request pdfjs-dist/build/pdf.worker.mjs matches serverExternalPackages (or the default list).
+The package seems invalid. require() resolves to a EcmaScript module, which would result in an error in Node.js.
+
+
+⚠ ./src/services/resumeImport
+Package pdfjs-dist can't be external
+The request pdfjs-dist/build/pdf.worker.mjs matches serverExternalPackages (or the default list).
+The package seems invalid. require() resolves to a EcmaScript module, which would result in an error in Node.js.
+
+
+⨯ ./node_modules/next/dist/client/dev/hot-middleware-client.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/dev/hot-middleware-client.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/dev/hot-reloader/pages/hot-reloader-pages.js:55:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/dev/hot-reloader/pages/hot-reloader-pages.js
+    ./node_modules/next/dist/client/page-bootstrap.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/dev/on-demand-entries-client.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/dev/on-demand-entries-client.js
+    ./node_modules/next/dist/client/page-bootstrap.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/index.js:36:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/next-dev-turbopack.js:6:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/page-bootstrap.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/page-bootstrap.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/page-loader.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/page-loader.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/react-client-callbacks/on-recoverable-error.js:24:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/react-client-callbacks/on-recoverable-error.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/route-announcer.js:23:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/route-announcer.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/route-loader.js:31:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/route-loader.js
+    ./node_modules/next/dist/client/page-loader.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/router.js:40:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/router.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/script.js:28:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/script.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/tracing/tracer.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/tracing/tracer.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/with-router.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/with-router.js
+    ./node_modules/next/dist/client/router.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/next-devtools/shared/react-18-hydration-error.js:27:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/next-devtools/shared/react-18-hydration-error.js
+    ./node_modules/next/dist/next-devtools/userspace/pages/hydration-error-state.js
+    ./node_modules/next/dist/next-devtools/userspace/pages/pages-dev-overlay-setup.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/next-devtools/userspace/app/errors/stitched-error.js:35:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/next-devtools/userspace/app/errors/stitched-error.js
+    ./node_modules/next/dist/next-devtools/userspace/pages/pages-dev-overlay-setup.js
+    ./node_modules/next/dist/client/dev/hot-reloader/pages/hot-reloader-pages.js
+    ./node_modules/next/dist/client/page-bootstrap.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/next-devtools/userspace/pages/pages-dev-overlay-error-boundary.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/next-devtools/userspace/pages/pages-dev-overlay-error-boundary.js
+    ./node_modules/next/dist/next-devtools/userspace/pages/pages-dev-overlay-setup.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/next-devtools/userspace/pages/pages-dev-overlay-setup.js:23:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/next-devtools/userspace/pages/pages-dev-overlay-setup.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/pages/_app.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import traces:
+  Browser:
+    ./node_modules/next/dist/pages/_app.js
+    ./node_modules/next/app.js
+
+  SSR:
+    ./node_modules/next/dist/pages/_app.js
+    ./node_modules/next/app.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/pages/_app.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import traces:
+  Browser:
+    ./node_modules/next/dist/pages/_app.js
+    ./node_modules/next/app.js
+
+  SSR:
+    ./node_modules/next/dist/pages/_app.js
+    ./node_modules/next/app.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/app-router-context.shared-runtime.js:36:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/shared/lib/app-router-context.shared-runtime.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/constants.js:291:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/shared/lib/constants.js
+    ./node_modules/next/dist/client/page-loader.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/format-webpack-messages.js:33:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/shared/lib/format-webpack-messages.js
+    ./node_modules/next/dist/client/dev/hot-reloader/pages/hot-reloader-pages.js
+    ./node_modules/next/dist/client/page-bootstrap.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/head-manager-context.shared-runtime.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/shared/lib/head-manager-context.shared-runtime.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/image-config-context.shared-runtime.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/shared/lib/image-config-context.shared-runtime.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/router-context.shared-runtime.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/shared/lib/router-context.shared-runtime.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/router/router.js:27:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/shared/lib/router/router.js
+    ./node_modules/next/dist/client/router.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/script.js:29:35
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_wildcard'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_wildcard' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/script.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/router/adapters.js:31:35
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_wildcard'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_wildcard' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/shared/lib/router/adapters.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/router/router.js:28:35
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_wildcard'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_wildcard' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/shared/lib/router/router.js
+    ./node_modules/next/dist/client/router.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/router/utils/format-url.js:48:35
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_wildcard'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_wildcard' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/shared/lib/router/utils/format-url.js
+    ./node_modules/next/dist/shared/lib/router/router.js
+    ./node_modules/next/dist/client/router.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/react-dom/cjs/react-dom-client.development.js:24190:21
+Module not found: Can't resolve 'scheduler'
+
+
+Import trace:
+  Browser:
+    ./node_modules/react-dom/cjs/react-dom-client.development.js
+    ./node_modules/react-dom/client.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/constants.js:291:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  SSR:
+    ./node_modules/next/dist/shared/lib/constants.js
+    ./node_modules/next/dist/pages/_document.js
+    ./node_modules/next/document.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/dev/hot-middleware-client.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/dev/hot-middleware-client.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/dev/hot-reloader/pages/hot-reloader-pages.js:55:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/dev/hot-reloader/pages/hot-reloader-pages.js
+    ./node_modules/next/dist/client/page-bootstrap.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/dev/on-demand-entries-client.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/dev/on-demand-entries-client.js
+    ./node_modules/next/dist/client/page-bootstrap.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/index.js:36:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/next-dev-turbopack.js:6:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/page-bootstrap.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/page-bootstrap.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/page-loader.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/page-loader.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/react-client-callbacks/on-recoverable-error.js:24:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/react-client-callbacks/on-recoverable-error.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/route-announcer.js:23:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/route-announcer.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/route-loader.js:31:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/route-loader.js
+    ./node_modules/next/dist/client/page-loader.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/router.js:40:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/router.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/script.js:28:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/script.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/tracing/tracer.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/tracing/tracer.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/with-router.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/with-router.js
+    ./node_modules/next/dist/client/router.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/next-devtools/shared/react-18-hydration-error.js:27:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/next-devtools/shared/react-18-hydration-error.js
+    ./node_modules/next/dist/next-devtools/userspace/pages/hydration-error-state.js
+    ./node_modules/next/dist/next-devtools/userspace/pages/pages-dev-overlay-setup.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/next-devtools/userspace/app/errors/stitched-error.js:35:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/next-devtools/userspace/app/errors/stitched-error.js
+    ./node_modules/next/dist/next-devtools/userspace/pages/pages-dev-overlay-setup.js
+    ./node_modules/next/dist/client/dev/hot-reloader/pages/hot-reloader-pages.js
+    ./node_modules/next/dist/client/page-bootstrap.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/next-devtools/userspace/pages/pages-dev-overlay-error-boundary.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/next-devtools/userspace/pages/pages-dev-overlay-error-boundary.js
+    ./node_modules/next/dist/next-devtools/userspace/pages/pages-dev-overlay-setup.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/next-devtools/userspace/pages/pages-dev-overlay-setup.js:23:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/next-devtools/userspace/pages/pages-dev-overlay-setup.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/pages/_app.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  SSR:
+    ./node_modules/next/dist/pages/_app.js
+    ./node_modules/next/app.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/pages/_error.js:13:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/pages/_error.js:13:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/app-router-context.shared-runtime.js:36:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/shared/lib/app-router-context.shared-runtime.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/constants.js:291:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import traces:
+  SSR:
+    ./node_modules/next/dist/shared/lib/constants.js
+    ./node_modules/next/dist/pages/_document.js
+    ./node_modules/next/document.js
+
+  Browser:
+    ./node_modules/next/dist/shared/lib/constants.js
+    ./node_modules/next/dist/client/page-loader.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/constants.js:291:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import traces:
+  SSR:
+    ./node_modules/next/dist/shared/lib/constants.js
+    ./node_modules/next/dist/pages/_document.js
+    ./node_modules/next/document.js
+
+  Browser:
+    ./node_modules/next/dist/shared/lib/constants.js
+    ./node_modules/next/dist/client/page-loader.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/format-webpack-messages.js:33:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/shared/lib/format-webpack-messages.js
+    ./node_modules/next/dist/client/dev/hot-reloader/pages/hot-reloader-pages.js
+    ./node_modules/next/dist/client/page-bootstrap.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/head-manager-context.shared-runtime.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/shared/lib/head-manager-context.shared-runtime.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/head.js:24:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import traces:
+  Browser:
+    ./node_modules/next/dist/shared/lib/head.js
+    ./node_modules/next/dist/pages/_error.js
+
+  SSR:
+    ./node_modules/next/dist/shared/lib/head.js
+    ./node_modules/next/dist/pages/_error.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/head.js:24:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import traces:
+  Browser:
+    ./node_modules/next/dist/shared/lib/head.js
+    ./node_modules/next/dist/pages/_error.js
+
+  SSR:
+    ./node_modules/next/dist/shared/lib/head.js
+    ./node_modules/next/dist/pages/_error.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/image-config-context.shared-runtime.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/shared/lib/image-config-context.shared-runtime.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/router-context.shared-runtime.js:11:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/shared/lib/router-context.shared-runtime.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/router/router.js:27:34
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_default'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_default' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/shared/lib/router/router.js
+    ./node_modules/next/dist/client/router.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/client/script.js:29:35
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_wildcard'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_wildcard' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/client/script.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/head.js:25:35
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_wildcard'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_wildcard' inside of [project]/node_modules/next
+
+
+Import traces:
+  Browser:
+    ./node_modules/next/dist/shared/lib/head.js
+    ./node_modules/next/dist/pages/_error.js
+
+  SSR:
+    ./node_modules/next/dist/shared/lib/head.js
+    ./node_modules/next/dist/pages/_error.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/head.js:25:35
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_wildcard'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_wildcard' inside of [project]/node_modules/next
+
+
+Import traces:
+  Browser:
+    ./node_modules/next/dist/shared/lib/head.js
+    ./node_modules/next/dist/pages/_error.js
+
+  SSR:
+    ./node_modules/next/dist/shared/lib/head.js
+    ./node_modules/next/dist/pages/_error.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/router/adapters.js:31:35
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_wildcard'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_wildcard' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/shared/lib/router/adapters.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/router/router.js:28:35
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_wildcard'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_wildcard' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/shared/lib/router/router.js
+    ./node_modules/next/dist/client/router.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/next/dist/shared/lib/router/utils/format-url.js:48:35
+Module not found: Can't resolve '@swc/helpers/_/_interop_require_wildcard'
+Import map: aliased to module '@swc/helpers' with subpath '/_/_interop_require_wildcard' inside of [project]/node_modules/next
+
+
+Import trace:
+  Browser:
+    ./node_modules/next/dist/shared/lib/router/utils/format-url.js
+    ./node_modules/next/dist/shared/lib/router/router.js
+    ./node_modules/next/dist/client/router.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./node_modules/react-dom/cjs/react-dom-client.development.js:24190:21
+Module not found: Can't resolve 'scheduler'
+
+
+Import trace:
+  Browser:
+    ./node_modules/react-dom/cjs/react-dom-client.development.js
+    ./node_modules/react-dom/client.js
+    ./node_modules/next/dist/client/index.js
+    ./node_modules/next/dist/client/next-dev-turbopack.js
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+ GET /ai-workspace 500 in 6.0s (next.js: 5.8s, application-code: 237ms)
+✓ Compiled in 3.4s
+  1) tests\e2e\hermes-p46h-integration.spec.ts:126:7 › P4.6h hermetic Web + browser MCP integration › CASE D — building from zero starts Profile Intake through a facade 
+
+    Error: expect(locator).toHaveAttribute(expected) failed
+
+    Locator: locator('.agent-runtime-status')
+    Expected pattern: /AI Runtime Hermes，状态 Ready/u
+    Timeout: 90000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toHaveAttribute" with timeout 90000ms
+      - waiting for locator('.agent-runtime-status')
+
+
+      777 |   }, { baseUrl: providerBaseUrl, apiKey: providerApiKey });
+      778 |   await page.goto("/ai-workspace");
+    > 779 |   await expect(page.locator(".agent-runtime-status")).toHaveAttribute("aria-label", /AI Runtime Hermes，状态 Ready/u, { timeout: 90_000 });
+          |                                                       ^
+      780 |   await expect.poll(async () => {
+      781 |     const response = await page.request.get("/api/agent/mcp", { headers: { Connection: "close" } });
+      782 |     const payload = await response.json() as { status?: { connected?: boolean; discoveredToolCount?: number } };
+        at openWorkspace (E:\DEF\CareerAdapt-competition-5.1.8\.tmp\rp011-app\tests\e2e\hermes-p46h-integration.spec.ts:779:55)
+        at E:\DEF\CareerAdapt-competition-5.1.8\.tmp\rp011-app\tests\e2e\hermes-p46h-integration.spec.ts:128:5
+
+    Error Context: .tmp\rp011-playwright\hermes-p46h-integration-P4-d3b0a-ile-Intake-through-a-facade\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    .tmp\rp011-playwright\hermes-p46h-integration-P4-d3b0a-ile-Intake-through-a-facade\trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace .tmp\rp011-playwright\hermes-p46h-integration-P4-d3b0a-ile-Intake-through-a-facade\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+
+(node:69520) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[2/3] tests\e2e\hermes-p46h-integration.spec.ts:239:7 › P4.6h hermetic Web + browser MCP integration › CASE L Core-02 — saved JD, Fit, follow-up tailoring, confirmed isolated revision and PDF
+  2) tests\e2e\hermes-p46h-integration.spec.ts:239:7 › P4.6h hermetic Web + browser MCP integration › CASE L Core-02 — saved JD, Fit, follow-up tailoring, confirmed isolated revision and PDF 
+
+    Error: Playwright Test did not expect test.use() to be called here.
+    Most common reasons include:
+    - You are calling test.use() in a configuration file.
+    - You are calling test.use() in a file that is imported by the configuration file.
+    - You have two different versions of @playwright/test. This usually happens
+      when one of the dependencies in your package.json depends on @playwright/test.
+    - You are calling test.use() from an async test.describe() block. Only sync ones are supported.
+
+       6 | import { completeCoreResumeWorkflow, installCoreWritingProvider, prepareCoreSourceResume, readStore, verifyCoreResumePdf } from "./support/p51CoreWorkflow";
+       7 |
+    >  8 | test.use({ actionTimeout: 15_000 });
+         |      ^
+       9 |
+      10 | const closeoutTraces = new WeakMap<Page, ReturnType<typeof observeRuntimeAndBridge>>();
+      11 | const differentialTimelines = new WeakMap<Page, Array<{ stage: string; at: string; elapsedMs: number; status?: number }>>();
+        at _TestTypeImpl._currentSuite (E:\DEF\CareerAdapt-competition-5.1.8\.tmp\rp011-app\node_modules\.pnpm\node_modules\playwright\lib\common\index.js:2257:13)
+        at _TestTypeImpl._use (E:\DEF\CareerAdapt-competition-5.1.8\.tmp\rp011-app\node_modules\.pnpm\node_modules\playwright\lib\common\index.js:2419:24)
+        at Function.use (E:\DEF\CareerAdapt-competition-5.1.8\.tmp\rp011-app\node_modules\.pnpm\node_modules\playwright\lib\common\index.js:1220:12)
+        at Object.<anonymous> (E:\DEF\CareerAdapt-competition-5.1.8\.tmp\rp011-app\tests\e2e\hermes-p46h-integration.spec.ts:8:6)
+
+
+(node:79012) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[3/3] tests\e2e\resume01-hermes.spec.ts:20:5 › RESUME01 real Hermes review-only then explicit confirmed improvement isolates Profile
+  3) tests\e2e\resume01-hermes.spec.ts:20:5 › RESUME01 real Hermes review-only then explicit confirmed improvement isolates Profile 
+
+    Error: Playwright Test did not expect test() to be called here.
+    Most common reasons include:
+    - You are calling test() in a configuration file.
+    - You are calling test() in a file that is imported by the configuration file.
+    - You have two different versions of @playwright/test. This usually happens
+      when one of the dependencies in your package.json depends on @playwright/test.
+    - You are calling test() from an async test.describe() block. Only sync ones are supported.
+
+      18 |   await page.getByRole("button", { name: "发送消息", exact: true }).click({ timeout: 15_000 });
+      19 | }
+    > 20 | test("RESUME01 real Hermes review-only then explicit confirmed improvement isolates Profile", async ({ page }, info) => {
+         |     ^
+      21 |   const baseUrl = process.env.HERMES_INTEGRATION_PROVIDER_URL;
+      22 |   const apiKey = process.env.HERMES_INTEGRATION_PROVIDER_KEY;
+      23 |   if (!baseUrl || !apiKey) throw new Error("synthetic_provider_missing");
+        at _TestTypeImpl._currentSuite (E:\DEF\CareerAdapt-competition-5.1.8\.tmp\rp011-app\node_modules\.pnpm\node_modules\playwright\lib\common\index.js:2257:13)
+        at _TestTypeImpl._createTest (E:\DEF\CareerAdapt-competition-5.1.8\.tmp\rp011-app\node_modules\.pnpm\node_modules\playwright\lib\common\index.js:2271:24)
+        at E:\DEF\CareerAdapt-competition-5.1.8\.tmp\rp011-app\node_modules\.pnpm\node_modules\playwright\lib\common\index.js:1220:12
+        at Object.<anonymous> (E:\DEF\CareerAdapt-competition-5.1.8\.tmp\rp011-app\tests\e2e\resume01-hermes.spec.ts:20:5)
+
+
+  3 failed
+    tests\e2e\hermes-p46h-integration.spec.ts:126:7 › P4.6h hermetic Web + browser MCP integration › CASE D — building from zero starts Profile Intake through a facade 
+    tests\e2e\hermes-p46h-integration.spec.ts:239:7 › P4.6h hermetic Web + browser MCP integration › CASE L Core-02 — saved JD, Fit, follow-up tailoring, confirmed isolated revision and PDF 
+    tests\e2e\resume01-hermes.spec.ts:20:5 › RESUME01 real Hermes review-only then explicit confirmed improvement isolates Profile 
+[Hermes integration] FAIL: Hermes integration Playwright exited with code 1
+⚠ ./src/services/pdf
+Package pdfjs-dist can't be external
+The request pdfjs-dist/build/pdf.worker.mjs matches serverExternalPackages (or the default list).
+The package seems invalid. require() resolves to a EcmaScript module, which would result in an error in Node.js.
+
+
+⚠ ./src/services/resumeImport
+Package pdfjs-dist can't be external
+The request pdfjs-dist/build/pdf.worker.mjs matches serverExternalPackages (or the default list).
+The package seems invalid. require() resolves to a EcmaScript module, which would result in an error in Node.js.
+
+
+ GET /api/agent/runtime/hermes/control 200 in 186ms (next.js: 148ms, application-code: 38ms)
+ GET /api/agent/mcp 200 in 321ms (next.js: 315ms, application-code: 6ms)
+ POST /api/agent/runtime/hermes/control 200 in 11ms (next.js: 2ms, application-code: 9ms)
+[Hermes integration] hermesHome=C:\Users\mqcin\AppData\Local\Temp\careerad-hermes-integration-kGlQEQ

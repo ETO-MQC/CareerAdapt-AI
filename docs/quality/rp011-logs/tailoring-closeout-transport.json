@@ -1,0 +1,4459 @@
+{
+  "runtimeActions": [
+    "run_start",
+    "run_status",
+    "run_events",
+    "run_status",
+    "run_start",
+    "run_status",
+    "run_events",
+    "run_status",
+    "run_status",
+    "run_start",
+    "run_status",
+    "run_events",
+    "run_status",
+    "run_status"
+  ],
+  "resultActions": [
+    "result",
+    "result",
+    "result",
+    "result",
+    "result",
+    "result",
+    "result"
+  ],
+  "toolRequests": [
+    {
+      "name": "career.workflow.job_intake",
+      "input": {
+        "rawText": "公司：Core Test\n岗位：数据分析实习生 CORE-JD\n岗位职责\n1. 参与数据清洗与分析。\n任职要求\n1. 了解 Python 或 SQL。\n2. 具备团队协作能力。",
+        "persistence": "save"
+      }
+    },
+    {
+      "name": "career.resume.list",
+      "input": {}
+    },
+    {
+      "name": "career.job.list",
+      "input": {}
+    },
+    {
+      "name": "career.workflow.job_fit",
+      "input": {
+        "profileId": "profile-1-Kb8c0PH8",
+        "resumeId": "branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+        "jobId": "job-8XezEygORM"
+      }
+    },
+    {
+      "name": "career.resume.list",
+      "input": {}
+    },
+    {
+      "name": "career.job.list",
+      "input": {}
+    },
+    {
+      "name": "career.workflow.tailor_resume",
+      "input": {
+        "jobId": "job-8XezEygORM",
+        "sourceResumeId": "branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+        "mode": "steady"
+      }
+    }
+  ],
+  "returnedToolResults": [
+    {
+      "requestId": "mcp-request-LhJmCnd0ixgGG8aX",
+      "ok": true,
+      "status": "completed",
+      "at": "2026-11-05T05:45:08.905Z"
+    },
+    {
+      "requestId": "mcp-request-XxtCaurhLkYuKV62",
+      "ok": true,
+      "at": "2026-11-05T05:45:15.408Z"
+    },
+    {
+      "requestId": "mcp-request-zWAN9rLM0U7exypp",
+      "ok": true,
+      "at": "2026-11-05T05:45:16.651Z"
+    },
+    {
+      "requestId": "mcp-request-32JO8NkNKwBWPeXv",
+      "ok": true,
+      "status": "completed",
+      "at": "2026-11-05T05:45:17.939Z"
+    },
+    {
+      "requestId": "mcp-request-x0o3qI9NwItIKufl",
+      "ok": true,
+      "at": "2026-11-05T05:45:22.320Z"
+    },
+    {
+      "requestId": "mcp-request-vuBzRsh0kgBij3U8",
+      "ok": true,
+      "at": "2026-11-05T05:45:23.538Z"
+    },
+    {
+      "requestId": "mcp-request-aAMy-KuwIcD78Urm",
+      "ok": true,
+      "status": "review_ready",
+      "at": "2026-11-05T05:45:24.889Z"
+    }
+  ],
+  "runRequests": [
+    {
+      "action": "run_start",
+      "sessionId": "hermes-agent-session-Bz1XjE6KtCGm",
+      "turnId": "runtime-turn-3fadecc7-fdcc-46a1-a66a-cadcb392dde0",
+      "userMessage": "保存这个岗位 CORE-JD：公司 Core Test，数据分析实习生，负责数据清洗，要求了解 Python 或 SQL。",
+      "pageContext": {
+        "pathname": "/ai-workspace",
+        "route": "/ai-workspace",
+        "title": "AI 工作台",
+        "agentSessionId": "agent-session-Bz1XjE6KtCGm",
+        "personId": "person-profile-1-Kb8c0PH8",
+        "activeProfileId": "profile-1-Kb8c0PH8",
+        "profileId": "profile-1-Kb8c0PH8",
+        "profileVersionNumber": 1,
+        "profileRevision": 1,
+        "query": {}
+      },
+      "toolContracts": [],
+      "careerSessionBinding": {
+        "personId": "person-profile-1-Kb8c0PH8",
+        "profileId": "profile-1-Kb8c0PH8",
+        "profileVersionNumber": 1,
+        "profileRevision": 1,
+        "agentSessionId": "agent-session-Bz1XjE6KtCGm"
+      },
+      "incidentTraceId": "incident-0e2b4347-8a84-42de-bd50-3ee9e443d90d",
+      "logicalTurnId": "runtime-turn-3fadecc7-fdcc-46a1-a66a-cadcb392dde0",
+      "attemptTraceId": "incident-0e2b4347-8a84-42de-bd50-3ee9e443d90d:attempt-1",
+      "attachments": [],
+      "conversationHistory": [],
+      "metadata": {
+        "incidentTraceId": "incident-0e2b4347-8a84-42de-bd50-3ee9e443d90d",
+        "attemptTraceId": "incident-0e2b4347-8a84-42de-bd50-3ee9e443d90d:attempt-1",
+        "attemptNumber": 1,
+        "runtimeId": "hermes",
+        "preferredRuntime": "hermes",
+        "attemptedRuntime": "hermes",
+        "finalRuntime": "hermes",
+        "requireCareerSessionBinding": true
+      }
+    },
+    {
+      "action": "run_start",
+      "sessionId": "hermes-agent-session-Bz1XjE6KtCGm",
+      "turnId": "runtime-turn-a197b0d3-c871-4513-b75e-c2d14563e348",
+      "userMessage": "P51-C02-FIT 这个岗位适合我吗？",
+      "pageContext": {
+        "pathname": "/ai-workspace",
+        "route": "/ai-workspace",
+        "title": "AI 工作台",
+        "agentSessionId": "agent-session-Bz1XjE6KtCGm",
+        "personId": "person-profile-1-Kb8c0PH8",
+        "activeProfileId": "profile-1-Kb8c0PH8",
+        "profileId": "profile-1-Kb8c0PH8",
+        "profileVersionNumber": 1,
+        "profileRevision": 1,
+        "query": {}
+      },
+      "toolContracts": [],
+      "careerSessionBinding": {
+        "personId": "person-profile-1-Kb8c0PH8",
+        "profileId": "profile-1-Kb8c0PH8",
+        "profileVersionNumber": 1,
+        "profileRevision": 1,
+        "agentSessionId": "agent-session-Bz1XjE6KtCGm"
+      },
+      "careerCheckpoint": {
+        "workflowId": "job_ingestion",
+        "stage": "completed",
+        "profileId": "profile-1-Kb8c0PH8",
+        "jobId": "job-8XezEygORM"
+      },
+      "incidentTraceId": "incident-59adb129-c3df-478a-8661-d102ab6b9406",
+      "logicalTurnId": "runtime-turn-a197b0d3-c871-4513-b75e-c2d14563e348",
+      "attemptTraceId": "incident-59adb129-c3df-478a-8661-d102ab6b9406:attempt-2",
+      "attachments": [],
+      "conversationHistory": [
+        {
+          "role": "user",
+          "content": "保存这个岗位 CORE-JD：公司 Core Test，数据分析实习生，负责数据清洗，要求了解 Python 或 SQL。"
+        },
+        {
+          "role": "assistant",
+          "content": "已按你的确认完成当前 Career 工作流。"
+        }
+      ],
+      "metadata": {
+        "incidentTraceId": "incident-59adb129-c3df-478a-8661-d102ab6b9406",
+        "attemptTraceId": "incident-59adb129-c3df-478a-8661-d102ab6b9406:attempt-2",
+        "attemptNumber": 2,
+        "runtimeId": "hermes",
+        "preferredRuntime": "hermes",
+        "attemptedRuntime": "hermes",
+        "finalRuntime": "hermes",
+        "workflowId": "job_ingestion",
+        "workflowStage": "completed",
+        "rootGoal": "ingest_job",
+        "requireCareerSessionBinding": true
+      }
+    },
+    {
+      "action": "run_start",
+      "sessionId": "hermes-agent-session-Bz1XjE6KtCGm",
+      "turnId": "runtime-turn-cfc75a03-9b03-4297-93b6-b5307eb5586b",
+      "userMessage": "P51-C02-TAILOR 那按它帮我改简历，别改模板，只改内容。",
+      "pageContext": {
+        "pathname": "/ai-workspace",
+        "route": "/ai-workspace",
+        "title": "AI 工作台",
+        "agentSessionId": "agent-session-Bz1XjE6KtCGm",
+        "personId": "person-profile-1-Kb8c0PH8",
+        "activeProfileId": "profile-1-Kb8c0PH8",
+        "profileId": "profile-1-Kb8c0PH8",
+        "profileVersionNumber": 1,
+        "profileRevision": 1,
+        "query": {}
+      },
+      "toolContracts": [],
+      "careerSessionBinding": {
+        "personId": "person-profile-1-Kb8c0PH8",
+        "profileId": "profile-1-Kb8c0PH8",
+        "profileVersionNumber": 1,
+        "profileRevision": 1,
+        "agentSessionId": "agent-session-Bz1XjE6KtCGm"
+      },
+      "careerCheckpoint": {
+        "workflowId": "job_ingestion",
+        "stage": "completed",
+        "profileId": "profile-1-Kb8c0PH8",
+        "resumeId": "branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+        "resumeRevisionId": "resume-revision-fnv-36b69ab7-100",
+        "jobId": "job-8XezEygORM"
+      },
+      "incidentTraceId": "incident-f551ab02-3feb-4fec-a3fd-6757443c4218",
+      "logicalTurnId": "runtime-turn-cfc75a03-9b03-4297-93b6-b5307eb5586b",
+      "attemptTraceId": "incident-f551ab02-3feb-4fec-a3fd-6757443c4218:attempt-3",
+      "attachments": [],
+      "conversationHistory": [
+        {
+          "role": "user",
+          "content": "保存这个岗位 CORE-JD：公司 Core Test，数据分析实习生，负责数据清洗，要求了解 Python 或 SQL。"
+        },
+        {
+          "role": "assistant",
+          "content": "已按你的确认完成当前 Career 工作流。"
+        },
+        {
+          "role": "user",
+          "content": "P51-C02-FIT 这个岗位适合我吗？"
+        },
+        {
+          "role": "assistant",
+          "content": "C02FITCOMPLETE，已有岗位与已确认事实已复用。"
+        }
+      ],
+      "metadata": {
+        "incidentTraceId": "incident-f551ab02-3feb-4fec-a3fd-6757443c4218",
+        "attemptTraceId": "incident-f551ab02-3feb-4fec-a3fd-6757443c4218:attempt-3",
+        "attemptNumber": 3,
+        "runtimeId": "hermes",
+        "preferredRuntime": "hermes",
+        "attemptedRuntime": "hermes",
+        "finalRuntime": "hermes",
+        "workflowId": "job_ingestion",
+        "workflowStage": "completed",
+        "rootGoal": "ingest_job",
+        "requireCareerSessionBinding": true
+      }
+    }
+  ],
+  "runReceipts": [
+    {
+      "ok": true,
+      "data": {
+        "runId": "run_f56a456df15b469992c816f46448e72c",
+        "status": "started"
+      }
+    },
+    {
+      "ok": true,
+      "data": {
+        "runId": "run_394cfb1f0c3640ee8342942f726d79ab",
+        "status": "started"
+      }
+    },
+    {
+      "ok": true,
+      "data": {
+        "runId": "run_39111520cba041fc88ec9a1b292c50db",
+        "status": "started"
+      }
+    }
+  ],
+  "runTimings": [
+    {
+      "at": 1793857500990,
+      "runId": "run_f56a456df15b469992c816f46448e72c"
+    },
+    {
+      "at": 1793857511803,
+      "runId": "run_394cfb1f0c3640ee8342942f726d79ab"
+    },
+    {
+      "at": 1793857518932,
+      "runId": "run_39111520cba041fc88ec9a1b292c50db"
+    }
+  ],
+  "toolReceipts": [
+    {
+      "action": "result",
+      "bridgeId": "careeradapt-bridge-bONQ7dKDV8qa",
+      "token": "[synthetic-bridge-token]",
+      "requestId": "mcp-request-LhJmCnd0ixgGG8aX",
+      "result": {
+        "ok": true,
+        "data": {
+          "status": "completed",
+          "workflowStage": "completed",
+          "nextAction": "use_saved_job",
+          "artifactRefs": [
+            {
+              "id": "agent-artifact-commit_job-mcp-career-twKNpLOlDdLeLeBK-3",
+              "kind": "tool_result",
+              "toolName": "career.job.commit",
+              "sourceToolName": "commit_job"
+            }
+          ],
+          "receipts": [
+            {
+              "operationId": "mcp-career-twKNpLOlDdLeLeBK-3",
+              "toolName": "career.job.commit",
+              "status": "completed",
+              "completedAt": "2026-11-05T05:45:08.848Z",
+              "idempotencyKey": "mcp-career-twKNpLOlDdLeLeBK-3"
+            },
+            {
+              "operationId": "mcp-career-twKNpLOlDdLeLeBK",
+              "toolName": "career.workflow.job_intake",
+              "status": "completed",
+              "completedAt": "2026-11-05T05:45:08.848Z",
+              "idempotencyKey": "mcp-career-twKNpLOlDdLeLeBK"
+            }
+          ],
+          "workflowCheckpoint": {
+            "kind": "job_intake",
+            "jobId": "job-8XezEygORM",
+            "jobRevision": "2026-11-05T05:45:08.844Z",
+            "summary": "Core Test · 数据分析实习生 CORE-JD",
+            "idempotent": false
+          },
+          "interactionPlan": {
+            "workflow": "career.workflow.job_intake",
+            "objective": "完成当前职业任务",
+            "knownContext": {
+              "person": {
+                "id": "person-profile-1-Kb8c0PH8"
+              },
+              "profile": {
+                "id": "profile-1-Kb8c0PH8",
+                "revision": 1
+              },
+              "job": {
+                "id": "job-8XezEygORM"
+              }
+            },
+            "informationNeeds": [],
+            "canProceedWithoutQuestion": true,
+            "stopReason": "当前步骤没有需要用户补充的关键信息。",
+            "interactionSummary": "已完成当前步骤的资料读取与安全规划。",
+            "careerAssetState": []
+          }
+        },
+        "artifacts": [
+          {
+            "id": "agent-artifact-commit_job-mcp-career-twKNpLOlDdLeLeBK-3",
+            "kind": "tool_result",
+            "toolName": "career.job.commit",
+            "sourceToolName": "commit_job"
+          }
+        ],
+        "receipt": {
+          "operationId": "mcp-career-twKNpLOlDdLeLeBK",
+          "toolName": "career.workflow.job_intake",
+          "idempotencyKey": "mcp-career-twKNpLOlDdLeLeBK",
+          "status": "completed",
+          "completedAt": "2026-11-05T05:45:08.848Z"
+        },
+        "diagnostics": {
+          "toolFailureLayer": "unknown",
+          "failureScope": "career_workflow",
+          "safeDomainErrorCode": "none",
+          "toolResultIsError": false,
+          "failedStage": "completed",
+          "durationMs": 71,
+          "retryable": false,
+          "workflowStageAfter": "completed",
+          "operationId": "mcp-career-twKNpLOlDdLeLeBK",
+          "logicalToolOperationId": "mcp-career-twKNpLOlDdLeLeBK",
+          "logicalTurnId": "runtime-turn-3fadecc7-fdcc-46a1-a66a-cadcb392dde0",
+          "taskId": "agent-session-Bz1XjE6KtCGm",
+          "argumentShape": {
+            "rawText": {
+              "present": true,
+              "lengthBucket": "length:21-200",
+              "hashPrefix": "fnv-b1dfad61-88"
+            },
+            "persistence": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-ccff7e48-4"
+            }
+          },
+          "preparedInvocationShape": {
+            "rawText": {
+              "present": true,
+              "lengthBucket": "length:21-200",
+              "hashPrefix": "fnv-b1dfad61-88"
+            },
+            "persistence": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-ccff7e48-4"
+            },
+            "sameTurnTarget": "absent"
+          },
+          "mcpHttpArgumentShape": {
+            "rawText": {
+              "present": true,
+              "lengthBucket": "length:21-200",
+              "hashPrefix": "fnv-b1dfad61-88"
+            },
+            "persistence": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-ccff7e48-4"
+            }
+          },
+          "browserHandlerArgumentShape": {
+            "rawText": {
+              "present": true,
+              "lengthBucket": "length:21-200",
+              "hashPrefix": "fnv-b1dfad61-88"
+            },
+            "persistence": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-ccff7e48-4"
+            }
+          },
+          "gatewayArgumentShape": {
+            "rawText": {
+              "present": true,
+              "lengthBucket": "length:21-200",
+              "hashPrefix": "fnv-b1dfad61-88"
+            },
+            "persistence": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-ccff7e48-4"
+            }
+          },
+          "facadeArgumentShape": {
+            "rawText": {
+              "present": true,
+              "lengthBucket": "length:21-200",
+              "hashPrefix": "fnv-b1dfad61-88"
+            },
+            "persistence": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-ccff7e48-4"
+            }
+          },
+          "sourceUserMessageId": "agent-user-d38057f8-3a39-43dd-8798-750f021fd8f1",
+          "sourceUserMessageResolved": true,
+          "runtimeHealthy": true,
+          "mcpHealthy": true,
+          "publishedContractVersion": "career-tool-contract-v5",
+          "publishedSchemaHash": "fnv1a-0390b028",
+          "gatewayContractVersion": "career-tool-contract-v5",
+          "gatewaySchemaHash": "fnv1a-0390b028",
+          "careerToolContractVersion": "career-tool-contract-v5",
+          "appBuildCommit": "workspace-source",
+          "appBuildTimestamp": "development",
+          "mcpCallTrace": {
+            "toolName": "career.workflow.job_intake",
+            "logicalToolOperationId": "mcp-career-twKNpLOlDdLeLeBK",
+            "requestStartedAt": "2026-11-05T05:45:08.848Z",
+            "jsonRpcStatus": "response_received",
+            "browserMcpHandlerReached": true,
+            "gatewayReached": true,
+            "completedAt": "2026-11-05T05:45:08.848Z"
+          },
+          "startedAt": "2026-11-05T05:45:08.777Z",
+          "enteredGatewayAt": "2026-11-05T05:45:08.777Z",
+          "enteredFacadeAt": "2026-11-05T05:45:08.821Z",
+          "firstInternalOperationAt": "2026-11-05T05:45:08.821Z",
+          "completedAt": "2026-11-05T05:45:08.848Z"
+        }
+      }
+    },
+    {
+      "action": "result",
+      "bridgeId": "careeradapt-bridge-bONQ7dKDV8qa",
+      "token": "[synthetic-bridge-token]",
+      "requestId": "mcp-request-XxtCaurhLkYuKV62",
+      "result": {
+        "ok": true,
+        "data": {
+          "operationId": "mcp-career-4U9-lAxFgewqPOwL",
+          "resumes": [
+            {
+              "order": 1,
+              "id": "branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+              "profileId": "profile-1-Kb8c0PH8",
+              "name": "通用简历",
+              "purpose": "general",
+              "revision": 0,
+              "currentRevisionId": "resume-revision-fnv-36b69ab7-100",
+              "updatedAt": "2026-11-05T05:44:57.348Z"
+            }
+          ]
+        },
+        "artifacts": [],
+        "receipt": {
+          "operationId": "mcp-career-4U9-lAxFgewqPOwL",
+          "toolName": "career.resume.list",
+          "status": "completed",
+          "completedAt": "2026-11-05T05:45:15.358Z"
+        },
+        "diagnostics": {
+          "toolFailureLayer": "unknown",
+          "failureScope": "career_workflow",
+          "safeDomainErrorCode": "none",
+          "toolResultIsError": false,
+          "failedStage": "completed",
+          "durationMs": 19,
+          "retryable": false,
+          "operationId": "mcp-career-4U9-lAxFgewqPOwL",
+          "logicalToolOperationId": "mcp-career-4U9-lAxFgewqPOwL",
+          "logicalTurnId": "runtime-turn-a197b0d3-c871-4513-b75e-c2d14563e348",
+          "taskId": "agent-session-Bz1XjE6KtCGm",
+          "argumentShape": {},
+          "mcpHttpArgumentShape": {},
+          "browserHandlerArgumentShape": {},
+          "gatewayArgumentShape": {},
+          "facadeArgumentShape": {},
+          "sourceUserMessageId": "agent-user-7cd0933d-0dcd-421d-81ea-fcb835ab5bd1",
+          "sourceUserMessageResolved": true,
+          "runtimeHealthy": true,
+          "mcpHealthy": true,
+          "publishedContractVersion": "career-tool-contract-v5",
+          "publishedSchemaHash": "fnv1a-d4ef12d5",
+          "gatewayContractVersion": "career-tool-contract-v5",
+          "gatewaySchemaHash": "fnv1a-d4ef12d5",
+          "careerToolContractVersion": "career-tool-contract-v5",
+          "appBuildCommit": "workspace-source",
+          "appBuildTimestamp": "development",
+          "mcpCallTrace": {
+            "toolName": "career.resume.list",
+            "logicalToolOperationId": "mcp-career-4U9-lAxFgewqPOwL",
+            "requestStartedAt": "2026-11-05T05:45:15.358Z",
+            "jsonRpcStatus": "response_received",
+            "browserMcpHandlerReached": true,
+            "gatewayReached": true,
+            "completedAt": "2026-11-05T05:45:15.358Z"
+          },
+          "startedAt": "2026-11-05T05:45:15.339Z",
+          "enteredGatewayAt": "2026-11-05T05:45:15.339Z",
+          "firstInternalOperationAt": "2026-11-05T05:45:15.358Z",
+          "completedAt": "2026-11-05T05:45:15.358Z"
+        }
+      }
+    },
+    {
+      "action": "result",
+      "bridgeId": "careeradapt-bridge-bONQ7dKDV8qa",
+      "token": "[synthetic-bridge-token]",
+      "requestId": "mcp-request-zWAN9rLM0U7exypp",
+      "result": {
+        "ok": true,
+        "data": {
+          "operationId": "mcp-career-vBU-GeEP0VgsIPmN",
+          "jobs": [
+            {
+              "order": 1,
+              "id": "job-8XezEygORM",
+              "title": "数据分析实习生 CORE-JD",
+              "company": "Core Test",
+              "requirementCount": 5,
+              "analysisStatus": "validated",
+              "updatedAt": "2026-11-05T05:45:08.844Z"
+            },
+            {
+              "order": 2,
+              "id": "job-data-analyst-intern",
+              "title": "数据分析实习生",
+              "company": "示例科技公司",
+              "requirementCount": 2,
+              "updatedAt": "2026-07-01T09:00:00.000Z"
+            },
+            {
+              "order": 3,
+              "id": "job-trade-operation-intern",
+              "title": "外贸/跨境运营实习生",
+              "company": "示例跨境公司",
+              "requirementCount": 2,
+              "updatedAt": "2026-07-01T09:00:00.000Z"
+            }
+          ]
+        },
+        "artifacts": [],
+        "receipt": {
+          "operationId": "mcp-career-vBU-GeEP0VgsIPmN",
+          "toolName": "career.job.list",
+          "status": "completed",
+          "completedAt": "2026-11-05T05:45:16.563Z"
+        },
+        "diagnostics": {
+          "toolFailureLayer": "unknown",
+          "failureScope": "career_workflow",
+          "safeDomainErrorCode": "none",
+          "toolResultIsError": false,
+          "failedStage": "completed",
+          "durationMs": 23,
+          "retryable": false,
+          "operationId": "mcp-career-vBU-GeEP0VgsIPmN",
+          "logicalToolOperationId": "mcp-career-vBU-GeEP0VgsIPmN",
+          "logicalTurnId": "runtime-turn-a197b0d3-c871-4513-b75e-c2d14563e348",
+          "taskId": "agent-session-Bz1XjE6KtCGm",
+          "argumentShape": {},
+          "mcpHttpArgumentShape": {},
+          "browserHandlerArgumentShape": {},
+          "gatewayArgumentShape": {},
+          "facadeArgumentShape": {},
+          "sourceUserMessageId": "agent-user-7cd0933d-0dcd-421d-81ea-fcb835ab5bd1",
+          "sourceUserMessageResolved": true,
+          "runtimeHealthy": true,
+          "mcpHealthy": true,
+          "publishedContractVersion": "career-tool-contract-v5",
+          "publishedSchemaHash": "fnv1a-d4ef12d5",
+          "gatewayContractVersion": "career-tool-contract-v5",
+          "gatewaySchemaHash": "fnv1a-d4ef12d5",
+          "careerToolContractVersion": "career-tool-contract-v5",
+          "appBuildCommit": "workspace-source",
+          "appBuildTimestamp": "development",
+          "mcpCallTrace": {
+            "toolName": "career.job.list",
+            "logicalToolOperationId": "mcp-career-vBU-GeEP0VgsIPmN",
+            "requestStartedAt": "2026-11-05T05:45:16.563Z",
+            "jsonRpcStatus": "response_received",
+            "browserMcpHandlerReached": true,
+            "gatewayReached": true,
+            "completedAt": "2026-11-05T05:45:16.563Z"
+          },
+          "startedAt": "2026-11-05T05:45:16.540Z",
+          "enteredGatewayAt": "2026-11-05T05:45:16.540Z",
+          "firstInternalOperationAt": "2026-11-05T05:45:16.562Z",
+          "completedAt": "2026-11-05T05:45:16.563Z"
+        }
+      }
+    },
+    {
+      "action": "result",
+      "bridgeId": "careeradapt-bridge-bONQ7dKDV8qa",
+      "token": "[synthetic-bridge-token]",
+      "requestId": "mcp-request-32JO8NkNKwBWPeXv",
+      "result": {
+        "ok": true,
+        "data": {
+          "status": "completed",
+          "workflowStage": "review_result",
+          "nextAction": "explain_job_fit",
+          "artifactRefs": [
+            {
+              "id": "agent-artifact-analyze_job_fit-mcp-career-CBw26OgD915LhJA6-1",
+              "kind": "tool_result",
+              "toolName": "career.job.analyze_fit",
+              "sourceToolName": "analyze_job_fit"
+            }
+          ],
+          "receipts": [
+            {
+              "operationId": "mcp-career-CBw26OgD915LhJA6-1",
+              "toolName": "career.job.analyze_fit",
+              "status": "completed",
+              "completedAt": "2026-11-05T05:45:17.886Z"
+            },
+            {
+              "operationId": "mcp-career-CBw26OgD915LhJA6",
+              "toolName": "career.workflow.job_fit",
+              "status": "completed",
+              "completedAt": "2026-11-05T05:45:17.887Z",
+              "idempotencyKey": "mcp-career-CBw26OgD915LhJA6"
+            }
+          ],
+          "workflowCheckpoint": {
+            "kind": "job_fit",
+            "profileId": "profile-1-Kb8c0PH8",
+            "resumeId": "branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+            "jobId": "job-8XezEygORM",
+            "result": {
+              "analysis": {
+                "status": "ready",
+                "summary": "当前已确认材料的要求覆盖诊断为 0 分；未找到证据的要求保持未知，不代表不具备能力，也不是面试概率。",
+                "report": {
+                  "overallCoverage": 0,
+                  "subScores": {
+                    "hardConstraints": 0,
+                    "coreCompetencies": 0,
+                    "responsibilities": 0,
+                    "preferredQualifications": 0,
+                    "terminologyCoverage": 0
+                  },
+                  "coveredRequirementIds": [],
+                  "partialRequirementIds": [],
+                  "uncoveredRequirementIds": [
+                    "jrv4-fnv-1c715d81-23",
+                    "jrv4-fnv-7bf14856-23",
+                    "jrv4-fnv-43a43373-23",
+                    "jrv4-fnv-554af39a-23",
+                    "jrv4-fnv-33df0086-23"
+                  ],
+                  "confirmationRequirementIds": [],
+                  "coveredRequirementDescriptions": [],
+                  "partialRequirementDescriptions": [],
+                  "uncoveredRequirementDescriptions": [
+                    "公司：Core Test",
+                    "岗位：数据分析实习生 CORE-JD",
+                    "参与数据清洗与分析。",
+                    "了解 Python 或 SQL。",
+                    "具备团队协作能力。"
+                  ],
+                  "blockingGaps": [],
+                  "improvementOpportunities": [
+                    "公司：Core Test",
+                    "岗位：数据分析实习生 CORE-JD",
+                    "参与数据清洗与分析。",
+                    "了解 Python 或 SQL。",
+                    "具备团队协作能力。"
+                  ],
+                  "scoreVersion": "job-evidence-coverage.v2.0",
+                  "scoreExplanation": "岗位证据覆盖度由已确认事实与 5 条岗位要求的逐项证据等级确定；必备证据待核实扣减 0 分。缺少证据不代表不具备能力。它不是 ATS 通过率、录取概率或招聘成功率。"
+                },
+                "candidateEvidenceMatrix": {
+                  "schemaVersion": "candidate-evidence-matrix-1",
+                  "ruleVersion": "career-intelligence-2.1",
+                  "analysisId": "analysis-fnv-56b775fb-3935",
+                  "binding": {
+                    "profileId": "profile-1-Kb8c0PH8",
+                    "profileRevision": 1,
+                    "resumeId": "branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+                    "resumeRevision": 0,
+                    "revisionId": "resume-revision-fnv-36b69ab7-100",
+                    "jobId": "job-8XezEygORM",
+                    "jobVersion": "2026-11-05T05:45:08.844Z",
+                    "graphHash": "fnv-a59da8bb-2318"
+                  },
+                  "rows": [
+                    {
+                      "requirementId": "jrv4-fnv-1c715d81-23",
+                      "rawSourceRef": {
+                        "start": 0,
+                        "end": 12,
+                        "text": "公司：Core Test"
+                      },
+                      "normalizedRequirement": "公司 core test",
+                      "priority": "high",
+                      "relationships": [],
+                      "evidenceStatus": "unknown",
+                      "candidateFactIds": [],
+                      "sourceIds": [],
+                      "evidenceUnitIds": [],
+                      "confidence": 1,
+                      "unresolvedAmbiguity": [
+                        "公司：Core Test"
+                      ],
+                      "rationale": "当前来源简历中没有召回到可引用的已确认事实。"
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-7bf14856-23",
+                      "rawSourceRef": {
+                        "start": 13,
+                        "end": 31,
+                        "text": "岗位：数据分析实习生 CORE-JD"
+                      },
+                      "normalizedRequirement": "岗位 数据分析实习生 core-jd",
+                      "priority": "high",
+                      "relationships": [],
+                      "evidenceStatus": "unknown",
+                      "candidateFactIds": [],
+                      "sourceIds": [],
+                      "evidenceUnitIds": [],
+                      "confidence": 1,
+                      "unresolvedAmbiguity": [
+                        "岗位：数据分析实习生 CORE-JD"
+                      ],
+                      "rationale": "当前来源简历中没有召回到可引用的已确认事实。"
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-43a43373-23",
+                      "rawSourceRef": {
+                        "start": 40,
+                        "end": 50,
+                        "text": "参与数据清洗与分析。"
+                      },
+                      "normalizedRequirement": "参与数据清洗与分析",
+                      "priority": "high",
+                      "relationships": [],
+                      "evidenceStatus": "unknown",
+                      "candidateFactIds": [],
+                      "sourceIds": [],
+                      "evidenceUnitIds": [],
+                      "confidence": 1,
+                      "unresolvedAmbiguity": [
+                        "参与数据清洗与分析。"
+                      ],
+                      "rationale": "当前来源简历中没有召回到可引用的已确认事实。"
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-554af39a-23",
+                      "rawSourceRef": {
+                        "start": 59,
+                        "end": 75,
+                        "text": "了解 Python 或 SQL。"
+                      },
+                      "normalizedRequirement": "了解 python 或 sql",
+                      "priority": "medium",
+                      "relationships": [],
+                      "evidenceStatus": "unknown",
+                      "candidateFactIds": [],
+                      "sourceIds": [],
+                      "evidenceUnitIds": [],
+                      "confidence": 1,
+                      "unresolvedAmbiguity": [
+                        "了解 Python 或 SQL。"
+                      ],
+                      "rationale": "当前来源简历中没有召回到可引用的已确认事实。"
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-33df0086-23",
+                      "rawSourceRef": {
+                        "start": 79,
+                        "end": 88,
+                        "text": "具备团队协作能力。"
+                      },
+                      "normalizedRequirement": "具备团队协作能力",
+                      "priority": "medium",
+                      "relationships": [],
+                      "evidenceStatus": "unknown",
+                      "candidateFactIds": [],
+                      "sourceIds": [],
+                      "evidenceUnitIds": [],
+                      "confidence": 1,
+                      "unresolvedAmbiguity": [
+                        "具备团队协作能力。"
+                      ],
+                      "rationale": "当前来源简历中没有召回到可引用的已确认事实。"
+                    }
+                  ]
+                },
+                "jobFit": {
+                  "ruleVersion": "career-intelligence-2.1",
+                  "mustHaveCoverage": {
+                    "total": 0,
+                    "direct": 0,
+                    "unknown": 0
+                  },
+                  "preferredCoverage": {
+                    "total": 0,
+                    "direct": 0,
+                    "unknown": 0
+                  },
+                  "evidenceStrength": [
+                    {
+                      "requirementId": "jrv4-fnv-1c715d81-23",
+                      "status": "unknown"
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-7bf14856-23",
+                      "status": "unknown"
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-43a43373-23",
+                      "status": "unknown"
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-554af39a-23",
+                      "status": "unknown"
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-33df0086-23",
+                      "status": "unknown"
+                    }
+                  ],
+                  "materialGaps": [],
+                  "unknowns": [
+                    "jrv4-fnv-1c715d81-23",
+                    "jrv4-fnv-7bf14856-23",
+                    "jrv4-fnv-43a43373-23",
+                    "jrv4-fnv-554af39a-23",
+                    "jrv4-fnv-33df0086-23"
+                  ]
+                },
+                "evidenceMapping": {
+                  "requirements": [
+                    {
+                      "id": "jrv4-fnv-1c715d81-23",
+                      "kind": "responsibility",
+                      "statement": "公司：Core Test",
+                      "normalizedIntent": "公司 core test",
+                      "priority": "high",
+                      "hardConstraint": false,
+                      "exactKeywords": [],
+                      "semanticAliases": [],
+                      "sourceSpan": {
+                        "start": 0,
+                        "end": 12,
+                        "text": "公司：Core Test"
+                      },
+                      "sourceSpans": [
+                        {
+                          "start": 0,
+                          "end": 12,
+                          "text": "公司：Core Test"
+                        }
+                      ],
+                      "confidence": 0.88,
+                      "needsConfirmation": false,
+                      "relatedRequirementIds": []
+                    },
+                    {
+                      "id": "jrv4-fnv-7bf14856-23",
+                      "kind": "responsibility",
+                      "statement": "岗位：数据分析实习生 CORE-JD",
+                      "normalizedIntent": "岗位 数据分析实习生 core-jd",
+                      "priority": "high",
+                      "hardConstraint": false,
+                      "exactKeywords": [],
+                      "semanticAliases": [],
+                      "sourceSpan": {
+                        "start": 13,
+                        "end": 31,
+                        "text": "岗位：数据分析实习生 CORE-JD"
+                      },
+                      "sourceSpans": [
+                        {
+                          "start": 13,
+                          "end": 31,
+                          "text": "岗位：数据分析实习生 CORE-JD"
+                        }
+                      ],
+                      "confidence": 0.88,
+                      "needsConfirmation": false,
+                      "relatedRequirementIds": []
+                    },
+                    {
+                      "id": "jrv4-fnv-43a43373-23",
+                      "kind": "responsibility",
+                      "statement": "参与数据清洗与分析。",
+                      "normalizedIntent": "参与数据清洗与分析",
+                      "priority": "high",
+                      "hardConstraint": false,
+                      "exactKeywords": [],
+                      "semanticAliases": [],
+                      "sourceSpan": {
+                        "start": 40,
+                        "end": 50,
+                        "text": "参与数据清洗与分析。"
+                      },
+                      "sourceSpans": [
+                        {
+                          "start": 40,
+                          "end": 50,
+                          "text": "参与数据清洗与分析。"
+                        }
+                      ],
+                      "confidence": 0.88,
+                      "needsConfirmation": false,
+                      "relatedRequirementIds": []
+                    },
+                    {
+                      "id": "jrv4-fnv-554af39a-23",
+                      "kind": "tool_or_technology",
+                      "statement": "了解 Python 或 SQL。",
+                      "normalizedIntent": "了解 python 或 sql",
+                      "priority": "medium",
+                      "hardConstraint": false,
+                      "exactKeywords": [
+                        "Python",
+                        "SQL"
+                      ],
+                      "semanticAliases": [],
+                      "keywordLogic": {
+                        "relation": "any_of",
+                        "terms": [
+                          "Python",
+                          "SQL"
+                        ]
+                      },
+                      "sourceSpan": {
+                        "start": 59,
+                        "end": 75,
+                        "text": "了解 Python 或 SQL。"
+                      },
+                      "sourceSpans": [
+                        {
+                          "start": 59,
+                          "end": 75,
+                          "text": "了解 Python 或 SQL。"
+                        }
+                      ],
+                      "confidence": 0.88,
+                      "needsConfirmation": false,
+                      "relatedRequirementIds": []
+                    },
+                    {
+                      "id": "jrv4-fnv-33df0086-23",
+                      "kind": "soft_skill",
+                      "statement": "具备团队协作能力。",
+                      "normalizedIntent": "具备团队协作能力",
+                      "priority": "medium",
+                      "hardConstraint": false,
+                      "exactKeywords": [],
+                      "semanticAliases": [],
+                      "sourceSpan": {
+                        "start": 79,
+                        "end": 88,
+                        "text": "具备团队协作能力。"
+                      },
+                      "sourceSpans": [
+                        {
+                          "start": 79,
+                          "end": 88,
+                          "text": "具备团队协作能力。"
+                        }
+                      ],
+                      "confidence": 0.88,
+                      "needsConfirmation": false,
+                      "relatedRequirementIds": []
+                    }
+                  ],
+                  "evaluations": [
+                    {
+                      "requirementId": "jrv4-fnv-1c715d81-23",
+                      "matchLevel": "none",
+                      "evidenceUnitIds": [],
+                      "evidenceRefs": [],
+                      "coveredAspects": [],
+                      "missingAspects": [
+                        "公司：Core Test"
+                      ],
+                      "risks": [],
+                      "explanation": "当前来源简历中没有召回到可引用的已确认事实。",
+                      "confidence": 1
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-7bf14856-23",
+                      "matchLevel": "none",
+                      "evidenceUnitIds": [],
+                      "evidenceRefs": [],
+                      "coveredAspects": [],
+                      "missingAspects": [
+                        "岗位：数据分析实习生 CORE-JD"
+                      ],
+                      "risks": [],
+                      "explanation": "当前来源简历中没有召回到可引用的已确认事实。",
+                      "confidence": 1
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-43a43373-23",
+                      "matchLevel": "none",
+                      "evidenceUnitIds": [],
+                      "evidenceRefs": [],
+                      "coveredAspects": [],
+                      "missingAspects": [
+                        "参与数据清洗与分析。"
+                      ],
+                      "risks": [],
+                      "explanation": "当前来源简历中没有召回到可引用的已确认事实。",
+                      "confidence": 1
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-554af39a-23",
+                      "matchLevel": "none",
+                      "evidenceUnitIds": [],
+                      "evidenceRefs": [],
+                      "coveredAspects": [],
+                      "missingAspects": [
+                        "了解 Python 或 SQL。"
+                      ],
+                      "risks": [],
+                      "explanation": "当前来源简历中没有召回到可引用的已确认事实。",
+                      "confidence": 1
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-33df0086-23",
+                      "matchLevel": "none",
+                      "evidenceUnitIds": [],
+                      "evidenceRefs": [],
+                      "coveredAspects": [],
+                      "missingAspects": [
+                        "具备团队协作能力。"
+                      ],
+                      "risks": [],
+                      "explanation": "当前来源简历中没有召回到可引用的已确认事实。",
+                      "confidence": 1
+                    }
+                  ],
+                  "evidenceUnits": [
+                    {
+                      "id": "evu-fnv-2d9b3e54-71",
+                      "sourceType": "experience_highlight",
+                      "sectionType": "project",
+                      "itemId": "branch-item-import-core-project",
+                      "fieldPath": "highlights.0",
+                      "text": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                      "normalizedText": "参与 ai 应用项目的需求梳理 原型设计和功能验收",
+                      "recallContext": "项目经历",
+                      "factRefs": [
+                        {
+                          "type": "experience_fact",
+                          "experienceId": "exp-1ca7_0kIs-",
+                          "factId": "fact-import-0Ozi9QqvVG"
+                        }
+                      ],
+                      "sourceBlockIds": [
+                        "sections[0].order",
+                        "sections[0].items[0].id",
+                        "sections[0].items[0].sectionType",
+                        "sections[0].items[0].title",
+                        "sections[0].items[0].role",
+                        "sections[0].items[0].startDate",
+                        "sections[0].items[0].endDate",
+                        "sections[0].items[0].current",
+                        "sections[0].items[0].description",
+                        "sections[0].items[0].highlights[0]"
+                      ],
+                      "supportLevel": "verified",
+                      "maturity": "demonstrated",
+                      "role": "项目成员",
+                      "dateRange": "2025-01 — 2025-06",
+                      "confirmed": true
+                    },
+                    {
+                      "id": "evu-fnv-78e2b805-70",
+                      "sourceType": "project_outcome",
+                      "sectionType": "project",
+                      "itemId": "branch-item-import-core-project",
+                      "fieldPath": "description",
+                      "text": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                      "normalizedText": "参与 ai 应用项目的需求梳理 原型设计和功能验收",
+                      "recallContext": "项目经历",
+                      "factRefs": [
+                        {
+                          "type": "experience_fact",
+                          "experienceId": "exp-1ca7_0kIs-",
+                          "factId": "fact-import-0Ozi9QqvVG"
+                        }
+                      ],
+                      "sourceBlockIds": [
+                        "sections[0].order",
+                        "sections[0].items[0].id",
+                        "sections[0].items[0].sectionType",
+                        "sections[0].items[0].title",
+                        "sections[0].items[0].role",
+                        "sections[0].items[0].startDate",
+                        "sections[0].items[0].endDate",
+                        "sections[0].items[0].current",
+                        "sections[0].items[0].description",
+                        "sections[0].items[0].highlights[0]"
+                      ],
+                      "supportLevel": "verified",
+                      "maturity": "demonstrated",
+                      "role": "项目成员",
+                      "dateRange": "2025-01 — 2025-06",
+                      "confirmed": true
+                    }
+                  ],
+                  "resumeEvidenceGraph": {
+                    "schemaVersion": "resume-evidence-graph-v1",
+                    "profileId": "profile-1-Kb8c0PH8",
+                    "profileRevision": 1,
+                    "nodes": [
+                      {
+                        "id": "asset:core-project",
+                        "type": "career_asset",
+                        "value": "AI 应用项目",
+                        "sourceAssetIds": [
+                          "core-project"
+                        ],
+                        "factIds": [
+                          "fact-import-0Ozi9QqvVG"
+                        ],
+                        "sourceTurnIds": [],
+                        "confirmationStatus": "confirmed",
+                        "maturity": "demonstrated",
+                        "ownershipStrength": 1,
+                        "sourceExcerpts": [
+                          "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                        ]
+                      },
+                      {
+                        "id": "outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-",
+                        "type": "outcome",
+                        "value": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                        "sourceAssetIds": [
+                          "core-project"
+                        ],
+                        "factIds": [
+                          "fact-import-0Ozi9QqvVG"
+                        ],
+                        "sourceTurnIds": [],
+                        "confirmationStatus": "confirmed",
+                        "maturity": "demonstrated",
+                        "ownershipStrength": 1,
+                        "sourceExcerpts": [
+                          "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                        ]
+                      },
+                      {
+                        "id": "evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说",
+                        "type": "evidence",
+                        "value": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n0\ncore-project\nproject\nAI 应用项目\n项目成员\n2025-01\n2025-06\nfalse\n参与 AI 应用项目的需求梳理",
+                        "sourceAssetIds": [
+                          "core-project"
+                        ],
+                        "factIds": [
+                          "fact-import-0Ozi9QqvVG"
+                        ],
+                        "sourceTurnIds": [],
+                        "confirmationStatus": "confirmed",
+                        "maturity": "demonstrated",
+                        "ownershipStrength": 1,
+                        "sourceExcerpts": [
+                          "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                        ]
+                      }
+                    ],
+                    "edges": [
+                      {
+                        "id": "edge:outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-:asset:core-project",
+                        "from": "outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-",
+                        "to": "asset:core-project",
+                        "relation": "supports"
+                      },
+                      {
+                        "id": "edge:evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说:asset:core-project",
+                        "from": "evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说",
+                        "to": "asset:core-project",
+                        "relation": "supports"
+                      }
+                    ],
+                    "skillMatrix": [],
+                    "recoveryCandidates": [],
+                    "sourceAssetIds": [
+                      "core-project"
+                    ],
+                    "excludedAssetIds": []
+                  }
+                }
+              },
+              "dependencies": {
+                "profileId": "profile-1-Kb8c0PH8",
+                "profileVersion": 1,
+                "resumeId": "branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+                "resumeRevisionId": "resume-revision-fnv-36b69ab7-100",
+                "resumeHash": "fnv-e55e26c0-2092",
+                "jobId": "job-8XezEygORM",
+                "jobRevision": "2026-11-05T05:45:08.844Z",
+                "jobGraphHash": "fnv-3bd50a99-6690"
+              }
+            }
+          },
+          "interactionPlan": {
+            "workflow": "career.workflow.job_fit",
+            "objective": "用已确认证据分析岗位匹配与真实缺口",
+            "knownContext": {
+              "person": {
+                "id": "person-profile-1-Kb8c0PH8"
+              },
+              "profile": {
+                "id": "profile-1-Kb8c0PH8",
+                "revision": 1
+              },
+              "resumes": [
+                {
+                  "id": "branch-general-resume-import-31pC5_ZnKT-VcaOGx"
+                }
+              ],
+              "job": {
+                "id": "job-8XezEygORM"
+              },
+              "existingDecisions": {
+                "analysis": {
+                  "status": "ready",
+                  "summary": "当前已确认材料的要求覆盖诊断为 0 分；未找到证据的要求保持未知，不代表不具备能力，也不是面试概率。",
+                  "report": {
+                    "overallCoverage": 0,
+                    "subScores": {
+                      "hardConstraints": 0,
+                      "coreCompetencies": 0,
+                      "responsibilities": 0,
+                      "preferredQualifications": 0,
+                      "terminologyCoverage": 0
+                    },
+                    "coveredRequirementIds": [],
+                    "partialRequirementIds": [],
+                    "uncoveredRequirementIds": [
+                      "jrv4-fnv-1c715d81-23",
+                      "jrv4-fnv-7bf14856-23",
+                      "jrv4-fnv-43a43373-23",
+                      "jrv4-fnv-554af39a-23",
+                      "jrv4-fnv-33df0086-23"
+                    ],
+                    "confirmationRequirementIds": [],
+                    "coveredRequirementDescriptions": [],
+                    "partialRequirementDescriptions": [],
+                    "uncoveredRequirementDescriptions": [
+                      "公司：Core Test",
+                      "岗位：数据分析实习生 CORE-JD",
+                      "参与数据清洗与分析。",
+                      "了解 Python 或 SQL。",
+                      "具备团队协作能力。"
+                    ],
+                    "blockingGaps": [],
+                    "improvementOpportunities": [
+                      "公司：Core Test",
+                      "岗位：数据分析实习生 CORE-JD",
+                      "参与数据清洗与分析。",
+                      "了解 Python 或 SQL。",
+                      "具备团队协作能力。"
+                    ],
+                    "scoreVersion": "job-evidence-coverage.v2.0",
+                    "scoreExplanation": "岗位证据覆盖度由已确认事实与 5 条岗位要求的逐项证据等级确定；必备证据待核实扣减 0 分。缺少证据不代表不具备能力。它不是 ATS 通过率、录取概率或招聘成功率。"
+                  },
+                  "candidateEvidenceMatrix": {
+                    "schemaVersion": "candidate-evidence-matrix-1",
+                    "ruleVersion": "career-intelligence-2.1",
+                    "analysisId": "analysis-fnv-56b775fb-3935",
+                    "binding": {
+                      "profileId": "profile-1-Kb8c0PH8",
+                      "profileRevision": 1,
+                      "resumeId": "branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+                      "resumeRevision": 0,
+                      "revisionId": "resume-revision-fnv-36b69ab7-100",
+                      "jobId": "job-8XezEygORM",
+                      "jobVersion": "2026-11-05T05:45:08.844Z",
+                      "graphHash": "fnv-a59da8bb-2318"
+                    },
+                    "rows": [
+                      {
+                        "requirementId": "jrv4-fnv-1c715d81-23",
+                        "rawSourceRef": {
+                          "start": 0,
+                          "end": 12,
+                          "text": "公司：Core Test"
+                        },
+                        "normalizedRequirement": "公司 core test",
+                        "priority": "high",
+                        "relationships": [],
+                        "evidenceStatus": "unknown",
+                        "candidateFactIds": [],
+                        "sourceIds": [],
+                        "evidenceUnitIds": [],
+                        "confidence": 1,
+                        "unresolvedAmbiguity": [
+                          "公司：Core Test"
+                        ],
+                        "rationale": "当前来源简历中没有召回到可引用的已确认事实。"
+                      },
+                      {
+                        "requirementId": "jrv4-fnv-7bf14856-23",
+                        "rawSourceRef": {
+                          "start": 13,
+                          "end": 31,
+                          "text": "岗位：数据分析实习生 CORE-JD"
+                        },
+                        "normalizedRequirement": "岗位 数据分析实习生 core-jd",
+                        "priority": "high",
+                        "relationships": [],
+                        "evidenceStatus": "unknown",
+                        "candidateFactIds": [],
+                        "sourceIds": [],
+                        "evidenceUnitIds": [],
+                        "confidence": 1,
+                        "unresolvedAmbiguity": [
+                          "岗位：数据分析实习生 CORE-JD"
+                        ],
+                        "rationale": "当前来源简历中没有召回到可引用的已确认事实。"
+                      },
+                      {
+                        "requirementId": "jrv4-fnv-43a43373-23",
+                        "rawSourceRef": {
+                          "start": 40,
+                          "end": 50,
+                          "text": "参与数据清洗与分析。"
+                        },
+                        "normalizedRequirement": "参与数据清洗与分析",
+                        "priority": "high",
+                        "relationships": [],
+                        "evidenceStatus": "unknown",
+                        "candidateFactIds": [],
+                        "sourceIds": [],
+                        "evidenceUnitIds": [],
+                        "confidence": 1,
+                        "unresolvedAmbiguity": [
+                          "参与数据清洗与分析。"
+                        ],
+                        "rationale": "当前来源简历中没有召回到可引用的已确认事实。"
+                      },
+                      {
+                        "requirementId": "jrv4-fnv-554af39a-23",
+                        "rawSourceRef": {
+                          "start": 59,
+                          "end": 75,
+                          "text": "了解 Python 或 SQL。"
+                        },
+                        "normalizedRequirement": "了解 python 或 sql",
+                        "priority": "medium",
+                        "relationships": [],
+                        "evidenceStatus": "unknown",
+                        "candidateFactIds": [],
+                        "sourceIds": [],
+                        "evidenceUnitIds": [],
+                        "confidence": 1,
+                        "unresolvedAmbiguity": [
+                          "了解 Python 或 SQL。"
+                        ],
+                        "rationale": "当前来源简历中没有召回到可引用的已确认事实。"
+                      },
+                      {
+                        "requirementId": "jrv4-fnv-33df0086-23",
+                        "rawSourceRef": {
+                          "start": 79,
+                          "end": 88,
+                          "text": "具备团队协作能力。"
+                        },
+                        "normalizedRequirement": "具备团队协作能力",
+                        "priority": "medium",
+                        "relationships": [],
+                        "evidenceStatus": "unknown",
+                        "candidateFactIds": [],
+                        "sourceIds": [],
+                        "evidenceUnitIds": [],
+                        "confidence": 1,
+                        "unresolvedAmbiguity": [
+                          "具备团队协作能力。"
+                        ],
+                        "rationale": "当前来源简历中没有召回到可引用的已确认事实。"
+                      }
+                    ]
+                  },
+                  "jobFit": {
+                    "ruleVersion": "career-intelligence-2.1",
+                    "mustHaveCoverage": {
+                      "total": 0,
+                      "direct": 0,
+                      "unknown": 0
+                    },
+                    "preferredCoverage": {
+                      "total": 0,
+                      "direct": 0,
+                      "unknown": 0
+                    },
+                    "evidenceStrength": [
+                      {
+                        "requirementId": "jrv4-fnv-1c715d81-23",
+                        "status": "unknown"
+                      },
+                      {
+                        "requirementId": "jrv4-fnv-7bf14856-23",
+                        "status": "unknown"
+                      },
+                      {
+                        "requirementId": "jrv4-fnv-43a43373-23",
+                        "status": "unknown"
+                      },
+                      {
+                        "requirementId": "jrv4-fnv-554af39a-23",
+                        "status": "unknown"
+                      },
+                      {
+                        "requirementId": "jrv4-fnv-33df0086-23",
+                        "status": "unknown"
+                      }
+                    ],
+                    "materialGaps": [],
+                    "unknowns": [
+                      "jrv4-fnv-1c715d81-23",
+                      "jrv4-fnv-7bf14856-23",
+                      "jrv4-fnv-43a43373-23",
+                      "jrv4-fnv-554af39a-23",
+                      "jrv4-fnv-33df0086-23"
+                    ]
+                  },
+                  "evidenceMapping": {
+                    "requirements": [
+                      {
+                        "id": "jrv4-fnv-1c715d81-23",
+                        "kind": "responsibility",
+                        "statement": "公司：Core Test",
+                        "normalizedIntent": "公司 core test",
+                        "priority": "high",
+                        "hardConstraint": false,
+                        "exactKeywords": [],
+                        "semanticAliases": [],
+                        "sourceSpan": {
+                          "start": 0,
+                          "end": 12,
+                          "text": "公司：Core Test"
+                        },
+                        "sourceSpans": [
+                          {
+                            "start": 0,
+                            "end": 12,
+                            "text": "公司：Core Test"
+                          }
+                        ],
+                        "confidence": 0.88,
+                        "needsConfirmation": false,
+                        "relatedRequirementIds": []
+                      },
+                      {
+                        "id": "jrv4-fnv-7bf14856-23",
+                        "kind": "responsibility",
+                        "statement": "岗位：数据分析实习生 CORE-JD",
+                        "normalizedIntent": "岗位 数据分析实习生 core-jd",
+                        "priority": "high",
+                        "hardConstraint": false,
+                        "exactKeywords": [],
+                        "semanticAliases": [],
+                        "sourceSpan": {
+                          "start": 13,
+                          "end": 31,
+                          "text": "岗位：数据分析实习生 CORE-JD"
+                        },
+                        "sourceSpans": [
+                          {
+                            "start": 13,
+                            "end": 31,
+                            "text": "岗位：数据分析实习生 CORE-JD"
+                          }
+                        ],
+                        "confidence": 0.88,
+                        "needsConfirmation": false,
+                        "relatedRequirementIds": []
+                      },
+                      {
+                        "id": "jrv4-fnv-43a43373-23",
+                        "kind": "responsibility",
+                        "statement": "参与数据清洗与分析。",
+                        "normalizedIntent": "参与数据清洗与分析",
+                        "priority": "high",
+                        "hardConstraint": false,
+                        "exactKeywords": [],
+                        "semanticAliases": [],
+                        "sourceSpan": {
+                          "start": 40,
+                          "end": 50,
+                          "text": "参与数据清洗与分析。"
+                        },
+                        "sourceSpans": [
+                          {
+                            "start": 40,
+                            "end": 50,
+                            "text": "参与数据清洗与分析。"
+                          }
+                        ],
+                        "confidence": 0.88,
+                        "needsConfirmation": false,
+                        "relatedRequirementIds": []
+                      },
+                      {
+                        "id": "jrv4-fnv-554af39a-23",
+                        "kind": "tool_or_technology",
+                        "statement": "了解 Python 或 SQL。",
+                        "normalizedIntent": "了解 python 或 sql",
+                        "priority": "medium",
+                        "hardConstraint": false,
+                        "exactKeywords": [
+                          "Python",
+                          "SQL"
+                        ],
+                        "semanticAliases": [],
+                        "keywordLogic": {
+                          "relation": "any_of",
+                          "terms": [
+                            "Python",
+                            "SQL"
+                          ]
+                        },
+                        "sourceSpan": {
+                          "start": 59,
+                          "end": 75,
+                          "text": "了解 Python 或 SQL。"
+                        },
+                        "sourceSpans": [
+                          {
+                            "start": 59,
+                            "end": 75,
+                            "text": "了解 Python 或 SQL。"
+                          }
+                        ],
+                        "confidence": 0.88,
+                        "needsConfirmation": false,
+                        "relatedRequirementIds": []
+                      },
+                      {
+                        "id": "jrv4-fnv-33df0086-23",
+                        "kind": "soft_skill",
+                        "statement": "具备团队协作能力。",
+                        "normalizedIntent": "具备团队协作能力",
+                        "priority": "medium",
+                        "hardConstraint": false,
+                        "exactKeywords": [],
+                        "semanticAliases": [],
+                        "sourceSpan": {
+                          "start": 79,
+                          "end": 88,
+                          "text": "具备团队协作能力。"
+                        },
+                        "sourceSpans": [
+                          {
+                            "start": 79,
+                            "end": 88,
+                            "text": "具备团队协作能力。"
+                          }
+                        ],
+                        "confidence": 0.88,
+                        "needsConfirmation": false,
+                        "relatedRequirementIds": []
+                      }
+                    ],
+                    "evaluations": [
+                      {
+                        "requirementId": "jrv4-fnv-1c715d81-23",
+                        "matchLevel": "none",
+                        "evidenceUnitIds": [],
+                        "evidenceRefs": [],
+                        "coveredAspects": [],
+                        "missingAspects": [
+                          "公司：Core Test"
+                        ],
+                        "risks": [],
+                        "explanation": "当前来源简历中没有召回到可引用的已确认事实。",
+                        "confidence": 1
+                      },
+                      {
+                        "requirementId": "jrv4-fnv-7bf14856-23",
+                        "matchLevel": "none",
+                        "evidenceUnitIds": [],
+                        "evidenceRefs": [],
+                        "coveredAspects": [],
+                        "missingAspects": [
+                          "岗位：数据分析实习生 CORE-JD"
+                        ],
+                        "risks": [],
+                        "explanation": "当前来源简历中没有召回到可引用的已确认事实。",
+                        "confidence": 1
+                      },
+                      {
+                        "requirementId": "jrv4-fnv-43a43373-23",
+                        "matchLevel": "none",
+                        "evidenceUnitIds": [],
+                        "evidenceRefs": [],
+                        "coveredAspects": [],
+                        "missingAspects": [
+                          "参与数据清洗与分析。"
+                        ],
+                        "risks": [],
+                        "explanation": "当前来源简历中没有召回到可引用的已确认事实。",
+                        "confidence": 1
+                      },
+                      {
+                        "requirementId": "jrv4-fnv-554af39a-23",
+                        "matchLevel": "none",
+                        "evidenceUnitIds": [],
+                        "evidenceRefs": [],
+                        "coveredAspects": [],
+                        "missingAspects": [
+                          "了解 Python 或 SQL。"
+                        ],
+                        "risks": [],
+                        "explanation": "当前来源简历中没有召回到可引用的已确认事实。",
+                        "confidence": 1
+                      },
+                      {
+                        "requirementId": "jrv4-fnv-33df0086-23",
+                        "matchLevel": "none",
+                        "evidenceUnitIds": [],
+                        "evidenceRefs": [],
+                        "coveredAspects": [],
+                        "missingAspects": [
+                          "具备团队协作能力。"
+                        ],
+                        "risks": [],
+                        "explanation": "当前来源简历中没有召回到可引用的已确认事实。",
+                        "confidence": 1
+                      }
+                    ],
+                    "evidenceUnits": [
+                      {
+                        "id": "evu-fnv-2d9b3e54-71",
+                        "sourceType": "experience_highlight",
+                        "sectionType": "project",
+                        "itemId": "branch-item-import-core-project",
+                        "fieldPath": "highlights.0",
+                        "text": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                        "normalizedText": "参与 ai 应用项目的需求梳理 原型设计和功能验收",
+                        "recallContext": "项目经历",
+                        "factRefs": [
+                          {
+                            "type": "experience_fact",
+                            "experienceId": "exp-1ca7_0kIs-",
+                            "factId": "fact-import-0Ozi9QqvVG"
+                          }
+                        ],
+                        "sourceBlockIds": [
+                          "sections[0].order",
+                          "sections[0].items[0].id",
+                          "sections[0].items[0].sectionType",
+                          "sections[0].items[0].title",
+                          "sections[0].items[0].role",
+                          "sections[0].items[0].startDate",
+                          "sections[0].items[0].endDate",
+                          "sections[0].items[0].current",
+                          "sections[0].items[0].description",
+                          "sections[0].items[0].highlights[0]"
+                        ],
+                        "supportLevel": "verified",
+                        "maturity": "demonstrated",
+                        "role": "项目成员",
+                        "dateRange": "2025-01 — 2025-06",
+                        "confirmed": true
+                      },
+                      {
+                        "id": "evu-fnv-78e2b805-70",
+                        "sourceType": "project_outcome",
+                        "sectionType": "project",
+                        "itemId": "branch-item-import-core-project",
+                        "fieldPath": "description",
+                        "text": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                        "normalizedText": "参与 ai 应用项目的需求梳理 原型设计和功能验收",
+                        "recallContext": "项目经历",
+                        "factRefs": [
+                          {
+                            "type": "experience_fact",
+                            "experienceId": "exp-1ca7_0kIs-",
+                            "factId": "fact-import-0Ozi9QqvVG"
+                          }
+                        ],
+                        "sourceBlockIds": [
+                          "sections[0].order",
+                          "sections[0].items[0].id",
+                          "sections[0].items[0].sectionType",
+                          "sections[0].items[0].title",
+                          "sections[0].items[0].role",
+                          "sections[0].items[0].startDate",
+                          "sections[0].items[0].endDate",
+                          "sections[0].items[0].current",
+                          "sections[0].items[0].description",
+                          "sections[0].items[0].highlights[0]"
+                        ],
+                        "supportLevel": "verified",
+                        "maturity": "demonstrated",
+                        "role": "项目成员",
+                        "dateRange": "2025-01 — 2025-06",
+                        "confirmed": true
+                      }
+                    ],
+                    "resumeEvidenceGraph": {
+                      "schemaVersion": "resume-evidence-graph-v1",
+                      "profileId": "profile-1-Kb8c0PH8",
+                      "profileRevision": 1,
+                      "nodes": [
+                        {
+                          "id": "asset:core-project",
+                          "type": "career_asset",
+                          "value": "AI 应用项目",
+                          "sourceAssetIds": [
+                            "core-project"
+                          ],
+                          "factIds": [
+                            "fact-import-0Ozi9QqvVG"
+                          ],
+                          "sourceTurnIds": [],
+                          "confirmationStatus": "confirmed",
+                          "maturity": "demonstrated",
+                          "ownershipStrength": 1,
+                          "sourceExcerpts": [
+                            "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                          ]
+                        },
+                        {
+                          "id": "outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-",
+                          "type": "outcome",
+                          "value": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                          "sourceAssetIds": [
+                            "core-project"
+                          ],
+                          "factIds": [
+                            "fact-import-0Ozi9QqvVG"
+                          ],
+                          "sourceTurnIds": [],
+                          "confirmationStatus": "confirmed",
+                          "maturity": "demonstrated",
+                          "ownershipStrength": 1,
+                          "sourceExcerpts": [
+                            "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                          ]
+                        },
+                        {
+                          "id": "evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说",
+                          "type": "evidence",
+                          "value": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n0\ncore-project\nproject\nAI 应用项目\n项目成员\n2025-01\n2025-06\nfalse\n参与 AI 应用项目的需求梳理",
+                          "sourceAssetIds": [
+                            "core-project"
+                          ],
+                          "factIds": [
+                            "fact-import-0Ozi9QqvVG"
+                          ],
+                          "sourceTurnIds": [],
+                          "confirmationStatus": "confirmed",
+                          "maturity": "demonstrated",
+                          "ownershipStrength": 1,
+                          "sourceExcerpts": [
+                            "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                          ]
+                        }
+                      ],
+                      "edges": [
+                        {
+                          "id": "edge:outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-:asset:core-project",
+                          "from": "outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-",
+                          "to": "asset:core-project",
+                          "relation": "supports"
+                        },
+                        {
+                          "id": "edge:evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说:asset:core-project",
+                          "from": "evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说",
+                          "to": "asset:core-project",
+                          "relation": "supports"
+                        }
+                      ],
+                      "skillMatrix": [],
+                      "recoveryCandidates": [],
+                      "sourceAssetIds": [
+                        "core-project"
+                      ],
+                      "excludedAssetIds": []
+                    }
+                  }
+                },
+                "dependencies": {
+                  "profileId": "profile-1-Kb8c0PH8",
+                  "profileVersion": 1,
+                  "resumeId": "branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+                  "resumeRevisionId": "resume-revision-fnv-36b69ab7-100",
+                  "resumeHash": "fnv-e55e26c0-2092",
+                  "jobId": "job-8XezEygORM",
+                  "jobRevision": "2026-11-05T05:45:08.844Z",
+                  "jobGraphHash": "fnv-3bd50a99-6690"
+                }
+              }
+            },
+            "informationNeeds": [],
+            "canProceedWithoutQuestion": true,
+            "stopReason": "当前步骤没有需要用户补充的关键信息。",
+            "interactionSummary": "已完成当前步骤的资料读取与安全规划。",
+            "careerAssetState": []
+          }
+        },
+        "artifacts": [
+          {
+            "id": "agent-artifact-analyze_job_fit-mcp-career-CBw26OgD915LhJA6-1",
+            "kind": "tool_result",
+            "toolName": "career.job.analyze_fit",
+            "sourceToolName": "analyze_job_fit"
+          }
+        ],
+        "receipt": {
+          "operationId": "mcp-career-CBw26OgD915LhJA6",
+          "toolName": "career.workflow.job_fit",
+          "idempotencyKey": "mcp-career-CBw26OgD915LhJA6",
+          "status": "completed",
+          "completedAt": "2026-11-05T05:45:17.887Z"
+        },
+        "diagnostics": {
+          "toolFailureLayer": "unknown",
+          "failureScope": "career_workflow",
+          "safeDomainErrorCode": "none",
+          "toolResultIsError": false,
+          "failedStage": "completed",
+          "durationMs": 92,
+          "retryable": false,
+          "workflowStageAfter": "review_result",
+          "operationId": "mcp-career-CBw26OgD915LhJA6",
+          "logicalToolOperationId": "mcp-career-CBw26OgD915LhJA6",
+          "logicalTurnId": "runtime-turn-a197b0d3-c871-4513-b75e-c2d14563e348",
+          "taskId": "agent-session-Bz1XjE6KtCGm",
+          "argumentShape": {
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-7d7512ff-18"
+            },
+            "resumeId": {
+              "present": true,
+              "lengthBucket": "length:21-200",
+              "hashPrefix": "fnv-3df1e742-46"
+            },
+            "jobId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-a5ff6a01-14"
+            }
+          },
+          "preparedInvocationShape": {
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-7d7512ff-18"
+            },
+            "resumeId": {
+              "present": true,
+              "lengthBucket": "length:21-200",
+              "hashPrefix": "fnv-3df1e742-46"
+            },
+            "jobId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-a5ff6a01-14"
+            },
+            "sameTurnTarget": "absent"
+          },
+          "mcpHttpArgumentShape": {
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-7d7512ff-18"
+            },
+            "resumeId": {
+              "present": true,
+              "lengthBucket": "length:21-200",
+              "hashPrefix": "fnv-3df1e742-46"
+            },
+            "jobId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-a5ff6a01-14"
+            }
+          },
+          "browserHandlerArgumentShape": {
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-7d7512ff-18"
+            },
+            "resumeId": {
+              "present": true,
+              "lengthBucket": "length:21-200",
+              "hashPrefix": "fnv-3df1e742-46"
+            },
+            "jobId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-a5ff6a01-14"
+            }
+          },
+          "gatewayArgumentShape": {
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-7d7512ff-18"
+            },
+            "resumeId": {
+              "present": true,
+              "lengthBucket": "length:21-200",
+              "hashPrefix": "fnv-3df1e742-46"
+            },
+            "jobId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-a5ff6a01-14"
+            }
+          },
+          "facadeArgumentShape": {
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-7d7512ff-18"
+            },
+            "resumeId": {
+              "present": true,
+              "lengthBucket": "length:21-200",
+              "hashPrefix": "fnv-3df1e742-46"
+            },
+            "jobId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-a5ff6a01-14"
+            }
+          },
+          "sourceUserMessageId": "agent-user-7cd0933d-0dcd-421d-81ea-fcb835ab5bd1",
+          "sourceUserMessageResolved": true,
+          "runtimeHealthy": true,
+          "mcpHealthy": true,
+          "publishedContractVersion": "career-tool-contract-v5",
+          "publishedSchemaHash": "fnv1a-7b1df5cc",
+          "gatewayContractVersion": "career-tool-contract-v5",
+          "gatewaySchemaHash": "fnv1a-7b1df5cc",
+          "careerToolContractVersion": "career-tool-contract-v5",
+          "appBuildCommit": "workspace-source",
+          "appBuildTimestamp": "development",
+          "mcpCallTrace": {
+            "toolName": "career.workflow.job_fit",
+            "logicalToolOperationId": "mcp-career-CBw26OgD915LhJA6",
+            "requestStartedAt": "2026-11-05T05:45:17.887Z",
+            "jsonRpcStatus": "response_received",
+            "browserMcpHandlerReached": true,
+            "gatewayReached": true,
+            "completedAt": "2026-11-05T05:45:17.887Z"
+          },
+          "startedAt": "2026-11-05T05:45:17.795Z",
+          "enteredGatewayAt": "2026-11-05T05:45:17.795Z",
+          "enteredFacadeAt": "2026-11-05T05:45:17.862Z",
+          "firstInternalOperationAt": "2026-11-05T05:45:17.862Z",
+          "completedAt": "2026-11-05T05:45:17.887Z"
+        }
+      }
+    },
+    {
+      "action": "result",
+      "bridgeId": "careeradapt-bridge-bONQ7dKDV8qa",
+      "token": "[synthetic-bridge-token]",
+      "requestId": "mcp-request-x0o3qI9NwItIKufl",
+      "result": {
+        "ok": true,
+        "data": {
+          "operationId": "mcp-career-qZTZ2d8FJRZgDcGX",
+          "resumes": [
+            {
+              "order": 1,
+              "id": "branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+              "profileId": "profile-1-Kb8c0PH8",
+              "name": "通用简历",
+              "purpose": "general",
+              "revision": 0,
+              "currentRevisionId": "resume-revision-fnv-36b69ab7-100",
+              "updatedAt": "2026-11-05T05:44:57.348Z"
+            }
+          ]
+        },
+        "artifacts": [],
+        "receipt": {
+          "operationId": "mcp-career-qZTZ2d8FJRZgDcGX",
+          "toolName": "career.resume.list",
+          "status": "completed",
+          "completedAt": "2026-11-05T05:45:22.264Z"
+        },
+        "diagnostics": {
+          "toolFailureLayer": "unknown",
+          "failureScope": "career_workflow",
+          "safeDomainErrorCode": "none",
+          "toolResultIsError": false,
+          "failedStage": "completed",
+          "durationMs": 24,
+          "retryable": false,
+          "operationId": "mcp-career-qZTZ2d8FJRZgDcGX",
+          "logicalToolOperationId": "mcp-career-qZTZ2d8FJRZgDcGX",
+          "logicalTurnId": "runtime-turn-cfc75a03-9b03-4297-93b6-b5307eb5586b",
+          "taskId": "agent-session-Bz1XjE6KtCGm",
+          "argumentShape": {},
+          "mcpHttpArgumentShape": {},
+          "browserHandlerArgumentShape": {},
+          "gatewayArgumentShape": {},
+          "facadeArgumentShape": {},
+          "sourceUserMessageId": "agent-user-3a5484e7-3368-4726-bd8e-362721fe1f86",
+          "sourceUserMessageResolved": true,
+          "runtimeHealthy": true,
+          "mcpHealthy": true,
+          "publishedContractVersion": "career-tool-contract-v5",
+          "publishedSchemaHash": "fnv1a-d4ef12d5",
+          "gatewayContractVersion": "career-tool-contract-v5",
+          "gatewaySchemaHash": "fnv1a-d4ef12d5",
+          "careerToolContractVersion": "career-tool-contract-v5",
+          "appBuildCommit": "workspace-source",
+          "appBuildTimestamp": "development",
+          "mcpCallTrace": {
+            "toolName": "career.resume.list",
+            "logicalToolOperationId": "mcp-career-qZTZ2d8FJRZgDcGX",
+            "requestStartedAt": "2026-11-05T05:45:22.264Z",
+            "jsonRpcStatus": "response_received",
+            "browserMcpHandlerReached": true,
+            "gatewayReached": true,
+            "completedAt": "2026-11-05T05:45:22.264Z"
+          },
+          "startedAt": "2026-11-05T05:45:22.240Z",
+          "enteredGatewayAt": "2026-11-05T05:45:22.240Z",
+          "firstInternalOperationAt": "2026-11-05T05:45:22.264Z",
+          "completedAt": "2026-11-05T05:45:22.264Z"
+        }
+      }
+    },
+    {
+      "action": "result",
+      "bridgeId": "careeradapt-bridge-bONQ7dKDV8qa",
+      "token": "[synthetic-bridge-token]",
+      "requestId": "mcp-request-vuBzRsh0kgBij3U8",
+      "result": {
+        "ok": true,
+        "data": {
+          "operationId": "mcp-career-qTCC2b3NOupmpOzs",
+          "jobs": [
+            {
+              "order": 1,
+              "id": "job-8XezEygORM",
+              "title": "数据分析实习生 CORE-JD",
+              "company": "Core Test",
+              "requirementCount": 5,
+              "analysisStatus": "validated",
+              "updatedAt": "2026-11-05T05:45:08.844Z"
+            },
+            {
+              "order": 2,
+              "id": "job-data-analyst-intern",
+              "title": "数据分析实习生",
+              "company": "示例科技公司",
+              "requirementCount": 2,
+              "updatedAt": "2026-07-01T09:00:00.000Z"
+            },
+            {
+              "order": 3,
+              "id": "job-trade-operation-intern",
+              "title": "外贸/跨境运营实习生",
+              "company": "示例跨境公司",
+              "requirementCount": 2,
+              "updatedAt": "2026-07-01T09:00:00.000Z"
+            }
+          ]
+        },
+        "artifacts": [],
+        "receipt": {
+          "operationId": "mcp-career-qTCC2b3NOupmpOzs",
+          "toolName": "career.job.list",
+          "status": "completed",
+          "completedAt": "2026-11-05T05:45:23.486Z"
+        },
+        "diagnostics": {
+          "toolFailureLayer": "unknown",
+          "failureScope": "career_workflow",
+          "safeDomainErrorCode": "none",
+          "toolResultIsError": false,
+          "failedStage": "completed",
+          "durationMs": 21,
+          "retryable": false,
+          "operationId": "mcp-career-qTCC2b3NOupmpOzs",
+          "logicalToolOperationId": "mcp-career-qTCC2b3NOupmpOzs",
+          "logicalTurnId": "runtime-turn-cfc75a03-9b03-4297-93b6-b5307eb5586b",
+          "taskId": "agent-session-Bz1XjE6KtCGm",
+          "argumentShape": {},
+          "mcpHttpArgumentShape": {},
+          "browserHandlerArgumentShape": {},
+          "gatewayArgumentShape": {},
+          "facadeArgumentShape": {},
+          "sourceUserMessageId": "agent-user-3a5484e7-3368-4726-bd8e-362721fe1f86",
+          "sourceUserMessageResolved": true,
+          "runtimeHealthy": true,
+          "mcpHealthy": true,
+          "publishedContractVersion": "career-tool-contract-v5",
+          "publishedSchemaHash": "fnv1a-d4ef12d5",
+          "gatewayContractVersion": "career-tool-contract-v5",
+          "gatewaySchemaHash": "fnv1a-d4ef12d5",
+          "careerToolContractVersion": "career-tool-contract-v5",
+          "appBuildCommit": "workspace-source",
+          "appBuildTimestamp": "development",
+          "mcpCallTrace": {
+            "toolName": "career.job.list",
+            "logicalToolOperationId": "mcp-career-qTCC2b3NOupmpOzs",
+            "requestStartedAt": "2026-11-05T05:45:23.487Z",
+            "jsonRpcStatus": "response_received",
+            "browserMcpHandlerReached": true,
+            "gatewayReached": true,
+            "completedAt": "2026-11-05T05:45:23.487Z"
+          },
+          "startedAt": "2026-11-05T05:45:23.465Z",
+          "enteredGatewayAt": "2026-11-05T05:45:23.465Z",
+          "firstInternalOperationAt": "2026-11-05T05:45:23.486Z",
+          "completedAt": "2026-11-05T05:45:23.486Z"
+        }
+      }
+    },
+    {
+      "action": "result",
+      "bridgeId": "careeradapt-bridge-bONQ7dKDV8qa",
+      "token": "[synthetic-bridge-token]",
+      "requestId": "mcp-request-aAMy-KuwIcD78Urm",
+      "result": {
+        "ok": true,
+        "data": {
+          "status": "review_ready",
+          "workflowStage": "preview_changes",
+          "nextAction": "review_tailoring_diff",
+          "checkpointId": "tailoring-session-fnv-1f961958-29",
+          "interaction": {
+            "workflow": "career.workflow.tailor_resume",
+            "objective": "在不改变事实边界的前提下准备岗位简历",
+            "knownContext": {
+              "person": {
+                "id": "person-profile-1-Kb8c0PH8"
+              },
+              "profile": {
+                "id": "profile-1-Kb8c0PH8",
+                "revision": 1
+              },
+              "resumes": [
+                {
+                  "id": "branch-general-resume-import-31pC5_ZnKT-VcaOGx"
+                }
+              ],
+              "job": {
+                "id": "job-8XezEygORM"
+              }
+            },
+            "informationNeeds": [],
+            "canProceedWithoutQuestion": true,
+            "stopReason": "当前步骤没有需要用户补充的关键信息。",
+            "interactionSummary": "已完成当前步骤的资料读取与安全规划。",
+            "careerAssetState": []
+          },
+          "review": {
+            "generationStatus": "completed",
+            "diffs": [
+              {
+                "target": {
+                  "sectionId": "project",
+                  "itemId": "branch-item-import-core-project",
+                  "fieldPath": "highlights"
+                },
+                "operation": "replace",
+                "original": [
+                  "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                ],
+                "value": [
+                  "参与需求梳理、原型设计和功能验收等 AI 应用项目工作。"
+                ],
+                "reason": "重排已确认职责，保留参与边界与来源",
+                "requirementIds": [
+                  "jrv4-fnv-1c715d81-23",
+                  "jrv4-fnv-7bf14856-23",
+                  "jrv4-fnv-43a43373-23"
+                ],
+                "targetKeywords": [],
+                "evidenceRefs": [
+                  {
+                    "type": "experience_fact",
+                    "experienceId": "exp-1ca7_0kIs-",
+                    "factId": "fact-import-0Ozi9QqvVG",
+                    "factQuote": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                    "factText": "参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                  }
+                ],
+                "supportLevel": "verified"
+              }
+            ],
+            "diffReviews": [
+              {
+                "diffId": "tailoring-diff-fnv-61b7a804-207",
+                "status": "suggested",
+                "updatedAt": "2026-11-05T05:45:24.816Z"
+              }
+            ]
+          },
+          "artifactRefs": [
+            {
+              "id": "agent-artifact-create_tailoring_session-mcp-career-pg0Hq0JBJY1_bA92-3",
+              "kind": "tool_result",
+              "toolName": "career.tailoring.create_session",
+              "sourceToolName": "create_tailoring_session"
+            },
+            {
+              "id": "agent-artifact-generate_tailoring_changes-mcp-career-pg0Hq0JBJY1_bA92-4",
+              "kind": "tool_result",
+              "toolName": "career.tailoring.generate_changes",
+              "sourceToolName": "generate_tailoring_changes"
+            }
+          ],
+          "receipts": [
+            {
+              "operationId": "mcp-career-pg0Hq0JBJY1_bA92-1",
+              "toolName": "career.profile.active",
+              "status": "completed",
+              "completedAt": "2026-11-05T05:45:24.768Z"
+            },
+            {
+              "operationId": "mcp-career-pg0Hq0JBJY1_bA92-2",
+              "toolName": "career.profile.list",
+              "status": "completed",
+              "completedAt": "2026-11-05T05:45:24.774Z"
+            },
+            {
+              "operationId": "mcp-career-pg0Hq0JBJY1_bA92-3",
+              "toolName": "career.tailoring.create_session",
+              "status": "completed",
+              "completedAt": "2026-11-05T05:45:24.797Z",
+              "idempotencyKey": "mcp-career-pg0Hq0JBJY1_bA92-3"
+            },
+            {
+              "operationId": "mcp-career-pg0Hq0JBJY1_bA92-4",
+              "toolName": "career.tailoring.generate_changes",
+              "status": "completed",
+              "completedAt": "2026-11-05T05:45:24.818Z",
+              "idempotencyKey": "mcp-career-pg0Hq0JBJY1_bA92-4"
+            },
+            {
+              "operationId": "mcp-career-pg0Hq0JBJY1_bA92",
+              "toolName": "career.workflow.tailor_resume",
+              "status": "completed",
+              "completedAt": "2026-11-05T05:45:24.818Z",
+              "idempotencyKey": "mcp-career-pg0Hq0JBJY1_bA92"
+            }
+          ],
+          "workflowCheckpoint": {
+            "kind": "tailoring_session",
+            "workflowStage": "preview_changes",
+            "checkpointId": "tailoring-session-fnv-1f961958-29",
+            "profileId": "profile-1-Kb8c0PH8",
+            "resumeId": "branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+            "jobId": "job-8XezEygORM",
+            "fitAnalysis": {
+              "analysis": {
+                "status": "ready",
+                "summary": "当前已确认材料的要求覆盖诊断为 0 分；未找到证据的要求保持未知，不代表不具备能力，也不是面试概率。",
+                "report": {
+                  "overallCoverage": 0,
+                  "subScores": {
+                    "hardConstraints": 0,
+                    "coreCompetencies": 0,
+                    "responsibilities": 0,
+                    "preferredQualifications": 0,
+                    "terminologyCoverage": 0
+                  },
+                  "coveredRequirementIds": [],
+                  "partialRequirementIds": [],
+                  "uncoveredRequirementIds": [
+                    "jrv4-fnv-1c715d81-23",
+                    "jrv4-fnv-7bf14856-23",
+                    "jrv4-fnv-43a43373-23",
+                    "jrv4-fnv-554af39a-23",
+                    "jrv4-fnv-33df0086-23"
+                  ],
+                  "confirmationRequirementIds": [],
+                  "coveredRequirementDescriptions": [],
+                  "partialRequirementDescriptions": [],
+                  "uncoveredRequirementDescriptions": [
+                    "公司：Core Test",
+                    "岗位：数据分析实习生 CORE-JD",
+                    "参与数据清洗与分析。",
+                    "了解 Python 或 SQL。",
+                    "具备团队协作能力。"
+                  ],
+                  "blockingGaps": [],
+                  "improvementOpportunities": [
+                    "公司：Core Test",
+                    "岗位：数据分析实习生 CORE-JD",
+                    "参与数据清洗与分析。",
+                    "了解 Python 或 SQL。",
+                    "具备团队协作能力。"
+                  ],
+                  "scoreVersion": "job-evidence-coverage.v2.0",
+                  "scoreExplanation": "岗位证据覆盖度由已确认事实与 5 条岗位要求的逐项证据等级确定；必备证据待核实扣减 0 分。缺少证据不代表不具备能力。它不是 ATS 通过率、录取概率或招聘成功率。"
+                },
+                "candidateEvidenceMatrix": {
+                  "schemaVersion": "candidate-evidence-matrix-1",
+                  "ruleVersion": "career-intelligence-2.1",
+                  "analysisId": "analysis-fnv-56b775fb-3935",
+                  "binding": {
+                    "profileId": "profile-1-Kb8c0PH8",
+                    "profileRevision": 1,
+                    "resumeId": "branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+                    "resumeRevision": 0,
+                    "revisionId": "resume-revision-fnv-36b69ab7-100",
+                    "jobId": "job-8XezEygORM",
+                    "jobVersion": "2026-11-05T05:45:08.844Z",
+                    "graphHash": "fnv-a59da8bb-2318"
+                  },
+                  "rows": [
+                    {
+                      "requirementId": "jrv4-fnv-1c715d81-23",
+                      "rawSourceRef": {
+                        "start": 0,
+                        "end": 12,
+                        "text": "公司：Core Test"
+                      },
+                      "normalizedRequirement": "公司 core test",
+                      "priority": "high",
+                      "relationships": [],
+                      "evidenceStatus": "unknown",
+                      "candidateFactIds": [],
+                      "sourceIds": [],
+                      "evidenceUnitIds": [],
+                      "confidence": 1,
+                      "unresolvedAmbiguity": [
+                        "公司：Core Test"
+                      ],
+                      "rationale": "当前来源简历中没有召回到可引用的已确认事实。"
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-7bf14856-23",
+                      "rawSourceRef": {
+                        "start": 13,
+                        "end": 31,
+                        "text": "岗位：数据分析实习生 CORE-JD"
+                      },
+                      "normalizedRequirement": "岗位 数据分析实习生 core-jd",
+                      "priority": "high",
+                      "relationships": [],
+                      "evidenceStatus": "unknown",
+                      "candidateFactIds": [],
+                      "sourceIds": [],
+                      "evidenceUnitIds": [],
+                      "confidence": 1,
+                      "unresolvedAmbiguity": [
+                        "岗位：数据分析实习生 CORE-JD"
+                      ],
+                      "rationale": "当前来源简历中没有召回到可引用的已确认事实。"
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-43a43373-23",
+                      "rawSourceRef": {
+                        "start": 40,
+                        "end": 50,
+                        "text": "参与数据清洗与分析。"
+                      },
+                      "normalizedRequirement": "参与数据清洗与分析",
+                      "priority": "high",
+                      "relationships": [],
+                      "evidenceStatus": "unknown",
+                      "candidateFactIds": [],
+                      "sourceIds": [],
+                      "evidenceUnitIds": [],
+                      "confidence": 1,
+                      "unresolvedAmbiguity": [
+                        "参与数据清洗与分析。"
+                      ],
+                      "rationale": "当前来源简历中没有召回到可引用的已确认事实。"
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-554af39a-23",
+                      "rawSourceRef": {
+                        "start": 59,
+                        "end": 75,
+                        "text": "了解 Python 或 SQL。"
+                      },
+                      "normalizedRequirement": "了解 python 或 sql",
+                      "priority": "medium",
+                      "relationships": [],
+                      "evidenceStatus": "unknown",
+                      "candidateFactIds": [],
+                      "sourceIds": [],
+                      "evidenceUnitIds": [],
+                      "confidence": 1,
+                      "unresolvedAmbiguity": [
+                        "了解 Python 或 SQL。"
+                      ],
+                      "rationale": "当前来源简历中没有召回到可引用的已确认事实。"
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-33df0086-23",
+                      "rawSourceRef": {
+                        "start": 79,
+                        "end": 88,
+                        "text": "具备团队协作能力。"
+                      },
+                      "normalizedRequirement": "具备团队协作能力",
+                      "priority": "medium",
+                      "relationships": [],
+                      "evidenceStatus": "unknown",
+                      "candidateFactIds": [],
+                      "sourceIds": [],
+                      "evidenceUnitIds": [],
+                      "confidence": 1,
+                      "unresolvedAmbiguity": [
+                        "具备团队协作能力。"
+                      ],
+                      "rationale": "当前来源简历中没有召回到可引用的已确认事实。"
+                    }
+                  ]
+                },
+                "jobFit": {
+                  "ruleVersion": "career-intelligence-2.1",
+                  "mustHaveCoverage": {
+                    "total": 0,
+                    "direct": 0,
+                    "unknown": 0
+                  },
+                  "preferredCoverage": {
+                    "total": 0,
+                    "direct": 0,
+                    "unknown": 0
+                  },
+                  "evidenceStrength": [
+                    {
+                      "requirementId": "jrv4-fnv-1c715d81-23",
+                      "status": "unknown"
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-7bf14856-23",
+                      "status": "unknown"
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-43a43373-23",
+                      "status": "unknown"
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-554af39a-23",
+                      "status": "unknown"
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-33df0086-23",
+                      "status": "unknown"
+                    }
+                  ],
+                  "materialGaps": [],
+                  "unknowns": [
+                    "jrv4-fnv-1c715d81-23",
+                    "jrv4-fnv-7bf14856-23",
+                    "jrv4-fnv-43a43373-23",
+                    "jrv4-fnv-554af39a-23",
+                    "jrv4-fnv-33df0086-23"
+                  ]
+                },
+                "evidenceMapping": {
+                  "requirements": [
+                    {
+                      "id": "jrv4-fnv-1c715d81-23",
+                      "kind": "responsibility",
+                      "statement": "公司：Core Test",
+                      "normalizedIntent": "公司 core test",
+                      "priority": "high",
+                      "hardConstraint": false,
+                      "exactKeywords": [],
+                      "semanticAliases": [],
+                      "sourceSpan": {
+                        "start": 0,
+                        "end": 12,
+                        "text": "公司：Core Test"
+                      },
+                      "sourceSpans": [
+                        {
+                          "start": 0,
+                          "end": 12,
+                          "text": "公司：Core Test"
+                        }
+                      ],
+                      "confidence": 0.88,
+                      "needsConfirmation": false,
+                      "relatedRequirementIds": []
+                    },
+                    {
+                      "id": "jrv4-fnv-7bf14856-23",
+                      "kind": "responsibility",
+                      "statement": "岗位：数据分析实习生 CORE-JD",
+                      "normalizedIntent": "岗位 数据分析实习生 core-jd",
+                      "priority": "high",
+                      "hardConstraint": false,
+                      "exactKeywords": [],
+                      "semanticAliases": [],
+                      "sourceSpan": {
+                        "start": 13,
+                        "end": 31,
+                        "text": "岗位：数据分析实习生 CORE-JD"
+                      },
+                      "sourceSpans": [
+                        {
+                          "start": 13,
+                          "end": 31,
+                          "text": "岗位：数据分析实习生 CORE-JD"
+                        }
+                      ],
+                      "confidence": 0.88,
+                      "needsConfirmation": false,
+                      "relatedRequirementIds": []
+                    },
+                    {
+                      "id": "jrv4-fnv-43a43373-23",
+                      "kind": "responsibility",
+                      "statement": "参与数据清洗与分析。",
+                      "normalizedIntent": "参与数据清洗与分析",
+                      "priority": "high",
+                      "hardConstraint": false,
+                      "exactKeywords": [],
+                      "semanticAliases": [],
+                      "sourceSpan": {
+                        "start": 40,
+                        "end": 50,
+                        "text": "参与数据清洗与分析。"
+                      },
+                      "sourceSpans": [
+                        {
+                          "start": 40,
+                          "end": 50,
+                          "text": "参与数据清洗与分析。"
+                        }
+                      ],
+                      "confidence": 0.88,
+                      "needsConfirmation": false,
+                      "relatedRequirementIds": []
+                    },
+                    {
+                      "id": "jrv4-fnv-554af39a-23",
+                      "kind": "tool_or_technology",
+                      "statement": "了解 Python 或 SQL。",
+                      "normalizedIntent": "了解 python 或 sql",
+                      "priority": "medium",
+                      "hardConstraint": false,
+                      "exactKeywords": [
+                        "Python",
+                        "SQL"
+                      ],
+                      "semanticAliases": [],
+                      "keywordLogic": {
+                        "relation": "any_of",
+                        "terms": [
+                          "Python",
+                          "SQL"
+                        ]
+                      },
+                      "sourceSpan": {
+                        "start": 59,
+                        "end": 75,
+                        "text": "了解 Python 或 SQL。"
+                      },
+                      "sourceSpans": [
+                        {
+                          "start": 59,
+                          "end": 75,
+                          "text": "了解 Python 或 SQL。"
+                        }
+                      ],
+                      "confidence": 0.88,
+                      "needsConfirmation": false,
+                      "relatedRequirementIds": []
+                    },
+                    {
+                      "id": "jrv4-fnv-33df0086-23",
+                      "kind": "soft_skill",
+                      "statement": "具备团队协作能力。",
+                      "normalizedIntent": "具备团队协作能力",
+                      "priority": "medium",
+                      "hardConstraint": false,
+                      "exactKeywords": [],
+                      "semanticAliases": [],
+                      "sourceSpan": {
+                        "start": 79,
+                        "end": 88,
+                        "text": "具备团队协作能力。"
+                      },
+                      "sourceSpans": [
+                        {
+                          "start": 79,
+                          "end": 88,
+                          "text": "具备团队协作能力。"
+                        }
+                      ],
+                      "confidence": 0.88,
+                      "needsConfirmation": false,
+                      "relatedRequirementIds": []
+                    }
+                  ],
+                  "evaluations": [
+                    {
+                      "requirementId": "jrv4-fnv-1c715d81-23",
+                      "matchLevel": "none",
+                      "evidenceUnitIds": [],
+                      "evidenceRefs": [],
+                      "coveredAspects": [],
+                      "missingAspects": [
+                        "公司：Core Test"
+                      ],
+                      "risks": [],
+                      "explanation": "当前来源简历中没有召回到可引用的已确认事实。",
+                      "confidence": 1
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-7bf14856-23",
+                      "matchLevel": "none",
+                      "evidenceUnitIds": [],
+                      "evidenceRefs": [],
+                      "coveredAspects": [],
+                      "missingAspects": [
+                        "岗位：数据分析实习生 CORE-JD"
+                      ],
+                      "risks": [],
+                      "explanation": "当前来源简历中没有召回到可引用的已确认事实。",
+                      "confidence": 1
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-43a43373-23",
+                      "matchLevel": "none",
+                      "evidenceUnitIds": [],
+                      "evidenceRefs": [],
+                      "coveredAspects": [],
+                      "missingAspects": [
+                        "参与数据清洗与分析。"
+                      ],
+                      "risks": [],
+                      "explanation": "当前来源简历中没有召回到可引用的已确认事实。",
+                      "confidence": 1
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-554af39a-23",
+                      "matchLevel": "none",
+                      "evidenceUnitIds": [],
+                      "evidenceRefs": [],
+                      "coveredAspects": [],
+                      "missingAspects": [
+                        "了解 Python 或 SQL。"
+                      ],
+                      "risks": [],
+                      "explanation": "当前来源简历中没有召回到可引用的已确认事实。",
+                      "confidence": 1
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-33df0086-23",
+                      "matchLevel": "none",
+                      "evidenceUnitIds": [],
+                      "evidenceRefs": [],
+                      "coveredAspects": [],
+                      "missingAspects": [
+                        "具备团队协作能力。"
+                      ],
+                      "risks": [],
+                      "explanation": "当前来源简历中没有召回到可引用的已确认事实。",
+                      "confidence": 1
+                    }
+                  ],
+                  "evidenceUnits": [
+                    {
+                      "id": "evu-fnv-2d9b3e54-71",
+                      "sourceType": "experience_highlight",
+                      "sectionType": "project",
+                      "itemId": "branch-item-import-core-project",
+                      "fieldPath": "highlights.0",
+                      "text": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                      "normalizedText": "参与 ai 应用项目的需求梳理 原型设计和功能验收",
+                      "recallContext": "项目经历",
+                      "factRefs": [
+                        {
+                          "type": "experience_fact",
+                          "experienceId": "exp-1ca7_0kIs-",
+                          "factId": "fact-import-0Ozi9QqvVG"
+                        }
+                      ],
+                      "sourceBlockIds": [
+                        "sections[0].order",
+                        "sections[0].items[0].id",
+                        "sections[0].items[0].sectionType",
+                        "sections[0].items[0].title",
+                        "sections[0].items[0].role",
+                        "sections[0].items[0].startDate",
+                        "sections[0].items[0].endDate",
+                        "sections[0].items[0].current",
+                        "sections[0].items[0].description",
+                        "sections[0].items[0].highlights[0]"
+                      ],
+                      "supportLevel": "verified",
+                      "maturity": "demonstrated",
+                      "role": "项目成员",
+                      "dateRange": "2025-01 — 2025-06",
+                      "confirmed": true
+                    },
+                    {
+                      "id": "evu-fnv-78e2b805-70",
+                      "sourceType": "project_outcome",
+                      "sectionType": "project",
+                      "itemId": "branch-item-import-core-project",
+                      "fieldPath": "description",
+                      "text": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                      "normalizedText": "参与 ai 应用项目的需求梳理 原型设计和功能验收",
+                      "recallContext": "项目经历",
+                      "factRefs": [
+                        {
+                          "type": "experience_fact",
+                          "experienceId": "exp-1ca7_0kIs-",
+                          "factId": "fact-import-0Ozi9QqvVG"
+                        }
+                      ],
+                      "sourceBlockIds": [
+                        "sections[0].order",
+                        "sections[0].items[0].id",
+                        "sections[0].items[0].sectionType",
+                        "sections[0].items[0].title",
+                        "sections[0].items[0].role",
+                        "sections[0].items[0].startDate",
+                        "sections[0].items[0].endDate",
+                        "sections[0].items[0].current",
+                        "sections[0].items[0].description",
+                        "sections[0].items[0].highlights[0]"
+                      ],
+                      "supportLevel": "verified",
+                      "maturity": "demonstrated",
+                      "role": "项目成员",
+                      "dateRange": "2025-01 — 2025-06",
+                      "confirmed": true
+                    }
+                  ],
+                  "resumeEvidenceGraph": {
+                    "schemaVersion": "resume-evidence-graph-v1",
+                    "profileId": "profile-1-Kb8c0PH8",
+                    "profileRevision": 1,
+                    "nodes": [
+                      {
+                        "id": "asset:core-project",
+                        "type": "career_asset",
+                        "value": "AI 应用项目",
+                        "sourceAssetIds": [
+                          "core-project"
+                        ],
+                        "factIds": [
+                          "fact-import-0Ozi9QqvVG"
+                        ],
+                        "sourceTurnIds": [],
+                        "confirmationStatus": "confirmed",
+                        "maturity": "demonstrated",
+                        "ownershipStrength": 1,
+                        "sourceExcerpts": [
+                          "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                        ]
+                      },
+                      {
+                        "id": "outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-",
+                        "type": "outcome",
+                        "value": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                        "sourceAssetIds": [
+                          "core-project"
+                        ],
+                        "factIds": [
+                          "fact-import-0Ozi9QqvVG"
+                        ],
+                        "sourceTurnIds": [],
+                        "confirmationStatus": "confirmed",
+                        "maturity": "demonstrated",
+                        "ownershipStrength": 1,
+                        "sourceExcerpts": [
+                          "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                        ]
+                      },
+                      {
+                        "id": "evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说",
+                        "type": "evidence",
+                        "value": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n0\ncore-project\nproject\nAI 应用项目\n项目成员\n2025-01\n2025-06\nfalse\n参与 AI 应用项目的需求梳理",
+                        "sourceAssetIds": [
+                          "core-project"
+                        ],
+                        "factIds": [
+                          "fact-import-0Ozi9QqvVG"
+                        ],
+                        "sourceTurnIds": [],
+                        "confirmationStatus": "confirmed",
+                        "maturity": "demonstrated",
+                        "ownershipStrength": 1,
+                        "sourceExcerpts": [
+                          "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                        ]
+                      }
+                    ],
+                    "edges": [
+                      {
+                        "id": "edge:outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-:asset:core-project",
+                        "from": "outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-",
+                        "to": "asset:core-project",
+                        "relation": "supports"
+                      },
+                      {
+                        "id": "edge:evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说:asset:core-project",
+                        "from": "evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说",
+                        "to": "asset:core-project",
+                        "relation": "supports"
+                      }
+                    ],
+                    "skillMatrix": [],
+                    "recoveryCandidates": [],
+                    "sourceAssetIds": [
+                      "core-project"
+                    ],
+                    "excludedAssetIds": []
+                  }
+                }
+              },
+              "dependencies": {
+                "profileId": "profile-1-Kb8c0PH8",
+                "profileVersion": 1,
+                "resumeId": "branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+                "resumeRevisionId": "resume-revision-fnv-36b69ab7-100",
+                "resumeHash": "fnv-e55e26c0-2092",
+                "jobId": "job-8XezEygORM",
+                "jobRevision": "2026-11-05T05:45:08.844Z",
+                "jobGraphHash": "fnv-3bd50a99-6690"
+              }
+            },
+            "session": {
+              "candidateEvidenceMatrix": {
+                "schemaVersion": "candidate-evidence-matrix-1",
+                "ruleVersion": "career-intelligence-2.1",
+                "analysisId": "analysis-fnv-56b775fb-3935",
+                "binding": {
+                  "profileId": "profile-1-Kb8c0PH8",
+                  "profileRevision": 1,
+                  "resumeId": "branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+                  "resumeRevision": 0,
+                  "revisionId": "resume-revision-fnv-36b69ab7-100",
+                  "jobId": "job-8XezEygORM",
+                  "jobVersion": "2026-11-05T05:45:08.844Z",
+                  "graphHash": "fnv-a59da8bb-2318"
+                },
+                "rows": [
+                  {
+                    "requirementId": "jrv4-fnv-1c715d81-23",
+                    "rawSourceRef": {
+                      "start": 0,
+                      "end": 12,
+                      "text": "公司：Core Test"
+                    },
+                    "normalizedRequirement": "公司 core test",
+                    "priority": "high",
+                    "relationships": [],
+                    "evidenceStatus": "unknown",
+                    "candidateFactIds": [],
+                    "sourceIds": [],
+                    "evidenceUnitIds": [],
+                    "confidence": 1,
+                    "unresolvedAmbiguity": [
+                      "公司：Core Test"
+                    ],
+                    "rationale": "当前来源简历中没有召回到可引用的已确认事实。"
+                  },
+                  {
+                    "requirementId": "jrv4-fnv-7bf14856-23",
+                    "rawSourceRef": {
+                      "start": 13,
+                      "end": 31,
+                      "text": "岗位：数据分析实习生 CORE-JD"
+                    },
+                    "normalizedRequirement": "岗位 数据分析实习生 core-jd",
+                    "priority": "high",
+                    "relationships": [],
+                    "evidenceStatus": "unknown",
+                    "candidateFactIds": [],
+                    "sourceIds": [],
+                    "evidenceUnitIds": [],
+                    "confidence": 1,
+                    "unresolvedAmbiguity": [
+                      "岗位：数据分析实习生 CORE-JD"
+                    ],
+                    "rationale": "当前来源简历中没有召回到可引用的已确认事实。"
+                  },
+                  {
+                    "requirementId": "jrv4-fnv-43a43373-23",
+                    "rawSourceRef": {
+                      "start": 40,
+                      "end": 50,
+                      "text": "参与数据清洗与分析。"
+                    },
+                    "normalizedRequirement": "参与数据清洗与分析",
+                    "priority": "high",
+                    "relationships": [],
+                    "evidenceStatus": "unknown",
+                    "candidateFactIds": [],
+                    "sourceIds": [],
+                    "evidenceUnitIds": [],
+                    "confidence": 1,
+                    "unresolvedAmbiguity": [
+                      "参与数据清洗与分析。"
+                    ],
+                    "rationale": "当前来源简历中没有召回到可引用的已确认事实。"
+                  },
+                  {
+                    "requirementId": "jrv4-fnv-554af39a-23",
+                    "rawSourceRef": {
+                      "start": 59,
+                      "end": 75,
+                      "text": "了解 Python 或 SQL。"
+                    },
+                    "normalizedRequirement": "了解 python 或 sql",
+                    "priority": "medium",
+                    "relationships": [],
+                    "evidenceStatus": "unknown",
+                    "candidateFactIds": [],
+                    "sourceIds": [],
+                    "evidenceUnitIds": [],
+                    "confidence": 1,
+                    "unresolvedAmbiguity": [
+                      "了解 Python 或 SQL。"
+                    ],
+                    "rationale": "当前来源简历中没有召回到可引用的已确认事实。"
+                  },
+                  {
+                    "requirementId": "jrv4-fnv-33df0086-23",
+                    "rawSourceRef": {
+                      "start": 79,
+                      "end": 88,
+                      "text": "具备团队协作能力。"
+                    },
+                    "normalizedRequirement": "具备团队协作能力",
+                    "priority": "medium",
+                    "relationships": [],
+                    "evidenceStatus": "unknown",
+                    "candidateFactIds": [],
+                    "sourceIds": [],
+                    "evidenceUnitIds": [],
+                    "confidence": 1,
+                    "unresolvedAmbiguity": [
+                      "具备团队协作能力。"
+                    ],
+                    "rationale": "当前来源简历中没有召回到可引用的已确认事实。"
+                  }
+                ]
+              },
+              "tailoringRuntimeVersion": 2,
+              "id": "tailoring-session-fnv-1f961958-29",
+              "operationId": "mcp-career-pg0Hq0JBJY1_bA92-3",
+              "profile": {
+                "id": "profile-1-Kb8c0PH8",
+                "createdAt": "2026-11-05T05:44:57.348Z",
+                "updatedAt": "2026-11-05T05:44:57.348Z",
+                "schemaVersion": "career-profile-v2",
+                "name": "Core 候选人",
+                "basics": {
+                  "name": "Core 候选人",
+                  "email": "core@example.org",
+                  "links": []
+                },
+                "preference": {
+                  "targetRoles": [],
+                  "targetCities": [],
+                  "industries": []
+                },
+                "version": 1,
+                "experiences": [
+                  {
+                    "id": "exp-1ca7_0kIs-",
+                    "createdAt": "2026-11-05T05:44:57.348Z",
+                    "updatedAt": "2026-11-05T05:44:57.348Z",
+                    "type": "project",
+                    "organization": "AI 应用项目",
+                    "role": "项目成员",
+                    "startDate": "2025-01",
+                    "endDate": "2025-06",
+                    "facts": [
+                      {
+                        "id": "fact-import-0Ozi9QqvVG",
+                        "createdAt": "2026-11-05T05:44:57.348Z",
+                        "updatedAt": "2026-11-05T05:44:57.348Z",
+                        "statement": "参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                        "category": "experience",
+                        "provenance": [
+                          {
+                            "sourceType": "imported_text",
+                            "sourceId": "b4f4fa73095c8bb7a997969928fcca21474ae6edad7dc88dea2252d39a3e7ba1",
+                            "sourceText": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                            "confidence": 0.9,
+                            "confirmedByUser": true,
+                            "riskLevel": "medium",
+                            "createdAt": "2026-11-05T05:44:57.348Z",
+                            "fileName": "pasted-structured-resume.json",
+                            "sourceQuote": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                          }
+                        ],
+                        "confirmedByUser": true,
+                        "riskLevel": "medium",
+                        "maturity": "demonstrated"
+                      }
+                    ],
+                    "resumeDrafts": [
+                      {
+                        "id": "draft-WVLWpzehGD",
+                        "createdAt": "2026-11-05T05:44:57.348Z",
+                        "updatedAt": "2026-11-05T05:44:57.348Z",
+                        "text": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                        "factIds": [
+                          "fact-import-0Ozi9QqvVG"
+                        ]
+                      }
+                    ],
+                    "tags": [
+                      "项目经历"
+                    ],
+                    "evidenceIds": []
+                  }
+                ],
+                "skills": [],
+                "certificates": [],
+                "evidences": [],
+                "unclassifiedBlocks": [],
+                "structuredFacts": [
+                  {
+                    "data": {
+                      "id": "core-project",
+                      "customFields": [],
+                      "sectionType": "project",
+                      "title": "AI 应用项目",
+                      "role": "项目成员",
+                      "startDate": "2025-01",
+                      "endDate": "2025-06",
+                      "current": false,
+                      "tools": [],
+                      "description": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                      "highlights": [
+                        "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                      ],
+                      "outcomes": []
+                    },
+                    "factIds": [
+                      "fact-import-0Ozi9QqvVG"
+                    ],
+                    "sourceBlockIds": [
+                      "sections[0].order",
+                      "sections[0].items[0].id",
+                      "sections[0].items[0].sectionType",
+                      "sections[0].items[0].title",
+                      "sections[0].items[0].role",
+                      "sections[0].items[0].startDate",
+                      "sections[0].items[0].endDate",
+                      "sections[0].items[0].current",
+                      "sections[0].items[0].description",
+                      "sections[0].items[0].highlights[0]"
+                    ],
+                    "sourceRanges": [],
+                    "sourceExcerpt": "0\ncore-project\nproject\nAI 应用项目\n项目成员\n2025-01\n2025-06\nfalse\n参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                    "mappingTrace": [],
+                    "provenance": []
+                  }
+                ],
+                "structuredBasics": {
+                  "name": "Core 候选人",
+                  "email": "core@example.org",
+                  "portfolioLinks": [],
+                  "otherLinks": [],
+                  "customFields": []
+                },
+                "personId": "person-profile-1-Kb8c0PH8",
+                "profileVersionNumber": 1,
+                "isCurrent": true,
+                "versionCreatedReason": "initial"
+              },
+              "branch": {
+                "id": "branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+                "createdAt": "2026-11-05T05:44:57.348Z",
+                "updatedAt": "2026-11-05T05:44:57.348Z",
+                "schemaVersion": "resume-branch-v2",
+                "branchPurpose": "general",
+                "profileId": "profile-1-Kb8c0PH8",
+                "name": "通用简历",
+                "sourceProfileVersion": 1,
+                "sourceImportId": "resume-import-31pC5_ZnKT",
+                "sourceDraftRevision": 0,
+                "matcherVersion": "resume-import.pipeline.v2.resume-import.local-rules.v2.structured-json+resume-import.cleaner.v1+resume-import.cleaner.v1",
+                "sourceMatchSetHash": "b4f4fa73095c8bb7a997969928fcca21474ae6edad7dc88dea2252d39a3e7ba1",
+                "requirementMatchIds": [],
+                "revision": 0,
+                "currentRevisionId": "resume-revision-fnv-36b69ab7-100",
+                "lifecycleStatus": "active",
+                "migrationStatus": "verified",
+                "syncStatusCache": {
+                  "status": "in_sync",
+                  "sourceProfileVersion": 1,
+                  "currentProfileVersion": 1,
+                  "invalidFactRefs": [],
+                  "checkedAt": "2026-11-05T05:44:57.348Z",
+                  "message": "Branch is in sync with its source profile and job versions."
+                },
+                "resumeBasics": {
+                  "customFields": [],
+                  "name": "Core 候选人",
+                  "targetRole": "",
+                  "email": "core@example.org",
+                  "phone": "",
+                  "location": "",
+                  "summary": "",
+                  "links": []
+                },
+                "contentItems": [
+                  {
+                    "id": "branch-item-import-core-project",
+                    "itemType": "experience",
+                    "source": "resume_import",
+                    "sourceSectionId": "project",
+                    "text": "AI 应用项目 | 项目成员\n2025-01 - 2025-06\n参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                    "originalText": "0\ncore-project\nproject\nAI 应用项目\n项目成员\n2025-01\n2025-06\nfalse\n参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                    "order": 0,
+                    "visible": true,
+                    "requirementIds": [],
+                    "sourceSuggestionIds": [],
+                    "factRefs": [
+                      {
+                        "type": "experience_fact",
+                        "experienceId": "exp-1ca7_0kIs-",
+                        "factId": "fact-import-0Ozi9QqvVG"
+                      }
+                    ],
+                    "guardMode": "rule_verified",
+                    "guardStatus": "pass",
+                    "guardRiskLevel": "low",
+                    "guardFindings": [],
+                    "guardedAt": "2026-11-05T05:44:57.348Z",
+                    "guardVersion": "resume-import.pipeline.v2.resume-import.local-rules.v2.structured-json+resume-import.cleaner.v1+resume-import.cleaner.v1"
+                  }
+                ],
+                "structuredContentItems": [
+                  {
+                    "id": "branch-item-import-core-project",
+                    "schemaVersion": "resume-content-item-v2",
+                    "data": {
+                      "id": "core-project",
+                      "customFields": [],
+                      "sectionType": "project",
+                      "title": "AI 应用项目",
+                      "role": "项目成员",
+                      "startDate": "2025-01",
+                      "endDate": "2025-06",
+                      "current": false,
+                      "tools": [],
+                      "description": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                      "highlights": [
+                        "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                      ],
+                      "outcomes": []
+                    },
+                    "factRefs": [
+                      {
+                        "type": "experience_fact",
+                        "experienceId": "exp-1ca7_0kIs-",
+                        "factId": "fact-import-0Ozi9QqvVG"
+                      }
+                    ],
+                    "source": "resume_import",
+                    "order": 0,
+                    "visible": true,
+                    "guardMode": "rule_verified",
+                    "guardStatus": "pass",
+                    "guardFindings": [],
+                    "legacyTextProjection": "AI 应用项目 | 项目成员\n2025-01 - 2025-06\n参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                    "sourceBlockIds": [
+                      "sections[0].order",
+                      "sections[0].items[0].id",
+                      "sections[0].items[0].sectionType",
+                      "sections[0].items[0].title",
+                      "sections[0].items[0].role",
+                      "sections[0].items[0].startDate",
+                      "sections[0].items[0].endDate",
+                      "sections[0].items[0].current",
+                      "sections[0].items[0].description",
+                      "sections[0].items[0].highlights[0]"
+                    ],
+                    "sourceRanges": [],
+                    "sourceExcerpt": "0\ncore-project\nproject\nAI 应用项目\n项目成员\n2025-01\n2025-06\nfalse\n参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                    "mappingTrace": []
+                  }
+                ],
+                "tailoringAppliedCount": 0
+              },
+              "job": {
+                "id": "job-8XezEygORM",
+                "createdAt": "2026-11-05T05:45:08.827Z",
+                "updatedAt": "2026-11-05T05:45:08.844Z",
+                "title": "数据分析实习生 CORE-JD",
+                "company": "Core Test",
+                "rawText": "公司：Core Test\n岗位：数据分析实习生 CORE-JD\n岗位职责\n1. 参与数据清洗与分析。\n任职要求\n1. 了解 Python 或 SQL。\n2. 具备团队协作能力。",
+                "source": "imported_text",
+                "parsedAt": "2026-11-05T05:45:08.827Z",
+                "requirements": [
+                  {
+                    "id": "jrv4-fnv-1c715d81-23",
+                    "createdAt": "2026-11-05T05:45:08.827Z",
+                    "updatedAt": "2026-11-05T05:45:08.827Z",
+                    "category": "responsibility",
+                    "description": "公司：Core Test",
+                    "priority": "high",
+                    "hardConstraint": false,
+                    "sourceSpan": {
+                      "start": 0,
+                      "end": 12,
+                      "text": "公司：Core Test"
+                    },
+                    "keywords": [],
+                    "confidence": 0.9
+                  },
+                  {
+                    "id": "jrv4-fnv-7bf14856-23",
+                    "createdAt": "2026-11-05T05:45:08.827Z",
+                    "updatedAt": "2026-11-05T05:45:08.827Z",
+                    "category": "responsibility",
+                    "description": "岗位：数据分析实习生 CORE-JD",
+                    "priority": "high",
+                    "hardConstraint": false,
+                    "sourceSpan": {
+                      "start": 13,
+                      "end": 31,
+                      "text": "岗位：数据分析实习生 CORE-JD"
+                    },
+                    "keywords": [],
+                    "confidence": 0.9
+                  },
+                  {
+                    "id": "jrv4-fnv-43a43373-23",
+                    "createdAt": "2026-11-05T05:45:08.827Z",
+                    "updatedAt": "2026-11-05T05:45:08.827Z",
+                    "category": "responsibility",
+                    "description": "参与数据清洗与分析。",
+                    "priority": "high",
+                    "hardConstraint": false,
+                    "sourceSpan": {
+                      "start": 40,
+                      "end": 50,
+                      "text": "参与数据清洗与分析。"
+                    },
+                    "keywords": [],
+                    "confidence": 0.9
+                  },
+                  {
+                    "id": "jrv4-fnv-554af39a-23",
+                    "createdAt": "2026-11-05T05:45:08.827Z",
+                    "updatedAt": "2026-11-05T05:45:08.827Z",
+                    "category": "tool",
+                    "description": "了解 Python 或 SQL。",
+                    "priority": "medium",
+                    "hardConstraint": false,
+                    "sourceSpan": {
+                      "start": 59,
+                      "end": 75,
+                      "text": "了解 Python 或 SQL。"
+                    },
+                    "keywordLogic": {
+                      "relation": "any_of",
+                      "terms": [
+                        "Python",
+                        "SQL"
+                      ]
+                    },
+                    "keywords": [
+                      "Python",
+                      "SQL"
+                    ],
+                    "confidence": 0.9
+                  },
+                  {
+                    "id": "jrv4-fnv-33df0086-23",
+                    "createdAt": "2026-11-05T05:45:08.827Z",
+                    "updatedAt": "2026-11-05T05:45:08.827Z",
+                    "category": "soft_skill",
+                    "description": "具备团队协作能力。",
+                    "priority": "medium",
+                    "hardConstraint": false,
+                    "sourceSpan": {
+                      "start": 79,
+                      "end": 88,
+                      "text": "具备团队协作能力。"
+                    },
+                    "keywords": [],
+                    "confidence": 0.9
+                  }
+                ],
+                "requirementGraph": {
+                  "schemaVersion": "job-requirement-graph-v4",
+                  "roleProfile": {
+                    "mission": "公司：Core Test",
+                    "hiringSignals": []
+                  },
+                  "groups": [],
+                  "requirements": [
+                    {
+                      "id": "jrv4-fnv-1c715d81-23",
+                      "section": "responsibility",
+                      "kind": "responsibility",
+                      "statement": "公司：Core Test",
+                      "normalizedIntent": "公司 core test",
+                      "priority": "high",
+                      "hardConstraint": false,
+                      "exactKeywords": [],
+                      "semanticAliases": [],
+                      "sourceUnitId": "jd-unit-fnv-26940cc4-14",
+                      "details": [],
+                      "sourceSpan": {
+                        "start": 0,
+                        "end": 12,
+                        "text": "公司：Core Test"
+                      },
+                      "sourceSpans": [
+                        {
+                          "start": 0,
+                          "end": 12,
+                          "text": "公司：Core Test"
+                        }
+                      ],
+                      "confidence": 0.88,
+                      "needsConfirmation": false
+                    },
+                    {
+                      "id": "jrv4-fnv-7bf14856-23",
+                      "section": "responsibility",
+                      "kind": "responsibility",
+                      "statement": "岗位：数据分析实习生 CORE-JD",
+                      "normalizedIntent": "岗位 数据分析实习生 core-jd",
+                      "priority": "high",
+                      "hardConstraint": false,
+                      "exactKeywords": [],
+                      "semanticAliases": [],
+                      "sourceUnitId": "jd-unit-fnv-b36ce430-21",
+                      "details": [],
+                      "sourceSpan": {
+                        "start": 13,
+                        "end": 31,
+                        "text": "岗位：数据分析实习生 CORE-JD"
+                      },
+                      "sourceSpans": [
+                        {
+                          "start": 13,
+                          "end": 31,
+                          "text": "岗位：数据分析实习生 CORE-JD"
+                        }
+                      ],
+                      "confidence": 0.88,
+                      "needsConfirmation": false
+                    },
+                    {
+                      "id": "jrv4-fnv-43a43373-23",
+                      "section": "responsibility",
+                      "kind": "responsibility",
+                      "statement": "参与数据清洗与分析。",
+                      "normalizedIntent": "参与数据清洗与分析",
+                      "priority": "high",
+                      "hardConstraint": false,
+                      "exactKeywords": [],
+                      "semanticAliases": [],
+                      "sourceUnitId": "jd-unit-fnv-e0a80305-13",
+                      "details": [],
+                      "sourceSpan": {
+                        "start": 40,
+                        "end": 50,
+                        "text": "参与数据清洗与分析。"
+                      },
+                      "sourceSpans": [
+                        {
+                          "start": 40,
+                          "end": 50,
+                          "text": "参与数据清洗与分析。"
+                        }
+                      ],
+                      "confidence": 0.88,
+                      "needsConfirmation": false
+                    },
+                    {
+                      "id": "jrv4-fnv-554af39a-23",
+                      "section": "required",
+                      "kind": "tool_or_technology",
+                      "statement": "了解 Python 或 SQL。",
+                      "normalizedIntent": "了解 python 或 sql",
+                      "priority": "medium",
+                      "hardConstraint": false,
+                      "keywordLogic": {
+                        "relation": "any_of",
+                        "terms": [
+                          "Python",
+                          "SQL"
+                        ]
+                      },
+                      "exactKeywords": [
+                        "Python",
+                        "SQL"
+                      ],
+                      "semanticAliases": [],
+                      "sourceUnitId": "jd-unit-fnv-90e91b8e-19",
+                      "details": [],
+                      "sourceSpan": {
+                        "start": 59,
+                        "end": 75,
+                        "text": "了解 Python 或 SQL。"
+                      },
+                      "sourceSpans": [
+                        {
+                          "start": 59,
+                          "end": 75,
+                          "text": "了解 Python 或 SQL。"
+                        }
+                      ],
+                      "confidence": 0.88,
+                      "needsConfirmation": false
+                    },
+                    {
+                      "id": "jrv4-fnv-33df0086-23",
+                      "section": "required",
+                      "kind": "soft_skill",
+                      "statement": "具备团队协作能力。",
+                      "normalizedIntent": "具备团队协作能力",
+                      "priority": "medium",
+                      "hardConstraint": false,
+                      "exactKeywords": [],
+                      "semanticAliases": [],
+                      "sourceUnitId": "jd-unit-fnv-21149847-12",
+                      "details": [],
+                      "sourceSpan": {
+                        "start": 79,
+                        "end": 88,
+                        "text": "具备团队协作能力。"
+                      },
+                      "sourceSpans": [
+                        {
+                          "start": 79,
+                          "end": 88,
+                          "text": "具备团队协作能力。"
+                        }
+                      ],
+                      "confidence": 0.88,
+                      "needsConfirmation": false
+                    }
+                  ],
+                  "verificationMaterials": [],
+                  "contextGroups": [],
+                  "semanticUnits": [
+                    {
+                      "id": "jd-unit-fnv-26940cc4-14",
+                      "text": "公司：Core Test",
+                      "sourceSpan": {
+                        "start": 0,
+                        "end": 12,
+                        "text": "公司：Core Test"
+                      },
+                      "lineNumber": 1,
+                      "lexical": {
+                        "indentation": 0,
+                        "punctuation": "plain",
+                        "blankLinesBefore": 0,
+                        "blankLinesAfter": 0
+                      },
+                      "provisional": {
+                        "disposition": "requirement",
+                        "section": "responsibility"
+                      },
+                      "final": {
+                        "disposition": "requirement",
+                        "section": "responsibility",
+                        "kind": "responsibility",
+                        "priority": "high",
+                        "hardConstraint": false,
+                        "normalizedIntent": "公司 core test",
+                        "exactKeywords": [],
+                        "semanticAliases": [],
+                        "confidence": 0.88
+                      }
+                    },
+                    {
+                      "id": "jd-unit-fnv-b36ce430-21",
+                      "text": "岗位：数据分析实习生 CORE-JD",
+                      "sourceSpan": {
+                        "start": 13,
+                        "end": 31,
+                        "text": "岗位：数据分析实习生 CORE-JD"
+                      },
+                      "lineNumber": 2,
+                      "lexical": {
+                        "indentation": 0,
+                        "punctuation": "plain",
+                        "blankLinesBefore": 0,
+                        "blankLinesAfter": 0
+                      },
+                      "provisional": {
+                        "disposition": "requirement",
+                        "section": "responsibility"
+                      },
+                      "final": {
+                        "disposition": "requirement",
+                        "section": "responsibility",
+                        "kind": "responsibility",
+                        "priority": "high",
+                        "hardConstraint": false,
+                        "normalizedIntent": "岗位 数据分析实习生 core-jd",
+                        "exactKeywords": [],
+                        "semanticAliases": [],
+                        "confidence": 0.88
+                      }
+                    },
+                    {
+                      "id": "jd-unit-fnv-3403ad5b-7",
+                      "text": "岗位职责",
+                      "sourceSpan": {
+                        "start": 32,
+                        "end": 36,
+                        "text": "岗位职责"
+                      },
+                      "lineNumber": 3,
+                      "lexical": {
+                        "indentation": 0,
+                        "punctuation": "heading",
+                        "blankLinesBefore": 0,
+                        "blankLinesAfter": 0
+                      },
+                      "provisional": {
+                        "disposition": "heading",
+                        "section": "responsibility"
+                      },
+                      "final": {
+                        "disposition": "heading",
+                        "section": "responsibility",
+                        "confidence": 0.88
+                      }
+                    },
+                    {
+                      "id": "jd-unit-fnv-e0a80305-13",
+                      "text": "参与数据清洗与分析。",
+                      "sourceSpan": {
+                        "start": 40,
+                        "end": 50,
+                        "text": "参与数据清洗与分析。"
+                      },
+                      "lineNumber": 4,
+                      "lexical": {
+                        "indentation": 0,
+                        "numberingLevel": 2,
+                        "numberingToken": "1.",
+                        "punctuation": "sentence",
+                        "blankLinesBefore": 0,
+                        "blankLinesAfter": 0
+                      },
+                      "provisional": {
+                        "disposition": "requirement",
+                        "section": "responsibility"
+                      },
+                      "final": {
+                        "disposition": "requirement",
+                        "section": "responsibility",
+                        "kind": "responsibility",
+                        "priority": "high",
+                        "hardConstraint": false,
+                        "normalizedIntent": "参与数据清洗与分析",
+                        "exactKeywords": [],
+                        "semanticAliases": [],
+                        "confidence": 0.88
+                      }
+                    },
+                    {
+                      "id": "jd-unit-fnv-84dc8817-7",
+                      "text": "任职要求",
+                      "sourceSpan": {
+                        "start": 51,
+                        "end": 55,
+                        "text": "任职要求"
+                      },
+                      "lineNumber": 5,
+                      "lexical": {
+                        "indentation": 0,
+                        "punctuation": "heading",
+                        "blankLinesBefore": 0,
+                        "blankLinesAfter": 0
+                      },
+                      "provisional": {
+                        "disposition": "heading",
+                        "section": "required"
+                      },
+                      "final": {
+                        "disposition": "heading",
+                        "section": "required",
+                        "confidence": 0.88
+                      }
+                    },
+                    {
+                      "id": "jd-unit-fnv-90e91b8e-19",
+                      "text": "了解 Python 或 SQL。",
+                      "sourceSpan": {
+                        "start": 59,
+                        "end": 75,
+                        "text": "了解 Python 或 SQL。"
+                      },
+                      "lineNumber": 6,
+                      "lexical": {
+                        "indentation": 0,
+                        "numberingLevel": 2,
+                        "numberingToken": "1.",
+                        "punctuation": "sentence",
+                        "blankLinesBefore": 0,
+                        "blankLinesAfter": 0
+                      },
+                      "provisional": {
+                        "disposition": "requirement",
+                        "section": "required"
+                      },
+                      "final": {
+                        "disposition": "requirement",
+                        "section": "required",
+                        "kind": "tool_or_technology",
+                        "priority": "medium",
+                        "hardConstraint": false,
+                        "normalizedIntent": "了解 python 或 sql",
+                        "exactKeywords": [
+                          "Python",
+                          "SQL"
+                        ],
+                        "semanticAliases": [],
+                        "confidence": 0.88
+                      }
+                    },
+                    {
+                      "id": "jd-unit-fnv-21149847-12",
+                      "text": "具备团队协作能力。",
+                      "sourceSpan": {
+                        "start": 79,
+                        "end": 88,
+                        "text": "具备团队协作能力。"
+                      },
+                      "lineNumber": 7,
+                      "lexical": {
+                        "indentation": 0,
+                        "numberingLevel": 2,
+                        "numberingToken": "2.",
+                        "punctuation": "sentence",
+                        "blankLinesBefore": 0,
+                        "blankLinesAfter": 0
+                      },
+                      "provisional": {
+                        "disposition": "requirement",
+                        "section": "required"
+                      },
+                      "final": {
+                        "disposition": "requirement",
+                        "section": "required",
+                        "kind": "soft_skill",
+                        "priority": "medium",
+                        "hardConstraint": false,
+                        "normalizedIntent": "具备团队协作能力",
+                        "exactKeywords": [],
+                        "semanticAliases": [],
+                        "confidence": 0.88
+                      }
+                    }
+                  ],
+                  "issues": [],
+                  "needsReview": false,
+                  "sourceCoverage": {
+                    "coveredSpans": [
+                      {
+                        "start": 0,
+                        "end": 12,
+                        "text": "公司：Core Test"
+                      },
+                      {
+                        "start": 13,
+                        "end": 31,
+                        "text": "岗位：数据分析实习生 CORE-JD"
+                      },
+                      {
+                        "start": 32,
+                        "end": 36,
+                        "text": "岗位职责"
+                      },
+                      {
+                        "start": 40,
+                        "end": 50,
+                        "text": "参与数据清洗与分析。"
+                      },
+                      {
+                        "start": 51,
+                        "end": 55,
+                        "text": "任职要求"
+                      },
+                      {
+                        "start": 59,
+                        "end": 75,
+                        "text": "了解 Python 或 SQL。"
+                      },
+                      {
+                        "start": 79,
+                        "end": 88,
+                        "text": "具备团队协作能力。"
+                      }
+                    ],
+                    "unclassifiedSpans": [],
+                    "totalMeaningfulUnits": 7,
+                    "assignedUnits": 7,
+                    "unassignedUnitIds": [],
+                    "metadataUnitIds": [],
+                    "excludedUnitIds": [],
+                    "requirementUnitIds": [
+                      "jd-unit-fnv-26940cc4-14",
+                      "jd-unit-fnv-b36ce430-21",
+                      "jd-unit-fnv-e0a80305-13",
+                      "jd-unit-fnv-90e91b8e-19",
+                      "jd-unit-fnv-21149847-12"
+                    ],
+                    "detailUnitIds": [],
+                    "inventedReferenceCount": 0,
+                    "coverageRatio": 1
+                  },
+                  "analyzerVersion": "jd-analyzer.semantic-ledger-v4.1",
+                  "graphHash": "fnv-a59da8bb-2318",
+                  "semanticEnrichmentHash": "fnv-8cc05d9c-1215"
+                },
+                "analysisStatus": "validated",
+                "analysisIssues": []
+              },
+              "plan": {
+                "id": "tailoring-plan-fnv-1f961958-29",
+                "branchId": "branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+                "jobId": "job-8XezEygORM",
+                "intensity": "conservative",
+                "mode": "steady",
+                "promptVersion": "resume-tailoring-diff.v6-claim-safety-v2",
+                "jobContext": {
+                  "title": "数据分析实习生 CORE-JD",
+                  "company": "Core Test",
+                  "rawText": "公司：Core Test\n岗位：数据分析实习生 CORE-JD\n岗位职责\n1. 参与数据清洗与分析。\n任职要求\n1. 了解 Python 或 SQL。\n2. 具备团队协作能力。",
+                  "roleMission": "公司：Core Test",
+                  "responsibilities": [
+                    "公司：Core Test",
+                    "岗位：数据分析实习生 CORE-JD",
+                    "参与数据清洗与分析。"
+                  ],
+                  "mustHave": [
+                    "公司：Core Test",
+                    "岗位：数据分析实习生 CORE-JD",
+                    "参与数据清洗与分析。"
+                  ],
+                  "niceToHave": [],
+                  "verificationMaterials": [],
+                  "hiringSignals": [],
+                  "tools": [],
+                  "keywords": [
+                    "Python",
+                    "SQL"
+                  ]
+                },
+                "basedOnBranchRevision": 0,
+                "basedOnRevisionId": "resume-revision-fnv-36b69ab7-100",
+                "claims": [],
+                "plannerActions": [],
+                "clarificationQuestions": [],
+                "answerReceipts": [],
+                "questionPlan": {
+                  "questionPlanVersion": 2,
+                  "id": "tailoring-question-plan-fnv-9d1ca38a-33",
+                  "sessionId": "tailoring-session-fnv-1f961958-29",
+                  "revision": 1,
+                  "status": "completed",
+                  "defaultBudget": 0,
+                  "maximumBudget": 0,
+                  "questionIds": [],
+                  "answeredQuestionIds": [],
+                  "skippedQuestionIds": [],
+                  "uncertainQuestionIds": [],
+                  "createdAt": "2026-11-05T05:45:24.792Z",
+                  "frozenAt": "2026-11-05T05:45:24.792Z",
+                  "completedAt": "2026-11-05T05:45:24.792Z"
+                },
+                "generationStatus": "completed",
+                "answerRevisionHash": "fnv-741638a5-2",
+                "generatedDiffsBasedOnQuestionPlanRevision": 1,
+                "generatedDiffsBasedOnAnswerRevisionHash": "fnv-741638a5-2",
+                "gaps": [
+                  {
+                    "requirementId": "jrv4-fnv-1c715d81-23",
+                    "status": "uncovered",
+                    "evidenceRefs": [],
+                    "candidateItemIds": [],
+                    "missingKeywords": [
+                      "Core",
+                      "Test"
+                    ],
+                    "clarificationQuestionIds": []
+                  },
+                  {
+                    "requirementId": "jrv4-fnv-7bf14856-23",
+                    "status": "uncovered",
+                    "evidenceRefs": [],
+                    "candidateItemIds": [],
+                    "missingKeywords": [
+                      "CORE-JD"
+                    ],
+                    "clarificationQuestionIds": []
+                  },
+                  {
+                    "requirementId": "jrv4-fnv-43a43373-23",
+                    "status": "uncovered",
+                    "evidenceRefs": [],
+                    "candidateItemIds": [],
+                    "missingKeywords": [],
+                    "clarificationQuestionIds": []
+                  },
+                  {
+                    "requirementId": "jrv4-fnv-554af39a-23",
+                    "status": "uncovered",
+                    "evidenceRefs": [],
+                    "candidateItemIds": [],
+                    "missingKeywords": [
+                      "Python",
+                      "SQL"
+                    ],
+                    "clarificationQuestionIds": []
+                  },
+                  {
+                    "requirementId": "jrv4-fnv-33df0086-23",
+                    "status": "uncovered",
+                    "evidenceRefs": [],
+                    "candidateItemIds": [],
+                    "missingKeywords": [],
+                    "clarificationQuestionIds": []
+                  }
+                ],
+                "diffs": [
+                  {
+                    "target": {
+                      "sectionId": "project",
+                      "itemId": "branch-item-import-core-project",
+                      "fieldPath": "highlights"
+                    },
+                    "operation": "replace",
+                    "original": [
+                      "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                    ],
+                    "value": [
+                      "参与需求梳理、原型设计和功能验收等 AI 应用项目工作。"
+                    ],
+                    "reason": "重排已确认职责，保留参与边界与来源",
+                    "requirementIds": [
+                      "jrv4-fnv-1c715d81-23",
+                      "jrv4-fnv-7bf14856-23",
+                      "jrv4-fnv-43a43373-23"
+                    ],
+                    "targetKeywords": [],
+                    "evidenceRefs": [
+                      {
+                        "type": "experience_fact",
+                        "experienceId": "exp-1ca7_0kIs-",
+                        "factId": "fact-import-0Ozi9QqvVG",
+                        "factQuote": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                        "factText": "参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                      }
+                    ],
+                    "supportLevel": "verified"
+                  }
+                ],
+                "diffReviews": [
+                  {
+                    "diffId": "tailoring-diff-fnv-61b7a804-207",
+                    "status": "suggested",
+                    "updatedAt": "2026-11-05T05:45:24.816Z"
+                  }
+                ],
+                "materialSuggestions": [],
+                "materialTasks": [],
+                "suggestions": [],
+                "generationDiagnostics": [],
+                "estimatedFitScore": 0,
+                "createdAt": "2026-11-05T05:45:24.792Z"
+              },
+              "taskInputs": [
+                {
+                  "draftId": "tailoring-draft-branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+                  "profileId": "profile-1-Kb8c0PH8",
+                  "jobId": "job-8XezEygORM",
+                  "intensity": "conservative",
+                  "mode": "steady",
+                  "jobContext": {
+                    "title": "数据分析实习生 CORE-JD",
+                    "company": "Core Test",
+                    "rawText": "公司：Core Test\n岗位：数据分析实习生 CORE-JD\n岗位职责\n1. 参与数据清洗与分析。\n任职要求\n1. 了解 Python 或 SQL。\n2. 具备团队协作能力。",
+                    "roleMission": "公司：Core Test",
+                    "responsibilities": [
+                      "公司：Core Test",
+                      "岗位：数据分析实习生 CORE-JD",
+                      "参与数据清洗与分析。"
+                    ],
+                    "mustHave": [
+                      "公司：Core Test",
+                      "岗位：数据分析实习生 CORE-JD",
+                      "参与数据清洗与分析。"
+                    ],
+                    "niceToHave": [],
+                    "verificationMaterials": [],
+                    "hiringSignals": [],
+                    "tools": [],
+                    "keywords": [
+                      "Python",
+                      "SQL"
+                    ]
+                  },
+                  "target": {
+                    "sectionType": "project",
+                    "sectionId": "project",
+                    "itemId": "branch-item-import-core-project",
+                    "fieldPath": "sections.project.items.branch-item-import-core-project.highlights"
+                  },
+                  "currentContent": {
+                    "structuredItem": {
+                      "id": "core-project",
+                      "customFields": [],
+                      "sectionType": "project",
+                      "title": "AI 应用项目",
+                      "role": "项目成员",
+                      "startDate": "2025-01",
+                      "endDate": "2025-06",
+                      "current": false,
+                      "tools": [],
+                      "description": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                      "highlights": [
+                        "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                      ],
+                      "outcomes": []
+                    },
+                    "fieldValue": [
+                      "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                    ],
+                    "renderedText": "AI 应用项目 | 项目成员\n2025-01 - 2025-06\n参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                  },
+                  "relevantRequirements": [
+                    {
+                      "requirementId": "jrv4-fnv-1c715d81-23",
+                      "description": "公司：Core Test",
+                      "priority": "high",
+                      "category": "responsibility",
+                      "evidenceNeed": "实际负责的任务、方法和结果",
+                      "keywords": [],
+                      "relevanceScore": 16,
+                      "detailClauses": [],
+                      "semanticAliases": [],
+                      "hardConstraint": false
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-7bf14856-23",
+                      "description": "岗位：数据分析实习生 CORE-JD",
+                      "priority": "high",
+                      "category": "responsibility",
+                      "evidenceNeed": "实际负责的任务、方法和结果",
+                      "keywords": [],
+                      "relevanceScore": 16,
+                      "detailClauses": [],
+                      "semanticAliases": [],
+                      "hardConstraint": false
+                    },
+                    {
+                      "requirementId": "jrv4-fnv-43a43373-23",
+                      "description": "参与数据清洗与分析。",
+                      "priority": "high",
+                      "category": "responsibility",
+                      "evidenceNeed": "实际负责的任务、方法和结果",
+                      "keywords": [],
+                      "relevanceScore": 14,
+                      "detailClauses": [],
+                      "semanticAliases": [],
+                      "hardConstraint": false
+                    }
+                  ],
+                  "allowedEvidenceRefs": [
+                    {
+                      "type": "experience_fact",
+                      "experienceId": "exp-1ca7_0kIs-",
+                      "factId": "fact-import-0Ozi9QqvVG",
+                      "factQuote": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                      "factText": "参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                    }
+                  ],
+                  "allowedFacts": [
+                    {
+                      "value": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                      "evidenceRefs": [
+                        {
+                          "type": "experience_fact",
+                          "experienceId": "exp-1ca7_0kIs-",
+                          "factId": "fact-import-0Ozi9QqvVG",
+                          "factQuote": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                          "factText": "参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                        }
+                      ],
+                      "maturity": "demonstrated"
+                    },
+                    {
+                      "value": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                      "evidenceRefs": [
+                        {
+                          "type": "experience_fact",
+                          "experienceId": "exp-1ca7_0kIs-",
+                          "factId": "fact-import-0Ozi9QqvVG",
+                          "factQuote": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                          "factText": "参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                        }
+                      ],
+                      "maturity": "demonstrated"
+                    }
+                  ],
+                  "evidenceBundle": {
+                    "directEvidence": [
+                      {
+                        "value": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                        "evidenceRefs": [
+                          {
+                            "type": "experience_fact",
+                            "experienceId": "exp-1ca7_0kIs-",
+                            "factId": "fact-import-0Ozi9QqvVG",
+                            "factQuote": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                            "factText": "参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                          }
+                        ],
+                        "maturity": "demonstrated"
+                      },
+                      {
+                        "value": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                        "evidenceRefs": [
+                          {
+                            "type": "experience_fact",
+                            "experienceId": "exp-1ca7_0kIs-",
+                            "factId": "fact-import-0Ozi9QqvVG",
+                            "factQuote": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                            "factText": "参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                          }
+                        ],
+                        "maturity": "demonstrated"
+                      }
+                    ],
+                    "relatedResumeEvidence": [],
+                    "relatedProfileEvidence": [],
+                    "confirmableSignals": [],
+                    "confirmedUserDeclarations": [],
+                    "negativeUserDeclarations": [],
+                    "uncertainUserDeclarations": []
+                  },
+                  "wholeResumeContext": {
+                    "neighboringLines": [],
+                    "topCapabilityPhrases": [],
+                    "alreadySelectedRequirementIds": [
+                      "jrv4-fnv-1c715d81-23",
+                      "jrv4-fnv-7bf14856-23",
+                      "jrv4-fnv-43a43373-23"
+                    ],
+                    "nearbyItemIds": [
+                      "branch-item-import-core-project"
+                    ]
+                  }
+                }
+              ],
+              "gaps": [
+                {
+                  "requirementId": "jrv4-fnv-1c715d81-23",
+                  "status": "uncovered",
+                  "evidenceRefs": [],
+                  "candidateItemIds": [],
+                  "missingKeywords": [
+                    "Core",
+                    "Test"
+                  ],
+                  "clarificationQuestionIds": []
+                },
+                {
+                  "requirementId": "jrv4-fnv-7bf14856-23",
+                  "status": "uncovered",
+                  "evidenceRefs": [],
+                  "candidateItemIds": [],
+                  "missingKeywords": [
+                    "CORE-JD"
+                  ],
+                  "clarificationQuestionIds": []
+                },
+                {
+                  "requirementId": "jrv4-fnv-43a43373-23",
+                  "status": "uncovered",
+                  "evidenceRefs": [],
+                  "candidateItemIds": [],
+                  "missingKeywords": [],
+                  "clarificationQuestionIds": []
+                },
+                {
+                  "requirementId": "jrv4-fnv-554af39a-23",
+                  "status": "uncovered",
+                  "evidenceRefs": [],
+                  "candidateItemIds": [],
+                  "missingKeywords": [
+                    "Python",
+                    "SQL"
+                  ],
+                  "clarificationQuestionIds": []
+                },
+                {
+                  "requirementId": "jrv4-fnv-33df0086-23",
+                  "status": "uncovered",
+                  "evidenceRefs": [],
+                  "candidateItemIds": [],
+                  "missingKeywords": [],
+                  "clarificationQuestionIds": []
+                }
+              ],
+              "revision": 2,
+              "generatedDiffRevision": 1,
+              "createdAt": "2026-11-05T05:45:24.795Z"
+            },
+            "review": {
+              "generationStatus": "completed",
+              "diffs": [
+                {
+                  "target": {
+                    "sectionId": "project",
+                    "itemId": "branch-item-import-core-project",
+                    "fieldPath": "highlights"
+                  },
+                  "operation": "replace",
+                  "original": [
+                    "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                  ],
+                  "value": [
+                    "参与需求梳理、原型设计和功能验收等 AI 应用项目工作。"
+                  ],
+                  "reason": "重排已确认职责，保留参与边界与来源",
+                  "requirementIds": [
+                    "jrv4-fnv-1c715d81-23",
+                    "jrv4-fnv-7bf14856-23",
+                    "jrv4-fnv-43a43373-23"
+                  ],
+                  "targetKeywords": [],
+                  "evidenceRefs": [
+                    {
+                      "type": "experience_fact",
+                      "experienceId": "exp-1ca7_0kIs-",
+                      "factId": "fact-import-0Ozi9QqvVG",
+                      "factQuote": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                      "factText": "参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                    }
+                  ],
+                  "supportLevel": "verified"
+                }
+              ],
+              "diffReviews": [
+                {
+                  "diffId": "tailoring-diff-fnv-61b7a804-207",
+                  "status": "suggested",
+                  "updatedAt": "2026-11-05T05:45:24.816Z"
+                }
+              ]
+            }
+          }
+        },
+        "artifacts": [
+          {
+            "id": "agent-artifact-create_tailoring_session-mcp-career-pg0Hq0JBJY1_bA92-3",
+            "kind": "tool_result",
+            "toolName": "career.tailoring.create_session",
+            "sourceToolName": "create_tailoring_session"
+          },
+          {
+            "id": "agent-artifact-generate_tailoring_changes-mcp-career-pg0Hq0JBJY1_bA92-4",
+            "kind": "tool_result",
+            "toolName": "career.tailoring.generate_changes",
+            "sourceToolName": "generate_tailoring_changes"
+          }
+        ],
+        "receipt": {
+          "operationId": "mcp-career-pg0Hq0JBJY1_bA92",
+          "toolName": "career.workflow.tailor_resume",
+          "idempotencyKey": "mcp-career-pg0Hq0JBJY1_bA92",
+          "status": "completed",
+          "completedAt": "2026-11-05T05:45:24.818Z"
+        },
+        "diagnostics": {
+          "toolFailureLayer": "unknown",
+          "failureScope": "career_workflow",
+          "safeDomainErrorCode": "none",
+          "toolResultIsError": false,
+          "failedStage": "completed",
+          "durationMs": 125,
+          "retryable": false,
+          "workflowStageAfter": "preview_changes",
+          "operationId": "mcp-career-pg0Hq0JBJY1_bA92",
+          "logicalToolOperationId": "mcp-career-pg0Hq0JBJY1_bA92",
+          "logicalTurnId": "runtime-turn-cfc75a03-9b03-4297-93b6-b5307eb5586b",
+          "taskId": "agent-session-Bz1XjE6KtCGm",
+          "argumentShape": {
+            "jobId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-a5ff6a01-14"
+            },
+            "sourceResumeId": {
+              "present": true,
+              "lengthBucket": "length:21-200",
+              "hashPrefix": "fnv-3df1e742-46"
+            },
+            "mode": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-a0cbfc13-6"
+            }
+          },
+          "preparedInvocationShape": {
+            "sourceResumeId": {
+              "present": true,
+              "lengthBucket": "length:21-200",
+              "hashPrefix": "fnv-3df1e742-46"
+            },
+            "mode": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-a0cbfc13-6"
+            },
+            "jobId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-a5ff6a01-14"
+            },
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-7d7512ff-18"
+            },
+            "sameTurnTarget": "absent"
+          },
+          "mcpHttpArgumentShape": {
+            "jobId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-a5ff6a01-14"
+            },
+            "sourceResumeId": {
+              "present": true,
+              "lengthBucket": "length:21-200",
+              "hashPrefix": "fnv-3df1e742-46"
+            },
+            "mode": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-a0cbfc13-6"
+            }
+          },
+          "browserHandlerArgumentShape": {
+            "jobId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-a5ff6a01-14"
+            },
+            "sourceResumeId": {
+              "present": true,
+              "lengthBucket": "length:21-200",
+              "hashPrefix": "fnv-3df1e742-46"
+            },
+            "mode": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-a0cbfc13-6"
+            }
+          },
+          "gatewayArgumentShape": {
+            "sourceResumeId": {
+              "present": true,
+              "lengthBucket": "length:21-200",
+              "hashPrefix": "fnv-3df1e742-46"
+            },
+            "mode": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-a0cbfc13-6"
+            },
+            "jobId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-a5ff6a01-14"
+            },
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-7d7512ff-18"
+            }
+          },
+          "facadeArgumentShape": {
+            "sourceResumeId": {
+              "present": true,
+              "lengthBucket": "length:21-200",
+              "hashPrefix": "fnv-3df1e742-46"
+            },
+            "mode": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-a0cbfc13-6"
+            },
+            "jobId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-a5ff6a01-14"
+            },
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-7d7512ff-18"
+            }
+          },
+          "sourceUserMessageId": "agent-user-3a5484e7-3368-4726-bd8e-362721fe1f86",
+          "sourceUserMessageResolved": true,
+          "runtimeHealthy": true,
+          "mcpHealthy": true,
+          "publishedContractVersion": "career-tool-contract-v5",
+          "publishedSchemaHash": "fnv1a-bde5c222",
+          "gatewayContractVersion": "career-tool-contract-v5",
+          "gatewaySchemaHash": "fnv1a-bde5c222",
+          "careerToolContractVersion": "career-tool-contract-v5",
+          "appBuildCommit": "workspace-source",
+          "appBuildTimestamp": "development",
+          "mcpCallTrace": {
+            "toolName": "career.workflow.tailor_resume",
+            "logicalToolOperationId": "mcp-career-pg0Hq0JBJY1_bA92",
+            "requestStartedAt": "2026-11-05T05:45:24.818Z",
+            "jsonRpcStatus": "response_received",
+            "browserMcpHandlerReached": true,
+            "gatewayReached": true,
+            "completedAt": "2026-11-05T05:45:24.818Z"
+          },
+          "startedAt": "2026-11-05T05:45:24.693Z",
+          "enteredGatewayAt": "2026-11-05T05:45:24.693Z",
+          "enteredFacadeAt": "2026-11-05T05:45:24.756Z",
+          "firstInternalOperationAt": "2026-11-05T05:45:24.756Z",
+          "completedAt": "2026-11-05T05:45:24.818Z"
+        }
+      }
+    }
+  ],
+  "formalWrites": [
+    {
+      "store": "profiles",
+      "key": "profile-1-Kb8c0PH8",
+      "at": "2026-11-05T05:44:57.382Z"
+    },
+    {
+      "store": "resumeBranches",
+      "key": "branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+      "at": "2026-11-05T05:44:57.382Z"
+    },
+    {
+      "store": "resumeRevisions",
+      "key": "resume-revision-fnv-36b69ab7-100",
+      "at": "2026-11-05T05:44:57.382Z"
+    },
+    {
+      "store": "jobDescriptions",
+      "key": "job-8XezEygORM",
+      "at": "2026-11-05T05:45:08.903Z"
+    },
+    {
+      "store": "resumeBranches",
+      "key": "branch-profile-1-Kb8c0PH8-job-8XezEygORM-fnv-68cc51fa-110",
+      "at": "2026-11-05T05:45:26.436Z"
+    },
+    {
+      "store": "resumeRevisions",
+      "key": "resume-revision-fnv-2214e050-203",
+      "at": "2026-11-05T05:45:26.436Z"
+    }
+  ]
+}

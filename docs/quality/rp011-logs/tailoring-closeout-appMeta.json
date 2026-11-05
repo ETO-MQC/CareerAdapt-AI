@@ -1,0 +1,1024 @@
+[
+  {
+    "key": "activeCareerContext:v1",
+    "value": {
+      "schemaVersion": "active-career-v1",
+      "personId": "person-profile-1-Kb8c0PH8",
+      "profileId": "profile-1-Kb8c0PH8",
+      "profileVersionNumber": 1,
+      "profileRevision": 1,
+      "selectedAt": "2026-11-05T05:44:57.348Z"
+    },
+    "updatedAt": "2026-11-05T05:44:57.348Z"
+  },
+  {
+    "key": "activeProfileContext:v1",
+    "value": {
+      "schemaVersion": "active-profile-v1",
+      "profileId": "profile-1-Kb8c0PH8"
+    },
+    "updatedAt": "2026-11-05T05:44:57.348Z"
+  },
+  {
+    "key": "careerPerson:v1:person-profile-1-Kb8c0PH8",
+    "value": {
+      "id": "person-profile-1-Kb8c0PH8",
+      "displayName": "Core 候选人",
+      "currentProfileId": "profile-1-Kb8c0PH8",
+      "createdAt": "2026-11-05T05:44:57.348Z",
+      "updatedAt": "2026-11-05T05:45:30.445Z"
+    },
+    "updatedAt": "2026-11-05T05:45:30.445Z"
+  },
+  {
+    "key": "careerPerson:v1:person-profile-demo-student",
+    "value": {
+      "id": "person-profile-demo-student",
+      "displayName": "同学",
+      "currentProfileId": "profile-demo-student",
+      "createdAt": "2026-07-01T09:00:00.000Z",
+      "updatedAt": "2026-11-05T05:45:30.445Z"
+    },
+    "updatedAt": "2026-11-05T05:45:30.445Z"
+  },
+  {
+    "key": "careerPersons:v1",
+    "value": [
+      "person-profile-1-Kb8c0PH8",
+      "person-profile-demo-student"
+    ],
+    "updatedAt": "2026-11-05T05:45:30.445Z"
+  },
+  {
+    "key": "composer-attachments:agent-session-Bz1XjE6KtCGm",
+    "value": [],
+    "updatedAt": "2026-11-05T05:45:25.527Z"
+  },
+  {
+    "key": "conversion-confirmation:convconf_56175159-8a9b-44ae-8041-c8f5910d2be9",
+    "value": {
+      "confirmationId": "convconf_56175159-8a9b-44ae-8041-c8f5910d2be9",
+      "channel": "agent",
+      "operationId": "mcp-career-twKNpLOlDdLeLeBK-3",
+      "careerSessionBinding": {
+        "personId": "person-profile-1-Kb8c0PH8",
+        "profileId": "profile-1-Kb8c0PH8",
+        "profileVersionNumber": 1,
+        "profileRevision": 1,
+        "agentSessionId": "agent-session-Bz1XjE6KtCGm"
+      },
+      "userMessageId": "agent-user-d38057f8-3a39-43dd-8798-750f021fd8f1",
+      "listingId": "listing-manual-5ad0987799cabfa7078f023c0250efd50fd738640a6f232a418f0e9affc730f3",
+      "draftId": "job-draft-agent-fnv-24424f6b-125",
+      "expectedDraftRevision": 1,
+      "graphHash": "fnv-a59da8bb-2318",
+      "createdAt": "2026-11-05T05:45:08.827Z",
+      "expiresAt": "2026-11-05T06:15:08.827Z",
+      "state": "consumed",
+      "consumedAt": "2026-11-05T05:45:08.827Z",
+      "consumedCommitId": "commit-job-job-draft-agent-fnv-24424f6b-125-0"
+    },
+    "updatedAt": "2026-11-05T05:45:08.827Z"
+  },
+  {
+    "key": "demoSeededAt",
+    "value": "2026-11-05T05:44:52.046Z",
+    "updatedAt": "2026-11-05T05:44:52.046Z"
+  },
+  {
+    "key": "importedResumeDraft:resume-import-31pC5_ZnKT",
+    "value": {
+      "id": "resume-import-31pC5_ZnKT",
+      "createdAt": "2026-11-05T05:44:57.171Z",
+      "updatedAt": "2026-11-05T05:44:57.348Z",
+      "importId": "resume-import-31pC5_ZnKT",
+      "revision": 1,
+      "status": "confirmed",
+      "source": {
+        "fileName": "pasted-structured-resume.json",
+        "mimeType": "application/json",
+        "fileHash": "b4f4fa73095c8bb7a997969928fcca21474ae6edad7dc88dea2252d39a3e7ba1",
+        "normalizedTextHash": "b4f4fa73095c8bb7a997969928fcca21474ae6edad7dc88dea2252d39a3e7ba1",
+        "pageCount": 1,
+        "extractedAt": "2026-11-05T05:44:57.171Z"
+      },
+      "sourceKind": "standard_json",
+      "basics": {
+        "name": {
+          "value": "Core 候选人",
+          "pageRefs": [
+            {
+              "pageNumber": 1,
+              "quote": "Core 候选人"
+            }
+          ],
+          "confidence": "high",
+          "sourceStatus": "located",
+          "userEdited": false,
+          "sourceBlockIds": [
+            "basics.name"
+          ],
+          "sourceRanges": [
+            {
+              "blockId": "basics.name",
+              "start": 0,
+              "end": 8
+            }
+          ],
+          "sourceQuote": "Core 候选人"
+        },
+        "additionalFields": [],
+        "email": {
+          "value": "core@example.org",
+          "pageRefs": [
+            {
+              "pageNumber": 1,
+              "quote": "core@example.org"
+            }
+          ],
+          "confidence": "high",
+          "sourceStatus": "located",
+          "userEdited": false,
+          "sourceBlockIds": [
+            "basics.email"
+          ],
+          "sourceRanges": [
+            {
+              "blockId": "basics.email",
+              "start": 0,
+              "end": 16
+            }
+          ],
+          "sourceQuote": "core@example.org"
+        },
+        "links": []
+      },
+      "sections": [
+        {
+          "id": "project",
+          "sectionType": "project",
+          "category": "project",
+          "detectedTitle": "项目经历",
+          "included": true,
+          "order": 0,
+          "confidence": "high",
+          "items": [
+            {
+              "id": "core-project",
+              "rawText": "0\ncore-project\nproject\nAI 应用项目\n项目成员\n2025-01\n2025-06\nfalse\n参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+              "normalizedText": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+              "included": true,
+              "order": 0,
+              "pageRefs": [
+                {
+                  "pageNumber": 1,
+                  "quote": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                }
+              ],
+              "confidence": "high",
+              "sourceStatus": "located",
+              "userEdited": false,
+              "sourceBlockIds": [
+                "sections[0].order",
+                "sections[0].items[0].id",
+                "sections[0].items[0].sectionType",
+                "sections[0].items[0].title",
+                "sections[0].items[0].role",
+                "sections[0].items[0].startDate",
+                "sections[0].items[0].endDate",
+                "sections[0].items[0].current",
+                "sections[0].items[0].description",
+                "sections[0].items[0].highlights[0]"
+              ],
+              "itemLabel": "AI 应用项目",
+              "structuredItem": {
+                "id": "core-project",
+                "customFields": [],
+                "sectionType": "project",
+                "title": "AI 应用项目",
+                "role": "项目成员",
+                "startDate": "2025-01",
+                "endDate": "2025-06",
+                "current": false,
+                "tools": [],
+                "description": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                "highlights": [
+                  "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                ],
+                "outcomes": []
+              },
+              "structuredMappingTrace": [],
+              "sourceQuote": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+            }
+          ]
+        }
+      ],
+      "pages": [
+        {
+          "pageNumber": 1,
+          "rawText": "Core 候选人\ncore@example.org\n项目经历\n项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+          "normalizedText": "Core 候选人\ncore@example.org\n项目经历\n项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+          "charStart": 0,
+          "charEnd": 137
+        }
+      ],
+      "unclassifiedBlocks": [],
+      "warnings": [],
+      "parserVersion": "resume-import.pipeline.v2.resume-import.local-rules.v2.structured-json+resume-import.cleaner.v1+resume-import.cleaner.v1",
+      "confirmedProfileId": "profile-1-Kb8c0PH8",
+      "confirmedBranchId": "branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+      "confirmedRevisionId": "resume-revision-fnv-36b69ab7-100",
+      "confirmedAt": "2026-11-05T05:44:57.348Z",
+      "schemaVersion": "resume-import-v2",
+      "sourceBlocks": [
+        {
+          "id": "schemaVersion",
+          "sourcePath": "schemaVersion",
+          "text": "careeradapt-resume-v2",
+          "rawText": "careeradapt-resume-v2",
+          "blockType": "text_block",
+          "sourceEngine": "json_mapper",
+          "sourceEngineVersion": "resume-import.json-mapper.v2",
+          "extractionConfidence": 1,
+          "sourceKind": "standard_json",
+          "order": 0,
+          "normalizedText": "careeradapt-resume-v2",
+          "normalizationActions": []
+        },
+        {
+          "id": "locale",
+          "sourcePath": "locale",
+          "text": "zh-CN",
+          "rawText": "zh-CN",
+          "blockType": "text_block",
+          "sourceEngine": "json_mapper",
+          "sourceEngineVersion": "resume-import.json-mapper.v2",
+          "extractionConfidence": 1,
+          "sourceKind": "standard_json",
+          "order": 1,
+          "normalizedText": "zh-CN",
+          "normalizationActions": []
+        },
+        {
+          "id": "basics.name",
+          "sourcePath": "basics.name",
+          "text": "Core 候选人",
+          "rawText": "Core 候选人",
+          "blockType": "text_block",
+          "sourceEngine": "json_mapper",
+          "sourceEngineVersion": "resume-import.json-mapper.v2",
+          "extractionConfidence": 1,
+          "sourceKind": "standard_json",
+          "order": 2,
+          "normalizedText": "Core 候选人",
+          "normalizationActions": []
+        },
+        {
+          "id": "basics.phone",
+          "sourcePath": "basics.phone",
+          "text": "\"\"",
+          "rawText": "\"\"",
+          "blockType": "text_block",
+          "sourceEngine": "json_mapper",
+          "sourceEngineVersion": "resume-import.json-mapper.v2",
+          "extractionConfidence": 1,
+          "sourceKind": "standard_json",
+          "order": 3,
+          "normalizedText": "\"\"",
+          "normalizationActions": []
+        },
+        {
+          "id": "basics.email",
+          "sourcePath": "basics.email",
+          "text": "core@example.org",
+          "rawText": "core@example.org",
+          "blockType": "text_block",
+          "sourceEngine": "json_mapper",
+          "sourceEngineVersion": "resume-import.json-mapper.v2",
+          "extractionConfidence": 1,
+          "sourceKind": "standard_json",
+          "order": 4,
+          "normalizedText": "core@example.org",
+          "normalizationActions": []
+        },
+        {
+          "id": "sections[0].id",
+          "sourcePath": "sections[0].id",
+          "text": "project",
+          "rawText": "project",
+          "blockType": "text_block",
+          "sourceEngine": "json_mapper",
+          "sourceEngineVersion": "resume-import.json-mapper.v2",
+          "extractionConfidence": 1,
+          "sourceKind": "standard_json",
+          "order": 5,
+          "normalizedText": "project",
+          "normalizationActions": []
+        },
+        {
+          "id": "sections[0].sectionType",
+          "sourcePath": "sections[0].sectionType",
+          "text": "project",
+          "rawText": "project",
+          "blockType": "text_block",
+          "sourceEngine": "json_mapper",
+          "sourceEngineVersion": "resume-import.json-mapper.v2",
+          "extractionConfidence": 1,
+          "sourceKind": "standard_json",
+          "order": 6,
+          "normalizedText": "project",
+          "normalizationActions": []
+        },
+        {
+          "id": "sections[0].title",
+          "sourcePath": "sections[0].title",
+          "text": "项目经历",
+          "rawText": "项目经历",
+          "blockType": "text_block",
+          "sourceEngine": "json_mapper",
+          "sourceEngineVersion": "resume-import.json-mapper.v2",
+          "extractionConfidence": 1,
+          "sourceKind": "standard_json",
+          "order": 7,
+          "normalizedText": "项目经历",
+          "normalizationActions": []
+        },
+        {
+          "id": "sections[0].order",
+          "sourcePath": "sections[0].order",
+          "text": "0",
+          "rawText": "0",
+          "blockType": "text_block",
+          "sourceEngine": "json_mapper",
+          "sourceEngineVersion": "resume-import.json-mapper.v2",
+          "extractionConfidence": 1,
+          "sourceKind": "standard_json",
+          "order": 8,
+          "normalizedText": "0",
+          "normalizationActions": []
+        },
+        {
+          "id": "sections[0].visible",
+          "sourcePath": "sections[0].visible",
+          "text": "true",
+          "rawText": "true",
+          "blockType": "text_block",
+          "sourceEngine": "json_mapper",
+          "sourceEngineVersion": "resume-import.json-mapper.v2",
+          "extractionConfidence": 1,
+          "sourceKind": "standard_json",
+          "order": 9,
+          "normalizedText": "true",
+          "normalizationActions": []
+        },
+        {
+          "id": "sections[0].items[0].id",
+          "sourcePath": "sections[0].items[0].id",
+          "text": "core-project",
+          "rawText": "core-project",
+          "blockType": "text_block",
+          "sourceEngine": "json_mapper",
+          "sourceEngineVersion": "resume-import.json-mapper.v2",
+          "extractionConfidence": 1,
+          "sourceKind": "standard_json",
+          "order": 10,
+          "normalizedText": "core-project",
+          "normalizationActions": []
+        },
+        {
+          "id": "sections[0].items[0].sectionType",
+          "sourcePath": "sections[0].items[0].sectionType",
+          "text": "project",
+          "rawText": "project",
+          "blockType": "text_block",
+          "sourceEngine": "json_mapper",
+          "sourceEngineVersion": "resume-import.json-mapper.v2",
+          "extractionConfidence": 1,
+          "sourceKind": "standard_json",
+          "order": 11,
+          "normalizedText": "project",
+          "normalizationActions": []
+        },
+        {
+          "id": "sections[0].items[0].title",
+          "sourcePath": "sections[0].items[0].title",
+          "text": "AI 应用项目",
+          "rawText": "AI 应用项目",
+          "blockType": "text_block",
+          "sourceEngine": "json_mapper",
+          "sourceEngineVersion": "resume-import.json-mapper.v2",
+          "extractionConfidence": 1,
+          "sourceKind": "standard_json",
+          "order": 12,
+          "normalizedText": "AI 应用项目",
+          "normalizationActions": []
+        },
+        {
+          "id": "sections[0].items[0].role",
+          "sourcePath": "sections[0].items[0].role",
+          "text": "项目成员",
+          "rawText": "项目成员",
+          "blockType": "text_block",
+          "sourceEngine": "json_mapper",
+          "sourceEngineVersion": "resume-import.json-mapper.v2",
+          "extractionConfidence": 1,
+          "sourceKind": "standard_json",
+          "order": 13,
+          "normalizedText": "项目成员",
+          "normalizationActions": []
+        },
+        {
+          "id": "sections[0].items[0].startDate",
+          "sourcePath": "sections[0].items[0].startDate",
+          "text": "2025-01",
+          "rawText": "2025-01",
+          "blockType": "text_block",
+          "sourceEngine": "json_mapper",
+          "sourceEngineVersion": "resume-import.json-mapper.v2",
+          "extractionConfidence": 1,
+          "sourceKind": "standard_json",
+          "order": 14,
+          "normalizedText": "2025-01",
+          "normalizationActions": []
+        },
+        {
+          "id": "sections[0].items[0].endDate",
+          "sourcePath": "sections[0].items[0].endDate",
+          "text": "2025-06",
+          "rawText": "2025-06",
+          "blockType": "text_block",
+          "sourceEngine": "json_mapper",
+          "sourceEngineVersion": "resume-import.json-mapper.v2",
+          "extractionConfidence": 1,
+          "sourceKind": "standard_json",
+          "order": 15,
+          "normalizedText": "2025-06",
+          "normalizationActions": []
+        },
+        {
+          "id": "sections[0].items[0].current",
+          "sourcePath": "sections[0].items[0].current",
+          "text": "false",
+          "rawText": "false",
+          "blockType": "text_block",
+          "sourceEngine": "json_mapper",
+          "sourceEngineVersion": "resume-import.json-mapper.v2",
+          "extractionConfidence": 1,
+          "sourceKind": "standard_json",
+          "order": 16,
+          "normalizedText": "false",
+          "normalizationActions": []
+        },
+        {
+          "id": "sections[0].items[0].description",
+          "sourcePath": "sections[0].items[0].description",
+          "text": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+          "rawText": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+          "blockType": "text_block",
+          "sourceEngine": "json_mapper",
+          "sourceEngineVersion": "resume-import.json-mapper.v2",
+          "extractionConfidence": 1,
+          "sourceKind": "standard_json",
+          "order": 17,
+          "normalizedText": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+          "normalizationActions": []
+        },
+        {
+          "id": "sections[0].items[0].highlights[0]",
+          "sourcePath": "sections[0].items[0].highlights[0]",
+          "text": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+          "rawText": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+          "blockType": "text_block",
+          "sourceEngine": "json_mapper",
+          "sourceEngineVersion": "resume-import.json-mapper.v2",
+          "extractionConfidence": 1,
+          "sourceKind": "standard_json",
+          "order": 18,
+          "normalizedText": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+          "normalizationActions": []
+        }
+      ],
+      "qualityReport": {
+        "sourceType": "standard_json",
+        "textCoverage": 1,
+        "replacementCharacterRatio": 0,
+        "abnormalWhitespaceRatio": 0,
+        "lineFragmentationScore": 0.10526315789473684,
+        "readingOrderConfidence": "medium",
+        "layoutComplexity": "unknown",
+        "recommendedRoute": "deterministic",
+        "warnings": [],
+        "schemaVersion": "resume-import-quality-v2",
+        "classification": "standard_json",
+        "recommendedPipeline": "standard_json",
+        "pageCount": 1,
+        "coordinateCoverage": 0,
+        "hasUsableTextLayer": true,
+        "ocrRequiredPages": [],
+        "thresholds": {
+          "minimumTextCoverage": 0.45,
+          "maximumReplacementCharacterRatio": 0.015,
+          "maximumLineFragmentationScore": 0.88
+        }
+      },
+      "mappingDecisions": [],
+      "fieldCandidates": []
+    },
+    "updatedAt": "2026-11-05T05:44:57.348Z"
+  },
+  {
+    "key": "profileReconciliation:v1:resume-import-31pC5_ZnKT",
+    "value": {
+      "id": "profile-reconciliation-hwQhUw-6Z2",
+      "createdAt": "2026-11-05T05:44:57.270Z",
+      "updatedAt": "2026-11-05T05:44:57.270Z",
+      "schemaVersion": "profile-reconciliation-v1",
+      "importId": "resume-import-31pC5_ZnKT",
+      "draftRevision": 0,
+      "profileId": "profile-demo-student",
+      "profileVersion": 1,
+      "revision": 0,
+      "status": "needs_review",
+      "sourceFileHash": "b4f4fa73095c8bb7a997969928fcca21474ae6edad7dc88dea2252d39a3e7ba1",
+      "sourceContentHash": "b4f4fa73095c8bb7a997969928fcca21474ae6edad7dc88dea2252d39a3e7ba1",
+      "candidates": [
+        {
+          "incomingItemId": "basic:name",
+          "sourceItemId": "basic:name",
+          "entityType": "basic",
+          "displayLabel": "Core 候选人",
+          "canonicalKey": "basic:name:core 候选人",
+          "normalizedFields": {
+            "field": "name",
+            "value": "core 候选人"
+          },
+          "factStatements": [
+            "Core 候选人"
+          ],
+          "sourceBlockIds": [
+            "basics.name"
+          ],
+          "sourceProvenance": [
+            {
+              "sourceType": "imported_text",
+              "sourceId": "b4f4fa73095c8bb7a997969928fcca21474ae6edad7dc88dea2252d39a3e7ba1",
+              "sourceText": "Core 候选人",
+              "confidence": 0.9,
+              "confirmedByUser": true,
+              "riskLevel": "medium",
+              "createdAt": "2026-11-05T05:44:57.270Z",
+              "fileName": "pasted-structured-resume.json",
+              "sourceQuote": "Core 候选人"
+            }
+          ]
+        },
+        {
+          "incomingItemId": "basic:email",
+          "sourceItemId": "basic:email",
+          "entityType": "basic",
+          "displayLabel": "core@example.org",
+          "canonicalKey": "basic:email:core@example.org",
+          "normalizedFields": {
+            "field": "email",
+            "value": "core@example.org"
+          },
+          "factStatements": [
+            "core@example.org"
+          ],
+          "sourceBlockIds": [
+            "basics.email"
+          ],
+          "sourceProvenance": [
+            {
+              "sourceType": "imported_text",
+              "sourceId": "b4f4fa73095c8bb7a997969928fcca21474ae6edad7dc88dea2252d39a3e7ba1",
+              "sourceText": "core@example.org",
+              "confidence": 0.9,
+              "confirmedByUser": true,
+              "riskLevel": "medium",
+              "createdAt": "2026-11-05T05:44:57.270Z",
+              "fileName": "pasted-structured-resume.json",
+              "sourceQuote": "core@example.org"
+            }
+          ]
+        },
+        {
+          "incomingItemId": "core-project",
+          "sourceItemId": "core-project",
+          "entityType": "project",
+          "displayLabel": "AI 应用项目",
+          "canonicalKey": "project:title=ai应用项目|organization=|startDate=2025-01|endDate=2025-06",
+          "normalizedFields": {
+            "title": "ai应用项目",
+            "role": "项目成员",
+            "startDate": "2025-01",
+            "endDate": "2025-06"
+          },
+          "factStatements": [
+            "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+            "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+          ],
+          "sourceBlockIds": [
+            "sections[0].order",
+            "sections[0].items[0].id",
+            "sections[0].items[0].sectionType",
+            "sections[0].items[0].title",
+            "sections[0].items[0].role",
+            "sections[0].items[0].startDate",
+            "sections[0].items[0].endDate",
+            "sections[0].items[0].current",
+            "sections[0].items[0].description",
+            "sections[0].items[0].highlights[0]"
+          ],
+          "sourceProvenance": [
+            {
+              "sourceType": "imported_text",
+              "sourceId": "b4f4fa73095c8bb7a997969928fcca21474ae6edad7dc88dea2252d39a3e7ba1",
+              "sourceText": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+              "confidence": 0.9,
+              "confirmedByUser": true,
+              "riskLevel": "medium",
+              "createdAt": "2026-11-05T05:44:57.270Z",
+              "fileName": "pasted-structured-resume.json",
+              "sourceQuote": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+            }
+          ]
+        }
+      ],
+      "decisions": [
+        {
+          "incomingItemId": "basic:name",
+          "state": "conflict",
+          "existingEntityId": "basic:name",
+          "existingFactIds": [],
+          "confidence": 1,
+          "reasonCode": "authoritative_field_conflict",
+          "fieldComparisons": [
+            {
+              "field": "name",
+              "existingValue": "同学",
+              "incomingValue": "Core 候选人",
+              "relation": "conflicting",
+              "authoritative": true
+            }
+          ],
+          "sourceProvenance": [
+            {
+              "sourceType": "imported_text",
+              "sourceId": "b4f4fa73095c8bb7a997969928fcca21474ae6edad7dc88dea2252d39a3e7ba1",
+              "sourceText": "Core 候选人",
+              "confidence": 0.9,
+              "confirmedByUser": true,
+              "riskLevel": "medium",
+              "createdAt": "2026-11-05T05:44:57.270Z",
+              "fileName": "pasted-structured-resume.json",
+              "sourceQuote": "Core 候选人"
+            }
+          ],
+          "requiresUserConfirmation": true,
+          "conflictId": "reconciliation-conflict-basic:name"
+        },
+        {
+          "incomingItemId": "basic:email",
+          "state": "conflict",
+          "existingEntityId": "basic:email",
+          "existingFactIds": [],
+          "confidence": 1,
+          "reasonCode": "authoritative_field_conflict",
+          "fieldComparisons": [
+            {
+              "field": "email",
+              "existingValue": "demo.student@example.com",
+              "incomingValue": "core@example.org",
+              "relation": "conflicting",
+              "authoritative": true
+            }
+          ],
+          "sourceProvenance": [
+            {
+              "sourceType": "imported_text",
+              "sourceId": "b4f4fa73095c8bb7a997969928fcca21474ae6edad7dc88dea2252d39a3e7ba1",
+              "sourceText": "core@example.org",
+              "confidence": 0.9,
+              "confirmedByUser": true,
+              "riskLevel": "medium",
+              "createdAt": "2026-11-05T05:44:57.270Z",
+              "fileName": "pasted-structured-resume.json",
+              "sourceQuote": "core@example.org"
+            }
+          ],
+          "requiresUserConfirmation": true,
+          "conflictId": "reconciliation-conflict-basic:email"
+        },
+        {
+          "incomingItemId": "core-project",
+          "state": "new_fact",
+          "existingFactIds": [],
+          "confidence": 1,
+          "reasonCode": "no_safe_match",
+          "fieldComparisons": [],
+          "sourceProvenance": [
+            {
+              "sourceType": "imported_text",
+              "sourceId": "b4f4fa73095c8bb7a997969928fcca21474ae6edad7dc88dea2252d39a3e7ba1",
+              "sourceText": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+              "confidence": 0.9,
+              "confirmedByUser": true,
+              "riskLevel": "medium",
+              "createdAt": "2026-11-05T05:44:57.270Z",
+              "fileName": "pasted-structured-resume.json",
+              "sourceQuote": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+            }
+          ],
+          "requiresUserConfirmation": false
+        }
+      ],
+      "conflicts": [
+        {
+          "id": "reconciliation-conflict-basic:name",
+          "incomingItemId": "basic:name",
+          "existingEntityId": "basic:name",
+          "fields": [
+            {
+              "field": "name",
+              "existingValue": "同学",
+              "incomingValue": "Core 候选人",
+              "relation": "conflicting",
+              "authoritative": true
+            }
+          ],
+          "supportedResolutions": [
+            "keep_existing",
+            "use_imported",
+            "keep_both_as_distinct",
+            "edit_value",
+            "defer"
+          ]
+        },
+        {
+          "id": "reconciliation-conflict-basic:email",
+          "incomingItemId": "basic:email",
+          "existingEntityId": "basic:email",
+          "fields": [
+            {
+              "field": "email",
+              "existingValue": "demo.student@example.com",
+              "incomingValue": "core@example.org",
+              "relation": "conflicting",
+              "authoritative": true
+            }
+          ],
+          "supportedResolutions": [
+            "keep_existing",
+            "use_imported",
+            "keep_both_as_distinct",
+            "edit_value",
+            "defer"
+          ]
+        }
+      ],
+      "reviewUnits": [
+        {
+          "id": "review-unit-basic:name",
+          "incomingItemId": "basic:name",
+          "kind": "conflict",
+          "conflictId": "reconciliation-conflict-basic:name",
+          "resolved": false
+        },
+        {
+          "id": "review-unit-basic:email",
+          "incomingItemId": "basic:email",
+          "kind": "conflict",
+          "conflictId": "reconciliation-conflict-basic:email",
+          "resolved": false
+        }
+      ],
+      "summary": {
+        "newFacts": 1,
+        "existing": 0,
+        "mergedEvidence": 0,
+        "compatibleUpdates": 0,
+        "likelyDuplicates": 0,
+        "conflicts": 2,
+        "unclassified": 0,
+        "requiresReview": 2
+      }
+    },
+    "updatedAt": "2026-11-05T05:44:57.270Z"
+  },
+  {
+    "key": "resumeArtifactReceipt:v1:artifact-tailoring-submit-agent-session-Bz1XjE6KtCGm-tailoring-session-fnv-1f961958-29-2-fnv-4278683f-92-apply",
+    "value": {
+      "schemaVersion": 1,
+      "operationId": "artifact-tailoring-submit-agent-session-Bz1XjE6KtCGm-tailoring-session-fnv-1f961958-29-2-fnv-4278683f-92-apply",
+      "status": "completed",
+      "profileId": "profile-1-Kb8c0PH8",
+      "expectedProfileRevision": 1,
+      "jobId": "job-8XezEygORM",
+      "sourceResumeId": "branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+      "sourceResumeRevisionId": "resume-revision-fnv-36b69ab7-100",
+      "resultResumeId": "branch-profile-1-Kb8c0PH8-job-8XezEygORM-fnv-68cc51fa-110",
+      "resultResumeRevisionId": "resume-revision-fnv-2214e050-203",
+      "acceptedDiffIds": [
+        "tailoring-diff-fnv-61b7a804-207"
+      ],
+      "acceptedDiffCount": 1,
+      "changedFieldPaths": [
+        "project.branch-item-import-core-project.highlights"
+      ],
+      "beforeContentHash": "fnv-0afda297-2197",
+      "afterContentHash": "fnv-2528cda7-2240",
+      "completedAt": "2026-11-05T05:45:26.440Z"
+    },
+    "updatedAt": "2026-11-05T05:45:26.440Z"
+  },
+  {
+    "key": "resumeArtifactWriteCheckpoint:v1:artifact-tailoring-submit-agent-session-Bz1XjE6KtCGm-tailoring-session-fnv-1f961958-29-2-fnv-4278683f-92-apply",
+    "value": {
+      "schemaVersion": 1,
+      "operationId": "artifact-tailoring-submit-agent-session-Bz1XjE6KtCGm-tailoring-session-fnv-1f961958-29-2-fnv-4278683f-92-apply",
+      "checkpointId": "resume-artifact-write:artifact-tailoring-submit-agent-session-Bz1XjE6KtCGm-tailoring-session-fnv-1f961958-29-2-fnv-4278683f-92-apply",
+      "workflowId": "tailor_existing_resume",
+      "profileId": "profile-1-Kb8c0PH8",
+      "expectedProfileRevision": 1,
+      "sourceResumeId": "branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+      "sourceResumeRevisionId": "resume-revision-fnv-36b69ab7-100",
+      "jobId": "job-8XezEygORM",
+      "acceptedDiffIds": [
+        "tailoring-diff-fnv-61b7a804-207"
+      ],
+      "changedFieldPaths": [
+        "project.branch-item-import-core-project.highlights"
+      ],
+      "status": "write_completed",
+      "resultResumeId": "branch-profile-1-Kb8c0PH8-job-8XezEygORM-fnv-68cc51fa-110",
+      "resultResumeRevisionId": "resume-revision-fnv-2214e050-203",
+      "createdAt": "2026-11-05T05:45:26.423Z",
+      "updatedAt": "2026-11-05T05:45:26.440Z"
+    },
+    "updatedAt": "2026-11-05T05:45:26.440Z"
+  },
+  {
+    "key": "resumeImportOperation:v1:resume-import-confirm-resume-import-31pC5_ZnKT",
+    "value": {
+      "profileId": "profile-1-Kb8c0PH8",
+      "branchId": "branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+      "revisionId": "resume-revision-fnv-36b69ab7-100",
+      "presentationRevision": 0,
+      "idempotent": false
+    },
+    "updatedAt": "2026-11-05T05:44:57.348Z"
+  },
+  {
+    "key": "resumePresentationConfig:branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+    "value": {
+      "schemaVersion": "resume-presentation-v1",
+      "branchId": "branch-general-resume-import-31pC5_ZnKT-VcaOGx",
+      "templateId": "classic-technical",
+      "contentRevision": {
+        "branchRevision": 0,
+        "currentRevisionId": "resume-revision-fnv-36b69ab7-100"
+      },
+      "sectionOrder": [
+        "summary",
+        "experience",
+        "skills",
+        "certificates"
+      ],
+      "itemOrderBySection": {
+        "summary": [],
+        "experience": [
+          "branch-item-import-core-project"
+        ],
+        "skills": [],
+        "certificates": []
+      },
+      "hiddenItemIds": [],
+      "typography": {
+        "chineseFont": "system_sans",
+        "englishFont": "system_sans",
+        "bodyTextScale": "normal",
+        "titleTextScale": "normal",
+        "lineHeight": "normal"
+      },
+      "spacing": {
+        "pageMargin": "normal",
+        "sectionGap": "normal",
+        "itemGap": "normal"
+      },
+      "theme": {
+        "primaryColor": "emerald",
+        "accentColor": "emerald",
+        "dividerColor": "graphite",
+        "density": "balanced"
+      },
+      "pagination": {
+        "pagePolicy": "natural",
+        "preferredPageCount": 2,
+        "maximumPageCount": 4,
+        "overflowBehavior": "warn",
+        "headerFooter": "none",
+        "showPhoto": false,
+        "pageBreakBeforeSections": []
+      },
+      "sectionStyleOverrides": {},
+      "highlightListStyle": "bullet",
+      "itemHeaderMiddleAlignment": "balanced",
+      "presentationRevision": 0,
+      "updatedAt": "2026-11-05T05:44:57.348Z"
+    },
+    "updatedAt": "2026-11-05T05:44:57.348Z"
+  },
+  {
+    "key": "resumePresentationConfig:branch-profile-1-Kb8c0PH8-job-8XezEygORM-fnv-68cc51fa-110",
+    "value": {
+      "schemaVersion": "resume-presentation-v1",
+      "branchId": "branch-profile-1-Kb8c0PH8-job-8XezEygORM-fnv-68cc51fa-110",
+      "templateId": "classic-technical",
+      "contentRevision": {
+        "branchRevision": 1,
+        "currentRevisionId": "resume-revision-fnv-2214e050-203"
+      },
+      "sectionOrder": [
+        "summary",
+        "experience",
+        "skills",
+        "certificates"
+      ],
+      "itemOrderBySection": {
+        "summary": [],
+        "experience": [
+          "branch-item-import-core-project"
+        ],
+        "skills": [],
+        "certificates": []
+      },
+      "hiddenItemIds": [],
+      "typography": {
+        "chineseFont": "system_sans",
+        "englishFont": "system_sans",
+        "bodyTextScale": "normal",
+        "titleTextScale": "normal",
+        "lineHeight": "normal"
+      },
+      "spacing": {
+        "pageMargin": "normal",
+        "sectionGap": "normal",
+        "itemGap": "normal"
+      },
+      "theme": {
+        "primaryColor": "emerald",
+        "accentColor": "emerald",
+        "dividerColor": "graphite",
+        "density": "balanced"
+      },
+      "pagination": {
+        "pagePolicy": "natural",
+        "preferredPageCount": 2,
+        "maximumPageCount": 4,
+        "overflowBehavior": "warn",
+        "headerFooter": "none",
+        "showPhoto": false,
+        "pageBreakBeforeSections": []
+      },
+      "sectionStyleOverrides": {},
+      "highlightListStyle": "bullet",
+      "itemHeaderMiddleAlignment": "balanced",
+      "presentationRevision": 0,
+      "updatedAt": "2026-11-05T05:45:26.430Z"
+    },
+    "updatedAt": "2026-11-05T05:45:26.430Z"
+  },
+  {
+    "key": "resumeWorkbenchState:profile-1-Kb8c0PH8",
+    "value": {
+      "activeBranchId": "branch-profile-1-Kb8c0PH8-job-8XezEygORM-fnv-68cc51fa-110",
+      "templateId": "classic-technical",
+      "stylePanelOpen": true,
+      "studioMode": "edit",
+      "manualTab": "content",
+      "aiTab": "suggestions",
+      "styleTab": "page",
+      "enabledSectionsByBranch": {},
+      "hiddenSectionsByBranch": {},
+      "customSectionsByBranch": {}
+    },
+    "updatedAt": "2026-11-05T05:45:29.988Z"
+  },
+  {
+    "key": "resumeWorkbenchState:profile-demo-student",
+    "value": {
+      "activeBranchId": null,
+      "templateId": "classic-technical",
+      "stylePanelOpen": true,
+      "studioMode": "edit",
+      "manualTab": "content",
+      "aiTab": "suggestions",
+      "styleTab": "font",
+      "enabledSectionsByBranch": {},
+      "hiddenSectionsByBranch": {},
+      "customSectionsByBranch": {}
+    },
+    "updatedAt": "2026-11-05T05:44:57.523Z"
+  }
+]

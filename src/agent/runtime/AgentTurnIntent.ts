@@ -5,6 +5,8 @@ import {
   type CareerAgentTask
 } from "@/agent/contracts/careerTask";
 
+const EXPLICIT_PROFILE_INTAKE_REQUEST = /(?:^|[，,。；;：:\n])\s*(?:请帮我|帮我|请|我想|我要)?\s*(?:(?:整理|补充|完善|更新)(?:一下|我的|个人|当前|这些|这份|的|\s)*(?:资料库|职业档案|职业资料)|(?:把|将)[^。；;\n]*(?:经历|材料)[^。；;\n]*(?:整理到|补充到|加入)(?:个人)?资料库)/u;
+
 export type TurnIntent =
   | "continue_current_task"
   | "new_domain_task"
@@ -216,6 +218,7 @@ export function classifyTurnIntent(input: {
   if (
     /导入(一个|新的?|这个|该)?(岗位|职位)|重新.*(另一份|新的?).*简历|我想(申请|应聘|投)(这个|该)?(岗位|职位)|录入(一个|新的?|这个|该)?(岗位|职位)|上传.*简历|分析.*(JD|岗位描述|职位描述)|(深挖|丰富|梳理|挖掘).*(经历|项目)|从零.*(整理|梳理).*(经历|资料)|定制简历|岗位定制|匹配度|岗位.*匹配|匹配.*岗位/i.test(text)
     || isExplicitProfileToResumeIntent(text)
+    || EXPLICIT_PROFILE_INTAKE_REQUEST.test(text)
     || isExplicitExportIntent(text)
     || looksLikeJobDescription(text)
   ) {
@@ -529,7 +532,7 @@ function newDomainTask(text: string): NonNullable<TurnIntentDecision["newTask"]>
   if (isExplicitExportIntent(text)) {
     return { goal: "export_resume", workflowId: "repair_and_export_resume", stage: "select_resume" };
   }
-  if (/从零.*(整理|梳理).*(经历|资料)|整理自己的真实经历/i.test(text)) {
+  if (/从零.*(整理|梳理).*(经历|资料)|整理自己的真实经历/i.test(text) || EXPLICIT_PROFILE_INTAKE_REQUEST.test(text)) {
     return { goal: "profile_intake", workflowId: "guided_profile_intake", stage: "resolve_profile_target" };
   }
   // Application language owns the root task. “匹配度/匹配分析” is a

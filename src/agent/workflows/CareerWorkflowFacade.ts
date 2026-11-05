@@ -581,8 +581,10 @@ export function resolveTurnScopedTailoringInput(
 ): { input: unknown; sameTurnTarget: boolean } {
   if (!rawInput || typeof rawInput !== "object" || Array.isArray(rawInput)) return { input: rawInput, sameTurnTarget: false };
   const input = { ...(rawInput as Record<string, unknown>) };
-  const internalKeys = new Set(["sourceResumeId", "profileId"]);
-  const canResolveOmittedTarget = Object.keys(input).every((key) => internalKeys.has(key));
+  // Recover only a missing target from this turn. Legal start options must
+  // not suppress recovery; explicit targets/continuations remain untouched.
+  const startKeys = new Set(["sourceResumeId", "profileId", "mode", "jobPersistence", "targetTitle", "targetCompany", "targetSourceUrl"]);
+  const canResolveOmittedTarget = Object.keys(input).every((key) => startKeys.has(key));
   const sourceUserMessage = context.sourceUserMessage?.trim();
   if (!canResolveOmittedTarget || !sourceUserMessage || !isCredibleExternalTargetText(sourceUserMessage)) {
     return { input, sameTurnTarget: false };

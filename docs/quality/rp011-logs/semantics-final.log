@@ -1,0 +1,30 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+ ❯ tests/unit/rp011EvidenceSemantics.test.ts (3 tests | 1 failed) 110ms
+   × R satisfies Python OR R while AND still requires both 31ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/rp011EvidenceSemantics.test.ts > R satisfies Python OR R while AND still requires both
+AssertionError: expected 'weak' to be 'direct' // Object.is equality
+
+Expected: "direct"
+Received: "weak"
+
+ ❯ tests/unit/rp011EvidenceSemantics.test.ts:38:48
+     36|   const any = analyze('任职要求\n熟悉 Python 或 R');
+     37|   const all = analyze('任职要求\n熟悉 Python 和 R');
+     38|   expect(any.matrix.evaluations[0].matchLevel).toBe('direct');
+       |                                                ^
+     39|   expect(all.matrix.evaluations[0].matchLevel).not.toBe('direct');
+     40| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  13:32:04
+   Duration  4.80s (transform 1.22s, setup 381ms, import 1.67s, tests 110ms, environment 2.13s)
+

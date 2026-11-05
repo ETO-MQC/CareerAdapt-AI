@@ -1,0 +1,49 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+ ❯ tests/unit/rp011TargetRecovery.test.ts (3 tests | 2 failed) 23ms
+   × recovers current-turn JD with legal mode and persistence options 9ms
+   × does not replace an explicit saved Job with text or inherit a historical Job 10ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/rp011TargetRecovery.test.ts > recovers current-turn JD with legal mode and persistence options
+Error: 我还没有拿到要定制的岗位信息。
+你可以直接粘贴岗位描述，或者选择已经保存的岗位。
+ ❯ prepareCareerWorkflowInvocation src/agent/workflows/CareerWorkflowFacade.ts:196:25
+    194|     })
+    195|   ) {
+    196|     throw Object.assign(new Error("career_workflow_target_required"), {
+       |                         ^
+    197|       code: "target_required",
+    198|       message: TARGET_REQUIRED_PROMPT
+ ❯ tests/unit/rp011TargetRecovery.test.ts:7:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/unit/rp011TargetRecovery.test.ts > does not replace an explicit saved Job with text or inherit a historical Job
+AssertionError: expected [Function] to throw error including 'career_workflow_target_required' but got '我还没有拿到要定制的岗位信息。\n你可以直接粘贴岗位描述，或者选择已经保存…'
+
+- Expected
++ Received
+
+- career_workflow_target_required
++ 我还没有拿到要定制的岗位信息。
++ 你可以直接粘贴岗位描述，或者选择已经保存的岗位。
+
+ ❯ tests/unit/rp011TargetRecovery.test.ts:19:13
+     17|   expect(() => prepareCareerWorkflowInvocation('career.workflow.tailor…
+     18|     sourceUserMessage: '帮我优化简历'
+     19|   }, 'op')).toThrow('career_workflow_target_required');
+       |             ^
+     20| });
+     21|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 1 passed (3)
+   Start at  13:23:33
+   Duration  19.11s (transform 3.37s, setup 879ms, import 4.15s, tests 23ms, environment 3.71s)
+

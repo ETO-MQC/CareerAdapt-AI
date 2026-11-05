@@ -4,12 +4,14 @@ import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
+import { assertRp01RuntimeParity } from "./rp01-preflight.mjs";
 
 const execFileAsync = promisify(execFile);
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const bundleRoot = path.resolve(process.env.HERMES_RUNTIME_ROOT?.trim() || path.join(projectRoot, ".electron-build", "hermes-runtime-v4"));
 
 try {
+  assertRp01RuntimeParity(projectRoot, bundleRoot);
   const manifest = readJson(path.join(bundleRoot, "runtime-manifest.json"));
   assert(manifest.format === 2, "runtime manifest format must be 2");
   assert(manifest.runtime === "hermes-agent", "runtime manifest does not identify hermes-agent");

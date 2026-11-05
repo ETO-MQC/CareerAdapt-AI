@@ -68,7 +68,26 @@ export async function startFakeOpenAiProvider(options = {}) {
       writeJson(response, 503, { error: { code: "provider_http_503", message: "Anonymous deterministic recovery fixture" } });
       return;
     }
-    const responseMessage = chooseResponse({ mode, messages, tools });
+    // Opt-in RP011 protocol fixture: load the Skill, then let the unchanged
+    // deterministic business script consume its existing tool results.
+    const businessMessages = options.routeSkills ? messages.filter(message =>
+      !(message.role === "tool" && message.name === "skill_view")
+      && !(message.role === "assistant" && message.tool_calls?.some(call => call.function?.name === "skill_view"))) : messages;
+    let responseMessage = options.responseForRequest
+      ? options.responseForRequest({ mode, messages, tools, requestIndex: requests.length })
+      : chooseResponse({ mode, messages: businessMessages, tools });
+    if (options.routeSkills && responseMessage.toolCall) {
+      const tool = responseMessage.toolCall.name.replaceAll(".", "_");
+      const args = JSON.parse(responseMessage.toolCall.arguments);
+      const skill = tool.includes("profile_intake") ? "candidate-profile-interview"
+        : tool.includes("job_intake") || tool.includes("job_fit") ? "job-fit-analysis"
+        : tool.includes("tailor_resume") ? "resume-tailoring"
+        : tool.includes("compose_resume") ? args.reviewOnly ? "resume-review" : "resume-composition" : undefined;
+      const lastUserIndex = messages.findLastIndex(message => message.role === "user");
+      const loaded = skill && messages.slice(lastUserIndex + 1).some(message => message.role === "tool"
+        && message.name === "skill_view" && String(message.content).includes(skill));
+      if (skill && !loaded) responseMessage = { toolCall: { name: "skill_view", arguments: JSON.stringify({ name: skill }) } };
+    }
     requestRecord.response = responseMessage;
     const responseId = `fake-chat-${requests.length}`;
     requestRecord.responseToolCallId = responseMessage.toolCall ? `${responseId}-tool` : undefined;
