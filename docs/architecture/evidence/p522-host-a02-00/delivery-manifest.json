@@ -1,0 +1,74 @@
+{
+  "date": "2026-11-05",
+  "timezone": "Asia/Shanghai",
+  "head": "07ff30982f08dfdd300247204d9e3720e2d5c015",
+  "hermesCommit": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+  "status": "AUDIT_PLAN_COMPLETE",
+  "notCommitted": true,
+  "noProductChanges": true,
+  "noProviderRequests": true,
+  "noA0201To05": true,
+  "manifestExcludesItself": true,
+  "files": [
+    {
+      "path": "docs/architecture/p5.2.2-host-a02-qualification-plan.md",
+      "bytes": 39533,
+      "sha256": "63baabd77f27814267d0661e624440fe2fb4c3ab07eff3326a7b3d63b1584cf6",
+      "ignoredHandoff": false
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-00/audit-results.json",
+      "bytes": 16334,
+      "sha256": "1f0da21431d755540662e68bc480f8483ac9f5439cbe2207de74227b72257e91",
+      "ignoredHandoff": false
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-00/baseline.json",
+      "bytes": 25117,
+      "sha256": "dfb5a27309a68dfbc71ff06bb1927716286e796217ee8202bea3a27bd0561d0d",
+      "ignoredHandoff": false
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-00/capability-matrix.json",
+      "bytes": 3594,
+      "sha256": "f13c0b1c62eab3bdd16049fd332526f909588bb30d3b331b046ca44adfba62d4",
+      "ignoredHandoff": false
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-00/dependency-map.json",
+      "bytes": 18112,
+      "sha256": "65b7c3cd86a0638915ea5170b3ddbee0b332843dad895c9a2804bebd8e05f6c9",
+      "ignoredHandoff": false
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-00/risk-register.json",
+      "bytes": 3683,
+      "sha256": "43ebb8818ef7cf4c548226d4022295ab1cf01e85af0c7921359e9e32487fca2c",
+      "ignoredHandoff": false
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-00/source-map.json",
+      "bytes": 117489,
+      "sha256": "9a059cb2f2641c37c1112e370574c12b8120b3d8191f0cfd33f69e4f94ffc665",
+      "ignoredHandoff": false
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-00/test-architecture.md",
+      "bytes": 7208,
+      "sha256": "47cc571692f0df3c8d5120fab8d2cb661b94f93194e0d067768f7f91ea7357ff",
+      "ignoredHandoff": false
+    },
+    {
+      "path": "plan4.md",
+      "bytes": 108234,
+      "sha256": "4a80fef73d975d2041b9e2869bf8496192f5df6e09869ade41d2b138da023289",
+      "ignoredHandoff": true
+    },
+    {
+      "path": "history4.md",
+      "bytes": 205955,
+      "sha256": "a0d9b7185b3bef6f68c45412f469fea3823f87175bdb819800131d1d6b0f483f",
+      "ignoredHandoff": true
+    }
+  ]
+}

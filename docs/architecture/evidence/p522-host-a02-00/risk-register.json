@@ -1,0 +1,109 @@
+{
+  "date": "2026-11-04",
+  "risks": [
+    {
+      "id": "R01",
+      "severity": "BLOCKER",
+      "risk": "Provider未获本阶段明确授权",
+      "evidenceState": "precondition_not_tested",
+      "response": "不启动L4；用户选endpoint/model/预算/数据边界",
+      "runtimeBugClaimed": false
+    },
+    {
+      "id": "R02",
+      "severity": "HIGH",
+      "risk": "Provider不支持工具调用",
+      "evidenceState": "not_verified",
+      "response": "六环节分层失败；不伪装Runtime通过",
+      "runtimeBugClaimed": false
+    },
+    {
+      "id": "R03",
+      "severity": "HIGH",
+      "risk": "Streaming丢事件/乱序/重复",
+      "evidenceState": "not_reproduced",
+      "response": "delta/interim/final对账及切会话测试",
+      "runtimeBugClaimed": false
+    },
+    {
+      "id": "R04",
+      "severity": "HIGH",
+      "risk": "Stop仅UI停止而执行未清理",
+      "evidenceState": "not_reproduced",
+      "response": "ACK/settled/handler ledger分别验；后台进程按原生语义保留",
+      "runtimeBugClaimed": false
+    },
+    {
+      "id": "R05",
+      "severity": "HIGH",
+      "risk": "上传或辅助视觉外发越界",
+      "evidenceState": "source_routing_present_no_leak_observed",
+      "response": "主/辅助endpoint分别授权、去敏、只合成文件",
+      "runtimeBugClaimed": false
+    },
+    {
+      "id": "R06",
+      "severity": "MEDIUM",
+      "risk": "base64与多buffer造成大文件内存压力",
+      "evidenceState": "not_measured",
+      "response": "限额边界测试/RSS；超预算停止",
+      "runtimeBugClaimed": false
+    },
+    {
+      "id": "R07",
+      "severity": "HIGH",
+      "risk": "Session runtime/stored/lineage状态不一致",
+      "evidenceState": "not_reproduced",
+      "response": "身份映射、历史与live分别对账",
+      "runtimeBugClaimed": false
+    },
+    {
+      "id": "R08",
+      "severity": "BLOCKER",
+      "risk": "Task绑定及Artifact完成状态缺失",
+      "evidenceState": "source_model_gap",
+      "response": "仅认证原生派生；完整目标需独立设计",
+      "runtimeBugClaimed": false
+    },
+    {
+      "id": "R09",
+      "severity": "MEDIUM",
+      "risk": "升级破坏虚拟补丁",
+      "evidenceState": "future_risk",
+      "response": "commit+SHA+exact anchor失败即停；本轮不升级",
+      "runtimeBugClaimed": false
+    },
+    {
+      "id": "R10",
+      "severity": "MEDIUM",
+      "risk": "默认与Career Shell行为分歧",
+      "evidenceState": "not_verified_for_provider",
+      "response": "相同最小业务契约双Shell验收",
+      "runtimeBugClaimed": false
+    },
+    {
+      "id": "R11",
+      "severity": "HIGH",
+      "risk": "断连/timeout后未知结果重发",
+      "evidenceState": "source_confirmed_retry_path_runtime_consequence_not_reproduced",
+      "response": "A-02-01确定性测试与最小Renderer补丁候选；A-03前置",
+      "runtimeBugClaimed": false
+    },
+    {
+      "id": "R12",
+      "severity": "MEDIUM",
+      "risk": "Artifact参数/失败路径被展示为产物、部分历史扫描遗漏",
+      "evidenceState": "source_heuristic_and_partial_fetch_present",
+      "response": "不声称生成完成；缺失/失败/分页单独测试",
+      "runtimeBugClaimed": false
+    },
+    {
+      "id": "R13",
+      "severity": "MEDIUM",
+      "risk": "草稿附件重启丢失",
+      "evidenceState": "source_declared_memory_only",
+      "response": "声明限制；不能用文本恢复替代附件恢复",
+      "runtimeBugClaimed": false
+    }
+  ]
+}

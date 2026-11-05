@@ -1,0 +1,140 @@
+{
+  "capabilities": [
+    {
+      "capability": "Provider",
+      "sourceAnchors": [
+        "store/onboarding.ts",
+        "hermes_cli/runtime_provider.py",
+        "hermes_cli/web_server.py"
+      ],
+      "evidenceLevels": [
+        "L0"
+      ],
+      "status": [
+        "IMPLEMENTATION_PRESENT_NOT_RUNTIME_QUALIFIED",
+        "REAL_PROVIDER_NOT_VERIFIED"
+      ],
+      "newRuntimeTestsThisAudit": false
+    },
+    {
+      "capability": "Streaming_Stop",
+      "sourceAnchors": [
+        "use-prompt-actions/submit.ts",
+        "use-message-stream/index.ts",
+        "tui_gateway/server.py"
+      ],
+      "evidenceLevels": [
+        "L0",
+        "historical L1"
+      ],
+      "status": [
+        "MOCK_ONLY_NOT_REAL_PROVIDER_QUALIFIED",
+        "REAL_PROVIDER_NOT_VERIFIED"
+      ],
+      "newRuntimeTestsThisAudit": false
+    },
+    {
+      "capability": "Tool_Activity",
+      "sourceAnchors": [
+        "agent/tool_executor.py",
+        "tools/registry.py",
+        "components/assistant-ui/tool/fallback.tsx"
+      ],
+      "evidenceLevels": [
+        "L0"
+      ],
+      "status": [
+        "IMPLEMENTATION_PRESENT_NOT_RUNTIME_QUALIFIED",
+        "REAL_PROVIDER_NOT_VERIFIED"
+      ],
+      "newRuntimeTestsThisAudit": false
+    },
+    {
+      "capability": "Attachment",
+      "sourceAnchors": [
+        "use-composer-actions.ts",
+        "use-prompt-actions/index.ts",
+        "agent/context_references.py",
+        "agent/image_routing.py"
+      ],
+      "evidenceLevels": [
+        "L0",
+        "historical L3 menu only"
+      ],
+      "status": [
+        "IMPLEMENTATION_PRESENT_NOT_RUNTIME_QUALIFIED",
+        "REAL_PROVIDER_NOT_VERIFIED"
+      ],
+      "newRuntimeTestsThisAudit": false
+    },
+    {
+      "capability": "Session_Persistence",
+      "sourceAnchors": [
+        "store/composer.ts",
+        "hermes_state.py",
+        "use-session-actions/index.ts"
+      ],
+      "evidenceLevels": [
+        "L0",
+        "historical L3 unsent text across routes only"
+      ],
+      "status": [
+        "IMPLEMENTATION_PRESENT_NOT_RUNTIME_QUALIFIED"
+      ],
+      "newRuntimeTestsThisAudit": false
+    },
+    {
+      "capability": "Artifact_Session_Derivation",
+      "sourceAnchors": [
+        "app/artifacts/artifact-utils.ts",
+        "app/artifacts/index.tsx"
+      ],
+      "evidenceLevels": [
+        "L0"
+      ],
+      "status": [
+        "IMPLEMENTATION_PRESENT_NOT_RUNTIME_QUALIFIED"
+      ],
+      "newRuntimeTestsThisAudit": false
+    },
+    {
+      "capability": "Artifact_Task_Lifecycle",
+      "sourceAnchors": [
+        "ArtifactRecord has no taskId/status"
+      ],
+      "evidenceLevels": [
+        "L0 negative model evidence"
+      ],
+      "status": [
+        "SOURCE_NOT_VERIFIED"
+      ],
+      "newRuntimeTestsThisAudit": false
+    }
+  ],
+  "historicalPass": [
+    {
+      "name": "Career Shell 18/18",
+      "file": "../p522-host-a01r/host-smoke-1793776565702.json",
+      "level": "L3"
+    },
+    {
+      "name": "Default Shell interaction",
+      "file": "../p522-host-a01r-fb01/interaction-verification.json",
+      "level": "L3"
+    },
+    {
+      "name": "Patch portability",
+      "file": "../p522-host-a01r/patch-portability-verification.json",
+      "level": "build/static"
+    }
+  ],
+  "notQualified": [
+    "true Provider",
+    "real Streaming",
+    "real Tool Calling",
+    "attachment upload",
+    "Session restart recovery",
+    "Artifact task binding"
+  ],
+  "userVisualApproval": "PENDING"
+}

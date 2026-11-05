@@ -1,0 +1,3736 @@
+{
+  "commit": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+  "rootAlias": "HERMES_ROOT",
+  "files": [
+    {
+      "path": "apps/desktop/src/app/chat/index.tsx",
+      "sha256": "b41bf22bc983a8b79a9c31ea8fe5e1d12bb87373792dc62330a6bf5b705dadc5",
+      "lines": 593,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 1,
+          "text": "import { type AppendMessage, AssistantRuntimeProvider, type ThreadMessage } from '@assistant-ui/react'"
+        },
+        {
+          "line": 23,
+          "text": "import { useIncrementalExternalStoreRuntime } from '@/lib/incremental-external-store-runtime'"
+        },
+        {
+          "line": 60,
+          "text": "import { useRuntimeMessageRepository } from './runtime-repository'"
+        },
+        {
+          "line": 102,
+          "text": "function ChatHeader({"
+        },
+        {
+          "line": 213,
+          "text": "function ChatRuntimeBoundary({"
+        },
+        {
+          "line": 224,
+          "text": "const runtimeMessageRepository = useRuntimeMessageRepository(messages)"
+        },
+        {
+          "line": 226,
+          "text": "const runtime = useIncrementalExternalStoreRuntime<ThreadMessage>({"
+        },
+        {
+          "line": 239,
+          "text": "return <AssistantRuntimeProvider runtime={runtime}>{children}</AssistantRuntimeProvider>"
+        },
+        {
+          "line": 242,
+          "text": "export function ChatView({"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/src/app/gateway/hooks/use-gateway-request.ts",
+      "sha256": "bd5f5076f18921220ad9e0fe9467c7d34d1799ac74955bfba169460f186e01aa",
+      "lines": 148,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 10,
+          "text": "export function useGatewayRequest() {"
+        },
+        {
+          "line": 30,
+          "text": "// message instead of the opaque \"connection closed\" that triggered the retry."
+        },
+        {
+          "line": 115,
+          "text": "return await gateway.request<T>(method, params, timeoutMs, signal)"
+        },
+        {
+          "line": 119,
+          "text": "if (!/not connected|connection closed/i.test(message)) {"
+        },
+        {
+          "line": 141,
+          "text": "return recovered.request<T>(method, params, timeoutMs, signal)"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/src/hermes.ts",
+      "sha256": "abcccb6d309ae6e30ece763f63fa1ff36cf43c2f05062157a28ff9bd72ea90d1",
+      "lines": 1713,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 92,
+          "text": "export const PROMPT_SUBMIT_REQUEST_TIMEOUT_MS = 1_800_000"
+        },
+        {
+          "line": 222,
+          "text": "export class HermesGateway extends JsonRpcGatewayClient {"
+        },
+        {
+          "line": 388,
+          "text": "export async function listAllProfileSessions("
+        },
+        {
+          "line": 418,
+          "text": "// all three filtered queries, replacing three separate listAllProfileSessions"
+        },
+        {
+          "line": 485,
+          "text": "listAllProfileSessions(req.recentsLimit, 1, 'exclude', 'recent', req.recentsProfile, {"
+        },
+        {
+          "line": 488,
+          "text": "listAllProfileSessions(req.cronLimit, 1, 'exclude', 'recent', 'all', { source: 'cron' }),"
+        },
+        {
+          "line": 489,
+          "text": "listAllProfileSessions(req.messagingLimit, 1, 'exclude', 'recent', 'all', {"
+        },
+        {
+          "line": 599,
+          "text": "export function getSessionMessages(id: string, profile?: string | null): Promise<SessionMessagesResponse> {"
+        },
+        {
+          "line": 744,
+          "text": "export function setEnvVar(key: string, value: string): Promise<{ ok: boolean }> {"
+        },
+        {
+          "line": 1451,
+          "text": "export function setModelAssignment(body: ModelAssignmentRequest): Promise<ModelAssignmentResponse> {"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/shared/src/json-rpc-gateway.ts",
+      "sha256": "d3a861d7551d1c4dc2a6ce84b1af2bb02facc6d2bd6e9090c6d71261f494994b",
+      "lines": 422,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 259,
+          "text": "request<T>("
+        },
+        {
+          "line": 299,
+          "text": "if (this.pending.delete(id)) {"
+        },
+        {
+          "line": 310,
+          "text": "// Abort drops the pending call immediately (no dangling resolver/timer);"
+        },
+        {
+          "line": 320,
+          "text": "this.pending.delete(id)"
+        },
+        {
+          "line": 331,
+          "text": "socket.send("
+        },
+        {
+          "line": 347,
+          "text": "private handleMessage(raw: unknown): void {"
+        },
+        {
+          "line": 387,
+          "text": "this.pending.delete(id)"
+        },
+        {
+          "line": 407,
+          "text": "this.pending.delete(id)"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/src/lib/gateway-rpc.ts",
+      "sha256": "eec5cc40fdaac31faac99006b5ba7f23fefc56e031c299a7172161ee0c30ff18",
+      "lines": 13,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 2,
+          "text": "export function isMissingRpcMethod(error: unknown): boolean {"
+        },
+        {
+          "line": 9,
+          "text": "export function isMissingPendingPromptRequest(error: unknown, key: string): boolean {"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/src/store/onboarding.ts",
+      "sha256": "e836b17527f46ab26901fad0cd5c63374bbc6860fe259049f54b69a29c012182",
+      "lines": 922,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 9,
+          "text": "setEnvVar,"
+        },
+        {
+          "line": 10,
+          "text": "setModelAssignment,"
+        },
+        {
+          "line": 310,
+          "text": "ignoreRuntimeGate = false"
+        },
+        {
+          "line": 321,
+          "text": "const res = await setModelAssignment({"
+        },
+        {
+          "line": 336,
+          "text": "if (!runtime.ready && !ignoreRuntimeGate) {"
+        },
+        {
+          "line": 747,
+          "text": "export async function saveOnboardingApiKey("
+        },
+        {
+          "line": 777,
+          "text": "await setEnvVar(envKey, trimmed)"
+        },
+        {
+          "line": 785,
+          "text": "// ignoreRuntimeGate=true: never block onboarding on the runtime check."
+        },
+        {
+          "line": 812,
+          "text": "export async function saveOnboardingLocalEndpoint(baseUrl: string, apiKey: string, ctx: OnboardingContext) {"
+        },
+        {
+          "line": 849,
+          "text": "await setModelAssignment({ scope: 'main', provider: 'custom', model, base_url: url, api_key: key })"
+        },
+        {
+          "line": 886,
+          "text": "await setModelAssignment({"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/src/components/onboarding/index.tsx",
+      "sha256": "9bd661cf9488c46937c85139402eca5ca06eb8667fcfb375b7c232fa90ebc907",
+      "lines": 699,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 25,
+          "text": "saveOnboardingApiKey,"
+        },
+        {
+          "line": 182,
+          "text": "export function DesktopOnboardingOverlay({"
+        },
+        {
+          "line": 268,
+          "text": "if (onboarding.configured === true && !onboarding.manual) {"
+        },
+        {
+          "line": 295,
+          "text": "// check (configured === false) before showing the picker."
+        },
+        {
+          "line": 296,
+          "text": "const ready = onboarding.manual || (enabled && onboarding.configured === false)"
+        },
+        {
+          "line": 451,
+          "text": "onSave={(envKey, value, name, apiKey) => saveOnboardingApiKey(envKey, value, name, ctx, apiKey)}"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/src/store/session.ts",
+      "sha256": "d762c517764e9528f2c7c8af94c325122a682b787e6df0ca9c97f1ee95831ab0",
+      "lines": 513,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 8,
+          "text": "import { persistBoolean, persistString, storedBoolean, storedString } from '@/lib/storage'"
+        },
+        {
+          "line": 47,
+          "text": "persistString(rememberedSessionKey(profile), id)"
+        },
+        {
+          "line": 78,
+          "text": "export const setRememberedRoute = (path: null | string) => persistString(LAST_ROUTE_KEY, path)"
+        },
+        {
+          "line": 188,
+          "text": "export function resolveComposerSessionKey("
+        },
+        {
+          "line": 303,
+          "text": "export const $activeSessionId = atom<string | null>(null)"
+        },
+        {
+          "line": 304,
+          "text": "export const $selectedStoredSessionId = atom<string | null>(null)"
+        },
+        {
+          "line": 317,
+          "text": "export const $messages = atom<ChatMessage[]>([])"
+        },
+        {
+          "line": 324,
+          "text": "export const $messagesEmpty = computed($messages, messages => messages.length === 0)"
+        },
+        {
+          "line": 415,
+          "text": "persistString(COMPOSER_MODEL_KEY, $currentModel.get() || null)"
+        },
+        {
+          "line": 420,
+          "text": "persistString(COMPOSER_PROVIDER_KEY, $currentProvider.get() || null)"
+        },
+        {
+          "line": 435,
+          "text": "persistString(COMPOSER_MODEL_SOURCE_KEY, source || null)"
+        },
+        {
+          "line": 454,
+          "text": "persistString(COMPOSER_EFFORT_KEY, $currentReasoningEffort.get() || null)"
+        },
+        {
+          "line": 476,
+          "text": "persistString(workspaceCwdKey(), $currentCwd.get().trim() || null)"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/src/store/session-states.ts",
+      "sha256": "8864055a61ad7f04c619125b74678cb88bbcad99c03c9d88941076120f513d38",
+      "lines": 734,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 31,
+          "text": "import { readJson, writeJson } from '@/lib/storage'"
+        },
+        {
+          "line": 46,
+          "text": "export const $sessionStates = atom<Record<string, ClientSessionState>>({})"
+        },
+        {
+          "line": 70,
+          "text": "export const SESSION_WATCHDOG_TIMEOUT_MS = 8 * 60 * 1000"
+        },
+        {
+          "line": 89,
+          "text": "}, SESSION_WATCHDOG_TIMEOUT_MS)"
+        },
+        {
+          "line": 332,
+          "text": "const parsed = readJson<unknown>(TILES_KEY)"
+        },
+        {
+          "line": 345,
+          "text": "const legacy = parseTileList(readJson<unknown>(LEGACY_TILES_KEY))"
+        },
+        {
+          "line": 352,
+          "text": "writeJson(LEGACY_TILES_KEY, null)"
+        },
+        {
+          "line": 377,
+          "text": "writeJson(TILES_KEY, Object.keys(tilesByProfile).length === 0 ? null : tilesByProfile)"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/src/store/composer.ts",
+      "sha256": "41aec56713f04484e36cae5bd757ffec14d75ea72690d3c1a80866dd8a152742",
+      "lines": 368,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 5,
+          "text": "export interface ComposerAttachment {"
+        },
+        {
+          "line": 32,
+          "text": "export interface ComposerAttachmentScope {"
+        },
+        {
+          "line": 98,
+          "text": "// localStorage; attachments are memory-only (blobs, upload state)."
+        },
+        {
+          "line": 99,
+          "text": "export const SESSION_DRAFTS_STORAGE_KEY = 'hermes:composer-drafts:v3'"
+        },
+        {
+          "line": 119,
+          "text": "const raw = window.localStorage.getItem(SESSION_DRAFTS_STORAGE_KEY)"
+        },
+        {
+          "line": 136,
+          "text": "function persistDraftTexts() {"
+        },
+        {
+          "line": 144,
+          "text": "window.localStorage.removeItem(SESSION_DRAFTS_STORAGE_KEY)"
+        },
+        {
+          "line": 146,
+          "text": "window.localStorage.setItem(SESSION_DRAFTS_STORAGE_KEY, JSON.stringify(Object.fromEntries(entries)))"
+        },
+        {
+          "line": 153,
+          "text": "export function stashSessionDraft(scope: string | null | undefined, text: string, attachments: ComposerAttachment[]) {"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-session-state-cache.ts",
+      "sha256": "6a8ad52c6d72efe6e0dfb46ce5f0dc7f90d9f912e73a559793dde33b801e5e9e",
+      "lines": 311,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 36,
+          "text": "function syncRuntimeMetadataToView(state: ClientSessionState) {"
+        },
+        {
+          "line": 46,
+          "text": "export function useSessionStateCache({"
+        },
+        {
+          "line": 82,
+          "text": "const sessionStateByRuntimeIdRef = useRef(new Map<string, ClientSessionState>())"
+        },
+        {
+          "line": 83,
+          "text": "const runtimeIdByStoredSessionIdRef = useRef(new Map<string, string>())"
+        },
+        {
+          "line": 95,
+          "text": "const ensureSessionState = useCallback((sessionId: string, storedSessionId?: string | null) => {"
+        },
+        {
+          "line": 99,
+          "text": "if (storedSessionId !== undefined && storedSessionId !== existing.storedSessionId) {"
+        },
+        {
+          "line": 103,
+          "text": "const updated = { ...existing, storedSessionId }"
+        },
+        {
+          "line": 113,
+          "text": "if (existing.storedSessionId && existing.storedSessionId !== storedSessionId) {"
+        },
+        {
+          "line": 114,
+          "text": "runtimeIdByStoredSessionIdRef.current.delete(existing.storedSessionId)"
+        },
+        {
+          "line": 117,
+          "text": "if (storedSessionId) {"
+        },
+        {
+          "line": 118,
+          "text": "runtimeIdByStoredSessionIdRef.current.set(storedSessionId, sessionId)"
+        },
+        {
+          "line": 125,
+          "text": "const created = createClientSessionState(storedSessionId ?? null)"
+        },
+        {
+          "line": 128,
+          "text": "if (storedSessionId) {"
+        },
+        {
+          "line": 129,
+          "text": "runtimeIdByStoredSessionIdRef.current.set(storedSessionId, sessionId)"
+        },
+        {
+          "line": 268,
+          "text": "storedSessionId?: string | null"
+        },
+        {
+          "line": 270,
+          "text": "const previous = ensureSessionState(sessionId, storedSessionId)"
+        },
+        {
+          "line": 288,
+          "text": "const getRuntimeIdForStoredSession = useCallback((storedSessionId: string): string | null => {"
+        },
+        {
+          "line": 289,
+          "text": "const runtimeId = runtimeIdByStoredSessionIdRef.current.get(storedSessionId)"
+        },
+        {
+          "line": 297,
+          "text": "return runtimeState?.storedSessionId === storedSessionId ? runtimeId : null"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-session-actions/index.ts",
+      "sha256": "1f620fa503eecf3dc6e268eccfa88db17b77f1e2a690f632ea116dd669bd9ea1",
+      "lines": 1448,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 6,
+          "text": "import { deleteSession, getSessionMessages, setSessionArchived } from '@/hermes'"
+        },
+        {
+          "line": 149,
+          "text": "// `session.create` params from the current profile + sticky-UI model/effort/fast,"
+        },
+        {
+          "line": 344,
+          "text": "// Never clear the composer here — ChatBar's per-thread draft swap owns it."
+        },
+        {
+          "line": 371,
+          "text": "const created = await requestGateway<SessionCreateResponse>('session.create', params)"
+        },
+        {
+          "line": 377,
+          "text": "// stream (#47709 class), and the seconds-long session.create round-trip"
+        },
+        {
+          "line": 487,
+          "text": "const created = await requestGateway<SessionCreateResponse>('session.create', params)"
+        },
+        {
+          "line": 668,
+          "text": ": getSessionMessages(storedSessionId, sessionProfile).catch(() => null)"
+        },
+        {
+          "line": 847,
+          "text": "const prefetchPromise = watchWindow ? null : getSessionMessages(storedSessionId, sessionProfile)"
+        },
+        {
+          "line": 849,
+          "text": "const resumePromise = requestGateway<SessionResumeResponse>('session.resume', {"
+        },
+        {
+          "line": 1012,
+          "text": "const fallback = await getSessionMessages(storedSessionId, sessionProfile)"
+        },
+        {
+          "line": 1049,
+          "text": "// A session created THIS run isn't gone — its backend just flapped"
+        },
+        {
+          "line": 1123,
+          "text": "const branched = await requestGateway<SessionCreateResponse>('session.create', {"
+        },
+        {
+          "line": 1256,
+          "text": "const { messages } = await getSessionMessages(storedSessionId, profile)"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-prompt-actions/submit.ts",
+      "sha256": "859e0b6c2be7b5610a32c8da3d01ddb74129799166e3116159e2531a42b92a9e",
+      "lines": 677,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 31,
+          "text": "_submitInFlight,"
+        },
+        {
+          "line": 34,
+          "text": "isGatewayTimeoutError,"
+        },
+        {
+          "line": 54,
+          "text": "syncAttachmentsForSubmit: ("
+        },
+        {
+          "line": 86,
+          "text": "/** The prompt submit pipeline, extracted from usePromptActions. */"
+        },
+        {
+          "line": 87,
+          "text": "export function useSubmitPrompt(deps: SubmitPromptDeps) {"
+        },
+        {
+          "line": 99,
+          "text": "syncAttachmentsForSubmit,"
+        },
+        {
+          "line": 255,
+          "text": "if (_submitInFlight.has(submitLockKey)) {"
+        },
+        {
+          "line": 259,
+          "text": "_submitInFlight.add(submitLockKey)"
+        },
+        {
+          "line": 265,
+          "text": "_submitInFlight.delete(submitLockKey)"
+        },
+        {
+          "line": 506,
+          "text": "// chat: no prompt.submit, no DB row, a stranded route that 404s"
+        },
+        {
+          "line": 524,
+          "text": "const syncedAttachments = await syncAttachmentsForSubmit(sessionId, attachments, {"
+        },
+        {
+          "line": 543,
+          "text": "const submitParams = (targetId: string) => ({"
+        },
+        {
+          "line": 556,
+          "text": "requestGateway('prompt.submit', submitParams(sessionId), PROMPT_SUBMIT_REQUEST_TIMEOUT_MS)"
+        },
+        {
+          "line": 561,
+          "text": "if ((isSessionNotFoundError(firstErr) || isGatewayTimeoutError(firstErr)) && recoverStoredSessionId) {"
+        },
+        {
+          "line": 591,
+          "text": "requestGateway('prompt.submit', submitParams(recoveredId), PROMPT_SUBMIT_REQUEST_TIMEOUT_MS)"
+        },
+        {
+          "line": 673,
+          "text": "syncAttachmentsForSubmit,"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-prompt-actions/index.ts",
+      "sha256": "4918d34ced24d5748691250c6073140e76b40f0cd01be2118141c0f875adfb09",
+      "lines": 933,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 79,
+          "text": "* Stage one file/image attachment into the session workspace and return the"
+        },
+        {
+          "line": 86,
+          "text": "export async function uploadComposerAttachment("
+        },
+        {
+          "line": 110,
+          "text": "result = await requestGateway<ImageAttachResponse>('image.attach_bytes', {"
+        },
+        {
+          "line": 116,
+          "text": "result = await requestGateway<ImageAttachResponse>('image.attach', {"
+        },
+        {
+          "line": 152,
+          "text": "const result = await requestGateway<FileAttachResponse>('file.attach', {"
+        },
+        {
+          "line": 202,
+          "text": "export function usePromptActions({"
+        },
+        {
+          "line": 281,
+          "text": "// file.attach twice and stage duplicate copies on the gateway."
+        },
+        {
+          "line": 299,
+          "text": "// call file.attach and stage duplicate files. After it settles, take the"
+        },
+        {
+          "line": 348,
+          "text": "// small and still byte-upload at submit via image.attach_bytes."
+        },
+        {
+          "line": 555,
+          "text": "// from a new-chat draft), sending session.interrupt to the wrong session."
+        },
+        {
+          "line": 587,
+          "text": "interrupted: true,"
+        },
+        {
+          "line": 603,
+          "text": "await requestGateway('session.interrupt', { session_id: sessionId })"
+        },
+        {
+          "line": 622,
+          "text": "await requestGateway('session.interrupt', { session_id: recoveredId })"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-prompt-actions/utils.ts",
+      "sha256": "096cc1557316f0cef0ff3753b940cd7b52ed20d9fafad7bb1d3cbca6738d0444",
+      "lines": 404,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 87,
+          "text": "export function isGatewayTimeoutError(error: unknown): boolean {"
+        },
+        {
+          "line": 101,
+          "text": "export function isSessionBusyError(error: unknown): boolean {"
+        },
+        {
+          "line": 109,
+          "text": "export async function withSessionBusyRetry<T>(call: () => Promise<T>): Promise<T> {"
+        },
+        {
+          "line": 116,
+          "text": "if (isSessionBusyError(err) && Date.now() < deadline) {"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-message-stream/index.ts",
+      "sha256": "d6a1c8e6ef488f9a12e91193f601dd8306d64cb92f05c944b6f4113a6ac5a164",
+      "lines": 675,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 32,
+          "text": "import { completionErrorText, delegateTaskPayloads, STREAM_DELTA_FLUSH_MS } from './utils'"
+        },
+        {
+          "line": 65,
+          "text": "export function useMessageStream({"
+        },
+        {
+          "line": 97,
+          "text": "if (state.interrupted) {"
+        },
+        {
+          "line": 194,
+          "text": "const flushQueuedDeltas = useCallback("
+        },
+        {
+          "line": 234,
+          "text": "flushQueuedDeltas()"
+        },
+        {
+          "line": 251,
+          "text": "flushQueuedDeltas()"
+        },
+        {
+          "line": 268,
+          "text": "flushHandleRef.current = window.setTimeout(runFlush, Math.max(0, STREAM_DELTA_FLUSH_MS - sinceLast))"
+        },
+        {
+          "line": 269,
+          "text": "}, [flushQueuedDeltas])"
+        },
+        {
+          "line": 292,
+          "text": "flushQueuedDeltas()"
+        },
+        {
+          "line": 294,
+          "text": "[flushQueuedDeltas]"
+        },
+        {
+          "line": 320,
+          "text": "flushQueuedDeltas(sessionId)"
+        },
+        {
+          "line": 338,
+          "text": "[flushQueuedDeltas, mutateStream, queueDelta]"
+        },
+        {
+          "line": 341,
+          "text": "const upsertToolCall = useCallback("
+        },
+        {
+          "line": 350,
+          "text": "flushQueuedDeltas(sessionId)"
+        },
+        {
+          "line": 384,
+          "text": "[flushQueuedDeltas, mutateStream, sessionInterrupted]"
+        },
+        {
+          "line": 390,
+          "text": "if (state.interrupted) {"
+        },
+        {
+          "line": 443,
+          "text": "const completeAssistantMessage = useCallback("
+        },
+        {
+          "line": 452,
+          "text": "if (state.interrupted) {"
+        },
+        {
+          "line": 655,
+          "text": "completeAssistantMessage,"
+        },
+        {
+          "line": 657,
+          "text": "flushQueuedDeltas,"
+        },
+        {
+          "line": 664,
+          "text": "upsertToolCall"
+        },
+        {
+          "line": 670,
+          "text": "completeAssistantMessage,"
+        },
+        {
+          "line": 673,
+          "text": "upsertToolCall"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-message-stream/gateway-event.ts",
+      "sha256": "a8f280c7ae543312e5abf7c17887c30b6f8a55547c638abcbd4bd2506181fdb3",
+      "lines": 1042,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 137,
+          "text": "failAssistantMessage: (sessionId: string, errorMessage: string) => void"
+        },
+        {
+          "line": 149,
+          "text": "upsertToolCall: ("
+        },
+        {
+          "line": 168,
+          "text": "failAssistantMessage,"
+        },
+        {
+          "line": 176,
+          "text": "upsertToolCall"
+        },
+        {
+          "line": 245,
+          "text": "if (event.type === 'gateway.ready') {"
+        },
+        {
+          "line": 251,
+          "text": "} else if (event.type === 'skin.changed') {"
+        },
+        {
+          "line": 262,
+          "text": "} else if (event.type === 'session.info') {"
+        },
+        {
+          "line": 435,
+          "text": "} else if (event.type === 'message.start') {"
+        },
+        {
+          "line": 479,
+          "text": "} else if (event.type === 'message.delta') {"
+        },
+        {
+          "line": 483,
+          "text": "} else if (event.type === 'message.interim') {"
+        },
+        {
+          "line": 496,
+          "text": "} else if (event.type === 'thinking.delta') {"
+        },
+        {
+          "line": 501,
+          "text": "} else if (event.type === 'reaction') {"
+        },
+        {
+          "line": 507,
+          "text": "} else if (event.type === 'reasoning.delta') {"
+        },
+        {
+          "line": 515,
+          "text": "} else if (event.type === 'reasoning.available') {"
+        },
+        {
+          "line": 523,
+          "text": "} else if (event.type === 'moa.reference') {"
+        },
+        {
+          "line": 559,
+          "text": "} else if (event.type === 'moa.aggregating') {"
+        },
+        {
+          "line": 565,
+          "text": "} else if (event.type === 'moa.progress') {"
+        },
+        {
+          "line": 585,
+          "text": "} else if (event.type === 'moa.phase') {"
+        },
+        {
+          "line": 597,
+          "text": "} else if (event.type === 'message.complete') {"
+        },
+        {
+          "line": 671,
+          "text": "} else if (event.type === 'session.title') {"
+        },
+        {
+          "line": 679,
+          "text": "} else if (event.type === 'tool.start' || event.type === 'tool.progress' || event.type === 'tool.generating') {"
+        },
+        {
+          "line": 685,
+          "text": "upsertToolCall(sessionId, toTodoPayload(payload) ?? payload, 'running', event.type)"
+        },
+        {
+          "line": 690,
+          "text": "} else if (event.type === 'tool.complete') {"
+        },
+        {
+          "line": 693,
+          "text": "upsertToolCall(sessionId, toTodoPayload(payload) ?? payload, 'complete', event.type)"
+        },
+        {
+          "line": 732,
+          "text": "event.type === 'subagent.spawn_requested' || event.type === 'subagent.start',"
+        },
+        {
+          "line": 736,
+          "text": "} else if (event.type === 'clarify.request') {"
+        },
+        {
+          "line": 772,
+          "text": "upsertToolCall(sessionId, { args: { choices, question }, name: 'clarify', tool_id: requestId }, 'running')"
+        },
+        {
+          "line": 789,
+          "text": "} else if (event.type === 'approval.request') {"
+        },
+        {
+          "line": 825,
+          "text": "} else if (event.type === 'sudo.request') {"
+        },
+        {
+          "line": 844,
+          "text": "} else if (event.type === 'secret.request') {"
+        },
+        {
+          "line": 871,
+          "text": "} else if (event.type === 'terminal.read.request') {"
+        },
+        {
+          "line": 886,
+          "text": "} else if (event.type === 'agent.terminal.output') {"
+        },
+        {
+          "line": 889,
+          "text": "} else if (event.type === 'terminal.close') {"
+        },
+        {
+          "line": 893,
+          "text": "} else if (event.type === 'pane.reveal') {"
+        },
+        {
+          "line": 901,
+          "text": "} else if (event.type === 'status.update') {"
+        },
+        {
+          "line": 913,
+          "text": "} else if (event.type === 'review.summary') {"
+        },
+        {
+          "line": 939,
+          "text": "} else if (event.type === 'notification.show') {"
+        },
+        {
+          "line": 965,
+          "text": "} else if (event.type === 'notification.clear') {"
+        },
+        {
+          "line": 970,
+          "text": "} else if (event.type === 'error') {"
+        },
+        {
+          "line": 1014,
+          "text": "failAssistantMessage(sessionId, errorMessage)"
+        },
+        {
+          "line": 1029,
+          "text": "failAssistantMessage,"
+        },
+        {
+          "line": 1039,
+          "text": "upsertToolCall"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/src/app/chat/hooks/use-composer-actions.ts",
+      "sha256": "f6dbfa6f305907881cfec7b18a9f4240889cd2432da2a2c3868d889c6e21c51f",
+      "lines": 662,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 8,
+          "text": "import { readDesktopFileDataUrl, selectDesktopPaths } from '@/lib/desktop-fs'"
+        },
+        {
+          "line": 33,
+          "text": "function blobExtension(blob: Blob): string {"
+        },
+        {
+          "line": 39,
+          "text": "export function isImagePath(filePath: string): boolean {"
+        },
+        {
+          "line": 52,
+          "text": "export async function attachmentPreviewDataUrl(filePath: string): Promise<string> {"
+        },
+        {
+          "line": 93,
+          "text": "export function extractDroppedFiles(transfer: DataTransfer): DroppedFile[] {"
+        },
+        {
+          "line": 138,
+          "text": "// that routes it to a `@folder:` ref / folder attachment (like the folder"
+        },
+        {
+          "line": 193,
+          "text": "const entry = typeof item.webkitGetAsEntry === 'function' ? item.webkitGetAsEntry() : null"
+        },
+        {
+          "line": 234,
+          "text": "* resolves on the gateway as-is, so it stays an inline `@file:`/`@line:` ref."
+        },
+        {
+          "line": 240,
+          "text": "export function partitionDroppedFiles(candidates: DroppedFile[]): {"
+        },
+        {
+          "line": 279,
+          "text": "export function useComposerActions({"
+        },
+        {
+          "line": 317,
+          "text": "const kind: ComposerAttachment['kind'] = refText.startsWith('@folder:')"
+        },
+        {
+          "line": 336,
+          "text": "const paths = await selectDesktopPaths({"
+        },
+        {
+          "line": 395,
+          "text": "refText: `@file:${formatRefValue(rel)}`,"
+        },
+        {
+          "line": 437,
+          "text": "const attachImageBlob = useCallback("
+        },
+        {
+          "line": 469,
+          "text": "const paths = await selectDesktopPaths({"
+        },
+        {
+          "line": 489,
+          "text": "const pasteClipboardImage = useCallback("
+        },
+        {
+          "line": 533,
+          "text": "refText: `@folder:${formatRefValue(rel)}`,"
+        },
+        {
+          "line": 598,
+          "text": "if ((filePath && (await attachImagePath(filePath))) || (await attachImageBlob(file))) {"
+        },
+        {
+          "line": 624,
+          "text": "[attachContextFilePath, attachContextFolderPath, attachImageBlob, attachImagePath, copy.dropFiles]"
+        },
+        {
+          "line": 654,
+          "text": "attachImageBlob,"
+        },
+        {
+          "line": 657,
+          "text": "pasteClipboardImage,"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/src/app/chat/composer/hooks/use-composer-drop.ts",
+      "sha256": "3c87435f6c6abb9dde00f47f4442ab4f96a0b1ceb9248de8f03bbbec937d6e76",
+      "lines": 164,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 5,
+          "text": "import { extractDroppedFiles, HERMES_PATHS_MIME, partitionDroppedFiles } from '../../hooks/use-composer-actions'"
+        },
+        {
+          "line": 23,
+          "text": "export function useComposerDrop({"
+        },
+        {
+          "line": 90,
+          "text": "const { inAppRefs, osDrops } = partitionDroppedFiles(candidates)"
+        },
+        {
+          "line": 97,
+          "text": "if (osDrops.length) {"
+        },
+        {
+          "line": 98,
+          "text": "void Promise.resolve(onAttachDroppedItems(osDrops)).then(attached => {"
+        },
+        {
+          "line": 138,
+          "text": "const { inAppRefs, osDrops } = partitionDroppedFiles(candidates)"
+        },
+        {
+          "line": 145,
+          "text": "if (attach && osDrops.length) {"
+        },
+        {
+          "line": 146,
+          "text": "void Promise.resolve(attach(osDrops)).then(attached => {"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/src/app/chat/composer/hooks/use-composer-draft.ts",
+      "sha256": "f9ad5a1a40a774cf10d3881b59dea20074f9d6398fc0f4645ad836608d5f5565",
+      "lines": 413,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 5,
+          "text": "import { type ComposerAttachment, stashSessionDraft, takeSessionDraft } from '@/store/composer'"
+        },
+        {
+          "line": 45,
+          "text": "export function useComposerDraft({"
+        },
+        {
+          "line": 189,
+          "text": "stashSessionDraft(scope, text, attachments)"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/src/app/chat/composer/hooks/use-composer-url-dialog.ts",
+      "sha256": "7f0df8ff672756155b0e2768999c23e0c7a39a67cddc39279bb4cce2e3d7a321",
+      "lines": 50,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 7,
+          "text": "onAddUrl?: (url: string) => void"
+        },
+        {
+          "line": 13,
+          "text": "* otherwise drops an `@url:` directive into the draft."
+        },
+        {
+          "line": 15,
+          "text": "export function useComposerUrlDialog({ insertText, onAddUrl }: UseComposerUrlDialogOptions) {"
+        },
+        {
+          "line": 16,
+          "text": "const urlInputRef = useRef<HTMLInputElement | null>(null)"
+        },
+        {
+          "line": 17,
+          "text": "const [urlOpen, setUrlOpen] = useState(false)"
+        },
+        {
+          "line": 18,
+          "text": "const [urlValue, setUrlValue] = useState('')"
+        },
+        {
+          "line": 21,
+          "text": "if (urlOpen) {"
+        },
+        {
+          "line": 22,
+          "text": "window.requestAnimationFrame(() => urlInputRef.current?.focus({ preventScroll: true }))"
+        },
+        {
+          "line": 24,
+          "text": "}, [urlOpen])"
+        },
+        {
+          "line": 32,
+          "text": "const url = urlValue.trim()"
+        },
+        {
+          "line": 34,
+          "text": "if (!url) {"
+        },
+        {
+          "line": 39,
+          "text": "onAddUrl(url)"
+        },
+        {
+          "line": 41,
+          "text": "insertText(`@url:${url}`)"
+        },
+        {
+          "line": 49,
+          "text": "return { openUrlDialog, setUrlOpen, setUrlValue, submitUrl, urlInputRef, urlOpen, urlValue }"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/src/lib/desktop-fs.ts",
+      "sha256": "1e144ff5e49a89247eb82e94009c289bde41e8e8d6c62999bb4c940db50930bc",
+      "lines": 191,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 10,
+          "text": "selectPaths: (options?: HermesSelectPathsOptions) => Promise<string[]>"
+        },
+        {
+          "line": 15,
+          "text": "export function setDesktopFsRemotePicker(next: DesktopFsRemotePicker | null) {"
+        },
+        {
+          "line": 19,
+          "text": "function connectionCacheKey(connection: HermesConnection | null) {"
+        },
+        {
+          "line": 32,
+          "text": "export function desktopFsCacheKey() {"
+        },
+        {
+          "line": 36,
+          "text": "export function isDesktopFsRemoteMode() {"
+        },
+        {
+          "line": 42,
+          "text": "export function desktopFsProfile(): string | undefined {"
+        },
+        {
+          "line": 46,
+          "text": "function fsPath(endpoint: string, filePath: string) {"
+        },
+        {
+          "line": 50,
+          "text": "function bridge() {"
+        },
+        {
+          "line": 60,
+          "text": "function remoteFsApi<T>(path: string, body?: Record<string, unknown>): Promise<T> {"
+        },
+        {
+          "line": 66,
+          "text": "export async function readDesktopDir(path: string): Promise<HermesReadDirResult> {"
+        },
+        {
+          "line": 74,
+          "text": "export async function readDesktopFileText(path: string): Promise<HermesReadFileTextResult> {"
+        },
+        {
+          "line": 86,
+          "text": "export async function writeDesktopFileText(path: string, content: string): Promise<{ path: string }> {"
+        },
+        {
+          "line": 102,
+          "text": "export async function readDesktopFileDataUrl(path: string): Promise<string> {"
+        },
+        {
+          "line": 104,
+          "text": "return bridge().readFileDataUrl(path)"
+        },
+        {
+          "line": 112,
+          "text": "export async function desktopGitRoot(path: string): Promise<string | null> {"
+        },
+        {
+          "line": 122,
+          "text": "export async function desktopDefaultCwd(): Promise<{ branch: string; cwd: string } | null> {"
+        },
+        {
+          "line": 131,
+          "text": "export async function revealDesktopPath(path: string): Promise<void> {"
+        },
+        {
+          "line": 136,
+          "text": "export async function renameDesktopPath(path: string, newName: string): Promise<string> {"
+        },
+        {
+          "line": 149,
+          "text": "export async function trashDesktopPath(path: string): Promise<void> {"
+        },
+        {
+          "line": 159,
+          "text": "export async function copyTextToClipboard(text: string): Promise<void> {"
+        },
+        {
+          "line": 165,
+          "text": "export async function desktopFileDiff(repoRoot: string, filePath: string): Promise<string> {"
+        },
+        {
+          "line": 179,
+          "text": "export async function selectDesktopPaths(options?: HermesSelectPathsOptions): Promise<string[]> {"
+        },
+        {
+          "line": 183,
+          "text": "return desktop.selectPaths(options)"
+        },
+        {
+          "line": 187,
+          "text": "return desktop.selectPaths(options)"
+        },
+        {
+          "line": 190,
+          "text": "return remotePicker ? remotePicker.selectPaths({ ...options, multiple: false }) : []"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/src/components/assistant-ui/tool/fallback.tsx",
+      "sha256": "81c8bda86e1c45779d5d5dda4e176af5778cd91ae841e89e8f24f3db037747fb",
+      "lines": 849,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 41,
+          "text": "import { recordPreviewArtifact } from '@/store/preview-status'"
+        },
+        {
+          "line": 88,
+          "text": "// than a chrome heading. Used for \"stdout\", \"stderr\", \"Search results\", etc."
+        },
+        {
+          "line": 100,
+          "text": "// Raw args/result dump — reference material, so a notch smaller than a body."
+        },
+        {
+          "line": 111,
+          "text": "function ToolPayloadDisclosure({ args, result }: { args: unknown; result: unknown }) {"
+        },
+        {
+          "line": 131,
+          "text": "{technicalTrace(args, result)}"
+        },
+        {
+          "line": 139,
+          "text": "statusDone: string"
+        },
+        {
+          "line": 140,
+          "text": "statusError: string"
+        },
+        {
+          "line": 141,
+          "text": "statusRecovered: string"
+        },
+        {
+          "line": 142,
+          "text": "statusRunning: string"
+        },
+        {
+          "line": 169,
+          "text": "export function technicalTrace(args: unknown, result: unknown): string {"
+        },
+        {
+          "line": 172,
+          "text": "['Result', result]"
+        },
+        {
+          "line": 180,
+          "text": "function statusGlyph(status: ToolStatus, copy: ToolStatusCopy): ReactNode {"
+        },
+        {
+          "line": 181,
+          "text": "if (status === 'running') {"
+        },
+        {
+          "line": 184,
+          "text": "ariaLabel={copy.statusRunning}"
+        },
+        {
+          "line": 191,
+          "text": "if (status === 'error') {"
+        },
+        {
+          "line": 192,
+          "text": "return <AlertCircle aria-label={copy.statusError} className=\"size-3.5 shrink-0 text-destructive\" />"
+        },
+        {
+          "line": 195,
+          "text": "if (status === 'warning') {"
+        },
+        {
+          "line": 197,
+          "text": "<AlertCircle aria-label={copy.statusRecovered} className=\"size-3.5 shrink-0 text-amber-600 dark:text-amber-400\" />"
+        },
+        {
+          "line": 203,
+          "text": "aria-label={copy.statusDone}"
+        },
+        {
+          "line": 216,
+          "text": "status"
+        },
+        {
+          "line": 221,
+          "text": "status?: ToolStatus"
+        },
+        {
+          "line": 223,
+          "text": "const node = status ? ("
+        },
+        {
+          "line": 224,
+          "text": "statusGlyph(status, copy)"
+        },
+        {
+          "line": 234,
+          "text": "// Which status (if any) should pre-empt the tool's icon in the leading"
+        },
+        {
+          "line": 236,
+          "text": "function leadingStatus(isPending: boolean, status: ToolStatus): ToolStatus | undefined {"
+        },
+        {
+          "line": 241,
+          "text": "return status === 'success' ? undefined : status"
+        },
+        {
+          "line": 277,
+          "text": "status,"
+        },
+        {
+          "line": 282,
+          "text": "status: ToolStatus"
+        },
+        {
+          "line": 291,
+          "text": "status === 'error' && 'text-destructive',"
+        },
+        {
+          "line": 292,
+          "text": "status === 'warning' && 'text-amber-700 dark:text-amber-300'"
+        },
+        {
+          "line": 321,
+          "text": "const statusCopy = t.statusStack"
+        },
+        {
+          "line": 328,
+          "text": "// below and re-running buildToolView (full JSON.stringify of result) on every"
+        },
+        {
+          "line": 330,
+          "text": "// the referentially-stable args/result so the memos hold across deltas."
+        },
+        {
+          "line": 331,
+          "text": "const { args, isError, result, toolCallId, toolName } = part"
+        },
+        {
+          "line": 334,
+          "text": "() => ({ args, isError, result, toolCallId, toolName, type: 'tool-call' }),"
+        },
+        {
+          "line": 335,
+          "text": "[args, isError, result, toolCallId, toolName]"
+        },
+        {
+          "line": 340,
+          "text": "const isPending = messageRunning && result === undefined"
+        },
+        {
+          "line": 343,
+          "text": "const sideDiff = useStore($toolInlineDiff(toolCallId ?? ''))"
+        },
+        {
+          "line": 344,
+          "text": "const inlineDiff = stripInlineDiffChrome(sideDiff) || inlineDiffFromResult(result)"
+        },
+        {
+          "line": 356,
+          "text": "// Stale parts (no result, but message stopped running) get a synthetic empty"
+        },
+        {
+          "line": 357,
+          "text": "// result so buildToolView treats them as completed-no-output. Keyed on"
+        },
+        {
+          "line": 360,
+          "text": "const p = !isPending && result === undefined ? { ...stablePart, result: {} } : stablePart"
+        },
+        {
+          "line": 363,
+          "text": "}, [inlineDiff, isPending, result, stablePart])"
+        },
+        {
+          "line": 366,
+          "text": "// in the composer status stack rather than a bulky inline card. Uses the same"
+        },
+        {
+          "line": 391,
+          "text": "if (view.status !== 'error') {"
+        },
+        {
+          "line": 409,
+          "text": "}, [view.detail, view.status, view.subtitle])"
+        },
+        {
+          "line": 412,
+          "text": "// read_file / terminal result can be huge. Memoize on the view fields so it"
+        },
+        {
+          "line": 421,
+          "text": "(view.status === 'error' && Boolean(detailSections.summary || detailSections.body)) ||"
+        },
+        {
+          "line": 422,
+          "text": "(view.status !== 'error' && Boolean(view.detail) && !detailMatchesTitle && !detailMatchesSubtitle))"
+        },
+        {
+          "line": 425,
+          "text": "view.status !== 'error' &&"
+        },
+        {
+          "line": 429,
+          "text": "const searchResultsLabel = part.toolName === 'web_search' ? 'Search results' : view.detailLabel"
+        },
+        {
+          "line": 467,
+          "text": "<Tip label={statusCopy.dismiss}>"
+        },
+        {
+          "line": 469,
+          "text": "aria-label={statusCopy.dismiss}"
+        },
+        {
+          "line": 495,
+          "text": "// persists its diff in the tool result, so creates rehydrate diff-less and"
+        },
+        {
+          "line": 498,
+          "text": "if (isFileEdit && !isPending && view.status !== 'error' && !view.inlineDiff) {"
+        },
+        {
+          "line": 529,
+          "text": "status={leadingStatus(isPending, view.status)}"
+        },
+        {
+          "line": 531,
+          "text": "<ToolTitle isPending={isPending} status={view.status} title={view.title} titleAction={view.titleAction} />"
+        },
+        {
+          "line": 589,
+          "text": "(view.status === 'error' ? ("
+        },
+        {
+          "line": 658,
+          "text": "{toolViewMode === 'technical' && <ToolPayloadDisclosure args={part.args} result={part.result} />}"
+        },
+        {
+          "line": 716,
+          "text": "//     reads rather than a one-line status — peering at a diff through a"
+        },
+        {
+          "line": 724,
+          "text": "export function isUnboundableTool(toolName: string): boolean {"
+        },
+        {
+          "line": 728,
+          "text": "export function shouldBoundToolGroup(childCount: number, hasUnboundable: boolean) {"
+        },
+        {
+          "line": 845,
+          "text": "export const ToolFallback = ({ toolCallId, toolName, args, isError, result }: ToolCallMessagePartProps) => {"
+        },
+        {
+          "line": 846,
+          "text": "const part: ToolPart = { args, isError, result, toolCallId, toolName, type: 'tool-call' }"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/src/app/artifacts/artifact-utils.ts",
+      "sha256": "4d92c7fbce33a2ca5983b791d511a2c81da74a93bfa53fdee4d9c095a3eb63a6",
+      "lines": 282,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 9,
+          "text": "export interface ArtifactRecord {"
+        },
+        {
+          "line": 209,
+          "text": "if (message.role !== 'tool' && !Array.isArray(message.tool_calls)) {"
+        },
+        {
+          "line": 246,
+          "text": "export function collectArtifactsForSession(session: SessionInfo, messages: SessionMessage[]): ArtifactRecord[] {"
+        },
+        {
+          "line": 251,
+          "text": "if (message.role !== 'assistant' && message.role !== 'tool') {"
+        },
+        {
+          "line": 262,
+          "text": "const key = `${session.id}:${value}`"
+        },
+        {
+          "line": 268,
+          "text": "found.set(key, {"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/src/app/artifacts/index.tsx",
+      "sha256": "a8bed89bc9a3f0be9b5c68251ac0285f3b07e4d91e20d0c6c41f6d8396c839f5",
+      "lines": 676,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 20,
+          "text": "import { getSessionMessages, listAllProfileSessions } from '@/hermes'"
+        },
+        {
+          "line": 41,
+          "text": "collectArtifactsForSession"
+        },
+        {
+          "line": 105,
+          "text": "export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...props }: ArtifactsViewProps) {"
+        },
+        {
+          "line": 124,
+          "text": "const sessions = (await listAllProfileSessions(30, 1)).sessions"
+        },
+        {
+          "line": 125,
+          "text": "const results = await Promise.allSettled(sessions.map(session => getSessionMessages(session.id, session.profile)))"
+        },
+        {
+          "line": 129,
+          "text": "if (result.status !== 'fulfilled') {"
+        },
+        {
+          "line": 134,
+          "text": "nextArtifacts.push(...collectArtifactsForSession(session, result.value.messages))"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/src/types/hermes.ts",
+      "sha256": "3e75cc9189e4c6ba0433180a509f2524ce88bbe665ce80ca3ad878a992d44a74",
+      "lines": 1331,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 423,
+          "text": "export interface SessionCreateResponse {"
+        },
+        {
+          "line": 431,
+          "text": "export interface SessionInfo {"
+        },
+        {
+          "line": 489,
+          "text": "export interface SessionMessage {"
+        },
+        {
+          "line": 507,
+          "text": "tool_calls?: unknown"
+        },
+        {
+          "line": 511,
+          "text": "export interface SessionMessagesResponse {"
+        },
+        {
+          "line": 516,
+          "text": "export interface SessionResumeResponse {"
+        },
+        {
+          "line": 548,
+          "text": "export interface SessionRuntimeInfo {"
+        },
+        {
+          "line": 1012,
+          "text": "export interface SessionSearchResult {"
+        },
+        {
+          "line": 1025,
+          "text": "export interface SessionSearchResponse {"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/electron/preload.ts",
+      "sha256": "0533209a7ecbdc77f9601660a375a92f4dd50f2cce950a8833ceb68278f9354b",
+      "lines": 272,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 4,
+          "text": "getConnection: profile => ipcRenderer.invoke('hermes:connection', profile),"
+        },
+        {
+          "line": 62,
+          "text": "api: request => ipcRenderer.invoke('hermes:api', request),"
+        },
+        {
+          "line": 65,
+          "text": "readFileDataUrl: filePath => ipcRenderer.invoke('hermes:readFileDataUrl', filePath),"
+        },
+        {
+          "line": 67,
+          "text": "selectPaths: options => ipcRenderer.invoke('hermes:selectPaths', options),"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "apps/desktop/electron/main.ts",
+      "sha256": "0b184d8d114126ad77ca16ce5b42a410a677de13d5548825c1bc68f80eb6ab4e",
+      "lines": 11081,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 5784,
+          "text": "contextIsolation: true,"
+        },
+        {
+          "line": 5785,
+          "text": "nodeIntegration: false,"
+        },
+        {
+          "line": 6305,
+          "text": "contextIsolation: true,"
+        },
+        {
+          "line": 6306,
+          "text": "nodeIntegration: false,"
+        },
+        {
+          "line": 8570,
+          "text": "contextIsolation: true,"
+        },
+        {
+          "line": 8572,
+          "text": "nodeIntegration: false,"
+        },
+        {
+          "line": 9754,
+          "text": "ipcMain.handle('hermes:readFileDataUrl', async (_event, filePath) => {"
+        },
+        {
+          "line": 9793,
+          "text": "ipcMain.handle('hermes:selectPaths', async (_event, options: any = {}) => {"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "tui_gateway/server.py",
+      "sha256": "16dfa70edb05f9613d6b8abf9016c235b2eed1862c64430b4de8133ce069e5f1",
+      "lines": 18064,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 1463,
+          "text": "_emit(\"message.complete\", sid, {\"text\": f\"Error: {message}\", \"status\": \"error\"})"
+        },
+        {
+          "line": 2275,
+          "text": "def _ensure_session_db_row(session: dict) -> None:"
+        },
+        {
+          "line": 4641,
+          "text": "def _on_tool_start(sid: str, tool_call_id: str, name: str, args: dict):"
+        },
+        {
+          "line": 4668,
+          "text": "def _on_tool_complete(sid: str, tool_call_id: str, name: str, args: dict, result: str):"
+        },
+        {
+          "line": 4921,
+          "text": "_emit(\"message.start\", csid)"
+        },
+        {
+          "line": 4930,
+          "text": "_emit(\"message.delta\", csid, {\"text\": text})"
+        },
+        {
+          "line": 4935,
+          "text": "_emit(\"message.delta\", csid, {\"text\": f\"{text}\\n\"})"
+        },
+        {
+          "line": 4953,
+          "text": "_emit(\"message.complete\", csid, {\"text\": summary})"
+        },
+        {
+          "line": 5614,
+          "text": "def _make_agent("
+        },
+        {
+          "line": 6524,
+          "text": "_emit(\"message.start\", sid)"
+        },
+        {
+          "line": 6760,
+          "text": "_emit(\"message.complete\", sid, payload)"
+        },
+        {
+          "line": 6781,
+          "text": "@method(\"session.create\")"
+        },
+        {
+          "line": 7186,
+          "text": "@method(\"session.resume\")"
+        },
+        {
+          "line": 10319,
+          "text": "@method(\"session.interrupt\")"
+        },
+        {
+          "line": 10688,
+          "text": "@method(\"prompt.submit\")"
+        },
+        {
+          "line": 11129,
+          "text": "_emit(\"message.start\", sid)"
+        },
+        {
+          "line": 11207,
+          "text": "_emit(\"message.start\", sid)"
+        },
+        {
+          "line": 11343,
+          "text": "def _run_prompt_submit("
+        },
+        {
+          "line": 11363,
+          "text": "_emit(\"message.start\", sid)"
+        },
+        {
+          "line": 11537,
+          "text": "_emit(\"message.delta\", sid, payload)"
+        },
+        {
+          "line": 11546,
+          "text": "_emit(\"message.interim\", sid, {"
+        },
+        {
+          "line": 11563,
+          "text": "if \"task_id\" in inspect.signature(agent.run_conversation).parameters:"
+        },
+        {
+          "line": 11567,
+          "text": "result = agent.run_conversation(run_message, **run_kwargs)"
+        },
+        {
+          "line": 11731,
+          "text": "_emit(\"message.complete\", sid, payload)"
+        },
+        {
+          "line": 11959,
+          "text": "_emit(\"message.start\", sid)"
+        },
+        {
+          "line": 12005,
+          "text": "_emit(\"message.start\", sid)"
+        },
+        {
+          "line": 12069,
+          "text": "@method(\"image.attach\")"
+        },
+        {
+          "line": 12114,
+          "text": "_ATTACH_BYTES_MAX_BYTES = 25 * 1024 * 1024"
+        },
+        {
+          "line": 12201,
+          "text": "@method(\"image.attach_bytes\")"
+        },
+        {
+          "line": 12491,
+          "text": "def _stage_session_file_attachment("
+        },
+        {
+          "line": 12532,
+          "text": "@method(\"file.attach\")"
+        },
+        {
+          "line": 12888,
+          "text": "# agent.run_conversation is reading those on every"
+        },
+        {
+          "line": 16479,
+          "text": "# worker thread running agent.run_conversation is using.  Parity"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "run_agent.py",
+      "sha256": "466de8e77ba0e9be3f0933d31a4450ef9bb553d6071501e3827e4132e4d28cc3",
+      "lines": 7005,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 2848,
+          "text": "def interrupt(self, message: str = None) -> None:"
+        },
+        {
+          "line": 6541,
+          "text": "def _execute_tool_calls(self, assistant_message, messages: list, effective_task_id: str, api_call_count: int = 0) -> None:"
+        },
+        {
+          "line": 6577,
+          "text": "from agent.tool_executor import execute_tool_calls_segmented"
+        },
+        {
+          "line": 6663,
+          "text": "from agent.tool_executor import execute_tool_calls_concurrent"
+        },
+        {
+          "line": 6668,
+          "text": "from agent.tool_executor import execute_tool_calls_sequential"
+        },
+        {
+          "line": 6705,
+          "text": "def run_conversation("
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "agent/tool_executor.py",
+      "sha256": "e84099f76444eec1f915f8c6188ae6be2fc86c782ae885ce150ecf996fe9bb7f",
+      "lines": 1827,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 101,
+          "text": "def _parse_tool_arguments(raw_arguments: Any) -> tuple[dict, Optional[str]]:"
+        },
+        {
+          "line": 246,
+          "text": "``model_tools.handle_function_call``. To keep a restricted-toolset session"
+        },
+        {
+          "line": 349,
+          "text": "def execute_tool_calls_concurrent(agent, assistant_message, messages: list, effective_task_id: str, api_call_count: int = 0, *, finalize: bool = True) -> None:"
+        },
+        {
+          "line": 423,
+          "text": "# (bypassing the bridge branch in handle_function_call and its"
+        },
+        {
+          "line": 578,
+          "text": "if agent.tool_start_callback:"
+        },
+        {
+          "line": 581,
+          "text": "agent.tool_start_callback(tc.id, name, display_args)"
+        },
+        {
+          "line": 970,
+          "text": "if not blocked and agent.tool_complete_callback:"
+        },
+        {
+          "line": 973,
+          "text": "agent.tool_complete_callback(tc.id, name, display_args, function_result)"
+        },
+        {
+          "line": 1053,
+          "text": "def execute_tool_calls_sequential(agent, assistant_message, messages: list, effective_task_id: str, api_call_count: int = 0, *, finalize: bool = True) -> None:"
+        },
+        {
+          "line": 1206,
+          "text": "if not _execution_blocked and agent.tool_start_callback:"
+        },
+        {
+          "line": 1209,
+          "text": "agent.tool_start_callback(tool_call.id, function_name, display_args)"
+        },
+        {
+          "line": 1511,
+          "text": "function_result = _ra().handle_function_call("
+        },
+        {
+          "line": 1543,
+          "text": "logger.error(\"handle_function_call raised for %s: %s\", function_name, tool_error, exc_info=True)"
+        },
+        {
+          "line": 1553,
+          "text": "function_result = _ra().handle_function_call("
+        },
+        {
+          "line": 1583,
+          "text": "logger.error(\"handle_function_call raised for %s: %s\", function_name, tool_error, exc_info=True)"
+        },
+        {
+          "line": 1601,
+          "text": "# dispatched inline — they never reach handle_function_call, so the"
+        },
+        {
+          "line": 1604,
+          "text": "# handle_function_call, which already fires the hook."
+        },
+        {
+          "line": 1667,
+          "text": "if not _execution_blocked and agent.tool_complete_callback:"
+        },
+        {
+          "line": 1670,
+          "text": "agent.tool_complete_callback(tool_call.id, function_name, display_args, function_result)"
+        },
+        {
+          "line": 1768,
+          "text": "def execute_tool_calls_segmented(agent, assistant_message, messages: list, effective_task_id: str, api_call_count: int = 0, segments=None) -> None:"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "agent/transports/chat_completions.py",
+      "sha256": "08cf5ea02e912dec440dc360ad2b7cb9f774a60ee9870bda370a5512b9efd1de",
+      "lines": 802,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 131,
+          "text": "class ChatCompletionsTransport(ProviderTransport):"
+        },
+        {
+          "line": 197,
+          "text": "tool_calls = msg.get(\"tool_calls\")"
+        },
+        {
+          "line": 253,
+          "text": "tool_calls = msg.get(\"tool_calls\")"
+        },
+        {
+          "line": 265,
+          "text": "copied_tool_calls = list(tool_calls)"
+        },
+        {
+          "line": 280,
+          "text": "def build_kwargs("
+        },
+        {
+          "line": 673,
+          "text": "tool_calls = None"
+        },
+        {
+          "line": 675,
+          "text": "tool_calls = []"
+        },
+        {
+          "line": 750,
+          "text": "_has_tool_calls = bool(tool_calls)"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "model_tools.py",
+      "sha256": "6ca4611e30f363c5a8d346631b3666943181da8095fccb9688269263b7cb7cad",
+      "lines": 1425,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 288,
+          "text": "def get_tool_definitions("
+        },
+        {
+          "line": 1069,
+          "text": "def handle_function_call("
+        },
+        {
+          "line": 1408,
+          "text": "def get_toolset_for_tool(tool_name: str) -> Optional[str]:"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "hermes_cli/runtime_provider.py",
+      "sha256": "5d06a54e9858254bd7b0c05785dc01df48fa57856cccdbd8ba1b4488a1c33116",
+      "lines": 2231,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 76,
+          "text": "(or one of the local-server aliases that resolve to ``custom`` — ollama, vllm, llamacpp, …),"
+        },
+        {
+          "line": 86,
+          "text": "# (ollama, vllm, llamacpp, …) should be trusted the same way \"custom\""
+        },
+        {
+          "line": 87,
+          "text": "# is, otherwise a legit LAN/WireGuard ollama endpoint silently falls"
+        },
+        {
+          "line": 542,
+          "text": "if provider == \"lmstudio\":"
+        },
+        {
+          "line": 543,
+          "text": "base_url = auth_mod._normalize_lmstudio_runtime_base_url(base_url)"
+        },
+        {
+          "line": 556,
+          "text": "def resolve_requested_provider(requested: Optional[str] = None) -> str:"
+        },
+        {
+          "line": 932,
+          "text": "def canonical_custom_identity("
+        },
+        {
+          "line": 1031,
+          "text": "# (ollama, vllm, llamacpp, …) are treated identically here, so a YAML"
+        },
+        {
+          "line": 1032,
+          "text": "# `provider: ollama` with a LAN/WireGuard `base_url` doesn't silently"
+        },
+        {
+          "line": 1169,
+          "text": "# GitHub #27132: provider aliases that resolve to \"custom\" (ollama,"
+        },
+        {
+          "line": 1230,
+          "text": "# the canonical env var for ollama.com authentication. Match on"
+        },
+        {
+          "line": 1232,
+          "text": "# \"ollama.com\" (e.g. http://127.0.0.1/ollama.com/v1) or whose"
+        },
+        {
+          "line": 1233,
+          "text": "# hostname is a look-alike (ollama.com.attacker.test) must not"
+        },
+        {
+          "line": 1235,
+          "text": "_is_ollama_url    = base_url_host_matches(base_url, \"ollama.com\")"
+        },
+        {
+          "line": 1245,
+          "text": "(_getenv(\"OLLAMA_API_KEY\")     if _is_ollama_url                       else \"\"),"
+        },
+        {
+          "line": 1623,
+          "text": "def resolve_runtime_provider("
+        },
+        {
+          "line": 2208,
+          "text": "if provider == \"lmstudio\":"
+        },
+        {
+          "line": 2209,
+          "text": "base_url = auth_mod._normalize_lmstudio_runtime_base_url(base_url)"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "hermes_cli/web_server.py",
+      "sha256": "d58955ad73dcab6f8ec57cb6932970e68fdaec7baa554082d7a43860ba7e8fed",
+      "lines": 20216,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 4808,
+          "text": "@app.get(\"/api/sessions\")"
+        },
+        {
+          "line": 5171,
+          "text": "@app.get(\"/api/sessions/search\")"
+        },
+        {
+          "line": 6956,
+          "text": "@app.post(\"/api/model/set\")"
+        },
+        {
+          "line": 6957,
+          "text": "async def set_model_assignment(body: ModelAssignment, profile: Optional[str] = None):"
+        },
+        {
+          "line": 11510,
+          "text": "@app.get(\"/api/sessions/empty/count\")"
+        },
+        {
+          "line": 11559,
+          "text": "@app.get(\"/api/sessions/stats\")"
+        },
+        {
+          "line": 11670,
+          "text": "@app.get(\"/api/sessions/{session_id}\")"
+        },
+        {
+          "line": 11686,
+          "text": "@app.get(\"/api/sessions/{session_id}/latest-descendant\")"
+        },
+        {
+          "line": 11708,
+          "text": "@app.get(\"/api/sessions/{session_id}/messages\")"
+        },
+        {
+          "line": 11821,
+          "text": "@app.get(\"/api/sessions/{session_id}/export\")"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "hermes_state.py",
+      "sha256": "0d52ebcd6a433466f1e6444de35d940e0c227a285a64b2da54dcd8182bf746c6",
+      "lines": 10850,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 263,
+          "text": "DEFAULT_DB_PATH = get_hermes_home() / \"state.db\""
+        },
+        {
+          "line": 1130,
+          "text": "CREATE TABLE IF NOT EXISTS sessions ("
+        },
+        {
+          "line": 1182,
+          "text": "CREATE TABLE IF NOT EXISTS messages ("
+        },
+        {
+          "line": 1846,
+          "text": "class SessionDB:"
+        },
+        {
+          "line": 3828,
+          "text": "def create_session(self, session_id: str, source: str, **kwargs) -> str:"
+        },
+        {
+          "line": 6397,
+          "text": "def append_message("
+        },
+        {
+          "line": 6687,
+          "text": "def replace_messages("
+        },
+        {
+          "line": 6843,
+          "text": "def get_messages("
+        },
+        {
+          "line": 6895,
+          "text": "def get_messages_around("
+        },
+        {
+          "line": 7186,
+          "text": "def get_messages_as_conversation("
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "hermes_cli/plugins.py",
+      "sha256": "3692a9f4c7cac4d15c0bb655f43def83a2f26c3568a55cbb3ef004029c7ead95",
+      "lines": 2466,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 55,
+          "text": "def get_bundled_plugins_dir() -> Path:"
+        },
+        {
+          "line": 252,
+          "text": "of currently-installed user plugins so existing setups don't"
+        },
+        {
+          "line": 298,
+          "text": "#              user-installed still gated by ``plugins.enabled``."
+        },
+        {
+          "line": 305,
+          "text": "#              available out of the box; user-installed platform plugins"
+        },
+        {
+          "line": 339,
+          "text": "class PluginContext:"
+        },
+        {
+          "line": 391,
+          "text": "def register_tool("
+        },
+        {
+          "line": 1279,
+          "text": "def discover_and_load(self, force: bool = False) -> None:"
+        },
+        {
+          "line": 1334,
+          "text": "repo_plugins = get_bundled_plugins_dir()"
+        },
+        {
+          "line": 1350,
+          "text": "user_dir = get_hermes_home() / \"plugins\""
+        },
+        {
+          "line": 1351,
+          "text": "logger.debug(\"Scanning user plugins: %s\", user_dir)"
+        },
+        {
+          "line": 1373,
+          "text": "# Load each manifest (skip user-disabled plugins)."
+        },
+        {
+          "line": 1417,
+          "text": "# override semantics between bundled and user plugins."
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "hermes_cli/kanban_db.py",
+      "sha256": "1f70baa671dcb956ebce9a42819ebcfe806d73fccf89be7c060ceaf2200a3044",
+      "lines": 9819,
+      "matchesLockedHead": true,
+      "anchors": [
+        {
+          "line": 164,
+          "text": "def _fire_kanban_lifecycle_hook(event: str, task_id: str, **fields: Any) -> None:"
+        },
+        {
+          "line": 618,
+          "text": "def task_attachments_dir(task_id: str, board: Optional[str] = None) -> Path:"
+        },
+        {
+          "line": 2768,
+          "text": "def _new_task_id() -> str:"
+        },
+        {
+          "line": 2804,
+          "text": "def create_task("
+        },
+        {
+          "line": 3197,
+          "text": "def get_task(conn: sqlite3.Connection, task_id: str) -> Optional[Task]:"
+        },
+        {
+          "line": 3216,
+          "text": "def list_tasks("
+        },
+        {
+          "line": 3268,
+          "text": "def assign_task(conn: sqlite3.Connection, task_id: str, profile: Optional[str]) -> bool:"
+        },
+        {
+          "line": 3350,
+          "text": "def link_tasks(conn: sqlite3.Connection, parent_id: str, child_id: str) -> None:"
+        },
+        {
+          "line": 3403,
+          "text": "def unlink_tasks(conn: sqlite3.Connection, parent_id: str, child_id: str) -> bool:"
+        },
+        {
+          "line": 3424,
+          "text": "def parent_ids(conn: sqlite3.Connection, task_id: str) -> list[str]:"
+        },
+        {
+          "line": 3432,
+          "text": "def child_ids(conn: sqlite3.Connection, task_id: str) -> list[str]:"
+        },
+        {
+          "line": 3440,
+          "text": "def parent_results(conn: sqlite3.Connection, task_id: str) -> list[tuple[str, Optional[str]]]:"
+        },
+        {
+          "line": 3481,
+          "text": "def list_comments(conn: sqlite3.Connection, task_id: str) -> list[Comment]:"
+        },
+        {
+          "line": 3662,
+          "text": "def list_attachments(conn: sqlite3.Connection, task_id: str) -> list[Attachment]:"
+        },
+        {
+          "line": 3724,
+          "text": "def list_events(conn: sqlite3.Connection, task_id: str) -> list[Event]:"
+        },
+        {
+          "line": 3829,
+          "text": "def _current_run_id(conn: sqlite3.Connection, task_id: str) -> Optional[int]:"
+        },
+        {
+          "line": 3891,
+          "text": "def _has_sticky_block(conn: sqlite3.Connection, task_id: str) -> bool:"
+        },
+        {
+          "line": 4020,
+          "text": "def claim_task("
+        },
+        {
+          "line": 4142,
+          "text": "def claim_review_task("
+        },
+        {
+          "line": 4394,
+          "text": "def reclaim_task("
+        },
+        {
+          "line": 4463,
+          "text": "def reassign_task("
+        },
+        {
+          "line": 4617,
+          "text": "def __init__(self, phantom: list[str], completing_task_id: str):"
+        },
+        {
+          "line": 4630,
+          "text": "def complete_task("
+        },
+        {
+          "line": 4697,
+          "text": "metadata = _merge_completion_prose_artifacts("
+        },
+        {
+          "line": 4739,
+          "text": "_persist_scratch_completion_artifacts(conn, task_id, metadata)"
+        },
+        {
+          "line": 4740,
+          "text": "for stored_path in metadata.pop(\"_staged_artifacts\", []):"
+        },
+        {
+          "line": 4782,
+          "text": "# ``kanban_complete(artifacts=[...])`` which stashes the list in"
+        },
+        {
+          "line": 4783,
+          "text": "# ``metadata[\"artifacts\"]`` — we promote it onto the event so"
+        },
+        {
+          "line": 4786,
+          "text": "md_artifacts = metadata.get(\"artifacts\")"
+        },
+        {
+          "line": 4787,
+          "text": "if isinstance(md_artifacts, (list, tuple)):"
+        },
+        {
+          "line": 4788,
+          "text": "cleaned_artifacts = ["
+        },
+        {
+          "line": 4789,
+          "text": "str(p).strip() for p in md_artifacts if isinstance(p, str) and str(p).strip()"
+        },
+        {
+          "line": 4791,
+          "text": "if cleaned_artifacts:"
+        },
+        {
+          "line": 4792,
+          "text": "completed_payload[\"artifacts\"] = cleaned_artifacts"
+        },
+        {
+          "line": 4845,
+          "text": "def _merge_completion_prose_artifacts("
+        },
+        {
+          "line": 4855,
+          "text": "``artifacts=[...]`` is preferred. Older workers only wrote an absolute"
+        },
+        {
+          "line": 4881,
+          "text": "existing = updated.get(\"artifacts\")"
+        },
+        {
+          "line": 4888,
+          "text": "updated[\"artifacts\"] = merged"
+        },
+        {
+          "line": 4892,
+          "text": "def _persist_scratch_completion_artifacts("
+        },
+        {
+          "line": 4897,
+          "text": "\"\"\"Copy scratch-workspace completion artifacts before cleanup removes them.\"\"\""
+        },
+        {
+          "line": 4898,
+          "text": "raw_artifacts = metadata.get(\"artifacts\")"
+        },
+        {
+          "line": 4899,
+          "text": "if not isinstance(raw_artifacts, (list, tuple)):"
+        },
+        {
+          "line": 4935,
+          "text": "for item in raw_artifacts:"
+        },
+        {
+          "line": 4995,
+          "text": "metadata[\"artifacts\"] = persisted"
+        },
+        {
+          "line": 4996,
+          "text": "metadata[\"_staged_artifacts\"] = ["
+        },
+        {
+          "line": 5123,
+          "text": "def _cleanup_workspace(conn: sqlite3.Connection, task_id: str) -> None:"
+        },
+        {
+          "line": 5148,
+          "text": "# child can read handoff artifacts from the scratch dir (#33774)."
+        },
+        {
+          "line": 5192,
+          "text": "def _try_cleanup_parent_workspaces(conn: sqlite3.Connection, task_id: str) -> None:"
+        },
+        {
+          "line": 5232,
+          "text": "def _cleanup_worker_tmux(conn: sqlite3.Connection, task_id: str) -> None:"
+        },
+        {
+          "line": 5345,
+          "text": "def edit_completed_task_result("
+        },
+        {
+          "line": 5412,
+          "text": "def block_task("
+        },
+        {
+          "line": 5628,
+          "text": "def promote_task("
+        },
+        {
+          "line": 5698,
+          "text": "def unblock_task(conn: sqlite3.Connection, task_id: str) -> bool:"
+        },
+        {
+          "line": 5764,
+          "text": "def specify_triage_task("
+        },
+        {
+          "line": 5855,
+          "text": "def decompose_triage_task("
+        },
+        {
+          "line": 6087,
+          "text": "def archive_task(conn: sqlite3.Connection, task_id: str) -> bool:"
+        },
+        {
+          "line": 6113,
+          "text": "def delete_archived_task(conn: sqlite3.Connection, task_id: str) -> bool:"
+        },
+        {
+          "line": 6139,
+          "text": "def delete_task(conn: sqlite3.Connection, task_id: str) -> bool:"
+        },
+        {
+          "line": 6403,
+          "text": "def resolve_workspace(task: Task, *, board: Optional[str] = None) -> Path:"
+        },
+        {
+          "line": 6486,
+          "text": "def schedule_task("
+        },
+        {
+          "line": 7265,
+          "text": "def _protocol_violation_streak(conn: sqlite3.Connection, task_id: str) -> int:"
+        },
+        {
+          "line": 7585,
+          "text": "def _record_task_failure("
+        },
+        {
+          "line": 7767,
+          "text": "def _set_worker_pid(conn: sqlite3.Connection, task_id: str, pid: int) -> None:"
+        },
+        {
+          "line": 7788,
+          "text": "def _clear_failure_counter(conn: sqlite3.Connection, task_id: str) -> None:"
+        },
+        {
+          "line": 7810,
+          "text": "def check_respawn_guard(conn: sqlite3.Connection, task_id: str) -> Optional[str]:"
+        },
+        {
+          "line": 8994,
+          "text": "def build_worker_context(conn: sqlite3.Connection, task_id: str) -> str:"
+        },
+        {
+          "line": 9310,
+          "text": "def task_age(task: Task) -> dict:"
+        },
+        {
+          "line": 9592,
+          "text": "def worker_log_path(task_id: str, *, board: Optional[str] = None) -> Path:"
+        },
+        {
+          "line": 9754,
+          "text": "def latest_run(conn: sqlite3.Connection, task_id: str) -> Optional[Run]:"
+        },
+        {
+          "line": 9764,
+          "text": "def latest_summary(conn: sqlite3.Connection, task_id: str) -> Optional[str]:"
+        }
+      ],
+      "rawBytesMatchHead": false,
+      "gitDiffExit": 0
+    },
+    {
+      "path": "tools/registry.py",
+      "sha256": "9a487e80c88ca4d735149d2da68059522801153999a94f34f68f7ee167d580a2",
+      "lines": 810,
+      "rawBytesMatchHead": false,
+      "matchesLockedHead": true,
+      "gitDiffExit": 0,
+      "anchors": [
+        {
+          "line": 67,
+          "text": "def discover_builtin_tools(tools_dir: Optional[Path] = None) -> List[str]:"
+        },
+        {
+          "line": 217,
+          "text": "class ToolRegistry:"
+        },
+        {
+          "line": 290,
+          "text": "def register_toolset_alias(self, alias: str, toolset: str) -> None:"
+        },
+        {
+          "line": 316,
+          "text": "def register_plugin_override_policy(self, module_namespace: str, allowed: bool) -> None:"
+        },
+        {
+          "line": 365,
+          "text": "def register("
+        }
+      ]
+    },
+    {
+      "path": "agent/context_references.py",
+      "sha256": "250cf7e17462d60b77f68eee59a1dcb8dbeef4ec91476e79a081809fbbc69081",
+      "lines": 614,
+      "rawBytesMatchHead": false,
+      "matchesLockedHead": true,
+      "gitDiffExit": 0,
+      "anchors": [
+        {
+          "line": 122,
+          "text": "def preprocess_context_references("
+        },
+        {
+          "line": 128,
+          "text": "allowed_root: str | Path | None = None,"
+        },
+        {
+          "line": 135,
+          "text": "allowed_root=allowed_root,"
+        },
+        {
+          "line": 149,
+          "text": "async def preprocess_context_references_async("
+        },
+        {
+          "line": 155,
+          "text": "allowed_root: str | Path | None = None,"
+        },
+        {
+          "line": 164,
+          "text": "allowed_root_path = ("
+        },
+        {
+          "line": 165,
+          "text": "Path(allowed_root).expanduser().resolve() if allowed_root is not None else cwd_path"
+        },
+        {
+          "line": 183,
+          "text": "allowed_root=allowed_root_path,"
+        },
+        {
+          "line": 234,
+          "text": "async def _expand_reference("
+        },
+        {
+          "line": 239,
+          "text": "allowed_root: Path | None = None,"
+        },
+        {
+          "line": 243,
+          "text": "return _expand_file_reference(ref, cwd, allowed_root=allowed_root)"
+        },
+        {
+          "line": 245,
+          "text": "return _expand_folder_reference(ref, cwd, allowed_root=allowed_root)"
+        },
+        {
+          "line": 264,
+          "text": "def _expand_file_reference("
+        },
+        {
+          "line": 268,
+          "text": "allowed_root: Path | None = None,"
+        },
+        {
+          "line": 270,
+          "text": "path = _resolve_path(cwd, ref.target, allowed_root=allowed_root)"
+        },
+        {
+          "line": 284,
+          "text": "return None, _binary_reference_block(ref, path)"
+        },
+        {
+          "line": 298,
+          "text": "def _expand_folder_reference("
+        },
+        {
+          "line": 302,
+          "text": "allowed_root: Path | None = None,"
+        },
+        {
+          "line": 304,
+          "text": "path = _resolve_path(cwd, ref.target, allowed_root=allowed_root)"
+        },
+        {
+          "line": 315,
+          "text": "def _expand_git_reference("
+        },
+        {
+          "line": 367,
+          "text": "def _resolve_path(cwd: Path, target: str, *, allowed_root: Path | None = None) -> Path:"
+        },
+        {
+          "line": 372,
+          "text": "if allowed_root is not None:"
+        },
+        {
+          "line": 374,
+          "text": "resolved.relative_to(allowed_root)"
+        },
+        {
+          "line": 575,
+          "text": "def _binary_reference_block(ref: ContextReference, path: Path) -> str:"
+        }
+      ]
+    },
+    {
+      "path": "agent/image_routing.py",
+      "sha256": "1fb55bdbcb790dbba746d39eaf46e81bab1b815e5c5df0d2a0bc570c801713e9",
+      "lines": 821,
+      "rawBytesMatchHead": false,
+      "matchesLockedHead": true,
+      "gitDiffExit": 0,
+      "anchors": [
+        {
+          "line": 5,
+          "text": "native  — attach images as OpenAI-style ``image_url`` content parts on the"
+        },
+        {
+          "line": 10,
+          "text": "text    — run ``vision_analyze`` on each image up-front and prepend the"
+        },
+        {
+          "line": 11,
+          "text": "description to the user's text. The model never sees the pixels;"
+        },
+        {
+          "line": 12,
+          "text": "it only sees a lossy text summary. This is the pre-existing"
+        },
+        {
+          "line": 16,
+          "text": "It reads ``agent.image_input_mode`` from config.yaml (``auto`` | ``native``"
+        },
+        {
+          "line": 17,
+          "text": "| ``text``, default ``auto``) and the active model's capability metadata."
+        },
+        {
+          "line": 21,
+          "text": "override or models.dev metadata), we attach natively — vision-capable"
+        },
+        {
+          "line": 27,
+          "text": "text pipeline so the auxiliary vision backend can describe the image"
+        },
+        {
+          "line": 28,
+          "text": "for the text-only main model."
+        },
+        {
+          "line": 30,
+          "text": "text via the default vision_analyze flow."
+        },
+        {
+          "line": 52,
+          "text": "_VALID_MODES = frozenset({\"auto\", \"native\", \"text\"})"
+        },
+        {
+          "line": 82,
+          "text": "def extract_image_refs(text: str) -> Tuple[List[str], List[str]]:"
+        },
+        {
+          "line": 83,
+          "text": "\"\"\"Scan free-form text for image references the model should see."
+        },
+        {
+          "line": 102,
+          "text": "if not isinstance(text, str) or not text:"
+        },
+        {
+          "line": 106,
+          "text": "# ignore references the author embedded purely as example text."
+        },
+        {
+          "line": 108,
+          "text": "for m in re.finditer(r\"```[^\\n]*\\n.*?```\", text, re.DOTALL):"
+        },
+        {
+          "line": 110,
+          "text": "for m in re.finditer(r\"`[^`\\n]+`\", text):"
+        },
+        {
+          "line": 118,
+          "text": "for match in _LOCAL_IMAGE_PATH_RE.finditer(text):"
+        },
+        {
+          "line": 136,
+          "text": "for match in _IMAGE_URL_RE.finditer(text):"
+        },
+        {
+          "line": 155,
+          "text": "# would silently enable native vision routing on a model that can't actually"
+        },
+        {
+          "line": 365,
+          "text": "images natively. In ``auto`` mode, native vision on a vision-capable"
+        },
+        {
+          "line": 398,
+          "text": "text routing in ``auto`` mode), then falls back to models.dev."
+        },
+        {
+          "line": 402,
+          "text": "# context-local main runtime so capability lookup can still select the"
+        },
+        {
+          "line": 461,
+          "text": "def decide_image_input_mode("
+        },
+        {
+          "line": 468,
+          "text": "\"\"\"Return ``\"native\"`` or ``\"text\"`` for the given turn."
+        },
+        {
+          "line": 482,
+          "text": "if mode_cfg == \"native\":"
+        },
+        {
+          "line": 483,
+          "text": "return \"native\""
+        },
+        {
+          "line": 484,
+          "text": "if mode_cfg == \"text\":"
+        },
+        {
+          "line": 485,
+          "text": "return \"text\""
+        },
+        {
+          "line": 487,
+          "text": "# auto: prefer native vision when the main model supports it. An"
+        },
+        {
+          "line": 488,
+          "text": "# explicit auxiliary.vision config acts as a *fallback* for text-only"
+        },
+        {
+          "line": 489,
+          "text": "# main models — it should not preempt native vision on a model that"
+        },
+        {
+          "line": 490,
+          "text": "# can natively inspect the pixels (issue #29135)."
+        },
+        {
+          "line": 503,
+          "text": "return \"native\""
+        },
+        {
+          "line": 505,
+          "text": "return \"text\""
+        },
+        {
+          "line": 506,
+          "text": "return \"text\""
+        },
+        {
+          "line": 509,
+          "text": "# Image size handling is REACTIVE rather than proactive: we attempt native"
+        },
+        {
+          "line": 567,
+          "text": "# SVG: text-based, look for an <svg tag near the start (skip BOM/whitespace)"
+        },
+        {
+          "line": 576,
+          "text": "# accepts natively. Anything outside this set has to be transcoded to PNG"
+        },
+        {
+          "line": 670,
+          "text": "\"\"\"Encode a local image as a base64 data URL at its native size."
+        },
+        {
+          "line": 728,
+          "text": "def build_native_content_parts("
+        },
+        {
+          "line": 729,
+          "text": "user_text: str,"
+        },
+        {
+          "line": 736,
+          "text": "[{\"type\": \"text\", \"text\": \"...\\\\n\\\\n[Image attached at: /local/path]\"},"
+        },
+        {
+          "line": 745,
+          "text": "For each successfully attached image, a hint is appended to the text"
+        },
+        {
+          "line": 753,
+          "text": "an extra round-trip. This parallels the text-mode hint produced by"
+        },
+        {
+          "line": 757,
+          "text": "Images are attached at their native size. If a provider rejects the"
+        },
+        {
+          "line": 796,
+          "text": "text = (user_text or \"\").strip()"
+        },
+        {
+          "line": 798,
+          "text": "# If at least one image attached, build a single text part that combines"
+        },
+        {
+          "line": 801,
+          "text": "base_text = text or \"What do you see in this image?\""
+        },
+        {
+          "line": 805,
+          "text": "combined_text = f\"{base_text}\\n\\n\" + \"\\n\".join(hint_lines)"
+        },
+        {
+          "line": 806,
+          "text": "parts: List[Dict[str, Any]] = [{\"type\": \"text\", \"text\": combined_text}]"
+        },
+        {
+          "line": 810,
+          "text": "# No images successfully attached — fall back to plain text-only behaviour."
+        },
+        {
+          "line": 812,
+          "text": "if text:"
+        },
+        {
+          "line": 813,
+          "text": "parts.append({\"type\": \"text\", \"text\": text})"
+        },
+        {
+          "line": 819,
+          "text": "\"build_native_content_parts\","
+        }
+      ]
+    },
+    {
+      "path": "agent/conversation_loop.py",
+      "sha256": "0d85d4114e194aeac472995d17a49b41767b2a84561773b31085ee8e33dcae78",
+      "lines": 6698,
+      "rawBytesMatchHead": false,
+      "matchesLockedHead": true,
+      "gitDiffExit": 0,
+      "anchors": [
+        {
+          "line": 933,
+          "text": "def run_conversation("
+        },
+        {
+          "line": 939,
+          "text": "stream_callback: Optional[callable] = None,"
+        },
+        {
+          "line": 952,
+          "text": "stream_callback: Optional callback invoked with each text delta during streaming."
+        },
+        {
+          "line": 999,
+          "text": "stream_callback,"
+        },
+        {
+          "line": 1108,
+          "text": "if agent._interrupt_requested:"
+        },
+        {
+          "line": 1135,
+          "text": "if _m.get(\"role\") == \"assistant\" and _m.get(\"tool_calls\"):"
+        },
+        {
+          "line": 1139,
+          "text": "if _tm.get(\"role\") != \"tool\":"
+        },
+        {
+          "line": 1181,
+          "text": "if isinstance(_sm, dict) and _sm.get(\"role\") == \"tool\":"
+        },
+        {
+          "line": 2337,
+          "text": "if agent._interrupt_requested:"
+        },
+        {
+          "line": 3833,
+          "text": "if agent._interrupt_requested:"
+        },
+        {
+          "line": 5069,
+          "text": "if agent._interrupt_requested:"
+        },
+        {
+          "line": 5517,
+          "text": "\"role\": \"tool\","
+        },
+        {
+          "line": 5621,
+          "text": "\"role\": \"tool\","
+        },
+        {
+          "line": 5755,
+          "text": "\"role\": \"tool\","
+        },
+        {
+          "line": 5785,
+          "text": "# Only signal the display callback — TTS (_stream_callback)"
+        },
+        {
+          "line": 5793,
+          "text": "agent._execute_tool_calls(assistant_message, messages, effective_task_id, api_call_count)"
+        },
+        {
+          "line": 6075,
+          "text": "m.get(\"role\") == \"tool\""
+        },
+        {
+          "line": 6624,
+          "text": "# the API expects a role=\"tool\" result for every tool_call_id."
+        },
+        {
+          "line": 6630,
+          "text": "if msg.get(\"role\") == \"tool\":"
+        },
+        {
+          "line": 6632,
+          "text": "if msg.get(\"role\") == \"assistant\" and msg.get(\"tool_calls\"):"
+        },
+        {
+          "line": 6636,
+          "text": "if isinstance(m, dict) and m.get(\"role\") == \"tool\""
+        },
+        {
+          "line": 6642,
+          "text": "\"role\": \"tool\","
+        }
+      ]
+    },
+    {
+      "path": "agent/chat_completion_helpers.py",
+      "sha256": "fe1ef9c17c8ac0c1385685f658864ad08736a3e33e57a3f176a61d42f2bb1a0f",
+      "lines": 3954,
+      "rawBytesMatchHead": false,
+      "matchesLockedHead": true,
+      "gitDiffExit": 0,
+      "anchors": [
+        {
+          "line": 269,
+          "text": "def _derive_stream_stale_timeout(agent, api_kwargs: dict) -> float:"
+        },
+        {
+          "line": 372,
+          "text": "def _dispatch_nonstreaming_api_request(agent, api_kwargs: dict, *, make_client):"
+        },
+        {
+          "line": 430,
+          "text": "return agent.client.chat.completions.create(**api_kwargs)"
+        },
+        {
+          "line": 432,
+          "text": "return request_client.chat.completions.create(**api_kwargs)"
+        },
+        {
+          "line": 1277,
+          "text": "if not agent.stream_delta_callback and not agent._stream_callback:"
+        },
+        {
+          "line": 2262,
+          "text": "def _build_partial_stream_stub("
+        },
+        {
+          "line": 2294,
+          "text": "def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=None):"
+        },
+        {
+          "line": 2302,
+          "text": "Fires stream_delta_callback and _stream_callback for each text token."
+        },
+        {
+          "line": 2548,
+          "text": "def _stream_close_callable(stream):"
+        },
+        {
+          "line": 2558,
+          "text": "def _set_request_stream_handle(stream):"
+        },
+        {
+          "line": 2572,
+          "text": "def _close_request_stream_handle(stream, reason: str) -> None:"
+        },
+        {
+          "line": 2644,
+          "text": "def _start_stream_attempt() -> int:"
+        },
+        {
+          "line": 2649,
+          "text": "def _cancel_current_stream_attempt(reason: str) -> None:"
+        },
+        {
+          "line": 2661,
+          "text": "def _stream_attempt_is_active(stream_attempt_id: int) -> bool:"
+        },
+        {
+          "line": 2668,
+          "text": "def _stream_attempt_was_cancelled(stream_attempt_id: int) -> bool:"
+        },
+        {
+          "line": 2672,
+          "text": "def _discard_stale_stream_chunk(stream_attempt_id: int, chunk) -> None:"
+        },
+        {
+          "line": 2707,
+          "text": "def _call_chat_completions(stream_attempt_id: int):"
+        },
+        {
+          "line": 2790,
+          "text": "stream = request_client.chat.completions.create(**stream_kwargs)"
+        }
+      ]
+    },
+    {
+      "path": "apps/desktop/src/lib/incremental-external-store-runtime.ts",
+      "sha256": "60154a45e798766d90aeac4225c75f43bcca4ab43a632b96e8f30239a2f54ff5",
+      "lines": 261,
+      "rawBytesMatchHead": false,
+      "matchesLockedHead": true,
+      "gitDiffExit": 0,
+      "anchors": [
+        {
+          "line": 1,
+          "text": "import {"
+        },
+        {
+          "line": 4,
+          "text": "ExternalStoreThreadListRuntimeCore,"
+        },
+        {
+          "line": 5,
+          "text": "ExternalStoreThreadRuntimeCore,"
+        },
+        {
+          "line": 8,
+          "text": "import {"
+        },
+        {
+          "line": 16,
+          "text": "import { useEffect, useMemo, useState } from 'react'"
+        },
+        {
+          "line": 52,
+          "text": "repository: ExternalStoreThreadRuntimeCore['repository'],"
+        },
+        {
+          "line": 79,
+          "text": "export function syncRepositoryIncrementally("
+        },
+        {
+          "line": 80,
+          "text": "runtime: ExternalStoreThreadRuntimeCore,"
+        },
+        {
+          "line": 83,
+          "text": "const repository = (runtime as unknown as { repository: ExternalStoreThreadRuntimeCore['repository'] }).repository"
+        },
+        {
+          "line": 127,
+          "text": "class IncrementalExternalStoreThreadRuntimeCore extends ExternalStoreThreadRuntimeCore {"
+        },
+        {
+          "line": 223,
+          "text": "class IncrementalExternalStoreRuntimeCore extends BaseAssistantRuntimeCore {"
+        },
+        {
+          "line": 224,
+          "text": "threads: ExternalStoreThreadListRuntimeCore"
+        },
+        {
+          "line": 229,
+          "text": "this.threads = new ExternalStoreThreadListRuntimeCore("
+        },
+        {
+          "line": 231,
+          "text": "() => new IncrementalExternalStoreThreadRuntimeCore(this._contextProvider, adapter)"
+        },
+        {
+          "line": 241,
+          "text": "export function useIncrementalExternalStoreRuntime<T extends ThreadMessage>("
+        },
+        {
+          "line": 244,
+          "text": "const [runtime] = useState(() => new IncrementalExternalStoreRuntimeCore(store as ExternalStoreAdapter))"
+        }
+      ]
+    },
+    {
+      "path": "apps/desktop/src/app/chat/composer/context-menu.tsx",
+      "sha256": "b44164f40338779a48d753386c8fb3cd2cde168dd519d75d9e2e30e384f73e22",
+      "lines": 201,
+      "rawBytesMatchHead": false,
+      "matchesLockedHead": true,
+      "gitDiffExit": 0,
+      "anchors": [
+        {
+          "line": 18,
+          "text": "import { Clipboard, FileText, FolderOpen, type IconComponent, ImageIcon, Link, MessageSquareText } from '@/lib/icons'"
+        },
+        {
+          "line": 29,
+          "text": "onInsertText,"
+        },
+        {
+          "line": 32,
+          "text": "onPickFiles,"
+        },
+        {
+          "line": 33,
+          "text": "onPickFolders,"
+        },
+        {
+          "line": 71,
+          "text": "<ContextMenuItem disabled={!onPickFiles} icon={FileText} onSelect={onPickFiles}>"
+        },
+        {
+          "line": 74,
+          "text": "<ContextMenuItem disabled={!onPickFolders} icon={FolderOpen} onSelect={onPickFolders}>"
+        },
+        {
+          "line": 102,
+          "text": "onSelect={() => void provider.run({ insertText: onInsertText })}"
+        },
+        {
+          "line": 119,
+          "text": "<PromptSnippetsDialog onInsertText={onInsertText} onOpenChange={setSnippetsOpen} open={snippetsOpen} />"
+        },
+        {
+          "line": 124,
+          "text": "function PromptSnippetsDialog({ onInsertText, onOpenChange, open }: PromptSnippetsDialogProps) {"
+        },
+        {
+          "line": 144,
+          "text": "onInsertText(snippet.text)"
+        },
+        {
+          "line": 188,
+          "text": "onInsertText: (text: string) => void"
+        },
+        {
+          "line": 191,
+          "text": "onPickFiles?: () => void"
+        },
+        {
+          "line": 192,
+          "text": "onPickFolders?: () => void"
+        },
+        {
+          "line": 197,
+          "text": "interface PromptSnippetsDialogProps {"
+        },
+        {
+          "line": 198,
+          "text": "onInsertText: (text: string) => void"
+        }
+      ]
+    },
+    {
+      "path": "apps/desktop/src/app/contrib/controller.tsx",
+      "sha256": "699cbb02e34c04c724a630ea83c7d08c8a0de384a1c1747ca36489b627acf766",
+      "lines": 707,
+      "rawBytesMatchHead": false,
+      "matchesLockedHead": true,
+      "gitDiffExit": 0,
+      "anchors": [
+        {
+          "line": 449,
+          "text": "function bindPaneVisibility("
+        },
+        {
+          "line": 475,
+          "text": "function bindPaneCollapse("
+        },
+        {
+          "line": 615,
+          "text": "function TitlebarSlot({ area, className, style }: TitlebarSlotProps) {"
+        },
+        {
+          "line": 629,
+          "text": "export function ContribController() {"
+        }
+      ]
+    },
+    {
+      "path": "apps/desktop/src/app/contrib/surfaces.tsx",
+      "sha256": "f9d876b5ef70966f06a4a41632ce33d808ab085efad415d1d226e08347d3d203",
+      "lines": 192,
+      "rawBytesMatchHead": false,
+      "matchesLockedHead": true,
+      "gitDiffExit": 0,
+      "anchors": [
+        {
+          "line": 12,
+          "text": "import { Navigate, Route, Routes, useParams } from 'react-router-dom'"
+        },
+        {
+          "line": 22,
+          "text": "import { contributedRoutes, NEW_CHAT_ROUTE, ROUTES_AREA, sessionRoute } from '../routes'"
+        },
+        {
+          "line": 109,
+          "text": "export const ChatRoutesSurface = memo(function ChatRoutesSurface({"
+        },
+        {
+          "line": 119,
+          "text": "const routeContributions = contributedRoutes()"
+        },
+        {
+          "line": 145,
+          "text": "const chatView = ("
+        },
+        {
+          "line": 164,
+          "text": "<Routes>"
+        },
+        {
+          "line": 165,
+          "text": "<Route element={chatView} index />"
+        },
+        {
+          "line": 166,
+          "text": "<Route element={chatView} path=\":sessionId\" />"
+        },
+        {
+          "line": 190,
+          "text": "</Routes>"
+        }
+      ]
+    },
+    {
+      "path": "apps/desktop/electron/backend-command.ts",
+      "sha256": "6931fbba023ebbc08abc907808c61a8e044797d6f355d3891f8bd1a956a7f537",
+      "lines": 48,
+      "rawBytesMatchHead": false,
+      "matchesLockedHead": true,
+      "gitDiffExit": 0,
+      "anchors": [
+        {
+          "line": 3,
+          "text": "// The desktop app launches its own headless backend via `hermes serve` — it"
+        },
+        {
+          "line": 4,
+          "text": "// must NEVER depend on or launch the browser `dashboard`. But `serve` is a"
+        },
+        {
+          "line": 7,
+          "text": "// `dashboard --no-open`. To avoid bricking those users mid-upgrade we detect"
+        },
+        {
+          "line": 8,
+          "text": "// whether the resolved runtime understands `serve` and, only when it does not,"
+        },
+        {
+          "line": 9,
+          "text": "// fall back to the legacy `dashboard --no-open` invocation. Both produce the"
+        },
+        {
+          "line": 10,
+          "text": "// exact same headless gateway; `serve` is just the decoupled name."
+        },
+        {
+          "line": 15,
+          "text": "* Build the canonical headless backend argv (always `serve`)."
+        },
+        {
+          "line": 18,
+          "text": "export function serveBackendArgs(profile?: string) {"
+        },
+        {
+          "line": 21,
+          "text": "return [...head, 'serve', '--host', '127.0.0.1', '--port', '0']"
+        },
+        {
+          "line": 25,
+          "text": "* Rewrite a resolved backend argv from `serve` to the legacy"
+        },
+        {
+          "line": 26,
+          "text": "* `dashboard --no-open` form, preserving every other argument (incl. a leading"
+        },
+        {
+          "line": 28,
+          "text": "* no `serve` token the argv is returned unchanged."
+        },
+        {
+          "line": 30,
+          "text": "export function dashboardFallbackArgs(args) {"
+        },
+        {
+          "line": 31,
+          "text": "const i = args.indexOf('serve')"
+        },
+        {
+          "line": 37,
+          "text": "return [...args.slice(0, i), 'dashboard', '--no-open', ...args.slice(i + 1)]"
+        },
+        {
+          "line": 41,
+          "text": "* True when a runtime's `hermes_cli/subcommands/dashboard.py` source registers"
+        },
+        {
+          "line": 42,
+          "text": "* the `serve` subcommand. Matches `add_parser(\"serve\"` / `add_parser('serve'`"
+        },
+        {
+          "line": 43,
+          "text": "* specifically so the substring \"server\" (e.g. \"start_server\", \"web server\")"
+        },
+        {
+          "line": 46,
+          "text": "export function sourceDeclaresServe(dashboardPySource) {"
+        },
+        {
+          "line": 47,
+          "text": "return /add_parser\\(\\s*[\"']serve[\"']/.test(String(dashboardPySource || ''))"
+        }
+      ]
+    }
+  ],
+  "testInventory": [
+    {
+      "path": "apps/desktop/src/app/chat/composer/attachments.test.tsx",
+      "sha256": "8c79769ad7eedac371139db0c09440d641344474cb862a324e01f88ac8b4a4a2",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "apps/desktop/src/app/chat/composer/hooks/use-composer-draft.test.tsx",
+      "sha256": "ca3133c79f9d813188df5283c7db270ebf93bf4abc636914d1364bff8f4cdd71",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-session-state-cache.test.tsx",
+      "sha256": "3e9603f7df1dd32608603dfbdb8057f679e4242578f677f7755b60181de07deb",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-message-stream/agent-init-error.test.tsx",
+      "sha256": "40fb54519a5b09563f0e50b418711c809da226f2265a7d5558997dd916b4a7cc",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-message-stream/approval-mode-event.test.tsx",
+      "sha256": "210a61b5d9706ee65d557e7e249f016857e983a50d109482267db718676c3b08",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-message-stream/clarify-hydration.test.tsx",
+      "sha256": "46b8838c04961bfe03ce3a5d28817d13d9875d24e7b152329cd82bb2939df646",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-message-stream/compaction-event.test.tsx",
+      "sha256": "7101100f224aef810859a3cb0d86d682da56a5c130aa5bcc19e5026e9d10d345",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-message-stream/composer-model-event.test.tsx",
+      "sha256": "6831c6efb8e0b872986e3533da7388aa61f48d8daeeed0a5af83f42a76e71cfc",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-message-stream/interim-sealing.test.tsx",
+      "sha256": "93c8a27934f44417dc4f3a470aa5df6ab5264a7b7a723e5887f67a743379636b",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-message-stream/moa-progress-event.test.tsx",
+      "sha256": "750c226435a325db31a7d02f796c9e126b43f5ea1839c6ba37f357bf4103f7d8",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-message-stream/moa-reference-event.test.tsx",
+      "sha256": "1e1b8d27fadd82776228668e6dbc81482a737b1134e231b93bf2d795fbbe30f8",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-message-stream/session-info-side-effects.test.tsx",
+      "sha256": "08979e3740fc05eb108f06d4b11674a0a6b63abe20ba084e865b56bbcaeb078d",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-message-stream/stream-flush.test.tsx",
+      "sha256": "d020bb4e9c897aaed860167c1cb736c89589be881b0384a4a15013da2784a126",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-message-stream/terminal-error-frame.test.tsx",
+      "sha256": "c946d73ae65f30286304c6a0092af8adc4181b114d2706efe342741f7c9b8e44",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-message-stream/todo-cleanup.test.tsx",
+      "sha256": "7376a6b233b18a833640c8f3a6dd5d0af12624862d0ca46ae1a4211d153e66b8",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-message-stream/utils.test.ts",
+      "sha256": "6d737ec2317815fa7930c3c524ec6837b86868362a64900e48631bae21b941c1",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-prompt-actions/index.test.tsx",
+      "sha256": "d1ff26e5e6ff557b1c48022d1f45fd635fedff7c0aa8c4311f7ea6b05716a5a1",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-prompt-actions/resolve-target-session.test.ts",
+      "sha256": "26400507a0829737710f9fa6ae4323e0038143c8cbe801b0018a2d6894a2f54e",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-prompt-actions/rewind.test.ts",
+      "sha256": "802aea2643637ed3f9e751dde988f5d9107dda85efa428d7f87f4bffe5ca749c",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-prompt-actions/utils.test.ts",
+      "sha256": "27a05c42f0b307784d5e552b62ad8f7111f750d2cc333998e780a2a56067699b",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "apps/desktop/src/components/assistant-ui/thread/streaming.test.tsx",
+      "sha256": "29181bd68126560c685d0c379f504d0bf3bb1ad4d6cb7d5062e484eb6fced302",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "apps/desktop/e2e/image-attachment-resume.spec.ts",
+      "sha256": "bf8c22e760d99236e6d5b3eb057289d2f50163a1a40c2505968dc8f6e6100f96",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "tests/tui_gateway/test_custom_provider_session_persistence.py",
+      "sha256": "d9ddb4cdf7121de4cd7f2a1cd2bb87e930a885681a90471285201509c2b8e7d4",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "tests/tui_gateway/test_failed_turn_retention.py",
+      "sha256": "1cc73e8d86098a87d63a72daea231e07b1c8efe96a825f67a9468642789e85eb",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "tests/tui_gateway/test_finalize_session_persist.py",
+      "sha256": "93081dd8c0bebd183e2e860017ab6dad0ebce6e198c556a0295540e0aaf2cd57",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "tests/plugins/test_kanban_attachments.py",
+      "sha256": "f49ff07d3420fa1d29bc7360e871a196bb1300e010ea390291d40cc2433af4ff",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "tests/run_agent/test_28161_anthropic_stream_pool_cleanup.py",
+      "sha256": "72da951468062e1e314d279941d1dab26c947e39d32af175a48e72a8df6dee79",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "tests/run_agent/test_concurrent_interrupt.py",
+      "sha256": "daa73c3ac6043ec317dbbb581dafde666a9bd13d6eb2418b887ee53abd94f1f5",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "tests/run_agent/test_credential_pool_interrupt.py",
+      "sha256": "ffa19629c1033de787672ed3be06689e555b5d7db1a152a6bfe1cdee8d35522a",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "tests/run_agent/test_exit_cleanup_interrupt.py",
+      "sha256": "ce73359e984637824a1bebe186b478516e376faa80bbf1a6657b82f8eb4087c1",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "tests/run_agent/test_interactive_interrupt.py",
+      "sha256": "2c648a9bce3ccbf5c23db3e1b8206cadce5f37595902628ebbba94843f473a2b",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "tests/run_agent/test_interrupt_propagation.py",
+      "sha256": "82de54a9d74ba317b5eb328ff95f47aec9f42640a89e8786fd0e15138ed42b9f",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "tests/run_agent/test_memory_sync_interrupted.py",
+      "sha256": "224b163eafb6f5b8821c361f592fc994db9da286c860a71189aee882034d23fb",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "tests/run_agent/test_moa_streaming.py",
+      "sha256": "a7cb166eb9b7d3adf6dc2dc38f23842a61d8c5d0c384ac79c9f7810818d67422",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "tests/run_agent/test_partial_stream_finish_reason.py",
+      "sha256": "ef8bbcdde69e82900edab83c1d3c70ec4281315ba943d31304ff85083291b0ee",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "tests/run_agent/test_real_interrupt_subagent.py",
+      "sha256": "26844c703e131bffe36e8592bff0b8d6f14b38ca71b21a32c387582b1d73633d",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "tests/run_agent/test_streaming.py",
+      "sha256": "b5513d0668f0f82e9b357e58b795eea8b3be224f01ff188535513d0d41d3fe05",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "tests/run_agent/test_streaming_tool_call_repair.py",
+      "sha256": "ba679a7d3c21cd8bb8a3f1a6f675522fd30d4f780bb14fb77bcb3be5fdca3ead",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "tests/run_agent/test_stream_drop_logging.py",
+      "sha256": "5faf5fafa8af92fc270506ee17465ab36c4bf45d3b966990e730edda27339398",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "tests/run_agent/test_stream_interrupt_retry.py",
+      "sha256": "f3fe3e428349a2f8a0cbea879a3e3a9b9da6c63241d498849b674d4eab9c8252",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "tests/run_agent/test_stream_single_writer_65991.py",
+      "sha256": "c09f1bb4614ddd8f259fb7ee91e53ce8e623c08e159a8b0051d8482b0d0aaa5a",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "tests/run_agent/test_stream_stale_breaker_reset.py",
+      "sha256": "3e2f9675418090210108d32e5c9bb50e27e155cf121304449b583987c79f53a4",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    },
+    {
+      "path": "tests/run_agent/test_stream_stale_circuit_breaker.py",
+      "sha256": "bf465dfce2e8e5df897533f364295589577abeaf286414ee6c7b48b423b702db",
+      "execution": "NOT_RUN_THIS_AUDIT"
+    }
+  ],
+  "method": "Read actual local files; anchors are line-numbered source excerpts; hash compared with git show HEAD:path. Test presence is not test execution."
+}

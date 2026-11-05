@@ -1,0 +1,556 @@
+{
+  "started": "2026-11-04",
+  "delivered": "2026-11-05",
+  "timezone": "Asia/Shanghai",
+  "status": "AUDIT_PLAN_COMPLETE",
+  "runtimeQualification": "NOT_PERFORMED",
+  "checks": {
+    "sourceFinal": [
+      {
+        "path": "apps/desktop/src/app/chat/index.tsx",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/app/gateway/hooks/use-gateway-request.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/hermes.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/shared/src/json-rpc-gateway.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/lib/gateway-rpc.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/store/onboarding.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/components/onboarding/index.tsx",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/store/session.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/store/session-states.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/store/composer.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/app/session/hooks/use-session-state-cache.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/app/session/hooks/use-session-actions/index.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/app/session/hooks/use-prompt-actions/submit.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/app/session/hooks/use-prompt-actions/index.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/app/session/hooks/use-prompt-actions/utils.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/app/session/hooks/use-message-stream/index.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/app/session/hooks/use-message-stream/gateway-event.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/app/chat/hooks/use-composer-actions.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/app/chat/composer/hooks/use-composer-drop.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/app/chat/composer/hooks/use-composer-draft.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/app/chat/composer/hooks/use-composer-url-dialog.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/lib/desktop-fs.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/components/assistant-ui/tool/fallback.tsx",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/app/artifacts/artifact-utils.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/app/artifacts/index.tsx",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/types/hermes.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/electron/preload.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/electron/main.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "tui_gateway/server.py",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "run_agent.py",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "agent/tool_executor.py",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "agent/transports/chat_completions.py",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "model_tools.py",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "hermes_cli/runtime_provider.py",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "hermes_cli/web_server.py",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "hermes_state.py",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "hermes_cli/plugins.py",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "hermes_cli/kanban_db.py",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "tools/registry.py",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "agent/context_references.py",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "agent/image_routing.py",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "agent/conversation_loop.py",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "agent/chat_completion_helpers.py",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/lib/incremental-external-store-runtime.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/app/chat/composer/context-menu.tsx",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/app/contrib/controller.tsx",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/src/app/contrib/surfaces.tsx",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      },
+      {
+        "path": "apps/desktop/electron/backend-command.ts",
+        "unchanged": true,
+        "matchesLockedHead": true,
+        "gitDiffExit": 0
+      }
+    ],
+    "upstreamProtectedFinal": [
+      {
+        "file": "apps/desktop/electron/main.ts",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/electron/backend-command.ts",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/electron/backend-health.ts",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/electron/preload.ts",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/main.tsx",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/index.tsx",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/contrib/controller.tsx",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/contrib/wiring.tsx",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/contrib/surfaces.tsx",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/contrib/types.ts",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/routes.ts",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/shell/hooks/use-overlay-routing.ts",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/contrib/hooks/use-desktop-integrations.ts",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/chat/index.tsx",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/components/assistant-ui/thread/index.tsx",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/components/assistant-ui/thread/list.tsx",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/components/assistant-ui/thread/assistant-message.tsx",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/components/assistant-ui/tool/fallback.tsx",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/chat/sidebar/index.tsx",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/chat/sidebar/sessions-section.tsx",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/chat/composer/index.tsx",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/chat/composer/context-menu.tsx",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/chat/composer/attachments.tsx",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/chat/composer/hooks/use-composer-draft.ts",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/chat/hooks/use-file-drop-zone.ts",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/chat/hooks/use-composer-actions.ts",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/store/session.ts",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/store/session-states.ts",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/store/composer.ts",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/hermes.ts",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/lib/gateway-rpc.ts",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/lib/incremental-external-store-runtime.ts",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/session/hooks/use-message-stream/index.ts",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/session/hooks/use-message-stream/gateway-event.ts",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/session/hooks/use-prompt-actions/index.ts",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/session/hooks/use-prompt-actions/submit.ts",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/session/hooks/use-session-actions/index.ts",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/shell/model-menu-panel.tsx",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/settings/index.tsx",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/themes/context.tsx",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/shell/hooks/use-statusbar-items.tsx",
+        "unchanged": true
+      }
+    ],
+    "patchSourceFinal": [
+      {
+        "file": "apps/desktop/src/app/contrib/controller.tsx",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/routes.ts",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/contrib/surfaces.tsx",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/chat/index.tsx",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/shell/hooks/use-statusbar-items.tsx",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/chat/sidebar/index.tsx",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/app/chat/composer/hooks/use-composer-placeholder.ts",
+        "unchanged": true
+      },
+      {
+        "file": "apps/desktop/src/components/chat/intro.tsx",
+        "unchanged": true
+      }
+    ],
+    "historicalManifests": [
+      {
+        "manifest": "docs\\architecture\\evidence\\p522-host-a01r\\delivery-manifest.json",
+        "unchanged": true
+      },
+      {
+        "manifest": "docs\\architecture\\evidence\\p522-host-a01r-fb01\\delivery-manifest.json",
+        "unchanged": true
+      }
+    ],
+    "jsonParsed": [
+      "baseline.json",
+      "capability-matrix.json",
+      "dependency-map.json",
+      "risk-register.json",
+      "source-map.json"
+    ],
+    "missingLocalReferences": [],
+    "whitespaceErrors": [],
+    "diffCheck": {
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    "trackedDiff": "",
+    "cachedDiff": "",
+    "gitStatus": "?? docs/architecture/evidence/p522-host-a02-00/baseline.json\n?? docs/architecture/evidence/p522-host-a02-00/capability-matrix.json\n?? docs/architecture/evidence/p522-host-a02-00/dependency-map.json\n?? docs/architecture/evidence/p522-host-a02-00/risk-register.json\n?? docs/architecture/evidence/p522-host-a02-00/source-map.json\n?? docs/architecture/evidence/p522-host-a02-00/test-architecture.md\n?? docs/architecture/p5.2.2-host-a02-qualification-plan.md\n",
+    "ignoredHandoffs": {
+      "exitCode": 0,
+      "paths": [
+        "plan4.md",
+        "history4.md"
+      ]
+    },
+    "handoffSaved": true
+  },
+  "limitations": [
+    "No product code changed",
+    "No A-02-01 to A-02-05 implementation",
+    "No real Provider requests or uploads",
+    "L1/L3 prior evidence referenced, not rerun",
+    "Provider authorization and exact endpoint unavailable",
+    "Task/Artifact lifecycle not proved by native model",
+    "No commit/push/build/install/delete"
+  ],
+  "correctedAuditIssues": [
+    "Windows wildcard path search failed; used actual files",
+    "Guessed hermes_gateway/providers.ts/use-gateway.ts paths absent; actual tui_gateway/providers.tsx/app/gateway located",
+    "Initial byte comparison to git blobs detected CRLF differences; normalized HEAD equality and raw disk SHA recorded separately"
+  ],
+  "acceptance": {
+    "fiveModulesHaveSourceEvidence": true,
+    "providerPlanExecutableAfterAuthorizedHarnessImplementation": true,
+    "newHarnessImplemented": false,
+    "taskGapExplicit": true,
+    "stageStopConditions": true,
+    "A03BoundariesPreserved": true
+  }
+}
