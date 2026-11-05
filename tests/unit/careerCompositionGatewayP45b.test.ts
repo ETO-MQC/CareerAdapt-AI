@@ -70,6 +70,17 @@ describe("P4.5b composition workflow boundary", () => {
     expect(calls).toEqual(["career.resume.plan_composition", "career.resume.compose"]);
   });
 
+  it("reviewOnly never executes a write even with confirmation and a checkpoint", async () => {
+    const calls: string[] = [];
+    const reviewed = await executeCareerWorkflowFacade("career.workflow.compose_resume",
+      { ...input, sourceResumeId: "selected", generalResumeMode: "update_existing", reviewOnly: true, checkpointId: "old" },
+      { confirmed: true, confirmationCount: 1 }, "review-only",
+      async name => { calls.push(name); return result(name, { sourceReview: { revisionId: "rev-current" } }); });
+    expect(calls).toEqual(["career.resume.plan_composition"]);
+    expect(reviewed.data.status).toBe("completed");
+    expect(reviewed.data.workflowCheckpoint.sourceReview).toEqual({ revisionId: "rev-current" });
+  });
+
   it("publishes the composition facade as a stable career contract", () => {
     expect(CAREER_WORKFLOW_FACADE_DEFINITIONS.some((definition) => definition.name === "career.workflow.compose_resume")).toBe(true);
   });

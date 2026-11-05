@@ -1,3 +1,4 @@
+import { PdfTextReadinessSchema } from "./pdfTextReadiness";
 import { FieldAppearancesSchema } from "./fieldAppearance";
 import { z } from "zod";
 import { ResumePhotoSchema } from "./resumePhoto";
@@ -435,6 +436,7 @@ export const ExportRecordSchema = EntityBaseSchema.extend({
   completedAt: IsoDateStringSchema.optional(),
   failureCode: z.string().min(1).optional(),
   snapshotHash: z.string().min(8).optional(),
+  pdfTextReadiness: PdfTextReadinessSchema.optional(),
   pdfContentHash: z.string().min(8).optional(),
   pagePolicy: z.enum(["natural", "prefer_one_page", "one_page_strict", "up_to_two_pages"]).optional(),
   actualPageCount: z.number().int().min(1).optional(),

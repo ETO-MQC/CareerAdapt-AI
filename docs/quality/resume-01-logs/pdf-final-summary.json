@@ -1,0 +1,14 @@
+{
+  "version": "pdf-text-1",
+  "snapshotHash": "fnv-51231d98-4297",
+  "revisionId": "resume-revision-fnv-7a575a59-100",
+  "presentationRevision": 0,
+  "templateId": "classic-technical",
+  "pageCount": 1,
+  "textLayer": "pass",
+  "contentParity": "pass",
+  "readingOrder": "needs_review",
+  "extractedCharacters": 76,
+  "expectedCharacters": 76,
+  "thirdPartyAts": "unknown"
+}

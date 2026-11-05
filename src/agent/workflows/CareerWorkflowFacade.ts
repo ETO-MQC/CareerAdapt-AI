@@ -107,6 +107,7 @@ const ComposeResumeSharedInputSchema = z.object({
   checkpointId: z.string().min(1).optional(),
   name: z.string().min(1).max(120).optional(),
   generalResumeMode: z.enum(["create_new", "update_existing"]).optional(),
+  reviewOnly: z.boolean().optional(),
   targetDirection: z.string().trim().min(1).max(160).optional(),
   targetAudience: z.string().trim().min(1).max(160).optional(),
   companyType: z.string().trim().min(1).max(160).optional(),
@@ -144,7 +145,7 @@ export const CAREER_WORKFLOW_FACADE_DEFINITIONS: CareerWorkflowFacadeDefinition[
   { name: "career.workflow.job_fit", description: "Use when the user asks whether they fit a selected Job or JD. Do not use to create or modify a Resume, or for general career advice. Reads the selected Job, confirmed Profile, and source Resume; writes a fit artifact only, with no Resume/Profile content write or confirmation, and may stop for one material factual clarification.", inputSchema: JobFitInputSchema, personProfileBinding: "required" },
   { name: "career.workflow.tailor_resume", description: "Use when the user supplies or selects a target Job/JD and asks for a job-specific Resume to be created or tailored, including a pasted JD with no prior Job Fit. Do not use for a general/base Resume, Job Fit-only comparison, or review without a target. Reads confirmed Profile/source Resume and target context, writes only an isolated job-specific proposal/revision at the host confirmation boundary, and may stop for questions or confirmation.", inputSchema: TailorResumeInputSchema, inputJsonSchema: tailorResumeInputJsonSchema(), personProfileBinding: "required" },
   { name: "career.workflow.profile_to_resume", description: "Use when the user asks to create or reuse an isolated general Resume from a confirmed Profile. Do not use for a saved or external target Job, Job Fit, or review/update of an existing Resume. Reads confirmed Profile evidence and writes an isolated general Resume at the host confirmation boundary; it may stop for missing evidence or confirmation.", inputSchema: ProfileToResumeInputSchema, personProfileBinding: "required" },
-  { name: "career.workflow.compose_resume", description: "Use when the user asks to create or update a general/base Resume from a confirmed Profile, including reviewing or improving an existing general Resume with sourceResumeId and generalResumeMode update_existing. Do not use for a target Job/JD, Job Fit, or file import. Reads confirmed Profile and the selected source Resume, writes an isolated proposal/revision only after explicit confirmation, and may stop for questions, review, or confirmation.", inputSchema: ComposeResumeInputSchema, inputJsonSchema: composeResumeInputJsonSchema(), personProfileBinding: "required" },
+  { name: "career.workflow.compose_resume", description: "Use when the user asks to create or update a general/base Resume from a confirmed Profile, including reviewing or improving an existing general Resume with sourceResumeId and generalResumeMode update_existing. For review-only requests set reviewOnly true: reads current source text, no Writer, checkpoint or formal write. Do not use for a target Job/JD, Job Fit, or file import. Reads confirmed Profile and the selected source Resume, writes an isolated proposal/revision only after explicit confirmation, and may stop for questions, review, or confirmation.", inputSchema: ComposeResumeInputSchema, inputJsonSchema: composeResumeInputJsonSchema(), personProfileBinding: "required" },
   { name: "career.workflow.resume_export", description: "Use when the user explicitly asks to preview or export a selected Resume. Do not use to create, review, or modify resume content. Reads the selected persisted Resume/revision and writes only a derived Preview/PDF artifact; no Profile or resume content changes, and it may stop when the selected revision or confirmation is missing.", inputSchema: ResumeExportInputSchema, personProfileBinding: "optional" }
 ];
 
@@ -225,6 +226,7 @@ function composeResumeInputJsonSchema(): Record<string, unknown> {
     checkpointId: { type: "string", minLength: 1 },
     name: { type: "string", minLength: 1, maxLength: 120 },
     generalResumeMode: { type: "string", enum: ["create_new", "update_existing"] },
+    reviewOnly: { type: "boolean", description: "Read the selected current general Resume and return findings only. Never creates a proposal or formal Revision." },
     targetDirection: { type: "string", minLength: 1, maxLength: 160 },
     targetAudience: { type: "string", minLength: 1, maxLength: 160 },
     companyType: { type: "string", minLength: 1, maxLength: 160 },
@@ -491,6 +493,12 @@ export async function executeCareerWorkflowFacade(
     if (typeof input.profileId !== "string" || typeof input.expectedProfileRevision !== "number") {
       return profileBindingRequiredFacade(name, operationId, input, context);
     }
+    if (input.reviewOnly === true) {
+      const review = await call("career.resume.plan_composition", { ...input, reviewOnly: true });
+      return facadeFromAtomic(name, operationId, review, review.ok ? "completed" : "failed", "show_review",
+        "这是指定简历当前版本的只读审阅，没有修改正文或个人资料；如需改善，请另行生成提案并确认。",
+        { kind: "resume_review", sourceResumeId: input.sourceResumeId, sourceReview: objectValue(review.data).sourceReview }, context);
+    }
     if (context.confirmed && typeof input.checkpointId === "string" && input.checkpointId.trim()) {
       const composed = await call("career.resume.compose", { ...input, sessionScopeId: context.careerSessionBinding?.agentSessionId }, 1);
       const composedData = objectValue(composed.data);
@@ -536,6 +544,7 @@ export async function executeCareerWorkflowFacade(
       evidenceGraph: planned.evidenceGraph,
       blueprint: planned.blueprint,
       reviewResult: planned.reviewResult,
+      sourceReview: planned.sourceReview,
       metrics: planned.metrics,
       keywordCoverage: planned.keywordCoverage,
       informationNeeds: planned.informationNeeds,

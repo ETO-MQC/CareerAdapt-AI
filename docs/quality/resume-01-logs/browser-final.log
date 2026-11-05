@@ -1,0 +1,8 @@
+
+Running 1 test using 1 worker
+
+(node:34036) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 1 [chromium] › tests\e2e\resume01-readiness.spec.ts:10:5 › RESUME-01 current revision review is read-only; real PDF has bound text inspection (14.8s)
+
+  1 passed (16.5s)

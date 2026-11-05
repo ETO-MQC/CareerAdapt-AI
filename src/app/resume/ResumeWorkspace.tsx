@@ -1,4 +1,6 @@
 "use client";
+import { reviewExistingGeneralResume, type GeneralResumeReview } from "@/domain/resumeComposition/reviewExistingGeneralResume";
+import { PdfTextReadinessSchema, type PdfTextReadiness } from "@/services/export/pdfTextReadiness";
 import { MaterialIntakeDialog } from "@/components/resume/import/MaterialIntakeDialog";
 import { FieldAppearanceContext, FieldOwner } from "@/components/editor/FieldAppearanceContext";
 import { precisionStyleVars } from "@/components/resume/templates/precisionStyles";
@@ -334,6 +336,8 @@ export function ResumeWorkspace() {
   const [pendingTemplateApplyId, setPendingTemplateApplyId] = useState<TemplateId | undefined>();
   const [activePropertyTab, setActivePropertyTab] = useState<PropertyPanelTab>("document");
   const [pdfExportState, setPdfExportState] = useState<PdfExportState>({ status: "idle" });
+  const [generalReview, setGeneralReview] = useState<GeneralResumeReview>();
+  const [pdfReadiness, setPdfReadiness] = useState<PdfTextReadiness>();
   const [diagnosticSnapshot, setDiagnosticSnapshot] = useState<ResumeDiagnosticSnapshot | undefined>();
   const [diagnosticRequirementsHash, setDiagnosticRequirementsHash] = useState<string | undefined>();
   const [diagnosticRunning, setDiagnosticRunning] = useState(false);
@@ -1183,6 +1187,14 @@ export function ResumeWorkspace() {
       window.requestAnimationFrame(() => document.querySelector(`[data-source-item-id="${cssEscape(itemId)}"]`)?.scrollIntoView({ block: "center" }));
     });
   }, [searchParams, selectedBranch?.id, resumeDocumentBlocksById]);
+
+  useEffect(() => {
+    let current = true;
+    if (selectedBranch?.id) void repository.listExportRecordsForBranch(selectedBranch.id).then(records => {
+      if (current) setPdfReadiness(records.find(record => record.pdfTextReadiness)?.pdfTextReadiness);
+    }, error => { if (current) setDiagnosticError(error instanceof Error ? error.message : "export_record_read_failed"); });
+    return () => { current = false; };
+  }, [selectedBranch?.id]);
 
   function locateDiagnosticIssue(issue: ResumeDiagnosticIssue) {
     const itemId = issue.contentItemIds[0];
@@ -3426,6 +3438,12 @@ export function ResumeWorkspace() {
       if (!isPdfBytes(bytes)) {
         throw new Error("invalid_pdf_response");
       }
+      const readinessHeader = response.headers.get("X-CareerAdapt-Pdf-Readiness");
+      const readiness = readinessHeader ? PdfTextReadinessSchema.parse(JSON.parse(readinessHeader)) : undefined;
+      if (readiness && (readiness.snapshotHash !== exportRequest.snapshot.snapshotHash
+        || readiness.revisionId !== latestBranch.currentRevisionId || readiness.templateId !== effectiveTemplateId
+        || readiness.presentationRevision !== presentationConfig.presentationRevision)) throw new Error("pdf_readiness_binding_mismatch");
+      setPdfReadiness(readiness);
       const pdfHash = await hashBytes(bytes);
       const completedAt = new Date().toISOString();
       await repository.createResumeExportRecord({
@@ -3446,6 +3464,7 @@ export function ResumeWorkspace() {
         presentationSnapshot: presentationSnapshotFromConfig(presentationConfig),
         snapshotHash: exportRequest.snapshot.snapshotHash,
         pdfContentHash: pdfHash,
+        pdfTextReadiness: readiness,
         pagePolicy: exportPaginationPlan.pagePolicy,
         requestedMaxPages: exportPaginationPlan.requestedMaxPages,
         actualPageCount: exportPaginationPlan.actualPageCount,
@@ -5031,6 +5050,15 @@ export function ResumeWorkspace() {
                 <div className="ai-content-area studio-sidebar-section">
                   {aiInspectorTab === "quality" ? (
                     <ResumeDiagnosticsPanel
+                      generalReview={generalReview?.branchId === selectedBranch?.id ? generalReview : undefined}
+                      reviewStale={generalReview?.revisionId !== selectedBranch?.currentRevisionId || generalReview?.profileRevision !== profile?.version}
+                      onReview={selectedBranch?.branchPurpose === "general" && profile ? () => {
+                        try { setGeneralReview(reviewExistingGeneralResume(profile, selectedBranch)); }
+                        catch (error) { setDiagnosticError(error instanceof Error ? error.message : "review_failed"); }
+                      } : undefined}
+                      onLocateReview={(itemId) => { setIsStudioEditMode(true); setSelectedStudioItemId(itemId); selectStudioItem(itemId); }}
+                      pdfReadiness={pdfReadiness}
+                      pdfStale={pdfReadiness?.revisionId !== selectedBranch?.currentRevisionId || pdfReadiness?.presentationRevision !== presentationConfig?.presentationRevision || pdfReadiness?.templateId !== effectiveTemplateId}
                       snapshot={diagnosticSnapshot}
                       stale={diagnosticsStale}
                       running={diagnosticRunning}

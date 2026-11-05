@@ -45,7 +45,8 @@ export async function POST(request: NextRequest) {
         "Cache-Control": "no-store",
         "X-CareerAdapt-Export-Id": exportRequest.exportId,
         "X-CareerAdapt-Snapshot-Hash": snapshot.snapshotHash,
-        "X-CareerAdapt-Overflow-Status": result.overflowStatus
+        "X-CareerAdapt-Overflow-Status": result.overflowStatus,
+        "X-CareerAdapt-Pdf-Readiness": JSON.stringify(result.pdfTextReadiness)
       }
     });
   } catch (error) {

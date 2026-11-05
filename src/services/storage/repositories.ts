@@ -6567,6 +6567,7 @@ export class WorkspaceRepository {
     completedAt?: string;
     failureCode?: string;
     snapshotHash?: string;
+    pdfTextReadiness?: ExportRecord["pdfTextReadiness"];
     pdfContentHash?: string;
     pagePolicy?: ExportRecord["pagePolicy"];
     actualPageCount?: number;
@@ -6585,6 +6586,11 @@ export class WorkspaceRepository {
     requirementCoverageSummary?: ExportRecord["requirementCoverageSummary"];
     allowHistoricalRevision?: boolean;
   }) {
+    const readiness = input.pdfTextReadiness;
+    if (readiness && (readiness.revisionId !== input.expectedRevisionId || readiness.templateId !== input.templateId
+      || readiness.presentationRevision !== input.presentationRevision || readiness.snapshotHash !== input.snapshotHash)) {
+      throw new Error("export_pdf_readiness_binding_mismatch");
+    }
     return this.db.transaction("rw", this.db.resumeBranches, this.db.resumeRevisions, this.db.exportRecords, async () => {
       const existing = await this.db.exportRecords.where("operationId").equals(input.operationId).first();
       if (existing) {
@@ -6649,6 +6655,7 @@ export class WorkspaceRepository {
         completedAt: input.completedAt,
         failureCode: input.failureCode,
         snapshotHash: input.snapshotHash,
+        pdfTextReadiness: input.pdfTextReadiness,
         pdfContentHash: input.pdfContentHash,
         pagePolicy: input.pagePolicy,
         actualPageCount: input.actualPageCount,

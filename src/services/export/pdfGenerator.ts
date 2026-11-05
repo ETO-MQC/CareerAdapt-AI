@@ -1,3 +1,4 @@
+import { inspectExportedPdf } from "./inspectExportedPdf";
 // V4-P0 D: production API route — depend on the playwright runtime package,
 // never on the @playwright/test runner (kept in devDependencies, v4-plan D7).
 import { chromium, type Browser, type Page } from "playwright-core";
@@ -175,6 +176,7 @@ async function generateResumePdfAttempt(snapshot: ResumePdfExportSnapshot, page:
       throw new ResumePdfGenerationError("render_coverage_failed", renderedCoverageReport.diagnostics, recoveryAttempt);
     }
 
+    const expectedText = await page.locator(".resume-preview-pages").innerText();
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,
@@ -188,6 +190,7 @@ async function generateResumePdfAttempt(snapshot: ResumePdfExportSnapshot, page:
     });
     return {
       pdf,
+      pdfTextReadiness: await inspectExportedPdf(pdf, expectedText, snapshot),
       overflowStatus: paginationPlan.status,
       paginationPlan
     };

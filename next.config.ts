@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
   distDir: process.env.CAREERAD_NEXT_DIST_DIR?.trim() || ".next",
   allowedDevOrigins: ["127.0.0.1"],
   output: "standalone",
+  serverExternalPackages: ["pdfjs-dist"],
   reactStrictMode: true,
   experimental: {
     turbopackFileSystemCacheForDev: false

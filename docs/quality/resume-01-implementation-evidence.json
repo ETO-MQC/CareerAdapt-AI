@@ -1,0 +1,211 @@
+{
+  "task": "P5.1-RESUME-01",
+  "date": "2026-11-04",
+  "timezone": "Asia/Shanghai",
+  "baselineHead": "887f061e553b1ec83aa0789f1931a1fa3955f067",
+  "status": "ENGINEERING_VERIFIED_WITH_DOCUMENTED_LIMITATIONS",
+  "initialWorktree": "clean",
+  "submitted": false,
+  "pushed": false,
+  "packaged": false,
+  "realProviderCalls": 0,
+  "realApiKeysRead": false,
+  "multiAgent": false,
+  "newProductionDependencies": false,
+  "newDatabaseTables": false,
+  "reused": [
+    "ResumeEvidenceGraph",
+    "ResumeBlueprint",
+    "ResumeReviewer",
+    "CareerResumeQualityPolicyV1",
+    "qualityDiagnostics",
+    "ResumeDiagnosticsPanel",
+    "CareerWorkflowFacade.compose_resume",
+    "WorkspaceRepository",
+    "immutable checkpoint/confirmation/CAS/Revision",
+    "RenderCoverageDiagnostics",
+    "ExportRecord",
+    "pdfjs-dist"
+  ],
+  "newBehavior": [
+    "selected current general Revision original-text review",
+    "reviewOnly facade routes to read-only source adapter without Writer/checkpoint",
+    "version-bound original report and evidence location in existing panel",
+    "actual generated PDF bytes extracted server-side",
+    "independent content completeness and stream-order checks",
+    "optional bound ExportRecord pdfTextReadiness summary and Repository mismatch rejection",
+    "stale results withheld; unavailable parser returns unknown",
+    "valid existing resume_only confirmation accepted through original renderability/text-hash validation; mismatched hash rejected; Profile absence is not factual risk"
+  ],
+  "validation": {
+    "baselineTypecheck": {
+      "exitCode": 0
+    },
+    "baselineRelatedTests": {
+      "total": 40,
+      "passed": 34,
+      "failed": 6,
+      "exitCode": 1,
+      "failure": "export.test.ts legacy fixture draft_job_version_stale before PDF generation; not modified"
+    },
+    "finalUnitIntegration": {
+      "files": 10,
+      "passed": 84,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "log": "resume-01-logs/unit-final.log"
+    },
+    "typecheck": {
+      "exitCode": 0,
+      "log": "resume-01-logs/typecheck-final.log"
+    },
+    "changedFilesEslint": {
+      "exitCode": 0,
+      "log": "resume-01-logs/lint-final.log",
+      "files": 22
+    },
+    "build": {
+      "exitCode": 0,
+      "ownedWorktree": "E:\\DEF\\CareerAdapt-resume01-887f061e",
+      "inputFilesCompared": 487,
+      "mismatches": 0,
+      "log": "resume-01-logs/build-final.log",
+      "warnings": [
+        "pdfjs-dist client worker ESM cannot be externalized; compilation succeeds and production export browser passes"
+      ]
+    },
+    "productionBrowser": {
+      "passed": 1,
+      "failed": 0,
+      "exitCode": 0,
+      "log": "resume-01-logs/browser-final.log",
+      "artifacts": "artifacts/resume01/production-final-20261105"
+    },
+    "hermesBrowser": {
+      "suite": "integration",
+      "exitCode": 0,
+      "providerKind": "simulated",
+      "providerCalls": 8,
+      "models": [
+        "careeradapt-test"
+      ],
+      "allSyntheticAuthorizationMatched": true,
+      "playwrightStats": {
+        "startTime": "2026-11-04T15:40:28.478Z",
+        "duration": 41565.214,
+        "expected": 1,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "runtime": "existing bundled Hermes; no second runtime",
+      "assertions": [
+        "review-only branch/revision/profile unchanged",
+        "no review-only confirmation card",
+        "proposal creates no formal revision",
+        "explicit confirmation creates exactly one revision",
+        "Profile unchanged",
+        "exactly one selected branch updated"
+      ]
+    },
+    "actualPdf": {
+      "version": "pdf-text-1",
+      "snapshotHash": "fnv-51231d98-4297",
+      "revisionId": "resume-revision-fnv-7a575a59-100",
+      "presentationRevision": 0,
+      "templateId": "classic-technical",
+      "pageCount": 1,
+      "textLayer": "pass",
+      "contentParity": "pass",
+      "readingOrder": "needs_review",
+      "extractedCharacters": 76,
+      "expectedCharacters": 76,
+      "thirdPartyAts": "unknown"
+    },
+    "multipage": {
+      "physicalPages": 2,
+      "generator": "Chromium actual PDF bytes; independent synthetic HTML, not all resume templates",
+      "verified": [
+        "Chinese",
+        "English",
+        "numbers",
+        "special symbols",
+        "last-page completeness",
+        "missing content negative",
+        "parser failure unknown"
+      ],
+      "exitCode": 0
+    },
+    "visualInspection": {
+      "renderedActualPdf": true,
+      "page": "artifacts/resume01/actual-pdf-page1.png",
+      "productionUiScreenshotsReviewed": true
+    },
+    "diffCheck": {
+      "exitCode": 0
+    },
+    "finalSourceFollowup": {
+      "files": 3,
+      "passed": 12,
+      "exitCode": 0,
+      "log": "resume-01-logs/final-source-followup.log"
+    },
+    "confirmationFollowup": {
+      "files": 2,
+      "passed": 10,
+      "exitCode": 0,
+      "log": "resume-01-logs/confirmation-followup.log"
+    }
+  },
+  "processFailuresPreserved": [
+    "original node_modules Junction Turbopack startup error",
+    "new fixture dual projection mismatch corrected",
+    "new fixture compared pre-normalized Profile instead of persisted before-snapshot corrected",
+    "obsolete UI helper selector replaced only in new test",
+    "server PDF worker bundling failure corrected by externalizing existing pdfjs-dist",
+    "original PDF exact order assumption disproved; direct stream/preview evidence retained and order reported needs_review",
+    "Hermes test session-hydration race corrected; first test timeout retained",
+    "one Hermes launch accidentally used original Junction directory; corrected to owned directory"
+  ],
+  "unknown": [
+    "third-party ATS compatibility",
+    "semantic HR positioning and strongest-experience comparison",
+    "independent ownership calibration",
+    "general review without target keywords: keyword coverage and unsupported keyword set",
+    "full negative capability history scope, time and withdrawal protocol",
+    "real-model natural writing quality; frozen SQ1 quality certification unchanged",
+    "all templates and complex production multi-page resumes"
+  ],
+  "limitations": [
+    "real one-page classic-technical export contains complete expected text but email is later than section heading in raw PDF stream; visual page order is correct; no ATS certification",
+    "Review+Improve reuses original complete immutable proposal confirmation, not a new per-finding apply-all or separate quality center",
+    "read-only editor report is deterministic; semantic explanation uses existing Hermes Skill",
+    "do not mark P5.1.6/7 or SQ1 all complete from this engineering acceptance"
+  ],
+  "nextStage": "Only a user-selected next engineering task may start. Not an unconditional Final Release gate; no SQ1.3-C or Final Release started.",
+  "completedDate": "2026-11-05",
+  "openSource": {
+    "matrix": "docs/architecture/p5.1-sq1-open-source-method-matrix.md",
+    "newResearch": false,
+    "codeCopied": false,
+    "fixedReferences": [
+      {
+        "name": "career-ops",
+        "commit": "6825dc60a06ca8fbd1e22437945d27b6cfcf8a0e",
+        "license": "MIT; separate trademark policy"
+      },
+      {
+        "name": "ASu-resume-skills",
+        "commit": "f460582b1a48c7770496d7999ae3a14a2ce0452b",
+        "license": "MIT"
+      },
+      {
+        "name": "resume-builder",
+        "commit": "1339991e2191590091acc5df0bfd8037d009d4ce",
+        "license": "MIT"
+      }
+    ],
+    "otherArchitectureReferences": "existing p4.8a Reactive Resume / OpenResume discussion; no model copied"
+  }
+}

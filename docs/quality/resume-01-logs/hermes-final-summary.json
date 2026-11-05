@@ -1,0 +1,27 @@
+{
+  "suite": "integration",
+  "exitCode": 0,
+  "providerKind": "simulated",
+  "providerCalls": 8,
+  "models": [
+    "careeradapt-test"
+  ],
+  "allSyntheticAuthorizationMatched": true,
+  "playwrightStats": {
+    "startTime": "2026-11-04T15:40:28.478Z",
+    "duration": 41565.214,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "runtime": "existing bundled Hermes; no second runtime",
+  "assertions": [
+    "review-only branch/revision/profile unchanged",
+    "no review-only confirmation card",
+    "proposal creates no formal revision",
+    "explicit confirmation creates exactly one revision",
+    "Profile unchanged",
+    "exactly one selected branch updated"
+  ]
+}

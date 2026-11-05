@@ -1,3 +1,4 @@
+import { reviewExistingGeneralResume } from "@/domain/resumeComposition/reviewExistingGeneralResume";
 import { addSessionConfirmedSkills, sessionClaimPrefix, type CompositionSourceTurn } from "@/domain/resumeComposition/sessionConfirmedSkills";
 import { MaterialIntakeService } from "@/services/materialIntake/MaterialIntakeService";
 import {
@@ -811,7 +812,22 @@ export class BrowserAgentToolService implements AgentToolServices {
     };
   }
 
+  async planResumeComposition(rawInput: { reviewOnly: true; [key: string]: unknown }, signal?: AbortSignal): Promise<{ sourceReview: ReturnType<typeof reviewExistingGeneralResume> }>;
+  async planResumeComposition(rawInput: unknown, signal?: AbortSignal): ReturnType<BrowserAgentToolService["planResumeCompositionProposal"]>;
   async planResumeComposition(rawInput: unknown, signal?: AbortSignal) {
+    const input = rawInput as { reviewOnly?: boolean; profileId: string; expectedProfileRevision: number; mode: ResumeCompositionMode; sourceResumeId?: string };
+    if (!input.reviewOnly) return this.planResumeCompositionProposal(rawInput, signal);
+    assertNotAborted(signal);
+    const context = await this.loadCompositionContext(input);
+    const source = await this.requireCompositionSource(input.sourceResumeId, context.profile.id);
+    const branch = await this.repository.getResumeBranch(source.branchId);
+    if (input.mode !== "general" || branch?.branchPurpose !== "general" || branch.currentRevisionId !== source.revisionId) {
+      throw toolError("general_review_target_invalid", "请选择当前版本的已有通用简历。");
+    }
+    return { sourceReview: reviewExistingGeneralResume(context.profile, branch) };
+  }
+
+  private async planResumeCompositionProposal(rawInput: unknown, signal?: AbortSignal) {
     assertNotAborted(signal);
     const input = rawInput as {
       sessionSource?: CompositionSourceTurn;
@@ -821,6 +837,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       mode: ResumeCompositionMode;
       jobId?: string;
       sourceResumeId?: string;
+      reviewOnly?: boolean;
       checkpointId?: string;
       targetDirection?: string;
       targetAudience?: string;
@@ -871,6 +888,8 @@ export class BrowserAgentToolService implements AgentToolServices {
       blueprint,
       compositionProposal: composition.proposal,
       reviewResult: composition.reviewResult,
+      ...(sourceBranch?.branchPurpose === "general" && input.mode === "general"
+        ? { sourceReview: reviewExistingGeneralResume(context.profile, sourceBranch) } : {}),
       metrics: composition.metrics,
       keywordCoverage: composition.keywordCoverage,
       informationNeeds: composition.informationNeeds,
@@ -923,6 +942,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       jobId?: string;
       sourceResumeId?: string;
       checkpointId?: string;
+      reviewOnly?: boolean;
       name?: string;
       generalResumeMode?: "create_new" | "update_existing";
       targetDirection?: string;
@@ -930,6 +950,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       companyType?: string;
       acknowledgedActiveProfileId?: string;
     };
+    if (input.reviewOnly) throw toolError("review_only_write_forbidden", "只读审阅不能写入正式版本。");
     const context = await this.loadCompositionContext(input);
     const checkpoint = await this.requireCompositionCheckpoint(input, context.profile.id, context.job?.id);
     let composition = checkpoint.compositionResult;

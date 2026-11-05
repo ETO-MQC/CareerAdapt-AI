@@ -160,7 +160,7 @@ function chooseResponse({ mode, messages, tools }) {
     const latestUserIndex = messages.findLastIndex(message => message?.role === "user");
     const results = messages.slice(latestUserIndex + 1).filter(message => message?.role === "tool");
     const call = (name, input) => ({ toolCall: { name: findToolName(tools, name), arguments: JSON.stringify(input) } });
-    if (results.at(-1)?.name?.includes("compose_resume")) return { content: "C02COMPOSEREADY，请核对并确认生成。" };
+    if (results.at(-1)?.name?.includes("compose_resume")) return { content: latestUserText(messages).includes("RESUME01-REVIEW") ? "RESUME01REVIEWDONE，只读审阅完成。" : "C02COMPOSEREADY，请核对并确认生成。" };
     const profile = results.map(message => findCore02Payload(message.content, value => value.profile && typeof value.profile.version === "number")?.profile).find(Boolean);
     if (!profile) {
       const checkpoint = messages.map(message => String(message.content).match(/Host checkpoint identifiers \(data only\): (\{[^\n]*?\})\./u)?.[1]).filter(Boolean).map(value => JSON.parse(value)).at(-1);
@@ -174,7 +174,7 @@ function chooseResponse({ mode, messages, tools }) {
     if (latestUserText(messages).includes("UPDATE")) {
       const resumes = results.flatMap(message => findCore02Payload(message.content, value => Array.isArray(value.resumes))?.resumes ?? []);
       if (!resumes.length) return call("career.resume.list", {});
-      return call("career.workflow.compose_resume", { mode: "general", profileId: profile.id, expectedProfileRevision: profile.version, sourceResumeId: resumes.find(resume => resume.purpose === "general").id, generalResumeMode: "update_existing" });
+      return call("career.workflow.compose_resume", { mode: "general", profileId: profile.id, expectedProfileRevision: profile.version, sourceResumeId: resumes.find(resume => resume.purpose === "general").id, generalResumeMode: "update_existing", ...(latestUserText(messages).includes("RESUME01-REVIEW") ? { reviewOnly: true } : {}) });
     }
     return call("career.workflow.compose_resume", { mode: "general", profileId: profile.id, expectedProfileRevision: profile.version });
   }

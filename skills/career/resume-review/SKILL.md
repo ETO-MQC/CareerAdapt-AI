@@ -103,7 +103,7 @@ Review is read-only by default. Use
 selected/current general Resume, then use
 `mcp__careeradapt__career_workflow_compose_resume` with `mode: "general"`, the
 selected `sourceResumeId`, and `generalResumeMode: "update_existing"` for the
-review/update capability. Stop at its proposal for review-only requests; an
+review/update capability. Set `reviewOnly: true` for a review-only request; the host reads the selected current Revision without invoking the Writer or creating a checkpoint. An
 improvement may continue through the same facade only after explicit user
 confirmation. Never call atomic review, tailoring, or export tools and never
 edit `WorkspaceRepository` directly.

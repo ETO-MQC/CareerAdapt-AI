@@ -302,6 +302,7 @@ const ResumeCompositionInputSchema = z.object({
   checkpointId: z.string().min(1).optional(),
   name: z.string().min(1).max(120).optional(),
   generalResumeMode: z.enum(["create_new", "update_existing"]).optional(),
+  reviewOnly: z.boolean().optional(),
   targetDirection: z.string().trim().min(1).max(160).optional(),
   targetAudience: z.string().trim().min(1).max(160).optional(),
   companyType: z.string().trim().min(1).max(160).optional(),
