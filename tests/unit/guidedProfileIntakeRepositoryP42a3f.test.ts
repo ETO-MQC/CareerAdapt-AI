@@ -379,7 +379,8 @@ describe("P4.2a.3f profile commit and General Resume bootstrap", () => {
           sectionType: "awards" as const,
           name: "蓝桥杯河南省Python A组省级三等奖",
           current: false,
-          description: "参加竞赛并获得省级三等奖。",
+          // This test edits only the name; keep the pre-edit description source-exact.
+          description: input.rawNarrative,
           highlights: [],
           tools: [],
           methods: [],
@@ -422,6 +423,10 @@ describe("P4.2a.3f profile commit and General Resume bootstrap", () => {
     const draft = await repository.getImportedResumeDraft(captured.importId);
     expect(draft?.sections.flatMap((section) => section.items).find((item) => item.id === candidateId)?.structuredItem)
       .toMatchObject({ name: "蓝桥杯竞赛河南省PythonA组省级三等奖" });
+    const stored = draft?.sections.flatMap((section) => section.items).find((item) => item.id === candidateId);
+    expect(stored?.structuredItem).toMatchObject({ description: raw });
+    expect(stored?.sourceQuote).toBe(raw);
+    expect(await repository.getProfile(profile.id)).toMatchObject({ version: profile.version });
   });
 
   it("adds a completely new follow-up experience to the same Intake Draft", async () => {

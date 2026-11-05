@@ -1,0 +1,9 @@
+
+> careeradapt-ai@0.9.3-rc.2 typecheck E:\DEF\CareerAdapt-competition-5.1.8
+> tsc --noEmit
+
+tests/e2e/hermes-p46h-integration.spec.ts(204,106): error TS2551: Property 'click' does not exist on type 'SVGElement | HTMLElement'. Did you mean 'onclick'?
+  Property 'click' does not exist on type 'SVGElement'.
+tests/e2e/hermes-p46h-integration.spec.ts(204,122): error TS2551: Property 'click' does not exist on type 'SVGElement | HTMLElement'. Did you mean 'onclick'?
+  Property 'click' does not exist on type 'SVGElement'.
+ ELIFECYCLE  Command failed with exit code 2.

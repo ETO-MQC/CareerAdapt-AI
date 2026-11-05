@@ -1,0 +1,2616 @@
+{
+  "task": {
+    "goal": "ingest_job",
+    "rootGoal": "ingest_job",
+    "activeGoal": "ingest_job",
+    "workflowId": "job_ingestion",
+    "stage": "completed",
+    "requiredSlots": [],
+    "knownSlots": {
+      "facadeCheckpoint": {
+        "kind": "job_intake",
+        "targetSnapshot": {
+          "id": "job-target-fnv-9fa48862-80",
+          "createdAt": "2026-11-05T14:02:56.800Z",
+          "updatedAt": "2026-11-05T14:02:56.800Z",
+          "schemaVersion": "job-target-snapshot-v1",
+          "version": 1,
+          "sourceType": "pasted_jd",
+          "rawText": "公司：匿名甲公司 UX011-JD\n岗位：数据分析师\n任职要求\n必须掌握 Python 或 R。\n必须掌握 Python 和 SQL。\n加分项\n熟悉 Java。",
+          "rawTextHash": "fnv-9fa48862-80",
+          "title": "数据分析师",
+          "company": "匿名甲公司 UX011-JD",
+          "normalizedRequirements": [
+            {
+              "id": "jrv4-fnv-a3692cc6-23",
+              "createdAt": "2026-11-05T14:02:56.800Z",
+              "updatedAt": "2026-11-05T14:02:56.800Z",
+              "category": "tool",
+              "description": "必须掌握 Python 或 R。",
+              "priority": "must",
+              "hardConstraint": true,
+              "sourceSpan": {
+                "start": 32,
+                "end": 48,
+                "text": "必须掌握 Python 或 R。"
+              },
+              "keywords": [
+                "Python",
+                "R"
+              ],
+              "confidence": 0.9
+            },
+            {
+              "id": "jrv4-fnv-fff925dd-23",
+              "createdAt": "2026-11-05T14:02:56.800Z",
+              "updatedAt": "2026-11-05T14:02:56.800Z",
+              "category": "tool",
+              "description": "必须掌握 Python 和 SQL。",
+              "priority": "must",
+              "hardConstraint": true,
+              "sourceSpan": {
+                "start": 49,
+                "end": 67,
+                "text": "必须掌握 Python 和 SQL。"
+              },
+              "keywords": [
+                "Python",
+                "SQL"
+              ],
+              "confidence": 0.9
+            },
+            {
+              "id": "jrv4-fnv-efd347c1-23",
+              "createdAt": "2026-11-05T14:02:56.800Z",
+              "updatedAt": "2026-11-05T14:02:56.800Z",
+              "category": "nice_to_have",
+              "description": "熟悉 Java。",
+              "priority": "nice_to_have",
+              "hardConstraint": false,
+              "sourceSpan": {
+                "start": 72,
+                "end": 80,
+                "text": "熟悉 Java。"
+              },
+              "keywords": [
+                "Java"
+              ],
+              "confidence": 0.9
+            }
+          ],
+          "requirementGraph": {
+            "schemaVersion": "job-requirement-graph-v4",
+            "roleProfile": {
+              "hiringSignals": []
+            },
+            "groups": [],
+            "requirements": [
+              {
+                "id": "jrv4-fnv-a3692cc6-23",
+                "section": "required",
+                "kind": "tool_or_technology",
+                "statement": "必须掌握 Python 或 R。",
+                "normalizedIntent": "必须掌握 python 或 r",
+                "priority": "must",
+                "hardConstraint": true,
+                "keywordLogic": {
+                  "relation": "any_of",
+                  "terms": [
+                    "Python",
+                    "R"
+                  ]
+                },
+                "exactKeywords": [
+                  "Python",
+                  "R"
+                ],
+                "semanticAliases": [],
+                "sourceUnitId": "jd-unit-fnv-3e14f475-19",
+                "details": [],
+                "sourceSpan": {
+                  "start": 32,
+                  "end": 48,
+                  "text": "必须掌握 Python 或 R。"
+                },
+                "sourceSpans": [
+                  {
+                    "start": 32,
+                    "end": 48,
+                    "text": "必须掌握 Python 或 R。"
+                  }
+                ],
+                "confidence": 0.88,
+                "needsConfirmation": false
+              },
+              {
+                "id": "jrv4-fnv-fff925dd-23",
+                "section": "required",
+                "kind": "tool_or_technology",
+                "statement": "必须掌握 Python 和 SQL。",
+                "normalizedIntent": "必须掌握 python 和 sql",
+                "priority": "must",
+                "hardConstraint": true,
+                "keywordLogic": {
+                  "relation": "all_of",
+                  "terms": [
+                    "Python",
+                    "SQL"
+                  ]
+                },
+                "exactKeywords": [
+                  "Python",
+                  "SQL"
+                ],
+                "semanticAliases": [],
+                "sourceUnitId": "jd-unit-fnv-12145c83-21",
+                "details": [],
+                "sourceSpan": {
+                  "start": 49,
+                  "end": 67,
+                  "text": "必须掌握 Python 和 SQL。"
+                },
+                "sourceSpans": [
+                  {
+                    "start": 49,
+                    "end": 67,
+                    "text": "必须掌握 Python 和 SQL。"
+                  }
+                ],
+                "confidence": 0.88,
+                "needsConfirmation": false
+              },
+              {
+                "id": "jrv4-fnv-efd347c1-23",
+                "section": "preferred",
+                "kind": "preferred",
+                "statement": "熟悉 Java。",
+                "normalizedIntent": "熟悉 java",
+                "priority": "nice_to_have",
+                "hardConstraint": false,
+                "exactKeywords": [
+                  "Java"
+                ],
+                "semanticAliases": [],
+                "sourceUnitId": "jd-unit-fnv-7009dfac-11",
+                "details": [],
+                "sourceSpan": {
+                  "start": 72,
+                  "end": 80,
+                  "text": "熟悉 Java。"
+                },
+                "sourceSpans": [
+                  {
+                    "start": 72,
+                    "end": 80,
+                    "text": "熟悉 Java。"
+                  }
+                ],
+                "confidence": 0.88,
+                "needsConfirmation": false
+              }
+            ],
+            "verificationMaterials": [],
+            "contextGroups": [],
+            "semanticUnits": [
+              {
+                "id": "jd-unit-fnv-5025f7af-19",
+                "text": "公司：匿名甲公司 UX011-JD",
+                "sourceSpan": {
+                  "start": 0,
+                  "end": 17,
+                  "text": "公司：匿名甲公司 UX011-JD"
+                },
+                "lineNumber": 1,
+                "lexical": {
+                  "indentation": 0,
+                  "punctuation": "plain",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "metadata",
+                  "section": "responsibility"
+                },
+                "final": {
+                  "disposition": "metadata",
+                  "section": "responsibility",
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-51933608-11",
+                "text": "岗位：数据分析师",
+                "sourceSpan": {
+                  "start": 18,
+                  "end": 26,
+                  "text": "岗位：数据分析师"
+                },
+                "lineNumber": 2,
+                "lexical": {
+                  "indentation": 0,
+                  "punctuation": "plain",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "metadata",
+                  "section": "responsibility"
+                },
+                "final": {
+                  "disposition": "metadata",
+                  "section": "responsibility",
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-e373b82c-7",
+                "text": "任职要求",
+                "sourceSpan": {
+                  "start": 27,
+                  "end": 31,
+                  "text": "任职要求"
+                },
+                "lineNumber": 3,
+                "lexical": {
+                  "indentation": 0,
+                  "punctuation": "heading",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "heading",
+                  "section": "required"
+                },
+                "final": {
+                  "disposition": "heading",
+                  "section": "required",
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-3e14f475-19",
+                "text": "必须掌握 Python 或 R。",
+                "sourceSpan": {
+                  "start": 32,
+                  "end": 48,
+                  "text": "必须掌握 Python 或 R。"
+                },
+                "lineNumber": 4,
+                "lexical": {
+                  "indentation": 0,
+                  "punctuation": "sentence",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "requirement",
+                  "section": "required"
+                },
+                "final": {
+                  "disposition": "requirement",
+                  "section": "required",
+                  "kind": "tool_or_technology",
+                  "priority": "must",
+                  "hardConstraint": true,
+                  "normalizedIntent": "必须掌握 python 或 r",
+                  "exactKeywords": [
+                    "Python",
+                    "R"
+                  ],
+                  "semanticAliases": [],
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-12145c83-21",
+                "text": "必须掌握 Python 和 SQL。",
+                "sourceSpan": {
+                  "start": 49,
+                  "end": 67,
+                  "text": "必须掌握 Python 和 SQL。"
+                },
+                "lineNumber": 5,
+                "lexical": {
+                  "indentation": 0,
+                  "punctuation": "sentence",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "requirement",
+                  "section": "required"
+                },
+                "final": {
+                  "disposition": "requirement",
+                  "section": "required",
+                  "kind": "tool_or_technology",
+                  "priority": "must",
+                  "hardConstraint": true,
+                  "normalizedIntent": "必须掌握 python 和 sql",
+                  "exactKeywords": [
+                    "Python",
+                    "SQL"
+                  ],
+                  "semanticAliases": [],
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-7625c994-6",
+                "text": "加分项",
+                "sourceSpan": {
+                  "start": 68,
+                  "end": 71,
+                  "text": "加分项"
+                },
+                "lineNumber": 6,
+                "lexical": {
+                  "indentation": 0,
+                  "punctuation": "heading",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "heading",
+                  "section": "preferred"
+                },
+                "final": {
+                  "disposition": "heading",
+                  "section": "preferred",
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-7009dfac-11",
+                "text": "熟悉 Java。",
+                "sourceSpan": {
+                  "start": 72,
+                  "end": 80,
+                  "text": "熟悉 Java。"
+                },
+                "lineNumber": 7,
+                "lexical": {
+                  "indentation": 0,
+                  "punctuation": "sentence",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "requirement",
+                  "section": "preferred"
+                },
+                "final": {
+                  "disposition": "requirement",
+                  "section": "preferred",
+                  "kind": "preferred",
+                  "priority": "nice_to_have",
+                  "hardConstraint": false,
+                  "normalizedIntent": "熟悉 java",
+                  "exactKeywords": [
+                    "Java"
+                  ],
+                  "semanticAliases": [],
+                  "confidence": 0.88
+                }
+              }
+            ],
+            "issues": [],
+            "needsReview": false,
+            "sourceCoverage": {
+              "coveredSpans": [
+                {
+                  "start": 0,
+                  "end": 17,
+                  "text": "公司：匿名甲公司 UX011-JD"
+                },
+                {
+                  "start": 18,
+                  "end": 26,
+                  "text": "岗位：数据分析师"
+                },
+                {
+                  "start": 27,
+                  "end": 31,
+                  "text": "任职要求"
+                },
+                {
+                  "start": 32,
+                  "end": 48,
+                  "text": "必须掌握 Python 或 R。"
+                },
+                {
+                  "start": 49,
+                  "end": 67,
+                  "text": "必须掌握 Python 和 SQL。"
+                },
+                {
+                  "start": 68,
+                  "end": 71,
+                  "text": "加分项"
+                },
+                {
+                  "start": 72,
+                  "end": 80,
+                  "text": "熟悉 Java。"
+                }
+              ],
+              "unclassifiedSpans": [],
+              "totalMeaningfulUnits": 7,
+              "assignedUnits": 7,
+              "unassignedUnitIds": [],
+              "metadataUnitIds": [
+                "jd-unit-fnv-5025f7af-19",
+                "jd-unit-fnv-51933608-11"
+              ],
+              "excludedUnitIds": [],
+              "requirementUnitIds": [
+                "jd-unit-fnv-3e14f475-19",
+                "jd-unit-fnv-12145c83-21",
+                "jd-unit-fnv-7009dfac-11"
+              ],
+              "detailUnitIds": [],
+              "inventedReferenceCount": 0,
+              "coverageRatio": 1
+            },
+            "analyzerVersion": "jd-analyzer.semantic-ledger-v4.1",
+            "graphHash": "fnv-487e4481-1881",
+            "semanticEnrichmentHash": "fnv-29f4368f-945"
+          },
+          "targetSignals": [],
+          "capturedAt": "2026-11-05T14:02:56.800Z"
+        },
+        "identity": {
+          "title": "数据分析师",
+          "company": "匿名甲公司 UX011-JD",
+          "location": "unknown"
+        },
+        "graph": {
+          "schemaVersion": "job-requirement-graph-v4",
+          "roleProfile": {
+            "hiringSignals": []
+          },
+          "groups": [],
+          "requirements": [
+            {
+              "id": "jrv4-fnv-a3692cc6-23",
+              "section": "required",
+              "kind": "tool_or_technology",
+              "statement": "必须掌握 Python 或 R。",
+              "normalizedIntent": "必须掌握 python 或 r",
+              "priority": "must",
+              "hardConstraint": true,
+              "keywordLogic": {
+                "relation": "any_of",
+                "terms": [
+                  "Python",
+                  "R"
+                ]
+              },
+              "exactKeywords": [
+                "Python",
+                "R"
+              ],
+              "semanticAliases": [],
+              "sourceUnitId": "jd-unit-fnv-3e14f475-19",
+              "details": [],
+              "sourceSpan": {
+                "start": 32,
+                "end": 48,
+                "text": "必须掌握 Python 或 R。"
+              },
+              "sourceSpans": [
+                {
+                  "start": 32,
+                  "end": 48,
+                  "text": "必须掌握 Python 或 R。"
+                }
+              ],
+              "confidence": 0.88,
+              "needsConfirmation": false
+            },
+            {
+              "id": "jrv4-fnv-fff925dd-23",
+              "section": "required",
+              "kind": "tool_or_technology",
+              "statement": "必须掌握 Python 和 SQL。",
+              "normalizedIntent": "必须掌握 python 和 sql",
+              "priority": "must",
+              "hardConstraint": true,
+              "keywordLogic": {
+                "relation": "all_of",
+                "terms": [
+                  "Python",
+                  "SQL"
+                ]
+              },
+              "exactKeywords": [
+                "Python",
+                "SQL"
+              ],
+              "semanticAliases": [],
+              "sourceUnitId": "jd-unit-fnv-12145c83-21",
+              "details": [],
+              "sourceSpan": {
+                "start": 49,
+                "end": 67,
+                "text": "必须掌握 Python 和 SQL。"
+              },
+              "sourceSpans": [
+                {
+                  "start": 49,
+                  "end": 67,
+                  "text": "必须掌握 Python 和 SQL。"
+                }
+              ],
+              "confidence": 0.88,
+              "needsConfirmation": false
+            },
+            {
+              "id": "jrv4-fnv-efd347c1-23",
+              "section": "preferred",
+              "kind": "preferred",
+              "statement": "熟悉 Java。",
+              "normalizedIntent": "熟悉 java",
+              "priority": "nice_to_have",
+              "hardConstraint": false,
+              "exactKeywords": [
+                "Java"
+              ],
+              "semanticAliases": [],
+              "sourceUnitId": "jd-unit-fnv-7009dfac-11",
+              "details": [],
+              "sourceSpan": {
+                "start": 72,
+                "end": 80,
+                "text": "熟悉 Java。"
+              },
+              "sourceSpans": [
+                {
+                  "start": 72,
+                  "end": 80,
+                  "text": "熟悉 Java。"
+                }
+              ],
+              "confidence": 0.88,
+              "needsConfirmation": false
+            }
+          ],
+          "verificationMaterials": [],
+          "contextGroups": [],
+          "semanticUnits": [
+            {
+              "id": "jd-unit-fnv-5025f7af-19",
+              "text": "公司：匿名甲公司 UX011-JD",
+              "sourceSpan": {
+                "start": 0,
+                "end": 17,
+                "text": "公司：匿名甲公司 UX011-JD"
+              },
+              "lineNumber": 1,
+              "lexical": {
+                "indentation": 0,
+                "punctuation": "plain",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "metadata",
+                "section": "responsibility"
+              },
+              "final": {
+                "disposition": "metadata",
+                "section": "responsibility",
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-51933608-11",
+              "text": "岗位：数据分析师",
+              "sourceSpan": {
+                "start": 18,
+                "end": 26,
+                "text": "岗位：数据分析师"
+              },
+              "lineNumber": 2,
+              "lexical": {
+                "indentation": 0,
+                "punctuation": "plain",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "metadata",
+                "section": "responsibility"
+              },
+              "final": {
+                "disposition": "metadata",
+                "section": "responsibility",
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-e373b82c-7",
+              "text": "任职要求",
+              "sourceSpan": {
+                "start": 27,
+                "end": 31,
+                "text": "任职要求"
+              },
+              "lineNumber": 3,
+              "lexical": {
+                "indentation": 0,
+                "punctuation": "heading",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "heading",
+                "section": "required"
+              },
+              "final": {
+                "disposition": "heading",
+                "section": "required",
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-3e14f475-19",
+              "text": "必须掌握 Python 或 R。",
+              "sourceSpan": {
+                "start": 32,
+                "end": 48,
+                "text": "必须掌握 Python 或 R。"
+              },
+              "lineNumber": 4,
+              "lexical": {
+                "indentation": 0,
+                "punctuation": "sentence",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "requirement",
+                "section": "required"
+              },
+              "final": {
+                "disposition": "requirement",
+                "section": "required",
+                "kind": "tool_or_technology",
+                "priority": "must",
+                "hardConstraint": true,
+                "normalizedIntent": "必须掌握 python 或 r",
+                "exactKeywords": [
+                  "Python",
+                  "R"
+                ],
+                "semanticAliases": [],
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-12145c83-21",
+              "text": "必须掌握 Python 和 SQL。",
+              "sourceSpan": {
+                "start": 49,
+                "end": 67,
+                "text": "必须掌握 Python 和 SQL。"
+              },
+              "lineNumber": 5,
+              "lexical": {
+                "indentation": 0,
+                "punctuation": "sentence",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "requirement",
+                "section": "required"
+              },
+              "final": {
+                "disposition": "requirement",
+                "section": "required",
+                "kind": "tool_or_technology",
+                "priority": "must",
+                "hardConstraint": true,
+                "normalizedIntent": "必须掌握 python 和 sql",
+                "exactKeywords": [
+                  "Python",
+                  "SQL"
+                ],
+                "semanticAliases": [],
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-7625c994-6",
+              "text": "加分项",
+              "sourceSpan": {
+                "start": 68,
+                "end": 71,
+                "text": "加分项"
+              },
+              "lineNumber": 6,
+              "lexical": {
+                "indentation": 0,
+                "punctuation": "heading",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "heading",
+                "section": "preferred"
+              },
+              "final": {
+                "disposition": "heading",
+                "section": "preferred",
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-7009dfac-11",
+              "text": "熟悉 Java。",
+              "sourceSpan": {
+                "start": 72,
+                "end": 80,
+                "text": "熟悉 Java。"
+              },
+              "lineNumber": 7,
+              "lexical": {
+                "indentation": 0,
+                "punctuation": "sentence",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "requirement",
+                "section": "preferred"
+              },
+              "final": {
+                "disposition": "requirement",
+                "section": "preferred",
+                "kind": "preferred",
+                "priority": "nice_to_have",
+                "hardConstraint": false,
+                "normalizedIntent": "熟悉 java",
+                "exactKeywords": [
+                  "Java"
+                ],
+                "semanticAliases": [],
+                "confidence": 0.88
+              }
+            }
+          ],
+          "issues": [],
+          "needsReview": false,
+          "sourceCoverage": {
+            "coveredSpans": [
+              {
+                "start": 0,
+                "end": 17,
+                "text": "公司：匿名甲公司 UX011-JD"
+              },
+              {
+                "start": 18,
+                "end": 26,
+                "text": "岗位：数据分析师"
+              },
+              {
+                "start": 27,
+                "end": 31,
+                "text": "任职要求"
+              },
+              {
+                "start": 32,
+                "end": 48,
+                "text": "必须掌握 Python 或 R。"
+              },
+              {
+                "start": 49,
+                "end": 67,
+                "text": "必须掌握 Python 和 SQL。"
+              },
+              {
+                "start": 68,
+                "end": 71,
+                "text": "加分项"
+              },
+              {
+                "start": 72,
+                "end": 80,
+                "text": "熟悉 Java。"
+              }
+            ],
+            "unclassifiedSpans": [],
+            "totalMeaningfulUnits": 7,
+            "assignedUnits": 7,
+            "unassignedUnitIds": [],
+            "metadataUnitIds": [
+              "jd-unit-fnv-5025f7af-19",
+              "jd-unit-fnv-51933608-11"
+            ],
+            "excludedUnitIds": [],
+            "requirementUnitIds": [
+              "jd-unit-fnv-3e14f475-19",
+              "jd-unit-fnv-12145c83-21",
+              "jd-unit-fnv-7009dfac-11"
+            ],
+            "detailUnitIds": [],
+            "inventedReferenceCount": 0,
+            "coverageRatio": 1
+          },
+          "analyzerVersion": "jd-analyzer.semantic-ledger-v4.1",
+          "graphHash": "fnv-487e4481-1881",
+          "semanticEnrichmentHash": "fnv-29f4368f-945"
+        },
+        "missingIdentityFields": [],
+        "persistence": "analyze_only",
+        "input": {
+          "rawText": "公司：匿名甲公司 UX011-JD\n岗位：数据分析师\n任职要求\n必须掌握 Python 或 R。\n必须掌握 Python 和 SQL。\n加分项\n熟悉 Java。",
+          "persistence": "analyze_only"
+        },
+        "status": "completed"
+      },
+      "targetSnapshot": {
+        "id": "job-target-fnv-9fa48862-80",
+        "createdAt": "2026-11-05T14:02:56.800Z",
+        "updatedAt": "2026-11-05T14:02:56.800Z",
+        "schemaVersion": "job-target-snapshot-v1",
+        "version": 1,
+        "sourceType": "pasted_jd",
+        "rawText": "公司：匿名甲公司 UX011-JD\n岗位：数据分析师\n任职要求\n必须掌握 Python 或 R。\n必须掌握 Python 和 SQL。\n加分项\n熟悉 Java。",
+        "rawTextHash": "fnv-9fa48862-80",
+        "title": "数据分析师",
+        "company": "匿名甲公司 UX011-JD",
+        "normalizedRequirements": [
+          {
+            "id": "jrv4-fnv-a3692cc6-23",
+            "createdAt": "2026-11-05T14:02:56.800Z",
+            "updatedAt": "2026-11-05T14:02:56.800Z",
+            "category": "tool",
+            "description": "必须掌握 Python 或 R。",
+            "priority": "must",
+            "hardConstraint": true,
+            "sourceSpan": {
+              "start": 32,
+              "end": 48,
+              "text": "必须掌握 Python 或 R。"
+            },
+            "keywords": [
+              "Python",
+              "R"
+            ],
+            "confidence": 0.9
+          },
+          {
+            "id": "jrv4-fnv-fff925dd-23",
+            "createdAt": "2026-11-05T14:02:56.800Z",
+            "updatedAt": "2026-11-05T14:02:56.800Z",
+            "category": "tool",
+            "description": "必须掌握 Python 和 SQL。",
+            "priority": "must",
+            "hardConstraint": true,
+            "sourceSpan": {
+              "start": 49,
+              "end": 67,
+              "text": "必须掌握 Python 和 SQL。"
+            },
+            "keywords": [
+              "Python",
+              "SQL"
+            ],
+            "confidence": 0.9
+          },
+          {
+            "id": "jrv4-fnv-efd347c1-23",
+            "createdAt": "2026-11-05T14:02:56.800Z",
+            "updatedAt": "2026-11-05T14:02:56.800Z",
+            "category": "nice_to_have",
+            "description": "熟悉 Java。",
+            "priority": "nice_to_have",
+            "hardConstraint": false,
+            "sourceSpan": {
+              "start": 72,
+              "end": 80,
+              "text": "熟悉 Java。"
+            },
+            "keywords": [
+              "Java"
+            ],
+            "confidence": 0.9
+          }
+        ],
+        "requirementGraph": {
+          "schemaVersion": "job-requirement-graph-v4",
+          "roleProfile": {
+            "hiringSignals": []
+          },
+          "groups": [],
+          "requirements": [
+            {
+              "id": "jrv4-fnv-a3692cc6-23",
+              "section": "required",
+              "kind": "tool_or_technology",
+              "statement": "必须掌握 Python 或 R。",
+              "normalizedIntent": "必须掌握 python 或 r",
+              "priority": "must",
+              "hardConstraint": true,
+              "keywordLogic": {
+                "relation": "any_of",
+                "terms": [
+                  "Python",
+                  "R"
+                ]
+              },
+              "exactKeywords": [
+                "Python",
+                "R"
+              ],
+              "semanticAliases": [],
+              "sourceUnitId": "jd-unit-fnv-3e14f475-19",
+              "details": [],
+              "sourceSpan": {
+                "start": 32,
+                "end": 48,
+                "text": "必须掌握 Python 或 R。"
+              },
+              "sourceSpans": [
+                {
+                  "start": 32,
+                  "end": 48,
+                  "text": "必须掌握 Python 或 R。"
+                }
+              ],
+              "confidence": 0.88,
+              "needsConfirmation": false
+            },
+            {
+              "id": "jrv4-fnv-fff925dd-23",
+              "section": "required",
+              "kind": "tool_or_technology",
+              "statement": "必须掌握 Python 和 SQL。",
+              "normalizedIntent": "必须掌握 python 和 sql",
+              "priority": "must",
+              "hardConstraint": true,
+              "keywordLogic": {
+                "relation": "all_of",
+                "terms": [
+                  "Python",
+                  "SQL"
+                ]
+              },
+              "exactKeywords": [
+                "Python",
+                "SQL"
+              ],
+              "semanticAliases": [],
+              "sourceUnitId": "jd-unit-fnv-12145c83-21",
+              "details": [],
+              "sourceSpan": {
+                "start": 49,
+                "end": 67,
+                "text": "必须掌握 Python 和 SQL。"
+              },
+              "sourceSpans": [
+                {
+                  "start": 49,
+                  "end": 67,
+                  "text": "必须掌握 Python 和 SQL。"
+                }
+              ],
+              "confidence": 0.88,
+              "needsConfirmation": false
+            },
+            {
+              "id": "jrv4-fnv-efd347c1-23",
+              "section": "preferred",
+              "kind": "preferred",
+              "statement": "熟悉 Java。",
+              "normalizedIntent": "熟悉 java",
+              "priority": "nice_to_have",
+              "hardConstraint": false,
+              "exactKeywords": [
+                "Java"
+              ],
+              "semanticAliases": [],
+              "sourceUnitId": "jd-unit-fnv-7009dfac-11",
+              "details": [],
+              "sourceSpan": {
+                "start": 72,
+                "end": 80,
+                "text": "熟悉 Java。"
+              },
+              "sourceSpans": [
+                {
+                  "start": 72,
+                  "end": 80,
+                  "text": "熟悉 Java。"
+                }
+              ],
+              "confidence": 0.88,
+              "needsConfirmation": false
+            }
+          ],
+          "verificationMaterials": [],
+          "contextGroups": [],
+          "semanticUnits": [
+            {
+              "id": "jd-unit-fnv-5025f7af-19",
+              "text": "公司：匿名甲公司 UX011-JD",
+              "sourceSpan": {
+                "start": 0,
+                "end": 17,
+                "text": "公司：匿名甲公司 UX011-JD"
+              },
+              "lineNumber": 1,
+              "lexical": {
+                "indentation": 0,
+                "punctuation": "plain",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "metadata",
+                "section": "responsibility"
+              },
+              "final": {
+                "disposition": "metadata",
+                "section": "responsibility",
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-51933608-11",
+              "text": "岗位：数据分析师",
+              "sourceSpan": {
+                "start": 18,
+                "end": 26,
+                "text": "岗位：数据分析师"
+              },
+              "lineNumber": 2,
+              "lexical": {
+                "indentation": 0,
+                "punctuation": "plain",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "metadata",
+                "section": "responsibility"
+              },
+              "final": {
+                "disposition": "metadata",
+                "section": "responsibility",
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-e373b82c-7",
+              "text": "任职要求",
+              "sourceSpan": {
+                "start": 27,
+                "end": 31,
+                "text": "任职要求"
+              },
+              "lineNumber": 3,
+              "lexical": {
+                "indentation": 0,
+                "punctuation": "heading",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "heading",
+                "section": "required"
+              },
+              "final": {
+                "disposition": "heading",
+                "section": "required",
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-3e14f475-19",
+              "text": "必须掌握 Python 或 R。",
+              "sourceSpan": {
+                "start": 32,
+                "end": 48,
+                "text": "必须掌握 Python 或 R。"
+              },
+              "lineNumber": 4,
+              "lexical": {
+                "indentation": 0,
+                "punctuation": "sentence",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "requirement",
+                "section": "required"
+              },
+              "final": {
+                "disposition": "requirement",
+                "section": "required",
+                "kind": "tool_or_technology",
+                "priority": "must",
+                "hardConstraint": true,
+                "normalizedIntent": "必须掌握 python 或 r",
+                "exactKeywords": [
+                  "Python",
+                  "R"
+                ],
+                "semanticAliases": [],
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-12145c83-21",
+              "text": "必须掌握 Python 和 SQL。",
+              "sourceSpan": {
+                "start": 49,
+                "end": 67,
+                "text": "必须掌握 Python 和 SQL。"
+              },
+              "lineNumber": 5,
+              "lexical": {
+                "indentation": 0,
+                "punctuation": "sentence",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "requirement",
+                "section": "required"
+              },
+              "final": {
+                "disposition": "requirement",
+                "section": "required",
+                "kind": "tool_or_technology",
+                "priority": "must",
+                "hardConstraint": true,
+                "normalizedIntent": "必须掌握 python 和 sql",
+                "exactKeywords": [
+                  "Python",
+                  "SQL"
+                ],
+                "semanticAliases": [],
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-7625c994-6",
+              "text": "加分项",
+              "sourceSpan": {
+                "start": 68,
+                "end": 71,
+                "text": "加分项"
+              },
+              "lineNumber": 6,
+              "lexical": {
+                "indentation": 0,
+                "punctuation": "heading",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "heading",
+                "section": "preferred"
+              },
+              "final": {
+                "disposition": "heading",
+                "section": "preferred",
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-7009dfac-11",
+              "text": "熟悉 Java。",
+              "sourceSpan": {
+                "start": 72,
+                "end": 80,
+                "text": "熟悉 Java。"
+              },
+              "lineNumber": 7,
+              "lexical": {
+                "indentation": 0,
+                "punctuation": "sentence",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "requirement",
+                "section": "preferred"
+              },
+              "final": {
+                "disposition": "requirement",
+                "section": "preferred",
+                "kind": "preferred",
+                "priority": "nice_to_have",
+                "hardConstraint": false,
+                "normalizedIntent": "熟悉 java",
+                "exactKeywords": [
+                  "Java"
+                ],
+                "semanticAliases": [],
+                "confidence": 0.88
+              }
+            }
+          ],
+          "issues": [],
+          "needsReview": false,
+          "sourceCoverage": {
+            "coveredSpans": [
+              {
+                "start": 0,
+                "end": 17,
+                "text": "公司：匿名甲公司 UX011-JD"
+              },
+              {
+                "start": 18,
+                "end": 26,
+                "text": "岗位：数据分析师"
+              },
+              {
+                "start": 27,
+                "end": 31,
+                "text": "任职要求"
+              },
+              {
+                "start": 32,
+                "end": 48,
+                "text": "必须掌握 Python 或 R。"
+              },
+              {
+                "start": 49,
+                "end": 67,
+                "text": "必须掌握 Python 和 SQL。"
+              },
+              {
+                "start": 68,
+                "end": 71,
+                "text": "加分项"
+              },
+              {
+                "start": 72,
+                "end": 80,
+                "text": "熟悉 Java。"
+              }
+            ],
+            "unclassifiedSpans": [],
+            "totalMeaningfulUnits": 7,
+            "assignedUnits": 7,
+            "unassignedUnitIds": [],
+            "metadataUnitIds": [
+              "jd-unit-fnv-5025f7af-19",
+              "jd-unit-fnv-51933608-11"
+            ],
+            "excludedUnitIds": [],
+            "requirementUnitIds": [
+              "jd-unit-fnv-3e14f475-19",
+              "jd-unit-fnv-12145c83-21",
+              "jd-unit-fnv-7009dfac-11"
+            ],
+            "detailUnitIds": [],
+            "inventedReferenceCount": 0,
+            "coverageRatio": 1
+          },
+          "analyzerVersion": "jd-analyzer.semantic-ledger-v4.1",
+          "graphHash": "fnv-487e4481-1881",
+          "semanticEnrichmentHash": "fnv-29f4368f-945"
+        },
+        "targetSignals": [],
+        "capturedAt": "2026-11-05T14:02:56.800Z"
+      },
+      "targetSourceType": "pasted_jd"
+    },
+    "missingSlots": [],
+    "selectedEntities": {
+      "profileId": "profile-demo-student",
+      "targetSnapshotId": "job-target-fnv-9fa48862-80",
+      "targetSnapshotVersion": 1,
+      "targetSnapshotHash": "fnv-9fa48862-80"
+    },
+    "dependencySnapshots": {},
+    "artifacts": [],
+    "lastObservation": {
+      "source": "career_workflow_facade",
+      "toolName": "career.workflow.job_intake",
+      "status": "completed",
+      "checkpoint": {
+        "kind": "job_intake",
+        "targetSnapshot": {
+          "id": "job-target-fnv-9fa48862-80",
+          "createdAt": "2026-11-05T14:02:56.800Z",
+          "updatedAt": "2026-11-05T14:02:56.800Z",
+          "schemaVersion": "job-target-snapshot-v1",
+          "version": 1,
+          "sourceType": "pasted_jd",
+          "rawText": "公司：匿名甲公司 UX011-JD\n岗位：数据分析师\n任职要求\n必须掌握 Python 或 R。\n必须掌握 Python 和 SQL。\n加分项\n熟悉 Java。",
+          "rawTextHash": "fnv-9fa48862-80",
+          "title": "数据分析师",
+          "company": "匿名甲公司 UX011-JD",
+          "normalizedRequirements": [
+            {
+              "id": "jrv4-fnv-a3692cc6-23",
+              "createdAt": "2026-11-05T14:02:56.800Z",
+              "updatedAt": "2026-11-05T14:02:56.800Z",
+              "category": "tool",
+              "description": "必须掌握 Python 或 R。",
+              "priority": "must",
+              "hardConstraint": true,
+              "sourceSpan": {
+                "start": 32,
+                "end": 48,
+                "text": "必须掌握 Python 或 R。"
+              },
+              "keywords": [
+                "Python",
+                "R"
+              ],
+              "confidence": 0.9
+            },
+            {
+              "id": "jrv4-fnv-fff925dd-23",
+              "createdAt": "2026-11-05T14:02:56.800Z",
+              "updatedAt": "2026-11-05T14:02:56.800Z",
+              "category": "tool",
+              "description": "必须掌握 Python 和 SQL。",
+              "priority": "must",
+              "hardConstraint": true,
+              "sourceSpan": {
+                "start": 49,
+                "end": 67,
+                "text": "必须掌握 Python 和 SQL。"
+              },
+              "keywords": [
+                "Python",
+                "SQL"
+              ],
+              "confidence": 0.9
+            },
+            {
+              "id": "jrv4-fnv-efd347c1-23",
+              "createdAt": "2026-11-05T14:02:56.800Z",
+              "updatedAt": "2026-11-05T14:02:56.800Z",
+              "category": "nice_to_have",
+              "description": "熟悉 Java。",
+              "priority": "nice_to_have",
+              "hardConstraint": false,
+              "sourceSpan": {
+                "start": 72,
+                "end": 80,
+                "text": "熟悉 Java。"
+              },
+              "keywords": [
+                "Java"
+              ],
+              "confidence": 0.9
+            }
+          ],
+          "requirementGraph": {
+            "schemaVersion": "job-requirement-graph-v4",
+            "roleProfile": {
+              "hiringSignals": []
+            },
+            "groups": [],
+            "requirements": [
+              {
+                "id": "jrv4-fnv-a3692cc6-23",
+                "section": "required",
+                "kind": "tool_or_technology",
+                "statement": "必须掌握 Python 或 R。",
+                "normalizedIntent": "必须掌握 python 或 r",
+                "priority": "must",
+                "hardConstraint": true,
+                "keywordLogic": {
+                  "relation": "any_of",
+                  "terms": [
+                    "Python",
+                    "R"
+                  ]
+                },
+                "exactKeywords": [
+                  "Python",
+                  "R"
+                ],
+                "semanticAliases": [],
+                "sourceUnitId": "jd-unit-fnv-3e14f475-19",
+                "details": [],
+                "sourceSpan": {
+                  "start": 32,
+                  "end": 48,
+                  "text": "必须掌握 Python 或 R。"
+                },
+                "sourceSpans": [
+                  {
+                    "start": 32,
+                    "end": 48,
+                    "text": "必须掌握 Python 或 R。"
+                  }
+                ],
+                "confidence": 0.88,
+                "needsConfirmation": false
+              },
+              {
+                "id": "jrv4-fnv-fff925dd-23",
+                "section": "required",
+                "kind": "tool_or_technology",
+                "statement": "必须掌握 Python 和 SQL。",
+                "normalizedIntent": "必须掌握 python 和 sql",
+                "priority": "must",
+                "hardConstraint": true,
+                "keywordLogic": {
+                  "relation": "all_of",
+                  "terms": [
+                    "Python",
+                    "SQL"
+                  ]
+                },
+                "exactKeywords": [
+                  "Python",
+                  "SQL"
+                ],
+                "semanticAliases": [],
+                "sourceUnitId": "jd-unit-fnv-12145c83-21",
+                "details": [],
+                "sourceSpan": {
+                  "start": 49,
+                  "end": 67,
+                  "text": "必须掌握 Python 和 SQL。"
+                },
+                "sourceSpans": [
+                  {
+                    "start": 49,
+                    "end": 67,
+                    "text": "必须掌握 Python 和 SQL。"
+                  }
+                ],
+                "confidence": 0.88,
+                "needsConfirmation": false
+              },
+              {
+                "id": "jrv4-fnv-efd347c1-23",
+                "section": "preferred",
+                "kind": "preferred",
+                "statement": "熟悉 Java。",
+                "normalizedIntent": "熟悉 java",
+                "priority": "nice_to_have",
+                "hardConstraint": false,
+                "exactKeywords": [
+                  "Java"
+                ],
+                "semanticAliases": [],
+                "sourceUnitId": "jd-unit-fnv-7009dfac-11",
+                "details": [],
+                "sourceSpan": {
+                  "start": 72,
+                  "end": 80,
+                  "text": "熟悉 Java。"
+                },
+                "sourceSpans": [
+                  {
+                    "start": 72,
+                    "end": 80,
+                    "text": "熟悉 Java。"
+                  }
+                ],
+                "confidence": 0.88,
+                "needsConfirmation": false
+              }
+            ],
+            "verificationMaterials": [],
+            "contextGroups": [],
+            "semanticUnits": [
+              {
+                "id": "jd-unit-fnv-5025f7af-19",
+                "text": "公司：匿名甲公司 UX011-JD",
+                "sourceSpan": {
+                  "start": 0,
+                  "end": 17,
+                  "text": "公司：匿名甲公司 UX011-JD"
+                },
+                "lineNumber": 1,
+                "lexical": {
+                  "indentation": 0,
+                  "punctuation": "plain",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "metadata",
+                  "section": "responsibility"
+                },
+                "final": {
+                  "disposition": "metadata",
+                  "section": "responsibility",
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-51933608-11",
+                "text": "岗位：数据分析师",
+                "sourceSpan": {
+                  "start": 18,
+                  "end": 26,
+                  "text": "岗位：数据分析师"
+                },
+                "lineNumber": 2,
+                "lexical": {
+                  "indentation": 0,
+                  "punctuation": "plain",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "metadata",
+                  "section": "responsibility"
+                },
+                "final": {
+                  "disposition": "metadata",
+                  "section": "responsibility",
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-e373b82c-7",
+                "text": "任职要求",
+                "sourceSpan": {
+                  "start": 27,
+                  "end": 31,
+                  "text": "任职要求"
+                },
+                "lineNumber": 3,
+                "lexical": {
+                  "indentation": 0,
+                  "punctuation": "heading",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "heading",
+                  "section": "required"
+                },
+                "final": {
+                  "disposition": "heading",
+                  "section": "required",
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-3e14f475-19",
+                "text": "必须掌握 Python 或 R。",
+                "sourceSpan": {
+                  "start": 32,
+                  "end": 48,
+                  "text": "必须掌握 Python 或 R。"
+                },
+                "lineNumber": 4,
+                "lexical": {
+                  "indentation": 0,
+                  "punctuation": "sentence",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "requirement",
+                  "section": "required"
+                },
+                "final": {
+                  "disposition": "requirement",
+                  "section": "required",
+                  "kind": "tool_or_technology",
+                  "priority": "must",
+                  "hardConstraint": true,
+                  "normalizedIntent": "必须掌握 python 或 r",
+                  "exactKeywords": [
+                    "Python",
+                    "R"
+                  ],
+                  "semanticAliases": [],
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-12145c83-21",
+                "text": "必须掌握 Python 和 SQL。",
+                "sourceSpan": {
+                  "start": 49,
+                  "end": 67,
+                  "text": "必须掌握 Python 和 SQL。"
+                },
+                "lineNumber": 5,
+                "lexical": {
+                  "indentation": 0,
+                  "punctuation": "sentence",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "requirement",
+                  "section": "required"
+                },
+                "final": {
+                  "disposition": "requirement",
+                  "section": "required",
+                  "kind": "tool_or_technology",
+                  "priority": "must",
+                  "hardConstraint": true,
+                  "normalizedIntent": "必须掌握 python 和 sql",
+                  "exactKeywords": [
+                    "Python",
+                    "SQL"
+                  ],
+                  "semanticAliases": [],
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-7625c994-6",
+                "text": "加分项",
+                "sourceSpan": {
+                  "start": 68,
+                  "end": 71,
+                  "text": "加分项"
+                },
+                "lineNumber": 6,
+                "lexical": {
+                  "indentation": 0,
+                  "punctuation": "heading",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "heading",
+                  "section": "preferred"
+                },
+                "final": {
+                  "disposition": "heading",
+                  "section": "preferred",
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-7009dfac-11",
+                "text": "熟悉 Java。",
+                "sourceSpan": {
+                  "start": 72,
+                  "end": 80,
+                  "text": "熟悉 Java。"
+                },
+                "lineNumber": 7,
+                "lexical": {
+                  "indentation": 0,
+                  "punctuation": "sentence",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "requirement",
+                  "section": "preferred"
+                },
+                "final": {
+                  "disposition": "requirement",
+                  "section": "preferred",
+                  "kind": "preferred",
+                  "priority": "nice_to_have",
+                  "hardConstraint": false,
+                  "normalizedIntent": "熟悉 java",
+                  "exactKeywords": [
+                    "Java"
+                  ],
+                  "semanticAliases": [],
+                  "confidence": 0.88
+                }
+              }
+            ],
+            "issues": [],
+            "needsReview": false,
+            "sourceCoverage": {
+              "coveredSpans": [
+                {
+                  "start": 0,
+                  "end": 17,
+                  "text": "公司：匿名甲公司 UX011-JD"
+                },
+                {
+                  "start": 18,
+                  "end": 26,
+                  "text": "岗位：数据分析师"
+                },
+                {
+                  "start": 27,
+                  "end": 31,
+                  "text": "任职要求"
+                },
+                {
+                  "start": 32,
+                  "end": 48,
+                  "text": "必须掌握 Python 或 R。"
+                },
+                {
+                  "start": 49,
+                  "end": 67,
+                  "text": "必须掌握 Python 和 SQL。"
+                },
+                {
+                  "start": 68,
+                  "end": 71,
+                  "text": "加分项"
+                },
+                {
+                  "start": 72,
+                  "end": 80,
+                  "text": "熟悉 Java。"
+                }
+              ],
+              "unclassifiedSpans": [],
+              "totalMeaningfulUnits": 7,
+              "assignedUnits": 7,
+              "unassignedUnitIds": [],
+              "metadataUnitIds": [
+                "jd-unit-fnv-5025f7af-19",
+                "jd-unit-fnv-51933608-11"
+              ],
+              "excludedUnitIds": [],
+              "requirementUnitIds": [
+                "jd-unit-fnv-3e14f475-19",
+                "jd-unit-fnv-12145c83-21",
+                "jd-unit-fnv-7009dfac-11"
+              ],
+              "detailUnitIds": [],
+              "inventedReferenceCount": 0,
+              "coverageRatio": 1
+            },
+            "analyzerVersion": "jd-analyzer.semantic-ledger-v4.1",
+            "graphHash": "fnv-487e4481-1881",
+            "semanticEnrichmentHash": "fnv-29f4368f-945"
+          },
+          "targetSignals": [],
+          "capturedAt": "2026-11-05T14:02:56.800Z"
+        },
+        "identity": {
+          "title": "数据分析师",
+          "company": "匿名甲公司 UX011-JD",
+          "location": "unknown"
+        },
+        "graph": {
+          "schemaVersion": "job-requirement-graph-v4",
+          "roleProfile": {
+            "hiringSignals": []
+          },
+          "groups": [],
+          "requirements": [
+            {
+              "id": "jrv4-fnv-a3692cc6-23",
+              "section": "required",
+              "kind": "tool_or_technology",
+              "statement": "必须掌握 Python 或 R。",
+              "normalizedIntent": "必须掌握 python 或 r",
+              "priority": "must",
+              "hardConstraint": true,
+              "keywordLogic": {
+                "relation": "any_of",
+                "terms": [
+                  "Python",
+                  "R"
+                ]
+              },
+              "exactKeywords": [
+                "Python",
+                "R"
+              ],
+              "semanticAliases": [],
+              "sourceUnitId": "jd-unit-fnv-3e14f475-19",
+              "details": [],
+              "sourceSpan": {
+                "start": 32,
+                "end": 48,
+                "text": "必须掌握 Python 或 R。"
+              },
+              "sourceSpans": [
+                {
+                  "start": 32,
+                  "end": 48,
+                  "text": "必须掌握 Python 或 R。"
+                }
+              ],
+              "confidence": 0.88,
+              "needsConfirmation": false
+            },
+            {
+              "id": "jrv4-fnv-fff925dd-23",
+              "section": "required",
+              "kind": "tool_or_technology",
+              "statement": "必须掌握 Python 和 SQL。",
+              "normalizedIntent": "必须掌握 python 和 sql",
+              "priority": "must",
+              "hardConstraint": true,
+              "keywordLogic": {
+                "relation": "all_of",
+                "terms": [
+                  "Python",
+                  "SQL"
+                ]
+              },
+              "exactKeywords": [
+                "Python",
+                "SQL"
+              ],
+              "semanticAliases": [],
+              "sourceUnitId": "jd-unit-fnv-12145c83-21",
+              "details": [],
+              "sourceSpan": {
+                "start": 49,
+                "end": 67,
+                "text": "必须掌握 Python 和 SQL。"
+              },
+              "sourceSpans": [
+                {
+                  "start": 49,
+                  "end": 67,
+                  "text": "必须掌握 Python 和 SQL。"
+                }
+              ],
+              "confidence": 0.88,
+              "needsConfirmation": false
+            },
+            {
+              "id": "jrv4-fnv-efd347c1-23",
+              "section": "preferred",
+              "kind": "preferred",
+              "statement": "熟悉 Java。",
+              "normalizedIntent": "熟悉 java",
+              "priority": "nice_to_have",
+              "hardConstraint": false,
+              "exactKeywords": [
+                "Java"
+              ],
+              "semanticAliases": [],
+              "sourceUnitId": "jd-unit-fnv-7009dfac-11",
+              "details": [],
+              "sourceSpan": {
+                "start": 72,
+                "end": 80,
+                "text": "熟悉 Java。"
+              },
+              "sourceSpans": [
+                {
+                  "start": 72,
+                  "end": 80,
+                  "text": "熟悉 Java。"
+                }
+              ],
+              "confidence": 0.88,
+              "needsConfirmation": false
+            }
+          ],
+          "verificationMaterials": [],
+          "contextGroups": [],
+          "semanticUnits": [
+            {
+              "id": "jd-unit-fnv-5025f7af-19",
+              "text": "公司：匿名甲公司 UX011-JD",
+              "sourceSpan": {
+                "start": 0,
+                "end": 17,
+                "text": "公司：匿名甲公司 UX011-JD"
+              },
+              "lineNumber": 1,
+              "lexical": {
+                "indentation": 0,
+                "punctuation": "plain",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "metadata",
+                "section": "responsibility"
+              },
+              "final": {
+                "disposition": "metadata",
+                "section": "responsibility",
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-51933608-11",
+              "text": "岗位：数据分析师",
+              "sourceSpan": {
+                "start": 18,
+                "end": 26,
+                "text": "岗位：数据分析师"
+              },
+              "lineNumber": 2,
+              "lexical": {
+                "indentation": 0,
+                "punctuation": "plain",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "metadata",
+                "section": "responsibility"
+              },
+              "final": {
+                "disposition": "metadata",
+                "section": "responsibility",
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-e373b82c-7",
+              "text": "任职要求",
+              "sourceSpan": {
+                "start": 27,
+                "end": 31,
+                "text": "任职要求"
+              },
+              "lineNumber": 3,
+              "lexical": {
+                "indentation": 0,
+                "punctuation": "heading",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "heading",
+                "section": "required"
+              },
+              "final": {
+                "disposition": "heading",
+                "section": "required",
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-3e14f475-19",
+              "text": "必须掌握 Python 或 R。",
+              "sourceSpan": {
+                "start": 32,
+                "end": 48,
+                "text": "必须掌握 Python 或 R。"
+              },
+              "lineNumber": 4,
+              "lexical": {
+                "indentation": 0,
+                "punctuation": "sentence",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "requirement",
+                "section": "required"
+              },
+              "final": {
+                "disposition": "requirement",
+                "section": "required",
+                "kind": "tool_or_technology",
+                "priority": "must",
+                "hardConstraint": true,
+                "normalizedIntent": "必须掌握 python 或 r",
+                "exactKeywords": [
+                  "Python",
+                  "R"
+                ],
+                "semanticAliases": [],
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-12145c83-21",
+              "text": "必须掌握 Python 和 SQL。",
+              "sourceSpan": {
+                "start": 49,
+                "end": 67,
+                "text": "必须掌握 Python 和 SQL。"
+              },
+              "lineNumber": 5,
+              "lexical": {
+                "indentation": 0,
+                "punctuation": "sentence",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "requirement",
+                "section": "required"
+              },
+              "final": {
+                "disposition": "requirement",
+                "section": "required",
+                "kind": "tool_or_technology",
+                "priority": "must",
+                "hardConstraint": true,
+                "normalizedIntent": "必须掌握 python 和 sql",
+                "exactKeywords": [
+                  "Python",
+                  "SQL"
+                ],
+                "semanticAliases": [],
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-7625c994-6",
+              "text": "加分项",
+              "sourceSpan": {
+                "start": 68,
+                "end": 71,
+                "text": "加分项"
+              },
+              "lineNumber": 6,
+              "lexical": {
+                "indentation": 0,
+                "punctuation": "heading",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "heading",
+                "section": "preferred"
+              },
+              "final": {
+                "disposition": "heading",
+                "section": "preferred",
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-7009dfac-11",
+              "text": "熟悉 Java。",
+              "sourceSpan": {
+                "start": 72,
+                "end": 80,
+                "text": "熟悉 Java。"
+              },
+              "lineNumber": 7,
+              "lexical": {
+                "indentation": 0,
+                "punctuation": "sentence",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "requirement",
+                "section": "preferred"
+              },
+              "final": {
+                "disposition": "requirement",
+                "section": "preferred",
+                "kind": "preferred",
+                "priority": "nice_to_have",
+                "hardConstraint": false,
+                "normalizedIntent": "熟悉 java",
+                "exactKeywords": [
+                  "Java"
+                ],
+                "semanticAliases": [],
+                "confidence": 0.88
+              }
+            }
+          ],
+          "issues": [],
+          "needsReview": false,
+          "sourceCoverage": {
+            "coveredSpans": [
+              {
+                "start": 0,
+                "end": 17,
+                "text": "公司：匿名甲公司 UX011-JD"
+              },
+              {
+                "start": 18,
+                "end": 26,
+                "text": "岗位：数据分析师"
+              },
+              {
+                "start": 27,
+                "end": 31,
+                "text": "任职要求"
+              },
+              {
+                "start": 32,
+                "end": 48,
+                "text": "必须掌握 Python 或 R。"
+              },
+              {
+                "start": 49,
+                "end": 67,
+                "text": "必须掌握 Python 和 SQL。"
+              },
+              {
+                "start": 68,
+                "end": 71,
+                "text": "加分项"
+              },
+              {
+                "start": 72,
+                "end": 80,
+                "text": "熟悉 Java。"
+              }
+            ],
+            "unclassifiedSpans": [],
+            "totalMeaningfulUnits": 7,
+            "assignedUnits": 7,
+            "unassignedUnitIds": [],
+            "metadataUnitIds": [
+              "jd-unit-fnv-5025f7af-19",
+              "jd-unit-fnv-51933608-11"
+            ],
+            "excludedUnitIds": [],
+            "requirementUnitIds": [
+              "jd-unit-fnv-3e14f475-19",
+              "jd-unit-fnv-12145c83-21",
+              "jd-unit-fnv-7009dfac-11"
+            ],
+            "detailUnitIds": [],
+            "inventedReferenceCount": 0,
+            "coverageRatio": 1
+          },
+          "analyzerVersion": "jd-analyzer.semantic-ledger-v4.1",
+          "graphHash": "fnv-487e4481-1881",
+          "semanticEnrichmentHash": "fnv-29f4368f-945"
+        },
+        "missingIdentityFields": [],
+        "persistence": "analyze_only",
+        "input": {
+          "rawText": "公司：匿名甲公司 UX011-JD\n岗位：数据分析师\n任职要求\n必须掌握 Python 或 R。\n必须掌握 Python 和 SQL。\n加分项\n熟悉 Java。",
+          "persistence": "analyze_only"
+        }
+      }
+    },
+    "completionStatus": "completed",
+    "completionType": "conversational",
+    "computeTier": "T0",
+    "updatedAt": "2026-11-05T14:02:56.853Z"
+  },
+  "snapshot": {
+    "id": "job-target-fnv-9fa48862-80",
+    "createdAt": "2026-11-05T14:02:56.800Z",
+    "updatedAt": "2026-11-05T14:02:56.800Z",
+    "schemaVersion": "job-target-snapshot-v1",
+    "version": 1,
+    "sourceType": "pasted_jd",
+    "rawText": "公司：匿名甲公司 UX011-JD\n岗位：数据分析师\n任职要求\n必须掌握 Python 或 R。\n必须掌握 Python 和 SQL。\n加分项\n熟悉 Java。",
+    "rawTextHash": "fnv-9fa48862-80",
+    "title": "数据分析师",
+    "company": "匿名甲公司 UX011-JD",
+    "normalizedRequirements": [
+      {
+        "id": "jrv4-fnv-a3692cc6-23",
+        "createdAt": "2026-11-05T14:02:56.800Z",
+        "updatedAt": "2026-11-05T14:02:56.800Z",
+        "category": "tool",
+        "description": "必须掌握 Python 或 R。",
+        "priority": "must",
+        "hardConstraint": true,
+        "sourceSpan": {
+          "start": 32,
+          "end": 48,
+          "text": "必须掌握 Python 或 R。"
+        },
+        "keywords": [
+          "Python",
+          "R"
+        ],
+        "confidence": 0.9
+      },
+      {
+        "id": "jrv4-fnv-fff925dd-23",
+        "createdAt": "2026-11-05T14:02:56.800Z",
+        "updatedAt": "2026-11-05T14:02:56.800Z",
+        "category": "tool",
+        "description": "必须掌握 Python 和 SQL。",
+        "priority": "must",
+        "hardConstraint": true,
+        "sourceSpan": {
+          "start": 49,
+          "end": 67,
+          "text": "必须掌握 Python 和 SQL。"
+        },
+        "keywords": [
+          "Python",
+          "SQL"
+        ],
+        "confidence": 0.9
+      },
+      {
+        "id": "jrv4-fnv-efd347c1-23",
+        "createdAt": "2026-11-05T14:02:56.800Z",
+        "updatedAt": "2026-11-05T14:02:56.800Z",
+        "category": "nice_to_have",
+        "description": "熟悉 Java。",
+        "priority": "nice_to_have",
+        "hardConstraint": false,
+        "sourceSpan": {
+          "start": 72,
+          "end": 80,
+          "text": "熟悉 Java。"
+        },
+        "keywords": [
+          "Java"
+        ],
+        "confidence": 0.9
+      }
+    ],
+    "requirementGraph": {
+      "schemaVersion": "job-requirement-graph-v4",
+      "roleProfile": {
+        "hiringSignals": []
+      },
+      "groups": [],
+      "requirements": [
+        {
+          "id": "jrv4-fnv-a3692cc6-23",
+          "section": "required",
+          "kind": "tool_or_technology",
+          "statement": "必须掌握 Python 或 R。",
+          "normalizedIntent": "必须掌握 python 或 r",
+          "priority": "must",
+          "hardConstraint": true,
+          "keywordLogic": {
+            "relation": "any_of",
+            "terms": [
+              "Python",
+              "R"
+            ]
+          },
+          "exactKeywords": [
+            "Python",
+            "R"
+          ],
+          "semanticAliases": [],
+          "sourceUnitId": "jd-unit-fnv-3e14f475-19",
+          "details": [],
+          "sourceSpan": {
+            "start": 32,
+            "end": 48,
+            "text": "必须掌握 Python 或 R。"
+          },
+          "sourceSpans": [
+            {
+              "start": 32,
+              "end": 48,
+              "text": "必须掌握 Python 或 R。"
+            }
+          ],
+          "confidence": 0.88,
+          "needsConfirmation": false
+        },
+        {
+          "id": "jrv4-fnv-fff925dd-23",
+          "section": "required",
+          "kind": "tool_or_technology",
+          "statement": "必须掌握 Python 和 SQL。",
+          "normalizedIntent": "必须掌握 python 和 sql",
+          "priority": "must",
+          "hardConstraint": true,
+          "keywordLogic": {
+            "relation": "all_of",
+            "terms": [
+              "Python",
+              "SQL"
+            ]
+          },
+          "exactKeywords": [
+            "Python",
+            "SQL"
+          ],
+          "semanticAliases": [],
+          "sourceUnitId": "jd-unit-fnv-12145c83-21",
+          "details": [],
+          "sourceSpan": {
+            "start": 49,
+            "end": 67,
+            "text": "必须掌握 Python 和 SQL。"
+          },
+          "sourceSpans": [
+            {
+              "start": 49,
+              "end": 67,
+              "text": "必须掌握 Python 和 SQL。"
+            }
+          ],
+          "confidence": 0.88,
+          "needsConfirmation": false
+        },
+        {
+          "id": "jrv4-fnv-efd347c1-23",
+          "section": "preferred",
+          "kind": "preferred",
+          "statement": "熟悉 Java。",
+          "normalizedIntent": "熟悉 java",
+          "priority": "nice_to_have",
+          "hardConstraint": false,
+          "exactKeywords": [
+            "Java"
+          ],
+          "semanticAliases": [],
+          "sourceUnitId": "jd-unit-fnv-7009dfac-11",
+          "details": [],
+          "sourceSpan": {
+            "start": 72,
+            "end": 80,
+            "text": "熟悉 Java。"
+          },
+          "sourceSpans": [
+            {
+              "start": 72,
+              "end": 80,
+              "text": "熟悉 Java。"
+            }
+          ],
+          "confidence": 0.88,
+          "needsConfirmation": false
+        }
+      ],
+      "verificationMaterials": [],
+      "contextGroups": [],
+      "semanticUnits": [
+        {
+          "id": "jd-unit-fnv-5025f7af-19",
+          "text": "公司：匿名甲公司 UX011-JD",
+          "sourceSpan": {
+            "start": 0,
+            "end": 17,
+            "text": "公司：匿名甲公司 UX011-JD"
+          },
+          "lineNumber": 1,
+          "lexical": {
+            "indentation": 0,
+            "punctuation": "plain",
+            "blankLinesBefore": 0,
+            "blankLinesAfter": 0
+          },
+          "provisional": {
+            "disposition": "metadata",
+            "section": "responsibility"
+          },
+          "final": {
+            "disposition": "metadata",
+            "section": "responsibility",
+            "confidence": 0.88
+          }
+        },
+        {
+          "id": "jd-unit-fnv-51933608-11",
+          "text": "岗位：数据分析师",
+          "sourceSpan": {
+            "start": 18,
+            "end": 26,
+            "text": "岗位：数据分析师"
+          },
+          "lineNumber": 2,
+          "lexical": {
+            "indentation": 0,
+            "punctuation": "plain",
+            "blankLinesBefore": 0,
+            "blankLinesAfter": 0
+          },
+          "provisional": {
+            "disposition": "metadata",
+            "section": "responsibility"
+          },
+          "final": {
+            "disposition": "metadata",
+            "section": "responsibility",
+            "confidence": 0.88
+          }
+        },
+        {
+          "id": "jd-unit-fnv-e373b82c-7",
+          "text": "任职要求",
+          "sourceSpan": {
+            "start": 27,
+            "end": 31,
+            "text": "任职要求"
+          },
+          "lineNumber": 3,
+          "lexical": {
+            "indentation": 0,
+            "punctuation": "heading",
+            "blankLinesBefore": 0,
+            "blankLinesAfter": 0
+          },
+          "provisional": {
+            "disposition": "heading",
+            "section": "required"
+          },
+          "final": {
+            "disposition": "heading",
+            "section": "required",
+            "confidence": 0.88
+          }
+        },
+        {
+          "id": "jd-unit-fnv-3e14f475-19",
+          "text": "必须掌握 Python 或 R。",
+          "sourceSpan": {
+            "start": 32,
+            "end": 48,
+            "text": "必须掌握 Python 或 R。"
+          },
+          "lineNumber": 4,
+          "lexical": {
+            "indentation": 0,
+            "punctuation": "sentence",
+            "blankLinesBefore": 0,
+            "blankLinesAfter": 0
+          },
+          "provisional": {
+            "disposition": "requirement",
+            "section": "required"
+          },
+          "final": {
+            "disposition": "requirement",
+            "section": "required",
+            "kind": "tool_or_technology",
+            "priority": "must",
+            "hardConstraint": true,
+            "normalizedIntent": "必须掌握 python 或 r",
+            "exactKeywords": [
+              "Python",
+              "R"
+            ],
+            "semanticAliases": [],
+            "confidence": 0.88
+          }
+        },
+        {
+          "id": "jd-unit-fnv-12145c83-21",
+          "text": "必须掌握 Python 和 SQL。",
+          "sourceSpan": {
+            "start": 49,
+            "end": 67,
+            "text": "必须掌握 Python 和 SQL。"
+          },
+          "lineNumber": 5,
+          "lexical": {
+            "indentation": 0,
+            "punctuation": "sentence",
+            "blankLinesBefore": 0,
+            "blankLinesAfter": 0
+          },
+          "provisional": {
+            "disposition": "requirement",
+            "section": "required"
+          },
+          "final": {
+            "disposition": "requirement",
+            "section": "required",
+            "kind": "tool_or_technology",
+            "priority": "must",
+            "hardConstraint": true,
+            "normalizedIntent": "必须掌握 python 和 sql",
+            "exactKeywords": [
+              "Python",
+              "SQL"
+            ],
+            "semanticAliases": [],
+            "confidence": 0.88
+          }
+        },
+        {
+          "id": "jd-unit-fnv-7625c994-6",
+          "text": "加分项",
+          "sourceSpan": {
+            "start": 68,
+            "end": 71,
+            "text": "加分项"
+          },
+          "lineNumber": 6,
+          "lexical": {
+            "indentation": 0,
+            "punctuation": "heading",
+            "blankLinesBefore": 0,
+            "blankLinesAfter": 0
+          },
+          "provisional": {
+            "disposition": "heading",
+            "section": "preferred"
+          },
+          "final": {
+            "disposition": "heading",
+            "section": "preferred",
+            "confidence": 0.88
+          }
+        },
+        {
+          "id": "jd-unit-fnv-7009dfac-11",
+          "text": "熟悉 Java。",
+          "sourceSpan": {
+            "start": 72,
+            "end": 80,
+            "text": "熟悉 Java。"
+          },
+          "lineNumber": 7,
+          "lexical": {
+            "indentation": 0,
+            "punctuation": "sentence",
+            "blankLinesBefore": 0,
+            "blankLinesAfter": 0
+          },
+          "provisional": {
+            "disposition": "requirement",
+            "section": "preferred"
+          },
+          "final": {
+            "disposition": "requirement",
+            "section": "preferred",
+            "kind": "preferred",
+            "priority": "nice_to_have",
+            "hardConstraint": false,
+            "normalizedIntent": "熟悉 java",
+            "exactKeywords": [
+              "Java"
+            ],
+            "semanticAliases": [],
+            "confidence": 0.88
+          }
+        }
+      ],
+      "issues": [],
+      "needsReview": false,
+      "sourceCoverage": {
+        "coveredSpans": [
+          {
+            "start": 0,
+            "end": 17,
+            "text": "公司：匿名甲公司 UX011-JD"
+          },
+          {
+            "start": 18,
+            "end": 26,
+            "text": "岗位：数据分析师"
+          },
+          {
+            "start": 27,
+            "end": 31,
+            "text": "任职要求"
+          },
+          {
+            "start": 32,
+            "end": 48,
+            "text": "必须掌握 Python 或 R。"
+          },
+          {
+            "start": 49,
+            "end": 67,
+            "text": "必须掌握 Python 和 SQL。"
+          },
+          {
+            "start": 68,
+            "end": 71,
+            "text": "加分项"
+          },
+          {
+            "start": 72,
+            "end": 80,
+            "text": "熟悉 Java。"
+          }
+        ],
+        "unclassifiedSpans": [],
+        "totalMeaningfulUnits": 7,
+        "assignedUnits": 7,
+        "unassignedUnitIds": [],
+        "metadataUnitIds": [
+          "jd-unit-fnv-5025f7af-19",
+          "jd-unit-fnv-51933608-11"
+        ],
+        "excludedUnitIds": [],
+        "requirementUnitIds": [
+          "jd-unit-fnv-3e14f475-19",
+          "jd-unit-fnv-12145c83-21",
+          "jd-unit-fnv-7009dfac-11"
+        ],
+        "detailUnitIds": [],
+        "inventedReferenceCount": 0,
+        "coverageRatio": 1
+      },
+      "analyzerVersion": "jd-analyzer.semantic-ledger-v4.1",
+      "graphHash": "fnv-487e4481-1881",
+      "semanticEnrichmentHash": "fnv-29f4368f-945"
+    },
+    "targetSignals": [],
+    "capturedAt": "2026-11-05T14:02:56.800Z"
+  }
+}

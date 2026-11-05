@@ -92,5 +92,114 @@
     "new UI transaction-fault recovery",
     "image / complex documents",
     "real model quality"
-  ]
+  ],
+  "rClosure": {
+    "date": "2026-11-05",
+    "baseline": {
+      "branch": "competition/5.1.8",
+      "head": "d34f8a5922f279d28566db9aec98c4dc1a9431e6",
+      "clean": true,
+      "remoteChecked": false
+    },
+    "status": "PARTIAL",
+    "awardContract": {
+      "status": "CLOSED_TEST_FIXTURE_RECONCILED",
+      "productionChanged": false,
+      "originalAssertionsPreserved": true,
+      "guardUnchanged": true,
+      "initialReproduction": {
+        "passed": 9,
+        "failed": 1,
+        "exitCode": 1,
+        "log": "docs/quality/ux-01.1-r-logs/award-start.log"
+      },
+      "targeted": {
+        "passed": 13,
+        "exitCode": 0,
+        "log": "docs/quality/ux-01.1-r-logs/award-contract.log"
+      },
+      "negativeCases": [
+        "historical unsupported participation remains blocked before rename",
+        "participant/assistant to owner blocked; no Profile write",
+        "team result to independent achievement blocked; no Profile write"
+      ]
+    },
+    "regression": {
+      "files": 16,
+      "passed": 106,
+      "skipped": 0,
+      "exitCode": 0,
+      "log": "docs/quality/ux-01.1-r-logs/targeted-regression.log"
+    },
+    "typecheck": {
+      "exitCode": 0,
+      "log": "docs/quality/ux-01.1-r-logs/final-typecheck.log"
+    },
+    "eslint": {
+      "files": 3,
+      "exitCode": 0,
+      "log": "docs/quality/ux-01.1-r-logs/final-eslint.log"
+    },
+    "diffCheck": {
+      "exitCode": 0,
+      "log": "docs/quality/ux-01.1-r-logs/final-diff-check.log"
+    },
+    "browser": {
+      "status": "PARTIAL",
+      "authorizationRequested": true,
+      "authorizationReceived": true,
+      "authorizationText": "授权各验证一次",
+      "attempts": {
+        "UX-A": 1,
+        "UX-B": 1
+      },
+      "automaticRetries": 0,
+      "UX-A": {
+        "exitCode": 1,
+        "status": "INCOMPLETE_TEST_INSTRUMENTATION_ERROR",
+        "lastSuccessfulState": "actual Hermes intake receipt and 3 visible provisional candidates",
+        "failure": "persisted session.taskState read before Run/Host persistence completed",
+        "productionDefectConfirmed": false,
+        "waitConditionFixed": true,
+        "retestedAfterWaitFix": false,
+        "log": "docs/quality/ux-01.1-r-logs/ux-a-browser.log",
+        "trace": "docs/quality/ux-01.1-r-logs/ux-a-trace.zip"
+      },
+      "UX-B": {
+        "exitCode": 0,
+        "status": "PASS",
+        "durationSeconds": 37.4,
+        "localScriptedProviderRequests": 4,
+        "requirementCount": 3,
+        "hardConstraints": 2,
+        "preferred": 1,
+        "identityExcluded": true,
+        "graphRequirementIdsEqualSnapshotIds": true,
+        "rawAndSnapshotRestoredAfterReload": true,
+        "newTargetIsolated": true,
+        "formalJobsUnchanged": true,
+        "noImplicitDemoSelection": true,
+        "explicitSavedSelectionRestored": true,
+        "nonemptyPriorFitClearingBrowserCoverage": false,
+        "log": "docs/quality/ux-01.1-r-logs/ux-b-browser.log"
+      },
+      "originalEvidencePreserved": true
+    },
+    "build": {
+      "run": false,
+      "reason": "No production changes; prior production evidence retained"
+    },
+    "realProviderRequests": 0,
+    "apiKeysRead": false,
+    "multiAgent": false,
+    "commit": false,
+    "push": false,
+    "packaging": false,
+    "readyForUserTrial": false,
+    "sourceParity": "docs/quality/ux-01.1-r-logs/final-source-parity.json",
+    "remaining": [
+      "UX-A full browser chain after test wait correction; no further run authorized",
+      "nonempty prior fit clearing stronger browser combination"
+    ]
+  }
 }

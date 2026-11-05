@@ -1,0 +1,3368 @@
+{
+  "status": "failed",
+  "errors": [
+    "TypeError: Cannot read properties of undefined (reading 'knownSlots')"
+  ],
+  "profiles": [
+    {
+      "id": "profile-ZzMXpFg022",
+      "createdAt": "2026-11-05T13:59:28.676Z",
+      "updatedAt": "2026-11-05T13:59:28.676Z",
+      "schemaVersion": "career-profile-v2",
+      "name": "UX011 匿名人物",
+      "basics": {
+        "name": "UX011 匿名人物",
+        "links": []
+      },
+      "preference": {
+        "targetRoles": [],
+        "targetCities": [],
+        "industries": []
+      },
+      "version": 1,
+      "experiences": [],
+      "skills": [],
+      "certificates": [],
+      "evidences": [],
+      "unclassifiedBlocks": [],
+      "structuredFacts": [],
+      "structuredBasics": {
+        "name": "UX011 匿名人物",
+        "portfolioLinks": [],
+        "otherLinks": [],
+        "customFields": []
+      },
+      "personId": "person-profile-ZzMXpFg022",
+      "profileVersionNumber": 1,
+      "isCurrent": true,
+      "versionCreatedReason": "initial"
+    },
+    {
+      "id": "profile-demo-student",
+      "createdAt": "2026-07-01T09:00:00.000Z",
+      "updatedAt": "2026-07-01T09:00:00.000Z",
+      "schemaVersion": "career-profile-v2",
+      "name": "同学",
+      "basics": {
+        "name": "同学",
+        "phone": "138****0000",
+        "email": "demo.student@example.com",
+        "location": "杭州",
+        "summary": "经济管理方向本科生，关注数据分析、AI应用和跨境业务流程。",
+        "links": []
+      },
+      "preference": {
+        "targetRoles": [
+          "数据分析实习",
+          "外贸/跨境运营实习"
+        ],
+        "targetCities": [
+          "杭州",
+          "上海"
+        ],
+        "industries": [
+          "互联网",
+          "跨境电商",
+          "咨询"
+        ]
+      },
+      "version": 1,
+      "experiences": [
+        {
+          "id": "exp-stat-modeling",
+          "createdAt": "2026-07-01T09:00:00.000Z",
+          "updatedAt": "2026-07-01T09:00:00.000Z",
+          "type": "competition",
+          "organization": "统计建模竞赛项目",
+          "role": "数据分析成员",
+          "startDate": "2025-03",
+          "endDate": "2025-06",
+          "facts": [
+            {
+              "id": "fact-stat-stata",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "statement": "使用 Stata 清洗 31 个省级样本，并完成描述统计、相关分析与区域差异分析。",
+              "category": "experience",
+              "provenance": [
+                {
+                  "sourceType": "demo",
+                  "sourceId": "demo-profile-source",
+                  "sourceText": "统计建模：使用Stata清洗31个省级样本，完成描述统计、相关分析与区域差异分析。",
+                  "confidence": 0.95,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-07-01T09:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            }
+          ],
+          "resumeDrafts": [
+            {
+              "id": "draft-stat-default",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "targetRole": "数据分析实习",
+              "text": "奖项名称：数据分析成员\n颁发方：统计建模竞赛项目\n说明：使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。\n原始资料草稿：使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。\n原始标签：Stata；数据清洗；统计分析\n原始证据引用：evidence-stat-report",
+              "factIds": [
+                "fact-stat-stata"
+              ]
+            }
+          ],
+          "tags": [
+            "Stata",
+            "数据清洗",
+            "统计分析"
+          ],
+          "evidenceIds": [
+            "evidence-stat-report"
+          ]
+        },
+        {
+          "id": "exp-ai-product",
+          "createdAt": "2026-07-01T09:00:00.000Z",
+          "updatedAt": "2026-07-01T09:00:00.000Z",
+          "type": "project",
+          "organization": "AI 求职应用课程项目",
+          "role": "产品与验收协作",
+          "startDate": "2025-09",
+          "endDate": "2025-12",
+          "facts": [
+            {
+              "id": "fact-ai-product",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "statement": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+              "category": "experience",
+              "provenance": [
+                {
+                  "sourceType": "demo",
+                  "sourceId": "demo-profile-source",
+                  "sourceText": "AI应用项目：参与需求梳理、原型设计和功能验收。",
+                  "confidence": 0.95,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-07-01T09:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            }
+          ],
+          "resumeDrafts": [
+            {
+              "id": "draft-ai-default",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "targetRole": "产品/运营实习",
+              "text": "项目名称：AI 求职应用课程项目\n角色：产品与验收协作\n开始日期：2025-09\n结束日期：2025-12\n说明：参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n原始资料草稿：参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。\n原始标签：需求梳理；原型设计；功能验收",
+              "factIds": [
+                "fact-ai-product"
+              ]
+            }
+          ],
+          "tags": [
+            "需求梳理",
+            "原型设计",
+            "功能验收"
+          ],
+          "evidenceIds": []
+        },
+        {
+          "id": "exp-gov-internship",
+          "createdAt": "2026-07-01T09:00:00.000Z",
+          "updatedAt": "2026-07-01T09:00:00.000Z",
+          "type": "internship",
+          "organization": "某政府部门",
+          "role": "综合事务实习生",
+          "startDate": "2025-07",
+          "endDate": "2025-08",
+          "facts": [
+            {
+              "id": "fact-gov-record",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "statement": "处理公文流转和热线记录，关注记录准确性与信息整理。",
+              "category": "experience",
+              "provenance": [
+                {
+                  "sourceType": "demo",
+                  "sourceId": "demo-profile-source",
+                  "sourceText": "政府部门实习：处理公文流转和市长热线记录。",
+                  "confidence": 0.95,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-07-01T09:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            }
+          ],
+          "resumeDrafts": [
+            {
+              "id": "draft-gov-default",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "targetRole": "综合运营实习",
+              "text": "组织：某政府部门\n职位/角色：综合事务实习生\n开始日期：2025-07\n结束日期：2025-08\n说明：协助处理公文流转与热线记录，保持信息记录准确、分类清晰。\n亮点：处理公文流转和热线记录，关注记录准确性与信息整理。\n原始资料草稿：协助处理公文流转与热线记录，保持信息记录准确、分类清晰。\n原始标签：信息整理；沟通记录",
+              "factIds": [
+                "fact-gov-record"
+              ]
+            }
+          ],
+          "tags": [
+            "信息整理",
+            "沟通记录"
+          ],
+          "evidenceIds": []
+        },
+        {
+          "id": "exp-trade-learning",
+          "createdAt": "2026-07-01T09:00:00.000Z",
+          "updatedAt": "2026-07-01T09:00:00.000Z",
+          "type": "other",
+          "organization": "外贸课程与语言学习",
+          "role": "学习者",
+          "startDate": "2024-09",
+          "endDate": "2026-06",
+          "facts": [
+            {
+              "id": "fact-cet4",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "statement": "CET-4 成绩 601，了解基础外贸业务流程。",
+              "category": "language",
+              "provenance": [
+                {
+                  "sourceType": "demo",
+                  "sourceId": "demo-profile-source",
+                  "sourceText": "英语与外贸学习：CET-4 601，了解外贸业务流程。",
+                  "confidence": 0.95,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-07-01T09:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            }
+          ],
+          "resumeDrafts": [
+            {
+              "id": "draft-trade-default",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "targetRole": "外贸/跨境运营实习",
+              "text": "标题：外贸课程与语言学习\n内容：CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。\n要点：CET-4 成绩 601，了解基础外贸业务流程。\n原始资料草稿：CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。\n原始标签：英语；外贸流程；信息整理",
+              "factIds": [
+                "fact-cet4"
+              ]
+            }
+          ],
+          "tags": [
+            "英语",
+            "外贸流程",
+            "信息整理"
+          ],
+          "evidenceIds": []
+        }
+      ],
+      "skills": [
+        {
+          "id": "skill-stata",
+          "createdAt": "2026-07-01T09:00:00.000Z",
+          "updatedAt": "2026-07-01T09:00:00.000Z",
+          "name": "Stata",
+          "level": "familiar",
+          "evidenceIds": [
+            "evidence-stat-report"
+          ],
+          "fact": {
+            "id": "fact-skill-stata",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "statement": "使用 Stata 完成数据清洗和统计分析。",
+            "category": "skill",
+            "provenance": [
+              {
+                "sourceType": "demo",
+                "sourceId": "demo-profile-source",
+                "sourceText": "使用Stata清洗31个省级样本",
+                "confidence": 0.95,
+                "confirmedByUser": true,
+                "riskLevel": "low",
+                "createdAt": "2026-07-01T09:00:00.000Z"
+              }
+            ],
+            "confirmedByUser": true,
+            "riskLevel": "low"
+          },
+          "lastUsedAt": "2025-06"
+        },
+        {
+          "id": "skill-excel",
+          "createdAt": "2026-07-01T09:00:00.000Z",
+          "updatedAt": "2026-07-01T09:00:00.000Z",
+          "name": "Excel",
+          "level": "familiar",
+          "evidenceIds": [],
+          "fact": {
+            "id": "fact-skill-excel",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "statement": "能使用 Excel 整理表格数据和基础分析结果。",
+            "category": "skill",
+            "provenance": [
+              {
+                "sourceType": "demo",
+                "sourceId": "demo-profile-source",
+                "sourceText": "数据清洗、样本整理和分析交付物",
+                "confidence": 0.95,
+                "confirmedByUser": true,
+                "riskLevel": "low",
+                "createdAt": "2026-07-01T09:00:00.000Z"
+              }
+            ],
+            "confirmedByUser": true,
+            "riskLevel": "low"
+          },
+          "lastUsedAt": "2025-06"
+        }
+      ],
+      "certificates": [
+        {
+          "id": "cert-cet4",
+          "createdAt": "2026-07-01T09:00:00.000Z",
+          "updatedAt": "2026-07-01T09:00:00.000Z",
+          "name": "CET-4",
+          "issuer": "全国大学英语四、六级考试委员会",
+          "issuedAt": "2024-12",
+          "evidenceIds": [],
+          "fact": {
+            "id": "fact-cert-cet4",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "statement": "CET-4 成绩 601。",
+            "category": "certificate",
+            "provenance": [
+              {
+                "sourceType": "demo",
+                "sourceId": "demo-profile-source",
+                "sourceText": "CET-4 601",
+                "confidence": 0.95,
+                "confirmedByUser": true,
+                "riskLevel": "low",
+                "createdAt": "2026-07-01T09:00:00.000Z"
+              }
+            ],
+            "confirmedByUser": true,
+            "riskLevel": "low"
+          }
+        }
+      ],
+      "evidences": [
+        {
+          "id": "evidence-stat-report",
+          "createdAt": "2026-07-01T09:00:00.000Z",
+          "updatedAt": "2026-07-01T09:00:00.000Z",
+          "type": "text",
+          "title": "统计建模项目说明",
+          "extractedText": "脱敏示例：使用 Stata 清洗 31 个省级样本并完成统计分析。",
+          "privacyLevel": "private",
+          "verifiedAt": "2026-07-01T09:00:00.000Z"
+        }
+      ],
+      "unclassifiedBlocks": [],
+      "structuredFacts": [
+        {
+          "data": {
+            "id": "exp-stat-modeling",
+            "customFields": [
+              {
+                "id": "exp-stat-modeling:legacy-resume-drafts",
+                "label": "原始资料草稿",
+                "valueType": "text",
+                "value": "使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。",
+                "order": 0,
+                "sensitive": false
+              },
+              {
+                "id": "exp-stat-modeling:legacy-tags",
+                "label": "原始标签",
+                "valueType": "string_list",
+                "value": [
+                  "Stata",
+                  "数据清洗",
+                  "统计分析"
+                ],
+                "order": 1,
+                "sensitive": false
+              },
+              {
+                "id": "exp-stat-modeling:legacy-evidence-ids",
+                "label": "原始证据引用",
+                "valueType": "string_list",
+                "value": [
+                  "evidence-stat-report"
+                ],
+                "order": 2,
+                "sensitive": false
+              }
+            ],
+            "sectionType": "awards",
+            "name": "数据分析成员",
+            "issuer": "统计建模竞赛项目",
+            "description": "使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。"
+          },
+          "factIds": [
+            "fact-stat-stata"
+          ],
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "使用 Stata 清洗 31 个省级样本，并完成描述统计、相关分析与区域差异分析。",
+          "mappingTrace": []
+        },
+        {
+          "data": {
+            "id": "exp-ai-product",
+            "customFields": [
+              {
+                "id": "exp-ai-product:legacy-resume-drafts",
+                "label": "原始资料草稿",
+                "valueType": "text",
+                "value": "参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。",
+                "order": 0,
+                "sensitive": false
+              },
+              {
+                "id": "exp-ai-product:legacy-tags",
+                "label": "原始标签",
+                "valueType": "string_list",
+                "value": [
+                  "需求梳理",
+                  "原型设计",
+                  "功能验收"
+                ],
+                "order": 1,
+                "sensitive": false
+              }
+            ],
+            "sectionType": "project",
+            "title": "AI 求职应用课程项目",
+            "role": "产品与验收协作",
+            "startDate": "2025-09",
+            "endDate": "2025-12",
+            "current": false,
+            "tools": [],
+            "description": "参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。",
+            "highlights": [
+              "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+            ],
+            "outcomes": []
+          },
+          "factIds": [
+            "fact-ai-product"
+          ],
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+          "mappingTrace": []
+        },
+        {
+          "data": {
+            "id": "exp-gov-internship",
+            "customFields": [
+              {
+                "id": "exp-gov-internship:legacy-resume-drafts",
+                "label": "原始资料草稿",
+                "valueType": "text",
+                "value": "协助处理公文流转与热线记录，保持信息记录准确、分类清晰。",
+                "order": 0,
+                "sensitive": false
+              },
+              {
+                "id": "exp-gov-internship:legacy-tags",
+                "label": "原始标签",
+                "valueType": "string_list",
+                "value": [
+                  "信息整理",
+                  "沟通记录"
+                ],
+                "order": 1,
+                "sensitive": false
+              }
+            ],
+            "sectionType": "internship",
+            "organization": "某政府部门",
+            "role": "综合事务实习生",
+            "startDate": "2025-07",
+            "endDate": "2025-08",
+            "current": false,
+            "description": "协助处理公文流转与热线记录，保持信息记录准确、分类清晰。",
+            "highlights": [
+              "处理公文流转和热线记录，关注记录准确性与信息整理。"
+            ]
+          },
+          "factIds": [
+            "fact-gov-record"
+          ],
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "处理公文流转和热线记录，关注记录准确性与信息整理。",
+          "mappingTrace": []
+        },
+        {
+          "data": {
+            "id": "exp-trade-learning",
+            "customFields": [
+              {
+                "id": "exp-trade-learning:legacy-resume-drafts",
+                "label": "原始资料草稿",
+                "valueType": "text",
+                "value": "CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。",
+                "order": 0,
+                "sensitive": false
+              },
+              {
+                "id": "exp-trade-learning:legacy-tags",
+                "label": "原始标签",
+                "valueType": "string_list",
+                "value": [
+                  "英语",
+                  "外贸流程",
+                  "信息整理"
+                ],
+                "order": 1,
+                "sensitive": false
+              }
+            ],
+            "sectionType": "other",
+            "title": "外贸课程与语言学习",
+            "description": "CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。",
+            "highlights": [
+              "CET-4 成绩 601，了解基础外贸业务流程。"
+            ]
+          },
+          "factIds": [
+            "fact-cet4"
+          ],
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "CET-4 成绩 601，了解基础外贸业务流程。",
+          "mappingTrace": []
+        },
+        {
+          "data": {
+            "id": "skill-stata",
+            "customFields": [],
+            "sectionType": "skills",
+            "name": "Stata",
+            "level": "familiar",
+            "description": "使用 Stata 完成数据清洗和统计分析。"
+          },
+          "factIds": [
+            "fact-skill-stata"
+          ],
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "mappingTrace": []
+        },
+        {
+          "data": {
+            "id": "skill-excel",
+            "customFields": [],
+            "sectionType": "skills",
+            "name": "Excel",
+            "level": "familiar",
+            "description": "能使用 Excel 整理表格数据和基础分析结果。"
+          },
+          "factIds": [
+            "fact-skill-excel"
+          ],
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "mappingTrace": []
+        },
+        {
+          "data": {
+            "id": "cert-cet4",
+            "customFields": [],
+            "sectionType": "certificates",
+            "name": "CET-4",
+            "issuer": "全国大学英语四、六级考试委员会",
+            "issuedAt": "2024-12"
+          },
+          "factIds": [
+            "fact-cert-cet4"
+          ],
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "mappingTrace": []
+        }
+      ],
+      "structuredBasics": {
+        "name": "同学",
+        "summary": "经济管理方向本科生，关注数据分析、AI应用和跨境业务流程。",
+        "phone": "138****0000",
+        "email": "demo.student@example.com",
+        "location": "杭州",
+        "portfolioLinks": [],
+        "otherLinks": [],
+        "customFields": []
+      },
+      "personId": "person-profile-demo-student",
+      "profileVersionNumber": 1,
+      "isCurrent": true,
+      "versionCreatedReason": "initial"
+    }
+  ],
+  "sessions": [
+    {
+      "agentSessionSchemaVersion": 3,
+      "id": "agent-session-Bk9wiwftDOz0",
+      "title": "新的对话",
+      "titleOrigin": "default",
+      "messages": [],
+      "sessionRevision": 2,
+      "artifactRefs": [],
+      "conversationSummary": "",
+      "conversationBranches": [
+        {
+          "id": "legacy-branch",
+          "status": "active",
+          "createdAt": "2026-11-05T13:59:14.402Z"
+        }
+      ],
+      "activeBranchId": "legacy-branch",
+      "turnCheckpoints": [],
+      "archived": false,
+      "createdAt": "2026-11-05T13:59:14.402Z",
+      "updatedAt": "2026-11-05T13:59:14.402Z"
+    },
+    {
+      "agentSessionSchemaVersion": 3,
+      "id": "agent-session-oVMhxbm7WVEo",
+      "title": "新的对话",
+      "titleOrigin": "default",
+      "messages": [],
+      "sessionRevision": 2,
+      "artifactRefs": [],
+      "personId": "person-profile-demo-student",
+      "activeProfileId": "profile-demo-student",
+      "profileVersionNumber": 1,
+      "profileRevision": 1,
+      "conversationSummary": "",
+      "conversationBranches": [
+        {
+          "id": "legacy-branch",
+          "status": "active",
+          "createdAt": "2026-11-05T13:59:26.315Z"
+        }
+      ],
+      "activeBranchId": "legacy-branch",
+      "turnCheckpoints": [],
+      "archived": false,
+      "createdAt": "2026-11-05T13:59:26.315Z",
+      "updatedAt": "2026-11-05T13:59:26.315Z"
+    },
+    {
+      "agentSessionSchemaVersion": 3,
+      "id": "agent-session-z2ESHjdm2eQ2",
+      "title": "新的对话",
+      "titleOrigin": "default",
+      "messages": [],
+      "sessionRevision": 4,
+      "artifactRefs": [],
+      "personId": "person-profile-ZzMXpFg022",
+      "activeProfileId": "profile-ZzMXpFg022",
+      "profileVersionNumber": 1,
+      "profileRevision": 1,
+      "conversationSummary": "",
+      "runtimeId": "hermes",
+      "hermesRun": {
+        "runId": "run_0cf75cd7079b4a28bf69d8fcd6e921d4",
+        "hermesSessionId": "hermes-agent-session-z2ESHjdm2eQ2",
+        "careerAgentSessionId": "agent-session-z2ESHjdm2eQ2",
+        "turnId": "runtime-turn-fab27f6f-cae1-4c1b-ad14-748c0b8cdc50",
+        "status": "running",
+        "startedAt": "2026-11-05T13:59:30.315Z",
+        "lastEventAt": "2026-11-05T13:59:30.503Z"
+      },
+      "activeTurn": {
+        "id": "runtime-turn-fab27f6f-cae1-4c1b-ad14-748c0b8cdc50",
+        "sessionId": "agent-session-z2ESHjdm2eQ2",
+        "sourceUserMessageId": "agent-user-356a2151-d262-4973-9bc6-f49159c217bf",
+        "userMessageId": "agent-user-356a2151-d262-4973-9bc6-f49159c217bf",
+        "runtimeId": "hermes",
+        "preferredRuntime": "hermes",
+        "attemptedRuntime": "hermes",
+        "finalRuntime": "hermes",
+        "executionOwner": "hermes",
+        "fallbackUsed": false,
+        "incidentTraceId": "incident-cde88d57-8b4f-47cf-ace6-eb8cc55ec38d",
+        "hermesRunId": "run_0cf75cd7079b4a28bf69d8fcd6e921d4",
+        "visibleAssistantMessageId": "agent-thinking-0dcc3db3-fd42-4312-a8a1-18404adf9570",
+        "toolFailures": [],
+        "runtimeAttempts": [
+          {
+            "attemptNumber": 1,
+            "traceId": "incident-cde88d57-8b4f-47cf-ace6-eb8cc55ec38d:attempt-1",
+            "sessionId": "agent-session-z2ESHjdm2eQ2",
+            "turnId": "runtime-turn-fab27f6f-cae1-4c1b-ad14-748c0b8cdc50",
+            "hermesSessionId": "hermes-agent-session-z2ESHjdm2eQ2",
+            "runId": "run_0cf75cd7079b4a28bf69d8fcd6e921d4",
+            "startRequestedAt": "2026-11-05T13:59:30.503Z",
+            "runStartedAt": "2026-11-05T13:59:30.503Z",
+            "firstEventAt": "2026-11-05T13:59:30.503Z",
+            "status": "running",
+            "lastEventType": "progress"
+          }
+        ],
+        "turnStartSnapshot": {
+          "capturedAt": "2026-11-05T13:59:30.227Z",
+          "supervisor": {
+            "overallState": "ready",
+            "processReady": true,
+            "apiReady": true,
+            "providerReady": true,
+            "careerMcpReady": true,
+            "toolSurfaceReady": true,
+            "runReady": true,
+            "restartAttempt": 0,
+            "capturedAt": "2026-11-05T13:59:30.227Z",
+            "maintenancePending": false
+          },
+          "runtimeHealth": {
+            "runtimeId": "hermes",
+            "runtimeAvailable": true,
+            "companionReady": true,
+            "providerConfigured": true,
+            "providerReachable": true,
+            "providerReady": true,
+            "provider": "custom:careeradapt",
+            "providerStatus": "ready",
+            "providerDiagnostic": {
+              "provider": "custom:careeradapt",
+              "model": "careeradapt-test",
+              "credentialConfigured": true,
+              "credentialSource": "server_env",
+              "configFingerprint": "ce70f1bdec66df37ce086e37ab0cd4e83a910fad162406c2a858ace4b443379d",
+              "configGeneration": 1,
+              "lastCheckedAt": "2026-11-05T13:59:29.686Z",
+              "lastHttpStatus": 200
+            },
+            "model": "careeradapt-test",
+            "toolCallingCapability": "unknown",
+            "toolCallingAvailable": false,
+            "toolCallInFlight": false,
+            "mcpConnected": true,
+            "mcpReady": true,
+            "mcpToolCount": 59,
+            "careerSkillsLoaded": true,
+            "browserCareerDomainHostConnected": true,
+            "careerMcpServerReachable": true,
+            "careerMcpContractCount": 13,
+            "hermesMcpRegistered": true,
+            "hermesMcpToolCount": 13,
+            "hermesCareerFacadeCount": 9,
+            "careerToolContractReady": true,
+            "careerToolContractVersion": "career-tool-contract-v5",
+            "appBuildCommit": "workspace-source",
+            "appBuildTimestamp": "development",
+            "careerToolContractMismatches": [],
+            "requiredCareerFacadesMissing": [],
+            "careerGatewayContracts": [
+              "career.context.retrieve",
+              "career.export.resume",
+              "career.job.analyze_fit",
+              "career.job.commit",
+              "career.job.get",
+              "career.job.list",
+              "career.job.parse",
+              "career.material.prepare",
+              "career.preview.apply_changes",
+              "career.preview.review_diff",
+              "career.profile.active",
+              "career.profile.capture_intake",
+              "career.profile.commit_intake",
+              "career.profile.get",
+              "career.profile.list",
+              "career.profile.reconcile_intake",
+              "career.profile.resolve_intake_conflict",
+              "career.profile.review_intake",
+              "career.profile.search_facts",
+              "career.profile.synthesize_intake",
+              "career.resume.archive",
+              "career.resume.build_evidence_graph",
+              "career.resume.compose",
+              "career.resume.create_from_profile",
+              "career.resume.create_job_from_profile",
+              "career.resume.ensure_general_from_profile",
+              "career.resume.get",
+              "career.resume.get_revision",
+              "career.resume.import.commit",
+              "career.resume.import.create_draft",
+              "career.resume.import.parse_file",
+              "career.resume.import.prepare",
+              "career.resume.import.reconcile",
+              "career.resume.import.resolve_reconciliation",
+              "career.resume.import.review",
+              "career.resume.list",
+              "career.resume.plan_composition",
+              "career.resume.recommend_source",
+              "career.resume.restore",
+              "career.resume.review_composition",
+              "career.system.current_task",
+              "career.system.last_failure",
+              "career.system.runtime_status",
+              "career.tailoring.answer_question",
+              "career.tailoring.apply_changes",
+              "career.tailoring.create_session",
+              "career.tailoring.generate_changes",
+              "career.tailoring.preview_changes",
+              "career.tailoring.review_diff",
+              "career.workflow.compose_resume",
+              "career.workflow.job_fit",
+              "career.workflow.job_intake",
+              "career.workflow.material_intake",
+              "career.workflow.profile_intake_finalize",
+              "career.workflow.profile_intake_turn",
+              "career.workflow.profile_to_resume",
+              "career.workflow.resume_export",
+              "career.workflow.resume_import",
+              "career.workflow.tailor_resume"
+            ],
+            "careerMcpExposedTools": [
+              "career.context.retrieve",
+              "career.job.list",
+              "career.profile.get",
+              "career.resume.list",
+              "career.workflow.compose_resume",
+              "career.workflow.job_fit",
+              "career.workflow.job_intake",
+              "career.workflow.material_intake",
+              "career.workflow.profile_intake_finalize",
+              "career.workflow.profile_intake_turn",
+              "career.workflow.resume_export",
+              "career.workflow.resume_import",
+              "career.workflow.tailor_resume"
+            ],
+            "hermesRegisteredToolsets": [
+              "mcp-careeradapt",
+              "skills"
+            ],
+            "hermesVisibleTools": [
+              "mcp__careeradapt__career_context_retrieve",
+              "mcp__careeradapt__career_job_list",
+              "mcp__careeradapt__career_profile_get",
+              "mcp__careeradapt__career_resume_list",
+              "mcp__careeradapt__career_workflow_compose_resume",
+              "mcp__careeradapt__career_workflow_job_fit",
+              "mcp__careeradapt__career_workflow_job_intake",
+              "mcp__careeradapt__career_workflow_material_intake",
+              "mcp__careeradapt__career_workflow_profile_intake_finalize",
+              "mcp__careeradapt__career_workflow_profile_intake_turn",
+              "mcp__careeradapt__career_workflow_resume_export",
+              "mcp__careeradapt__career_workflow_resume_import",
+              "mcp__careeradapt__career_workflow_tailor_resume",
+              "skill_manage",
+              "skill_view",
+              "skills_list"
+            ],
+            "missingRequiredCareerTools": [],
+            "lastCheckedAt": "2026-11-05T13:59:29.718Z",
+            "runReady": true
+          },
+          "run": {
+            "status": "not_started"
+          }
+        },
+        "recoveryAttempted": false,
+        "firstEventAt": "2026-11-05T13:59:30.503Z",
+        "status": "running",
+        "startedAt": "2026-11-05T13:59:30.244Z"
+      },
+      "conversationBranches": [
+        {
+          "id": "legacy-branch",
+          "headMessageId": "agent-thinking-0dcc3db3-fd42-4312-a8a1-18404adf9570",
+          "status": "active",
+          "createdAt": "2026-11-05T13:59:29.934Z"
+        }
+      ],
+      "activeBranchId": "legacy-branch",
+      "activeHeadMessageId": "agent-thinking-0dcc3db3-fd42-4312-a8a1-18404adf9570",
+      "turnCheckpoints": [],
+      "archived": false,
+      "createdAt": "2026-11-05T13:59:29.934Z",
+      "updatedAt": "2026-11-05T13:59:30.506Z"
+    }
+  ],
+  "jobs": [
+    {
+      "id": "job-data-analyst-intern",
+      "createdAt": "2026-07-01T09:00:00.000Z",
+      "updatedAt": "2026-07-01T09:00:00.000Z",
+      "title": "数据分析实习生",
+      "company": "示例科技公司",
+      "industry": "互联网",
+      "location": "杭州",
+      "workType": "实习",
+      "rawText": "数据分析实习生：负责业务数据清洗、统计分析和周报支持；熟悉 Excel 或 Stata；具备清晰的数据表达能力，有统计建模经验优先。",
+      "source": "demo",
+      "parsedAt": "2026-07-01T09:00:00.000Z",
+      "requirements": [
+        {
+          "id": "req-data-cleaning",
+          "createdAt": "2026-07-01T09:00:00.000Z",
+          "updatedAt": "2026-07-01T09:00:00.000Z",
+          "category": "responsibility",
+          "description": "负责业务数据清洗、统计分析和周报支持。",
+          "priority": "high",
+          "hardConstraint": false,
+          "sourceSpan": {
+            "start": 0,
+            "end": 18,
+            "text": "负责业务数据清洗、统计分析和周报支持"
+          },
+          "keywords": [
+            "数据清洗",
+            "统计分析",
+            "周报"
+          ],
+          "confidence": 0.92
+        },
+        {
+          "id": "req-data-tools",
+          "createdAt": "2026-07-01T09:00:00.000Z",
+          "updatedAt": "2026-07-01T09:00:00.000Z",
+          "category": "core_skill",
+          "description": "熟悉 Excel 或 Stata。",
+          "priority": "high",
+          "hardConstraint": false,
+          "sourceSpan": {
+            "start": 0,
+            "end": 16,
+            "text": "熟悉 Excel 或 Stata"
+          },
+          "keywords": [
+            "Excel",
+            "Stata"
+          ],
+          "confidence": 0.95
+        }
+      ]
+    },
+    {
+      "id": "job-trade-operation-intern",
+      "createdAt": "2026-07-01T09:00:00.000Z",
+      "updatedAt": "2026-07-01T09:00:00.000Z",
+      "title": "外贸/跨境运营实习生",
+      "company": "示例跨境公司",
+      "industry": "跨境电商",
+      "location": "上海",
+      "workType": "实习",
+      "rawText": "外贸/跨境运营实习生：协助整理商品和订单信息，跟进跨境业务流程；要求英语读写能力、沟通协作和执行力；了解外贸流程优先。",
+      "source": "demo",
+      "parsedAt": "2026-07-01T09:00:00.000Z",
+      "requirements": [
+        {
+          "id": "req-trade-process",
+          "createdAt": "2026-07-01T09:00:00.000Z",
+          "updatedAt": "2026-07-01T09:00:00.000Z",
+          "category": "responsibility",
+          "description": "协助整理商品和订单信息，跟进跨境业务流程。",
+          "priority": "high",
+          "hardConstraint": false,
+          "sourceSpan": {
+            "start": 0,
+            "end": 20,
+            "text": "协助整理商品和订单信息，跟进跨境业务流程"
+          },
+          "keywords": [
+            "信息整理",
+            "跨境业务流程"
+          ],
+          "confidence": 0.9
+        },
+        {
+          "id": "req-english-writing",
+          "createdAt": "2026-07-01T09:00:00.000Z",
+          "updatedAt": "2026-07-01T09:00:00.000Z",
+          "category": "must_have",
+          "description": "具备英语读写能力、沟通协作和执行力。",
+          "priority": "high",
+          "hardConstraint": true,
+          "sourceSpan": {
+            "start": 0,
+            "end": 17,
+            "text": "要求英语读写能力、沟通协作和执行力"
+          },
+          "keywords": [
+            "英语",
+            "沟通",
+            "执行力"
+          ],
+          "confidence": 0.94
+        }
+      ]
+    }
+  ],
+  "branches": [],
+  "revisions": [],
+  "drafts": [
+    {
+      "id": "conversation-intake-fnv-633cc836-148fnv-",
+      "createdAt": "2026-11-05T13:59:37.292Z",
+      "updatedAt": "2026-11-05T13:59:37.386Z",
+      "schemaVersion": "resume-import-v1",
+      "importId": "conversation-intake-fnv-633cc836-148fnv-",
+      "revision": 0,
+      "status": "reviewing",
+      "source": {
+        "sourceSessionId": "agent-session-z2ESHjdm2eQ2",
+        "sourceMessageId": "agent-user-356a2151-d262-4973-9bc6-f49159c217bf",
+        "sourceTurnId": "runtime-turn-fab27f6f-cae1-4c1b-ad14-748c0b8cdc50",
+        "capturedAt": "2026-11-05T13:59:37.292Z",
+        "fileName": "conversation-agent-user-356a2151-d262-4973-9bc6-f49159c217bf.txt",
+        "mimeType": "application/x-careeradapt-conversation",
+        "fileHash": "fnv-633cc836-148fnv-ee42f06a-123",
+        "sourceContentHash": "fnv-33367d66-73",
+        "normalizedTextHash": "fnv-33367d66-73",
+        "pageCount": 1,
+        "extractedAt": "2026-11-05T13:59:37.292Z"
+      },
+      "sourceKind": "conversation",
+      "sourceBlocks": [],
+      "basics": {
+        "links": []
+      },
+      "sections": [
+        {
+          "id": "section-intake-fnv-d53ded9b-19-0",
+          "sectionType": "education",
+          "category": "education",
+          "detectedTitle": "匿名大学 / 计算机专业",
+          "included": false,
+          "order": 0,
+          "confidence": "high",
+          "items": [
+            {
+              "id": "intake-fnv-d53ded9b-19-0",
+              "rawText": "就读匿名大学计算机专业。",
+              "normalizedText": "就读匿名大学计算机专业。",
+              "included": false,
+              "order": 0,
+              "pageRefs": [
+                {
+                  "pageNumber": 1,
+                  "quote": "就读匿名大学计算机专业。"
+                }
+              ],
+              "confidence": "high",
+              "sourceStatus": "user_confirmed_modified",
+              "userEdited": false,
+              "sourceBlockIds": [],
+              "itemLabel": "匿名大学 / 计算机专业",
+              "structuredItem": {
+                "id": "intake-fnv-d53ded9b-19-0",
+                "customFields": [],
+                "sectionType": "education",
+                "school": "匿名大学",
+                "major": "计算机专业",
+                "current": false,
+                "courses": [],
+                "honors": [],
+                "highlights": []
+              },
+              "structuredMappingTrace": [],
+              "sourceQuote": "就读匿名大学计算机专业。",
+              "conversationEvidence": [
+                {
+                  "sessionId": "agent-session-z2ESHjdm2eQ2",
+                  "messageId": "agent-user-356a2151-d262-4973-9bc6-f49159c217bf",
+                  "turnId": "runtime-turn-fab27f6f-cae1-4c1b-ad14-748c0b8cdc50",
+                  "sourceContentHash": "fnv-33367d66-73",
+                  "capturedAt": "2026-11-05T13:59:37.292Z",
+                  "sourceQuote": "就读匿名大学计算机专业。",
+                  "supportedFields": [
+                    "school",
+                    "major"
+                  ]
+                }
+              ],
+              "careerNormalization": {
+                "version": "profile-intake-normalization-v1",
+                "mode": "ai",
+                "needsNormalization": false,
+                "fieldEvidence": [
+                  {
+                    "field": "school",
+                    "sourceQuote": "就读匿名大学计算机专业。",
+                    "support": "explicit",
+                    "confidence": 0.96,
+                    "needsConfirmation": false
+                  },
+                  {
+                    "field": "major",
+                    "sourceQuote": "就读匿名大学计算机专业。",
+                    "support": "explicit",
+                    "confidence": 0.96,
+                    "needsConfirmation": false
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "section-intake-fnv-c68791f8-40-1",
+          "sectionType": "project",
+          "category": "project",
+          "detectedTitle": "匿名课程项目",
+          "included": false,
+          "order": 1,
+          "confidence": "high",
+          "items": [
+            {
+              "id": "intake-fnv-c68791f8-40-1",
+              "rawText": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+              "normalizedText": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+              "included": false,
+              "order": 0,
+              "pageRefs": [
+                {
+                  "pageNumber": 1,
+                  "quote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。"
+                }
+              ],
+              "confidence": "high",
+              "sourceStatus": "user_confirmed_modified",
+              "userEdited": false,
+              "sourceBlockIds": [],
+              "itemLabel": "匿名课程项目",
+              "structuredItem": {
+                "id": "intake-fnv-c68791f8-40-1",
+                "customFields": [],
+                "sectionType": "project",
+                "title": "匿名课程项目",
+                "role": "参与",
+                "current": false,
+                "tools": [
+                  "Python"
+                ],
+                "description": "使用 Python 清洗数据并提交报告。",
+                "highlights": [],
+                "outcomes": []
+              },
+              "structuredMappingTrace": [],
+              "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+              "conversationEvidence": [
+                {
+                  "sessionId": "agent-session-z2ESHjdm2eQ2",
+                  "messageId": "agent-user-356a2151-d262-4973-9bc6-f49159c217bf",
+                  "turnId": "runtime-turn-fab27f6f-cae1-4c1b-ad14-748c0b8cdc50",
+                  "sourceContentHash": "fnv-33367d66-73",
+                  "capturedAt": "2026-11-05T13:59:37.292Z",
+                  "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                  "supportedFields": [
+                    "title",
+                    "role",
+                    "tools",
+                    "description"
+                  ]
+                }
+              ],
+              "careerNormalization": {
+                "version": "profile-intake-normalization-v1",
+                "mode": "ai",
+                "needsNormalization": false,
+                "fieldEvidence": [
+                  {
+                    "field": "title",
+                    "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                    "support": "explicit",
+                    "confidence": 0.96,
+                    "needsConfirmation": false
+                  },
+                  {
+                    "field": "role",
+                    "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                    "support": "explicit",
+                    "confidence": 0.96,
+                    "needsConfirmation": false
+                  },
+                  {
+                    "field": "tools",
+                    "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                    "support": "explicit",
+                    "confidence": 0.96,
+                    "needsConfirmation": false
+                  },
+                  {
+                    "field": "description",
+                    "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                    "support": "explicit",
+                    "confidence": 0.96,
+                    "needsConfirmation": false
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "section-intake-fnv-14d05619-19-2",
+          "sectionType": "awards",
+          "category": "award",
+          "detectedTitle": "匿名竞赛三等奖",
+          "included": false,
+          "order": 2,
+          "confidence": "high",
+          "items": [
+            {
+              "id": "intake-fnv-14d05619-19-2",
+              "rawText": "获得匿名竞赛三等奖。",
+              "normalizedText": "获得匿名竞赛三等奖。",
+              "included": false,
+              "order": 0,
+              "pageRefs": [
+                {
+                  "pageNumber": 1,
+                  "quote": "获得匿名竞赛三等奖。"
+                }
+              ],
+              "confidence": "high",
+              "sourceStatus": "user_confirmed_modified",
+              "userEdited": false,
+              "sourceBlockIds": [],
+              "itemLabel": "匿名竞赛三等奖",
+              "structuredItem": {
+                "id": "intake-fnv-14d05619-19-2",
+                "customFields": [],
+                "sectionType": "awards",
+                "name": "匿名竞赛三等奖"
+              },
+              "structuredMappingTrace": [],
+              "sourceQuote": "获得匿名竞赛三等奖。",
+              "conversationEvidence": [
+                {
+                  "sessionId": "agent-session-z2ESHjdm2eQ2",
+                  "messageId": "agent-user-356a2151-d262-4973-9bc6-f49159c217bf",
+                  "turnId": "runtime-turn-fab27f6f-cae1-4c1b-ad14-748c0b8cdc50",
+                  "sourceContentHash": "fnv-33367d66-73",
+                  "capturedAt": "2026-11-05T13:59:37.292Z",
+                  "sourceQuote": "获得匿名竞赛三等奖。",
+                  "supportedFields": [
+                    "name"
+                  ]
+                }
+              ],
+              "careerNormalization": {
+                "version": "profile-intake-normalization-v1",
+                "mode": "ai",
+                "needsNormalization": false,
+                "fieldEvidence": [
+                  {
+                    "field": "name",
+                    "sourceQuote": "获得匿名竞赛三等奖。",
+                    "support": "explicit",
+                    "confidence": 0.96,
+                    "needsConfirmation": false
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "pages": [
+        {
+          "pageNumber": 1,
+          "rawText": "帮我整理资料库 UX011-PROFILE：就读匿名大学计算机专业。参与匿名课程项目，使用 Python 清洗数据并提交报告。获得匿名竞赛三等奖。",
+          "normalizedText": "帮我整理资料库 UX011-PROFILE：就读匿名大学计算机专业。参与匿名课程项目，使用 Python 清洗数据并提交报告。获得匿名竞赛三等奖。",
+          "charStart": 0,
+          "charEnd": 73
+        }
+      ],
+      "unclassifiedBlocks": [],
+      "warnings": [],
+      "parserVersion": "conversation-intake.v1",
+      "intakeSession": {
+        "sessionId": "agent-session-z2ESHjdm2eQ2",
+        "autosavedAt": "2026-11-05T13:59:37.292Z",
+        "reviewedCandidateIds": [],
+        "activeQuestionId": "profile-intake-detail-fnv-e8b525f9",
+        "resumeToken": "fnv-41eefced-104",
+        "lastSourceMessageId": "agent-user-356a2151-d262-4973-9bc6-f49159c217bf",
+        "lastSourceTurnId": "runtime-turn-fab27f6f-cae1-4c1b-ad14-748c0b8cdc50",
+        "providerStatus": "available",
+        "extractionStatus": "structured_ai",
+        "quarantinedCandidateCount": 0,
+        "latestSourceTurnDiagnostics": {
+          "provider": "scripted",
+          "model": "ux011",
+          "attempt": 1,
+          "latencyMs": 35,
+          "processingStatus": "structured",
+          "extractionStatus": "structured_ai",
+          "candidateCount": 3,
+          "quarantinedCount": 0,
+          "quarantinedErrorCodes": [],
+          "quarantinedFields": []
+        },
+        "phase": "clarifying",
+        "userTurnCount": 1,
+        "automaticFollowUpCount": 0,
+        "perTurnBlockingReviewCount": 0,
+        "finalReviewCount": 0,
+        "followUpCounts": {},
+        "questionAnswers": []
+      }
+    }
+  ],
+  "trace": {
+    "runtimeActions": [
+      "run_start",
+      "run_status",
+      "run_events",
+      "run_status"
+    ],
+    "resultActions": [
+      "result"
+    ],
+    "toolRequests": [
+      {
+        "name": "career.workflow.profile_intake_turn",
+        "input": {
+          "userTurn": "帮我整理资料库 UX011-PROFILE：就读匿名大学计算机专业。参与匿名课程项目，使用 Python 清洗数据并提交报告。获得匿名竞赛三等奖。"
+        }
+      }
+    ],
+    "returnedToolResults": [
+      {
+        "requestId": "mcp-request-fTkHYwMKfHGDz_0N",
+        "ok": true,
+        "status": "waiting_for_user",
+        "at": "2026-11-05T13:59:37.467Z"
+      }
+    ],
+    "runRequests": [
+      {
+        "action": "run_start",
+        "sessionId": "hermes-agent-session-z2ESHjdm2eQ2",
+        "turnId": "runtime-turn-fab27f6f-cae1-4c1b-ad14-748c0b8cdc50",
+        "userMessage": "帮我整理资料库 UX011-PROFILE：就读匿名大学计算机专业。参与匿名课程项目，使用 Python 清洗数据并提交报告。获得匿名竞赛三等奖。",
+        "pageContext": {
+          "pathname": "/ai-workspace",
+          "route": "/ai-workspace",
+          "title": "AI 工作台",
+          "agentSessionId": "agent-session-z2ESHjdm2eQ2",
+          "personId": "person-profile-ZzMXpFg022",
+          "activeProfileId": "profile-ZzMXpFg022",
+          "profileId": "profile-ZzMXpFg022",
+          "profileVersionNumber": 1,
+          "profileRevision": 1,
+          "query": {}
+        },
+        "toolContracts": [],
+        "careerSessionBinding": {
+          "personId": "person-profile-ZzMXpFg022",
+          "profileId": "profile-ZzMXpFg022",
+          "profileVersionNumber": 1,
+          "profileRevision": 1,
+          "agentSessionId": "agent-session-z2ESHjdm2eQ2"
+        },
+        "incidentTraceId": "incident-cde88d57-8b4f-47cf-ace6-eb8cc55ec38d",
+        "logicalTurnId": "runtime-turn-fab27f6f-cae1-4c1b-ad14-748c0b8cdc50",
+        "attemptTraceId": "incident-cde88d57-8b4f-47cf-ace6-eb8cc55ec38d:attempt-1",
+        "attachments": [],
+        "conversationHistory": [],
+        "metadata": {
+          "incidentTraceId": "incident-cde88d57-8b4f-47cf-ace6-eb8cc55ec38d",
+          "attemptTraceId": "incident-cde88d57-8b4f-47cf-ace6-eb8cc55ec38d:attempt-1",
+          "attemptNumber": 1,
+          "runtimeId": "hermes",
+          "preferredRuntime": "hermes",
+          "attemptedRuntime": "hermes",
+          "finalRuntime": "hermes",
+          "requireCareerSessionBinding": true
+        }
+      }
+    ],
+    "runReceipts": [
+      {
+        "ok": true,
+        "data": {
+          "runId": "run_0cf75cd7079b4a28bf69d8fcd6e921d4",
+          "status": "started"
+        }
+      }
+    ],
+    "runTimings": [
+      {
+        "at": 1793887170343,
+        "runId": "run_0cf75cd7079b4a28bf69d8fcd6e921d4"
+      }
+    ],
+    "toolReceipts": [
+      {
+        "action": "result",
+        "bridgeId": "careeradapt-bridge-QSvtYQ_JLJcu",
+        "token": "careeradapt-token-KPWQGtIPi1Pk17l8d09ijvbP",
+        "requestId": "mcp-request-fTkHYwMKfHGDz_0N",
+        "result": {
+          "ok": true,
+          "data": {
+            "status": "waiting_for_user",
+            "workflowStage": "collect_experience",
+            "nextAction": "ask_high_value_gap",
+            "userPrompt": "请根据交互规划，在确有必要时只确认一项会改变整理结果的事实。",
+            "artifactRefs": [
+              {
+                "id": "agent-artifact-capture_profile_intake-mcp-career-KwWTMrR4upRhtm4_-1",
+                "kind": "tool_result",
+                "toolName": "career.profile.capture_intake",
+                "sourceToolName": "capture_profile_intake"
+              }
+            ],
+            "receipts": [
+              {
+                "operationId": "mcp-career-KwWTMrR4upRhtm4_-1",
+                "toolName": "career.profile.capture_intake",
+                "status": "completed",
+                "completedAt": "2026-11-05T13:59:37.392Z",
+                "idempotencyKey": "mcp-career-KwWTMrR4upRhtm4_-1"
+              },
+              {
+                "operationId": "mcp-career-KwWTMrR4upRhtm4_",
+                "toolName": "career.workflow.profile_intake_turn",
+                "status": "completed",
+                "completedAt": "2026-11-05T13:59:37.393Z",
+                "idempotencyKey": "mcp-career-KwWTMrR4upRhtm4_"
+              }
+            ],
+            "workflowCheckpoint": {
+              "kind": "profile_intake_turn",
+              "profileId": "profile-ZzMXpFg022",
+              "expectedProfileRevision": 1,
+              "source": {
+                "sessionId": "agent-session-z2ESHjdm2eQ2",
+                "messageId": "agent-user-356a2151-d262-4973-9bc6-f49159c217bf",
+                "turnId": "runtime-turn-fab27f6f-cae1-4c1b-ad14-748c0b8cdc50",
+                "exactSourceQuote": "帮我整理资料库 UX011-PROFILE：就读匿名大学计算机专业。参与匿名课程项目，使用 Python 清洗数据并提交报告。获得匿名竞赛三等奖。",
+                "capturedAt": "2026-11-05T13:59:37.292Z"
+              },
+              "understood": {
+                "importId": "conversation-intake-fnv-633cc836-148fnv-",
+                "expectedDraftRevision": 0,
+                "persistenceStatus": "saved",
+                "candidateCount": 3,
+                "usableCandidateCount": 3,
+                "quarantinedCandidateCount": 0,
+                "nextTurnPlan": {
+                  "action": "ask_follow_up",
+                  "questionId": "profile-intake-detail-fnv-e8b525f9",
+                  "questionRevision": 0,
+                  "candidateId": "intake-fnv-c68791f8-40-1",
+                  "candidateLabel": "匿名课程项目",
+                  "sectionType": "project",
+                  "dimension": "result",
+                  "question": "关于“匿名课程项目”，最后做到什么程度，形成了什么可验证的结果或交付物？",
+                  "acknowledgement": "这段里我先整理出了：匿名大学、匿名课程项目、匿名竞赛三等奖。我们先补最值得深挖的一项。",
+                  "capturedAssetLabels": [
+                    "匿名大学",
+                    "匿名课程项目",
+                    "匿名竞赛三等奖"
+                  ]
+                },
+                "interviewPlan": {
+                  "planVersion": 3,
+                  "status": "awaiting_follow_up",
+                  "sourceRevision": 0,
+                  "coveredSections": [
+                    "education",
+                    "project",
+                    "awards"
+                  ],
+                  "activeQuestion": {
+                    "questionId": "profile-intake-detail-fnv-e8b525f9",
+                    "candidateId": "intake-fnv-c68791f8-40-1",
+                    "candidateLabel": "匿名课程项目",
+                    "sectionType": "project",
+                    "dimension": "result",
+                    "question": "关于“匿名课程项目”，最后做到什么程度，形成了什么可验证的结果或交付物？",
+                    "status": "pending",
+                    "questionRevision": 0
+                  },
+                  "suggestedNextSections": [
+                    "internship",
+                    "campus",
+                    "skills",
+                    "certificates",
+                    "finish"
+                  ],
+                  "suggestedNextSection": "internship",
+                  "activeQuestionId": "profile-intake-detail-fnv-e8b525f9",
+                  "answeredQuestionIds": [],
+                  "skippedQuestionIds": [],
+                  "questions": [
+                    {
+                      "questionId": "profile-intake-detail-fnv-e8b525f9",
+                      "candidateId": "intake-fnv-c68791f8-40-1",
+                      "candidateLabel": "匿名课程项目",
+                      "sectionType": "project",
+                      "dimension": "result",
+                      "question": "关于“匿名课程项目”，最后做到什么程度，形成了什么可验证的结果或交付物？",
+                      "status": "pending",
+                      "sourceRevision": 0,
+                      "questionRevision": 0
+                    }
+                  ],
+                  "followUpCounts": {},
+                  "questionAnswers": [],
+                  "careerAssetState": [
+                    {
+                      "candidateId": "intake-fnv-d53ded9b-19-0",
+                      "identity": "匿名大学",
+                      "sectionType": "education",
+                      "readiness": 0.5,
+                      "questionBudget": 2,
+                      "answeredDimensions": [],
+                      "skippedDimensions": [],
+                      "highValueGaps": [
+                        "degree",
+                        "time"
+                      ],
+                      "interviewStatus": "discovered"
+                    },
+                    {
+                      "candidateId": "intake-fnv-c68791f8-40-1",
+                      "identity": "匿名课程项目",
+                      "sectionType": "project",
+                      "readiness": 0.75,
+                      "questionBudget": 2,
+                      "answeredDimensions": [],
+                      "skippedDimensions": [],
+                      "highValueGaps": [
+                        "result"
+                      ],
+                      "interviewStatus": "discovered"
+                    },
+                    {
+                      "candidateId": "intake-fnv-14d05619-19-2",
+                      "identity": "匿名竞赛三等奖",
+                      "sectionType": "awards",
+                      "readiness": 0.25,
+                      "questionBudget": 2,
+                      "answeredDimensions": [],
+                      "skippedDimensions": [],
+                      "highValueGaps": [
+                        "issuer",
+                        "level_rank",
+                        "time"
+                      ],
+                      "interviewStatus": "discovered"
+                    }
+                  ],
+                  "coverageBoard": [
+                    {
+                      "group": "education",
+                      "status": "high_value_gap",
+                      "assetCount": 1
+                    },
+                    {
+                      "group": "work_internship",
+                      "status": "not_present",
+                      "assetCount": 0
+                    },
+                    {
+                      "group": "projects",
+                      "status": "high_value_gap",
+                      "assetCount": 1
+                    },
+                    {
+                      "group": "research",
+                      "status": "not_present",
+                      "assetCount": 0
+                    },
+                    {
+                      "group": "campus_volunteer",
+                      "status": "not_present",
+                      "assetCount": 0
+                    },
+                    {
+                      "group": "skills",
+                      "status": "not_present",
+                      "assetCount": 0
+                    },
+                    {
+                      "group": "awards_certificates",
+                      "status": "high_value_gap",
+                      "assetCount": 1
+                    },
+                    {
+                      "group": "languages",
+                      "status": "not_present",
+                      "assetCount": 0
+                    },
+                    {
+                      "group": "other",
+                      "status": "not_present",
+                      "assetCount": 0
+                    }
+                  ]
+                },
+                "followUpQuestion": "关于“匿名课程项目”，最后做到什么程度，形成了什么可验证的结果或交付物？",
+                "candidates": [
+                  {
+                    "id": "intake-fnv-d53ded9b-19-0",
+                    "sectionType": "education",
+                    "sourceSpan": {
+                      "start": 22,
+                      "end": 34
+                    },
+                    "sourceQuote": "就读匿名大学计算机专业。",
+                    "structuredItem": {
+                      "id": "intake-fnv-d53ded9b-19-0",
+                      "customFields": [],
+                      "sectionType": "education",
+                      "school": "匿名大学",
+                      "major": "计算机专业",
+                      "current": false,
+                      "courses": [],
+                      "honors": [],
+                      "highlights": []
+                    },
+                    "professionalText": "就读匿名大学计算机专业。",
+                    "uncertainFields": [],
+                    "confidence": 0.9,
+                    "needsConfirmation": true,
+                    "status": "proposed",
+                    "sourceBadge": "ai",
+                    "canAccept": true,
+                    "fieldEvidence": [
+                      {
+                        "field": "school",
+                        "sourceQuote": "就读匿名大学计算机专业。",
+                        "support": "explicit",
+                        "confidence": 0.96,
+                        "needsConfirmation": false
+                      },
+                      {
+                        "field": "major",
+                        "sourceQuote": "就读匿名大学计算机专业。",
+                        "support": "explicit",
+                        "confidence": 0.96,
+                        "needsConfirmation": false
+                      }
+                    ]
+                  },
+                  {
+                    "id": "intake-fnv-c68791f8-40-1",
+                    "sectionType": "project",
+                    "sourceSpan": {
+                      "start": 34,
+                      "end": 63
+                    },
+                    "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                    "structuredItem": {
+                      "id": "intake-fnv-c68791f8-40-1",
+                      "customFields": [],
+                      "sectionType": "project",
+                      "title": "匿名课程项目",
+                      "role": "参与",
+                      "current": false,
+                      "tools": [
+                        "Python"
+                      ],
+                      "description": "使用 Python 清洗数据并提交报告。",
+                      "highlights": [],
+                      "outcomes": []
+                    },
+                    "professionalText": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                    "uncertainFields": [],
+                    "confidence": 0.9,
+                    "needsConfirmation": true,
+                    "status": "proposed",
+                    "sourceBadge": "ai",
+                    "canAccept": true,
+                    "fieldEvidence": [
+                      {
+                        "field": "title",
+                        "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                        "support": "explicit",
+                        "confidence": 0.96,
+                        "needsConfirmation": false
+                      },
+                      {
+                        "field": "role",
+                        "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                        "support": "explicit",
+                        "confidence": 0.96,
+                        "needsConfirmation": false
+                      },
+                      {
+                        "field": "tools",
+                        "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                        "support": "explicit",
+                        "confidence": 0.96,
+                        "needsConfirmation": false
+                      },
+                      {
+                        "field": "description",
+                        "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                        "support": "explicit",
+                        "confidence": 0.96,
+                        "needsConfirmation": false
+                      }
+                    ]
+                  },
+                  {
+                    "id": "intake-fnv-14d05619-19-2",
+                    "sectionType": "awards",
+                    "sourceSpan": {
+                      "start": 63,
+                      "end": 73
+                    },
+                    "sourceQuote": "获得匿名竞赛三等奖。",
+                    "structuredItem": {
+                      "id": "intake-fnv-14d05619-19-2",
+                      "customFields": [],
+                      "sectionType": "awards",
+                      "name": "匿名竞赛三等奖"
+                    },
+                    "professionalText": "获得匿名竞赛三等奖。",
+                    "uncertainFields": [],
+                    "confidence": 0.9,
+                    "needsConfirmation": true,
+                    "status": "proposed",
+                    "sourceBadge": "ai",
+                    "canAccept": true,
+                    "fieldEvidence": [
+                      {
+                        "field": "name",
+                        "sourceQuote": "获得匿名竞赛三等奖。",
+                        "support": "explicit",
+                        "confidence": 0.96,
+                        "needsConfirmation": false
+                      }
+                    ]
+                  }
+                ],
+                "reviewProjection": {
+                  "importId": "conversation-intake-fnv-633cc836-148fnv-",
+                  "draftRevision": 0,
+                  "phase": "clarifying",
+                  "sourceMessageId": "agent-user-356a2151-d262-4973-9bc6-f49159c217bf",
+                  "sourceTurnId": "runtime-turn-fab27f6f-cae1-4c1b-ad14-748c0b8cdc50",
+                  "sourceContentHash": "fnv-33367d66-73",
+                  "providerStatus": "available",
+                  "extractionStatus": "structured_ai",
+                  "candidates": [
+                    {
+                      "id": "intake-fnv-d53ded9b-19-0",
+                      "sectionType": "education",
+                      "sourceSpan": {
+                        "start": 22,
+                        "end": 34
+                      },
+                      "sourceQuote": "就读匿名大学计算机专业。",
+                      "structuredItem": {
+                        "id": "intake-fnv-d53ded9b-19-0",
+                        "customFields": [],
+                        "sectionType": "education",
+                        "school": "匿名大学",
+                        "major": "计算机专业",
+                        "current": false,
+                        "courses": [],
+                        "honors": [],
+                        "highlights": []
+                      },
+                      "professionalText": "就读匿名大学计算机专业。",
+                      "uncertainFields": [],
+                      "confidence": 0.9,
+                      "needsConfirmation": true,
+                      "status": "proposed",
+                      "sourceBadge": "ai",
+                      "canAccept": true,
+                      "fieldEvidence": [
+                        {
+                          "field": "school",
+                          "sourceQuote": "就读匿名大学计算机专业。",
+                          "support": "explicit",
+                          "confidence": 0.96,
+                          "needsConfirmation": false
+                        },
+                        {
+                          "field": "major",
+                          "sourceQuote": "就读匿名大学计算机专业。",
+                          "support": "explicit",
+                          "confidence": 0.96,
+                          "needsConfirmation": false
+                        }
+                      ]
+                    },
+                    {
+                      "id": "intake-fnv-c68791f8-40-1",
+                      "sectionType": "project",
+                      "sourceSpan": {
+                        "start": 34,
+                        "end": 63
+                      },
+                      "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                      "structuredItem": {
+                        "id": "intake-fnv-c68791f8-40-1",
+                        "customFields": [],
+                        "sectionType": "project",
+                        "title": "匿名课程项目",
+                        "role": "参与",
+                        "current": false,
+                        "tools": [
+                          "Python"
+                        ],
+                        "description": "使用 Python 清洗数据并提交报告。",
+                        "highlights": [],
+                        "outcomes": []
+                      },
+                      "professionalText": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                      "uncertainFields": [],
+                      "confidence": 0.9,
+                      "needsConfirmation": true,
+                      "status": "proposed",
+                      "sourceBadge": "ai",
+                      "canAccept": true,
+                      "fieldEvidence": [
+                        {
+                          "field": "title",
+                          "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                          "support": "explicit",
+                          "confidence": 0.96,
+                          "needsConfirmation": false
+                        },
+                        {
+                          "field": "role",
+                          "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                          "support": "explicit",
+                          "confidence": 0.96,
+                          "needsConfirmation": false
+                        },
+                        {
+                          "field": "tools",
+                          "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                          "support": "explicit",
+                          "confidence": 0.96,
+                          "needsConfirmation": false
+                        },
+                        {
+                          "field": "description",
+                          "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                          "support": "explicit",
+                          "confidence": 0.96,
+                          "needsConfirmation": false
+                        }
+                      ]
+                    },
+                    {
+                      "id": "intake-fnv-14d05619-19-2",
+                      "sectionType": "awards",
+                      "sourceSpan": {
+                        "start": 63,
+                        "end": 73
+                      },
+                      "sourceQuote": "获得匿名竞赛三等奖。",
+                      "structuredItem": {
+                        "id": "intake-fnv-14d05619-19-2",
+                        "customFields": [],
+                        "sectionType": "awards",
+                        "name": "匿名竞赛三等奖"
+                      },
+                      "professionalText": "获得匿名竞赛三等奖。",
+                      "uncertainFields": [],
+                      "confidence": 0.9,
+                      "needsConfirmation": true,
+                      "status": "proposed",
+                      "sourceBadge": "ai",
+                      "canAccept": true,
+                      "fieldEvidence": [
+                        {
+                          "field": "name",
+                          "sourceQuote": "获得匿名竞赛三等奖。",
+                          "support": "explicit",
+                          "confidence": 0.96,
+                          "needsConfirmation": false
+                        }
+                      ]
+                    }
+                  ],
+                  "reviewProgress": {
+                    "total": 3,
+                    "proposed": 3,
+                    "valid": 3,
+                    "uncertain": 0,
+                    "accepted": 0,
+                    "ignored": 0,
+                    "rejected": 0,
+                    "reviewed": 0
+                  },
+                  "followUpQuestions": [
+                    "关于“匿名课程项目”，最后做到什么程度，形成了什么可验证的结果或交付物？"
+                  ],
+                  "followUpQuestion": "关于“匿名课程项目”，最后做到什么程度，形成了什么可验证的结果或交付物？",
+                  "safeDiagnostics": {
+                    "provider": "scripted",
+                    "model": "ux011",
+                    "attempt": 1,
+                    "latencyMs": 35,
+                    "processingStatus": "structured",
+                    "extractionStatus": "structured_ai",
+                    "candidateCount": 3,
+                    "quarantinedCount": 0,
+                    "quarantinedErrorCodes": [],
+                    "quarantinedFields": []
+                  }
+                },
+                "artifactPayload": {
+                  "title": "经历核对",
+                  "followUpQuestion": "关于“匿名课程项目”，最后做到什么程度，形成了什么可验证的结果或交付物？",
+                  "interviewPlan": {
+                    "planVersion": 3,
+                    "status": "awaiting_follow_up",
+                    "sourceRevision": 0,
+                    "coveredSections": [
+                      "education",
+                      "project",
+                      "awards"
+                    ],
+                    "activeQuestion": {
+                      "questionId": "profile-intake-detail-fnv-e8b525f9",
+                      "candidateId": "intake-fnv-c68791f8-40-1",
+                      "candidateLabel": "匿名课程项目",
+                      "sectionType": "project",
+                      "dimension": "result",
+                      "question": "关于“匿名课程项目”，最后做到什么程度，形成了什么可验证的结果或交付物？",
+                      "status": "pending",
+                      "questionRevision": 0
+                    },
+                    "suggestedNextSections": [
+                      "internship",
+                      "campus",
+                      "skills",
+                      "certificates",
+                      "finish"
+                    ],
+                    "suggestedNextSection": "internship",
+                    "activeQuestionId": "profile-intake-detail-fnv-e8b525f9",
+                    "answeredQuestionIds": [],
+                    "skippedQuestionIds": [],
+                    "questions": [
+                      {
+                        "questionId": "profile-intake-detail-fnv-e8b525f9",
+                        "candidateId": "intake-fnv-c68791f8-40-1",
+                        "candidateLabel": "匿名课程项目",
+                        "sectionType": "project",
+                        "dimension": "result",
+                        "question": "关于“匿名课程项目”，最后做到什么程度，形成了什么可验证的结果或交付物？",
+                        "status": "pending",
+                        "sourceRevision": 0,
+                        "questionRevision": 0
+                      }
+                    ],
+                    "followUpCounts": {},
+                    "questionAnswers": [],
+                    "careerAssetState": [
+                      {
+                        "candidateId": "intake-fnv-d53ded9b-19-0",
+                        "identity": "匿名大学",
+                        "sectionType": "education",
+                        "readiness": 0.5,
+                        "questionBudget": 2,
+                        "answeredDimensions": [],
+                        "skippedDimensions": [],
+                        "highValueGaps": [
+                          "degree",
+                          "time"
+                        ],
+                        "interviewStatus": "discovered"
+                      },
+                      {
+                        "candidateId": "intake-fnv-c68791f8-40-1",
+                        "identity": "匿名课程项目",
+                        "sectionType": "project",
+                        "readiness": 0.75,
+                        "questionBudget": 2,
+                        "answeredDimensions": [],
+                        "skippedDimensions": [],
+                        "highValueGaps": [
+                          "result"
+                        ],
+                        "interviewStatus": "discovered"
+                      },
+                      {
+                        "candidateId": "intake-fnv-14d05619-19-2",
+                        "identity": "匿名竞赛三等奖",
+                        "sectionType": "awards",
+                        "readiness": 0.25,
+                        "questionBudget": 2,
+                        "answeredDimensions": [],
+                        "skippedDimensions": [],
+                        "highValueGaps": [
+                          "issuer",
+                          "level_rank",
+                          "time"
+                        ],
+                        "interviewStatus": "discovered"
+                      }
+                    ],
+                    "coverageBoard": [
+                      {
+                        "group": "education",
+                        "status": "high_value_gap",
+                        "assetCount": 1
+                      },
+                      {
+                        "group": "work_internship",
+                        "status": "not_present",
+                        "assetCount": 0
+                      },
+                      {
+                        "group": "projects",
+                        "status": "high_value_gap",
+                        "assetCount": 1
+                      },
+                      {
+                        "group": "research",
+                        "status": "not_present",
+                        "assetCount": 0
+                      },
+                      {
+                        "group": "campus_volunteer",
+                        "status": "not_present",
+                        "assetCount": 0
+                      },
+                      {
+                        "group": "skills",
+                        "status": "not_present",
+                        "assetCount": 0
+                      },
+                      {
+                        "group": "awards_certificates",
+                        "status": "high_value_gap",
+                        "assetCount": 1
+                      },
+                      {
+                        "group": "languages",
+                        "status": "not_present",
+                        "assetCount": 0
+                      },
+                      {
+                        "group": "other",
+                        "status": "not_present",
+                        "assetCount": 0
+                      }
+                    ]
+                  },
+                  "candidates": [
+                    {
+                      "id": "intake-fnv-d53ded9b-19-0",
+                      "sectionType": "education",
+                      "label": "匿名大学 / 计算机专业",
+                      "sourceQuote": "就读匿名大学计算机专业。",
+                      "organization": "匿名大学",
+                      "role": "计算机专业",
+                      "professionalDescription": "就读匿名大学计算机专业。",
+                      "highlights": [],
+                      "toolsOrMethods": [],
+                      "outcomes": [],
+                      "sources": [
+                        "就读匿名大学计算机专业。"
+                      ],
+                      "status": "ai_review",
+                      "confidence": 0.9,
+                      "reason": "AI 已整理，但有信息需要确认",
+                      "needsNormalization": false,
+                      "canAccept": true,
+                      "structuredItem": {
+                        "id": "intake-fnv-d53ded9b-19-0",
+                        "customFields": [],
+                        "sectionType": "education",
+                        "school": "匿名大学",
+                        "major": "计算机专业",
+                        "current": false,
+                        "courses": [],
+                        "honors": [],
+                        "highlights": []
+                      },
+                      "fieldEvidence": [
+                        {
+                          "field": "school",
+                          "sourceQuote": "就读匿名大学计算机专业。",
+                          "support": "explicit",
+                          "confidence": 0.96,
+                          "needsConfirmation": false
+                        },
+                        {
+                          "field": "major",
+                          "sourceQuote": "就读匿名大学计算机专业。",
+                          "support": "explicit",
+                          "confidence": 0.96,
+                          "needsConfirmation": false
+                        }
+                      ]
+                    },
+                    {
+                      "id": "intake-fnv-c68791f8-40-1",
+                      "sectionType": "project",
+                      "label": "匿名课程项目",
+                      "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                      "role": "参与",
+                      "professionalDescription": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                      "highlights": [],
+                      "toolsOrMethods": [
+                        "Python"
+                      ],
+                      "outcomes": [],
+                      "sources": [
+                        "参与匿名课程项目，使用 Python 清洗数据并提交报告。"
+                      ],
+                      "status": "ai_review",
+                      "confidence": 0.9,
+                      "reason": "AI 已整理，但有信息需要确认",
+                      "needsNormalization": false,
+                      "canAccept": true,
+                      "structuredItem": {
+                        "id": "intake-fnv-c68791f8-40-1",
+                        "customFields": [],
+                        "sectionType": "project",
+                        "title": "匿名课程项目",
+                        "role": "参与",
+                        "current": false,
+                        "tools": [
+                          "Python"
+                        ],
+                        "description": "使用 Python 清洗数据并提交报告。",
+                        "highlights": [],
+                        "outcomes": []
+                      },
+                      "fieldEvidence": [
+                        {
+                          "field": "title",
+                          "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                          "support": "explicit",
+                          "confidence": 0.96,
+                          "needsConfirmation": false
+                        },
+                        {
+                          "field": "role",
+                          "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                          "support": "explicit",
+                          "confidence": 0.96,
+                          "needsConfirmation": false
+                        },
+                        {
+                          "field": "tools",
+                          "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                          "support": "explicit",
+                          "confidence": 0.96,
+                          "needsConfirmation": false
+                        },
+                        {
+                          "field": "description",
+                          "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                          "support": "explicit",
+                          "confidence": 0.96,
+                          "needsConfirmation": false
+                        }
+                      ]
+                    },
+                    {
+                      "id": "intake-fnv-14d05619-19-2",
+                      "sectionType": "awards",
+                      "label": "匿名竞赛三等奖",
+                      "sourceQuote": "获得匿名竞赛三等奖。",
+                      "professionalDescription": "获得匿名竞赛三等奖。",
+                      "highlights": [],
+                      "toolsOrMethods": [],
+                      "outcomes": [],
+                      "sources": [
+                        "获得匿名竞赛三等奖。"
+                      ],
+                      "status": "ai_review",
+                      "confidence": 0.9,
+                      "reason": "AI 已整理，但有信息需要确认",
+                      "needsNormalization": false,
+                      "canAccept": true,
+                      "structuredItem": {
+                        "id": "intake-fnv-14d05619-19-2",
+                        "customFields": [],
+                        "sectionType": "awards",
+                        "name": "匿名竞赛三等奖"
+                      },
+                      "fieldEvidence": [
+                        {
+                          "field": "name",
+                          "sourceQuote": "获得匿名竞赛三等奖。",
+                          "support": "explicit",
+                          "confidence": 0.96,
+                          "needsConfirmation": false
+                        }
+                      ]
+                    }
+                  ],
+                  "recognized": [],
+                  "needsConfirmation": [
+                    {
+                      "id": "intake-fnv-d53ded9b-19-0",
+                      "label": "匿名大学 / 计算机专业",
+                      "reason": "AI 已整理，但有信息需要确认"
+                    },
+                    {
+                      "id": "intake-fnv-c68791f8-40-1",
+                      "label": "匿名课程项目",
+                      "reason": "AI 已整理，但有信息需要确认"
+                    },
+                    {
+                      "id": "intake-fnv-14d05619-19-2",
+                      "label": "匿名竞赛三等奖",
+                      "reason": "AI 已整理，但有信息需要确认"
+                    }
+                  ],
+                  "duplicates": [],
+                  "additions": [
+                    {
+                      "id": "intake-fnv-d53ded9b-19-0",
+                      "label": "匿名大学 / 计算机专业"
+                    },
+                    {
+                      "id": "intake-fnv-c68791f8-40-1",
+                      "label": "匿名课程项目"
+                    },
+                    {
+                      "id": "intake-fnv-14d05619-19-2",
+                      "label": "匿名竞赛三等奖"
+                    }
+                  ],
+                  "sources": [
+                    {
+                      "sessionId": "agent-session-z2ESHjdm2eQ2",
+                      "messageId": "agent-user-356a2151-d262-4973-9bc6-f49159c217bf",
+                      "turnId": "runtime-turn-fab27f6f-cae1-4c1b-ad14-748c0b8cdc50",
+                      "sourceContentHash": "fnv-33367d66-73",
+                      "capturedAt": "2026-11-05T13:59:37.292Z"
+                    }
+                  ]
+                },
+                "intakeSession": {
+                  "sessionId": "agent-session-z2ESHjdm2eQ2",
+                  "autosavedAt": "2026-11-05T13:59:37.292Z",
+                  "reviewedCandidateIds": [],
+                  "activeQuestionId": "profile-intake-detail-fnv-e8b525f9",
+                  "resumeToken": "fnv-41eefced-104",
+                  "lastSourceMessageId": "agent-user-356a2151-d262-4973-9bc6-f49159c217bf",
+                  "lastSourceTurnId": "runtime-turn-fab27f6f-cae1-4c1b-ad14-748c0b8cdc50",
+                  "providerStatus": "available",
+                  "extractionStatus": "structured_ai",
+                  "quarantinedCandidateCount": 0,
+                  "latestSourceTurnDiagnostics": {
+                    "provider": "scripted",
+                    "model": "ux011",
+                    "attempt": 1,
+                    "latencyMs": 35,
+                    "processingStatus": "structured",
+                    "extractionStatus": "structured_ai",
+                    "candidateCount": 3,
+                    "quarantinedCount": 0,
+                    "quarantinedErrorCodes": [],
+                    "quarantinedFields": []
+                  },
+                  "phase": "clarifying",
+                  "userTurnCount": 1,
+                  "automaticFollowUpCount": 0,
+                  "perTurnBlockingReviewCount": 0,
+                  "finalReviewCount": 0,
+                  "followUpCounts": {},
+                  "questionAnswers": []
+                },
+                "persistenceReceipt": {
+                  "autosavedAt": "2026-11-05T13:59:37.292Z",
+                  "resumeToken": "fnv-41eefced-104"
+                },
+                "providerStatus": "available",
+                "extractionStatus": "structured_ai"
+              }
+            },
+            "interactionPlan": {
+              "workflow": "career.workflow.profile_intake_turn",
+              "objective": "把真实经历整理成可复用、可核验的职业资产",
+              "knownContext": {
+                "person": {
+                  "id": "person-profile-ZzMXpFg022"
+                },
+                "profile": {
+                  "id": "profile-ZzMXpFg022",
+                  "revision": 1
+                },
+                "activeCareerAssets": {
+                  "importId": "conversation-intake-fnv-633cc836-148fnv-",
+                  "expectedDraftRevision": 0,
+                  "persistenceStatus": "saved",
+                  "candidateCount": 3,
+                  "usableCandidateCount": 3,
+                  "quarantinedCandidateCount": 0,
+                  "nextTurnPlan": {
+                    "action": "ask_follow_up",
+                    "questionId": "profile-intake-detail-fnv-e8b525f9",
+                    "questionRevision": 0,
+                    "candidateId": "intake-fnv-c68791f8-40-1",
+                    "candidateLabel": "匿名课程项目",
+                    "sectionType": "project",
+                    "dimension": "result",
+                    "question": "关于“匿名课程项目”，最后做到什么程度，形成了什么可验证的结果或交付物？",
+                    "acknowledgement": "这段里我先整理出了：匿名大学、匿名课程项目、匿名竞赛三等奖。我们先补最值得深挖的一项。",
+                    "capturedAssetLabels": [
+                      "匿名大学",
+                      "匿名课程项目",
+                      "匿名竞赛三等奖"
+                    ]
+                  },
+                  "interviewPlan": {
+                    "planVersion": 3,
+                    "status": "awaiting_follow_up",
+                    "sourceRevision": 0,
+                    "coveredSections": [
+                      "education",
+                      "project",
+                      "awards"
+                    ],
+                    "activeQuestion": {
+                      "questionId": "profile-intake-detail-fnv-e8b525f9",
+                      "candidateId": "intake-fnv-c68791f8-40-1",
+                      "candidateLabel": "匿名课程项目",
+                      "sectionType": "project",
+                      "dimension": "result",
+                      "question": "关于“匿名课程项目”，最后做到什么程度，形成了什么可验证的结果或交付物？",
+                      "status": "pending",
+                      "questionRevision": 0
+                    },
+                    "suggestedNextSections": [
+                      "internship",
+                      "campus",
+                      "skills",
+                      "certificates",
+                      "finish"
+                    ],
+                    "suggestedNextSection": "internship",
+                    "activeQuestionId": "profile-intake-detail-fnv-e8b525f9",
+                    "answeredQuestionIds": [],
+                    "skippedQuestionIds": [],
+                    "questions": [
+                      {
+                        "questionId": "profile-intake-detail-fnv-e8b525f9",
+                        "candidateId": "intake-fnv-c68791f8-40-1",
+                        "candidateLabel": "匿名课程项目",
+                        "sectionType": "project",
+                        "dimension": "result",
+                        "question": "关于“匿名课程项目”，最后做到什么程度，形成了什么可验证的结果或交付物？",
+                        "status": "pending",
+                        "sourceRevision": 0,
+                        "questionRevision": 0
+                      }
+                    ],
+                    "followUpCounts": {},
+                    "questionAnswers": [],
+                    "careerAssetState": [
+                      {
+                        "candidateId": "intake-fnv-d53ded9b-19-0",
+                        "identity": "匿名大学",
+                        "sectionType": "education",
+                        "readiness": 0.5,
+                        "questionBudget": 2,
+                        "answeredDimensions": [],
+                        "skippedDimensions": [],
+                        "highValueGaps": [
+                          "degree",
+                          "time"
+                        ],
+                        "interviewStatus": "discovered"
+                      },
+                      {
+                        "candidateId": "intake-fnv-c68791f8-40-1",
+                        "identity": "匿名课程项目",
+                        "sectionType": "project",
+                        "readiness": 0.75,
+                        "questionBudget": 2,
+                        "answeredDimensions": [],
+                        "skippedDimensions": [],
+                        "highValueGaps": [
+                          "result"
+                        ],
+                        "interviewStatus": "discovered"
+                      },
+                      {
+                        "candidateId": "intake-fnv-14d05619-19-2",
+                        "identity": "匿名竞赛三等奖",
+                        "sectionType": "awards",
+                        "readiness": 0.25,
+                        "questionBudget": 2,
+                        "answeredDimensions": [],
+                        "skippedDimensions": [],
+                        "highValueGaps": [
+                          "issuer",
+                          "level_rank",
+                          "time"
+                        ],
+                        "interviewStatus": "discovered"
+                      }
+                    ],
+                    "coverageBoard": [
+                      {
+                        "group": "education",
+                        "status": "high_value_gap",
+                        "assetCount": 1
+                      },
+                      {
+                        "group": "work_internship",
+                        "status": "not_present",
+                        "assetCount": 0
+                      },
+                      {
+                        "group": "projects",
+                        "status": "high_value_gap",
+                        "assetCount": 1
+                      },
+                      {
+                        "group": "research",
+                        "status": "not_present",
+                        "assetCount": 0
+                      },
+                      {
+                        "group": "campus_volunteer",
+                        "status": "not_present",
+                        "assetCount": 0
+                      },
+                      {
+                        "group": "skills",
+                        "status": "not_present",
+                        "assetCount": 0
+                      },
+                      {
+                        "group": "awards_certificates",
+                        "status": "high_value_gap",
+                        "assetCount": 1
+                      },
+                      {
+                        "group": "languages",
+                        "status": "not_present",
+                        "assetCount": 0
+                      },
+                      {
+                        "group": "other",
+                        "status": "not_present",
+                        "assetCount": 0
+                      }
+                    ]
+                  },
+                  "followUpQuestion": "关于“匿名课程项目”，最后做到什么程度，形成了什么可验证的结果或交付物？",
+                  "candidates": [
+                    {
+                      "id": "intake-fnv-d53ded9b-19-0",
+                      "sectionType": "education",
+                      "sourceSpan": {
+                        "start": 22,
+                        "end": 34
+                      },
+                      "sourceQuote": "就读匿名大学计算机专业。",
+                      "structuredItem": {
+                        "id": "intake-fnv-d53ded9b-19-0",
+                        "customFields": [],
+                        "sectionType": "education",
+                        "school": "匿名大学",
+                        "major": "计算机专业",
+                        "current": false,
+                        "courses": [],
+                        "honors": [],
+                        "highlights": []
+                      },
+                      "professionalText": "就读匿名大学计算机专业。",
+                      "uncertainFields": [],
+                      "confidence": 0.9,
+                      "needsConfirmation": true,
+                      "status": "proposed",
+                      "sourceBadge": "ai",
+                      "canAccept": true,
+                      "fieldEvidence": [
+                        {
+                          "field": "school",
+                          "sourceQuote": "就读匿名大学计算机专业。",
+                          "support": "explicit",
+                          "confidence": 0.96,
+                          "needsConfirmation": false
+                        },
+                        {
+                          "field": "major",
+                          "sourceQuote": "就读匿名大学计算机专业。",
+                          "support": "explicit",
+                          "confidence": 0.96,
+                          "needsConfirmation": false
+                        }
+                      ]
+                    },
+                    {
+                      "id": "intake-fnv-c68791f8-40-1",
+                      "sectionType": "project",
+                      "sourceSpan": {
+                        "start": 34,
+                        "end": 63
+                      },
+                      "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                      "structuredItem": {
+                        "id": "intake-fnv-c68791f8-40-1",
+                        "customFields": [],
+                        "sectionType": "project",
+                        "title": "匿名课程项目",
+                        "role": "参与",
+                        "current": false,
+                        "tools": [
+                          "Python"
+                        ],
+                        "description": "使用 Python 清洗数据并提交报告。",
+                        "highlights": [],
+                        "outcomes": []
+                      },
+                      "professionalText": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                      "uncertainFields": [],
+                      "confidence": 0.9,
+                      "needsConfirmation": true,
+                      "status": "proposed",
+                      "sourceBadge": "ai",
+                      "canAccept": true,
+                      "fieldEvidence": [
+                        {
+                          "field": "title",
+                          "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                          "support": "explicit",
+                          "confidence": 0.96,
+                          "needsConfirmation": false
+                        },
+                        {
+                          "field": "role",
+                          "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                          "support": "explicit",
+                          "confidence": 0.96,
+                          "needsConfirmation": false
+                        },
+                        {
+                          "field": "tools",
+                          "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                          "support": "explicit",
+                          "confidence": 0.96,
+                          "needsConfirmation": false
+                        },
+                        {
+                          "field": "description",
+                          "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                          "support": "explicit",
+                          "confidence": 0.96,
+                          "needsConfirmation": false
+                        }
+                      ]
+                    },
+                    {
+                      "id": "intake-fnv-14d05619-19-2",
+                      "sectionType": "awards",
+                      "sourceSpan": {
+                        "start": 63,
+                        "end": 73
+                      },
+                      "sourceQuote": "获得匿名竞赛三等奖。",
+                      "structuredItem": {
+                        "id": "intake-fnv-14d05619-19-2",
+                        "customFields": [],
+                        "sectionType": "awards",
+                        "name": "匿名竞赛三等奖"
+                      },
+                      "professionalText": "获得匿名竞赛三等奖。",
+                      "uncertainFields": [],
+                      "confidence": 0.9,
+                      "needsConfirmation": true,
+                      "status": "proposed",
+                      "sourceBadge": "ai",
+                      "canAccept": true,
+                      "fieldEvidence": [
+                        {
+                          "field": "name",
+                          "sourceQuote": "获得匿名竞赛三等奖。",
+                          "support": "explicit",
+                          "confidence": 0.96,
+                          "needsConfirmation": false
+                        }
+                      ]
+                    }
+                  ],
+                  "reviewProjection": {
+                    "importId": "conversation-intake-fnv-633cc836-148fnv-",
+                    "draftRevision": 0,
+                    "phase": "clarifying",
+                    "sourceMessageId": "agent-user-356a2151-d262-4973-9bc6-f49159c217bf",
+                    "sourceTurnId": "runtime-turn-fab27f6f-cae1-4c1b-ad14-748c0b8cdc50",
+                    "sourceContentHash": "fnv-33367d66-73",
+                    "providerStatus": "available",
+                    "extractionStatus": "structured_ai",
+                    "candidates": [
+                      {
+                        "id": "intake-fnv-d53ded9b-19-0",
+                        "sectionType": "education",
+                        "sourceSpan": {
+                          "start": 22,
+                          "end": 34
+                        },
+                        "sourceQuote": "就读匿名大学计算机专业。",
+                        "structuredItem": {
+                          "id": "intake-fnv-d53ded9b-19-0",
+                          "customFields": [],
+                          "sectionType": "education",
+                          "school": "匿名大学",
+                          "major": "计算机专业",
+                          "current": false,
+                          "courses": [],
+                          "honors": [],
+                          "highlights": []
+                        },
+                        "professionalText": "就读匿名大学计算机专业。",
+                        "uncertainFields": [],
+                        "confidence": 0.9,
+                        "needsConfirmation": true,
+                        "status": "proposed",
+                        "sourceBadge": "ai",
+                        "canAccept": true,
+                        "fieldEvidence": [
+                          {
+                            "field": "school",
+                            "sourceQuote": "就读匿名大学计算机专业。",
+                            "support": "explicit",
+                            "confidence": 0.96,
+                            "needsConfirmation": false
+                          },
+                          {
+                            "field": "major",
+                            "sourceQuote": "就读匿名大学计算机专业。",
+                            "support": "explicit",
+                            "confidence": 0.96,
+                            "needsConfirmation": false
+                          }
+                        ]
+                      },
+                      {
+                        "id": "intake-fnv-c68791f8-40-1",
+                        "sectionType": "project",
+                        "sourceSpan": {
+                          "start": 34,
+                          "end": 63
+                        },
+                        "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                        "structuredItem": {
+                          "id": "intake-fnv-c68791f8-40-1",
+                          "customFields": [],
+                          "sectionType": "project",
+                          "title": "匿名课程项目",
+                          "role": "参与",
+                          "current": false,
+                          "tools": [
+                            "Python"
+                          ],
+                          "description": "使用 Python 清洗数据并提交报告。",
+                          "highlights": [],
+                          "outcomes": []
+                        },
+                        "professionalText": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                        "uncertainFields": [],
+                        "confidence": 0.9,
+                        "needsConfirmation": true,
+                        "status": "proposed",
+                        "sourceBadge": "ai",
+                        "canAccept": true,
+                        "fieldEvidence": [
+                          {
+                            "field": "title",
+                            "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                            "support": "explicit",
+                            "confidence": 0.96,
+                            "needsConfirmation": false
+                          },
+                          {
+                            "field": "role",
+                            "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                            "support": "explicit",
+                            "confidence": 0.96,
+                            "needsConfirmation": false
+                          },
+                          {
+                            "field": "tools",
+                            "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                            "support": "explicit",
+                            "confidence": 0.96,
+                            "needsConfirmation": false
+                          },
+                          {
+                            "field": "description",
+                            "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                            "support": "explicit",
+                            "confidence": 0.96,
+                            "needsConfirmation": false
+                          }
+                        ]
+                      },
+                      {
+                        "id": "intake-fnv-14d05619-19-2",
+                        "sectionType": "awards",
+                        "sourceSpan": {
+                          "start": 63,
+                          "end": 73
+                        },
+                        "sourceQuote": "获得匿名竞赛三等奖。",
+                        "structuredItem": {
+                          "id": "intake-fnv-14d05619-19-2",
+                          "customFields": [],
+                          "sectionType": "awards",
+                          "name": "匿名竞赛三等奖"
+                        },
+                        "professionalText": "获得匿名竞赛三等奖。",
+                        "uncertainFields": [],
+                        "confidence": 0.9,
+                        "needsConfirmation": true,
+                        "status": "proposed",
+                        "sourceBadge": "ai",
+                        "canAccept": true,
+                        "fieldEvidence": [
+                          {
+                            "field": "name",
+                            "sourceQuote": "获得匿名竞赛三等奖。",
+                            "support": "explicit",
+                            "confidence": 0.96,
+                            "needsConfirmation": false
+                          }
+                        ]
+                      }
+                    ],
+                    "reviewProgress": {
+                      "total": 3,
+                      "proposed": 3,
+                      "valid": 3,
+                      "uncertain": 0,
+                      "accepted": 0,
+                      "ignored": 0,
+                      "rejected": 0,
+                      "reviewed": 0
+                    },
+                    "followUpQuestions": [
+                      "关于“匿名课程项目”，最后做到什么程度，形成了什么可验证的结果或交付物？"
+                    ],
+                    "followUpQuestion": "关于“匿名课程项目”，最后做到什么程度，形成了什么可验证的结果或交付物？",
+                    "safeDiagnostics": {
+                      "provider": "scripted",
+                      "model": "ux011",
+                      "attempt": 1,
+                      "latencyMs": 35,
+                      "processingStatus": "structured",
+                      "extractionStatus": "structured_ai",
+                      "candidateCount": 3,
+                      "quarantinedCount": 0,
+                      "quarantinedErrorCodes": [],
+                      "quarantinedFields": []
+                    }
+                  },
+                  "artifactPayload": {
+                    "title": "经历核对",
+                    "followUpQuestion": "关于“匿名课程项目”，最后做到什么程度，形成了什么可验证的结果或交付物？",
+                    "interviewPlan": {
+                      "planVersion": 3,
+                      "status": "awaiting_follow_up",
+                      "sourceRevision": 0,
+                      "coveredSections": [
+                        "education",
+                        "project",
+                        "awards"
+                      ],
+                      "activeQuestion": {
+                        "questionId": "profile-intake-detail-fnv-e8b525f9",
+                        "candidateId": "intake-fnv-c68791f8-40-1",
+                        "candidateLabel": "匿名课程项目",
+                        "sectionType": "project",
+                        "dimension": "result",
+                        "question": "关于“匿名课程项目”，最后做到什么程度，形成了什么可验证的结果或交付物？",
+                        "status": "pending",
+                        "questionRevision": 0
+                      },
+                      "suggestedNextSections": [
+                        "internship",
+                        "campus",
+                        "skills",
+                        "certificates",
+                        "finish"
+                      ],
+                      "suggestedNextSection": "internship",
+                      "activeQuestionId": "profile-intake-detail-fnv-e8b525f9",
+                      "answeredQuestionIds": [],
+                      "skippedQuestionIds": [],
+                      "questions": [
+                        {
+                          "questionId": "profile-intake-detail-fnv-e8b525f9",
+                          "candidateId": "intake-fnv-c68791f8-40-1",
+                          "candidateLabel": "匿名课程项目",
+                          "sectionType": "project",
+                          "dimension": "result",
+                          "question": "关于“匿名课程项目”，最后做到什么程度，形成了什么可验证的结果或交付物？",
+                          "status": "pending",
+                          "sourceRevision": 0,
+                          "questionRevision": 0
+                        }
+                      ],
+                      "followUpCounts": {},
+                      "questionAnswers": [],
+                      "careerAssetState": [
+                        {
+                          "candidateId": "intake-fnv-d53ded9b-19-0",
+                          "identity": "匿名大学",
+                          "sectionType": "education",
+                          "readiness": 0.5,
+                          "questionBudget": 2,
+                          "answeredDimensions": [],
+                          "skippedDimensions": [],
+                          "highValueGaps": [
+                            "degree",
+                            "time"
+                          ],
+                          "interviewStatus": "discovered"
+                        },
+                        {
+                          "candidateId": "intake-fnv-c68791f8-40-1",
+                          "identity": "匿名课程项目",
+                          "sectionType": "project",
+                          "readiness": 0.75,
+                          "questionBudget": 2,
+                          "answeredDimensions": [],
+                          "skippedDimensions": [],
+                          "highValueGaps": [
+                            "result"
+                          ],
+                          "interviewStatus": "discovered"
+                        },
+                        {
+                          "candidateId": "intake-fnv-14d05619-19-2",
+                          "identity": "匿名竞赛三等奖",
+                          "sectionType": "awards",
+                          "readiness": 0.25,
+                          "questionBudget": 2,
+                          "answeredDimensions": [],
+                          "skippedDimensions": [],
+                          "highValueGaps": [
+                            "issuer",
+                            "level_rank",
+                            "time"
+                          ],
+                          "interviewStatus": "discovered"
+                        }
+                      ],
+                      "coverageBoard": [
+                        {
+                          "group": "education",
+                          "status": "high_value_gap",
+                          "assetCount": 1
+                        },
+                        {
+                          "group": "work_internship",
+                          "status": "not_present",
+                          "assetCount": 0
+                        },
+                        {
+                          "group": "projects",
+                          "status": "high_value_gap",
+                          "assetCount": 1
+                        },
+                        {
+                          "group": "research",
+                          "status": "not_present",
+                          "assetCount": 0
+                        },
+                        {
+                          "group": "campus_volunteer",
+                          "status": "not_present",
+                          "assetCount": 0
+                        },
+                        {
+                          "group": "skills",
+                          "status": "not_present",
+                          "assetCount": 0
+                        },
+                        {
+                          "group": "awards_certificates",
+                          "status": "high_value_gap",
+                          "assetCount": 1
+                        },
+                        {
+                          "group": "languages",
+                          "status": "not_present",
+                          "assetCount": 0
+                        },
+                        {
+                          "group": "other",
+                          "status": "not_present",
+                          "assetCount": 0
+                        }
+                      ]
+                    },
+                    "candidates": [
+                      {
+                        "id": "intake-fnv-d53ded9b-19-0",
+                        "sectionType": "education",
+                        "label": "匿名大学 / 计算机专业",
+                        "sourceQuote": "就读匿名大学计算机专业。",
+                        "organization": "匿名大学",
+                        "role": "计算机专业",
+                        "professionalDescription": "就读匿名大学计算机专业。",
+                        "highlights": [],
+                        "toolsOrMethods": [],
+                        "outcomes": [],
+                        "sources": [
+                          "就读匿名大学计算机专业。"
+                        ],
+                        "status": "ai_review",
+                        "confidence": 0.9,
+                        "reason": "AI 已整理，但有信息需要确认",
+                        "needsNormalization": false,
+                        "canAccept": true,
+                        "structuredItem": {
+                          "id": "intake-fnv-d53ded9b-19-0",
+                          "customFields": [],
+                          "sectionType": "education",
+                          "school": "匿名大学",
+                          "major": "计算机专业",
+                          "current": false,
+                          "courses": [],
+                          "honors": [],
+                          "highlights": []
+                        },
+                        "fieldEvidence": [
+                          {
+                            "field": "school",
+                            "sourceQuote": "就读匿名大学计算机专业。",
+                            "support": "explicit",
+                            "confidence": 0.96,
+                            "needsConfirmation": false
+                          },
+                          {
+                            "field": "major",
+                            "sourceQuote": "就读匿名大学计算机专业。",
+                            "support": "explicit",
+                            "confidence": 0.96,
+                            "needsConfirmation": false
+                          }
+                        ]
+                      },
+                      {
+                        "id": "intake-fnv-c68791f8-40-1",
+                        "sectionType": "project",
+                        "label": "匿名课程项目",
+                        "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                        "role": "参与",
+                        "professionalDescription": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                        "highlights": [],
+                        "toolsOrMethods": [
+                          "Python"
+                        ],
+                        "outcomes": [],
+                        "sources": [
+                          "参与匿名课程项目，使用 Python 清洗数据并提交报告。"
+                        ],
+                        "status": "ai_review",
+                        "confidence": 0.9,
+                        "reason": "AI 已整理，但有信息需要确认",
+                        "needsNormalization": false,
+                        "canAccept": true,
+                        "structuredItem": {
+                          "id": "intake-fnv-c68791f8-40-1",
+                          "customFields": [],
+                          "sectionType": "project",
+                          "title": "匿名课程项目",
+                          "role": "参与",
+                          "current": false,
+                          "tools": [
+                            "Python"
+                          ],
+                          "description": "使用 Python 清洗数据并提交报告。",
+                          "highlights": [],
+                          "outcomes": []
+                        },
+                        "fieldEvidence": [
+                          {
+                            "field": "title",
+                            "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                            "support": "explicit",
+                            "confidence": 0.96,
+                            "needsConfirmation": false
+                          },
+                          {
+                            "field": "role",
+                            "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                            "support": "explicit",
+                            "confidence": 0.96,
+                            "needsConfirmation": false
+                          },
+                          {
+                            "field": "tools",
+                            "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                            "support": "explicit",
+                            "confidence": 0.96,
+                            "needsConfirmation": false
+                          },
+                          {
+                            "field": "description",
+                            "sourceQuote": "参与匿名课程项目，使用 Python 清洗数据并提交报告。",
+                            "support": "explicit",
+                            "confidence": 0.96,
+                            "needsConfirmation": false
+                          }
+                        ]
+                      },
+                      {
+                        "id": "intake-fnv-14d05619-19-2",
+                        "sectionType": "awards",
+                        "label": "匿名竞赛三等奖",
+                        "sourceQuote": "获得匿名竞赛三等奖。",
+                        "professionalDescription": "获得匿名竞赛三等奖。",
+                        "highlights": [],
+                        "toolsOrMethods": [],
+                        "outcomes": [],
+                        "sources": [
+                          "获得匿名竞赛三等奖。"
+                        ],
+                        "status": "ai_review",
+                        "confidence": 0.9,
+                        "reason": "AI 已整理，但有信息需要确认",
+                        "needsNormalization": false,
+                        "canAccept": true,
+                        "structuredItem": {
+                          "id": "intake-fnv-14d05619-19-2",
+                          "customFields": [],
+                          "sectionType": "awards",
+                          "name": "匿名竞赛三等奖"
+                        },
+                        "fieldEvidence": [
+                          {
+                            "field": "name",
+                            "sourceQuote": "获得匿名竞赛三等奖。",
+                            "support": "explicit",
+                            "confidence": 0.96,
+                            "needsConfirmation": false
+                          }
+                        ]
+                      }
+                    ],
+                    "recognized": [],
+                    "needsConfirmation": [
+                      {
+                        "id": "intake-fnv-d53ded9b-19-0",
+                        "label": "匿名大学 / 计算机专业",
+                        "reason": "AI 已整理，但有信息需要确认"
+                      },
+                      {
+                        "id": "intake-fnv-c68791f8-40-1",
+                        "label": "匿名课程项目",
+                        "reason": "AI 已整理，但有信息需要确认"
+                      },
+                      {
+                        "id": "intake-fnv-14d05619-19-2",
+                        "label": "匿名竞赛三等奖",
+                        "reason": "AI 已整理，但有信息需要确认"
+                      }
+                    ],
+                    "duplicates": [],
+                    "additions": [
+                      {
+                        "id": "intake-fnv-d53ded9b-19-0",
+                        "label": "匿名大学 / 计算机专业"
+                      },
+                      {
+                        "id": "intake-fnv-c68791f8-40-1",
+                        "label": "匿名课程项目"
+                      },
+                      {
+                        "id": "intake-fnv-14d05619-19-2",
+                        "label": "匿名竞赛三等奖"
+                      }
+                    ],
+                    "sources": [
+                      {
+                        "sessionId": "agent-session-z2ESHjdm2eQ2",
+                        "messageId": "agent-user-356a2151-d262-4973-9bc6-f49159c217bf",
+                        "turnId": "runtime-turn-fab27f6f-cae1-4c1b-ad14-748c0b8cdc50",
+                        "sourceContentHash": "fnv-33367d66-73",
+                        "capturedAt": "2026-11-05T13:59:37.292Z"
+                      }
+                    ]
+                  },
+                  "intakeSession": {
+                    "sessionId": "agent-session-z2ESHjdm2eQ2",
+                    "autosavedAt": "2026-11-05T13:59:37.292Z",
+                    "reviewedCandidateIds": [],
+                    "activeQuestionId": "profile-intake-detail-fnv-e8b525f9",
+                    "resumeToken": "fnv-41eefced-104",
+                    "lastSourceMessageId": "agent-user-356a2151-d262-4973-9bc6-f49159c217bf",
+                    "lastSourceTurnId": "runtime-turn-fab27f6f-cae1-4c1b-ad14-748c0b8cdc50",
+                    "providerStatus": "available",
+                    "extractionStatus": "structured_ai",
+                    "quarantinedCandidateCount": 0,
+                    "latestSourceTurnDiagnostics": {
+                      "provider": "scripted",
+                      "model": "ux011",
+                      "attempt": 1,
+                      "latencyMs": 35,
+                      "processingStatus": "structured",
+                      "extractionStatus": "structured_ai",
+                      "candidateCount": 3,
+                      "quarantinedCount": 0,
+                      "quarantinedErrorCodes": [],
+                      "quarantinedFields": []
+                    },
+                    "phase": "clarifying",
+                    "userTurnCount": 1,
+                    "automaticFollowUpCount": 0,
+                    "perTurnBlockingReviewCount": 0,
+                    "finalReviewCount": 0,
+                    "followUpCounts": {},
+                    "questionAnswers": []
+                  },
+                  "persistenceReceipt": {
+                    "autosavedAt": "2026-11-05T13:59:37.292Z",
+                    "resumeToken": "fnv-41eefced-104"
+                  },
+                  "providerStatus": "available",
+                  "extractionStatus": "structured_ai"
+                }
+              },
+              "informationNeeds": [
+                {
+                  "id": "profile-intake:intake-fnv-c68791f8-40-1:result",
+                  "type": "factual_gap",
+                  "targetAssetId": "intake-fnv-c68791f8-40-1",
+                  "dimension": "result",
+                  "importance": 0.9,
+                  "reason": "关于“匿名课程项目”，最后做到什么程度，形成了什么可验证的结果或交付物？",
+                  "answerChangesOutcome": true,
+                  "required": false,
+                  "alreadyAsked": false,
+                  "score": 0.684,
+                  "priorityFactors": {
+                    "missingDimensionWeight": 0.9,
+                    "careerAssetImportance": 0.9,
+                    "expectedArtifactImpact": 0.9,
+                    "currentReadinessGap": 0.7,
+                    "userEmphasis": 0,
+                    "recency": 0,
+                    "jobRelevance": 0,
+                    "alreadyAskedPenalty": 0,
+                    "lowValueOptionalPenalty": 0
+                  }
+                }
+              ],
+              "recommendedNextQuestion": {
+                "needId": "profile-intake:intake-fnv-c68791f8-40-1:result",
+                "question": "关于“匿名课程项目”，最后做到什么程度，形成了什么可验证的结果或交付物？",
+                "targetAssetId": "intake-fnv-c68791f8-40-1",
+                "dimension": "result"
+              },
+              "canProceedWithoutQuestion": true,
+              "interactionSummary": "已完成当前步骤的资料读取与安全规划。",
+              "careerAssetState": []
+            }
+          },
+          "artifacts": [
+            {
+              "id": "agent-artifact-capture_profile_intake-mcp-career-KwWTMrR4upRhtm4_-1",
+              "kind": "tool_result",
+              "toolName": "career.profile.capture_intake",
+              "sourceToolName": "capture_profile_intake"
+            }
+          ],
+          "receipt": {
+            "operationId": "mcp-career-KwWTMrR4upRhtm4_",
+            "toolName": "career.workflow.profile_intake_turn",
+            "idempotencyKey": "mcp-career-KwWTMrR4upRhtm4_",
+            "status": "completed",
+            "completedAt": "2026-11-05T13:59:37.393Z"
+          },
+          "diagnostics": {
+            "toolFailureLayer": "unknown",
+            "failureScope": "career_workflow",
+            "safeDomainErrorCode": "none",
+            "toolResultIsError": false,
+            "failedStage": "completed",
+            "durationMs": 144,
+            "retryable": false,
+            "workflowStageAfter": "collect_experience",
+            "operationId": "mcp-career-KwWTMrR4upRhtm4_",
+            "logicalToolOperationId": "mcp-career-KwWTMrR4upRhtm4_",
+            "logicalTurnId": "runtime-turn-fab27f6f-cae1-4c1b-ad14-748c0b8cdc50",
+            "taskId": "agent-session-z2ESHjdm2eQ2",
+            "argumentShape": {
+              "userTurn": {
+                "present": true,
+                "lengthBucket": "length:21-200",
+                "hashPrefix": "fnv-33367d66-73"
+              }
+            },
+            "preparedInvocationShape": {
+              "userTurn": {
+                "present": true,
+                "lengthBucket": "length:21-200",
+                "hashPrefix": "fnv-33367d66-73"
+              },
+              "agentSessionId": {
+                "present": true,
+                "lengthBucket": "length:21-200",
+                "hashPrefix": "fnv-c167edb9-26"
+              },
+              "profileId": {
+                "present": true,
+                "lengthBucket": "length:1-20",
+                "hashPrefix": "fnv-05d77689-18"
+              },
+              "expectedProfileRevision": "number",
+              "messageId": {
+                "present": true,
+                "lengthBucket": "length:21-200",
+                "hashPrefix": "fnv-d0208a29-47"
+              },
+              "turnId": {
+                "present": true,
+                "lengthBucket": "length:21-200",
+                "hashPrefix": "fnv-e9dd4735-49"
+              },
+              "capturedAt": {
+                "present": true,
+                "lengthBucket": "length:21-200",
+                "hashPrefix": "fnv-8c1e124f-24"
+              },
+              "sameTurnTarget": "absent"
+            },
+            "mcpHttpArgumentShape": {
+              "userTurn": {
+                "present": true,
+                "lengthBucket": "length:21-200",
+                "hashPrefix": "fnv-33367d66-73"
+              }
+            },
+            "browserHandlerArgumentShape": {
+              "userTurn": {
+                "present": true,
+                "lengthBucket": "length:21-200",
+                "hashPrefix": "fnv-33367d66-73"
+              }
+            },
+            "gatewayArgumentShape": {
+              "userTurn": {
+                "present": true,
+                "lengthBucket": "length:21-200",
+                "hashPrefix": "fnv-33367d66-73"
+              },
+              "agentSessionId": {
+                "present": true,
+                "lengthBucket": "length:21-200",
+                "hashPrefix": "fnv-c167edb9-26"
+              },
+              "profileId": {
+                "present": true,
+                "lengthBucket": "length:1-20",
+                "hashPrefix": "fnv-05d77689-18"
+              },
+              "expectedProfileRevision": "number",
+              "messageId": {
+                "present": true,
+                "lengthBucket": "length:21-200",
+                "hashPrefix": "fnv-d0208a29-47"
+              },
+              "turnId": {
+                "present": true,
+                "lengthBucket": "length:21-200",
+                "hashPrefix": "fnv-e9dd4735-49"
+              },
+              "capturedAt": {
+                "present": true,
+                "lengthBucket": "length:21-200",
+                "hashPrefix": "fnv-8c1e124f-24"
+              }
+            },
+            "facadeArgumentShape": {
+              "userTurn": {
+                "present": true,
+                "lengthBucket": "length:21-200",
+                "hashPrefix": "fnv-33367d66-73"
+              },
+              "agentSessionId": {
+                "present": true,
+                "lengthBucket": "length:21-200",
+                "hashPrefix": "fnv-c167edb9-26"
+              },
+              "profileId": {
+                "present": true,
+                "lengthBucket": "length:1-20",
+                "hashPrefix": "fnv-05d77689-18"
+              },
+              "expectedProfileRevision": "number",
+              "messageId": {
+                "present": true,
+                "lengthBucket": "length:21-200",
+                "hashPrefix": "fnv-d0208a29-47"
+              },
+              "turnId": {
+                "present": true,
+                "lengthBucket": "length:21-200",
+                "hashPrefix": "fnv-e9dd4735-49"
+              },
+              "capturedAt": {
+                "present": true,
+                "lengthBucket": "length:21-200",
+                "hashPrefix": "fnv-8c1e124f-24"
+              }
+            },
+            "sourceUserMessageId": "agent-user-356a2151-d262-4973-9bc6-f49159c217bf",
+            "sourceUserMessageResolved": true,
+            "runtimeHealthy": true,
+            "mcpHealthy": true,
+            "publishedContractVersion": "career-tool-contract-v5",
+            "publishedSchemaHash": "fnv1a-92eeae01",
+            "gatewayContractVersion": "career-tool-contract-v5",
+            "gatewaySchemaHash": "fnv1a-92eeae01",
+            "careerToolContractVersion": "career-tool-contract-v5",
+            "appBuildCommit": "workspace-source",
+            "appBuildTimestamp": "development",
+            "mcpCallTrace": {
+              "toolName": "career.workflow.profile_intake_turn",
+              "logicalToolOperationId": "mcp-career-KwWTMrR4upRhtm4_",
+              "requestStartedAt": "2026-11-05T13:59:37.394Z",
+              "jsonRpcStatus": "response_received",
+              "browserMcpHandlerReached": true,
+              "gatewayReached": true,
+              "completedAt": "2026-11-05T13:59:37.394Z"
+            },
+            "startedAt": "2026-11-05T13:59:37.250Z",
+            "enteredGatewayAt": "2026-11-05T13:59:37.250Z",
+            "enteredFacadeAt": "2026-11-05T13:59:37.311Z",
+            "firstInternalOperationAt": "2026-11-05T13:59:37.311Z",
+            "completedAt": "2026-11-05T13:59:37.394Z"
+          }
+        }
+      }
+    ],
+    "formalWrites": [
+      {
+        "store": "profiles",
+        "key": "profile-ZzMXpFg022",
+        "at": "2026-11-05T13:59:28.711Z"
+      }
+    ]
+  }
+}

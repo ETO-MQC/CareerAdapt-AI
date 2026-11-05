@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import { CareerProfileSchema, JobTargetSnapshotSchema } from "@/domain/schemas";
+import { canonicalProfileLibraryItems } from "@/domain/profile/canonicalLibrary";
 import { core02BehaviorCases } from "../agent-eval/core02-behavior-cases";
 import { core02Material } from "./support/core02Material";
 import { createHash } from "node:crypto";
@@ -34,6 +36,16 @@ test.describe("P4.6h hermetic Web + browser MCP integration", () => {
     }
   });
   test.afterEach(async ({ page }, testInfo) => {
+    if (testInfo.title.includes("UX011-")) {
+      const prefix = testInfo.title.includes("PROFILE") ? "ux-a" : "ux-b";
+      await page.screenshot({ path: `docs/quality/ux-01.1-r-logs/${prefix}-terminal.png`, fullPage: true });
+      const final = { status: testInfo.status, errors: testInfo.errors.map(error => error.message),
+        profiles: await readStore(page, "profiles"), sessions: await readStore(page, "agentSessions"),
+        jobs: await readStore(page, "jobDescriptions"), branches: await readStore(page, "resumeBranches"),
+        revisions: await readStore(page, "resumeRevisions"), drafts: await readUx011Drafts(page),
+        trace: closeoutTraces.get(page) };
+      await writeFile(`docs/quality/ux-01.1-r-logs/${prefix}-terminal.json`, JSON.stringify(final, null, 2));
+    }
     const trace = closeoutTraces.get(page);
     if (process.env.P518_RUNTIME_BASELINE === "1") {
       const provider = (await readProviderEvidence(page)).requests.slice(providerOffsets.get(page) ?? 0);
@@ -124,6 +136,7 @@ test.describe("P4.6h hermetic Web + browser MCP integration", () => {
   });
 
   test("CASE A UX011-PROFILE — narrative candidates are editable, partially accepted and explicitly committed", async ({ page }) => {
+    const trace = observeRuntimeAndBridge(page);
     await openWorkspace(page);
     await page.goto("/profile");
     await page.locator('[data-profile-category="basics"]').click();
@@ -154,7 +167,19 @@ test.describe("P4.6h hermetic Web + browser MCP integration", () => {
     const review = page.getByRole("region", { name: "经历候选核对" });
     await expect(review).toBeVisible();
     await expect(review.locator(".profile-intake-candidate-card")).toHaveCount(3);
-    await page.screenshot({ path: "docs/quality/ux-01.1-logs/profile-candidates.png", fullPage: true });
+    await expectToolNames(trace, ["career.workflow.profile_intake_turn"]);
+    const readSession = async () => {
+      const id = await page.evaluate(() => localStorage.getItem("careeradapt.agent.activeSessionId"));
+      await expect.poll(async () => Boolean((await readStore(page, "agentSessions")).find(row => row.id === id)?.taskState)).toBe(true);
+      return (await readStore(page, "agentSessions")).find(row => row.id === id)!;
+    };
+    const sourceSession = await readSession();
+    const sourceTask = sourceSession.taskState as { knownSlots: { profileIntakeReviewProjection: { importId: string; sourceMessageId: string; sourceTurnId: string } } };
+    const source = sourceTask.knownSlots.profileIntakeReviewProjection;
+    const branchesBefore = await readStore(page, "resumeBranches");
+    const revisionsBefore = await readStore(page, "resumeRevisions");
+    await writeFile("docs/quality/ux-01.1-r-logs/ux-a-candidate-state.json", JSON.stringify({ profile, source, sourceSession, branchesBefore, revisionsBefore }, null, 2));
+    await page.screenshot({ path: "docs/quality/ux-01.1-r-logs/profile-candidates.png", fullPage: true });
     expect((await readStore(page, "profiles")).find(row => row.id === profile.id)).toEqual(profile);
     const education = review.locator(".profile-intake-candidate-card").filter({ hasText: "匿名大学" });
     await education.getByRole("button", { name: "编辑后采用", exact: true }).click();
@@ -167,22 +192,58 @@ test.describe("P4.6h hermetic Web + browser MCP integration", () => {
     const project = review.locator(".profile-intake-candidate-card").filter({ hasText: "匿名课程项目" });
     if (await project.locator("details").first().getAttribute("open") === null) await project.locator("summary").first().click();
     await project.getByRole("button", { name: "采用", exact: true }).click();
+    await expect.poll(async () => JSON.stringify((await readSession()).taskState)).toContain('"ignored"');
     expect((await readStore(page, "profiles")).find(row => row.id === profile.id)).toEqual(profile);
+    expect(await readStore(page, "resumeBranches")).toEqual(branchesBefore);
+    expect(await readStore(page, "resumeRevisions")).toEqual(revisionsBefore);
+    await writeFile("docs/quality/ux-01.1-r-logs/ux-a-reviewed-state.json", JSON.stringify(await readSession(), null, 2));
     await page.locator("form.agent-composer").getByRole("button", { name: "完成整理", exact: true }).click();
+    await expect.poll(async () => ((await readSession()).taskState as { stage: string }).stage).toBe("final_review");
     const artifact = page.getByRole("region", { name: "经历核对" });
     if (!await artifact.isVisible()) await page.getByRole("button", { name: /产物/ }).click();
-    await artifact.getByRole("button", { name: "完成整理并保存到资料库", exact: true }).click();
+    expect((await readStore(page, "profiles")).find(row => row.id === profile.id)).toEqual(profile);
+    await artifact.getByRole("button", { name: "完成整理并保存到资料库", exact: true }).evaluate(button => {
+      if (!(button instanceof HTMLButtonElement)) throw new Error("Expected the explicit confirmation button");
+      button.click(); button.click();
+    });
     await expect.poll(async () => (await readStore(page, "profiles")).find(row => row.id === profile.id)?.version).toBe(Number(profile.version) + 1);
     const saved = (await readStore(page, "profiles")).find(row => row.id === profile.id)!;
     expect(JSON.stringify(saved)).toContain("匿名课程项目");
-    expect(JSON.stringify(saved)).not.toContain("匿名竞赛三等奖");
+    const canonical = canonicalProfileLibraryItems(CareerProfileSchema.parse(saved));
+    expect(canonical.some(item => item.sectionType === "awards")).toBe(false);
+    expect(JSON.stringify(canonical)).toContain("计算机");
+    const draft = (await readUx011Drafts(page)).find(row => row.importId === source.importId)!;
+    expect(JSON.stringify(draft)).toContain(source.sourceMessageId);
+    expect(JSON.stringify(draft)).toContain(source.sourceTurnId);
+    expect(JSON.stringify(draft)).toContain(text);
+    expect(await readStore(page, "resumeBranches")).toEqual(branchesBefore);
+    expect(await readStore(page, "resumeRevisions")).toEqual(revisionsBefore);
+    await expect.poll(async () => ((await readSession()).taskState as { stage: string }).stage).toBe("profile_complete");
+    await writeFile("docs/quality/ux-01.1-r-logs/ux-a-confirmed-state.json", JSON.stringify({ saved, draft, session: await readSession() }, null, 2));
     await page.reload();
+    await expect(page.locator(".agent-runtime-status")).toHaveAttribute("aria-label", /状态 Ready/u);
     expect((await readStore(page, "profiles")).find(row => row.id === profile.id)).toEqual(saved);
+    expect((await readUx011Drafts(page)).find(row => row.importId === source.importId)).toEqual(draft);
+    expect(((await readSession()).taskState as { stage: string }).stage).toBe("profile_complete");
   });
 
   test("CASE B UX011-JD — temporary target persists across reload and explicit new target replaces it", async ({ page }) => {
+    observeRuntimeAndBridge(page);
     await openWorkspace(page);
     const jobs = await readStore(page, "jobDescriptions");
+    const readTarget = async () => {
+      const id = await page.evaluate(() => localStorage.getItem("careeradapt.agent.activeSessionId"));
+      const uiId = await page.getByRole("region", { name: "当前目标岗位" }).getAttribute("data-target-id");
+      await expect.poll(async () => {
+        const persisted = (await readStore(page, "agentSessions")).find(row => row.id === id);
+        const state = persisted?.taskState as { knownSlots?: { targetSnapshot?: unknown } } | undefined;
+        const parsed = JobTargetSnapshotSchema.safeParse(state?.knownSlots?.targetSnapshot);
+        return parsed.success ? parsed.data.id : undefined;
+      }).toBe(uiId);
+      const session = (await readStore(page, "agentSessions")).find(row => row.id === id)!;
+      const task = session.taskState as { selectedEntities: { targetSnapshotId?: string }; knownSlots: { targetSnapshot?: unknown; fitAnalysis?: unknown } };
+      return { task, snapshot: JobTargetSnapshotSchema.parse(task.knownSlots.targetSnapshot) };
+    };
     const first = "公司：匿名甲公司 UX011-JD\n岗位：数据分析师\n任职要求\n必须掌握 Python 或 R。\n必须掌握 Python 和 SQL。\n加分项\n熟悉 Java。";
     await send(page, first);
     const target = page.getByRole("region", { name: "当前目标岗位" });
@@ -191,15 +252,30 @@ test.describe("P4.6h hermetic Web + browser MCP integration", () => {
     await target.getByText("核对岗位要求与来源", { exact: true }).click();
     await expect(target.locator("[data-target-requirement-id]")).toHaveCount(3);
     const original = await target.locator("[data-target-requirement-id]").allTextContents();
-    await page.screenshot({ path: "docs/quality/ux-01.1-logs/jd-target.png", fullPage: true });
+    const bound = await readTarget();
+    expect(bound.snapshot.rawText).toBe(first);
+    const graph = bound.snapshot.requirementGraph!;
+    expect(graph.requirements).toHaveLength(3);
+    expect(graph.requirements.map(row => row.id)).toEqual(bound.snapshot.normalizedRequirements.map(row => row.id));
+    expect(graph.requirements.some(row => /公司：|岗位：/.test(row.statement))).toBe(false);
+    expect(bound.snapshot.normalizedRequirements.filter(row => row.hardConstraint)).toHaveLength(2);
+    expect(bound.snapshot.normalizedRequirements.filter(row => row.priority === "nice_to_have")).toHaveLength(1);
+    await writeFile("docs/quality/ux-01.1-r-logs/ux-b-initial-state.json", JSON.stringify(bound, null, 2));
+    await page.screenshot({ path: "docs/quality/ux-01.1-r-logs/jd-target.png", fullPage: true });
     await page.reload();
     await expect(target).toHaveAttribute("data-target-id", id!);
     expect(await target.locator("[data-target-requirement-id]").allTextContents()).toEqual(original);
+    expect((await readTarget()).snapshot).toEqual(bound.snapshot);
     expect(await readStore(page, "jobDescriptions")).toEqual(jobs);
     await send(page, "公司：匿名乙公司 UX011-JD\n岗位：后端工程师\n任职要求\n必须掌握 Java，能够实现接口服务。熟悉 Spring 者优先。");
     await expect(target).toContainText("后端工程师");
     await expect(target).not.toHaveAttribute("data-target-id", id!);
     await expect(target).not.toContainText("Python");
+    const switched = await readTarget();
+    expect(switched.task.knownSlots.fitAnalysis).toBeUndefined();
+    expect(switched.snapshot.id).not.toBe(bound.snapshot.id);
+    expect(switched.snapshot.rawText).toContain("匿名乙公司");
+    await writeFile("docs/quality/ux-01.1-r-logs/ux-b-switched-state.json", JSON.stringify(switched, null, 2));
     expect(await readStore(page, "jobDescriptions")).toEqual(jobs);
     await page.goto("/jobs");
     await expect(page.locator(".jobs-workspace")).toBeVisible();
@@ -207,6 +283,11 @@ test.describe("P4.6h hermetic Web + browser MCP integration", () => {
     await page.locator(".job-card-body").first().click();
     await expect(page.locator(".selected-job-workspace")).toBeVisible();
     await expect(page).toHaveURL(/jobId=/);
+    const selected = new URL(page.url()).searchParams.get("jobId");
+    await page.reload();
+    await expect(page.locator(".selected-job-workspace")).toBeVisible();
+    expect(new URL(page.url()).searchParams.get("jobId")).toBe(selected);
+    expect(await readStore(page, "jobDescriptions")).toEqual(jobs);
   });
 
   test("CASE D — building from zero starts Profile Intake through a facade", async ({ page }) => {
@@ -1187,3 +1268,10 @@ test.describe("Core Hermes Behavior Baseline", () => {
     });
   }
 });
+
+async function readUx011Drafts(page: Page) {
+  return (await readStore(page, "appMeta")).flatMap(row => {
+    if (!row.value || typeof row.value !== "object" || !("importId" in row.value)) return [];
+    return [row.value as Record<string, unknown>];
+  });
+}
