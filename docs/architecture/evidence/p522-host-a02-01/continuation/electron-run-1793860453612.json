@@ -1,0 +1,20 @@
+{
+  "run": 1793860453612,
+  "status": "FAIL",
+  "provider": "https://openrouter.ai/api/v1",
+  "model": "dots-studio/dots-3-note-preview:free",
+  "events": [],
+  "rpc": [],
+  "turns": [],
+  "errors": [],
+  "consoleErrors": [],
+  "screenshots": [],
+  "toolCalls": 0,
+  "scope": "Real locked Electron, native Composer/Stop/Store/Runtime, synthetic content only",
+  "failure": "electron.launch: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - <launching> \"[HERMES_ROOT]\\node_modules\\electron\\dist\\electron.exe\" \"--inspect=0\" \"--remote-debugging-port=0\" \"E:\\DEF\\CareerAdapt AI\\.artifacts\\p522-host-a02-01\\main-integration\" \"--disable-gpu\" \"--no-sandbox\"\u001b[22m\n\u001b[2m  - <launched> pid=44808\u001b[22m\n\u001b[2m  - [pid=44808][out]\u001b[22m\n\u001b[2m  - [pid=44808][err] Debugger listening on ws://127.0.0.1:59632/c5592480-8423-4de6-aeb5-15138d7e5b04\u001b[22m\n\u001b[2m  - [pid=44808][err] For help, see: https://nodejs.org/en/docs/inspector\u001b[22m\n\u001b[2m  - <ws connecting> ws://127.0.0.1:59632/c5592480-8423-4de6-aeb5-15138d7e5b04\u001b[22m\n\u001b[2m  - <ws connected> ws://127.0.0.1:59632/c5592480-8423-4de6-aeb5-15138d7e5b04\u001b[22m\n\u001b[2m  - [pid=44808][err] Debugger attached.\u001b[22m\n\u001b[2m  - [pid=44808][err] App threw an error during load\u001b[22m\n\u001b[2m  - [pid=44808][err] Error [ERR_UNSUPPORTED_ESM_URL_SCHEME]: Only URLs with a scheme in: file, data, node, and electron are supported by the default ESM loader. On Windows, absolute paths must be valid file:// URLs. Received protocol 'c:'\u001b[22m\n\u001b[2m  - [pid=44808][err]     at throwIfUnsupportedURLScheme (node:internal/modules/esm/load:196:11)\u001b[22m\n\u001b[2m  - [pid=44808][err]     at defaultLoadSync (node:internal/modules/esm/load:142:3)\u001b[22m\n\u001b[2m  - [pid=44808][err]     at #loadAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:776:12)\u001b[22m\n\u001b[2m  - [pid=44808][err]     at #loadSync (node:internal/modules/esm/loader:796:49)\u001b[22m\n\u001b[2m  - [pid=44808][err]     at ModuleLoader.load (node:internal/modules/esm/loader:762:26)\u001b[22m\n\u001b[2m  - [pid=44808][err]     at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:504:31)\u001b[22m\n\u001b[2m  - [pid=44808][err]     at #getOrCreateModuleJobAfterResolve (node:internal/modules/esm/loader:555:36)\u001b[22m\n\u001b[2m  - [pid=44808][err]     at afterResolve (node:internal/modules/esm/loader:603:52)\u001b[22m\n\u001b[2m  - [pid=44808][err]     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:609:12)\u001b[22m\n\u001b[2m  - [pid=44808][err]     at ModuleJob.syncLink (node:internal/modules/esm/module_job:162:33)\u001b[22m\n\n    at async file:///E:/DEF/CareerAdapt%20AI/scripts/p522-host-a02-01-electron.mjs:80:7",
+  "credentialCleanup": {
+    "file": "[TEST_HOME]/config.yaml",
+    "removed": true,
+    "userLocalConfigRetained": true
+  }
+}

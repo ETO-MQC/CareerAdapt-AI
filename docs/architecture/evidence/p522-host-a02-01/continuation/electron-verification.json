@@ -1,0 +1,199 @@
+{
+  "status": "PARTIAL_EXTERNAL_RATE_LIMIT",
+  "attempts": [
+    {
+      "run": 1793860313439,
+      "type": "ENTRY_PREFLIGHT_NO_BACKEND",
+      "status": "FAIL",
+      "failure": "electron.launch: Timeout 30000ms exceeded.",
+      "readyMs": null,
+      "waiterResolved": false,
+      "healthPassed": false,
+      "nativeGatewayReady": false,
+      "modelRequests": 0,
+      "completedTurns": 0,
+      "terminalTurns": 0,
+      "credentialFileRemoved": true
+    },
+    {
+      "run": 1793860367605,
+      "type": "ENTRY_PREFLIGHT_NO_BACKEND",
+      "status": "FAIL",
+      "failure": "electronApplication.firstWindow: Timeout 15000ms exceeded while waiting for event \"window\"",
+      "readyMs": null,
+      "waiterResolved": false,
+      "healthPassed": false,
+      "nativeGatewayReady": false,
+      "modelRequests": 0,
+      "completedTurns": 0,
+      "terminalTurns": 0,
+      "credentialFileRemoved": true
+    },
+    {
+      "run": 1793860453612,
+      "type": "ENTRY_PREFLIGHT_NO_BACKEND",
+      "status": "FAIL",
+      "failure": "electron.launch: Timeout 30000ms exceeded.",
+      "readyMs": null,
+      "waiterResolved": false,
+      "healthPassed": false,
+      "nativeGatewayReady": false,
+      "modelRequests": 0,
+      "completedTurns": 0,
+      "terminalTurns": 0,
+      "credentialFileRemoved": true
+    },
+    {
+      "run": 1793860546438,
+      "type": "CAREER_FULL_ROUND",
+      "status": "FAIL",
+      "failure": "AggregateError: All promises were rejected",
+      "pid": 45012,
+      "spawnAt": 1793860546986,
+      "readyAt": 1793860603634,
+      "readyMs": 56648,
+      "readyChannel": "stdout",
+      "waiterResolved": true,
+      "healthPassed": true,
+      "nativeGatewayReady": false,
+      "modelRequests": 0,
+      "completedTurns": 0,
+      "terminalTurns": 0,
+      "credentialFileRemoved": true
+    },
+    {
+      "run": 1793860930198,
+      "type": "CAREER_FULL_ROUND",
+      "status": "FAIL",
+      "failure": "AggregateError: All promises were rejected",
+      "pid": 75556,
+      "spawnAt": 1793860930791,
+      "readyAt": 1793861022693,
+      "readyMs": 91902,
+      "readyChannel": "stdout",
+      "waiterResolved": false,
+      "healthPassed": false,
+      "nativeGatewayReady": false,
+      "modelRequests": 0,
+      "completedTurns": 0,
+      "terminalTurns": 0,
+      "credentialFileRemoved": true
+    },
+    {
+      "run": 1793861155074,
+      "type": "CAREER_FULL_ROUND",
+      "status": "FAIL",
+      "failure": "locator.waitFor: Timeout 255000ms exceeded.",
+      "pid": 65596,
+      "spawnAt": 1793861155572,
+      "readyAt": 1793861244202,
+      "readyMs": 88630,
+      "readyChannel": "stdout",
+      "waiterResolved": true,
+      "healthPassed": true,
+      "nativeGatewayReady": true,
+      "modelRequests": 0,
+      "completedTurns": 0,
+      "terminalTurns": 0,
+      "credentialFileRemoved": true
+    },
+    {
+      "run": 1793862533962,
+      "type": "CAREER_FULL_ROUND",
+      "status": "FAIL",
+      "failure": "locator.click: Timeout 10000ms exceeded.",
+      "pid": 82252,
+      "spawnAt": 1793862534486,
+      "readyAt": 1793862551399,
+      "readyMs": 16913,
+      "readyChannel": "stdout",
+      "waiterResolved": true,
+      "healthPassed": true,
+      "nativeGatewayReady": true,
+      "modelRequests": 0,
+      "completedTurns": 0,
+      "terminalTurns": 0,
+      "credentialFileRemoved": true
+    },
+    {
+      "run": 1793866970561,
+      "type": "CAREER_FULL_ROUND",
+      "status": "FAIL",
+      "failure": "AssertionError [ERR_ASSERTION]: No continuous deltas",
+      "pid": 79584,
+      "spawnAt": 1793866971186,
+      "readyAt": 1793867004835,
+      "readyMs": 33649,
+      "readyChannel": "stdout",
+      "waiterResolved": true,
+      "healthPassed": true,
+      "nativeGatewayReady": true,
+      "modelRequests": 1,
+      "completedTurns": 0,
+      "terminalTurns": 1,
+      "credentialFileRemoved": true
+    }
+  ],
+  "fullRounds": 5,
+  "entryPreflights": 3,
+  "initialRoundLimit": 3,
+  "userApprovedAdditionalRounds": 2,
+  "finalNative": {
+    "backend": {
+      "traceReady": {
+        "at": 1793867004835,
+        "kind": "backend.ready",
+        "pid": 79584,
+        "channel": "stdout",
+        "line": "HERMES_BACKEND_READY port=3391"
+      },
+      "healthStatus": 200,
+      "health": {
+        "ok": true,
+        "version": "0.19.0",
+        "auth_required": false
+      },
+      "gateway": "online"
+    },
+    "inference": "ready",
+    "sessionInitialized": true,
+    "promptSubmitCount": 1,
+    "submit": [
+      {
+        "at": 1793867023694,
+        "id": 17,
+        "method": "prompt.submit",
+        "sessionId": "fbfb133d",
+        "ackAt": 1793867024462,
+        "rejected": false,
+        "resultKeys": [
+          "status"
+        ]
+      }
+    ],
+    "terminal": {
+      "text": "API call failed after 1 retries: HTTP 429: Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day",
+      "usage": {
+        "model": "dots-studio/dots-3-note-preview:free",
+        "input": 0,
+        "output": 0,
+        "reasoning": 0,
+        "prompt": 0,
+        "completion": 0,
+        "total": 0,
+        "calls": 0,
+        "compressions": 0,
+        "active_subagents": 0
+      },
+      "status": "error",
+      "error": "HTTP 429: Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day",
+      "recoverable": true
+    },
+    "busy": false,
+    "awaiting": false,
+    "toolCalls": 0
+  },
+  "rawEvidencePreserved": true,
+  "rawHarnessFailure": "AssertionError [ERR_ASSERTION]: No continuous deltas\n    at send (file:///E:/DEF/CareerAdapt%20AI/scripts/p522-host-a02-01-electron.mjs:78:20)\n    at async file:///E:/DEF/CareerAdapt%20AI/scripts/p522-host-a02-01-electron.mjs:106:3",
+  "authoritativeFailure": "HTTP 429: Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day"
+}

@@ -1,0 +1,16 @@
+{
+  "status": "PARTIAL_NOT_COMPLETE",
+  "checks": [
+    {"command": "git fetch origin", "exitCode": 0},
+    {"command": "node scripts/p522-host-a02-01r-backend-probe.mjs", "exitCode": 0, "backendSpawns": 1, "note": "Earlier preflight rejected historical superseded shared-file hashes before any spawn; retained in failure record"},
+    {"command": "pnpm typecheck", "exitCode": 0},
+    {"command": "node --test tests/p522-host-a02-01-patches.test.mjs", "exitCode": 0, "tests": 3},
+    {"command": "node scripts/p522-host-a01-renderer.mjs --careeradapt --reliability --build --evidence-dir=docs/architecture/evidence/p522-host-a02-01r/renderer --build-dir=.artifacts/p522-host-a02-01r-renderer", "exitCode": 0},
+    {"command": "node scripts/p522-host-a01-native-typecheck.mjs --evidence-dir=docs/architecture/evidence/p522-host-a02-01r/renderer", "exitCode": 0, "baseline": 0, "integrated": 0, "introduced": 0},
+    {"command": "node scripts/p522-host-a02-01-electron.mjs", "exitCode": 1, "launches": 1, "turns": 0, "reason": "Gateway did not become ready within 150000ms; native Main logged 90000ms port announcement timeout", "finalComposerActionabilityAdjustment": "NOT_RERUN; launch limit respected"},
+    {"command": "pnpm exec eslint scripts/p522-host-a02-01-electron.mjs scripts/p522-host-a02-01r-backend-probe.mjs scripts/p522-host-a02-01r-closeout.mjs", "exitCode": 0},
+    {"command": "git diff --check", "exitCode": 0}
+  ],
+  "notRun": ["Main patch unit/build (no Main change)", "Default Shell regression (no Main change)", "Dependent conversation/Streaming/Stop/image tests after startup failure", "full historical Unit/Playwright", "installer", "PDF/C1/C2"],
+  "credentialAndProtectionChecks": "final-protection-verification.json and credential-audit.json"
+}

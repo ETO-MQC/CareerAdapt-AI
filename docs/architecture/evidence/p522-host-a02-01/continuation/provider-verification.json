@@ -1,0 +1,36 @@
+{
+  "status": "EXTERNAL_RATE_LIMIT",
+  "endpoint": "https://openrouter.ai/api/v1",
+  "model": "dots-studio/dots-3-note-preview:free",
+  "nativePayloadModels": [
+    "dots-studio/dots-3-note-preview:free",
+    "dots-studio/dots-3-note-preview:free"
+  ],
+  "nativePayloadUrls": [
+    "https://openrouter.ai/api/v1/chat/completions",
+    "https://openrouter.ai/api/v1/chat/completions"
+  ],
+  "terminal": {
+    "text": "API call failed after 1 retries: HTTP 429: Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day",
+    "usage": {
+      "model": "dots-studio/dots-3-note-preview:free",
+      "input": 0,
+      "output": 0,
+      "reasoning": 0,
+      "prompt": 0,
+      "completion": 0,
+      "total": 0,
+      "calls": 0,
+      "compressions": 0,
+      "active_subagents": 0
+    },
+    "status": "error",
+    "error": "HTTP 429: Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day",
+    "recoverable": true
+  },
+  "modelRequestAccepted": false,
+  "rendererPromptSubmits": 1,
+  "busyReset": true,
+  "awaitingReset": true,
+  "followUpRequests": 0
+}

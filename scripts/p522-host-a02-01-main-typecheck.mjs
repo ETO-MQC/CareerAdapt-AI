@@ -1,0 +1,13 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import {createRequire} from 'node:module';
+const desktop=path.join(process.env.LOCALAPPDATA,'hermes/hermes-agent/apps/desktop');
+const ts=createRequire(path.join(desktop,'package.json'))('typescript');
+const dir='docs/architecture/evidence/p522-host-a02-01/continuation';
+const file=path.join(desktop,'electron/main.ts');
+const config=ts.readConfigFile(path.join(desktop,'tsconfig.electron.json'),ts.sys.readFile);
+const parsed=ts.parseJsonConfigFileContent(config.config,ts.sys,desktop,{noEmit:true,incremental:false,composite:false});
+const run=overlay=>{const host=ts.createCompilerHost(parsed.options),read=host.readFile;host.readFile=f=>overlay&&path.resolve(f)===path.resolve(file)?fs.readFileSync(`${dir}/observed-main.ts.txt`,'utf8'):read(f);return ts.getPreEmitDiagnostics(ts.createProgram({rootNames:parsed.fileNames,options:parsed.options,host})).map(d=>({file:d.file?.fileName,code:d.code,message:ts.flattenDiagnosticMessageText(d.messageText,'\n')}));};
+const baseline=run(false),integrated=run(true),ids=new Set(baseline.map(e=>JSON.stringify(e))),introduced=integrated.filter(e=>!ids.has(JSON.stringify(e)));
+fs.writeFileSync(`${dir}/main-typecheck.json`,JSON.stringify({baseline,integrated,introduced,status:introduced.length?'FAIL':'PASS_NO_NEW_DIAGNOSTICS'},null,2)+'\n');
+console.log(JSON.stringify({baseline:baseline.length,integrated:integrated.length,introduced}));if(introduced.length)process.exitCode=1;

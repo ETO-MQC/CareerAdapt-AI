@@ -1,0 +1,29 @@
+{
+  "status": "PARTIAL_NOT_COMPLETE",
+  "independentProbe": {
+    "classification": "A",
+    "readyChannel": "stdout",
+    "elapsedMs": 48481,
+    "health": "PASS"
+  },
+  "electron": {
+    "classification": "F_NATIVE_PORT_ANNOUNCEMENT_TIMEOUT_WITH_LATER_READY_LOG",
+    "nativeError": "Timed out waiting for Hermes backend port announcement (90000ms)",
+    "lateReadyLog": true,
+    "channel": "Native Main combines streams in desktop.log; emission timestamp and stream attribution unavailable for Electron child; no stderr-only conclusion possible",
+    "gateway": "NOT_READY",
+    "modelRequests": 0,
+    "onboardingObservation": "Executed visible Add context branch can match behind overlay. Final script uses trial click for actionable native Composer; final adjustment not rerun under launch limit."
+  },
+  "attemptLimits": {
+    "backendSpawns": 1,
+    "electronLaunches": 1,
+    "retries": 0
+  },
+  "preflightFailure": {
+    "reason": "Historical shared-file manifests superseded by later tracked commits; current delivery and upstream SHA matched",
+    "backendSpawned": false
+  },
+  "remainingCause": "Why Electron missed its native 90s announcement budget is not proven. Concurrent compiler/resource contention is an unverified possibility, not a root-cause finding.",
+  "nextStep": "User review and separately authorized single instrumented startup; preserve native budget and do not change model or READY channel without evidence"
+}

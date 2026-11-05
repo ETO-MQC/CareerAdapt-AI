@@ -1,0 +1,5 @@
+{
+  "status": "BLOCKED_EXTERNAL_RATE_LIMIT",
+  "reason": "Actual native Composer submit reached specified Provider and returned HTTP429 free-models-per-day; no content deltas, no dependent test run",
+  "automaticResubmits": 0
+}

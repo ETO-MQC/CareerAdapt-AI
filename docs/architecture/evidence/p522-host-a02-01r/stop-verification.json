@@ -1,0 +1,5 @@
+{
+  "status": "NOT_RUN",
+  "reason": "Electron startup gate failed; no dependent model request permitted",
+  "automaticRetries": 0
+}

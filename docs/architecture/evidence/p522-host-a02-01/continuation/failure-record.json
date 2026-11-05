@@ -1,0 +1,26 @@
+{
+  "status": "PARTIAL_EXTERNAL_RATE_LIMIT",
+  "fixedRootCauses": [
+    "Native stdout port announcement can exceed 90s; native launch override150s",
+    "HTTP Health precedes lazy Gateway; independent45s native gateway.ready prerequisite",
+    "OpenRouter requires isolated OPENROUTER_API_KEY, not inline model.api_key",
+    "Native Send selector is Send, not Send message"
+  ],
+  "remainingBlocker": {
+    "type": "OPENROUTER_FREE_TIER_DAILY_EXHAUSTED",
+    "error": "HTTP 429: Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day",
+    "model": "dots-studio/dots-3-note-preview:free",
+    "limit": 50,
+    "remaining": 0,
+    "resetEpochMs": 1793923200000,
+    "resetUtc": "2026-11-06T00:00:00.000Z",
+    "resetAsiaShanghai": "2026-11-06 08:00:00 +08:00",
+    "source": "Actual Provider response metadata, not an estimated schedule"
+  },
+  "automaticRetryOfUnknownExecution": false,
+  "rendererPromptSubmits": 1,
+  "nativeAgentAttempts": "1/1 per native agent.log; native phrase after 1 retries does not indicate multiple Renderer submits",
+  "nextStep": "Resume same A-02-01 after provider quota is available; no model switch, payment or automatic scheduled retry",
+  "nativeImageSelection": "User agreed to select existing synthetic PNG; no dialog opened because text prerequisite was rate-limited",
+  "cleanup": "Final trace showed shutdown-time child respawn; both exact traced PIDs absent after app close; no additional model request"
+}

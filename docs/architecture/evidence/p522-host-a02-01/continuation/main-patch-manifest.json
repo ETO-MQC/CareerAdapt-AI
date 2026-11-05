@@ -1,0 +1,21 @@
+{
+  "upstreamCommit": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+  "records": [
+    {
+      "file": "apps/desktop/electron/main.ts",
+      "originalSha256": "0b184d8d114126ad77ca16ce5b42a410a677de13d5548825c1bc68f80eb6ab4e",
+      "patchedSha256": "e9c6609400c5b298adabcc9b721330f6b568cc56f7a777d7a4add0a97b37ad3d",
+      "upstreamFileWritten": false,
+      "scope": "Native gateway.ready prerequisite after HTTP Health; no RPC, protocol or port budget change"
+    }
+  ],
+  "appRoot": "E:\\DEF\\CareerAdapt AI\\.artifacts\\p522-host-a02-01\\main-integration",
+  "artifactSha256": "9234a3598816aca4aac6a13142ca40f03fac7e2566476d8e17aa69cf0cd04876",
+  "preloadSha256": "02e942073c9c083c95328678e34ac474ed1cb341c7a6248783d8a461cf815479",
+  "traceHelperSha256": "9a03541c0b3381d2b7d16de83e27e504864a20b396dca2c8df33319053f17df3",
+  "sourcePortBudgetChanged": false,
+  "launchPortBudgetMs": 150000,
+  "healthBudgetMs": 45000,
+  "gatewayReadyBudgetMs": 45000,
+  "gatewayHelperSha256": "8cbb9698e55f0050e58a0d5bfa8dae08262d9b67289e385dea5f4d2c5930bfb9"
+}

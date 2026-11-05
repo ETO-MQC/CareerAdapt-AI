@@ -1,0 +1,6 @@
+{
+  "status": "NOT_VERIFIED",
+  "reason": "Native backend port-announcement failed before conversation qualification",
+  "turns": [],
+  "modelRequestCount": 0
+}

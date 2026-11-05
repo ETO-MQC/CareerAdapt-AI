@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "listening": true,
+  "attempts": [
+    {
+      "path": "/api/health",
+      "status": 200,
+      "ms": 236,
+      "body": {
+        "ok": true,
+        "version": "0.19.0",
+        "auth_required": false
+      }
+    }
+  ],
+  "elapsedMs": 48720,
+  "logic": "Actual locked waitForHermesReady, public health then native status fallback",
+  "gateway": "NOT_TESTED until Electron"
+}

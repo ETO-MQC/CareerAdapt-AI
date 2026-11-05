@@ -1,0 +1,156 @@
+{
+  "run": 1793860546438,
+  "status": "FAIL",
+  "provider": "https://openrouter.ai/api/v1",
+  "model": "dots-studio/dots-3-note-preview:free",
+  "events": [],
+  "rpc": [],
+  "turns": [],
+  "errors": [],
+  "consoleErrors": [],
+  "screenshots": [
+    "docs/architecture/evidence/p522-host-a02-01/continuation/screenshots/1793860546438-failure.png"
+  ],
+  "toolCalls": 0,
+  "scope": "Real locked Electron, native Composer/Stop/Store/Runtime, synthetic content only",
+  "process": {
+    "stdout": "",
+    "stderr": "(electron) 'console-message' arguments are deprecated and will be removed. Please use Event<WebContentsConsoleMessageEventParams> object instead.\nError occurred in handler for 'hermes:api': Error: Timed out connecting to Hermes backend after 15000ms\n    at ClientRequest.<anonymous> (file:///E:/DEF/CareerAdapt%20AI/.artifacts/p522-host-a02-01/main-integration/main.mjs:15318:19)\n    at Object.onceWrapper (node:events:630:28)\n    at ClientRequest.emit (node:events:509:28)\n    at Socket.emitRequestTimeout (node:_http_client:948:9)\n    at Object.onceWrapper (node:events:630:28)\n    at Socket.emit (node:events:521:24)\n    at Socket._onTimeout (node:net:610:8)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\nError occurred in handler for 'hermes:api': Error: Timed out connecting to Hermes backend after 15000ms\n    at ClientRequest.<anonymous> (file:///E:/DEF/CareerAdapt%20AI/.artifacts/p522-host-a02-01/main-integration/main.mjs:15318:19)\n    at Object.onceWrapper (node:events:630:28)\n    at ClientRequest.emit (node:events:509:28)\n    at Socket.emitRequestTimeout (node:_http_client:948:9)\n    at Object.onceWrapper (node:events:630:28)\n    at Socket.emit (node:events:521:24)\n    at Socket._onTimeout (node:net:610:8)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\nError occurred in handler for 'hermes:api': Error: Timed out connecting to Hermes backend after 15000ms\n    at ClientRequest.<anonymous> (file:///E:/DEF/CareerAdapt%20AI/.artifacts/p522-host-a02-01/main-integration/main.mjs:15318:19)\n    at Object.onceWrapper (node:events:630:28)\n    at ClientRequest.emit (node:events:509:28)\n    at Socket.emitRequestTimeout (node:_http_client:948:9)\n    at Object.onceWrapper (node:events:630:28)\n    at Socket.emit (node:events:521:24)\n    at Socket._onTimeout (node:net:610:8)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\nError occurred in handler for 'hermes:api': Error: Timed out connecting to Hermes backend after 15000ms\n    at ClientRequest.<anonymous> (file:///E:/DEF/CareerAdapt%20AI/.artifacts/p522-host-a02-01/main-integration/main.mjs:15318:19)\n    at Object.onceWrapper (node:events:630:28)\n    at ClientRequest.emit (node:events:509:28)\n    at Socket.emitRequestTimeout (node:_http_client:948:9)\n    at Object.onceWrapper (node:events:630:28)\n    at Socket.emit (node:events:521:24)\n    at Socket._onTimeout (node:net:610:8)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\nError occurred in handler for 'hermes:api': Error: Timed out connecting to Hermes backend after 15000ms\n    at ClientRequest.<anonymous> (file:///E:/DEF/CareerAdapt%20AI/.artifacts/p522-host-a02-01/main-integration/main.mjs:15318:19)\n    at Object.onceWrapper (node:events:630:28)\n    at ClientRequest.emit (node:events:509:28)\n    at Socket.emitRequestTimeout (node:_http_client:948:9)\n    at Object.onceWrapper (node:events:630:28)\n    at Socket.emit (node:events:521:24)\n    at Socket._onTimeout (node:net:610:8)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\nError occurred in handler for 'hermes:api': Error: Timed out connecting to Hermes backend after 15000ms\n    at ClientRequest.<anonymous> (file:///E:/DEF/CareerAdapt%20AI/.artifacts/p522-host-a02-01/main-integration/main.mjs:15318:19)\n    at Object.onceWrapper (node:events:630:28)\n    at ClientRequest.emit (node:events:509:28)\n    at Socket.emitRequestTimeout (node:_http_client:948:9)\n    at Object.onceWrapper (node:events:630:28)\n    at Socket.emit (node:events:521:24)\n    at Socket._onTimeout (node:net:610:8)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\nError occurred in handler for 'hermes:api': Error: Timed out connecting to Hermes backend after 15000ms\n    at ClientRequest.<anonymous> (file:///E:/DEF/CareerAdapt%20AI/.artifacts/p522-host-a02-01/main-integration/main.mjs:15318:19)\n    at Object.onceWrapper (node:events:630:28)\n    at ClientRequest.emit (node:events:509:28)\n    at Socket.emitRequestTimeout (node:_http_client:948:9)\n    at Object.onceWrapper (node:events:630:28)\n    at Socket.emit (node:events:521:24)\n    at Socket._onTimeout (node:net:610:8)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\nDebugger ending on ws://127.0.0.1:21203/7707b970-a59f-429c-967c-1eabc379d763\r\nFor help, see: https://nodejs.org/en/docs/inspector\r\n"
+  },
+  "main": {
+    "appPath": "[HERMES_ROOT]\\apps\\desktop",
+    "argv": [
+      "[HERMES_ROOT]\\node_modules\\electron\\dist\\electron.exe",
+      "--inspect=0",
+      "--remote-debugging-port=0",
+      "E:\\DEF\\CareerAdapt AI\\.artifacts\\p522-host-a02-01\\main-integration",
+      "--disable-gpu",
+      "--no-sandbox"
+    ]
+  },
+  "failure": "AggregateError: All promises were rejected",
+  "windows": [
+    "http://127.0.0.1:5190/"
+  ],
+  "url": "http://127.0.0.1:5190/",
+  "body": "职适 AI\nCareerAdapt AI\n首页\nAI 工作台\n个人资料库\n设置\nHost 集成预览 · 隔离数据\nAI 能力与高级管理\n原生导航与快捷键\n对话上下文\n＋ 新建对话\n\nNo sessions yet\n\nNew project\n⠋\nWaking up …\n⠦\nAI 连接\noffline\n协作代理\n定时任务\n外部触发\nv0.19.0 (+1)\neb52760\nLet's get you setup with Hermes Agent\n\nConnect a model provider to start chatting. Most options take one click.\n\nStarting Hermes…\n\nDesktop boot failed: Could not connect to Hermes gateway\n95%\n\nCould not connect to Hermes gateway\n\nHermes couldn't start\n\nThe background gateway didn't come up. Try one of the recovery steps below. Nothing here deletes your chats or settings.\n\nCould not connect to Hermes gateway\nRetry\nRepair install\nGateway settings\nOpen logs\n\nRepair re-runs the installer and can take a few minutes on a fresh machine.\n\nShow recent logs\nDesktop boot failed\n\nCould not connect to Hermes gateway\n\nShow 1 more notification\nClear all",
+  "fontStates": [
+    {
+      "stage": "failure",
+      "status": "loaded",
+      "pending": [
+        {
+          "family": "KaTeX_AMS",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Caligraphic",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Caligraphic",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Fraktur",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Fraktur",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Main",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Main",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Main",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Main",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Math",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Math",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_SansSerif",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_SansSerif",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_SansSerif",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Script",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Size1",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Size2",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Size3",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Size4",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Typewriter",
+          "status": "unloaded"
+        },
+        {
+          "family": "Collapse",
+          "status": "unloaded"
+        },
+        {
+          "family": "JetBrains Mono",
+          "status": "unloaded"
+        },
+        {
+          "family": "JetBrains Mono",
+          "status": "unloaded"
+        },
+        {
+          "family": "JetBrains Mono",
+          "status": "unloaded"
+        },
+        {
+          "family": "Courier Prime",
+          "status": "unloaded"
+        },
+        {
+          "family": "Courier Prime",
+          "status": "unloaded"
+        }
+      ]
+    }
+  ],
+  "desktopLog": "[hermes] [tls] trusting 514 Windows system CA certificate(s) for backend connections\n[hermes] [boot] Resolving Hermes backend\n[hermes] [boot] Resolving Hermes runtime\n[hermes] [boot] Using Hermes source at [HERMES_ROOT]\n[hermes] [backend] `serve` supported for Hermes source at [HERMES_ROOT]\n[hermes] [boot] Starting Hermes backend via Hermes source at [HERMES_ROOT]\n[hermes] Starting Hermes backend via Hermes source at [HERMES_ROOT]\n[hermes] [boot] Waiting for Hermes backend to launch\n[hermes] HERMES_BACKEND_READY port=34880\n[hermes] [boot] Waiting for Hermes backend to become ready\n[hermes] [boot] could not read served dashboard token (Hermes backend): 404: {\"error\":\"Headless backend (hermes serve): web UI disabled — use `hermes dashboard` for the browser UI.\"}\n[hermes] [boot] Hermes backend is ready. Finalizing desktop startup\n",
+  "providerDumps": [],
+  "credentialCleanup": {
+    "file": "[TEST_HOME]/config.yaml",
+    "removed": true,
+    "userLocalConfigRetained": true
+  }
+}

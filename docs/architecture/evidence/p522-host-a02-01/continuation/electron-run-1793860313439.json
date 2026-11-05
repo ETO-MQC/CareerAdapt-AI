@@ -1,0 +1,20 @@
+{
+  "run": 1793860313439,
+  "status": "FAIL",
+  "provider": "https://openrouter.ai/api/v1",
+  "model": "dots-studio/dots-3-note-preview:free",
+  "events": [],
+  "rpc": [],
+  "turns": [],
+  "errors": [],
+  "consoleErrors": [],
+  "screenshots": [],
+  "toolCalls": 0,
+  "scope": "Real locked Electron, native Composer/Stop/Store/Runtime, synthetic content only",
+  "failure": "electron.launch: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - <launching> \"[HERMES_ROOT]\\node_modules\\electron\\dist\\electron.exe\" \"--inspect=0\" \"--remote-debugging-port=0\" \".artifacts/p522-host-a02-01/main-integration\" \"--disable-gpu\" \"--no-sandbox\"\u001b[22m\n\u001b[2m  - <launched> pid=53812\u001b[22m\n\u001b[2m  - [pid=53812][out]\u001b[22m\n\u001b[2m  - [pid=53812][err] Debugger listening on ws://127.0.0.1:36462/0ca69d99-5ecb-4ee5-98cd-fd2b317ab306\u001b[22m\n\u001b[2m  - [pid=53812][err] For help, see: https://nodejs.org/en/docs/inspector\u001b[22m\n\u001b[2m  - <ws connecting> ws://127.0.0.1:36462/0ca69d99-5ecb-4ee5-98cd-fd2b317ab306\u001b[22m\n\u001b[2m  - <ws connected> ws://127.0.0.1:36462/0ca69d99-5ecb-4ee5-98cd-fd2b317ab306\u001b[22m\n\u001b[2m  - [pid=53812][err] Debugger attached.\u001b[22m\n\n    at async file:///E:/DEF/CareerAdapt%20AI/scripts/p522-host-a02-01-electron.mjs:80:7",
+  "credentialCleanup": {
+    "file": "[TEST_HOME]/config.yaml",
+    "removed": true,
+    "userLocalConfigRetained": true
+  }
+}

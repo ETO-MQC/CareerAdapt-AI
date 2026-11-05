@@ -1,0 +1,3150 @@
+{
+  "run": 1793861155074,
+  "status": "FAIL",
+  "provider": "https://openrouter.ai/api/v1",
+  "model": "dots-studio/dots-3-note-preview:free",
+  "events": [],
+  "rpc": [
+    {
+      "at": 1793861245369,
+      "id": 1,
+      "method": "model.options",
+      "ackAt": 1793861266484,
+      "rejected": false,
+      "resultKeys": [
+        "providers",
+        "model",
+        "provider"
+      ]
+    },
+    {
+      "at": 1793861245369,
+      "id": 2,
+      "method": "setup.status",
+      "ackAt": 1793861248773,
+      "rejected": false,
+      "resultKeys": [
+        "provider_configured"
+      ]
+    },
+    {
+      "at": 1793861245369,
+      "id": 3,
+      "method": "setup.runtime_check",
+      "ackAt": 1793861248500,
+      "rejected": false,
+      "resultKeys": [
+        "ok",
+        "provider",
+        "model",
+        "source",
+        "error"
+      ]
+    },
+    {
+      "at": 1793861245369,
+      "id": 4,
+      "method": "setup.status",
+      "ackAt": 1793861248537,
+      "rejected": false,
+      "resultKeys": [
+        "provider_configured"
+      ]
+    },
+    {
+      "at": 1793861245369,
+      "id": 5,
+      "method": "setup.runtime_check",
+      "ackAt": 1793861248520,
+      "rejected": false,
+      "resultKeys": [
+        "ok",
+        "provider",
+        "model",
+        "source",
+        "error"
+      ]
+    },
+    {
+      "at": 1793861245463,
+      "id": 6,
+      "method": "session.active_list",
+      "ackAt": 1793861245686,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861246884,
+      "id": 7,
+      "method": "session.active_list",
+      "ackAt": 1793861246884,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861248369,
+      "id": 8,
+      "method": "pet.info",
+      "ackAt": 1793861248398,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861248369,
+      "id": 9,
+      "method": "session.active_list",
+      "ackAt": 1793861248371,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861249877,
+      "id": 10,
+      "method": "session.active_list",
+      "ackAt": 1793861249879,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861251380,
+      "id": 11,
+      "method": "pet.info",
+      "ackAt": 1793861251387,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861251381,
+      "id": 12,
+      "method": "session.active_list",
+      "ackAt": 1793861251382,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861252880,
+      "id": 13,
+      "method": "session.active_list",
+      "ackAt": 1793861252942,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861254376,
+      "id": 14,
+      "method": "pet.info",
+      "ackAt": 1793861254382,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861254376,
+      "id": 15,
+      "method": "session.active_list",
+      "ackAt": 1793861254379,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861255870,
+      "id": 16,
+      "method": "session.active_list",
+      "ackAt": 1793861255871,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861257371,
+      "id": 17,
+      "method": "pet.info",
+      "ackAt": 1793861257377,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861257371,
+      "id": 18,
+      "method": "session.active_list",
+      "ackAt": 1793861257373,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861258870,
+      "id": 19,
+      "method": "session.active_list",
+      "ackAt": 1793861258871,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861260373,
+      "id": 20,
+      "method": "pet.info",
+      "ackAt": 1793861260377,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861260373,
+      "id": 21,
+      "method": "session.active_list",
+      "ackAt": 1793861260374,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861261885,
+      "id": 22,
+      "method": "session.active_list",
+      "ackAt": 1793861261886,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861263369,
+      "id": 23,
+      "method": "pet.info",
+      "ackAt": 1793861263376,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861263369,
+      "id": 24,
+      "method": "session.active_list",
+      "ackAt": 1793861263371,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861263789,
+      "id": 25,
+      "method": "setup.status",
+      "ackAt": 1793861267030,
+      "rejected": false,
+      "resultKeys": [
+        "provider_configured"
+      ]
+    },
+    {
+      "at": 1793861263789,
+      "id": 26,
+      "method": "setup.runtime_check",
+      "ackAt": 1793861265339,
+      "rejected": false,
+      "resultKeys": [
+        "ok",
+        "provider",
+        "model",
+        "source",
+        "error"
+      ]
+    },
+    {
+      "at": 1793861264872,
+      "id": 27,
+      "method": "session.active_list",
+      "ackAt": 1793861264953,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861266376,
+      "id": 28,
+      "method": "pet.info",
+      "ackAt": 1793861266381,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861266376,
+      "id": 29,
+      "method": "session.active_list",
+      "ackAt": 1793861266377,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861267874,
+      "id": 30,
+      "method": "session.active_list",
+      "ackAt": 1793861267876,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861269382,
+      "id": 31,
+      "method": "pet.info",
+      "ackAt": 1793861269388,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861269382,
+      "id": 32,
+      "method": "session.active_list",
+      "ackAt": 1793861269384,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861270877,
+      "id": 33,
+      "method": "session.active_list",
+      "ackAt": 1793861270877,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861272381,
+      "id": 34,
+      "method": "pet.info",
+      "ackAt": 1793861272385,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861272381,
+      "id": 35,
+      "method": "session.active_list",
+      "ackAt": 1793861272383,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861273880,
+      "id": 36,
+      "method": "session.active_list",
+      "ackAt": 1793861273881,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861275388,
+      "id": 37,
+      "method": "pet.info",
+      "ackAt": 1793861275389,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861275388,
+      "id": 38,
+      "method": "session.active_list",
+      "ackAt": 1793861275389,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861276882,
+      "id": 39,
+      "method": "session.active_list",
+      "ackAt": 1793861276882,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861278377,
+      "id": 40,
+      "method": "pet.info",
+      "ackAt": 1793861278381,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861278377,
+      "id": 41,
+      "method": "session.active_list",
+      "ackAt": 1793861278379,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861279870,
+      "id": 42,
+      "method": "session.active_list",
+      "ackAt": 1793861279871,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861281381,
+      "id": 43,
+      "method": "pet.info",
+      "ackAt": 1793861281385,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861281381,
+      "id": 44,
+      "method": "session.active_list",
+      "ackAt": 1793861281383,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861282040,
+      "id": 45,
+      "method": "setup.status",
+      "ackAt": 1793861283424,
+      "rejected": false,
+      "resultKeys": [
+        "provider_configured"
+      ]
+    },
+    {
+      "at": 1793861282040,
+      "id": 46,
+      "method": "setup.runtime_check",
+      "ackAt": 1793861283527,
+      "rejected": false,
+      "resultKeys": [
+        "ok",
+        "provider",
+        "model",
+        "source",
+        "error"
+      ]
+    },
+    {
+      "at": 1793861282879,
+      "id": 47,
+      "method": "session.active_list",
+      "ackAt": 1793861282879,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861284370,
+      "id": 48,
+      "method": "pet.info",
+      "ackAt": 1793861284376,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861284370,
+      "id": 49,
+      "method": "session.active_list",
+      "ackAt": 1793861284372,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861285881,
+      "id": 50,
+      "method": "session.active_list",
+      "ackAt": 1793861285882,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861287376,
+      "id": 51,
+      "method": "pet.info",
+      "ackAt": 1793861287381,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861287376,
+      "id": 52,
+      "method": "session.active_list",
+      "ackAt": 1793861287378,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861288882,
+      "id": 53,
+      "method": "session.active_list",
+      "ackAt": 1793861288882,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861290380,
+      "id": 54,
+      "method": "pet.info",
+      "ackAt": 1793861290386,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861290380,
+      "id": 55,
+      "method": "session.active_list",
+      "ackAt": 1793861290383,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861291876,
+      "id": 56,
+      "method": "session.active_list",
+      "ackAt": 1793861291877,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861293371,
+      "id": 57,
+      "method": "pet.info",
+      "ackAt": 1793861293375,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861293371,
+      "id": 58,
+      "method": "session.active_list",
+      "ackAt": 1793861293372,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861294870,
+      "id": 59,
+      "method": "session.active_list",
+      "ackAt": 1793861294870,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861296379,
+      "id": 60,
+      "method": "pet.info",
+      "ackAt": 1793861296383,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861296379,
+      "id": 61,
+      "method": "session.active_list",
+      "ackAt": 1793861296380,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861297874,
+      "id": 62,
+      "method": "session.active_list",
+      "ackAt": 1793861297875,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861298528,
+      "id": 63,
+      "method": "setup.status",
+      "ackAt": 1793861300182,
+      "rejected": false,
+      "resultKeys": [
+        "provider_configured"
+      ]
+    },
+    {
+      "at": 1793861298528,
+      "id": 64,
+      "method": "setup.runtime_check",
+      "ackAt": 1793861300000,
+      "rejected": false,
+      "resultKeys": [
+        "ok",
+        "provider",
+        "model",
+        "source",
+        "error"
+      ]
+    },
+    {
+      "at": 1793861299370,
+      "id": 65,
+      "method": "pet.info",
+      "ackAt": 1793861299376,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861299371,
+      "id": 66,
+      "method": "session.active_list",
+      "ackAt": 1793861299372,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861300877,
+      "id": 67,
+      "method": "session.active_list",
+      "ackAt": 1793861300878,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861302371,
+      "id": 68,
+      "method": "pet.info",
+      "ackAt": 1793861302375,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861302371,
+      "id": 69,
+      "method": "session.active_list",
+      "ackAt": 1793861302372,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861303881,
+      "id": 70,
+      "method": "session.active_list",
+      "ackAt": 1793861303882,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861305375,
+      "id": 71,
+      "method": "pet.info",
+      "ackAt": 1793861305383,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861305375,
+      "id": 72,
+      "method": "session.active_list",
+      "ackAt": 1793861305377,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861306882,
+      "id": 73,
+      "method": "session.active_list",
+      "ackAt": 1793861306883,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861308380,
+      "id": 74,
+      "method": "pet.info",
+      "ackAt": 1793861308384,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861308380,
+      "id": 75,
+      "method": "session.active_list",
+      "ackAt": 1793861308381,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861309874,
+      "id": 76,
+      "method": "session.active_list",
+      "ackAt": 1793861309875,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861311372,
+      "id": 77,
+      "method": "pet.info",
+      "ackAt": 1793861311379,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861311373,
+      "id": 78,
+      "method": "session.active_list",
+      "ackAt": 1793861311375,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861312882,
+      "id": 79,
+      "method": "session.active_list",
+      "ackAt": 1793861312883,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861314379,
+      "id": 80,
+      "method": "pet.info",
+      "ackAt": 1793861314384,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861314379,
+      "id": 81,
+      "method": "session.active_list",
+      "ackAt": 1793861314381,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861315192,
+      "id": 82,
+      "method": "setup.status",
+      "ackAt": 1793861316672,
+      "rejected": false,
+      "resultKeys": [
+        "provider_configured"
+      ]
+    },
+    {
+      "at": 1793861315192,
+      "id": 83,
+      "method": "setup.runtime_check",
+      "ackAt": 1793861316823,
+      "rejected": false,
+      "resultKeys": [
+        "ok",
+        "provider",
+        "model",
+        "source",
+        "error"
+      ]
+    },
+    {
+      "at": 1793861315874,
+      "id": 84,
+      "method": "session.active_list",
+      "ackAt": 1793861315876,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861317367,
+      "id": 85,
+      "method": "pet.info",
+      "ackAt": 1793861317371,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861317371,
+      "id": 86,
+      "method": "session.active_list",
+      "ackAt": 1793861317371,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861318871,
+      "id": 87,
+      "method": "session.active_list",
+      "ackAt": 1793861318872,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861320370,
+      "id": 88,
+      "method": "pet.info",
+      "ackAt": 1793861320377,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861320370,
+      "id": 89,
+      "method": "session.active_list",
+      "ackAt": 1793861320372,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861321884,
+      "id": 90,
+      "method": "session.active_list",
+      "ackAt": 1793861321885,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861323376,
+      "id": 91,
+      "method": "pet.info",
+      "ackAt": 1793861323382,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861323376,
+      "id": 92,
+      "method": "session.active_list",
+      "ackAt": 1793861323378,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861324871,
+      "id": 93,
+      "method": "session.active_list",
+      "ackAt": 1793861324873,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861326370,
+      "id": 94,
+      "method": "pet.info",
+      "ackAt": 1793861326374,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861326370,
+      "id": 95,
+      "method": "session.active_list",
+      "ackAt": 1793861326371,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861327879,
+      "id": 96,
+      "method": "session.active_list",
+      "ackAt": 1793861327881,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861329379,
+      "id": 97,
+      "method": "pet.info",
+      "ackAt": 1793861329383,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861329379,
+      "id": 98,
+      "method": "session.active_list",
+      "ackAt": 1793861329381,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861330881,
+      "id": 99,
+      "method": "session.active_list",
+      "ackAt": 1793861330883,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861331829,
+      "id": 100,
+      "method": "setup.status",
+      "ackAt": 1793861333294,
+      "rejected": false,
+      "resultKeys": [
+        "provider_configured"
+      ]
+    },
+    {
+      "at": 1793861331830,
+      "id": 101,
+      "method": "setup.runtime_check",
+      "ackAt": 1793861333401,
+      "rejected": false,
+      "resultKeys": [
+        "ok",
+        "provider",
+        "model",
+        "source",
+        "error"
+      ]
+    },
+    {
+      "at": 1793861332376,
+      "id": 102,
+      "method": "pet.info",
+      "ackAt": 1793861332380,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861332376,
+      "id": 103,
+      "method": "session.active_list",
+      "ackAt": 1793861332377,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861333868,
+      "id": 104,
+      "method": "session.active_list",
+      "ackAt": 1793861333869,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861335376,
+      "id": 105,
+      "method": "pet.info",
+      "ackAt": 1793861335385,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861335376,
+      "id": 106,
+      "method": "session.active_list",
+      "ackAt": 1793861335378,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861336883,
+      "id": 107,
+      "method": "session.active_list",
+      "ackAt": 1793861336884,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861338376,
+      "id": 108,
+      "method": "pet.info",
+      "ackAt": 1793861338382,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861338376,
+      "id": 109,
+      "method": "session.active_list",
+      "ackAt": 1793861338379,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861339869,
+      "id": 110,
+      "method": "session.active_list",
+      "ackAt": 1793861339870,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861341375,
+      "id": 111,
+      "method": "pet.info",
+      "ackAt": 1793861341380,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861341376,
+      "id": 112,
+      "method": "session.active_list",
+      "ackAt": 1793861341378,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861342879,
+      "id": 113,
+      "method": "session.active_list",
+      "ackAt": 1793861342880,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861344379,
+      "id": 114,
+      "method": "pet.info",
+      "ackAt": 1793861344385,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861344379,
+      "id": 115,
+      "method": "session.active_list",
+      "ackAt": 1793861344380,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861345875,
+      "id": 116,
+      "method": "session.active_list",
+      "ackAt": 1793861345876,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861347380,
+      "id": 117,
+      "method": "pet.info",
+      "ackAt": 1793861347385,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861347380,
+      "id": 118,
+      "method": "session.active_list",
+      "ackAt": 1793861347382,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861348404,
+      "id": 119,
+      "method": "setup.status",
+      "ackAt": 1793861354294,
+      "rejected": false,
+      "resultKeys": [
+        "provider_configured"
+      ]
+    },
+    {
+      "at": 1793861348404,
+      "id": 120,
+      "method": "setup.runtime_check",
+      "ackAt": 1793861354385,
+      "rejected": false,
+      "resultKeys": [
+        "ok",
+        "provider",
+        "model",
+        "source",
+        "error"
+      ]
+    },
+    {
+      "at": 1793861348882,
+      "id": 121,
+      "method": "session.active_list",
+      "ackAt": 1793861348883,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861350378,
+      "id": 122,
+      "method": "pet.info",
+      "ackAt": 1793861350383,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861350378,
+      "id": 123,
+      "method": "session.active_list",
+      "ackAt": 1793861350381,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861351883,
+      "id": 124,
+      "method": "session.active_list",
+      "ackAt": 1793861351884,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861353373,
+      "id": 125,
+      "method": "pet.info",
+      "ackAt": 1793861353376,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861353373,
+      "id": 126,
+      "method": "session.active_list",
+      "ackAt": 1793861353374,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861354881,
+      "id": 127,
+      "method": "session.active_list",
+      "ackAt": 1793861354882,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861356368,
+      "id": 128,
+      "method": "pet.info",
+      "ackAt": 1793861356374,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861356374,
+      "id": 129,
+      "method": "session.active_list",
+      "ackAt": 1793861356374,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861357884,
+      "id": 130,
+      "method": "session.active_list",
+      "ackAt": 1793861357884,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861359383,
+      "id": 131,
+      "method": "pet.info",
+      "ackAt": 1793861359387,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861359383,
+      "id": 132,
+      "method": "session.active_list",
+      "ackAt": 1793861359384,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861360878,
+      "id": 133,
+      "method": "session.active_list",
+      "ackAt": 1793861360878,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861362367,
+      "id": 134,
+      "method": "pet.info",
+      "ackAt": 1793861362374,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861362374,
+      "id": 135,
+      "method": "session.active_list",
+      "ackAt": 1793861362375,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861363882,
+      "id": 136,
+      "method": "session.active_list",
+      "ackAt": 1793861363883,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861365375,
+      "id": 137,
+      "method": "pet.info",
+      "ackAt": 1793861365383,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861365375,
+      "id": 138,
+      "method": "session.active_list",
+      "ackAt": 1793861365377,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861366874,
+      "id": 139,
+      "method": "session.active_list",
+      "ackAt": 1793861366875,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861368370,
+      "id": 140,
+      "method": "pet.info",
+      "ackAt": 1793861368374,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861368375,
+      "id": 141,
+      "method": "session.active_list",
+      "ackAt": 1793861368375,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861369395,
+      "id": 142,
+      "method": "setup.status",
+      "ackAt": 1793861371430,
+      "rejected": false,
+      "resultKeys": [
+        "provider_configured"
+      ]
+    },
+    {
+      "at": 1793861369396,
+      "id": 143,
+      "method": "setup.runtime_check",
+      "ackAt": 1793861370936,
+      "rejected": false,
+      "resultKeys": [
+        "ok",
+        "provider",
+        "model",
+        "source",
+        "error"
+      ]
+    },
+    {
+      "at": 1793861369878,
+      "id": 144,
+      "method": "session.active_list",
+      "ackAt": 1793861369878,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861371375,
+      "id": 145,
+      "method": "pet.info",
+      "ackAt": 1793861371379,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861371375,
+      "id": 146,
+      "method": "session.active_list",
+      "ackAt": 1793861371376,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861372883,
+      "id": 147,
+      "method": "session.active_list",
+      "ackAt": 1793861372887,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861374377,
+      "id": 148,
+      "method": "pet.info",
+      "ackAt": 1793861374381,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861374377,
+      "id": 149,
+      "method": "session.active_list",
+      "ackAt": 1793861374378,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861375883,
+      "id": 150,
+      "method": "session.active_list",
+      "ackAt": 1793861375884,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861377383,
+      "id": 151,
+      "method": "pet.info",
+      "ackAt": 1793861377386,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861377383,
+      "id": 152,
+      "method": "session.active_list",
+      "ackAt": 1793861377383,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861378872,
+      "id": 153,
+      "method": "session.active_list",
+      "ackAt": 1793861378873,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861380382,
+      "id": 154,
+      "method": "pet.info",
+      "ackAt": 1793861380387,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861380383,
+      "id": 155,
+      "method": "session.active_list",
+      "ackAt": 1793861380384,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861381878,
+      "id": 156,
+      "method": "session.active_list",
+      "ackAt": 1793861381880,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861383381,
+      "id": 157,
+      "method": "pet.info",
+      "ackAt": 1793861383393,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861383381,
+      "id": 158,
+      "method": "session.active_list",
+      "ackAt": 1793861383386,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861384873,
+      "id": 159,
+      "method": "session.active_list",
+      "ackAt": 1793861384874,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861386374,
+      "id": 160,
+      "method": "pet.info",
+      "ackAt": 1793861386379,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861386374,
+      "id": 161,
+      "method": "session.active_list",
+      "ackAt": 1793861386376,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861386437,
+      "id": 162,
+      "method": "setup.status",
+      "ackAt": 1793861387890,
+      "rejected": false,
+      "resultKeys": [
+        "provider_configured"
+      ]
+    },
+    {
+      "at": 1793861386437,
+      "id": 163,
+      "method": "setup.runtime_check",
+      "ackAt": 1793861387910,
+      "rejected": false,
+      "resultKeys": [
+        "ok",
+        "provider",
+        "model",
+        "source",
+        "error"
+      ]
+    },
+    {
+      "at": 1793861387869,
+      "id": 164,
+      "method": "session.active_list",
+      "ackAt": 1793861387870,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861389379,
+      "id": 165,
+      "method": "pet.info",
+      "ackAt": 1793861389383,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861389380,
+      "id": 166,
+      "method": "session.active_list",
+      "ackAt": 1793861389380,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861390874,
+      "id": 167,
+      "method": "session.active_list",
+      "ackAt": 1793861390876,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861392381,
+      "id": 168,
+      "method": "pet.info",
+      "ackAt": 1793861392387,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861392381,
+      "id": 169,
+      "method": "session.active_list",
+      "ackAt": 1793861392381,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861393871,
+      "id": 170,
+      "method": "session.active_list",
+      "ackAt": 1793861393873,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861395383,
+      "id": 171,
+      "method": "pet.info",
+      "ackAt": 1793861395392,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861395383,
+      "id": 172,
+      "method": "session.active_list",
+      "ackAt": 1793861395384,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861396882,
+      "id": 173,
+      "method": "session.active_list",
+      "ackAt": 1793861396882,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861398376,
+      "id": 174,
+      "method": "pet.info",
+      "ackAt": 1793861398380,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861398376,
+      "id": 175,
+      "method": "session.active_list",
+      "ackAt": 1793861398377,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861399883,
+      "id": 176,
+      "method": "session.active_list",
+      "ackAt": 1793861399884,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861401382,
+      "id": 177,
+      "method": "pet.info",
+      "ackAt": 1793861401386,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861401382,
+      "id": 178,
+      "method": "session.active_list",
+      "ackAt": 1793861401383,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861402879,
+      "id": 179,
+      "method": "session.active_list",
+      "ackAt": 1793861402880,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861402926,
+      "id": 180,
+      "method": "setup.status",
+      "ackAt": 1793861404299,
+      "rejected": false,
+      "resultKeys": [
+        "provider_configured"
+      ]
+    },
+    {
+      "at": 1793861402926,
+      "id": 181,
+      "method": "setup.runtime_check",
+      "ackAt": 1793861404395,
+      "rejected": false,
+      "resultKeys": [
+        "ok",
+        "provider",
+        "model",
+        "source",
+        "error"
+      ]
+    },
+    {
+      "at": 1793861404377,
+      "id": 182,
+      "method": "pet.info",
+      "ackAt": 1793861404381,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861404377,
+      "id": 183,
+      "method": "session.active_list",
+      "ackAt": 1793861404378,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861405870,
+      "id": 184,
+      "method": "session.active_list",
+      "ackAt": 1793861405871,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861407374,
+      "id": 185,
+      "method": "pet.info",
+      "ackAt": 1793861407379,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861407374,
+      "id": 186,
+      "method": "session.active_list",
+      "ackAt": 1793861407377,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861408879,
+      "id": 187,
+      "method": "session.active_list",
+      "ackAt": 1793861408880,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861410371,
+      "id": 188,
+      "method": "pet.info",
+      "ackAt": 1793861410377,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861410371,
+      "id": 189,
+      "method": "session.active_list",
+      "ackAt": 1793861410372,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861411873,
+      "id": 190,
+      "method": "session.active_list",
+      "ackAt": 1793861411874,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861413382,
+      "id": 191,
+      "method": "pet.info",
+      "ackAt": 1793861413387,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861413382,
+      "id": 192,
+      "method": "session.active_list",
+      "ackAt": 1793861413384,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861414878,
+      "id": 193,
+      "method": "session.active_list",
+      "ackAt": 1793861414878,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861416378,
+      "id": 194,
+      "method": "pet.info",
+      "ackAt": 1793861416383,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861416378,
+      "id": 195,
+      "method": "session.active_list",
+      "ackAt": 1793861416379,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861417873,
+      "id": 196,
+      "method": "session.active_list",
+      "ackAt": 1793861417874,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861419368,
+      "id": 197,
+      "method": "pet.info",
+      "ackAt": 1793861419371,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861419371,
+      "id": 198,
+      "method": "session.active_list",
+      "ackAt": 1793861419372,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861419401,
+      "id": 199,
+      "method": "setup.status",
+      "ackAt": 1793861422858,
+      "rejected": false,
+      "resultKeys": [
+        "provider_configured"
+      ]
+    },
+    {
+      "at": 1793861419401,
+      "id": 200,
+      "method": "setup.runtime_check",
+      "ackAt": 1793861422453,
+      "rejected": false,
+      "resultKeys": [
+        "ok",
+        "provider",
+        "model",
+        "source",
+        "error"
+      ]
+    },
+    {
+      "at": 1793861420876,
+      "id": 201,
+      "method": "session.active_list",
+      "ackAt": 1793861420878,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861422369,
+      "id": 202,
+      "method": "pet.info",
+      "ackAt": 1793861422375,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861422369,
+      "id": 203,
+      "method": "session.active_list",
+      "ackAt": 1793861422370,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861423877,
+      "id": 204,
+      "method": "session.active_list",
+      "ackAt": 1793861423878,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861425374,
+      "id": 205,
+      "method": "pet.info",
+      "ackAt": 1793861425384,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861425374,
+      "id": 206,
+      "method": "session.active_list",
+      "ackAt": 1793861425377,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861426883,
+      "id": 207,
+      "method": "session.active_list",
+      "ackAt": 1793861426883,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861428373,
+      "id": 208,
+      "method": "pet.info",
+      "ackAt": 1793861428378,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861428374,
+      "id": 209,
+      "method": "session.active_list",
+      "ackAt": 1793861428375,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861429884,
+      "id": 210,
+      "method": "session.active_list",
+      "ackAt": 1793861429885,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861431380,
+      "id": 211,
+      "method": "pet.info",
+      "ackAt": 1793861431383,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861431381,
+      "id": 212,
+      "method": "session.active_list",
+      "ackAt": 1793861431381,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861432874,
+      "id": 213,
+      "method": "session.active_list",
+      "ackAt": 1793861432875,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861434371,
+      "id": 214,
+      "method": "pet.info",
+      "ackAt": 1793861434380,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861434371,
+      "id": 215,
+      "method": "session.active_list",
+      "ackAt": 1793861434374,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861435876,
+      "id": 216,
+      "method": "session.active_list",
+      "ackAt": 1793861435877,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861437371,
+      "id": 217,
+      "method": "pet.info",
+      "ackAt": 1793861437378,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861437371,
+      "id": 218,
+      "method": "session.active_list",
+      "ackAt": 1793861437374,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861437874,
+      "id": 219,
+      "method": "setup.status",
+      "ackAt": 1793861439408,
+      "rejected": false,
+      "resultKeys": [
+        "provider_configured"
+      ]
+    },
+    {
+      "at": 1793861437875,
+      "id": 220,
+      "method": "setup.runtime_check",
+      "ackAt": 1793861439274,
+      "rejected": false,
+      "resultKeys": [
+        "ok",
+        "provider",
+        "model",
+        "source",
+        "error"
+      ]
+    },
+    {
+      "at": 1793861438884,
+      "id": 221,
+      "method": "session.active_list",
+      "ackAt": 1793861438885,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861440382,
+      "id": 222,
+      "method": "pet.info",
+      "ackAt": 1793861440388,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861440382,
+      "id": 223,
+      "method": "session.active_list",
+      "ackAt": 1793861440384,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861441881,
+      "id": 224,
+      "method": "session.active_list",
+      "ackAt": 1793861441882,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861443381,
+      "id": 225,
+      "method": "pet.info",
+      "ackAt": 1793861443387,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861443381,
+      "id": 226,
+      "method": "session.active_list",
+      "ackAt": 1793861443382,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861444876,
+      "id": 227,
+      "method": "session.active_list",
+      "ackAt": 1793861444877,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861446381,
+      "id": 228,
+      "method": "pet.info",
+      "ackAt": 1793861446385,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861446381,
+      "id": 229,
+      "method": "session.active_list",
+      "ackAt": 1793861446383,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861447874,
+      "id": 230,
+      "method": "session.active_list",
+      "ackAt": 1793861447876,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861449369,
+      "id": 231,
+      "method": "pet.info",
+      "ackAt": 1793861449372,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861449372,
+      "id": 232,
+      "method": "session.active_list",
+      "ackAt": 1793861449373,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861450876,
+      "id": 233,
+      "method": "session.active_list",
+      "ackAt": 1793861450877,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861452370,
+      "id": 234,
+      "method": "pet.info",
+      "ackAt": 1793861452376,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861452370,
+      "id": 235,
+      "method": "session.active_list",
+      "ackAt": 1793861452370,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861453877,
+      "id": 236,
+      "method": "session.active_list",
+      "ackAt": 1793861453878,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861454421,
+      "id": 237,
+      "method": "setup.status",
+      "ackAt": 1793861455832,
+      "rejected": false,
+      "resultKeys": [
+        "provider_configured"
+      ]
+    },
+    {
+      "at": 1793861454422,
+      "id": 238,
+      "method": "setup.runtime_check",
+      "ackAt": 1793861455931,
+      "rejected": false,
+      "resultKeys": [
+        "ok",
+        "provider",
+        "model",
+        "source",
+        "error"
+      ]
+    },
+    {
+      "at": 1793861455374,
+      "id": 239,
+      "method": "pet.info",
+      "ackAt": 1793861455382,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861455374,
+      "id": 240,
+      "method": "session.active_list",
+      "ackAt": 1793861455376,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861456881,
+      "id": 241,
+      "method": "session.active_list",
+      "ackAt": 1793861456882,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861458377,
+      "id": 242,
+      "method": "pet.info",
+      "ackAt": 1793861458382,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861458377,
+      "id": 243,
+      "method": "session.active_list",
+      "ackAt": 1793861458379,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861459871,
+      "id": 244,
+      "method": "session.active_list",
+      "ackAt": 1793861459872,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861461377,
+      "id": 245,
+      "method": "pet.info",
+      "ackAt": 1793861461382,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861461377,
+      "id": 246,
+      "method": "session.active_list",
+      "ackAt": 1793861461379,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861462875,
+      "id": 247,
+      "method": "session.active_list",
+      "ackAt": 1793861462876,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861464368,
+      "id": 248,
+      "method": "pet.info",
+      "ackAt": 1793861464372,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861464368,
+      "id": 249,
+      "method": "session.active_list",
+      "ackAt": 1793861464370,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861465879,
+      "id": 250,
+      "method": "session.active_list",
+      "ackAt": 1793861465879,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861467377,
+      "id": 251,
+      "method": "pet.info",
+      "ackAt": 1793861467382,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861467378,
+      "id": 252,
+      "method": "session.active_list",
+      "ackAt": 1793861467380,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861468870,
+      "id": 253,
+      "method": "session.active_list",
+      "ackAt": 1793861468871,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861470379,
+      "id": 254,
+      "method": "pet.info",
+      "ackAt": 1793861470384,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861470379,
+      "id": 255,
+      "method": "session.active_list",
+      "ackAt": 1793861470380,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861470944,
+      "id": 256,
+      "method": "setup.status",
+      "ackAt": 1793861475537,
+      "rejected": false,
+      "resultKeys": [
+        "provider_configured"
+      ]
+    },
+    {
+      "at": 1793861470944,
+      "id": 257,
+      "method": "setup.runtime_check",
+      "ackAt": 1793861475512,
+      "rejected": false,
+      "resultKeys": [
+        "ok",
+        "provider",
+        "model",
+        "source",
+        "error"
+      ]
+    },
+    {
+      "at": 1793861471881,
+      "id": 258,
+      "method": "session.active_list",
+      "ackAt": 1793861471881,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861473367,
+      "id": 259,
+      "method": "pet.info",
+      "ackAt": 1793861473374,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861473374,
+      "id": 260,
+      "method": "session.active_list",
+      "ackAt": 1793861473374,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861474869,
+      "id": 261,
+      "method": "session.active_list",
+      "ackAt": 1793861474869,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861476378,
+      "id": 262,
+      "method": "pet.info",
+      "ackAt": 1793861476383,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861476378,
+      "id": 263,
+      "method": "session.active_list",
+      "ackAt": 1793861476380,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861477870,
+      "id": 264,
+      "method": "session.active_list",
+      "ackAt": 1793861477871,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861479372,
+      "id": 265,
+      "method": "pet.info",
+      "ackAt": 1793861479376,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861479372,
+      "id": 266,
+      "method": "session.active_list",
+      "ackAt": 1793861479373,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861480882,
+      "id": 267,
+      "method": "session.active_list",
+      "ackAt": 1793861480882,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861482383,
+      "id": 268,
+      "method": "pet.info",
+      "ackAt": 1793861482386,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861482383,
+      "id": 269,
+      "method": "session.active_list",
+      "ackAt": 1793861482385,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861483868,
+      "id": 270,
+      "method": "session.active_list",
+      "ackAt": 1793861483869,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861485370,
+      "id": 271,
+      "method": "pet.info",
+      "ackAt": 1793861485380,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861485370,
+      "id": 272,
+      "method": "session.active_list",
+      "ackAt": 1793861485372,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861486878,
+      "id": 273,
+      "method": "session.active_list",
+      "ackAt": 1793861486878,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861488368,
+      "id": 274,
+      "method": "pet.info",
+      "ackAt": 1793861488372,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861488371,
+      "id": 275,
+      "method": "session.active_list",
+      "ackAt": 1793861488372,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861489881,
+      "id": 276,
+      "method": "session.active_list",
+      "ackAt": 1793861489882,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861490555,
+      "id": 277,
+      "method": "setup.status",
+      "ackAt": 1793861492274,
+      "rejected": false,
+      "resultKeys": [
+        "provider_configured"
+      ]
+    },
+    {
+      "at": 1793861490555,
+      "id": 278,
+      "method": "setup.runtime_check",
+      "ackAt": 1793861498226,
+      "rejected": false,
+      "resultKeys": [
+        "ok",
+        "provider",
+        "model",
+        "source",
+        "error"
+      ]
+    },
+    {
+      "at": 1793861491379,
+      "id": 279,
+      "method": "pet.info",
+      "ackAt": 1793861491383,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861491379,
+      "id": 280,
+      "method": "session.active_list",
+      "ackAt": 1793861491382,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861492869,
+      "id": 281,
+      "method": "session.active_list",
+      "ackAt": 1793861492871,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861494375,
+      "id": 282,
+      "method": "pet.info",
+      "ackAt": 1793861494378,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861494375,
+      "id": 283,
+      "method": "session.active_list",
+      "ackAt": 1793861494376,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861495870,
+      "id": 284,
+      "method": "session.active_list",
+      "ackAt": 1793861495872,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861497377,
+      "id": 285,
+      "method": "pet.info",
+      "ackAt": 1793861497382,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861497377,
+      "id": 286,
+      "method": "session.active_list",
+      "ackAt": 1793861497379,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861498883,
+      "id": 287,
+      "method": "session.active_list",
+      "ackAt": 1793861498883,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861500381,
+      "id": 288,
+      "method": "pet.info",
+      "ackAt": 1793861500383,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861500381,
+      "id": 289,
+      "method": "session.active_list",
+      "ackAt": 1793861500381,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861501878,
+      "id": 290,
+      "method": "session.active_list",
+      "ackAt": 1793861501878,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861503380,
+      "id": 291,
+      "method": "pet.info",
+      "ackAt": 1793861503384,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793861503380,
+      "id": 292,
+      "method": "session.active_list",
+      "ackAt": 1793861503381,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793861505332,
+      "id": 293,
+      "method": "session.active_list",
+      "ackAt": 1793861505332,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    }
+  ],
+  "turns": [],
+  "errors": [],
+  "consoleErrors": [],
+  "screenshots": [
+    "docs/architecture/evidence/p522-host-a02-01/continuation/screenshots/1793861155074-failure.png"
+  ],
+  "toolCalls": 0,
+  "scope": "Real locked Electron, native Composer/Stop/Store/Runtime, synthetic content only",
+  "process": {
+    "stdout": "",
+    "stderr": "(electron) 'console-message' arguments are deprecated and will be removed. Please use Event<WebContentsConsoleMessageEventParams> object instead.\nDebugger ending on ws://127.0.0.1:26913/11ad1e8d-9938-4dff-a9c1-a67f2a236491\r\nFor help, see: https://nodejs.org/en/docs/inspector\r\n"
+  },
+  "main": {
+    "appPath": "[HERMES_ROOT]\\apps\\desktop",
+    "argv": [
+      "[HERMES_ROOT]\\node_modules\\electron\\dist\\electron.exe",
+      "--inspect=0",
+      "--remote-debugging-port=0",
+      "E:\\DEF\\CareerAdapt AI\\.artifacts\\p522-host-a02-01\\main-integration",
+      "--disable-gpu",
+      "--no-sandbox"
+    ]
+  },
+  "onboardingBranch": "native-provider-choice",
+  "failure": "locator.waitFor: Timeout 255000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: /AI 连接.*ready/i }) to be visible\u001b[22m\n\n    at E:\\DEF\\CareerAdapt AI\\scripts\\p522-host-a02-01-electron.mjs:94:57",
+  "windows": [
+    "http://127.0.0.1:5190/#/"
+  ],
+  "url": "http://127.0.0.1:5190/#/",
+  "body": "职适 AI\nCareerAdapt AI\n首页\nAI 工作台\n个人资料库\n设置\nHost 集成预览 · 隔离数据\nAI 能力与高级管理\n原生导航与快捷键\n对话上下文\n＋ 新建对话\n\nNo sessions yet\n\nNew project\n\nCAREERADAPT AI\n\n从你的经历出发，梳理问题与下一步。\n\n⠋\nWaking up …\nDots 3 Note Preview:Free · Off\nAI 连接\nneeds setup\n协作代理\n定时任务\n外部触发\nSmart\nv0.19.0 (+1)\neb52760\nNo usable credentials found for custom. setup.status reports configured credentials, but runtime resolution still failed.",
+  "fontStates": [
+    {
+      "stage": "failure",
+      "status": "loaded",
+      "pending": [
+        {
+          "family": "KaTeX_AMS",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Caligraphic",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Caligraphic",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Fraktur",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Fraktur",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Main",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Main",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Main",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Main",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Math",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Math",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_SansSerif",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_SansSerif",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_SansSerif",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Script",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Size1",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Size2",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Size3",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Size4",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Typewriter",
+          "status": "unloaded"
+        },
+        {
+          "family": "JetBrains Mono",
+          "status": "unloaded"
+        },
+        {
+          "family": "JetBrains Mono",
+          "status": "unloaded"
+        },
+        {
+          "family": "JetBrains Mono",
+          "status": "unloaded"
+        },
+        {
+          "family": "Courier Prime",
+          "status": "unloaded"
+        },
+        {
+          "family": "Courier Prime",
+          "status": "unloaded"
+        }
+      ]
+    }
+  ],
+  "desktopLog": "[hermes] [tls] trusting 514 Windows system CA certificate(s) for backend connections\n[hermes] [boot] Resolving Hermes backend\n[hermes] [boot] Resolving Hermes runtime\n[hermes] [boot] Using Hermes source at [HERMES_ROOT]\n[hermes] [backend] `serve` supported for Hermes source at [HERMES_ROOT]\n[hermes] [boot] Starting Hermes backend via Hermes source at [HERMES_ROOT]\n[hermes] Starting Hermes backend via Hermes source at [HERMES_ROOT]\n[hermes] [boot] Waiting for Hermes backend to launch\n[hermes] HERMES_BACKEND_READY port=7959\n[hermes] [boot] Waiting for Hermes backend to become ready\n[hermes] [boot] could not read served dashboard token (Hermes backend): 404: {\"error\":\"Headless backend (hermes serve): web UI disabled — use `hermes dashboard` for the browser UI.\"}\n[hermes] [boot] Hermes backend is ready. Finalizing desktop startup\n",
+  "providerDumps": [],
+  "credentialCleanup": {
+    "file": "[TEST_HOME]/config.yaml",
+    "removed": true,
+    "userLocalConfigRetained": true
+  }
+}

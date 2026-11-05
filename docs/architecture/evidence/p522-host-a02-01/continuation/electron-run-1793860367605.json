@@ -1,0 +1,36 @@
+{
+  "run": 1793860367605,
+  "status": "FAIL",
+  "provider": "https://openrouter.ai/api/v1",
+  "model": "dots-studio/dots-3-note-preview:free",
+  "events": [],
+  "rpc": [],
+  "turns": [],
+  "errors": [],
+  "consoleErrors": [],
+  "screenshots": [],
+  "toolCalls": 0,
+  "scope": "Real locked Electron, native Composer/Stop/Store/Runtime, synthetic content only",
+  "process": {
+    "stdout": "",
+    "stderr": "Waiting for the debugger to disconnect...\r\n"
+  },
+  "main": {
+    "appPath": "[HERMES_ROOT]\\apps\\desktop",
+    "argv": [
+      "[HERMES_ROOT]\\node_modules\\electron\\dist\\electron.exe",
+      "--inspect=0",
+      "--remote-debugging-port=0",
+      "E:\\DEF\\CareerAdapt AI\\.artifacts\\p522-host-a02-01\\main-integration",
+      "--disable-gpu",
+      "--no-sandbox"
+    ]
+  },
+  "failure": "electronApplication.firstWindow: Timeout 15000ms exceeded while waiting for event \"window\"\n    at E:\\DEF\\CareerAdapt AI\\scripts\\p522-host-a02-01-electron.mjs:85:18",
+  "windows": [],
+  "credentialCleanup": {
+    "file": "[TEST_HOME]/config.yaml",
+    "removed": true,
+    "userLocalConfigRetained": true
+  }
+}

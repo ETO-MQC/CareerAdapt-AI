@@ -8,7 +8,7 @@ import {reliabilityPatch, targets, patchRecord} from './p522-host-a02-01-patches
 const host=path.join(process.env.LOCALAPPDATA,'hermes/hermes-agent');
 const req=createRequire(path.join(host,'apps/desktop/package.json'));
 const ts=req('typescript'),{WebSocketServer}=req('ws');
-const out='docs/architecture/evidence/p522-host-a02-01';
+const out=process.argv.find(arg=>arg.startsWith('--evidence-dir='))?.slice(15)??'docs/architecture/evidence/p522-host-a02-01';
 fs.mkdirSync(out,{recursive:true});
 const atom = value => {const listeners=new Set();return {get:()=>value,set:next=>{value=next;for(const fn of listeners)fn(value);},subscribe:fn=>{listeners.add(fn);fn(value);return ()=>listeners.delete(fn);}};};
 // React effect/store adapters are deterministic. Transport, JSON-RPC pending

@@ -1,0 +1,107 @@
+{
+  "run": 1793861646597,
+  "status": "PASS",
+  "root": "E:\\DEF\\CareerAdapt AI\\.artifacts\\p522-host-a01-fallback-1793861646597",
+  "renderer": "http://127.0.0.1:5191",
+  "optIn": false,
+  "hermesCommit": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+  "errors": [],
+  "consoleErrors": [],
+  "gatewayStates": [
+    {
+      "stage": "initial",
+      "at": "2026-11-05T06:54:09.597Z",
+      "buttons": [
+        "Gatewayoffline"
+      ]
+    },
+    {
+      "stage": "onboarding-closed",
+      "at": "2026-11-05T06:55:11.323Z",
+      "buttons": [
+        "Gatewayready"
+      ]
+    },
+    {
+      "stage": "ready",
+      "at": "2026-11-05T06:55:11.367Z",
+      "buttons": [
+        "Gatewayready"
+      ]
+    },
+    {
+      "stage": "draft",
+      "at": "2026-11-05T06:55:12.570Z",
+      "buttons": [
+        "Gatewayready"
+      ]
+    }
+  ],
+  "rpcMethods": [
+    "model.options",
+    "setup.status",
+    "setup.runtime_check",
+    "setup.status",
+    "setup.runtime_check",
+    "session.active_list",
+    "session.active_list",
+    "pet.info",
+    "session.active_list",
+    "session.active_list",
+    "pet.info",
+    "session.active_list"
+  ],
+  "loadedCareerModules": [],
+  "screenshots": [
+    {
+      "stage": "initial",
+      "file": "docs/architecture/evidence/p522-host-a02-01/continuation/default/default-shell-1793861646597-initial.png"
+    },
+    {
+      "stage": "onboarding-closed",
+      "file": "docs/architecture/evidence/p522-host-a02-01/continuation/default/default-shell-1793861646597-onboarding-closed.png"
+    },
+    {
+      "stage": "new-session",
+      "file": "docs/architecture/evidence/p522-host-a02-01/continuation/default/default-shell-1793861646597-new-session.png"
+    },
+    {
+      "stage": "draft",
+      "file": "docs/architecture/evidence/p522-host-a02-01/continuation/default/default-shell-1793861646597-draft.png"
+    }
+  ],
+  "realProvider": "NOT VERIFIED",
+  "switchMethod": "Separate isolated launch without --careeradapt; no live runtime/shell hot-swap claim",
+  "electronVersion": "40.10.2",
+  "onboarding": "Native configured readiness closed overlay without picker",
+  "onboardingBranch": "B: configured readiness auto-dismissed onboarding",
+  "onboardingState": {
+    "configured": true,
+    "manual": false,
+    "firstRunSkipped": false
+  },
+  "nativeNavigation": [
+    "New session",
+    "Capabilities",
+    "Messaging",
+    "Artifacts"
+  ],
+  "sessionAfterDraft": {
+    "messages": 0,
+    "busy": false,
+    "activeSessionId": null
+  },
+  "userMessageCount": 0,
+  "promptSubmitRequests": 0,
+  "rpcMethodsDuringDraft": [
+    "pet.info",
+    "session.active_list"
+  ],
+  "composerDraft": "DEFAULT-SHELL unsent verification",
+  "finalUrl": "http://127.0.0.1:5191/#/",
+  "careerShellCount": 0,
+  "careerIntroCount": 0,
+  "nativeNavigationAndComposer": "PASS; native New session click not intercepted; unsent text entered",
+  "careerMainNavigation": 0,
+  "nativeChatSurfaces": 1
+}

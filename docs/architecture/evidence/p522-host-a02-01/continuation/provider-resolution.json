@@ -1,0 +1,4 @@
+{
+  "exitCode": 0,
+  "output": "{\"records\": [{\"stage\": \"inline_config_only\", \"provider\": \"custom\", \"base_url\": \"https://openrouter.ai/api/v1\", \"credentialUsable\": false, \"credentialMatchesLocal\": false}, {\"stage\": \"isolated_openrouter_env\", \"provider\": \"custom\", \"base_url\": \"https://openrouter.ai/api/v1\", \"credentialUsable\": true, \"credentialMatchesLocal\": true}], \"modelRequests\": 0}\r\n"
+}

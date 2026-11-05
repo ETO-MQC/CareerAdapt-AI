@@ -1,0 +1,20 @@
+{
+  "spawnAt": 1793855981136,
+  "pid": 70596,
+  "stdoutFirstMs": 48481,
+  "stderrFirstMs": null,
+  "ready": [
+    {
+      "channel": "stdout",
+      "kind": "BACKEND",
+      "port": 63276,
+      "elapsedMs": 48481
+    }
+  ],
+  "exitCode": null,
+  "signal": "SIGTERM",
+  "spawnError": null,
+  "running": false,
+  "classification": "A",
+  "runningBeforeCleanup": true
+}

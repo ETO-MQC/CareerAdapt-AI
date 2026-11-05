@@ -1,0 +1,13 @@
+{
+  "events": [
+    {
+      "channel": "stdout",
+      "kind": "BACKEND",
+      "port": 63276,
+      "elapsedMs": 48481
+    }
+  ],
+  "classification": "A",
+  "stdoutObserved": true,
+  "stderrObserved": false
+}

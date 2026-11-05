@@ -1,0 +1,763 @@
+{
+  "status": "PASS",
+  "checks": [
+    {
+      "path": "apps/desktop/electron/main.ts",
+      "expected": "0b184d8d114126ad77ca16ce5b42a410a677de13d5548825c1bc68f80eb6ab4e",
+      "actual": "0b184d8d114126ad77ca16ce5b42a410a677de13d5548825c1bc68f80eb6ab4e"
+    },
+    {
+      "path": "apps/desktop/electron/backend-command.ts",
+      "expected": "6931fbba023ebbc08abc907808c61a8e044797d6f355d3891f8bd1a956a7f537",
+      "actual": "6931fbba023ebbc08abc907808c61a8e044797d6f355d3891f8bd1a956a7f537"
+    },
+    {
+      "path": "apps/desktop/electron/backend-health.ts",
+      "expected": "52bd6e74458935bee8277531bab4642ec696daf6499a4e6ed10e8d54821a9fb7",
+      "actual": "52bd6e74458935bee8277531bab4642ec696daf6499a4e6ed10e8d54821a9fb7"
+    },
+    {
+      "path": "apps/desktop/electron/preload.ts",
+      "expected": "0533209a7ecbdc77f9601660a375a92f4dd50f2cce950a8833ceb68278f9354b",
+      "actual": "0533209a7ecbdc77f9601660a375a92f4dd50f2cce950a8833ceb68278f9354b"
+    },
+    {
+      "path": "apps/desktop/src/main.tsx",
+      "expected": "d20373c7a5a0810887da8fae9bc365f83bc9f5e2dc229cf7ba8c5d1dd5e0b06b",
+      "actual": "d20373c7a5a0810887da8fae9bc365f83bc9f5e2dc229cf7ba8c5d1dd5e0b06b"
+    },
+    {
+      "path": "apps/desktop/src/app/index.tsx",
+      "expected": "028d1c47b6c012b5e1775ded96fcfb923546526a1d5540388dedeedbeef6a17e",
+      "actual": "028d1c47b6c012b5e1775ded96fcfb923546526a1d5540388dedeedbeef6a17e"
+    },
+    {
+      "path": "apps/desktop/src/app/contrib/controller.tsx",
+      "expected": "699cbb02e34c04c724a630ea83c7d08c8a0de384a1c1747ca36489b627acf766",
+      "actual": "699cbb02e34c04c724a630ea83c7d08c8a0de384a1c1747ca36489b627acf766"
+    },
+    {
+      "path": "apps/desktop/src/app/contrib/wiring.tsx",
+      "expected": "836e7348673d51c570a69b239fe9f5992a1cc34c057061538738cdd953f1c711",
+      "actual": "836e7348673d51c570a69b239fe9f5992a1cc34c057061538738cdd953f1c711"
+    },
+    {
+      "path": "apps/desktop/src/app/contrib/surfaces.tsx",
+      "expected": "f9d876b5ef70966f06a4a41632ce33d808ab085efad415d1d226e08347d3d203",
+      "actual": "f9d876b5ef70966f06a4a41632ce33d808ab085efad415d1d226e08347d3d203"
+    },
+    {
+      "path": "apps/desktop/src/app/contrib/types.ts",
+      "expected": "8554ecbdef5fa3235cbbf76d37e51e3bc1557957d0d87f58c4fa076f8d94766a",
+      "actual": "8554ecbdef5fa3235cbbf76d37e51e3bc1557957d0d87f58c4fa076f8d94766a"
+    },
+    {
+      "path": "apps/desktop/src/app/routes.ts",
+      "expected": "4cb91d3b9a25f11aba76e949767bdfbfaeb9d8cda0da44fd363bddd27f75746c",
+      "actual": "4cb91d3b9a25f11aba76e949767bdfbfaeb9d8cda0da44fd363bddd27f75746c"
+    },
+    {
+      "path": "apps/desktop/src/app/shell/hooks/use-overlay-routing.ts",
+      "expected": "a71cbdc0056c477ae4426fb33d4c74ff79dfe8e84ba26cf86d42cc80712978cc",
+      "actual": "a71cbdc0056c477ae4426fb33d4c74ff79dfe8e84ba26cf86d42cc80712978cc"
+    },
+    {
+      "path": "apps/desktop/src/app/contrib/hooks/use-desktop-integrations.ts",
+      "expected": "54397e1cb91dbfcd31913c9cced05eeb5d73ae66670e513915dc6ca17854bc73",
+      "actual": "54397e1cb91dbfcd31913c9cced05eeb5d73ae66670e513915dc6ca17854bc73"
+    },
+    {
+      "path": "apps/desktop/src/app/chat/index.tsx",
+      "expected": "b41bf22bc983a8b79a9c31ea8fe5e1d12bb87373792dc62330a6bf5b705dadc5",
+      "actual": "b41bf22bc983a8b79a9c31ea8fe5e1d12bb87373792dc62330a6bf5b705dadc5"
+    },
+    {
+      "path": "apps/desktop/src/components/assistant-ui/thread/index.tsx",
+      "expected": "11cac03907757a8476fba62ee91d6b59567b6dae318805e98d86d1ceb9db39c4",
+      "actual": "11cac03907757a8476fba62ee91d6b59567b6dae318805e98d86d1ceb9db39c4"
+    },
+    {
+      "path": "apps/desktop/src/components/assistant-ui/thread/list.tsx",
+      "expected": "6c4125f3f58e55317df25fff37917392fd5f5f6e015845a790d0135798c53ff4",
+      "actual": "6c4125f3f58e55317df25fff37917392fd5f5f6e015845a790d0135798c53ff4"
+    },
+    {
+      "path": "apps/desktop/src/components/assistant-ui/thread/assistant-message.tsx",
+      "expected": "f5483037b30c5227f8147c259756c892afc1e528e483524a751f2ffb427f36fc",
+      "actual": "f5483037b30c5227f8147c259756c892afc1e528e483524a751f2ffb427f36fc"
+    },
+    {
+      "path": "apps/desktop/src/components/assistant-ui/tool/fallback.tsx",
+      "expected": "81c8bda86e1c45779d5d5dda4e176af5778cd91ae841e89e8f24f3db037747fb",
+      "actual": "81c8bda86e1c45779d5d5dda4e176af5778cd91ae841e89e8f24f3db037747fb"
+    },
+    {
+      "path": "apps/desktop/src/app/chat/sidebar/index.tsx",
+      "expected": "03e9cb1e09ffdca30016c25e74d680411a246005d852bf57e435b610f3d3a86c",
+      "actual": "03e9cb1e09ffdca30016c25e74d680411a246005d852bf57e435b610f3d3a86c"
+    },
+    {
+      "path": "apps/desktop/src/app/chat/sidebar/sessions-section.tsx",
+      "expected": "6551708b4f41d8b700364443cdc4ee7300bb56f173df8a520e746f221b189554",
+      "actual": "6551708b4f41d8b700364443cdc4ee7300bb56f173df8a520e746f221b189554"
+    },
+    {
+      "path": "apps/desktop/src/app/chat/composer/index.tsx",
+      "expected": "594b523d0190ce9f09085ad885e0abe098e170a04652d99b702929c7f62efef0",
+      "actual": "594b523d0190ce9f09085ad885e0abe098e170a04652d99b702929c7f62efef0"
+    },
+    {
+      "path": "apps/desktop/src/app/chat/composer/context-menu.tsx",
+      "expected": "b44164f40338779a48d753386c8fb3cd2cde168dd519d75d9e2e30e384f73e22",
+      "actual": "b44164f40338779a48d753386c8fb3cd2cde168dd519d75d9e2e30e384f73e22"
+    },
+    {
+      "path": "apps/desktop/src/app/chat/composer/attachments.tsx",
+      "expected": "901e3086af9dd909c55f70b1d85dd16c7c8de69b557ef71a9474d5425b27ccf9",
+      "actual": "901e3086af9dd909c55f70b1d85dd16c7c8de69b557ef71a9474d5425b27ccf9"
+    },
+    {
+      "path": "apps/desktop/src/app/chat/composer/hooks/use-composer-draft.ts",
+      "expected": "f9ad5a1a40a774cf10d3881b59dea20074f9d6398fc0f4645ad836608d5f5565",
+      "actual": "f9ad5a1a40a774cf10d3881b59dea20074f9d6398fc0f4645ad836608d5f5565"
+    },
+    {
+      "path": "apps/desktop/src/app/chat/hooks/use-file-drop-zone.ts",
+      "expected": "1407cf563a5a24dff500115778f3a1c7398a7bb563ea2279fcc959cbcec45ae3",
+      "actual": "1407cf563a5a24dff500115778f3a1c7398a7bb563ea2279fcc959cbcec45ae3"
+    },
+    {
+      "path": "apps/desktop/src/app/chat/hooks/use-composer-actions.ts",
+      "expected": "f6dbfa6f305907881cfec7b18a9f4240889cd2432da2a2c3868d889c6e21c51f",
+      "actual": "f6dbfa6f305907881cfec7b18a9f4240889cd2432da2a2c3868d889c6e21c51f"
+    },
+    {
+      "path": "apps/desktop/src/store/session.ts",
+      "expected": "d762c517764e9528f2c7c8af94c325122a682b787e6df0ca9c97f1ee95831ab0",
+      "actual": "d762c517764e9528f2c7c8af94c325122a682b787e6df0ca9c97f1ee95831ab0"
+    },
+    {
+      "path": "apps/desktop/src/store/session-states.ts",
+      "expected": "8864055a61ad7f04c619125b74678cb88bbcad99c03c9d88941076120f513d38",
+      "actual": "8864055a61ad7f04c619125b74678cb88bbcad99c03c9d88941076120f513d38"
+    },
+    {
+      "path": "apps/desktop/src/store/composer.ts",
+      "expected": "41aec56713f04484e36cae5bd757ffec14d75ea72690d3c1a80866dd8a152742",
+      "actual": "41aec56713f04484e36cae5bd757ffec14d75ea72690d3c1a80866dd8a152742"
+    },
+    {
+      "path": "apps/desktop/src/hermes.ts",
+      "expected": "abcccb6d309ae6e30ece763f63fa1ff36cf43c2f05062157a28ff9bd72ea90d1",
+      "actual": "abcccb6d309ae6e30ece763f63fa1ff36cf43c2f05062157a28ff9bd72ea90d1"
+    },
+    {
+      "path": "apps/desktop/src/lib/gateway-rpc.ts",
+      "expected": "eec5cc40fdaac31faac99006b5ba7f23fefc56e031c299a7172161ee0c30ff18",
+      "actual": "eec5cc40fdaac31faac99006b5ba7f23fefc56e031c299a7172161ee0c30ff18"
+    },
+    {
+      "path": "apps/desktop/src/lib/incremental-external-store-runtime.ts",
+      "expected": "60154a45e798766d90aeac4225c75f43bcca4ab43a632b96e8f30239a2f54ff5",
+      "actual": "60154a45e798766d90aeac4225c75f43bcca4ab43a632b96e8f30239a2f54ff5"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-message-stream/index.ts",
+      "expected": "d6a1c8e6ef488f9a12e91193f601dd8306d64cb92f05c944b6f4113a6ac5a164",
+      "actual": "d6a1c8e6ef488f9a12e91193f601dd8306d64cb92f05c944b6f4113a6ac5a164"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-message-stream/gateway-event.ts",
+      "expected": "a8f280c7ae543312e5abf7c17887c30b6f8a55547c638abcbd4bd2506181fdb3",
+      "actual": "a8f280c7ae543312e5abf7c17887c30b6f8a55547c638abcbd4bd2506181fdb3"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-prompt-actions/index.ts",
+      "expected": "4918d34ced24d5748691250c6073140e76b40f0cd01be2118141c0f875adfb09",
+      "actual": "4918d34ced24d5748691250c6073140e76b40f0cd01be2118141c0f875adfb09"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-prompt-actions/submit.ts",
+      "expected": "859e0b6c2be7b5610a32c8da3d01ddb74129799166e3116159e2531a42b92a9e",
+      "actual": "859e0b6c2be7b5610a32c8da3d01ddb74129799166e3116159e2531a42b92a9e"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-session-actions/index.ts",
+      "expected": "1f620fa503eecf3dc6e268eccfa88db17b77f1e2a690f632ea116dd669bd9ea1",
+      "actual": "1f620fa503eecf3dc6e268eccfa88db17b77f1e2a690f632ea116dd669bd9ea1"
+    },
+    {
+      "path": "apps/desktop/src/app/shell/model-menu-panel.tsx",
+      "expected": "7aec1b3c327fb00da0c0d2fc4092e4828d91b20312e20c03a96338abdb591767",
+      "actual": "7aec1b3c327fb00da0c0d2fc4092e4828d91b20312e20c03a96338abdb591767"
+    },
+    {
+      "path": "apps/desktop/src/app/settings/index.tsx",
+      "expected": "624fa59c638f08dd66a56740bd703127b77f156de91bd74302f420486f85d09f",
+      "actual": "624fa59c638f08dd66a56740bd703127b77f156de91bd74302f420486f85d09f"
+    },
+    {
+      "path": "apps/desktop/src/themes/context.tsx",
+      "expected": "04efd89a14deef6ebce0b5493007620044679c51016e10a1da56fcc867f5ac25",
+      "actual": "04efd89a14deef6ebce0b5493007620044679c51016e10a1da56fcc867f5ac25"
+    },
+    {
+      "path": "apps/desktop/src/app/shell/hooks/use-statusbar-items.tsx",
+      "expected": "cc07235ad146b397b159531a71ab5514d66d7e1095ae7629d60aeab7f39aa1e3",
+      "actual": "cc07235ad146b397b159531a71ab5514d66d7e1095ae7629d60aeab7f39aa1e3"
+    },
+    {
+      "path": "apps/desktop/src/app/contrib/controller.tsx",
+      "expected": "699cbb02e34c04c724a630ea83c7d08c8a0de384a1c1747ca36489b627acf766",
+      "actual": "699cbb02e34c04c724a630ea83c7d08c8a0de384a1c1747ca36489b627acf766"
+    },
+    {
+      "path": "apps/desktop/src/app/routes.ts",
+      "expected": "4cb91d3b9a25f11aba76e949767bdfbfaeb9d8cda0da44fd363bddd27f75746c",
+      "actual": "4cb91d3b9a25f11aba76e949767bdfbfaeb9d8cda0da44fd363bddd27f75746c"
+    },
+    {
+      "path": "apps/desktop/src/app/gateway/hooks/use-gateway-request.ts",
+      "expected": "bd5f5076f18921220ad9e0fe9467c7d34d1799ac74955bfba169460f186e01aa",
+      "actual": "bd5f5076f18921220ad9e0fe9467c7d34d1799ac74955bfba169460f186e01aa"
+    },
+    {
+      "path": "apps/desktop/src/app/chat/index.tsx",
+      "expected": "b41bf22bc983a8b79a9c31ea8fe5e1d12bb87373792dc62330a6bf5b705dadc5",
+      "actual": "b41bf22bc983a8b79a9c31ea8fe5e1d12bb87373792dc62330a6bf5b705dadc5"
+    },
+    {
+      "path": "apps/desktop/src/app/contrib/surfaces.tsx",
+      "expected": "f9d876b5ef70966f06a4a41632ce33d808ab085efad415d1d226e08347d3d203",
+      "actual": "f9d876b5ef70966f06a4a41632ce33d808ab085efad415d1d226e08347d3d203"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-prompt-actions/submit.ts",
+      "expected": "859e0b6c2be7b5610a32c8da3d01ddb74129799166e3116159e2531a42b92a9e",
+      "actual": "859e0b6c2be7b5610a32c8da3d01ddb74129799166e3116159e2531a42b92a9e"
+    },
+    {
+      "path": "apps/desktop/src/app/chat/sidebar/index.tsx",
+      "expected": "03e9cb1e09ffdca30016c25e74d680411a246005d852bf57e435b610f3d3a86c",
+      "actual": "03e9cb1e09ffdca30016c25e74d680411a246005d852bf57e435b610f3d3a86c"
+    },
+    {
+      "path": "apps/desktop/src/app/shell/hooks/use-statusbar-items.tsx",
+      "expected": "cc07235ad146b397b159531a71ab5514d66d7e1095ae7629d60aeab7f39aa1e3",
+      "actual": "cc07235ad146b397b159531a71ab5514d66d7e1095ae7629d60aeab7f39aa1e3"
+    },
+    {
+      "path": "apps/desktop/src/components/chat/intro.tsx",
+      "expected": "7c15a4bea4c3ded0d65f427286fdae62d0df91f94d359ce92dfeed3aaa4695d9",
+      "actual": "7c15a4bea4c3ded0d65f427286fdae62d0df91f94d359ce92dfeed3aaa4695d9"
+    },
+    {
+      "path": "apps/desktop/src/app/chat/composer/hooks/use-composer-placeholder.ts",
+      "expected": "e8a99b2eef19c4c4e35a334adc63534d90a0108a3a76a8c971c88e7fd71f3ab0",
+      "actual": "e8a99b2eef19c4c4e35a334adc63534d90a0108a3a76a8c971c88e7fd71f3ab0"
+    },
+    {
+      "path": "apps/desktop/src/app/chat/index.tsx",
+      "expected": "b41bf22bc983a8b79a9c31ea8fe5e1d12bb87373792dc62330a6bf5b705dadc5",
+      "actual": "b41bf22bc983a8b79a9c31ea8fe5e1d12bb87373792dc62330a6bf5b705dadc5"
+    },
+    {
+      "path": "apps/desktop/src/app/gateway/hooks/use-gateway-request.ts",
+      "expected": "bd5f5076f18921220ad9e0fe9467c7d34d1799ac74955bfba169460f186e01aa",
+      "actual": "bd5f5076f18921220ad9e0fe9467c7d34d1799ac74955bfba169460f186e01aa"
+    },
+    {
+      "path": "apps/desktop/src/hermes.ts",
+      "expected": "abcccb6d309ae6e30ece763f63fa1ff36cf43c2f05062157a28ff9bd72ea90d1",
+      "actual": "abcccb6d309ae6e30ece763f63fa1ff36cf43c2f05062157a28ff9bd72ea90d1"
+    },
+    {
+      "path": "apps/shared/src/json-rpc-gateway.ts",
+      "expected": "d3a861d7551d1c4dc2a6ce84b1af2bb02facc6d2bd6e9090c6d71261f494994b",
+      "actual": "d3a861d7551d1c4dc2a6ce84b1af2bb02facc6d2bd6e9090c6d71261f494994b"
+    },
+    {
+      "path": "apps/desktop/src/lib/gateway-rpc.ts",
+      "expected": "eec5cc40fdaac31faac99006b5ba7f23fefc56e031c299a7172161ee0c30ff18",
+      "actual": "eec5cc40fdaac31faac99006b5ba7f23fefc56e031c299a7172161ee0c30ff18"
+    },
+    {
+      "path": "apps/desktop/src/store/onboarding.ts",
+      "expected": "e836b17527f46ab26901fad0cd5c63374bbc6860fe259049f54b69a29c012182",
+      "actual": "e836b17527f46ab26901fad0cd5c63374bbc6860fe259049f54b69a29c012182"
+    },
+    {
+      "path": "apps/desktop/src/components/onboarding/index.tsx",
+      "expected": "9bd661cf9488c46937c85139402eca5ca06eb8667fcfb375b7c232fa90ebc907",
+      "actual": "9bd661cf9488c46937c85139402eca5ca06eb8667fcfb375b7c232fa90ebc907"
+    },
+    {
+      "path": "apps/desktop/src/store/session.ts",
+      "expected": "d762c517764e9528f2c7c8af94c325122a682b787e6df0ca9c97f1ee95831ab0",
+      "actual": "d762c517764e9528f2c7c8af94c325122a682b787e6df0ca9c97f1ee95831ab0"
+    },
+    {
+      "path": "apps/desktop/src/store/session-states.ts",
+      "expected": "8864055a61ad7f04c619125b74678cb88bbcad99c03c9d88941076120f513d38",
+      "actual": "8864055a61ad7f04c619125b74678cb88bbcad99c03c9d88941076120f513d38"
+    },
+    {
+      "path": "apps/desktop/src/store/composer.ts",
+      "expected": "41aec56713f04484e36cae5bd757ffec14d75ea72690d3c1a80866dd8a152742",
+      "actual": "41aec56713f04484e36cae5bd757ffec14d75ea72690d3c1a80866dd8a152742"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-session-state-cache.ts",
+      "expected": "6a8ad52c6d72efe6e0dfb46ce5f0dc7f90d9f912e73a559793dde33b801e5e9e",
+      "actual": "6a8ad52c6d72efe6e0dfb46ce5f0dc7f90d9f912e73a559793dde33b801e5e9e"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-session-actions/index.ts",
+      "expected": "1f620fa503eecf3dc6e268eccfa88db17b77f1e2a690f632ea116dd669bd9ea1",
+      "actual": "1f620fa503eecf3dc6e268eccfa88db17b77f1e2a690f632ea116dd669bd9ea1"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-prompt-actions/submit.ts",
+      "expected": "859e0b6c2be7b5610a32c8da3d01ddb74129799166e3116159e2531a42b92a9e",
+      "actual": "859e0b6c2be7b5610a32c8da3d01ddb74129799166e3116159e2531a42b92a9e"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-prompt-actions/index.ts",
+      "expected": "4918d34ced24d5748691250c6073140e76b40f0cd01be2118141c0f875adfb09",
+      "actual": "4918d34ced24d5748691250c6073140e76b40f0cd01be2118141c0f875adfb09"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-prompt-actions/utils.ts",
+      "expected": "096cc1557316f0cef0ff3753b940cd7b52ed20d9fafad7bb1d3cbca6738d0444",
+      "actual": "096cc1557316f0cef0ff3753b940cd7b52ed20d9fafad7bb1d3cbca6738d0444"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-message-stream/index.ts",
+      "expected": "d6a1c8e6ef488f9a12e91193f601dd8306d64cb92f05c944b6f4113a6ac5a164",
+      "actual": "d6a1c8e6ef488f9a12e91193f601dd8306d64cb92f05c944b6f4113a6ac5a164"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-message-stream/gateway-event.ts",
+      "expected": "a8f280c7ae543312e5abf7c17887c30b6f8a55547c638abcbd4bd2506181fdb3",
+      "actual": "a8f280c7ae543312e5abf7c17887c30b6f8a55547c638abcbd4bd2506181fdb3"
+    },
+    {
+      "path": "apps/desktop/src/app/chat/hooks/use-composer-actions.ts",
+      "expected": "f6dbfa6f305907881cfec7b18a9f4240889cd2432da2a2c3868d889c6e21c51f",
+      "actual": "f6dbfa6f305907881cfec7b18a9f4240889cd2432da2a2c3868d889c6e21c51f"
+    },
+    {
+      "path": "apps/desktop/src/app/chat/composer/hooks/use-composer-drop.ts",
+      "expected": "3c87435f6c6abb9dde00f47f4442ab4f96a0b1ceb9248de8f03bbbec937d6e76",
+      "actual": "3c87435f6c6abb9dde00f47f4442ab4f96a0b1ceb9248de8f03bbbec937d6e76"
+    },
+    {
+      "path": "apps/desktop/src/app/chat/composer/hooks/use-composer-draft.ts",
+      "expected": "f9ad5a1a40a774cf10d3881b59dea20074f9d6398fc0f4645ad836608d5f5565",
+      "actual": "f9ad5a1a40a774cf10d3881b59dea20074f9d6398fc0f4645ad836608d5f5565"
+    },
+    {
+      "path": "apps/desktop/src/app/chat/composer/hooks/use-composer-url-dialog.ts",
+      "expected": "7f0df8ff672756155b0e2768999c23e0c7a39a67cddc39279bb4cce2e3d7a321",
+      "actual": "7f0df8ff672756155b0e2768999c23e0c7a39a67cddc39279bb4cce2e3d7a321"
+    },
+    {
+      "path": "apps/desktop/src/lib/desktop-fs.ts",
+      "expected": "1e144ff5e49a89247eb82e94009c289bde41e8e8d6c62999bb4c940db50930bc",
+      "actual": "1e144ff5e49a89247eb82e94009c289bde41e8e8d6c62999bb4c940db50930bc"
+    },
+    {
+      "path": "apps/desktop/src/components/assistant-ui/tool/fallback.tsx",
+      "expected": "81c8bda86e1c45779d5d5dda4e176af5778cd91ae841e89e8f24f3db037747fb",
+      "actual": "81c8bda86e1c45779d5d5dda4e176af5778cd91ae841e89e8f24f3db037747fb"
+    },
+    {
+      "path": "apps/desktop/src/app/artifacts/artifact-utils.ts",
+      "expected": "4d92c7fbce33a2ca5983b791d511a2c81da74a93bfa53fdee4d9c095a3eb63a6",
+      "actual": "4d92c7fbce33a2ca5983b791d511a2c81da74a93bfa53fdee4d9c095a3eb63a6"
+    },
+    {
+      "path": "apps/desktop/src/app/artifacts/index.tsx",
+      "expected": "a8bed89bc9a3f0be9b5c68251ac0285f3b07e4d91e20d0c6c41f6d8396c839f5",
+      "actual": "a8bed89bc9a3f0be9b5c68251ac0285f3b07e4d91e20d0c6c41f6d8396c839f5"
+    },
+    {
+      "path": "apps/desktop/src/types/hermes.ts",
+      "expected": "3e75cc9189e4c6ba0433180a509f2524ce88bbe665ce80ca3ad878a992d44a74",
+      "actual": "3e75cc9189e4c6ba0433180a509f2524ce88bbe665ce80ca3ad878a992d44a74"
+    },
+    {
+      "path": "apps/desktop/electron/preload.ts",
+      "expected": "0533209a7ecbdc77f9601660a375a92f4dd50f2cce950a8833ceb68278f9354b",
+      "actual": "0533209a7ecbdc77f9601660a375a92f4dd50f2cce950a8833ceb68278f9354b"
+    },
+    {
+      "path": "apps/desktop/electron/main.ts",
+      "expected": "0b184d8d114126ad77ca16ce5b42a410a677de13d5548825c1bc68f80eb6ab4e",
+      "actual": "0b184d8d114126ad77ca16ce5b42a410a677de13d5548825c1bc68f80eb6ab4e"
+    },
+    {
+      "path": "tui_gateway/server.py",
+      "expected": "16dfa70edb05f9613d6b8abf9016c235b2eed1862c64430b4de8133ce069e5f1",
+      "actual": "16dfa70edb05f9613d6b8abf9016c235b2eed1862c64430b4de8133ce069e5f1"
+    },
+    {
+      "path": "run_agent.py",
+      "expected": "466de8e77ba0e9be3f0933d31a4450ef9bb553d6071501e3827e4132e4d28cc3",
+      "actual": "466de8e77ba0e9be3f0933d31a4450ef9bb553d6071501e3827e4132e4d28cc3"
+    },
+    {
+      "path": "agent/tool_executor.py",
+      "expected": "e84099f76444eec1f915f8c6188ae6be2fc86c782ae885ce150ecf996fe9bb7f",
+      "actual": "e84099f76444eec1f915f8c6188ae6be2fc86c782ae885ce150ecf996fe9bb7f"
+    },
+    {
+      "path": "agent/transports/chat_completions.py",
+      "expected": "08cf5ea02e912dec440dc360ad2b7cb9f774a60ee9870bda370a5512b9efd1de",
+      "actual": "08cf5ea02e912dec440dc360ad2b7cb9f774a60ee9870bda370a5512b9efd1de"
+    },
+    {
+      "path": "model_tools.py",
+      "expected": "6ca4611e30f363c5a8d346631b3666943181da8095fccb9688269263b7cb7cad",
+      "actual": "6ca4611e30f363c5a8d346631b3666943181da8095fccb9688269263b7cb7cad"
+    },
+    {
+      "path": "hermes_cli/runtime_provider.py",
+      "expected": "5d06a54e9858254bd7b0c05785dc01df48fa57856cccdbd8ba1b4488a1c33116",
+      "actual": "5d06a54e9858254bd7b0c05785dc01df48fa57856cccdbd8ba1b4488a1c33116"
+    },
+    {
+      "path": "hermes_cli/web_server.py",
+      "expected": "d58955ad73dcab6f8ec57cb6932970e68fdaec7baa554082d7a43860ba7e8fed",
+      "actual": "d58955ad73dcab6f8ec57cb6932970e68fdaec7baa554082d7a43860ba7e8fed"
+    },
+    {
+      "path": "hermes_state.py",
+      "expected": "0d52ebcd6a433466f1e6444de35d940e0c227a285a64b2da54dcd8182bf746c6",
+      "actual": "0d52ebcd6a433466f1e6444de35d940e0c227a285a64b2da54dcd8182bf746c6"
+    },
+    {
+      "path": "hermes_cli/plugins.py",
+      "expected": "3692a9f4c7cac4d15c0bb655f43def83a2f26c3568a55cbb3ef004029c7ead95",
+      "actual": "3692a9f4c7cac4d15c0bb655f43def83a2f26c3568a55cbb3ef004029c7ead95"
+    },
+    {
+      "path": "hermes_cli/kanban_db.py",
+      "expected": "1f70baa671dcb956ebce9a42819ebcfe806d73fccf89be7c060ceaf2200a3044",
+      "actual": "1f70baa671dcb956ebce9a42819ebcfe806d73fccf89be7c060ceaf2200a3044"
+    },
+    {
+      "path": "tools/registry.py",
+      "expected": "9a487e80c88ca4d735149d2da68059522801153999a94f34f68f7ee167d580a2",
+      "actual": "9a487e80c88ca4d735149d2da68059522801153999a94f34f68f7ee167d580a2"
+    },
+    {
+      "path": "agent/context_references.py",
+      "expected": "250cf7e17462d60b77f68eee59a1dcb8dbeef4ec91476e79a081809fbbc69081",
+      "actual": "250cf7e17462d60b77f68eee59a1dcb8dbeef4ec91476e79a081809fbbc69081"
+    },
+    {
+      "path": "agent/image_routing.py",
+      "expected": "1fb55bdbcb790dbba746d39eaf46e81bab1b815e5c5df0d2a0bc570c801713e9",
+      "actual": "1fb55bdbcb790dbba746d39eaf46e81bab1b815e5c5df0d2a0bc570c801713e9"
+    },
+    {
+      "path": "agent/conversation_loop.py",
+      "expected": "0d85d4114e194aeac472995d17a49b41767b2a84561773b31085ee8e33dcae78",
+      "actual": "0d85d4114e194aeac472995d17a49b41767b2a84561773b31085ee8e33dcae78"
+    },
+    {
+      "path": "agent/chat_completion_helpers.py",
+      "expected": "fe1ef9c17c8ac0c1385685f658864ad08736a3e33e57a3f176a61d42f2bb1a0f",
+      "actual": "fe1ef9c17c8ac0c1385685f658864ad08736a3e33e57a3f176a61d42f2bb1a0f"
+    },
+    {
+      "path": "apps/desktop/src/lib/incremental-external-store-runtime.ts",
+      "expected": "60154a45e798766d90aeac4225c75f43bcca4ab43a632b96e8f30239a2f54ff5",
+      "actual": "60154a45e798766d90aeac4225c75f43bcca4ab43a632b96e8f30239a2f54ff5"
+    },
+    {
+      "path": "apps/desktop/src/app/chat/composer/context-menu.tsx",
+      "expected": "b44164f40338779a48d753386c8fb3cd2cde168dd519d75d9e2e30e384f73e22",
+      "actual": "b44164f40338779a48d753386c8fb3cd2cde168dd519d75d9e2e30e384f73e22"
+    },
+    {
+      "path": "apps/desktop/src/app/contrib/controller.tsx",
+      "expected": "699cbb02e34c04c724a630ea83c7d08c8a0de384a1c1747ca36489b627acf766",
+      "actual": "699cbb02e34c04c724a630ea83c7d08c8a0de384a1c1747ca36489b627acf766"
+    },
+    {
+      "path": "apps/desktop/src/app/contrib/surfaces.tsx",
+      "expected": "f9d876b5ef70966f06a4a41632ce33d808ab085efad415d1d226e08347d3d203",
+      "actual": "f9d876b5ef70966f06a4a41632ce33d808ab085efad415d1d226e08347d3d203"
+    },
+    {
+      "path": "apps/desktop/electron/backend-command.ts",
+      "expected": "6931fbba023ebbc08abc907808c61a8e044797d6f355d3891f8bd1a956a7f537",
+      "actual": "6931fbba023ebbc08abc907808c61a8e044797d6f355d3891f8bd1a956a7f537"
+    }
+  ],
+  "previous": [
+    {
+      "file": "docs/architecture/evidence/p522-host-a01/delivery-manifest.json",
+      "expected": "e645b46bbbe44f0c76de2bc588029dff769f59d5043000e1e589cdbdea48020f",
+      "actual": "e645b46bbbe44f0c76de2bc588029dff769f59d5043000e1e589cdbdea48020f"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-host-a01r/delivery-manifest.json",
+      "expected": "f69522ffe3a09e8c47002e77cd68355b27536e0bb21c6d99f614bc686b17a181",
+      "actual": "f69522ffe3a09e8c47002e77cd68355b27536e0bb21c6d99f614bc686b17a181"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-host-a01r-fb01/delivery-manifest.json",
+      "expected": "76e819be86423f26e29a3bdcdf9da902a45f8897cf34505f4dac17104b3c6b31",
+      "actual": "76e819be86423f26e29a3bdcdf9da902a45f8897cf34505f4dac17104b3c6b31"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-host-a02-00/delivery-manifest.json",
+      "expected": "1c3407bc6398dac96b4cba2907ce616f83e510964a6ba6236f22510058fd42a3",
+      "actual": "1c3407bc6398dac96b4cba2907ce616f83e510964a6ba6236f22510058fd42a3"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-host-a02-01/delivery-manifest.json",
+      "expected": "e64d2ec57937dba5eeb04c57b4ac594fe5666cd7dffd215c6f465f5e7e6987e0",
+      "actual": "e64d2ec57937dba5eeb04c57b4ac594fe5666cd7dffd215c6f465f5e7e6987e0"
+    }
+  ],
+  "previousFiles": [
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/baseline.json",
+      "expected": "e857cab3c6f28c276b87bd07d97ae4d8d678f82c8a34ea9414c93ba91d48576e",
+      "actual": "e857cab3c6f28c276b87bd07d97ae4d8d678f82c8a34ea9414c93ba91d48576e"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/credential-audit.json",
+      "expected": "5a5af3b28c72cb313d35e82c0945391a776aa3ef7b1fd24db145e03076719742",
+      "actual": "5a5af3b28c72cb313d35e82c0945391a776aa3ef7b1fd24db145e03076719742"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/default/default-shell-failure-1793849951907.png",
+      "expected": "0e0a5f61948c9bbf78ae1bebade1e327d0b5e9be338a9361146f0c0bc5aeaf33",
+      "actual": "0e0a5f61948c9bbf78ae1bebade1e327d0b5e9be338a9361146f0c0bc5aeaf33"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/default/default-shell-verification-1793849951907.json",
+      "expected": "312fafacab98b8f808d9a8f61a89d2853986ce30a4fc35574558cbad5769fb9c",
+      "actual": "312fafacab98b8f808d9a8f61a89d2853986ce30a4fc35574558cbad5769fb9c"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/default/default-shell-verification.json",
+      "expected": "312fafacab98b8f808d9a8f61a89d2853986ce30a4fc35574558cbad5769fb9c",
+      "actual": "312fafacab98b8f808d9a8f61a89d2853986ce30a4fc35574558cbad5769fb9c"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/default-build-verification.json",
+      "expected": "858489a088302c714f9c41c68cf9541e63b84daf1d6a0128ca13caee8cb6e308",
+      "actual": "858489a088302c714f9c41c68cf9541e63b84daf1d6a0128ca13caee8cb6e308"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/electron-run-1793849641525.json",
+      "expected": "22fdd396b5ff6f9600aedc27d3db99c92d0d24a851eefd95fbdf9b850ef120d9",
+      "actual": "22fdd396b5ff6f9600aedc27d3db99c92d0d24a851eefd95fbdf9b850ef120d9"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/electron-run-1793849730015.json",
+      "expected": "5d51c898d4c9ab654145007084894059acb200479082e1c2e768750e6606d5fb",
+      "actual": "5d51c898d4c9ab654145007084894059acb200479082e1c2e768750e6606d5fb"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/failure-record.json",
+      "expected": "88c766ba35cb9bf503f38e8ad2506bb88da704d895b9679408a78055d5b1e350",
+      "actual": "88c766ba35cb9bf503f38e8ad2506bb88da704d895b9679408a78055d5b1e350"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/fault-failure-1793849303110.json",
+      "expected": "798975436e047dac9265615e9e140a489e03642495a7d446d4a72a91d90004fd",
+      "actual": "798975436e047dac9265615e9e140a489e03642495a7d446d4a72a91d90004fd"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/final-protection-verification.json",
+      "expected": "7a538f8abe68e5f1b4988180341fc328be6a8a563a0d0f94bffb55dec92d2890",
+      "actual": "7a538f8abe68e5f1b4988180341fc328be6a8a563a0d0f94bffb55dec92d2890"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/interaction-verification.json",
+      "expected": "5d51c898d4c9ab654145007084894059acb200479082e1c2e768750e6606d5fb",
+      "actual": "5d51c898d4c9ab654145007084894059acb200479082e1c2e768750e6606d5fb"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/native-typecheck.json",
+      "expected": "66cc70886017cf125d7d213536024ed17431852f274b610a3f2d2804f2f74a8f",
+      "actual": "66cc70886017cf125d7d213536024ed17431852f274b610a3f2d2804f2f74a8f"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/patch-manifest.json",
+      "expected": "e7d0d330b21144d7df82d50be2d3b07e53254169b97794916fd0f5380d3bc456",
+      "actual": "e7d0d330b21144d7df82d50be2d3b07e53254169b97794916fd0f5380d3bc456"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/patched/apps/desktop/src/app/chat/composer/hooks/use-composer-placeholder.ts.txt",
+      "expected": "f26b09f14b2b4731f42e39dd115fd813425fed97c2e3ba3507a9edb33099a0ff",
+      "actual": "f26b09f14b2b4731f42e39dd115fd813425fed97c2e3ba3507a9edb33099a0ff"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/patched/apps/desktop/src/app/chat/index.tsx.txt",
+      "expected": "13d965806003ba43303ccb72723d2d43666514d7fce9ddfa7a20dc14a27903fc",
+      "actual": "13d965806003ba43303ccb72723d2d43666514d7fce9ddfa7a20dc14a27903fc"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/patched/apps/desktop/src/app/chat/sidebar/index.tsx.txt",
+      "expected": "b5407eca221f2c9abe4f898e1a3aa18d3fd3781d188feddb6174dc0f714dbee2",
+      "actual": "b5407eca221f2c9abe4f898e1a3aa18d3fd3781d188feddb6174dc0f714dbee2"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/patched/apps/desktop/src/app/contrib/controller.tsx.txt",
+      "expected": "d7691d38b87c925031add45f41165653e75d68ca8124b1ac6955ad89b62863ef",
+      "actual": "d7691d38b87c925031add45f41165653e75d68ca8124b1ac6955ad89b62863ef"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/patched/apps/desktop/src/app/contrib/surfaces.tsx.txt",
+      "expected": "2302b5bfe6546ebfdc7d1228f61ac40635857aae91c929b27b6bcda1a29c4a5e",
+      "actual": "2302b5bfe6546ebfdc7d1228f61ac40635857aae91c929b27b6bcda1a29c4a5e"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/patched/apps/desktop/src/app/gateway/hooks/use-gateway-request.ts.txt",
+      "expected": "5ba2afca1e288daa9d3e54d96aa5d32c14a4db9f702c8d7734f65ec88cb441ff",
+      "actual": "5ba2afca1e288daa9d3e54d96aa5d32c14a4db9f702c8d7734f65ec88cb441ff"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/patched/apps/desktop/src/app/routes.ts.txt",
+      "expected": "a6713c05637172e765d873e44ad9730d8d7646006b15ce318c3353465a869d42",
+      "actual": "a6713c05637172e765d873e44ad9730d8d7646006b15ce318c3353465a869d42"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/patched/apps/desktop/src/app/session/hooks/use-prompt-actions/submit.ts.txt",
+      "expected": "745791cce6fab653a0c325757aa63fea6ba7e7d1bef475b972f35af79755ea50",
+      "actual": "745791cce6fab653a0c325757aa63fea6ba7e7d1bef475b972f35af79755ea50"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/patched/apps/desktop/src/app/shell/hooks/use-statusbar-items.tsx.txt",
+      "expected": "89ddd40a44eac899b827faf6431b971bf7031421d71be96ecf4f042f395cb7de",
+      "actual": "89ddd40a44eac899b827faf6431b971bf7031421d71be96ecf4f042f395cb7de"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/patched/apps/desktop/src/components/chat/intro.tsx.txt",
+      "expected": "4e16143bb6bda33a3576581f6becd987ba8cdd0a57f2cd9d053890ac6c9f437e",
+      "actual": "4e16143bb6bda33a3576581f6becd987ba8cdd0a57f2cd9d053890ac6c9f437e"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/provider-verification.json",
+      "expected": "ab1cc0343960b9afd8485c34c94c36dc650057cb52ec1916f2451a66403b00fe",
+      "actual": "ab1cc0343960b9afd8485c34c94c36dc650057cb52ec1916f2451a66403b00fe"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/reliability-patch-manifest.json",
+      "expected": "8fdd14d3aac15b9526b167f04bd052a4caf770d29e9c2d4dc56ceba57ebf5879",
+      "actual": "8fdd14d3aac15b9526b167f04bd052a4caf770d29e9c2d4dc56ceba57ebf5879"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/retry-fault-verification.json",
+      "expected": "6c82f2475c15d4617cd333accc1b17db2f3ae355c64ee364bdc5bd447e74ae56",
+      "actual": "6c82f2475c15d4617cd333accc1b17db2f3ae355c64ee364bdc5bd447e74ae56"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/screenshots/1793849730015-failure.png",
+      "expected": "0e0a5f61948c9bbf78ae1bebade1e327d0b5e9be338a9361146f0c0bc5aeaf33",
+      "actual": "0e0a5f61948c9bbf78ae1bebade1e327d0b5e9be338a9361146f0c0bc5aeaf33"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/startup-log-redacted.txt",
+      "expected": "536f7b18f9b0a56592a656b851dac8a49333bae6f0186fdcd5f3453c2f0af0c5",
+      "actual": "536f7b18f9b0a56592a656b851dac8a49333bae6f0186fdcd5f3453c2f0af0c5"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/stop-verification.json",
+      "expected": "b15d8fb0bfc4b444c28c31ae888c7221ebe0bafb640197d60dfdf051894c3813",
+      "actual": "b15d8fb0bfc4b444c28c31ae888c7221ebe0bafb640197d60dfdf051894c3813"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/streaming-verification.json",
+      "expected": "28dcf62a6dfdf333ee51dcdedfe1c7c32c33c4f01b49c6158c39b649293c4105",
+      "actual": "28dcf62a6dfdf333ee51dcdedfe1c7c32c33c4f01b49c6158c39b649293c4105"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/test-results.json",
+      "expected": "7f1f694ba0fbc09107a04f6fc0419602e0472c9d105dcee8414ac92d4fc4bbc5",
+      "actual": "7f1f694ba0fbc09107a04f6fc0419602e0472c9d105dcee8414ac92d4fc4bbc5"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/vision-api.json",
+      "expected": "3851efa665befc2053de5f315fec82054c77e45cc77116397b911e13facac220",
+      "actual": "3851efa665befc2053de5f315fec82054c77e45cc77116397b911e13facac220"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/vision-verification.json",
+      "expected": "f9a57e22a4cdf81b16f985bf82ad6b1d52b55ebffefce6e43829486b5797ecec",
+      "actual": "f9a57e22a4cdf81b16f985bf82ad6b1d52b55ebffefce6e43829486b5797ecec"
+    },
+    {
+      "path": "scripts/p522-host-a02-01-baseline.mjs",
+      "expected": "9b078e033d5bd8733c6a1e64243508d491380e8a1f3993e60335ede53e1cd6ea",
+      "actual": "9b078e033d5bd8733c6a1e64243508d491380e8a1f3993e60335ede53e1cd6ea"
+    },
+    {
+      "path": "scripts/p522-host-a02-01-deliver.mjs",
+      "expected": "64bd8841be274322e6062244692b25f0b052de5bf77e1e00c605837f90dbeee9",
+      "actual": "64bd8841be274322e6062244692b25f0b052de5bf77e1e00c605837f90dbeee9"
+    },
+    {
+      "path": "scripts/p522-host-a02-01-electron.mjs",
+      "expected": "de828333e3951a0d93df030d95b5e107c93620d9294cb3c94a5952593e357a13",
+      "actual": "e724cd1265bb9e8957356b027fe5a67316e1eeec5f350e5889cbd51b3ad39f21"
+    },
+    {
+      "path": "scripts/p522-host-a02-01-faults.mjs",
+      "expected": "946b347f925f601be2de2815ba5b1c826997004d3413652c95774d24c4274b0f",
+      "actual": "946b347f925f601be2de2815ba5b1c826997004d3413652c95774d24c4274b0f"
+    },
+    {
+      "path": "scripts/p522-host-a02-01-patches.mjs",
+      "expected": "e4b761b9d5b4a34e582c22961a2113144656a35fc6df824fea2fe7604b90e29d",
+      "actual": "e4b761b9d5b4a34e582c22961a2113144656a35fc6df824fea2fe7604b90e29d"
+    },
+    {
+      "path": "scripts/p522-host-a02-01-provider.mjs",
+      "expected": "f2d2c58514890f5083afacea281fb5a1fa4c461080520ffc32d5b1e6588300c0",
+      "actual": "f2d2c58514890f5083afacea281fb5a1fa4c461080520ffc32d5b1e6588300c0"
+    },
+    {
+      "path": "scripts/p522-host-a01-renderer.mjs",
+      "expected": "94efd0336dac33f62bf0910b64724989f633c25c76c2a49f025f0a2c6c4f4a89",
+      "actual": "94efd0336dac33f62bf0910b64724989f633c25c76c2a49f025f0a2c6c4f4a89"
+    },
+    {
+      "path": "scripts/p522-host-a01-native-typecheck.mjs",
+      "expected": "19a1ccca45b0ec241526d505b7b22c020301065eef3428d2b5ecbb9f2dd246b3",
+      "actual": "19a1ccca45b0ec241526d505b7b22c020301065eef3428d2b5ecbb9f2dd246b3"
+    },
+    {
+      "path": "scripts/p522-host-a01-fallback.mjs",
+      "expected": "f33f4c856447295e9c86f5cc52a405ad286293ffeaa67c1ea961f8321c9194d3",
+      "actual": "f33f4c856447295e9c86f5cc52a405ad286293ffeaa67c1ea961f8321c9194d3"
+    },
+    {
+      "path": "tests/p522-host-a02-01-patches.test.mjs",
+      "expected": "c2adede32e1efee036acc836fe107d35cabb091da4d0669eed18ecfed78f6695",
+      "actual": "c2adede32e1efee036acc836fe107d35cabb091da4d0669eed18ecfed78f6695"
+    },
+    {
+      "path": "docs/architecture/p5.2.2-host-a02-01-openrouter-runtime-reliability.md",
+      "expected": "183911a849c224d0a9778e52331a621138ae0dfe9e1d08388812e8d81b58af50",
+      "actual": "183911a849c224d0a9778e52331a621138ae0dfe9e1d08388812e8d81b58af50"
+    }
+  ],
+  "authorizedSharedScriptChange": [
+    "scripts/p522-host-a02-01-electron.mjs"
+  ],
+  "hermesHead": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+  "worktrees": "E:/DEF/CareerAdapt AI                               151c514 [main]\nE:/DEF/CareerAdapt AI/.tmp/editor-closure-baseline  5b5cf1e (detached HEAD)\nE:/DEF/CareerAdapt AI/.tmp/sq1-closeout-frozen      1573e26 (detached HEAD)\nE:/DEF/CareerAdapt-competition-5.1.8                3d4c6ed [competition/5.1.8]\nE:/DEF/CareerAdapt-jd03-qualified-4561b8d           4561b8d (detached HEAD)\nE:/DEF/CareerAdapt-resume01-887f061e                887f061 (detached HEAD)\nE:/DEF/CareerAdapt-sq13b2-current-87360d1           87360d1 (detached HEAD)\nE:/DEF/CareerAdapt-sq13b2-start-64323f5             64323f5 (detached HEAD)\n",
+  "externalSourceWritten": false,
+  "mainChanged": false,
+  "preloadChanged": false,
+  "pythonChanged": false
+}

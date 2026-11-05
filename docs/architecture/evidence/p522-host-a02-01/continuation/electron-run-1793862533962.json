@@ -1,0 +1,527 @@
+{
+  "run": 1793862533962,
+  "status": "FAIL",
+  "provider": "https://openrouter.ai/api/v1",
+  "model": "dots-studio/dots-3-note-preview:free",
+  "events": [],
+  "rpc": [
+    {
+      "at": 1793862552652,
+      "id": 1,
+      "method": "model.options"
+    },
+    {
+      "at": 1793862552652,
+      "id": 2,
+      "method": "setup.status",
+      "ackAt": 1793862552921,
+      "rejected": false,
+      "resultKeys": [
+        "provider_configured"
+      ]
+    },
+    {
+      "at": 1793862552652,
+      "id": 3,
+      "method": "setup.runtime_check",
+      "ackAt": 1793862552921,
+      "rejected": false,
+      "resultKeys": [
+        "ok",
+        "provider",
+        "model",
+        "source"
+      ]
+    },
+    {
+      "at": 1793862552653,
+      "id": 4,
+      "method": "setup.status",
+      "ackAt": 1793862552921,
+      "rejected": false,
+      "resultKeys": [
+        "provider_configured"
+      ]
+    },
+    {
+      "at": 1793862552653,
+      "id": 5,
+      "method": "setup.runtime_check",
+      "ackAt": 1793862552922,
+      "rejected": false,
+      "resultKeys": [
+        "ok",
+        "provider",
+        "model",
+        "source"
+      ]
+    },
+    {
+      "at": 1793862552755,
+      "id": 6,
+      "method": "session.active_list",
+      "ackAt": 1793862552921,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793862554766,
+      "id": 7,
+      "method": "session.active_list",
+      "ackAt": 1793862554768,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793862555661,
+      "id": 8,
+      "method": "pet.info",
+      "ackAt": 1793862555900,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793862555663,
+      "id": 9,
+      "method": "session.active_list",
+      "ackAt": 1793862555887,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793862557164,
+      "id": 10,
+      "method": "session.active_list",
+      "ackAt": 1793862557986,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793862558649,
+      "id": 11,
+      "method": "pet.info",
+      "ackAt": 1793862558801,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793862558667,
+      "id": 12,
+      "method": "session.active_list",
+      "ackAt": 1793862558814,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793862560162,
+      "id": 13,
+      "method": "session.active_list",
+      "ackAt": 1793862560267,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793862561658,
+      "id": 14,
+      "method": "pet.info",
+      "ackAt": 1793862562197,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793862561658,
+      "id": 15,
+      "method": "session.active_list",
+      "ackAt": 1793862562197,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793862563164,
+      "id": 16,
+      "method": "session.active_list",
+      "ackAt": 1793862563168,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793862564656,
+      "id": 17,
+      "method": "pet.info",
+      "ackAt": 1793862564736,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793862564656,
+      "id": 18,
+      "method": "session.active_list",
+      "ackAt": 1793862564678,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793862569237,
+      "id": 19,
+      "method": "session.active_list",
+      "ackAt": 1793862569237,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793862569239,
+      "id": 20,
+      "method": "pet.info",
+      "ackAt": 1793862569240,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ]
+    },
+    {
+      "at": 1793862569240,
+      "id": 21,
+      "method": "session.active_list",
+      "ackAt": 1793862569240,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    },
+    {
+      "at": 1793862569243,
+      "id": 22,
+      "method": "setup.status",
+      "ackAt": 1793862569244,
+      "rejected": false,
+      "resultKeys": [
+        "provider_configured"
+      ]
+    },
+    {
+      "at": 1793862569244,
+      "id": 23,
+      "method": "setup.runtime_check",
+      "ackAt": 1793862569244,
+      "rejected": false,
+      "resultKeys": [
+        "ok",
+        "provider",
+        "model",
+        "source"
+      ]
+    },
+    {
+      "at": 1793862569244,
+      "id": 24,
+      "method": "session.active_list",
+      "ackAt": 1793862569244,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ]
+    }
+  ],
+  "turns": [
+    {
+      "label": "context-1",
+      "tClick": 1793862554890,
+      "sessionBefore": null
+    }
+  ],
+  "errors": [],
+  "consoleErrors": [],
+  "screenshots": [
+    "docs/architecture/evidence/p522-host-a02-01/continuation/screenshots/1793862533962-ready.png",
+    "docs/architecture/evidence/p522-host-a02-01/continuation/screenshots/1793862533962-failure.png"
+  ],
+  "toolCalls": 0,
+  "scope": "Real locked Electron, native Composer/Stop/Store/Runtime, synthetic content only",
+  "process": {
+    "stdout": "",
+    "stderr": "(electron) 'console-message' arguments are deprecated and will be removed. Please use Event<WebContentsConsoleMessageEventParams> object instead.\nError occurred in handler for 'hermes:api': Error: socket hang up\n    at Socket.socketOnEnd (node:_http_client:617:25)\n    at Socket.emit (node:events:521:24)\n    at endReadableNT (node:internal/streams/readable:1729:12)\n    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {\n  code: 'ECONNRESET'\n}\nDebugger ending on ws://127.0.0.1:48173/81403f94-19e1-48e9-a297-36f630839e4d\r\nFor help, see: https://nodejs.org/en/docs/inspector\r\nError occurred in handler for 'hermes:api': Error: connect ECONNREFUSED 127.0.0.1:51187\n    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16) {\n  errno: -4078,\n  code: 'ECONNREFUSED',\n  syscall: 'connect',\n  address: '127.0.0.1',\n  port: 51187\n}\nError occurred in handler for 'hermes:api': Error: connect ECONNREFUSED 127.0.0.1:51187\n    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16) {\n  errno: -4078,\n  code: 'ECONNREFUSED',\n  syscall: 'connect',\n  address: '127.0.0.1',\n  port: 51187\n}\n"
+  },
+  "main": {
+    "appPath": "[HERMES_ROOT]\\apps\\desktop",
+    "argv": [
+      "[HERMES_ROOT]\\node_modules\\electron\\dist\\electron.exe",
+      "--inspect=0",
+      "--remote-debugging-port=0",
+      "E:\\DEF\\CareerAdapt AI\\.artifacts\\p522-host-a02-01\\main-integration",
+      "--disable-gpu",
+      "--no-sandbox"
+    ]
+  },
+  "onboardingBranch": "native-composer-actionable",
+  "backend": {
+    "traceReady": {
+      "at": 1793862551399,
+      "kind": "backend.ready",
+      "pid": 82252,
+      "channel": "stdout",
+      "line": "HERMES_BACKEND_READY port=51187"
+    },
+    "healthStatus": 200,
+    "health": {
+      "ok": true,
+      "version": "0.19.0",
+      "auth_required": false
+    },
+    "gateway": "online"
+  },
+  "fontStates": [
+    {
+      "stage": "ready",
+      "status": "loaded",
+      "pending": [
+        {
+          "family": "KaTeX_AMS",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Caligraphic",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Caligraphic",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Fraktur",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Fraktur",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Main",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Main",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Main",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Main",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Math",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Math",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_SansSerif",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_SansSerif",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_SansSerif",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Script",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Size1",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Size2",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Size3",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Size4",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Typewriter",
+          "status": "unloaded"
+        },
+        {
+          "family": "JetBrains Mono",
+          "status": "unloaded"
+        },
+        {
+          "family": "JetBrains Mono",
+          "status": "unloaded"
+        },
+        {
+          "family": "JetBrains Mono",
+          "status": "unloaded"
+        },
+        {
+          "family": "Courier Prime",
+          "status": "unloaded"
+        },
+        {
+          "family": "Courier Prime",
+          "status": "unloaded"
+        }
+      ]
+    },
+    {
+      "stage": "failure",
+      "status": "loaded",
+      "pending": [
+        {
+          "family": "KaTeX_AMS",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Caligraphic",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Caligraphic",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Fraktur",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Fraktur",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Main",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Main",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Main",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Main",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Math",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Math",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_SansSerif",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_SansSerif",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_SansSerif",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Script",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Size1",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Size2",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Size3",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Size4",
+          "status": "unloaded"
+        },
+        {
+          "family": "KaTeX_Typewriter",
+          "status": "unloaded"
+        },
+        {
+          "family": "JetBrains Mono",
+          "status": "unloaded"
+        },
+        {
+          "family": "JetBrains Mono",
+          "status": "unloaded"
+        },
+        {
+          "family": "JetBrains Mono",
+          "status": "unloaded"
+        },
+        {
+          "family": "Courier Prime",
+          "status": "unloaded"
+        },
+        {
+          "family": "Courier Prime",
+          "status": "unloaded"
+        }
+      ]
+    }
+  ],
+  "failure": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Send message', exact: true })\u001b[22m\n\n    at send (E:\\DEF\\CareerAdapt AI\\scripts\\p522-host-a02-01-electron.mjs:50:67)\n    at async file:///E:/DEF/CareerAdapt%20AI/scripts/p522-host-a02-01-electron.mjs:106:3",
+  "windows": [
+    "http://127.0.0.1:5190/#/"
+  ],
+  "url": "http://127.0.0.1:5190/#/",
+  "body": "职适 AI\nCareerAdapt AI\n首页\nAI 工作台\n个人资料库\n设置\nHost 集成预览 · 隔离数据\nAI 能力与高级管理\n原生导航与快捷键\n对话上下文\n＋ 新建对话\n\nNo sessions yet\n\nNew project\n\nCAREERADAPT AI\n\n从你的经历出发，梳理问题与下一步。\n\n⠋\nWaking up …\nSynthetic test only. Do not call tools. Remember the code A02-CONTEXT-68Q. Reply exactly: A02-CONTEXT-STORED.\nDots 3 Note Preview:Free · Off\nAI 连接\nready\n协作代理\n定时任务\n外部触发\nSmart\nv0.19.0 (+1)\neb52760",
+  "desktopLog": "[hermes] [tls] trusting 514 Windows system CA certificate(s) for backend connections\n[hermes] [boot] Resolving Hermes backend\n[hermes] [boot] Resolving Hermes runtime\n[hermes] [boot] Using Hermes source at [HERMES_ROOT]\n[hermes] [backend] `serve` supported for Hermes source at [HERMES_ROOT]\n[hermes] [boot] Starting Hermes backend via Hermes source at [HERMES_ROOT]\n[hermes] Starting Hermes backend via Hermes source at [HERMES_ROOT]\n[hermes] [boot] Waiting for Hermes backend to launch\n[hermes] HERMES_BACKEND_READY port=51187\n[hermes] [boot] Waiting for Hermes backend to become ready\n[hermes] [boot] could not read served dashboard token (Hermes backend): 404: {\"error\":\"Headless backend (hermes serve): web UI disabled — use `hermes dashboard` for the browser UI.\"}\n[hermes] [boot] Hermes backend is ready. Finalizing desktop startup\n",
+  "providerDumps": [],
+  "credentialCleanup": {
+    "file": "[TEST_HOME]/config.yaml",
+    "removed": true,
+    "userLocalConfigRetained": true
+  }
+}

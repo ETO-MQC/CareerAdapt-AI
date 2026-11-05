@@ -1,0 +1,68 @@
+{
+  "status": "PARTIAL_EXTERNAL_RATE_LIMIT",
+  "checks": [
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0
+    },
+    {
+      "command": "Native Renderer TypeScript overlay",
+      "exitCode": 0
+    },
+    {
+      "command": "Native Main TypeScript overlay",
+      "exitCode": 0
+    },
+    {
+      "command": "Renderer Career integration build",
+      "exitCode": 0
+    },
+    {
+      "command": "Renderer default build optIn=false",
+      "exitCode": 0
+    },
+    {
+      "command": "Locked Backend/Health vitest 2 files 30 tests",
+      "exitCode": 0
+    },
+    {
+      "command": "UNKNOWN retry fault fixture 10 cases",
+      "exitCode": 0
+    },
+    {
+      "command": "Node targeted Unit 7 tests",
+      "exitCode": 0
+    },
+    {
+      "command": "Provider native resolver positive/negative (zero model calls)",
+      "exitCode": 0
+    },
+    {
+      "command": "Default Shell native regression",
+      "exitCode": 0
+    },
+    {
+      "command": "Changed-files ESLint 10 files",
+      "exitCode": 0
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    },
+    {
+      "command": "Native composer controls.test.tsx 3 tests",
+      "exitCode": 0
+    }
+  ],
+  "careerFullRounds": 5,
+  "entryPreflights": 3,
+  "nativeConversation": "Native Send, prompt.submit once and ACK; specified Provider returned429 free-models-per-day; success path blocked externally",
+  "notRun": [
+    "full historical suites",
+    "installer",
+    "PDF"
+  ],
+  "userApprovedAdditionalRounds": 2,
+  "lastCareerExitCode": 1,
+  "finalClassificationCorrection": "Native terminal error precedes delta assertions; lint only after correction, no Provider retry"
+}
