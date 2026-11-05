@@ -1,0 +1,43 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+ ❯ tests/integration/ux011Host.test.ts (2 tests | 1 failed) 455ms
+   × persists an analyze-only target and clears old job/fit ownership when another JD is analyzed 163ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/ux011Host.test.ts > persists an analyze-only target and clears old job/fit ownership when another JD is analyzed
+ZodError: [
+  {
+    "origin": "string",
+    "code": "too_small",
+    "minimum": 8,
+    "inclusive": true,
+    "path": [
+      "messages",
+      2,
+      "operationId"
+    ],
+    "message": "Too small: expected string to have >=8 characters"
+  }
+]
+ ❯ serializeAgentSession src/agent/contracts/agentSession.ts:527:29
+    525|
+    526| export function serializeAgentSession(value: AgentSession) {
+    527|   return AgentSessionSchema.parse(value);
+       |                             ^
+    528| }
+    529|
+ ❯ WorkspaceRepository.saveAgentSession src/services/storage/repositories.ts:925:47
+ ❯ AgentSessionStore.save src/services/agent/agentSessionStore.ts:14:28
+ ❯ AgentHostStore.applyRuntimeEventNow src/agent/runtime/AgentHostStore.ts:2815:57
+ ❯ src/agent/runtime/AgentHostStore.ts:2230:59
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 13 passed (14)
+      Tests  1 failed | 92 passed (93)
+   Start at  20:16:25
+   Duration  15.46s (transform 28.87s, setup 8.39s, import 49.28s, tests 8.96s, environment 49.98s)
+

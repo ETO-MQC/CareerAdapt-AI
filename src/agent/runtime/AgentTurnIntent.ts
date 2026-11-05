@@ -5,7 +5,7 @@ import {
   type CareerAgentTask
 } from "@/agent/contracts/careerTask";
 
-const EXPLICIT_PROFILE_INTAKE_REQUEST = /(?:^|[，,。；;：:\n])\s*(?:请帮我|帮我|请|我想|我要)?\s*(?:(?:整理|补充|完善|更新)(?:一下|我的|个人|当前|这些|这份|的|\s)*(?:资料库|职业档案|职业资料)|(?:把|将)[^。；;\n]*(?:经历|材料)[^。；;\n]*(?:整理到|补充到|加入)(?:个人)?资料库)/u;
+const EXPLICIT_PROFILE_INTAKE_REQUEST = /(?:^|[，,。；;：:\n])\s*(?:请帮我|帮我|请|我想|我要)?\s*(?:(?:整理|补充|完善|更新|修改)(?:一下|我的|个人|当前|这些|这份|的|\s)*(?:资料库|个人资料|职业档案|职业资料)|(?:把|将)[^。；;\n]*(?:经历|材料)[^。；;\n]*(?:整理到|补充到|加入)(?:个人)?资料库)/u;
 
 export type TurnIntent =
   | "continue_current_task"

@@ -1,0 +1,37 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+stderr | tests/unit/guidedProfileIntakeRepositoryP42a3f.test.ts > P4.2a.3f profile commit and General Resume bootstrap > applies a corrected award name without requiring the replacement text in the source quote
+[profile-intake:proposal-validation] {
+  candidateCount: 1,
+  acceptedCount: 0,
+  errorCodes: [ 'profile_intake_fact_guard:description:participation_to_owner' ]
+}
+
+ ❯ tests/unit/guidedProfileIntakeRepositoryP42a3f.test.ts (10 tests | 1 failed) 684ms
+     × applies a corrected award name without requiring the replacement text in the source quote 26ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/guidedProfileIntakeRepositoryP42a3f.test.ts > P4.2a.3f profile commit and General Resume bootstrap > applies a corrected award name without requiring the replacement text in the source quote
+Error: 这项原始回答尚未整理完成，请重新解析、编辑后采用或忽略。
+ ❯ toolError src/services/agent/agentToolService.ts:2632:24
+    2630|
+    2631| function toolError(code: string, message: string) {
+    2632|   return Object.assign(new Error(message), { code });
+       |                        ^
+    2633| }
+    2634|
+ ❯ src/services/agent/agentToolService.ts:590:17
+ ❯ src/services/agent/agentToolService.ts:558:35
+ ❯ BrowserAgentToolService.reviewProfileIntake src/services/agent/agentToolService.ts:557:37
+ ❯ tests/unit/guidedProfileIntakeRepositoryP42a3f.test.ts:409:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 10 passed (11)
+      Tests  1 failed | 78 passed (79)
+   Start at  20:05:05
+   Duration  12.65s (transform 14.20s, setup 4.81s, import 25.71s, tests 7.05s, environment 27.20s)
+

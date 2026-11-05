@@ -1,0 +1,33 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+ ❯ tests/integration/ux011Host.test.ts (2 tests | 1 failed) 582ms
+   × projects a Hermes intake into a bound editable Host task and keeps Profile untouched until confirmation 373ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/ux011Host.test.ts > projects a Hermes intake into a bound editable Host task and keeps Profile untouched until confirmation
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/integration/ux011Host.test.ts:83:116
+     81|   expect(canonicalProfileLibraryItems(saved).some(row => row.sectionTy…
+     82|   expect(JSON.stringify(saved)).toContain("匿名大学");
+     83|   expect((await persistence.listProfileIntakeSourceTurns(initial.id)).…
+       |                                                                                                                    ^
+     84|   expect(await repository.listResumeBranches(profile.id)).toHaveLength…
+     85|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 10 passed (11)
+   Start at  20:19:26
+   Duration  4.64s (transform 2.97s, setup 259ms, import 4.31s, tests 778ms, environment 1.69s)
+

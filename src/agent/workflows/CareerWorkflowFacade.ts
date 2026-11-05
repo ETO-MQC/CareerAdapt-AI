@@ -14,7 +14,7 @@ import {
   type CareerInformationNeedDraft,  type CareerInteractionQuestion
 } from "@/domain/careerInteraction/CareerInteractionPlan";
 import { isTailoringQuestionPaused, normalizeTailoringStage, type TailoringStage } from "./tailoringStage";
-import { JobRequirementGraphV4Schema, JobTargetSnapshotSchema } from "@/domain/schemas";
+import { JobRequirementGraphV3Schema, JobRequirementGraphV4Schema, JobTargetSnapshotSchema } from "@/domain/schemas";
 import { createPastedJobTargetSnapshot, jobTargetSnapshotHash } from "@/domain/jobTarget/jobTargetSnapshot";
 import {
   normalizeTailorResumeInput,
@@ -364,8 +364,18 @@ export async function executeCareerWorkflowFacade(
     const analysis = objectValue(parsed.data);
     const title = stringValue(analysis.candidateTitle);
     const company = stringValue(analysis.candidateCompany);
+    const targetSnapshot = parsed.ok ? JobTargetSnapshotSchema.parse({
+      ...createPastedJobTargetSnapshot({
+        rawText: requiredString(input.rawText, "rawText"),
+        graph: z.union([JobRequirementGraphV3Schema, JobRequirementGraphV4Schema]).parse(analysis.graph),
+        title,
+        company
+      }),
+      ...(input.sourceUrl ? { sourceUrl: input.sourceUrl } : {})
+    }) : undefined;
     const checkpoint = {
       kind: "job_intake",
+      ...(targetSnapshot ? { targetSnapshot } : {}),
       identity: { title: title ?? "unknown", company: company ?? "unknown", location: stringValue(analysis.candidateLocation) ?? "unknown" },
       graph: analysis.graph,
       missingIdentityFields: analysis.missingIdentityFields,
@@ -432,6 +442,10 @@ export async function executeCareerWorkflowFacade(
       kind: "profile_intake_turn",
       profileId: input.profileId,
       expectedProfileRevision: input.expectedProfileRevision,
+      source: {
+        sessionId: input.agentSessionId, messageId: input.messageId,
+        turnId: input.turnId, exactSourceQuote: input.userTurn, capturedAt: input.capturedAt
+      },
       understood: compactData(result.data, [
         "importId", "expectedDraftRevision", "persistenceStatus", "candidateCount", "usableCandidateCount",
         "quarantinedCandidateCount", "nextTurnPlan", "interviewPlan", "followUpQuestion",

@@ -1,0 +1,40 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+stderr | tests/integration/ux011Host.test.ts > projects a Hermes intake into a bound editable Host task and keeps Profile untouched until confirmation
+[profile-intake:proposal-validation] {
+  candidateCount: 2,
+  acceptedCount: 1,
+  errorCodes: [ 'profile_intake_field_evidence_missing:name' ]
+}
+
+ ❯ tests/integration/ux011Host.test.ts (2 tests | 1 failed) 1679ms
+   × projects a Hermes intake into a bound editable Host task and keeps Profile untouched until confirmation 354ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/ux011Host.test.ts > projects a Hermes intake into a bound editable Host task and keeps Profile untouched until confirmation
+AssertionError: expected [ { …(14) } ] to have a length of 2 but got 1
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ tests/integration/ux011Host.test.ts:53:33
+     51|     knownSlots: { targetProfileId: profile.id, expectedProfileVersion:…
+     52|   const projection = ProfileIntakeReviewProjectionSchema.parse(session…
+     53|   expect(projection.candidates).toHaveLength(2);
+       |                                 ^
+     54|   expect(await repository.getProfile(profile.id)).toEqual(profile);
+     55|   session = await host.dispatch({ type: "artifact_action", action: { t…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  20:18:08
+   Duration  15.52s (transform 10.85s, setup 194ms, import 11.95s, tests 1.68s, environment 1.32s)
+

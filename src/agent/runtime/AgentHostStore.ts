@@ -11750,6 +11750,15 @@ function runtimeArtifactResultData(stableName: string, value: unknown) {
  * produced.
  */
 function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, value: unknown): AgentSession {
+  if (toolName === "career.workflow.profile_intake_turn"
+    && objectValue(objectValue(value).workflowCheckpoint).kind === "profile_intake_turn"
+    && session.taskState?.workflowId !== "guided_profile_intake") {
+    const reducer = new AgentTaskStateReducer();
+    const task = reducer.reduce(reducer.create(session, "profile_intake", { workflowId: "guided_profile_intake", step: "collect_experience" }), {
+      type: "new_root_task", goal: "profile_intake", workflowId: "guided_profile_intake", stage: "collect_experience"
+    });
+    session = projectTaskStateIntoSession(session, task);
+  }
   if (toolName === "career.workflow.job_intake" && !session.taskState) {
     const reducer = new AgentTaskStateReducer();
     const task = reducer.reduce(reducer.create(session, "ingest_job", { workflowId: "job_ingestion", step: "parse_job" }), {
@@ -11864,6 +11873,8 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
               ? "export_ready"
               : toolName === "career.workflow.resume_import" || checkpoint.kind === "resume_import_review"
                 ? "import_review"
+                : toolName === "career.workflow.profile_intake_turn"
+                  ? "collect_experience"
                 : toolName === "career.workflow.profile_intake_finalize"
                   ? "final_review"
                   : toolName === "career.workflow.tailor_resume"
@@ -11900,6 +11911,12 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
       ...(stringRecordValue(checkpoint.jobPersistenceDecision) ? { jobPersistenceDecision: stringRecordValue(checkpoint.jobPersistenceDecision) } : {})
     } : {}),
     ...(checkpoint.kind === "profile_intake_turn" ? {
+      targetProfileId: checkpoint.profileId,
+      expectedProfileVersion: checkpoint.expectedProfileRevision,
+      latestIntakeSource: {
+        ...objectRecordValue(checkpoint.source),
+        sourceContentHash: objectRecordValue(understood.reviewProjection).sourceContentHash
+      },
       intakeImportId: understood.importId,
       expectedIntakeDraftRevision: understood.expectedDraftRevision,
       profileIntakeCaptureResult: understood,
@@ -11972,6 +11989,22 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
     delete knownSlots.resumeCompositionPendingInformationNeed;
   } else if (checkpoint.kind === "resume_composition") {
     delete knownSlots.resumeCompositionResult;
+  }
+  if (checkpoint.kind === "job_intake") {
+    delete knownSlots.fitAnalysis;
+    delete knownSlots.tailoringSession;
+    delete selectedEntities.tailoringSessionId;
+    if (hasExternalTargetSnapshot) {
+      delete selectedEntities.jobId;
+      delete selectedEntities.jobRevision;
+      delete selectedEntities.savedJobId;
+    } else if (stringValue(checkpoint.jobId)) {
+      delete knownSlots.targetSnapshot;
+      delete knownSlots.targetSourceType;
+      delete selectedEntities.targetSnapshotId;
+      delete selectedEntities.targetSnapshotVersion;
+      delete selectedEntities.targetSnapshotHash;
+    }
   }
   const authoritativeActiveQuestionId = stringValue(
     knownSlots.activeQuestionId
@@ -12135,7 +12168,7 @@ function artifactActionExecution(
     const finalProjection = ProfileIntakeReviewProjectionSchema.safeParse(state.knownSlots.profileIntakeReviewProjection);
     const finalReview = state.stage === "final_review" && finalProjection.success && Boolean(finalProjection.data.finalSynthesis);
     if (
-      !finalReview && state.stage !== "review_facts" && !(state.stage === "collect_experience" && action.decision === "reopen")
+      !finalReview && !["review_facts", "collect_experience"].includes(state.stage)
       || !candidate
       || action.decision === "accept" && (accepted || candidate.needsNormalization === true || candidate.canAccept === false)
       || action.decision === "reject" && !accepted && candidate.decision === "reject"
@@ -12161,11 +12194,10 @@ function artifactActionExecution(
       ? state.knownSlots.intakeCandidates.map(objectValue)
       : [];
     const candidate = candidates.find((item) => item.id === action.candidateId);
-    const candidateAccepted = candidate?.decision === "accept" || candidate?.included === true;
     const finalProjection = ProfileIntakeReviewProjectionSchema.safeParse(state.knownSlots.profileIntakeReviewProjection);
     const finalReview = state.stage === "final_review" && finalProjection.success && Boolean(finalProjection.data.finalSynthesis);
     if (
-      (!finalReview && state.stage !== "review_facts" && !(state.stage === "collect_experience" && candidateAccepted))
+      (!finalReview && !["review_facts", "collect_experience"].includes(state.stage))
       || !candidate
       || state.knownSlots.intakeImportId !== action.importId
       || state.knownSlots.expectedIntakeDraftRevision !== action.expectedDraftRevision

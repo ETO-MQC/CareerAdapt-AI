@@ -1,0 +1,13 @@
+
+> careeradapt-ai@0.9.3-rc.2 typecheck E:\DEF\CareerAdapt-competition-5.1.8
+> tsc --noEmit
+
+tests/integration/ux011Host.test.ts(83,89): error TS2551: Property 'exactSourceQuote' does not exist on type '{ sessionId: string; messageId: string; turnId: string; exactSourceText: string; sourceHash: string; capturedAt: string; workflowStage: string; processingStatus: "failed" | "partial" | "superseded" | "journaled" | "structuring" | "structured"; ... 22 more ...; operationId?: string | undefined; }'. Did you mean 'exactSourceText'?
+tests/unit/ux011Workflow.test.tsx(29,60): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+  Overload 2 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+tests/unit/ux011Workflow.test.tsx(37,55): error TS2353: Object literal may only specify known properties, and 'title' does not exist in type '{ rawText: string; aiAssignments?: { sourceUnitId: string; verdict: "accept" | "override"; segments?: { start: number; end: number; section?: "responsibility" | "required" | "preferred" | "verification" | "role_profile" | "unknown" | undefined; ... 4 more ...; semanticAliases?: string[] | undefined; }[] | undefined;...'.
+tests/unit/ux011Workflow.test.tsx(54,145): error TS2353: Object literal may only specify known properties, and 'now' does not exist in type '{ rawText: string; aiAssignments?: { sourceUnitId: string; verdict: "accept" | "override"; segments?: { start: number; end: number; section?: "responsibility" | "required" | "preferred" | "verification" | "role_profile" | "unknown" | undefined; ... 4 more ...; semanticAliases?: string[] | undefined; }[] | undefined;...'.
+ ELIFECYCLE  Command failed with exit code 2.

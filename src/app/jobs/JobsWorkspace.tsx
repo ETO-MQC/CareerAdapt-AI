@@ -141,14 +141,13 @@ export function JobsWorkspace() {
   const activeJobs = jobs.filter((job) => !archivedJobIds.includes(job.id) && !trashedJobIds.includes(job.id));
   const archivedJobs = jobs.filter((job) => archivedJobIds.includes(job.id) && !trashedJobIds.includes(job.id));
   const visibleJobs = jobListFilter === "active" ? activeJobs : archivedJobs;
-  const selectedJob = jobs.find((job) => job.id === selectedJobId && !trashedJobIds.includes(job.id)) ?? visibleJobs[0] ?? activeJobs[0] ?? archivedJobs[0];
+  const selectedJob = jobs.find((job) => job.id === selectedJobId && !trashedJobIds.includes(job.id));
   useEffect(() => {
-    if (!selectedJob) return;
     const url = new URL(window.location.href);
-    if (url.searchParams.get("jobId") === selectedJob.id) return;
-    url.searchParams.set("jobId", selectedJob.id);
+    if (selectedJobId) url.searchParams.set("jobId", selectedJobId);
+    else url.searchParams.delete("jobId");
     window.history.replaceState(window.history.state, "", url);
-  }, [selectedJob]);
+  }, [selectedJobId]);
 
   const baseResumeOptions = resumeBranches.filter(branch => branch.profileId === profile?.id && isMatchBaseResume(branch));
   const selectedBaseResume = baseResumeOptions.find((branch) => branch.id === selectedBaseResumeId);

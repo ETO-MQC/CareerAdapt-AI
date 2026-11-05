@@ -1,0 +1,96 @@
+{
+  "task": "P5.1-UX-01.1",
+  "date": "2026-11-05",
+  "status": "PARTIAL",
+  "readyForUserTrial": false,
+  "baseline": {
+    "branch": "competition/5.1.8",
+    "localHead": "874a03b7dc5e5a370ecfe58107ba4e7b8c02c8a5",
+    "remoteHead": "874a03b7dc5e5a370ecfe58107ba4e7b8c02c8a5",
+    "clean": true
+  },
+  "validation": {
+    "unitIntegration": {
+      "files": 14,
+      "passed": 93,
+      "skipped": 0,
+      "exitCode": 0,
+      "log": "ux-01.1-logs/verified-targeted-tests.log"
+    },
+    "newTests": {
+      "passed": 11,
+      "log": "ux-01.1-logs/new-contracts-final.log"
+    },
+    "relatedOpenFailure": {
+      "test": "guidedProfileIntakeRepositoryP42a3f award corrected name",
+      "current": "78 passed / 1 failed in expanded 79-test set",
+      "baseline": "9 passed / 1 identical failure",
+      "baselineCommit": "874a03b7dc5e5a370ecfe58107ba4e7b8c02c8a5",
+      "category": "pre-existing relevant contract issue; unresolved, not waived",
+      "logs": [
+        "ux-01.1-logs/targeted-tests.log",
+        "ux-01.1-logs/award-baseline.log"
+      ]
+    },
+    "browser": {
+      "rounds": 2,
+      "scenariosPerRound": 2,
+      "exitCodes": [
+        1,
+        1
+      ],
+      "status": "NOT_PASSED",
+      "retryStoppedPerAgents": true,
+      "afterFinalFix": "NOT_RUN",
+      "logs": [
+        "ux-01.1-logs/browser-1.log",
+        "ux-01.1-logs/browser-2.log"
+      ]
+    },
+    "typecheck": {
+      "exitCode": 0,
+      "log": "ux-01.1-logs/typecheck-verified.log"
+    },
+    "eslint": {
+      "exitCode": 0,
+      "files": 11,
+      "log": "ux-01.1-logs/eslint-verified.log"
+    },
+    "build": {
+      "exitCode": 0,
+      "environment": "RP011 isolated internal dependencies",
+      "log": "ux-01.1-logs/production-build-final.log",
+      "sourceParity": "ux-01.1-logs/build-source-parity.json"
+    },
+    "diffCheck": {
+      "exitCode": 0,
+      "scope": "current tracked diff",
+      "log": "ux-01.1-logs/diff-check.log"
+    }
+  },
+  "constraints": {
+    "realProviderRequests": 0,
+    "realApiKeysRead": false,
+    "multiAgent": false,
+    "skillTextsChanged": false,
+    "schemaV2Changed": false,
+    "guardThresholdsChanged": false,
+    "confirmationCasChanged": false,
+    "repositoryWriteBoundaryChanged": false,
+    "newTables": false,
+    "newProductionDependencies": false,
+    "runtimeRewritten": false,
+    "commit": false,
+    "push": false,
+    "packaged": false
+  },
+  "unverified": [
+    "full browser partial review / final confirmation / reload",
+    "full browser JD refresh / target switch after final fix",
+    "temporary target per-requirement edit and business confirmation UI",
+    "all cross-Profile and late candidate UI combinations",
+    "new UI transaction-fault recovery",
+    "image / complex documents",
+    "real model quality"
+  ]
+}

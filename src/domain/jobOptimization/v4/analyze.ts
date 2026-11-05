@@ -213,7 +213,8 @@ export function buildProvisionalJdSemanticLedger(rawText: string): JdSemanticUni
     const currentSection: Section = section === "unknown" ? inferDefaultSection(unit.text) : section;
 
 
-    if (METADATA.test(unit.text)) {
+    if (METADATA.test(unit.text)
+      || /^(?:公司(?:名称)?|岗位(?:名称)?|职位(?:名称)?|工作地点|招聘人数|薪资范围)\s*[:：]\s*\S+/u.test(unit.text)) {
       unit.provisional = { disposition: "metadata", section: currentSection };
       continue;
     }

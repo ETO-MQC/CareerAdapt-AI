@@ -1,0 +1,63 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+ ❯ tests/unit/ux011Workflow.test.tsx (8 tests | 2 failed) 51ms
+   × offers actionable provisional candidates while clarifying, without a commit action 6ms
+   × binds an analyze-only JD snapshot to the Host target display and rejects a stale display 34ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/ux011Workflow.test.tsx > offers actionable provisional candidates while clarifying, without a commit action
+ZodError: [
+  {
+    "expected": "string",
+    "code": "invalid_type",
+    "path": [
+      "candidates",
+      0,
+      "structuredItem",
+      "id"
+    ],
+    "message": "Invalid input: expected string, received undefined"
+  }
+]
+ ❯ tests/unit/ux011Workflow.test.tsx:18:58
+     16| });
+     17| it("offers actionable provisional candidates while clarifying, without…
+     18|   const projection = ProfileIntakeReviewProjectionSchema.parse({
+       |                                                          ^
+     19|     importId: "ux-import", draftRevision: 1, phase: "clarifying", sour…
+     20|     sourceContentHash: "12345678", extractionStatus: "structured_ai", …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/unit/ux011Workflow.test.tsx > binds an analyze-only JD snapshot to the Host target display and rejects a stale display
+ZodError: [
+  {
+    "expected": "object",
+    "code": "invalid_type",
+    "path": [
+      "receipts",
+      0
+    ],
+    "message": "Invalid input: expected object, received undefined"
+  }
+]
+ ❯ facadeFromAtomic src/agent/workflows/CareerWorkflowFacade.ts:1263:44
+    1261|     : userPrompt;
+    1262|   return {
+    1263|     data: CareerWorkflowFacadeResultSchema.parse({
+       |                                            ^
+    1264|       status,
+    1265|       workflowStage,
+ ❯ executeCareerWorkflowFacade src/agent/workflows/CareerWorkflowFacade.ts:387:14
+ ❯ tests/unit/ux011Workflow.test.tsx:39:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 6 passed (8)
+   Start at  20:01:58
+   Duration  3.11s (transform 1.09s, setup 157ms, import 1.67s, tests 51ms, environment 969ms)
+

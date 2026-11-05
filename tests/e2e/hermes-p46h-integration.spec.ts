@@ -123,6 +123,92 @@ test.describe("P4.6h hermetic Web + browser MCP integration", () => {
     expect(trace.toolRequests.every((request) => request.name.startsWith("career.") && !request.name.includes("workflow"))).toBe(true);
   });
 
+  test("CASE A UX011-PROFILE — narrative candidates are editable, partially accepted and explicitly committed", async ({ page }) => {
+    await openWorkspace(page);
+    await page.goto("/profile");
+    await page.locator('[data-profile-category="basics"]').click();
+    await page.getByRole("button", { name: "新增", exact: true }).click();
+    await page.locator("#new-profile-name").fill("UX011 匿名人物");
+    await page.getByRole("button", { name: "创建人物", exact: true }).click();
+    await expect.poll(async () => (await readStore(page, "profiles")).some(row => (row.basics as { name?: string })?.name === "UX011 匿名人物")).toBe(true);
+    const profile = (await readStore(page, "profiles")).find(row => (row.basics as { name?: string })?.name === "UX011 匿名人物")!;
+    await page.goto("/ai-workspace");
+    await startFreshConversation(page);
+    await page.route("**/api/ai/structured**", async route => {
+      const body = route.request().postDataJSON();
+      if (body.task !== "profile-intake-semantic") return route.continue();
+      const raw = body.input.rawNarrative as string;
+      const records = [
+        { text: "就读匿名大学计算机专业。", item: { id: "ux-edu", sectionType: "education", school: "匿名大学", major: "计算机专业" } },
+        { text: "参与匿名课程项目，使用 Python 清洗数据并提交报告。", item: { id: "ux-project", sectionType: "project", title: "匿名课程项目", role: "参与", description: "使用 Python 清洗数据并提交报告。", tools: ["Python"] } },
+        { text: "获得匿名竞赛三等奖。", item: { id: "ux-award", sectionType: "awards", name: "匿名竞赛三等奖" } }
+      ];
+      await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, task: body.task, promptVersion: "ux011-synthetic", output: {
+        candidates: records.map(record => ({ candidateKey: record.item.id, sectionType: record.item.sectionType,
+          sourceSpan: { start: raw.indexOf(record.text), end: raw.indexOf(record.text) + record.text.length }, structuredItem: record.item,
+          professionalText: record.text, uncertainFields: [] })), followUpQuestions: []
+      }, meta: { provider: "scripted", model: "ux011" } }) });
+    });
+    const text = "帮我整理资料库 UX011-PROFILE：就读匿名大学计算机专业。参与匿名课程项目，使用 Python 清洗数据并提交报告。获得匿名竞赛三等奖。";
+    await send(page, text);
+    const review = page.getByRole("region", { name: "经历候选核对" });
+    await expect(review).toBeVisible();
+    await expect(review.locator(".profile-intake-candidate-card")).toHaveCount(3);
+    await page.screenshot({ path: "docs/quality/ux-01.1-logs/profile-candidates.png", fullPage: true });
+    expect((await readStore(page, "profiles")).find(row => row.id === profile.id)).toEqual(profile);
+    const education = review.locator(".profile-intake-candidate-card").filter({ hasText: "匿名大学" });
+    await education.getByRole("button", { name: "编辑后采用", exact: true }).click();
+    await education.getByLabel("专业", { exact: true }).fill("计算机");
+    await education.getByRole("button", { name: "保存并采用", exact: true }).click();
+    await expect(review).toContainText("已记录教育经历");
+    const award = review.locator(".profile-intake-candidate-card").filter({ hasText: "匿名竞赛" });
+    if (await award.locator("details").first().getAttribute("open") === null) await award.locator("summary").first().click();
+    await award.getByRole("button", { name: "忽略", exact: true }).click();
+    const project = review.locator(".profile-intake-candidate-card").filter({ hasText: "匿名课程项目" });
+    if (await project.locator("details").first().getAttribute("open") === null) await project.locator("summary").first().click();
+    await project.getByRole("button", { name: "采用", exact: true }).click();
+    expect((await readStore(page, "profiles")).find(row => row.id === profile.id)).toEqual(profile);
+    await page.locator("form.agent-composer").getByRole("button", { name: "完成整理", exact: true }).click();
+    const artifact = page.getByRole("region", { name: "经历核对" });
+    if (!await artifact.isVisible()) await page.getByRole("button", { name: /产物/ }).click();
+    await artifact.getByRole("button", { name: "完成整理并保存到资料库", exact: true }).click();
+    await expect.poll(async () => (await readStore(page, "profiles")).find(row => row.id === profile.id)?.version).toBe(Number(profile.version) + 1);
+    const saved = (await readStore(page, "profiles")).find(row => row.id === profile.id)!;
+    expect(JSON.stringify(saved)).toContain("匿名课程项目");
+    expect(JSON.stringify(saved)).not.toContain("匿名竞赛三等奖");
+    await page.reload();
+    expect((await readStore(page, "profiles")).find(row => row.id === profile.id)).toEqual(saved);
+  });
+
+  test("CASE B UX011-JD — temporary target persists across reload and explicit new target replaces it", async ({ page }) => {
+    await openWorkspace(page);
+    const jobs = await readStore(page, "jobDescriptions");
+    const first = "公司：匿名甲公司 UX011-JD\n岗位：数据分析师\n任职要求\n必须掌握 Python 或 R。\n必须掌握 Python 和 SQL。\n加分项\n熟悉 Java。";
+    await send(page, first);
+    const target = page.getByRole("region", { name: "当前目标岗位" });
+    await expect(target).toContainText("数据分析师");
+    const id = await target.getAttribute("data-target-id");
+    await target.getByText("核对岗位要求与来源", { exact: true }).click();
+    await expect(target.locator("[data-target-requirement-id]")).toHaveCount(3);
+    const original = await target.locator("[data-target-requirement-id]").allTextContents();
+    await page.screenshot({ path: "docs/quality/ux-01.1-logs/jd-target.png", fullPage: true });
+    await page.reload();
+    await expect(target).toHaveAttribute("data-target-id", id!);
+    expect(await target.locator("[data-target-requirement-id]").allTextContents()).toEqual(original);
+    expect(await readStore(page, "jobDescriptions")).toEqual(jobs);
+    await send(page, "公司：匿名乙公司 UX011-JD\n岗位：后端工程师\n任职要求\n必须掌握 Java，能够实现接口服务。熟悉 Spring 者优先。");
+    await expect(target).toContainText("后端工程师");
+    await expect(target).not.toHaveAttribute("data-target-id", id!);
+    await expect(target).not.toContainText("Python");
+    expect(await readStore(page, "jobDescriptions")).toEqual(jobs);
+    await page.goto("/jobs");
+    await expect(page.locator(".jobs-workspace")).toBeVisible();
+    await expect(page.locator(".selected-job-workspace")).toHaveCount(0);
+    await page.locator(".job-card-body").first().click();
+    await expect(page.locator(".selected-job-workspace")).toBeVisible();
+    await expect(page).toHaveURL(/jobId=/);
+  });
+
   test("CASE D — building from zero starts Profile Intake through a facade", async ({ page }) => {
     const trace = observeRuntimeAndBridge(page);
     await openWorkspace(page);

@@ -29,6 +29,7 @@ import { AgentConfirmationCard } from "./AgentConfirmationCard";
 import { AgentMarkdown } from "./AgentMarkdown";
 import { ProfileIntakeCandidateCards } from "./ProfileIntakeCandidateCards";
 import { AgentTailoringInlineDiffs } from "./AgentTailoringInlineDiffs";
+import { AgentJobTarget } from "./AgentJobTarget";
 
 export function AgentConversation({
   messages,
@@ -106,10 +107,10 @@ export function AgentConversation({
   const latestAssistantMessage = visibleMessages.findLast((message) =>
     message.role === "assistant" && !isStreamingMessage(message)
   );
-  // P4.3k keeps each turn as a compact receipt and moves candidate review to
-  // the final artifact.  The inline cards remain only for older persisted
-  // projections that predate the collecting/clarifying phases.
-  const showLegacyProfileIntakeCards = profileIntakeProjection?.phase === "collecting";
+  // Captured facts remain provisional, but must be reviewable before the
+  // interview finishes. Final review continues to use the existing artifact.
+  const showProfileIntakeCards = profileIntakeProjection
+    && ["collecting", "clarifying"].includes(profileIntakeProjection.phase);
   const endRef = useRef<HTMLDivElement>(null);
   const followLatestRef = useRef(true);
   const [showLatest, setShowLatest] = useState(false);
@@ -230,8 +231,10 @@ export function AgentConversation({
             />
           );
         })}
-        {showLegacyProfileIntakeCards ? (
+        <AgentJobTarget task={tailoringTaskState} />
+        {showProfileIntakeCards ? (
           <ProfileIntakeCandidateCards
+            key={profileIntakeProjection?.importId}
             projection={profileIntakeProjection}
             onAction={onArtifactAction}
           />

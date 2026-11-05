@@ -243,6 +243,12 @@ function chooseResponse({ mode, messages, tools }) {
       return call(workflow, { resumeId: source.id, ...(workflow === "career.workflow.job_fit" ? { profileId: source.profileId, jobId: "job-data-analyst-intern" } : {}) });
     }
   }
+  if (mode === "integration" && /UX011-/u.test(latestUserText(messages)) && !lastToolResult) {
+    const userText = latestUserText(messages);
+    const name = findToolName(tools, userText.includes("UX011-PROFILE") ? "career.workflow.profile_intake_turn" : "career.workflow.job_intake");
+    return { toolCall: { name, arguments: JSON.stringify(userText.includes("UX011-PROFILE")
+      ? { userTurn: userText } : { rawText: userText, persistence: "analyze_only" }) } };
+  }
   if (lastToolResult) {
     const name = typeof lastToolResult.name === "string" ? lastToolResult.name : "CareerAdapt tool";
     if (name.includes("job_intake")) return { content: savedJobId(lastToolResult.content)

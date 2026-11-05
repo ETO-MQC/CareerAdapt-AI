@@ -1,0 +1,26 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+ ❯ tests/integration/ux011Host.test.ts (1 test | 1 failed) 273ms
+   × projects a Hermes intake into a bound editable Host task and keeps Profile untouched until confirmation 272ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/ux011Host.test.ts > projects a Hermes intake into a bound editable Host task and keeps Profile untouched until confirmation
+TypeError: host.runUserEvent is not a function
+ ❯ tests/integration/ux011Host.test.ts:54:24
+     52|   expect(projection.candidates).toHaveLength(1);
+     53|   expect(await repository.getProfile(profile.id)).toEqual(profile);
+     54|   session = await host.runUserEvent({ type: "artifact_action", action:…
+       |                        ^
+     55|     importId: projection.importId, expectedDraftRevision: projection.d…
+     56|     fieldPatch: { major: "计算机" }, decision: "accept" } }, { session: s…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  20:13:29
+   Duration  5.98s (transform 3.19s, setup 207ms, import 4.01s, tests 273ms, environment 1.18s)
+
