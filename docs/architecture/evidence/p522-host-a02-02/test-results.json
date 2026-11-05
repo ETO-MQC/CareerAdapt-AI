@@ -1,0 +1,61 @@
+{
+  "status": "PARTIAL",
+  "checks": [
+    [
+      "Plugin build/load, schema, allowlist, dispatch, unknown tool",
+      "PASS",
+      "MOCK_ONLY_L2; python scripts/p522-host-a02-02-plugin-test.py"
+    ],
+    [
+      "Native real Provider tools",
+      "PARTIAL",
+      "python scripts/p522-host-a02-02-runtime.py; echo followup504; failure final succeeds"
+    ],
+    [
+      "Native Tool Activity units",
+      "PASS",
+      "37 tests / 2 files; vitest native fallback/fallback-model"
+    ],
+    [
+      "Project typecheck",
+      "PASS",
+      "pnpm typecheck exit0 before and after"
+    ],
+    [
+      "Changed-files ESLint",
+      "PASS",
+      "pnpm exec eslint scripts/p522-host-a02-02-*.mjs exit0"
+    ],
+    [
+      "Renderer integration build",
+      "PASS",
+      "Career opt-in+reliability final build exit0; existing CSS/chunk warnings"
+    ],
+    [
+      "Native TypeScript",
+      "PASS",
+      "baseline0/integrated0/introduced0"
+    ],
+    [
+      "UNKNOWN protection",
+      "PASS",
+      "10 cases, original three duplicate paths retained as fixture controls"
+    ],
+    [
+      "Default Shell regression",
+      "PASS",
+      "default-recheck/default-shell-verification.json; no Career modules, no model submits"
+    ],
+    [
+      "Electron L4 tool chain",
+      "NOT_VERIFIED",
+      "three rounds exhausted on prerequisites"
+    ],
+    [
+      "git diff --check",
+      "PASS",
+      "exit0 after normalizing added CSS line endings"
+    ]
+  ],
+  "l1l2DoNotReplaceL4": true
+}

@@ -1,0 +1,53 @@
+{
+  "status": "PARTIAL",
+  "provider": {
+    "endpoint": "https://developer.amd.com.cn/radeon/api/v1",
+    "model": "Qwen3.8-27B"
+  },
+  "text": {
+    "status": "PASS",
+    "nativeComposer": true,
+    "idle": true
+  },
+  "context": {
+    "status": "PASS",
+    "firstCode": "A02-CONTEXT-68Q",
+    "secondPrompt": "What code did I ask you to remember?",
+    "secondAnswer": "You asked me to remember the code **A02-CONTEXT-68Q**."
+  },
+  "streaming": {
+    "status": "PARTIAL_EVENTS_PASS_VISIBLE_PAINT_NOT_QUALIFIED_BEFORE_LAYOUT_FIX",
+    "turns": [
+      {
+        "label": "context-1",
+        "tClick": 1793880684739,
+        "tRpcSend": 1793880685461,
+        "tAck": 1793880685849,
+        "tFirstDelta": 1793880722340,
+        "tFirstPaint": 1793880685022,
+        "tComplete": 1793880722720,
+        "deltas": 8,
+        "deltaEqualsFinal": true,
+        "domPaints": 100
+      },
+      {
+        "label": "context-2",
+        "tClick": 1793880723480,
+        "tRpcSend": 1793880723790,
+        "tAck": 1793880723811,
+        "tFirstDelta": 1793880730958,
+        "tFirstPaint": 1793880723807,
+        "tComplete": 1793880731201,
+        "deltas": 18,
+        "deltaEqualsFinal": true,
+        "domPaints": 24
+      }
+    ]
+  },
+  "stop": {
+    "status": "FAIL_TEST_LOCATOR",
+    "nativeInterruptRequests": 0
+  },
+  "afterStop": "NOT_VERIFIED",
+  "old429History": "Preserved unchanged in A-02-01 evidence"
+}

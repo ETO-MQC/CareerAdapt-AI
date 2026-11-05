@@ -1,0 +1,193 @@
+{
+  "url": "http://127.0.0.1:5190/#/",
+  "body": "职适 AI\nCareerAdapt AI\n首页\nAI 工作台\n个人资料库\n设置\nHost 集成预览 · 隔离数据\nAI 能力与高级管理\n原生导航与快捷键\n对话上下文\n＋ 新建对话\n\nNo sessions yet\n\nNew project\n\nCAREERADAPT AI\n\n从你的经历出发，梳理问题与下一步。\n\n⠋\nWaking up …\nQwen3.8 27B · Off\nAI 连接\nready\n协作代理\n定时任务\n外部触发\nSmart\nv0.19.0 (+1)\neb52760",
+  "slots": [
+    {
+      "slot": null,
+      "classes": "relative isolate flex h-full min-w-0 flex-col overflow-hidden bg-(--ui-chat-surface-background)",
+      "rect": {
+        "x": 237.00001525878906,
+        "y": 34,
+        "width": 983.0000610351562,
+        "height": 747.1428833007812,
+        "top": 34,
+        "right": 1220.0000762939453,
+        "bottom": 781.1428833007812,
+        "left": 237.00001525878906
+      },
+      "display": "flex",
+      "visibility": "visible",
+      "opacity": "1"
+    },
+    {
+      "slot": "composer-bounds",
+      "classes": "relative min-h-0 max-w-full flex-1 overflow-hidden bg-(--ui-chat-surface-background) contain-[layout_paint]",
+      "rect": {
+        "x": 98.71428680419922,
+        "y": -500.2857360839844,
+        "width": 983.0000610351562,
+        "height": 747.1428833007812,
+        "top": -500.2857360839844,
+        "right": 1081.7143478393555,
+        "bottom": 246.85714721679688,
+        "left": 98.71428680419922
+      },
+      "display": "block",
+      "visibility": "visible",
+      "opacity": "1"
+    },
+    {
+      "slot": "aui_thread-viewport",
+      "classes": "size-full overflow-x-hidden overflow-y-auto overscroll-contain",
+      "rect": {
+        "x": 98.71428680419922,
+        "y": -500.2857360839844,
+        "width": 983.0000610351562,
+        "height": 729.1428833007812,
+        "top": -500.2857360839844,
+        "right": 1081.7143478393555,
+        "bottom": 228.85714721679688,
+        "left": 98.71428680419922
+      },
+      "display": "block",
+      "visibility": "visible",
+      "opacity": "1"
+    },
+    {
+      "slot": "aui_thread-content",
+      "classes": "mx-auto grid h-full w-full max-w-(--composer-width) grid-rows-[minmax(0,1fr)_auto] min-w-0 gap-(--conversation-turn-gap) px-6 py-8",
+      "rect": {
+        "x": 200.21429443359375,
+        "y": -500.2857360839844,
+        "width": 780.0000610351562,
+        "height": 729.1428833007812,
+        "top": -500.2857360839844,
+        "right": 980.21435546875,
+        "bottom": 228.85714721679688,
+        "left": 200.21429443359375
+      },
+      "display": "grid",
+      "visibility": "visible",
+      "opacity": "1"
+    },
+    {
+      "slot": "aui_intro",
+      "classes": "pointer-events-none flex w-full min-w-0 flex-col items-center justify-center px-0.5 py-6 text-center text-muted-foreground sm:px-6 lg:px-8",
+      "rect": {
+        "x": 224.21429443359375,
+        "y": -197.8303680419922,
+        "width": 732.0000610351562,
+        "height": 180.2232208251953,
+        "top": -197.8303680419922,
+        "right": 956.21435546875,
+        "bottom": -17.607147216796875,
+        "left": 224.21429443359375
+      },
+      "display": "flex",
+      "visibility": "visible",
+      "opacity": "1"
+    },
+    {
+      "slot": "chat-drop-overlay",
+      "classes": "pointer-events-none absolute inset-0 z-40 flex items-center justify-center transition-opacity duration-150 ease-out opacity-0",
+      "rect": {
+        "x": 98.71428680419922,
+        "y": -500.2857360839844,
+        "width": 983.0000610351562,
+        "height": 747.1428833007812,
+        "top": -500.2857360839844,
+        "right": 1081.7143478393555,
+        "bottom": 246.85714721679688,
+        "left": 98.71428680419922
+      },
+      "display": "flex",
+      "visibility": "visible",
+      "opacity": "0"
+    },
+    {
+      "slot": "composer-root",
+      "classes": "group/composer z-30 overflow-visible rounded-2xl absolute bottom-0 left-1/2 w-[min(var(--composer-width),calc(100%-2rem))] max-w-full -translate-x-1/2 pt-2 pb-[var(--composer-shell-pad-block-end)]",
+      "rect": {
+        "x": 195.21429443359375,
+        "y": 189.71429443359375,
+        "width": 790.0000610351562,
+        "height": 57.142860412597656,
+        "top": 189.71429443359375,
+        "right": 985.21435546875,
+        "bottom": 246.8571548461914,
+        "left": 195.21429443359375
+      },
+      "display": "block",
+      "visibility": "visible",
+      "opacity": "1"
+    },
+    {
+      "slot": "composer-drag-region",
+      "classes": "pointer-events-auto absolute inset-0 cursor-grab",
+      "rect": {
+        "x": 195.21429443359375,
+        "y": 189.71429443359375,
+        "width": 790.0000610351562,
+        "height": 57.142860412597656,
+        "top": 189.71429443359375,
+        "right": 985.21435546875,
+        "bottom": 246.8571548461914,
+        "left": 195.21429443359375
+      },
+      "display": "block",
+      "visibility": "visible",
+      "opacity": "0"
+    },
+    {
+      "slot": "composer-surface",
+      "classes": "group/composer-surface relative z-4 isolate grid grid-rows-[auto_1fr] overflow-hidden rounded-[inherit] border border-[color-mix(in_srgb,var(--dt-composer-ring)_calc(18%*var(--composer-ring-strength)),var(--dt-input))] transition-opacity duration-150 ease-out",
+      "rect": {
+        "x": 200.21429443359375,
+        "y": 197.71429443359375,
+        "width": 780.0000610351562,
+        "height": 39.142860412597656,
+        "top": 197.71429443359375,
+        "right": 980.21435546875,
+        "bottom": 236.8571548461914,
+        "left": 200.21429443359375
+      },
+      "display": "grid",
+      "visibility": "visible",
+      "opacity": "1"
+    },
+    {
+      "slot": "composer-fade",
+      "classes": "relative z-1 flex min-h-0 w-full flex-col gap-(--composer-row-gap) overflow-hidden rounded-[inherit] px-(--composer-surface-pad-x) py-(--composer-surface-pad-y) transition-opacity duration-200 ease-out opacity-100",
+      "rect": {
+        "x": 200.7857208251953,
+        "y": 198.2857208251953,
+        "width": 778.857177734375,
+        "height": 38,
+        "top": 198.2857208251953,
+        "right": 979.6428985595703,
+        "bottom": 236.2857208251953,
+        "left": 200.7857208251953
+      },
+      "display": "flex",
+      "visibility": "visible",
+      "opacity": "1"
+    },
+    {
+      "slot": "composer-rich-input",
+      "classes": "min-h-(--composer-input-min-height) max-h-(--composer-input-max-height) cursor-text overflow-y-auto whitespace-pre-wrap break-words [overflow-wrap:anywhere] bg-transparent pb-1 pr-1 pt-1 leading-normal text-foreground outline-none disabled:cursor-not-allowed empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground/60 **:data-ref-text:cursor-default min-w-(--composer-input-inline-min-width) flex-1",
+      "rect": {
+        "x": 236.7857208251953,
+        "y": 203.2857208251953,
+        "width": 515.6875,
+        "height": 27.500001907348633,
+        "top": 203.2857208251953,
+        "right": 752.4732208251953,
+        "bottom": 230.78572273254395,
+        "left": 236.7857208251953
+      },
+      "display": "block",
+      "visibility": "visible",
+      "opacity": "1"
+    }
+  ]
+}

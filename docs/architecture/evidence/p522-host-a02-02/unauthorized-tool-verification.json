@@ -1,0 +1,6 @@
+{
+  "status": "PASS",
+  "level": "MOCK_ONLY_L2",
+  "absentFromAllowedSchemas": true,
+  "result": "{\"error\": \"Unknown tool: a02_qualification_unauthorized\"}"
+}

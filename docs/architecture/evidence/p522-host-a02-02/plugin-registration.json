@@ -1,0 +1,57 @@
+{
+  "status": "PASS",
+  "level": "MOCK_ONLY_L2_NATIVE_REGISTRY",
+  "schemas": [
+    {
+      "type": "function",
+      "function": {
+        "name": "a02_qualification_echo",
+        "description": "Synthetic qualification only. Call exactly once with value A02_SYNTHETIC. Returns ok true, value and checksum fixed-v1.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "string",
+              "enum": [
+                "A02_SYNTHETIC"
+              ]
+            }
+          },
+          "required": [
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "a02_qualification_failure",
+        "description": "Synthetic qualification only. Call exactly once with value A02_SYNTHETIC. Raises deterministic A02_DETERMINISTIC_FAILURE.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "string",
+              "enum": [
+                "A02_SYNTHETIC"
+              ]
+            }
+          },
+          "required": [
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      }
+    }
+  ],
+  "echo": {
+    "ok": true,
+    "value": "A02_SYNTHETIC",
+    "checksum": "fixed-v1"
+  },
+  "failure": "{\"error\": \"[TOOL_ERROR] Tool execution failed: ValueError: A02_DETERMINISTIC_FAILURE\"}",
+  "unauthorized": "{\"error\": \"Unknown tool: a02_qualification_unauthorized\"}"
+}

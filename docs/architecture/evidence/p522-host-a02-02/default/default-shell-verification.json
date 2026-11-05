@@ -1,0 +1,18 @@
+{
+  "run": 1793881430671,
+  "status": "FAIL",
+  "root": "[TEST_ROOT]",
+  "renderer": "http://127.0.0.1:5191",
+  "optIn": false,
+  "hermesCommit": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+  "errors": [],
+  "consoleErrors": [],
+  "gatewayStates": [],
+  "rpcMethods": [],
+  "loadedCareerModules": [],
+  "screenshots": [],
+  "realProvider": "NOT VERIFIED",
+  "switchMethod": "Separate isolated launch without --careeradapt; no live runtime/shell hot-swap claim",
+  "electronVersion": "40.10.2",
+  "failure": "page.screenshot: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - taking page screenshot\u001b[22m\n\n    at shot ([PROJECT]\\scripts\\p522-host-a02-02-default.mjs:18:91)\n    at [PROJECT]\\scripts\\p522-host-a02-02-default.mjs:24:8"
+}

@@ -1,0 +1,296 @@
+[
+  {
+    "tag": "DIV",
+    "cls": "relative min-h-0 max-w-full flex-1 overflow-hidden bg-(--ui-chat-surface-background) contain-[layout_paint]",
+    "style": null,
+    "rect": {
+      "x": 98.71428680419922,
+      "y": -500.2857360839844,
+      "width": 983.0000610351562,
+      "height": 747.1428833007812,
+      "top": -500.2857360839844,
+      "right": 1081.7143478393555,
+      "bottom": 246.85714721679688,
+      "left": 98.71428680419922
+    },
+    "transform": "none",
+    "translate": "none",
+    "position": "relative",
+    "zoom": "1",
+    "scrollTop": 0,
+    "scrollLeft": 0
+  },
+  {
+    "tag": "DIV",
+    "cls": "relative isolate flex h-full min-w-0 flex-col overflow-hidden bg-(--ui-chat-surface-background)",
+    "style": "",
+    "rect": {
+      "x": 237.00001525878906,
+      "y": 34,
+      "width": 983.0000610351562,
+      "height": 747.1428833007812,
+      "top": 34,
+      "right": 1220.0000762939453,
+      "bottom": 781.1428833007812,
+      "left": 237.00001525878906
+    },
+    "transform": "none",
+    "translate": "none",
+    "position": "relative",
+    "zoom": "1",
+    "scrollTop": 534.2857055664062,
+    "scrollLeft": 138.2857208251953
+  },
+  {
+    "tag": "DIV",
+    "cls": "absolute inset-0 overflow-auto",
+    "style": null,
+    "rect": {
+      "x": 237.00001525878906,
+      "y": 34,
+      "width": 983.0000610351562,
+      "height": 747.1428833007812,
+      "top": 34,
+      "right": 1220.0000762939453,
+      "bottom": 781.1428833007812,
+      "left": 237.00001525878906
+    },
+    "transform": "none",
+    "translate": "none",
+    "position": "absolute",
+    "zoom": "1",
+    "scrollTop": 0,
+    "scrollLeft": 0
+  },
+  {
+    "tag": "DIV",
+    "cls": "relative min-h-0 min-w-0 flex-1 overflow-hidden",
+    "style": null,
+    "rect": {
+      "x": 237.00001525878906,
+      "y": 34,
+      "width": 983.0000610351562,
+      "height": 747.1428833007812,
+      "top": 34,
+      "right": 1220.0000762939453,
+      "bottom": 781.1428833007812,
+      "left": 237.00001525878906
+    },
+    "transform": "none",
+    "translate": "none",
+    "position": "relative",
+    "zoom": "1",
+    "scrollTop": 0,
+    "scrollLeft": 0
+  },
+  {
+    "tag": "DIV",
+    "cls": "relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-(--ui-bg-editor)",
+    "style": null,
+    "rect": {
+      "x": 237.00001525878906,
+      "y": 34,
+      "width": 983.0000610351562,
+      "height": 747.1428833007812,
+      "top": 34,
+      "right": 1220.0000762939453,
+      "bottom": 781.1428833007812,
+      "left": 237.00001525878906
+    },
+    "transform": "none",
+    "translate": "none",
+    "position": "relative",
+    "zoom": "1",
+    "scrollTop": 0,
+    "scrollLeft": 0
+  },
+  {
+    "tag": "DIV",
+    "cls": "relative flex min-h-0 min-w-0",
+    "style": "flex: 1 1 0px; min-width: 22vw; min-height: 0px;",
+    "rect": {
+      "x": 237.00001525878906,
+      "y": 34,
+      "width": 983.0000610351562,
+      "height": 747.1428833007812,
+      "top": 34,
+      "right": 1220.0000762939453,
+      "bottom": 781.1428833007812,
+      "left": 237.00001525878906
+    },
+    "transform": "none",
+    "translate": "none",
+    "position": "relative",
+    "zoom": "1",
+    "scrollTop": 0,
+    "scrollLeft": 0
+  },
+  {
+    "tag": "DIV",
+    "cls": "flex min-h-0 min-w-0 flex-1 flex-row",
+    "style": null,
+    "rect": {
+      "x": 0,
+      "y": 34,
+      "width": 1220,
+      "height": 747.1428833007812,
+      "top": 34,
+      "right": 1220,
+      "bottom": 781.1428833007812,
+      "left": 0
+    },
+    "transform": "none",
+    "translate": "none",
+    "position": "static",
+    "zoom": "1",
+    "scrollTop": 0,
+    "scrollLeft": 0
+  },
+  {
+    "tag": "DIV",
+    "cls": "relative flex min-h-0 min-w-0 flex-1",
+    "style": null,
+    "rect": {
+      "x": 0,
+      "y": 34,
+      "width": 1220,
+      "height": 747.1428833007812,
+      "top": 34,
+      "right": 1220,
+      "bottom": 781.1428833007812,
+      "left": 0
+    },
+    "transform": "none",
+    "translate": "none",
+    "position": "relative",
+    "zoom": "1",
+    "scrollTop": 0,
+    "scrollLeft": 0
+  },
+  {
+    "tag": "DIV",
+    "cls": "ca-host-shell flex h-screen min-h-0 w-screen flex-col bg-(--ui-bg-chrome) text-(--ui-text-primary)",
+    "style": "--titlebar-height: 0px;",
+    "rect": {
+      "x": 0,
+      "y": 0,
+      "width": 1220,
+      "height": 801.1428833007812,
+      "top": 0,
+      "right": 1220,
+      "bottom": 801.1428833007812,
+      "left": 0
+    },
+    "transform": "none",
+    "translate": "none",
+    "position": "static",
+    "zoom": "1",
+    "scrollTop": 0,
+    "scrollLeft": 0
+  },
+  {
+    "tag": "DIV",
+    "cls": "contents",
+    "style": "--titlebar-controls-left: 14px; --titlebar-controls-top: 4px; --titlebar-tools-right: 136px; --titlebar-tools-width: calc(4 * (var(--titlebar-control-size) + 0.25rem)); --shell-preview-toolbar-gap: calc(4 * (var(--titlebar-control-size) + 0.25rem));",
+    "rect": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0,
+      "top": 0,
+      "right": 0,
+      "bottom": 0,
+      "left": 0
+    },
+    "transform": "none",
+    "translate": "none",
+    "position": "static",
+    "zoom": "1",
+    "scrollTop": 0,
+    "scrollLeft": 0
+  },
+  {
+    "tag": "DIV",
+    "cls": "group/sidebar-wrapper flex w-full has-data-[variant=inset]:bg-sidebar h-screen min-h-0 flex-col bg-background",
+    "style": "--sidebar-width: 100%; --sidebar-width-icon: 3rem;",
+    "rect": {
+      "x": 0,
+      "y": 0,
+      "width": 1220,
+      "height": 801.1428833007812,
+      "top": 0,
+      "right": 1220,
+      "bottom": 801.1428833007812,
+      "left": 0
+    },
+    "transform": "none",
+    "translate": "none",
+    "position": "static",
+    "zoom": "1",
+    "scrollTop": 0,
+    "scrollLeft": 0
+  },
+  {
+    "tag": "DIV",
+    "cls": "scrollbar-dt",
+    "style": null,
+    "rect": {
+      "x": 0,
+      "y": 0,
+      "width": 1220,
+      "height": 801.1428833007812,
+      "top": 0,
+      "right": 1220,
+      "bottom": 801.1428833007812,
+      "left": 0
+    },
+    "transform": "none",
+    "translate": "none",
+    "position": "static",
+    "zoom": "1",
+    "scrollTop": 0,
+    "scrollLeft": 0
+  },
+  {
+    "tag": "BODY",
+    "cls": "",
+    "style": null,
+    "rect": {
+      "x": 0,
+      "y": 0,
+      "width": 1220,
+      "height": 801.1428833007812,
+      "top": 0,
+      "right": 1220,
+      "bottom": 801.1428833007812,
+      "left": 0
+    },
+    "transform": "none",
+    "translate": "none",
+    "position": "static",
+    "zoom": "1",
+    "scrollTop": 0,
+    "scrollLeft": 0
+  },
+  {
+    "tag": "HTML",
+    "cls": "",
+    "style": "background-color: rgb(247, 247, 247); color-scheme: light; --theme-foreground: #17171A; --theme-primary: #0053FD; --theme-secondary: color-mix(in srgb, #0053FD 7%, #FFFFFF); --theme-accent-soft: color-mix(in srgb, #0053FD 10%, #FFFFFF); --theme-midground: #0053FD; --theme-warm: #0053FD; --theme-background-seed: #F8FAFF; --theme-sidebar-seed: #F3F7FF; --theme-card-seed: #FFFFFF; --theme-elevated-seed: #FFFFFF; --theme-bubble-seed: color-mix(in srgb, #0053FD 6%, #FFFFFF); --theme-mix-chrome: 92%; --theme-mix-sidebar: 100%; --theme-mix-card: 22%; --theme-mix-elevated: 28%; --theme-mix-bubble: 0%; --dt-primary-foreground: #FCFCFC; --dt-secondary-foreground: #242432; --dt-accent-foreground: #202030; --dt-border: color-mix(in srgb, #0053FD 22%, transparent); --dt-input: color-mix(in srgb, #0053FD 30%, transparent); --dt-ring: #0053FD; --dt-muted: color-mix(in srgb, #0053FD 5%, #FFFFFF); --dt-midground-foreground: #ffffff; --dt-composer-ring: #0053FD; --dt-destructive: #C72E4D; --dt-destructive-foreground: #FFFFFF; --dt-sidebar-border: color-mix(in srgb, #0053FD 18%, transparent); --dt-user-bubble-border: color-mix(in srgb, #0053FD 24%, transparent); --dt-font-sans: \"Segoe WPC\", \"Segoe UI\", -apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"SF Pro Display\", system-ui, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\", emoji; --dt-font-mono: \"Courier Prime\", \"Cascadia Code\", \"JetBrains Mono\", \"SF Mono\", ui-monospace, Menlo, Monaco, Consolas, monospace, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\", emoji; --noise-opacity-mul: calc(0.34 / 0.21); --radius-scalar: 0.2; --workspace-left: 237px; --workspace-right: 0px;",
+    "rect": {
+      "x": 0,
+      "y": 0,
+      "width": 1220,
+      "height": 801.1428833007812,
+      "top": 0,
+      "right": 1220,
+      "bottom": 801.1428833007812,
+      "left": 0
+    },
+    "transform": "none",
+    "translate": "none",
+    "position": "static",
+    "zoom": "1",
+    "scrollTop": 0,
+    "scrollLeft": 0
+  }
+]

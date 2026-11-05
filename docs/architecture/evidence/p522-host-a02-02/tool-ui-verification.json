@@ -1,0 +1,27 @@
+{
+  "status": "NOT_VERIFIED_L4",
+  "nativeComponentTests": {
+    "files": 2,
+    "tests": 37,
+    "exitCode": 0,
+    "scope": "Unit only, native fallback and fallback-model"
+  },
+  "layoutRepair": {
+    "selector": ".ca-host-shell [data-chat-surface]",
+    "before": {
+      "scrollTop": 534.2857,
+      "scrollLeft": 138.2857,
+      "boundsY": -500.2857
+    },
+    "after": {
+      "scrollTop": 0,
+      "scrollLeft": 0,
+      "boundsY": 34
+    },
+    "screenshots": [
+      "screenshots/1793881087152-failure.png",
+      "screenshots/1793881087152-layout-corrected.png"
+    ]
+  },
+  "toolStartAndCompletionPaint": "NOT_VERIFIED"
+}

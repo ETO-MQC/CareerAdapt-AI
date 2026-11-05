@@ -1,0 +1,119 @@
+{
+  "status": "PARTIAL",
+  "echo": {
+    "status": "PROVIDER_HTTP_504",
+    "result": {
+      "final_response": "API call failed after 1 retries: HTTP 504 — 504 Gateway Time-out",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Call a02_qualification_echo exactly once with value A02_SYNTHETIC. Then report its actual result including checksum if present. Do not retry or use other tools."
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "reasoning": "The user is asking to call the a02_qualification_echo tool exactly once with the value A02_SYNTHETIC, and to report the actual result.\n",
+          "finish_reason": "tool_calls",
+          "reasoning_content": "The user is asking to call the a02_qualification_echo tool exactly once with the value A02_SYNTHETIC, and to report the actual result.\n",
+          "tool_calls": [
+            {
+              "id": "call_5563f092531041de80be9ac6",
+              "call_id": "call_5563f092531041de80be9ac6",
+              "response_item_id": "fc_5563f092531041de80be9ac6",
+              "type": "function",
+              "function": {
+                "name": "a02_qualification_echo",
+                "arguments": "{\"value\": \"A02_SYNTHETIC\"}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "name": "a02_qualification_echo",
+          "tool_name": "a02_qualification_echo",
+          "content": "{\"ok\": true, \"value\": \"A02_SYNTHETIC\", \"checksum\": \"fixed-v1\"}",
+          "tool_call_id": "call_5563f092531041de80be9ac6"
+        }
+      ],
+      "api_calls": 2,
+      "completed": false,
+      "failed": true,
+      "error": "HTTP 504 — 504 Gateway Time-out",
+      "failure_reason": "server_error",
+      "billing_block": null
+    }
+  },
+  "failure": {
+    "status": "L3_PASS",
+    "result": {
+      "final_response": "Called `a02_qualification_failure` exactly once with `value: \"A02_SYNTHETIC\"`.\n\n**Actual result:** The call did not return a success payload. It raised a deterministic tool error:\n\n```\nValueError: A02_DETERMINISTIC_FAILURE\n```\n\nNo `ok`, `value`, or `checksum` fields were present in the response — the error above is the complete actual output. I did not retry or use any other tools.",
+      "last_reasoning": "The tool was called exactly once, and it raised a deterministic failure as described. I need to report the actual result. It's a tool error, not a success response with a checksum. I should report honestly: the call raised A02_DETERMINISTIC_FAILURE, and no checksum or value was returned.\n",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Call a02_qualification_failure exactly once with value A02_SYNTHETIC. Then report its actual result including checksum if present. Do not retry or use other tools."
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "reasoning": "The user is asking me to call a02_qualification_failure exactly once with the value A02_SYNTHETIC, and then report the actual result including the checksum if it exists. Do not retry or use other tools.\n\nThis is a simple, deterministic task. Let's just call the tool as instructed.\n",
+          "finish_reason": "tool_calls",
+          "reasoning_content": "The user is asking me to call a02_qualification_failure exactly once with the value A02_SYNTHETIC, and then report the actual result including the checksum if it exists. Do not retry or use other tools.\n\nThis is a simple, deterministic task. Let's just call the tool as instructed.\n",
+          "tool_calls": [
+            {
+              "id": "call_3c627a87b41943be8464c16e",
+              "call_id": "call_3c627a87b41943be8464c16e",
+              "response_item_id": "fc_3c627a87b41943be8464c16e",
+              "type": "function",
+              "function": {
+                "name": "a02_qualification_failure",
+                "arguments": "{\"value\": \"A02_SYNTHETIC\"}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "name": "a02_qualification_failure",
+          "tool_name": "a02_qualification_failure",
+          "content": "{\"error\": \"[TOOL_ERROR] Tool execution failed: ValueError: A02_DETERMINISTIC_FAILURE\"}",
+          "tool_call_id": "call_3c627a87b41943be8464c16e"
+        },
+        {
+          "role": "assistant",
+          "content": "Called `a02_qualification_failure` exactly once with `value: \"A02_SYNTHETIC\"`.\n\n**Actual result:** The call did not return a success payload. It raised a deterministic tool error:\n\n```\nValueError: A02_DETERMINISTIC_FAILURE\n```\n\nNo `ok`, `value`, or `checksum` fields were present in the response — the error above is the complete actual output. I did not retry or use any other tools.",
+          "reasoning": "The tool was called exactly once, and it raised a deterministic failure as described. I need to report the actual result. It's a tool error, not a success response with a checksum. I should report honestly: the call raised A02_DETERMINISTIC_FAILURE, and no checksum or value was returned.\n",
+          "finish_reason": "stop",
+          "reasoning_content": "The tool was called exactly once, and it raised a deterministic failure as described. I need to report the actual result. It's a tool error, not a success response with a checksum. I should report honestly: the call raised A02_DETERMINISTIC_FAILURE, and no checksum or value was returned.\n"
+        }
+      ],
+      "api_calls": 2,
+      "completed": true,
+      "turn_exit_reason": "text_response(finish_reason=stop)",
+      "failed": false,
+      "partial": false,
+      "interrupted": false,
+      "response_transformed": false,
+      "response_previewed": false,
+      "model": "Qwen3.8-27B",
+      "provider": "custom",
+      "base_url": "https://developer.amd.com.cn/radeon/api/v1",
+      "input_tokens": 1707,
+      "output_tokens": 270,
+      "cache_read_tokens": 3392,
+      "cache_write_tokens": 0,
+      "reasoning_tokens": 132,
+      "prompt_tokens": 5099,
+      "completion_tokens": 270,
+      "total_tokens": 5369,
+      "last_prompt_tokens": 2587,
+      "estimated_cost_usd": 0,
+      "cost_status": "unknown",
+      "cost_source": "none",
+      "service_tier": null,
+      "session_id": "a02-l3-a02_qualification_failure"
+    }
+  },
+  "l4": "NOT_VERIFIED"
+}

@@ -1,0 +1,13 @@
+{
+  "status": "L3_PASS_L4_NOT_VERIFIED",
+  "intent": {
+    "id": "call_5563f092531041de80be9ac6",
+    "name": "a02_qualification_echo",
+    "arguments": "{\"value\": \"A02_SYNTHETIC\"}",
+    "provider_data": null
+  },
+  "providerModel": "Qwen3.8-27B",
+  "sessionId": "a02-l3-a02_qualification_echo",
+  "turnId": "a02-l3-a02_qualification_echo:de5bbed0-6a95-4dd4-8d75-12b520dc2402:fade8d79",
+  "source": "Native post_api_request hook after real Provider stream; streaming facade reports configured model; direct provider probe returned self-dploy/Qwen3.8-27B"
+}

@@ -1,0 +1,46 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "a02_qualification_echo",
+      "description": "Synthetic qualification only. Call exactly once with value A02_SYNTHETIC. Returns ok true, value and checksum fixed-v1.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "enum": [
+              "A02_SYNTHETIC"
+            ]
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "a02_qualification_failure",
+      "description": "Synthetic qualification only. Call exactly once with value A02_SYNTHETIC. Raises deterministic A02_DETERMINISTIC_FAILURE.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "enum": [
+              "A02_SYNTHETIC"
+            ]
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+]

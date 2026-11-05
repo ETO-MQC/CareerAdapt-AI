@@ -1,0 +1,57 @@
+{
+  "client": [
+    983,
+    747
+  ],
+  "scroll": [
+    1220,
+    1282
+  ],
+  "children": [
+    {
+      "cls": "pointer-events-none absolute inset-0 z-2",
+      "slot": null,
+      "rect": {
+        "x": 98.71428680419922,
+        "y": -500.2857360839844,
+        "width": 983.0000610351562,
+        "height": 747.1428833007812,
+        "top": -500.2857360839844,
+        "right": 1081.7143478393555,
+        "bottom": 246.85714721679688,
+        "left": 98.71428680419922
+      },
+      "position": "absolute"
+    },
+    {
+      "cls": "relative min-h-0 max-w-full flex-1 overflow-hidden bg-(--ui-chat-surface-background) contain-[layout_paint]",
+      "slot": "composer-bounds",
+      "rect": {
+        "x": 98.71428680419922,
+        "y": -500.2857360839844,
+        "width": 983.0000610351562,
+        "height": 747.1428833007812,
+        "top": -500.2857360839844,
+        "right": 1081.7143478393555,
+        "bottom": 246.85714721679688,
+        "left": 98.71428680419922
+      },
+      "position": "relative"
+    },
+    {
+      "cls": "group/composer z-30 overflow-visible rounded-2xl absolute bottom-0 left-1/2 w-[min(var(--composer-width),calc(100%-2rem))] max-w-full -translate-x-1/2 pt-2 pb-[var(--composer-shell-pad-block-end)]",
+      "slot": "composer-root",
+      "rect": {
+        "x": 195.21429443359375,
+        "y": 189.71429443359375,
+        "width": 790.0000610351562,
+        "height": 57.142860412597656,
+        "top": 189.71429443359375,
+        "right": 985.21435546875,
+        "bottom": 246.8571548461914,
+        "left": 195.21429443359375
+      },
+      "position": "absolute"
+    }
+  ]
+}

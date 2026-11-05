@@ -1,0 +1,225 @@
+{
+  "status": "PASS",
+  "level": "L2 isolated real WebSocket fixture + locked native JSON-RPC and hook bodies; deterministic React/store adapters, no real Provider",
+  "records": [
+    {
+      "kind": "before-send",
+      "patched": false,
+      "requestsSent": 1,
+      "serverReceived": 1,
+      "executions": 1,
+      "ack": "RECEIVED",
+      "sessionId": "synthetic-runtime",
+      "messageId": "user-1793880895706-2sxlzo",
+      "transportCalls": 2,
+      "submitReturned": true,
+      "finalUI": {
+        "busy": true,
+        "awaiting": true,
+        "pendingBranchGroup": null,
+        "submitLockReleased": true,
+        "userMessages": 1,
+        "errors": []
+      },
+      "reexecuted": false
+    },
+    {
+      "kind": "ack-lost",
+      "patched": false,
+      "requestsSent": 2,
+      "serverReceived": 2,
+      "executions": 2,
+      "ack": "RECEIVED",
+      "sessionId": "synthetic-runtime",
+      "messageId": "user-1793880895979-h47s4f",
+      "transportCalls": 2,
+      "submitReturned": true,
+      "finalUI": {
+        "busy": true,
+        "awaiting": true,
+        "pendingBranchGroup": null,
+        "submitLockReleased": true,
+        "userMessages": 1,
+        "errors": []
+      },
+      "reexecuted": true
+    },
+    {
+      "kind": "response-disconnect",
+      "patched": false,
+      "requestsSent": 2,
+      "serverReceived": 2,
+      "executions": 2,
+      "ack": "RECEIVED",
+      "sessionId": "synthetic-runtime",
+      "messageId": "user-1793880896291-znjnlu",
+      "transportCalls": 2,
+      "submitReturned": true,
+      "finalUI": {
+        "busy": true,
+        "awaiting": true,
+        "pendingBranchGroup": null,
+        "submitLockReleased": true,
+        "userMessages": 1,
+        "errors": []
+      },
+      "reexecuted": true
+    },
+    {
+      "kind": "timeout",
+      "patched": false,
+      "requestsSent": 2,
+      "serverReceived": 2,
+      "executions": 2,
+      "ack": "RECEIVED",
+      "sessionId": "synthetic-runtime",
+      "messageId": "user-1793880896681-pu7amv",
+      "transportCalls": 2,
+      "submitReturned": true,
+      "finalUI": {
+        "busy": true,
+        "awaiting": true,
+        "pendingBranchGroup": null,
+        "submitLockReleased": true,
+        "userMessages": 1,
+        "errors": []
+      },
+      "reexecuted": true
+    },
+    {
+      "kind": "session-not-found",
+      "patched": false,
+      "requestsSent": 2,
+      "serverReceived": 2,
+      "executions": 1,
+      "ack": "RECEIVED",
+      "sessionId": "synthetic-runtime",
+      "messageId": "user-1793880897102-vcr52m",
+      "transportCalls": 2,
+      "submitReturned": true,
+      "finalUI": {
+        "busy": true,
+        "awaiting": true,
+        "pendingBranchGroup": null,
+        "submitLockReleased": true,
+        "userMessages": 1,
+        "errors": []
+      },
+      "reexecuted": false
+    },
+    {
+      "kind": "before-send",
+      "patched": true,
+      "requestsSent": 1,
+      "serverReceived": 1,
+      "executions": 1,
+      "ack": "RECEIVED",
+      "sessionId": "synthetic-runtime",
+      "messageId": "user-1793880897357-aolq92",
+      "transportCalls": 1,
+      "submitReturned": true,
+      "finalUI": {
+        "busy": true,
+        "awaiting": true,
+        "pendingBranchGroup": null,
+        "submitLockReleased": true,
+        "userMessages": 1,
+        "errors": []
+      },
+      "reexecuted": false
+    },
+    {
+      "kind": "ack-lost",
+      "patched": true,
+      "requestsSent": 1,
+      "serverReceived": 1,
+      "executions": 1,
+      "ack": "LOST",
+      "sessionId": "synthetic-runtime",
+      "messageId": "user-1793880897576-puo7fx",
+      "transportCalls": 1,
+      "submitReturned": false,
+      "finalUI": {
+        "busy": false,
+        "awaiting": false,
+        "pendingBranchGroup": null,
+        "submitLockReleased": true,
+        "userMessages": 1,
+        "errors": [
+          "UNKNOWN：请求执行结果未知，未自动重发。请检查会话状态并核对历史后再继续。"
+        ]
+      },
+      "reexecuted": false,
+      "unknownQueueDrainBlocked": true
+    },
+    {
+      "kind": "response-disconnect",
+      "patched": true,
+      "requestsSent": 1,
+      "serverReceived": 1,
+      "executions": 1,
+      "ack": "LOST",
+      "sessionId": "synthetic-runtime",
+      "messageId": "user-1793880897879-pz5017",
+      "transportCalls": 1,
+      "submitReturned": false,
+      "finalUI": {
+        "busy": false,
+        "awaiting": false,
+        "pendingBranchGroup": null,
+        "submitLockReleased": true,
+        "userMessages": 1,
+        "errors": [
+          "UNKNOWN：请求执行结果未知，未自动重发。请检查会话状态并核对历史后再继续。"
+        ]
+      },
+      "reexecuted": false,
+      "unknownQueueDrainBlocked": true
+    },
+    {
+      "kind": "timeout",
+      "patched": true,
+      "requestsSent": 1,
+      "serverReceived": 1,
+      "executions": 1,
+      "ack": "LOST",
+      "sessionId": "synthetic-runtime",
+      "messageId": "user-1793880898196-7djpu8",
+      "transportCalls": 1,
+      "submitReturned": false,
+      "finalUI": {
+        "busy": false,
+        "awaiting": false,
+        "pendingBranchGroup": null,
+        "submitLockReleased": true,
+        "userMessages": 1,
+        "errors": [
+          "UNKNOWN：请求执行结果未知，未自动重发。请检查会话状态并核对历史后再继续。"
+        ]
+      },
+      "reexecuted": false,
+      "unknownQueueDrainBlocked": true
+    },
+    {
+      "kind": "session-not-found",
+      "patched": true,
+      "requestsSent": 2,
+      "serverReceived": 2,
+      "executions": 1,
+      "ack": "RECEIVED",
+      "sessionId": "synthetic-runtime",
+      "messageId": "user-1793880898484-des96h",
+      "transportCalls": 2,
+      "submitReturned": true,
+      "finalUI": {
+        "busy": true,
+        "awaiting": true,
+        "pendingBranchGroup": null,
+        "submitLockReleased": true,
+        "userMessages": 1,
+        "errors": []
+      },
+      "reexecuted": false
+    }
+  ]
+}

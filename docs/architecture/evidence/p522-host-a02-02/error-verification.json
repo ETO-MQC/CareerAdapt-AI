@@ -1,0 +1,21 @@
+{
+  "status": "L3_PASS_L4_NOT_VERIFIED",
+  "handler": {
+    "kind": "handler",
+    "name": "a02_qualification_failure",
+    "handler_invocation_count": 1,
+    "error": "A02_DETERMINISTIC_FAILURE"
+  },
+  "result": {
+    "kind": "post_tool_call",
+    "session_id": "a02-l3-a02_qualification_failure",
+    "turn_id": "a02-l3-a02_qualification_failure:1d01cd32-894a-4e21-b7f3-425864964794:bb8ee2d2",
+    "task_id": "1d01cd32-894a-4e21-b7f3-425864964794",
+    "api_request_id": "a02-l3-a02_qualification_failure:1d01cd32-894a-4e21-b7f3-425864964794:bb8ee2d2:api:1",
+    "tool_name": "a02_qualification_failure",
+    "tool_call_id": "call_3c627a87b41943be8464c16e",
+    "result": "{\"error\": \"[TOOL_ERROR] Tool execution failed: ValueError: A02_DETERMINISTIC_FAILURE\"}"
+  },
+  "assistant": "Called `a02_qualification_failure` exactly once with `value: \"A02_SYNTHETIC\"`.\n\n**Actual result:** The call did not return a success payload. It raised a deterministic tool error:\n\n```\nValueError: A02_DETERMINISTIC_FAILURE\n```\n\nNo `ok`, `value`, or `checksum` fields were present in the response — the error above is the complete actual output. I did not retry or use any other tools.",
+  "nativeCompleted": true
+}

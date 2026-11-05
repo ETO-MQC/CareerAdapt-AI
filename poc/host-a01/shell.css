@@ -22,3 +22,6 @@
 
 .ca-host-shell{--dt-card:#fff;--dt-background:#f3f6f4;--dt-input:#d8dfda}
 [data-hermes-mode=dark] .ca-host-shell{--dt-card:#1a2521;--dt-background:#111918;--dt-input:#40554a}
+
+/* Keep the native conversation surface from scrolling to overflowing decorative layers or focus targets. The native transcript viewport remains scrollable. */
+.ca-host-shell [data-chat-surface]{overflow:clip}

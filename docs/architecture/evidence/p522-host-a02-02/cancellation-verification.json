@@ -1,0 +1,5 @@
+{
+  "status": "NOT_VERIFIED",
+  "reason": "PluginContext does not expose a cancellation token. Native worker interruption exists in tool_executor; no bounded wait plugin or tool-cancel exercise was implemented. Text Stop failed before clicking due to ambiguous locator; fixed scope is unverified.",
+  "runtimeModified": false
+}

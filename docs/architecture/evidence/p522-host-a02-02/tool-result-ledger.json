@@ -1,0 +1,25 @@
+{
+  "status": "L3_PASS_L4_NOT_VERIFIED",
+  "records": [
+    {
+      "kind": "post_tool_call",
+      "session_id": "a02-l3-a02_qualification_echo",
+      "turn_id": "a02-l3-a02_qualification_echo:de5bbed0-6a95-4dd4-8d75-12b520dc2402:fade8d79",
+      "task_id": "de5bbed0-6a95-4dd4-8d75-12b520dc2402",
+      "api_request_id": "a02-l3-a02_qualification_echo:de5bbed0-6a95-4dd4-8d75-12b520dc2402:fade8d79:api:1",
+      "tool_name": "a02_qualification_echo",
+      "tool_call_id": "call_5563f092531041de80be9ac6",
+      "result": "{\"ok\": true, \"value\": \"A02_SYNTHETIC\", \"checksum\": \"fixed-v1\"}"
+    },
+    {
+      "kind": "post_tool_call",
+      "session_id": "a02-l3-a02_qualification_failure",
+      "turn_id": "a02-l3-a02_qualification_failure:1d01cd32-894a-4e21-b7f3-425864964794:bb8ee2d2",
+      "task_id": "1d01cd32-894a-4e21-b7f3-425864964794",
+      "api_request_id": "a02-l3-a02_qualification_failure:1d01cd32-894a-4e21-b7f3-425864964794:bb8ee2d2:api:1",
+      "tool_name": "a02_qualification_failure",
+      "tool_call_id": "call_3c627a87b41943be8464c16e",
+      "result": "{\"error\": \"[TOOL_ERROR] Tool execution failed: ValueError: A02_DETERMINISTIC_FAILURE\"}"
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "status": "PARTIAL",
+  "electronRounds": [
+    {
+      "run": 1793880621212,
+      "status": "FAIL",
+      "failure": "Error: No current-turn stream to interrupt\n    at until (file:///[WORKSPACE_PARENT]/CareerAdapt%20AI/scripts/p522-host-a02-02-electron.mjs:43:171)\n    at async send (file:///[WORKSPACE_PARENT]/CareerAdapt%20AI/scripts/p522-host-a02-02-electron.mjs:56:5)\n    at async file:///[WORKSPACE_PARENT]/CareerAdapt%20AI/scripts/p522-host-a02-02-electron.mjs:114:3",
+      "submitCount": 3,
+      "toolStarts": 0
+    },
+    {
+      "run": 1793880861979,
+      "status": "FAIL",
+      "failure": "Error: No current-turn stream to interrupt\n    at until (file:///[WORKSPACE_PARENT]/CareerAdapt%20AI/scripts/p522-host-a02-02-electron.mjs:43:171)\n    at async send (file:///[WORKSPACE_PARENT]/CareerAdapt%20AI/scripts/p522-host-a02-02-electron.mjs:56:5)\n    at async file:///[WORKSPACE_PARENT]/CareerAdapt%20AI/scripts/p522-host-a02-02-electron.mjs:114:3",
+      "submitCount": 3,
+      "toolStarts": 0
+    },
+    {
+      "run": 1793881087152,
+      "status": "FAIL",
+      "failure": "locator.click: Error: strict mode violation: getByRole('button', { name: 'Stop', exact: true }) resolved to 2 elements:\n    1) <button title=\"Stop\" type=\"button\" aria-label=\"Stop\" class=\"pointer-events-auto size-5 grid place-items-center rounded-md bg-transparent text-(--ui-text-secondary) transition-colors hover:bg-(--ui-control-active-background) hover:text-foreground disabled:cursor-default disabled:text-(--ui-text-quaternary) disabled:opacity-70\">…</button> aka getByRole('button', { name: 'Stop', description: 'Stop' })\n    2) <button type=\"submit\" aria-label=\"Stop\" data-size=\"default\" data-state=\"closed\" data-variant=\"default\" data-slot=\"tooltip-trigger\" class=\"inline-flex cursor-pointer items-center justify-center gap-1.5 text-xs leading-4 font-medium whitespace-nowrap shadow-none transition-all duration-100 outline-none focus-visible:border-ring focus-visible:ring-[0.1875rem] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-default aria-invalid:border-destructive aria-invalid:ring-destructive/20 da…>…</button> aka locator('form').getByRole('button', { name: 'Stop' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Stop', exact: true })\u001b[22m\n\n    at send ([PROJECT]\\scripts\\p522-host-a02-02-electron.mjs:57:87)\n    at async send (<anonymous>:5:2)\n    at async file:///[WORKSPACE_PARENT]/CareerAdapt%20AI/scripts/p522-host-a02-02-electron.mjs:128:3",
+      "submitCount": 1,
+      "toolStarts": 0
+    }
+  ],
+  "roundLimit": 3,
+  "round4Started": false,
+  "engineeringErrors": [
+    {
+      "issue": "Plugin dict result rejected by locked registry",
+      "fixed": "Return json.dumps; same JSON content; L2 and L3 verified"
+    },
+    {
+      "issue": "Long-generation 45s pre-content wait",
+      "fixed": "180s bounded test budget and simpler prompt; third round obtained content"
+    },
+    {
+      "issue": "Second round launched before scripted budget edit applied (ESM require error)",
+      "impact": "Consumed round; same Stop timeout recurred; no concealed extra launch"
+    },
+    {
+      "issue": "Two native Stop buttons",
+      "fixed": "Composer-root-scoped locator; syntax/lint only, no L4 requalification"
+    },
+    {
+      "issue": "Conversation hidden by outer scroll offset",
+      "fixed": "Scoped overflow clip; live DOM and screenshot verified; tool UI unverified"
+    },
+    {
+      "issue": "Default initial screenshot before page navigation",
+      "fixed": "Wait URL and DOM; default recheck passed"
+    }
+  ],
+  "providerFailure": {
+    "stage": "L3 echo second request",
+    "httpStatus": 504,
+    "handlerCount": 1,
+    "automaticRetry": false
+  },
+  "cleanupDeviation": "Inherited Electron runner individually removed three newly created isolated config.yaml files before no-deletion instruction was re-audited; no historical/config-source file or directory deleted. Runner now clears credential content and retains the file. Temporary inspection control files were also individually consumed. This deviation is recorded, not claimed as no deletion."
+}

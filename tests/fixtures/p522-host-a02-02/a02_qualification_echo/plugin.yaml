@@ -1,0 +1,6 @@
+name: a02_qualification_echo
+version: 1.0.0
+description: Isolated synthetic qualification only
+provides_tools:
+  - a02_qualification_echo
+  - a02_qualification_failure
