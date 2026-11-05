@@ -1,0 +1,49 @@
+{
+  "at": "2026-11-05T03:30:10.139Z",
+  "endpoint": "https://openrouter.ai/api/v1",
+  "requestedModel": "dots-studio/dots-3-note-preview:free",
+  "status": "PASS",
+  "records": [
+    {
+      "label": "sequential-1",
+      "stream": false,
+      "startedAt": "2026-11-05T03:30:02.243Z",
+      "status": "PASS",
+      "httpStatus": 200,
+      "returnedModel": "dots-studio/dots-3-note-preview:free",
+      "text": "\n\nA02-CONNECTION-OK",
+      "finishReason": "stop",
+      "modelMatches": true,
+      "totalMs": 3300.5787
+    },
+    {
+      "label": "sequential-2",
+      "stream": false,
+      "startedAt": "2026-11-05T03:30:05.550Z",
+      "status": "PASS",
+      "httpStatus": 200,
+      "returnedModel": "dots-studio/dots-3-note-preview:free",
+      "text": "\n\nA02-CONNECTION-OK",
+      "finishReason": "stop",
+      "modelMatches": true,
+      "totalMs": 2267.8108
+    },
+    {
+      "label": "stream",
+      "stream": true,
+      "startedAt": "2026-11-05T03:30:07.819Z",
+      "status": "PASS",
+      "httpStatus": 200,
+      "returnedModel": "dots-studio/dots-3-note-preview:free",
+      "ttftMs": 2080.305300000001,
+      "finishReason": "stop",
+      "text": "\n\nA02-CONNECTION-OK",
+      "contentDeltaFrames": 3,
+      "done": true,
+      "modelMatches": true,
+      "totalMs": 2319.390700000001
+    }
+  ],
+  "automaticRetries": 0,
+  "credentialLogged": false
+}

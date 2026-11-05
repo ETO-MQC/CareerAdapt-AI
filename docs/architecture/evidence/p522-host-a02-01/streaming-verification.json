@@ -1,0 +1,38 @@
+{
+  "directApi": {
+    "status": "PASS",
+    "record": {
+      "label": "stream",
+      "stream": true,
+      "startedAt": "2026-11-05T03:30:07.819Z",
+      "status": "PASS",
+      "httpStatus": 200,
+      "returnedModel": "dots-studio/dots-3-note-preview:free",
+      "ttftMs": 2080.305300000001,
+      "finishReason": "stop",
+      "text": "\n\nA02-CONNECTION-OK",
+      "contentDeltaFrames": 3,
+      "done": true,
+      "modelMatches": true,
+      "totalMs": 2319.390700000001
+    }
+  },
+  "nativeElectron": {
+    "status": "NOT_VERIFIED",
+    "completedSamples": 0,
+    "tClick": null,
+    "tRpcSend": null,
+    "tAck": null,
+    "tFirstDelta": null,
+    "tFirstPaint": null,
+    "tComplete": null,
+    "reason": "Two pre-submit startup timeouts; stopped per AGENTS.md §5"
+  },
+  "statistics": {
+    "sampleSize": 1,
+    "p50TTFTMs": 2080.305300000001,
+    "p95": null,
+    "reliableP95": false,
+    "scope": "One direct API streaming sample; no native UI samples"
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "status": "PARTIAL",
+  "checks": [
+    {
+      "command": "pnpm typecheck",
+      "phase": "before/after changes",
+      "exitCode": 0
+    },
+    {
+      "command": "node --test tests/p522-host-a02-01-patches.test.mjs",
+      "exitCode": 0,
+      "tests": 3
+    },
+    {
+      "command": "node scripts/p522-host-a02-01-faults.mjs",
+      "exitCode": 0,
+      "cases": 10
+    },
+    {
+      "command": "node <locked Hermes>/node_modules/vitest/vitest.mjs run --project ui src/app/session/hooks/use-message-stream/stream-flush.test.tsx src/app/session/hooks/use-message-stream/terminal-error-frame.test.tsx src/app/session/hooks/use-prompt-actions/resolve-target-session.test.ts",
+      "cwd": "<locked Hermes>/apps/desktop",
+      "exitCode": 0,
+      "files": 3,
+      "tests": 12
+    },
+    {
+      "command": "node scripts/p522-host-a02-01-provider.mjs",
+      "exitCode": 0,
+      "requests": 3
+    },
+    {
+      "command": "node scripts/p522-host-a02-01-provider.mjs --vision",
+      "exitCode": 0,
+      "requests": 1
+    },
+    {
+      "command": "node scripts/p522-host-a01-renderer.mjs --careeradapt --reliability --build --evidence-dir=docs/architecture/evidence/p522-host-a02-01 --build-dir=.artifacts/p522-host-a02-01-renderer",
+      "exitCode": 0
+    },
+    {
+      "command": "node scripts/p522-host-a01-renderer.mjs --reliability --build --evidence-dir=docs/architecture/evidence/p522-host-a02-01/default --build-dir=.artifacts/p522-host-a02-01-default",
+      "exitCode": 0
+    },
+    {
+      "command": "node scripts/p522-host-a01-native-typecheck.mjs --evidence-dir=docs/architecture/evidence/p522-host-a02-01",
+      "exitCode": 0,
+      "baselineDiagnostics": 0,
+      "integratedDiagnostics": 0
+    },
+    {
+      "command": "pnpm exec eslint scripts/p522-host-a02-01-*.mjs scripts/p522-host-a01-renderer.mjs scripts/p522-host-a01-native-typecheck.mjs scripts/p522-host-a01-fallback.mjs tests/p522-host-a02-01-patches.test.mjs --max-warnings=0",
+      "exitCode": 0
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    },
+    {
+      "command": "node scripts/p522-host-a02-01-electron.mjs",
+      "attempts": 2,
+      "exitCodes": [
+        1,
+        1
+      ],
+      "completedTurns": 0
+    },
+    {
+      "command": "node scripts/p522-host-a01-fallback.mjs --renderer=http://127.0.0.1:5191 --evidence-dir=docs/architecture/evidence/p522-host-a02-01/default",
+      "attempts": 1,
+      "exitCode": 1,
+      "reason": "screenshot waited for fonts; no functional PASS"
+    }
+  ],
+  "notRun": [
+    "full historical unit/E2E",
+    "PDF/C1/C2",
+    "installer",
+    "native image UI after startup gate",
+    "real tool chain"
+  ],
+  "warnings": [
+    "Inherited CSS parsing warning and large-barrel/chunk warnings in both builds; no threshold changes"
+  ]
+}

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {createRequire} from 'node:module';
 const host=path.join(process.env.LOCALAPPDATA,'hermes/hermes-agent'),desktop=path.join(host,'apps/desktop'),req=createRequire(path.join(desktop,'package.json')),ts=req('typescript');
-const evidence=path.resolve('docs/architecture/evidence/p522-host-a01r');
+const evidence=path.resolve(process.argv.find(arg=>arg.startsWith('--evidence-dir='))?.slice(15)??'docs/architecture/evidence/p522-host-a01r');
 const configFile=path.join(desktop,'tsconfig.json');
 const config=ts.readConfigFile(configFile,ts.sys.readFile);
 const parsed=ts.parseJsonConfigFileContent(config.config,ts.sys,desktop,{noEmit:true,incremental:false});

@@ -1,0 +1,21 @@
+{
+  "run": 1793849641525,
+  "status": "FAIL",
+  "provider": "https://openrouter.ai/api/v1",
+  "model": "dots-studio/dots-3-note-preview:free",
+  "events": [],
+  "rpc": [],
+  "turns": [],
+  "errors": [],
+  "consoleErrors": [],
+  "screenshots": [],
+  "toolCalls": 0,
+  "scope": "Real locked Electron, native Composer/Stop/Store/Runtime, synthetic content only",
+  "failure": "AggregateError: All promises were rejected",
+  "body": "",
+  "credentialCleanup": {
+    "file": "[TEST_HOME]/config.yaml",
+    "removed": true,
+    "userLocalConfigRetained": true
+  }
+}

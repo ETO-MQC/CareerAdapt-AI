@@ -4,6 +4,7 @@ import path from 'node:path';
 import {createRequire} from 'node:module';
 import crypto from 'node:crypto';
 import {execFileSync} from 'node:child_process';
+import {reliabilityPatch} from './p522-host-a02-01-patches.mjs';
 const host=path.join(process.env.LOCALAPPDATA,'hermes/hermes-agent');
 const desktop=path.join(host,'apps/desktop'),req=createRequire(path.join(desktop,'package.json'));
 const {createServer,build,loadConfigFromFile}=req('vite');
@@ -11,7 +12,7 @@ const optIn=process.argv.includes('--careeradapt');
 const command=process.argv.includes('--build')?'build':'serve';
 const port=Number(process.argv.find(arg=>arg.startsWith('--port='))?.slice(7)??5186);
 if(!Number.isInteger(port)||port<1024||port>65535)throw Error('Invalid development port');
-const out=path.resolve('docs/architecture/evidence/p522-host-a01r');
+const out=path.resolve(process.argv.find(arg=>arg.startsWith('--evidence-dir='))?.slice(15)??'docs/architecture/evidence/p522-host-a01r');
 const replaceOne=(source,anchor,replacement)=>{if(source.split(anchor).length!==2)throw Error('Exact patch anchor changed: '+anchor);return source.replace(anchor,replacement);};
 const sha=s=>crypto.createHash('sha256').update(s).digest('hex');
 if(execFileSync('git',['-C',host,'rev-parse','HEAD'],{encoding:'utf8'}).trim()!=='eb52760564dbba2e5971fa54bd67384e281cd3b8')throw Error('Unqualified Hermes source');
@@ -75,6 +76,7 @@ const integration={name:'careeradapt-host-a01-opt-in',enforce:'pre',resolveId(id
   // Reserve the home path so it is never interpreted as a Session id.
   patched=source.replace(anchor,anchor+"\n  { id: 'careeradapt-home', path: '/careeradapt-home', view: 'extension' },").replace("export type AppRouteId =","export type AppRouteId =\n  | 'careeradapt-home'");
  }
+ if(process.argv.includes('--reliability'))patched=reliabilityPatch(patched,file);
  if(patched===source)return null;
  if(!records.some(r=>r.file===file)){
   const rel=path.relative(host,file).replaceAll('\\','/');
@@ -85,5 +87,5 @@ const integration={name:'careeradapt-host-a01-opt-in',enforce:'pre',resolveId(id
  }
  return {code:patched,map:null};
 }};
-const options={...config,configFile:false,root:desktop,plugins:[...(optIn?[integration]:[]),fontAssets,...config.plugins],server:{...config.server,port,fs:{allow:[...config.server.fs.allow,process.cwd()]}},build:{...config.build,outDir:path.resolve('.artifacts/p522-host-a01-renderer'),emptyOutDir:false}};
+const options={...config,configFile:false,root:desktop,plugins:[...(optIn?[integration]:[]),fontAssets,...config.plugins],server:{...config.server,port,fs:{allow:[...config.server.fs.allow,process.cwd()]}},build:{...config.build,outDir:path.resolve(process.argv.find(arg=>arg.startsWith('--build-dir='))?.slice(12)??'.artifacts/p522-host-a01-renderer'),emptyOutDir:false}};
 if(command==='build'){await build(options);console.log('HOST_A01_BUILD_PASS');}else{const server=await createServer(options);await server.listen();console.log('HOST_A01_READY optIn='+optIn+' http://127.0.0.1:'+port);}

@@ -1,0 +1,240 @@
+{
+  "date": "2026-11-05",
+  "timezone": "Asia/Shanghai",
+  "status": "PARTIAL_NOT_COMPLETE",
+  "head": "f8fd620e4d5b55b6e6576c7b43e94f6817837d34",
+  "committed": false,
+  "pushed": false,
+  "excluded": [
+    "provider.local.json",
+    "all .artifacts runtime homes/build output",
+    "ignored plan4.md/history4.md"
+  ],
+  "files": [
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/baseline.json",
+      "bytes": 51231,
+      "sha256": "e857cab3c6f28c276b87bd07d97ae4d8d678f82c8a34ea9414c93ba91d48576e"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/credential-audit.json",
+      "bytes": 129,
+      "sha256": "5a5af3b28c72cb313d35e82c0945391a776aa3ef7b1fd24db145e03076719742"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/default/default-shell-failure-1793849951907.png",
+      "bytes": 40317,
+      "sha256": "0e0a5f61948c9bbf78ae1bebade1e327d0b5e9be338a9361146f0c0bc5aeaf33"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/default/default-shell-verification-1793849951907.json",
+      "bytes": 885,
+      "sha256": "312fafacab98b8f808d9a8f61a89d2853986ce30a4fc35574558cbad5769fb9c"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/default/default-shell-verification.json",
+      "bytes": 885,
+      "sha256": "312fafacab98b8f808d9a8f61a89d2853986ce30a4fc35574558cbad5769fb9c"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/default-build-verification.json",
+      "bytes": 246,
+      "sha256": "858489a088302c714f9c41c68cf9541e63b84daf1d6a0128ca13caee8cb6e308"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/electron-run-1793849641525.json",
+      "bytes": 560,
+      "sha256": "22fdd396b5ff6f9600aedc27d3db99c92d0d24a851eefd95fbdf9b850ef120d9"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/electron-run-1793849730015.json",
+      "bytes": 1459,
+      "sha256": "5d51c898d4c9ab654145007084894059acb200479082e1c2e768750e6606d5fb"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/failure-record.json",
+      "bytes": 1201,
+      "sha256": "88c766ba35cb9bf503f38e8ad2506bb88da704d895b9679408a78055d5b1e350"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/fault-failure-1793849303110.json",
+      "bytes": 1001,
+      "sha256": "798975436e047dac9265615e9e140a489e03642495a7d446d4a72a91d90004fd"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/final-protection-verification.json",
+      "bytes": 23755,
+      "sha256": "7a538f8abe68e5f1b4988180341fc328be6a8a563a0d0f94bffb55dec92d2890"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/interaction-verification.json",
+      "bytes": 1459,
+      "sha256": "5d51c898d4c9ab654145007084894059acb200479082e1c2e768750e6606d5fb"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/native-typecheck.json",
+      "bytes": 256,
+      "sha256": "66cc70886017cf125d7d213536024ed17431852f274b610a3f2d2804f2f74a8f"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/patch-manifest.json",
+      "bytes": 3598,
+      "sha256": "e7d0d330b21144d7df82d50be2d3b07e53254169b97794916fd0f5380d3bc456"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/patched/apps/desktop/src/app/chat/composer/hooks/use-composer-placeholder.ts.txt",
+      "bytes": 2424,
+      "sha256": "f26b09f14b2b4731f42e39dd115fd813425fed97c2e3ba3507a9edb33099a0ff"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/patched/apps/desktop/src/app/chat/index.tsx.txt",
+      "bytes": 26188,
+      "sha256": "13d965806003ba43303ccb72723d2d43666514d7fce9ddfa7a20dc14a27903fc"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/patched/apps/desktop/src/app/chat/sidebar/index.tsx.txt",
+      "bytes": 56470,
+      "sha256": "b5407eca221f2c9abe4f898e1a3aa18d3fd3781d188feddb6174dc0f714dbee2"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/patched/apps/desktop/src/app/contrib/controller.tsx.txt",
+      "bytes": 27574,
+      "sha256": "d7691d38b87c925031add45f41165653e75d68ca8124b1ac6955ad89b62863ef"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/patched/apps/desktop/src/app/contrib/surfaces.tsx.txt",
+      "bytes": 7950,
+      "sha256": "2302b5bfe6546ebfdc7d1228f61ac40635857aae91c929b27b6bcda1a29c4a5e"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/patched/apps/desktop/src/app/gateway/hooks/use-gateway-request.ts.txt",
+      "bytes": 6189,
+      "sha256": "5ba2afca1e288daa9d3e54d96aa5d32c14a4db9f702c8d7734f65ec88cb441ff"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/patched/apps/desktop/src/app/routes.ts.txt",
+      "bytes": 6930,
+      "sha256": "a6713c05637172e765d873e44ad9730d8d7646006b15ce318c3353465a869d42"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/patched/apps/desktop/src/app/session/hooks/use-prompt-actions/submit.ts.txt",
+      "bytes": 27311,
+      "sha256": "745791cce6fab653a0c325757aa63fea6ba7e7d1bef475b972f35af79755ea50"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/patched/apps/desktop/src/app/shell/hooks/use-statusbar-items.tsx.txt",
+      "bytes": 19393,
+      "sha256": "89ddd40a44eac899b827faf6431b971bf7031421d71be96ecf4f042f395cb7de"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/patched/apps/desktop/src/components/chat/intro.tsx.txt",
+      "bytes": 5409,
+      "sha256": "4e16143bb6bda33a3576581f6becd987ba8cdd0a57f2cd9d053890ac6c9f437e"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/provider-verification.json",
+      "bytes": 1375,
+      "sha256": "ab1cc0343960b9afd8485c34c94c36dc650057cb52ec1916f2451a66403b00fe"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/reliability-patch-manifest.json",
+      "bytes": 753,
+      "sha256": "8fdd14d3aac15b9526b167f04bd052a4caf770d29e9c2d4dc56ceba57ebf5879"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/retry-fault-verification.json",
+      "bytes": 6023,
+      "sha256": "6c82f2475c15d4617cd333accc1b17db2f3ae355c64ee364bdc5bd447e74ae56"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/screenshots/1793849730015-failure.png",
+      "bytes": 40317,
+      "sha256": "0e0a5f61948c9bbf78ae1bebade1e327d0b5e9be338a9361146f0c0bc5aeaf33"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/startup-log-redacted.txt",
+      "bytes": 628,
+      "sha256": "536f7b18f9b0a56592a656b851dac8a49333bae6f0186fdcd5f3453c2f0af0c5"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/stop-verification.json",
+      "bytes": 261,
+      "sha256": "b15d8fb0bfc4b444c28c31ae888c7221ebe0bafb640197d60dfdf051894c3813"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/streaming-verification.json",
+      "bytes": 977,
+      "sha256": "28dcf62a6dfdf333ee51dcdedfe1c7c32c33c4f01b49c6158c39b649293c4105"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/test-results.json",
+      "bytes": 2804,
+      "sha256": "7f1f694ba0fbc09107a04f6fc0419602e0472c9d105dcee8414ac92d4fc4bbc5"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/vision-api.json",
+      "bytes": 787,
+      "sha256": "3851efa665befc2053de5f315fec82054c77e45cc77116397b911e13facac220"
+    },
+    {
+      "path": "docs/architecture/evidence/p522-host-a02-01/vision-verification.json",
+      "bytes": 1140,
+      "sha256": "f9a57e22a4cdf81b16f985bf82ad6b1d52b55ebffefce6e43829486b5797ecec"
+    },
+    {
+      "path": "scripts/p522-host-a02-01-baseline.mjs",
+      "bytes": 3115,
+      "sha256": "9b078e033d5bd8733c6a1e64243508d491380e8a1f3993e60335ede53e1cd6ea"
+    },
+    {
+      "path": "scripts/p522-host-a02-01-deliver.mjs",
+      "bytes": 7631,
+      "sha256": "64bd8841be274322e6062244692b25f0b052de5bf77e1e00c605837f90dbeee9"
+    },
+    {
+      "path": "scripts/p522-host-a02-01-electron.mjs",
+      "bytes": 9803,
+      "sha256": "de828333e3951a0d93df030d95b5e107c93620d9294cb3c94a5952593e357a13"
+    },
+    {
+      "path": "scripts/p522-host-a02-01-faults.mjs",
+      "bytes": 9234,
+      "sha256": "946b347f925f601be2de2815ba5b1c826997004d3413652c95774d24c4274b0f"
+    },
+    {
+      "path": "scripts/p522-host-a02-01-patches.mjs",
+      "bytes": 4464,
+      "sha256": "e4b761b9d5b4a34e582c22961a2113144656a35fc6df824fea2fe7604b90e29d"
+    },
+    {
+      "path": "scripts/p522-host-a02-01-provider.mjs",
+      "bytes": 4332,
+      "sha256": "f2d2c58514890f5083afacea281fb5a1fa4c461080520ffc32d5b1e6588300c0"
+    },
+    {
+      "path": "scripts/p522-host-a01-renderer.mjs",
+      "bytes": 8449,
+      "sha256": "94efd0336dac33f62bf0910b64724989f633c25c76c2a49f025f0a2c6c4f4a89"
+    },
+    {
+      "path": "scripts/p522-host-a01-native-typecheck.mjs",
+      "bytes": 2425,
+      "sha256": "19a1ccca45b0ec241526d505b7b22c020301065eef3428d2b5ecbb9f2dd246b3"
+    },
+    {
+      "path": "scripts/p522-host-a01-fallback.mjs",
+      "bytes": 7153,
+      "sha256": "f33f4c856447295e9c86f5cc52a405ad286293ffeaa67c1ea961f8321c9194d3"
+    },
+    {
+      "path": "tests/p522-host-a02-01-patches.test.mjs",
+      "bytes": 893,
+      "sha256": "c2adede32e1efee036acc836fe107d35cabb091da4d0669eed18ecfed78f6695"
+    },
+    {
+      "path": "docs/architecture/p5.2.2-host-a02-01-openrouter-runtime-reliability.md",
+      "bytes": 10330,
+      "sha256": "183911a849c224d0a9778e52331a621138ae0dfe9e1d08388812e8d81b58af50"
+    }
+  ]
+}

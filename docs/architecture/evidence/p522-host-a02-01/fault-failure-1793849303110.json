@@ -1,0 +1,25 @@
+{
+  "error": "Error: gateway connect() requires a ws:// or wss:// URL string, got \"ws://127.0.0.1:14980\"\n    at invalidUrl (apps/shared/src/json-rpc-gateway.ts:38:20)\n    at JsonRpcGatewayClient.connect (apps/shared/src/json-rpc-gateway.ts:48:19)\n    at scenario (file:///E:/DEF/CareerAdapt%20AI/scripts/p522-host-a02-01-faults.mjs:52:41)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async file:///E:/DEF/CareerAdapt%20AI/scripts/p522-host-a02-01-faults.mjs:103:134",
+  "records": [
+    {
+      "kind": "before-send",
+      "patched": false,
+      "requestsSent": 1,
+      "serverReceived": 0,
+      "executions": 0,
+      "ack": "NONE",
+      "sessionId": "synthetic-runtime",
+      "messageId": "user-1793849303106-6ye22c",
+      "submitReturned": false,
+      "finalUI": {
+        "busy": false,
+        "awaiting": false,
+        "userMessages": 1,
+        "errors": [
+          "Failed"
+        ]
+      },
+      "reexecuted": false
+    }
+  ]
+}

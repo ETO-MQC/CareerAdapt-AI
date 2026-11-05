@@ -1,0 +1,9 @@
+{
+  "status": "NOT_VERIFIED",
+  "reason": "Native Composer unreachable before timeout; Stop never clicked",
+  "uiFeedbackMs": null,
+  "interruptAckMs": null,
+  "runtimeInterrupted": null,
+  "providerConnectionTerminated": null,
+  "lateDeltaObservation": null
+}

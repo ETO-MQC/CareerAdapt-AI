@@ -1,0 +1,37 @@
+{
+  "api": {
+    "at": "2026-11-05T03:31:26.231Z",
+    "endpoint": "https://openrouter.ai/api/v1",
+    "requestedModel": "dots-studio/dots-3-note-preview:free",
+    "status": "PASS",
+    "records": [
+      {
+        "label": "vision-api",
+        "stream": false,
+        "startedAt": "2026-11-05T03:31:18.678Z",
+        "status": "PASS",
+        "httpStatus": 200,
+        "returnedModel": "dots-studio/dots-3-note-preview:free",
+        "text": "\n\nA02-VISION-44BFDD",
+        "finishReason": "stop",
+        "modelMatches": true,
+        "expectedMarker": "A02-VISION-44BFDD",
+        "correct": true,
+        "image": {
+          "bytes": 4991,
+          "sha256": "96aff22dac2f4eacdf7a87653664bd87951fe46043ebe024d5a64168381442e2"
+        },
+        "totalMs": 7550.871
+      }
+    ],
+    "automaticRetries": 0,
+    "credentialLogged": false
+  },
+  "nativeUi": {
+    "status": "NOT_VERIFIED",
+    "reason": "Electron startup gate failed; native attachment/submit not executed",
+    "imagePayloadIntoRequestedModel": "NOT_VERIFIED",
+    "auxiliaryVisionQualification": false
+  },
+  "scope": "Provider Vision Probe only; not A-02-03"
+}

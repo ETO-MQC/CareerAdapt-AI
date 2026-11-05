@@ -1,0 +1,8 @@
+[hermes] [tls] trusting 514 Windows system CA certificate(s) for backend connections
+[hermes] [boot] Resolving Hermes backend
+[hermes] [boot] Resolving Hermes runtime
+[hermes] [boot] Using Hermes source at C:\Users\mqcin\AppData\Local\hermes\hermes-agent
+[hermes] [backend] `serve` supported for Hermes source at C:\Users\mqcin\AppData\Local\hermes\hermes-agent
+[hermes] [boot] Starting Hermes backend via Hermes source at C:\Users\mqcin\AppData\Local\hermes\hermes-agent
+[hermes] Starting Hermes backend via Hermes source at C:\Users\mqcin\AppData\Local\hermes\hermes-agent
+[hermes] [boot] Waiting for Hermes backend to launch

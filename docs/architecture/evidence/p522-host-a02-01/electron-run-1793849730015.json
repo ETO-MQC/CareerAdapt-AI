@@ -1,0 +1,27 @@
+{
+  "run": 1793849730015,
+  "status": "FAIL",
+  "provider": "https://openrouter.ai/api/v1",
+  "model": "dots-studio/dots-3-note-preview:free",
+  "events": [],
+  "rpc": [],
+  "turns": [],
+  "errors": [],
+  "consoleErrors": [],
+  "screenshots": [
+    "docs/architecture/evidence/p522-host-a02-01/screenshots/1793849730015-failure.png"
+  ],
+  "toolCalls": 0,
+  "scope": "Real locked Electron, native Composer/Stop/Store/Runtime, synthetic content only",
+  "failure": "locator.waitFor: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: /AI 连接.*ready/i }) to be visible\u001b[22m\n\n    at E:\\DEF\\CareerAdapt AI\\scripts\\p522-host-a02-01-electron.mjs:75:57",
+  "windows": [
+    "http://127.0.0.1:5190/"
+  ],
+  "url": "http://127.0.0.1:5190/",
+  "body": "职适 AI\nCareerAdapt AI\n首页\nAI 工作台\n个人资料库\n设置\nHost 集成预览 · 隔离数据\nAI 能力与高级管理\n原生导航与快捷键\n对话上下文\n＋ 新建对话\nPINNED\nShift-click a chat to pin\nSESSIONS\n0\n⠋\nWaking up …\n⠇\nAI 连接\noffline\n协作代理\n定时任务\n外部触发\nv0.19.0\nLet's get you setup with Hermes Agent\n\nConnect a model provider to start chatting. Most options take one click.\n\nStarting Hermes…\n\nWaiting for Hermes backend to launch\n86%\nCONNECTING",
+  "credentialCleanup": {
+    "file": "[TEST_HOME]/config.yaml",
+    "removed": true,
+    "userLocalConfigRetained": true
+  }
+}

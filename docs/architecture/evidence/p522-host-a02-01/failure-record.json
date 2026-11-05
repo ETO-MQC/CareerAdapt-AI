@@ -1,0 +1,37 @@
+{
+  "status": "OPEN_GATE",
+  "failures": [
+    {
+      "stage": "fixture initial",
+      "reason": "VM lacked URL/Error globals; fixed harness, original fault-failure JSON retained"
+    },
+    {
+      "stage": "initial lint",
+      "reason": "Next module variable rule; renamed fixture variable, final lint passed"
+    },
+    {
+      "stage": "Career Electron attempt 1",
+      "run": 1793849641525,
+      "reason": "All readiness waits rejected before UI; no screenshot available"
+    },
+    {
+      "stage": "Career Electron attempt 2",
+      "run": 1793849730015,
+      "reason": "Native backend ready wait timed out, screenshot shows offline/onboarding; root cause NOT_ESTABLISHED"
+    },
+    {
+      "stage": "default Electron",
+      "run": 1793849951907,
+      "reason": "Screenshot font-load timeout before interaction assertions"
+    }
+  ],
+  "stoppedAfterTwoCareerTimeouts": true,
+  "notQualified": [
+    "native UI streaming/multi-turn/Stop/late-delta handling",
+    "native image selection/staging/provider payload",
+    "native auth/429/timeout/error recovery",
+    "default shell interaction regression"
+  ],
+  "noProviderRateLimitObserved": true,
+  "noMainPreloadPythonChanges": true
+}
