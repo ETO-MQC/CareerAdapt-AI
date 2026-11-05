@@ -1,0 +1,3689 @@
+{
+  "schemaVersion": "rp01-real-provider-qualification.v1",
+  "date": "2026-11-05",
+  "status": "PARTIAL",
+  "completionGate": "BLOCKED_DAILY_QUOTA_STALE_SKILL_BUNDLE_AND_BUSINESS_FAILURES",
+  "baseline": {
+    "branch": "competition/5.1.8",
+    "head": "77d43a94d72d98094493dc351aaf30e31527a090",
+    "remoteVerified": true,
+    "initialWorktreeClean": true
+  },
+  "provider": {
+    "name": "OpenRouter",
+    "model": "dots-studio/dots-3-note-preview:free",
+    "upstreamObserved": "AtlasCloud",
+    "productionDefaultChanged": false
+  },
+  "policy": {
+    "temperature": 0,
+    "maxTokens": 8192,
+    "reasoning": {
+      "effort": "low"
+    },
+    "timeoutMs": 180000,
+    "automaticCollectorRetries": 0,
+    "hermesToolIterations": "existing runtime; repeated reads observed, included in request counts",
+    "paidFallback": false
+  },
+  "counts": {
+    "upstreamHttpAttempts": 141,
+    "upstreamInferenceAttempts": 49,
+    "inferenceHttpStatuses": {
+      "200": 47,
+      "429": 1,
+      "None": 1
+    },
+    "upstreamMetadataOrCapabilityAttempts": 92,
+    "knownCostResponses": 47,
+    "knownReportedCostSum": 0,
+    "unknownBillingForInterruptedRequest": true,
+    "note": "Daily limit50 and remaining0 are upstream account state; prior account usage is not inferred.",
+    "backgroundCuratorInferenceAttempts": 10
+  },
+  "batches": [
+    {
+      "evidence": "docs/quality/rp01-logs/hermes-provider-business-bound-v2.json",
+      "httpAttempts": 8,
+      "inferenceAttempts": 1,
+      "collectionStatus": "operator_interrupted; no complete exit code",
+      "stopped": false
+    },
+    {
+      "evidence": "docs/quality/rp01-logs/hermes-provider-business-bound-v3.json",
+      "httpAttempts": 18,
+      "inferenceAttempts": 0,
+      "collectionStatus": "operator_interrupted; no complete exit code",
+      "stopped": false
+    },
+    {
+      "evidence": "docs/quality/rp01-logs/hermes-provider-business-bound-v4.json",
+      "httpAttempts": 69,
+      "inferenceAttempts": 32,
+      "collectionStatus": "operator_interrupted; no complete exit code",
+      "stopped": true
+    },
+    {
+      "evidence": "docs/quality/rp01-logs/hermes-provider-business-bound.json",
+      "httpAttempts": 11,
+      "inferenceAttempts": 2,
+      "collectionStatus": "operator_interrupted; no complete exit code",
+      "stopped": false
+    },
+    {
+      "evidence": "docs/quality/rp01-logs/hermes-provider-business.json",
+      "httpAttempts": 17,
+      "inferenceAttempts": 7,
+      "collectionStatus": "operator_interrupted; no complete exit code",
+      "stopped": false
+    },
+    {
+      "evidence": "docs/quality/rp01-logs/hermes-provider.json",
+      "httpAttempts": 13,
+      "inferenceAttempts": 2,
+      "collectionStatus": "completed",
+      "stopped": false
+    }
+  ],
+  "requests": [
+    {
+      "batch": "hermes-provider-business-bound-v2.json",
+      "sequence": 1,
+      "path": "/api/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 986,
+      "firstByteMs": 988,
+      "totalMs": 1172,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v2.json",
+      "sequence": 2,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 202,
+      "firstByteMs": 202,
+      "totalMs": 448,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v2.json",
+      "sequence": 3,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 196,
+      "firstByteMs": 196,
+      "totalMs": 439,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v2.json",
+      "sequence": 4,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 192,
+      "firstByteMs": 193,
+      "totalMs": 264,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v2.json",
+      "sequence": 5,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 197,
+      "firstByteMs": 197,
+      "totalMs": 443,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v2.json",
+      "sequence": 6,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 798,
+      "firstByteMs": 809,
+      "totalMs": 1019,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v2.json",
+      "sequence": 7,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 804,
+      "firstByteMs": 804,
+      "totalMs": 1143,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v2.json",
+      "sequence": 8,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 5909,
+      "firstByteMs": 5909,
+      "totalMs": 31943,
+      "finishReasons": [
+        "stop",
+        "stop"
+      ],
+      "toolNamesRequested": [],
+      "usage": {
+        "prompt_tokens": 1411,
+        "completion_tokens": 2371,
+        "total_tokens": 3782,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 2057,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v3.json",
+      "sequence": 1,
+      "path": "/api/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 1186,
+      "firstByteMs": 1188,
+      "totalMs": 1350,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v3.json",
+      "sequence": 2,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 197,
+      "firstByteMs": 197,
+      "totalMs": 253,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v3.json",
+      "sequence": 3,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 171,
+      "firstByteMs": 171,
+      "totalMs": 390,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v3.json",
+      "sequence": 4,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 269,
+      "firstByteMs": 269,
+      "totalMs": 578,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v3.json",
+      "sequence": 5,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 246,
+      "firstByteMs": 246,
+      "totalMs": 325,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v3.json",
+      "sequence": 6,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 3166,
+      "firstByteMs": 3166,
+      "totalMs": 3348,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v3.json",
+      "sequence": 7,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 912,
+      "firstByteMs": 913,
+      "totalMs": 1112,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v3.json",
+      "sequence": 8,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 673,
+      "firstByteMs": 673,
+      "totalMs": 866,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v3.json",
+      "sequence": 9,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 638,
+      "firstByteMs": 638,
+      "totalMs": 881,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v3.json",
+      "sequence": 10,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 1551,
+      "firstByteMs": 1552,
+      "totalMs": 1754,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v3.json",
+      "sequence": 11,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 877,
+      "firstByteMs": 877,
+      "totalMs": 1348,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v3.json",
+      "sequence": 12,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 801,
+      "firstByteMs": 802,
+      "totalMs": 1243,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v3.json",
+      "sequence": 13,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 762,
+      "firstByteMs": 763,
+      "totalMs": 981,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v3.json",
+      "sequence": 14,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 191,
+      "firstByteMs": 191,
+      "totalMs": 426,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v3.json",
+      "sequence": 15,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 196,
+      "firstByteMs": 196,
+      "totalMs": 398,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v3.json",
+      "sequence": 16,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 1072,
+      "firstByteMs": 1072,
+      "totalMs": 1467,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v3.json",
+      "sequence": 17,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 617,
+      "firstByteMs": 617,
+      "totalMs": 1015,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v3.json",
+      "sequence": 18,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 169,
+      "firstByteMs": 169,
+      "totalMs": 240,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 1,
+      "path": "/api/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 1087,
+      "firstByteMs": 1089,
+      "totalMs": 1298,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 2,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 222,
+      "firstByteMs": 222,
+      "totalMs": 499,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 3,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 248,
+      "firstByteMs": 249,
+      "totalMs": 550,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 4,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 241,
+      "firstByteMs": 242,
+      "totalMs": 561,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 5,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 633,
+      "firstByteMs": 633,
+      "totalMs": 761,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 6,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 344,
+      "firstByteMs": 344,
+      "totalMs": 839,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 7,
+      "path": "/api/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 251,
+      "firstByteMs": 251,
+      "totalMs": 645,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 8,
+      "path": "/api/show",
+      "kind": "metadata_or_capability",
+      "httpStatus": 404,
+      "headersMs": 435,
+      "firstByteMs": 435,
+      "totalMs": 436,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": "http_error"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 9,
+      "path": "/api/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 363,
+      "firstByteMs": 364,
+      "totalMs": 765,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 10,
+      "path": "/v1/models/dots-studio/dots-3-note-preview:free",
+      "kind": "metadata_or_capability",
+      "httpStatus": 404,
+      "headersMs": 283,
+      "firstByteMs": 283,
+      "totalMs": 283,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": "http_error"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 11,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 235,
+      "firstByteMs": 236,
+      "totalMs": 480,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 12,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 264,
+      "firstByteMs": 264,
+      "totalMs": 1362,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 13,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1611,
+      "firstByteMs": 1611,
+      "totalMs": 9048,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_job_list",
+        "mcp__careeradapt__career_resume_list"
+      ],
+      "usage": {
+        "prompt_tokens": 6936,
+        "completion_tokens": 583,
+        "total_tokens": 7519,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 641,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 14,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1546,
+      "firstByteMs": 1546,
+      "totalMs": 4628,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_profile_get",
+        "mcp__careeradapt__career_context_retrieve"
+      ],
+      "usage": {
+        "prompt_tokens": 10120,
+        "completion_tokens": 258,
+        "total_tokens": 10378,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 153,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 15,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1845,
+      "firstByteMs": 1845,
+      "totalMs": 6418,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_context_retrieve"
+      ],
+      "usage": {
+        "prompt_tokens": 16411,
+        "completion_tokens": 395,
+        "total_tokens": 16806,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 9728,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 346,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 16,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1562,
+      "firstByteMs": 1562,
+      "totalMs": 8537,
+      "finishReasons": [
+        "stop",
+        "stop"
+      ],
+      "toolNamesRequested": [],
+      "usage": {
+        "prompt_tokens": 21007,
+        "completion_tokens": 538,
+        "total_tokens": 21545,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 287,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 17,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 499,
+      "firstByteMs": 499,
+      "totalMs": 692,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 18,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 297,
+      "firstByteMs": 298,
+      "totalMs": 310,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 19,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 201,
+      "firstByteMs": 201,
+      "totalMs": 260,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 20,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 213,
+      "firstByteMs": 213,
+      "totalMs": 469,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 21,
+      "path": "/api/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 322,
+      "firstByteMs": 322,
+      "totalMs": 645,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 22,
+      "path": "/v1/models/dots-studio/dots-3-note-preview:free",
+      "kind": "metadata_or_capability",
+      "httpStatus": 404,
+      "headersMs": 222,
+      "firstByteMs": 222,
+      "totalMs": 222,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": "http_error"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 23,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 203,
+      "firstByteMs": 203,
+      "totalMs": 265,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 24,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 4051,
+      "firstByteMs": 4052,
+      "totalMs": 7403,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_job_list",
+        "mcp__careeradapt__career_resume_list"
+      ],
+      "usage": {
+        "prompt_tokens": 6936,
+        "completion_tokens": 262,
+        "total_tokens": 7198,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 268,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 25,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 908,
+      "firstByteMs": 908,
+      "totalMs": 7443,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_profile_get"
+      ],
+      "usage": {
+        "prompt_tokens": 10122,
+        "completion_tokens": 451,
+        "total_tokens": 10573,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 485,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 26,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1251,
+      "firstByteMs": 1251,
+      "totalMs": 4870,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_context_retrieve"
+      ],
+      "usage": {
+        "prompt_tokens": 12360,
+        "completion_tokens": 285,
+        "total_tokens": 12645,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 9728,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 229,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 27,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1083,
+      "firstByteMs": 1083,
+      "totalMs": 3428,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_context_retrieve"
+      ],
+      "usage": {
+        "prompt_tokens": 16415,
+        "completion_tokens": 220,
+        "total_tokens": 16635,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 12288,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 121,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 28,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1034,
+      "firstByteMs": 1034,
+      "totalMs": 3505,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_context_retrieve"
+      ],
+      "usage": {
+        "prompt_tokens": 21013,
+        "completion_tokens": 201,
+        "total_tokens": 21214,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 6656,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 99,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 29,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 888,
+      "firstByteMs": 888,
+      "totalMs": 5911,
+      "finishReasons": [
+        "stop",
+        "stop"
+      ],
+      "toolNamesRequested": [],
+      "usage": {
+        "prompt_tokens": 25637,
+        "completion_tokens": 380,
+        "total_tokens": 26017,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 20992,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 324,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 30,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 363,
+      "firstByteMs": 363,
+      "totalMs": 620,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 31,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 198,
+      "firstByteMs": 198,
+      "totalMs": 414,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 32,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 193,
+      "firstByteMs": 193,
+      "totalMs": 603,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 33,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 203,
+      "firstByteMs": 203,
+      "totalMs": 406,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 34,
+      "path": "/api/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 190,
+      "firstByteMs": 190,
+      "totalMs": 402,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 35,
+      "path": "/v1/models/dots-studio/dots-3-note-preview:free",
+      "kind": "metadata_or_capability",
+      "httpStatus": 404,
+      "headersMs": 198,
+      "firstByteMs": 198,
+      "totalMs": 199,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": "http_error"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 36,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 234,
+      "firstByteMs": 234,
+      "totalMs": 412,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 37,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 981,
+      "firstByteMs": 981,
+      "totalMs": 3852,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_profile_list",
+        "mcp__careeradapt__career_resume_list",
+        "mcp__careeradapt__career_job_list"
+      ],
+      "usage": {
+        "prompt_tokens": 6934,
+        "completion_tokens": 223,
+        "total_tokens": 7157,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 182,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 38,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1436,
+      "firstByteMs": 1436,
+      "totalMs": 6218,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_context_retrieve",
+        "mcp__careeradapt__career_job_list"
+      ],
+      "usage": {
+        "prompt_tokens": 11433,
+        "completion_tokens": 416,
+        "total_tokens": 11849,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 6656,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 384,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 39,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1291,
+      "firstByteMs": 1291,
+      "totalMs": 5405,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_context_retrieve",
+        "mcp__careeradapt__career_job_list"
+      ],
+      "usage": {
+        "prompt_tokens": 16653,
+        "completion_tokens": 315,
+        "total_tokens": 16968,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 11264,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 270,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 40,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1220,
+      "firstByteMs": 1220,
+      "totalMs": 7753,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_job_list",
+        "mcp__careeradapt__career_context_retrieve"
+      ],
+      "usage": {
+        "prompt_tokens": 21863,
+        "completion_tokens": 546,
+        "total_tokens": 22409,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 499,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 41,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1194,
+      "firstByteMs": 1194,
+      "totalMs": 4254,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_job_list",
+        "mcp__careeradapt__career_context_retrieve"
+      ],
+      "usage": {
+        "prompt_tokens": 27063,
+        "completion_tokens": 263,
+        "total_tokens": 27326,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 185,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 42,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 2667,
+      "firstByteMs": 2667,
+      "totalMs": 7428,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_job_list",
+        "mcp__careeradapt__career_context_retrieve"
+      ],
+      "usage": {
+        "prompt_tokens": 32272,
+        "completion_tokens": 422,
+        "total_tokens": 32694,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 16384,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 337,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 43,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 2841,
+      "firstByteMs": 2841,
+      "totalMs": 6400,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_profile_get",
+        "mcp__careeradapt__career_resume_list"
+      ],
+      "usage": {
+        "prompt_tokens": 37505,
+        "completion_tokens": 342,
+        "total_tokens": 37847,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 32256,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 303,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 44,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 7380,
+      "firstByteMs": 7380,
+      "totalMs": 19239,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_workflow_tailor_resume"
+      ],
+      "usage": {
+        "prompt_tokens": 41310,
+        "completion_tokens": 1012,
+        "total_tokens": 42322,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 1149,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 45,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1333,
+      "firstByteMs": 1334,
+      "totalMs": 3301,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_job_list",
+        "mcp__careeradapt__career_profile_get"
+      ],
+      "usage": {
+        "prompt_tokens": 42638,
+        "completion_tokens": 177,
+        "total_tokens": 42815,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 37376,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 141,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 46,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 11634,
+      "firstByteMs": 11634,
+      "totalMs": 17081,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_context_retrieve"
+      ],
+      "usage": {
+        "prompt_tokens": 46470,
+        "completion_tokens": 409,
+        "total_tokens": 46879,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 40960,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 339,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 47,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1866,
+      "firstByteMs": 1866,
+      "totalMs": 7240,
+      "finishReasons": [
+        "stop",
+        "stop"
+      ],
+      "toolNamesRequested": [],
+      "usage": {
+        "prompt_tokens": 50655,
+        "completion_tokens": 421,
+        "total_tokens": 51076,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 239,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 48,
+      "path": "/api/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 644,
+      "firstByteMs": 645,
+      "totalMs": 1132,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 49,
+      "path": "/v1/models/dots-studio/dots-3-note-preview:free",
+      "kind": "metadata_or_capability",
+      "httpStatus": 404,
+      "headersMs": 327,
+      "firstByteMs": 327,
+      "totalMs": 328,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": "http_error"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 50,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 605,
+      "firstByteMs": 605,
+      "totalMs": 812,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 51,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 2098,
+      "firstByteMs": 2098,
+      "totalMs": 18956,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "skill_view",
+        "skill_view"
+      ],
+      "usage": {
+        "prompt_tokens": 51932,
+        "completion_tokens": 1251,
+        "total_tokens": 53183,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 1450,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "background_curator"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 52,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1287,
+      "firstByteMs": 1287,
+      "totalMs": 34345,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "skill_view"
+      ],
+      "usage": {
+        "prompt_tokens": 56290,
+        "completion_tokens": 2568,
+        "total_tokens": 58858,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 51712,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 3089,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "background_curator"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 53,
+      "path": "/api/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 610,
+      "firstByteMs": 610,
+      "totalMs": 1025,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 54,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1830,
+      "firstByteMs": 1830,
+      "totalMs": 30669,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "skill_manage"
+      ],
+      "usage": {
+        "prompt_tokens": 58859,
+        "completion_tokens": 1972,
+        "total_tokens": 60831,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 55808,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 1835,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "background_curator"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 55,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1226,
+      "firstByteMs": 1226,
+      "totalMs": 3254,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "skills_list"
+      ],
+      "usage": {
+        "prompt_tokens": 59294,
+        "completion_tokens": 39,
+        "total_tokens": 59333,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 58368,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 30,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "background_curator"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 56,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 2333,
+      "firstByteMs": 2333,
+      "totalMs": 4064,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "skill_view"
+      ],
+      "usage": {
+        "prompt_tokens": 59608,
+        "completion_tokens": 53,
+        "total_tokens": 59661,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 58880,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 22,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "background_curator"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 57,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1484,
+      "firstByteMs": 1484,
+      "totalMs": 6901,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "skill_manage"
+      ],
+      "usage": {
+        "prompt_tokens": 62174,
+        "completion_tokens": 413,
+        "total_tokens": 62587,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 59392,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 23,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "background_curator"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 58,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1509,
+      "firstByteMs": 1509,
+      "totalMs": 25583,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "skill_manage"
+      ],
+      "usage": {
+        "prompt_tokens": 62594,
+        "completion_tokens": 1813,
+        "total_tokens": 64407,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 61952,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 1042,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "background_curator"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 59,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1746,
+      "firstByteMs": 1746,
+      "totalMs": 12724,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "skill_manage"
+      ],
+      "usage": {
+        "prompt_tokens": 63738,
+        "completion_tokens": 1057,
+        "total_tokens": 64795,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 62464,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 99,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "background_curator"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 60,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 2002,
+      "firstByteMs": 2002,
+      "totalMs": 12326,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "skill_manage"
+      ],
+      "usage": {
+        "prompt_tokens": 64890,
+        "completion_tokens": 1073,
+        "total_tokens": 65963,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 63488,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 120,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "background_curator"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 61,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 867,
+      "firstByteMs": 868,
+      "totalMs": 1063,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 62,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 450,
+      "firstByteMs": 450,
+      "totalMs": 608,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 63,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 172,
+      "firstByteMs": 172,
+      "totalMs": 401,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 64,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 165,
+      "firstByteMs": 165,
+      "totalMs": 363,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 65,
+      "path": "/api/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 185,
+      "firstByteMs": 185,
+      "totalMs": 225,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 66,
+      "path": "/v1/models/dots-studio/dots-3-note-preview:free",
+      "kind": "metadata_or_capability",
+      "httpStatus": 404,
+      "headersMs": 163,
+      "firstByteMs": 163,
+      "totalMs": 163,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": "http_error"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 67,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 177,
+      "firstByteMs": 178,
+      "totalMs": 414,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 68,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1086,
+      "firstByteMs": 1086,
+      "totalMs": 2529,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_job_list",
+        "mcp__careeradapt__career_resume_list"
+      ],
+      "usage": {
+        "prompt_tokens": 6932,
+        "completion_tokens": 116,
+        "total_tokens": 7048,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 6656,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 87,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business-bound-v4.json",
+      "sequence": 69,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 429,
+      "headersMs": 1259,
+      "firstByteMs": 1259,
+      "totalMs": 1260,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": "rate_limited_daily",
+      "executionPurpose": "background_curator"
+    },
+    {
+      "batch": "hermes-provider-business-bound.json",
+      "sequence": 1,
+      "path": "/api/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 1396,
+      "firstByteMs": 1398,
+      "totalMs": 1713,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound.json",
+      "sequence": 2,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 2018,
+      "firstByteMs": 2019,
+      "totalMs": 2243,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound.json",
+      "sequence": 3,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 196,
+      "firstByteMs": 198,
+      "totalMs": 281,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound.json",
+      "sequence": 4,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 197,
+      "firstByteMs": 197,
+      "totalMs": 448,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound.json",
+      "sequence": 5,
+      "path": "/api/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 193,
+      "firstByteMs": 193,
+      "totalMs": 527,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound.json",
+      "sequence": 6,
+      "path": "/api/show",
+      "kind": "metadata_or_capability",
+      "httpStatus": 404,
+      "headersMs": 323,
+      "firstByteMs": 324,
+      "totalMs": 325,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": "http_error"
+    },
+    {
+      "batch": "hermes-provider-business-bound.json",
+      "sequence": 7,
+      "path": "/api/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 270,
+      "firstByteMs": 270,
+      "totalMs": 442,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound.json",
+      "sequence": 8,
+      "path": "/v1/models/dots-studio/dots-3-note-preview:free",
+      "kind": "metadata_or_capability",
+      "httpStatus": 404,
+      "headersMs": 191,
+      "firstByteMs": 192,
+      "totalMs": 193,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": "http_error"
+    },
+    {
+      "batch": "hermes-provider-business-bound.json",
+      "sequence": 9,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 189,
+      "firstByteMs": 189,
+      "totalMs": 530,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business-bound.json",
+      "sequence": 10,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1431,
+      "firstByteMs": 1431,
+      "totalMs": 4059,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_resume_list",
+        "mcp__careeradapt__career_profile_get",
+        "mcp__careeradapt__career_job_list"
+      ],
+      "usage": {
+        "prompt_tokens": 6950,
+        "completion_tokens": 199,
+        "total_tokens": 7149,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 158,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business-bound.json",
+      "sequence": 11,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": null,
+      "headersMs": null,
+      "firstByteMs": null,
+      "totalMs": null,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": "operator_interrupted_or_unknown",
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business.json",
+      "sequence": 1,
+      "path": "/api/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 1029,
+      "firstByteMs": 1031,
+      "totalMs": 1546,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business.json",
+      "sequence": 2,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 228,
+      "firstByteMs": 229,
+      "totalMs": 471,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business.json",
+      "sequence": 3,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 215,
+      "firstByteMs": 216,
+      "totalMs": 493,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business.json",
+      "sequence": 4,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 215,
+      "firstByteMs": 215,
+      "totalMs": 477,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business.json",
+      "sequence": 5,
+      "path": "/api/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 217,
+      "firstByteMs": 218,
+      "totalMs": 1317,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business.json",
+      "sequence": 6,
+      "path": "/api/show",
+      "kind": "metadata_or_capability",
+      "httpStatus": 404,
+      "headersMs": 307,
+      "firstByteMs": 307,
+      "totalMs": 308,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": "http_error"
+    },
+    {
+      "batch": "hermes-provider-business.json",
+      "sequence": 7,
+      "path": "/api/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 269,
+      "firstByteMs": 269,
+      "totalMs": 480,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business.json",
+      "sequence": 8,
+      "path": "/v1/models/dots-studio/dots-3-note-preview:free",
+      "kind": "metadata_or_capability",
+      "httpStatus": 404,
+      "headersMs": 215,
+      "firstByteMs": 215,
+      "totalMs": 218,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": "http_error"
+    },
+    {
+      "batch": "hermes-provider-business.json",
+      "sequence": 9,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 357,
+      "firstByteMs": 358,
+      "totalMs": 526,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business.json",
+      "sequence": 10,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1682,
+      "firstByteMs": 1683,
+      "totalMs": 5139,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_profile_list",
+        "mcp__careeradapt__career_resume_list",
+        "mcp__careeradapt__career_job_list"
+      ],
+      "usage": {
+        "prompt_tokens": 6913,
+        "completion_tokens": 284,
+        "total_tokens": 7197,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 262,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business.json",
+      "sequence": 11,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1688,
+      "firstByteMs": 1688,
+      "totalMs": 7584,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_context_retrieve"
+      ],
+      "usage": {
+        "prompt_tokens": 11207,
+        "completion_tokens": 499,
+        "total_tokens": 11706,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 6656,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 508,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business.json",
+      "sequence": 12,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1112,
+      "firstByteMs": 1112,
+      "totalMs": 3236,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_context_retrieve"
+      ],
+      "usage": {
+        "prompt_tokens": 13873,
+        "completion_tokens": 156,
+        "total_tokens": 14029,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 10752,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 88,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business.json",
+      "sequence": 13,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 796,
+      "firstByteMs": 796,
+      "totalMs": 995,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider-business.json",
+      "sequence": 14,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 981,
+      "firstByteMs": 982,
+      "totalMs": 4905,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_context_retrieve"
+      ],
+      "usage": {
+        "prompt_tokens": 16525,
+        "completion_tokens": 295,
+        "total_tokens": 16820,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 13824,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 227,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business.json",
+      "sequence": 15,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1180,
+      "firstByteMs": 1180,
+      "totalMs": 4873,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_context_retrieve"
+      ],
+      "usage": {
+        "prompt_tokens": 19758,
+        "completion_tokens": 271,
+        "total_tokens": 20029,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 16384,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 217,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business.json",
+      "sequence": 16,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 2705,
+      "firstByteMs": 2705,
+      "totalMs": 8075,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_profile_get",
+        "mcp__careeradapt__career_job_list"
+      ],
+      "usage": {
+        "prompt_tokens": 20098,
+        "completion_tokens": 427,
+        "total_tokens": 20525,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 466,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider-business.json",
+      "sequence": 17,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1388,
+      "firstByteMs": 1388,
+      "totalMs": 8480,
+      "finishReasons": [
+        "stop",
+        "stop"
+      ],
+      "toolNamesRequested": [],
+      "usage": {
+        "prompt_tokens": 20412,
+        "completion_tokens": 511,
+        "total_tokens": 20923,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 244,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider.json",
+      "sequence": 1,
+      "path": "/api/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 976,
+      "firstByteMs": 979,
+      "totalMs": 1224,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider.json",
+      "sequence": 2,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 260,
+      "firstByteMs": 261,
+      "totalMs": 587,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider.json",
+      "sequence": 3,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 232,
+      "firstByteMs": 233,
+      "totalMs": 314,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider.json",
+      "sequence": 4,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 235,
+      "firstByteMs": 235,
+      "totalMs": 296,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider.json",
+      "sequence": 5,
+      "path": "/api/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 477,
+      "firstByteMs": 478,
+      "totalMs": 514,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider.json",
+      "sequence": 6,
+      "path": "/api/show",
+      "kind": "metadata_or_capability",
+      "httpStatus": 404,
+      "headersMs": 288,
+      "firstByteMs": 289,
+      "totalMs": 289,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": "http_error"
+    },
+    {
+      "batch": "hermes-provider.json",
+      "sequence": 7,
+      "path": "/api/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 217,
+      "firstByteMs": 218,
+      "totalMs": 294,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider.json",
+      "sequence": 8,
+      "path": "/v1/models/dots-studio/dots-3-note-preview:free",
+      "kind": "metadata_or_capability",
+      "httpStatus": 404,
+      "headersMs": 277,
+      "firstByteMs": 278,
+      "totalMs": 279,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": "http_error"
+    },
+    {
+      "batch": "hermes-provider.json",
+      "sequence": 9,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 216,
+      "firstByteMs": 217,
+      "totalMs": 298,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider.json",
+      "sequence": 10,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1372,
+      "firstByteMs": 1372,
+      "totalMs": 7321,
+      "finishReasons": [
+        "tool_calls",
+        "tool_calls"
+      ],
+      "toolNamesRequested": [
+        "mcp__careeradapt__career_profile_get",
+        "mcp__careeradapt__career_resume_list",
+        "mcp__careeradapt__career_job_list"
+      ],
+      "usage": {
+        "prompt_tokens": 6948,
+        "completion_tokens": 467,
+        "total_tokens": 7415,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 500,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider.json",
+      "sequence": 11,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 779,
+      "firstByteMs": 781,
+      "totalMs": 997,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "hermes-provider.json",
+      "sequence": 12,
+      "path": "/v1/chat/completions",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1802,
+      "firstByteMs": 1802,
+      "totalMs": 11125,
+      "finishReasons": [
+        "stop",
+        "stop"
+      ],
+      "toolNamesRequested": [],
+      "usage": {
+        "prompt_tokens": 11709,
+        "completion_tokens": 745,
+        "total_tokens": 12454,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 468,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "executionPurpose": "foreground_or_direct_product"
+    },
+    {
+      "batch": "hermes-provider.json",
+      "sequence": 13,
+      "path": "/v1/models",
+      "kind": "metadata_or_capability",
+      "httpStatus": 200,
+      "headersMs": 388,
+      "firstByteMs": 388,
+      "totalMs": 676,
+      "finishReasons": [],
+      "toolNamesRequested": [],
+      "usage": null,
+      "errorCategory": null
+    },
+    {
+      "batch": "provider-probe.json",
+      "id": "text",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1756,
+      "firstByteMs": 1756,
+      "totalMs": 2472,
+      "finishReasons": [
+        "stop"
+      ],
+      "usage": {
+        "prompt_tokens": 18,
+        "completion_tokens": 74,
+        "total_tokens": 92,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 75,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null
+    },
+    {
+      "batch": "provider-probe.json",
+      "id": "stream",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 680,
+      "firstByteMs": 680,
+      "totalMs": 1474,
+      "finishReasons": [
+        "stop",
+        "stop"
+      ],
+      "usage": {
+        "prompt_tokens": 19,
+        "completion_tokens": 54,
+        "total_tokens": 73,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 53,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null
+    },
+    {
+      "batch": "provider-probe.json",
+      "id": "two-turn-context",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 1849,
+      "firstByteMs": 1849,
+      "totalMs": 3944,
+      "finishReasons": [
+        "stop"
+      ],
+      "usage": {
+        "prompt_tokens": 43,
+        "completion_tokens": 218,
+        "total_tokens": 261,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 206,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null
+    },
+    {
+      "batch": "provider-structured.json",
+      "id": "multi-tool-selection",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 2358,
+      "firstByteMs": 2359,
+      "totalMs": 3706,
+      "finishReasons": [
+        "tool_calls"
+      ],
+      "usage": {
+        "prompt_tokens": 246,
+        "completion_tokens": 104,
+        "total_tokens": 350,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 73,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null
+    },
+    {
+      "batch": "provider-structured.json",
+      "id": "json-schema",
+      "kind": "inference",
+      "httpStatus": 200,
+      "headersMs": 877,
+      "firstByteMs": 877,
+      "totalMs": 4543,
+      "finishReasons": [
+        "stop"
+      ],
+      "usage": {
+        "prompt_tokens": 36,
+        "completion_tokens": 214,
+        "total_tokens": 250,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 325,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null
+    }
+  ],
+  "scenarios": [
+    {
+      "id": 1,
+      "status": "PARTIAL",
+      "model": "Candidate table separates project and skills; no invented numeric metric observed",
+      "routing": "Only profile/resume/job reads; no profile_intake_turn/skill_view",
+      "business": "No reusable intake candidate/confirmation workflow",
+      "safety": {
+        "profilesUnchanged": true,
+        "revisionsUnchanged": true
+      }
+    },
+    {
+      "id": 2,
+      "status": "PARTIAL",
+      "model": "SQL/Python evidence unknown rendered as not satisfied; must/preferred and Excel evidence recognized",
+      "routing": "No job_intake or job_fit; read tools and wrong context intent",
+      "business": "No formal job requirement graph produced",
+      "safety": {
+        "profilesUnchanged": true,
+        "revisionsUnchanged": true,
+        "branchesUnchanged": true
+      },
+      "turnsCaptured": 1
+    },
+    {
+      "id": 3,
+      "status": "PARTIAL",
+      "model": "R satisfies OR recognized, but existing demo job intrudes",
+      "routing": "No job_intake or job_fit",
+      "business": "No verified AND/OR persisted requirement graph",
+      "safety": {
+        "profilesUnchanged": true,
+        "revisionsUnchanged": true,
+        "branchesUnchanged": true
+      },
+      "turnsCaptured": 1
+    },
+    {
+      "id": 4,
+      "status": "BLOCKED",
+      "model": "Initial tailoring failed; fixed natural Python follow-up attempted through UI, no new assistant within180s; provider receipt of follow-up is unverified",
+      "routing": "Repeated reads; invalid arguments; tailor_resume target_required",
+      "business": "No verified resume_only source/claim/confirmation outcome",
+      "safety": {
+        "status": "UNKNOWN"
+      },
+      "turnsCaptured": 1
+    },
+    {
+      "id": 5,
+      "status": "BLOCKED",
+      "model": "Initial request began; daily quota 429; explicit denial follow-up not collected",
+      "routing": "Insufficient trace for full denial behavior",
+      "business": "Denial persistence/reappearance unknown",
+      "safety": {
+        "status": "UNKNOWN"
+      },
+      "turnsCaptured": 0
+    },
+    {
+      "id": 6,
+      "status": "BLOCKED",
+      "model": "No real request sent after stop",
+      "routing": "Not executed",
+      "business": "Review-only live qualification unknown",
+      "safety": {
+        "status": "UNKNOWN"
+      },
+      "turnsCaptured": 0
+    },
+    {
+      "id": 7,
+      "status": "BLOCKED",
+      "model": "No real request sent after stop",
+      "routing": "Not executed",
+      "business": "Job-to-PDF/confirmation/CAS/reload not qualified",
+      "safety": {
+        "status": "UNKNOWN"
+      },
+      "turnsCaptured": 0
+    },
+    {
+      "id": 8,
+      "status": "BLOCKED",
+      "model": "No real request sent after stop",
+      "routing": "Not executed",
+      "business": "Specific edit/repeated confirmation not qualified",
+      "safety": {
+        "status": "UNKNOWN"
+      },
+      "turnsCaptured": 0
+    },
+    {
+      "id": 9,
+      "status": "PARTIAL",
+      "recognition": {
+        "httpStatus": 200,
+        "totalMs": 32172,
+        "exactTextChecks": {
+          "林测试": true,
+          "示例大学": true,
+          "2023-09": true,
+          "2027-06": true,
+          "2025-01": true,
+          "2025-06": true,
+          "Excel": true,
+          "SQL": true,
+          "3": true,
+          "2025-03": true
+        },
+        "allExpectedFragments": true
+      },
+      "routing": "Existing resume-import/vision; live upstream request has image_url",
+      "business": "API text validated; browser review/evidence persistence not executed before429",
+      "safety": {
+        "formalWrites": "API itself is transcription-only; live browser end-to-end UNKNOWN"
+      }
+    }
+  ],
+  "skills": {
+    "candidate-profile-interview": {
+      "sha256": "615e75fa503a4136e35882b9d58b54b57ed1e6a97689f2dabe3cf54756331af8",
+      "realInvocation": "Foreground invocation not observed; four skill_view calls occurred in background curator only"
+    },
+    "career-story-mining": {
+      "sha256": "03a9ea1a8ac24b27db7203f84a9cf763ebaae7b75421e4728dc3a0c4c4401abf",
+      "realInvocation": "Foreground invocation not observed; four skill_view calls occurred in background curator only"
+    },
+    "job-fit-analysis": {
+      "sha256": "ce7b5a1e58331756b807e0b6862e662613f5e1d2eed06190528b0880054dceb9",
+      "realInvocation": "Foreground invocation not observed; four skill_view calls occurred in background curator only"
+    },
+    "resume-composition": {
+      "sha256": "9d5e104b128e9cace070c396cfbe44eade5ae7c8cf3ccfd1975a913c19216e50",
+      "realInvocation": "Foreground invocation not observed; four skill_view calls occurred in background curator only"
+    },
+    "resume-review": {
+      "sha256": "3c97785e3f7edc27194eb56454eb8c0cf2f5e9ed1079cebf65df844fa75fb83c",
+      "realInvocation": "Foreground invocation not observed; four skill_view calls occurred in background curator only"
+    },
+    "resume-tailoring": {
+      "sha256": "09c4fd2e06dae50b318d3f3e8575172b883a8fd15d53c26724f89ff95e689eec",
+      "realInvocation": "Foreground invocation not observed; four skill_view calls occurred in background curator only"
+    }
+  },
+  "safety": {
+    "verifiedScope": [
+      1,
+      2,
+      3
+    ],
+    "observedPrematureRevisionWrites": 0,
+    "observedUnauthorizedProfileSync": 0,
+    "scopeLimitation": "Only complete before/after checks from1-3; cannot infer zero across unfinished4-9",
+    "deniedCapabilityReappearance": "UNKNOWN",
+    "wrongJobBranchWrites": "UNKNOWN outside completed1-3",
+    "confirmationAndCasAndPdf": "UNKNOWN for real-provider run"
+  },
+  "checks": {
+    "unit": {
+      "exitCode": 0,
+      "files": 11,
+      "passed": 69,
+      "skipped": 0,
+      "note": "67 tests in final10-file run plus2 preflight tests in separate exit0 run"
+    },
+    "typecheck": {
+      "exitCode": 0
+    },
+    "changedFilesEslint": {
+      "exitCode": 0
+    },
+    "browserProbe": {
+      "exitCode": 0,
+      "tests": 1,
+      "businessStatus": "PARTIAL"
+    },
+    "businessBatch": {
+      "exitCode": null,
+      "status": "operator stopped after actual429",
+      "notPassed": true
+    },
+    "visionBrowser": {
+      "status": "BLOCKED",
+      "reason": "no request after429"
+    },
+    "build": {
+      "status": "NOT_APPLICABLE",
+      "reason": "No production source/config/dependency change; no production build boundary affected"
+    },
+    "releaseGate": "NOT_RUN",
+    "runtimeSkillParity": {
+      "status": "BLOCKED",
+      "mismatched": 4,
+      "matched": 2,
+      "preflightWasLate": true
+    },
+    "preflightRegression": {
+      "positiveAndNegative": 2,
+      "exitCode": 0,
+      "actualStaleBundleGuardExitCode": 1,
+      "networkRequestsDuringPreflight": 0
+    },
+    "productionSourceParity": {
+      "files": 509,
+      "mismatches": []
+    },
+    "diffCheck": {
+      "status": "PASS",
+      "exitCode": 0,
+      "scope": "final staged task files; logs normalized only for whitespace/redaction"
+    }
+  },
+  "sq1": {
+    "thirtyCasesCollected": false,
+    "pairedAB": false,
+    "qualityCertificationClosed": false
+  },
+  "limitations": [
+    "Foreground execution of six current Skills unverified; background curator made4 skill_view and5 skill_manage attempts; loaded bundle has4 outdated Skills",
+    "No real confirmation/Revision/PDF closure",
+    "Real cancellation attempt returned404; not a cancellation PASS",
+    "Original model-quality problems retained; no Guard/Schema/Repository/CAS changes"
+  ],
+  "git": {
+    "submission": "This evidence is committed with task report; resolve delivery commit from git log -- docs/quality/rp01-real-provider-evidence.json. Final hash is recorded in ignored plan4/history4 after push."
+  },
+  "skillsRuntimeParity": [
+    {
+      "name": "candidate-profile-interview",
+      "source": {
+        "sha256": "615e75fa503a4136e35882b9d58b54b57ed1e6a97689f2dabe3cf54756331af8",
+        "version": "2.0.1"
+      },
+      "bundle": {
+        "sha256": "b58f72952350ad3efd154f6b482f0c81a6cf9dff58fc12dfdf555eb1f668f579",
+        "version": "2.0.0"
+      },
+      "home": {
+        "sha256": "b58f72952350ad3efd154f6b482f0c81a6cf9dff58fc12dfdf555eb1f668f579",
+        "version": "2.0.0"
+      },
+      "bundleMatchesSource": false
+    },
+    {
+      "name": "career-story-mining",
+      "source": {
+        "sha256": "03a9ea1a8ac24b27db7203f84a9cf763ebaae7b75421e4728dc3a0c4c4401abf",
+        "version": "2.0.0"
+      },
+      "bundle": {
+        "sha256": "03a9ea1a8ac24b27db7203f84a9cf763ebaae7b75421e4728dc3a0c4c4401abf",
+        "version": "2.0.0"
+      },
+      "home": {
+        "sha256": "03a9ea1a8ac24b27db7203f84a9cf763ebaae7b75421e4728dc3a0c4c4401abf",
+        "version": "2.0.0"
+      },
+      "bundleMatchesSource": true
+    },
+    {
+      "name": "job-fit-analysis",
+      "source": {
+        "sha256": "ce7b5a1e58331756b807e0b6862e662613f5e1d2eed06190528b0880054dceb9",
+        "version": "2.0.0"
+      },
+      "bundle": {
+        "sha256": "ce7b5a1e58331756b807e0b6862e662613f5e1d2eed06190528b0880054dceb9",
+        "version": "2.0.0"
+      },
+      "home": {
+        "sha256": "ce7b5a1e58331756b807e0b6862e662613f5e1d2eed06190528b0880054dceb9",
+        "version": "2.0.0"
+      },
+      "bundleMatchesSource": true
+    },
+    {
+      "name": "resume-composition",
+      "source": {
+        "sha256": "9d5e104b128e9cace070c396cfbe44eade5ae7c8cf3ccfd1975a913c19216e50",
+        "version": "2.0.1"
+      },
+      "bundle": {
+        "sha256": "037b450b0ef6f0ea24ce0b2bc27884e2f41599cf9dcb039c3506fca464de2721",
+        "version": "2.0.0"
+      },
+      "home": {
+        "sha256": "037b450b0ef6f0ea24ce0b2bc27884e2f41599cf9dcb039c3506fca464de2721",
+        "version": "2.0.0"
+      },
+      "bundleMatchesSource": false
+    },
+    {
+      "name": "resume-review",
+      "source": {
+        "sha256": "3c97785e3f7edc27194eb56454eb8c0cf2f5e9ed1079cebf65df844fa75fb83c",
+        "version": "2.0.1"
+      },
+      "bundle": {
+        "sha256": "c00fb5549a76c720c5cf5454e45873c029094362ba9d30d5b589f2022195585a",
+        "version": "2.0.0"
+      },
+      "home": {
+        "sha256": "c00fb5549a76c720c5cf5454e45873c029094362ba9d30d5b589f2022195585a",
+        "version": "2.0.0"
+      },
+      "bundleMatchesSource": false
+    },
+    {
+      "name": "resume-tailoring",
+      "source": {
+        "sha256": "09c4fd2e06dae50b318d3f3e8575172b883a8fd15d53c26724f89ff95e689eec",
+        "version": "2.0.1"
+      },
+      "bundle": {
+        "sha256": "1ebab591afa239861a518fb0e260cc999b2b019c4731ca8207f0a0ee639f240f",
+        "version": "2.0.0"
+      },
+      "home": {
+        "sha256": "1ebab591afa239861a518fb0e260cc999b2b019c4731ca8207f0a0ee639f240f",
+        "version": "2.0.0"
+      },
+      "bundleMatchesSource": false
+    }
+  ],
+  "limits": "This is a partial, stale-Skill-runtime observation, not current six-Skill qualification."
+}

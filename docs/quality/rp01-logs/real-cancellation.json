@@ -1,0 +1,6 @@
+{
+  "action": "run_stop",
+  "httpStatus": 404,
+  "status": "UNKNOWN",
+  "reason": "Run from log no longer addressable when operator attempted to stop non-progress loop; do not claim cancellation succeeded"
+}

@@ -1,0 +1,125 @@
+{
+  "provider": "OpenRouter",
+  "model": "dots-studio/dots-3-note-preview:free",
+  "startedAt": "2026-11-05T03:20:44.052Z",
+  "policy": {
+    "temperature": 0,
+    "max_tokens": 8192,
+    "timeoutMs": 180000,
+    "reasoning": {
+      "effort": "low"
+    },
+    "retries": 0
+  },
+  "requests": [
+    {
+      "id": "multi-tool-selection",
+      "httpStatus": 200,
+      "headersMs": 2358,
+      "firstByteMs": 2359,
+      "totalMs": 3706,
+      "finishReasons": [
+        "tool_calls"
+      ],
+      "usage": {
+        "prompt_tokens": 246,
+        "completion_tokens": 104,
+        "total_tokens": 350,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 73,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "body": "\n         \n{\"id\":\"gen-1793848846-PIZkUM7y9uWF3QIBgKt9\",\"object\":\"chat.completion\",\"created\":1793848846,\"model\":\"dots-studio/dots-3-note-preview:free\",\"provider\":\"AtlasCloud\",\"system_fingerprint\":null,\"service_tier\":null,\"choices\":[{\"index\":0,\"logprobs\":null,\"finish_reason\":\"tool_calls\",\"native_finish_reason\":\"tool_calls\",\"message\":{\"role\":\"assistant\",\"content\":\"\\n\\n\\n\",\"refusal\":null,\"reasoning\":\"The user wants me to call lookup_job with id \\\"synthetic-jd-01\\\". They specifically said \\\"Do not call lookup_profile.\\\" So I should only call lookup_job.\\n\\nI have the function lookup_job available. I need to invoke it with the id parameter set to \\\"synthetic-jd-01\\\".\\n\\nLet me make that call.\",\"tool_calls\":[{\"type\":\"function\",\"index\":0,\"id\":\"call_25beca6c857e4db79bd45c4a\",\"function\":{\"name\":\"lookup_job\",\"arguments\":\"{\\\"id\\\": \\\"synthetic-jd-01\\\"}\"}}],\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\"The user wants me to call lookup_job with id \\\"synthetic-jd-01\\\". They specifically said \\\"Do not call lookup_profile.\\\" So I should only call lookup_job.\\n\\nI have the function lookup_job available. I need to invoke it with the id parameter set to \\\"synthetic-jd-01\\\".\\n\\nLet me make that call.\",\"format\":\"unknown\",\"index\":0}]}}],\"usage\":{\"prompt_tokens\":246,\"completion_tokens\":104,\"total_tokens\":350,\"cost\":0,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"cache_write_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":0,\"upstream_inference_prompt_cost\":0,\"upstream_inference_completions_cost\":0},\"completion_tokens_details\":{\"reasoning_tokens\":73,\"image_tokens\":0,\"audio_tokens\":0}}}",
+      "message": {
+        "role": "assistant",
+        "content": "\n\n\n",
+        "refusal": null,
+        "reasoning": "The user wants me to call lookup_job with id \"synthetic-jd-01\". They specifically said \"Do not call lookup_profile.\" So I should only call lookup_job.\n\nI have the function lookup_job available. I need to invoke it with the id parameter set to \"synthetic-jd-01\".\n\nLet me make that call.",
+        "tool_calls": [
+          {
+            "type": "function",
+            "index": 0,
+            "id": "call_25beca6c857e4db79bd45c4a",
+            "function": {
+              "name": "lookup_job",
+              "arguments": "{\"id\": \"synthetic-jd-01\"}"
+            }
+          }
+        ],
+        "reasoning_details": [
+          {
+            "type": "reasoning.text",
+            "text": "The user wants me to call lookup_job with id \"synthetic-jd-01\". They specifically said \"Do not call lookup_profile.\" So I should only call lookup_job.\n\nI have the function lookup_job available. I need to invoke it with the id parameter set to \"synthetic-jd-01\".\n\nLet me make that call.",
+            "format": "unknown",
+            "index": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "json-schema",
+      "httpStatus": 200,
+      "headersMs": 877,
+      "firstByteMs": 877,
+      "totalMs": 4543,
+      "finishReasons": [
+        "stop"
+      ],
+      "usage": {
+        "prompt_tokens": 36,
+        "completion_tokens": 214,
+        "total_tokens": 250,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 325,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "body": "\n         \n\n         \n{\"id\":\"gen-1793848848-UaCw93hH1qADFkjR9HzB\",\"object\":\"chat.completion\",\"created\":1793848848,\"model\":\"dots-studio/dots-3-note-preview:free\",\"provider\":\"AtlasCloud\",\"system_fingerprint\":null,\"service_tier\":null,\"choices\":[{\"index\":0,\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"must\\\": [\\\"SQL\\\"], \\\"preferred\\\": [\\\"Python\\\"], \\\"pythonEvidence\\\": \\\"unknown\\\"}\",\"refusal\":null,\"reasoning\":\"用户想让我根据岗位要求（SQL必需、Python优先）和提供的信息（Excel数据、Python证据未知），对岗位进行分类。这是一个分类任务，我需要根据已知信息判断岗位类型。用户没有给出具体的岗位描述或分类体系，所以我需要基于常见的岗位分类逻辑来推断。用户提到“按schema分类”，但没有提供具体的schema，这可能意味着需要我根据上下文推断或使用一个默认的分类框架。考虑到这是一个技术岗位相关的查询，我应该基于SQL和Python的熟练程度来分类。可能的分类包括：数据分析师（SQL必需，Python加分）、数据科学家（Python必需，SQL加分）等。由于用户说“Python证据未知”，我需要考虑如何处理这种不确定性。我可以将岗位分类为“数据分析师”或类似，因为SQL是必需的，而Python是优先但未知。我应该给出一个合理的分类，并解释我的推理。\\n\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\"用户想让我根据岗位要求（SQL必需、Python优先）和提供的信息（Excel数据、Python证据未知），对岗位进行分类。这是一个分类任务，我需要根据已知信息判断岗位类型。用户没有给出具体的岗位描述或分类体系，所以我需要基于常见的岗位分类逻辑来推断。用户提到“按schema分类”，但没有提供具体的schema，这可能意味着需要我根据上下文推断或使用一个默认的分类框架。考虑到这是一个技术岗位相关的查询，我应该基于SQL和Python的熟练程度来分类。可能的分类包括：数据分析师（SQL必需，Python加分）、数据科学家（Python必需，SQL加分）等。由于用户说“Python证据未知”，我需要考虑如何处理这种不确定性。我可以将岗位分类为“数据分析师”或类似，因为SQL是必需的，而Python是优先但未知。我应该给出一个合理的分类，并解释我的推理。\\n\",\"format\":\"unknown\",\"index\":0}]}}],\"usage\":{\"prompt_tokens\":36,\"completion_tokens\":214,\"total_tokens\":250,\"cost\":0,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"cache_write_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":0,\"upstream_inference_prompt_cost\":0,\"upstream_inference_completions_cost\":0},\"completion_tokens_details\":{\"reasoning_tokens\":325,\"image_tokens\":0,\"audio_tokens\":0}}}",
+      "message": {
+        "role": "assistant",
+        "content": "{\"must\": [\"SQL\"], \"preferred\": [\"Python\"], \"pythonEvidence\": \"unknown\"}",
+        "refusal": null,
+        "reasoning": "用户想让我根据岗位要求（SQL必需、Python优先）和提供的信息（Excel数据、Python证据未知），对岗位进行分类。这是一个分类任务，我需要根据已知信息判断岗位类型。用户没有给出具体的岗位描述或分类体系，所以我需要基于常见的岗位分类逻辑来推断。用户提到“按schema分类”，但没有提供具体的schema，这可能意味着需要我根据上下文推断或使用一个默认的分类框架。考虑到这是一个技术岗位相关的查询，我应该基于SQL和Python的熟练程度来分类。可能的分类包括：数据分析师（SQL必需，Python加分）、数据科学家（Python必需，SQL加分）等。由于用户说“Python证据未知”，我需要考虑如何处理这种不确定性。我可以将岗位分类为“数据分析师”或类似，因为SQL是必需的，而Python是优先但未知。我应该给出一个合理的分类，并解释我的推理。\n",
+        "reasoning_details": [
+          {
+            "type": "reasoning.text",
+            "text": "用户想让我根据岗位要求（SQL必需、Python优先）和提供的信息（Excel数据、Python证据未知），对岗位进行分类。这是一个分类任务，我需要根据已知信息判断岗位类型。用户没有给出具体的岗位描述或分类体系，所以我需要基于常见的岗位分类逻辑来推断。用户提到“按schema分类”，但没有提供具体的schema，这可能意味着需要我根据上下文推断或使用一个默认的分类框架。考虑到这是一个技术岗位相关的查询，我应该基于SQL和Python的熟练程度来分类。可能的分类包括：数据分析师（SQL必需，Python加分）、数据科学家（Python必需，SQL加分）等。由于用户说“Python证据未知”，我需要考虑如何处理这种不确定性。我可以将岗位分类为“数据分析师”或类似，因为SQL是必需的，而Python是优先但未知。我应该给出一个合理的分类，并解释我的推理。\n",
+            "format": "unknown",
+            "index": 0
+          }
+        ]
+      }
+    }
+  ]
+}

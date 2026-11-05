@@ -1,0 +1,198 @@
+{
+  "provider": "OpenRouter",
+  "model": "dots-studio/dots-3-note-preview:free",
+  "policy": {
+    "max_tokens": 8192,
+    "temperature": 0,
+    "reasoning": {
+      "effort": "low"
+    },
+    "timeoutMs": 180000,
+    "maxRequests": 45,
+    "automaticRetries": 0
+  },
+  "requests": [
+    {
+      "sequence": 1,
+      "path": "/api/v1/models",
+      "start": "2026-11-05T03:32:49.669Z",
+      "httpStatus": 200,
+      "headersMs": 1186,
+      "firstByteMs": 1188,
+      "response": "{\"data\":[{\"id\":\"dots-studio/dots-3-note-preview:free\",\"canonical_slug\":\"dots-studio/dots-3-note-preview-20260813\",\"hugging_face_id\":null,\"name\":\"Dots Studio: Dots3-Note Preview (free)\",\"created\":1786680361,\"description\":\"Dots3-Note Preview is an open-weight mixture-of-experts model from Dots Studio, with 16B active parameters out of 280B total. It is the lightest model in the Dots 3 family and is...\",\"context_length\":512000,\"architecture\":{\"modality\":\"text+image->text\",\"input_modalities\":[\"text\",\"image\"],\"output_modalities\":[\"text\"],\"tokenizer\":\"Other\",\"instruct_type\":null},\"pricing\":{\"prompt\":\"0\",\"completion\":\"0\"},\"top_provider\":{\"context_length\":512000,\"max_completion_tokens\":460800,\"is_moderated\":false},\"per_request_limits\":null,\"supported_parameters\":[\"include_reasoning\",\"max_tokens\",\"reasoning\",\"response_format\",\"structured_outputs\",\"temperature\",\"tool_choice\",\"tools\",\"top_p\"],\"default_parameters\":{},\"supported_voices\":null,\"knowledge_cutoff\":null,\"expiration_date\":\"2026-12-31\",\"links\":{\"details\":\"/api/v1/models/dots-studio/dots-3-note-preview-20260813/endpoints\"},\"endpoints\":[\"/api/v1/chat/completions\",\"/api/v1/completions\",\"/api/v1/messages\",\"/api/v1/responses\"],\"reasoning\":{\"mandatory\":false}}],\"omittedOtherModels\":true}",
+      "totalMs": 1350
+    },
+    {
+      "sequence": 2,
+      "path": "/v1/models",
+      "start": "2026-11-05T03:32:53.924Z",
+      "httpStatus": 200,
+      "headersMs": 197,
+      "firstByteMs": 197,
+      "response": "{\"data\":[{\"id\":\"dots-studio/dots-3-note-preview:free\",\"canonical_slug\":\"dots-studio/dots-3-note-preview-20260813\",\"hugging_face_id\":null,\"name\":\"Dots Studio: Dots3-Note Preview (free)\",\"created\":1786680361,\"description\":\"Dots3-Note Preview is an open-weight mixture-of-experts model from Dots Studio, with 16B active parameters out of 280B total. It is the lightest model in the Dots 3 family and is...\",\"context_length\":512000,\"architecture\":{\"modality\":\"text+image->text\",\"input_modalities\":[\"text\",\"image\"],\"output_modalities\":[\"text\"],\"tokenizer\":\"Other\",\"instruct_type\":null},\"pricing\":{\"prompt\":\"0\",\"completion\":\"0\"},\"top_provider\":{\"context_length\":512000,\"max_completion_tokens\":460800,\"is_moderated\":false},\"per_request_limits\":null,\"supported_parameters\":[\"include_reasoning\",\"max_tokens\",\"reasoning\",\"response_format\",\"structured_outputs\",\"temperature\",\"tool_choice\",\"tools\",\"top_p\"],\"default_parameters\":{},\"supported_voices\":null,\"knowledge_cutoff\":null,\"expiration_date\":\"2026-12-31\",\"links\":{\"details\":\"/api/v1/models/dots-studio/dots-3-note-preview-20260813/endpoints\"},\"endpoints\":[\"/api/v1/chat/completions\",\"/api/v1/completions\",\"/api/v1/messages\",\"/api/v1/responses\"],\"reasoning\":{\"mandatory\":false}}],\"omittedOtherModels\":true}",
+      "totalMs": 253
+    },
+    {
+      "sequence": 3,
+      "path": "/v1/models",
+      "start": "2026-11-05T03:32:54.225Z",
+      "httpStatus": 200,
+      "headersMs": 171,
+      "firstByteMs": 171,
+      "response": "{\"data\":[{\"id\":\"dots-studio/dots-3-note-preview:free\",\"canonical_slug\":\"dots-studio/dots-3-note-preview-20260813\",\"hugging_face_id\":null,\"name\":\"Dots Studio: Dots3-Note Preview (free)\",\"created\":1786680361,\"description\":\"Dots3-Note Preview is an open-weight mixture-of-experts model from Dots Studio, with 16B active parameters out of 280B total. It is the lightest model in the Dots 3 family and is...\",\"context_length\":512000,\"architecture\":{\"modality\":\"text+image->text\",\"input_modalities\":[\"text\",\"image\"],\"output_modalities\":[\"text\"],\"tokenizer\":\"Other\",\"instruct_type\":null},\"pricing\":{\"prompt\":\"0\",\"completion\":\"0\"},\"top_provider\":{\"context_length\":512000,\"max_completion_tokens\":460800,\"is_moderated\":false},\"per_request_limits\":null,\"supported_parameters\":[\"include_reasoning\",\"max_tokens\",\"reasoning\",\"response_format\",\"structured_outputs\",\"temperature\",\"tool_choice\",\"tools\",\"top_p\"],\"default_parameters\":{},\"supported_voices\":null,\"knowledge_cutoff\":null,\"expiration_date\":\"2026-12-31\",\"links\":{\"details\":\"/api/v1/models/dots-studio/dots-3-note-preview-20260813/endpoints\"},\"endpoints\":[\"/api/v1/chat/completions\",\"/api/v1/completions\",\"/api/v1/messages\",\"/api/v1/responses\"],\"reasoning\":{\"mandatory\":false}}],\"omittedOtherModels\":true}",
+      "totalMs": 390
+    },
+    {
+      "sequence": 4,
+      "path": "/v1/models",
+      "start": "2026-11-05T03:32:56.662Z",
+      "httpStatus": 200,
+      "headersMs": 269,
+      "firstByteMs": 269,
+      "response": "{\"data\":[{\"id\":\"dots-studio/dots-3-note-preview:free\",\"canonical_slug\":\"dots-studio/dots-3-note-preview-20260813\",\"hugging_face_id\":null,\"name\":\"Dots Studio: Dots3-Note Preview (free)\",\"created\":1786680361,\"description\":\"Dots3-Note Preview is an open-weight mixture-of-experts model from Dots Studio, with 16B active parameters out of 280B total. It is the lightest model in the Dots 3 family and is...\",\"context_length\":512000,\"architecture\":{\"modality\":\"text+image->text\",\"input_modalities\":[\"text\",\"image\"],\"output_modalities\":[\"text\"],\"tokenizer\":\"Other\",\"instruct_type\":null},\"pricing\":{\"prompt\":\"0\",\"completion\":\"0\"},\"top_provider\":{\"context_length\":512000,\"max_completion_tokens\":460800,\"is_moderated\":false},\"per_request_limits\":null,\"supported_parameters\":[\"include_reasoning\",\"max_tokens\",\"reasoning\",\"response_format\",\"structured_outputs\",\"temperature\",\"tool_choice\",\"tools\",\"top_p\"],\"default_parameters\":{},\"supported_voices\":null,\"knowledge_cutoff\":null,\"expiration_date\":\"2026-12-31\",\"links\":{\"details\":\"/api/v1/models/dots-studio/dots-3-note-preview-20260813/endpoints\"},\"endpoints\":[\"/api/v1/chat/completions\",\"/api/v1/completions\",\"/api/v1/messages\",\"/api/v1/responses\"],\"reasoning\":{\"mandatory\":false}}],\"omittedOtherModels\":true}",
+      "totalMs": 578
+    },
+    {
+      "sequence": 5,
+      "path": "/v1/models",
+      "start": "2026-11-05T03:32:58.441Z",
+      "httpStatus": 200,
+      "headersMs": 246,
+      "firstByteMs": 246,
+      "response": "{\"data\":[{\"id\":\"dots-studio/dots-3-note-preview:free\",\"canonical_slug\":\"dots-studio/dots-3-note-preview-20260813\",\"hugging_face_id\":null,\"name\":\"Dots Studio: Dots3-Note Preview (free)\",\"created\":1786680361,\"description\":\"Dots3-Note Preview is an open-weight mixture-of-experts model from Dots Studio, with 16B active parameters out of 280B total. It is the lightest model in the Dots 3 family and is...\",\"context_length\":512000,\"architecture\":{\"modality\":\"text+image->text\",\"input_modalities\":[\"text\",\"image\"],\"output_modalities\":[\"text\"],\"tokenizer\":\"Other\",\"instruct_type\":null},\"pricing\":{\"prompt\":\"0\",\"completion\":\"0\"},\"top_provider\":{\"context_length\":512000,\"max_completion_tokens\":460800,\"is_moderated\":false},\"per_request_limits\":null,\"supported_parameters\":[\"include_reasoning\",\"max_tokens\",\"reasoning\",\"response_format\",\"structured_outputs\",\"temperature\",\"tool_choice\",\"tools\",\"top_p\"],\"default_parameters\":{},\"supported_voices\":null,\"knowledge_cutoff\":null,\"expiration_date\":\"2026-12-31\",\"links\":{\"details\":\"/api/v1/models/dots-studio/dots-3-note-preview-20260813/endpoints\"},\"endpoints\":[\"/api/v1/chat/completions\",\"/api/v1/completions\",\"/api/v1/messages\",\"/api/v1/responses\"],\"reasoning\":{\"mandatory\":false}}],\"omittedOtherModels\":true}",
+      "totalMs": 325
+    },
+    {
+      "sequence": 6,
+      "path": "/v1/models",
+      "start": "2026-11-05T03:33:29.614Z",
+      "httpStatus": 200,
+      "headersMs": 3166,
+      "firstByteMs": 3166,
+      "response": "{\"data\":[{\"id\":\"dots-studio/dots-3-note-preview:free\",\"canonical_slug\":\"dots-studio/dots-3-note-preview-20260813\",\"hugging_face_id\":null,\"name\":\"Dots Studio: Dots3-Note Preview (free)\",\"created\":1786680361,\"description\":\"Dots3-Note Preview is an open-weight mixture-of-experts model from Dots Studio, with 16B active parameters out of 280B total. It is the lightest model in the Dots 3 family and is...\",\"context_length\":512000,\"architecture\":{\"modality\":\"text+image->text\",\"input_modalities\":[\"text\",\"image\"],\"output_modalities\":[\"text\"],\"tokenizer\":\"Other\",\"instruct_type\":null},\"pricing\":{\"prompt\":\"0\",\"completion\":\"0\"},\"top_provider\":{\"context_length\":512000,\"max_completion_tokens\":460800,\"is_moderated\":false},\"per_request_limits\":null,\"supported_parameters\":[\"include_reasoning\",\"max_tokens\",\"reasoning\",\"response_format\",\"structured_outputs\",\"temperature\",\"tool_choice\",\"tools\",\"top_p\"],\"default_parameters\":{},\"supported_voices\":null,\"knowledge_cutoff\":null,\"expiration_date\":\"2026-12-31\",\"links\":{\"details\":\"/api/v1/models/dots-studio/dots-3-note-preview-20260813/endpoints\"},\"endpoints\":[\"/api/v1/chat/completions\",\"/api/v1/completions\",\"/api/v1/messages\",\"/api/v1/responses\"],\"reasoning\":{\"mandatory\":false}}],\"omittedOtherModels\":true}",
+      "totalMs": 3348
+    },
+    {
+      "sequence": 7,
+      "path": "/v1/models",
+      "start": "2026-11-05T03:33:30.538Z",
+      "httpStatus": 200,
+      "headersMs": 912,
+      "firstByteMs": 913,
+      "response": "{\"data\":[{\"id\":\"dots-studio/dots-3-note-preview:free\",\"canonical_slug\":\"dots-studio/dots-3-note-preview-20260813\",\"hugging_face_id\":null,\"name\":\"Dots Studio: Dots3-Note Preview (free)\",\"created\":1786680361,\"description\":\"Dots3-Note Preview is an open-weight mixture-of-experts model from Dots Studio, with 16B active parameters out of 280B total. It is the lightest model in the Dots 3 family and is...\",\"context_length\":512000,\"architecture\":{\"modality\":\"text+image->text\",\"input_modalities\":[\"text\",\"image\"],\"output_modalities\":[\"text\"],\"tokenizer\":\"Other\",\"instruct_type\":null},\"pricing\":{\"prompt\":\"0\",\"completion\":\"0\"},\"top_provider\":{\"context_length\":512000,\"max_completion_tokens\":460800,\"is_moderated\":false},\"per_request_limits\":null,\"supported_parameters\":[\"include_reasoning\",\"max_tokens\",\"reasoning\",\"response_format\",\"structured_outputs\",\"temperature\",\"tool_choice\",\"tools\",\"top_p\"],\"default_parameters\":{},\"supported_voices\":null,\"knowledge_cutoff\":null,\"expiration_date\":\"2026-12-31\",\"links\":{\"details\":\"/api/v1/models/dots-studio/dots-3-note-preview-20260813/endpoints\"},\"endpoints\":[\"/api/v1/chat/completions\",\"/api/v1/completions\",\"/api/v1/messages\",\"/api/v1/responses\"],\"reasoning\":{\"mandatory\":false}}],\"omittedOtherModels\":true}",
+      "totalMs": 1112
+    },
+    {
+      "sequence": 8,
+      "path": "/v1/models",
+      "start": "2026-11-05T03:33:33.256Z",
+      "httpStatus": 200,
+      "headersMs": 673,
+      "firstByteMs": 673,
+      "response": "{\"data\":[{\"id\":\"dots-studio/dots-3-note-preview:free\",\"canonical_slug\":\"dots-studio/dots-3-note-preview-20260813\",\"hugging_face_id\":null,\"name\":\"Dots Studio: Dots3-Note Preview (free)\",\"created\":1786680361,\"description\":\"Dots3-Note Preview is an open-weight mixture-of-experts model from Dots Studio, with 16B active parameters out of 280B total. It is the lightest model in the Dots 3 family and is...\",\"context_length\":512000,\"architecture\":{\"modality\":\"text+image->text\",\"input_modalities\":[\"text\",\"image\"],\"output_modalities\":[\"text\"],\"tokenizer\":\"Other\",\"instruct_type\":null},\"pricing\":{\"prompt\":\"0\",\"completion\":\"0\"},\"top_provider\":{\"context_length\":512000,\"max_completion_tokens\":460800,\"is_moderated\":false},\"per_request_limits\":null,\"supported_parameters\":[\"include_reasoning\",\"max_tokens\",\"reasoning\",\"response_format\",\"structured_outputs\",\"temperature\",\"tool_choice\",\"tools\",\"top_p\"],\"default_parameters\":{},\"supported_voices\":null,\"knowledge_cutoff\":null,\"expiration_date\":\"2026-12-31\",\"links\":{\"details\":\"/api/v1/models/dots-studio/dots-3-note-preview-20260813/endpoints\"},\"endpoints\":[\"/api/v1/chat/completions\",\"/api/v1/completions\",\"/api/v1/messages\",\"/api/v1/responses\"],\"reasoning\":{\"mandatory\":false}}],\"omittedOtherModels\":true}",
+      "totalMs": 866
+    },
+    {
+      "sequence": 9,
+      "path": "/v1/models",
+      "start": "2026-11-05T03:33:40.405Z",
+      "httpStatus": 200,
+      "headersMs": 638,
+      "firstByteMs": 638,
+      "response": "{\"data\":[{\"id\":\"dots-studio/dots-3-note-preview:free\",\"canonical_slug\":\"dots-studio/dots-3-note-preview-20260813\",\"hugging_face_id\":null,\"name\":\"Dots Studio: Dots3-Note Preview (free)\",\"created\":1786680361,\"description\":\"Dots3-Note Preview is an open-weight mixture-of-experts model from Dots Studio, with 16B active parameters out of 280B total. It is the lightest model in the Dots 3 family and is...\",\"context_length\":512000,\"architecture\":{\"modality\":\"text+image->text\",\"input_modalities\":[\"text\",\"image\"],\"output_modalities\":[\"text\"],\"tokenizer\":\"Other\",\"instruct_type\":null},\"pricing\":{\"prompt\":\"0\",\"completion\":\"0\"},\"top_provider\":{\"context_length\":512000,\"max_completion_tokens\":460800,\"is_moderated\":false},\"per_request_limits\":null,\"supported_parameters\":[\"include_reasoning\",\"max_tokens\",\"reasoning\",\"response_format\",\"structured_outputs\",\"temperature\",\"tool_choice\",\"tools\",\"top_p\"],\"default_parameters\":{},\"supported_voices\":null,\"knowledge_cutoff\":null,\"expiration_date\":\"2026-12-31\",\"links\":{\"details\":\"/api/v1/models/dots-studio/dots-3-note-preview-20260813/endpoints\"},\"endpoints\":[\"/api/v1/chat/completions\",\"/api/v1/completions\",\"/api/v1/messages\",\"/api/v1/responses\"],\"reasoning\":{\"mandatory\":false}}],\"omittedOtherModels\":true}",
+      "totalMs": 881
+    },
+    {
+      "sequence": 10,
+      "path": "/v1/models",
+      "start": "2026-11-05T03:34:03.671Z",
+      "httpStatus": 200,
+      "headersMs": 1551,
+      "firstByteMs": 1552,
+      "response": "{\"data\":[{\"id\":\"dots-studio/dots-3-note-preview:free\",\"canonical_slug\":\"dots-studio/dots-3-note-preview-20260813\",\"hugging_face_id\":null,\"name\":\"Dots Studio: Dots3-Note Preview (free)\",\"created\":1786680361,\"description\":\"Dots3-Note Preview is an open-weight mixture-of-experts model from Dots Studio, with 16B active parameters out of 280B total. It is the lightest model in the Dots 3 family and is...\",\"context_length\":512000,\"architecture\":{\"modality\":\"text+image->text\",\"input_modalities\":[\"text\",\"image\"],\"output_modalities\":[\"text\"],\"tokenizer\":\"Other\",\"instruct_type\":null},\"pricing\":{\"prompt\":\"0\",\"completion\":\"0\"},\"top_provider\":{\"context_length\":512000,\"max_completion_tokens\":460800,\"is_moderated\":false},\"per_request_limits\":null,\"supported_parameters\":[\"include_reasoning\",\"max_tokens\",\"reasoning\",\"response_format\",\"structured_outputs\",\"temperature\",\"tool_choice\",\"tools\",\"top_p\"],\"default_parameters\":{},\"supported_voices\":null,\"knowledge_cutoff\":null,\"expiration_date\":\"2026-12-31\",\"links\":{\"details\":\"/api/v1/models/dots-studio/dots-3-note-preview-20260813/endpoints\"},\"endpoints\":[\"/api/v1/chat/completions\",\"/api/v1/completions\",\"/api/v1/messages\",\"/api/v1/responses\"],\"reasoning\":{\"mandatory\":false}}],\"omittedOtherModels\":true}",
+      "totalMs": 1754
+    },
+    {
+      "sequence": 11,
+      "path": "/v1/models",
+      "start": "2026-11-05T03:34:05.200Z",
+      "httpStatus": 200,
+      "headersMs": 877,
+      "firstByteMs": 877,
+      "response": "{\"data\":[{\"id\":\"dots-studio/dots-3-note-preview:free\",\"canonical_slug\":\"dots-studio/dots-3-note-preview-20260813\",\"hugging_face_id\":null,\"name\":\"Dots Studio: Dots3-Note Preview (free)\",\"created\":1786680361,\"description\":\"Dots3-Note Preview is an open-weight mixture-of-experts model from Dots Studio, with 16B active parameters out of 280B total. It is the lightest model in the Dots 3 family and is...\",\"context_length\":512000,\"architecture\":{\"modality\":\"text+image->text\",\"input_modalities\":[\"text\",\"image\"],\"output_modalities\":[\"text\"],\"tokenizer\":\"Other\",\"instruct_type\":null},\"pricing\":{\"prompt\":\"0\",\"completion\":\"0\"},\"top_provider\":{\"context_length\":512000,\"max_completion_tokens\":460800,\"is_moderated\":false},\"per_request_limits\":null,\"supported_parameters\":[\"include_reasoning\",\"max_tokens\",\"reasoning\",\"response_format\",\"structured_outputs\",\"temperature\",\"tool_choice\",\"tools\",\"top_p\"],\"default_parameters\":{},\"supported_voices\":null,\"knowledge_cutoff\":null,\"expiration_date\":\"2026-12-31\",\"links\":{\"details\":\"/api/v1/models/dots-studio/dots-3-note-preview-20260813/endpoints\"},\"endpoints\":[\"/api/v1/chat/completions\",\"/api/v1/completions\",\"/api/v1/messages\",\"/api/v1/responses\"],\"reasoning\":{\"mandatory\":false}}],\"omittedOtherModels\":true}",
+      "totalMs": 1348
+    },
+    {
+      "sequence": 12,
+      "path": "/v1/models",
+      "start": "2026-11-05T03:34:21.107Z",
+      "httpStatus": 200,
+      "headersMs": 801,
+      "firstByteMs": 802,
+      "response": "{\"data\":[{\"id\":\"dots-studio/dots-3-note-preview:free\",\"canonical_slug\":\"dots-studio/dots-3-note-preview-20260813\",\"hugging_face_id\":null,\"name\":\"Dots Studio: Dots3-Note Preview (free)\",\"created\":1786680361,\"description\":\"Dots3-Note Preview is an open-weight mixture-of-experts model from Dots Studio, with 16B active parameters out of 280B total. It is the lightest model in the Dots 3 family and is...\",\"context_length\":512000,\"architecture\":{\"modality\":\"text+image->text\",\"input_modalities\":[\"text\",\"image\"],\"output_modalities\":[\"text\"],\"tokenizer\":\"Other\",\"instruct_type\":null},\"pricing\":{\"prompt\":\"0\",\"completion\":\"0\"},\"top_provider\":{\"context_length\":512000,\"max_completion_tokens\":460800,\"is_moderated\":false},\"per_request_limits\":null,\"supported_parameters\":[\"include_reasoning\",\"max_tokens\",\"reasoning\",\"response_format\",\"structured_outputs\",\"temperature\",\"tool_choice\",\"tools\",\"top_p\"],\"default_parameters\":{},\"supported_voices\":null,\"knowledge_cutoff\":null,\"expiration_date\":\"2026-12-31\",\"links\":{\"details\":\"/api/v1/models/dots-studio/dots-3-note-preview-20260813/endpoints\"},\"endpoints\":[\"/api/v1/chat/completions\",\"/api/v1/completions\",\"/api/v1/messages\",\"/api/v1/responses\"],\"reasoning\":{\"mandatory\":false}}],\"omittedOtherModels\":true}",
+      "totalMs": 1243
+    },
+    {
+      "sequence": 13,
+      "path": "/v1/models",
+      "start": "2026-11-05T03:34:48.567Z",
+      "httpStatus": 200,
+      "headersMs": 762,
+      "firstByteMs": 763,
+      "response": "{\"data\":[{\"id\":\"dots-studio/dots-3-note-preview:free\",\"canonical_slug\":\"dots-studio/dots-3-note-preview-20260813\",\"hugging_face_id\":null,\"name\":\"Dots Studio: Dots3-Note Preview (free)\",\"created\":1786680361,\"description\":\"Dots3-Note Preview is an open-weight mixture-of-experts model from Dots Studio, with 16B active parameters out of 280B total. It is the lightest model in the Dots 3 family and is...\",\"context_length\":512000,\"architecture\":{\"modality\":\"text+image->text\",\"input_modalities\":[\"text\",\"image\"],\"output_modalities\":[\"text\"],\"tokenizer\":\"Other\",\"instruct_type\":null},\"pricing\":{\"prompt\":\"0\",\"completion\":\"0\"},\"top_provider\":{\"context_length\":512000,\"max_completion_tokens\":460800,\"is_moderated\":false},\"per_request_limits\":null,\"supported_parameters\":[\"include_reasoning\",\"max_tokens\",\"reasoning\",\"response_format\",\"structured_outputs\",\"temperature\",\"tool_choice\",\"tools\",\"top_p\"],\"default_parameters\":{},\"supported_voices\":null,\"knowledge_cutoff\":null,\"expiration_date\":\"2026-12-31\",\"links\":{\"details\":\"/api/v1/models/dots-studio/dots-3-note-preview-20260813/endpoints\"},\"endpoints\":[\"/api/v1/chat/completions\",\"/api/v1/completions\",\"/api/v1/messages\",\"/api/v1/responses\"],\"reasoning\":{\"mandatory\":false}}],\"omittedOtherModels\":true}",
+      "totalMs": 981
+    },
+    {
+      "sequence": 14,
+      "path": "/v1/models",
+      "start": "2026-11-05T03:34:51.446Z",
+      "httpStatus": 200,
+      "headersMs": 191,
+      "firstByteMs": 191,
+      "response": "{\"data\":[{\"id\":\"dots-studio/dots-3-note-preview:free\",\"canonical_slug\":\"dots-studio/dots-3-note-preview-20260813\",\"hugging_face_id\":null,\"name\":\"Dots Studio: Dots3-Note Preview (free)\",\"created\":1786680361,\"description\":\"Dots3-Note Preview is an open-weight mixture-of-experts model from Dots Studio, with 16B active parameters out of 280B total. It is the lightest model in the Dots 3 family and is...\",\"context_length\":512000,\"architecture\":{\"modality\":\"text+image->text\",\"input_modalities\":[\"text\",\"image\"],\"output_modalities\":[\"text\"],\"tokenizer\":\"Other\",\"instruct_type\":null},\"pricing\":{\"prompt\":\"0\",\"completion\":\"0\"},\"top_provider\":{\"context_length\":512000,\"max_completion_tokens\":460800,\"is_moderated\":false},\"per_request_limits\":null,\"supported_parameters\":[\"include_reasoning\",\"max_tokens\",\"reasoning\",\"response_format\",\"structured_outputs\",\"temperature\",\"tool_choice\",\"tools\",\"top_p\"],\"default_parameters\":{},\"supported_voices\":null,\"knowledge_cutoff\":null,\"expiration_date\":\"2026-12-31\",\"links\":{\"details\":\"/api/v1/models/dots-studio/dots-3-note-preview-20260813/endpoints\"},\"endpoints\":[\"/api/v1/chat/completions\",\"/api/v1/completions\",\"/api/v1/messages\",\"/api/v1/responses\"],\"reasoning\":{\"mandatory\":false}}],\"omittedOtherModels\":true}",
+      "totalMs": 426
+    },
+    {
+      "sequence": 15,
+      "path": "/v1/models",
+      "start": "2026-11-05T03:34:52.156Z",
+      "httpStatus": 200,
+      "headersMs": 196,
+      "firstByteMs": 196,
+      "response": "{\"data\":[{\"id\":\"dots-studio/dots-3-note-preview:free\",\"canonical_slug\":\"dots-studio/dots-3-note-preview-20260813\",\"hugging_face_id\":null,\"name\":\"Dots Studio: Dots3-Note Preview (free)\",\"created\":1786680361,\"description\":\"Dots3-Note Preview is an open-weight mixture-of-experts model from Dots Studio, with 16B active parameters out of 280B total. It is the lightest model in the Dots 3 family and is...\",\"context_length\":512000,\"architecture\":{\"modality\":\"text+image->text\",\"input_modalities\":[\"text\",\"image\"],\"output_modalities\":[\"text\"],\"tokenizer\":\"Other\",\"instruct_type\":null},\"pricing\":{\"prompt\":\"0\",\"completion\":\"0\"},\"top_provider\":{\"context_length\":512000,\"max_completion_tokens\":460800,\"is_moderated\":false},\"per_request_limits\":null,\"supported_parameters\":[\"include_reasoning\",\"max_tokens\",\"reasoning\",\"response_format\",\"structured_outputs\",\"temperature\",\"tool_choice\",\"tools\",\"top_p\"],\"default_parameters\":{},\"supported_voices\":null,\"knowledge_cutoff\":null,\"expiration_date\":\"2026-12-31\",\"links\":{\"details\":\"/api/v1/models/dots-studio/dots-3-note-preview-20260813/endpoints\"},\"endpoints\":[\"/api/v1/chat/completions\",\"/api/v1/completions\",\"/api/v1/messages\",\"/api/v1/responses\"],\"reasoning\":{\"mandatory\":false}}],\"omittedOtherModels\":true}",
+      "totalMs": 398
+    },
+    {
+      "sequence": 16,
+      "path": "/v1/models",
+      "start": "2026-11-05T03:35:23.318Z",
+      "httpStatus": 200,
+      "headersMs": 1072,
+      "firstByteMs": 1072,
+      "response": "{\"data\":[{\"id\":\"dots-studio/dots-3-note-preview:free\",\"canonical_slug\":\"dots-studio/dots-3-note-preview-20260813\",\"hugging_face_id\":null,\"name\":\"Dots Studio: Dots3-Note Preview (free)\",\"created\":1786680361,\"description\":\"Dots3-Note Preview is an open-weight mixture-of-experts model from Dots Studio, with 16B active parameters out of 280B total. It is the lightest model in the Dots 3 family and is...\",\"context_length\":512000,\"architecture\":{\"modality\":\"text+image->text\",\"input_modalities\":[\"text\",\"image\"],\"output_modalities\":[\"text\"],\"tokenizer\":\"Other\",\"instruct_type\":null},\"pricing\":{\"prompt\":\"0\",\"completion\":\"0\"},\"top_provider\":{\"context_length\":512000,\"max_completion_tokens\":460800,\"is_moderated\":false},\"per_request_limits\":null,\"supported_parameters\":[\"include_reasoning\",\"max_tokens\",\"reasoning\",\"response_format\",\"structured_outputs\",\"temperature\",\"tool_choice\",\"tools\",\"top_p\"],\"default_parameters\":{},\"supported_voices\":null,\"knowledge_cutoff\":null,\"expiration_date\":\"2026-12-31\",\"links\":{\"details\":\"/api/v1/models/dots-studio/dots-3-note-preview-20260813/endpoints\"},\"endpoints\":[\"/api/v1/chat/completions\",\"/api/v1/completions\",\"/api/v1/messages\",\"/api/v1/responses\"],\"reasoning\":{\"mandatory\":false}}],\"omittedOtherModels\":true}",
+      "totalMs": 1467
+    },
+    {
+      "sequence": 17,
+      "path": "/v1/models",
+      "start": "2026-11-05T03:35:24.179Z",
+      "httpStatus": 200,
+      "headersMs": 617,
+      "firstByteMs": 617,
+      "response": "{\"data\":[{\"id\":\"dots-studio/dots-3-note-preview:free\",\"canonical_slug\":\"dots-studio/dots-3-note-preview-20260813\",\"hugging_face_id\":null,\"name\":\"Dots Studio: Dots3-Note Preview (free)\",\"created\":1786680361,\"description\":\"Dots3-Note Preview is an open-weight mixture-of-experts model from Dots Studio, with 16B active parameters out of 280B total. It is the lightest model in the Dots 3 family and is...\",\"context_length\":512000,\"architecture\":{\"modality\":\"text+image->text\",\"input_modalities\":[\"text\",\"image\"],\"output_modalities\":[\"text\"],\"tokenizer\":\"Other\",\"instruct_type\":null},\"pricing\":{\"prompt\":\"0\",\"completion\":\"0\"},\"top_provider\":{\"context_length\":512000,\"max_completion_tokens\":460800,\"is_moderated\":false},\"per_request_limits\":null,\"supported_parameters\":[\"include_reasoning\",\"max_tokens\",\"reasoning\",\"response_format\",\"structured_outputs\",\"temperature\",\"tool_choice\",\"tools\",\"top_p\"],\"default_parameters\":{},\"supported_voices\":null,\"knowledge_cutoff\":null,\"expiration_date\":\"2026-12-31\",\"links\":{\"details\":\"/api/v1/models/dots-studio/dots-3-note-preview-20260813/endpoints\"},\"endpoints\":[\"/api/v1/chat/completions\",\"/api/v1/completions\",\"/api/v1/messages\",\"/api/v1/responses\"],\"reasoning\":{\"mandatory\":false}}],\"omittedOtherModels\":true}",
+      "totalMs": 1015
+    },
+    {
+      "sequence": 18,
+      "path": "/v1/models",
+      "start": "2026-11-05T03:35:26.290Z",
+      "httpStatus": 200,
+      "headersMs": 169,
+      "firstByteMs": 169,
+      "response": "{\"data\":[{\"id\":\"dots-studio/dots-3-note-preview:free\",\"canonical_slug\":\"dots-studio/dots-3-note-preview-20260813\",\"hugging_face_id\":null,\"name\":\"Dots Studio: Dots3-Note Preview (free)\",\"created\":1786680361,\"description\":\"Dots3-Note Preview is an open-weight mixture-of-experts model from Dots Studio, with 16B active parameters out of 280B total. It is the lightest model in the Dots 3 family and is...\",\"context_length\":512000,\"architecture\":{\"modality\":\"text+image->text\",\"input_modalities\":[\"text\",\"image\"],\"output_modalities\":[\"text\"],\"tokenizer\":\"Other\",\"instruct_type\":null},\"pricing\":{\"prompt\":\"0\",\"completion\":\"0\"},\"top_provider\":{\"context_length\":512000,\"max_completion_tokens\":460800,\"is_moderated\":false},\"per_request_limits\":null,\"supported_parameters\":[\"include_reasoning\",\"max_tokens\",\"reasoning\",\"response_format\",\"structured_outputs\",\"temperature\",\"tool_choice\",\"tools\",\"top_p\"],\"default_parameters\":{},\"supported_voices\":null,\"knowledge_cutoff\":null,\"expiration_date\":\"2026-12-31\",\"links\":{\"details\":\"/api/v1/models/dots-studio/dots-3-note-preview-20260813/endpoints\"},\"endpoints\":[\"/api/v1/chat/completions\",\"/api/v1/completions\",\"/api/v1/messages\",\"/api/v1/responses\"],\"reasoning\":{\"mandatory\":false}}],\"omittedOtherModels\":true}",
+      "totalMs": 240
+    }
+  ],
+  "stopped": false,
+  "collectionStatus": "operator_interrupted; no complete exit code"
+}

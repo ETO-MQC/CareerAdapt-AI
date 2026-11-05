@@ -1,0 +1,12 @@
+file:///E:/DEF/CareerAdapt-competition-5.1.8/scripts/rp01-preflight.mjs:18
+  if (mismatch.length) throw new Error(`RP01 stale bundled Skills: ${mismatch.map(row => row.name).join(', ')}; no provider requests allowed`);
+                             ^
+
+Error: RP01 stale bundled Skills: candidate-profile-interview, resume-composition, resume-review, resume-tailoring; no provider requests allowed
+    at assertRp01RuntimeParity (file:///E:/DEF/CareerAdapt-competition-5.1.8/scripts/rp01-preflight.mjs:18:30)
+    at file:///E:/DEF/CareerAdapt-competition-5.1.8/scripts/rp01-hermes-qualification.mjs:8:1
+    at ModuleJob.run (node:internal/modules/esm/module_job:437:25)
+    at async node:internal/modules/esm/loader:639:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.15.0

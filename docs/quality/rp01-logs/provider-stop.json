@@ -1,0 +1,9 @@
+{
+  "httpStatus": 429,
+  "batch": "business-bound-v4",
+  "errorCategory": "openrouter_free_tier_daily",
+  "remaining": 0,
+  "observedLimit": 50,
+  "resetEpochMs": 1793923200000,
+  "action": "Stopped all upstream collection; no paid fallback; incomplete scenarios remain blocked"
+}

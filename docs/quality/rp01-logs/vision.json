@@ -1,0 +1,10 @@
+{
+  "httpStatus": 200,
+  "body": {
+    "ok": true,
+    "text": "虚构简历 · 仅用于 RP01 测试\n\n姓名：林测试\n\n学校：示例大学 | 数据科学本科 | 2023-09 至 2027-06\n\n项目经历：课程数据核对 | 项目成员 | 2025-01 至 2025-06\n\n使用 Excel 合并 3 份课程数据，完成清洗并提交核对报告。\n\n技能：SQL 基础查询; R 课程数据处理。\n\n材料                      数量 / 日期\n课程数据文件               3 份 / 2025-03\n核对报告                   1 份 / 2025-06",
+    "provider": "custom:careeradapt",
+    "model": "dots-studio/dots-3-note-preview:free"
+  },
+  "totalMs": 32172
+}

@@ -1,0 +1,36 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+ ❯ tests/unit/rp01ProviderFaults.test.ts (7 tests | 1 failed) 20ms
+   × RP01 injected content {broken is not accepted as structured success 7ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/rp01ProviderFaults.test.ts > RP01 injected content {broken is not accepted as structured success
+AssertionError: expected AiProviderError: Provider returned conten… { …(2) } to match object { code: 'model_json_invalid' }
+(2 matching properties omitted from actual)
+
+- Expected
++ Received
+
+- {
+-   "code": "model_json_invalid",
++ AiProviderError {
++   "code": "model_invalid_json",
+  }
+
+ ❯ tests/unit/rp01ProviderFaults.test.ts:18:69
+     16| ])('RP01 injected content %s is not accepted as structured success', a…
+     17|   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.s…
+     18|   await expect(new OpenAiCompatibleProvider(settings).invoke(input)).r…
+       |                                                                     ^
+     19| });
+     20| it.each(['TimeoutError', 'AbortError'])('RP01 propagates %s without re…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  1 failed | 20 passed (21)
+   Start at  11:37:08
+   Duration  2.90s (transform 1.10s, setup 512ms, import 1.58s, tests 75ms, environment 3.12s)

@@ -1,0 +1,10 @@
+[
+  {
+    "scenario": 2,
+    "id": "jd_understanding-01",
+    "prompt": "任职要求：必须掌握 SQL；Python 优先。资料：Excel 数据整理。请分析匹配。",
+    "status": "UNKNOWN",
+    "tools": [],
+    "turns": []
+  }
+]

@@ -1,0 +1,2 @@
+import { defineConfig } from '@playwright/test';
+export default defineConfig({ testDir: 'tests/e2e', testMatch: ['rp01-real-provider.spec.ts', 'rp01-vision.spec.ts'], grep: process.env.RP01_BATCH === 'vision' ? /real image safe/ : process.env.RP01_BATCH?.startsWith('business') ? /remaining business/ : /isolated first/, timeout: 600_000, expect: { timeout: 30_000 }, retries: 0, workers: 1, use: { baseURL: process.env.HERMES_INTEGRATION_BASE_URL, headless: true, trace: 'off', screenshot: 'off', video: 'off' } });

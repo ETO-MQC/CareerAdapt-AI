@@ -1,0 +1,381 @@
+{
+  "scenario": 1,
+  "startedAt": "2026-11-05T03:22:09.850Z",
+  "status": "PARTIAL",
+  "tools": [
+    {
+      "id": "mcp-request-xaFdt7-pvv3LbJyp",
+      "name": "career.profile.get",
+      "input": {
+        "profileId": "default"
+      },
+      "operationId": "mcp-career-TMhEG6VVEy7vihmt",
+      "logicalToolOperationId": "mcp-career-TMhEG6VVEy7vihmt",
+      "logicalTurnId": "runtime-turn-0378040c-036d-4ab0-87a9-8ca740b0a60f",
+      "sourceUserMessageId": "agent-user-5efd280f-3580-4171-bda8-d076392b4175",
+      "taskId": "agent-session-MgQfSyMSei1I",
+      "incidentTraceId": "incident-6f26e596-b6f8-45c2-9516-ce00dc6b2328",
+      "agentSessionId": "agent-session-MgQfSyMSei1I",
+      "requireSessionBinding": true
+    },
+    {
+      "id": "mcp-request-D1GcLPisLLpwAXzI",
+      "name": "career.resume.list",
+      "input": {},
+      "operationId": "mcp-career-rfM3uQmqXzjnaIYn",
+      "logicalToolOperationId": "mcp-career-rfM3uQmqXzjnaIYn",
+      "logicalTurnId": "runtime-turn-0378040c-036d-4ab0-87a9-8ca740b0a60f",
+      "sourceUserMessageId": "agent-user-5efd280f-3580-4171-bda8-d076392b4175",
+      "taskId": "agent-session-MgQfSyMSei1I",
+      "incidentTraceId": "incident-6f26e596-b6f8-45c2-9516-ce00dc6b2328",
+      "agentSessionId": "agent-session-MgQfSyMSei1I",
+      "requireSessionBinding": true
+    },
+    {
+      "id": "mcp-request-S_TxL7yIEqUcdJoN",
+      "name": "career.job.list",
+      "input": {},
+      "operationId": "mcp-career-SYnZEJdnJvFlp9is",
+      "logicalToolOperationId": "mcp-career-SYnZEJdnJvFlp9is",
+      "logicalTurnId": "runtime-turn-0378040c-036d-4ab0-87a9-8ca740b0a60f",
+      "sourceUserMessageId": "agent-user-5efd280f-3580-4171-bda8-d076392b4175",
+      "taskId": "agent-session-MgQfSyMSei1I",
+      "incidentTraceId": "incident-6f26e596-b6f8-45c2-9516-ce00dc6b2328",
+      "agentSessionId": "agent-session-MgQfSyMSei1I",
+      "requireSessionBinding": true
+    }
+  ],
+  "runtimeReady": true,
+  "elapsedMs": 31389,
+  "messageStatus": "complete",
+  "assistant": "部分任务步骤需要处理未完成该步骤未完成，当前进度已保留，可重试。未完成该步骤未完成，当前进度已保留，可重试。已完成Career 工具执行完成。已完成Career 工具执行完成。已完成Career 工具执行完成。目前系统里的情况是：个人资料：还没有正式 Profile简历：空的，没有任何简历已保存岗位：有两个——数据分析实习生（示例科技公司）、外贸/跨境运营实习生（示例跨境公司）---根据你提到的信息，我先整理了一份候选资料草稿，供你核对，不会写入正式库：候选技能 / 经验条目类别内容来源工具技能Excel（数据合并、清洗、核对报告）你口述的项目工具技能SQL 基础查询你口述项目经验合并三份课程数据 → 数据清洗 → 提交核对报告你口述的项目---需要你补充确认的几个点在我把这份草稿整理得更完整之前，有几个信息想确认一下：这个项目的背景——是课程作业、实习项目，还是自学练习？有没有具体的课程名称或项目名称？SQL 的掌握程度——除了基础查询（SELECT / WHERE / JOIN），是否还熟悉 GROUP BY、子查询、聚合函数等？除了 Excel 和 SQL，还有其他工具或编程语言吗？（比如 Python、Power BI、Tableau、VBA 等）你目前的目标岗位方向——偏向数据分析，还是外贸/跨境运营，或者两者都考虑？你先看看这份候选草稿，有什么要补充或修改的直接说，我整理好再给你确认。复制 Markdown引用这条回复查看任务步骤",
+  "sessions": [
+    {
+      "agentSessionSchemaVersion": 3,
+      "id": "agent-session-MgQfSyMSei1I",
+      "title": "新的对话",
+      "titleOrigin": "default",
+      "messages": [],
+      "sessionRevision": 12,
+      "artifactRefs": [],
+      "conversationSummary": "",
+      "runtimeId": "hermes",
+      "hermesRun": {
+        "runId": "run_18e77c62521e4ffa947a0de68e32e63f",
+        "hermesSessionId": "hermes-agent-session-MgQfSyMSei1I",
+        "careerAgentSessionId": "agent-session-MgQfSyMSei1I",
+        "turnId": "runtime-turn-0378040c-036d-4ab0-87a9-8ca740b0a60f",
+        "status": "completed",
+        "startedAt": "2026-11-05T03:22:27.517Z",
+        "lastEventAt": "2026-11-05T03:22:56.961Z"
+      },
+      "activeTurn": {
+        "id": "runtime-turn-0378040c-036d-4ab0-87a9-8ca740b0a60f",
+        "sessionId": "agent-session-MgQfSyMSei1I",
+        "sourceUserMessageId": "agent-user-5efd280f-3580-4171-bda8-d076392b4175",
+        "userMessageId": "agent-user-5efd280f-3580-4171-bda8-d076392b4175",
+        "runtimeId": "hermes",
+        "preferredRuntime": "hermes",
+        "attemptedRuntime": "hermes",
+        "finalRuntime": "hermes",
+        "executionOwner": "hermes",
+        "fallbackUsed": false,
+        "incidentTraceId": "incident-6f26e596-b6f8-45c2-9516-ce00dc6b2328",
+        "hermesRunId": "run_18e77c62521e4ffa947a0de68e32e63f",
+        "visibleAssistantMessageId": "agent-thinking-1c371c55-3c3d-4c99-ac00-446f8ed2fd58",
+        "toolFailures": [
+          {
+            "toolName": "get_profile",
+            "operationId": "mcp-career-TMhEG6VVEy7vihmt",
+            "code": "needs_profile",
+            "message": "当前还没有可用于定制的个人资料。你可以选择已有资料，或先导入一份简历。",
+            "recoverable": false,
+            "diagnostics": {
+              "toolFailureLayer": "gateway_policy",
+              "failureKind": "workflow_failed",
+              "failureScope": "career_context",
+              "safeDomainErrorCode": "needs_profile",
+              "toolResultIsError": true,
+              "failedStage": "gateway_policy",
+              "durationMs": 10,
+              "retryable": false,
+              "operationId": "mcp-career-TMhEG6VVEy7vihmt",
+              "logicalToolOperationId": "mcp-career-TMhEG6VVEy7vihmt",
+              "logicalTurnId": "runtime-turn-0378040c-036d-4ab0-87a9-8ca740b0a60f",
+              "taskId": "agent-session-MgQfSyMSei1I",
+              "argumentShape": {
+                "profileId": {
+                  "present": true,
+                  "lengthBucket": "length:1-20",
+                  "hashPrefix": "fnv-933b5bde-7"
+                }
+              },
+              "mcpHttpArgumentShape": {
+                "profileId": {
+                  "present": true,
+                  "lengthBucket": "length:1-20",
+                  "hashPrefix": "fnv-933b5bde-7"
+                }
+              },
+              "browserHandlerArgumentShape": {
+                "profileId": {
+                  "present": true,
+                  "lengthBucket": "length:1-20",
+                  "hashPrefix": "fnv-933b5bde-7"
+                }
+              },
+              "gatewayArgumentShape": {
+                "profileId": {
+                  "present": true,
+                  "lengthBucket": "length:1-20",
+                  "hashPrefix": "fnv-933b5bde-7"
+                }
+              },
+              "facadeArgumentShape": {
+                "profileId": {
+                  "present": true,
+                  "lengthBucket": "length:1-20",
+                  "hashPrefix": "fnv-933b5bde-7"
+                }
+              },
+              "sourceUserMessageId": "agent-user-5efd280f-3580-4171-bda8-d076392b4175",
+              "sourceUserMessageResolved": true,
+              "publishedContractVersion": "career-tool-contract-v5",
+              "publishedSchemaHash": "fnv1a-9ac70ce2",
+              "gatewayContractVersion": "career-tool-contract-v5",
+              "gatewaySchemaHash": "fnv1a-9ac70ce2",
+              "careerToolContractVersion": "career-tool-contract-v5",
+              "appBuildCommit": "workspace-source",
+              "appBuildTimestamp": "development",
+              "mcpCallTrace": {
+                "toolName": "career.profile.get",
+                "logicalToolOperationId": "mcp-career-TMhEG6VVEy7vihmt",
+                "requestStartedAt": "2026-11-05T03:22:41.715Z",
+                "jsonRpcStatus": "response_received",
+                "safeMcpErrorCode": "needs_profile",
+                "browserMcpHandlerReached": true,
+                "gatewayReached": true,
+                "completedAt": "2026-11-05T03:22:41.715Z"
+              },
+              "startedAt": "2026-11-05T03:22:41.704Z",
+              "enteredGatewayAt": "2026-11-05T03:22:41.704Z",
+              "completedAt": "2026-11-05T03:22:41.714Z"
+            },
+            "occurredAt": "2026-11-05T03:22:41.758Z"
+          },
+          {
+            "toolName": "career.profile.get",
+            "operationId": "hermes-mcp-run_18e77c62521e4ffa947a0de68e32e63f-mcp__careeradapt__career_profile_get",
+            "code": "hermes_tool_failed",
+            "message": "Hermes 工具执行没有完成。",
+            "recoverable": true,
+            "occurredAt": "2026-11-05T03:22:41.918Z"
+          }
+        ],
+        "lastFailedTool": "career.profile.get",
+        "lastFailedOperationId": "hermes-mcp-run_18e77c62521e4ffa947a0de68e32e63f-mcp__careeradapt__career_profile_get",
+        "lastSafeErrorCode": "hermes_tool_failed",
+        "runtimeAttempts": [
+          {
+            "attemptNumber": 1,
+            "traceId": "incident-6f26e596-b6f8-45c2-9516-ce00dc6b2328:attempt-1",
+            "sessionId": "agent-session-MgQfSyMSei1I",
+            "turnId": "runtime-turn-0378040c-036d-4ab0-87a9-8ca740b0a60f",
+            "hermesSessionId": "hermes-agent-session-MgQfSyMSei1I",
+            "runId": "run_18e77c62521e4ffa947a0de68e32e63f",
+            "startRequestedAt": "2026-11-05T03:22:28.002Z",
+            "runStartedAt": "2026-11-05T03:22:28.002Z",
+            "firstEventAt": "2026-11-05T03:22:28.002Z",
+            "terminalAt": "2026-11-05T03:22:56.961Z",
+            "terminalStatus": "completed",
+            "status": "completed",
+            "lastEventType": "turn_completed",
+            "failureCode": "hermes_tool_failed"
+          }
+        ],
+        "turnStartSnapshot": {
+          "capturedAt": "2026-11-05T03:22:27.449Z",
+          "supervisor": {
+            "overallState": "ready",
+            "processReady": true,
+            "apiReady": true,
+            "providerReady": true,
+            "careerMcpReady": true,
+            "toolSurfaceReady": true,
+            "runReady": true,
+            "restartAttempt": 0,
+            "capturedAt": "2026-11-05T03:22:27.449Z",
+            "maintenancePending": false
+          },
+          "runtimeHealth": {
+            "runtimeId": "hermes",
+            "runtimeAvailable": true,
+            "companionReady": true,
+            "providerConfigured": true,
+            "providerReachable": true,
+            "providerReady": true,
+            "provider": "custom:careeradapt",
+            "providerStatus": "ready",
+            "providerDiagnostic": {
+              "provider": "custom:careeradapt",
+              "model": "dots-studio/dots-3-note-preview:free",
+              "credentialConfigured": true,
+              "credentialSource": "server_env",
+              "configFingerprint": "3581cd0f7d72053d3c3a92e304dd9f21916d59d3c2d5889a0442f1a6c0a0f239",
+              "configGeneration": 1,
+              "lastCheckedAt": "2026-11-05T03:22:27.272Z",
+              "lastHttpStatus": 200
+            },
+            "model": "dots-studio/dots-3-note-preview:free",
+            "contextWindow": 1048576,
+            "toolCallingCapability": "unknown",
+            "toolCallingAvailable": false,
+            "toolCallInFlight": false,
+            "mcpConnected": true,
+            "mcpReady": true,
+            "mcpToolCount": 59,
+            "careerSkillsLoaded": true,
+            "browserCareerDomainHostConnected": true,
+            "careerMcpServerReachable": true,
+            "careerMcpContractCount": 13,
+            "hermesMcpRegistered": true,
+            "hermesMcpToolCount": 13,
+            "hermesCareerFacadeCount": 9,
+            "careerToolContractReady": true,
+            "careerToolContractVersion": "career-tool-contract-v5",
+            "appBuildCommit": "workspace-source",
+            "appBuildTimestamp": "development",
+            "careerToolContractMismatches": [],
+            "requiredCareerFacadesMissing": [],
+            "careerGatewayContracts": [
+              "career.context.retrieve",
+              "career.export.resume",
+              "career.job.analyze_fit",
+              "career.job.commit",
+              "career.job.get",
+              "career.job.list",
+              "career.job.parse",
+              "career.material.prepare",
+              "career.preview.apply_changes",
+              "career.preview.review_diff",
+              "career.profile.active",
+              "career.profile.capture_intake",
+              "career.profile.commit_intake",
+              "career.profile.get",
+              "career.profile.list",
+              "career.profile.reconcile_intake",
+              "career.profile.resolve_intake_conflict",
+              "career.profile.review_intake",
+              "career.profile.search_facts",
+              "career.profile.synthesize_intake",
+              "career.resume.archive",
+              "career.resume.build_evidence_graph",
+              "career.resume.compose",
+              "career.resume.create_from_profile",
+              "career.resume.create_job_from_profile",
+              "career.resume.ensure_general_from_profile",
+              "career.resume.get",
+              "career.resume.get_revision",
+              "career.resume.import.commit",
+              "career.resume.import.create_draft",
+              "career.resume.import.parse_file",
+              "career.resume.import.prepare",
+              "career.resume.import.reconcile",
+              "career.resume.import.resolve_reconciliation",
+              "career.resume.import.review",
+              "career.resume.list",
+              "career.resume.plan_composition",
+              "career.resume.recommend_source",
+              "career.resume.restore",
+              "career.resume.review_composition",
+              "career.system.current_task",
+              "career.system.last_failure",
+              "career.system.runtime_status",
+              "career.tailoring.answer_question",
+              "career.tailoring.apply_changes",
+              "career.tailoring.create_session",
+              "career.tailoring.generate_changes",
+              "career.tailoring.preview_changes",
+              "career.tailoring.review_diff",
+              "career.workflow.compose_resume",
+              "career.workflow.job_fit",
+              "career.workflow.job_intake",
+              "career.workflow.material_intake",
+              "career.workflow.profile_intake_finalize",
+              "career.workflow.profile_intake_turn",
+              "career.workflow.profile_to_resume",
+              "career.workflow.resume_export",
+              "career.workflow.resume_import",
+              "career.workflow.tailor_resume"
+            ],
+            "careerMcpExposedTools": [
+              "career.context.retrieve",
+              "career.job.list",
+              "career.profile.get",
+              "career.resume.list",
+              "career.workflow.compose_resume",
+              "career.workflow.job_fit",
+              "career.workflow.job_intake",
+              "career.workflow.material_intake",
+              "career.workflow.profile_intake_finalize",
+              "career.workflow.profile_intake_turn",
+              "career.workflow.resume_export",
+              "career.workflow.resume_import",
+              "career.workflow.tailor_resume"
+            ],
+            "hermesRegisteredToolsets": [
+              "mcp-careeradapt",
+              "skills"
+            ],
+            "hermesVisibleTools": [
+              "mcp__careeradapt__career_context_retrieve",
+              "mcp__careeradapt__career_job_list",
+              "mcp__careeradapt__career_profile_get",
+              "mcp__careeradapt__career_resume_list",
+              "mcp__careeradapt__career_workflow_compose_resume",
+              "mcp__careeradapt__career_workflow_job_fit",
+              "mcp__careeradapt__career_workflow_job_intake",
+              "mcp__careeradapt__career_workflow_material_intake",
+              "mcp__careeradapt__career_workflow_profile_intake_finalize",
+              "mcp__careeradapt__career_workflow_profile_intake_turn",
+              "mcp__careeradapt__career_workflow_resume_export",
+              "mcp__careeradapt__career_workflow_resume_import",
+              "mcp__careeradapt__career_workflow_tailor_resume",
+              "skill_manage",
+              "skill_view",
+              "skills_list"
+            ],
+            "missingRequiredCareerTools": [],
+            "lastCheckedAt": "2026-11-05T03:22:27.281Z",
+            "runReady": true
+          },
+          "run": {
+            "status": "not_started"
+          }
+        },
+        "recoveryAttempted": false,
+        "firstEventAt": "2026-11-05T03:22:28.002Z",
+        "status": "completed",
+        "startedAt": "2026-11-05T03:22:27.464Z",
+        "completedAt": "2026-11-05T03:22:56.962Z"
+      },
+      "conversationBranches": [
+        {
+          "id": "legacy-branch",
+          "headMessageId": "agent-tool-career-logical-72aad577",
+          "status": "active",
+          "createdAt": "2026-11-05T03:22:16.420Z"
+        }
+      ],
+      "activeBranchId": "legacy-branch",
+      "activeHeadMessageId": "agent-tool-career-logical-72aad577",
+      "turnCheckpoints": [],
+      "archived": false,
+      "createdAt": "2026-11-05T03:22:16.420Z",
+      "updatedAt": "2026-11-05T03:22:56.962Z"
+    }
+  ],
+  "profilesUnchanged": true,
+  "revisionsUnchanged": true,
+  "sourceResumePrepared": true
+}

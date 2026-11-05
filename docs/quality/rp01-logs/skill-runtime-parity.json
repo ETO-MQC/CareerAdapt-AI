@@ -1,0 +1,98 @@
+[
+  {
+    "name": "candidate-profile-interview",
+    "source": {
+      "sha256": "615e75fa503a4136e35882b9d58b54b57ed1e6a97689f2dabe3cf54756331af8",
+      "version": "2.0.1"
+    },
+    "bundle": {
+      "sha256": "b58f72952350ad3efd154f6b482f0c81a6cf9dff58fc12dfdf555eb1f668f579",
+      "version": "2.0.0"
+    },
+    "home": {
+      "sha256": "b58f72952350ad3efd154f6b482f0c81a6cf9dff58fc12dfdf555eb1f668f579",
+      "version": "2.0.0"
+    },
+    "bundleMatchesSource": false
+  },
+  {
+    "name": "career-story-mining",
+    "source": {
+      "sha256": "03a9ea1a8ac24b27db7203f84a9cf763ebaae7b75421e4728dc3a0c4c4401abf",
+      "version": "2.0.0"
+    },
+    "bundle": {
+      "sha256": "03a9ea1a8ac24b27db7203f84a9cf763ebaae7b75421e4728dc3a0c4c4401abf",
+      "version": "2.0.0"
+    },
+    "home": {
+      "sha256": "03a9ea1a8ac24b27db7203f84a9cf763ebaae7b75421e4728dc3a0c4c4401abf",
+      "version": "2.0.0"
+    },
+    "bundleMatchesSource": true
+  },
+  {
+    "name": "job-fit-analysis",
+    "source": {
+      "sha256": "ce7b5a1e58331756b807e0b6862e662613f5e1d2eed06190528b0880054dceb9",
+      "version": "2.0.0"
+    },
+    "bundle": {
+      "sha256": "ce7b5a1e58331756b807e0b6862e662613f5e1d2eed06190528b0880054dceb9",
+      "version": "2.0.0"
+    },
+    "home": {
+      "sha256": "ce7b5a1e58331756b807e0b6862e662613f5e1d2eed06190528b0880054dceb9",
+      "version": "2.0.0"
+    },
+    "bundleMatchesSource": true
+  },
+  {
+    "name": "resume-composition",
+    "source": {
+      "sha256": "9d5e104b128e9cace070c396cfbe44eade5ae7c8cf3ccfd1975a913c19216e50",
+      "version": "2.0.1"
+    },
+    "bundle": {
+      "sha256": "037b450b0ef6f0ea24ce0b2bc27884e2f41599cf9dcb039c3506fca464de2721",
+      "version": "2.0.0"
+    },
+    "home": {
+      "sha256": "037b450b0ef6f0ea24ce0b2bc27884e2f41599cf9dcb039c3506fca464de2721",
+      "version": "2.0.0"
+    },
+    "bundleMatchesSource": false
+  },
+  {
+    "name": "resume-review",
+    "source": {
+      "sha256": "3c97785e3f7edc27194eb56454eb8c0cf2f5e9ed1079cebf65df844fa75fb83c",
+      "version": "2.0.1"
+    },
+    "bundle": {
+      "sha256": "c00fb5549a76c720c5cf5454e45873c029094362ba9d30d5b589f2022195585a",
+      "version": "2.0.0"
+    },
+    "home": {
+      "sha256": "c00fb5549a76c720c5cf5454e45873c029094362ba9d30d5b589f2022195585a",
+      "version": "2.0.0"
+    },
+    "bundleMatchesSource": false
+  },
+  {
+    "name": "resume-tailoring",
+    "source": {
+      "sha256": "09c4fd2e06dae50b318d3f3e8575172b883a8fd15d53c26724f89ff95e689eec",
+      "version": "2.0.1"
+    },
+    "bundle": {
+      "sha256": "1ebab591afa239861a518fb0e260cc999b2b019c4731ca8207f0a0ee639f240f",
+      "version": "2.0.0"
+    },
+    "home": {
+      "sha256": "1ebab591afa239861a518fb0e260cc999b2b019c4731ca8207f0a0ee639f240f",
+      "version": "2.0.0"
+    },
+    "bundleMatchesSource": false
+  }
+]

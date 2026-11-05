@@ -1,0 +1,151 @@
+{
+  "provider": "OpenRouter",
+  "model": "dots-studio/dots-3-note-preview:free",
+  "startedAt": "2026-11-05T03:19:12.254Z",
+  "policy": {
+    "temperature": 0,
+    "max_tokens": 8192,
+    "timeoutMs": 180000,
+    "reasoning": {
+      "effort": "low"
+    },
+    "retries": 0
+  },
+  "requests": [
+    {
+      "id": "text",
+      "httpStatus": 200,
+      "headersMs": 1756,
+      "firstByteMs": 1756,
+      "totalMs": 2472,
+      "finishReasons": [
+        "stop"
+      ],
+      "usage": {
+        "prompt_tokens": 18,
+        "completion_tokens": 74,
+        "total_tokens": 92,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 75,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "body": "\n         \n{\"id\":\"gen-1793848753-x0Bq9Wu6YVykBWDzCman\",\"object\":\"chat.completion\",\"created\":1793848753,\"model\":\"dots-studio/dots-3-note-preview:free\",\"provider\":\"AtlasCloud\",\"system_fingerprint\":null,\"service_tier\":null,\"choices\":[{\"index\":0,\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"message\":{\"role\":\"assistant\",\"content\":\"\\n\\nOK\",\"refusal\":null,\"reasoning\":\"The user says \\\"Reply with OK only.\\\" This is a simple instruction. I need to output exactly \\\"OK\\\" and nothing else, no extra text, no punctuation unless it's part of \\\"OK\\\". The instruction says \\\"Reply with OK only.\\\" So I should output just \\\"OK\\\". Let me make sure I don't add any extra characters.\\n\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\"The user says \\\"Reply with OK only.\\\" This is a simple instruction. I need to output exactly \\\"OK\\\" and nothing else, no extra text, no punctuation unless it's part of \\\"OK\\\". The instruction says \\\"Reply with OK only.\\\" So I should output just \\\"OK\\\". Let me make sure I don't add any extra characters.\\n\",\"format\":\"unknown\",\"index\":0}]}}],\"usage\":{\"prompt_tokens\":18,\"completion_tokens\":74,\"total_tokens\":92,\"cost\":0,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"cache_write_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":0,\"upstream_inference_prompt_cost\":0,\"upstream_inference_completions_cost\":0},\"completion_tokens_details\":{\"reasoning_tokens\":75,\"image_tokens\":0,\"audio_tokens\":0}}}",
+      "message": {
+        "role": "assistant",
+        "content": "\n\nOK",
+        "refusal": null,
+        "reasoning": "The user says \"Reply with OK only.\" This is a simple instruction. I need to output exactly \"OK\" and nothing else, no extra text, no punctuation unless it's part of \"OK\". The instruction says \"Reply with OK only.\" So I should output just \"OK\". Let me make sure I don't add any extra characters.\n",
+        "reasoning_details": [
+          {
+            "type": "reasoning.text",
+            "text": "The user says \"Reply with OK only.\" This is a simple instruction. I need to output exactly \"OK\" and nothing else, no extra text, no punctuation unless it's part of \"OK\". The instruction says \"Reply with OK only.\" So I should output just \"OK\". Let me make sure I don't add any extra characters.\n",
+            "format": "unknown",
+            "index": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "stream",
+      "httpStatus": 200,
+      "headersMs": 680,
+      "firstByteMs": 680,
+      "totalMs": 1474,
+      "finishReasons": [
+        "stop",
+        "stop"
+      ],
+      "usage": {
+        "prompt_tokens": 19,
+        "completion_tokens": 54,
+        "total_tokens": 73,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 53,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "body": "data: {\"id\":\"gen-1793848755-cAhv2gAFqHwVXkobePYY\",\"object\":\"chat.completion.chunk\",\"created\":1793848755,\"model\":\"dots-studio/dots-3-note-preview:free\",\"provider\":\"AtlasCloud\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\",\"reasoning\":\"The\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\"The\",\"format\":\"unknown\",\"index\":0}]},\"finish_reason\":null,\"native_finish_reason\":null}]}\n\ndata: {\"id\":\"gen-1793848755-cAhv2gAFqHwVXkobePYY\",\"object\":\"chat.completion.chunk\",\"created\":1793848755,\"model\":\"dots-studio/dots-3-note-preview:free\",\"provider\":\"AtlasCloud\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\",\"reasoning\":\" user\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\" user\",\"format\":\"unknown\",\"index\":0}]},\"finish_reason\":null,\"native_finish_reason\":null}]}\n\ndata: {\"id\":\"gen-1793848755-cAhv2gAFqHwVXkobePYY\",\"object\":\"chat.completion.chunk\",\"created\":1793848755,\"model\":\"dots-studio/dots-3-note-preview:free\",\"provider\":\"AtlasCloud\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\",\"reasoning\":\" says\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\" says\",\"format\":\"unknown\",\"index\":0}]},\"finish_reason\":null,\"native_finish_reason\":null}]}\n\ndata: {\"id\":\"gen-1793848755-cAhv2gAFqHwVXkobePYY\",\"object\":\"chat.completion.chunk\",\"created\":1793848755,\"model\":\"dots-studio/dots-3-note-preview:free\",\"provider\":\"AtlasCloud\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\",\"reasoning\":\" \\\"Reply with STREAM\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\" \\\"Reply with STREAM\",\"format\":\"unknown\",\"index\":0}]},\"finish_reason\":null,\"native_finish_reason\":null}]}\n\ndata: {\"id\":\"gen-1793848755-cAhv2gAFqHwVXkobePYY\",\"object\":\"chat.completion.chunk\",\"created\":1793848755,\"model\":\"dots-studio/dots-3-note-preview:free\",\"provider\":\"AtlasCloud\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\",\"reasoning\":\" OK only.\\\" This\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\" OK only.\\\" This\",\"format\":\"unknown\",\"index\":0}]},\"finish_reason\":null,\"native_finish_reason\":null}]}\n\ndata: {\"id\":\"gen-1793848755-cAhv2gAFqHwVXkobePYY\",\"object\":\"chat.completion.chunk\",\"created\":1793848755,\"model\":\"dots-studio/dots-3-note-preview:free\",\"provider\":\"AtlasCloud\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\",\"reasoning\":\" is a request to\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\" is a request to\",\"format\":\"unknown\",\"index\":0}]},\"finish_reason\":null,\"native_finish_reason\":null}]}\n\ndata: {\"id\":\"gen-1793848755-cAhv2gAFqHwVXkobePYY\",\"object\":\"chat.completion.chunk\",\"created\":1793848755,\"model\":\"dots-studio/dots-3-note-preview:free\",\"provider\":\"AtlasCloud\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\",\"reasoning\":\" output exactly\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\" output exactly\",\"format\":\"unknown\",\"index\":0}]},\"finish_reason\":null,\"native_finish_reason\":null}]}\n\ndata: {\"id\":\"gen-1793848755-cAhv2gAFqHwVXkobePYY\",\"object\":\"chat.completion.chunk\",\"created\":1793848755,\"model\":\"dots-studio/dots-3-note-preview:free\",\"provider\":\"AtlasCloud\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\",\"reasoning\":\" \\\"STREAM OK\\\"\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\" \\\"STREAM OK\\\"\",\"format\":\"unknown\",\"index\":0}]},\"finish_reason\":null,\"native_finish_reason\":null}]}\n\ndata: {\"id\":\"gen-1793848755-cAhv2gAFqHwVXkobePYY\",\"object\":\"chat.completion.chunk\",\"created\":1793848755,\"model\":\"dots-studio/dots-3-note-preview:free\",\"provider\":\"AtlasCloud\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\",\"reasoning\":\" and nothing else.\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\" and nothing else.\",\"format\":\"unknown\",\"index\":0}]},\"finish_reason\":null,\"native_finish_reason\":null}]}\n\ndata: {\"id\":\"gen-1793848755-cAhv2gAFqHwVXkobePYY\",\"object\":\"chat.completion.chunk\",\"created\":1793848755,\"model\":\"dots-studio/dots-3-note-preview:free\",\"provider\":\"AtlasCloud\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\",\"reasoning\":\" I need\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\" I need\",\"format\":\"unknown\",\"index\":0}]},\"finish_reason\":null,\"native_finish_reason\":null}]}\n\ndata: {\"id\":\"gen-1793848755-cAhv2gAFqHwVXkobePYY\",\"object\":\"chat.completion.chunk\",\"created\":1793848755,\"model\":\"dots-studio/dots-3-note-preview:free\",\"provider\":\"AtlasCloud\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\",\"reasoning\":\" to comply with this\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\" to comply with this\",\"format\":\"unknown\",\"index\":0}]},\"finish_reason\":null,\"native_finish_reason\":null}]}\n\ndata: {\"id\":\"gen-1793848755-cAhv2gAFqHwVXkobePYY\",\"object\":\"chat.completion.chunk\",\"created\":1793848755,\"model\":\"dots-studio/dots-3-note-preview:free\",\"provider\":\"AtlasCloud\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\",\"reasoning\":\" instruction. Since\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\" instruction. Since\",\"format\":\"unknown\",\"index\":0}]},\"finish_reason\":null,\"native_finish_reason\":null}]}\n\ndata: {\"id\":\"gen-1793848755-cAhv2gAFqHwVXkobePYY\",\"object\":\"chat.completion.chunk\",\"created\":1793848755,\"model\":\"dots-studio/dots-3-note-preview:free\",\"provider\":\"AtlasCloud\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\",\"reasoning\":\" it's a simple\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\" it's a simple\",\"format\":\"unknown\",\"index\":0}]},\"finish_reason\":null,\"native_finish_reason\":null}]}\n\ndata: {\"id\":\"gen-1793848755-cAhv2gAFqHwVXkobePYY\",\"object\":\"chat.completion.chunk\",\"created\":1793848755,\"model\":\"dots-studio/dots-3-note-preview:free\",\"provider\":\"AtlasCloud\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\",\"reasoning\":\" text\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\" text\",\"format\":\"unknown\",\"index\":0}]},\"finish_reason\":null,\"native_finish_reason\":null}]}\n\ndata: {\"id\":\"gen-1793848755-cAhv2gAFqHwVXkobePYY\",\"object\":\"chat.completion.chunk\",\"created\":1793848755,\"model\":\"dots-studio/dots-3-note-preview:free\",\"provider\":\"AtlasCloud\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\",\"reasoning\":\" output, I'll\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\" output, I'll\",\"format\":\"unknown\",\"index\":0}]},\"finish_reason\":null,\"native_finish_reason\":null}]}\n\ndata: {\"id\":\"gen-1793848755-cAhv2gAFqHwVXkobePYY\",\"object\":\"chat.completion.chunk\",\"created\":1793848755,\"model\":\"dots-studio/dots-3-note-preview:free\",\"provider\":\"AtlasCloud\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\",\"reasoning\":\" just write\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\" just write\",\"format\":\"unknown\",\"index\":0}]},\"finish_reason\":null,\"native_finish_reason\":null}]}\n\ndata: {\"id\":\"gen-1793848755-cAhv2gAFqHwVXkobePYY\",\"object\":\"chat.completion.chunk\",\"created\":1793848755,\"model\":\"dots-studio/dots-3-note-preview:free\",\"provider\":\"AtlasCloud\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\",\"reasoning\":\" \\\"\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\" \\\"\",\"format\":\"unknown\",\"index\":0}]},\"finish_reason\":null,\"native_finish_reason\":null}]}\n\ndata: {\"id\":\"gen-1793848755-cAhv2gAFqHwVXkobePYY\",\"object\":\"chat.completion.chunk\",\"created\":1793848755,\"model\":\"dots-studio/dots-3-note-preview:free\",\"provider\":\"AtlasCloud\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\",\"reasoning\":\"STREAM OK\\\".\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\"STREAM OK\\\".\",\"format\":\"unknown\",\"index\":0}]},\"finish_reason\":null,\"native_finish_reason\":null}]}\n\ndata: {\"id\":\"gen-1793848755-cAhv2gAFqHwVXkobePYY\",\"object\":\"chat.completion.chunk\",\"created\":1793848755,\"model\":\"dots-studio/dots-3-note-preview:free\",\"provider\":\"AtlasCloud\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\\n\\nSTREAM OK\",\"role\":\"assistant\"},\"finish_reason\":null,\"native_finish_reason\":null}]}\n\ndata: {\"id\":\"gen-1793848755-cAhv2gAFqHwVXkobePYY\",\"object\":\"chat.completion.chunk\",\"created\":1793848755,\"model\":\"dots-studio/dots-3-note-preview:free\",\"provider\":\"AtlasCloud\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\",\"reasoning\":null},\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\"}]}\n\ndata: {\"id\":\"gen-1793848755-cAhv2gAFqHwVXkobePYY\",\"object\":\"chat.completion.chunk\",\"created\":1793848755,\"model\":\"dots-studio/dots-3-note-preview:free\",\"provider\":\"AtlasCloud\",\"service_tier\":null,\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\"},\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":19,\"completion_tokens\":54,\"total_tokens\":73,\"cost\":0,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"cache_write_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":0,\"upstream_inference_prompt_cost\":0,\"upstream_inference_completions_cost\":0},\"completion_tokens_details\":{\"reasoning_tokens\":53,\"image_tokens\":0,\"audio_tokens\":0}}}\n\ndata: [DONE]\n\n",
+      "done": true
+    },
+    {
+      "id": "two-turn-context",
+      "httpStatus": 200,
+      "headersMs": 1849,
+      "firstByteMs": 1849,
+      "totalMs": 3944,
+      "finishReasons": [
+        "stop"
+      ],
+      "usage": {
+        "prompt_tokens": 43,
+        "completion_tokens": 218,
+        "total_tokens": 261,
+        "cost": 0,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 206,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "errorCategory": null,
+      "body": "\n         \n{\"id\":\"gen-1793848757-5GGnornl7IF9BxQf6Gyw\",\"object\":\"chat.completion\",\"created\":1793848757,\"model\":\"dots-studio/dots-3-note-preview:free\",\"provider\":\"AtlasCloud\",\"system_fingerprint\":null,\"service_tier\":null,\"choices\":[{\"index\":0,\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"message\":{\"role\":\"assistant\",\"content\":\"\\n\\nRP01-731\",\"refusal\":null,\"reasoning\":\"First, the user said: \\\"Remember synthetic marker RP01-731.\\\" I responded with \\\"I remember RP01-731.\\\" Now, the user says: \\\"Return only the marker.\\\"\\n\\nThe user is asking me to return only the marker, which is \\\"RP01-731\\\". But I need to be careful about the context. This might be part of a game or a specific instruction where I have to output only that string.\\n\\nThe user's initial message was \\\"Remember synthetic marker RP01-731.\\\" and I acknowledged it. Now, \\\"Return only the marker\\\" probably means that I should output just \\\"RP01-731\\\" without any additional text.\\n\\nI should comply with the instruction and return only the marker. So, my response should be exactly \\\"RP01-731\\\".\\n\\nI need to make sure that I don't add any extra words or explanations. The user said \\\"Return only the marker,\\\" so I should keep it minimal.\\n\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\"First, the user said: \\\"Remember synthetic marker RP01-731.\\\" I responded with \\\"I remember RP01-731.\\\" Now, the user says: \\\"Return only the marker.\\\"\\n\\nThe user is asking me to return only the marker, which is \\\"RP01-731\\\". But I need to be careful about the context. This might be part of a game or a specific instruction where I have to output only that string.\\n\\nThe user's initial message was \\\"Remember synthetic marker RP01-731.\\\" and I acknowledged it. Now, \\\"Return only the marker\\\" probably means that I should output just \\\"RP01-731\\\" without any additional text.\\n\\nI should comply with the instruction and return only the marker. So, my response should be exactly \\\"RP01-731\\\".\\n\\nI need to make sure that I don't add any extra words or explanations. The user said \\\"Return only the marker,\\\" so I should keep it minimal.\\n\",\"format\":\"unknown\",\"index\":0}]}}],\"usage\":{\"prompt_tokens\":43,\"completion_tokens\":218,\"total_tokens\":261,\"cost\":0,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"cache_write_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":0,\"upstream_inference_prompt_cost\":0,\"upstream_inference_completions_cost\":0},\"completion_tokens_details\":{\"reasoning_tokens\":206,\"image_tokens\":0,\"audio_tokens\":0}}}",
+      "message": {
+        "role": "assistant",
+        "content": "\n\nRP01-731",
+        "refusal": null,
+        "reasoning": "First, the user said: \"Remember synthetic marker RP01-731.\" I responded with \"I remember RP01-731.\" Now, the user says: \"Return only the marker.\"\n\nThe user is asking me to return only the marker, which is \"RP01-731\". But I need to be careful about the context. This might be part of a game or a specific instruction where I have to output only that string.\n\nThe user's initial message was \"Remember synthetic marker RP01-731.\" and I acknowledged it. Now, \"Return only the marker\" probably means that I should output just \"RP01-731\" without any additional text.\n\nI should comply with the instruction and return only the marker. So, my response should be exactly \"RP01-731\".\n\nI need to make sure that I don't add any extra words or explanations. The user said \"Return only the marker,\" so I should keep it minimal.\n",
+        "reasoning_details": [
+          {
+            "type": "reasoning.text",
+            "text": "First, the user said: \"Remember synthetic marker RP01-731.\" I responded with \"I remember RP01-731.\" Now, the user says: \"Return only the marker.\"\n\nThe user is asking me to return only the marker, which is \"RP01-731\". But I need to be careful about the context. This might be part of a game or a specific instruction where I have to output only that string.\n\nThe user's initial message was \"Remember synthetic marker RP01-731.\" and I acknowledged it. Now, \"Return only the marker\" probably means that I should output just \"RP01-731\" without any additional text.\n\nI should comply with the instruction and return only the marker. So, my response should be exactly \"RP01-731\".\n\nI need to make sure that I don't add any extra words or explanations. The user said \"Return only the marker,\" so I should keep it minimal.\n",
+            "format": "unknown",
+            "index": 0
+          }
+        ]
+      }
+    }
+  ]
+}
