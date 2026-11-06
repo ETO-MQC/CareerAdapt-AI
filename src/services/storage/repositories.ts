@@ -1,4 +1,5 @@
 import { DexieCareerPersistenceAdapter } from "./persistence/dexieCareerPersistenceAdapter";
+import { ProfileReadError, type ProfileReadScope } from "@/services/profile/profileReadPort";
 import type { CareerPersistencePort } from "./persistence/careerPersistencePort";
 import { ResumeLayoutPresetSchema, ResumeLayoutPresetsSchema, type ResumeLayoutStyle } from "@/domain/resumePresentation/layoutPresets";
 import Dexie from "dexie";
@@ -2636,6 +2637,32 @@ export class WorkspaceRepository {
         return result;
       }
     ));
+  }
+
+  /** Pure scoped read. The caller binds workspaceId to this Repository instance.
+   * Initialization remains an explicit responsibility of existing business flows.
+   * Never enumerate profiles, normalize legacy records, or update identity metadata.
+   */
+  async readInitializedProfile(scope: ProfileReadScope) {
+    return this.db.transaction("r", this.db.profiles, this.db.appMeta, async () => {
+      const raw = await this.db.profiles.get(scope.profileId);
+      if (!raw) throw new ProfileReadError("NOT_FOUND");
+      if (raw.personId && raw.personId !== scope.personId) throw new ProfileReadError("FORBIDDEN");
+      if (raw.schemaVersion !== "career-profile-v2" || !raw.personId
+        || raw.profileVersionNumber === undefined || raw.isCurrent === undefined
+        || !raw.versionCreatedReason || !raw.structuredBasics || !raw.structuredFacts) {
+        throw new ProfileReadError("INITIALIZATION_REQUIRED");
+      }
+      const personRow = await this.db.appMeta.get(careerPersonMetaKey(scope.personId));
+      const person = CareerPersonSchema.safeParse(personRow?.value);
+      if (!person.success || (raw.isCurrent && person.data.currentProfileId !== raw.id)) {
+        throw new ProfileReadError("INITIALIZATION_REQUIRED");
+      }
+      if (raw.archivedAt || raw.trashedAt || person.data.archivedAt || person.data.trashedAt) {
+        throw new ProfileReadError("FORBIDDEN");
+      }
+      return CareerProfileSchema.parse(raw);
+    });
   }
 
   async getProfile(id: string) {

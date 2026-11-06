@@ -1,0 +1,23 @@
+{
+  "implementation": "WorkspaceRepository.readInitializedProfile",
+  "interface": "src/services/profile/profileReadPort.ts",
+  "sameRepository": true,
+  "scope": [
+    "workspaceId",
+    "personId",
+    "profileId"
+  ],
+  "workspaceBinding": "Authority composition root must bind workspaceId to the injected Repository instance; DB has no workspace tenant column. This interface does not authenticate workspace.",
+  "storesRead": [
+    "profiles: exact primary key",
+    "appMeta: careerPerson:v1:<authorized person>"
+  ],
+  "transaction": "r",
+  "errors": [
+    "FORBIDDEN",
+    "NOT_FOUND",
+    "INITIALIZATION_REQUIRED"
+  ],
+  "newTables": 0,
+  "schemaChanges": false
+}

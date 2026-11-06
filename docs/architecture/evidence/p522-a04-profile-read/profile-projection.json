@@ -1,0 +1,34 @@
+{
+  "projectionVersion": "career-profile-read-v1",
+  "authoritativeModel": "CareerProfile Schema v2 unchanged",
+  "fields": [
+    "profileId",
+    "personId",
+    "sourceRevision",
+    "requestId",
+    "status",
+    "items",
+    "nextCursor",
+    "truncated"
+  ],
+  "itemFields": [
+    "itemId",
+    "sectionType",
+    "text",
+    "textTruncated",
+    "factIds",
+    "confirmationState",
+    "sourceRefs",
+    "referencesTruncated"
+  ],
+  "maxItems": 20,
+  "maxTextCodeUnitsPerItem": 4000,
+  "maxFactIdsPerItem": 32,
+  "maxSourceRefsPerItem": 32,
+  "maxSourceReferenceIdLength": 256,
+  "maxResultUtf8Bytes": 262144,
+  "oversizeResult": "SERVICE_UNAVAILABLE; never success or silent truncation",
+  "contactBasicsReturned": false,
+  "rawEvidencePathsOrBytesReturned": false,
+  "arbitraryUserEnteredContactText": "No automatic PII scrubbing of freeform project/skill narrative; only explicit contact fields and raw attachment payloads are excluded."
+}

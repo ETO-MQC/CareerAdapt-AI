@@ -1,0 +1,27 @@
+{
+  "status": "PASS",
+  "refs": [
+    "evidence IDs validated within same Profile",
+    "fact provenance sourceId handles",
+    "sourceBlockIds",
+    "sourceRanges",
+    "intake provenance kind and sourceTurnId"
+  ],
+  "excluded": [
+    "filePath",
+    "attachment bytes",
+    "extractedText",
+    "sourceText",
+    "sourceQuote",
+    "raw superseded field evidence",
+    "contact basics"
+  ],
+  "confirmationStates": [
+    "confirmed",
+    "unconfirmed",
+    "mixed",
+    "unknown"
+  ],
+  "rule": "Only all resolved canonical factIds with confirmedByUser=true become confirmed. Missing/unmapped facts remain unknown; ai_proposal source kind retained.",
+  "boundedReferenceOmission": "referencesTruncated=true"
+}

@@ -1,0 +1,21 @@
+{
+  "status": "PASS",
+  "baselineCommit": "aad2ab48ead1f4921a6a1115cded850d308eda58",
+  "trackedFileCount": 2533,
+  "protectedTrackedFiles": 2531,
+  "unchangedProtectedFilesVerifiedByGitDiff": true,
+  "protectedWorkingBytesAggregateSha256": "41c5b18032de4ebe61c8d929c029fe2c2ce99dded8d6ca5b621cf50547219004",
+  "allowedExistingChanges": [
+    "src/agent/tools/CareerToolGateway.ts",
+    "src/services/storage/repositories.ts"
+  ],
+  "deletedTrackedFiles": [],
+  "A03AndEarlierTrackedReportsUnchanged": true,
+  "MainPreloadCoreDBSchemasGuardDependenciesHostArtifactUnchanged": true,
+  "noFilesystemDeleteCommandsExecuted": true,
+  "ignoredLocalHandoffUpdatedWithoutForceAdd": true,
+  "nextEnvRestored": true,
+  "productionAdapterWiringAdded": false,
+  "dependencyBoundary": "No direct adapter storage imports; existing Gateway lazy graph includes Dexie, not certified as plugin distributable",
+  "sensitiveData": "Only synthetic fixture bodies and relative code references in new evidence; no credentials or real Profile/Home data collected"
+}

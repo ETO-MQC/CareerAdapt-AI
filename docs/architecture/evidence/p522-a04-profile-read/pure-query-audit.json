@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "evidence": "tests/unit/p522-a04-profile-read.test.ts",
+  "allStoreSnapshotsEqual": true,
+  "appMetaTimestampsEqual": true,
+  "migrationSpyCalls": 0,
+  "otherProfileEnumerationCalls": 0,
+  "profileReadsOnlyAuthorizedKey": true,
+  "syntheticDatabaseOnly": true,
+  "defaultDatabaseOpened": false,
+  "legacyRepairOnRead": false
+}

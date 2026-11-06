@@ -1,0 +1,26 @@
+{
+  "location": "tests/unit/p522-a04-fixtures.ts",
+  "databaseName": "P522-A04-synthetic-<random UUID>",
+  "engine": "fake-indexeddb",
+  "fixtureProfiles": {
+    "A": "65 records; extra130-record case provides65 project+65 skills",
+    "B": "independent person/profile,2 records",
+    "empty": "initialized empty Profile",
+    "missing": "no row",
+    "legacy": "missing schemaVersion/personId",
+    "uninitialized": "Profile exists but Person metadata absent"
+  },
+  "additionalCases": [
+    "stale revision",
+    "revoked epoch",
+    "expired lease",
+    "in-flight revoke",
+    "AI unconfirmed fact",
+    "long text",
+    "reference overflow"
+  ],
+  "allContent": "synthetic",
+  "realProfileRead": false,
+  "realHermesHomeRead": false,
+  "databaseCleanup": "close only; no filesystem deletion"
+}

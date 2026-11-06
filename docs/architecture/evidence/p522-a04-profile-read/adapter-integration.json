@@ -1,0 +1,38 @@
+{
+  "status": "PASS_SYNTHETIC_ONLY",
+  "path": [
+    "synthetic Hermes-side caller",
+    "ProfileReadAdapter",
+    "Authority Provider",
+    "existing CareerToolGateway",
+    "existing AgentToolRegistry",
+    "ProfileQueryService",
+    "WorkspaceRepository",
+    "structured result"
+  ],
+  "stableTools": [
+    "career.profile.get",
+    "career.profile.search_facts"
+  ],
+  "newSynonymTools": false,
+  "secondGatewayImplementation": false,
+  "directAdapterDexieAccess": false,
+  "pluginCreatedOrChanged": false,
+  "productionWiring": false,
+  "nativeHostFixtureChanged": false,
+  "dependencyAudit": {
+    "runtimeGraphFiles": 173,
+    "hasDexieThroughExistingLazyGatewayDependency": true,
+    "lazyPath": "Gateway -> AgentAttachmentStore -> dynamic WorkspaceRepository import",
+    "conclusion": "Service-side synthetic adapter only. Not qualified as a storage-free Hermes Plugin distributable; no plugin bundle added."
+  },
+  "errorsPreserved": [
+    "INVALID_REQUEST",
+    "FORBIDDEN",
+    "NOT_FOUND",
+    "SERVICE_UNAVAILABLE",
+    "SCOPE_REVOKED",
+    "INITIALIZATION_REQUIRED",
+    "STALE_CURSOR"
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "status": "PASS",
+  "testCases": [
+    "65 total records paged without duplicate or omission",
+    "130 records: all65 projects and all65 skills individually paged",
+    "limit7 pagination",
+    "malformed cursor rejected",
+    "cross-Profile cursor rejected",
+    "query-range change rejected",
+    "revision change returns STALE_CURSOR",
+    "long text explicitly marked truncated"
+  ],
+  "cursorBoundTo": [
+    "workspaceId",
+    "personId",
+    "profileId",
+    "sourceRevision=version:updatedAt",
+    "sorted sectionTypes",
+    "keyword query",
+    "limit"
+  ],
+  "cursorFormat": "Strict versioned JSON, opaque to callers but not cryptographically signed; never grants authority. Scope always supplied separately.",
+  "itemTextContinuation": false,
+  "note": "Full item enumeration is supported; a single body above4000 code units remains explicitly truncated. No completeness claim for truncated text."
+}

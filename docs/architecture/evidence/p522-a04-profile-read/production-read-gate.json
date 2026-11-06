@@ -1,0 +1,17 @@
+{
+  "D1PureQuery": "PASS",
+  "D1ZeroSideEffects": "PASS",
+  "D1Pagination": "PASS",
+  "D1Provenance": "PASS",
+  "D2GatewayAdapter": "PASS_SYNTHETIC_ONLY",
+  "D2SyntheticScope": "PASS",
+  "D2LeaseRevocation": "PASS_SYNTHETIC_ONLY",
+  "productionTrustedAuthority": "BLOCKED",
+  "nativeHostIntegration": "NOT VERIFIED",
+  "A0201Reliability": "Inherited PARTIAL/BLOCKED; no new qualification",
+  "profileProductionRead": "BLOCKED until separately authorized D3/D4",
+  "profileProductionWrite": "BLOCKED",
+  "trustedConfirmation": "BLOCKED",
+  "productionToolIntegration": "BLOCKED",
+  "D3orD4Implemented": false
+}

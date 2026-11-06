@@ -1,0 +1,22 @@
+{
+  "syntheticStatus": "PASS",
+  "tests": [
+    "expired lease",
+    "epoch change",
+    "Session switch",
+    "Profile switch",
+    "enabled=false on retained adapter",
+    "workspace change",
+    "revocation while read in flight"
+  ],
+  "verificationPoints": [
+    "adapter entry",
+    "Gateway verifySessionBinding",
+    "before query handler",
+    "after query before releasing data"
+  ],
+  "realPluginDisableBackendRevocation": "NOT VERIFIED / D3",
+  "productionTrustedIssuer": "BLOCKED",
+  "MainPreloadCoreChanges": false,
+  "architectureDecision": "Production authority must reside outside model/renderer authority and bind enabled grant+epoch+Session+scope to a Repository workspace. Main/Preload/Core changes require separate user review; not implemented."
+}

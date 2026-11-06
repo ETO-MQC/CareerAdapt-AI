@@ -1,0 +1,30 @@
+{
+  "syntheticStatus": "PASS",
+  "productionAuthority": "BLOCKED",
+  "authorityInterface": "ProfileReadAuthorityProvider",
+  "issuerImplementation": "SyntheticAuthority exists only in tests/unit/p522-a04-profile-adapter.test.ts",
+  "trustedFields": [
+    "workspaceId",
+    "personId",
+    "profileId",
+    "sessionId",
+    "grantId",
+    "epoch",
+    "leaseExpiry",
+    "requestId",
+    "profileVersionNumber",
+    "profileRevision"
+  ],
+  "modelGetFields": [
+    "sectionTypes",
+    "limit",
+    "cursor"
+  ],
+  "modelSearchAdditionalField": "query (keyword-only existing search_facts tool)",
+  "modelIdentityFieldsRejected": true,
+  "missingAuthority": "FORBIDDEN",
+  "unavailableAuthority": "SERVICE_UNAVAILABLE",
+  "perCallGatewayVerifierInjected": true,
+  "compatibility": "Production registry input schemas unchanged. Narrow adapter rejects supplied Profile ID; existing Gateway bindingInputMismatch still validates legacy callers. New versioned projection has Gateway person/Profile result checks.",
+  "workspaceIsolation": "Synthetic provider verifies workspace; no production workspace issuer is certified."
+}

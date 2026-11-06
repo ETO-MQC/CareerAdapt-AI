@@ -1201,6 +1201,12 @@ function filterBoundResult(name: string, raw: unknown, binding?: CareerSessionBi
 function boundResultMismatch(name: string, raw: unknown, binding?: CareerSessionBinding) {
   if (!binding || !raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
   const value = raw as Record<string, unknown>;
+  if ((name === "career.profile.get" || name === "career.profile.search_facts")
+    && value.projectionVersion === "career-profile-read-v1") {
+    return value.profileId === binding.profileId && value.personId === binding.personId
+      ? undefined
+      : { code: "career_session_binding_profile_mismatch", message: "读取结果不属于当前 Agent Session 固定的资料。" };
+  }
   if (name === "career.profile.active") {
     const profileId = firstString(value.profileId, value.activeProfileId);
     const personId = firstString(value.personId);

@@ -1,0 +1,55 @@
+{
+  "status": "PASS_DIRECTED",
+  "baseline": [
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm exec vitest run tests/unit/agentProfileTools.test.ts tests/unit/p45c1c15-career-context-binding.test.ts",
+      "exitCode": 0,
+      "files": 2,
+      "tests": 8
+    }
+  ],
+  "final": [
+    {
+      "command": "pnpm exec vitest run tests/unit/p522-a04-profile-read.test.ts tests/unit/p522-a04-profile-adapter.test.ts tests/unit/agentProfileTools.test.ts tests/unit/p45c1c15-career-context-binding.test.ts tests/unit/careerCompositionGatewayP45b.test.ts --reporter=default --reporter=json --outputFile=docs/architecture/evidence/p522-a04-profile-read/unit-results.json",
+      "exitCode": 0,
+      "files": 5,
+      "tests": 41,
+      "D1": 7,
+      "D2": 24,
+      "existingRegression": 10
+    },
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm exec eslint <8 changed TS files> --max-warnings=0",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm build",
+      "exitCode": 0
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "notRun": [
+    "real Native Host Tool Call lifecycle",
+    "real Streaming/Stop",
+    "real history recovery/no reexecution",
+    "real backend Plugin disable revocation",
+    "server-executed lost ACK qualification",
+    "full A/B Host matrix",
+    "Provider requests",
+    "Electron",
+    "full historical Playwright",
+    "release gate"
+  ],
+  "note": "After final runtime suite, only the Dexie spy assertion type annotation changed; no assertion/runtime behavior weakened. Final typecheck verifies it."
+}

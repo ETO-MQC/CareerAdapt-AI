@@ -1,0 +1,41 @@
+{
+  "resolvedThisRound": [
+    {
+      "stage": "D1 first run",
+      "exitCode": 1,
+      "failedTests": 5,
+      "cause": "Synthetic fixture sourceType manual is not in existing taxonomy",
+      "fix": "Use existing user_input, no Schema change"
+    },
+    {
+      "stage": "D2 first combined run",
+      "exitCode": 1,
+      "failedTests": 7,
+      "cause": "Gateway expected legacy profile.id envelope and rejected versioned top-level projection",
+      "fix": "Add person/Profile result checks for career-profile-read-v1; legacy checks retained"
+    },
+    {
+      "stage": "final typecheck before correction",
+      "exitCode": 1,
+      "compiler": "TS2367 / tsc internal exit2",
+      "cause": "Dexie overloaded get spy inferred object key type",
+      "fix": "Compare key via unknown type annotation; runtime assertion unchanged"
+    },
+    {
+      "stage": "tooling",
+      "cause": "One apply_patch anchor mismatch and one PowerShell inline Python quoting parse failure",
+      "effect": "No mutation from failed calls; corrected scoped patch/here-string"
+    }
+  ],
+  "buildGeneratedFile": "Next build changed next-env.d.ts route import; exact original line restored, no final diff",
+  "timeouts": 0,
+  "openInherited": [
+    "A03 R01 UNKNOWN true server-executed ACK-loss reliability BLOCKED",
+    "R02 trusted confirmation BLOCKED",
+    "R03 real backend disable revocation BLOCKED",
+    "R04 scoped write receipts BLOCKED",
+    "R09 atomic confirmation/write BLOCKED",
+    "R10 native lifecycle NOT VERIFIED"
+  ],
+  "newLimit": "Existing lazy Gateway dependency graph includes Dexie; synthetic service-side adapter is not a Plugin distributable."
+}

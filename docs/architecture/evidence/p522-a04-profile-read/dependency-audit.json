@@ -1,0 +1,2580 @@
+{
+  "method": "TypeScript AST, runtime imports/exports and literal lazy imports; type-only imports excluded",
+  "files": [
+    "src/agent/contracts/agentActions.ts",
+    "src/agent/contracts/agentArtifact.ts",
+    "src/agent/contracts/agentSession.ts",
+    "src/agent/contracts/agentTool.ts",
+    "src/agent/contracts/resumeArtifactWrite.ts",
+    "src/agent/kernel/AgentReflection.ts",
+    "src/agent/kernel/AgentTrajectory.ts",
+    "src/agent/runtime/AgentSessionMessages.ts",
+    "src/agent/runtime/AgentSessionMigration.ts",
+    "src/agent/runtime/activeBranchContext.ts",
+    "src/agent/runtime/agentExecutor.ts",
+    "src/agent/runtime/careerContextBindingResolver.ts",
+    "src/agent/runtime/careerSessionBinding.ts",
+    "src/agent/runtime/currentTurnUserMessage.ts",
+    "src/agent/runtime/hermes/hermesIncidentTrace.ts",
+    "src/agent/runtime/workflowUserInputCheckpoint.ts",
+    "src/agent/tools/CareerToolGateway.ts",
+    "src/agent/tools/ProfileReadAdapter.ts",
+    "src/agent/tools/careerToolContract.ts",
+    "src/agent/tools/careerToolDiagnostics.ts",
+    "src/agent/tools/registry.ts",
+    "src/agent/workflows/CareerWorkflowFacade.ts",
+    "src/agent/workflows/TransactionalWorkflowLease.ts",
+    "src/agent/workflows/tailoringStage.ts",
+    "src/agent/workflows/workflowRegistry.ts",
+    "src/ai/client.ts",
+    "src/ai/prompts/versions.ts",
+    "src/ai/providers/transportError.ts",
+    "src/data/demoJobs.ts",
+    "src/data/demoProfile.ts",
+    "src/domain/adaptation/draft.ts",
+    "src/domain/adaptation/factGuard.ts",
+    "src/domain/application/index.ts",
+    "src/domain/application/readiness.ts",
+    "src/domain/application/statusMachine.ts",
+    "src/domain/applicationPreparation/context.ts",
+    "src/domain/applicationPreparation/guards.ts",
+    "src/domain/applicationPreparation/index.ts",
+    "src/domain/applicationPreparation/materials.ts",
+    "src/domain/applicationPreparation/readiness.ts",
+    "src/domain/applicationPreparation/stale.ts",
+    "src/domain/branch/mapper.ts",
+    "src/domain/branch/profileBranch.ts",
+    "src/domain/branch/revision.ts",
+    "src/domain/branch/targetRole.ts",
+    "src/domain/branch/validation.ts",
+    "src/domain/careerContext/retrieveCareerContext.ts",
+    "src/domain/careerInteraction/CareerInteractionPlan.ts",
+    "src/domain/documentRecognition/modelCatalog.ts",
+    "src/domain/factProposal.ts",
+    "src/domain/jobAssets/jobDeduplication.ts",
+    "src/domain/jobOptimization/capabilityResolver.ts",
+    "src/domain/jobOptimization/claimGuard.ts",
+    "src/domain/jobOptimization/confirmation.ts",
+    "src/domain/jobOptimization/index.ts",
+    "src/domain/jobOptimization/keywordTaxonomy.ts",
+    "src/domain/jobOptimization/matching.ts",
+    "src/domain/jobOptimization/sectionPolicy.ts",
+    "src/domain/jobOptimization/suggestions.ts",
+    "src/domain/jobOptimization/tailoringClaimPolicy.ts",
+    "src/domain/jobOptimization/tailoringClosure.ts",
+    "src/domain/jobOptimization/tailoringDiff.ts",
+    "src/domain/jobOptimization/tailoringEngine.ts",
+    "src/domain/jobOptimization/v2/analyze.ts",
+    "src/domain/jobOptimization/v2/coverage.ts",
+    "src/domain/jobOptimization/v2/evidence.ts",
+    "src/domain/jobOptimization/v2/index.ts",
+    "src/domain/jobOptimization/v2/plan.ts",
+    "src/domain/jobOptimization/v3/analyze.ts",
+    "src/domain/jobOptimization/v3/index.ts",
+    "src/domain/jobOptimization/v3/project.ts",
+    "src/domain/jobOptimization/v4/analyze.ts",
+    "src/domain/jobOptimization/v4/index.ts",
+    "src/domain/jobTarget/jobTargetSnapshot.ts",
+    "src/domain/mappers/jobDraftMapper.ts",
+    "src/domain/match/matcher.ts",
+    "src/domain/materialIntake/materialIntake.ts",
+    "src/domain/migrations/resumeV2.ts",
+    "src/domain/pdfImport/sourceMapping.ts",
+    "src/domain/profile/canonicalLibrary.ts",
+    "src/domain/profile/factMaturity.ts",
+    "src/domain/profile/profileContentRecovery.ts",
+    "src/domain/profile/profileSyncDiagnostics.ts",
+    "src/domain/profile/profileWriteContract.ts",
+    "src/domain/profileIntake/CaptureProfileIntakeResult.ts",
+    "src/domain/profileIntake/CareerWritingQuality.ts",
+    "src/domain/profileIntake/ProfileIntakeCompleteness.ts",
+    "src/domain/profileIntake/ProfileIntakeFinalSynthesis.ts",
+    "src/domain/profileIntake/ProfileIntakeNextTurnPlan.ts",
+    "src/domain/profileIntake/ProfileIntakeNormalizer.ts",
+    "src/domain/profileIntake/ProfileIntakeProvenance.ts",
+    "src/domain/profileIntake/ProfileIntakeQuestionAnswer.ts",
+    "src/domain/profileIntake/ProfileIntakeReviewProjection.ts",
+    "src/domain/profileIntake/ProfileIntakeSourceTurn.ts",
+    "src/domain/profileReconciliation/ProfileReconciliationEngine.ts",
+    "src/domain/resumeComposition/CareerAssetDisplayIdentity.ts",
+    "src/domain/resumeComposition/CareerResumeQualityPolicyV1.ts",
+    "src/domain/resumeComposition/CareerResumeWritingService.ts",
+    "src/domain/resumeComposition/ResumeBlueprint.ts",
+    "src/domain/resumeComposition/ResumeCompositionCheckpoint.ts",
+    "src/domain/resumeComposition/ResumeCompositionPreferences.ts",
+    "src/domain/resumeComposition/ResumeEvidenceGraph.ts",
+    "src/domain/resumeComposition/ResumeReviewer.ts",
+    "src/domain/resumeComposition/ResumeSkillTaxonomy.ts",
+    "src/domain/resumeComposition/ResumeWriter.ts",
+    "src/domain/resumeComposition/contracts.ts",
+    "src/domain/resumeComposition/index.ts",
+    "src/domain/resumeComposition/qualityDiagnostics.ts",
+    "src/domain/resumeComposition/sessionConfirmedSkills.ts",
+    "src/domain/resumeFields/capabilityMatrix.ts",
+    "src/domain/resumeFields/catalog.ts",
+    "src/domain/resumeFields/fieldCatalog.ts",
+    "src/domain/resumeFields/index.ts",
+    "src/domain/resumeFields/sectionCatalog.ts",
+    "src/domain/resumeFields/types.ts",
+    "src/domain/resumeImport/confirm.ts",
+    "src/domain/resumeImport/dates.ts",
+    "src/domain/resumeImport/fieldCandidates.ts",
+    "src/domain/resumeImport/invariants.ts",
+    "src/domain/resumeImport/mappingValidation.ts",
+    "src/domain/resumeImport/sectionHeading.ts",
+    "src/domain/resumeImport/timeouts.ts",
+    "src/domain/resumeIntegrity/ResumeStructuralIntegrity.ts",
+    "src/domain/resumeIntegrity/index.ts",
+    "src/domain/resumeIntegrity/tailoringStructuralPreservation.ts",
+    "src/domain/resumePresentation/layoutPresets.ts",
+    "src/domain/schemas/adaptationDraft.ts",
+    "src/domain/schemas/ai.ts",
+    "src/domain/schemas/application.ts",
+    "src/domain/schemas/applicationPreparation.ts",
+    "src/domain/schemas/branch.ts",
+    "src/domain/schemas/careerIntelligence.ts",
+    "src/domain/schemas/common.ts",
+    "src/domain/schemas/diagnostics.ts",
+    "src/domain/schemas/documentRecognition.ts",
+    "src/domain/schemas/export.ts",
+    "src/domain/schemas/fieldAppearance.ts",
+    "src/domain/schemas/importDraft.ts",
+    "src/domain/schemas/index.ts",
+    "src/domain/schemas/job.ts",
+    "src/domain/schemas/jobDiscovery.ts",
+    "src/domain/schemas/jobOptimization.ts",
+    "src/domain/schemas/jobOptimizationV2.ts",
+    "src/domain/schemas/jobOptimizationV3.ts",
+    "src/domain/schemas/jobOptimizationV4.ts",
+    "src/domain/schemas/jobTarget.ts",
+    "src/domain/schemas/presentation.ts",
+    "src/domain/schemas/presentationPrecision.ts",
+    "src/domain/schemas/profile.ts",
+    "src/domain/schemas/profileReconciliation.ts",
+    "src/domain/schemas/recycleBin.ts",
+    "src/domain/schemas/resumeImport.ts",
+    "src/domain/schemas/resumeJsonV2.ts",
+    "src/domain/schemas/resumePhoto.ts",
+    "src/domain/schemas/resumePresentation.ts",
+    "src/domain/schemas/resumeRender.ts",
+    "src/domain/schemas/resumeV2.ts",
+    "src/domain/schemas/tailoring.ts",
+    "src/domain/sourceTaxonomy.ts",
+    "src/services/agent/AgentAttachmentStore.ts",
+    "src/services/diagnostics/appBuildInfo.ts",
+    "src/services/export/snapshot.ts",
+    "src/services/jobs/jobWorkflow.ts",
+    "src/services/jobs/tailoringDiffId.ts",
+    "src/services/preferences/documentRecognition.ts",
+    "src/services/profile/profileQueryService.ts",
+    "src/services/profile/profileReadPort.ts",
+    "src/services/security/text.ts",
+    "src/services/storage/aiSettings.ts",
+    "src/services/storage/db.ts",
+    "src/services/storage/persistence/dexieCareerPersistenceAdapter.ts",
+    "src/services/storage/repositories.ts",
+    "src/services/storage/resumeRepositoryEvents.ts"
+  ],
+  "packages": [
+    "dexie",
+    "nanoid",
+    "zod"
+  ],
+  "edges": [
+    {
+      "from": "src/agent/tools/ProfileReadAdapter.ts",
+      "to": "src/agent/tools/CareerToolGateway.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "src/services/agent/AgentAttachmentStore.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/agent/AgentAttachmentStore.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/agent/AgentAttachmentStore.ts",
+      "to": "src/services/storage/repositories.ts",
+      "kind": "lazy"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/services/storage/persistence/dexieCareerPersistenceAdapter.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/services/profile/profileReadPort.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/resumePresentation/layoutPresets.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumePresentation/layoutPresets.ts",
+      "to": "src/domain/schemas/presentation.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/presentation.ts",
+      "to": "src/domain/schemas/fieldAppearance.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/presentation.ts",
+      "to": "src/domain/schemas/presentationPrecision.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/presentation.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/common.ts",
+      "to": "src/domain/sourceTaxonomy.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/presentation.ts",
+      "to": "src/domain/schemas/resumeRender.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/resumeRender.ts",
+      "to": "src/domain/schemas/resumePhoto.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/resumeRender.ts",
+      "to": "src/domain/schemas/branch.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/branch.ts",
+      "to": "src/domain/schemas/fieldAppearance.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/branch.ts",
+      "to": "src/domain/schemas/resumePhoto.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/branch.ts",
+      "to": "src/domain/schemas/presentationPrecision.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/branch.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/branch.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/resumeV2.ts",
+      "to": "src/domain/schemas/resumePhoto.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/resumeV2.ts",
+      "to": "src/domain/resumeFields/types.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/branch.ts",
+      "to": "src/domain/schemas/resumeJsonV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/resumeJsonV2.ts",
+      "to": "src/domain/resumeFields/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeFields/index.ts",
+      "to": "src/domain/resumeFields/types.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeFields/index.ts",
+      "to": "src/domain/resumeFields/sectionCatalog.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeFields/index.ts",
+      "to": "src/domain/resumeFields/fieldCatalog.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeFields/fieldCatalog.ts",
+      "to": "src/domain/resumeFields/types.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeFields/index.ts",
+      "to": "src/domain/resumeFields/capabilityMatrix.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeFields/capabilityMatrix.ts",
+      "to": "src/domain/resumeFields/fieldCatalog.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeFields/capabilityMatrix.ts",
+      "to": "src/domain/resumeFields/sectionCatalog.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/resumeJsonV2.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/branch.ts",
+      "to": "src/domain/schemas/jobTarget.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/jobTarget.ts",
+      "to": "src/domain/sourceTaxonomy.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/jobTarget.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/jobTarget.ts",
+      "to": "src/domain/schemas/job.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/job.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/job.ts",
+      "to": "src/domain/schemas/jobOptimizationV3.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/jobOptimizationV3.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/job.ts",
+      "to": "src/domain/schemas/jobOptimizationV4.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/jobOptimizationV4.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/jobOptimizationV4.ts",
+      "to": "src/domain/schemas/jobOptimizationV3.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/jobTarget.ts",
+      "to": "src/domain/schemas/jobOptimizationV3.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/jobTarget.ts",
+      "to": "src/domain/schemas/jobOptimizationV4.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/resumeRender.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/resumeRender.ts",
+      "to": "src/domain/schemas/resumePresentation.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/resumePresentation.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/presentation.ts",
+      "to": "src/domain/resumeFields/catalog.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/materialIntake/materialIntake.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/materialIntake/materialIntake.ts",
+      "to": "src/domain/schemas/resumeImport.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/resumeImport.ts",
+      "to": "src/domain/schemas/resumePhoto.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/resumeImport.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/resumeImport.ts",
+      "to": "src/domain/schemas/resumeRender.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/resumeImport.ts",
+      "to": "src/domain/resumeFields/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/resumeImport.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/resumeImport.ts",
+      "to": "src/domain/schemas/resumeJsonV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/resumeImport.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeSourceTurn.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/resumeImport.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeFinalSynthesis.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeFinalSynthesis.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeFinalSynthesis.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeCompleteness.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeCompleteness.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeFinalSynthesis.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeProvenance.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeFinalSynthesis.ts",
+      "to": "src/domain/profileIntake/CareerWritingQuality.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/resumeImport.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeProvenance.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/resumeImport.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeQuestionAnswer.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/adaptationDraft.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/adaptationDraft.ts",
+      "to": "src/domain/schemas/ai.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/ai.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/ai.ts",
+      "to": "src/domain/schemas/job.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/ai.ts",
+      "to": "src/domain/schemas/tailoring.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/tailoring.ts",
+      "to": "src/domain/schemas/careerIntelligence.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/careerIntelligence.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/tailoring.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/tailoring.ts",
+      "to": "src/domain/schemas/job.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/tailoring.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/tailoring.ts",
+      "to": "src/domain/resumeFields/types.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/adaptationDraft.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/ai.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/application.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/application.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/application.ts",
+      "to": "src/domain/schemas/presentation.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/application.ts",
+      "to": "src/domain/schemas/resumeRender.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/applicationPreparation.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/applicationPreparation.ts",
+      "to": "src/domain/sourceTaxonomy.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/applicationPreparation.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/branch.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/diagnostics.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/diagnostics.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/diagnostics.ts",
+      "to": "src/domain/schemas/presentation.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/diagnostics.ts",
+      "to": "src/domain/schemas/resumeRender.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/documentRecognition.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/documentRecognition.ts",
+      "to": "src/domain/resumeImport/timeouts.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/export.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/export.ts",
+      "to": "src/domain/schemas/fieldAppearance.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/export.ts",
+      "to": "src/domain/schemas/presentationPrecision.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/export.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/export.ts",
+      "to": "src/domain/schemas/resumeRender.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/export.ts",
+      "to": "src/domain/schemas/presentation.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/importDraft.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/importDraft.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/importDraft.ts",
+      "to": "src/domain/schemas/profile.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/profile.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/profile.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/profile.ts",
+      "to": "src/domain/schemas/resumeJsonV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/profile.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeProvenance.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/importDraft.ts",
+      "to": "src/domain/schemas/job.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/importDraft.ts",
+      "to": "src/domain/schemas/jobOptimizationV3.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/importDraft.ts",
+      "to": "src/domain/schemas/jobOptimizationV4.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/job.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/jobDiscovery.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/jobDiscovery.ts",
+      "to": "src/domain/sourceTaxonomy.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/jobDiscovery.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/jobTarget.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/jobOptimization.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/jobOptimization.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/jobOptimization.ts",
+      "to": "src/domain/schemas/job.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/jobOptimizationV2.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/jobOptimizationV2.ts",
+      "to": "src/domain/sourceTaxonomy.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/jobOptimizationV2.ts",
+      "to": "src/domain/schemas/branch.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/jobOptimizationV2.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/jobOptimizationV2.ts",
+      "to": "src/domain/schemas/job.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/jobOptimizationV2.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/jobOptimizationV3.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/jobOptimizationV4.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/presentation.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/profile.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/profileReconciliation.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/profileReconciliation.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/profileReconciliation.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/recycleBin.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/recycleBin.ts",
+      "to": "src/domain/schemas/profile.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/resumeImport.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/resumeRender.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/resumePresentation.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/resumeJsonV2.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/tailoring.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/mappers/jobDraftMapper.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/mappers/jobDraftMapper.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/jobAssets/jobDeduplication.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/services/jobs/jobWorkflow.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/jobs/jobWorkflow.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/jobs/jobWorkflow.ts",
+      "to": "src/domain/mappers/jobDraftMapper.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/jobs/jobWorkflow.ts",
+      "to": "src/services/storage/repositories.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/data/demoJobs.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/data/demoJobs.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/schemas/jobDiscovery.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/factProposal.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/factProposal.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/data/demoProfile.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/data/demoProfile.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/migrations/resumeV2.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/migrations/resumeV2.ts",
+      "to": "src/domain/resumeFields/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/profile/canonicalLibrary.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profile/canonicalLibrary.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profile/canonicalLibrary.ts",
+      "to": "src/domain/resumeFields/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/profile/profileWriteContract.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profile/profileWriteContract.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profile/profileWriteContract.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/profile/factMaturity.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profile/factMaturity.ts",
+      "to": "src/domain/sourceTaxonomy.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/profile/profileSyncDiagnostics.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profile/profileSyncDiagnostics.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/profile/profileContentRecovery.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profile/profileContentRecovery.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profile/profileContentRecovery.ts",
+      "to": "src/domain/resumeImport/confirm.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeImport/confirm.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeImport/confirm.ts",
+      "to": "src/domain/resumeImport/invariants.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeImport/invariants.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeImport/confirm.ts",
+      "to": "src/domain/branch/revision.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/branch/revision.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/branch/revision.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeImport/confirm.ts",
+      "to": "src/domain/branch/validation.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/branch/validation.ts",
+      "to": "src/domain/match/matcher.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/match/matcher.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/match/matcher.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeImport/confirm.ts",
+      "to": "src/domain/pdfImport/sourceMapping.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeImport/confirm.ts",
+      "to": "src/domain/resumeFields/catalog.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeImport/confirm.ts",
+      "to": "src/domain/resumeImport/fieldCandidates.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeImport/fieldCandidates.ts",
+      "to": "src/domain/resumeFields/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeImport/fieldCandidates.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeImport/fieldCandidates.ts",
+      "to": "src/domain/resumeImport/dates.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeImport/dates.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeImport/fieldCandidates.ts",
+      "to": "src/domain/resumeImport/sectionHeading.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeImport/fieldCandidates.ts",
+      "to": "src/domain/resumeFields/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeImport/confirm.ts",
+      "to": "src/domain/resumeImport/mappingValidation.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeImport/mappingValidation.ts",
+      "to": "src/domain/resumeFields/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeImport/confirm.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profile/profileContentRecovery.ts",
+      "to": "src/domain/sourceTaxonomy.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profile/profileContentRecovery.ts",
+      "to": "src/domain/schemas/profile.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profile/profileContentRecovery.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/agent/contracts/agentSession.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/contracts/agentSession.ts",
+      "to": "src/agent/contracts/agentArtifact.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/contracts/agentSession.ts",
+      "to": "src/agent/contracts/agentTool.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/contracts/agentSession.ts",
+      "to": "src/agent/contracts/agentActions.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/contracts/agentActions.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeNormalizer.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeNormalizer.ts",
+      "to": "src/domain/adaptation/factGuard.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/adaptation/factGuard.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/adaptation/factGuard.ts",
+      "to": "src/domain/match/matcher.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeNormalizer.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/contracts/agentActions.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/contracts/agentSession.ts",
+      "to": "src/agent/kernel/AgentTrajectory.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/contracts/agentSession.ts",
+      "to": "src/agent/kernel/AgentReflection.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/contracts/agentSession.ts",
+      "to": "src/services/agent/AgentAttachmentStore.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/contracts/agentSession.ts",
+      "to": "src/agent/runtime/hermes/hermesIncidentTrace.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/agent/contracts/resumeArtifactWrite.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeSourceTurn.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/agent/runtime/AgentSessionMigration.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/runtime/AgentSessionMigration.ts",
+      "to": "src/agent/contracts/agentSession.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/runtime/AgentSessionMigration.ts",
+      "to": "src/agent/runtime/activeBranchContext.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/runtime/AgentSessionMigration.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/runtime/AgentSessionMigration.ts",
+      "to": "src/services/jobs/tailoringDiffId.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/jobs/tailoringDiffId.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/runtime/AgentSessionMigration.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/runtime/AgentSessionMigration.ts",
+      "to": "src/agent/runtime/AgentSessionMessages.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/runtime/AgentSessionMessages.ts",
+      "to": "src/agent/runtime/activeBranchContext.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/runtime/AgentSessionMigration.ts",
+      "to": "src/agent/workflows/workflowRegistry.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/workflows/workflowRegistry.ts",
+      "to": "src/agent/workflows/tailoringStage.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/runtime/AgentSessionMigration.ts",
+      "to": "src/agent/workflows/tailoringStage.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/jobOptimization/tailoringDiff.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringDiff.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringDiff.ts",
+      "to": "src/domain/jobOptimization/v3/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/v3/index.ts",
+      "to": "src/domain/jobOptimization/v3/analyze.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/v3/analyze.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/v3/analyze.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/v3/analyze.ts",
+      "to": "src/domain/jobOptimization/v4/analyze.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/v4/analyze.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/v4/analyze.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/v3/index.ts",
+      "to": "src/domain/jobOptimization/v3/project.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringDiff.ts",
+      "to": "src/domain/jobOptimization/keywordTaxonomy.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringDiff.ts",
+      "to": "src/domain/resumeFields/fieldCatalog.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/application/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/application/index.ts",
+      "to": "src/domain/application/readiness.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/application/readiness.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/application/index.ts",
+      "to": "src/domain/application/statusMachine.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/applicationPreparation/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/applicationPreparation/index.ts",
+      "to": "src/domain/applicationPreparation/context.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/applicationPreparation/context.ts",
+      "to": "src/domain/branch/validation.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/applicationPreparation/context.ts",
+      "to": "src/domain/jobOptimization/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/matching.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/matching.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/matching.ts",
+      "to": "src/domain/branch/validation.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/matching.ts",
+      "to": "src/domain/match/matcher.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/matching.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/suggestions.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/suggestions.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/suggestions.ts",
+      "to": "src/domain/adaptation/factGuard.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/suggestions.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/claimGuard.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/claimGuard.ts",
+      "to": "src/domain/adaptation/factGuard.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/claimGuard.ts",
+      "to": "src/domain/jobOptimization/tailoringClaimPolicy.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringClaimPolicy.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/sectionPolicy.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/sectionPolicy.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/tailoringEngine.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringEngine.ts",
+      "to": "src/domain/jobOptimization/v3/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringEngine.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringEngine.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringEngine.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringEngine.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringEngine.ts",
+      "to": "src/domain/jobOptimization/confirmation.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/confirmation.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/confirmation.ts",
+      "to": "src/domain/jobOptimization/capabilityResolver.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/capabilityResolver.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/capabilityResolver.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringEngine.ts",
+      "to": "src/domain/jobOptimization/v2/evidence.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/evidence.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/evidence.ts",
+      "to": "src/domain/branch/validation.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/evidence.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/evidence.ts",
+      "to": "src/domain/profile/factMaturity.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/evidence.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringEngine.ts",
+      "to": "src/domain/branch/validation.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringEngine.ts",
+      "to": "src/domain/profile/factMaturity.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringEngine.ts",
+      "to": "src/domain/resumeFields/types.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringEngine.ts",
+      "to": "src/domain/resumeFields/fieldCatalog.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/tailoringDiff.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/keywordTaxonomy.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/confirmation.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/capabilityResolver.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/tailoringClosure.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringClosure.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringClosure.ts",
+      "to": "src/domain/jobOptimization/capabilityResolver.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/v2/index.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/index.ts",
+      "to": "src/domain/jobOptimization/v2/analyze.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/analyze.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/analyze.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/index.ts",
+      "to": "src/domain/jobOptimization/v2/evidence.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/index.ts",
+      "to": "src/domain/jobOptimization/v2/coverage.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/coverage.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/index.ts",
+      "to": "src/domain/jobOptimization/v2/plan.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/plan.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/plan.ts",
+      "to": "src/domain/branch/validation.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/plan.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/v3/index.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/v4/index.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/v4/index.ts",
+      "to": "src/domain/jobOptimization/v4/analyze.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/applicationPreparation/index.ts",
+      "to": "src/domain/applicationPreparation/guards.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/applicationPreparation/guards.ts",
+      "to": "src/domain/adaptation/factGuard.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/applicationPreparation/index.ts",
+      "to": "src/domain/applicationPreparation/materials.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/applicationPreparation/materials.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/applicationPreparation/materials.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/applicationPreparation/materials.ts",
+      "to": "src/domain/applicationPreparation/guards.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/applicationPreparation/index.ts",
+      "to": "src/domain/applicationPreparation/readiness.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/applicationPreparation/readiness.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/applicationPreparation/index.ts",
+      "to": "src/domain/applicationPreparation/stale.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/applicationPreparation/stale.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/branch/mapper.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/branch/mapper.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/branch/mapper.ts",
+      "to": "src/domain/adaptation/draft.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/adaptation/draft.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/adaptation/draft.ts",
+      "to": "src/domain/match/matcher.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/adaptation/draft.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/branch/mapper.ts",
+      "to": "src/domain/match/matcher.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/branch/mapper.ts",
+      "to": "src/domain/branch/validation.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/branch/mapper.ts",
+      "to": "src/domain/branch/profileBranch.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/branch/profileBranch.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/branch/profileBranch.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/branch/profileBranch.ts",
+      "to": "src/domain/profile/profileWriteContract.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/branch/profileBranch.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/branch/profileBranch.ts",
+      "to": "src/domain/branch/revision.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/branch/profileBranch.ts",
+      "to": "src/domain/jobTarget/jobTargetSnapshot.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobTarget/jobTargetSnapshot.ts",
+      "to": "src/domain/schemas/job.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobTarget/jobTargetSnapshot.ts",
+      "to": "src/domain/schemas/jobTarget.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobTarget/jobTargetSnapshot.ts",
+      "to": "src/domain/jobOptimization/v3/project.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobTarget/jobTargetSnapshot.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/jobTarget/jobTargetSnapshot.ts",
+      "to": "src/domain/branch/targetRole.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/branch/revision.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/branch/validation.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/branch/profileBranch.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/jobTarget/jobTargetSnapshot.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/resumeFields/catalog.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/resumeImport/confirm.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/profileReconciliation/ProfileReconciliationEngine.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profileReconciliation/ProfileReconciliationEngine.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profileReconciliation/ProfileReconciliationEngine.ts",
+      "to": "src/domain/pdfImport/sourceMapping.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/resumeComposition/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/index.ts",
+      "to": "src/domain/resumeComposition/contracts.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeComposition/contracts.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/contracts.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/contracts.ts",
+      "to": "src/domain/schemas/careerIntelligence.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/contracts.ts",
+      "to": "src/domain/resumeComposition/qualityDiagnostics.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/index.ts",
+      "to": "src/domain/resumeComposition/ResumeEvidenceGraph.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeEvidenceGraph.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeEvidenceGraph.ts",
+      "to": "src/domain/resumeComposition/contracts.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeEvidenceGraph.ts",
+      "to": "src/domain/resumeComposition/CareerAssetDisplayIdentity.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeEvidenceGraph.ts",
+      "to": "src/domain/resumeComposition/ResumeSkillTaxonomy.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeEvidenceGraph.ts",
+      "to": "src/domain/profile/factMaturity.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/index.ts",
+      "to": "src/domain/resumeComposition/ResumeBlueprint.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeBlueprint.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeBlueprint.ts",
+      "to": "src/domain/resumeComposition/contracts.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeBlueprint.ts",
+      "to": "src/domain/resumeComposition/CareerAssetDisplayIdentity.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeBlueprint.ts",
+      "to": "src/domain/resumeComposition/ResumeSkillTaxonomy.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeBlueprint.ts",
+      "to": "src/domain/resumeComposition/CareerResumeQualityPolicyV1.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/CareerResumeQualityPolicyV1.ts",
+      "to": "src/domain/resumeComposition/ResumeSkillTaxonomy.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/index.ts",
+      "to": "src/domain/resumeComposition/ResumeWriter.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeWriter.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeWriter.ts",
+      "to": "src/domain/adaptation/factGuard.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeWriter.ts",
+      "to": "src/domain/profileIntake/CareerWritingQuality.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeWriter.ts",
+      "to": "src/domain/resumeComposition/contracts.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeWriter.ts",
+      "to": "src/domain/resumeComposition/ResumeEvidenceGraph.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeWriter.ts",
+      "to": "src/domain/resumeComposition/ResumeBlueprint.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeWriter.ts",
+      "to": "src/domain/resumeComposition/ResumeReviewer.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeReviewer.ts",
+      "to": "src/domain/adaptation/factGuard.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeReviewer.ts",
+      "to": "src/domain/profileIntake/CareerWritingQuality.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeReviewer.ts",
+      "to": "src/domain/resumeComposition/contracts.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeReviewer.ts",
+      "to": "src/domain/resumeComposition/CareerAssetDisplayIdentity.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeReviewer.ts",
+      "to": "src/domain/resumeComposition/CareerResumeQualityPolicyV1.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeReviewer.ts",
+      "to": "src/domain/resumeComposition/qualityDiagnostics.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeWriter.ts",
+      "to": "src/domain/resumeComposition/CareerAssetDisplayIdentity.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeWriter.ts",
+      "to": "src/domain/resumeComposition/ResumeSkillTaxonomy.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeWriter.ts",
+      "to": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "to": "src/ai/client.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/ai/client.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/ai/client.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/ai/client.ts",
+      "to": "src/services/storage/aiSettings.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/ai/client.ts",
+      "to": "src/services/preferences/documentRecognition.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/preferences/documentRecognition.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/preferences/documentRecognition.ts",
+      "to": "src/domain/documentRecognition/modelCatalog.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/preferences/documentRecognition.ts",
+      "to": "src/domain/resumeImport/timeouts.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/ai/client.ts",
+      "to": "src/domain/resumeImport/timeouts.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "to": "src/ai/prompts/versions.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "to": "src/domain/adaptation/factGuard.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "to": "src/domain/profileIntake/CareerWritingQuality.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "to": "src/domain/resumeComposition/contracts.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "to": "src/domain/resumeComposition/CareerAssetDisplayIdentity.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "to": "src/domain/resumeComposition/ResumeCompositionPreferences.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "to": "src/domain/resumeComposition/ResumeSkillTaxonomy.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "to": "src/domain/resumeComposition/CareerResumeQualityPolicyV1.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeWriter.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeWriter.ts",
+      "to": "src/domain/resumeComposition/CareerResumeQualityPolicyV1.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/index.ts",
+      "to": "src/domain/resumeComposition/ResumeReviewer.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeComposition/index.ts",
+      "to": "src/domain/resumeComposition/CareerAssetDisplayIdentity.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeComposition/index.ts",
+      "to": "src/domain/resumeComposition/ResumeSkillTaxonomy.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeComposition/index.ts",
+      "to": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeComposition/index.ts",
+      "to": "src/domain/resumeComposition/ResumeCompositionCheckpoint.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeCompositionCheckpoint.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeCompositionCheckpoint.ts",
+      "to": "src/domain/resumeComposition/contracts.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/index.ts",
+      "to": "src/domain/resumeComposition/CareerResumeQualityPolicyV1.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/resumeIntegrity/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeIntegrity/index.ts",
+      "to": "src/domain/resumeIntegrity/ResumeStructuralIntegrity.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeIntegrity/ResumeStructuralIntegrity.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeIntegrity/ResumeStructuralIntegrity.ts",
+      "to": "src/domain/resumeComposition/ResumeSkillTaxonomy.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeIntegrity/ResumeStructuralIntegrity.ts",
+      "to": "src/domain/resumeFields/catalog.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeIntegrity/index.ts",
+      "to": "src/domain/resumeIntegrity/tailoringStructuralPreservation.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/adaptation/factGuard.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/adaptation/draft.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/jobOptimization/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/services/jobs/tailoringDiffId.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/jobOptimization/suggestions.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/services/export/snapshot.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/export/snapshot.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/export/snapshot.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/export/snapshot.ts",
+      "to": "src/domain/resumeFields/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/match/matcher.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/services/storage/db.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/services/storage/resumeRepositoryEvents.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "src/agent/runtime/agentExecutor.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/runtime/agentExecutor.ts",
+      "to": "src/agent/runtime/careerSessionBinding.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/runtime/agentExecutor.ts",
+      "to": "src/agent/tools/registry.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/tools/registry.ts",
+      "to": "src/domain/resumeComposition/sessionConfirmedSkills.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/sessionConfirmedSkills.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeSourceTurn.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/sessionConfirmedSkills.ts",
+      "to": "src/domain/resumeComposition/ResumeSkillTaxonomy.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/sessionConfirmedSkills.ts",
+      "to": "src/domain/resumeComposition/contracts.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/resumeComposition/sessionConfirmedSkills.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/tools/registry.ts",
+      "to": "src/domain/materialIntake/materialIntake.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/tools/registry.ts",
+      "to": "src/ai/providers/transportError.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/tools/registry.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeNormalizer.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/tools/registry.ts",
+      "to": "src/domain/profileIntake/CaptureProfileIntakeResult.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profileIntake/CaptureProfileIntakeResult.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeReviewProjection.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeReviewProjection.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeReviewProjection.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeSourceTurn.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeReviewProjection.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeFinalSynthesis.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profileIntake/CaptureProfileIntakeResult.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeNextTurnPlan.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeNextTurnPlan.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/profileIntake/CaptureProfileIntakeResult.ts",
+      "to": "src/domain/careerInteraction/CareerInteractionPlan.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/tools/registry.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/tools/registry.ts",
+      "to": "src/domain/schemas/jobTarget.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/tools/registry.ts",
+      "to": "src/domain/schemas/tailoring.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/tools/registry.ts",
+      "to": "src/domain/careerContext/retrieveCareerContext.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/careerContext/retrieveCareerContext.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/careerContext/retrieveCareerContext.ts",
+      "to": "src/domain/profile/factMaturity.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/domain/careerContext/retrieveCareerContext.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "src/agent/tools/registry.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "to": "src/domain/materialIntake/materialIntake.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "to": "src/domain/resumeComposition/ResumeCompositionPreferences.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "to": "src/domain/careerInteraction/CareerInteractionPlan.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "to": "src/agent/workflows/tailoringStage.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "to": "src/domain/jobTarget/jobTargetSnapshot.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "to": "src/agent/tools/careerToolContract.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "to": "src/agent/runtime/careerContextBindingResolver.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "to": "src/agent/runtime/currentTurnUserMessage.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "to": "src/agent/runtime/workflowUserInputCheckpoint.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/runtime/workflowUserInputCheckpoint.ts",
+      "to": "src/agent/contracts/agentSession.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/runtime/workflowUserInputCheckpoint.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "src/ai/providers/transportError.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "src/agent/workflows/tailoringStage.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "src/agent/tools/careerToolDiagnostics.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/tools/careerToolDiagnostics.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "src/agent/tools/careerToolContract.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "src/agent/workflows/TransactionalWorkflowLease.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "src/agent/runtime/careerContextBindingResolver.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "src/services/diagnostics/appBuildInfo.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/diagnostics/appBuildInfo.ts",
+      "to": "src/agent/tools/careerToolContract.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "src/agent/runtime/workflowUserInputCheckpoint.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/tools/ProfileReadAdapter.ts",
+      "to": "src/agent/tools/registry.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/tools/ProfileReadAdapter.ts",
+      "to": "src/services/profile/profileQueryService.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/profile/profileQueryService.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/profile/profileQueryService.ts",
+      "to": "src/domain/profile/canonicalLibrary.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/services/profile/profileQueryService.ts",
+      "to": "src/services/profile/profileReadPort.ts",
+      "kind": "static"
+    },
+    {
+      "from": "src/agent/tools/ProfileReadAdapter.ts",
+      "to": "src/services/profile/profileReadPort.ts",
+      "kind": "static"
+    }
+  ]
+}
