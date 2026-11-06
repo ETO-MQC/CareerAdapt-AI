@@ -7,6 +7,7 @@ import {execFileSync} from 'node:child_process';
 import {reliabilityPatch} from './p522-host-a02-01-patches.mjs';
 import {attachmentPatch} from './p522-host-a02-03-patches.mjs';
 import {sessionPersistencePatch} from './p522-host-a02-04-patches.mjs';
+import {artifactPatch} from './p522-host-a02-05-patches.mjs';
 const host=path.join(process.env.LOCALAPPDATA,'hermes/hermes-agent');
 const desktop=path.join(host,'apps/desktop'),req=createRequire(path.join(desktop,'package.json'));
 const {createServer,build,loadConfigFromFile}=req('vite');
@@ -81,6 +82,7 @@ const integration={name:'careeradapt-host-a01-opt-in',enforce:'pre',resolveId(id
  if(process.argv.includes('--reliability'))patched=reliabilityPatch(patched,file);
  if(process.argv.includes('--attachments'))patched=attachmentPatch(patched,file);
  if(process.argv.includes('--session-persistence'))patched=sessionPersistencePatch(patched,file);
+ if(process.argv.includes('--artifacts'))patched=artifactPatch(patched,file);
  if(patched===source)return null;
  if(!records.some(r=>r.file===file)){
   const rel=path.relative(host,file).replaceAll('\\','/');

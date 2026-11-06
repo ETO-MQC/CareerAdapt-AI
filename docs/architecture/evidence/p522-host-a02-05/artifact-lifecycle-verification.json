@@ -1,0 +1,15 @@
+{
+  "status": "PARTIAL",
+  "creation": "PASS_REAL_NATIVE_TOOL",
+  "update": "PASS_REAL_NATIVE_TOOL",
+  "fileOperationCompleted": "PASS_REAL_NATIVE_TOOL_RESULT_AND_BYTES",
+  "completeTaskLifecycle": false,
+  "referenceNotSuccess": "PASS_L1",
+  "runningStreaming": "Native current session observation + adapter L1; no complete real Electron lifecycle sequence",
+  "failed": "PASS_L1 + L2 native malformed JSON refusal/reopen; no Electron failure lifecycle",
+  "cancelled": "L1 adapter only; native-to-Artifact cancellation not implemented",
+  "unknown": "Native A04 journal read plus L1 precedence/no retry; not requalified by new Electron fault",
+  "duplicates": "Exact path duplicate/reference and update merge L1 + one real updated item",
+  "versions": "NOT_SUPPORTED_NATIVE",
+  "noFabricatedSuccess": true
+}

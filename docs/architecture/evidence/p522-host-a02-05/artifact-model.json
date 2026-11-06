@@ -1,0 +1,21 @@
+{
+  "status": "IMPLEMENTED_HOST_PROJECTION",
+  "id": "JSON tuple [profile, sessionId, exact reference value]",
+  "identityLimit": "Reference identity, not canonical filesystem identity. Different spelling/case may remain distinct.",
+  "sessionBinding": "Native stored session ID plus profile",
+  "messageBinding": "Native SQLite Message ID preferred; position fallback explicitly identified",
+  "taskBinding": "Nearest preceding native user Message ID / fallback position; not a new backend Task",
+  "states": [
+    "REFERENCE",
+    "RUNNING",
+    "STREAMING",
+    "COMPLETED",
+    "FAILED",
+    "CANCELLED",
+    "UNKNOWN"
+  ],
+  "semantics": "COMPLETED label means native file operation confirmed, never entire task completed. CANCELLED has adapter coverage but no production native mapping in this phase.",
+  "durability": "Native transcript and current file only; no new Artifact Store or DB",
+  "createdUpdated": "Native timestamp seconds normalized to milliseconds; distinct message occurrences retained",
+  "versionHistory": false
+}

@@ -1,0 +1,24 @@
+{
+  "status": "PARTIAL",
+  "nativeToolFailure": {
+    "status": "PASS_L2_DETERMINISTIC_NATIVE_TOOL_AND_DB",
+    "realProvider": false,
+    "mockOnly": "Synthetic session fixture through native SessionDB; not a generated Electron history",
+    "successfulNativeWrite": true,
+    "nativeUpdate": true,
+    "nativeFailure": true,
+    "stableDatabaseMessageIds": true,
+    "toolCallIdPreserved": true,
+    "sessionIsolation": true,
+    "failureRestoredAfterDbReopen": true,
+    "nativeTaskId": false,
+    "versionSnapshots": false,
+    "deletions": 0
+  },
+  "providerFailureElectron": "NOT_VERIFIED_THIS_PHASE",
+  "gatewayFailureElectron": "NOT_VERIFIED_THIS_PHASE",
+  "interruptionElectron": "NOT_VERIFIED_THIS_PHASE",
+  "unknownElectron": "NOT_VERIFIED_THIS_PHASE; inherited A04 protections unchanged",
+  "failureRestored": "L2 native DB reopen",
+  "existingFailedTaskArtifacts": "No false success from assistant text or path proposal; no durable task lifecycle invented"
+}

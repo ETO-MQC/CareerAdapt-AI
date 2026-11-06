@@ -1,0 +1,102 @@
+{
+  "status": "METRIC_CLARIFICATION",
+  "detail": "For nonstream probes, raw ttftMs is full JSON response arrival, not first-token latency. Only streaming probes measured actual first content delta.",
+  "records": [
+    {
+      "provider": "local-1",
+      "model": "Qwen3.8-27B",
+      "capability": "text",
+      "elapsedMs": 2199,
+      "ttftMs": null,
+      "nonstreamResponseMs": 2199
+    },
+    {
+      "provider": "local-1",
+      "model": "Qwen3.8-27B",
+      "capability": "streaming",
+      "elapsedMs": 7632,
+      "ttftMs": 7330,
+      "nonstreamResponseMs": null
+    },
+    {
+      "provider": "local-1",
+      "model": "Qwen3.8-27B",
+      "capability": "tool_calling",
+      "elapsedMs": 2729,
+      "ttftMs": null,
+      "nonstreamResponseMs": 2729
+    },
+    {
+      "provider": "local-1",
+      "model": "Qwen3.8-27B",
+      "capability": "vision",
+      "elapsedMs": 2757,
+      "ttftMs": null,
+      "nonstreamResponseMs": 2757
+    },
+    {
+      "provider": "local-1",
+      "model": "Qwen3.8-27B",
+      "capability": "structured_json",
+      "elapsedMs": 14675,
+      "ttftMs": null,
+      "nonstreamResponseMs": 14675
+    },
+    {
+      "provider": "local-1",
+      "model": "Qwen3.8-27B",
+      "capability": "long_context",
+      "elapsedMs": 7399,
+      "ttftMs": null,
+      "nonstreamResponseMs": 7399
+    },
+    {
+      "provider": "local-2",
+      "model": "dots-studio/dots-3-note-preview:free",
+      "capability": "text",
+      "elapsedMs": 2121,
+      "ttftMs": null,
+      "nonstreamResponseMs": 2121
+    },
+    {
+      "provider": "local-2",
+      "model": "dots-studio/dots-3-note-preview:free",
+      "capability": "streaming",
+      "elapsedMs": 1623,
+      "ttftMs": 1262,
+      "nonstreamResponseMs": null
+    },
+    {
+      "provider": "local-2",
+      "model": "dots-studio/dots-3-note-preview:free",
+      "capability": "tool_calling",
+      "elapsedMs": 2662,
+      "ttftMs": null,
+      "nonstreamResponseMs": 2662
+    },
+    {
+      "provider": "local-2",
+      "model": "dots-studio/dots-3-note-preview:free",
+      "capability": "vision",
+      "elapsedMs": 2909,
+      "ttftMs": null,
+      "nonstreamResponseMs": 2909
+    },
+    {
+      "provider": "local-2",
+      "model": "dots-studio/dots-3-note-preview:free",
+      "capability": "structured_json",
+      "elapsedMs": 4010,
+      "ttftMs": null,
+      "nonstreamResponseMs": 4010
+    },
+    {
+      "provider": "local-2",
+      "model": "dots-studio/dots-3-note-preview:free",
+      "capability": "long_context",
+      "elapsedMs": 3556,
+      "ttftMs": null,
+      "nonstreamResponseMs": 3556
+    }
+  ]
+}

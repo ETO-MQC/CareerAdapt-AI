@@ -1,0 +1,96 @@
+{
+  "status": "PASS",
+  "level": "L1 + L2 actual native parser/Host adapter/selector, isolated transpiler VM",
+  "results": [
+    {
+      "name": "native reference includes proposed input, adapter excludes it",
+      "status": "PASS"
+    },
+    {
+      "name": "plain assistant text and user attachment are not generated artifacts",
+      "status": "PASS"
+    },
+    {
+      "name": "assistant path reference is not completion",
+      "status": "PASS"
+    },
+    {
+      "name": "external URL is not a generated local artifact",
+      "status": "PASS"
+    },
+    {
+      "name": "Windows successful tool write has durable source and task locator",
+      "status": "PASS"
+    },
+    {
+      "name": "stable artifact ID across re-projection",
+      "status": "PASS"
+    },
+    {
+      "name": "Session and profile identities isolate same path",
+      "status": "PASS"
+    },
+    {
+      "name": "same path update merges item and preserves source occurrences",
+      "status": "PASS"
+    },
+    {
+      "name": "duplicate reference within same message does not duplicate source",
+      "status": "PASS"
+    },
+    {
+      "name": "failure does not retain successful state",
+      "status": "PASS"
+    },
+    {
+      "name": "UNKNOWN overrides successful file write and never retries",
+      "status": "PASS"
+    },
+    {
+      "name": "RUNNING STREAMING CANCELLED preserved without false success",
+      "status": "PASS"
+    },
+    {
+      "name": "source backend message ID reused when exposed",
+      "status": "PASS"
+    },
+    {
+      "name": "user backend message ID provides stable turn association",
+      "status": "PASS"
+    },
+    {
+      "name": "later confirmed write recovers earlier failure without dropping sources",
+      "status": "PASS"
+    },
+    {
+      "name": "real native write/update/failure shapes survive DB reopen and adapter projection",
+      "status": "PASS"
+    },
+    {
+      "name": "file paths do not allow network or file URL opening",
+      "status": "PASS"
+    },
+    {
+      "name": "legacy single-provider remains compatible but unverified",
+      "status": "PASS"
+    },
+    {
+      "name": "capability-specific selector rejects unverified tools",
+      "status": "PASS"
+    },
+    {
+      "name": "504 stream loss tool execution and UNKNOWN cannot fallback",
+      "status": "PASS"
+    },
+    {
+      "name": "safe rejection and pre-send connection failures may fallback",
+      "status": "PASS"
+    },
+    {
+      "name": "selector records every switch and refuses unknown replay",
+      "status": "PASS"
+    }
+  ],
+  "deletions": 0,
+  "limitations": "No fake Store writes or generated native completion events; live Gateway/Renderer tested separately"
+}

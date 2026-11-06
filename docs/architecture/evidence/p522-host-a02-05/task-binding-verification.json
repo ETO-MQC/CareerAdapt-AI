@@ -1,0 +1,10 @@
+{
+  "status": "PASS_MESSAGE_TURN_ASSOCIATION_NOT_BACKEND_TASK",
+  "nativeTaskId": false,
+  "stableMessageId": true,
+  "userMessageTurnAssociation": true,
+  "toolCallId": true,
+  "positionFallback": true,
+  "unitEvidence": "unit-integration-results.json",
+  "limits": "Rewind/compression can change projected history; no promise of immutable Task or cross-compression Artifact identity"
+}

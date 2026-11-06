@@ -1,0 +1,82 @@
+{
+  "status": "PASS_SOURCE_AUDIT",
+  "sources": [
+    {
+      "file": "apps/desktop/src/app/artifacts/artifact-utils.ts",
+      "sha256": "4d92c7fbce33a2ca5983b791d511a2c81da74a93bfa53fdee4d9c095a3eb63a6",
+      "againstLockedHead": true
+    },
+    {
+      "file": "apps/desktop/src/app/artifacts/index.tsx",
+      "sha256": "a8bed89bc9a3f0be9b5c68251ac0285f3b07e4d91e20d0c6c41f6d8396c839f5",
+      "againstLockedHead": true
+    },
+    {
+      "file": "apps/desktop/src/types/hermes.ts",
+      "sha256": "3e75cc9189e4c6ba0433180a509f2524ce88bbe665ce80ca3ad878a992d44a74",
+      "againstLockedHead": true
+    },
+    {
+      "file": "apps/desktop/src/hermes.ts",
+      "sha256": "abcccb6d309ae6e30ece763f63fa1ff36cf43c2f05062157a28ff9bd72ea90d1",
+      "againstLockedHead": true
+    },
+    {
+      "file": "apps/desktop/src/lib/desktop-fs.ts",
+      "sha256": "1e144ff5e49a89247eb82e94009c289bde41e8e8d6c62999bb4c940db50930bc",
+      "againstLockedHead": true
+    },
+    {
+      "file": "apps/desktop/src/lib/media.ts",
+      "sha256": "dbfe5f46c915458049d54a4c5455922ca47b008d2e8d9cfa7870c9681556115e",
+      "againstLockedHead": true
+    },
+    {
+      "file": "hermes_cli/web_server.py",
+      "sha256": "d58955ad73dcab6f8ec57cb6932970e68fdaec7baa554082d7a43860ba7e8fed",
+      "againstLockedHead": true
+    },
+    {
+      "file": "hermes_state.py",
+      "sha256": "0d52ebcd6a433466f1e6444de35d940e0c227a285a64b2da54dcd8182bf746c6",
+      "againstLockedHead": true
+    },
+    {
+      "file": "tools/file_tools.py",
+      "sha256": "5f780af2572eb475efcd6e1707bbe871cbe9240223fd77a29020420830c0af8f",
+      "againstLockedHead": true
+    },
+    {
+      "file": "tools/file_operations.py",
+      "sha256": "565ceeb9e06e86599a6176197d46de5f78f0918988582cdde2c2ce7c6ecbfff9",
+      "againstLockedHead": true
+    },
+    {
+      "file": "tui_gateway/server.py",
+      "sha256": "16dfa70edb05f9613d6b8abf9016c235b2eed1862c64430b4de8133ce069e5f1",
+      "againstLockedHead": true
+    }
+  ],
+  "nativeRecord": [
+    "id",
+    "kind",
+    "value",
+    "href",
+    "label",
+    "sessionId",
+    "sessionTitle",
+    "timestamp"
+  ],
+  "nativeIdentity": "session.id:value, derived string reference; no inode/content identity",
+  "nativeMessageId": "SessionDB SQLite id is returned by hermes_cli.web_server /api/sessions/{id}/messages, though omitted from Renderer SessionMessage typing; Host projection preserves it",
+  "nativeTaskId": false,
+  "taskIdInTools": "Internal tool execution context is not a durable Artifact Task entity",
+  "nativeEvents": "No artifact.* lifecycle; message.start/delta/complete and tool events are turn/tool events",
+  "nativePersistence": "Artifact rows are re-derived; state.db persists message/tool result provenance; workspace stores current bytes",
+  "versions": false,
+  "deleteRestore": "No artifact-specific native delete/restore protocol; not exposed by Host",
+  "nativePreviewDownload": "Native image/media/Desktop FS bridges; Host uses existing authenticated FS and Electron download",
+  "permissions": "Existing Main/Preload FS hardening and authenticated remote bridge; no new IPC or widened permissions",
+  "parserRisks": "Tool input paths and arbitrary assistant links are native reference candidates, not completed outputs. Host removes tool arguments/external URLs and requires successful files_modified evidence for confirmed writes.",
+  "historicalA04": "PARTIAL / MANUALLY_COMMITTED"
+}

@@ -1,0 +1,64 @@
+{
+  "status": "PASS",
+  "evidence": "electron-1793945975065.json",
+  "case": {
+    "name": "session-isolation",
+    "status": "PASS",
+    "storedId": "20261106_142045_c29f13",
+    "runtimeId": "6900dc98",
+    "busy": false,
+    "awaiting": false,
+    "messages": [
+      {
+        "id": "user-1793946045063-0xdl22",
+        "role": "user",
+        "parts": [
+          {
+            "type": "text",
+            "text": "Use the file tool to write EXACTLY SYNTHETIC_ARTIFACT_B_1793945679401 to \"[PROJECT]\\\\.artifacts\\\\p522-host-a02-05\\\\run-1793945679401\\\\workspace\\\\result-B-1793945679401.txt\". Then report its path."
+          }
+        ],
+        "attachmentRefs": []
+      },
+      {
+        "id": "assistant-stream-1793946060868-2",
+        "role": "assistant",
+        "parts": [
+          {
+            "type": "tool-call",
+            "toolCallId": "call_1e2c555214664af9bd8cc3d1",
+            "toolName": "write_file",
+            "args": {
+              "context": "Writing [PROJECT]\\.artifacts\\p522-host-a02-05\\run-1793945679401\\workspace...",
+              "path": "[PROJECT]\\.artifacts\\p522-host-a02-05\\run-1793945679401\\workspace\\result-B-1793945679401.txt",
+              "content": "SYNTHETIC_ARTIFACT_B_1793945679401"
+            },
+            "argsText": "{\"context\":\"Writing [PROJECT]\\\\.artifacts\\\\p522-host-a02-05\\\\run-1793945679401\\\\workspace...\",\"path\":\"[PROJECT]\\\\.artifacts\\\\p522-host-a02-05\\\\run-1793945679401\\\\workspace\\\\result-B-1793945679401.txt\",\"content\":\"SYNTHETIC_ARTIFACT_B_1793945679401\"}",
+            "result": {
+              "bytes_written": 34,
+              "dirs_created": true,
+              "lint": {
+                "status": "skipped",
+                "message": "No linter for .txt files"
+              },
+              "resolved_path": "[PROJECT]\\.artifacts\\p522-host-a02-05\\run-1793945679401\\workspace\\result-B-1793945679401.txt",
+              "files_modified": [
+                "[PROJECT]\\.artifacts\\p522-host-a02-05\\run-1793945679401\\workspace\\result-B-1793945679401.txt"
+              ],
+              "inline_diff": "  ┊ review diff\n\u001b[38;2;218;165;32ma/result-B-1793945679401.txt → b/result-B-1793945679401.txt\u001b[0m\n\u001b[38;2;139;134;130m@@ -0,0 +1 @@\u001b[0m\n\u001b[38;2;255;255;255;48;2;19;87;20m+SYNTHETIC_ARTIFACT_B_1793945679401\u001b[0m",
+              "duration_s": 2.2154910564422607
+            },
+            "isError": false
+          },
+          {
+            "type": "text",
+            "text": "Done. Wrote exactly `SYNTHETIC_ARTIFACT_B_1793945679401` to:\n\n**`[PROJECT]\\.artifacts\\p522-host-a02-05\\run-1793945679401\\workspace\\result-B-1793945679401.txt`**"
+          }
+        ],
+        "pending": false,
+        "interim": false
+      }
+    ]
+  },
+  "profileIdentity": "L1 covered; real test used current default profile only"
+}

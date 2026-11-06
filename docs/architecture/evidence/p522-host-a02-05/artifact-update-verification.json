@@ -1,0 +1,14 @@
+{
+  "status": "PASS",
+  "evidence": "electron-1793945975065.json",
+  "case": {
+    "name": "real-provider-update",
+    "status": "PASS",
+    "items": 1,
+    "oldBytesRetained": false,
+    "nativeSnapshotSupport": false
+  },
+  "nativeVersions": false,
+  "sourceOccurrencesRetained": true,
+  "currentFileOverwrittenAsExplicitlyRequested": true
+}

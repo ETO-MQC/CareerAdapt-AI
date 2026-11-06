@@ -1,0 +1,19 @@
+{
+  "method": "TypeScript compiler host overlays all recorded Renderer patches and resolves the same virtual navigation module; no upstream writes, no emit",
+  "baseline": [],
+  "integrated": [
+    {
+      "file": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop/src/app/contrib/surfaces.tsx",
+      "code": 2322,
+      "message": "Type '{ setStatusbarItemGroup: GroupSetter<StatusbarItem>; }' is not assignable to type 'IntrinsicAttributes'.\n  Property 'setStatusbarItemGroup' does not exist on type 'IntrinsicAttributes'."
+    }
+  ],
+  "introduced": [
+    {
+      "file": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop/src/app/contrib/surfaces.tsx",
+      "code": 2322,
+      "message": "Type '{ setStatusbarItemGroup: GroupSetter<StatusbarItem>; }' is not assignable to type 'IntrinsicAttributes'.\n  Property 'setStatusbarItemGroup' does not exist on type 'IntrinsicAttributes'."
+    }
+  ],
+  "status": "FAIL"
+}

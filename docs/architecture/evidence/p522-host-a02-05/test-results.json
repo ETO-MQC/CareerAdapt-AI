@@ -1,0 +1,54 @@
+{
+  "status": "TARGETED_ENGINEERING_PASS_FUNCTIONAL_PARTIAL",
+  "checks": [
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0
+    },
+    {
+      "command": "changed-files ESLint --max-warnings=0",
+      "exitCode": 0
+    },
+    {
+      "command": "node scripts/p522-host-a02-05-tests.mjs",
+      "exitCode": 0,
+      "passed": 22
+    },
+    {
+      "command": "locked Python scripts/p522-host-a02-05-native.py",
+      "exitCode": 0
+    },
+    {
+      "command": "Provider probes",
+      "exitCode": 0,
+      "passed": 12
+    },
+    {
+      "command": "Renderer integration build --careeradapt --reliability --attachments --session-persistence --artifacts",
+      "exitCode": 0,
+      "evidence": "renderer-qualified"
+    },
+    {
+      "command": "Native TypeScript baseline/integrated",
+      "exitCode": 0,
+      "baseline": 0,
+      "integrated": 0,
+      "evidence": "renderer-qualified/native-typecheck.json"
+    },
+    {
+      "command": "Default optIn=false build",
+      "exitCode": 0
+    },
+    {
+      "command": "Electron main + one focused recheck, including normal restart",
+      "initialExitCode": 1,
+      "recheckExitCode": 0
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "warnings": "Existing upstream CSS delimiter/barrel/large chunk warnings; native SQLite runtime selects DELETE journaling for its locked version.",
+  "excluded": "No all-history Playwright, package/PDF tests, historical Session regression, unsafe cleanup tests"
+}

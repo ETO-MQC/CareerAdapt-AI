@@ -1,0 +1,15 @@
+{
+  "status": "PASS_L2_DETERMINISTIC_NATIVE_TOOL_AND_DB",
+  "realProvider": false,
+  "mockOnly": "Synthetic session fixture through native SessionDB; not a generated Electron history",
+  "successfulNativeWrite": true,
+  "nativeUpdate": true,
+  "nativeFailure": true,
+  "stableDatabaseMessageIds": true,
+  "toolCallIdPreserved": true,
+  "sessionIsolation": true,
+  "failureRestoredAfterDbReopen": true,
+  "nativeTaskId": false,
+  "versionSnapshots": false,
+  "deletions": 0
+}

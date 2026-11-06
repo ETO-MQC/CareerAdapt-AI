@@ -1,0 +1,23 @@
+{
+  "status": "PASS",
+  "electronLaunches": 3,
+  "electronNormalCloseExitCodes": [
+    0,
+    0,
+    0
+  ],
+  "nativeBackendPidsObserved": [
+    5856,
+    67704,
+    28436,
+    8,
+    26780,
+    72216
+  ],
+  "observedBackendPidsStillRunning": [],
+  "nativeCloseRespawnObserved": true,
+  "vite": "Own exec session closed with Ctrl-C; no unrelated process termination",
+  "testDirectoriesRetained": true,
+  "isolatedConfigCredentialCleared": true,
+  "noDeletionCommands": true
+}

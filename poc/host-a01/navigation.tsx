@@ -1,5 +1,6 @@
 import type {ComponentType, ReactNode} from 'react';
-import {House, MessagesSquare, Library, Settings, Sparkles} from 'lucide-react';
+import {House, MessagesSquare, Library, Settings, Sparkles, Files} from 'lucide-react';
+export {CareerArtifacts} from './artifacts';
 import './shell.css';
 
 export type NavigationItem = {id: string; label: string; icon: ComponentType<{className?: string}>; route?: string; action?: 'new-session'; keybindActionId?: string};
@@ -10,16 +11,16 @@ export function CareerNavigation({ onNavigate, showConversation, pathname, contr
   return <section className="ca-host-navigation">
     <div className="ca-host-brand"><strong><Sparkles aria-hidden="true" size={20}/>职适 AI</strong><span>CareerAdapt AI</span></div>
     <nav aria-label="CareerAdapt 主导航">
-      {[{label:'首页',route:'/careeradapt-home',icon:House},{label:'AI 工作台',route:'/',icon:MessagesSquare},{label:'个人资料库',route:'/careeradapt-experience',icon:Library},{label:'设置',route:'/settings',icon:Settings}].map(({label,route,icon:Icon})=><button key={route} aria-current={pathname===route?'page':undefined} onClick={()=>navigate(route)}><Icon aria-hidden="true" size={17}/><span>{label}</span></button>)}
+      {[{label:'首页',route:'/careeradapt-home',icon:House},{label:'AI 工作台',route:'/',icon:MessagesSquare},{label:'工作成果',route:'/artifacts',icon:Files},{label:'个人资料库',route:'/careeradapt-experience',icon:Library},{label:'设置',route:'/settings',icon:Settings}].map(({label,route,icon:Icon})=><button key={route} aria-current={pathname===route?'page':undefined} onClick={()=>navigate(route)}><Icon aria-hidden="true" size={17}/><span>{label}</span></button>)}
     </nav>
     <small>Host 集成预览 · 隔离数据</small>
     {contributedNav.length > 0 && <details className="ca-host-extensions"><summary>插件扩展</summary><nav aria-label="插件扩展">
       {contributedNav.map(item=><button key={item.id} aria-label={item.label} aria-current={pathname===item.route?'page':undefined} onClick={()=>onNavigate(item)}><item.icon className="ca-host-nav-icon"/><span>{item.label}</span>{renderKeybind?.(item)}</button>)}
     </nav></details>}
     <details><summary>AI 能力与高级管理</summary><nav aria-label="AI 能力与高级管理">
-      {[['能力 / Skills','/skills'],['会话与运行诊断','/command-center'],['产物','/artifacts'],['消息渠道','/messaging'],['Agents','/agents'],['Provider 配置','/profiles'],['定时任务','/cron'],['Webhooks','/webhooks'],['能力图谱','/starmap']].filter(([,route])=>!nativeNav.some(item=>item.route===route)).map(([label,route])=><button key={route} onClick={()=>navigate(route)}>{label}</button>)}
+      {[['能力 / Skills','/skills'],['会话与运行诊断','/command-center'],['消息渠道','/messaging'],['Agents','/agents'],['Provider 配置','/profiles'],['定时任务','/cron'],['Webhooks','/webhooks'],['能力图谱','/starmap']].filter(([,route])=>!nativeNav.some(item=>item.route===route)).map(([label,route])=><button key={route} onClick={()=>navigate(route)}>{label}</button>)}
     </nav></details>
-    {nativeNav.length > 0 && <details><summary>原生导航与快捷键</summary><nav aria-label="原生导航与快捷键">{nativeNav.map(item=><button key={item.id} aria-label={item.label} aria-current={pathname===item.route?'page':undefined} onClick={()=>onNavigate(item)}><item.icon className="ca-host-nav-icon"/><span>{item.label}</span>{renderKeybind?.(item)}</button>)}</nav></details>}
+    {nativeNav.length > 0 && <details><summary>原生导航与快捷键</summary><nav aria-label="原生导航与快捷键">{nativeNav.filter(item=>item.route!=='/artifacts').map(item=><button key={item.id} aria-label={item.label} aria-current={pathname===item.route?'page':undefined} onClick={()=>onNavigate(item)}><item.icon className="ca-host-nav-icon"/><span>{item.label}</span>{renderKeybind?.(item)}</button>)}</nav></details>}
     {showConversation && <div className="ca-host-conversation-heading"><strong>对话上下文</strong><button onClick={()=>onNavigate({id:'new-session',label:'新建对话',action:'new-session',icon:NativeActionIcon})}>＋ 新建对话</button></div>}
   </section>;
 }

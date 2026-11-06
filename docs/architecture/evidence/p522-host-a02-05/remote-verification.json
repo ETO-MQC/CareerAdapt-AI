@@ -1,0 +1,9 @@
+{
+  "command": "git fetch --no-tags origin main",
+  "exitCode": 0,
+  "head": "b9d4401dafce295fc3e09145d1c0357c26f6fd4d",
+  "originMain": "b9d4401dafce295fc3e09145d1c0357c26f6fd4d",
+  "fetchHead": "b9d4401dafce295fc3e09145d1c0357c26f6fd4d",
+  "equal": true,
+  "noPush": true
+}

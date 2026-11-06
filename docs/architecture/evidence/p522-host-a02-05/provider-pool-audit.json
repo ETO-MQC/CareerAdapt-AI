@@ -1,0 +1,83 @@
+{
+  "status": "LOCAL_POOL_CREATED",
+  "file": "E:\\DEF\\CareerAdapt AI\\.artifacts\\p522-host-a02-05\\provider-pool.local.json",
+  "gitIgnored": true,
+  "legacyConfigsUnchanged": true,
+  "productionDispatchChanged": false,
+  "providers": [
+    {
+      "id": "local-1",
+      "base_url": "https://developer.amd.com.cn/radeon/api/v1",
+      "enabled": true,
+      "priority": 0,
+      "credentialPresent": true,
+      "credentialSource": "artifacts/p522-host-a02-01/provider.local.json",
+      "models": [
+        {
+          "id": "Qwen3.8-27B",
+          "capabilities": {
+            "text": "VERIFIED",
+            "streaming": "VERIFIED",
+            "tool_calling": "VERIFIED",
+            "vision": "VERIFIED",
+            "structured_json": "VERIFIED",
+            "long_context": "VERIFIED"
+          },
+          "timeouts": {
+            "interactive_text": 30000,
+            "streaming": 45000,
+            "long_generation": 90000,
+            "vision": 60000,
+            "tool_execution": 60000
+          },
+          "task_types": [
+            "interactive_text",
+            "streaming",
+            "long_generation",
+            "vision",
+            "tool_execution",
+            "json"
+          ],
+          "fallback_order": 0
+        }
+      ]
+    },
+    {
+      "id": "local-2",
+      "base_url": "https://openrouter.ai/api/v1",
+      "enabled": true,
+      "priority": 1,
+      "credentialPresent": true,
+      "credentialSource": ".artifacts/p522-host-a02-01/provider.local.json",
+      "models": [
+        {
+          "id": "dots-studio/dots-3-note-preview:free",
+          "capabilities": {
+            "text": "VERIFIED",
+            "streaming": "VERIFIED",
+            "tool_calling": "VERIFIED",
+            "vision": "VERIFIED",
+            "structured_json": "VERIFIED",
+            "long_context": "VERIFIED"
+          },
+          "timeouts": {
+            "interactive_text": 30000,
+            "streaming": 45000,
+            "long_generation": 90000,
+            "vision": 60000,
+            "tool_execution": 60000
+          },
+          "task_types": [
+            "interactive_text",
+            "streaming",
+            "long_generation",
+            "vision",
+            "tool_execution",
+            "json"
+          ],
+          "fallback_order": 0
+        }
+      ]
+    }
+  ]
+}

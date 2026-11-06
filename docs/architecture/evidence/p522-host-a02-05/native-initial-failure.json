@@ -1,0 +1,9 @@
+{
+  "status": "RETAINED_INITIAL_HARNESS_FAILURE",
+  "command": "locked Python scripts/p522-host-a02-05-native.py",
+  "exitCode": 1,
+  "failure": "AssertionError: failed.get('error') after directory-target write did not return expected native refusal",
+  "classification": "Incorrect deterministic fixture assumption, not a qualified product failure",
+  "resolution": "Kept the failed isolated fixture; used genuine native malformed-JSON fail-closed rejection; required error assertion retained",
+  "finalEvidence": "native-deterministic-verification.json"
+}

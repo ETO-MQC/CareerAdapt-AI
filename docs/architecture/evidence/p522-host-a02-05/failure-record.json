@@ -1,0 +1,47 @@
+{
+  "status": "PARTIAL_REMAINING_LIFECYCLE_GAPS",
+  "retainedElectronFailure": {
+    "evidence": "electron-1793945679401.json",
+    "failure": "page.waitForEvent: Timeout 15000ms exceeded while waiting for event \"download\"\n=========================== logs ===========================\nwaiting for event \"download\"\n============================================================\n    at [PROJECT]\\scripts\\p522-host-a02-05-electron.mjs:69:195\n    at async check ([PROJECT]\\scripts\\p522-host-a02-05-electron.mjs:50:47)\n    at async file:///[WORKSPACE_PARENT]/CareerAdapt%20AI/scripts/p522-host-a02-05-electron.mjs:69:2"
+  },
+  "fix": "Append download anchor as native media helper does; observe real Electron will-download/done, set test destination, compare actual bytes. Initial Playwright download event timeout does not prove native download failed.",
+  "otherFailures": [
+    {
+      "kind": "HARNESS",
+      "detail": "First deterministic failure expected directory write refusal, but native tool did not reject; changed to genuine fail-closed malformed JSON path and retained original isolated directory."
+    },
+    {
+      "kind": "HARNESS",
+      "detail": "Python source edit first used host GBK default; failed before runner mutation; explicit UTF-8 used."
+    },
+    {
+      "kind": "TYPECHECK",
+      "detail": "First native integrated check rejected unknown props on ArtifactsView; explicit optional statusbar prop fixed."
+    },
+    {
+      "kind": "LINT",
+      "detail": "Effect state-reset lint fixed using asynchronous lifecycle and keyed preview. Native data-URL image explicitly scoped outside Next Image server."
+    },
+    {
+      "kind": "AUDIT_CORRECTION",
+      "detail": "Renderer types omit DB Message ID but actual REST returns it. Audited route and preserved real ID; raw nonstream TTFT field clarified as response latency."
+    }
+  ],
+  "execution": {
+    "mainSequences": 1,
+    "focusedRecheckSequences": 1,
+    "totalElectronLaunches": 3,
+    "successfulInitialCreationNotRepeated": true
+  },
+  "remaining": [
+    "Full native task lifecycle absent",
+    "Durable task error/cancellation/UNKNOWN Artifact terminal restoration not qualified",
+    "Version snapshots unavailable",
+    "Dark-mode matrix not run",
+    "Cross-profile/remote filesystem runtime not qualified"
+  ],
+  "noAssertionRemoval": true,
+  "noSkipAdded": true,
+  "noThresholdLowering": true,
+  "noFilesystemCleanupCalls": true
+}

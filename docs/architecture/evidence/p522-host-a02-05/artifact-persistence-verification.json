@@ -1,0 +1,12 @@
+{
+  "status": "PASS_SUCCESSFUL_FILE_PROVENANCE_PARTIAL_LIFECYCLE",
+  "nativeDb": true,
+  "authority": "Existing Hermes state.db + isolated workspace bytes",
+  "reload": "PASS_REAL_ELECTRON",
+  "restart": "PASS_REAL_ELECTRON",
+  "failureReopen": "PASS_L2_DETERMINISTIC_NATIVE_DB",
+  "failureRestartElectron": "NOT_VERIFIED",
+  "taskTerminalPersistence": "NOT_AVAILABLE_AS_ARTIFACT_PROTOCOL",
+  "noSecondDatabase": true,
+  "limits": "Deleting/moving/overwriting source bytes affects preview; no stored snapshots or Artifact trash/restore"
+}

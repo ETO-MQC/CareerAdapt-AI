@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "evidence": "electron-1793945975065.json",
+  "case": {
+    "name": "reload-restores-artifacts",
+    "status": "PASS",
+    "sessionA": "20261106_141559_1f4b85",
+    "sessionB": "20261106_142045_c29f13"
+  }
+}

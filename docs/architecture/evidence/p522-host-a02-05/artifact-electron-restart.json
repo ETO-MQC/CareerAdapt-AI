@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "evidence": "electron-1793945975065.json",
+  "case": {
+    "name": "electron-restart-restores-artifacts",
+    "status": "PASS",
+    "nativeDbExists": true,
+    "noRegeneration": true
+  },
+  "sameIsolatedHome": true,
+  "noRegeneration": true
+}

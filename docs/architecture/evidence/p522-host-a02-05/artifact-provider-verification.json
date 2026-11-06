@@ -1,0 +1,12 @@
+{
+  "status": "PASS_REAL_ARTIFACT_SAMPLE",
+  "provider": "local-1",
+  "model": "Qwen3.8-27B",
+  "nativeWriteAndVisibleContent": true,
+  "updateNativeWrite": true,
+  "automaticRetry": false,
+  "automaticProviderSwitch": false,
+  "providerPoolCapabilities": "provider-pool-verification.json",
+  "metricSemantics": "provider-timing-semantics.json",
+  "scope": "Synthetic isolated file content, no CareerProfile/Repository/personal information"
+}

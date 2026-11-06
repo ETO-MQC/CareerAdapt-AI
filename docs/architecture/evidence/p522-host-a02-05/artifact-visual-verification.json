@@ -1,0 +1,128 @@
+{
+  "status": "PASS_THREE_LIGHT_VIEWPORTS_DARK_NOT_REQUALIFIED",
+  "evidence": "electron-1793945975065.json",
+  "case": {
+    "name": "three-viewports",
+    "status": "PASS",
+    "measurements": [
+      {
+        "width": 1920,
+        "height": 1026,
+        "client": 1683,
+        "scroll": 1683,
+        "buttons": [
+          {
+            "text": "刷新成果",
+            "width": 72,
+            "height": 28.000001907348633
+          },
+          {
+            "text": "result-B-1793945679401.txtfile · 文件写入已确认20261106_142045_c29f13",
+            "width": 473.2410888671875,
+            "height": 99.36607360839844
+          },
+          {
+            "text": "result-A-1793945679401.txtfile · 文件写入已确认Create Synthetic Qualification File",
+            "width": 473.2410888671875,
+            "height": 99.36607360839844
+          },
+          {
+            "text": "打开来源会话",
+            "width": 96.00000762939453,
+            "height": 28.000001907348633
+          },
+          {
+            "text": "下载文件",
+            "width": 72,
+            "height": 28.000001907348633
+          }
+        ]
+      },
+      {
+        "width": 1440,
+        "height": 846,
+        "client": 1203,
+        "scroll": 1203,
+        "buttons": [
+          {
+            "text": "刷新成果",
+            "width": 72,
+            "height": 28.000001907348633
+          },
+          {
+            "text": "result-B-1793945679401.txtfile · 文件写入已确认20261106_142045_c29f13",
+            "width": 334.0446472167969,
+            "height": 99.36607360839844
+          },
+          {
+            "text": "result-A-1793945679401.txtfile · 文件写入已确认Create Synthetic Qualification File",
+            "width": 334.0446472167969,
+            "height": 99.36607360839844
+          },
+          {
+            "text": "打开来源会话",
+            "width": 96.00000762939453,
+            "height": 28.000001907348633
+          },
+          {
+            "text": "下载文件",
+            "width": 72,
+            "height": 28.000001907348633
+          }
+        ]
+      },
+      {
+        "width": 1024,
+        "height": 714,
+        "client": 787,
+        "scroll": 787,
+        "buttons": [
+          {
+            "text": "刷新成果",
+            "width": 72,
+            "height": 28.000001907348633
+          },
+          {
+            "text": "result-B-1793945679401.txtfile · 文件写入已确认20261106_142045_c29f13",
+            "width": 209.42857360839844,
+            "height": 120.36607360839844
+          },
+          {
+            "text": "result-A-1793945679401.txtfile · 文件写入已确认Create Synthetic Qualification File",
+            "width": 209.42857360839844,
+            "height": 120.36607360839844
+          },
+          {
+            "text": "打开来源会话",
+            "width": 96.00000762939453,
+            "height": 28.000001907348633
+          },
+          {
+            "text": "下载文件",
+            "width": 72,
+            "height": 28.000001907348633
+          }
+        ]
+      }
+    ]
+  },
+  "screenshots": [
+    "docs/architecture/evidence/p522-host-a02-05/screenshots/1793945679401-1793945975065-1-updated-preview.png",
+    "docs/architecture/evidence/p522-host-a02-05/screenshots/1793945679401-1793945975065-1-reload.png",
+    "docs/architecture/evidence/p522-host-a02-05/screenshots/1793945679401-1793945975065-1-1920x1080.png",
+    "docs/architecture/evidence/p522-host-a02-05/screenshots/1793945679401-1793945975065-1-1440x900.png",
+    "docs/architecture/evidence/p522-host-a02-05/screenshots/1793945679401-1793945975065-1-1024x768.png",
+    "docs/architecture/evidence/p522-host-a02-05/screenshots/1793945679401-1793945975065-2-restart.png"
+  ],
+  "visuallyInspected": [
+    "screenshots/1793945679401-1-created-preview.png",
+    "screenshots/1793945679401-1793945975065-1-1024x768.png"
+  ],
+  "correction": "After first real screenshot, replaced undefined border token with existing ui-stroke-tertiary and scoped primary buttons to Career brand green. Real 1024 screenshot inspected after correction.",
+  "copyOnlyAfterScreenshots": "Task association wording corrected from position-only to native user message/turn; final build/lint/typecheck, no further Electron run.",
+  "limits": [
+    "No fresh dark-mode Electron matrix",
+    "No new native-before screenshot; prior implementation preserved in baseline/Git and historical evidence",
+    "List times/version details are in detail panel, not separate list columns"
+  ]
+}

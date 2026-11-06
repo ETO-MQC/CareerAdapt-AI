@@ -1,0 +1,7 @@
+{
+  "status": "PASS_BUILD_OPT_IN_FALSE",
+  "careerArtifactCopyAbsent": true,
+  "method": "Default native Renderer build without --careeradapt; generated JS scan",
+  "interactiveDefaultRerun": false,
+  "productionDefaultUnchanged": true
+}
