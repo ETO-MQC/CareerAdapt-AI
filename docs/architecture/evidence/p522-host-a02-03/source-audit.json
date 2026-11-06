@@ -1,0 +1,55 @@
+{
+  "level": "L0_SOURCE_AUDIT",
+  "files": [
+    {
+      "path": "apps/desktop/src/app/chat/hooks/use-composer-actions.ts",
+      "sha256": "f6dbfa6f305907881cfec7b18a9f4240889cd2432da2a2c3868d889c6e21c51f"
+    },
+    {
+      "path": "apps/desktop/src/app/chat/composer/hooks/use-composer-drop.ts",
+      "sha256": "3c87435f6c6abb9dde00f47f4442ab4f96a0b1ceb9248de8f03bbbec937d6e76"
+    },
+    {
+      "path": "apps/desktop/src/store/composer.ts",
+      "sha256": "41aec56713f04484e36cae5bd757ffec14d75ea72690d3c1a80866dd8a152742"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-prompt-actions/index.ts",
+      "sha256": "4918d34ced24d5748691250c6073140e76b40f0cd01be2118141c0f875adfb09"
+    },
+    {
+      "path": "apps/desktop/src/app/session/hooks/use-prompt-actions/submit.ts",
+      "sha256": "859e0b6c2be7b5610a32c8da3d01ddb74129799166e3116159e2531a42b92a9e"
+    },
+    {
+      "path": "apps/desktop/electron/main.ts",
+      "sha256": "0b184d8d114126ad77ca16ce5b42a410a677de13d5548825c1bc68f80eb6ab4e"
+    },
+    {
+      "path": "apps/desktop/electron/hardening.ts",
+      "sha256": "63326af99192dfe81c19c3857b15faddb61accc71b5376db31eeb2bc194fe2d9"
+    },
+    {
+      "path": "tui_gateway/server.py",
+      "sha256": "16dfa70edb05f9613d6b8abf9016c235b2eed1862c64430b4de8133ce069e5f1"
+    },
+    {
+      "path": "agent/context_references.py",
+      "sha256": "250cf7e17462d60b77f68eee59a1dcb8dbeef4ec91476e79a081809fbbc69081"
+    },
+    {
+      "path": "agent/image_routing.py",
+      "sha256": "1fb55bdbcb790dbba746d39eaf46e81bab1b815e5c5df0d2a0bc570c801713e9"
+    }
+  ],
+  "semantics": {
+    "file": "file.attach; inside workspace reused, outside copied, remote data_url staged; no explicit file.attach size cap",
+    "image": "local image.attach; remote image.attach_bytes with 25 MiB cap after decode",
+    "Main readFileDataUrl": "16 MiB cap before read",
+    "PDF": "Files picker uses file.attach; binary context only; pdf.attach is separate RPC with 50 MiB/25pages cap, not implicitly used by Files",
+    "folder": "Listing up to 200 entries, no file body recursive upload",
+    "auto": "native only for vision metadata; otherwise text vision_analyze pipeline",
+    "text": "Potential auxiliary vision provider; not executed in this qualification",
+    "cancel": "Removing image chip can issue image.detach; ordinary staged files retained; not remote byte erasure"
+  }
+}

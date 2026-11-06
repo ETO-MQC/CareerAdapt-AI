@@ -1,0 +1,35 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {host,root,write,sha} from './p522-host-a02-03-common.mjs';
+import {attachmentPatch,attachmentPatchRecord} from './p522-host-a02-03-patches.mjs';
+const req=createRequire(path.join(host,'apps/desktop/package.json')),ts=req('typescript');
+const original=fs.readFileSync(path.join(host,'apps/desktop/src/app/session/hooks/use-prompt-actions/index.ts'),'utf8');
+const full=attachmentPatch(original.replaceAll('\r\n','\n'),'/apps/desktop/src/app/session/hooks/use-prompt-actions/index.ts');
+const source=full.slice(full.indexOf('export async function uploadComposerAttachment('),full.indexOf('\ninterface PromptActionsOptions')),loaded={exports:{}},calls=[];
+write('attachment-path-patch',{...attachmentPatchRecord(original,attachmentPatch(original.replaceAll('\r\n','\n'),'/apps/desktop/src/app/session/hooks/use-prompt-actions/index.ts')),electronReverification:'NOT_VERIFIED_THREE_ROUNDS_EXHAUSTED',optInFlag:'--careeradapt --attachments'});
+let readFailure=false,attachFailure=false;
+const fixture=path.join(root,'fixtures');
+const read=async p=>{if(readFailure)throw Error('Synthetic controlled read failure');const b=fs.readFileSync(p);return `data:application/octet-stream;base64,${b.toString('base64')}`;};
+vm.runInNewContext(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports:loaded.exports,module:loaded,Error,pathLabel:p=>path.basename(p),readImageForRemoteAttach:async p=>({contentBase64:(await read(p)).split(',')[1],filename:path.basename(p)}),readFileDataUrlForAttach:read,friendlyRemoteAttachError:(e,label)=>Error(`${label}: ${e.message}`)});
+const upload=loaded.exports.uploadComposerAttachment;
+const requestGateway=async(method,params)=>{calls.push({method,params});if(attachFailure)throw Error('Synthetic Gateway unavailable');return {attached:true,path:params.path??'staged.png',ref_text:'@file:staged.txt'};};
+const records=[];
+for(const remote of [false,true])for(const kind of ['file','image']){
+ const p=path.join(fixture,kind==='image'?'image.png':'sample.txt'),sessionId=`session-${remote}-${kind}`;
+ const actual=await upload({id:'a',kind,path:p,label:path.basename(p)},{remote,requestGateway,sessionId});
+ const call=calls.at(-1);assert.equal(actual.attachedSessionId,sessionId);assert.equal(call.params.session_id,sessionId);
+ if(kind==='file')assert.equal(call.params.path,'"'+p+'"');
+ assert.equal(call.method,kind==='file'?'file.attach':remote?'image.attach_bytes':'image.attach');
+ const data=call.params.data_url?.split(',')[1]??call.params.content_base64;
+ if(remote)assert.equal(sha(Buffer.from(data,'base64')),sha(fs.readFileSync(p)));
+ records.push({case:`${remote?'remote':'local'}-${kind}`,method:call.method,sessionId,encodedLength:data?.length,rawBytes:fs.statSync(p).size,byteSha256:sha(fs.readFileSync(p)),result:actual});
+}
+readFailure=true;const before=calls.length;
+await assert.rejects(upload({id:'a',kind:'file',path:'missing',label:'missing'},{remote:true,requestGateway,sessionId:'failure'}),/Synthetic controlled read failure/);assert.equal(calls.length,before);readFailure=false;
+attachFailure=true;await assert.rejects(upload({id:'a',kind:'image',path:path.join(fixture,'image.png')},{remote:false,requestGateway,sessionId:'retry'}),/Gateway unavailable/);attachFailure=false;
+const retried=await upload({id:'a',kind:'image',path:path.join(fixture,'image.png')},{remote:false,requestGateway,sessionId:'retry'});assert.equal(retried.attachedSessionId,'retry');
+write('upload-function-local',{status:'PASS',level:'MOCK_ONLY_L2_EXACT_LOCKED_FUNCTION_NATIVE_TRANSPORT_MOCKED',sourceSha256:sha(source),records,readFailureNoRpc:true,explicitRetryAfterKnownFailure:true,unknownAutomaticRetry:false});
+console.log(JSON.stringify({status:'PASS',routes:records.length,readFailureAndExplicitRetry:true}));

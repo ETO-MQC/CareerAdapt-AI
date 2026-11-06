@@ -1,0 +1,429 @@
+{
+  "status": "PARTIAL",
+  "commit": "343eeb8e7e82e4c86c6d55a5db2344a4d8a9705b",
+  "submitted": false,
+  "pushed": false,
+  "files": [
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\app-drag-drop-verification.json",
+      "sha256": "97138278550b80f351480cc782c3088d3d346bb1243711ff4601c1978e73b8e0"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\attachment-fixture-manifest.json",
+      "sha256": "8bcf7b45eae9f550260a6a0278e69dbddddc57b7ab187c4bf84e6a411248db65"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\attachment-path-patch.json",
+      "sha256": "74642be35ea78bec515652d7301849d58797ff50df4051ff9eb05314531706f9"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\attachment-staging-ledger.json",
+      "sha256": "96cb73b1b1d3cb8baa3b199d92e38a0045a43ef224503c3059f72969c2120a26"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\baseline.json",
+      "sha256": "0107f151a0498194bd6badc01038705eaa74be5ed326e6704dd0f547790ad116"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\cancellation-verification.json",
+      "sha256": "956d9c7ce418221da3602b52fc5fb067a2dd2247ab18b8348c790ed1ea4c9e6f"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\clipboard-pixel-verification.json",
+      "sha256": "be28e65664090bff238295b7e23a09158ab5cdcd7ad814d2b51bf665390d6e87"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\clipboard-verification.json",
+      "sha256": "e986de1f52db09016fba001625529b8db6d1935facfab9c6694fafe349dc2621"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\content-integrity-verification.json",
+      "sha256": "9e915ed68678587ff81c521c55e2a457ea3ba68fbe40a175b8d3030547411cbb"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\context-reference-local.json",
+      "sha256": "5be4423578f5334b8a46d4c3daa3b4057074326bee82f7c67ac26a056b24343a"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\credential-audit.json",
+      "sha256": "2928b5f412a6d51eb0f9fd8d7293eee6daf97bd2135c4781fd905c3852994b63"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\electron-run-1793886904053.json",
+      "sha256": "556738799fab973961fc4be5d83f20926e7e3cfcf9b3ebb0e81463cf0737e379"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\electron-run-1793887003157.json",
+      "sha256": "5d3e38df462c5ddb2e042c60b78b36ff7a7ffc4a241a017abe06c35cb6215e9d"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\failure-record.json",
+      "sha256": "d8dc4e4708638d21d35b167b7401d9091c6b8b20bc68ddd21683b4def2d72dfe"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\file-picker-verification.json",
+      "sha256": "d3ed64759ad1009adaf9b10835698c2b77c9e6ff0b5d190becc3917ffff1fc95"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\final-protection-verification.json",
+      "sha256": "d77f5947072906f5b6a142d1570c3d541c6b711641b778c04b689fa4bf8a5f44"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\folder-reference-verification.json",
+      "sha256": "220d7ab4ebc9ca26042f5178c7039e3c62ea64200edf2e98b6d4403a3cd9ad43"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\image-picker-verification.json",
+      "sha256": "a2ad9c9aa5ce1088d4b2ae0eb6135c0b2bb14bc12e8af75364cd89af90a8eefb"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\image-routing-ledger.json",
+      "sha256": "3e790b1be79b1ac199331526bd06de69214890ed15508d924cb1458de7bcada1"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\image-routing-local.json",
+      "sha256": "9b944f4c5ddd957d32033bfeecf90f39988e3608b1b4bdb6e876c8e5625523ec"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\interaction-verification.json",
+      "sha256": "5d3e38df462c5ddb2e042c60b78b36ff7a7ffc4a241a017abe06c35cb6215e9d"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\model-understanding-ledger.json",
+      "sha256": "b1018b8396810d142f1b2f77b339c8a6224aa7f7a26b70cc7210392195caba18"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\os-drag-drop-verification.json",
+      "sha256": "b842ca53b685a8bd1999c9e918510d2c76c2873b02c03b9165c619bbfe1a5eab"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\path-resolution-verification.json",
+      "sha256": "9d87b1ec2570f3623fe249f4bd907b144635fc54c9f411335f79076a3e5fc7bb"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\performance-boundary-local.json",
+      "sha256": "33b74154a5667f2e210a7dc4be59e83e6a20d4b83f65dcf71b528919559ff432"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\performance-verification.json",
+      "sha256": "41efcc035f05a59acafcc8fb3cb95cd73857f4f2c25000d9167c23d276fe1eae"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\prerequisite-verification.json",
+      "sha256": "8f8f259dd58f7170e0390df2eddabd9c7a65779977a02663bf5cb947e6a133a3"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\provider-config-verification.json",
+      "sha256": "23f70b1d96027800196837945f3b981be046641e4226ace96a468d1e13408870"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\provider-payload-ledger.json",
+      "sha256": "4ba66ccd4b51ebd6f72a1767f17fc78d29fb712c25548161b8034db301625a3f"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\provider-payload-round2.json",
+      "sha256": "0d5e9061ab2f2b367029290cab57dbaac933ca09bab724ebb09c1ceb6a743249"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-build\\native-typecheck.json",
+      "sha256": "66cc70886017cf125d7d213536024ed17431852f274b610a3f2d2804f2f74a8f"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-build\\patch-manifest.json",
+      "sha256": "48d74114ee84aa682f367d38f10457f9755cdc9932b61c625200968259bb69fd"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-build\\patched\\apps\\desktop\\src\\app\\chat\\composer\\hooks\\use-composer-placeholder.ts.txt",
+      "sha256": "f26b09f14b2b4731f42e39dd115fd813425fed97c2e3ba3507a9edb33099a0ff"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-build\\patched\\apps\\desktop\\src\\app\\chat\\index.tsx.txt",
+      "sha256": "13d965806003ba43303ccb72723d2d43666514d7fce9ddfa7a20dc14a27903fc"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-build\\patched\\apps\\desktop\\src\\app\\chat\\sidebar\\index.tsx.txt",
+      "sha256": "b5407eca221f2c9abe4f898e1a3aa18d3fd3781d188feddb6174dc0f714dbee2"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-build\\patched\\apps\\desktop\\src\\app\\contrib\\controller.tsx.txt",
+      "sha256": "d7691d38b87c925031add45f41165653e75d68ca8124b1ac6955ad89b62863ef"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-build\\patched\\apps\\desktop\\src\\app\\contrib\\surfaces.tsx.txt",
+      "sha256": "2302b5bfe6546ebfdc7d1228f61ac40635857aae91c929b27b6bcda1a29c4a5e"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-build\\patched\\apps\\desktop\\src\\app\\gateway\\hooks\\use-gateway-request.ts.txt",
+      "sha256": "5ba2afca1e288daa9d3e54d96aa5d32c14a4db9f702c8d7734f65ec88cb441ff"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-build\\patched\\apps\\desktop\\src\\app\\routes.ts.txt",
+      "sha256": "a6713c05637172e765d873e44ad9730d8d7646006b15ce318c3353465a869d42"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-build\\patched\\apps\\desktop\\src\\app\\session\\hooks\\use-prompt-actions\\submit.ts.txt",
+      "sha256": "745791cce6fab653a0c325757aa63fea6ba7e7d1bef475b972f35af79755ea50"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-build\\patched\\apps\\desktop\\src\\app\\shell\\hooks\\use-statusbar-items.tsx.txt",
+      "sha256": "89ddd40a44eac899b827faf6431b971bf7031421d71be96ecf4f042f395cb7de"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-build\\patched\\apps\\desktop\\src\\components\\chat\\intro.tsx.txt",
+      "sha256": "4e16143bb6bda33a3576581f6becd987ba8cdd0a57f2cd9d053890ac6c9f437e"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-fixed\\native-typecheck.json",
+      "sha256": "66cc70886017cf125d7d213536024ed17431852f274b610a3f2d2804f2f74a8f"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-fixed\\patch-manifest.json",
+      "sha256": "f27aae7d9aeaa2e44d7ca492fd6195ff205d70fa9cf585034655a2cfb90abade"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-fixed\\patched\\apps\\desktop\\src\\app\\chat\\composer\\hooks\\use-composer-placeholder.ts.txt",
+      "sha256": "f26b09f14b2b4731f42e39dd115fd813425fed97c2e3ba3507a9edb33099a0ff"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-fixed\\patched\\apps\\desktop\\src\\app\\chat\\index.tsx.txt",
+      "sha256": "13d965806003ba43303ccb72723d2d43666514d7fce9ddfa7a20dc14a27903fc"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-fixed\\patched\\apps\\desktop\\src\\app\\chat\\sidebar\\index.tsx.txt",
+      "sha256": "b5407eca221f2c9abe4f898e1a3aa18d3fd3781d188feddb6174dc0f714dbee2"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-fixed\\patched\\apps\\desktop\\src\\app\\contrib\\controller.tsx.txt",
+      "sha256": "d7691d38b87c925031add45f41165653e75d68ca8124b1ac6955ad89b62863ef"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-fixed\\patched\\apps\\desktop\\src\\app\\contrib\\surfaces.tsx.txt",
+      "sha256": "2302b5bfe6546ebfdc7d1228f61ac40635857aae91c929b27b6bcda1a29c4a5e"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-fixed\\patched\\apps\\desktop\\src\\app\\gateway\\hooks\\use-gateway-request.ts.txt",
+      "sha256": "5ba2afca1e288daa9d3e54d96aa5d32c14a4db9f702c8d7734f65ec88cb441ff"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-fixed\\patched\\apps\\desktop\\src\\app\\routes.ts.txt",
+      "sha256": "a6713c05637172e765d873e44ad9730d8d7646006b15ce318c3353465a869d42"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-fixed\\patched\\apps\\desktop\\src\\app\\session\\hooks\\use-prompt-actions\\index.ts.txt",
+      "sha256": "119ee96c8065f419d906546faeffcca5007698905a0fd7961d69cceed6e439c2"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-fixed\\patched\\apps\\desktop\\src\\app\\session\\hooks\\use-prompt-actions\\submit.ts.txt",
+      "sha256": "745791cce6fab653a0c325757aa63fea6ba7e7d1bef475b972f35af79755ea50"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-fixed\\patched\\apps\\desktop\\src\\app\\shell\\hooks\\use-statusbar-items.tsx.txt",
+      "sha256": "89ddd40a44eac899b827faf6431b971bf7031421d71be96ecf4f042f395cb7de"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-fixed\\patched\\apps\\desktop\\src\\components\\chat\\intro.tsx.txt",
+      "sha256": "4e16143bb6bda33a3576581f6becd987ba8cdd0a57f2cd9d053890ac6c9f437e"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-live\\patch-manifest.json",
+      "sha256": "2d868a96537b53b30f04a4e94b59079254d192a5ffad6049025e8eb5a817364f"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-live\\patched\\apps\\desktop\\src\\app\\chat\\composer\\hooks\\use-composer-placeholder.ts.txt",
+      "sha256": "f26b09f14b2b4731f42e39dd115fd813425fed97c2e3ba3507a9edb33099a0ff"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-live\\patched\\apps\\desktop\\src\\app\\chat\\index.tsx.txt",
+      "sha256": "13d965806003ba43303ccb72723d2d43666514d7fce9ddfa7a20dc14a27903fc"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-live\\patched\\apps\\desktop\\src\\app\\chat\\sidebar\\index.tsx.txt",
+      "sha256": "b5407eca221f2c9abe4f898e1a3aa18d3fd3781d188feddb6174dc0f714dbee2"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-live\\patched\\apps\\desktop\\src\\app\\contrib\\controller.tsx.txt",
+      "sha256": "d7691d38b87c925031add45f41165653e75d68ca8124b1ac6955ad89b62863ef"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-live\\patched\\apps\\desktop\\src\\app\\contrib\\surfaces.tsx.txt",
+      "sha256": "2302b5bfe6546ebfdc7d1228f61ac40635857aae91c929b27b6bcda1a29c4a5e"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-live\\patched\\apps\\desktop\\src\\app\\gateway\\hooks\\use-gateway-request.ts.txt",
+      "sha256": "5ba2afca1e288daa9d3e54d96aa5d32c14a4db9f702c8d7734f65ec88cb441ff"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-live\\patched\\apps\\desktop\\src\\app\\routes.ts.txt",
+      "sha256": "a6713c05637172e765d873e44ad9730d8d7646006b15ce318c3353465a869d42"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-live\\patched\\apps\\desktop\\src\\app\\session\\hooks\\use-prompt-actions\\submit.ts.txt",
+      "sha256": "745791cce6fab653a0c325757aa63fea6ba7e7d1bef475b972f35af79755ea50"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-live\\patched\\apps\\desktop\\src\\app\\shell\\hooks\\use-statusbar-items.tsx.txt",
+      "sha256": "89ddd40a44eac899b827faf6431b971bf7031421d71be96ecf4f042f395cb7de"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\renderer-live\\patched\\apps\\desktop\\src\\components\\chat\\intro.tsx.txt",
+      "sha256": "4e16143bb6bda33a3576581f6becd987ba8cdd0a57f2cd9d053890ac6c9f437e"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\screenshots\\1793887003157-clipboard-image.png",
+      "sha256": "de4aa7e63b4a203586830f198c8b215b5ab05e64d07890beb34991dde34869aa"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\screenshots\\1793887003157-files-selected.png",
+      "sha256": "637c4ddc0e3836d8bc2f6b7aeed930f262b74ead3955a149257b775557e4b43c"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\screenshots\\1793887003157-in-app-ref.png",
+      "sha256": "1a41df4fd8058f2ec32a426e3c9880f0849aa6fa36b86ef03d6c3813ce708716"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\screenshots\\1793887003157-ready.png",
+      "sha256": "1b5c712f19ddc51232d462c69fa5cc393246f85a6abbad16adc7a38adc8fe359"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\screenshots\\1793887003157-tool-attachment-txt.png",
+      "sha256": "d8ce6f93431d64aef9ecec4ab086931a13fcc59aa1b2e0ecd6add2d2ce0bf2af"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\session-binding-ledger.json",
+      "sha256": "d271555e8a2d8a8884db4e2d61365ccf015e639629e1b427d4ad5ffe34014d39"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\session-isolation-verification.json",
+      "sha256": "adfa94bf3ce68d7393c29fac1d016e3c80d3c7cc580bd63849932977435038b4"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\source-audit.json",
+      "sha256": "970487367c9b9be452e85fd710d707c4be6e9ff6099129a608d99ea54f4de548"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\startup-1793887003157.jsonl",
+      "sha256": "06705572ee0cf3af3f759cced485082e882e3081f65d03ae25d829a39d045f98"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\test-results.json",
+      "sha256": "89f7bc1519e249f16727ab1028551a07e62799dd38d0732901f42b0ef9687ba3"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\third\\clipboard-submit-verification.json",
+      "sha256": "1e6189c00e3ffe7b1f632a053ead838ae1f76ce7b841d958b930fb8582616d4b"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\third\\electron-run-1793887855950.json",
+      "sha256": "3037465e71b3157997c3991db4975448479f968ce494bb54e0dff06b526e6125"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\third\\image-picker-third-verification.json",
+      "sha256": "2955304c307c6c3c5b6bd59972e48adb0545370d86841e611d60f4a9454ce0c1"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\third\\image-routing-ledger.json",
+      "sha256": "757dbed83d4ab5ab7c8134e2705096307258c2155cdebad1abc20e83d4ebec5d"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\third\\interaction-verification.json",
+      "sha256": "3037465e71b3157997c3991db4975448479f968ce494bb54e0dff06b526e6125"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\third\\prerequisite-verification.json",
+      "sha256": "8f8f259dd58f7170e0390df2eddabd9c7a65779977a02663bf5cb947e6a133a3"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\third\\screenshots\\1793887855950-failure.png",
+      "sha256": "75c3bb10f1285fc599896ff5ab6a74625f8f137b958c443d8c049dba9373c50d"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\third\\screenshots\\1793887855950-native-clipboard-before-submit.png",
+      "sha256": "01d9387d4a2c9a203a7ed8fa6c0bffc01eb9e06fd8391bbefa06b867828840c3"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\third\\screenshots\\1793887855950-partial-upload-failure.png",
+      "sha256": "67da32948e4fdb19bda77872ec92241b25650908727a0dcc584ff66e9ddad5bb"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\third\\screenshots\\1793887855950-ready.png",
+      "sha256": "eaf5431a73eaf4e023f63f8b30624e0c98df5febc2efd2e247e5a1f6acf4a1b3"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\third\\startup-1793887855950.jsonl",
+      "sha256": "515d4597785fe37b82600418251f4f212821f097facf18dc97e0d97452e5d7f9"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\unknown-regression\\reliability-patch-manifest.json",
+      "sha256": "8fdd14d3aac15b9526b167f04bd052a4caf770d29e9c2d4dc56ceba57ebf5879"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\unknown-regression\\retry-fault-verification.json",
+      "sha256": "4f7f8ab007c0f6b70989e50148bddf3428b46776216efdb66c2e2f62d22d597a"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\upload-failure-verification.json",
+      "sha256": "bdf6344d15996188cb04cacae329f1a18ed476067cc8d742bb7286effa06884e"
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-host-a02-03\\upload-function-local.json",
+      "sha256": "b0bf0b17fb758f95f59ba9075d850bb1502638ac501c5f82c597f1728e3de1cf"
+    },
+    {
+      "path": "docs/architecture/p5.2.2-host-a02-03-native-attachment-pipeline.md",
+      "sha256": "eb7f40accce1bbfed72c7e029647231167f149b62807c194e2b21fd9af951f60"
+    },
+    {
+      "path": "scripts\\p522-host-a02-03-baseline.mjs",
+      "sha256": "4104cf7b268a80b5c172a08c9d522a706188387a00a349c69f56d9ee80fc9c71"
+    },
+    {
+      "path": "scripts\\p522-host-a02-03-boundary.mjs",
+      "sha256": "8ca0ba3a47501e2e67b76c4bd1ad5b90ac9104423b2636bdbf23b035ca3d0354"
+    },
+    {
+      "path": "scripts\\p522-host-a02-03-cases.mjs",
+      "sha256": "ae1dfda0a0649028f3ddd014556d07541b039be3c805e838ca5349c7fbaffb6e"
+    },
+    {
+      "path": "scripts\\p522-host-a02-03-common.mjs",
+      "sha256": "5aee1239779ee01c634ab087fb756a3992edd18156bcec6d941e8976e43fee70"
+    },
+    {
+      "path": "scripts\\p522-host-a02-03-deliver.mjs",
+      "sha256": "cdcb0ac7d31d417f6479b32077e90e6e513114df6b7974eada66a38cd4e20193"
+    },
+    {
+      "path": "scripts\\p522-host-a02-03-electron.mjs",
+      "sha256": "d9908730ca2c45a8c21a4f3624b829f0f510862e472a0e773d4c6fedec67c6e2"
+    },
+    {
+      "path": "scripts\\p522-host-a02-03-fixtures.py",
+      "sha256": "8828e2f37ea317cd12f8195cb56f72fa85dff302d2903eb1e246b3c21dd5fd92"
+    },
+    {
+      "path": "scripts\\p522-host-a02-03-local.py",
+      "sha256": "83bbbb96e461d9d1b6ad66d628b442c10a01c4ad910b5391264f72987211ef2c"
+    },
+    {
+      "path": "scripts\\p522-host-a02-03-patches.mjs",
+      "sha256": "45977502e47b3c5cce4a1f0c163bb099385bc6160d9f50193d3d955ddc54a2a3"
+    },
+    {
+      "path": "scripts\\p522-host-a02-03-proxy.mjs",
+      "sha256": "2669f57de25ce8929b55327011f18761e3bffa8c08f9807cca52bffe1e83ebca"
+    },
+    {
+      "path": "scripts\\p522-host-a02-03-targeted.mjs",
+      "sha256": "0051cde6efd0b71661eb006615f8bb785d84d57c5665850e314d096e3c0e7ee2"
+    },
+    {
+      "path": "scripts\\p522-host-a02-03-third.mjs",
+      "sha256": "a608aeb2979e2bb40ad45d310af10d4ccbdc891916ca71aad18b9279edceb710"
+    },
+    {
+      "path": "scripts\\p522-host-a02-03-upload-test.mjs",
+      "sha256": "55a3c06692986c50257147dcf880f6693e732c2115977bc84099c4b642ca1406"
+    }
+  ],
+  "deletionPolicySatisfied": false
+}

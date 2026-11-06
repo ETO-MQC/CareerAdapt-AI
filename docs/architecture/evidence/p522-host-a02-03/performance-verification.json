@@ -1,0 +1,102 @@
+{
+  "smallFiles": {
+    "scope": "Small synthetic files only",
+    "processMetrics": [
+      {
+        "type": "Browser",
+        "memory": {
+          "workingSetSize": 196276,
+          "peakWorkingSetSize": 220452,
+          "privateBytes": 143500
+        }
+      },
+      {
+        "type": "GPU",
+        "memory": {
+          "workingSetSize": 153600,
+          "peakWorkingSetSize": 204960,
+          "privateBytes": 57636
+        }
+      },
+      {
+        "type": "Utility",
+        "memory": {
+          "workingSetSize": 58040,
+          "peakWorkingSetSize": 67444,
+          "privateBytes": 17680
+        }
+      },
+      {
+        "type": "Tab",
+        "memory": {
+          "workingSetSize": 523620,
+          "peakWorkingSetSize": 642196,
+          "privateBytes": 415876
+        }
+      },
+      {
+        "type": "Utility",
+        "memory": {
+          "workingSetSize": 91988,
+          "peakWorkingSetSize": 91988,
+          "privateBytes": 12412
+        }
+      }
+    ],
+    "rssPeak": "NOT_SAMPLED",
+    "largeBoundary": "NOT_VERIFIED",
+    "rendererResponsive": true
+  },
+  "nativeBoundary": {
+    "status": "NOT_VERIFIED"
+  },
+  "localBoundary": {
+    "status": "PASS_MOCK_ONLY_L2_MAIN_FUNCTION_REAL_FILES",
+    "scope": "Exact locked Main file validation + fs.readFile + base64, no Electron IPC/Renderer/Provider",
+    "mainReadLimit": 16777216,
+    "records": [
+      {
+        "rawBytes": 16777215,
+        "filename": "boundary-16777215.bin",
+        "sha256": "ae05b8545c83433c09c1239d8f4cd2a4c02d9e3eb3b6ef84e6dba7e36d437186",
+        "rssBefore": 101527552,
+        "accepted": true,
+        "base64Length": 22369620,
+        "rssAfterEncoding": 140251136,
+        "elapsedMs": 28.981899999999996
+      },
+      {
+        "rawBytes": 16777216,
+        "filename": "boundary-16777216.bin",
+        "sha256": "e6c907c2d418fa03118465063701b759c4f0f0a9d70ae90aa7cec552e2d33931",
+        "rssBefore": 157040640,
+        "accepted": true,
+        "base64Length": 22369624,
+        "rssAfterEncoding": 162926592,
+        "elapsedMs": 33.72719999999998
+      },
+      {
+        "rawBytes": 16777217,
+        "filename": "boundary-16777217.bin",
+        "sha256": "9ae66c5e7976ce33b1f6ca789c86c69eae9654d6d81c273facc676269717d13e",
+        "rssBefore": 179712000,
+        "accepted": false,
+        "error": "Error: File preview failed: file is too large (16777217 bytes; limit 16777216 bytes).",
+        "elapsedMs": 17.37009999999998
+      }
+    ],
+    "rendererRssPeak": "NOT_VERIFIED",
+    "gatewayImageCap": 26214400,
+    "pdfRpcCap": 52428800,
+    "pdfPages": 25,
+    "genericFileAttachCap": "No explicit cap in locked file.attach handler"
+  },
+  "actualImageAttachMs": [
+    10214
+  ],
+  "upstreamImageRequestMs": [
+    103220
+  ],
+  "fullLifecycleRssPeak": "NOT_QUALIFIED",
+  "providerLargeFileTest": false
+}

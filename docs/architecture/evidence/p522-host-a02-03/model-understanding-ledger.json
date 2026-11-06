@@ -1,0 +1,41 @@
+{
+  "status": "PARTIAL",
+  "prerequisite": "PARTIAL",
+  "fullQualification": false,
+  "records": [
+    {
+      "sample": "sample.txt",
+      "markerAbsentFromPrompt": true,
+      "expected": "A02_TXT_4E0CB50F9F",
+      "answer": "1. A circle has no corners or edges.\n2. A square has four equal sides.\n3. A triangle always has three angles.\n4. A rectangle has opposite sides that match.\n5. A pentagon contains five sides.\n6. A hexagon features six straight edges.\n7. A heptagon has seven sides.\n8. An octagon has eight sides.\n9. A nonagon has nine sides.\n10. A decagon has ten sides.\n11. A cube is a three-dimensional square.\n12. A sphere looks like a perfect ball.\n13. A cylinder stands like a can.\n14. A cone tapers to a point.\n15. A prism has two identical bases.\n16. An ellipse resembles a stretched circle.\n17. A rhombus has equal-length sides.\n18. A parallelogram has parallel opposite sides.\n19. A trapezoid has one pair of parallel sides.\n20. An equilateral triangle has three equal sides.\n21. A right triangle has a 90-degree angle.\n22. A scalene triangle has no equal sides.\n23. An isosceles triangle has two equal sides.\n24. A diamond is a tilted square.\n25. A regular polygon has equal sides and angles.\n26. A star has multiple sharp points.\n27. A crescent resembles a curved moon.\n28. A trapezoid can be isosceles or scalene.\n29. A dodecagon has twelve sides.\n30. An icosahedron has twenty faces.\n31. A tetrahedron has four triangular faces.\n32. A torus looks like a doughnut.\n33. An octahedron has eight triangular faces.\n34. A frustum is a cut-off cone or pyramid.\n35. Geometric shapes build the visual world.\n\nUnique marker: `A02_TXT_4E0CB50F9F`",
+      "correct": true,
+      "session": "9fce9716",
+      "submit": [
+        {
+          "at": 1793887205583,
+          "id": 147,
+          "method": "prompt.submit",
+          "sessionId": "9fce9716",
+          "params": {
+            "session_id": "9fce9716",
+            "text": "@file:.hermes/desktop-attachments/sample.txt\n\nRead the attached synthetic text file. Return the unique marker found inside it. Do not call any tools."
+          },
+          "ackAt": 1793887205604,
+          "rejected": false,
+          "resultKeys": [
+            "status"
+          ],
+          "result": {
+            "status": "streaming"
+          }
+        }
+      ]
+    },
+    {
+      "sample": "clipboard/image.png",
+      "correct": false,
+      "actualImagePayload": true
+    }
+  ],
+  "pdf": "BLOCKED_A02_02_L4"
+}

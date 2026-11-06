@@ -1,0 +1,9 @@
+{
+  "level": "MOCK_ONLY_L2_LOCKED_GATEWAY_RESOLVER_NO_UPLOAD_NO_PROVIDER",
+  "status": "PASS_QUOTED_PATH_FIX",
+  "oldWrongPrefixResolution": "[WORKSPACE_PARENT]\\CareerAdapt",
+  "missingQuotedResolved": null,
+  "validQuotedMatches": true,
+  "originalMissingPathRejected": false,
+  "electronReverification": "NOT_VERIFIED_THREE_ROUNDS_EXHAUSTED"
+}

@@ -1,0 +1,95 @@
+{
+  "status": "PARTIAL_NOT_ALL_GATES_PASS",
+  "checks": [
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "scope": "Before and after"
+    },
+    {
+      "command": "native vitest --project ui composer/store/actions/attachments/prompt-actions/draft (5 files)",
+      "exitCode": 0,
+      "passed": 121
+    },
+    {
+      "command": "python -m pytest tests/test_tui_gateway_server.py -k \"file_attach or image_attach or pdf_attach\"",
+      "exitCode": 0,
+      "passed": 16,
+      "deselected": 448
+    },
+    {
+      "command": "python -m pytest tests/agent/test_context_references.py tests/agent/test_image_routing.py",
+      "exitCode": 1,
+      "passed": 121,
+      "failed": 8,
+      "failures": [
+        "test_blocks_sensitive_home_and_hermes_paths (Windows HOME test uses HOME while Path.home uses USERPROFILE)",
+        "7 TestExtractImageRefs absolute/home path cases (POSIX extraction regex versus Windows paths)"
+      ],
+      "upstreamModified": false
+    },
+    {
+      "command": "native vitest --project electron hardening.test.ts wsl-clipboard-image.test.ts",
+      "exitCode": 0,
+      "passed": 22,
+      "policyDeviation": "Existing hardening tests recursively removed their own temporary directories; see failure-record.json. Not compliant with no-delete instruction."
+    },
+    {
+      "command": "python scripts/p522-host-a02-03-local.py",
+      "exitCode": 0,
+      "contextCases": 10
+    },
+    {
+      "command": "node scripts/p522-host-a02-03-upload-test.mjs",
+      "exitCode": 0,
+      "scope": "MOCK_ONLY_L2 4 routes/read failure/explicit retry"
+    },
+    {
+      "command": "image routing decision matrix",
+      "exitCode": 0,
+      "cases": 6,
+      "scope": "MOCK_ONLY_L2; no auxiliary Provider"
+    },
+    {
+      "command": "node scripts/p522-host-a01-renderer.mjs --careeradapt --reliability --build --evidence-dir=.../renderer-build --build-dir=.artifacts/p522-host-a02-03/renderer-build",
+      "exitCode": 0,
+      "warnings": "Existing CSS delimiter, barrel and large chunk warnings"
+    },
+    {
+      "command": "node scripts/p522-host-a01-native-typecheck.mjs --evidence-dir=.../renderer-build",
+      "exitCode": 0,
+      "baseline": 0,
+      "integrated": 0,
+      "introduced": 0
+    },
+    {
+      "command": "node scripts/p522-host-a02-01-faults.mjs --evidence-dir=.../unknown-regression",
+      "exitCode": 0,
+      "cases": 10
+    },
+    {
+      "command": "pnpm exec eslint scripts/p522-host-a02-03-*.mjs",
+      "exitCode": 0
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    },
+    {
+      "command": "node scripts/p522-host-a02-03-boundary.mjs",
+      "exitCode": 0,
+      "cases": 3,
+      "scope": "MOCK_ONLY_L2 exact Main validation and actual 16 MiB boundary files"
+    },
+    {
+      "command": "Opt-in attachment path patch",
+      "status": "UNIT_AND_BUILD_PASS_ELECTRON_NOT_REVERIFIED",
+      "scope": "--careeradapt --attachments only; exact locked source SHA"
+    },
+    {
+      "command": "optIn=false default Shell regression",
+      "status": "DEFAULT_BUILD_PASS_RUNTIME_NOT_REVERIFIED",
+      "reason": "Integration plugin absent in default build; three Electron rounds exhausted"
+    }
+  ]
+}

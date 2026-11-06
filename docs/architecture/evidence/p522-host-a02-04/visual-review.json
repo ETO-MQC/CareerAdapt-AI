@@ -1,0 +1,8 @@
+{
+  "status": "OBSERVED",
+  "screenshots": [
+    "screenshots/1793898281301-2-restart-A.png",
+    "screenshots/1793898281301-1793899219021-2-unknown-after-restart.png"
+  ],
+  "findings": "Actual native Electron screenshots visually inspected: restored A response/draft and visible UNKNOWN error after restart. No new layout change."
+}

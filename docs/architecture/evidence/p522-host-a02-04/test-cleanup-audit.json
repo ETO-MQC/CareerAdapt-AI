@@ -1,0 +1,178 @@
+{
+  "status": "PASS_NO_FILESYSTEM_DELETE_IN_SELECTED_TESTS_OR_SETUP",
+  "audits": [
+    {
+      "file": "src/store/composer.test.ts",
+      "sha256": "e5d80ec336c7cb8c58a0a236d9b7d9ffb588010f354980219103b6f005cbcafa",
+      "filesystemDeleteTokens": [],
+      "cleanupLines": [
+        {
+          "line": 1,
+          "text": "import { afterEach, describe, expect, it } from 'vitest'"
+        },
+        {
+          "line": 21,
+          "text": "afterEach(() => {"
+        },
+        {
+          "line": 51,
+          "text": "afterEach(() => {"
+        },
+        {
+          "line": 56,
+          "text": "window.localStorage.clear()"
+        }
+      ]
+    },
+    {
+      "file": "src/store/session.test.ts",
+      "sha256": "521d6c6ddddb094fd32390480ee16db138a55cbedf0453590bde266e327f26dd",
+      "filesystemDeleteTokens": [],
+      "cleanupLines": [
+        {
+          "line": 1,
+          "text": "import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'"
+        },
+        {
+          "line": 55,
+          "text": "afterEach(() => {"
+        },
+        {
+          "line": 211,
+          "text": "afterEach(() => {"
+        },
+        {
+          "line": 216,
+          "text": "window.localStorage.removeItem('hermes.desktop.workspace-cwd')"
+        },
+        {
+          "line": 217,
+          "text": "window.localStorage.removeItem('hermes.desktop.workspace-cwd.remote.http%3A%2F%2Fbackend-a.default')"
+        },
+        {
+          "line": 218,
+          "text": "window.localStorage.removeItem('hermes.desktop.workspace-cwd.remote.http%3A%2F%2Fbackend-b.default')"
+        },
+        {
+          "line": 294,
+          "text": "afterEach(() => {"
+        },
+        {
+          "line": 351,
+          "text": "afterEach(() => {"
+        },
+        {
+          "line": 408,
+          "text": "localStorage.clear()"
+        },
+        {
+          "line": 411,
+          "text": "afterEach(() => {"
+        },
+        {
+          "line": 412,
+          "text": "localStorage.clear()"
+        }
+      ]
+    },
+    {
+      "file": "src/store/session-switcher.test.ts",
+      "sha256": "0c1c73bfeb948c68d54701e9a702cf8f910adc4c39a378847897ab2d7d0aff43",
+      "filesystemDeleteTokens": [],
+      "cleanupLines": [
+        {
+          "line": 1,
+          "text": "import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'"
+        },
+        {
+          "line": 41,
+          "text": "afterEach(() => {"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/inflight-turn-journal.test.ts",
+      "sha256": "f662fa817922905aecf983980b9f8193ac3609ea24106e14bf22ad7d11e9569d",
+      "filesystemDeleteTokens": [],
+      "cleanupLines": [
+        {
+          "line": 1,
+          "text": "import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'"
+        },
+        {
+          "line": 49,
+          "text": "window.localStorage.clear()"
+        },
+        {
+          "line": 52,
+          "text": "afterEach(() => {"
+        }
+      ]
+    },
+    {
+      "file": "src/app/chat/composer/hooks/use-composer-draft.test.tsx",
+      "sha256": "ca3133c79f9d813188df5283c7db270ebf93bf4abc636914d1364bff8f4cdd71",
+      "filesystemDeleteTokens": [],
+      "cleanupLines": [
+        {
+          "line": 1,
+          "text": "import { act, cleanup, render } from '@testing-library/react'"
+        },
+        {
+          "line": 3,
+          "text": "import { afterEach, describe, expect, it, vi } from 'vitest'"
+        },
+        {
+          "line": 50,
+          "text": "afterEach(() => {"
+        },
+        {
+          "line": 51,
+          "text": "cleanup()"
+        },
+        {
+          "line": 52,
+          "text": "mainComposerScope.clear()"
+        },
+        {
+          "line": 88,
+          "text": "afterEach(() => {"
+        },
+        {
+          "line": 89,
+          "text": "cleanup()"
+        },
+        {
+          "line": 90,
+          "text": "mainComposerScope.clear()"
+        }
+      ]
+    },
+    {
+      "file": "vitest.setup.ts",
+      "sha256": "144f180712242550f5a69080397629f4229e9e5abb0c0e38153eb082e6200e29",
+      "filesystemDeleteTokens": [],
+      "cleanupLines": []
+    },
+    {
+      "file": "vitest.config.ts",
+      "sha256": "83dc9ff69fdf00827f494272c05e4f51f517b9a736bddfb1f3d92f2cdf45f06f",
+      "filesystemDeleteTokens": [],
+      "cleanupLines": []
+    },
+    {
+      "file": "vite.config.ts",
+      "sha256": "bcb62c381de6a3bb69a25eeb98ca85610a2c4d6049e04a42877091f3aaac3efc",
+      "filesystemDeleteTokens": [],
+      "cleanupLines": []
+    }
+  ],
+  "excluded": "electron/hardening.test.ts forbidden; Python pytest tmp_path cleanup not used; all test directories retained",
+  "framework": "Vitest cache disabled for this run; React cleanup affects DOM only",
+  "additionalCodecTest": {
+    "file": "src/lib/chat-messages.test.ts",
+    "sha256": "807a6577dbfd4f3f107cd9f0eae180dcb1ce7e8f03d7688f9fcba48891630d36",
+    "filesystemDeleteTokensFound": false,
+    "passed": 50
+  }
+}

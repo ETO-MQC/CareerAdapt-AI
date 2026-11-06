@@ -1,0 +1,84 @@
+{
+  "status": "PASS",
+  "level": "MOCK_ONLY_L2_NATIVE_CONTEXT_NO_PROVIDER",
+  "records": [
+    {
+      "name": "txt",
+      "expanded": true,
+      "warnings": [],
+      "message": "Inspect\n\n--- Attached Context ---\n\n📄 @file:sample.txt (512 tokens)\n```\nA02_TXT_4E0CB50F9F\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualification. No personal data.\nSynthetic attachment qualificat\n```",
+      "blocked": false
+    },
+    {
+      "name": "pdf",
+      "expanded": true,
+      "warnings": [],
+      "message": "Inspect\n\n--- Attached Context ---\n\n📎 @file:sample.pdf (application/pdf, 599 B) — binary file, not inlined as text. It is available on disk at `[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\sample.pdf`. Use your tools to work with it (read or convert it, extract its text, or view/render it as needed); do not tell the user the file type is unsupported.",
+      "blocked": false
+    },
+    {
+      "name": "empty",
+      "expanded": true,
+      "warnings": [],
+      "message": "Inspect\n\n--- Attached Context ---\n\n📄 @file:empty.txt (0 tokens)\n```\n\n```",
+      "blocked": false
+    },
+    {
+      "name": "unsupported",
+      "expanded": true,
+      "warnings": [],
+      "message": "Inspect\n\n--- Attached Context ---\n\n📎 @file:unsupported.xyz (application/octet-stream, 23 B) — binary file, not inlined as text. It is available on disk at `[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\unsupported.xyz`. Use your tools to work with it (read or convert it, extract its text, or view/render it as needed); do not tell the user the file type is unsupported.",
+      "blocked": false
+    },
+    {
+      "name": "corrupt",
+      "expanded": true,
+      "warnings": [],
+      "message": "Inspect\n\n--- Attached Context ---\n\n📎 @file:corrupt.png (image/png, 16 B) — binary file, not inlined as text. It is available on disk at `[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\corrupt.png`. Use your tools to work with it (read or convert it, extract its text, or view/render it as needed); do not tell the user the file type is unsupported.",
+      "blocked": false
+    },
+    {
+      "name": "folder",
+      "expanded": true,
+      "warnings": [],
+      "message": "Inspect\n\n--- Attached Context ---\n\n📁 @folder:folder (10 tokens)\nfolder/\n- folder/\n- inside.txt (1 lines)",
+      "blocked": false
+    },
+    {
+      "name": "empty-folder",
+      "expanded": true,
+      "warnings": [],
+      "message": "Inspect\n\n--- Attached Context ---\n\n📁 @folder:empty-folder (4 tokens)\nempty-folder/",
+      "blocked": false
+    },
+    {
+      "name": "missing-folder",
+      "expanded": true,
+      "warnings": [
+        "@folder:missing: folder not found"
+      ],
+      "message": "Inspect\n\n--- Context Warnings ---\n- @folder:missing: folder not found",
+      "blocked": false
+    },
+    {
+      "name": "folder-is-file",
+      "expanded": true,
+      "warnings": [
+        "@folder:sample.txt: path is not a folder"
+      ],
+      "message": "Inspect\n\n--- Context Warnings ---\n- @folder:sample.txt: path is not a folder",
+      "blocked": false
+    },
+    {
+      "name": "missing-file",
+      "expanded": true,
+      "warnings": [
+        "@file:missing.txt: file not found"
+      ],
+      "message": "Inspect\n\n--- Context Warnings ---\n- @file:missing.txt: file not found",
+      "blocked": false
+    }
+  ],
+  "inaccessibleDirectory": "NOT_VERIFIED_NO_ACL_MUTATION",
+  "url": "NOT_VERIFIED_EXTERNAL_FETCH_DISABLED"
+}

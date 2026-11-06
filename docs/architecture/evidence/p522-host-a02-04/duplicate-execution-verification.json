@@ -1,0 +1,6 @@
+{
+  "status": "PASS_TWO_SENDS_NO_REPLAY",
+  "submitCount": 2,
+  "toolStartCount": 0,
+  "scope": "Normal A/B, reload and real Electron/backend restart; transport fault evidence separate L2"
+}

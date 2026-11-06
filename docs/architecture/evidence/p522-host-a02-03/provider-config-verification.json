@@ -1,0 +1,19 @@
+{
+  "source": "artifacts/p522-host-a02-01/provider.local.json",
+  "ignored": true,
+  "endpoint": "https://developer.amd.com.cn/radeon/api/v1",
+  "configuredModel": "Qwen3.8-27B",
+  "returnedModel": null,
+  "auxiliaryProvider": false,
+  "transmissionModes": [
+    "local image.attach",
+    "remote image.attach_bytes",
+    "file.attach path/data_url"
+  ],
+  "status": "CONFIG_VERIFIED_NOT_REQUEST_QUALIFICATION",
+  "returnedModelIds": [
+    "Qwen3.8-27B"
+  ],
+  "imageReturnedModel": "NOT_OBSERVED",
+  "nativeTestConnection": "Loopback transparent observer forwarding to configured upstream; no alternative Provider"
+}

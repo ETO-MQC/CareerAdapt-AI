@@ -1,0 +1,13 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import {out,root,host,sha,write,git,config,files} from './p522-host-a02-03-common.mjs';
+fs.mkdirSync(root,{recursive:true});
+const old=JSON.parse(fs.readFileSync('docs/architecture/evidence/p522-host-a02-02/baseline.json','utf8'));
+const checks=[...old.sourceChecks,...old.patchChecks,...old.protectedManifest].map(c=>({...c,actual:sha(fs.readFileSync(path.join(host,c.path)))}));
+const history=files('docs/architecture/evidence').filter(f=>/p522-host-a0(?:1|2-0[012])/.test(f)&&/manifest\.json$/.test(f)).map(file=>({file,sha256:sha(fs.readFileSync(file))}));
+const main='.artifacts/p522-host-a02-01/main-integration/main.mjs';
+write('baseline',{at:new Date().toISOString(),head:git('rev-parse','HEAD'),origin:git('rev-parse','origin/main'),fetchExit:0,status:git('status','--short'),ignored:git('status','--short','--ignored'),worktrees:git('worktree','list'),hermesHead:git('-C',host,'rev-parse','HEAD'),checks,history,main:{file:main,sha256:sha(fs.readFileSync(main))},deletionPolicy:'No files deleted; no automatic cleanup'});
+if(checks.some(c=>c.actual!==c.expected))throw Error('Protected source changed');
+write('provider-config-verification',{source:'artifacts/p522-host-a02-01/provider.local.json',ignored:Boolean(git('check-ignore','artifacts/p522-host-a02-01/provider.local.json')),endpoint:new URL(config.base_url).origin+new URL(config.base_url).pathname,configuredModel:config.model,returnedModel:null,auxiliaryProvider:false,transmissionModes:['local image.attach','remote image.attach_bytes','file.attach path/data_url'],status:'CONFIG_VERIFIED_NOT_REQUEST_QUALIFICATION'});
+write('os-drag-drop-verification',{status:'NOT_VERIFIED',reason:'Computer Use sky.list_apps failed: native pipe unavailable (os error 2). No OS drop simulated as genuine OS input.',cases:['file','image','multiple','unsupported','cancel']});
+console.log(JSON.stringify({protected:checks.length,historicalManifests:history.length,out}));

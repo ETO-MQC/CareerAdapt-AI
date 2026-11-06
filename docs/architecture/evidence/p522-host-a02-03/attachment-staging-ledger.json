@@ -1,0 +1,179 @@
+{
+  "records": [
+    {
+      "kind": "file-picker",
+      "selected": [
+        {
+          "id": "file:[PROJECT]/.artifacts/p522-host-a02-03/fixtures/sample.pdf",
+          "kind": "file",
+          "label": "sample.pdf",
+          "detail": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\sample.pdf",
+          "refText": "@file:.hermes/desktop-attachments/sample.pdf",
+          "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\sample.pdf",
+          "attachedSessionId": "9fce9716"
+        },
+        {
+          "id": "file:[PROJECT]/.artifacts/p522-host-a02-03/fixtures/sample.txt",
+          "kind": "file",
+          "label": "sample.txt",
+          "detail": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\sample.txt",
+          "refText": "@file:.hermes/desktop-attachments/sample.txt",
+          "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\sample.txt",
+          "attachedSessionId": "9fce9716"
+        }
+      ],
+      "session": "9fce9716"
+    },
+    {
+      "kind": "clipboard",
+      "selected": [
+        {
+          "id": "image:[PROJECT]/.artifacts/p522-host-a02-03/run-1793887003157/user-data/composer-images/composer_2026-11-05_14-03-38-500_9e1750.png",
+          "kind": "image",
+          "label": "composer_2026-11-05_14-03-38-500_9e1750.png",
+          "detail": "[PROJECT]\\.artifacts\\p522-host-a02-03\\run-1793887003157\\user-data\\composer-images\\composer_2026-11-05_14-03-38-500_9e1750.png",
+          "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\run-1793887003157\\user-data\\composer-images\\composer_2026-11-05_14-03-38-500_9e1750.png",
+          "previewUrl": {
+            "present": true,
+            "encodedLength": 7794
+          }
+        }
+      ],
+      "byteLength": 5828,
+      "sha256": "3d70956096e08a9926b1dbb609ffc4f6804a030cc1f1f3f6ce3e20372f947056"
+    }
+  ],
+  "rpc": [
+    {
+      "at": 1793887203155,
+      "id": 142,
+      "method": "file.attach",
+      "sessionId": "9fce9716",
+      "params": {
+        "name": "sample.pdf",
+        "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\sample.pdf",
+        "session_id": "9fce9716"
+      },
+      "ackAt": 1793887204547,
+      "rejected": false,
+      "resultKeys": [
+        "attached",
+        "name",
+        "path",
+        "ref_path",
+        "ref_text",
+        "uploaded"
+      ],
+      "result": {
+        "attached": true,
+        "name": "sample.pdf",
+        "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\run-1793887003157\\workspace\\.hermes\\desktop-attachments\\sample.pdf",
+        "ref_path": ".hermes/desktop-attachments/sample.pdf",
+        "ref_text": "@file:.hermes/desktop-attachments/sample.pdf",
+        "uploaded": true
+      }
+    },
+    {
+      "at": 1793887203156,
+      "id": 143,
+      "method": "file.attach",
+      "sessionId": "9fce9716",
+      "params": {
+        "name": "sample.txt",
+        "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\sample.txt",
+        "session_id": "9fce9716"
+      },
+      "ackAt": 1793887204597,
+      "rejected": false,
+      "resultKeys": [
+        "attached",
+        "name",
+        "path",
+        "ref_path",
+        "ref_text",
+        "uploaded"
+      ],
+      "result": {
+        "attached": true,
+        "name": "sample.txt",
+        "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\run-1793887003157\\workspace\\.hermes\\desktop-attachments\\sample.txt",
+        "ref_path": ".hermes/desktop-attachments/sample.txt",
+        "ref_text": "@file:.hermes/desktop-attachments/sample.txt",
+        "uploaded": true
+      }
+    }
+  ],
+  "thirdRound": {
+    "status": "NOT_VERIFIED"
+  },
+  "localRemoteMock": {
+    "status": "PASS",
+    "level": "MOCK_ONLY_L2_EXACT_LOCKED_FUNCTION_NATIVE_TRANSPORT_MOCKED",
+    "sourceSha256": "4a87a134f9c827abe008e9038faaea19699e06f8e77b4ee86c0a4bc4153c2998",
+    "records": [
+      {
+        "case": "local-file",
+        "method": "file.attach",
+        "sessionId": "session-false-file",
+        "rawBytes": 2086,
+        "byteSha256": "97d662d272ad72812850cc3df1506bda573f81e4cd78b6a0c89e50934dccf4a0",
+        "result": {
+          "id": "a",
+          "kind": "file",
+          "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\sample.txt",
+          "label": "sample.txt",
+          "attachedSessionId": "session-false-file",
+          "refText": "@file:staged.txt"
+        }
+      },
+      {
+        "case": "local-image",
+        "method": "image.attach",
+        "sessionId": "session-false-image",
+        "rawBytes": 6397,
+        "byteSha256": "c17f6f50da099afcc3224aa65aaf29e6360b904485a4b368f3379a7cc1129a9b",
+        "result": {
+          "id": "a",
+          "kind": "image",
+          "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\image.png",
+          "label": "image.png",
+          "attachedSessionId": "session-false-image"
+        }
+      },
+      {
+        "case": "remote-file",
+        "method": "file.attach",
+        "sessionId": "session-true-file",
+        "encodedLength": 2784,
+        "rawBytes": 2086,
+        "byteSha256": "97d662d272ad72812850cc3df1506bda573f81e4cd78b6a0c89e50934dccf4a0",
+        "result": {
+          "id": "a",
+          "kind": "file",
+          "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\sample.txt",
+          "label": "sample.txt",
+          "attachedSessionId": "session-true-file",
+          "refText": "@file:staged.txt"
+        }
+      },
+      {
+        "case": "remote-image",
+        "method": "image.attach_bytes",
+        "sessionId": "session-true-image",
+        "encodedLength": 8532,
+        "rawBytes": 6397,
+        "byteSha256": "c17f6f50da099afcc3224aa65aaf29e6360b904485a4b368f3379a7cc1129a9b",
+        "result": {
+          "id": "a",
+          "kind": "image",
+          "path": "staged.png",
+          "label": "staged.png",
+          "attachedSessionId": "session-true-image"
+        }
+      }
+    ],
+    "readFailureNoRpc": true,
+    "explicitRetryAfterKnownFailure": true,
+    "unknownAutomaticRetry": false
+  }
+}

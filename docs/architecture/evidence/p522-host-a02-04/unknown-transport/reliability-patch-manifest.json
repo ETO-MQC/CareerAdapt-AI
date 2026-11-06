@@ -1,0 +1,19 @@
+{
+  "upstreamCommit": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+  "exactAnchors": true,
+  "defaultOptIn": false,
+  "records": [
+    {
+      "file": "apps/desktop/src/app/gateway/hooks/use-gateway-request.ts",
+      "originalSha256": "bd5f5076f18921220ad9e0fe9467c7d34d1799ac74955bfba169460f186e01aa",
+      "patchedSha256": "5ba2afca1e288daa9d3e54d96aa5d32c14a4db9f702c8d7734f65ec88cb441ff",
+      "upstreamFileWritten": false
+    },
+    {
+      "file": "apps/desktop/src/app/session/hooks/use-prompt-actions/submit.ts",
+      "originalSha256": "859e0b6c2be7b5610a32c8da3d01ddb74129799166e3116159e2531a42b92a9e",
+      "patchedSha256": "745791cce6fab653a0c325757aa63fea6ba7e7d1bef475b972f35af79755ea50",
+      "upstreamFileWritten": false
+    }
+  ]
+}

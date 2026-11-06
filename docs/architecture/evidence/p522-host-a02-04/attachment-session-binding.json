@@ -1,0 +1,63 @@
+{
+  "status": "PASS_SUBMITTED_TXT_REFERENCE_AND_DISK_BYTES_DRAFTS_MEMORY_ONLY",
+  "submittedReference": "@file:`.hermes/desktop-attachments/valid path.txt`",
+  "nativeGatewayRpc": [
+    {
+      "epoch": 1,
+      "at": 1793898343550,
+      "id": 15,
+      "method": "file.attach",
+      "params": {
+        "name": "valid path.txt",
+        "path": "\"[PROJECT]\\.artifacts\\p522-host-a02-04\\run-1793898281301\\attachments\\valid path.txt\"",
+        "session_id": "917c9833"
+      },
+      "result": {
+        "attached": true,
+        "name": "valid path.txt",
+        "path": "[PROJECT]\\.artifacts\\p522-host-a02-04\\run-1793898281301\\workspace\\.hermes\\desktop-attachments\\valid path.txt",
+        "ref_path": ".hermes/desktop-attachments/valid path.txt",
+        "ref_text": "@file:`.hermes/desktop-attachments/valid path.txt`",
+        "uploaded": true
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793898383794,
+      "id": 45,
+      "method": "file.attach",
+      "params": {
+        "name": "valid path.txt",
+        "path": "\"[PROJECT]\\.artifacts\\p522-host-a02-04\\run-1793898281301\\attachments\\valid path.txt\"",
+        "session_id": "917c9833"
+      },
+      "result": {
+        "attached": true,
+        "name": "valid path-2.txt",
+        "path": "[PROJECT]\\.artifacts\\p522-host-a02-04\\run-1793898281301\\workspace\\.hermes\\desktop-attachments\\valid path-2.txt",
+        "ref_path": ".hermes/desktop-attachments/valid path-2.txt",
+        "ref_text": "@file:`.hermes/desktop-attachments/valid path-2.txt`",
+        "uploaded": true
+      }
+    }
+  ],
+  "disk": {
+    "exists": true,
+    "sha256": "d1c499cf4b599c01684ae016ceb91462f9c851c856d442deba773c31f3771ff5",
+    "sameAsOriginal": true,
+    "readableAfterOriginalMoved": true
+  },
+  "aSession": {
+    "id": "20261106_010543_9841ec",
+    "title": "Reply Exactly Session A OK"
+  },
+  "bSession": {
+    "id": "20261106_010624_4684ab",
+    "title": "Session B Exact Reply Check"
+  },
+  "referenceRepresentation": "Native persisted user text; optimistic attachmentRefs array is not durable for TXT",
+  "readableAfterOriginalMoved": true,
+  "originalRestored": true,
+  "png": "A02-03 PARTIAL inherited, not resent",
+  "missingPathElectron": "NOT_QUALIFIED; L2 quoted resolver PASS; attempted real check had premature ACK assertions"
+}

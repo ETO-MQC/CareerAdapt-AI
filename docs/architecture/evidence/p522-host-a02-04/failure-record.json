@@ -1,0 +1,78 @@
+{
+  "status": "PARTIAL",
+  "failures": [
+    {
+      "file": "docs\\architecture\\evidence\\p522-host-a02-04\\electron-recovery-1793898605494.json",
+      "status": "FAIL",
+      "failure": "AssertionError [ERR_ASSERTION]: Missing quoted path must fail at native Gateway\n    at file:///[WORKSPACE_PARENT]/CareerAdapt%20AI/scripts/p522-host-a02-04-electron.mjs:93:66",
+      "cases": []
+    },
+    {
+      "file": "docs\\architecture\\evidence\\p522-host-a02-04\\electron-recovery-1793898759789.json",
+      "status": "FAIL",
+      "failure": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:\n\n  assert.ok(afterReload.messages.some(m=>m.error?.startsWith('UNKNOWN')))\n\n    at file:///[WORKSPACE_PARENT]/CareerAdapt%20AI/scripts/p522-host-a02-04-electron.mjs:127:41",
+      "cases": []
+    },
+    {
+      "file": "docs\\architecture\\evidence\\p522-host-a02-04\\electron-recovery-1793898951749.json",
+      "status": "FAIL",
+      "failure": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:\n\n  assert.ok(afterReload.messages.some(m=>m.error?.startsWith('UNKNOWN')))\n\n    at file:///[WORKSPACE_PARENT]/CareerAdapt%20AI/scripts/p522-host-a02-04-electron.mjs:128:41",
+      "cases": []
+    },
+    {
+      "file": "docs\\architecture\\evidence\\p522-host-a02-04\\electron-recovery-1793899085783.json",
+      "status": "FAIL",
+      "failure": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:\n\n  assert.ok(afterReload.messages.some(m=>m.error?.startsWith('UNKNOWN')))\n\n    at file:///[WORKSPACE_PARENT]/CareerAdapt%20AI/scripts/p522-host-a02-04-electron.mjs:132:41",
+      "cases": []
+    },
+    {
+      "file": "docs\\architecture\\evidence\\p522-host-a02-04\\electron-recovery-1793899219021.json",
+      "status": "FAIL",
+      "failure": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:\n\n  assert.ok(recovery.after.messages.some(m=>m.parts.some(p=>p.text==='SESSION_B_RECOVERY_OK')))\n\n    at file:///[WORKSPACE_PARENT]/CareerAdapt%20AI/scripts/p522-host-a02-04-electron.mjs:141:40",
+      "cases": []
+    },
+    {
+      "file": "docs\\architecture\\evidence\\p522-host-a02-04\\electron-run-1793898281301.json",
+      "status": "PARTIAL",
+      "cases": [
+        {
+          "name": "attachment-path-electron",
+          "status": "FAIL",
+          "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n0 !== 2\n\n    at file:///[WORKSPACE_PARENT]/CareerAdapt%20AI/scripts/p522-host-a02-04-electron.mjs:89:10\n    at async attempt (file:///[WORKSPACE_PARENT]/CareerAdapt%20AI/scripts/p522-host-a02-04-electron.mjs:60:18)\n    at async file:///[WORKSPACE_PARENT]/CareerAdapt%20AI/scripts/p522-host-a02-04-electron.mjs:80:18"
+        }
+      ]
+    }
+  ],
+  "classification": [
+    {
+      "kind": "TEST_HARNESS",
+      "detail": "Attachment check read chip/ACK too early; native missing-path rejection not qualified, no production prefix upload observed in A04"
+    },
+    {
+      "kind": "TEST_HARNESS",
+      "detail": "Generic ready() Dismiss locator closed the native UNKNOWN error; removed. Earlier claimed real bootstrap race was not proved by Electron; empty-idle loss is deterministic L2 evidence only."
+    },
+    {
+      "kind": "EXTERNAL_PROVIDER",
+      "detail": "New task in B was accepted once, then actual configured AMD Provider returned HTTP 504. No retry/model switch."
+    }
+  ],
+  "executionDeviations": {
+    "mainSequences": 1,
+    "targetedDiagnosticSequences": 5,
+    "electronLaunches": 8,
+    "detail": "More focused startup sequences than the requested main plus one recheck, due harness mistakes; all failures retained, no repeated successful A/B main flow.",
+    "screenshot": "One A04 primary ready screenshot filename was reused by the first targeted run; later names include qualification ID. Pre-A04 protected screenshots unchanged."
+  },
+  "notVerified": [
+    "Real Stop/interrupted stream history",
+    "Real Tool Activity restoration",
+    "Actual backend accepted-submit ACK loss (L2 only)",
+    "PNG history/file identity after restart",
+    "Complete missing-path rejection ACK in Electron",
+    "Default optIn=false interactive rerun",
+    "Final additional durable-after-Dismiss submit guard in Electron"
+  ],
+  "noTestsDeletedOrSkipped": true,
+  "noFilesystemDeletion": true
+}

@@ -1,0 +1,66 @@
+{
+  "status": "PASS_READ_ONLY_DISK",
+  "authority": "Actual isolated native state.db, SQLite URI mode=ro; no SessionDB initialization or direct database writes",
+  "sessions": [
+    {
+      "id": "20261106_010543_9841ec",
+      "title": "Reply Exactly Session A OK"
+    },
+    {
+      "id": "20261106_010624_4684ab",
+      "title": "Session B Exact Reply Check"
+    }
+  ],
+  "rows": [
+    {
+      "id": 1,
+      "session_id": "20261106_010543_9841ec",
+      "role": "user",
+      "content": "Do not call tools. Reply exactly SESSION_A_OK.\n\n--- Attached Context ---\n\n📄 @file:`.hermes/desktop-attachments/valid path.txt` (10 tokens)\n```\nSYNTHETIC SESSION A ONLY 1793898281301\n\n```",
+      "timestamp": 1793898376.9356112,
+      "tool_name": null
+    },
+    {
+      "id": 2,
+      "session_id": "20261106_010543_9841ec",
+      "role": "assistant",
+      "content": "SESSION_A_OK",
+      "timestamp": 1793898382.323172,
+      "tool_name": null
+    },
+    {
+      "id": 3,
+      "session_id": "20261106_010624_4684ab",
+      "role": "user",
+      "content": "Do not call tools. Reply exactly SESSION_B_OK.",
+      "timestamp": 1793898393.0600715,
+      "tool_name": null
+    },
+    {
+      "id": 4,
+      "session_id": "20261106_010624_4684ab",
+      "role": "assistant",
+      "content": "SESSION_B_OK",
+      "timestamp": 1793898404.0539577,
+      "tool_name": null
+    },
+    {
+      "id": 5,
+      "session_id": "20261106_010624_4684ab",
+      "role": "user",
+      "content": "Do not call tools. Reply exactly SESSION_B_RECOVERY_OK.",
+      "timestamp": 1793899301.034556,
+      "tool_name": null
+    }
+  ],
+  "order": "Monotonic AUTOINCREMENT id (native conversation reader ORDER BY id, not wall-clock timestamp)",
+  "staged": {
+    "exists": true,
+    "sha256": "d1c499cf4b599c01684ae016ceb91462f9c851c856d442deba773c31f3771ff5",
+    "sameAsOriginal": true,
+    "readableAfterOriginalMoved": true
+  },
+  "noCrossSessionContent": true,
+  "filesRetained": true,
+  "toolActivity": "NOT_VERIFIED_NO_TOOL_ROWS"
+}

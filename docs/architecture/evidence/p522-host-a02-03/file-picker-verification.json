@@ -1,0 +1,886 @@
+{
+  "status": "PASS",
+  "nativeDialog": true,
+  "multiple": true,
+  "selected": [
+    {
+      "id": "file:[PROJECT]/.artifacts/p522-host-a02-03/fixtures/sample.pdf",
+      "kind": "file",
+      "label": "sample.pdf",
+      "detail": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\sample.pdf",
+      "refText": "@file:.hermes/desktop-attachments/sample.pdf",
+      "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\sample.pdf",
+      "attachedSessionId": "9fce9716"
+    },
+    {
+      "id": "file:[PROJECT]/.artifacts/p522-host-a02-03/fixtures/sample.txt",
+      "kind": "file",
+      "label": "sample.txt",
+      "detail": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\sample.txt",
+      "refText": "@file:.hermes/desktop-attachments/sample.txt",
+      "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\sample.txt",
+      "attachedSessionId": "9fce9716"
+    }
+  ],
+  "removedPdf": true,
+  "rpcSinceSend": [
+    {
+      "at": 1793887205389,
+      "id": 146,
+      "method": "session.active_list",
+      "params": {},
+      "ackAt": 1793887205391,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ],
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "9fce9716",
+            "last_active": 1793887121.7199156,
+            "message_count": 1,
+            "model": "Qwen3.8-27B",
+            "preview": "Do not call tools. Write 35 short numbered lines about geometric shapes. Begin immediately.",
+            "session_key": "20261105_215823_74775c",
+            "started_at": 1793887103.4437244,
+            "status": "idle",
+            "title": ""
+          }
+        ]
+      }
+    },
+    {
+      "at": 1793887205583,
+      "id": 147,
+      "method": "prompt.submit",
+      "sessionId": "9fce9716",
+      "params": {
+        "session_id": "9fce9716",
+        "text": "@file:.hermes/desktop-attachments/sample.txt\n\nRead the attached synthetic text file. Return the unique marker found inside it. Do not call any tools."
+      },
+      "ackAt": 1793887205604,
+      "rejected": false,
+      "resultKeys": [
+        "status"
+      ],
+      "result": {
+        "status": "streaming"
+      }
+    },
+    {
+      "at": 1793887206888,
+      "id": 148,
+      "method": "pet.info",
+      "params": {
+        "profile": "default"
+      },
+      "ackAt": 1793887206896,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ],
+      "result": {
+        "enabled": false
+      }
+    },
+    {
+      "at": 1793887206891,
+      "id": 149,
+      "method": "session.active_list",
+      "params": {},
+      "ackAt": 1793887206896,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ],
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "9fce9716",
+            "last_active": 1793887205.5677974,
+            "message_count": 1,
+            "model": "Qwen3.8-27B",
+            "preview": "@file:.hermes/desktop-attachments/sample.txt Read the attached synthetic text file. Return the unique marker found inside it. Do not call any tools.",
+            "session_key": "20261105_215823_74775c",
+            "started_at": 1793887103.4437244,
+            "status": "working",
+            "title": ""
+          }
+        ]
+      }
+    },
+    {
+      "at": 1793887208390,
+      "id": 150,
+      "method": "session.active_list",
+      "params": {},
+      "ackAt": 1793887208391,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ],
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "9fce9716",
+            "last_active": 1793887205.5677974,
+            "message_count": 1,
+            "model": "Qwen3.8-27B",
+            "preview": "@file:.hermes/desktop-attachments/sample.txt Read the attached synthetic text file. Return the unique marker found inside it. Do not call any tools.",
+            "session_key": "20261105_215823_74775c",
+            "started_at": 1793887103.4437244,
+            "status": "working",
+            "title": ""
+          }
+        ]
+      }
+    },
+    {
+      "at": 1793887209316,
+      "id": 151,
+      "method": "setup.status",
+      "params": {},
+      "ackAt": 1793887211389,
+      "rejected": false,
+      "resultKeys": [
+        "provider_configured"
+      ],
+      "result": {
+        "provider_configured": true
+      }
+    },
+    {
+      "at": 1793887209316,
+      "id": 152,
+      "method": "setup.runtime_check",
+      "params": {},
+      "ackAt": 1793887211285,
+      "rejected": false,
+      "resultKeys": [
+        "ok",
+        "provider",
+        "model",
+        "source"
+      ],
+      "result": {
+        "ok": true,
+        "provider": "custom",
+        "model": null,
+        "source": "env/config"
+      }
+    },
+    {
+      "at": 1793887209887,
+      "id": 153,
+      "method": "pet.info",
+      "params": {
+        "profile": "default"
+      },
+      "ackAt": 1793887209891,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ],
+      "result": {
+        "enabled": false
+      }
+    },
+    {
+      "at": 1793887209889,
+      "id": 154,
+      "method": "session.active_list",
+      "params": {},
+      "ackAt": 1793887209892,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ],
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "9fce9716",
+            "last_active": 1793887205.5677974,
+            "message_count": 1,
+            "model": "Qwen3.8-27B",
+            "preview": "@file:.hermes/desktop-attachments/sample.txt Read the attached synthetic text file. Return the unique marker found inside it. Do not call any tools.",
+            "session_key": "20261105_215823_74775c",
+            "started_at": 1793887103.4437244,
+            "status": "working",
+            "title": ""
+          }
+        ]
+      }
+    },
+    {
+      "at": 1793887211409,
+      "id": 155,
+      "method": "session.active_list",
+      "params": {},
+      "ackAt": 1793887211413,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ],
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "9fce9716",
+            "last_active": 1793887205.5677974,
+            "message_count": 1,
+            "model": "Qwen3.8-27B",
+            "preview": "@file:.hermes/desktop-attachments/sample.txt Read the attached synthetic text file. Return the unique marker found inside it. Do not call any tools.",
+            "session_key": "20261105_215823_74775c",
+            "started_at": 1793887103.4437244,
+            "status": "working",
+            "title": ""
+          }
+        ]
+      }
+    },
+    {
+      "at": 1793887212887,
+      "id": 156,
+      "method": "pet.info",
+      "params": {
+        "profile": "default"
+      },
+      "ackAt": 1793887212891,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ],
+      "result": {
+        "enabled": false
+      }
+    },
+    {
+      "at": 1793887212890,
+      "id": 157,
+      "method": "session.active_list",
+      "params": {},
+      "ackAt": 1793887212891,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ],
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "9fce9716",
+            "last_active": 1793887205.5677974,
+            "message_count": 1,
+            "model": "Qwen3.8-27B",
+            "preview": "@file:.hermes/desktop-attachments/sample.txt Read the attached synthetic text file. Return the unique marker found inside it. Do not call any tools.",
+            "session_key": "20261105_215823_74775c",
+            "started_at": 1793887103.4437244,
+            "status": "working",
+            "title": ""
+          }
+        ]
+      }
+    },
+    {
+      "at": 1793887214390,
+      "id": 158,
+      "method": "session.active_list",
+      "params": {},
+      "ackAt": 1793887214405,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ],
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "9fce9716",
+            "last_active": 1793887205.5677974,
+            "message_count": 1,
+            "model": "Qwen3.8-27B",
+            "preview": "@file:.hermes/desktop-attachments/sample.txt Read the attached synthetic text file. Return the unique marker found inside it. Do not call any tools.",
+            "session_key": "20261105_215823_74775c",
+            "started_at": 1793887103.4437244,
+            "status": "working",
+            "title": ""
+          }
+        ]
+      }
+    },
+    {
+      "at": 1793887215887,
+      "id": 159,
+      "method": "pet.info",
+      "params": {
+        "profile": "default"
+      },
+      "ackAt": 1793887215895,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ],
+      "result": {
+        "enabled": false
+      }
+    },
+    {
+      "at": 1793887215889,
+      "id": 160,
+      "method": "session.active_list",
+      "params": {},
+      "ackAt": 1793887215893,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ],
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "9fce9716",
+            "last_active": 1793887205.5677974,
+            "message_count": 1,
+            "model": "Qwen3.8-27B",
+            "preview": "@file:.hermes/desktop-attachments/sample.txt Read the attached synthetic text file. Return the unique marker found inside it. Do not call any tools.",
+            "session_key": "20261105_215823_74775c",
+            "started_at": 1793887103.4437244,
+            "status": "working",
+            "title": ""
+          }
+        ]
+      }
+    },
+    {
+      "at": 1793887217390,
+      "id": 161,
+      "method": "session.active_list",
+      "params": {},
+      "ackAt": 1793887217393,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ],
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "9fce9716",
+            "last_active": 1793887205.5677974,
+            "message_count": 1,
+            "model": "Qwen3.8-27B",
+            "preview": "@file:.hermes/desktop-attachments/sample.txt Read the attached synthetic text file. Return the unique marker found inside it. Do not call any tools.",
+            "session_key": "20261105_215823_74775c",
+            "started_at": 1793887103.4437244,
+            "status": "working",
+            "title": ""
+          }
+        ]
+      }
+    },
+    {
+      "at": 1793887218889,
+      "id": 162,
+      "method": "pet.info",
+      "params": {
+        "profile": "default"
+      },
+      "ackAt": 1793887218896,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ],
+      "result": {
+        "enabled": false
+      }
+    },
+    {
+      "at": 1793887218890,
+      "id": 163,
+      "method": "session.active_list",
+      "params": {},
+      "ackAt": 1793887218894,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ],
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "9fce9716",
+            "last_active": 1793887205.5677974,
+            "message_count": 1,
+            "model": "Qwen3.8-27B",
+            "preview": "@file:.hermes/desktop-attachments/sample.txt Read the attached synthetic text file. Return the unique marker found inside it. Do not call any tools.",
+            "session_key": "20261105_215823_74775c",
+            "started_at": 1793887103.4437244,
+            "status": "working",
+            "title": ""
+          }
+        ]
+      }
+    },
+    {
+      "at": 1793887220391,
+      "id": 164,
+      "method": "session.active_list",
+      "params": {},
+      "ackAt": 1793887220393,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ],
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "9fce9716",
+            "last_active": 1793887205.5677974,
+            "message_count": 1,
+            "model": "Qwen3.8-27B",
+            "preview": "@file:.hermes/desktop-attachments/sample.txt Read the attached synthetic text file. Return the unique marker found inside it. Do not call any tools.",
+            "session_key": "20261105_215823_74775c",
+            "started_at": 1793887103.4437244,
+            "status": "working",
+            "title": ""
+          }
+        ]
+      }
+    },
+    {
+      "at": 1793887221946,
+      "id": 165,
+      "method": "pet.info",
+      "params": {
+        "profile": "default"
+      },
+      "ackAt": 1793887221961,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ],
+      "result": {
+        "enabled": false
+      }
+    },
+    {
+      "at": 1793887221946,
+      "id": 166,
+      "method": "session.active_list",
+      "params": {},
+      "ackAt": 1793887221951,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ],
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "9fce9716",
+            "last_active": 1793887205.5677974,
+            "message_count": 1,
+            "model": "Qwen3.8-27B",
+            "preview": "1. A circle has no corners or edges. 2. A square has four equal sides. 3. A triangle always has three angles. 4. A rectangle has opposite sides that match. 5. A",
+            "session_key": "20261105_215823_74775c",
+            "started_at": 1793887103.4437244,
+            "status": "working",
+            "title": ""
+          }
+        ]
+      }
+    },
+    {
+      "at": 1793887223392,
+      "id": 167,
+      "method": "session.active_list",
+      "params": {},
+      "ackAt": 1793887223393,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ],
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "9fce9716",
+            "last_active": 1793887205.5677974,
+            "message_count": 1,
+            "model": "Qwen3.8-27B",
+            "preview": "1. A circle has no corners or edges. 2. A square has four equal sides. 3. A triangle always has three angles. 4. A rectangle has opposite sides that match. 5. A",
+            "session_key": "20261105_215823_74775c",
+            "started_at": 1793887103.4437244,
+            "status": "working",
+            "title": ""
+          }
+        ]
+      }
+    },
+    {
+      "at": 1793887224886,
+      "id": 168,
+      "method": "pet.info",
+      "params": {
+        "profile": "default"
+      },
+      "ackAt": 1793887224890,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ],
+      "result": {
+        "enabled": false
+      }
+    },
+    {
+      "at": 1793887224890,
+      "id": 169,
+      "method": "session.active_list",
+      "params": {},
+      "ackAt": 1793887224891,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ],
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "9fce9716",
+            "last_active": 1793887205.5677974,
+            "message_count": 1,
+            "model": "Qwen3.8-27B",
+            "preview": "1. A circle has no corners or edges. 2. A square has four equal sides. 3. A triangle always has three angles. 4. A rectangle has opposite sides that match. 5. A",
+            "session_key": "20261105_215823_74775c",
+            "started_at": 1793887103.4437244,
+            "status": "working",
+            "title": ""
+          }
+        ]
+      }
+    },
+    {
+      "at": 1793887226390,
+      "id": 170,
+      "method": "session.active_list",
+      "params": {},
+      "ackAt": 1793887226401,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ],
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "9fce9716",
+            "last_active": 1793887205.5677974,
+            "message_count": 1,
+            "model": "Qwen3.8-27B",
+            "preview": "1. A circle has no corners or edges. 2. A square has four equal sides. 3. A triangle always has three angles. 4. A rectangle has opposite sides that match. 5. A",
+            "session_key": "20261105_215823_74775c",
+            "started_at": 1793887103.4437244,
+            "status": "working",
+            "title": ""
+          }
+        ]
+      }
+    },
+    {
+      "at": 1793887226390,
+      "id": 171,
+      "method": "setup.status",
+      "params": {},
+      "ackAt": 1793887228419,
+      "rejected": false,
+      "resultKeys": [
+        "provider_configured"
+      ],
+      "result": {
+        "provider_configured": true
+      }
+    },
+    {
+      "at": 1793887226390,
+      "id": 172,
+      "method": "setup.runtime_check",
+      "params": {},
+      "ackAt": 1793887229377,
+      "rejected": false,
+      "resultKeys": [
+        "ok",
+        "provider",
+        "model",
+        "source"
+      ],
+      "result": {
+        "ok": true,
+        "provider": "custom",
+        "model": null,
+        "source": "env/config"
+      }
+    },
+    {
+      "at": 1793887227886,
+      "id": 173,
+      "method": "pet.info",
+      "params": {
+        "profile": "default"
+      },
+      "ackAt": 1793887227891,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ],
+      "result": {
+        "enabled": false
+      }
+    },
+    {
+      "at": 1793887227891,
+      "id": 174,
+      "method": "session.active_list",
+      "params": {},
+      "ackAt": 1793887227893,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ],
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "9fce9716",
+            "last_active": 1793887205.5677974,
+            "message_count": 1,
+            "model": "Qwen3.8-27B",
+            "preview": "1. A circle has no corners or edges. 2. A square has four equal sides. 3. A triangle always has three angles. 4. A rectangle has opposite sides that match. 5. A",
+            "session_key": "20261105_215823_74775c",
+            "started_at": 1793887103.4437244,
+            "status": "working",
+            "title": ""
+          }
+        ]
+      }
+    },
+    {
+      "at": 1793887229406,
+      "id": 175,
+      "method": "session.active_list",
+      "params": {},
+      "ackAt": 1793887229412,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ],
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "9fce9716",
+            "last_active": 1793887205.5677974,
+            "message_count": 1,
+            "model": "Qwen3.8-27B",
+            "preview": "1. A circle has no corners or edges. 2. A square has four equal sides. 3. A triangle always has three angles. 4. A rectangle has opposite sides that match. 5. A",
+            "session_key": "20261105_215823_74775c",
+            "started_at": 1793887103.4437244,
+            "status": "working",
+            "title": ""
+          }
+        ]
+      }
+    },
+    {
+      "at": 1793887230887,
+      "id": 176,
+      "method": "pet.info",
+      "params": {
+        "profile": "default"
+      },
+      "ackAt": 1793887230892,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ],
+      "result": {
+        "enabled": false
+      }
+    },
+    {
+      "at": 1793887230890,
+      "id": 177,
+      "method": "session.active_list",
+      "params": {},
+      "ackAt": 1793887230893,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ],
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "9fce9716",
+            "last_active": 1793887205.5677974,
+            "message_count": 1,
+            "model": "Qwen3.8-27B",
+            "preview": "1. A circle has no corners or edges. 2. A square has four equal sides. 3. A triangle always has three angles. 4. A rectangle has opposite sides that match. 5. A",
+            "session_key": "20261105_215823_74775c",
+            "started_at": 1793887103.4437244,
+            "status": "working",
+            "title": ""
+          }
+        ]
+      }
+    },
+    {
+      "at": 1793887232390,
+      "id": 178,
+      "method": "session.active_list",
+      "params": {},
+      "ackAt": 1793887232393,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ],
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "9fce9716",
+            "last_active": 1793887205.5677974,
+            "message_count": 1,
+            "model": "Qwen3.8-27B",
+            "preview": "1. A circle has no corners or edges. 2. A square has four equal sides. 3. A triangle always has three angles. 4. A rectangle has opposite sides that match. 5. A",
+            "session_key": "20261105_215823_74775c",
+            "started_at": 1793887103.4437244,
+            "status": "working",
+            "title": ""
+          }
+        ]
+      }
+    },
+    {
+      "at": 1793887233887,
+      "id": 179,
+      "method": "pet.info",
+      "params": {
+        "profile": "default"
+      },
+      "ackAt": 1793887233895,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ],
+      "result": {
+        "enabled": false
+      }
+    },
+    {
+      "at": 1793887233891,
+      "id": 180,
+      "method": "session.active_list",
+      "params": {},
+      "ackAt": 1793887233895,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ],
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "9fce9716",
+            "last_active": 1793887205.5677974,
+            "message_count": 1,
+            "model": "Qwen3.8-27B",
+            "preview": "1. A circle has no corners or edges. 2. A square has four equal sides. 3. A triangle always has three angles. 4. A rectangle has opposite sides that match. 5. A",
+            "session_key": "20261105_215823_74775c",
+            "started_at": 1793887103.4437244,
+            "status": "working",
+            "title": ""
+          }
+        ]
+      }
+    },
+    {
+      "at": 1793887235391,
+      "id": 181,
+      "method": "session.active_list",
+      "params": {},
+      "ackAt": 1793887235393,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ],
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "9fce9716",
+            "last_active": 1793887205.5677974,
+            "message_count": 1,
+            "model": "Qwen3.8-27B",
+            "preview": "1. A circle has no corners or edges. 2. A square has four equal sides. 3. A triangle always has three angles. 4. A rectangle has opposite sides that match. 5. A",
+            "session_key": "20261105_215823_74775c",
+            "started_at": 1793887103.4437244,
+            "status": "working",
+            "title": ""
+          }
+        ]
+      }
+    },
+    {
+      "at": 1793887236887,
+      "id": 182,
+      "method": "pet.info",
+      "params": {
+        "profile": "default"
+      },
+      "ackAt": 1793887236895,
+      "rejected": false,
+      "resultKeys": [
+        "enabled"
+      ],
+      "result": {
+        "enabled": false
+      }
+    },
+    {
+      "at": 1793887236889,
+      "id": 183,
+      "method": "session.active_list",
+      "params": {},
+      "ackAt": 1793887236892,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ],
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "9fce9716",
+            "last_active": 1793887236.5618806,
+            "message_count": 2,
+            "model": "Qwen3.8-27B",
+            "preview": "1. A circle has no corners or edges. 2. A square has four equal sides. 3. A triangle always has three angles. 4. A rectangle has opposite sides that match. 5. A",
+            "session_key": "20261105_215823_74775c",
+            "started_at": 1793887103.4437244,
+            "status": "idle",
+            "title": ""
+          }
+        ]
+      }
+    }
+  ],
+  "MIMEAndSizeDisplayed": "NOT_EXPOSED_IN_CHIP",
+  "pdfUnderstanding": "BLOCKED_A02_02_L4"
+}

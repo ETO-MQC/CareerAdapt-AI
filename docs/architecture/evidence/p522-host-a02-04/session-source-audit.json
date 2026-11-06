@@ -1,0 +1,55 @@
+{
+  "status": "SOURCE_AUDIT_COMPLETE",
+  "sources": [
+    {
+      "file": "hermes_state.py",
+      "sha256": "0d52ebcd6a433466f1e6444de35d940e0c227a285a64b2da54dcd8182bf746c6"
+    },
+    {
+      "file": "tui_gateway/server.py",
+      "sha256": "16dfa70edb05f9613d6b8abf9016c235b2eed1862c64430b4de8133ce069e5f1"
+    },
+    {
+      "file": "apps/desktop/src/store/composer.ts",
+      "sha256": "41aec56713f04484e36cae5bd757ffec14d75ea72690d3c1a80866dd8a152742"
+    },
+    {
+      "file": "apps/desktop/src/store/session.ts",
+      "sha256": "d762c517764e9528f2c7c8af94c325122a682b787e6df0ca9c97f1ee95831ab0"
+    },
+    {
+      "file": "apps/desktop/src/store/session-states.ts",
+      "sha256": "8864055a61ad7f04c619125b74678cb88bbcad99c03c9d88941076120f513d38"
+    },
+    {
+      "file": "apps/desktop/src/lib/inflight-turn-journal.ts",
+      "sha256": "d6b3f6d5f3c34b5c9d10c7d58f7881aff2ea371e25495f15a0f152395bd325b4"
+    },
+    {
+      "file": "apps/desktop/src/app/session/hooks/use-session-state-cache.ts",
+      "sha256": "6a8ad52c6d72efe6e0dfb46ce5f0dc7f90d9f912e73a559793dde33b801e5e9e"
+    },
+    {
+      "file": "apps/desktop/src/app/session/hooks/use-session-actions/index.ts",
+      "sha256": "1f620fa503eecf3dc6e268eccfa88db17b77f1e2a690f632ea116dd669bd9ea1"
+    },
+    {
+      "file": "apps/desktop/src/app/session/hooks/use-route-resume.ts",
+      "sha256": "fd489aa1279f365df19c24d5c2bf257e24ba9f90fd90410c475f2b01393a0ec0"
+    },
+    {
+      "file": "apps/desktop/src/app/chat/composer/hooks/use-composer-draft.ts",
+      "sha256": "f9ad5a1a40a774cf10d3881b59dea20074f9d6398fc0f4645ad836608d5f5565"
+    }
+  ],
+  "authority": {
+    "transcripts": "HERMES_HOME/state.db via hermes_state.SessionDB; Gateway owns persistence",
+    "runtime": "tui_gateway.server in-memory sessions, rebuilt by session.resume",
+    "renderer": "session-state cache is a projection, not authority",
+    "drafts": "hermes:composer-drafts:v3 localStorage, max 50 nonempty text drafts; attachments memory-only",
+    "inflight": "Native inflightTurnJournal v1 localStorage, 24 entries/7 days/400ms throttle; recovery aid, not authority"
+  },
+  "unknownFinding": "Confirmed L2: idle journal clears UNKNOWN before patch. Real failure diagnostics were additionally affected by harness Dismiss; no independent real bootstrap race claim.",
+  "historyPreserved": true,
+  "finalDecision": "Native SQLite authority retained; native text/attachment-draft semantics unchanged; reuse native journal for idle UNKNOWN persistence and durable submit guard, no second Store"
+}

@@ -1,0 +1,40 @@
+{
+  "status": "TXT_PASS_UNEXPECTED_PREFIX_RECORDED",
+  "staged": [
+    {
+      "path": ".artifacts/p522-host-a02-03/run-1793887003157/workspace/.hermes/desktop-attachments/sample.pdf",
+      "bytes": 599,
+      "sha256": "26bf7ee8741a5995978dd034e0ac2b9ca55e8850cb05cf7e418652bc6679e48f",
+      "matchesFixture": true,
+      "unexpectedPrefixArtifact": false
+    },
+    {
+      "path": ".artifacts/p522-host-a02-03/run-1793887003157/workspace/.hermes/desktop-attachments/sample.txt",
+      "bytes": 2086,
+      "sha256": "97d662d272ad72812850cc3df1506bda573f81e4cd78b6a0c89e50934dccf4a0",
+      "matchesFixture": true,
+      "unexpectedPrefixArtifact": false
+    },
+    {
+      "path": ".artifacts/p522-host-a02-03/run-1793887855950/workspace/.hermes/desktop-attachments/CareerAdapt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "matchesFixture": false,
+      "unexpectedPrefixArtifact": true
+    },
+    {
+      "path": ".artifacts/p522-host-a02-03/run-1793887855950/workspace/.hermes/desktop-attachments/sample.txt",
+      "bytes": 2086,
+      "sha256": "97d662d272ad72812850cc3df1506bda573f81e4cd78b6a0c89e50934dccf4a0",
+      "matchesFixture": true,
+      "unexpectedPrefixArtifact": false
+    }
+  ],
+  "textCanonicalNewlines": "Python text reader normalizes Windows CRLF to LF before inline context; staged raw bytes preserve fixture hash.",
+  "canonicalTextSha256": "82e4c97bb4b705fae9ff40be4b6622e2fd41e6535d13ecbe1b721305f5f54c43",
+  "canonicalTextUtf8Bytes": 2048,
+  "actualProviderRequestsContainingCompleteCanonicalFile": 1,
+  "requestTimes": [
+    1793887216352
+  ]
+}

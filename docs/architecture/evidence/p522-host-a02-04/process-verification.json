@@ -1,0 +1,9 @@
+{
+  "status": "PASS_NO_TEST_ELECTRON_OR_TASK_RUNNER_OR_PORT5194_VITE_REMAINING",
+  "method": "Win32_Process final inventory: no Electron processes or matching task node commands; unrelated existing Python/node processes untouched",
+  "ownViteStoppedByExactPid": [
+    73192,
+    38460
+  ],
+  "allIsolatedFilesRetained": true
+}

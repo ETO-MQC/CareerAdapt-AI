@@ -1,0 +1,13 @@
+{
+  "round2": {
+    "status": "FAIL_OR_NOT_VERIFIED",
+    "error": "Error: Image picker selection/preview not observed",
+    "state": []
+  },
+  "round3": {
+    "status": "NOT_VERIFIED",
+    "error": "TimeoutError: locator.waitFor: Timeout 300000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-slot=\"composer-attachments\"] img') to be visible\u001b[22m\n"
+  },
+  "status": "NOT_VERIFIED",
+  "fullQualification": false
+}

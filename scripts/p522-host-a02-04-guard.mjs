@@ -1,0 +1,11 @@
+import fs from 'node:fs';import path from 'node:path';import vm from 'node:vm';import assert from 'node:assert/strict';
+import {host,write,sha} from './p522-host-a02-04-common.mjs';
+import {reliabilityPatch} from './p522-host-a02-01-patches.mjs';
+import {sessionPersistencePatch} from './p522-host-a02-04-patches.mjs';
+const target='apps/desktop/src/app/session/hooks/use-prompt-actions/submit.ts',original=fs.readFileSync(path.join(host,target),'utf8').replaceAll('\r\n','\n');
+const patched=sessionPersistencePatch(reliabilityPatch(original,'/'+target),'/'+target);
+const start=patched.indexOf('      const guardSessionId ='),end=patched.indexOf('\n      }',start)+8;
+const state={A:{storedSessionId:'stored-A',messages:[]},B:{storedSessionId:'stored-B',messages:[]}},notices=[];
+const guard=vm.runInNewContext('(function(options,activeSessionIdRef){'+patched.slice(start,end)+'\n return true;})',{$sessionStates:{get:()=>state},readInFlightTurnJournal:id=>id==='stored-A'?{messages:[{role:'assistant',error:'UNKNOWN: uncertain'}]}:null,notify:v=>notices.push(v)});
+assert.equal(guard(undefined,{current:'A'}),false);assert.equal(guard({sessionId:'A',fromQueue:true},{current:'B'}),false);assert.equal(guard({sessionId:'B'},{current:'B'}),true);
+write('unknown-dismiss-guard-verification',{status:'PASS_L2_EXACT_TRANSFORMED_GUARD',dismissedViewErrorStillBlocksManualSubmit:true,dismissedViewErrorStillBlocksQueueDrain:true,otherSessionAllowed:true,realGateway:'NOT_REEXECUTED_AFTER_THIS_ADDITIONAL_GUARD',patchedSubmitSha256:sha(patched)});console.log('PASS durable UNKNOWN guard after banner dismissal');

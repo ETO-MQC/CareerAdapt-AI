@@ -1,0 +1,5 @@
+{
+  "name": "attachment-path-electron",
+  "status": "FAIL",
+  "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n0 !== 2\n\n    at file:///[WORKSPACE_PARENT]/CareerAdapt%20AI/scripts/p522-host-a02-04-electron.mjs:89:10\n    at async attempt (file:///[WORKSPACE_PARENT]/CareerAdapt%20AI/scripts/p522-host-a02-04-electron.mjs:60:18)\n    at async file:///[WORKSPACE_PARENT]/CareerAdapt%20AI/scripts/p522-host-a02-04-electron.mjs:80:18"
+}

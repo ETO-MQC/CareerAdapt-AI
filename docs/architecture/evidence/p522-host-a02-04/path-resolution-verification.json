@@ -1,0 +1,10 @@
+{
+  "status": "PASS_L2",
+  "level": "Exact locked Python resolver; no upload/Provider",
+  "validQuotedMatches": true,
+  "missingQuotedRejected": true,
+  "prefixExists": true,
+  "originalUnquotedWrongPrefix": false,
+  "electron": "PENDING",
+  "filesRetained": true
+}

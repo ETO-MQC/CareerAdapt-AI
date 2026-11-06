@@ -1,0 +1,78 @@
+{
+  "run": 1793886904053,
+  "status": "FAIL_HARNESS_BEFORE_MODEL_SUBMIT",
+  "provider": "https://developer.amd.com.cn/radeon/api/v1",
+  "model": "Qwen3.8-27B",
+  "events": [],
+  "rpc": [
+    {
+      "at": 1793886963708,
+      "id": 1,
+      "method": "model.options",
+      "params": {
+        "explicit_only": true
+      }
+    },
+    {
+      "at": 1793886963708,
+      "id": 2,
+      "method": "setup.status",
+      "params": {}
+    },
+    {
+      "at": 1793886963708,
+      "id": 3,
+      "method": "setup.runtime_check",
+      "params": {}
+    },
+    {
+      "at": 1793886963709,
+      "id": 4,
+      "method": "setup.status",
+      "params": {}
+    },
+    {
+      "at": 1793886963709,
+      "id": 5,
+      "method": "setup.runtime_check",
+      "params": {}
+    },
+    {
+      "at": 1793886963709,
+      "id": 6,
+      "method": "session.active_list",
+      "params": {},
+      "ackAt": 1793886963936,
+      "rejected": false,
+      "resultKeys": [
+        "sessions"
+      ],
+      "result": {
+        "sessions": []
+      }
+    }
+  ],
+  "turns": [],
+  "errors": [],
+  "consoleErrors": [],
+  "screenshots": [],
+  "toolCalls": 0,
+  "scope": "Real locked Electron, native Composer/Stop/Store/Runtime, synthetic content only",
+  "process": {
+    "stdout": "",
+    "stderr": "(electron) 'console-message' arguments are deprecated and will be removed. Please use Event<WebContentsConsoleMessageEventParams> object instead.\n"
+  },
+  "main": {
+    "appPath": "[HERMES_ROOT]\\apps\\desktop",
+    "argv": [
+      "[HERMES_ROOT]\\node_modules\\electron\\dist\\electron.exe",
+      "--inspect=0",
+      "--remote-debugging-port=0",
+      "[PROJECT]\\.artifacts\\p522-host-a02-01\\main-integration",
+      "--disable-gpu",
+      "--no-sandbox"
+    ]
+  },
+  "failure": "Observer attempted to parse GET empty body as JSON; fixed GET forwarding. No prompt.submit observed.",
+  "credentialCleared": true
+}

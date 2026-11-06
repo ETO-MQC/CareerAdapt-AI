@@ -1,0 +1,159 @@
+{
+  "status": "FAIL_WRONG_PREFIX_FIXED_L2_ELECTRON_PENDING",
+  "actualRpc": [
+    {
+      "at": 1793888349566,
+      "id": 482,
+      "method": "file.attach",
+      "sessionId": "c1079cc8",
+      "params": {
+        "name": "missing-controlled.txt",
+        "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\missing-controlled.txt",
+        "session_id": "c1079cc8"
+      },
+      "ackAt": 1793888349652,
+      "rejected": false,
+      "resultKeys": [
+        "attached",
+        "name",
+        "path",
+        "ref_path",
+        "ref_text",
+        "uploaded"
+      ],
+      "result": {
+        "attached": true,
+        "name": "CareerAdapt",
+        "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\run-1793887855950\\workspace\\.hermes\\desktop-attachments\\CareerAdapt",
+        "ref_path": ".hermes/desktop-attachments/CareerAdapt",
+        "ref_text": "@file:.hermes/desktop-attachments/CareerAdapt",
+        "uploaded": true
+      }
+    },
+    {
+      "at": 1793888349566,
+      "id": 483,
+      "method": "file.attach",
+      "sessionId": "c1079cc8",
+      "params": {
+        "name": "sample.txt",
+        "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\sample.txt",
+        "session_id": "c1079cc8"
+      },
+      "ackAt": 1793888349677,
+      "rejected": false,
+      "resultKeys": [
+        "attached",
+        "name",
+        "path",
+        "ref_path",
+        "ref_text",
+        "uploaded"
+      ],
+      "result": {
+        "attached": true,
+        "name": "sample.txt",
+        "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\run-1793887855950\\workspace\\.hermes\\desktop-attachments\\sample.txt",
+        "ref_path": ".hermes/desktop-attachments/sample.txt",
+        "ref_text": "@file:.hermes/desktop-attachments/sample.txt",
+        "uploaded": true
+      }
+    }
+  ],
+  "failure": {
+    "rootCause": "Gateway reuses CLI path-plus-prose parser; nonexistent unquoted full path with spaces falls back to an existing prefix file",
+    "wrongFile": "[WORKSPACE_PARENT]/CareerAdapt",
+    "bytes": 0,
+    "sentToProvider": false,
+    "fix": "Project opt-in Renderer file.attach path quoting for Windows drive paths",
+    "verification": "L2 locked Gateway resolver and exact patched upload function pass; build and Native TS; no post-fix Electron verification",
+    "runtimeModified": false
+  },
+  "patch": {
+    "file": "apps/desktop/src/app/session/hooks/use-prompt-actions/index.ts",
+    "originalSha256": "4918d34ced24d5748691250c6073140e76b40f0cd01be2118141c0f875adfb09",
+    "patchedSha256": "119ee96c8065f419d906546faeffcca5007698905a0fd7961d69cceed6e439c2",
+    "upstreamWritten": false,
+    "electronReverification": "NOT_VERIFIED_THREE_ROUNDS_EXHAUSTED",
+    "optInFlag": "--careeradapt --attachments"
+  },
+  "resolver": {
+    "level": "MOCK_ONLY_L2_LOCKED_GATEWAY_RESOLVER_NO_UPLOAD_NO_PROVIDER",
+    "status": "PASS_QUOTED_PATH_FIX",
+    "oldWrongPrefixResolution": "[WORKSPACE_PARENT]\\CareerAdapt",
+    "missingQuotedResolved": null,
+    "validQuotedMatches": true,
+    "originalMissingPathRejected": false,
+    "electronReverification": "NOT_VERIFIED_THREE_ROUNDS_EXHAUSTED"
+  },
+  "retry": {
+    "status": "PASS",
+    "level": "MOCK_ONLY_L2_EXACT_LOCKED_FUNCTION_NATIVE_TRANSPORT_MOCKED",
+    "sourceSha256": "4a87a134f9c827abe008e9038faaea19699e06f8e77b4ee86c0a4bc4153c2998",
+    "records": [
+      {
+        "case": "local-file",
+        "method": "file.attach",
+        "sessionId": "session-false-file",
+        "rawBytes": 2086,
+        "byteSha256": "97d662d272ad72812850cc3df1506bda573f81e4cd78b6a0c89e50934dccf4a0",
+        "result": {
+          "id": "a",
+          "kind": "file",
+          "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\sample.txt",
+          "label": "sample.txt",
+          "attachedSessionId": "session-false-file",
+          "refText": "@file:staged.txt"
+        }
+      },
+      {
+        "case": "local-image",
+        "method": "image.attach",
+        "sessionId": "session-false-image",
+        "rawBytes": 6397,
+        "byteSha256": "c17f6f50da099afcc3224aa65aaf29e6360b904485a4b368f3379a7cc1129a9b",
+        "result": {
+          "id": "a",
+          "kind": "image",
+          "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\image.png",
+          "label": "image.png",
+          "attachedSessionId": "session-false-image"
+        }
+      },
+      {
+        "case": "remote-file",
+        "method": "file.attach",
+        "sessionId": "session-true-file",
+        "encodedLength": 2784,
+        "rawBytes": 2086,
+        "byteSha256": "97d662d272ad72812850cc3df1506bda573f81e4cd78b6a0c89e50934dccf4a0",
+        "result": {
+          "id": "a",
+          "kind": "file",
+          "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\sample.txt",
+          "label": "sample.txt",
+          "attachedSessionId": "session-true-file",
+          "refText": "@file:staged.txt"
+        }
+      },
+      {
+        "case": "remote-image",
+        "method": "image.attach_bytes",
+        "sessionId": "session-true-image",
+        "encodedLength": 8532,
+        "rawBytes": 6397,
+        "byteSha256": "c17f6f50da099afcc3224aa65aaf29e6360b904485a4b368f3379a7cc1129a9b",
+        "result": {
+          "id": "a",
+          "kind": "image",
+          "path": "staged.png",
+          "label": "staged.png",
+          "attachedSessionId": "session-true-image"
+        }
+      }
+    ],
+    "readFailureNoRpc": true,
+    "explicitRetryAfterKnownFailure": true,
+    "unknownAutomaticRetry": false
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "status": "PARTIAL",
+  "native": {
+    "status": "PROVIDER_OR_RUNTIME_FAILURE",
+    "mode": "native",
+    "failure": "Error: No native completion event for current turn",
+    "fullQualification": false
+  },
+  "providerPayloads": [
+    {
+      "at": 1793888251253,
+      "configuredModel": "Qwen3.8-27B",
+      "endpoint": "https://developer.amd.com.cn/radeon/api/v1",
+      "requestBytes": 8116,
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "Describe everything visible in this image in thorough detail. Include any text, code, UI, data, objects, people, layout, colors, and any other notable visual information."
+            },
+            {
+              "type": "image_url",
+              "mime": "image/png",
+              "rawBytes": 5828,
+              "sha256": "3d70956096e08a9926b1dbb609ffc4f6804a030cc1f1f3f6ce3e20372f947056",
+              "base64Characters": 7772
+            }
+          ]
+        }
+      ],
+      "httpStatus": 200,
+      "forwardedAt": 1793888354472,
+      "completedAt": 1793888354473
+    }
+  ],
+  "autoAndText": {
+    "status": "PASS",
+    "level": "MOCK_ONLY_L2_ROUTE_DECISION_NO_PROVIDER",
+    "records": [
+      {
+        "mode": "auto",
+        "supportsVisionMetadata": true,
+        "route": "native"
+      },
+      {
+        "mode": "auto",
+        "supportsVisionMetadata": false,
+        "route": "text"
+      },
+      {
+        "mode": "native",
+        "supportsVisionMetadata": true,
+        "route": "native"
+      },
+      {
+        "mode": "native",
+        "supportsVisionMetadata": false,
+        "route": "native"
+      },
+      {
+        "mode": "text",
+        "supportsVisionMetadata": true,
+        "route": "text"
+      },
+      {
+        "mode": "text",
+        "supportsVisionMetadata": false,
+        "route": "text"
+      }
+    ],
+    "auxiliaryProviderInvoked": false
+  },
+  "auxiliaryProvider": false,
+  "textModeRealVision": "NOT_VERIFIED_NO_AUXILIARY_PROVIDER_CONFIGURED"
+}

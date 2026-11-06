@@ -1,0 +1,10 @@
+{
+  "status": "PARTIAL",
+  "removedPdfBeforeSubmit": true,
+  "removedClipboardChip": true,
+  "remoteBytesErased": false,
+  "note": "Chip removal prevents selected reference submission; ordinary staged files remain on disk. No remote erase claim.",
+  "duringUploadRace": "UNIT_ONLY",
+  "nativeDialogCancel": "NOT_INDEPENDENTLY_OBSERVED",
+  "unknownProtection": "10 deterministic transport scenarios passed; not server idempotence"
+}

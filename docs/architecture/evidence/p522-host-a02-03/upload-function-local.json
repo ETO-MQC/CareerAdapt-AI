@@ -1,0 +1,70 @@
+{
+  "status": "PASS",
+  "level": "MOCK_ONLY_L2_EXACT_LOCKED_FUNCTION_NATIVE_TRANSPORT_MOCKED",
+  "sourceSha256": "4a87a134f9c827abe008e9038faaea19699e06f8e77b4ee86c0a4bc4153c2998",
+  "records": [
+    {
+      "case": "local-file",
+      "method": "file.attach",
+      "sessionId": "session-false-file",
+      "rawBytes": 2086,
+      "byteSha256": "97d662d272ad72812850cc3df1506bda573f81e4cd78b6a0c89e50934dccf4a0",
+      "result": {
+        "id": "a",
+        "kind": "file",
+        "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\sample.txt",
+        "label": "sample.txt",
+        "attachedSessionId": "session-false-file",
+        "refText": "@file:staged.txt"
+      }
+    },
+    {
+      "case": "local-image",
+      "method": "image.attach",
+      "sessionId": "session-false-image",
+      "rawBytes": 6397,
+      "byteSha256": "c17f6f50da099afcc3224aa65aaf29e6360b904485a4b368f3379a7cc1129a9b",
+      "result": {
+        "id": "a",
+        "kind": "image",
+        "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\image.png",
+        "label": "image.png",
+        "attachedSessionId": "session-false-image"
+      }
+    },
+    {
+      "case": "remote-file",
+      "method": "file.attach",
+      "sessionId": "session-true-file",
+      "encodedLength": 2784,
+      "rawBytes": 2086,
+      "byteSha256": "97d662d272ad72812850cc3df1506bda573f81e4cd78b6a0c89e50934dccf4a0",
+      "result": {
+        "id": "a",
+        "kind": "file",
+        "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\sample.txt",
+        "label": "sample.txt",
+        "attachedSessionId": "session-true-file",
+        "refText": "@file:staged.txt"
+      }
+    },
+    {
+      "case": "remote-image",
+      "method": "image.attach_bytes",
+      "sessionId": "session-true-image",
+      "encodedLength": 8532,
+      "rawBytes": 6397,
+      "byteSha256": "c17f6f50da099afcc3224aa65aaf29e6360b904485a4b368f3379a7cc1129a9b",
+      "result": {
+        "id": "a",
+        "kind": "image",
+        "path": "staged.png",
+        "label": "staged.png",
+        "attachedSessionId": "session-true-image"
+      }
+    }
+  ],
+  "readFailureNoRpc": true,
+  "explicitRetryAfterKnownFailure": true,
+  "unknownAutomaticRetry": false
+}

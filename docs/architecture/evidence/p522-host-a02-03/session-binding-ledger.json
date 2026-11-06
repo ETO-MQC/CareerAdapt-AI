@@ -1,0 +1,255 @@
+{
+  "round2": {
+    "records": [
+      {
+        "kind": "file-picker",
+        "selected": [
+          {
+            "id": "file:[PROJECT]/.artifacts/p522-host-a02-03/fixtures/sample.pdf",
+            "kind": "file",
+            "label": "sample.pdf",
+            "detail": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\sample.pdf",
+            "refText": "@file:.hermes/desktop-attachments/sample.pdf",
+            "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\sample.pdf",
+            "attachedSessionId": "9fce9716"
+          },
+          {
+            "id": "file:[PROJECT]/.artifacts/p522-host-a02-03/fixtures/sample.txt",
+            "kind": "file",
+            "label": "sample.txt",
+            "detail": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\sample.txt",
+            "refText": "@file:.hermes/desktop-attachments/sample.txt",
+            "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\sample.txt",
+            "attachedSessionId": "9fce9716"
+          }
+        ],
+        "session": "9fce9716"
+      },
+      {
+        "kind": "clipboard",
+        "selected": [
+          {
+            "id": "image:[PROJECT]/.artifacts/p522-host-a02-03/run-1793887003157/user-data/composer-images/composer_2026-11-05_14-03-38-500_9e1750.png",
+            "kind": "image",
+            "label": "composer_2026-11-05_14-03-38-500_9e1750.png",
+            "detail": "[PROJECT]\\.artifacts\\p522-host-a02-03\\run-1793887003157\\user-data\\composer-images\\composer_2026-11-05_14-03-38-500_9e1750.png",
+            "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\run-1793887003157\\user-data\\composer-images\\composer_2026-11-05_14-03-38-500_9e1750.png",
+            "previewUrl": {
+              "present": true,
+              "encodedLength": 7794
+            }
+          }
+        ]
+      }
+    ],
+    "rpc": [
+      {
+        "at": 1793887104757,
+        "id": 32,
+        "method": "prompt.submit",
+        "sessionId": "9fce9716",
+        "params": {
+          "session_id": "9fce9716",
+          "text": "Do not call tools. Write 35 short numbered lines about geometric shapes. Begin immediately."
+        },
+        "ackAt": 1793887105300,
+        "rejected": false,
+        "resultKeys": [
+          "status"
+        ],
+        "result": {
+          "status": "streaming"
+        }
+      },
+      {
+        "at": 1793887203155,
+        "id": 142,
+        "method": "file.attach",
+        "sessionId": "9fce9716",
+        "params": {
+          "name": "sample.pdf",
+          "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\sample.pdf",
+          "session_id": "9fce9716"
+        },
+        "ackAt": 1793887204547,
+        "rejected": false,
+        "resultKeys": [
+          "attached",
+          "name",
+          "path",
+          "ref_path",
+          "ref_text",
+          "uploaded"
+        ],
+        "result": {
+          "attached": true,
+          "name": "sample.pdf",
+          "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\run-1793887003157\\workspace\\.hermes\\desktop-attachments\\sample.pdf",
+          "ref_path": ".hermes/desktop-attachments/sample.pdf",
+          "ref_text": "@file:.hermes/desktop-attachments/sample.pdf",
+          "uploaded": true
+        }
+      },
+      {
+        "at": 1793887203156,
+        "id": 143,
+        "method": "file.attach",
+        "sessionId": "9fce9716",
+        "params": {
+          "name": "sample.txt",
+          "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\sample.txt",
+          "session_id": "9fce9716"
+        },
+        "ackAt": 1793887204597,
+        "rejected": false,
+        "resultKeys": [
+          "attached",
+          "name",
+          "path",
+          "ref_path",
+          "ref_text",
+          "uploaded"
+        ],
+        "result": {
+          "attached": true,
+          "name": "sample.txt",
+          "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\run-1793887003157\\workspace\\.hermes\\desktop-attachments\\sample.txt",
+          "ref_path": ".hermes/desktop-attachments/sample.txt",
+          "ref_text": "@file:.hermes/desktop-attachments/sample.txt",
+          "uploaded": true
+        }
+      },
+      {
+        "at": 1793887205583,
+        "id": 147,
+        "method": "prompt.submit",
+        "sessionId": "9fce9716",
+        "params": {
+          "session_id": "9fce9716",
+          "text": "@file:.hermes/desktop-attachments/sample.txt\n\nRead the attached synthetic text file. Return the unique marker found inside it. Do not call any tools."
+        },
+        "ackAt": 1793887205604,
+        "rejected": false,
+        "resultKeys": [
+          "status"
+        ],
+        "result": {
+          "status": "streaming"
+        }
+      }
+    ]
+  },
+  "thirdRpc": [
+    {
+      "at": 1793888229682,
+      "id": 354,
+      "method": "image.attach",
+      "sessionId": "c1079cc8",
+      "params": {
+        "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\run-1793887855950\\user-data\\composer-images\\composer_2026-11-05_14-17-08-132_0482d1.png",
+        "session_id": "c1079cc8"
+      },
+      "ackAt": 1793888239896,
+      "rejected": false,
+      "resultKeys": [
+        "attached",
+        "path",
+        "count",
+        "remainder",
+        "text",
+        "name",
+        "width",
+        "height",
+        "token_estimate"
+      ],
+      "result": {
+        "attached": true,
+        "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\run-1793887855950\\user-data\\composer-images\\composer_2026-11-05_14-17-08-132_0482d1.png",
+        "count": 1,
+        "remainder": "",
+        "text": "[User attached image: composer_2026-11-05_14-17-08-132_0482d1.png]",
+        "name": "composer_2026-11-05_14-17-08-132_0482d1.png",
+        "width": 256,
+        "height": 256,
+        "token_estimate": 85
+      }
+    },
+    {
+      "at": 1793888239896,
+      "id": 359,
+      "method": "prompt.submit",
+      "sessionId": "c1079cc8",
+      "params": {
+        "session_id": "c1079cc8",
+        "text": "Read all the text visible in the attached synthetic image. Do not call tools."
+      },
+      "ackAt": 1793888239962,
+      "rejected": false,
+      "resultKeys": [
+        "status"
+      ],
+      "result": {
+        "status": "streaming"
+      }
+    },
+    {
+      "at": 1793888349566,
+      "id": 482,
+      "method": "file.attach",
+      "sessionId": "c1079cc8",
+      "params": {
+        "name": "missing-controlled.txt",
+        "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\missing-controlled.txt",
+        "session_id": "c1079cc8"
+      },
+      "ackAt": 1793888349652,
+      "rejected": false,
+      "resultKeys": [
+        "attached",
+        "name",
+        "path",
+        "ref_path",
+        "ref_text",
+        "uploaded"
+      ],
+      "result": {
+        "attached": true,
+        "name": "CareerAdapt",
+        "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\run-1793887855950\\workspace\\.hermes\\desktop-attachments\\CareerAdapt",
+        "ref_path": ".hermes/desktop-attachments/CareerAdapt",
+        "ref_text": "@file:.hermes/desktop-attachments/CareerAdapt",
+        "uploaded": true
+      }
+    },
+    {
+      "at": 1793888349566,
+      "id": 483,
+      "method": "file.attach",
+      "sessionId": "c1079cc8",
+      "params": {
+        "name": "sample.txt",
+        "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\fixtures\\sample.txt",
+        "session_id": "c1079cc8"
+      },
+      "ackAt": 1793888349677,
+      "rejected": false,
+      "resultKeys": [
+        "attached",
+        "name",
+        "path",
+        "ref_path",
+        "ref_text",
+        "uploaded"
+      ],
+      "result": {
+        "attached": true,
+        "name": "sample.txt",
+        "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\run-1793887855950\\workspace\\.hermes\\desktop-attachments\\sample.txt",
+        "ref_path": ".hermes/desktop-attachments/sample.txt",
+        "ref_text": "@file:.hermes/desktop-attachments/sample.txt",
+        "uploaded": true
+      }
+    }
+  ],
+  "crossSession": "NOT_VERIFIED"
+}

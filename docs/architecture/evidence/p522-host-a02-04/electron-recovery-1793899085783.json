@@ -1,0 +1,974 @@
+{
+  "run": 1793898281301,
+  "status": "FAIL",
+  "level": "REAL_ELECTRON_NATIVE_GATEWAY",
+  "rpc": [
+    {
+      "epoch": 1,
+      "at": 1793899093890,
+      "id": 1,
+      "method": "model.options",
+      "params": {
+        "explicit_only": true
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899093890,
+      "id": 2,
+      "method": "setup.status",
+      "params": {},
+      "result": {
+        "provider_configured": true
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899093890,
+      "id": 3,
+      "method": "setup.runtime_check",
+      "params": {},
+      "result": {
+        "ok": true,
+        "provider": "custom",
+        "model": null,
+        "source": "env/config"
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899093890,
+      "id": 4,
+      "method": "setup.status",
+      "params": {},
+      "result": {
+        "provider_configured": true
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899093890,
+      "id": 5,
+      "method": "setup.runtime_check",
+      "params": {},
+      "result": {
+        "ok": true,
+        "provider": "custom",
+        "model": null,
+        "source": "env/config"
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899093891,
+      "id": 6,
+      "method": "session.active_list",
+      "params": {},
+      "result": {
+        "sessions": []
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899094919,
+      "id": 7,
+      "method": "session.resume",
+      "params": {
+        "session_id": "20261106_010543_9841ec",
+        "cols": 96,
+        "source": "desktop"
+      },
+      "result": {
+        "session_id": "eaf8c37f",
+        "resumed": "20261106_010543_9841ec",
+        "message_count": 2,
+        "messages": [
+          {
+            "role": "user",
+            "text": "Do not call tools. Reply exactly SESSION_A_OK.\n\n--- Attached Context ---\n\n📄 @file:`.hermes/desktop-attachments/valid path.txt` (10 tokens)\n```\nSYNTHETIC SESSION A ONLY 1793898281301\n\n```"
+          },
+          {
+            "role": "assistant",
+            "text": "SESSION_A_OK"
+          }
+        ],
+        "info": {
+          "cwd": "[PROJECT]\\.artifacts\\p522-host-a02-04\\run-1793898281301\\workspace",
+          "branch": "main",
+          "project": null,
+          "model": "Qwen3.8-27B",
+          "tools": {},
+          "skills": {},
+          "lazy": true,
+          "desktop_contract": 4,
+          "profile_name": "default"
+        },
+        "inflight": null,
+        "running": false,
+        "session_key": "20261106_010543_9841ec",
+        "started_at": 1793899094.955339,
+        "status": "idle"
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899095344,
+      "id": 8,
+      "method": "session.active_list",
+      "params": {},
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "eaf8c37f",
+            "last_active": 1793899094.955339,
+            "message_count": 2,
+            "model": "Qwen3.8-27B",
+            "preview": "SESSION_A_OK",
+            "session_key": "20261106_010543_9841ec",
+            "started_at": 1793899094.955339,
+            "status": "starting",
+            "title": "Reply Exactly Session A OK"
+          }
+        ]
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899095783,
+      "id": 9,
+      "method": "process.list",
+      "params": {
+        "session_id": "eaf8c37f"
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899095784,
+      "id": 10,
+      "method": "model.options",
+      "params": {
+        "session_id": "eaf8c37f",
+        "explicit_only": true
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899095784,
+      "id": 11,
+      "method": "complete.path",
+      "params": {
+        "session_id": "eaf8c37f",
+        "word": "@file:",
+        "cwd": "[PROJECT]\\.artifacts\\p522-host-a02-04\\run-1793898281301\\workspace"
+      },
+      "result": {
+        "items": []
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899095785,
+      "id": 12,
+      "method": "process.list",
+      "params": {
+        "session_id": "eaf8c37f"
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899096859,
+      "id": 13,
+      "method": "pet.info",
+      "params": {
+        "profile": "default"
+      },
+      "result": {
+        "enabled": false
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899096859,
+      "id": 14,
+      "method": "session.active_list",
+      "params": {},
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "eaf8c37f",
+            "last_active": 1793899094.955339,
+            "message_count": 2,
+            "model": "Qwen3.8-27B",
+            "preview": "SESSION_A_OK",
+            "session_key": "20261106_010543_9841ec",
+            "started_at": 1793899094.955339,
+            "status": "starting",
+            "title": "Reply Exactly Session A OK"
+          }
+        ]
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899098357,
+      "id": 15,
+      "method": "session.active_list",
+      "params": {},
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "eaf8c37f",
+            "last_active": 1793899094.955339,
+            "message_count": 2,
+            "model": "Qwen3.8-27B",
+            "preview": "SESSION_A_OK",
+            "session_key": "20261106_010543_9841ec",
+            "started_at": 1793899094.955339,
+            "status": "starting",
+            "title": "Reply Exactly Session A OK"
+          }
+        ]
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899100293,
+      "id": 1,
+      "method": "model.options",
+      "params": {
+        "explicit_only": true
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899100294,
+      "id": 2,
+      "method": "setup.status",
+      "params": {},
+      "result": {
+        "provider_configured": true
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899100294,
+      "id": 3,
+      "method": "setup.runtime_check",
+      "params": {},
+      "result": {
+        "ok": true,
+        "provider": "custom",
+        "model": null,
+        "source": "env/config"
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899100294,
+      "id": 4,
+      "method": "setup.status",
+      "params": {},
+      "result": {
+        "provider_configured": true
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899100294,
+      "id": 5,
+      "method": "setup.runtime_check",
+      "params": {},
+      "result": {
+        "ok": true,
+        "provider": "custom",
+        "model": null,
+        "source": "env/config"
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899100294,
+      "id": 6,
+      "method": "session.active_list",
+      "params": {},
+      "result": {
+        "sessions": [
+          {
+            "current": false,
+            "id": "eaf8c37f",
+            "last_active": 1793899094.955339,
+            "message_count": 2,
+            "model": "Qwen3.8-27B",
+            "preview": "SESSION_A_OK",
+            "session_key": "20261106_010543_9841ec",
+            "started_at": 1793899094.955339,
+            "status": "starting",
+            "title": "Reply Exactly Session A OK"
+          }
+        ]
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899100430,
+      "id": 7,
+      "method": "session.resume",
+      "params": {
+        "session_id": "20261106_010543_9841ec",
+        "cols": 96,
+        "source": "desktop"
+      },
+      "result": {
+        "info": {
+          "cwd": "[PROJECT]\\.artifacts\\p522-host-a02-04\\run-1793898281301\\workspace",
+          "project": null,
+          "lazy": true,
+          "model": "Qwen3.8-27B",
+          "skills": {},
+          "tools": {}
+        },
+        "message_count": 2,
+        "messages": [
+          {
+            "role": "user",
+            "text": "Do not call tools. Reply exactly SESSION_A_OK.\n\n--- Attached Context ---\n\n📄 @file:`.hermes/desktop-attachments/valid path.txt` (10 tokens)\n```\nSYNTHETIC SESSION A ONLY 1793898281301\n\n```"
+          },
+          {
+            "role": "assistant",
+            "text": "SESSION_A_OK"
+          }
+        ],
+        "running": false,
+        "session_id": "eaf8c37f",
+        "session_key": "20261106_010543_9841ec",
+        "started_at": 1793899094.955339,
+        "status": "starting",
+        "resumed": "20261106_010543_9841ec"
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899101741,
+      "id": 8,
+      "method": "process.list",
+      "params": {
+        "session_id": "eaf8c37f"
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899101742,
+      "id": 9,
+      "method": "model.options",
+      "params": {
+        "session_id": "eaf8c37f",
+        "explicit_only": true
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899101742,
+      "id": 10,
+      "method": "complete.path",
+      "params": {
+        "session_id": "eaf8c37f",
+        "word": "@file:",
+        "cwd": "[PROJECT]\\.artifacts\\p522-host-a02-04\\run-1793898281301\\workspace"
+      },
+      "result": {
+        "items": []
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899101743,
+      "id": 11,
+      "method": "process.list",
+      "params": {
+        "session_id": "eaf8c37f"
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899101833,
+      "id": 12,
+      "method": "session.active_list",
+      "params": {}
+    },
+    {
+      "epoch": 1,
+      "at": 1793899103269,
+      "id": 13,
+      "method": "pet.info",
+      "params": {
+        "profile": "default"
+      }
+    }
+  ],
+  "events": [
+    {
+      "epoch": 1,
+      "at": 1793899093902,
+      "type": "gateway.ready",
+      "payload": {
+        "skin": {
+          "name": "default",
+          "colors": {
+            "banner_border": "#CD7F32",
+            "banner_title": "#FFD700",
+            "banner_accent": "#FFBF00",
+            "banner_dim": "#B8860B",
+            "banner_text": "#FFF8DC",
+            "ui_accent": "#FFBF00",
+            "ui_label": "#DAA520",
+            "ui_ok": "#4caf50",
+            "ui_error": "#ef5350",
+            "ui_warn": "#ffa726",
+            "prompt": "#FFF8DC",
+            "input_rule": "#CD7F32",
+            "response_border": "#FFD700",
+            "status_bar_bg": "#1a1a2e",
+            "status_bar_text": "#C0C0C0",
+            "status_bar_strong": "#FFD700",
+            "status_bar_dim": "#8A7A4A",
+            "status_bar_good": "#8FBC8F",
+            "status_bar_warn": "#FFD700",
+            "status_bar_bad": "#FF8C00",
+            "status_bar_critical": "#FF6B6B",
+            "session_label": "#DAA520",
+            "session_border": "#8B8682",
+            "completion_menu_bg": "#1a1a2e",
+            "completion_menu_current_bg": "#333355",
+            "selection_bg": "#3a3a55",
+            "shell_dollar": "#4dabf7",
+            "voice_status_bg": "#1a1a2e"
+          },
+          "light_colors": {
+            "banner_title": "#C8961E",
+            "banner_accent": "#D89B04",
+            "banner_dim": "#B8860B",
+            "banner_text": "#5C4718",
+            "ui_accent": "#D89B04",
+            "ui_label": "#A97E10",
+            "ui_ok": "#2E7D32",
+            "ui_error": "#C62828",
+            "ui_warn": "#D97706",
+            "prompt": "#5C4718",
+            "response_border": "#C8961E",
+            "session_label": "#A97E10",
+            "status_bar_text": "#6F6F6F",
+            "status_bar_strong": "#C8961E",
+            "status_bar_dim": "#9A8A5A",
+            "status_bar_good": "#2E7D32",
+            "status_bar_warn": "#C8961E",
+            "status_bar_bad": "#C2410C",
+            "status_bar_critical": "#B91C1C",
+            "shell_dollar": "#1E6FC0",
+            "completion_menu_bg": "#F5F5F5",
+            "completion_menu_current_bg": "#E0D1BF",
+            "selection_bg": "#D4E4F7",
+            "status_bar_bg": "#F5F5F5",
+            "voice_status_bg": "#F5F5F5"
+          },
+          "dark_colors": {},
+          "branding": {
+            "agent_name": "Hermes Agent",
+            "welcome": "Welcome to Hermes Agent! Type your message or /help for commands.",
+            "goodbye": "Goodbye! ⚕",
+            "response_label": " ⚕ Hermes ",
+            "prompt_symbol": "❯",
+            "help_header": "(^_^)? Available Commands"
+          },
+          "banner_logo": "",
+          "banner_hero": "",
+          "tool_prefix": "┊",
+          "help_header": "(^_^)? Available Commands"
+        }
+      }
+    },
+    {
+      "epoch": 1,
+      "at": 1793899100330,
+      "type": "gateway.ready",
+      "payload": {
+        "skin": {
+          "name": "default",
+          "colors": {
+            "banner_border": "#CD7F32",
+            "banner_title": "#FFD700",
+            "banner_accent": "#FFBF00",
+            "banner_dim": "#B8860B",
+            "banner_text": "#FFF8DC",
+            "ui_accent": "#FFBF00",
+            "ui_label": "#DAA520",
+            "ui_ok": "#4caf50",
+            "ui_error": "#ef5350",
+            "ui_warn": "#ffa726",
+            "prompt": "#FFF8DC",
+            "input_rule": "#CD7F32",
+            "response_border": "#FFD700",
+            "status_bar_bg": "#1a1a2e",
+            "status_bar_text": "#C0C0C0",
+            "status_bar_strong": "#FFD700",
+            "status_bar_dim": "#8A7A4A",
+            "status_bar_good": "#8FBC8F",
+            "status_bar_warn": "#FFD700",
+            "status_bar_bad": "#FF8C00",
+            "status_bar_critical": "#FF6B6B",
+            "session_label": "#DAA520",
+            "session_border": "#8B8682",
+            "completion_menu_bg": "#1a1a2e",
+            "completion_menu_current_bg": "#333355",
+            "selection_bg": "#3a3a55",
+            "shell_dollar": "#4dabf7",
+            "voice_status_bg": "#1a1a2e"
+          },
+          "light_colors": {
+            "banner_title": "#C8961E",
+            "banner_accent": "#D89B04",
+            "banner_dim": "#B8860B",
+            "banner_text": "#5C4718",
+            "ui_accent": "#D89B04",
+            "ui_label": "#A97E10",
+            "ui_ok": "#2E7D32",
+            "ui_error": "#C62828",
+            "ui_warn": "#D97706",
+            "prompt": "#5C4718",
+            "response_border": "#C8961E",
+            "session_label": "#A97E10",
+            "status_bar_text": "#6F6F6F",
+            "status_bar_strong": "#C8961E",
+            "status_bar_dim": "#9A8A5A",
+            "status_bar_good": "#2E7D32",
+            "status_bar_warn": "#C8961E",
+            "status_bar_bad": "#C2410C",
+            "status_bar_critical": "#B91C1C",
+            "shell_dollar": "#1E6FC0",
+            "completion_menu_bg": "#F5F5F5",
+            "completion_menu_current_bg": "#E0D1BF",
+            "selection_bg": "#D4E4F7",
+            "status_bar_bg": "#F5F5F5",
+            "voice_status_bg": "#F5F5F5"
+          },
+          "dark_colors": {},
+          "branding": {
+            "agent_name": "Hermes Agent",
+            "welcome": "Welcome to Hermes Agent! Type your message or /help for commands.",
+            "goodbye": "Goodbye! ⚕",
+            "response_label": " ⚕ Hermes ",
+            "prompt_symbol": "❯",
+            "help_header": "(^_^)? Available Commands"
+          },
+          "banner_logo": "",
+          "banner_hero": "",
+          "tool_prefix": "┊",
+          "help_header": "(^_^)? Available Commands"
+        }
+      }
+    }
+  ],
+  "errors": [],
+  "screenshots": [
+    "docs/architecture/evidence/p522-host-a02-04/screenshots/1793898281301-1793899085783-1-ready.png",
+    "docs/architecture/evidence/p522-host-a02-04/screenshots/1793898281301-1793899085783-1-unknown-before-reload.png",
+    "docs/architecture/evidence/p522-host-a02-04/screenshots/1793898281301-1793899085783-1-failure.png"
+  ],
+  "cases": [],
+  "launches": [
+    {
+      "epoch": 1,
+      "pid": 67900,
+      "startedAt": 1793899086441,
+      "stdout": "",
+      "stderr": "(electron) 'console-message' arguments are deprecated and will be removed. Please use Event<WebContentsConsoleMessageEventParams> object instead.\nInvalid value supplied for custom binary, restricted characters must be removed or supply the unsafe.allowUnsafeCustomBinary option\nInvalid value supplied for custom binary, restricted characters must be removed or supply the unsafe.allowUnsafeCustomBinary option\nInvalid value supplied for custom binary, restricted characters must be removed or supply the unsafe.allowUnsafeCustomBinary option\nInvalid value supplied for custom binary, restricted characters must be removed or supply the unsafe.allowUnsafeCustomBinary option\nDebugger ending on ws://127.0.0.1:3584/7b107d19-7cc2-4ab5-86c6-54a579d1e84d\r\nFor help, see: https://nodejs.org/en/docs/inspector\r\nError occurred in handler for 'hermes:api': Error: write ECONNRESET\n    at afterWriteDispatched (node:internal/stream_base_commons:159:15)\n    at writeGeneric (node:internal/stream_base_commons:150:3)\n    at Socket._writeGeneric (node:net:1025:11)\n    at Socket._write (node:net:1037:8)\n    at doWrite (node:internal/streams/writable:596:12)\n    at clearBuffer (node:internal/streams/writable:781:7)\n    at Writable.uncork (node:internal/streams/writable:529:7)\n    at ClientRequest._flushOutput (node:_http_outgoing:1170:10)\n    at ClientRequest._flush (node:_http_outgoing:1142:22)\n    at onSocketNT (node:_http_client:1016:9) {\n  errno: -4077,\n  code: 'ECONNRESET',\n  syscall: 'write'\n}\nError occurred in handler for 'hermes:api': Error: read ECONNRESET\n    at TCP.onStreamRead (node:internal/stream_base_commons:216:20) {\n  errno: -4077,\n  code: 'ECONNRESET',\n  syscall: 'read'\n}\nError occurred in handler for 'hermes:api': Error: read ECONNRESET\n    at TCP.onStreamRead (node:internal/stream_base_commons:216:20) {\n  errno: -4077,\n  code: 'ECONNRESET',\n  syscall: 'read'\n}\n",
+      "readyAt": 1793899096292,
+      "readyState": {
+        "runtimeId": "eaf8c37f",
+        "storedId": "20261106_010543_9841ec",
+        "sessions": [
+          {
+            "id": "20261106_010624_4684ab",
+            "source": "desktop",
+            "user_id": null,
+            "session_key": null,
+            "chat_id": null,
+            "chat_type": null,
+            "thread_id": null,
+            "display_name": null,
+            "origin_json": null,
+            "expiry_finalized": 0,
+            "model": "Qwen3.8-27B",
+            "parent_session_id": null,
+            "started_at": 1793898384.9773045,
+            "ended_at": null,
+            "end_reason": null,
+            "message_count": 2,
+            "tool_call_count": 0,
+            "input_tokens": 2743,
+            "output_tokens": 4,
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
+            "reasoning_tokens": 0,
+            "cwd": null,
+            "git_branch": null,
+            "git_repo_root": null,
+            "billing_provider": "custom",
+            "billing_base_url": "https://developer.amd.com.cn/radeon/api/v1",
+            "billing_mode": null,
+            "estimated_cost_usd": 0,
+            "actual_cost_usd": null,
+            "cost_status": "unknown",
+            "cost_source": "none",
+            "pricing_version": null,
+            "title": "Session B Exact Reply Check",
+            "api_call_count": 1,
+            "handoff_state": null,
+            "handoff_platform": null,
+            "handoff_error": null,
+            "compression_failure_cooldown_until": null,
+            "compression_failure_error": null,
+            "compression_fallback_streak": 0,
+            "compression_ineffective_count": 0,
+            "profile_name": null,
+            "rewind_count": 0,
+            "archived": false,
+            "pinned": 0,
+            "last_active": 1793898404.0539577,
+            "preview": "Do not call tools. Reply exactly SESSION_B_OK.",
+            "profile": "default",
+            "is_default_profile": true,
+            "is_active": false
+          },
+          {
+            "id": "20261106_010543_9841ec",
+            "source": "desktop",
+            "user_id": null,
+            "session_key": null,
+            "chat_id": null,
+            "chat_type": null,
+            "thread_id": null,
+            "display_name": null,
+            "origin_json": null,
+            "expiry_finalized": 0,
+            "model": "Qwen3.8-27B",
+            "parent_session_id": null,
+            "started_at": 1793898369.8559163,
+            "ended_at": null,
+            "end_reason": null,
+            "message_count": 2,
+            "tool_call_count": 0,
+            "input_tokens": 2798,
+            "output_tokens": 4,
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
+            "reasoning_tokens": 0,
+            "cwd": "[PROJECT]\\.artifacts\\p522-host-a02-04\\run-1793898281301\\workspace",
+            "git_branch": null,
+            "git_repo_root": null,
+            "billing_provider": "custom",
+            "billing_base_url": "https://developer.amd.com.cn/radeon/api/v1",
+            "billing_mode": null,
+            "estimated_cost_usd": 0,
+            "actual_cost_usd": null,
+            "cost_status": "unknown",
+            "cost_source": "none",
+            "pricing_version": null,
+            "title": "Reply Exactly Session A OK",
+            "api_call_count": 1,
+            "handoff_state": null,
+            "handoff_platform": null,
+            "handoff_error": null,
+            "compression_failure_cooldown_until": null,
+            "compression_failure_error": null,
+            "compression_fallback_streak": 0,
+            "compression_ineffective_count": 0,
+            "profile_name": null,
+            "rewind_count": 0,
+            "archived": false,
+            "pinned": 0,
+            "last_active": 1793898382.323172,
+            "preview": "Do not call tools. Reply exactly SESSION_A_OK.  --- Attached...",
+            "profile": "default",
+            "is_default_profile": true,
+            "is_active": false
+          }
+        ],
+        "messages": [
+          {
+            "id": "1793898376.9356112-0-user",
+            "role": "user",
+            "parts": [
+              {
+                "type": "text",
+                "text": "@file:`.hermes/desktop-attachments/valid path.txt`\n\nDo not call tools. Reply exactly SESSION_A_OK."
+              }
+            ],
+            "timestamp": 1793898376.9356112
+          },
+          {
+            "id": "1793898382.323172-1-assistant",
+            "role": "assistant",
+            "parts": [
+              {
+                "type": "text",
+                "text": "SESSION_A_OK"
+              }
+            ],
+            "timestamp": 1793898382.323172
+          },
+          {
+            "id": "user-1793898969855-7qwj42",
+            "role": "user",
+            "parts": [
+              {
+                "type": "text",
+                "text": "SYNTHETIC_UNKNOWN_1793898281301"
+              }
+            ],
+            "attachmentRefs": [],
+            "pending": false
+          }
+        ],
+        "busy": false,
+        "awaiting": false,
+        "attachments": [],
+        "draftTexts": {
+          "20261106_010624_4684ab": "DRAFT_B_1793898281301",
+          "20261106_010543_9841ec": "SYNTHETIC_UNKNOWN_1793898281301"
+        },
+        "rememberedRoute": "/20261106_010543_9841ec",
+        "rememberedSession": "20261106_010543_9841ec",
+        "journal": {
+          "entries": {
+            "20261106_010543_9841ec": {
+              "messages": [
+                {
+                  "id": "user-1793898969855-7qwj42",
+                  "role": "user",
+                  "parts": [
+                    {
+                      "type": "text",
+                      "text": "SYNTHETIC_UNKNOWN_1793898281301"
+                    }
+                  ],
+                  "attachmentRefs": [],
+                  "pending": false
+                },
+                {
+                  "id": "assistant-error-1793898970077",
+                  "role": "assistant",
+                  "parts": [],
+                  "error": "UNKNOWN：请求执行结果未知，未自动重发。请检查会话状态并核对历史后再继续。",
+                  "pending": false
+                }
+              ],
+              "streamId": null,
+              "turnStartedAt": null,
+              "updatedAt": 1793899095610
+            }
+          },
+          "version": 1
+        }
+      },
+      "closedAt": 1793899105693,
+      "exitCode": 0
+    }
+  ],
+  "providerRequests": "Only native Send; no direct Provider requests",
+  "isolated": true,
+  "failure": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:\n\n  assert.ok(afterReload.messages.some(m=>m.error?.startsWith('UNKNOWN')))\n\n    at file:///[WORKSPACE_PARENT]/CareerAdapt%20AI/scripts/p522-host-a02-04-electron.mjs:132:41",
+  "lastState": {
+    "runtimeId": "eaf8c37f",
+    "storedId": "20261106_010543_9841ec",
+    "sessions": [
+      {
+        "id": "20261106_010624_4684ab",
+        "source": "desktop",
+        "user_id": null,
+        "session_key": null,
+        "chat_id": null,
+        "chat_type": null,
+        "thread_id": null,
+        "display_name": null,
+        "origin_json": null,
+        "expiry_finalized": 0,
+        "model": "Qwen3.8-27B",
+        "parent_session_id": null,
+        "started_at": 1793898384.9773045,
+        "ended_at": null,
+        "end_reason": null,
+        "message_count": 2,
+        "tool_call_count": 0,
+        "input_tokens": 2743,
+        "output_tokens": 4,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0,
+        "reasoning_tokens": 0,
+        "cwd": null,
+        "git_branch": null,
+        "git_repo_root": null,
+        "billing_provider": "custom",
+        "billing_base_url": "https://developer.amd.com.cn/radeon/api/v1",
+        "billing_mode": null,
+        "estimated_cost_usd": 0,
+        "actual_cost_usd": null,
+        "cost_status": "unknown",
+        "cost_source": "none",
+        "pricing_version": null,
+        "title": "Session B Exact Reply Check",
+        "api_call_count": 1,
+        "handoff_state": null,
+        "handoff_platform": null,
+        "handoff_error": null,
+        "compression_failure_cooldown_until": null,
+        "compression_failure_error": null,
+        "compression_fallback_streak": 0,
+        "compression_ineffective_count": 0,
+        "profile_name": null,
+        "rewind_count": 0,
+        "archived": false,
+        "pinned": 0,
+        "last_active": 1793898404.0539577,
+        "preview": "Do not call tools. Reply exactly SESSION_B_OK.",
+        "profile": "default",
+        "is_default_profile": true,
+        "is_active": false
+      },
+      {
+        "id": "20261106_010543_9841ec",
+        "source": "desktop",
+        "user_id": null,
+        "session_key": null,
+        "chat_id": null,
+        "chat_type": null,
+        "thread_id": null,
+        "display_name": null,
+        "origin_json": null,
+        "expiry_finalized": 0,
+        "model": "Qwen3.8-27B",
+        "parent_session_id": null,
+        "started_at": 1793898369.8559163,
+        "ended_at": null,
+        "end_reason": null,
+        "message_count": 2,
+        "tool_call_count": 0,
+        "input_tokens": 2798,
+        "output_tokens": 4,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0,
+        "reasoning_tokens": 0,
+        "cwd": "[PROJECT]\\.artifacts\\p522-host-a02-04\\run-1793898281301\\workspace",
+        "git_branch": null,
+        "git_repo_root": null,
+        "billing_provider": "custom",
+        "billing_base_url": "https://developer.amd.com.cn/radeon/api/v1",
+        "billing_mode": null,
+        "estimated_cost_usd": 0,
+        "actual_cost_usd": null,
+        "cost_status": "unknown",
+        "cost_source": "none",
+        "pricing_version": null,
+        "title": "Reply Exactly Session A OK",
+        "api_call_count": 1,
+        "handoff_state": null,
+        "handoff_platform": null,
+        "handoff_error": null,
+        "compression_failure_cooldown_until": null,
+        "compression_failure_error": null,
+        "compression_fallback_streak": 0,
+        "compression_ineffective_count": 0,
+        "profile_name": null,
+        "rewind_count": 0,
+        "archived": false,
+        "pinned": 0,
+        "last_active": 1793898382.323172,
+        "preview": "Do not call tools. Reply exactly SESSION_A_OK.  --- Attached...",
+        "profile": "default",
+        "is_default_profile": true,
+        "is_active": false
+      }
+    ],
+    "messages": [
+      {
+        "id": "1793898376.9356112-0-user",
+        "role": "user",
+        "parts": [
+          {
+            "type": "text",
+            "text": "@file:`.hermes/desktop-attachments/valid path.txt`\n\nDo not call tools. Reply exactly SESSION_A_OK."
+          }
+        ],
+        "timestamp": 1793898376.9356112
+      },
+      {
+        "id": "1793898382.323172-1-assistant",
+        "role": "assistant",
+        "parts": [
+          {
+            "type": "text",
+            "text": "SESSION_A_OK"
+          }
+        ],
+        "timestamp": 1793898382.323172
+      },
+      {
+        "id": "user-1793898969855-7qwj42",
+        "role": "user",
+        "parts": [
+          {
+            "type": "text",
+            "text": "SYNTHETIC_UNKNOWN_1793898281301"
+          }
+        ],
+        "attachmentRefs": [],
+        "pending": false
+      }
+    ],
+    "busy": false,
+    "awaiting": false,
+    "attachments": [],
+    "draftTexts": {
+      "20261106_010624_4684ab": "DRAFT_B_1793898281301",
+      "20261106_010543_9841ec": "SYNTHETIC_UNKNOWN_1793898281301"
+    },
+    "rememberedRoute": "/20261106_010543_9841ec",
+    "rememberedSession": "20261106_010543_9841ec",
+    "journal": {
+      "entries": {
+        "20261106_010543_9841ec": {
+          "messages": [
+            {
+              "id": "user-1793898969855-7qwj42",
+              "role": "user",
+              "parts": [
+                {
+                  "type": "text",
+                  "text": "SYNTHETIC_UNKNOWN_1793898281301"
+                }
+              ],
+              "attachmentRefs": [],
+              "pending": false
+            },
+            {
+              "id": "assistant-error-1793898970077",
+              "role": "assistant",
+              "parts": [],
+              "error": "UNKNOWN：请求执行结果未知，未自动重发。请检查会话状态并核对历史后再继续。",
+              "pending": false
+            }
+          ],
+          "streamId": null,
+          "turnStartedAt": null,
+          "updatedAt": 1793899101556
+        }
+      },
+      "version": 1
+    }
+  },
+  "body": "职适 AI\nCareerAdapt AI\n首页\nAI 工作台\n个人资料库\n设置\nHost 集成预览 · 隔离数据\nAI 能力与高级管理\n原生导航与快捷键\n对话上下文\n＋ 新建对话\nPINNED\nShift-click a chat to pin\nSESSIONS\n2\nSession B Exact Reply Check\n11m\nReply Exactly Session A OK\n11m\n@file:.hermes/desktop-attachments/valid path.txt\n\nDo not call tools. Reply exactly SESSION_A_OK.\n\nSESSION_A_OK\n\n11m ago\nSYNTHETIC_UNKNOWN_1793898281301\n⠋\nWaking up …\nmain\n+4\nSYNTHETIC_UNKNOWN_1793898281301\nQwen3.8 27B · Off\nAI 连接\nready\nworkspace\n协作代理\n定时任务\n外部触发\n2.8k tok\nSession\n0\n:\n0\n3\nSmart\nv0.19.0 (+1)\neb52760\nBackend out of date\n\nYour Hermes backend is older than this desktop build and may not work correctly. Update to align them.\n\nUpdate Hermes",
+  "credentialCleared": true,
+  "filesRetained": true
+}

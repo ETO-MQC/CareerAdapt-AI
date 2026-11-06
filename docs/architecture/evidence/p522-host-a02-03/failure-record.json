@@ -1,0 +1,75 @@
+{
+  "round1": {
+    "run": 1793886904053,
+    "failure": "Test observer GET empty-body JSON parsing",
+    "promptSubmit": 0,
+    "fixed": true,
+    "processVerification": "No qualification Electron or locked local Python remained after runner failure",
+    "fileDeletion": false
+  },
+  "pytestAttempt1": "bundled venv has no pytest; existing system pytest used successfully",
+  "fixtureAttempt1": "incorrect .venv path; corrected to existing system Python; no dependencies installed",
+  "deletionPolicyDeviation": {
+    "source": "Locked upstream electron/hardening.test.ts",
+    "lines": [
+      202,
+      231,
+      256,
+      277,
+      304
+    ],
+    "behavior": "Five fs.rmSync(tempDir,{recursive:true,force:true}) finalizers executed by existing tests. Agent failed to inspect cleanup before running tests.",
+    "scope": "Test-created OS temporary directories; project evidence and historical files not targeted",
+    "policySatisfied": false,
+    "mitigation": "No rerun; future tests inspected for cleanup; no history overwritten to hide deviation"
+  },
+  "nativePythonBaseline": {
+    "exitCode": 1,
+    "passed": 121,
+    "failed": 8,
+    "tests": [
+      "test_blocks_sensitive_home_and_hermes_paths",
+      "TestExtractImageRefs.test_finds_absolute_path",
+      "TestExtractImageRefs.test_finds_home_relative_path",
+      "TestExtractImageRefs.test_dedupes_paths_and_urls",
+      "TestExtractImageRefs.test_ignores_paths_in_fenced_code_block",
+      "TestExtractImageRefs.test_ignores_paths_in_inline_code",
+      "TestExtractImageRefs.test_mixed_paths_and_urls",
+      "TestExtractImageRefs.test_case_insensitive_extension"
+    ],
+    "productionSourceModified": false,
+    "explanation": "Windows test HOME/USERPROFILE and POSIX local image reference regex. Not fixed in locked runtime."
+  },
+  "round2": {
+    "run": 1793887003157,
+    "status": "PARTIAL",
+    "prerequisite": "HTTP429 token_rate_limit_exceeded; no Stop request",
+    "txt": "Actual request content and marker understanding passed",
+    "imagePicker": "timeout",
+    "osDrop": "timeout",
+    "folderPicker": "timeout",
+    "appDrop": "synthetic application MIME event passed; no OS gesture claim"
+  },
+  "round3": {
+    "run": 1793887855950,
+    "status": "FAIL_RELIABILITY_CASE",
+    "imagePicker": "300s timeout; not native selection success",
+    "imagePayload": "HTTP200 upstream with original PNG image_url bytes; no native completion in120s, not model understanding",
+    "failureCase": "Expected missing path error instead got wrong zero-byte prefix file; assertion retained",
+    "sessionIsolationAndNativePerformance": "Not reached after assertion; no fourth Electron round"
+  },
+  "pathResolutionDefect": {
+    "rootCause": "Gateway reuses CLI path-plus-prose parser; nonexistent unquoted full path with spaces falls back to an existing prefix file",
+    "wrongFile": "[WORKSPACE_PARENT]/CareerAdapt",
+    "bytes": 0,
+    "sentToProvider": false,
+    "fix": "Project opt-in Renderer file.attach path quoting for Windows drive paths",
+    "verification": "L2 locked Gateway resolver and exact patched upload function pass; build and Native TS; no post-fix Electron verification",
+    "runtimeModified": false
+  },
+  "harnessPatchTestFirstFailure": {
+    "issue": "Raw CRLF snippet did not match normalized patch anchor",
+    "fixed": "Normalize complete locked file before applying exact patch; extraction follows patch",
+    "final": "PASS"
+  }
+}

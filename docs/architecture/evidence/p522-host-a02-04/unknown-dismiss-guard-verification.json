@@ -1,0 +1,8 @@
+{
+  "status": "PASS_L2_EXACT_TRANSFORMED_GUARD",
+  "dismissedViewErrorStillBlocksManualSubmit": true,
+  "dismissedViewErrorStillBlocksQueueDrain": true,
+  "otherSessionAllowed": true,
+  "realGateway": "NOT_REEXECUTED_AFTER_THIS_ADDITIONAL_GUARD",
+  "patchedSubmitSha256": "f4ce6641d82b36d1e07af30d9e562fac4df272b8a2df005e00018b9cdf108539"
+}

@@ -1,0 +1,73 @@
+{
+  "status": "RELATED_ENGINEERING_GATES_PASS_ELECTRON_PARTIAL",
+  "checks": [
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0
+    },
+    {
+      "command": "Native UI baseline selected 5 files",
+      "exitCode": 0,
+      "passed": 66
+    },
+    {
+      "command": "node .../vitest.mjs run --no-cache --config scripts/p522-host-a02-04-vitest.config.mjs",
+      "exitCode": 0,
+      "passed": 66,
+      "finalOverlay": true
+    },
+    {
+      "command": "Native src/lib/chat-messages.test.ts",
+      "exitCode": 0,
+      "passed": 50
+    },
+    {
+      "command": "node scripts/p522-host-a02-04-local.mjs",
+      "exitCode": 0
+    },
+    {
+      "command": "node scripts/p522-host-a02-04-guard.mjs",
+      "exitCode": 0,
+      "scope": "Exact transformed submit guard, manual/queue/other-session cases"
+    },
+    {
+      "command": "node scripts/p522-host-a02-01-faults.mjs --evidence-dir=.../unknown-transport",
+      "exitCode": 0,
+      "cases": 10
+    },
+    {
+      "command": "venv Python scripts/p522-host-a02-04-paths.py",
+      "exitCode": 0
+    },
+    {
+      "command": "venv Python scripts/p522-host-a02-04-disk.py",
+      "exitCode": 0,
+      "scope": "Read-only actual native DB and staged bytes"
+    },
+    {
+      "command": "Renderer integration --careeradapt --reliability --attachments --session-persistence --build",
+      "exitCode": 0,
+      "evidence": "renderer-build-delivery",
+      "warnings": "Existing CSS delimiter/barrel/chunk warnings"
+    },
+    {
+      "command": "Native TypeScript compiler-host overlay",
+      "exitCode": 0,
+      "evidence": "renderer-build-delivery/native-typecheck.json"
+    },
+    {
+      "command": "Default optIn=false Renderer build",
+      "exitCode": 0,
+      "interactive": "NOT_RETESTED"
+    },
+    {
+      "command": "changed-files ESLint",
+      "exitCode": 0
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "excluded": "No hardening.test.ts, pytest tmp_path cleanup, full Playwright/PDF/installer/regression suite"
+}

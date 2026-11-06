@@ -1,0 +1,111 @@
+{
+  "synthetic": true,
+  "records": [
+    {
+      "filename": "corrupt.png",
+      "MIME": "image/png",
+      "byte_length": 16,
+      "base64_length": 24,
+      "sha256": "5fdf2f580cc1bb73327221962d32de0b02814147d7341b3cfec4e9d716857465",
+      "synthetic_marker": null,
+      "expected_content_hash": "5fdf2f580cc1bb73327221962d32de0b02814147d7341b3cfec4e9d716857465",
+      "expected_route": "image.attach"
+    },
+    {
+      "filename": "empty.txt",
+      "MIME": "text/plain",
+      "byte_length": 0,
+      "base64_length": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "synthetic_marker": null,
+      "expected_content_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "expected_route": "file.attach/@file"
+    },
+    {
+      "filename": "image.png",
+      "MIME": "image/png",
+      "byte_length": 6397,
+      "base64_length": 8532,
+      "sha256": "c17f6f50da099afcc3224aa65aaf29e6360b904485a4b368f3379a7cc1129a9b",
+      "synthetic_marker": "A02_PNG_29AE33FE3C",
+      "expected_content_hash": "c17f6f50da099afcc3224aa65aaf29e6360b904485a4b368f3379a7cc1129a9b",
+      "expected_route": "image.attach"
+    },
+    {
+      "filename": "sample.pdf",
+      "MIME": "application/pdf",
+      "byte_length": 599,
+      "base64_length": 800,
+      "sha256": "26bf7ee8741a5995978dd034e0ac2b9ca55e8850cb05cf7e418652bc6679e48f",
+      "synthetic_marker": "A02_PDF_576F8A55C3",
+      "expected_content_hash": "26bf7ee8741a5995978dd034e0ac2b9ca55e8850cb05cf7e418652bc6679e48f",
+      "expected_route": "file.attach/@file"
+    },
+    {
+      "filename": "sample.txt",
+      "MIME": "text/plain",
+      "byte_length": 2086,
+      "base64_length": 2784,
+      "sha256": "97d662d272ad72812850cc3df1506bda573f81e4cd78b6a0c89e50934dccf4a0",
+      "synthetic_marker": "A02_TXT_4E0CB50F9F",
+      "expected_content_hash": "97d662d272ad72812850cc3df1506bda573f81e4cd78b6a0c89e50934dccf4a0",
+      "expected_route": "file.attach/@file"
+    },
+    {
+      "filename": "unsupported.xyz",
+      "MIME": "application/octet-stream",
+      "byte_length": 23,
+      "base64_length": 32,
+      "sha256": "ab5a19c9bc6f72c8d21804a93b95a5de1c66adfe6fa988abb9d6a2a9a676bb3b",
+      "synthetic_marker": null,
+      "expected_content_hash": "ab5a19c9bc6f72c8d21804a93b95a5de1c66adfe6fa988abb9d6a2a9a676bb3b",
+      "expected_route": "file.attach/@file"
+    },
+    {
+      "filename": "folder/inside.txt",
+      "MIME": "text/plain",
+      "byte_length": 21,
+      "base64_length": 28,
+      "sha256": "59f517afdef146077da7c86c4dc2f4ee44250f162c292bf472ff1206c2085beb",
+      "synthetic_marker": "A02_FOLDER_96D372145A",
+      "expected_content_hash": "59f517afdef146077da7c86c4dc2f4ee44250f162c292bf472ff1206c2085beb",
+      "expected_route": "file.attach/@file"
+    },
+    {
+      "filename": "boundary-16777215.bin",
+      "MIME": "application/octet-stream",
+      "byte_length": 16777215,
+      "base64_length": 22369620,
+      "sha256": "ae05b8545c83433c09c1239d8f4cd2a4c02d9e3eb3b6ef84e6dba7e36d437186",
+      "synthetic_marker": null,
+      "expected_route": "MOCK_ONLY_L2_MAIN_READ_BOUNDARY_NO_PROVIDER",
+      "expected_content_hash": "ae05b8545c83433c09c1239d8f4cd2a4c02d9e3eb3b6ef84e6dba7e36d437186"
+    },
+    {
+      "filename": "boundary-16777216.bin",
+      "MIME": "application/octet-stream",
+      "byte_length": 16777216,
+      "base64_length": 22369624,
+      "sha256": "e6c907c2d418fa03118465063701b759c4f0f0a9d70ae90aa7cec552e2d33931",
+      "synthetic_marker": null,
+      "expected_route": "MOCK_ONLY_L2_MAIN_READ_BOUNDARY_NO_PROVIDER",
+      "expected_content_hash": "e6c907c2d418fa03118465063701b759c4f0f0a9d70ae90aa7cec552e2d33931"
+    },
+    {
+      "filename": "boundary-16777217.bin",
+      "MIME": "application/octet-stream",
+      "byte_length": 16777217,
+      "base64_length": 22369624,
+      "sha256": "9ae66c5e7976ce33b1f6ca789c86c69eae9654d6d81c273facc676269717d13e",
+      "synthetic_marker": null,
+      "expected_route": "MOCK_ONLY_L2_MAIN_READ_BOUNDARY_NO_PROVIDER",
+      "expected_content_hash": "9ae66c5e7976ce33b1f6ca789c86c69eae9654d6d81c273facc676269717d13e"
+    }
+  ],
+  "markers": {
+    "txt": "A02_TXT_4E0CB50F9F",
+    "png": "A02_PNG_29AE33FE3C",
+    "pdf": "A02_PDF_576F8A55C3",
+    "folder": "A02_FOLDER_96D372145A"
+  }
+}

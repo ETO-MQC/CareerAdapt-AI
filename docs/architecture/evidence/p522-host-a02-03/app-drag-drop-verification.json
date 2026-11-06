@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "level": "L3_RENDERER_SYNTHETIC_APPLICATION_DRAG_EVENT_NOT_PHYSICAL_GESTURE",
+  "mime": "application/x-hermes-paths",
+  "draft": "in-app.txt\n ",
+  "attachments": [],
+  "crossSession": "UNIT_ONLY"
+}

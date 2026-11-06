@@ -1,0 +1,18 @@
+{
+  "status": "PASS_L2_NATIVE_JOURNAL_OVERLAY",
+  "level": "L2 isolated VM/localStorage adapter, not Electron fault injection",
+  "beforePatchUnknownLost": true,
+  "afterPatchImmediateFlush": true,
+  "bootstrapEmptyIdleRetainsUnknown": true,
+  "moduleReloadRecoveredError": true,
+  "secondIdleCommitRetained": true,
+  "sessionIsolation": true,
+  "authoritativeCompletedReplyClearsStaleJournal": true,
+  "limits": "Native 24 entries/7 days retention; no server idempotency guarantee",
+  "patch": {
+    "file": "apps/desktop/src/lib/inflight-turn-journal.ts",
+    "originalSha256": "f24fb72b525936bf30a7cb328fc03b0388f51eb6e5be3fdac94cf21e6bf3a5c1",
+    "patchedSha256": "3e088cd2bd8360d5b3f241028de013673138c6979dcd7b42370b8fe77b56ab0f",
+    "upstreamWritten": false
+  }
+}

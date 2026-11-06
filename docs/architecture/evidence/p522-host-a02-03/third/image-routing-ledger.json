@@ -1,0 +1,6 @@
+{
+  "status": "PROVIDER_OR_RUNTIME_FAILURE",
+  "mode": "native",
+  "failure": "Error: No native completion event for current turn",
+  "fullQualification": false
+}

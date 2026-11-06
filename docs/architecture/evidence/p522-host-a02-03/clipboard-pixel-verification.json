@@ -1,0 +1,22 @@
+{
+  "status": "PASS",
+  "note": "Electron clipboard PNG re-encodes container bytes; decoded RGB pixels must remain equal. Raw file hash is not assumed equal.",
+  "records": [
+    {
+      "file": ".artifacts/p522-host-a02-03/run-1793887003157/user-data/composer-images/composer_2026-11-05_14-03-38-500_9e1750.png",
+      "width": 256,
+      "height": 256,
+      "pixelEquivalent": true,
+      "rawBytes": 5828,
+      "sha256": "3d70956096e08a9926b1dbb609ffc4f6804a030cc1f1f3f6ce3e20372f947056"
+    },
+    {
+      "file": ".artifacts/p522-host-a02-03/run-1793887855950/user-data/composer-images/composer_2026-11-05_14-17-08-132_0482d1.png",
+      "width": 256,
+      "height": 256,
+      "pixelEquivalent": true,
+      "rawBytes": 5828,
+      "sha256": "3d70956096e08a9926b1dbb609ffc4f6804a030cc1f1f3f6ce3e20372f947056"
+    }
+  ]
+}

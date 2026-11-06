@@ -1,0 +1,37 @@
+{
+  "status": "PASS",
+  "level": "MOCK_ONLY_L2_ROUTE_DECISION_NO_PROVIDER",
+  "records": [
+    {
+      "mode": "auto",
+      "supportsVisionMetadata": true,
+      "route": "native"
+    },
+    {
+      "mode": "auto",
+      "supportsVisionMetadata": false,
+      "route": "text"
+    },
+    {
+      "mode": "native",
+      "supportsVisionMetadata": true,
+      "route": "native"
+    },
+    {
+      "mode": "native",
+      "supportsVisionMetadata": false,
+      "route": "native"
+    },
+    {
+      "mode": "text",
+      "supportsVisionMetadata": true,
+      "route": "text"
+    },
+    {
+      "mode": "text",
+      "supportsVisionMetadata": false,
+      "route": "text"
+    }
+  ],
+  "auxiliaryProviderInvoked": false
+}

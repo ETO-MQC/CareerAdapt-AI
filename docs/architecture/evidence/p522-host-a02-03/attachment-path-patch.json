@@ -1,0 +1,8 @@
+{
+  "file": "apps/desktop/src/app/session/hooks/use-prompt-actions/index.ts",
+  "originalSha256": "4918d34ced24d5748691250c6073140e76b40f0cd01be2118141c0f875adfb09",
+  "patchedSha256": "119ee96c8065f419d906546faeffcca5007698905a0fd7961d69cceed6e439c2",
+  "upstreamWritten": false,
+  "electronReverification": "NOT_VERIFIED_THREE_ROUNDS_EXHAUSTED",
+  "optInFlag": "--careeradapt --attachments"
+}

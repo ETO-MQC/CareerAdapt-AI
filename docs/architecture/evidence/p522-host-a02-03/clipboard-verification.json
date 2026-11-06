@@ -1,0 +1,21 @@
+{
+  "status": "PASS",
+  "actualElectronClipboard": true,
+  "selected": [
+    {
+      "id": "image:[PROJECT]/.artifacts/p522-host-a02-03/run-1793887003157/user-data/composer-images/composer_2026-11-05_14-03-38-500_9e1750.png",
+      "kind": "image",
+      "label": "composer_2026-11-05_14-03-38-500_9e1750.png",
+      "detail": "[PROJECT]\\.artifacts\\p522-host-a02-03\\run-1793887003157\\user-data\\composer-images\\composer_2026-11-05_14-03-38-500_9e1750.png",
+      "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\run-1793887003157\\user-data\\composer-images\\composer_2026-11-05_14-03-38-500_9e1750.png",
+      "previewUrl": {
+        "present": true,
+        "encodedLength": 7794
+      }
+    }
+  ],
+  "byteLength": 5828,
+  "sha256": "3d70956096e08a9926b1dbb609ffc4f6804a030cc1f1f3f6ce3e20372f947056",
+  "removed": true,
+  "submitted": false
+}

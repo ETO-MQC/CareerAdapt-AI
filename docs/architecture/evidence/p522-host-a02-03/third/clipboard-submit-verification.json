@@ -1,0 +1,19 @@
+{
+  "status": "STAGED_LOCAL",
+  "selected": [
+    {
+      "id": "image:[PROJECT]/.artifacts/p522-host-a02-03/run-1793887855950/user-data/composer-images/composer_2026-11-05_14-17-08-132_0482d1.png",
+      "kind": "image",
+      "label": "composer_2026-11-05_14-17-08-132_0482d1.png",
+      "detail": "[PROJECT]\\.artifacts\\p522-host-a02-03\\run-1793887855950\\user-data\\composer-images\\composer_2026-11-05_14-17-08-132_0482d1.png",
+      "path": "[PROJECT]\\.artifacts\\p522-host-a02-03\\run-1793887855950\\user-data\\composer-images\\composer_2026-11-05_14-17-08-132_0482d1.png",
+      "previewUrl": {
+        "present": true,
+        "length": 7794
+      }
+    }
+  ],
+  "byteLength": 5828,
+  "sha256": "3d70956096e08a9926b1dbb609ffc4f6804a030cc1f1f3f6ce3e20372f947056",
+  "fixtureSha256": "c17f6f50da099afcc3224aa65aaf29e6360b904485a4b368f3379a7cc1129a9b"
+}

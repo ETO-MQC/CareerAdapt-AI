@@ -1,0 +1,10 @@
+import path from 'node:path';
+import {createRequire} from 'node:module';
+import {desktop} from './p522-host-a02-04-common.mjs';
+import {reliabilityPatch} from './p522-host-a02-01-patches.mjs';
+import {sessionPersistencePatch} from './p522-host-a02-04-patches.mjs';
+const req=createRequire(path.join(desktop,'package.json'));
+const {loadConfigFromFile}=req('vite');
+const base=(await loadConfigFromFile({command:'serve',mode:'test'},path.join(desktop,'vite.config.ts'),desktop)).config;
+const config={...base,configFile:false,root:desktop,plugins:[{name:'a04-native-journal-test-overlay',enforce:'pre',transform(source,id){const file=id.replaceAll('\\','/');return sessionPersistencePatch(reliabilityPatch(source.replaceAll('\r\n','\n'),file),file);}},...base.plugins],test:{environment:'jsdom',setupFiles:[path.join(desktop,'vitest.setup.ts')],include:['src/store/composer.test.ts','src/store/session.test.ts','src/store/session-switcher.test.ts','src/lib/inflight-turn-journal.test.ts','src/app/chat/composer/hooks/use-composer-draft.test.tsx'],globals:true,testTimeout:15000}};
+export default config;

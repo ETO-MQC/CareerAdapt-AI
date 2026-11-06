@@ -1,0 +1,8 @@
+{
+  "status": "PASS_BUILD_ISOLATION_ONLY",
+  "optIn": false,
+  "patchPluginAbsent": true,
+  "unknownPatchCopyAbsent": true,
+  "interactive": "NOT_RETESTED",
+  "noProductionDefaultChange": true
+}

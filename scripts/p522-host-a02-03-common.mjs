@@ -1,0 +1,15 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import {execFileSync} from 'node:child_process';
+import {sanitize} from './p522-host-a02-02-evidence.mjs';
+export const out='docs/architecture/evidence/p522-host-a02-03';
+export const root=path.resolve('.artifacts/p522-host-a02-03');
+export const host=path.join(process.env.LOCALAPPDATA,'hermes/hermes-agent');
+export const desktop=path.join(host,'apps/desktop');
+export const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
+export const config=JSON.parse(fs.readFileSync('artifacts/p522-host-a02-01/provider.local.json','utf8').replace(/^\uFEFF/,''));
+export const clean=v=>sanitize(v,[config.api_key]);
+export const write=(name,v)=>{fs.mkdirSync(out,{recursive:true});fs.writeFileSync(`${out}/${name}.json`,JSON.stringify(clean(v),null,2)+'\n');};
+export const git=(...args)=>execFileSync('git',args,{encoding:'utf8',maxBuffer:16*1024*1024}).trim();
+export const files=d=>fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>e.isDirectory()?files(path.join(d,e.name)):[path.join(d,e.name)]);
