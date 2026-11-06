@@ -1,0 +1,44 @@
+[
+  {
+    "file": "apps/desktop/electron/preload.ts",
+    "originalSha256": "0533209a7ecbdc77f9601660a375a92f4dd50f2cce950a8833ceb68278f9354b",
+    "patchedSha256": "79474ef343d1f636dc9503dc6ff967e57e0ad93ca2f2f3b81cc25596d4b5f3c6",
+    "upstreamWritten": false
+  },
+  {
+    "file": "apps/desktop/electron/main.ts",
+    "originalSha256": "0b184d8d114126ad77ca16ce5b42a410a677de13d5548825c1bc68f80eb6ab4e",
+    "patchedSha256": "fa7863a8d0a3169346a0cb2fd281580cbe67242f9f883575255ed71c8df2255f",
+    "upstreamWritten": false
+  },
+  {
+    "file": "apps/desktop/electron/preload.ts",
+    "originalSha256": "0533209a7ecbdc77f9601660a375a92f4dd50f2cce950a8833ceb68278f9354b",
+    "patchedSha256": "d3d2ebc139802d25857a523252e945a14be28ee897d45a56a522719d38a6f536",
+    "upstreamWritten": false
+  },
+  {
+    "file": "apps/desktop/electron/preload.ts",
+    "originalSha256": "0533209a7ecbdc77f9601660a375a92f4dd50f2cce950a8833ceb68278f9354b",
+    "patchedSha256": "776f676875d7dbfe498fa3e666ff1ce4c84cbb169c58d34bfdc1ff21eb98fd15",
+    "upstreamWritten": false
+  },
+  {
+    "file": "apps/desktop/src/main.tsx",
+    "originalSha256": "d20373c7a5a0810887da8fae9bc365f83bc9f5e2dc229cf7ba8c5d1dd5e0b06b",
+    "patchedSha256": "154a28904ba76a0cd7715b7aa435fe92a418e5e014f29dc8ad908e4bcdddfa8b",
+    "upstreamWritten": false
+  },
+  {
+    "file": "apps/desktop/src/contrib/plugins-store.ts",
+    "originalSha256": "c22a449019a50ca68aa8af807c85678357aa981a2a2fb9fcee3ba7b58c90e01c",
+    "patchedSha256": "70bc16ad801f5a0da53440aa47e611d1b56895d26cdf2b8624470a91a5e00aa9",
+    "upstreamWritten": false
+  },
+  {
+    "file": "apps/desktop/electron/main.ts",
+    "originalSha256": "0b184d8d114126ad77ca16ce5b42a410a677de13d5548825c1bc68f80eb6ab4e",
+    "patchedSha256": "c6a43b5e25604e2a63911c27d43afe9a991974899c9a409695b7258c166fbb30",
+    "upstreamWritten": false
+  }
+]

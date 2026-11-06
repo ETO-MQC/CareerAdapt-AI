@@ -1,0 +1,1004 @@
+{
+  "status": "SOURCE_INVENTORY_ONLY_NOT_IMPLEMENTATION_OR_QUALIFICATION",
+  "count": 28,
+  "notes": [
+    "Preview/export share existing export entry, not an invented preview tool",
+    "requirement graph/coverage/scoring/explanation are underlying analysis facets, not separate Gateway tools",
+    "D5/D6/D7 mapping is follow-up planning only",
+    "Tailoring default question budgets remain mode-dependent; no semantic changes"
+  ],
+  "items": [
+    {
+      "domain": "Profile",
+      "capability": "get",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/services/profile/profileQueryService.ts",
+          "sha256": "b4966975afee1db695e3838b97bade94e0d148146ff1ef0daae3a2bfc771db5a"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.profile.get",
+      "workflowFacade": null,
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse A04 Adapter behind new native bridge",
+      "readWrite": "read",
+      "humanConfirmation": "No formal Profile/Resume commit at this step; scope and source review still required",
+      "tests": [
+        {
+          "file": "tests\\unit\\p522-a04-profile-read.test.ts",
+          "executedThisRound": true
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D3/D4"
+    },
+    {
+      "domain": "Profile",
+      "capability": "search_facts",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/services/profile/profileQueryService.ts",
+          "sha256": "b4966975afee1db695e3838b97bade94e0d148146ff1ef0daae3a2bfc771db5a"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.profile.search_facts",
+      "workflowFacade": null,
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse A04 Adapter behind new native bridge",
+      "readWrite": "read",
+      "humanConfirmation": "No formal Profile/Resume commit at this step; scope and source review still required",
+      "tests": [
+        {
+          "file": "tests\\unit\\p522-a04-profile-adapter.test.ts",
+          "executedThisRound": true
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D3/D4"
+    },
+    {
+      "domain": "Profile",
+      "capability": "intake",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/services/storage/repositories.ts",
+          "sha256": "b0025cb0632241a7685eaed85ad290ad8727fab4c59e249aed293bf79e7d9b08"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.profile.capture_intake",
+      "workflowFacade": "career.workflow.profile_intake_turn",
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "provisional-write",
+      "humanConfirmation": "No formal Profile/Resume commit at this step; scope and source review still required",
+      "tests": [
+        {
+          "file": "tests\\unit\\guidedProfileIntakeP42a3f.test.ts",
+          "executedThisRound": false
+        },
+        {
+          "file": "tests\\unit\\guidedProfileIntakeRepositoryP42a3f.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D7"
+    },
+    {
+      "domain": "Profile",
+      "capability": "reconciliation",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/services/storage/repositories.ts",
+          "sha256": "b0025cb0632241a7685eaed85ad290ad8727fab4c59e249aed293bf79e7d9b08"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.profile.reconcile_intake",
+      "workflowFacade": "career.workflow.profile_intake_finalize",
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "draft-write",
+      "humanConfirmation": "No formal Profile/Resume commit at this step; scope and source review still required",
+      "tests": [
+        {
+          "file": "tests\\unit\\profileReconciliation.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D7"
+    },
+    {
+      "domain": "Profile",
+      "capability": "confirmed commit",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/services/storage/repositories.ts",
+          "sha256": "b0025cb0632241a7685eaed85ad290ad8727fab4c59e249aed293bf79e7d9b08"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.profile.commit_intake",
+      "workflowFacade": null,
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "formal-write",
+      "humanConfirmation": "Required at formal mutation/export boundary; production trusted protocol still BLOCKED",
+      "tests": [
+        {
+          "file": "tests\\unit\\guidedProfileIntakeRepositoryP42a3f.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D6"
+    },
+    {
+      "domain": "Resume",
+      "capability": "list",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/services/storage/repositories.ts",
+          "sha256": "b0025cb0632241a7685eaed85ad290ad8727fab4c59e249aed293bf79e7d9b08"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.resume.list",
+      "workflowFacade": null,
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "read",
+      "humanConfirmation": "No formal Profile/Resume commit at this step; scope and source review still required",
+      "tests": [
+        {
+          "file": "tests\\unit\\agentBranchIsolationP43e3.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D5"
+    },
+    {
+      "domain": "Resume",
+      "capability": "get",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/services/storage/repositories.ts",
+          "sha256": "b0025cb0632241a7685eaed85ad290ad8727fab4c59e249aed293bf79e7d9b08"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.resume.get",
+      "workflowFacade": null,
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "read",
+      "humanConfirmation": "No formal Profile/Resume commit at this step; scope and source review still required",
+      "tests": [
+        {
+          "file": "tests\\unit\\agentBranchIsolationP43e3.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D5"
+    },
+    {
+      "domain": "Resume",
+      "capability": "revision",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/services/storage/repositories.ts",
+          "sha256": "b0025cb0632241a7685eaed85ad290ad8727fab4c59e249aed293bf79e7d9b08"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.resume.get_revision",
+      "workflowFacade": null,
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "read",
+      "humanConfirmation": "No formal Profile/Resume commit at this step; scope and source review still required",
+      "tests": [
+        {
+          "file": "tests\\unit\\repositoryTailoringV2.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D5"
+    },
+    {
+      "domain": "Resume",
+      "capability": "branch",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/services/storage/repositories.ts",
+          "sha256": "b0025cb0632241a7685eaed85ad290ad8727fab4c59e249aed293bf79e7d9b08"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.resume.create_job_from_profile",
+      "workflowFacade": "career.workflow.tailor_resume",
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "branch-write",
+      "humanConfirmation": "Required at formal mutation/export boundary; production trusted protocol still BLOCKED",
+      "tests": [
+        {
+          "file": "tests\\unit\\branch.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D6"
+    },
+    {
+      "domain": "Resume",
+      "capability": "preview",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/domain/resumeDocument/mapper.ts",
+          "sha256": "7d9831244266b73a7d9d75bfee01337003c3358dd4a866f3c359ece785b7a349"
+        },
+        {
+          "file": "src/domain/resumePresentation/projector.ts",
+          "sha256": "6f5af1d2fb81e3dc70386ea675ffefeb09a38c7fec50c28a07f00c0560cd8091"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.export.resume",
+      "workflowFacade": "career.workflow.resume_export",
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "derived-artifact-write",
+      "humanConfirmation": "Required at formal mutation/export boundary; production trusted protocol still BLOCKED",
+      "tests": [
+        {
+          "file": "tests\\unit\\export.test.ts",
+          "executedThisRound": false
+        },
+        {
+          "file": "tests\\unit\\exportSnapshotRoundTrip.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D5"
+    },
+    {
+      "domain": "Resume",
+      "capability": "export",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/domain/resumePresentation/projector.ts",
+          "sha256": "6f5af1d2fb81e3dc70386ea675ffefeb09a38c7fec50c28a07f00c0560cd8091"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.export.resume",
+      "workflowFacade": "career.workflow.resume_export",
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "derived-artifact-write",
+      "humanConfirmation": "Required at formal mutation/export boundary; production trusted protocol still BLOCKED",
+      "tests": [
+        {
+          "file": "tests\\unit\\export.test.ts",
+          "executedThisRound": false
+        },
+        {
+          "file": "tests\\unit\\exportSnapshotRoundTrip.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D5"
+    },
+    {
+      "domain": "Job",
+      "capability": "list",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/services/storage/repositories.ts",
+          "sha256": "b0025cb0632241a7685eaed85ad290ad8727fab4c59e249aed293bf79e7d9b08"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.job.list",
+      "workflowFacade": null,
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "read",
+      "humanConfirmation": "No formal Profile/Resume commit at this step; scope and source review still required",
+      "tests": [
+        {
+          "file": "tests\\unit\\jobWorkflow.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D5"
+    },
+    {
+      "domain": "Job",
+      "capability": "get",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/services/storage/repositories.ts",
+          "sha256": "b0025cb0632241a7685eaed85ad290ad8727fab4c59e249aed293bf79e7d9b08"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.job.get",
+      "workflowFacade": null,
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "read",
+      "humanConfirmation": "No formal Profile/Resume commit at this step; scope and source review still required",
+      "tests": [
+        {
+          "file": "tests\\unit\\jobWorkflow.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D5"
+    },
+    {
+      "domain": "Job",
+      "capability": "JD parsing",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/services/jobs/jobWorkflow.ts",
+          "sha256": "e631e7df78e74ab047e3f3b66ae73702154daf347235eff8ee022939d806a25f"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.job.parse",
+      "workflowFacade": "career.workflow.job_intake",
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "draft-write (facade analyze_only is pure analysis)",
+      "humanConfirmation": "No formal Profile/Resume commit at this step; scope and source review still required",
+      "tests": [
+        {
+          "file": "tests\\unit\\jobWorkflow.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D5"
+    },
+    {
+      "domain": "Job",
+      "capability": "requirement graph",
+      "sources": [
+        {
+          "file": "src/services/jobs/jobWorkflow.ts",
+          "sha256": "e631e7df78e74ab047e3f3b66ae73702154daf347235eff8ee022939d806a25f"
+        },
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.job.parse",
+      "workflowFacade": "career.workflow.job_intake",
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "analysis/draft; no dedicated graph tool",
+      "humanConfirmation": "No formal Profile/Resume commit at this step; scope and source review still required",
+      "tests": [
+        {
+          "file": "tests\\unit\\jobWorkflow.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D5"
+    },
+    {
+      "domain": "Job",
+      "capability": "job analysis",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/services/jobs/jobWorkflow.ts",
+          "sha256": "e631e7df78e74ab047e3f3b66ae73702154daf347235eff8ee022939d806a25f"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.job.analyze_fit",
+      "workflowFacade": "career.workflow.job_fit",
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "analysis/fit-artifact; no Profile/Resume content write",
+      "humanConfirmation": "No formal Profile/Resume commit at this step; scope and source review still required",
+      "tests": [
+        {
+          "file": "tests\\unit\\jobWorkflow.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D5"
+    },
+    {
+      "domain": "Career Intelligence",
+      "capability": "profile/job context",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/domain/careerContext/retrieveCareerContext.ts",
+          "sha256": "8a55d93dfba38e1fbfa5bfc57e7798e8c7cdd69ab0131625dac97508ae6e12d4"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.context.retrieve",
+      "workflowFacade": null,
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "read",
+      "humanConfirmation": "No formal Profile/Resume commit at this step; scope and source review still required",
+      "tests": [
+        {
+          "file": "tests\\unit\\p45c1c15-career-context-binding.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D5"
+    },
+    {
+      "domain": "Career Intelligence",
+      "capability": "requirement matching",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/domain/jobOptimization/matching.ts",
+          "sha256": "4b5543a041bf9d3696b155fafcfa023935dce624a2f122751b4d84d9a2cf2f01"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.job.analyze_fit",
+      "workflowFacade": "career.workflow.job_fit",
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "analysis/fit-artifact",
+      "humanConfirmation": "No formal Profile/Resume commit at this step; scope and source review still required",
+      "tests": [
+        {
+          "file": "tests\\unit\\matcher.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D5"
+    },
+    {
+      "domain": "Career Intelligence",
+      "capability": "capability coverage",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/domain/jobOptimization/v2/coverage.ts",
+          "sha256": "9c9bdabb11d9bb1bb27d0f1feda273ee5e043e382cb0445707a31da62371ce7b"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.job.analyze_fit",
+      "workflowFacade": "career.workflow.job_fit",
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "analysis/fit-artifact",
+      "humanConfirmation": "No formal Profile/Resume commit at this step; scope and source review still required",
+      "tests": [
+        {
+          "file": "tests\\unit\\tailoringEngineV2.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D5"
+    },
+    {
+      "domain": "Career Intelligence",
+      "capability": "match scoring",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/domain/jobOptimization/v2/analyze.ts",
+          "sha256": "167e682b1b8e59f99e2736acc0386739d31f67245217953d43539399e1e20692"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.job.analyze_fit",
+      "workflowFacade": "career.workflow.job_fit",
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "analysis/fit-artifact",
+      "humanConfirmation": "No formal Profile/Resume commit at this step; scope and source review still required",
+      "tests": [
+        {
+          "file": "tests\\unit\\matcher.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D5"
+    },
+    {
+      "domain": "Career Intelligence",
+      "capability": "evidence explanation",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/domain/jobOptimization/v2/evidence.ts",
+          "sha256": "3b7387ff40d36b7bd51ac726b41b7c679b77dd31fdf2c74532320cd1a910072e"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.job.analyze_fit",
+      "workflowFacade": "career.workflow.job_fit",
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "analysis/fit-artifact",
+      "humanConfirmation": "No formal Profile/Resume commit at this step; scope and source review still required",
+      "tests": [
+        {
+          "file": "tests\\unit\\tailoringEngineV2.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D5"
+    },
+    {
+      "domain": "Tailoring",
+      "capability": "create session",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/services/jobs/tailoringService.ts",
+          "sha256": "5e9770ef990d05c217152ad76b4866703267207a84d2789145e1d0669ba4b8c4"
+        },
+        {
+          "file": "src/services/jobs/tailoringCommands.ts",
+          "sha256": "5b9bdc951189944fcf63093de36e53f478f8d923ffd7de8906358c51416c11e3"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.tailoring.create_session",
+      "workflowFacade": "career.workflow.tailor_resume",
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "session/draft-write",
+      "humanConfirmation": "No formal Profile/Resume commit at this step; scope and source review still required",
+      "tests": [
+        {
+          "file": "tests\\unit\\tailoringCommands.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D7"
+    },
+    {
+      "domain": "Tailoring",
+      "capability": "question plan",
+      "sources": [
+        {
+          "file": "src/services/jobs/tailoringService.ts",
+          "sha256": "5e9770ef990d05c217152ad76b4866703267207a84d2789145e1d0669ba4b8c4"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.tailoring.create_session",
+      "workflowFacade": "career.workflow.tailor_resume",
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "session/draft-write; no standalone plan tool",
+      "humanConfirmation": "No formal Profile/Resume commit at this step; scope and source review still required",
+      "tests": [
+        {
+          "file": "tests\\unit\\repositoryTailoringV2.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D7"
+    },
+    {
+      "domain": "Tailoring",
+      "capability": "answer question",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/services/jobs/tailoringService.ts",
+          "sha256": "5e9770ef990d05c217152ad76b4866703267207a84d2789145e1d0669ba4b8c4"
+        },
+        {
+          "file": "src/services/jobs/tailoringCommands.ts",
+          "sha256": "5b9bdc951189944fcf63093de36e53f478f8d923ffd7de8906358c51416c11e3"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.tailoring.answer_question",
+      "workflowFacade": "career.workflow.tailor_resume",
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "session/draft-write",
+      "humanConfirmation": "No formal Profile/Resume commit at this step; scope and source review still required",
+      "tests": [
+        {
+          "file": "tests\\unit\\tailoringCommands.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D7"
+    },
+    {
+      "domain": "Tailoring",
+      "capability": "generate diff",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/services/jobs/tailoringService.ts",
+          "sha256": "5e9770ef990d05c217152ad76b4866703267207a84d2789145e1d0669ba4b8c4"
+        },
+        {
+          "file": "src/services/jobs/tailoringCommands.ts",
+          "sha256": "5b9bdc951189944fcf63093de36e53f478f8d923ffd7de8906358c51416c11e3"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.tailoring.generate_changes",
+      "workflowFacade": "career.workflow.tailor_resume",
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "proposal-write",
+      "humanConfirmation": "No formal Profile/Resume commit at this step; scope and source review still required",
+      "tests": [
+        {
+          "file": "tests\\unit\\tailoringDiff.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D7"
+    },
+    {
+      "domain": "Tailoring",
+      "capability": "review diff",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/services/jobs/tailoringService.ts",
+          "sha256": "5e9770ef990d05c217152ad76b4866703267207a84d2789145e1d0669ba4b8c4"
+        },
+        {
+          "file": "src/services/jobs/tailoringCommands.ts",
+          "sha256": "5b9bdc951189944fcf63093de36e53f478f8d923ffd7de8906358c51416c11e3"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.tailoring.review_diff",
+      "workflowFacade": "career.workflow.tailor_resume",
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "review-state-write",
+      "humanConfirmation": "No formal Profile/Resume commit at this step; scope and source review still required",
+      "tests": [
+        {
+          "file": "tests\\unit\\tailoringCommands.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D7"
+    },
+    {
+      "domain": "Tailoring",
+      "capability": "preview",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/services/jobs/tailoringService.ts",
+          "sha256": "5e9770ef990d05c217152ad76b4866703267207a84d2789145e1d0669ba4b8c4"
+        },
+        {
+          "file": "src/services/jobs/tailoringCommands.ts",
+          "sha256": "5b9bdc951189944fcf63093de36e53f478f8d923ffd7de8906358c51416c11e3"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.tailoring.preview_changes",
+      "workflowFacade": "career.workflow.tailor_resume",
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "read/derived-preview",
+      "humanConfirmation": "No formal Profile/Resume commit at this step; scope and source review still required",
+      "tests": [
+        {
+          "file": "tests\\unit\\tailoringCommands.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D7"
+    },
+    {
+      "domain": "Tailoring",
+      "capability": "confirmed apply",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c"
+        },
+        {
+          "file": "src/services/jobs/tailoringService.ts",
+          "sha256": "5e9770ef990d05c217152ad76b4866703267207a84d2789145e1d0669ba4b8c4"
+        },
+        {
+          "file": "src/services/jobs/tailoringCommands.ts",
+          "sha256": "5b9bdc951189944fcf63093de36e53f478f8d923ffd7de8906358c51416c11e3"
+        },
+        {
+          "file": "src/services/storage/repositories.ts",
+          "sha256": "b0025cb0632241a7685eaed85ad290ad8727fab4c59e249aed293bf79e7d9b08"
+        }
+      ],
+      "existingImplementation": "Existing business path behind listed Gateway mapping; granular Host contract still requires qualification, not implemented this round.",
+      "gatewayTool": "career.tailoring.apply_changes",
+      "workflowFacade": "career.workflow.tailor_resume",
+      "needsNativeAdapter": true,
+      "adapterDecision": "Reuse business implementation; add scoped native adapter after stage approval",
+      "readWrite": "formal-write",
+      "humanConfirmation": "Required at formal mutation/export boundary; production trusted protocol still BLOCKED",
+      "tests": [
+        {
+          "file": "tests\\unit\\tailoringCommands.test.ts",
+          "executedThisRound": false
+        }
+      ],
+      "missingHostEvidence": [
+        "native call/result association",
+        "scope and backend revocation",
+        "Stop/history/no replay",
+        "full capability-specific native result and error cases"
+      ],
+      "stage": "D6/D7"
+    }
+  ]
+}

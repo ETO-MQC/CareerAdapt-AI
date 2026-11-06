@@ -1,0 +1,18 @@
+{
+  "status": "NOT_IMPLEMENTED",
+  "existingAdapterRegression": {
+    "status": "PASS_SYNTHETIC_CURRENT_ROUND",
+    "tests": 31,
+    "files": 4,
+    "evidence": "unit-results.json",
+    "nativeHostExecuted": false
+  },
+  "required": [
+    "workspace/repository binding",
+    "person/profile/session",
+    "grantId/epoch/expiry/enabled",
+    "per-call and pre-delivery recheck",
+    "backend disable and in-flight revocation"
+  ],
+  "productionIssuer": false
+}

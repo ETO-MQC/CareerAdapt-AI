@@ -1,0 +1,37 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import {createRequire} from 'node:module';
+import {execFileSync} from 'node:child_process';
+import {pathToFileURL} from 'node:url';
+import {recordD3Patch} from './p522-a05-patches.mjs';
+const host=path.join(process.env.LOCALAPPDATA,'hermes/hermes-agent'),desktop=path.join(host,'apps/desktop'),root=path.resolve('.artifacts/p522-a05'),out=path.join(root,'main');
+const req=createRequire(path.join(desktop,'package.json')),{build}=req('esbuild');
+fs.mkdirSync(out,{recursive:true});
+if(execFileSync('git',['-C',host,'rev-parse','HEAD'],{encoding:'utf8'}).trim()!=='eb52760564dbba2e5971fa54bd67384e281cd3b8')throw Error('Unqualified Hermes SHA');
+const sha=value=>crypto.createHash('sha256').update(value).digest('hex');
+const baseline=JSON.parse(fs.readFileSync('docs/architecture/evidence/p522-a05-native-career/baseline.json','utf8'));
+const exact=(s,a,b)=>{if(s.split(a).length!==2)throw Error('D3 Main anchor changed');return s.replace(a,b);};
+if(!process.argv.includes('--main-only'))await build({entryPoints:['poc/native-career-d3/application.ts'],outfile:path.join(root,'application.mjs'),bundle:true,platform:'browser',format:'esm',target:'es2022',tsconfig:path.resolve('tsconfig.json'),define:{'process.env.NODE_ENV':'"development"','process.env.NEXT_PUBLIC_APP_BUILD_COMMIT':JSON.stringify(execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()),'process.env.APP_BUILD_COMMIT':'"d3-isolated"','process.env.NEXT_PUBLIC_APP_BUILD_TIMESTAMP':JSON.stringify(new Date().toISOString()),'process.env.APP_BUILD_TIMESTAMP':'"d3-isolated"'},sourcemap:false,metafile:true}).then(result=>{fs.writeFileSync('docs/architecture/evidence/p522-a05-native-career/implementation/application-metafile.json',JSON.stringify(result.metafile,null,2)+'\n');});
+const preloadFile=path.join(desktop,'electron/preload.ts'),preload=fs.readFileSync(preloadFile,'utf8');
+const preloadExpected=baseline.lockedSources.find(f=>f.file==='LOCKED_HERMES/apps/desktop/electron/preload.ts').sha256;
+if(sha(preload)!==preloadExpected)throw Error('Preload SHA changed');
+const preloadPatched=preload+'\n'+fs.readFileSync('poc/native-career-d3/preload.js','utf8').replace("if (process.env.CAREERADAPT_D3 === '1')",'if (true)');
+await build({stdin:{contents:preloadPatched,loader:'ts',resolveDir:desktop},outfile:path.join(out,'preload.cjs'),bundle:true,platform:'node',format:'cjs',external:['electron'],target:'node20'});
+recordD3Patch('apps/desktop/electron/preload.ts',preload,preloadPatched);
+await build({entryPoints:[path.join(desktop,'electron/main.ts')],outfile:path.join(out,'main.mjs'),bundle:true,platform:'node',format:'esm',target:'node20',external:['electron','fs'],banner:{js:`import {createRequire} from 'node:module'; const require=createRequire(${JSON.stringify(path.join(desktop,'package.json'))});`},plugins:[{name:'d3-locked-main',setup(b){
+ b.onResolve({filter:/^node-pty$/},()=>({path:pathToFileURL(req.resolve('node-pty')).href,external:true}));
+ b.onLoad({filter:/electron[\\/]main\.ts$/},args=>{
+  const raw=fs.readFileSync(args.path,'utf8'),expected=baseline.lockedSources.find(f=>f.file==='LOCKED_HERMES/apps/desktop/electron/main.ts').sha256;if(sha(raw)!==expected)throw Error('Main SHA changed');
+  let s=raw.replaceAll('\r\n','\n');
+  s=`import {installD3} from ${JSON.stringify(path.resolve('poc/native-career-d3/main.mjs'))};\nimport {waitForNativeGatewayReady} from ${JSON.stringify(path.resolve('scripts/p522-host-a02-01-gateway-ready.mjs'))};\n`+s;
+  s=exact(s,"const PRELOAD_PATH = path.join(APP_ROOT, 'dist', 'electron-preload.js')",`const PRELOAD_PATH = process.env.CAREERADAPT_D3 === '1' ? ${JSON.stringify(path.join(out,'preload.cjs'))} : path.join(APP_ROOT, 'dist', 'electron-preload.js')`);
+  s=exact(s,'app.whenReady().then(() => {','app.whenReady().then(async () => {\n  await installD3({nativeConnection: () => ensureBackend(undefined)})');
+  s=exact(s,'    backendReady = true','    await waitForNativeGatewayReady(`ws://127.0.0.1:${port}/api/ws?token=${encodeURIComponent(token)}`)\n    backendReady = true');
+  recordD3Patch('apps/desktop/electron/main.ts',raw,s);return {contents:s,loader:'ts',resolveDir:path.dirname(args.path)};
+ });
+}}]});
+fs.writeFileSync(path.join(out,'package.json'),JSON.stringify({name:'careeradapt-d3-isolated-host',version:'0.17.0',type:'module',main:'bootstrap.mjs'}));
+fs.writeFileSync(path.join(out,'root.cjs'),`const {app}=require('electron');app.setAppPath(${JSON.stringify(desktop)});const fs=require('node:fs');const path=require('node:path');const report=e=>{if(process.env.CAREERADAPT_D3_CONFIG)fs.appendFileSync(path.join(path.dirname(process.env.CAREERADAPT_D3_CONFIG),'main-errors.log'),String(e?.stack||e)+'\\n');app.exit(1);};process.on('uncaughtException',report);process.on('unhandledRejection',report);\n`);
+fs.writeFileSync(path.join(out,'bootstrap.mjs'),"import './root.cjs';\nimport './main.mjs';\n");
+console.log('D3_MAIN_PRELOAD_APPLICATION_BUILD_PASS');

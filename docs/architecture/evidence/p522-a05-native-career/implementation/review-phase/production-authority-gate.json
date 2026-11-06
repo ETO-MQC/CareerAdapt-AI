@@ -1,0 +1,7 @@
+{
+  "status": "BLOCKED",
+  "issuerImplemented": false,
+  "syntheticBrokerImplementedThisRound": false,
+  "adr": "../../p5.2.2-a05-native-career-authority-adr.md",
+  "scope": "D3 review only; no production trust approval"
+}

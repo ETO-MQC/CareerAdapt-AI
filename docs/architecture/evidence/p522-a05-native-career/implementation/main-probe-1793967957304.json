@@ -1,0 +1,12 @@
+{
+  "run": 1793967957304,
+  "status": "PASS",
+  "level": "REAL_ELECTRON_MAIN_PRELOAD_ONLY_NOT_NATIVE_HERMES",
+  "cases": [
+    "named pipe listen succeeds",
+    "isolated Preload bridge attach",
+    "Main enable/disable committed before ACK",
+    "invalid setter payload rejected",
+    "reload invalidates old lifecycle"
+  ]
+}

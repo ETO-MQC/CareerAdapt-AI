@@ -1,0 +1,19 @@
+{
+  "status": "BLOCKED",
+  "currentProbe": "disable-closure-probe.json",
+  "probeLevel": "LOCKED_FUNCTIONS_VM_LOOPBACK_NOT_ELECTRON",
+  "backendCareerGrantImplemented": false,
+  "required": [
+    "disable rejects captured closure",
+    "epoch/session/profile switch invalidates old grant",
+    "expiry invalidates",
+    "in-flight delivery discarded"
+  ],
+  "existingSyntheticAdapterTests": {
+    "status": "PASS_SYNTHETIC_CURRENT_ROUND",
+    "tests": 31,
+    "files": 4,
+    "evidence": "unit-results.json",
+    "nativeHostExecuted": false
+  }
+}

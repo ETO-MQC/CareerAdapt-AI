@@ -1,0 +1,6 @@
+name: careeradapt_d3_profile
+version: 1.0.0
+description: D3 isolated synthetic Profile read only, never production authority
+provides_tools:
+  - career.profile.get
+  - career.profile.search_facts

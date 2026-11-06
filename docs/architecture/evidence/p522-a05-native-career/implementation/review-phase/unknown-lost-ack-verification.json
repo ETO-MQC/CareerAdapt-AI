@@ -1,0 +1,44 @@
+{
+  "status": "NOT_VERIFIED",
+  "reason": "Stopped before implementation for selected Main/Preload architecture review under user attachment A2.",
+  "nativeLaunches": 0,
+  "cases": [
+    {
+      "name": "server accepted",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "actual Adapter executed once",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "durable qualification ledger",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "ACK deliberately dropped",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "Host UNKNOWN",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "Electron and backend restart",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "query original operationId",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "no provider/model change",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "no resubmit/history reexecution",
+      "status": "NOT_RUN"
+    }
+  ],
+  "historicalResultsDoNotSatisfyThisRound": true
+}

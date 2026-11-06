@@ -1,0 +1,36 @@
+{
+  "status": "NOT_VERIFIED",
+  "reason": "Stopped before implementation for selected Main/Preload architecture review under user attachment A2.",
+  "nativeLaunches": 0,
+  "cases": [
+    {
+      "name": "real Electron native model tool call",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "schema -> Adapter -> Gateway -> QueryService -> Repository",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "tool_call_id/result association",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "model response grounded in tool result",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "Tool Activity and Session persistence",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "synthetic A/B unique undisclosed markers",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "empty/error/no demo fallback",
+      "status": "NOT_RUN"
+    }
+  ],
+  "historicalResultsDoNotSatisfyThisRound": true
+}

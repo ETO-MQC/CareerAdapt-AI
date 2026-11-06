@@ -1,0 +1,24 @@
+{
+  "renderer": {
+    "baseline": [],
+    "integrated": [],
+    "introduced": []
+  },
+  "mainPreload": {
+    "baseline": [],
+    "integrated": [
+      {
+        "file": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop/electron/main.ts",
+        "code": 2554,
+        "message": "Expected 1 arguments, but got 0."
+      }
+    ],
+    "introduced": [
+      {
+        "file": "C:/Users/mqcin/AppData/Local/hermes/hermes-agent/apps/desktop/electron/main.ts",
+        "code": 2554,
+        "message": "Expected 1 arguments, but got 0."
+      }
+    ]
+  }
+}

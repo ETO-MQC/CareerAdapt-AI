@@ -1,0 +1,9 @@
+{
+  "status": "NOT_RUN",
+  "realProviderRequests": 0,
+  "localModelTransportRequests": 0,
+  "credentialsRead": false,
+  "providerOrModelSwitches": 0,
+  "reason": "Architecture gate reached before provider qualification; no retries or fallback.",
+  "next": "Use bounded deterministic local model transport first; extra real Provider calls require capability/budget confirmation."
+}

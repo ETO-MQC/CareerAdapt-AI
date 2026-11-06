@@ -1,0 +1,32 @@
+{
+  "status": "NOT_VERIFIED",
+  "reason": "Stopped before implementation for selected Main/Preload architecture review under user attachment A2.",
+  "nativeLaunches": 0,
+  "cases": [
+    {
+      "name": "Stop during generation",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "Stop during handler",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "Stop after result before final answer",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "late result discarded",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "no automatic reexecution",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "other Session unaffected",
+      "status": "NOT_RUN"
+    }
+  ],
+  "historicalResultsDoNotSatisfyThisRound": true
+}

@@ -8,6 +8,7 @@ import {reliabilityPatch} from './p522-host-a02-01-patches.mjs';
 import {attachmentPatch} from './p522-host-a02-03-patches.mjs';
 import {sessionPersistencePatch} from './p522-host-a02-04-patches.mjs';
 import {artifactPatch} from './p522-host-a02-05-patches.mjs';
+import {d3RendererPatch,recordD3Patch} from './p522-a05-patches.mjs';
 const host=path.join(process.env.LOCALAPPDATA,'hermes/hermes-agent');
 const desktop=path.join(host,'apps/desktop'),req=createRequire(path.join(desktop,'package.json'));
 const {createServer,build,loadConfigFromFile}=req('vite');
@@ -83,6 +84,7 @@ const integration={name:'careeradapt-host-a01-opt-in',enforce:'pre',resolveId(id
  if(process.argv.includes('--attachments'))patched=attachmentPatch(patched,file);
  if(process.argv.includes('--session-persistence'))patched=sessionPersistencePatch(patched,file);
  if(process.argv.includes('--artifacts'))patched=artifactPatch(patched,file);
+ if(process.argv.includes('--native-career-d3')){const before=patched;patched=d3RendererPatch(patched,file);if(before!==patched)recordD3Patch(path.relative(host,file).replaceAll('\\','/'),original,patched);}
  if(patched===source)return null;
  if(!records.some(r=>r.file===file)){
   const rel=path.relative(host,file).replaceAll('\\','/');

@@ -1,0 +1,3598 @@
+{
+  "status": "BLOCKED_CURRENT_ADAPTER_GRAPH_CONTAINS_DEXIE",
+  "method": "Current TypeScript AST runtime imports/exports and literal dynamic imports; type-only imports excluded. Nonliteral/unresolved edges explicitly retained.",
+  "root": "src/agent/tools/ProfileReadAdapter.ts",
+  "files": [
+    {
+      "file": "src/agent/tools/ProfileReadAdapter.ts",
+      "sha256": "b25405442b16472fba0082896de04c6111a70190146583cdbfeaed8f531aac71"
+    },
+    {
+      "file": "src/agent/tools/CareerToolGateway.ts",
+      "sha256": "3e144b8562dd15d39e39bff1134b09f75820e5dda0c6d4726e68f4820ce2086d"
+    },
+    {
+      "file": "src/services/agent/AgentAttachmentStore.ts",
+      "sha256": "47acaf7848cf65bd37577d49d286e85e1e8dff3615e20e70c75cfcba7a2fade4"
+    },
+    {
+      "file": "src/services/security/text.ts",
+      "sha256": "a52ad7f5784f9cd6f9b52bbbea5ac9d8f3eae43cec34c009f337f39cb09e1fcc"
+    },
+    {
+      "file": "src/services/storage/repositories.ts",
+      "sha256": "b0025cb0632241a7685eaed85ad290ad8727fab4c59e249aed293bf79e7d9b08"
+    },
+    {
+      "file": "src/services/storage/persistence/dexieCareerPersistenceAdapter.ts",
+      "sha256": "2be1c3410e2648ea5522f68eb870bca0285e49f993291907db4cf3c1fef45667"
+    },
+    {
+      "file": "src/services/profile/profileReadPort.ts",
+      "sha256": "59d22182dd1500e815256440a48b9835dfe4b3984e1135a41ea29d2dec6707f4"
+    },
+    {
+      "file": "src/domain/resumePresentation/layoutPresets.ts",
+      "sha256": "70194eaa805086ff89a75dbfafa4675c6227dad2029975d18c54d6359f97ee8a"
+    },
+    {
+      "file": "src/domain/schemas/presentation.ts",
+      "sha256": "7789be4b2c3fd55d1a7da6e781f0cc20e95a96231f2ae775170e68cced832f9e"
+    },
+    {
+      "file": "src/domain/schemas/fieldAppearance.ts",
+      "sha256": "49332ec17d2bd07ff30b282abc22334e02efac6a4197430a104593e6cf88743b"
+    },
+    {
+      "file": "src/domain/schemas/presentationPrecision.ts",
+      "sha256": "e373d3d201d5caaa2eee7b6a26923440d059f40f7395cb8755ec4e1e44118ed1"
+    },
+    {
+      "file": "src/domain/schemas/common.ts",
+      "sha256": "63e498849c09b573076d6d1d69351474a1ff3108cf865479bb98d215eb7da815"
+    },
+    {
+      "file": "src/domain/sourceTaxonomy.ts",
+      "sha256": "d81a245066aeb22dc9b3fe6aba62d0f26514d04e07d3d9abe8bffb4588b41c25"
+    },
+    {
+      "file": "src/domain/schemas/resumeRender.ts",
+      "sha256": "9cd012e2e55e25a9d806120d589676bb973d37d1aa6f964556885fe0d5c3dd1c"
+    },
+    {
+      "file": "src/domain/schemas/resumePhoto.ts",
+      "sha256": "ff6795fd44e66529557e2023615384d84e54de3e6cfd090da094d33830344e4e"
+    },
+    {
+      "file": "src/domain/schemas/branch.ts",
+      "sha256": "f3eabda58d629ef83b617a03576cc410c2764fa3da665b0017c24a9d5a8fd816"
+    },
+    {
+      "file": "src/domain/schemas/resumeV2.ts",
+      "sha256": "bb31fc56f3abf016edbb2ba4f27b699f5a86cb695b418db2eae061655f9402e7"
+    },
+    {
+      "file": "src/domain/resumeFields/types.ts",
+      "sha256": "7b6f0802d0b899d818675a62421b67d92a82e7b7647bc291b8e5d7df65418a90"
+    },
+    {
+      "file": "src/domain/schemas/resumeJsonV2.ts",
+      "sha256": "fd251c0204bc013d36995f52f3cfcf7a3ccb437e7f0e8c820a9f7fa1fd67ceb5"
+    },
+    {
+      "file": "src/domain/resumeFields/index.ts",
+      "sha256": "6e9220e47804302448f7800bb7716047987b730120e2271431587cd017b4dafc"
+    },
+    {
+      "file": "src/domain/resumeFields/sectionCatalog.ts",
+      "sha256": "8573f2267147291411561ce923b64c9c515527b2dc91afc0d3c7495b69049b9f"
+    },
+    {
+      "file": "src/domain/resumeFields/fieldCatalog.ts",
+      "sha256": "0a85e665eb6e576412fbb10de84e148b74257b1efdf9364b46b6647ae99d3a8f"
+    },
+    {
+      "file": "src/domain/resumeFields/capabilityMatrix.ts",
+      "sha256": "9a29dc31fe0927d652f839e4bd462d4641cbd80af036f601161f8c06e5293283"
+    },
+    {
+      "file": "src/domain/schemas/jobTarget.ts",
+      "sha256": "d822c1407ef7397756d1ec84b9c7a8fd807abb30323d8555fd88ce2ab4cc7820"
+    },
+    {
+      "file": "src/domain/schemas/job.ts",
+      "sha256": "bd77a3fdb0d102456585f899159c3b185c88b4fd1399cd3ed8592e83f4f497dc"
+    },
+    {
+      "file": "src/domain/schemas/jobOptimizationV3.ts",
+      "sha256": "4ad2363ba2a33a09e0a0a02175d9d60e1c80ab78bee6556e5df52b0ce12ad7d1"
+    },
+    {
+      "file": "src/domain/schemas/jobOptimizationV4.ts",
+      "sha256": "a20d460944187373216f36bb7bab68a86e4421c4fd5a612fa103ee5aba206559"
+    },
+    {
+      "file": "src/domain/schemas/resumePresentation.ts",
+      "sha256": "5be80c210c4cc34de3eb83eb0c1b240dca8ec4aaffaf72ea4738c0421dc9a818"
+    },
+    {
+      "file": "src/domain/resumeFields/catalog.ts",
+      "sha256": "af0843642889e00f4ae66a3c14b602ed34131b05690a7522f6398ec77d7e941b"
+    },
+    {
+      "file": "src/domain/materialIntake/materialIntake.ts",
+      "sha256": "874d3f8107f5b01c81f46e6beec98cc3090e933b46bf3c064e125202e6e6d992"
+    },
+    {
+      "file": "src/domain/schemas/resumeImport.ts",
+      "sha256": "404e175dd4f63b1f7382909305ccd097175889f6de3e03b2d976f4e05650b62e"
+    },
+    {
+      "file": "src/domain/profileIntake/ProfileIntakeSourceTurn.ts",
+      "sha256": "368612fd353ba706f06e457bc178d1cac5b8ea957634f14f6956ad07ad723202"
+    },
+    {
+      "file": "src/domain/profileIntake/ProfileIntakeFinalSynthesis.ts",
+      "sha256": "0ecc5cb6650b224f983dc3207d54860ab07c79af57d474752f0a1a643c04af71"
+    },
+    {
+      "file": "src/domain/profileIntake/ProfileIntakeCompleteness.ts",
+      "sha256": "7488a7e73d27535b5479b3d74df8ab1eb2add4b5ad3e854c6a083ad6a905414b"
+    },
+    {
+      "file": "src/domain/profileIntake/ProfileIntakeProvenance.ts",
+      "sha256": "7b6b6557fbe03199322332e8d205f5467e0f8ff66055087c7fb3a12471fb1e1b"
+    },
+    {
+      "file": "src/domain/profileIntake/CareerWritingQuality.ts",
+      "sha256": "63122dc2205c8e07620811a4a6476caaa15c6d684fbf60b9e22e2f252c60edcc"
+    },
+    {
+      "file": "src/domain/profileIntake/ProfileIntakeQuestionAnswer.ts",
+      "sha256": "0da06ad31fda6c07ee4bdd5e0f41b82771fa28479b8c52e67d7a602d33059f37"
+    },
+    {
+      "file": "src/domain/schemas/index.ts",
+      "sha256": "9c5aeabe7e28344fcb9498a16f7d17a2d6d989b75d1b0d14e8766c784754979e"
+    },
+    {
+      "file": "src/domain/schemas/adaptationDraft.ts",
+      "sha256": "eb5d933dab81c241c5db376e519a6b7f60687b7588641fef8473f91ec298f3b0"
+    },
+    {
+      "file": "src/domain/schemas/ai.ts",
+      "sha256": "0a9059fd5ce043a473418e96820fa9d8dde578951d37a78bbf2caa06b833cab2"
+    },
+    {
+      "file": "src/domain/schemas/tailoring.ts",
+      "sha256": "708b045239087daab610948679dc0522a2c2d3dad5b9f8a2e02838df736c9377"
+    },
+    {
+      "file": "src/domain/schemas/careerIntelligence.ts",
+      "sha256": "680097e2715281b7043702e85d6323459e3f10965d1ebf55d2d9d3ae2f97d8c3"
+    },
+    {
+      "file": "src/domain/schemas/application.ts",
+      "sha256": "5a0a5c52548ae1ebd3a8f7cb2ba475c84ac1d34a1a2d8fe72b807693f9fd5e69"
+    },
+    {
+      "file": "src/domain/schemas/applicationPreparation.ts",
+      "sha256": "b6002fa25a17000e6797e5a21380e74ecfcd60d49a67724d6bd351b1a8416a2e"
+    },
+    {
+      "file": "src/domain/schemas/diagnostics.ts",
+      "sha256": "fe8f2797859016e6a90b288de53a29f2da9e596883d94a30de38d9ddcd0487b8"
+    },
+    {
+      "file": "src/domain/schemas/documentRecognition.ts",
+      "sha256": "4183d29b61ae952f321b0a1dd9fcd5e1175e411a2e82bd5e59c8cad28eb5c24d"
+    },
+    {
+      "file": "src/domain/resumeImport/timeouts.ts",
+      "sha256": "f9e28e5522bbd5e25828146dbc9b9358cafbc3780046866e90cfed5fce22c0f8"
+    },
+    {
+      "file": "src/domain/schemas/export.ts",
+      "sha256": "09c8a7fe12f60f2ddfb86ccd0a7d954abdb7eecf214b24cfff78e2ffc9b226bf"
+    },
+    {
+      "file": "src/domain/schemas/importDraft.ts",
+      "sha256": "d2fcdb2a521bcfa3145b189199a8735f9ea5873f287160baa4db99230091eebd"
+    },
+    {
+      "file": "src/domain/schemas/profile.ts",
+      "sha256": "974f9ca5b65d10d3686d00bdccfd45fe4aeaa56e8f3f36db57fcf16f93782a24"
+    },
+    {
+      "file": "src/domain/schemas/jobDiscovery.ts",
+      "sha256": "3b179194e7a19b6f0daca8aa775aa4a0f35b71cea4600dd41635ad3a3ee10f9f"
+    },
+    {
+      "file": "src/domain/schemas/jobOptimization.ts",
+      "sha256": "f65264b1d183e2c828c16d651f0dc887bc3b799e5e23b576aea19f5b4c960b3d"
+    },
+    {
+      "file": "src/domain/schemas/jobOptimizationV2.ts",
+      "sha256": "f544a51ba797c78be3733ca0c913a8a8325de038abb58459b110a36f6bfc0bb5"
+    },
+    {
+      "file": "src/domain/schemas/profileReconciliation.ts",
+      "sha256": "857cfec20683d31fc6529a70bb0530c0f0cc1baccd640d1c602a0166375a0a6a"
+    },
+    {
+      "file": "src/domain/schemas/recycleBin.ts",
+      "sha256": "6a69dd2fd4469e1ef8d8525f6a22152ddf52b50a5390ba79c8de157cd1e96c5c"
+    },
+    {
+      "file": "src/domain/mappers/jobDraftMapper.ts",
+      "sha256": "9cd842965a35b25677e226146422b2beeeb7e310d262bf1cdd8487fc4bc348ed"
+    },
+    {
+      "file": "src/domain/jobAssets/jobDeduplication.ts",
+      "sha256": "859000fd5f7f0385837d7ad6c110bd3d11464d02be6ab8d3ca2f374a4115b038"
+    },
+    {
+      "file": "src/services/jobs/jobWorkflow.ts",
+      "sha256": "e631e7df78e74ab047e3f3b66ae73702154daf347235eff8ee022939d806a25f"
+    },
+    {
+      "file": "src/data/demoJobs.ts",
+      "sha256": "fa8aa75d434618eb4560961aa6b5d65814b21ceb6e3ea51fee7bca6cfa4b36ac"
+    },
+    {
+      "file": "src/domain/factProposal.ts",
+      "sha256": "ff58042d69871c0ec1a78627e9e52472a97b176f634bd4d6731d3042a5ea667e"
+    },
+    {
+      "file": "src/data/demoProfile.ts",
+      "sha256": "c969a700e15e427cf9c26d8d6f005e898d6d2919d73d0a1b3e636aae3c8ec23b"
+    },
+    {
+      "file": "src/domain/migrations/resumeV2.ts",
+      "sha256": "88aab5fda94201067a0e5452198b8a31ceaebc152c037b8540b2bf48f6445437"
+    },
+    {
+      "file": "src/domain/profile/canonicalLibrary.ts",
+      "sha256": "26fbf68ea4493e41b0952d3f3844f34857f5756213f27daa1d5ba18d26ff6e2c"
+    },
+    {
+      "file": "src/domain/profile/profileWriteContract.ts",
+      "sha256": "e18dfb7c259efeb50477791d9dbecfaabe4e931ed10b494b726fd72853f413db"
+    },
+    {
+      "file": "src/domain/profile/factMaturity.ts",
+      "sha256": "731006e1018e7f5e8406a1cec1b60fba5fce54b6d91ecec07f5dd63ad835be77"
+    },
+    {
+      "file": "src/domain/profile/profileSyncDiagnostics.ts",
+      "sha256": "e9859cd737813e683b0536cd8fa4c9e0219b80732ab3146f4f25ca75c91152c6"
+    },
+    {
+      "file": "src/domain/profile/profileContentRecovery.ts",
+      "sha256": "47cd19b06a05b8dbf5d229d3e721c7db934ef36dc0cb163f6783e23f0dbd29b9"
+    },
+    {
+      "file": "src/domain/resumeImport/confirm.ts",
+      "sha256": "db38c41d25c3c897250edb0d7bb993d4806963794005af30ba35e1ba2a6bf40f"
+    },
+    {
+      "file": "src/domain/resumeImport/invariants.ts",
+      "sha256": "5f6ca7328dfa7f707c113396b002d3d24103e9f69213786bcda9447a716533fd"
+    },
+    {
+      "file": "src/domain/branch/revision.ts",
+      "sha256": "9ca873202b3433e0a3f8d37fe193504ab251136a1edb5ae941d58c174789b608"
+    },
+    {
+      "file": "src/domain/branch/validation.ts",
+      "sha256": "a81789233c2bdeab1311a8109cd8a18bed47376b3ed5fb7f42c4d37ce5cc7fc1"
+    },
+    {
+      "file": "src/domain/match/matcher.ts",
+      "sha256": "63f96fa51a5b8e71fecb973557c42cd543857e1b891fb57e2d673f810fb6167d"
+    },
+    {
+      "file": "src/domain/pdfImport/sourceMapping.ts",
+      "sha256": "6d7b64b2105c6c757078a6e308a5f9faef196ea6bc9e0f18ef19ae762983d89c"
+    },
+    {
+      "file": "src/domain/resumeImport/fieldCandidates.ts",
+      "sha256": "1b3d52ff9887641045341cbb063852d86abb4fb76289412065ffab0f3bbeaf68"
+    },
+    {
+      "file": "src/domain/resumeImport/dates.ts",
+      "sha256": "b1e5115fa2846b68b85d7430f339e571a1562166dc253251cc2e2070b7d58de8"
+    },
+    {
+      "file": "src/domain/resumeImport/sectionHeading.ts",
+      "sha256": "72209214415f7923b145402a752e728c6e90dea0a2f3bf24852198588776fda5"
+    },
+    {
+      "file": "src/domain/resumeImport/mappingValidation.ts",
+      "sha256": "a061007399fb8011aaa685df309f14c89826d5df457710bb619f485bb729dcea"
+    },
+    {
+      "file": "src/agent/contracts/agentSession.ts",
+      "sha256": "250f95b066dcdb2f95bbfddfb8365a64131787df4a79f5ab18ae11f4444e8d61"
+    },
+    {
+      "file": "src/agent/contracts/agentArtifact.ts",
+      "sha256": "8ec8067c4e74b77fe2e9077e96873fc96213945a2043f208655ae05f099badc6"
+    },
+    {
+      "file": "src/agent/contracts/agentTool.ts",
+      "sha256": "8e4acb6d6e8309f5e74787f785deb767f023816b82c768e532d598ee2f9b0b19"
+    },
+    {
+      "file": "src/agent/contracts/agentActions.ts",
+      "sha256": "18ddf8418ebfa5d66c2514f3f55e1b8df69a5296982452bb3b90dbbb4b9301a9"
+    },
+    {
+      "file": "src/domain/profileIntake/ProfileIntakeNormalizer.ts",
+      "sha256": "f29df9768f04e7ff0c8e24866a7a001ce0835f488199093d0e74490248b4f822"
+    },
+    {
+      "file": "src/domain/adaptation/factGuard.ts",
+      "sha256": "49fa8cb684696b604980504e99aae72da02f56613941bd716d642fb5fb59cc4c"
+    },
+    {
+      "file": "src/agent/kernel/AgentTrajectory.ts",
+      "sha256": "49bbc73204f7c316477f9417465efcc17d50c863b0f913039dcb4c8c85fa802a"
+    },
+    {
+      "file": "src/agent/kernel/AgentReflection.ts",
+      "sha256": "39307c2a577088be617133a618e96c92e2401aff14bd72182b4d1edd0fdb80b7"
+    },
+    {
+      "file": "src/agent/runtime/hermes/hermesIncidentTrace.ts",
+      "sha256": "249ec824b3438b8e29f213d8b6149bb51fa45adb3b6d7931d617b61c8a34d3b2"
+    },
+    {
+      "file": "src/agent/contracts/resumeArtifactWrite.ts",
+      "sha256": "5feb33ae2e30f38d06c983aedf550d32a084b2d309e66b53de5fb4c92c1b30b7"
+    },
+    {
+      "file": "src/agent/runtime/AgentSessionMigration.ts",
+      "sha256": "bb6277f11d4954a4d68bf6e4f6d3f2d2e783bfa0b96070da14bf371672e6d7f2"
+    },
+    {
+      "file": "src/agent/runtime/activeBranchContext.ts",
+      "sha256": "403f9cc1e375dc99ea8a71c50d5c4d6a23aa0a16eba435f56b81cb3dd6d5f02e"
+    },
+    {
+      "file": "src/services/jobs/tailoringDiffId.ts",
+      "sha256": "019343dd82f8444d9a600b74d26c31a24729475f48eea4d80fa6dcbb4733f49b"
+    },
+    {
+      "file": "src/agent/runtime/AgentSessionMessages.ts",
+      "sha256": "e9ae95e7e55c3127381c703740d2f05f1312cd9a523d033a7dbda93b7e4aaaf5"
+    },
+    {
+      "file": "src/agent/workflows/workflowRegistry.ts",
+      "sha256": "6a6f46b43216efa8852643316779627fa57a2a23c81c2d077a3a47d1414b40f0"
+    },
+    {
+      "file": "src/agent/workflows/tailoringStage.ts",
+      "sha256": "4a5662d3a942e670824b4f42032c6b967a5df5529590974b88e981b53ee321fe"
+    },
+    {
+      "file": "src/domain/jobOptimization/tailoringDiff.ts",
+      "sha256": "54507e591f8f88c27f5b117c01bc78d304384e084b9129238fc6a7e2b73e033d"
+    },
+    {
+      "file": "src/domain/jobOptimization/v3/index.ts",
+      "sha256": "5f36aece365a0067bc7cf328fa114ed463282f4a07b16e964d20fa3020d11d87"
+    },
+    {
+      "file": "src/domain/jobOptimization/v3/analyze.ts",
+      "sha256": "c67caa1e01bc15c96e6500483c4a419c1eafd341fdc52896df20e7b442d3b14f"
+    },
+    {
+      "file": "src/domain/jobOptimization/v4/analyze.ts",
+      "sha256": "c5455ec0fa690c6e8e69ec5ed6fde6a7afc033ee2e5ceef8bf3f7b9219001833"
+    },
+    {
+      "file": "src/domain/jobOptimization/v3/project.ts",
+      "sha256": "0b2b2e858920dc0180264e1574a7beac55adbff8886f39ca92028873ae3916a2"
+    },
+    {
+      "file": "src/domain/jobOptimization/keywordTaxonomy.ts",
+      "sha256": "a04139a4e35f850b392f0e238132d005ed8c150b5adc37bdf0dff40a3549865f"
+    },
+    {
+      "file": "src/domain/application/index.ts",
+      "sha256": "a2d45ba22c9cab3c16df6db57ce6c6ed639778beabf7ccda738cc725ce4f2527"
+    },
+    {
+      "file": "src/domain/application/readiness.ts",
+      "sha256": "267fe7fa77f2455bae13599566b62cc1d01e095bfdeb57131eeb43272f13d1fb"
+    },
+    {
+      "file": "src/domain/application/statusMachine.ts",
+      "sha256": "2375e510d34dadbcc5533847d9df05d7463a9696ad1ccaf46b8386e808c4e1a9"
+    },
+    {
+      "file": "src/domain/applicationPreparation/index.ts",
+      "sha256": "4b793582bfa6264a2b4c20f30ead57349837de36b40a4ce9773b17debfe9efe6"
+    },
+    {
+      "file": "src/domain/applicationPreparation/context.ts",
+      "sha256": "9d52c64542980b02adc113fea3b7bf8eeb8f18b2ec6e085a74d0400f21410808"
+    },
+    {
+      "file": "src/domain/jobOptimization/index.ts",
+      "sha256": "8adcc71f362fa6b4ad845f8ca119698a06f885924797df3447cfa550a64a185e"
+    },
+    {
+      "file": "src/domain/jobOptimization/matching.ts",
+      "sha256": "4b5543a041bf9d3696b155fafcfa023935dce624a2f122751b4d84d9a2cf2f01"
+    },
+    {
+      "file": "src/domain/jobOptimization/suggestions.ts",
+      "sha256": "f2cd6e452ede6f82a20e3ccf2800dbd3b110408af8e0d0c5149544e7e6afd74b"
+    },
+    {
+      "file": "src/domain/jobOptimization/claimGuard.ts",
+      "sha256": "157af23bfeb106f03097b5108e1eef11dcfef72915890c063bb24fb7fdecb52b"
+    },
+    {
+      "file": "src/domain/jobOptimization/tailoringClaimPolicy.ts",
+      "sha256": "179d4fa0de606815742b16c51e8927d70020b41593107053d70d81ea179a2794"
+    },
+    {
+      "file": "src/domain/jobOptimization/sectionPolicy.ts",
+      "sha256": "fad4a71f81a5e4b10a4b0f829155365b3ad9d4cfb550c90864343eb897431592"
+    },
+    {
+      "file": "src/domain/jobOptimization/tailoringEngine.ts",
+      "sha256": "38a531d28e443f79be7a12362760bde60ec1865605a161fdebfdae8e47d57b2f"
+    },
+    {
+      "file": "src/domain/jobOptimization/confirmation.ts",
+      "sha256": "405f064a80e1cb80504385d7a7b2ee45ca17151110acc37646ee5a14801544b8"
+    },
+    {
+      "file": "src/domain/jobOptimization/capabilityResolver.ts",
+      "sha256": "14ed36cba8abcaf4d52df0222cb98e761cb6f09a4bd40c565089aec3fbe80088"
+    },
+    {
+      "file": "src/domain/jobOptimization/v2/evidence.ts",
+      "sha256": "3b7387ff40d36b7bd51ac726b41b7c679b77dd31fdf2c74532320cd1a910072e"
+    },
+    {
+      "file": "src/domain/jobOptimization/tailoringClosure.ts",
+      "sha256": "f18324e0510d79cd1c4f36611cff4e527b102306f96190984181c9d6effe9c62"
+    },
+    {
+      "file": "src/domain/jobOptimization/v2/index.ts",
+      "sha256": "7cfd8cb07d2085e676e1ab48698d1f98543ccd98d45f509758920220718a1ff4"
+    },
+    {
+      "file": "src/domain/jobOptimization/v2/analyze.ts",
+      "sha256": "167e682b1b8e59f99e2736acc0386739d31f67245217953d43539399e1e20692"
+    },
+    {
+      "file": "src/domain/jobOptimization/v2/coverage.ts",
+      "sha256": "9c9bdabb11d9bb1bb27d0f1feda273ee5e043e382cb0445707a31da62371ce7b"
+    },
+    {
+      "file": "src/domain/jobOptimization/v2/plan.ts",
+      "sha256": "6c800212d191e89b1109a1dbf2f73528cf4beadf89cbb86a7e5708e0a2ca1a77"
+    },
+    {
+      "file": "src/domain/jobOptimization/v4/index.ts",
+      "sha256": "73b912ccfd701b61a89562bc2b0806616be2de3ecf2edd9b606977fd17ffbb94"
+    },
+    {
+      "file": "src/domain/applicationPreparation/guards.ts",
+      "sha256": "cee7d1d41b6ea2fa9830a72973fb31ce1eb661e0bc6796490e3aa460e53f6ab3"
+    },
+    {
+      "file": "src/domain/applicationPreparation/materials.ts",
+      "sha256": "144d5cffd3e73b578034454b2f8e7cfb622283589fa6baa962e58ebd3a11c4e5"
+    },
+    {
+      "file": "src/domain/applicationPreparation/readiness.ts",
+      "sha256": "aa9ceb884700c918558e55e62813a7f4a1b250882a5b8d9fe9e6c7c005785843"
+    },
+    {
+      "file": "src/domain/applicationPreparation/stale.ts",
+      "sha256": "a75a864c82d8f337e2b1598a9550c5d3d1796a60623f80de40beaf6723570225"
+    },
+    {
+      "file": "src/domain/branch/mapper.ts",
+      "sha256": "e976cb56fdc2832ed1f88872647e3e49e83e4a63cde68ecb34b0202fb9d1257a"
+    },
+    {
+      "file": "src/domain/adaptation/draft.ts",
+      "sha256": "39778384d19048ce23bd0b39d1bf8a07c9da8af050c5d85bcd275cb28713e51b"
+    },
+    {
+      "file": "src/domain/branch/profileBranch.ts",
+      "sha256": "8ba1b2f34d75fe9cb886accd82a44c4361ba58dce64a1367741dc01940461680"
+    },
+    {
+      "file": "src/domain/jobTarget/jobTargetSnapshot.ts",
+      "sha256": "68ce79547756343fc034b294be2572e197a60c4a962e94312cabd775cc52d9fa"
+    },
+    {
+      "file": "src/domain/branch/targetRole.ts",
+      "sha256": "c75b3a56d9ddfb78534463ff4724549c561b89cdb74baa06bab67b05e0649a24"
+    },
+    {
+      "file": "src/domain/profileReconciliation/ProfileReconciliationEngine.ts",
+      "sha256": "74af19c8bd6f17ecf50f5deb69a262cc30df14aa7b0b0054b64fdc5f1ca24b06"
+    },
+    {
+      "file": "src/domain/resumeComposition/index.ts",
+      "sha256": "dab61ad4a51acdd1223360aaf72cf8e68b9ce5521d7d63aee806945530aa4399"
+    },
+    {
+      "file": "src/domain/resumeComposition/contracts.ts",
+      "sha256": "792a82966e64afa63051f97ca45e655fcdd6b1688c942c99a7708a87d20105fb"
+    },
+    {
+      "file": "src/domain/resumeComposition/qualityDiagnostics.ts",
+      "sha256": "b970f8b06a2fd3d0a20be89491030ab8f07cdf7eb8a62fc0c5d7e3b4422eeb44"
+    },
+    {
+      "file": "src/domain/resumeComposition/ResumeEvidenceGraph.ts",
+      "sha256": "c8d3d4c08f81fd5babf3de9747f71217af44b4ee893cc525c701c768d23d20ef"
+    },
+    {
+      "file": "src/domain/resumeComposition/CareerAssetDisplayIdentity.ts",
+      "sha256": "bf2a2ff1ca6646dcbe5a28f50c23aa90bbc193e89c3455e39da139a6f87cb65d"
+    },
+    {
+      "file": "src/domain/resumeComposition/ResumeSkillTaxonomy.ts",
+      "sha256": "a72d00536247708b5e8aa8a945d9b7fbc48ad97e00ae8d27f69500274be4e05e"
+    },
+    {
+      "file": "src/domain/resumeComposition/ResumeBlueprint.ts",
+      "sha256": "905008c1e7d3c5c84efe1e23e933ef21e019b14bb3b9c23e6120a74e2f481dcb"
+    },
+    {
+      "file": "src/domain/resumeComposition/CareerResumeQualityPolicyV1.ts",
+      "sha256": "dc9fb59a69b5d562688af8e0a54933d7aa576de7dc3c2b3f40729f094708b9a4"
+    },
+    {
+      "file": "src/domain/resumeComposition/ResumeWriter.ts",
+      "sha256": "a64dc9cc9ed13b864ac321f8b799eb0302fd8c64e8a1cbeb66cfb0bc177a92ad"
+    },
+    {
+      "file": "src/domain/resumeComposition/ResumeReviewer.ts",
+      "sha256": "f3c3c213d457d414392e847e53318d41704fbf218e6d1021220ab9bb25193b10"
+    },
+    {
+      "file": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "sha256": "7b64947a56c5d7225442e5a97617f3a9b9c60b0b4b463e5c14aaeefbc3290498"
+    },
+    {
+      "file": "src/ai/client.ts",
+      "sha256": "c561732d0a01686ccbb87bf30f47e97e33b71d18a496e399d2b97ac6d3c8c145"
+    },
+    {
+      "file": "src/services/storage/aiSettings.ts",
+      "sha256": "6a91cbe39daaf8a8e05b7598f91fc321b7d56ffa73d14ce4a35053f632555639"
+    },
+    {
+      "file": "src/services/preferences/documentRecognition.ts",
+      "sha256": "9ad6c17637ae959662bb54a0d98d0e36c14e557c19de30ce463625b2238686d3"
+    },
+    {
+      "file": "src/domain/documentRecognition/modelCatalog.ts",
+      "sha256": "499c1697ae0f47170fcb2037b93444f577d77482c53ba395f8c0e3a5f45d0511"
+    },
+    {
+      "file": "src/ai/prompts/versions.ts",
+      "sha256": "7c6fd8d6f018259f80b027228299c6c494c437b9b12a66d0e34fc6d68961f9cb"
+    },
+    {
+      "file": "src/domain/resumeComposition/ResumeCompositionPreferences.ts",
+      "sha256": "7c4e4963414831e9f7389a422849c4410b2259c991ad571e8ad00ff16f3d05c2"
+    },
+    {
+      "file": "src/domain/resumeComposition/ResumeCompositionCheckpoint.ts",
+      "sha256": "3495c25e8f717c1650fceb95d2a224bb3c06db5f9ec98ba46ccf0efcc67f2951"
+    },
+    {
+      "file": "src/domain/resumeIntegrity/index.ts",
+      "sha256": "da130f232b7ae0b4b2490810b4d8831182cb9624d52916a21305a4b1e75847bd"
+    },
+    {
+      "file": "src/domain/resumeIntegrity/ResumeStructuralIntegrity.ts",
+      "sha256": "70fe9bd1ea26f202bef7e7a3a93ec5e9957b9c4a533ee72514a5fbea59aa7aea"
+    },
+    {
+      "file": "src/domain/resumeIntegrity/tailoringStructuralPreservation.ts",
+      "sha256": "06d4f86d132a3deb1527118cf504c298b56d82c2e25e48372ca895638aad665f"
+    },
+    {
+      "file": "src/services/export/snapshot.ts",
+      "sha256": "52204723910a0ff6355d19ae7e229ae3d60de5397db3b9002b2516d45f3d2302"
+    },
+    {
+      "file": "src/services/storage/db.ts",
+      "sha256": "7170668b1c36e29ca33e6c0e17385b7ab8639328a1fb10ccc7326b0135f9d2de"
+    },
+    {
+      "file": "src/services/storage/resumeRepositoryEvents.ts",
+      "sha256": "8f0b6ea22b95103f984cb6ffb17df83734bf17f21d97690223bf20955123e4eb"
+    },
+    {
+      "file": "src/agent/runtime/agentExecutor.ts",
+      "sha256": "21b919b7ff0f8819f8b7a717b3e092b92f024ff14d1c3feb3089aaadd1c02894"
+    },
+    {
+      "file": "src/agent/runtime/careerSessionBinding.ts",
+      "sha256": "6538f531903b249d4183532e1769baf314b3605aac3fd498b0a06fd534a363ff"
+    },
+    {
+      "file": "src/agent/tools/registry.ts",
+      "sha256": "41f60dc7d618616e5b83557af6fe6a7281ccf1159615662143c1f77b81717001"
+    },
+    {
+      "file": "src/domain/resumeComposition/sessionConfirmedSkills.ts",
+      "sha256": "b643c71baaf16f04afa8ecf7db626955cc5f25f244445f5c3df66e7afba40bff"
+    },
+    {
+      "file": "src/ai/providers/transportError.ts",
+      "sha256": "01094406371ba737997a5d0d3d448bbd9a7524fc97e3774c743131cfe5e6ec72"
+    },
+    {
+      "file": "src/domain/profileIntake/CaptureProfileIntakeResult.ts",
+      "sha256": "9096bb626bd0ceec0acb4f9ee7a1843a8245b195f032f3ea9dd4cece35a184c2"
+    },
+    {
+      "file": "src/domain/profileIntake/ProfileIntakeReviewProjection.ts",
+      "sha256": "6b475fc88dac2a9090471eadb65538c454af9bbae6f9e9daf0e85b0be5280b31"
+    },
+    {
+      "file": "src/domain/profileIntake/ProfileIntakeNextTurnPlan.ts",
+      "sha256": "dfe58d9c2090e3e13acacf25fc4206414bc82cd25101fc4cab8f5acef61ca626"
+    },
+    {
+      "file": "src/domain/careerInteraction/CareerInteractionPlan.ts",
+      "sha256": "38a1ce8ada865787f2595e0e28b64c0a7a713dfdf106a04f3c54a1a11dd2aa50"
+    },
+    {
+      "file": "src/domain/careerContext/retrieveCareerContext.ts",
+      "sha256": "8a55d93dfba38e1fbfa5bfc57e7798e8c7cdd69ab0131625dac97508ae6e12d4"
+    },
+    {
+      "file": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "sha256": "2361e55351c5ed72e5fa9c352dbc262fd910a88ef53662dcbd49646b6b7441e9"
+    },
+    {
+      "file": "src/agent/tools/careerToolContract.ts",
+      "sha256": "e4953410acacd73ff0be9258aff538f8d007618aece5bd08b061b61b0a5b099f"
+    },
+    {
+      "file": "src/agent/runtime/careerContextBindingResolver.ts",
+      "sha256": "9f5b171eff55a4957deea5d342841ea08525974583be217544161cda2c5a76dc"
+    },
+    {
+      "file": "src/agent/runtime/currentTurnUserMessage.ts",
+      "sha256": "8f9cd0a62818a74aa73cbd274b6300ad3f8fa4465a772f618b4de71aef3547a3"
+    },
+    {
+      "file": "src/agent/runtime/workflowUserInputCheckpoint.ts",
+      "sha256": "ba8e1c8b1fd433edf6bc9cfd4a0cb0c2a6b64fe4f5d5016cbffd6000a6ea778d"
+    },
+    {
+      "file": "src/agent/tools/careerToolDiagnostics.ts",
+      "sha256": "2820175c3a028c2c9dff924e45d857ade8414bf8e4262d7aa925082b955210d3"
+    },
+    {
+      "file": "src/agent/workflows/TransactionalWorkflowLease.ts",
+      "sha256": "d23bfe16b570774f76bd0384e1cdddd3fc11ac2e2591e542e22694cb91a073af"
+    },
+    {
+      "file": "src/services/diagnostics/appBuildInfo.ts",
+      "sha256": "c129d7f48cd63569cfea10d5cf4111cb05f314b7fcc6d824e4ae0d85b4570c52"
+    },
+    {
+      "file": "src/services/profile/profileQueryService.ts",
+      "sha256": "b4966975afee1db695e3838b97bade94e0d148146ff1ef0daae3a2bfc771db5a"
+    }
+  ],
+  "edges": [
+    {
+      "from": "src/agent/tools/ProfileReadAdapter.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/agent/tools/ProfileReadAdapter.ts",
+      "to": "src/agent/tools/CareerToolGateway.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "src/services/agent/AgentAttachmentStore.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/agent/AgentAttachmentStore.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/services/agent/AgentAttachmentStore.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/agent/AgentAttachmentStore.ts",
+      "to": "src/services/storage/repositories.ts",
+      "kind": "dynamic-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/services/storage/persistence/dexieCareerPersistenceAdapter.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/services/profile/profileReadPort.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/resumePresentation/layoutPresets.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumePresentation/layoutPresets.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/resumePresentation/layoutPresets.ts",
+      "to": "src/domain/schemas/presentation.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/presentation.ts",
+      "to": "src/domain/schemas/fieldAppearance.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/fieldAppearance.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/presentation.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/presentation.ts",
+      "to": "src/domain/schemas/presentationPrecision.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/presentationPrecision.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/presentation.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/common.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/common.ts",
+      "to": "src/domain/sourceTaxonomy.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/presentation.ts",
+      "to": "src/domain/schemas/resumeRender.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/resumeRender.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/resumeRender.ts",
+      "to": "src/domain/schemas/resumePhoto.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/resumePhoto.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/resumeRender.ts",
+      "to": "src/domain/schemas/branch.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/branch.ts",
+      "to": "src/domain/schemas/fieldAppearance.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/branch.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/branch.ts",
+      "to": "src/domain/schemas/resumePhoto.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/branch.ts",
+      "to": "src/domain/schemas/presentationPrecision.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/branch.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/branch.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/resumeV2.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/resumeV2.ts",
+      "to": "src/domain/schemas/resumePhoto.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/resumeV2.ts",
+      "to": "src/domain/resumeFields/types.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/branch.ts",
+      "to": "src/domain/schemas/resumeJsonV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/resumeJsonV2.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/resumeJsonV2.ts",
+      "to": "src/domain/resumeFields/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeFields/index.ts",
+      "to": "src/domain/resumeFields/types.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeFields/index.ts",
+      "to": "src/domain/resumeFields/sectionCatalog.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeFields/index.ts",
+      "to": "src/domain/resumeFields/fieldCatalog.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeFields/fieldCatalog.ts",
+      "to": "src/domain/resumeFields/types.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeFields/index.ts",
+      "to": "src/domain/resumeFields/capabilityMatrix.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeFields/capabilityMatrix.ts",
+      "to": "src/domain/resumeFields/fieldCatalog.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeFields/capabilityMatrix.ts",
+      "to": "src/domain/resumeFields/sectionCatalog.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/resumeJsonV2.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/branch.ts",
+      "to": "src/domain/schemas/jobTarget.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/jobTarget.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/jobTarget.ts",
+      "to": "src/domain/sourceTaxonomy.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/jobTarget.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/jobTarget.ts",
+      "to": "src/domain/schemas/job.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/job.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/job.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/job.ts",
+      "to": "src/domain/schemas/jobOptimizationV3.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/jobOptimizationV3.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/jobOptimizationV3.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/job.ts",
+      "to": "src/domain/schemas/jobOptimizationV4.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/jobOptimizationV4.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/jobOptimizationV4.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/jobOptimizationV4.ts",
+      "to": "src/domain/schemas/jobOptimizationV3.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/jobTarget.ts",
+      "to": "src/domain/schemas/jobOptimizationV3.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/jobTarget.ts",
+      "to": "src/domain/schemas/jobOptimizationV4.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/resumeRender.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/resumeRender.ts",
+      "to": "src/domain/schemas/resumePresentation.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/resumePresentation.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/resumePresentation.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/presentation.ts",
+      "to": "src/domain/resumeFields/catalog.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "dexie",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/materialIntake/materialIntake.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/materialIntake/materialIntake.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/materialIntake/materialIntake.ts",
+      "to": "src/domain/schemas/resumeImport.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/resumeImport.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/resumeImport.ts",
+      "to": "src/domain/schemas/resumePhoto.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/resumeImport.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/resumeImport.ts",
+      "to": "src/domain/schemas/resumeRender.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/resumeImport.ts",
+      "to": "src/domain/resumeFields/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/resumeImport.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/resumeImport.ts",
+      "to": "src/domain/schemas/resumeJsonV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/resumeImport.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeSourceTurn.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeSourceTurn.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/resumeImport.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeFinalSynthesis.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeFinalSynthesis.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeFinalSynthesis.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeFinalSynthesis.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeCompleteness.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeCompleteness.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeFinalSynthesis.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeProvenance.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeProvenance.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeFinalSynthesis.ts",
+      "to": "src/domain/profileIntake/CareerWritingQuality.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/resumeImport.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeProvenance.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/resumeImport.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeQuestionAnswer.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeQuestionAnswer.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/adaptationDraft.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/adaptationDraft.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/adaptationDraft.ts",
+      "to": "src/domain/schemas/ai.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/ai.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/ai.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/ai.ts",
+      "to": "src/domain/schemas/job.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/ai.ts",
+      "to": "src/domain/schemas/tailoring.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/tailoring.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/tailoring.ts",
+      "to": "src/domain/schemas/careerIntelligence.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/careerIntelligence.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/careerIntelligence.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/tailoring.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/tailoring.ts",
+      "to": "src/domain/schemas/job.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/tailoring.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/tailoring.ts",
+      "to": "src/domain/resumeFields/types.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/adaptationDraft.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/ai.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/application.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/application.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/application.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/application.ts",
+      "to": "src/domain/schemas/presentation.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/application.ts",
+      "to": "src/domain/schemas/resumeRender.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/applicationPreparation.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/applicationPreparation.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/applicationPreparation.ts",
+      "to": "src/domain/sourceTaxonomy.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/applicationPreparation.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/branch.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/diagnostics.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/diagnostics.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/diagnostics.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/diagnostics.ts",
+      "to": "src/domain/schemas/presentation.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/diagnostics.ts",
+      "to": "src/domain/schemas/resumeRender.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/documentRecognition.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/documentRecognition.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/documentRecognition.ts",
+      "to": "src/domain/resumeImport/timeouts.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeImport/timeouts.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/export.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/export.ts",
+      "to": "src/domain/schemas/fieldAppearance.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/export.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/export.ts",
+      "to": "src/domain/schemas/presentationPrecision.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/export.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/export.ts",
+      "to": "src/domain/schemas/resumeRender.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/export.ts",
+      "to": "src/domain/schemas/presentation.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/importDraft.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/importDraft.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/importDraft.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/importDraft.ts",
+      "to": "src/domain/schemas/profile.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/profile.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/profile.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/profile.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/profile.ts",
+      "to": "src/domain/schemas/resumeJsonV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/profile.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeProvenance.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/importDraft.ts",
+      "to": "src/domain/schemas/job.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/importDraft.ts",
+      "to": "src/domain/schemas/jobOptimizationV3.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/importDraft.ts",
+      "to": "src/domain/schemas/jobOptimizationV4.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/job.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/jobDiscovery.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/jobDiscovery.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/jobDiscovery.ts",
+      "to": "src/domain/sourceTaxonomy.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/jobDiscovery.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/jobTarget.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/jobOptimization.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/jobOptimization.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/jobOptimization.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/jobOptimization.ts",
+      "to": "src/domain/schemas/job.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/jobOptimizationV2.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/jobOptimizationV2.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/jobOptimizationV2.ts",
+      "to": "src/domain/sourceTaxonomy.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/jobOptimizationV2.ts",
+      "to": "src/domain/schemas/branch.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/jobOptimizationV2.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/jobOptimizationV2.ts",
+      "to": "src/domain/schemas/job.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/jobOptimizationV2.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/jobOptimizationV3.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/jobOptimizationV4.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/presentation.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/profile.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/profileReconciliation.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/profileReconciliation.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/profileReconciliation.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/profileReconciliation.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/recycleBin.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/recycleBin.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/schemas/recycleBin.ts",
+      "to": "src/domain/schemas/profile.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/resumeImport.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/resumeRender.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/resumePresentation.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/resumeJsonV2.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/schemas/index.ts",
+      "to": "src/domain/schemas/tailoring.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/mappers/jobDraftMapper.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/mappers/jobDraftMapper.ts",
+      "to": "nanoid",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/mappers/jobDraftMapper.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/jobAssets/jobDeduplication.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/services/jobs/jobWorkflow.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/jobs/jobWorkflow.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/services/jobs/jobWorkflow.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/jobs/jobWorkflow.ts",
+      "to": "src/domain/mappers/jobDraftMapper.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/jobs/jobWorkflow.ts",
+      "to": "src/services/storage/repositories.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/data/demoJobs.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/data/demoJobs.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/schemas/jobDiscovery.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/factProposal.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/factProposal.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/factProposal.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/data/demoProfile.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/data/demoProfile.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/migrations/resumeV2.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/migrations/resumeV2.ts",
+      "to": "src/domain/resumeFields/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/profile/canonicalLibrary.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profile/canonicalLibrary.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profile/canonicalLibrary.ts",
+      "to": "src/domain/resumeFields/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/profile/profileWriteContract.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profile/profileWriteContract.ts",
+      "to": "nanoid",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/profile/profileWriteContract.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profile/profileWriteContract.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/profile/factMaturity.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profile/factMaturity.ts",
+      "to": "src/domain/sourceTaxonomy.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/profile/profileSyncDiagnostics.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profile/profileSyncDiagnostics.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/profile/profileContentRecovery.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profile/profileContentRecovery.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profile/profileContentRecovery.ts",
+      "to": "src/domain/resumeImport/confirm.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeImport/confirm.ts",
+      "to": "nanoid",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/resumeImport/confirm.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeImport/confirm.ts",
+      "to": "src/domain/resumeImport/invariants.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeImport/invariants.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeImport/confirm.ts",
+      "to": "src/domain/branch/revision.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/branch/revision.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/branch/revision.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeImport/confirm.ts",
+      "to": "src/domain/branch/validation.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/branch/validation.ts",
+      "to": "src/domain/match/matcher.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/match/matcher.ts",
+      "to": "nanoid",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/match/matcher.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/match/matcher.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeImport/confirm.ts",
+      "to": "src/domain/pdfImport/sourceMapping.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeImport/confirm.ts",
+      "to": "src/domain/resumeFields/catalog.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeImport/confirm.ts",
+      "to": "src/domain/resumeImport/fieldCandidates.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeImport/fieldCandidates.ts",
+      "to": "src/domain/resumeFields/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeImport/fieldCandidates.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeImport/fieldCandidates.ts",
+      "to": "src/domain/resumeImport/dates.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeImport/dates.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeImport/fieldCandidates.ts",
+      "to": "src/domain/resumeImport/sectionHeading.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeImport/fieldCandidates.ts",
+      "to": "src/domain/resumeFields/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeImport/confirm.ts",
+      "to": "src/domain/resumeImport/mappingValidation.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeImport/mappingValidation.ts",
+      "to": "src/domain/resumeFields/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeImport/confirm.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profile/profileContentRecovery.ts",
+      "to": "src/domain/sourceTaxonomy.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profile/profileContentRecovery.ts",
+      "to": "src/domain/schemas/profile.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profile/profileContentRecovery.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/agent/contracts/agentSession.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/contracts/agentSession.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/agent/contracts/agentSession.ts",
+      "to": "src/agent/contracts/agentArtifact.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/contracts/agentArtifact.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/agent/contracts/agentSession.ts",
+      "to": "src/agent/contracts/agentTool.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/contracts/agentTool.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/agent/contracts/agentSession.ts",
+      "to": "src/agent/contracts/agentActions.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/contracts/agentActions.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/agent/contracts/agentActions.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeNormalizer.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeNormalizer.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeNormalizer.ts",
+      "to": "src/domain/adaptation/factGuard.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/adaptation/factGuard.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/adaptation/factGuard.ts",
+      "to": "src/domain/match/matcher.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeNormalizer.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/contracts/agentActions.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/contracts/agentSession.ts",
+      "to": "src/agent/kernel/AgentTrajectory.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/kernel/AgentTrajectory.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/agent/contracts/agentSession.ts",
+      "to": "src/agent/kernel/AgentReflection.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/kernel/AgentReflection.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/agent/contracts/agentSession.ts",
+      "to": "src/services/agent/AgentAttachmentStore.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/contracts/agentSession.ts",
+      "to": "src/agent/runtime/hermes/hermesIncidentTrace.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/runtime/hermes/hermesIncidentTrace.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/agent/contracts/resumeArtifactWrite.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/contracts/resumeArtifactWrite.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeSourceTurn.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/agent/runtime/AgentSessionMigration.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/runtime/AgentSessionMigration.ts",
+      "to": "src/agent/contracts/agentSession.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/runtime/AgentSessionMigration.ts",
+      "to": "src/agent/runtime/activeBranchContext.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/runtime/AgentSessionMigration.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/runtime/AgentSessionMigration.ts",
+      "to": "src/services/jobs/tailoringDiffId.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/jobs/tailoringDiffId.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/runtime/AgentSessionMigration.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/runtime/AgentSessionMigration.ts",
+      "to": "src/agent/runtime/AgentSessionMessages.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/runtime/AgentSessionMessages.ts",
+      "to": "src/agent/runtime/activeBranchContext.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/runtime/AgentSessionMigration.ts",
+      "to": "src/agent/workflows/workflowRegistry.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/workflows/workflowRegistry.ts",
+      "to": "src/agent/workflows/tailoringStage.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/workflows/tailoringStage.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/agent/runtime/AgentSessionMigration.ts",
+      "to": "src/agent/workflows/tailoringStage.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/jobOptimization/tailoringDiff.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringDiff.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringDiff.ts",
+      "to": "src/domain/jobOptimization/v3/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/v3/index.ts",
+      "to": "src/domain/jobOptimization/v3/analyze.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/v3/analyze.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/v3/analyze.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/v3/analyze.ts",
+      "to": "src/domain/jobOptimization/v4/analyze.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/v4/analyze.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/v4/analyze.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/v3/index.ts",
+      "to": "src/domain/jobOptimization/v3/project.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringDiff.ts",
+      "to": "src/domain/jobOptimization/keywordTaxonomy.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringDiff.ts",
+      "to": "src/domain/resumeFields/fieldCatalog.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/application/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/application/index.ts",
+      "to": "src/domain/application/readiness.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/application/readiness.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/application/index.ts",
+      "to": "src/domain/application/statusMachine.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/applicationPreparation/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/applicationPreparation/index.ts",
+      "to": "src/domain/applicationPreparation/context.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/applicationPreparation/context.ts",
+      "to": "src/domain/branch/validation.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/applicationPreparation/context.ts",
+      "to": "src/domain/jobOptimization/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/matching.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/matching.ts",
+      "to": "nanoid",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/jobOptimization/matching.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/matching.ts",
+      "to": "src/domain/branch/validation.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/matching.ts",
+      "to": "src/domain/match/matcher.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/matching.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/suggestions.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/suggestions.ts",
+      "to": "nanoid",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/jobOptimization/suggestions.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/suggestions.ts",
+      "to": "src/domain/adaptation/factGuard.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/suggestions.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/claimGuard.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/claimGuard.ts",
+      "to": "src/domain/adaptation/factGuard.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/claimGuard.ts",
+      "to": "src/domain/jobOptimization/tailoringClaimPolicy.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringClaimPolicy.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/sectionPolicy.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/sectionPolicy.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/tailoringEngine.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringEngine.ts",
+      "to": "src/domain/jobOptimization/v3/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringEngine.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringEngine.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringEngine.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringEngine.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringEngine.ts",
+      "to": "src/domain/jobOptimization/confirmation.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/confirmation.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/confirmation.ts",
+      "to": "src/domain/jobOptimization/capabilityResolver.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/capabilityResolver.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/capabilityResolver.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringEngine.ts",
+      "to": "src/domain/jobOptimization/v2/evidence.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/evidence.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/evidence.ts",
+      "to": "src/domain/branch/validation.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/evidence.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/evidence.ts",
+      "to": "src/domain/profile/factMaturity.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/evidence.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringEngine.ts",
+      "to": "src/domain/branch/validation.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringEngine.ts",
+      "to": "src/domain/profile/factMaturity.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringEngine.ts",
+      "to": "src/domain/resumeFields/types.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringEngine.ts",
+      "to": "src/domain/resumeFields/fieldCatalog.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/tailoringDiff.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/keywordTaxonomy.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/confirmation.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/capabilityResolver.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/tailoringClosure.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringClosure.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/tailoringClosure.ts",
+      "to": "src/domain/jobOptimization/capabilityResolver.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/v2/index.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/index.ts",
+      "to": "src/domain/jobOptimization/v2/analyze.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/analyze.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/analyze.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/index.ts",
+      "to": "src/domain/jobOptimization/v2/evidence.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/index.ts",
+      "to": "src/domain/jobOptimization/v2/coverage.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/coverage.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/index.ts",
+      "to": "src/domain/jobOptimization/v2/plan.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/plan.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/plan.ts",
+      "to": "src/domain/branch/validation.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/v2/plan.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/v3/index.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/index.ts",
+      "to": "src/domain/jobOptimization/v4/index.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/jobOptimization/v4/index.ts",
+      "to": "src/domain/jobOptimization/v4/analyze.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/applicationPreparation/index.ts",
+      "to": "src/domain/applicationPreparation/guards.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/applicationPreparation/guards.ts",
+      "to": "src/domain/adaptation/factGuard.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/applicationPreparation/index.ts",
+      "to": "src/domain/applicationPreparation/materials.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/applicationPreparation/materials.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/applicationPreparation/materials.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/applicationPreparation/materials.ts",
+      "to": "src/domain/applicationPreparation/guards.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/applicationPreparation/index.ts",
+      "to": "src/domain/applicationPreparation/readiness.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/applicationPreparation/readiness.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/applicationPreparation/index.ts",
+      "to": "src/domain/applicationPreparation/stale.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/applicationPreparation/stale.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/branch/mapper.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/branch/mapper.ts",
+      "to": "nanoid",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/branch/mapper.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/branch/mapper.ts",
+      "to": "src/domain/adaptation/draft.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/adaptation/draft.ts",
+      "to": "nanoid",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/adaptation/draft.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/adaptation/draft.ts",
+      "to": "src/domain/match/matcher.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/adaptation/draft.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/branch/mapper.ts",
+      "to": "src/domain/match/matcher.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/branch/mapper.ts",
+      "to": "src/domain/branch/validation.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/branch/mapper.ts",
+      "to": "src/domain/branch/profileBranch.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/branch/profileBranch.ts",
+      "to": "nanoid",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/branch/profileBranch.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/branch/profileBranch.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/branch/profileBranch.ts",
+      "to": "src/domain/profile/profileWriteContract.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/branch/profileBranch.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/branch/profileBranch.ts",
+      "to": "src/domain/branch/revision.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/branch/profileBranch.ts",
+      "to": "src/domain/jobTarget/jobTargetSnapshot.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobTarget/jobTargetSnapshot.ts",
+      "to": "src/domain/schemas/job.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobTarget/jobTargetSnapshot.ts",
+      "to": "src/domain/schemas/jobTarget.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobTarget/jobTargetSnapshot.ts",
+      "to": "src/domain/jobOptimization/v3/project.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobTarget/jobTargetSnapshot.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/jobTarget/jobTargetSnapshot.ts",
+      "to": "src/domain/branch/targetRole.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/branch/revision.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/branch/validation.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/branch/profileBranch.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/jobTarget/jobTargetSnapshot.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/resumeFields/catalog.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/resumeImport/confirm.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/profileReconciliation/ProfileReconciliationEngine.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profileReconciliation/ProfileReconciliationEngine.ts",
+      "to": "nanoid",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/profileReconciliation/ProfileReconciliationEngine.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profileReconciliation/ProfileReconciliationEngine.ts",
+      "to": "src/domain/pdfImport/sourceMapping.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/resumeComposition/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/index.ts",
+      "to": "src/domain/resumeComposition/contracts.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeComposition/contracts.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/resumeComposition/contracts.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/contracts.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/contracts.ts",
+      "to": "src/domain/schemas/careerIntelligence.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/contracts.ts",
+      "to": "src/domain/resumeComposition/qualityDiagnostics.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/qualityDiagnostics.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/resumeComposition/index.ts",
+      "to": "src/domain/resumeComposition/ResumeEvidenceGraph.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeEvidenceGraph.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeEvidenceGraph.ts",
+      "to": "src/domain/resumeComposition/contracts.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeEvidenceGraph.ts",
+      "to": "src/domain/resumeComposition/CareerAssetDisplayIdentity.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeEvidenceGraph.ts",
+      "to": "src/domain/resumeComposition/ResumeSkillTaxonomy.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeEvidenceGraph.ts",
+      "to": "src/domain/profile/factMaturity.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/index.ts",
+      "to": "src/domain/resumeComposition/ResumeBlueprint.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeBlueprint.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeBlueprint.ts",
+      "to": "src/domain/resumeComposition/contracts.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeBlueprint.ts",
+      "to": "src/domain/resumeComposition/CareerAssetDisplayIdentity.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeBlueprint.ts",
+      "to": "src/domain/resumeComposition/ResumeSkillTaxonomy.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeBlueprint.ts",
+      "to": "src/domain/resumeComposition/CareerResumeQualityPolicyV1.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/CareerResumeQualityPolicyV1.ts",
+      "to": "src/domain/resumeComposition/ResumeSkillTaxonomy.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/index.ts",
+      "to": "src/domain/resumeComposition/ResumeWriter.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeWriter.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeWriter.ts",
+      "to": "src/domain/adaptation/factGuard.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeWriter.ts",
+      "to": "src/domain/profileIntake/CareerWritingQuality.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeWriter.ts",
+      "to": "src/domain/resumeComposition/contracts.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeWriter.ts",
+      "to": "src/domain/resumeComposition/ResumeEvidenceGraph.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeWriter.ts",
+      "to": "src/domain/resumeComposition/ResumeBlueprint.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeWriter.ts",
+      "to": "src/domain/resumeComposition/ResumeReviewer.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeReviewer.ts",
+      "to": "src/domain/adaptation/factGuard.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeReviewer.ts",
+      "to": "src/domain/profileIntake/CareerWritingQuality.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeReviewer.ts",
+      "to": "src/domain/resumeComposition/contracts.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeReviewer.ts",
+      "to": "src/domain/resumeComposition/CareerAssetDisplayIdentity.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeReviewer.ts",
+      "to": "src/domain/resumeComposition/CareerResumeQualityPolicyV1.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeReviewer.ts",
+      "to": "src/domain/resumeComposition/qualityDiagnostics.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeWriter.ts",
+      "to": "src/domain/resumeComposition/CareerAssetDisplayIdentity.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeWriter.ts",
+      "to": "src/domain/resumeComposition/ResumeSkillTaxonomy.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeWriter.ts",
+      "to": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "to": "src/ai/client.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/ai/client.ts",
+      "to": "nanoid",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/ai/client.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/ai/client.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/ai/client.ts",
+      "to": "src/services/storage/aiSettings.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/ai/client.ts",
+      "to": "src/services/preferences/documentRecognition.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/preferences/documentRecognition.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/preferences/documentRecognition.ts",
+      "to": "src/domain/documentRecognition/modelCatalog.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/preferences/documentRecognition.ts",
+      "to": "src/domain/resumeImport/timeouts.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/ai/client.ts",
+      "to": "src/domain/resumeImport/timeouts.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "to": "src/ai/prompts/versions.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "to": "src/domain/adaptation/factGuard.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "to": "src/domain/profileIntake/CareerWritingQuality.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "to": "src/domain/resumeComposition/contracts.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "to": "src/domain/resumeComposition/CareerAssetDisplayIdentity.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "to": "src/domain/resumeComposition/ResumeCompositionPreferences.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeCompositionPreferences.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "to": "src/domain/resumeComposition/ResumeSkillTaxonomy.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "to": "src/domain/resumeComposition/CareerResumeQualityPolicyV1.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeWriter.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeWriter.ts",
+      "to": "src/domain/resumeComposition/CareerResumeQualityPolicyV1.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/index.ts",
+      "to": "src/domain/resumeComposition/ResumeReviewer.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeComposition/index.ts",
+      "to": "src/domain/resumeComposition/CareerAssetDisplayIdentity.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeComposition/index.ts",
+      "to": "src/domain/resumeComposition/ResumeSkillTaxonomy.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeComposition/index.ts",
+      "to": "src/domain/resumeComposition/CareerResumeWritingService.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeComposition/index.ts",
+      "to": "src/domain/resumeComposition/ResumeCompositionCheckpoint.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeCompositionCheckpoint.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/ResumeCompositionCheckpoint.ts",
+      "to": "src/domain/resumeComposition/contracts.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/index.ts",
+      "to": "src/domain/resumeComposition/CareerResumeQualityPolicyV1.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/resumeIntegrity/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeIntegrity/index.ts",
+      "to": "src/domain/resumeIntegrity/ResumeStructuralIntegrity.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/domain/resumeIntegrity/ResumeStructuralIntegrity.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeIntegrity/ResumeStructuralIntegrity.ts",
+      "to": "src/domain/resumeComposition/ResumeSkillTaxonomy.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeIntegrity/ResumeStructuralIntegrity.ts",
+      "to": "src/domain/resumeFields/catalog.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeIntegrity/index.ts",
+      "to": "src/domain/resumeIntegrity/tailoringStructuralPreservation.ts",
+      "kind": "export"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/adaptation/factGuard.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/adaptation/draft.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/jobOptimization/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/services/jobs/tailoringDiffId.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/jobOptimization/suggestions.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/services/export/snapshot.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/export/snapshot.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/export/snapshot.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/export/snapshot.ts",
+      "to": "src/domain/resumeFields/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/domain/match/matcher.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/services/storage/db.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/storage/db.ts",
+      "to": "dexie",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/services/storage/repositories.ts",
+      "to": "src/services/storage/resumeRepositoryEvents.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "nanoid",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "src/agent/runtime/agentExecutor.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/runtime/agentExecutor.ts",
+      "to": "src/agent/runtime/careerSessionBinding.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/runtime/careerSessionBinding.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/agent/runtime/agentExecutor.ts",
+      "to": "src/agent/tools/registry.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/tools/registry.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/agent/tools/registry.ts",
+      "to": "src/domain/resumeComposition/sessionConfirmedSkills.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/sessionConfirmedSkills.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeSourceTurn.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/sessionConfirmedSkills.ts",
+      "to": "src/domain/resumeComposition/ResumeSkillTaxonomy.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/sessionConfirmedSkills.ts",
+      "to": "src/domain/resumeComposition/contracts.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/resumeComposition/sessionConfirmedSkills.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/tools/registry.ts",
+      "to": "src/domain/materialIntake/materialIntake.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/tools/registry.ts",
+      "to": "src/ai/providers/transportError.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/tools/registry.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeNormalizer.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/tools/registry.ts",
+      "to": "src/domain/profileIntake/CaptureProfileIntakeResult.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profileIntake/CaptureProfileIntakeResult.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/profileIntake/CaptureProfileIntakeResult.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeReviewProjection.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeReviewProjection.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeReviewProjection.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeReviewProjection.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeSourceTurn.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeReviewProjection.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeFinalSynthesis.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profileIntake/CaptureProfileIntakeResult.ts",
+      "to": "src/domain/profileIntake/ProfileIntakeNextTurnPlan.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeNextTurnPlan.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/profileIntake/ProfileIntakeNextTurnPlan.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/profileIntake/CaptureProfileIntakeResult.ts",
+      "to": "src/domain/careerInteraction/CareerInteractionPlan.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/careerInteraction/CareerInteractionPlan.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/agent/tools/registry.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/tools/registry.ts",
+      "to": "src/domain/schemas/jobTarget.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/tools/registry.ts",
+      "to": "src/domain/schemas/tailoring.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/tools/registry.ts",
+      "to": "src/domain/careerContext/retrieveCareerContext.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/careerContext/retrieveCareerContext.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/domain/careerContext/retrieveCareerContext.ts",
+      "to": "src/domain/migrations/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/careerContext/retrieveCareerContext.ts",
+      "to": "src/domain/profile/factMaturity.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/domain/careerContext/retrieveCareerContext.ts",
+      "to": "src/domain/schemas/common.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "src/agent/tools/registry.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "to": "src/domain/materialIntake/materialIntake.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "to": "src/domain/resumeComposition/ResumeCompositionPreferences.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "to": "src/domain/careerInteraction/CareerInteractionPlan.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "to": "src/agent/workflows/tailoringStage.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "to": "src/domain/schemas/index.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "to": "src/domain/jobTarget/jobTargetSnapshot.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "to": "src/agent/tools/careerToolContract.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/tools/careerToolContract.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "to": "src/agent/runtime/careerContextBindingResolver.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "to": "src/agent/runtime/currentTurnUserMessage.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "to": "src/agent/runtime/workflowUserInputCheckpoint.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/runtime/workflowUserInputCheckpoint.ts",
+      "to": "src/agent/contracts/agentSession.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/runtime/workflowUserInputCheckpoint.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "src/ai/providers/transportError.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "src/agent/workflows/tailoringStage.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "src/agent/tools/careerToolDiagnostics.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/tools/careerToolDiagnostics.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/agent/tools/careerToolDiagnostics.ts",
+      "to": "src/services/security/text.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "src/agent/tools/careerToolContract.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "src/agent/workflows/TransactionalWorkflowLease.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "src/agent/runtime/careerContextBindingResolver.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "src/services/diagnostics/appBuildInfo.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/diagnostics/appBuildInfo.ts",
+      "to": "src/agent/tools/careerToolContract.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/tools/CareerToolGateway.ts",
+      "to": "src/agent/runtime/workflowUserInputCheckpoint.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/tools/ProfileReadAdapter.ts",
+      "to": "src/agent/tools/registry.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/tools/ProfileReadAdapter.ts",
+      "to": "src/services/profile/profileQueryService.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/profile/profileQueryService.ts",
+      "to": "zod",
+      "kind": "static-import",
+      "external": true
+    },
+    {
+      "from": "src/services/profile/profileQueryService.ts",
+      "to": "src/domain/schemas/resumeV2.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/profile/profileQueryService.ts",
+      "to": "src/domain/profile/canonicalLibrary.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/services/profile/profileQueryService.ts",
+      "to": "src/services/profile/profileReadPort.ts",
+      "kind": "static-import"
+    },
+    {
+      "from": "src/agent/tools/ProfileReadAdapter.ts",
+      "to": "src/services/profile/profileReadPort.ts",
+      "kind": "static-import"
+    }
+  ],
+  "external": [
+    "dexie",
+    "nanoid",
+    "zod"
+  ],
+  "unresolved": [],
+  "containsDexie": true,
+  "containsRepository": true,
+  "pluginBundleBuilt": false,
+  "proposal": "Keep this entire graph application-side; only serialize strict inputs/results across a narrow bridge. No existing dependency removed or excluded to claim PASS."
+}

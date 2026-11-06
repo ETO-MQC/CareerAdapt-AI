@@ -1,0 +1,24 @@
+{
+  "status": "NOT_VERIFIED",
+  "reason": "Stopped before implementation for selected Main/Preload architecture review under user attachment A2.",
+  "nativeLaunches": 0,
+  "cases": [
+    {
+      "name": "tool history reload",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "Electron/backend restart",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "completed/failed/UNKNOWN do not replay",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "A/B histories isolated",
+      "status": "NOT_RUN"
+    }
+  ],
+  "historicalResultsDoNotSatisfyThisRound": true
+}

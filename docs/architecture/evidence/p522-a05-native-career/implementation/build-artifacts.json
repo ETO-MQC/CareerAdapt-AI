@@ -1,0 +1,48 @@
+{
+  "scope": "Isolated local integration artifacts, not release/distribution packages",
+  "files": [
+    {
+      "file": ".artifacts/p522-a05/main/main.mjs",
+      "sha256": "0d5d5b37aeb9e977bf570b9303b6a3863a3abac86e0ea4a2caafb0a1e8d0ac08"
+    },
+    {
+      "file": ".artifacts/p522-a05/main/preload.cjs",
+      "sha256": "baf62c47042048491101ba4ae1ddc7ad3abd76fc5c34621143ce8d7312b110c4"
+    },
+    {
+      "file": ".artifacts/p522-a05/main/bootstrap.mjs",
+      "sha256": "1008eb3424cc7462645be2f652d4bc1d5786f7aea5d81b7a1c664aff439d12e3"
+    },
+    {
+      "file": ".artifacts/p522-a05/application.mjs",
+      "sha256": "84ff402ed293fd3b14950e657997ce77d8039ecb270769b2a4c71dd2a3a365dd"
+    },
+    {
+      "file": ".artifacts\\p522-a05\\renderer-build-final\\assets\\index-C_zaTP6s.js",
+      "sha256": "15a0e9b06c4ea5af07962697021473efb70f04c269327469b8cb16205ffb5ceb"
+    },
+    {
+      "file": ".artifacts\\p522-a05\\renderer-build-final\\assets\\index-Dfdvot-g.css",
+      "sha256": "618383ad7e6391e0d700fcf4960c9db848d16092635f9e2d5773d879f1401dca"
+    },
+    {
+      "file": ".artifacts\\p522-a05\\renderer-build-final\\index.html",
+      "sha256": "29c1d663fe078d2f45cc6ed979caeccacaa53608f62a1e8a80204a4d12572a34"
+    },
+    {
+      "file": ".artifacts\\p522-a05\\default-build\\assets\\index-DueWqXQ7.css",
+      "sha256": "d148890603a5231e2a097b4baada5d3a70e867e32fc079c3d6c00183050158b7"
+    },
+    {
+      "file": ".artifacts\\p522-a05\\default-build\\assets\\index-DyvCIOGA.js",
+      "sha256": "be34b174cffab589e3e0f6cf91dbf666f5bdeb8f1ce57148bf4cbce595fda9d8"
+    },
+    {
+      "file": ".artifacts\\p522-a05\\default-build\\index.html",
+      "sha256": "93c1b8520513c6f2384a404333f833839a5cbd06e5f95b0002fabca41d271dc1"
+    }
+  ],
+  "latestMainBuild": "node scripts/p522-a05-build.mjs --main-only",
+  "applicationEnvironmentMarkers": "Explicit non-secret build commit/timestamp constants",
+  "rendererBuilds": "Same application sources; build metadata timestamp can differ between independent build invocations"
+}

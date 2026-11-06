@@ -1,0 +1,10 @@
+{
+  "run": 1793968343937,
+  "status": "PASS",
+  "level": "REAL_ELECTRON_MAIN_PRELOAD_ONLY_NOT_NATIVE_HERMES",
+  "cases": [
+    "no D3 Preload API",
+    "no Main grant/ledger/broker startup"
+  ],
+  "defaultProbe": true
+}

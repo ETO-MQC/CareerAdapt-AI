@@ -1,0 +1,11 @@
+{
+  "status": "PARTIAL_NOT_NATIVE_PLUGIN_QUALIFIED",
+  "mainPreloadLifecycle": "PASS_REAL_ELECTRON_MINIMAL_PROBE",
+  "syntheticController": "PASS_UNIT",
+  "queuedCandidate": "PASS_UNIT_REVOKE_BETWEEN_CANDIDATE_AND_COMMIT",
+  "realSettingsPluginDisable": "NOT_VERIFIED",
+  "nativeOldClosureAndInFlight": "NOT_VERIFIED",
+  "runnerDirectRevokeUsedAsNativeEvidence": false,
+  "sourceWiring": "scripts/p522-a05-patches.mjs injects real setPluginEnabled -> Preload -> Main commit before native disabled inventory update",
+  "historicalUnpatchedDefect": "disable-closure-probe.json"
+}

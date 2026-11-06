@@ -1,0 +1,9 @@
+Error: listen EACCES: permission denied \.pipecareeradapt-d3-b0216401-17df-4feb-a7a7-39d6bfa90ac1
+    at Server.setupListenHandle [as _listen2] (node:net:1986:21)
+    at listenInCluster (node:net:2065:12)
+    at Server.listen (node:net:2187:5)
+    at file:///E:/DEF/CareerAdapt%20AI/.artifacts/p522-a05/main/main.mjs:1137:12
+    at new Promise (<anonymous>)
+    at serveD3Pipe (file:///E:/DEF/CareerAdapt%20AI/.artifacts/p522-a05/main/main.mjs:1135:9)
+    at installD3 (file:///E:/DEF/CareerAdapt%20AI/.artifacts/p522-a05/main/main.mjs:1223:24)
+    at file:///E:/DEF/CareerAdapt%20AI/.artifacts/p522-a05/main/main.mjs:20193:9

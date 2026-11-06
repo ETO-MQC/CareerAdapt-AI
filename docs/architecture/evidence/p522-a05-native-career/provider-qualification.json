@@ -1,0 +1,9 @@
+{
+  "status": "NOT_QUALIFIED_NO_REAL_PROVIDER_REQUESTS",
+  "realProviderRequests": 0,
+  "localProtocolDriverImplemented": true,
+  "localProtocolRequests": 0,
+  "providerCredentialsRead": false,
+  "providerModelSwitches": 0,
+  "nativeRuntimeQualification": "PARTIAL_SEPARATELY_REPORTED"
+}

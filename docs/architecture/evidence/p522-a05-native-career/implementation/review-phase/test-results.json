@@ -1,0 +1,52 @@
+{
+  "status": "PASS_DIRECTED_AUDIT_ONLY_D3_BLOCKED",
+  "commands": [
+    {
+      "command": "git fetch origin",
+      "exitCode": 0
+    },
+    {
+      "command": "node scripts/p522-a05-boundary-audit.mjs --baseline --probe",
+      "exitCode": 0,
+      "result": "97 historical sources unchanged; existing disable closure defect reproduced, not a native qualification PASS"
+    },
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm exec vitest run tests/unit/p522-a04-profile-read.test.ts tests/unit/p522-a04-profile-adapter.test.ts --reporter=default --reporter=json --outputFile=docs/architecture/evidence/p522-a05-native-career/unit-results.json",
+      "exitCode": 0,
+      "tests": 31,
+      "files": 2,
+      "level": "SYNTHETIC_EXISTING_ADAPTER_REGRESSION"
+    },
+    {
+      "command": "node scripts/p522-a05-boundary-audit.mjs --deliver",
+      "exitCode": 0,
+      "result": "173 runtime dependency files, Dexie present, zero unresolved edges; 28 capability inventory rows; protected file differences zero"
+    },
+    {
+      "command": "pnpm exec eslint scripts/p522-a05-boundary-audit.mjs --max-warnings=0",
+      "exitCode": 0
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "notRun": [
+    "Native Host/Electron",
+    "Native tool registration/execution",
+    "local model transport/real Provider",
+    "Streaming/Stop/later results",
+    "tool history reload/restart/no replay",
+    "backend Career disable/in-flight revoke",
+    "executed-server lost ACK/operation status recovery",
+    "Native Session A/B/opt-in/default Shell",
+    "build",
+    "Native TypeScript (no Host changes)",
+    "all historical Playwright/release gate"
+  ],
+  "reason": "Selected independent native control architecture requires user review before Main/Preload implementation; neither docs nor existing regression results are D3 qualification."
+}

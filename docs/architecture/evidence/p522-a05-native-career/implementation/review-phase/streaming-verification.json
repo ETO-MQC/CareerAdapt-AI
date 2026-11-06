@@ -1,0 +1,16 @@
+{
+  "status": "NOT_VERIFIED",
+  "reason": "Stopped before implementation for selected Main/Preload architecture review under user attachment A2.",
+  "nativeLaunches": 0,
+  "cases": [
+    {
+      "name": "ordered native delta/tool call/tool result/follow-up delta/terminal",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "Session and call ID correlation",
+      "status": "NOT_RUN"
+    }
+  ],
+  "historicalResultsDoNotSatisfyThisRound": true
+}

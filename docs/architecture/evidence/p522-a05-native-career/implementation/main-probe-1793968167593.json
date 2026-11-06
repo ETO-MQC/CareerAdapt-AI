@@ -1,0 +1,7 @@
+{
+  "run": 1793968167593,
+  "status": "FAIL",
+  "level": "REAL_ELECTRON_MAIN_PRELOAD_ONLY_NOT_NATIVE_HERMES",
+  "cases": [],
+  "error": "page.evaluate: ReferenceError: process is not defined\n    at http://127.0.0.1:5196/@fs/E:/DEF/CareerAdapt%20AI/.artifacts/p522-a05/application.mjs:53749:19\n    at E:\\DEF\\CareerAdapt AI\\scripts\\p522-a05-main-probe.mjs:21:41"
+}

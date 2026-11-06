@@ -1,0 +1,1784 @@
+{
+  "method": "Current file bytes read; selected source anchors recorded. Source review is not native execution evidence.",
+  "files": [
+    {
+      "file": "AGENTS.md",
+      "sha256": "16ec88dd90256516113ebf10cd0b8af03c23587344e59029411d9623055e0119",
+      "lines": 349,
+      "anchors": [
+        {
+          "line": 70,
+          "text": "- Electron 只有在 renderer-owned Browser Domain Host/MCP bridge 完成 READY 后才启动 Hermes。Next/MCP 服务端和 Hermes 进程不得直接拿到 renderer 的 IndexedDB 或 WorkspaceRepository。"
+        }
+      ]
+    },
+    {
+      "file": "plan4.md",
+      "sha256": "232a7d08546cf49a028dedd68cf7acf4133a38b21dd02669855bd55e9c904f55",
+      "lines": 636,
+      "anchors": [
+        {
+          "line": 3,
+          "text": "## 2026-11-06 A-04 D1/D2：合成切片有限完成，生产读取/写入 BLOCKED"
+        },
+        {
+          "line": 9,
+          "text": "主报告docs/architecture/p5.2.2-a04-profile-readonly-vertical-slice.md；证据evidence/p522-a04-profile-read及独立执行记录含NEXT_CHAT_HANDOFF。生产issuer、真实disable后端撤权、可信确认/工具接入/读写仍BLOCKED；Native Host NOT VERIFIED；A02-01原PARTIAL/UNKNOWN资格不变。无真实资料/Home/Provider/Electron、Main/Preload/Core/Schema/表/依赖/UI/Artifact改动，无删除；未提交、未推送、未打包。本轮停止，不做D3/D4；下一步仅用户另行启动A05/D3。"
+        },
+        {
+          "line": 13,
+          "text": "用户仅授权纯Profile查询与合成Gateway Adapter；基线/fetch后main/HEAD/origin=aad2ab48，起始干净，八worktree保留。新增同WorkspaceRepository的readInitializedProfile，不调用迁移、不枚举其他Profile；版本化分页投影复用canonicalProfileLibraryItems。修改前typecheck和2文件8项测试通过；D1定向5项通过，首次fixture sourceType误用manual已改为既有user_input，失败保留至A04记录。D2仅Authority接口/合成授权，生产issuer与真实撤权BLOCKED；不改Main/Preload/Core/Host，不读真实数据、不"
+        },
+        {
+          "line": 15,
+          "text": "## 2026-11-06 A-03 readiness：审计/设计完成，生产接入 BLOCKED"
+        },
+        {
+          "line": 17,
+          "text": "用户仅授权Career Domain/Gateway准入审计和首切片设计。基线与fetch后main/HEAD/origin=6545c0f，起始干净；A-02-05已手动提交，技术PARTIAL保持，纠正旧交接的尚未提交状态。源码确认原生Profile仍fixture；正式getProfile会运行rw身份迁移，不能直接作零写入查询；Gateway/Registry/Service/Repository和Branch CAS可复用，但scope/payload幂等、可信issuer、后端撤权、原子确认+写入与实际已执行丢ACK资格仍未齐。QuestionPlan默认0/1/3与通常2–3问题要求有模式差异，未修改语义。"
+        },
+        {
+          "line": 19,
+          "text": "唯一推荐合成Profile Read-only：同Repository纯ReadPort/查询服务→可信scope/lease adapter复用Gateway→实际native工具/UNKNOWN资格→有限只读评审→Resume read/Job read→另批可信写→复用Tailoring。Domain GO；Gateway/Profile read设计CONDITIONAL GO；生产工具接入/写入/A01充分控制/可信确认BLOCKED。未改生产代码/Schema/Guard/Main/Core/依赖，未读真实资料、未发Provider或启动Electron。两条定向Vitest共8文件47项退出0；保护2479 tracked文件，32历史manifest引用校验及8处后续共享文件"
+        },
+        {
+          "line": 23,
+          "text": "## 2026-11-06 A-02-05：PARTIAL，真实成果创建/更新/下载/隔离/重启通过"
+        },
+        {
+          "line": 25,
+          "text": "用户范围仅 Native Artifact 产品化与本地 Provider Pool，不进 A-03。main/HEAD b9d4401，最终 fetch 后 origin/main 同值；A-02-04 保持 PARTIAL / MANUALLY_COMMITTED。八 worktree、97 既有源码、11 重点源码及 1134 历史保护文件核验通过；不改外部 Hermes/Core/Main/Preload、生产业务、Schema/Repository/Fact Guard/DB/模板。"
+        },
+        {
+          "line": 38,
+          "text": "仅 Native Artifact 产品化与本地测试 Provider Pool。基线 main/HEAD/origin 本地引用 b9d4401，A-02-04 保持 PARTIAL / MANUALLY_COMMITTED；八 worktree 与历史证据保留。原生 Artifact 为消息派生引用，无独立 Task/生命周期/版本库；Host 投影保留来源、确认写入与不确定状态，不新增数据库。已加入成果列表/详情/本地预览下载与单一导航，19 项 L1/L2 通过，Renderer 首构建通过；首次 Native TS props 类型与 UI lint 问题正在修正，尚未验收。两份真实本地 Provider 的六类探针分别通过，能力仅限实际探针范围，密钥仅在 ignored 配置。工"
+        },
+        {
+          "line": 41,
+          "text": "## 2026-11-06 A-02-04：PARTIAL，原生会话/草稿/重启与 UNKNOWN 恢复通过"
+        },
+        {
+          "line": 43,
+          "text": "仅 A-02-04。main/HEAD/origin本地引用343eeb8；保留A02-03未提交修改与历史PARTIAL。权威历史为Hermes state.db，真实两会话正常回复、ID/切换隔离、reload不重发、同隔离目录Electron/Backend重启恢复当前会话/正文/文本草稿通过，SQLite只读与TXT暂存字节复核通过；附件草稿memory-only，未新增Store/表。"
+        },
+        {
+          "line": 53,
+          "text": "仅原生Session持久化/恢复；保留A-02-03未提交基线与历史PARTIAL，不提交推送。已确认权威历史是Hermes state.db，文本草稿localStorage、附件草稿memory-only。定位UNKNOWN空闲态被原生inflight journal清除，项目opt-in虚拟补丁复用原journal同步保留错误；L2已复现与修复验证，Electron/工程门禁待完成。全部新测试目录保留，禁用hardening测试及文件清理。证据evidence/p522-host-a02-04；尚未提交。"
+        },
+        {
+          "line": 55,
+          "text": "## 2026-11-05 A-02-03：PARTIAL，TXT内容链通过，图片理解未验"
+        },
+        {
+          "line": 61,
+          "text": "详细范围、20项回答与失败见[本轮报告](docs/architecture/p5.2.2-host-a02-03-native-attachment-pipeline.md)及history4最新记录。下一步仅用户选择有界复验路径修复与图片完成链；A-02-01/A-02-02原PARTIAL保留，不进入后续阶段。"
+        },
+        {
+          "line": 63,
+          "text": "## 2026-11-05 A-02-02：PARTIAL，L3真实工具已执行，L4未完成"
+        },
+        {
+          "line": 71,
+          "text": "## 2026-11-05 A-02-01：启动链路PASS；整体PARTIAL，OpenRouter每日免费额度耗尽"
+        },
+        {
+          "line": 83,
+          "text": "三轮实际Career完整验收分别定位Gateway15秒遇25.8秒event-loop stall、stdout READY91.9秒超过原生90秒、Gateway已连但OpenRouter环境密钥未传递。项目精确Main适配新增Health后45秒原生gateway.ready门禁；启动环境使用原生150秒公告override，Health独立45秒；外部Hermes/Preload/Python/协议不变。第三轮88.6秒stdout READY、Health与Gateway通过，零prompt.submit。最后修正隔离OPENROUTER_API_KEY，并用锁定resolver正反验证通过；尚未追加第四轮，未称真实文本/Streaming/Stop/图片通过。另三次入口预检未sp"
+        },
+        {
+          "line": 89,
+          "text": "本轮授权自主修复，最多三轮完整验收，原BR01单次限制解除；不新建子阶段。HEAD/origin仍151c514，上轮改动保留，competition worktree由用户其他工作前进到874a03b，未进入或改动。先完成构建/TS/30项Backend Health测试并预热Renderer，再启动；3次独立Main入口预检失败均未spawn Backend（相对路径、独立ESM加载/Windows路径），原始记录保留。首次实际Backend完整轮次已确认stdout READY约56668ms且Main立即识别/Health通过；后续原生WS15秒期限碰上Backend25.8秒event-loop stall，服务端接受时客户端已断开，非stderr问题。"
+        },
+        {
+          "line": 93,
+          "text": "## 2026-11-05 P5.2.2-HOST-A-02-01-BR01：PARTIAL，独立探针PASS，Electron启动门禁未关闭"
+        },
+        {
+          "line": 95,
+          "text": "用户仅授权Backend READY诊断和限定修复，不提交推送、不进后续阶段。HEAD/origin=151c514，起始干净，八worktree保留；Hermes仍eb527605。唯一独立真实spawn使用锁定Main参数/环境函数/Health逻辑，stdout在48481ms公告READY，端口监听与/api/health HTTP200成功，总48720ms，属于A（20秒预算不足），未证明stderr问题。只修Electron测试预算为90+45+15秒、字体截图等待解耦、Promise.any分支与进程证据；无Main/Preload/Python或外部源码写入。"
+        },
+        {
+          "line": 97,
+          "text": "唯一Career Electron验收退出1：原生Main90秒公告超时，随后合并desktop.log出现READY；UI覆盖层/Gateway offline，零prompt.submit/工具/对话。分类F：原生公告超时并有后续READY日志；发射时刻与通道尚未独立归属，不宣称B/D/E或模型故障。字体loaded且失败截图成功并已查看。按次数限制停止，无重启/Retry；Streaming/多轮/Stop/图片全部未验收，A-02-01不能COMPLETE。最终Composer分支从visible改trial click以防背景控件误选，该调整仅lint、未重跑Electron；证据保留原分支。"
+        },
+        {
+          "line": 105,
+          "text": "仅 Backend READY 诊断与原生对话资格；基线 HEAD/origin=151c514，起始干净，八 worktree 保留。先核对锁定源码、41保护文件和最新A-02-01交付清单，再执行一次独立隔离子进程探针，不发送模型请求；旧manifest共享文件已有后续提交更新，差异保留，不覆盖历史。测试启动预算修为90s公告+45s健康+15s余量，字体状态与Backend分开记录。探针与最终门禁待完成；尚未提交，不进入后续阶段。"
+        },
+        {
+          "line": 107,
+          "text": "## 2026-11-05 P5.2.2-HOST-A-02-01：PARTIAL，原生Electron门禁未关闭"
+        },
+        {
+          "line": 113,
+          "text": "Career Electron两次发送前超时：首空页/第二Starting Hermes、offline，未发原生prompt.submit；按AGENTS两次规则停止重跑，第二次真实截图目视且原日志保留，启动根因未确证。默认Shell单独回归在截图字体等待超时，未到交互断言；不撤销历史FB01结论，但本轮不判PASS。原生文本、多轮、Streaming、Stop、晚delta、图像UI及真实错误恢复均NOT_VERIFIED，整体PARTIAL/NOT_COMPLETE，后续阶段不开放。"
+        },
+        {
+          "line": 117,
+          "text": "主报告docs/architecture/p5.2.2-host-a02-01-openrouter-runtime-reliability.md，evidence/p522-host-a02-01含全部要求JSON、失败与补丁证据、最终保护清单及delivery manifest。下一步仅诊断原生Backend READY未达成原因并由用户选择恢复本阶段；如需Main/Preload/Python改动先交独立设计。不自动进A-02-02～05/A-03。尚未提交。"
+        },
+        {
+          "line": 139,
+          "text": "用户仅授权A-02正式审计/依赖比较/阶段拆分；未执行A-02-01～05。main/HEAD/fetch后origin=07ff30982f08dfdd300247204d9e3720e2d5c015，起始tracked/untracked干净；8个worktree只读登记，competition及detached/ignored证据保留。Hermes实际锁定eb527605，外部整树既有lock/翻译修改未碰；48份关键源码归一化内容与HEAD一致、Git diff0，41保护上游SHA及8虚拟补丁原始SHA匹配。A01R manifest165项中4项由FB01后续更新解释，FB01 27项起始全匹配；旧失败与PARTIAL保留。"
+        },
+        {
+          "line": 147,
+          "text": "用户仅授权单次默认Shell重新验收。main/HEAD/fetch后origin=50b37d1b69becd141a643af2e86724758ff0b492，起始干净；A01R manifest165项起始一致，Hermes锁定eb527605/41上游SHA不变。真实Electron40.10.2单次run1793801859844退出0：optIn=false、分支B原生自动关闭onboarding、正常New session/草稿输入与保留通过，无Career残留，prompt.submit=0/messages=0/busy=false，页面/控制台错误0。四阶段截图真实且目视确认。仅补runner新目录/截图/只读证据及断言，原Promise.any逻辑保留；语法/chan"
+        },
+        {
+          "line": 149,
+          "text": "FIRST_ATTEMPT_FAILED_DUE_TO_TEST_ASSUMPTION → SECOND_QUALIFIED_ATTEMPT_PASS（相对A01R本次重验）；真实Provider/Streaming/Tool Calling/附件上传仍NOT VERIFIED、用户最终视觉批准待确认，不开放生产、不进A02。报告docs/architecture/p5.2.2-host-a01r-fallback-requalification.md；证据evidence/p522-host-a01r-fb01。competition仅inventory，测试进程关闭，无上游/业务/依赖改动，无删除/提交/推送；尚未提交。本轮完成停止，等待审阅和下一阶段单独授权。"
+        },
+        {
+          "line": 152,
+          "text": "## 2026-11-04 P5.2.2-HOST-A-01R PARTIAL：插件与品牌收尾通过，默认Shell交互未关闭"
+        },
+        {
+          "line": 158,
+          "text": "验证：基线typecheck/4导航Unit通过；最终pnpm typecheck、3文件16Unit、98原生Unit、changed6代码ESLint、Renderer build、Native虚拟typecheck基线0/集成0、diff/SHA/输入与路径扫描通过。初次Python GBK错误与CRLF diff失败记录并修正，无跳过或降低断言。报告docs/architecture/p5.2.2-host-a01r-shell-closure.md及evidence/p522-host-a01r；A04追加正式Home恢复清单与typed Domain链，保留原HomeWorkspace。未改Main/Preload/Runtime锁/Schema/Guard/Repository"
+        },
+        {
+          "line": 166,
+          "text": "## 2026-11-04 P5.2.2-HOST-A-01 PARTIAL：方案 A 原生 Host Shell 隔离切片交付"
+        },
+        {
+          "line": 170,
+          "text": "最终真实Electron有界诊断18格/原生设置System/附件菜单/跨页草稿PASS，14项目+98原生Unit、typecheck、原生虚拟编译0新增、9文件ESLint、Renderer build/diff通过。整体PARTIAL：默认Shell强化交互两次失败后停，修正选择器未复跑；原完整smoke失败保留。原生Chat内部品牌差异、真实Provider执行/文件全链/已填历史/可信确认与发行仍未验收。"
+        },
+        {
+          "line": 185,
+          "text": "交付 docs/architecture/p5.2.2-shell-ownership-architecture-audit.md、p5.2.2-shell-ownership-adr-draft.md 与8份机器JSON（Git/源码边界/API/SDK/导航/方案/安全/manifest）。含三方案比较、真实调用链、Runtime Adapter、产品IA/AI工作台、Mermaid、安全与发行阶段；ADR为PROPOSED。B2-B1 Renderer撤权/Trusted Confirmation/Runtime Release仍BLOCKED，未知执行结果不得自动重发，confirmed=true/Runtime approval不代替可信事实授权。"
+        },
+        {
+          "line": 191,
+          "text": "仅附件Gate00+Slice1。main/HEAD/origin=89d75418b3a7891ea96199d3191b542398e81c16，起始干净、fetch=0，旧UX01已提交；P521/P522/UX01三个manifest共197文件起始SHA全部一致。Hermes锁定eb527605/Runtime0.19.0/Desktop0.17.0与七份SDK源码核对不变。Gate00真实Electron+Hermes Renderer在独立home/userData/offline Provider正常进入、普通刷新、路由退出/CSS卸载和插件禁用启用通过，页面/console错误0。T3仅navigation paint；T4/T5/T6仅launch-request观察上界"
+        },
+        {
+          "line": 203,
+          "text": "仅用户附件 Gate 00 + Original Profile faithful restoration。main/HEAD/origin=89d75418b3a7891ea96199d3191b542398e81c16，起始干净，fetch=0；三个历史manifest共197个文件SHA全部一致。锁定Hermes eb527605/Runtime0.19.0/Desktop0.17.0，七份SDK相关源码对HEAD无diff。真实Electron隔离home/userData/offline provider，本轮正常导航与Profile刷新、退出CSS卸载、loader禁用启用及Host原生导航均通过、错误0；T4/T5/T6仅上界，T0/T1/T2/T7 NOT VERIFIED，"
+        },
+        {
+          "line": 207,
+          "text": "## 2026-11-04 P5.2.2-UX-01 PARTIAL：统一工作台架构审计与隔离原型"
+        },
+        {
+          "line": 211,
+          "text": "七类页面矩阵保留Home真实入口、Profile分类/条目/详情/来源、Jobs核对匹配分支、Applications看板材料、独立Studio三栏/TipTap/A4/PDF链、MaterialIntake人工核对及职业设置。Host公开sidebar.nav/routes支持平铺唯一物理菜单，order仅排序贡献；group/section尚无typed契约，A现SDK/B最小Host扩展/C自定义Shell方案已区分。Pane公开PANES_AREA存在，静默adoption不强制front且存在隐藏/折叠状态；旧现场唯一根因未证实，本轮未重跑旧Pane测试，可见原生并排/恢复/任务绑定NOT VERIFIED。"
+        },
+        {
+          "line": 215,
+          "text": "启动两次交互被Host onboarding/准备遮罩拦截，10秒超时后停止，原日志保留；随后六次仅观测（三新隔离profile+各自立即重启）记录窗口/paint/侧栏上界11.1–13.7秒，无强制点击/内部状态修改。T0进程出生/T1创建/T2首次显示/T4可交互/T6业务可交互/T7完整Runtime资格NOT VERIFIED；六次不是OS冷缓存性能认证。Headless token404仅待核实线索，测试关闭时backend exit不能当启动崩溃。未做plugin-off/on对照，不归因插件阻塞。启动审计PARTIAL。"
+        },
+        {
+          "line": 217,
+          "text": "四报告与evidence/p522-ux01机器证据/逐次启动截图/交付SHA清单已交付。vertical distribution audit及设计图片索引缺失诚实记录；初始templateRegistry扩展名猜错已修为实际tsx，沿re-export确认campus-reference/校园浅底及renderCampusReference，模板未改。无生产src/Schema/Repository/Guard/DB/依赖/Core/正式模板/真实数据变更，无提交/推送。B2-B1撤权/可信确认/Runtime发行仍BLOCKED。原型地址http://127.0.0.1:5183；执行报告docs/architecture/p5.2.2-ux-01-unified-workspace-"
+        },
+        {
+          "line": 219,
+          "text": "## 2026-11-03 P5.2.2 PARTIAL：真实Host合成Profile与Semantic Adapter通过，并排Pane未验收"
+        },
+        {
+          "line": 225,
+          "text": "PANES_AREA是实际公开SDK，不能称不支持。probe首次挂载但隐藏15秒超时，第二次Host New session定位30秒超时；两次退出1/页面错误0，保留JSON与失败截图，依AGENTS停止重跑。原生Chat+Artifact可见并排、宽度/拖动/独立滚动/折叠恢复/键盘与会话绑定NOT VERIFIED，整体PARTIAL。源码另发现Host sash无tabindex/键盘handler；仅提出后续typed Pane/reveal/restore/键盘与artifact绑定建议，未改Core。旧撤权/可信确认/Runtime发行仍BLOCKED，生产迁移NO-GO。首次Profile键盘harness方向、局部SDK声明及测试regex/类型错误已修，原失败JSON及"
+        },
+        {
+          "line": 234,
+          "text": "真实Profile Host最终退出0：三分辨率×明暗、System跟随、刷新/返回、焦点/Dialog/Tabs、三轮disable-enable与hot reload通过，pageerror/consoleErrors=0。typecheck及3文件27Unit通过，changed lint/diff通过。PANES_AREA公开存在；单独probe两次有界验收超时（首次已加载但隐藏、第二次New session按钮定位失败），按规则停止重跑，不推断Host不支持并排。拖动/恢复/会话产物绑定NOT VERIFIED；整体拟PARTIAL，正式报告与最终证据归档进行中，尚未提交/推送，不进P523。"
+        },
+        {
+          "line": 243,
+          "text": "DESIGN/PROTOTYPE交付PASS；Host normal/tool-call状态由真实renderer消费合成harness，不是Provider/真实工具PASS；Host右栏仅空态边界，真实产物同步NOT VERIFIED；原型小字/Markdown/业务占位/搜索与system/PDF限制明确记录。既有撤权/可信确认/Runtime发行仍BLOCKED。独立执行记录：docs/architecture/execution-records/20261103-1109-P5.2.1-execution-record.md。无提交/推送/删除；用户先验收原型，P5.2.2仅计划、未获准，不自动进入。"
+        },
+        {
+          "line": 255,
+          "text": "## 2026-11-02 P5.2.0-B2-B2：合成Profile Plugin Packaging PoC PASS / 工程门禁PARTIAL"
+        },
+        {
+          "line": 261,
+          "text": "基线typecheck/A+canonical10项通过；最终typecheck/定向23项(新增13)/changed ESLint/Next build/ESM/Host main-preload build/diff通过。pnpm lint真实退出1：66errors/2603warnings，扫描旧/新.artifacts生成JS和Hermes测试副本及已有.opencode/.pi；未修改忽略/阈值，工程门禁PARTIAL。首次adapter判别联合typecheck退出2已修，原log保留；初次证据脚本GBK读取错误重以UTF8写入，猜测源码/可选Python路径不存在已记录，未宣称新Python probe。build生成next-env逐字恢复。无真实Career数据/DB/"
+        },
+        {
+          "line": 265,
+          "text": "仅合成Profile只读Plugin Packaging PoC。main/HEAD/origin/main=8833a5a84b4d3172220b645b285189dde5d03e6c，fetch成功、起始干净；B2-B1已提交，旧未提交记录仅历史。锁定Hermes源码eb527605/Runtime0.19.0，Desktop package实际0.17.0，公开disk loader以default HermesPlugin对象为manifest（非Python dashboard JSON）。先审计原ProfileWorkspace的Repository/useWorkspace/AI/表单/window资源与上一轮A；复用A纯展示组件及命名空间CSS，新增隔离DTO合成fixt"
+        },
+        {
+          "line": 271,
+          "text": "新增隔离Python Broker→私有stdio→只读确定性Fake Service、实际SDK Plugin与Desktop smoke，不导入Repository/SQLite、不访问真实Career数据。真实锁定Electron40.10.2+Vite+Python Backend链通过六操作/并发关联、版本/scope/坏请求拒绝、显式close/reopen、断连无伪成功、Service重启旧epoch拒绝、子进程异常退出及Host重启。三次有界真实Host观测均退出0、页面错误0，门禁均PARTIAL：实际复现Renderer禁用后旧ctx.rest仍成功；Backend禁用404但重新启用仍旧epoch，未关闭服务。没有用合作式UI cleanup掩盖撤权缺口。SDK无已证明"
+        },
+        {
+          "line": 273,
+          "text": "基线typecheck/B2-A 33项通过；最终5个Python unittest方法（含subtest/真实子进程帧边界）、typecheck/changed-files ESLint/diff/SHA/JSON引用检查通过。首lint匿名default export警告已修，原失败log保留；无超时。普通产品build无必要未跑，仅Host dev bundle编译，不打包、不运行全历史E2E。自动禁用/卸载关闭、Host强杀孤儿、READY前完整协议握手、inflight撤权和跨平台/命名管道ACL未资格验证。报告docs/architecture/p5.2.0b2b1-host-transport-poc.md、trusted-confirmation-audit.md、runti"
+        },
+        {
+          "line": 279,
+          "text": "## 2026-11-02 P5.2.0-B2-B0：审计交付完成 / Runtime与生产接入 BLOCKED"
+        },
+        {
+          "line": 285,
+          "text": "官方核对Electron40.10.2/Node24.15与43.2.0/Node24.18，二者node:sqlite均1.2 RC。本轮三套内存探针退出0：独立Node24.15及Hermes嵌入Node24.15/SQLite3.51.3、旧壳嵌入Node24.18/SQLite3.53.1，commit/rollback/integrity通过；历史Main/busy/crash证据明确复用，Hermes executable SHA仍一致。首次探针JS引号构造错误三项退出1，未打开库，原stderr保留evidence后以数字fixture修正通过；无超时。安装包/RSS/启动性能未测，Runtime/发行、Host通道、可信确认、Port、生命周期仍BLOCKED，B2-B0不标"
+        },
+        {
+          "line": 295,
+          "text": "基线typecheck/4文件41项；最终7文件88项（新增33项）/typecheck/5 changed-code ESLint/worker构建/Next build/diff通过。初次可选branchId类型失败、初测23过4败的locale/SQL排序差异已解决，保留原log，不降断言。next-env/tsconfig逐字恢复；Schema/Fact Guard/Claim Safety/Hermes锁定/B与B1证据/Port/Dexie Adapter不变。无UI变更不跑Playwright；不开放生产SQLite、不真实迁移、不新增依赖/表/打包/commit/push。报告docs/architecture/p5.2.0b2a-sqlite-adapter-parity."
+        },
+        {
+          "line": 306,
+          "text": "首个修后原文件10/10 PASS；相关terminal reconciliation/long-run/incident/reliability/B1 HTTP诊断5文件37项PASS；typecheck、changed-test ESLint、diff检查、transport SHA/原断言和范围检查均退出0；无失败重试。仅测试变化，沿用前轮Port/安全/实际Runtime资格/build证据，不重跑构建/UI。已更新docs/architecture/p5.2.0b1-persistence-port-runtime.md和evidence.json，历史失败/修复/结果/生产影响明确分开。B1按第一持久化切片既定范围标记COMPLETE；仍非整个Repository解耦或生产可写D"
+        },
+        {
+          "line": 309,
+          "text": "## 2026-11-01 P5.2.0-B1 PARTIAL：首个编辑持久化切片与Runtime资格验证通过"
+        },
+        {
+          "line": 315,
+          "text": "HTTP原p45c1c14独立复现9过1失败，完整发出栈保存在新evidence，分类TEST_HARNESS_ISSUE：run_status先消费fixture共享stream，run_events再次new Response触发disturbed/locked；新诊断两项保留原first-event/error断言通过，原测试/生产transport未改。建议单独确认后修复action-specific新response夹具，本轮未扩大范围，不能宣称原HTTP门禁全绿，因此B1总状态保守PARTIAL。原始失败与初次非async事务包装导致PrematureCommitError、新测试fixture/HTTP字段及CJS lint错误均记录，修正后保留失败证据。"
+        },
+        {
+          "line": 325,
+          "text": "## 2026-11-01 P5.2.0-B PARTIAL / 正式迁移 BLOCKED"
+        },
+        {
+          "line": 329,
+          "text": "待验证/阻塞：canonical Repository持久化port与可写服务、完整引用/外部文件、真实旧origin桥接与服务/Renderer/Host重启、生产引擎打包，以及保留迁移后新写入的反向journal/replay。回滚明确BLOCKED，不能宣布B COMPLETE或进入正式页面迁移。未读真实数据/安装依赖/新增表/提交/推送/打包，不进入C或后续阶段。下一步仅用户审阅本B结果。"
+        },
+        {
+          "line": 349,
+          "text": "9文件74项相关Unit/Integration、terminal12项最终复核、Node4、A/G/M3/3（20fakecalls）、intent-advice唯一一次定向复跑1/1（24.8秒/1fakecall）、typecheck/changed lint/隔离build/bundle-check/diff均PASS。旧worker crash与全部setup/selector/candidate/short失败保留。生成next-env/tsconfig逐字恢复；.env.local/六Skills/Fact Guard阈值未改，无外部LLM/新表/新依赖。报告与机器evidence已更新COMPLETE，旧PARTIAL条目仅历史。SQ1仍QUALITY COLLECTION "
+        },
+        {
+          "line": 362,
+          "text": "## 2026-10-31 P5.1.8-B-CLOSEOUT：PARTIAL，未关闭Browser gate"
+        },
+        {
+          "line": 364,
+          "text": "用户明确授权新的closeout；main/HEAD/origin/main=7ab651cbc887f78aa996e09f5a20d151845b89c0，fetch成功且起始干净，前轮成果已在基线。只本地fake，无外部LLM、.env.local或六Skill变更。短preflight通过READY/单Run/单Provider/运行及刷新同Run；两次诊断证明fake15秒返回且权威completed，而Host持久化running。共享SSE消费者竞争仅为候选机制，完整因果未证实。新增可替换SSE消费者候选补丁，真实安装handler asyncio回归通过；修后preflight证据GET挂到300秒总截止、退出1，候选未验收。未启动190秒long gate，cancel/l"
+        },
+        {
+          "line": 371,
+          "text": "用户明确授权新的closeout，非盲目第三跑旧测试；fetch成功，main/HEAD/origin/main=7ab651cbc887f78aa996e09f5a20d151845b89c0，起始Git干净（附件所述前轮未提交成果已在基线）。只使用本地fake，未读写.env.local、未发外部LLM。短preflight通过READY/运行/刷新同Run，但15秒fake返回后Host仍running；权威run_status=completed、Provider仅1次且有finishedAt，定位共享SSE队列新旧消费者竞争。新增可替换SSE消费者补丁，保留Run/队列，定向asyncio回归通过；尚未完整浏览器验收，保持PARTIAL。编码准备错误、补丁CRLF形状错误及误并行b"
+        },
+        {
+          "line": 374,
+          "text": "## 2026-10-31 P5.1.8-B PARTIAL：慢Provider专属timeout与MCP context去重"
+        },
+        {
+          "line": 376,
+          "text": "用户指定本工作包，不切DeepSeek/不发真实AMD。fetch退出0，main/HEAD/origin/main=7d5e9f44c73066ed94320095856fdac3627ec987；所有原未提交AMD patch/evidence快照保留。.env.local/六Skill/Fact Guard/Repository/CAS不改。AMD精确host+Qwen模型配置request/stale480s；锁定Hermes实际canonical provider=custom，窄alias补丁复用named model timeout，stream socket read随配置480，其他模型/host不变，low wire/原生产cap65536保持。实际AIAgent→SDK"
+        },
+        {
+          "line": 381,
+          "text": "用户最后一次授权将超时延至5–8分钟；本轮480000ms，固定原after/AMD/Qwen3.8-27B/low/temp0/max_tokens16384，仅1真实请求。实际299.984s / HTTP200 / finish=stop / content=3261 / error=none；完整响应通过，结束后停止，无第二次请求或其他arms。仅eval/probe显式timeout override与独立证据路径，默认120秒/生产timeout及cap不变；11项脚本/typecheck/changed-lint/diff/SHA通过，未build。Skills/fixture/历史证据不改，原before不重发，不将不同policy混成pair；SQ1仍QUALITY COL"
+        },
+        {
+          "line": 389,
+          "text": "## 2026-10-31 AMD after预算重试：AFTER_PROBE_STILL_BLOCKED"
+        },
+        {
+          "line": 391,
+          "text": "用户明确8192失败再翻倍16384，最多2请求；原after/AMD/Qwen3.8-27B/low/temp0/120秒保持，Skill及fixture未改。本轮实际2请求；8192: TIMEOUT / 120.003s / HTTP无headers；16384: TIMEOUT / 120.004s / HTTP无headers。两档失败后停止，无第三次或其他arm。仅加显式评测预算override和独立probe文件，默认2048/生产cap/Hermes实现不变；10项脚本/typecheck/changed-lint/diff/SHA通过，未build。历史证据保留、原before不重发，不将不同policy混成pair；SQ1仍QUALITY COLLECTION BLOCK"
+        },
+        {
+          "line": 399,
+          "text": "## 2026-10-31 AMD reasoning 修复交付：AMD_QWEN_LOW_REASONING_STILL_BLOCKED"
+        },
+        {
+          "line": 401,
+          "text": "用户指定eval+生产Hermes+structured route一次修复且仅1真实after。fetch退出0，main/HEAD/origin/main=7d5e9f44c73066ed94320095856fdac3627ec987，原未提交成果保留。官方确认默认xhigh；managed config解析low但锁定Hermes原wire漏字段已用真实SDK→loopback复现。集中AMD Qwen策略/eval low+2048+temp0、reasoning长度usage诊断与budget exhausted停止；managed per-model override/生产transport-summary最小补丁接prepare/manifest/SHA v3，上游0.19."
+        },
+        {
+          "line": 409,
+          "text": "## 2026-10-31 AMD Provider 切换完成 / SQ1 QUALITY COLLECTION BLOCKED"
+        },
+        {
+          "line": 419,
+          "text": "## 2026-10-31 P5.1-SQ1-QC：SQ1 QUALITY COLLECTION BLOCKED"
+        },
+        {
+          "line": 426,
+          "text": "用户明确要求git并push；本轮15个相关文件已提交为`7d5e9f44c73066ed94320095856fdac3627ec987`（fix: close Hermes model readback and establish runtime baseline），普通push origin/main退出0。提交前fetch退出0、ahead/behind=0/0，记录源码哈希一致及凭据模式扫描通过；提交后远程main回读与本地HEAD一致、ahead/behind=0/0、Git工作区干净。首次暂存diff检查发现新Python文件末行CR空白，停止提交后仅规范UTF-8/LF并同步evidence哈希，复核通过再提交，无语义改动。沿用P518-A已记录测试/build，不重跑模型或"
+        },
+        {
+          "line": 433,
+          "text": "A/G/M3/3模拟Provider基线：24.161/12.395/43.240s、1/3/16次请求，M正式PDFheaders2.543s/end2.544s；每场景n=1，不造p95；内部domain Skill/Repository耗时留null。真实同Provider/模型最小请求及既有SQ1首案例首轮可完整返回，原评测helper两臂55.612/39.165s保存2record；历史120秒超时未复现/旧阶段未知，不称纯推理时间，不改变SQ1_IMPLEMENTATION_COMPLETE / QUALITY_CERTIFICATION_BLOCKED，不跑完整A/B。"
+        },
+        {
+          "line": 440,
+          "text": "用户明确启动 Runtime Reliability Baseline & Model Readback Closure，仅本阶段，不提交/推送/打包。fetch退出0；main/HEAD/origin/main=5002989044ef6554b4d26937d73017fd401ebb06，起始干净。修改前typecheck及3文件13项通过。隔离锁定Hermes inventory直接探针证明完整目录路径包含models.dev获取/缓存写入11.786s、Nous目录21.936s，35秒硬截止仍未完成；不把该探针当成历史进程唯一根因。正在实现既有model/options显式selection_only读回，只从Runtime配置解析当前provider/model，保留完整目录默"
+        },
+        {
+          "line": 445,
+          "text": "用户明确要求“git并push”；本轮18个相关文件已提交为`5002989044ef6554b4d26937d73017fd401ebb06`（fix: close scoped resume claim consumption and SQ1 validation），普通push origin/main退出0。提交前fetch退出0、与远程0/0；提交后远程main回读与本地HEAD一致、ahead/behind=0/0、Git工作区干净。范围与已验证源码哈希一致，密钥扫描和暂存diff检查通过；沿用本轮已记录测试/build，不重跑长门禁。状态仍为SQ1_IMPLEMENTATION_COMPLETE / QUALITY_CERTIFICATION_BLOCKED；未打包，未进入P51"
+        },
+        {
+          "line": 448,
+          "text": "## 2026-10-30 SQ1-CLOSEOUT 最终交接：实现完成 / 质量认证BLOCKED"
+        },
+        {
+          "line": 456,
+          "text": "现成服务端真实Provider确实尝试：deepseek-v4-flash-0731，同Provider/模型/参数、冻结before与当前2.0.0 after，30case未换；两次均未完成首arm，第二次TimeoutError（1请求/0结果）。独立HTTP200探针不代表完整质量通过。REAL_QUALITY_EVAL_BLOCKED，completed0/30、blocked30，13维质量评分与安全退化均未认证/null，不以mock代替。状态仅为SQ1_IMPLEMENTATION_COMPLETE / QUALITY_CERTIFICATION_BLOCKED。最小匿名人工Web认证步骤在报告第14节；等待用户选择认证/SQ2/正式P518，不自动继续。"
+        },
+        {
+          "line": 463,
+          "text": "用户明确授权 A 会话声明消费、B 真实30案例A/B、C CASE M差分；起始main/HEAD/origin/main=53eb83256b706eb9d8facb72e994734e56288743，fetch退出0、工作区干净。修改前typecheck和27项测试通过。复用SourceTurn/证据图/Checkpoint/Resume-only确认，加入通用与既有简历技能声明overlay，不新增表或Profile，不改Fact Guard阈值。38项定向测试/typecheck通过；首轮2项失败为fixture未按Repository已保存规范化数据取基线，已纠正。冻结M首轮通过；当前M直接复现分支已写而Run未终态即发送Job的harness竞态，补现有15秒终态等待后M通过"
+        },
+        {
+          "line": 468,
+          "text": "- 最新任务（2026-10-30，P5.1-SQ1，**实现落地/部分验收，未全量通过**）：六Skills 2.0.0及Claim Safety/澄清/故事/四视角Review、成熟度限定修复和30匿名质量包已交付。270项、40/40映射、Behavior12/12、UI/PDF3/3及typecheck/lint/build/bundle-check/diff退出0；完整Hermes两轮13/14，M分别FIT标记及PDF回执超时，按规则停止重跑。真实Provider0请求/REAL_PROVIDER_BLOCKED，A/B与自然质量待评；通用会话resume_only新声明专用摄入未实现。详见[SQ1阶段报告](docs/architecture/p5.1-skills-quali"
+        },
+        {
+          "line": 492,
+          "text": "14CASE第三轮14/14、22Run/63模拟请求、独立UI/PDF3/3、build/typecheck/lint/bundle-check均已取得退出0；审计原始Session发现L/M/N任务/正式产物完成后pendingConfirmation仍pending，不能把测试通过当作状态完整。已新增“确认消费后Session和Task均无pending”断言，M定向失败复现；真实Repository竞争checkpoint单测也复现（清除确认后write_pending保存被CAS返回旧pending快照）。生产最小修复为正式apply成功回执落盘时再次消费Session/Task确认状态，不改CAS/事实保护。两文件相关回归通过；L/M/N新增断言复验及27文件最终Unit进行中。"
+        },
+        {
+          "line": 506,
+          "text": "- 已执行相关5文件59项/changed-files lint通过；未提交推送打包。真实Provider仍BLOCKED、OCR/安装包未认证、P518 OPEN；不启动后续阶段。"
+        },
+        {
+          "line": 514,
+          "text": "- 最新交接（2026-10-29，Core-02-CLOSEOUT提交推送）：用户明确要求git并push；本轮23个相关文件已提交为 `0079b7bd168f9fe53fee159e443725ab0e279206`（fix: preserve Career session bindings and provider auth evidence），普通推送origin/main成功。commit/push/远程完整哈希回读均退出0，本地HEAD与origin/main、ls-remote一致，ahead/behind=0/0，工作区干净。提交前统一4个新增文件行尾，暂存diff与凭据模式检查通过，无代码行为变化。沿用236项相关测试、类型修正后24项、lint/typecheck/bu"
+        },
+        {
+          "line": 517,
+          "text": "- 最新交接（2026-10-29，Core-02-CLOSEOUT收尾）：基线/远程229ad9db、起始干净。材料Profile-only/Session绑定、JD确认解析绑定冲突、Next Provider401证据传播修复；26文件236项、lint/build/bundle-check/typecheck通过，类型修正后定向24项通过，UI3/3及最终PDF1/1通过。L/M/D达到本轮停止边界仍未全链通过，B/C仅服务集成获证；行为基线12实际执行10通过/2失败（13Run/34模拟请求），40/40仍安全映射。14CASE完整Gate前置未过未运行。PARTIAL不可冻结/不可进入Skills Quality，真实Provider BLOCKED；P518 OPEN。尚未提交"
+        },
+        {
+          "line": 522,
+          "text": "发现并修复材料核对切人物重勾创建简历、确认后Session人物/Profile绑定未同步，以及Next覆盖明确Provider认证证据；补回执归属校验。旧bare401断言过期和传播问题均已证明。26文件235项Unit/Integration、独立build、bundle-check已通过，UI3/3含正式PDF通过。CASE L首轮Fit标记被Markdown吞下划线，唯一复验在创建Run前restart ECONNRESET，停止本轮L；CASE M两次90秒长等待后停止，后续绑定修复仅单元验证，未宣称全链通过。B/C服务集成已通过；12项独立Hermes行为基线执行中，有夹具初始化/路由失败，保留trace；真实Provider无安全配置=BLOCKED。完整集成以L/M前置通过为门"
+        },
+        {
+          "line": 530,
+          "text": "- 最新交接（2026-10-29，Core-02提交推送）：用户明确要求提交并push；38个本轮相关文件已提交为 `229ad9dbdd181c1d96e91de31f93814609ab5f5e`（feat: add version-bound career intelligence and evaluation baseline）并普通推送origin/main成功。commit/push/远程完整哈希回读均退出0，远程与本地一致，ahead/behind=0/0，工作区干净。提交前修正11个新增文件的行尾/EOF空白，暂存diff与凭据模式检查通过，无代码行为改变。沿用192项相关测试、40场景映射、Hermes定向3/3和业务UI/PDF1/1及typecheck/lint/bu"
+        },
+        {
+          "line": 538,
+          "text": "- 最新交接（2026-10-29，FINAL提交推送）：用户要求提交并push，沿用已授权目标origin/main；本轮19个相关文件已提交为 `b7a691af7b597ea3dc561d31c7648c8dbd7f39f7`（fix: resume Hermes runs after confirmed Career writes）并普通推送成功。提交/push/远程哈希回读均退出0，远程main完整哈希一致，ahead/behind=0/0，Git工作区干净。沿用FINAL已记录的CASE I 1/1、完整Hermes9/9、143项相关测试+1条回滚定向及typecheck/lint/build/bundle-check/diff结果，本次无代码新增或重跑模型。PARTIAL+C"
+        },
+        {
+          "line": 540,
+          "text": "- 最新交接（2026-10-29，Core-01-FINAL：PARTIAL+CARRY FORWARD）：基线/远程main均0a978ba，起始干净。同Run确认后自主续跑获证（原Tool Call ID+Job ID，确认后Provider新增1次，terminal/completed），CASE I 1/1及完整Hermes9/9退出0；Host等待状态及ingest_job目标投影修复。数字23直接证明为model/options读回TimeoutError.code，已改稳定错误码且保持回滚；热切换迟延根因OPEN，移交P518-RUNTIME-MODEL-READBACK-01（P5.1.8），不再阻塞P5.1.2。职业Agent核心冻结；14文件143项+1条回滚定向、ty"
+        },
+        {
+          "line": 542,
+          "text": "- 最新交接（2026-10-28，CLOSEOUT提交推送）：用户要求先提交并push；本轮15个相关文件已提交为 `0a978bab60c1472c98f961b4d64d835cb413f73c`（fix: repair Hermes confirmation projection and restored readiness）并普通推送origin/main成功，提交/push退出0；远程哈希回读一致，ahead/behind=0/0，Git工作区干净（首次远程回读TLS失败，第二次成功）。沿用148项相关测试及9/9 Hermes、typecheck/lint/build/bundle-check/diff结果；本次只提交交付，无产品代码新增。Core-01仍PARTIAL_NOT"
+        },
+        {
+          "line": 544,
+          "text": "- 最新交接（2026-10-28，Core-01-CLOSEOUT部分关闭/未冻结）：基线/远程main均9bd0d80、起始干净。CASE I确认后投影异常修复，定向1/1及完整9/9通过（模拟Provider）；R2-RDY-01 secure_store Schema缺陷有直接证据并修复，恢复READY/配置指纹一致。随后单次模型切换rolled_back/reasonCode=23、请求未执行；真实Provider/正式包BLOCKED。现有CASE I未证明确认后Hermes自主续跑，不扩写为完整链通过。最终12文件148项、typecheck/lint/build/bundle-check/diff退出0，进程正常退出/端口清理通过。报告及JSON追加轮次、历史失败保留；尚未提"
+        },
+        {
+          "line": 546,
+          "text": "- 最新交接（2026-10-28，提交与推送）：用户明确要求“全部提交并push”；本轮27个相关文件已提交为 `9bd0d80c51479f300718cbdbf2da100e0bcb7165` 并推送 origin/main。远程哈希回读一致，ahead/behind=0/0，Git工作区干净。P5.1-Core-01仍为部分完成/未冻结，原OPEN/BLOCKED与未打包状态不变；本次仅提交交付，沿用已记录验收结果。plan4/history4按既有忽略规则仅本地维护。"
+        },
+        {
+          "line": 548,
+          "text": "- 最新交接（2026-10-28，P5.1-Core-01 部分交付/未冻结）：基线与远程main均4c0cf969、起始干净；JD高层Facade/来源版本/确认绑定、证据矩阵、A01/A02与V2双投影元数据修复已实施。最终15文件144单测、真实Hermes定向Career工具链1项（2次模拟Provider请求）、独立“已确认来源简历→粘贴JD→岗位简历→正式PDF”UI1项通过；typecheck/lint/build/bundle-check/diff均退出0。R2-RDY-01、恢复后模型切换/请求、完整Hermes JD确认CASE I及真实Provider/正式包仍OPEN或BLOCKED，不宣称全量集成通过。已提交并推送9bd0d80，未打包；详见docs/archit"
+        },
+        {
+          "line": 554,
+          "text": "- 当前任务（2026-10-28，R2-OBS-01定向验收完成）：用户明确启动P5.1.1首个R2工作包；起始/最终HEAD 37635cf，原A03/两文档已包含在该提交且原文件未改。复用现有错误契约，去除文本猜根因，保留Provider HTTP/工具码、Companion安全底层诊断，独立展示凭据保存/配置应用/运行状态。7文件63单测、1条受控依赖真实页面测试、typecheck、修改文件Lint、diff通过；最终测试类型修正后新文件21项复跑通过。R2-RDY-01独立OPEN、历史真实根因未知；未重跑R1/READY循环、不改启动/门禁、不打包提交推送。详见docs/architecture/p5.1.1-r2-observability-20261028.md，后续仅按用"
+        },
+        {
+          "line": 556,
+          "text": "- 前序任务（2026-10-28，R1最终单次采集完成/情况A）：基线及远程e07c617、原3项成果保留。新进程READY前真实IPC available/configured=true、source=secure_store、无read_failed，跨进程凭据恢复子项PASS；两产品进程正常退出0。整体诊断因Runtime degraded/hermes_companion_unreachable/providerReady=false/careerMcpReady=true/applyStatus=idle仍退出1，独立记R2-RDY-01，不等同Key丢失。恢复后模型切换/完整请求未验证，正式包BLOCKED。R2准备交接已完成（docs/architecture/p5.1.1-"
+        },
+        {
+          "line": 558,
+          "text": "- 前序任务（2026-10-28，R1 Closure两轮诊断结束/部分BLOCKED）：HEAD d8c31c3、原3项改动保留。真实IPC定位提前调用hermes_renderer_not_ready，确认测试async等待假READY；修正测试后保存/applied/模拟请求200、配置故意失败仍保留Key、正常退出0/LocalState落盘通过。新进程getStatus持续degraded，未采集独立恢复回执/具体reason，切模型和坏密文后续未到达；正式包仍BLOCKED。严格两轮后停止，未改生产代码、不进R2；用户随后授权提交push，Closure的5文件已提交并推送origin/main：e07c617，远程哈希回读一致，原3项未提交保留；未打包。详见诊断第9节及p5."
+        },
+        {
+          "line": 563,
+          "text": "- 前序任务（2026-10-28，P5.1.0-R1本地修复交付，Desktop完整门禁部分BLOCKED）：managed结构丢失后复用受控生命周期，bundled YAML语义合并保留未知配置、私有备份/失败回滚；实际health/detailed活动计数保护，busy延迟/不可核验失败，不中断旧任务。Desktop统一启动前初始化/安全恢复，解密失败明确区分。最终79相关单测、typecheck、修改文件lint、独立生产build通过；真实bundled浏览器1项51.1s/3模拟请求通过，模型序列原模型→热切换→Qwen3.8-27B，活动任务恢复deferred后完成并重试成功。真实Electron43.2 safeStorage双进程正常退出恢复/无明文通过；完整产品重启闭环"
+        },
+        {
+          "line": 564,
+          "text": "- 前序任务（P5.1.0 A03收尾完成）：仅测试restart增加页面Origin，生产鉴权未改。Hermes模拟集成8/8、14次模拟Provider请求，工具快照11 Career（7 Facade）+3 Skills；相关门禁通过，真实Provider当时缺配置BLOCKED。原始失败与新结果保留在基线审计第10节。"
+        }
+      ]
+    },
+    {
+      "file": "history4.md",
+      "sha256": "4a43549e9a7ba1f3b71bd175e1030dd30cdca04a6e16e39761e6b4e3186cc688",
+      "lines": 1114,
+      "anchors": [
+        {
+          "line": 3,
+          "text": "## 2026-11-06 A-04 D1/D2：合成切片有限完成，生产读取/写入 BLOCKED"
+        },
+        {
+          "line": 9,
+          "text": "主报告docs/architecture/p5.2.2-a04-profile-readonly-vertical-slice.md；证据evidence/p522-a04-profile-read及独立执行记录含NEXT_CHAT_HANDOFF。生产issuer、真实disable后端撤权、可信确认/工具接入/读写仍BLOCKED；Native Host NOT VERIFIED；A02-01原PARTIAL/UNKNOWN资格不变。无真实资料/Home/Provider/Electron、Main/Preload/Core/Schema/表/依赖/UI/Artifact改动，无删除；未提交、未推送、未打包。本轮停止，不做D3/D4；下一步仅用户另行启动A05/D3。"
+        },
+        {
+          "line": 13,
+          "text": "用户仅授权纯Profile查询与合成Gateway Adapter；基线/fetch后main/HEAD/origin=aad2ab48，起始干净，八worktree保留。新增同WorkspaceRepository的readInitializedProfile，不调用迁移、不枚举其他Profile；版本化分页投影复用canonicalProfileLibraryItems。修改前typecheck和2文件8项测试通过；D1定向5项通过，首次fixture sourceType误用manual已改为既有user_input，失败保留至A04记录。D2仅Authority接口/合成授权，生产issuer与真实撤权BLOCKED；不改Main/Preload/Core/Host，不读真实数据、不"
+        },
+        {
+          "line": 15,
+          "text": "## 2026-11-06 A-03 readiness：审计/设计完成，生产接入 BLOCKED"
+        },
+        {
+          "line": 17,
+          "text": "用户仅授权Career Domain/Gateway准入审计和首切片设计。基线与fetch后main/HEAD/origin=6545c0f，起始干净；A-02-05已手动提交，技术PARTIAL保持，纠正旧交接的尚未提交状态。源码确认原生Profile仍fixture；正式getProfile会运行rw身份迁移，不能直接作零写入查询；Gateway/Registry/Service/Repository和Branch CAS可复用，但scope/payload幂等、可信issuer、后端撤权、原子确认+写入与实际已执行丢ACK资格仍未齐。QuestionPlan默认0/1/3与通常2–3问题要求有模式差异，未修改语义。"
+        },
+        {
+          "line": 19,
+          "text": "唯一推荐合成Profile Read-only：同Repository纯ReadPort/查询服务→可信scope/lease adapter复用Gateway→实际native工具/UNKNOWN资格→有限只读评审→Resume read/Job read→另批可信写→复用Tailoring。Domain GO；Gateway/Profile read设计CONDITIONAL GO；生产工具接入/写入/A01充分控制/可信确认BLOCKED。未改生产代码/Schema/Guard/Main/Core/依赖，未读真实资料、未发Provider或启动Electron。两条定向Vitest共8文件47项退出0；保护2479 tracked文件，32历史manifest引用校验及8处后续共享文件"
+        },
+        {
+          "line": 23,
+          "text": "## 2026-11-06 A-02-05：PARTIAL，真实成果创建/更新/下载/隔离/重启通过"
+        },
+        {
+          "line": 25,
+          "text": "用户范围仅 Native Artifact 产品化与本地 Provider Pool，不进 A-03。main/HEAD b9d4401，最终 fetch 后 origin/main 同值；A-02-04 保持 PARTIAL / MANUALLY_COMMITTED。八 worktree、97 既有源码、11 重点源码及 1134 历史保护文件核验通过；不改外部 Hermes/Core/Main/Preload、生产业务、Schema/Repository/Fact Guard/DB/模板。"
+        },
+        {
+          "line": 38,
+          "text": "仅 Native Artifact 产品化与本地测试 Provider Pool。基线 main/HEAD/origin 本地引用 b9d4401，A-02-04 保持 PARTIAL / MANUALLY_COMMITTED；八 worktree 与历史证据保留。原生 Artifact 为消息派生引用，无独立 Task/生命周期/版本库；Host 投影保留来源、确认写入与不确定状态，不新增数据库。已加入成果列表/详情/本地预览下载与单一导航，19 项 L1/L2 通过，Renderer 首构建通过；首次 Native TS props 类型与 UI lint 问题正在修正，尚未验收。两份真实本地 Provider 的六类探针分别通过，能力仅限实际探针范围，密钥仅在 ignored 配置。工"
+        },
+        {
+          "line": 41,
+          "text": "## 2026-11-06 A-02-04：PARTIAL，原生会话/草稿/重启与 UNKNOWN 恢复通过"
+        },
+        {
+          "line": 43,
+          "text": "仅 A-02-04。main/HEAD/origin本地引用343eeb8；保留A02-03未提交修改与历史PARTIAL。权威历史为Hermes state.db，真实两会话正常回复、ID/切换隔离、reload不重发、同隔离目录Electron/Backend重启恢复当前会话/正文/文本草稿通过，SQLite只读与TXT暂存字节复核通过；附件草稿memory-only，未新增Store/表。"
+        },
+        {
+          "line": 53,
+          "text": "仅原生Session持久化/恢复；保留A-02-03未提交基线与历史PARTIAL，不提交推送。已确认权威历史是Hermes state.db，文本草稿localStorage、附件草稿memory-only。定位UNKNOWN空闲态被原生inflight journal清除，项目opt-in虚拟补丁复用原journal同步保留错误；L2已复现与修复验证，Electron/工程门禁待完成。全部新测试目录保留，禁用hardening测试及文件清理。证据evidence/p522-host-a02-04；尚未提交。"
+        },
+        {
+          "line": 55,
+          "text": "## 2026-11-05 A-02-03：PARTIAL，TXT正文链通过，PNG接收通过/理解未验"
+        },
+        {
+          "line": 57,
+          "text": "仅用户附件原生附件资格；HEAD/origin=343eeb8，起始干净、fetch0，八worktree保留。锁定Hermes eb527605、97源码/八原补丁保护SHA、23历史manifest原件及独立Main artifact一致；另核对10附件重点源码。唯一ignored AMD配置保留，模型Qwen3.8-27B；未换API/辅助视觉Provider。真实Files多选TXT/PDF、Gateway暂存、Session绑定通过；TXT实际请求含完整规范化正文，模型识别prompt未透露的随机标记。PDF发送前移除，正文理解保留BLOCKED_A02_02_L4。剪贴板真实读取/预览/临时文件通过，PNG重编码5828B与原图逐像素一致；真实image.attach及promp"
+        },
+        {
+          "line": 63,
+          "text": "报告docs/architecture/p5.2.2-host-a02-03-native-attachment-pipeline.md及evidence/p522-host-a02-03含五栏/20项回答、失败与SHA清单。无生产业务/Schema/Repository/Fact Guard/DB/依赖/Core/真实用户正文外发变更；尚未提交推送。下一步仅用户选择有界复验本轮路径修复与图片完成链；A-02-01/A-02-02原PARTIAL不改，不进入A-02-04/05/A-03。"
+        },
+        {
+          "line": 65,
+          "text": "## 2026-11-05 A-02-02：PARTIAL，L3真实工具已执行，L4未完成"
+        },
+        {
+          "line": 73,
+          "text": "## 2026-11-05 A-02-01：启动链路PASS；整体PARTIAL，OpenRouter每日免费额度耗尽"
+        },
+        {
+          "line": 79,
+          "text": "实际最后run1793866970561，stdout READY约33.6秒，/api/health200 ok/version0.19.0，原生gateway.ready、Rendererready与Session建立；实际payload endpoint/model均指定值，原生dump两份为同一请求前后记录。message.complete(status=error)明确HTTP429，Native日志attempt1/1；原始harness摘要No continuous deltas保留，已将终态Provider错误判断前置并修正payload读取home/sessions路径，lint通过且不重发。Provider metadata reset=1793923200000，未保证"
+        },
+        {
+          "line": 89,
+          "text": "三轮实际Career完整验收分别定位Gateway15秒遇25.8秒event-loop stall、stdout READY91.9秒超过原生90秒、Gateway已连但OpenRouter环境密钥未传递。项目精确Main适配新增Health后45秒原生gateway.ready门禁；启动环境使用原生150秒公告override，Health独立45秒；外部Hermes/Preload/Python/协议不变。第三轮88.6秒stdout READY、Health与Gateway通过，零prompt.submit。最后修正隔离OPENROUTER_API_KEY，并用锁定resolver正反验证通过；尚未追加第四轮，未称真实文本/Streaming/Stop/图片通过。另三次入口预检未sp"
+        },
+        {
+          "line": 95,
+          "text": "本轮授权自主修复，最多三轮完整验收，原BR01单次限制解除；不新建子阶段。HEAD/origin仍151c514，上轮改动保留，competition worktree由用户其他工作前进到874a03b，未进入或改动。先完成构建/TS/30项Backend Health测试并预热Renderer，再启动；3次独立Main入口预检失败均未spawn Backend（相对路径、独立ESM加载/Windows路径），原始记录保留。首次实际Backend完整轮次已确认stdout READY约56668ms且Main立即识别/Health通过；后续原生WS15秒期限碰上Backend25.8秒event-loop stall，服务端接受时客户端已断开，非stderr问题。"
+        },
+        {
+          "line": 99,
+          "text": "## 2026-11-05 P5.2.2-HOST-A-02-01-BR01：PARTIAL，独立探针PASS，Electron启动门禁未关闭"
+        },
+        {
+          "line": 101,
+          "text": "用户仅授权Backend READY诊断和限定修复，不提交推送、不进后续阶段。HEAD/origin=151c514，起始干净，八worktree保留；Hermes仍eb527605。唯一独立真实spawn使用锁定Main参数/环境函数/Health逻辑，stdout在48481ms公告READY，端口监听与/api/health HTTP200成功，总48720ms，属于A（20秒预算不足），未证明stderr问题。只修Electron测试预算为90+45+15秒、字体截图等待解耦、Promise.any分支与进程证据；无Main/Preload/Python或外部源码写入。"
+        },
+        {
+          "line": 103,
+          "text": "唯一Career Electron验收退出1：原生Main90秒公告超时，随后合并desktop.log出现READY；UI覆盖层/Gateway offline，零prompt.submit/工具/对话。分类F：原生公告超时并有后续READY日志；发射时刻与通道尚未独立归属，不宣称B/D/E或模型故障。字体loaded且失败截图成功并已查看。按次数限制停止，无重启/Retry；Streaming/多轮/Stop/图片全部未验收，A-02-01不能COMPLETE。最终Composer分支从visible改trial click以防背景控件误选，该调整仅lint、未重跑Electron；证据保留原分支。"
+        },
+        {
+          "line": 111,
+          "text": "仅 Backend READY 诊断与原生对话资格；基线 HEAD/origin=151c514，起始干净，八 worktree 保留。先核对锁定源码、41保护文件和最新A-02-01交付清单，再执行一次独立隔离子进程探针，不发送模型请求；旧manifest共享文件已有后续提交更新，差异保留，不覆盖历史。测试启动预算修为90s公告+45s健康+15s余量，字体状态与Backend分开记录。探针与最终门禁待完成；尚未提交，不进入后续阶段。"
+        },
+        {
+          "line": 113,
+          "text": "## 2026-11-05 P5.2.2-HOST-A-02-01：PARTIAL，原生Electron门禁未关闭"
+        },
+        {
+          "line": 119,
+          "text": "Career Electron两次发送前超时：首空页/第二Starting Hermes、offline，未发原生prompt.submit；按AGENTS两次规则停止重跑，第二次真实截图目视且原日志保留，启动根因未确证。默认Shell单独回归在截图字体等待超时，未到交互断言；不撤销历史FB01结论，但本轮不判PASS。原生文本、多轮、Streaming、Stop、晚delta、图像UI及真实错误恢复均NOT_VERIFIED，整体PARTIAL/NOT_COMPLETE，后续阶段不开放。"
+        },
+        {
+          "line": 123,
+          "text": "主报告docs/architecture/p5.2.2-host-a02-01-openrouter-runtime-reliability.md，evidence/p522-host-a02-01含全部要求JSON、失败与补丁证据、最终保护清单及delivery manifest。下一步仅诊断原生Backend READY未达成原因并由用户选择恢复本阶段；如需Main/Preload/Python改动先交独立设计。不自动进A-02-02～05/A-03。尚未提交。"
+        },
+        {
+          "line": 145,
+          "text": "用户仅授权A-02正式审计/依赖比较/阶段拆分；未执行A-02-01～05。main/HEAD/fetch后origin=07ff30982f08dfdd300247204d9e3720e2d5c015，起始tracked/untracked干净；8个worktree只读登记，competition及detached/ignored证据保留。Hermes实际锁定eb527605，外部整树既有lock/翻译修改未碰；48份关键源码归一化内容与HEAD一致、Git diff0，41保护上游SHA及8虚拟补丁原始SHA匹配。A01R manifest165项中4项由FB01后续更新解释，FB01 27项起始全匹配；旧失败与PARTIAL保留。"
+        },
+        {
+          "line": 153,
+          "text": "用户仅授权单次默认Shell重新验收。main/HEAD/fetch后origin=50b37d1b69becd141a643af2e86724758ff0b492，起始干净；A01R manifest165项起始一致，Hermes锁定eb527605/41上游SHA不变。真实Electron40.10.2单次run1793801859844退出0：optIn=false、分支B原生自动关闭onboarding、正常New session/草稿输入与保留通过，无Career残留，prompt.submit=0/messages=0/busy=false，页面/控制台错误0。四阶段截图真实且目视确认。仅补runner新目录/截图/只读证据及断言，原Promise.any逻辑保留；语法/chan"
+        },
+        {
+          "line": 155,
+          "text": "FIRST_ATTEMPT_FAILED_DUE_TO_TEST_ASSUMPTION → SECOND_QUALIFIED_ATTEMPT_PASS（相对A01R本次重验）；真实Provider/Streaming/Tool Calling/附件上传仍NOT VERIFIED、用户最终视觉批准待确认，不开放生产、不进A02。报告docs/architecture/p5.2.2-host-a01r-fallback-requalification.md；证据evidence/p522-host-a01r-fb01。competition仅inventory，测试进程关闭，无上游/业务/依赖改动，无删除/提交/推送；尚未提交。本轮完成停止，等待审阅和下一阶段单独授权。"
+        },
+        {
+          "line": 158,
+          "text": "## 2026-11-04 P5.2.2-HOST-A-01R PARTIAL：插件与品牌收尾通过，默认Shell交互未关闭"
+        },
+        {
+          "line": 164,
+          "text": "验证：基线typecheck/4导航Unit通过；最终pnpm typecheck、3文件16Unit、98原生Unit、changed6代码ESLint、Renderer build、Native虚拟typecheck基线0/集成0、diff/SHA/输入与路径扫描通过。初次Python GBK错误与CRLF diff失败记录并修正，无跳过或降低断言。报告docs/architecture/p5.2.2-host-a01r-shell-closure.md及evidence/p522-host-a01r；A04追加正式Home恢复清单与typed Domain链，保留原HomeWorkspace。未改Main/Preload/Runtime锁/Schema/Guard/Repository"
+        },
+        {
+          "line": 172,
+          "text": "## 2026-11-04 P5.2.2-HOST-A-01 PARTIAL：方案 A 原生 Host Shell 隔离切片交付"
+        },
+        {
+          "line": 180,
+          "text": "总体PARTIAL：默认Shell独立启动已显示原菜单/Chat/ready，但初始只检查元素误把onboarding阶段记PASS；撤回其交互解释。强化点击两次失败（遮罩/控件替换、exact-name遗漏快捷键）后停止，选择器修正未复跑，默认Shell完整交互NOT VERIFIED。初版fallback固定截图名导致第一强化失败截图被第二次覆盖，原日志/初始onboarding/最终默认截图保留，已改后续唯一run名。原Chat仍有Hermes标题/蓝色背景，最终品牌视觉待用户审阅。真实模型stream/tool/stop、真实文件处理、已填历史/重启恢复/同进程热切换/Artifact绑定未验证，旧可信确认/撤权/发行阻塞保留。"
+        },
+        {
+          "line": 196,
+          "text": "交付 docs/architecture/p5.2.2-shell-ownership-architecture-audit.md、p5.2.2-shell-ownership-adr-draft.md 与8份机器JSON（Git/源码边界/API/SDK/导航/方案/安全/manifest）。含三方案比较、真实调用链、Runtime Adapter、产品IA/AI工作台、Mermaid、安全与发行阶段；ADR为PROPOSED。B2-B1 Renderer撤权/Trusted Confirmation/Runtime Release仍BLOCKED，未知执行结果不得自动重发，confirmed=true/Runtime approval不代替可信事实授权。"
+        },
+        {
+          "line": 202,
+          "text": "仅附件Gate00+Slice1。main/HEAD/origin=89d75418b3a7891ea96199d3191b542398e81c16，起始干净、fetch=0，旧UX01已提交；P521/P522/UX01三个manifest共197文件起始SHA全部一致。Hermes锁定eb527605/Runtime0.19.0/Desktop0.17.0与七份SDK源码核对不变。Gate00真实Electron+Hermes Renderer在独立home/userData/offline Provider正常进入、普通刷新、路由退出/CSS卸载和插件禁用启用通过，页面/console错误0。T3仅navigation paint；T4/T5/T6仅launch-request观察上界"
+        },
+        {
+          "line": 214,
+          "text": "仅用户附件 Gate 00 + Original Profile faithful restoration。main/HEAD/origin=89d75418b3a7891ea96199d3191b542398e81c16，起始干净，fetch=0；三个历史manifest共197个文件SHA全部一致。锁定Hermes eb527605/Runtime0.19.0/Desktop0.17.0，七份SDK相关源码对HEAD无diff。真实Electron隔离home/userData/offline provider，本轮正常导航与Profile刷新、退出CSS卸载、loader禁用启用及Host原生导航均通过、错误0；T4/T5/T6仅上界，T0/T1/T2/T7 NOT VERIFIED，"
+        },
+        {
+          "line": 218,
+          "text": "## 2026-11-04 P5.2.2-UX-01 PARTIAL：统一工作台架构审计与隔离原型"
+        },
+        {
+          "line": 222,
+          "text": "七类页面矩阵保留Home真实入口、Profile分类/条目/详情/来源、Jobs核对匹配分支、Applications看板材料、独立Studio三栏/TipTap/A4/PDF链、MaterialIntake人工核对及职业设置。Host公开sidebar.nav/routes支持平铺唯一物理菜单，order仅排序贡献；group/section尚无typed契约，A现SDK/B最小Host扩展/C自定义Shell方案已区分。Pane公开PANES_AREA存在，静默adoption不强制front且存在隐藏/折叠状态；旧现场唯一根因未证实，本轮未重跑旧Pane测试，可见原生并排/恢复/任务绑定NOT VERIFIED。"
+        },
+        {
+          "line": 226,
+          "text": "启动两次交互被Host onboarding/准备遮罩拦截，10秒超时后停止，原日志保留；随后六次仅观测（三新隔离profile+各自立即重启）记录窗口/paint/侧栏上界11.1–13.7秒，无强制点击/内部状态修改。T0进程出生/T1创建/T2首次显示/T4可交互/T6业务可交互/T7完整Runtime资格NOT VERIFIED；六次不是OS冷缓存性能认证。Headless token404仅待核实线索，测试关闭时backend exit不能当启动崩溃。未做plugin-off/on对照，不归因插件阻塞。启动审计PARTIAL。"
+        },
+        {
+          "line": 228,
+          "text": "四报告与evidence/p522-ux01机器证据/逐次启动截图/交付SHA清单已交付。vertical distribution audit及设计图片索引缺失诚实记录；初始templateRegistry扩展名猜错已修为实际tsx，沿re-export确认campus-reference/校园浅底及renderCampusReference，模板未改。无生产src/Schema/Repository/Guard/DB/依赖/Core/正式模板/真实数据变更，无提交/推送。B2-B1撤权/可信确认/Runtime发行仍BLOCKED。原型地址http://127.0.0.1:5183；执行报告docs/architecture/p5.2.2-ux-01-unified-workspace-"
+        },
+        {
+          "line": 230,
+          "text": "## 2026-11-03 P5.2.2 PARTIAL：真实Host合成Profile与Semantic Adapter通过，并排Pane未验收"
+        },
+        {
+          "line": 236,
+          "text": "PANES_AREA是实际公开SDK，不能称不支持。probe首次挂载但隐藏15秒超时，第二次Host New session定位30秒超时；两次退出1/页面错误0，保留JSON与失败截图，依AGENTS停止重跑。原生Chat+Artifact可见并排、宽度/拖动/独立滚动/折叠恢复/键盘与会话绑定NOT VERIFIED，整体PARTIAL。源码另发现Host sash无tabindex/键盘handler；仅提出后续typed Pane/reveal/restore/键盘与artifact绑定建议，未改Core。旧撤权/可信确认/Runtime发行仍BLOCKED，生产迁移NO-GO。首次Profile键盘harness方向、局部SDK声明及测试regex/类型错误已修，原失败JSON及"
+        },
+        {
+          "line": 245,
+          "text": "真实Profile Host最终退出0：三分辨率×明暗、System跟随、刷新/返回、焦点/Dialog/Tabs、三轮disable-enable与hot reload通过，pageerror/consoleErrors=0。typecheck及3文件27Unit通过，changed lint/diff通过。PANES_AREA公开存在；单独probe两次有界验收超时（首次已加载但隐藏、第二次New session按钮定位失败），按规则停止重跑，不推断Host不支持并排。拖动/恢复/会话产物绑定NOT VERIFIED；整体拟PARTIAL，正式报告与最终证据归档进行中，尚未提交/推送，不进P523。"
+        },
+        {
+          "line": 254,
+          "text": "DESIGN/PROTOTYPE交付PASS；Host normal/tool-call状态由真实renderer消费合成harness，不是Provider/真实工具PASS；Host右栏仅空态边界，真实产物同步NOT VERIFIED；原型小字/Markdown/业务占位/搜索与system/PDF限制明确记录。既有撤权/可信确认/Runtime发行仍BLOCKED。独立执行记录：docs/architecture/execution-records/20261103-1109-P5.2.1-execution-record.md。无提交/推送/删除；用户先验收原型，P5.2.2仅计划、未获准，不自动进入。"
+        },
+        {
+          "line": 266,
+          "text": "## 2026-11-02 P5.2.0-B2-B2：合成Profile Plugin Packaging PoC PASS / 工程门禁PARTIAL"
+        },
+        {
+          "line": 272,
+          "text": "基线typecheck/A+canonical10项通过；最终typecheck/定向23项(新增13)/changed ESLint/Next build/ESM/Host main-preload build/diff通过。pnpm lint真实退出1：66errors/2603warnings，扫描旧/新.artifacts生成JS和Hermes测试副本及已有.opencode/.pi；未修改忽略/阈值，工程门禁PARTIAL。首次adapter判别联合typecheck退出2已修，原log保留；初次证据脚本GBK读取错误重以UTF8写入，猜测源码/可选Python路径不存在已记录，未宣称新Python probe。build生成next-env逐字恢复。无真实Career数据/DB/"
+        },
+        {
+          "line": 276,
+          "text": "仅合成Profile只读Plugin Packaging PoC。main/HEAD/origin/main=8833a5a84b4d3172220b645b285189dde5d03e6c，fetch成功、起始干净；B2-B1已提交，旧未提交记录仅历史。锁定Hermes源码eb527605/Runtime0.19.0，Desktop package实际0.17.0，公开disk loader以default HermesPlugin对象为manifest（非Python dashboard JSON）。先审计原ProfileWorkspace的Repository/useWorkspace/AI/表单/window资源与上一轮A；复用A纯展示组件及命名空间CSS，新增隔离DTO合成fixt"
+        },
+        {
+          "line": 282,
+          "text": "新增隔离Python Broker→私有stdio→只读确定性Fake Service、实际SDK Plugin与Desktop smoke，不导入Repository/SQLite、不访问真实Career数据。真实锁定Electron40.10.2+Vite+Python Backend链通过六操作/并发关联、版本/scope/坏请求拒绝、显式close/reopen、断连无伪成功、Service重启旧epoch拒绝、子进程异常退出及Host重启。三次有界真实Host观测均退出0、页面错误0，门禁均PARTIAL：实际复现Renderer禁用后旧ctx.rest仍成功；Backend禁用404但重新启用仍旧epoch，未关闭服务。没有用合作式UI cleanup掩盖撤权缺口。SDK无已证明"
+        },
+        {
+          "line": 284,
+          "text": "基线typecheck/B2-A 33项通过；最终5个Python unittest方法（含subtest/真实子进程帧边界）、typecheck/changed-files ESLint/diff/SHA/JSON引用检查通过。首lint匿名default export警告已修，原失败log保留；无超时。普通产品build无必要未跑，仅Host dev bundle编译，不打包、不运行全历史E2E。自动禁用/卸载关闭、Host强杀孤儿、READY前完整协议握手、inflight撤权和跨平台/命名管道ACL未资格验证。报告docs/architecture/p5.2.0b2b1-host-transport-poc.md、trusted-confirmation-audit.md、runti"
+        },
+        {
+          "line": 290,
+          "text": "## 2026-11-02 P5.2.0-B2-B0：审计交付完成 / Runtime与生产接入 BLOCKED"
+        },
+        {
+          "line": 296,
+          "text": "官方核对Electron40.10.2/Node24.15与43.2.0/Node24.18，二者node:sqlite均1.2 RC。本轮三套内存探针退出0：独立Node24.15及Hermes嵌入Node24.15/SQLite3.51.3、旧壳嵌入Node24.18/SQLite3.53.1，commit/rollback/integrity通过；历史Main/busy/crash证据明确复用，Hermes executable SHA仍一致。首次探针JS引号构造错误三项退出1，未打开库，原stderr保留evidence后以数字fixture修正通过；无超时。安装包/RSS/启动性能未测，Runtime/发行、Host通道、可信确认、Port、生命周期仍BLOCKED，B2-B0不标"
+        },
+        {
+          "line": 306,
+          "text": "基线typecheck/4文件41项；最终7文件88项（新增33项）/typecheck/5 changed-code ESLint/worker构建/Next build/diff通过。初次可选branchId类型失败、初测23过4败的locale/SQL排序差异已解决，保留原log，不降断言。next-env/tsconfig逐字恢复；Schema/Fact Guard/Claim Safety/Hermes锁定/B与B1证据/Port/Dexie Adapter不变。无UI变更不跑Playwright；不开放生产SQLite、不真实迁移、不新增依赖/表/打包/commit/push。报告docs/architecture/p5.2.0b2a-sqlite-adapter-parity."
+        },
+        {
+          "line": 317,
+          "text": "首个修后原文件10/10 PASS；相关terminal reconciliation/long-run/incident/reliability/B1 HTTP诊断5文件37项PASS；typecheck、changed-test ESLint、diff检查、transport SHA/原断言和范围检查均退出0；无失败重试。仅测试变化，沿用前轮Port/安全/实际Runtime资格/build证据，不重跑构建/UI。已更新docs/architecture/p5.2.0b1-persistence-port-runtime.md和evidence.json，历史失败/修复/结果/生产影响明确分开。B1按第一持久化切片既定范围标记COMPLETE；仍非整个Repository解耦或生产可写D"
+        },
+        {
+          "line": 320,
+          "text": "## 2026-11-01 P5.2.0-B1 PARTIAL：首个编辑持久化切片与Runtime资格验证通过"
+        },
+        {
+          "line": 326,
+          "text": "HTTP原p45c1c14独立复现9过1失败，完整发出栈保存在新evidence，分类TEST_HARNESS_ISSUE：run_status先消费fixture共享stream，run_events再次new Response触发disturbed/locked；新诊断两项保留原first-event/error断言通过，原测试/生产transport未改。建议单独确认后修复action-specific新response夹具，本轮未扩大范围，不能宣称原HTTP门禁全绿，因此B1总状态保守PARTIAL。原始失败与初次非async事务包装导致PrematureCommitError、新测试fixture/HTTP字段及CJS lint错误均记录，修正后保留失败证据。"
+        },
+        {
+          "line": 336,
+          "text": "## 2026-11-01 P5.2.0-B PARTIAL / 完成与正式迁移 BLOCKED"
+        },
+        {
+          "line": 340,
+          "text": "隔离poc/career-domain-persistence实现fixture-only v11全28表只读事务导出、tagged binary/undefined无损codec、实体ID/hash/count、临时不可变快照导入/幂等/中断恢复、缺引用/附件拒绝、两次新Node worker读回；fixture含Profile/General/Job branch/revision/Job/Application/Uint8Array附件，确定性Date/ID仅测试mock。原Repository并发CAS一胜一冲突通过；API仅strict初步契约，所有mutation明确拒绝，未接Plugin/真实数据。真实旧origin桥接、完整appMeta/V4/外部文件图、服务/Render"
+        },
+        {
+          "line": 362,
+          "text": "9文件74项相关Unit/Integration、terminal12项最终复核、Node4、A/G/M3/3（20fakecalls）、intent-advice唯一一次定向复跑1/1（24.8秒/1fakecall）、typecheck/changed lint/隔离build/bundle-check/diff均PASS。旧worker crash与全部setup/selector/candidate/short失败保留。生成next-env/tsconfig逐字恢复；.env.local/六Skills/Fact Guard阈值未改，无外部LLM/新表/新依赖。报告与机器evidence已更新COMPLETE，旧PARTIAL条目仅历史。SQ1仍QUALITY COLLECTION "
+        },
+        {
+          "line": 375,
+          "text": "## 2026-10-31 P5.1.8-B-CLOSEOUT：PARTIAL，未关闭Browser gate"
+        },
+        {
+          "line": 377,
+          "text": "用户明确授权新的closeout；main/HEAD/origin/main=7ab651cbc887f78aa996e09f5a20d151845b89c0，fetch成功且起始干净，前轮成果已在基线。只本地fake，无外部LLM、.env.local或六Skill变更。短preflight通过READY/单Run/单Provider/运行及刷新同Run；两次诊断证明fake15秒返回且权威completed，而Host持久化running。共享SSE消费者竞争仅为候选机制，完整因果未证实。新增可替换SSE消费者候选补丁，真实安装handler asyncio回归通过；修后preflight证据GET挂到300秒总截止、退出1，候选未验收。未启动190秒long gate，cancel/l"
+        },
+        {
+          "line": 384,
+          "text": "用户明确授权新的closeout，非盲目第三跑旧测试；fetch成功，main/HEAD/origin/main=7ab651cbc887f78aa996e09f5a20d151845b89c0，起始Git干净（附件所述前轮未提交成果已在基线）。只使用本地fake，未读写.env.local、未发外部LLM。短preflight通过READY/运行/刷新同Run，但15秒fake返回后Host仍running；权威run_status=completed、Provider仅1次且有finishedAt，定位共享SSE队列新旧消费者竞争。新增可替换SSE消费者补丁，保留Run/队列，定向asyncio回归通过；尚未完整浏览器验收，保持PARTIAL。编码准备错误、补丁CRLF形状错误及误并行b"
+        },
+        {
+          "line": 387,
+          "text": "## 2026-10-31 P5.1.8-B PARTIAL：慢Provider专属timeout与MCP context去重"
+        },
+        {
+          "line": 389,
+          "text": "用户指定本工作包，不切DeepSeek/不发真实AMD。fetch退出0，main/HEAD/origin/main=7d5e9f44c73066ed94320095856fdac3627ec987；所有原未提交AMD patch/evidence快照保留。.env.local/六Skill/Fact Guard/Repository/CAS不改。AMD精确host+Qwen模型配置request/stale480s；锁定Hermes实际canonical provider=custom，窄alias补丁复用named model timeout，stream socket read随配置480，其他模型/host不变，low wire/原生产cap65536保持。实际AIAgent→SDK"
+        },
+        {
+          "line": 394,
+          "text": "用户最后一次授权将超时延至5–8分钟；本轮480000ms，固定原after/AMD/Qwen3.8-27B/low/temp0/max_tokens16384，仅1真实请求。实际299.984s / HTTP200 / finish=stop / content=3261 / error=none；完整响应通过，结束后停止，无第二次请求或其他arms。仅eval/probe显式timeout override与独立证据路径，默认120秒/生产timeout及cap不变；11项脚本/typecheck/changed-lint/diff/SHA通过，未build。Skills/fixture/历史证据不改，原before不重发，不将不同policy混成pair；SQ1仍QUALITY COL"
+        },
+        {
+          "line": 402,
+          "text": "## 2026-10-31 AMD after预算重试：AFTER_PROBE_STILL_BLOCKED"
+        },
+        {
+          "line": 404,
+          "text": "用户明确8192失败再翻倍16384，最多2请求；原after/AMD/Qwen3.8-27B/low/temp0/120秒保持，Skill及fixture未改。本轮实际2请求；8192: TIMEOUT / 120.003s / HTTP无headers；16384: TIMEOUT / 120.004s / HTTP无headers。两档失败后停止，无第三次或其他arm。仅加显式评测预算override和独立probe文件，默认2048/生产cap/Hermes实现不变；10项脚本/typecheck/changed-lint/diff/SHA通过，未build。历史证据保留、原before不重发，不将不同policy混成pair；SQ1仍QUALITY COLLECTION BLOCK"
+        },
+        {
+          "line": 412,
+          "text": "## 2026-10-31 AMD reasoning 修复交付：AMD_QWEN_LOW_REASONING_STILL_BLOCKED"
+        },
+        {
+          "line": 414,
+          "text": "用户指定eval+生产Hermes+structured route一次修复且仅1真实after。fetch退出0，main/HEAD/origin/main=7d5e9f44c73066ed94320095856fdac3627ec987，原未提交成果保留。官方确认默认xhigh；managed config解析low但锁定Hermes原wire漏字段已用真实SDK→loopback复现。集中AMD Qwen策略/eval low+2048+temp0、reasoning长度usage诊断与budget exhausted停止；managed per-model override/生产transport-summary最小补丁接prepare/manifest/SHA v3，上游0.19."
+        },
+        {
+          "line": 422,
+          "text": "## 2026-10-31 AMD Provider 切换完成 / SQ1 QUALITY COLLECTION BLOCKED"
+        },
+        {
+          "line": 432,
+          "text": "## 2026-10-31 P5.1-SQ1-QC：SQ1 QUALITY COLLECTION BLOCKED"
+        },
+        {
+          "line": 439,
+          "text": "用户明确要求git并push；本轮15个相关文件已提交为`7d5e9f44c73066ed94320095856fdac3627ec987`（fix: close Hermes model readback and establish runtime baseline），普通push origin/main退出0。提交前fetch退出0、ahead/behind=0/0，记录源码哈希一致及凭据模式扫描通过；提交后远程main回读与本地HEAD一致、ahead/behind=0/0、Git工作区干净。首次暂存diff检查发现新Python文件末行CR空白，停止提交后仅规范UTF-8/LF并同步evidence哈希，复核通过再提交，无语义改动。沿用P518-A已记录测试/build，不重跑模型或"
+        },
+        {
+          "line": 446,
+          "text": "A/G/M3/3模拟Provider基线：24.161/12.395/43.240s、1/3/16次请求，M正式PDFheaders2.543s/end2.544s；每场景n=1，不造p95；内部domain Skill/Repository耗时留null。真实同Provider/模型最小请求及既有SQ1首案例首轮可完整返回，原评测helper两臂55.612/39.165s保存2record；历史120秒超时未复现/旧阶段未知，不称纯推理时间，不改变SQ1_IMPLEMENTATION_COMPLETE / QUALITY_CERTIFICATION_BLOCKED，不跑完整A/B。"
+        },
+        {
+          "line": 453,
+          "text": "用户明确启动 Runtime Reliability Baseline & Model Readback Closure，仅本阶段，不提交/推送/打包。fetch退出0；main/HEAD/origin/main=5002989044ef6554b4d26937d73017fd401ebb06，起始干净。修改前typecheck及3文件13项通过。隔离锁定Hermes inventory直接探针证明完整目录路径包含models.dev获取/缓存写入11.786s、Nous目录21.936s，35秒硬截止仍未完成；不把该探针当成历史进程唯一根因。正在实现既有model/options显式selection_only读回，只从Runtime配置解析当前provider/model，保留完整目录默"
+        },
+        {
+          "line": 458,
+          "text": "用户明确要求“git并push”；本轮18个相关文件已提交为`5002989044ef6554b4d26937d73017fd401ebb06`（fix: close scoped resume claim consumption and SQ1 validation），普通push origin/main退出0。提交前fetch退出0、与远程0/0；提交后远程main回读与本地HEAD一致、ahead/behind=0/0、Git工作区干净。范围与已验证源码哈希一致，密钥扫描和暂存diff检查通过；沿用本轮已记录测试/build，不重跑长门禁。状态仍为SQ1_IMPLEMENTATION_COMPLETE / QUALITY_CERTIFICATION_BLOCKED；未打包，未进入P51"
+        },
+        {
+          "line": 461,
+          "text": "## 2026-10-30 SQ1-CLOSEOUT 最终交接：实现完成 / 质量认证BLOCKED"
+        },
+        {
+          "line": 469,
+          "text": "现成服务端真实Provider确实尝试：deepseek-v4-flash-0731，同Provider/模型/参数、冻结before与当前2.0.0 after，30case未换；两次均未完成首arm，第二次TimeoutError（1请求/0结果）。独立HTTP200探针不代表完整质量通过。REAL_QUALITY_EVAL_BLOCKED，completed0/30、blocked30，13维质量评分与安全退化均未认证/null，不以mock代替。状态仅为SQ1_IMPLEMENTATION_COMPLETE / QUALITY_CERTIFICATION_BLOCKED。最小匿名人工Web认证步骤在报告第14节；等待用户选择认证/SQ2/正式P518，不自动继续。"
+        },
+        {
+          "line": 476,
+          "text": "用户明确授权 A 会话声明消费、B 真实30案例A/B、C CASE M差分；起始main/HEAD/origin/main=53eb83256b706eb9d8facb72e994734e56288743，fetch退出0、工作区干净。修改前typecheck和27项测试通过。复用SourceTurn/证据图/Checkpoint/Resume-only确认，加入通用与既有简历技能声明overlay，不新增表或Profile，不改Fact Guard阈值。38项定向测试/typecheck通过；首轮2项失败为fixture未按Repository已保存规范化数据取基线，已纠正。冻结M首轮通过；当前M直接复现分支已写而Run未终态即发送Job的harness竞态，补现有15秒终态等待后M通过"
+        },
+        {
+          "line": 487,
+          "text": "30匿名case覆盖六类/六Skills；同组before/after哈希、60记录、13维rubric和Web评测包已准备。模拟adapter64响应只证明评测管线；真实专用Provider配置缺失，命令退出2、请求0、REAL_PROVIDER_BLOCKED，文案/提问/HR质量不认证。通用编译对任意当前会话resume_only新声明的专用摄入仍未实现，保留为提案而非隐式写Profile。"
+        },
+        {
+          "line": 502,
+          "text": "**Core-02允许冻结；允许后续由用户选择进入Skills Quality，本轮未启动Skills Quality/P5.1.8/P5.1.9。** REAL_PROVIDER_BLOCKED、OCR/安装包NOT CERTIFIED、P518 OPEN按既定边界结转。尚未提交、未推送、未打包。此前失败、审计前14/14与确认消费失败全部保留；当前以专项报告第11节和evidence.latestRound=finalFreeze20261030为准，旧状态均为历史轮次。"
+        },
+        {
+          "line": 523,
+          "text": "14CASE第三轮14/14、22Run/63模拟请求、独立UI/PDF3/3、build/typecheck/lint/bundle-check均已取得退出0；审计原始Session发现L/M/N任务/正式产物完成后pendingConfirmation仍pending，不能把测试通过当作状态完整。已新增“确认消费后Session和Task均无pending”断言，M定向失败复现；真实Repository竞争checkpoint单测也复现（清除确认后write_pending保存被CAS返回旧pending快照）。生产最小修复为正式apply成功回执落盘时再次消费Session/Task确认状态，不改CAS/事实保护。两文件相关回归通过；L/M/N新增断言复验及27文件最终Unit进行中。"
+        },
+        {
+          "line": 537,
+          "text": "- 已执行相关5文件59项/changed-files lint通过；未提交推送打包。真实Provider仍BLOCKED、OCR/安装包未认证、P518 OPEN；不启动后续阶段。"
+        },
+        {
+          "line": 549,
+          "text": "- 最新交接（2026-10-29，Core-02-CLOSEOUT提交推送）：用户明确要求git并push；本轮23个相关文件已提交为 `0079b7bd168f9fe53fee159e443725ab0e279206`（fix: preserve Career session bindings and provider auth evidence），普通推送origin/main成功。commit/push/远程完整哈希回读均退出0，本地HEAD与origin/main、ls-remote一致，ahead/behind=0/0，工作区干净。提交前统一4个新增文件行尾，暂存diff与凭据模式检查通过，无代码行为变化。沿用236项相关测试、类型修正后24项、lint/typecheck/bu"
+        },
+        {
+          "line": 552,
+          "text": "## 2026-10-29 Core-02-CLOSEOUT 收尾：PARTIAL / 未冻结"
+        },
+        {
+          "line": 559,
+          "text": "- 限制/下一步：真实Provider=REAL_PROVIDER_BLOCKED（无可安全使用配置，真实请求0）；OCR/安装包NOT CERTIFIED；P518单独OPEN。Core-02不冻结、不进入Skills Quality/P5.1.8/P5.1.9。后续新有界验收需先取JSON停滞直接证据，再验修正后的diff/绑定链、L/M/B/C/D和完整Gate。详见专项报告第10节及 evidence.closeout20261029，旧失败历史完整保留。"
+        },
+        {
+          "line": 565,
+          "text": "发现并修复材料核对切人物重勾创建简历、确认后Session人物/Profile绑定未同步，以及Next覆盖明确Provider认证证据；补回执归属校验。旧bare401断言过期和传播问题均已证明。26文件235项Unit/Integration、独立build、bundle-check已通过，UI3/3含正式PDF通过。CASE L首轮Fit标记被Markdown吞下划线，唯一复验在创建Run前restart ECONNRESET，停止本轮L；CASE M两次90秒长等待后停止，后续绑定修复仅单元验证，未宣称全链通过。B/C服务集成已通过；12项独立Hermes行为基线执行中，有夹具初始化/路由失败，保留trace；真实Provider无安全配置=BLOCKED。完整集成以L/M前置通过为门"
+        },
+        {
+          "line": 575,
+          "text": "- 最新交接（2026-10-29，Core-02提交推送）：用户明确要求提交并push；38个本轮相关文件已提交为 `229ad9dbdd181c1d96e91de31f93814609ab5f5e`（feat: add version-bound career intelligence and evaluation baseline）并普通推送origin/main成功。commit/push/远程完整哈希回读均退出0，远程与本地一致，ahead/behind=0/0，工作区干净。提交前修正11个新增文件的行尾/EOF空白，暂存diff与凭据模式检查通过，无代码行为改变。沿用192项相关测试、40场景映射、Hermes定向3/3和业务UI/PDF1/1及typecheck/lint/bu"
+        },
+        {
+          "line": 584,
+          "text": "- 裁决/下一步：PARTIAL，不宣称Core-02完成或全量通过。后续仅针对本阶段未验收项安排新的有界验证；P518-RUNTIME-MODEL-READBACK-01继续OPEN，不启动Skills Quality/P5.1.8/P5.1.9。尚未提交、推送、打包。详见docs/architecture/p5.1-core-02-career-intelligence-20261029.md与同目录evidence JSON。Next自动生成配置已恢复干净基线，plan4/history4保持原忽略规则。"
+        },
+        {
+          "line": 613,
+          "text": "- 最新交接（2026-10-29，FINAL提交推送）：用户要求提交并push，沿用已授权目标origin/main；本轮19个相关文件已提交为 `b7a691af7b597ea3dc561d31c7648c8dbd7f39f7`（fix: resume Hermes runs after confirmed Career writes）并普通推送成功。提交/push/远程哈希回读均退出0，远程main完整哈希一致，ahead/behind=0/0，Git工作区干净。沿用FINAL已记录的CASE I 1/1、完整Hermes9/9、143项相关测试+1条回滚定向及typecheck/lint/build/bundle-check/diff结果，本次无代码新增或重跑模型。PARTIAL+C"
+        },
+        {
+          "line": 619,
+          "text": "数字23已直接证明为model/options读回10秒后TimeoutError的DOM异常code，经旧配置客户端原样传播、Supervisor safeReason转字符串进入回滚回执。已最小修复为hermes_model_config_timeout，保留回滚/无重试；端点迟延原因仍OPEN，移交P518-RUNTIME-MODEL-READBACK-01（P5.1.8），不再阻塞P5.1.2。恢复READY/secure_store/配置指纹一致证据保留，实际热切换仍失败且恢复后模型请求未执行，不宣称全部Runtime问题已修复。"
+        },
+        {
+          "line": 623,
+          "text": "- 用户要求：仅关闭23来源和同Run自主续跑，按COMPLETE/PARTIAL+CARRY FORWARD/BLOCKED裁决；不自动进入开发/提交/推送/打包。详细根因、原Run证据、命令/退出码、过程失败、文件清单及待办验收均已写入指定五份报告/证据。模型诊断一次后停止；14文件集合命令为pnpm exec vitest run tests/unit/p51-core-workflow.test.ts tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts tests/unit/p511-r2-observability.test.ts tests/unit/hermesSupervisor.test.ts tests/uni"
+        },
+        {
+          "line": 627,
+          "text": "- 当前任务（2026-10-29，Core-01-FINAL进行中/未验收）：基线/远程main均0a978ba，起始工作区干净；本轮仅模型切换与同Run确认后Hermes续跑，不提交推送打包、不开发P5.1.2。修改前typecheck及2文件32项通过。一次隔离恢复采集初始/恢复均READY；直接捕获model/options读回10秒后TimeoutError(code=23)，配置客户端原样抛出→Supervisor safeReason(error.code)→回滚回执字符串23；无HTTP响应、无配置写入子进程。已修正稳定错误码映射，端点迟迟不返回的原因移交P5.1.8，停止重启/切模型。MCP job_intake原调用等待确认、Host只清权限/状态、Gateway正式写入"
+        },
+        {
+          "line": 631,
+          "text": "- 最新交接（2026-10-28，CLOSEOUT提交推送）：用户要求先提交并push；本轮15个相关文件已提交为 `0a978bab60c1472c98f961b4d64d835cb413f73c`（fix: repair Hermes confirmation projection and restored readiness）并普通推送origin/main成功，提交/push退出0；远程哈希回读一致，ahead/behind=0/0，Git工作区干净（首次远程回读TLS失败，第二次成功）。沿用148项相关测试及9/9 Hermes、typecheck/lint/build/bundle-check/diff结果；本次只提交交付，无产品代码新增。Core-01仍PARTIAL_NOT"
+        },
+        {
+          "line": 637,
+          "text": "R2-RDY-01直接证据为控制鉴权200/401正常、Next503+ZodError；RuntimeHealthSchema遗漏secure_store已对齐，实际路由/Supervisor回归通过。修复后一次复验恢复READY、凭据secure_store、applied/verified及活动/期望指纹一致；随后单次模型切换rolled_back/reasonCode=23、底层原因未证实，请求未执行，停止重启/重试。整体原生harness仍退出1，真实Provider/正式包BLOCKED。四个诊断产品进程均退出0，PID及端口清理检查通过。"
+        },
+        {
+          "line": 639,
+          "text": "最终12文件148项相关测试、typecheck、全量lint、build、bundle-check、diff退出0。未删除文件、提交、推送或打包。Core-01保持PARTIAL_NOT_FROZEN；完整命令/历史失败/限制见[Core-01报告](docs/architecture/p5.1-core-01-20261028.md)与证据JSON的closeoutRounds。下一步仅采集失败模型读回的直接证据及明确续跑契约，不自动扩展阶段。"
+        },
+        {
+          "line": 657,
+          "text": "- 未完成：有界原生恢复采集仍degraded，直连health200但Next聚合503，具体异常/监听PID/受保护端点对照不足，R2-RDY-01 OPEN；凭据恢复PASS，恢复后模型切换/请求BLOCKED。完整hermes:integration为原八项通过、新CASE I失败，两次后续长等待超时后停止，最后上下文修复只有定向证据。真实Provider启动器退出0但credentials absent/SKIP，认证仍BLOCKED；正式Electron/安装包未验且本轮不打包。"
+        },
+        {
+          "line": 665,
+          "text": "- 原生harness首轮到READY后因测试传入不可序列化Provider对象中断，清理时process句柄读取又遮蔽错误；已修正harness。随后一次有界双进程采集：首次READY/安全保存/正常退出0，恢复凭据secure_store，但Next聚合health503而Electron直连health200，保持R2-RDY-01 OPEN，不再启动故障循环。恢复后切模型/请求未到达；正式包BLOCKED。"
+        },
+        {
+          "line": 670,
+          "text": "- 用户随后明确要求将全部改动提交并push；核对仅本工作包10个Git可见文件，无其他用户改动。fetch后起始HEAD 37635cf与origin/main一致。暂存精确10文件，cached diff检查与潜在真实密钥模式扫描通过；沿用本工作包63项单测、1条定向页面及typecheck/lint结果，不重复运行模型或READY采集。"
+        },
+        {
+          "line": 677,
+          "text": "- 根因：现有分类器从自由文本猜认证/HTTP状态；健康代理catch吞底层原因并把Companion故障投影为Provider unreachable；桥接层覆盖内层HTTP/阶段；工具result.code未读取；设置页仅applied刷新存储状态。复用现有diagnostics/reasonCode/runtimeConfig，去掉文本根因推断，保留安全系统码/Provider429/工具业务码并脱敏，独立消费存储及应用回执。未动providerCredentialStore、Hermes启动、READY、MCP架构、Schema、Repository或依赖。"
+        },
+        {
+          "line": 679,
+          "text": "- R2-OBS-01本范围PASS；R2-RDY-01独立OPEN，历史degraded/companion_unreachable不能归因Key/429/额度。源码可确定端口分配、开发服务复用及健康代理交接；没有新采集真实故障，后续要求同一失败进程的单次地址/监听PID/时间戳/安全鉴权health探测，无READY长循环。凭据恢复PASS不变，恢复后完整模型切换/请求、原生坏密文未验，正式包BLOCKED。"
+        },
+        {
+          "line": 686,
+          "text": "- JSON、秘密模式、diff检查及修改脚本/A03测试ESLint通过；沿用既有验收，不重跑Electron或扩大任务。凭据恢复PASS、独立Readiness OPEN、模型切换未验证和正式包BLOCKED原样保留。plan4/history4继续按忽略规则本地维护，不强制添加，不打包；提交及远程核验结果待补。"
+        },
+        {
+          "line": 690,
+          "text": "- 用户授权最后一次有界定向采集，基线与远程main均e07c617；原A03修改、P5.1计划、基线报告3项保留。只检查并修正诊断脚本证据保存顺序：credentialAtIpc/lastRuntimeStatus即时落盘、失败后先保存再清理，未改产品或READY门禁。"
+        },
+        {
+          "line": 691,
+          "text": "- node scripts/electron-credential-closure.cjs仅启动一次采集会话（内部按原脚本保存/正常退出/新进程恢复），独立证据文件不覆盖历史。新进程READY前真实IPC已取得available=true/configured=true/source=secure_store，未捕获credential_store_read_failed；同一隔离profile、恢复进程的两Provider Key环境变量为空、两产品进程均正常退出0。按用户情况A关闭跨进程凭据恢复证据缺口，标PASS。"
+        },
+        {
+          "line": 692,
+          "text": "- Runtime最终degraded/hermes_companion_unreachable/providerReady=false/careerMcpReady=true/applyStatus=idle；按原90秒预算后原断言失败，诊断脚本退出1，未改写为整体通过。Readiness为独立OPEN问题R2-RDY-01，原因码不足以定位网络/控制鉴权/进程根因；不再等同Key丢失，也不无限期阻塞独立R2工作。恢复后模型切换/实际请求、坏密文产品场景未到达，正式包仍BLOCKED。"
+        },
+        {
+          "line": 700,
+          "text": "- Closure仍部分BLOCKED，未宣称跨进程恢复/模型切换/坏密文/正式包全部验收；没有打包。最终仍仅原有3项未提交，plan4/history4按原忽略规则更新并回读，不强制添加。"
+        },
+        {
+          "line": 702,
+          "text": "## 2026-10-28：P5.1.0-R1 Closure（两轮诊断结束，部分验收/BLOCKED）"
+        },
+        {
+          "line": 705,
+          "text": "- 第一轮直接启动实际Electron开发产品，通过真实preload/IPC复现凭据write=true/configured=true而配置failed，安全回执reason=hermes_renderer_not_ready。发现新harness使用waitForFunction(async...)产生假READY；本机Playwright源码同步判断返回Promise，且实际浏览器async()=>false验证不等待即返回false。原R1窗口脚本也未等实际READY，暂不将该失败判为产品缺陷。"
+        },
+        {
+          "line": 707,
+          "text": "- 新进程进入产品HTTP页且getHermesStatus IPC可用，但90秒内为degraded。Hermes日志有第二次API健康检查通过；执行版本未保存具体reasonCode，也因READY等待耦合而未收集独立恢复describe回执。未将degraded归因于密钥丢失，不宣称恢复成功；后续不改Key切模型/实际坏密文场景未到达，正式打包仍BLOCKED。遵守上限停止，不第三轮启动。"
+        },
+        {
+          "line": 708,
+          "text": "- 根因边界：确认提前IPC调用/假READY是测试问题，未改生产代码；正常重启未捕获credential_store_read_failed启动错误，但独立恢复证据不完整，不能完全关闭历史事项。两轮实际脚本均退出1，原始失败保留，不改成绿灯。事后只完善独立storage/最后runtime reason的采集点，未额外原生复跑，不回填未采集状态。"
+        },
+        {
+          "line": 710,
+          "text": "- 未提交/推送/打包。最终原有3项成果及本轮报告/JSON/两脚本修改保留，完整状态见Closure JSON。下一步需要用户另行授权一次重启degraded专用采集（先取storage回执与runtime具体reason，不依赖READY才采集）；不进R2。"
+        },
+        {
+          "line": 718,
+          "text": "- 最终仅保留原有未提交3项：tests/e2e/hermes-p46h-integration.spec.ts修改、P5.1开发计划和基线审计报告未跟踪；没有纳入本轮提交。Desktop完整验收BLOCKED不变，不打包、不进入R2/P5.1.1；本地plan/history更新并回读，不改忽略规则。"
+        },
+        {
+          "line": 720,
+          "text": "## 2026-10-28：P5.1.0-R1本地修复交付（定向通过，完整Desktop验收部分BLOCKED）"
+        },
+        {
+          "line": 726,
+          "text": "- 限制：完整Desktop窗口自动化超时，曾实际到达自建dev窗口并通过IPC加密保存，但runtime apply失败；被中断的harness随后重启read_failed不能算正常退出恢复证据。完整产品重启、实际reuse、正式packaged均BLOCKED（未新打包），不以原生存储小测试或VM替代。两次等待超时后停止该完整流程。运行中直接热切换model/options扩展实验超时/回滚后停止重复，不宣称所有活动场景热切换必成功；正常空闲热切换及旧任务保护分别验证。"
+        },
+        {
+          "line": 728,
+          "text": "- 交付诊断报告第8节与docs/architecture/p5.1.0-r1-evidence-20261028.json；最终工作区含本轮未提交源码/测试/报告及原有成果。剩余仅上述BLOCKED验收，后续需用户授权，停止于R1。"
+        },
+        {
+          "line": 739,
+          "text": "- 给定AMD/Qwen独立直连一次，163ms返回429：process_concurrency_rate_limit_exceeded，Retry-After=1，trace ID保留在脱敏JSON；无重试/重定向。已有应用测速路由一次355ms，同一上游429（本地封装502）。控制快照active/desired为目标配置、applied/verified、generation2，与测速指纹一致；未独立验证应用已存凭据与用户本轮凭据相等。真实Provider未通过，仍BLOCKED。"
+        },
+        {
+          "line": 745,
+          "text": "## 2026-10-28：P5.1.0 A03基线收尾完成（模拟8/8，真实Provider仍BLOCKED）"
+        },
+        {
+          "line": 749,
+          "text": "- 修改前typecheck、hermesWebControlRoute与p45c18相关10项单测退出0；修改文件ESLint退出0。8项模拟Provider集成完整退出0（8通过、0失败、0未运行，167.84秒、14次模拟Provider请求）；最终typecheck通过。真实Provider启动器缺必要进程配置跳过，退出0不算通过，记BLOCKED。"
+        },
+        {
+          "line": 750,
+          "text": "- API Key跨重启持久化及HTTP429保持独立待办，未扩大修复。运行中health/官方toolsets快照证实11 Career（7 Facade）+3 Skills，必需Facade缺失0，与静态清单匹配；未采集真实Provider请求。审计报告第10节区分原始失败/本次通过/真实BLOCKED。Next两配置按任务开始字节恢复，原用户计划hash保持，diff检查通过。"
+        },
+        {
+          "line": 751,
+          "text": "- A03前置与工具注册证据已满足；P5.1.0允许真实不可用记BLOCKED，是否携带该限制进入P5.1.1等待用户决定。本轮停止，不进入后续阶段；未提交/推送/打包。"
+        },
+        {
+          "line": 757,
+          "text": "- pnpm typecheck/lint/test（222文件1628项）/build/hermes:bundle-check退出0；Hermes模拟集成退出1（2通过、1失败、5未运行），失败为测试重启请求403；真实Provider启动器缺凭据跳过，记BLOCKED。未修改业务逻辑。"
+        }
+      ]
+    },
+    {
+      "file": "docs/architecture/p5.2.2-a03-career-domain-readiness.md",
+      "sha256": "fc6865bb008d65758939946db2be604ad3d3df918955e11afd46cdc2245c58f6",
+      "lines": 216,
+      "anchors": [
+        {
+          "line": 5,
+          "text": "**总体：A-03 生产工具接入 BLOCKED；独立的 Profile 只读切片研究与后续实施准备 CONDITIONAL GO。** 现有业务能力值得复用，但当前原生 Host 的 fixture 展示不等于正式 Career Domain 接入。A-02-01 客户端 UNKNOWN 防重发不是服务端业务幂等；真实已执行后丢 ACK 的完整故障恢复资格没有关闭。可信确认、后端撤权和统一的权威操作回执同样未达到生产写入门槛。"
+        },
+        {
+          "line": 11,
+          "text": "- main / HEAD / fetch 后 origin/main 均为 `6545c0f04fa1b7880398b249338bd0f4673a2150`，提交标题 A-02-05，起始工作区干净。A-02-05 确已提交；旧 plan/history 的“尚未提交”已由本轮交接纠正。技术 PARTIAL 不因提交而改为 COMPLETE。"
+        },
+        {
+          "line": 14,
+          "text": "- 已读 AGENTS、plan4 当前状态、history4 最近相关记录、A-02-01 完整报告及 READY 收尾、A-02-02～05 报告、现存 P5.2.0 A/B/B1/B2-A/B2-B0/B2-B1/B2-B2 报告，核对最终 manifests 和相关源实现。"
+        },
+        {
+          "line": 19,
+          "text": "证据分为本轮源码确认、本轮合成定向测试、引用历史真实 Host、未来验收设计。缺少动态证据标为 NOT VERIFIED，不能反推源码必有缺陷；已确认的结构性缺口明确标为 BLOCKED。"
+        },
+        {
+          "line": 89,
+          "text": "`ResumeDocument` 定义/映射位于 `src/domain/resumeDocument/mapper.ts`，presentation projector 负责呈现。数据库没有以 ResumeDocument 作为新权威表；本轮不改动正文模型。预览/PDF 实现存在，但本轮未重做内容守恒或打印视觉验收，状态为已有实现/本轮输出一致性 NOT VERIFIED。"
+        },
+        {
+          "line": 129,
+          "text": "因此 H = BLOCKED；生产工具接入必须 BLOCKED。后续只读设计可独立推进，但生产开启必须先在实际启用路径闭合有限、定向的原生工具与 UNKNOWN 门禁，不再泛化 Host 重构。不允许已接受/未知 write 换备用模型或新 operationId 重做。"
+        },
+        {
+          "line": 139,
+          "text": "| Profile/Person/Session/operationId/精确 hash/版本绑定 | 业务部分字段存在；完整可信链 BLOCKED |"
+        },
+        {
+          "line": 140,
+          "text": "| Diff 修改后重新确认、过期/取消后无效 | 新可信协议尚无正向资格，NOT VERIFIED |"
+        },
+        {
+          "line": 141,
+          "text": "| 单次消费与正式写入原子性 | 现有单独 consume 不满足统一 apply；BLOCKED |"
+        },
+        {
+          "line": 142,
+          "text": "| Renderer 不可伪造同意 | 锁定 public SDK 无已证明的独立 issuer；BLOCKED |"
+        },
+        {
+          "line": 143,
+          "text": "| 刷新后有效性/旧 receipt 复用拒绝 | 必须由服务持有状态而非 UI，未闭合；NOT VERIFIED |"
+        },
+        {
+          "line": 144,
+          "text": "| 插件 disable 撤销旧 closure | 后端未验证租约/epoch，旧 ctx.rest 仍可用的历史真实 Host 证据成立；BLOCKED |"
+        },
+        {
+          "line": 146,
+          "text": "实际锁定 `runtime-loader.ts:17` 明确 FULL app authority；PluginContext 暴露 rest/socket/storage/contributions，SDK host 有 gateway RPC 等。manifest capability、pluginId、认证 HTTP token 和漂亮确认弹窗都不是沙箱或人类同意证明。Python plugin 也是受信代码，不是隔离租户。"
+        },
+        {
+          "line": 162,
+          "text": "尚无 Profile 查询生产服务，不能直接把 fake_service 更名上线。若 Port 提取超出最小范围，应保留 BLOCKED 并交用户审阅，不能顺带迁移整库。"
+        },
+        {
+          "line": 190,
+          "text": "5. 生产写入另行批准可信 issuer 路线：服务持有精确 proposal/hash/scope/session/op/base revision；内容改动重新确认；cancel/expiry/epoch 失效。若现有 SDK 无可信表面，保持 BLOCKED，不做伪签名 PoC 替代人类确认。"
+        },
+        {
+          "line": 203,
+          "text": "| C Profile read 开始实施 | CONDITIONAL GO | 可批准合成切片；生产接入仍 BLOCKED，先解决纯读取/授权与 native 资格 |"
+        },
+        {
+          "line": 204,
+          "text": "| D Profile 生产写入 | BLOCKED | trusted issuer、撤权、原子确认/receipt 与 UNKNOWN 均未齐 |"
+        },
+        {
+          "line": 207,
+          "text": "| G Tailoring Tools | BLOCKED | 复用已有流程，最终 apply 受写门禁，当前不开放 |"
+        },
+        {
+          "line": 208,
+          "text": "| H A01 未知执行风险充分控制 | BLOCKED | 有效 opt-in 抑制/恢复，但缺真实已执行故障资格与业务幂等 |"
+        },
+        {
+          "line": 209,
+          "text": "| I Trusted Confirmation 达生产 | BLOCKED | 普通 Renderer 确认非可信 issuer，未原子消费+写入 |"
+        }
+      ]
+    },
+    {
+      "file": "docs/architecture/execution-records/20261106-1517-P5.2.2-A03-readiness-execution-record.md",
+      "sha256": "71ef51301d68578b6e8231733f85133444927a27412c1e5d02d759501494a9e6",
+      "lines": 120,
+      "anchors": [
+        {
+          "line": 3,
+          "text": "日期：2026-11-06（Asia/Shanghai）。任务仅准入审计和设计；完成文档交付，生产接入 BLOCKED，未批准实施。"
+        },
+        {
+          "line": 7,
+          "text": "main / HEAD / fetch后origin/main = 6545c0f04fa1b7880398b249338bd0f4673a2150，起始干净。A-02-05 已手动提交，技术 PARTIAL 保持。结束 HEAD 不变；新增本轮报告/审计证据/执行记录，ignored plan4/history4 更新；无提交推送、删除或其他工作树修改。精确最终状态见 delivery-manifest.json。"
+        },
+        {
+          "line": 82,
+          "text": "Profile/Resume/Job/Tailoring、Gateway/Registry/Service/Repository、Runtime锁与SDK、A01 UNKNOWN集成、确认、撤权、CAS/幂等、首切片、依赖和20项验收设计全部完成。Domain架构 GO；复用Gateway CONDITIONAL GO；Profile只读合成实施 CONDITIONAL GO；生产工具接入、Profile写入、Tailoring apply、A01充分控制和可信确认均BLOCKED；Resume/Job只读为依赖性CONDITIONAL GO。"
+        },
+        {
+          "line": 88,
+          "text": "- R01 / HIGH / BLOCKED：UNKNOWN protection remains opt-in; executed-server lost ACK/restart and final dismiss-banner protection lack complete Electron qualification; client suppression is not exactly-once. 最小处理：Qualify actual enabled Host path with deterministic transport faults and handler ledger; no model fallback after uncertain acceptance."
+        },
+        {
+          "line": 89,
+          "text": "- R02 / CRITICAL / BLOCKED：No independent trusted issuer binds exact Career proposal/diff to human approval; confirmed/count are ordinary caller data. 最小处理：Approve trusted issuer architecture separately; service-held proposal hash and atomic single-use consumption plus write."
+        },
+        {
+          "line": 90,
+          "text": "- R03 / HIGH / BLOCKED：Renderer disable removes contributions, not backend authority; retained ctx.rest closure has no revocation lease. 最小处理：Backend checks scope, enabled grant/epoch and lease on every call; UI unmount is insufficient."
+        },
+        {
+          "line": 91,
+          "text": "- R04 / HIGH / BLOCKED：Branch operation lookup is operationId-only and replays before scope/payload validation; no universal authoritative operation status API. 最小处理：Bind durable receipt to scope/method/target/canonical payload hash; same ID different payload rejects; return original revision/result."
+        },
+        {
+          "line": 92,
+          "text": "- R05 / HIGH / BLOCKED：Existing profile read invokes rw identity migration; appMeta timestamps/index writes even for normalized profiles, and may normalize legacy profiles. 最小处理：Separate explicit bootstrap/migration from pure scoped query under same Repository; prove zero stores modified by tool read, including legacy fixture refusal."
+        },
+        {
+          "line": 93,
+          "text": "- R06 / HIGH / BLOCKED：Current native Host Profile client reads fixture; canonical BrowserAgentToolService defaults to browser WorkspaceRepository; narrow Port only covers branch mutation. 最小处理：Extract minimal scoped canonical read port/service and adapter; no parallel Gateway/Repository or direct Plugin Dexie."
+        },
+        {
+          "line": 95,
+          "text": "- R08 / MEDIUM / NOT VERIFIED：Classic Job commit idempotency is commitId/draft based; separate imports of same JD are not globally deduplicated by that path; V4 listing snapshot hashes are separate capabilities. 最小处理：Test classic reimport/update/stale analysis explicitly before Job mutation exposure; do not activate V4."
+        },
+        {
+          "line": 96,
+          "text": "- R09 / HIGH / BLOCKED：Pending fact confirmation consumes appMeta in a separate transaction; cannot infer atomic confirmation+Profile write from single-use state. 最小处理：Compose proposal consumption, CAS, mutation and operation receipt in one Repository unit of work."
+        },
+        {
+          "line": 97,
+          "text": "- R10 / MEDIUM / NOT VERIFIED：A-02-02 Composer-driven success tool/final answer, Tool UI/Stop and tool-history non-reexecution remain incomplete. 最小处理：One focused synthetic real Host qualification after authorization, not a new Host redesign."
+        },
+        {
+          "line": 98,
+          "text": "- R11 / MEDIUM / NOT VERIFIED：Requested exact P5.2.0 feasibility/trust report absent; previous reports also record its absence. 最小处理：Retain gap explicitly; current source evidence governs; do not fabricate historical approval."
+        },
+        {
+          "line": 115,
+          "text": "先读AGENTS、plan4/history4最新A03交接和主报告，不必重读全部历史。复核HEAD、工作树和本轮manifest；历史A05已提交且PARTIAL，不能继续称尚未提交。用户若批准，仅执行D1/D2合成Profile只读切片；生产开启仍须D3真实门禁。不改Schema v2/FactGuard，不建第二Gateway/Repository/正文JSON，不默认新增表/依赖、Main/Core修改或MCP实现，不读用户真实Profile，不探测Provider，不开展Resume生成/投递/其他阶段。"
+        },
+        {
+          "line": 117,
+          "text": "重点先解决getProfile隐式ensureCareerIdentityMigration的rw副作用，定义pure read/INITIALIZATION_REQUIRED、严格Profile/Person/Session scope及来源分页，保留正式Repository权威。可信撤权不可由UI unmount代替；UNKNOWN不能触发模型fallback重执。若可信确认需Host架构扩展，保持写BLOCKED并单独提案。20项未来用例见test-plan.json，当前均为设计，不能写已通过。"
+        }
+      ]
+    },
+    {
+      "file": "docs/architecture/p5.2.2-a04-profile-readonly-vertical-slice.md",
+      "sha256": "f9d734f16b8fadc7c98e4e5bc18bda062d1add85172efef60383fc524ef824f0",
+      "lines": 67,
+      "anchors": [
+        {
+          "line": 54,
+          "text": "| 生产可信 Authority | BLOCKED |"
+        },
+        {
+          "line": 55,
+          "text": "| Native Host 接入 | NOT VERIFIED |"
+        },
+        {
+          "line": 56,
+          "text": "| A-02-01 可靠性 | 原 PARTIAL / UNKNOWN 真实恢复资格 BLOCKED 保留 |"
+        },
+        {
+          "line": 57,
+          "text": "| Profile 生产读取 | BLOCKED，等待 D3 / D4 |"
+        },
+        {
+          "line": 58,
+          "text": "| Profile 生产写入 | BLOCKED |"
+        },
+        {
+          "line": 60,
+          "text": "可信确认、生产工具接入仍 BLOCKED。不能据此宣称 Hermes 已读取真实资料库、A-02-01 已关闭或生产已开放。"
+        }
+      ]
+    },
+    {
+      "file": "docs/architecture/execution-records/20261106-1740-P5.2.2-A04-execution-record.md",
+      "sha256": "d7657735819357ef32838cdb57c593d0ac8bbe4921fb81e661ef83e0f2f5e6cc",
+      "lines": 40,
+      "anchors": [
+        {
+          "line": 31,
+          "text": "未运行真实Native工具生命周期、Streaming/Stop、历史恢复、真实disable后端撤权、服务端已执行丢ACK、完整Host A/B、Electron/Provider或全历史Playwright。首次fixture、旧结果envelope、TS重载和两次工具语法失败均如实记录；无测试超时重跑循环。生产issuer/真实后端撤权 BLOCKED；A02-01原可靠性资格不变。"
+        },
+        {
+          "line": 35,
+          "text": "只使用fake-indexeddb独立合成数据。无真实资料/Home/Provider/API Key、无依赖/表/Schema/FactGuard/ClaimSafety变更、无Main/Preload/Hermes Core/Artifact改动。读取全Store快照及appMeta时间戳不变；保留未确认状态与来源句柄；错误不返回demo。生产读取/写入/可信确认/工具接入均BLOCKED，Native Host NOT VERIFIED。"
+        }
+      ]
+    },
+    {
+      "file": "docs/architecture/p5.2.2-host-a02-01-openrouter-runtime-reliability.md",
+      "sha256": "dfb8bf11ed96985e26ba7d3cee089164150937bb0421918a88e4e35bd8a232fa",
+      "lines": 176,
+      "anchors": [
+        {
+          "line": 3,
+          "text": "日期：2026-11-05，Asia/Shanghai。**整体 PARTIAL_EXTERNAL_RATE_LIMIT / NOT COMPLETE**。本轮不提交、不推送、不进入后续阶段。以下为最新权威结论，此前过程条目仅保留历史。"
+        },
+        {
+          "line": 5,
+          "text": "最后一轮 run=1793866970561（用户已明确批准两次追加，总计5轮实际Career、3次无Backend入口预检、1次默认Shell回归）：真实stdout READY在spawn后约33.6秒到达；Main识别、TCP承载的原生Health HTTP200及gateway.ready均通过，Renderer Inference ready、Session原生初始化成功。使用原生Composer的Send按钮发出唯一prompt.submit并收到ACK，指定OpenRouter实际Payload为 https://openrouter.ai/api/v1/chat/completions / dots-studio/dots-3-note-preview:free。原生requ"
+        },
+        {
+          "line": 13,
+          "text": "| Backend stdout READY / 原生Main识别 | PASS |"
+        },
+        {
+          "line": 16,
+          "text": "| 指定模型成功正文响应 | BLOCKED：Provider每日免费额度耗尽 |"
+        },
+        {
+          "line": 23,
+          "text": "用户已同意手动完成原生图片文件选择，但本轮未打开选择器、未上传图片，因为真实文本前置即被429拒绝。恢复时继续同一A-02-01，待Provider额度可用后验证完整成功路径；不再需要猜测READY通道、启动预算或凭据配置。"
+        },
+        {
+          "line": 37,
+          "text": "第四轮占用已批准的追加次数，尚未擅自启动第五轮；已向用户明确请求继续一次，等待答复。用户确认原生图片选择时可配合，但尚未打开选择器。整体仍PARTIAL，绝不把真实对话门禁写成通过。此前三轮结论与证据保留下文。"
+        },
+        {
+          "line": 49,
+          "text": "1. **原生端口预算确实不足，不能只加Playwright等待。** 三轮实际Backend完整验收中，stdout READY分别约56.7s、91.9s、88.6s。第二轮90秒等待器先失败，91.9秒才从stdout到达完整READY；不是stderr-only。最终使用锁定Main原生支持的`HERMES_DESKTOP_PORT_ANNOUNCE_TIMEOUT_MS=150000`，原生Health仍独立45秒，失败仍有界。第三轮Main立即识别READY并通过Health。"
+        },
+        {
+          "line": 53,
+          "text": "完整Career验收三轮已使用完毕：第一轮Backend/Health过、Gateway失败；第二轮91.9s READY超过90s；第三轮Backend/Health/Gateway过、Provider资格配置失败，三轮均零`prompt.submit`、零模型请求。另有三次独立Main入口预检失败，没有spawn Backend，分别为相对appRoot及Windows ESM加载路径问题，失败记录全部保留；动态import“错过ready”的早期判断未证实，最终以`ERR_UNSUPPORTED_ESM_URL_SCHEME`异常栈为准。"
+        },
+        {
+          "line": 55,
+          "text": "当前唯一已证实的剩余Runtime配置问题已经修正并通过resolver验证；**交付资格仍被“修复后的真实Composer到模型完整验收尚未执行”阻断**。本轮不超出用户三轮完整验收限制再启动第四轮。文字、多轮、UI Streaming、Stop、Stop后恢复和图片仍NOT VERIFIED，不能用先前独立API/SSE/图片结果替代。"
+        },
+        {
+          "line": 62,
+          "text": "- `scripts/p522-host-a02-01-main-trace.mjs`：实际spawn executable/argv/cwd/脱敏env、PID、双流每chunk时间与READY通道、等待器及退出记录。"
+        },
+        {
+          "line": 83,
+          "text": "日期：2026-11-05（Asia/Shanghai）。**整体 PARTIAL / NOT COMPLETE；不进入 A-02-02～05 或 A-03。未提交、未推送。**"
+        },
+        {
+          "line": 175,
+          "text": "下一步是单独诊断原生 Backend READY 未达成的原因，保留本轮超时停止记录，再由用户选择何时恢复同阶段原生资格验证。若根因需要 Main/Preload/Python 修改，先交独立设计，不在本轮扩展。整体门禁未通过，不进入任何后续阶段。"
+        }
+      ]
+    },
+    {
+      "file": "docs/architecture/p5.2.2-host-a02-02-native-tool-activity.md",
+      "sha256": "e7f7ed9f0721b408dabe6366816271d35c164093ddd7f8b2927ef470b6f9b3e5",
+      "lines": 82,
+      "anchors": [
+        {
+          "line": 4,
+          "text": "最终状态：**PARTIAL**。尚未完成 CareerAdapt Shell 的 L4 原生工具六环节验收。无 Git commit / push；不进入 A-02-03 或 A-03。"
+        },
+        {
+          "line": 37,
+          "text": "48 审计源码 + 41 保护源码 + 八处原始 Renderer patch SHA 共 97 项前后一致。历史 manifest 原件 SHA 前后一致；旧 manifest 所指共享文件的后续差异保留在 baseline 中，没有恢复旧文件覆盖当前代码。Main 150 秒 READY 独立 artifact 沿用，最终记录 SHA；未覆盖历史构建或截图。"
+        },
+        {
+          "line": 41,
+          "text": "1. 隔离插件使用锁定 `hermes_cli/plugins.py` / `PluginContext.register_tool`。只暴露 echo/failure 两个合成工具，固定 `value=A02_SYNTHETIC`，不连接 Repository / Gateway / 用户资料，不读环境密钥，不执行 Shell / 网络 / 文件操作。计数器只在内存，观测输出到 stderr。"
+        }
+      ]
+    },
+    {
+      "file": "docs/architecture/p5.2.2-host-a02-03-native-attachment-pipeline.md",
+      "sha256": "eb7f40accce1bbfed72c7e029647231167f149b62807c194e2b21fd9af951f60",
+      "lines": 106,
+      "anchors": [
+        {
+          "line": 3,
+          "text": "2026-11-05（北京时间）。最终状态：**PARTIAL / NOT COMPLETE**。没有提交或推送，不进入 A-02-04、A-02-05、A-03 或业务资料库接入。"
+        },
+        {
+          "line": 12,
+          "text": "- Hermes 锁定 `eb52760564dbba2e5971fa54bd67384e281cd3b8`。97 项既有源码/原补丁保护哈希、23 份历史 manifest 原件与独立 Main artifact 记录并复核；新增附件重点源码另记 SHA。既有 A-02-01/A-02-02 PARTIAL 与原证据不改写。"
+        },
+        {
+          "line": 25,
+          "text": "| PDF / 同次 Files | PASS | PASS | 暂存引用正确；发送前移除 | 未发送；不宣称正文接收 | `BLOCKED_A02_02_L4` |"
+        },
+        {
+          "line": 41,
+          "text": "`context_references.py` 实际把 UTF-8 文本内联到上下文。PDF 等二进制只生成路径、类型、大小和工具读取提示；Files 不会自动调用独立 `pdf.attach` 转换 RPC。PDF 正文理解依赖原生工具链，沿用 `BLOCKED_A02_02_L4`，没有直接调 handler 绕过这一门禁。"
+        },
+        {
+          "line": 97,
+          "text": "| 14 | 模型理解 | TXT 标记 PASS；PNG 未验；PDF BLOCKED_A02_02_L4 |"
+        },
+        {
+          "line": 103,
+          "text": "| 20 | 前置限制记录 | 已保留 A-02-01/A-02-02 原 PARTIAL；本轮前置 429/Stop 未验，未解除 |"
+        }
+      ]
+    },
+    {
+      "file": "docs/architecture/p5.2.2-host-a02-04-native-session-persistence.md",
+      "sha256": "93e80a02d7aae55364fcf095317a230ab7c56da4b8b0a8cefe06dffc608e20be",
+      "lines": 78,
+      "anchors": [
+        {
+          "line": 3,
+          "text": "日期：2026-11-05～06（Asia/Shanghai）。**状态：PARTIAL**。仅 A-02-04，尚未提交、未推送；未进入 A-02-05 / A-03。"
+        },
+        {
+          "line": 53,
+          "text": "| 6 | 历史 Tool Activity | PARTIAL：journal/codec 单测通过，未取得真实工具历史重启证据 |"
+        },
+        {
+          "line": 66,
+          "text": "| 19 | 工程门禁 | 定向 lint/typecheck/116 Unit/10 transport 场景/L2/build/Native TS/diff 通过；真实验收整体 PARTIAL |"
+        },
+        {
+          "line": 67,
+          "text": "| 20 | A02-03 风险继承 | 原 PARTIAL 不改；resolver L2 PASS，真实缺失路径 ACK/PNG/Images/OS 拖放仍未全部验收 |"
+        }
+      ]
+    },
+    {
+      "file": "docs/architecture/p5.2.2-host-a02-05-native-artifact-lifecycle.md",
+      "sha256": "e28f27afb02626c7617f1da9d9a3061732de11a0e265201136df22f6eca78a0e",
+      "lines": 165,
+      "anchors": [
+        {
+          "line": 3,
+          "text": "日期：2026-11-06（Asia/Shanghai）。最终状态：**PARTIAL**。本轮停止于 A-02-05，**不进入 A-03**。"
+        },
+        {
+          "line": 5,
+          "text": "A-02-04 仍为 **PARTIAL / MANUALLY_COMMITTED**，手动提交 `b9d4401dafce295fc3e09145d1c0357c26f6fd4d`。没有重新提交、amend、reset、cherry-pick 或覆盖其历史证据。"
+        }
+      ]
+    },
+    {
+      "file": "docs/architecture/p5.2.2-host-a02-01r-backend-ready-closeout.md",
+      "sha256": "b1d53788a83fbceb9cad51ae8bc2ce30cc97f3b0c67a2163071243be8a578538",
+      "lines": 57,
+      "anchors": [
+        {
+          "line": 1,
+          "text": "# P5.2.2-HOST-A-02-01-BR01 — Backend READY closeout"
+        },
+        {
+          "line": 3,
+          "text": "日期：2026-11-05（Asia/Shanghai）。结论：**PARTIAL / A-02-01 NOT COMPLETE**。未提交、未推送。"
+        },
+        {
+          "line": 9,
+          "text": "真实 stdout 在 **48,481ms** 输出完整 `HERMES_BACKEND_READY port=63276`；stderr 无输出。TCP 监听成功，原生 `/api/health` 返回 HTTP 200、`ok=true`、`version=0.19.0`、`auth_required=false`，总计 48,720ms。因此本次独立探针属于 **A：20秒测试预算不足**，没有证明 B（stderr-only READY）。隔离进程随后按 PID 终止，SIGTERM 是测试清理，不是启动崩溃。"
+        },
+        {
+          "line": 11,
+          "text": "随后唯一一次真实 Career Electron 验收仍失败：原生 Main 报 `Timed out waiting for Hermes backend port announcement (90000ms)`；之后合并的 desktop.log 才记录 `HERMES_BACKEND_READY port=55293`。UI 截图明确显示原生启动失败覆盖层，Gateway offline。测试已使用150秒 Gateway等待，最终退出1，零对话轮次、零 `prompt.submit`、零工具事件。"
+        },
+        {
+          "line": 13,
+          "text": "该次 Electron 归类为 **F：原生端口公告等待超时，随后日志出现 READY**。它不是已证实的健康检查失败 D，也不是 READY+Health 成功后的 Gateway失败 E。Electron日志合并了 Backend stdout/stderr，不能据此确定真实发射时刻或通道，更不能直接宣布 B。独立探针健康通过不能替代 Electron健康/Gateway通过。具体为何该次错过90秒公告期限仍未定位；编译与Renderer启动并行导致资源竞争只是可能性，不作为根因。"
+        },
+        {
+          "line": 19,
+          "text": "- 新增 `scripts/p522-host-a02-01r-backend-probe.mjs`：精确版本和历史清单检查、真实spawn、双流独立buffer、完整READY行、90秒公告及45秒原生健康检查、端口验证、脱敏证据和有界清理。"
+        },
+        {
+          "line": 30,
+          "text": "| 独立 Backend spawn / stdout READY / TCP / 原生Health | PASS，48.5秒启动 |"
+        },
+        {
+          "line": 31,
+          "text": "| Electron READY / Gateway | FAIL，原生90秒公告超时 |"
+        },
+        {
+          "line": 32,
+          "text": "| 指定Provider真实Electron响应 | NOT VERIFIED，本轮未发请求 |"
+        },
+        {
+          "line": 54,
+          "text": "A-02-01不能进入COMPLETE。本轮已用完启动次数，停止继续试跑。下一次需单独授权一次带时间戳的原生子进程双通道观测，核对Electron实际spawn时刻、解释器、等待器注册和READY发射通道；宜先完成编译再启动，排除观测资源干扰。只有证实stderr-only且健康正常，才考虑精确版本Main适配补丁；若实际启动确超原生预算，则先定位耗时，不直接放宽原生阈值。最终Composer分支调整也须在该次验收验证。"
+        }
+      ]
+    },
+    {
+      "file": "src/agent/tools/ProfileReadAdapter.ts",
+      "sha256": "b25405442b16472fba0082896de04c6111a70190146583cdbfeaed8f531aac71",
+      "lines": 93,
+      "anchors": [
+        {
+          "line": 35,
+          "text": "export class ProfileReadAdapter {"
+        }
+      ]
+    },
+    {
+      "file": "src/agent/tools/CareerToolGateway.ts",
+      "sha256": "3e144b8562dd15d39e39bff1134b09f75820e5dda0c6d4726e68f4820ce2086d",
+      "lines": 1252,
+      "anchors": [
+        {
+          "line": 1,
+          "text": "import { agentAttachmentStore } from \"@/services/agent/AgentAttachmentStore\";"
+        },
+        {
+          "line": 463,
+          "text": "await agentAttachmentStore.restore((input as { attachmentId: string }).attachmentId, sessionId);"
+        }
+      ]
+    },
+    {
+      "file": "src/agent/tools/registry.ts",
+      "sha256": "41f60dc7d618616e5b83557af6fe6a7281ccf1159615662143c1f77b81717001",
+      "lines": 544,
+      "anchors": []
+    },
+    {
+      "file": "src/agent/tools/careerToolContract.ts",
+      "sha256": "e4953410acacd73ff0be9258aff538f8d007618aece5bd08b061b61b0a5b099f",
+      "lines": 366,
+      "anchors": []
+    },
+    {
+      "file": "src/services/profile/profileReadPort.ts",
+      "sha256": "59d22182dd1500e815256440a48b9835dfe4b3984e1135a41ea29d2dec6707f4",
+      "lines": 19,
+      "anchors": []
+    },
+    {
+      "file": "src/services/profile/profileQueryService.ts",
+      "sha256": "b4966975afee1db695e3838b97bade94e0d148146ff1ef0daae3a2bfc771db5a",
+      "lines": 108,
+      "anchors": []
+    },
+    {
+      "file": "src/services/storage/repositories.ts",
+      "sha256": "b0025cb0632241a7685eaed85ad290ad8727fab4c59e249aed293bf79e7d9b08",
+      "lines": 9601,
+      "anchors": [
+        {
+          "line": 3213,
+          "text": "targetSnapshot?: import(\"@/domain/schemas\").JobTargetSnapshot;"
+        },
+        {
+          "line": 3686,
+          "text": "targetSnapshot?: import(\"@/domain/schemas\").JobTargetSnapshot;"
+        }
+      ]
+    },
+    {
+      "file": "src/services/agent/agentToolService.ts",
+      "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c",
+      "lines": 2626,
+      "anchors": [
+        {
+          "line": 58,
+          "text": "import { agentAttachmentStore } from \"@/services/agent/AgentAttachmentStore\";"
+        },
+        {
+          "line": 133,
+          "text": "const { ref, file } = await agentAttachmentStore.restore(input.attachmentId);"
+        },
+        {
+          "line": 152,
+          "text": "agentAttachmentStore.release(input.attachmentId);"
+        },
+        {
+          "line": 490,
+          "text": "sectionType?: import(\"@/domain/schemas/resumeV2\").ResumeSectionTypeV2;"
+        },
+        {
+          "line": 2456,
+          "text": "function finalSynthesisHighlights(item: import(\"@/domain/schemas\").ResumeItemV2) {"
+        }
+      ]
+    },
+    {
+      "file": "src/agent/runtime/hermes/HermesCareerToolCatalog.ts",
+      "sha256": "970ba2ba6a1133da9f74fad4a12c83fcd21fcf96a1ea926cadea4ed8bdbc36ba",
+      "lines": 207,
+      "anchors": []
+    },
+    {
+      "file": "src/agent/workflows/CareerWorkflowFacade.ts",
+      "sha256": "2361e55351c5ed72e5fa9c352dbc262fd910a88ef53662dcbd49646b6b7441e9",
+      "lines": 1539,
+      "anchors": []
+    },
+    {
+      "file": "scripts/p522-host-a01-renderer.mjs",
+      "sha256": "34e216422270b2165087abaec447c68d8865ac8c02776dce109f335410d3877f",
+      "lines": 98,
+      "anchors": [
+        {
+          "line": 97,
+          "text": "if(command==='build'){await build(options);console.log('HOST_A01_BUILD_PASS');}else{const server=await createServer(options);await server.listen();console.log('HOST_A01_READY optIn='+optIn+' http://127.0.0.1:'+port);}"
+        }
+      ]
+    },
+    {
+      "file": "scripts/p522-host-a02-01-patches.mjs",
+      "sha256": "e4b761b9d5b4a34e582c22961a2113144656a35fc6df824fea2fe7604b90e29d",
+      "lines": 67,
+      "anchors": []
+    },
+    {
+      "file": "scripts/p522-host-a02-04-patches.mjs",
+      "sha256": "5b64884407d53a7216a8cf3287e24feff569ba733ddf37ec8bdf27db2d9a2e56",
+      "lines": 35,
+      "anchors": []
+    },
+    {
+      "file": "scripts/hermes-runtime-lock.json",
+      "sha256": "4939b630fa15f410ae1287b495e9e16912ab3e71a7a619df1f005050c6fe8ceb",
+      "lines": 9,
+      "anchors": []
+    },
+    {
+      "file": "poc\\host-a01\\artifact-model.ts",
+      "sha256": "d32252cd692e17d447bbae298c9cf938c7625543caf43a4151845b39d0599c02",
+      "lines": 56,
+      "anchors": []
+    },
+    {
+      "file": "poc\\host-a01\\artifacts.css",
+      "sha256": "82b9df4285c426ef8ff0f12350705da6d0a2cf315801fbe55fdf9c4a71875a7d",
+      "lines": 9,
+      "anchors": []
+    },
+    {
+      "file": "poc\\host-a01\\artifacts.tsx",
+      "sha256": "126fa58741ab9789442f7554d339a564f5ccb050e5deed58b61be36c351b108c",
+      "lines": 61,
+      "anchors": []
+    },
+    {
+      "file": "poc\\host-a01\\navigation.tsx",
+      "sha256": "5090e68244155c8e3e3ec110731d23ae943eb26b4ed2d4d7994a4c9cac8f798b",
+      "lines": 32,
+      "anchors": []
+    },
+    {
+      "file": "poc\\host-a01\\README.md",
+      "sha256": "4517b78be34311f07b6c7b759bea9d802d0d68acd736147020212d84002aaf2c",
+      "lines": 49,
+      "anchors": [
+        {
+          "line": 3,
+          "text": "## 2026-11-04 A-01R 当前入口（整体 PARTIAL）"
+        }
+      ]
+    },
+    {
+      "file": "poc\\host-a01\\shell.css",
+      "sha256": "eda6caa6453f7661f9d85dc6d3ee832c89e28647d620b5029266f0ae4dca1e89",
+      "lines": 28,
+      "anchors": []
+    },
+    {
+      "file": "poc\\host-transport\\fake_service.py",
+      "sha256": "41aa9f68dd5faf8a8e195d94ddae7a88563b50101e4461bcca22132859aa863b",
+      "lines": 76,
+      "anchors": [
+        {
+          "line": 30,
+          "text": "result = {\"state\": \"READY\"}"
+        }
+      ]
+    },
+    {
+      "file": "poc\\host-transport\\plugin.mjs",
+      "sha256": "16c9079d6710417da4426521672a395b8d0ed90bfbf53b97e1e041d08a1a7ff6",
+      "lines": 27,
+      "anchors": []
+    },
+    {
+      "file": "poc\\host-transport\\plugin_api.py",
+      "sha256": "ce65dfda5b22e3862050e8f4d6bd2ea0183f5685bc997570f09c9112a6d3cb70",
+      "lines": 97,
+      "anchors": [
+        {
+          "line": 53,
+          "text": "self.transition(\"READY\")"
+        },
+        {
+          "line": 58,
+          "text": "if self.state != \"READY\":"
+        }
+      ]
+    },
+    {
+      "file": "poc\\host-transport\\test_protocol.py",
+      "sha256": "929b8a535ea368437ebcadd322876ad5f64de2f98a489b691a2dc2d49f454347",
+      "lines": 61,
+      "anchors": []
+    },
+    {
+      "file": "poc\\host-transport\\__pycache__\\fake_service.cpython-311.pyc",
+      "sha256": "9ee2be50addfba9ff3c384b892ee9221ad83356dc5fe7354ad5125cf1893f0cb",
+      "lines": 42,
+      "anchors": [
+        {
+          "line": 9,
+          "text": "apiVersion�\u0014expectedServiceEpoch�\u000fINVALID_REQUESTr\u0018\u0000\u0000\u0000�\u0001\u0000\u0000\u0000�\u0013UNSUPPORTED_VERSIONr\u0017\u0000\u0000\u0000r\u0015\u0000\u0000\u0000�\tFORBIDDENr\u0016\u0000\u0000\u0000�\u0005hellor\u0019\u0000\u0000\u0000�\u0011SERVICE_RESTARTEDz\ffixture.read)\u0003r\u0018\u0000\u0000\u0000r\u000e\u0000\u0000\u0000�\fcapabilities�\u0006health�\u0005state�\u0005READYz\u000bprofile.getz\u000bbranch.listz"
+        }
+      ]
+    },
+    {
+      "file": "poc\\host-experience\\CareerExperience.tsx",
+      "sha256": "a19b072d64dc22b8b7f7f95a28cf06fd276b7266f7ef60de6b4419ad71d8d654",
+      "lines": 56,
+      "anchors": []
+    },
+    {
+      "file": "poc\\host-experience\\components.tsx",
+      "sha256": "7d6b477e74567620598bdb183d54b725735cdfbfbfbfa60d41c4bb567f65ef8e",
+      "lines": 27,
+      "anchors": []
+    },
+    {
+      "file": "poc\\host-experience\\experience.css",
+      "sha256": "0281376fcb7ea4e341972b883d35b0a1023a1074e3c1289bd80b3f0e456b31cf",
+      "lines": 84,
+      "anchors": []
+    },
+    {
+      "file": "poc\\host-experience\\pane-probe.tsx",
+      "sha256": "2182103627ffd9a81dbfda482c2f46d4505b5e17fe4f9195e1985eebe6b261dc",
+      "lines": 12,
+      "anchors": []
+    },
+    {
+      "file": "poc\\host-experience\\plugin.tsx",
+      "sha256": "f7c659e4edc0ffbd98155e019c3efb63fe4d7448d6f93dd6a592445edcb11cab",
+      "lines": 16,
+      "anchors": []
+    },
+    {
+      "file": "poc\\host-experience\\profile-fixture.json",
+      "sha256": "aebe5b02a24d1bc7dd6055a6e2328f9d6f70737245e0e342ce33fcff8ddf8ffe",
+      "lines": 1376,
+      "anchors": []
+    },
+    {
+      "file": "poc\\host-experience\\profile-fixture.ts",
+      "sha256": "305ad1d5a220211a68dc51b947291a0948e169b69c0ae58303811b1402fd5a3d",
+      "lines": 44,
+      "anchors": []
+    },
+    {
+      "file": "poc\\host-experience\\profile-read-model.ts",
+      "sha256": "92d474c5bf64098a0f9237c479afb158571b2eaffd5c9cebccc95edd0df30ae9",
+      "lines": 13,
+      "anchors": []
+    },
+    {
+      "file": "poc\\host-experience\\README.md",
+      "sha256": "2453427a7429daa590d912a70259e9061443a8b9527abccd4c8a3bc9700cca0b",
+      "lines": 22,
+      "anchors": []
+    },
+    {
+      "file": "poc\\host-experience\\sdk-extension.d.ts",
+      "sha256": "ebc3af1ce1abe59439596042e2e3e8dfcba5db2eb13cb50b8d28eb7f3bd741b8",
+      "lines": 6,
+      "anchors": []
+    },
+    {
+      "file": "docs\\architecture\\evidence\\p522-a04-profile-read\\adapter-integration.json",
+      "sha256": "fb121368ea6f3308e2637c2c1f914a9b7aef84b35e7aacb55b41c70ab822008a",
+      "lines": 39,
+      "anchors": [
+        {
+          "line": 2,
+          "text": "\"status\": \"PASS_SYNTHETIC_ONLY\","
+        }
+      ]
+    },
+    {
+      "file": "docs\\architecture\\evidence\\p522-a04-profile-read\\authority-scope-verification.json",
+      "sha256": "07cdbebefe89f28e45b2289d41a2e11b618766306609dd7fefeacc4a714a60bc",
+      "lines": 31,
+      "anchors": [
+        {
+          "line": 3,
+          "text": "\"productionAuthority\": \"BLOCKED\","
+        }
+      ]
+    },
+    {
+      "file": "docs\\architecture\\evidence\\p522-a04-profile-read\\baseline.json",
+      "sha256": "c4d2244ca3cf5b0788a96246cbcf4922a360dc7e3f8b9ce26387231a2d2cc5a4",
+      "lines": 57,
+      "anchors": []
+    },
+    {
+      "file": "docs\\architecture\\evidence\\p522-a04-profile-read\\delivery-manifest.json",
+      "sha256": "b6a5ae63388fe39785bcb47d3a8210412a96a32794d9f618247da390166b36ce",
+      "lines": 152,
+      "anchors": [
+        {
+          "line": 149,
+          "text": "\"productionRead\": \"BLOCKED\","
+        },
+        {
+          "line": 150,
+          "text": "\"productionWrite\": \"BLOCKED\""
+        }
+      ]
+    },
+    {
+      "file": "docs\\architecture\\evidence\\p522-a04-profile-read\\dependency-audit.json",
+      "sha256": "a7165c2d6a937a05c5d7dcac69591044de43a0a3756505fd24b1def532195b67",
+      "lines": 2581,
+      "anchors": []
+    },
+    {
+      "file": "docs\\architecture\\evidence\\p522-a04-profile-read\\failure-record.json",
+      "sha256": "49cf99850cb5a97366053a5065e096e18bf41fb3053fa32619a78a9844435bb4",
+      "lines": 42,
+      "anchors": [
+        {
+          "line": 33,
+          "text": "\"A03 R01 UNKNOWN true server-executed ACK-loss reliability BLOCKED\","
+        },
+        {
+          "line": 34,
+          "text": "\"R02 trusted confirmation BLOCKED\","
+        },
+        {
+          "line": 35,
+          "text": "\"R03 real backend disable revocation BLOCKED\","
+        },
+        {
+          "line": 36,
+          "text": "\"R04 scoped write receipts BLOCKED\","
+        },
+        {
+          "line": 37,
+          "text": "\"R09 atomic confirmation/write BLOCKED\","
+        },
+        {
+          "line": 38,
+          "text": "\"R10 native lifecycle NOT VERIFIED\""
+        }
+      ]
+    },
+    {
+      "file": "docs\\architecture\\evidence\\p522-a04-profile-read\\final-protection-verification.json",
+      "sha256": "ceeaf21f8e5651881bd3e3890756f63a1f5daf957307a1668e87c26ca9d561d5",
+      "lines": 22,
+      "anchors": []
+    },
+    {
+      "file": "docs\\architecture\\evidence\\p522-a04-profile-read\\lease-revocation-verification.json",
+      "sha256": "42c5a62368081c45f345e17e13df7de88705ae161f6d9b7c3c66747b04e0a894",
+      "lines": 23,
+      "anchors": [
+        {
+          "line": 18,
+          "text": "\"realPluginDisableBackendRevocation\": \"NOT VERIFIED / D3\","
+        },
+        {
+          "line": 19,
+          "text": "\"productionTrustedIssuer\": \"BLOCKED\","
+        }
+      ]
+    },
+    {
+      "file": "docs\\architecture\\evidence\\p522-a04-profile-read\\migration-separation.json",
+      "sha256": "e0b1e91355064d2e77058816ae5f0bc6636bbccd70e0c7e2eb525786891a7613",
+      "lines": 10,
+      "anchors": []
+    },
+    {
+      "file": "docs\\architecture\\evidence\\p522-a04-profile-read\\pagination-verification.json",
+      "sha256": "9ff0380947efe7842530fa75378a8ef86b1039d1896a65c4131a1ee45faf0cea",
+      "lines": 26,
+      "anchors": []
+    },
+    {
+      "file": "docs\\architecture\\evidence\\p522-a04-profile-read\\production-read-gate.json",
+      "sha256": "b2979c7078b0817d15966b9d1031d52940bc66f412beb910808d17ec21308b8c",
+      "lines": 18,
+      "anchors": [
+        {
+          "line": 6,
+          "text": "\"D2GatewayAdapter\": \"PASS_SYNTHETIC_ONLY\","
+        },
+        {
+          "line": 8,
+          "text": "\"D2LeaseRevocation\": \"PASS_SYNTHETIC_ONLY\","
+        },
+        {
+          "line": 9,
+          "text": "\"productionTrustedAuthority\": \"BLOCKED\","
+        },
+        {
+          "line": 10,
+          "text": "\"nativeHostIntegration\": \"NOT VERIFIED\","
+        },
+        {
+          "line": 11,
+          "text": "\"A0201Reliability\": \"Inherited PARTIAL/BLOCKED; no new qualification\","
+        },
+        {
+          "line": 12,
+          "text": "\"profileProductionRead\": \"BLOCKED until separately authorized D3/D4\","
+        },
+        {
+          "line": 13,
+          "text": "\"profileProductionWrite\": \"BLOCKED\","
+        },
+        {
+          "line": 14,
+          "text": "\"trustedConfirmation\": \"BLOCKED\","
+        },
+        {
+          "line": 15,
+          "text": "\"productionToolIntegration\": \"BLOCKED\","
+        }
+      ]
+    },
+    {
+      "file": "docs\\architecture\\evidence\\p522-a04-profile-read\\profile-projection.json",
+      "sha256": "943ff924749732fcd45880d5535cb26dee95ce7828c7444815d55db71eb986bf",
+      "lines": 35,
+      "anchors": []
+    },
+    {
+      "file": "docs\\architecture\\evidence\\p522-a04-profile-read\\provenance-verification.json",
+      "sha256": "3e546f7d4525ee13b27a75be73ea6d80f673ff0a9c676fc62ad838f7c91fe6da",
+      "lines": 28,
+      "anchors": []
+    },
+    {
+      "file": "docs\\architecture\\evidence\\p522-a04-profile-read\\pure-query-audit.json",
+      "sha256": "c59a70a18d6b3113093a53c052548e81864974a69a1825a2881f542b1c5b35d3",
+      "lines": 13,
+      "anchors": []
+    },
+    {
+      "file": "docs\\architecture\\evidence\\p522-a04-profile-read\\read-port-contract.json",
+      "sha256": "93d4d856d5aa86678783750e98a55c41fd754669191381fd1ef6672818a421d2",
+      "lines": 24,
+      "anchors": []
+    },
+    {
+      "file": "docs\\architecture\\evidence\\p522-a04-profile-read\\synthetic-profile-fixtures.json",
+      "sha256": "e86d70fa9ac4c0b23bae73f0b54b616ef2a24be9fe33b5dc89aa210fd1439b45",
+      "lines": 27,
+      "anchors": []
+    },
+    {
+      "file": "docs\\architecture\\evidence\\p522-a04-profile-read\\test-results.json",
+      "sha256": "a6ceb0f473aafdfee25b37344d4ef459dbffc6cd055f12ee93412558c81e45c8",
+      "lines": 56,
+      "anchors": []
+    },
+    {
+      "file": "docs\\architecture\\evidence\\p522-a04-profile-read\\unit-results.json",
+      "sha256": "186f3984995f562ef2f2f1dc52def56640a62ecfd3fd8f6a449622ac0e0f1dd0",
+      "lines": 1,
+      "anchors": []
+    },
+    {
+      "file": "docs/architecture/evidence/p522-a03-readiness/dependency-matrix.json",
+      "sha256": "4c87a1d8cc338102330155cedde5e9b4b3e06934d91532f01e77f7e594c65845",
+      "lines": 68,
+      "anchors": []
+    },
+    {
+      "file": "docs/architecture/evidence/p522-a03-readiness/production-write-gate.json",
+      "sha256": "294b0b26b9e9009f270a5fcd1e8c712f035f901d98c26a25555b5c06d86c6e23",
+      "lines": 17,
+      "anchors": [
+        {
+          "line": 2,
+          "text": "\"status\": \"BLOCKED\","
+        },
+        {
+          "line": 3,
+          "text": "\"productionToolIntegration\": \"BLOCKED\","
+        }
+      ]
+    },
+    {
+      "file": "docs/architecture/evidence/p522-a03-readiness/test-plan.json",
+      "sha256": "bf4ecd8184198a40e00cf54689fabddcbae837b5da5426ca5e821d95602ba3fe",
+      "lines": 162,
+      "anchors": []
+    }
+  ]
+}

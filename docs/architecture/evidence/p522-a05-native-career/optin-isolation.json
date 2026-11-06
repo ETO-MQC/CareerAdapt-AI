@@ -1,0 +1,12 @@
+{
+  "status": "PASS_DEFAULT_SOURCE_BUILD_AND_MINIMAL_MAIN_PROBE_NATIVE_SHELL_NOT_VERIFIED",
+  "defaultBuildD3Matches": [],
+  "filesScanned": 3,
+  "defaultMainProbe": [
+    "main-probe-1793968343937.json",
+    "main-probe-1793969825382.json"
+  ],
+  "toolsAndAuthorityAbsentFromDefaultCodePath": true,
+  "fullDefaultNativeShellInteraction": "NOT_VERIFIED_THIS_ROUND",
+  "noProductionGrant": true
+}

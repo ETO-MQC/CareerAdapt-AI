@@ -1,0 +1,23 @@
+{
+  "status": "PASS",
+  "head": "91461b7611229fe43424b86721bbb00f8e46ad68",
+  "origin": "91461b7611229fe43424b86721bbb00f8e46ad68",
+  "tracked": 2559,
+  "allowedExistingChanges": [
+    "scripts/p522-host-a01-renderer.mjs"
+  ],
+  "unexpected": [],
+  "lockedChanges": [],
+  "historicalSourceChanges": [],
+  "historicalManifestChanges": [],
+  "worktreesUnchanged": true,
+  "hermesHead": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+  "externalTreeStatusUnchanged": true,
+  "deletedTrackedFiles": "",
+  "noFilesystemDeletes": true,
+  "secretLeaks": [],
+  "providerCredentialsRead": false,
+  "productionDataAccess": false,
+  "mainPreloadChangedOnlyInProjectBuild": true,
+  "coreAgentLoopGatewayRepositorySchemaGuardUnchanged": true
+}

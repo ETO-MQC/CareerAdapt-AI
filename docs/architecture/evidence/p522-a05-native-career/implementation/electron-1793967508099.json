@@ -1,0 +1,30 @@
+{
+  "run": 1793967508099,
+  "status": "PARTIAL",
+  "cases": [],
+  "launches": [
+    {
+      "epoch": 1,
+      "pid": 8632,
+      "at": 1793967509163,
+      "exitCode": 0
+    }
+  ],
+  "rpc": [],
+  "events": [],
+  "errors": [],
+  "deletions": 0,
+  "providerQualification": "DETERMINISTIC_LOCAL_PROTOCOL_DRIVER_NOT_REAL_PROVIDER",
+  "failure": "electronApplication.firstWindow: Timeout 20000ms exceeded while waiting for event \"window\"\n    at launch (E:\\DEF\\CareerAdapt AI\\scripts\\p522-a05-electron.mjs:34:85)\n    at async file:///E:/DEF/CareerAdapt%20AI/scripts/p522-a05-electron.mjs:90:2",
+  "ledger": [
+    {
+      "at": 1793967509068,
+      "event": "BOOT",
+      "boot": "3bc9a150-0ac1-44d2-8866-3b07eee1b1a4",
+      "enabled": false,
+      "epoch": 0
+    }
+  ],
+  "modelRequests": [],
+  "modelEvents": []
+}

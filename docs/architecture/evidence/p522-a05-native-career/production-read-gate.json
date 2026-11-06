@@ -1,0 +1,8 @@
+{
+  "status": "BLOCKED",
+  "D3": "PARTIAL_NOT_QUALIFIED",
+  "D4": "NOT_STARTED_NOT_APPROVED",
+  "productionWrite": "BLOCKED",
+  "trustedConfirmation": "BLOCKED",
+  "realProfileAccess": false
+}

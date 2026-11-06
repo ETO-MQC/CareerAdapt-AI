@@ -1,0 +1,17 @@
+{
+  "status": "PROPOSED_NOT_IMPLEMENTED",
+  "decision": "ADR A05-01 option B awaiting review",
+  "actual": "Native Host still has fixtures; A04 Adapter has no native composition root.",
+  "nativeRegistration": "hermes_cli.plugins.PluginContext.register_tool -> tools.registry; Desktop ctx.register is UI-only",
+  "context": "model_tools.handle_function_call -> run_tool_execution_middleware supplies session_id/tool_call_id/turn_id",
+  "proposed": [
+    "Native Python plugin",
+    "narrow invocation bridge",
+    "application-side ProfileReadAdapter",
+    "existing CareerToolGateway and Registry",
+    "ProfileQueryService",
+    "same WorkspaceRepository"
+  ],
+  "authority": "Main control broker proposed; synthetic-only initial implementation; not production issuer",
+  "mainPreloadCoreModified": false
+}

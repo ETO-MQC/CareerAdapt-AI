@@ -1,0 +1,24 @@
+{
+  "status": "NOT_VERIFIED",
+  "reason": "Stopped before implementation for selected Main/Preload architecture review under user attachment A2.",
+  "nativeLaunches": 0,
+  "cases": [
+    {
+      "name": "career.profile.get",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "career.profile.search_facts",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "strict model-only filters",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "opt-in allowlist",
+      "status": "NOT_RUN"
+    }
+  ],
+  "historicalResultsDoNotSatisfyThisRound": true
+}

@@ -1,0 +1,173 @@
+{
+  "status": "ADR_REVIEW_DELIVERY_D3_BLOCKED_NOT_COMPLETE",
+  "head": "91461b7611229fe43424b86721bbb00f8e46ad68",
+  "notCommitted": true,
+  "notPushed": true,
+  "linksChecked": [
+    {
+      "from": "docs/architecture/p5.2.2-a05-native-career-tool-integration.md",
+      "target": "p5.2.2-a05-native-career-authority-adr.md",
+      "exists": true
+    },
+    {
+      "from": "docs/architecture/p5.2.2-a05-native-career-tool-integration.md",
+      "target": "evidence/p522-a05-native-career/business-capability-inventory.json",
+      "exists": true
+    }
+  ],
+  "jsonFilesParsed": 24,
+  "files": [
+    {
+      "path": "docs/architecture/p5.2.2-a05-native-career-tool-integration.md",
+      "sha256": "5c88741de90257c00238fbfc3dc3f7049f29614cb601b1e4a5dff08c7adfb8ca",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs/architecture/p5.2.2-a05-native-career-authority-adr.md",
+      "sha256": "05b1105ee6965173f4f66713ba06c581286522ad530d92b63edf54a103c04906",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs/architecture/execution-records/20261106-1930-P5.2.2-A05-execution-record.md",
+      "sha256": "b574481b373d45dbd2faa89c6ad9453429b7b1c0b2582014cfde83053451d396",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "scripts/p522-a05-boundary-audit.mjs",
+      "sha256": "bcfaba398153e07cdd9f62a7ca055714f1f7caa592d3c4872601a40984fcb26d",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-a05-native-career\\authority-broker-verification.json",
+      "sha256": "c8932f288137ff3c96c32b5a779290e27317ee45f1b74befb89a86d8338c1678",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-a05-native-career\\baseline.json",
+      "sha256": "667b558bbcb69132e5c005bc33293018ed3462347884195a0e229361b9c5f959",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-a05-native-career\\business-capability-inventory.json",
+      "sha256": "5e6e80de30b48e9ed9e55c14efbec0bf8ed44d6783d30e3fb26a5844ea3d9c5a",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-a05-native-career\\dependency-boundary-audit.json",
+      "sha256": "41482a5b14452704891a9e1a8118c63d0067531b8868585bfddb6b6db9e3ca6b",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-a05-native-career\\disable-closure-probe.json",
+      "sha256": "6969f7569fdd08578801f18e9cda520ee5ad735e5e5d612ff3f3fac7392654be",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-a05-native-career\\failure-record.json",
+      "sha256": "52b0796a15d459366ca92a7576de0c517b7b761df130669d0abd57e3b4dae503",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-a05-native-career\\final-protection-verification.json",
+      "sha256": "98b5c9680c6af363e4c9e94b5d3b9e79e78c2f4ac5e2099d0de3c5515e952cb1",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-a05-native-career\\handler-ledger.json",
+      "sha256": "02b0a32562480191b061419553d235c8e95fc489d4a8f53bcd54dac4c5203749",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-a05-native-career\\history-recovery.json",
+      "sha256": "009f067e3a7e59aa58a0bbf4ff8d0e8c5a528f689595e542bea8ee37934320c2",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-a05-native-career\\integration-architecture.json",
+      "sha256": "736d7b33f8219394c63c673519e5fd0e93d331954f4ad3013b5b46c64a11f409",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-a05-native-career\\native-tool-execution.json",
+      "sha256": "059e048c72d5b7cf6f21767bb57fd4f898069ef87d2dc49ca9b4ddacbf5b0244",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-a05-native-career\\native-tool-registration.json",
+      "sha256": "f60dee2d34e1d11f2df1cd1d75e11fd2ad8f8f2c0919626f96c15beed3fb088e",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-a05-native-career\\optin-isolation.json",
+      "sha256": "4b416e56a4374ce2f426b8073b70093089af255a3c818ed698e1ca788f831dfe",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-a05-native-career\\production-authority-gate.json",
+      "sha256": "05161fc6bdbc6becde6e604d659a9127d43f97e92918cfa876dd5d270ef04f57",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-a05-native-career\\production-read-gate.json",
+      "sha256": "6dbcce7ae9c01d606dadcca7b252515c9791fe910b3f0b603d46bf8bc3dd6aa0",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-a05-native-career\\provider-qualification.json",
+      "sha256": "0500bde4a301fe3535142c9d44fd693e01b6d887cc5f1aea45a55e1d49c18727",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-a05-native-career\\revoke-verification.json",
+      "sha256": "e86aad458f79e9ae6f2d21e8c6819b0a5699105866a36ec54a7f0df1f6b3e9be",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-a05-native-career\\session-isolation.json",
+      "sha256": "7616647b3ba027b9925ccfb9b0b55b9bc4f6f10095f6fbbcacbde713363aed19",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-a05-native-career\\source-review.json",
+      "sha256": "20cf0a72b34434f108beb494e55b7f237f661872e6b63e3b7702473ed0e060f5",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-a05-native-career\\stop-verification.json",
+      "sha256": "3a5df4ddf8156be1faa81d1ce6c6d22a585a5fd502172dc71b91ee7542b52424",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-a05-native-career\\streaming-verification.json",
+      "sha256": "894650223d87a9d60fec20473b2d2273666826aabddc0d91714a63814b3059d2",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-a05-native-career\\test-results.json",
+      "sha256": "e61a421253e6b17b15a5c4912c25bde6893ed7e9c87d55c4a38244581abdacb0",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-a05-native-career\\unit-results.json",
+      "sha256": "b2145730537b411470660fdfbd859381c76ae15d8428bb6e363ae60999fb64b2",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "docs\\architecture\\evidence\\p522-a05-native-career\\unknown-lost-ack-verification.json",
+      "sha256": "5a7cafc32e7781a5a3231cf2db012b2229fe9b5c7b057496742c88850931ff55",
+      "localHandoffOnly": false
+    },
+    {
+      "path": "plan4.md",
+      "sha256": "98f5d65264981475b2d6f8707699367ef8c2ad9b574ef0e943f16bd64eab2f40",
+      "localHandoffOnly": true
+    },
+    {
+      "path": "history4.md",
+      "sha256": "f821cfa5162bd03764fa61db081ee0fb0b6136602c23b04e0e8ce86fbca6d64b",
+      "localHandoffOnly": true
+    }
+  ],
+  "selfHashOmitted": true,
+  "noProductionQualification": true
+}

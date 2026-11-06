@@ -1,0 +1,16 @@
+{
+  "status": "NOT_VERIFIED",
+  "reason": "Stopped before implementation for selected Main/Preload architecture review under user attachment A2.",
+  "nativeLaunches": 0,
+  "cases": [
+    {
+      "name": "false: no tools/grant/profile request/default Shell changes",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "true: exactly two read-only tools on synthetic data",
+      "status": "NOT_RUN"
+    }
+  ],
+  "historicalResultsDoNotSatisfyThisRound": true
+}

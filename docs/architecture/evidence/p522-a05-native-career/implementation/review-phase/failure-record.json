@@ -1,0 +1,21 @@
+{
+  "status": "PRESERVED",
+  "failures": [
+    {
+      "kind": "CURRENT_BOUNDARY_DEFECT",
+      "evidence": "disable-closure-probe.json",
+      "detail": "Captured rest closure remains callable after Desktop plugin disable; not actual Career backend failure."
+    }
+  ],
+  "toolingErrors": [
+    "PowerShell rg literal glob path scripts/p522* rejected; corrected using directory plus -g filters",
+    "Guessed tests/unit/profileReadAdapter.test.ts did not exist; used actual p522-a04 tests",
+    "Guessed tools/tool_context.py absent; reviewed thread_context.py/approval/middleware instead",
+    "PowerShell parameter passed to rg by mistake; corrected search",
+    "src/services/resume directory absent; used actual service and domain paths",
+    "Initial handoff insertion assumed LF and split CRLF title after first character; repaired exact inserted segment, preserving original title/body, then made insertion CRLF-aware and checked saved headings"
+  ],
+  "nativeFailures": [],
+  "nativeRuns": 0,
+  "historicalEvidenceOverwritten": false
+}

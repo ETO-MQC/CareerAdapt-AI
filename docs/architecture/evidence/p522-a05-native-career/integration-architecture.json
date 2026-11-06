@@ -1,0 +1,27 @@
+{
+  "status": "IMPLEMENTED_SYNTHETIC_ONLY_NATIVE_HOST_UNQUALIFIED",
+  "approval": "ADR A05-01 option B APPROVED WITH CONDITIONS C1-C6",
+  "processes": {
+    "main": "Locked Hermes Desktop Main project-only integration bundle; lifecycle/grants, named-pipe Broker and D3 ledger; no Dexie/Repository",
+    "preload": "Only fixed attach/lifecycle/contextChanged/verify/started/complete/onRead; Main checks WebContents/mainFrame and launch origin",
+    "python": "Project plugin loaded through locked register_tool and execution middleware; strict model filters, correlation IDs and pipe protocol only",
+    "application": "Renderer-owned in-memory instance of existing CareerAdaptDb schema with fake-indexeddb, same WorkspaceRepository/ProfileQueryService/ProfileReadAdapter/Gateway implementations; default/user database never opened"
+  },
+  "transport": {
+    "type": "Windows named pipe, no TCP Career listener",
+    "permissions": "Node readableAll=false/writableAll=false; current-user default DACL, no Everyone grant added. Independent SID/DACL inspection NOT VERIFIED; no local malicious-code sandbox claim.",
+    "authentication": "Random pipe name plus per-run HMAC secret held in Main launch config/native backend environment, not Renderer/model; not a production issuer",
+    "framing": "4-byte length prefix, bounded frames; native plugin handles EOF as UNKNOWN without retry"
+  },
+  "binding": "Main independent exact native REST session record lookup and cwd match against private launch policy, before synthetic grant. Renderer contextChanged only revokes; no scope setter. This Native REST binding has not yet executed in full Host.",
+  "correlation": "operationId is SHA256 of native Session/Turn/ToolCall only; payloadHash binds tool/args separately, mutation of original call is rejected rather than generating another operation; requestId=operationId for this read-only test, not production write idempotency",
+  "timeouts": {
+    "domainMs": 15000,
+    "pipeIdleMs": 65000,
+    "nativeSessionLookupMs": 5000
+  },
+  "revocation": "enabled=false, epoch++ and grants cleared, synchronously append+fsync lifecycle before ACK; domain attach/reload/exit, context change, broken pipe and Main restart invalidate old grants",
+  "delivery": "READY ref -> CANDIDATE bytes held inside Python -> commit-delivery gate -> AUTHORIZED. Queued candidates crossing revoke are rejected. Final commit is the linearization point; already committed publication is not retractable. Full native scheduling/queued final-ACK race still NOT VERIFIED.",
+  "restart": "Ledger reload does not reconstruct grants or reexecute handlers; ACCEPTED/DISPATCHED/STARTED without terminal report UNKNOWN; status original operation only",
+  "optIn": "Main enabled only CAREERADAPT_D3=1; D3 Preload chosen only then; Renderer patch only --careeradapt --native-career-d3; Python register checks explicit opt-in"
+}

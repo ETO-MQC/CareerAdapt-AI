@@ -1,0 +1,915 @@
+{
+  "status": "PASS_SYNTHETIC_NATIVE_REGISTRY_NOT_HOST",
+  "schemas": [
+    {
+      "type": "function",
+      "function": {
+        "name": "career.profile.get",
+        "description": "Read isolated synthetic Profile facts. Never invent facts or treat unconfirmed content as confirmed.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "sectionTypes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20
+            },
+            "cursor": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "career.profile.search_facts",
+        "description": "Read isolated synthetic Profile facts. Never invent facts or treat unconfirmed content as confirmed.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "sectionTypes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20
+            },
+            "cursor": {
+              "type": "string"
+            },
+            "query": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ],
+  "a": {
+    "operationId": "bf576ce6af1d341ff6a8041b13c4616edc74924b06f01e54d421d6c8703f772d",
+    "ok": true,
+    "data": {
+      "projectionVersion": "career-profile-read-v1",
+      "status": "ok",
+      "profileId": "A",
+      "personId": "person-A",
+      "sourceRevision": "1:2026-11-06T09:00:00.000Z",
+      "requestId": "bf576ce6af1d341ff6a8041b13c4616edc74924b06f01e54d421d6c8703f772d",
+      "items": [
+        {
+          "itemId": "item-0",
+          "sectionType": "project",
+          "text": "Project 0\n项目名称：Project 0\n亮点：xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "textTruncated": true,
+          "factIds": [
+            "fact-0"
+          ],
+          "referencesTruncated": false,
+          "confirmationState": "confirmed",
+          "sourceRefs": [
+            {
+              "kind": "block",
+              "id": "block-0"
+            },
+            {
+              "kind": "range",
+              "id": "block-0",
+              "start": 0,
+              "end": 5
+            },
+            {
+              "kind": "source_turn",
+              "id": "turn-0"
+            },
+            {
+              "kind": "fact_source",
+              "id": "evidence-1"
+            },
+            {
+              "kind": "evidence",
+              "id": "evidence-1"
+            }
+          ]
+        },
+        {
+          "itemId": "item-2",
+          "sectionType": "project",
+          "text": "Project 2\n项目名称：Project 2\n亮点：Implemented synthetic feature",
+          "textTruncated": false,
+          "factIds": [
+            "fact-2"
+          ],
+          "referencesTruncated": false,
+          "confirmationState": "unconfirmed",
+          "sourceRefs": [
+            {
+              "kind": "block",
+              "id": "block-2"
+            },
+            {
+              "kind": "range",
+              "id": "block-2",
+              "start": 0,
+              "end": 5
+            },
+            {
+              "kind": "ai_proposal",
+              "id": "turn-2"
+            },
+            {
+              "kind": "fact_source",
+              "id": "evidence-1"
+            },
+            {
+              "kind": "evidence",
+              "id": "evidence-1"
+            }
+          ]
+        },
+        {
+          "itemId": "item-4",
+          "sectionType": "project",
+          "text": "Project 4\n项目名称：Project 4\n亮点：Implemented synthetic feature",
+          "textTruncated": false,
+          "factIds": [
+            "fact-4"
+          ],
+          "referencesTruncated": false,
+          "confirmationState": "confirmed",
+          "sourceRefs": [
+            {
+              "kind": "block",
+              "id": "block-4"
+            },
+            {
+              "kind": "range",
+              "id": "block-4",
+              "start": 0,
+              "end": 5
+            },
+            {
+              "kind": "source_turn",
+              "id": "turn-4"
+            },
+            {
+              "kind": "fact_source",
+              "id": "evidence-1"
+            },
+            {
+              "kind": "evidence",
+              "id": "evidence-1"
+            }
+          ]
+        },
+        {
+          "itemId": "item-6",
+          "sectionType": "project",
+          "text": "Project 6\n项目名称：Project 6\n亮点：Implemented synthetic feature",
+          "textTruncated": false,
+          "factIds": [
+            "fact-6"
+          ],
+          "referencesTruncated": false,
+          "confirmationState": "confirmed",
+          "sourceRefs": [
+            {
+              "kind": "block",
+              "id": "block-6"
+            },
+            {
+              "kind": "range",
+              "id": "block-6",
+              "start": 0,
+              "end": 5
+            },
+            {
+              "kind": "source_turn",
+              "id": "turn-6"
+            },
+            {
+              "kind": "fact_source",
+              "id": "evidence-1"
+            },
+            {
+              "kind": "evidence",
+              "id": "evidence-1"
+            }
+          ]
+        },
+        {
+          "itemId": "item-8",
+          "sectionType": "project",
+          "text": "Project 8\n项目名称：Project 8\n亮点：Implemented synthetic feature",
+          "textTruncated": false,
+          "factIds": [
+            "fact-8"
+          ],
+          "referencesTruncated": false,
+          "confirmationState": "confirmed",
+          "sourceRefs": [
+            {
+              "kind": "block",
+              "id": "block-8"
+            },
+            {
+              "kind": "range",
+              "id": "block-8",
+              "start": 0,
+              "end": 5
+            },
+            {
+              "kind": "source_turn",
+              "id": "turn-8"
+            },
+            {
+              "kind": "fact_source",
+              "id": "evidence-1"
+            },
+            {
+              "kind": "evidence",
+              "id": "evidence-1"
+            }
+          ]
+        },
+        {
+          "itemId": "item-10",
+          "sectionType": "project",
+          "text": "Project 10\n项目名称：Project 10\n亮点：Implemented synthetic feature",
+          "textTruncated": false,
+          "factIds": [
+            "fact-10"
+          ],
+          "referencesTruncated": false,
+          "confirmationState": "confirmed",
+          "sourceRefs": [
+            {
+              "kind": "block",
+              "id": "block-10"
+            },
+            {
+              "kind": "range",
+              "id": "block-10",
+              "start": 0,
+              "end": 5
+            },
+            {
+              "kind": "source_turn",
+              "id": "turn-10"
+            },
+            {
+              "kind": "fact_source",
+              "id": "evidence-1"
+            },
+            {
+              "kind": "evidence",
+              "id": "evidence-1"
+            }
+          ]
+        },
+        {
+          "itemId": "item-12",
+          "sectionType": "project",
+          "text": "Project 12\n项目名称：Project 12\n亮点：Implemented synthetic feature",
+          "textTruncated": false,
+          "factIds": [
+            "fact-12"
+          ],
+          "referencesTruncated": false,
+          "confirmationState": "confirmed",
+          "sourceRefs": [
+            {
+              "kind": "block",
+              "id": "block-12"
+            },
+            {
+              "kind": "range",
+              "id": "block-12",
+              "start": 0,
+              "end": 5
+            },
+            {
+              "kind": "source_turn",
+              "id": "turn-12"
+            },
+            {
+              "kind": "fact_source",
+              "id": "evidence-1"
+            },
+            {
+              "kind": "evidence",
+              "id": "evidence-1"
+            }
+          ]
+        },
+        {
+          "itemId": "item-14",
+          "sectionType": "project",
+          "text": "Project 14\n项目名称：Project 14\n亮点：Implemented synthetic feature",
+          "textTruncated": false,
+          "factIds": [
+            "fact-14"
+          ],
+          "referencesTruncated": false,
+          "confirmationState": "confirmed",
+          "sourceRefs": [
+            {
+              "kind": "block",
+              "id": "block-14"
+            },
+            {
+              "kind": "range",
+              "id": "block-14",
+              "start": 0,
+              "end": 5
+            },
+            {
+              "kind": "source_turn",
+              "id": "turn-14"
+            },
+            {
+              "kind": "fact_source",
+              "id": "evidence-1"
+            },
+            {
+              "kind": "evidence",
+              "id": "evidence-1"
+            }
+          ]
+        },
+        {
+          "itemId": "item-16",
+          "sectionType": "project",
+          "text": "Project 16\n项目名称：Project 16\n亮点：Implemented synthetic feature",
+          "textTruncated": false,
+          "factIds": [
+            "fact-16"
+          ],
+          "referencesTruncated": false,
+          "confirmationState": "confirmed",
+          "sourceRefs": [
+            {
+              "kind": "block",
+              "id": "block-16"
+            },
+            {
+              "kind": "range",
+              "id": "block-16",
+              "start": 0,
+              "end": 5
+            },
+            {
+              "kind": "source_turn",
+              "id": "turn-16"
+            },
+            {
+              "kind": "fact_source",
+              "id": "evidence-1"
+            },
+            {
+              "kind": "evidence",
+              "id": "evidence-1"
+            }
+          ]
+        },
+        {
+          "itemId": "item-18",
+          "sectionType": "project",
+          "text": "Project 18\n项目名称：Project 18\n亮点：Implemented synthetic feature",
+          "textTruncated": false,
+          "factIds": [
+            "fact-18"
+          ],
+          "referencesTruncated": false,
+          "confirmationState": "confirmed",
+          "sourceRefs": [
+            {
+              "kind": "block",
+              "id": "block-18"
+            },
+            {
+              "kind": "range",
+              "id": "block-18",
+              "start": 0,
+              "end": 5
+            },
+            {
+              "kind": "source_turn",
+              "id": "turn-18"
+            },
+            {
+              "kind": "fact_source",
+              "id": "evidence-1"
+            },
+            {
+              "kind": "evidence",
+              "id": "evidence-1"
+            }
+          ]
+        },
+        {
+          "itemId": "item-20",
+          "sectionType": "project",
+          "text": "Project 20\n项目名称：Project 20\n亮点：Implemented synthetic feature",
+          "textTruncated": false,
+          "factIds": [
+            "fact-20"
+          ],
+          "referencesTruncated": false,
+          "confirmationState": "confirmed",
+          "sourceRefs": [
+            {
+              "kind": "block",
+              "id": "block-20"
+            },
+            {
+              "kind": "range",
+              "id": "block-20",
+              "start": 0,
+              "end": 5
+            },
+            {
+              "kind": "source_turn",
+              "id": "turn-20"
+            },
+            {
+              "kind": "fact_source",
+              "id": "evidence-1"
+            },
+            {
+              "kind": "evidence",
+              "id": "evidence-1"
+            }
+          ]
+        },
+        {
+          "itemId": "item-22",
+          "sectionType": "project",
+          "text": "Project 22\n项目名称：Project 22\n亮点：Implemented synthetic feature",
+          "textTruncated": false,
+          "factIds": [
+            "fact-22"
+          ],
+          "referencesTruncated": false,
+          "confirmationState": "confirmed",
+          "sourceRefs": [
+            {
+              "kind": "block",
+              "id": "block-22"
+            },
+            {
+              "kind": "range",
+              "id": "block-22",
+              "start": 0,
+              "end": 5
+            },
+            {
+              "kind": "source_turn",
+              "id": "turn-22"
+            },
+            {
+              "kind": "fact_source",
+              "id": "evidence-1"
+            },
+            {
+              "kind": "evidence",
+              "id": "evidence-1"
+            }
+          ]
+        },
+        {
+          "itemId": "item-24",
+          "sectionType": "project",
+          "text": "Project 24\n项目名称：Project 24\n亮点：Implemented synthetic feature",
+          "textTruncated": false,
+          "factIds": [
+            "fact-24"
+          ],
+          "referencesTruncated": false,
+          "confirmationState": "confirmed",
+          "sourceRefs": [
+            {
+              "kind": "block",
+              "id": "block-24"
+            },
+            {
+              "kind": "range",
+              "id": "block-24",
+              "start": 0,
+              "end": 5
+            },
+            {
+              "kind": "source_turn",
+              "id": "turn-24"
+            },
+            {
+              "kind": "fact_source",
+              "id": "evidence-1"
+            },
+            {
+              "kind": "evidence",
+              "id": "evidence-1"
+            }
+          ]
+        },
+        {
+          "itemId": "item-26",
+          "sectionType": "project",
+          "text": "Project 26\n项目名称：Project 26\n亮点：Implemented synthetic feature",
+          "textTruncated": false,
+          "factIds": [
+            "fact-26"
+          ],
+          "referencesTruncated": false,
+          "confirmationState": "confirmed",
+          "sourceRefs": [
+            {
+              "kind": "block",
+              "id": "block-26"
+            },
+            {
+              "kind": "range",
+              "id": "block-26",
+              "start": 0,
+              "end": 5
+            },
+            {
+              "kind": "source_turn",
+              "id": "turn-26"
+            },
+            {
+              "kind": "fact_source",
+              "id": "evidence-1"
+            },
+            {
+              "kind": "evidence",
+              "id": "evidence-1"
+            }
+          ]
+        },
+        {
+          "itemId": "item-28",
+          "sectionType": "project",
+          "text": "Project 28\n项目名称：Project 28\n亮点：Implemented synthetic feature",
+          "textTruncated": false,
+          "factIds": [
+            "fact-28"
+          ],
+          "referencesTruncated": false,
+          "confirmationState": "confirmed",
+          "sourceRefs": [
+            {
+              "kind": "block",
+              "id": "block-28"
+            },
+            {
+              "kind": "range",
+              "id": "block-28",
+              "start": 0,
+              "end": 5
+            },
+            {
+              "kind": "source_turn",
+              "id": "turn-28"
+            },
+            {
+              "kind": "fact_source",
+              "id": "evidence-1"
+            },
+            {
+              "kind": "evidence",
+              "id": "evidence-1"
+            }
+          ]
+        },
+        {
+          "itemId": "item-30",
+          "sectionType": "project",
+          "text": "Project 30\n项目名称：Project 30\n亮点：Implemented synthetic feature",
+          "textTruncated": false,
+          "factIds": [
+            "fact-30"
+          ],
+          "referencesTruncated": false,
+          "confirmationState": "confirmed",
+          "sourceRefs": [
+            {
+              "kind": "block",
+              "id": "block-30"
+            },
+            {
+              "kind": "range",
+              "id": "block-30",
+              "start": 0,
+              "end": 5
+            },
+            {
+              "kind": "source_turn",
+              "id": "turn-30"
+            },
+            {
+              "kind": "fact_source",
+              "id": "evidence-1"
+            },
+            {
+              "kind": "evidence",
+              "id": "evidence-1"
+            }
+          ]
+        },
+        {
+          "itemId": "item-32",
+          "sectionType": "project",
+          "text": "Project 32\n项目名称：Project 32\n亮点：Implemented synthetic feature",
+          "textTruncated": false,
+          "factIds": [
+            "fact-32"
+          ],
+          "referencesTruncated": false,
+          "confirmationState": "confirmed",
+          "sourceRefs": [
+            {
+              "kind": "block",
+              "id": "block-32"
+            },
+            {
+              "kind": "range",
+              "id": "block-32",
+              "start": 0,
+              "end": 5
+            },
+            {
+              "kind": "source_turn",
+              "id": "turn-32"
+            },
+            {
+              "kind": "fact_source",
+              "id": "evidence-1"
+            },
+            {
+              "kind": "evidence",
+              "id": "evidence-1"
+            }
+          ]
+        },
+        {
+          "itemId": "item-34",
+          "sectionType": "project",
+          "text": "Project 34\n项目名称：Project 34\n亮点：Implemented synthetic feature",
+          "textTruncated": false,
+          "factIds": [
+            "fact-34"
+          ],
+          "referencesTruncated": false,
+          "confirmationState": "confirmed",
+          "sourceRefs": [
+            {
+              "kind": "block",
+              "id": "block-34"
+            },
+            {
+              "kind": "range",
+              "id": "block-34",
+              "start": 0,
+              "end": 5
+            },
+            {
+              "kind": "source_turn",
+              "id": "turn-34"
+            },
+            {
+              "kind": "fact_source",
+              "id": "evidence-1"
+            },
+            {
+              "kind": "evidence",
+              "id": "evidence-1"
+            }
+          ]
+        },
+        {
+          "itemId": "item-36",
+          "sectionType": "project",
+          "text": "Project 36\n项目名称：Project 36\n亮点：Implemented synthetic feature",
+          "textTruncated": false,
+          "factIds": [
+            "fact-36"
+          ],
+          "referencesTruncated": false,
+          "confirmationState": "confirmed",
+          "sourceRefs": [
+            {
+              "kind": "block",
+              "id": "block-36"
+            },
+            {
+              "kind": "range",
+              "id": "block-36",
+              "start": 0,
+              "end": 5
+            },
+            {
+              "kind": "source_turn",
+              "id": "turn-36"
+            },
+            {
+              "kind": "fact_source",
+              "id": "evidence-1"
+            },
+            {
+              "kind": "evidence",
+              "id": "evidence-1"
+            }
+          ]
+        },
+        {
+          "itemId": "item-38",
+          "sectionType": "project",
+          "text": "Project 38\n项目名称：Project 38\n亮点：Implemented synthetic feature",
+          "textTruncated": false,
+          "factIds": [
+            "fact-38"
+          ],
+          "referencesTruncated": false,
+          "confirmationState": "confirmed",
+          "sourceRefs": [
+            {
+              "kind": "block",
+              "id": "block-38"
+            },
+            {
+              "kind": "range",
+              "id": "block-38",
+              "start": 0,
+              "end": 5
+            },
+            {
+              "kind": "source_turn",
+              "id": "turn-38"
+            },
+            {
+              "kind": "fact_source",
+              "id": "evidence-1"
+            },
+            {
+              "kind": "evidence",
+              "id": "evidence-1"
+            }
+          ]
+        }
+      ],
+      "nextCursor": "{\"v\":1,\"workspaceId\":\"synthetic-workspace\",\"personId\":\"person-A\",\"profileId\":\"A\",\"sessionId\":\"native-A\",\"grantId\":\"622bdb0e-d107-47d3-b31f-024a15e32241\",\"epoch\":1,\"leaseExpiry\":1793969660359,\"requestId\":\"bf576ce6af1d341ff6a8041b13c4616edc74924b06f01e54d421d6c8703f772d\",\"profileVersionNumber\":1,\"profileRevision\":1,\"sourceRevision\":\"1:2026-11-06T09:00:00.000Z\",\"range\":\"{\\\"sections\\\":[\\\"project\\\"],\\\"query\\\":null,\\\"limit\\\":20}\",\"offset\":20}",
+      "truncated": true
+    },
+    "requestId": "bf576ce6af1d341ff6a8041b13c4616edc74924b06f01e54d421d6c8703f772d",
+    "applicationExecutions": 1
+  },
+  "b": {
+    "operationId": "379a4f9f701560b5f4ac9fee1b23aaf44dcd93c96186f7d8f061a693cd4ad01d",
+    "ok": true,
+    "data": {
+      "projectionVersion": "career-profile-read-v1",
+      "status": "ok",
+      "profileId": "B",
+      "personId": "person-B",
+      "sourceRevision": "1:2026-11-06T09:00:00.000Z",
+      "requestId": "379a4f9f701560b5f4ac9fee1b23aaf44dcd93c96186f7d8f061a693cd4ad01d",
+      "items": [
+        {
+          "itemId": "item-0",
+          "sectionType": "project",
+          "text": "Project 0\n项目名称：Project 0\n亮点：xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "textTruncated": true,
+          "factIds": [
+            "fact-0"
+          ],
+          "referencesTruncated": false,
+          "confirmationState": "confirmed",
+          "sourceRefs": [
+            {
+              "kind": "block",
+              "id": "block-0"
+            },
+            {
+              "kind": "range",
+              "id": "block-0",
+              "start": 0,
+              "end": 5
+            },
+            {
+              "kind": "source_turn",
+              "id": "turn-0"
+            },
+            {
+              "kind": "fact_source",
+              "id": "evidence-1"
+            },
+            {
+              "kind": "evidence",
+              "id": "evidence-1"
+            }
+          ]
+        },
+        {
+          "itemId": "item-1",
+          "sectionType": "skills",
+          "text": "Skill 1\n技能名称：Skill 1\n说明：TypeScript",
+          "textTruncated": false,
+          "factIds": [
+            "fact-1"
+          ],
+          "referencesTruncated": false,
+          "confirmationState": "confirmed",
+          "sourceRefs": [
+            {
+              "kind": "block",
+              "id": "block-1"
+            },
+            {
+              "kind": "range",
+              "id": "block-1",
+              "start": 0,
+              "end": 5
+            },
+            {
+              "kind": "source_turn",
+              "id": "turn-1"
+            },
+            {
+              "kind": "fact_source",
+              "id": "evidence-1"
+            },
+            {
+              "kind": "evidence",
+              "id": "evidence-1"
+            }
+          ]
+        }
+      ],
+      "nextCursor": null,
+      "truncated": true
+    },
+    "requestId": "379a4f9f701560b5f4ac9fee1b23aaf44dcd93c96186f7d8f061a693cd4ad01d",
+    "applicationExecutions": 1
+  },
+  "miss": {
+    "operationId": "ebe50b0c30c909f1e83116b78c28626c9b743fe471601adf4220a38b9c712baf",
+    "ok": true,
+    "data": {
+      "projectionVersion": "career-profile-read-v1",
+      "status": "empty",
+      "profileId": "A",
+      "personId": "person-A",
+      "sourceRevision": "1:2026-11-06T09:00:00.000Z",
+      "requestId": "ebe50b0c30c909f1e83116b78c28626c9b743fe471601adf4220a38b9c712baf",
+      "items": [],
+      "nextCursor": null,
+      "truncated": false,
+      "searchSemantics": "keyword_only_no_absence_inference"
+    },
+    "requestId": "ebe50b0c30c909f1e83116b78c28626c9b743fe471601adf4220a38b9c712baf",
+    "applicationExecutions": 1
+  },
+  "duplicate": {
+    "ok": false,
+    "operationId": "bf576ce6af1d341ff6a8041b13c4616edc74924b06f01e54d421d6c8703f772d",
+    "error": {
+      "code": "UNKNOWN"
+    }
+  },
+  "mutatedOriginalCall": {
+    "ok": false,
+    "operationId": "bf576ce6af1d341ff6a8041b13c4616edc74924b06f01e54d421d6c8703f772d",
+    "error": {
+      "code": "OPERATION_CONFLICT"
+    }
+  },
+  "invalid": {
+    "ok": false,
+    "error": {
+      "code": "INVALID_REQUEST"
+    }
+  },
+  "handlerClosureCaptured": true,
+  "scope": "Native Python registry + real named pipe + synthetic service-side Adapter; no Electron Host or production authority",
+  "executions": [
+    "bf576ce6af1d341ff6a8041b13c4616edc74924b06f01e54d421d6c8703f772d",
+    "379a4f9f701560b5f4ac9fee1b23aaf44dcd93c96186f7d8f061a693cd4ad01d",
+    "ebe50b0c30c909f1e83116b78c28626c9b743fe471601adf4220a38b9c712baf"
+  ],
+  "zeroBusinessWrites": true
+}

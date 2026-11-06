@@ -1,0 +1,7 @@
+{
+  "status": "NOT_VERIFIED_FULL_NATIVE_HOST",
+  "implementationPresent": true,
+  "reason": "Two consecutive full Native Electron runs timed out before a window. Stopped same long-suite reruns per AGENTS; no Native prompt/model/tool request was sent.",
+  "syntheticEvidence": "implementation/native-registry-pipe.json",
+  "priorPlan": "implementation/review-phase/session-isolation.json"
+}

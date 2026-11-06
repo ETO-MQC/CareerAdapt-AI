@@ -1,0 +1,22 @@
+{
+  "status": "REPRODUCED_MISSING_BACKEND_REVOCATION",
+  "level": "CURRENT_LOCKED_FUNCTIONS_VM_WITH_REAL_LOOPBACK_HTTP_NOT_ELECTRON",
+  "method": "TypeScript transpilation of complete locked plugin.ts and plugins-store.ts; mocked dependencies explicitly listed; existing setPluginEnabled/createPluginContext bodies execute unchanged.",
+  "mocks": [
+    "nanostores atom",
+    "registry contribution disposer",
+    "storage",
+    "i18n",
+    "pluginRest transport to synthetic loopback server",
+    "window.localStorage"
+  ],
+  "disabledStatus": "disabled",
+  "disposals": 1,
+  "requestsBeforeDisable": 1,
+  "requestsAfterDisable": 1,
+  "totalRequests": 2,
+  "retainedClosureDeliveredAfterDisable": true,
+  "careerAdapterInvocations": 0,
+  "realProfileReads": 0,
+  "conclusion": "Disposal is not a backend grant invalidation. This probe is neither a real Career Tool Call nor proof that an extension cannot implement a new synthetic broker."
+}

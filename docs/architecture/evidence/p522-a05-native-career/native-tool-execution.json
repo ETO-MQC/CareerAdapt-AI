@@ -1,0 +1,18 @@
+{
+  "status": "PASS_SYNTHETIC_NATIVE_DISPATCHER_PIPE_ADAPTER_NOT_HOST",
+  "evidence": "implementation/native-registry-pipe.json",
+  "executions": 3,
+  "zeroBusinessWrites": true,
+  "realNativeHostModelToolAnswer": "NOT_VERIFIED",
+  "failureRuns": [
+    {
+      "file": "electron-1793967508099.json",
+      "status": "PARTIAL"
+    },
+    {
+      "file": "electron-1793967635238.json",
+      "status": "PARTIAL"
+    }
+  ],
+  "modelRequestsThisRound": 0
+}

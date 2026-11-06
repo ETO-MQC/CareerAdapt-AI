@@ -1,0 +1,22 @@
+{
+  "status": "PASS_REAL_PIPE_SYNTHETIC_ADAPTER_NOT_ELECTRON_HOST",
+  "evidence": "implementation/lost-ack-pipe.json",
+  "actualHandlerExecutions": 1,
+  "ackActivelyDropped": true,
+  "brokerRecreatedFromLedger": true,
+  "originalOperationStatus": {
+    "operationId": "e6ba4439-9a48-486c-9359-8226c743172e",
+    "state": "COMPLETED",
+    "handlerExecutions": 1,
+    "resultRef": "33360705fa36c845ff3c70ed96c347f7ba9baa4f275af9317c438e3e753b7400",
+    "payloadHash": "157fcf3167f4b8a94d807a374d52abf9863d75793d43f40ab992aad471f3bf5c",
+    "sessionId": "native-A",
+    "toolCallId": "call-lost-ack",
+    "turnId": "turn-lost-ack"
+  },
+  "grantInvalidatedOnDisconnect": true,
+  "automaticResend": false,
+  "providerOrModelSwitch": false,
+  "electronBackendRestartQualification": "NOT_VERIFIED",
+  "exactlyOnceGuarantee": false
+}

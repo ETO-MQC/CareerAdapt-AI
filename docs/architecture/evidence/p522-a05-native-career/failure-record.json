@@ -1,0 +1,52 @@
+{
+  "status": "PRESERVED",
+  "fullNativeRuns": [
+    {
+      "file": "electron-1793967508099.json",
+      "status": "PARTIAL",
+      "failure": "electronApplication.firstWindow: Timeout 20000ms exceeded while waiting for event \"window\"\n    at launch (E:\\DEF\\CareerAdapt AI\\scripts\\p522-a05-electron.mjs:34:85)\n    at async file:///E:/DEF/CareerAdapt%20AI/scripts/p522-a05-electron.mjs:90:2",
+      "modelRequests": 0
+    },
+    {
+      "file": "electron-1793967635238.json",
+      "status": "PARTIAL",
+      "failure": "electronApplication.firstWindow: Timeout 20000ms exceeded while waiting for event \"window\"\n    at launch (E:\\DEF\\CareerAdapt AI\\scripts\\p522-a05-electron.mjs:34:241)\n    at async file:///E:/DEF/CareerAdapt%20AI/scripts/p522-a05-electron.mjs:90:2",
+      "modelRequests": 0
+    }
+  ],
+  "nativeRootCause": "JS named-pipe path escaped incorrectly into \\.pipecareeradapt..., causing Main listen EACCES before window creation; fixed with explicit separator construction. The second run has a direct Main error log; first-run attribution uses identical malformed pipe config and pre-window state, not a captured first-run EACCES stack. Subsequent minimal real Electron pipe/Main/Preload/Application probes passed; full Host suite not rerun.",
+  "stopRule": {
+    "source": "AGENTS.md section 5",
+    "instruction": "同一长测试连续两次超时后停止重跑并报告。",
+    "fullSuiteStopped": true
+  },
+  "probeFailures": [
+    {
+      "file": "main-probe-1793968167593.json",
+      "run": 1793968167593,
+      "status": "FAIL",
+      "level": "REAL_ELECTRON_MAIN_PRELOAD_ONLY_NOT_NATIVE_HERMES",
+      "cases": [],
+      "error": "page.evaluate: ReferenceError: process is not defined\n    at http://127.0.0.1:5196/@fs/E:/DEF/CareerAdapt%20AI/.artifacts/p522-a05/application.mjs:53749:19\n    at E:\\DEF\\CareerAdapt AI\\scripts\\p522-a05-main-probe.mjs:21:41"
+    }
+  ],
+  "toolingFailures": [
+    "Initial TS2322 test resolver type corrected without assertion changes",
+    "Main probe generated source missed one closing brace; corrected before launch",
+    "Main probe inherited ELECTRON_RUN_AS_NODE; replaced with explicit environment allowlist",
+    "Initial integration TS1005 parse error preserved in d3-unit-initial-parse-failure.json",
+    "Test ProcessEnv NODE_ENV typing corrected to literal; socket Buffer type annotation corrected",
+    "ESLint reserved module variable renamed",
+    "Browser application build process.env markers initially unresolved; four explicit build metadata constants injected, browser smoke passed",
+    "Native Main TS2554 ensureBackend required profile arg; undefined passed explicitly, final Main typecheck zero diagnostics"
+  ],
+  "historicalFailures": "implementation/review-phase/failure-record.json",
+  "noSkipOrAssertionReduction": true,
+  "transportReplayRepair": {
+    "evidence": "implementation/final-native-pipe-conflict-failure.json",
+    "rootCause": "A normal UNKNOWN no-replay response closed its socket without marking completion, inadvertently invalidating grants; the new same-native-call payload-mutation test exposed SCOPE_REVOKED instead of OPERATION_CONFLICT.",
+    "fix": "Mark a definitive non-READY invoke reply as completed; unexpected in-flight disconnects still revoke. OperationId is now context-only, payload remains separately bound.",
+    "validation": "Focused two-case native registry/real-pipe suite passed; no assertion reduced."
+  },
+  "probeIsolationNote": "Earlier minimal Main probes did not explicitly override Electron userData/cache path; no Career/default business database was opened (Application used fake-indexeddb). Corrected subsequent probes set per-run userData before app ready. No existing caches were deleted, and the earlier probes are retained, not relabeled as fully isolated."
+}

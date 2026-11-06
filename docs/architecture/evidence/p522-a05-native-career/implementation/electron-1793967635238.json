@@ -1,0 +1,41 @@
+{
+  "run": 1793967635238,
+  "status": "PARTIAL",
+  "cases": [],
+  "launches": [
+    {
+      "epoch": 1,
+      "pid": 72872,
+      "at": 1793967636412,
+      "exitCode": 0
+    }
+  ],
+  "rpc": [],
+  "events": [],
+  "errors": [],
+  "processOutput": [
+    {
+      "epoch": 1,
+      "channel": "stderr",
+      "text": "Waiting for the debugger to disconnect...\r\n"
+    }
+  ],
+  "deletions": 0,
+  "providerQualification": "DETERMINISTIC_LOCAL_PROTOCOL_DRIVER_NOT_REAL_PROVIDER",
+  "failure": "electronApplication.firstWindow: Timeout 20000ms exceeded while waiting for event \"window\"\n    at launch (E:\\DEF\\CareerAdapt AI\\scripts\\p522-a05-electron.mjs:34:241)\n    at async file:///E:/DEF/CareerAdapt%20AI/scripts/p522-a05-electron.mjs:90:2",
+  "ledger": [
+    {
+      "at": 1793967636316,
+      "event": "BOOT",
+      "boot": "3e62c252-23ed-42fa-bd9b-d8708c2a76d1",
+      "enabled": false,
+      "epoch": 0
+    },
+    {
+      "at": 1793967636331,
+      "event": "PIPE_LISTEN_BEGIN"
+    }
+  ],
+  "modelRequests": [],
+  "modelEvents": []
+}

@@ -1,0 +1,65 @@
+{
+  "status": "PASS_LOCKED_PYTHON_REGISTRY_NOT_ELECTRON_HOST",
+  "evidence": "implementation/native-registry-pipe.json",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "career.profile.get",
+        "description": "Read isolated synthetic Profile facts. Never invent facts or treat unconfirmed content as confirmed.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "sectionTypes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20
+            },
+            "cursor": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "career.profile.search_facts",
+        "description": "Read isolated synthetic Profile facts. Never invent facts or treat unconfirmed content as confirmed.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "sectionTypes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20
+            },
+            "cursor": {
+              "type": "string"
+            },
+            "query": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ],
+  "realNativeHostRegistration": "NOT_VERIFIED"
+}

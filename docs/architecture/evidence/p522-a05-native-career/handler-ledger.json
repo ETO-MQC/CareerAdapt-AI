@@ -1,0 +1,169 @@
+{
+  "status": "PASS_SYNTHETIC_DURABLE_LEDGER_NOT_NATIVE_HOST",
+  "operationId": "e6ba4439-9a48-486c-9359-8226c743172e",
+  "handlerExecutions": 1,
+  "records": [
+    {
+      "at": 1793969600995,
+      "event": "BOOT",
+      "boot": "a7907d74-8214-432c-9e6a-ab80d3be6453",
+      "enabled": false,
+      "epoch": 0
+    },
+    {
+      "at": 1793969601020,
+      "event": "LIFECYCLE",
+      "enabled": false,
+      "epoch": 1,
+      "reason": "synthetic-test-not-native-disable",
+      "boot": "a7907d74-8214-432c-9e6a-ab80d3be6453"
+    },
+    {
+      "at": 1793969601023,
+      "event": "LIFECYCLE",
+      "enabled": true,
+      "epoch": 1,
+      "reason": "synthetic-test-not-native-disable",
+      "boot": "a7907d74-8214-432c-9e6a-ab80d3be6453"
+    },
+    {
+      "at": 1793969601028,
+      "operationId": "e6ba4439-9a48-486c-9359-8226c743172e",
+      "sessionId": "native-A",
+      "turnId": "turn-lost-ack",
+      "toolCallId": "call-lost-ack",
+      "tool": "career.profile.get",
+      "profileId": "A",
+      "payloadHash": "157fcf3167f4b8a94d807a374d52abf9863d75793d43f40ab992aad471f3bf5c",
+      "handlerExecutions": 0,
+      "boot": "a7907d74-8214-432c-9e6a-ab80d3be6453",
+      "state": "ACCEPTED"
+    },
+    {
+      "at": 1793969601031,
+      "operationId": "e6ba4439-9a48-486c-9359-8226c743172e",
+      "sessionId": "native-A",
+      "turnId": "turn-lost-ack",
+      "toolCallId": "call-lost-ack",
+      "tool": "career.profile.get",
+      "profileId": "A",
+      "payloadHash": "157fcf3167f4b8a94d807a374d52abf9863d75793d43f40ab992aad471f3bf5c",
+      "handlerExecutions": 0,
+      "boot": "a7907d74-8214-432c-9e6a-ab80d3be6453",
+      "state": "DISPATCHED"
+    },
+    {
+      "at": 1793969601031,
+      "operationId": "e6ba4439-9a48-486c-9359-8226c743172e",
+      "sessionId": "native-A",
+      "turnId": "turn-lost-ack",
+      "toolCallId": "call-lost-ack",
+      "tool": "career.profile.get",
+      "profileId": "A",
+      "payloadHash": "157fcf3167f4b8a94d807a374d52abf9863d75793d43f40ab992aad471f3bf5c",
+      "handlerExecutions": 1,
+      "boot": "a7907d74-8214-432c-9e6a-ab80d3be6453",
+      "state": "STARTED"
+    },
+    {
+      "at": 1793969601051,
+      "operationId": "e6ba4439-9a48-486c-9359-8226c743172e",
+      "sessionId": "native-A",
+      "turnId": "turn-lost-ack",
+      "toolCallId": "call-lost-ack",
+      "tool": "career.profile.get",
+      "profileId": "A",
+      "payloadHash": "157fcf3167f4b8a94d807a374d52abf9863d75793d43f40ab992aad471f3bf5c",
+      "handlerExecutions": 1,
+      "boot": "a7907d74-8214-432c-9e6a-ab80d3be6453",
+      "state": "COMPLETED",
+      "resultRef": "33360705fa36c845ff3c70ed96c347f7ba9baa4f275af9317c438e3e753b7400",
+      "result": {
+        "ok": true,
+        "data": {
+          "projectionVersion": "career-profile-read-v1",
+          "status": "ok",
+          "profileId": "A",
+          "personId": "person-A",
+          "sourceRevision": "1:2026-11-06T09:00:00.000Z",
+          "requestId": "e6ba4439-9a48-486c-9359-8226c743172e",
+          "items": [
+            {
+              "itemId": "item-0",
+              "sectionType": "project",
+              "text": "Project 0\n项目名称：Project 0\n亮点：xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+              "textTruncated": true,
+              "factIds": [
+                "fact-0"
+              ],
+              "referencesTruncated": false,
+              "confirmationState": "confirmed",
+              "sourceRefs": [
+                {
+                  "kind": "block",
+                  "id": "block-0"
+                },
+                {
+                  "kind": "range",
+                  "id": "block-0",
+                  "start": 0,
+                  "end": 5
+                },
+                {
+                  "kind": "source_turn",
+                  "id": "turn-0"
+                },
+                {
+                  "kind": "fact_source",
+                  "id": "evidence-1"
+                },
+                {
+                  "kind": "evidence",
+                  "id": "evidence-1"
+                }
+              ]
+            }
+          ],
+          "nextCursor": "{\"v\":1,\"workspaceId\":\"synthetic-workspace\",\"personId\":\"person-A\",\"profileId\":\"A\",\"sessionId\":\"native-A\",\"grantId\":\"6c6b122e-b553-4d8a-ba82-dbec3ecc271f\",\"epoch\":1,\"leaseExpiry\":1793969661028,\"requestId\":\"e6ba4439-9a48-486c-9359-8226c743172e\",\"profileVersionNumber\":1,\"profileRevision\":1,\"sourceRevision\":\"1:2026-11-06T09:00:00.000Z\",\"range\":\"{\\\"sections\\\":[],\\\"query\\\":null,\\\"limit\\\":1}\",\"offset\":1}",
+          "truncated": true
+        },
+        "requestId": "e6ba4439-9a48-486c-9359-8226c743172e",
+        "applicationExecutions": 1
+      },
+      "applicationExecutions": 1
+    },
+    {
+      "at": 1793969601054,
+      "event": "LIFECYCLE",
+      "enabled": false,
+      "epoch": 2,
+      "reason": "injected-lost-ack-disconnect",
+      "boot": "a7907d74-8214-432c-9e6a-ab80d3be6453"
+    },
+    {
+      "at": 1793969601058,
+      "event": "BOOT",
+      "boot": "5e2c8b59-295f-4781-a639-fe21423a889d",
+      "enabled": false,
+      "epoch": 0
+    },
+    {
+      "at": 1793969601062,
+      "event": "LIFECYCLE",
+      "enabled": false,
+      "epoch": 1,
+      "reason": "synthetic-test-reenable",
+      "boot": "5e2c8b59-295f-4781-a639-fe21423a889d"
+    },
+    {
+      "at": 1793969601064,
+      "event": "LIFECYCLE",
+      "enabled": true,
+      "epoch": 1,
+      "reason": "synthetic-test-reenable",
+      "boot": "5e2c8b59-295f-4781-a639-fe21423a889d"
+    }
+  ],
+  "executionDefinition": "Application-side existing Adapter/QueryService handler entry acknowledged to Main; no counter is incremented for a dispatch that never entered query. Native Host executions this round=0.",
+  "generalExactlyOnce": false
+}
