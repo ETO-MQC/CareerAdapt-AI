@@ -1,0 +1,153 @@
+▲ Next.js 16.2.9 (Turbopack)
+- Experiments (use with caution):
+  ⨯ turbopackFileSystemCacheForDev
+
+  Creating an optimized production build ...
+Turbopack build encountered 2 warnings:
+./ux013-source/src/services/pdf
+Package pdfjs-dist can't be external
+The request pdfjs-dist/build/pdf.worker.mjs matches serverExternalPackages (or the default list).
+The package seems invalid. require() resolves to a EcmaScript module, which would result in an error in Node.js.
+
+
+./ux013-source/src/services/resumeImport
+Package pdfjs-dist can't be external
+The request pdfjs-dist/build/pdf.worker.mjs matches serverExternalPackages (or the default list).
+The package seems invalid. require() resolves to a EcmaScript module, which would result in an error in Node.js.
+
+
+
+> Build error occurred
+Error: Turbopack build failed with 5 errors:
+./ux013-source/src/app/api/agent/runtime/hermes/health/route.ts:21:1
+Module not found: Can't resolve '../../../../../../../electron/hermesProviderBinding.js'
+  19 | ...eConfigFingerprint
+  20 | ...@/services/agent/aiRuntimeConfiguration";
+> 21 | ... resolveHermesProviderBinding } from "../../../../../../../electron/hermesProviderBindi...
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  22 | ... parseHermesToolsetsPayload, type HermesToolsetSnapshot } from "./toolsets";
+  23 | ...
+  24 | ...onst dynamic = "force-dynamic";
+
+
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./ux013-source/src/services/agent/aiRuntimeConfiguration.ts:4:1
+Module not found: Can't resolve '../../../electron/credentialFingerprintPepper.js'
+  2 | ...ort { hashText, stableHashText } from "@/services/security/text";
+  3 | ...ort { resolveHermesProviderBinding } from "../../../electron/hermesProviderBinding.js";
+> 4 | ...ort { credentialFingerprintPepper } from "../../../electron/credentialFingerprintPepper....
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | ...
+  6 | ...ort type AiRuntimeConfigDraft = AiSettings;
+  7 | ...ort const DEFAULT_AI_PROVIDER_BASE_URL = "https://api.openai.com/v1";
+
+
+
+Import traces:
+  App Route:
+    ./ux013-source/src/services/agent/aiRuntimeConfiguration.ts
+    ./ux013-source/src/app/api/ai/test/route.ts
+
+  Client Component Browser:
+    ./ux013-source/src/services/agent/aiRuntimeConfiguration.ts [Client Component Browser]
+    ./ux013-source/src/services/agent/hermesControl.ts [Client Component Browser]
+    ./ux013-source/src/components/agent/runtime/AgentRuntimeProvider.tsx [Client Component Browser]
+    ./ux013-source/src/components/agent/runtime/AgentRuntimeProvider.tsx [Server Component]
+    ./ux013-source/src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./ux013-source/src/services/agent/aiRuntimeConfiguration.ts [Client Component SSR]
+    ./ux013-source/src/services/agent/hermesControl.ts [Client Component SSR]
+    ./ux013-source/src/components/agent/runtime/AgentRuntimeProvider.tsx [Client Component SSR]
+    ./ux013-source/src/components/agent/runtime/AgentRuntimeProvider.tsx [Server Component]
+    ./ux013-source/src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./ux013-source/src/ai/providers/effectiveConfiguration.ts:3:1
+Module not found: Can't resolve '../../../electron/hermesProviderBinding.js'
+  1 | ...mport type { AiSettings } from "@/services/storage/aiSettings";
+  2 | ...mport { normalizeAiProviderIdentity } from "@/services/agent/aiRuntimeConfiguration";
+> 3 | ...mport { resolveHermesProviderBinding } from "../../../electron/hermesProviderBinding.js";
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  4 | ...
+  5 | ...ype Environment = Record<string, string | undefined>;
+  6 | ...ype ConfigurationSource = "custom_header" | "secure_store" | "server_env" | "default" | ...
+
+
+
+Import trace:
+  App Route:
+    ./ux013-source/src/ai/providers/effectiveConfiguration.ts
+    ./ux013-source/src/app/api/ai/test/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./ux013-source/src/services/agent/aiRuntimeConfiguration.ts:3:1
+Module not found: Can't resolve '../../../electron/hermesProviderBinding.js'
+  1 | ...mport type { AiSettings } from "@/services/storage/aiSettings";
+  2 | ...mport { hashText, stableHashText } from "@/services/security/text";
+> 3 | ...mport { resolveHermesProviderBinding } from "../../../electron/hermesProviderBinding.js";
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  4 | ...mport { credentialFingerprintPepper } from "../../../electron/credentialFingerprintPeppe...
+  5 | ...
+  6 | ...xport type AiRuntimeConfigDraft = AiSettings;
+
+
+
+Import traces:
+  App Route:
+    ./ux013-source/src/services/agent/aiRuntimeConfiguration.ts
+    ./ux013-source/src/app/api/ai/test/route.ts
+
+  Client Component Browser:
+    ./ux013-source/src/services/agent/aiRuntimeConfiguration.ts [Client Component Browser]
+    ./ux013-source/src/services/agent/hermesControl.ts [Client Component Browser]
+    ./ux013-source/src/components/agent/runtime/AgentRuntimeProvider.tsx [Client Component Browser]
+    ./ux013-source/src/components/agent/runtime/AgentRuntimeProvider.tsx [Server Component]
+    ./ux013-source/src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./ux013-source/src/services/agent/aiRuntimeConfiguration.ts [Client Component SSR]
+    ./ux013-source/src/services/agent/hermesControl.ts [Client Component SSR]
+    ./ux013-source/src/components/agent/runtime/AgentRuntimeProvider.tsx [Client Component SSR]
+    ./ux013-source/src/components/agent/runtime/AgentRuntimeProvider.tsx [Server Component]
+    ./ux013-source/src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./ux013-source/src/ai/providers/openAiCompatibleProvider.ts:2:1
+Module not found: Can't resolve '../../../electron/providerGenerationPolicy'
+  1 | import "server-only";
+> 2 | import { isAmdQwenRoute } from "../../../electron/providerGenerationPolicy";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  3 | import type { AiSettings } from "@/services/storage/aiSettings";
+  4 | import {
+  5 |   resolveEffectiveAiConfiguration,
+
+
+
+Import trace:
+  App Route:
+    ./ux013-source/src/ai/providers/openAiCompatibleProvider.ts
+    ./ux013-source/src/app/api/resume-import/vision/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+    at <unknown> (./ux013-source/src/app/api/agent/runtime/hermes/health/route.ts:21:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./ux013-source/src/services/agent/aiRuntimeConfiguration.ts:4:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./ux013-source/src/ai/providers/effectiveConfiguration.ts:3:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./ux013-source/src/services/agent/aiRuntimeConfiguration.ts:3:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./ux013-source/src/ai/providers/openAiCompatibleProvider.ts:2:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)

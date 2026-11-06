@@ -1,0 +1,33 @@
+diff --git a/next-env.d.ts b/next-env.d.ts
+index c4b7818..4a0bfa5 100644
+--- a/next-env.d.ts
++++ b/next-env.d.ts
+@@ -1,6 +1,6 @@
+ /// <reference types="next" />
+ /// <reference types="next/image-types/global" />
+-import "./.next/dev/types/routes.d.ts";
++import "./.next/ux013-dev-webpack/dev/types/routes.d.ts";
+ 
+ // NOTE: This file should not be edited
+ // see https://nextjs.org/docs/app/api-reference/config/typescript for more information.
+diff --git a/tsconfig.json b/tsconfig.json
+index 837d9e3..6387818 100644
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -33,7 +33,9 @@
+     "**/*.ts",
+     "**/*.tsx",
+     ".next/types/**/*.ts",
+-    ".next/dev/types/**/*.ts"
++    ".next/dev/types/**/*.ts",
++    ".next/ux013-dev-webpack/types/**/*.ts",
++    ".next/ux013-dev-webpack/dev/types/**/*.ts"
+   ],
+   "exclude": [
+     "node_modules",
+@@ -41,4 +43,4 @@
+     ".electron-build",
+     "模板"
+   ]
+-}
++}

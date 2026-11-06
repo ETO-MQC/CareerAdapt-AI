@@ -1,3 +1,4 @@
+import { assertPreciseDependencies, assertPreciseGuard, assertPreciseOwnership, preciseOperationKey, precisePatchedBranch, verifyPreciseProposal } from "@/domain/resumeEditing/preciseResumeEdit";
 import { ResumeLayoutPresetSchema, ResumeLayoutPresetsSchema, type ResumeLayoutStyle } from "@/domain/resumePresentation/layoutPresets";
 import Dexie from "dexie";
 import { MaterialIntakeArtifactSchema, type MaterialIntakeArtifact } from "@/domain/materialIntake/materialIntake";
@@ -3000,6 +3001,70 @@ export class WorkspaceRepository {
       assertTailoringSourceBranchUnchanged(sourceBranchBefore, branch.sourceBranchId ? await this.db.resumeBranches.get(branch.sourceBranchId) : undefined);
       return { branch: nextBranch, revision, idempotent: false, profileFactsAddedFromTailoring: profileSync?.addedFactCount ?? 0, ...presentationInvariant };
     });
+  }
+
+  async applyPreciseResumeEdit(rawProposal: unknown) {
+    // Resolve all WebCrypto promises before opening the IndexedDB transaction.
+    const proposal = await verifyPreciseProposal(rawProposal);
+    const { prefix, key } = await preciseOperationKey(proposal);
+    return this.db.transaction("rw", [this.db.profiles, this.db.jobDescriptions, this.db.resumeBranches,
+      this.db.resumeRevisions, this.db.resumeBranchOperations, this.db.agentSessions], async () => {
+      const session = await this.db.agentSessions.get(proposal.selection.sessionId);
+      if (!session) throw new Error("resume_precise_session_missing");
+      const operations = await this.db.resumeBranchOperations.where("operationId").startsWith(prefix).toArray();
+      if (operations.some(op => op.operationId !== key)) throw new Error("resume_precise_operation_conflict");
+      const receipt = operations[0];
+      if (receipt) {
+        const slot = session.taskState?.knownSlots.preciseResumeEdit as { proposal?: unknown; outcome?: { operationId?: string; proposalHash?: string } } | undefined;
+        if (slot?.outcome) {
+          if (session.id !== proposal.selection.sessionId || session.activeProfileId !== proposal.selection.profileId
+            || JSON.stringify(slot.proposal) !== JSON.stringify(proposal)
+            || slot.outcome.operationId !== proposal.operationId || slot.outcome.proposalHash !== proposal.proposalHash) throw new Error("resume_precise_owner_mismatch");
+        } else assertPreciseOwnership(session, proposal, true);
+        const revision = receipt.revisionId ? await this.getResumeRevisionInTransaction(receipt.revisionId) : undefined;
+        if (!revision || revision.branchId !== proposal.selection.branchId || revision.operationId !== key
+          || revision.previousRevisionId !== proposal.selection.baseRevisionId) throw new Error("resume_precise_receipt_mismatch");
+        return { operationId: proposal.operationId, proposalHash: proposal.proposalHash,
+          branchId: revision.branchId, revisionId: revision.id, revision, idempotent: true };
+      }
+      assertPreciseOwnership(session, proposal, true);
+      const branch = await this.requireEditableResumeBranch(proposal.selection.branchId);
+      const profileRaw = await this.db.profiles.get(proposal.selection.profileId);
+      if (!profileRaw) throw new Error("resume_precise_profile_missing");
+      const profile = CareerProfileSchema.parse(profileRaw);
+      assertPreciseDependencies(branch, profile, proposal);
+      const base = await this.getResumeRevisionInTransaction(proposal.selection.baseRevisionId);
+      if (!base || base.branchId !== branch.id || base.revisionNumber !== branch.revision) throw new Error("resume_precise_base_revision_mismatch");
+      if (branch.branchPurpose === "job_specific" && !(await this.db.jobDescriptions.get(branch.jobId!))) throw new Error("resume_precise_job_missing");
+      assertPreciseGuard(branch, proposal);
+      const patched = precisePatchedBranch(branch, proposal);
+      const now = new Date().toISOString();
+      const nextBase = ResumeBranchSchema.parse({ ...patched, revision: branch.revision + 1, updatedAt: now });
+      const revision = createResumeRevision({ branch: nextBase, source: "suggestion_accept", operationId: key,
+        previousRevisionId: branch.currentRevisionId ?? undefined, now });
+      const nextBranch = ResumeBranchSchema.parse({ ...nextBase, currentRevisionId: revision.id });
+      const operation = ResumeBranchOperationSchema.parse({ id: `resume-branch-op-${key}`, operationId: key,
+        branchId: branch.id, type: "suggestion_accept", expectedRevision: branch.revision,
+        beforeRevision: branch.revision, afterRevision: nextBranch.revision, revisionId: revision.id,
+        occurredAt: now, createdAt: now, updatedAt: now });
+      await this.db.resumeBranches.put(nextBranch);
+      await this.db.resumeRevisions.put(revision);
+      await this.db.resumeBranchOperations.put(operation);
+      return { operationId: proposal.operationId, proposalHash: proposal.proposalHash,
+        branchId: branch.id, revisionId: revision.id, revision, idempotent: false };
+    });
+  }
+
+  async getPreciseResumeEditReceipt(rawProposal: unknown) {
+    const p = await verifyPreciseProposal(rawProposal);
+    const { prefix, key } = await preciseOperationKey(p);
+    const operations = await this.db.resumeBranchOperations.where("operationId").startsWith(prefix).toArray();
+    if (operations.some(op => op.operationId !== key)) throw new Error("resume_precise_operation_conflict");
+    if (!operations.length) return undefined;
+    const revision = await this.getResumeRevision(operations[0].revisionId!);
+    if (!revision || revision.branchId !== p.selection.branchId || revision.previousRevisionId !== p.selection.baseRevisionId
+      || revision.operationId !== key) throw new Error("resume_precise_receipt_mismatch");
+    return { operationId: p.operationId, proposalHash: p.proposalHash, branchId: revision.branchId, revisionId: revision.id };
   }
 
   async applyTailoringDiffs(input: {

@@ -1,3 +1,4 @@
+import { createPreciseProposal, PreciseSelectionSchema, assertPreciseOwnership, preciseReference, canonicalJson } from "@/domain/resumeEditing/preciseResumeEdit";
 import { reviewExistingGeneralResume } from "@/domain/resumeComposition/reviewExistingGeneralResume";
 import { addSessionConfirmedSkills, sessionClaimPrefix, type CompositionSourceTurn } from "@/domain/resumeComposition/sessionConfirmedSkills";
 import { MaterialIntakeService } from "@/services/materialIntake/MaterialIntakeService";
@@ -120,6 +121,32 @@ export class BrowserAgentToolService implements AgentToolServices {
     private readonly profileIntakeSemantic = new ProfileIntakeSemanticService(),
     private readonly careerResumeWriter = new CareerResumeWritingService()
   ) {}
+
+  async preparePreciseResumeEdit(raw: unknown) {
+    const input = raw as { sessionId: string; turnId: string; proposedValue: string };
+    const session = await this.repository.getAgentSession(input.sessionId);
+    const slot = session?.taskState?.knownSlots.preciseResumeEdit as { selection?: unknown; proposal?: unknown } | undefined;
+    const selection = PreciseSelectionSchema.parse(slot?.selection);
+    if (!session || session.id !== selection.sessionId || session.activeProfileId !== selection.profileId
+      || session.taskState?.workflowId !== "precise_resume_edit" || slot?.proposal
+      || session.activeTurn?.id !== input.turnId) throw new Error("resume_precise_selection_required");
+    const branch = await this.repository.getResumeBranch(selection.branchId);
+    const profile = await this.repository.getProfile(selection.profileId);
+    if (!branch || !profile) throw new Error("resume_precise_target_missing");
+    return { proposal: await createPreciseProposal({ branch, profile, selection, turnId: input.turnId,
+      modelOutput: { proposedValue: input.proposedValue }, operationId: `precise-${crypto.randomUUID()}` }) };
+  }
+
+  async applyPreciseResumeEdit(raw: unknown) {
+    const input = raw as { sessionId: string; operationId: string; proposalHash: string };
+    const session = await this.repository.getAgentSession(input.sessionId);
+    const slot = session?.taskState?.knownSlots.preciseResumeEdit as { proposal?: unknown } | undefined;
+    const { verifyPreciseProposal } = await import("@/domain/resumeEditing/preciseResumeEdit");
+    const proposal = await verifyPreciseProposal(slot?.proposal);
+    if (!session || canonicalJson(preciseReference(proposal)) !== canonicalJson({ operationId: input.operationId, proposalHash: input.proposalHash })) throw new Error("resume_precise_reference_mismatch");
+    assertPreciseOwnership(session, proposal, true);
+    return this.repository.applyPreciseResumeEdit(proposal);
+  }
 
   async prepareMaterialIntake(rawInput: unknown, signal?: AbortSignal) {
     const { sessionId, ...input } = rawInput as Record<string, unknown>;

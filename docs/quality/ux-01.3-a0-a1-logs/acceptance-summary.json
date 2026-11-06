@@ -1,0 +1,61 @@
+{
+  "baseline": "5f52faaa71616010eb5a577bd18ee85ff9977a80",
+  "scope": "A0/A1 only",
+  "formalData": {
+    "beforeBranches": 1,
+    "afterBranches": 1,
+    "beforeRevisions": 1,
+    "afterRevisions": 2,
+    "profilesEqual": true,
+    "revisionId": "resume-revision-fnv-0ebb8f1f-219"
+  },
+  "tests": {
+    "files": 12,
+    "passed": 154,
+    "failed": 0,
+    "pending": 0,
+    "preciseEditingCases": 41,
+    "exitCode": 0
+  },
+  "gates": {
+    "typecheck": {
+      "exitCode": 0,
+      "log": "typecheck-delivery.log"
+    },
+    "build": {
+      "exitCode": 0,
+      "log": "build-delivery.log"
+    },
+    "browser": {
+      "passed": 1,
+      "exitCode": 0,
+      "log": "browser-delivery.log"
+    },
+    "lint": {
+      "exitCode": 0,
+      "log": "acceptance-lint.log"
+    },
+    "diff": {
+      "exitCode": 0,
+      "command": "git diff --check"
+    }
+  },
+  "sourceMismatchCount": 0,
+  "lockMatches": true,
+  "limits": [
+    "No real Provider quota or Hermes model quality certification",
+    "Existing conservative ownership Guard unchanged",
+    "No installer, commit, push or A2/A3/B/C"
+  ],
+  "finalChecks": {
+    "newFileTrailingWhitespace": [],
+    "postVerificationSourceHashChanges": [],
+    "auditAndDatabaseAndGeneratedConfigUnchanged": true,
+    "taskServersStopped": [
+      3218,
+      3219,
+      3220,
+      3221
+    ]
+  }
+}

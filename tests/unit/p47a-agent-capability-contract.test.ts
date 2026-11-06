@@ -29,6 +29,7 @@ const productionSkillNames = [
 ] as const;
 
 const productionAuditRows = [
+  { stableName: "career.workflow.precise_edit", kind: "facade", readWrite: "read", skillOwner: "explicit field rewording", visible: true },
   { stableName: "career.workflow.material_intake", kind: "facade", readWrite: "write", skillOwner: "material intake", visible: true },
   { stableName: "career.workflow.job_intake", kind: "facade", readWrite: "write", skillOwner: "job intake", visible: true },
   { stableName: "career.context.retrieve", kind: "read", readWrite: "read", skillOwner: "career-story-mining / resume-review", visible: true },
@@ -68,7 +69,7 @@ describe("P4.7a Agent capability contract", () => {
   it("keeps the exact production profile to facades plus the small read surface", () => {
     const expected = productionAuditRows.map((row) => row.stableName).sort();
     expect([...HERMES_PRODUCTION_TOOL_PROFILE].sort()).toEqual(expected);
-    expect(HERMES_PRODUCTION_TOOL_PROFILE).toHaveLength(13);
+    expect(HERMES_PRODUCTION_TOOL_PROFILE).toHaveLength(14);
     expect(HERMES_PRODUCTION_TOOL_PROFILE).not.toEqual(expect.arrayContaining([
       "career.system.runtime_status",
       "career.system.current_task",
@@ -222,7 +223,7 @@ describe("P4.7a Agent capability contract", () => {
 
   it("keeps the canonical facade list free of a second semantic Agent or router", () => {
     expect(CAREER_WORKFLOW_FACADE_DEFINITIONS.some((definition) => definition.name === "career.workflow.profile_to_resume")).toBe(true);
-    expect(HERMES_REQUIRED_CAREER_FACADES).toHaveLength(9);
+    expect(HERMES_REQUIRED_CAREER_FACADES).toHaveLength(10);
     expect(HERMES_REQUIRED_CAREER_FACADES).not.toContain("career.workflow.profile_to_resume");
     expect(HERMES_REQUIRED_CAREER_FACADES.some((name) => /router|planner|agent|manager/u.test(name))).toBe(false);
   });

@@ -11,6 +11,7 @@ export type BusinessWorkflowProgress = {
 };
 
 const toolLabels: Record<string, string> = {
+  "career.workflow.precise_edit": "正在准备所选字段的修改",
   "career.workflow.material_intake": "正在读取材料",
   "career.workflow.profile_intake_turn": "正在整理经历",
   "career.workflow.profile_intake_finalize": "正在准备最终审核",
@@ -75,6 +76,12 @@ export function projectBusinessWorkflowProgress(session: AgentSession): Business
       exportFailed
         ? "已确认的简历版本仍保留，可以单独重新导出。"
         : `${completedTask ? "已完成的业务结果仍保留。" : ""}${businessFailureRecovery(code, diagnostics.safeErrorCategory)}`);
+  }
+  if (task?.workflowId === "precise_resume_edit") {
+    const slot = object(task.knownSlots.preciseResumeEdit);
+    if (object(slot.outcome).revisionId) return view("completed", "所选字段已保存", `版本：${String(object(slot.outcome).revisionId)}`);
+    if (task.completionStatus === "cancelled") return view("cancelled", "修改已取消", "原文保持不变。");
+    if (task.completionStatus === "failed") return view("blocked", "正式保存未完成", "提案已保留。核对原版本后可明确重试；版本变化需重新审核。");
   }
   const compositionWriteFailure = object(task?.knownSlots.resumeCompositionWriteFailure);
   if (typeof compositionWriteFailure.code === "string") {

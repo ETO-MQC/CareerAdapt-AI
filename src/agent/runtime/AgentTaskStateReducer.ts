@@ -1278,6 +1278,14 @@ function resetProfileIntakeDraft(state: AgentTaskState) {
 function normalize(state: AgentTaskState): AgentTaskState {
   state.goal = state.rootGoal;
   state.workflowId = canonicalWorkflowId(state.workflowId);
+  if (state.workflowId === "precise_resume_edit") {
+    const slot = objectValue(state.knownSlots.preciseResumeEdit);
+    state.completionType = "transactional";
+    if (objectValue(slot.outcome).revisionId) { state.completionStatus = "completed"; state.stage = "resume_ready"; }
+    else if (slot.decision) { state.completionStatus = "cancelled"; state.stage = "cancelled"; }
+    else if (slot.proposal && state.completionStatus !== "failed") { state.completionStatus = "waiting_for_confirmation"; state.stage = "review_precise_edit"; }
+    return state;
+  }
   if (state.workflowId === "tailor_resume") {
     state.completionType = "transactional";
   }

@@ -1,0 +1,28 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+ ✓ tests/unit/resumeFieldCatalog.test.ts (3 tests) 23ms
+ ✓ tests/unit/tailoringTargetCatalog.test.ts (42 tests) 46ms
+ ✓ tests/unit/careerCompositionGatewayP45b.test.ts (3 tests) 35ms
+ ✓ tests/unit/p47a-agent-capability-contract.test.ts (14 tests) 66ms
+ ✓ tests/unit/p45b4-hermes-mcp-closure.test.ts (4 tests) 25ms
+ ✓ tests/unit/businessWorkflowProgress.test.tsx (21 tests) 447ms
+     ✓ renders a compact, accessible business status with a concrete recovery instruction  370ms
+ ✓ tests/unit/p45c17-hermes-reliability.test.ts (7 tests) 138ms
+ ✓ tests/unit/p45c1c16-career-tool-contract.test.ts (6 tests) 807ms
+ ✓ tests/unit/repositoryTailoringV2.test.ts (5 tests) 627ms
+ ✓ tests/integration/businessWorkflowRecovery.test.ts (6 tests) 771ms
+ ✓ tests/integration/ux011Host.test.ts (2 tests) 2402ms
+   ✓ projects a Hermes intake into a bound editable Host task and keeps Profile untouched until confirmation  1313ms
+   ✓ persists an analyze-only target and clears old job/fit ownership when another JD is analyzed  1086ms
+ ✓ tests/integration/preciseResumeEdit.test.ts (40 tests) 6840ms
+     ✓ preserves the complete complement for project.description  501ms
+   ✓ uses UI selection through real Facade/Gateway/Host then concurrent confirm  655ms
+   ✓ projects the model proposedValue facade through the existing Hermes event boundary  701ms
+
+ Test Files  12 passed (12)
+      Tests  153 passed (153)
+   Start at  20:17:04
+   Duration  27.50s (transform 54.26s, setup 19.90s, import 86.89s, tests 12.23s, environment 79.60s)
+
+JSON report written to E:/DEF/CareerAdapt-competition-5.1.8/docs/quality/ux-01.3-a0-a1-logs/delivery-tests.json

@@ -1,0 +1,25 @@
+▲ Next.js 16.2.9 (webpack)
+
+  Creating an optimized production build ...
+Failed to compile.
+
+./src/services/pdf/extractText.ts
+Module not found: ESM packages (pdfjs-dist/build/pdf.worker.mjs) need to be imported. Use 'import' to reference the package instead. https://nextjs.org/docs/messages/import-esm-externals
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./src/app/profile/ProfileWorkspace.tsx
+
+./src/services/resumeImport/visionExtraction.ts
+Module not found: ESM packages (pdfjs-dist/build/pdf.worker.mjs) need to be imported. Use 'import' to reference the package instead. https://nextjs.org/docs/messages/import-esm-externals
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./src/services/resumeImport/ResumeImportOrchestrator.ts
+./src/services/agent/agentToolService.ts
+./src/components/agent/runtime/AgentRuntimeProvider.tsx
+
+
+> Build failed because of webpack errors

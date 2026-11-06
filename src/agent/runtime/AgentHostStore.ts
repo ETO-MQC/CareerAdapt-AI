@@ -1,4 +1,6 @@
 "use client";
+import { PreciseSelectionSchema, preciseTarget, verifyPreciseProposal, assertPreciseOwnership, type PreciseSelection } from "@/domain/resumeEditing/preciseResumeEdit";
+import { projectPreciseProposal, projectPreciseReceipt } from "./preciseResumeEditCheckpoint";
 
 import type { AgentArtifactRef } from "@/agent/contracts/agentArtifact";
 import {
@@ -598,6 +600,103 @@ export class AgentHostStore {
 
   private async readQuickActionContext(session?: AgentSession) {
     return buildQuickActionContextSnapshot(this.getCareerRepository(), session);
+  }
+
+  async selectPreciseResumeEdit(target: Pick<PreciseSelection, "branchId" | "baseRevisionId" | "sectionType" | "itemId" | "field" | "bulletIndex">) {
+    const session = this.snapshot.activeSession;
+    if (!session || !session.activeProfileId || this.executionCoordinator.isRunning(session.id)
+      || session.pendingConfirmation) throw new Error("resume_precise_selection_busy");
+    const branch = await this.getCareerRepository().getResumeBranch(target.branchId);
+    const selection = PreciseSelectionSchema.parse({ ...target, sessionId: session.id, profileId: session.activeProfileId,
+      taskId: `precise-task-${crypto.randomUUID()}` });
+    if (!branch || branch.currentRevisionId !== target.baseRevisionId) throw new Error("resume_precise_revision_stale");
+    preciseTarget(branch, selection);
+    const reducer = new AgentTaskStateReducer();
+    const task = reducer.create(session, "precise_resume_edit", { workflowId: "precise_resume_edit", step: "propose_precise_edit" });
+    const next = { ...session, taskState: { ...task, rootGoal: "precise_resume_edit", goal: "precise_resume_edit",
+      activeGoal: "precise_resume_edit", workflowId: "precise_resume_edit", completionType: "transactional" as const,
+      knownSlots: { preciseResumeEdit: { selection } } }, updatedAt: new Date().toISOString() };
+    const saved = await this.dependencies.persistence.save(next);
+    if (this.snapshot.activeSession?.id === session.id) this.patchSession(saved);
+    return saved;
+  }
+
+  async proposePreciseResumeEdit(proposedValue: string) {
+    let session = this.snapshot.activeSession;
+    if (!session || this.executionCoordinator.isRunning(session.id) || session.pendingConfirmation
+      || session.taskState?.workflowId !== "precise_resume_edit") throw new Error("resume_precise_selection_required");
+    const now = new Date().toISOString();
+    const turnId = `precise-turn-${crypto.randomUUID()}`;
+    session = await this.dependencies.persistence.save({ ...session, activeTurn: { id: turnId, sessionId: session.id,
+      status: "running", startedAt: now }, updatedAt: now });
+    this.patchSession(session);
+    const result = await this.dependencies.executor.execute({ toolName: "career.workflow.precise_edit", toolInput: { proposedValue },
+      operationId: `precise-plan-${crypto.randomUUID()}`, agentSessionId: session.id, logicalTurnId: turnId,
+      careerSessionBinding: careerSessionBindingForSession(session) });
+    if (!result.ok) throw new Error(result.error?.code ?? "resume_precise_proposal_failed");
+    const proposal = await verifyPreciseProposal(objectValue(objectValue(result.data).workflowCheckpoint).proposal);
+    const current = await this.dependencies.persistence.get(session.id);
+    if (!current || current.activeTurn?.id !== turnId) throw new Error("resume_precise_owner_mismatch");
+    const saved = await this.dependencies.persistence.save(projectPreciseProposal(current, proposal));
+    if (this.snapshot.activeSession?.id === saved.id && this.snapshot.activeSession.activeTurn?.id === turnId) this.patchSession(saved);
+    return saved;
+  }
+
+  async resolvePreciseResumeEdit(sessionId: string, decision: "confirm" | "reject" | "cancel" | "recover") {
+    const key = `precise:${sessionId}`;
+    const existing = this.confirmationExecutions.get(key);
+    if (existing) return existing;
+    const work = this.performPreciseResumeEdit(sessionId, decision);
+    this.confirmationExecutions.set(key, work);
+    try { return await work; } finally { this.confirmationExecutions.delete(key); }
+  }
+
+  private async performPreciseResumeEdit(sessionId: string, decision: "confirm" | "reject" | "cancel" | "recover") {
+    let session = await this.dependencies.persistence.get(sessionId);
+    if (!session) throw new Error("resume_precise_session_missing");
+    const slot = session.taskState?.knownSlots.preciseResumeEdit as { proposal?: unknown; outcome?: unknown } | undefined;
+    if (slot?.outcome) return session;
+    const p = await verifyPreciseProposal(slot?.proposal);
+    const wasConfirmed = session.pendingConfirmation?.status === "confirmed";
+    assertPreciseOwnership(session, p, wasConfirmed);
+    const publish = async (next: AgentSession) => {
+      const saved = await this.dependencies.persistence.save(next);
+      const active = this.snapshot.activeSession;
+      // A different foreground task/turn must never be replaced by a late completion.
+      if (active?.id === sessionId && active.taskState?.knownSlots.preciseResumeEdit
+        && (active.taskState.knownSlots.preciseResumeEdit as { selection?: PreciseSelection }).selection?.taskId === p.selection.taskId) this.patchSession(saved);
+      return saved;
+    };
+    const receipt = await this.getCareerRepository().getPreciseResumeEditReceipt(p);
+    if (receipt) {
+      if (!wasConfirmed) throw new Error("resume_precise_confirmation_missing");
+      return publish(projectPreciseReceipt(session, p, receipt));
+    }
+    if (decision === "reject" || decision === "cancel") {
+      if (wasConfirmed) {
+        const branch = await this.getCareerRepository().getResumeBranch(p.selection.branchId);
+        const profile = await this.getCareerRepository().getProfile(p.selection.profileId);
+        if (branch?.currentRevisionId === p.selection.baseRevisionId && profile?.version === p.profileVersion) throw new Error("resume_precise_already_submitted");
+      }
+      return publish({ ...session, pendingConfirmation: undefined, pendingToolCall: undefined,
+        taskState: { ...session.taskState!, completionStatus: "cancelled", stage: "cancelled",
+          knownSlots: { ...session.taskState!.knownSlots, preciseResumeEdit: { selection: p.selection, proposal: p, decision } } },
+        activeTurn: session.activeTurn ? { ...session.activeTurn, status: "completed" } : undefined,
+        updatedAt: new Date().toISOString() });
+    }
+    if (decision === "recover") return session; // Read-only recovery never resubmits.
+    if (!wasConfirmed) session = await publish({ ...session,
+      pendingConfirmation: { ...session.pendingConfirmation!, status: "confirmed", resolvedAt: new Date().toISOString() },
+      updatedAt: new Date().toISOString() });
+    const result = await this.dependencies.executor.execute({ toolName: "apply_precise_resume_edit",
+      toolInput: { sessionId, operationId: p.operationId, proposalHash: p.proposalHash }, operationId: p.operationId,
+      agentSessionId: sessionId, logicalTurnId: p.turnId, confirmed: true, confirmationCount: 1,
+      careerSessionBinding: careerSessionBindingForSession(session), retryFailedOperation: true });
+    if (!result.ok) return publish({ ...session, taskState: { ...session.taskState!, completionStatus: "failed",
+      knownSlots: { ...session.taskState!.knownSlots, preciseResumeEditFailure: result.error } }, updatedAt: new Date().toISOString() });
+    const authoritative = await this.getCareerRepository().getPreciseResumeEditReceipt(p);
+    if (!authoritative) throw new Error("resume_precise_receipt_missing");
+    return publish(projectPreciseReceipt(session, p, authoritative));
   }
 
   adopt(session: AgentSession) {
@@ -2927,6 +3026,9 @@ export class AgentHostStore {
       ? this.snapshot.activeSession
       : requestedSession;
     if (!session) throw new Error("agent_session_required");
+    if (input.type === "confirmation" && session.pendingConfirmation?.toolName === "career.workflow.precise_edit") {
+      return this.resolvePreciseResumeEdit(session.id, input.confirmed ? "confirm" : "cancel");
+    }
     if (input.type === "confirmation") {
       return this.resolveConfirmation(input.confirmed, context.pageContext, session);
     }
@@ -11800,6 +11902,9 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
   // Record the real facade boundary even for a read-only operation that has
   // no durable task. Keep it on the existing turn checkpoint, not a new store.
   const observation = objectValue(value);
+  if (toolName === "career.workflow.precise_edit" && observation.status === "waiting_for_confirmation") {
+    return projectPreciseProposal(session, objectValue(observation.workflowCheckpoint).proposal);
+  }
   const observationCheckpoint = objectValue(observation.workflowCheckpoint);
   if (toolName.startsWith("career.workflow.") && typeof observation.status === "string"
     && typeof observationCheckpoint.kind === "string" && session.activeTurn) {

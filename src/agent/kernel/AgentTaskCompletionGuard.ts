@@ -74,6 +74,12 @@ export class AgentTaskCompletionGuard {
     if (CONVERSATION_GOALS.has(state.rootGoal)) {
       return { canFinish: true, reason: "goal_completed" };
     }
+    if (state.workflowId === "precise_resume_edit") {
+      const slot = state.knownSlots.preciseResumeEdit as { proposal?: { operationId?: string; proposalHash?: string }; outcome?: { operationId?: string; proposalHash?: string; revisionId?: string } } | undefined;
+      return slot?.outcome?.revisionId && slot.outcome.operationId === slot.proposal?.operationId
+        && slot.outcome.proposalHash === slot.proposal?.proposalHash && state.completionStatus === "completed"
+        ? { canFinish: true, reason: "goal_completed" } : incomplete(state, "review_precise_edit");
+    }
     const terminal = TERMINAL_STAGES[state.workflowId] ?? TERMINAL_STAGES[state.rootGoal];
     if (!terminal) {
       if (!KNOWN_DOMAIN_GOALS.has(state.rootGoal) && state.workflowId === "agent_quick_action") {

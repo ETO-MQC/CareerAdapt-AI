@@ -1,0 +1,1691 @@
+{
+  "before": {
+    "profile": {
+      "id": "profile-precise",
+      "createdAt": "2026-11-06T08:00:00.000Z",
+      "updatedAt": "2026-11-06T08:00:00.000Z",
+      "schemaVersion": "career-profile-v2",
+      "name": "匿名测试",
+      "basics": {
+        "name": "匿名测试",
+        "links": []
+      },
+      "preference": {
+        "targetRoles": [],
+        "targetCities": [],
+        "industries": []
+      },
+      "version": 1,
+      "experiences": [
+        {
+          "id": "project",
+          "createdAt": "2026-11-06T08:00:00.000Z",
+          "updatedAt": "2026-11-06T08:00:00.000Z",
+          "type": "project",
+          "organization": "匿名project",
+          "role": "开发",
+          "facts": [
+            {
+              "id": "fact-project",
+              "createdAt": "2026-11-06T08:00:00.000Z",
+              "updatedAt": "2026-11-06T08:00:00.000Z",
+              "statement": "参与接口开发与测试。",
+              "category": "experience",
+              "provenance": [
+                {
+                  "sourceType": "user_input",
+                  "sourceId": "source",
+                  "sourceText": "参与接口开发与测试。",
+                  "confidence": 1,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-11-06T08:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            }
+          ],
+          "resumeDrafts": [
+            {
+              "id": "draft-profile-S3Xvvy9SYT",
+              "createdAt": "2026-11-06T08:00:00.000Z",
+              "updatedAt": "2026-11-06T08:00:00.000Z",
+              "text": "项目名称：匿名project\n角色：开发\n亮点：参与接口开发与测试。",
+              "factIds": [
+                "fact-project"
+              ]
+            }
+          ],
+          "tags": [],
+          "evidenceIds": []
+        },
+        {
+          "id": "work",
+          "createdAt": "2026-11-06T08:00:00.000Z",
+          "updatedAt": "2026-11-06T08:00:00.000Z",
+          "type": "work",
+          "organization": "匿名work",
+          "role": "开发",
+          "facts": [
+            {
+              "id": "fact-work",
+              "createdAt": "2026-11-06T08:00:00.000Z",
+              "updatedAt": "2026-11-06T08:00:00.000Z",
+              "statement": "参与接口开发与测试。",
+              "category": "experience",
+              "provenance": [
+                {
+                  "sourceType": "user_input",
+                  "sourceId": "source",
+                  "sourceText": "参与接口开发与测试。",
+                  "confidence": 1,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-11-06T08:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            }
+          ],
+          "resumeDrafts": [
+            {
+              "id": "draft-profile--Q-uLCxr-q",
+              "createdAt": "2026-11-06T08:00:00.000Z",
+              "updatedAt": "2026-11-06T08:00:00.000Z",
+              "text": "组织：匿名work\n职位/角色：开发\n亮点：参与接口开发与测试。",
+              "factIds": [
+                "fact-work"
+              ]
+            }
+          ],
+          "tags": [],
+          "evidenceIds": []
+        },
+        {
+          "id": "internship",
+          "createdAt": "2026-11-06T08:00:00.000Z",
+          "updatedAt": "2026-11-06T08:00:00.000Z",
+          "type": "internship",
+          "organization": "匿名internship",
+          "role": "开发",
+          "facts": [
+            {
+              "id": "fact-internship",
+              "createdAt": "2026-11-06T08:00:00.000Z",
+              "updatedAt": "2026-11-06T08:00:00.000Z",
+              "statement": "参与接口开发与测试。",
+              "category": "experience",
+              "provenance": [
+                {
+                  "sourceType": "user_input",
+                  "sourceId": "source",
+                  "sourceText": "参与接口开发与测试。",
+                  "confidence": 1,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-11-06T08:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            }
+          ],
+          "resumeDrafts": [
+            {
+              "id": "draft-profile-6sqI7AIMwG",
+              "createdAt": "2026-11-06T08:00:00.000Z",
+              "updatedAt": "2026-11-06T08:00:00.000Z",
+              "text": "组织：匿名internship\n职位/角色：开发\n亮点：参与接口开发与测试。",
+              "factIds": [
+                "fact-internship"
+              ]
+            }
+          ],
+          "tags": [],
+          "evidenceIds": []
+        }
+      ],
+      "skills": [],
+      "certificates": [],
+      "evidences": [],
+      "unclassifiedBlocks": [],
+      "structuredFacts": [
+        {
+          "data": {
+            "id": "project",
+            "customFields": [],
+            "sectionType": "project",
+            "title": "匿名project",
+            "role": "开发",
+            "current": false,
+            "tools": [],
+            "highlights": [
+              "参与接口开发与测试。"
+            ],
+            "outcomes": []
+          },
+          "factIds": [
+            "fact-project"
+          ],
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "参与接口开发与测试。",
+          "mappingTrace": []
+        },
+        {
+          "data": {
+            "id": "work",
+            "customFields": [],
+            "sectionType": "work",
+            "organization": "匿名work",
+            "role": "开发",
+            "current": false,
+            "highlights": [
+              "参与接口开发与测试。"
+            ]
+          },
+          "factIds": [
+            "fact-work"
+          ],
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "参与接口开发与测试。",
+          "mappingTrace": []
+        },
+        {
+          "data": {
+            "id": "internship",
+            "customFields": [],
+            "sectionType": "internship",
+            "organization": "匿名internship",
+            "role": "开发",
+            "current": false,
+            "highlights": [
+              "参与接口开发与测试。"
+            ]
+          },
+          "factIds": [
+            "fact-internship"
+          ],
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "参与接口开发与测试。",
+          "mappingTrace": []
+        }
+      ],
+      "structuredBasics": {
+        "name": "匿名测试",
+        "portfolioLinks": [],
+        "otherLinks": [],
+        "customFields": []
+      },
+      "personId": "person-profile-precise",
+      "profileVersionNumber": 1,
+      "isCurrent": true,
+      "versionCreatedReason": "initial"
+    },
+    "branch": {
+      "id": "branch-general-TLuJysOeQT",
+      "createdAt": "2026-11-06T08:00:00.000Z",
+      "updatedAt": "2026-11-06T08:00:00.000Z",
+      "schemaVersion": "resume-branch-v2",
+      "branchPurpose": "general",
+      "profileId": "profile-precise",
+      "name": "匿名通用简历",
+      "sourceProfileVersion": 1,
+      "sourceProfileSnapshotId": "profile-snapshot-profile-precise-1-t_Vr5A",
+      "sourceDraftRevision": 0,
+      "matcherVersion": "profile-snapshot-v2",
+      "sourceMatchSetHash": "profile-snapshot-profile-precise-1-t_Vr5A",
+      "requirementMatchIds": [],
+      "revision": 0,
+      "currentRevisionId": "resume-revision-fnv-74a95dc2-47",
+      "lifecycleStatus": "active",
+      "migrationStatus": "verified",
+      "syncStatusCache": {
+        "status": "in_sync",
+        "sourceProfileVersion": 1,
+        "currentProfileVersion": 1,
+        "invalidFactRefs": [],
+        "checkedAt": "2026-11-06T08:00:00.000Z",
+        "message": "General branch is in sync with its source profile."
+      },
+      "resumeBasics": {
+        "customFields": [],
+        "name": "匿名测试",
+        "email": "",
+        "phone": "",
+        "location": "",
+        "summary": "",
+        "links": []
+      },
+      "contentItems": [
+        {
+          "id": "branch-item-profile-project-7cJntt",
+          "itemType": "experience",
+          "source": "user_manual",
+          "sourceSectionId": "project",
+          "text": "参与接口开发与测试。\n参与接口开发与测试。\n保留第二条。\n保留第三条。",
+          "originalText": "项目名称：匿名project\n角色：开发\n亮点：参与接口开发与测试。",
+          "order": 0,
+          "visible": true,
+          "requirementIds": [],
+          "sourceSuggestionIds": [],
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "project",
+              "factId": "fact-project"
+            }
+          ],
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardRiskLevel": "low",
+          "guardFindings": [],
+          "guardedAt": "2026-11-06T08:00:00.000Z",
+          "guardVersion": "profile-snapshot-v2"
+        },
+        {
+          "id": "branch-item-profile-work-vKcV_W",
+          "itemType": "experience",
+          "source": "user_manual",
+          "sourceSectionId": "work",
+          "text": "参与接口开发与测试。\n参与接口开发与测试。\n保留第二条。\n保留第三条。",
+          "originalText": "组织：匿名work\n职位/角色：开发\n亮点：参与接口开发与测试。",
+          "order": 1,
+          "visible": true,
+          "requirementIds": [],
+          "sourceSuggestionIds": [],
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "work",
+              "factId": "fact-work"
+            }
+          ],
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardRiskLevel": "low",
+          "guardFindings": [],
+          "guardedAt": "2026-11-06T08:00:00.000Z",
+          "guardVersion": "profile-snapshot-v2"
+        },
+        {
+          "id": "branch-item-profile-internship-Zq6_UN",
+          "itemType": "experience",
+          "source": "user_manual",
+          "sourceSectionId": "internship",
+          "text": "参与接口开发与测试。\n参与接口开发与测试。\n保留第二条。\n保留第三条。",
+          "originalText": "组织：匿名internship\n职位/角色：开发\n亮点：参与接口开发与测试。",
+          "order": 2,
+          "visible": true,
+          "requirementIds": [],
+          "sourceSuggestionIds": [],
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "internship",
+              "factId": "fact-internship"
+            }
+          ],
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardRiskLevel": "low",
+          "guardFindings": [],
+          "guardedAt": "2026-11-06T08:00:00.000Z",
+          "guardVersion": "profile-snapshot-v2"
+        }
+      ],
+      "structuredContentItems": [
+        {
+          "id": "branch-item-profile-project-7cJntt",
+          "schemaVersion": "resume-content-item-v2",
+          "data": {
+            "id": "project",
+            "customFields": [],
+            "sectionType": "project",
+            "title": "匿名project",
+            "role": "开发",
+            "current": false,
+            "tools": [],
+            "description": "参与接口开发与测试。",
+            "highlights": [
+              "参与接口开发与测试。",
+              "保留第二条。",
+              "保留第三条。"
+            ],
+            "outcomes": []
+          },
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "project",
+              "factId": "fact-project"
+            }
+          ],
+          "source": "user_manual",
+          "order": 0,
+          "visible": true,
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardFindings": [],
+          "legacyTextProjection": "参与接口开发与测试。\n参与接口开发与测试。\n保留第二条。\n保留第三条。",
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "参与接口开发与测试。",
+          "mappingTrace": []
+        },
+        {
+          "id": "branch-item-profile-work-vKcV_W",
+          "schemaVersion": "resume-content-item-v2",
+          "data": {
+            "id": "work",
+            "customFields": [],
+            "sectionType": "work",
+            "organization": "匿名work",
+            "role": "开发",
+            "current": false,
+            "description": "参与接口开发与测试。",
+            "highlights": [
+              "参与接口开发与测试。",
+              "保留第二条。",
+              "保留第三条。"
+            ]
+          },
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "work",
+              "factId": "fact-work"
+            }
+          ],
+          "source": "user_manual",
+          "order": 1,
+          "visible": true,
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardFindings": [],
+          "legacyTextProjection": "参与接口开发与测试。\n参与接口开发与测试。\n保留第二条。\n保留第三条。",
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "参与接口开发与测试。",
+          "mappingTrace": []
+        },
+        {
+          "id": "branch-item-profile-internship-Zq6_UN",
+          "schemaVersion": "resume-content-item-v2",
+          "data": {
+            "id": "internship",
+            "customFields": [],
+            "sectionType": "internship",
+            "organization": "匿名internship",
+            "role": "开发",
+            "current": false,
+            "description": "参与接口开发与测试。",
+            "highlights": [
+              "参与接口开发与测试。",
+              "保留第二条。",
+              "保留第三条。"
+            ]
+          },
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "internship",
+              "factId": "fact-internship"
+            }
+          ],
+          "source": "user_manual",
+          "order": 2,
+          "visible": true,
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardFindings": [],
+          "legacyTextProjection": "参与接口开发与测试。\n参与接口开发与测试。\n保留第二条。\n保留第三条。",
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "参与接口开发与测试。",
+          "mappingTrace": []
+        }
+      ],
+      "tailoringAppliedCount": 0
+    },
+    "other": {
+      "id": "branch-job-profile-fnv-a027371d-38",
+      "createdAt": "2026-11-06T08:00:00.000Z",
+      "updatedAt": "2026-11-06T08:00:00.000Z",
+      "schemaVersion": "resume-branch-v2",
+      "branchPurpose": "job_specific",
+      "profileId": "profile-precise",
+      "jobId": "job-precise",
+      "name": "匿名岗位简历",
+      "sourceProfileVersion": 1,
+      "sourceJobVersion": "2026-11-06T08:00:00.000Z",
+      "sourceProfileSnapshotId": "profile-snapshot-profile-precise-1-fnv-e6037c37-23",
+      "derivedAt": "2026-11-06T08:00:00.000Z",
+      "sourceDraftRevision": 0,
+      "matcherVersion": "job-source-mode.profile-library.v2",
+      "sourceMatchSetHash": "match-precise",
+      "requirementMatchIds": [],
+      "revision": 0,
+      "currentRevisionId": "resume-revision-fnv-5ed28e66-52",
+      "lifecycleStatus": "active",
+      "migrationStatus": "verified",
+      "syncStatusCache": {
+        "status": "in_sync",
+        "sourceProfileVersion": 1,
+        "currentProfileVersion": 1,
+        "sourceJobVersion": "2026-11-06T08:00:00.000Z",
+        "currentJobVersion": "2026-11-06T08:00:00.000Z",
+        "invalidFactRefs": [],
+        "checkedAt": "2026-11-06T08:00:00.000Z",
+        "message": "Job branch is in sync with its profile-library source and job version."
+      },
+      "resumeBasics": {
+        "customFields": [],
+        "name": "匿名测试",
+        "targetRole": "开发",
+        "email": "",
+        "phone": "",
+        "location": "",
+        "summary": "",
+        "links": []
+      },
+      "contentItems": [
+        {
+          "id": "branch-item-profile-project-N9XYRW",
+          "itemType": "experience",
+          "source": "user_manual",
+          "sourceSectionId": "project",
+          "text": "项目名称：匿名project\n角色：开发\n亮点：参与接口开发与测试。",
+          "originalText": "项目名称：匿名project\n角色：开发\n亮点：参与接口开发与测试。",
+          "order": 0,
+          "visible": true,
+          "requirementIds": [],
+          "sourceSuggestionIds": [],
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "project",
+              "factId": "fact-project"
+            }
+          ],
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardRiskLevel": "low",
+          "guardFindings": [],
+          "guardedAt": "2026-11-06T08:00:00.000Z",
+          "guardVersion": "profile-snapshot-v2"
+        },
+        {
+          "id": "branch-item-profile-work-D96DC7",
+          "itemType": "experience",
+          "source": "user_manual",
+          "sourceSectionId": "work",
+          "text": "组织：匿名work\n职位/角色：开发\n亮点：参与接口开发与测试。",
+          "originalText": "组织：匿名work\n职位/角色：开发\n亮点：参与接口开发与测试。",
+          "order": 1,
+          "visible": true,
+          "requirementIds": [],
+          "sourceSuggestionIds": [],
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "work",
+              "factId": "fact-work"
+            }
+          ],
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardRiskLevel": "low",
+          "guardFindings": [],
+          "guardedAt": "2026-11-06T08:00:00.000Z",
+          "guardVersion": "profile-snapshot-v2"
+        },
+        {
+          "id": "branch-item-profile-internship-ln8Pfg",
+          "itemType": "experience",
+          "source": "user_manual",
+          "sourceSectionId": "internship",
+          "text": "组织：匿名internship\n职位/角色：开发\n亮点：参与接口开发与测试。",
+          "originalText": "组织：匿名internship\n职位/角色：开发\n亮点：参与接口开发与测试。",
+          "order": 2,
+          "visible": true,
+          "requirementIds": [],
+          "sourceSuggestionIds": [],
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "internship",
+              "factId": "fact-internship"
+            }
+          ],
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardRiskLevel": "low",
+          "guardFindings": [],
+          "guardedAt": "2026-11-06T08:00:00.000Z",
+          "guardVersion": "profile-snapshot-v2"
+        }
+      ],
+      "structuredContentItems": [
+        {
+          "id": "branch-item-profile-project-N9XYRW",
+          "schemaVersion": "resume-content-item-v2",
+          "data": {
+            "id": "project",
+            "customFields": [],
+            "sectionType": "project",
+            "title": "匿名project",
+            "role": "开发",
+            "current": false,
+            "tools": [],
+            "highlights": [
+              "参与接口开发与测试。"
+            ],
+            "outcomes": []
+          },
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "project",
+              "factId": "fact-project"
+            }
+          ],
+          "source": "user_manual",
+          "order": 0,
+          "visible": true,
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardFindings": [],
+          "legacyTextProjection": "项目名称：匿名project\n角色：开发\n亮点：参与接口开发与测试。",
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "参与接口开发与测试。",
+          "mappingTrace": []
+        },
+        {
+          "id": "branch-item-profile-work-D96DC7",
+          "schemaVersion": "resume-content-item-v2",
+          "data": {
+            "id": "work",
+            "customFields": [],
+            "sectionType": "work",
+            "organization": "匿名work",
+            "role": "开发",
+            "current": false,
+            "highlights": [
+              "参与接口开发与测试。"
+            ]
+          },
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "work",
+              "factId": "fact-work"
+            }
+          ],
+          "source": "user_manual",
+          "order": 1,
+          "visible": true,
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardFindings": [],
+          "legacyTextProjection": "组织：匿名work\n职位/角色：开发\n亮点：参与接口开发与测试。",
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "参与接口开发与测试。",
+          "mappingTrace": []
+        },
+        {
+          "id": "branch-item-profile-internship-ln8Pfg",
+          "schemaVersion": "resume-content-item-v2",
+          "data": {
+            "id": "internship",
+            "customFields": [],
+            "sectionType": "internship",
+            "organization": "匿名internship",
+            "role": "开发",
+            "current": false,
+            "highlights": [
+              "参与接口开发与测试。"
+            ]
+          },
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "internship",
+              "factId": "fact-internship"
+            }
+          ],
+          "source": "user_manual",
+          "order": 2,
+          "visible": true,
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardFindings": [],
+          "legacyTextProjection": "组织：匿名internship\n职位/角色：开发\n亮点：参与接口开发与测试。",
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "参与接口开发与测试。",
+          "mappingTrace": []
+        }
+      ],
+      "tailoringAppliedCount": 0
+    },
+    "presentation": {
+      "schemaVersion": "resume-presentation-v1",
+      "branchId": "branch-general-TLuJysOeQT",
+      "templateId": "classic-technical",
+      "contentRevision": {
+        "branchRevision": 0,
+        "currentRevisionId": "resume-revision-fnv-74a95dc2-47"
+      },
+      "sectionOrder": [
+        "summary",
+        "experience",
+        "skills",
+        "certificates"
+      ],
+      "itemOrderBySection": {
+        "summary": [],
+        "experience": [
+          "branch-item-profile-project-7cJntt",
+          "branch-item-profile-work-vKcV_W",
+          "branch-item-profile-internship-Zq6_UN"
+        ],
+        "skills": [],
+        "certificates": []
+      },
+      "hiddenItemIds": [],
+      "typography": {
+        "chineseFont": "system_sans",
+        "englishFont": "system_sans",
+        "bodyTextScale": "normal",
+        "titleTextScale": "normal",
+        "lineHeight": "normal"
+      },
+      "spacing": {
+        "pageMargin": "normal",
+        "sectionGap": "normal",
+        "itemGap": "normal"
+      },
+      "theme": {
+        "primaryColor": "emerald",
+        "accentColor": "emerald",
+        "dividerColor": "graphite",
+        "density": "balanced"
+      },
+      "pagination": {
+        "pagePolicy": "natural",
+        "preferredPageCount": 2,
+        "maximumPageCount": 4,
+        "overflowBehavior": "warn",
+        "headerFooter": "none",
+        "showPhoto": false,
+        "pageBreakBeforeSections": []
+      },
+      "sectionStyleOverrides": {},
+      "highlightListStyle": "bullet",
+      "itemHeaderMiddleAlignment": "balanced",
+      "presentationRevision": 1,
+      "updatedAt": "2026-11-06T12:20:10.646Z"
+    }
+  },
+  "after": {
+    "profile": {
+      "id": "profile-precise",
+      "createdAt": "2026-11-06T08:00:00.000Z",
+      "updatedAt": "2026-11-06T08:00:00.000Z",
+      "schemaVersion": "career-profile-v2",
+      "name": "匿名测试",
+      "basics": {
+        "name": "匿名测试",
+        "links": []
+      },
+      "preference": {
+        "targetRoles": [],
+        "targetCities": [],
+        "industries": []
+      },
+      "version": 1,
+      "experiences": [
+        {
+          "id": "project",
+          "createdAt": "2026-11-06T08:00:00.000Z",
+          "updatedAt": "2026-11-06T08:00:00.000Z",
+          "type": "project",
+          "organization": "匿名project",
+          "role": "开发",
+          "facts": [
+            {
+              "id": "fact-project",
+              "createdAt": "2026-11-06T08:00:00.000Z",
+              "updatedAt": "2026-11-06T08:00:00.000Z",
+              "statement": "参与接口开发与测试。",
+              "category": "experience",
+              "provenance": [
+                {
+                  "sourceType": "user_input",
+                  "sourceId": "source",
+                  "sourceText": "参与接口开发与测试。",
+                  "confidence": 1,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-11-06T08:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            }
+          ],
+          "resumeDrafts": [
+            {
+              "id": "draft-profile-S3Xvvy9SYT",
+              "createdAt": "2026-11-06T08:00:00.000Z",
+              "updatedAt": "2026-11-06T08:00:00.000Z",
+              "text": "项目名称：匿名project\n角色：开发\n亮点：参与接口开发与测试。",
+              "factIds": [
+                "fact-project"
+              ]
+            }
+          ],
+          "tags": [],
+          "evidenceIds": []
+        },
+        {
+          "id": "work",
+          "createdAt": "2026-11-06T08:00:00.000Z",
+          "updatedAt": "2026-11-06T08:00:00.000Z",
+          "type": "work",
+          "organization": "匿名work",
+          "role": "开发",
+          "facts": [
+            {
+              "id": "fact-work",
+              "createdAt": "2026-11-06T08:00:00.000Z",
+              "updatedAt": "2026-11-06T08:00:00.000Z",
+              "statement": "参与接口开发与测试。",
+              "category": "experience",
+              "provenance": [
+                {
+                  "sourceType": "user_input",
+                  "sourceId": "source",
+                  "sourceText": "参与接口开发与测试。",
+                  "confidence": 1,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-11-06T08:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            }
+          ],
+          "resumeDrafts": [
+            {
+              "id": "draft-profile--Q-uLCxr-q",
+              "createdAt": "2026-11-06T08:00:00.000Z",
+              "updatedAt": "2026-11-06T08:00:00.000Z",
+              "text": "组织：匿名work\n职位/角色：开发\n亮点：参与接口开发与测试。",
+              "factIds": [
+                "fact-work"
+              ]
+            }
+          ],
+          "tags": [],
+          "evidenceIds": []
+        },
+        {
+          "id": "internship",
+          "createdAt": "2026-11-06T08:00:00.000Z",
+          "updatedAt": "2026-11-06T08:00:00.000Z",
+          "type": "internship",
+          "organization": "匿名internship",
+          "role": "开发",
+          "facts": [
+            {
+              "id": "fact-internship",
+              "createdAt": "2026-11-06T08:00:00.000Z",
+              "updatedAt": "2026-11-06T08:00:00.000Z",
+              "statement": "参与接口开发与测试。",
+              "category": "experience",
+              "provenance": [
+                {
+                  "sourceType": "user_input",
+                  "sourceId": "source",
+                  "sourceText": "参与接口开发与测试。",
+                  "confidence": 1,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-11-06T08:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            }
+          ],
+          "resumeDrafts": [
+            {
+              "id": "draft-profile-6sqI7AIMwG",
+              "createdAt": "2026-11-06T08:00:00.000Z",
+              "updatedAt": "2026-11-06T08:00:00.000Z",
+              "text": "组织：匿名internship\n职位/角色：开发\n亮点：参与接口开发与测试。",
+              "factIds": [
+                "fact-internship"
+              ]
+            }
+          ],
+          "tags": [],
+          "evidenceIds": []
+        }
+      ],
+      "skills": [],
+      "certificates": [],
+      "evidences": [],
+      "unclassifiedBlocks": [],
+      "structuredFacts": [
+        {
+          "data": {
+            "id": "project",
+            "customFields": [],
+            "sectionType": "project",
+            "title": "匿名project",
+            "role": "开发",
+            "current": false,
+            "tools": [],
+            "highlights": [
+              "参与接口开发与测试。"
+            ],
+            "outcomes": []
+          },
+          "factIds": [
+            "fact-project"
+          ],
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "参与接口开发与测试。",
+          "mappingTrace": []
+        },
+        {
+          "data": {
+            "id": "work",
+            "customFields": [],
+            "sectionType": "work",
+            "organization": "匿名work",
+            "role": "开发",
+            "current": false,
+            "highlights": [
+              "参与接口开发与测试。"
+            ]
+          },
+          "factIds": [
+            "fact-work"
+          ],
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "参与接口开发与测试。",
+          "mappingTrace": []
+        },
+        {
+          "data": {
+            "id": "internship",
+            "customFields": [],
+            "sectionType": "internship",
+            "organization": "匿名internship",
+            "role": "开发",
+            "current": false,
+            "highlights": [
+              "参与接口开发与测试。"
+            ]
+          },
+          "factIds": [
+            "fact-internship"
+          ],
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "参与接口开发与测试。",
+          "mappingTrace": []
+        }
+      ],
+      "structuredBasics": {
+        "name": "匿名测试",
+        "portfolioLinks": [],
+        "otherLinks": [],
+        "customFields": []
+      },
+      "personId": "person-profile-precise",
+      "profileVersionNumber": 1,
+      "isCurrent": true,
+      "versionCreatedReason": "initial"
+    },
+    "branch": {
+      "id": "branch-general-TLuJysOeQT",
+      "createdAt": "2026-11-06T08:00:00.000Z",
+      "updatedAt": "2026-11-06T12:20:10.658Z",
+      "schemaVersion": "resume-branch-v2",
+      "branchPurpose": "general",
+      "profileId": "profile-precise",
+      "name": "匿名通用简历",
+      "sourceProfileVersion": 1,
+      "sourceProfileSnapshotId": "profile-snapshot-profile-precise-1-t_Vr5A",
+      "sourceDraftRevision": 0,
+      "matcherVersion": "profile-snapshot-v2",
+      "sourceMatchSetHash": "profile-snapshot-profile-precise-1-t_Vr5A",
+      "requirementMatchIds": [],
+      "revision": 1,
+      "currentRevisionId": "resume-revision-fnv-1ee00c25-197",
+      "lifecycleStatus": "active",
+      "migrationStatus": "verified",
+      "syncStatusCache": {
+        "status": "in_sync",
+        "sourceProfileVersion": 1,
+        "currentProfileVersion": 1,
+        "invalidFactRefs": [],
+        "checkedAt": "2026-11-06T08:00:00.000Z",
+        "message": "General branch is in sync with its source profile."
+      },
+      "resumeBasics": {
+        "customFields": [],
+        "name": "匿名测试",
+        "email": "",
+        "phone": "",
+        "location": "",
+        "summary": "",
+        "links": []
+      },
+      "contentItems": [
+        {
+          "id": "branch-item-profile-project-7cJntt",
+          "itemType": "experience",
+          "source": "user_manual",
+          "sourceSectionId": "project",
+          "text": "参与接口开发与测试。\n参与接口开发与测试。\n保留第二条。\n保留第三条。",
+          "originalText": "项目名称：匿名project\n角色：开发\n亮点：参与接口开发与测试。",
+          "order": 0,
+          "visible": true,
+          "requirementIds": [],
+          "sourceSuggestionIds": [],
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "project",
+              "factId": "fact-project"
+            }
+          ],
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardRiskLevel": "low",
+          "guardFindings": [],
+          "guardedAt": "2026-11-06T08:00:00.000Z",
+          "guardVersion": "profile-snapshot-v2"
+        },
+        {
+          "id": "branch-item-profile-work-vKcV_W",
+          "itemType": "experience",
+          "source": "user_manual",
+          "sourceSectionId": "work",
+          "text": "参与测试与接口开发。\n参与接口开发与测试。\n保留第二条。\n保留第三条。",
+          "originalText": "组织：匿名work\n职位/角色：开发\n亮点：参与接口开发与测试。",
+          "order": 1,
+          "visible": true,
+          "requirementIds": [],
+          "sourceSuggestionIds": [],
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "work",
+              "factId": "fact-work"
+            }
+          ],
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardRiskLevel": "low",
+          "guardFindings": [],
+          "guardedAt": "2026-11-06T08:00:00.000Z",
+          "guardVersion": "profile-snapshot-v2"
+        },
+        {
+          "id": "branch-item-profile-internship-Zq6_UN",
+          "itemType": "experience",
+          "source": "user_manual",
+          "sourceSectionId": "internship",
+          "text": "参与接口开发与测试。\n参与接口开发与测试。\n保留第二条。\n保留第三条。",
+          "originalText": "组织：匿名internship\n职位/角色：开发\n亮点：参与接口开发与测试。",
+          "order": 2,
+          "visible": true,
+          "requirementIds": [],
+          "sourceSuggestionIds": [],
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "internship",
+              "factId": "fact-internship"
+            }
+          ],
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardRiskLevel": "low",
+          "guardFindings": [],
+          "guardedAt": "2026-11-06T08:00:00.000Z",
+          "guardVersion": "profile-snapshot-v2"
+        }
+      ],
+      "structuredContentItems": [
+        {
+          "id": "branch-item-profile-project-7cJntt",
+          "schemaVersion": "resume-content-item-v2",
+          "data": {
+            "id": "project",
+            "customFields": [],
+            "sectionType": "project",
+            "title": "匿名project",
+            "role": "开发",
+            "current": false,
+            "tools": [],
+            "description": "参与接口开发与测试。",
+            "highlights": [
+              "参与接口开发与测试。",
+              "保留第二条。",
+              "保留第三条。"
+            ],
+            "outcomes": []
+          },
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "project",
+              "factId": "fact-project"
+            }
+          ],
+          "source": "user_manual",
+          "order": 0,
+          "visible": true,
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardFindings": [],
+          "legacyTextProjection": "参与接口开发与测试。\n参与接口开发与测试。\n保留第二条。\n保留第三条。",
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "参与接口开发与测试。",
+          "mappingTrace": []
+        },
+        {
+          "id": "branch-item-profile-work-vKcV_W",
+          "schemaVersion": "resume-content-item-v2",
+          "data": {
+            "id": "work",
+            "customFields": [],
+            "sectionType": "work",
+            "organization": "匿名work",
+            "role": "开发",
+            "current": false,
+            "description": "参与测试与接口开发。",
+            "highlights": [
+              "参与接口开发与测试。",
+              "保留第二条。",
+              "保留第三条。"
+            ]
+          },
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "work",
+              "factId": "fact-work"
+            }
+          ],
+          "source": "user_manual",
+          "order": 1,
+          "visible": true,
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardFindings": [],
+          "legacyTextProjection": "参与测试与接口开发。\n参与接口开发与测试。\n保留第二条。\n保留第三条。",
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "参与接口开发与测试。",
+          "mappingTrace": []
+        },
+        {
+          "id": "branch-item-profile-internship-Zq6_UN",
+          "schemaVersion": "resume-content-item-v2",
+          "data": {
+            "id": "internship",
+            "customFields": [],
+            "sectionType": "internship",
+            "organization": "匿名internship",
+            "role": "开发",
+            "current": false,
+            "description": "参与接口开发与测试。",
+            "highlights": [
+              "参与接口开发与测试。",
+              "保留第二条。",
+              "保留第三条。"
+            ]
+          },
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "internship",
+              "factId": "fact-internship"
+            }
+          ],
+          "source": "user_manual",
+          "order": 2,
+          "visible": true,
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardFindings": [],
+          "legacyTextProjection": "参与接口开发与测试。\n参与接口开发与测试。\n保留第二条。\n保留第三条。",
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "参与接口开发与测试。",
+          "mappingTrace": []
+        }
+      ],
+      "tailoringAppliedCount": 0
+    },
+    "other": {
+      "id": "branch-job-profile-fnv-a027371d-38",
+      "createdAt": "2026-11-06T08:00:00.000Z",
+      "updatedAt": "2026-11-06T08:00:00.000Z",
+      "schemaVersion": "resume-branch-v2",
+      "branchPurpose": "job_specific",
+      "profileId": "profile-precise",
+      "jobId": "job-precise",
+      "name": "匿名岗位简历",
+      "sourceProfileVersion": 1,
+      "sourceJobVersion": "2026-11-06T08:00:00.000Z",
+      "sourceProfileSnapshotId": "profile-snapshot-profile-precise-1-fnv-e6037c37-23",
+      "derivedAt": "2026-11-06T08:00:00.000Z",
+      "sourceDraftRevision": 0,
+      "matcherVersion": "job-source-mode.profile-library.v2",
+      "sourceMatchSetHash": "match-precise",
+      "requirementMatchIds": [],
+      "revision": 0,
+      "currentRevisionId": "resume-revision-fnv-5ed28e66-52",
+      "lifecycleStatus": "active",
+      "migrationStatus": "verified",
+      "syncStatusCache": {
+        "status": "in_sync",
+        "sourceProfileVersion": 1,
+        "currentProfileVersion": 1,
+        "sourceJobVersion": "2026-11-06T08:00:00.000Z",
+        "currentJobVersion": "2026-11-06T08:00:00.000Z",
+        "invalidFactRefs": [],
+        "checkedAt": "2026-11-06T08:00:00.000Z",
+        "message": "Job branch is in sync with its profile-library source and job version."
+      },
+      "resumeBasics": {
+        "customFields": [],
+        "name": "匿名测试",
+        "targetRole": "开发",
+        "email": "",
+        "phone": "",
+        "location": "",
+        "summary": "",
+        "links": []
+      },
+      "contentItems": [
+        {
+          "id": "branch-item-profile-project-N9XYRW",
+          "itemType": "experience",
+          "source": "user_manual",
+          "sourceSectionId": "project",
+          "text": "项目名称：匿名project\n角色：开发\n亮点：参与接口开发与测试。",
+          "originalText": "项目名称：匿名project\n角色：开发\n亮点：参与接口开发与测试。",
+          "order": 0,
+          "visible": true,
+          "requirementIds": [],
+          "sourceSuggestionIds": [],
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "project",
+              "factId": "fact-project"
+            }
+          ],
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardRiskLevel": "low",
+          "guardFindings": [],
+          "guardedAt": "2026-11-06T08:00:00.000Z",
+          "guardVersion": "profile-snapshot-v2"
+        },
+        {
+          "id": "branch-item-profile-work-D96DC7",
+          "itemType": "experience",
+          "source": "user_manual",
+          "sourceSectionId": "work",
+          "text": "组织：匿名work\n职位/角色：开发\n亮点：参与接口开发与测试。",
+          "originalText": "组织：匿名work\n职位/角色：开发\n亮点：参与接口开发与测试。",
+          "order": 1,
+          "visible": true,
+          "requirementIds": [],
+          "sourceSuggestionIds": [],
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "work",
+              "factId": "fact-work"
+            }
+          ],
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardRiskLevel": "low",
+          "guardFindings": [],
+          "guardedAt": "2026-11-06T08:00:00.000Z",
+          "guardVersion": "profile-snapshot-v2"
+        },
+        {
+          "id": "branch-item-profile-internship-ln8Pfg",
+          "itemType": "experience",
+          "source": "user_manual",
+          "sourceSectionId": "internship",
+          "text": "组织：匿名internship\n职位/角色：开发\n亮点：参与接口开发与测试。",
+          "originalText": "组织：匿名internship\n职位/角色：开发\n亮点：参与接口开发与测试。",
+          "order": 2,
+          "visible": true,
+          "requirementIds": [],
+          "sourceSuggestionIds": [],
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "internship",
+              "factId": "fact-internship"
+            }
+          ],
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardRiskLevel": "low",
+          "guardFindings": [],
+          "guardedAt": "2026-11-06T08:00:00.000Z",
+          "guardVersion": "profile-snapshot-v2"
+        }
+      ],
+      "structuredContentItems": [
+        {
+          "id": "branch-item-profile-project-N9XYRW",
+          "schemaVersion": "resume-content-item-v2",
+          "data": {
+            "id": "project",
+            "customFields": [],
+            "sectionType": "project",
+            "title": "匿名project",
+            "role": "开发",
+            "current": false,
+            "tools": [],
+            "highlights": [
+              "参与接口开发与测试。"
+            ],
+            "outcomes": []
+          },
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "project",
+              "factId": "fact-project"
+            }
+          ],
+          "source": "user_manual",
+          "order": 0,
+          "visible": true,
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardFindings": [],
+          "legacyTextProjection": "项目名称：匿名project\n角色：开发\n亮点：参与接口开发与测试。",
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "参与接口开发与测试。",
+          "mappingTrace": []
+        },
+        {
+          "id": "branch-item-profile-work-D96DC7",
+          "schemaVersion": "resume-content-item-v2",
+          "data": {
+            "id": "work",
+            "customFields": [],
+            "sectionType": "work",
+            "organization": "匿名work",
+            "role": "开发",
+            "current": false,
+            "highlights": [
+              "参与接口开发与测试。"
+            ]
+          },
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "work",
+              "factId": "fact-work"
+            }
+          ],
+          "source": "user_manual",
+          "order": 1,
+          "visible": true,
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardFindings": [],
+          "legacyTextProjection": "组织：匿名work\n职位/角色：开发\n亮点：参与接口开发与测试。",
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "参与接口开发与测试。",
+          "mappingTrace": []
+        },
+        {
+          "id": "branch-item-profile-internship-ln8Pfg",
+          "schemaVersion": "resume-content-item-v2",
+          "data": {
+            "id": "internship",
+            "customFields": [],
+            "sectionType": "internship",
+            "organization": "匿名internship",
+            "role": "开发",
+            "current": false,
+            "highlights": [
+              "参与接口开发与测试。"
+            ]
+          },
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "internship",
+              "factId": "fact-internship"
+            }
+          ],
+          "source": "user_manual",
+          "order": 2,
+          "visible": true,
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardFindings": [],
+          "legacyTextProjection": "组织：匿名internship\n职位/角色：开发\n亮点：参与接口开发与测试。",
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "参与接口开发与测试。",
+          "mappingTrace": []
+        }
+      ],
+      "tailoringAppliedCount": 0
+    },
+    "presentation": {
+      "schemaVersion": "resume-presentation-v1",
+      "branchId": "branch-general-TLuJysOeQT",
+      "templateId": "classic-technical",
+      "contentRevision": {
+        "branchRevision": 1,
+        "currentRevisionId": "resume-revision-fnv-1ee00c25-197"
+      },
+      "sectionOrder": [
+        "summary",
+        "experience",
+        "skills",
+        "certificates"
+      ],
+      "itemOrderBySection": {
+        "summary": [],
+        "experience": [
+          "branch-item-profile-project-7cJntt",
+          "branch-item-profile-work-vKcV_W",
+          "branch-item-profile-internship-Zq6_UN"
+        ],
+        "skills": [],
+        "certificates": []
+      },
+      "hiddenItemIds": [],
+      "typography": {
+        "chineseFont": "system_sans",
+        "englishFont": "system_sans",
+        "bodyTextScale": "normal",
+        "titleTextScale": "normal",
+        "lineHeight": "normal"
+      },
+      "spacing": {
+        "pageMargin": "normal",
+        "sectionGap": "normal",
+        "itemGap": "normal"
+      },
+      "theme": {
+        "primaryColor": "emerald",
+        "accentColor": "emerald",
+        "dividerColor": "graphite",
+        "density": "balanced"
+      },
+      "pagination": {
+        "pagePolicy": "natural",
+        "preferredPageCount": 2,
+        "maximumPageCount": 4,
+        "overflowBehavior": "warn",
+        "headerFooter": "none",
+        "showPhoto": false,
+        "pageBreakBeforeSections": []
+      },
+      "sectionStyleOverrides": {},
+      "highlightListStyle": "bullet",
+      "itemHeaderMiddleAlignment": "balanced",
+      "presentationRevision": 1,
+      "updatedAt": "2026-11-06T12:20:10.646Z"
+    }
+  },
+  "receipt": {
+    "operationId": "operation-precise",
+    "proposalHash": "3d575f5c3db500e372f15cdb9fe4b6b43093747af4896e3cb08508010b852afd",
+    "branchId": "branch-general-TLuJysOeQT",
+    "revisionId": "resume-revision-fnv-1ee00c25-197",
+    "revision": {
+      "id": "resume-revision-fnv-1ee00c25-197",
+      "createdAt": "2026-11-06T12:20:10.658Z",
+      "updatedAt": "2026-11-06T12:20:10.658Z",
+      "branchId": "branch-general-TLuJysOeQT",
+      "revisionNumber": 1,
+      "source": "suggestion_accept",
+      "operationId": "precise:8f488ee9d4e16e5c075d8ff341c30fd8d7750414a2020e2806c8d0e78833714e:3d575f5c3db500e372f15cdb9fe4b6b43093747af4896e3cb08508010b852afd",
+      "previousRevisionId": "resume-revision-fnv-74a95dc2-47",
+      "snapshot": {
+        "name": "匿名通用简历",
+        "lifecycleStatus": "active",
+        "resumeBasics": {
+          "customFields": [],
+          "name": "匿名测试",
+          "email": "",
+          "phone": "",
+          "location": "",
+          "summary": "",
+          "links": []
+        },
+        "contentItems": [
+          {
+            "id": "branch-item-profile-project-7cJntt",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "project",
+            "text": "参与接口开发与测试。\n参与接口开发与测试。\n保留第二条。\n保留第三条。",
+            "originalText": "项目名称：匿名project\n角色：开发\n亮点：参与接口开发与测试。",
+            "order": 0,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "project",
+                "factId": "fact-project"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T08:00:00.000Z",
+            "guardVersion": "profile-snapshot-v2"
+          },
+          {
+            "id": "branch-item-profile-work-vKcV_W",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "work",
+            "text": "参与测试与接口开发。\n参与接口开发与测试。\n保留第二条。\n保留第三条。",
+            "originalText": "组织：匿名work\n职位/角色：开发\n亮点：参与接口开发与测试。",
+            "order": 1,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "work",
+                "factId": "fact-work"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T08:00:00.000Z",
+            "guardVersion": "profile-snapshot-v2"
+          },
+          {
+            "id": "branch-item-profile-internship-Zq6_UN",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "internship",
+            "text": "参与接口开发与测试。\n参与接口开发与测试。\n保留第二条。\n保留第三条。",
+            "originalText": "组织：匿名internship\n职位/角色：开发\n亮点：参与接口开发与测试。",
+            "order": 2,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "internship",
+                "factId": "fact-internship"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T08:00:00.000Z",
+            "guardVersion": "profile-snapshot-v2"
+          }
+        ],
+        "structuredContentItems": [
+          {
+            "id": "branch-item-profile-project-7cJntt",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "project",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "匿名project",
+              "role": "开发",
+              "current": false,
+              "tools": [],
+              "description": "参与接口开发与测试。",
+              "highlights": [
+                "参与接口开发与测试。",
+                "保留第二条。",
+                "保留第三条。"
+              ],
+              "outcomes": []
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "project",
+                "factId": "fact-project"
+              }
+            ],
+            "source": "user_manual",
+            "order": 0,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "参与接口开发与测试。\n参与接口开发与测试。\n保留第二条。\n保留第三条。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "参与接口开发与测试。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-profile-work-vKcV_W",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "work",
+              "customFields": [],
+              "sectionType": "work",
+              "organization": "匿名work",
+              "role": "开发",
+              "current": false,
+              "description": "参与测试与接口开发。",
+              "highlights": [
+                "参与接口开发与测试。",
+                "保留第二条。",
+                "保留第三条。"
+              ]
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "work",
+                "factId": "fact-work"
+              }
+            ],
+            "source": "user_manual",
+            "order": 1,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "参与测试与接口开发。\n参与接口开发与测试。\n保留第二条。\n保留第三条。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "参与接口开发与测试。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-profile-internship-Zq6_UN",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "internship",
+              "customFields": [],
+              "sectionType": "internship",
+              "organization": "匿名internship",
+              "role": "开发",
+              "current": false,
+              "description": "参与接口开发与测试。",
+              "highlights": [
+                "参与接口开发与测试。",
+                "保留第二条。",
+                "保留第三条。"
+              ]
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "internship",
+                "factId": "fact-internship"
+              }
+            ],
+            "source": "user_manual",
+            "order": 2,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "参与接口开发与测试。\n参与接口开发与测试。\n保留第二条。\n保留第三条。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "参与接口开发与测试。",
+            "mappingTrace": []
+          }
+        ]
+      }
+    },
+    "idempotent": false
+  }
+}
