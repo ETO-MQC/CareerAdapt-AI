@@ -1,0 +1,12 @@
+{
+  "sourceInputs": 1024,
+  "rootChangesSinceFinalBuild": [],
+  "isolatedSourceMismatchesExcludingGenerated": [],
+  "generatedExceptions": [
+    "next-env.d.ts route type path follows separate dev/build dist",
+    "tsconfig.json appended separate dist type include globs"
+  ],
+  "compilerOptionsEqual": true,
+  "lockfileEqual": true,
+  "result": "PASS"
+}

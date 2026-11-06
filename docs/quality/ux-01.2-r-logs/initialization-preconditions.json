@@ -1,0 +1,24 @@
+{
+  "allPassed": true,
+  "businessStarted": false,
+  "setup": "completed through official Setup form, synthetic credential only",
+  "normalWorkspace": true,
+  "isolatedHome": "C:\\Users\\mqcin\\AppData\\Local\\Temp\\careerad-hermes-integration-Qjuqao",
+  "providerBaseUrl": "http://127.0.0.1:15194/v1",
+  "providerModel": "careeradapt-test",
+  "bridge": {
+    "connected": true,
+    "server": "careeradapt",
+    "discoveredToolCount": 59,
+    "bindingPresent": false,
+    "lastHeartbeatAt": "2026-11-06T06:01:45.199Z",
+    "bridgeId": "careeradapt-bridge-_Q7npPL063xc"
+  },
+  "runtime": {
+    "overallState": "ready",
+    "runReady": true,
+    "careerMcpReady": true,
+    "requiredCareerFacadesReady": 8
+  },
+  "sessionId": "agent-session-w48TR3jEfPt5"
+}

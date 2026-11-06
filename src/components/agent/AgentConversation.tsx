@@ -146,7 +146,7 @@ export function AgentConversation({
               return (
                 <div key={item.id} className="agent-error-turn">
                   <AgentActivityGroup identityKey={item.id} messages={item.activity} />
-                  <AgentErrorStatus message={item.message} />
+                  <AgentErrorStatus message={item.message} onOption={onOption} />
                 </div>
               );
             }
@@ -194,7 +194,7 @@ export function AgentConversation({
           }
           const message = item.message;
           if (message.kind === "error_status" || message.type === "error") {
-            return <AgentErrorStatus key={message.id} message={message} />;
+            return <AgentErrorStatus key={message.id} message={message} onOption={onOption} />;
           }
           return (
             <AgentMessageRow
@@ -423,20 +423,7 @@ function AgentMessageRow({
               onConfirm={() => onConfirmation?.(true)}
             />
           ) : null}
-          {message.options?.length
-            && (!message.optionSet
-              || message.optionSet.state === "active" && message.optionSet.sourceMessageId === message.id
-              || message.metadata?.tailoringQuestionProjection === true && message.metadata.questionProjectionState === "resolved")
-            && message.metadata?.retracted !== true
-            && !message.metadata?.typedActionResolution ? (
-            <div className="agent-message-options" aria-label="可选回答">
-              {message.options.map((option) => (
-                <button key={option.id} type="button" disabled={option.disabled} onClick={() => onOption?.(option)}>
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          ) : null}
+          <AgentMessageOptions message={message} onOption={onOption} />
           {editingContent === undefined ? (
             <AgentMessageActions
               message={message}
@@ -844,7 +831,20 @@ function AgentMessageMoreMenu({
   );
 }
 
-function AgentErrorStatus({ message }: { message: AgentMessage }) {
+function AgentMessageOptions({ message, onOption }: { message: AgentMessage; onOption?(option: AgentOption): void }) {
+  if (!message.options?.length || message.metadata?.retracted === true || message.metadata?.typedActionResolution
+    || message.optionSet && !(message.optionSet.state === "active" && message.optionSet.sourceMessageId === message.id)
+      && !(message.metadata?.tailoringQuestionProjection === true && message.metadata.questionProjectionState === "resolved")) return null;
+  return (
+    <div className="agent-message-options" aria-label="可选回答">
+      {message.options.map(option => (
+        <button key={option.id} type="button" disabled={option.disabled} onClick={() => onOption?.(option)}>{option.label}</button>
+      ))}
+    </div>
+  );
+}
+
+function AgentErrorStatus({ message, onOption }: { message: AgentMessage; onOption?(option: AgentOption): void }) {
   const status = message.status ?? "failed";
   const Icon = status === "retrying"
     ? LoaderCircle
@@ -857,6 +857,7 @@ function AgentErrorStatus({ message }: { message: AgentMessage }) {
       <div>
         <strong>{status === "retrying" ? "正在重试" : status === "recovered" ? "连接已恢复" : "任务暂时中断"}</strong>
         <p>{normalizeAgentMessageText(message.content)}</p>
+        <AgentMessageOptions message={message} onOption={onOption} />
       </div>
     </div>
   );

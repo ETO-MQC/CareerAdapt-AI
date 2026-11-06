@@ -1,0 +1,14 @@
+{
+  "diffExitCode": 0,
+  "productDiffFiles": [],
+  "missingEvidence": [],
+  "handoffSaved": {
+    "plan4.md": true,
+    "history4.md": true,
+    "docs/architecture/p5.1-sq1-current-handoff.md": true
+  },
+  "businessAttempts": 1,
+  "stage": "PARTIAL",
+  "executedSourceSha": "ca91fedb961514d762a1285c4efdddc4dab21a3e37a3e15c4d6c9926ad69681e",
+  "futureSourceSha": "32764890729ac05c75d539d55afe252a1d874c4e6a15f3d0ab20c27e1f7f5e5e"
+}

@@ -1,0 +1,12 @@
+{
+  "previous113StillApplicable": true,
+  "selectedTestFilesUnchanged": 12,
+  "changedOldInputs": [
+    "scripts/hermes-integration.mjs",
+    "tests/e2e/ux012-business-recovery.spec.ts",
+    "tests/unit/fakeProviderContinuation.test.ts"
+  ],
+  "productSourceChanged": false,
+  "oldEvidence": "docs/quality/ux-01.2-logs/final-tests-delivered.log",
+  "old113RerunThisRound": false
+}

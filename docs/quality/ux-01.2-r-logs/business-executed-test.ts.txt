@@ -1,0 +1,184 @@
+import { expect, test, type Page } from "@playwright/test";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+import type { AgentSession } from "@/agent/contracts/agentSession";
+import { readStore, installCoreWritingProvider } from "./support/p51CoreWorkflow";
+
+const preflightOnly = process.env.HERMES_INTEGRATION_PREFLIGHT_ONLY === "1";
+const phase = preflightOnly ? "initialization" : "business";
+const evidenceDir = process.env.UX012_EVIDENCE_DIR || "docs/quality/ux-01.2-r-logs";
+const file = (name: string) => path.join(evidenceDir, `${phase}-${name}`);
+
+// Original test identity retained. No Runtime mock or business-state fixture writes.
+test("UX012 persisted rate-limit recovery preserves input and requires an explicit new request", async ({ page }, info) => {
+  let stage = "initialization";
+  let businessStarted = false;
+  let failWriting = false;
+  let writerFailures = 0;
+  const network: Array<{ action?: string; status?: number; path: string }> = [];
+  const consoleLog: string[] = [];
+  const states: Array<{ state: string; text: string }> = [];
+  await mkdir(evidenceDir, { recursive: true });
+  page.on("console", message => consoleLog.push(`${message.type()}: ${message.text()}`));
+  page.on("pageerror", error => consoleLog.push(`pageerror: ${error.message}`));
+  page.on("response", response => {
+    const url = new URL(response.url());
+    if (!url.pathname.startsWith("/api/")) return;
+    const body = response.request().postData();
+    let action: string | undefined;
+    try { action = body ? JSON.parse(body).action : undefined; } catch { /* non-JSON transport */ }
+    network.push({ path: url.pathname, status: response.status(), ...(action ? { action } : {}) });
+  });
+  await page.exposeFunction("ux012Observe", (state: string, text: string) => states.push({ state, text }));
+  await page.addInitScript(() => {
+    let previous = "";
+    new MutationObserver(() => {
+      const node = document.querySelector('[aria-label="业务进度"]');
+      const state = node?.getAttribute("data-business-state");
+      const text = node?.textContent ?? "";
+      if (state && `${state}:${text}` !== previous) {
+        previous = `${state}:${text}`;
+        void (window as unknown as { ux012Observe(s: string, t: string): Promise<void> }).ux012Observe(state, text);
+      }
+    }).observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
+  });
+  try {
+    const baseUrl = process.env.HERMES_INTEGRATION_PROVIDER_URL;
+    const apiKey = process.env.HERMES_INTEGRATION_PROVIDER_KEY;
+    expect(baseUrl).toMatch(/^http:\/\/127\.0\.0\.1:/);
+    if (!baseUrl || !apiKey || !process.env.HERMES_HOME) throw new Error("isolated_scripted_runtime_missing");
+    await page.goto("/setup");
+    await expect(page.getByRole("heading", { name: "欢迎使用职适AI" })).toBeVisible();
+    await page.getByLabel("API 密钥", { exact: true }).fill(apiKey);
+    await page.getByLabel("API 地址", { exact: true }).fill(baseUrl);
+    await page.getByLabel("模型名称", { exact: true }).fill("careeradapt-test");
+    await page.getByRole("button", { name: "开始使用", exact: true }).click();
+    await expect(page).not.toHaveURL(/\/setup$/);
+    await page.goto("/ai-workspace");
+    await expect(page.getByRole("heading", { name: "欢迎使用职适AI" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "跳过，先体验其他功能" })).toHaveCount(0);
+    await expect(page.locator(".agent-runtime-status")).toHaveAttribute("aria-label", /状态 Ready/u);
+    await expect.poll(async () => (await readStore(page, "appMeta")).some(row => row.key === "demoSeededAt")).toBe(true);
+    await page.getByRole("button", { name: "新任务", exact: true }).click();
+    await expect.poll(async () => (await activeSession(page))?.activeProfileId).toBe("profile-demo-student");
+    await expect(page.getByLabel("描述你的求职任务")).toBeEnabled();
+    const bridge = await (await page.request.get("/api/agent/mcp")).json();
+    expect(bridge.status.connected).toBe(true);
+    expect(bridge.status.bridgeId).toBeTruthy();
+    const control = await (await page.request.get("/api/agent/runtime/hermes/control")).json();
+    expect(control.snapshot).toMatchObject({ overallState: "ready", processReady: true, apiReady: true, runReady: true, careerMcpReady: true, toolSurfaceReady: true });
+    expect(control.snapshot.requiredCareerFacadesReady).toBe(control.snapshot.requiredCareerFacadesTotal);
+    const provider = await page.request.get(`${baseUrl}/models`, { headers: { Authorization: `Bearer ${apiKey}` } });
+    expect(provider.ok()).toBe(true);
+    await writeFile(file("preconditions.json"), JSON.stringify({ allPassed: true, businessStarted: false,
+      setup: "completed through official Setup form, synthetic credential only", normalWorkspace: true,
+      isolatedHome: process.env.HERMES_HOME, providerBaseUrl: baseUrl, providerModel: "careeradapt-test",
+      bridge: bridge.status, runtime: { overallState: control.snapshot.overallState, runReady: control.snapshot.runReady,
+        careerMcpReady: control.snapshot.careerMcpReady, requiredCareerFacadesReady: control.snapshot.requiredCareerFacadesReady },
+      sessionId: (await activeSession(page))!.id }, null, 2));
+    await page.screenshot({ path: file("ready.png"), fullPage: true });
+    if (preflightOnly) return;
+
+    businessStarted = true;
+    stage = "proposal";
+    // A transport-failed writing proposal is retained by the real planner;
+    // confirmed compose retries writing rather than trusting fallback prose.
+    failWriting = true;
+    await writeFile(file("started.json"), JSON.stringify({ startedAt: new Date().toISOString(), maximumRuns: 1 }));
+    await installCoreWritingProvider(page);
+    await page.route("**/api/ai/structured", async route => {
+      const body = route.request().postDataJSON() as { task?: string };
+      if (failWriting && body.task === "resume-career-writer") {
+        writerFailures++;
+        await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ ok: false,
+          error: { code: "provider_unavailable", message: "UX012 isolated writing failure", retryable: true },
+          meta: { provider: "isolated-test", model: "core-writer", inputLength: 1, outputLength: 0, latencyMs: 1 } }) });
+        return;
+      }
+      await route.fallback();
+    });
+    const before = await snapshot(page);
+    await writeFile(file("before.json"), JSON.stringify(before, null, 2));
+    await send(page, "P51-C02-COMPOSE 根据当前资料生成通用简历提案，等待我的明确确认，不同步个人资料库。");
+    const progress = page.getByRole("status", { name: "业务进度" });
+    await expect(progress).toHaveAttribute("data-business-state", "awaiting_confirmation");
+    await expect.poll(async () => (await activeSession(page))?.taskState?.completionStatus).toBe("waiting_for_confirmation");
+    expect(states.some(row => row.state === "processing" || row.state === "submitted")).toBe(true);
+    const proposal = await snapshot(page);
+    expect(proposal.revisions).toEqual(before.revisions);
+    expect(proposal.branches).toEqual(before.branches);
+    expect(proposal.session?.taskState?.knownSlots.resumeCompositionCheckpoint).toBeTruthy();
+    await writeFile(file("proposal.json"), JSON.stringify(proposal, null, 2));
+    await page.screenshot({ path: file("proposal.png"), fullPage: true });
+    await page.reload();
+    await expect(progress).toHaveAttribute("data-business-state", "awaiting_confirmation");
+    expect((await activeSession(page))?.id).toBe(proposal.session?.id);
+
+    stage = "confirmed_writing_failure";
+    failWriting = true;
+    await page.locator(".agent-confirmation").getByRole("button", { name: "确认", exact: true }).click();
+    await expect.poll(async () => Boolean((await activeSession(page))?.taskState?.knownSlots.resumeCompositionWriteFailure)).toBe(true);
+    const failed = await snapshot(page);
+    expect(failed.revisions).toEqual(before.revisions);
+    expect(failed.branches).toEqual(before.branches);
+    await expect(progress).not.toHaveAttribute("data-business-state", "completed");
+    expect(writerFailures).toBeGreaterThan(0);
+    await writeFile(file("write-failed.json"), JSON.stringify(failed, null, 2));
+    await page.screenshot({ path: file("write-failed.png"), fullPage: true });
+    await page.reload();
+    await expect(progress).not.toHaveAttribute("data-business-state", "completed");
+    expect((await activeSession(page))?.taskState?.knownSlots.resumeCompositionCheckpoint).toBeTruthy();
+
+    stage = "explicit_recovery_and_duplicate_confirm";
+    failWriting = false;
+    await page.getByRole("button", { name: "直接生成", exact: true }).last().dblclick();
+    await expect.poll(async () => (await readStore(page, "resumeRevisions")).length).toBe(before.revisions.length + 1);
+    await expect(progress).toHaveAttribute("data-business-state", "completed");
+    const saved = await snapshot(page);
+    expect(saved.branches).toHaveLength(before.branches.length + 1);
+    expect(saved.profiles).toEqual(before.profiles);
+    expect(saved.session?.taskState?.completionStatus).toBe("completed");
+    await writeFile(file("saved.json"), JSON.stringify(saved, null, 2));
+    await page.screenshot({ path: file("saved.png"), fullPage: true });
+    await page.reload();
+    await expect(progress).toHaveAttribute("data-business-state", "completed");
+    expect((await snapshot(page)).revisions).toEqual(saved.revisions);
+
+    stage = "cancel_after_formal_save";
+    await send(page, "P512-QUEUE-FIRST 请解释当前已保存的结果，不要写入。");
+    await expect(page.getByRole("button", { name: "停止运行", exact: true })).toBeEnabled();
+    await page.getByRole("button", { name: "停止运行", exact: true }).click();
+    await expect.poll(async () => (await activeSession(page))?.hermesRun?.status).toBe("cancelled");
+    await expect(progress).toContainText("本次运行已取消");
+    await expect(progress).not.toHaveAttribute("data-business-state", "completed");
+    const cancelled = await snapshot(page);
+    expect(cancelled.revisions).toEqual(saved.revisions);
+    expect(cancelled.branches).toEqual(saved.branches);
+    await writeFile(file("cancelled.json"), JSON.stringify(cancelled, null, 2));
+    await page.screenshot({ path: file("cancelled.png"), fullPage: true });
+    await page.reload();
+    await expect(progress).toContainText("本次运行已取消");
+    expect((await snapshot(page)).revisions).toEqual(saved.revisions);
+    stage = "complete";
+  } finally {
+    const terminal = await snapshot(page).catch(() => undefined);
+    await page.screenshot({ path: file("terminal.png"), fullPage: true }).catch(() => undefined);
+    await writeFile(file("terminal.json"), JSON.stringify({ stage, businessStarted, writerFailures, states, terminal, errors: info.errors.map(error => error.message) }, null, 2));
+    await writeFile(file("network.json"), JSON.stringify(network, null, 2));
+    await writeFile(file("console.log"), consoleLog.join("\n"));
+  }
+});
+
+async function activeSession(page: Page): Promise<AgentSession | undefined> {
+  const id = await page.evaluate(() => localStorage.getItem("careeradapt.agent.activeSessionId"));
+  return (await readStore(page, "agentSessions")).find(row => row.id === id) as unknown as AgentSession | undefined;
+}
+async function snapshot(page: Page) {
+  const [session, profiles, branches, revisions, messages] = await Promise.all([activeSession(page), readStore(page, "profiles"),
+    readStore(page, "resumeBranches"), readStore(page, "resumeRevisions"), readStore(page, "agentMessages")]);
+  return { session, profiles, branches, revisions, messages: messages.filter(message => message.sessionId === session?.id) };
+}
+async function send(page: Page, text: string) {
+  await page.getByLabel("描述你的求职任务").fill(text);
+  await page.getByRole("button", { name: "发送消息", exact: true }).click();
+}

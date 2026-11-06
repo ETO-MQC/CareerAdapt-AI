@@ -1953,6 +1953,7 @@ export class AgentHostStore {
         completionStatus: "waiting_for_user",
         updatedAt: new Date().toISOString()
       });
+      current = attachTaskStateOptions(current, current.taskState!);
     }
     return this.finishResumeCompositionWaiting(current, turnId, operationId, code);
   }
@@ -5741,6 +5742,24 @@ export class AgentHostStore {
     const confirmation = session?.pendingConfirmation;
     const call = session?.pendingToolCall;
     if (!session || !confirmation || !call) return session;
+    if (confirmed && call.toolName === "career.workflow.compose_resume"
+      && session.taskState?.workflowId === "compose_resume" && hasResumeCompositionCheckpointForConfirmation(session)) {
+      // After refresh the MCP approval waiter no longer exists. Confirm the
+      // reviewed checkpoint through the same CAS/idempotent command as the
+      // explicit Generate action, rather than rerunning the original planner.
+      const consumed = await this.dependencies.persistence.save({
+        ...markConfirmationResolution(session, "confirmed"), pendingConfirmation: undefined, pendingToolCall: undefined,
+        taskState: { ...session.taskState, knownSlots: { ...session.taskState.knownSlots, pendingConfirmation: undefined } }
+      });
+      this.patchSession(consumed);
+      const prepared = await this.prepareRuntimeUserEvent({ session: consumed, pageContext, event: {
+        type: "option_selected", action: { type: "answer", field: "resume-composition-decision", value: "直接生成" }
+      } });
+      if (prepared.event.type === "confirm_resume_composition") {
+        return this.executeConfirmedResumeComposition({ session: prepared.session, command: prepared.event, pageContext, turnId: prepared.turnId });
+      }
+      return prepared.session;
+    }
     this.markProgress(session.id);
     const turnId = call.turnId ?? confirmation.turnId ?? session.activeTurn?.id ?? `agent-turn-${crypto.randomUUID()}`;
     let current: AgentSession = {
@@ -11813,6 +11832,17 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
     });
     session = projectTaskStateIntoSession(session, task);
   }
+  if (toolName === "career.workflow.compose_resume" && !session.taskState
+    && objectValue(objectValue(value).workflowCheckpoint).kind === "resume_composition") {
+    // A real proposal can be the first business operation in a conversation.
+    // Its confirmation must restore the same task/checkpoint as a quick action.
+    // Read-only resume_review results intentionally remain task-free.
+    const reducer = new AgentTaskStateReducer();
+    const task = reducer.reduce(reducer.create(session, "compose_resume", { workflowId: "compose_resume", step: "review_composition" }), {
+      type: "new_root_task", goal: "compose_resume", workflowId: "compose_resume", stage: "review_composition"
+    });
+    session = projectTaskStateIntoSession(session, task);
+  }
   if (toolName === "career.workflow.material_intake" && objectValue(objectValue(value).workflowCheckpoint).kind === "resume_import_review" && session.taskState?.workflowId !== "resume_import") {
     const reducer = new AgentTaskStateReducer();
     const task = reducer.reduce(reducer.create(session, "import_resume", { workflowId: "resume_import", step: "import_review" }), {
@@ -11867,6 +11897,8 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
     ...(stringRecordValue(checkpoint.jobId) && !hasExternalTargetSnapshot ? { jobId: stringRecordValue(checkpoint.jobId) } : {}),
     ...(stringRecordValue(result.profileId) ? { profileId: stringRecordValue(result.profileId) } : {}),
     ...(stringRecordValue(result.resumeId) ? { resumeId: stringRecordValue(result.resumeId) } : {}),
+    ...(checkpoint.kind === "resume_composition" && stringRecordValue(result.revisionId)
+      ? { revisionId: stringRecordValue(result.revisionId) } : {}),
     ...(stringRecordValue(result.jobId) && !hasExternalTargetSnapshot ? { jobId: stringRecordValue(result.jobId) } : {}),
     ...(stringRecordValue(importData.importId) ? { revisionId: stringRecordValue(importData.importId) } : {}),
     ...(checkpoint.kind === "tailoring_session" && stringRecordValue(tailoringBranch.id) && !task.selectedEntities.resultResumeId
@@ -11934,6 +11966,9 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
     ...(checkpoint.kind === "job_fit" ? { fitAnalysis: result } : {}),
     ...(checkpoint.kind === "profile_to_resume" ? { resumeResult: result } : {}),
     ...(checkpoint.kind === "resume_composition" ? {
+      profileId: checkpoint.profileId,
+      mode: checkpoint.mode,
+      resumeCompositionMode: checkpoint.mode,
       resumeCompositionCheckpoint: checkpoint,
       resumeCompositionProposal: checkpoint.proposal,
       resumeCompositionBlueprint: checkpoint.blueprint,

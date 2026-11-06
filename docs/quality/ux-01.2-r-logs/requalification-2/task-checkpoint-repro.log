@@ -1,0 +1,46 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+ ❯ tests/integration/businessWorkflowRecovery.test.ts (6 tests | 1 failed) 147ms
+   × creates a durable composition task from an authoritative proposal in a new conversation 18ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/businessWorkflowRecovery.test.ts > creates a durable composition task from an authoritative proposal in a new conversation
+AssertionError: expected undefined to match object { workflowId: 'compose_resume', …(5) }
+
+- Expected:
+{
+  "completionStatus": "waiting_for_confirmation",
+  "knownSlots": {
+    "resumeCompositionCheckpoint": {
+      "checkpointId": "source-backed-plan",
+    },
+  },
+  "rootGoal": "compose_resume",
+  "selectedEntities": {
+    "profileId": "confirmed-profile",
+  },
+  "stage": "review_composition",
+  "workflowId": "compose_resume",
+}
+
++ Received:
+undefined
+
+ ❯ tests/integration/businessWorkflowRecovery.test.ts:90:28
+     88|         expectedProfileRevision: 1, mode: "general", proposal: { title…
+     89|   const saved = await persistence.get(initial.id);
+     90|   expect(saved?.taskState).toMatchObject({ workflowId: "compose_resume…
+       |                            ^
+     91|     completionStatus: "waiting_for_confirmation", selectedEntities: { …
+     92|     knownSlots: { resumeCompositionCheckpoint: { checkpointId: "source…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 5 passed (6)
+   Start at  14:56:42
+   Duration  4.38s (transform 2.34s, setup 150ms, import 3.00s, tests 147ms, environment 861ms)
+

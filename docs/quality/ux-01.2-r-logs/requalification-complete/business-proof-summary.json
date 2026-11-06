@@ -1,0 +1,115 @@
+{
+  "before": {
+    "branchCount": 1,
+    "revisionCount": 1,
+    "taskStatus": null,
+    "taskStage": null,
+    "selectedRevision": null,
+    "runStatus": null
+  },
+  "proposal": {
+    "branchCount": 1,
+    "revisionCount": 1,
+    "taskStatus": "waiting_for_confirmation",
+    "taskStage": "review_composition",
+    "selectedRevision": null,
+    "runStatus": "running"
+  },
+  "write-failed": {
+    "branchCount": 1,
+    "revisionCount": 1,
+    "taskStatus": "waiting_for_user",
+    "taskStage": "confirm_create",
+    "selectedRevision": null,
+    "runStatus": "completed"
+  },
+  "saved": {
+    "branchCount": 2,
+    "revisionCount": 2,
+    "taskStatus": "completed",
+    "taskStage": "resume_ready",
+    "selectedRevision": "resume-revision-fnv-362a15b7-74",
+    "runStatus": "completed"
+  },
+  "cancelled": {
+    "branchCount": 2,
+    "revisionCount": 2,
+    "taskStatus": "completed",
+    "taskStage": "resume_ready",
+    "selectedRevision": "resume-revision-fnv-362a15b7-74",
+    "runStatus": "cancelled"
+  },
+  "terminal": {
+    "branchCount": 2,
+    "revisionCount": 2,
+    "taskStatus": "completed",
+    "taskStage": "resume_ready",
+    "selectedRevision": "resume-revision-fnv-362a15b7-74",
+    "runStatus": "cancelled"
+  },
+  "states": [
+    {
+      "state": "processing",
+      "text": "正在处理当前任务"
+    },
+    {
+      "state": "processing",
+      "text": "正在执行业务操作"
+    },
+    {
+      "state": "processing",
+      "text": "正在处理当前任务"
+    },
+    {
+      "state": "processing",
+      "text": "正在执行业务操作"
+    },
+    {
+      "state": "processing",
+      "text": "正在处理当前任务"
+    },
+    {
+      "state": "processing",
+      "text": "正在执行业务操作"
+    },
+    {
+      "state": "awaiting_confirmation",
+      "text": "等待你明确确认确认前不会正式保存；确认提交后仍需等待保存回执。"
+    },
+    {
+      "state": "awaiting_confirmation",
+      "text": "等待你明确确认确认前不会正式保存；确认提交后仍需等待保存回执。"
+    },
+    {
+      "state": "blocked",
+      "text": "正式保存未完成具体操作尚未完成，输入和已有进度已保留。请核对结果后从当前步骤继续。"
+    },
+    {
+      "state": "blocked",
+      "text": "正式保存未完成具体操作尚未完成，输入和已有进度已保留。请核对结果后从当前步骤继续。"
+    },
+    {
+      "state": "completed",
+      "text": "当前业务步骤已完成结果由业务回执核验。"
+    },
+    {
+      "state": "completed",
+      "text": "当前业务步骤已完成结果由业务回执核验。"
+    },
+    {
+      "state": "processing",
+      "text": "正在处理当前任务"
+    },
+    {
+      "state": "partial",
+      "text": "本次运行已取消已保存的内容和候选仍然保留，取消不会撤销已完成的保存。"
+    },
+    {
+      "state": "partial",
+      "text": "本次运行已取消已保存的内容和候选仍然保留，取消不会撤销已完成的保存。"
+    }
+  ],
+  "lastStage": "complete",
+  "writerFailures": 4,
+  "providerRequests": 4
+}

@@ -1,0 +1,7 @@
+{
+  "date": "2026-11-06",
+  "source": "User explicitly authorizes retry after preparation; purpose of limits is avoiding real Provider credit waste; one or two reasoned retries acceptable",
+  "provider": "local Scripted only; no real model quota",
+  "previousFailuresPreserved": true,
+  "head": "090f3dab8699b39ce9bfabdb48e5a37ee26f827e"
+}

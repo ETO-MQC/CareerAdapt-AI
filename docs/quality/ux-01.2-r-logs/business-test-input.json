@@ -1,0 +1,10 @@
+{
+  "executedTestSha256": "ca91fedb961514d762a1285c4efdddc4dab21a3e37a3e15c4d6c9926ad69681e",
+  "unexecutedExtensionSha256": "fd2f9ffda8617444ee6c5ccce752f4ec2a936500545884dcbaf5b8ace286e33e",
+  "deliveredMatchesExecuted": false,
+  "launchCopyError": "relative destination redundantly included isolated cwd; existing correctly staged test was executed; unexecuted extra assertions removed from this turn only",
+  "browserRerun": false,
+  "deliveredCorrectionSha256": "32764890729ac05c75d539d55afe252a1d874c4e6a15f3d0ab20c27e1f7f5e5e",
+  "executedSource": "business-executed-test.ts.txt",
+  "deliveredCorrectionBrowserVerified": false
+}

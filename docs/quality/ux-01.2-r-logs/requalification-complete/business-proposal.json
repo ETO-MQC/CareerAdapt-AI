@@ -1,0 +1,4183 @@
+{
+  "session": {
+    "agentSessionSchemaVersion": 3,
+    "id": "agent-session-fbGBtasgTE7s",
+    "title": "新的对话",
+    "titleOrigin": "default",
+    "messages": [],
+    "sessionRevision": 11,
+    "workflowState": {
+      "workflowId": "compose_resume",
+      "step": "review_composition",
+      "status": "waiting_for_confirmation",
+      "toolCallCount": 0,
+      "data": {
+        "resumeCompositionBranchMode": "create_new",
+        "profileId": "profile-HuV9aQX15f",
+        "mode": "general",
+        "resumeCompositionMode": "general",
+        "resumeCompositionInformationNeeds": []
+      }
+    },
+    "artifactRefs": [],
+    "personId": "person-profile-HuV9aQX15f",
+    "activeProfileId": "profile-HuV9aQX15f",
+    "profileVersionNumber": 1,
+    "profileRevision": 1,
+    "conversationSummary": "",
+    "pendingConfirmation": {
+      "id": "confirmation-mcp-career-agF-OIbYYa7YteMD",
+      "turnId": "runtime-turn-0142b9b8-de4a-4e08-9b04-6176595c78e6",
+      "operationId": "mcp-career-agF-OIbYYa7YteMD",
+      "toolName": "career.workflow.compose_resume",
+      "title": "确认执行 Career 操作",
+      "description": "这项 Career 操作需要用户确认后才能继续。",
+      "destructive": false,
+      "status": "pending",
+      "requestedAt": "2026-11-06T07:23:12.270Z"
+    },
+    "pendingToolCall": {
+      "turnId": "runtime-turn-0142b9b8-de4a-4e08-9b04-6176595c78e6",
+      "toolName": "career.workflow.compose_resume",
+      "operationId": "mcp-career-agF-OIbYYa7YteMD",
+      "input": {
+        "mode": "general",
+        "profileId": "profile-HuV9aQX15f",
+        "expectedProfileRevision": 1
+      }
+    },
+    "runtimeId": "hermes",
+    "hermesRun": {
+      "runId": "run_7b81f46c16df4beda1868191e40bb848",
+      "hermesSessionId": "hermes-agent-session-fbGBtasgTE7s",
+      "careerAgentSessionId": "agent-session-fbGBtasgTE7s",
+      "turnId": "runtime-turn-0142b9b8-de4a-4e08-9b04-6176595c78e6",
+      "status": "running",
+      "startedAt": "2026-11-06T07:22:56.865Z",
+      "lastEventAt": "2026-11-06T07:23:12.905Z"
+    },
+    "activeTurn": {
+      "id": "runtime-turn-0142b9b8-de4a-4e08-9b04-6176595c78e6",
+      "sessionId": "agent-session-fbGBtasgTE7s",
+      "sourceUserMessageId": "agent-user-c691a417-8127-48bb-8599-fd5fdeacf8f6",
+      "userMessageId": "agent-user-c691a417-8127-48bb-8599-fd5fdeacf8f6",
+      "runtimeId": "hermes",
+      "preferredRuntime": "hermes",
+      "attemptedRuntime": "hermes",
+      "finalRuntime": "hermes",
+      "executionOwner": "hermes",
+      "fallbackUsed": false,
+      "incidentTraceId": "incident-d5defc58-9bd5-498a-b2f2-530196e6c2fa",
+      "hermesRunId": "run_7b81f46c16df4beda1868191e40bb848",
+      "visibleAssistantMessageId": "agent-thinking-525f50fb-0ea6-4548-ad27-060b1e323106",
+      "workflowCheckpoint": {
+        "facadeObservation": {
+          "toolName": "career.workflow.compose_resume",
+          "status": "waiting_for_confirmation",
+          "kind": "resume_composition",
+          "stage": "review_composition",
+          "hasCompletedReceipt": true
+        }
+      },
+      "toolFailures": [],
+      "runtimeAttempts": [
+        {
+          "attemptNumber": 1,
+          "traceId": "incident-d5defc58-9bd5-498a-b2f2-530196e6c2fa:attempt-1",
+          "sessionId": "agent-session-fbGBtasgTE7s",
+          "turnId": "runtime-turn-0142b9b8-de4a-4e08-9b04-6176595c78e6",
+          "hermesSessionId": "hermes-agent-session-fbGBtasgTE7s",
+          "runId": "run_7b81f46c16df4beda1868191e40bb848",
+          "startRequestedAt": "2026-11-06T07:22:57.388Z",
+          "runStartedAt": "2026-11-06T07:22:57.388Z",
+          "firstEventAt": "2026-11-06T07:22:57.388Z",
+          "status": "running",
+          "lastEventType": "tool_call_completed"
+        }
+      ],
+      "turnStartSnapshot": {
+        "capturedAt": "2026-11-06T07:22:56.464Z",
+        "supervisor": {
+          "overallState": "ready",
+          "processReady": true,
+          "apiReady": true,
+          "providerReady": true,
+          "careerMcpReady": true,
+          "toolSurfaceReady": true,
+          "runReady": true,
+          "restartAttempt": 0,
+          "capturedAt": "2026-11-06T07:22:56.464Z",
+          "maintenancePending": false
+        },
+        "runtimeHealth": {
+          "runtimeId": "hermes",
+          "runtimeAvailable": true,
+          "companionReady": true,
+          "providerConfigured": true,
+          "providerReachable": true,
+          "providerReady": true,
+          "provider": "custom:careeradapt",
+          "providerStatus": "ready",
+          "providerDiagnostic": {
+            "provider": "custom:careeradapt",
+            "model": "careeradapt-test",
+            "credentialConfigured": true,
+            "credentialSource": "server_env",
+            "configFingerprint": "5e21f6a02f8a09c5162c3a05787950d1b5b68ae960df307070887295424654af",
+            "configGeneration": 1,
+            "lastCheckedAt": "2026-11-06T07:22:55.314Z",
+            "lastHttpStatus": 200
+          },
+          "model": "careeradapt-test",
+          "toolCallingCapability": "unknown",
+          "toolCallingAvailable": false,
+          "toolCallInFlight": false,
+          "mcpConnected": true,
+          "mcpReady": true,
+          "mcpToolCount": 59,
+          "careerSkillsLoaded": true,
+          "browserCareerDomainHostConnected": true,
+          "careerMcpServerReachable": true,
+          "careerMcpContractCount": 13,
+          "hermesMcpRegistered": true,
+          "hermesMcpToolCount": 13,
+          "hermesCareerFacadeCount": 9,
+          "careerToolContractReady": true,
+          "careerToolContractVersion": "career-tool-contract-v5",
+          "appBuildCommit": "workspace-source",
+          "appBuildTimestamp": "development",
+          "careerToolContractMismatches": [],
+          "requiredCareerFacadesMissing": [],
+          "careerGatewayContracts": [
+            "career.context.retrieve",
+            "career.export.resume",
+            "career.job.analyze_fit",
+            "career.job.commit",
+            "career.job.get",
+            "career.job.list",
+            "career.job.parse",
+            "career.material.prepare",
+            "career.preview.apply_changes",
+            "career.preview.review_diff",
+            "career.profile.active",
+            "career.profile.capture_intake",
+            "career.profile.commit_intake",
+            "career.profile.get",
+            "career.profile.list",
+            "career.profile.reconcile_intake",
+            "career.profile.resolve_intake_conflict",
+            "career.profile.review_intake",
+            "career.profile.search_facts",
+            "career.profile.synthesize_intake",
+            "career.resume.archive",
+            "career.resume.build_evidence_graph",
+            "career.resume.compose",
+            "career.resume.create_from_profile",
+            "career.resume.create_job_from_profile",
+            "career.resume.ensure_general_from_profile",
+            "career.resume.get",
+            "career.resume.get_revision",
+            "career.resume.import.commit",
+            "career.resume.import.create_draft",
+            "career.resume.import.parse_file",
+            "career.resume.import.prepare",
+            "career.resume.import.reconcile",
+            "career.resume.import.resolve_reconciliation",
+            "career.resume.import.review",
+            "career.resume.list",
+            "career.resume.plan_composition",
+            "career.resume.recommend_source",
+            "career.resume.restore",
+            "career.resume.review_composition",
+            "career.system.current_task",
+            "career.system.last_failure",
+            "career.system.runtime_status",
+            "career.tailoring.answer_question",
+            "career.tailoring.apply_changes",
+            "career.tailoring.create_session",
+            "career.tailoring.generate_changes",
+            "career.tailoring.preview_changes",
+            "career.tailoring.review_diff",
+            "career.workflow.compose_resume",
+            "career.workflow.job_fit",
+            "career.workflow.job_intake",
+            "career.workflow.material_intake",
+            "career.workflow.profile_intake_finalize",
+            "career.workflow.profile_intake_turn",
+            "career.workflow.profile_to_resume",
+            "career.workflow.resume_export",
+            "career.workflow.resume_import",
+            "career.workflow.tailor_resume"
+          ],
+          "careerMcpExposedTools": [
+            "career.context.retrieve",
+            "career.job.list",
+            "career.profile.get",
+            "career.resume.list",
+            "career.workflow.compose_resume",
+            "career.workflow.job_fit",
+            "career.workflow.job_intake",
+            "career.workflow.material_intake",
+            "career.workflow.profile_intake_finalize",
+            "career.workflow.profile_intake_turn",
+            "career.workflow.resume_export",
+            "career.workflow.resume_import",
+            "career.workflow.tailor_resume"
+          ],
+          "hermesRegisteredToolsets": [
+            "mcp-careeradapt",
+            "skills"
+          ],
+          "hermesVisibleTools": [
+            "mcp__careeradapt__career_context_retrieve",
+            "mcp__careeradapt__career_job_list",
+            "mcp__careeradapt__career_profile_get",
+            "mcp__careeradapt__career_resume_list",
+            "mcp__careeradapt__career_workflow_compose_resume",
+            "mcp__careeradapt__career_workflow_job_fit",
+            "mcp__careeradapt__career_workflow_job_intake",
+            "mcp__careeradapt__career_workflow_material_intake",
+            "mcp__careeradapt__career_workflow_profile_intake_finalize",
+            "mcp__careeradapt__career_workflow_profile_intake_turn",
+            "mcp__careeradapt__career_workflow_resume_export",
+            "mcp__careeradapt__career_workflow_resume_import",
+            "mcp__careeradapt__career_workflow_tailor_resume",
+            "skill_manage",
+            "skill_view",
+            "skills_list"
+          ],
+          "missingRequiredCareerTools": [],
+          "lastCheckedAt": "2026-11-06T07:22:55.351Z",
+          "runReady": true
+        },
+        "run": {
+          "status": "not_started"
+        }
+      },
+      "recoveryAttempted": false,
+      "firstEventAt": "2026-11-06T07:22:57.388Z",
+      "status": "waiting_for_confirmation",
+      "startedAt": "2026-11-06T07:22:56.510Z"
+    },
+    "taskState": {
+      "goal": "compose_resume",
+      "rootGoal": "compose_resume",
+      "activeGoal": "compose_resume",
+      "workflowId": "compose_resume",
+      "stage": "review_composition",
+      "requiredSlots": [
+        "profileId",
+        "mode"
+      ],
+      "knownSlots": {
+        "resumeCompositionPendingInformationNeed": {
+          "informationNeedId": "target_direction",
+          "question": "这份通用简历主要准备投什么方向？如果暂时没有明确方向，我先按互联网技术 / AI 应用通用版整理。",
+          "status": "pending"
+        },
+        "resumeCompositionBranchMode": "create_new",
+        "facadeCheckpoint": {
+          "kind": "resume_composition",
+          "checkpointId": "resume-composition-7ff11b8a-13080",
+          "profileId": "profile-HuV9aQX15f",
+          "profileRevision": 1,
+          "mode": "general",
+          "targetContext": {
+            "targetDirection": "互联网技术 / AI 应用"
+          },
+          "evidenceGraphHash": "fnv-8cb5e258-2026",
+          "blueprint": {
+            "schemaVersion": "resume-blueprint-v1",
+            "mode": "general",
+            "profileId": "profile-HuV9aQX15f",
+            "profileRevision": 1,
+            "targetDirection": "互联网技术 / AI 应用",
+            "skillGroups": {},
+            "sections": [
+              {
+                "sectionType": "project",
+                "assetIds": [
+                  "core-project"
+                ],
+                "maxItems": 1,
+                "priority": 0.7
+              }
+            ],
+            "assets": [
+              {
+                "sourceAssetId": "core-project",
+                "sectionType": "project",
+                "title": "AI 应用项目",
+                "sourceFactIds": [
+                  "fact-import--1BkXIAztk"
+                ],
+                "evidenceNodeIds": [
+                  "asset:core-project"
+                ],
+                "relevance": 0.4792666666666668,
+                "inclusionReason": "与互联网技术 / AI 应用方向相关，并具备可核验行动证据（证据强度66%、技术深度0%、独特性100%）。",
+                "bulletPlan": [
+                  "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                ],
+                "explicitTools": [],
+                "score": {
+                  "targetRelevance": 0.6666666666666666,
+                  "evidenceStrength": 0.66,
+                  "demonstratedComplexity": 0.2,
+                  "outcomeStrength": 0,
+                  "specificity": 0.4,
+                  "uniqueness": 1,
+                  "technicalDepth": 0,
+                  "recency": 0.5,
+                  "ownershipStrength": 0.16666666666666666,
+                  "redundancy": 0,
+                  "weakEvidencePenalty": 0,
+                  "total": 0.4792666666666668
+                }
+              }
+            ],
+            "excludedAssets": [],
+            "informationNeeds": [],
+            "keywordCoverage": [],
+            "pageBudget": {
+              "targetPages": 1,
+              "maxProjects": 4,
+              "maxBulletsPerProject": 4,
+              "estimatedPageCount": 0.6
+            }
+          },
+          "writingExecution": {
+            "mode": "deterministic_fallback",
+            "provider": "isolated-test",
+            "model": "core-writer",
+            "promptVersion": "resume-career-writer.v6-claim-safety-v2",
+            "attemptCount": 1,
+            "latencyMs": 1,
+            "fallbackReason": "provider_unavailable",
+            "inputContextHash": "fnv-fda428bb-4599",
+            "outputHash": "fnv-78c0eb53-153"
+          },
+          "writingOutput": {
+            "assets": [
+              {
+                "sourceAssetId": "core-project",
+                "title": "AI 应用项目",
+                "role": "项目成员",
+                "techStack": [],
+                "highlights": [
+                  "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                ]
+              }
+            ],
+            "skillGroups": []
+          },
+          "reviewResult": {
+            "diagnostics": {
+              "ruleVersion": "resume-diagnostics-1",
+              "hardGate": {
+                "status": "pass",
+                "violations": []
+              },
+              "recruiterScan": {
+                "positioning": {
+                  "status": "unknown",
+                  "reason": "No target Job; assess general positioning with the user."
+                },
+                "scanClarity": {
+                  "status": "pass",
+                  "reason": "Text-only filler and paragraph observations; first-screen layout requires rendered inspection."
+                },
+                "strongestExperience": {
+                  "status": "unknown",
+                  "reason": "Requires semantic comparison of experience and actual first-screen order."
+                }
+              },
+              "claimRisk": {
+                "level": "low",
+                "claimIds": []
+              },
+              "contentQuality": {
+                "factualFidelity": {
+                  "status": "pass",
+                  "reason": "Only emitted, source-bound claims with a passed Fact Guard count."
+                },
+                "specificity": {
+                  "status": "pass",
+                  "reason": "0 low-density bullets."
+                },
+                "relevance": {
+                  "status": "unknown",
+                  "reason": "No selected Job analysis."
+                },
+                "clarity": {
+                  "status": "pass",
+                  "reason": "Filler and paragraph-density rule observations."
+                },
+                "evidenceDensity": {
+                  "status": "pass",
+                  "reason": "Claim-to-fact or confirmed source-turn references, without treating keyword presence as evidence."
+                },
+                "redundancy": {
+                  "status": "pass",
+                  "reason": "0 duplicate bullets."
+                },
+                "ownershipAccuracy": {
+                  "status": "unknown",
+                  "reason": "Ownership is checked against source wording by Writer/Reviewer; this diagnostic has no independent semantic calibration."
+                }
+              },
+              "atsStructure": {
+                "textExtractability": {
+                  "status": "unknown",
+                  "reason": "Requires the actual exported PDF text extraction result."
+                },
+                "sectionStructure": {
+                  "status": "pass",
+                  "reason": "Canonical Schema v2 section items."
+                },
+                "fieldCompleteness": {
+                  "status": "pass",
+                  "reason": "0 unresolved information needs."
+                },
+                "readingOrder": {
+                  "status": "unknown",
+                  "reason": "Requires rendered Preview/PDF validation."
+                },
+                "supportedKeywordCoverage": {
+                  "status": "pass",
+                  "reason": "Supported keywords only; not an ATS pass rate."
+                },
+                "unsupportedKeywordInjection": {
+                  "status": "pass",
+                  "reason": "Unsupported target terms must stay absent."
+                }
+              }
+            },
+            "status": "PASS",
+            "findings": [],
+            "diffs": [],
+            "atsCoverage": [],
+            "metrics": {
+              "sourceAssets": 1,
+              "selectedAssets": 1,
+              "derivedSkills": 0,
+              "questionsAsked": 0,
+              "supportedClaims": 0,
+              "derivedPresentationClaims": 1,
+              "needsConfirmationClaims": 0,
+              "unsupportedClaims": 0,
+              "bulletsGenerated": 1,
+              "duplicateBullets": 0,
+              "fillerBullets": 0,
+              "lowDensityBullets": 0,
+              "paragraphHeavyItems": 0,
+              "pageOverflow": false,
+              "onePageReasonable": true,
+              "bulletRepairCount": 0,
+              "bulletRejectedCount": 0,
+              "repairPassCount": 0,
+              "unsupportedClaimsBlocked": 0,
+              "atsRepairPassCount": 1,
+              "compressionPassCount": 0,
+              "profileFactsAddedFromTailoring": 0
+            },
+            "revisedBulletCount": 1
+          },
+          "compositionResult": {
+            "schemaVersion": "resume-composition-v1",
+            "mode": "general",
+            "profileId": "profile-HuV9aQX15f",
+            "profileRevision": 1,
+            "targetDirection": "互联网技术 / AI 应用",
+            "evidenceGraph": {
+              "schemaVersion": "resume-evidence-graph-v1",
+              "profileId": "profile-HuV9aQX15f",
+              "profileRevision": 1,
+              "nodes": [
+                {
+                  "id": "asset:core-project",
+                  "type": "career_asset",
+                  "value": "AI 应用项目",
+                  "sourceAssetIds": [
+                    "core-project"
+                  ],
+                  "factIds": [
+                    "fact-import--1BkXIAztk"
+                  ],
+                  "sourceTurnIds": [],
+                  "confirmationStatus": "confirmed",
+                  "maturity": "demonstrated",
+                  "ownershipStrength": 1,
+                  "sourceExcerpts": [
+                    "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                  ]
+                },
+                {
+                  "id": "outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-",
+                  "type": "outcome",
+                  "value": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                  "sourceAssetIds": [
+                    "core-project"
+                  ],
+                  "factIds": [
+                    "fact-import--1BkXIAztk"
+                  ],
+                  "sourceTurnIds": [],
+                  "confirmationStatus": "confirmed",
+                  "maturity": "demonstrated",
+                  "ownershipStrength": 1,
+                  "sourceExcerpts": [
+                    "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                  ]
+                },
+                {
+                  "id": "evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说",
+                  "type": "evidence",
+                  "value": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n0\ncore-project\nproject\nAI 应用项目\n项目成员\n2025-01\n2025-06\nfalse\n参与 AI 应用项目的需求梳理",
+                  "sourceAssetIds": [
+                    "core-project"
+                  ],
+                  "factIds": [
+                    "fact-import--1BkXIAztk"
+                  ],
+                  "sourceTurnIds": [],
+                  "confirmationStatus": "confirmed",
+                  "maturity": "demonstrated",
+                  "ownershipStrength": 1,
+                  "sourceExcerpts": [
+                    "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                  ]
+                }
+              ],
+              "edges": [
+                {
+                  "id": "edge:outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-:asset:core-project",
+                  "from": "outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-",
+                  "to": "asset:core-project",
+                  "relation": "supports"
+                },
+                {
+                  "id": "edge:evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说:asset:core-project",
+                  "from": "evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说",
+                  "to": "asset:core-project",
+                  "relation": "supports"
+                }
+              ],
+              "skillMatrix": [],
+              "recoveryCandidates": [],
+              "sourceAssetIds": [
+                "core-project"
+              ],
+              "excludedAssetIds": []
+            },
+            "blueprint": {
+              "schemaVersion": "resume-blueprint-v1",
+              "mode": "general",
+              "profileId": "profile-HuV9aQX15f",
+              "profileRevision": 1,
+              "targetDirection": "互联网技术 / AI 应用",
+              "skillGroups": {},
+              "sections": [
+                {
+                  "sectionType": "project",
+                  "assetIds": [
+                    "core-project"
+                  ],
+                  "maxItems": 1,
+                  "priority": 0.7
+                }
+              ],
+              "assets": [
+                {
+                  "sourceAssetId": "core-project",
+                  "sectionType": "project",
+                  "title": "AI 应用项目",
+                  "sourceFactIds": [
+                    "fact-import--1BkXIAztk"
+                  ],
+                  "evidenceNodeIds": [
+                    "asset:core-project"
+                  ],
+                  "relevance": 0.4792666666666668,
+                  "inclusionReason": "与互联网技术 / AI 应用方向相关，并具备可核验行动证据（证据强度66%、技术深度0%、独特性100%）。",
+                  "bulletPlan": [
+                    "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                  ],
+                  "explicitTools": [],
+                  "score": {
+                    "targetRelevance": 0.6666666666666666,
+                    "evidenceStrength": 0.66,
+                    "demonstratedComplexity": 0.2,
+                    "outcomeStrength": 0,
+                    "specificity": 0.4,
+                    "uniqueness": 1,
+                    "technicalDepth": 0,
+                    "recency": 0.5,
+                    "ownershipStrength": 0.16666666666666666,
+                    "redundancy": 0,
+                    "weakEvidencePenalty": 0,
+                    "total": 0.4792666666666668
+                  }
+                }
+              ],
+              "excludedAssets": [],
+              "informationNeeds": [],
+              "keywordCoverage": [],
+              "pageBudget": {
+                "targetPages": 1,
+                "maxProjects": 4,
+                "maxBulletsPerProject": 4,
+                "estimatedPageCount": 0.6
+              }
+            },
+            "items": [
+              {
+                "sourceAssetId": "core-project",
+                "data": {
+                  "id": "core-project",
+                  "customFields": [],
+                  "sectionType": "project",
+                  "title": "AI 应用项目",
+                  "role": "项目成员",
+                  "startDate": "2025-01",
+                  "endDate": "2025-06",
+                  "current": false,
+                  "tools": [],
+                  "highlights": [
+                    "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                  ],
+                  "outcomes": []
+                },
+                "claimIds": [
+                  "claim:core-project:1"
+                ],
+                "factIds": [
+                  "fact-import--1BkXIAztk"
+                ],
+                "sourceBlockIds": [
+                  "sections[0].order",
+                  "sections[0].items[0].id",
+                  "sections[0].items[0].sectionType",
+                  "sections[0].items[0].title",
+                  "sections[0].items[0].role",
+                  "sections[0].items[0].startDate",
+                  "sections[0].items[0].endDate",
+                  "sections[0].items[0].current",
+                  "sections[0].items[0].description",
+                  "sections[0].items[0].highlights[0]"
+                ],
+                "sourceExcerpt": "0\ncore-project\nproject\nAI 应用项目\n项目成员\n2025-01\n2025-06\nfalse\n参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+              }
+            ],
+            "claims": [
+              {
+                "id": "claim:core-project:1",
+                "text": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                "classification": "DERIVED_PRESENTATION",
+                "sourceAssetIds": [
+                  "core-project"
+                ],
+                "factIds": [
+                  "fact-import--1BkXIAztk"
+                ],
+                "sourceTurnIds": [],
+                "evidenceNodeIds": [
+                  "asset:core-project",
+                  "outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-",
+                  "evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说"
+                ],
+                "reason": "保留来源事实，只进行简历展示层的压缩与措辞整理。",
+                "guardStatus": "pass"
+              }
+            ],
+            "reviewResult": {
+              "diagnostics": {
+                "ruleVersion": "resume-diagnostics-1",
+                "hardGate": {
+                  "status": "pass",
+                  "violations": []
+                },
+                "recruiterScan": {
+                  "positioning": {
+                    "status": "unknown",
+                    "reason": "No target Job; assess general positioning with the user."
+                  },
+                  "scanClarity": {
+                    "status": "pass",
+                    "reason": "Text-only filler and paragraph observations; first-screen layout requires rendered inspection."
+                  },
+                  "strongestExperience": {
+                    "status": "unknown",
+                    "reason": "Requires semantic comparison of experience and actual first-screen order."
+                  }
+                },
+                "claimRisk": {
+                  "level": "low",
+                  "claimIds": []
+                },
+                "contentQuality": {
+                  "factualFidelity": {
+                    "status": "pass",
+                    "reason": "Only emitted, source-bound claims with a passed Fact Guard count."
+                  },
+                  "specificity": {
+                    "status": "pass",
+                    "reason": "0 low-density bullets."
+                  },
+                  "relevance": {
+                    "status": "unknown",
+                    "reason": "No selected Job analysis."
+                  },
+                  "clarity": {
+                    "status": "pass",
+                    "reason": "Filler and paragraph-density rule observations."
+                  },
+                  "evidenceDensity": {
+                    "status": "pass",
+                    "reason": "Claim-to-fact or confirmed source-turn references, without treating keyword presence as evidence."
+                  },
+                  "redundancy": {
+                    "status": "pass",
+                    "reason": "0 duplicate bullets."
+                  },
+                  "ownershipAccuracy": {
+                    "status": "unknown",
+                    "reason": "Ownership is checked against source wording by Writer/Reviewer; this diagnostic has no independent semantic calibration."
+                  }
+                },
+                "atsStructure": {
+                  "textExtractability": {
+                    "status": "unknown",
+                    "reason": "Requires the actual exported PDF text extraction result."
+                  },
+                  "sectionStructure": {
+                    "status": "pass",
+                    "reason": "Canonical Schema v2 section items."
+                  },
+                  "fieldCompleteness": {
+                    "status": "pass",
+                    "reason": "0 unresolved information needs."
+                  },
+                  "readingOrder": {
+                    "status": "unknown",
+                    "reason": "Requires rendered Preview/PDF validation."
+                  },
+                  "supportedKeywordCoverage": {
+                    "status": "pass",
+                    "reason": "Supported keywords only; not an ATS pass rate."
+                  },
+                  "unsupportedKeywordInjection": {
+                    "status": "pass",
+                    "reason": "Unsupported target terms must stay absent."
+                  }
+                }
+              },
+              "status": "PASS",
+              "findings": [],
+              "diffs": [],
+              "atsCoverage": [],
+              "metrics": {
+                "sourceAssets": 1,
+                "selectedAssets": 1,
+                "derivedSkills": 0,
+                "questionsAsked": 0,
+                "supportedClaims": 0,
+                "derivedPresentationClaims": 1,
+                "needsConfirmationClaims": 0,
+                "unsupportedClaims": 0,
+                "bulletsGenerated": 1,
+                "duplicateBullets": 0,
+                "fillerBullets": 0,
+                "lowDensityBullets": 0,
+                "paragraphHeavyItems": 0,
+                "pageOverflow": false,
+                "onePageReasonable": true,
+                "bulletRepairCount": 0,
+                "bulletRejectedCount": 0,
+                "repairPassCount": 0,
+                "unsupportedClaimsBlocked": 0,
+                "atsRepairPassCount": 1,
+                "compressionPassCount": 0,
+                "profileFactsAddedFromTailoring": 0
+              },
+              "revisedBulletCount": 1
+            },
+            "proposal": {
+              "mode": "general",
+              "title": "通用简历组装预览",
+              "summary": "这份简历会重点呈现 AI 应用项目 等项目实践，保留教育与研究经历中的可验证要点。",
+              "selectedAssetTitles": [
+                "AI 应用项目"
+              ],
+              "derivedSkillNames": [],
+              "bulletCount": 1,
+              "informationNeeds": [],
+              "contactReminder": false,
+              "actions": [
+                "generate",
+                "adjust",
+                "cancel"
+              ]
+            },
+            "metrics": {
+              "sourceAssets": 1,
+              "selectedAssets": 1,
+              "derivedSkills": 0,
+              "questionsAsked": 0,
+              "supportedClaims": 0,
+              "derivedPresentationClaims": 1,
+              "needsConfirmationClaims": 0,
+              "unsupportedClaims": 0,
+              "bulletsGenerated": 1,
+              "duplicateBullets": 0,
+              "fillerBullets": 0,
+              "lowDensityBullets": 0,
+              "paragraphHeavyItems": 0,
+              "pageOverflow": false,
+              "onePageReasonable": true,
+              "bulletRepairCount": 0,
+              "bulletRejectedCount": 0,
+              "repairPassCount": 0,
+              "unsupportedClaimsBlocked": 0,
+              "atsRepairPassCount": 1,
+              "compressionPassCount": 0,
+              "profileFactsAddedFromTailoring": 0
+            },
+            "keywordCoverage": [],
+            "informationNeeds": [],
+            "skillGroups": [],
+            "writingExecution": {
+              "mode": "deterministic_fallback",
+              "provider": "isolated-test",
+              "model": "core-writer",
+              "promptVersion": "resume-career-writer.v6-claim-safety-v2",
+              "attemptCount": 1,
+              "latencyMs": 1,
+              "fallbackReason": "provider_unavailable",
+              "inputContextHash": "fnv-fda428bb-4599",
+              "outputHash": "fnv-78c0eb53-153"
+            },
+            "writingOutput": {
+              "assets": [
+                {
+                  "sourceAssetId": "core-project",
+                  "title": "AI 应用项目",
+                  "role": "项目成员",
+                  "techStack": [],
+                  "highlights": [
+                    "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                  ]
+                }
+              ],
+              "skillGroups": []
+            },
+            "telemetry": {
+              "writerMode": "deterministic_fallback",
+              "writerProvider": "isolated-test",
+              "writerModel": "core-writer",
+              "writerLatencyMs": 1,
+              "writerFallbackReason": "provider_unavailable",
+              "targetContext": {
+                "targetDirection": "互联网技术 / AI 应用"
+              },
+              "selectedAssetCount": 1,
+              "selectedProjectCount": 1,
+              "bulletCount": 1,
+              "bulletRepairCount": 0,
+              "bulletRejectedCount": 0,
+              "evidenceKeywordSupportedCount": 0,
+              "evidenceKeywordPotentialCount": 0,
+              "evidenceKeywordUnsupportedCount": 0,
+              "finalKeywordPresentCount": 0,
+              "finalKeywordMissingSupportedCount": 0,
+              "reviewStatus": "PASS",
+              "pageCount": 0.6,
+              "pageCountSource": "blueprint_estimate",
+              "compressionPassCount": 0,
+              "profileFactsAddedFromTailoring": 0
+            }
+          },
+          "createdAt": "2026-11-06T07:23:12.146Z",
+          "contentHash": "fnv-7ff11b8a-13080",
+          "expectedProfileRevision": 1,
+          "proposal": {
+            "mode": "general",
+            "title": "通用简历组装预览",
+            "summary": "这份简历会重点呈现 AI 应用项目 等项目实践，保留教育与研究经历中的可验证要点。",
+            "selectedAssetTitles": [
+              "AI 应用项目"
+            ],
+            "derivedSkillNames": [],
+            "bulletCount": 1,
+            "informationNeeds": [],
+            "contactReminder": false,
+            "actions": [
+              "generate",
+              "adjust",
+              "cancel"
+            ]
+          },
+          "evidenceGraph": {
+            "schemaVersion": "resume-evidence-graph-v1",
+            "profileId": "profile-HuV9aQX15f",
+            "profileRevision": 1,
+            "nodes": [
+              {
+                "id": "asset:core-project",
+                "type": "career_asset",
+                "value": "AI 应用项目",
+                "sourceAssetIds": [
+                  "core-project"
+                ],
+                "factIds": [
+                  "fact-import--1BkXIAztk"
+                ],
+                "sourceTurnIds": [],
+                "confirmationStatus": "confirmed",
+                "maturity": "demonstrated",
+                "ownershipStrength": 1,
+                "sourceExcerpts": [
+                  "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                ]
+              },
+              {
+                "id": "outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-",
+                "type": "outcome",
+                "value": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                "sourceAssetIds": [
+                  "core-project"
+                ],
+                "factIds": [
+                  "fact-import--1BkXIAztk"
+                ],
+                "sourceTurnIds": [],
+                "confirmationStatus": "confirmed",
+                "maturity": "demonstrated",
+                "ownershipStrength": 1,
+                "sourceExcerpts": [
+                  "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                ]
+              },
+              {
+                "id": "evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说",
+                "type": "evidence",
+                "value": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n0\ncore-project\nproject\nAI 应用项目\n项目成员\n2025-01\n2025-06\nfalse\n参与 AI 应用项目的需求梳理",
+                "sourceAssetIds": [
+                  "core-project"
+                ],
+                "factIds": [
+                  "fact-import--1BkXIAztk"
+                ],
+                "sourceTurnIds": [],
+                "confirmationStatus": "confirmed",
+                "maturity": "demonstrated",
+                "ownershipStrength": 1,
+                "sourceExcerpts": [
+                  "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                ]
+              }
+            ],
+            "edges": [
+              {
+                "id": "edge:outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-:asset:core-project",
+                "from": "outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-",
+                "to": "asset:core-project",
+                "relation": "supports"
+              },
+              {
+                "id": "edge:evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说:asset:core-project",
+                "from": "evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说",
+                "to": "asset:core-project",
+                "relation": "supports"
+              }
+            ],
+            "skillMatrix": [],
+            "recoveryCandidates": [],
+            "sourceAssetIds": [
+              "core-project"
+            ],
+            "excludedAssetIds": []
+          },
+          "metrics": {
+            "sourceAssets": 1,
+            "selectedAssets": 1,
+            "derivedSkills": 0,
+            "questionsAsked": 0,
+            "supportedClaims": 0,
+            "derivedPresentationClaims": 1,
+            "needsConfirmationClaims": 0,
+            "unsupportedClaims": 0,
+            "bulletsGenerated": 1,
+            "duplicateBullets": 0,
+            "fillerBullets": 0,
+            "lowDensityBullets": 0,
+            "paragraphHeavyItems": 0,
+            "pageOverflow": false,
+            "onePageReasonable": true,
+            "bulletRepairCount": 0,
+            "bulletRejectedCount": 0,
+            "repairPassCount": 0,
+            "unsupportedClaimsBlocked": 0,
+            "atsRepairPassCount": 1,
+            "compressionPassCount": 0,
+            "profileFactsAddedFromTailoring": 0
+          },
+          "keywordCoverage": [],
+          "informationNeeds": [],
+          "telemetry": {
+            "writerMode": "deterministic_fallback",
+            "writerProvider": "isolated-test",
+            "writerModel": "core-writer",
+            "writerLatencyMs": 1,
+            "writerFallbackReason": "provider_unavailable",
+            "targetContext": {
+              "targetDirection": "互联网技术 / AI 应用"
+            },
+            "selectedAssetCount": 1,
+            "selectedProjectCount": 1,
+            "bulletCount": 1,
+            "bulletRepairCount": 0,
+            "bulletRejectedCount": 0,
+            "evidenceKeywordSupportedCount": 0,
+            "evidenceKeywordPotentialCount": 0,
+            "evidenceKeywordUnsupportedCount": 0,
+            "finalKeywordPresentCount": 0,
+            "finalKeywordMissingSupportedCount": 0,
+            "reviewStatus": "PASS",
+            "pageCount": 0.6,
+            "pageCountSource": "blueprint_estimate",
+            "compressionPassCount": 0,
+            "profileFactsAddedFromTailoring": 0
+          },
+          "planReceipt": {
+            "operationId": "mcp-career-agF-OIbYYa7YteMD-1",
+            "toolName": "career.resume.plan_composition",
+            "status": "completed",
+            "completedAt": "2026-11-06T07:23:12.155Z"
+          },
+          "status": "waiting_for_confirmation"
+        },
+        "profileId": "profile-HuV9aQX15f",
+        "mode": "general",
+        "resumeCompositionMode": "general",
+        "resumeCompositionCheckpoint": {
+          "kind": "resume_composition",
+          "checkpointId": "resume-composition-7ff11b8a-13080",
+          "profileId": "profile-HuV9aQX15f",
+          "profileRevision": 1,
+          "mode": "general",
+          "targetContext": {
+            "targetDirection": "互联网技术 / AI 应用"
+          },
+          "evidenceGraphHash": "fnv-8cb5e258-2026",
+          "blueprint": {
+            "schemaVersion": "resume-blueprint-v1",
+            "mode": "general",
+            "profileId": "profile-HuV9aQX15f",
+            "profileRevision": 1,
+            "targetDirection": "互联网技术 / AI 应用",
+            "skillGroups": {},
+            "sections": [
+              {
+                "sectionType": "project",
+                "assetIds": [
+                  "core-project"
+                ],
+                "maxItems": 1,
+                "priority": 0.7
+              }
+            ],
+            "assets": [
+              {
+                "sourceAssetId": "core-project",
+                "sectionType": "project",
+                "title": "AI 应用项目",
+                "sourceFactIds": [
+                  "fact-import--1BkXIAztk"
+                ],
+                "evidenceNodeIds": [
+                  "asset:core-project"
+                ],
+                "relevance": 0.4792666666666668,
+                "inclusionReason": "与互联网技术 / AI 应用方向相关，并具备可核验行动证据（证据强度66%、技术深度0%、独特性100%）。",
+                "bulletPlan": [
+                  "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                ],
+                "explicitTools": [],
+                "score": {
+                  "targetRelevance": 0.6666666666666666,
+                  "evidenceStrength": 0.66,
+                  "demonstratedComplexity": 0.2,
+                  "outcomeStrength": 0,
+                  "specificity": 0.4,
+                  "uniqueness": 1,
+                  "technicalDepth": 0,
+                  "recency": 0.5,
+                  "ownershipStrength": 0.16666666666666666,
+                  "redundancy": 0,
+                  "weakEvidencePenalty": 0,
+                  "total": 0.4792666666666668
+                }
+              }
+            ],
+            "excludedAssets": [],
+            "informationNeeds": [],
+            "keywordCoverage": [],
+            "pageBudget": {
+              "targetPages": 1,
+              "maxProjects": 4,
+              "maxBulletsPerProject": 4,
+              "estimatedPageCount": 0.6
+            }
+          },
+          "writingExecution": {
+            "mode": "deterministic_fallback",
+            "provider": "isolated-test",
+            "model": "core-writer",
+            "promptVersion": "resume-career-writer.v6-claim-safety-v2",
+            "attemptCount": 1,
+            "latencyMs": 1,
+            "fallbackReason": "provider_unavailable",
+            "inputContextHash": "fnv-fda428bb-4599",
+            "outputHash": "fnv-78c0eb53-153"
+          },
+          "writingOutput": {
+            "assets": [
+              {
+                "sourceAssetId": "core-project",
+                "title": "AI 应用项目",
+                "role": "项目成员",
+                "techStack": [],
+                "highlights": [
+                  "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                ]
+              }
+            ],
+            "skillGroups": []
+          },
+          "reviewResult": {
+            "diagnostics": {
+              "ruleVersion": "resume-diagnostics-1",
+              "hardGate": {
+                "status": "pass",
+                "violations": []
+              },
+              "recruiterScan": {
+                "positioning": {
+                  "status": "unknown",
+                  "reason": "No target Job; assess general positioning with the user."
+                },
+                "scanClarity": {
+                  "status": "pass",
+                  "reason": "Text-only filler and paragraph observations; first-screen layout requires rendered inspection."
+                },
+                "strongestExperience": {
+                  "status": "unknown",
+                  "reason": "Requires semantic comparison of experience and actual first-screen order."
+                }
+              },
+              "claimRisk": {
+                "level": "low",
+                "claimIds": []
+              },
+              "contentQuality": {
+                "factualFidelity": {
+                  "status": "pass",
+                  "reason": "Only emitted, source-bound claims with a passed Fact Guard count."
+                },
+                "specificity": {
+                  "status": "pass",
+                  "reason": "0 low-density bullets."
+                },
+                "relevance": {
+                  "status": "unknown",
+                  "reason": "No selected Job analysis."
+                },
+                "clarity": {
+                  "status": "pass",
+                  "reason": "Filler and paragraph-density rule observations."
+                },
+                "evidenceDensity": {
+                  "status": "pass",
+                  "reason": "Claim-to-fact or confirmed source-turn references, without treating keyword presence as evidence."
+                },
+                "redundancy": {
+                  "status": "pass",
+                  "reason": "0 duplicate bullets."
+                },
+                "ownershipAccuracy": {
+                  "status": "unknown",
+                  "reason": "Ownership is checked against source wording by Writer/Reviewer; this diagnostic has no independent semantic calibration."
+                }
+              },
+              "atsStructure": {
+                "textExtractability": {
+                  "status": "unknown",
+                  "reason": "Requires the actual exported PDF text extraction result."
+                },
+                "sectionStructure": {
+                  "status": "pass",
+                  "reason": "Canonical Schema v2 section items."
+                },
+                "fieldCompleteness": {
+                  "status": "pass",
+                  "reason": "0 unresolved information needs."
+                },
+                "readingOrder": {
+                  "status": "unknown",
+                  "reason": "Requires rendered Preview/PDF validation."
+                },
+                "supportedKeywordCoverage": {
+                  "status": "pass",
+                  "reason": "Supported keywords only; not an ATS pass rate."
+                },
+                "unsupportedKeywordInjection": {
+                  "status": "pass",
+                  "reason": "Unsupported target terms must stay absent."
+                }
+              }
+            },
+            "status": "PASS",
+            "findings": [],
+            "diffs": [],
+            "atsCoverage": [],
+            "metrics": {
+              "sourceAssets": 1,
+              "selectedAssets": 1,
+              "derivedSkills": 0,
+              "questionsAsked": 0,
+              "supportedClaims": 0,
+              "derivedPresentationClaims": 1,
+              "needsConfirmationClaims": 0,
+              "unsupportedClaims": 0,
+              "bulletsGenerated": 1,
+              "duplicateBullets": 0,
+              "fillerBullets": 0,
+              "lowDensityBullets": 0,
+              "paragraphHeavyItems": 0,
+              "pageOverflow": false,
+              "onePageReasonable": true,
+              "bulletRepairCount": 0,
+              "bulletRejectedCount": 0,
+              "repairPassCount": 0,
+              "unsupportedClaimsBlocked": 0,
+              "atsRepairPassCount": 1,
+              "compressionPassCount": 0,
+              "profileFactsAddedFromTailoring": 0
+            },
+            "revisedBulletCount": 1
+          },
+          "compositionResult": {
+            "schemaVersion": "resume-composition-v1",
+            "mode": "general",
+            "profileId": "profile-HuV9aQX15f",
+            "profileRevision": 1,
+            "targetDirection": "互联网技术 / AI 应用",
+            "evidenceGraph": {
+              "schemaVersion": "resume-evidence-graph-v1",
+              "profileId": "profile-HuV9aQX15f",
+              "profileRevision": 1,
+              "nodes": [
+                {
+                  "id": "asset:core-project",
+                  "type": "career_asset",
+                  "value": "AI 应用项目",
+                  "sourceAssetIds": [
+                    "core-project"
+                  ],
+                  "factIds": [
+                    "fact-import--1BkXIAztk"
+                  ],
+                  "sourceTurnIds": [],
+                  "confirmationStatus": "confirmed",
+                  "maturity": "demonstrated",
+                  "ownershipStrength": 1,
+                  "sourceExcerpts": [
+                    "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                  ]
+                },
+                {
+                  "id": "outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-",
+                  "type": "outcome",
+                  "value": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                  "sourceAssetIds": [
+                    "core-project"
+                  ],
+                  "factIds": [
+                    "fact-import--1BkXIAztk"
+                  ],
+                  "sourceTurnIds": [],
+                  "confirmationStatus": "confirmed",
+                  "maturity": "demonstrated",
+                  "ownershipStrength": 1,
+                  "sourceExcerpts": [
+                    "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                  ]
+                },
+                {
+                  "id": "evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说",
+                  "type": "evidence",
+                  "value": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n0\ncore-project\nproject\nAI 应用项目\n项目成员\n2025-01\n2025-06\nfalse\n参与 AI 应用项目的需求梳理",
+                  "sourceAssetIds": [
+                    "core-project"
+                  ],
+                  "factIds": [
+                    "fact-import--1BkXIAztk"
+                  ],
+                  "sourceTurnIds": [],
+                  "confirmationStatus": "confirmed",
+                  "maturity": "demonstrated",
+                  "ownershipStrength": 1,
+                  "sourceExcerpts": [
+                    "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                  ]
+                }
+              ],
+              "edges": [
+                {
+                  "id": "edge:outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-:asset:core-project",
+                  "from": "outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-",
+                  "to": "asset:core-project",
+                  "relation": "supports"
+                },
+                {
+                  "id": "edge:evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说:asset:core-project",
+                  "from": "evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说",
+                  "to": "asset:core-project",
+                  "relation": "supports"
+                }
+              ],
+              "skillMatrix": [],
+              "recoveryCandidates": [],
+              "sourceAssetIds": [
+                "core-project"
+              ],
+              "excludedAssetIds": []
+            },
+            "blueprint": {
+              "schemaVersion": "resume-blueprint-v1",
+              "mode": "general",
+              "profileId": "profile-HuV9aQX15f",
+              "profileRevision": 1,
+              "targetDirection": "互联网技术 / AI 应用",
+              "skillGroups": {},
+              "sections": [
+                {
+                  "sectionType": "project",
+                  "assetIds": [
+                    "core-project"
+                  ],
+                  "maxItems": 1,
+                  "priority": 0.7
+                }
+              ],
+              "assets": [
+                {
+                  "sourceAssetId": "core-project",
+                  "sectionType": "project",
+                  "title": "AI 应用项目",
+                  "sourceFactIds": [
+                    "fact-import--1BkXIAztk"
+                  ],
+                  "evidenceNodeIds": [
+                    "asset:core-project"
+                  ],
+                  "relevance": 0.4792666666666668,
+                  "inclusionReason": "与互联网技术 / AI 应用方向相关，并具备可核验行动证据（证据强度66%、技术深度0%、独特性100%）。",
+                  "bulletPlan": [
+                    "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                  ],
+                  "explicitTools": [],
+                  "score": {
+                    "targetRelevance": 0.6666666666666666,
+                    "evidenceStrength": 0.66,
+                    "demonstratedComplexity": 0.2,
+                    "outcomeStrength": 0,
+                    "specificity": 0.4,
+                    "uniqueness": 1,
+                    "technicalDepth": 0,
+                    "recency": 0.5,
+                    "ownershipStrength": 0.16666666666666666,
+                    "redundancy": 0,
+                    "weakEvidencePenalty": 0,
+                    "total": 0.4792666666666668
+                  }
+                }
+              ],
+              "excludedAssets": [],
+              "informationNeeds": [],
+              "keywordCoverage": [],
+              "pageBudget": {
+                "targetPages": 1,
+                "maxProjects": 4,
+                "maxBulletsPerProject": 4,
+                "estimatedPageCount": 0.6
+              }
+            },
+            "items": [
+              {
+                "sourceAssetId": "core-project",
+                "data": {
+                  "id": "core-project",
+                  "customFields": [],
+                  "sectionType": "project",
+                  "title": "AI 应用项目",
+                  "role": "项目成员",
+                  "startDate": "2025-01",
+                  "endDate": "2025-06",
+                  "current": false,
+                  "tools": [],
+                  "highlights": [
+                    "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                  ],
+                  "outcomes": []
+                },
+                "claimIds": [
+                  "claim:core-project:1"
+                ],
+                "factIds": [
+                  "fact-import--1BkXIAztk"
+                ],
+                "sourceBlockIds": [
+                  "sections[0].order",
+                  "sections[0].items[0].id",
+                  "sections[0].items[0].sectionType",
+                  "sections[0].items[0].title",
+                  "sections[0].items[0].role",
+                  "sections[0].items[0].startDate",
+                  "sections[0].items[0].endDate",
+                  "sections[0].items[0].current",
+                  "sections[0].items[0].description",
+                  "sections[0].items[0].highlights[0]"
+                ],
+                "sourceExcerpt": "0\ncore-project\nproject\nAI 应用项目\n项目成员\n2025-01\n2025-06\nfalse\n参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+              }
+            ],
+            "claims": [
+              {
+                "id": "claim:core-project:1",
+                "text": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                "classification": "DERIVED_PRESENTATION",
+                "sourceAssetIds": [
+                  "core-project"
+                ],
+                "factIds": [
+                  "fact-import--1BkXIAztk"
+                ],
+                "sourceTurnIds": [],
+                "evidenceNodeIds": [
+                  "asset:core-project",
+                  "outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-",
+                  "evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说"
+                ],
+                "reason": "保留来源事实，只进行简历展示层的压缩与措辞整理。",
+                "guardStatus": "pass"
+              }
+            ],
+            "reviewResult": {
+              "diagnostics": {
+                "ruleVersion": "resume-diagnostics-1",
+                "hardGate": {
+                  "status": "pass",
+                  "violations": []
+                },
+                "recruiterScan": {
+                  "positioning": {
+                    "status": "unknown",
+                    "reason": "No target Job; assess general positioning with the user."
+                  },
+                  "scanClarity": {
+                    "status": "pass",
+                    "reason": "Text-only filler and paragraph observations; first-screen layout requires rendered inspection."
+                  },
+                  "strongestExperience": {
+                    "status": "unknown",
+                    "reason": "Requires semantic comparison of experience and actual first-screen order."
+                  }
+                },
+                "claimRisk": {
+                  "level": "low",
+                  "claimIds": []
+                },
+                "contentQuality": {
+                  "factualFidelity": {
+                    "status": "pass",
+                    "reason": "Only emitted, source-bound claims with a passed Fact Guard count."
+                  },
+                  "specificity": {
+                    "status": "pass",
+                    "reason": "0 low-density bullets."
+                  },
+                  "relevance": {
+                    "status": "unknown",
+                    "reason": "No selected Job analysis."
+                  },
+                  "clarity": {
+                    "status": "pass",
+                    "reason": "Filler and paragraph-density rule observations."
+                  },
+                  "evidenceDensity": {
+                    "status": "pass",
+                    "reason": "Claim-to-fact or confirmed source-turn references, without treating keyword presence as evidence."
+                  },
+                  "redundancy": {
+                    "status": "pass",
+                    "reason": "0 duplicate bullets."
+                  },
+                  "ownershipAccuracy": {
+                    "status": "unknown",
+                    "reason": "Ownership is checked against source wording by Writer/Reviewer; this diagnostic has no independent semantic calibration."
+                  }
+                },
+                "atsStructure": {
+                  "textExtractability": {
+                    "status": "unknown",
+                    "reason": "Requires the actual exported PDF text extraction result."
+                  },
+                  "sectionStructure": {
+                    "status": "pass",
+                    "reason": "Canonical Schema v2 section items."
+                  },
+                  "fieldCompleteness": {
+                    "status": "pass",
+                    "reason": "0 unresolved information needs."
+                  },
+                  "readingOrder": {
+                    "status": "unknown",
+                    "reason": "Requires rendered Preview/PDF validation."
+                  },
+                  "supportedKeywordCoverage": {
+                    "status": "pass",
+                    "reason": "Supported keywords only; not an ATS pass rate."
+                  },
+                  "unsupportedKeywordInjection": {
+                    "status": "pass",
+                    "reason": "Unsupported target terms must stay absent."
+                  }
+                }
+              },
+              "status": "PASS",
+              "findings": [],
+              "diffs": [],
+              "atsCoverage": [],
+              "metrics": {
+                "sourceAssets": 1,
+                "selectedAssets": 1,
+                "derivedSkills": 0,
+                "questionsAsked": 0,
+                "supportedClaims": 0,
+                "derivedPresentationClaims": 1,
+                "needsConfirmationClaims": 0,
+                "unsupportedClaims": 0,
+                "bulletsGenerated": 1,
+                "duplicateBullets": 0,
+                "fillerBullets": 0,
+                "lowDensityBullets": 0,
+                "paragraphHeavyItems": 0,
+                "pageOverflow": false,
+                "onePageReasonable": true,
+                "bulletRepairCount": 0,
+                "bulletRejectedCount": 0,
+                "repairPassCount": 0,
+                "unsupportedClaimsBlocked": 0,
+                "atsRepairPassCount": 1,
+                "compressionPassCount": 0,
+                "profileFactsAddedFromTailoring": 0
+              },
+              "revisedBulletCount": 1
+            },
+            "proposal": {
+              "mode": "general",
+              "title": "通用简历组装预览",
+              "summary": "这份简历会重点呈现 AI 应用项目 等项目实践，保留教育与研究经历中的可验证要点。",
+              "selectedAssetTitles": [
+                "AI 应用项目"
+              ],
+              "derivedSkillNames": [],
+              "bulletCount": 1,
+              "informationNeeds": [],
+              "contactReminder": false,
+              "actions": [
+                "generate",
+                "adjust",
+                "cancel"
+              ]
+            },
+            "metrics": {
+              "sourceAssets": 1,
+              "selectedAssets": 1,
+              "derivedSkills": 0,
+              "questionsAsked": 0,
+              "supportedClaims": 0,
+              "derivedPresentationClaims": 1,
+              "needsConfirmationClaims": 0,
+              "unsupportedClaims": 0,
+              "bulletsGenerated": 1,
+              "duplicateBullets": 0,
+              "fillerBullets": 0,
+              "lowDensityBullets": 0,
+              "paragraphHeavyItems": 0,
+              "pageOverflow": false,
+              "onePageReasonable": true,
+              "bulletRepairCount": 0,
+              "bulletRejectedCount": 0,
+              "repairPassCount": 0,
+              "unsupportedClaimsBlocked": 0,
+              "atsRepairPassCount": 1,
+              "compressionPassCount": 0,
+              "profileFactsAddedFromTailoring": 0
+            },
+            "keywordCoverage": [],
+            "informationNeeds": [],
+            "skillGroups": [],
+            "writingExecution": {
+              "mode": "deterministic_fallback",
+              "provider": "isolated-test",
+              "model": "core-writer",
+              "promptVersion": "resume-career-writer.v6-claim-safety-v2",
+              "attemptCount": 1,
+              "latencyMs": 1,
+              "fallbackReason": "provider_unavailable",
+              "inputContextHash": "fnv-fda428bb-4599",
+              "outputHash": "fnv-78c0eb53-153"
+            },
+            "writingOutput": {
+              "assets": [
+                {
+                  "sourceAssetId": "core-project",
+                  "title": "AI 应用项目",
+                  "role": "项目成员",
+                  "techStack": [],
+                  "highlights": [
+                    "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                  ]
+                }
+              ],
+              "skillGroups": []
+            },
+            "telemetry": {
+              "writerMode": "deterministic_fallback",
+              "writerProvider": "isolated-test",
+              "writerModel": "core-writer",
+              "writerLatencyMs": 1,
+              "writerFallbackReason": "provider_unavailable",
+              "targetContext": {
+                "targetDirection": "互联网技术 / AI 应用"
+              },
+              "selectedAssetCount": 1,
+              "selectedProjectCount": 1,
+              "bulletCount": 1,
+              "bulletRepairCount": 0,
+              "bulletRejectedCount": 0,
+              "evidenceKeywordSupportedCount": 0,
+              "evidenceKeywordPotentialCount": 0,
+              "evidenceKeywordUnsupportedCount": 0,
+              "finalKeywordPresentCount": 0,
+              "finalKeywordMissingSupportedCount": 0,
+              "reviewStatus": "PASS",
+              "pageCount": 0.6,
+              "pageCountSource": "blueprint_estimate",
+              "compressionPassCount": 0,
+              "profileFactsAddedFromTailoring": 0
+            }
+          },
+          "createdAt": "2026-11-06T07:23:12.146Z",
+          "contentHash": "fnv-7ff11b8a-13080",
+          "expectedProfileRevision": 1,
+          "proposal": {
+            "mode": "general",
+            "title": "通用简历组装预览",
+            "summary": "这份简历会重点呈现 AI 应用项目 等项目实践，保留教育与研究经历中的可验证要点。",
+            "selectedAssetTitles": [
+              "AI 应用项目"
+            ],
+            "derivedSkillNames": [],
+            "bulletCount": 1,
+            "informationNeeds": [],
+            "contactReminder": false,
+            "actions": [
+              "generate",
+              "adjust",
+              "cancel"
+            ]
+          },
+          "evidenceGraph": {
+            "schemaVersion": "resume-evidence-graph-v1",
+            "profileId": "profile-HuV9aQX15f",
+            "profileRevision": 1,
+            "nodes": [
+              {
+                "id": "asset:core-project",
+                "type": "career_asset",
+                "value": "AI 应用项目",
+                "sourceAssetIds": [
+                  "core-project"
+                ],
+                "factIds": [
+                  "fact-import--1BkXIAztk"
+                ],
+                "sourceTurnIds": [],
+                "confirmationStatus": "confirmed",
+                "maturity": "demonstrated",
+                "ownershipStrength": 1,
+                "sourceExcerpts": [
+                  "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                ]
+              },
+              {
+                "id": "outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-",
+                "type": "outcome",
+                "value": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                "sourceAssetIds": [
+                  "core-project"
+                ],
+                "factIds": [
+                  "fact-import--1BkXIAztk"
+                ],
+                "sourceTurnIds": [],
+                "confirmationStatus": "confirmed",
+                "maturity": "demonstrated",
+                "ownershipStrength": 1,
+                "sourceExcerpts": [
+                  "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                ]
+              },
+              {
+                "id": "evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说",
+                "type": "evidence",
+                "value": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n0\ncore-project\nproject\nAI 应用项目\n项目成员\n2025-01\n2025-06\nfalse\n参与 AI 应用项目的需求梳理",
+                "sourceAssetIds": [
+                  "core-project"
+                ],
+                "factIds": [
+                  "fact-import--1BkXIAztk"
+                ],
+                "sourceTurnIds": [],
+                "confirmationStatus": "confirmed",
+                "maturity": "demonstrated",
+                "ownershipStrength": 1,
+                "sourceExcerpts": [
+                  "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                ]
+              }
+            ],
+            "edges": [
+              {
+                "id": "edge:outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-:asset:core-project",
+                "from": "outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-",
+                "to": "asset:core-project",
+                "relation": "supports"
+              },
+              {
+                "id": "edge:evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说:asset:core-project",
+                "from": "evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说",
+                "to": "asset:core-project",
+                "relation": "supports"
+              }
+            ],
+            "skillMatrix": [],
+            "recoveryCandidates": [],
+            "sourceAssetIds": [
+              "core-project"
+            ],
+            "excludedAssetIds": []
+          },
+          "metrics": {
+            "sourceAssets": 1,
+            "selectedAssets": 1,
+            "derivedSkills": 0,
+            "questionsAsked": 0,
+            "supportedClaims": 0,
+            "derivedPresentationClaims": 1,
+            "needsConfirmationClaims": 0,
+            "unsupportedClaims": 0,
+            "bulletsGenerated": 1,
+            "duplicateBullets": 0,
+            "fillerBullets": 0,
+            "lowDensityBullets": 0,
+            "paragraphHeavyItems": 0,
+            "pageOverflow": false,
+            "onePageReasonable": true,
+            "bulletRepairCount": 0,
+            "bulletRejectedCount": 0,
+            "repairPassCount": 0,
+            "unsupportedClaimsBlocked": 0,
+            "atsRepairPassCount": 1,
+            "compressionPassCount": 0,
+            "profileFactsAddedFromTailoring": 0
+          },
+          "keywordCoverage": [],
+          "informationNeeds": [],
+          "telemetry": {
+            "writerMode": "deterministic_fallback",
+            "writerProvider": "isolated-test",
+            "writerModel": "core-writer",
+            "writerLatencyMs": 1,
+            "writerFallbackReason": "provider_unavailable",
+            "targetContext": {
+              "targetDirection": "互联网技术 / AI 应用"
+            },
+            "selectedAssetCount": 1,
+            "selectedProjectCount": 1,
+            "bulletCount": 1,
+            "bulletRepairCount": 0,
+            "bulletRejectedCount": 0,
+            "evidenceKeywordSupportedCount": 0,
+            "evidenceKeywordPotentialCount": 0,
+            "evidenceKeywordUnsupportedCount": 0,
+            "finalKeywordPresentCount": 0,
+            "finalKeywordMissingSupportedCount": 0,
+            "reviewStatus": "PASS",
+            "pageCount": 0.6,
+            "pageCountSource": "blueprint_estimate",
+            "compressionPassCount": 0,
+            "profileFactsAddedFromTailoring": 0
+          },
+          "planReceipt": {
+            "operationId": "mcp-career-agF-OIbYYa7YteMD-1",
+            "toolName": "career.resume.plan_composition",
+            "status": "completed",
+            "completedAt": "2026-11-06T07:23:12.155Z"
+          }
+        },
+        "resumeCompositionProposal": {
+          "mode": "general",
+          "title": "通用简历组装预览",
+          "summary": "这份简历会重点呈现 AI 应用项目 等项目实践，保留教育与研究经历中的可验证要点。",
+          "selectedAssetTitles": [
+            "AI 应用项目"
+          ],
+          "derivedSkillNames": [],
+          "bulletCount": 1,
+          "informationNeeds": [],
+          "contactReminder": false,
+          "actions": [
+            "generate",
+            "adjust",
+            "cancel"
+          ]
+        },
+        "resumeCompositionBlueprint": {
+          "schemaVersion": "resume-blueprint-v1",
+          "mode": "general",
+          "profileId": "profile-HuV9aQX15f",
+          "profileRevision": 1,
+          "targetDirection": "互联网技术 / AI 应用",
+          "skillGroups": {},
+          "sections": [
+            {
+              "sectionType": "project",
+              "assetIds": [
+                "core-project"
+              ],
+              "maxItems": 1,
+              "priority": 0.7
+            }
+          ],
+          "assets": [
+            {
+              "sourceAssetId": "core-project",
+              "sectionType": "project",
+              "title": "AI 应用项目",
+              "sourceFactIds": [
+                "fact-import--1BkXIAztk"
+              ],
+              "evidenceNodeIds": [
+                "asset:core-project"
+              ],
+              "relevance": 0.4792666666666668,
+              "inclusionReason": "与互联网技术 / AI 应用方向相关，并具备可核验行动证据（证据强度66%、技术深度0%、独特性100%）。",
+              "bulletPlan": [
+                "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+              ],
+              "explicitTools": [],
+              "score": {
+                "targetRelevance": 0.6666666666666666,
+                "evidenceStrength": 0.66,
+                "demonstratedComplexity": 0.2,
+                "outcomeStrength": 0,
+                "specificity": 0.4,
+                "uniqueness": 1,
+                "technicalDepth": 0,
+                "recency": 0.5,
+                "ownershipStrength": 0.16666666666666666,
+                "redundancy": 0,
+                "weakEvidencePenalty": 0,
+                "total": 0.4792666666666668
+              }
+            }
+          ],
+          "excludedAssets": [],
+          "informationNeeds": [],
+          "keywordCoverage": [],
+          "pageBudget": {
+            "targetPages": 1,
+            "maxProjects": 4,
+            "maxBulletsPerProject": 4,
+            "estimatedPageCount": 0.6
+          }
+        },
+        "resumeCompositionMetrics": {
+          "sourceAssets": 1,
+          "selectedAssets": 1,
+          "derivedSkills": 0,
+          "questionsAsked": 0,
+          "supportedClaims": 0,
+          "derivedPresentationClaims": 1,
+          "needsConfirmationClaims": 0,
+          "unsupportedClaims": 0,
+          "bulletsGenerated": 1,
+          "duplicateBullets": 0,
+          "fillerBullets": 0,
+          "lowDensityBullets": 0,
+          "paragraphHeavyItems": 0,
+          "pageOverflow": false,
+          "onePageReasonable": true,
+          "bulletRepairCount": 0,
+          "bulletRejectedCount": 0,
+          "repairPassCount": 0,
+          "unsupportedClaimsBlocked": 0,
+          "atsRepairPassCount": 1,
+          "compressionPassCount": 0,
+          "profileFactsAddedFromTailoring": 0
+        },
+        "resumeCompositionInformationNeeds": []
+      },
+      "workflowUserInputCheckpoint": {
+        "interactionId": "workflow-interaction:confirmation:stage:review_composition",
+        "checkpointId": "confirmation:stage:review_composition",
+        "workflowId": "compose_resume",
+        "kind": "confirmation",
+        "state": "active",
+        "stage": "review_composition",
+        "prompt": "这一步需要你的明确确认。",
+        "options": [
+          {
+            "id": "workflow-interaction-option-0",
+            "label": "confirm",
+            "value": "confirm"
+          },
+          {
+            "id": "workflow-interaction-option-1",
+            "label": "reject",
+            "value": "reject"
+          }
+        ],
+        "promptProjection": {
+          "text": "这一步需要你的明确确认。",
+          "operationId": "stage:review_composition"
+        },
+        "allowedInput": {
+          "type": "confirmation",
+          "values": [
+            "confirm",
+            "reject"
+          ]
+        },
+        "createdAt": "2026-11-06T07:23:12.435Z",
+        "revision": 0
+      },
+      "missingSlots": [],
+      "selectedEntities": {
+        "profileId": "profile-HuV9aQX15f"
+      },
+      "dependencySnapshots": {},
+      "artifacts": [],
+      "lastObservation": {
+        "source": "career_workflow_facade",
+        "toolName": "career.workflow.compose_resume",
+        "status": "waiting_for_confirmation",
+        "checkpoint": {
+          "kind": "resume_composition",
+          "checkpointId": "resume-composition-7ff11b8a-13080",
+          "profileId": "profile-HuV9aQX15f",
+          "profileRevision": 1,
+          "mode": "general",
+          "targetContext": {
+            "targetDirection": "互联网技术 / AI 应用"
+          },
+          "evidenceGraphHash": "fnv-8cb5e258-2026",
+          "blueprint": {
+            "schemaVersion": "resume-blueprint-v1",
+            "mode": "general",
+            "profileId": "profile-HuV9aQX15f",
+            "profileRevision": 1,
+            "targetDirection": "互联网技术 / AI 应用",
+            "skillGroups": {},
+            "sections": [
+              {
+                "sectionType": "project",
+                "assetIds": [
+                  "core-project"
+                ],
+                "maxItems": 1,
+                "priority": 0.7
+              }
+            ],
+            "assets": [
+              {
+                "sourceAssetId": "core-project",
+                "sectionType": "project",
+                "title": "AI 应用项目",
+                "sourceFactIds": [
+                  "fact-import--1BkXIAztk"
+                ],
+                "evidenceNodeIds": [
+                  "asset:core-project"
+                ],
+                "relevance": 0.4792666666666668,
+                "inclusionReason": "与互联网技术 / AI 应用方向相关，并具备可核验行动证据（证据强度66%、技术深度0%、独特性100%）。",
+                "bulletPlan": [
+                  "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                ],
+                "explicitTools": [],
+                "score": {
+                  "targetRelevance": 0.6666666666666666,
+                  "evidenceStrength": 0.66,
+                  "demonstratedComplexity": 0.2,
+                  "outcomeStrength": 0,
+                  "specificity": 0.4,
+                  "uniqueness": 1,
+                  "technicalDepth": 0,
+                  "recency": 0.5,
+                  "ownershipStrength": 0.16666666666666666,
+                  "redundancy": 0,
+                  "weakEvidencePenalty": 0,
+                  "total": 0.4792666666666668
+                }
+              }
+            ],
+            "excludedAssets": [],
+            "informationNeeds": [],
+            "keywordCoverage": [],
+            "pageBudget": {
+              "targetPages": 1,
+              "maxProjects": 4,
+              "maxBulletsPerProject": 4,
+              "estimatedPageCount": 0.6
+            }
+          },
+          "writingExecution": {
+            "mode": "deterministic_fallback",
+            "provider": "isolated-test",
+            "model": "core-writer",
+            "promptVersion": "resume-career-writer.v6-claim-safety-v2",
+            "attemptCount": 1,
+            "latencyMs": 1,
+            "fallbackReason": "provider_unavailable",
+            "inputContextHash": "fnv-fda428bb-4599",
+            "outputHash": "fnv-78c0eb53-153"
+          },
+          "writingOutput": {
+            "assets": [
+              {
+                "sourceAssetId": "core-project",
+                "title": "AI 应用项目",
+                "role": "项目成员",
+                "techStack": [],
+                "highlights": [
+                  "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                ]
+              }
+            ],
+            "skillGroups": []
+          },
+          "reviewResult": {
+            "diagnostics": {
+              "ruleVersion": "resume-diagnostics-1",
+              "hardGate": {
+                "status": "pass",
+                "violations": []
+              },
+              "recruiterScan": {
+                "positioning": {
+                  "status": "unknown",
+                  "reason": "No target Job; assess general positioning with the user."
+                },
+                "scanClarity": {
+                  "status": "pass",
+                  "reason": "Text-only filler and paragraph observations; first-screen layout requires rendered inspection."
+                },
+                "strongestExperience": {
+                  "status": "unknown",
+                  "reason": "Requires semantic comparison of experience and actual first-screen order."
+                }
+              },
+              "claimRisk": {
+                "level": "low",
+                "claimIds": []
+              },
+              "contentQuality": {
+                "factualFidelity": {
+                  "status": "pass",
+                  "reason": "Only emitted, source-bound claims with a passed Fact Guard count."
+                },
+                "specificity": {
+                  "status": "pass",
+                  "reason": "0 low-density bullets."
+                },
+                "relevance": {
+                  "status": "unknown",
+                  "reason": "No selected Job analysis."
+                },
+                "clarity": {
+                  "status": "pass",
+                  "reason": "Filler and paragraph-density rule observations."
+                },
+                "evidenceDensity": {
+                  "status": "pass",
+                  "reason": "Claim-to-fact or confirmed source-turn references, without treating keyword presence as evidence."
+                },
+                "redundancy": {
+                  "status": "pass",
+                  "reason": "0 duplicate bullets."
+                },
+                "ownershipAccuracy": {
+                  "status": "unknown",
+                  "reason": "Ownership is checked against source wording by Writer/Reviewer; this diagnostic has no independent semantic calibration."
+                }
+              },
+              "atsStructure": {
+                "textExtractability": {
+                  "status": "unknown",
+                  "reason": "Requires the actual exported PDF text extraction result."
+                },
+                "sectionStructure": {
+                  "status": "pass",
+                  "reason": "Canonical Schema v2 section items."
+                },
+                "fieldCompleteness": {
+                  "status": "pass",
+                  "reason": "0 unresolved information needs."
+                },
+                "readingOrder": {
+                  "status": "unknown",
+                  "reason": "Requires rendered Preview/PDF validation."
+                },
+                "supportedKeywordCoverage": {
+                  "status": "pass",
+                  "reason": "Supported keywords only; not an ATS pass rate."
+                },
+                "unsupportedKeywordInjection": {
+                  "status": "pass",
+                  "reason": "Unsupported target terms must stay absent."
+                }
+              }
+            },
+            "status": "PASS",
+            "findings": [],
+            "diffs": [],
+            "atsCoverage": [],
+            "metrics": {
+              "sourceAssets": 1,
+              "selectedAssets": 1,
+              "derivedSkills": 0,
+              "questionsAsked": 0,
+              "supportedClaims": 0,
+              "derivedPresentationClaims": 1,
+              "needsConfirmationClaims": 0,
+              "unsupportedClaims": 0,
+              "bulletsGenerated": 1,
+              "duplicateBullets": 0,
+              "fillerBullets": 0,
+              "lowDensityBullets": 0,
+              "paragraphHeavyItems": 0,
+              "pageOverflow": false,
+              "onePageReasonable": true,
+              "bulletRepairCount": 0,
+              "bulletRejectedCount": 0,
+              "repairPassCount": 0,
+              "unsupportedClaimsBlocked": 0,
+              "atsRepairPassCount": 1,
+              "compressionPassCount": 0,
+              "profileFactsAddedFromTailoring": 0
+            },
+            "revisedBulletCount": 1
+          },
+          "compositionResult": {
+            "schemaVersion": "resume-composition-v1",
+            "mode": "general",
+            "profileId": "profile-HuV9aQX15f",
+            "profileRevision": 1,
+            "targetDirection": "互联网技术 / AI 应用",
+            "evidenceGraph": {
+              "schemaVersion": "resume-evidence-graph-v1",
+              "profileId": "profile-HuV9aQX15f",
+              "profileRevision": 1,
+              "nodes": [
+                {
+                  "id": "asset:core-project",
+                  "type": "career_asset",
+                  "value": "AI 应用项目",
+                  "sourceAssetIds": [
+                    "core-project"
+                  ],
+                  "factIds": [
+                    "fact-import--1BkXIAztk"
+                  ],
+                  "sourceTurnIds": [],
+                  "confirmationStatus": "confirmed",
+                  "maturity": "demonstrated",
+                  "ownershipStrength": 1,
+                  "sourceExcerpts": [
+                    "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                  ]
+                },
+                {
+                  "id": "outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-",
+                  "type": "outcome",
+                  "value": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                  "sourceAssetIds": [
+                    "core-project"
+                  ],
+                  "factIds": [
+                    "fact-import--1BkXIAztk"
+                  ],
+                  "sourceTurnIds": [],
+                  "confirmationStatus": "confirmed",
+                  "maturity": "demonstrated",
+                  "ownershipStrength": 1,
+                  "sourceExcerpts": [
+                    "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                  ]
+                },
+                {
+                  "id": "evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说",
+                  "type": "evidence",
+                  "value": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n0\ncore-project\nproject\nAI 应用项目\n项目成员\n2025-01\n2025-06\nfalse\n参与 AI 应用项目的需求梳理",
+                  "sourceAssetIds": [
+                    "core-project"
+                  ],
+                  "factIds": [
+                    "fact-import--1BkXIAztk"
+                  ],
+                  "sourceTurnIds": [],
+                  "confirmationStatus": "confirmed",
+                  "maturity": "demonstrated",
+                  "ownershipStrength": 1,
+                  "sourceExcerpts": [
+                    "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                  ]
+                }
+              ],
+              "edges": [
+                {
+                  "id": "edge:outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-:asset:core-project",
+                  "from": "outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-",
+                  "to": "asset:core-project",
+                  "relation": "supports"
+                },
+                {
+                  "id": "edge:evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说:asset:core-project",
+                  "from": "evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说",
+                  "to": "asset:core-project",
+                  "relation": "supports"
+                }
+              ],
+              "skillMatrix": [],
+              "recoveryCandidates": [],
+              "sourceAssetIds": [
+                "core-project"
+              ],
+              "excludedAssetIds": []
+            },
+            "blueprint": {
+              "schemaVersion": "resume-blueprint-v1",
+              "mode": "general",
+              "profileId": "profile-HuV9aQX15f",
+              "profileRevision": 1,
+              "targetDirection": "互联网技术 / AI 应用",
+              "skillGroups": {},
+              "sections": [
+                {
+                  "sectionType": "project",
+                  "assetIds": [
+                    "core-project"
+                  ],
+                  "maxItems": 1,
+                  "priority": 0.7
+                }
+              ],
+              "assets": [
+                {
+                  "sourceAssetId": "core-project",
+                  "sectionType": "project",
+                  "title": "AI 应用项目",
+                  "sourceFactIds": [
+                    "fact-import--1BkXIAztk"
+                  ],
+                  "evidenceNodeIds": [
+                    "asset:core-project"
+                  ],
+                  "relevance": 0.4792666666666668,
+                  "inclusionReason": "与互联网技术 / AI 应用方向相关，并具备可核验行动证据（证据强度66%、技术深度0%、独特性100%）。",
+                  "bulletPlan": [
+                    "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                  ],
+                  "explicitTools": [],
+                  "score": {
+                    "targetRelevance": 0.6666666666666666,
+                    "evidenceStrength": 0.66,
+                    "demonstratedComplexity": 0.2,
+                    "outcomeStrength": 0,
+                    "specificity": 0.4,
+                    "uniqueness": 1,
+                    "technicalDepth": 0,
+                    "recency": 0.5,
+                    "ownershipStrength": 0.16666666666666666,
+                    "redundancy": 0,
+                    "weakEvidencePenalty": 0,
+                    "total": 0.4792666666666668
+                  }
+                }
+              ],
+              "excludedAssets": [],
+              "informationNeeds": [],
+              "keywordCoverage": [],
+              "pageBudget": {
+                "targetPages": 1,
+                "maxProjects": 4,
+                "maxBulletsPerProject": 4,
+                "estimatedPageCount": 0.6
+              }
+            },
+            "items": [
+              {
+                "sourceAssetId": "core-project",
+                "data": {
+                  "id": "core-project",
+                  "customFields": [],
+                  "sectionType": "project",
+                  "title": "AI 应用项目",
+                  "role": "项目成员",
+                  "startDate": "2025-01",
+                  "endDate": "2025-06",
+                  "current": false,
+                  "tools": [],
+                  "highlights": [
+                    "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                  ],
+                  "outcomes": []
+                },
+                "claimIds": [
+                  "claim:core-project:1"
+                ],
+                "factIds": [
+                  "fact-import--1BkXIAztk"
+                ],
+                "sourceBlockIds": [
+                  "sections[0].order",
+                  "sections[0].items[0].id",
+                  "sections[0].items[0].sectionType",
+                  "sections[0].items[0].title",
+                  "sections[0].items[0].role",
+                  "sections[0].items[0].startDate",
+                  "sections[0].items[0].endDate",
+                  "sections[0].items[0].current",
+                  "sections[0].items[0].description",
+                  "sections[0].items[0].highlights[0]"
+                ],
+                "sourceExcerpt": "0\ncore-project\nproject\nAI 应用项目\n项目成员\n2025-01\n2025-06\nfalse\n参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+              }
+            ],
+            "claims": [
+              {
+                "id": "claim:core-project:1",
+                "text": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                "classification": "DERIVED_PRESENTATION",
+                "sourceAssetIds": [
+                  "core-project"
+                ],
+                "factIds": [
+                  "fact-import--1BkXIAztk"
+                ],
+                "sourceTurnIds": [],
+                "evidenceNodeIds": [
+                  "asset:core-project",
+                  "outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-",
+                  "evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说"
+                ],
+                "reason": "保留来源事实，只进行简历展示层的压缩与措辞整理。",
+                "guardStatus": "pass"
+              }
+            ],
+            "reviewResult": {
+              "diagnostics": {
+                "ruleVersion": "resume-diagnostics-1",
+                "hardGate": {
+                  "status": "pass",
+                  "violations": []
+                },
+                "recruiterScan": {
+                  "positioning": {
+                    "status": "unknown",
+                    "reason": "No target Job; assess general positioning with the user."
+                  },
+                  "scanClarity": {
+                    "status": "pass",
+                    "reason": "Text-only filler and paragraph observations; first-screen layout requires rendered inspection."
+                  },
+                  "strongestExperience": {
+                    "status": "unknown",
+                    "reason": "Requires semantic comparison of experience and actual first-screen order."
+                  }
+                },
+                "claimRisk": {
+                  "level": "low",
+                  "claimIds": []
+                },
+                "contentQuality": {
+                  "factualFidelity": {
+                    "status": "pass",
+                    "reason": "Only emitted, source-bound claims with a passed Fact Guard count."
+                  },
+                  "specificity": {
+                    "status": "pass",
+                    "reason": "0 low-density bullets."
+                  },
+                  "relevance": {
+                    "status": "unknown",
+                    "reason": "No selected Job analysis."
+                  },
+                  "clarity": {
+                    "status": "pass",
+                    "reason": "Filler and paragraph-density rule observations."
+                  },
+                  "evidenceDensity": {
+                    "status": "pass",
+                    "reason": "Claim-to-fact or confirmed source-turn references, without treating keyword presence as evidence."
+                  },
+                  "redundancy": {
+                    "status": "pass",
+                    "reason": "0 duplicate bullets."
+                  },
+                  "ownershipAccuracy": {
+                    "status": "unknown",
+                    "reason": "Ownership is checked against source wording by Writer/Reviewer; this diagnostic has no independent semantic calibration."
+                  }
+                },
+                "atsStructure": {
+                  "textExtractability": {
+                    "status": "unknown",
+                    "reason": "Requires the actual exported PDF text extraction result."
+                  },
+                  "sectionStructure": {
+                    "status": "pass",
+                    "reason": "Canonical Schema v2 section items."
+                  },
+                  "fieldCompleteness": {
+                    "status": "pass",
+                    "reason": "0 unresolved information needs."
+                  },
+                  "readingOrder": {
+                    "status": "unknown",
+                    "reason": "Requires rendered Preview/PDF validation."
+                  },
+                  "supportedKeywordCoverage": {
+                    "status": "pass",
+                    "reason": "Supported keywords only; not an ATS pass rate."
+                  },
+                  "unsupportedKeywordInjection": {
+                    "status": "pass",
+                    "reason": "Unsupported target terms must stay absent."
+                  }
+                }
+              },
+              "status": "PASS",
+              "findings": [],
+              "diffs": [],
+              "atsCoverage": [],
+              "metrics": {
+                "sourceAssets": 1,
+                "selectedAssets": 1,
+                "derivedSkills": 0,
+                "questionsAsked": 0,
+                "supportedClaims": 0,
+                "derivedPresentationClaims": 1,
+                "needsConfirmationClaims": 0,
+                "unsupportedClaims": 0,
+                "bulletsGenerated": 1,
+                "duplicateBullets": 0,
+                "fillerBullets": 0,
+                "lowDensityBullets": 0,
+                "paragraphHeavyItems": 0,
+                "pageOverflow": false,
+                "onePageReasonable": true,
+                "bulletRepairCount": 0,
+                "bulletRejectedCount": 0,
+                "repairPassCount": 0,
+                "unsupportedClaimsBlocked": 0,
+                "atsRepairPassCount": 1,
+                "compressionPassCount": 0,
+                "profileFactsAddedFromTailoring": 0
+              },
+              "revisedBulletCount": 1
+            },
+            "proposal": {
+              "mode": "general",
+              "title": "通用简历组装预览",
+              "summary": "这份简历会重点呈现 AI 应用项目 等项目实践，保留教育与研究经历中的可验证要点。",
+              "selectedAssetTitles": [
+                "AI 应用项目"
+              ],
+              "derivedSkillNames": [],
+              "bulletCount": 1,
+              "informationNeeds": [],
+              "contactReminder": false,
+              "actions": [
+                "generate",
+                "adjust",
+                "cancel"
+              ]
+            },
+            "metrics": {
+              "sourceAssets": 1,
+              "selectedAssets": 1,
+              "derivedSkills": 0,
+              "questionsAsked": 0,
+              "supportedClaims": 0,
+              "derivedPresentationClaims": 1,
+              "needsConfirmationClaims": 0,
+              "unsupportedClaims": 0,
+              "bulletsGenerated": 1,
+              "duplicateBullets": 0,
+              "fillerBullets": 0,
+              "lowDensityBullets": 0,
+              "paragraphHeavyItems": 0,
+              "pageOverflow": false,
+              "onePageReasonable": true,
+              "bulletRepairCount": 0,
+              "bulletRejectedCount": 0,
+              "repairPassCount": 0,
+              "unsupportedClaimsBlocked": 0,
+              "atsRepairPassCount": 1,
+              "compressionPassCount": 0,
+              "profileFactsAddedFromTailoring": 0
+            },
+            "keywordCoverage": [],
+            "informationNeeds": [],
+            "skillGroups": [],
+            "writingExecution": {
+              "mode": "deterministic_fallback",
+              "provider": "isolated-test",
+              "model": "core-writer",
+              "promptVersion": "resume-career-writer.v6-claim-safety-v2",
+              "attemptCount": 1,
+              "latencyMs": 1,
+              "fallbackReason": "provider_unavailable",
+              "inputContextHash": "fnv-fda428bb-4599",
+              "outputHash": "fnv-78c0eb53-153"
+            },
+            "writingOutput": {
+              "assets": [
+                {
+                  "sourceAssetId": "core-project",
+                  "title": "AI 应用项目",
+                  "role": "项目成员",
+                  "techStack": [],
+                  "highlights": [
+                    "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                  ]
+                }
+              ],
+              "skillGroups": []
+            },
+            "telemetry": {
+              "writerMode": "deterministic_fallback",
+              "writerProvider": "isolated-test",
+              "writerModel": "core-writer",
+              "writerLatencyMs": 1,
+              "writerFallbackReason": "provider_unavailable",
+              "targetContext": {
+                "targetDirection": "互联网技术 / AI 应用"
+              },
+              "selectedAssetCount": 1,
+              "selectedProjectCount": 1,
+              "bulletCount": 1,
+              "bulletRepairCount": 0,
+              "bulletRejectedCount": 0,
+              "evidenceKeywordSupportedCount": 0,
+              "evidenceKeywordPotentialCount": 0,
+              "evidenceKeywordUnsupportedCount": 0,
+              "finalKeywordPresentCount": 0,
+              "finalKeywordMissingSupportedCount": 0,
+              "reviewStatus": "PASS",
+              "pageCount": 0.6,
+              "pageCountSource": "blueprint_estimate",
+              "compressionPassCount": 0,
+              "profileFactsAddedFromTailoring": 0
+            }
+          },
+          "createdAt": "2026-11-06T07:23:12.146Z",
+          "contentHash": "fnv-7ff11b8a-13080",
+          "expectedProfileRevision": 1,
+          "proposal": {
+            "mode": "general",
+            "title": "通用简历组装预览",
+            "summary": "这份简历会重点呈现 AI 应用项目 等项目实践，保留教育与研究经历中的可验证要点。",
+            "selectedAssetTitles": [
+              "AI 应用项目"
+            ],
+            "derivedSkillNames": [],
+            "bulletCount": 1,
+            "informationNeeds": [],
+            "contactReminder": false,
+            "actions": [
+              "generate",
+              "adjust",
+              "cancel"
+            ]
+          },
+          "evidenceGraph": {
+            "schemaVersion": "resume-evidence-graph-v1",
+            "profileId": "profile-HuV9aQX15f",
+            "profileRevision": 1,
+            "nodes": [
+              {
+                "id": "asset:core-project",
+                "type": "career_asset",
+                "value": "AI 应用项目",
+                "sourceAssetIds": [
+                  "core-project"
+                ],
+                "factIds": [
+                  "fact-import--1BkXIAztk"
+                ],
+                "sourceTurnIds": [],
+                "confirmationStatus": "confirmed",
+                "maturity": "demonstrated",
+                "ownershipStrength": 1,
+                "sourceExcerpts": [
+                  "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                ]
+              },
+              {
+                "id": "outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-",
+                "type": "outcome",
+                "value": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                "sourceAssetIds": [
+                  "core-project"
+                ],
+                "factIds": [
+                  "fact-import--1BkXIAztk"
+                ],
+                "sourceTurnIds": [],
+                "confirmationStatus": "confirmed",
+                "maturity": "demonstrated",
+                "ownershipStrength": 1,
+                "sourceExcerpts": [
+                  "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                ]
+              },
+              {
+                "id": "evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说",
+                "type": "evidence",
+                "value": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n0\ncore-project\nproject\nAI 应用项目\n项目成员\n2025-01\n2025-06\nfalse\n参与 AI 应用项目的需求梳理",
+                "sourceAssetIds": [
+                  "core-project"
+                ],
+                "factIds": [
+                  "fact-import--1BkXIAztk"
+                ],
+                "sourceTurnIds": [],
+                "confirmationStatus": "confirmed",
+                "maturity": "demonstrated",
+                "ownershipStrength": 1,
+                "sourceExcerpts": [
+                  "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                ]
+              }
+            ],
+            "edges": [
+              {
+                "id": "edge:outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-:asset:core-project",
+                "from": "outcome:core-project:参与-ai-应用项目的需求梳理-原型设计和功能验收-",
+                "to": "asset:core-project",
+                "relation": "supports"
+              },
+              {
+                "id": "edge:evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说:asset:core-project",
+                "from": "evidence:core-project:项目名称-ai-应用项目-角色-项目成员-开始日期-2025-01-结束日期-2025-06-说",
+                "to": "asset:core-project",
+                "relation": "supports"
+              }
+            ],
+            "skillMatrix": [],
+            "recoveryCandidates": [],
+            "sourceAssetIds": [
+              "core-project"
+            ],
+            "excludedAssetIds": []
+          },
+          "metrics": {
+            "sourceAssets": 1,
+            "selectedAssets": 1,
+            "derivedSkills": 0,
+            "questionsAsked": 0,
+            "supportedClaims": 0,
+            "derivedPresentationClaims": 1,
+            "needsConfirmationClaims": 0,
+            "unsupportedClaims": 0,
+            "bulletsGenerated": 1,
+            "duplicateBullets": 0,
+            "fillerBullets": 0,
+            "lowDensityBullets": 0,
+            "paragraphHeavyItems": 0,
+            "pageOverflow": false,
+            "onePageReasonable": true,
+            "bulletRepairCount": 0,
+            "bulletRejectedCount": 0,
+            "repairPassCount": 0,
+            "unsupportedClaimsBlocked": 0,
+            "atsRepairPassCount": 1,
+            "compressionPassCount": 0,
+            "profileFactsAddedFromTailoring": 0
+          },
+          "keywordCoverage": [],
+          "informationNeeds": [],
+          "telemetry": {
+            "writerMode": "deterministic_fallback",
+            "writerProvider": "isolated-test",
+            "writerModel": "core-writer",
+            "writerLatencyMs": 1,
+            "writerFallbackReason": "provider_unavailable",
+            "targetContext": {
+              "targetDirection": "互联网技术 / AI 应用"
+            },
+            "selectedAssetCount": 1,
+            "selectedProjectCount": 1,
+            "bulletCount": 1,
+            "bulletRepairCount": 0,
+            "bulletRejectedCount": 0,
+            "evidenceKeywordSupportedCount": 0,
+            "evidenceKeywordPotentialCount": 0,
+            "evidenceKeywordUnsupportedCount": 0,
+            "finalKeywordPresentCount": 0,
+            "finalKeywordMissingSupportedCount": 0,
+            "reviewStatus": "PASS",
+            "pageCount": 0.6,
+            "pageCountSource": "blueprint_estimate",
+            "compressionPassCount": 0,
+            "profileFactsAddedFromTailoring": 0
+          },
+          "planReceipt": {
+            "operationId": "mcp-career-agF-OIbYYa7YteMD-1",
+            "toolName": "career.resume.plan_composition",
+            "status": "completed",
+            "completedAt": "2026-11-06T07:23:12.155Z"
+          }
+        }
+      },
+      "completionStatus": "waiting_for_confirmation",
+      "completionType": "conversational",
+      "computeTier": "T0",
+      "updatedAt": "2026-11-06T07:23:12.435Z"
+    },
+    "conversationBranches": [
+      {
+        "id": "legacy-branch",
+        "headMessageId": "agent-tool-career-logical-12ca01cb",
+        "status": "active",
+        "createdAt": "2026-11-06T07:22:55.841Z"
+      }
+    ],
+    "activeBranchId": "legacy-branch",
+    "activeHeadMessageId": "agent-tool-career-logical-12ca01cb",
+    "turnCheckpoints": [],
+    "archived": false,
+    "createdAt": "2026-11-06T07:22:55.841Z",
+    "updatedAt": "2026-11-06T07:23:13.018Z"
+  },
+  "profiles": [
+    {
+      "id": "profile-HuV9aQX15f",
+      "createdAt": "2026-11-06T07:22:51.194Z",
+      "updatedAt": "2026-11-06T07:22:51.194Z",
+      "schemaVersion": "career-profile-v2",
+      "name": "Core 候选人",
+      "basics": {
+        "name": "Core 候选人",
+        "email": "core@example.org",
+        "links": []
+      },
+      "preference": {
+        "targetRoles": [],
+        "targetCities": [],
+        "industries": []
+      },
+      "version": 1,
+      "experiences": [
+        {
+          "id": "exp-VQCYhiMjCb",
+          "createdAt": "2026-11-06T07:22:51.194Z",
+          "updatedAt": "2026-11-06T07:22:51.194Z",
+          "type": "project",
+          "organization": "AI 应用项目",
+          "role": "项目成员",
+          "startDate": "2025-01",
+          "endDate": "2025-06",
+          "facts": [
+            {
+              "id": "fact-import--1BkXIAztk",
+              "createdAt": "2026-11-06T07:22:51.194Z",
+              "updatedAt": "2026-11-06T07:22:51.194Z",
+              "statement": "参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+              "category": "experience",
+              "provenance": [
+                {
+                  "sourceType": "imported_text",
+                  "sourceId": "b4f4fa73095c8bb7a997969928fcca21474ae6edad7dc88dea2252d39a3e7ba1",
+                  "sourceText": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                  "confidence": 0.9,
+                  "confirmedByUser": true,
+                  "riskLevel": "medium",
+                  "createdAt": "2026-11-06T07:22:51.194Z",
+                  "fileName": "pasted-structured-resume.json",
+                  "sourceQuote": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "medium",
+              "maturity": "demonstrated"
+            }
+          ],
+          "resumeDrafts": [
+            {
+              "id": "draft-w45MeKfUFP",
+              "createdAt": "2026-11-06T07:22:51.194Z",
+              "updatedAt": "2026-11-06T07:22:51.194Z",
+              "text": "项目名称：AI 应用项目\n角色：项目成员\n开始日期：2025-01\n结束日期：2025-06\n说明：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+              "factIds": [
+                "fact-import--1BkXIAztk"
+              ]
+            }
+          ],
+          "tags": [
+            "项目经历"
+          ],
+          "evidenceIds": []
+        }
+      ],
+      "skills": [],
+      "certificates": [],
+      "evidences": [],
+      "unclassifiedBlocks": [],
+      "structuredFacts": [
+        {
+          "data": {
+            "id": "core-project",
+            "customFields": [],
+            "sectionType": "project",
+            "title": "AI 应用项目",
+            "role": "项目成员",
+            "startDate": "2025-01",
+            "endDate": "2025-06",
+            "current": false,
+            "tools": [],
+            "description": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+            "highlights": [
+              "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+            ],
+            "outcomes": []
+          },
+          "factIds": [
+            "fact-import--1BkXIAztk"
+          ],
+          "sourceBlockIds": [
+            "sections[0].order",
+            "sections[0].items[0].id",
+            "sections[0].items[0].sectionType",
+            "sections[0].items[0].title",
+            "sections[0].items[0].role",
+            "sections[0].items[0].startDate",
+            "sections[0].items[0].endDate",
+            "sections[0].items[0].current",
+            "sections[0].items[0].description",
+            "sections[0].items[0].highlights[0]"
+          ],
+          "sourceRanges": [],
+          "sourceExcerpt": "0\ncore-project\nproject\nAI 应用项目\n项目成员\n2025-01\n2025-06\nfalse\n参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+          "mappingTrace": [],
+          "provenance": []
+        }
+      ],
+      "structuredBasics": {
+        "name": "Core 候选人",
+        "email": "core@example.org",
+        "portfolioLinks": [],
+        "otherLinks": [],
+        "customFields": []
+      },
+      "personId": "person-profile-HuV9aQX15f",
+      "profileVersionNumber": 1,
+      "isCurrent": true,
+      "versionCreatedReason": "initial"
+    },
+    {
+      "id": "profile-demo-student",
+      "createdAt": "2026-07-01T09:00:00.000Z",
+      "updatedAt": "2026-07-01T09:00:00.000Z",
+      "schemaVersion": "career-profile-v2",
+      "name": "同学",
+      "basics": {
+        "name": "同学",
+        "phone": "138****0000",
+        "email": "demo.student@example.com",
+        "location": "杭州",
+        "summary": "经济管理方向本科生，关注数据分析、AI应用和跨境业务流程。",
+        "links": []
+      },
+      "preference": {
+        "targetRoles": [
+          "数据分析实习",
+          "外贸/跨境运营实习"
+        ],
+        "targetCities": [
+          "杭州",
+          "上海"
+        ],
+        "industries": [
+          "互联网",
+          "跨境电商",
+          "咨询"
+        ]
+      },
+      "version": 1,
+      "experiences": [
+        {
+          "id": "exp-stat-modeling",
+          "createdAt": "2026-07-01T09:00:00.000Z",
+          "updatedAt": "2026-07-01T09:00:00.000Z",
+          "type": "competition",
+          "organization": "统计建模竞赛项目",
+          "role": "数据分析成员",
+          "startDate": "2025-03",
+          "endDate": "2025-06",
+          "facts": [
+            {
+              "id": "fact-stat-stata",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "statement": "使用 Stata 清洗 31 个省级样本，并完成描述统计、相关分析与区域差异分析。",
+              "category": "experience",
+              "provenance": [
+                {
+                  "sourceType": "demo",
+                  "sourceId": "demo-profile-source",
+                  "sourceText": "统计建模：使用Stata清洗31个省级样本，完成描述统计、相关分析与区域差异分析。",
+                  "confidence": 0.95,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-07-01T09:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            }
+          ],
+          "resumeDrafts": [
+            {
+              "id": "draft-stat-default",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "targetRole": "数据分析实习",
+              "text": "奖项名称：数据分析成员\n颁发方：统计建模竞赛项目\n说明：使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。\n原始资料草稿：使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。\n原始标签：Stata；数据清洗；统计分析\n原始证据引用：evidence-stat-report",
+              "factIds": [
+                "fact-stat-stata"
+              ]
+            }
+          ],
+          "tags": [
+            "Stata",
+            "数据清洗",
+            "统计分析"
+          ],
+          "evidenceIds": [
+            "evidence-stat-report"
+          ]
+        },
+        {
+          "id": "exp-ai-product",
+          "createdAt": "2026-07-01T09:00:00.000Z",
+          "updatedAt": "2026-07-01T09:00:00.000Z",
+          "type": "project",
+          "organization": "AI 求职应用课程项目",
+          "role": "产品与验收协作",
+          "startDate": "2025-09",
+          "endDate": "2025-12",
+          "facts": [
+            {
+              "id": "fact-ai-product",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "statement": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+              "category": "experience",
+              "provenance": [
+                {
+                  "sourceType": "demo",
+                  "sourceId": "demo-profile-source",
+                  "sourceText": "AI应用项目：参与需求梳理、原型设计和功能验收。",
+                  "confidence": 0.95,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-07-01T09:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            }
+          ],
+          "resumeDrafts": [
+            {
+              "id": "draft-ai-default",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "targetRole": "产品/运营实习",
+              "text": "项目名称：AI 求职应用课程项目\n角色：产品与验收协作\n开始日期：2025-09\n结束日期：2025-12\n说明：参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n原始资料草稿：参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。\n原始标签：需求梳理；原型设计；功能验收",
+              "factIds": [
+                "fact-ai-product"
+              ]
+            }
+          ],
+          "tags": [
+            "需求梳理",
+            "原型设计",
+            "功能验收"
+          ],
+          "evidenceIds": []
+        },
+        {
+          "id": "exp-gov-internship",
+          "createdAt": "2026-07-01T09:00:00.000Z",
+          "updatedAt": "2026-07-01T09:00:00.000Z",
+          "type": "internship",
+          "organization": "某政府部门",
+          "role": "综合事务实习生",
+          "startDate": "2025-07",
+          "endDate": "2025-08",
+          "facts": [
+            {
+              "id": "fact-gov-record",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "statement": "处理公文流转和热线记录，关注记录准确性与信息整理。",
+              "category": "experience",
+              "provenance": [
+                {
+                  "sourceType": "demo",
+                  "sourceId": "demo-profile-source",
+                  "sourceText": "政府部门实习：处理公文流转和市长热线记录。",
+                  "confidence": 0.95,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-07-01T09:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            }
+          ],
+          "resumeDrafts": [
+            {
+              "id": "draft-gov-default",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "targetRole": "综合运营实习",
+              "text": "组织：某政府部门\n职位/角色：综合事务实习生\n开始日期：2025-07\n结束日期：2025-08\n说明：协助处理公文流转与热线记录，保持信息记录准确、分类清晰。\n亮点：处理公文流转和热线记录，关注记录准确性与信息整理。\n原始资料草稿：协助处理公文流转与热线记录，保持信息记录准确、分类清晰。\n原始标签：信息整理；沟通记录",
+              "factIds": [
+                "fact-gov-record"
+              ]
+            }
+          ],
+          "tags": [
+            "信息整理",
+            "沟通记录"
+          ],
+          "evidenceIds": []
+        },
+        {
+          "id": "exp-trade-learning",
+          "createdAt": "2026-07-01T09:00:00.000Z",
+          "updatedAt": "2026-07-01T09:00:00.000Z",
+          "type": "other",
+          "organization": "外贸课程与语言学习",
+          "role": "学习者",
+          "startDate": "2024-09",
+          "endDate": "2026-06",
+          "facts": [
+            {
+              "id": "fact-cet4",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "statement": "CET-4 成绩 601，了解基础外贸业务流程。",
+              "category": "language",
+              "provenance": [
+                {
+                  "sourceType": "demo",
+                  "sourceId": "demo-profile-source",
+                  "sourceText": "英语与外贸学习：CET-4 601，了解外贸业务流程。",
+                  "confidence": 0.95,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-07-01T09:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            }
+          ],
+          "resumeDrafts": [
+            {
+              "id": "draft-trade-default",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "targetRole": "外贸/跨境运营实习",
+              "text": "标题：外贸课程与语言学习\n内容：CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。\n要点：CET-4 成绩 601，了解基础外贸业务流程。\n原始资料草稿：CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。\n原始标签：英语；外贸流程；信息整理",
+              "factIds": [
+                "fact-cet4"
+              ]
+            }
+          ],
+          "tags": [
+            "英语",
+            "外贸流程",
+            "信息整理"
+          ],
+          "evidenceIds": []
+        }
+      ],
+      "skills": [
+        {
+          "id": "skill-stata",
+          "createdAt": "2026-07-01T09:00:00.000Z",
+          "updatedAt": "2026-07-01T09:00:00.000Z",
+          "name": "Stata",
+          "level": "familiar",
+          "evidenceIds": [
+            "evidence-stat-report"
+          ],
+          "fact": {
+            "id": "fact-skill-stata",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "statement": "使用 Stata 完成数据清洗和统计分析。",
+            "category": "skill",
+            "provenance": [
+              {
+                "sourceType": "demo",
+                "sourceId": "demo-profile-source",
+                "sourceText": "使用Stata清洗31个省级样本",
+                "confidence": 0.95,
+                "confirmedByUser": true,
+                "riskLevel": "low",
+                "createdAt": "2026-07-01T09:00:00.000Z"
+              }
+            ],
+            "confirmedByUser": true,
+            "riskLevel": "low"
+          },
+          "lastUsedAt": "2025-06"
+        },
+        {
+          "id": "skill-excel",
+          "createdAt": "2026-07-01T09:00:00.000Z",
+          "updatedAt": "2026-07-01T09:00:00.000Z",
+          "name": "Excel",
+          "level": "familiar",
+          "evidenceIds": [],
+          "fact": {
+            "id": "fact-skill-excel",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "statement": "能使用 Excel 整理表格数据和基础分析结果。",
+            "category": "skill",
+            "provenance": [
+              {
+                "sourceType": "demo",
+                "sourceId": "demo-profile-source",
+                "sourceText": "数据清洗、样本整理和分析交付物",
+                "confidence": 0.95,
+                "confirmedByUser": true,
+                "riskLevel": "low",
+                "createdAt": "2026-07-01T09:00:00.000Z"
+              }
+            ],
+            "confirmedByUser": true,
+            "riskLevel": "low"
+          },
+          "lastUsedAt": "2025-06"
+        }
+      ],
+      "certificates": [
+        {
+          "id": "cert-cet4",
+          "createdAt": "2026-07-01T09:00:00.000Z",
+          "updatedAt": "2026-07-01T09:00:00.000Z",
+          "name": "CET-4",
+          "issuer": "全国大学英语四、六级考试委员会",
+          "issuedAt": "2024-12",
+          "evidenceIds": [],
+          "fact": {
+            "id": "fact-cert-cet4",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "statement": "CET-4 成绩 601。",
+            "category": "certificate",
+            "provenance": [
+              {
+                "sourceType": "demo",
+                "sourceId": "demo-profile-source",
+                "sourceText": "CET-4 601",
+                "confidence": 0.95,
+                "confirmedByUser": true,
+                "riskLevel": "low",
+                "createdAt": "2026-07-01T09:00:00.000Z"
+              }
+            ],
+            "confirmedByUser": true,
+            "riskLevel": "low"
+          }
+        }
+      ],
+      "evidences": [
+        {
+          "id": "evidence-stat-report",
+          "createdAt": "2026-07-01T09:00:00.000Z",
+          "updatedAt": "2026-07-01T09:00:00.000Z",
+          "type": "text",
+          "title": "统计建模项目说明",
+          "extractedText": "脱敏示例：使用 Stata 清洗 31 个省级样本并完成统计分析。",
+          "privacyLevel": "private",
+          "verifiedAt": "2026-07-01T09:00:00.000Z"
+        }
+      ],
+      "unclassifiedBlocks": [],
+      "structuredFacts": [
+        {
+          "data": {
+            "id": "exp-stat-modeling",
+            "customFields": [
+              {
+                "id": "exp-stat-modeling:legacy-resume-drafts",
+                "label": "原始资料草稿",
+                "valueType": "text",
+                "value": "使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。",
+                "order": 0,
+                "sensitive": false
+              },
+              {
+                "id": "exp-stat-modeling:legacy-tags",
+                "label": "原始标签",
+                "valueType": "string_list",
+                "value": [
+                  "Stata",
+                  "数据清洗",
+                  "统计分析"
+                ],
+                "order": 1,
+                "sensitive": false
+              },
+              {
+                "id": "exp-stat-modeling:legacy-evidence-ids",
+                "label": "原始证据引用",
+                "valueType": "string_list",
+                "value": [
+                  "evidence-stat-report"
+                ],
+                "order": 2,
+                "sensitive": false
+              }
+            ],
+            "sectionType": "awards",
+            "name": "数据分析成员",
+            "issuer": "统计建模竞赛项目",
+            "description": "使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。"
+          },
+          "factIds": [
+            "fact-stat-stata"
+          ],
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "使用 Stata 清洗 31 个省级样本，并完成描述统计、相关分析与区域差异分析。",
+          "mappingTrace": []
+        },
+        {
+          "data": {
+            "id": "exp-ai-product",
+            "customFields": [
+              {
+                "id": "exp-ai-product:legacy-resume-drafts",
+                "label": "原始资料草稿",
+                "valueType": "text",
+                "value": "参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。",
+                "order": 0,
+                "sensitive": false
+              },
+              {
+                "id": "exp-ai-product:legacy-tags",
+                "label": "原始标签",
+                "valueType": "string_list",
+                "value": [
+                  "需求梳理",
+                  "原型设计",
+                  "功能验收"
+                ],
+                "order": 1,
+                "sensitive": false
+              }
+            ],
+            "sectionType": "project",
+            "title": "AI 求职应用课程项目",
+            "role": "产品与验收协作",
+            "startDate": "2025-09",
+            "endDate": "2025-12",
+            "current": false,
+            "tools": [],
+            "description": "参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。",
+            "highlights": [
+              "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+            ],
+            "outcomes": []
+          },
+          "factIds": [
+            "fact-ai-product"
+          ],
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+          "mappingTrace": []
+        },
+        {
+          "data": {
+            "id": "exp-gov-internship",
+            "customFields": [
+              {
+                "id": "exp-gov-internship:legacy-resume-drafts",
+                "label": "原始资料草稿",
+                "valueType": "text",
+                "value": "协助处理公文流转与热线记录，保持信息记录准确、分类清晰。",
+                "order": 0,
+                "sensitive": false
+              },
+              {
+                "id": "exp-gov-internship:legacy-tags",
+                "label": "原始标签",
+                "valueType": "string_list",
+                "value": [
+                  "信息整理",
+                  "沟通记录"
+                ],
+                "order": 1,
+                "sensitive": false
+              }
+            ],
+            "sectionType": "internship",
+            "organization": "某政府部门",
+            "role": "综合事务实习生",
+            "startDate": "2025-07",
+            "endDate": "2025-08",
+            "current": false,
+            "description": "协助处理公文流转与热线记录，保持信息记录准确、分类清晰。",
+            "highlights": [
+              "处理公文流转和热线记录，关注记录准确性与信息整理。"
+            ]
+          },
+          "factIds": [
+            "fact-gov-record"
+          ],
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "处理公文流转和热线记录，关注记录准确性与信息整理。",
+          "mappingTrace": []
+        },
+        {
+          "data": {
+            "id": "exp-trade-learning",
+            "customFields": [
+              {
+                "id": "exp-trade-learning:legacy-resume-drafts",
+                "label": "原始资料草稿",
+                "valueType": "text",
+                "value": "CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。",
+                "order": 0,
+                "sensitive": false
+              },
+              {
+                "id": "exp-trade-learning:legacy-tags",
+                "label": "原始标签",
+                "valueType": "string_list",
+                "value": [
+                  "英语",
+                  "外贸流程",
+                  "信息整理"
+                ],
+                "order": 1,
+                "sensitive": false
+              }
+            ],
+            "sectionType": "other",
+            "title": "外贸课程与语言学习",
+            "description": "CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。",
+            "highlights": [
+              "CET-4 成绩 601，了解基础外贸业务流程。"
+            ]
+          },
+          "factIds": [
+            "fact-cet4"
+          ],
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "sourceExcerpt": "CET-4 成绩 601，了解基础外贸业务流程。",
+          "mappingTrace": []
+        },
+        {
+          "data": {
+            "id": "skill-stata",
+            "customFields": [],
+            "sectionType": "skills",
+            "name": "Stata",
+            "level": "familiar",
+            "description": "使用 Stata 完成数据清洗和统计分析。"
+          },
+          "factIds": [
+            "fact-skill-stata"
+          ],
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "mappingTrace": []
+        },
+        {
+          "data": {
+            "id": "skill-excel",
+            "customFields": [],
+            "sectionType": "skills",
+            "name": "Excel",
+            "level": "familiar",
+            "description": "能使用 Excel 整理表格数据和基础分析结果。"
+          },
+          "factIds": [
+            "fact-skill-excel"
+          ],
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "mappingTrace": []
+        },
+        {
+          "data": {
+            "id": "cert-cet4",
+            "customFields": [],
+            "sectionType": "certificates",
+            "name": "CET-4",
+            "issuer": "全国大学英语四、六级考试委员会",
+            "issuedAt": "2024-12"
+          },
+          "factIds": [
+            "fact-cert-cet4"
+          ],
+          "sourceBlockIds": [],
+          "sourceRanges": [],
+          "mappingTrace": []
+        }
+      ],
+      "structuredBasics": {
+        "name": "同学",
+        "summary": "经济管理方向本科生，关注数据分析、AI应用和跨境业务流程。",
+        "phone": "138****0000",
+        "email": "demo.student@example.com",
+        "location": "杭州",
+        "portfolioLinks": [],
+        "otherLinks": [],
+        "customFields": []
+      },
+      "personId": "person-profile-demo-student",
+      "profileVersionNumber": 1,
+      "isCurrent": true,
+      "versionCreatedReason": "initial"
+    }
+  ],
+  "branches": [
+    {
+      "id": "branch-general-resume-import-70tV8sN7c5-dv3HR3",
+      "createdAt": "2026-11-06T07:22:51.194Z",
+      "updatedAt": "2026-11-06T07:22:51.194Z",
+      "schemaVersion": "resume-branch-v2",
+      "branchPurpose": "general",
+      "profileId": "profile-HuV9aQX15f",
+      "name": "通用简历",
+      "sourceProfileVersion": 1,
+      "sourceImportId": "resume-import-70tV8sN7c5",
+      "sourceDraftRevision": 0,
+      "matcherVersion": "resume-import.pipeline.v2.resume-import.local-rules.v2.structured-json+resume-import.cleaner.v1+resume-import.cleaner.v1",
+      "sourceMatchSetHash": "b4f4fa73095c8bb7a997969928fcca21474ae6edad7dc88dea2252d39a3e7ba1",
+      "requirementMatchIds": [],
+      "revision": 0,
+      "currentRevisionId": "resume-revision-fnv-eb3f2151-100",
+      "lifecycleStatus": "active",
+      "migrationStatus": "verified",
+      "syncStatusCache": {
+        "status": "in_sync",
+        "sourceProfileVersion": 1,
+        "currentProfileVersion": 1,
+        "invalidFactRefs": [],
+        "checkedAt": "2026-11-06T07:22:51.194Z",
+        "message": "Branch is in sync with its source profile and job versions."
+      },
+      "resumeBasics": {
+        "customFields": [],
+        "name": "Core 候选人",
+        "targetRole": "",
+        "email": "core@example.org",
+        "phone": "",
+        "location": "",
+        "summary": "",
+        "links": []
+      },
+      "contentItems": [
+        {
+          "id": "branch-item-import-core-project",
+          "itemType": "experience",
+          "source": "resume_import",
+          "sourceSectionId": "project",
+          "text": "AI 应用项目 | 项目成员\n2025-01 - 2025-06\n参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+          "originalText": "0\ncore-project\nproject\nAI 应用项目\n项目成员\n2025-01\n2025-06\nfalse\n参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+          "order": 0,
+          "visible": true,
+          "requirementIds": [],
+          "sourceSuggestionIds": [],
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "exp-VQCYhiMjCb",
+              "factId": "fact-import--1BkXIAztk"
+            }
+          ],
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardRiskLevel": "low",
+          "guardFindings": [],
+          "guardedAt": "2026-11-06T07:22:51.194Z",
+          "guardVersion": "resume-import.pipeline.v2.resume-import.local-rules.v2.structured-json+resume-import.cleaner.v1+resume-import.cleaner.v1"
+        }
+      ],
+      "structuredContentItems": [
+        {
+          "id": "branch-item-import-core-project",
+          "schemaVersion": "resume-content-item-v2",
+          "data": {
+            "id": "core-project",
+            "customFields": [],
+            "sectionType": "project",
+            "title": "AI 应用项目",
+            "role": "项目成员",
+            "startDate": "2025-01",
+            "endDate": "2025-06",
+            "current": false,
+            "tools": [],
+            "description": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+            "highlights": [
+              "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+            ],
+            "outcomes": []
+          },
+          "factRefs": [
+            {
+              "type": "experience_fact",
+              "experienceId": "exp-VQCYhiMjCb",
+              "factId": "fact-import--1BkXIAztk"
+            }
+          ],
+          "source": "resume_import",
+          "order": 0,
+          "visible": true,
+          "guardMode": "rule_verified",
+          "guardStatus": "pass",
+          "guardFindings": [],
+          "legacyTextProjection": "AI 应用项目 | 项目成员\n2025-01 - 2025-06\n参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+          "sourceBlockIds": [
+            "sections[0].order",
+            "sections[0].items[0].id",
+            "sections[0].items[0].sectionType",
+            "sections[0].items[0].title",
+            "sections[0].items[0].role",
+            "sections[0].items[0].startDate",
+            "sections[0].items[0].endDate",
+            "sections[0].items[0].current",
+            "sections[0].items[0].description",
+            "sections[0].items[0].highlights[0]"
+          ],
+          "sourceRanges": [],
+          "sourceExcerpt": "0\ncore-project\nproject\nAI 应用项目\n项目成员\n2025-01\n2025-06\nfalse\n参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+          "mappingTrace": []
+        }
+      ],
+      "tailoringAppliedCount": 0
+    }
+  ],
+  "revisions": [
+    {
+      "id": "resume-revision-fnv-eb3f2151-100",
+      "createdAt": "2026-11-06T07:22:51.194Z",
+      "updatedAt": "2026-11-06T07:22:51.194Z",
+      "branchId": "branch-general-resume-import-70tV8sN7c5-dv3HR3",
+      "revisionNumber": 0,
+      "source": "import_confirmed",
+      "operationId": "resume-import-confirm-resume-import-70tV8sN7c5",
+      "snapshot": {
+        "name": "通用简历",
+        "lifecycleStatus": "active",
+        "resumeBasics": {
+          "customFields": [],
+          "name": "Core 候选人",
+          "targetRole": "",
+          "email": "core@example.org",
+          "phone": "",
+          "location": "",
+          "summary": "",
+          "links": []
+        },
+        "contentItems": [
+          {
+            "id": "branch-item-import-core-project",
+            "itemType": "experience",
+            "source": "resume_import",
+            "sourceSectionId": "project",
+            "text": "AI 应用项目 | 项目成员\n2025-01 - 2025-06\n参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+            "originalText": "0\ncore-project\nproject\nAI 应用项目\n项目成员\n2025-01\n2025-06\nfalse\n参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+            "order": 0,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "exp-VQCYhiMjCb",
+                "factId": "fact-import--1BkXIAztk"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T07:22:51.194Z",
+            "guardVersion": "resume-import.pipeline.v2.resume-import.local-rules.v2.structured-json+resume-import.cleaner.v1+resume-import.cleaner.v1"
+          }
+        ],
+        "structuredContentItems": [
+          {
+            "id": "branch-item-import-core-project",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "core-project",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "AI 应用项目",
+              "role": "项目成员",
+              "startDate": "2025-01",
+              "endDate": "2025-06",
+              "current": false,
+              "tools": [],
+              "description": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+              "highlights": [
+                "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+              ],
+              "outcomes": []
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "exp-VQCYhiMjCb",
+                "factId": "fact-import--1BkXIAztk"
+              }
+            ],
+            "source": "resume_import",
+            "order": 0,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "AI 应用项目 | 项目成员\n2025-01 - 2025-06\n参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+            "sourceBlockIds": [
+              "sections[0].order",
+              "sections[0].items[0].id",
+              "sections[0].items[0].sectionType",
+              "sections[0].items[0].title",
+              "sections[0].items[0].role",
+              "sections[0].items[0].startDate",
+              "sections[0].items[0].endDate",
+              "sections[0].items[0].current",
+              "sections[0].items[0].description",
+              "sections[0].items[0].highlights[0]"
+            ],
+            "sourceRanges": [],
+            "sourceExcerpt": "0\ncore-project\nproject\nAI 应用项目\n项目成员\n2025-01\n2025-06\nfalse\n参与 AI 应用项目的需求梳理、原型设计和功能验收。\n参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+            "mappingTrace": []
+          }
+        ]
+      }
+    }
+  ],
+  "messages": [
+    {
+      "id": "agent-thinking-525f50fb-0ea6-4548-ad27-060b1e323106",
+      "branchId": "legacy-branch",
+      "turnId": "runtime-turn-0142b9b8-de4a-4e08-9b04-6176595c78e6",
+      "role": "assistant",
+      "content": "正在回复…",
+      "kind": "assistant_streaming",
+      "type": "assistant_streaming",
+      "status": "streaming",
+      "parentMessageId": "agent-user-c691a417-8127-48bb-8599-fd5fdeacf8f6",
+      "streaming": true,
+      "metadata": {
+        "runtimeId": "hermes"
+      },
+      "updatedAt": "2026-11-06T07:22:57.394Z",
+      "createdAt": "2026-11-06T07:22:56.510Z",
+      "sessionId": "agent-session-fbGBtasgTE7s",
+      "sequence": 1
+    },
+    {
+      "id": "agent-tool-career-logical-12ca01cb",
+      "branchId": "legacy-branch",
+      "turnId": "runtime-turn-0142b9b8-de4a-4e08-9b04-6176595c78e6",
+      "role": "tool",
+      "content": "正在调用 mcp__careeradapt__career_workflow_compose_resume…",
+      "kind": "tool_status",
+      "type": "tool_status",
+      "status": "pending",
+      "toolName": "mcp__careeradapt__career_workflow_compose_resume",
+      "operationId": "hermes-mcp-run_7b81f46c16df4beda1868191e40bb848-mcp__careeradapt__career_workflow_compose_resume",
+      "parentMessageId": "agent-tool-career-logical-5ab76341",
+      "metadata": {
+        "runtimeId": "hermes",
+        "activityState": "pending",
+        "logicalToolOperationId": "career-logical-12ca01cb",
+        "hermesRunId": "run_7b81f46c16df4beda1868191e40bb848",
+        "transportOperationIds": [
+          "hermes-mcp-run_7b81f46c16df4beda1868191e40bb848-mcp__careeradapt__career_workflow_compose_resume"
+        ],
+        "operationId": "hermes-mcp-run_7b81f46c16df4beda1868191e40bb848-mcp__careeradapt__career_workflow_compose_resume",
+        "requestedHermesToolName": "mcp__careeradapt__career_workflow_compose_resume",
+        "stableCareerToolName": "career.workflow.compose_resume"
+      },
+      "updatedAt": "2026-11-06T07:23:11.288Z",
+      "createdAt": "2026-11-06T07:23:11.288Z",
+      "sessionId": "agent-session-fbGBtasgTE7s",
+      "sequence": 6
+    },
+    {
+      "id": "agent-tool-career-logical-5ab76341",
+      "branchId": "legacy-branch",
+      "turnId": "runtime-turn-0142b9b8-de4a-4e08-9b04-6176595c78e6",
+      "role": "tool",
+      "content": "Career 工具执行完成。",
+      "kind": "tool_status",
+      "type": "tool_status",
+      "status": "complete",
+      "toolName": "mcp__careeradapt__career_profile_get",
+      "operationId": "hermes-mcp-run_7b81f46c16df4beda1868191e40bb848-mcp__careeradapt__career_profile_get",
+      "parentMessageId": "agent-tool-career-logical-d1a01dd3",
+      "metadata": {
+        "runtimeId": "hermes",
+        "activityState": "complete",
+        "logicalToolOperationId": "career-logical-5ab76341",
+        "hermesRunId": "run_7b81f46c16df4beda1868191e40bb848",
+        "transportOperationIds": [
+          "hermes-mcp-run_7b81f46c16df4beda1868191e40bb848-mcp__careeradapt__career_profile_get"
+        ],
+        "operationId": "hermes-mcp-run_7b81f46c16df4beda1868191e40bb848-mcp__careeradapt__career_profile_get",
+        "requestedHermesToolName": "mcp__careeradapt__career_profile_get",
+        "stableCareerToolName": "career.profile.get"
+      },
+      "updatedAt": "2026-11-06T07:23:10.572Z",
+      "createdAt": "2026-11-06T07:23:09.600Z",
+      "sessionId": "agent-session-fbGBtasgTE7s",
+      "sequence": 4
+    },
+    {
+      "id": "agent-tool-career-logical-d1a01dd3",
+      "branchId": "legacy-branch",
+      "turnId": "runtime-turn-0142b9b8-de4a-4e08-9b04-6176595c78e6",
+      "role": "tool",
+      "content": "Career 工具执行完成。",
+      "kind": "tool_status",
+      "type": "tool_status",
+      "status": "complete",
+      "toolName": "mcp__careeradapt__career_resume_list",
+      "operationId": "hermes-mcp-run_7b81f46c16df4beda1868191e40bb848-mcp__careeradapt__career_resume_list",
+      "parentMessageId": "agent-thinking-525f50fb-0ea6-4548-ad27-060b1e323106",
+      "metadata": {
+        "runtimeId": "hermes",
+        "activityState": "complete",
+        "logicalToolOperationId": "career-logical-d1a01dd3",
+        "hermesRunId": "run_7b81f46c16df4beda1868191e40bb848",
+        "transportOperationIds": [
+          "hermes-mcp-run_7b81f46c16df4beda1868191e40bb848-mcp__careeradapt__career_resume_list"
+        ],
+        "operationId": "hermes-mcp-run_7b81f46c16df4beda1868191e40bb848-mcp__careeradapt__career_resume_list",
+        "requestedHermesToolName": "mcp__careeradapt__career_resume_list",
+        "stableCareerToolName": "career.resume.list"
+      },
+      "updatedAt": "2026-11-06T07:23:08.938Z",
+      "createdAt": "2026-11-06T07:23:07.321Z",
+      "sessionId": "agent-session-fbGBtasgTE7s",
+      "sequence": 2
+    },
+    {
+      "id": "agent-tool-mcp-career-NBopDnzwbk9jeAQZ",
+      "branchId": "legacy-branch",
+      "turnId": "runtime-turn-0142b9b8-de4a-4e08-9b04-6176595c78e6",
+      "role": "tool",
+      "content": "Career 工具执行完成。",
+      "kind": "tool_status",
+      "type": "tool_status",
+      "status": "complete",
+      "toolName": "career.profile.get",
+      "operationId": "mcp-career-NBopDnzwbk9jeAQZ",
+      "parentMessageId": "agent-tool-career-logical-5ab76341",
+      "metadata": {
+        "runtimeId": "hermes",
+        "activityState": "complete",
+        "logicalToolOperationId": "mcp-career-NBopDnzwbk9jeAQZ",
+        "transportOperationIds": [
+          "mcp-career-NBopDnzwbk9jeAQZ"
+        ],
+        "operationId": "mcp-career-NBopDnzwbk9jeAQZ",
+        "toolFailureDiagnostics": {
+          "toolFailureLayer": "unknown",
+          "failureScope": "career_workflow",
+          "safeDomainErrorCode": "none",
+          "toolResultIsError": false,
+          "failedStage": "completed",
+          "durationMs": 59,
+          "retryable": false,
+          "operationId": "mcp-career-NBopDnzwbk9jeAQZ",
+          "logicalToolOperationId": "mcp-career-NBopDnzwbk9jeAQZ",
+          "logicalTurnId": "runtime-turn-0142b9b8-de4a-4e08-9b04-6176595c78e6",
+          "taskId": "agent-session-fbGBtasgTE7s",
+          "argumentShape": {
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-2391bf45-18"
+            }
+          },
+          "mcpHttpArgumentShape": {
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-2391bf45-18"
+            }
+          },
+          "browserHandlerArgumentShape": {
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-2391bf45-18"
+            }
+          },
+          "gatewayArgumentShape": {
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-2391bf45-18"
+            }
+          },
+          "facadeArgumentShape": {
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-2391bf45-18"
+            }
+          },
+          "sourceUserMessageId": "agent-user-c691a417-8127-48bb-8599-fd5fdeacf8f6",
+          "sourceUserMessageResolved": true,
+          "runtimeHealthy": true,
+          "mcpHealthy": true,
+          "publishedContractVersion": "career-tool-contract-v5",
+          "publishedSchemaHash": "fnv1a-9ac70ce2",
+          "gatewayContractVersion": "career-tool-contract-v5",
+          "gatewaySchemaHash": "fnv1a-9ac70ce2",
+          "careerToolContractVersion": "career-tool-contract-v5",
+          "appBuildCommit": "workspace-source",
+          "appBuildTimestamp": "development",
+          "mcpCallTrace": {
+            "toolName": "career.profile.get",
+            "logicalToolOperationId": "mcp-career-NBopDnzwbk9jeAQZ",
+            "requestStartedAt": "2026-11-06T07:23:09.981Z",
+            "jsonRpcStatus": "response_received",
+            "browserMcpHandlerReached": true,
+            "gatewayReached": true,
+            "completedAt": "2026-11-06T07:23:09.982Z"
+          },
+          "startedAt": "2026-11-06T07:23:09.921Z",
+          "enteredGatewayAt": "2026-11-06T07:23:09.921Z",
+          "firstInternalOperationAt": "2026-11-06T07:23:09.968Z",
+          "completedAt": "2026-11-06T07:23:09.980Z"
+        }
+      },
+      "updatedAt": "2026-11-06T07:23:10.101Z",
+      "createdAt": "2026-11-06T07:23:10.101Z",
+      "sessionId": "agent-session-fbGBtasgTE7s",
+      "sequence": 5
+    },
+    {
+      "id": "agent-tool-mcp-career-NGbWOM0ud8AQkr-E",
+      "branchId": "legacy-branch",
+      "turnId": "runtime-turn-0142b9b8-de4a-4e08-9b04-6176595c78e6",
+      "role": "tool",
+      "content": "Career 工具执行完成。",
+      "kind": "tool_status",
+      "type": "tool_status",
+      "status": "complete",
+      "toolName": "career.resume.list",
+      "operationId": "mcp-career-NGbWOM0ud8AQkr-E",
+      "parentMessageId": "agent-tool-career-logical-d1a01dd3",
+      "metadata": {
+        "runtimeId": "hermes",
+        "activityState": "complete",
+        "logicalToolOperationId": "mcp-career-NGbWOM0ud8AQkr-E",
+        "transportOperationIds": [
+          "mcp-career-NGbWOM0ud8AQkr-E"
+        ],
+        "operationId": "mcp-career-NGbWOM0ud8AQkr-E",
+        "toolFailureDiagnostics": {
+          "toolFailureLayer": "unknown",
+          "failureScope": "career_workflow",
+          "safeDomainErrorCode": "none",
+          "toolResultIsError": false,
+          "failedStage": "completed",
+          "durationMs": 37,
+          "retryable": false,
+          "operationId": "mcp-career-NGbWOM0ud8AQkr-E",
+          "logicalToolOperationId": "mcp-career-NGbWOM0ud8AQkr-E",
+          "logicalTurnId": "runtime-turn-0142b9b8-de4a-4e08-9b04-6176595c78e6",
+          "taskId": "agent-session-fbGBtasgTE7s",
+          "argumentShape": {},
+          "mcpHttpArgumentShape": {},
+          "browserHandlerArgumentShape": {},
+          "gatewayArgumentShape": {},
+          "facadeArgumentShape": {},
+          "sourceUserMessageId": "agent-user-c691a417-8127-48bb-8599-fd5fdeacf8f6",
+          "sourceUserMessageResolved": true,
+          "runtimeHealthy": true,
+          "mcpHealthy": true,
+          "publishedContractVersion": "career-tool-contract-v5",
+          "publishedSchemaHash": "fnv1a-d4ef12d5",
+          "gatewayContractVersion": "career-tool-contract-v5",
+          "gatewaySchemaHash": "fnv1a-d4ef12d5",
+          "careerToolContractVersion": "career-tool-contract-v5",
+          "appBuildCommit": "workspace-source",
+          "appBuildTimestamp": "development",
+          "mcpCallTrace": {
+            "toolName": "career.resume.list",
+            "logicalToolOperationId": "mcp-career-NGbWOM0ud8AQkr-E",
+            "requestStartedAt": "2026-11-06T07:23:08.285Z",
+            "jsonRpcStatus": "response_received",
+            "browserMcpHandlerReached": true,
+            "gatewayReached": true,
+            "completedAt": "2026-11-06T07:23:08.285Z"
+          },
+          "startedAt": "2026-11-06T07:23:08.248Z",
+          "enteredGatewayAt": "2026-11-06T07:23:08.248Z",
+          "firstInternalOperationAt": "2026-11-06T07:23:08.282Z",
+          "completedAt": "2026-11-06T07:23:08.285Z"
+        }
+      },
+      "updatedAt": "2026-11-06T07:23:08.401Z",
+      "createdAt": "2026-11-06T07:23:08.401Z",
+      "sessionId": "agent-session-fbGBtasgTE7s",
+      "sequence": 3
+    },
+    {
+      "id": "agent-tool-mcp-career-agF-OIbYYa7YteMD",
+      "branchId": "legacy-branch",
+      "turnId": "runtime-turn-0142b9b8-de4a-4e08-9b04-6176595c78e6",
+      "role": "tool",
+      "content": "Career 工具执行完成。",
+      "kind": "tool_status",
+      "type": "tool_status",
+      "status": "complete",
+      "toolName": "career.workflow.compose_resume",
+      "operationId": "mcp-career-agF-OIbYYa7YteMD",
+      "parentMessageId": "agent-tool-career-logical-12ca01cb",
+      "metadata": {
+        "runtimeId": "hermes",
+        "activityState": "complete",
+        "logicalToolOperationId": "mcp-career-agF-OIbYYa7YteMD",
+        "transportOperationIds": [
+          "mcp-career-agF-OIbYYa7YteMD"
+        ],
+        "operationId": "mcp-career-agF-OIbYYa7YteMD",
+        "toolFailureDiagnostics": {
+          "toolFailureLayer": "unknown",
+          "failureScope": "career_workflow",
+          "safeDomainErrorCode": "none",
+          "toolResultIsError": false,
+          "failedStage": "completed",
+          "durationMs": 569,
+          "retryable": false,
+          "workflowStageAfter": "review_composition",
+          "operationId": "mcp-career-agF-OIbYYa7YteMD",
+          "logicalToolOperationId": "mcp-career-agF-OIbYYa7YteMD",
+          "logicalTurnId": "runtime-turn-0142b9b8-de4a-4e08-9b04-6176595c78e6",
+          "taskId": "agent-session-fbGBtasgTE7s",
+          "argumentShape": {
+            "mode": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-24b9216b-7"
+            },
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-2391bf45-18"
+            },
+            "expectedProfileRevision": "number"
+          },
+          "preparedInvocationShape": {
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-2391bf45-18"
+            },
+            "expectedProfileRevision": "number",
+            "generalResumeMode": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-5b11f350-10"
+            },
+            "acknowledgedActiveProfileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-2391bf45-18"
+            },
+            "mode": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-24b9216b-7"
+            },
+            "sameTurnTarget": "absent"
+          },
+          "mcpHttpArgumentShape": {
+            "mode": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-24b9216b-7"
+            },
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-2391bf45-18"
+            },
+            "expectedProfileRevision": "number"
+          },
+          "browserHandlerArgumentShape": {
+            "mode": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-24b9216b-7"
+            },
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-2391bf45-18"
+            },
+            "expectedProfileRevision": "number"
+          },
+          "gatewayArgumentShape": {
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-2391bf45-18"
+            },
+            "expectedProfileRevision": "number",
+            "generalResumeMode": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-5b11f350-10"
+            },
+            "acknowledgedActiveProfileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-2391bf45-18"
+            },
+            "mode": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-24b9216b-7"
+            }
+          },
+          "facadeArgumentShape": {
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-2391bf45-18"
+            },
+            "expectedProfileRevision": "number",
+            "generalResumeMode": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-5b11f350-10"
+            },
+            "acknowledgedActiveProfileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-2391bf45-18"
+            },
+            "mode": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-24b9216b-7"
+            }
+          },
+          "sourceUserMessageId": "agent-user-c691a417-8127-48bb-8599-fd5fdeacf8f6",
+          "sourceUserMessageResolved": true,
+          "runtimeHealthy": true,
+          "mcpHealthy": true,
+          "publishedContractVersion": "career-tool-contract-v5",
+          "publishedSchemaHash": "fnv1a-e524bb27",
+          "gatewayContractVersion": "career-tool-contract-v5",
+          "gatewaySchemaHash": "fnv1a-e524bb27",
+          "careerToolContractVersion": "career-tool-contract-v5",
+          "appBuildCommit": "workspace-source",
+          "appBuildTimestamp": "development",
+          "mcpCallTrace": {
+            "toolName": "career.workflow.compose_resume",
+            "logicalToolOperationId": "mcp-career-agF-OIbYYa7YteMD",
+            "requestStartedAt": "2026-11-06T07:23:12.157Z",
+            "jsonRpcStatus": "response_received",
+            "browserMcpHandlerReached": true,
+            "gatewayReached": true,
+            "completedAt": "2026-11-06T07:23:12.157Z"
+          },
+          "startedAt": "2026-11-06T07:23:11.588Z",
+          "enteredGatewayAt": "2026-11-06T07:23:11.588Z",
+          "enteredFacadeAt": "2026-11-06T07:23:11.721Z",
+          "firstInternalOperationAt": "2026-11-06T07:23:11.721Z",
+          "completedAt": "2026-11-06T07:23:12.157Z"
+        }
+      },
+      "updatedAt": "2026-11-06T07:23:12.430Z",
+      "createdAt": "2026-11-06T07:23:12.430Z",
+      "sessionId": "agent-session-fbGBtasgTE7s",
+      "sequence": 7
+    },
+    {
+      "id": "agent-user-c691a417-8127-48bb-8599-fd5fdeacf8f6",
+      "branchId": "legacy-branch",
+      "turnId": "runtime-turn-0142b9b8-de4a-4e08-9b04-6176595c78e6",
+      "role": "user",
+      "content": "P51-C02-COMPOSE 根据当前资料生成通用简历提案，等待我的明确确认，不同步个人资料库。",
+      "status": "complete",
+      "metadata": {
+        "executionState": "running",
+        "runtimeId": "hermes"
+      },
+      "updatedAt": "2026-11-06T07:22:56.510Z",
+      "createdAt": "2026-11-06T07:22:56.510Z",
+      "sessionId": "agent-session-fbGBtasgTE7s",
+      "sequence": 0
+    }
+  ]
+}

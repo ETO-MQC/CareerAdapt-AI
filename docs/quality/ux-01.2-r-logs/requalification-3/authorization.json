@@ -1,0 +1,6 @@
+{
+  "userAuthorization": "Current user permits one or two prepared retries to complete verification, local Scripted only",
+  "reason": "After fixing real no-task composition checkpoint and restored confirmation routing; regression115/typecheck/lint/finalbuild exit0",
+  "priorFailurePreserved": "../requalification-2",
+  "sameOriginalTestIdentity": true
+}

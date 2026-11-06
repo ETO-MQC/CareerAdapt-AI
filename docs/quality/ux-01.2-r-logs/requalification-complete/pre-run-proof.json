@@ -1,0 +1,8 @@
+{
+  "sourceChangesSinceBuild": [],
+  "allFinalChecksExit0": true,
+  "tests": 118,
+  "sourceInputs": 1024,
+  "authorization": "Current user authorizes prepared root-cause retries toward full pass; local Scripted only; prior failure traces retained",
+  "fix": "Project real committed Revision ID and authoritative composition scope into existing TaskState; no completion guard relaxation"
+}

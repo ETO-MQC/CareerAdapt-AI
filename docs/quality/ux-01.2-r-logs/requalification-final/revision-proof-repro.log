@@ -1,0 +1,47 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+ ❯ tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts (15 tests | 2 failed) 3091ms
+     × consumes a restored confirmation and exposes a source-bound recovery action after writing fails 502ms
+     × confirms a first facade proposal from a task-free conversation through the existing Repository gate 220ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts > P4.5c.1.2 confirmed composition write boundary > consumes a restored confirmation and exposes a source-bound recovery action after writing fails
+AssertionError: expected 'awaiting_input' to be 'completed' // Object.is equality
+
+Expected: "completed"
+Received: "awaiting_input"
+
+ ❯ tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts:60:63
+     58|       command: prepared.event as ConfirmResumeCompositionCommand, page…
+     59|     expect(recovered?.taskState?.completionStatus).toBe("completed");
+     60|     expect(projectBusinessWorkflowProgress(recovered!).state).toBe("co…
+       |                                                               ^
+     61|     expect(recovered?.pendingConfirmation).toBeUndefined();
+     62|     const branches = await fixture.repository.listResumeBranches(fixtu…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts > P4.5c.1.2 confirmed composition write boundary > confirms a first facade proposal from a task-free conversation through the existing Repository gate
+AssertionError: expected 'awaiting_input' to be 'completed' // Object.is equality
+
+Expected: "completed"
+Received: "awaiting_input"
+
+ ❯ tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts:89:63
+     87|     expect(planWrite).not.toHaveBeenCalled();
+     88|     expect(completed?.taskState?.completionStatus).toBe("completed");
+     89|     expect(projectBusinessWorkflowProgress(completed!).state).toBe("co…
+       |                                                               ^
+     90|     await host.resolveConfirmation(true, pageContext, completed!);
+     91|     const branches = await fixture.repository.listResumeBranches(fixtu…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 13 passed (15)
+   Start at  15:18:53
+   Duration  7.37s (transform 2.43s, setup 155ms, import 3.06s, tests 3.09s, environment 844ms)
+

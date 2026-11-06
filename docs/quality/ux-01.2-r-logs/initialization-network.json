@@ -1,0 +1,187 @@
+[
+  {
+    "path": "/api/agent/mcp",
+    "status": 200,
+    "action": "register"
+  },
+  {
+    "path": "/api/agent/mcp",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/runtime/hermes/control",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/runtime/hermes/health",
+    "status": 503
+  },
+  {
+    "path": "/api/agent/mcp",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/runtime/hermes/health",
+    "status": 503
+  },
+  {
+    "path": "/api/agent/runtime/hermes/control",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/mcp",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/runtime/hermes/health",
+    "status": 503
+  },
+  {
+    "path": "/api/agent/mcp",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/runtime/hermes/health",
+    "status": 503
+  },
+  {
+    "path": "/api/agent/runtime/hermes/control",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/mcp",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/mcp",
+    "status": 200,
+    "action": "heartbeat"
+  },
+  {
+    "path": "/api/agent/mcp",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/runtime/hermes/control",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/mcp",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/mcp",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/runtime/hermes/control",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/mcp",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/mcp",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/mcp",
+    "status": 200,
+    "action": "heartbeat"
+  },
+  {
+    "path": "/api/agent/runtime/hermes/control",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/mcp",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/mcp",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/runtime/hermes/control",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/mcp",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/mcp",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/runtime/hermes/control",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/mcp",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/mcp",
+    "status": 200,
+    "action": "heartbeat"
+  },
+  {
+    "path": "/api/agent/runtime/hermes/control",
+    "status": 200,
+    "action": "set_credential"
+  },
+  {
+    "path": "/api/agent/runtime/hermes/control",
+    "status": 200,
+    "action": "start"
+  },
+  {
+    "path": "/api/agent/runtime/hermes/control",
+    "status": 200,
+    "action": "start"
+  },
+  {
+    "path": "/api/agent/runtime/hermes/health",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/mcp",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/runtime/hermes/control",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/mcp",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/runtime/hermes/control",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/runtime/hermes/control",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/mcp",
+    "status": 200,
+    "action": "register"
+  },
+  {
+    "path": "/api/agent/runtime/hermes/control",
+    "status": 200,
+    "action": "start"
+  },
+  {
+    "path": "/api/agent/mcp",
+    "status": 200
+  },
+  {
+    "path": "/api/agent/runtime/hermes/health",
+    "status": 200
+  }
+]

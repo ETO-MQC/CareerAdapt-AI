@@ -1,0 +1,62 @@
+[
+  {
+    "action": "result",
+    "requestId": "mcp-request-_YK46HaVKfuh9o4m",
+    "result": {
+      "ok": true,
+      "data": {
+        "operationId": "mcp-career-s9wqdZQdRtAiw39G",
+        "resumes": []
+      },
+      "artifacts": [],
+      "receipt": {
+        "operationId": "mcp-career-s9wqdZQdRtAiw39G",
+        "toolName": "career.resume.list",
+        "status": "completed",
+        "completedAt": "2026-11-06T06:04:12.949Z"
+      },
+      "diagnostics": {
+        "toolFailureLayer": "unknown",
+        "failureScope": "career_workflow",
+        "safeDomainErrorCode": "none",
+        "toolResultIsError": false,
+        "failedStage": "completed",
+        "durationMs": 16,
+        "retryable": false,
+        "operationId": "mcp-career-s9wqdZQdRtAiw39G",
+        "logicalToolOperationId": "mcp-career-s9wqdZQdRtAiw39G",
+        "logicalTurnId": "runtime-turn-76e52cdb-9ef7-460c-9c2a-44cbbd20f0e4",
+        "taskId": "agent-session-3vAqvC_Kk34B",
+        "argumentShape": {},
+        "mcpHttpArgumentShape": {},
+        "browserHandlerArgumentShape": {},
+        "gatewayArgumentShape": {},
+        "facadeArgumentShape": {},
+        "sourceUserMessageId": "agent-user-d9ee2d0c-10d3-45d0-8ede-a2a159ad879c",
+        "sourceUserMessageResolved": true,
+        "runtimeHealthy": true,
+        "mcpHealthy": true,
+        "publishedContractVersion": "career-tool-contract-v5",
+        "publishedSchemaHash": "fnv1a-d4ef12d5",
+        "gatewayContractVersion": "career-tool-contract-v5",
+        "gatewaySchemaHash": "fnv1a-d4ef12d5",
+        "careerToolContractVersion": "career-tool-contract-v5",
+        "appBuildCommit": "workspace-source",
+        "appBuildTimestamp": "development",
+        "mcpCallTrace": {
+          "toolName": "career.resume.list",
+          "logicalToolOperationId": "mcp-career-s9wqdZQdRtAiw39G",
+          "requestStartedAt": "2026-11-06T06:04:12.949Z",
+          "jsonRpcStatus": "response_received",
+          "browserMcpHandlerReached": true,
+          "gatewayReached": true,
+          "completedAt": "2026-11-06T06:04:12.949Z"
+        },
+        "startedAt": "2026-11-06T06:04:12.933Z",
+        "enteredGatewayAt": "2026-11-06T06:04:12.933Z",
+        "firstInternalOperationAt": "2026-11-06T06:04:12.948Z",
+        "completedAt": "2026-11-06T06:04:12.949Z"
+      }
+    }
+  }
+]

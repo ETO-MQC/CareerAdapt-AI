@@ -1,0 +1,170 @@
+{
+  "stage": "P5.1-UX-01.2-R",
+  "date": "2026-11-06",
+  "status": "PARTIAL",
+  "closed": false,
+  "authorization": {
+    "source": "User authorized initialization checks and one full business browser attempt after preconditions",
+    "businessAttempts": 1,
+    "browserAutomaticRetry": false,
+    "uxABrowserRuns": 0,
+    "uxBBrowserRuns": 0
+  },
+  "initialization": {
+    "selectionOnlyFailure": {
+      "exitCode": 1,
+      "businessStarted": false,
+      "log": "ux-01.2-r-logs/initialization-run.log",
+      "reason": "grep start anchor excluded full Playwright test title; no tests ran"
+    },
+    "preflight": {
+      "exitCode": 0,
+      "testPassed": 1,
+      "businessStarted": false,
+      "providerInferenceRequests": 0,
+      "durationSeconds": 29.2,
+      "log": "ux-01.2-r-logs/initialization-run-2.log"
+    },
+    "businessRunPreconditions": {
+      "allPassed": true,
+      "businessStarted": false,
+      "setup": "completed through official Setup form, synthetic credential only",
+      "normalWorkspace": true,
+      "isolatedHome": "C:\\Users\\mqcin\\AppData\\Local\\Temp\\careerad-hermes-integration-OJc7pr",
+      "providerBaseUrl": "http://127.0.0.1:16473/v1",
+      "providerModel": "careeradapt-test",
+      "bridge": {
+        "connected": true,
+        "server": "careeradapt",
+        "discoveredToolCount": 59,
+        "bindingPresent": false,
+        "lastHeartbeatAt": "2026-11-06T06:04:02.094Z",
+        "bridgeId": "careeradapt-bridge-x6DPWNrN8Qnm"
+      },
+      "runtime": {
+        "overallState": "ready",
+        "runReady": true,
+        "careerMcpReady": true,
+        "requiredCareerFacadesReady": 8
+      },
+      "sessionId": "agent-session-3vAqvC_Kk34B"
+    },
+    "method": "Official Setup form with local synthetic Provider, official New Task button, no localStorage bypass flags or direct business DB writes",
+    "parity": {
+      "exitCode": 0,
+      "root": ".electron-build/hermes-runtime-rp011",
+      "log": "ux-01.2-r-logs/bundle-check.log"
+    }
+  },
+  "business": {
+    "testFile": "tests/e2e/ux012-business-recovery.spec.ts",
+    "testIdentity": "UX012 persisted rate-limit recovery preserves input and requires an explicit new request",
+    "executions": 1,
+    "exitCode": 1,
+    "phaseReached": "proposal",
+    "states": [
+      {
+        "state": "processing",
+        "text": "正在处理当前任务"
+      },
+      {
+        "state": "processing",
+        "text": "正在执行业务操作"
+      },
+      {
+        "state": "processing",
+        "text": "正在处理当前任务"
+      },
+      {
+        "state": "awaiting_input",
+        "text": "本轮回复已结束尚无业务完成回执，可补充信息或核对当前结果。"
+      }
+    ],
+    "expectedState": "awaiting_confirmation",
+    "actualState": "awaiting_input",
+    "expectationTimeoutMs": 30000,
+    "timeoutPolicy": "Inherited existing real-Hermes config, unchanged after failure; no retries",
+    "realHermesRun": {
+      "runId": "run_917dc05fd09b40448ff4a3b73c261432",
+      "hermesSessionId": "hermes-agent-session-3vAqvC_Kk34B",
+      "careerAgentSessionId": "agent-session-3vAqvC_Kk34B",
+      "turnId": "runtime-turn-76e52cdb-9ef7-460c-9c2a-44cbbd20f0e4",
+      "status": "completed",
+      "startedAt": "2026-11-06T06:04:03.415Z",
+      "lastEventAt": "2026-11-06T06:04:13.483Z"
+    },
+    "actualTool": "career.resume.list",
+    "actualToolResult": {
+      "ok": true,
+      "data": {
+        "resumes": []
+      }
+    },
+    "facadeInvoked": false,
+    "writerFaultRequests": 0,
+    "providerInferenceRequests": 2,
+    "formalBranches": 0,
+    "formalRevisions": 0,
+    "providerKind": "local Scripted Provider, not real model quality",
+    "realProviderRequests": 0,
+    "realApiKeysRead": false,
+    "log": "ux-01.2-r-logs/business-run.log",
+    "trace": "ux-01.2-r-logs/business-browser-results/ux012-business-recovery-UX-44bd5-res-an-explicit-new-request/trace.zip",
+    "rawEvidenceDirectory": "ux-01.2-r-logs",
+    "runChromeLabel": "Topbar/recent task still show runtime completed, not treated as a formal save receipt"
+  },
+  "checks": {
+    "A": "PARTIAL: real submission/processing/tool receipt durable; no false business completion, no compose proposal",
+    "B": "NOT_REACHED",
+    "C": "NOT_REACHED; writer failure injection not triggered, no browser 429/cancel/CAS certification",
+    "D": "NOT_REACHED"
+  },
+  "rootCause": {
+    "classification": "test fixture prerequisite missing",
+    "oldSetupFailure": "Instant isVisible read before SetupGuard finished navigation, not proven failure of official Skip save",
+    "currentFailure": "Core02 scripted compose requires Host checkpoint or existing general Resume summary; bound demo Profile alone is not consumed by that script. resume.list empty -> deterministic MISSINGPROFILE; no Facade call",
+    "reproduction": {
+      "command": "pnpm exec vitest run tests/unit/fakeProviderContinuation.test.ts",
+      "exitCode": 0,
+      "tests": 4,
+      "log": "ux-01.2-r-logs/fixture-root-cause.log"
+    },
+    "futureTestCorrection": "Reuse existing official prepareCoreSourceResume JSON import/review/Repository flow before the compose task",
+    "futureCorrectionBrowserRun": false,
+    "productionFixRequiredByThisEvidence": false
+  },
+  "engineering": {
+    "productionChanges": false,
+    "old113EvidenceApplicable": true,
+    "old113Rerun": false,
+    "old113Proof": "ux-01.2-r-logs/prior-113-applicability.json",
+    "typecheck": {
+      "exitCode": 0,
+      "log": "ux-01.2-r-logs/final-typecheck-delivered.log"
+    },
+    "eslint": {
+      "exitCode": 0,
+      "files": 4,
+      "log": "ux-01.2-r-logs/final-eslint-delivered.log"
+    },
+    "nodeSyntax": {
+      "exitCode": 0,
+      "command": "node --check scripts/hermes-integration.mjs"
+    },
+    "productionBuild": "Not rerun; no production source change; prior verified UX012 build remains applicable",
+    "diffCheck": {
+      "exitCode": 0,
+      "log": "ux-01.2-r-logs/final-diff-check.log"
+    }
+  },
+  "notes": [
+    "Business launch Copy relative path error preserved in business-test-input.json; previously correctly staged test ran; additional unexecuted assertions not claimed",
+    "Post-cleanup Provider evidence GET was refused; null live artifact is not evidence; actual Provider request count from owned harness summary",
+    "No UX012 browser rerun after this failure; no new permission inferred"
+  ],
+  "nextStageEligible": false,
+  "uxAStatus": "Independent PARTIAL, not closed",
+  "committed": false,
+  "pushed": false,
+  "packaged": false
+}

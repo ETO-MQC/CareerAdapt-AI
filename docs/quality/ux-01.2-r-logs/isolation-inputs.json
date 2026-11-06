@@ -1,0 +1,7 @@
+{
+  "checked": 1023,
+  "mismatches": [],
+  "lockEqual": true,
+  "isolatedEnvFiles": [],
+  "runtimeRoot": ".electron-build/hermes-runtime-rp011"
+}

@@ -83,6 +83,13 @@ describe("business progress derives from execution evidence", () => {
     const s = session(); s.activeTurn!.toolFailures = [{ toolName: "career.workflow.resume_export", operationId: "op", code: "pdf_failed", occurredAt: now }];
     expect(project(s)).toMatchObject({ state: "partial", label: "导出未完成", detail: expect.stringContaining("单独重新导出") });
   });
+  it("labels a failed confirmed composition as unsaved while keeping its recovery checkpoint", () => {
+    const s = session(); s.taskState = task("waiting_for_user");
+    s.taskState.knownSlots.resumeCompositionWriteFailure = { code: "provider_unavailable" };
+    s.taskState.knownSlots.resumeCompositionCheckpoint = { checkpointId: "reviewed-plan" };
+    expect(project(s)).toMatchObject({ state: "blocked", label: "正式保存未完成" });
+    expect(s.taskState.knownSlots.resumeCompositionCheckpoint).toEqual({ checkpointId: "reviewed-plan" });
+  });
   it("ignores a background or previous turn's Run status", () => {
     const s = session("failed"); s.activeTurn!.status = "running"; s.hermesRun!.turnId = "background-review";
     expect(project(s)).toMatchObject({ state: "processing" });

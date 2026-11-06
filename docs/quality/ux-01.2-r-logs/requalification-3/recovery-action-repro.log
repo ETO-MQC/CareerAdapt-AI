@@ -1,0 +1,42 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+ ❯ tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts (15 tests | 1 failed) 3843ms
+     × consumes a restored confirmation and exposes a source-bound recovery action after writing fails 338ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts > P4.5c.1.2 confirmed composition write boundary > consumes a restored confirmation and exposes a source-bound recovery action after writing fails
+AssertionError: expected { …(8) } to be undefined
+
+- Expected:
+undefined
+
++ Received:
+{
+  "description": "保存已审核提案",
+  "destructive": false,
+  "id": "failed-restore-confirmation",
+  "operationId": "restored-compose-op",
+  "requestedAt": "2026-11-06T07:08:13.836Z",
+  "status": "pending",
+  "title": "确认",
+  "toolName": "career.workflow.compose_resume",
+}
+
+ ❯ tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts:50:41
+     48|     const pageContext = fixture.pageContext(session.id);
+     49|     const failed = await host.resolveConfirmation(true, pageContext, r…
+     50|     expect(failed?.pendingConfirmation).toBeUndefined();
+       |                                         ^
+     51|     expect(failed?.pendingToolCall).toBeUndefined();
+     52|     expect(failed?.taskState?.knownSlots.resumeCompositionWriteFailure…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 14 passed (15)
+   Start at  15:08:08
+   Duration  8.58s (transform 2.70s, setup 144ms, import 3.42s, tests 3.84s, environment 952ms)
+

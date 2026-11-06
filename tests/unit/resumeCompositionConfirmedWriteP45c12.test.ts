@@ -23,6 +23,7 @@ import {
 } from "@/domain/resumeComposition";
 import type { CareerProfile } from "@/domain/schemas";
 import { AgentSessionSchema, type AgentSession } from "@/agent/contracts/agentSession";
+import { projectBusinessWorkflowProgress } from "@/agent/runtime/businessWorkflowProgress";
 
 let db: CareerAdaptDb | undefined;
 
@@ -33,6 +34,64 @@ afterEach(async () => {
 });
 
 describe("P4.5c.1.2 confirmed composition write boundary", () => {
+  it("consumes a restored confirmation and exposes a source-bound recovery action after writing fails", async () => {
+    const profile = migrateCareerProfileToV2(demoCareerProfile);
+    const fallback = transportFallbackComposition(profile);
+    const writer = writerSequence(fallback, aiComposition(profile));
+    const fixture = await createFixture({ composition: fallback, writer });
+    const host = fixture.createHost("session-idempotent");
+    const session = fixture.sessions.get("session-idempotent")!;
+    const restored = await host.adoptDurably({ ...session, pendingConfirmation: {
+      id: "failed-restore-confirmation", operationId: "restored-compose-op", toolName: "career.workflow.compose_resume", title: "确认", description: "保存已审核提案",
+      status: "pending", destructive: false, requestedAt: new Date().toISOString()
+    }, pendingToolCall: { toolName: "career.workflow.compose_resume", operationId: "restored-compose-op",
+      input: { mode: "general", profileId: fixture.profile.id, expectedProfileRevision: fixture.profile.version } } });
+    const pageContext = fixture.pageContext(session.id);
+    const failed = await host.resolveConfirmation(true, pageContext, restored!);
+    expect(failed?.pendingConfirmation).toBeUndefined();
+    expect(failed?.pendingToolCall).toBeUndefined();
+    expect(failed?.taskState?.knownSlots.resumeCompositionWriteFailure).toBeTruthy();
+    expect(failed?.messages.some(message => message.options?.some(option => option.label === "直接生成"))).toBe(true);
+    expect(await fixture.repository.listResumeBranches(fixture.profile.id)).toHaveLength(0);
+    const prepared = await host.prepareRuntimeUserEvent({ session: failed!, event: directGenerateEvent(), pageContext });
+    const recovered = await host.executeConfirmedResumeComposition({ session: prepared.session,
+      command: prepared.event as ConfirmResumeCompositionCommand, pageContext, turnId: prepared.turnId });
+    expect(recovered?.taskState?.completionStatus).toBe("completed");
+    expect(projectBusinessWorkflowProgress(recovered!).state).toBe("completed");
+    expect(recovered?.pendingConfirmation).toBeUndefined();
+    const branches = await fixture.repository.listResumeBranches(fixture.profile.id);
+    expect(branches).toHaveLength(1);
+    expect(await fixture.repository.listResumeRevisions(branches[0].id)).toHaveLength(1);
+  });
+  it("confirms a first facade proposal from a task-free conversation through the existing Repository gate", async () => {
+    const fixture = await createFixture();
+    const host = fixture.createHost("session-idempotent");
+    const session = AgentSessionSchema.parse({ ...fixture.sessions.get("session-idempotent")!, taskState: undefined, workflowState: undefined });
+    await host.adoptDurably(session);
+    const shell = await host.beginRuntimeShell({ session, userMessage: "根据资料生成通用简历", runtimeId: "hermes" });
+    const projected = await host.applyRuntimeEvent({ type: "tool_call_completed", sessionId: session.id, turnId: shell.turnId,
+      timestamp: new Date().toISOString(), toolName: "career.workflow.compose_resume", operationId: "first-facade-plan",
+      data: { result: { ok: true, data: { status: "waiting_for_confirmation", workflowStage: "review_composition",
+        workflowCheckpoint: { ...fixture.checkpoint, kind: "resume_composition", proposal: fixture.checkpoint.compositionResult.proposal } } } }
+    }, shell.assistantMessageId);
+    expect(projected?.taskState?.knownSlots.resumeCompositionCheckpoint).toMatchObject({ checkpointId: fixture.checkpoint.checkpointId });
+    expect(await fixture.repository.listResumeBranches(fixture.profile.id)).toHaveLength(0);
+    const pageContext = fixture.pageContext(session.id);
+    const restored = await host.adoptDurably({ ...projected!, pendingConfirmation: {
+      id: "restore-confirmation", operationId: "first-facade-plan", toolName: "career.workflow.compose_resume", title: "确认", description: "确认已核对提案",
+      status: "pending", destructive: false, requestedAt: new Date().toISOString(), turnId: shell.turnId
+    }, pendingToolCall: { toolName: "career.workflow.compose_resume", operationId: "first-facade-plan", turnId: shell.turnId,
+      input: { mode: "general", profileId: fixture.profile.id, expectedProfileRevision: fixture.profile.version } } });
+    const planWrite = vi.spyOn(fixture.repository, "saveResumeCompositionCheckpoint");
+    const completed = await host.resolveConfirmation(true, pageContext, restored!);
+    expect(planWrite).not.toHaveBeenCalled();
+    expect(completed?.taskState?.completionStatus).toBe("completed");
+    expect(projectBusinessWorkflowProgress(completed!).state).toBe("completed");
+    await host.resolveConfirmation(true, pageContext, completed!);
+    const branches = await fixture.repository.listResumeBranches(fixture.profile.id);
+    expect(branches).toHaveLength(1);
+    expect(await fixture.repository.listResumeRevisions(branches[0].id)).toHaveLength(1);
+  });
   it("preserves the proposal on Repository failure and recovers the same confirmation without duplicate Revisions", async () => {
     const fixture = await createFixture();
     const host = fixture.createHost("session-idempotent");

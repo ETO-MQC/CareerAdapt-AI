@@ -1,0 +1,238 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: ux012-business-recovery.spec.ts >> UX012 persisted rate-limit recovery preserves input and requires an explicit new request
+- Location: tests\e2e\ux012-business-recovery.spec.ts:13:5
+
+# Error details
+
+```
+Test timeout of 120000ms exceeded.
+```
+
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e7] [cursor=pointer]:
+    - img [ref=e8]
+  - alert [ref=e11]
+  - generic [ref=e12]:
+    - complementary "AI 工作区导航" [ref=e13]:
+      - generic [ref=e14]:
+        - link "职适AI 首页" [ref=e15] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e16]: 职
+          - generic [ref=e17]: 职适AI
+        - button "收起 AI 导航" [ref=e18] [cursor=pointer]:
+          - img [ref=e19]
+      - generic [ref=e22]:
+        - button "新任务" [ref=e23] [cursor=pointer]:
+          - img [ref=e24]
+          - generic [ref=e25]: 新任务
+        - button "搜索 / 历史" [ref=e26] [cursor=pointer]:
+          - img [ref=e27]
+          - generic [ref=e30]: 搜索 / 历史
+      - navigation "资产" [ref=e31]:
+        - generic [ref=e32]: 资产
+        - link "AI 助手" [ref=e33] [cursor=pointer]:
+          - /url: /ai-workspace
+          - img [ref=e34]
+          - generic [ref=e37]: AI 助手
+        - link "我的简历" [ref=e38] [cursor=pointer]:
+          - /url: /resume
+          - img [ref=e39]
+          - generic [ref=e42]: 我的简历
+        - link "个人资料库" [ref=e43] [cursor=pointer]:
+          - /url: /profile
+          - img [ref=e44]
+          - generic [ref=e47]: 个人资料库
+        - link "岗位" [ref=e48] [cursor=pointer]:
+          - /url: /jobs
+          - img [ref=e49]
+          - generic [ref=e53]: 岗位
+        - link "求职进度" [ref=e54] [cursor=pointer]:
+          - /url: /applications
+          - img [ref=e55]
+          - generic [ref=e57]: 求职进度
+        - link "回收站" [ref=e58] [cursor=pointer]:
+          - /url: /recycle
+          - img [ref=e59]
+          - generic [ref=e66]: 回收站
+      - region "最近任务" [ref=e67]:
+        - text: 最近任务
+        - generic [ref=e68]:
+          - button "新的对话 任务状态：等待核对" [ref=e69] [cursor=pointer]:
+            - generic [ref=e71]: 新的对话
+            - generic "任务状态：等待核对" [ref=e72]: 等待核对
+          - generic [ref=e73]:
+            - button "重命名" [ref=e74] [cursor=pointer]:
+              - img [ref=e75]
+            - button "归档" [ref=e78] [cursor=pointer]:
+              - img [ref=e79]
+        - generic [ref=e82]:
+          - button "新的对话 任务状态：等待输入" [ref=e83] [cursor=pointer]:
+            - generic [ref=e85]: 新的对话
+            - generic "任务状态：等待输入" [ref=e86]: 等待输入
+          - generic [ref=e87]:
+            - button "重命名" [ref=e88] [cursor=pointer]:
+              - img [ref=e89]
+            - button "归档" [ref=e92] [cursor=pointer]:
+              - img [ref=e93]
+        - generic [ref=e96]:
+          - button "新的对话 任务状态：等待输入" [ref=e97] [cursor=pointer]:
+            - generic [ref=e99]: 新的对话
+            - generic "任务状态：等待输入" [ref=e100]: 等待输入
+          - generic [ref=e101]:
+            - button "重命名" [ref=e102] [cursor=pointer]:
+              - img [ref=e103]
+            - button "归档" [ref=e106] [cursor=pointer]:
+              - img [ref=e107]
+      - generic [ref=e110]:
+        - generic "工作区模式" [ref=e111]:
+          - button "AI" [pressed] [ref=e112] [cursor=pointer]:
+            - generic [ref=e113]: AI
+          - button "协作" [ref=e114] [cursor=pointer]:
+            - generic [ref=e115]: 协作
+          - button "手动" [ref=e116] [cursor=pointer]:
+            - generic [ref=e117]: 手动
+        - link "设置与更多" [ref=e118] [cursor=pointer]:
+          - /url: /settings
+          - img [ref=e119]
+          - generic [ref=e122]: 设置与更多
+        - generic [ref=e123]:
+          - generic [ref=e124]: CA
+          - generic [ref=e125]:
+            - strong [ref=e126]: 求职工作区
+            - generic [ref=e127]: 本地数据
+    - main [ref=e130]:
+      - generic [ref=e131]:
+        - generic [ref=e132]:
+          - strong [ref=e133]: 新的对话
+          - generic [ref=e134]: 固定：Core 候选人 · V1
+          - button "Core 候选人 · V1 1 条经历 · 2 项基础信息 · 创建于 2026/11/06" [ref=e136] [cursor=pointer]:
+            - generic [ref=e137]:
+              - strong [ref=e138]: Core 候选人 · V1
+              - generic [ref=e139]: 1 条经历 · 2 项基础信息 · 创建于 2026/11/06
+            - img [ref=e140]
+        - generic [ref=e142]:
+          - button "AI Runtime Hermes，状态 Ready" [ref=e144] [cursor=pointer]:
+            - generic [ref=e145]: AI · 服务
+            - generic [ref=e146]: Ready
+            - generic [ref=e147]: 控制
+          - status [ref=e148]: 等待确认
+          - button "打开历史记录" [ref=e149] [cursor=pointer]:
+            - img [ref=e150]
+          - button "更多任务操作" [ref=e155] [cursor=pointer]:
+            - img [ref=e156]
+      - generic [ref=e161]:
+        - button "暂停任务" [ref=e163] [cursor=pointer]:
+          - img [ref=e164]
+          - text: 暂停任务
+        - region "AI 对话" [ref=e167]:
+          - generic [ref=e168]:
+            - status "业务进度" [ref=e169]:
+              - paragraph [ref=e170]: 等待你明确确认
+              - paragraph [ref=e171]: 确认前不会正式保存；确认提交后仍需等待保存回执。
+            - article [ref=e172]:
+              - generic [ref=e173]:
+                - generic [ref=e174]:
+                  - paragraph [ref=e178]: P51-C02-COMPOSE 根据当前资料生成通用简历提案，等待我的明确确认，不同步个人资料库。
+                  - generic "用户消息操作" [ref=e179]:
+                    - button "编辑并重发" [ref=e180] [cursor=pointer]:
+                      - img [ref=e181]
+                    - button "历史版本" [ref=e183] [cursor=pointer]:
+                      - img [ref=e184]
+                    - button "复制消息" [ref=e188] [cursor=pointer]:
+                      - img [ref=e189]
+                    - group [ref=e192]:
+                      - generic "更多消息操作" [ref=e193] [cursor=pointer]:
+                        - img [ref=e194]
+                - generic "你" [ref=e198]:
+                  - img [ref=e199]
+            - article [ref=e202]:
+              - group [ref=e203]:
+                - status "已完成 6 个任务步骤" [ref=e204] [cursor=pointer]:
+                  - generic [ref=e205]:
+                    - img [ref=e206]
+                    - img [ref=e208]
+                    - img [ref=e210]
+                  - strong [ref=e213]: 已完成 6 个任务步骤
+              - generic [ref=e214]:
+                - generic "AI 助手" [ref=e215]:
+                  - img [ref=e216]
+                - generic [ref=e219]:
+                  - paragraph [ref=e223]: 当前任务尚未形成可确认的完成凭证（当前步骤：confirm_create）。已保留任务进度，请从当前步骤继续。
+                  - region "确认执行 Career 操作" [ref=e224]:
+                    - generic [ref=e225]:
+                      - heading "确认执行 Career 操作" [level=3] [ref=e226]
+                      - paragraph [ref=e227]: 这项 Career 操作需要用户确认后才能继续。
+                    - generic [ref=e228]:
+                      - button "取消" [ref=e229] [cursor=pointer]
+                      - button "确认" [ref=e230] [cursor=pointer]
+                  - generic "AI 消息操作" [ref=e231]:
+                    - button "重新生成" [ref=e232] [cursor=pointer]:
+                      - img [ref=e233]
+                    - button "基于此继续" [ref=e236] [cursor=pointer]:
+                      - img [ref=e237]
+                    - button "复制消息" [ref=e239] [cursor=pointer]:
+                      - img [ref=e240]
+                    - group [ref=e243]:
+                      - generic "更多消息操作" [ref=e244] [cursor=pointer]:
+                        - img [ref=e245]
+            - article [ref=e249]:
+              - generic [ref=e250]:
+                - generic [ref=e251]:
+                  - paragraph [ref=e255]: 直接生成
+                  - generic "用户消息操作" [ref=e256]:
+                    - button "编辑并重发" [ref=e257] [cursor=pointer]:
+                      - img [ref=e258]
+                    - button "历史版本" [ref=e260] [cursor=pointer]:
+                      - img [ref=e261]
+                    - button "复制消息" [ref=e265] [cursor=pointer]:
+                      - img [ref=e266]
+                    - group [ref=e269]:
+                      - generic "更多消息操作" [ref=e270] [cursor=pointer]:
+                        - img [ref=e271]
+                - generic "你" [ref=e275]:
+                  - img [ref=e276]
+            - generic [ref=e279]:
+              - group [ref=e280]:
+                - status "部分任务步骤需要处理" [ref=e281] [cursor=pointer]:
+                  - generic [ref=e282]:
+                    - img [ref=e283]
+                    - img [ref=e285]
+                    - img [ref=e287]
+                  - strong [ref=e290]: 部分任务步骤需要处理
+              - status [ref=e291]:
+                - img [ref=e292]
+                - generic [ref=e294]:
+                  - strong [ref=e295]: 任务暂时中断
+                  - paragraph [ref=e296]: AI 简历撰写服务暂时不可用。本次没有写入简历，当前生成计划已保留。 当前 checkpoint 已保留，可以重试保存。
+            - generic "会话操作" [ref=e297]:
+              - button "重新执行当前步骤" [ref=e298] [cursor=pointer]:
+                - img [ref=e299]
+                - text: 重新执行当前步骤
+        - generic [ref=e302]:
+          - generic [ref=e303]:
+            - generic [ref=e304]: 描述你的求职任务
+            - textbox "描述你的求职任务" [ref=e305]:
+              - /placeholder: 补充你的实际经历，或回复“跳过”…
+          - generic [ref=e306]:
+            - button "添加材料与工具" [ref=e308] [cursor=pointer]:
+              - img [ref=e309]
+            - button "上传文件" [ref=e310]
+            - generic [ref=e311]:
+              - generic [ref=e312]: 等待确认
+              - button "发送消息" [disabled] [ref=e313]:
+                - img [ref=e314]
+          - generic:
+            - img
+            - text: 松开即可添加文件
+  - region "操作通知"
+```

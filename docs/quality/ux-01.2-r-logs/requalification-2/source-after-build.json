@@ -1,0 +1,9 @@
+{
+  "sourceChangesAfterBuild": [],
+  "isolatedExceptions": [
+    "Next-generated next-env.d.ts route path",
+    "Next-generated tsconfig types include globs",
+    "Scoped turbopack root"
+  ],
+  "result": "PASS"
+}

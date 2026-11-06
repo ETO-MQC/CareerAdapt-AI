@@ -96,7 +96,7 @@ try {
   const result = await runPlaywright(childEnvironment, appUrl, suite);
   if (result !== 0) throw new Error(`Hermes integration Playwright exited with code ${result}`);
   if (provider) {
-    assert(provider.requests.length > 0, "fake provider did not receive integration requests");
+    if (process.env.HERMES_INTEGRATION_PREFLIGHT_ONLY !== "1") assert(provider.requests.length > 0, "fake provider did not receive integration requests");
     assert(provider.requests.every((request) => request.authorization === `Bearer ${provider.apiKey}`), "integration control key crossed into Provider Authorization");
     if (isConfigR1) {
       const models = provider.requests.map((request) => request.model);
@@ -186,7 +186,7 @@ async function runPlaywright(environment, url, selectedSuite) {
       "playwright",
       "test",
       "--reporter=line,json",
-      `--config=${selectedSuite === "slow-provider" ? "playwright.hermes-slow-provider.config.ts" : selectedSuite === "core-behavior" ? "playwright.hermes-core-behavior.config.ts" : selectedSuite === "core-multiturn" ? "playwright.hermes-core-multiturn.config.ts" : selectedSuite === "config-r1" ? "playwright.hermes-r1.config.ts" : selectedSuite === "career-agent-eval" ? "playwright.career-agent-eval.config.ts" : selectedSuite === "career-agent-real" ? "playwright.career-agent-real.config.ts" : "playwright.hermes-integration.config.ts"}`,
+      `--config=${process.env.HERMES_INTEGRATION_CONFIG || (selectedSuite === "slow-provider" ? "playwright.hermes-slow-provider.config.ts" : selectedSuite === "core-behavior" ? "playwright.hermes-core-behavior.config.ts" : selectedSuite === "core-multiturn" ? "playwright.hermes-core-multiturn.config.ts" : selectedSuite === "config-r1" ? "playwright.hermes-r1.config.ts" : selectedSuite === "career-agent-eval" ? "playwright.career-agent-eval.config.ts" : selectedSuite === "career-agent-real" ? "playwright.career-agent-real.config.ts" : "playwright.hermes-integration.config.ts")}`,
       ...process.argv.slice(3)
     ];
     const child = spawnPnpm(args, {

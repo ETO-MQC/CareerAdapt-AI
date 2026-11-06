@@ -1,0 +1,46 @@
+{
+  "stage": "explicit_recovery_and_duplicate_confirm",
+  "businessStarted": true,
+  "writerFailures": 4,
+  "states": [
+    {
+      "state": "processing",
+      "text": "正在处理当前任务"
+    },
+    {
+      "state": "processing",
+      "text": "正在执行业务操作"
+    },
+    {
+      "state": "processing",
+      "text": "正在处理当前任务"
+    },
+    {
+      "state": "processing",
+      "text": "正在执行业务操作"
+    },
+    {
+      "state": "processing",
+      "text": "正在处理当前任务"
+    },
+    {
+      "state": "processing",
+      "text": "正在执行业务操作"
+    },
+    {
+      "state": "awaiting_confirmation",
+      "text": "等待你明确确认确认前不会正式保存；确认提交后仍需等待保存回执。"
+    },
+    {
+      "state": "awaiting_confirmation",
+      "text": "等待你明确确认确认前不会正式保存；确认提交后仍需等待保存回执。"
+    },
+    {
+      "state": "awaiting_confirmation",
+      "text": "等待你明确确认确认前不会正式保存；确认提交后仍需等待保存回执。"
+    }
+  ],
+  "errors": [
+    "\u001b[31mTest timeout of 120000ms exceeded.\u001b[39m"
+  ]
+}

@@ -4,6 +4,17 @@ import type { AgentMessage } from "@/agent/contracts/agentSession";
 import { AgentConversationTimeline } from "@/components/agent/AgentConversation";
 
 describe("AgentConversationTimeline", () => {
+  it("renders persisted recovery actions on a failed-write message and respects their option state", () => {
+    const onOption = vi.fn();
+    const message: AgentMessage = { id: "failed-write", turnId: "save-turn", role: "assistant", kind: "error_status", type: "error",
+      status: "complete", content: "保存未完成，提案已保留。", createdAt: "2026-11-06T00:00:00.000Z",
+      options: [{ id: "generate", label: "直接生成", action: { type: "answer", field: "resume-composition-decision", value: "直接生成" } }] };
+    const { rerender } = render(<AgentConversationTimeline messages={[message]} onOption={onOption} />);
+    fireEvent.click(screen.getByRole("button", { name: /^直接生成$/ }));
+    expect(onOption).toHaveBeenCalledWith(message.options![0]);
+    rerender(<AgentConversationTimeline messages={[{ ...message, metadata: { retracted: true } }]} onOption={onOption} />);
+    expect(screen.queryByRole("button", { name: /^直接生成$/ })).toBeNull();
+  });
   it("keeps one current tailoring review status when persisted turns contain duplicates", () => {
     render(
       <AgentConversationTimeline

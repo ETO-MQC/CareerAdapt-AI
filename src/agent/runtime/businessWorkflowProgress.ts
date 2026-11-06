@@ -76,6 +76,10 @@ export function projectBusinessWorkflowProgress(session: AgentSession): Business
         ? "已确认的简历版本仍保留，可以单独重新导出。"
         : `${completedTask ? "已完成的业务结果仍保留。" : ""}${businessFailureRecovery(code, diagnostics.safeErrorCategory)}`);
   }
+  const compositionWriteFailure = object(task?.knownSlots.resumeCompositionWriteFailure);
+  if (typeof compositionWriteFailure.code === "string") {
+    return view("blocked", "正式保存未完成", businessFailureRecovery(compositionWriteFailure.code));
+  }
   if (session.pendingConfirmation?.status === "pending" || facade.status === "waiting_for_confirmation"
     || task?.completionStatus === "waiting_for_confirmation") {
     return view("awaiting_confirmation", "等待你明确确认", "确认前不会正式保存；确认提交后仍需等待保存回执。");

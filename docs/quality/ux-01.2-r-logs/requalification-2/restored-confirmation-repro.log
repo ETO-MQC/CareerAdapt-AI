@@ -1,0 +1,68 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+ ❯ tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts (14 tests | 1 failed) 2906ms
+     × confirms a first facade proposal from a task-free conversation through the existing Repository gate 400ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts > P4.5c.1.2 confirmed composition write boundary > confirms a first facade proposal from a task-free conversation through the existing Repository gate
+AssertionError: expected "saveResumeCompositionCheckpoint" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st saveResumeCompositionCheckpoint call:
+
+    Array [
+      Object {
+        "blueprint": [Object],
+        "checkpointId": "resume-composition-e57703df-26799",
+        "compositionResult": [Object],
+        "contentHash": "fnv-e57703df-26799",
+        "createdAt": "2026-11-06T07:02:00.674Z",
+        "evidenceGraphHash": "fnv-c1fb6f8d-4371",
+        "mode": "general",
+        "profileId": "profile-demo-student",
+        "profileRevision": 1,
+        "reviewResult": [Object],
+        "targetContext": [Object],
+        "writingExecution": [Object],
+        "writingOutput": [Object],
+      },
+    ]
+
+
+Number of calls: 1
+
+ ❯ tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts:57:27
+     55|     const planWrite = vi.spyOn(fixture.repository, "saveResumeComposit…
+     56|     const completed = await host.resolveConfirmation(true, pageContext…
+     57|     expect(planWrite).not.toHaveBeenCalled();
+       |                           ^
+     58|     expect(completed?.taskState?.completionStatus).toBe("completed");
+     59|     await host.resolveConfirmation(true, pageContext, completed!);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 1 unhandled error during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+DatabaseClosedError: DatabaseClosedError Database has been closed
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { inner: { name: 'DatabaseClosedError', message: 'Database has been closed', inner: null, constructor: 'Function<DexieError>', toString: 'Function<toString>' } }
+This error originated in "tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "preserves the proposal on Repository failure and recovers the same confirmation without duplicate Revisions". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 13 passed (14)
+     Errors  1 error
+   Start at  15:01:55
+   Duration  7.38s (transform 2.53s, setup 155ms, import 3.19s, tests 2.91s, environment 909ms)
+

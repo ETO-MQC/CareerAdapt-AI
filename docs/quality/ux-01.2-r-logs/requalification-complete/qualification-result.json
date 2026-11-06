@@ -1,0 +1,306 @@
+{
+  "stage": "P5.1-UX-01.2-R",
+  "date": "2026-11-06",
+  "status": "CLOSED WITH DOCUMENTED LIMITATIONS",
+  "originalImplementationCommit": "090f3dab8699b39ce9bfabdb48e5a37ee26f827e",
+  "authorization": "Latest user explicitly clarified quota purpose and authorized prepared autonomous retries toward full qualification. All attempts local Scripted; no real Provider quota. Original identity retained, retries=0 per invocation.",
+  "currentTurnBrowserAttempts": [
+    {
+      "directory": "requalification-2",
+      "exitCode": 1,
+      "reason": "Real Facade proposal reached awaiting_confirmation UI but no Host TaskState; durable Task checkpoint missing"
+    },
+    {
+      "directory": "requalification-3",
+      "exitCode": 1,
+      "reason": "Confirmed writing failure safely retained proposal, but recovery button unavailable; old confirmation unconsumed and error actions absent/not rendered"
+    },
+    {
+      "directory": "requalification-final",
+      "exitCode": 1,
+      "reason": "Recovery saved exactly one new Revision; business completion projection omitted authoritative revisionId and remained awaiting_input"
+    },
+    {
+      "directory": "requalification-complete",
+      "exitCode": 0,
+      "reason": "Full original scenario passed; no assertions removed/threshold relaxed"
+    }
+  ],
+  "productionChanges": {
+    "files": [
+      "src/agent/runtime/AgentHostStore.ts",
+      "src/agent/runtime/businessWorkflowProgress.ts",
+      "src/components/agent/AgentConversation.tsx"
+    ],
+    "reasons": [
+      "Bootstrap the original composition task only from a real resume_composition Facade checkpoint; read-only review stays task-free",
+      "Restore confirmation through the reviewed checkpoint canonical CAS/idempotent command, consume old pending confirmation",
+      "Persist recovery options after failed confirmed write; render active options on error messages using the existing gating rules",
+      "Project confirmed result.revisionId/profile/mode into existing TaskState so unchanged completion guard can validate real completion",
+      "Show failed formal save as blocked/unsaved without claiming the draft was lost"
+    ],
+    "boundariesUnchanged": [
+      "Resume Schema v2",
+      "WorkspaceRepository formal writes",
+      "Confirmation/CAS/Revision guarantees",
+      "Fact Guard and Claim Safety thresholds",
+      "Hermes runtime/Skill/tools/Provider defaults",
+      "No new DB table or production dependency"
+    ]
+  },
+  "finalBrowser": {
+    "testFile": "tests/e2e/ux012-business-recovery.spec.ts",
+    "identity": "UX012 persisted rate-limit recovery preserves input and requires an explicit new request",
+    "exitCode": 0,
+    "passed": 1,
+    "durationDisplay": "1.5m",
+    "providerKind": "real staging Hermes + local Scripted Provider + controlled external structured writing HTTP responses",
+    "scriptedInferenceRequests": 4,
+    "injectedWritingFailures": 4,
+    "realProviderRequests": 0,
+    "realApiKeysRead": false,
+    "lastStage": "complete",
+    "log": "ux-01.2-r-logs/requalification-complete/browser.log",
+    "trace": "ux-01.2-r-logs/requalification-complete/business-browser-results/ux012-business-recovery-UX-44bd5-res-an-explicit-new-request/trace.zip",
+    "summary": "ux-01.2-r-logs/requalification-complete/business-proof-summary.json",
+    "states": [
+      {
+        "state": "processing",
+        "text": "正在处理当前任务"
+      },
+      {
+        "state": "processing",
+        "text": "正在执行业务操作"
+      },
+      {
+        "state": "processing",
+        "text": "正在处理当前任务"
+      },
+      {
+        "state": "processing",
+        "text": "正在执行业务操作"
+      },
+      {
+        "state": "processing",
+        "text": "正在处理当前任务"
+      },
+      {
+        "state": "processing",
+        "text": "正在执行业务操作"
+      },
+      {
+        "state": "awaiting_confirmation",
+        "text": "等待你明确确认确认前不会正式保存；确认提交后仍需等待保存回执。"
+      },
+      {
+        "state": "awaiting_confirmation",
+        "text": "等待你明确确认确认前不会正式保存；确认提交后仍需等待保存回执。"
+      },
+      {
+        "state": "blocked",
+        "text": "正式保存未完成具体操作尚未完成，输入和已有进度已保留。请核对结果后从当前步骤继续。"
+      },
+      {
+        "state": "blocked",
+        "text": "正式保存未完成具体操作尚未完成，输入和已有进度已保留。请核对结果后从当前步骤继续。"
+      },
+      {
+        "state": "completed",
+        "text": "当前业务步骤已完成结果由业务回执核验。"
+      },
+      {
+        "state": "completed",
+        "text": "当前业务步骤已完成结果由业务回执核验。"
+      },
+      {
+        "state": "processing",
+        "text": "正在处理当前任务"
+      },
+      {
+        "state": "partial",
+        "text": "本次运行已取消已保存的内容和候选仍然保留，取消不会撤销已完成的保存。"
+      },
+      {
+        "state": "partial",
+        "text": "本次运行已取消已保存的内容和候选仍然保留，取消不会撤销已完成的保存。"
+      }
+    ]
+  },
+  "checks": {
+    "A": "PASS for real submit/processing/Facade proposal/receipt persistence/awaiting confirmation; does not certify adversarial real-model behavior",
+    "B": "PASS for no new Revision before/failed confirmation, explicit successful recovery, UI double click produces one target branch+Revision, Profile unchanged",
+    "C": "PASS representative confirmed writing Tool failure then explicit recovery and real Run cancellation after save. 429/CAS remain layered tests, not new browser scenarios",
+    "D": "PASS proposal confirmation state after reload, failed proposal recovery after reload, successful business completion after reload, cancelled runtime plus persisted confirmed result after reload"
+  },
+  "repositoryCounts": {
+    "before": {
+      "branchCount": 1,
+      "revisionCount": 1,
+      "taskStatus": null,
+      "taskStage": null,
+      "selectedRevision": null,
+      "runStatus": null
+    },
+    "proposal": {
+      "branchCount": 1,
+      "revisionCount": 1,
+      "taskStatus": "waiting_for_confirmation",
+      "taskStage": "review_composition",
+      "selectedRevision": null,
+      "runStatus": "running"
+    },
+    "write-failed": {
+      "branchCount": 1,
+      "revisionCount": 1,
+      "taskStatus": "waiting_for_user",
+      "taskStage": "confirm_create",
+      "selectedRevision": null,
+      "runStatus": "completed"
+    },
+    "saved": {
+      "branchCount": 2,
+      "revisionCount": 2,
+      "taskStatus": "completed",
+      "taskStage": "resume_ready",
+      "selectedRevision": "resume-revision-fnv-362a15b7-74",
+      "runStatus": "completed"
+    },
+    "cancelled": {
+      "branchCount": 2,
+      "revisionCount": 2,
+      "taskStatus": "completed",
+      "taskStage": "resume_ready",
+      "selectedRevision": "resume-revision-fnv-362a15b7-74",
+      "runStatus": "cancelled"
+    },
+    "terminal": {
+      "branchCount": 2,
+      "revisionCount": 2,
+      "taskStatus": "completed",
+      "taskStage": "resume_ready",
+      "selectedRevision": "resume-revision-fnv-362a15b7-74",
+      "runStatus": "cancelled"
+    },
+    "states": [
+      {
+        "state": "processing",
+        "text": "正在处理当前任务"
+      },
+      {
+        "state": "processing",
+        "text": "正在执行业务操作"
+      },
+      {
+        "state": "processing",
+        "text": "正在处理当前任务"
+      },
+      {
+        "state": "processing",
+        "text": "正在执行业务操作"
+      },
+      {
+        "state": "processing",
+        "text": "正在处理当前任务"
+      },
+      {
+        "state": "processing",
+        "text": "正在执行业务操作"
+      },
+      {
+        "state": "awaiting_confirmation",
+        "text": "等待你明确确认确认前不会正式保存；确认提交后仍需等待保存回执。"
+      },
+      {
+        "state": "awaiting_confirmation",
+        "text": "等待你明确确认确认前不会正式保存；确认提交后仍需等待保存回执。"
+      },
+      {
+        "state": "blocked",
+        "text": "正式保存未完成具体操作尚未完成，输入和已有进度已保留。请核对结果后从当前步骤继续。"
+      },
+      {
+        "state": "blocked",
+        "text": "正式保存未完成具体操作尚未完成，输入和已有进度已保留。请核对结果后从当前步骤继续。"
+      },
+      {
+        "state": "completed",
+        "text": "当前业务步骤已完成结果由业务回执核验。"
+      },
+      {
+        "state": "completed",
+        "text": "当前业务步骤已完成结果由业务回执核验。"
+      },
+      {
+        "state": "processing",
+        "text": "正在处理当前任务"
+      },
+      {
+        "state": "partial",
+        "text": "本次运行已取消已保存的内容和候选仍然保留，取消不会撤销已完成的保存。"
+      },
+      {
+        "state": "partial",
+        "text": "本次运行已取消已保存的内容和候选仍然保留，取消不会撤销已完成的保存。"
+      }
+    ],
+    "lastStage": "complete",
+    "writerFailures": 4,
+    "providerRequests": 4
+  },
+  "finalVerification": {
+    "unitIntegrationComponent": {
+      "files": 12,
+      "tests": 118,
+      "skip": 0,
+      "exitCode": 0,
+      "log": "ux-01.2-r-logs/requalification-final/final-tests.log"
+    },
+    "typecheck": {
+      "exitCode": 0,
+      "log": "ux-01.2-r-logs/requalification-final/final-typecheck.log"
+    },
+    "eslint": {
+      "files": 11,
+      "exitCode": 0,
+      "log": "ux-01.2-r-logs/requalification-final/final-eslint.log"
+    },
+    "build": {
+      "exitCode": 0,
+      "cwd": ".tmp/rp011-app",
+      "command": "CAREERAD_NEXT_DIST_DIR=.next-ux012-r pnpm build",
+      "log": "ux-01.2-r-logs/requalification-final/final-production-build.log",
+      "sourceCheck": "ux-01.2-r-logs/requalification-complete/final-source-check.json",
+      "warnings": "Existing pdfjs-dist worker externalization warnings; no PDF certification inferred"
+    },
+    "diff": {
+      "exitCode": 0,
+      "log": "ux-01.2-r-logs/requalification-complete/final-diff-check.log"
+    }
+  },
+  "limitations": [
+    "UX-A remains independently PARTIAL; UX-A/UX-B and award contract not rerun",
+    "Scripted Provider qualifies protocol/workflow behavior, not real model quality",
+    "No new full PDF or all historical workflows/viewport/Release Gate regression",
+    "429, CAS and late-old-Run combinations use existing layered tests rather than claiming this browser covered every fault",
+    "Background fork costs/individual receipts remain limited by current Runtime telemetry"
+  ],
+  "uxAStatus": "PARTIAL",
+  "uxABrowserRuns": 0,
+  "uxBBrowserRuns": 0,
+  "awardsReopened": false,
+  "ux013Started": false,
+  "committed": false,
+  "pushed": false,
+  "packaged": false,
+  "repositoryReadback": {
+    "sourceBranchesUnchanged": true,
+    "profilesUnchanged": true,
+    "cancelledBranchesUnchanged": true,
+    "cancelledRevisionsUnchanged": true,
+    "afterReloadBranchesUnchanged": true,
+    "afterReloadRevisionsUnchanged": true,
+    "targetRevisionId": "resume-revision-fnv-362a15b7-74",
+    "targetRevisionExists": true
+  },
+  "ux013ReviewEligible": true
+}

@@ -79,6 +79,21 @@ it("restores a read-only facade receipt before narration and completes without c
   expect(await repository.listResumeBranches()).toHaveLength(0);
 });
 
+it("creates a durable composition task from an authoritative proposal in a new conversation", async () => {
+  const { host, persistence, repository, shell, event, initial } = await setup();
+  expect(host.getSnapshot().activeSession?.taskState).toBeUndefined();
+  await host.applyRuntimeEvent({ ...event, type: "tool_call_completed", toolName: "career.workflow.compose_resume", operationId: "compose-plan",
+    data: { result: { ok: true, data: { status: "waiting_for_confirmation", workflowStage: "review_composition",
+      workflowCheckpoint: { kind: "resume_composition", checkpointId: "source-backed-plan", profileId: "confirmed-profile",
+        expectedProfileRevision: 1, mode: "general", proposal: { title: "已确认来源提案" } } } } } }, shell.assistantMessageId);
+  const saved = await persistence.get(initial.id);
+  expect(saved?.taskState).toMatchObject({ workflowId: "compose_resume", rootGoal: "compose_resume", stage: "review_composition",
+    completionStatus: "waiting_for_confirmation", selectedEntities: { profileId: "confirmed-profile" },
+    knownSlots: { resumeCompositionCheckpoint: { checkpointId: "source-backed-plan" } } });
+  expect(progress(saved!).state).toBe("awaiting_confirmation");
+  expect(await repository.listResumeBranches()).toHaveLength(0);
+});
+
 it("accepts only a known pending bridge receipt after model completion and corrects a false success", async () => {
   const { host, shell, event, initial, persistence } = await setup();
   const handle = { runId: "foreground", hermesSessionId: "hermes", careerAgentSessionId: initial.id, turnId: shell.turnId,

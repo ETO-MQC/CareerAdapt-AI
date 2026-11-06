@@ -1,0 +1,50 @@
+{
+  "suite": "integration",
+  "exitCode": 1,
+  "requests": [
+    {
+      "model": "careeradapt-test",
+      "providerAuthorizationMatches": true,
+      "toolNames": [
+        "mcp__careeradapt__career_context_retrieve",
+        "mcp__careeradapt__career_job_list",
+        "mcp__careeradapt__career_profile_get",
+        "mcp__careeradapt__career_resume_list",
+        "mcp__careeradapt__career_workflow_compose_resume",
+        "mcp__careeradapt__career_workflow_job_fit",
+        "mcp__careeradapt__career_workflow_job_intake",
+        "mcp__careeradapt__career_workflow_material_intake",
+        "mcp__careeradapt__career_workflow_profile_intake_finalize",
+        "mcp__careeradapt__career_workflow_profile_intake_turn",
+        "mcp__careeradapt__career_workflow_resume_export",
+        "mcp__careeradapt__career_workflow_resume_import",
+        "mcp__careeradapt__career_workflow_tailor_resume",
+        "skill_manage",
+        "skill_view",
+        "skills_list"
+      ]
+    },
+    {
+      "model": "careeradapt-test",
+      "providerAuthorizationMatches": true,
+      "toolNames": [
+        "mcp__careeradapt__career_context_retrieve",
+        "mcp__careeradapt__career_job_list",
+        "mcp__careeradapt__career_profile_get",
+        "mcp__careeradapt__career_resume_list",
+        "mcp__careeradapt__career_workflow_compose_resume",
+        "mcp__careeradapt__career_workflow_job_fit",
+        "mcp__careeradapt__career_workflow_job_intake",
+        "mcp__careeradapt__career_workflow_material_intake",
+        "mcp__careeradapt__career_workflow_profile_intake_finalize",
+        "mcp__careeradapt__career_workflow_profile_intake_turn",
+        "mcp__careeradapt__career_workflow_resume_export",
+        "mcp__careeradapt__career_workflow_resume_import",
+        "mcp__careeradapt__career_workflow_tailor_resume",
+        "skill_manage",
+        "skill_view",
+        "skills_list"
+      ]
+    }
+  ]
+}

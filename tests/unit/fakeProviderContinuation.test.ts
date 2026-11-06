@@ -1,5 +1,28 @@
 import { expect, it } from "vitest";
 
+it("UX012 compose fixture requires a real Resume summary when the Run has no Host checkpoint", async () => {
+  const { startFakeOpenAiProvider } = await import("../support/fake-openai-compatible-provider.mjs");
+  const provider = await startFakeOpenAiProvider({ mode: "integration" });
+  const list = "mcp__careeradapt__career_resume_list";
+  const get = "mcp__careeradapt__career_profile_get";
+  const messages: Array<Record<string, unknown>> = [{ role: "user", content: "P51-C02-COMPOSE 根据当前资料生成通用简历提案" }];
+  const next = async () => (await (await fetch(`${provider.baseUrl}/chat/completions`, {
+    method: "POST", headers: { Authorization: `Bearer ${provider.apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: "careeradapt-test", messages, tools: [list, get].map(name => ({ type: "function", function: { name } })) })
+  })).json()).choices[0].message;
+  try {
+    expect((await next()).tool_calls[0].function.name).toBe(list);
+    messages.push({ role: "tool", name: list, content: JSON.stringify({ ok: true, data: { resumes: [] } }) });
+    expect((await next()).content).toContain("C02COMPOSEMISSINGPROFILE");
+    messages[1] = { role: "tool", name: list, content: JSON.stringify({ ok: true, data: {
+      resumes: [{ id: "official-import-source", purpose: "general", profileId: "official-import-profile" }]
+    } }) };
+    const read = (await next()).tool_calls[0].function;
+    expect(read.name).toBe(get);
+    expect(JSON.parse(read.arguments)).toEqual({ profileId: "official-import-profile" });
+  } finally { await provider.close(); }
+});
+
 it("recognizes the confirmed MCP receipt inside the locked Hermes untrusted-tool envelope", async () => {
   const { startFakeOpenAiProvider } = await import("../support/fake-openai-compatible-provider.mjs");
   const provider = await startFakeOpenAiProvider({ mode: "integration" });

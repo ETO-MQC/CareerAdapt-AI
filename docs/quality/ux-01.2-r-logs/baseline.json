@@ -1,0 +1,10 @@
+{
+  "head": "090f3dab8699b39ce9bfabdb48e5a37ee26f827e",
+  "branch": "competition/5.1.8",
+  "status": "",
+  "log": "090f3da 2026-11-06 UX-01.2\n37c5542 2026-11-05 UX-01.1-R\nd34f8a5 P5.1-UX-01.1\n874a03b P5.1-RP-01.1",
+  "diff": "",
+  "remote": "37c5542e0a86607455e8e2f38e2b39a27c3dbc0b\trefs/heads/competition/5.1.8",
+  "old113InputMismatches": [],
+  "sourceInterpretation": "Local 090f3da includes UX012; remote prior 37c5542, preserve local; no reset/fetch overwrite."
+}

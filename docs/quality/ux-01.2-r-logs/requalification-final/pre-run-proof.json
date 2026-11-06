@@ -1,0 +1,10 @@
+{
+  "changesSinceFinalBuild": [
+    "tests/unit/agentConversationStructure.test.tsx"
+  ],
+  "productionChanged": false,
+  "typecheck": "final-typecheck-passed.log exit0",
+  "tests": "118 plus final renderer subset",
+  "build": "accepted-production-build.log exit0",
+  "reasonForPreparedRetry": "User latest authorization permits root-cause-directed retries with local Scripted Provider; both new-task and confirmation-recovery chain fixed and regression verified"
+}

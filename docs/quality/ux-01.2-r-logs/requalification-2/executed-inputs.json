@@ -1,0 +1,5 @@
+{
+  "tests/e2e/ux012-business-recovery.spec.ts": "797eabe77e8bcafea32cc82ae1963dd200026696feca3863212ffac86a35b260",
+  "playwright.ux012.config.ts": "45c5d3bc171c10abb3a36cb6e952e48fe5349b7786390a58a375a7e72b7fb7aa",
+  "scripts/hermes-integration.mjs": "ade8e7736d16d7429eabd9fdcf6f706463c40050bf66ef82bebb1d592de14303"
+}
