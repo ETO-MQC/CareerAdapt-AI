@@ -1,0 +1,12 @@
+{
+  "status": "PARTIAL",
+  "authority": "WorkspaceRepository",
+  "storage": "Dexie/IndexedDB in existing product",
+  "port": "CareerPersistencePort.withBranchMutation only; not full Profile ReadPort",
+  "ui": "ProfileWorkspace directly calls Repository (line73,506); broad UI→DomainService rule is target, not uniformly current behavior",
+  "cas": "branch mutation revision checked inside one five-store unit of work",
+  "replay": "lookup before CAS but missing full scope/payload binding",
+  "readSideEffects": "R05",
+  "confirmation": "R09",
+  "nodeServiceProduction": false
+}

@@ -1,0 +1,11 @@
+{
+  "status": "BLOCKED",
+  "lockedVersion": "0.19.0 eb527605",
+  "sdk": "shared Renderer authority, rest/socket/storage/host RPC; manifest not sandbox",
+  "backend": "fixture broker HTTP access exists; no grant epoch per Career call",
+  "disable": "contributions disposed, captured rest closure not revoked",
+  "trustedIdentity": "request IDs alone not identity; server/broker-derived Profile/Session scope required",
+  "issues": [
+    "R03"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "status": "BLOCKED",
+  "existing": [
+    "QuestionPlan activeQuestionId",
+    "answer receipts and local plan advancement",
+    "mode budgets bounded to 5 (max_fit cap3)",
+    "summary/skills targets and source-bound experience claims",
+    "review diff and final apply",
+    "job branch creation and Repository revision guards"
+  ],
+  "limits": [
+    "R12: defaults steady0/competitive1/other3 differ from universal usual2-3 request",
+    "existing mature product workflow must be reused",
+    "not every answer reruns full analysis; answer path updates plan",
+    "trusted external write entry remains blocked",
+    "full product requirement suite not rerun; no universal no-fabrication claim"
+  ],
+  "source": "src/services/jobs/tailoringService.ts:1102; src/services/jobs/tailoringCommands.ts"
+}

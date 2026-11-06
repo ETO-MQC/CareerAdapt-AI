@@ -1,0 +1,161 @@
+{
+  "status": "DESIGN ONLY for future slice",
+  "fixture": "synthetic two persons/profiles plus empty, missing, legacy and >60 item profiles; dedicated isolated database/home",
+  "cases": [
+    {
+      "id": 1,
+      "name": "current_profile",
+      "assertion": "trusted current Profile A only",
+      "level": "Unit/Integration plus actual locked Host for lifecycle/tool cases",
+      "executedThisRound": false
+    },
+    {
+      "id": 2,
+      "name": "experiences",
+      "assertion": "all paged project/work/internship IDs match canonical fixture",
+      "level": "Unit/Integration plus actual locked Host for lifecycle/tool cases",
+      "executedThisRound": false
+    },
+    {
+      "id": 3,
+      "name": "skills",
+      "assertion": "skills returned without keyword-match omission",
+      "level": "Unit/Integration plus actual locked Host for lifecycle/tool cases",
+      "executedThisRound": false
+    },
+    {
+      "id": 4,
+      "name": "empty",
+      "assertion": "empty success, not fabricated text",
+      "level": "Unit/Integration plus actual locked Host for lifecycle/tool cases",
+      "executedThisRound": false
+    },
+    {
+      "id": 5,
+      "name": "missing",
+      "assertion": "NOT_FOUND, no fallback Profile",
+      "level": "Unit/Integration plus actual locked Host for lifecycle/tool cases",
+      "executedThisRound": false
+    },
+    {
+      "id": 6,
+      "name": "isolation",
+      "assertion": "A grant cannot read B; switch invalidates old Session lease",
+      "level": "Unit/Integration plus actual locked Host for lifecycle/tool cases",
+      "executedThisRound": false
+    },
+    {
+      "id": 7,
+      "name": "schema",
+      "assertion": "unknown keys, wrong types, oversized limits and injected profileId fail",
+      "level": "Unit/Integration plus actual locked Host for lifecycle/tool cases",
+      "executedThisRound": false
+    },
+    {
+      "id": 8,
+      "name": "no_dexie",
+      "assertion": "plugin bundle/transitive graph excludes Dexie/Repository/IndexedDB",
+      "level": "Unit/Integration plus actual locked Host for lifecycle/tool cases",
+      "executedThisRound": false
+    },
+    {
+      "id": 9,
+      "name": "provenance",
+      "assertion": "fact/evidence/ranges/confirmation status resolve within same Profile",
+      "level": "Unit/Integration plus actual locked Host for lifecycle/tool cases",
+      "executedThisRound": false
+    },
+    {
+      "id": 10,
+      "name": "zero_write",
+      "assertion": "all stores and timestamps unchanged incl appMeta; legacy fixture initialization refused",
+      "level": "Unit/Integration plus actual locked Host for lifecycle/tool cases",
+      "executedThisRound": false
+    },
+    {
+      "id": 11,
+      "name": "failure",
+      "assertion": "error tool result stays failure; assistant cannot claim fetched success",
+      "level": "Unit/Integration plus actual locked Host for lifecycle/tool cases",
+      "executedThisRound": false
+    },
+    {
+      "id": 12,
+      "name": "reload",
+      "assertion": "history replay never calls handler; count unchanged",
+      "level": "Unit/Integration plus actual locked Host for lifecycle/tool cases",
+      "executedThisRound": false
+    },
+    {
+      "id": 13,
+      "name": "native_session",
+      "assertion": "A/B Sessions retain native IDs/history isolation",
+      "level": "Unit/Integration plus actual locked Host for lifecycle/tool cases",
+      "executedThisRound": false
+    },
+    {
+      "id": 14,
+      "name": "streaming",
+      "assertion": "real native delta/result order and tool_call_id correlation",
+      "level": "Unit/Integration plus actual locked Host for lifecycle/tool cases",
+      "executedThisRound": false
+    },
+    {
+      "id": 15,
+      "name": "stop",
+      "assertion": "native Stop interrupts in-flight turn; no late tool execution/replay",
+      "level": "Unit/Integration plus actual locked Host for lifecycle/tool cases",
+      "executedThisRound": false
+    },
+    {
+      "id": 16,
+      "name": "optout",
+      "assertion": "optIn=false has no Career module, tool or grant",
+      "level": "Unit/Integration plus actual locked Host for lifecycle/tool cases",
+      "executedThisRound": false
+    },
+    {
+      "id": 17,
+      "name": "revocation",
+      "assertion": "retained closure fails after disable and reload epoch invalidation",
+      "level": "Unit/Integration plus actual locked Host for lifecycle/tool cases",
+      "executedThisRound": false
+    },
+    {
+      "id": 18,
+      "name": "unknown",
+      "assertion": "server accepted/executed then drop ACK; no repeat/fallback; history reconciled",
+      "level": "Unit/Integration plus actual locked Host for lifecycle/tool cases",
+      "executedThisRound": false
+    },
+    {
+      "id": 19,
+      "name": "paging",
+      "assertion": "more than60 items/800chars explicitly bounded with no silent completeness claim",
+      "level": "Unit/Integration plus actual locked Host for lifecycle/tool cases",
+      "executedThisRound": false
+    },
+    {
+      "id": 20,
+      "name": "untrusted_source",
+      "assertion": "JD/source prompt injection cannot change scope or become Profile fact",
+      "level": "Unit/Integration plus actual locked Host for lifecycle/tool cases",
+      "executedThisRound": false
+    }
+  ],
+  "testsActuallyRun": [
+    {
+      "command": "pnpm exec vitest run tests/unit/agentProfileTools.test.ts tests/unit/p520b1-persistence-port.test.ts tests/unit/repositoryTailoringV2.test.ts tests/unit/p522-slice1-profile-projection.test.ts",
+      "exitCode": 0,
+      "files": 4,
+      "tests": 21
+    },
+    {
+      "command": "pnpm exec vitest run tests/unit/jobWorkflow.test.ts tests/unit/p45c1c15-career-context-binding.test.ts tests/unit/tailoringCommands.test.ts tests/unit/resumeV2Schema.test.ts",
+      "exitCode": 0,
+      "files": 4,
+      "tests": 26
+    }
+  ],
+  "limits": "Existing synthetic tests validate local behavior only; not future service contracts or L4 tool integration. No historical test rerun, Provider, Electron or user DB access."
+}

@@ -1,0 +1,17 @@
+{
+  "status": "CONDITIONAL GO",
+  "scope": "read/analysis design only; mutations BLOCKED",
+  "schema": "Resume Schema v2; no second JSON",
+  "existing": [
+    "ResumeBranch general/job purpose and source version",
+    "ResumeRevision history and branch CAS",
+    "derived ResumeDocument mapper",
+    "presentation projector; existing preview/PDF product paths"
+  ],
+  "limits": [
+    "CAS evidence applies to mutation path, not all saves globally",
+    "operation replay can return latest branch with historical revision",
+    "no native Host end-to-end Resume read/preview/export qualification this round"
+  ],
+  "reuse": true
+}

@@ -1,0 +1,27 @@
+{
+  "status": "CONDITIONAL GO",
+  "reuseExisting": true,
+  "source": "src/agent/tools/CareerToolGateway.ts",
+  "capabilities": [
+    "stable names to registry source names",
+    "typed input/output contract",
+    "read/write metadata",
+    "confirmation policy",
+    "binding and result checks",
+    "error taxonomy",
+    "workflow facade",
+    "receipt envelope"
+  ],
+  "limits": [
+    "binding optional unless required by trusted composition root",
+    "verifier absence returns without independent verification",
+    "idempotencyKey receipt field is not an atomic idempotency guarantee",
+    "registry/service are browser-owned; native Host not wired to canonical read authority"
+  ],
+  "issues": [
+    "R02",
+    "R04",
+    "R06",
+    "R07"
+  ]
+}

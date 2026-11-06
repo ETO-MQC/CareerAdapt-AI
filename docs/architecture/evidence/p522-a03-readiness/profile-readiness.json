@@ -1,0 +1,20 @@
+{
+  "status": "CONDITIONAL GO",
+  "implementation": [
+    "CareerProfile v2 canonical structured facts + evidence/source ranges/provenance",
+    "personId/Profile ownership and version metadata",
+    "BrowserAgentToolService.getProfile/searchProfileFacts",
+    "WorkspaceRepository formal writes and intake/reconciliation"
+  ],
+  "poc": [
+    "Profile display adapters and fake service only in native Host"
+  ],
+  "blockers": [
+    "R03",
+    "R05",
+    "R06",
+    "R07"
+  ],
+  "writeStatus": "BLOCKED",
+  "noRealProfileAccess": true
+}

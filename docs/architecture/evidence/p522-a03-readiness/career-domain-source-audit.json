@@ -1,0 +1,1925 @@
+{
+  "sources": [
+    {
+      "path": "src/agent/tools/CareerToolGateway.ts",
+      "sha256": "032f5e8e1261f1ea977f116223c9009cdae6766e15f3ea487c58b1e0889da660",
+      "lines": 1245,
+      "anchors": [
+        {
+          "line": 121,
+          "text": "confirmed?: boolean;"
+        },
+        {
+          "line": 126,
+          "text": "requireSessionBinding?: boolean;"
+        },
+        {
+          "line": 162,
+          "text": "verifySessionBinding?: ("
+        },
+        {
+          "line": 296,
+          "text": "confirmed: context.confirmed,"
+        },
+        {
+          "line": 300,
+          "text": "requireSessionBinding: context.requireSessionBinding,"
+        },
+        {
+          "line": 335,
+          "text": "artifactIds: result.artifacts.map((artifact) => artifact.id),"
+        },
+        {
+          "line": 502,
+          "text": "confirmed: context.confirmed,"
+        },
+        {
+          "line": 506,
+          "text": "requireSessionBinding: context.requireSessionBinding,"
+        },
+        {
+          "line": 535,
+          "text": "artifacts: (raw.artifactIds ?? []).map((id) => ({"
+        },
+        {
+          "line": 559,
+          "text": "if (context.requireSessionBinding && !binding && contract.personProfileBinding === \"required\") {"
+        },
+        {
+          "line": 568,
+          "text": "const verifier = this.asDependencies().verifySessionBinding;"
+        },
+        {
+          "line": 774,
+          "text": "confirmed: input.confirmed,"
+        },
+        {
+          "line": 778,
+          "text": "requireSessionBinding: input.requireSessionBinding,"
+        },
+        {
+          "line": 792,
+          "text": "confirmed: input.confirmed,"
+        },
+        {
+          "line": 796,
+          "text": "requireSessionBinding: input.requireSessionBinding,"
+        },
+        {
+          "line": 812,
+          "text": "artifactIds: result.artifacts.map((artifact) => artifact.id),"
+        },
+        {
+          "line": 1138,
+          "text": "const profileId = firstString(value.profileId, value.targetProfileId, value.activeProfileId);"
+        }
+      ]
+    },
+    {
+      "path": "src/agent/tools/registry.ts",
+      "sha256": "41f60dc7d618616e5b83557af6fe6a7281ccf1159615662143c1f77b81717001",
+      "lines": 543,
+      "anchors": [
+        {
+          "line": 34,
+          "text": "getProfile?(input: unknown, signal?: AbortSignal): Promise<unknown>;"
+        },
+        {
+          "line": 35,
+          "text": "searchProfileFacts?(input: unknown, signal?: AbortSignal): Promise<unknown>;"
+        },
+        {
+          "line": 117,
+          "text": "targetProfileId: z.string().min(1),"
+        },
+        {
+          "line": 170,
+          "text": "targetProfileId: z.string().min(1),"
+        },
+        {
+          "line": 176,
+          "text": "targetProfileId: z.string().min(1)"
+        },
+        {
+          "line": 183,
+          "text": "targetProfileId: z.string().min(1),"
+        },
+        {
+          "line": 189,
+          "text": "targetProfileId: z.string().min(1),"
+        },
+        {
+          "line": 255,
+          "text": "targetProfileId: z.string().min(1),"
+        },
+        {
+          "line": 344,
+          "text": "define(services, meta(\"get_profile\", \"按 profileId 读取权威 CareerProfile 详情和来源支持的资料条目。\", \"read\", false, true, true, ProfileIdInputSchema, \"profile\", \"career_profile\"), (input, _, signal) => services.getProfile ? services.getProfile(input, signa"
+        },
+        {
+          "line": 345,
+          "text": "define(services, meta(\"search_profile_facts\", \"在指定 CareerProfile 中检索与问题相关的真实经历、技能、教育或证书。\", \"read\", false, true, true, ProfileSearchInputSchema, \"profile\", \"profile_facts\"), (input, _, signal) => services.searchProfileFacts ? services.search"
+        },
+        {
+          "line": 469,
+          "text": "artifactIds: [],"
+        },
+        {
+          "line": 487,
+          "text": "artifactIds: tool.producesArtifact ? [`agent-artifact-${name}-${operationId}`] : [],"
+        },
+        {
+          "line": 501,
+          "text": "artifactIds: [],"
+        }
+      ]
+    },
+    {
+      "path": "src/agent/tools/careerToolContract.ts",
+      "sha256": "e4953410acacd73ff0be9258aff538f8d007618aece5bd08b061b61b0a5b099f",
+      "lines": 365,
+      "anchors": []
+    },
+    {
+      "path": "src/services/agent/agentToolService.ts",
+      "sha256": "50d33fc678b9e27980893cd45d12cb5ff6ff8dd55a1970f707758077c02a2a0c",
+      "lines": 2625,
+      "anchors": [
+        {
+          "line": 226,
+          "text": "targetProfileId: string;"
+        },
+        {
+          "line": 238,
+          "text": "const profile = await this.repository.getProfile(input.targetProfileId);"
+        },
+        {
+          "line": 384,
+          "text": "activeQuestionId: prospectivePlan.activeQuestionId"
+        },
+        {
+          "line": 615,
+          "text": "...(userCorrectionProvenance ? { provenance: [...(item.provenance ?? []), userCorrectionProvenance] } : {}),"
+        },
+        {
+          "line": 650,
+          "text": "provenance: edited.provenance ?? asset.provenance"
+        },
+        {
+          "line": 664,
+          "text": "activeQuestionId: nextInterviewPlan.activeQuestionId,"
+        },
+        {
+          "line": 726,
+          "text": "targetProfileId: string;"
+        },
+        {
+          "line": 731,
+          "text": "const profile = await this.repository.getProfile(input.targetProfileId);"
+        },
+        {
+          "line": 738,
+          "text": "profileId: input.targetProfileId"
+        },
+        {
+          "line": 753,
+          "text": "targetProfileId: string;"
+        },
+        {
+          "line": 769,
+          "text": "targetProfileId: string;"
+        },
+        {
+          "line": 776,
+          "text": "const profile = await this.repository.getProfile(input.targetProfileId);"
+        },
+        {
+          "line": 781,
+          "text": "profileId: input.targetProfileId,"
+        },
+        {
+          "line": 787,
+          "text": "profileId: input.targetProfileId,"
+        },
+        {
+          "line": 800,
+          "text": "await assertActiveProfileBinding(this.repository, { targetProfileId: input.profileId, acknowledgedActiveProfileId: input.acknowledgedActiveProfileId });"
+        },
+        {
+          "line": 801,
+          "text": "const profile = await this.repository.getProfile(input.profileId);"
+        },
+        {
+          "line": 1098,
+          "text": "await assertActiveProfileBinding(this.repository, { targetProfileId: input.profileId, acknowledgedActiveProfileId: input.acknowledgedActiveProfileId });"
+        },
+        {
+          "line": 1100,
+          "text": "this.repository.getProfile(input.profileId),"
+        },
+        {
+          "line": 1111,
+          "text": "targetProfileId: string;"
+        },
+        {
+          "line": 1118,
+          "text": "const profile = await this.repository.getProfile(input.targetProfileId);"
+        },
+        {
+          "line": 1127,
+          "text": "profileId: input.targetProfileId,"
+        },
+        {
+          "line": 1135,
+          "text": "profileId: input.targetProfileId,"
+        },
+        {
+          "line": 1184,
+          "text": "factCount: item.factIds.length"
+        },
+        {
+          "line": 1212,
+          "text": "const profile = profileId ? await this.repository.getProfile(profileId) : undefined;"
+        },
+        {
+          "line": 1235,
+          "text": "const profile = await this.repository.getProfile(context.profileId);"
+        },
+        {
+          "line": 1251,
+          "text": "async getProfile(rawInput: unknown, signal?: AbortSignal) {"
+        },
+        {
+          "line": 1254,
+          "text": "const profile = await this.repository.getProfile(input.profileId);"
+        },
+        {
+          "line": 1276,
+          "text": "factIds: item.factIds"
+        },
+        {
+          "line": 1284,
+          "text": "async searchProfileFacts(rawInput: unknown, signal?: AbortSignal) {"
+        },
+        {
+          "line": 1287,
+          "text": "const profile = await this.repository.getProfile(input.profileId);"
+        },
+        {
+          "line": 1307,
+          "text": "factIds: item.factIds,"
+        },
+        {
+          "line": 1317,
+          "text": "this.repository.getProfile(input.profileId),"
+        },
+        {
+          "line": 1396,
+          "text": "this.repository.getProfile(input.profileId),"
+        },
+        {
+          "line": 1417,
+          "text": "provenance: branch.contentItems.length"
+        },
+        {
+          "line": 1431,
+          "text": "? profileItems.filter((item) => item.factIds.length > 0).length / profileItems.length"
+        },
+        {
+          "line": 1433,
+          "text": "resumeProvenanceCoverage: best?.provenance ?? 0,"
+        },
+        {
+          "line": 1445,
+          "text": "this.repository.getProfile(input.profileId),"
+        },
+        {
+          "line": 1904,
+          "text": "const profile = await this.repository.getProfile(session.branch.profileId);"
+        },
+        {
+          "line": 1958,
+          "text": "this.repository.getProfile(session.branch.profileId)"
+        },
+        {
+          "line": 2163,
+          "text": "this.repository.getProfile(input.profileId),"
+        },
+        {
+          "line": 2408,
+          "text": "targetProfileId: profile.id,"
+        },
+        {
+          "line": 2525,
+          "text": "input: { targetProfileId: string; acknowledgedActiveProfileId?: string }"
+        },
+        {
+          "line": 2531,
+          "text": "&& activeProfileId !== input.targetProfileId"
+        },
+        {
+          "line": 2609,
+          "text": "function assertCompositionProfile(profile: ReturnType<WorkspaceRepository[\"getProfile\"]> extends Promise<infer T> ? T : never, expectedRevision?: number): asserts profile is NonNullable<typeof profile> {"
+        }
+      ]
+    },
+    {
+      "path": "src/services/storage/repositories.ts",
+      "sha256": "10dc464283aaab494620e1a4e4b6ceccd95aa98b2d50ba38792033185183d7a0",
+      "lines": 9573,
+      "anchors": [
+        {
+          "line": 51,
+          "text": "confirmed: FactProposalSchema,"
+        },
+        {
+          "line": 538,
+          "text": "provenance: [],"
+        },
+        {
+          "line": 594,
+          "text": "resumeDrafts: [{ id: `draft-tailoring-${suffix}`, text, factIds: [factId], createdAt: input.now, updatedAt: input.now }],"
+        },
+        {
+          "line": 604,
+          "text": "const matchingIndex = structuredFacts.findIndex((entry) => entry.data.id === structuredItem.data.id || entry.factIds.some((id) => branchItem.factRefs.some((ref) => \"factId\" in ref && ref.factId === id)));"
+        },
+        {
+          "line": 609,
+          "text": "factIds: [...new Set([...structuredFacts[matchingIndex].factIds, factId])]"
+        },
+        {
+          "line": 612,
+          "text": "structuredFacts.push({ data: structuredItem.data, factIds: [factId], sourceBlockIds: [], sourceRanges: [], mappingTrace: [] });"
+        },
+        {
+          "line": 1046,
+          "text": "? await this.getProfile(migratedBase.activeProfileId)"
+        },
+        {
+          "line": 1112,
+          "text": "const demoProfile = await this.getProfile(demoCareerProfile.id);"
+        },
+        {
+          "line": 1171,
+          "text": "async ensureCareerIdentityMigration() {"
+        },
+        {
+          "line": 1240,
+          "text": "await this.ensureCareerIdentityMigration();"
+        },
+        {
+          "line": 1251,
+          "text": "await this.ensureCareerIdentityMigration();"
+        },
+        {
+          "line": 1257,
+          "text": "async getProfilesForPerson(personId: string) {"
+        },
+        {
+          "line": 1258,
+          "text": "await this.ensureCareerIdentityMigration();"
+        },
+        {
+          "line": 1266,
+          "text": "await this.ensureCareerIdentityMigration();"
+        },
+        {
+          "line": 1306,
+          "text": "await this.ensureCareerIdentityMigration();"
+        },
+        {
+          "line": 1369,
+          "text": "await this.ensureCareerIdentityMigration();"
+        },
+        {
+          "line": 1370,
+          "text": "const source = await this.getProfile(input.profileId);"
+        },
+        {
+          "line": 1375,
+          "text": "const siblings = await this.getProfilesForPerson(source.personId);"
+        },
+        {
+          "line": 1406,
+          "text": "await this.ensureCareerIdentityMigration();"
+        },
+        {
+          "line": 1484,
+          "text": "const readback = await this.getProfile(result.profileId);"
+        },
+        {
+          "line": 1492,
+          "text": "const profile = await this.getProfile(profileId);"
+        },
+        {
+          "line": 1499,
+          "text": "const profile = await this.getProfile(profileId);"
+        },
+        {
+          "line": 1603,
+          "text": "const profile = await this.getProfile(normalized.profileId);"
+        },
+        {
+          "line": 1612,
+          "text": "const siblings = profile.personId ? await this.getProfilesForPerson(profile.personId) : [];"
+        },
+        {
+          "line": 1714,
+          "text": "this.getProfileDeleteBlockers(profile.id),"
+        },
+        {
+          "line": 1741,
+          "text": "const profileBlockers = await Promise.all(profiles.map((profile) => this.getProfileDeleteBlockers(profile.id)));"
+        },
+        {
+          "line": 1867,
+          "text": "async getProfileImportDraft(id: string) {"
+        },
+        {
+          "line": 2045,
+          "text": "async getProfileIntakeSourceTurn(identity: Pick<ProfileIntakeSourceTurn, \"sessionId\" | \"messageId\" | \"turnId\">) {"
+        },
+        {
+          "line": 2152,
+          "text": "this.getProfile(input.profileId),"
+        },
+        {
+          "line": 2175,
+          "text": "async getProfileReconciliationPlan(importId: string) {"
+        },
+        {
+          "line": 2226,
+          "text": "targetProfileId: string;"
+        },
+        {
+          "line": 2237,
+          "text": "return withProfileWriteLock(input.targetProfileId, () => this.db.transaction(\"rw\", this.db.appMeta, this.db.profiles, async () => {"
+        },
+        {
+          "line": 2262,
+          "text": "this.db.profiles.get(input.targetProfileId),"
+        },
+        {
+          "line": 2641,
+          "text": "async getProfile(id: string) {"
+        },
+        {
+          "line": 2642,
+          "text": "await this.ensureCareerIdentityMigration();"
+        },
+        {
+          "line": 2648,
+          "text": "await this.ensureCareerIdentityMigration();"
+        },
+        {
+          "line": 2658,
+          "text": "const profile = await this.getProfile(profileId);"
+        },
+        {
+          "line": 2663,
+          "text": "async getProfileDeleteBlockers(profileId: string) {"
+        },
+        {
+          "line": 2676,
+          "text": "const blockers = await this.getProfileDeleteBlockers(profileId);"
+        },
+        {
+          "line": 3070,
+          "text": "allowUnconfirmed: false,"
+        },
+        {
+          "line": 3107,
+          "text": "confirmed: diff.supportLevel !== \"verified\","
+        },
+        {
+          "line": 3302,
+          "text": "? (input.targetSnapshot.sourceJobRevision ? { sourceJobVersion: input.targetSnapshot.sourceJobRevision } : {})"
+        },
+        {
+          "line": 3303,
+          "text": ": { sourceJobVersion: job.updatedAt }),"
+        },
+        {
+          "line": 3336,
+          "text": "sourceJobVersion: job.updatedAt,"
+        },
+        {
+          "line": 3357,
+          "text": "allowUnconfirmed: false,"
+        },
+        {
+          "line": 3378,
+          "text": "confirmed: diff.supportLevel !== \"verified\","
+        },
+        {
+          "line": 3548,
+          "text": "const profile = input.composition ? undefined : await this.getProfile(input.profileId);"
+        },
+        {
+          "line": 3973,
+          "text": "sourceJobVersion: parsedJob.updatedAt,"
+        },
+        {
+          "line": 3993,
+          "text": "sourceJobVersion: parsedJob.updatedAt,"
+        },
+        {
+          "line": 5208,
+          "text": "const profileBefore = branchBefore ? await this.getProfile(branchBefore.profileId) : undefined;"
+        },
+        {
+          "line": 5408,
+          "text": "const syncProfileBefore = syncSourceBefore ? await this.getProfile(syncSourceBefore.profileId) : undefined;"
+        },
+        {
+          "line": 5499,
+          "text": "provenance: [{"
+        },
+        {
+          "line": 5578,
+          "text": "factIds: [factId],"
+        },
+        {
+          "line": 5596,
+          "text": "{ data: structuredData, factIds: [factId], sourceBlockIds: [], sourceRanges: [], mappingTrace: [] }"
+        },
+        {
+          "line": 5693,
+          "text": "const profileBefore = branchBefore ? await this.getProfile(branchBefore.profileId) : undefined;"
+        },
+        {
+          "line": 5715,
+          "text": "const factIds = item.factRefs.flatMap((reference) => \"factId\" in reference ? [reference.factId] : []);"
+        },
+        {
+          "line": 5720,
+          "text": ": currentFacts.findIndex((entry) => entry.factIds.some((factId) => factIds.includes(factId)));"
+        },
+        {
+          "line": 5723,
+          "text": ": [...currentFacts, { data: award, factIds, sourceBlockIds: [], sourceRanges: [], mappingTrace: [] }];"
+        },
+        {
+          "line": 5765,
+          "text": "const factIds = item.factRefs.flatMap((reference) => \"factId\" in reference ? [reference.factId] : []);"
+        },
+        {
+          "line": 5770,
+          "text": ": currentFacts.findIndex((entry) => entry.factIds.some((factId) => factIds.includes(factId)));"
+        },
+        {
+          "line": 5773,
+          "text": ": [...currentFacts, { data: structured, factIds, sourceBlockIds: [], sourceRanges: [], mappingTrace: [] }];"
+        },
+        {
+          "line": 5893,
+          "text": "provenance: [],"
+        },
+        {
+          "line": 5948,
+          "text": "factIds: [factId],"
+        },
+        {
+          "line": 6007,
+          "text": "const profileBefore = branchBefore ? await this.getProfile(branchBefore.profileId) : undefined;"
+        },
+        {
+          "line": 6057,
+          "text": "const profileBefore = branchBefore ? await this.getProfile(branchBefore.profileId) : undefined;"
+        },
+        {
+          "line": 6073,
+          "text": "const draft = experience.resumeDrafts.find((candidate) => candidate.factIds.includes(fact.id));"
+        },
+        {
+          "line": 6160,
+          "text": "const profileBefore = branchBefore ? await this.getProfile(branchBefore.profileId) : undefined;"
+        },
+        {
+          "line": 6181,
+          "text": "factRefs = resolveStructuredProfileFactRefs(profile, canonicalEntry.factIds);"
+        },
+        {
+          "line": 6182,
+          "text": "const isConfirmedNarrative = canonicalEntry.data.sectionType === \"summary\" && canonicalEntry.factIds.length === 0;"
+        },
+        {
+          "line": 6183,
+          "text": "if (!isConfirmedNarrative && (!factRefs.length || factRefs.length !== canonicalEntry.factIds.length)) throw new Error(\"profile_canonical_fact_unavailable\");"
+        },
+        {
+          "line": 6193,
+          "text": "const draft = experience.resumeDrafts.find((candidate) => candidate.factIds.includes(fact.id));"
+        },
+        {
+          "line": 7470,
+          "text": "experiences: profile.experiences.filter((entry) => entry.id !== item.id && !entry.facts.some((fact) => item.value.factIds.includes(fact.id))),"
+        },
+        {
+          "line": 7471,
+          "text": "skills: profile.skills.filter((entry) => entry.id !== item.id && !(entry.fact && item.value.factIds.includes(entry.fact.id))),"
+        },
+        {
+          "line": 7472,
+          "text": "certificates: profile.certificates.filter((entry) => entry.id !== item.id && !(entry.fact && item.value.factIds.includes(entry.fact.id))),"
+        },
+        {
+          "line": 7479,
+          "text": "{ ...item.value, factIds: [] }"
+        },
+        {
+          "line": 7505,
+          "text": "async getProfileItemReferenceCount(item: { kind: \"experience\" | \"certificate\" | \"skill\" | \"custom\" | \"canonical\"; id: string }) {"
+        },
+        {
+          "line": 7718,
+          "text": "? this.getProfile(input.sourceId)"
+        },
+        {
+          "line": 7722,
+          "text": ": this.getProfile(input.targetId)"
+        },
+        {
+          "line": 7764,
+          "text": "return this.persistence.withBranchMutation(async unit => {"
+        },
+        {
+          "line": 8207,
+          "text": "provenance: z.input<typeof JobSnapshotProvenanceSchema>;"
+        },
+        {
+          "line": 8219,
+          "text": "if (input.provenance.legacySourceType) throw new Error(\"snapshot_provenance_legacy_source_type_forbidden\");"
+        },
+        {
+          "line": 8245,
+          "text": "provenance: input.provenance,"
+        },
+        {
+          "line": 8429,
+          "text": "async consumePendingConfirmation(input: { proposalId: string; at: string; answer?: string }): Promise<{ proposal: FactProposal; idempotent: boolean }> {"
+        },
+        {
+          "line": 8444,
+          "text": "confirmed: result.proposal,"
+        },
+        {
+          "line": 8584,
+          "text": "provenance: {"
+        },
+        {
+          "line": 8704,
+          "text": "* provenance/sourceSpan 的可追溯链路是 listing → parsedSnapshotId →"
+        },
+        {
+          "line": 8958,
+          "text": "? await this.consumePendingConfirmation({"
+        },
+        {
+          "line": 9389,
+          "text": "provenance: ["
+        },
+        {
+          "line": 9390,
+          "text": "...fact.provenance,"
+        },
+        {
+          "line": 9412,
+          "text": "const matchingIndex = drafts.findIndex((draft) => draft.factIds.includes(factId));"
+        },
+        {
+          "line": 9417,
+          "text": "factIds: [factId],"
+        },
+        {
+          "line": 9467,
+          "text": "function resolveStructuredProfileFactRefs(profile: CareerProfile, factIds: string[]): ResumeBranch[\"contentItems\"][number][\"factRefs\"] {"
+        },
+        {
+          "line": 9469,
+          "text": "for (const factId of factIds) {"
+        }
+      ]
+    },
+    {
+      "path": "src/services/storage/db.ts",
+      "sha256": "7170668b1c36e29ca33e6c0e17385b7ab8639328a1fb10ccc7326b0135f9d2de",
+      "lines": 410,
+      "anchors": [
+        {
+          "line": 170,
+          "text": "sourceJobVersion: legacy.updatedAt ?? now,"
+        },
+        {
+          "line": 183,
+          "text": "sourceJobVersion: legacy.updatedAt ?? now,"
+        }
+      ]
+    },
+    {
+      "path": "src/services/storage/persistence/careerPersistencePort.ts",
+      "sha256": "e2864820a25495a13b1975c7f0fd83c03a77babf9b208ba579b210f0afaa9fc7",
+      "lines": 21,
+      "anchors": [
+        {
+          "line": 20,
+          "text": "withBranchMutation<T>(work: (unit: BranchMutationUnitOfWork) => Promise<T>): Promise<T>;"
+        }
+      ]
+    },
+    {
+      "path": "src/services/storage/persistence/dexieCareerPersistenceAdapter.ts",
+      "sha256": "2be1c3410e2648ea5522f68eb870bca0285e49f993291907db4cf3c1fef45667",
+      "lines": 21,
+      "anchors": [
+        {
+          "line": 8,
+          "text": "withBranchMutation<T>(work: (unit: BranchMutationUnitOfWork) => Promise<T>): Promise<T> {"
+        }
+      ]
+    },
+    {
+      "path": "src/domain/schemas/profile.ts",
+      "sha256": "974f9ca5b65d10d3686d00bdccfd45fe4aeaa56e8f3f36db57fcf16f93782a24",
+      "lines": 180,
+      "anchors": [
+        {
+          "line": 49,
+          "text": "factIds: z.array(z.string()).default([])"
+        },
+        {
+          "line": 96,
+          "text": "factIds: z.array(z.string().min(1)).default([]),"
+        },
+        {
+          "line": 101,
+          "text": "provenance: z.array(ProfileIntakeProvenanceSchema).optional()"
+        }
+      ]
+    },
+    {
+      "path": "src/domain/schemas/common.ts",
+      "sha256": "63e498849c09b573076d6d1d69351474a1ff3108cf865479bb98d215eb7da815",
+      "lines": 170,
+      "anchors": [
+        {
+          "line": 77,
+          "text": "}).superRefine((provenance, context) => {"
+        },
+        {
+          "line": 78,
+          "text": "if (provenance.sourceType !== \"pdf_import\") {"
+        },
+        {
+          "line": 82,
+          "text": "if (!provenance.sourceSessionId) {"
+        },
+        {
+          "line": 86,
+          "text": "message: \"pdf_import provenance must include sourceSessionId\""
+        },
+        {
+          "line": 90,
+          "text": "if (!provenance.sourceQuote) {"
+        },
+        {
+          "line": 94,
+          "text": "message: \"pdf_import provenance must include sourceQuote\""
+        },
+        {
+          "line": 98,
+          "text": "if (!provenance.sourceLocatorStatus) {"
+        },
+        {
+          "line": 102,
+          "text": "message: \"pdf_import provenance must include sourceLocatorStatus\""
+        },
+        {
+          "line": 107,
+          "text": "if (provenance.sourceLocatorStatus === \"located\") {"
+        },
+        {
+          "line": 108,
+          "text": "if (!provenance.sourceLocator) {"
+        },
+        {
+          "line": 112,
+          "text": "message: \"located pdf_import provenance must include sourceLocator\""
+        },
+        {
+          "line": 116,
+          "text": "if (!provenance.pageNumber) {"
+        },
+        {
+          "line": 120,
+          "text": "message: \"located pdf_import provenance must include pageNumber\""
+        },
+        {
+          "line": 124,
+          "text": "if (provenance.pageNumber && provenance.sourceLocator && provenance.pageNumber !== provenance.sourceLocator.pageNumber) {"
+        },
+        {
+          "line": 134,
+          "text": "if (provenance.sourceLocator || provenance.pageNumber || provenance.pageRange) {"
+        },
+        {
+          "line": 138,
+          "text": "message: \"ambiguous or unlocated pdf_import provenance must not include page locator fields\""
+        },
+        {
+          "line": 146,
+          "text": "provenance: z.array(FactProvenanceSchema).min(1),"
+        }
+      ]
+    },
+    {
+      "path": "src/domain/schemas/resumeV2.ts",
+      "sha256": "bb31fc56f3abf016edbb2ba4f27b699f5a86cb695b418db2eae061655f9402e7",
+      "lines": 187,
+      "anchors": []
+    },
+    {
+      "path": "src/domain/schemas/branch.ts",
+      "sha256": "f3eabda58d629ef83b617a03576cc410c2764fa3da665b0017c24a9d5a8fd816",
+      "lines": 531,
+      "anchors": [
+        {
+          "line": 176,
+          "text": "sourceJobVersion: z.string().min(1).optional(),"
+        },
+        {
+          "line": 237,
+          "text": "sourceJobVersion: z.string().min(1).optional(),"
+        },
+        {
+          "line": 263,
+          "text": "const hasSavedJobProvenance = Boolean(branch.jobId && branch.sourceJobVersion);"
+        },
+        {
+          "line": 272,
+          "text": "message: \"job-specific branches must keep saved job or target snapshot provenance\""
+        }
+      ]
+    },
+    {
+      "path": "src/domain/schemas/job.ts",
+      "sha256": "bd77a3fdb0d102456585f899159c3b185c88b4fd1399cd3ed8592e83f4f497dc",
+      "lines": 254,
+      "anchors": []
+    },
+    {
+      "path": "src/domain/schemas/tailoring.ts",
+      "sha256": "708b045239087daab610948679dc0522a2c2d3dad5b9f8a2e02838df736c9377",
+      "lines": 706,
+      "anchors": [
+        {
+          "line": 438,
+          "text": "confirmed: z.boolean().default(false)"
+        },
+        {
+          "line": 491,
+          "text": "activeQuestionId: z.string().min(1).optional(),"
+        },
+        {
+          "line": 502,
+          "text": "if (plan.activeQuestionId && !plan.questionIds.includes(plan.activeQuestionId)) {"
+        },
+        {
+          "line": 503,
+          "text": "context.addIssue({ code: \"custom\", path: [\"activeQuestionId\"], message: \"active question must belong to the frozen plan\" });"
+        },
+        {
+          "line": 510,
+          "text": "if (plan.activeQuestionId && resolvedIds.has(plan.activeQuestionId)) {"
+        },
+        {
+          "line": 511,
+          "text": "context.addIssue({ code: \"custom\", path: [\"activeQuestionId\"], message: \"active question must not already be resolved\" });"
+        }
+      ]
+    },
+    {
+      "path": "src/domain/profile/canonicalLibrary.ts",
+      "sha256": "26fbf68ea4493e41b0952d3f3844f34857f5756213f27daa1d5ba18d26ff6e2c",
+      "lines": 60,
+      "anchors": [
+        {
+          "line": 13,
+          "text": "factIds: string[];"
+        },
+        {
+          "line": 28,
+          "text": "factIds: entry.factIds,"
+        }
+      ]
+    },
+    {
+      "path": "src/domain/resumeDocument/mapper.ts",
+      "sha256": "7d9831244266b73a7d9d75bfee01337003c3358dd4a866f3c359ece785b7a349",
+      "lines": 311,
+      "anchors": []
+    },
+    {
+      "path": "src/domain/resumePresentation/projector.ts",
+      "sha256": "6f5af1d2fb81e3dc70386ea675ffefeb09a38c7fec50c28a07f00c0560cd8091",
+      "lines": 319,
+      "anchors": []
+    },
+    {
+      "path": "src/services/jobs/tailoringService.ts",
+      "sha256": "5e9770ef990d05c217152ad76b4866703267207a84d2789145e1d0669ba4b8c4",
+      "lines": 1368,
+      "anchors": [
+        {
+          "line": 239,
+          "text": "if (action === \"confirmable_rewrite\") return [{ ...claim, supportLevel: \"reasonable_inference\" as const, decision: \"requires_confirmation\" as const, confirmed: false }];"
+        },
+        {
+          "line": 328,
+          "text": "* The plan revision records provenance only; it is deliberately absent from"
+        },
+        {
+          "line": 370,
+          "text": "activeQuestionId: undefined,"
+        },
+        {
+          "line": 463,
+          "text": ": question.id === questionPlan?.activeQuestionId"
+        },
+        {
+          "line": 542,
+          "text": "requirementIds: input.question.requirementIds, supportLevel: \"user_declared\", decision: \"requires_confirmation\", confirmed: false, syncScope: \"resume_only\","
+        },
+        {
+          "line": 580,
+          "text": "const activeQuestionId = typeof questionPlan.activeQuestionId === \"string\" ? questionPlan.activeQuestionId : undefined;"
+        },
+        {
+          "line": 581,
+          "text": "if (activeQuestionId !== input.questionId && !previousAnswer && !previousReceipt) {"
+        },
+        {
+          "line": 626,
+          "text": "? activeQuestionId"
+        },
+        {
+          "line": 672,
+          "text": "activeQuestionId: nextQuestionId,"
+        },
+        {
+          "line": 744,
+          "text": "decision: \"requires_confirmation\", evidenceRefs: [], syncScope: \"resume_only\", confirmed: false, sourceItemIds: [itemId],"
+        },
+        {
+          "line": 786,
+          "text": "confirmed: false,"
+        },
+        {
+          "line": 882,
+          "text": "if (claim.decision === \"blocked\") return { ...claim, confirmed: false, syncScope: \"rejected\" as const };"
+        },
+        {
+          "line": 905,
+          "text": "confirmed: confirmation.accepted,"
+        },
+        {
+          "line": 1111,
+          "text": "const maximumBudgetLimit = input.mode === \"max_fit\" ? 3 : 5;"
+        },
+        {
+          "line": 1112,
+          "text": "const maximumBudget = Math.max(0, Math.min(maximumBudgetLimit, input.maximumBudget ?? modeMaximumBudget));"
+        },
+        {
+          "line": 1124,
+          "text": "activeQuestionId: questionIds[0],"
+        },
+        {
+          "line": 1135,
+          "text": "const activeId = plan.questionPlan?.activeQuestionId;"
+        },
+        {
+          "line": 1149,
+          "text": "if (questionPlan.activeQuestionId !== questionId && !editingResolved) throw new Error(\"tailoring_question_not_active\");"
+        },
+        {
+          "line": 1160,
+          "text": "const activeQuestionId = editingResolved"
+        },
+        {
+          "line": 1161,
+          "text": "? questionPlan.activeQuestionId"
+        },
+        {
+          "line": 1166,
+          "text": "status: activeQuestionId ? \"asking\" : \"ready_for_generation\","
+        },
+        {
+          "line": 1167,
+          "text": "activeQuestionId,"
+        },
+        {
+          "line": 1171,
+          "text": "completedAt: activeQuestionId ? undefined : now"
+        },
+        {
+          "line": 1365,
+          "text": "confirmed: suggestion.status === \"ready\""
+        }
+      ]
+    },
+    {
+      "path": "src/services/jobs/tailoringCommands.ts",
+      "sha256": "5b9bdc951189944fcf63093de36e53f478f8d923ffd7de8906358c51416c11e3",
+      "lines": 700,
+      "anchors": [
+        {
+          "line": 199,
+          "text": "status: question.id === questionPlan.activeQuestionId ? \"active\" : \"pending\""
+        },
+        {
+          "line": 384,
+          "text": "if (parsed.session.plan.questionPlan?.activeQuestionId !== question.id && !previouslyAnswered) {"
+        },
+        {
+          "line": 627,
+          "text": "allowUnconfirmed: false,"
+        },
+        {
+          "line": 658,
+          "text": "allowUnconfirmed: false,"
+        }
+      ]
+    },
+    {
+      "path": "src/services/jobs/jobWorkflow.ts",
+      "sha256": "e631e7df78e74ab047e3f3b66ae73702154daf347235eff8ee022939d806a25f",
+      "lines": 304,
+      "anchors": []
+    },
+    {
+      "path": "src/agent/workflows/tailoringStage.ts",
+      "sha256": "4a5662d3a942e670824b4f42032c6b967a5df5529590974b88e981b53ee321fe",
+      "lines": 82,
+      "anchors": [
+        {
+          "line": 70,
+          "text": "return questionPlan.status === \"asking\" || typeof questionPlan.activeQuestionId === \"string\" && questionPlan.activeQuestionId.trim().length > 0;"
+        }
+      ]
+    },
+    {
+      "path": "src/agent/workflows/tailoringWorkflowDriver.ts",
+      "sha256": "ab8099d2c33b3714c666f49ed18a180b6ee0aadda6fcca51536e3db0e96ccaf1",
+      "lines": 279,
+      "anchors": [
+        {
+          "line": 107,
+          "text": "artifactIds: generated.artifactIds"
+        },
+        {
+          "line": 146,
+          "text": "artifactIds: previewed.artifactIds"
+        }
+      ]
+    },
+    {
+      "path": "src/agent/runtime/hermes/HermesCareerToolCatalog.ts",
+      "sha256": "970ba2ba6a1133da9f74fad4a12c83fcd21fcf96a1ea926cadea4ed8bdbc36ba",
+      "lines": 206,
+      "anchors": []
+    },
+    {
+      "path": "src/app/profile/ProfileWorkspace.tsx",
+      "sha256": "f00758cc97786b18e398a5c19edf0bf26eafe54d44761c29a28fcc266d205b5d",
+      "lines": 3219,
+      "anchors": [
+        {
+          "line": 507,
+          "text": "const readback = await repository.getProfile(saved.id);"
+        },
+        {
+          "line": 611,
+          "text": "repository.getProfile(profile.id),"
+        },
+        {
+          "line": 692,
+          "text": "const currentBlockers = await repository.getProfileDeleteBlockers(profile.id);"
+        },
+        {
+          "line": 707,
+          "text": "const updated = await repository.getProfileDeleteBlockers(profile.id);"
+        },
+        {
+          "line": 809,
+          "text": ": [{ data: { id: `profile-summary-${profile.id}`, sectionType: \"summary\" as const, text: summary, customFields: [] }, factIds: [], sourceBlockIds: [], sourceRanges: [], mappingTrace: [] }, ...canonical.structuredFacts];"
+        },
+        {
+          "line": 861,
+          "text": "{ data: canonical, factIds: [], sourceBlockIds: [], sourceRanges: [], mappingTrace: [] }"
+        },
+        {
+          "line": 1026,
+          "text": "const referenceCount = await repository.getProfileItemReferenceCount({ kind: item.kind, id: item.id });"
+        },
+        {
+          "line": 2597,
+          "text": "source: item.factIds.length ? \"已确认事实\" : \"用户确认\","
+        },
+        {
+          "line": 2719,
+          "text": "source: firstFact?.provenance[0]?.sourceText ?? \"用户确认\","
+        },
+        {
+          "line": 2764,
+          "text": "source: certificate.fact?.provenance[0]?.sourceText ?? \"用户确认\","
+        },
+        {
+          "line": 2782,
+          "text": "source: skill.fact?.provenance[0]?.sourceText ?? \"用户确认\","
+        },
+        {
+          "line": 2871,
+          "text": "provenance: [{"
+        },
+        {
+          "line": 3094,
+          "text": "provenance: [{"
+        }
+      ]
+    },
+    {
+      "path": "poc/profile-plugin/read-client.ts",
+      "sha256": "8ef586a03e2333e9042d2f4309d1f91b750fd1520d0fd02cc62fbd98797f8140",
+      "lines": 28,
+      "anchors": []
+    },
+    {
+      "path": "poc/profile-packaging/client.ts",
+      "sha256": "dc94b0cb2a633e018e8fec63c47136d34328d2cb5d92e00584f6e779b1621c01",
+      "lines": 23,
+      "anchors": [
+        {
+          "line": 2,
+          "text": "import { syntheticProfile } from \"./fixture\";"
+        },
+        {
+          "line": 4,
+          "text": "export interface ProfileReadClient { getProfile(): Promise<unknown> }"
+        },
+        {
+          "line": 6,
+          "text": "async getProfile() { return structuredClone(syntheticProfile); }"
+        }
+      ]
+    },
+    {
+      "path": "poc/host-experience/profile-read-model.ts",
+      "sha256": "92d474c5bf64098a0f9237c479afb158571b2eaffd5c9cebccc95edd0df30ae9",
+      "lines": 12,
+      "anchors": [
+        {
+          "line": 2,
+          "text": "import fixture from './profile-fixture.json';"
+        },
+        {
+          "line": 9,
+          "text": "getProfile(): Promise<unknown>;"
+        },
+        {
+          "line": 11,
+          "text": "export const faithfulReadClient: FaithfulReadClient = { getProfile: async () => structuredClone(fixture) };"
+        },
+        {
+          "line": 12,
+          "text": "export const faithfulScenarios: Record<string, FaithfulReadClient> = { success: faithfulReadClient, empty: { getProfile: async () => null }, error: { getProfile: async () => { throw Error('合成资料服务暂不可用，请重试。'); } }, invalid: { getProfile: asyn"
+        }
+      ]
+    },
+    {
+      "path": "poc/host-a01/navigation.tsx",
+      "sha256": "5090e68244155c8e3e3ec110731d23ae943eb26b4ed2d4d7994a4c9cac8f798b",
+      "lines": 31,
+      "anchors": []
+    },
+    {
+      "path": "poc/host-transport/plugin_api.py",
+      "sha256": "ce65dfda5b22e3862050e8f4d6bd2ea0183f5685bc997570f09c9112a6d3cb70",
+      "lines": 96,
+      "anchors": [
+        {
+          "line": 1,
+          "text": "\"\"\"Isolated fixture broker. No Repository, database, production config or retries.\"\"\""
+        },
+        {
+          "line": 12,
+          "text": "_spec = importlib.util.spec_from_file_location(\"fixture_protocol\", _service_file)"
+        }
+      ]
+    },
+    {
+      "path": "poc/host-transport/fake_service.py",
+      "sha256": "41aa9f68dd5faf8a8e195d94ddae7a88563b50101e4461bcca22132859aa863b",
+      "lines": 75,
+      "anchors": [
+        {
+          "line": 7,
+          "text": "SCOPE = {\"workspaceId\": \"fixture-workspace\", \"profileId\": \"fixture-profile\"}"
+        },
+        {
+          "line": 8,
+          "text": "PROFILE = {\"id\": \"fixture-profile\", \"name\": \"Synthetic Candidate\", \"revision\": 0}"
+        },
+        {
+          "line": 9,
+          "text": "BRANCH = {\"id\": \"fixture-general\", \"profileId\": \"fixture-profile\", \"revision\": 0, \"purpose\": \"general\"}"
+        },
+        {
+          "line": 28,
+          "text": "result = {\"apiVersion\": 1, \"serviceEpoch\": epoch, \"capabilities\": [\"fixture.read\"]}"
+        }
+      ]
+    },
+    {
+      "path": "scripts/hermes-runtime-lock.json",
+      "sha256": "4939b630fa15f410ae1287b495e9e16912ab3e71a7a619df1f005050c6fe8ceb",
+      "lines": 8,
+      "anchors": []
+    },
+    {
+      "path": "scripts/p522-host-a01-renderer.mjs",
+      "sha256": "34e216422270b2165087abaec447c68d8865ac8c02776dce109f335410d3877f",
+      "lines": 97,
+      "anchors": [
+        {
+          "line": 7,
+          "text": "import {reliabilityPatch} from './p522-host-a02-01-patches.mjs';"
+        },
+        {
+          "line": 82,
+          "text": "if(process.argv.includes('--reliability'))patched=reliabilityPatch(patched,file);"
+        }
+      ]
+    },
+    {
+      "path": "scripts/p522-host-a02-01-patches.mjs",
+      "sha256": "e4b761b9d5b4a34e582c22961a2113144656a35fc6df824fea2fe7604b90e29d",
+      "lines": 66,
+      "anchors": [
+        {
+          "line": 3,
+          "text": "export const unknownOutcome = 'UNKNOWN：请求执行结果未知，未自动重发。请检查会话状态并核对历史后再继续。';"
+        },
+        {
+          "line": 16,
+          "text": "export function reliabilityPatch(source, file) {"
+        },
+        {
+          "line": 49,
+          "text": "const unknownExecution = /UNKNOWN|request timed out|connection closed|aborted/i.test(rawError)"
+        },
+        {
+          "line": 55,
+          "text": "if (guardSessionId && $sessionStates.get()[guardSessionId]?.messages.some(message => message.error?.startsWith('UNKNOWN'))) {"
+        },
+        {
+          "line": 56,
+          "text": "notify({ kind: 'error', title: 'UNKNOWN', message: ${JSON.stringify(unknownOutcome)} })"
+        }
+      ]
+    },
+    {
+      "path": "scripts/p522-host-a02-04-patches.mjs",
+      "sha256": "5b64884407d53a7216a8cf3287e24feff569ba733ddf37ec8bdf27db2d9a2e56",
+      "lines": 34,
+      "anchors": [
+        {
+          "line": 5,
+          "text": "if(sha(source)!=='745791cce6fab653a0c325757aa63fea6ba7e7d1bef475b972f35af79755ea50')throw Error('A04 requires exact locked A02 reliability submit overlay');"
+        },
+        {
+          "line": 6,
+          "text": "const guard=\"$sessionStates.get()[guardSessionId]?.messages.some(message => message.error?.startsWith('UNKNOWN'))\";"
+        },
+        {
+          "line": 7,
+          "text": "if(source.split(guard).length!==2)throw Error('UNKNOWN guard anchor changed');"
+        },
+        {
+          "line": 8,
+          "text": "return \"import { readInFlightTurnJournal } from '@/lib/inflight-turn-journal'\\n\"+source.replace(guard,\"(\"+guard+\" || readInFlightTurnJournal($sessionStates.get()[guardSessionId]?.storedSessionId ?? null)?.messages.some(message => message.er"
+        },
+        {
+          "line": 17,
+          "text": "if (state.messages.some(message => message.error?.startsWith('UNKNOWN'))) {"
+        },
+        {
+          "line": 30,
+          "text": "if (readInFlightTurnJournal(storedSessionId)?.messages.some(message => message.error?.startsWith('UNKNOWN'))) {"
+        }
+      ]
+    },
+    {
+      "path": "tests/unit/agentProfileTools.test.ts",
+      "sha256": "9d8dc2e27e2e1c1d35511da83f72fc5e2e505d9a3e5ca47078276f37882b67f8",
+      "lines": 33,
+      "anchors": [
+        {
+          "line": 10,
+          "text": "getProfile: async (id: string) => id === demoCareerProfile.id ? demoCareerProfile : undefined"
+        },
+        {
+          "line": 14,
+          "text": "const detail = await service.getProfile({ profileId: demoCareerProfile.id });"
+        },
+        {
+          "line": 22,
+          "text": "getProfile: async () => demoCareerProfile"
+        },
+        {
+          "line": 25,
+          "text": "const result = await service.searchProfileFacts({"
+        },
+        {
+          "line": 30,
+          "text": "expect(result.results.every((item) => item.factIds.length >= 0)).toBe(true);"
+        }
+      ]
+    },
+    {
+      "path": "tests/unit/p520b1-persistence-port.test.ts",
+      "sha256": "b087ebe18d96e59532a21f754d14b81fc6a66db7cfe51b57d5694770635ada8d",
+      "lines": 136,
+      "anchors": [
+        {
+          "line": 13,
+          "text": "db = new CareerAdaptDb(`P520B1-fixture-${crypto.randomUUID()}`);"
+        },
+        {
+          "line": 27,
+          "text": "await port.withBranchMutation(async unit => {"
+        },
+        {
+          "line": 37,
+          "text": "const spy = vi.spyOn(DexieCareerPersistenceAdapter.prototype, \"withBranchMutation\");"
+        },
+        {
+          "line": 82,
+          "text": "await expect(port.withBranchMutation(async unit => {"
+        },
+        {
+          "line": 94,
+          "text": "await expect(port.withBranchMutation(async unit => {"
+        }
+      ]
+    },
+    {
+      "path": "tests/unit/repositoryTailoringV2.test.ts",
+      "sha256": "937b126554ab740f0d2a92dc8739c755c471973726c45350a70b615391ff274f",
+      "lines": 286,
+      "anchors": [
+        {
+          "line": 25,
+          "text": "const profile = fixtureProfile();"
+        },
+        {
+          "line": 40,
+          "text": "if (structured.data.sectionType !== \"project\") throw new Error(\"project_fixture_expected\");"
+        },
+        {
+          "line": 47,
+          "text": "claims: [{ id: suggestionId, label: \"强化 示例任务系统 的 RAG 与 FastAPI 经验\", claimText: after[0], sourceItemIds: [structured.id], targetPatches: [{ sectionId: \"project\", itemId: structured.id, fieldPath: \"highlights\", operation: \"replace\", before, a"
+        },
+        {
+          "line": 97,
+          "text": "const profile = fixtureProfile();"
+        },
+        {
+          "line": 109,
+          "text": "claims: [{ id: \"claim-cursor\", label: \"确认 Cursor 的使用程度\", claimText: \"了解 Cursor 等 AI Coding 工具的基本工作方式。\", finalTextByProficiency: { proficient: \"熟练使用 Cursor 完成多文件开发、代码修改与问题定位。\", familiar: \"熟悉 Cursor 的项目开发、代码修改与调试流程。\", aware: \"了解 Cursor 等 AI C"
+        },
+        {
+          "line": 119,
+          "text": "const profile = fixtureProfile();"
+        },
+        {
+          "line": 131,
+          "text": "if (!structured || structured.data.sectionType !== \"project\") throw new Error(\"project_fixture_expected\");"
+        },
+        {
+          "line": 136,
+          "text": "claims: [{ id: \"claim-profile-sync\", label: \"确认项目交付经验\", claimText: resolvedText, sourceItemIds: [structured.id], targetPatches: [{ sectionId: \"project\", itemId: structured.id, fieldPath: \"highlights\", operation: \"replace\", before, after: [r"
+        },
+        {
+          "line": 139,
+          "text": "const updatedProfile = await repository.getProfile(profile.id);"
+        },
+        {
+          "line": 142,
+          "text": "expect(syncedExperience?.facts.some((item) => item.statement === resolvedText && item.confirmedByUser && item.provenance.some((source) => source.sourceType === \"user_input\" && source.sourceId === \"apply-profile-sync\"))).toBe(true);"
+        },
+        {
+          "line": 149,
+          "text": "const profile = fixtureProfile();"
+        },
+        {
+          "line": 191,
+          "text": "if (structured.data.sectionType !== \"project\") throw new Error(\"project_fixture_expected\");"
+        },
+        {
+          "line": 233,
+          "text": "const profile = fixtureProfile();"
+        },
+        {
+          "line": 278,
+          "text": "function fixtureProfile(): CareerProfile {"
+        },
+        {
+          "line": 283,
+          "text": "experiences: [{ id: \"smartfocus\", type: \"project\", organization: \"示例任务系统\", role: \"开发\", startDate: \"2025-01\", endDate: \"2025-06\", facts: [{ id: \"fact-rag\", statement, category: \"experience\", confirmedByUser: true, riskLevel: \"low\", provenanc"
+        }
+      ]
+    },
+    {
+      "path": "tests/unit/p522-slice1-profile-projection.test.ts",
+      "sha256": "00891cfc1b8918a81754a7477cc3f46551299fade14cbb46a86a139897423cd0",
+      "lines": 38,
+      "anchors": [
+        {
+          "line": 2,
+          "text": "import { createFaithfulFixture } from '../../poc/host-experience/profile-fixture';"
+        },
+        {
+          "line": 4,
+          "text": "import fixture from '../../poc/host-experience/profile-fixture.json';"
+        },
+        {
+          "line": 11,
+          "text": "expect(profile).toEqual(fixture);"
+        },
+        {
+          "line": 32,
+          "text": "expect(Object.keys(faithfulReadClient)).toEqual(['getProfile']);"
+        },
+        {
+          "line": 33,
+          "text": "const first = displayProfileSchema.parse(await faithfulReadClient.getProfile());"
+        },
+        {
+          "line": 35,
+          "text": "expect(displayProfileSchema.parse(await faithfulReadClient.getProfile()).items[0].title).not.toBe('altered locally');"
+        }
+      ]
+    },
+    {
+      "path": "tests/unit/jobWorkflow.test.ts",
+      "sha256": "623b49ce25e847b346f1bc46d5724ee4544fd1328c3f9b15d3130eef9a63f6fa",
+      "lines": 165,
+      "anchors": []
+    },
+    {
+      "path": "tests/unit/p45c1c15-career-context-binding.test.ts",
+      "sha256": "d95d6c70417b10935e6f589164aa1f6c56d031f5b9d8ebbfddd7dfb7329bba40",
+      "lines": 277,
+      "anchors": [
+        {
+          "line": 13,
+          "text": "import { AI_TRAINER_JD_V4 } from \"../fixtures/aiTrainerJdV4\";"
+        },
+        {
+          "line": 203,
+          "text": "requireSessionBinding: true"
+        }
+      ]
+    },
+    {
+      "path": "tests/unit/tailoringCommands.test.ts",
+      "sha256": "dccf29fd60d034c12750485d695c7410bcd1c853ae07747b2650ab0ca134ac78",
+      "lines": 255,
+      "anchors": [
+        {
+          "line": 15,
+          "text": "import { AI_TRAINER_JD_V4 } from \"../fixtures/aiTrainerJdV4\";"
+        },
+        {
+          "line": 52,
+          "text": "if (!content) throw new Error(\"headless_content_fixture_missing\");"
+        }
+      ]
+    },
+    {
+      "path": "tests/unit/resumeV2Schema.test.ts",
+      "sha256": "3338c4ca1df2c1fdb38963db6d0f9d5cef67674d24b4219df4b235f8930a9cd0",
+      "lines": 20,
+      "anchors": []
+    },
+    {
+      "path": "LOCKED_HERMES/apps/desktop/src/contrib/runtime-loader.ts",
+      "sha256": "545d39f9acfe21702384c19120f30cc06413e9489d4f9f0882301fa831a60999",
+      "lines": 336,
+      "anchors": [
+        {
+          "line": 18,
+          "text": "* as ESM in the renderer realm with FULL app authority: the React singleton,"
+        }
+      ]
+    },
+    {
+      "path": "LOCKED_HERMES/apps/desktop/src/contrib/plugin.ts",
+      "sha256": "34c2713ab2bf0d5e77826a42cdd22da80fc5ff051d2d143c2a8ba22c1e26c2db",
+      "lines": 116,
+      "anchors": [
+        {
+          "line": 4,
+          "text": "* scoped `PluginContext` whose `register` auto-tags provenance"
+        },
+        {
+          "line": 24,
+          "text": "/** A contribution as a plugin author writes it — provenance + id scoping are"
+        },
+        {
+          "line": 47,
+          "text": "rest: <T>(path: string, opts?: PluginRestOptions) => Promise<T>"
+        },
+        {
+          "line": 111,
+          "text": "rest: <T>(path: string, opts?: PluginRestOptions) => pluginRest<T>(pluginId, path, opts),"
+        }
+      ]
+    },
+    {
+      "path": "LOCKED_HERMES/apps/desktop/src/sdk/runtime.ts",
+      "sha256": "6d38dfb12d567cf3f10474afdc9cd6798b2b05b4b23e7f2f4a383f8a265b0c07",
+      "lines": 54,
+      "anchors": []
+    },
+    {
+      "path": "LOCKED_HERMES/apps/desktop/src/sdk/index.ts",
+      "sha256": "3dcb00fea4b0c573797746840525e4155b676a6c2e914fdc517592192209840b",
+      "lines": 245,
+      "anchors": []
+    },
+    {
+      "path": "LOCKED_HERMES/apps/desktop/src/contrib/plugins-store.ts",
+      "sha256": "c22a449019a50ca68aa8af807c85678357aa981a2a2fb9fcee3ba7b58c90e01c",
+      "lines": 124,
+      "anchors": []
+    }
+  ],
+  "reports": [
+    {
+      "path": "docs/architecture/p5.2.0-appearance-hub-compatibility-audit.md",
+      "sha256": "27edadb85028ac9c7f1777daf8a53f44940b450bf30c95fae8103fca09ec4129",
+      "lines": 143,
+      "headings": [
+        "# P5.2.0 — Appearance Hub Compatibility & Adoption Audit",
+        "## 1. 基线与可复现来源",
+        "## 2. SDK 与实现分类矩阵",
+        "## 3. 十二项功能移植矩阵",
+        "## 4. 安全、生命周期与交付脚本",
+        "## 5. CareerAdapt 主题适配与文档隔离",
+        "## 6. 三方案比较与推荐",
+        "## 7. 验证、限制、未解决问题及停止点"
+      ],
+      "decisions": [
+        "日期：2026-11-03（Asia/Shanghai）。范围：固定源码与 SDK 的静态审计、仅链接不执行的 ESM 检查、CareerAdapt 展示与导出边界审查。**审计交付 GO；原样安装/直接适配 NO-GO；推荐方案 C，尚未授权实施。**",
+        "**整体加载是确定性 NO-GO。** TypeScript AST 提取锁定 SDK 的运行时 export，与原插件的全部静态 SDK imports 对照，缺少且仅缺少 `useTheme`、`requestTheme`。Node VM 仅进行 ESM link（未 evaluate）得到 `SyntaxError: ... does not provide an export named 'requestTheme'`。该失败发生在 register 之前，插件内部 try/catch 无法补救。此检查的 SDK 模块仅提供实际导出名称，用于证明链接契约，不是 Host 实测或兼容层；结果完整嵌入 evidence。",
+        "资源生命周期判定：公开 ctx.register/i18n/socket 的返回 disposer 由 Host 跟踪；React 自己 effect 可拥有自己资源。二者都不能为插件在 register 直接注入的全局对象兜底。B2-B2 的 Profile 自有 CSS 生命周期实测不覆盖本插件；B2-B1 的旧 ctx.rest 撤权、Trusted Confirmation、Runtime Release 阻塞仍原样保留。",
+        "| 决策 | NO-GO | 不推荐当前立项；极小 palette-only fork 可另议 | **推荐；仅设计方向 GO，实施待用户审核** |",
+        "- 既有撤权/可信确认/Runtime 发行阻塞不因本次外观研究解除。无真实 Profile、Schema/Repository/Guard/生产依赖变更。",
+        "- 最终 **AUDIT_DELIVERY=GO；UPSTREAM_AS_IS=NO-GO；FULL_PUBLIC_SDK_PORT=NO-GO；SCOPED_PUBLIC_SDK_DESIGN=GO（推荐、未实现）；PRODUCTION_ADOPTION=NO-GO（未批准、未验收）**。"
+      ]
+    },
+    {
+      "path": "docs/architecture/p5.2.0-b2-b2-profile-plugin-packaging-poc.md",
+      "sha256": "4e1097ea5c32259222f4d0006dc008d032a838c559ddda9d8e6e988f6b6f0a3c",
+      "lines": 129,
+      "headings": [
+        "# P5.2.0-B2-B2 — Profile Read-only Plugin Packaging PoC",
+        "## A. Baseline and version identity",
+        "## B. Profile audit and architecture",
+        "## C. Public SDK, manifest and bundle",
+        "## D. Real Desktop and resource lifecycle",
+        "## E. Security and retained blockers",
+        "## F. Validation and failures",
+        "## G. Final decisions and reproduction"
+      ],
+      "decisions": [
+        "2026-11-02. **PROFILE_PLUGIN_PACKAGING_POC = PASS**, scoped to synthetic read-only UI in the real pinned-source Desktop development host. Engineering gate **PARTIAL** because full repository lint failed. Production migration and overall trusted-write feasibility remain **NO-GO**. No release approval, commit, push or next stage.",
+        "UI removal, CSS/resource disposal and backend authorization revocation are separate results. B2-B1 already demonstrated a retained ctx.rest closure succeeds after Renderer disable. This plugin does not create a backend/rest connection, so it cannot supply new revocation evidence. **Renderer Disable Revocation remains BLOCKED**; no fake modal/confirmed flag/closure deletion was used as proof. [B2-B1 transport evidence](p5.2.0b2b1-evidence.json) remains unchanged, as do [confirmation](p5.2.0b2b1-trusted-confirmation-audit.md) and [runtime](p5.2.0b2b1-runtime-release-decision.md) blockers.",
+        "| Renderer Disable Revocation | BLOCKED |",
+        "| Trusted Confirmation | BLOCKED |",
+        "| Runtime Release | BLOCKED |",
+        "The packaging/UI experiment passes; full lint remains a recorded engineering limitation. **CAREERADAPT_PRODUCTION_MIGRATION = NO-GO; OVERALL_FEASIBILITY = NO-GO** for trusted writes under the existing constraints. No real data integration, formal Domain API, release approval or next-stage implementation. Work stops here for review. All changes remain uncommitted."
+      ]
+    },
+    {
+      "path": "docs/architecture/p5.2.0a-profile-plugin-poc.md",
+      "sha256": "662dd32f7ea6608ad44d486a2e9a8eeee9e955a45016c308f661e0a23a07c007",
+      "lines": 77,
+      "headings": [
+        "# P5.2.0-A Profile read-only plugin PoC",
+        "## Baseline / audit (2026-11-01)",
+        "## Extraction boundary",
+        "## Build strategy / architecture",
+        "## CSS lifecycle decision",
+        "## Validation / remaining work",
+        "## Final real load result",
+        "## Failure classification and remaining blockers",
+        "## Bundle baseline",
+        "## Final validation and reproduction"
+      ],
+      "decisions": []
+    },
+    {
+      "path": "docs/architecture/p5.2.0b-career-domain-persistence-adr.md",
+      "sha256": "f5e394c4c7bec0e192fed88c00fb297816bc654080f72fa855bb2f4a7ffddc36",
+      "lines": 171,
+      "headings": [
+        "# P5.2.0-B Career Domain Independence & Persistence Architecture",
+        "## Decision and scope",
+        "## Baseline and authority",
+        "## Source audit and dependency matrix",
+        "### Every v11 table and reference family",
+        "### Backup, origin and file findings",
+        "## Alternatives",
+        "### Engine and runtime assessment",
+        "## Domain API and persistence port design",
+        "## Authentication and trust design",
+        "## Migration implementation and evidence",
+        "## Faults, rollback and acceptance",
+        "## Validation and failures"
+      ],
+      "decisions": [
+        "Date: 2026-11-01. **PARTIAL / BLOCKED for completion and formal page migration.**",
+        "| Rollback retaining post-migration new writes | **BLOCKED**, explicit rollbackAfterWrites rejection |",
+        "| Full legacy browser bridge / complete reference and file integrity | PARTIAL; fake IndexedDB and bounded reference validator only |",
+        "| Plugin validated production writes | BLOCKED; API spike denies them all |",
+        "Rollback must not switch back to the old export after new service writes. Required protocol: fence new commands, drain transaction queue, produce a final checkpoint plus complete ordered post-cutover journal with stable operation IDs/versions/evidence/bytes, replay through canonical reverse adapter to a **new isolated** legacy-compatible database, validate hash/count/reference/receipt parity, then atomically change authority. Preserve old and new snapshots/journal until user acceptance; if replay is unsupported, retain the service data and refuse rollback/cutover. No dual writer or discarded new revisions. This protocol is not implemented or tested; old-source existence alone is not rollback",
+        "Thus **P5.2.0-B is PARTIAL; completion and formal page migration are BLOCKED**. No P5.2.0-C, FINAL GO, P5.2.1 or page migration is authorized by this result. The remaining work belongs to this B contract and requires review, not an automatic next stage."
+      ]
+    },
+    {
+      "path": "docs/architecture/p5.2.0b1-persistence-port-runtime.md",
+      "sha256": "37a9fcc9ffa76f479007c951dbc45ff2626bef8af9bb3e15e6e1b628f9536ef1",
+      "lines": 108,
+      "headings": [
+        "# P5.2.0-B1 — Canonical Persistence Port & Runtime Qualification",
+        "## Scope and baseline",
+        "## Independent HTTP failure investigation (before closeout)",
+        "## Runtime qualification and decision",
+        "## Actual canonical call chain and transaction contract",
+        "## Port design and migration boundary",
+        "## SQLite feasibility for this slice",
+        "## Verification (initial B1 delivery)",
+        "## Remaining gate at initial delivery (historical PARTIAL)",
+        "## HTTP fixture closeout — 2026-11-01 COMPLETE"
+      ],
+      "decisions": [
+        "Fetch exited 0; main/HEAD/origin/main are `a2fa3eca634c8b8d19643eff7b022c3097387a42`, initially clean including untracked status. B is already committed (latest commit names B PARTIAL); plan/history's previous “uncommitted” description was stale. Existing A/B artifacts, ADR, evidence and failures remain unchanged. Relevant ignored locations `.tmp/`, `.artifacts/`, plan/history were inspected; new isolated probe databases/logs reside there. No ignore changes, deletions, production data access, dependencies, migrations, Hermes changes, commit, push or packaging.",
+        "| External ABI-specific SQLite module | unverified | unverified | unverified | NO-GO; sqlite3/better-sqlite3 not installed |",
+        "## Remaining gate at initial delivery (historical PARTIAL)",
+        "B1 overall stays **PARTIAL** under the strict all-targeted-tests criterion because the original separate HTTP gate still fails; independent diagnosis is not a passing substitute for that unchanged test. Runtime qualification and first portable edit slice are accepted evidence, not discarded. The rest of Repository remains intentionally partially migrated, as allowed for this first slice, and cannot expose service writes. Broader legacy callback extraction requires its own bounded follow-up; production Sidecar selection/distribution and migrations are not approved here.",
+        "The sole original HTTP gate is closed; **B1 COMPLETE** within its bounded first-slice scope. Classification remains TEST_HARNESS_ISSUE, now repaired; it was not a production Runtime defect. Previously documented unmigrated Repository paths and production service/distribution limitations still apply. Parent B's formal migration remains BLOCKED. No SQLite Adapter, Domain Service, B2/B3/C, production data access/migration, packaging, commit or push. This closeout remains uncommitted and stops for review."
+      ]
+    },
+    {
+      "path": "docs/architecture/p5.2.0b2a-sqlite-adapter-parity.md",
+      "sha256": "1855770cc20e8b9197f9b1601c99bbee6951bc704219a0d1796255dadd749102",
+      "lines": 63,
+      "headings": [
+        "# P5.2.0-B2-A — SQLite Adapter parity",
+        "## Audit before implementation",
+        "## SQLite schema and Codec",
+        "## Transaction, CAS, receipt and error behavior",
+        "## Shared contract and parity evidence",
+        "## Runtime qualification and release compatibility",
+        "## Verification and retained failures",
+        "## Limits and B2-B prerequisites"
+      ],
+      "decisions": [
+        "Date: 2026-11-02. **P5.2.0-B2-A COMPLETE** (isolated first-slice parity; parent B formal migration remains BLOCKED).",
+        "Before any separately authorized B2-B: define bounded scope for remaining callbacks/creation/query abstractions, service composition/ownership, runtime distribution and IPC contracts; retain receipt/CAS/safety parity. Before production migration: complete reference/attachment and origin compatibility, backup/recovery, actual service lifecycle and reverse-journal/replay gates from parent ADR. Parent B formal migration remains BLOCKED. No production SQLite default/write API, real IndexedDB access/migration, dual write, schema/Fact Guard/Claim Safety change, Hermes Core change, installer, commit or push. Stop after this package for user review; do not begin B2-B/B3/B4/C."
+      ]
+    },
+    {
+      "path": "docs/architecture/p5.2.0b2b0-domain-service-boundary-audit.md",
+      "sha256": "7a77bfd54f459467c57c350ce77768fe3a48178b28a162cf1d0dbedd72789ac6",
+      "lines": 184,
+      "headings": [
+        "# P5.2.0-B2-B0 — Career Domain Service Boundary & Runtime Decision Audit",
+        "## 1. ADR：责任已决定，生产运行位置暂不批准",
+        "## 2. Git、工作区及证据可信度",
+        "## 3. 真实调用链与目标调用链",
+        "## 4. Port 覆盖和必要迁移矩阵",
+        "## 5. Runtime 三方案真实比较",
+        "## 6. Domain API / IPC v1 契约（设计，未接入）",
+        "## 7. 数据库所有权与生命周期（待实施状态机）",
+        "## 8. 信任与数据边界",
+        "## 9. 第一条最小完整业务切片与 B2-B1 执行计划",
+        "## 10. 阻塞清单与本轮验证"
+      ],
+      "decisions": [
+        "**审计交付完成；B2-B0 总状态 BLOCKED（Runtime/发行兼容性与安全接入尚未关闭），不标 COMPLETE。父 P5.2.0-B 正式迁移继续 BLOCKED。** 下列契约均为待实施设计，不能据此宣称生产能力已接入。",
+        "- 不以开发机 node.exe、ELECTRON_RUN_AS_NODE 开关或 Electron semver 范围作为正式 Sidecar 分发承诺。安装包、更新和多平台资格未验证，生产运行位置保持 BLOCKED。",
+        "## 2. Git、工作区及证据可信度",
+        "**SQLite 引擎原则可行，生产组合 NO-GO/BLOCKED。** B2-A 只定义五实体临时表、user_version=1、BEGIN IMMEDIATE/有限busy等待、tagged codec；没有完整 metadata/proposal、生产 ownership lock、备份恢复、跨版本迁移/反向journal。没有外键或新增 revision uniqueness，不能为了“加固”改变 canonical put/历史语义。sqlite3/better-sqlite3 不是当前已批准安装的替代。解除条件：受支持且稳定等级/维护策略明确的精确runtime及SQLite实现、可重现bundle哈希/平台资格、备份恢复和升级崩溃门禁。若需新依赖或接受RC发行策略，另行报告并取得明确决定；本轮不批准。",
+        "| proposal.confirm | proposalId、proposalHash、scope、user gesture challenge → 单次receipt | broker可信确认入口；会话/来源/目标/版本绑定 |",
+        "响应：`{apiVersion,requestId,serviceEpoch,operationId?,status,result? ,error?:{code,retryable,outcome}}`。outcome区分notStarted/rolledBack/committed/unknown。错误至少：INVALID_REQUEST、UNSUPPORTED_VERSION、FORBIDDEN、NOT_FOUND、REVISION_CONFLICT、OPERATION_ID_REUSE、CONFIRMATION_REQUIRED、CONFIRMATION_STALE、FACT_GUARD_BLOCKED、REFERENCE_INVALID、DEADLINE_EXCEEDED、CANCELLED、SERVICE_RESTARTED、SQLITE_BUSY、DATABASE_CORRUPT、SCHEMA_TOO_NEW、STORAGE_ERROR。禁止回传路径、SQL、个人数据全文或stack给UI，内部日志以request/operation ID关联。",
+        "确认不能由不可信Renderer自报。服务持有proposal和精确diff，可信broker显示/核验与hash绑定的用户确认；如锁定Host没有可用独立可信确认表面，生产AI写入仍BLOCKED，不能用SDK完整权限作“用户同意”证明。已有Repository confirmAsResumeOnly只是内部业务参数，服务须验证receipt后才设置，Profile同步必须独立确认。proposal/receipt消费与写入应进入同一UoW；如果现有 appMeta 单独consume无法原子组合，不做consume→write两事务补偿式上线。",
+        "10. Schema migration由唯一authority、启动READY前、独占维护模式执行；记录版本/校验和，先一致性备份，事务化升级；未知新schema fail closed。B2-A user_version1不是Resume Schema v2或Dexie v11，三者不得混用。禁止旧程序打开新库写入；软件回退依赖可验证兼容或带新写入的反向journal，父B这项仍BLOCKED。",
+        "| Plugin Renderer | 展示/编辑建议；SDK同realm不是安全边界；不得持密钥、DB路径、raw SQL或可信确认权 |",
+        "| Host Bridge | 校验会话/来源、operation allowlist、scope、大小/频率，可信确认与通道凭据；SDK现有profile-aware路由仍须Career ownership复验 |",
+        "插件供应链：固定获准来源及包hash、依赖/构建产物审计；hash只证明字节一致。恶意同realm插件能操作UI/共享Host权限，现有SDK不能保证真实用户点击与插件伪造点击可区分；这是残余高风险，未经可信Host确认设计和验证前不开放AI事实写入。Python后端插件同样是受信任代码而非沙箱，不允许其凭UI传来的路径启动服务/读取文件。",
+        "| 1 | 无Core改动SDK/backend broker可行性与可信确认技术验证 | 真实锁定Host ctx.rest route/auth/profile隔离、断连和禁用，合成数据；不能验证则停在BLOCKED，不写生产服务 |",
+        "| TRUSTED_CONFIRMATION | 可信确认表面及server-held hash/receipt；同realm插件威胁不能靠Renderer标记解决 |"
+      ]
+    },
+    {
+      "path": "docs/architecture/p5.2.0b2b1-host-transport-poc.md",
+      "sha256": "f4edc22ba64a3551660b0b97647060fc8721b9b664f180d403b632995c6f3d2c",
+      "lines": 63,
+      "headings": [
+        "# P5.2.0-B2-B1 Host Transport PoC",
+        "## Baseline and scope",
+        "## SDK capability and source chain",
+        "## Transport choice",
+        "## Real Desktop results",
+        "## Limits and stopping decision"
+      ],
+      "decisions": [
+        "Date: 2026-11-02. **PARTIAL**. Read-only transport works in the real locked Desktop; plugin disable is not a connection-revocation boundary. Overall gate is NO-GO for the proposed trusted write architecture.",
+        "Three bounded Host runs exited 0 with no page errors, all explicitly PARTIAL: first basic observation, second adds confirmation surface/negative requests and child crash, final reruns the same chain after tightening the integer protocol-version check to reject JSON true. Exit 0 means observation script completed; it does **not** mean the required feasibility gate passed. No run timed out. Raw JSON and log hashes are linked in the evidence manifest. The final run used final source bytes.",
+        "Startup READY here is broker process-launch readiness; first hello establishes actual protocol readiness. Production readiness handshake, crash-before-hello, Host abrupt-kill/orphan reaping, automatic backend shutdown hook, already-running request revocation during disable and cross-platform IPC are **NOT QUALIFIED**. Host restart was tested with explicit broker close before shutdown; it does not prove orphan-free crash cleanup. These are reasons to retain PARTIAL, not claims of completed lifecycle qualification."
+      ]
+    },
+    {
+      "path": "docs/architecture/p5.2.0b2b1-runtime-release-decision.md",
+      "sha256": "cde0dad455370392f3e93d898f35b5ea7ce1c8d82644f5d996a2a970e505b0d0",
+      "lines": 34,
+      "headings": [
+        "# P5.2.0-B2-B1 Runtime Release Decision",
+        "## Evidence and maintenance",
+        "## Candidate matrix",
+        "## Recommendation and decision"
+      ],
+      "decisions": [
+        "2026-11-02. **BLOCKED for production release approval**. Research complete within scope; no production runtime is approved. No dependency was installed, no Career database was opened, and no runtime upgrade or package was produced.",
+        "| Production qualification | BLOCKED | BLOCKED | BLOCKED |",
+        "Even a fully qualified runtime cannot repair the missing trusted Host confirmation or Renderer-disable revocation. Releasing a write-capable Domain Service is NO-GO under this gate. Before any later production authorization: pin/hash/license a supported runtime and engine per platform; prove canonical rule parity, unique ownership, backup/restore, compatible updates, crash/orphan/unknown-outcome handling and independent confirmation. No further stage is started."
+      ]
+    },
+    {
+      "path": "docs/architecture/p5.2.0b2b1-trusted-confirmation-audit.md",
+      "sha256": "4952e0ec4f6c2bdb8e399b2bf16ad6ef025af436a2e197160412878da445eba5",
+      "lines": 35,
+      "headings": [
+        "# P5.2.0-B2-B1 Trusted Confirmation Audit",
+        "## Evidence and threat model",
+        "## Required design, not an implemented authority",
+        "## Actual negative tests and limits"
+      ],
+      "decisions": [
+        "2026-11-02. **BLOCKED** for locked Hermes 0.19.0 at eb527605. No provably trusted Host approval issuer exists in the audited public plugin path. No Core modification or write endpoint was implemented.",
+        "Real Host requests to proposal.confirm with confirmed=true, wrong hash, foreign Profile, replay-shaped receipt, stale revision and cancelled=true all return INVALID_REQUEST because the read-only Fake Service does not expose confirmation or apply. Protocol tests assert that no result accompanies these refusals. This proves fail-closed unsupported operations only. It does **not** validate hash mismatch, cross-Profile receipt, revision, expiry, duplicate receipt or late-cancel behavior of an implemented trusted mechanism. Positive issuance, successful one-time consumption and each dedicated receipt rejection gate are **NOT RUN / BLOCKED**, not PASS. No facts, preview, PDF or formal data were wr",
+        "Under the stipulated independent-Host-confirmation architecture, a new Core extension would be needed to establish the missing issuer through this SDK. Task instructions prohibit that modification and require BLOCKED. Work on that path stops here. No user permission is inferred from a synthetic UI click or test harness event. Parent production migration remains BLOCKED; overall feasibility is NO-GO for trusted writes under the present constraints. Read-only transport remains a separate PARTIAL result."
+      ]
+    },
+    {
+      "path": "docs/architecture/p5.2.2-host-a02-01-openrouter-runtime-reliability.md",
+      "sha256": "dfb8bf11ed96985e26ba7d3cee089164150937bb0421918a88e4e35bd8a232fa",
+      "lines": 175,
+      "headings": [
+        "# A-02-01 最终继续交付：启动链路已打通，唯一外部阻断为 OpenRouter 每日免费额度",
+        "## 此前本轮过程记录",
+        "# 最新交接：用户已授权追加一次，启动与凭据全通过；发送前选择器已修正",
+        "# 2026-11-05 继续执行交接：启动修复已取得证据，整体仍未 COMPLETE",
+        "## 已确认根因与修复",
+        "## 实现与证据入口",
+        "## 本轮补充验证结果",
+        "## 此前交付记录（保留历史状态）",
+        "# P5.2.2-HOST-A-02-01：OpenRouter Runtime Reliability",
+        "## 结论",
+        "## 基线与保护",
+        "## 重复执行根因与限定修复",
+        "### 故障证据",
+        "## Provider 与图片",
+        "## Electron 失败与停止",
+        "## 验证与复查入口"
+      ],
+      "decisions": [
+        "日期：2026-11-05，Asia/Shanghai。**整体 PARTIAL_EXTERNAL_RATE_LIMIT / NOT COMPLETE**。本轮不提交、不推送、不进入后续阶段。以下为最新权威结论，此前过程条目仅保留历史。",
+        "| 指定模型成功正文响应 | BLOCKED：Provider每日免费额度耗尽 |",
+        "第四轮占用已批准的追加次数，尚未擅自启动第五轮；已向用户明确请求继续一次，等待答复。用户确认原生图片选择时可配合，但尚未打开选择器。整体仍PARTIAL，绝不把真实对话门禁写成通过。此前三轮结论与证据保留下文。",
+        "当前唯一已证实的剩余Runtime配置问题已经修正并通过resolver验证；**交付资格仍被“修复后的真实Composer到模型完整验收尚未执行”阻断**。本轮不超出用户三轮完整验收限制再启动第四轮。文字、多轮、UI Streaming、Stop、Stop后恢复和图片仍NOT VERIFIED，不能用先前独立API/SSE/图片结果替代。",
+        "日期：2026-11-05（Asia/Shanghai）。**整体 PARTIAL / NOT COMPLETE；不进入 A-02-02～05 或 A-03。未提交、未推送。**",
+        "| 原生 Electron 文本/多轮/Streaming | NOT_VERIFIED | 两次启动阶段超时，完成样本 0 |",
+        "| Stop / Interrupt / 迟到 delta | NOT_VERIFIED | 原生 Stop 未点击；无 ACK/Runtime/Provider 终止指标 |",
+        "| 断连/超时后的真实 UI 恢复 | NOT_VERIFIED | L2 不等于完整 Electron 生命周期 |",
+        "| 图片 UI | NOT_VERIFIED | 未执行原生选择/暂存/提交；无法证明原生 Provider payload |"
+      ]
+    },
+    {
+      "path": "docs/architecture/p5.2.2-host-a02-01r-backend-ready-closeout.md",
+      "sha256": "b1d53788a83fbceb9cad51ae8bc2ce30cc97f3b0c67a2163071243be8a578538",
+      "lines": 56,
+      "headings": [
+        "# P5.2.2-HOST-A-02-01-BR01 — Backend READY closeout",
+        "## 已证实结果",
+        "## 实际改动",
+        "## 验收矩阵",
+        "## 基线与保护",
+        "## 遗留与下一步"
+      ],
+      "decisions": [
+        "日期：2026-11-05（Asia/Shanghai）。结论：**PARTIAL / A-02-01 NOT COMPLETE**。未提交、未推送。",
+        "| 指定Provider真实Electron响应 | NOT VERIFIED，本轮未发请求 |"
+      ]
+    },
+    {
+      "path": "docs/architecture/p5.2.2-host-a02-02-native-tool-activity.md",
+      "sha256": "e7f7ed9f0721b408dabe6366816271d35c164093ddd7f8b2927ef470b6f9b3e5",
+      "lines": 81,
+      "headings": [
+        "# P5.2.2-HOST-A-02-02 — Native Tool Activity",
+        "## 本轮实际结果",
+        "## 最终十四项回答",
+        "## Git 与保护",
+        "## 修复和范围",
+        "## 三轮 Electron 与失败保留",
+        "## L3 链路身份与第二次请求",
+        "## 验证和交付"
+      ],
+      "decisions": [
+        "最终状态：**PARTIAL**。尚未完成 CareerAdapt Shell 的 L4 原生工具六环节验收。无 Git commit / push；不进入 A-02-03 或 A-03。"
+      ]
+    },
+    {
+      "path": "docs/architecture/p5.2.2-host-a02-03-native-attachment-pipeline.md",
+      "sha256": "eb7f40accce1bbfed72c7e029647231167f149b62807c194e2b21fd9af951f60",
+      "lines": 105,
+      "headings": [
+        "# P5.2.2-HOST-A-02-03 — Native Attachment Pipeline",
+        "## 基线与保护",
+        "## 五栏验收",
+        "## 实际请求观测与能力边界",
+        "## 真实缺陷及项目内修复",
+        "## 三轮 Electron 与前置限制",
+        "## 测试层级与工程门禁",
+        "## 最终二十项回答"
+      ],
+      "decisions": [
+        "2026-11-05（北京时间）。最终状态：**PARTIAL / NOT COMPLETE**。没有提交或推送，不进入 A-02-04、A-02-05、A-03 或业务资料库接入。",
+        "- Hermes 锁定 `eb52760564dbba2e5971fa54bd67384e281cd3b8`。97 项既有源码/原补丁保护哈希、23 份历史 manifest 原件与独立 Main artifact 记录并复核；新增附件重点源码另记 SHA。既有 A-02-01/A-02-02 PARTIAL 与原证据不改写。",
+        "| PDF / 同次 Files | PASS | PASS | 暂存引用正确；发送前移除 | 未发送；不宣称正文接收 | `BLOCKED_A02_02_L4` |",
+        "`context_references.py` 实际把 UTF-8 文本内联到上下文。PDF 等二进制只生成路径、类型、大小和工具读取提示；Files 不会自动调用独立 `pdf.attach` 转换 RPC。PDF 正文理解依赖原生工具链，沿用 `BLOCKED_A02_02_L4`，没有直接调 handler 绕过这一门禁。",
+        "| 14 | 模型理解 | TXT 标记 PASS；PNG 未验；PDF BLOCKED_A02_02_L4 |",
+        "| 20 | 前置限制记录 | 已保留 A-02-01/A-02-02 原 PARTIAL；本轮前置 429/Stop 未验，未解除 |"
+      ]
+    },
+    {
+      "path": "docs/architecture/p5.2.2-host-a02-04-native-session-persistence.md",
+      "sha256": "93e80a02d7aae55364fcf095317a230ab7c56da4b8b0a8cefe06dffc608e20be",
+      "lines": 77,
+      "headings": [
+        "# P5.2.2-HOST-A-02-04 — Native Session Persistence & Recovery",
+        "## 交付结论",
+        "## 权威来源与语义",
+        "## 最小修复",
+        "## 真实验收和失败解释",
+        "## 20 项验收回答",
+        "## 验证与保护"
+      ],
+      "decisions": [
+        "日期：2026-11-05～06（Asia/Shanghai）。**状态：PARTIAL**。仅 A-02-04，尚未提交、未推送；未进入 A-02-05 / A-03。",
+        "| 6 | 历史 Tool Activity | PARTIAL：journal/codec 单测通过，未取得真实工具历史重启证据 |",
+        "| 19 | 工程门禁 | 定向 lint/typecheck/116 Unit/10 transport 场景/L2/build/Native TS/diff 通过；真实验收整体 PARTIAL |",
+        "| 20 | A02-03 风险继承 | 原 PARTIAL 不改；resolver L2 PASS，真实缺失路径 ACK/PNG/Images/OS 拖放仍未全部验收 |"
+      ]
+    },
+    {
+      "path": "docs/architecture/p5.2.2-host-a02-05-native-artifact-lifecycle.md",
+      "sha256": "e28f27afb02626c7617f1da9d9a3061732de11a0e265201136df22f6eca78a0e",
+      "lines": 164,
+      "headings": [
+        "# P5.2.2-HOST-A-02-05 — Native Artifact Lifecycle & Workspace",
+        "## 交付结论",
+        "## 基线与保护",
+        "## L0：锁定源码与真实模型",
+        "## Host Adapter 与数据职责",
+        "## 产品整合与安全",
+        "## 本地 Provider Pool",
+        "## L1–L4 证据与工程门禁",
+        "## 24 项最终回答",
+        "## 交接"
+      ],
+      "decisions": [
+        "日期：2026-11-06（Asia/Shanghai）。最终状态：**PARTIAL**。本轮停止于 A-02-05，**不进入 A-03**。",
+        "A-02-04 仍为 **PARTIAL / MANUALLY_COMMITTED**，手动提交 `b9d4401dafce295fc3e09145d1c0357c26f6fd4d`。没有重新提交、amend、reset、cherry-pick 或覆盖其历史证据。"
+      ]
+    }
+  ],
+  "missingRequestedReport": "P5.2.0 Hermes Vertical Distribution Feasibility & Trust Audit: exact titled report not found; related extant P5.2.0 reports audited; not claimed read",
+  "realDataAccess": false
+}

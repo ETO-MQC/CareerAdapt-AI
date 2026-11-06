@@ -1,0 +1,67 @@
+{
+  "order": [
+    "A Profile read",
+    "D Resume read/analysis",
+    "B Job read then JD analysis",
+    "C Profile confirmed write",
+    "Tailoring confirmed apply"
+  ],
+  "dependencies": [
+    {
+      "id": "D0",
+      "requires": [],
+      "work": "Approve A03 implementation separately; current round ends at audit"
+    },
+    {
+      "id": "D1",
+      "requires": [
+        "D0"
+      ],
+      "work": "Scoped canonical pure read port/service; explicit initialization separated; no migration in tool reads"
+    },
+    {
+      "id": "D2",
+      "requires": [
+        "D1"
+      ],
+      "work": "Trusted scope binding and per-call backend lease/revocation; minimal read adapter to existing Gateway"
+    },
+    {
+      "id": "D3",
+      "requires": [
+        "D2"
+      ],
+      "work": "Synthetic native tool-call/stream/Stop/history + UNKNOWN executed-server fault qualification; R01/R10 closure before production"
+    },
+    {
+      "id": "D4",
+      "requires": [
+        "D3"
+      ],
+      "work": "Approve limited Profile read-only production exposure; no contact/file bytes by default"
+    },
+    {
+      "id": "D5",
+      "requires": [
+        "D4"
+      ],
+      "work": "Resume read/analysis then Job read; pure analysis distinguished from persisted workflow drafts"
+    },
+    {
+      "id": "D6",
+      "requires": [
+        "D4"
+      ],
+      "work": "Separately approve trusted issuer + scoped durable receipts/CAS/atomic UoW/status/UNKNOWN recovery"
+    },
+    {
+      "id": "D7",
+      "requires": [
+        "D5",
+        "D6"
+      ],
+      "work": "Confirmed Profile reconciliation write; then existing tailoring final apply; import/export qualification separately"
+    }
+  ],
+  "storageNote": "No wholesale migration required merely for synthetic read design; future service release/runtime/cutover still separately blocked."
+}

@@ -1,0 +1,16 @@
+{
+  "status": "BLOCKED",
+  "productionToolIntegration": "BLOCKED",
+  "independentReadonlyResearch": "CONDITIONAL GO",
+  "requiredIssues": [
+    "R01",
+    "R02",
+    "R03",
+    "R04",
+    "R06",
+    "R09",
+    "R10"
+  ],
+  "noExactlyOnceClaim": true,
+  "noProductionChanges": true
+}

@@ -1,0 +1,17 @@
+{
+  "status": "BLOCKED",
+  "required": [
+    "scope/Profile/Session/operationId",
+    "exact proposal hash/diff + base revision",
+    "independent trusted user gesture issuer",
+    "hash changed requires new confirmation",
+    "expiry/cancel/replay/reload checks",
+    "atomic receipt consume + CAS + write + result"
+  ],
+  "current": "ordinary confirmed/count, persisted proposal states, and some hash-bound conversion records do not provide trusted issuer for native Host",
+  "issues": [
+    "R02",
+    "R09"
+  ],
+  "positiveTests": "NOT VERIFIED / no production trusted write"
+}

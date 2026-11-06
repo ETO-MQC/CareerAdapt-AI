@@ -1,0 +1,110 @@
+{
+  "issues": [
+    {
+      "id": "R01",
+      "severity": "HIGH",
+      "status": "BLOCKED",
+      "finding": "UNKNOWN protection remains opt-in; executed-server lost ACK/restart and final dismiss-banner protection lack complete Electron qualification; client suppression is not exactly-once.",
+      "source": "scripts/p522-host-a01-renderer.mjs:82; scripts/p522-host-a02-04-patches.mjs",
+      "fix": "Qualify actual enabled Host path with deterministic transport faults and handler ledger; no model fallback after uncertain acceptance."
+    },
+    {
+      "id": "R02",
+      "severity": "CRITICAL",
+      "status": "BLOCKED",
+      "finding": "No independent trusted issuer binds exact Career proposal/diff to human approval; confirmed/count are ordinary caller data.",
+      "source": "src/agent/tools/CareerToolGateway.ts:121; locked SDK/contrib/plugin.ts",
+      "fix": "Approve trusted issuer architecture separately; service-held proposal hash and atomic single-use consumption plus write."
+    },
+    {
+      "id": "R03",
+      "severity": "HIGH",
+      "status": "BLOCKED",
+      "finding": "Renderer disable removes contributions, not backend authority; retained ctx.rest closure has no revocation lease.",
+      "source": "LOCKED_HERMES/apps/desktop/src/contrib/plugin.ts:111; poc/host-transport/plugin_api.py",
+      "fix": "Backend checks scope, enabled grant/epoch and lease on every call; UI unmount is insufficient."
+    },
+    {
+      "id": "R04",
+      "severity": "HIGH",
+      "status": "BLOCKED",
+      "finding": "Branch operation lookup is operationId-only and replays before scope/payload validation; no universal authoritative operation status API.",
+      "source": "src/services/storage/repositories.ts:7764",
+      "fix": "Bind durable receipt to scope/method/target/canonical payload hash; same ID different payload rejects; return original revision/result."
+    },
+    {
+      "id": "R05",
+      "severity": "HIGH",
+      "status": "BLOCKED",
+      "finding": "Existing profile read invokes rw identity migration; appMeta timestamps/index writes even for normalized profiles, and may normalize legacy profiles.",
+      "source": "src/services/storage/repositories.ts:1171,2641",
+      "fix": "Separate explicit bootstrap/migration from pure scoped query under same Repository; prove zero stores modified by tool read, including legacy fixture refusal."
+    },
+    {
+      "id": "R06",
+      "severity": "HIGH",
+      "status": "BLOCKED",
+      "finding": "Current native Host Profile client reads fixture; canonical BrowserAgentToolService defaults to browser WorkspaceRepository; narrow Port only covers branch mutation.",
+      "source": "poc/host-experience/profile-read-model.ts:11; src/services/agent/agentToolService.ts:118",
+      "fix": "Extract minimal scoped canonical read port/service and adapter; no parallel Gateway/Repository or direct Plugin Dexie."
+    },
+    {
+      "id": "R07",
+      "severity": "MEDIUM",
+      "status": "CONDITIONAL GO",
+      "finding": "getProfile truncates to 60 items/800 chars and returns factIds, not full evidence/provenance; search requires lexical match and is not exhaustive section listing.",
+      "source": "src/services/agent/agentToolService.ts:1251",
+      "fix": "Versioned tool projection with pagination/truncated flag, source revision and allowlisted provenance handles; do not expose raw file paths/contact fields unnecessarily."
+    },
+    {
+      "id": "R08",
+      "severity": "MEDIUM",
+      "status": "NOT VERIFIED",
+      "finding": "Classic Job commit idempotency is commitId/draft based; separate imports of same JD are not globally deduplicated by that path; V4 listing snapshot hashes are separate capabilities.",
+      "source": "src/services/storage/repositories.ts:2817,8559",
+      "fix": "Test classic reimport/update/stale analysis explicitly before Job mutation exposure; do not activate V4."
+    },
+    {
+      "id": "R09",
+      "severity": "HIGH",
+      "status": "BLOCKED",
+      "finding": "Pending fact confirmation consumes appMeta in a separate transaction; cannot infer atomic confirmation+Profile write from single-use state.",
+      "source": "src/services/storage/repositories.ts:8429",
+      "fix": "Compose proposal consumption, CAS, mutation and operation receipt in one Repository unit of work."
+    },
+    {
+      "id": "R10",
+      "severity": "MEDIUM",
+      "status": "NOT VERIFIED",
+      "finding": "A-02-02 Composer-driven success tool/final answer, Tool UI/Stop and tool-history non-reexecution remain incomplete.",
+      "source": "docs/architecture/p5.2.2-host-a02-02-native-tool-activity.md",
+      "fix": "One focused synthetic real Host qualification after authorization, not a new Host redesign."
+    },
+    {
+      "id": "R11",
+      "severity": "MEDIUM",
+      "status": "NOT VERIFIED",
+      "finding": "Requested exact P5.2.0 feasibility/trust report absent; previous reports also record its absence.",
+      "source": "docs/architecture/p5.2.0-b2-b2-profile-plugin-packaging-poc.md",
+      "fix": "Retain gap explicitly; current source evidence governs; do not fabricate historical approval."
+    },
+    {
+      "id": "R12",
+      "severity": "MEDIUM",
+      "status": "CONDITIONAL GO",
+      "finding": "QuestionPlan defaults steady=0, competitive=1, other=3; usual 2-3 questions is not a universal current default, although maximum5 is enforced.",
+      "source": "src/services/jobs/tailoringService.ts:1109",
+      "fix": "Document mode behavior and seek product decision before altering budget semantics; do not reimplement workflow."
+    }
+  ],
+  "executionErrors": [
+    "Read-only rg attempts using PowerShell wildcard path arguments or guessed filenames failed; corrected via rg --files and actual paths; no production action."
+  ],
+  "testsFailed": 0,
+  "notRun": [
+    "Provider probes",
+    "Electron",
+    "production writes",
+    "full release gate"
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "status": "BLOCKED",
+  "sourceIntegrated": true,
+  "activation": "--careeradapt --reliability; UNKNOWN persistence additionally --session-persistence; not production default",
+  "known": [
+    "A01 submit/gateway request suppression",
+    "A04 native journal UNKNOWN recovery; 24 entries / 7 days retention",
+    "A05 uses same opt-in integration"
+  ],
+  "historicalEvidence": [
+    "L2 true WebSocket fault fixtures, simulated effects: ACK loss/delta disconnect/timeout suppressed",
+    "Electron controlled pre-forward UNKNOWN reload/restart, other Session isolation",
+    "not actual executed-server lost ACK restart"
+  ],
+  "notVerified": [
+    "service exactly-once",
+    "post-tool accepted disconnect reconciliation",
+    "final banner dismissal guard in Electron",
+    "cross-session queued tool faults full real Host matrix"
+  ],
+  "rule": "unknown accepted write: query same operationId; never switch model/provider and repeat"
+}

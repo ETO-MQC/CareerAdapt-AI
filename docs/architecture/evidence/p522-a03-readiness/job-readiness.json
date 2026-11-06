@@ -1,0 +1,19 @@
+{
+  "status": "CONDITIONAL GO",
+  "scope": "read only after scoped query authority; JD analysis later",
+  "existing": [
+    "JobDescription raw source + SourceSpan requirements and requirement graph",
+    "draft revision CAS and commitId transaction",
+    "RequirementMatch separate from user facts",
+    "stale source/version checks in workflow and Repository"
+  ],
+  "limits": [
+    "saveJobDescription is unconditional put by ID",
+    "classic same-JD reimport global identity/dedup not guaranteed",
+    "V4 listing/snapshot hash dedup exists separately; not activated",
+    "parsing persists workflow drafts and is not a zero-write read tool"
+  ],
+  "issues": [
+    "R08"
+  ]
+}

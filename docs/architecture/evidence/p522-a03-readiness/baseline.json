@@ -1,0 +1,21 @@
+{
+  "date": "2026-11-06",
+  "timezone": "Asia/Shanghai",
+  "branch": "main",
+  "head": "6545c0f04fa1b7880398b249338bd0f4673a2150",
+  "originMain": "6545c0f04fa1b7880398b249338bd0f4673a2150",
+  "fetch": "exit 0",
+  "initialStatus": "clean (before audit files)",
+  "a0205InHead": true,
+  "worktrees": [
+    "E:/DEF/CareerAdapt AI                               6545c0f [main]",
+    "E:/DEF/CareerAdapt AI/.tmp/editor-closure-baseline  5b5cf1e (detached HEAD)",
+    "E:/DEF/CareerAdapt AI/.tmp/sq1-closeout-frozen      1573e26 (detached HEAD)",
+    "E:/DEF/CareerAdapt-competition-5.1.8                090f3da [competition/5.1.8]",
+    "E:/DEF/CareerAdapt-jd03-qualified-4561b8d           4561b8d (detached HEAD)",
+    "E:/DEF/CareerAdapt-resume01-887f061e                887f061 (detached HEAD)",
+    "E:/DEF/CareerAdapt-sq13b2-current-87360d1           87360d1 (detached HEAD)",
+    "E:/DEF/CareerAdapt-sq13b2-start-64323f5             64323f5 (detached HEAD)"
+  ],
+  "noCommitOrPush": true
+}

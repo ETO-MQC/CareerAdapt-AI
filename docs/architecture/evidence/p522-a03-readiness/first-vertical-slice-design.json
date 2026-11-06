@@ -1,0 +1,57 @@
+{
+  "status": "CONDITIONAL GO",
+  "name": "Career Profile Read-only Vertical Slice",
+  "production": "BLOCKED until D3 qualified",
+  "reuse": [
+    "career.profile.get",
+    "career.profile.search_facts",
+    "canonicalProfileLibraryItems",
+    "existing CareerToolGateway and registry"
+  ],
+  "newMinimum": [
+    "scoped pure read port behind same Repository",
+    "narrow query service independent of BrowserAgentToolService broad dependency graph",
+    "backend authority binding + revoke lease",
+    "bounded provenance-aware tool result and exhaustive section paging"
+  ],
+  "request": {
+    "method": "career.profile.get",
+    "arguments": {
+      "sectionTypes": [
+        "project",
+        "skills"
+      ],
+      "limit": 20,
+      "cursor": null
+    },
+    "trustedContext": [
+      "workspace/person/Profile/Session bound by authority",
+      "grant epoch and expiry",
+      "requestId correlation; no model-supplied scope authority"
+    ]
+  },
+  "result": {
+    "status": "ok | empty | error",
+    "fields": [
+      "profileId",
+      "personId",
+      "sourceRevision",
+      "items: canonical IDs/section/text/factIds/confirmationState",
+      "sourceRefs: opaque evidence/provenance IDs/ranges",
+      "nextCursor",
+      "truncated",
+      "requestId"
+    ],
+    "errors": [
+      "INVALID_REQUEST",
+      "FORBIDDEN",
+      "NOT_FOUND",
+      "SERVICE_UNAVAILABLE",
+      "SCOPE_REVOKED",
+      "INITIALIZATION_REQUIRED"
+    ]
+  },
+  "note": "Exact additions are design, not registered tools or new canonical Profile JSON. Existing get output needs explicit limited projection and paging. Search cannot substitute exhaustive listing.",
+  "readNoWrites": "Snapshot all stores before/after, no bootstrap writes; legacy/uninitialized fixture returns initialization required; initialize separately with explicit authority.",
+  "stop": "No real user data, Provider probes, production code or actual MCP implementation in this audit"
+}
