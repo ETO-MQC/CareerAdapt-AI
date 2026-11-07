@@ -1,5 +1,5 @@
 import { AgentTaskStateSchema, type AgentSession } from "@/agent/contracts/agentSession";
-import { canonicalJson, PreciseProposalSchema, preciseReference, type PreciseProposal } from "@/domain/resumeEditing/preciseResumeEdit";
+import { canonicalJson, PreciseProposalSchema, preciseReference, type PreciseProposal } from "@/domain/resumeEditing/preciseResumeContract";
 
 export function projectPreciseProposal(session: AgentSession, raw: unknown): AgentSession {
   const p = PreciseProposalSchema.parse(raw);

@@ -5,6 +5,7 @@ import type { AgentHostStore } from "@/agent/runtime/AgentHostStore";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 import type { ResumeBranch } from "@/domain/schemas";
 import { PreciseProposalSchema, type PreciseSelection } from "@/domain/resumeEditing/preciseResumeEdit";
+import { StructuredResumeEditor } from "./StructuredResumeEditor";
 
 const repository = new WorkspaceRepository();
 export function PreciseResumeEditor({ session, host, profileName }: { session: AgentSession; host: AgentHostStore; profileName?: string }) {
@@ -57,7 +58,7 @@ export function PreciseResumeEditor({ session, host, profileName }: { session: A
     : /guard|safety|evidence/.test(issue) ? "这项修改需要核对事实或来源，尚未保存。请保留原事实后调整措辞。"
     : /mismatch|hash/.test(issue) ? "提案与确认记录不一致，已停止操作。请重新选择字段并审核。"
     : issue ? "操作未完成，原文与提案已保留。请核对当前选择后重试。" : "";
-  return <details className="agent-confirmation is-inline agent-precise-editor" data-testid="precise-resume-editor">
+  return <><details hidden={!!slot?.selection && "operation" in slot.selection} className="agent-confirmation is-inline agent-precise-editor" data-testid="precise-resume-editor">
     <summary>精确修改一个字段</summary>
     <p>明确选择简历和字段后，可在对话中要求 AI 润色，或输入建议措辞供审核。</p>
     {!proposal ? <><label>简历<select aria-label="精确修改简历" value={branchId} onChange={e => { setBranchId(e.target.value); setTargetKey(""); }}>
@@ -83,5 +84,5 @@ export function PreciseResumeEditor({ session, host, profileName }: { session: A
       </div>}
     </section> : null}
     {issueText ? <p role="alert" data-error-code={issue}>{issueText}</p> : null}
-  </details>;
+  </details><StructuredResumeEditor session={session} host={host} /></>;
 }

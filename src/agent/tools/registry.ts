@@ -1,3 +1,4 @@
+import { PreciseModelOutputSchema } from "@/domain/resumeEditing/preciseResumeContract";
 import { z } from "zod";
 import { CompositionSourceTurnSchema } from "@/domain/resumeComposition/sessionConfirmedSkills";
 import { MaterialIntakeInputSchema } from "@/domain/materialIntake/materialIntake";
@@ -341,7 +342,7 @@ function define<TInput>(
 export function createAgentToolRegistry(services: AgentToolServices) {
   const tools = [
     define(services, meta("prepare_precise_resume_edit", "Prepare only the explicitly selected single field; no formal write.", "read", false, false, true,
-      z.object({ sessionId: z.string().min(1), turnId: z.string().min(1), proposedValue: z.string().min(1) }).strict(), "resume", "resume_proposal"), input => services.preparePreciseResumeEdit!(input)),
+      z.object({ sessionId: z.string().min(1), turnId: z.string().min(1), modelOutput: PreciseModelOutputSchema }).strict(), "resume", "resume_proposal"), input => services.preparePreciseResumeEdit!(input)),
     define(services, meta("apply_precise_resume_edit", "Commit the exact explicitly confirmed field proposal.", "write", true, false, true,
       z.object({ sessionId: z.string().min(1), operationId: z.string().min(8).max(160), proposalHash: z.string().regex(/^[a-f0-9]{64}$/) }).strict(), "resume", "resume"), input => services.applyPreciseResumeEdit!(input)),
     define(services, meta("list_resumes", "发现可用简历；仅返回摘要。需要内容时继续使用 get_resume。", "read", false, true, true, EmptyInputSchema, "resume", "resume_summary"), (_, __, signal) => services.listResumes(signal)),

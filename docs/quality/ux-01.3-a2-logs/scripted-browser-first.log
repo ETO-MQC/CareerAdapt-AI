@@ -1,0 +1,44 @@
+
+Running 1 test using 1 worker
+
+[1/1] tests\e2e\ux013-a2-scripted.hermes.ts:7:5 › A2 real Hermes local Scripted Provider proposes four selected operations without source authority
+  1) tests\e2e\ux013-a2-scripted.hermes.ts:7:5 › A2 real Hermes local Scripted Provider proposes four selected operations without source authority 
+
+    Error: expect(page).not.toHaveURL(expected) failed
+
+    Expected pattern: not /\/setup$/u
+    Received string: "http://127.0.0.1:3118/setup"
+    Timeout: 30000ms
+
+    Call log:
+      - Expect "not toHaveURL" with timeout 30000ms
+        62 × unexpected value "http://127.0.0.1:3118/setup"
+
+
+      17 |   await page.getByLabel("模型名称", { exact: true }).fill("careeradapt-test");
+      18 |   await page.getByRole("button", { name: "开始使用", exact: true }).click();
+    > 19 |   await expect(page).not.toHaveURL(/\/setup$/u);
+         |                          ^
+      20 |   await page.goto("/ai-workspace");
+      21 |   await expect(page.locator(".agent-runtime-status")).toHaveAttribute("aria-label", /状态 Ready/u, { timeout: 60_000 });
+      22 |   const ready = await (await page.request.get("/api/agent/runtime/hermes/control")).json();
+        at E:\DEF\CareerAdapt-competition-5.1.8\tests\e2e\ux013-a2-scripted.hermes.ts:19:26
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    docs\quality\ux-01.3-a2-logs\scripted-1793985228869\browser\ux013-a2-scripted.hermes.t-0003b-ns-without-source-authority\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: docs\quality\ux-01.3-a2-logs\scripted-1793985228869\browser\ux013-a2-scripted.hermes.t-0003b-ns-without-source-authority\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    docs\quality\ux-01.3-a2-logs\scripted-1793985228869\browser\ux013-a2-scripted.hermes.t-0003b-ns-without-source-authority\trace.zip
+    Usage:
+
+        npx playwright show-trace docs\quality\ux-01.3-a2-logs\scripted-1793985228869\browser\ux013-a2-scripted.hermes.t-0003b-ns-without-source-authority\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  1 failed
+    tests\e2e\ux013-a2-scripted.hermes.ts:7:5 › A2 real Hermes local Scripted Provider proposes four selected operations without source authority 
+A2 Scripted Provider FAIL: E:\DEF\CareerAdapt-competition-5.1.8\docs\quality\ux-01.3-a2-logs\scripted-1793985228869

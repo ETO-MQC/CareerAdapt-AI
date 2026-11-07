@@ -1,0 +1,193 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+ ❯ tests/integration/structuredResumeOperation.test.ts (52 tests | 4 failed | 48 skipped) 444ms
+     × does not commit unconfirmed or rejected fact_correction 171ms
+     × does not commit unconfirmed or rejected confirmed_skill_addition 97ms
+     × does not commit unconfirmed or rejected bullet_removal 74ms
+     × does not commit unconfirmed or rejected bullet_reordering 101ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/structuredResumeOperation.test.ts > A2 typed operations through real Dexie Repository > does not commit unconfirmed or rejected fact_correction
+AssertionError: expected { profiles: [ { …(19) } ], …(4) } to deeply equal { profiles: [ { …(19) } ], …(4) }
+
+- Expected
++ Received
+
+@@ -1,23 +1,23 @@
+  {
+    "appMeta": [
+      {
+        "key": "careerPerson:v1:person-profile-a2",
+-       "updatedAt": "2026-11-06T14:50:28.616Z",
++       "updatedAt": "2026-11-06T14:50:28.645Z",
+        "value": {
+          "archivedAt": undefined,
+          "createdAt": "2026-11-06T14:50:28.509Z",
+          "currentProfileId": "profile-a2",
+          "displayName": "匿名A2",
+          "id": "person-profile-a2",
+          "trashedAt": undefined,
+-         "updatedAt": "2026-11-06T14:50:28.616Z",
++         "updatedAt": "2026-11-06T14:50:28.645Z",
+        },
+      },
+      {
+        "key": "careerPersons:v1",
+-       "updatedAt": "2026-11-06T14:50:28.616Z",
++       "updatedAt": "2026-11-06T14:50:28.645Z",
+        "value": [
+          "person-profile-a2",
+        ],
+      },
+      {
+
+ ❯ tests/integration/structuredResumeOperation.test.ts:213:30
+    211|     await expect(f.repo.applyPreciseResumeEdit(f.proposal)).rejects.to…
+    212|     writeFileSync(`docs/quality/ux-01.3-a2-logs/rejection-${kind}.json…
+    213|     expect(await snapshot()).toEqual(before);
+       |                              ^
+    214|   });
+    215|   it.each(["2024", "2024-02-01", "2025-07", "2024-13", "2023-02-29", "…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/integration/structuredResumeOperation.test.ts > A2 typed operations through real Dexie Repository > does not commit unconfirmed or rejected confirmed_skill_addition
+AssertionError: expected { profiles: [ { …(19) } ], …(4) } to deeply equal { profiles: [ { …(19) } ], …(4) }
+
+- Expected
++ Received
+
+@@ -1,23 +1,23 @@
+  {
+    "appMeta": [
+      {
+        "key": "careerPerson:v1:person-profile-a2",
+-       "updatedAt": "2026-11-06T14:50:28.718Z",
++       "updatedAt": "2026-11-06T14:50:28.746Z",
+        "value": {
+          "archivedAt": undefined,
+          "createdAt": "2026-11-06T14:50:28.679Z",
+          "currentProfileId": "profile-a2",
+          "displayName": "匿名A2",
+          "id": "person-profile-a2",
+          "trashedAt": undefined,
+-         "updatedAt": "2026-11-06T14:50:28.718Z",
++         "updatedAt": "2026-11-06T14:50:28.746Z",
+        },
+      },
+      {
+        "key": "careerPersons:v1",
+-       "updatedAt": "2026-11-06T14:50:28.718Z",
++       "updatedAt": "2026-11-06T14:50:28.746Z",
+        "value": [
+          "person-profile-a2",
+        ],
+      },
+    ],
+
+ ❯ tests/integration/structuredResumeOperation.test.ts:213:30
+    211|     await expect(f.repo.applyPreciseResumeEdit(f.proposal)).rejects.to…
+    212|     writeFileSync(`docs/quality/ux-01.3-a2-logs/rejection-${kind}.json…
+    213|     expect(await snapshot()).toEqual(before);
+       |                              ^
+    214|   });
+    215|   it.each(["2024", "2024-02-01", "2025-07", "2024-13", "2023-02-29", "…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/integration/structuredResumeOperation.test.ts > A2 typed operations through real Dexie Repository > does not commit unconfirmed or rejected bullet_removal
+AssertionError: expected { profiles: [ { …(19) } ], …(4) } to deeply equal { profiles: [ { …(19) } ], …(4) }
+
+- Expected
++ Received
+
+@@ -1,23 +1,23 @@
+  {
+    "appMeta": [
+      {
+        "key": "careerPerson:v1:person-profile-a2",
+-       "updatedAt": "2026-11-06T14:50:28.813Z",
++       "updatedAt": "2026-11-06T14:50:28.835Z",
+        "value": {
+          "archivedAt": undefined,
+          "createdAt": "2026-11-06T14:50:28.776Z",
+          "currentProfileId": "profile-a2",
+          "displayName": "匿名A2",
+          "id": "person-profile-a2",
+          "trashedAt": undefined,
+-         "updatedAt": "2026-11-06T14:50:28.813Z",
++         "updatedAt": "2026-11-06T14:50:28.835Z",
+        },
+      },
+      {
+        "key": "careerPersons:v1",
+-       "updatedAt": "2026-11-06T14:50:28.813Z",
++       "updatedAt": "2026-11-06T14:50:28.835Z",
+        "value": [
+          "person-profile-a2",
+        ],
+      },
+    ],
+
+ ❯ tests/integration/structuredResumeOperation.test.ts:213:30
+    211|     await expect(f.repo.applyPreciseResumeEdit(f.proposal)).rejects.to…
+    212|     writeFileSync(`docs/quality/ux-01.3-a2-logs/rejection-${kind}.json…
+    213|     expect(await snapshot()).toEqual(before);
+       |                              ^
+    214|   });
+    215|   it.each(["2024", "2024-02-01", "2025-07", "2024-13", "2023-02-29", "…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/integration/structuredResumeOperation.test.ts > A2 typed operations through real Dexie Repository > does not commit unconfirmed or rejected bullet_reordering
+AssertionError: expected { profiles: [ { …(19) } ], …(4) } to deeply equal { profiles: [ { …(19) } ], …(4) }
+
+- Expected
++ Received
+
+@@ -1,23 +1,23 @@
+  {
+    "appMeta": [
+      {
+        "key": "careerPerson:v1:person-profile-a2",
+-       "updatedAt": "2026-11-06T14:50:28.896Z",
++       "updatedAt": "2026-11-06T14:50:28.933Z",
+        "value": {
+          "archivedAt": undefined,
+          "createdAt": "2026-11-06T14:50:28.850Z",
+          "currentProfileId": "profile-a2",
+          "displayName": "匿名A2",
+          "id": "person-profile-a2",
+          "trashedAt": undefined,
+-         "updatedAt": "2026-11-06T14:50:28.896Z",
++         "updatedAt": "2026-11-06T14:50:28.933Z",
+        },
+      },
+      {
+        "key": "careerPersons:v1",
+-       "updatedAt": "2026-11-06T14:50:28.896Z",
++       "updatedAt": "2026-11-06T14:50:28.933Z",
+        "value": [
+          "person-profile-a2",
+        ],
+      },
+    ],
+
+ ❯ tests/integration/structuredResumeOperation.test.ts:213:30
+    211|     await expect(f.repo.applyPreciseResumeEdit(f.proposal)).rejects.to…
+    212|     writeFileSync(`docs/quality/ux-01.3-a2-logs/rejection-${kind}.json…
+    213|     expect(await snapshot()).toEqual(before);
+       |                              ^
+    214|   });
+    215|   it.each(["2024", "2024-02-01", "2025-07", "2024-13", "2023-02-29", "…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 48 skipped (52)
+   Start at  22:50:22
+   Duration  6.27s (transform 3.48s, setup 162ms, import 4.41s, tests 444ms, environment 987ms)
+

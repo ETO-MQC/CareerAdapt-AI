@@ -1,0 +1,19 @@
+
+> careeradapt-ai@0.9.3-rc.2 typecheck E:\DEF\CareerAdapt-competition-5.1.8
+> tsc --noEmit
+
+src/app/resume/ResumeWorkspace.tsx(4632,14): error TS17008: JSX element 'details' has no corresponding closing tag.
+src/app/resume/ResumeWorkspace.tsx(4678,28): error TS1005: ')' expected.
+src/app/resume/ResumeWorkspace.tsx(4679,19): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+src/app/resume/ResumeWorkspace.tsx(4681,15): error TS17002: Expected corresponding JSX closing tag for 'div'.
+src/app/resume/ResumeWorkspace.tsx(4682,15): error TS17002: Expected corresponding JSX closing tag for 'section'.
+src/app/resume/ResumeWorkspace.tsx(4683,11): error TS1005: ')' expected.
+src/app/resume/ResumeWorkspace.tsx(4683,13): error TS17002: Expected corresponding JSX closing tag for 'main'.
+src/app/resume/ResumeWorkspace.tsx(4684,11): error TS1005: ')' expected.
+src/app/resume/ResumeWorkspace.tsx(4698,9): error TS1128: Declaration or statement expected.
+src/app/resume/ResumeWorkspace.tsx(4699,7): error TS1109: Expression expected.
+src/app/resume/ResumeWorkspace.tsx(4699,9): error TS1128: Declaration or statement expected.
+src/app/resume/ResumeWorkspace.tsx(5428,5): error TS1128: Declaration or statement expected.
+src/app/resume/ResumeWorkspace.tsx(5429,3): error TS1109: Expression expected.
+src/app/resume/ResumeWorkspace.tsx(5430,1): error TS1128: Declaration or statement expected.
+ ELIFECYCLE  Command failed with exit code 2.

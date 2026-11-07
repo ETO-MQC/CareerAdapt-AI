@@ -1,0 +1,48 @@
+
+Running 1 test using 1 worker
+
+
+
+(node:53732) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1/1] [chromium] › tests\e2e\ux013-a2-structured.spec.ts:12:5 › UX013 A2 four structured operations reviewed committed and refreshed with durable user source
+  1) [chromium] › tests\e2e\ux013-a2-structured.spec.ts:12:5 › UX013 A2 four structured operations reviewed committed and refreshed with durable user source 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('button', { name: '编辑 SQL', exact: true })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('button', { name: '编辑 SQL', exact: true })
+
+
+      43 |   await page.getByLabel("使用场景或能力说明", { exact: true }).fill("使用 SQL 执行查询验证。");
+      44 |   await page.getByRole("button", { name: "保存", exact: true }).click();
+    > 45 |   await expect(page.getByRole("button", { name: "编辑 SQL", exact: true })).toBeVisible();
+         |                                                                           ^
+      46 |   const initial = await formal(page);
+      47 |   const branch = initial.branches.find(b => b.branchPurpose === "general") as unknown as ResumeBranch;
+      48 |   expect(branch).toBeTruthy();
+        at E:\DEF\CareerAdapt-competition-5.1.8\tests\e2e\ux013-a2-structured.spec.ts:45:75
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    docs\quality\ux-01.3-a2-logs\browser-second\ux013-a2-structured-UX013--b580f-ed-with-durable-user-source-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: docs\quality\ux-01.3-a2-logs\browser-second\ux013-a2-structured-UX013--b580f-ed-with-durable-user-source-chromium\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    docs\quality\ux-01.3-a2-logs\browser-second\ux013-a2-structured-UX013--b580f-ed-with-durable-user-source-chromium\trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace docs\quality\ux-01.3-a2-logs\browser-second\ux013-a2-structured-UX013--b580f-ed-with-durable-user-source-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  1 failed
+    [chromium] › tests\e2e\ux013-a2-structured.spec.ts:12:5 › UX013 A2 four structured operations reviewed committed and refreshed with durable user source 

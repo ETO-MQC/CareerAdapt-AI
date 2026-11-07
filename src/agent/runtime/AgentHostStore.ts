@@ -1,5 +1,5 @@
 "use client";
-import { PreciseSelectionSchema, preciseTarget, verifyPreciseProposal, assertPreciseOwnership, type PreciseSelection } from "@/domain/resumeEditing/preciseResumeEdit";
+import { PreciseSelectionSchema, preciseTarget, verifyPreciseProposal, assertPreciseOwnership, type PreciseSelection, type PreciseTargetInput } from "@/domain/resumeEditing/preciseResumeContract";
 import { projectPreciseProposal, projectPreciseReceipt } from "./preciseResumeEditCheckpoint";
 
 import type { AgentArtifactRef } from "@/agent/contracts/agentArtifact";
@@ -602,7 +602,7 @@ export class AgentHostStore {
     return buildQuickActionContextSnapshot(this.getCareerRepository(), session);
   }
 
-  async selectPreciseResumeEdit(target: Pick<PreciseSelection, "branchId" | "baseRevisionId" | "sectionType" | "itemId" | "field" | "bulletIndex">) {
+  async selectPreciseResumeEdit(target: PreciseTargetInput) {
     const session = this.snapshot.activeSession;
     if (!session || !session.activeProfileId || this.executionCoordinator.isRunning(session.id)
       || session.pendingConfirmation) throw new Error("resume_precise_selection_busy");
@@ -621,16 +621,26 @@ export class AgentHostStore {
     return saved;
   }
 
-  async proposePreciseResumeEdit(proposedValue: string) {
+  async proposePreciseResumeEdit(proposedValue: string | import("zod").infer<typeof import("@/domain/resumeEditing/structuredResumeOperation").StructuredModelOutputSchema>, directCorrection = false) {
     let session = this.snapshot.activeSession;
     if (!session || this.executionCoordinator.isRunning(session.id) || session.pendingConfirmation
       || session.taskState?.workflowId !== "precise_resume_edit") throw new Error("resume_precise_selection_required");
     const now = new Date().toISOString();
     const turnId = `precise-turn-${crypto.randomUUID()}`;
+    if (directCorrection) {
+      if (typeof proposedValue === "string" || proposedValue.operation !== "fact_correction") throw new Error("resume_structured_fact_required");
+      session = appendAgentMessage(session, "user", proposedValue.proposedValue, { turnId });
+    }
     session = await this.dependencies.persistence.save({ ...session, activeTurn: { id: turnId, sessionId: session.id,
       status: "running", startedAt: now }, updatedAt: now });
+    if (directCorrection) {
+      const message = session.messages.at(-1)!;
+      const source = await this.getCareerRepository().capturePreciseCorrectionSource(session.id, turnId, message.id);
+      session = await this.dependencies.persistence.save({ ...session, taskState: { ...session.taskState!, knownSlots: {
+        ...session.taskState!.knownSlots, preciseCorrectionSource: source } } });
+    }
     this.patchSession(session);
-    const result = await this.dependencies.executor.execute({ toolName: "career.workflow.precise_edit", toolInput: { proposedValue },
+    const result = await this.dependencies.executor.execute({ toolName: "career.workflow.precise_edit", toolInput: typeof proposedValue === "string" ? { proposedValue } : proposedValue,
       operationId: `precise-plan-${crypto.randomUUID()}`, agentSessionId: session.id, logicalTurnId: turnId,
       careerSessionBinding: careerSessionBindingForSession(session) });
     if (!result.ok) throw new Error(result.error?.code ?? "resume_precise_proposal_failed");
@@ -640,6 +650,25 @@ export class AgentHostStore {
     const saved = await this.dependencies.persistence.save(projectPreciseProposal(current, proposal));
     if (this.snapshot.activeSession?.id === saved.id && this.snapshot.activeSession.activeTurn?.id === turnId) this.patchSession(saved);
     return saved;
+  }
+
+  async selectPreciseFactCorrection(target: PreciseTargetInput, value: string) {
+    if (!("operation" in target) || target.operation !== "fact_correction") throw new Error("resume_structured_fact_required");
+    await this.selectPreciseResumeEdit(target);
+    let session = this.snapshot.activeSession!;
+    const turnId = `precise-source-turn-${crypto.randomUUID()}`;
+    session = appendAgentMessage(session, "user", value, { turnId });
+    session = await this.dependencies.persistence.save({ ...session, activeTurn: { id: turnId, sessionId: session.id,
+      status: "completed", startedAt: new Date().toISOString() }, updatedAt: new Date().toISOString() });
+    const source = await this.getCareerRepository().capturePreciseCorrectionSource(session.id, turnId, session.messages.at(-1)!.id);
+    const saved = await this.dependencies.persistence.save({ ...session, taskState: { ...session.taskState!, knownSlots: {
+      ...session.taskState!.knownSlots, preciseCorrectionSource: source } }, updatedAt: new Date().toISOString() });
+    if (this.snapshot.activeSession?.id === saved.id) this.patchSession(saved);
+    return saved;
+  }
+
+  async proposePreciseFactCorrection(value: string) {
+    return this.proposePreciseResumeEdit({ operation: "fact_correction", proposedValue: value }, true);
   }
 
   async resolvePreciseResumeEdit(sessionId: string, decision: "confirm" | "reject" | "cancel" | "recover") {

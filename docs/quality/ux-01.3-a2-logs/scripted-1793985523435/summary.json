@@ -1,0 +1,44 @@
+{
+  "status": "FAIL",
+  "directory": "E:\\DEF\\CareerAdapt-competition-5.1.8\\docs\\quality\\ux-01.3-a2-logs\\scripted-1793985523435",
+  "parity": [
+    {
+      "name": "candidate-profile-interview",
+      "sourceSha256": "111ce288e96df7931c67ff5e7e0795de6dd610907d4091d0faad9b3b2cec8773",
+      "bundledSha256": "111ce288e96df7931c67ff5e7e0795de6dd610907d4091d0faad9b3b2cec8773"
+    },
+    {
+      "name": "career-story-mining",
+      "sourceSha256": "0ded284b46791560079825b8e0bd358026474856d62887a089c8f75a7d6b3cbc",
+      "bundledSha256": "0ded284b46791560079825b8e0bd358026474856d62887a089c8f75a7d6b3cbc"
+    },
+    {
+      "name": "job-fit-analysis",
+      "sourceSha256": "79b7b26e459a162da089f0a14f02d02891298f9cfc6a6ad8016d81bf62954f0d",
+      "bundledSha256": "79b7b26e459a162da089f0a14f02d02891298f9cfc6a6ad8016d81bf62954f0d"
+    },
+    {
+      "name": "resume-composition",
+      "sourceSha256": "e174923b58dea31febb56a82adb3eedda92913bfd9443f227b5a83ddc0154a4f",
+      "bundledSha256": "e174923b58dea31febb56a82adb3eedda92913bfd9443f227b5a83ddc0154a4f"
+    },
+    {
+      "name": "resume-review",
+      "sourceSha256": "c7bf15a115dbc55241ab4967baa00fb4c63c4c0ea28c1a4a91d9158cbac5c791",
+      "bundledSha256": "c7bf15a115dbc55241ab4967baa00fb4c63c4c0ea28c1a4a91d9158cbac5c791"
+    },
+    {
+      "name": "resume-tailoring",
+      "sourceSha256": "1326223ad10731916474e7789469a244382857e301f596782ec2c4ffe0b236cd",
+      "bundledSha256": "1326223ad10731916474e7789469a244382857e301f596782ec2c4ffe0b236cd"
+    }
+  ],
+  "syntheticProviderOnly": true,
+  "realProviderRequests": 0,
+  "appUrl": "http://127.0.0.1:3118",
+  "runtimeUrl": "http://127.0.0.1:29862",
+  "isolatedHome": "C:\\Users\\mqcin\\AppData\\Local\\Temp\\ux013-a2-hermes-6NM9wl",
+  "playwrightExitCode": 1,
+  "error": "Error: scripted_browser_exit_1",
+  "providerRequests": []
+}

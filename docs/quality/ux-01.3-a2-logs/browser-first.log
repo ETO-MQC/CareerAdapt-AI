@@ -1,0 +1,31 @@
+
+Running 1 test using 1 worker
+
+
+
+(node:86728) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1/1] [chromium] › tests\e2e\ux013-a2-structured.spec.ts:11:5 › UX013 A2 four structured operations reviewed committed and refreshed with durable user source
+  1) [chromium] › tests\e2e\ux013-a2-structured.spec.ts:11:5 › UX013 A2 four structured operations reviewed committed and refreshed with durable user source 
+
+    Test timeout of 180000ms exceeded.
+
+    Error: locator.fill: Test timeout of 180000ms exceeded.
+    Call log:
+      - waiting for getByLabel('技能名称', { exact: true })
+
+
+      38 |   await page.locator('[data-profile-category="skill"]').click();
+      39 |   await page.getByRole("button", { name: "新增", exact: true }).click();
+    > 40 |   await page.getByLabel("技能名称", { exact: true }).fill("SQL");
+         |                                                  ^
+      41 |   await page.getByLabel("使用场景或能力说明", { exact: true }).fill("使用 SQL 执行查询验证。");
+      42 |   await page.getByRole("button", { name: "保存", exact: true }).click();
+      43 |   await expect(page.getByRole("button", { name: "编辑 SQL", exact: true })).toBeVisible();
+        at E:\DEF\CareerAdapt-competition-5.1.8\tests\e2e\ux013-a2-structured.spec.ts:40:50
+
+    Error Context: docs\quality\ux-01.3-a2-logs\browser-first\ux013-a2-structured-UX013--b580f-ed-with-durable-user-source-chromium\error-context.md
+
+
+  1 failed
+    [chromium] › tests\e2e\ux013-a2-structured.spec.ts:11:5 › UX013 A2 four structured operations reviewed committed and refreshed with durable user source 

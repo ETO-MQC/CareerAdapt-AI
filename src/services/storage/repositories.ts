@@ -1,4 +1,6 @@
-import { assertPreciseDependencies, assertPreciseGuard, assertPreciseOwnership, preciseOperationKey, precisePatchedBranch, verifyPreciseProposal } from "@/domain/resumeEditing/preciseResumeEdit";
+import { assertPreciseDependencies, assertPreciseGuard, assertPreciseOwnership, preciseOperationKey, precisePatchedBranch, verifyPreciseProposal } from "@/domain/resumeEditing/preciseResumeContract";
+import { canonicalJson, preciseSha256 } from "@/domain/resumeEditing/preciseResumeEdit";
+import { CorrectionSourceSchema, ResumeFactProposalSchema, type StructuredProposal } from "@/domain/resumeEditing/structuredResumeOperation";
 import { ResumeLayoutPresetSchema, ResumeLayoutPresetsSchema, type ResumeLayoutStyle } from "@/domain/resumePresentation/layoutPresets";
 import Dexie from "dexie";
 import { MaterialIntakeArtifactSchema, type MaterialIntakeArtifact } from "@/domain/materialIntake/materialIntake";
@@ -3003,12 +3005,63 @@ export class WorkspaceRepository {
     });
   }
 
+  /** Captures an actual persisted user message; the model cannot supply source text or identifiers. */
+  async capturePreciseCorrectionSource(sessionId: string, turnId: string, messageId: string) {
+    const session = await this.getAgentSession(sessionId);
+    const message = session?.messages.find(m => m.id === messageId && m.turnId === turnId && m.role === "user");
+    if (!message) throw new Error("resume_structured_user_source_required");
+    const source = CorrectionSourceSchema.parse({ id: `precise-source-${crypto.randomUUID()}`, sessionId, turnId, messageId,
+      content: message.content, contentHash: await preciseSha256(message.content), createdAt: message.createdAt, kind: "user_correction_statement" });
+    return this.db.transaction("rw", [this.db.agentSessions, this.db.agentMessages, this.db.appMeta], async () => {
+      const actual = await this.db.agentMessages.get(messageId);
+      if (!actual || actual.sessionId !== sessionId || actual.turnId !== turnId || actual.role !== "user" || actual.content !== source.content || actual.createdAt !== source.createdAt) throw new Error("resume_structured_source_stale");
+      await this.db.appMeta.add({ key: source.id, value: source, updatedAt: source.createdAt });
+      return source;
+    });
+  }
+
+  async preparePreciseFactConfirmation(raw: StructuredProposal) {
+    const p = await verifyPreciseProposal(raw);
+    if (p.schemaVersion !== "precise-edit-v2" || p.operation.type !== "fact_correction") throw new Error("resume_structured_fact_required");
+    const fact = p.operation.factProposal;
+    return this.db.transaction("rw", [this.db.appMeta, this.db.agentMessages], async () => {
+      const source = await this.db.appMeta.get(fact.source.id);
+      const message = await this.db.agentMessages.get(fact.source.messageId);
+      if (!source || canonicalJson(source.value) !== canonicalJson(fact.source) || message?.content !== fact.source.content || message.sessionId !== p.selection.sessionId || message.turnId !== fact.source.turnId || message.role !== "user") throw new Error("resume_structured_fact_source_mismatch");
+      await this.db.appMeta.add({ key: `fact-proposal:${fact.id}`, value: { state: "pending", proposal: fact, proposalHash: p.proposalHash }, updatedAt: fact.createdAt });
+    });
+  }
+
+  /** Durable provenance is indexed by immutable Revision.operationId, independently of TaskState/session retention. */
+  async getPreciseResumeRevisionAudit(revisionId: string) {
+    const revision = await this.getResumeRevision(revisionId);
+    if (!revision) throw new Error("resume_precise_revision_missing");
+    const record = await this.db.appMeta.get(`precise-audit:${revision.operationId}`);
+    if (!record) return undefined;
+    const audit = record.value as { proposal: unknown; revisionId: string; confirmedAt: string; factConfirmation?: unknown };
+    const proposal = await verifyPreciseProposal(audit.proposal);
+    const { key } = await preciseOperationKey(proposal);
+    if (key !== revision.operationId || audit.revisionId !== revision.id || proposal.selection.branchId !== revision.branchId) throw new Error("resume_precise_receipt_mismatch");
+    if (proposal.schemaVersion === "precise-edit-v2" && proposal.operation.type === "fact_correction") {
+      const fact = proposal.operation.factProposal;
+      const source = await this.db.appMeta.get(fact.source.id);
+      const envelope = await this.db.appMeta.get(`fact-proposal:${fact.id}`);
+      const consumed = z.object({ state: z.literal("consumed"), proposal: ResumeFactProposalSchema, confirmed: ResumeFactProposalSchema,
+        consumedAt: z.string().datetime(), proposalHash: z.string(), revisionId: z.string() }).strict().parse(envelope?.value);
+      if (canonicalJson(source?.value) !== canonicalJson(fact.source) || canonicalJson(consumed) !== canonicalJson(audit.factConfirmation)
+        || canonicalJson(consumed.proposal) !== canonicalJson(fact) || !consumed.confirmed.userConfirmed
+        || canonicalJson(consumed.confirmed) !== canonicalJson({ ...fact, userConfirmed: true })
+        || consumed.proposalHash !== proposal.proposalHash || consumed.revisionId !== revisionId || consumed.consumedAt !== audit.confirmedAt) throw new Error("resume_structured_fact_source_mismatch");
+    }
+    return { ...audit, proposal };
+  }
+
   async applyPreciseResumeEdit(rawProposal: unknown) {
     // Resolve all WebCrypto promises before opening the IndexedDB transaction.
     const proposal = await verifyPreciseProposal(rawProposal);
     const { prefix, key } = await preciseOperationKey(proposal);
     return this.db.transaction("rw", [this.db.profiles, this.db.jobDescriptions, this.db.resumeBranches,
-      this.db.resumeRevisions, this.db.resumeBranchOperations, this.db.agentSessions], async () => {
+      this.db.resumeRevisions, this.db.resumeBranchOperations, this.db.agentSessions, this.db.agentMessages, this.db.appMeta], async () => {
       const session = await this.db.agentSessions.get(proposal.selection.sessionId);
       if (!session) throw new Error("resume_precise_session_missing");
       const operations = await this.db.resumeBranchOperations.where("operationId").startsWith(prefix).toArray();
@@ -3037,7 +3090,7 @@ export class WorkspaceRepository {
       if (!base || base.branchId !== branch.id || base.revisionNumber !== branch.revision) throw new Error("resume_precise_base_revision_mismatch");
       if (branch.branchPurpose === "job_specific" && !(await this.db.jobDescriptions.get(branch.jobId!))) throw new Error("resume_precise_job_missing");
       assertPreciseGuard(branch, proposal);
-      const patched = precisePatchedBranch(branch, proposal);
+      const patched = precisePatchedBranch(branch, proposal, session.pendingConfirmation?.resolvedAt);
       const now = new Date().toISOString();
       const nextBase = ResumeBranchSchema.parse({ ...patched, revision: branch.revision + 1, updatedAt: now });
       const revision = createResumeRevision({ branch: nextBase, source: "suggestion_accept", operationId: key,
@@ -3047,6 +3100,28 @@ export class WorkspaceRepository {
         branchId: branch.id, type: "suggestion_accept", expectedRevision: branch.revision,
         beforeRevision: branch.revision, afterRevision: nextBranch.revision, revisionId: revision.id,
         occurredAt: now, createdAt: now, updatedAt: now });
+      if (proposal.schemaVersion === "precise-edit-v2") {
+        let factConfirmation;
+        if (proposal.operation.type === "fact_correction") {
+          const fact = proposal.operation.factProposal;
+          const source = await this.db.appMeta.get(fact.source.id);
+          const record = await this.db.appMeta.get(`fact-proposal:${fact.id}`);
+          const envelope = z.object({ state: z.literal("pending"), proposal: ResumeFactProposalSchema, proposalHash: z.string() }).strict().parse(record?.value);
+          const message = await this.db.agentMessages.get(fact.source.messageId);
+          if (canonicalJson(source?.value) !== canonicalJson(fact.source) || canonicalJson(envelope.proposal) !== canonicalJson(fact)
+            || envelope.proposalHash !== proposal.proposalHash || message?.content !== fact.source.content
+            || message.sessionId !== proposal.selection.sessionId || message.turnId !== fact.source.turnId || message.role !== "user") throw new Error("resume_structured_fact_source_mismatch");
+          if (!session.pendingConfirmation?.resolvedAt) throw new Error("resume_precise_confirmation_missing");
+          const confirmed = confirmFactProposal(fact, { at: now });
+          if (!confirmed.ok) throw new Error(confirmed.code);
+          factConfirmation = { state: "consumed", proposal: fact, confirmed: confirmed.proposal, consumedAt: session.pendingConfirmation!.resolvedAt!,
+            proposalHash: proposal.proposalHash, revisionId: revision.id };
+          // Same transaction as all three writes below; any failure rolls confirmation consumption back.
+          await this.db.appMeta.put({ key: `fact-proposal:${fact.id}`, value: factConfirmation, updatedAt: now });
+        }
+        await this.db.appMeta.add({ key: `precise-audit:${key}`, value: { proposal, revisionId: revision.id,
+          confirmedAt: session.pendingConfirmation!.resolvedAt, ...(factConfirmation ? { factConfirmation } : {}) }, updatedAt: now });
+      }
       await this.db.resumeBranches.put(nextBranch);
       await this.db.resumeRevisions.put(revision);
       await this.db.resumeBranchOperations.put(operation);

@@ -1,0 +1,225 @@
+{
+  "date": "2026-11-07",
+  "stage": "P5.1-UX-01.3-A2",
+  "status": "PARTIAL_SCRIPTED_BROWSER_NOT_CERTIFIED",
+  "baseline": "3ee88a64400021cb8f57d6805bf99a762996e10f",
+  "implemented": [
+    "fact_correction",
+    "confirmed_skill_addition",
+    "bullet_removal",
+    "bullet_reordering"
+  ],
+  "compatibility": {
+    "precise-edit-v1": "unchanged schema/hash/meaning; 41 regression cases passed",
+    "fact-proposal-v1": "unchanged schema/scope/meaning; 9 regression cases passed"
+  },
+  "tests": {
+    "files": 6,
+    "passed": 191,
+    "failed": 0,
+    "pending": 0,
+    "exitCode": 0,
+    "perFile": [
+      {
+        "file": "preciseResumeEdit.test.ts",
+        "passed": 41
+      },
+      {
+        "file": "structuredResumeOperation.test.ts",
+        "passed": 78
+      },
+      {
+        "file": "resumeFieldCatalog.test.ts",
+        "passed": 3
+      },
+      {
+        "file": "sessionConfirmedSkills.test.ts",
+        "passed": 18
+      },
+      {
+        "file": "tailoringTargetCatalog.test.ts",
+        "passed": 42
+      },
+      {
+        "file": "v4p1FactProposal.test.ts",
+        "passed": 9
+      }
+    ],
+    "log": "scripted-boundary-tests.log",
+    "machineResults": "scripted-boundary-tests.json"
+  },
+  "gates": {
+    "typecheck": {
+      "exitCode": 0,
+      "log": "delivery-typecheck.log"
+    },
+    "changedFilesEslint": {
+      "exitCode": 0,
+      "log": "delivery-lint.log"
+    },
+    "productionBuild": {
+      "exitCode": 0,
+      "log": "build-delivery.log",
+      "qualifiedInternalDependencies": true
+    },
+    "browser": {
+      "passed": 1,
+      "exitCode": 0,
+      "log": "browser-delivery.log",
+      "seconds": 43.6,
+      "route": "direct user input through production Host/Facade/Gateway/Repository/IndexedDB",
+      "viewports": [
+        1024,
+        1440
+      ],
+      "modelProviderRequests": 0,
+      "scriptedProviderInferenceRound": "INITIALIZATION_FAILED_NOT_CERTIFIED",
+      "realProviderRequests": 0
+    },
+    "sourceConsistency": {
+      "mismatchCount": 0,
+      "files": 572,
+      "file": "source-consistency-final.json"
+    },
+    "diffCheck": {
+      "exitCode": 0
+    }
+  },
+  "formalBrowserCases": {
+    "fact_correction": {
+      "beforeBranches": 1,
+      "afterBranches": 1,
+      "beforeRevisions": 1,
+      "afterRevisions": 2,
+      "profileEqual": true,
+      "revisionId": "resume-revision-fnv-f8690cb7-219",
+      "operationKey": "precise:9ab919cecf5fff8e962672641bc6e7c14db1464033d9ee8a094ea41cb1d52085:4af74cb35c18d34935ea2a10bc0f27879da28e0905af1d34b775f7b53f68bf48",
+      "snapshot": "browser-delivery-data/fact_correction.json"
+    },
+    "confirmed_skill_addition": {
+      "beforeBranches": 1,
+      "afterBranches": 1,
+      "beforeRevisions": 2,
+      "afterRevisions": 3,
+      "profileEqual": true,
+      "revisionId": "resume-revision-fnv-99f463be-219",
+      "operationKey": "precise:a47a648daa99bacae3a0f9564c0c3d4a31a0bcead6f7c983090c02938936e9ce:e3c464e210500204d3ad79113a0928a68b45d64ba01c8974276f02fe6f1f076b",
+      "snapshot": "browser-delivery-data/confirmed_skill_addition.json"
+    },
+    "bullet_removal": {
+      "beforeBranches": 1,
+      "afterBranches": 1,
+      "beforeRevisions": 3,
+      "afterRevisions": 4,
+      "profileEqual": true,
+      "revisionId": "resume-revision-fnv-f57f26ee-219",
+      "operationKey": "precise:1d88bffba8ae64bb8f2357a96cddc01c82cb74a57cbe1689f4f01293cecc9325:68dd4e9e7a5c1b52823cbb59b419d87408dce9c5d6202567d4fff8f74c0fb0fd",
+      "snapshot": "browser-delivery-data/bullet_removal.json"
+    },
+    "bullet_reordering": {
+      "beforeBranches": 1,
+      "afterBranches": 1,
+      "beforeRevisions": 4,
+      "afterRevisions": 5,
+      "profileEqual": true,
+      "revisionId": "resume-revision-fnv-9f247170-219",
+      "operationKey": "precise:ff98988b317d0c0adca1130687207672ae43468e40b35eab6646b2330e53d569:3e5335777dc908d9fa362e94cf0f8f25b78f4b8f5b21da12355ff9abb9637036",
+      "snapshot": "browser-delivery-data/bullet_reordering.json"
+    }
+  },
+  "historySourceTrace": {
+    "revisionId": "resume-revision-fnv-f8690cb7-219",
+    "passedAfterThreeLaterTasks": true,
+    "sessionDeletionCoveredByIntegration": true
+  },
+  "atomicEvidence": "formal-snapshots/actual-dexie-transaction.json",
+  "rollbackEvidence": [
+    "formal-snapshots/rollback-confirmation.json",
+    "formal-snapshots/rollback-revision.json",
+    "formal-snapshots/rollback-audit.json"
+  ],
+  "auditMapping": {
+    "A01": "A1_OR_SHARED_REGRESSION_ONLY",
+    "A02": "A1_OR_SHARED_REGRESSION_ONLY",
+    "A03": "A1_OR_SHARED_REGRESSION_ONLY",
+    "A04": "A2_EXPLICIT_TARGET_ROUTE_PASSED",
+    "A05": "A2_EXPLICIT_TARGET_ROUTE_PASSED",
+    "A06": "A2_EXPLICIT_TARGET_ROUTE_PASSED",
+    "A07": "A2_EXPLICIT_TARGET_ROUTE_PASSED",
+    "A08": "A1_OR_SHARED_REGRESSION_ONLY",
+    "A09": "A1_OR_SHARED_REGRESSION_ONLY",
+    "A10": "A1_OR_SHARED_REGRESSION_ONLY",
+    "A11": "A1_OR_SHARED_REGRESSION_ONLY",
+    "A12": "A1_OR_SHARED_REGRESSION_ONLY",
+    "A13": "A1_OR_SHARED_REGRESSION_ONLY",
+    "A14": "A1_OR_SHARED_REGRESSION_ONLY",
+    "A15": "A1_OR_SHARED_REGRESSION_ONLY",
+    "A16": "A1_OR_SHARED_REGRESSION_ONLY",
+    "B01": "B_NOT_STARTED",
+    "B02": "B_NOT_STARTED",
+    "B03": "B_NOT_STARTED",
+    "B04": "B_NOT_STARTED",
+    "B05": "B_NOT_STARTED",
+    "B06": "B_NOT_STARTED",
+    "B07": "B_NOT_STARTED",
+    "B08": "B_NOT_STARTED",
+    "B09": "B_NOT_STARTED",
+    "B10": "B_NOT_STARTED",
+    "B11": "B_NOT_STARTED",
+    "B12": "B_NOT_STARTED",
+    "B13": "B_NOT_STARTED",
+    "B14": "B_NOT_STARTED",
+    "B15": "B_NOT_STARTED",
+    "B16": "B_NOT_STARTED",
+    "B17": "B_NOT_STARTED",
+    "X01": "C_NOT_CERTIFIED",
+    "X02": "C_NOT_CERTIFIED",
+    "X03": "C_NOT_CERTIFIED",
+    "X04": "C_NOT_CERTIFIED",
+    "X05": "C_NOT_CERTIFIED"
+  },
+  "limits": [
+    "Only explicitly selected current Branch/Revision and existing supported fields.",
+    "Fact corrections accept original directly submitted user statements; they are not independently verified or Profile-confirmed facts.",
+    "Free narrative extraction, external material verification and real Hermes/Provider natural language quality are not certified.",
+    "Direct browser test makes zero model calls; three Scripted qualification initialization attempts failed, so A2 is not fully closed.",
+    "Learning/familiar maturity and ambiguous skill associations require review and are not auto-added.",
+    "No PDF/all-template/full UX-01.3 qualification, A3, B, C or Electron packaging."
+  ],
+  "git": {
+    "head": "3ee88a64400021cb8f57d6805bf99a762996e10f",
+    "commit": "NOT_COMMITTED",
+    "push": false,
+    "packaged": false
+  },
+  "stageClosed": false,
+  "scriptedQualification": {
+    "status": "NOT_CERTIFIED",
+    "stoppedUnderProjectRule": "AGENTS.md:152,308: stop after two consecutive timeouts of the same long test",
+    "attempts": [
+      {
+        "directory": "scripted-1793985228869",
+        "status": "FAIL",
+        "playwrightExitCode": 1,
+        "providerCompletions": 0,
+        "businessNotStarted": true
+      },
+      {
+        "directory": "scripted-1793985388301",
+        "status": "FAIL",
+        "playwrightExitCode": 1,
+        "providerCompletions": 0,
+        "businessNotStarted": true
+      },
+      {
+        "directory": "scripted-1793985523435",
+        "status": "FAIL",
+        "playwrightExitCode": 1,
+        "providerCompletions": 0,
+        "businessNotStarted": true
+      }
+    ],
+    "preparedFixNotRerun": "Move the existing 60s Runtime READY precheck before the separate Setup credential-apply action; do not increase budgets."
+  },
+  "updatedScope": "The AI target-selection entry and separate original source Turn are implemented and covered by four controlled Hermes event-boundary integration cases; actual Scripted inference/browser qualification remains unpassed."
+}

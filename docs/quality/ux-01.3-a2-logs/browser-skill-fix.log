@@ -1,0 +1,45 @@
+
+Running 1 test using 1 worker
+
+
+
+(node:25900) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1/1] [chromium] › tests\e2e\ux013-a2-structured.spec.ts:12:5 › UX013 A2 four structured operations reviewed committed and refreshed with durable user source
+  1) [chromium] › tests\e2e\ux013-a2-structured.spec.ts:12:5 › UX013 A2 four structured operations reviewed committed and refreshed with durable user source 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for getByRole('button', { name: /导入已有简历/ })
+        - locator resolved to <button type="button" class="resume-create-card">…</button>
+      - attempting click action
+        - waiting for element to be visible, enabled and stable
+      - element was detached from the DOM, retrying
+
+
+      37 |   // Official confirmed import adds Profile skills without updating the existing Resume Branch.
+      38 |   await page.goto("/resume");
+    > 39 |   await page.getByRole("button", { name: /导入已有简历/ }).click();
+         |                                                      ^
+      40 |   await dialog.getByText("粘贴 JSON", { exact: true }).click();
+      41 |   await dialog.getByLabel("JSON 内容").fill(JSON.stringify({ schemaVersion: "careeradapt-resume-v2", locale: "zh-CN",
+      42 |     basics: { name: "A2匿名候选人", portfolioLinks: [], otherLinks: [], customFields: [] },
+        at E:\DEF\CareerAdapt-competition-5.1.8\tests\e2e\ux013-a2-structured.spec.ts:39:54
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    docs\quality\ux-01.3-a2-logs\browser-skill-fix\ux013-a2-structured-UX013--b580f-ed-with-durable-user-source-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: docs\quality\ux-01.3-a2-logs\browser-skill-fix\ux013-a2-structured-UX013--b580f-ed-with-durable-user-source-chromium\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    docs\quality\ux-01.3-a2-logs\browser-skill-fix\ux013-a2-structured-UX013--b580f-ed-with-durable-user-source-chromium\trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace docs\quality\ux-01.3-a2-logs\browser-skill-fix\ux013-a2-structured-UX013--b580f-ed-with-durable-user-source-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  1 failed
+    [chromium] › tests\e2e\ux013-a2-structured.spec.ts:12:5 › UX013 A2 four structured operations reviewed committed and refreshed with durable user source 

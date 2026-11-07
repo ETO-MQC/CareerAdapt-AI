@@ -1,0 +1,3954 @@
+{
+  "before": {
+    "profiles": [
+      {
+        "id": "profile-a2",
+        "createdAt": "2026-11-06T17:12:33.284Z",
+        "updatedAt": "2026-11-06T17:12:33.284Z",
+        "schemaVersion": "career-profile-v2",
+        "name": "匿名A2",
+        "basics": {
+          "name": "匿名A2",
+          "links": []
+        },
+        "preference": {
+          "targetRoles": [],
+          "targetCities": [],
+          "industries": []
+        },
+        "version": 1,
+        "experiences": [
+          {
+            "id": "project",
+            "createdAt": "2026-11-06T17:12:33.284Z",
+            "updatedAt": "2026-11-06T17:12:33.284Z",
+            "type": "project",
+            "organization": "原始project",
+            "role": "开发",
+            "startDate": "2024-01",
+            "endDate": "2024-06",
+            "facts": [
+              {
+                "id": "fact-project",
+                "createdAt": "2026-11-06T17:12:33.284Z",
+                "updatedAt": "2026-11-06T17:12:33.284Z",
+                "statement": "执行接口测试。",
+                "category": "experience",
+                "provenance": [
+                  {
+                    "sourceType": "user_input",
+                    "sourceId": "source-fact-project",
+                    "sourceText": "执行接口测试。",
+                    "confidence": 1,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-11-06T17:12:33.284Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low",
+                "maturity": "demonstrated"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-profile-DJ51FsWvnh",
+                "createdAt": "2026-11-06T17:12:33.284Z",
+                "updatedAt": "2026-11-06T17:12:33.284Z",
+                "text": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+                "factIds": [
+                  "fact-project"
+                ]
+              }
+            ],
+            "tags": [],
+            "evidenceIds": []
+          },
+          {
+            "id": "work",
+            "createdAt": "2026-11-06T17:12:33.284Z",
+            "updatedAt": "2026-11-06T17:12:33.284Z",
+            "type": "work",
+            "organization": "原始work",
+            "role": "开发",
+            "startDate": "2024-01",
+            "endDate": "2024-06",
+            "facts": [
+              {
+                "id": "fact-work",
+                "createdAt": "2026-11-06T17:12:33.284Z",
+                "updatedAt": "2026-11-06T17:12:33.284Z",
+                "statement": "执行接口测试。",
+                "category": "experience",
+                "provenance": [
+                  {
+                    "sourceType": "user_input",
+                    "sourceId": "source-fact-work",
+                    "sourceText": "执行接口测试。",
+                    "confidence": 1,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-11-06T17:12:33.284Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low",
+                "maturity": "demonstrated"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-profile-Gnb-9VsIc4",
+                "createdAt": "2026-11-06T17:12:33.284Z",
+                "updatedAt": "2026-11-06T17:12:33.284Z",
+                "text": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+                "factIds": [
+                  "fact-work"
+                ]
+              }
+            ],
+            "tags": [],
+            "evidenceIds": []
+          },
+          {
+            "id": "internship",
+            "createdAt": "2026-11-06T17:12:33.284Z",
+            "updatedAt": "2026-11-06T17:12:33.284Z",
+            "type": "internship",
+            "organization": "原始internship",
+            "role": "开发",
+            "startDate": "2024-01",
+            "endDate": "2024-06",
+            "facts": [
+              {
+                "id": "fact-internship",
+                "createdAt": "2026-11-06T17:12:33.284Z",
+                "updatedAt": "2026-11-06T17:12:33.284Z",
+                "statement": "执行接口测试。",
+                "category": "experience",
+                "provenance": [
+                  {
+                    "sourceType": "user_input",
+                    "sourceId": "source-fact-internship",
+                    "sourceText": "执行接口测试。",
+                    "confidence": 1,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-11-06T17:12:33.284Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low",
+                "maturity": "demonstrated"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-profile-ayWmhexnkb",
+                "createdAt": "2026-11-06T17:12:33.284Z",
+                "updatedAt": "2026-11-06T17:12:33.284Z",
+                "text": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+                "factIds": [
+                  "fact-internship"
+                ]
+              }
+            ],
+            "tags": [],
+            "evidenceIds": []
+          }
+        ],
+        "skills": [
+          {
+            "id": "SQL",
+            "createdAt": "2026-11-06T17:12:33.284Z",
+            "updatedAt": "2026-11-06T17:12:33.284Z",
+            "name": "SQL",
+            "level": "familiar",
+            "evidenceIds": [],
+            "fact": {
+              "id": "fact-SQL",
+              "createdAt": "2026-11-06T17:12:33.284Z",
+              "updatedAt": "2026-11-06T17:12:33.284Z",
+              "statement": "掌握SQL",
+              "category": "skill",
+              "provenance": [
+                {
+                  "sourceType": "user_input",
+                  "sourceId": "source-fact-SQL",
+                  "sourceText": "掌握SQL",
+                  "confidence": 1,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-11-06T17:12:33.284Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low",
+              "maturity": "demonstrated"
+            }
+          },
+          {
+            "id": "Python",
+            "createdAt": "2026-11-06T17:12:33.284Z",
+            "updatedAt": "2026-11-06T17:12:33.284Z",
+            "name": "Python",
+            "level": "familiar",
+            "evidenceIds": [],
+            "fact": {
+              "id": "fact-Python",
+              "createdAt": "2026-11-06T17:12:33.284Z",
+              "updatedAt": "2026-11-06T17:12:33.284Z",
+              "statement": "掌握Python",
+              "category": "skill",
+              "provenance": [
+                {
+                  "sourceType": "user_input",
+                  "sourceId": "source-fact-Python",
+                  "sourceText": "掌握Python",
+                  "confidence": 1,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-11-06T17:12:33.284Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low",
+              "maturity": "demonstrated"
+            }
+          }
+        ],
+        "certificates": [],
+        "evidences": [],
+        "unclassifiedBlocks": [],
+        "structuredFacts": [
+          {
+            "data": {
+              "id": "project",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "原始project",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "执行接口测试。"
+              ],
+              "outcomes": []
+            },
+            "factIds": [
+              "fact-project"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "work",
+              "customFields": [],
+              "sectionType": "work",
+              "organization": "原始work",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "highlights": [
+                "执行接口测试。"
+              ]
+            },
+            "factIds": [
+              "fact-work"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "internship",
+              "customFields": [],
+              "sectionType": "internship",
+              "organization": "原始internship",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "highlights": [
+                "执行接口测试。"
+              ]
+            },
+            "factIds": [
+              "fact-internship"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "SQL",
+              "customFields": [],
+              "sectionType": "skills",
+              "name": "SQL",
+              "level": "familiar",
+              "description": "掌握SQL"
+            },
+            "factIds": [
+              "fact-SQL"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "Python",
+              "customFields": [],
+              "sectionType": "skills",
+              "name": "Python",
+              "level": "familiar",
+              "description": "掌握Python"
+            },
+            "factIds": [
+              "fact-Python"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "mappingTrace": []
+          }
+        ],
+        "structuredBasics": {
+          "name": "匿名A2",
+          "portfolioLinks": [],
+          "otherLinks": [],
+          "customFields": []
+        },
+        "personId": "person-profile-a2",
+        "profileVersionNumber": 1,
+        "isCurrent": true,
+        "versionCreatedReason": "initial"
+      }
+    ],
+    "branches": [
+      {
+        "id": "branch-general-CVi_u8Xeql",
+        "createdAt": "2026-11-06T17:12:33.284Z",
+        "updatedAt": "2026-11-06T17:12:33.284Z",
+        "schemaVersion": "resume-branch-v2",
+        "branchPurpose": "general",
+        "profileId": "profile-a2",
+        "name": "通用A2",
+        "sourceProfileVersion": 1,
+        "sourceProfileSnapshotId": "profile-snapshot-profile-a2-1-ryA0oa",
+        "sourceDraftRevision": 0,
+        "matcherVersion": "profile-snapshot-v2",
+        "sourceMatchSetHash": "profile-snapshot-profile-a2-1-ryA0oa",
+        "requirementMatchIds": [],
+        "revision": 0,
+        "currentRevisionId": "resume-revision-fnv-06df6ae3-43",
+        "lifecycleStatus": "active",
+        "migrationStatus": "verified",
+        "syncStatusCache": {
+          "status": "in_sync",
+          "sourceProfileVersion": 1,
+          "currentProfileVersion": 1,
+          "invalidFactRefs": [],
+          "checkedAt": "2026-11-06T17:12:33.284Z",
+          "message": "General branch is in sync with its source profile."
+        },
+        "resumeBasics": {
+          "customFields": [],
+          "name": "匿名A2",
+          "email": "",
+          "phone": "",
+          "location": "",
+          "summary": "",
+          "links": []
+        },
+        "contentItems": [
+          {
+            "id": "branch-item-profile-project-4Etuvg",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "project",
+            "text": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "originalText": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "order": 0,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "project",
+                "factId": "fact-project"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T17:12:33.284Z",
+            "guardVersion": "profile-snapshot-v2"
+          },
+          {
+            "id": "branch-item-profile-work-POrMTS",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "work",
+            "text": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "originalText": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "order": 1,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "work",
+                "factId": "fact-work"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T17:12:33.284Z",
+            "guardVersion": "profile-snapshot-v2"
+          },
+          {
+            "id": "branch-item-profile-internship-WmfkrS",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "internship",
+            "text": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "originalText": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "order": 2,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "internship",
+                "factId": "fact-internship"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T17:12:33.284Z",
+            "guardVersion": "profile-snapshot-v2"
+          }
+        ],
+        "structuredContentItems": [
+          {
+            "id": "branch-item-profile-project-4Etuvg",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "project",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "原始project",
+              "role": "开发",
+              "organization": "原组织",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "重复文字",
+                "SQL 查询",
+                "重复文字"
+              ],
+              "outcomes": []
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "project",
+                "factId": "fact-project"
+              }
+            ],
+            "source": "user_manual",
+            "order": 0,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-profile-work-POrMTS",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "work",
+              "customFields": [],
+              "sectionType": "work",
+              "organization": "原始work",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "highlights": [
+                "重复文字",
+                "SQL 查询",
+                "重复文字"
+              ]
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "work",
+                "factId": "fact-work"
+              }
+            ],
+            "source": "user_manual",
+            "order": 1,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-profile-internship-WmfkrS",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "internship",
+              "customFields": [],
+              "sectionType": "internship",
+              "organization": "原始internship",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "highlights": [
+                "重复文字",
+                "SQL 查询",
+                "重复文字"
+              ]
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "internship",
+                "factId": "fact-internship"
+              }
+            ],
+            "source": "user_manual",
+            "order": 2,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          }
+        ],
+        "tailoringAppliedCount": 0
+      },
+      {
+        "id": "branch-job-profile-fnv-60512e01-31",
+        "createdAt": "2026-11-06T17:12:33.284Z",
+        "updatedAt": "2026-11-06T17:12:33.284Z",
+        "schemaVersion": "resume-branch-v2",
+        "branchPurpose": "job_specific",
+        "profileId": "profile-a2",
+        "jobId": "job-a2",
+        "name": "job-a2",
+        "sourceProfileVersion": 1,
+        "sourceJobVersion": "2026-11-06T17:12:33.284Z",
+        "sourceProfileSnapshotId": "profile-snapshot-profile-a2-1-fnv-e6037c37-23",
+        "derivedAt": "2026-11-06T17:12:33.284Z",
+        "sourceDraftRevision": 0,
+        "matcherVersion": "job-source-mode.profile-library.v2",
+        "sourceMatchSetHash": "match-a2",
+        "requirementMatchIds": [],
+        "revision": 0,
+        "currentRevisionId": "resume-revision-fnv-03861620-55",
+        "lifecycleStatus": "active",
+        "migrationStatus": "verified",
+        "syncStatusCache": {
+          "status": "in_sync",
+          "sourceProfileVersion": 1,
+          "currentProfileVersion": 1,
+          "sourceJobVersion": "2026-11-06T17:12:33.284Z",
+          "currentJobVersion": "2026-11-06T17:12:33.284Z",
+          "invalidFactRefs": [],
+          "checkedAt": "2026-11-06T17:12:33.284Z",
+          "message": "Job branch is in sync with its profile-library source and job version."
+        },
+        "resumeBasics": {
+          "customFields": [],
+          "name": "匿名A2",
+          "targetRole": "开发",
+          "email": "",
+          "phone": "",
+          "location": "",
+          "summary": "",
+          "links": []
+        },
+        "contentItems": [
+          {
+            "id": "branch-item-profile-project-g_Qbx0",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "project",
+            "text": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "originalText": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "order": 0,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "project",
+                "factId": "fact-project"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T17:12:33.284Z",
+            "guardVersion": "profile-snapshot-v2"
+          },
+          {
+            "id": "branch-item-profile-work-Vd8ywz",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "work",
+            "text": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "originalText": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "order": 1,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "work",
+                "factId": "fact-work"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T17:12:33.284Z",
+            "guardVersion": "profile-snapshot-v2"
+          },
+          {
+            "id": "branch-item-profile-internship-JQu13i",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "internship",
+            "text": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "originalText": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "order": 2,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "internship",
+                "factId": "fact-internship"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T17:12:33.284Z",
+            "guardVersion": "profile-snapshot-v2"
+          }
+        ],
+        "structuredContentItems": [
+          {
+            "id": "branch-item-profile-project-g_Qbx0",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "project",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "原始project",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "执行接口测试。"
+              ],
+              "outcomes": []
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "project",
+                "factId": "fact-project"
+              }
+            ],
+            "source": "user_manual",
+            "order": 0,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-profile-work-Vd8ywz",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "work",
+              "customFields": [],
+              "sectionType": "work",
+              "organization": "原始work",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "highlights": [
+                "执行接口测试。"
+              ]
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "work",
+                "factId": "fact-work"
+              }
+            ],
+            "source": "user_manual",
+            "order": 1,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-profile-internship-JQu13i",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "internship",
+              "customFields": [],
+              "sectionType": "internship",
+              "organization": "原始internship",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "highlights": [
+                "执行接口测试。"
+              ]
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "internship",
+                "factId": "fact-internship"
+              }
+            ],
+            "source": "user_manual",
+            "order": 2,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          }
+        ],
+        "tailoringAppliedCount": 0
+      },
+      {
+        "id": "branch-job-profile-fnv-918240bf-45",
+        "createdAt": "2026-11-06T17:12:33.284Z",
+        "updatedAt": "2026-11-06T17:12:33.284Z",
+        "schemaVersion": "resume-branch-v2",
+        "branchPurpose": "job_specific",
+        "profileId": "profile-a2",
+        "jobId": "job-a2-second",
+        "name": "job-a2-second",
+        "sourceProfileVersion": 1,
+        "sourceJobVersion": "2026-11-06T17:12:33.284Z",
+        "sourceProfileSnapshotId": "profile-snapshot-profile-a2-1-fnv-e6037c37-23",
+        "derivedAt": "2026-11-06T17:12:33.284Z",
+        "sourceDraftRevision": 0,
+        "matcherVersion": "job-source-mode.profile-library.v2",
+        "sourceMatchSetHash": "match-a2",
+        "requirementMatchIds": [],
+        "revision": 0,
+        "currentRevisionId": "resume-revision-fnv-37f76934-62",
+        "lifecycleStatus": "active",
+        "migrationStatus": "verified",
+        "syncStatusCache": {
+          "status": "in_sync",
+          "sourceProfileVersion": 1,
+          "currentProfileVersion": 1,
+          "sourceJobVersion": "2026-11-06T17:12:33.284Z",
+          "currentJobVersion": "2026-11-06T17:12:33.284Z",
+          "invalidFactRefs": [],
+          "checkedAt": "2026-11-06T17:12:33.284Z",
+          "message": "Job branch is in sync with its profile-library source and job version."
+        },
+        "resumeBasics": {
+          "customFields": [],
+          "name": "匿名A2",
+          "targetRole": "开发",
+          "email": "",
+          "phone": "",
+          "location": "",
+          "summary": "",
+          "links": []
+        },
+        "contentItems": [
+          {
+            "id": "branch-item-profile-project-kxcKXv",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "project",
+            "text": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "originalText": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "order": 0,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "project",
+                "factId": "fact-project"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T17:12:33.284Z",
+            "guardVersion": "profile-snapshot-v2"
+          },
+          {
+            "id": "branch-item-profile-work-kVs_BK",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "work",
+            "text": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "originalText": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "order": 1,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "work",
+                "factId": "fact-work"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T17:12:33.284Z",
+            "guardVersion": "profile-snapshot-v2"
+          },
+          {
+            "id": "branch-item-profile-internship--U9yO7",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "internship",
+            "text": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "originalText": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "order": 2,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "internship",
+                "factId": "fact-internship"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T17:12:33.284Z",
+            "guardVersion": "profile-snapshot-v2"
+          }
+        ],
+        "structuredContentItems": [
+          {
+            "id": "branch-item-profile-project-kxcKXv",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "project",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "原始project",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "执行接口测试。"
+              ],
+              "outcomes": []
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "project",
+                "factId": "fact-project"
+              }
+            ],
+            "source": "user_manual",
+            "order": 0,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-profile-work-kVs_BK",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "work",
+              "customFields": [],
+              "sectionType": "work",
+              "organization": "原始work",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "highlights": [
+                "执行接口测试。"
+              ]
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "work",
+                "factId": "fact-work"
+              }
+            ],
+            "source": "user_manual",
+            "order": 1,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-profile-internship--U9yO7",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "internship",
+              "customFields": [],
+              "sectionType": "internship",
+              "organization": "原始internship",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "highlights": [
+                "执行接口测试。"
+              ]
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "internship",
+                "factId": "fact-internship"
+              }
+            ],
+            "source": "user_manual",
+            "order": 2,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          }
+        ],
+        "tailoringAppliedCount": 0
+      }
+    ],
+    "revisions": [
+      {
+        "id": "resume-revision-fnv-03861620-55",
+        "createdAt": "2026-11-06T17:12:33.284Z",
+        "updatedAt": "2026-11-06T17:12:33.284Z",
+        "branchId": "branch-job-profile-fnv-60512e01-31",
+        "revisionNumber": 0,
+        "source": "created_from_profile",
+        "operationId": "create-job-a2",
+        "snapshot": {
+          "name": "job-a2",
+          "lifecycleStatus": "active",
+          "resumeBasics": {
+            "customFields": [],
+            "name": "匿名A2",
+            "targetRole": "开发",
+            "email": "",
+            "phone": "",
+            "location": "",
+            "summary": "",
+            "links": []
+          },
+          "contentItems": [
+            {
+              "id": "branch-item-profile-project-g_Qbx0",
+              "itemType": "experience",
+              "source": "user_manual",
+              "sourceSectionId": "project",
+              "text": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "originalText": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "order": 0,
+              "visible": true,
+              "requirementIds": [],
+              "sourceSuggestionIds": [],
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "project",
+                  "factId": "fact-project"
+                }
+              ],
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardRiskLevel": "low",
+              "guardFindings": [],
+              "guardedAt": "2026-11-06T17:12:33.284Z",
+              "guardVersion": "profile-snapshot-v2"
+            },
+            {
+              "id": "branch-item-profile-work-Vd8ywz",
+              "itemType": "experience",
+              "source": "user_manual",
+              "sourceSectionId": "work",
+              "text": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "originalText": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "order": 1,
+              "visible": true,
+              "requirementIds": [],
+              "sourceSuggestionIds": [],
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "work",
+                  "factId": "fact-work"
+                }
+              ],
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardRiskLevel": "low",
+              "guardFindings": [],
+              "guardedAt": "2026-11-06T17:12:33.284Z",
+              "guardVersion": "profile-snapshot-v2"
+            },
+            {
+              "id": "branch-item-profile-internship-JQu13i",
+              "itemType": "experience",
+              "source": "user_manual",
+              "sourceSectionId": "internship",
+              "text": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "originalText": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "order": 2,
+              "visible": true,
+              "requirementIds": [],
+              "sourceSuggestionIds": [],
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "internship",
+                  "factId": "fact-internship"
+                }
+              ],
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardRiskLevel": "low",
+              "guardFindings": [],
+              "guardedAt": "2026-11-06T17:12:33.284Z",
+              "guardVersion": "profile-snapshot-v2"
+            }
+          ],
+          "structuredContentItems": [
+            {
+              "id": "branch-item-profile-project-g_Qbx0",
+              "schemaVersion": "resume-content-item-v2",
+              "data": {
+                "id": "project",
+                "customFields": [],
+                "sectionType": "project",
+                "title": "原始project",
+                "role": "开发",
+                "startDate": "2024-01",
+                "endDate": "2024-06",
+                "current": false,
+                "tools": [],
+                "highlights": [
+                  "执行接口测试。"
+                ],
+                "outcomes": []
+              },
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "project",
+                  "factId": "fact-project"
+                }
+              ],
+              "source": "user_manual",
+              "order": 0,
+              "visible": true,
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardFindings": [],
+              "legacyTextProjection": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "sourceExcerpt": "执行接口测试。",
+              "mappingTrace": []
+            },
+            {
+              "id": "branch-item-profile-work-Vd8ywz",
+              "schemaVersion": "resume-content-item-v2",
+              "data": {
+                "id": "work",
+                "customFields": [],
+                "sectionType": "work",
+                "organization": "原始work",
+                "role": "开发",
+                "startDate": "2024-01",
+                "endDate": "2024-06",
+                "current": false,
+                "highlights": [
+                  "执行接口测试。"
+                ]
+              },
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "work",
+                  "factId": "fact-work"
+                }
+              ],
+              "source": "user_manual",
+              "order": 1,
+              "visible": true,
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardFindings": [],
+              "legacyTextProjection": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "sourceExcerpt": "执行接口测试。",
+              "mappingTrace": []
+            },
+            {
+              "id": "branch-item-profile-internship-JQu13i",
+              "schemaVersion": "resume-content-item-v2",
+              "data": {
+                "id": "internship",
+                "customFields": [],
+                "sectionType": "internship",
+                "organization": "原始internship",
+                "role": "开发",
+                "startDate": "2024-01",
+                "endDate": "2024-06",
+                "current": false,
+                "highlights": [
+                  "执行接口测试。"
+                ]
+              },
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "internship",
+                  "factId": "fact-internship"
+                }
+              ],
+              "source": "user_manual",
+              "order": 2,
+              "visible": true,
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardFindings": [],
+              "legacyTextProjection": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "sourceExcerpt": "执行接口测试。",
+              "mappingTrace": []
+            }
+          ]
+        }
+      },
+      {
+        "id": "resume-revision-fnv-06df6ae3-43",
+        "createdAt": "2026-11-06T17:12:33.284Z",
+        "updatedAt": "2026-11-06T17:12:33.284Z",
+        "branchId": "branch-general-CVi_u8Xeql",
+        "revisionNumber": 0,
+        "source": "created_from_profile",
+        "operationId": "general-a2",
+        "snapshot": {
+          "name": "通用A2",
+          "lifecycleStatus": "active",
+          "resumeBasics": {
+            "customFields": [],
+            "name": "匿名A2",
+            "email": "",
+            "phone": "",
+            "location": "",
+            "summary": "",
+            "links": []
+          },
+          "contentItems": [
+            {
+              "id": "branch-item-profile-project-4Etuvg",
+              "itemType": "experience",
+              "source": "user_manual",
+              "sourceSectionId": "project",
+              "text": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "originalText": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "order": 0,
+              "visible": true,
+              "requirementIds": [],
+              "sourceSuggestionIds": [],
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "project",
+                  "factId": "fact-project"
+                }
+              ],
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardRiskLevel": "low",
+              "guardFindings": [],
+              "guardedAt": "2026-11-06T17:12:33.284Z",
+              "guardVersion": "profile-snapshot-v2"
+            },
+            {
+              "id": "branch-item-profile-work-POrMTS",
+              "itemType": "experience",
+              "source": "user_manual",
+              "sourceSectionId": "work",
+              "text": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "originalText": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "order": 1,
+              "visible": true,
+              "requirementIds": [],
+              "sourceSuggestionIds": [],
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "work",
+                  "factId": "fact-work"
+                }
+              ],
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardRiskLevel": "low",
+              "guardFindings": [],
+              "guardedAt": "2026-11-06T17:12:33.284Z",
+              "guardVersion": "profile-snapshot-v2"
+            },
+            {
+              "id": "branch-item-profile-internship-WmfkrS",
+              "itemType": "experience",
+              "source": "user_manual",
+              "sourceSectionId": "internship",
+              "text": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "originalText": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "order": 2,
+              "visible": true,
+              "requirementIds": [],
+              "sourceSuggestionIds": [],
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "internship",
+                  "factId": "fact-internship"
+                }
+              ],
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardRiskLevel": "low",
+              "guardFindings": [],
+              "guardedAt": "2026-11-06T17:12:33.284Z",
+              "guardVersion": "profile-snapshot-v2"
+            }
+          ],
+          "structuredContentItems": [
+            {
+              "id": "branch-item-profile-project-4Etuvg",
+              "schemaVersion": "resume-content-item-v2",
+              "data": {
+                "id": "project",
+                "customFields": [],
+                "sectionType": "project",
+                "title": "原始project",
+                "role": "开发",
+                "organization": "原组织",
+                "startDate": "2024-01",
+                "endDate": "2024-06",
+                "current": false,
+                "tools": [],
+                "highlights": [
+                  "重复文字",
+                  "SQL 查询",
+                  "重复文字"
+                ],
+                "outcomes": []
+              },
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "project",
+                  "factId": "fact-project"
+                }
+              ],
+              "source": "user_manual",
+              "order": 0,
+              "visible": true,
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardFindings": [],
+              "legacyTextProjection": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "sourceExcerpt": "执行接口测试。",
+              "mappingTrace": []
+            },
+            {
+              "id": "branch-item-profile-work-POrMTS",
+              "schemaVersion": "resume-content-item-v2",
+              "data": {
+                "id": "work",
+                "customFields": [],
+                "sectionType": "work",
+                "organization": "原始work",
+                "role": "开发",
+                "startDate": "2024-01",
+                "endDate": "2024-06",
+                "current": false,
+                "highlights": [
+                  "重复文字",
+                  "SQL 查询",
+                  "重复文字"
+                ]
+              },
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "work",
+                  "factId": "fact-work"
+                }
+              ],
+              "source": "user_manual",
+              "order": 1,
+              "visible": true,
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardFindings": [],
+              "legacyTextProjection": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "sourceExcerpt": "执行接口测试。",
+              "mappingTrace": []
+            },
+            {
+              "id": "branch-item-profile-internship-WmfkrS",
+              "schemaVersion": "resume-content-item-v2",
+              "data": {
+                "id": "internship",
+                "customFields": [],
+                "sectionType": "internship",
+                "organization": "原始internship",
+                "role": "开发",
+                "startDate": "2024-01",
+                "endDate": "2024-06",
+                "current": false,
+                "highlights": [
+                  "重复文字",
+                  "SQL 查询",
+                  "重复文字"
+                ]
+              },
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "internship",
+                  "factId": "fact-internship"
+                }
+              ],
+              "source": "user_manual",
+              "order": 2,
+              "visible": true,
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardFindings": [],
+              "legacyTextProjection": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "sourceExcerpt": "执行接口测试。",
+              "mappingTrace": []
+            }
+          ]
+        }
+      },
+      {
+        "id": "resume-revision-fnv-37f76934-62",
+        "createdAt": "2026-11-06T17:12:33.284Z",
+        "updatedAt": "2026-11-06T17:12:33.284Z",
+        "branchId": "branch-job-profile-fnv-918240bf-45",
+        "revisionNumber": 0,
+        "source": "created_from_profile",
+        "operationId": "create-job-a2-second",
+        "snapshot": {
+          "name": "job-a2-second",
+          "lifecycleStatus": "active",
+          "resumeBasics": {
+            "customFields": [],
+            "name": "匿名A2",
+            "targetRole": "开发",
+            "email": "",
+            "phone": "",
+            "location": "",
+            "summary": "",
+            "links": []
+          },
+          "contentItems": [
+            {
+              "id": "branch-item-profile-project-kxcKXv",
+              "itemType": "experience",
+              "source": "user_manual",
+              "sourceSectionId": "project",
+              "text": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "originalText": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "order": 0,
+              "visible": true,
+              "requirementIds": [],
+              "sourceSuggestionIds": [],
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "project",
+                  "factId": "fact-project"
+                }
+              ],
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardRiskLevel": "low",
+              "guardFindings": [],
+              "guardedAt": "2026-11-06T17:12:33.284Z",
+              "guardVersion": "profile-snapshot-v2"
+            },
+            {
+              "id": "branch-item-profile-work-kVs_BK",
+              "itemType": "experience",
+              "source": "user_manual",
+              "sourceSectionId": "work",
+              "text": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "originalText": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "order": 1,
+              "visible": true,
+              "requirementIds": [],
+              "sourceSuggestionIds": [],
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "work",
+                  "factId": "fact-work"
+                }
+              ],
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardRiskLevel": "low",
+              "guardFindings": [],
+              "guardedAt": "2026-11-06T17:12:33.284Z",
+              "guardVersion": "profile-snapshot-v2"
+            },
+            {
+              "id": "branch-item-profile-internship--U9yO7",
+              "itemType": "experience",
+              "source": "user_manual",
+              "sourceSectionId": "internship",
+              "text": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "originalText": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "order": 2,
+              "visible": true,
+              "requirementIds": [],
+              "sourceSuggestionIds": [],
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "internship",
+                  "factId": "fact-internship"
+                }
+              ],
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardRiskLevel": "low",
+              "guardFindings": [],
+              "guardedAt": "2026-11-06T17:12:33.284Z",
+              "guardVersion": "profile-snapshot-v2"
+            }
+          ],
+          "structuredContentItems": [
+            {
+              "id": "branch-item-profile-project-kxcKXv",
+              "schemaVersion": "resume-content-item-v2",
+              "data": {
+                "id": "project",
+                "customFields": [],
+                "sectionType": "project",
+                "title": "原始project",
+                "role": "开发",
+                "startDate": "2024-01",
+                "endDate": "2024-06",
+                "current": false,
+                "tools": [],
+                "highlights": [
+                  "执行接口测试。"
+                ],
+                "outcomes": []
+              },
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "project",
+                  "factId": "fact-project"
+                }
+              ],
+              "source": "user_manual",
+              "order": 0,
+              "visible": true,
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardFindings": [],
+              "legacyTextProjection": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "sourceExcerpt": "执行接口测试。",
+              "mappingTrace": []
+            },
+            {
+              "id": "branch-item-profile-work-kVs_BK",
+              "schemaVersion": "resume-content-item-v2",
+              "data": {
+                "id": "work",
+                "customFields": [],
+                "sectionType": "work",
+                "organization": "原始work",
+                "role": "开发",
+                "startDate": "2024-01",
+                "endDate": "2024-06",
+                "current": false,
+                "highlights": [
+                  "执行接口测试。"
+                ]
+              },
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "work",
+                  "factId": "fact-work"
+                }
+              ],
+              "source": "user_manual",
+              "order": 1,
+              "visible": true,
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardFindings": [],
+              "legacyTextProjection": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "sourceExcerpt": "执行接口测试。",
+              "mappingTrace": []
+            },
+            {
+              "id": "branch-item-profile-internship--U9yO7",
+              "schemaVersion": "resume-content-item-v2",
+              "data": {
+                "id": "internship",
+                "customFields": [],
+                "sectionType": "internship",
+                "organization": "原始internship",
+                "role": "开发",
+                "startDate": "2024-01",
+                "endDate": "2024-06",
+                "current": false,
+                "highlights": [
+                  "执行接口测试。"
+                ]
+              },
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "internship",
+                  "factId": "fact-internship"
+                }
+              ],
+              "source": "user_manual",
+              "order": 2,
+              "visible": true,
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardFindings": [],
+              "legacyTextProjection": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "sourceExcerpt": "执行接口测试。",
+              "mappingTrace": []
+            }
+          ]
+        }
+      }
+    ],
+    "operations": [],
+    "appMeta": [
+      {
+        "key": "careerPerson:v1:person-profile-a2",
+        "value": {
+          "id": "person-profile-a2",
+          "displayName": "匿名A2",
+          "currentProfileId": "profile-a2",
+          "createdAt": "2026-11-06T17:12:33.284Z",
+          "updatedAt": "2026-11-06T17:12:33.453Z"
+        },
+        "updatedAt": "2026-11-06T17:12:33.453Z"
+      },
+      {
+        "key": "careerPersons:v1",
+        "value": [
+          "person-profile-a2"
+        ],
+        "updatedAt": "2026-11-06T17:12:33.453Z"
+      }
+    ]
+  },
+  "after": {
+    "profiles": [
+      {
+        "id": "profile-a2",
+        "createdAt": "2026-11-06T17:12:33.284Z",
+        "updatedAt": "2026-11-06T17:12:33.284Z",
+        "schemaVersion": "career-profile-v2",
+        "name": "匿名A2",
+        "basics": {
+          "name": "匿名A2",
+          "links": []
+        },
+        "preference": {
+          "targetRoles": [],
+          "targetCities": [],
+          "industries": []
+        },
+        "version": 1,
+        "experiences": [
+          {
+            "id": "project",
+            "createdAt": "2026-11-06T17:12:33.284Z",
+            "updatedAt": "2026-11-06T17:12:33.284Z",
+            "type": "project",
+            "organization": "原始project",
+            "role": "开发",
+            "startDate": "2024-01",
+            "endDate": "2024-06",
+            "facts": [
+              {
+                "id": "fact-project",
+                "createdAt": "2026-11-06T17:12:33.284Z",
+                "updatedAt": "2026-11-06T17:12:33.284Z",
+                "statement": "执行接口测试。",
+                "category": "experience",
+                "provenance": [
+                  {
+                    "sourceType": "user_input",
+                    "sourceId": "source-fact-project",
+                    "sourceText": "执行接口测试。",
+                    "confidence": 1,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-11-06T17:12:33.284Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low",
+                "maturity": "demonstrated"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-profile-DJ51FsWvnh",
+                "createdAt": "2026-11-06T17:12:33.284Z",
+                "updatedAt": "2026-11-06T17:12:33.284Z",
+                "text": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+                "factIds": [
+                  "fact-project"
+                ]
+              }
+            ],
+            "tags": [],
+            "evidenceIds": []
+          },
+          {
+            "id": "work",
+            "createdAt": "2026-11-06T17:12:33.284Z",
+            "updatedAt": "2026-11-06T17:12:33.284Z",
+            "type": "work",
+            "organization": "原始work",
+            "role": "开发",
+            "startDate": "2024-01",
+            "endDate": "2024-06",
+            "facts": [
+              {
+                "id": "fact-work",
+                "createdAt": "2026-11-06T17:12:33.284Z",
+                "updatedAt": "2026-11-06T17:12:33.284Z",
+                "statement": "执行接口测试。",
+                "category": "experience",
+                "provenance": [
+                  {
+                    "sourceType": "user_input",
+                    "sourceId": "source-fact-work",
+                    "sourceText": "执行接口测试。",
+                    "confidence": 1,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-11-06T17:12:33.284Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low",
+                "maturity": "demonstrated"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-profile-Gnb-9VsIc4",
+                "createdAt": "2026-11-06T17:12:33.284Z",
+                "updatedAt": "2026-11-06T17:12:33.284Z",
+                "text": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+                "factIds": [
+                  "fact-work"
+                ]
+              }
+            ],
+            "tags": [],
+            "evidenceIds": []
+          },
+          {
+            "id": "internship",
+            "createdAt": "2026-11-06T17:12:33.284Z",
+            "updatedAt": "2026-11-06T17:12:33.284Z",
+            "type": "internship",
+            "organization": "原始internship",
+            "role": "开发",
+            "startDate": "2024-01",
+            "endDate": "2024-06",
+            "facts": [
+              {
+                "id": "fact-internship",
+                "createdAt": "2026-11-06T17:12:33.284Z",
+                "updatedAt": "2026-11-06T17:12:33.284Z",
+                "statement": "执行接口测试。",
+                "category": "experience",
+                "provenance": [
+                  {
+                    "sourceType": "user_input",
+                    "sourceId": "source-fact-internship",
+                    "sourceText": "执行接口测试。",
+                    "confidence": 1,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-11-06T17:12:33.284Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low",
+                "maturity": "demonstrated"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-profile-ayWmhexnkb",
+                "createdAt": "2026-11-06T17:12:33.284Z",
+                "updatedAt": "2026-11-06T17:12:33.284Z",
+                "text": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+                "factIds": [
+                  "fact-internship"
+                ]
+              }
+            ],
+            "tags": [],
+            "evidenceIds": []
+          }
+        ],
+        "skills": [
+          {
+            "id": "SQL",
+            "createdAt": "2026-11-06T17:12:33.284Z",
+            "updatedAt": "2026-11-06T17:12:33.284Z",
+            "name": "SQL",
+            "level": "familiar",
+            "evidenceIds": [],
+            "fact": {
+              "id": "fact-SQL",
+              "createdAt": "2026-11-06T17:12:33.284Z",
+              "updatedAt": "2026-11-06T17:12:33.284Z",
+              "statement": "掌握SQL",
+              "category": "skill",
+              "provenance": [
+                {
+                  "sourceType": "user_input",
+                  "sourceId": "source-fact-SQL",
+                  "sourceText": "掌握SQL",
+                  "confidence": 1,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-11-06T17:12:33.284Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low",
+              "maturity": "demonstrated"
+            }
+          },
+          {
+            "id": "Python",
+            "createdAt": "2026-11-06T17:12:33.284Z",
+            "updatedAt": "2026-11-06T17:12:33.284Z",
+            "name": "Python",
+            "level": "familiar",
+            "evidenceIds": [],
+            "fact": {
+              "id": "fact-Python",
+              "createdAt": "2026-11-06T17:12:33.284Z",
+              "updatedAt": "2026-11-06T17:12:33.284Z",
+              "statement": "掌握Python",
+              "category": "skill",
+              "provenance": [
+                {
+                  "sourceType": "user_input",
+                  "sourceId": "source-fact-Python",
+                  "sourceText": "掌握Python",
+                  "confidence": 1,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-11-06T17:12:33.284Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low",
+              "maturity": "demonstrated"
+            }
+          }
+        ],
+        "certificates": [],
+        "evidences": [],
+        "unclassifiedBlocks": [],
+        "structuredFacts": [
+          {
+            "data": {
+              "id": "project",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "原始project",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "执行接口测试。"
+              ],
+              "outcomes": []
+            },
+            "factIds": [
+              "fact-project"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "work",
+              "customFields": [],
+              "sectionType": "work",
+              "organization": "原始work",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "highlights": [
+                "执行接口测试。"
+              ]
+            },
+            "factIds": [
+              "fact-work"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "internship",
+              "customFields": [],
+              "sectionType": "internship",
+              "organization": "原始internship",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "highlights": [
+                "执行接口测试。"
+              ]
+            },
+            "factIds": [
+              "fact-internship"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "SQL",
+              "customFields": [],
+              "sectionType": "skills",
+              "name": "SQL",
+              "level": "familiar",
+              "description": "掌握SQL"
+            },
+            "factIds": [
+              "fact-SQL"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "Python",
+              "customFields": [],
+              "sectionType": "skills",
+              "name": "Python",
+              "level": "familiar",
+              "description": "掌握Python"
+            },
+            "factIds": [
+              "fact-Python"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "mappingTrace": []
+          }
+        ],
+        "structuredBasics": {
+          "name": "匿名A2",
+          "portfolioLinks": [],
+          "otherLinks": [],
+          "customFields": []
+        },
+        "personId": "person-profile-a2",
+        "profileVersionNumber": 1,
+        "isCurrent": true,
+        "versionCreatedReason": "initial"
+      }
+    ],
+    "branches": [
+      {
+        "id": "branch-general-CVi_u8Xeql",
+        "createdAt": "2026-11-06T17:12:33.284Z",
+        "updatedAt": "2026-11-06T17:12:33.485Z",
+        "schemaVersion": "resume-branch-v2",
+        "branchPurpose": "general",
+        "profileId": "profile-a2",
+        "name": "通用A2",
+        "sourceProfileVersion": 1,
+        "sourceProfileSnapshotId": "profile-snapshot-profile-a2-1-ryA0oa",
+        "sourceDraftRevision": 0,
+        "matcherVersion": "profile-snapshot-v2",
+        "sourceMatchSetHash": "profile-snapshot-profile-a2-1-ryA0oa",
+        "requirementMatchIds": [],
+        "revision": 1,
+        "currentRevisionId": "resume-revision-fnv-dbad400b-197",
+        "lifecycleStatus": "active",
+        "migrationStatus": "verified",
+        "syncStatusCache": {
+          "status": "in_sync",
+          "sourceProfileVersion": 1,
+          "currentProfileVersion": 1,
+          "invalidFactRefs": [],
+          "checkedAt": "2026-11-06T17:12:33.284Z",
+          "message": "General branch is in sync with its source profile."
+        },
+        "resumeBasics": {
+          "customFields": [],
+          "name": "匿名A2",
+          "email": "",
+          "phone": "",
+          "location": "",
+          "summary": "",
+          "links": []
+        },
+        "contentItems": [
+          {
+            "id": "branch-item-profile-project-4Etuvg",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "project",
+            "text": "项目名称：原始project\n角色：开发\n组织：原组织\n开始日期：2024-01\n结束日期：2024-06\n亮点：重复文字；SQL 查询",
+            "originalText": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "order": 0,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "project",
+                "factId": "fact-project"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T17:12:33.284Z",
+            "guardVersion": "profile-snapshot-v2"
+          },
+          {
+            "id": "branch-item-profile-work-POrMTS",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "work",
+            "text": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "originalText": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "order": 1,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "work",
+                "factId": "fact-work"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T17:12:33.284Z",
+            "guardVersion": "profile-snapshot-v2"
+          },
+          {
+            "id": "branch-item-profile-internship-WmfkrS",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "internship",
+            "text": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "originalText": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "order": 2,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "internship",
+                "factId": "fact-internship"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T17:12:33.284Z",
+            "guardVersion": "profile-snapshot-v2"
+          }
+        ],
+        "structuredContentItems": [
+          {
+            "id": "branch-item-profile-project-4Etuvg",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "project",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "原始project",
+              "role": "开发",
+              "organization": "原组织",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "重复文字",
+                "SQL 查询"
+              ],
+              "outcomes": []
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "project",
+                "factId": "fact-project"
+              }
+            ],
+            "source": "user_manual",
+            "order": 0,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "项目名称：原始project\n角色：开发\n组织：原组织\n开始日期：2024-01\n结束日期：2024-06\n亮点：重复文字；SQL 查询",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-profile-work-POrMTS",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "work",
+              "customFields": [],
+              "sectionType": "work",
+              "organization": "原始work",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "highlights": [
+                "重复文字",
+                "SQL 查询",
+                "重复文字"
+              ]
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "work",
+                "factId": "fact-work"
+              }
+            ],
+            "source": "user_manual",
+            "order": 1,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-profile-internship-WmfkrS",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "internship",
+              "customFields": [],
+              "sectionType": "internship",
+              "organization": "原始internship",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "highlights": [
+                "重复文字",
+                "SQL 查询",
+                "重复文字"
+              ]
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "internship",
+                "factId": "fact-internship"
+              }
+            ],
+            "source": "user_manual",
+            "order": 2,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          }
+        ],
+        "tailoringAppliedCount": 0
+      },
+      {
+        "id": "branch-job-profile-fnv-60512e01-31",
+        "createdAt": "2026-11-06T17:12:33.284Z",
+        "updatedAt": "2026-11-06T17:12:33.284Z",
+        "schemaVersion": "resume-branch-v2",
+        "branchPurpose": "job_specific",
+        "profileId": "profile-a2",
+        "jobId": "job-a2",
+        "name": "job-a2",
+        "sourceProfileVersion": 1,
+        "sourceJobVersion": "2026-11-06T17:12:33.284Z",
+        "sourceProfileSnapshotId": "profile-snapshot-profile-a2-1-fnv-e6037c37-23",
+        "derivedAt": "2026-11-06T17:12:33.284Z",
+        "sourceDraftRevision": 0,
+        "matcherVersion": "job-source-mode.profile-library.v2",
+        "sourceMatchSetHash": "match-a2",
+        "requirementMatchIds": [],
+        "revision": 0,
+        "currentRevisionId": "resume-revision-fnv-03861620-55",
+        "lifecycleStatus": "active",
+        "migrationStatus": "verified",
+        "syncStatusCache": {
+          "status": "in_sync",
+          "sourceProfileVersion": 1,
+          "currentProfileVersion": 1,
+          "sourceJobVersion": "2026-11-06T17:12:33.284Z",
+          "currentJobVersion": "2026-11-06T17:12:33.284Z",
+          "invalidFactRefs": [],
+          "checkedAt": "2026-11-06T17:12:33.284Z",
+          "message": "Job branch is in sync with its profile-library source and job version."
+        },
+        "resumeBasics": {
+          "customFields": [],
+          "name": "匿名A2",
+          "targetRole": "开发",
+          "email": "",
+          "phone": "",
+          "location": "",
+          "summary": "",
+          "links": []
+        },
+        "contentItems": [
+          {
+            "id": "branch-item-profile-project-g_Qbx0",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "project",
+            "text": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "originalText": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "order": 0,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "project",
+                "factId": "fact-project"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T17:12:33.284Z",
+            "guardVersion": "profile-snapshot-v2"
+          },
+          {
+            "id": "branch-item-profile-work-Vd8ywz",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "work",
+            "text": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "originalText": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "order": 1,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "work",
+                "factId": "fact-work"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T17:12:33.284Z",
+            "guardVersion": "profile-snapshot-v2"
+          },
+          {
+            "id": "branch-item-profile-internship-JQu13i",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "internship",
+            "text": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "originalText": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "order": 2,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "internship",
+                "factId": "fact-internship"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T17:12:33.284Z",
+            "guardVersion": "profile-snapshot-v2"
+          }
+        ],
+        "structuredContentItems": [
+          {
+            "id": "branch-item-profile-project-g_Qbx0",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "project",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "原始project",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "执行接口测试。"
+              ],
+              "outcomes": []
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "project",
+                "factId": "fact-project"
+              }
+            ],
+            "source": "user_manual",
+            "order": 0,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-profile-work-Vd8ywz",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "work",
+              "customFields": [],
+              "sectionType": "work",
+              "organization": "原始work",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "highlights": [
+                "执行接口测试。"
+              ]
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "work",
+                "factId": "fact-work"
+              }
+            ],
+            "source": "user_manual",
+            "order": 1,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-profile-internship-JQu13i",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "internship",
+              "customFields": [],
+              "sectionType": "internship",
+              "organization": "原始internship",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "highlights": [
+                "执行接口测试。"
+              ]
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "internship",
+                "factId": "fact-internship"
+              }
+            ],
+            "source": "user_manual",
+            "order": 2,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          }
+        ],
+        "tailoringAppliedCount": 0
+      },
+      {
+        "id": "branch-job-profile-fnv-918240bf-45",
+        "createdAt": "2026-11-06T17:12:33.284Z",
+        "updatedAt": "2026-11-06T17:12:33.284Z",
+        "schemaVersion": "resume-branch-v2",
+        "branchPurpose": "job_specific",
+        "profileId": "profile-a2",
+        "jobId": "job-a2-second",
+        "name": "job-a2-second",
+        "sourceProfileVersion": 1,
+        "sourceJobVersion": "2026-11-06T17:12:33.284Z",
+        "sourceProfileSnapshotId": "profile-snapshot-profile-a2-1-fnv-e6037c37-23",
+        "derivedAt": "2026-11-06T17:12:33.284Z",
+        "sourceDraftRevision": 0,
+        "matcherVersion": "job-source-mode.profile-library.v2",
+        "sourceMatchSetHash": "match-a2",
+        "requirementMatchIds": [],
+        "revision": 0,
+        "currentRevisionId": "resume-revision-fnv-37f76934-62",
+        "lifecycleStatus": "active",
+        "migrationStatus": "verified",
+        "syncStatusCache": {
+          "status": "in_sync",
+          "sourceProfileVersion": 1,
+          "currentProfileVersion": 1,
+          "sourceJobVersion": "2026-11-06T17:12:33.284Z",
+          "currentJobVersion": "2026-11-06T17:12:33.284Z",
+          "invalidFactRefs": [],
+          "checkedAt": "2026-11-06T17:12:33.284Z",
+          "message": "Job branch is in sync with its profile-library source and job version."
+        },
+        "resumeBasics": {
+          "customFields": [],
+          "name": "匿名A2",
+          "targetRole": "开发",
+          "email": "",
+          "phone": "",
+          "location": "",
+          "summary": "",
+          "links": []
+        },
+        "contentItems": [
+          {
+            "id": "branch-item-profile-project-kxcKXv",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "project",
+            "text": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "originalText": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "order": 0,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "project",
+                "factId": "fact-project"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T17:12:33.284Z",
+            "guardVersion": "profile-snapshot-v2"
+          },
+          {
+            "id": "branch-item-profile-work-kVs_BK",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "work",
+            "text": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "originalText": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "order": 1,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "work",
+                "factId": "fact-work"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T17:12:33.284Z",
+            "guardVersion": "profile-snapshot-v2"
+          },
+          {
+            "id": "branch-item-profile-internship--U9yO7",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "internship",
+            "text": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "originalText": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "order": 2,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "internship",
+                "factId": "fact-internship"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T17:12:33.284Z",
+            "guardVersion": "profile-snapshot-v2"
+          }
+        ],
+        "structuredContentItems": [
+          {
+            "id": "branch-item-profile-project-kxcKXv",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "project",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "原始project",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "执行接口测试。"
+              ],
+              "outcomes": []
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "project",
+                "factId": "fact-project"
+              }
+            ],
+            "source": "user_manual",
+            "order": 0,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-profile-work-kVs_BK",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "work",
+              "customFields": [],
+              "sectionType": "work",
+              "organization": "原始work",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "highlights": [
+                "执行接口测试。"
+              ]
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "work",
+                "factId": "fact-work"
+              }
+            ],
+            "source": "user_manual",
+            "order": 1,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-profile-internship--U9yO7",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "internship",
+              "customFields": [],
+              "sectionType": "internship",
+              "organization": "原始internship",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "highlights": [
+                "执行接口测试。"
+              ]
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "internship",
+                "factId": "fact-internship"
+              }
+            ],
+            "source": "user_manual",
+            "order": 2,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          }
+        ],
+        "tailoringAppliedCount": 0
+      }
+    ],
+    "revisions": [
+      {
+        "id": "resume-revision-fnv-03861620-55",
+        "createdAt": "2026-11-06T17:12:33.284Z",
+        "updatedAt": "2026-11-06T17:12:33.284Z",
+        "branchId": "branch-job-profile-fnv-60512e01-31",
+        "revisionNumber": 0,
+        "source": "created_from_profile",
+        "operationId": "create-job-a2",
+        "snapshot": {
+          "name": "job-a2",
+          "lifecycleStatus": "active",
+          "resumeBasics": {
+            "customFields": [],
+            "name": "匿名A2",
+            "targetRole": "开发",
+            "email": "",
+            "phone": "",
+            "location": "",
+            "summary": "",
+            "links": []
+          },
+          "contentItems": [
+            {
+              "id": "branch-item-profile-project-g_Qbx0",
+              "itemType": "experience",
+              "source": "user_manual",
+              "sourceSectionId": "project",
+              "text": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "originalText": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "order": 0,
+              "visible": true,
+              "requirementIds": [],
+              "sourceSuggestionIds": [],
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "project",
+                  "factId": "fact-project"
+                }
+              ],
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardRiskLevel": "low",
+              "guardFindings": [],
+              "guardedAt": "2026-11-06T17:12:33.284Z",
+              "guardVersion": "profile-snapshot-v2"
+            },
+            {
+              "id": "branch-item-profile-work-Vd8ywz",
+              "itemType": "experience",
+              "source": "user_manual",
+              "sourceSectionId": "work",
+              "text": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "originalText": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "order": 1,
+              "visible": true,
+              "requirementIds": [],
+              "sourceSuggestionIds": [],
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "work",
+                  "factId": "fact-work"
+                }
+              ],
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardRiskLevel": "low",
+              "guardFindings": [],
+              "guardedAt": "2026-11-06T17:12:33.284Z",
+              "guardVersion": "profile-snapshot-v2"
+            },
+            {
+              "id": "branch-item-profile-internship-JQu13i",
+              "itemType": "experience",
+              "source": "user_manual",
+              "sourceSectionId": "internship",
+              "text": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "originalText": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "order": 2,
+              "visible": true,
+              "requirementIds": [],
+              "sourceSuggestionIds": [],
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "internship",
+                  "factId": "fact-internship"
+                }
+              ],
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardRiskLevel": "low",
+              "guardFindings": [],
+              "guardedAt": "2026-11-06T17:12:33.284Z",
+              "guardVersion": "profile-snapshot-v2"
+            }
+          ],
+          "structuredContentItems": [
+            {
+              "id": "branch-item-profile-project-g_Qbx0",
+              "schemaVersion": "resume-content-item-v2",
+              "data": {
+                "id": "project",
+                "customFields": [],
+                "sectionType": "project",
+                "title": "原始project",
+                "role": "开发",
+                "startDate": "2024-01",
+                "endDate": "2024-06",
+                "current": false,
+                "tools": [],
+                "highlights": [
+                  "执行接口测试。"
+                ],
+                "outcomes": []
+              },
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "project",
+                  "factId": "fact-project"
+                }
+              ],
+              "source": "user_manual",
+              "order": 0,
+              "visible": true,
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardFindings": [],
+              "legacyTextProjection": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "sourceExcerpt": "执行接口测试。",
+              "mappingTrace": []
+            },
+            {
+              "id": "branch-item-profile-work-Vd8ywz",
+              "schemaVersion": "resume-content-item-v2",
+              "data": {
+                "id": "work",
+                "customFields": [],
+                "sectionType": "work",
+                "organization": "原始work",
+                "role": "开发",
+                "startDate": "2024-01",
+                "endDate": "2024-06",
+                "current": false,
+                "highlights": [
+                  "执行接口测试。"
+                ]
+              },
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "work",
+                  "factId": "fact-work"
+                }
+              ],
+              "source": "user_manual",
+              "order": 1,
+              "visible": true,
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardFindings": [],
+              "legacyTextProjection": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "sourceExcerpt": "执行接口测试。",
+              "mappingTrace": []
+            },
+            {
+              "id": "branch-item-profile-internship-JQu13i",
+              "schemaVersion": "resume-content-item-v2",
+              "data": {
+                "id": "internship",
+                "customFields": [],
+                "sectionType": "internship",
+                "organization": "原始internship",
+                "role": "开发",
+                "startDate": "2024-01",
+                "endDate": "2024-06",
+                "current": false,
+                "highlights": [
+                  "执行接口测试。"
+                ]
+              },
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "internship",
+                  "factId": "fact-internship"
+                }
+              ],
+              "source": "user_manual",
+              "order": 2,
+              "visible": true,
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardFindings": [],
+              "legacyTextProjection": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "sourceExcerpt": "执行接口测试。",
+              "mappingTrace": []
+            }
+          ]
+        }
+      },
+      {
+        "id": "resume-revision-fnv-06df6ae3-43",
+        "createdAt": "2026-11-06T17:12:33.284Z",
+        "updatedAt": "2026-11-06T17:12:33.284Z",
+        "branchId": "branch-general-CVi_u8Xeql",
+        "revisionNumber": 0,
+        "source": "created_from_profile",
+        "operationId": "general-a2",
+        "snapshot": {
+          "name": "通用A2",
+          "lifecycleStatus": "active",
+          "resumeBasics": {
+            "customFields": [],
+            "name": "匿名A2",
+            "email": "",
+            "phone": "",
+            "location": "",
+            "summary": "",
+            "links": []
+          },
+          "contentItems": [
+            {
+              "id": "branch-item-profile-project-4Etuvg",
+              "itemType": "experience",
+              "source": "user_manual",
+              "sourceSectionId": "project",
+              "text": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "originalText": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "order": 0,
+              "visible": true,
+              "requirementIds": [],
+              "sourceSuggestionIds": [],
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "project",
+                  "factId": "fact-project"
+                }
+              ],
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardRiskLevel": "low",
+              "guardFindings": [],
+              "guardedAt": "2026-11-06T17:12:33.284Z",
+              "guardVersion": "profile-snapshot-v2"
+            },
+            {
+              "id": "branch-item-profile-work-POrMTS",
+              "itemType": "experience",
+              "source": "user_manual",
+              "sourceSectionId": "work",
+              "text": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "originalText": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "order": 1,
+              "visible": true,
+              "requirementIds": [],
+              "sourceSuggestionIds": [],
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "work",
+                  "factId": "fact-work"
+                }
+              ],
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardRiskLevel": "low",
+              "guardFindings": [],
+              "guardedAt": "2026-11-06T17:12:33.284Z",
+              "guardVersion": "profile-snapshot-v2"
+            },
+            {
+              "id": "branch-item-profile-internship-WmfkrS",
+              "itemType": "experience",
+              "source": "user_manual",
+              "sourceSectionId": "internship",
+              "text": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "originalText": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "order": 2,
+              "visible": true,
+              "requirementIds": [],
+              "sourceSuggestionIds": [],
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "internship",
+                  "factId": "fact-internship"
+                }
+              ],
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardRiskLevel": "low",
+              "guardFindings": [],
+              "guardedAt": "2026-11-06T17:12:33.284Z",
+              "guardVersion": "profile-snapshot-v2"
+            }
+          ],
+          "structuredContentItems": [
+            {
+              "id": "branch-item-profile-project-4Etuvg",
+              "schemaVersion": "resume-content-item-v2",
+              "data": {
+                "id": "project",
+                "customFields": [],
+                "sectionType": "project",
+                "title": "原始project",
+                "role": "开发",
+                "organization": "原组织",
+                "startDate": "2024-01",
+                "endDate": "2024-06",
+                "current": false,
+                "tools": [],
+                "highlights": [
+                  "重复文字",
+                  "SQL 查询",
+                  "重复文字"
+                ],
+                "outcomes": []
+              },
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "project",
+                  "factId": "fact-project"
+                }
+              ],
+              "source": "user_manual",
+              "order": 0,
+              "visible": true,
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardFindings": [],
+              "legacyTextProjection": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "sourceExcerpt": "执行接口测试。",
+              "mappingTrace": []
+            },
+            {
+              "id": "branch-item-profile-work-POrMTS",
+              "schemaVersion": "resume-content-item-v2",
+              "data": {
+                "id": "work",
+                "customFields": [],
+                "sectionType": "work",
+                "organization": "原始work",
+                "role": "开发",
+                "startDate": "2024-01",
+                "endDate": "2024-06",
+                "current": false,
+                "highlights": [
+                  "重复文字",
+                  "SQL 查询",
+                  "重复文字"
+                ]
+              },
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "work",
+                  "factId": "fact-work"
+                }
+              ],
+              "source": "user_manual",
+              "order": 1,
+              "visible": true,
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardFindings": [],
+              "legacyTextProjection": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "sourceExcerpt": "执行接口测试。",
+              "mappingTrace": []
+            },
+            {
+              "id": "branch-item-profile-internship-WmfkrS",
+              "schemaVersion": "resume-content-item-v2",
+              "data": {
+                "id": "internship",
+                "customFields": [],
+                "sectionType": "internship",
+                "organization": "原始internship",
+                "role": "开发",
+                "startDate": "2024-01",
+                "endDate": "2024-06",
+                "current": false,
+                "highlights": [
+                  "重复文字",
+                  "SQL 查询",
+                  "重复文字"
+                ]
+              },
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "internship",
+                  "factId": "fact-internship"
+                }
+              ],
+              "source": "user_manual",
+              "order": 2,
+              "visible": true,
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardFindings": [],
+              "legacyTextProjection": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "sourceExcerpt": "执行接口测试。",
+              "mappingTrace": []
+            }
+          ]
+        }
+      },
+      {
+        "id": "resume-revision-fnv-37f76934-62",
+        "createdAt": "2026-11-06T17:12:33.284Z",
+        "updatedAt": "2026-11-06T17:12:33.284Z",
+        "branchId": "branch-job-profile-fnv-918240bf-45",
+        "revisionNumber": 0,
+        "source": "created_from_profile",
+        "operationId": "create-job-a2-second",
+        "snapshot": {
+          "name": "job-a2-second",
+          "lifecycleStatus": "active",
+          "resumeBasics": {
+            "customFields": [],
+            "name": "匿名A2",
+            "targetRole": "开发",
+            "email": "",
+            "phone": "",
+            "location": "",
+            "summary": "",
+            "links": []
+          },
+          "contentItems": [
+            {
+              "id": "branch-item-profile-project-kxcKXv",
+              "itemType": "experience",
+              "source": "user_manual",
+              "sourceSectionId": "project",
+              "text": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "originalText": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "order": 0,
+              "visible": true,
+              "requirementIds": [],
+              "sourceSuggestionIds": [],
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "project",
+                  "factId": "fact-project"
+                }
+              ],
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardRiskLevel": "low",
+              "guardFindings": [],
+              "guardedAt": "2026-11-06T17:12:33.284Z",
+              "guardVersion": "profile-snapshot-v2"
+            },
+            {
+              "id": "branch-item-profile-work-kVs_BK",
+              "itemType": "experience",
+              "source": "user_manual",
+              "sourceSectionId": "work",
+              "text": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "originalText": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "order": 1,
+              "visible": true,
+              "requirementIds": [],
+              "sourceSuggestionIds": [],
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "work",
+                  "factId": "fact-work"
+                }
+              ],
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardRiskLevel": "low",
+              "guardFindings": [],
+              "guardedAt": "2026-11-06T17:12:33.284Z",
+              "guardVersion": "profile-snapshot-v2"
+            },
+            {
+              "id": "branch-item-profile-internship--U9yO7",
+              "itemType": "experience",
+              "source": "user_manual",
+              "sourceSectionId": "internship",
+              "text": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "originalText": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "order": 2,
+              "visible": true,
+              "requirementIds": [],
+              "sourceSuggestionIds": [],
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "internship",
+                  "factId": "fact-internship"
+                }
+              ],
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardRiskLevel": "low",
+              "guardFindings": [],
+              "guardedAt": "2026-11-06T17:12:33.284Z",
+              "guardVersion": "profile-snapshot-v2"
+            }
+          ],
+          "structuredContentItems": [
+            {
+              "id": "branch-item-profile-project-kxcKXv",
+              "schemaVersion": "resume-content-item-v2",
+              "data": {
+                "id": "project",
+                "customFields": [],
+                "sectionType": "project",
+                "title": "原始project",
+                "role": "开发",
+                "startDate": "2024-01",
+                "endDate": "2024-06",
+                "current": false,
+                "tools": [],
+                "highlights": [
+                  "执行接口测试。"
+                ],
+                "outcomes": []
+              },
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "project",
+                  "factId": "fact-project"
+                }
+              ],
+              "source": "user_manual",
+              "order": 0,
+              "visible": true,
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardFindings": [],
+              "legacyTextProjection": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "sourceExcerpt": "执行接口测试。",
+              "mappingTrace": []
+            },
+            {
+              "id": "branch-item-profile-work-kVs_BK",
+              "schemaVersion": "resume-content-item-v2",
+              "data": {
+                "id": "work",
+                "customFields": [],
+                "sectionType": "work",
+                "organization": "原始work",
+                "role": "开发",
+                "startDate": "2024-01",
+                "endDate": "2024-06",
+                "current": false,
+                "highlights": [
+                  "执行接口测试。"
+                ]
+              },
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "work",
+                  "factId": "fact-work"
+                }
+              ],
+              "source": "user_manual",
+              "order": 1,
+              "visible": true,
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardFindings": [],
+              "legacyTextProjection": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "sourceExcerpt": "执行接口测试。",
+              "mappingTrace": []
+            },
+            {
+              "id": "branch-item-profile-internship--U9yO7",
+              "schemaVersion": "resume-content-item-v2",
+              "data": {
+                "id": "internship",
+                "customFields": [],
+                "sectionType": "internship",
+                "organization": "原始internship",
+                "role": "开发",
+                "startDate": "2024-01",
+                "endDate": "2024-06",
+                "current": false,
+                "highlights": [
+                  "执行接口测试。"
+                ]
+              },
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "internship",
+                  "factId": "fact-internship"
+                }
+              ],
+              "source": "user_manual",
+              "order": 2,
+              "visible": true,
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardFindings": [],
+              "legacyTextProjection": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "sourceExcerpt": "执行接口测试。",
+              "mappingTrace": []
+            }
+          ]
+        }
+      },
+      {
+        "id": "resume-revision-fnv-dbad400b-197",
+        "createdAt": "2026-11-06T17:12:33.485Z",
+        "updatedAt": "2026-11-06T17:12:33.485Z",
+        "branchId": "branch-general-CVi_u8Xeql",
+        "revisionNumber": 1,
+        "source": "suggestion_accept",
+        "operationId": "precise:198e7becb74dd970b79b7b3b9bbc918d4d59c81b91cf39b34817bbe68ec9ccd3:300c3ebe2eead1a87ab58e827a4e52420f8ab92bd1dd1e86bccbfb71d7bae92e",
+        "previousRevisionId": "resume-revision-fnv-06df6ae3-43",
+        "snapshot": {
+          "name": "通用A2",
+          "lifecycleStatus": "active",
+          "resumeBasics": {
+            "customFields": [],
+            "name": "匿名A2",
+            "email": "",
+            "phone": "",
+            "location": "",
+            "summary": "",
+            "links": []
+          },
+          "contentItems": [
+            {
+              "id": "branch-item-profile-project-4Etuvg",
+              "itemType": "experience",
+              "source": "user_manual",
+              "sourceSectionId": "project",
+              "text": "项目名称：原始project\n角色：开发\n组织：原组织\n开始日期：2024-01\n结束日期：2024-06\n亮点：重复文字；SQL 查询",
+              "originalText": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "order": 0,
+              "visible": true,
+              "requirementIds": [],
+              "sourceSuggestionIds": [],
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "project",
+                  "factId": "fact-project"
+                }
+              ],
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardRiskLevel": "low",
+              "guardFindings": [],
+              "guardedAt": "2026-11-06T17:12:33.284Z",
+              "guardVersion": "profile-snapshot-v2"
+            },
+            {
+              "id": "branch-item-profile-work-POrMTS",
+              "itemType": "experience",
+              "source": "user_manual",
+              "sourceSectionId": "work",
+              "text": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "originalText": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "order": 1,
+              "visible": true,
+              "requirementIds": [],
+              "sourceSuggestionIds": [],
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "work",
+                  "factId": "fact-work"
+                }
+              ],
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardRiskLevel": "low",
+              "guardFindings": [],
+              "guardedAt": "2026-11-06T17:12:33.284Z",
+              "guardVersion": "profile-snapshot-v2"
+            },
+            {
+              "id": "branch-item-profile-internship-WmfkrS",
+              "itemType": "experience",
+              "source": "user_manual",
+              "sourceSectionId": "internship",
+              "text": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "originalText": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "order": 2,
+              "visible": true,
+              "requirementIds": [],
+              "sourceSuggestionIds": [],
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "internship",
+                  "factId": "fact-internship"
+                }
+              ],
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardRiskLevel": "low",
+              "guardFindings": [],
+              "guardedAt": "2026-11-06T17:12:33.284Z",
+              "guardVersion": "profile-snapshot-v2"
+            }
+          ],
+          "structuredContentItems": [
+            {
+              "id": "branch-item-profile-project-4Etuvg",
+              "schemaVersion": "resume-content-item-v2",
+              "data": {
+                "id": "project",
+                "customFields": [],
+                "sectionType": "project",
+                "title": "原始project",
+                "role": "开发",
+                "organization": "原组织",
+                "startDate": "2024-01",
+                "endDate": "2024-06",
+                "current": false,
+                "tools": [],
+                "highlights": [
+                  "重复文字",
+                  "SQL 查询"
+                ],
+                "outcomes": []
+              },
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "project",
+                  "factId": "fact-project"
+                }
+              ],
+              "source": "user_manual",
+              "order": 0,
+              "visible": true,
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardFindings": [],
+              "legacyTextProjection": "项目名称：原始project\n角色：开发\n组织：原组织\n开始日期：2024-01\n结束日期：2024-06\n亮点：重复文字；SQL 查询",
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "sourceExcerpt": "执行接口测试。",
+              "mappingTrace": []
+            },
+            {
+              "id": "branch-item-profile-work-POrMTS",
+              "schemaVersion": "resume-content-item-v2",
+              "data": {
+                "id": "work",
+                "customFields": [],
+                "sectionType": "work",
+                "organization": "原始work",
+                "role": "开发",
+                "startDate": "2024-01",
+                "endDate": "2024-06",
+                "current": false,
+                "highlights": [
+                  "重复文字",
+                  "SQL 查询",
+                  "重复文字"
+                ]
+              },
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "work",
+                  "factId": "fact-work"
+                }
+              ],
+              "source": "user_manual",
+              "order": 1,
+              "visible": true,
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardFindings": [],
+              "legacyTextProjection": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "sourceExcerpt": "执行接口测试。",
+              "mappingTrace": []
+            },
+            {
+              "id": "branch-item-profile-internship-WmfkrS",
+              "schemaVersion": "resume-content-item-v2",
+              "data": {
+                "id": "internship",
+                "customFields": [],
+                "sectionType": "internship",
+                "organization": "原始internship",
+                "role": "开发",
+                "startDate": "2024-01",
+                "endDate": "2024-06",
+                "current": false,
+                "highlights": [
+                  "重复文字",
+                  "SQL 查询",
+                  "重复文字"
+                ]
+              },
+              "factRefs": [
+                {
+                  "type": "experience_fact",
+                  "experienceId": "internship",
+                  "factId": "fact-internship"
+                }
+              ],
+              "source": "user_manual",
+              "order": 2,
+              "visible": true,
+              "guardMode": "rule_verified",
+              "guardStatus": "pass",
+              "guardFindings": [],
+              "legacyTextProjection": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "sourceExcerpt": "执行接口测试。",
+              "mappingTrace": []
+            }
+          ]
+        }
+      }
+    ],
+    "operations": [
+      {
+        "id": "resume-branch-op-precise:198e7becb74dd970b79b7b3b9bbc918d4d59c81b91cf39b34817bbe68ec9ccd3:300c3ebe2eead1a87ab58e827a4e52420f8ab92bd1dd1e86bccbfb71d7bae92e",
+        "createdAt": "2026-11-06T17:12:33.485Z",
+        "updatedAt": "2026-11-06T17:12:33.485Z",
+        "operationId": "precise:198e7becb74dd970b79b7b3b9bbc918d4d59c81b91cf39b34817bbe68ec9ccd3:300c3ebe2eead1a87ab58e827a4e52420f8ab92bd1dd1e86bccbfb71d7bae92e",
+        "branchId": "branch-general-CVi_u8Xeql",
+        "type": "suggestion_accept",
+        "expectedRevision": 0,
+        "beforeRevision": 0,
+        "afterRevision": 1,
+        "revisionId": "resume-revision-fnv-dbad400b-197",
+        "occurredAt": "2026-11-06T17:12:33.485Z"
+      }
+    ],
+    "appMeta": [
+      {
+        "key": "careerPerson:v1:person-profile-a2",
+        "value": {
+          "id": "person-profile-a2",
+          "displayName": "匿名A2",
+          "currentProfileId": "profile-a2",
+          "createdAt": "2026-11-06T17:12:33.284Z",
+          "updatedAt": "2026-11-06T17:12:33.453Z"
+        },
+        "updatedAt": "2026-11-06T17:12:33.453Z"
+      },
+      {
+        "key": "careerPersons:v1",
+        "value": [
+          "person-profile-a2"
+        ],
+        "updatedAt": "2026-11-06T17:12:33.453Z"
+      },
+      {
+        "key": "precise-audit:precise:198e7becb74dd970b79b7b3b9bbc918d4d59c81b91cf39b34817bbe68ec9ccd3:300c3ebe2eead1a87ab58e827a4e52420f8ab92bd1dd1e86bccbfb71d7bae92e",
+        "value": {
+          "proposal": {
+            "schemaVersion": "precise-edit-v2",
+            "selection": {
+              "sessionId": "agent-session-NfTQfXwSI13x",
+              "taskId": "task-a2",
+              "profileId": "profile-a2",
+              "branchId": "branch-general-CVi_u8Xeql",
+              "baseRevisionId": "resume-revision-fnv-06df6ae3-43",
+              "sectionType": "project",
+              "itemId": "branch-item-profile-project-4Etuvg",
+              "field": "highlights",
+              "bulletIndex": 2,
+              "operation": "bullet_removal"
+            },
+            "turnId": "turn-a2",
+            "profileVersion": 1,
+            "branchPurpose": "general",
+            "jobId": null,
+            "baseBranchRevision": 0,
+            "canonicalFieldId": "project.highlights",
+            "originalValue": [
+              "重复文字",
+              "SQL 查询",
+              "重复文字"
+            ],
+            "evidenceRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "project",
+                "factId": "fact-project",
+                "factQuote": "执行接口测试。",
+                "factText": "执行接口测试。"
+              }
+            ],
+            "claimClassification": "structural_only",
+            "operation": {
+              "type": "bullet_removal",
+              "index": 2
+            },
+            "operationId": "operation-bullet_removal",
+            "proposalHash": "300c3ebe2eead1a87ab58e827a4e52420f8ab92bd1dd1e86bccbfb71d7bae92e"
+          },
+          "revisionId": "resume-revision-fnv-dbad400b-197",
+          "confirmedAt": "2026-11-06T17:12:33.284Z"
+        },
+        "updatedAt": "2026-11-06T17:12:33.485Z"
+      }
+    ]
+  },
+  "proposal": {
+    "schemaVersion": "precise-edit-v2",
+    "selection": {
+      "sessionId": "agent-session-NfTQfXwSI13x",
+      "taskId": "task-a2",
+      "profileId": "profile-a2",
+      "branchId": "branch-general-CVi_u8Xeql",
+      "baseRevisionId": "resume-revision-fnv-06df6ae3-43",
+      "sectionType": "project",
+      "itemId": "branch-item-profile-project-4Etuvg",
+      "field": "highlights",
+      "bulletIndex": 2,
+      "operation": "bullet_removal"
+    },
+    "turnId": "turn-a2",
+    "profileVersion": 1,
+    "branchPurpose": "general",
+    "jobId": null,
+    "baseBranchRevision": 0,
+    "canonicalFieldId": "project.highlights",
+    "originalValue": [
+      "重复文字",
+      "SQL 查询",
+      "重复文字"
+    ],
+    "evidenceRefs": [
+      {
+        "type": "experience_fact",
+        "experienceId": "project",
+        "factId": "fact-project",
+        "factQuote": "执行接口测试。",
+        "factText": "执行接口测试。"
+      }
+    ],
+    "claimClassification": "structural_only",
+    "operation": {
+      "type": "bullet_removal",
+      "index": 2
+    },
+    "operationId": "operation-bullet_removal",
+    "proposalHash": "300c3ebe2eead1a87ab58e827a4e52420f8ab92bd1dd1e86bccbfb71d7bae92e"
+  },
+  "receipt": {
+    "operationId": "operation-bullet_removal",
+    "proposalHash": "300c3ebe2eead1a87ab58e827a4e52420f8ab92bd1dd1e86bccbfb71d7bae92e",
+    "branchId": "branch-general-CVi_u8Xeql",
+    "revisionId": "resume-revision-fnv-dbad400b-197",
+    "revision": {
+      "id": "resume-revision-fnv-dbad400b-197",
+      "createdAt": "2026-11-06T17:12:33.485Z",
+      "updatedAt": "2026-11-06T17:12:33.485Z",
+      "branchId": "branch-general-CVi_u8Xeql",
+      "revisionNumber": 1,
+      "source": "suggestion_accept",
+      "operationId": "precise:198e7becb74dd970b79b7b3b9bbc918d4d59c81b91cf39b34817bbe68ec9ccd3:300c3ebe2eead1a87ab58e827a4e52420f8ab92bd1dd1e86bccbfb71d7bae92e",
+      "previousRevisionId": "resume-revision-fnv-06df6ae3-43",
+      "snapshot": {
+        "name": "通用A2",
+        "lifecycleStatus": "active",
+        "resumeBasics": {
+          "customFields": [],
+          "name": "匿名A2",
+          "email": "",
+          "phone": "",
+          "location": "",
+          "summary": "",
+          "links": []
+        },
+        "contentItems": [
+          {
+            "id": "branch-item-profile-project-4Etuvg",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "project",
+            "text": "项目名称：原始project\n角色：开发\n组织：原组织\n开始日期：2024-01\n结束日期：2024-06\n亮点：重复文字；SQL 查询",
+            "originalText": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "order": 0,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "project",
+                "factId": "fact-project"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T17:12:33.284Z",
+            "guardVersion": "profile-snapshot-v2"
+          },
+          {
+            "id": "branch-item-profile-work-POrMTS",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "work",
+            "text": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "originalText": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "order": 1,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "work",
+                "factId": "fact-work"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T17:12:33.284Z",
+            "guardVersion": "profile-snapshot-v2"
+          },
+          {
+            "id": "branch-item-profile-internship-WmfkrS",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "internship",
+            "text": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "originalText": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "order": 2,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "internship",
+                "factId": "fact-internship"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T17:12:33.284Z",
+            "guardVersion": "profile-snapshot-v2"
+          }
+        ],
+        "structuredContentItems": [
+          {
+            "id": "branch-item-profile-project-4Etuvg",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "project",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "原始project",
+              "role": "开发",
+              "organization": "原组织",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "重复文字",
+                "SQL 查询"
+              ],
+              "outcomes": []
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "project",
+                "factId": "fact-project"
+              }
+            ],
+            "source": "user_manual",
+            "order": 0,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "项目名称：原始project\n角色：开发\n组织：原组织\n开始日期：2024-01\n结束日期：2024-06\n亮点：重复文字；SQL 查询",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-profile-work-POrMTS",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "work",
+              "customFields": [],
+              "sectionType": "work",
+              "organization": "原始work",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "highlights": [
+                "重复文字",
+                "SQL 查询",
+                "重复文字"
+              ]
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "work",
+                "factId": "fact-work"
+              }
+            ],
+            "source": "user_manual",
+            "order": 1,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-profile-internship-WmfkrS",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "internship",
+              "customFields": [],
+              "sectionType": "internship",
+              "organization": "原始internship",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "highlights": [
+                "重复文字",
+                "SQL 查询",
+                "重复文字"
+              ]
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "internship",
+                "factId": "fact-internship"
+              }
+            ],
+            "source": "user_manual",
+            "order": 2,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          }
+        ]
+      }
+    },
+    "idempotent": false
+  },
+  "audit": {
+    "proposal": {
+      "schemaVersion": "precise-edit-v2",
+      "selection": {
+        "sessionId": "agent-session-NfTQfXwSI13x",
+        "taskId": "task-a2",
+        "profileId": "profile-a2",
+        "branchId": "branch-general-CVi_u8Xeql",
+        "baseRevisionId": "resume-revision-fnv-06df6ae3-43",
+        "sectionType": "project",
+        "itemId": "branch-item-profile-project-4Etuvg",
+        "field": "highlights",
+        "bulletIndex": 2,
+        "operation": "bullet_removal"
+      },
+      "turnId": "turn-a2",
+      "profileVersion": 1,
+      "branchPurpose": "general",
+      "jobId": null,
+      "baseBranchRevision": 0,
+      "canonicalFieldId": "project.highlights",
+      "originalValue": [
+        "重复文字",
+        "SQL 查询",
+        "重复文字"
+      ],
+      "evidenceRefs": [
+        {
+          "type": "experience_fact",
+          "experienceId": "project",
+          "factId": "fact-project",
+          "factQuote": "执行接口测试。",
+          "factText": "执行接口测试。"
+        }
+      ],
+      "claimClassification": "structural_only",
+      "operation": {
+        "type": "bullet_removal",
+        "index": 2
+      },
+      "operationId": "operation-bullet_removal",
+      "proposalHash": "300c3ebe2eead1a87ab58e827a4e52420f8ab92bd1dd1e86bccbfb71d7bae92e"
+    },
+    "revisionId": "resume-revision-fnv-dbad400b-197",
+    "confirmedAt": "2026-11-06T17:12:33.284Z"
+  }
+}

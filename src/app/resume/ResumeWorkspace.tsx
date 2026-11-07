@@ -1,4 +1,5 @@
 "use client";
+import { PreciseRevisionHistoryEvidence } from "@/components/agent/PreciseRevisionEvidence";
 import { reviewExistingGeneralResume, type GeneralResumeReview } from "@/domain/resumeComposition/reviewExistingGeneralResume";
 import { PdfTextReadinessSchema, type PdfTextReadiness } from "@/services/export/pdfTextReadiness";
 import { MaterialIntakeDialog } from "@/components/resume/import/MaterialIntakeDialog";
@@ -4665,6 +4666,7 @@ export function ResumeWorkspace() {
                 <span className="toolbar-history-label">历史版本（{revisions.length}）</span>
                 <button type="button" onClick={() => { void undoPresentationChange(); }} disabled={!presentationHistory.undoStack.length || !presentationConfig}>仅回退排版</button>
                 <button type="button" onClick={() => { void archiveBranch(selectedBranch); }} disabled={!canManageBranch(selectedBranch)}>归档</button>
+                <PreciseRevisionHistoryEvidence revisions={revisions} />
                 {revisions.slice(0, 3).map((revision) => (
                   <button
                     key={revision.id}

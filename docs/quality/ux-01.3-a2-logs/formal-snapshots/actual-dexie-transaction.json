@@ -1,0 +1,409 @@
+{
+  "observedFrom": "appMeta updating hook during consumption",
+  "activeTables": [
+    "agentMessages",
+    "agentSessions",
+    "appMeta",
+    "jobDescriptions",
+    "profiles",
+    "resumeBranchOperations",
+    "resumeBranches",
+    "resumeRevisions"
+  ],
+  "receipt": {
+    "operationId": "operation-fact_correction",
+    "proposalHash": "d03edea9c2c051d0dbc916880ee68518eb1956f0ab19183d80a82419537967ad",
+    "branchId": "branch-general-I7cORhhYP2",
+    "revisionId": "resume-revision-fnv-8a4f13de-197",
+    "revision": {
+      "id": "resume-revision-fnv-8a4f13de-197",
+      "createdAt": "2026-11-06T17:12:43.817Z",
+      "updatedAt": "2026-11-06T17:12:43.817Z",
+      "branchId": "branch-general-I7cORhhYP2",
+      "revisionNumber": 1,
+      "source": "suggestion_accept",
+      "operationId": "precise:de085395c67204bf0df3bfeab6de266ec6db9620a8c3a0c1f960d306c3cd03a7:d03edea9c2c051d0dbc916880ee68518eb1956f0ab19183d80a82419537967ad",
+      "previousRevisionId": "resume-revision-fnv-483b7e48-43",
+      "snapshot": {
+        "name": "通用A2",
+        "lifecycleStatus": "active",
+        "resumeBasics": {
+          "customFields": [],
+          "name": "匿名A2",
+          "email": "",
+          "phone": "",
+          "location": "",
+          "summary": "",
+          "links": []
+        },
+        "contentItems": [
+          {
+            "id": "branch-item-profile-project-qPaVfO",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "project",
+            "text": "项目名称：用户纠正的项目名称\n角色：开发\n组织：原组织\n开始日期：2024-01\n结束日期：2024-06\n亮点：重复文字；SQL 查询；重复文字",
+            "originalText": "项目名称：原始project\n角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "order": 0,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "project",
+                "factId": "fact-project"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T17:12:43.751Z",
+            "guardVersion": "profile-snapshot-v2",
+            "userConfirmation": {
+              "scope": "resume_only",
+              "confirmedTextHash": "fnv-a3da3219-73",
+              "confirmedAt": "2026-11-06T17:12:43.751Z"
+            }
+          },
+          {
+            "id": "branch-item-profile-work-2SKzcg",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "work",
+            "text": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "originalText": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "order": 1,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "work",
+                "factId": "fact-work"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T17:12:43.751Z",
+            "guardVersion": "profile-snapshot-v2"
+          },
+          {
+            "id": "branch-item-profile-internship-jartzJ",
+            "itemType": "experience",
+            "source": "user_manual",
+            "sourceSectionId": "internship",
+            "text": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "originalText": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "order": 2,
+            "visible": true,
+            "requirementIds": [],
+            "sourceSuggestionIds": [],
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "internship",
+                "factId": "fact-internship"
+              }
+            ],
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardRiskLevel": "low",
+            "guardFindings": [],
+            "guardedAt": "2026-11-06T17:12:43.751Z",
+            "guardVersion": "profile-snapshot-v2"
+          }
+        ],
+        "structuredContentItems": [
+          {
+            "id": "branch-item-profile-project-qPaVfO",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "project",
+              "customFields": [],
+              "sectionType": "project",
+              "title": "用户纠正的项目名称",
+              "role": "开发",
+              "organization": "原组织",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "tools": [],
+              "highlights": [
+                "重复文字",
+                "SQL 查询",
+                "重复文字"
+              ],
+              "outcomes": []
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "project",
+                "factId": "fact-project"
+              }
+            ],
+            "source": "user_manual",
+            "order": 0,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "userConfirmation": {
+              "scope": "resume_only",
+              "confirmedTextHash": "fnv-a3da3219-73",
+              "confirmedAt": "2026-11-06T17:12:43.751Z"
+            },
+            "legacyTextProjection": "项目名称：用户纠正的项目名称\n角色：开发\n组织：原组织\n开始日期：2024-01\n结束日期：2024-06\n亮点：重复文字；SQL 查询；重复文字",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-profile-work-2SKzcg",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "work",
+              "customFields": [],
+              "sectionType": "work",
+              "organization": "原始work",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "highlights": [
+                "重复文字",
+                "SQL 查询",
+                "重复文字"
+              ]
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "work",
+                "factId": "fact-work"
+              }
+            ],
+            "source": "user_manual",
+            "order": 1,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "组织：原始work\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          },
+          {
+            "id": "branch-item-profile-internship-jartzJ",
+            "schemaVersion": "resume-content-item-v2",
+            "data": {
+              "id": "internship",
+              "customFields": [],
+              "sectionType": "internship",
+              "organization": "原始internship",
+              "role": "开发",
+              "startDate": "2024-01",
+              "endDate": "2024-06",
+              "current": false,
+              "highlights": [
+                "重复文字",
+                "SQL 查询",
+                "重复文字"
+              ]
+            },
+            "factRefs": [
+              {
+                "type": "experience_fact",
+                "experienceId": "internship",
+                "factId": "fact-internship"
+              }
+            ],
+            "source": "user_manual",
+            "order": 2,
+            "visible": true,
+            "guardMode": "rule_verified",
+            "guardStatus": "pass",
+            "guardFindings": [],
+            "legacyTextProjection": "组织：原始internship\n职位/角色：开发\n开始日期：2024-01\n结束日期：2024-06\n亮点：执行接口测试。",
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "执行接口测试。",
+            "mappingTrace": []
+          }
+        ]
+      }
+    },
+    "idempotent": false
+  },
+  "audit": {
+    "proposal": {
+      "schemaVersion": "precise-edit-v2",
+      "selection": {
+        "sessionId": "agent-session-8KgRJ1PJ-SZE",
+        "taskId": "task-a2",
+        "profileId": "profile-a2",
+        "branchId": "branch-general-I7cORhhYP2",
+        "baseRevisionId": "resume-revision-fnv-483b7e48-43",
+        "sectionType": "project",
+        "itemId": "branch-item-profile-project-qPaVfO",
+        "field": "title",
+        "bulletIndex": null,
+        "operation": "fact_correction"
+      },
+      "turnId": "turn-a2",
+      "profileVersion": 1,
+      "branchPurpose": "general",
+      "jobId": null,
+      "baseBranchRevision": 0,
+      "canonicalFieldId": "project.title",
+      "originalValue": "原始project",
+      "evidenceRefs": [
+        {
+          "type": "experience_fact",
+          "experienceId": "project",
+          "factId": "fact-project",
+          "factQuote": "执行接口测试。",
+          "factText": "执行接口测试。"
+        }
+      ],
+      "claimClassification": "user_declared_fact_correction",
+      "operation": {
+        "type": "fact_correction",
+        "value": "用户纠正的项目名称",
+        "correctionKind": "user_declared_correction",
+        "factProposal": {
+          "id": "fact-operation-fact_correction",
+          "createdAt": "2026-11-06T17:12:43.777Z",
+          "updatedAt": "2026-11-06T17:12:43.777Z",
+          "schemaVersion": "fact-proposal-v2",
+          "proposalType": "clarification",
+          "question": "仅更正当前简历此字段；用户自述不代表独立核验，也不会同步资料库。",
+          "candidateAnswer": "用户纠正的项目名称",
+          "userConfirmed": false,
+          "provenance": [
+            {
+              "sourceType": "user_input",
+              "sourceId": "precise-source-1836ac17-d034-401c-a524-cd913c550226",
+              "sourceText": "用户纠正的项目名称",
+              "confidence": 1,
+              "confirmedByUser": false,
+              "riskLevel": "low",
+              "createdAt": "2026-11-06T17:12:43.777Z",
+              "sourceSessionId": "agent-session-8KgRJ1PJ-SZE",
+              "sourceMessageId": "agent-message-9290d1af-6c32-4ca8-8a6e-4a1dc16b53a5",
+              "sourceTurnId": "turn-a2"
+            }
+          ],
+          "scope": "resume_only",
+          "expiresAt": "2026-12-06T17:12:43.777Z",
+          "source": {
+            "id": "precise-source-1836ac17-d034-401c-a524-cd913c550226",
+            "sessionId": "agent-session-8KgRJ1PJ-SZE",
+            "turnId": "turn-a2",
+            "messageId": "agent-message-9290d1af-6c32-4ca8-8a6e-4a1dc16b53a5",
+            "content": "用户纠正的项目名称",
+            "contentHash": "dbe725665aaeb147261a10f7c1d32bca5041a13fecb1816fe4dfb4e4e7e72d4b",
+            "createdAt": "2026-11-06T17:12:43.777Z",
+            "kind": "user_correction_statement"
+          },
+          "bindingHash": "4af38ac8d3ee7572813ab492deb19cb3373e96b2ba8812fcf071ef0d6016b77c",
+          "verification": "user_declared_not_independently_verified"
+        }
+      },
+      "operationId": "operation-fact_correction",
+      "proposalHash": "d03edea9c2c051d0dbc916880ee68518eb1956f0ab19183d80a82419537967ad"
+    },
+    "revisionId": "resume-revision-fnv-8a4f13de-197",
+    "confirmedAt": "2026-11-06T17:12:43.751Z",
+    "factConfirmation": {
+      "state": "consumed",
+      "proposal": {
+        "id": "fact-operation-fact_correction",
+        "createdAt": "2026-11-06T17:12:43.777Z",
+        "updatedAt": "2026-11-06T17:12:43.777Z",
+        "schemaVersion": "fact-proposal-v2",
+        "proposalType": "clarification",
+        "question": "仅更正当前简历此字段；用户自述不代表独立核验，也不会同步资料库。",
+        "candidateAnswer": "用户纠正的项目名称",
+        "userConfirmed": false,
+        "provenance": [
+          {
+            "sourceType": "user_input",
+            "sourceId": "precise-source-1836ac17-d034-401c-a524-cd913c550226",
+            "sourceText": "用户纠正的项目名称",
+            "confidence": 1,
+            "confirmedByUser": false,
+            "riskLevel": "low",
+            "createdAt": "2026-11-06T17:12:43.777Z",
+            "sourceSessionId": "agent-session-8KgRJ1PJ-SZE",
+            "sourceMessageId": "agent-message-9290d1af-6c32-4ca8-8a6e-4a1dc16b53a5",
+            "sourceTurnId": "turn-a2"
+          }
+        ],
+        "scope": "resume_only",
+        "expiresAt": "2026-12-06T17:12:43.777Z",
+        "source": {
+          "id": "precise-source-1836ac17-d034-401c-a524-cd913c550226",
+          "sessionId": "agent-session-8KgRJ1PJ-SZE",
+          "turnId": "turn-a2",
+          "messageId": "agent-message-9290d1af-6c32-4ca8-8a6e-4a1dc16b53a5",
+          "content": "用户纠正的项目名称",
+          "contentHash": "dbe725665aaeb147261a10f7c1d32bca5041a13fecb1816fe4dfb4e4e7e72d4b",
+          "createdAt": "2026-11-06T17:12:43.777Z",
+          "kind": "user_correction_statement"
+        },
+        "bindingHash": "4af38ac8d3ee7572813ab492deb19cb3373e96b2ba8812fcf071ef0d6016b77c",
+        "verification": "user_declared_not_independently_verified"
+      },
+      "confirmed": {
+        "id": "fact-operation-fact_correction",
+        "createdAt": "2026-11-06T17:12:43.777Z",
+        "updatedAt": "2026-11-06T17:12:43.777Z",
+        "schemaVersion": "fact-proposal-v2",
+        "proposalType": "clarification",
+        "question": "仅更正当前简历此字段；用户自述不代表独立核验，也不会同步资料库。",
+        "candidateAnswer": "用户纠正的项目名称",
+        "userConfirmed": true,
+        "provenance": [
+          {
+            "sourceType": "user_input",
+            "sourceId": "precise-source-1836ac17-d034-401c-a524-cd913c550226",
+            "sourceText": "用户纠正的项目名称",
+            "confidence": 1,
+            "confirmedByUser": false,
+            "riskLevel": "low",
+            "createdAt": "2026-11-06T17:12:43.777Z",
+            "sourceSessionId": "agent-session-8KgRJ1PJ-SZE",
+            "sourceMessageId": "agent-message-9290d1af-6c32-4ca8-8a6e-4a1dc16b53a5",
+            "sourceTurnId": "turn-a2"
+          }
+        ],
+        "scope": "resume_only",
+        "expiresAt": "2026-12-06T17:12:43.777Z",
+        "source": {
+          "id": "precise-source-1836ac17-d034-401c-a524-cd913c550226",
+          "sessionId": "agent-session-8KgRJ1PJ-SZE",
+          "turnId": "turn-a2",
+          "messageId": "agent-message-9290d1af-6c32-4ca8-8a6e-4a1dc16b53a5",
+          "content": "用户纠正的项目名称",
+          "contentHash": "dbe725665aaeb147261a10f7c1d32bca5041a13fecb1816fe4dfb4e4e7e72d4b",
+          "createdAt": "2026-11-06T17:12:43.777Z",
+          "kind": "user_correction_statement"
+        },
+        "bindingHash": "4af38ac8d3ee7572813ab492deb19cb3373e96b2ba8812fcf071ef0d6016b77c",
+        "verification": "user_declared_not_independently_verified"
+      },
+      "consumedAt": "2026-11-06T17:12:43.751Z",
+      "proposalHash": "d03edea9c2c051d0dbc916880ee68518eb1956f0ab19183d80a82419537967ad",
+      "revisionId": "resume-revision-fnv-8a4f13de-197"
+    }
+  }
+}

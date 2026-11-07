@@ -87,15 +87,15 @@ export type FactProposalConfirmResult =
   | { ok: true; proposal: FactProposal }
   | { ok: false; code: FactProposalErrorCode };
 
-export function factProposalExpired(proposal: FactProposal, at: string): boolean {
+export function factProposalExpired(proposal: Pick<FactProposal, "expiresAt">, at: string): boolean {
   return new Date(at).getTime() >= new Date(proposal.expiresAt).getTime();
 }
 
 /** 确认提议：过期或已确认即拒绝；确认必须携带（或已有）候选答案。 */
-export function confirmFactProposal(
-  proposal: FactProposal,
+export function confirmFactProposal<T extends Pick<FactProposal, "expiresAt" | "userConfirmed" | "candidateAnswer">>(
+  proposal: T,
   input: { at: string; answer?: string }
-): FactProposalConfirmResult {
+): { ok: true; proposal: T } | { ok: false; code: FactProposalErrorCode } {
   if (factProposalExpired(proposal, input.at)) return { ok: false, code: "fact_proposal_expired" };
   if (proposal.userConfirmed) return { ok: false, code: "fact_proposal_already_confirmed" };
   const answer = input.answer?.trim() ?? proposal.candidateAnswer.trim();

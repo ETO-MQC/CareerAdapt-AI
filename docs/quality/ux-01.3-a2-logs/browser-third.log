@@ -1,0 +1,41 @@
+
+Running 1 test using 1 worker
+
+
+
+(node:29164) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1/1] [chromium] › tests\e2e\ux013-a2-structured.spec.ts:12:5 › UX013 A2 four structured operations reviewed committed and refreshed with durable user source
+  1) [chromium] › tests\e2e\ux013-a2-structured.spec.ts:12:5 › UX013 A2 four structured operations reviewed committed and refreshed with durable user source 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('details.toolbar-more > summary')
+
+
+      37 |   // Official confirmed import adds Profile skills without updating the existing Resume Branch.
+      38 |   await page.goto("/resume");
+    > 39 |   await page.locator("details.toolbar-more > summary").click();
+         |                                                        ^
+      40 |   await page.getByTestId("open-resume-import").click();
+      41 |   await dialog.getByText("粘贴 JSON", { exact: true }).click();
+      42 |   await dialog.getByLabel("JSON 内容").fill(JSON.stringify({ schemaVersion: "careeradapt-resume-v2", locale: "zh-CN",
+        at E:\DEF\CareerAdapt-competition-5.1.8\tests\e2e\ux013-a2-structured.spec.ts:39:56
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    docs\quality\ux-01.3-a2-logs\browser-third\ux013-a2-structured-UX013--b580f-ed-with-durable-user-source-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: docs\quality\ux-01.3-a2-logs\browser-third\ux013-a2-structured-UX013--b580f-ed-with-durable-user-source-chromium\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    docs\quality\ux-01.3-a2-logs\browser-third\ux013-a2-structured-UX013--b580f-ed-with-durable-user-source-chromium\trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace docs\quality\ux-01.3-a2-logs\browser-third\ux013-a2-structured-UX013--b580f-ed-with-durable-user-source-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  1 failed
+    [chromium] › tests\e2e\ux013-a2-structured.spec.ts:12:5 › UX013 A2 four structured operations reviewed committed and refreshed with durable user source 

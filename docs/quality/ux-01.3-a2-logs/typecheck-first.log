@@ -1,0 +1,7 @@
+
+> careeradapt-ai@0.9.3-rc.2 typecheck E:\DEF\CareerAdapt-competition-5.1.8
+> tsc --noEmit
+
+src/domain/resumeEditing/structuredResumeOperation.ts(37,3): error TS2322: Type 'ZodLiteral<"fact-proposal-v2">' is not assignable to type 'never'.
+src/domain/resumeEditing/structuredResumeOperation.ts(37,49): error TS2322: Type 'ZodLiteral<"resume_only">' is not assignable to type 'never'.
+ ELIFECYCLE  Command failed with exit code 2.
