@@ -279,6 +279,7 @@ import {
 } from "@/domain/match/matcher";
 import {
   containsUnresolvedSensitivePlaceholder,
+  hashText,
   stableHashText
 } from "@/services/security/text";
 import { CareerAdaptDb, careerAdaptDb, type AppMeta } from "./db";
@@ -3046,9 +3047,11 @@ export class WorkspaceRepository {
     expectedProfileRevision?: number;
     expectedJobRevision?: string;
   }) {
+    const tailoringRequestHash = await hashText(stableStringify(input));
     const result = await this.db.transaction("rw", [this.db.profiles, this.db.jobDescriptions, this.db.resumeBranches, this.db.resumeRevisions, this.db.resumeBranchOperations, this.db.appMeta], async () => {
       const existing = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
       if (existing?.revisionId) {
+        if (existing.tailoringRequestHash !== tailoringRequestHash) throw new Error("tailoring_operation_conflict");
         const branch = await this.db.resumeBranches.get(input.branchId);
         if (!branch) throw new Error("tailoring_branch_missing");
         const parsedBranch = ResumeBranchSchema.parse(branch);
@@ -3160,6 +3163,7 @@ export class WorkspaceRepository {
       const operation = ResumeBranchOperationSchema.parse({
         id: `resume-branch-op-${input.operationId}`,
         operationId: input.operationId,
+        tailoringRequestHash,
         branchId: branch.id,
         type: "suggestion_accept",
         expectedRevision: input.expectedBranchRevision,
@@ -3234,6 +3238,7 @@ export class WorkspaceRepository {
         expectedJobRevision: input.targetSnapshot ? undefined : input.expectedJobRevision
       });
     }
+    const tailoringRequestHash = await hashText(stableStringify(input));
     const result = await this.db.transaction(
       "rw",
       [
@@ -3248,21 +3253,21 @@ export class WorkspaceRepository {
       async () => {
         const existingOperation = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
         if (existingOperation?.branchId && existingOperation.revisionId) {
+          if (existingOperation.tailoringRequestHash !== tailoringRequestHash) throw new Error("tailoring_operation_conflict");
           const existingBranch = await this.db.resumeBranches.get(existingOperation.branchId);
           if (!existingBranch) throw new Error("resume_branch_missing_for_operation");
           const branch = ResumeBranchSchema.parse(existingBranch);
           const revision = await this.getResumeRevisionInTransaction(existingOperation.revisionId);
           if (!revision) throw new Error("tailoring_revision_missing_for_operation");
-          const sourceBranch = branch.sourceBranchId
-            ? await this.db.resumeBranches.get(branch.sourceBranchId)
+          const sourceRevision = revision.previousRevisionId
+            ? await this.getResumeRevisionInTransaction(revision.previousRevisionId)
             : undefined;
-          const beforeBranch = sourceBranch
-            ? {
-                ...branch,
-                contentItems: sourceBranch.contentItems,
-                structuredContentItems: syncStructuredContentItems(sourceBranch, sourceBranch.contentItems)
-              }
-            : branch;
+          if (!sourceRevision) throw new Error("tailoring_source_revision_missing_for_operation");
+          const beforeBranch = ResumeBranchSchema.parse({
+            ...branch,
+            contentItems: sourceRevision.snapshot.contentItems,
+            structuredContentItems: syncStructuredContentItems({ ...branch, ...sourceRevision.snapshot }, sourceRevision.snapshot.contentItems)
+          });
           return {
             branch,
             revision,
@@ -3449,6 +3454,7 @@ export class WorkspaceRepository {
         const operation = ResumeBranchOperationSchema.parse({
           id: `resume-branch-op-${input.operationId}`,
           operationId: input.operationId,
+          tailoringRequestHash,
           branchId: nextBranch.id,
           type: "suggestion_accept",
           expectedRevision: input.expectedSourceRevision,

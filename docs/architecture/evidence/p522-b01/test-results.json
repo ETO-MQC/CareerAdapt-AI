@@ -1,0 +1,81 @@
+{
+  "status": "PARTIAL_NOT_COMPLETE",
+  "provider": "NOT_VERIFIED",
+  "nativeHost": "PARTIAL_NOT_QUALIFIED_G1_FAIL_G2_G6_NOT_VERIFIED",
+  "baselineTypecheckExitCode": 0,
+  "baselineUnit": {
+    "files": 4,
+    "tests": 22,
+    "exitCode": 0
+  },
+  "finalUnit": "unit-results-final.json",
+  "finalLint": {
+    "scope": "6 changed TypeScript files",
+    "exitCode": 0
+  },
+  "finalTypecheckExitCode": 0,
+  "finalBuildExitCode": 0,
+  "diffCheckExitCode": 0,
+  "browser": [
+    {
+      "run": "initial",
+      "passed": 2,
+      "failed": 2,
+      "exitCode": 1,
+      "passedCases": [
+        "Route A isolated job branch and reload",
+        "Route B general-to-job source preservation"
+      ],
+      "failedCases": [
+        "Tailoring remained /jobs before expected navigation",
+        "Job A/B test evaluate destroyed by navigation"
+      ]
+    },
+    {
+      "run": "r2",
+      "passed": 0,
+      "failed": 1,
+      "exitCode": 1,
+      "failure": "outdated ambiguous mode label selector"
+    },
+    {
+      "run": "r3",
+      "passed": 0,
+      "failed": 1,
+      "exitCode": 1,
+      "failure": "60s diff card timeout; driver incorrectly intercepted current planner/batch tasks"
+    },
+    {
+      "run": "r4",
+      "passed": 0,
+      "failed": 1,
+      "exitCode": 1,
+      "failure": "60s diff card timeout after optional matcher-only interception; generation pending; underlying provider state unverified"
+    }
+  ],
+  "stopRule": "Last two long Tailoring runs timed out consecutively; no further rerun",
+  "redTests": [
+    {
+      "name": "request binding",
+      "result": "Expected rejection resolved old success before fix"
+    },
+    {
+      "name": "durable receipt retry",
+      "result": "resume_artifact_receipt_immutable_conflict before fix"
+    }
+  ],
+  "intermediateImplementationFailure": [
+    "Revision snapshot incorrectly parsed as full Branch; corrected",
+    "Canonical receipt time initially made write_completed checkpoint older than failure; checkpoint observation timestamp separated and recovery test retained"
+  ],
+  "fullReleaseGate": "NOT_REQUESTED_NOT_RUN",
+  "commitPush": "NOT_PERFORMED",
+  "finalUnitSummary": {
+    "files": 18,
+    "tests": 140,
+    "passed": 140,
+    "failed": 0,
+    "skipped": 0,
+    "exitCode": 0
+  }
+}

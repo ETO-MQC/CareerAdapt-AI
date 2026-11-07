@@ -4,6 +4,16 @@ type DbBranch = { id: string; revision: number; currentRevisionId?: string; sour
 
 test("three tailoring modes produce real deltas, apply a revision, and reject empty AI output", async ({ page }) => {
   test.setTimeout(240_000);
+  // Deterministic business acceptance: optional semantic matching is unavailable.
+  // The product services, Repository writes and tailoring model driver remain active.
+  await page.route("**/api/ai/structured", async (route) => {
+    const body = route.request().postDataJSON() as { task?: string };
+    if (body.task !== "evidence-matcher") return route.continue();
+    await route.fulfill({ status: 502, contentType: "application/json", body: JSON.stringify({
+      ok: false, error: { code: "invalid_json", message: "Deterministic acceptance: optional semantic provider unavailable." }
+    }) });
+  });
+
   await page.goto("/resume");
   const skipSetup = page.getByRole("button", { name: "跳过，先体验其他功能" });
   const setupVisible = await skipSetup.waitFor({ state: "visible", timeout: 5_000 }).then(() => true).catch(() => false);
@@ -32,7 +42,7 @@ test("three tailoring modes produce real deltas, apply a revision, and reject em
   await expect(panel).toBeVisible();
   const results = new Map<string, string>();
   for (const mode of ["steady", "competitive", "max_fit"] as const) {
-    await panel.getByLabel("定制模式").selectOption(mode);
+    await panel.locator('label[aria-label="定制模式（原推荐改写力度）"] select').selectOption(mode);
     await panel.getByRole("button", { name: /生成改写建议/ }).click();
     while (await panel.getByRole("button", { name: "没有使用过", exact: true }).isVisible().catch(() => false)) {
       await panel.getByRole("button", { name: "没有使用过", exact: true }).click();
@@ -62,10 +72,10 @@ test("three tailoring modes produce real deltas, apply a revision, and reject em
 
   await page.route("**/api/ai/structured", async (route) => {
     const body = route.request().postDataJSON() as { task?: string };
-    if (body.task !== "resume-tailor") return route.continue();
-    await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, task: "resume-tailor", promptVersion: "resume-tailor.v2-empty-e2e", output: { suggestions: [] }, meta: { provider: "mock", model: "empty", inputLength: 1, outputLength: 1, latencyMs: 1 } }) });
+    if (body.task !== "resume-tailor-batch") return route.continue();
+    await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, task: "resume-tailor-batch", promptVersion: "resume-tailor.v2-empty-e2e", output: { suggestions: [] }, meta: { provider: "mock", model: "empty", inputLength: 1, outputLength: 1, latencyMs: 1 } }) });
   });
-  await panel.getByLabel("定制模式").selectOption("steady");
+  await panel.locator('label[aria-label="定制模式（原推荐改写力度）"] select').selectOption("steady");
   await panel.getByRole("button", { name: /1 匹配概览/ }).click();
   await panel.getByRole("button", { name: /生成改写建议/ }).click();
   await expect(panel.getByRole("alert")).toContainText("AI 未生成有效改写", { timeout: 60_000 });

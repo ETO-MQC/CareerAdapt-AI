@@ -1,0 +1,12 @@
+{
+  "startingHead": "3bd558bb72e43ef4f3fcd5429d63ce3f1796839f",
+  "originMain": "3bd558bb72e43ef4f3fcd5429d63ce3f1796839f",
+  "branch": "main",
+  "startingWorkingTree": "CLEAN",
+  "startingUntrackedFiles": [],
+  "existingUserChanges": [],
+  "worktrees": "worktree E:/DEF/CareerAdapt AI\nHEAD 3bd558bb72e43ef4f3fcd5429d63ce3f1796839f\nbranch refs/heads/main\n\nworktree E:/DEF/CareerAdapt AI/.tmp/editor-closure-baseline\nHEAD 5b5cf1e53da42c1f9e9e1269dd542bdcb9258b56\ndetached\n\nworktree E:/DEF/CareerAdapt AI/.tmp/sq1-closeout-frozen\nHEAD 1573e267614ff93363eff2ed2bade34ff01ed078\ndetached\n\nworktree E:/DEF/CareerAdapt-competition-5.1.8\nHEAD ecd5567ff7f4d510c1c67a025cd7a91ca217df57\nbranch refs/heads/competition/5.1.8\n\nworktree E:/DEF/CareerAdapt-jd03-qualified-4561b8d\nHEAD 4561b8d1dfd65b9c6d957a73495b79cb9308cecb\ndetached\n\nworktree E:/DEF/CareerAdapt-resume01-887f061e\nHEAD 887f061e553b1ec83aa0789f1931a1fa3955f067\ndetached\n\nworktree E:/DEF/CareerAdapt-sq13b2-current-87360d1\nHEAD 87360d1f26113f5aaa82654b58dca8f62220e9b2\ndetached\n\nworktree E:/DEF/CareerAdapt-sq13b2-start-64323f5\nHEAD 64323f5a03de85a7802e7dea3743961b8d7de754\ndetached",
+  "a05rOnOrigin": true,
+  "nativeQualification": "PARTIAL / NOT QUALIFIED; G1 FAIL; G2-G6 NOT VERIFIED",
+  "commitPush": "NOT AUTHORIZED"
+}

@@ -2003,7 +2003,10 @@ export class BrowserAgentToolService implements AgentToolServices {
         );
       }
 
-      const completedAt = new Date().toISOString();
+      // Replaying a verified operation must preserve the immutable business receipt.
+      // Repository request binding and readback checks above still run on every retry.
+      const previousReceipt = await this.repository.getResumeArtifactReceipt(operationId);
+      const completedAt = previousReceipt?.completedAt ?? result.revision.createdAt;
       const artifactReceipt = ResumeArtifactReceiptSchema.parse({
         schemaVersion: 1,
         operationId,
@@ -2037,7 +2040,7 @@ export class BrowserAgentToolService implements AgentToolServices {
         resultResumeId: readbackBranch.id,
         resultResumeRevisionId: readbackRevision.id,
         changedFieldPaths,
-        updatedAt: completedAt
+        updatedAt: new Date().toISOString()
       });
       const qualityResult = {
         status: "passed" as const,

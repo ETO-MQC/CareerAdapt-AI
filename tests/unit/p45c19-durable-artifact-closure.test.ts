@@ -97,6 +97,12 @@ describe("P4.5c.1.9 durable agent session and artifact closure", () => {
       confirmedRequirementIds: []
     }, operationId);
     const receipt = result.artifactReceipt;
+    const retried = await new BrowserAgentToolService(new WorkspaceRepository(db!)).applyTailoringChanges({
+      session: fixture.tailoringSession, selectedDiffs: [fixture.diff], confirmedRequirementIds: []
+    }, operationId);
+    expect(retried.artifactReceipt).toEqual(result.artifactReceipt);
+    expect(retried.revision.id).toBe(result.revision.id);
+
     const completedCheckpoint = await fixture.repository.getResumeArtifactWriteCheckpoint(operationId);
     if (!receipt || !completedCheckpoint) throw new Error("durable_artifact_fixture_missing");
     const beforeCount = (await fixture.repository.listResumeBranches(demoCareerProfile.id))
@@ -132,6 +138,19 @@ describe("P4.5c.1.9 durable agent session and artifact closure", () => {
       repositoryReadBackVerified: true,
       resumeListVisibilityVerified: true
     });
+  });
+
+  it("returns one immutable receipt for concurrent retries of the same apply", async () => {
+    const fixture = await createTailoringFixture("concurrent-apply");
+    const operationId = "b01-concurrent-tailoring-apply";
+    const input = { session: fixture.tailoringSession, selectedDiffs: [fixture.diff], confirmedRequirementIds: [] };
+    const [first, second] = await Promise.all([
+      fixture.service.applyTailoringChanges(input, operationId),
+      new BrowserAgentToolService(new WorkspaceRepository(db!)).applyTailoringChanges(input, operationId)
+    ]);
+    expect(second.artifactReceipt).toEqual(first.artifactReceipt);
+    expect(second.revision.id).toBe(first.revision.id);
+    expect((await fixture.repository.listResumeBranches()).filter(branch => branch.branchPurpose === "job_specific")).toHaveLength(1);
   });
 
   it("keeps a pre-commit crash recoverable and never reports success without a receipt", async () => {
@@ -196,6 +215,15 @@ describe("P4.5c.1.9 durable agent session and artifact closure", () => {
       status: "visibility_verification_failed",
       safeErrorCode: "artifact_commit_visibility_verification_failed"
     });
+
+    const branchCount = (await fixture.repository.listResumeBranches()).length;
+    const recovered = await fixture.service.applyTailoringChanges({
+      session: fixture.tailoringSession, selectedDiffs: [fixture.diff], confirmedRequirementIds: []
+    }, operationId);
+    expect(recovered.artifactReceipt.status).toBe("completed");
+    expect((await fixture.repository.listResumeBranches()).length).toBe(branchCount);
+    expect(await fixture.repository.getResumeArtifactWriteCheckpoint(operationId)).toMatchObject({ status: "write_completed" });
+
   });
 
   it("publishes a typed branch mutation for an already-mounted Resume Center", async () => {

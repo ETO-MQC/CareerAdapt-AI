@@ -343,6 +343,7 @@ export const ResumeBranchOperationTypeSchema = z.enum([
 ]);
 
 export const ResumeBranchOperationSchema = EntityBaseSchema.extend({
+  tailoringRequestHash: z.string().min(1).optional(),
   operationId: z.string().min(1),
   branchId: z.string().optional(),
   sourceAdaptationDraftId: z.string().optional(),

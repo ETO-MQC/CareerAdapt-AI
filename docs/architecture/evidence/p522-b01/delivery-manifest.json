@@ -1,0 +1,99 @@
+{
+  "status": "PARTIAL_NOT_COMPLETE",
+  "historicalReportsEvidenceUnchanged": true,
+  "finalHead": "3bd558bb72e43ef4f3fcd5429d63ce3f1796839f",
+  "files": [
+    {
+      "file": "docs/architecture/evidence/p522-b01/baseline.json",
+      "sha256": "0a5fc007baf36ae06bebb70dc5364024f69b8f5f2c5b8e822b6ca265cc961800"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b01/browser-initial-failure-1.md",
+      "sha256": "bba3fa5357d498c868bf301348bb21db32f95126392b3766fcd150bb450851aa"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b01/browser-initial-failure-2.md",
+      "sha256": "bf378e0563d413fb3c607edf205f2b9f25280bd0bf6dbfa39c7aaba228dc73b7"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b01/browser-r2-failure-1.md",
+      "sha256": "57677c63d253dbf7fad00675a9dc12762b5a7d3b87a66349a4969c00968d3035"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b01/browser-r3-failure-1.md",
+      "sha256": "300db73b40185054cbc1083ac3e61361c67b558f0a0b0359f74f856facb52016"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b01/browser-r4-failure-1.md",
+      "sha256": "f477d44ec7a20c3a26476143b9c7c0d8ac0550237bb879ab3e86c893e8019f75"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b01/business-capability-inventory.json",
+      "sha256": "933c77403b4adbd025896cbe0a89c9c0429d4798f4f018b6ab84446dff37d908"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b01/capability-map.md",
+      "sha256": "8241b3116334e10204d111854e86176a02037a1bf4b84d3f4555613415043e96"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b01/test-results.json",
+      "sha256": "826afa42698d083880b820043b37f8e3332641c365944499231f85dc7cc7553a"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b01/unit-results-final.json",
+      "sha256": "938c48d027fa73af6fe10a7f994ef42187d5488e09805d850243c88c64d6fa69"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b01/unit-results.json",
+      "sha256": "7c6e77be99cb433eb06295aadb8150a5a27a132b5d523729144a7c3627d7e068"
+    },
+    {
+      "file": "docs/architecture/p5.2.2-b01-business-audit.md",
+      "sha256": "2657bc5832c884042f4cbd772a39255128cef9d0a639b5b3d14596a4e0985123"
+    },
+    {
+      "file": "docs/architecture/p5.2.2-b01-golden-journey.md",
+      "sha256": "4e5d77a0501cb78cb82207f61ad08ca135005e11f5629ab7ca64602785c03713"
+    },
+    {
+      "file": "docs/architecture/p5.2.2-b01-implementation-integrity.md",
+      "sha256": "3decf0afb8ecffdc68748243e6605d16b2f30faaa642d39aae09a267ae5d411f"
+    },
+    {
+      "file": "docs/architecture/p5.2.2-b01-quality-references.md",
+      "sha256": "ec9100eddd94d800713b7a12f19a4bc8027ea258a3e3e61ee05df221bed4b988"
+    },
+    {
+      "file": "history4.md",
+      "sha256": "452c50c12e725c07f4c9f62ecf0e761bc55961e8498b6c3f4f12b907a77b68b1"
+    },
+    {
+      "file": "plan4.md",
+      "sha256": "6616ae0a263a21358d09ddb762b9e06cf2a6c019f79d27d4930681a600b42142"
+    },
+    {
+      "file": "src/domain/schemas/branch.ts",
+      "sha256": "141e56271fda29443bfbca03338e37f515d487a17341597bb86b77460413b1b1"
+    },
+    {
+      "file": "src/services/agent/agentToolService.ts",
+      "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+    },
+    {
+      "file": "src/services/storage/repositories.ts",
+      "sha256": "af73bc3b57f06f32ac69ea10a25e7c031371d6f17ab43f7301d8aa947db6f8eb"
+    },
+    {
+      "file": "tests/e2e/p4-tailoring-engine-v2.spec.ts",
+      "sha256": "a4f39d4ea10b7fb291d4efc62ec9bdacdc115ec35d194e11f23bfa71f60ec802"
+    },
+    {
+      "file": "tests/unit/p45c19-durable-artifact-closure.test.ts",
+      "sha256": "a54e3ce7bb2c0d5d0a8ecf3756c3e337d376803d79529334b7b9ebc654c52d85"
+    },
+    {
+      "file": "tests/unit/p46a-resume-structural-integrity.test.ts",
+      "sha256": "db7418c35d8d3c245e16815df36208e68ff8b015801d1c7b8b9d07b8add15f8e"
+    }
+  ]
+}

@@ -1,0 +1,774 @@
+{
+  "count": 28,
+  "historicalInventory": "../p522-a05-native-career/business-capability-inventory.json",
+  "historicalFilePreserved": true,
+  "status": "BUSINESS_SOURCE_AUDIT_NOT_NATIVE_QUALIFICATION",
+  "items": [
+    {
+      "id": "B01-C01",
+      "domain": "Profile",
+      "capability": "get",
+      "implementationStatus": "已有实现",
+      "actualBehavior": "Repository Profile查询→canonical投影；A04 scoped纯查询另行隔离；普通查询仍可初始化迁移。",
+      "gatewayTool": "career.profile.get",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/services/profile/profileQueryService.ts",
+          "exists": true,
+          "sha256": "b4966975afee1db695e3838b97bade94e0d148146ff1ef0daae3a2bfc771db5a"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\p522-a04-profile-read.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C02",
+      "domain": "Profile",
+      "capability": "search_facts",
+      "implementationStatus": "已有实现",
+      "actualBehavior": "canonical事实词项筛选；不是语义全量证明；未命中不能等同无经历。",
+      "gatewayTool": "career.profile.search_facts",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/services/profile/profileQueryService.ts",
+          "exists": true,
+          "sha256": "b4966975afee1db695e3838b97bade94e0d148146ff1ef0daae3a2bfc771db5a"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\p522-a04-profile-adapter.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C03",
+      "domain": "Profile",
+      "capability": "intake",
+      "implementationStatus": "已有实现",
+      "actualBehavior": "来源轮次→语义候选/草稿，未确认候选不直接入正式事实。",
+      "gatewayTool": "career.profile.capture_intake",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/services/storage/repositories.ts",
+          "exists": true,
+          "sha256": "af73bc3b57f06f32ac69ea10a25e7c031371d6f17ab43f7301d8aa947db6f8eb"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\guidedProfileIntakeP42a3f.test.ts",
+        "tests\\unit\\guidedProfileIntakeRepositoryP42a3f.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C04",
+      "domain": "Profile",
+      "capability": "reconciliation",
+      "implementationStatus": "已有实现",
+      "actualBehavior": "现有合并计划与逐项resolve，保留冲突和来源。",
+      "gatewayTool": "career.profile.reconcile_intake",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/services/storage/repositories.ts",
+          "exists": true,
+          "sha256": "af73bc3b57f06f32ac69ea10a25e7c031371d6f17ab43f7301d8aa947db6f8eb"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\profileReconciliation.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C05",
+      "domain": "Profile",
+      "capability": "confirmed commit",
+      "implementationStatus": "已有实现",
+      "actualBehavior": "产品确认后Repository版本检查/提交，Native可信授权仍未开放。",
+      "gatewayTool": "career.profile.commit_intake",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/services/storage/repositories.ts",
+          "exists": true,
+          "sha256": "af73bc3b57f06f32ac69ea10a25e7c031371d6f17ab43f7301d8aa947db6f8eb"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\guidedProfileIntakeRepositoryP42a3f.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C06",
+      "domain": "Resume",
+      "capability": "list",
+      "implementationStatus": "已有实现",
+      "actualBehavior": "Repository按Profile/生命周期枚举；列表存在不等于可导出。",
+      "gatewayTool": "career.resume.list",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/services/storage/repositories.ts",
+          "exists": true,
+          "sha256": "af73bc3b57f06f32ac69ea10a25e7c031371d6f17ab43f7301d8aa947db6f8eb"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\agentBranchIsolationP43e3.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C07",
+      "domain": "Resume",
+      "capability": "get",
+      "implementationStatus": "已有实现",
+      "actualBehavior": "读取ResumeBranch v2及来源版本，内容模型仍为Schema v2。",
+      "gatewayTool": "career.resume.get",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/services/storage/repositories.ts",
+          "exists": true,
+          "sha256": "af73bc3b57f06f32ac69ea10a25e7c031371d6f17ab43f7301d8aa947db6f8eb"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\agentBranchIsolationP43e3.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C08",
+      "domain": "Resume",
+      "capability": "revision",
+      "implementationStatus": "已有实现",
+      "actualBehavior": "持久化Revision snapshot与previousRevisionId；CAS拒绝过期写。",
+      "gatewayTool": "career.resume.get_revision",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/services/storage/repositories.ts",
+          "exists": true,
+          "sha256": "af73bc3b57f06f32ac69ea10a25e7c031371d6f17ab43f7301d8aa947db6f8eb"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\repositoryTailoringV2.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C09",
+      "domain": "Resume",
+      "capability": "branch",
+      "implementationStatus": "已有实现",
+      "actualBehavior": "Route A保留Profile snapshot，Route B保留sourceBranch/sourceRevision；不覆盖通用简历。",
+      "gatewayTool": "career.resume.create_job_from_profile",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/services/storage/repositories.ts",
+          "exists": true,
+          "sha256": "af73bc3b57f06f32ac69ea10a25e7c031371d6f17ab43f7301d8aa947db6f8eb"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\branch.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C10",
+      "domain": "Resume",
+      "capability": "preview",
+      "implementationStatus": "已有实现",
+      "actualBehavior": "派生RenderModel/A4；由既有export/renderer覆盖，没有单独preview工具。",
+      "gatewayTool": "career.export.resume",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/domain/resumeDocument/mapper.ts",
+          "exists": true,
+          "sha256": "7d9831244266b73a7d9d75bfee01337003c3358dd4a866f3c359ece785b7a349"
+        },
+        {
+          "file": "src/domain/resumePresentation/projector.ts",
+          "exists": true,
+          "sha256": "6f5af1d2fb81e3dc70386ea675ffefeb09a38c7fec50c28a07f00c0560cd8091"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\export.test.ts",
+        "tests\\unit\\exportSnapshotRoundTrip.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C11",
+      "domain": "Resume",
+      "capability": "export",
+      "implementationStatus": "已有实现",
+      "actualBehavior": "snapshot→既有HTML/Chromium PDF及coverage检查；本轮真实PDF验收待闭合。",
+      "gatewayTool": "career.export.resume",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/domain/resumePresentation/projector.ts",
+          "exists": true,
+          "sha256": "6f5af1d2fb81e3dc70386ea675ffefeb09a38c7fec50c28a07f00c0560cd8091"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\export.test.ts",
+        "tests\\unit\\exportSnapshotRoundTrip.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C12",
+      "domain": "Job",
+      "capability": "list",
+      "implementationStatus": "已有实现",
+      "actualBehavior": "Repository正式Job枚举，与候选listing区分。",
+      "gatewayTool": "career.job.list",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/services/storage/repositories.ts",
+          "exists": true,
+          "sha256": "af73bc3b57f06f32ac69ea10a25e7c031371d6f17ab43f7301d8aa947db6f8eb"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\jobWorkflow.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C13",
+      "domain": "Job",
+      "capability": "get",
+      "implementationStatus": "已有实现",
+      "actualBehavior": "原始JD、要求、graph及updatedAt持久化读取。",
+      "gatewayTool": "career.job.get",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/services/storage/repositories.ts",
+          "exists": true,
+          "sha256": "af73bc3b57f06f32ac69ea10a25e7c031371d6f17ab43f7301d8aa947db6f8eb"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\jobWorkflow.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C14",
+      "domain": "Job",
+      "capability": "JD parsing",
+      "implementationStatus": "已有实现",
+      "actualBehavior": "analyzeJobCommand/JobWorkflow→SourceSpan语义图→核对→Repository提交；空输入有显式错误。",
+      "gatewayTool": "career.job.parse",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/services/jobs/jobWorkflow.ts",
+          "exists": true,
+          "sha256": "e631e7df78e74ab047e3f3b66ae73702154daf347235eff8ee022939d806a25f"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\jobWorkflow.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C15",
+      "domain": "Job",
+      "capability": "requirement graph",
+      "implementationStatus": "被其他能力覆盖",
+      "actualBehavior": "parse的结构化图，非额外LLM工具；保留关系组与原文范围。",
+      "gatewayTool": "career.job.parse",
+      "sources": [
+        {
+          "file": "src/services/jobs/jobWorkflow.ts",
+          "exists": true,
+          "sha256": "e631e7df78e74ab047e3f3b66ae73702154daf347235eff8ee022939d806a25f"
+        },
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\jobWorkflow.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C16",
+      "domain": "Job",
+      "capability": "job analysis",
+      "implementationStatus": "被其他能力覆盖",
+      "actualBehavior": "统一CareerIntelligence/JobFit分析，非岗位事实写入用户Profile。",
+      "gatewayTool": "career.job.analyze_fit",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/services/jobs/jobWorkflow.ts",
+          "exists": true,
+          "sha256": "e631e7df78e74ab047e3f3b66ae73702154daf347235eff8ee022939d806a25f"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\jobWorkflow.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C17",
+      "domain": "Career Intelligence",
+      "capability": "profile/job context",
+      "implementationStatus": "已有实现",
+      "actualBehavior": "retrieveCareerContext只投影可确认候选事实与来源；未知/风险事实不伪装为已确认。",
+      "gatewayTool": "career.context.retrieve",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/domain/careerContext/retrieveCareerContext.ts",
+          "exists": true,
+          "sha256": "8a55d93dfba38e1fbfa5bfc57e7798e8c7cdd69ab0131625dac97508ae6e12d4"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\p45c1c15-career-context-binding.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C18",
+      "domain": "Career Intelligence",
+      "capability": "requirement matching",
+      "implementationStatus": "已有实现",
+      "actualBehavior": "CandidateEvidenceMatrix将Requirement ID/SourceSpan映射fact/source/evidence unit。",
+      "gatewayTool": "career.job.analyze_fit",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/domain/jobOptimization/matching.ts",
+          "exists": true,
+          "sha256": "4b5543a041bf9d3696b155fafcfa023935dce624a2f122751b4d84d9a2cf2f01"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\matcher.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C19",
+      "domain": "Career Intelligence",
+      "capability": "capability coverage",
+      "implementationStatus": "被其他能力覆盖",
+      "actualBehavior": "由同一CareerIntelligence报告派生，不建立第二套评分器。",
+      "gatewayTool": "career.job.analyze_fit",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/domain/jobOptimization/v2/coverage.ts",
+          "exists": true,
+          "sha256": "9c9bdabb11d9bb1bb27d0f1feda273ee5e043e382cb0445707a31da62371ce7b"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\tailoringEngineV2.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C20",
+      "domain": "Career Intelligence",
+      "capability": "match scoring",
+      "implementationStatus": "被其他能力覆盖",
+      "actualBehavior": "规则版本、岗位/资料/简历版本绑定；unknown与mismatch区分，不改阈值。",
+      "gatewayTool": "career.job.analyze_fit",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/domain/jobOptimization/v2/analyze.ts",
+          "exists": true,
+          "sha256": "167e682b1b8e59f99e2736acc0386739d31f67245217953d43539399e1e20692"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\matcher.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C21",
+      "domain": "Career Intelligence",
+      "capability": "evidence explanation",
+      "implementationStatus": "被其他能力覆盖",
+      "actualBehavior": "同一矩阵rationale、confidence、unresolvedAmbiguity和来源引用。",
+      "gatewayTool": "career.job.analyze_fit",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/domain/jobOptimization/v2/evidence.ts",
+          "exists": true,
+          "sha256": "3b7387ff40d36b7bd51ac726b41b7c679b77dd31fdf2c74532320cd1a910072e"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\tailoringEngineV2.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C22",
+      "domain": "Tailoring",
+      "capability": "create session",
+      "implementationStatus": "已有实现",
+      "actualBehavior": "createTailoringSessionCommand从明确Profile/Branch/Job产生Session与任务输入。",
+      "gatewayTool": "career.tailoring.create_session",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/services/jobs/tailoringService.ts",
+          "exists": true,
+          "sha256": "5e9770ef990d05c217152ad76b4866703267207a84d2789145e1d0669ba4b8c4"
+        },
+        {
+          "file": "src/services/jobs/tailoringCommands.ts",
+          "exists": true,
+          "sha256": "5b9bdc951189944fcf63093de36e53f478f8d923ffd7de8906358c51416c11e3"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\tailoringCommands.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C23",
+      "domain": "Tailoring",
+      "capability": "question plan",
+      "implementationStatus": "已有实现",
+      "actualBehavior": "冻结QuestionPlan、单activeQuestionId、mode预算与硬上限5；不另造访谈。",
+      "gatewayTool": "career.tailoring.create_session",
+      "sources": [
+        {
+          "file": "src/services/jobs/tailoringService.ts",
+          "exists": true,
+          "sha256": "5e9770ef990d05c217152ad76b4866703267207a84d2789145e1d0669ba4b8c4"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\repositoryTailoringV2.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C24",
+      "domain": "Tailoring",
+      "capability": "answer question",
+      "implementationStatus": "已有实现",
+      "actualBehavior": "回答receipt/plan revision推进；旧回答改动使生成的Diff/reviews失效。",
+      "gatewayTool": "career.tailoring.answer_question",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/services/jobs/tailoringService.ts",
+          "exists": true,
+          "sha256": "5e9770ef990d05c217152ad76b4866703267207a84d2789145e1d0669ba4b8c4"
+        },
+        {
+          "file": "src/services/jobs/tailoringCommands.ts",
+          "exists": true,
+          "sha256": "5b9bdc951189944fcf63093de36e53f478f8d923ffd7de8906358c51416c11e3"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\tailoringCommands.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C25",
+      "domain": "Tailoring",
+      "capability": "generate diff",
+      "implementationStatus": "已有实现",
+      "actualBehavior": "target/evidence约束生成→局部校验→统一Diff；并非整份简历反复生成。",
+      "gatewayTool": "career.tailoring.generate_changes",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/services/jobs/tailoringService.ts",
+          "exists": true,
+          "sha256": "5e9770ef990d05c217152ad76b4866703267207a84d2789145e1d0669ba4b8c4"
+        },
+        {
+          "file": "src/services/jobs/tailoringCommands.ts",
+          "exists": true,
+          "sha256": "5b9bdc951189944fcf63093de36e53f478f8d923ffd7de8906358c51416c11e3"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\tailoringDiff.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C26",
+      "domain": "Tailoring",
+      "capability": "review diff",
+      "implementationStatus": "已有实现",
+      "actualBehavior": "accept/edit/reject写入review ledger；selectedDiffs运输字段不是应用权威。",
+      "gatewayTool": "career.tailoring.review_diff",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/services/jobs/tailoringService.ts",
+          "exists": true,
+          "sha256": "5e9770ef990d05c217152ad76b4866703267207a84d2789145e1d0669ba4b8c4"
+        },
+        {
+          "file": "src/services/jobs/tailoringCommands.ts",
+          "exists": true,
+          "sha256": "5b9bdc951189944fcf63093de36e53f478f8d923ffd7de8906358c51416c11e3"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\tailoringCommands.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C27",
+      "domain": "Tailoring",
+      "capability": "preview",
+      "implementationStatus": "已有实现",
+      "actualBehavior": "review ledger→局部事实/原值/禁词检查→派生preview，无正式简历写入。",
+      "gatewayTool": "career.tailoring.preview_changes",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/services/jobs/tailoringService.ts",
+          "exists": true,
+          "sha256": "5e9770ef990d05c217152ad76b4866703267207a84d2789145e1d0669ba4b8c4"
+        },
+        {
+          "file": "src/services/jobs/tailoringCommands.ts",
+          "exists": true,
+          "sha256": "5b9bdc951189944fcf63093de36e53f478f8d923ffd7de8906358c51416c11e3"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\tailoringCommands.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": false
+    },
+    {
+      "id": "B01-C28",
+      "domain": "Tailoring",
+      "capability": "confirmed apply",
+      "implementationStatus": "部分实现",
+      "actualBehavior": "产品确认→原子derive/apply→Revision+operation→回读→artifact receipt；本轮补请求指纹。全链浏览器和Native可信确认分别验收，不能混用。 同请求顺序/并发重试保留不可变receipt，故障读回恢复不新增分支。",
+      "gatewayTool": "career.tailoring.apply_changes",
+      "sources": [
+        {
+          "file": "src/services/agent/agentToolService.ts",
+          "exists": true,
+          "sha256": "4f0a4c8725ce81d7af4d9db34422b717aefd95a89671cab4c46086ff78a30596"
+        },
+        {
+          "file": "src/services/jobs/tailoringService.ts",
+          "exists": true,
+          "sha256": "5e9770ef990d05c217152ad76b4866703267207a84d2789145e1d0669ba4b8c4"
+        },
+        {
+          "file": "src/services/jobs/tailoringCommands.ts",
+          "exists": true,
+          "sha256": "5b9bdc951189944fcf63093de36e53f478f8d923ffd7de8906358c51416c11e3"
+        },
+        {
+          "file": "src/services/storage/repositories.ts",
+          "exists": true,
+          "sha256": "af73bc3b57f06f32ac69ea10a25e7c031371d6f17ab43f7301d8aa947db6f8eb"
+        }
+      ],
+      "tests": [
+        "tests\\unit\\tailoringCommands.test.ts"
+      ],
+      "verification": "SOURCE_REVIEW; see test-results.json for explicitly executed suites; not capability-wide certification",
+      "nativeHost": "BLOCKED_D3_D4",
+      "newThisRound": true
+    }
+  ]
+}

@@ -204,6 +204,28 @@ describe("P4.6a resume structural integrity", () => {
     });
     expect(derived.revision).toBeDefined();
 
+    const retryInput = {
+      sourceBranchId: fixture.branch.id, jobId: job.id,
+      expectedSourceRevision: fixture.branch.revision,
+      expectedSourceRevisionId: fixture.branch.currentRevisionId!,
+      diffs: [diff], operationId: "p46a-golden-tailoring", name: "岗位定制简历"
+    };
+    const replay = await repository.deriveAndApplyTailoringDiffsAtomic(retryInput);
+    expect(replay.idempotent).toBe(true);
+    expect(replay.beforeContentHash).toBe(derived.beforeContentHash);
+    expect(replay.afterContentHash).toBe(derived.afterContentHash);
+    const countsBeforeReplay = [await db.resumeBranches.count(), await db.resumeRevisions.count(), await db.resumeBranchOperations.count()];
+    for (const changed of [
+      { jobId: "another-job" },
+      { expectedSourceRevisionId: "another-revision" },
+      { diffs: [{ ...diff, value: ["未经本次确认的替代内容"] }] },
+      { sourceBranchId: "another-source" }
+    ]) {
+      await expect(repository.deriveAndApplyTailoringDiffsAtomic({ ...retryInput, ...changed })).rejects.toThrow("tailoring_operation_conflict");
+    }
+    expect([await db.resumeBranches.count(), await db.resumeRevisions.count(), await db.resumeBranchOperations.count()]).toEqual(countsBeforeReplay);
+
+
     const sourceAfter = await repository.getResumeBranch(fixture.branch.id);
     expect(sourceAfter?.structuredContentItems).toEqual(sourceBefore.structuredContentItems);
     const jobBranch = await repository.getResumeBranch(derived.branch.id);
@@ -265,6 +287,23 @@ describe("P4.6a resume structural integrity", () => {
     expect(visibleText).not.toMatch(/(?:项目名称|组织|职位\/角色|学位\/学历|开始日期|结束日期|技术工具|亮点)：/u);
     expect((visibleText.match(/项目一\s+核心开发/g) ?? []).length).toBe(1);
     expect(paginationPlan.actualPageCount).toBe(1);
+    const nextDiff: ResumeTailoringDiff = { ...diff, original: diff.value, value: ["岗位验证结果", "项目一亮点"] };
+    const updateInput = {
+      branchId: jobBranch.id, jobId: job.id, diffs: [nextDiff],
+      operationId: "b01-job-revision-update", expectedBranchRevision: jobBranch.revision,
+      expectedRevisionId: jobBranch.currentRevisionId!
+    };
+    const update = await repository.applyTailoringDiffs(updateInput);
+    expect(update.revision).toBeDefined();
+    expect((await repository.applyTailoringDiffs(updateInput)).revision?.id).toBe(update.revision?.id);
+    await expect(repository.applyTailoringDiffs({ ...updateInput, diffs: [diff] })).rejects.toThrow("tailoring_operation_conflict");
+    await expect(repository.applyTailoringDiffs({ ...updateInput, branchId: fixture.branch.id })).rejects.toThrow("tailoring_operation_conflict");
+    const operation = await db.resumeBranchOperations.where("operationId").equals(updateInput.operationId).first();
+    if (!operation) throw new Error("b01_operation_missing");
+    // Legacy receipts remain readable but cannot establish payload identity.
+    await db.resumeBranchOperations.put({ ...operation, tailoringRequestHash: undefined });
+    await expect(repository.applyTailoringDiffs(updateInput)).rejects.toThrow("tailoring_operation_conflict");
+
   });
 
   it("uses the saved Job title before JD extraction and never exposes a command wrapper", () => {
