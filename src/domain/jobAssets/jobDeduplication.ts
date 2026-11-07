@@ -23,7 +23,7 @@ export type DedupExistingPosting = {
   sourceName: string;
   sourceJobId?: string;
   title: string;
-  companyName: string;
+  companyName: string | null;
   companyTitleFingerprint: string;
   contentFingerprint: string;
 };
@@ -33,7 +33,7 @@ export type DedupIncomingPosting = {
   sourceName: string;
   sourceJobId?: string;
   title: string;
-  companyName: string;
+  companyName: string | null;
   companyTitleFingerprint: string;
   contentFingerprint: string;
 };
@@ -42,7 +42,7 @@ export type DuplicateCandidate = {
   jobPostingId: string;
   rule: DedupRule;
   title: string;
-  companyName: string;
+  companyName: string | null;
 };
 
 export type DuplicateEvaluation = {
@@ -72,7 +72,7 @@ export function findDuplicateCandidates(
       });
       continue;
     }
-    if (posting.companyTitleFingerprint === incoming.companyTitleFingerprint) {
+    if (posting.companyName && incoming.companyName && posting.companyTitleFingerprint === incoming.companyTitleFingerprint) {
       candidates.push({
         jobPostingId: posting.id,
         rule: "company_title",

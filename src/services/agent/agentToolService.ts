@@ -1698,7 +1698,7 @@ export class BrowserAgentToolService implements AgentToolServices {
   }
 
   async parseJobDescription(rawInput: unknown, operationId: string, signal?: AbortSignal) {
-    const input = rawInput as { rawText: string; title?: string; company?: string };
+    const input = rawInput as { rawText: string; title?: string; company?: string | null };
     const analyzed = analyzeJobCommand({ operationId, rawText: input.rawText }, signal);
     const candidateTitle = input.title?.trim() || inferJobTitle(input.rawText);
     const candidateCompany = input.company?.trim() || inferJobCompany(input.rawText);
@@ -1726,19 +1726,34 @@ export class BrowserAgentToolService implements AgentToolServices {
   async commitJob(rawInput: unknown, operationId: string, signal?: AbortSignal, context?: AgentToolExecutionContext) {
     assertNotAborted(signal);
     const input = rawInput as {
-      title: string; company: string; rawText: string; graph: unknown;
+      title: string; company: string | null; rawText: string; graph: unknown;
+      jobId?: string; expectedRevision?: string;
       dedupDecision?: "merge_existing" | "keep_separate";
       duplicateListingId?: string;
       sourceUrl?: string;
       attachmentId?: string;
     };
-    const graph = JobRequirementGraphV4Schema.parse(input.graph);
     if (!context?.careerSessionBinding || !context?.userMessageId) throw new Error("agent_confirmation_binding_missing");
+    if (input.jobId) {
+      if (!input.company || !input.expectedRevision) throw toolError("job_completion_input_missing", "岗位补全需要读取最新保存版本，请刷新当前岗位后继续。");
+      const result = await this.repository.completeJobCompany({ jobId: input.jobId, company: input.company,
+        expectedRevision: input.expectedRevision, operationId, userMessageId: context.userMessageId });
+      return { ...result, status: "committed", jobId: result.jobDescription.id, jobRevision: result.jobDescription.updatedAt };
+    }
+    const graph = JobRequirementGraphV4Schema.parse(input.graph);
     const attachmentSessionId = context.careerSessionBinding.agentSessionId;
     return this.repository.withCandidateJobCommit(async () => {
       const now = new Date().toISOString();
       const location = extractJobLocation(input.rawText);
-      const identity = manualCandidateIdentity(input.title, input.company);
+      const identity = manualCandidateIdentity(input.title, input.company, input.rawText);
+      const priorListing = await this.repository.getJobListing(identity.listingId);
+      if (priorListing?.jobDescriptionId) {
+        const priorJob = await this.repository.getJobDescription(priorListing.jobDescriptionId);
+        if (priorJob && priorJob.rawText === input.rawText && priorJob.title === input.title
+          && (input.company === null || priorJob.company === input.company)) {
+          return { jobId: priorJob.id, jobRevision: priorJob.updatedAt, jobDescription: priorJob, idempotent: true };
+        }
+      }
       const ingest = await ingestCandidateListing(this.repository, {
         sourceKey: identity.sourceKey,
         externalId: identity.externalId,
@@ -1809,6 +1824,12 @@ export class BrowserAgentToolService implements AgentToolServices {
         ...parsed.draft,
         title: input.title,
         company: input.company,
+        identityEvidence: {
+          title: { source: input.title === "岗位名称待补充" ? "missing" : /^(?:岗位|职位)(?:名称)?\s*[:：]/mu.test(input.rawText) && input.rawText.includes(input.title) ? "jd" : "derived", quote: input.rawText.includes(input.title) ? input.title : undefined, confirmed: false },
+          company: { source: input.company ? (input.rawText.includes(input.company) ? "jd" : "user") : "missing",
+            quote: input.company ?? undefined, messageId: input.company && !input.rawText.includes(input.company) ? context.userMessageId : undefined,
+            confirmed: Boolean(input.company && !input.rawText.includes(input.company)) }
+        },
         status: graph.needsReview ? "needs_review" : "ai_validated",
         promptVersion: "agent-command.v1",
         attemptCount: parsed.draft.attemptCount + 1,
@@ -2299,6 +2320,9 @@ function assertConversationIntakeCommitEligible(draft: ImportedResumeDraft | und
 }
 
 function inferJobTitle(rawText: string) {
+  const firstLine = rawText.trimStart().split(/\r?\n/)[0];
+  if (/^(?:毕业要求|毕业年份|投递时间|招聘批次|工作地点|公司|企业)\s*[:：]/u.test(firstLine)
+    && !/^(?:岗位|职位)(?:名称)?\s*[:：]/mu.test(rawText)) return undefined;
   return extractExplicitTargetRole(rawText);
 }
 

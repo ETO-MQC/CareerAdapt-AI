@@ -136,6 +136,8 @@ export type CareerToolExecutionContext = {
   sourceUserMessage?: string;
   /** Host-resolved turn for composition; never supplied by Hermes. */
   compositionSourceTurn?: CompositionSourceTurn;
+  /** Host-derived direct business intent, never a model argument. */
+  jobIntakeIntent?: "save" | "complete_company";
   /** Browser/Host-owned answer for the current tailoring checkpoint. */
   tailoringAnswer?: {
     checkpointId: string;
@@ -867,6 +869,12 @@ function errorCode(error: unknown) {
 }
 
 function safeGatewayErrorMessage(error: unknown, code: string) {
+  const jobMessages: Record<string, string> = {
+    job_completion_target_mismatch: "当前无法唯一确定要补充的岗位，请先选择原岗位；已提供的信息仍然保留。",
+    job_identity_source_missing: "公司名称缺少对应来源，请核对原文或直接补充公司名称后继续。",
+    job_completion_input_missing: "岗位补全需要读取最新保存版本，请刷新当前岗位后继续。"
+  };
+  if (jobMessages[code]) return jobMessages[code];
   if (code === "schema_validation_failed") return "工具输入未通过 Career Schema 校验，未执行写入。";
   if (code === "target_required") return TARGET_REQUIRED_PROMPT;
   return error instanceof Error && error.message.trim()

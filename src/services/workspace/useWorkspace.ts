@@ -1,5 +1,6 @@
 "use client";
 
+import { liveQuery } from "dexie";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ActiveCareerContext, CareerProfile, JobDescription } from "@/domain/schemas";
 import { WorkspaceRepository } from "@/services/storage/repositories";
@@ -36,6 +37,14 @@ export function useWorkspace(repository: WorkspaceRepository = defaultRepository
     const frame = window.requestAnimationFrame(() => { void loadJobs(); });
     return () => window.cancelAnimationFrame(frame);
   }, [loadJobs]);
+
+  useEffect(() => {
+    const subscription = liveQuery(() => repository.listJobDescriptions()).subscribe({
+      next: value => { setJobs(value); setJobsError(undefined); },
+      error: error => setJobsError(error instanceof Error ? error.message : "岗位列表暂时无法刷新。")
+    });
+    return () => subscription.unsubscribe();
+  }, [repository]);
 
   const profiles = useMemo(() => {
     if (!career.activeContext) return career.profiles;

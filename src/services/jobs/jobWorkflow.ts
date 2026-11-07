@@ -69,14 +69,14 @@ export class JobWorkflowError extends Error {
 
 export function validateJobInput(input: { title: string; company: string; rawText: string }) {
   const title = input.title.trim();
-  const company = input.company.trim();
+  const company = input.company.trim() || null;
   const rawText = input.rawText.trim();
 
-  if (!title || !company || !rawText) {
+  if (!title || !rawText) {
     throw createJobWorkflowError(
       "empty_input",
       "input",
-      !rawText ? "请粘贴岗位 JD 原文后再解析。" : "请填写岗位名称和公司名称后再解析。"
+      !rawText ? "请粘贴岗位 JD 原文后再解析。" : "请填写岗位名称后再解析。"
     );
   }
 
@@ -88,7 +88,7 @@ export function validateJobInput(input: { title: string; company: string; rawTex
     );
   }
 
-  return { title, company, rawText };
+  return { title, company, rawText: input.rawText };
 }
 
 export function classifyJobAiFailure(errorCode?: string) {

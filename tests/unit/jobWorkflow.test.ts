@@ -61,7 +61,7 @@ function createDraft(confirmedByUser = true): JobAnalysisDraft {
 }
 
 describe("job workflow", () => {
-  it("accepts a normal JD and trims user input", () => {
+  it("trims identity fields while preserving the exact original JD", () => {
     expect(validateJobInput({
       title: " 数据分析师 ",
       company: " 示例公司 ",
@@ -69,7 +69,7 @@ describe("job workflow", () => {
     })).toEqual({
       title: "数据分析师",
       company: "示例公司",
-      rawText: rawInput.rawText
+      rawText: ` ${rawInput.rawText} `
     });
   });
 

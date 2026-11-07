@@ -88,7 +88,7 @@ export const ApplicationRecordSchema = EntityBaseSchema.extend({
   profileId: z.string().min(1),
   jobId: z.string().min(1),
   jobTitleSnapshot: z.string().min(1).max(180),
-  companySnapshot: z.string().min(1).max(180).optional(),
+  companySnapshot: z.string().min(1).max(180).nullable().optional(),
   sourceGeneralBranchId: z.string().min(1).optional(),
   jobSpecificBranchId: z.string().min(1),
   selectedRevisionId: z.string().min(1),

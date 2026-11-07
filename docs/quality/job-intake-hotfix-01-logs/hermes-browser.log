@@ -1,0 +1,8 @@
+Error: E:\DEF\CareerAdapt-competition-5.1.8\playwright.job-hotfix-scripted.config.ts does not exist
+    at resolveConfigFile2 (E:\DEF\CareerAdapt AI\node_modules\.pnpm\playwright@1.61.1\node_modules\playwright\lib\common\index.js:1543:11)
+    at resolveConfigLocation (E:\DEF\CareerAdapt AI\node_modules\.pnpm\playwright@1.61.1\node_modules\playwright\lib\common\index.js:1524:30)
+    at Object.loadConfigFromFile (E:\DEF\CareerAdapt AI\node_modules\.pnpm\playwright@1.61.1\node_modules\playwright\lib\common\index.js:1553:27)
+    at runTests (E:\DEF\CareerAdapt AI\node_modules\.pnpm\playwright@1.61.1\node_modules\playwright\lib\cli\testActions.js:46:51)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async _Command.<anonymous> (E:\DEF\CareerAdapt AI\node_modules\.pnpm\playwright@1.61.1\node_modules\playwright\lib\program.js:53:7)
+Job Intake Scripted Provider FAIL: E:\DEF\CareerAdapt-competition-5.1.8\docs\quality\job-intake-hotfix-01-logs\scripted-1794047071297

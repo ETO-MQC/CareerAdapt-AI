@@ -36,8 +36,8 @@ export const CANDIDATE_PIPELINE_VERSION = "careeradapt-candidate-pipeline-v1";
  */
 export const MANUAL_JOB_SOURCE_KEY = "local.manual";
 
-export function manualCandidateIdentity(title: string, company: string) {
-  const fingerprint = companyTitleFingerprint(title, company);
+export function manualCandidateIdentity(title: string, company: string | null, rawText?: string) {
+  const fingerprint = company ? companyTitleFingerprint(title, company) : jdContentHash(rawText ?? title);
   return {
     sourceKey: MANUAL_JOB_SOURCE_KEY,
     externalId: `manual-${fingerprint}`,
@@ -51,7 +51,7 @@ export type CandidateIngestInput = {
   /** 原始 JD 文本；原样进入 snapshot.rawText，永不改写。 */
   rawText: string;
   title: string;
-  company: string;
+  company: string | null;
   /** 新建 listing 时的 id；merge/幂等重试时忽略。 */
   listingId?: string;
   canonicalSourceUrl?: string;
@@ -93,7 +93,7 @@ export type CandidateIngestCandidate = {
   jobPostingId: string;
   rule: "source_id" | "company_title" | "content";
   title: string;
-  companyName: string;
+  companyName: string | null;
 };
 
 /**

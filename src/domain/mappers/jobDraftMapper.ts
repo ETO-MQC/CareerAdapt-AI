@@ -26,6 +26,7 @@ export function mapJobDraftToJobDescription(input: {
     id: input.jobId ?? `job-${nanoid(10)}`,
     title: output.title?.value || input.draft.title,
     company: output.company?.value || input.draft.company,
+    identityEvidence: input.draft.identityEvidence,
     industry: output.industry?.value,
     location: output.location?.value,
     workType: output.workType?.value,

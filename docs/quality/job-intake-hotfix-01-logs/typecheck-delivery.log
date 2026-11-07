@@ -1,0 +1,6 @@
+
+> careeradapt-ai@0.9.3-rc.2 typecheck E:\DEF\CareerAdapt-competition-5.1.8
+> tsc --noEmit
+
+tests/unit/jobIntakeHotfix.test.ts(298,49): error TS7016: Could not find a declaration file for module '../support/job-intake-scripted-response.mjs'. 'E:/DEF/CareerAdapt-competition-5.1.8/tests/support/job-intake-scripted-response.mjs' implicitly has an 'any' type.
+ ELIFECYCLE  Command failed with exit code 2.

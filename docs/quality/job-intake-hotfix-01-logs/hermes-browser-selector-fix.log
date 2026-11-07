@@ -1,0 +1,39 @@
+
+Running 1 test using 1 worker
+
+[1/1] tests\e2e\job-intake-hotfix.hermes.ts:7:5 › Job Intake real Hermes + Scripted: save unknown company, same Job completion, list visibility and refresh
+  1) tests\e2e\job-intake-hotfix.hermes.ts:7:5 › Job Intake real Hermes + Scripted: save unknown company, same Job completion, list visibility and refresh 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 0
+    Received: 2
+
+      46 |     await writeFile(`${directory}/turn-${observed?.hermesRun?.runId}.json`, JSON.stringify({ jobs: await jobs(), session: observed }, null, 2));
+      47 |     expect(observed?.pendingConfirmation).toBeUndefined();
+    > 48 |     expect(await page.locator(".agent-confirmation:visible").count()).toBe(0);
+         |                                                                       ^
+      49 |     expect((await page.locator(".agent-tool-status-row").allTextContents()).join(" ")).not.toMatch(/career\.workflow|operationId|commit_job/);
+      50 |   };
+      51 |   await send(`先保存岗位。\n${JOB_INTAKE_INCIDENT_JD}`, null);
+        at send (E:\DEF\CareerAdapt-competition-5.1.8\tests\e2e\job-intake-hotfix.hermes.ts:48:71)
+        at E:\DEF\CareerAdapt-competition-5.1.8\tests\e2e\job-intake-hotfix.hermes.ts:51:3
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    docs\quality\job-intake-hotfix-01-logs\scripted-1794048109907\browser\job-intake-hotfix.hermes.t-b00db-list-visibility-and-refresh\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: docs\quality\job-intake-hotfix-01-logs\scripted-1794048109907\browser\job-intake-hotfix.hermes.t-b00db-list-visibility-and-refresh\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    docs\quality\job-intake-hotfix-01-logs\scripted-1794048109907\browser\job-intake-hotfix.hermes.t-b00db-list-visibility-and-refresh\trace.zip
+    Usage:
+
+        npx playwright show-trace docs\quality\job-intake-hotfix-01-logs\scripted-1794048109907\browser\job-intake-hotfix.hermes.t-b00db-list-visibility-and-refresh\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  1 failed
+    tests\e2e\job-intake-hotfix.hermes.ts:7:5 › Job Intake real Hermes + Scripted: save unknown company, same Job completion, list visibility and refresh 
+Job Intake Scripted Provider FAIL: E:\DEF\CareerAdapt-competition-5.1.8\docs\quality\job-intake-hotfix-01-logs\scripted-1794048109907

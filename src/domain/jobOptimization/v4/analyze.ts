@@ -14,7 +14,7 @@ import {
 } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
 
-export const JOB_REQUIREMENT_ANALYZER_V4 = "jd-analyzer.semantic-ledger-v4.1";
+export const JOB_REQUIREMENT_ANALYZER_V4 = "jd-analyzer.semantic-ledger-v4.2";
 
 type Section = JdSemanticUnit["provisional"]["section"];
 type MutableUnit = Omit<JdSemanticUnit, "provisional" | "final"> & {
@@ -52,14 +52,14 @@ const VERIFICATION_SIGNAL = /(?:截图|账单|dashboard|github|仓库|作品|bad
 const MUST = /必须|必备|至少|不少于|需具备|本科及以上|required|must|minimum/i;
 const PREFERRED = /优先|加分|preferred|nice to have/i;
 const SOFT = /沟通|协作|表达|逻辑判断|学习能力|责任心|团队合作|好奇心|自驱|communication|collaboration/i;
-const EDUCATION = /本科|硕士|博士|学历|高校|专业/i;
+const EDUCATION = /本科|硕士|博士|学历|高校|专业|毕业|届/i;
 const EXPERIENCE = /(\d+(?:\.\d+)?)\s*(?:年|years?)|经验/i;
 const LANGUAGE = /英语|日语|法语|德语|cet[- ]?[46]|ielts|toefl/i;
 const TECH_TERMS = [
   "AI Coding", "Coding Agent", "Vibe Coding", "AI Agent", "复杂多轮指令", "复杂任务规划", "模型评测",
   "输出质量评估", "逻辑缺陷识别", "任务拆解", "回答纠错", "搜索任务", "Prompt Engineering", "RAG",
   "Verifier", "Benchmark", "Badcase", "Cursor", "Claude Code", "Codex", "Windsurf", "Playwright", "Vitest",
-  "JavaScript", "Java", "Spring Boot", "TypeScript", "SQL", "Go", "Python", "R", "FastAPI", "GitHub", "reward hacking", "long context", "multi-file"
+  "C++", "大模型原理", "AI算法原理", "JavaScript", "Java", "Spring Boot", "TypeScript", "SQL", "Go", "Python", "R", "FastAPI", "GitHub", "reward hacking", "long context", "multi-file"
 ];
 
 export type ReconciledJdSemanticLedger = {
@@ -143,7 +143,21 @@ export function createLexicalJdUnits(rawText: string): JdSemanticUnit[] {
       provisional: { disposition: "unclassified", section: "unknown" }
     }));
   }
-  return result;
+  return result.flatMap(unit => {
+    // Inline enumerations retain absolute source offsets and the original line number.
+    const boundaries = [...unit.text.matchAll(/[；;。]\s*(?=\d+[、．.])/gu)].map(match => match.index! + match[0].length);
+    if (!boundaries.length) return [unit];
+    const starts = [0, ...boundaries];
+    return starts.map((start, index) => {
+      const end = starts[index + 1] ?? unit.text.length;
+      const piece = unit.text.slice(start, end).trimEnd();
+      const prefix = parsePrefix(piece, unit.lexical.indentation);
+      const contentStart = start + piece.indexOf(prefix.text);
+      const child = sourceChild(unit, contentStart, start + piece.length);
+      return { ...child, lexical: { ...child.lexical, numberingToken: prefix.numberingToken ?? unit.lexical.numberingToken,
+        numberingLevel: prefix.numberingLevel ?? unit.lexical.numberingLevel, bulletKind: prefix.bulletKind } };
+    });
+  });
 }
 
 // Split only sentences with their own requirement predicate. Lists of technologies,
@@ -214,7 +228,7 @@ export function buildProvisionalJdSemanticLedger(rawText: string): JdSemanticUni
 
 
     if (METADATA.test(unit.text)
-      || /^(?:公司(?:名称)?|岗位(?:名称)?|职位(?:名称)?|工作地点|招聘人数|薪资范围)\s*[:：]\s*\S+/u.test(unit.text)) {
+      || /^(?:公司(?:名称)?|岗位(?:名称)?|职位(?:名称)?|工作地点|招聘人数|薪资范围|投递时间|投递截止|招聘批次)\s*[:：]\s*\S+/u.test(unit.text)) {
       unit.provisional = { disposition: "metadata", section: currentSection };
       continue;
     }
@@ -482,6 +496,10 @@ export function compileJobRequirementGraphV4(input: {
     const semantic = unit.final ?? inferFinal(unit);
     if (semantic.disposition === "requirement") {
       const node = toRequirement(unit, semantic);
+      if ((unit.text.match(/或/g) ?? []).length > 1 && /[（(]/.test(unit.text)) {
+        delete node.keywordLogic;
+        issues.push(issue("low_confidence_unit", "复合 AND / OR 条件含示例与多条替代路径，已完整保留原文，请核对条件组合。", [unit.id]));
+      }
       requirements.push(node);
       requirementByUnitId.set(unit.id, node);
     } else if (semantic.disposition === "verification_material") {
@@ -894,6 +912,7 @@ function declaredCount(text: string) {
 function keywordLogic(text: string): RequirementNodeV3["keywordLogic"] {
   const terms = extractKeywords(text);
   if (terms.length < 2) return undefined;
+  if (/至少(?:一|1)种|任一|其中(?:一|1)种/.test(text)) return { relation: "any_of", terms };
   if (/或|\bor\b/i.test(text) && !/和|以及|\band\b/i.test(text)) return { relation: "any_of", terms };
   if (/和|以及|、|\band\b/i.test(text) && !/或|\bor\b/i.test(text)) return { relation: "all_of", terms };
   return undefined;

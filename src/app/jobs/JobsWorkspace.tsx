@@ -114,7 +114,7 @@ export function JobsWorkspace() {
       const recovered = recoverInterruptedJobAnalysis(latest);
       const persisted = recovered === latest ? latest : await repository.saveJobAnalysisDraftRevision(recovered, latest.revision);
       if (!active) return;
-      setDraft(persisted); setTitle(persisted.title); setCompany(persisted.company); setRawInput(raw); setRawText(raw?.rawText ?? ""); setLoadedDraft(true);
+      setDraft(persisted); setTitle(persisted.title); setCompany(persisted.company ?? ""); setRawInput(raw); setRawText(raw?.rawText ?? ""); setLoadedDraft(true);
       // P2-B 第二轮：刷新/重启后恢复候选岗位与待确认的转换操作。
       const boundListing = (await repository.listJobListings()).find((item) => item.analysisDraftId === persisted.id);
       if (!active) return;
@@ -205,7 +205,7 @@ export function JobsWorkspace() {
   async function startImport(decision?: "merge_existing" | "keep_separate", duplicateListingId?: string) {
     try {
       const validated = validateJobInput({ title, company, rawText });
-      const identity = manualCandidateIdentity(validated.title, validated.company);
+      const identity = manualCandidateIdentity(validated.title, validated.company, validated.rawText);
       const ingestInput: CandidateIngestInput = {
         sourceKey: identity.sourceKey,
         externalId: identity.externalId,
@@ -411,7 +411,7 @@ export function JobsWorkspace() {
       if (currentSelection.current !== requestSelection) return;
       const operationId = `profile-job-${profile.id}-${profile.version}-${selectedJob.id}-${profileAnalysis.analysisHash}-${stableHashText(selectedProfileItemIds.slice().sort().join(":"))}`;
       const result = await createJobResume({ repository, job: selectedJob, operationId,
-        name: uniqueBranchName(`${selectedJob.title} - ${selectedJob.company} - ${profile.basics.name}`, resumeBranches),
+        name: uniqueBranchName(`${selectedJob.title} - ${selectedJob.company ?? "公司待补充"} - ${profile.basics.name}`, resumeBranches),
         source: { type: "profile", profileId: profile.id, selectedCanonicalItemIds: selectedProfileItemIds, requirementMatchIds: savedMatches.map((match) => match.id) }
       });
       if (currentSelection.current !== requestSelection) return;
@@ -440,7 +440,7 @@ export function JobsWorkspace() {
       setResumeActionStatus("saving");
       const result = await createJobResume({ repository, job: selectedJob,
         operationId: `job-resume-${selectedBaseResume.id}-${selectedJob.id}-${selectedBaseResume.currentRevisionId}-${nanoid(8)}`,
-        name: uniqueBranchName(`${selectedJob.title} - ${selectedJob.company} - ${profile.basics.name}`, resumeBranches),
+        name: uniqueBranchName(`${selectedJob.title} - ${selectedJob.company ?? "公司待补充"} - ${profile.basics.name}`, resumeBranches),
         source: { type: "resume", branch: selectedBaseResume }
       });
       if (currentSelection.current !== requestSelection) return;
@@ -456,7 +456,7 @@ export function JobsWorkspace() {
     try {
       const result = await createJobResume({ repository, job: selectedJob,
         operationId: `job-resume-${selectedBaseResume.id}-${selectedJob.id}-${selectedBaseResume.currentRevisionId}-${nanoid(8)}`,
-        name: uniqueBranchName(`${selectedJob.title} - ${selectedJob.company} - ${profile.basics.name} - 新优化`, resumeBranches),
+        name: uniqueBranchName(`${selectedJob.title} - ${selectedJob.company ?? "公司待补充"} - ${profile.basics.name} - 新优化`, resumeBranches),
         source: { type: "resume", branch: selectedBaseResume },
         allowDuplicate: true
       });
@@ -473,11 +473,11 @@ export function JobsWorkspace() {
   async function saveArchivedJobIds(next: string[]) { setArchivedJobIds(next); await repository.setMeta(jobArchiveKey, next); }
   async function archiveSelectedJob() { if (!selectedJob) return; await saveArchivedJobIds([...new Set([...archivedJobIds, selectedJob.id])]); setJobListFilter("active"); setSelectedJobId(activeJobs.find((job) => job.id !== selectedJob.id)?.id ?? ""); notify({ type: "success", title: "岗位已归档", message: "正式岗位数据仍保留，可在已归档列表恢复。" }); }
   async function restoreSelectedJob() { if (!selectedJob) return; await saveArchivedJobIds(archivedJobIds.filter((id) => id !== selectedJob.id)); setJobListFilter("active"); setSelectedJobId(selectedJob.id); notify({ type: "success", title: "岗位已恢复", message: "岗位已回到当前列表。" }); }
-  async function requestSafeJobDelete() { if (!selectedJob || !window.confirm(`将“${selectedJob.company} / ${selectedJob.title}”移入回收站？之后可在统一回收站恢复。`)) return; const next = await repository.moveJobToRecycleBin(selectedJob.id); await saveArchivedJobIds(archivedJobIds.filter((id) => id !== selectedJob.id)); setTrashedJobIds(next.jobIds); setSelectedJobId(activeJobs.find((job) => job.id !== selectedJob.id)?.id ?? ""); notify({ type: "success", title: "岗位已移入回收站", message: "关联简历、匹配和求职记录未被删除。" }); }
+  async function requestSafeJobDelete() { if (!selectedJob || !window.confirm(`将“${selectedJob.company ?? "公司待补充"} / ${selectedJob.title}”移入回收站？之后可在统一回收站恢复。`)) return; const next = await repository.moveJobToRecycleBin(selectedJob.id); await saveArchivedJobIds(archivedJobIds.filter((id) => id !== selectedJob.id)); setTrashedJobIds(next.jobIds); setSelectedJobId(activeJobs.find((job) => job.id !== selectedJob.id)?.id ?? ""); notify({ type: "success", title: "岗位已移入回收站", message: "关联简历、匹配和求职记录未被删除。" }); }
 
-  function editSelectedJob() { if (!selectedJob) return; setTitle(selectedJob.title); setCompany(selectedJob.company); setRawText(selectedJob.rawText); setRawInput(undefined); setDraft(undefined); setCandidateListing(undefined); setOpenConfirmation(undefined); setDuplicateCandidate(undefined); setShowJobMenu(false); window.scrollTo({ top: 0, behavior: "smooth" }); }
-  function editJobFromCard(job: JobDescription) { setSelectedJobId(job.id); setTitle(job.title); setCompany(job.company); setRawText(job.rawText); setRawInput(undefined); setDraft(undefined); setCandidateListing(undefined); setOpenConfirmation(undefined); setDuplicateCandidate(undefined); setShowJobMenu(false); setTab("resumes"); setSourceMode("profile"); setSelectedBaseResumeId(""); setMatches([]); setProfileAnalysis(undefined); setSelectedProfileItemIds([]); setGenerationErrorCode(undefined); setShowMatchDetails(false); setResumeActionStatus("idle"); window.scrollTo({ top: 0, behavior: "smooth" }); }
-  async function deleteJobFromCard(job: JobDescription) { if (!window.confirm(`将"${job.company} / ${job.title}"移入回收站？之后可在统一回收站恢复。`)) return; const next = await repository.moveJobToRecycleBin(job.id); await saveArchivedJobIds(archivedJobIds.filter((id) => id !== job.id)); setTrashedJobIds(next.jobIds); setSelectedJobId(activeJobs.find((j) => j.id !== job.id)?.id ?? ""); notify({ type: "success", title: "岗位已移入回收站", message: "关联简历、匹配和求职记录未被删除。" }); }
+  function editSelectedJob() { if (!selectedJob) return; setTitle(selectedJob.title); setCompany(selectedJob.company ?? ""); setRawText(selectedJob.rawText); setRawInput(undefined); setDraft(undefined); setCandidateListing(undefined); setOpenConfirmation(undefined); setDuplicateCandidate(undefined); setShowJobMenu(false); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  function editJobFromCard(job: JobDescription) { setSelectedJobId(job.id); setTitle(job.title); setCompany(job.company ?? ""); setRawText(job.rawText); setRawInput(undefined); setDraft(undefined); setCandidateListing(undefined); setOpenConfirmation(undefined); setDuplicateCandidate(undefined); setShowJobMenu(false); setTab("resumes"); setSourceMode("profile"); setSelectedBaseResumeId(""); setMatches([]); setProfileAnalysis(undefined); setSelectedProfileItemIds([]); setGenerationErrorCode(undefined); setShowMatchDetails(false); setResumeActionStatus("idle"); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  async function deleteJobFromCard(job: JobDescription) { if (!window.confirm(`将"${job.company ?? "公司待补充"} / ${job.title}"移入回收站？之后可在统一回收站恢复。`)) return; const next = await repository.moveJobToRecycleBin(job.id); await saveArchivedJobIds(archivedJobIds.filter((id) => id !== job.id)); setTrashedJobIds(next.jobIds); setSelectedJobId(activeJobs.find((j) => j.id !== job.id)?.id ?? ""); notify({ type: "success", title: "岗位已移入回收站", message: "关联简历、匹配和求职记录未被删除。" }); }
   function retryFailedJobAction() { if (failedAction === "start_import") void startImport(duplicateCandidate ? "keep_separate" : undefined, duplicateCandidate?.duplicateListingId); else if (failedAction === "analyze") void analyzeWithAi(); else if (failedAction === "commit") void commitJob(); }
   function selectJob(id: string) { setSelectedJobId(id); setTab("resumes"); setSourceMode("profile"); setSelectedBaseResumeId(""); setMatches([]); setProfileAnalysis(undefined); setSelectedProfileItemIds([]); setGenerationErrorCode(undefined); setShowMatchDetails(false); setResumeActionStatus("idle"); setShowJobMenu(false); }
   function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, current: JobWorkspaceTab) { const tabs: JobWorkspaceTab[] = ["resumes", "info", "requirements", "applications"]; const index = tabs.indexOf(current); const next = event.key === "ArrowRight" ? (index + 1) % tabs.length : event.key === "ArrowLeft" ? (index - 1 + tabs.length) % tabs.length : event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : index; if (next === index && !["Home", "End"].includes(event.key)) return; event.preventDefault(); setTab(tabs[next]); event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus(); }
@@ -509,7 +509,7 @@ export function JobsWorkspace() {
         <aside className="panel jobs-list-panel">
           <header><div><h2>岗位列表</h2><p>{activeJobs.length} 个当前岗位 · {archivedJobs.length} 个已归档</p></div></header>
           <div className="job-list-filter" role="group" aria-label="岗位状态"><button className={jobListFilter === "active" ? "is-active" : ""} type="button" onClick={() => setJobListFilter("active")}>当前</button><button className={jobListFilter === "archived" ? "is-active" : ""} type="button" onClick={() => setJobListFilter("archived")}>已归档</button></div>
-          <div className="job-card-list local-scroll">{visibleJobs.length ? visibleJobs.map((job) => <div key={job.id} className={selectedJob?.id === job.id ? "job-card is-selected" : "job-card"}><div className="job-card-body" role="button" tabIndex={0} onClick={() => selectJob(job.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectJob(job.id); } }}><strong>{job.title}</strong><span className="job-card-company">{job.company}</span><small>{job.requirements.length} 条要求 · {formatJobDate(job.updatedAt)} · {jobSourceLabel(job.source)}</small></div><div className="job-card-actions"><button type="button" className="icon-button" aria-label={`编辑 ${job.title}`} onClick={(e) => { e.stopPropagation(); editJobFromCard(job); }}><Pencil size={14} aria-hidden="true" /></button><button type="button" className="icon-button danger" aria-label={`删除 ${job.title}`} onClick={(e) => { e.stopPropagation(); void deleteJobFromCard(job); }}><Trash2 size={14} aria-hidden="true" /></button></div></div>) : <p className="empty-copy">当前筛选下没有岗位。</p>}</div>
+          <div className="job-card-list local-scroll">{visibleJobs.length ? visibleJobs.map((job) => <div key={job.id} className={selectedJob?.id === job.id ? "job-card is-selected" : "job-card"}><div className="job-card-body" role="button" tabIndex={0} onClick={() => selectJob(job.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectJob(job.id); } }}><strong>{job.title}</strong><span className="job-card-company">{job.company ?? "公司待补充"}</span><small>{job.requirements.length} 条要求 · {formatJobDate(job.updatedAt)} · {jobSourceLabel(job.source)}</small></div><div className="job-card-actions"><button type="button" className="icon-button" aria-label={`编辑 ${job.title}`} onClick={(e) => { e.stopPropagation(); editJobFromCard(job); }}><Pencil size={14} aria-hidden="true" /></button><button type="button" className="icon-button danger" aria-label={`删除 ${job.title}`} onClick={(e) => { e.stopPropagation(); void deleteJobFromCard(job); }}><Trash2 size={14} aria-hidden="true" /></button></div></div>) : <p className="empty-copy">当前筛选下没有岗位。</p>}</div>
         </aside>
       </section>
 
@@ -519,7 +519,7 @@ export function JobsWorkspace() {
 
       {selectedJob ? <section className="panel selected-job-workspace">
         <header className="selected-job-context">
-          <div className="selected-job-title"><span>{selectedJob.company}</span><h2>{selectedJob.title}</h2><p>{selectedJob.requirements.length} 条已确认要求 · {archivedJobIds.includes(selectedJob.id) ? "已归档" : "当前岗位"} · 当前来源：{sourceMode === "profile" ? "个人资料库" : selectedBaseResume?.name ?? "尚未选择简历"}</p></div>
+          <div className="selected-job-title"><span>{selectedJob.company ?? "公司待补充"}</span><h2>{selectedJob.title}</h2><p>{selectedJob.requirements.length} 条已确认要求 · {archivedJobIds.includes(selectedJob.id) ? "已归档" : "当前岗位"} · 当前来源：{sourceMode === "profile" ? "个人资料库" : selectedBaseResume?.name ?? "尚未选择简历"}</p></div>
           <div className="job-context-actions"><button className="secondary-button compact" type="button" onClick={editSelectedJob}><Pencil size={15} aria-hidden="true" />重新编辑 JD</button><button className="icon-button" type="button" aria-label="更多岗位操作" aria-expanded={showJobMenu} onClick={() => setShowJobMenu((current) => !current)}><MoreHorizontal size={18} aria-hidden="true" /></button>{showJobMenu ? <div className="job-more-menu">{archivedJobIds.includes(selectedJob.id) ? <button type="button" onClick={() => void restoreSelectedJob()}><BriefcaseBusiness size={15} aria-hidden="true" />恢复到当前</button> : <button type="button" onClick={() => void archiveSelectedJob()}><Archive size={15} aria-hidden="true" />归档岗位</button>}<button className="danger-text" type="button" onClick={() => void requestSafeJobDelete()}><Trash2 size={15} aria-hidden="true" />移入回收站</button></div> : null}</div>
         </header>
         <div className="job-primary-tabs" role="tablist" aria-label="岗位工作内容">{(["resumes", "info", "requirements", "applications"] as const).map((item) => { const Icon = tabIcon(item); return <button key={item} type="button" role="tab" aria-selected={tab === item} tabIndex={tab === item ? 0 : -1} className={tab === item ? "is-active" : ""} onClick={() => setTab(item)} onKeyDown={(event) => handleTabKeyDown(event, item)}><Icon size={20} aria-hidden="true" /><span>{tabLabel(item)}</span></button>; })}</div>
@@ -642,7 +642,7 @@ function ResumeSourcePanel(props: {
   </div>;
 }
 
-function JobInfo({ job }: { job: JobDescription }) { return <div className="job-info-panel"><header><h3>岗位信息</h3><span>更新于 {formatJobDate(job.updatedAt)}</span></header><dl className="info-list"><div><dt>公司</dt><dd>{job.company}</dd></div><div><dt>岗位名称</dt><dd>{job.title}</dd></div><div><dt>地点</dt><dd>{job.location ?? "未填写"}</dd></div><div><dt>工作方式</dt><dd>{job.workType ?? "未填写"}</dd></div><div><dt>行业</dt><dd>{job.industry ?? "未填写"}</dd></div><div><dt>JD 来源</dt><dd>{jobSourceLabel(job.source)}</dd></div></dl><section className="raw-jd-section"><h4>原始 JD</h4><p>{job.rawText}</p></section></div>; }
+function JobInfo({ job }: { job: JobDescription }) { return <div className="job-info-panel"><header><h3>岗位信息</h3><span>更新于 {formatJobDate(job.updatedAt)}</span></header><dl className="info-list"><div><dt>公司</dt><dd>{job.company ?? "公司待补充"}</dd></div><div><dt>岗位名称</dt><dd>{job.title}</dd></div><div><dt>地点</dt><dd>{job.location ?? "未填写"}</dd></div><div><dt>工作方式</dt><dd>{job.workType ?? "未填写"}</dd></div><div><dt>行业</dt><dd>{job.industry ?? "未填写"}</dd></div><div><dt>JD 来源</dt><dd>{jobSourceLabel(job.source)}</dd></div></dl><section className="raw-jd-section"><h4>原始 JD</h4><p>{job.rawText}</p></section></div>; }
 export function JobRequirements({ job, matches = [], analysis, branch }: { job: JobDescription; matches?: RequirementMatch[]; analysis?: ReturnType<typeof buildCareerIntelligence>; branch?: ResumeBranch }) {
   const graph = job.requirementGraph;
   return <div className="job-requirement-cards">

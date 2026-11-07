@@ -497,7 +497,8 @@ function AgentMessageBubble({ message }: { message: AgentMessage }) {
   const streaming = isStreamingMessage(message);
   const content = streaming && !message.content.trim()
     ? ""
-    : message.content;
+    : message.role !== "user" && /career[._](?:workflow|job|resume|profile|tool)|mcp__|operationId|logicalToolOperationId|hermesRunId|schemaHash|agent_confirmation_required|Tool execution failed/i.test(message.content)
+      ? normalizeAgentMessageText(message.content) : message.content;
   return (
     <div className="agent-message-bubble">
       {message.role === "user" && message.references?.length ? (
@@ -864,7 +865,11 @@ function AgentErrorStatus({ message, onOption }: { message: AgentMessage; onOpti
 }
 
 function toolStatus(message: AgentMessage) {
-  if (message.metadata?.activityState || message.toolName === "skill_loaded") return message.content;
+  if (message.toolName?.includes("job_intake") || message.toolName === "commit_job") {
+    return message.status === "failed" ? "岗位暂时没有保存成功，当前资料已保留"
+      : message.metadata?.businessCommitted === true ? "已完成岗位保存" : "正在整理岗位信息并核对保存结果";
+  }
+  if (message.metadata?.activityState || message.toolName === "skill_loaded") return normalizeAgentMessageText(message.content);
   const labels: Record<string, string> = {
     parse_resume_file: "已接收文件，正在提取可核对内容",
     parse_job_description: "已生成岗位语义草稿",
@@ -1026,6 +1031,11 @@ export function normalizeAgentMessageText(input: string) {
     /^I can help you.*(?:\n|$)/gi
   ];
   let text = input.replace(/\r\n/g, "\n");
+  if (/agent_confirmation_required/.test(text)) return "岗位信息已经整理完成，还需要确认保存操作。";
+  if (/Tool execution failed/i.test(text)) return "这一步暂时没有完成，当前资料已保留，可以重试。";
+  if (/career[._](?:workflow|job|resume|profile|tool)|mcp__|logicalToolOperationId|operationId|hermesRunId|schemaHash/i.test(text)) {
+    return "正在处理当前任务并核对结果。";
+  }
   for (const pattern of fallbackPatterns) text = text.replace(pattern, "");
   if (looksLikeInternalAgentPayload(text)) {
     return "我已完成必要的内部核对，但不会展示内部工具或 JSON。请直接告诉我想处理的求职任务。";

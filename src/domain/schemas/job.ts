@@ -92,9 +92,15 @@ export const JobRequirementSchema = EntityBaseSchema.extend({
   confidence: z.number().min(0).max(1)
 });
 
+export const JobIdentityEvidenceSchema = z.object({
+  title: z.object({ source: z.enum(["jd", "user", "derived", "missing"]), quote: z.string().optional(), confirmed: z.boolean() }),
+  company: z.object({ source: z.enum(["jd", "user", "missing"]), quote: z.string().optional(), messageId: z.string().optional(), confirmed: z.boolean() })
+});
+
 export const JobDescriptionSchema = EntityBaseSchema.extend({
   title: z.string().min(1),
-  company: z.string().min(1),
+  company: z.string().min(1).nullable(),
+  identityEvidence: JobIdentityEvidenceSchema.optional(),
   industry: z.string().optional(),
   location: z.string().optional(),
   workType: z.string().optional(),

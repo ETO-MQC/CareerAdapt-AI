@@ -144,6 +144,10 @@ export function classifyTurnIntent(input: {
     return decision("clarification_answer", "continue", "domain", profileIntakeTurnKind, activeQuestionResolution);
   }
 
+  if (input.taskState?.workflowId === "job_ingestion"
+    && (/^公司(?:名称)?(?:是|为|[:：])/u.test(text) || /^(?:请|先|请先)?保存(?:这个|该)?岗位/u.test(text))) {
+    return decision("continue_current_task", "continue", "domain", profileIntakeTurnKind, activeQuestionResolution);
+  }
   if (input.references?.length) {
     return decision("reference_followup", "preserve", referenceToolScope(text), profileIntakeTurnKind, activeQuestionResolution);
   }

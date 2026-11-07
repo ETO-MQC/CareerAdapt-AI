@@ -1,0 +1,16 @@
+▲ Next.js 16.2.9 (Turbopack)
+- Local:         http://localhost:3118
+- Network:       http://172.29.192.1:3118
+✓ Ready in 527ms
+
+  We detected TypeScript in your project and reconfigured your tsconfig.json file for you.
+  The following suggested values were added to your tsconfig.json. These values can be changed to fit your project's needs:
+
+  	- include was updated to add '.next-scripted-1794047071326/types/**/*.ts'
+  	- include was updated to add '.next-scripted-1794047071326/dev/types/**/*.ts'
+
+- Experiments (use with caution):
+  ⨯ turbopackFileSystemCacheForDev
+
+ GET /api/agent/mcp 200 in 13ms (next.js: 4ms, application-code: 10ms)
+ POST /api/agent/runtime/hermes/control 200 in 143ms (next.js: 125ms, application-code: 18ms)

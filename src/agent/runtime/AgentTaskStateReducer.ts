@@ -1407,7 +1407,7 @@ function normalize(state: AgentTaskState): AgentTaskState {
   ) {
     const hasRawText = hasValue(state.knownSlots.rawText);
     const hasGraph = hasValue(state.knownSlots.graph);
-    const identity = ["title", "company"];
+    const identity = ["title"];
     if (!hasRawText) {
       state.stage = "collect_job_description";
       state.requiredSlots = ["rawText"];

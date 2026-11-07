@@ -2564,13 +2564,14 @@ export class AgentHostStore {
         turnId: event.turnId,
         content: effectiveFailure
           ? "该步骤未完成，当前进度已保留，可重试。"
-          : event.type === "tool_call_completed" ? "Career 工具执行完成。" : `正在调用 ${event.toolName ?? "Career 工具"}…`,
+          : event.type === "tool_call_completed" ? "该步骤已处理，正在核对业务结果。" : "正在处理当前任务…",
         toolName: event.toolName,
         operationId,
         status,
         metadata: {
           runtimeId: "hermes",
           activityState: status,
+          businessCommitted: objectValue(objectValue(projectedResult.data).workflowCheckpoint).persistenceVerified === true,
           ...(logicalToolOperationId ? { logicalToolOperationId } : {}),
           ...(eventRunId ? { hermesRunId: eventRunId } : {}),
           transportOperationIds: [operationId],
@@ -2826,8 +2827,10 @@ export class AgentHostStore {
           turnId: event.turnId,
           operationId,
           toolName: sourceToolName,
-          title: "确认执行 Career 操作",
-          description: event.message ?? "这项操作需要你的明确确认后才能继续。",
+          title: sourceToolName.includes("job_intake") || sourceToolName === "commit_job" ? "确认保存岗位信息" : "确认当前变更",
+          description: sourceToolName.includes("job_intake") || sourceToolName === "commit_job"
+            ? `准备将「${objectValue(data.input).title ?? objectValue(next.taskState?.knownSlots.facadeCheckpoint).summary ?? "当前岗位"}」保存到岗位列表。公司未提供时可之后补充。确认后继续保存。`
+            : event.message ?? "这项操作需要你的明确确认后才能继续。",
           destructive: contract.safetyClass === "DESTRUCTIVE",
           status: "pending",
           requestedAt: new Date().toISOString()
@@ -2885,7 +2888,7 @@ export class AgentHostStore {
           ?? objectValue(event.data).toolFailureDiagnostics
           ?? next.taskState?.knownSlots.canonicalWorkflowFailure
       );
-      const candidate = unresolvedFailure && !canonicalWorkflowFailure && !tailoringRecovery && !tailoringQuestionWaiting
+      const proposedCandidate = unresolvedFailure && !canonicalWorkflowFailure && !tailoringRecovery && !tailoringQuestionWaiting
         ? businessFailureRecovery(unresolvedFailure.code)
         : canonicalWorkflowFailure
         ? runtimeFailureRecoveryText(
@@ -2910,6 +2913,10 @@ export class AgentHostStore {
             objectValue(objectValue(event.data).diagnostics ?? objectValue(event.data).toolFailureDiagnostics)
           )
         : event.message ?? next.messages.find((message) => message.id === assistantMessageId)?.content ?? "当前任务已完成。";
+      const candidate = next.taskState?.workflowId === "job_ingestion"
+        && next.taskState.knownSlots.jobPersistenceVerified !== true
+        && /(?:已|成功|完成).{0,8}(?:保存|存入|入库)|(?:保存|存入|入库).{0,8}(?:成功|完成)/u.test(proposedCandidate)
+        ? "岗位信息已经整理，但尚未完成保存。当前资料已保留，可以继续完成保存。" : proposedCandidate;
       const grounding = next.taskState
         ? evaluateGroundedResumeOutput({ text: candidate, taskState: next.taskState, artifactRefs: next.artifactRefs })
         : { allowed: true as const };
@@ -12097,6 +12104,14 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
   const knownSlots: Record<string, unknown> = {
     ...task.knownSlots,
     facadeCheckpoint: { ...checkpoint, status },
+    ...(checkpoint.kind === "job_intake" ? {
+      rawText: objectRecordValue(checkpoint.input).rawText ?? task.knownSlots.rawText,
+      graph: checkpoint.graph ?? task.knownSlots.graph,
+      title: objectRecordValue(checkpoint.identity).title ?? task.knownSlots.title,
+      company: objectRecordValue(checkpoint.identity).company === "unknown" ? null : objectRecordValue(checkpoint.identity).company,
+      jobPersistenceVerified: checkpoint.persistenceVerified === true,
+      jobBusinessStatus: checkpoint.businessStatus
+    } : {}),
     ...(checkpoint.kind === "job_fit" ? { fitAnalysis: result } : {}),
     ...(checkpoint.kind === "profile_to_resume" ? { resumeResult: result } : {}),
     ...(checkpoint.kind === "resume_composition" ? {
@@ -12254,8 +12269,12 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
     nextSession.taskState.workflowId = "job_ingestion";
     nextSession.taskState.rootGoal = "ingest_job";
     nextSession.taskState.activeGoal = "ingest_job";
-    nextSession.taskState.stage = status === "completed" ? "completed" : "review_job";
-    if (stringValue(checkpoint.jobId)) nextSession.taskState.selectedEntities.jobId = stringValue(checkpoint.jobId);
+    nextSession.taskState.stage = status === "completed" && (checkpoint.persistenceVerified === true || checkpoint.persistence === "analyze_only") ? "completed" : "review_job";
+    if (stringValue(checkpoint.jobId)) {
+      nextSession.taskState.selectedEntities.jobId = stringValue(checkpoint.jobId);
+      nextSession.taskState.selectedEntities.jobRevision = stringValue(checkpoint.jobRevision);
+      nextSession.taskState.knownSlots.savedJobId = stringValue(checkpoint.jobId);
+    }
   }
   return projectTaskStateIntoSession(nextSession, normalizeAgentTaskState(nextSession.taskState));
 }

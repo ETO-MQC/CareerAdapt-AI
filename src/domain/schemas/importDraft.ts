@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { EntityBaseSchema, IsoDateStringSchema, PdfLocatorStatusSchema, PdfSourceLocatorSchema, SourceSpanSchema } from "./common";
 import { ExperienceTypeSchema } from "./profile";
-import { JobRequirementCategorySchema } from "./job";
+import { JobIdentityEvidenceSchema, JobRequirementCategorySchema } from "./job";
 import { RequirementKeywordLogicSchema, JobRequirementGraphV3Schema } from "./jobOptimizationV3";
 import { JdRequirementSegmentSchema, JobRequirementGraphV4Schema } from "./jobOptimizationV4";
 
@@ -333,7 +333,8 @@ export const JobAnalysisDraftSchema = EntityBaseSchema.extend({
   rawInputId: z.string().min(1),
   revision: z.number().int().min(0),
   title: z.string().min(1),
-  company: z.string().min(1),
+  company: z.string().min(1).nullable(),
+  identityEvidence: JobIdentityEvidenceSchema.optional(),
   status: DraftStatusSchema,
   promptVersion: z.string().min(1),
   attemptCount: z.number().int().min(0).default(0),

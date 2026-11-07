@@ -175,7 +175,7 @@ export const JobListingSchema = EntityBaseSchema.extend({
    */
   canonicalSourceKind: z.literal("external_job_source"),
   title: z.string().min(1).max(500),
-  company: z.string().min(1).max(300),
+  company: z.string().min(1).max(300).nullable(),
   location: z.string().max(300).optional(),
   salaryText: z.string().max(300).optional(),
   education: z.string().max(300).optional(),

@@ -100,13 +100,13 @@ export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
       completed: []
     },
     requiredSlots: {
-      collect_job_identity: ["title", "company"],
-      complete_job_identity: ["title", "company"],
+      collect_job_identity: ["title"],
+      complete_job_identity: ["title"],
       collect_job_description: ["rawText"],
       parse_job: ["rawText"],
       review_job_semantics: ["graph"],
-      review_job: ["title", "company", "rawText", "graph"],
-      confirm_commit: ["title", "company", "rawText", "graph"],
+      review_job: ["title", "rawText", "graph"],
+      confirm_commit: ["title", "rawText", "graph"],
       completed: []
     },
     completionCondition: "JobDescription committed through WorkspaceRepository after user confirmation.",

@@ -3,7 +3,7 @@ import type { JdAnalyzerOutput, JobRequirementGraphV3, JobRequirementGraphV4, Re
 export function projectJobGraphV3ToAnalyzerOutput(input: {
   graph: JobRequirementGraphV3;
   title: string;
-  company: string;
+  company: string | null;
   now?: string;
 }): JdAnalyzerOutput {
   return projectJobGraphToAnalyzerOutput(input);
@@ -12,7 +12,7 @@ export function projectJobGraphV3ToAnalyzerOutput(input: {
 export function projectJobGraphV4ToAnalyzerOutput(input: {
   graph: JobRequirementGraphV4;
   title: string;
-  company: string;
+  company: string | null;
   now?: string;
 }): JdAnalyzerOutput {
   return projectJobGraphToAnalyzerOutput(input);
@@ -21,15 +21,18 @@ export function projectJobGraphV4ToAnalyzerOutput(input: {
 function projectJobGraphToAnalyzerOutput(input: {
   graph: JobRequirementGraphV3 | JobRequirementGraphV4;
   title: string;
-  company: string;
+  company: string | null;
   now?: string;
 }): JdAnalyzerOutput {
   const now = input.now ?? new Date().toISOString();
-  const first = input.graph.sourceCoverage.coveredSpans[0];
-  const field = (value: string) => first ? ({ value, sourceQuote: first.text, sourceSpan: first, confidenceLevel: "medium" as const, confidenceReason: "来自用户填写并由 JD 来源覆盖校验。", needsConfirmation: false }) : undefined;
+  const field = (value: string) => {
+    const span = input.graph.sourceCoverage.coveredSpans.find(span => span.text.includes(value));
+    return span ? { value, sourceQuote: span.text, sourceSpan: span, confidenceLevel: "medium" as const,
+      confidenceReason: "字段值可在引用原文中核对。", needsConfirmation: true } : undefined;
+  };
   return {
     title: field(input.title),
-    company: field(input.company),
+    company: input.company ? field(input.company) : undefined,
     requirements: input.graph.requirements.map((node) => ({
       id: node.id,
       category: legacyCategory(node),

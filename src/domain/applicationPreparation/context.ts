@@ -105,7 +105,7 @@ export function buildApplicationPreparationContext(input: {
     hasSuccessfulPdf: Boolean(input.exportRecord),
     candidateName: input.profile.basics.name,
     jobTitle: input.job.title,
-    company: input.job.company,
+    company: input.job.company ?? undefined,
     requirements: input.job.requirements,
     verificationMaterials: graph.verificationMaterials,
     hiringSignals: graph.roleProfile.hiringSignals,

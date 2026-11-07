@@ -1,3 +1,4 @@
+import { companyTitleFingerprint } from "@/domain/jobAssets/jdNormalization";
 import { assertPreciseDependencies, assertPreciseGuard, assertPreciseOwnership, preciseOperationKey, precisePatchedBranch, verifyPreciseProposal } from "@/domain/resumeEditing/preciseResumeContract";
 import { canonicalJson, preciseSha256 } from "@/domain/resumeEditing/preciseResumeEdit";
 import { CorrectionSourceSchema, ResumeFactProposalSchema, type StructuredProposal } from "@/domain/resumeEditing/structuredResumeOperation";
@@ -2846,6 +2847,48 @@ export class WorkspaceRepository {
     const parsed = JobDescriptionSchema.parse(jobDescription);
     await this.db.jobDescriptions.put(parsed);
     return parsed;
+  }
+
+  /** Scoped, idempotent identity completion. Raw JD/snapshots and requirements are immutable here. */
+  async completeJobCompany(input: {
+    jobId: string; company: string; expectedRevision: string; operationId: string; userMessageId: string;
+  }) {
+    const key = `job-intake-company:${input.operationId}`;
+    return this.db.transaction("rw", [this.db.jobDescriptions, this.db.jobListings, this.db.jobAnalysisDrafts, this.db.appMeta], async () => {
+      const receipt = await this.db.appMeta.get(key);
+      if (receipt) {
+        const value = receipt.value as { jobId: string; company: string };
+        if (value.jobId !== input.jobId || value.company !== input.company) throw new Error("operation_id_conflict");
+        const recovered = await this.getJobDescription(input.jobId);
+        if (!recovered || recovered.company !== input.company) throw new RevisionConflictError();
+        return { jobDescription: recovered, idempotent: true };
+      }
+      const existing = await this.getJobDescription(input.jobId);
+      if (!existing) throw new Error("job_not_found");
+      if (existing.updatedAt !== input.expectedRevision) throw new RevisionConflictError();
+      const now = new Date(Math.max(Date.now(), Date.parse(existing.updatedAt) + 1)).toISOString();
+      const job = JobDescriptionSchema.parse({ ...existing, company: input.company, updatedAt: now,
+        identityEvidence: {
+          title: existing.identityEvidence?.title ?? { source: "derived", confirmed: false },
+          company: { source: "user", quote: input.company, messageId: input.userMessageId, confirmed: true }
+        }
+      });
+      await this.db.jobDescriptions.put(job);
+      const listings = await this.db.jobListings.filter(listing => listing.jobDescriptionId === job.id).toArray();
+      for (const listing of listings) {
+        await this.db.jobListings.put(JobListingSchema.parse({ ...listing, company: input.company, updatedAt: now,
+          companyTitleFingerprint: companyTitleFingerprint(listing.title, input.company) }));
+        if (listing.analysisDraftId) {
+          const draft = await this.getJobAnalysisDraft(listing.analysisDraftId);
+          if (draft) await this.db.jobAnalysisDrafts.put(JobAnalysisDraftSchema.parse({ ...draft,
+            company: input.company, identityEvidence: job.identityEvidence, revision: draft.revision + 1, updatedAt: now,
+            analyzerOutput: draft.analyzerOutput ? { ...draft.analyzerOutput, company: undefined } : undefined
+          }));
+        }
+      }
+      await this.db.appMeta.put({ key, value: { jobId: job.id, company: input.company, jobRevision: now }, updatedAt: now });
+      return { jobDescription: job, idempotent: false };
+    });
   }
 
   async createJobAnalysisDraft(draft: JobAnalysisDraft) {
@@ -8726,7 +8769,7 @@ export class WorkspaceRepository {
     listingId?: string;
     rawText: string;
     title: string;
-    company: string;
+    company: string | null;
     contentHash: string;
     contentFingerprint: string;
     companyTitleFingerprint: string;

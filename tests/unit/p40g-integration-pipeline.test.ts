@@ -147,7 +147,7 @@ describe("P4.0g Integration: full JD → Graph v3 → matching → tailoring →
 
     const renderModel: ResumeRenderModel = {
       schemaVersion: "resume-render-v1", branchId: "b", branchRevision: 1, branchCurrentRevisionId: "r",
-      branchName: "测试", jobTitle: job.title, company: job.company,
+      branchName: "测试", jobTitle: job.title, company: job.company ?? "公司待补充",
       candidate: { name: "测试", contacts: [] }, sections: [],
       safety: { ruleOnlyItemIds: [], visibleItemCount: 4, excludedItemIds: [] },
       sourceTrace: { profileId: "p", jobId: job.id, currentRevisionId: "r", sourceProfileVersion: 1, sourceJobVersion: NOW }

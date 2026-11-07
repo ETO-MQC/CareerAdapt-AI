@@ -73,7 +73,7 @@ export function createSavedJobTargetSnapshot(job: JobDescription, capturedAt = n
     rawText: job.rawText,
     rawTextHash: stableHashText(job.rawText),
     title: job.title,
-    company: job.company,
+    company: job.company ?? undefined,
     ...(job.location ? { location: job.location } : {}),
     normalizedRequirements: job.requirements,
     ...(job.requirementGraph ? { requirementGraph: job.requirementGraph } : {}),
@@ -91,7 +91,7 @@ export function jobTargetSnapshotToJobDescription(snapshot: JobTargetSnapshot): 
   return JobDescriptionSchema.parse({
     id: snapshot.sourceJobId ?? snapshot.id,
     title: snapshot.title ?? "临时岗位",
-    company: snapshot.company ?? "未填写公司",
+    company: snapshot.company ?? null,
     ...(snapshot.location ? { location: snapshot.location } : {}),
     rawText: snapshot.rawText,
     source: "imported_text",

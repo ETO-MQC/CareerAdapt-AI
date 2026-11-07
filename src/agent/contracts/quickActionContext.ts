@@ -48,7 +48,7 @@ export const QuickActionContextSnapshotSchema = z.object({
   jobSummaries: z.array(z.object({
     id: z.string().min(1),
     title: z.string().min(1),
-    company: z.string().min(1),
+    company: z.string().min(1).nullable(),
     updatedAt: z.string().datetime({ offset: true })
   }).strict()),
   activeTaskSummary: z.object({

@@ -499,7 +499,7 @@ describe("P4.3d.1 artifact action runtime", () => {
       rawText: sourceJob.rawText,
       graph: analyzeJobDescriptionV4({ rawText: sourceJob.rawText }).graph,
       title: sourceJob.title,
-      company: sourceJob.company,
+      company: sourceJob.company ?? undefined,
       capturedAt: "2026-08-02T12:00:00.000Z"
     });
     const targetJob = jobTargetSnapshotToJobDescription(targetSnapshot);

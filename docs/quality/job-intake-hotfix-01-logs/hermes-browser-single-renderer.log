@@ -1,0 +1,6 @@
+
+Running 1 test using 1 worker
+
+[1/1] tests\e2e\job-intake-hotfix.hermes.ts:7:5 › Job Intake real Hermes + Scripted: save unknown company, same Job completion, list visibility and refresh
+  1 passed (1.4m)
+Job Intake Scripted Provider PASS: E:\DEF\CareerAdapt-competition-5.1.8\docs\quality\job-intake-hotfix-01-logs\scripted-1794048401389

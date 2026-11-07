@@ -1650,7 +1650,7 @@ function AgentFloatingAction(props: {
             <input aria-label="岗位名称" placeholder="例如：高级产品经理" value={job.title} onChange={(event) => setJob({ ...job, title: event.target.value })} />
             <input aria-label="公司" placeholder="例如：CareerAdapt AI" value={job.company} onChange={(event) => setJob({ ...job, company: event.target.value })} />
             <textarea aria-label="岗位描述" placeholder="粘贴完整岗位描述，AI 会提取职责与要求…" value={job.rawText} onChange={(event) => setJob({ ...job, rawText: event.target.value })} />
-            <button className="primary-button" type="submit" disabled={!job.title.trim() || !job.company.trim() || job.rawText.trim().length < 20}>
+            <button className="primary-button" type="submit" disabled={!job.title.trim() || job.rawText.trim().length < 20}>
               交给 AI 处理
             </button>
           </form>

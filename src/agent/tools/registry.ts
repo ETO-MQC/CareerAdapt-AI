@@ -213,14 +213,16 @@ const ResumeCommitInputSchema = z.object({
 
 const JobParseInputSchema = z.object({
   title: z.string().min(1).max(160).optional(),
-  company: z.string().min(1).max(160).optional(),
+  company: z.string().min(1).max(160).nullable().optional(),
   rawText: z.string().min(20).max(24_000)
 }).strict();
 
 const JobCommitInputSchema = JobParseInputSchema.extend({
   attachmentId: z.string().min(1).optional(),
   title: z.string().min(1).max(160),
-  company: z.string().min(1).max(160),
+  company: z.string().min(1).max(160).nullable(),
+  jobId: z.string().min(1).optional(),
+  expectedRevision: z.string().min(1).optional(),
   graph: z.unknown(),
   sourceUrl: z.url().optional(),
   /** P2-B 稳定化：重复岗位命中时用户的选择；缺省时工具返回候选等待决策。 */

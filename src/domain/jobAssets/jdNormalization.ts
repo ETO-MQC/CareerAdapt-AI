@@ -122,8 +122,8 @@ export function contentFingerprint(title: string, companyName: string, descripti
 }
 
 /** company+title 级指纹：不含正文，用于三级去重的第二级。 */
-export function companyTitleFingerprint(title: string, companyName: string): string {
-  const value = [jsCasefold(title).trim(), jsCasefold(companyName).trim()]
+export function companyTitleFingerprint(title: string, companyName: string | null): string {
+  const value = [jsCasefold(title).trim(), jsCasefold(companyName ?? "").trim()]
     .join(FINGERPRINT_SEPARATOR);
   return sha256Utf8(value);
 }

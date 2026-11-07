@@ -81,15 +81,16 @@ const ProfileIntakeFinalizeInputSchema = z.object({
 const ResumeImportInputSchema = z.object({ attachmentId: z.string().min(1) }).strict();
 const JobFitInputSchema = z.object({ profileId: z.string().min(1), resumeId: z.string().min(1), jobId: z.string().min(1) }).strict();
 const JobIntakeInputSchema = z.object({
+  jobId: z.string().min(1).optional(),
   rawText: z.string().min(20).max(24_000).optional(),
   attachmentId: z.string().min(1).optional(),
   title: z.string().trim().min(1).max(160).optional(),
-  company: z.string().trim().min(1).max(160).optional(),
+  company: z.string().trim().min(1).max(160).nullable().optional(),
   sourceUrl: z.url().optional(),
   persistence: z.enum(["analyze_only", "save"]),
   dedupDecision: z.enum(["merge_existing", "keep_separate"]).optional(),
   duplicateListingId: z.string().min(1).optional()
-}).strict().refine((input) => Boolean(input.rawText || input.attachmentId), "rawText or attachmentId is required");
+}).strict().refine((input) => Boolean(input.rawText || input.attachmentId || input.jobId), "rawText, attachmentId or bound jobId is required");
 const ProfileToResumeInputSchema = z.object({
   targetProfileId: z.string().min(1),
   expectedProfileVersion: z.number().int().min(0),
@@ -201,6 +202,11 @@ export function prepareCareerWorkflowInvocation(
     });
   }
   const input = definition.inputSchema.parse(normalizedInput) as Record<string, unknown>;
+  if (name === "career.workflow.job_intake" && typeof input.company === "string" && context.sourceUserMessage
+    && !context.sourceUserMessage.includes(input.company)
+    && !(typeof input.rawText === "string" && input.rawText.includes(input.company))) {
+    throw Object.assign(new Error("job_identity_source_missing"), { code: "job_identity_source_missing" });
+  }
   const contextWithoutSource = { ...context };
   delete contextWithoutSource.sourceUserMessage;
   return {
@@ -216,6 +222,10 @@ export function prepareCareerWorkflowInvocation(
             exactSourceText: context.sourceUserMessage
           }
         } : {}),
+      ...(name === "career.workflow.job_intake" && context.sourceUserMessage ? {
+        jobIntakeIntent: /(?:^|\n)\s*(?:请|帮我|先|请先)?(?:保存|收录|录入|导入)(?:这个|该|这份)?(?:岗位|职位|JD)/i.test(context.sourceUserMessage) && !/不要保存|不保存|仅分析/.test(context.sourceUserMessage) ? "save" as const
+          : /^\s*公司(?:名称)?(?:是|为|[:：])\s*(.+?)[。.!！]?\s*$/u.exec(context.sourceUserMessage)?.[1] === input.company ? "complete_company" as const : undefined
+      } : {}),
       logicalToolOperationId: context.logicalToolOperationId ?? operationId,
     },
     sameTurnTarget: turnScopedInput.sameTurnTarget
@@ -280,6 +290,28 @@ function normalizeCareerWorkflowScopedInput(
   const inputRecord = input && typeof input === "object" && !Array.isArray(input)
     ? input as Record<string, unknown>
     : undefined;
+  const companyReply = /^\s*公司(?:名称)?(?:是|为|[:：])\s*(.+?)[。.!！]?\s*$/u.exec(context.sourceUserMessage ?? "")?.[1];
+  if (name === "career.workflow.job_intake" && inputRecord && companyReply) {
+    const task = context.authoritativeTaskState;
+    const checkpoint = objectValue(task?.knownSlots.facadeCheckpoint);
+    if (task?.workflowId === "job_ingestion" && checkpoint.kind === "job_intake") {
+      const jobId = task.selectedEntities.jobId ?? stringValue(checkpoint.pendingJobId);
+      const pending = objectValue(checkpoint.input);
+      if (jobId) return { company: companyReply, persistence: inputRecord.persistence, jobId };
+      if (typeof pending.rawText === "string") return { ...pending, company: companyReply, persistence: inputRecord.persistence };
+    }
+  }
+  if (name === "career.workflow.job_intake" && inputRecord && !inputRecord.rawText && !inputRecord.attachmentId) {
+    const task = context.authoritativeTaskState;
+    const checkpoint = objectValue(task?.knownSlots.facadeCheckpoint);
+    if (task?.workflowId === "job_ingestion" && checkpoint.kind === "job_intake") {
+      const savedJobId = task.selectedEntities.jobId ?? stringValue(checkpoint.pendingJobId);
+      if (inputRecord.jobId && inputRecord.jobId !== savedJobId) throw Object.assign(new Error("job_completion_target_mismatch"), { code: "job_completion_target_mismatch" });
+      if (savedJobId) return { ...inputRecord, jobId: savedJobId };
+      const pending = objectValue(checkpoint.input);
+      if (typeof pending.rawText === "string") return { ...pending, ...inputRecord };
+    }
+  }
   const binding = context.careerSessionBinding;
   if (!binding || !inputRecord) return rawInput;
   if (name === "career.workflow.profile_intake_turn") {
@@ -366,6 +398,27 @@ export async function executeCareerWorkflowFacade(
         : [input.rawText, sourceText].filter(Boolean).join("\n\n");
       if (typeof input.rawText !== "string" || input.rawText.length < 20 || input.rawText.length > 24_000) throw new Error("material_job_text_size_invalid");
     }
+    if (input.jobId) {
+      const task = context.authoritativeTaskState;
+      if (task?.workflowId !== "job_ingestion" || (task.selectedEntities.jobId ?? stringValue(objectValue(task.knownSlots.facadeCheckpoint).pendingJobId)) !== input.jobId) throw Object.assign(new Error("job_completion_target_mismatch"), { code: "job_completion_target_mismatch" });
+      const read = await call("career.job.get", { jobId: input.jobId }, 4);
+      const existing = objectValue(objectValue(read.data).job);
+      if (!read.ok) return facadeFromAtomic(name, operationId, read, "failed", "retry_job_read", undefined,
+        { kind: "job_intake", input }, context);
+      if (input.persistence === "analyze_only") return facadeFromAtomic(name, operationId, read, "completed", "explain_job_requirements",
+        "已读取当前岗位，未修改保存内容。", { kind: "job_intake", persistence: "analyze_only", jobId: input.jobId,
+          input: { ...input, rawText: existing.rawText }, identity: { title: existing.title, company: existing.company }, graph: existing.requirementGraph }, context);
+      const company = stringValue(input.company) ?? existing.company;
+      const patch = { jobId: input.jobId, rawText: existing.rawText, title: existing.title, company,
+        graph: existing.requirementGraph, expectedRevision: existing.updatedAt };
+      const mayComplete = !existing.company || existing.company === company;
+      const committed = company === existing.company ? read : await call("career.job.commit", patch, 2, {
+        ...(mayComplete && context.jobIntakeIntent === "complete_company" ? { confirmed: true, confirmationCount: 1 } : {})
+      });
+      return verifyJobIntakeCommit(name, operationId, committed, input.jobId as string,
+        { kind: "job_intake", input: { jobId: input.jobId, rawText: existing.rawText, title: existing.title, company, persistence: input.persistence }, identity: { title: existing.title, company }, graph: existing.requirementGraph },
+        call, context);
+    }
     const parsed = await call("career.job.parse", {
       rawText: input.rawText,
       ...(input.title ? { title: input.title } : {}),
@@ -374,7 +427,7 @@ export async function executeCareerWorkflowFacade(
     // Parsing is person-independent. Confirmation can resolve a Profile binding,
     // but must still reuse the same source analysis; commit remains bound below.
     const analysis = objectValue(parsed.data);
-    const title = stringValue(analysis.candidateTitle);
+    const title = stringValue(analysis.candidateTitle) ?? "岗位名称待补充";
     const company = stringValue(analysis.candidateCompany);
     const targetSnapshot = parsed.ok ? JobTargetSnapshotSchema.parse({
       ...createPastedJobTargetSnapshot({
@@ -388,16 +441,16 @@ export async function executeCareerWorkflowFacade(
     const checkpoint = {
       kind: "job_intake",
       ...(targetSnapshot ? { targetSnapshot } : {}),
-      identity: { title: title ?? "unknown", company: company ?? "unknown", location: stringValue(analysis.candidateLocation) ?? "unknown" },
+      identity: { title: stringValue(analysis.candidateTitle) ?? "unknown", company: company ?? "unknown", location: stringValue(analysis.candidateLocation) ?? "unknown" },
       graph: analysis.graph,
       missingIdentityFields: analysis.missingIdentityFields,
       sourceUrl: input.sourceUrl,
       persistence: input.persistence,
       input
     };
-    if (!parsed.ok || input.persistence === "analyze_only" || !title || !company) {
+    if (!parsed.ok || input.persistence === "analyze_only") {
       return facadeFromAtomic(name, operationId, parsed,
-        input.persistence === "save" && (!title || !company) ? "waiting_for_user" : "completed",
+        "completed",
         input.persistence === "save" ? "review_job_identity" : "explain_job_requirements", undefined, checkpoint, context);
     }
     let binding = context.careerSessionBinding;
@@ -421,22 +474,20 @@ export async function executeCareerWorkflowFacade(
     }
     const committed = await call("career.job.commit", {
       ...(input.attachmentId ? { attachmentId: input.attachmentId } : {}),
-      rawText: input.rawText, title, company, graph: analysis.graph,
+      rawText: input.rawText, title, company: company ?? null, graph: analysis.graph,
       ...(input.sourceUrl ? { sourceUrl: input.sourceUrl } : {}),
       ...(input.dedupDecision ? { dedupDecision: input.dedupDecision } : {}),
       ...(input.duplicateListingId ? { duplicateListingId: input.duplicateListingId } : {})
-    }, 2, { careerSessionBinding: binding, requireSessionBinding: true });
+    }, 2, { careerSessionBinding: binding, requireSessionBinding: true,
+      ...(context.jobIntakeIntent === "save" ? { confirmed: true, confirmationCount: 1 } : {}) });
     const data = objectValue(committed.data);
     if (data.status === "duplicate_decision_required") {
       return facadeFromAtomic(name, operationId, committed, "waiting_for_user", "choose_duplicate_job", stringValue(data.message), {
         ...checkpoint, candidates: data.candidates
       }, context);
     }
-    return facadeFromAtomic(name, operationId, committed, "completed", "use_saved_job", undefined,
-      committed.ok ? {
-        kind: "job_intake", jobId: data.jobId, jobRevision: data.jobRevision,
-        summary: `${company} · ${title}`, idempotent: data.idempotent
-      } : { ...checkpoint, careerSessionBinding: binding }, context);
+    return verifyJobIntakeCommit(name, operationId, committed, stringValue(data.jobId),
+      { ...checkpoint, careerSessionBinding: binding }, call, context);
   }
 
   if (name === "career.workflow.profile_intake_turn") {
@@ -599,6 +650,38 @@ export async function executeCareerWorkflowFacade(
     resumeId: input.resumeId,
     result: compactData(result.data, ["resumeId", "revision", "artifactId", "previewArtifactId", "pdfArtifactId", "fileName"])
   }, context);
+}
+
+async function verifyJobIntakeCommit(
+  name: string, operationId: string, committed: CareerToolResult, jobId: string | undefined,
+  checkpoint: Record<string, unknown>, call: TailoringFacadeCall, context: CareerToolExecutionContext
+) {
+  if (!committed.ok) return facadeFromAtomic(name, operationId, committed, "failed", "retry_job_save",
+    "岗位信息已经整理，但尚未完成保存。当前资料已保留，可以继续完成保存。", checkpoint, context);
+  const detail = jobId ? await call("career.job.get", { jobId }, 5) : undefined;
+  const job = objectValue(objectValue(detail?.data).job);
+  const listed = detail?.ok ? await call("career.job.list", {}, 6) : undefined;
+  const input = objectValue(checkpoint.input);
+  const consistent = detail?.ok && listed?.ok && job.id === jobId && job.rawText === input.rawText
+    && (input.company === undefined || job.company === input.company)
+    && (!objectValue(checkpoint.graph).graphHash || objectValue(job.requirementGraph).graphHash === objectValue(checkpoint.graph).graphHash)
+    && (input.title === undefined || job.title === input.title)
+    && arrayValue(objectValue(listed.data).jobs).some(item => {
+      const row = objectValue(item);
+      return row.id === jobId && row.updatedAt === job.updatedAt && row.company === job.company;
+    });
+  if (!consistent) {
+    const failed: CareerToolResult = { ...committed, ok: false,
+      error: { code: "job_persistence_unverified", category: "recoverable", recoverable: true,
+        message: "岗位保存结果尚未核对完成，原始 JD 已保留，请先重新查询岗位。" },
+      receipt: { ...committed.receipt, status: "failed" } };
+    return facadeFromAtomic(name, operationId, failed, "failed", "retry_job_read", undefined,
+      { ...checkpoint, pendingJobId: jobId, businessStatus: "pending" }, context);
+  }
+  return facadeFromAtomic(name, operationId, committed, "completed", "use_saved_job", undefined,
+    { ...checkpoint, targetSnapshot: undefined, jobId, jobRevision: job.updatedAt, businessStatus: "committed", persistenceVerified: true,
+      health: job.company && job.title !== "岗位名称待补充" && objectValue(job.requirementGraph).needsReview !== true ? "READY" : "WORKABLE",
+      summary: `${job.company ?? "公司待补充"} · ${job.title}`, idempotent: objectValue(committed.data).idempotent }, context);
 }
 
 export function resolveTurnScopedTailoringInput(
@@ -1280,7 +1363,10 @@ function facadeFromAtomic(
       status,
       workflowStage,
       nextAction: status === "waiting_for_confirmation" ? "request_confirmation" : projectedNextAction,
-      userPrompt: status === "waiting_for_confirmation" ? "这一步需要你的明确确认。" : projectedPrompt,
+      userPrompt: status === "waiting_for_confirmation"
+        ? facadeName === "career.workflow.job_intake"
+          ? `准备保存或更新「${objectValue(workflowCheckpoint.identity).title ?? "当前岗位"}」到岗位列表。${objectValue(workflowCheckpoint.identity).company && objectValue(workflowCheckpoint.identity).company !== "unknown" ? "" : "公司名称待补充，可以之后填写。"}请确认这次变更。`
+          : "这一步需要你的明确确认。" : projectedPrompt,
       artifactRefs: result.artifacts,
       receipts: [result.receipt, facadeReceipt],
       safeError: result.error ? { code: result.error.code, message: result.error.message, recoverable: result.error.recoverable } : undefined,
