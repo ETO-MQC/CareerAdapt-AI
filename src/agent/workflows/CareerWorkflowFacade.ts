@@ -344,7 +344,7 @@ export async function executeCareerWorkflowFacade(
   });
 
   if (name === "career.workflow.material_intake") {
-    const result = await call("career.material.prepare", { ...input, sessionId: requiredString(context.agentSessionId ?? context.careerSessionBinding?.agentSessionId, "agentSessionId") });
+    const result = await call("career.material.prepare", { ...input, targetProfileId: context.careerSessionBinding?.profileId ?? input.targetProfileId, sessionId: requiredString(context.agentSessionId ?? context.careerSessionBinding?.agentSessionId, "agentSessionId") });
     const data = objectValue(result.data);
     const profileReview = input.destination === "profile" && typeof data.importId === "string";
     const manualReview = data.nextAction === "manual_review";

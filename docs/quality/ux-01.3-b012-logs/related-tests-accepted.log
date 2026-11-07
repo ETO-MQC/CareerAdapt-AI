@@ -1,0 +1,53 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+ ✓ tests/unit/resumeImportV2Pipeline.test.ts (5 tests) 24ms
+ ✓ tests/unit/resumeImportFieldCandidates.test.ts (3 tests) 25ms
+ ✓ tests/unit/resumeImportReviewSelections.test.ts (4 tests) 38ms
+ ✓ tests/unit/ux011Workflow.test.tsx (9 tests) 477ms
+   ✓ offers actionable provisional candidates while clarifying, without a commit action  360ms
+stderr | tests/unit/ux011AwardContract.test.ts > blocks unsupported responsibility or team-result upgrades: 负责接口开发，完成项目交付。
+[profile-intake:proposal-validation] {
+  candidateCount: 1,
+  acceptedCount: 0,
+  errorCodes: [ 'profile_intake_field_evidence_missing:title' ]
+}
+
+ ✓ tests/unit/resumeImportOrchestrator.test.ts (16 tests) 808ms
+stderr | tests/unit/ux011AwardContract.test.ts > blocks unsupported responsibility or team-result upgrades: 独立完成接口开发和项目交付。
+[profile-intake:proposal-validation] {
+  candidateCount: 1,
+  acceptedCount: 0,
+  errorCodes: [ 'profile_intake_field_evidence_missing:title' ]
+}
+
+ ✓ tests/unit/ux011AwardContract.test.ts (3 tests) 274ms
+stderr | tests/unit/materialIntakeReview.test.tsx > restores the material review target and name with Profile-only locked
+An update to MaterialSourceReview inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ ✓ tests/unit/materialIntakeReview.test.tsx (3 tests) 1151ms
+   ✓ shows original blocks, hash, confidence and page-only location independently of edited values  430ms
+   ✓ restores the material review target and name with Profile-only locked  620ms
+ ✓ tests/unit/profileReconciliation.test.ts (22 tests) 917ms
+ ✓ tests/integration/ux011Host.test.ts (2 tests) 1328ms
+   ✓ projects a Hermes intake into a bound editable Host task and keeps Profile untouched until confirmation  859ms
+   ✓ persists an analyze-only target and clears old job/fit ownership when another JD is analyzed  467ms
+ ✓ tests/unit/p512-material-intake.test.ts (23 tests) 1514ms
+     ✓ Scenario B: confirmed new certificate invalidates the old composition and updates only the selected General Resume  352ms
+ ✓ tests/integration/materialIntakeBusiness.test.ts (27 tests) 1811ms
+
+ Test Files  11 passed (11)
+      Tests  117 passed (117)
+   Start at  13:27:56
+   Duration  10.77s (transform 24.65s, setup 5.34s, import 41.55s, tests 8.37s, environment 30.59s)
+
+JSON report written to E:/DEF/CareerAdapt-competition-5.1.8/docs/quality/ux-01.3-b012-logs/related-tests-accepted.json

@@ -1,0 +1,12 @@
+{
+  "date": "2026-11-07",
+  "inputCount": 575,
+  "productionSourceMismatches": [],
+  "workspaceChangedSinceBuild": [],
+  "isolatedConfigDiffs": {
+    "next-env.d.ts": "--- workspace/next-env.d.ts\n+++ stage/next-env.d.ts\n@@ -1,6 +1,6 @@\n /// <reference types=\"next\" />\n /// <reference types=\"next/image-types/global\" />\n-import \"./.next/dev/types/routes.d.ts\";\n+import \"./.next/types/routes.d.ts\";\n \n // NOTE: This file should not be edited\n // see https://nextjs.org/docs/app/api-reference/config/typescript for more information.\n",
+    "next.config.ts": "--- workspace/next.config.ts\n+++ stage/next.config.ts\n@@ -10,6 +10,7 @@\n   || (process.env.NODE_ENV === \"production\" ? new Date().toISOString() : \"development\");\n \n const nextConfig: NextConfig = {\n+  turbopack: { root: process.env.UX013_DEPENDENCY_ROOT! },\n   distDir: process.env.CAREERAD_NEXT_DIST_DIR?.trim() || \".next\",\n   allowedDevOrigins: [\"127.0.0.1\"],\n   output: \"standalone\",\n"
+  },
+  "internalDependencyLockSha256": "cd40b7ccd7278e68c13cb2b255826229cf1dd162d708910a7ed3b6ecb0040606",
+  "originalNodeModulesJunctionUnchanged": true
+}

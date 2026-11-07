@@ -119,6 +119,7 @@ export function AgentWorkspace() {
   const [draftReferencesBySession, setDraftReferencesBySession] = useState<Record<string, AgentMessageReference | undefined>>({});
   const [lastUserMessage, setLastUserMessage] = useState("");
   const [floatingAction, setFloatingAction] = useState<AgentUiAction>();
+  const floatingActionOwner = useRef<string | undefined>(undefined);
   const [uploadFocusSignal, setUploadFocusSignal] = useState(0);
   const [attachmentsBySession, setAttachmentsBySession] = useState<SessionComposerAttachments>({});
   const [pendingResumeImportAttachmentId, setPendingResumeImportAttachmentId] = useState<string>();
@@ -468,7 +469,7 @@ export function AgentWorkspace() {
       if (current.uiAction.type === "open_artifact") updateDrawerState(window.matchMedia("(max-width: 1100px)").matches ? "overlay" : "split");
       else if (current.uiAction.type === "open_resume_upload") setUploadFocusSignal((value) => value + 1);
       else if (current.uiAction.type === "request_resume_import_consent") setPendingResumeImportAttachmentId(current.uiAction.attachmentId);
-      else setFloatingAction(current.uiAction);
+      else { floatingActionOwner.current = current.activeSession?.id; setFloatingAction(current.uiAction); }
       host.state.clearUiAction();
     }
   }), [attachmentsBySession, host.state, session.id, updateDrawerState]);
@@ -1474,13 +1475,18 @@ export function AgentWorkspace() {
             variant="agent"
             onImported={async (result) => {
               const action = floatingAction;
+              const owner = floatingActionOwner.current;
               setFloatingAction(undefined);
               setProfiles(await agentImportRepository.listProfiles());
+              // A persisted save is authoritative even when its old conversation
+              // is no longer foreground. Never publish it into another Session.
+              if (owner !== host.state.getSnapshot().activeSession?.id) return;
               const updated = await host.state.dispatch({
                 type: "external_event",
                 toolName: "confirm_resume_import",
                 observation: {
-                  importId: action.importId,
+                  importId: result.importId ?? action.importId,
+                  profileVersion: result.profileVersion,
                   profileId: result.profileId,
                   branchId: result.branchId,
                   status: "completed"

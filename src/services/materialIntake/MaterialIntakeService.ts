@@ -10,6 +10,7 @@ import { readResumeImportSemanticPreference } from "@/services/preferences/resum
 import { agentImportProgressBus } from "@/services/agent/AgentImportProgressBus";
 import { ImportedResumeDraftV2Schema } from "@/domain/schemas";
 import { hashText } from "@/services/security/text";
+import { groupSourceDocument } from "@/domain/resumeImport/sourceDocument";
 
 export class MaterialIntakeService {
   constructor(private readonly repository = new WorkspaceRepository(), private readonly attachments: AgentAttachmentStore = agentAttachmentStore) {}
@@ -18,8 +19,12 @@ export class MaterialIntakeService {
     signal?.throwIfAborted();
     const input = MaterialIntakeInputSchema.parse(raw);
     const { ref, file } = await this.attachments.restore(input.attachmentId, sessionId);
+    if (input.targetProfileId && !await this.repository.getProfile(input.targetProfileId)) throw new Error("material_target_profile_missing");
     let artifact = await this.repository.getMaterialIntake(ref.id, sessionId);
-    if (!artifact || artifact.reviewState === "manual_review" || input.manualText) {
+    if (artifact?.reviewState === "manual_review" && !input.retryOcr && !input.manualText) {
+      return { artifact, formalWrites: false, nextAction: "manual_review", userPrompt: "原附件已保留。请对照原件补充可辨认文字，或明确重试 OCR。" };
+    }
+    if (!artifact || input.retryOcr || input.manualText) {
       let extraction: ResumeImportExtractionResult;
       try {
         const materialFile = input.manualText
@@ -36,6 +41,7 @@ export class MaterialIntakeService {
         signal?.throwIfAborted();
         if (!(error instanceof ResumeImportOrchestratorError) || error.recovery !== "manual_review") throw error;
         const sourceKind = ref.mimeType === "application/pdf" ? "scanned_pdf" : "image";
+        signal?.throwIfAborted();
         artifact = await this.repository.saveMaterialIntake({
           schemaVersion: "career-material-intake-v1", attachmentId: ref.id, sessionId,
           sourceId: `material-source:${ref.hash}`, hash: ref.hash!, fileName: ref.fileName, mimeType: ref.mimeType,
@@ -47,6 +53,9 @@ export class MaterialIntakeService {
         return { artifact, formalWrites: false, nextAction: "manual_review", userPrompt: "原附件已保留。请对照原件补充可辨认文字，或稍后重试 OCR；无需重新上传。" };
       }
       if (input.manualText) {
+        // The immutable recognition artifact is retained separately. Transcription
+        // is a new user-authored source, never a replacement for OCR rawText.
+        if (artifact && !await this.repository.getMeta(`material-recognition:${sessionId}:${ref.id}`)) await this.repository.setMeta(`material-recognition:${sessionId}:${ref.id}`, artifact.sourceDocument);
         const blocks = extraction.sourceDocument.blocks.map((block) => ({ ...block, sourceEngine: "manual_transcription" as const, extractionConfidence: 0 }));
         extraction.sourceDocument = { ...extraction.sourceDocument, blocks };
         extraction.fallbackDraft = { ...extraction.fallbackDraft, sourceBlocks: blocks,
@@ -56,7 +65,7 @@ export class MaterialIntakeService {
       artifact = {
         schemaVersion: "career-material-intake-v1", attachmentId: ref.id, sessionId,
         sourceId: `material-source:${ref.hash}`, hash: ref.hash!, fileName: ref.fileName, mimeType: ref.mimeType,
-        sourceDocument: { ...extraction.sourceDocument, sourceId: `material-source:${ref.hash}`, fileHash: ref.hash! },
+        sourceDocument: { ...extraction.sourceDocument, fileName: ref.fileName, sourceId: `material-source:${ref.hash}`, fileHash: ref.hash! },
         reviewState: "extracted", warnings: [...extraction.fallbackDraft.warnings.map((warning) => warning.message), ...(input.manualText ? ["来源文字为待核对转写，尚未与原件核验。"] : [])], createdAt: new Date().toISOString()
       };
       await this.repository.setMeta(`material-source-draft:${sessionId}:${ref.id}`, extraction.fallbackDraft);
@@ -71,8 +80,18 @@ export class MaterialIntakeService {
     if (input.destination === "profile") {
       // Stable across sessions/entrypoints. Reuse the same review/reconciliation draft.
       const sourceDraft = ImportedResumeDraftV2Schema.parse((await this.repository.getMeta(`material-source-draft:${sessionId}:${ref.id}`))?.value);
-      const textHash = await hashText(artifact.sourceDocument.blocks.map((block) => block.normalizedText).join("\n"));
-      const importId = `material-profile:${artifact.hash}:${textHash}`;
+      const targetKey = await hashText(JSON.stringify([input.targetProfileId ? "existing" : input.newProfileIntentId ? "new_person" : "unresolved",
+        input.targetProfileId ?? input.newProfileIntentId ?? "new", input.purpose]));
+      let importId = `material-profile:${artifact.hash}:${targetKey}`;
+      // Once a previously new person has an authoritative Profile ID, the same
+      // material and purpose refer to its receipt, never to another person.
+      if (input.targetProfileId) {
+        for (const prior of await this.repository.listMaterialImports(input.targetProfileId)) {
+          if (prior.status !== "confirmed" || prior.source.fileHash !== artifact.hash) continue;
+          const sources = await this.repository.getMaterialSources(prior.importId);
+          if (sources.some((source) => source.purpose === input.purpose)) { importId = prior.importId; break; }
+        }
+      }
       let draft = await this.repository.getImportedResumeDraft(importId);
       if (draft?.status === "confirmed") return { artifact, formalWrites: false, status: "already_saved", nextAction: "open_profile", profileId: draft.confirmedProfileId, userPrompt: "这份材料已经确认保存，可继续查看资料库。" };
       if (!draft) {
@@ -85,17 +104,41 @@ export class MaterialIntakeService {
           mapped = { ...mapped, basics: { links: [] },
             ...(mapped.schemaVersion === "resume-import-v2" ? { fieldCandidates: mapped.fieldCandidates.filter((field) => !field.targetFieldId.startsWith("basics.")) } : {}) };
         }
+        // Non-resume evidence may have no resume headings. Keep its existing
+        // source groups reviewable, with UNKNOWN destination until the user
+        // explicitly classifies and adopts them. Do not infer a credential,
+        // skill level or individual responsibility from the text.
+        if (!mapped.sections.some((section) => section.items.length) && artifact.sourceDocument.blocks.length) {
+          mapped = { ...mapped, unclassifiedBlocks: [], sections: groupSourceDocument(artifact.sourceDocument).filter((group) => group.blocks.some((block) => block.rawText.trim())).map((group, order) => {
+            const rawText = group.blocks.map((block) => block.rawText).join("\n");
+            return { id: `material-group-${order}`, sectionType: "unknown" as const, detectedTitle: `待分类材料 ${order + 1}`,
+              included: false, order, confidence: "low" as const, items: [{ id: `material-item-${order}`, rawText, normalizedText: rawText,
+                included: false, order: 0, confidence: "low" as const, sourceStatus: "ambiguous" as const, userEdited: false, userConfirmed: false,
+                sourceBlockIds: group.blockIds, structuredMappingTrace: [], pageRefs: group.blocks.map((block) => ({ pageNumber: block.page ?? 1, quote: block.rawText })),
+                structuredItem: { id: `material-item-${order}`, sectionType: "other" as const, title: rawText.split("\n")[0], description: rawText, highlights: [], customFields: [] } }] };
+          }) };
+        }
         signal?.throwIfAborted();
-        draft = await this.repository.saveImportedResumeDraft({ ...mapped, importId }, 0);
+        // The original attachment identity must survive manual transcription.
+        draft = await this.repository.getOrCreateMaterialDraft({ ...mapped, importId,
+          source: { ...mapped.source, fileHash: ref.hash!, fileName: ref.fileName } }, {
+          profileId: input.targetProfileId, purpose: input.purpose
+        });
       }
-      artifact = await this.repository.saveMaterialIntake({ ...artifact, importId, reviewState: "review_ready" });
+      signal?.throwIfAborted();
+      artifact = await this.repository.saveMaterialIntake({ ...artifact, importId, targetProfileId: input.targetProfileId, newProfileIntentId: input.newProfileIntentId, purpose: input.purpose, reviewState: "review_ready" });
+      const recognitionBlocks = artifact.sourceDocument.blocks;
       return { artifact, importId, expectedDraftRevision: draft.revision, status: "ready_for_review",
         candidates: draft.schemaVersion === "resume-import-v2" ? draft.fieldCandidates.map((field) => ({
           field: field.targetFieldId, value: field.value, originalQuote: field.sourceQuote,
           sourceBlockIds: field.sourceBlockIds, confidence: field.confidence, verificationState: field.userConfirmed ? "user_confirmed" : "unconfirmed"
         })) : [],
         fileName: artifact.fileName, sourceKind: draft.sourceKind, warnings: artifact.warnings,
-        artifactPayload: { importId, draftRevision: draft.revision, sourceFile: artifact.fileName, sourceType: draft.sourceKind, warnings: artifact.warnings, reviewState: "ready_for_review", target: { status: "unresolved" } },
+        structuredCandidates: draft.sections.flatMap((section) => section.items.map((item) => ({ id: item.id, sectionType: section.sectionType,
+          value: item.structuredItem, originalQuote: item.rawText, sourceBlockIds: item.sourceBlockIds,
+          recognition: recognitionBlocks.filter((block) => item.sourceBlockIds.includes(block.id)).map((block) => ({ page: block.page, bbox: block.position, confidence: block.extractionConfidence })),
+          status: !item.included ? "deferred_or_rejected" : item.userConfirmed ? "user_confirmed" : "REVIEW_REQUIRED" }))),
+        artifactPayload: { importId, draftRevision: draft.revision, sourceFile: artifact.fileName, sourceType: draft.sourceKind, warnings: artifact.warnings, reviewState: "ready_for_review", target: input.targetProfileId ? { status: "resolved", profileId: input.targetProfileId } : { status: "unresolved" } },
         nextAction: "review_import", formalWrites: false };
     }
     return { artifact, sourceText: materialSourceText(artifact), formalWrites: false,

@@ -3,9 +3,10 @@ import { canonicalJson, preciseSha256 } from "@/domain/resumeEditing/preciseResu
 import { CorrectionSourceSchema, ResumeFactProposalSchema, type StructuredProposal } from "@/domain/resumeEditing/structuredResumeOperation";
 import { ResumeLayoutPresetSchema, ResumeLayoutPresetsSchema, type ResumeLayoutStyle } from "@/domain/resumePresentation/layoutPresets";
 import Dexie from "dexie";
-import { MaterialIntakeArtifactSchema, type MaterialIntakeArtifact } from "@/domain/materialIntake/materialIntake";
+import { MaterialIntakeArtifactSchema, MaterialReviewStateSchema, type MaterialIntakeArtifact } from "@/domain/materialIntake/materialIntake";
 import { z } from "zod";
-import { CommittedJobDescriptionSchema } from "@/domain/schemas";
+import { omitRejectedMaterialValues } from "@/domain/materialIntake/review";
+import { CommittedJobDescriptionSchema, ImportTargetSchema } from "@/domain/schemas";
 import { mapJobDraftToJobDescription } from "@/domain/mappers/jobDraftMapper";
 import { findDuplicateCandidates, isValidDuplicateReference, type DuplicateCandidate } from "@/domain/jobAssets/jobDeduplication";
 import { draftCommittableError } from "@/services/jobs/jobWorkflow";
@@ -1769,8 +1770,68 @@ export class WorkspaceRepository {
 
   async saveMaterialIntake(artifact: MaterialIntakeArtifact) {
     const parsed = MaterialIntakeArtifactSchema.parse(artifact);
-    await this.setMeta(`material-intake:${parsed.sessionId}:${parsed.attachmentId}`, parsed);
+    await this.db.transaction("rw", this.db.appMeta, async () => {
+      const key = `material-intake:${parsed.sessionId}:${parsed.attachmentId}`;
+      await this.setMeta(key, parsed);
+      if (parsed.importId) {
+        const sourceKey = `material-source-link:${parsed.importId}:${parsed.sessionId}:${parsed.attachmentId}`;
+        await this.setMeta(sourceKey, parsed);
+        const indexKey = `material-sources:${parsed.importId}`;
+        const keys = z.array(z.string()).parse((await this.getMeta(indexKey))?.value ?? []);
+        await this.setMeta(indexKey, [...new Set([...keys, sourceKey])]);
+      }
+    });
     return parsed;
+  }
+
+  async getOrCreateMaterialDraft(draft: ImportedResumeDraft, target: { profileId?: string; purpose: string }) {
+    return this.db.transaction("rw", this.db.appMeta, async () => {
+      const existing = await this.getImportedResumeDraft(draft.importId);
+      if (existing) return existing;
+      await this.setMeta(`material-target:${draft.importId}`, target);
+      return this.saveImportedResumeDraft(draft, 0);
+    });
+  }
+
+  async getMaterialSources(importId: string) {
+    const keys = z.array(z.string()).parse((await this.getMeta(`material-sources:${importId}`))?.value ?? []);
+    const rows = await Promise.all(keys.map((key) => this.getMeta(key)));
+    return rows.filter((row) => row !== undefined).map((row) => MaterialIntakeArtifactSchema.parse(row.value));
+  }
+
+  async saveMaterialReviewState(value: z.infer<typeof MaterialReviewStateSchema>) {
+    const parsed = MaterialReviewStateSchema.parse(value);
+    await this.setMeta(`material-review:${parsed.importId}`, parsed);
+  }
+
+  async getMaterialReviewState(importId: string) {
+    const row = await this.getMeta(`material-review:${importId}`);
+    return row ? MaterialReviewStateSchema.parse(row.value) : undefined;
+  }
+
+  async listMaterialImports(profileId?: string) {
+    const rows = await this.db.appMeta.where("key").startsWith("material-target:").toArray();
+    const imports = await Promise.all(rows.map(async (row) => {
+      const target = z.object({ profileId: z.string().optional(), purpose: z.string() }).parse(row.value);
+      const draft = await this.getImportedResumeDraft(row.key.slice("material-target:".length));
+      if (target.profileId !== profileId && draft?.confirmedProfileId !== profileId) return undefined;
+      return draft;
+    }));
+    return imports.filter((draft) => draft !== undefined);
+  }
+
+  async getProfileMaterialSources(profileId: string, itemId: string) {
+    const profile = await this.getProfile(profileId);
+    if (!profile) throw new Error("material_target_profile_missing");
+    const ids = new Set(profile.structuredFacts?.find((entry) => entry.data.id === itemId)?.factIds ?? []);
+    const facts = [...profile.experiences.flatMap((entry) => entry.facts), ...profile.certificates.flatMap((entry) => entry.fact ? [entry.fact] : []),
+      ...profile.skills.flatMap((entry) => entry.fact ? [entry.fact] : [])];
+    for (const entry of profile.experiences.filter((entry) => entry.id === itemId)) entry.facts.forEach((fact) => ids.add(fact.id));
+    for (const entry of [...profile.certificates, ...profile.skills].filter((entry) => entry.id === itemId)) if (entry.fact) ids.add(entry.fact.id);
+    const hashes = new Set(facts.filter((fact) => ids.has(fact.id)).flatMap((fact) => fact.provenance.map((source) => source.sourceId)));
+    const imports = (await this.listMaterialImports(profileId)).filter((draft) => draft.status === "confirmed" && draft.confirmedProfileId === profileId);
+    const sources = (await Promise.all(imports.map((draft) => this.getMaterialSources(draft.importId)))).flat();
+    return sources.filter((source) => hashes.has(source.hash));
   }
 
   async getMaterialIntake(attachmentId: string, sessionId: string) {
@@ -2160,7 +2221,8 @@ export class WorkspaceRepository {
       && existing.data.status !== "stale") {
       return existing.data;
     }
-    const plan = new ProfileReconciliationEngine().createPlan({ draft, profile });
+    const material = await this.getMeta(`material-target:${input.importId}`);
+    const plan = new ProfileReconciliationEngine().createPlan({ draft: material ? omitRejectedMaterialValues(draft) : draft, profile });
     await this.db.appMeta.put({
       key: profileReconciliationMetaKey(input.importId),
       value: plan,
@@ -2337,6 +2399,7 @@ export class WorkspaceRepository {
   }
 
   async confirmImportedResume(input: {
+    signal?: AbortSignal;
     importId: string;
     expectedDraftRevision: number;
     operationId: string;
@@ -2345,6 +2408,7 @@ export class WorkspaceRepository {
     target?: { mode: "existing"; profileId: string; createGeneralResume?: boolean } | { mode: "new"; profileName: string; createGeneralResume: true };
   }): Promise<ImportedResumeBranchConfirmResult>;
   async confirmImportedResume(input: {
+    signal?: AbortSignal;
     importId: string;
     expectedDraftRevision: number;
     operationId: string;
@@ -2353,6 +2417,7 @@ export class WorkspaceRepository {
     target?: ImportTarget;
   }): Promise<ImportedResumeConfirmResult>;
   async confirmImportedResume(input: {
+    signal?: AbortSignal;
     importId: string;
     expectedDraftRevision: number;
     operationId: string;
@@ -2377,6 +2442,21 @@ export class WorkspaceRepository {
         this.db.pdfImportSessions
       ],
       async () => {
+        input.signal?.throwIfAborted();
+        const materialTargetRow = await this.getMeta(`material-target:${input.importId}`);
+        const materialTarget = materialTargetRow ? z.object({ profileId: z.string().optional(), purpose: z.string() }).parse(materialTargetRow.value) : undefined;
+        if (materialTarget) {
+          if (!input.target || input.target.createGeneralResume !== false) throw new Error("material_profile_only_required");
+          if (materialTarget.profileId && (input.target.mode !== "existing" || input.target.profileId !== materialTarget.profileId)) throw new Error("material_target_mismatch");
+          const prior = await this.getMeta(`material-confirm:${input.importId}`);
+          if (prior) {
+            const receipt = z.object({ target: ImportTargetSchema, result: ImportedResumeConfirmResultSchema }).parse(prior.value);
+            if (canonicalJson(receipt.target) !== canonicalJson(input.target)) throw new Error("material_target_mismatch");
+            return { ...receipt.result, idempotent: true };
+          }
+          const operation = await this.getMeta(resumeImportOperationMetaKey(input.operationId));
+          if (operation) throw new Error("material_operation_target_mismatch");
+        }
         const storedImportOperation = await this.db.appMeta.get(resumeImportOperationMetaKey(input.operationId));
         const parsedStoredImportOperation = ImportedResumeConfirmResultSchema.safeParse(storedImportOperation?.value);
         if (parsedStoredImportOperation.success) {
@@ -2406,7 +2486,13 @@ export class WorkspaceRepository {
         if (!stored) {
           throw new Error("resume_import_draft_missing");
         }
-        const draft = ImportedResumeDraftSchema.parse(stored.value);
+        const parsedDraft = ImportedResumeDraftSchema.parse(stored.value);
+        const draft = materialTarget ? omitRejectedMaterialValues(parsedDraft) : parsedDraft;
+        if (materialTarget) {
+          const included = draft.sections.filter((section) => section.included).flatMap((section) => section.items.filter((item) => item.included));
+          if (!included.length) throw new Error("material_no_accepted_candidates");
+          if (included.some((item) => (item.sourceStatus === "ambiguous" || item.userEdited) && !item.userConfirmed)) throw new Error("material_candidate_review_required");
+        }
         if (draft.revision !== input.expectedDraftRevision) {
           throw new RevisionConflictError();
         }
@@ -2496,8 +2582,8 @@ export class WorkspaceRepository {
           : true;
         const createBranch = input.target?.mode === "new"
           ? input.target.createGeneralResume
-          : input.target?.mode === "existing" && input.target.createGeneralResume === true
-            ? true
+          : input.target?.mode === "existing" && input.target.createGeneralResume !== undefined
+            ? input.target.createGeneralResume
             : !existingProfile || (existingGeneralResumeCount === 0 && reconciliationCreatesResumeContent);
         const built = createBranch ? buildResumeImportConfirmation({
           draft,
@@ -2543,6 +2629,7 @@ export class WorkspaceRepository {
         assertNoUnresolvedSensitivePlaceholders(runtimeProfile);
         if (runtimeBranch) assertNoUnresolvedSensitivePlaceholders(runtimeBranch);
 
+        input.signal?.throwIfAborted();
         await this.ensurePersonForProfileInTransaction(runtimeProfile);
         await this.markCurrentProfileInTransaction(runtimeProfile);
         await this.putProfileInTransaction(runtimeProfile, existingProfile);
@@ -2615,6 +2702,7 @@ export class WorkspaceRepository {
         }
         const result = ImportedResumeConfirmResultSchema.parse({
           profileId: runtimeProfile.id,
+          profileVersion: runtimeProfile.version,
           branchId: built?.branch.id,
           revisionId: built?.firstRevision.id,
           presentationRevision: presentationConfig?.presentationRevision,
@@ -2630,6 +2718,8 @@ export class WorkspaceRepository {
           value: result,
           updatedAt: now
         });
+        if (materialTarget) await this.setMeta(`material-confirm:${input.importId}`, { target: input.target, result });
+        input.signal?.throwIfAborted();
         return result;
       }
     ));

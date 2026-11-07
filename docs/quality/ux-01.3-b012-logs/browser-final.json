@@ -1,0 +1,287 @@
+{
+  "config": {
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "E:\\DEF\\CareerAdapt-competition-5.1.8\\node_modules\\@playwright\\test\\cli.js",
+      "test",
+      "tests/e2e/ux013-material-business.spec.ts",
+      "--workers=1",
+      "--reporter=line,json",
+      "--trace=on",
+      "--output=docs/quality/ux-01.3-b012-logs/browser-final"
+    ],
+    "configFile": "E:\\DEF\\CareerAdapt-competition-5.1.8\\playwright.config.ts",
+    "rootDir": "E:/DEF/CareerAdapt-competition-5.1.8/tests/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "E:/DEF/CareerAdapt-competition-5.1.8/docs/quality/ux-01.3-b012-logs/browser-final",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "E:/DEF/CareerAdapt-competition-5.1.8/tests/e2e",
+        "testIgnore": [
+          "**/hermes-config-r1.spec.ts",
+          "**/hermes-p46h-integration.spec.ts",
+          "**/hermes-career-agent-eval.spec.ts",
+          "**/hermes-career-agent-real-eval.spec.ts",
+          "**/p43c3-real-provider-import.spec.ts",
+          "**/p43c4-local-real-files.spec.ts",
+          "**/p43d-real-provider-tailoring.spec.ts",
+          "**/p43g-real-provider-workflows.spec.ts",
+          "**/p43h-authoritative-recovery.spec.ts",
+          "**/p44e-real-hermes-reproduction.spec.ts",
+          "**/p45c1-real-resume-artifacts.spec.ts"
+        ],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 45000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "line"
+      ],
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "ux013-material-business.spec.ts",
+      "file": "ux013-material-business.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "A/C: edit, reject, restore review, confirm Profile-only and reverse-read sources",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 11026,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:10:52.236Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "E:\\DEF\\CareerAdapt-competition-5.1.8\\docs\\quality\\ux-01.3-b012-logs\\browser-final\\ux013-material-business-A--dac8a-ly-and-reverse-read-sources-chromium\\trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "2c9cca9a471f70350e90-b2f2adabfcedf467d454",
+          "file": "ux013-material-business.spec.ts",
+          "line": 37,
+          "column": 5
+        },
+        {
+          "title": "D: changing target and purpose isolates review identity and makes no formal writes",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2324,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:11:03.841Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "E:\\DEF\\CareerAdapt-competition-5.1.8\\docs\\quality\\ux-01.3-b012-logs\\browser-final\\ux013-material-business-D--5b2f6--and-makes-no-formal-writes-chromium\\trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "2c9cca9a471f70350e90-16c7e46c718ed80b4a08",
+          "file": "ux013-material-business.spec.ts",
+          "line": 70,
+          "column": 5
+        },
+        {
+          "title": "B: duplicate receipt, new evidence and explicit conflict resolution keep one entity",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 23698,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:11:06.274Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "E:\\DEF\\CareerAdapt-competition-5.1.8\\docs\\quality\\ux-01.3-b012-logs\\browser-final\\ux013-material-business-B--3507b--resolution-keep-one-entity-chromium\\trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "2c9cca9a471f70350e90-b9cc1c8baa8eb7075c03",
+          "file": "ux013-material-business.spec.ts",
+          "line": 84,
+          "column": 5
+        },
+        {
+          "title": "C/manual: unavailable real OCR preserves a decodable image and supports explicit transcription confirmation",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 8779,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  getByRole('dialog', { name: '导入资料', exact: true }).locator('select[name$=\"-type\"]')\nExpected: visible\nReceived: hidden\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog', { name: '导入资料', exact: true }).locator('select[name$=\"-type\"]')\u001b[22m\n\u001b[2m    12 × locator resolved to <select aria-label=\"待分类材料 1栏目类型\" name=\"import-section-material-group-0-type\">…</select>\u001b[22m\n\u001b[2m       - unexpected value \"hidden\"\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  getByRole('dialog', { name: '导入资料', exact: true }).locator('select[name$=\"-type\"]')\nExpected: visible\nReceived: hidden\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog', { name: '导入资料', exact: true }).locator('select[name$=\"-type\"]')\u001b[22m\n\u001b[2m    12 × locator resolved to <select aria-label=\"待分类材料 1栏目类型\" name=\"import-section-material-group-0-type\">…</select>\u001b[22m\n\u001b[2m       - unexpected value \"hidden\"\u001b[22m\n\n    at E:\\DEF\\CareerAdapt-competition-5.1.8\\tests\\e2e\\ux013-material-business.spec.ts:127:57",
+                    "location": {
+                      "file": "E:\\DEF\\CareerAdapt-competition-5.1.8\\tests\\e2e\\ux013-material-business.spec.ts",
+                      "column": 57,
+                      "line": 127
+                    },
+                    "snippet": "  125 |   await dialog.getByLabel(\"对照原件补充文字\").fill(\"证书\\nSAMPLE CERTIFICATE\\nANONYMOUS ISSUER\");\n  126 |   await dialog.getByRole(\"button\", { name: \"继续核对\", exact: true }).click();\n> 127 |   await expect(dialog.locator('select[name$=\"-type\"]')).toBeVisible();\n      |                                                         ^\n  128 |   await dialog.getByText(\"创建新人物\", { exact: true }).click();\n  129 |   await dialog.locator('input[name=\"new-profile-name\"]').fill(\"B012人工转写人物\");\n  130 |   await dialog.locator('select[name$=\"-type\"]').selectOption(\"certificates\");"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "E:\\DEF\\CareerAdapt-competition-5.1.8\\tests\\e2e\\ux013-material-business.spec.ts",
+                        "column": 57,
+                        "line": 127
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  getByRole('dialog', { name: '导入资料', exact: true }).locator('select[name$=\"-type\"]')\nExpected: visible\nReceived: hidden\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog', { name: '导入资料', exact: true }).locator('select[name$=\"-type\"]')\u001b[22m\n\u001b[2m    12 × locator resolved to <select aria-label=\"待分类材料 1栏目类型\" name=\"import-section-material-group-0-type\">…</select>\u001b[22m\n\u001b[2m       - unexpected value \"hidden\"\u001b[22m\n\n\n  125 |   await dialog.getByLabel(\"对照原件补充文字\").fill(\"证书\\nSAMPLE CERTIFICATE\\nANONYMOUS ISSUER\");\n  126 |   await dialog.getByRole(\"button\", { name: \"继续核对\", exact: true }).click();\n> 127 |   await expect(dialog.locator('select[name$=\"-type\"]')).toBeVisible();\n      |                                                         ^\n  128 |   await dialog.getByText(\"创建新人物\", { exact: true }).click();\n  129 |   await dialog.locator('input[name=\"new-profile-name\"]').fill(\"B012人工转写人物\");\n  130 |   await dialog.locator('select[name$=\"-type\"]').selectOption(\"certificates\");\n    at E:\\DEF\\CareerAdapt-competition-5.1.8\\tests\\e2e\\ux013-material-business.spec.ts:127:57"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:11:30.607Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "E:\\DEF\\CareerAdapt-competition-5.1.8\\docs\\quality\\ux-01.3-b012-logs\\browser-final\\ux013-material-business-C--b5c23--transcription-confirmation-chromium\\error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "E:\\DEF\\CareerAdapt-competition-5.1.8\\docs\\quality\\ux-01.3-b012-logs\\browser-final\\ux013-material-business-C--b5c23--transcription-confirmation-chromium\\trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "E:\\DEF\\CareerAdapt-competition-5.1.8\\tests\\e2e\\ux013-material-business.spec.ts",
+                    "column": 57,
+                    "line": 127
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "2c9cca9a471f70350e90-15fac0e920c9428d117e",
+          "file": "ux013-material-business.spec.ts",
+          "line": 112,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-07T05:10:51.704Z",
+    "duration": 48229.57,
+    "expected": 3,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

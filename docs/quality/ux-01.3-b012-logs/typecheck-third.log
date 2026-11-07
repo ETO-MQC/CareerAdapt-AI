@@ -1,0 +1,6 @@
+
+> careeradapt-ai@0.9.3-rc.2 typecheck E:\DEF\CareerAdapt-competition-5.1.8
+> tsc --noEmit
+
+src/services/materialIntake/MaterialIntakeService.ts(137,24): error TS18048: 'artifact' is possibly 'undefined'.
+ ELIFECYCLE  Command failed with exit code 2.

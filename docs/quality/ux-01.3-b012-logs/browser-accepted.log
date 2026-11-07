@@ -1,0 +1,56 @@
+
+Running 6 tests using 1 worker
+
+
+
+(node:79028) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1/6] [chromium] › tests\e2e\p512-material-intake.spec.ts:9:5 › material center opens the shared review with Profile-only default
+[2/6] [chromium] › tests\e2e\p512-material-intake.spec.ts:25:5 › Workspace stages, previews, restores and removes files dropped across the conversation
+[3/6] [chromium] › tests\e2e\ux013-material-business.spec.ts:37:5 › A/C: edit, reject, restore review, confirm Profile-only and reverse-read sources
+  1) [chromium] › tests\e2e\ux013-material-business.spec.ts:37:5 › A/C: edit, reject, restore review, confirm Profile-only and reverse-read sources 
+
+    Error: expect(locator).toBeInViewport() failed
+
+    Locator:  getByRole('dialog', { name: '导入资料', exact: true }).getByRole('button', { name: '确认导入', exact: true })
+    Expected: in viewport
+    Received: viewport ratio 0.9305555820465088
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toBeInViewport" with timeout 5000ms
+      - waiting for getByRole('dialog', { name: '导入资料', exact: true }).getByRole('button', { name: '确认导入', exact: true })
+        14 × locator resolved to <button type="button" class="primary-button">确认导入</button>
+           - unexpected value "viewport ratio 0.9305555820465088"
+
+
+      47 |   await awardRow.locator('input[name$="-included"]').last().uncheck();
+      48 |   await expect.poll(async () => JSON.stringify((await snapshot(page)).meta)).toContain("B012匿名人物");
+    > 49 |   await expect(dialog.getByRole("button", { name: "确认导入", exact: true })).toBeInViewport({ ratio: 1 });
+         |                                                                           ^
+      50 |   await page.screenshot({ path: info.outputPath("review-edited-source.png"), fullPage: true });
+      51 |   const provisional = await snapshot(page); expect(provisional.profiles).toEqual(before.profiles); expect(provisional.revisions).toEqual(before.revisions);
+      52 |   await page.reload(); dialog = await open(page);
+        at E:\DEF\CareerAdapt-competition-5.1.8\tests\e2e\ux013-material-business.spec.ts:49:75
+
+    Error Context: docs\quality\ux-01.3-b012-logs\browser-accepted\ux013-material-business-A--dac8a-ly-and-reverse-read-sources-chromium\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    docs\quality\ux-01.3-b012-logs\browser-accepted\ux013-material-business-A--dac8a-ly-and-reverse-read-sources-chromium\trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace docs\quality\ux-01.3-b012-logs\browser-accepted\ux013-material-business-A--dac8a-ly-and-reverse-read-sources-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:79772) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[4/6] [chromium] › tests\e2e\ux013-material-business.spec.ts:71:5 › D: changing target and purpose isolates review identity and makes no formal writes
+[5/6] [chromium] › tests\e2e\ux013-material-business.spec.ts:85:5 › B: duplicate receipt, new evidence and explicit conflict resolution keep one entity
+[6/6] [chromium] › tests\e2e\ux013-material-business.spec.ts:113:5 › C/manual: unavailable real OCR preserves a decodable image and supports explicit transcription confirmation
+  1 failed
+    [chromium] › tests\e2e\ux013-material-business.spec.ts:37:5 › A/C: edit, reject, restore review, confirm Profile-only and reverse-read sources 
+  5 passed (47.8s)

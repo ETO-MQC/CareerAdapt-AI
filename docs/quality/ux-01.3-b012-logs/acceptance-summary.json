@@ -1,0 +1,328 @@
+{
+  "date": "2026-11-07",
+  "stage": "P5.1-UX-01.3-B0/B1/B2",
+  "baseline": "ecd5567ff7f4d510c1c67a025cd7a91ca217df57",
+  "baselineWorktreeClean": true,
+  "baselineTrackingAndLiveOriginEqual": true,
+  "engineeringDelivered": true,
+  "stageClosed": false,
+  "status": "PARTIAL_REAL_OCR_QUALITY_BLOCKED_AND_LIMITED_PDF_REGION_AND_RUNTIME_QUALIFICATION",
+  "tests": {
+    "files": 11,
+    "passed": 117,
+    "failed": 0,
+    "skipped": 0,
+    "exitCode": 0,
+    "results": "related-tests-accepted.json",
+    "log": "related-tests-accepted.log"
+  },
+  "browser": {
+    "passed": 6,
+    "failed": 0,
+    "exitCode": 0,
+    "durationMs": 46407.046,
+    "results": "browser-verified.json",
+    "log": "browser-verified.log",
+    "source": "production Next React + real browser IndexedDB",
+    "providers": "none"
+  },
+  "gates": {
+    "typecheck": {
+      "exitCode": 0,
+      "log": "typecheck-verified.log"
+    },
+    "changedFilesEslint": {
+      "exitCode": 0,
+      "log": "lint-verified.log"
+    },
+    "productionBuild": {
+      "exitCode": 0,
+      "log": "build-verified.log"
+    }
+  },
+  "diffCheck": {
+    "exitCode": 0
+  },
+  "sourceConsistency": "source-consistency-final.json",
+  "scenarios": {
+    "B01": {
+      "status": "PARTIAL",
+      "scope": "engineering_only",
+      "limitation": "Actual OCR recognition accuracy BLOCKED; source/field protocol validated."
+    },
+    "B02": {
+      "status": "PARTIAL",
+      "scope": "engineering_only",
+      "limitation": "Actual rotated/low-quality recognition BLOCKED; manual recovery and confidence protocol validated."
+    },
+    "B03": {
+      "status": "PASS",
+      "scope": "engineering_only"
+    },
+    "B04": {
+      "status": "PASS",
+      "scope": "engineering_only"
+    },
+    "B05": {
+      "status": "PARTIAL",
+      "scope": "engineering_only",
+      "limitation": "No ownership inference from UNKNOWN material; real model/image attribution not certified."
+    },
+    "B06": {
+      "status": "PASS",
+      "scope": "engineering_only"
+    },
+    "B07": {
+      "status": "PASS",
+      "scope": "engineering_only"
+    },
+    "B08": {
+      "status": "PASS",
+      "scope": "engineering_only"
+    },
+    "B09": {
+      "status": "PASS",
+      "scope": "engineering_only"
+    },
+    "B10": {
+      "status": "PASS",
+      "scope": "engineering_only"
+    },
+    "B11": {
+      "status": "PASS",
+      "scope": "engineering_only"
+    },
+    "B12": {
+      "status": "PASS",
+      "scope": "engineering_only"
+    },
+    "B13": {
+      "status": "PASS",
+      "scope": "engineering_only"
+    },
+    "B14": {
+      "status": "PASS",
+      "scope": "engineering_only"
+    },
+    "B15": {
+      "status": "PASS",
+      "scope": "engineering_only"
+    },
+    "B16": {
+      "status": "PASS",
+      "scope": "engineering_only"
+    },
+    "B17": {
+      "status": "PASS",
+      "scope": "engineering_only"
+    }
+  },
+  "formalSnapshots": {
+    "browser-verified/ux013-material-business-A--dac8a-ly-and-reverse-read-sources-chromium/formal-before-after.json": {
+      "before": {
+        "profiles": 1,
+        "branches": 0,
+        "resumeRevisions": 0,
+        "syntheticTargetProfiles": [],
+        "drafts": [
+          {
+            "importId": "material-profile:d4213a997f0407fdba24eed1913244fc50fd8336ac0126dd96f44f2811a4ef8a:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76",
+            "revision": 0,
+            "status": "reviewing"
+          }
+        ]
+      },
+      "provisional": {
+        "profiles": 1,
+        "branches": 0,
+        "resumeRevisions": 0,
+        "syntheticTargetProfiles": [],
+        "drafts": [
+          {
+            "importId": "material-profile:d4213a997f0407fdba24eed1913244fc50fd8336ac0126dd96f44f2811a4ef8a:17da7150ee6b4cc4330cd2926904e626a86e92c09c37ae39b63db170c524d566",
+            "revision": 3,
+            "status": "reviewing"
+          },
+          {
+            "importId": "material-profile:d4213a997f0407fdba24eed1913244fc50fd8336ac0126dd96f44f2811a4ef8a:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76",
+            "revision": 0,
+            "status": "reviewing"
+          }
+        ]
+      },
+      "after": {
+        "profiles": 2,
+        "branches": 0,
+        "resumeRevisions": 0,
+        "syntheticTargetProfiles": [
+          {
+            "id": "profile-15VpnGlM30",
+            "version": 1,
+            "certificateCount": 1
+          }
+        ],
+        "drafts": [
+          {
+            "importId": "material-profile:d4213a997f0407fdba24eed1913244fc50fd8336ac0126dd96f44f2811a4ef8a:17da7150ee6b4cc4330cd2926904e626a86e92c09c37ae39b63db170c524d566",
+            "revision": 4,
+            "status": "confirmed"
+          },
+          {
+            "importId": "material-profile:d4213a997f0407fdba24eed1913244fc50fd8336ac0126dd96f44f2811a4ef8a:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76",
+            "revision": 0,
+            "status": "reviewing"
+          }
+        ]
+      }
+    },
+    "browser-verified/ux013-material-business-B--3507b--resolution-keep-one-entity-chromium/dedup-conflict-before-after.json": {
+      "initial": {
+        "profiles": 2,
+        "branches": 0,
+        "resumeRevisions": 0,
+        "syntheticTargetProfiles": [
+          {
+            "id": "profile-ABUfRA8_Fe",
+            "version": 1,
+            "certificateCount": 1
+          }
+        ],
+        "drafts": [
+          {
+            "importId": "material-profile:f3f30588811b43453a2ccbf017f3d702d6a8f9c447d020599c010cc4265be1c1:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76",
+            "revision": 0,
+            "status": "reviewing"
+          },
+          {
+            "importId": "material-profile:f3f30588811b43453a2ccbf017f3d702d6a8f9c447d020599c010cc4265be1c1:eef44761cad1f7971f0826e4af956198faced45f4ecd50ef47c3e66bbccc0131",
+            "revision": 1,
+            "status": "confirmed"
+          }
+        ]
+      },
+      "after": {
+        "profiles": 2,
+        "branches": 0,
+        "resumeRevisions": 0,
+        "syntheticTargetProfiles": [
+          {
+            "id": "profile-ABUfRA8_Fe",
+            "version": 2,
+            "certificateCount": 1
+          }
+        ],
+        "drafts": [
+          {
+            "importId": "material-profile:c94cd379b3ea48a5904bbe98b24d5043df66a1f2433854282df0f7e7b7b6f75d:fef3b8c944eb21933b3995453cb6916e1f69450fda5a235eb52c48ab9d2a624f",
+            "revision": 1,
+            "status": "confirmed"
+          },
+          {
+            "importId": "material-profile:f3f30588811b43453a2ccbf017f3d702d6a8f9c447d020599c010cc4265be1c1:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76",
+            "revision": 0,
+            "status": "reviewing"
+          },
+          {
+            "importId": "material-profile:f3f30588811b43453a2ccbf017f3d702d6a8f9c447d020599c010cc4265be1c1:eef44761cad1f7971f0826e4af956198faced45f4ecd50ef47c3e66bbccc0131",
+            "revision": 1,
+            "status": "confirmed"
+          },
+          {
+            "importId": "material-profile:f9e44d32fedb942fdc8e2579e1f1e961efb5bba2222b16130eba1ff036a25dd7:fef3b8c944eb21933b3995453cb6916e1f69450fda5a235eb52c48ab9d2a624f",
+            "revision": 1,
+            "status": "confirmed"
+          }
+        ]
+      }
+    },
+    "browser-verified/ux013-material-business-C--b5c23--transcription-confirmation-chromium/manual-transcription-before-after.json": {
+      "before": {
+        "profiles": 1,
+        "branches": 0,
+        "resumeRevisions": 0,
+        "syntheticTargetProfiles": [],
+        "drafts": []
+      },
+      "failed": {
+        "profiles": 1,
+        "branches": 0,
+        "resumeRevisions": 0,
+        "syntheticTargetProfiles": [],
+        "drafts": [
+          {
+            "importId": "material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76",
+            "revision": 0,
+            "status": "reviewing"
+          },
+          {
+            "importId": "material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:7975b85af16181e6ce73cfb4c765c8853dcae9e30ea562e3ee28534b79b2843b",
+            "revision": 3,
+            "status": "reviewing"
+          }
+        ]
+      },
+      "after": {
+        "profiles": 2,
+        "branches": 0,
+        "resumeRevisions": 0,
+        "syntheticTargetProfiles": [
+          {
+            "id": "profile-SfteKQjKR6",
+            "version": 1,
+            "certificateCount": 1
+          }
+        ],
+        "drafts": [
+          {
+            "importId": "material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76",
+            "revision": 0,
+            "status": "reviewing"
+          },
+          {
+            "importId": "material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:7975b85af16181e6ce73cfb4c765c8853dcae9e30ea562e3ee28534b79b2843b",
+            "revision": 4,
+            "status": "confirmed"
+          }
+        ]
+      }
+    }
+  },
+  "realOcr": {
+    "accuracy": "BLOCKED",
+    "health": "real-ocr-health.json",
+    "configured": false,
+    "modelAvailable": false,
+    "runtimeAvailable": false,
+    "modelDownloaded": false
+  },
+  "evidenceBoundaries": {
+    "controlledOcrProtocol": "Existing p512 fixed responses; not image accuracy.",
+    "manualImageBrowser": "Generated decodable image + explicitly typed user transcription; actual OCR health unavailable.",
+    "faultInjection": "Real profiles.put throws once; formal before=failed, explicit retry saves once.",
+    "host": "Real Material Gateway/Host/TaskState/persistence integration; no Hermes process/browser full run."
+  },
+  "limitations": [
+    "PDF original/page/bbox values available; PDF canvas region overlay not implemented.",
+    "No real OCR/Vision/provider quality certification.",
+    "No real Hermes material end-to-end runtime certification.",
+    "Deferred conflicts block this entire confirmation.",
+    "Unblurred text edits are not persisted.",
+    "Legacy material records without new source index are not automatically migrated."
+  ],
+  "constraints": {
+    "newTables": 0,
+    "migrations": 0,
+    "newProductionDependencies": 0,
+    "resumeSchemaV2Changed": false,
+    "factGuardThresholdChanged": false,
+    "hermesRuntimeChanged": false,
+    "realProviderCalls": 0,
+    "apiKeysRead": false,
+    "a2ScriptedRerun": false,
+    "committed": false,
+    "pushed": false,
+    "packaged": false,
+    "bulkDeletion": false,
+    "subagentsUsed": false
+  }
+}

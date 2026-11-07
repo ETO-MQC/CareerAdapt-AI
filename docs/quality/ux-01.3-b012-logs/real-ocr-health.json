@@ -1,0 +1,8 @@
+{
+  "ok": false,
+  "engine": "paddleocr-vl-local",
+  "configured": false,
+  "modelAvailable": false,
+  "runtimeAvailable": false,
+  "message": "未配置 PADDLEOCR_VL_ENDPOINT；OCR 已明确降级为人工核对。"
+}

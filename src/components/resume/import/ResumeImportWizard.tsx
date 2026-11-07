@@ -1,6 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import { MaterialSourceReview } from "./MaterialSourceReview";
+import type { MaterialIntakeArtifact } from "@/domain/materialIntake/materialIntake";
+import { MaterialIntakeService } from "@/services/materialIntake/MaterialIntakeService";
+import { omitRejectedMaterialValues, reclassifyMaterialSection } from "@/domain/materialIntake/review";
+import { projectResumeItemV2 } from "@/domain/migrations/resumeV2";
 import { type ChangeEvent, type DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import { nanoid } from "nanoid";
 import { localResumePhoto } from "@/domain/schemas/resumePhoto";
@@ -94,6 +99,7 @@ const SECTION_OPTIONS: Array<{ value: ImportedResumeSectionType; label: string }
   { value: "skills", label: "技能" },
   { value: "certificates", label: "证书" },
   { value: "languages", label: "语言" },
+  { value: "other", label: "其他材料" },
   { value: "experience", label: "旧版经历（需拆分）" },
   { value: "unknown", label: "其他/待确认" }
 ];
@@ -107,7 +113,7 @@ export function ResumeImportWizard(props: {
   initialMode?: "file" | "json";
   initialTargetMode?: "existing" | "new";
   variant?: "resume" | "agent";
-  onImported: (result: { profileId: string; branchId?: string }) => Promise<void>;
+  onImported: (result: { profileId: string; profileVersion?: number; branchId?: string; importId?: string }) => Promise<void>;
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const lastSelectedFileRef = useRef<File | undefined>(undefined);
@@ -116,6 +122,10 @@ export function ResumeImportWizard(props: {
   const [status, setStatus] = useState<ImportStatus>("idle");
   const [message, setMessage] = useState("选择或拖入简历，AI 将自动识别；写入前可核对。");
   const [draft, setDraft] = useState<ImportedResumeDraft | undefined>();
+  const [materialSources, setMaterialSources] = useState<MaterialIntakeArtifact[]>([]);
+  const [materialPurpose, setMaterialPurpose] = useState("profile_material");
+  const displayedMaterialPurpose = materialPurpose === "profile_material" ? "补充个人资料" : materialPurpose;
+  const [restoredReviewId, setRestoredReviewId] = useState<string>();
   const [, setPages] = useState<PdfPageText[]>([]);
   const [selectedPageNumber, setSelectedPageNumber] = useState(1);
   const [selectedItemId, setSelectedItemId] = useState<string | undefined>();
@@ -203,9 +213,25 @@ export function ResumeImportWizard(props: {
         return;
       }
       setDraft(latest);
+      const sources = await props.repository.getMaterialSources(latest.importId);
+      if (!active) return;
+      setMaterialSources(sources);
+      if (sources.length) {
+        setCreateGeneralResume(false);
+        setMaterialPurpose(sources[0].purpose ?? "profile_material");
+        const review = await props.repository.getMaterialReviewState(latest.importId);
+        if (!active) return;
+        setTargetMode(review?.targetMode ?? (sources[0].targetProfileId ? "existing" : "new"));
+        setTargetProfileId(review?.targetProfileId ?? sources[0].targetProfileId ?? "");
+        setNewProfileName(review?.newProfileName ?? "");
+        setBasicMergeActions(review?.basicMergeActions ?? {});
+        setReviewedUnclassifiedKeys(review?.reviewedUnclassifiedKeys ?? []);
+        setSelectedPageNumber(review?.selectedPageNumber ?? 1);
+      }
+      setRestoredReviewId(latest.importId);
       selectionBaselineRef.current = latest;
       setStatus("reviewing");
-      setSelectedPageNumber(latest.pages[0]?.pageNumber ?? 1);
+      if (!sources.length) setSelectedPageNumber(latest.pages[0]?.pageNumber ?? 1);
       if (latest.source.sourceSessionId) {
         setPages(restoredPages);
       }
@@ -218,6 +244,34 @@ export function ResumeImportWizard(props: {
       abortRef.current?.abort();
     };
   }, [documentPreferences, props.initialImportId, props.repository]);
+
+  useEffect(() => {
+    if (!draft || !materialSources.length || restoredReviewId !== draft.importId) return;
+    void props.repository.saveMaterialReviewState({ importId: draft.importId, targetMode, targetProfileId, newProfileName,
+      selectedPageNumber, reviewedUnclassifiedKeys, basicMergeActions }).catch((failure: unknown) => {
+      setMessage(failure instanceof Error ? failure.message : "审核进度保存失败，请重试。");
+    });
+  }, [draft, materialSources.length, restoredReviewId, props.repository, targetMode, targetProfileId, newProfileName, selectedPageNumber, reviewedUnclassifiedKeys, basicMergeActions]);
+
+  async function changeMaterialTarget(mode: "existing" | "new", profileId: string, purpose = materialPurpose) {
+    const source = materialSources[0];
+    if (!source) { setTargetMode(mode); setTargetProfileId(profileId); return; }
+    setStatus("classifying_sections");
+    try {
+      const result = await new MaterialIntakeService(props.repository).prepare({ attachmentId: source.attachmentId,
+        targetProfileId: mode === "existing" ? profileId : undefined, newProfileIntentId: mode === "new" ? (targetMode === "new" ? source.newProfileIntentId ?? source.sessionId : crypto.randomUUID()) : undefined, purpose, destination: "profile" }, source.sessionId);
+      if (result.status === "already_saved") { setMessage("该目标下的材料已经保存，请查看资料库；当前审核目标未改变。"); return; }
+      const next = result.importId ? await props.repository.getImportedResumeDraft(result.importId) : undefined;
+      if (!next) throw new Error("material_review_draft_missing");
+      setDraft(next); selectionBaselineRef.current = next;
+      setMaterialSources(await props.repository.getMaterialSources(next.importId));
+      setMaterialPurpose(purpose); setTargetMode(mode); setTargetProfileId(profileId);
+      setBasicMergeActions({}); setReviewedUnclassifiedKeys([]); setReconciliationPlan(undefined);
+      setRestoredReviewId(next.importId);
+      setMessage("已切换目标或用途，请重新核对并明确确认。");
+    } catch (failure) { setMessage(failure instanceof Error ? failure.message : "目标切换失败。"); }
+    finally { setStatus("reviewing"); }
+  }
 
   const selectedPage = useMemo(() => {
     return draft?.pages.find((page) => page.pageNumber === selectedPageNumber);
@@ -783,7 +837,8 @@ export function ResumeImportWizard(props: {
       if (current.schemaVersion !== "resume-import-v2") return current;
       const candidate = current.fieldCandidates.find((item) => item.id === candidateId);
       if (!candidate) return current;
-      return applyFieldCandidateToDraft(current, candidate, "reject");
+      const next = applyFieldCandidateToDraft(current, candidate, "reject");
+      return materialSources.length ? omitRejectedMaterialValues(next) : next;
     });
     setEditingCandidateId(undefined);
   }
@@ -869,6 +924,10 @@ export function ResumeImportWizard(props: {
   }
 
   async function updateSectionType(sectionId: string, sectionType: ImportedResumeSectionType) {
+    if (materialSources.length) {
+      await patchDraft((current) => reclassifyMaterialSection(current, sectionId, sectionType));
+      return;
+    }
     await patchDraft((current) => ({
       ...current,
       sections: current.sections.map((section) =>
@@ -917,6 +976,19 @@ export function ResumeImportWizard(props: {
       userEdited: text !== item.rawText.trim(),
       userConfirmed: text === item.rawText.trim() ? item.userConfirmed : false,
       confidence: text === item.rawText.trim() ? item.confidence : "medium"
+    });
+  }
+
+  async function editMaterialField(sectionId: string, item: ImportedResumeItem, key: string, value: string) {
+    if (!item.structuredItem) return;
+    const parsed = ResumeItemV2Schema.safeParse({ ...item.structuredItem, [key]: value.trim() || undefined });
+    if (!parsed.success) { setMessage("该字段不能为空或格式不正确，请核对后修改。"); return; }
+    await patchDraft((current) => {
+      const candidate = current.schemaVersion === "resume-import-v2" ? current.fieldCandidates.find((field) => field.itemId === item.id && field.targetFieldId.endsWith(`.${key}`) && field.reviewStatus !== "rejected") : undefined;
+      if (candidate) return applyFieldCandidateToDraft(current, candidate, { type: "edit", value: value.trim() });
+      return { ...current, sections: current.sections.map((section) => section.id !== sectionId ? section : { ...section,
+        items: section.items.map((entry) => entry.id !== item.id ? entry : { ...entry, structuredItem: parsed.data,
+          normalizedText: projectResumeItemV2(parsed.data), userEdited: true, userConfirmed: false, sourceStatus: "ambiguous" as const }) }) };
     });
   }
 
@@ -1052,8 +1124,10 @@ export function ResumeImportWizard(props: {
       return;
     }
     setStatus("confirming");
+    const confirmationAbort = new AbortController(); abortRef.current = confirmationAbort;
     try {
       const result = await props.repository.confirmImportedResume({
+        signal: confirmationAbort.signal,
         importId: draft.importId,
         expectedDraftRevision: draft.revision,
         operationId: `resume-import-confirm-${draft.importId}`,
@@ -1070,7 +1144,8 @@ export function ResumeImportWizard(props: {
       notify({ type: "success", title: "导入成功", message: result.branchId
         ? (result.idempotent ? "已打开现有通用简历。" : "已创建通用简历和首个版本。")
         : targetMode === "existing" ? "已更新人物资料，未创建新的通用简历。" : "已创建人物资料，未创建简历。" });
-      await props.onImported({ profileId: result.profileId, branchId: result.branchId });
+      try { await props.onImported({ profileId: result.profileId, profileVersion: result.profileVersion, branchId: result.branchId, importId: draft.importId }); }
+      catch { setMessage(`资料已保存到 ${result.profileId}（版本 ${result.profileVersion ?? "已确认"}），后续界面更新失败；可刷新回读，保存未回滚。`); }
     } catch (error) {
       setStatus("reviewing");
       const diagnostic = classifyImportConfirmError(error);
@@ -1213,32 +1288,33 @@ export function ResumeImportWizard(props: {
     >
       <p className="visually-hidden" role="status" aria-live="polite">{importStatusLabel(status)}。{message}</p>
       <input ref={fileInputRef} className="visually-hidden" type="file" name="resume-file" aria-label="选择要导入的简历文件" accept={RESUME_IMPORT_ACCEPT} onChange={handleFileChange} />
-      <fieldset className="import-target-picker">
+      <fieldset className="import-target-picker" disabled={Boolean(props.initialImportId && !restoredReviewId) || importBusy}>
         <legend>导入目标</legend>
+        {materialSources.length ? <label className="field-label">材料用途<input defaultValue={displayedMaterialPurpose} key={materialPurpose} onBlur={(event) => { if (event.target.value.trim() && event.target.value.trim() !== displayedMaterialPurpose) void changeMaterialTarget(targetMode, targetProfileId, event.target.value.trim()); }} /></label> : null}
         <div className="import-target-controls">
         <div className="import-target-options">
           <label className={targetMode === "existing" ? "import-target-option active" : "import-target-option"}>
-            <input type="radio" name="import-target" checked={targetMode === "existing"} disabled={(props.profiles ?? []).length === 0 && !props.profile} onChange={() => { setTargetMode("existing"); setBasicMergeActions((current) => ({ ...current, name: "keep_existing" })); }} />
+            <input type="radio" name="import-target" checked={targetMode === "existing"} disabled={(props.profiles ?? []).length === 0 && !props.profile} onChange={() => { void changeMaterialTarget("existing", targetProfileId || props.profile?.id || props.profiles?.[0]?.id || ""); setBasicMergeActions((current) => ({ ...current, name: "keep_existing" })); }} />
             导入到已有资料
           </label>
           <label className={targetMode === "new" ? "import-target-option active" : "import-target-option"}>
-            <input type="radio" name="import-target" checked={targetMode === "new"} onChange={() => { setTargetMode("new"); if (!newProfileName.trim() && draft?.basics.name?.value) setNewProfileName(draft.basics.name.value); }} />
+            <input type="radio" name="import-target" checked={targetMode === "new"} onChange={() => { void changeMaterialTarget("new", ""); if (!newProfileName.trim() && draft?.basics.name?.value) setNewProfileName(draft.basics.name.value); }} />
             创建新人物
           </label>
         </div>
         {targetMode === "existing" ? (
           <div className="import-existing-profile-fields">
             <label className="import-target-field">目标人物
-              <select name="import-target-profile" value={targetProfileId} onChange={(event) => setTargetProfileId(event.target.value)}>
+              <select name="import-target-profile" value={targetProfileId} onChange={(event) => { void changeMaterialTarget("existing", event.target.value); }}>
                 {(props.profiles?.length ? props.profiles : props.profile ? [props.profile] : []).map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
               </select>
             </label>
-            <label className="inline-toggle"><input name="import-create-general-resume" type="checkbox" checked={createGeneralResume} onChange={(event) => setCreateGeneralResume(event.target.checked)} />同时创建通用简历</label>
+            <label className="inline-toggle"><input name="import-create-general-resume" type="checkbox" disabled={materialSources.length > 0} checked={createGeneralResume} onChange={(event) => setCreateGeneralResume(event.target.checked)} />同时创建通用简历</label>
           </div>
         ) : (
           <div className="import-new-profile-fields">
             <label className="import-target-field">人物名称<input name="new-profile-name" autoComplete="off" value={newProfileName} onChange={(event) => setNewProfileName(event.target.value)} placeholder="将从导入姓名预填" /></label>
-            <label className="inline-toggle"><input name="import-create-general-resume" type="checkbox" checked={createGeneralResume} onChange={(event) => setCreateGeneralResume(event.target.checked)} />同时创建通用简历</label>
+            <label className="inline-toggle"><input name="import-create-general-resume" type="checkbox" disabled={materialSources.length > 0} checked={createGeneralResume} onChange={(event) => setCreateGeneralResume(event.target.checked)} />同时创建通用简历</label>
           </div>
         )}
         </div>
@@ -1479,6 +1555,7 @@ export function ResumeImportWizard(props: {
                       </dl> : null}
                       <div className="profile-reconciliation-actions">
                         <button type="button" onClick={() => { void resolveReconciliation(decision.incomingItemId, "keep_existing"); }}>保留原数据</button>
+                        {materialSources.length ? <button type="button" onClick={() => { void resolveReconciliation(decision.incomingItemId, "defer"); }}>稍后核对 / 补充材料</button> : null}
                         <button type="button" onClick={() => { void resolveReconciliation(decision.incomingItemId, "use_imported"); }}>采用本次</button>
                         <button type="button" onClick={() => { void resolveReconciliation(decision.incomingItemId, "keep_both_as_distinct"); }}>视为不同经历</button>
                         <label><span className="visually-hidden">编辑后的值</span><input type="text" value={reconciliationEdits[decision.incomingItemId] ?? ""} placeholder="编辑值" onChange={(event) => setReconciliationEdits((current) => ({ ...current, [decision.incomingItemId]: event.target.value }))} /></label>
@@ -1493,6 +1570,7 @@ export function ResumeImportWizard(props: {
         ) : null}
         <div className="import-review-grid">
           <aside className="import-source-panel">
+            {materialSources.map((source) => <MaterialSourceReview key={`${source.sessionId}:${source.attachmentId}`} artifact={source} repository={props.repository} blockIds={selectedCandidate?.sourceBlockIds ?? selectedItem?.sourceBlockIds} />)}
             <div className="section-heading compact-heading">
               <h3>字段来源</h3>
               <div className="action-row">
@@ -1633,7 +1711,8 @@ export function ResumeImportWizard(props: {
 
             {draft.sections.map((section) => (
               <article key={section.id} className="review-row">
-                <div className="section-heading compact-heading">
+                <div className={materialSources.length ? "material-review-section-heading" : "section-heading compact-heading"}
+                  style={materialSources.length ? { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, minHeight: 36 } : undefined}>
                   <label className="inline-toggle">
                     <input name={`import-section-${section.id}-included`} type="checkbox" checked={section.included} onChange={(event) => { void updateSectionIncluded(section.id, event.target.checked); }} />
                     {section.detectedTitle}
@@ -1673,6 +1752,7 @@ export function ResumeImportWizard(props: {
                     </button> : null}
                     {item.structuredItem ? <dl className="import-item-structured-fields">
                       {structuredItemFields(item.structuredItem).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
+                      {materialSources.length ? <div><dt>编辑候选 / 补充信息</dt><dd>{materialEditableFields(item.structuredItem).map(([key, label]) => <label className="field-label" key={key}>{label}<input aria-label={`材料候选${label}`} defaultValue={String((item.structuredItem as unknown as Record<string, unknown>)[key] ?? "")} onBlur={(event) => { if (event.target.value !== String((item.structuredItem as unknown as Record<string, unknown>)[key] ?? "")) void editMaterialField(section.id, item, key, event.target.value); }} /></label>)}<small>修改保留为用户编辑，请采用此条后再正式确认。</small></dd></div> : null}
                     </dl> : <>
                       <strong className="import-item-body-label">{structuredItemBodyLabel(section.sectionType)}</strong>
                       <textarea
@@ -1713,7 +1793,7 @@ export function ResumeImportWizard(props: {
             })}</section> : null}
           </div>
         </div>
-        <footer className="import-review-footer">
+        <footer className="import-review-footer" style={materialSources.length ? { height: "auto", minHeight: 54, margin: 0, padding: "8px 0" } : undefined}>
           <div><strong>{unsafeTextLayerBlocked ? "当前文本层不可安全提交" : `${importableItemCount} 条已选内容`}</strong><span>{pendingReviewCount > 0 ? `确认导入暂不可用：${importBlockReason({ fieldCandidateReviewCount, structureReviewCount, unreviewedUnclassifiedCount, structureConflictCount })} · ` : ""}{targetMode === "new" ? `创建新人物：${newProfileName || "待填写"}` : `导入到：${targetProfile?.name ?? "待选择"}`} · {message}</span></div>
           <div className="action-row"><button className="secondary-button" type="button" onClick={cancelImport} disabled={status === "confirming"}>取消</button><button type="button" className="primary-button" disabled={status === "confirming" || unsafeTextLayerBlocked || (createGeneralResume && importableItemCount === 0) || pendingReviewCount > 0 || (targetMode === "existing" && (reconciliationStatus !== "ready" || !activeReconciliationPlan || activeReconciliationPlan.summary.requiresReview > 0)) || (targetMode === "new" && !newProfileName.trim()) || (nameMismatch && basicMergeActions.name !== "keep_existing")} onClick={confirmImport}>确认导入</button></div>
         </footer>
@@ -2092,6 +2172,19 @@ function candidateContextLabel(candidate: ImportedResumeFieldCandidate, draft: I
   if (candidate.itemId === "basics") return "基本信息";
   const section = draft.sections.find((item) => item.id === candidate.sectionId);
   return [section?.detectedTitle, candidate.itemLabel].filter(Boolean).join(" · ") || "待确认条目";
+}
+
+function materialEditableFields(item: ResumeItemV2): Array<[string, string]> {
+  const identity: Record<string, Array<[string, string]>> = {
+    education: [["school", "学校"], ["degree", "学历"], ["major", "专业"]],
+    project: [["title", "项目名称"], ["organization", "组织"], ["role", "个人角色"]],
+    work: [["organization", "组织"], ["role", "职位"]], internship: [["organization", "组织"], ["role", "职位"]],
+    awards: [["name", "奖项名称"], ["issuer", "颁发方"], ["awardedAt", "获奖日期"]],
+    certificates: [["name", "证书名称"], ["issuer", "颁发方"], ["issuedAt", "颁发日期"], ["credentialId", "证书编号"]],
+    skills: [["name", "技能名称"], ["level", "技能等级"]], languages: [["language", "语言"], ["level", "语言水平"]]
+  };
+  return [...(identity[item.sectionType] ?? []), ...("startDate" in item ? [["startDate", "开始日期"], ["endDate", "结束日期"]] as Array<[string, string]> : []),
+    ...(item.sectionType === "summary" ? [["text", "内容"]] as Array<[string, string]> : [["description", "说明"]] as Array<[string, string]>)];
 }
 
 function structuredItemFields(item: ResumeItemV2): Array<[string, string]> {

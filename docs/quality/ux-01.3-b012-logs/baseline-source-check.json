@@ -1,0 +1,11 @@
+{
+  "baseline": "ecd5567ff7f4d510c1c67a025cd7a91ca217df57",
+  "matchedAfterLineEndingNormalization": 569,
+  "mismatches": [],
+  "missing": [],
+  "excludedGeneratedConfig": [
+    "next.config.ts",
+    "next-env.d.ts",
+    "tsconfig.json"
+  ]
+}

@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { nanoid } from "nanoid";
+import { ProfileMaterialSources } from "@/components/resume/import/ProfileMaterialSources";
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Award, BadgeCheck, BookOpen, Briefcase, Folder, FlaskConical, GraduationCap, Grid2X2, Heart, Languages, List, MessageCircle, MoreHorizontal, Search, School, ShieldCheck, UserRound, Wrench } from "lucide-react";
 import { invokeStageBAi } from "@/ai/client";
@@ -1984,6 +1985,7 @@ export function ProfileWorkspace() {
           </article>
 
           <article className="panel profile-detail-panel">
+            {profile && selectedProfileItem ? <ProfileMaterialSources key={`${profile.id}:${selectedProfileItem.id}`} profileId={profile.id} profileVersion={profile.version} itemId={selectedProfileItem.canonicalData?.id ?? selectedProfileItem.id} repository={repository} /> : null}
             <div className="section-heading compact-heading">
               <div>
                 <h2>详情</h2>

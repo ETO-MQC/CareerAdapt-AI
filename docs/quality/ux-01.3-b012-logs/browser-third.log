@@ -1,0 +1,46 @@
+
+Running 2 tests using 1 worker
+
+
+
+(node:30384) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1/2] [chromium] › tests\e2e\ux013-material-business.spec.ts:37:5 › A/C: edit, reject, restore review, confirm Profile-only and reverse-read sources
+  1) [chromium] › tests\e2e\ux013-material-business.spec.ts:37:5 › A/C: edit, reject, restore review, confirm Profile-only and reverse-read sources 
+
+    Error: locator.fill: Error: strict mode violation: getByRole('dialog', { name: '导入资料', exact: true }).getByLabel('材料候选颁发方', { exact: true }) resolved to 2 elements:
+        1) <input value="匿名颁发机构" aria-label="材料候选颁发方"/> aka getByRole('definition').filter({ hasText: '证书名称颁发方颁发日期证书编号说明修改保留为用户编辑，请采用此条后再正式确认。' }).getByLabel('材料候选颁发方')
+        2) <input value="" aria-label="材料候选颁发方"/> aka getByRole('definition').filter({ hasText: '奖项名称颁发方获奖日期说明修改保留为用户编辑，请采用此条后再正式确认。' }).getByLabel('材料候选颁发方')
+
+    Call log:
+      - waiting for getByRole('dialog', { name: '导入资料', exact: true }).getByLabel('材料候选颁发方', { exact: true })
+
+
+      41 |   await dialog.locator('input[name="new-profile-name"]').fill("B012匿名人物");
+      42 |   const issuer = dialog.getByLabel("材料候选颁发方", { exact: true });
+    > 43 |   await issuer.fill("本人核对后的机构"); await issuer.blur();
+         |                ^
+      44 |   await dialog.getByRole("button", { name: "采用此条", exact: true }).click();
+      45 |   const awardRow = dialog.locator("article.review-row").filter({ has: page.locator('select[aria-label="奖项栏目类型"]') });
+      46 |   await awardRow.locator('input[name$="-included"]').last().uncheck();
+        at E:\DEF\CareerAdapt-competition-5.1.8\tests\e2e\ux013-material-business.spec.ts:43:16
+
+    Error Context: docs\quality\ux-01.3-b012-logs\browser-third\ux013-material-business-A--dac8a-ly-and-reverse-read-sources-chromium\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    docs\quality\ux-01.3-b012-logs\browser-third\ux013-material-business-A--dac8a-ly-and-reverse-read-sources-chromium\trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace docs\quality\ux-01.3-b012-logs\browser-third\ux013-material-business-A--dac8a-ly-and-reverse-read-sources-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+
+(node:51168) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[2/2] [chromium] › tests\e2e\ux013-material-business.spec.ts:69:5 › D: changing target and purpose isolates review identity and makes no formal writes
+  1 failed
+    [chromium] › tests\e2e\ux013-material-business.spec.ts:37:5 › A/C: edit, reject, restore review, confirm Profile-only and reverse-read sources 
+  1 passed (7.0s)

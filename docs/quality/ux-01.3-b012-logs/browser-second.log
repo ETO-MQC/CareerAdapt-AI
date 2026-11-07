@@ -1,0 +1,76 @@
+
+Running 2 tests using 1 worker
+
+
+
+(node:86332) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1/2] [chromium] › tests\e2e\ux013-material-business.spec.ts:37:5 › A/C: edit, reject, restore review, confirm Profile-only and reverse-read sources
+  1) [chromium] › tests\e2e\ux013-material-business.spec.ts:37:5 › A/C: edit, reject, restore review, confirm Profile-only and reverse-read sources 
+
+    Test timeout of 45000ms exceeded.
+
+    Error: locator.selectOption: Test timeout of 45000ms exceeded.
+    Call log:
+      - waiting for getByRole('dialog', { name: '导入资料', exact: true }).getByLabel('识别方式', { exact: true })
+
+
+      18 | async function upload(page: Page, text: string) {
+      19 |   const dialog = await open(page);
+    > 20 |   await dialog.getByLabel("识别方式", { exact: true }).selectOption("local");
+         |                                                    ^
+      21 |   await dialog.getByLabel("选择职业材料").setInputFiles({ name: "匿名证书.json", mimeType: "application/json", buffer: Buffer.from(text) });
+      22 |   await expect(dialog.getByLabel("材料候选证书名称")).toHaveValue("匿名职业资格证书");
+      23 |   return dialog;
+        at upload (E:\DEF\CareerAdapt-competition-5.1.8\tests\e2e\ux013-material-business.spec.ts:20:52)
+        at E:\DEF\CareerAdapt-competition-5.1.8\tests\e2e\ux013-material-business.spec.ts:38:16
+
+    Error Context: docs\quality\ux-01.3-b012-logs\browser-second\ux013-material-business-A--dac8a-ly-and-reverse-read-sources-chromium\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    docs\quality\ux-01.3-b012-logs\browser-second\ux013-material-business-A--dac8a-ly-and-reverse-read-sources-chromium\trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace docs\quality\ux-01.3-b012-logs\browser-second\ux013-material-business-A--dac8a-ly-and-reverse-read-sources-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+(node:63936) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[2/2] [chromium] › tests\e2e\ux013-material-business.spec.ts:69:5 › D: changing target and purpose isolates review identity and makes no formal writes
+  2) [chromium] › tests\e2e\ux013-material-business.spec.ts:69:5 › D: changing target and purpose isolates review identity and makes no formal writes 
+
+    Test timeout of 45000ms exceeded.
+
+    Error: locator.selectOption: Test timeout of 45000ms exceeded.
+    Call log:
+      - waiting for getByRole('dialog', { name: '导入资料', exact: true }).getByLabel('识别方式', { exact: true })
+
+
+      18 | async function upload(page: Page, text: string) {
+      19 |   const dialog = await open(page);
+    > 20 |   await dialog.getByLabel("识别方式", { exact: true }).selectOption("local");
+         |                                                    ^
+      21 |   await dialog.getByLabel("选择职业材料").setInputFiles({ name: "匿名证书.json", mimeType: "application/json", buffer: Buffer.from(text) });
+      22 |   await expect(dialog.getByLabel("材料候选证书名称")).toHaveValue("匿名职业资格证书");
+      23 |   return dialog;
+        at upload (E:\DEF\CareerAdapt-competition-5.1.8\tests\e2e\ux013-material-business.spec.ts:20:52)
+        at E:\DEF\CareerAdapt-competition-5.1.8\tests\e2e\ux013-material-business.spec.ts:70:18
+
+    Error Context: docs\quality\ux-01.3-b012-logs\browser-second\ux013-material-business-D--5b2f6--and-makes-no-formal-writes-chromium\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    docs\quality\ux-01.3-b012-logs\browser-second\ux013-material-business-D--5b2f6--and-makes-no-formal-writes-chromium\trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace docs\quality\ux-01.3-b012-logs\browser-second\ux013-material-business-D--5b2f6--and-makes-no-formal-writes-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  2 failed
+    [chromium] › tests\e2e\ux013-material-business.spec.ts:37:5 › A/C: edit, reject, restore review, confirm Profile-only and reverse-read sources 
+    [chromium] › tests\e2e\ux013-material-business.spec.ts:69:5 › D: changing target and purpose isolates review identity and makes no formal writes 

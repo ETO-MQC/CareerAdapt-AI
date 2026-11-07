@@ -30,6 +30,7 @@ export class AgentAttachmentStore {
   }
 
   async register(file: File, options?: AgentAttachmentRegistrationOptions): Promise<AgentAttachmentRef> {
+    if (file.size === 0) throw Object.assign(new Error("附件为空，请选择有内容的文件。"), { code: "agent_attachment_empty" });
     if (file.size > 8 * 1024 * 1024) throw Object.assign(new Error("附件不能超过 8 MB。"), { code: "agent_attachment_too_large" });
     const hash = await hashBytes(new Uint8Array(await file.arrayBuffer()));
     const identityHash = options?.agentSessionId ? await hashBytes(new TextEncoder().encode(`${options.agentSessionId}:${hash}`)) : undefined;

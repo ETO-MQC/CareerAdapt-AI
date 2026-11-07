@@ -627,6 +627,7 @@ export const ImportMergeDecisionSchema = z.object({
 
 export const ImportedResumeBranchConfirmResultSchema = z.object({
   profileId: z.string().min(1),
+  profileVersion: z.number().int().positive().optional(),
   branchId: z.string().min(1),
   revisionId: z.string().min(1),
   presentationRevision: z.number().int().min(0),
@@ -635,6 +636,7 @@ export const ImportedResumeBranchConfirmResultSchema = z.object({
 
 export const ImportedResumeProfileOnlyConfirmResultSchema = z.object({
   profileId: z.string().min(1),
+  profileVersion: z.number().int().positive().optional(),
   branchId: z.undefined().optional(),
   revisionId: z.undefined().optional(),
   presentationRevision: z.undefined().optional(),

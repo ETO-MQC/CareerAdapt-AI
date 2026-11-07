@@ -27,6 +27,9 @@ export const MaterialIntakeArtifactSchema = z.object({
   classification: MaterialClassificationSchema.optional(),
   reviewState: z.enum(["extracted", "classified", "manual_review", "review_ready"]),
   importId: z.string().optional(),
+  targetProfileId: z.string().min(1).optional(),
+  newProfileIntentId: z.string().min(1).optional(),
+  purpose: z.string().min(1).max(120).optional(),
   warnings: z.array(z.string()),
   createdAt: z.string().datetime({ offset: true })
 }).strict();
@@ -36,8 +39,22 @@ export type MaterialClassification = z.infer<typeof MaterialClassificationSchema
 export const MaterialIntakeInputSchema = z.object({
   attachmentId: z.string().min(1),
   manualText: z.string().trim().min(1).max(200_000).optional(),
+  targetProfileId: z.string().min(1).optional(),
+  newProfileIntentId: z.string().min(1).optional(),
+  purpose: z.string().trim().min(1).max(120).default("profile_material"),
+  retryOcr: z.boolean().default(false),
   classification: MaterialClassificationSchema.optional(),
   destination: z.enum(["inspect", "profile"]).default("inspect")
+}).strict();
+
+export const MaterialReviewStateSchema = z.object({
+  importId: z.string().min(1),
+  targetMode: z.enum(["existing", "new"]),
+  targetProfileId: z.string(),
+  newProfileName: z.string(),
+  selectedPageNumber: z.number().int().positive(),
+  reviewedUnclassifiedKeys: z.array(z.string()),
+  basicMergeActions: z.record(z.string(), z.enum(["keep_existing", "use_imported", "keep_both"]))
 }).strict();
 
 export function validateMaterialClassification(artifact: MaterialIntakeArtifact, value: unknown) {

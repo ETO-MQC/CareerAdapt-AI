@@ -1,0 +1,64 @@
+
+> careeradapt-ai@0.9.3-rc.2 build E:\DEF\CareerAdapt-competition-5.1.8\.tmp\rp011-app\ux013-b012-source
+> next build
+
+▲ Next.js 16.2.9 (Turbopack)
+- Experiments (use with caution):
+  ⨯ turbopackFileSystemCacheForDev
+
+  Creating an optimized production build ...
+Turbopack build encountered 2 warnings:
+./ux013-b012-source/src/services/pdf
+Package pdfjs-dist can't be external
+The request pdfjs-dist/build/pdf.worker.mjs matches serverExternalPackages (or the default list).
+The package seems invalid. require() resolves to a EcmaScript module, which would result in an error in Node.js.
+
+
+./ux013-b012-source/src/services/resumeImport
+Package pdfjs-dist can't be external
+The request pdfjs-dist/build/pdf.worker.mjs matches serverExternalPackages (or the default list).
+The package seems invalid. require() resolves to a EcmaScript module, which would result in an error in Node.js.
+
+
+✓ Compiled successfully in 6.2s
+  Running TypeScript ...
+  Finished TypeScript in 18.8s ...
+  Collecting page data using 21 workers ...
+  Generating static pages using 21 workers (0/14) ...
+  Generating static pages using 21 workers (3/14) 
+  Generating static pages using 21 workers (6/14) 
+  Generating static pages using 21 workers (10/14) 
+✓ Generating static pages using 21 workers (14/14) in 704ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /ai-workspace
+├ ƒ /api/agent/mcp
+├ ƒ /api/agent/mcp/bridge
+├ ƒ /api/agent/runtime/hermes
+├ ƒ /api/agent/runtime/hermes/control
+├ ƒ /api/agent/runtime/hermes/health
+├ ƒ /api/agent/stream
+├ ƒ /api/agent/turn
+├ ƒ /api/ai/structured
+├ ƒ /api/ai/test
+├ ƒ /api/document-engines/download
+├ ƒ /api/document-engines/health
+├ ƒ /api/resume-export/pdf
+├ ƒ /api/resume-import/ocr
+├ ƒ /api/resume-import/opendataloader
+├ ƒ /api/resume-import/vision
+├ ƒ /applications
+├ ƒ /export/probe
+├ ƒ /jobs
+├ ƒ /profile
+├ ƒ /recycle
+├ ƒ /resume
+├ ƒ /settings
+└ ƒ /setup
+
+
+ƒ  (Dynamic)  server-rendered on demand
+

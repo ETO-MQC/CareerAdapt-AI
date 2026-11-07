@@ -20,6 +20,7 @@ import { createAgentToolRegistry } from "@/agent/tools/registry";
 import { AgentExecutor } from "@/agent/runtime/agentExecutor";
 import { AgentTaskStateSchema } from "@/agent/contracts/agentSession";
 import { CareerToolGateway } from "@/agent/tools/CareerToolGateway";
+import { analyzeJobDescriptionV4 } from "@/domain/jobOptimization";
 const pdf = vi.hoisted(() => vi.fn());
 vi.mock("@/services/pdf/extractText", () => ({ extractTextFromPdfBuffer: pdf }));
 
@@ -184,7 +185,7 @@ describe("P5.1.2 material source and attachment boundaries", () => {
       attachmentId: "attachment-exact", rawText: "岗位说明：这是用户额外粘贴的要求，需要熟悉领域设计。", persistence: "analyze_only"
     }, { agentSessionId: "session-a" }, "material-job", async (name, input) => {
       calls.push({ name, input });
-      return { ok: true, data: name === "career.material.prepare" ? { sourceText: "岗位职责：开发 TypeScript 系统，完成需求分析和测试。" } : {}, artifacts: [], receipt: { operationId: `call-${calls.length}`, toolName: name, status: "completed", completedAt: new Date().toISOString() } };
+      return { ok: true, data: name === "career.material.prepare" ? { sourceText: "岗位职责：开发 TypeScript 系统，完成需求分析和测试。" } : { graph: analyzeJobDescriptionV4({ rawText: "岗位职责：开发 TypeScript 系统，完成需求分析和测试。" }).graph }, artifacts: [], receipt: { operationId: `call-${calls.length}`, toolName: name, status: "completed", completedAt: new Date().toISOString() } };
     });
     expect(calls.map((call) => call.name)).toEqual(["career.material.prepare", "career.job.parse"]);
     expect(calls[1].input).toMatchObject({ rawText: expect.stringContaining("用户额外粘贴") });

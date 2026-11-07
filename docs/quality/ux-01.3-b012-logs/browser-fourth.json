@@ -1,0 +1,140 @@
+{
+  "config": {
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "E:\\DEF\\CareerAdapt-competition-5.1.8\\node_modules\\@playwright\\test\\cli.js",
+      "test",
+      "tests/e2e/ux013-material-business.spec.ts",
+      "--grep",
+      "A/C:",
+      "--workers=1",
+      "--reporter=line,json",
+      "--trace=on",
+      "--output=docs/quality/ux-01.3-b012-logs/browser-fourth"
+    ],
+    "configFile": "E:\\DEF\\CareerAdapt-competition-5.1.8\\playwright.config.ts",
+    "rootDir": "E:/DEF/CareerAdapt-competition-5.1.8/tests/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "E:/DEF/CareerAdapt-competition-5.1.8/docs/quality/ux-01.3-b012-logs/browser-fourth",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "E:/DEF/CareerAdapt-competition-5.1.8/tests/e2e",
+        "testIgnore": [
+          "**/hermes-config-r1.spec.ts",
+          "**/hermes-p46h-integration.spec.ts",
+          "**/hermes-career-agent-eval.spec.ts",
+          "**/hermes-career-agent-real-eval.spec.ts",
+          "**/p43c3-real-provider-import.spec.ts",
+          "**/p43c4-local-real-files.spec.ts",
+          "**/p43d-real-provider-tailoring.spec.ts",
+          "**/p43g-real-provider-workflows.spec.ts",
+          "**/p43h-authoritative-recovery.spec.ts",
+          "**/p44e-real-hermes-reproduction.spec.ts",
+          "**/p45c1-real-resume-artifacts.spec.ts"
+        ],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 45000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "line"
+      ],
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "ux013-material-business.spec.ts",
+      "file": "ux013-material-business.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "A/C: edit, reject, restore review, confirm Profile-only and reverse-read sources",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 10458,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T05:01:11.577Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "E:\\DEF\\CareerAdapt-competition-5.1.8\\docs\\quality\\ux-01.3-b012-logs\\browser-fourth\\ux013-material-business-A--dac8a-ly-and-reverse-read-sources-chromium\\trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "2c9cca9a471f70350e90-b2f2adabfcedf467d454",
+          "file": "ux013-material-business.spec.ts",
+          "line": 37,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-07T05:01:11.040Z",
+    "duration": 11944.814999999999,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

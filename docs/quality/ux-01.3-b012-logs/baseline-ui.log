@@ -1,0 +1,8 @@
+
+Running 1 test using 1 worker
+
+(node:85692) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 1 [chromium] › tests\e2e\p512-material-intake.spec.ts:9:5 › material center opens the shared review with Profile-only default (2.1s)
+
+  1 passed (7.0s)

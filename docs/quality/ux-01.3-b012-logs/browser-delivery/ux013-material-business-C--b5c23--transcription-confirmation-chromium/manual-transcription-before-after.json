@@ -1,0 +1,3765 @@
+{
+  "before": {
+    "profiles": [
+      {
+        "id": "profile-demo-student",
+        "createdAt": "2026-07-01T09:00:00.000Z",
+        "updatedAt": "2026-07-01T09:00:00.000Z",
+        "schemaVersion": "career-profile-v2",
+        "name": "同学",
+        "basics": {
+          "name": "同学",
+          "phone": "138****0000",
+          "email": "demo.student@example.com",
+          "location": "杭州",
+          "summary": "经济管理方向本科生，关注数据分析、AI应用和跨境业务流程。",
+          "links": []
+        },
+        "preference": {
+          "targetRoles": [
+            "数据分析实习",
+            "外贸/跨境运营实习"
+          ],
+          "targetCities": [
+            "杭州",
+            "上海"
+          ],
+          "industries": [
+            "互联网",
+            "跨境电商",
+            "咨询"
+          ]
+        },
+        "version": 1,
+        "experiences": [
+          {
+            "id": "exp-stat-modeling",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "type": "competition",
+            "organization": "统计建模竞赛项目",
+            "role": "数据分析成员",
+            "startDate": "2025-03",
+            "endDate": "2025-06",
+            "facts": [
+              {
+                "id": "fact-stat-stata",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "statement": "使用 Stata 清洗 31 个省级样本，并完成描述统计、相关分析与区域差异分析。",
+                "category": "experience",
+                "provenance": [
+                  {
+                    "sourceType": "demo",
+                    "sourceId": "demo-profile-source",
+                    "sourceText": "统计建模：使用Stata清洗31个省级样本，完成描述统计、相关分析与区域差异分析。",
+                    "confidence": 0.95,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-07-01T09:00:00.000Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-stat-default",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "targetRole": "数据分析实习",
+                "text": "奖项名称：数据分析成员\n颁发方：统计建模竞赛项目\n说明：使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。\n原始资料草稿：使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。\n原始标签：Stata；数据清洗；统计分析\n原始证据引用：evidence-stat-report",
+                "factIds": [
+                  "fact-stat-stata"
+                ]
+              }
+            ],
+            "tags": [
+              "Stata",
+              "数据清洗",
+              "统计分析"
+            ],
+            "evidenceIds": [
+              "evidence-stat-report"
+            ]
+          },
+          {
+            "id": "exp-ai-product",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "type": "project",
+            "organization": "AI 求职应用课程项目",
+            "role": "产品与验收协作",
+            "startDate": "2025-09",
+            "endDate": "2025-12",
+            "facts": [
+              {
+                "id": "fact-ai-product",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "statement": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                "category": "experience",
+                "provenance": [
+                  {
+                    "sourceType": "demo",
+                    "sourceId": "demo-profile-source",
+                    "sourceText": "AI应用项目：参与需求梳理、原型设计和功能验收。",
+                    "confidence": 0.95,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-07-01T09:00:00.000Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-ai-default",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "targetRole": "产品/运营实习",
+                "text": "项目名称：AI 求职应用课程项目\n角色：产品与验收协作\n开始日期：2025-09\n结束日期：2025-12\n说明：参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n原始资料草稿：参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。\n原始标签：需求梳理；原型设计；功能验收",
+                "factIds": [
+                  "fact-ai-product"
+                ]
+              }
+            ],
+            "tags": [
+              "需求梳理",
+              "原型设计",
+              "功能验收"
+            ],
+            "evidenceIds": []
+          },
+          {
+            "id": "exp-gov-internship",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "type": "internship",
+            "organization": "某政府部门",
+            "role": "综合事务实习生",
+            "startDate": "2025-07",
+            "endDate": "2025-08",
+            "facts": [
+              {
+                "id": "fact-gov-record",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "statement": "处理公文流转和热线记录，关注记录准确性与信息整理。",
+                "category": "experience",
+                "provenance": [
+                  {
+                    "sourceType": "demo",
+                    "sourceId": "demo-profile-source",
+                    "sourceText": "政府部门实习：处理公文流转和市长热线记录。",
+                    "confidence": 0.95,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-07-01T09:00:00.000Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-gov-default",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "targetRole": "综合运营实习",
+                "text": "组织：某政府部门\n职位/角色：综合事务实习生\n开始日期：2025-07\n结束日期：2025-08\n说明：协助处理公文流转与热线记录，保持信息记录准确、分类清晰。\n亮点：处理公文流转和热线记录，关注记录准确性与信息整理。\n原始资料草稿：协助处理公文流转与热线记录，保持信息记录准确、分类清晰。\n原始标签：信息整理；沟通记录",
+                "factIds": [
+                  "fact-gov-record"
+                ]
+              }
+            ],
+            "tags": [
+              "信息整理",
+              "沟通记录"
+            ],
+            "evidenceIds": []
+          },
+          {
+            "id": "exp-trade-learning",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "type": "other",
+            "organization": "外贸课程与语言学习",
+            "role": "学习者",
+            "startDate": "2024-09",
+            "endDate": "2026-06",
+            "facts": [
+              {
+                "id": "fact-cet4",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "statement": "CET-4 成绩 601，了解基础外贸业务流程。",
+                "category": "language",
+                "provenance": [
+                  {
+                    "sourceType": "demo",
+                    "sourceId": "demo-profile-source",
+                    "sourceText": "英语与外贸学习：CET-4 601，了解外贸业务流程。",
+                    "confidence": 0.95,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-07-01T09:00:00.000Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-trade-default",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "targetRole": "外贸/跨境运营实习",
+                "text": "标题：外贸课程与语言学习\n内容：CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。\n要点：CET-4 成绩 601，了解基础外贸业务流程。\n原始资料草稿：CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。\n原始标签：英语；外贸流程；信息整理",
+                "factIds": [
+                  "fact-cet4"
+                ]
+              }
+            ],
+            "tags": [
+              "英语",
+              "外贸流程",
+              "信息整理"
+            ],
+            "evidenceIds": []
+          }
+        ],
+        "skills": [
+          {
+            "id": "skill-stata",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "name": "Stata",
+            "level": "familiar",
+            "evidenceIds": [
+              "evidence-stat-report"
+            ],
+            "fact": {
+              "id": "fact-skill-stata",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "statement": "使用 Stata 完成数据清洗和统计分析。",
+              "category": "skill",
+              "provenance": [
+                {
+                  "sourceType": "demo",
+                  "sourceId": "demo-profile-source",
+                  "sourceText": "使用Stata清洗31个省级样本",
+                  "confidence": 0.95,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-07-01T09:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            },
+            "lastUsedAt": "2025-06"
+          },
+          {
+            "id": "skill-excel",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "name": "Excel",
+            "level": "familiar",
+            "evidenceIds": [],
+            "fact": {
+              "id": "fact-skill-excel",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "statement": "能使用 Excel 整理表格数据和基础分析结果。",
+              "category": "skill",
+              "provenance": [
+                {
+                  "sourceType": "demo",
+                  "sourceId": "demo-profile-source",
+                  "sourceText": "数据清洗、样本整理和分析交付物",
+                  "confidence": 0.95,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-07-01T09:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            },
+            "lastUsedAt": "2025-06"
+          }
+        ],
+        "certificates": [
+          {
+            "id": "cert-cet4",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "name": "CET-4",
+            "issuer": "全国大学英语四、六级考试委员会",
+            "issuedAt": "2024-12",
+            "evidenceIds": [],
+            "fact": {
+              "id": "fact-cert-cet4",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "statement": "CET-4 成绩 601。",
+              "category": "certificate",
+              "provenance": [
+                {
+                  "sourceType": "demo",
+                  "sourceId": "demo-profile-source",
+                  "sourceText": "CET-4 601",
+                  "confidence": 0.95,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-07-01T09:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            }
+          }
+        ],
+        "evidences": [
+          {
+            "id": "evidence-stat-report",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "type": "text",
+            "title": "统计建模项目说明",
+            "extractedText": "脱敏示例：使用 Stata 清洗 31 个省级样本并完成统计分析。",
+            "privacyLevel": "private",
+            "verifiedAt": "2026-07-01T09:00:00.000Z"
+          }
+        ],
+        "unclassifiedBlocks": [],
+        "structuredFacts": [
+          {
+            "data": {
+              "id": "exp-stat-modeling",
+              "customFields": [
+                {
+                  "id": "exp-stat-modeling:legacy-resume-drafts",
+                  "label": "原始资料草稿",
+                  "valueType": "text",
+                  "value": "使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。",
+                  "order": 0,
+                  "sensitive": false
+                },
+                {
+                  "id": "exp-stat-modeling:legacy-tags",
+                  "label": "原始标签",
+                  "valueType": "string_list",
+                  "value": [
+                    "Stata",
+                    "数据清洗",
+                    "统计分析"
+                  ],
+                  "order": 1,
+                  "sensitive": false
+                },
+                {
+                  "id": "exp-stat-modeling:legacy-evidence-ids",
+                  "label": "原始证据引用",
+                  "valueType": "string_list",
+                  "value": [
+                    "evidence-stat-report"
+                  ],
+                  "order": 2,
+                  "sensitive": false
+                }
+              ],
+              "sectionType": "awards",
+              "name": "数据分析成员",
+              "issuer": "统计建模竞赛项目",
+              "description": "使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。"
+            },
+            "factIds": [
+              "fact-stat-stata"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "使用 Stata 清洗 31 个省级样本，并完成描述统计、相关分析与区域差异分析。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "exp-ai-product",
+              "customFields": [
+                {
+                  "id": "exp-ai-product:legacy-resume-drafts",
+                  "label": "原始资料草稿",
+                  "valueType": "text",
+                  "value": "参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。",
+                  "order": 0,
+                  "sensitive": false
+                },
+                {
+                  "id": "exp-ai-product:legacy-tags",
+                  "label": "原始标签",
+                  "valueType": "string_list",
+                  "value": [
+                    "需求梳理",
+                    "原型设计",
+                    "功能验收"
+                  ],
+                  "order": 1,
+                  "sensitive": false
+                }
+              ],
+              "sectionType": "project",
+              "title": "AI 求职应用课程项目",
+              "role": "产品与验收协作",
+              "startDate": "2025-09",
+              "endDate": "2025-12",
+              "current": false,
+              "tools": [],
+              "description": "参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。",
+              "highlights": [
+                "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+              ],
+              "outcomes": []
+            },
+            "factIds": [
+              "fact-ai-product"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "exp-gov-internship",
+              "customFields": [
+                {
+                  "id": "exp-gov-internship:legacy-resume-drafts",
+                  "label": "原始资料草稿",
+                  "valueType": "text",
+                  "value": "协助处理公文流转与热线记录，保持信息记录准确、分类清晰。",
+                  "order": 0,
+                  "sensitive": false
+                },
+                {
+                  "id": "exp-gov-internship:legacy-tags",
+                  "label": "原始标签",
+                  "valueType": "string_list",
+                  "value": [
+                    "信息整理",
+                    "沟通记录"
+                  ],
+                  "order": 1,
+                  "sensitive": false
+                }
+              ],
+              "sectionType": "internship",
+              "organization": "某政府部门",
+              "role": "综合事务实习生",
+              "startDate": "2025-07",
+              "endDate": "2025-08",
+              "current": false,
+              "description": "协助处理公文流转与热线记录，保持信息记录准确、分类清晰。",
+              "highlights": [
+                "处理公文流转和热线记录，关注记录准确性与信息整理。"
+              ]
+            },
+            "factIds": [
+              "fact-gov-record"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "处理公文流转和热线记录，关注记录准确性与信息整理。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "exp-trade-learning",
+              "customFields": [
+                {
+                  "id": "exp-trade-learning:legacy-resume-drafts",
+                  "label": "原始资料草稿",
+                  "valueType": "text",
+                  "value": "CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。",
+                  "order": 0,
+                  "sensitive": false
+                },
+                {
+                  "id": "exp-trade-learning:legacy-tags",
+                  "label": "原始标签",
+                  "valueType": "string_list",
+                  "value": [
+                    "英语",
+                    "外贸流程",
+                    "信息整理"
+                  ],
+                  "order": 1,
+                  "sensitive": false
+                }
+              ],
+              "sectionType": "other",
+              "title": "外贸课程与语言学习",
+              "description": "CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。",
+              "highlights": [
+                "CET-4 成绩 601，了解基础外贸业务流程。"
+              ]
+            },
+            "factIds": [
+              "fact-cet4"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "CET-4 成绩 601，了解基础外贸业务流程。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "skill-stata",
+              "customFields": [],
+              "sectionType": "skills",
+              "name": "Stata",
+              "level": "familiar",
+              "description": "使用 Stata 完成数据清洗和统计分析。"
+            },
+            "factIds": [
+              "fact-skill-stata"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "skill-excel",
+              "customFields": [],
+              "sectionType": "skills",
+              "name": "Excel",
+              "level": "familiar",
+              "description": "能使用 Excel 整理表格数据和基础分析结果。"
+            },
+            "factIds": [
+              "fact-skill-excel"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "cert-cet4",
+              "customFields": [],
+              "sectionType": "certificates",
+              "name": "CET-4",
+              "issuer": "全国大学英语四、六级考试委员会",
+              "issuedAt": "2024-12"
+            },
+            "factIds": [
+              "fact-cert-cet4"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "mappingTrace": []
+          }
+        ],
+        "structuredBasics": {
+          "name": "同学",
+          "summary": "经济管理方向本科生，关注数据分析、AI应用和跨境业务流程。",
+          "phone": "138****0000",
+          "email": "demo.student@example.com",
+          "location": "杭州",
+          "portfolioLinks": [],
+          "otherLinks": [],
+          "customFields": []
+        },
+        "personId": "person-profile-demo-student",
+        "profileVersionNumber": 1,
+        "isCurrent": true,
+        "versionCreatedReason": "initial"
+      }
+    ],
+    "branches": [],
+    "revisions": [],
+    "meta": [
+      {
+        "key": "material-center:profile-demo-student",
+        "value": {
+          "sessionId": "material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506",
+          "attachmentId": "agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87",
+          "fileName": "sample-certificate.png"
+        },
+        "updatedAt": "2026-11-07T05:19:25.309Z"
+      },
+      {
+        "key": "material-intake:material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506:agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87",
+        "value": {
+          "schemaVersion": "career-material-intake-v1",
+          "attachmentId": "agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87",
+          "sessionId": "material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506",
+          "sourceId": "material-source:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+          "hash": "59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+          "fileName": "sample-certificate.png",
+          "mimeType": "image/png",
+          "sourceDocument": {
+            "schemaVersion": "resume-source-document-v2",
+            "sourceId": "material-source:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+            "sourceKind": "image",
+            "fileName": "sample-certificate.png",
+            "fileHash": "59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+            "pageCount": 1,
+            "blocks": [],
+            "quality": {
+              "sourceType": "image",
+              "textCoverage": 0,
+              "replacementCharacterRatio": 0,
+              "abnormalWhitespaceRatio": 0,
+              "lineFragmentationScore": 1,
+              "readingOrderConfidence": "low",
+              "layoutComplexity": "single_column",
+              "recommendedRoute": "ocr_ai",
+              "warnings": [],
+              "schemaVersion": "resume-import-quality-v2",
+              "classification": "image",
+              "recommendedPipeline": "ocr_local",
+              "pageCount": 1,
+              "coordinateCoverage": 0,
+              "hasUsableTextLayer": false,
+              "ocrRequiredPages": [
+                1
+              ],
+              "thresholds": {
+                "minimumTextCoverage": 0.45,
+                "maximumReplacementCharacterRatio": 0.015,
+                "maximumLineFragmentationScore": 0.88
+              }
+            }
+          },
+          "reviewState": "manual_review",
+          "warnings": [
+            "未配置 PADDLEOCR_VL_ENDPOINT；OCR 已明确降级为人工核对。"
+          ],
+          "createdAt": "2026-11-07T05:19:25.328Z"
+        },
+        "updatedAt": "2026-11-07T05:19:25.329Z"
+      }
+    ]
+  },
+  "failed": {
+    "profiles": [
+      {
+        "id": "profile-demo-student",
+        "createdAt": "2026-07-01T09:00:00.000Z",
+        "updatedAt": "2026-07-01T09:00:00.000Z",
+        "schemaVersion": "career-profile-v2",
+        "name": "同学",
+        "basics": {
+          "name": "同学",
+          "phone": "138****0000",
+          "email": "demo.student@example.com",
+          "location": "杭州",
+          "summary": "经济管理方向本科生，关注数据分析、AI应用和跨境业务流程。",
+          "links": []
+        },
+        "preference": {
+          "targetRoles": [
+            "数据分析实习",
+            "外贸/跨境运营实习"
+          ],
+          "targetCities": [
+            "杭州",
+            "上海"
+          ],
+          "industries": [
+            "互联网",
+            "跨境电商",
+            "咨询"
+          ]
+        },
+        "version": 1,
+        "experiences": [
+          {
+            "id": "exp-stat-modeling",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "type": "competition",
+            "organization": "统计建模竞赛项目",
+            "role": "数据分析成员",
+            "startDate": "2025-03",
+            "endDate": "2025-06",
+            "facts": [
+              {
+                "id": "fact-stat-stata",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "statement": "使用 Stata 清洗 31 个省级样本，并完成描述统计、相关分析与区域差异分析。",
+                "category": "experience",
+                "provenance": [
+                  {
+                    "sourceType": "demo",
+                    "sourceId": "demo-profile-source",
+                    "sourceText": "统计建模：使用Stata清洗31个省级样本，完成描述统计、相关分析与区域差异分析。",
+                    "confidence": 0.95,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-07-01T09:00:00.000Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-stat-default",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "targetRole": "数据分析实习",
+                "text": "奖项名称：数据分析成员\n颁发方：统计建模竞赛项目\n说明：使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。\n原始资料草稿：使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。\n原始标签：Stata；数据清洗；统计分析\n原始证据引用：evidence-stat-report",
+                "factIds": [
+                  "fact-stat-stata"
+                ]
+              }
+            ],
+            "tags": [
+              "Stata",
+              "数据清洗",
+              "统计分析"
+            ],
+            "evidenceIds": [
+              "evidence-stat-report"
+            ]
+          },
+          {
+            "id": "exp-ai-product",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "type": "project",
+            "organization": "AI 求职应用课程项目",
+            "role": "产品与验收协作",
+            "startDate": "2025-09",
+            "endDate": "2025-12",
+            "facts": [
+              {
+                "id": "fact-ai-product",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "statement": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                "category": "experience",
+                "provenance": [
+                  {
+                    "sourceType": "demo",
+                    "sourceId": "demo-profile-source",
+                    "sourceText": "AI应用项目：参与需求梳理、原型设计和功能验收。",
+                    "confidence": 0.95,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-07-01T09:00:00.000Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-ai-default",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "targetRole": "产品/运营实习",
+                "text": "项目名称：AI 求职应用课程项目\n角色：产品与验收协作\n开始日期：2025-09\n结束日期：2025-12\n说明：参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n原始资料草稿：参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。\n原始标签：需求梳理；原型设计；功能验收",
+                "factIds": [
+                  "fact-ai-product"
+                ]
+              }
+            ],
+            "tags": [
+              "需求梳理",
+              "原型设计",
+              "功能验收"
+            ],
+            "evidenceIds": []
+          },
+          {
+            "id": "exp-gov-internship",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "type": "internship",
+            "organization": "某政府部门",
+            "role": "综合事务实习生",
+            "startDate": "2025-07",
+            "endDate": "2025-08",
+            "facts": [
+              {
+                "id": "fact-gov-record",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "statement": "处理公文流转和热线记录，关注记录准确性与信息整理。",
+                "category": "experience",
+                "provenance": [
+                  {
+                    "sourceType": "demo",
+                    "sourceId": "demo-profile-source",
+                    "sourceText": "政府部门实习：处理公文流转和市长热线记录。",
+                    "confidence": 0.95,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-07-01T09:00:00.000Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-gov-default",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "targetRole": "综合运营实习",
+                "text": "组织：某政府部门\n职位/角色：综合事务实习生\n开始日期：2025-07\n结束日期：2025-08\n说明：协助处理公文流转与热线记录，保持信息记录准确、分类清晰。\n亮点：处理公文流转和热线记录，关注记录准确性与信息整理。\n原始资料草稿：协助处理公文流转与热线记录，保持信息记录准确、分类清晰。\n原始标签：信息整理；沟通记录",
+                "factIds": [
+                  "fact-gov-record"
+                ]
+              }
+            ],
+            "tags": [
+              "信息整理",
+              "沟通记录"
+            ],
+            "evidenceIds": []
+          },
+          {
+            "id": "exp-trade-learning",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "type": "other",
+            "organization": "外贸课程与语言学习",
+            "role": "学习者",
+            "startDate": "2024-09",
+            "endDate": "2026-06",
+            "facts": [
+              {
+                "id": "fact-cet4",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "statement": "CET-4 成绩 601，了解基础外贸业务流程。",
+                "category": "language",
+                "provenance": [
+                  {
+                    "sourceType": "demo",
+                    "sourceId": "demo-profile-source",
+                    "sourceText": "英语与外贸学习：CET-4 601，了解外贸业务流程。",
+                    "confidence": 0.95,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-07-01T09:00:00.000Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-trade-default",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "targetRole": "外贸/跨境运营实习",
+                "text": "标题：外贸课程与语言学习\n内容：CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。\n要点：CET-4 成绩 601，了解基础外贸业务流程。\n原始资料草稿：CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。\n原始标签：英语；外贸流程；信息整理",
+                "factIds": [
+                  "fact-cet4"
+                ]
+              }
+            ],
+            "tags": [
+              "英语",
+              "外贸流程",
+              "信息整理"
+            ],
+            "evidenceIds": []
+          }
+        ],
+        "skills": [
+          {
+            "id": "skill-stata",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "name": "Stata",
+            "level": "familiar",
+            "evidenceIds": [
+              "evidence-stat-report"
+            ],
+            "fact": {
+              "id": "fact-skill-stata",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "statement": "使用 Stata 完成数据清洗和统计分析。",
+              "category": "skill",
+              "provenance": [
+                {
+                  "sourceType": "demo",
+                  "sourceId": "demo-profile-source",
+                  "sourceText": "使用Stata清洗31个省级样本",
+                  "confidence": 0.95,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-07-01T09:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            },
+            "lastUsedAt": "2025-06"
+          },
+          {
+            "id": "skill-excel",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "name": "Excel",
+            "level": "familiar",
+            "evidenceIds": [],
+            "fact": {
+              "id": "fact-skill-excel",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "statement": "能使用 Excel 整理表格数据和基础分析结果。",
+              "category": "skill",
+              "provenance": [
+                {
+                  "sourceType": "demo",
+                  "sourceId": "demo-profile-source",
+                  "sourceText": "数据清洗、样本整理和分析交付物",
+                  "confidence": 0.95,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-07-01T09:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            },
+            "lastUsedAt": "2025-06"
+          }
+        ],
+        "certificates": [
+          {
+            "id": "cert-cet4",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "name": "CET-4",
+            "issuer": "全国大学英语四、六级考试委员会",
+            "issuedAt": "2024-12",
+            "evidenceIds": [],
+            "fact": {
+              "id": "fact-cert-cet4",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "statement": "CET-4 成绩 601。",
+              "category": "certificate",
+              "provenance": [
+                {
+                  "sourceType": "demo",
+                  "sourceId": "demo-profile-source",
+                  "sourceText": "CET-4 601",
+                  "confidence": 0.95,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-07-01T09:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            }
+          }
+        ],
+        "evidences": [
+          {
+            "id": "evidence-stat-report",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "type": "text",
+            "title": "统计建模项目说明",
+            "extractedText": "脱敏示例：使用 Stata 清洗 31 个省级样本并完成统计分析。",
+            "privacyLevel": "private",
+            "verifiedAt": "2026-07-01T09:00:00.000Z"
+          }
+        ],
+        "unclassifiedBlocks": [],
+        "structuredFacts": [
+          {
+            "data": {
+              "id": "exp-stat-modeling",
+              "customFields": [
+                {
+                  "id": "exp-stat-modeling:legacy-resume-drafts",
+                  "label": "原始资料草稿",
+                  "valueType": "text",
+                  "value": "使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。",
+                  "order": 0,
+                  "sensitive": false
+                },
+                {
+                  "id": "exp-stat-modeling:legacy-tags",
+                  "label": "原始标签",
+                  "valueType": "string_list",
+                  "value": [
+                    "Stata",
+                    "数据清洗",
+                    "统计分析"
+                  ],
+                  "order": 1,
+                  "sensitive": false
+                },
+                {
+                  "id": "exp-stat-modeling:legacy-evidence-ids",
+                  "label": "原始证据引用",
+                  "valueType": "string_list",
+                  "value": [
+                    "evidence-stat-report"
+                  ],
+                  "order": 2,
+                  "sensitive": false
+                }
+              ],
+              "sectionType": "awards",
+              "name": "数据分析成员",
+              "issuer": "统计建模竞赛项目",
+              "description": "使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。"
+            },
+            "factIds": [
+              "fact-stat-stata"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "使用 Stata 清洗 31 个省级样本，并完成描述统计、相关分析与区域差异分析。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "exp-ai-product",
+              "customFields": [
+                {
+                  "id": "exp-ai-product:legacy-resume-drafts",
+                  "label": "原始资料草稿",
+                  "valueType": "text",
+                  "value": "参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。",
+                  "order": 0,
+                  "sensitive": false
+                },
+                {
+                  "id": "exp-ai-product:legacy-tags",
+                  "label": "原始标签",
+                  "valueType": "string_list",
+                  "value": [
+                    "需求梳理",
+                    "原型设计",
+                    "功能验收"
+                  ],
+                  "order": 1,
+                  "sensitive": false
+                }
+              ],
+              "sectionType": "project",
+              "title": "AI 求职应用课程项目",
+              "role": "产品与验收协作",
+              "startDate": "2025-09",
+              "endDate": "2025-12",
+              "current": false,
+              "tools": [],
+              "description": "参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。",
+              "highlights": [
+                "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+              ],
+              "outcomes": []
+            },
+            "factIds": [
+              "fact-ai-product"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "exp-gov-internship",
+              "customFields": [
+                {
+                  "id": "exp-gov-internship:legacy-resume-drafts",
+                  "label": "原始资料草稿",
+                  "valueType": "text",
+                  "value": "协助处理公文流转与热线记录，保持信息记录准确、分类清晰。",
+                  "order": 0,
+                  "sensitive": false
+                },
+                {
+                  "id": "exp-gov-internship:legacy-tags",
+                  "label": "原始标签",
+                  "valueType": "string_list",
+                  "value": [
+                    "信息整理",
+                    "沟通记录"
+                  ],
+                  "order": 1,
+                  "sensitive": false
+                }
+              ],
+              "sectionType": "internship",
+              "organization": "某政府部门",
+              "role": "综合事务实习生",
+              "startDate": "2025-07",
+              "endDate": "2025-08",
+              "current": false,
+              "description": "协助处理公文流转与热线记录，保持信息记录准确、分类清晰。",
+              "highlights": [
+                "处理公文流转和热线记录，关注记录准确性与信息整理。"
+              ]
+            },
+            "factIds": [
+              "fact-gov-record"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "处理公文流转和热线记录，关注记录准确性与信息整理。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "exp-trade-learning",
+              "customFields": [
+                {
+                  "id": "exp-trade-learning:legacy-resume-drafts",
+                  "label": "原始资料草稿",
+                  "valueType": "text",
+                  "value": "CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。",
+                  "order": 0,
+                  "sensitive": false
+                },
+                {
+                  "id": "exp-trade-learning:legacy-tags",
+                  "label": "原始标签",
+                  "valueType": "string_list",
+                  "value": [
+                    "英语",
+                    "外贸流程",
+                    "信息整理"
+                  ],
+                  "order": 1,
+                  "sensitive": false
+                }
+              ],
+              "sectionType": "other",
+              "title": "外贸课程与语言学习",
+              "description": "CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。",
+              "highlights": [
+                "CET-4 成绩 601，了解基础外贸业务流程。"
+              ]
+            },
+            "factIds": [
+              "fact-cet4"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "CET-4 成绩 601，了解基础外贸业务流程。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "skill-stata",
+              "customFields": [],
+              "sectionType": "skills",
+              "name": "Stata",
+              "level": "familiar",
+              "description": "使用 Stata 完成数据清洗和统计分析。"
+            },
+            "factIds": [
+              "fact-skill-stata"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "skill-excel",
+              "customFields": [],
+              "sectionType": "skills",
+              "name": "Excel",
+              "level": "familiar",
+              "description": "能使用 Excel 整理表格数据和基础分析结果。"
+            },
+            "factIds": [
+              "fact-skill-excel"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "cert-cet4",
+              "customFields": [],
+              "sectionType": "certificates",
+              "name": "CET-4",
+              "issuer": "全国大学英语四、六级考试委员会",
+              "issuedAt": "2024-12"
+            },
+            "factIds": [
+              "fact-cert-cet4"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "mappingTrace": []
+          }
+        ],
+        "structuredBasics": {
+          "name": "同学",
+          "summary": "经济管理方向本科生，关注数据分析、AI应用和跨境业务流程。",
+          "phone": "138****0000",
+          "email": "demo.student@example.com",
+          "location": "杭州",
+          "portfolioLinks": [],
+          "otherLinks": [],
+          "customFields": []
+        },
+        "personId": "person-profile-demo-student",
+        "profileVersionNumber": 1,
+        "isCurrent": true,
+        "versionCreatedReason": "initial"
+      }
+    ],
+    "branches": [],
+    "revisions": [],
+    "meta": [
+      {
+        "key": "importedResumeDraft:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1",
+        "value": {
+          "id": "resume-import-MoJ9qQda5W",
+          "createdAt": "2026-11-07T05:19:25.582Z",
+          "updatedAt": "2026-11-07T05:19:26.031Z",
+          "importId": "material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1",
+          "revision": 3,
+          "status": "reviewing",
+          "source": {
+            "fileName": "sample-certificate.png",
+            "mimeType": "text/plain",
+            "fileHash": "59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+            "normalizedTextHash": "b8f83c8be632ffdc5ae3a12d0382e91af5976d2a7a16eb2db2f00fa3b84e7ce8",
+            "pageCount": 1,
+            "extractedAt": "2026-11-07T05:19:25.582Z"
+          },
+          "sourceKind": "text",
+          "basics": {
+            "links": []
+          },
+          "sections": [
+            {
+              "id": "material-group-0",
+              "sectionType": "certificates",
+              "detectedTitle": "待分类材料 1",
+              "included": true,
+              "order": 0,
+              "confidence": "low",
+              "items": [
+                {
+                  "id": "material-item-0",
+                  "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                  "normalizedText": "证书名称：SAMPLE CERTIFICATE\n说明：证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                  "included": true,
+                  "order": 0,
+                  "pageRefs": [
+                    {
+                      "pageNumber": 1,
+                      "quote": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER"
+                    }
+                  ],
+                  "confidence": "low",
+                  "sourceStatus": "user_confirmed_modified",
+                  "userEdited": false,
+                  "userConfirmed": true,
+                  "sourceBlockIds": [
+                    "text:block:0"
+                  ],
+                  "structuredItem": {
+                    "id": "material-item-0",
+                    "customFields": [],
+                    "sectionType": "certificates",
+                    "name": "SAMPLE CERTIFICATE",
+                    "description": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER"
+                  },
+                  "structuredMappingTrace": []
+                }
+              ]
+            }
+          ],
+          "pages": [
+            {
+              "pageNumber": 1,
+              "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "charStart": 0,
+              "charEnd": 38
+            }
+          ],
+          "unclassifiedBlocks": [],
+          "warnings": [],
+          "parserVersion": "resume-import.pipeline.v2.resume-import.local-rules.v2+resume-import.cleaner.v1",
+          "schemaVersion": "resume-import-v2",
+          "sourceBlocks": [
+            {
+              "id": "text:block:0",
+              "sourcePath": "text#line[1]",
+              "text": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "blockType": "paragraph",
+              "sourceEngine": "manual_transcription",
+              "sourceEngineVersion": "resume-import.text.v1",
+              "extractionConfidence": 0,
+              "sourceKind": "text",
+              "order": 0,
+              "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "normalizationActions": []
+            }
+          ],
+          "qualityReport": {
+            "sourceType": "text",
+            "textCoverage": 1,
+            "replacementCharacterRatio": 0,
+            "abnormalWhitespaceRatio": 0,
+            "lineFragmentationScore": 0.3333333333333333,
+            "readingOrderConfidence": "medium",
+            "layoutComplexity": "unknown",
+            "recommendedRoute": "deterministic",
+            "warnings": [],
+            "schemaVersion": "resume-import-quality-v2",
+            "classification": "text",
+            "recommendedPipeline": "text_structure",
+            "pageCount": 1,
+            "coordinateCoverage": 0,
+            "hasUsableTextLayer": true,
+            "ocrRequiredPages": [],
+            "thresholds": {
+              "minimumTextCoverage": 0.45,
+              "maximumReplacementCharacterRatio": 0.015,
+              "maximumLineFragmentationScore": 0.88
+            }
+          },
+          "mappingDecisions": [],
+          "fieldCandidates": []
+        },
+        "updatedAt": "2026-11-07T05:19:26.031Z"
+      },
+      {
+        "key": "importedResumeDraft:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76",
+        "value": {
+          "id": "resume-import-MoJ9qQda5W",
+          "createdAt": "2026-11-07T05:19:25.582Z",
+          "updatedAt": "2026-11-07T05:19:25.598Z",
+          "importId": "material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76",
+          "revision": 0,
+          "status": "reviewing",
+          "source": {
+            "fileName": "sample-certificate.png",
+            "mimeType": "text/plain",
+            "fileHash": "59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+            "normalizedTextHash": "b8f83c8be632ffdc5ae3a12d0382e91af5976d2a7a16eb2db2f00fa3b84e7ce8",
+            "pageCount": 1,
+            "extractedAt": "2026-11-07T05:19:25.582Z"
+          },
+          "sourceKind": "text",
+          "basics": {
+            "links": []
+          },
+          "sections": [
+            {
+              "id": "material-group-0",
+              "sectionType": "unknown",
+              "detectedTitle": "待分类材料 1",
+              "included": false,
+              "order": 0,
+              "confidence": "low",
+              "items": [
+                {
+                  "id": "material-item-0",
+                  "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                  "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                  "included": false,
+                  "order": 0,
+                  "pageRefs": [
+                    {
+                      "pageNumber": 1,
+                      "quote": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER"
+                    }
+                  ],
+                  "confidence": "low",
+                  "sourceStatus": "ambiguous",
+                  "userEdited": false,
+                  "userConfirmed": false,
+                  "sourceBlockIds": [
+                    "text:block:0"
+                  ],
+                  "structuredItem": {
+                    "id": "material-item-0",
+                    "customFields": [],
+                    "sectionType": "other",
+                    "title": "证书",
+                    "description": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                    "highlights": []
+                  },
+                  "structuredMappingTrace": []
+                }
+              ]
+            }
+          ],
+          "pages": [
+            {
+              "pageNumber": 1,
+              "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "charStart": 0,
+              "charEnd": 38
+            }
+          ],
+          "unclassifiedBlocks": [],
+          "warnings": [],
+          "parserVersion": "resume-import.pipeline.v2.resume-import.local-rules.v2+resume-import.cleaner.v1",
+          "schemaVersion": "resume-import-v2",
+          "sourceBlocks": [
+            {
+              "id": "text:block:0",
+              "sourcePath": "text#line[1]",
+              "text": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "blockType": "paragraph",
+              "sourceEngine": "manual_transcription",
+              "sourceEngineVersion": "resume-import.text.v1",
+              "extractionConfidence": 0,
+              "sourceKind": "text",
+              "order": 0,
+              "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "normalizationActions": []
+            }
+          ],
+          "qualityReport": {
+            "sourceType": "text",
+            "textCoverage": 1,
+            "replacementCharacterRatio": 0,
+            "abnormalWhitespaceRatio": 0,
+            "lineFragmentationScore": 0.3333333333333333,
+            "readingOrderConfidence": "medium",
+            "layoutComplexity": "unknown",
+            "recommendedRoute": "deterministic",
+            "warnings": [],
+            "schemaVersion": "resume-import-quality-v2",
+            "classification": "text",
+            "recommendedPipeline": "text_structure",
+            "pageCount": 1,
+            "coordinateCoverage": 0,
+            "hasUsableTextLayer": true,
+            "ocrRequiredPages": [],
+            "thresholds": {
+              "minimumTextCoverage": 0.45,
+              "maximumReplacementCharacterRatio": 0.015,
+              "maximumLineFragmentationScore": 0.88
+            }
+          },
+          "mappingDecisions": [],
+          "fieldCandidates": []
+        },
+        "updatedAt": "2026-11-07T05:19:25.598Z"
+      },
+      {
+        "key": "material-center:profile-demo-student",
+        "value": {
+          "sessionId": "material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506",
+          "attachmentId": "agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87",
+          "fileName": "sample-certificate.png"
+        },
+        "updatedAt": "2026-11-07T05:19:25.309Z"
+      },
+      {
+        "key": "material-intake:material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506:agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87",
+        "value": {
+          "schemaVersion": "career-material-intake-v1",
+          "attachmentId": "agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87",
+          "sessionId": "material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506",
+          "sourceId": "material-source:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+          "hash": "59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+          "fileName": "sample-certificate.png",
+          "mimeType": "image/png",
+          "sourceDocument": {
+            "schemaVersion": "resume-source-document-v2",
+            "sourceId": "material-source:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+            "sourceKind": "text",
+            "fileName": "sample-certificate.png",
+            "fileHash": "59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+            "pageCount": 1,
+            "blocks": [
+              {
+                "id": "text:block:0",
+                "sourcePath": "text#line[1]",
+                "text": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "blockType": "paragraph",
+                "sourceEngine": "manual_transcription",
+                "sourceEngineVersion": "resume-import.text.v1",
+                "extractionConfidence": 0,
+                "sourceKind": "text",
+                "order": 0,
+                "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "normalizationActions": []
+              }
+            ],
+            "quality": {
+              "sourceType": "text",
+              "textCoverage": 1,
+              "replacementCharacterRatio": 0,
+              "abnormalWhitespaceRatio": 0,
+              "lineFragmentationScore": 0.3333333333333333,
+              "readingOrderConfidence": "medium",
+              "layoutComplexity": "unknown",
+              "recommendedRoute": "deterministic",
+              "warnings": [],
+              "schemaVersion": "resume-import-quality-v2",
+              "classification": "text",
+              "recommendedPipeline": "text_structure",
+              "pageCount": 1,
+              "coordinateCoverage": 0,
+              "hasUsableTextLayer": true,
+              "ocrRequiredPages": [],
+              "thresholds": {
+                "minimumTextCoverage": 0.45,
+                "maximumReplacementCharacterRatio": 0.015,
+                "maximumLineFragmentationScore": 0.88
+              }
+            }
+          },
+          "reviewState": "review_ready",
+          "importId": "material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1",
+          "newProfileIntentId": "c7a9dba1-077f-4bb7-b141-55d220d254f1",
+          "purpose": "profile_material",
+          "warnings": [
+            "来源文字为待核对转写，尚未与原件核验。"
+          ],
+          "createdAt": "2026-11-07T05:19:25.590Z"
+        },
+        "updatedAt": "2026-11-07T05:19:25.848Z"
+      },
+      {
+        "key": "material-recognition:material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506:agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87",
+        "value": {
+          "schemaVersion": "resume-source-document-v2",
+          "sourceId": "material-source:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+          "sourceKind": "image",
+          "fileName": "sample-certificate.png",
+          "fileHash": "59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+          "pageCount": 1,
+          "blocks": [],
+          "quality": {
+            "sourceType": "image",
+            "textCoverage": 0,
+            "replacementCharacterRatio": 0,
+            "abnormalWhitespaceRatio": 0,
+            "lineFragmentationScore": 1,
+            "readingOrderConfidence": "low",
+            "layoutComplexity": "single_column",
+            "recommendedRoute": "ocr_ai",
+            "warnings": [],
+            "schemaVersion": "resume-import-quality-v2",
+            "classification": "image",
+            "recommendedPipeline": "ocr_local",
+            "pageCount": 1,
+            "coordinateCoverage": 0,
+            "hasUsableTextLayer": false,
+            "ocrRequiredPages": [
+              1
+            ],
+            "thresholds": {
+              "minimumTextCoverage": 0.45,
+              "maximumReplacementCharacterRatio": 0.015,
+              "maximumLineFragmentationScore": 0.88
+            }
+          }
+        },
+        "updatedAt": "2026-11-07T05:19:25.589Z"
+      },
+      {
+        "key": "material-review:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1",
+        "value": {
+          "importId": "material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1",
+          "targetMode": "new",
+          "targetProfileId": "",
+          "newProfileName": "B012人工转写人物",
+          "selectedPageNumber": 1,
+          "reviewedUnclassifiedKeys": [],
+          "basicMergeActions": {}
+        },
+        "updatedAt": "2026-11-07T05:19:26.036Z"
+      },
+      {
+        "key": "material-review:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76",
+        "value": {
+          "importId": "material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76",
+          "targetMode": "existing",
+          "targetProfileId": "profile-demo-student",
+          "newProfileName": "",
+          "selectedPageNumber": 1,
+          "reviewedUnclassifiedKeys": [],
+          "basicMergeActions": {}
+        },
+        "updatedAt": "2026-11-07T05:19:25.714Z"
+      },
+      {
+        "key": "material-source-draft:material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506:agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87",
+        "value": {
+          "id": "resume-import-MoJ9qQda5W",
+          "createdAt": "2026-11-07T05:19:25.582Z",
+          "updatedAt": "2026-11-07T05:19:25.582Z",
+          "importId": "resume-import-MoJ9qQda5W",
+          "revision": 0,
+          "status": "reviewing",
+          "source": {
+            "fileName": "manual-transcription.txt",
+            "mimeType": "text/plain",
+            "fileHash": "b8f83c8be632ffdc5ae3a12d0382e91af5976d2a7a16eb2db2f00fa3b84e7ce8",
+            "normalizedTextHash": "b8f83c8be632ffdc5ae3a12d0382e91af5976d2a7a16eb2db2f00fa3b84e7ce8",
+            "pageCount": 1,
+            "extractedAt": "2026-11-07T05:19:25.582Z"
+          },
+          "sourceKind": "text",
+          "basics": {
+            "name": {
+              "value": "证书",
+              "pageRefs": [
+                {
+                  "pageNumber": 1,
+                  "quote": "证书"
+                }
+              ],
+              "confidence": "high",
+              "sourceStatus": "located",
+              "userEdited": false,
+              "sourceBlockIds": [
+                "text:block:0"
+              ],
+              "sourceRanges": [
+                {
+                  "blockId": "text:block:0",
+                  "start": 0,
+                  "end": 2
+                }
+              ],
+              "sourceQuote": "证书"
+            },
+            "additionalFields": [],
+            "links": []
+          },
+          "sections": [],
+          "pages": [
+            {
+              "pageNumber": 1,
+              "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "charStart": 0,
+              "charEnd": 38
+            }
+          ],
+          "unclassifiedBlocks": [
+            {
+              "sourceBlockId": "text:block:0",
+              "sourceRange": {
+                "blockId": "text:block:0",
+                "start": 2,
+                "end": 38
+              },
+              "text": "SAMPLE CERTIFICATE ANONYMOUS ISSUER",
+              "reason": "未映射文本区间"
+            }
+          ],
+          "warnings": [],
+          "parserVersion": "resume-import.pipeline.v2.resume-import.local-rules.v2+resume-import.cleaner.v1",
+          "schemaVersion": "resume-import-v2",
+          "sourceBlocks": [
+            {
+              "id": "text:block:0",
+              "sourcePath": "text#line[1]",
+              "text": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "blockType": "paragraph",
+              "sourceEngine": "manual_transcription",
+              "sourceEngineVersion": "resume-import.text.v1",
+              "extractionConfidence": 0,
+              "sourceKind": "text",
+              "order": 0,
+              "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "normalizationActions": []
+            }
+          ],
+          "qualityReport": {
+            "sourceType": "text",
+            "textCoverage": 1,
+            "replacementCharacterRatio": 0,
+            "abnormalWhitespaceRatio": 0,
+            "lineFragmentationScore": 0.3333333333333333,
+            "readingOrderConfidence": "medium",
+            "layoutComplexity": "unknown",
+            "recommendedRoute": "deterministic",
+            "warnings": [],
+            "schemaVersion": "resume-import-quality-v2",
+            "classification": "text",
+            "recommendedPipeline": "text_structure",
+            "pageCount": 1,
+            "coordinateCoverage": 0,
+            "hasUsableTextLayer": true,
+            "ocrRequiredPages": [],
+            "thresholds": {
+              "minimumTextCoverage": 0.45,
+              "maximumReplacementCharacterRatio": 0.015,
+              "maximumLineFragmentationScore": 0.88
+            }
+          },
+          "mappingDecisions": [],
+          "fieldCandidates": []
+        },
+        "updatedAt": "2026-11-07T05:19:25.590Z"
+      },
+      {
+        "key": "material-source-extraction:material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506:agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87",
+        "value": {
+          "sourceDocument": {
+            "schemaVersion": "resume-source-document-v2",
+            "sourceId": "resume-import-MoJ9qQda5W",
+            "sourceKind": "text",
+            "fileName": "manual-transcription.txt",
+            "fileHash": "b8f83c8be632ffdc5ae3a12d0382e91af5976d2a7a16eb2db2f00fa3b84e7ce8",
+            "pageCount": 1,
+            "blocks": [
+              {
+                "id": "text:block:0",
+                "sourcePath": "text#line[1]",
+                "text": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "blockType": "paragraph",
+                "sourceEngine": "manual_transcription",
+                "sourceEngineVersion": "resume-import.text.v1",
+                "extractionConfidence": 0,
+                "sourceKind": "text",
+                "order": 0,
+                "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "normalizationActions": []
+              }
+            ],
+            "quality": {
+              "sourceType": "text",
+              "textCoverage": 1,
+              "replacementCharacterRatio": 0,
+              "abnormalWhitespaceRatio": 0,
+              "lineFragmentationScore": 0.3333333333333333,
+              "readingOrderConfidence": "medium",
+              "layoutComplexity": "unknown",
+              "recommendedRoute": "deterministic",
+              "warnings": [],
+              "schemaVersion": "resume-import-quality-v2",
+              "classification": "text",
+              "recommendedPipeline": "text_structure",
+              "pageCount": 1,
+              "coordinateCoverage": 0,
+              "hasUsableTextLayer": true,
+              "ocrRequiredPages": [],
+              "thresholds": {
+                "minimumTextCoverage": 0.45,
+                "maximumReplacementCharacterRatio": 0.015,
+                "maximumLineFragmentationScore": 0.88
+              }
+            }
+          },
+          "fallbackDraft": {
+            "id": "resume-import-MoJ9qQda5W",
+            "createdAt": "2026-11-07T05:19:25.582Z",
+            "updatedAt": "2026-11-07T05:19:25.582Z",
+            "importId": "resume-import-MoJ9qQda5W",
+            "revision": 0,
+            "status": "reviewing",
+            "source": {
+              "fileName": "manual-transcription.txt",
+              "mimeType": "text/plain",
+              "fileHash": "b8f83c8be632ffdc5ae3a12d0382e91af5976d2a7a16eb2db2f00fa3b84e7ce8",
+              "normalizedTextHash": "b8f83c8be632ffdc5ae3a12d0382e91af5976d2a7a16eb2db2f00fa3b84e7ce8",
+              "pageCount": 1,
+              "extractedAt": "2026-11-07T05:19:25.582Z"
+            },
+            "sourceKind": "text",
+            "basics": {
+              "name": {
+                "value": "证书",
+                "pageRefs": [
+                  {
+                    "pageNumber": 1,
+                    "quote": "证书"
+                  }
+                ],
+                "confidence": "high",
+                "sourceStatus": "located",
+                "userEdited": false,
+                "sourceBlockIds": [
+                  "text:block:0"
+                ],
+                "sourceRanges": [
+                  {
+                    "blockId": "text:block:0",
+                    "start": 0,
+                    "end": 2
+                  }
+                ],
+                "sourceQuote": "证书"
+              },
+              "additionalFields": [],
+              "links": []
+            },
+            "sections": [],
+            "pages": [
+              {
+                "pageNumber": 1,
+                "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "charStart": 0,
+                "charEnd": 38
+              }
+            ],
+            "unclassifiedBlocks": [
+              {
+                "sourceBlockId": "text:block:0",
+                "sourceRange": {
+                  "blockId": "text:block:0",
+                  "start": 2,
+                  "end": 38
+                },
+                "text": "SAMPLE CERTIFICATE ANONYMOUS ISSUER",
+                "reason": "未映射文本区间"
+              }
+            ],
+            "warnings": [],
+            "parserVersion": "resume-import.pipeline.v2.resume-import.local-rules.v2+resume-import.cleaner.v1",
+            "schemaVersion": "resume-import-v2",
+            "sourceBlocks": [
+              {
+                "id": "text:block:0",
+                "sourcePath": "text#line[1]",
+                "text": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "blockType": "paragraph",
+                "sourceEngine": "manual_transcription",
+                "sourceEngineVersion": "resume-import.text.v1",
+                "extractionConfidence": 0,
+                "sourceKind": "text",
+                "order": 0,
+                "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "normalizationActions": []
+              }
+            ],
+            "qualityReport": {
+              "sourceType": "text",
+              "textCoverage": 1,
+              "replacementCharacterRatio": 0,
+              "abnormalWhitespaceRatio": 0,
+              "lineFragmentationScore": 0.3333333333333333,
+              "readingOrderConfidence": "medium",
+              "layoutComplexity": "unknown",
+              "recommendedRoute": "deterministic",
+              "warnings": [],
+              "schemaVersion": "resume-import-quality-v2",
+              "classification": "text",
+              "recommendedPipeline": "text_structure",
+              "pageCount": 1,
+              "coordinateCoverage": 0,
+              "hasUsableTextLayer": true,
+              "ocrRequiredPages": [],
+              "thresholds": {
+                "minimumTextCoverage": 0.45,
+                "maximumReplacementCharacterRatio": 0.015,
+                "maximumLineFragmentationScore": 0.88
+              }
+            },
+            "mappingDecisions": [],
+            "fieldCandidates": []
+          },
+          "pages": [
+            {
+              "id": "import-text-page-XVEh-ZHTtL",
+              "sessionId": "synthetic-pDD15BU8ro",
+              "pageNumber": 1,
+              "extractedPageText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "cleanedPageText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "charStart": 0,
+              "charEnd": 38,
+              "textItemCount": 5,
+              "warnings": [
+                "manual-transcription.txt 已转换为第 1 页来源文本。"
+              ],
+              "rawTextHash": "b8f83c8be632ffdc5ae3a12d0382e91af5976d2a7a16eb2db2f00fa3b84e7ce8",
+              "cleanedTextHash": "b8f83c8be632ffdc5ae3a12d0382e91af5976d2a7a16eb2db2f00fa3b84e7ce8",
+              "createdAt": "2026-11-07T05:19:25.582Z",
+              "updatedAt": "2026-11-07T05:19:25.582Z"
+            }
+          ],
+          "routingDecision": {
+            "route": "text",
+            "reason": "已保留文本段落、标题和列表顺序，随后进入语义识别。",
+            "canUseOcr": false,
+            "ocrExpectedSlow": false,
+            "experimental": false
+          }
+        },
+        "updatedAt": "2026-11-07T05:19:25.590Z"
+      },
+      {
+        "key": "material-source-link:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1:material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506:agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87",
+        "value": {
+          "schemaVersion": "career-material-intake-v1",
+          "attachmentId": "agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87",
+          "sessionId": "material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506",
+          "sourceId": "material-source:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+          "hash": "59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+          "fileName": "sample-certificate.png",
+          "mimeType": "image/png",
+          "sourceDocument": {
+            "schemaVersion": "resume-source-document-v2",
+            "sourceId": "material-source:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+            "sourceKind": "text",
+            "fileName": "sample-certificate.png",
+            "fileHash": "59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+            "pageCount": 1,
+            "blocks": [
+              {
+                "id": "text:block:0",
+                "sourcePath": "text#line[1]",
+                "text": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "blockType": "paragraph",
+                "sourceEngine": "manual_transcription",
+                "sourceEngineVersion": "resume-import.text.v1",
+                "extractionConfidence": 0,
+                "sourceKind": "text",
+                "order": 0,
+                "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "normalizationActions": []
+              }
+            ],
+            "quality": {
+              "sourceType": "text",
+              "textCoverage": 1,
+              "replacementCharacterRatio": 0,
+              "abnormalWhitespaceRatio": 0,
+              "lineFragmentationScore": 0.3333333333333333,
+              "readingOrderConfidence": "medium",
+              "layoutComplexity": "unknown",
+              "recommendedRoute": "deterministic",
+              "warnings": [],
+              "schemaVersion": "resume-import-quality-v2",
+              "classification": "text",
+              "recommendedPipeline": "text_structure",
+              "pageCount": 1,
+              "coordinateCoverage": 0,
+              "hasUsableTextLayer": true,
+              "ocrRequiredPages": [],
+              "thresholds": {
+                "minimumTextCoverage": 0.45,
+                "maximumReplacementCharacterRatio": 0.015,
+                "maximumLineFragmentationScore": 0.88
+              }
+            }
+          },
+          "reviewState": "review_ready",
+          "importId": "material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1",
+          "newProfileIntentId": "c7a9dba1-077f-4bb7-b141-55d220d254f1",
+          "purpose": "profile_material",
+          "warnings": [
+            "来源文字为待核对转写，尚未与原件核验。"
+          ],
+          "createdAt": "2026-11-07T05:19:25.590Z"
+        },
+        "updatedAt": "2026-11-07T05:19:25.853Z"
+      },
+      {
+        "key": "material-source-link:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76:material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506:agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87",
+        "value": {
+          "schemaVersion": "career-material-intake-v1",
+          "attachmentId": "agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87",
+          "sessionId": "material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506",
+          "sourceId": "material-source:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+          "hash": "59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+          "fileName": "sample-certificate.png",
+          "mimeType": "image/png",
+          "sourceDocument": {
+            "schemaVersion": "resume-source-document-v2",
+            "sourceId": "material-source:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+            "sourceKind": "text",
+            "fileName": "sample-certificate.png",
+            "fileHash": "59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+            "pageCount": 1,
+            "blocks": [
+              {
+                "id": "text:block:0",
+                "sourcePath": "text#line[1]",
+                "text": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "blockType": "paragraph",
+                "sourceEngine": "manual_transcription",
+                "sourceEngineVersion": "resume-import.text.v1",
+                "extractionConfidence": 0,
+                "sourceKind": "text",
+                "order": 0,
+                "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "normalizationActions": []
+              }
+            ],
+            "quality": {
+              "sourceType": "text",
+              "textCoverage": 1,
+              "replacementCharacterRatio": 0,
+              "abnormalWhitespaceRatio": 0,
+              "lineFragmentationScore": 0.3333333333333333,
+              "readingOrderConfidence": "medium",
+              "layoutComplexity": "unknown",
+              "recommendedRoute": "deterministic",
+              "warnings": [],
+              "schemaVersion": "resume-import-quality-v2",
+              "classification": "text",
+              "recommendedPipeline": "text_structure",
+              "pageCount": 1,
+              "coordinateCoverage": 0,
+              "hasUsableTextLayer": true,
+              "ocrRequiredPages": [],
+              "thresholds": {
+                "minimumTextCoverage": 0.45,
+                "maximumReplacementCharacterRatio": 0.015,
+                "maximumLineFragmentationScore": 0.88
+              }
+            }
+          },
+          "reviewState": "review_ready",
+          "importId": "material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76",
+          "targetProfileId": "profile-demo-student",
+          "newProfileIntentId": "material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506",
+          "purpose": "profile_material",
+          "warnings": [
+            "来源文字为待核对转写，尚未与原件核验。"
+          ],
+          "createdAt": "2026-11-07T05:19:25.590Z"
+        },
+        "updatedAt": "2026-11-07T05:19:25.601Z"
+      },
+      {
+        "key": "material-sources:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1",
+        "value": [
+          "material-source-link:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1:material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506:agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87"
+        ],
+        "updatedAt": "2026-11-07T05:19:25.854Z"
+      },
+      {
+        "key": "material-sources:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76",
+        "value": [
+          "material-source-link:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76:material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506:agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87"
+        ],
+        "updatedAt": "2026-11-07T05:19:25.602Z"
+      },
+      {
+        "key": "material-target:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1",
+        "value": {
+          "purpose": "profile_material"
+        },
+        "updatedAt": "2026-11-07T05:19:25.838Z"
+      },
+      {
+        "key": "material-target:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76",
+        "value": {
+          "profileId": "profile-demo-student",
+          "purpose": "profile_material"
+        },
+        "updatedAt": "2026-11-07T05:19:25.597Z"
+      },
+      {
+        "key": "profileReconciliation:v1:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1",
+        "value": {
+          "id": "profile-reconciliation-p6Q6rLv4-g",
+          "createdAt": "2026-11-07T05:19:25.882Z",
+          "updatedAt": "2026-11-07T05:19:25.882Z",
+          "schemaVersion": "profile-reconciliation-v1",
+          "importId": "material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1",
+          "draftRevision": 0,
+          "profileId": "profile-demo-student",
+          "profileVersion": 1,
+          "revision": 0,
+          "status": "ready",
+          "sourceFileHash": "59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+          "sourceContentHash": "b8f83c8be632ffdc5ae3a12d0382e91af5976d2a7a16eb2db2f00fa3b84e7ce8",
+          "candidates": [],
+          "decisions": [],
+          "conflicts": [],
+          "reviewUnits": [],
+          "summary": {
+            "newFacts": 0,
+            "existing": 0,
+            "mergedEvidence": 0,
+            "compatibleUpdates": 0,
+            "likelyDuplicates": 0,
+            "conflicts": 0,
+            "unclassified": 0,
+            "requiresReview": 0
+          }
+        },
+        "updatedAt": "2026-11-07T05:19:25.882Z"
+      },
+      {
+        "key": "profileReconciliation:v1:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76",
+        "value": {
+          "id": "profile-reconciliation-LDP5a01Kq0",
+          "createdAt": "2026-11-07T05:19:25.724Z",
+          "updatedAt": "2026-11-07T05:19:25.724Z",
+          "schemaVersion": "profile-reconciliation-v1",
+          "importId": "material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76",
+          "draftRevision": 0,
+          "profileId": "profile-demo-student",
+          "profileVersion": 1,
+          "revision": 0,
+          "status": "ready",
+          "sourceFileHash": "59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+          "sourceContentHash": "b8f83c8be632ffdc5ae3a12d0382e91af5976d2a7a16eb2db2f00fa3b84e7ce8",
+          "candidates": [],
+          "decisions": [],
+          "conflicts": [],
+          "reviewUnits": [],
+          "summary": {
+            "newFacts": 0,
+            "existing": 0,
+            "mergedEvidence": 0,
+            "compatibleUpdates": 0,
+            "likelyDuplicates": 0,
+            "conflicts": 0,
+            "unclassified": 0,
+            "requiresReview": 0
+          }
+        },
+        "updatedAt": "2026-11-07T05:19:25.724Z"
+      }
+    ]
+  },
+  "after": {
+    "profiles": [
+      {
+        "id": "profile-LPypmVCkXO",
+        "createdAt": "2026-11-07T05:19:26.212Z",
+        "updatedAt": "2026-11-07T05:19:26.212Z",
+        "schemaVersion": "career-profile-v2",
+        "name": "B012人工转写人物",
+        "basics": {
+          "name": "B012人工转写人物",
+          "links": []
+        },
+        "preference": {
+          "targetRoles": [],
+          "targetCities": [],
+          "industries": []
+        },
+        "version": 1,
+        "experiences": [],
+        "skills": [],
+        "certificates": [
+          {
+            "id": "cert-JCfgG_OdSE",
+            "createdAt": "2026-11-07T05:19:26.212Z",
+            "updatedAt": "2026-11-07T05:19:26.212Z",
+            "name": "SAMPLE CERTIFICATE",
+            "evidenceIds": [],
+            "fact": {
+              "id": "fact-import-zK4tAKeFFi",
+              "createdAt": "2026-11-07T05:19:26.212Z",
+              "updatedAt": "2026-11-07T05:19:26.212Z",
+              "statement": "证书名称：SAMPLE CERTIFICATE\n说明：证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "category": "certificate",
+              "provenance": [
+                {
+                  "sourceType": "user_input",
+                  "sourceId": "59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+                  "sourceText": "证书名称：SAMPLE CERTIFICATE\n说明：证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                  "confidence": 0.55,
+                  "confirmedByUser": true,
+                  "riskLevel": "medium",
+                  "createdAt": "2026-11-07T05:19:26.212Z",
+                  "fileName": "sample-certificate.png",
+                  "sourceQuote": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "medium",
+              "maturity": "demonstrated"
+            }
+          }
+        ],
+        "evidences": [],
+        "unclassifiedBlocks": [],
+        "structuredFacts": [
+          {
+            "data": {
+              "id": "material-item-0",
+              "customFields": [],
+              "sectionType": "certificates",
+              "name": "SAMPLE CERTIFICATE",
+              "description": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER"
+            },
+            "factIds": [
+              "fact-import-zK4tAKeFFi"
+            ],
+            "sourceBlockIds": [
+              "text:block:0"
+            ],
+            "sourceRanges": [],
+            "sourceExcerpt": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+            "mappingTrace": [],
+            "provenance": []
+          }
+        ],
+        "structuredBasics": {
+          "name": "B012人工转写人物",
+          "portfolioLinks": [],
+          "otherLinks": [],
+          "customFields": []
+        },
+        "personId": "person-profile-LPypmVCkXO",
+        "profileVersionNumber": 1,
+        "isCurrent": true,
+        "versionCreatedReason": "initial"
+      },
+      {
+        "id": "profile-demo-student",
+        "createdAt": "2026-07-01T09:00:00.000Z",
+        "updatedAt": "2026-07-01T09:00:00.000Z",
+        "schemaVersion": "career-profile-v2",
+        "name": "同学",
+        "basics": {
+          "name": "同学",
+          "phone": "138****0000",
+          "email": "demo.student@example.com",
+          "location": "杭州",
+          "summary": "经济管理方向本科生，关注数据分析、AI应用和跨境业务流程。",
+          "links": []
+        },
+        "preference": {
+          "targetRoles": [
+            "数据分析实习",
+            "外贸/跨境运营实习"
+          ],
+          "targetCities": [
+            "杭州",
+            "上海"
+          ],
+          "industries": [
+            "互联网",
+            "跨境电商",
+            "咨询"
+          ]
+        },
+        "version": 1,
+        "experiences": [
+          {
+            "id": "exp-stat-modeling",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "type": "competition",
+            "organization": "统计建模竞赛项目",
+            "role": "数据分析成员",
+            "startDate": "2025-03",
+            "endDate": "2025-06",
+            "facts": [
+              {
+                "id": "fact-stat-stata",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "statement": "使用 Stata 清洗 31 个省级样本，并完成描述统计、相关分析与区域差异分析。",
+                "category": "experience",
+                "provenance": [
+                  {
+                    "sourceType": "demo",
+                    "sourceId": "demo-profile-source",
+                    "sourceText": "统计建模：使用Stata清洗31个省级样本，完成描述统计、相关分析与区域差异分析。",
+                    "confidence": 0.95,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-07-01T09:00:00.000Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-stat-default",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "targetRole": "数据分析实习",
+                "text": "奖项名称：数据分析成员\n颁发方：统计建模竞赛项目\n说明：使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。\n原始资料草稿：使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。\n原始标签：Stata；数据清洗；统计分析\n原始证据引用：evidence-stat-report",
+                "factIds": [
+                  "fact-stat-stata"
+                ]
+              }
+            ],
+            "tags": [
+              "Stata",
+              "数据清洗",
+              "统计分析"
+            ],
+            "evidenceIds": [
+              "evidence-stat-report"
+            ]
+          },
+          {
+            "id": "exp-ai-product",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "type": "project",
+            "organization": "AI 求职应用课程项目",
+            "role": "产品与验收协作",
+            "startDate": "2025-09",
+            "endDate": "2025-12",
+            "facts": [
+              {
+                "id": "fact-ai-product",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "statement": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                "category": "experience",
+                "provenance": [
+                  {
+                    "sourceType": "demo",
+                    "sourceId": "demo-profile-source",
+                    "sourceText": "AI应用项目：参与需求梳理、原型设计和功能验收。",
+                    "confidence": 0.95,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-07-01T09:00:00.000Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-ai-default",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "targetRole": "产品/运营实习",
+                "text": "项目名称：AI 求职应用课程项目\n角色：产品与验收协作\n开始日期：2025-09\n结束日期：2025-12\n说明：参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n原始资料草稿：参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。\n原始标签：需求梳理；原型设计；功能验收",
+                "factIds": [
+                  "fact-ai-product"
+                ]
+              }
+            ],
+            "tags": [
+              "需求梳理",
+              "原型设计",
+              "功能验收"
+            ],
+            "evidenceIds": []
+          },
+          {
+            "id": "exp-gov-internship",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "type": "internship",
+            "organization": "某政府部门",
+            "role": "综合事务实习生",
+            "startDate": "2025-07",
+            "endDate": "2025-08",
+            "facts": [
+              {
+                "id": "fact-gov-record",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "statement": "处理公文流转和热线记录，关注记录准确性与信息整理。",
+                "category": "experience",
+                "provenance": [
+                  {
+                    "sourceType": "demo",
+                    "sourceId": "demo-profile-source",
+                    "sourceText": "政府部门实习：处理公文流转和市长热线记录。",
+                    "confidence": 0.95,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-07-01T09:00:00.000Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-gov-default",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "targetRole": "综合运营实习",
+                "text": "组织：某政府部门\n职位/角色：综合事务实习生\n开始日期：2025-07\n结束日期：2025-08\n说明：协助处理公文流转与热线记录，保持信息记录准确、分类清晰。\n亮点：处理公文流转和热线记录，关注记录准确性与信息整理。\n原始资料草稿：协助处理公文流转与热线记录，保持信息记录准确、分类清晰。\n原始标签：信息整理；沟通记录",
+                "factIds": [
+                  "fact-gov-record"
+                ]
+              }
+            ],
+            "tags": [
+              "信息整理",
+              "沟通记录"
+            ],
+            "evidenceIds": []
+          },
+          {
+            "id": "exp-trade-learning",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "type": "other",
+            "organization": "外贸课程与语言学习",
+            "role": "学习者",
+            "startDate": "2024-09",
+            "endDate": "2026-06",
+            "facts": [
+              {
+                "id": "fact-cet4",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "statement": "CET-4 成绩 601，了解基础外贸业务流程。",
+                "category": "language",
+                "provenance": [
+                  {
+                    "sourceType": "demo",
+                    "sourceId": "demo-profile-source",
+                    "sourceText": "英语与外贸学习：CET-4 601，了解外贸业务流程。",
+                    "confidence": 0.95,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-07-01T09:00:00.000Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-trade-default",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "targetRole": "外贸/跨境运营实习",
+                "text": "标题：外贸课程与语言学习\n内容：CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。\n要点：CET-4 成绩 601，了解基础外贸业务流程。\n原始资料草稿：CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。\n原始标签：英语；外贸流程；信息整理",
+                "factIds": [
+                  "fact-cet4"
+                ]
+              }
+            ],
+            "tags": [
+              "英语",
+              "外贸流程",
+              "信息整理"
+            ],
+            "evidenceIds": []
+          }
+        ],
+        "skills": [
+          {
+            "id": "skill-stata",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "name": "Stata",
+            "level": "familiar",
+            "evidenceIds": [
+              "evidence-stat-report"
+            ],
+            "fact": {
+              "id": "fact-skill-stata",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "statement": "使用 Stata 完成数据清洗和统计分析。",
+              "category": "skill",
+              "provenance": [
+                {
+                  "sourceType": "demo",
+                  "sourceId": "demo-profile-source",
+                  "sourceText": "使用Stata清洗31个省级样本",
+                  "confidence": 0.95,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-07-01T09:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            },
+            "lastUsedAt": "2025-06"
+          },
+          {
+            "id": "skill-excel",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "name": "Excel",
+            "level": "familiar",
+            "evidenceIds": [],
+            "fact": {
+              "id": "fact-skill-excel",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "statement": "能使用 Excel 整理表格数据和基础分析结果。",
+              "category": "skill",
+              "provenance": [
+                {
+                  "sourceType": "demo",
+                  "sourceId": "demo-profile-source",
+                  "sourceText": "数据清洗、样本整理和分析交付物",
+                  "confidence": 0.95,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-07-01T09:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            },
+            "lastUsedAt": "2025-06"
+          }
+        ],
+        "certificates": [
+          {
+            "id": "cert-cet4",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "name": "CET-4",
+            "issuer": "全国大学英语四、六级考试委员会",
+            "issuedAt": "2024-12",
+            "evidenceIds": [],
+            "fact": {
+              "id": "fact-cert-cet4",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "statement": "CET-4 成绩 601。",
+              "category": "certificate",
+              "provenance": [
+                {
+                  "sourceType": "demo",
+                  "sourceId": "demo-profile-source",
+                  "sourceText": "CET-4 601",
+                  "confidence": 0.95,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-07-01T09:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            }
+          }
+        ],
+        "evidences": [
+          {
+            "id": "evidence-stat-report",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "type": "text",
+            "title": "统计建模项目说明",
+            "extractedText": "脱敏示例：使用 Stata 清洗 31 个省级样本并完成统计分析。",
+            "privacyLevel": "private",
+            "verifiedAt": "2026-07-01T09:00:00.000Z"
+          }
+        ],
+        "unclassifiedBlocks": [],
+        "structuredFacts": [
+          {
+            "data": {
+              "id": "exp-stat-modeling",
+              "customFields": [
+                {
+                  "id": "exp-stat-modeling:legacy-resume-drafts",
+                  "label": "原始资料草稿",
+                  "valueType": "text",
+                  "value": "使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。",
+                  "order": 0,
+                  "sensitive": false
+                },
+                {
+                  "id": "exp-stat-modeling:legacy-tags",
+                  "label": "原始标签",
+                  "valueType": "string_list",
+                  "value": [
+                    "Stata",
+                    "数据清洗",
+                    "统计分析"
+                  ],
+                  "order": 1,
+                  "sensitive": false
+                },
+                {
+                  "id": "exp-stat-modeling:legacy-evidence-ids",
+                  "label": "原始证据引用",
+                  "valueType": "string_list",
+                  "value": [
+                    "evidence-stat-report"
+                  ],
+                  "order": 2,
+                  "sensitive": false
+                }
+              ],
+              "sectionType": "awards",
+              "name": "数据分析成员",
+              "issuer": "统计建模竞赛项目",
+              "description": "使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。"
+            },
+            "factIds": [
+              "fact-stat-stata"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "使用 Stata 清洗 31 个省级样本，并完成描述统计、相关分析与区域差异分析。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "exp-ai-product",
+              "customFields": [
+                {
+                  "id": "exp-ai-product:legacy-resume-drafts",
+                  "label": "原始资料草稿",
+                  "valueType": "text",
+                  "value": "参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。",
+                  "order": 0,
+                  "sensitive": false
+                },
+                {
+                  "id": "exp-ai-product:legacy-tags",
+                  "label": "原始标签",
+                  "valueType": "string_list",
+                  "value": [
+                    "需求梳理",
+                    "原型设计",
+                    "功能验收"
+                  ],
+                  "order": 1,
+                  "sensitive": false
+                }
+              ],
+              "sectionType": "project",
+              "title": "AI 求职应用课程项目",
+              "role": "产品与验收协作",
+              "startDate": "2025-09",
+              "endDate": "2025-12",
+              "current": false,
+              "tools": [],
+              "description": "参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。",
+              "highlights": [
+                "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+              ],
+              "outcomes": []
+            },
+            "factIds": [
+              "fact-ai-product"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "exp-gov-internship",
+              "customFields": [
+                {
+                  "id": "exp-gov-internship:legacy-resume-drafts",
+                  "label": "原始资料草稿",
+                  "valueType": "text",
+                  "value": "协助处理公文流转与热线记录，保持信息记录准确、分类清晰。",
+                  "order": 0,
+                  "sensitive": false
+                },
+                {
+                  "id": "exp-gov-internship:legacy-tags",
+                  "label": "原始标签",
+                  "valueType": "string_list",
+                  "value": [
+                    "信息整理",
+                    "沟通记录"
+                  ],
+                  "order": 1,
+                  "sensitive": false
+                }
+              ],
+              "sectionType": "internship",
+              "organization": "某政府部门",
+              "role": "综合事务实习生",
+              "startDate": "2025-07",
+              "endDate": "2025-08",
+              "current": false,
+              "description": "协助处理公文流转与热线记录，保持信息记录准确、分类清晰。",
+              "highlights": [
+                "处理公文流转和热线记录，关注记录准确性与信息整理。"
+              ]
+            },
+            "factIds": [
+              "fact-gov-record"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "处理公文流转和热线记录，关注记录准确性与信息整理。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "exp-trade-learning",
+              "customFields": [
+                {
+                  "id": "exp-trade-learning:legacy-resume-drafts",
+                  "label": "原始资料草稿",
+                  "valueType": "text",
+                  "value": "CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。",
+                  "order": 0,
+                  "sensitive": false
+                },
+                {
+                  "id": "exp-trade-learning:legacy-tags",
+                  "label": "原始标签",
+                  "valueType": "string_list",
+                  "value": [
+                    "英语",
+                    "外贸流程",
+                    "信息整理"
+                  ],
+                  "order": 1,
+                  "sensitive": false
+                }
+              ],
+              "sectionType": "other",
+              "title": "外贸课程与语言学习",
+              "description": "CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。",
+              "highlights": [
+                "CET-4 成绩 601，了解基础外贸业务流程。"
+              ]
+            },
+            "factIds": [
+              "fact-cet4"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "CET-4 成绩 601，了解基础外贸业务流程。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "skill-stata",
+              "customFields": [],
+              "sectionType": "skills",
+              "name": "Stata",
+              "level": "familiar",
+              "description": "使用 Stata 完成数据清洗和统计分析。"
+            },
+            "factIds": [
+              "fact-skill-stata"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "skill-excel",
+              "customFields": [],
+              "sectionType": "skills",
+              "name": "Excel",
+              "level": "familiar",
+              "description": "能使用 Excel 整理表格数据和基础分析结果。"
+            },
+            "factIds": [
+              "fact-skill-excel"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "cert-cet4",
+              "customFields": [],
+              "sectionType": "certificates",
+              "name": "CET-4",
+              "issuer": "全国大学英语四、六级考试委员会",
+              "issuedAt": "2024-12"
+            },
+            "factIds": [
+              "fact-cert-cet4"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "mappingTrace": []
+          }
+        ],
+        "structuredBasics": {
+          "name": "同学",
+          "summary": "经济管理方向本科生，关注数据分析、AI应用和跨境业务流程。",
+          "phone": "138****0000",
+          "email": "demo.student@example.com",
+          "location": "杭州",
+          "portfolioLinks": [],
+          "otherLinks": [],
+          "customFields": []
+        },
+        "personId": "person-profile-demo-student",
+        "profileVersionNumber": 1,
+        "isCurrent": true,
+        "versionCreatedReason": "initial"
+      }
+    ],
+    "branches": [],
+    "revisions": [],
+    "meta": [
+      {
+        "key": "importedResumeDraft:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1",
+        "value": {
+          "id": "resume-import-MoJ9qQda5W",
+          "createdAt": "2026-11-07T05:19:25.582Z",
+          "updatedAt": "2026-11-07T05:19:26.212Z",
+          "importId": "material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1",
+          "revision": 4,
+          "status": "confirmed",
+          "source": {
+            "fileName": "sample-certificate.png",
+            "mimeType": "text/plain",
+            "fileHash": "59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+            "normalizedTextHash": "b8f83c8be632ffdc5ae3a12d0382e91af5976d2a7a16eb2db2f00fa3b84e7ce8",
+            "pageCount": 1,
+            "extractedAt": "2026-11-07T05:19:25.582Z"
+          },
+          "sourceKind": "text",
+          "basics": {
+            "links": []
+          },
+          "sections": [
+            {
+              "id": "material-group-0",
+              "sectionType": "certificates",
+              "detectedTitle": "待分类材料 1",
+              "included": true,
+              "order": 0,
+              "confidence": "low",
+              "items": [
+                {
+                  "id": "material-item-0",
+                  "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                  "normalizedText": "证书名称：SAMPLE CERTIFICATE\n说明：证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                  "included": true,
+                  "order": 0,
+                  "pageRefs": [
+                    {
+                      "pageNumber": 1,
+                      "quote": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER"
+                    }
+                  ],
+                  "confidence": "low",
+                  "sourceStatus": "user_confirmed_modified",
+                  "userEdited": false,
+                  "userConfirmed": true,
+                  "sourceBlockIds": [
+                    "text:block:0"
+                  ],
+                  "structuredItem": {
+                    "id": "material-item-0",
+                    "customFields": [],
+                    "sectionType": "certificates",
+                    "name": "SAMPLE CERTIFICATE",
+                    "description": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER"
+                  },
+                  "structuredMappingTrace": []
+                }
+              ]
+            }
+          ],
+          "pages": [
+            {
+              "pageNumber": 1,
+              "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "charStart": 0,
+              "charEnd": 38
+            }
+          ],
+          "unclassifiedBlocks": [],
+          "warnings": [],
+          "parserVersion": "resume-import.pipeline.v2.resume-import.local-rules.v2+resume-import.cleaner.v1",
+          "confirmedProfileId": "profile-LPypmVCkXO",
+          "confirmedAt": "2026-11-07T05:19:26.212Z",
+          "schemaVersion": "resume-import-v2",
+          "sourceBlocks": [
+            {
+              "id": "text:block:0",
+              "sourcePath": "text#line[1]",
+              "text": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "blockType": "paragraph",
+              "sourceEngine": "manual_transcription",
+              "sourceEngineVersion": "resume-import.text.v1",
+              "extractionConfidence": 0,
+              "sourceKind": "text",
+              "order": 0,
+              "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "normalizationActions": []
+            }
+          ],
+          "qualityReport": {
+            "sourceType": "text",
+            "textCoverage": 1,
+            "replacementCharacterRatio": 0,
+            "abnormalWhitespaceRatio": 0,
+            "lineFragmentationScore": 0.3333333333333333,
+            "readingOrderConfidence": "medium",
+            "layoutComplexity": "unknown",
+            "recommendedRoute": "deterministic",
+            "warnings": [],
+            "schemaVersion": "resume-import-quality-v2",
+            "classification": "text",
+            "recommendedPipeline": "text_structure",
+            "pageCount": 1,
+            "coordinateCoverage": 0,
+            "hasUsableTextLayer": true,
+            "ocrRequiredPages": [],
+            "thresholds": {
+              "minimumTextCoverage": 0.45,
+              "maximumReplacementCharacterRatio": 0.015,
+              "maximumLineFragmentationScore": 0.88
+            }
+          },
+          "mappingDecisions": [],
+          "fieldCandidates": []
+        },
+        "updatedAt": "2026-11-07T05:19:26.212Z"
+      },
+      {
+        "key": "importedResumeDraft:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76",
+        "value": {
+          "id": "resume-import-MoJ9qQda5W",
+          "createdAt": "2026-11-07T05:19:25.582Z",
+          "updatedAt": "2026-11-07T05:19:25.598Z",
+          "importId": "material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76",
+          "revision": 0,
+          "status": "reviewing",
+          "source": {
+            "fileName": "sample-certificate.png",
+            "mimeType": "text/plain",
+            "fileHash": "59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+            "normalizedTextHash": "b8f83c8be632ffdc5ae3a12d0382e91af5976d2a7a16eb2db2f00fa3b84e7ce8",
+            "pageCount": 1,
+            "extractedAt": "2026-11-07T05:19:25.582Z"
+          },
+          "sourceKind": "text",
+          "basics": {
+            "links": []
+          },
+          "sections": [
+            {
+              "id": "material-group-0",
+              "sectionType": "unknown",
+              "detectedTitle": "待分类材料 1",
+              "included": false,
+              "order": 0,
+              "confidence": "low",
+              "items": [
+                {
+                  "id": "material-item-0",
+                  "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                  "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                  "included": false,
+                  "order": 0,
+                  "pageRefs": [
+                    {
+                      "pageNumber": 1,
+                      "quote": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER"
+                    }
+                  ],
+                  "confidence": "low",
+                  "sourceStatus": "ambiguous",
+                  "userEdited": false,
+                  "userConfirmed": false,
+                  "sourceBlockIds": [
+                    "text:block:0"
+                  ],
+                  "structuredItem": {
+                    "id": "material-item-0",
+                    "customFields": [],
+                    "sectionType": "other",
+                    "title": "证书",
+                    "description": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                    "highlights": []
+                  },
+                  "structuredMappingTrace": []
+                }
+              ]
+            }
+          ],
+          "pages": [
+            {
+              "pageNumber": 1,
+              "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "charStart": 0,
+              "charEnd": 38
+            }
+          ],
+          "unclassifiedBlocks": [],
+          "warnings": [],
+          "parserVersion": "resume-import.pipeline.v2.resume-import.local-rules.v2+resume-import.cleaner.v1",
+          "schemaVersion": "resume-import-v2",
+          "sourceBlocks": [
+            {
+              "id": "text:block:0",
+              "sourcePath": "text#line[1]",
+              "text": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "blockType": "paragraph",
+              "sourceEngine": "manual_transcription",
+              "sourceEngineVersion": "resume-import.text.v1",
+              "extractionConfidence": 0,
+              "sourceKind": "text",
+              "order": 0,
+              "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "normalizationActions": []
+            }
+          ],
+          "qualityReport": {
+            "sourceType": "text",
+            "textCoverage": 1,
+            "replacementCharacterRatio": 0,
+            "abnormalWhitespaceRatio": 0,
+            "lineFragmentationScore": 0.3333333333333333,
+            "readingOrderConfidence": "medium",
+            "layoutComplexity": "unknown",
+            "recommendedRoute": "deterministic",
+            "warnings": [],
+            "schemaVersion": "resume-import-quality-v2",
+            "classification": "text",
+            "recommendedPipeline": "text_structure",
+            "pageCount": 1,
+            "coordinateCoverage": 0,
+            "hasUsableTextLayer": true,
+            "ocrRequiredPages": [],
+            "thresholds": {
+              "minimumTextCoverage": 0.45,
+              "maximumReplacementCharacterRatio": 0.015,
+              "maximumLineFragmentationScore": 0.88
+            }
+          },
+          "mappingDecisions": [],
+          "fieldCandidates": []
+        },
+        "updatedAt": "2026-11-07T05:19:25.598Z"
+      },
+      {
+        "key": "material-center:profile-demo-student",
+        "value": {
+          "sessionId": "material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506",
+          "attachmentId": "agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87",
+          "fileName": "sample-certificate.png"
+        },
+        "updatedAt": "2026-11-07T05:19:25.309Z"
+      },
+      {
+        "key": "material-confirm:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1",
+        "value": {
+          "target": {
+            "mode": "new",
+            "profileName": "B012人工转写人物",
+            "createGeneralResume": false
+          },
+          "result": {
+            "profileId": "profile-LPypmVCkXO",
+            "profileVersion": 1,
+            "branchDisposition": "no_new_resume_content",
+            "idempotent": false
+          }
+        },
+        "updatedAt": "2026-11-07T05:19:26.236Z"
+      },
+      {
+        "key": "material-intake:material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506:agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87",
+        "value": {
+          "schemaVersion": "career-material-intake-v1",
+          "attachmentId": "agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87",
+          "sessionId": "material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506",
+          "sourceId": "material-source:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+          "hash": "59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+          "fileName": "sample-certificate.png",
+          "mimeType": "image/png",
+          "sourceDocument": {
+            "schemaVersion": "resume-source-document-v2",
+            "sourceId": "material-source:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+            "sourceKind": "text",
+            "fileName": "sample-certificate.png",
+            "fileHash": "59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+            "pageCount": 1,
+            "blocks": [
+              {
+                "id": "text:block:0",
+                "sourcePath": "text#line[1]",
+                "text": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "blockType": "paragraph",
+                "sourceEngine": "manual_transcription",
+                "sourceEngineVersion": "resume-import.text.v1",
+                "extractionConfidence": 0,
+                "sourceKind": "text",
+                "order": 0,
+                "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "normalizationActions": []
+              }
+            ],
+            "quality": {
+              "sourceType": "text",
+              "textCoverage": 1,
+              "replacementCharacterRatio": 0,
+              "abnormalWhitespaceRatio": 0,
+              "lineFragmentationScore": 0.3333333333333333,
+              "readingOrderConfidence": "medium",
+              "layoutComplexity": "unknown",
+              "recommendedRoute": "deterministic",
+              "warnings": [],
+              "schemaVersion": "resume-import-quality-v2",
+              "classification": "text",
+              "recommendedPipeline": "text_structure",
+              "pageCount": 1,
+              "coordinateCoverage": 0,
+              "hasUsableTextLayer": true,
+              "ocrRequiredPages": [],
+              "thresholds": {
+                "minimumTextCoverage": 0.45,
+                "maximumReplacementCharacterRatio": 0.015,
+                "maximumLineFragmentationScore": 0.88
+              }
+            }
+          },
+          "reviewState": "review_ready",
+          "importId": "material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1",
+          "newProfileIntentId": "c7a9dba1-077f-4bb7-b141-55d220d254f1",
+          "purpose": "profile_material",
+          "warnings": [
+            "来源文字为待核对转写，尚未与原件核验。"
+          ],
+          "createdAt": "2026-11-07T05:19:25.590Z"
+        },
+        "updatedAt": "2026-11-07T05:19:25.848Z"
+      },
+      {
+        "key": "material-recognition:material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506:agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87",
+        "value": {
+          "schemaVersion": "resume-source-document-v2",
+          "sourceId": "material-source:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+          "sourceKind": "image",
+          "fileName": "sample-certificate.png",
+          "fileHash": "59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+          "pageCount": 1,
+          "blocks": [],
+          "quality": {
+            "sourceType": "image",
+            "textCoverage": 0,
+            "replacementCharacterRatio": 0,
+            "abnormalWhitespaceRatio": 0,
+            "lineFragmentationScore": 1,
+            "readingOrderConfidence": "low",
+            "layoutComplexity": "single_column",
+            "recommendedRoute": "ocr_ai",
+            "warnings": [],
+            "schemaVersion": "resume-import-quality-v2",
+            "classification": "image",
+            "recommendedPipeline": "ocr_local",
+            "pageCount": 1,
+            "coordinateCoverage": 0,
+            "hasUsableTextLayer": false,
+            "ocrRequiredPages": [
+              1
+            ],
+            "thresholds": {
+              "minimumTextCoverage": 0.45,
+              "maximumReplacementCharacterRatio": 0.015,
+              "maximumLineFragmentationScore": 0.88
+            }
+          }
+        },
+        "updatedAt": "2026-11-07T05:19:25.589Z"
+      },
+      {
+        "key": "material-review:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1",
+        "value": {
+          "importId": "material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1",
+          "targetMode": "new",
+          "targetProfileId": "",
+          "newProfileName": "B012人工转写人物",
+          "selectedPageNumber": 1,
+          "reviewedUnclassifiedKeys": [],
+          "basicMergeActions": {}
+        },
+        "updatedAt": "2026-11-07T05:19:26.036Z"
+      },
+      {
+        "key": "material-review:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76",
+        "value": {
+          "importId": "material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76",
+          "targetMode": "existing",
+          "targetProfileId": "profile-demo-student",
+          "newProfileName": "",
+          "selectedPageNumber": 1,
+          "reviewedUnclassifiedKeys": [],
+          "basicMergeActions": {}
+        },
+        "updatedAt": "2026-11-07T05:19:25.714Z"
+      },
+      {
+        "key": "material-source-draft:material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506:agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87",
+        "value": {
+          "id": "resume-import-MoJ9qQda5W",
+          "createdAt": "2026-11-07T05:19:25.582Z",
+          "updatedAt": "2026-11-07T05:19:25.582Z",
+          "importId": "resume-import-MoJ9qQda5W",
+          "revision": 0,
+          "status": "reviewing",
+          "source": {
+            "fileName": "manual-transcription.txt",
+            "mimeType": "text/plain",
+            "fileHash": "b8f83c8be632ffdc5ae3a12d0382e91af5976d2a7a16eb2db2f00fa3b84e7ce8",
+            "normalizedTextHash": "b8f83c8be632ffdc5ae3a12d0382e91af5976d2a7a16eb2db2f00fa3b84e7ce8",
+            "pageCount": 1,
+            "extractedAt": "2026-11-07T05:19:25.582Z"
+          },
+          "sourceKind": "text",
+          "basics": {
+            "name": {
+              "value": "证书",
+              "pageRefs": [
+                {
+                  "pageNumber": 1,
+                  "quote": "证书"
+                }
+              ],
+              "confidence": "high",
+              "sourceStatus": "located",
+              "userEdited": false,
+              "sourceBlockIds": [
+                "text:block:0"
+              ],
+              "sourceRanges": [
+                {
+                  "blockId": "text:block:0",
+                  "start": 0,
+                  "end": 2
+                }
+              ],
+              "sourceQuote": "证书"
+            },
+            "additionalFields": [],
+            "links": []
+          },
+          "sections": [],
+          "pages": [
+            {
+              "pageNumber": 1,
+              "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "charStart": 0,
+              "charEnd": 38
+            }
+          ],
+          "unclassifiedBlocks": [
+            {
+              "sourceBlockId": "text:block:0",
+              "sourceRange": {
+                "blockId": "text:block:0",
+                "start": 2,
+                "end": 38
+              },
+              "text": "SAMPLE CERTIFICATE ANONYMOUS ISSUER",
+              "reason": "未映射文本区间"
+            }
+          ],
+          "warnings": [],
+          "parserVersion": "resume-import.pipeline.v2.resume-import.local-rules.v2+resume-import.cleaner.v1",
+          "schemaVersion": "resume-import-v2",
+          "sourceBlocks": [
+            {
+              "id": "text:block:0",
+              "sourcePath": "text#line[1]",
+              "text": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "blockType": "paragraph",
+              "sourceEngine": "manual_transcription",
+              "sourceEngineVersion": "resume-import.text.v1",
+              "extractionConfidence": 0,
+              "sourceKind": "text",
+              "order": 0,
+              "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "normalizationActions": []
+            }
+          ],
+          "qualityReport": {
+            "sourceType": "text",
+            "textCoverage": 1,
+            "replacementCharacterRatio": 0,
+            "abnormalWhitespaceRatio": 0,
+            "lineFragmentationScore": 0.3333333333333333,
+            "readingOrderConfidence": "medium",
+            "layoutComplexity": "unknown",
+            "recommendedRoute": "deterministic",
+            "warnings": [],
+            "schemaVersion": "resume-import-quality-v2",
+            "classification": "text",
+            "recommendedPipeline": "text_structure",
+            "pageCount": 1,
+            "coordinateCoverage": 0,
+            "hasUsableTextLayer": true,
+            "ocrRequiredPages": [],
+            "thresholds": {
+              "minimumTextCoverage": 0.45,
+              "maximumReplacementCharacterRatio": 0.015,
+              "maximumLineFragmentationScore": 0.88
+            }
+          },
+          "mappingDecisions": [],
+          "fieldCandidates": []
+        },
+        "updatedAt": "2026-11-07T05:19:25.590Z"
+      },
+      {
+        "key": "material-source-extraction:material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506:agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87",
+        "value": {
+          "sourceDocument": {
+            "schemaVersion": "resume-source-document-v2",
+            "sourceId": "resume-import-MoJ9qQda5W",
+            "sourceKind": "text",
+            "fileName": "manual-transcription.txt",
+            "fileHash": "b8f83c8be632ffdc5ae3a12d0382e91af5976d2a7a16eb2db2f00fa3b84e7ce8",
+            "pageCount": 1,
+            "blocks": [
+              {
+                "id": "text:block:0",
+                "sourcePath": "text#line[1]",
+                "text": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "blockType": "paragraph",
+                "sourceEngine": "manual_transcription",
+                "sourceEngineVersion": "resume-import.text.v1",
+                "extractionConfidence": 0,
+                "sourceKind": "text",
+                "order": 0,
+                "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "normalizationActions": []
+              }
+            ],
+            "quality": {
+              "sourceType": "text",
+              "textCoverage": 1,
+              "replacementCharacterRatio": 0,
+              "abnormalWhitespaceRatio": 0,
+              "lineFragmentationScore": 0.3333333333333333,
+              "readingOrderConfidence": "medium",
+              "layoutComplexity": "unknown",
+              "recommendedRoute": "deterministic",
+              "warnings": [],
+              "schemaVersion": "resume-import-quality-v2",
+              "classification": "text",
+              "recommendedPipeline": "text_structure",
+              "pageCount": 1,
+              "coordinateCoverage": 0,
+              "hasUsableTextLayer": true,
+              "ocrRequiredPages": [],
+              "thresholds": {
+                "minimumTextCoverage": 0.45,
+                "maximumReplacementCharacterRatio": 0.015,
+                "maximumLineFragmentationScore": 0.88
+              }
+            }
+          },
+          "fallbackDraft": {
+            "id": "resume-import-MoJ9qQda5W",
+            "createdAt": "2026-11-07T05:19:25.582Z",
+            "updatedAt": "2026-11-07T05:19:25.582Z",
+            "importId": "resume-import-MoJ9qQda5W",
+            "revision": 0,
+            "status": "reviewing",
+            "source": {
+              "fileName": "manual-transcription.txt",
+              "mimeType": "text/plain",
+              "fileHash": "b8f83c8be632ffdc5ae3a12d0382e91af5976d2a7a16eb2db2f00fa3b84e7ce8",
+              "normalizedTextHash": "b8f83c8be632ffdc5ae3a12d0382e91af5976d2a7a16eb2db2f00fa3b84e7ce8",
+              "pageCount": 1,
+              "extractedAt": "2026-11-07T05:19:25.582Z"
+            },
+            "sourceKind": "text",
+            "basics": {
+              "name": {
+                "value": "证书",
+                "pageRefs": [
+                  {
+                    "pageNumber": 1,
+                    "quote": "证书"
+                  }
+                ],
+                "confidence": "high",
+                "sourceStatus": "located",
+                "userEdited": false,
+                "sourceBlockIds": [
+                  "text:block:0"
+                ],
+                "sourceRanges": [
+                  {
+                    "blockId": "text:block:0",
+                    "start": 0,
+                    "end": 2
+                  }
+                ],
+                "sourceQuote": "证书"
+              },
+              "additionalFields": [],
+              "links": []
+            },
+            "sections": [],
+            "pages": [
+              {
+                "pageNumber": 1,
+                "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "charStart": 0,
+                "charEnd": 38
+              }
+            ],
+            "unclassifiedBlocks": [
+              {
+                "sourceBlockId": "text:block:0",
+                "sourceRange": {
+                  "blockId": "text:block:0",
+                  "start": 2,
+                  "end": 38
+                },
+                "text": "SAMPLE CERTIFICATE ANONYMOUS ISSUER",
+                "reason": "未映射文本区间"
+              }
+            ],
+            "warnings": [],
+            "parserVersion": "resume-import.pipeline.v2.resume-import.local-rules.v2+resume-import.cleaner.v1",
+            "schemaVersion": "resume-import-v2",
+            "sourceBlocks": [
+              {
+                "id": "text:block:0",
+                "sourcePath": "text#line[1]",
+                "text": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "blockType": "paragraph",
+                "sourceEngine": "manual_transcription",
+                "sourceEngineVersion": "resume-import.text.v1",
+                "extractionConfidence": 0,
+                "sourceKind": "text",
+                "order": 0,
+                "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "normalizationActions": []
+              }
+            ],
+            "qualityReport": {
+              "sourceType": "text",
+              "textCoverage": 1,
+              "replacementCharacterRatio": 0,
+              "abnormalWhitespaceRatio": 0,
+              "lineFragmentationScore": 0.3333333333333333,
+              "readingOrderConfidence": "medium",
+              "layoutComplexity": "unknown",
+              "recommendedRoute": "deterministic",
+              "warnings": [],
+              "schemaVersion": "resume-import-quality-v2",
+              "classification": "text",
+              "recommendedPipeline": "text_structure",
+              "pageCount": 1,
+              "coordinateCoverage": 0,
+              "hasUsableTextLayer": true,
+              "ocrRequiredPages": [],
+              "thresholds": {
+                "minimumTextCoverage": 0.45,
+                "maximumReplacementCharacterRatio": 0.015,
+                "maximumLineFragmentationScore": 0.88
+              }
+            },
+            "mappingDecisions": [],
+            "fieldCandidates": []
+          },
+          "pages": [
+            {
+              "id": "import-text-page-XVEh-ZHTtL",
+              "sessionId": "synthetic-pDD15BU8ro",
+              "pageNumber": 1,
+              "extractedPageText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "cleanedPageText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+              "charStart": 0,
+              "charEnd": 38,
+              "textItemCount": 5,
+              "warnings": [
+                "manual-transcription.txt 已转换为第 1 页来源文本。"
+              ],
+              "rawTextHash": "b8f83c8be632ffdc5ae3a12d0382e91af5976d2a7a16eb2db2f00fa3b84e7ce8",
+              "cleanedTextHash": "b8f83c8be632ffdc5ae3a12d0382e91af5976d2a7a16eb2db2f00fa3b84e7ce8",
+              "createdAt": "2026-11-07T05:19:25.582Z",
+              "updatedAt": "2026-11-07T05:19:25.582Z"
+            }
+          ],
+          "routingDecision": {
+            "route": "text",
+            "reason": "已保留文本段落、标题和列表顺序，随后进入语义识别。",
+            "canUseOcr": false,
+            "ocrExpectedSlow": false,
+            "experimental": false
+          }
+        },
+        "updatedAt": "2026-11-07T05:19:25.590Z"
+      },
+      {
+        "key": "material-source-link:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1:material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506:agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87",
+        "value": {
+          "schemaVersion": "career-material-intake-v1",
+          "attachmentId": "agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87",
+          "sessionId": "material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506",
+          "sourceId": "material-source:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+          "hash": "59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+          "fileName": "sample-certificate.png",
+          "mimeType": "image/png",
+          "sourceDocument": {
+            "schemaVersion": "resume-source-document-v2",
+            "sourceId": "material-source:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+            "sourceKind": "text",
+            "fileName": "sample-certificate.png",
+            "fileHash": "59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+            "pageCount": 1,
+            "blocks": [
+              {
+                "id": "text:block:0",
+                "sourcePath": "text#line[1]",
+                "text": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "blockType": "paragraph",
+                "sourceEngine": "manual_transcription",
+                "sourceEngineVersion": "resume-import.text.v1",
+                "extractionConfidence": 0,
+                "sourceKind": "text",
+                "order": 0,
+                "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "normalizationActions": []
+              }
+            ],
+            "quality": {
+              "sourceType": "text",
+              "textCoverage": 1,
+              "replacementCharacterRatio": 0,
+              "abnormalWhitespaceRatio": 0,
+              "lineFragmentationScore": 0.3333333333333333,
+              "readingOrderConfidence": "medium",
+              "layoutComplexity": "unknown",
+              "recommendedRoute": "deterministic",
+              "warnings": [],
+              "schemaVersion": "resume-import-quality-v2",
+              "classification": "text",
+              "recommendedPipeline": "text_structure",
+              "pageCount": 1,
+              "coordinateCoverage": 0,
+              "hasUsableTextLayer": true,
+              "ocrRequiredPages": [],
+              "thresholds": {
+                "minimumTextCoverage": 0.45,
+                "maximumReplacementCharacterRatio": 0.015,
+                "maximumLineFragmentationScore": 0.88
+              }
+            }
+          },
+          "reviewState": "review_ready",
+          "importId": "material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1",
+          "newProfileIntentId": "c7a9dba1-077f-4bb7-b141-55d220d254f1",
+          "purpose": "profile_material",
+          "warnings": [
+            "来源文字为待核对转写，尚未与原件核验。"
+          ],
+          "createdAt": "2026-11-07T05:19:25.590Z"
+        },
+        "updatedAt": "2026-11-07T05:19:25.853Z"
+      },
+      {
+        "key": "material-source-link:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76:material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506:agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87",
+        "value": {
+          "schemaVersion": "career-material-intake-v1",
+          "attachmentId": "agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87",
+          "sessionId": "material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506",
+          "sourceId": "material-source:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+          "hash": "59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+          "fileName": "sample-certificate.png",
+          "mimeType": "image/png",
+          "sourceDocument": {
+            "schemaVersion": "resume-source-document-v2",
+            "sourceId": "material-source:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+            "sourceKind": "text",
+            "fileName": "sample-certificate.png",
+            "fileHash": "59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+            "pageCount": 1,
+            "blocks": [
+              {
+                "id": "text:block:0",
+                "sourcePath": "text#line[1]",
+                "text": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "rawText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "blockType": "paragraph",
+                "sourceEngine": "manual_transcription",
+                "sourceEngineVersion": "resume-import.text.v1",
+                "extractionConfidence": 0,
+                "sourceKind": "text",
+                "order": 0,
+                "normalizedText": "证书\nSAMPLE CERTIFICATE\nANONYMOUS ISSUER",
+                "normalizationActions": []
+              }
+            ],
+            "quality": {
+              "sourceType": "text",
+              "textCoverage": 1,
+              "replacementCharacterRatio": 0,
+              "abnormalWhitespaceRatio": 0,
+              "lineFragmentationScore": 0.3333333333333333,
+              "readingOrderConfidence": "medium",
+              "layoutComplexity": "unknown",
+              "recommendedRoute": "deterministic",
+              "warnings": [],
+              "schemaVersion": "resume-import-quality-v2",
+              "classification": "text",
+              "recommendedPipeline": "text_structure",
+              "pageCount": 1,
+              "coordinateCoverage": 0,
+              "hasUsableTextLayer": true,
+              "ocrRequiredPages": [],
+              "thresholds": {
+                "minimumTextCoverage": 0.45,
+                "maximumReplacementCharacterRatio": 0.015,
+                "maximumLineFragmentationScore": 0.88
+              }
+            }
+          },
+          "reviewState": "review_ready",
+          "importId": "material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76",
+          "targetProfileId": "profile-demo-student",
+          "newProfileIntentId": "material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506",
+          "purpose": "profile_material",
+          "warnings": [
+            "来源文字为待核对转写，尚未与原件核验。"
+          ],
+          "createdAt": "2026-11-07T05:19:25.590Z"
+        },
+        "updatedAt": "2026-11-07T05:19:25.601Z"
+      },
+      {
+        "key": "material-sources:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1",
+        "value": [
+          "material-source-link:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1:material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506:agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87"
+        ],
+        "updatedAt": "2026-11-07T05:19:25.854Z"
+      },
+      {
+        "key": "material-sources:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76",
+        "value": [
+          "material-source-link:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76:material-center-8f719ab8-55ff-478a-9a65-bcf908ce2506:agent-attachment-bc690824-34e4-4e2e-31a2-02f59bc8bc87"
+        ],
+        "updatedAt": "2026-11-07T05:19:25.602Z"
+      },
+      {
+        "key": "material-target:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1",
+        "value": {
+          "purpose": "profile_material"
+        },
+        "updatedAt": "2026-11-07T05:19:25.838Z"
+      },
+      {
+        "key": "material-target:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76",
+        "value": {
+          "profileId": "profile-demo-student",
+          "purpose": "profile_material"
+        },
+        "updatedAt": "2026-11-07T05:19:25.597Z"
+      },
+      {
+        "key": "profileReconciliation:v1:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1",
+        "value": {
+          "id": "profile-reconciliation-p6Q6rLv4-g",
+          "createdAt": "2026-11-07T05:19:25.882Z",
+          "updatedAt": "2026-11-07T05:19:25.882Z",
+          "schemaVersion": "profile-reconciliation-v1",
+          "importId": "material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1",
+          "draftRevision": 0,
+          "profileId": "profile-demo-student",
+          "profileVersion": 1,
+          "revision": 0,
+          "status": "ready",
+          "sourceFileHash": "59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+          "sourceContentHash": "b8f83c8be632ffdc5ae3a12d0382e91af5976d2a7a16eb2db2f00fa3b84e7ce8",
+          "candidates": [],
+          "decisions": [],
+          "conflicts": [],
+          "reviewUnits": [],
+          "summary": {
+            "newFacts": 0,
+            "existing": 0,
+            "mergedEvidence": 0,
+            "compatibleUpdates": 0,
+            "likelyDuplicates": 0,
+            "conflicts": 0,
+            "unclassified": 0,
+            "requiresReview": 0
+          }
+        },
+        "updatedAt": "2026-11-07T05:19:25.882Z"
+      },
+      {
+        "key": "profileReconciliation:v1:material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76",
+        "value": {
+          "id": "profile-reconciliation-LDP5a01Kq0",
+          "createdAt": "2026-11-07T05:19:25.724Z",
+          "updatedAt": "2026-11-07T05:19:25.724Z",
+          "schemaVersion": "profile-reconciliation-v1",
+          "importId": "material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:21b545782ed77c3937bd2064393cb172a74b9f0652989241c494d1b53a4dab76",
+          "draftRevision": 0,
+          "profileId": "profile-demo-student",
+          "profileVersion": 1,
+          "revision": 0,
+          "status": "ready",
+          "sourceFileHash": "59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e",
+          "sourceContentHash": "b8f83c8be632ffdc5ae3a12d0382e91af5976d2a7a16eb2db2f00fa3b84e7ce8",
+          "candidates": [],
+          "decisions": [],
+          "conflicts": [],
+          "reviewUnits": [],
+          "summary": {
+            "newFacts": 0,
+            "existing": 0,
+            "mergedEvidence": 0,
+            "compatibleUpdates": 0,
+            "likelyDuplicates": 0,
+            "conflicts": 0,
+            "unclassified": 0,
+            "requiresReview": 0
+          }
+        },
+        "updatedAt": "2026-11-07T05:19:25.724Z"
+      },
+      {
+        "key": "resumeImportOperation:v1:resume-import-confirm-material-profile:59d48269827567138a321dfd721b7eeed718218407817ee2f748f95aa8fc5a0e:13e308b7c69ecc842ffcdee403b9045d91f6fec4ee3c2ba8a2148ee2d939edb1",
+        "value": {
+          "profileId": "profile-LPypmVCkXO",
+          "profileVersion": 1,
+          "branchDisposition": "no_new_resume_content",
+          "idempotent": false
+        },
+        "updatedAt": "2026-11-07T05:19:26.212Z"
+      }
+    ]
+  }
+}
