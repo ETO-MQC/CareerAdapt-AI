@@ -1,0 +1,14 @@
+{
+  "startingHead": "0935a63f60915792e5482f9401881a85a3a71994",
+  "finalHead": "0935a63f60915792e5482f9401881a85a3a71994",
+  "origin": "0935a63f60915792e5482f9401881a85a3a71994",
+  "commits": [],
+  "push": false,
+  "workingTree": "?? docs/architecture/evidence/p522-a05r/\n?? docs/architecture/p5.2.2-a05r-native-host-qualification.md\n?? scripts/p522-a05r-g1.mjs\n",
+  "worktrees": "worktree E:/DEF/CareerAdapt AI\nHEAD 0935a63f60915792e5482f9401881a85a3a71994\nbranch refs/heads/main\n\nworktree E:/DEF/CareerAdapt AI/.tmp/editor-closure-baseline\nHEAD 5b5cf1e53da42c1f9e9e1269dd542bdcb9258b56\ndetached\n\nworktree E:/DEF/CareerAdapt AI/.tmp/sq1-closeout-frozen\nHEAD 1573e267614ff93363eff2ed2bade34ff01ed078\ndetached\n\nworktree E:/DEF/CareerAdapt-competition-5.1.8\nHEAD 3ee88a64400021cb8f57d6805bf99a762996e10f\nbranch refs/heads/competition/5.1.8\n\nworktree E:/DEF/CareerAdapt-jd03-qualified-4561b8d\nHEAD 4561b8d1dfd65b9c6d957a73495b79cb9308cecb\ndetached\n\nworktree E:/DEF/CareerAdapt-resume01-887f061e\nHEAD 887f061e553b1ec83aa0789f1931a1fa3955f067\ndetached\n\nworktree E:/DEF/CareerAdapt-sq13b2-current-87360d1\nHEAD 87360d1f26113f5aaa82654b58dca8f62220e9b2\ndetached\n\nworktree E:/DEF/CareerAdapt-sq13b2-start-64323f5\nHEAD 64323f5a03de85a7802e7dea3743961b8d7de754\ndetached\n\n",
+  "cleanup": {
+    "electronPid": 77184,
+    "exitCode": 0,
+    "protocolDriverClosed": true
+  }
+}

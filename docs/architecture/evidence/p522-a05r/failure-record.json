@@ -1,0 +1,18 @@
+{
+  "historicalTimeouts": [
+    {
+      "file": "docs/architecture/evidence/p522-a05-native-career/implementation/electron-1793967508099.json",
+      "sha256": "b1587da39f5cefc9d1f4eb326acc36e030cb68e2b6d99a6cc145d07698bb4ab1"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-a05-native-career/implementation/electron-1793967635238.json",
+      "sha256": "d300c59bb7b2787604e3c8f6386750110332d6ee1bbcfe617deb085313c60d68"
+    }
+  ],
+  "historicalCause": "listen EACCES: malformed pipe JS escaping",
+  "currentFailure": "page.waitForLoadState: Timeout 8000ms exceeded.\n    at E:\\DEF\\CareerAdapt AI\\scripts\\p522-a05r-g1.mjs:30:107\n    at async stage (E:\\DEF\\CareerAdapt AI\\scripts\\p522-a05r-g1.mjs:25:156)\n    at async file:///E:/DEF/CareerAdapt%20AI/scripts/p522-a05r-g1.mjs:30:2",
+  "preloadAssertionReached": false,
+  "underlyingPageLoadCause": "NOT_ESTABLISHED",
+  "screenshot": "TimeoutError: page.screenshot: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - taking page screenshot\u001b[22m\n\u001b[2m  - waiting for fonts to load...\u001b[22m\n",
+  "reruns": 0
+}

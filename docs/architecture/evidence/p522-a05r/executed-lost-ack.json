@@ -1,0 +1,5 @@
+{
+  "status": "NOT_VERIFIED",
+  "executedThisRound": false,
+  "reason": "User G1 gate failed; stopped G2-G6. Historical synthetic or minimal probes are not full Host qualification."
+}

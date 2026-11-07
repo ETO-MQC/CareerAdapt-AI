@@ -1,0 +1,61 @@
+{
+  "overall": "PARTIAL_NOT_QUALIFIED",
+  "G1": "FAIL_G1_STOP_G2_G6",
+  "G2": "NOT_VERIFIED_G1_STOP",
+  "G3": "NOT_VERIFIED_G1_STOP",
+  "G4": "NOT_VERIFIED_G1_STOP",
+  "G5": "NOT_VERIFIED_G1_STOP",
+  "G6": "NOT_VERIFIED_G1_STOP",
+  "stages": [
+    {
+      "name": "A Main startup",
+      "timeout": 30000,
+      "started": 1793973943911,
+      "status": "PASS",
+      "detail": {
+        "pid": 77184
+      },
+      "exitCode": 0,
+      "finished": 1793973945041
+    },
+    {
+      "name": "B Named pipe listening",
+      "timeout": 5000,
+      "started": 1793973945041,
+      "status": "PASS",
+      "detail": {
+        "connected": true,
+        "ledger": [
+          {
+            "at": 1793973944551,
+            "event": "BOOT",
+            "boot": "6fd2bbfb-3263-440d-8faf-3e9117348b38",
+            "enabled": false,
+            "epoch": 0
+          },
+          {
+            "at": 1793973944562,
+            "event": "PIPE_LISTEN_BEGIN"
+          },
+          {
+            "at": 1793973944567,
+            "event": "PIPE_LISTEN_READY"
+          }
+        ]
+      },
+      "exitCode": 0,
+      "finished": 1793973945044
+    },
+    {
+      "name": "C Preload handshake",
+      "timeout": 25000,
+      "started": 1793973945045,
+      "status": "FAIL",
+      "exitCode": 1,
+      "error": "page.waitForLoadState: Timeout 8000ms exceeded.\n    at E:\\DEF\\CareerAdapt AI\\scripts\\p522-a05r-g1.mjs:30:107\n    at async stage (E:\\DEF\\CareerAdapt AI\\scripts\\p522-a05r-g1.mjs:25:156)\n    at async file:///E:/DEF/CareerAdapt%20AI/scripts/p522-a05r-g1.mjs:30:2",
+      "finished": 1793973953221
+    }
+  ],
+  "realProvider": "NOT_VERIFIED",
+  "productionAuthority": "BLOCKED"
+}

@@ -1,0 +1,479 @@
+{
+  "startingHead": "0935a63f60915792e5482f9401881a85a3a71994",
+  "originMain": "0935a63f60915792e5482f9401881a85a3a71994",
+  "branch": "main",
+  "status": "?? scripts/p522-a05r-g1.mjs",
+  "worktrees": [
+    "worktree E:/DEF/CareerAdapt AI",
+    "HEAD 0935a63f60915792e5482f9401881a85a3a71994",
+    "branch refs/heads/main",
+    "",
+    "worktree E:/DEF/CareerAdapt AI/.tmp/editor-closure-baseline",
+    "HEAD 5b5cf1e53da42c1f9e9e1269dd542bdcb9258b56",
+    "detached",
+    "",
+    "worktree E:/DEF/CareerAdapt AI/.tmp/sq1-closeout-frozen",
+    "HEAD 1573e267614ff93363eff2ed2bade34ff01ed078",
+    "detached",
+    "",
+    "worktree E:/DEF/CareerAdapt-competition-5.1.8",
+    "HEAD 3ee88a64400021cb8f57d6805bf99a762996e10f",
+    "branch refs/heads/competition/5.1.8",
+    "",
+    "worktree E:/DEF/CareerAdapt-jd03-qualified-4561b8d",
+    "HEAD 4561b8d1dfd65b9c6d957a73495b79cb9308cecb",
+    "detached",
+    "",
+    "worktree E:/DEF/CareerAdapt-resume01-887f061e",
+    "HEAD 887f061e553b1ec83aa0789f1931a1fa3955f067",
+    "detached",
+    "",
+    "worktree E:/DEF/CareerAdapt-sq13b2-current-87360d1",
+    "HEAD 87360d1f26113f5aaa82654b58dca8f62220e9b2",
+    "detached",
+    "",
+    "worktree E:/DEF/CareerAdapt-sq13b2-start-64323f5",
+    "HEAD 64323f5a03de85a7802e7dea3743961b8d7de754",
+    "detached",
+    ""
+  ],
+  "ignoredEvidence": [
+    ".artifacts/p522-a05/main/main.mjs",
+    "plan4.md",
+    "history4.md"
+  ],
+  "originalEvidence": [
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\authority-broker-verification.json",
+      "Hash": "58868B4C762C69C8EFE3987F5F7C041F13DA847A888213F189BD97926EEC9DF5"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\baseline.json",
+      "Hash": "667B558BBCB69132E5C005BC33293018ED3462347884195A0E229361B9C5F959"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\business-capability-inventory.json",
+      "Hash": "5E6E80DE30B48E9ED9E55C14EFBEC0BF8ED44D6783D30E3FB26A5844EA3D9C5A"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\delivery-manifest.json",
+      "Hash": "637E145E91020745F3550FCD599E42E67C3AD1569EBAB27ACCA11BDECF1ECE8D"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\dependency-boundary-audit.json",
+      "Hash": "DBC23632E1CAA1087F05AE6F8B7F50854EA2B7C3D53ED6A7CB21046572385FC5"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\disable-closure-probe.json",
+      "Hash": "6969F7569FDD08578801F18E9CDA520EE5AD735E5E5D612FF3F3FAC7392654BE"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\failure-record.json",
+      "Hash": "0355B3480A5867933F033124CDBD6FE1B1D2771AB62CCC58D7151C2F5C37332F"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\final-protection-verification.json",
+      "Hash": "213E7319F24DCA5247951EA80AEE7E5B189F37C7544091D8F26C28AD0D84E3C9"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\handler-ledger.json",
+      "Hash": "4C67AC9EA1FD1B3174DFDE456C418E3F594F6BBBC3221F12A1F5E510474F3438"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\history-recovery.json",
+      "Hash": "AE03150F5ABBD0CDF65BDF7DF40369D9AEFBA5418745D023227C61ABA3B5E644"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\integration-architecture.json",
+      "Hash": "F38E388A0DEA5FC38A94C49CCF0220A0B85C7354C35A8E05AE618D69F49CA893"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\native-tool-execution.json",
+      "Hash": "31BB68FC4764465B908DB23DEA9B6873663557744A78089FD3DC48F94AE3DB89"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\native-tool-registration.json",
+      "Hash": "F23D286A673EF4B7114152652DC0713815FE824CA9815BDCB60414F29892497B"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\optin-isolation.json",
+      "Hash": "B3280866661FE75CB922ABCE8630F4D9D131978392A22D0D172BE47FB3367E40"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\production-authority-gate.json",
+      "Hash": "235F35FD0E8CAA3CE0F4F7819D6B141B7C2963FEF3290A8C5D533A507F75185D"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\production-read-gate.json",
+      "Hash": "72EDD2BF529CD05525D0F53DF8B1BB2371B7E71B6C3013195AEC330A2382ECC0"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\provider-qualification.json",
+      "Hash": "63ED35ACB307A949272AAE613373449153FA9A1C70AE08A010A259FF24DE1A26"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\revoke-verification.json",
+      "Hash": "B57727F3C2CC8136FA10A70ED8B8D81E1D200380F397783E0A7E3EA6DD275EE4"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\session-isolation.json",
+      "Hash": "A3724EA447C6831CEFE6E3B8F8DF176BB13CD72869DC9D3F80A70BF14F58F8A1"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\source-review.json",
+      "Hash": "20CF0A72B34434F108BEB494E55B7F237F661872E6B63E3B7702473ED0E060F5"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\stop-verification.json",
+      "Hash": "E87121496BA00E9E73120C504CFE4694D5497BF8CFBDC59D0A575764A7ABC4B8"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\streaming-verification.json",
+      "Hash": "A186459E9D9A28EB2C7D48338D37AF3D5C4E81835FBE3D7C58B3A719BFA041DB"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\test-results.json",
+      "Hash": "89E15709E48647D6028B5D256E7F8E169C3952D47EA0C89455D8792A128CD037"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\unit-results.json",
+      "Hash": "B2145730537B411470660FDFBD859381C76AE15D8428BB6E363AE60999FB64B2"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\unknown-lost-ack-verification.json",
+      "Hash": "0D067D0586670A4DCA122A236B2396C99978E9039848FD54BC4B368ECC6C1694"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\application-metafile.json",
+      "Hash": "291AC771F17F98B5977F1C8F47BEBE542D7BC76AFEE244CD74734711FEB43E5D"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\build-artifacts.json",
+      "Hash": "B54B34D9075719F6EAD1ABA8D0EE2518EF331F619EF4C388408F268691681EB2"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\d3-unit-initial-parse-failure.json",
+      "Hash": "F864F5E4113EA9B3E57898E9B869EEBE83B3A236FF216DD0BE4FFBBA57FC9464"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\d3-unit-results.json",
+      "Hash": "209084C8EE9F16D87414F9085CF31754888F1DE906ED6DED5F72A4EF2C66FA2A"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\electron-1793967508099.json",
+      "Hash": "B1587DA39F5CEFC9D1F4EB326ACC36E030CB68E2B6D99A6CC145D07698BB4AB1"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\electron-1793967635238.json",
+      "Hash": "D300C59BB7B2787604E3C8F6386750110332D6EE1BBCFE617DEB085313C60D68"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\final-native-pipe-conflict-failure.json",
+      "Hash": "95CDEBB92B3DDB3C3D4DCCACD10B4009D801CE62FFEEBD982DF77A1B4A058E3E"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\final-native-pipe-results.json",
+      "Hash": "8C1C6AAF2A83150B33E087F8047A468F5403EABCBD3491B5C5A8006590F3B4F7"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\final-unit-results-2.json",
+      "Hash": "6360FCB451CC9EEFA5DD59DDBA0AA580C188A30F01101685671C16CB7C2FD98C"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\final-unit-results-3.json",
+      "Hash": "DFE7072D32FA8DBC42461A481E4DE253678A6CD36ACDC8291247B92E5C5D01C1"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\final-unit-results.json",
+      "Hash": "2C977EDB6272941C492269866342A3643B1062824ED5688D51F9E3AD5CD1623E"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\lost-ack-pipe.json",
+      "Hash": "C6B5F6E7CB1FC68437A57BE030087B3DAA9CF6E297F5A14A8F351D785651BA24"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\main-probe-1793967957304.json",
+      "Hash": "5A12209D15D8D8FC389596D1168DCC7E28D47369284AED4940A7CD4956243F00"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\main-probe-1793968121758.json",
+      "Hash": "C2FC6097810AE818CC8F2853720EA13D3A41503A76C8D8ACA47735EE738AE378"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\main-probe-1793968167593.json",
+      "Hash": "22AE58F07B3C7CB94BF3C0E2BE72C2A5121E127215D3462317485A9CC94E41B8"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\main-probe-1793968341315.json",
+      "Hash": "9C35FB55711D2B38F5E4823059F921D52CF74B7B177B258D6D83A9D33DF84C9C"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\main-probe-1793968343937.json",
+      "Hash": "20F932424DD0FD5363CD663C247BE878105ED9C680DBCAC985D79E96B2418FD8"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\main-probe-1793969823288.json",
+      "Hash": "501FE0CCEC9808823CB1DB039D0D154D0D4E709C6604696719E7C0BF84661F77"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\main-probe-1793969825382.json",
+      "Hash": "5DA9C4CFA98949DEFC680E69F5EE3434D46A1496BD35C59E43525768384797C0"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\native-registry-pipe.json",
+      "Hash": "38108AD174DC5D5920208CF555F3FE13061178C6A31C2F01764F53A03C47885B"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\native-typecheck-main-final.json",
+      "Hash": "5D0D5D5D29930DD1DE70E1563403753CD3334AC38836E73B940FA3E3B0F3E037"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\native-typecheck.json",
+      "Hash": "845ADB9F2EC12FA3A8E2AA601D8C19FCD0D3C9A9C862942C4224ED5D2883397D"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\patches.json",
+      "Hash": "CE585AA58F9D0D62CE1D554146A427C14C334235058CEE9371115F18976D693C"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\process-closure.json",
+      "Hash": "EE2122F95E208544685BD0D3761DC72CC4D6C37886C04E777DB00F5501776538"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\startup-errors-1793967635238.log",
+      "Hash": "1A475C37F12150AC160623DFA937A4CE3BA43E35519D29E87AFAF2D6818B9AA8"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\patched\\apps\\desktop\\electron\\main.ts.txt",
+      "Hash": "C6A43B5E25604E2A63911C27D43AFE9A991974899C9A409695B7258C166FBB30"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\patched\\apps\\desktop\\electron\\preload.ts.txt",
+      "Hash": "776F676875D7DBFE498FA3E666FF1CE4C84CBB169C58D34BFDC1FF21EB98FD15"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\patched\\apps\\desktop\\src\\main.tsx.txt",
+      "Hash": "154A28904BA76A0CD7715B7AA435FE92A418E5E014F29DC8AD908E4BCDDDFA8B"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\patched\\apps\\desktop\\src\\contrib\\plugins-store.ts.txt",
+      "Hash": "70BC16AD801F5A0DA53440AA47E611D1B56895D26CDF2B8624470A91A5E00AA9"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-build\\patch-manifest.json",
+      "Hash": "7D641FD85352A61A96A92DA605CA65EA2784EE2C81C726BB0E3D55F99891F191"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-build\\patched\\apps\\desktop\\src\\main.tsx.txt",
+      "Hash": "154A28904BA76A0CD7715B7AA435FE92A418E5E014F29DC8AD908E4BCDDDFA8B"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-build\\patched\\apps\\desktop\\src\\app\\routes.ts.txt",
+      "Hash": "A6713C05637172E765D873E44AD9730D8D7646006B15CE318C3353465A869D42"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-build\\patched\\apps\\desktop\\src\\app\\chat\\index.tsx.txt",
+      "Hash": "13D965806003BA43303CCB72723D2D43666514D7FCE9DDFA7A20DC14A27903FC"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-build\\patched\\apps\\desktop\\src\\app\\chat\\composer\\hooks\\use-composer-placeholder.ts.txt",
+      "Hash": "F26B09F14B2B4731F42E39DD115FD813425FED97C2E3BA3507A9EDB33099A0FF"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-build\\patched\\apps\\desktop\\src\\app\\chat\\sidebar\\index.tsx.txt",
+      "Hash": "B5407ECA221F2C9ABE4F898E1A3AA18D3FD3781D188FEDDB6174DC0F714DBEE2"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-build\\patched\\apps\\desktop\\src\\app\\contrib\\controller.tsx.txt",
+      "Hash": "D7691D38B87C925031ADD45F41165653E75D68CA8124B1AC6955AD89B62863EF"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-build\\patched\\apps\\desktop\\src\\app\\contrib\\surfaces.tsx.txt",
+      "Hash": "2302B5BFE6546EBFDC7D1228F61AC40635857AAE91C929B27B6BCDA1A29C4A5E"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-build\\patched\\apps\\desktop\\src\\app\\gateway\\hooks\\use-gateway-request.ts.txt",
+      "Hash": "5BA2AFCA1E288DAA9D3E54D96AA5D32C14A4DB9F702C8D7734F65EC88CB441FF"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-build\\patched\\apps\\desktop\\src\\app\\session\\hooks\\use-prompt-actions\\submit.ts.txt",
+      "Hash": "F4CE6641D82B36D1E07AF30D9E562FAC4DF272B8A2DF005E00018B9CDF108539"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-build\\patched\\apps\\desktop\\src\\app\\shell\\hooks\\use-statusbar-items.tsx.txt",
+      "Hash": "89DDD40A44EAC899B827FAF6431B971BF7031421D71BE96ECF4F042F395CB7DE"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-build\\patched\\apps\\desktop\\src\\components\\chat\\intro.tsx.txt",
+      "Hash": "4E16143BB6BDA33A3576581F6BECD987BA8CDD0A57F2CD9D053890AC6C9F437E"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-build\\patched\\apps\\desktop\\src\\contrib\\plugins-store.ts.txt",
+      "Hash": "70BC16AD801F5A0DA53440AA47E611D1B56895D26CDF2B8624470A91A5E00AA9"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-build\\patched\\apps\\desktop\\src\\lib\\inflight-turn-journal.ts.txt",
+      "Hash": "3E088CD2BD8360D5B3F241028DE013673138C6979DCD7B42370B8FE77B56AB0F"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-final\\patch-manifest.json",
+      "Hash": "E5A0AE4DE83A25E39CFC8DFB60E3E739B9B9B1DE22E5F0FA4C8ED5F99F76EDC8"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-final\\patched\\apps\\desktop\\src\\main.tsx.txt",
+      "Hash": "154A28904BA76A0CD7715B7AA435FE92A418E5E014F29DC8AD908E4BCDDDFA8B"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-final\\patched\\apps\\desktop\\src\\app\\routes.ts.txt",
+      "Hash": "A6713C05637172E765D873E44AD9730D8D7646006B15CE318C3353465A869D42"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-final\\patched\\apps\\desktop\\src\\app\\chat\\index.tsx.txt",
+      "Hash": "13D965806003BA43303CCB72723D2D43666514D7FCE9DDFA7A20DC14A27903FC"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-final\\patched\\apps\\desktop\\src\\app\\chat\\composer\\hooks\\use-composer-placeholder.ts.txt",
+      "Hash": "F26B09F14B2B4731F42E39DD115FD813425FED97C2E3BA3507A9EDB33099A0FF"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-final\\patched\\apps\\desktop\\src\\app\\chat\\sidebar\\index.tsx.txt",
+      "Hash": "B5407ECA221F2C9ABE4F898E1A3AA18D3FD3781D188FEDDB6174DC0F714DBEE2"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-final\\patched\\apps\\desktop\\src\\app\\contrib\\controller.tsx.txt",
+      "Hash": "D7691D38B87C925031ADD45F41165653E75D68CA8124B1AC6955AD89B62863EF"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-final\\patched\\apps\\desktop\\src\\app\\contrib\\surfaces.tsx.txt",
+      "Hash": "2302B5BFE6546EBFDC7D1228F61AC40635857AAE91C929B27B6BCDA1A29C4A5E"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-final\\patched\\apps\\desktop\\src\\app\\gateway\\hooks\\use-gateway-request.ts.txt",
+      "Hash": "5BA2AFCA1E288DAA9D3E54D96AA5D32C14A4DB9F702C8D7734F65EC88CB441FF"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-final\\patched\\apps\\desktop\\src\\app\\session\\hooks\\use-prompt-actions\\submit.ts.txt",
+      "Hash": "F4CE6641D82B36D1E07AF30D9E562FAC4DF272B8A2DF005E00018B9CDF108539"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-final\\patched\\apps\\desktop\\src\\app\\shell\\hooks\\use-statusbar-items.tsx.txt",
+      "Hash": "89DDD40A44EAC899B827FAF6431B971BF7031421D71BE96ECF4F042F395CB7DE"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-final\\patched\\apps\\desktop\\src\\components\\chat\\intro.tsx.txt",
+      "Hash": "4E16143BB6BDA33A3576581F6BECD987BA8CDD0A57F2CD9D053890AC6C9F437E"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-final\\patched\\apps\\desktop\\src\\contrib\\plugins-store.ts.txt",
+      "Hash": "70BC16AD801F5A0DA53440AA47E611D1B56895D26CDF2B8624470A91A5E00AA9"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\renderer-final\\patched\\apps\\desktop\\src\\lib\\inflight-turn-journal.ts.txt",
+      "Hash": "3E088CD2BD8360D5B3F241028DE013673138C6979DCD7B42370B8FE77B56AB0F"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\authority-broker-verification.json",
+      "Hash": "C8932F288137FF3C96C32B5A779290E27317EE45F1B74BEFB89A86D8338C1678"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\baseline.json",
+      "Hash": "667B558BBCB69132E5C005BC33293018ED3462347884195A0E229361B9C5F959"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\business-capability-inventory.json",
+      "Hash": "5E6E80DE30B48E9ED9E55C14EFBEC0BF8ED44D6783D30E3FB26A5844EA3D9C5A"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\delivery-manifest.json",
+      "Hash": "9E199902663F498D14E6C9B4AB14AC9844ECEACE58FC1D2229605B782DA33538"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\dependency-boundary-audit.json",
+      "Hash": "41482A5B14452704891A9E1A8118C63D0067531B8868585BFDDB6B6DB9E3CA6B"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\disable-closure-probe.json",
+      "Hash": "6969F7569FDD08578801F18E9CDA520EE5AD735E5E5D612FF3F3FAC7392654BE"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\failure-record.json",
+      "Hash": "52B0796A15D459366CA92A7576DE0C517B7B761DF130669D0ABD57E3B4DAE503"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\final-protection-verification.json",
+      "Hash": "98B5C9680C6AF363E4C9E94B5D3B9E79E78C2F4AC5E2099D0DE3C5515E952CB1"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\handler-ledger.json",
+      "Hash": "02B0A32562480191B061419553D235C8E95FC489D4A8F53BCD54DAC4C5203749"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\history-recovery.json",
+      "Hash": "009F067E3A7E59AA58A0BBF4FF8D0E8C5A528F689595E542BEA8EE37934320C2"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\integration-architecture.json",
+      "Hash": "736D7B33F8219394C63C673519E5FD0E93D331954F4AD3013B5B46C64A11F409"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\native-tool-execution.json",
+      "Hash": "059E048C72D5B7CF6F21767BB57FD4F898069EF87D2DC49CA9B4DDACBF5B0244"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\native-tool-registration.json",
+      "Hash": "F60DEE2D34E1D11F2DF1CD1D75E11FD2AD8F8F2C0919626F96C15BEED3FB088E"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\optin-isolation.json",
+      "Hash": "4B416E56A4374CE2F426B8073B70093089AF255A3C818ED698E1CA788F831DFE"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\production-authority-gate.json",
+      "Hash": "05161FC6BDBC6BECDE6E604D659A9127D43F97E92918CFA876DD5D270EF04F57"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\production-read-gate.json",
+      "Hash": "6DBCCE7AE9C01D606DADCCA7B252515C9791FE910B3F0B603D46BF8BC3DD6AA0"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\provider-qualification.json",
+      "Hash": "0500BDE4A301FE3535142C9D44FD693E01B6D887CC5F1AEA45A55E1D49C18727"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\review-report.md",
+      "Hash": "5C88741DE90257C00238FBFC3DC3F7049F29614CB601B1E4A5DFF08C7ADFB8CA"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\revoke-verification.json",
+      "Hash": "E86AAD458F79E9AE6F2D21E8C6819B0A5699105866A36EC54A7F0DF1F6B3E9BE"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\session-isolation.json",
+      "Hash": "7616647B3BA027B9925CCFB9B0B55B9BC4F6F10095F6FBBCACBDE713363AED19"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\source-review.json",
+      "Hash": "20CF0A72B34434F108BEB494E55B7F237F661872E6B63E3B7702473ED0E060F5"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\stop-verification.json",
+      "Hash": "3A5DF4DDF8156BE1FAA81D1CE6C6D22A585A5FD502172DC71B91EE7542B52424"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\streaming-verification.json",
+      "Hash": "894650223D87A9D60FEC20473B2D2273666826AABDDC0D91714A63814B3059D2"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\test-results.json",
+      "Hash": "E61A421253E6B17B15A5C4912C25BDE6893ED7E9C87D55C4A38244581ABDACB0"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\unit-results.json",
+      "Hash": "B2145730537B411470660FDFBD859381C76AE15D8428BB6E363AE60999FB64B2"
+    },
+    {
+      "Path": "E:\\DEF\\CareerAdapt AI\\docs\\architecture\\evidence\\p522-a05-native-career\\implementation\\review-phase\\unknown-lost-ack-verification.json",
+      "Hash": "5A7CAFC32E7781A5A3231CF2DB012B2229FE9B5C7B057496742C88850931FF55"
+    }
+  ]
+}

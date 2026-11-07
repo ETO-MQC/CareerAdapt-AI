@@ -1,0 +1,92 @@
+{
+  "run": 1793973943889,
+  "status": "FAIL_G1_STOP_G2_G6",
+  "stages": [
+    {
+      "name": "A Main startup",
+      "timeout": 30000,
+      "started": 1793973943911,
+      "status": "PASS",
+      "detail": {
+        "pid": 77184
+      },
+      "exitCode": 0,
+      "finished": 1793973945041
+    },
+    {
+      "name": "B Named pipe listening",
+      "timeout": 5000,
+      "started": 1793973945041,
+      "status": "PASS",
+      "detail": {
+        "connected": true,
+        "ledger": [
+          {
+            "at": 1793973944551,
+            "event": "BOOT",
+            "boot": "6fd2bbfb-3263-440d-8faf-3e9117348b38",
+            "enabled": false,
+            "epoch": 0
+          },
+          {
+            "at": 1793973944562,
+            "event": "PIPE_LISTEN_BEGIN"
+          },
+          {
+            "at": 1793973944567,
+            "event": "PIPE_LISTEN_READY"
+          }
+        ]
+      },
+      "exitCode": 0,
+      "finished": 1793973945044
+    },
+    {
+      "name": "C Preload handshake",
+      "timeout": 25000,
+      "started": 1793973945045,
+      "status": "FAIL",
+      "exitCode": 1,
+      "error": "page.waitForLoadState: Timeout 8000ms exceeded.\n    at E:\\DEF\\CareerAdapt AI\\scripts\\p522-a05r-g1.mjs:30:107\n    at async stage (E:\\DEF\\CareerAdapt AI\\scripts\\p522-a05r-g1.mjs:25:156)\n    at async file:///E:/DEF/CareerAdapt%20AI/scripts/p522-a05r-g1.mjs:30:2",
+      "finished": 1793973953221
+    }
+  ],
+  "logs": [
+    {
+      "at": 1793973966145,
+      "channel": "stderr",
+      "text": "Debugger ending on ws://127.0.0.1:13574/dfdc2c72-5460-4667-8e86-069cf5948fb3\r\nFor help, see: https://nodejs.org/en/docs/inspector\r\n"
+    }
+  ],
+  "pipe": "\\\\.\\pipe\\careeradapt-d3-g1-7737096b-7f9d-4560-9cdf-d83d91af873c",
+  "root": "E:\\DEF\\CareerAdapt AI\\.artifacts\\p522-a05r\\g1-1793973943889",
+  "provider": "LOCAL_PROTOCOL_ONLY",
+  "acl": {
+    "status": "NOT_VERIFIED_SID",
+    "readableAll": false,
+    "writableAll": false,
+    "claim": "No resistance to malicious same-user local code claimed"
+  },
+  "bundles": [
+    {
+      "file": ".artifacts/p522-a05/main/main.mjs",
+      "sha256": "0d5d5b37aeb9e977bf570b9303b6a3863a3abac86e0ea4a2caafb0a1e8d0ac08"
+    },
+    {
+      "file": ".artifacts/p522-a05/main/preload.cjs",
+      "sha256": "baf62c47042048491101ba4ae1ddc7ad3abd76fc5c34621143ce8d7312b110c4"
+    },
+    {
+      "file": ".artifacts/p522-a05/application.mjs",
+      "sha256": "84ff402ed293fd3b14950e657997ce77d8039ecb270769b2a4c71dd2a3a365dd"
+    }
+  ],
+  "failure": "page.waitForLoadState: Timeout 8000ms exceeded.\n    at E:\\DEF\\CareerAdapt AI\\scripts\\p522-a05r-g1.mjs:30:107\n    at async stage (E:\\DEF\\CareerAdapt AI\\scripts\\p522-a05r-g1.mjs:25:156)\n    at async file:///E:/DEF/CareerAdapt%20AI/scripts/p522-a05r-g1.mjs:30:2",
+  "screenshotError": "TimeoutError: page.screenshot: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - taking page screenshot\u001b[22m\n\u001b[2m  - waiting for fonts to load...\u001b[22m\n",
+  "cleanup": {
+    "electronPid": 77184,
+    "exitCode": 0,
+    "protocolDriverClosed": true
+  },
+  "modelRequests": 0
+}

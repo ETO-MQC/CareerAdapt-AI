@@ -1,0 +1,96 @@
+{
+  "status": "PARTIAL_G1_FAILED_STOPPED",
+  "jsonParse": "PASS",
+  "diffCheckExitCode": 0,
+  "lockedSourcesMatched": 13,
+  "files": [
+    {
+      "file": "docs/architecture/evidence/p522-a05r/baseline.json",
+      "sha256": "4060cbc93364f36bee326aebb6cbc503e8a74e9fdde68c134898b8d7fabdb08f"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-a05r/build-patch-sha-manifest.json",
+      "sha256": "cb3e4ea16e3765e0ff96768503e94804b13903970c4ea6a924bf7b373d80388f"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-a05r/default-shell.json",
+      "sha256": "a57f002998e18876594647f0dd3717bf43ad325401e7ccea33c4f34a5c290e55"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-a05r/desktop.log",
+      "sha256": "536f7b18f9b0a56592a656b851dac8a49333bae6f0186fdcd5f3453c2f0af0c5"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-a05r/electron-backend-restart.json",
+      "sha256": "a57f002998e18876594647f0dd3717bf43ad325401e7ccea33c4f34a5c290e55"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-a05r/executed-lost-ack.json",
+      "sha256": "a57f002998e18876594647f0dd3717bf43ad325401e7ccea33c4f34a5c290e55"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-a05r/failure-record.json",
+      "sha256": "97a263d70123d048bc38e94cf1046a4f905071b32c516bd7702f289bc09faa7a"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-a05r/final-state.json",
+      "sha256": "3fca6bb300e8eeb4b49e6f663a7d7606f506cf131e4d2d0019af9679bc957366"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-a05r/g1-1793973943889.json",
+      "sha256": "a9368869a9cfa6d4b26ddf08d5a6a5aaebbbaf7de0784ba19ca42738c6f53062"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-a05r/locked-source-verification.json",
+      "sha256": "3ded2f34595b1ec59d768116c019e7878a9f65f1f212f597ee9037b2308337f3"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-a05r/native-host-test-matrix.json",
+      "sha256": "52188c5fa9f10b06b91639031c747f3a922def4b153db1d51b405947304115b0"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-a05r/protection.json",
+      "sha256": "83c8a56db2907e17697c79d2645162424eddf1ba865367945ef0660160398c8b"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-a05r/real-plugin-disable.json",
+      "sha256": "a57f002998e18876594647f0dd3717bf43ad325401e7ccea33c4f34a5c290e55"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-a05r/session-ab.json",
+      "sha256": "a57f002998e18876594647f0dd3717bf43ad325401e7ccea33c4f34a5c290e55"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-a05r/startup-ledger.jsonl",
+      "sha256": "e15868dca685f7b1f7f7472ca4ba1063ae3790de1ef17f6f1b9b16c9d957a38c"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-a05r/streaming-stop.json",
+      "sha256": "a57f002998e18876594647f0dd3717bf43ad325401e7ccea33c4f34a5c290e55"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-a05r/test-results.json",
+      "sha256": "6b172e7c152e3527505f4721c3ad3b3614bdbdf92841696d349bed94939bff85"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-a05r/unknown-recovery.json",
+      "sha256": "a57f002998e18876594647f0dd3717bf43ad325401e7ccea33c4f34a5c290e55"
+    },
+    {
+      "file": "scripts/p522-a05r-g1.mjs",
+      "sha256": "1ca0d6543716b49a67714fdea62775fcf7e6c4d05f3824a37a2c17a7bd908496"
+    },
+    {
+      "file": "docs/architecture/p5.2.2-a05r-native-host-qualification.md",
+      "sha256": "7902069df8c8a694eb1fc9a01ef4c3746cd3fb99b483a53e4f7ff91674a70b63"
+    },
+    {
+      "file": "plan4.md",
+      "sha256": "651e16c7070701a125dd5b50d52b3f0457916555bf3538117dfc2a0327a43a56"
+    },
+    {
+      "file": "history4.md",
+      "sha256": "fb2dc8d8499bbeec962184ace1606f45c7b86f8ff530aef8399c545e379afb5c"
+    }
+  ]
+}

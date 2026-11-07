@@ -1,0 +1,4 @@
+{"at":1793973944551,"event":"BOOT","boot":"6fd2bbfb-3263-440d-8faf-3e9117348b38","enabled":false,"epoch":0}
+{"at":1793973944562,"event":"PIPE_LISTEN_BEGIN"}
+{"at":1793973944567,"event":"PIPE_LISTEN_READY"}
+{"at":1793973965145,"event":"LIFECYCLE","enabled":false,"epoch":1,"reason":"main-exit","boot":"6fd2bbfb-3263-440d-8faf-3e9117348b38"}

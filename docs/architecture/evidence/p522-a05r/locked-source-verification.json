@@ -1,0 +1,82 @@
+{
+  "files": [
+    {
+      "file": "LOCKED_HERMES/apps/desktop/src/contrib/runtime-loader.ts",
+      "expected": "545d39f9acfe21702384c19120f30cc06413e9489d4f9f0882301fa831a60999",
+      "actual": "545d39f9acfe21702384c19120f30cc06413e9489d4f9f0882301fa831a60999",
+      "match": true
+    },
+    {
+      "file": "LOCKED_HERMES/apps/desktop/src/contrib/plugin.ts",
+      "expected": "34c2713ab2bf0d5e77826a42cdd22da80fc5ff051d2d143c2a8ba22c1e26c2db",
+      "actual": "34c2713ab2bf0d5e77826a42cdd22da80fc5ff051d2d143c2a8ba22c1e26c2db",
+      "match": true
+    },
+    {
+      "file": "LOCKED_HERMES/apps/desktop/src/sdk/runtime.ts",
+      "expected": "6d38dfb12d567cf3f10474afdc9cd6798b2b05b4b23e7f2f4a383f8a265b0c07",
+      "actual": "6d38dfb12d567cf3f10474afdc9cd6798b2b05b4b23e7f2f4a383f8a265b0c07",
+      "match": true
+    },
+    {
+      "file": "LOCKED_HERMES/apps/desktop/src/sdk/index.ts",
+      "expected": "3dcb00fea4b0c573797746840525e4155b676a6c2e914fdc517592192209840b",
+      "actual": "3dcb00fea4b0c573797746840525e4155b676a6c2e914fdc517592192209840b",
+      "match": true
+    },
+    {
+      "file": "LOCKED_HERMES/apps/desktop/src/contrib/plugins-store.ts",
+      "expected": "c22a449019a50ca68aa8af807c85678357aa981a2a2fb9fcee3ba7b58c90e01c",
+      "actual": "c22a449019a50ca68aa8af807c85678357aa981a2a2fb9fcee3ba7b58c90e01c",
+      "match": true
+    },
+    {
+      "file": "LOCKED_HERMES/hermes_cli/plugins.py",
+      "expected": "3692a9f4c7cac4d15c0bb655f43def83a2f26c3568a55cbb3ef004029c7ead95",
+      "actual": "3692a9f4c7cac4d15c0bb655f43def83a2f26c3568a55cbb3ef004029c7ead95",
+      "match": true
+    },
+    {
+      "file": "LOCKED_HERMES/hermes_cli/middleware.py",
+      "expected": "45bee8a36c819aac9487be21ff0cd58ccae36c609152a88b90de74a46765bcaa",
+      "actual": "45bee8a36c819aac9487be21ff0cd58ccae36c609152a88b90de74a46765bcaa",
+      "match": true
+    },
+    {
+      "file": "LOCKED_HERMES/model_tools.py",
+      "expected": "6ca4611e30f363c5a8d346631b3666943181da8095fccb9688269263b7cb7cad",
+      "actual": "6ca4611e30f363c5a8d346631b3666943181da8095fccb9688269263b7cb7cad",
+      "match": true
+    },
+    {
+      "file": "LOCKED_HERMES/tools/registry.py",
+      "expected": "9a487e80c88ca4d735149d2da68059522801153999a94f34f68f7ee167d580a2",
+      "actual": "9a487e80c88ca4d735149d2da68059522801153999a94f34f68f7ee167d580a2",
+      "match": true
+    },
+    {
+      "file": "LOCKED_HERMES/apps/desktop/electron/main.ts",
+      "expected": "0b184d8d114126ad77ca16ce5b42a410a677de13d5548825c1bc68f80eb6ab4e",
+      "actual": "0b184d8d114126ad77ca16ce5b42a410a677de13d5548825c1bc68f80eb6ab4e",
+      "match": true
+    },
+    {
+      "file": "LOCKED_HERMES/apps/desktop/electron/preload.ts",
+      "expected": "0533209a7ecbdc77f9601660a375a92f4dd50f2cce950a8833ceb68278f9354b",
+      "actual": "0533209a7ecbdc77f9601660a375a92f4dd50f2cce950a8833ceb68278f9354b",
+      "match": true
+    },
+    {
+      "file": "LOCKED_HERMES/pyproject.toml",
+      "expected": "57faa8c9b86839837291b8acd0247c68e52ff53cc7e72f916469a8f3db95be62",
+      "actual": "57faa8c9b86839837291b8acd0247c68e52ff53cc7e72f916469a8f3db95be62",
+      "match": true
+    },
+    {
+      "file": "LOCKED_HERMES/apps/desktop/package.json",
+      "expected": "330edca012ae548e0fdd75a64df9eb3123a24d38d89b826dee6b12f98afd83bd",
+      "actual": "330edca012ae548e0fdd75a64df9eb3123a24d38d89b826dee6b12f98afd83bd",
+      "match": true
+    }
+  ]
+}

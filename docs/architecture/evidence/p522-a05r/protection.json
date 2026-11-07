@@ -1,0 +1,9 @@
+{
+  "priorEvidenceChanged": [],
+  "count": 0,
+  "lockedHead": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+  "workingTree": [
+    "?? docs/architecture/evidence/p522-a05r/",
+    "?? scripts/p522-a05r-g1.mjs"
+  ]
+}
