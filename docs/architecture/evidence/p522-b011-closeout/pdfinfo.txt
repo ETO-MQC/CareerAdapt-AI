@@ -1,0 +1,19 @@
+Title:           鍚屽_鏁版嵁鍒嗘瀽瀹炰範鐢焈鎶�鏈痏20261108.pdf
+Creator:         Chromium
+Producer:        Skia/PDF m149
+CreationDate:    Sun Nov  8 00:14:55 2026 中国标准时间
+ModDate:         Sun Nov  8 00:14:55 2026 中国标准时间
+Custom Metadata: no
+Metadata Stream: no
+Tagged:          no
+UserProperties:  no
+Suspects:        no
+Form:            none
+JavaScript:      no
+Pages:           2
+Encrypted:       no
+Page size:       594.96 x 841.92 pts (A4)
+Page rot:        0
+File size:       145289 bytes
+Optimized:       no
+PDF version:     1.4

@@ -1,0 +1,131 @@
+{
+  "status": "PASS_DETERMINISTIC_BROWSER_REAL_PDF",
+  "head": "7357b75852982659e2196e98a7b8e663a796025b",
+  "historicalReportsUnchanged": true,
+  "files": [
+    {
+      "file": "docs/architecture/evidence/p522-b011-closeout/after-answer.json",
+      "sha256": "74d1d854705afc545eace10abff053204efa9b1ef1fa3a773679c80d6a8934db"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b011-closeout/after-reload-failure.json",
+      "sha256": "062fece9f21e92b54c2b7e601c379fee84b7942633ad033ceb2db9206de23958"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b011-closeout/after-retry.json",
+      "sha256": "75ca775b7ac5cfb9aa1718dd109611607c2104e0105af4de45780c2aa912c310"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b011-closeout/browser-results.json",
+      "sha256": "59801e80ccc0038d4b3754fc14cdba9d4d6bc97093febd48ee17ef4ae395a192"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b011-closeout/completed-task.json",
+      "sha256": "b11f74cc3e5bdc0e6530fab7bd26e2739b46add9b4056f4c24a1fac4cac8b508"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b011-closeout/export-records.json",
+      "sha256": "1ac3846d6095707c406a96f19d061b8267f952c7777ab262f849bed1d7e7fe34"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b011-closeout/model-failure.json",
+      "sha256": "f64fbd2e6c266030ecb44b5a21a68d3e84162e9e219871ea08979017382f40da"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b011-closeout/model-ledger.json",
+      "sha256": "e7a9744e081d3966457fbb9e6b00640914491df6e5ad0d52dd11f44053e1d9b8"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b011-closeout/pdf-page2.png",
+      "sha256": "5c1a637ef89e7fbd59f5246c22420bb0caccecc95e456cc7053be67434e7f86f"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b011-closeout/pdf-preview.png",
+      "sha256": "6ec4d25e57d8ca0902667e158152e56a5c6371873b2fca84d77bcc3e27a3affd"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b011-closeout/pdf-text.txt",
+      "sha256": "186ba6348e15d0c824468b97ff2a1bc9557d1168b56fde5ad85cb1b465040154"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b011-closeout/pdfinfo.txt",
+      "sha256": "b4c22cbe0a8b978c6c10dde6c55ec73419bb1558b858fec47c2a4250c6d3aa91"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b011-closeout/prior-failure-contexts/empty-diff-fixture-0.md",
+      "sha256": "702c56447debf593d8c6cd34c1a542b433fd938499258d0547da1899e0d73089"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b011-closeout/prior-failure-contexts/retry-before-fix-0.md",
+      "sha256": "5057e4b177e95b5fd75daf9830b777ce79276c4b9bab36029ab5cd9f186c76b6"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b011-closeout/prior-failure-contexts/retry-rolled-answer-back.json",
+      "sha256": "3c39c415d1fcd5164d4ae4b46e645897dafc9f71e63e8c6066fb588f0561c765"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b011-closeout/prior-failure-contexts/wrong-active-task-0.md",
+      "sha256": "769ffaf163cc7472921ab18042e8f1e93770c181112f588086ebed8d52d1b5a9"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b011-closeout/tailored.pdf",
+      "sha256": "8866fc1d7ad660d6ecdc85d87841a47e0f65c61d9e4f93fa716f8dde3b5a6a31"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b011-closeout/test-results.json",
+      "sha256": "84cc9479a3343cfe8c96a9c469ad80292a021aaaa6eba4b51836a803f1d4b39a"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b011-closeout/unit-results-final.json",
+      "sha256": "9cf2a975a03ea1f2086441eb4fc4a675a3fd8a8eb800ab51a736e5e386538111"
+    },
+    {
+      "file": "docs/architecture/evidence/p522-b011-closeout/unit-results.json",
+      "sha256": "67eba944a7a5d641678c6c6240efe3be262066e7265353c350ad35557ada7dd2"
+    },
+    {
+      "file": "docs/architecture/p5.2.2-b011-closeout.md",
+      "sha256": "2102bc199ecf94578dfc38b7fc41435571deb790a8456d30c56d10596de33ab7"
+    },
+    {
+      "file": "history4.md",
+      "sha256": "d4b4e4a5b33e1fd011de3729c6dce3dc5c94eedd24569d19bbe086efaaae9340"
+    },
+    {
+      "file": "plan4.md",
+      "sha256": "119280053afd5f8ccb6a4cf542789658226759012d31c6f8e9ae991f02db8ca5"
+    },
+    {
+      "file": "src/agent/runtime/AgentHostStore.ts",
+      "sha256": "a4196cdefa484ffad5462aa1a17ea6212e7a296059b67aae5c17ce950aeaec0d"
+    },
+    {
+      "file": "src/ai/client.ts",
+      "sha256": "52e18839fd29eaaf4fb656a9a496f8cca976e35935d337ced9c093a542ea924c"
+    },
+    {
+      "file": "src/components/agent/AgentConversation.tsx",
+      "sha256": "3890c43bb97e5f7cdb28b52324092a3290b8c75e2dbde5542ed26ed2aaaef87f"
+    },
+    {
+      "file": "src/services/jobs/tailoringCommands.ts",
+      "sha256": "d8b48a2ee803343be9321efa245603a22932790e238e0e7a86636928b6ae1edc"
+    },
+    {
+      "file": "tests/e2e/p522-b011-closeout.spec.ts",
+      "sha256": "b69d87b3d12fb741ccf4ad1c1a4a6a56c6040e41f43f00c60e0cf912faf8ba2d"
+    },
+    {
+      "file": "tests/unit/agentConversationStructure.test.tsx",
+      "sha256": "81c01946e2ec687cbf122114f7edb1535e322e770d7407e502219a93ea7abd9e"
+    },
+    {
+      "file": "tests/unit/b011-generation.test.ts",
+      "sha256": "191259dcf2ae4008bcf7675dab0167601c73612ff1e4c2efc75b5b7561d40da7"
+    },
+    {
+      "file": "tests/unit/structuredAiClient.test.ts",
+      "sha256": "7ff78c70ac76c5b04fde665dc4c2c65225052220400da0b9d73b59737742db6d"
+    }
+  ]
+}

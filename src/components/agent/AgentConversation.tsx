@@ -228,7 +228,15 @@ export function AgentConversation({
                 type="button"
                 disabled={pendingRegenerateMessageId === latestAssistantMessage.id}
                 aria-busy={pendingRegenerateMessageId === latestAssistantMessage.id}
-                onClick={() => void onRegenerate(latestAssistantMessage)}
+                onClick={() => {
+                  if (isFailedAssistantMessage(latestAssistantMessage) && onOption
+                    && tailoringTaskState?.workflowId === "tailor_existing_resume"
+                    && tailoringTaskState.stage === "generate_changes") {
+                    onOption({ id: "retry-current-tailoring-step", label: "重新执行当前步骤", action: { type: "retry_current_step" } });
+                    return;
+                  }
+                  void onRegenerate(latestAssistantMessage);
+                }}
               >
                 <RotateCcw aria-hidden="true" /> {isFailedAssistantMessage(latestAssistantMessage) ? "重新执行当前步骤" : "重新生成最近回答"}
               </button>

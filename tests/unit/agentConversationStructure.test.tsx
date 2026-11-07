@@ -1,9 +1,22 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { AgentRuntime } from "@/agent/runtime/agentRuntime";
+import { AgentTaskStateReducer } from "@/agent/runtime/AgentTaskStateReducer";
 import type { AgentMessage } from "@/agent/contracts/agentSession";
 import { AgentConversationTimeline } from "@/components/agent/AgentConversation";
 
 describe("AgentConversationTimeline", () => {
+  it("retries failed tailoring generation without regenerating the prior answer", () => {
+    const onOption = vi.fn(); const onRegenerate = vi.fn();
+    const initial = new AgentTaskStateReducer().create(AgentRuntime.create("tailor_existing_resume", "generate_changes"), "create_tailored_resume");
+    render(<AgentConversationTimeline onOption={onOption} onRegenerate={onRegenerate}
+      tailoringTaskState={{ ...initial, stage: "generate_changes", completionStatus: "failed" }}
+      messages={[{ id: "b011-failure", role: "assistant", content: "模型请求超时", kind: "error_status", type: "error", status: "failed", createdAt: "2026-11-08T00:00:00.000Z" }]} />);
+    fireEvent.click(screen.getByRole("button", { name: "重新执行当前步骤" }));
+    expect(onOption).toHaveBeenCalledWith(expect.objectContaining({ action: { type: "retry_current_step" } }));
+    expect(onRegenerate).not.toHaveBeenCalled();
+  });
+
   it("keeps one current tailoring review status when persisted turns contain duplicates", () => {
     render(
       <AgentConversationTimeline

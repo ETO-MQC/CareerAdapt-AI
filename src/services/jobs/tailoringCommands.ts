@@ -277,6 +277,9 @@ export async function generateTailoringDiffsCommand(input: {
     try {
       first = ResumeTailoringDiffModelOutputSchema.parse(await input.generate(request, input.signal));
     } catch (error) {
+      // Transport failures are retryable workflow failures, not an empty successful proposal.
+      if (error && typeof error === "object" && "code" in error && typeof error.code === "string"
+        && /provider|request_cancelled|missing_ai_config/.test(error.code)) throw error;
       const detail = error instanceof Error ? error.message.replace(/\s+/g, " ").slice(0, 160) : "schema validation failed";
       warnings.push(`invalid_ai_output:${request.target.itemId}`);
       generationDiagnostics.push({ code: "invalid_ai_output", targetItemId: request.target.itemId, detail });

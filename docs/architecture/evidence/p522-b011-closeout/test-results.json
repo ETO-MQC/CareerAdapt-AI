@@ -1,0 +1,84 @@
+{
+  "status": "PASS_DETERMINISTIC_BROWSER_GOLDEN_JOURNEY_REAL_PDF",
+  "startedDate": "2026-11-07",
+  "completedDate": "2026-11-08",
+  "timezone": "Asia/Shanghai",
+  "startingHead": "7357b75852982659e2196e98a7b8e663a796025b",
+  "originMainAtStart": "7357b75852982659e2196e98a7b8e663a796025b",
+  "initialWorkingTree": "CLEAN",
+  "worktreesPreserved": 8,
+  "browser": {
+    "exitCode": 0,
+    "passed": 3,
+    "failed": 0,
+    "skipped": 0,
+    "results": "browser-results.json",
+    "output": ".artifacts/b011-closeout-final"
+  },
+  "unitIntegration": {
+    "exitCode": 0,
+    "files": 7,
+    "passed": 36,
+    "failed": 0,
+    "skipped": 0,
+    "results": "unit-results-final.json"
+  },
+  "typecheckExitCode": 0,
+  "changedEslintExitCode": 0,
+  "buildExitCode": 0,
+  "diffCheckExitCode": 0,
+  "realProvider": "NOT_VERIFIED",
+  "modelBoundary": "DETERMINISTIC_HTTP_OUTPUT_ONLY",
+  "repository": "REAL_PRODUCT_IMPLEMENTATION",
+  "pdf": {
+    "status": "VERIFIED",
+    "bytes": 145289,
+    "header": "PDF-1.4",
+    "pages": 2,
+    "popplerExitCode": 0,
+    "browserDownload": true,
+    "exportRevisionId": "resume-revision-fnv-85b4f2b9-199",
+    "fieldsVerified": [
+      "name",
+      "education",
+      "internship",
+      "project",
+      "skills"
+    ],
+    "adoptedDiffCount": 1,
+    "rejectedDiffExcluded": true,
+    "jobRequirementNotPromotedToPersonalSkill": true,
+    "bothPagesRenderedAndVisuallyInspected": true
+  },
+  "recovery": [
+    "answer persisted",
+    "diff persisted and restored",
+    "confirmation restored before click",
+    "new revision read after reload",
+    "model failure retained answer after reload",
+    "retry generated diffs without another answer"
+  ],
+  "scopeRestrictions": {
+    "B01.2": "NOT_STARTED",
+    "D3_D4": "NOT_STARTED",
+    "nativePermissions": "UNCHANGED",
+    "schemaTablesDependencies": "UNCHANGED",
+    "commitPush": "NOT_PERFORMED"
+  },
+  "intermediateFailures": [
+    "Provider-only configuration red test failed before fix",
+    "Fixture setup hydration/Job requirement fields/task selection failures",
+    "Deterministic fixture initially supplied sectionType inside strict output target; corrected",
+    "Retry button invoked onRegenerate and restored pre-answer checkpoint; fixed actual UI event plus existing Host action",
+    "First build optional artifact result TypeScript narrowing fixed",
+    "Standalone typecheck detected invalid Testing Library exact option; removed unsupported option preserving named role assertion",
+    "Initial lint found two unused test parameters; typed fetch mock fixed",
+    "PDFinfo console printing hit Windows GBK encoding; parser/render exits and PDF itself were successful"
+  ],
+  "limitations": [
+    "Real external Provider not certified",
+    "PDF second page contains only certificate; pagination compression outside scope",
+    "Existing source draft/tag text retained in PDF",
+    "Edit-after-adopt UI not separately E2E-certified; existing mechanism retained"
+  ]
+}

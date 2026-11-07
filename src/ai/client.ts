@@ -2,7 +2,7 @@ import { nanoid } from "nanoid";
 import type { z } from "zod";
 import { AiLogSchema, type AiLog, type AiTask } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
-import { readAiSettings, encodeAiSettingsForHeader } from "@/services/storage/aiSettings";
+import { readAiSettings, hasCustomAiSettings, encodeAiSettingsForHeader } from "@/services/storage/aiSettings";
 import type { SafeSchemaIssue, ResumeMapperResponseSnapshot } from "@/ai/resumeDocumentMapperDiagnostics";
 import { readDocumentRecognitionPreferences } from "@/services/preferences/documentRecognition";
 import { DEFAULT_MAPPING_TIMEOUT_SECONDS, RESUME_IMPORT_TIMEOUT_HEADER } from "@/domain/resumeImport/timeouts";
@@ -53,7 +53,7 @@ export async function invokeStructuredAi<TOutput>(input: {
   // V4-P0 S-2: the header carries provider coordinates only. The credential is never read here
   // (`readAiSettings` never restores it) and never travels in a request header; the server
   // resolves it from the main-process secure store or its own environment.
-  const hasCustomSettings = aiSettings.baseUrl.length > 0 || aiSettings.model.length > 0;
+  const hasCustomSettings = hasCustomAiSettings();
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json"
@@ -75,25 +75,42 @@ type StructuredAiDiagnostics = {
     headers[RESUME_IMPORT_TIMEOUT_HEADER] = String(readDocumentRecognitionPreferences().mappingTimeoutSeconds ?? DEFAULT_MAPPING_TIMEOUT_SECONDS);
   }
 
+  const tailoringRequest = ["resume-optimization-planner", "resume-tailor", "resume-tailor-batch", "resume-tailor-diff"].includes(input.task);
+  const deadlineSignal = tailoringRequest ? AbortSignal.timeout(45_000) : undefined;
+  const requestSignal = deadlineSignal
+    ? (input.signal ? AbortSignal.any([input.signal, deadlineSignal]) : deadlineSignal)
+    : input.signal;
+  const requestId = nanoid(12);
+  if (tailoringRequest) headers["x-career-request-id"] = requestId;
+  const trace = (phase: string, errorCategory?: string) => {
+    if (tailoringRequest) console.info("[tailoring-request]", { requestId, taskId: input.task, phase,
+      elapsedMs: Date.now() - requestStartedAt, ...(errorCategory ? { errorCategory } : {}) });
+  };
   const requestInit: RequestInit = {
-    method: "POST", headers, signal: input.signal,
+    method: "POST", headers, signal: requestSignal,
     body: JSON.stringify({ task: input.task, input: input.businessInput })
   };
   const requestStartedAt = Date.now();
   const elapsedMs = () => Math.max(0, Date.now() - requestStartedAt);
   let response: Response;
+  let responseText: string;
+  trace("request_started");
   try {
     response = await fetch("/api/ai/structured", requestInit);
     if (
-      input.task !== "resume-document-mapper"
+      !tailoringRequest && input.task !== "resume-document-mapper"
       && [429, 502, 503].includes(response.status)
       && !input.signal?.aborted
     ) {
       await abortableDelay(response.status === 429 ? 500 : 250, input.signal);
       response = await fetch("/api/ai/structured", requestInit);
     }
+    trace("response_headers");
+    responseText = await response.text();
+    trace("response_received");
   } catch {
-    const errorCode = input.signal?.aborted ? "request_cancelled" : "provider_unavailable";
+    const errorCode = input.signal?.aborted ? "request_cancelled" : deadlineSignal?.aborted ? "provider_timeout" : "provider_unavailable";
+    trace("failed", errorCode);
     return {
       ok: false as const,
       errorCode,
@@ -113,11 +130,11 @@ type StructuredAiDiagnostics = {
     };
   }
 
-  const responseText = await response.text();
   let payload: StructuredAiResponse<unknown>;
   try {
     payload = JSON.parse(responseText) as StructuredAiResponse<unknown>;
   } catch {
+    trace("failed", "structured_endpoint_invalid_json");
     return {
       ok: false as const,
       errorCode: "structured_endpoint_invalid_json",
@@ -142,6 +159,7 @@ type StructuredAiDiagnostics = {
     const errorCode = payload && typeof payload === "object" && "ok" in payload && !payload.ok
       ? payload.error.code
       : `provider_http_${response.status}`;
+    trace("failed", errorCode);
     return {
       ok: false as const,
       errorCode,
@@ -176,6 +194,7 @@ type StructuredAiDiagnostics = {
   const parsed = input.outputSchema.safeParse(payload.output);
 
   if (!parsed.success) {
+    trace("failed", "client_schema_validation_failed");
     return {
       ok: false as const,
       errorCode: "client_schema_validation_failed",
@@ -198,6 +217,7 @@ type StructuredAiDiagnostics = {
     };
   }
 
+  trace("parsed");
   return {
     ok: true as const,
     data: parsed.data,

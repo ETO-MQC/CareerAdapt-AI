@@ -970,6 +970,16 @@ export class AgentHostStore {
         ? persistedSession
         : liveSession
       : liveSession ?? persistedSession ?? input.session;
+    if (input.event.type === "retry"
+      && current.taskState?.workflowId === "tailor_existing_resume"
+      && current.taskState.stage === "generate_changes"
+      && current.taskState.knownSlots.tailoringSession
+      && isTailoringQuestionPlanComplete((current.taskState.knownSlots.tailoringSession as TailoringSession).plan)) {
+      // A saved answer is already canonical; retry only its proposal generation.
+      const session = (await this.resolveArtifactAction(current, { type: "tailoring_regenerate" }, input.pageContext))!;
+      return { session, event: input.event, userMessage: "", executionOwner: "deterministic_transition",
+        deterministicTransitionApplied: true, deterministicTerminal: true };
+    }
     if (input.event.type === "edit_message") {
       const assistantMessageId = findBranchAssistantMessageId(current, input.event.messageId);
       const correctionBase = current.pendingConfirmation && current.pendingToolCall
