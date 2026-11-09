@@ -1,0 +1,41 @@
+
+Running 1 test using 1 worker
+
+[1/1] tests\e2e\lifecycle-isolation.hermes.ts:7:5 › Job Intake real Hermes + Scripted: save unknown company, same Job completion, list visibility and refresh
+  1) tests\e2e\lifecycle-isolation.hermes.ts:7:5 › Job Intake real Hermes + Scripted: save unknown company, same Job completion, list visibility and refresh 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+    Call Log:
+    - Timeout 60000ms exceeded while waiting on the predicate
+
+      13 |     const response = await page.request.get("/api/agent/runtime/hermes/control");
+      14 |     return response.ok() && (await response.json()).snapshot?.runReady === true;
+    > 15 |   }, { timeout: 60_000 }).toBe(true);
+         |                           ^
+      16 |   await page.getByLabel("API 密钥", { exact: true }).fill(key);
+      17 |   await page.getByLabel("API 地址", { exact: true }).fill(provider);
+      18 |   await page.getByLabel("模型名称", { exact: true }).fill("careeradapt-test");
+        at E:\DEF\CareerAdapt-competition-5.1.8\tests\e2e\lifecycle-isolation.hermes.ts:15:27
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    docs\quality\lifecycle-isolation-hotfix-2026-11-09\scripted-1794240225901\browser\lifecycle-isolation.hermes-4a97d-list-visibility-and-refresh\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: docs\quality\lifecycle-isolation-hotfix-2026-11-09\scripted-1794240225901\browser\lifecycle-isolation.hermes-4a97d-list-visibility-and-refresh\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    docs\quality\lifecycle-isolation-hotfix-2026-11-09\scripted-1794240225901\browser\lifecycle-isolation.hermes-4a97d-list-visibility-and-refresh\trace.zip
+    Usage:
+
+        npx playwright show-trace docs\quality\lifecycle-isolation-hotfix-2026-11-09\scripted-1794240225901\browser\lifecycle-isolation.hermes-4a97d-list-visibility-and-refresh\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  1 failed
+    tests\e2e\lifecycle-isolation.hermes.ts:7:5 › Job Intake real Hermes + Scripted: save unknown company, same Job completion, list visibility and refresh 
+Job Intake Scripted Provider FAIL: E:\DEF\CareerAdapt-competition-5.1.8\docs\quality\lifecycle-isolation-hotfix-2026-11-09\scripted-1794240225901

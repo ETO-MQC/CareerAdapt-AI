@@ -55,7 +55,7 @@ import {
   CareerContextRetrieveInputSchema,
   retrieveCareerContext
 } from "@/domain/careerContext/retrieveCareerContext";
-import { getAgentSessionDisplayTitle } from "@/agent/contracts/agentSession";
+import { getAgentSessionDisplayTitle, type AgentSession } from "@/agent/contracts/agentSession";
 import { canonicalProfileLibraryItems, canonicalProfileSectionCounts } from "@/domain/profile/canonicalLibrary";
 import { recommendSourceRoute } from "@/agent/orchestration/sourceRouteRecommendation";
 import { analyzeProfileLibrarySource } from "@/services/jobs/jobResumeSourceModes";
@@ -132,8 +132,8 @@ export class BrowserAgentToolService implements AgentToolServices {
     if (!session || session.id !== selection.sessionId || session.activeProfileId !== selection.profileId
       || session.taskState?.workflowId !== "precise_resume_edit" || slot?.proposal
       || session.activeTurn?.id !== input.turnId) throw new Error("resume_precise_selection_required");
-    const branch = await this.repository.getResumeBranch(selection.branchId);
-    const profile = await this.repository.getProfile(selection.profileId);
+    const branch = await this.repository.getAvailableResumeBranch(selection.branchId);
+    const profile = await this.repository.getAvailableProfile(selection.profileId);
     if (!branch || !profile) throw new Error("resume_precise_target_missing");
     if ("operation" in selection) {
       const source = selection.operation === "fact_correction"
@@ -273,7 +273,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       retry?: boolean;
     };
     await assertActiveProfileBinding(this.repository, input);
-    const profile = await this.repository.getProfile(input.targetProfileId);
+    const profile = await this.repository.getAvailableProfile(input.targetProfileId);
     if (!profile) throw toolError("profile_intake_target_missing", "目标资料库不存在，请重新选择。");
     if (profile.version !== input.expectedProfileVersion) {
       throw toolError("profile_intake_stale_profile", "资料库已更新，请先基于最新版本重新对账。");
@@ -766,7 +766,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       acknowledgedActiveProfileId?: string;
     };
     await assertActiveProfileBinding(this.repository, input);
-    const profile = await this.repository.getProfile(input.targetProfileId);
+    const profile = await this.repository.getAvailableProfile(input.targetProfileId);
     if (!profile || profile.version !== input.expectedProfileVersion) {
       throw toolError("profile_intake_stale_profile", "资料库已变化，请基于最新版本重新对账。");
     }
@@ -811,7 +811,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       mode?: "create_new" | "update_existing";
     };
     await assertActiveProfileBinding(this.repository, input);
-    const profile = await this.repository.getProfile(input.targetProfileId);
+    const profile = await this.repository.getAvailableProfile(input.targetProfileId);
     if (!profile || profile.version !== input.expectedProfileVersion) {
       throw toolError("profile_intake_stale_profile", "资料库已变化，请先读取最新版本后再生成通用简历。");
     }
@@ -836,7 +836,7 @@ export class BrowserAgentToolService implements AgentToolServices {
     assertNotAborted(signal);
     const input = rawInput as { profileId: string; expectedProfileRevision?: number; acknowledgedActiveProfileId?: string };
     await assertActiveProfileBinding(this.repository, { targetProfileId: input.profileId, acknowledgedActiveProfileId: input.acknowledgedActiveProfileId });
-    const profile = await this.repository.getProfile(input.profileId);
+    const profile = await this.repository.getAvailableProfile(input.profileId);
     assertCompositionProfile(profile, input.expectedProfileRevision);
     const graph = buildResumeEvidenceGraph({ profile });
     return {
@@ -857,7 +857,7 @@ export class BrowserAgentToolService implements AgentToolServices {
     assertNotAborted(signal);
     const context = await this.loadCompositionContext(input);
     const source = await this.requireCompositionSource(input.sourceResumeId, context.profile.id);
-    const branch = await this.repository.getResumeBranch(source.branchId);
+    const branch = await this.repository.getAvailableResumeBranch(source.branchId);
     if (input.mode !== "general" || branch?.branchPurpose !== "general" || branch.currentRevisionId !== source.revisionId) {
       throw toolError("general_review_target_invalid", "请选择当前版本的已有通用简历。");
     }
@@ -888,7 +888,7 @@ export class BrowserAgentToolService implements AgentToolServices {
     const source = input.sourceResumeId || input.mode === "job_specific"
       ? await this.requireCompositionSource(input.sourceResumeId, context.profile.id)
       : undefined;
-    const sourceBranch = source ? await this.repository.getResumeBranch(source.branchId) : undefined;
+    const sourceBranch = source ? await this.repository.getAvailableResumeBranch(source.branchId) : undefined;
     if (source && (!sourceBranch || sourceBranch.currentRevisionId !== source.revisionId)) {
       throw toolError("resume_composition_source_stale", "来源简历已变化，请重新生成提案。");
     }
@@ -1082,7 +1082,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       requirementMatchIds: [],
       composition,
       sourceResumeId: source.branchId,
-      expectedSourceRevision: (await this.repository.getResumeBranch(source.branchId))?.revision,
+      expectedSourceRevision: (await this.repository.getAvailableResumeBranch(source.branchId))?.revision,
       expectedSourceRevisionId: source.revisionId,
       expectedSourceContentHash: source.contentHash,
       expectedSourcePresentationHash: source.presentationHash,
@@ -1136,7 +1136,7 @@ export class BrowserAgentToolService implements AgentToolServices {
     if (input.sourceResumeId && checkpoint.sourceResumeId !== input.sourceResumeId) {
       throw toolError("resume_composition_checkpoint_source_mismatch", "组装提案对应的来源简历已变化，请重新生成。");
     }
-    if (jobId && checkpoint.jobRevision !== (await this.repository.getJobDescription(jobId))?.updatedAt) {
+    if (jobId && checkpoint.jobRevision !== (await this.repository.getAvailableJobDescription(jobId))?.updatedAt) {
       throw toolError("resume_composition_job_stale", "岗位版本已变化，请重新生成岗位简历提案。");
     }
     return checkpoint;
@@ -1145,7 +1145,7 @@ export class BrowserAgentToolService implements AgentToolServices {
   private async requireCompositionSource(sourceResumeId: string | undefined, profileId: string) {
     if (!sourceResumeId) throw toolError("resume_composition_source_required", "岗位简历必须基于一份已有的通用简历生成。");
     const source = await this.repository.getResumeSourceFingerprint(sourceResumeId);
-    const branch = await this.repository.getResumeBranch(sourceResumeId);
+    const branch = await this.repository.getAvailableResumeBranch(sourceResumeId);
     if (!source || !branch) throw toolError("resume_composition_source_missing", "来源通用简历不存在，请先打开一份通用简历。");
     if (branch.profileId !== profileId || branch.branchPurpose !== "general") throw toolError("resume_composition_source_invalid", "岗位简历只能从当前资料库的一份通用简历派生。");
     if (!source.revisionId) throw toolError("resume_composition_source_revision_missing", "来源通用简历没有可用的当前版本。");
@@ -1155,8 +1155,8 @@ export class BrowserAgentToolService implements AgentToolServices {
   private async loadCompositionContext(input: { profileId: string; expectedProfileRevision: number; jobId?: string; acknowledgedActiveProfileId?: string }) {
     await assertActiveProfileBinding(this.repository, { targetProfileId: input.profileId, acknowledgedActiveProfileId: input.acknowledgedActiveProfileId });
     const [profile, job] = await Promise.all([
-      this.repository.getProfile(input.profileId),
-      input.jobId ? this.repository.getJobDescription(input.jobId) : Promise.resolve(undefined)
+      this.repository.getAvailableProfile(input.profileId),
+      input.jobId ? this.repository.getAvailableJobDescription(input.jobId) : Promise.resolve(undefined)
     ]);
     assertCompositionProfile(profile, input.expectedProfileRevision);
     if (input.jobId && !job) throw toolError("job_not_found", "Job no longer exists.");
@@ -1173,7 +1173,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       name?: string;
     };
     await assertActiveProfileBinding(this.repository, input);
-    const profile = await this.repository.getProfile(input.targetProfileId);
+    const profile = await this.repository.getAvailableProfile(input.targetProfileId);
     if (!profile || profile.version !== input.expectedProfileVersion) {
       throw toolError("profile_from_profile_stale", "资料库已变化，请先读取最新版本后再创建简历。");
     }
@@ -1200,9 +1200,91 @@ export class BrowserAgentToolService implements AgentToolServices {
     };
   }
 
+  async prepareAvailableRuntimeContext(session: AgentSession, persistScope = true) {
+    const access = await this.repository.prepareAgentAccessScope(session.id, session.activeProfileId, persistScope);
+    const selected = session.taskState?.selectedEntities;
+    const jobId = selected?.jobId ?? session.activeJobId;
+    const resumeIds = [selected?.resumeId, selected?.sourceResumeId, selected?.resultResumeId, session.activeResumeId].filter((id): id is string => !!id);
+    const invalidJob = !!jobId && !await this.repository.getAvailableJobDescription(jobId);
+    const resumeAvailability = await Promise.all(resumeIds.map(id => this.repository.getAvailableResumeBranch(id)));
+    const invalidResume = resumeAvailability.some(branch => !branch);
+    const profile = session.activeProfileId ? await this.repository.getAvailableProfile(session.activeProfileId) : undefined;
+    const profileChanged = !!profile && session.profileRevision !== undefined && session.profileRevision !== profile.version;
+    const resetContext = access.resetContext || (!access.initialized && access.hasRevocations && !!session.hermesRun) || invalidJob || invalidResume || profileChanged;
+    const current = resetContext ? {
+      ...session, taskState: undefined, workflowState: undefined, activeJobId: undefined, activeResumeId: undefined,
+      pendingConfirmation: undefined, pendingToolCall: undefined, artifactRefs: [],
+      conversationSummary: "", conversationSummaryBranchId: undefined,
+      ...(profile ? { profileRevision: profile.version, profileVersionNumber: profile.profileVersionNumber } : {})
+    } : session;
+    return { session: current, resetContext,
+      hermesSessionId: `hermes-${session.id}-access-${access.scope}` };
+  }
+
+  async assertAvailableToolTargets(name: string, rawInput: unknown, binding?: { profileId: string }) {
+    const input = rawInput && typeof rawInput === "object" ? rawInput as Record<string, unknown> : {};
+    if (binding && !await this.repository.getAvailableProfile(binding.profileId)) throw toolError("entity_not_available", "当前固定的人物或资料版本已不可用，请先选择可用版本。");
+    const session = input.session && typeof input.session === "object" ? input.session as Record<string, unknown> : {};
+    const branch = session.branch && typeof session.branch === "object" ? session.branch as Record<string, unknown> : {};
+    const profileIds = [input.profileId, input.targetProfileId, branch.profileId];
+    for (const id of profileIds) if (typeof id === "string" && !await this.repository.getAvailableProfile(id)) throw toolError("entity_not_available", "该人物或资料版本已不可用，未读取其内容。");
+    if (name !== "career.resume.restore") {
+      const resumeIds = [input.resumeId, input.sourceResumeId, input.branchId, branch.id];
+      for (const id of resumeIds) if (typeof id === "string" && !await this.repository.getAvailableResumeBranch(id)) throw toolError("entity_not_available", "该简历已移出当前列表或所属资料已不可用，未读取其内容。");
+    }
+    for (const id of [input.jobId, session.jobId, branch.jobId]) if (typeof id === "string" && !await this.repository.getAvailableJobDescription(id)) throw toolError("entity_not_available", "该岗位已移出当前列表，未读取或更新其内容。");
+  }
+
+  async filterAvailableToolResult(name: string, raw: unknown, binding?: { profileId: string }) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+    const data = { ...raw as Record<string, unknown> };
+    if (Array.isArray(data.jobs)) {
+      const ids = new Set((await this.repository.listAvailableJobDescriptions()).map(row => row.id));
+      data.jobs = data.jobs.filter(row => ids.has((row as { id: string }).id));
+    }
+    if (Array.isArray(data.profiles)) {
+      const ids = new Set((await this.repository.listAvailableProfiles()).map(row => row.id));
+      data.profiles = data.profiles.filter(row => ids.has((row as { id: string }).id));
+    }
+    if (Array.isArray(data.resumes)) {
+      const ids = new Set((await this.repository.listAvailableResumeBranches()).map(row => row.id));
+      data.resumes = data.resumes.filter(row => ids.has((row as { id: string }).id));
+    }
+    if (Array.isArray(data.sessions)) {
+      const allowed = [];
+      for (const row of data.sessions as Array<{ id: string }>) {
+        const stored = await this.repository.getAgentSession(row.id);
+        if (!stored?.activeProfileId || (binding && stored.activeProfileId !== binding.profileId)) continue;
+        const profile = await this.repository.getAvailableProfile(stored.activeProfileId);
+        if (!profile || stored.profileRevision !== profile.version) continue;
+        const jobId = stored.taskState?.selectedEntities.jobId ?? stored.activeJobId;
+        if (jobId && !await this.repository.getAvailableJobDescription(jobId)) continue;
+        allowed.push(row);
+      }
+      data.sessions = allowed;
+    }
+    // An explicit archive action may acknowledge its own archived target, without exposing content.
+    if (name === "career.resume.archive" && typeof data.resumeId === "string") {
+      if (!await this.repository.getAvailableResumeBranch(data.resumeId, { includeArchived: true })) {
+        throw toolError("entity_not_available", "该简历或所属资料已不可用。");
+      }
+      return { resumeId: data.resumeId, lifecycleStatus: data.lifecycleStatus, revision: data.revision, idempotent: data.idempotent };
+    }
+    // A replayed write/read receipt is not permission to return a now-unavailable entity.
+    const job = data.job as { id?: string } | undefined;
+    const profile = data.profile as { id?: string } | undefined;
+    const resume = (data.resume ?? data.branch) as { id?: string } | undefined;
+    await this.assertAvailableToolTargets(name === "career.resume.restore" ? "career.resume.get" : name, {
+      jobId: data.jobId ?? job?.id,
+      profileId: data.profileId ?? profile?.id,
+      resumeId: data.resumeId ?? resume?.id
+    });
+    return data;
+  }
+
   async listResumes(signal?: AbortSignal) {
     assertNotAborted(signal);
-    const branches = await this.repository.listResumeBranches();
+    const branches = await this.repository.listAvailableResumeBranches();
     return {
       resumes: branches
         .filter((branch) => branch.lifecycleStatus === "active" && branch.migrationStatus === "verified")
@@ -1222,7 +1304,7 @@ export class BrowserAgentToolService implements AgentToolServices {
 
   async listProfiles(signal?: AbortSignal) {
     assertNotAborted(signal);
-    const profiles = await this.repository.listProfiles();
+    const profiles = await this.repository.listAvailableProfiles();
     return {
       profiles: profiles.filter((profile) => !profile.archivedAt && !profile.trashedAt).map((profile) => ({
         ...profileSummaryCounts(profile),
@@ -1248,7 +1330,7 @@ export class BrowserAgentToolService implements AgentToolServices {
 
   async listJobs(signal?: AbortSignal) {
     assertNotAborted(signal);
-    const jobs = await this.repository.listJobDescriptions();
+    const jobs = await this.repository.listAvailableJobDescriptions();
     return {
       jobs: jobs.map((job, index) => ({
         order: index + 1,
@@ -1267,7 +1349,7 @@ export class BrowserAgentToolService implements AgentToolServices {
     const contextReader = this.repository.getActiveCareerContext;
     if (typeof contextReader !== "function") {
       const profileId = await this.repository.getActiveProfileId();
-      const profile = profileId ? await this.repository.getProfile(profileId) : undefined;
+      const profile = profileId ? await this.repository.getAvailableProfile(profileId) : undefined;
       return profile
         ? {
             selected: true,
@@ -1282,7 +1364,7 @@ export class BrowserAgentToolService implements AgentToolServices {
     }
     const context = await contextReader.call(this.repository);
     if (!context) {
-      const [profiles, persons] = await Promise.all([this.repository.listProfiles(), this.repository.listCareerPersons()]);
+      const [profiles, persons] = await Promise.all([this.repository.listAvailableProfiles(), this.repository.listAvailableCareerPersons()]);
       return {
       selected: false,
       profileId: null,
@@ -1290,7 +1372,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       availablePersons: persons.map((person) => ({ id: person.id, displayName: person.displayName }))
       };
     }
-    const profile = await this.repository.getProfile(context.profileId);
+    const profile = await this.repository.getAvailableProfile(context.profileId);
     if (!profile) throw toolError("active_profile_not_found", "The selected profile no longer exists.");
     const person = await this.repository.getCareerPerson(context.personId);
     return {
@@ -1309,7 +1391,7 @@ export class BrowserAgentToolService implements AgentToolServices {
   async getProfile(rawInput: unknown, signal?: AbortSignal) {
     assertNotAborted(signal);
     const input = rawInput as { profileId: string };
-    const profile = await this.repository.getProfile(input.profileId);
+    const profile = await this.repository.getAvailableProfile(input.profileId);
     if (!profile) throw toolError("profile_not_found", "Profile no longer exists.");
     const items = canonicalProfileLibraryItems(profile);
     return {
@@ -1342,7 +1424,7 @@ export class BrowserAgentToolService implements AgentToolServices {
   async searchProfileFacts(rawInput: unknown, signal?: AbortSignal) {
     assertNotAborted(signal);
     const input = rawInput as { profileId: string; query: string; sectionTypes?: string[]; limit?: number };
-    const profile = await this.repository.getProfile(input.profileId);
+    const profile = await this.repository.getAvailableProfile(input.profileId);
     if (!profile) throw toolError("profile_not_found", "Profile no longer exists.");
     const terms = input.query.toLowerCase().split(/[\s,，。；;、/]+/).filter(Boolean);
     const sections = new Set(input.sectionTypes ?? []);
@@ -1372,9 +1454,9 @@ export class BrowserAgentToolService implements AgentToolServices {
     assertNotAborted(signal);
     const input = CareerContextRetrieveInputSchema.parse(rawInput);
     const [profile, job, resume] = await Promise.all([
-      this.repository.getProfile(input.profileId),
-      input.jobId ? this.repository.getJobDescription(input.jobId) : Promise.resolve(undefined),
-      input.resumeId ? this.repository.getResumeBranch(input.resumeId) : Promise.resolve(undefined)
+      this.repository.getAvailableProfile(input.profileId),
+      input.jobId ? this.repository.getAvailableJobDescription(input.jobId) : Promise.resolve(undefined),
+      input.resumeId ? this.repository.getAvailableResumeBranch(input.resumeId) : Promise.resolve(undefined)
     ]);
     if (!profile) throw toolError("profile_not_found", "Profile no longer exists.");
     if (input.jobId && !job) throw toolError("job_not_found", "Job no longer exists.");
@@ -1397,7 +1479,7 @@ export class BrowserAgentToolService implements AgentToolServices {
   async getResume(rawInput: unknown, signal?: AbortSignal) {
     assertNotAborted(signal);
     const input = rawInput as { resumeId: string };
-    const branch = await this.repository.getResumeBranch(input.resumeId);
+    const branch = await this.repository.getAvailableResumeBranch(input.resumeId);
     if (!branch) throw toolError("resume_not_found", "Resume no longer exists.");
     return {
       resume: {
@@ -1423,7 +1505,7 @@ export class BrowserAgentToolService implements AgentToolServices {
   async getResumeRevision(rawInput: unknown, signal?: AbortSignal) {
     assertNotAborted(signal);
     const input = rawInput as { resumeId: string; revisionId?: string };
-    const branch = await this.repository.getResumeBranch(input.resumeId);
+    const branch = await this.repository.getAvailableResumeBranch(input.resumeId);
     if (!branch) throw toolError("resume_not_found", "Resume no longer exists.");
     const revisionId = input.revisionId ?? branch.currentRevisionId;
     if (!revisionId) throw toolError("resume_revision_not_found", "Resume does not have a revision.");
@@ -1436,7 +1518,7 @@ export class BrowserAgentToolService implements AgentToolServices {
   async getJob(rawInput: unknown, signal?: AbortSignal) {
     assertNotAborted(signal);
     const input = rawInput as { jobId: string };
-    const job = await this.repository.getJobDescription(input.jobId);
+    const job = await this.repository.getAvailableJobDescription(input.jobId);
     if (!job) throw toolError("job_not_found", "Job no longer exists.");
     return {
       job: {
@@ -1451,9 +1533,9 @@ export class BrowserAgentToolService implements AgentToolServices {
     assertNotAborted(signal);
     const input = rawInput as { profileId: string; jobId: string };
     const [profile, job, branches] = await Promise.all([
-      this.repository.getProfile(input.profileId),
-      this.repository.getJobDescription(input.jobId),
-      this.repository.listResumeBranches()
+      this.repository.getAvailableProfile(input.profileId),
+      this.repository.getAvailableJobDescription(input.jobId),
+      this.repository.listAvailableResumeBranches()
     ]);
     if (!profile) throw toolError("profile_not_found", "Profile no longer exists.");
     if (!job) throw toolError("job_not_found", "Job no longer exists.");
@@ -1500,8 +1582,8 @@ export class BrowserAgentToolService implements AgentToolServices {
     assertNotAborted(signal);
     const input = rawInput as { profileId: string; jobId: string; name?: string };
     const [profile, job] = await Promise.all([
-      this.repository.getProfile(input.profileId),
-      this.repository.getJobDescription(input.jobId)
+      this.repository.getAvailableProfile(input.profileId),
+      this.repository.getAvailableJobDescription(input.jobId)
     ]);
     if (!profile) throw toolError("profile_not_found", "Profile no longer exists.");
     if (!job) throw toolError("job_not_found", "Job no longer exists.");
@@ -1530,10 +1612,18 @@ export class BrowserAgentToolService implements AgentToolServices {
     };
   }
 
+  private async getAvailableAgentSessionSnapshot(sessionId: string) {
+    const stored = await this.repository.getAgentSession(sessionId);
+    if (!stored) throw toolError("agent_session_not_found", "Agent session no longer exists.");
+    if (stored.activeProfileId && !await this.repository.getAvailableProfile(stored.activeProfileId)) throw toolError("entity_not_available", "该会话所属人物或资料版本已不可用。");
+    const access = await this.prepareAvailableRuntimeContext(stored, false);
+    return access.resetContext ? { ...access.session, messages: [] } : access.session;
+  }
+
   async getAgentTaskContext(rawInput: unknown, signal?: AbortSignal) {
     assertNotAborted(signal);
     const input = rawInput as { sessionId: string };
-    const session = await this.repository.getAgentSession(input.sessionId);
+    const session = await this.getAvailableAgentSessionSnapshot(input.sessionId);
     if (!session) throw toolError("agent_session_not_found", "Agent session no longer exists.");
     return {
       sessionId: session.id,
@@ -1550,7 +1640,7 @@ export class BrowserAgentToolService implements AgentToolServices {
 
   async getAgentRuntimeStatus(rawInput: unknown, signal?: AbortSignal) {
     assertNotAborted(signal);
-    const session = await this.repository.getAgentSession((rawInput as { sessionId: string }).sessionId);
+    const session = await this.getAvailableAgentSessionSnapshot((rawInput as { sessionId: string }).sessionId);
     if (!session) throw toolError("agent_session_not_found", "Agent session no longer exists.");
     const turn = session.activeTurn;
     return {
@@ -1576,7 +1666,7 @@ export class BrowserAgentToolService implements AgentToolServices {
 
   async getAgentCurrentTask(rawInput: unknown, signal?: AbortSignal) {
     assertNotAborted(signal);
-    const session = await this.repository.getAgentSession((rawInput as { sessionId: string }).sessionId);
+    const session = await this.getAvailableAgentSessionSnapshot((rawInput as { sessionId: string }).sessionId);
     if (!session) throw toolError("agent_session_not_found", "Agent session no longer exists.");
     const task = session.taskState;
     return {
@@ -1596,7 +1686,7 @@ export class BrowserAgentToolService implements AgentToolServices {
 
   async getAgentLastFailure(rawInput: unknown, signal?: AbortSignal) {
     assertNotAborted(signal);
-    const session = await this.repository.getAgentSession((rawInput as { sessionId: string }).sessionId);
+    const session = await this.getAvailableAgentSessionSnapshot((rawInput as { sessionId: string }).sessionId);
     if (!session) throw toolError("agent_session_not_found", "Agent session no longer exists.");
     const failedMessage = [...session.messages].reverse().find((message) =>
       message.status === "failed"
@@ -1624,7 +1714,16 @@ export class BrowserAgentToolService implements AgentToolServices {
     assertNotAborted(signal);
     const input = rawInput as { query: string; limit?: number };
     const query = input.query.trim().toLowerCase();
-    const sessions = await this.repository.listAgentSessions(100);
+    const context = await this.repository.getActiveCareerContext();
+    const sessions = [];
+    for (const candidate of await this.repository.listAgentSessions(100)) {
+      if (!context || candidate.activeProfileId !== context.profileId) continue;
+      const profile = await this.repository.getAvailableProfile(candidate.activeProfileId);
+      if (!profile || candidate.profileRevision !== profile.version) continue;
+      const jobId = candidate.taskState?.selectedEntities.jobId ?? candidate.activeJobId;
+      if (jobId && !await this.repository.getAvailableJobDescription(jobId)) continue;
+      sessions.push(candidate);
+    }
     return {
       query: input.query,
       sessions: sessions
@@ -1748,7 +1847,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       const identity = manualCandidateIdentity(input.title, input.company, input.rawText);
       const priorListing = await this.repository.getJobListing(identity.listingId);
       if (priorListing?.jobDescriptionId) {
-        const priorJob = await this.repository.getJobDescription(priorListing.jobDescriptionId);
+        const priorJob = await this.repository.getAvailableJobDescription(priorListing.jobDescriptionId);
         if (priorJob && priorJob.rawText === input.rawText && priorJob.title === input.title
           && (input.company === null || priorJob.company === input.company)) {
           return { jobId: priorJob.id, jobRevision: priorJob.updatedAt, jobDescription: priorJob, idempotent: true };
@@ -1801,7 +1900,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       }
       if (parsed.draft.status === "committed" && parsed.draft.committedJobId) {
         // 该候选岗位已经转换为正式岗位：幂等返回既有结果，不重复分析或转换。
-        const existing = await this.repository.getJobDescription(parsed.draft.committedJobId);
+        const existing = await this.repository.getAvailableJobDescription(parsed.draft.committedJobId);
         if (existing) {
           return {
             jobId: existing.id,
@@ -1980,7 +2079,7 @@ export class BrowserAgentToolService implements AgentToolServices {
     if (!session.branch.currentRevisionId) {
       throw toolError("source_revision_missing", "The selected resume does not have a source revision.");
     }
-    const profile = await this.repository.getProfile(session.branch.profileId);
+    const profile = await this.repository.getAvailableProfile(session.branch.profileId);
     if (!profile) throw toolError("profile_not_found", "资料库不存在或已被移除。");
     const acceptedDiffIds = reviewed.map((diff) => tailoringDiffId(diff));
     const checkpointId = resumeArtifactWriteCheckpointId(operationId);
@@ -2031,10 +2130,10 @@ export class BrowserAgentToolService implements AgentToolServices {
       }
 
       const [readbackBranch, readbackRevision, visibleBranches, readbackProfile] = await Promise.all([
-        this.repository.getResumeBranch(result.branch.id),
+        this.repository.getAvailableResumeBranch(result.branch.id),
         this.repository.getResumeRevision(result.revision.id),
-        this.repository.listResumeBranches(session.branch.profileId),
-        this.repository.getProfile(session.branch.profileId)
+        this.repository.listAvailableResumeBranches(session.branch.profileId),
+        this.repository.getAvailableProfile(session.branch.profileId)
       ]);
       if (!readbackBranch || !readbackRevision || !readbackProfile) {
         throw toolError(
@@ -2178,7 +2277,7 @@ export class BrowserAgentToolService implements AgentToolServices {
   async archiveResume(rawInput: unknown, operationId: string, signal?: AbortSignal) {
     assertNotAborted(signal);
     const input = rawInput as { resumeId: string; expectedRevision: number };
-    const branch = await this.repository.getResumeBranch(input.resumeId);
+    const branch = await this.repository.getAvailableResumeBranch(input.resumeId);
     if (!branch) throw toolError("resume_not_found", "Resume no longer exists.");
     if (branch.lifecycleStatus !== "active") {
       throw toolError("resume_not_active", "Only an active resume can be archived.");
@@ -2221,7 +2320,7 @@ export class BrowserAgentToolService implements AgentToolServices {
   async exportResume(rawInput: unknown, operationId: string, signal?: AbortSignal) {
     assertNotAborted(signal);
     const input = rawInput as { resumeId: string; templateId?: string };
-    const branch = await this.repository.getResumeBranch(input.resumeId);
+    const branch = await this.repository.getAvailableResumeBranch(input.resumeId);
     if (!branch) throw toolError("resume_not_found", "Resume no longer exists.");
     await this.repository.getResumePresentationConfig(branch.id);
     return {
@@ -2244,9 +2343,9 @@ export class BrowserAgentToolService implements AgentToolServices {
     };
     const targetSnapshot = input.targetSnapshot ? JobTargetSnapshotSchema.parse(input.targetSnapshot) : undefined;
     const [profile, branch, storedJob] = await Promise.all([
-      this.repository.getProfile(input.profileId),
-      this.repository.getResumeBranch(input.resumeId),
-      input.jobId ? this.repository.getJobDescription(input.jobId) : Promise.resolve(undefined)
+      this.repository.getAvailableProfile(input.profileId),
+      this.repository.getAvailableResumeBranch(input.resumeId),
+      input.jobId ? this.repository.getAvailableJobDescription(input.jobId) : Promise.resolve(undefined)
     ]);
     const job = targetSnapshot ? jobTargetSnapshotToJobDescription(targetSnapshot) : storedJob;
     if (!profile) throw toolError("profile_not_found", "Profile no longer exists.");

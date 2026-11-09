@@ -40,6 +40,8 @@ function createAgentHost() {
   const careerToolGateway = new CareerToolGateway({
     registry,
     executor: rawExecutor,
+    assertAvailableTargets: (name, input, binding) => service.assertAvailableToolTargets(name, input, binding),
+    filterAvailableResult: (name, data, binding) => service.filterAvailableToolResult(name, data, binding),
     verifySessionBinding: async (binding, input) => verifyBrowserCareerBinding(repository, binding, input),
     getAuthoritativeTaskState: () => hostStateRef.current?.getSnapshot().activeSession?.taskState,
     getUserMessageForTurn: (turnId) => hostStateRef.current?.getUserMessageForTurn(turnId)
@@ -228,6 +230,13 @@ function createAgentHost() {
     // exists only after Hermes invokes a Career facade or the user starts an
     // explicit workflow action.
     const runtimeTaskPrepared = false;
+    if (input.session && input.userMessage.trim()) {
+      const currentSession = state.getSnapshot().activeSession?.id === input.session.id ? state.getSnapshot().activeSession! : input.session;
+      const access = await service.prepareAvailableRuntimeContext(currentSession);
+      const session = access.resetContext ? await state.adoptDurably(access.session) ?? access.session : access.session;
+      input = { ...input, session, metadata: { ...input.metadata,
+        hermesSessionId: access.hermesSessionId, suppressConversationHistory: true } };
+    }
     const runtimeRequest = input;
     const canStartHermesShell = runtime.id === "hermes"
       && (Boolean(runtimeRequest.userMessage.trim()) || Boolean(runtimeUserEvent))
@@ -379,6 +388,7 @@ function createAgentHost() {
           pageContext: runtimeInput.pageContext
         });
         if (binding) {
+          await service.assertAvailableToolTargets("runtime.start", {}, binding);
           await mcpBridge.setSessionBinding(binding);
           sessionBindingSet = true;
         }
@@ -902,7 +912,7 @@ async function verifyBrowserCareerBinding(
   input: unknown,
   contract?: CareerToolContract
 ) {
-  const profile = await repository.getProfile(binding.profileId);
+  const profile = await repository.getAvailableProfile(binding.profileId);
   if (!profile || profile.personId !== binding.personId || profile.archivedAt || profile.trashedAt) {
     return { valid: false, code: "career_session_binding_profile_not_found", message: "固定的资料版本已不存在或已归档。" };
   }
@@ -914,7 +924,7 @@ async function verifyBrowserCareerBinding(
     ? input as Record<string, unknown>
     : {};
   if (typeof value.resumeId === "string") {
-    const branch = await repository.getResumeBranch(value.resumeId);
+    const branch = await repository.getAvailableResumeBranch(value.resumeId);
     if (!branch || branch.profileId !== binding.profileId) {
       return { valid: false, code: "career_session_binding_resume_mismatch", message: "该简历不属于当前 Agent Session 固定的资料版本。" };
     }

@@ -1,0 +1,2999 @@
+{
+  "jobs": [
+    {
+      "id": "job-SNtkBa1kgO",
+      "createdAt": "2026-11-09T16:06:37.643Z",
+      "updatedAt": "2026-11-09T16:06:37.668Z",
+      "title": "岗位名称待补充",
+      "company": null,
+      "identityEvidence": {
+        "title": {
+          "source": "missing",
+          "confirmed": false
+        },
+        "company": {
+          "source": "missing",
+          "confirmed": false
+        }
+      },
+      "rawText": "毕业要求：2027届\n投递时间：2026年9月1日-2026年9月30日（即将截止）\n岗位职责\n1、参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化； 2、参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果； 3、参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。\n岗位要求\n1、人工智能、计算机、软件工程、电子信息、自动化等相关专业； 2、熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域； 3、具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。",
+      "source": "imported_text",
+      "parsedAt": "2026-11-09T16:06:37.643Z",
+      "requirements": [
+        {
+          "id": "jrv4-fnv-7ec7b66b-23",
+          "createdAt": "2026-11-09T16:06:37.643Z",
+          "updatedAt": "2026-11-09T16:06:37.643Z",
+          "category": "education",
+          "description": "毕业要求：2027届",
+          "priority": "medium",
+          "hardConstraint": false,
+          "sourceSpan": {
+            "start": 0,
+            "end": 10,
+            "text": "毕业要求：2027届"
+          },
+          "keywords": [],
+          "confidence": 0.9
+        },
+        {
+          "id": "jrv4-fnv-92dd4631-23",
+          "createdAt": "2026-11-09T16:06:37.643Z",
+          "updatedAt": "2026-11-09T16:06:37.643Z",
+          "category": "responsibility",
+          "description": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；",
+          "priority": "high",
+          "hardConstraint": false,
+          "sourceSpan": {
+            "start": 50,
+            "end": 89,
+            "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；"
+          },
+          "keywords": [],
+          "confidence": 0.9
+        },
+        {
+          "id": "jrv4-fnv-e14f95c9-23",
+          "createdAt": "2026-11-09T16:06:37.643Z",
+          "updatedAt": "2026-11-09T16:06:37.643Z",
+          "category": "tool",
+          "description": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；",
+          "priority": "high",
+          "hardConstraint": false,
+          "sourceSpan": {
+            "start": 92,
+            "end": 142,
+            "text": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；"
+          },
+          "keywords": [
+            "RAG"
+          ],
+          "confidence": 0.9
+        },
+        {
+          "id": "jrv4-fnv-eadf40e4-23",
+          "createdAt": "2026-11-09T16:06:37.643Z",
+          "updatedAt": "2026-11-09T16:06:37.643Z",
+          "category": "soft_skill",
+          "description": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。",
+          "priority": "high",
+          "hardConstraint": false,
+          "sourceSpan": {
+            "start": 145,
+            "end": 208,
+            "text": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+          },
+          "keywords": [],
+          "confidence": 0.9
+        },
+        {
+          "id": "jrv4-fnv-794d26c2-23",
+          "createdAt": "2026-11-09T16:06:37.643Z",
+          "updatedAt": "2026-11-09T16:06:37.643Z",
+          "category": "education",
+          "description": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；",
+          "priority": "medium",
+          "hardConstraint": false,
+          "sourceSpan": {
+            "start": 216,
+            "end": 244,
+            "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；"
+          },
+          "keywords": [],
+          "confidence": 0.9
+        },
+        {
+          "id": "jrv4-fnv-df216d76-24",
+          "createdAt": "2026-11-09T16:06:37.643Z",
+          "updatedAt": "2026-11-09T16:06:37.643Z",
+          "category": "tool",
+          "description": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；",
+          "priority": "medium",
+          "hardConstraint": false,
+          "sourceSpan": {
+            "start": 247,
+            "end": 413,
+            "text": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；"
+          },
+          "keywords": [
+            "AI算法原理",
+            "大模型原理"
+          ],
+          "confidence": 0.9
+        },
+        {
+          "id": "jrv4-fnv-21849e44-23",
+          "createdAt": "2026-11-09T16:06:37.643Z",
+          "updatedAt": "2026-11-09T16:06:37.643Z",
+          "category": "tool",
+          "description": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。",
+          "priority": "must",
+          "hardConstraint": true,
+          "sourceSpan": {
+            "start": 416,
+            "end": 457,
+            "text": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+          },
+          "keywordLogic": {
+            "relation": "any_of",
+            "terms": [
+              "Python",
+              "Java",
+              "C++"
+            ]
+          },
+          "keywords": [
+            "Python",
+            "Java",
+            "C++"
+          ],
+          "confidence": 0.9
+        }
+      ],
+      "requirementGraph": {
+        "schemaVersion": "job-requirement-graph-v4",
+        "roleProfile": {
+          "mission": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；",
+          "hiringSignals": []
+        },
+        "groups": [],
+        "requirements": [
+          {
+            "id": "jrv4-fnv-7ec7b66b-23",
+            "section": "required",
+            "kind": "education",
+            "statement": "毕业要求：2027届",
+            "normalizedIntent": "毕业要求 2027届",
+            "priority": "medium",
+            "hardConstraint": false,
+            "exactKeywords": [],
+            "semanticAliases": [],
+            "sourceUnitId": "jd-unit-fnv-2f480be4-12",
+            "details": [],
+            "sourceSpan": {
+              "start": 0,
+              "end": 10,
+              "text": "毕业要求：2027届"
+            },
+            "sourceSpans": [
+              {
+                "start": 0,
+                "end": 10,
+                "text": "毕业要求：2027届"
+              }
+            ],
+            "confidence": 0.88,
+            "needsConfirmation": false
+          },
+          {
+            "id": "jrv4-fnv-92dd4631-23",
+            "section": "responsibility",
+            "kind": "responsibility",
+            "statement": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；",
+            "normalizedIntent": "参与实际产品的ai大模型与ai算法在各类业务场景中的应用开发 集成与迭代优化",
+            "priority": "high",
+            "hardConstraint": false,
+            "exactKeywords": [],
+            "semanticAliases": [],
+            "sourceUnitId": "jd-unit-fnv-40ecd7f3-42",
+            "details": [],
+            "sourceSpan": {
+              "start": 50,
+              "end": 89,
+              "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；"
+            },
+            "sourceSpans": [
+              {
+                "start": 50,
+                "end": 89,
+                "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；"
+              }
+            ],
+            "confidence": 0.88,
+            "needsConfirmation": false
+          },
+          {
+            "id": "jrv4-fnv-e14f95c9-23",
+            "section": "responsibility",
+            "kind": "tool_or_technology",
+            "statement": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；",
+            "normalizedIntent": "参与ai大模型与ai算法应用相关的需求分析 模型微调 rag检索 提升模型在各类场景下的应用效果",
+            "priority": "high",
+            "hardConstraint": false,
+            "exactKeywords": [
+              "RAG"
+            ],
+            "semanticAliases": [],
+            "sourceUnitId": "jd-unit-fnv-1495d346-53",
+            "details": [],
+            "sourceSpan": {
+              "start": 92,
+              "end": 142,
+              "text": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；"
+            },
+            "sourceSpans": [
+              {
+                "start": 92,
+                "end": 142,
+                "text": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；"
+              }
+            ],
+            "confidence": 0.88,
+            "needsConfirmation": false
+          },
+          {
+            "id": "jrv4-fnv-eadf40e4-23",
+            "section": "responsibility",
+            "kind": "soft_skill",
+            "statement": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。",
+            "normalizedIntent": "参与产品 数据 业务等团队协作 建立ai大模型与ai应用相关的数据分析 效果评估 问题定位与持续优化 提升用户体验和业务价值",
+            "priority": "high",
+            "hardConstraint": false,
+            "exactKeywords": [],
+            "semanticAliases": [],
+            "sourceUnitId": "jd-unit-fnv-d4b45c04-67",
+            "details": [],
+            "sourceSpan": {
+              "start": 145,
+              "end": 208,
+              "text": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+            },
+            "sourceSpans": [
+              {
+                "start": 145,
+                "end": 208,
+                "text": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+              }
+            ],
+            "confidence": 0.88,
+            "needsConfirmation": false
+          },
+          {
+            "id": "jrv4-fnv-794d26c2-23",
+            "section": "required",
+            "kind": "education",
+            "statement": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；",
+            "normalizedIntent": "人工智能 计算机 软件工程 电子信息 自动化等相关专业",
+            "priority": "medium",
+            "hardConstraint": false,
+            "exactKeywords": [],
+            "semanticAliases": [],
+            "sourceUnitId": "jd-unit-fnv-f3495f6e-32",
+            "details": [],
+            "sourceSpan": {
+              "start": 216,
+              "end": 244,
+              "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；"
+            },
+            "sourceSpans": [
+              {
+                "start": 216,
+                "end": 244,
+                "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；"
+              }
+            ],
+            "confidence": 0.88,
+            "needsConfirmation": false
+          },
+          {
+            "id": "jrv4-fnv-df216d76-24",
+            "section": "required",
+            "kind": "tool_or_technology",
+            "statement": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；",
+            "normalizedIntent": "熟悉主流大模型应用开发框架 掌握大模型原理 如transformer架构 微调技术 向量数据库等 或ai算法原理 如神经网络 强化学习 树模型 知识图谱等 或有大模型 如gpt deepseek qwen系列等 应用或神经网络 cnn rnn gnn等 开发经验 熟悉nlp/知识图谱/智能问答/对话系统/文生图/文生视频等领域",
+            "priority": "medium",
+            "hardConstraint": false,
+            "exactKeywords": [
+              "AI算法原理",
+              "大模型原理"
+            ],
+            "semanticAliases": [],
+            "sourceUnitId": "jd-unit-fnv-77d5a199-170",
+            "details": [],
+            "sourceSpan": {
+              "start": 247,
+              "end": 413,
+              "text": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；"
+            },
+            "sourceSpans": [
+              {
+                "start": 247,
+                "end": 413,
+                "text": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；"
+              }
+            ],
+            "confidence": 0.88,
+            "needsConfirmation": false
+          },
+          {
+            "id": "jrv4-fnv-21849e44-23",
+            "section": "required",
+            "kind": "tool_or_technology",
+            "statement": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。",
+            "normalizedIntent": "具备扎实的编程能力 熟练掌握 python c++ java 等至少一种编程语言",
+            "priority": "must",
+            "hardConstraint": true,
+            "keywordLogic": {
+              "relation": "any_of",
+              "terms": [
+                "Python",
+                "Java",
+                "C++"
+              ]
+            },
+            "exactKeywords": [
+              "Python",
+              "Java",
+              "C++"
+            ],
+            "semanticAliases": [],
+            "sourceUnitId": "jd-unit-fnv-fbbd33bd-45",
+            "details": [],
+            "sourceSpan": {
+              "start": 416,
+              "end": 457,
+              "text": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+            },
+            "sourceSpans": [
+              {
+                "start": 416,
+                "end": 457,
+                "text": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+              }
+            ],
+            "confidence": 0.88,
+            "needsConfirmation": false
+          }
+        ],
+        "verificationMaterials": [],
+        "contextGroups": [],
+        "semanticUnits": [
+          {
+            "id": "jd-unit-fnv-2f480be4-12",
+            "text": "毕业要求：2027届",
+            "sourceSpan": {
+              "start": 0,
+              "end": 10,
+              "text": "毕业要求：2027届"
+            },
+            "lineNumber": 1,
+            "lexical": {
+              "indentation": 0,
+              "punctuation": "plain",
+              "blankLinesBefore": 0,
+              "blankLinesAfter": 0
+            },
+            "provisional": {
+              "disposition": "requirement",
+              "section": "required"
+            },
+            "final": {
+              "disposition": "requirement",
+              "section": "required",
+              "kind": "education",
+              "priority": "medium",
+              "hardConstraint": false,
+              "normalizedIntent": "毕业要求 2027届",
+              "exactKeywords": [],
+              "semanticAliases": [],
+              "confidence": 0.88
+            }
+          },
+          {
+            "id": "jd-unit-fnv-da8978a3-34",
+            "text": "投递时间：2026年9月1日-2026年9月30日（即将截止）",
+            "sourceSpan": {
+              "start": 11,
+              "end": 42,
+              "text": "投递时间：2026年9月1日-2026年9月30日（即将截止）"
+            },
+            "lineNumber": 2,
+            "lexical": {
+              "indentation": 0,
+              "punctuation": "plain",
+              "blankLinesBefore": 0,
+              "blankLinesAfter": 0
+            },
+            "provisional": {
+              "disposition": "metadata",
+              "section": "responsibility"
+            },
+            "final": {
+              "disposition": "metadata",
+              "section": "responsibility",
+              "confidence": 0.88
+            }
+          },
+          {
+            "id": "jd-unit-fnv-60ebd23b-7",
+            "text": "岗位职责",
+            "sourceSpan": {
+              "start": 43,
+              "end": 47,
+              "text": "岗位职责"
+            },
+            "lineNumber": 3,
+            "lexical": {
+              "indentation": 0,
+              "punctuation": "heading",
+              "blankLinesBefore": 0,
+              "blankLinesAfter": 0
+            },
+            "provisional": {
+              "disposition": "heading",
+              "section": "responsibility"
+            },
+            "final": {
+              "disposition": "heading",
+              "section": "responsibility",
+              "confidence": 0.88
+            }
+          },
+          {
+            "id": "jd-unit-fnv-40ecd7f3-42",
+            "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；",
+            "sourceSpan": {
+              "start": 50,
+              "end": 89,
+              "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；"
+            },
+            "originUnitId": "jd-unit-fnv-f517041b-161",
+            "originSpan": {
+              "start": 50,
+              "end": 208,
+              "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化； 2、参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果； 3、参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+            },
+            "lineNumber": 4,
+            "lexical": {
+              "indentation": 0,
+              "numberingLevel": 1,
+              "numberingToken": "1、",
+              "punctuation": "sentence",
+              "blankLinesBefore": 0,
+              "blankLinesAfter": 0
+            },
+            "provisional": {
+              "disposition": "requirement",
+              "section": "responsibility"
+            },
+            "final": {
+              "disposition": "requirement",
+              "section": "responsibility",
+              "kind": "responsibility",
+              "priority": "high",
+              "hardConstraint": false,
+              "normalizedIntent": "参与实际产品的ai大模型与ai算法在各类业务场景中的应用开发 集成与迭代优化",
+              "exactKeywords": [],
+              "semanticAliases": [],
+              "confidence": 0.88
+            }
+          },
+          {
+            "id": "jd-unit-fnv-1495d346-53",
+            "text": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；",
+            "sourceSpan": {
+              "start": 92,
+              "end": 142,
+              "text": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；"
+            },
+            "originUnitId": "jd-unit-fnv-f517041b-161",
+            "originSpan": {
+              "start": 50,
+              "end": 208,
+              "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化； 2、参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果； 3、参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+            },
+            "lineNumber": 4,
+            "lexical": {
+              "indentation": 0,
+              "numberingLevel": 1,
+              "numberingToken": "2、",
+              "punctuation": "sentence",
+              "blankLinesBefore": 0,
+              "blankLinesAfter": 0
+            },
+            "provisional": {
+              "disposition": "requirement",
+              "section": "responsibility"
+            },
+            "final": {
+              "disposition": "requirement",
+              "section": "responsibility",
+              "kind": "tool_or_technology",
+              "priority": "high",
+              "hardConstraint": false,
+              "normalizedIntent": "参与ai大模型与ai算法应用相关的需求分析 模型微调 rag检索 提升模型在各类场景下的应用效果",
+              "exactKeywords": [
+                "RAG"
+              ],
+              "semanticAliases": [],
+              "confidence": 0.88
+            }
+          },
+          {
+            "id": "jd-unit-fnv-d4b45c04-67",
+            "text": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。",
+            "sourceSpan": {
+              "start": 145,
+              "end": 208,
+              "text": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+            },
+            "originUnitId": "jd-unit-fnv-f517041b-161",
+            "originSpan": {
+              "start": 50,
+              "end": 208,
+              "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化； 2、参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果； 3、参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+            },
+            "lineNumber": 4,
+            "lexical": {
+              "indentation": 0,
+              "numberingLevel": 1,
+              "numberingToken": "3、",
+              "punctuation": "sentence",
+              "blankLinesBefore": 0,
+              "blankLinesAfter": 0
+            },
+            "provisional": {
+              "disposition": "requirement",
+              "section": "responsibility"
+            },
+            "final": {
+              "disposition": "requirement",
+              "section": "responsibility",
+              "kind": "soft_skill",
+              "priority": "high",
+              "hardConstraint": false,
+              "normalizedIntent": "参与产品 数据 业务等团队协作 建立ai大模型与ai应用相关的数据分析 效果评估 问题定位与持续优化 提升用户体验和业务价值",
+              "exactKeywords": [],
+              "semanticAliases": [],
+              "confidence": 0.88
+            }
+          },
+          {
+            "id": "jd-unit-fnv-535a75f3-8",
+            "text": "岗位要求",
+            "sourceSpan": {
+              "start": 209,
+              "end": 213,
+              "text": "岗位要求"
+            },
+            "lineNumber": 5,
+            "lexical": {
+              "indentation": 0,
+              "punctuation": "heading",
+              "blankLinesBefore": 0,
+              "blankLinesAfter": 0
+            },
+            "provisional": {
+              "disposition": "heading",
+              "section": "required"
+            },
+            "final": {
+              "disposition": "heading",
+              "section": "required",
+              "confidence": 0.88
+            }
+          },
+          {
+            "id": "jd-unit-fnv-f3495f6e-32",
+            "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；",
+            "sourceSpan": {
+              "start": 216,
+              "end": 244,
+              "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；"
+            },
+            "originUnitId": "jd-unit-fnv-3bbad243-245",
+            "originSpan": {
+              "start": 216,
+              "end": 457,
+              "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业； 2、熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域； 3、具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+            },
+            "lineNumber": 6,
+            "lexical": {
+              "indentation": 0,
+              "numberingLevel": 1,
+              "numberingToken": "1、",
+              "punctuation": "sentence",
+              "blankLinesBefore": 0,
+              "blankLinesAfter": 0
+            },
+            "provisional": {
+              "disposition": "requirement",
+              "section": "required"
+            },
+            "final": {
+              "disposition": "requirement",
+              "section": "required",
+              "kind": "education",
+              "priority": "medium",
+              "hardConstraint": false,
+              "normalizedIntent": "人工智能 计算机 软件工程 电子信息 自动化等相关专业",
+              "exactKeywords": [],
+              "semanticAliases": [],
+              "confidence": 0.88
+            }
+          },
+          {
+            "id": "jd-unit-fnv-77d5a199-170",
+            "text": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；",
+            "sourceSpan": {
+              "start": 247,
+              "end": 413,
+              "text": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；"
+            },
+            "originUnitId": "jd-unit-fnv-3bbad243-245",
+            "originSpan": {
+              "start": 216,
+              "end": 457,
+              "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业； 2、熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域； 3、具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+            },
+            "lineNumber": 6,
+            "lexical": {
+              "indentation": 0,
+              "numberingLevel": 1,
+              "numberingToken": "2、",
+              "punctuation": "sentence",
+              "blankLinesBefore": 0,
+              "blankLinesAfter": 0
+            },
+            "provisional": {
+              "disposition": "requirement",
+              "section": "required"
+            },
+            "final": {
+              "disposition": "requirement",
+              "section": "required",
+              "kind": "tool_or_technology",
+              "priority": "medium",
+              "hardConstraint": false,
+              "normalizedIntent": "熟悉主流大模型应用开发框架 掌握大模型原理 如transformer架构 微调技术 向量数据库等 或ai算法原理 如神经网络 强化学习 树模型 知识图谱等 或有大模型 如gpt deepseek qwen系列等 应用或神经网络 cnn rnn gnn等 开发经验 熟悉nlp/知识图谱/智能问答/对话系统/文生图/文生视频等领域",
+              "exactKeywords": [
+                "AI算法原理",
+                "大模型原理"
+              ],
+              "semanticAliases": [],
+              "confidence": 0.88
+            }
+          },
+          {
+            "id": "jd-unit-fnv-fbbd33bd-45",
+            "text": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。",
+            "sourceSpan": {
+              "start": 416,
+              "end": 457,
+              "text": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+            },
+            "originUnitId": "jd-unit-fnv-3bbad243-245",
+            "originSpan": {
+              "start": 216,
+              "end": 457,
+              "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业； 2、熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域； 3、具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+            },
+            "lineNumber": 6,
+            "lexical": {
+              "indentation": 0,
+              "numberingLevel": 1,
+              "numberingToken": "3、",
+              "punctuation": "sentence",
+              "blankLinesBefore": 0,
+              "blankLinesAfter": 0
+            },
+            "provisional": {
+              "disposition": "requirement",
+              "section": "required"
+            },
+            "final": {
+              "disposition": "requirement",
+              "section": "required",
+              "kind": "tool_or_technology",
+              "priority": "must",
+              "hardConstraint": true,
+              "normalizedIntent": "具备扎实的编程能力 熟练掌握 python c++ java 等至少一种编程语言",
+              "exactKeywords": [
+                "Python",
+                "Java",
+                "C++"
+              ],
+              "semanticAliases": [],
+              "confidence": 0.88
+            }
+          }
+        ],
+        "issues": [
+          {
+            "code": "low_confidence_unit",
+            "message": "复合 AND / OR 条件含示例与多条替代路径，已完整保留原文，请核对条件组合。",
+            "sourceUnitIds": [
+              "jd-unit-fnv-77d5a199-170"
+            ],
+            "severity": "warning"
+          }
+        ],
+        "needsReview": true,
+        "sourceCoverage": {
+          "coveredSpans": [
+            {
+              "start": 0,
+              "end": 10,
+              "text": "毕业要求：2027届"
+            },
+            {
+              "start": 11,
+              "end": 42,
+              "text": "投递时间：2026年9月1日-2026年9月30日（即将截止）"
+            },
+            {
+              "start": 43,
+              "end": 47,
+              "text": "岗位职责"
+            },
+            {
+              "start": 50,
+              "end": 89,
+              "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；"
+            },
+            {
+              "start": 92,
+              "end": 142,
+              "text": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；"
+            },
+            {
+              "start": 145,
+              "end": 208,
+              "text": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+            },
+            {
+              "start": 209,
+              "end": 213,
+              "text": "岗位要求"
+            },
+            {
+              "start": 216,
+              "end": 244,
+              "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；"
+            },
+            {
+              "start": 247,
+              "end": 413,
+              "text": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；"
+            },
+            {
+              "start": 416,
+              "end": 457,
+              "text": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+            }
+          ],
+          "unclassifiedSpans": [],
+          "totalMeaningfulUnits": 10,
+          "assignedUnits": 10,
+          "unassignedUnitIds": [],
+          "metadataUnitIds": [
+            "jd-unit-fnv-da8978a3-34"
+          ],
+          "excludedUnitIds": [],
+          "requirementUnitIds": [
+            "jd-unit-fnv-2f480be4-12",
+            "jd-unit-fnv-40ecd7f3-42",
+            "jd-unit-fnv-1495d346-53",
+            "jd-unit-fnv-d4b45c04-67",
+            "jd-unit-fnv-f3495f6e-32",
+            "jd-unit-fnv-77d5a199-170",
+            "jd-unit-fnv-fbbd33bd-45"
+          ],
+          "detailUnitIds": [],
+          "inventedReferenceCount": 0,
+          "coverageRatio": 1
+        },
+        "analyzerVersion": "jd-analyzer.semantic-ledger-v4.2",
+        "graphHash": "fnv-39268e74-3920",
+        "semanticEnrichmentHash": "fnv-54691773-2033"
+      },
+      "analysisStatus": "needs_review",
+      "analysisIssues": []
+    }
+  ],
+  "session": {
+    "agentSessionSchemaVersion": 3,
+    "id": "agent-session-S5Yri3tbOxal",
+    "title": "新的对话",
+    "titleOrigin": "default",
+    "messages": [],
+    "sessionRevision": 8,
+    "workflowState": {
+      "workflowId": "job_ingestion",
+      "step": "completed",
+      "status": "completed",
+      "toolCallCount": 0,
+      "data": {
+        "rawText": "毕业要求：2027届\n投递时间：2026年9月1日-2026年9月30日（即将截止）\n岗位职责\n1、参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化； 2、参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果； 3、参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。\n岗位要求\n1、人工智能、计算机、软件工程、电子信息、自动化等相关专业； 2、熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域； 3、具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。",
+        "title": "unknown",
+        "company": null,
+        "jobPersistenceVerified": true,
+        "jobBusinessStatus": "committed",
+        "savedJobId": "job-SNtkBa1kgO"
+      }
+    },
+    "artifactRefs": [],
+    "personId": "person-profile-hACt1Qo31R",
+    "activeProfileId": "profile-hACt1Qo31R",
+    "profileVersionNumber": 1,
+    "profileRevision": 1,
+    "conversationSummary": "",
+    "runtimeId": "hermes",
+    "hermesRun": {
+      "runId": "run_913c8e5f589443c894a95e4ef2f71e0f",
+      "hermesSessionId": "hermes-agent-session-S5Yri3tbOxal-access-6ecbb7bfe5a7fa2520a4fa4c402994ef7e00f19ca523f4e7f0ec382532dce3ad",
+      "careerAgentSessionId": "agent-session-S5Yri3tbOxal",
+      "turnId": "runtime-turn-fbd70577-e80b-4800-9d10-c00d35548044",
+      "status": "completed",
+      "startedAt": "2026-11-09T16:06:10.562Z",
+      "lastEventAt": "2026-11-09T16:06:38.631Z"
+    },
+    "activeTurn": {
+      "id": "runtime-turn-fbd70577-e80b-4800-9d10-c00d35548044",
+      "sessionId": "agent-session-S5Yri3tbOxal",
+      "sourceUserMessageId": "agent-user-0467ff23-a8d6-448c-9b81-ba43175f3728",
+      "userMessageId": "agent-user-0467ff23-a8d6-448c-9b81-ba43175f3728",
+      "runtimeId": "hermes",
+      "preferredRuntime": "hermes",
+      "attemptedRuntime": "hermes",
+      "finalRuntime": "hermes",
+      "executionOwner": "hermes",
+      "fallbackUsed": false,
+      "incidentTraceId": "incident-c577df80-6eff-4f56-9b2c-a4a5d2304ca3",
+      "hermesRunId": "run_913c8e5f589443c894a95e4ef2f71e0f",
+      "visibleAssistantMessageId": "agent-thinking-107a1bb2-f8d3-4f11-a2ea-c8d0ffb36bfd",
+      "workflowCheckpoint": {
+        "facadeObservation": {
+          "toolName": "career.workflow.job_intake",
+          "status": "completed",
+          "kind": "job_intake",
+          "stage": "completed",
+          "savedJobId": "job-SNtkBa1kgO",
+          "hasCompletedReceipt": true
+        }
+      },
+      "toolFailures": [],
+      "runtimeAttempts": [
+        {
+          "attemptNumber": 1,
+          "traceId": "incident-c577df80-6eff-4f56-9b2c-a4a5d2304ca3:attempt-1",
+          "sessionId": "agent-session-S5Yri3tbOxal",
+          "turnId": "runtime-turn-fbd70577-e80b-4800-9d10-c00d35548044",
+          "hermesSessionId": "hermes-agent-session-S5Yri3tbOxal-access-6ecbb7bfe5a7fa2520a4fa4c402994ef7e00f19ca523f4e7f0ec382532dce3ad",
+          "runId": "run_913c8e5f589443c894a95e4ef2f71e0f",
+          "startRequestedAt": "2026-11-09T16:06:14.389Z",
+          "runStartedAt": "2026-11-09T16:06:14.389Z",
+          "firstEventAt": "2026-11-09T16:06:14.389Z",
+          "terminalAt": "2026-11-09T16:06:38.631Z",
+          "terminalStatus": "completed",
+          "status": "completed",
+          "lastEventType": "turn_completed"
+        }
+      ],
+      "turnStartSnapshot": {
+        "capturedAt": "2026-11-09T16:06:10.454Z",
+        "supervisor": {
+          "overallState": "ready",
+          "processReady": true,
+          "apiReady": true,
+          "providerReady": true,
+          "careerMcpReady": true,
+          "toolSurfaceReady": true,
+          "runReady": true,
+          "restartAttempt": 0,
+          "capturedAt": "2026-11-09T16:06:10.454Z",
+          "maintenancePending": false
+        },
+        "run": {
+          "status": "not_started"
+        }
+      },
+      "recoveryAttempted": false,
+      "firstEventAt": "2026-11-09T16:06:14.389Z",
+      "status": "completed",
+      "startedAt": "2026-11-09T16:06:10.461Z",
+      "completedAt": "2026-11-09T16:06:38.632Z"
+    },
+    "taskState": {
+      "goal": "ingest_job",
+      "rootGoal": "ingest_job",
+      "activeGoal": "ingest_job",
+      "workflowId": "job_ingestion",
+      "stage": "completed",
+      "requiredSlots": [],
+      "knownSlots": {
+        "facadeCheckpoint": {
+          "kind": "job_intake",
+          "identity": {
+            "title": "unknown",
+            "company": "unknown",
+            "location": "unknown"
+          },
+          "graph": {
+            "schemaVersion": "job-requirement-graph-v4",
+            "roleProfile": {
+              "mission": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；",
+              "hiringSignals": []
+            },
+            "groups": [],
+            "requirements": [
+              {
+                "id": "jrv4-fnv-7ec7b66b-23",
+                "section": "required",
+                "kind": "education",
+                "statement": "毕业要求：2027届",
+                "normalizedIntent": "毕业要求 2027届",
+                "priority": "medium",
+                "hardConstraint": false,
+                "exactKeywords": [],
+                "semanticAliases": [],
+                "sourceUnitId": "jd-unit-fnv-2f480be4-12",
+                "details": [],
+                "sourceSpan": {
+                  "start": 0,
+                  "end": 10,
+                  "text": "毕业要求：2027届"
+                },
+                "sourceSpans": [
+                  {
+                    "start": 0,
+                    "end": 10,
+                    "text": "毕业要求：2027届"
+                  }
+                ],
+                "confidence": 0.88,
+                "needsConfirmation": false
+              },
+              {
+                "id": "jrv4-fnv-92dd4631-23",
+                "section": "responsibility",
+                "kind": "responsibility",
+                "statement": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；",
+                "normalizedIntent": "参与实际产品的ai大模型与ai算法在各类业务场景中的应用开发 集成与迭代优化",
+                "priority": "high",
+                "hardConstraint": false,
+                "exactKeywords": [],
+                "semanticAliases": [],
+                "sourceUnitId": "jd-unit-fnv-40ecd7f3-42",
+                "details": [],
+                "sourceSpan": {
+                  "start": 50,
+                  "end": 89,
+                  "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；"
+                },
+                "sourceSpans": [
+                  {
+                    "start": 50,
+                    "end": 89,
+                    "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；"
+                  }
+                ],
+                "confidence": 0.88,
+                "needsConfirmation": false
+              },
+              {
+                "id": "jrv4-fnv-e14f95c9-23",
+                "section": "responsibility",
+                "kind": "tool_or_technology",
+                "statement": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；",
+                "normalizedIntent": "参与ai大模型与ai算法应用相关的需求分析 模型微调 rag检索 提升模型在各类场景下的应用效果",
+                "priority": "high",
+                "hardConstraint": false,
+                "exactKeywords": [
+                  "RAG"
+                ],
+                "semanticAliases": [],
+                "sourceUnitId": "jd-unit-fnv-1495d346-53",
+                "details": [],
+                "sourceSpan": {
+                  "start": 92,
+                  "end": 142,
+                  "text": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；"
+                },
+                "sourceSpans": [
+                  {
+                    "start": 92,
+                    "end": 142,
+                    "text": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；"
+                  }
+                ],
+                "confidence": 0.88,
+                "needsConfirmation": false
+              },
+              {
+                "id": "jrv4-fnv-eadf40e4-23",
+                "section": "responsibility",
+                "kind": "soft_skill",
+                "statement": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。",
+                "normalizedIntent": "参与产品 数据 业务等团队协作 建立ai大模型与ai应用相关的数据分析 效果评估 问题定位与持续优化 提升用户体验和业务价值",
+                "priority": "high",
+                "hardConstraint": false,
+                "exactKeywords": [],
+                "semanticAliases": [],
+                "sourceUnitId": "jd-unit-fnv-d4b45c04-67",
+                "details": [],
+                "sourceSpan": {
+                  "start": 145,
+                  "end": 208,
+                  "text": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+                },
+                "sourceSpans": [
+                  {
+                    "start": 145,
+                    "end": 208,
+                    "text": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+                  }
+                ],
+                "confidence": 0.88,
+                "needsConfirmation": false
+              },
+              {
+                "id": "jrv4-fnv-794d26c2-23",
+                "section": "required",
+                "kind": "education",
+                "statement": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；",
+                "normalizedIntent": "人工智能 计算机 软件工程 电子信息 自动化等相关专业",
+                "priority": "medium",
+                "hardConstraint": false,
+                "exactKeywords": [],
+                "semanticAliases": [],
+                "sourceUnitId": "jd-unit-fnv-f3495f6e-32",
+                "details": [],
+                "sourceSpan": {
+                  "start": 216,
+                  "end": 244,
+                  "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；"
+                },
+                "sourceSpans": [
+                  {
+                    "start": 216,
+                    "end": 244,
+                    "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；"
+                  }
+                ],
+                "confidence": 0.88,
+                "needsConfirmation": false
+              },
+              {
+                "id": "jrv4-fnv-df216d76-24",
+                "section": "required",
+                "kind": "tool_or_technology",
+                "statement": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；",
+                "normalizedIntent": "熟悉主流大模型应用开发框架 掌握大模型原理 如transformer架构 微调技术 向量数据库等 或ai算法原理 如神经网络 强化学习 树模型 知识图谱等 或有大模型 如gpt deepseek qwen系列等 应用或神经网络 cnn rnn gnn等 开发经验 熟悉nlp/知识图谱/智能问答/对话系统/文生图/文生视频等领域",
+                "priority": "medium",
+                "hardConstraint": false,
+                "exactKeywords": [
+                  "AI算法原理",
+                  "大模型原理"
+                ],
+                "semanticAliases": [],
+                "sourceUnitId": "jd-unit-fnv-77d5a199-170",
+                "details": [],
+                "sourceSpan": {
+                  "start": 247,
+                  "end": 413,
+                  "text": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；"
+                },
+                "sourceSpans": [
+                  {
+                    "start": 247,
+                    "end": 413,
+                    "text": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；"
+                  }
+                ],
+                "confidence": 0.88,
+                "needsConfirmation": false
+              },
+              {
+                "id": "jrv4-fnv-21849e44-23",
+                "section": "required",
+                "kind": "tool_or_technology",
+                "statement": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。",
+                "normalizedIntent": "具备扎实的编程能力 熟练掌握 python c++ java 等至少一种编程语言",
+                "priority": "must",
+                "hardConstraint": true,
+                "keywordLogic": {
+                  "relation": "any_of",
+                  "terms": [
+                    "Python",
+                    "Java",
+                    "C++"
+                  ]
+                },
+                "exactKeywords": [
+                  "Python",
+                  "Java",
+                  "C++"
+                ],
+                "semanticAliases": [],
+                "sourceUnitId": "jd-unit-fnv-fbbd33bd-45",
+                "details": [],
+                "sourceSpan": {
+                  "start": 416,
+                  "end": 457,
+                  "text": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+                },
+                "sourceSpans": [
+                  {
+                    "start": 416,
+                    "end": 457,
+                    "text": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+                  }
+                ],
+                "confidence": 0.88,
+                "needsConfirmation": false
+              }
+            ],
+            "verificationMaterials": [],
+            "contextGroups": [],
+            "semanticUnits": [
+              {
+                "id": "jd-unit-fnv-2f480be4-12",
+                "text": "毕业要求：2027届",
+                "sourceSpan": {
+                  "start": 0,
+                  "end": 10,
+                  "text": "毕业要求：2027届"
+                },
+                "lineNumber": 1,
+                "lexical": {
+                  "indentation": 0,
+                  "punctuation": "plain",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "requirement",
+                  "section": "required"
+                },
+                "final": {
+                  "disposition": "requirement",
+                  "section": "required",
+                  "kind": "education",
+                  "priority": "medium",
+                  "hardConstraint": false,
+                  "normalizedIntent": "毕业要求 2027届",
+                  "exactKeywords": [],
+                  "semanticAliases": [],
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-da8978a3-34",
+                "text": "投递时间：2026年9月1日-2026年9月30日（即将截止）",
+                "sourceSpan": {
+                  "start": 11,
+                  "end": 42,
+                  "text": "投递时间：2026年9月1日-2026年9月30日（即将截止）"
+                },
+                "lineNumber": 2,
+                "lexical": {
+                  "indentation": 0,
+                  "punctuation": "plain",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "metadata",
+                  "section": "responsibility"
+                },
+                "final": {
+                  "disposition": "metadata",
+                  "section": "responsibility",
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-60ebd23b-7",
+                "text": "岗位职责",
+                "sourceSpan": {
+                  "start": 43,
+                  "end": 47,
+                  "text": "岗位职责"
+                },
+                "lineNumber": 3,
+                "lexical": {
+                  "indentation": 0,
+                  "punctuation": "heading",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "heading",
+                  "section": "responsibility"
+                },
+                "final": {
+                  "disposition": "heading",
+                  "section": "responsibility",
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-40ecd7f3-42",
+                "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；",
+                "sourceSpan": {
+                  "start": 50,
+                  "end": 89,
+                  "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；"
+                },
+                "originUnitId": "jd-unit-fnv-f517041b-161",
+                "originSpan": {
+                  "start": 50,
+                  "end": 208,
+                  "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化； 2、参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果； 3、参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+                },
+                "lineNumber": 4,
+                "lexical": {
+                  "indentation": 0,
+                  "numberingLevel": 1,
+                  "numberingToken": "1、",
+                  "punctuation": "sentence",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "requirement",
+                  "section": "responsibility"
+                },
+                "final": {
+                  "disposition": "requirement",
+                  "section": "responsibility",
+                  "kind": "responsibility",
+                  "priority": "high",
+                  "hardConstraint": false,
+                  "normalizedIntent": "参与实际产品的ai大模型与ai算法在各类业务场景中的应用开发 集成与迭代优化",
+                  "exactKeywords": [],
+                  "semanticAliases": [],
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-1495d346-53",
+                "text": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；",
+                "sourceSpan": {
+                  "start": 92,
+                  "end": 142,
+                  "text": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；"
+                },
+                "originUnitId": "jd-unit-fnv-f517041b-161",
+                "originSpan": {
+                  "start": 50,
+                  "end": 208,
+                  "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化； 2、参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果； 3、参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+                },
+                "lineNumber": 4,
+                "lexical": {
+                  "indentation": 0,
+                  "numberingLevel": 1,
+                  "numberingToken": "2、",
+                  "punctuation": "sentence",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "requirement",
+                  "section": "responsibility"
+                },
+                "final": {
+                  "disposition": "requirement",
+                  "section": "responsibility",
+                  "kind": "tool_or_technology",
+                  "priority": "high",
+                  "hardConstraint": false,
+                  "normalizedIntent": "参与ai大模型与ai算法应用相关的需求分析 模型微调 rag检索 提升模型在各类场景下的应用效果",
+                  "exactKeywords": [
+                    "RAG"
+                  ],
+                  "semanticAliases": [],
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-d4b45c04-67",
+                "text": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。",
+                "sourceSpan": {
+                  "start": 145,
+                  "end": 208,
+                  "text": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+                },
+                "originUnitId": "jd-unit-fnv-f517041b-161",
+                "originSpan": {
+                  "start": 50,
+                  "end": 208,
+                  "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化； 2、参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果； 3、参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+                },
+                "lineNumber": 4,
+                "lexical": {
+                  "indentation": 0,
+                  "numberingLevel": 1,
+                  "numberingToken": "3、",
+                  "punctuation": "sentence",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "requirement",
+                  "section": "responsibility"
+                },
+                "final": {
+                  "disposition": "requirement",
+                  "section": "responsibility",
+                  "kind": "soft_skill",
+                  "priority": "high",
+                  "hardConstraint": false,
+                  "normalizedIntent": "参与产品 数据 业务等团队协作 建立ai大模型与ai应用相关的数据分析 效果评估 问题定位与持续优化 提升用户体验和业务价值",
+                  "exactKeywords": [],
+                  "semanticAliases": [],
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-535a75f3-8",
+                "text": "岗位要求",
+                "sourceSpan": {
+                  "start": 209,
+                  "end": 213,
+                  "text": "岗位要求"
+                },
+                "lineNumber": 5,
+                "lexical": {
+                  "indentation": 0,
+                  "punctuation": "heading",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "heading",
+                  "section": "required"
+                },
+                "final": {
+                  "disposition": "heading",
+                  "section": "required",
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-f3495f6e-32",
+                "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；",
+                "sourceSpan": {
+                  "start": 216,
+                  "end": 244,
+                  "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；"
+                },
+                "originUnitId": "jd-unit-fnv-3bbad243-245",
+                "originSpan": {
+                  "start": 216,
+                  "end": 457,
+                  "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业； 2、熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域； 3、具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+                },
+                "lineNumber": 6,
+                "lexical": {
+                  "indentation": 0,
+                  "numberingLevel": 1,
+                  "numberingToken": "1、",
+                  "punctuation": "sentence",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "requirement",
+                  "section": "required"
+                },
+                "final": {
+                  "disposition": "requirement",
+                  "section": "required",
+                  "kind": "education",
+                  "priority": "medium",
+                  "hardConstraint": false,
+                  "normalizedIntent": "人工智能 计算机 软件工程 电子信息 自动化等相关专业",
+                  "exactKeywords": [],
+                  "semanticAliases": [],
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-77d5a199-170",
+                "text": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；",
+                "sourceSpan": {
+                  "start": 247,
+                  "end": 413,
+                  "text": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；"
+                },
+                "originUnitId": "jd-unit-fnv-3bbad243-245",
+                "originSpan": {
+                  "start": 216,
+                  "end": 457,
+                  "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业； 2、熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域； 3、具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+                },
+                "lineNumber": 6,
+                "lexical": {
+                  "indentation": 0,
+                  "numberingLevel": 1,
+                  "numberingToken": "2、",
+                  "punctuation": "sentence",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "requirement",
+                  "section": "required"
+                },
+                "final": {
+                  "disposition": "requirement",
+                  "section": "required",
+                  "kind": "tool_or_technology",
+                  "priority": "medium",
+                  "hardConstraint": false,
+                  "normalizedIntent": "熟悉主流大模型应用开发框架 掌握大模型原理 如transformer架构 微调技术 向量数据库等 或ai算法原理 如神经网络 强化学习 树模型 知识图谱等 或有大模型 如gpt deepseek qwen系列等 应用或神经网络 cnn rnn gnn等 开发经验 熟悉nlp/知识图谱/智能问答/对话系统/文生图/文生视频等领域",
+                  "exactKeywords": [
+                    "AI算法原理",
+                    "大模型原理"
+                  ],
+                  "semanticAliases": [],
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-fbbd33bd-45",
+                "text": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。",
+                "sourceSpan": {
+                  "start": 416,
+                  "end": 457,
+                  "text": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+                },
+                "originUnitId": "jd-unit-fnv-3bbad243-245",
+                "originSpan": {
+                  "start": 216,
+                  "end": 457,
+                  "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业； 2、熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域； 3、具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+                },
+                "lineNumber": 6,
+                "lexical": {
+                  "indentation": 0,
+                  "numberingLevel": 1,
+                  "numberingToken": "3、",
+                  "punctuation": "sentence",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "requirement",
+                  "section": "required"
+                },
+                "final": {
+                  "disposition": "requirement",
+                  "section": "required",
+                  "kind": "tool_or_technology",
+                  "priority": "must",
+                  "hardConstraint": true,
+                  "normalizedIntent": "具备扎实的编程能力 熟练掌握 python c++ java 等至少一种编程语言",
+                  "exactKeywords": [
+                    "Python",
+                    "Java",
+                    "C++"
+                  ],
+                  "semanticAliases": [],
+                  "confidence": 0.88
+                }
+              }
+            ],
+            "issues": [
+              {
+                "code": "low_confidence_unit",
+                "message": "复合 AND / OR 条件含示例与多条替代路径，已完整保留原文，请核对条件组合。",
+                "sourceUnitIds": [
+                  "jd-unit-fnv-77d5a199-170"
+                ],
+                "severity": "warning"
+              }
+            ],
+            "needsReview": true,
+            "sourceCoverage": {
+              "coveredSpans": [
+                {
+                  "start": 0,
+                  "end": 10,
+                  "text": "毕业要求：2027届"
+                },
+                {
+                  "start": 11,
+                  "end": 42,
+                  "text": "投递时间：2026年9月1日-2026年9月30日（即将截止）"
+                },
+                {
+                  "start": 43,
+                  "end": 47,
+                  "text": "岗位职责"
+                },
+                {
+                  "start": 50,
+                  "end": 89,
+                  "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；"
+                },
+                {
+                  "start": 92,
+                  "end": 142,
+                  "text": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；"
+                },
+                {
+                  "start": 145,
+                  "end": 208,
+                  "text": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+                },
+                {
+                  "start": 209,
+                  "end": 213,
+                  "text": "岗位要求"
+                },
+                {
+                  "start": 216,
+                  "end": 244,
+                  "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；"
+                },
+                {
+                  "start": 247,
+                  "end": 413,
+                  "text": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；"
+                },
+                {
+                  "start": 416,
+                  "end": 457,
+                  "text": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+                }
+              ],
+              "unclassifiedSpans": [],
+              "totalMeaningfulUnits": 10,
+              "assignedUnits": 10,
+              "unassignedUnitIds": [],
+              "metadataUnitIds": [
+                "jd-unit-fnv-da8978a3-34"
+              ],
+              "excludedUnitIds": [],
+              "requirementUnitIds": [
+                "jd-unit-fnv-2f480be4-12",
+                "jd-unit-fnv-40ecd7f3-42",
+                "jd-unit-fnv-1495d346-53",
+                "jd-unit-fnv-d4b45c04-67",
+                "jd-unit-fnv-f3495f6e-32",
+                "jd-unit-fnv-77d5a199-170",
+                "jd-unit-fnv-fbbd33bd-45"
+              ],
+              "detailUnitIds": [],
+              "inventedReferenceCount": 0,
+              "coverageRatio": 1
+            },
+            "analyzerVersion": "jd-analyzer.semantic-ledger-v4.2",
+            "graphHash": "fnv-39268e74-3920",
+            "semanticEnrichmentHash": "fnv-54691773-2033"
+          },
+          "missingIdentityFields": [
+            "title",
+            "company"
+          ],
+          "persistence": "save",
+          "input": {
+            "rawText": "毕业要求：2027届\n投递时间：2026年9月1日-2026年9月30日（即将截止）\n岗位职责\n1、参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化； 2、参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果； 3、参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。\n岗位要求\n1、人工智能、计算机、软件工程、电子信息、自动化等相关专业； 2、熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域； 3、具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。",
+            "persistence": "save"
+          },
+          "careerSessionBinding": {
+            "personId": "person-profile-hACt1Qo31R",
+            "profileId": "profile-hACt1Qo31R",
+            "profileVersionNumber": 1,
+            "profileRevision": 1,
+            "agentSessionId": "agent-session-S5Yri3tbOxal"
+          },
+          "jobId": "job-SNtkBa1kgO",
+          "jobRevision": "2026-11-09T16:06:37.668Z",
+          "businessStatus": "committed",
+          "persistenceVerified": true,
+          "health": "WORKABLE",
+          "summary": "公司待补充 · 岗位名称待补充",
+          "idempotent": false,
+          "status": "completed"
+        },
+        "rawText": "毕业要求：2027届\n投递时间：2026年9月1日-2026年9月30日（即将截止）\n岗位职责\n1、参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化； 2、参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果； 3、参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。\n岗位要求\n1、人工智能、计算机、软件工程、电子信息、自动化等相关专业； 2、熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域； 3、具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。",
+        "graph": {
+          "schemaVersion": "job-requirement-graph-v4",
+          "roleProfile": {
+            "mission": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；",
+            "hiringSignals": []
+          },
+          "groups": [],
+          "requirements": [
+            {
+              "id": "jrv4-fnv-7ec7b66b-23",
+              "section": "required",
+              "kind": "education",
+              "statement": "毕业要求：2027届",
+              "normalizedIntent": "毕业要求 2027届",
+              "priority": "medium",
+              "hardConstraint": false,
+              "exactKeywords": [],
+              "semanticAliases": [],
+              "sourceUnitId": "jd-unit-fnv-2f480be4-12",
+              "details": [],
+              "sourceSpan": {
+                "start": 0,
+                "end": 10,
+                "text": "毕业要求：2027届"
+              },
+              "sourceSpans": [
+                {
+                  "start": 0,
+                  "end": 10,
+                  "text": "毕业要求：2027届"
+                }
+              ],
+              "confidence": 0.88,
+              "needsConfirmation": false
+            },
+            {
+              "id": "jrv4-fnv-92dd4631-23",
+              "section": "responsibility",
+              "kind": "responsibility",
+              "statement": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；",
+              "normalizedIntent": "参与实际产品的ai大模型与ai算法在各类业务场景中的应用开发 集成与迭代优化",
+              "priority": "high",
+              "hardConstraint": false,
+              "exactKeywords": [],
+              "semanticAliases": [],
+              "sourceUnitId": "jd-unit-fnv-40ecd7f3-42",
+              "details": [],
+              "sourceSpan": {
+                "start": 50,
+                "end": 89,
+                "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；"
+              },
+              "sourceSpans": [
+                {
+                  "start": 50,
+                  "end": 89,
+                  "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；"
+                }
+              ],
+              "confidence": 0.88,
+              "needsConfirmation": false
+            },
+            {
+              "id": "jrv4-fnv-e14f95c9-23",
+              "section": "responsibility",
+              "kind": "tool_or_technology",
+              "statement": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；",
+              "normalizedIntent": "参与ai大模型与ai算法应用相关的需求分析 模型微调 rag检索 提升模型在各类场景下的应用效果",
+              "priority": "high",
+              "hardConstraint": false,
+              "exactKeywords": [
+                "RAG"
+              ],
+              "semanticAliases": [],
+              "sourceUnitId": "jd-unit-fnv-1495d346-53",
+              "details": [],
+              "sourceSpan": {
+                "start": 92,
+                "end": 142,
+                "text": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；"
+              },
+              "sourceSpans": [
+                {
+                  "start": 92,
+                  "end": 142,
+                  "text": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；"
+                }
+              ],
+              "confidence": 0.88,
+              "needsConfirmation": false
+            },
+            {
+              "id": "jrv4-fnv-eadf40e4-23",
+              "section": "responsibility",
+              "kind": "soft_skill",
+              "statement": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。",
+              "normalizedIntent": "参与产品 数据 业务等团队协作 建立ai大模型与ai应用相关的数据分析 效果评估 问题定位与持续优化 提升用户体验和业务价值",
+              "priority": "high",
+              "hardConstraint": false,
+              "exactKeywords": [],
+              "semanticAliases": [],
+              "sourceUnitId": "jd-unit-fnv-d4b45c04-67",
+              "details": [],
+              "sourceSpan": {
+                "start": 145,
+                "end": 208,
+                "text": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+              },
+              "sourceSpans": [
+                {
+                  "start": 145,
+                  "end": 208,
+                  "text": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+                }
+              ],
+              "confidence": 0.88,
+              "needsConfirmation": false
+            },
+            {
+              "id": "jrv4-fnv-794d26c2-23",
+              "section": "required",
+              "kind": "education",
+              "statement": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；",
+              "normalizedIntent": "人工智能 计算机 软件工程 电子信息 自动化等相关专业",
+              "priority": "medium",
+              "hardConstraint": false,
+              "exactKeywords": [],
+              "semanticAliases": [],
+              "sourceUnitId": "jd-unit-fnv-f3495f6e-32",
+              "details": [],
+              "sourceSpan": {
+                "start": 216,
+                "end": 244,
+                "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；"
+              },
+              "sourceSpans": [
+                {
+                  "start": 216,
+                  "end": 244,
+                  "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；"
+                }
+              ],
+              "confidence": 0.88,
+              "needsConfirmation": false
+            },
+            {
+              "id": "jrv4-fnv-df216d76-24",
+              "section": "required",
+              "kind": "tool_or_technology",
+              "statement": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；",
+              "normalizedIntent": "熟悉主流大模型应用开发框架 掌握大模型原理 如transformer架构 微调技术 向量数据库等 或ai算法原理 如神经网络 强化学习 树模型 知识图谱等 或有大模型 如gpt deepseek qwen系列等 应用或神经网络 cnn rnn gnn等 开发经验 熟悉nlp/知识图谱/智能问答/对话系统/文生图/文生视频等领域",
+              "priority": "medium",
+              "hardConstraint": false,
+              "exactKeywords": [
+                "AI算法原理",
+                "大模型原理"
+              ],
+              "semanticAliases": [],
+              "sourceUnitId": "jd-unit-fnv-77d5a199-170",
+              "details": [],
+              "sourceSpan": {
+                "start": 247,
+                "end": 413,
+                "text": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；"
+              },
+              "sourceSpans": [
+                {
+                  "start": 247,
+                  "end": 413,
+                  "text": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；"
+                }
+              ],
+              "confidence": 0.88,
+              "needsConfirmation": false
+            },
+            {
+              "id": "jrv4-fnv-21849e44-23",
+              "section": "required",
+              "kind": "tool_or_technology",
+              "statement": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。",
+              "normalizedIntent": "具备扎实的编程能力 熟练掌握 python c++ java 等至少一种编程语言",
+              "priority": "must",
+              "hardConstraint": true,
+              "keywordLogic": {
+                "relation": "any_of",
+                "terms": [
+                  "Python",
+                  "Java",
+                  "C++"
+                ]
+              },
+              "exactKeywords": [
+                "Python",
+                "Java",
+                "C++"
+              ],
+              "semanticAliases": [],
+              "sourceUnitId": "jd-unit-fnv-fbbd33bd-45",
+              "details": [],
+              "sourceSpan": {
+                "start": 416,
+                "end": 457,
+                "text": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+              },
+              "sourceSpans": [
+                {
+                  "start": 416,
+                  "end": 457,
+                  "text": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+                }
+              ],
+              "confidence": 0.88,
+              "needsConfirmation": false
+            }
+          ],
+          "verificationMaterials": [],
+          "contextGroups": [],
+          "semanticUnits": [
+            {
+              "id": "jd-unit-fnv-2f480be4-12",
+              "text": "毕业要求：2027届",
+              "sourceSpan": {
+                "start": 0,
+                "end": 10,
+                "text": "毕业要求：2027届"
+              },
+              "lineNumber": 1,
+              "lexical": {
+                "indentation": 0,
+                "punctuation": "plain",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "requirement",
+                "section": "required"
+              },
+              "final": {
+                "disposition": "requirement",
+                "section": "required",
+                "kind": "education",
+                "priority": "medium",
+                "hardConstraint": false,
+                "normalizedIntent": "毕业要求 2027届",
+                "exactKeywords": [],
+                "semanticAliases": [],
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-da8978a3-34",
+              "text": "投递时间：2026年9月1日-2026年9月30日（即将截止）",
+              "sourceSpan": {
+                "start": 11,
+                "end": 42,
+                "text": "投递时间：2026年9月1日-2026年9月30日（即将截止）"
+              },
+              "lineNumber": 2,
+              "lexical": {
+                "indentation": 0,
+                "punctuation": "plain",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "metadata",
+                "section": "responsibility"
+              },
+              "final": {
+                "disposition": "metadata",
+                "section": "responsibility",
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-60ebd23b-7",
+              "text": "岗位职责",
+              "sourceSpan": {
+                "start": 43,
+                "end": 47,
+                "text": "岗位职责"
+              },
+              "lineNumber": 3,
+              "lexical": {
+                "indentation": 0,
+                "punctuation": "heading",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "heading",
+                "section": "responsibility"
+              },
+              "final": {
+                "disposition": "heading",
+                "section": "responsibility",
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-40ecd7f3-42",
+              "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；",
+              "sourceSpan": {
+                "start": 50,
+                "end": 89,
+                "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；"
+              },
+              "originUnitId": "jd-unit-fnv-f517041b-161",
+              "originSpan": {
+                "start": 50,
+                "end": 208,
+                "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化； 2、参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果； 3、参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+              },
+              "lineNumber": 4,
+              "lexical": {
+                "indentation": 0,
+                "numberingLevel": 1,
+                "numberingToken": "1、",
+                "punctuation": "sentence",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "requirement",
+                "section": "responsibility"
+              },
+              "final": {
+                "disposition": "requirement",
+                "section": "responsibility",
+                "kind": "responsibility",
+                "priority": "high",
+                "hardConstraint": false,
+                "normalizedIntent": "参与实际产品的ai大模型与ai算法在各类业务场景中的应用开发 集成与迭代优化",
+                "exactKeywords": [],
+                "semanticAliases": [],
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-1495d346-53",
+              "text": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；",
+              "sourceSpan": {
+                "start": 92,
+                "end": 142,
+                "text": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；"
+              },
+              "originUnitId": "jd-unit-fnv-f517041b-161",
+              "originSpan": {
+                "start": 50,
+                "end": 208,
+                "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化； 2、参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果； 3、参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+              },
+              "lineNumber": 4,
+              "lexical": {
+                "indentation": 0,
+                "numberingLevel": 1,
+                "numberingToken": "2、",
+                "punctuation": "sentence",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "requirement",
+                "section": "responsibility"
+              },
+              "final": {
+                "disposition": "requirement",
+                "section": "responsibility",
+                "kind": "tool_or_technology",
+                "priority": "high",
+                "hardConstraint": false,
+                "normalizedIntent": "参与ai大模型与ai算法应用相关的需求分析 模型微调 rag检索 提升模型在各类场景下的应用效果",
+                "exactKeywords": [
+                  "RAG"
+                ],
+                "semanticAliases": [],
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-d4b45c04-67",
+              "text": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。",
+              "sourceSpan": {
+                "start": 145,
+                "end": 208,
+                "text": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+              },
+              "originUnitId": "jd-unit-fnv-f517041b-161",
+              "originSpan": {
+                "start": 50,
+                "end": 208,
+                "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化； 2、参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果； 3、参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+              },
+              "lineNumber": 4,
+              "lexical": {
+                "indentation": 0,
+                "numberingLevel": 1,
+                "numberingToken": "3、",
+                "punctuation": "sentence",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "requirement",
+                "section": "responsibility"
+              },
+              "final": {
+                "disposition": "requirement",
+                "section": "responsibility",
+                "kind": "soft_skill",
+                "priority": "high",
+                "hardConstraint": false,
+                "normalizedIntent": "参与产品 数据 业务等团队协作 建立ai大模型与ai应用相关的数据分析 效果评估 问题定位与持续优化 提升用户体验和业务价值",
+                "exactKeywords": [],
+                "semanticAliases": [],
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-535a75f3-8",
+              "text": "岗位要求",
+              "sourceSpan": {
+                "start": 209,
+                "end": 213,
+                "text": "岗位要求"
+              },
+              "lineNumber": 5,
+              "lexical": {
+                "indentation": 0,
+                "punctuation": "heading",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "heading",
+                "section": "required"
+              },
+              "final": {
+                "disposition": "heading",
+                "section": "required",
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-f3495f6e-32",
+              "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；",
+              "sourceSpan": {
+                "start": 216,
+                "end": 244,
+                "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；"
+              },
+              "originUnitId": "jd-unit-fnv-3bbad243-245",
+              "originSpan": {
+                "start": 216,
+                "end": 457,
+                "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业； 2、熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域； 3、具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+              },
+              "lineNumber": 6,
+              "lexical": {
+                "indentation": 0,
+                "numberingLevel": 1,
+                "numberingToken": "1、",
+                "punctuation": "sentence",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "requirement",
+                "section": "required"
+              },
+              "final": {
+                "disposition": "requirement",
+                "section": "required",
+                "kind": "education",
+                "priority": "medium",
+                "hardConstraint": false,
+                "normalizedIntent": "人工智能 计算机 软件工程 电子信息 自动化等相关专业",
+                "exactKeywords": [],
+                "semanticAliases": [],
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-77d5a199-170",
+              "text": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；",
+              "sourceSpan": {
+                "start": 247,
+                "end": 413,
+                "text": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；"
+              },
+              "originUnitId": "jd-unit-fnv-3bbad243-245",
+              "originSpan": {
+                "start": 216,
+                "end": 457,
+                "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业； 2、熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域； 3、具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+              },
+              "lineNumber": 6,
+              "lexical": {
+                "indentation": 0,
+                "numberingLevel": 1,
+                "numberingToken": "2、",
+                "punctuation": "sentence",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "requirement",
+                "section": "required"
+              },
+              "final": {
+                "disposition": "requirement",
+                "section": "required",
+                "kind": "tool_or_technology",
+                "priority": "medium",
+                "hardConstraint": false,
+                "normalizedIntent": "熟悉主流大模型应用开发框架 掌握大模型原理 如transformer架构 微调技术 向量数据库等 或ai算法原理 如神经网络 强化学习 树模型 知识图谱等 或有大模型 如gpt deepseek qwen系列等 应用或神经网络 cnn rnn gnn等 开发经验 熟悉nlp/知识图谱/智能问答/对话系统/文生图/文生视频等领域",
+                "exactKeywords": [
+                  "AI算法原理",
+                  "大模型原理"
+                ],
+                "semanticAliases": [],
+                "confidence": 0.88
+              }
+            },
+            {
+              "id": "jd-unit-fnv-fbbd33bd-45",
+              "text": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。",
+              "sourceSpan": {
+                "start": 416,
+                "end": 457,
+                "text": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+              },
+              "originUnitId": "jd-unit-fnv-3bbad243-245",
+              "originSpan": {
+                "start": 216,
+                "end": 457,
+                "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业； 2、熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域； 3、具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+              },
+              "lineNumber": 6,
+              "lexical": {
+                "indentation": 0,
+                "numberingLevel": 1,
+                "numberingToken": "3、",
+                "punctuation": "sentence",
+                "blankLinesBefore": 0,
+                "blankLinesAfter": 0
+              },
+              "provisional": {
+                "disposition": "requirement",
+                "section": "required"
+              },
+              "final": {
+                "disposition": "requirement",
+                "section": "required",
+                "kind": "tool_or_technology",
+                "priority": "must",
+                "hardConstraint": true,
+                "normalizedIntent": "具备扎实的编程能力 熟练掌握 python c++ java 等至少一种编程语言",
+                "exactKeywords": [
+                  "Python",
+                  "Java",
+                  "C++"
+                ],
+                "semanticAliases": [],
+                "confidence": 0.88
+              }
+            }
+          ],
+          "issues": [
+            {
+              "code": "low_confidence_unit",
+              "message": "复合 AND / OR 条件含示例与多条替代路径，已完整保留原文，请核对条件组合。",
+              "sourceUnitIds": [
+                "jd-unit-fnv-77d5a199-170"
+              ],
+              "severity": "warning"
+            }
+          ],
+          "needsReview": true,
+          "sourceCoverage": {
+            "coveredSpans": [
+              {
+                "start": 0,
+                "end": 10,
+                "text": "毕业要求：2027届"
+              },
+              {
+                "start": 11,
+                "end": 42,
+                "text": "投递时间：2026年9月1日-2026年9月30日（即将截止）"
+              },
+              {
+                "start": 43,
+                "end": 47,
+                "text": "岗位职责"
+              },
+              {
+                "start": 50,
+                "end": 89,
+                "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；"
+              },
+              {
+                "start": 92,
+                "end": 142,
+                "text": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；"
+              },
+              {
+                "start": 145,
+                "end": 208,
+                "text": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+              },
+              {
+                "start": 209,
+                "end": 213,
+                "text": "岗位要求"
+              },
+              {
+                "start": 216,
+                "end": 244,
+                "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；"
+              },
+              {
+                "start": 247,
+                "end": 413,
+                "text": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；"
+              },
+              {
+                "start": 416,
+                "end": 457,
+                "text": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+              }
+            ],
+            "unclassifiedSpans": [],
+            "totalMeaningfulUnits": 10,
+            "assignedUnits": 10,
+            "unassignedUnitIds": [],
+            "metadataUnitIds": [
+              "jd-unit-fnv-da8978a3-34"
+            ],
+            "excludedUnitIds": [],
+            "requirementUnitIds": [
+              "jd-unit-fnv-2f480be4-12",
+              "jd-unit-fnv-40ecd7f3-42",
+              "jd-unit-fnv-1495d346-53",
+              "jd-unit-fnv-d4b45c04-67",
+              "jd-unit-fnv-f3495f6e-32",
+              "jd-unit-fnv-77d5a199-170",
+              "jd-unit-fnv-fbbd33bd-45"
+            ],
+            "detailUnitIds": [],
+            "inventedReferenceCount": 0,
+            "coverageRatio": 1
+          },
+          "analyzerVersion": "jd-analyzer.semantic-ledger-v4.2",
+          "graphHash": "fnv-39268e74-3920",
+          "semanticEnrichmentHash": "fnv-54691773-2033"
+        },
+        "title": "unknown",
+        "company": null,
+        "jobPersistenceVerified": true,
+        "jobBusinessStatus": "committed",
+        "savedJobId": "job-SNtkBa1kgO"
+      },
+      "missingSlots": [],
+      "selectedEntities": {
+        "profileId": "profile-hACt1Qo31R",
+        "jobId": "job-SNtkBa1kgO",
+        "jobRevision": "2026-11-09T16:06:37.668Z"
+      },
+      "dependencySnapshots": {},
+      "artifacts": [],
+      "lastObservation": {
+        "source": "career_workflow_facade",
+        "toolName": "career.workflow.job_intake",
+        "status": "completed",
+        "checkpoint": {
+          "kind": "job_intake",
+          "identity": {
+            "title": "unknown",
+            "company": "unknown",
+            "location": "unknown"
+          },
+          "graph": {
+            "schemaVersion": "job-requirement-graph-v4",
+            "roleProfile": {
+              "mission": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；",
+              "hiringSignals": []
+            },
+            "groups": [],
+            "requirements": [
+              {
+                "id": "jrv4-fnv-7ec7b66b-23",
+                "section": "required",
+                "kind": "education",
+                "statement": "毕业要求：2027届",
+                "normalizedIntent": "毕业要求 2027届",
+                "priority": "medium",
+                "hardConstraint": false,
+                "exactKeywords": [],
+                "semanticAliases": [],
+                "sourceUnitId": "jd-unit-fnv-2f480be4-12",
+                "details": [],
+                "sourceSpan": {
+                  "start": 0,
+                  "end": 10,
+                  "text": "毕业要求：2027届"
+                },
+                "sourceSpans": [
+                  {
+                    "start": 0,
+                    "end": 10,
+                    "text": "毕业要求：2027届"
+                  }
+                ],
+                "confidence": 0.88,
+                "needsConfirmation": false
+              },
+              {
+                "id": "jrv4-fnv-92dd4631-23",
+                "section": "responsibility",
+                "kind": "responsibility",
+                "statement": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；",
+                "normalizedIntent": "参与实际产品的ai大模型与ai算法在各类业务场景中的应用开发 集成与迭代优化",
+                "priority": "high",
+                "hardConstraint": false,
+                "exactKeywords": [],
+                "semanticAliases": [],
+                "sourceUnitId": "jd-unit-fnv-40ecd7f3-42",
+                "details": [],
+                "sourceSpan": {
+                  "start": 50,
+                  "end": 89,
+                  "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；"
+                },
+                "sourceSpans": [
+                  {
+                    "start": 50,
+                    "end": 89,
+                    "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；"
+                  }
+                ],
+                "confidence": 0.88,
+                "needsConfirmation": false
+              },
+              {
+                "id": "jrv4-fnv-e14f95c9-23",
+                "section": "responsibility",
+                "kind": "tool_or_technology",
+                "statement": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；",
+                "normalizedIntent": "参与ai大模型与ai算法应用相关的需求分析 模型微调 rag检索 提升模型在各类场景下的应用效果",
+                "priority": "high",
+                "hardConstraint": false,
+                "exactKeywords": [
+                  "RAG"
+                ],
+                "semanticAliases": [],
+                "sourceUnitId": "jd-unit-fnv-1495d346-53",
+                "details": [],
+                "sourceSpan": {
+                  "start": 92,
+                  "end": 142,
+                  "text": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；"
+                },
+                "sourceSpans": [
+                  {
+                    "start": 92,
+                    "end": 142,
+                    "text": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；"
+                  }
+                ],
+                "confidence": 0.88,
+                "needsConfirmation": false
+              },
+              {
+                "id": "jrv4-fnv-eadf40e4-23",
+                "section": "responsibility",
+                "kind": "soft_skill",
+                "statement": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。",
+                "normalizedIntent": "参与产品 数据 业务等团队协作 建立ai大模型与ai应用相关的数据分析 效果评估 问题定位与持续优化 提升用户体验和业务价值",
+                "priority": "high",
+                "hardConstraint": false,
+                "exactKeywords": [],
+                "semanticAliases": [],
+                "sourceUnitId": "jd-unit-fnv-d4b45c04-67",
+                "details": [],
+                "sourceSpan": {
+                  "start": 145,
+                  "end": 208,
+                  "text": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+                },
+                "sourceSpans": [
+                  {
+                    "start": 145,
+                    "end": 208,
+                    "text": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+                  }
+                ],
+                "confidence": 0.88,
+                "needsConfirmation": false
+              },
+              {
+                "id": "jrv4-fnv-794d26c2-23",
+                "section": "required",
+                "kind": "education",
+                "statement": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；",
+                "normalizedIntent": "人工智能 计算机 软件工程 电子信息 自动化等相关专业",
+                "priority": "medium",
+                "hardConstraint": false,
+                "exactKeywords": [],
+                "semanticAliases": [],
+                "sourceUnitId": "jd-unit-fnv-f3495f6e-32",
+                "details": [],
+                "sourceSpan": {
+                  "start": 216,
+                  "end": 244,
+                  "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；"
+                },
+                "sourceSpans": [
+                  {
+                    "start": 216,
+                    "end": 244,
+                    "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；"
+                  }
+                ],
+                "confidence": 0.88,
+                "needsConfirmation": false
+              },
+              {
+                "id": "jrv4-fnv-df216d76-24",
+                "section": "required",
+                "kind": "tool_or_technology",
+                "statement": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；",
+                "normalizedIntent": "熟悉主流大模型应用开发框架 掌握大模型原理 如transformer架构 微调技术 向量数据库等 或ai算法原理 如神经网络 强化学习 树模型 知识图谱等 或有大模型 如gpt deepseek qwen系列等 应用或神经网络 cnn rnn gnn等 开发经验 熟悉nlp/知识图谱/智能问答/对话系统/文生图/文生视频等领域",
+                "priority": "medium",
+                "hardConstraint": false,
+                "exactKeywords": [
+                  "AI算法原理",
+                  "大模型原理"
+                ],
+                "semanticAliases": [],
+                "sourceUnitId": "jd-unit-fnv-77d5a199-170",
+                "details": [],
+                "sourceSpan": {
+                  "start": 247,
+                  "end": 413,
+                  "text": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；"
+                },
+                "sourceSpans": [
+                  {
+                    "start": 247,
+                    "end": 413,
+                    "text": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；"
+                  }
+                ],
+                "confidence": 0.88,
+                "needsConfirmation": false
+              },
+              {
+                "id": "jrv4-fnv-21849e44-23",
+                "section": "required",
+                "kind": "tool_or_technology",
+                "statement": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。",
+                "normalizedIntent": "具备扎实的编程能力 熟练掌握 python c++ java 等至少一种编程语言",
+                "priority": "must",
+                "hardConstraint": true,
+                "keywordLogic": {
+                  "relation": "any_of",
+                  "terms": [
+                    "Python",
+                    "Java",
+                    "C++"
+                  ]
+                },
+                "exactKeywords": [
+                  "Python",
+                  "Java",
+                  "C++"
+                ],
+                "semanticAliases": [],
+                "sourceUnitId": "jd-unit-fnv-fbbd33bd-45",
+                "details": [],
+                "sourceSpan": {
+                  "start": 416,
+                  "end": 457,
+                  "text": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+                },
+                "sourceSpans": [
+                  {
+                    "start": 416,
+                    "end": 457,
+                    "text": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+                  }
+                ],
+                "confidence": 0.88,
+                "needsConfirmation": false
+              }
+            ],
+            "verificationMaterials": [],
+            "contextGroups": [],
+            "semanticUnits": [
+              {
+                "id": "jd-unit-fnv-2f480be4-12",
+                "text": "毕业要求：2027届",
+                "sourceSpan": {
+                  "start": 0,
+                  "end": 10,
+                  "text": "毕业要求：2027届"
+                },
+                "lineNumber": 1,
+                "lexical": {
+                  "indentation": 0,
+                  "punctuation": "plain",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "requirement",
+                  "section": "required"
+                },
+                "final": {
+                  "disposition": "requirement",
+                  "section": "required",
+                  "kind": "education",
+                  "priority": "medium",
+                  "hardConstraint": false,
+                  "normalizedIntent": "毕业要求 2027届",
+                  "exactKeywords": [],
+                  "semanticAliases": [],
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-da8978a3-34",
+                "text": "投递时间：2026年9月1日-2026年9月30日（即将截止）",
+                "sourceSpan": {
+                  "start": 11,
+                  "end": 42,
+                  "text": "投递时间：2026年9月1日-2026年9月30日（即将截止）"
+                },
+                "lineNumber": 2,
+                "lexical": {
+                  "indentation": 0,
+                  "punctuation": "plain",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "metadata",
+                  "section": "responsibility"
+                },
+                "final": {
+                  "disposition": "metadata",
+                  "section": "responsibility",
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-60ebd23b-7",
+                "text": "岗位职责",
+                "sourceSpan": {
+                  "start": 43,
+                  "end": 47,
+                  "text": "岗位职责"
+                },
+                "lineNumber": 3,
+                "lexical": {
+                  "indentation": 0,
+                  "punctuation": "heading",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "heading",
+                  "section": "responsibility"
+                },
+                "final": {
+                  "disposition": "heading",
+                  "section": "responsibility",
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-40ecd7f3-42",
+                "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；",
+                "sourceSpan": {
+                  "start": 50,
+                  "end": 89,
+                  "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；"
+                },
+                "originUnitId": "jd-unit-fnv-f517041b-161",
+                "originSpan": {
+                  "start": 50,
+                  "end": 208,
+                  "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化； 2、参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果； 3、参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+                },
+                "lineNumber": 4,
+                "lexical": {
+                  "indentation": 0,
+                  "numberingLevel": 1,
+                  "numberingToken": "1、",
+                  "punctuation": "sentence",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "requirement",
+                  "section": "responsibility"
+                },
+                "final": {
+                  "disposition": "requirement",
+                  "section": "responsibility",
+                  "kind": "responsibility",
+                  "priority": "high",
+                  "hardConstraint": false,
+                  "normalizedIntent": "参与实际产品的ai大模型与ai算法在各类业务场景中的应用开发 集成与迭代优化",
+                  "exactKeywords": [],
+                  "semanticAliases": [],
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-1495d346-53",
+                "text": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；",
+                "sourceSpan": {
+                  "start": 92,
+                  "end": 142,
+                  "text": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；"
+                },
+                "originUnitId": "jd-unit-fnv-f517041b-161",
+                "originSpan": {
+                  "start": 50,
+                  "end": 208,
+                  "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化； 2、参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果； 3、参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+                },
+                "lineNumber": 4,
+                "lexical": {
+                  "indentation": 0,
+                  "numberingLevel": 1,
+                  "numberingToken": "2、",
+                  "punctuation": "sentence",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "requirement",
+                  "section": "responsibility"
+                },
+                "final": {
+                  "disposition": "requirement",
+                  "section": "responsibility",
+                  "kind": "tool_or_technology",
+                  "priority": "high",
+                  "hardConstraint": false,
+                  "normalizedIntent": "参与ai大模型与ai算法应用相关的需求分析 模型微调 rag检索 提升模型在各类场景下的应用效果",
+                  "exactKeywords": [
+                    "RAG"
+                  ],
+                  "semanticAliases": [],
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-d4b45c04-67",
+                "text": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。",
+                "sourceSpan": {
+                  "start": 145,
+                  "end": 208,
+                  "text": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+                },
+                "originUnitId": "jd-unit-fnv-f517041b-161",
+                "originSpan": {
+                  "start": 50,
+                  "end": 208,
+                  "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化； 2、参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果； 3、参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+                },
+                "lineNumber": 4,
+                "lexical": {
+                  "indentation": 0,
+                  "numberingLevel": 1,
+                  "numberingToken": "3、",
+                  "punctuation": "sentence",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "requirement",
+                  "section": "responsibility"
+                },
+                "final": {
+                  "disposition": "requirement",
+                  "section": "responsibility",
+                  "kind": "soft_skill",
+                  "priority": "high",
+                  "hardConstraint": false,
+                  "normalizedIntent": "参与产品 数据 业务等团队协作 建立ai大模型与ai应用相关的数据分析 效果评估 问题定位与持续优化 提升用户体验和业务价值",
+                  "exactKeywords": [],
+                  "semanticAliases": [],
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-535a75f3-8",
+                "text": "岗位要求",
+                "sourceSpan": {
+                  "start": 209,
+                  "end": 213,
+                  "text": "岗位要求"
+                },
+                "lineNumber": 5,
+                "lexical": {
+                  "indentation": 0,
+                  "punctuation": "heading",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "heading",
+                  "section": "required"
+                },
+                "final": {
+                  "disposition": "heading",
+                  "section": "required",
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-f3495f6e-32",
+                "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；",
+                "sourceSpan": {
+                  "start": 216,
+                  "end": 244,
+                  "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；"
+                },
+                "originUnitId": "jd-unit-fnv-3bbad243-245",
+                "originSpan": {
+                  "start": 216,
+                  "end": 457,
+                  "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业； 2、熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域； 3、具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+                },
+                "lineNumber": 6,
+                "lexical": {
+                  "indentation": 0,
+                  "numberingLevel": 1,
+                  "numberingToken": "1、",
+                  "punctuation": "sentence",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "requirement",
+                  "section": "required"
+                },
+                "final": {
+                  "disposition": "requirement",
+                  "section": "required",
+                  "kind": "education",
+                  "priority": "medium",
+                  "hardConstraint": false,
+                  "normalizedIntent": "人工智能 计算机 软件工程 电子信息 自动化等相关专业",
+                  "exactKeywords": [],
+                  "semanticAliases": [],
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-77d5a199-170",
+                "text": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；",
+                "sourceSpan": {
+                  "start": 247,
+                  "end": 413,
+                  "text": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；"
+                },
+                "originUnitId": "jd-unit-fnv-3bbad243-245",
+                "originSpan": {
+                  "start": 216,
+                  "end": 457,
+                  "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业； 2、熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域； 3、具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+                },
+                "lineNumber": 6,
+                "lexical": {
+                  "indentation": 0,
+                  "numberingLevel": 1,
+                  "numberingToken": "2、",
+                  "punctuation": "sentence",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "requirement",
+                  "section": "required"
+                },
+                "final": {
+                  "disposition": "requirement",
+                  "section": "required",
+                  "kind": "tool_or_technology",
+                  "priority": "medium",
+                  "hardConstraint": false,
+                  "normalizedIntent": "熟悉主流大模型应用开发框架 掌握大模型原理 如transformer架构 微调技术 向量数据库等 或ai算法原理 如神经网络 强化学习 树模型 知识图谱等 或有大模型 如gpt deepseek qwen系列等 应用或神经网络 cnn rnn gnn等 开发经验 熟悉nlp/知识图谱/智能问答/对话系统/文生图/文生视频等领域",
+                  "exactKeywords": [
+                    "AI算法原理",
+                    "大模型原理"
+                  ],
+                  "semanticAliases": [],
+                  "confidence": 0.88
+                }
+              },
+              {
+                "id": "jd-unit-fnv-fbbd33bd-45",
+                "text": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。",
+                "sourceSpan": {
+                  "start": 416,
+                  "end": 457,
+                  "text": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+                },
+                "originUnitId": "jd-unit-fnv-3bbad243-245",
+                "originSpan": {
+                  "start": 216,
+                  "end": 457,
+                  "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业； 2、熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域； 3、具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+                },
+                "lineNumber": 6,
+                "lexical": {
+                  "indentation": 0,
+                  "numberingLevel": 1,
+                  "numberingToken": "3、",
+                  "punctuation": "sentence",
+                  "blankLinesBefore": 0,
+                  "blankLinesAfter": 0
+                },
+                "provisional": {
+                  "disposition": "requirement",
+                  "section": "required"
+                },
+                "final": {
+                  "disposition": "requirement",
+                  "section": "required",
+                  "kind": "tool_or_technology",
+                  "priority": "must",
+                  "hardConstraint": true,
+                  "normalizedIntent": "具备扎实的编程能力 熟练掌握 python c++ java 等至少一种编程语言",
+                  "exactKeywords": [
+                    "Python",
+                    "Java",
+                    "C++"
+                  ],
+                  "semanticAliases": [],
+                  "confidence": 0.88
+                }
+              }
+            ],
+            "issues": [
+              {
+                "code": "low_confidence_unit",
+                "message": "复合 AND / OR 条件含示例与多条替代路径，已完整保留原文，请核对条件组合。",
+                "sourceUnitIds": [
+                  "jd-unit-fnv-77d5a199-170"
+                ],
+                "severity": "warning"
+              }
+            ],
+            "needsReview": true,
+            "sourceCoverage": {
+              "coveredSpans": [
+                {
+                  "start": 0,
+                  "end": 10,
+                  "text": "毕业要求：2027届"
+                },
+                {
+                  "start": 11,
+                  "end": 42,
+                  "text": "投递时间：2026年9月1日-2026年9月30日（即将截止）"
+                },
+                {
+                  "start": 43,
+                  "end": 47,
+                  "text": "岗位职责"
+                },
+                {
+                  "start": 50,
+                  "end": 89,
+                  "text": "参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化；"
+                },
+                {
+                  "start": 92,
+                  "end": 142,
+                  "text": "参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果；"
+                },
+                {
+                  "start": 145,
+                  "end": 208,
+                  "text": "参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。"
+                },
+                {
+                  "start": 209,
+                  "end": 213,
+                  "text": "岗位要求"
+                },
+                {
+                  "start": 216,
+                  "end": 244,
+                  "text": "人工智能、计算机、软件工程、电子信息、自动化等相关专业；"
+                },
+                {
+                  "start": 247,
+                  "end": 413,
+                  "text": "熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域；"
+                },
+                {
+                  "start": 416,
+                  "end": 457,
+                  "text": "具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。"
+                }
+              ],
+              "unclassifiedSpans": [],
+              "totalMeaningfulUnits": 10,
+              "assignedUnits": 10,
+              "unassignedUnitIds": [],
+              "metadataUnitIds": [
+                "jd-unit-fnv-da8978a3-34"
+              ],
+              "excludedUnitIds": [],
+              "requirementUnitIds": [
+                "jd-unit-fnv-2f480be4-12",
+                "jd-unit-fnv-40ecd7f3-42",
+                "jd-unit-fnv-1495d346-53",
+                "jd-unit-fnv-d4b45c04-67",
+                "jd-unit-fnv-f3495f6e-32",
+                "jd-unit-fnv-77d5a199-170",
+                "jd-unit-fnv-fbbd33bd-45"
+              ],
+              "detailUnitIds": [],
+              "inventedReferenceCount": 0,
+              "coverageRatio": 1
+            },
+            "analyzerVersion": "jd-analyzer.semantic-ledger-v4.2",
+            "graphHash": "fnv-39268e74-3920",
+            "semanticEnrichmentHash": "fnv-54691773-2033"
+          },
+          "missingIdentityFields": [
+            "title",
+            "company"
+          ],
+          "persistence": "save",
+          "input": {
+            "rawText": "毕业要求：2027届\n投递时间：2026年9月1日-2026年9月30日（即将截止）\n岗位职责\n1、参与实际产品的AI大模型与AI算法在各类业务场景中的应用开发、集成与迭代优化； 2、参与AI大模型与AI算法应用相关的需求分析、模型微调、RAG检索 ，提升模型在各类场景下的应用效果； 3、参与产品、数据、业务等团队协作，建立AI大模型与AI应用相关的数据分析、效果评估、问题定位与持续优化，提升用户体验和业务价值。\n岗位要求\n1、人工智能、计算机、软件工程、电子信息、自动化等相关专业； 2、熟悉主流大模型应用开发框架，掌握大模型原理（如Transformer架构、微调技术、向量数据库等）或AI算法原理（如神经网络、强化学习、树模型、知识图谱等）；或有大模型（如GPT、DeepSeek、Qwen系列等）应用或神经网络（CNN、RNN、GNN等）开发经验，熟悉NLP/知识图谱/智能问答/对话系统/文生图/文生视频等领域； 3、具备扎实的编程能力，熟练掌握 Python、C++、Java 等至少一种编程语言。",
+            "persistence": "save"
+          },
+          "careerSessionBinding": {
+            "personId": "person-profile-hACt1Qo31R",
+            "profileId": "profile-hACt1Qo31R",
+            "profileVersionNumber": 1,
+            "profileRevision": 1,
+            "agentSessionId": "agent-session-S5Yri3tbOxal"
+          },
+          "jobId": "job-SNtkBa1kgO",
+          "jobRevision": "2026-11-09T16:06:37.668Z",
+          "businessStatus": "committed",
+          "persistenceVerified": true,
+          "health": "WORKABLE",
+          "summary": "公司待补充 · 岗位名称待补充",
+          "idempotent": false
+        }
+      },
+      "completionStatus": "completed",
+      "completionType": "conversational",
+      "computeTier": "T0",
+      "updatedAt": "2026-11-09T16:06:37.782Z"
+    },
+    "conversationBranches": [
+      {
+        "id": "legacy-branch",
+        "headMessageId": "agent-tool-career-logical-6c6f3b47",
+        "status": "active",
+        "createdAt": "2026-11-09T16:06:10.217Z"
+      }
+    ],
+    "activeBranchId": "legacy-branch",
+    "activeHeadMessageId": "agent-tool-career-logical-6c6f3b47",
+    "turnCheckpoints": [],
+    "archived": false,
+    "createdAt": "2026-11-09T16:06:10.217Z",
+    "updatedAt": "2026-11-09T16:06:38.632Z"
+  }
+}

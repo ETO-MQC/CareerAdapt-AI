@@ -465,7 +465,7 @@ export function ResumeWorkspace() {
     return () => document.removeEventListener("keydown", handleEscape);
   }, [pendingPermanentDeleteBranch, pendingResumeOnlyEdit, profileLibraryOpen, profileSyncDialogOpen]);
 
-  const profile = (profileOverride && (!workspace.activeContext || profileOverride.id === workspace.activeContext.profileId))
+  const profile = (profileOverride && workspace.status === "ready" && workspace.profiles.some(item => item.id === profileOverride.id && profileOverride.version >= item.version) && (!workspace.activeContext || profileOverride.id === workspace.activeContext.profileId))
     ? profileOverride
     : (workspace.status === "ready" && workspace.activeContext
     ? workspace.profiles.find((item) => item.id === workspace.activeContext?.profileId)
@@ -473,13 +473,14 @@ export function ResumeWorkspace() {
   const jobs = useMemo(() => {
     const workspaceJobs = workspace.status === "ready" ? workspace.jobs : [];
     const byId = new Map<string, JobDescription>();
-    [...workspaceJobs, ...localJobs].forEach((job) => byId.set(job.id, job));
+    workspaceJobs.forEach((job) => byId.set(job.id, job));
+    localJobs.forEach((job) => { if (byId.has(job.id)) byId.set(job.id, job); });
     return Array.from(byId.values());
   }, [workspace, localJobs]);
   const activeDraftId = selectedDraftId || drafts[0]?.id || "";
   const activeBranchId = selectedBranchId === BRANCH_LIST_SENTINEL ? "" : selectedBranchId;
   const selectedDraft = drafts.find((draft) => draft.id === activeDraftId);
-  const selectedBranch = branches.find((branch) => branch.id === activeBranchId);
+  const selectedBranch = profile ? branches.find((branch) => branch.id === activeBranchId && branch.profileId === profile.id && branch.lifecycleStatus !== "trashed") : undefined;
   const selectedBranchJob = selectedBranch?.jobId ? jobs.find((job) => job.id === selectedBranch.jobId) : undefined;
   const selectedBranchTarget = selectedBranch?.targetSnapshot;
   const selectedSourceBranch = selectedBranch?.sourceBranchId ? branches.find((branch) => branch.id === selectedBranch.sourceBranchId) : undefined;
@@ -750,7 +751,7 @@ export function ResumeWorkspace() {
   const refreshLists = useCallback(async (profileId: string) => {
     const [nextDrafts, nextBranches] = await Promise.all([
       repository.listJobAdaptationDrafts(profileId),
-      repository.listResumeBranches(profileId)
+      repository.listAvailableResumeBranches(profileId, { includeArchived: true })
     ]);
     setDrafts(nextDrafts);
     setBranches(nextBranches);
@@ -842,7 +843,7 @@ export function ResumeWorkspace() {
     async function loadLists() {
       const [nextDrafts, nextBranches, savedState] = await Promise.all([
         repository.listJobAdaptationDrafts(profile!.id),
-        repository.listResumeBranches(profile!.id),
+        repository.listAvailableResumeBranches(profile!.id, { includeArchived: true }),
         repository.getMeta(workbenchStateKey(profile!.id))
       ]);
       if (!active) {

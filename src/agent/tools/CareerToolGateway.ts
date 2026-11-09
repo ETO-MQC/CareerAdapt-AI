@@ -161,6 +161,8 @@ export type CareerSessionBindingVerification = {
 type CareerToolGatewayDependencies = {
   registry: AgentToolRegistry;
   executor?: AgentExecutor;
+  assertAvailableTargets?: (name: string, input: unknown, binding?: CareerSessionBinding) => Promise<void>;
+  filterAvailableResult?: (name: string, data: unknown, binding?: CareerSessionBinding) => Promise<unknown>;
   verifySessionBinding?: (
     binding: CareerSessionBinding,
     input: unknown,
@@ -468,7 +470,7 @@ export class CareerToolGateway {
       }
       trace.firstInternalOperationAt = new Date().toISOString();
       const raw = await this.executeSourceTool(definition.sourceToolName, input, operationId, context);
-      const mapped = this.mapResult<T>(name, definition, raw, context.careerSessionBinding);
+      const mapped = await this.mapResult<T>(name, definition, raw, context.careerSessionBinding);
       if (name === "career.context.retrieve" && mapped.ok && mapped.data && taskState) {
         mapped.data = { ...mapped.data, workflowCheckpoint: { workflowId: taskState.workflowId, stage: taskState.stage } };
       }
@@ -514,12 +516,12 @@ export class CareerToolGateway {
     return this.asDependencies().registry.execute(sourceToolName, input, operationId, context.signal);
   }
 
-  private mapResult<T>(
+  private async mapResult<T>(
     name: string,
     definition: CareerToolDefinition,
     raw: AgentToolResult,
     binding?: CareerSessionBinding
-  ): CareerToolResult<T> {
+  ): Promise<CareerToolResult<T>> {
     const receipt: OperationReceipt = {
       operationId: raw.operationId,
       toolName: name,
@@ -532,7 +534,9 @@ export class CareerToolGateway {
       if (resultMismatch) {
         return this.failure(name, raw.operationId, resultMismatch.code, resultMismatch.message, false);
       }
-      const data = filterBoundResult(name, raw.data, binding);
+      const currentData = this.asDependencies().filterAvailableResult
+        ? await this.asDependencies().filterAvailableResult!(name, raw.data, binding) : raw.data;
+      const data = filterBoundResult(name, currentData, binding);
       return {
         ok: true,
         data: data as T,
@@ -560,6 +564,7 @@ export class CareerToolGateway {
     context: CareerToolExecutionContext
   ): Promise<{ code: string; message: string } | undefined> {
     const binding = context.careerSessionBinding;
+    await this.asDependencies().assertAvailableTargets?.(contract.name, input, binding);
     if (context.requireSessionBinding && !binding && contract.personProfileBinding === "required") {
       return {
         code: "needs_profile",

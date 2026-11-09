@@ -1,7 +1,7 @@
 import { CareerAdaptDb } from "@/services/storage/db";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 import { useWorkspace } from "@/services/workspace/useWorkspace";
-vi.mock("@/services/career/CareerContextStore", () => ({ useCareerContextStore: () => ({ loading: false, profiles: [], refresh: async () => undefined }) }));
+vi.mock("@/services/career/CareerContextStore", () => ({ useCareerContextStore: () => ({ loading: false, profiles: [], persons: [], refresh: async () => undefined }) }));
 import { expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { AgentConversationTimeline, normalizeAgentMessageText } from "@/components/agent/AgentConversation";
@@ -39,5 +39,8 @@ it("J4 a mounted Job List observes an actual Repository update without explicit 
     await waitFor(() => expect(screen.getByText("订阅岗位 · 公司待补充")).toBeVisible());
     await repository.completeJobCompany({ jobId: "live-job", company: "华为", expectedRevision: now, operationId: "live-company", userMessageId: "user-source" });
     await waitFor(() => expect(screen.getByText("订阅岗位 · 华为")).toBeVisible());
+    await repository.moveJobToRecycleBin("live-job");
+    await waitFor(() => expect(screen.queryByText("订阅岗位 · 华为")).not.toBeInTheDocument());
+    expect(await repository.getJobDescription("live-job")).toBeDefined();
   } finally { view.unmount(); db.close(); await db.delete(); }
 });

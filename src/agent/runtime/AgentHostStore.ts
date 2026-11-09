@@ -538,7 +538,7 @@ export class AgentHostStore {
     const stored = await this.dependencies.persistence.get(sessionId);
     const current = this.snapshot.activeSession?.id === sessionId ? this.snapshot.activeSession : stored;
     if (!current) throw new Error("agent_session_required");
-    const profile = await this.getCareerRepository().getProfile(context.profileId);
+    const profile = await this.getCareerRepository().getAvailableProfile(context.profileId);
     if (!profile || profile.personId !== context.personId || profile.archivedAt) throw new Error("career_context_target_invalid");
     const nextTaskState = reread && current.taskState
       ? {
@@ -606,7 +606,7 @@ export class AgentHostStore {
     const session = this.snapshot.activeSession;
     if (!session || !session.activeProfileId || this.executionCoordinator.isRunning(session.id)
       || session.pendingConfirmation) throw new Error("resume_precise_selection_busy");
-    const branch = await this.getCareerRepository().getResumeBranch(target.branchId);
+    const branch = await this.getCareerRepository().getAvailableResumeBranch(target.branchId);
     const selection = PreciseSelectionSchema.parse({ ...target, sessionId: session.id, profileId: session.activeProfileId,
       taskId: `precise-task-${crypto.randomUUID()}` });
     if (!branch || branch.currentRevisionId !== target.baseRevisionId) throw new Error("resume_precise_revision_stale");
@@ -703,8 +703,8 @@ export class AgentHostStore {
     }
     if (decision === "reject" || decision === "cancel") {
       if (wasConfirmed) {
-        const branch = await this.getCareerRepository().getResumeBranch(p.selection.branchId);
-        const profile = await this.getCareerRepository().getProfile(p.selection.profileId);
+        const branch = await this.getCareerRepository().getAvailableResumeBranch(p.selection.branchId);
+        const profile = await this.getCareerRepository().getAvailableProfile(p.selection.profileId);
         if (branch?.currentRevisionId === p.selection.baseRevisionId && profile?.version === p.profileVersion) throw new Error("resume_precise_already_submitted");
       }
       return publish({ ...session, pendingConfirmation: undefined, pendingToolCall: undefined,
@@ -1881,7 +1881,7 @@ export class AgentHostStore {
     }
 
     const repository = this.getCareerRepository();
-    const profile = await repository.getProfile(command.profileId);
+    const profile = await repository.getAvailableProfile(command.profileId);
     if (
       !profile
       || profile.personId !== binding.personId
@@ -3376,7 +3376,7 @@ export class AgentHostStore {
       || draft.confirmedBranchId !== stringValue(observation.branchId ?? observation.resumeId)) {
       throw new Error("resume_import_confirmation_receipt_mismatch");
     }
-    const profile = await repository.getProfile(draft.confirmedProfileId!);
+    const profile = await repository.getAvailableProfile(draft.confirmedProfileId!);
     if (!profile?.personId || profile.archivedAt) throw new Error("career_context_target_invalid");
     const reducer = new AgentTaskStateReducer();
     const taskState = reducer.reduce(session.taskState!, {
@@ -3925,7 +3925,7 @@ export class AgentHostStore {
       );
       return session;
     }
-    let targetProfile = await this.getCareerRepository().getProfile(snapshot.activeProfile.id);
+    let targetProfile = await this.getCareerRepository().getAvailableProfile(snapshot.activeProfile.id);
     if (!targetProfile) {
       agentAttachmentStore.releaseMany(
         Array.isArray(session.taskState?.knownSlots.resumeImportAttachmentIds)
@@ -6000,7 +6000,7 @@ export class AgentHostStore {
         ?? current.taskState.selectedEntities.profileId
         ?? current.activeProfileId;
       const profile = profileId && this.hasExplicitCareerRepository()
-        ? await this.getCareerRepository().getProfile(profileId)
+        ? await this.getCareerRepository().getAvailableProfile(profileId)
         : undefined;
       const expectedProfileRevision = profile?.version
         ?? current.profileRevision

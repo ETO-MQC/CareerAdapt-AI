@@ -110,8 +110,13 @@ it("J4 confirmation preserves the draft checkpoint and cannot claim a committed 
 });
 it("J4 a lost response after persistence recovers by the existing candidate identity without duplicates", async () => {
   const f = await fixture();
-  const list = vi.spyOn(f.repository, "listJobDescriptions");
-  list.mockRejectedValueOnce(new Error("read_timeout"));
+  const readList = f.repository.listJobDescriptions.bind(f.repository);
+  let responseLost = false;
+  vi.spyOn(f.repository, "listJobDescriptions").mockImplementation(async () => {
+    const jobs = await readList();
+    if (jobs.length && !responseLost) { responseLost = true; throw new Error("read_timeout"); }
+    return jobs;
+  });
   const failed = await f.save();
   expect(failed.ok).toBe(false);
   expect(await db.jobDescriptions.count()).toBe(1);

@@ -1,0 +1,9 @@
+{
+  "businessSourceMismatches": [],
+  "dependencyLockMatches": true,
+  "configDifferences": [
+    "next.config.ts turbopack.root isolated dependency root",
+    "next-env.d.ts Next generated production types",
+    "tsconfig.json Next generated .next-scripted-*/types include paths"
+  ]
+}

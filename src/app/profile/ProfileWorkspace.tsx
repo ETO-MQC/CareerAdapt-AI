@@ -325,7 +325,8 @@ export function ProfileWorkspace() {
     const workspaceProfiles = workspace.status === "ready" ? workspace.profiles : [];
     const byId = new Map(workspaceProfiles.filter((item) => !removedProfileIds.includes(item.id)).map((item) => [item.id, item]));
     Object.values(profileOverrides).forEach((item) => {
-      if (!removedProfileIds.includes(item.id)) byId.set(item.id, item);
+      const current = byId.get(item.id);
+      if (current && item.version >= current.version && !removedProfileIds.includes(item.id)) byId.set(item.id, item);
     });
     return Array.from(byId.values());
   }, [profileOverrides, removedProfileIds, workspace]);
@@ -333,7 +334,9 @@ export function ProfileWorkspace() {
   const workspaceProfile = activeCareerContext
     ? availableProfiles.find((item) => item.id === activeCareerContext.profileId)
     : undefined;
-  const profile = profileOverride === undefined ? workspaceProfile : profileOverride ?? undefined;
+  const profile = useMemo(() => profileOverride === undefined ? workspaceProfile
+    : profileOverride ? availableProfiles.find(item => item.id === profileOverride.id) : undefined,
+  [profileOverride, workspaceProfile, availableProfiles]);
   const generalResume = generalResumeState?.profileId === profile?.id ? generalResumeState?.resume : undefined;
   const profileCounts = profile ? countProfileContent(profile) : undefined;
   const profileDraftKey = profile ? `${profile.id}:${profile.version}` : "";

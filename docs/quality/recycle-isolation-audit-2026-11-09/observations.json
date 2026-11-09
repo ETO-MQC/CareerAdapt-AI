@@ -1,0 +1,52 @@
+{
+  "jobRead": {
+    "uiVisibleCount": 0,
+    "agentListsDeleted": true,
+    "directReadDeleted": true,
+    "quickActionIncludesDeleted": true
+  },
+  "deletedBeforeCall": {
+    "ok": true,
+    "jobId": "job-Qfb-xE4Gc9",
+    "originalJobId": "job-Qfb-xE4Gc9",
+    "persistenceVerified": true,
+    "businessStatus": "committed",
+    "stillInRecycleBin": true,
+    "formalJobCount": 1
+  },
+  "deletedDuringParse": {
+    "originalJobReturned": true,
+    "verified": true,
+    "stillInRecycleBin": true
+  },
+  "updateDeletedJob": {
+    "changed": true,
+    "stillInRecycleBin": true
+  },
+  "resume": {
+    "lifecycle": "trashed",
+    "listed": false,
+    "detailReadable": true,
+    "revisionReadable": true
+  },
+  "profile": {
+    "newCurrentProfile": true,
+    "listed": false,
+    "detailReadable": true,
+    "searchResultCount": 1
+  },
+  "person": {
+    "personTrashed": true,
+    "childProfileStillListed": true
+  },
+  "restoreControl": {
+    "inRecycleBin": false,
+    "count": 1
+  },
+  "canonicalItemControl": {
+    "currentDetailContainsRemoved": false,
+    "currentSearchContainsRemoved": false,
+    "returnsAfterReload": false,
+    "recycleCopyRetained": true
+  }
+}

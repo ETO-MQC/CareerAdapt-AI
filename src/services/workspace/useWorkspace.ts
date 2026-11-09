@@ -24,7 +24,7 @@ export function useWorkspace(repository: WorkspaceRepository = defaultRepository
     setJobsLoading(true);
     try {
       await repository.ensureDemoWorkspace();
-      setJobs(await repository.listJobDescriptions());
+      setJobs(await repository.listAvailableJobDescriptions({ includeArchived: true }));
       setJobsError(undefined);
     } catch (error) {
       setJobsError(error instanceof Error ? error.message : "Workspace load failed.");
@@ -39,7 +39,7 @@ export function useWorkspace(repository: WorkspaceRepository = defaultRepository
   }, [loadJobs]);
 
   useEffect(() => {
-    const subscription = liveQuery(() => repository.listJobDescriptions()).subscribe({
+    const subscription = liveQuery(() => repository.listAvailableJobDescriptions({ includeArchived: true })).subscribe({
       next: value => { setJobs(value); setJobsError(undefined); },
       error: error => setJobsError(error instanceof Error ? error.message : "岗位列表暂时无法刷新。")
     });
@@ -47,9 +47,9 @@ export function useWorkspace(repository: WorkspaceRepository = defaultRepository
   }, [repository]);
 
   const profiles = useMemo(() => {
-    if (!career.activeContext) return career.profiles;
-    return [...career.profiles].sort((left, right) => Number(right.id === career.activeContext?.profileId) - Number(left.id === career.activeContext?.profileId));
-  }, [career.activeContext, career.profiles]);
+    if (!career.activeContext) return career.profiles.filter(profile => !profile.trashedAt && !profile.archivedAt && career.persons.some(person => person.id === profile.personId && !person.trashedAt && !person.archivedAt));
+    return career.profiles.filter(profile => !profile.trashedAt && !profile.archivedAt && career.persons.some(person => person.id === profile.personId && !person.trashedAt && !person.archivedAt)).sort((left, right) => Number(right.id === career.activeContext?.profileId) - Number(left.id === career.activeContext?.profileId));
+  }, [career.activeContext, career.profiles, career.persons]);
 
   const state: WorkspaceLoadState = career.error || jobsError
     ? { status: "error", profiles: [], jobs: [], activeContext: career.activeContext, source: "repository", error: career.error ?? jobsError ?? "Workspace load failed." }

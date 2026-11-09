@@ -1085,6 +1085,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
 }
 
 function conversationHistory(input: AgentRuntimeTurnInput) {
+  if (input.metadata?.suppressConversationHistory === true) return [];
   const currentUserMessageId = typeof input.metadata?.runtimeShellUserMessageId === "string"
     ? input.metadata.runtimeShellUserMessageId
     : undefined;

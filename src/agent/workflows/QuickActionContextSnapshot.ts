@@ -33,10 +33,10 @@ export async function buildQuickActionContextSnapshot(
 ): Promise<QuickActionContextSnapshot> {
   const [context, persons, profiles, resumes, jobs] = await Promise.all([
     repository.getActiveCareerContext(),
-    repository.listCareerPersons(),
-    repository.listProfiles(),
-    repository.listResumeBranches(),
-    repository.listJobDescriptions()
+    repository.listAvailableCareerPersons(),
+    repository.listAvailableProfiles(),
+    repository.listAvailableResumeBranches(),
+    repository.listAvailableJobDescriptions()
   ]);
   const targetPersonId = session?.personId ?? context?.personId;
   const targetProfileId = session?.activeProfileId ?? context?.profileId;

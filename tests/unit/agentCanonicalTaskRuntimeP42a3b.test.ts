@@ -436,7 +436,7 @@ describe("P4.2a.3b canonical task runtime", () => {
     expect(AgentProductCapabilityManifest.supportedExportFormats.map((item) => item.id)).toEqual(["pdf", "json"]);
 
     const repository = {
-      getResumeBranch: vi.fn(async () => ({
+      getAvailableResumeBranch: vi.fn(async () => ({
         id: "resume-1",
         lifecycleStatus: "active",
         revision: 4

@@ -1,0 +1,6 @@
+
+Running 1 test using 1 worker
+
+[1/1] tests\e2e\lifecycle-isolation.hermes.ts:7:5 › Lifecycle isolation real Hermes + Scripted: delete, hide, resubmit as new Job
+  1 passed (1.8m)
+Job Intake Scripted Provider PASS: E:\DEF\CareerAdapt-competition-5.1.8\docs\quality\lifecycle-isolation-hotfix-2026-11-09\scripted-1794240317962

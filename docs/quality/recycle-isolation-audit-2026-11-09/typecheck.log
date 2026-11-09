@@ -1,0 +1,6 @@
+
+> careeradapt-ai@0.9.3-rc.2 typecheck E:\DEF\CareerAdapt-competition-5.1.8
+> tsc --noEmit
+
+tests/audit/recycleIsolation.observations.ts(95,68): error TS2561: Object literal may only specify known properties, but 'expectedVersion' does not exist in type 'CareerProfileLifecycleInput'. Did you mean to write 'expectedRevision'?
+ ELIFECYCLE  Command failed with exit code 2.

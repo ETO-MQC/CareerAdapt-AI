@@ -1,5 +1,6 @@
 "use client";
 
+import { liveQuery, type Subscription } from "dexie";
 import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import type { ActiveCareerContext, CareerPerson, CareerProfile } from "@/domain/schemas";
 import { WorkspaceRepository } from "@/services/storage/repositories";
@@ -24,6 +25,7 @@ export class CareerContextStore {
   private snapshot: CareerContextStoreSnapshot = initialSnapshot;
   private readonly listeners = new Set<() => void>();
   private refreshPromise?: Promise<void>;
+  private liveSubscription?: Subscription;
   private readonly repository: WorkspaceRepository;
 
   constructor(repository = new WorkspaceRepository()) {
@@ -35,7 +37,14 @@ export class CareerContextStore {
 
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+    if (!this.liveSubscription) this.liveSubscription = liveQuery(() => Promise.all([
+      this.repository.listCareerPersons(), this.repository.listProfiles(), this.repository.getActiveCareerContext()
+    ])).subscribe({ next: () => { void this.refresh(); },
+      error: error => this.setSnapshot({ ...this.snapshot, loading: false, error: error instanceof Error ? error.message : "人物与版本状态暂时无法更新。" }) });
+    return () => {
+      this.listeners.delete(listener);
+      if (!this.listeners.size) { this.liveSubscription?.unsubscribe(); this.liveSubscription = undefined; }
+    };
   };
 
   private setSnapshot(next: CareerContextStoreSnapshot) {

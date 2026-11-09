@@ -1,0 +1,36 @@
+{
+  "status": "PASS",
+  "scope": "targeted lifecycle deletion isolation hotfix",
+  "startingHead": "944c818",
+  "committed": false,
+  "packaged": false,
+  "checks": {
+    "typecheck": 0,
+    "changedFilesEslint": 0,
+    "unitIntegration": {
+      "files": 10,
+      "passed": 150,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0
+    },
+    "build": {
+      "exitCode": 0,
+      "isolatedSource": "stage-parity.json"
+    },
+    "playwright": {
+      "passed": 1,
+      "exitCode": 0,
+      "evidence": "docs/quality/lifecycle-isolation-hotfix-2026-11-09/scripted-1794240638723/summary.json",
+      "syntheticProviderOnly": true,
+      "realProviderRequests": 0
+    },
+    "diffCheck": 0
+  },
+  "limits": [
+    "Targeted acceptance only, no full Release Gate",
+    "No Electron package rebuild",
+    "Content already sent to an in-flight model cannot be recalled",
+    "Browser qualification covers pasted JD, not all external URL pipelines"
+  ]
+}

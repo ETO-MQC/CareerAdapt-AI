@@ -1,0 +1,12 @@
+file:///E:/DEF/CareerAdapt-competition-5.1.8/[eval1]:11
+          || row.originalSHA256 !== frozen.skills[row.name].afterSHA256) throw new Error('candidate_hash_mismatch:' + row.name);
+                                                                               ^
+
+Error: candidate_hash_mismatch:resume-review
+    at file:///E:/DEF/CareerAdapt-competition-5.1.8/[eval1]:11:80
+    at ModuleJob.run (node:internal/modules/esm/module_job:437:25)
+    at async node:internal/modules/esm/loader:246:26
+    at async ModuleLoader.executeModuleJob (node:internal/modules/esm/loader:243:20)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.15.0

@@ -1,0 +1,68 @@
+{
+  "date": "2026-11-09",
+  "startingHead": "944c818406de83ac398c9ee27e5376f01a2d6887",
+  "finalHead": "944c818406de83ac398c9ee27e5376f01a2d6887",
+  "startingWorkspaceClean": true,
+  "scope": "Audit only; no production changes or user database access",
+  "result": "DEFECTS_REPRODUCED_NOT_FIXED",
+  "observations": 9,
+  "observationsExitCode": 0,
+  "typecheckExitCode": 0,
+  "lintExitCode": 0,
+  "productionFilesModified": 0,
+  "providerCalls": 0,
+  "details": {
+    "jobRead": {
+      "uiVisibleCount": 0,
+      "agentListsDeleted": true,
+      "directReadDeleted": true,
+      "quickActionIncludesDeleted": true
+    },
+    "deletedBeforeCall": {
+      "ok": true,
+      "jobId": "job-Qfb-xE4Gc9",
+      "originalJobId": "job-Qfb-xE4Gc9",
+      "persistenceVerified": true,
+      "businessStatus": "committed",
+      "stillInRecycleBin": true,
+      "formalJobCount": 1
+    },
+    "deletedDuringParse": {
+      "originalJobReturned": true,
+      "verified": true,
+      "stillInRecycleBin": true
+    },
+    "updateDeletedJob": {
+      "changed": true,
+      "stillInRecycleBin": true
+    },
+    "resume": {
+      "lifecycle": "trashed",
+      "listed": false,
+      "detailReadable": true,
+      "revisionReadable": true
+    },
+    "profile": {
+      "newCurrentProfile": true,
+      "listed": false,
+      "detailReadable": true,
+      "searchResultCount": 1
+    },
+    "person": {
+      "personTrashed": true,
+      "childProfileStillListed": true
+    },
+    "restoreControl": {
+      "inRecycleBin": false,
+      "count": 1
+    },
+    "canonicalItemControl": {
+      "currentDetailContainsRemoved": false,
+      "currentSearchContainsRemoved": false,
+      "returnsAfterReload": false,
+      "recycleCopyRetained": true
+    }
+  },
+  "testCommand": "pnpm exec vitest run --config vitest.recycle-audit.config.ts",
+  "interpretation": "Passing observation tests reproduce existing defects; they are NOT acceptance tests for deletion isolation."
+}

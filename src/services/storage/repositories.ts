@@ -1,3 +1,4 @@
+import { sha256Utf8 } from "@/domain/jobAssets/sha256";
 import { companyTitleFingerprint } from "@/domain/jobAssets/jdNormalization";
 import { assertPreciseDependencies, assertPreciseGuard, assertPreciseOwnership, preciseOperationKey, precisePatchedBranch, verifyPreciseProposal } from "@/domain/resumeEditing/preciseResumeContract";
 import { canonicalJson, preciseSha256 } from "@/domain/resumeEditing/preciseResumeEdit";
@@ -1140,6 +1141,9 @@ export class WorkspaceRepository {
       });
       if (existing && parsed.version < existing.version) throw new RevisionConflictError();
       const saved = await this.db.transaction("rw", this.db.profiles, this.db.appMeta, async () => {
+        const current = await this.db.profiles.get(parsed.id);
+        const parent = parsed.personId ? await this.getCareerPersonWithoutMigration(parsed.personId) : undefined;
+        if (current?.trashedAt || current?.archivedAt || parent?.trashedAt || parent?.archivedAt) throw new Error("profile_not_available");
         await this.ensurePersonForProfileInTransaction(parsed);
         if (parsed.isCurrent) await this.markCurrentProfileInTransaction(parsed);
         return this.putProfileInTransaction(parsed, existing);
@@ -2859,11 +2863,11 @@ export class WorkspaceRepository {
       if (receipt) {
         const value = receipt.value as { jobId: string; company: string };
         if (value.jobId !== input.jobId || value.company !== input.company) throw new Error("operation_id_conflict");
-        const recovered = await this.getJobDescription(input.jobId);
+        const recovered = await this.getAvailableJobDescription(input.jobId);
         if (!recovered || recovered.company !== input.company) throw new RevisionConflictError();
         return { jobDescription: recovered, idempotent: true };
       }
-      const existing = await this.getJobDescription(input.jobId);
+      const existing = await this.getAvailableJobDescription(input.jobId);
       if (!existing) throw new Error("job_not_found");
       if (existing.updatedAt !== input.expectedRevision) throw new RevisionConflictError();
       const now = new Date(Math.max(Date.now(), Date.parse(existing.updatedAt) + 1)).toISOString();
@@ -2953,7 +2957,9 @@ export class WorkspaceRepository {
     commitId: string;
     jobDescription: JobDescription;
   }) {
-    return this.db.transaction("rw", this.db.jobAnalysisDrafts, this.db.jobDescriptions, this.db.draftCommits, async () => {
+    return this.db.transaction("rw", [this.db.jobAnalysisDrafts, this.db.jobDescriptions, this.db.draftCommits, this.db.appMeta], async () => {
+      const storedJob = await this.db.jobDescriptions.get(input.jobDescription.id);
+      if (storedJob && !await this.getAvailableJobDescription(storedJob.id)) throw new Error("job_not_available");
       const existingCommit = await this.db.draftCommits.get(input.commitId);
 
       if (existingCommit) {
@@ -3019,6 +3025,80 @@ export class WorkspaceRepository {
     const parsed = jobDescriptions.map((jobDescription) => JobDescriptionSchema.parse(jobDescription));
     await this.db.jobDescriptions.bulkPut(parsed);
     return parsed;
+  }
+
+  /** Opaque revocation epoch only: no deleted text/facts enter the runtime checkpoint. */
+  async prepareAgentAccessScope(sessionId: string, profileId?: string, persist = true) {
+    const [bin, persons, profiles, branches, archive] = await Promise.all([
+      this.getRecycleBinState(), this.listCareerPersons(), this.listProfiles(), this.listResumeBranches(),
+      this.getMeta("jobWorkspace:archivedJobIds")
+    ]);
+    const scope = sha256Utf8(JSON.stringify({ profileId,
+      jobs: [...bin.jobIds].sort(), archivedJobs: Array.isArray(archive?.value) ? [...archive.value].sort() : [],
+      items: bin.profileItems.map(item => `${item.profileId}:${item.kind}:${item.id}`).sort(),
+      persons: persons.map(person => [person.id, person.archivedAt, person.trashedAt]).sort(),
+      profiles: profiles.map(profile => [profile.id, profile.version, profile.archivedAt, profile.trashedAt]).sort(),
+      resumes: branches.map(branch => [branch.id, branch.profileId, branch.revision, branch.lifecycleStatus]).sort()
+    }));
+    const key = `agent-access-scope:${sessionId}`;
+    const previous = await this.getMeta(key);
+    const resetContext = !!previous && previous.value !== scope;
+    if (persist && previous?.value !== scope) await this.setMeta(key, scope);
+    return { scope, resetContext, initialized: !!previous,
+      hasRevocations: bin.jobIds.length > 0 || bin.profileItems.length > 0 || persons.some(person => !!person.trashedAt || !!person.archivedAt)
+        || profiles.some(profile => !!profile.trashedAt || !!profile.archivedAt) || branches.some(branch => branch.lifecycleStatus !== "active") };
+  }
+
+  /** Current business access. Raw readers remain available only to lifecycle management/export/history. */
+  async listAvailableCareerPersons() {
+    return (await this.listCareerPersons()).filter(person => !person.trashedAt && !person.archivedAt);
+  }
+
+  async getAvailableProfile(id: string) {
+    const profile = await this.getProfile(id);
+    if (!profile || profile.trashedAt || profile.archivedAt) return undefined;
+    const person = profile.personId ? await this.getCareerPersonWithoutMigration(profile.personId) : undefined;
+    if (!person || person.trashedAt || person.archivedAt) return undefined;
+    return profile;
+  }
+
+  async listAvailableProfiles() {
+    const [profiles, persons] = await Promise.all([this.listProfiles(), this.listAvailableCareerPersons()]);
+    const personIds = new Set(persons.map(person => person.id));
+    return profiles.filter(profile => !profile.trashedAt && !profile.archivedAt && personIds.has(profile.personId ?? ""));
+  }
+
+  async getAvailableResumeBranch(id: string, options: { includeArchived?: boolean } = {}) {
+    const branch = await this.getResumeBranch(id);
+    if (!branch || branch.lifecycleStatus === "trashed" || (!options.includeArchived && branch.lifecycleStatus !== "active")) return undefined;
+    if (!await this.getAvailableProfile(branch.profileId)) return undefined;
+    return branch;
+  }
+
+  async listAvailableResumeBranches(profileId?: string, options: { includeArchived?: boolean } = {}) {
+    const [branches, profiles] = await Promise.all([this.listResumeBranches(profileId), this.listAvailableProfiles()]);
+    const profileIds = new Set(profiles.map(profile => profile.id));
+    return branches.filter(branch => profileIds.has(branch.profileId) && branch.lifecycleStatus !== "trashed"
+      && (options.includeArchived || branch.lifecycleStatus === "active"));
+  }
+
+  async getAvailableJobDescription(id: string, options: { includeArchived?: boolean } = {}) {
+    const bin = await this.getRecycleBinState();
+    if (bin.jobIds.includes(id)) return undefined;
+    if (!options.includeArchived) {
+      const archive = await this.getMeta("jobWorkspace:archivedJobIds");
+      if (Array.isArray(archive?.value) && archive.value.includes(id)) return undefined;
+    }
+    return this.getJobDescription(id);
+  }
+
+  async listAvailableJobDescriptions(options: { includeArchived?: boolean } = {}) {
+    const [jobs, bin, archive] = await Promise.all([
+      this.listJobDescriptions(), this.getRecycleBinState(),
+      options.includeArchived ? Promise.resolve(undefined) : this.getMeta("jobWorkspace:archivedJobIds")
+    ]);
+    const hidden = new Set([...bin.jobIds, ...(Array.isArray(archive?.value) ? archive.value as string[] : [])]);
+    return jobs.filter(job => !hidden.has(job.id));
   }
 
   async listJobDescriptions() {
@@ -3758,10 +3838,11 @@ export class WorkspaceRepository {
       this.db.resumeBranchOperations,
       this.db.appMeta,
       async () => {
+        if (!await this.getAvailableProfile(input.profileId)) throw new Error("profile_not_available");
         const existingOperation = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
         if (existingOperation?.branchId && existingOperation.revisionId) {
           const existingBranch = await this.db.resumeBranches.get(existingOperation.branchId);
-          if (!existingBranch) throw new Error("resume_branch_missing_for_operation");
+          if (!existingBranch || !await this.getAvailableResumeBranch(existingBranch.id)) throw new Error("resume_branch_not_available");
           return {
             branch: ResumeBranchSchema.parse(existingBranch),
             revision: await this.getResumeRevisionInTransaction(existingOperation.revisionId),
@@ -4829,7 +4910,8 @@ export class WorkspaceRepository {
         this.db.jobAdaptationDrafts,
         this.db.aiSuggestions,
         this.db.adaptationSnapshots,
-        this.db.suggestionOperations
+        this.db.suggestionOperations,
+        this.db.appMeta
       ],
       async () => {
         const existingOperation = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
@@ -5110,7 +5192,7 @@ export class WorkspaceRepository {
     operationId: string;
     nextConfig: ResumePresentationConfig;
   }) {
-    return this.db.transaction("rw", this.db.resumeBranches, this.db.appMeta, async () => {
+    return this.db.transaction("rw", this.db.resumeBranches, this.db.profiles, this.db.appMeta, async () => {
       const existingOperation = await this.db.appMeta.get(resumePresentationOperationKey(input.operationId));
       if (existingOperation) {
         const value = existingOperation.value;
@@ -6658,7 +6740,7 @@ export class WorkspaceRepository {
     branchId: string;
     operationId: string;
   }) {
-    return this.db.transaction("rw", this.db.resumeBranches, this.db.resumeBranchOperations, this.db.profiles, this.db.jobDescriptions, async () => {
+    return this.db.transaction("rw", [this.db.resumeBranches, this.db.resumeBranchOperations, this.db.profiles, this.db.jobDescriptions, this.db.appMeta], async () => {
       const existingOperation = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
       if (existingOperation) {
         const branch = await this.db.resumeBranches.get(input.branchId);
@@ -7490,7 +7572,7 @@ export class WorkspaceRepository {
     operationId: string;
     revisionId: string;
   }) {
-    return this.db.transaction("rw", this.db.applications, this.db.resumeBranches, this.db.resumeRevisions, this.db.exportRecords, this.db.appMeta, async () => {
+    return this.db.transaction("rw", [this.db.applications, this.db.resumeBranches, this.db.resumeRevisions, this.db.exportRecords, this.db.appMeta], async () => {
       const application = await this.requireApplicationForWrite(input.applicationId, input.operationId);
       if (application.idempotent) {
         return { application: application.record, idempotent: true };
@@ -7786,18 +7868,22 @@ export class WorkspaceRepository {
   }
 
   async moveJobToRecycleBin(jobId: string) {
-    if (!await this.db.jobDescriptions.get(jobId)) throw new Error("job_missing");
-    const current = await this.getRecycleBinState();
-    const next = RecycleBinStateSchema.parse({ ...current, jobIds: Array.from(new Set([jobId, ...current.jobIds])) });
-    await this.setMeta(RECYCLE_BIN_META_KEY, next);
-    return next;
+    return this.db.transaction("rw", [this.db.jobDescriptions, this.db.appMeta], async () => {
+      if (!await this.db.jobDescriptions.get(jobId)) throw new Error("job_missing");
+      const current = await this.getRecycleBinState();
+      const next = RecycleBinStateSchema.parse({ ...current, jobIds: Array.from(new Set([jobId, ...current.jobIds])) });
+      await this.setMeta(RECYCLE_BIN_META_KEY, next);
+      return next;
+    });
   }
 
   async restoreJobFromRecycleBin(jobId: string) {
-    const current = await this.getRecycleBinState();
-    const next = RecycleBinStateSchema.parse({ ...current, jobIds: current.jobIds.filter((id) => id !== jobId) });
-    await this.setMeta(RECYCLE_BIN_META_KEY, next);
-    return next;
+    return this.db.transaction("rw", this.db.appMeta, async () => {
+      const current = await this.getRecycleBinState();
+      const next = RecycleBinStateSchema.parse({ ...current, jobIds: current.jobIds.filter(id => id !== jobId) });
+      await this.setMeta(RECYCLE_BIN_META_KEY, next);
+      return next;
+    });
   }
 
   async deleteJobPermanently(jobId: string) {
@@ -8035,7 +8121,7 @@ export class WorkspaceRepository {
       now: string;
     }) => Promise<ResumeBranch>;
   }) {
-    return this.db.transaction("rw", this.db.resumeBranches, this.db.resumeRevisions, this.db.resumeBranchOperations, this.db.profiles, this.db.jobDescriptions, async () => {
+    return this.db.transaction("rw", [this.db.resumeBranches, this.db.resumeRevisions, this.db.resumeBranchOperations, this.db.profiles, this.db.jobDescriptions, this.db.appMeta], async () => {
       const existingOperation = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
       if (existingOperation) {
         const branch = await this.db.resumeBranches.get(input.branchId);
@@ -8129,6 +8215,7 @@ export class WorkspaceRepository {
     }
 
     const parsed = ResumeBranchSchema.parse(branch);
+    if (!await this.getAvailableProfile(parsed.profileId)) throw new Error("profile_not_available");
     if (parsed.migrationStatus === "legacy_unverified") {
       throw new Error("legacy_resume_branch_read_only");
     }
@@ -8792,8 +8879,19 @@ export class WorkspaceRepository {
     | { status: "created" | "updated" | "unchanged" | "merged"; listing: JobListing; snapshot: JobSnapshot; snapshotCreated: boolean }
   > {
     const now = input.now ?? new Date().toISOString();
-    return this.db.transaction("rw", this.db.jobListings, this.db.jobSnapshots, async () => {
-      const existing = await this.db.jobListings.toArray();
+    return this.db.transaction("rw", [this.db.jobListings, this.db.jobSnapshots, this.db.jobDescriptions, this.db.appMeta], async () => {
+      const availableIds = new Set((await this.listAvailableJobDescriptions()).map(job => job.id));
+      // Preserve retired listing/snapshot provenance; a newly supplied JD gets a fresh stable generation.
+      const baseExternalId = input.externalId, baseListingId = input.listingId;
+      let generation = 0;
+      let previous = await this.db.jobListings.where("[sourceKey+externalId]").equals([input.sourceKey, input.externalId]).first();
+      while (previous?.jobDescriptionId && !availableIds.has(previous.jobDescriptionId)) {
+        generation += 1;
+        input = { ...input, externalId: `${baseExternalId}-generation-${generation}`,
+          listingId: baseListingId ? `${baseListingId}-generation-${generation}` : undefined };
+        previous = await this.db.jobListings.where("[sourceKey+externalId]").equals([input.sourceKey, input.externalId]).first();
+      }
+      const existing = (await this.db.jobListings.toArray()).filter(listing => !listing.jobDescriptionId || availableIds.has(listing.jobDescriptionId));
       const parsedExisting = existing.map((listing) => JobListingSchema.parse(listing));
       // 幂等重试不是去重问题：同一 [sourceKey+externalId] 的 listing 是自身，
       // 必须排除在候选之外，否则重摄同一岗位会要求用户做无意义的合并决定。
@@ -9130,6 +9228,8 @@ export class WorkspaceRepository {
   }) {
     const now = input.now ?? new Date().toISOString();
     return this.db.transaction("rw", [this.db.jobAnalysisDrafts, this.db.jobDescriptions, this.db.draftCommits, this.db.jobListings, this.db.rawInputs, this.db.appMeta], async () => {
+      const linkedListing = await this.db.jobListings.get(input.listingId);
+      if (linkedListing?.jobDescriptionId && !await this.getAvailableJobDescription(linkedListing.jobDescriptionId)) throw new Error("job_not_available");
       const confirmationRecord = await this.db.appMeta.get(conversionConfirmationKey(input.confirmationId));
       if (!confirmationRecord) throw new Error("conversion_confirmation_missing");
       const confirmation = this.parseConversionConfirmation(confirmationRecord.value);
