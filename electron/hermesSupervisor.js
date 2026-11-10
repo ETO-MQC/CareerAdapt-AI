@@ -1275,6 +1275,9 @@ class HermesSupervisor {
       if (!this.handle || !this.snapshot.processReady) return this.getStatus();
       if (this.snapshot.overallState === "ready" || isConfigurationReason(this.snapshot.reasonCode)) return this.getStatus();
       if (this.isCareerReadinessComplete()) return this.getStatus();
+      // A failed Provider probe is independent of MCP registration. Do not keep
+      // hitting the Provider during tool synchronization or call it missing config.
+      if (!this.snapshot.providerReady && /^provider_(?:http_\d+|unreachable|timeout)$/u.test(this.snapshot.reasonCode || "")) return this.getStatus();
       await delay(this.careerSyncPollIntervalMs);
     }
     const timeoutReason = this.snapshot.providerReady
@@ -1374,9 +1377,11 @@ class HermesSupervisor {
     const hermesCareerToolCount = arrayOfStrings(runtimeHealth.careerMcpExposedTools).length
       || Number(runtimeHealth.hermesMcpToolCount || 0);
     const reportedFacadeCount = Number(runtimeHealth.hermesCareerFacadeCount);
+    const reportedTotal = Number(runtimeHealth.requiredCareerFacadesTotal);
+    const requiredTotal = Number.isInteger(reportedTotal) && reportedTotal > 0 ? reportedTotal : REQUIRED_CAREER_FACADES;
     const requiredReady = requiredMissing.length > 0
-      ? Math.max(0, REQUIRED_CAREER_FACADES - requiredMissing.length)
-      : Math.min(REQUIRED_CAREER_FACADES, Number.isFinite(reportedFacadeCount) && reportedFacadeCount > 0 ? reportedFacadeCount : REQUIRED_CAREER_FACADES);
+      ? Math.max(0, requiredTotal - requiredMissing.length)
+      : Math.min(requiredTotal, Number.isFinite(reportedFacadeCount) && reportedFacadeCount > 0 ? reportedFacadeCount : requiredTotal);
     const reasonCode = configurationDesync
       ? "configuration_desync"
       : healthReason({ root, runtimeHealth, providerStatus, apiReady, careerMcpReady, toolSurfaceReady, runReady });
@@ -1385,7 +1390,7 @@ class HermesSupervisor {
       ? "ready"
       : !apiReady
         ? "degraded"
-        : !providerReady && isConfigurationReason(reasonCode)
+        : !providerReady
           ? "degraded"
           : careerMcpReady && !toolSurfaceReady
             ? "syncing_career_tools"
@@ -1428,7 +1433,7 @@ class HermesSupervisor {
       careerDomainToolCount,
       hermesCareerToolCount,
       requiredCareerFacadesReady: requiredReady,
-      requiredCareerFacadesTotal: REQUIRED_CAREER_FACADES,
+      requiredCareerFacadesTotal: requiredTotal,
       providerStatus,
       credentialConfigured: this.runtimeConfigState.active?.credentialConfigured ?? false,
       credentialSource: this.runtimeConfigState.active?.credentialSource ?? "unknown",
@@ -1710,6 +1715,10 @@ function healthReason(input) {
   if ((providerStatus === "invalid" || providerStatus === "unconfigured") && (providerDiagnostic?.lastHttpStatus === 401 || providerDiagnostic?.lastHttpStatus === 403 || providerDiagnostic?.safeErrorCode === "provider_http_401" || providerDiagnostic?.safeErrorCode === "provider_http_403")) {
     return "provider_auth_invalid";
   }
+  const providerHttpStatus = providerDiagnostic?.lastHttpStatus;
+  if (providerStatus === "unreachable" || providerHttpStatus === 429 || providerHttpStatus >= 500) {
+    return providerDiagnostic?.safeErrorCode || (providerHttpStatus ? `provider_http_${providerHttpStatus}` : "provider_unreachable");
+  }
   if (providerStatus === "invalid" || providerStatus === "unconfigured") {
     return direct || "configuration_required";
   }
@@ -1749,6 +1758,7 @@ function sanitizeHealth(value) {
     "hermesMcpRegistered",
     "hermesMcpToolCount",
     "hermesCareerFacadeCount",
+    "requiredCareerFacadesTotal",
     "careerToolContractReady",
     "careerToolContractVersion",
     "careerToolContractReason",

@@ -90,7 +90,7 @@ export function getWebHermesSupervisor(appOrigin: string): WebHermesSupervisor {
     hermesRuntimeRoot: environment.HERMES_RUNTIME_ROOT,
     runtimeCwd: projectRoot,
     logPath: ".next/dev/logs/hermes-runtime.log",
-    requireBundledRuntime: false,
+    requireBundledRuntime: true,
     watchMcpBridge: false
   });
   state.supervisorOrigin = appOrigin;

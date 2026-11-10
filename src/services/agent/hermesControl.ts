@@ -768,6 +768,10 @@ export function humanHermesReason(reasonCode?: string) {
   if (reasonCode === "credential_store_read_failed") return "安全凭据读取失败，请查看系统安全存储诊断。";
   if (reasonCode === "credential_store_unavailable") return "系统安全存储不可用，请检查当前系统环境。";
   if (reasonCode === "credential_store_not_configured" || reasonCode === "provider_credential_missing") return "尚未配置凭据，请在 AI 配置中保存。";
+  if (reasonCode === "hermes_bundled_runtime_missing") return "项目 Hermes 运行时尚未准备，请使用 pnpm dev 或重新构建应用。";
+  if (reasonCode === "hermes_bundled_runtime_invalid") return "项目 Hermes 运行时校验失败，请重新准备锁定的运行时或重新安装应用。";
+  if (reasonCode && /^provider_http_5\d\d$/u.test(reasonCode)) return "Provider 暂时不可用，请稍后重试；已填写的配置仍保留。";
+  if (reasonCode === "provider_unreachable") return "暂时无法连接 Provider，已填写的配置仍保留，请检查网络后重试。";
   if (reasonCode === "provider_http_429") return "Provider 返回 HTTP 429，请查看服务商请求限制与用量；该状态不能确定额度已耗尽。";
   if (["provider_auth_invalid", "provider_http_401", "provider_http_403"].includes(reasonCode)) return "API Key 无效或没有模型权限。";
   if (reasonCode === "provider_model_not_found") return "未找到这个模型，请检查模型名称。";

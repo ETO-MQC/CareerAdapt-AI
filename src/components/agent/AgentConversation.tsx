@@ -1,13 +1,12 @@
 "use client";
 
-import { AgentBusinessProgress } from "./AgentBusinessProgress";
+import { AgentActivityCard, AgentActivityContext } from "./AgentActivityCard";
 import type { BusinessWorkflowProgress } from "@/agent/runtime/businessWorkflowProgress";
 
-import type { AgentConfirmation, AgentMessage, AgentTaskState } from "@/agent/contracts/agentSession";
+import type { AgentConfirmation, AgentMessage, AgentTaskState, AgentSession } from "@/agent/contracts/agentSession";
 import type { AgentOption } from "@/agent/contracts/agentActions";
 import type { AgentArtifactAction } from "@/agent/contracts/agentActions";
 import type { ProfileIntakeReviewProjection } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
-import { isHermesRuntimeFailureCode } from "@/agent/runtime/hermes/hermesRunReliability";
 import {
   AlertCircle,
   Bot,
@@ -51,6 +50,7 @@ export function AgentConversation({
   onArtifactAction,
   tailoringTaskState,
   businessProgress,
+  activitySession,
   children
 }: {
   messages: AgentMessage[];
@@ -69,17 +69,9 @@ export function AgentConversation({
   onArtifactAction?(action: AgentArtifactAction): Promise<unknown> | void;
   tailoringTaskState?: AgentTaskState;
   businessProgress?: BusinessWorkflowProgress;
+  activitySession?: Pick<AgentSession, "activeTurn" | "turnCheckpoints" | "hermesRun">;
   children?: React.ReactNode;
 }) {
-  // Keep the safe assistant failure in the transcript so a failed turn never
-  // appears as an unanswered user message. Only its internal activity rows
-  // remain collapsed when the runtime status is also projected to the topbar.
-  const runtimeFailureTurnIds = new Set(
-    messages
-      .filter(isRuntimeFailureMessage)
-      .map((message) => message.turnId)
-      .filter((turnId): turnId is string => Boolean(turnId))
-  );
   // Cancellation fences execution immediately. Present a partial answer without
   // reviving its streaming indicator; preserve the original durable transcript.
   const presentedMessages = messages.filter((message) =>
@@ -97,7 +89,6 @@ export function AgentConversation({
   });
   const visibleMessages = dedupeWorkflowReviewMessages(dedupeProfileIntakeMessages(presentedMessages.filter((message) =>
     message.role !== "system"
-    && !(isActivityMessage(message) && message.turnId && runtimeFailureTurnIds.has(message.turnId))
     && (message.metadata?.retracted !== true || isWorkflowInteractionMessage(message))
   )));
   const conversationItems = groupConversationItems(visibleMessages);
@@ -135,8 +126,8 @@ export function AgentConversation({
       followLatestRef.current = follows;
       setShowLatest(!follows);
     }}>
+      <AgentActivityContext.Provider value={{ messages: visibleMessages, progress: businessProgress, session: activitySession }}>
       <div className="agent-conversation-inner">
-        <AgentBusinessProgress progress={businessProgress} />
         {conversationItems.map((item) => {
           if (item.type === "activity") {
             return <AgentActivityGroup key={item.id} identityKey={item.id} messages={item.messages} />;
@@ -275,59 +266,12 @@ export function AgentConversation({
         setShowLatest(false);
         endRef.current?.scrollIntoView({ block: "end", behavior: "auto" });
       }}>回到最新消息</button> : null}
+      </AgentActivityContext.Provider>
     </section>
   );
 }
 
-function AgentActivityGroup({ messages, identityKey }: { messages: AgentMessage[]; identityKey: string }) {
-  const storageKey = `careeradapt:task-steps:${identityKey}`;
-  const [open, setOpen] = useState(() =>
-    typeof window !== "undefined" && window.localStorage.getItem(storageKey) === "open"
-  );
-  const running = messages.some((message) => message.metadata?.activityState === "running" || message.status === "pending");
-  const failed = messages.some((message) => message.metadata?.activityState === "failed" || message.status === "failed");
-  const currentStep = messages.findLast((message) => message.metadata?.activityState === "running" || message.status === "pending");
-  const cheapContextDiscovery = messages.length > 0
-    && messages.every((message) => ["get_active_profile", "list_resumes", "list_jobs"].includes(message.toolName ?? ""));
-  return (
-    <details
-      className={`agent-tool-status-row is-${running ? "running" : failed ? "failed" : "complete"}`}
-      open={open}
-      onToggle={(event) => {
-        const next = event.currentTarget.open;
-        setOpen(next);
-        window.localStorage.setItem(storageKey, next ? "open" : "closed");
-      }}
-    >
-      <summary role="status">
-        <span className="agent-tool-status-icon" aria-hidden="true">
-          <LoaderCircle className={`is-running is-spinning${running ? " is-visible" : ""}`} />
-          <AlertCircle className={`is-failed${failed ? " is-visible" : ""}`} />
-          <CheckCircle2 className={`is-complete${!running && !failed ? " is-visible" : ""}`} />
-        </span>
-        <strong>{running
-          ? cheapContextDiscovery ? "正在加载简历和岗位信息" : "正在执行任务步骤"
-          : failed
-            ? "部分任务步骤需要处理"
-            : cheapContextDiscovery ? "已加载简历和岗位信息" : `已完成 ${messages.length} 个任务步骤`}</strong>
-        {currentStep ? <span className="agent-current-tool-step">{toolStatus(currentStep)}</span> : null}
-      </summary>
-      <ul className="agent-tool-activity-list">
-        {messages.map((message) => {
-          const state = message.metadata?.activityState ?? message.status;
-          const failed = state === "failed";
-          const running = state === "running" || state === "pending";
-          return (
-            <li key={message.id} className={failed ? "is-failed" : running ? "is-running" : "is-complete"}>
-              <strong>{failed ? "未完成" : running ? "进行中" : "已完成"}</strong>
-              <span>{toolStatus(message)}</span>
-            </li>
-          );
-        })}
-      </ul>
-    </details>
-  );
-}
+const AgentActivityGroup = AgentActivityCard;
 
 export const AgentConversationTimeline = AgentConversation;
 
@@ -468,15 +412,6 @@ function isFailedAssistantMessage(message: AgentMessage) {
     || Boolean(message.errorCode);
 }
 
-function isRuntimeFailureMessage(message: AgentMessage) {
-  if (message.role !== "assistant") return false;
-  const safeErrorCode = typeof message.metadata?.safeErrorCode === "string"
-    ? message.metadata.safeErrorCode
-    : undefined;
-  return message.metadata?.runtimeFailurePresentation === "topbar"
-    || isHermesRuntimeFailureCode(message.errorCode ?? safeErrorCode);
-}
-
 function AgentTypedActionResolution({ message }: { message: AgentMessage }) {
   const resolution = message.metadata?.typedActionResolution;
   if (!resolution || typeof resolution !== "object") return null;
@@ -495,7 +430,7 @@ function AgentAvatar({ role }: { role: "assistant" | "user" }) {
 
 function AgentMessageBubble({ message }: { message: AgentMessage }) {
   const streaming = isStreamingMessage(message);
-  const content = streaming && !message.content.trim()
+  const content = (message.kind === "assistant_thinking" || message.type === "assistant_thinking") ? "" : streaming && !message.content.trim()
     ? ""
     : message.role !== "user" && /career[._](?:workflow|job|resume|profile|tool)|mcp__|operationId|logicalToolOperationId|hermesRunId|schemaHash|agent_confirmation_required|Tool execution failed/i.test(message.content)
       ? normalizeAgentMessageText(message.content) : message.content;
@@ -864,25 +799,6 @@ function AgentErrorStatus({ message, onOption }: { message: AgentMessage; onOpti
   );
 }
 
-function toolStatus(message: AgentMessage) {
-  if (message.toolName?.includes("job_intake") || message.toolName === "commit_job") {
-    return message.status === "failed" ? "岗位暂时没有保存成功，当前资料已保留"
-      : message.metadata?.businessCommitted === true ? "已完成岗位保存" : "正在整理岗位信息并核对保存结果";
-  }
-  if (message.metadata?.activityState || message.toolName === "skill_loaded") return normalizeAgentMessageText(message.content);
-  const labels: Record<string, string> = {
-    parse_resume_file: "已接收文件，正在提取可核对内容",
-    parse_job_description: "已生成岗位语义草稿",
-    commit_job: "岗位已保存",
-    analyze_job_fit: "岗位匹配分析已完成",
-    create_tailoring_session: "定制方案已生成",
-    apply_tailoring_changes: "新版本已创建",
-    create_resume_from_profile: "独立通用简历已创建",
-    export_resume: "PDF 预览已准备"
-  };
-  return message.toolName ? labels[message.toolName] ?? "工具步骤已完成" : "工具步骤已完成";
-}
-
 function isStreamingMessage(message: AgentMessage) {
   return Boolean(
     message.streaming
@@ -972,12 +888,18 @@ function dedupeWorkflowReviewMessages(messages: AgentMessage[]) {
 
 function groupConversationItems(messages: AgentMessage[]) {
   const activityByTurn = new Map<string, AgentMessage[]>();
-  const lastAssistantByTurn = new Map<string, string>();
+  const firstAssistantByTurn = new Map<string, string>();
   for (const message of messages) {
     if (isActivityMessage(message) && message.turnId) {
       activityByTurn.set(message.turnId, [...(activityByTurn.get(message.turnId) ?? []), message]);
     } else if (message.role === "assistant" && message.turnId) {
-      lastAssistantByTurn.set(message.turnId, message.id);
+      if (!firstAssistantByTurn.has(message.turnId)) firstAssistantByTurn.set(message.turnId, message.id);
+    }
+  }
+  for (const [turnId, messageId] of firstAssistantByTurn) {
+    if (!activityByTurn.has(turnId)) {
+      const message = messages.find(item => item.id === messageId)!;
+      activityByTurn.set(turnId, [{ ...message, id: `process-${turnId}`, content: "", metadata: { presentationThinking: true } }]);
     }
   }
   const items: Array<
@@ -988,13 +910,13 @@ function groupConversationItems(messages: AgentMessage[]) {
   const emittedActivityTurns = new Set<string>();
   for (const message of messages) {
     if (isActivityMessage(message) && message.turnId) {
-      if (!lastAssistantByTurn.has(message.turnId) && !emittedActivityTurns.has(message.turnId)) {
+      if (!firstAssistantByTurn.has(message.turnId) && !emittedActivityTurns.has(message.turnId)) {
         emittedActivityTurns.add(message.turnId);
         items.push({ type: "activity", id: `turn-${message.turnId}`, messages: activityByTurn.get(message.turnId)! });
       }
       continue;
     }
-    const activity = message.turnId && lastAssistantByTurn.get(message.turnId) === message.id
+    const activity = message.turnId && firstAssistantByTurn.get(message.turnId) === message.id
       ? activityByTurn.get(message.turnId)
       : undefined;
     if (message.role === "assistant" && activity?.length) {

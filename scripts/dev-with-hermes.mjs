@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { spawn } from "node:child_process";
 
+import { ensureDevelopmentHermesBundle } from "./ensure-hermes-runtime.mjs";
 import companion from "../electron/hermesCompanion.js";
 import { ensureCredentialFingerprintPepper } from "../electron/credentialFingerprintPepper.js";
 
@@ -20,6 +21,7 @@ const host = "127.0.0.1";
 const environment = loadCareerAdaptEnvironment(projectRoot);
 environment.HERMES_RUNTIME_ROOT = environment.HERMES_RUNTIME_ROOT
   || path.join(projectRoot, ".electron-build", "hermes-runtime-v4");
+environment.HERMES_RUNTIME_ROOT = await ensureDevelopmentHermesBundle(projectRoot, environment);
 const preferredAppPort = parsePort(environment.CAREERADAPT_APP_PORT || environment.PORT, 3000);
 const preferredAppUrl = `http://${host}:${preferredAppPort}`;
 const webControlEnabled = (environment.HERMES_WEB_CONTROL_ENABLED ?? "true").trim().toLowerCase() !== "false";
@@ -103,7 +105,8 @@ if (webControlEnabled) {
     environment,
     hermesHome: path.join(projectRoot, ".next", "dev", "hermes"),
     logPath,
-    runtimeControlKey
+    runtimeControlKey,
+    requireBundledRuntime: true
   });
 
   if (hermesHandle.ok) {

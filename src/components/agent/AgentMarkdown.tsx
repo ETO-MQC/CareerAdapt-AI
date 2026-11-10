@@ -41,7 +41,16 @@ function renderBlocks(source: string) {
     if (/^>\s?/.test(line)) {
       const quote: string[] = [];
       while (index < lines.length && /^>\s?/.test(lines[index])) quote.push(lines[index++].replace(/^>\s?/, ""));
-      nodes.push(<blockquote key={`quote-${index}`}>{inline(quote.join("\n"), `quote-${index}`)}</blockquote>);
+      const callout = /^\[!(NOTE|TIP|WARNING|IMPORTANT|STATUS)\]\s*(.*)$/.exec(quote[0]);
+      if (callout) {
+        const labels: Record<string, string> = { NOTE: "说明", TIP: "提示", WARNING: "提醒", IMPORTANT: "重要事项", STATUS: "状态" };
+        const body = [callout[2], ...quote.slice(1)].filter(Boolean).join("\n");
+        nodes.push(<aside key={`quote-${index}`} className={`agent-response-callout is-${callout[1].toLowerCase()}`} aria-label={labels[callout[1]]}>
+          <strong>{labels[callout[1]]}</strong><p>{inline(body, `quote-${index}`)}</p>
+        </aside>);
+      } else {
+        nodes.push(<blockquote key={`quote-${index}`}>{inline(quote.join("\n"), `quote-${index}`)}</blockquote>);
+      }
       continue;
     }
     if (/^\s*[-*+]\s+/.test(line)) {

@@ -261,6 +261,22 @@ describe("Hermes Supervisor lifecycle", () => {
     expect(harness.getStartCount()).toBe(1);
   });
 
+  it.each([429, 503])("keeps Provider HTTP %s distinct from configuration errors and stops synchronization", async (status) => {
+    const harness = createHarness(createHealth({ providerStatus: "unreachable",
+      providerDiagnostic: { credentialConfigured: true, lastHttpStatus: status, safeErrorCode: `provider_http_${status}` },
+      runtimeHealth: { ...createHealth().runtimeHealth, providerReady: false, providerReachable: false, runReady: false }
+    }));
+    const result = await harness.supervisor.rendererHostReady();
+    expect(result).toMatchObject({ overallState: "degraded", providerReady: false, reasonCode: `provider_http_${status}` });
+    expect(harness.getStartCount()).toBe(1);
+    expect((result.latestLifecycleEntries as Array<{ message: string }>).filter(item => item.message.startsWith("Hermes readiness:"))).toHaveLength(1);
+  });
+  it("uses the authoritative current required facade count", async () => {
+    const base = createHealth();
+    const harness = createHarness(createHealth({ runtimeHealth: { ...base.runtimeHealth, requiredCareerFacadesTotal: 10, hermesCareerFacadeCount: 10 } }));
+    expect(await harness.supervisor.rendererHostReady()).toMatchObject({ requiredCareerFacadesTotal: 10, requiredCareerFacadesReady: 10 });
+  });
+
   it("does not restart-loop on provider configuration errors", async () => {
     const harness = createHarness(createHealth({
       providerStatus: "invalid",

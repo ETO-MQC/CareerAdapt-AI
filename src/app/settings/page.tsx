@@ -1394,6 +1394,10 @@ async function clearAiCredentialFromSettings() {
                   </div>
                   <span className="status-badge">{hermesControlStatusLabel(hermesSnapshot)}</span>
                 </div>
+                {!activeConfig && hermesSnapshot.runtimeConfig.desired ? <p role="status">
+                  目标配置已收到，尚未完成应用：{hermesSnapshot.runtimeConfig.desired.model}。当前尚未确认运行配置；请查看下方应用结果。
+                  {hermesSnapshot.runtimeConfig.desired.credentialConfigured ? " 本次提交已包含凭据，不代表凭据丢失。" : ""}
+                </p> : null}
                 <dl className="info-list hermes-control-facts">
                   <div><dt>服务进程</dt><dd>{hermesServiceStateLabel(hermesSnapshot.serviceState)} · {hermesSnapshot.controlOwner === "electron_supervisor" ? "Electron Supervisor" : hermesSnapshot.controlOwner === "web_supervisor" ? "Web Supervisor" : "外部环境"}</dd></div>
                   <div><dt>Runtime URL / 版本</dt><dd>{formatEndpoint(hermesSnapshot.runtimeUrl, "正在分配")}{hermesSnapshot.version ? " · " + hermesSnapshot.version : ""}</dd></div>

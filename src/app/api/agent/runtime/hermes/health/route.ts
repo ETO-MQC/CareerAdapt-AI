@@ -1,4 +1,5 @@
 import { promises as fs } from "node:fs";
+import { createHash } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import { NextResponse } from "next/server";
@@ -23,15 +24,18 @@ import { parseHermesToolsetsPayload, type HermesToolsetSnapshot } from "./toolse
 
 export const dynamic = "force-dynamic";
 
-const HERMES_HEALTH_REQUEST_TIMEOUT_MS = 15_000;
+const HERMES_HEALTH_REQUEST_TIMEOUT_MS = 5_000;
 const HERMES_TOOLSET_CACHE_TTL_MS = 10_000;
 const HERMES_TOOLSET_REQUEST_TIMEOUT_MS = 60_000;
 let hermesToolsetSnapshotCache: {
-  runtimeBaseUrl: string;
+  identity: string;
   snapshot: HermesToolsetSnapshot;
   expiresAt: number;
 } | undefined;
-let hermesToolsetSnapshotInFlight: Promise<HermesToolsetSnapshot> | undefined;
+let hermesToolsetSnapshotInFlight: { identity: string; pending: Promise<HermesToolsetSnapshot> } | undefined;
+
+type ProviderProbe = Awaited<ReturnType<typeof probeConfiguredProvider>>;
+const providerProbes = new Map<string, { result?: ProviderProbe; expiresAt: number; pending?: Promise<ProviderProbe> }>();
 
 export async function GET(request: Request) {
   const appBaseUrl = new URL(request.url).origin;
@@ -67,6 +71,7 @@ export async function GET(request: Request) {
 
 async function proxy(url: string, mcp: ReturnType<typeof statusCareerAdaptMcpBridge>, appBaseUrl: string) {
   try {
+    const configuredProviderPromise = checkConfiguredProvider();
     let response = await fetch(url, {
       method: "GET",
       headers: upstreamHeaders(),
@@ -86,7 +91,7 @@ async function proxy(url: string, mcp: ReturnType<typeof statusCareerAdaptMcpBri
     const raw = await response.json().catch(() => ({}));
     const upstream = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
     const upstreamRuntimeHealth = readRuntimeHealth(upstream.runtimeHealth);
-    const configuredProvider = await checkConfiguredProvider();
+    const configuredProvider = await configuredProviderPromise;
     const runtimeControlAuthFailure = response.status === 401 || response.status === 403;
     const runtimeControlDiagnostics = runtimeControlAuthFailure
       ? classifyHermesRunFailure({
@@ -247,6 +252,7 @@ async function withRuntimeHealth(
     hermesMcpRegistered: coverage.hermesMcpRegistered,
     hermesMcpToolCount: coverage.hermesMcpToolCount,
     hermesCareerFacadeCount: coverage.hermesCareerFacadeCount,
+    requiredCareerFacadesTotal: HERMES_REQUIRED_CAREER_FACADES.length,
     careerToolContractReady,
     ...appBuildTechnicalDiagnostics,
     ...(careerToolContractReady ? {} : {
@@ -283,59 +289,50 @@ async function withRuntimeHealth(
 }
 
 async function readHermesToolsetSnapshot(runtimeBaseUrl?: string): Promise<HermesToolsetSnapshot> {
-  if (!runtimeBaseUrl) return { ok: false, registeredToolsets: [], visibleTools: [] };
+  const empty: HermesToolsetSnapshot = { ok: false, registeredToolsets: [], visibleTools: [] };
+  if (!runtimeBaseUrl) return empty;
   const normalizedRuntimeBaseUrl = runtimeBaseUrl.replace(/\/$/u, "");
-  const now = Date.now();
-  if (hermesToolsetSnapshotCache
-    && hermesToolsetSnapshotCache.runtimeBaseUrl === normalizedRuntimeBaseUrl
-    && hermesToolsetSnapshotCache.expiresAt > now) {
+  const controlIdentity = createHash("sha256").update(process.env.API_SERVER_KEY || "").digest("hex");
+  const identity = `${normalizedRuntimeBaseUrl}:${process.env.CAREERADAPT_HERMES_CONFIG_GENERATION || "0"}:${controlIdentity}`;
+  if (hermesToolsetSnapshotCache?.identity === identity && hermesToolsetSnapshotCache.expiresAt > Date.now()) {
     return hermesToolsetSnapshotCache.snapshot;
   }
-  // Renderer boot and diagnostics can ask for the same aggregate health
-  // snapshot concurrently. Share one bounded official Hermes request so
-  // repeated `/v1/toolsets` discovery calls do not starve the API server.
-  if (hermesToolsetSnapshotInFlight) return hermesToolsetSnapshotInFlight;
-  hermesToolsetSnapshotInFlight = (async () => {
-    const url = `${normalizedRuntimeBaseUrl}/v1/toolsets`;
-    let snapshot: HermesToolsetSnapshot = { ok: false, registeredToolsets: [], visibleTools: [] };
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      try {
-        const response = await fetch(url, {
-          method: "GET",
-          headers: upstreamHeaders(),
-          // Hermes 0.19 resolves the static toolset catalog and runs
-          // availability checks before returning the live MCP registry. On a
-          // cold packaged start this official endpoint can take several
-          // seconds even after /health is ready.
-          signal: AbortSignal.timeout(HERMES_TOOLSET_REQUEST_TIMEOUT_MS),
-          cache: "no-store"
-        });
-        if (!response.ok) return snapshot;
-        const raw = await response.text();
-        if (raw.trim()) snapshot = parseHermesToolsetsPayload(JSON.parse(raw));
-        // A cold Hermes API Server can briefly return a successful empty body
-        // while another request is materialising the live toolset registry.
-        if (snapshot.ok) return snapshot;
-      } catch {
-        // Retry once for cold-start connection/JSON errors. Readiness remains
-        // false if the official endpoint still cannot provide a valid payload.
+  let pending = hermesToolsetSnapshotInFlight?.identity === identity ? hermesToolsetSnapshotInFlight.pending : undefined;
+  if (!pending) {
+    const headers = upstreamHeaders();
+    pending = (async () => {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          const response = await fetch(`${normalizedRuntimeBaseUrl}/v1/toolsets`, {
+            method: "GET", headers, signal: AbortSignal.timeout(HERMES_TOOLSET_REQUEST_TIMEOUT_MS), cache: "no-store"
+          });
+          if (!response.ok) return empty;
+          const raw = await response.text();
+          const snapshot = raw.trim() ? parseHermesToolsetsPayload(JSON.parse(raw)) : empty;
+          if (snapshot.ok) return snapshot;
+        } catch {
+          // A cold registry can still be materializing after public liveness.
+          // Its result remains unverified until an official response succeeds.
+        }
+        if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 250));
       }
-      if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 250));
-    }
-    return snapshot;
-  })();
+      return empty;
+    })();
+    hermesToolsetSnapshotInFlight = { identity, pending };
+    void pending.then(snapshot => {
+      // An old process/generation must never overwrite the current registry.
+      if (hermesToolsetSnapshotInFlight?.pending !== pending) return;
+      if (snapshot.ok) hermesToolsetSnapshotCache = { identity, snapshot, expiresAt: Date.now() + HERMES_TOOLSET_CACHE_TTL_MS };
+      hermesToolsetSnapshotInFlight = undefined;
+    });
+  }
+  // Registry discovery may take 60s; Supervisor health has a 12s budget.
+  // Keep health responsive and coalesce discovery across polls. Empty means NOT ready.
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    const snapshot = await hermesToolsetSnapshotInFlight;
-    if (snapshot.ok) {
-      hermesToolsetSnapshotCache = {
-        runtimeBaseUrl: normalizedRuntimeBaseUrl,
-        snapshot,
-        expiresAt: Date.now() + HERMES_TOOLSET_CACHE_TTL_MS
-      };
-    }
-    return snapshot;
+    return await Promise.race([pending, new Promise<HermesToolsetSnapshot>(resolve => { timer = setTimeout(() => resolve(empty), 250); })]);
   } finally {
-    hermesToolsetSnapshotInFlight = undefined;
+    if (timer) clearTimeout(timer);
   }
 }
 
@@ -398,6 +395,31 @@ async function checkConfiguredProvider() {
     configFingerprint,
     ...(Number.isInteger(configGeneration) && configGeneration >= 0 ? { configGeneration } : {})
   };
+  // Fingerprint includes an HMAC credential tag; credentials never enter cache keys or receipts.
+  const key = `${configFingerprint}:${Number.isInteger(configGeneration) ? configGeneration : 0}`;
+  const cached = providerProbes.get(key);
+  if (cached?.pending) return cached.pending;
+  if (cached?.result && cached.expiresAt > Date.now()) return cached.result;
+  const entry: { result?: ProviderProbe; expiresAt: number; pending?: Promise<ProviderProbe> } = { expiresAt: 0 };
+  providerProbes.set(key, entry);
+  // Bound retained configuration identities without evicting the current probe.
+  if (providerProbes.size > 8) providerProbes.delete(providerProbes.keys().next().value!);
+  entry.pending = probeConfiguredProvider(configuration, diagnostic);
+  try {
+    const result = await entry.pending;
+    entry.result = result;
+    const httpStatus = "lastHttpStatus" in result.providerDiagnostic ? result.providerDiagnostic.lastHttpStatus : undefined;
+    entry.expiresAt = Date.now() + (httpStatus === 429 ? 60_000 : result.providerStatus === "ready" ? 30_000 : 5_000);
+    return result;
+  } finally {
+    entry.pending = undefined;
+  }
+}
+
+async function probeConfiguredProvider(
+  configuration: ReturnType<typeof resolveEffectiveAiConfiguration>,
+  diagnostic: ReturnType<typeof safeProviderConfigurationDiagnostic> & { configFingerprint: string; configGeneration?: number }
+) {
   if (!configuration.apiKey || !configuration.model) {
     return {
       providerStatus: "unconfigured" as const,
@@ -423,7 +445,8 @@ async function checkConfiguredProvider() {
       ? firstModel as Record<string, unknown>
       : {};
     const contextWindow = numberValue(modelRecord.context_length ?? modelRecord.contextWindow);
-    const providerStatus = response.ok ? "ready" as const : "invalid" as const;
+    const providerStatus = response.ok ? "ready" as const
+      : response.status === 401 || response.status === 403 ? "invalid" as const : "unreachable" as const;
     return {
       provider: configuration.provider,
       model: configuration.model || (typeof modelRecord.id === "string" ? modelRecord.id : undefined),

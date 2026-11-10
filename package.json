@@ -32,7 +32,7 @@
     "hermes:self-test": "node scripts/hermes-runtime-self-test.mjs",
     "hermes:skills": "node scripts/sync-career-skills.mjs",
     "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm build",
-    "electron:dev": "electron .",
+    "electron:dev": "node scripts/ensure-hermes-runtime.mjs && electron .",
     "electron:build": "next build && node scripts/prepare-electron-standalone.mjs && node scripts/prepare-hermes-runtime.mjs && electron-builder --projectDir electron --config ../electron-builder.yml --win",
     "electron:build:dir": "next build && node scripts/prepare-electron-standalone.mjs && node scripts/prepare-hermes-runtime.mjs && electron-builder --projectDir electron --config ../electron-builder.yml --win --dir",
     "electron:build:mac": "next build && node scripts/prepare-electron-standalone.mjs && node scripts/prepare-hermes-runtime.mjs && electron-builder --projectDir electron --config ../electron-builder.yml --mac",

@@ -169,6 +169,7 @@ const manifest = {
   generatedAt: new Date().toISOString()
 };
 fs.writeFileSync(path.join(targetRoot, "runtime-manifest.json"), JSON.stringify(manifest, null, 2) + "\n", "utf8");
+fs.copyFileSync(path.join(scriptDirectory, "hermes-runtime-lock.json"), path.join(targetRoot, "runtime-lock.json"));
 assertRp01RuntimeParity(projectRoot, targetRoot);
 fs.writeFileSync(path.join(targetRoot, ".build-complete"), `${new Date().toISOString()}\n`, "utf8");
 

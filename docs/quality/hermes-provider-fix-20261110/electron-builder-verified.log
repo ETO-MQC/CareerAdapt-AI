@@ -1,0 +1,14 @@
+  • electron-builder  version=26.15.3 os=10.0.26100
+  • loaded configuration  file=E:\DEF\CareerAdapt-competition-5.1.8\electron-builder.yml
+  • executing @electron/rebuild  electronVersion=43.2.0 arch=x64 buildFromSource=false workspaceRoot=E:\DEF\CareerAdapt-competition-5.1.8\electron projectDir=electron appDir=electron
+  • installing native dependencies  arch=x64
+  • completed installing native dependencies
+  • packaging       platform=win32 arch=x64 electron=43.2.0 appOutDir=release\provider-fix-20261110-verified\win-unpacked
+  • using custom unpacked Electron distribution  electronDist=E:\DEF\CareerAdapt AI\node_modules\.pnpm\electron@43.2.0\node_modules\electron\dist
+  • copying unpacked Electron  source=E:\DEF\CareerAdapt AI\node_modules\.pnpm\electron@43.2.0\node_modules\electron\dist destination=E:\DEF\CareerAdapt-competition-5.1.8\release\provider-fix-20261110-verified\win-unpacked
+  • searching for node modules  pm=pnpm searchDir=E:\DEF\CareerAdapt-competition-5.1.8\electron
+  • searching for node modules  pm=traversal searchDir=E:\DEF\CareerAdapt-competition-5.1.8\electron
+  • using manual traversal of node_modules to build dependency tree
+  • no node modules returned while searching directories  searchDirectories=["electron"]
+  • updating asar integrity executable resource  executablePath=release\provider-fix-20261110-verified\win-unpacked\职适AI.exe
+  • executable resource editing and code signing skipped — signAndEditExecutable is false. To skip only code signing while keeping icon and metadata applied, use signExecutable: false instead.  exe=release\provider-fix-20261110-verified\win-unpacked\职适AI.exe

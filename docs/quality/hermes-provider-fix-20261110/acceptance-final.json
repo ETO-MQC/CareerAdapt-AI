@@ -1,0 +1,39 @@
+{
+  "baseline": "4bf3e40",
+  "status": "targeted_verification_passed",
+  "typecheckExit": 0,
+  "changedFilesEslintExit": 0,
+  "unit": {
+    "files": 7,
+    "passed": 78,
+    "exit": 0
+  },
+  "productionBuildExit": 0,
+  "bundleCheckExit": 0,
+  "packagingExit": 0,
+  "web": {
+    "status": "PASS",
+    "facades": 10
+  },
+  "packaged": {
+    "status": "PASS",
+    "isPackaged": true,
+    "restartCredentialRestored": true,
+    "credentialOrigin": {
+      "source": "secure_store",
+      "configured": true
+    }
+  },
+  "realUserChatCalls": 0,
+  "knownBaselineFailure": "p511-r2-observability SSE first-event assertion (26 passed, 1 failed, reproduced before fix)",
+  "userDevService": {
+    "appResponding": true,
+    "runtimeReadyVerified": false,
+    "credentialReentryRequired": true,
+    "reason": "Temporary restart helper omitted Windows environment; restored service, old in-memory credential lost; user informed"
+  },
+  "artifact": "release/provider-fix-20261110-verified/win-unpacked",
+  "nsisBuilt": false,
+  "signed": false,
+  "committed": false
+}

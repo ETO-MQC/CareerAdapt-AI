@@ -142,6 +142,7 @@ async function configureHermesDefaults(appPath, environment, options = {}) {
   // installed Hermes checkout. Keep it under Electron userData so the
   // bundled runtime owns its config, sessions, logs and managed skills.
   environment.HERMES_HOME = hermesHome;
+  environment.HERMES_RUNTIME_ROOT = bundledRuntimeRoot;
   if (hasBundledRuntime) {
     environment.HERMES_RUNTIME_MODE = "bundled";
     environment.HERMES_RUNTIME_ROOT = bundledRuntimeRoot;
@@ -397,7 +398,7 @@ function createHermesSupervisor(appPath, environment, runtimeControlKey) {
     hermesRuntimeRoot: environment.HERMES_RUNTIME_ROOT,
     runtimeCwd: app.isPackaged ? process.resourcesPath : appPath,
     logPath: path.join(app.getPath("logs"), "hermes-runtime.log"),
-    requireBundledRuntime: app.isPackaged,
+    requireBundledRuntime: true,
     broadcast: broadcastHermesStatus
   });
   console.log("[Hermes] Supervisor created; waiting for renderer MCP/domain host READY");

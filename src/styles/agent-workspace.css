@@ -2463,3 +2463,23 @@
 .agent-precise-editor ul { font-size: 12px; line-height: 1.5; padding-left: 18px; }
 .agent-precise-editor > section { display: grid; gap: 6px; }
 .agent-precise-editor > section > details { color: var(--ai-muted); }
+
+/* Read-only task presentation, using the workspace theme. */
+.agent-activity-duration { color: var(--ai-muted); margin-left: 4px; white-space: nowrap; font-size: 12px; font-weight: 400; }
+.agent-activity-detail { margin: 8px 12px; color: var(--ai-muted); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.agent-tool-status-row summary { flex-wrap: wrap; gap: 8px; }
+.agent-tool-status-row.is-running summary > strong { animation: agent-task-breathe 2s ease-in-out infinite; }
+.agent-markdown h1, .agent-markdown h2, .agent-markdown h3 { font-weight: 650; color: var(--ai-text); }
+.agent-markdown .agent-response-callout { margin: 12px 0; padding: 10px 12px; border-left: 3px solid var(--ai-border-strong); border-radius: 6px; background: var(--ai-surface-raised); font-size: 13px; }
+.agent-response-callout > strong { display: block; margin-bottom: 4px; font-size: 12px; }
+.agent-markdown .agent-response-callout p { margin: 0; color: var(--ai-muted); }
+.agent-response-callout.is-warning, .agent-response-callout.is-important { border-left-color: #b7791f; }
+@keyframes agent-task-breathe { 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) {
+  .agent-tool-status-row.is-running summary > strong, .agent-tool-status-row .is-spinning, .agent-streaming-indicator > span { animation: none; }
+}
+
+.agent-activity-chevron { width: 14px; height: 14px; flex: 0 0 14px; color: var(--ai-muted); transition: transform var(--ai-motion) ease; }
+.agent-tool-status-row[open] .agent-activity-chevron { transform: rotate(180deg); }
+
+.agent-tool-status-icon svg.is-waiting, .agent-tool-status-icon svg.is-cancelled { color: var(--ai-muted); }

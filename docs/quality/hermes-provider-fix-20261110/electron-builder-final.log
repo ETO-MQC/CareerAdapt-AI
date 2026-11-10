@@ -1,0 +1,21 @@
+  • electron-builder  version=26.15.3 os=10.0.26100
+  • loaded configuration  file=E:\DEF\CareerAdapt-competition-5.1.8\electron-builder.yml
+  • packageManager not detected by file, falling back to environment detection  resolvedPackageManager=pnpm detected=E:\DEF\CareerAdapt-competition-5.1.8
+  • packageManager not detected by file, falling back to environment detection  resolvedPackageManager=pnpm detected=E:\DEF\CareerAdapt-competition-5.1.8
+  • installing dependencies  pm=pnpm platform=win32 arch=x64 projectDir=E:\DEF\CareerAdapt-competition-5.1.8\electron appDir=E:\DEF\CareerAdapt-competition-5.1.8\electron workspaceRoot=undefined
+  • executing @electron/rebuild  electronVersion=43.2.0 arch=x64 buildFromSource=false workspaceRoot=E:\DEF\CareerAdapt-competition-5.1.8\electron projectDir=electron appDir=electron
+  • installing native dependencies  arch=x64
+  • completed installing native dependencies
+  • packaging       platform=win32 arch=x64 electron=43.2.0 appOutDir=release\provider-fix-20261110-1142\win-unpacked
+  ⨯ connect ETIMEDOUT 20.205.243.166:443  failedTask=build stackTrace=RequestError: connect ETIMEDOUT 20.205.243.166:443
+    at ClientRequest.<anonymous> (E:\DEF\CareerAdapt AI\node_modules\.pnpm\got@11.8.6\node_modules\got\dist\source\core\index.js:970:111)
+    at Object.onceWrapper (node:events:631:26)
+    at ClientRequest.emit (node:events:521:24)
+    at ClientRequest.origin.emit (E:\DEF\CareerAdapt AI\node_modules\.pnpm\@szmarczak+http-timer@4.0.6\node_modules\@szmarczak\http-timer\dist\source\index.js:43:20)
+    at emitErrorEvent (node:_http_client:109:11)
+    at TLSSocket.socketErrorListener (node:_http_client:593:5)
+    at TLSSocket.emit (node:events:509:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at processTicksAndRejections (node:internal/process/task_queues:90:21)
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)

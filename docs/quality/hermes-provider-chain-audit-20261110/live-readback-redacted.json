@@ -1,0 +1,303 @@
+{
+  "capturedAtUtc": "2026-11-09T18:06:41.489695+00:00",
+  "changesApplied": false,
+  "nextConfigChangedByThisAudit": false,
+  "liveSupervisor": {
+    "overallState": "degraded",
+    "reasonCode": "configuration_required",
+    "providerStatus": "invalid",
+    "providerReady": false,
+    "apiReady": true,
+    "careerMcpReady": true,
+    "toolSurfaceReady": false,
+    "runReady": false,
+    "requiredCareerFacadesReady": 0,
+    "requiredCareerFacadesTotal": 8
+  },
+  "failedProviderProbe": {
+    "credentialConfigured": true,
+    "lastHttpStatus": 429,
+    "safeErrorCode": "provider_http_429",
+    "lastCheckedAt": "2026-11-09T17:54:17.996Z"
+  },
+  "runtimeConfig": {
+    "activePresent": false,
+    "desiredCredentialConfigured": true,
+    "applyStatus": "failed",
+    "reasonCode": "configuration_required"
+  },
+  "timeline": [
+    {
+      "at": "2026-11-09T17:53:28.533Z",
+      "message": "Hermes configuration restarting_runtime",
+      "state": "degraded"
+    },
+    {
+      "at": "2026-11-09T17:53:28.534Z",
+      "message": "Hermes start requested",
+      "state": "starting",
+      "reasonCode": "hermes_start_requested"
+    },
+    {
+      "at": "2026-11-09T17:53:39.507Z",
+      "message": "Hermes API ready",
+      "state": "api_ready",
+      "reasonCode": "hermes_api_ready"
+    },
+    {
+      "at": "2026-11-09T17:53:43.573Z",
+      "message": "Hermes capability discovery complete",
+      "state": "api_ready"
+    },
+    {
+      "at": "2026-11-09T17:53:43.573Z",
+      "message": "Synchronizing Career tool surface",
+      "state": "syncing_career_tools",
+      "reasonCode": "career_tool_surface_syncing"
+    },
+    {
+      "at": "2026-11-09T17:53:46.074Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:53:46.918Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:53:47.778Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:53:48.654Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:53:49.546Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:53:50.397Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:53:51.437Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:53:52.299Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:53:53.214Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:53:54.059Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:53:54.906Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:53:56.005Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:53:59.481Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:54:00.323Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:54:01.302Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:54:02.147Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:54:03.012Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:54:03.869Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:54:04.730Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:54:05.580Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:54:06.431Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:54:07.325Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:54:08.223Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:54:09.082Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:54:12.202Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:54:13.317Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:54:14.169Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:54:15.057Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:54:16.046Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:54:17.028Z",
+      "message": "Hermes readiness: hermes_tool_surface_sync_pending",
+      "state": "syncing_career_tools",
+      "reasonCode": "hermes_tool_surface_sync_pending"
+    },
+    {
+      "at": "2026-11-09T17:54:18.009Z",
+      "message": "Hermes readiness: configuration_required",
+      "state": "degraded",
+      "reasonCode": "configuration_required"
+    },
+    {
+      "at": "2026-11-09T17:54:18.009Z",
+      "message": "Hermes configuration failed",
+      "state": "degraded"
+    },
+    {
+      "at": "2026-11-09T17:54:18.009Z",
+      "message": "Hermes configuration failed",
+      "state": "degraded"
+    }
+  ],
+  "managedFile": {
+    "exists": true,
+    "customProvidersType": "list",
+    "modelMatchesChildEnvironment": true,
+    "providerMatchesChildEnvironment": true,
+    "baseMatchesChildEnvironment": true,
+    "credentialInjectedIntoChild": true,
+    "inlineCredentialInManagedCustomProvider": false,
+    "apiServerToolsets": [
+      "skills",
+      "careeradapt"
+    ],
+    "careeradaptMcpEnabled": true
+  },
+  "runtimeSelection": {
+    "configuredDefaultBundleExists": false,
+    "actualBundledMode": false,
+    "actualSourceIsUserInstall": true
+  },
+  "mcpSurface": {
+    "appExposedCount": 14,
+    "actualRegisteredCount": 0,
+    "visibleTools": [
+      "skill_manage",
+      "skill_view",
+      "skills_list"
+    ],
+    "requiredActualCount": 10
+  },
+  "providerRequestsByAudit": {
+    "chatCompletions": 0,
+    "explicitHealthReadsTriggeringModelsProbe": 1
+  },
+  "offlineObservations": {
+    "passed": 3,
+    "meaning": "defects reproduced, not repaired"
+  },
+  "existingTests": {
+    "hermesSupervisor": {
+      "passed": 20,
+      "failed": 0
+    },
+    "p511R2Observability": {
+      "passed": 26,
+      "failed": 1,
+      "failure": "existing runEvents rejection expectation receives progress/status_unavailable; no related production changes in audit"
+    }
+  }
+}

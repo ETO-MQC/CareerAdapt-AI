@@ -1,0 +1,11 @@
+
+Running 3 tests using 1 worker
+
+(node:64456) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 1 [chromium] › tests\e2e\agent-activity-presentation.spec.ts:23:5 › UX02 long running presentation, completion collapse and structured answer (4.0s)
+  ok 2 [chromium] › tests\e2e\agent-activity-presentation.spec.ts:69:5 › UX02 tool activities use business wording and preserve source selection (2.8s)
+COMP-01.1 source -> job {"sourceState":{"sessionId":"agent-session-lLJCfeURehYQ","hermesRunId":"hermes-e2e-run-1","hermesRunStatus":"completed","activeTurnId":"runtime-turn-7e2706c2-fa1f-413e-bb43-ac0a919354ef","stage":"choose_resume_source","completionStatus":"waiting_for_user","checkpointKind":"resume_choice","checkpointState":"active","activeTurnStatus":"waiting_for_user"},"jobState":{"sessionId":"agent-session-lLJCfeURehYQ","hermesRunId":"hermes-e2e-run-2","hermesRunStatus":"completed","activeTurnId":"agent-turn-d190f334-9c8d-4ae5-8384-d4f4831522bc","stage":"choose_job","completionStatus":"waiting_for_user","checkpointKind":"clarification","checkpointState":"active","activeTurnStatus":"waiting_for_user"},"runStarts":2,"businessRowsUnchanged":true}
+  ok 3 [chromium] › tests\e2e\agent-workspace.spec.ts:371:7 › AI workspace shell › keeps the current tailoring facade checkpoint, source selection, and pending PDF durable (5.2s)
+
+  3 passed (13.1s)

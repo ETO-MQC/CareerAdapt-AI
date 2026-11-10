@@ -47,6 +47,7 @@ describe("R2-OBS-01 evidence-based error propagation", () => {
       if (url.endsWith("/models")) return Response.json({ data: [{ id: "r2-test" }] }, { status: providerHttpStatus });
       return Response.json({}, { status: 503 });
     }));
+    vi.resetModules(); // Each fixture has an independent Provider probe cache.
     const { GET } = await import("@/app/api/agent/runtime/hermes/health/route");
     const response = await GET(new Request("http://127.0.0.1:3000/api/agent/runtime/hermes/health"));
     const payload = await response.json();
@@ -145,6 +146,7 @@ describe("R2-OBS-01 evidence-based error propagation", () => {
       if (url === "http://127.0.0.1:18642/health") throw Object.assign(new TypeError("fetch failed with private-key"), { cause: { code: "ECONNREFUSED" } });
       return new Response(JSON.stringify({}), { status: 503 });
     }));
+    vi.resetModules(); // Each fixture has an independent Provider probe cache.
     const { GET } = await import("@/app/api/agent/runtime/hermes/health/route");
     const response = await GET(new Request("http://127.0.0.1:3000/api/agent/runtime/hermes/health"));
     const payload = await response.json();

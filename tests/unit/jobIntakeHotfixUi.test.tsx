@@ -13,10 +13,10 @@ it("J6 hides internal activity names and only shows saved status with business p
       toolName: "career.workflow.job_intake", metadata: { activityState: "complete" }, createdAt: "2026-11-07T00:00:02Z" }];
   const { container, rerender } = render(<AgentConversationTimeline messages={messages} />);
   expect(container.textContent).not.toMatch(/career\.workflow|operationId|hidden/);
-  expect(container.textContent).not.toContain("已完成岗位保存");
+  expect(container.textContent).not.toContain("已保存岗位");
   rerender(<AgentConversationTimeline messages={messages.map(message => message.id === "activity"
     ? { ...message, metadata: { activityState: "complete", businessCommitted: true } } : message)} />);
-  expect(screen.getAllByText("已完成岗位保存").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("已保存岗位").length).toBeGreaterThan(0);
   expect(screen.getByText("先保存岗位")).toBeVisible();
 });
 it.each(["agent_confirmation_required", "Tool execution failed", "career.workflow.job_intake", "operationId: private"])("humanizes internal status %s", text => {

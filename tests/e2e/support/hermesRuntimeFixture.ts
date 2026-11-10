@@ -20,7 +20,7 @@ export type HermesRuntimeFixture = {
  * emits official Hermes event names, including the Career workflow facade
  * boundary used by the explicit tailoring tests.
  */
-export async function installHermesRuntimeFixture(page: Page): Promise<HermesRuntimeFixture> {
+export async function installHermesRuntimeFixture(page: Page, options: { output?: string; eventsReady?: Promise<void> } = {}): Promise<HermesRuntimeFixture> {
   const runs = new Map<string, HermesRun>();
   const fixture: HermesRuntimeFixture = { runStarts: [], eventRunIds: [], actions: [] };
   let sequence = 0;
@@ -79,11 +79,11 @@ export async function installHermesRuntimeFixture(page: Page): Promise<HermesRun
       const runId = `hermes-e2e-run-${sequence}`;
       const userMessage = String(body.userMessage ?? "");
       const tailor = userMessage.includes("优化已有简历");
-      const output = tailor
+      const output = options.output ?? (tailor
         ? "已进入岗位定制流程，请先选择用于定制的通用简历。"
         : userMessage.includes("整理项目经历")
           ? "可以。请先选择一段你确认真实存在的经历，我会按背景、职责、成果逐步提问。"
-          : "好的。请先提供这项任务需要的真实材料，我会逐步与你核对。";
+          : "好的。请先提供这项任务需要的真实材料，我会逐步与你核对。");
       const toolCallId = tailor ? `tool-call-${sequence}` : undefined;
       runs.set(runId, { status: "running", userMessage, output, tailor, toolCallId });
       fixture.runStarts.push(runId);
@@ -99,6 +99,7 @@ export async function installHermesRuntimeFixture(page: Page): Promise<HermesRun
       const run = runs.get(runId);
       fixture.eventRunIds.push(runId);
       await new Promise((resolve) => setTimeout(resolve, run?.tailor ? 350 : 300));
+      await options.eventsReady;
       const events = [
         "event: message.delta",
         `data: ${JSON.stringify({ run_id: runId, delta: "正在准备当前任务…" })}`,

@@ -1,6 +1,5 @@
 "use client";
 
-import { PreciseResumeEditor } from "./PreciseResumeEditor";
 import { projectBusinessWorkflowProgress } from "@/agent/runtime/businessWorkflowProgress";
 
 import { Pause, Play, WifiOff } from "lucide-react";
@@ -1263,7 +1262,6 @@ export function AgentWorkspace() {
           if (event.defaultPrevented || !event.dataTransfer.files.length) return;
           event.preventDefault(); stageComposerFiles(Array.from(event.dataTransfer.files));
         }}>
-          <PreciseResumeEditor session={session} host={host.state} profileName={profiles.find(p => p.id === session.activeProfileId)?.name} />
           {showZeroState ? (
             <AgentZeroState onSelect={dispatchQuickAction} />
           ) : (
@@ -1352,6 +1350,7 @@ export function AgentWorkspace() {
                 profileIntakeProjection={intakeProjection}
                 tailoringTaskState={session.taskState}
                 businessProgress={projectBusinessWorkflowProgress(session)}
+                activitySession={session}
                  onArtifactAction={dispatchArtifactAction}
                  onConfirmation={(confirmed) => void (async () => {
                    const next = await host.runUserEvent(

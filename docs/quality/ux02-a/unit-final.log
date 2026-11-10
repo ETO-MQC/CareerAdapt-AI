@@ -1,0 +1,92 @@
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+ ✓ tests/unit/agentOptionActions.test.ts (1 test) 11ms
+stderr | tests/unit/agentArtifactActions.test.tsx > Agent artifact decisions > projects the same active question and dispatches typed answer and diff edits
+An update to TailoringDiffRecord inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | tests/unit/agentArtifactActions.test.tsx > Agent artifact decisions > keeps a local staged choice available when an older session returns no immediate state
+An update to AgentTailoringInlineDiffs inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ ✓ tests/unit/agentActivityPresentation.test.tsx (15 tests) 613ms
+stderr | tests/unit/agentArtifactActions.test.tsx > Agent artifact decisions > shows one inline diff at a time, navigates all generated diffs, and advances after a decision
+An update to AgentTailoringInlineDiffs inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ ✓ tests/unit/agentArtifactActions.test.tsx (9 tests) 952ms
+     ✓ shows one inline diff at a time, navigates all generated diffs, and advances after a decision  326ms
+ ✓ tests/unit/agentConversationStructure.test.tsx (14 tests) 953ms
+ ✓ tests/unit/businessWorkflowProgress.test.tsx (21 tests) 196ms
+ ✓ tests/unit/careerCompositionGatewayP45b.test.ts (3 tests) 18ms
+ ✓ tests/unit/resumeCompositionWorkflowP45b1.test.ts (12 tests) 82ms
+ ✓ tests/unit/resumeCompositionCommitGateP45c1.test.ts (1 test) 266ms
+stderr | tests/unit/materialIntakeReview.test.tsx > restores the material review target and name with Profile-only locked
+An update to MaterialSourceReview inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ ✓ tests/unit/materialIntakeReview.test.tsx (3 tests) 844ms
+   ✓ shows original blocks, hash, confidence and page-only location independently of edited values  311ms
+   ✓ restores the material review target and name with Profile-only locked  470ms
+ ✓ tests/unit/jobIntakeHotfixUi.test.tsx (6 tests) 452ms
+ ✓ tests/unit/profileReconciliation.test.ts (22 tests) 694ms
+ ✓ tests/unit/p512-material-intake.test.ts (23 tests) 1412ms
+     ✓ Scenario B: confirmed new certificate invalidates the old composition and updates only the selected General Resume  353ms
+ ✓ tests/unit/jobIntakeHotfix.test.ts (20 tests) 5764ms
+   ✓ J1/J7 saves unknown company through the real candidate/Repository chain with exact raw text and no repeated confirmation  726ms
+   ✓ J2 follows the persisted task to update the same Job, preserving raw JD and every requirement  562ms
+   ✓ analyze-only bound company changes never write; conflicting saved company still needs confirmation  406ms
+   ✓ different unknown-company JDs with the same title keep separate content identities  348ms
+   ✓ J2/J7 restores the actual Host task and binds a later company turn to the same persisted Job  544ms
+   ✓ a company-only user turn overrides model repetition of the old JD and updates the bound Job  453ms
+   ✓ company completion after a rolled-back write resumes the retained source checkpoint  425ms
+   ✓ unknown company remains valid in the shared quick-action summary without changing candidate facts  325ms
+ ✓ tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts (15 tests) 6181ms
+     ✓ consumes a restored confirmation and exposes a source-bound recovery action after writing fails  1153ms
+     ✓ confirms a first facade proposal from a task-free conversation through the existing Repository gate  379ms
+     ✓ preserves the proposal on Repository failure and recovers the same confirmation without duplicate Revisions  349ms
+     ✓ executes the confirmed checkpoint once, projects resume_ready, and makes a second click idempotent  420ms
+     ✓ keeps update_existing behind an explicit user selection  442ms
+     ✓ retries the same checkpoint after transport recovery and creates one branch and revision  670ms
+     ✓ coalesces concurrent retries for the same failed checkpoint  930ms
+     ✓ rejects a same-checkpoint retry after the bound Profile revision changes  424ms
+
+ Test Files  14 passed (14)
+      Tests  165 passed (165)
+   Start at  01:12:50
+   Duration  16.77s (transform 28.86s, setup 7.70s, import 51.48s, tests 18.44s, environment 57.26s)
+
+JSON report written to E:/DEF/CareerAdapt-competition-5.1.8/docs/quality/ux02-a/unit-final.json

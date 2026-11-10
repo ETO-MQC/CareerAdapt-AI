@@ -43,6 +43,7 @@ export const RuntimeHealthSchema = z.object({
   careerMcpContractCount: z.number().int().min(0).default(0),
   hermesMcpRegistered: z.boolean().default(false),
   hermesMcpToolCount: z.number().int().min(0).default(0),
+  requiredCareerFacadesTotal: z.number().int().nonnegative().optional(),
   hermesCareerFacadeCount: z.number().int().min(0).default(0),
   careerToolContractReady: z.boolean().default(true),
   careerToolContractVersion: z.string().min(1).optional(),

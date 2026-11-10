@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 
 const crypto = require("crypto");
+const { verifyHermesBundle } = require("./hermesBundleIdentity");
 const fs = require("fs");
 const net = require("net");
 const path = require("path");
@@ -562,11 +563,14 @@ async function startHermesCompanion(options = {}) {
     writeLog(`startup skipped: configured runtime is remote (${runtime.host}:${runtime.port})`);
     return failedCompanion("hermes_runtime_remote", logPath);
   }
-  if (options.requireBundledRuntime === true && !resolveBundledHermesRuntime(environment, options)) {
-    writeLog("startup blocked: bundled Hermes runtime is required but unavailable");
-    return failedCompanion("hermes_bundled_runtime_missing", logPath, { runtime });
+  if (options.requireBundledRuntime === true) {
+    const bundled = resolveBundledHermesRuntime(environment, options);
+    const verification = bundled ? verifyHermesBundle(bundled.root, projectRoot) : { ok: false, reason: "hermes_bundled_runtime_missing" };
+    if (!verification.ok) {
+      writeLog(`startup blocked: ${verification.reason}`);
+      return failedCompanion(verification.reason, logPath, { runtime });
+    }
   }
-
   const runtimeApiKey = firstValue(
     options.runtimeControlKey,
     resolveRuntimeControlKey(environment, { allowEphemeralRuntimeKey: options.allowEphemeralRuntimeKey === true })

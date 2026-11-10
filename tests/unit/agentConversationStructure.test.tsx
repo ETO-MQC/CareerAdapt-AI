@@ -280,7 +280,7 @@ describe("AgentConversationTimeline", () => {
     expect(screen.getAllByText(/除了刚才展示/)).toHaveLength(1);
   });
 
-  it("places the user message above the AI row and keeps running task progress collapsed", () => {
+  it("places the user message above the AI row and expands running task progress", () => {
     render(
       <AgentConversationTimeline
         messages={[
@@ -323,7 +323,7 @@ describe("AgentConversationTimeline", () => {
     }
     expect(row?.firstElementChild).toHaveClass("agent-tool-status-row");
     expect(row?.children[1]).toHaveClass("agent-message-main");
-    expect(row?.querySelector<HTMLDetailsElement>(".agent-tool-status-row")?.open).toBe(false);
+    expect(row?.querySelector<HTMLDetailsElement>(".agent-tool-status-row")?.open).toBe(true);
     expect(row?.querySelector(".agent-tool-status-icon .is-running")).toHaveClass("is-visible");
   });
 
@@ -473,7 +473,8 @@ describe("AgentConversationTimeline", () => {
     const activity = document.querySelector<HTMLDetailsElement>(".agent-tool-status-row");
     expect(activity?.open).toBe(false);
     expect(screen.getByText("未完成", { exact: true })).toBeInTheDocument();
-    expect(screen.getByText(/读取指定任务的当前进度未完成/)).toBeInTheDocument();
+    expect(screen.getByText("读取当前任务进度")).toBeInTheDocument();
+    expect(screen.queryByText(/指定会话不存在或已失效/)).toBeNull();
     expect(screen.getByRole("alert")).toHaveTextContent("自动处理没有完成");
   });
 

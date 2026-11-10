@@ -1,0 +1,24 @@
+
+> careeradapt-ai@0.9.3-rc.2 electron:build:dir E:\DEF\CareerAdapt-competition-5.1.8
+> next build && node scripts/prepare-electron-standalone.mjs && node scripts/prepare-hermes-runtime.mjs && electron-builder --projectDir electron --config ../electron-builder.yml --win --dir "--config.directories.output="
+
+▲ Next.js 16.2.9 (Turbopack)
+- Experiments (use with caution):
+  ⨯ turbopackFileSystemCacheForDev
+
+  Creating an optimized production build ...
+Turbopack build encountered 2 warnings:
+./CareerAdapt-competition-5.1.8/src/services/pdf
+Package pdfjs-dist can't be external
+The request pdfjs-dist/build/pdf.worker.mjs matches serverExternalPackages (or the default list).
+The package seems invalid. require() resolves to a EcmaScript module, which would result in an error in Node.js.
+
+
+./CareerAdapt-competition-5.1.8/src/services/resumeImport
+Package pdfjs-dist can't be external
+The request pdfjs-dist/build/pdf.worker.mjs matches serverExternalPackages (or the default list).
+The package seems invalid. require() resolves to a EcmaScript module, which would result in an error in Node.js.
+
+
+✓ Compiled successfully in 7.9s
+  Running TypeScript ...

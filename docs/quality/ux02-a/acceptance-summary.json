@@ -1,0 +1,23 @@
+{
+  "task": "P5.1-UX-02-A",
+  "date": "2026-11-10",
+  "baseline": "4bf3e40",
+  "initialGitClean": true,
+  "scope": "presentation only",
+  "typecheckExit": 0,
+  "changedFilesEslintExit": 0,
+  "unitFiles": 14,
+  "unitTests": 165,
+  "unitSkipped": 0,
+  "unitExit": 0,
+  "productionBuildExit": 0,
+  "productionBrowserPassed": 3,
+  "productionBrowserExit": 0,
+  "browserProvider": "Hermes Runs/SSE fixture; no real provider calls",
+  "sourceParityFiles": 575,
+  "sourceParityMismatches": 0,
+  "diffCheckExit": 0,
+  "committed": false,
+  "packaged": false,
+  "nextStageStarted": false
+}
