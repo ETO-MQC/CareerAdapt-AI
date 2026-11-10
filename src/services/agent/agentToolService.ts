@@ -1218,6 +1218,8 @@ export class BrowserAgentToolService implements AgentToolServices {
       ...(profile ? { profileRevision: profile.version, profileVersionNumber: profile.profileVersionNumber } : {})
     } : session;
     return { session: current, resetContext,
+      suppressConversationHistory: resetContext || access.hasRevocations
+        || !session.conversationBranches.some(branch => branch.id === session.activeBranchId && branch.parentBranchId),
       hermesSessionId: `hermes-${session.id}-access-${access.scope}` };
   }
 

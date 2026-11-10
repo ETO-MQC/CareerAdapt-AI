@@ -39,11 +39,35 @@ it("hides a recycled Job from Agent list/detail/context and all normal summary r
   const f = await fixture(); await f.repository.moveJobToRecycleBin(f.job.id);
   expect((await f.service.listJobs()).jobs).toHaveLength(0);
   await expect(f.service.getJob({ jobId: f.job.id })).rejects.toThrow();
+  await expect(f.service.retrieveCareerContext({ profileId: f.profile.id, jobId: f.job.id, query: "岗位匹配" })).rejects.toThrow();
   expect(await f.repository.getAvailableJobDescription(f.job.id)).toBeUndefined();
   expect((await buildQuickActionContextSnapshot(f.repository)).jobSummaries).toHaveLength(0);
   expect(await f.repository.getJobDescription(f.job.id)).toBeDefined();
   await f.repository.restoreJobFromRecycleBin(f.job.id);
   expect((await f.service.listJobs()).jobs[0].id).toBe(f.job.id);
+  await expect(f.service.retrieveCareerContext({ profileId: f.profile.id, jobId: f.job.id, query: "岗位匹配" })).resolves.toBeDefined();
+});
+it("resolves current/active only through the trusted Profile binding and keeps explicit IDs isolated", async () => {
+  const f = await fixture();
+  const gateway = f.gateway();
+  for (const profileId of ["current", "active", undefined]) {
+    const result = await gateway.execute("career.profile.get", { profileId }, { ...f.context, operationId: `profile-${profileId}` });
+    expect(result.ok, JSON.stringify(result.error)).toBe(true);
+    expect(result.data).toMatchObject({ profile: { id: f.profile.id } });
+    const context = await gateway.execute("career.context.retrieve", { profileId, query: "有什么资料" }, { ...f.context, operationId: `context-${profileId}` });
+    expect(context.ok, JSON.stringify(context.error)).toBe(true);
+  }
+  const wrong = await gateway.execute("career.profile.get", { profileId: "wrong-profile" }, { ...f.context, operationId: "wrong-profile" });
+  expect(wrong.ok).toBe(false); expect(wrong.data).toBeUndefined();
+  const version = await f.repository.createProfileVersion({ profileId: f.profile.id });
+  const other = await gateway.execute("career.profile.get", { profileId: version.id }, { ...f.context, operationId: "other-existing-profile" });
+  expect(other.ok).toBe(false); expect(other.data).toBeUndefined();
+  for (const name of ["career.profile.get", "career.context.retrieve"]) {
+    const unbound = await gateway.execute(name, { profileId: "active", query: "资料" }, { operationId: `unbound-${name}` });
+    expect(unbound.ok).toBe(false);
+    expect(unbound.error?.code).toBe("career_session_binding_required");
+  }
+  expect((await gateway.execute("career.profile.get", { profileId: f.profile.id }, { ...f.context, operationId: "explicit-profile" })).ok).toBe(true);
 });
 it("newly submitted identical JD creates one new available Job without restoring or overwriting the recycled record", async () => {
   const f = await fixture(); const listing = (await db.jobListings.toArray())[0];
@@ -135,6 +159,7 @@ it("revokes a deleted target from subsequent runtime checkpoints without deletin
   await f.repository.moveJobToRecycleBin(f.job.id);
   const after = await f.service.prepareAvailableRuntimeContext(session);
   expect(after.resetContext).toBe(true);
+  expect(after.suppressConversationHistory).toBe(true);
   expect(after.hermesSessionId).not.toBe(before.hermesSessionId);
   expect(after.session.taskState).toBeUndefined();
   expect(after.session.artifactRefs).toEqual([]);

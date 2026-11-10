@@ -235,7 +235,7 @@ function createAgentHost() {
       const access = await service.prepareAvailableRuntimeContext(currentSession);
       const session = access.resetContext ? await state.adoptDurably(access.session) ?? access.session : access.session;
       input = { ...input, session, metadata: { ...input.metadata,
-        hermesSessionId: access.hermesSessionId, suppressConversationHistory: true } };
+        hermesSessionId: access.hermesSessionId, suppressConversationHistory: access.suppressConversationHistory } };
     }
     const runtimeRequest = input;
     const canStartHermesShell = runtime.id === "hermes"
@@ -453,7 +453,7 @@ function createAgentHost() {
     if (event.type === "regenerate") return `regenerate:${session.id}:${event.messageId}:${stateVersion}`;
     return `event:${session.id}:${crypto.randomUUID()}`;
   };
-  const runUserEvent = (
+  const runUserEvent = async (
     event: RuntimeUserEvent,
     input: Omit<AgentRuntimeTurnInput, "sessionId" | "userMessage"> & { sessionId?: string; userMessage?: string }
   ): Promise<AgentSession | undefined> => {
@@ -480,7 +480,17 @@ function createAgentHost() {
       kind: event.type === "retry" ? "retry" : event.type === "regenerate" ? "regenerate" : "user_turn",
       turnId: input.turnId
     });
-    if (!claim.accepted) return claim.operation.promise as Promise<AgentSession | undefined>;
+    if (!claim.accepted) {
+      if (event.type !== "edit_message") return claim.operation.promise as Promise<AgentSession | undefined>;
+      await interruptRun(session.id, createRunStopReason({
+        requestedBy: "user", reasonCode: "edited_message", sourceComponent: "AgentRuntimeProvider.runUserEvent",
+        sessionId: session.id, logicalTurnId: session.activeTurn?.id, runId: session.hermesRun?.runId
+      }));
+      await Promise.allSettled([claim.operation.promise]);
+      const current = state.getSnapshot().activeSession;
+      if (current?.id !== session.id) return current;
+      return runUserEvent(event, { ...input, session: current });
+    }
     const promise = runUserEventOnce(event, {
       ...input,
       session,
@@ -505,8 +515,18 @@ function createAgentHost() {
     return promise;
   };
   const runUserEventOnce = async (event: RuntimeUserEvent, input: Omit<AgentRuntimeTurnInput, "sessionId" | "userMessage"> & { sessionId?: string; userMessage?: string }) => {
-    const session = input.session ?? state.getSnapshot().activeSession;
+    let session = input.session ?? state.getSnapshot().activeSession;
     if (!session) throw new Error("agent_session_required");
+    if (event.type === "edit_message" && session.hermesRun
+      && ["queued", "running", "waiting_for_approval", "stopping"].includes(session.hermesRun.status)) {
+      await interruptRun(session.id, createRunStopReason({
+        requestedBy: "user", reasonCode: "edited_message", sourceComponent: "AgentRuntimeProvider.runUserEvent",
+        sessionId: session.id, logicalTurnId: session.activeTurn?.id, runId: session.hermesRun.runId
+      }));
+      const current = state.getSnapshot().activeSession;
+      if (current?.id !== session.id) return current;
+      session = current;
+    }
     if (
       event.type === "workflow_control"
       && (event.action.type === "cancel_workflow" || event.action.type === "pause_workflow")

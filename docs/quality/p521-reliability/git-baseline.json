@@ -1,0 +1,23 @@
+{
+  "head": "2db9e244581862c008cef0a3c9879b60af3249c1",
+  "branch": "competition/5.1.8",
+  "startingStatus": "",
+  "startingDiffStat": "",
+  "log15": [
+    "2db9e24 修复开发Hermes启动问题",
+    "4bf3e40 fix(): 删除隔离漏洞修复",
+    "944c818 P5.1-Job-Intake-Hotfix-01 — Reliable Job Intake & Save Closure",
+    "7c1d852 P5.1-UX-01.3-B0/B1/B2 — Material Intake Core Business Workflow",
+    "ecd5567 P5.1-UX-01.3-A2 — Structured Resume Operations",
+    "3ee88a6 P5.1-UX-01.3-A0/A1 — Precise Editing Implementation",
+    "5f52faa P5.1-UX-01.3-AUDIT — Precise Second Editing & Image Material Workflow",
+    "7e6cd06 UX-01.2-R",
+    "090f3da 2026-11-06 UX-01.2",
+    "37c5542 2026-11-05 UX-01.1-R",
+    "d34f8a5 P5.1-UX-01.1",
+    "874a03b P5.1-RP-01.1",
+    "3d4c6ed P5.1-RP-01: record partial real-provider qualification and runtime preflight",
+    "77d43a9 P5.1-RESUME-01",
+    "887f061 JD-03 已正式收口"
+  ]
+}

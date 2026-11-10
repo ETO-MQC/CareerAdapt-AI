@@ -1,0 +1,47 @@
+
+> careeradapt-ai@0.9.3-rc.2 test E:\DEF\CareerAdapt-competition-5.1.8
+> vitest run "tests/unit/p521BaselineObservation.test.ts" "-t" "preserves Provider diagnostics when the event-stream endpoint returns an error envelope"
+
+
+ RUN  v4.1.9 E:/DEF/CareerAdapt-competition-5.1.8
+
+ ❯ tests/unit/p521BaselineObservation.test.ts (27 tests | 1 failed | 26 skipped) 13ms
+     × preserves Provider diagnostics when the event-stream endpoint returns an error envelope 12ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/p521BaselineObservation.test.ts > R2-OBS-01 evidence-based error propagation > preserves Provider diagnostics when the event-stream endpoint returns an error envelope
+AssertionError: promise resolved "{ …(2) }" instead of rejecting
+
+- Expected
++ Received
+
+- Error {
+-   "message": "rejected promise",
++ {
++   "done": false,
++   "value": {
++     "data": {
++       "reconciliation": "status_unavailable",
++     },
++     "type": "progress",
++   },
+  }
+
+ ❯ tests/unit/p521BaselineObservation.test.ts:97:101
+     95|       code: "provider_http_429", diagnostics: { httpStatus: 429, failu…
+     96|     } }), { status: 502 })));
+     97|     await expect(new HttpHermesBridgeTransport().runEvents("r2-run")[S…
+       |                                                                                                     ^
+     98|       diagnostics: { httpStatus: 429, failureLayer: "provider", safeEr…
+     99|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 26 skipped (27)
+   Start at  00:19:23
+   Duration  2.79s (transform 1.12s, setup 148ms, import 1.53s, tests 13ms, environment 875ms)
+
+ ELIFECYCLE  Test failed. See above for more details.

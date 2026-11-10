@@ -1,0 +1,2225 @@
+{
+  "sessions": [
+    {
+      "agentSessionSchemaVersion": 3,
+      "id": "agent-session-O_6N9Y-Khgoj",
+      "title": "新的对话",
+      "titleOrigin": "default",
+      "messages": [],
+      "sessionRevision": 15,
+      "artifactRefs": [],
+      "personId": "person-b035a4c6-8cba-4e10-adb9-6e47340018a1",
+      "activeProfileId": "profile-202f5a98-2e70-40ae-8e77-3db439191441",
+      "profileVersionNumber": 1,
+      "profileRevision": 1,
+      "conversationSummary": "",
+      "runtimeId": "hermes",
+      "hermesRun": {
+        "runId": "run_7020e609cb614cbe942a2c1dc2574f60",
+        "hermesSessionId": "hermes-agent-session-O_6N9Y-Khgoj-access-7883e5c98a76c140e35cd5a1b6ddf9a232ecaf76a45a794d4e043ee659dc4bc9-branch-legacy-branch",
+        "careerAgentSessionId": "agent-session-O_6N9Y-Khgoj",
+        "turnId": "runtime-turn-4e027cf0-2c1a-4907-a8f3-c21b695b8e21",
+        "status": "completed",
+        "startedAt": "2026-11-10T16:26:32.314Z",
+        "lastEventAt": "2026-11-10T16:26:50.369Z"
+      },
+      "activeTurn": {
+        "id": "runtime-turn-4e027cf0-2c1a-4907-a8f3-c21b695b8e21",
+        "sessionId": "agent-session-O_6N9Y-Khgoj",
+        "sourceUserMessageId": "agent-user-29125424-2208-429d-97e9-fb108a03f273",
+        "userMessageId": "agent-user-29125424-2208-429d-97e9-fb108a03f273",
+        "runtimeId": "hermes",
+        "preferredRuntime": "hermes",
+        "attemptedRuntime": "hermes",
+        "finalRuntime": "hermes",
+        "executionOwner": "hermes",
+        "fallbackUsed": false,
+        "incidentTraceId": "incident-3715e334-15f4-45c8-bdbb-05ac1694ffa7",
+        "hermesRunId": "run_7020e609cb614cbe942a2c1dc2574f60",
+        "visibleAssistantMessageId": "agent-thinking-e463965d-77e9-4735-844e-92a49b794d17",
+        "toolFailures": [],
+        "runtimeAttempts": [
+          {
+            "attemptNumber": 1,
+            "traceId": "incident-3715e334-15f4-45c8-bdbb-05ac1694ffa7:attempt-1",
+            "sessionId": "agent-session-O_6N9Y-Khgoj",
+            "turnId": "runtime-turn-4e027cf0-2c1a-4907-a8f3-c21b695b8e21",
+            "hermesSessionId": "hermes-agent-session-O_6N9Y-Khgoj-access-7883e5c98a76c140e35cd5a1b6ddf9a232ecaf76a45a794d4e043ee659dc4bc9-branch-legacy-branch",
+            "runId": "run_7020e609cb614cbe942a2c1dc2574f60",
+            "startRequestedAt": "2026-11-10T16:26:32.566Z",
+            "runStartedAt": "2026-11-10T16:26:32.566Z",
+            "firstEventAt": "2026-11-10T16:26:32.566Z",
+            "terminalAt": "2026-11-10T16:26:50.369Z",
+            "terminalStatus": "completed",
+            "status": "completed",
+            "lastEventType": "turn_completed"
+          }
+        ],
+        "turnStartSnapshot": {
+          "capturedAt": "2026-11-10T16:26:32.068Z",
+          "supervisor": {
+            "overallState": "ready",
+            "processReady": true,
+            "apiReady": true,
+            "providerReady": true,
+            "careerMcpReady": true,
+            "toolSurfaceReady": true,
+            "runReady": true,
+            "restartAttempt": 0,
+            "capturedAt": "2026-11-10T16:26:32.068Z",
+            "maintenancePending": false
+          },
+          "runtimeHealth": {
+            "runtimeId": "hermes",
+            "runtimeAvailable": true,
+            "companionReady": true,
+            "providerConfigured": true,
+            "providerReachable": true,
+            "providerReady": true,
+            "provider": "custom:careeradapt",
+            "providerStatus": "ready",
+            "providerDiagnostic": {
+              "provider": "custom:careeradapt",
+              "model": "careeradapt-test",
+              "credentialConfigured": true,
+              "credentialSource": "server_env",
+              "configFingerprint": "7066fc7c9893ca1ecee752116082a37860a0df02fcb35c2be7f9ae0f89779207",
+              "configGeneration": 1,
+              "lastCheckedAt": "2026-11-10T16:26:15.023Z",
+              "lastHttpStatus": 200
+            },
+            "model": "careeradapt-test",
+            "toolCallingCapability": "unknown",
+            "toolCallingAvailable": false,
+            "toolCallInFlight": false,
+            "mcpConnected": true,
+            "mcpReady": true,
+            "mcpToolCount": 62,
+            "careerSkillsLoaded": true,
+            "browserCareerDomainHostConnected": true,
+            "careerMcpServerReachable": true,
+            "careerMcpContractCount": 14,
+            "hermesMcpRegistered": true,
+            "hermesMcpToolCount": 14,
+            "requiredCareerFacadesTotal": 10,
+            "hermesCareerFacadeCount": 10,
+            "careerToolContractReady": true,
+            "careerToolContractVersion": "career-tool-contract-v5",
+            "appBuildCommit": "workspace-source",
+            "appBuildTimestamp": "development",
+            "careerToolContractMismatches": [],
+            "requiredCareerFacadesMissing": [],
+            "careerGatewayContracts": [
+              "career.context.retrieve",
+              "career.export.resume",
+              "career.job.analyze_fit",
+              "career.job.commit",
+              "career.job.get",
+              "career.job.list",
+              "career.job.parse",
+              "career.material.prepare",
+              "career.preview.apply_changes",
+              "career.preview.review_diff",
+              "career.profile.active",
+              "career.profile.capture_intake",
+              "career.profile.commit_intake",
+              "career.profile.get",
+              "career.profile.list",
+              "career.profile.reconcile_intake",
+              "career.profile.resolve_intake_conflict",
+              "career.profile.review_intake",
+              "career.profile.search_facts",
+              "career.profile.synthesize_intake",
+              "career.resume.apply_precise_edit",
+              "career.resume.archive",
+              "career.resume.build_evidence_graph",
+              "career.resume.compose",
+              "career.resume.create_from_profile",
+              "career.resume.create_job_from_profile",
+              "career.resume.ensure_general_from_profile",
+              "career.resume.get",
+              "career.resume.get_revision",
+              "career.resume.import.commit",
+              "career.resume.import.create_draft",
+              "career.resume.import.parse_file",
+              "career.resume.import.prepare",
+              "career.resume.import.reconcile",
+              "career.resume.import.resolve_reconciliation",
+              "career.resume.import.review",
+              "career.resume.list",
+              "career.resume.plan_composition",
+              "career.resume.prepare_precise_edit",
+              "career.resume.recommend_source",
+              "career.resume.restore",
+              "career.resume.review_composition",
+              "career.system.current_task",
+              "career.system.last_failure",
+              "career.system.runtime_status",
+              "career.tailoring.answer_question",
+              "career.tailoring.apply_changes",
+              "career.tailoring.create_session",
+              "career.tailoring.generate_changes",
+              "career.tailoring.preview_changes",
+              "career.tailoring.review_diff",
+              "career.workflow.compose_resume",
+              "career.workflow.job_fit",
+              "career.workflow.job_intake",
+              "career.workflow.material_intake",
+              "career.workflow.precise_edit",
+              "career.workflow.profile_intake_finalize",
+              "career.workflow.profile_intake_turn",
+              "career.workflow.profile_to_resume",
+              "career.workflow.resume_export",
+              "career.workflow.resume_import",
+              "career.workflow.tailor_resume"
+            ],
+            "careerMcpExposedTools": [
+              "career.context.retrieve",
+              "career.job.list",
+              "career.profile.get",
+              "career.resume.list",
+              "career.workflow.compose_resume",
+              "career.workflow.job_fit",
+              "career.workflow.job_intake",
+              "career.workflow.material_intake",
+              "career.workflow.precise_edit",
+              "career.workflow.profile_intake_finalize",
+              "career.workflow.profile_intake_turn",
+              "career.workflow.resume_export",
+              "career.workflow.resume_import",
+              "career.workflow.tailor_resume"
+            ],
+            "hermesRegisteredToolsets": [
+              "mcp-careeradapt",
+              "skills"
+            ],
+            "hermesVisibleTools": [
+              "mcp__careeradapt__career_context_retrieve",
+              "mcp__careeradapt__career_job_list",
+              "mcp__careeradapt__career_profile_get",
+              "mcp__careeradapt__career_resume_list",
+              "mcp__careeradapt__career_workflow_compose_resume",
+              "mcp__careeradapt__career_workflow_job_fit",
+              "mcp__careeradapt__career_workflow_job_intake",
+              "mcp__careeradapt__career_workflow_material_intake",
+              "mcp__careeradapt__career_workflow_precise_edit",
+              "mcp__careeradapt__career_workflow_profile_intake_finalize",
+              "mcp__careeradapt__career_workflow_profile_intake_turn",
+              "mcp__careeradapt__career_workflow_resume_export",
+              "mcp__careeradapt__career_workflow_resume_import",
+              "mcp__careeradapt__career_workflow_tailor_resume",
+              "skill_manage",
+              "skill_view",
+              "skills_list"
+            ],
+            "missingRequiredCareerTools": [],
+            "lastCheckedAt": "2026-11-10T16:26:31.025Z",
+            "runReady": true
+          },
+          "run": {
+            "status": "not_started"
+          }
+        },
+        "recoveryAttempted": false,
+        "firstEventAt": "2026-11-10T16:26:32.566Z",
+        "status": "completed",
+        "startedAt": "2026-11-10T16:26:32.073Z",
+        "completedAt": "2026-11-10T16:26:50.370Z"
+      },
+      "conversationBranches": [
+        {
+          "id": "legacy-branch",
+          "headMessageId": "agent-tool-career-logical-1e8fb6e6",
+          "status": "active",
+          "createdAt": "2026-11-10T16:26:28.940Z"
+        }
+      ],
+      "activeBranchId": "legacy-branch",
+      "activeHeadMessageId": "agent-tool-career-logical-1e8fb6e6",
+      "turnCheckpoints": [],
+      "archived": false,
+      "createdAt": "2026-11-10T16:26:28.940Z",
+      "updatedAt": "2026-11-10T16:26:50.370Z"
+    }
+  ],
+  "messages": [
+    {
+      "id": "agent-thinking-e463965d-77e9-4735-844e-92a49b794d17",
+      "branchId": "legacy-branch",
+      "turnId": "runtime-turn-4e027cf0-2c1a-4907-a8f3-c21b695b8e21",
+      "role": "assistant",
+      "content": "已读取当前职业档案、职业资料、简历和可用岗位；仅作概览，没有修改任何数据。",
+      "kind": "text",
+      "type": "text",
+      "status": "complete",
+      "parentMessageId": "agent-user-29125424-2208-429d-97e9-fb108a03f273",
+      "streaming": false,
+      "metadata": {
+        "runtimeId": "hermes",
+        "runtimeTextStarted": true,
+        "terminalState": "COMPLETED"
+      },
+      "updatedAt": "2026-11-10T16:26:50.370Z",
+      "createdAt": "2026-11-10T16:26:32.074Z",
+      "sessionId": "agent-session-O_6N9Y-Khgoj",
+      "sequence": 1
+    },
+    {
+      "id": "agent-tool-career-logical-1e8fb6e6",
+      "branchId": "legacy-branch",
+      "turnId": "runtime-turn-4e027cf0-2c1a-4907-a8f3-c21b695b8e21",
+      "role": "tool",
+      "content": "该步骤已处理，正在核对业务结果。",
+      "kind": "tool_status",
+      "type": "tool_status",
+      "status": "complete",
+      "toolName": "mcp__careeradapt__career_job_list",
+      "operationId": "hermes-mcp-run_7020e609cb614cbe942a2c1dc2574f60-mcp__careeradapt__career_job_list",
+      "parentMessageId": "agent-tool-career-logical-9beb0ace",
+      "metadata": {
+        "runtimeId": "hermes",
+        "activityState": "complete",
+        "businessCommitted": false,
+        "logicalToolOperationId": "career-logical-1e8fb6e6",
+        "hermesRunId": "run_7020e609cb614cbe942a2c1dc2574f60",
+        "transportOperationIds": [
+          "hermes-mcp-run_7020e609cb614cbe942a2c1dc2574f60-mcp__careeradapt__career_job_list"
+        ],
+        "operationId": "hermes-mcp-run_7020e609cb614cbe942a2c1dc2574f60-mcp__careeradapt__career_job_list",
+        "requestedHermesToolName": "mcp__careeradapt__career_job_list",
+        "stableCareerToolName": "career.job.list"
+      },
+      "updatedAt": "2026-11-10T16:26:50.183Z",
+      "createdAt": "2026-11-10T16:26:49.157Z",
+      "sessionId": "agent-session-O_6N9Y-Khgoj",
+      "sequence": 8
+    },
+    {
+      "id": "agent-tool-career-logical-2035c5b0",
+      "branchId": "legacy-branch",
+      "turnId": "runtime-turn-4e027cf0-2c1a-4907-a8f3-c21b695b8e21",
+      "role": "tool",
+      "content": "该步骤已处理，正在核对业务结果。",
+      "kind": "tool_status",
+      "type": "tool_status",
+      "status": "complete",
+      "toolName": "mcp__careeradapt__career_profile_get",
+      "operationId": "hermes-mcp-run_7020e609cb614cbe942a2c1dc2574f60-mcp__careeradapt__career_profile_get",
+      "parentMessageId": "agent-thinking-e463965d-77e9-4735-844e-92a49b794d17",
+      "metadata": {
+        "runtimeId": "hermes",
+        "activityState": "complete",
+        "businessCommitted": false,
+        "logicalToolOperationId": "career-logical-2035c5b0",
+        "hermesRunId": "run_7020e609cb614cbe942a2c1dc2574f60",
+        "transportOperationIds": [
+          "hermes-mcp-run_7020e609cb614cbe942a2c1dc2574f60-mcp__careeradapt__career_profile_get"
+        ],
+        "operationId": "hermes-mcp-run_7020e609cb614cbe942a2c1dc2574f60-mcp__careeradapt__career_profile_get",
+        "requestedHermesToolName": "mcp__careeradapt__career_profile_get",
+        "stableCareerToolName": "career.profile.get"
+      },
+      "updatedAt": "2026-11-10T16:26:45.841Z",
+      "createdAt": "2026-11-10T16:26:44.619Z",
+      "sessionId": "agent-session-O_6N9Y-Khgoj",
+      "sequence": 2
+    },
+    {
+      "id": "agent-tool-career-logical-246e10ca",
+      "branchId": "legacy-branch",
+      "turnId": "runtime-turn-4e027cf0-2c1a-4907-a8f3-c21b695b8e21",
+      "role": "tool",
+      "content": "该步骤已处理，正在核对业务结果。",
+      "kind": "tool_status",
+      "type": "tool_status",
+      "status": "complete",
+      "toolName": "mcp__careeradapt__career_context_retrieve",
+      "operationId": "hermes-mcp-run_7020e609cb614cbe942a2c1dc2574f60-mcp__careeradapt__career_context_retrieve",
+      "parentMessageId": "agent-tool-career-logical-2035c5b0",
+      "metadata": {
+        "runtimeId": "hermes",
+        "activityState": "complete",
+        "businessCommitted": false,
+        "logicalToolOperationId": "career-logical-246e10ca",
+        "hermesRunId": "run_7020e609cb614cbe942a2c1dc2574f60",
+        "transportOperationIds": [
+          "hermes-mcp-run_7020e609cb614cbe942a2c1dc2574f60-mcp__careeradapt__career_context_retrieve"
+        ],
+        "operationId": "hermes-mcp-run_7020e609cb614cbe942a2c1dc2574f60-mcp__careeradapt__career_context_retrieve",
+        "requestedHermesToolName": "mcp__careeradapt__career_context_retrieve",
+        "stableCareerToolName": "career.context.retrieve"
+      },
+      "updatedAt": "2026-11-10T16:26:47.229Z",
+      "createdAt": "2026-11-10T16:26:46.190Z",
+      "sessionId": "agent-session-O_6N9Y-Khgoj",
+      "sequence": 4
+    },
+    {
+      "id": "agent-tool-career-logical-9beb0ace",
+      "branchId": "legacy-branch",
+      "turnId": "runtime-turn-4e027cf0-2c1a-4907-a8f3-c21b695b8e21",
+      "role": "tool",
+      "content": "该步骤已处理，正在核对业务结果。",
+      "kind": "tool_status",
+      "type": "tool_status",
+      "status": "complete",
+      "toolName": "mcp__careeradapt__career_resume_list",
+      "operationId": "hermes-mcp-run_7020e609cb614cbe942a2c1dc2574f60-mcp__careeradapt__career_resume_list",
+      "parentMessageId": "agent-tool-career-logical-246e10ca",
+      "metadata": {
+        "runtimeId": "hermes",
+        "activityState": "complete",
+        "businessCommitted": false,
+        "logicalToolOperationId": "career-logical-9beb0ace",
+        "hermesRunId": "run_7020e609cb614cbe942a2c1dc2574f60",
+        "transportOperationIds": [
+          "hermes-mcp-run_7020e609cb614cbe942a2c1dc2574f60-mcp__careeradapt__career_resume_list"
+        ],
+        "operationId": "hermes-mcp-run_7020e609cb614cbe942a2c1dc2574f60-mcp__careeradapt__career_resume_list",
+        "requestedHermesToolName": "mcp__careeradapt__career_resume_list",
+        "stableCareerToolName": "career.resume.list"
+      },
+      "updatedAt": "2026-11-10T16:26:48.756Z",
+      "createdAt": "2026-11-10T16:26:47.579Z",
+      "sessionId": "agent-session-O_6N9Y-Khgoj",
+      "sequence": 6
+    },
+    {
+      "id": "agent-tool-mcp-career-8jzIv_QCGrEdB4UZ",
+      "branchId": "legacy-branch",
+      "turnId": "runtime-turn-4e027cf0-2c1a-4907-a8f3-c21b695b8e21",
+      "role": "tool",
+      "content": "该步骤已处理，正在核对业务结果。",
+      "kind": "tool_status",
+      "type": "tool_status",
+      "status": "complete",
+      "toolName": "career.job.list",
+      "operationId": "mcp-career-8jzIv_QCGrEdB4UZ",
+      "parentMessageId": "agent-tool-career-logical-1e8fb6e6",
+      "metadata": {
+        "runtimeId": "hermes",
+        "activityState": "complete",
+        "businessCommitted": false,
+        "logicalToolOperationId": "mcp-career-8jzIv_QCGrEdB4UZ",
+        "transportOperationIds": [
+          "mcp-career-8jzIv_QCGrEdB4UZ"
+        ],
+        "operationId": "mcp-career-8jzIv_QCGrEdB4UZ",
+        "toolFailureDiagnostics": {
+          "toolFailureLayer": "unknown",
+          "failureScope": "career_workflow",
+          "safeDomainErrorCode": "none",
+          "toolResultIsError": false,
+          "failedStage": "completed",
+          "durationMs": 43,
+          "retryable": false,
+          "operationId": "mcp-career-8jzIv_QCGrEdB4UZ",
+          "logicalToolOperationId": "mcp-career-8jzIv_QCGrEdB4UZ",
+          "logicalTurnId": "runtime-turn-4e027cf0-2c1a-4907-a8f3-c21b695b8e21",
+          "taskId": "agent-session-O_6N9Y-Khgoj",
+          "argumentShape": {},
+          "mcpHttpArgumentShape": {},
+          "browserHandlerArgumentShape": {},
+          "gatewayArgumentShape": {},
+          "facadeArgumentShape": {},
+          "sourceUserMessageId": "agent-user-29125424-2208-429d-97e9-fb108a03f273",
+          "sourceUserMessageResolved": true,
+          "runtimeHealthy": true,
+          "mcpHealthy": true,
+          "publishedContractVersion": "career-tool-contract-v5",
+          "publishedSchemaHash": "fnv1a-d4ef12d5",
+          "gatewayContractVersion": "career-tool-contract-v5",
+          "gatewaySchemaHash": "fnv1a-d4ef12d5",
+          "careerToolContractVersion": "career-tool-contract-v5",
+          "appBuildCommit": "workspace-source",
+          "appBuildTimestamp": "development",
+          "mcpCallTrace": {
+            "toolName": "career.job.list",
+            "logicalToolOperationId": "mcp-career-8jzIv_QCGrEdB4UZ",
+            "requestStartedAt": "2026-11-10T16:26:49.782Z",
+            "jsonRpcStatus": "response_received",
+            "browserMcpHandlerReached": true,
+            "gatewayReached": true,
+            "completedAt": "2026-11-10T16:26:49.782Z"
+          },
+          "startedAt": "2026-11-10T16:26:49.739Z",
+          "enteredGatewayAt": "2026-11-10T16:26:49.739Z",
+          "firstInternalOperationAt": "2026-11-10T16:26:49.779Z",
+          "completedAt": "2026-11-10T16:26:49.782Z"
+        }
+      },
+      "updatedAt": "2026-11-10T16:26:49.850Z",
+      "createdAt": "2026-11-10T16:26:49.850Z",
+      "sessionId": "agent-session-O_6N9Y-Khgoj",
+      "sequence": 9
+    },
+    {
+      "id": "agent-tool-mcp-career-LVZ4Fz9l3U8twtdS",
+      "branchId": "legacy-branch",
+      "turnId": "runtime-turn-4e027cf0-2c1a-4907-a8f3-c21b695b8e21",
+      "role": "tool",
+      "content": "该步骤已处理，正在核对业务结果。",
+      "kind": "tool_status",
+      "type": "tool_status",
+      "status": "complete",
+      "toolName": "career.profile.get",
+      "operationId": "mcp-career-LVZ4Fz9l3U8twtdS",
+      "parentMessageId": "agent-tool-career-logical-2035c5b0",
+      "metadata": {
+        "runtimeId": "hermes",
+        "activityState": "complete",
+        "businessCommitted": false,
+        "logicalToolOperationId": "mcp-career-LVZ4Fz9l3U8twtdS",
+        "transportOperationIds": [
+          "mcp-career-LVZ4Fz9l3U8twtdS"
+        ],
+        "operationId": "mcp-career-LVZ4Fz9l3U8twtdS",
+        "toolFailureDiagnostics": {
+          "toolFailureLayer": "unknown",
+          "failureScope": "career_workflow",
+          "safeDomainErrorCode": "none",
+          "toolResultIsError": false,
+          "failedStage": "completed",
+          "durationMs": 37,
+          "retryable": false,
+          "operationId": "mcp-career-LVZ4Fz9l3U8twtdS",
+          "logicalToolOperationId": "mcp-career-LVZ4Fz9l3U8twtdS",
+          "logicalTurnId": "runtime-turn-4e027cf0-2c1a-4907-a8f3-c21b695b8e21",
+          "taskId": "agent-session-O_6N9Y-Khgoj",
+          "argumentShape": {
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-d965bbda-7"
+            }
+          },
+          "mcpHttpArgumentShape": {
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-d965bbda-7"
+            }
+          },
+          "browserHandlerArgumentShape": {
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-d965bbda-7"
+            }
+          },
+          "gatewayArgumentShape": {
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-d965bbda-7"
+            }
+          },
+          "facadeArgumentShape": {
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-d965bbda-7"
+            }
+          },
+          "sourceUserMessageId": "agent-user-29125424-2208-429d-97e9-fb108a03f273",
+          "sourceUserMessageResolved": true,
+          "runtimeHealthy": true,
+          "mcpHealthy": true,
+          "publishedContractVersion": "career-tool-contract-v5",
+          "publishedSchemaHash": "fnv1a-9ac70ce2",
+          "gatewayContractVersion": "career-tool-contract-v5",
+          "gatewaySchemaHash": "fnv1a-9ac70ce2",
+          "careerToolContractVersion": "career-tool-contract-v5",
+          "appBuildCommit": "workspace-source",
+          "appBuildTimestamp": "development",
+          "mcpCallTrace": {
+            "toolName": "career.profile.get",
+            "logicalToolOperationId": "mcp-career-LVZ4Fz9l3U8twtdS",
+            "requestStartedAt": "2026-11-10T16:26:45.442Z",
+            "jsonRpcStatus": "response_received",
+            "browserMcpHandlerReached": true,
+            "gatewayReached": true,
+            "completedAt": "2026-11-10T16:26:45.442Z"
+          },
+          "startedAt": "2026-11-10T16:26:45.405Z",
+          "enteredGatewayAt": "2026-11-10T16:26:45.405Z",
+          "firstInternalOperationAt": "2026-11-10T16:26:45.433Z",
+          "completedAt": "2026-11-10T16:26:45.442Z"
+        }
+      },
+      "updatedAt": "2026-11-10T16:26:45.522Z",
+      "createdAt": "2026-11-10T16:26:45.522Z",
+      "sessionId": "agent-session-O_6N9Y-Khgoj",
+      "sequence": 3
+    },
+    {
+      "id": "agent-tool-mcp-career-Z3Lz5zu2hQ3Wm2XO",
+      "branchId": "legacy-branch",
+      "turnId": "runtime-turn-4e027cf0-2c1a-4907-a8f3-c21b695b8e21",
+      "role": "tool",
+      "content": "该步骤已处理，正在核对业务结果。",
+      "kind": "tool_status",
+      "type": "tool_status",
+      "status": "complete",
+      "toolName": "career.resume.list",
+      "operationId": "mcp-career-Z3Lz5zu2hQ3Wm2XO",
+      "parentMessageId": "agent-tool-career-logical-9beb0ace",
+      "metadata": {
+        "runtimeId": "hermes",
+        "activityState": "complete",
+        "businessCommitted": false,
+        "logicalToolOperationId": "mcp-career-Z3Lz5zu2hQ3Wm2XO",
+        "transportOperationIds": [
+          "mcp-career-Z3Lz5zu2hQ3Wm2XO"
+        ],
+        "operationId": "mcp-career-Z3Lz5zu2hQ3Wm2XO",
+        "toolFailureDiagnostics": {
+          "toolFailureLayer": "unknown",
+          "failureScope": "career_workflow",
+          "safeDomainErrorCode": "none",
+          "toolResultIsError": false,
+          "failedStage": "completed",
+          "durationMs": 82,
+          "retryable": false,
+          "operationId": "mcp-career-Z3Lz5zu2hQ3Wm2XO",
+          "logicalToolOperationId": "mcp-career-Z3Lz5zu2hQ3Wm2XO",
+          "logicalTurnId": "runtime-turn-4e027cf0-2c1a-4907-a8f3-c21b695b8e21",
+          "taskId": "agent-session-O_6N9Y-Khgoj",
+          "argumentShape": {},
+          "mcpHttpArgumentShape": {},
+          "browserHandlerArgumentShape": {},
+          "gatewayArgumentShape": {},
+          "facadeArgumentShape": {},
+          "sourceUserMessageId": "agent-user-29125424-2208-429d-97e9-fb108a03f273",
+          "sourceUserMessageResolved": true,
+          "runtimeHealthy": true,
+          "mcpHealthy": true,
+          "publishedContractVersion": "career-tool-contract-v5",
+          "publishedSchemaHash": "fnv1a-d4ef12d5",
+          "gatewayContractVersion": "career-tool-contract-v5",
+          "gatewaySchemaHash": "fnv1a-d4ef12d5",
+          "careerToolContractVersion": "career-tool-contract-v5",
+          "appBuildCommit": "workspace-source",
+          "appBuildTimestamp": "development",
+          "mcpCallTrace": {
+            "toolName": "career.resume.list",
+            "logicalToolOperationId": "mcp-career-Z3Lz5zu2hQ3Wm2XO",
+            "requestStartedAt": "2026-11-10T16:26:48.354Z",
+            "jsonRpcStatus": "response_received",
+            "browserMcpHandlerReached": true,
+            "gatewayReached": true,
+            "completedAt": "2026-11-10T16:26:48.354Z"
+          },
+          "startedAt": "2026-11-10T16:26:48.272Z",
+          "enteredGatewayAt": "2026-11-10T16:26:48.272Z",
+          "firstInternalOperationAt": "2026-11-10T16:26:48.333Z",
+          "completedAt": "2026-11-10T16:26:48.354Z"
+        }
+      },
+      "updatedAt": "2026-11-10T16:26:48.436Z",
+      "createdAt": "2026-11-10T16:26:48.436Z",
+      "sessionId": "agent-session-O_6N9Y-Khgoj",
+      "sequence": 7
+    },
+    {
+      "id": "agent-tool-mcp-career-dEHnfEaMcB9BqQ9_",
+      "branchId": "legacy-branch",
+      "turnId": "runtime-turn-4e027cf0-2c1a-4907-a8f3-c21b695b8e21",
+      "role": "tool",
+      "content": "该步骤已处理，正在核对业务结果。",
+      "kind": "tool_status",
+      "type": "tool_status",
+      "status": "complete",
+      "toolName": "career.context.retrieve",
+      "operationId": "mcp-career-dEHnfEaMcB9BqQ9_",
+      "parentMessageId": "agent-tool-career-logical-246e10ca",
+      "metadata": {
+        "runtimeId": "hermes",
+        "activityState": "complete",
+        "businessCommitted": false,
+        "logicalToolOperationId": "mcp-career-dEHnfEaMcB9BqQ9_",
+        "transportOperationIds": [
+          "mcp-career-dEHnfEaMcB9BqQ9_"
+        ],
+        "operationId": "mcp-career-dEHnfEaMcB9BqQ9_",
+        "toolFailureDiagnostics": {
+          "toolFailureLayer": "unknown",
+          "failureScope": "career_workflow",
+          "safeDomainErrorCode": "none",
+          "toolResultIsError": false,
+          "failedStage": "completed",
+          "durationMs": 42,
+          "retryable": false,
+          "operationId": "mcp-career-dEHnfEaMcB9BqQ9_",
+          "logicalToolOperationId": "mcp-career-dEHnfEaMcB9BqQ9_",
+          "logicalTurnId": "runtime-turn-4e027cf0-2c1a-4907-a8f3-c21b695b8e21",
+          "taskId": "agent-session-O_6N9Y-Khgoj",
+          "argumentShape": {
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-d975992f-6"
+            },
+            "query": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-5cfc4ff3-5"
+            }
+          },
+          "mcpHttpArgumentShape": {
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-d975992f-6"
+            },
+            "query": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-5cfc4ff3-5"
+            }
+          },
+          "browserHandlerArgumentShape": {
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-d975992f-6"
+            },
+            "query": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-5cfc4ff3-5"
+            }
+          },
+          "gatewayArgumentShape": {
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-d975992f-6"
+            },
+            "query": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-5cfc4ff3-5"
+            }
+          },
+          "facadeArgumentShape": {
+            "profileId": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-d975992f-6"
+            },
+            "query": {
+              "present": true,
+              "lengthBucket": "length:1-20",
+              "hashPrefix": "fnv-5cfc4ff3-5"
+            }
+          },
+          "sourceUserMessageId": "agent-user-29125424-2208-429d-97e9-fb108a03f273",
+          "sourceUserMessageResolved": true,
+          "runtimeHealthy": true,
+          "mcpHealthy": true,
+          "publishedContractVersion": "career-tool-contract-v5",
+          "publishedSchemaHash": "fnv1a-05306cda",
+          "gatewayContractVersion": "career-tool-contract-v5",
+          "gatewaySchemaHash": "fnv1a-05306cda",
+          "careerToolContractVersion": "career-tool-contract-v5",
+          "appBuildCommit": "workspace-source",
+          "appBuildTimestamp": "development",
+          "mcpCallTrace": {
+            "toolName": "career.context.retrieve",
+            "logicalToolOperationId": "mcp-career-dEHnfEaMcB9BqQ9_",
+            "requestStartedAt": "2026-11-10T16:26:46.859Z",
+            "jsonRpcStatus": "response_received",
+            "browserMcpHandlerReached": true,
+            "gatewayReached": true,
+            "completedAt": "2026-11-10T16:26:46.859Z"
+          },
+          "startedAt": "2026-11-10T16:26:46.816Z",
+          "enteredGatewayAt": "2026-11-10T16:26:46.816Z",
+          "firstInternalOperationAt": "2026-11-10T16:26:46.841Z",
+          "completedAt": "2026-11-10T16:26:46.858Z"
+        }
+      },
+      "updatedAt": "2026-11-10T16:26:46.935Z",
+      "createdAt": "2026-11-10T16:26:46.935Z",
+      "sessionId": "agent-session-O_6N9Y-Khgoj",
+      "sequence": 5
+    },
+    {
+      "id": "agent-user-29125424-2208-429d-97e9-fb108a03f273",
+      "branchId": "legacy-branch",
+      "turnId": "runtime-turn-4e027cf0-2c1a-4907-a8f3-c21b695b8e21",
+      "role": "user",
+      "content": "我现在有什么资料？请读取当前职业档案、已有简历和岗位，只做概览，不修改任何数据。",
+      "status": "complete",
+      "metadata": {
+        "executionState": "running",
+        "runtimeId": "hermes"
+      },
+      "updatedAt": "2026-11-10T16:26:32.074Z",
+      "createdAt": "2026-11-10T16:26:32.074Z",
+      "sessionId": "agent-session-O_6N9Y-Khgoj",
+      "sequence": 0
+    }
+  ],
+  "before": {
+    "profiles": [
+      {
+        "id": "profile-202f5a98-2e70-40ae-8e77-3db439191441",
+        "createdAt": "2026-11-10T16:26:31.534Z",
+        "updatedAt": "2026-11-10T16:26:31.534Z",
+        "schemaVersion": "career-profile-v2",
+        "name": "运行时验收人物",
+        "basics": {
+          "name": "运行时验收人物",
+          "links": []
+        },
+        "preference": {
+          "targetRoles": [],
+          "targetCities": [],
+          "industries": []
+        },
+        "version": 1,
+        "experiences": [],
+        "skills": [],
+        "certificates": [],
+        "evidences": [],
+        "unclassifiedBlocks": [],
+        "structuredFacts": [],
+        "structuredBasics": {
+          "name": "运行时验收人物",
+          "portfolioLinks": [],
+          "otherLinks": [],
+          "customFields": []
+        },
+        "personId": "person-b035a4c6-8cba-4e10-adb9-6e47340018a1",
+        "profileVersionNumber": 1,
+        "isCurrent": true,
+        "versionCreatedReason": "initial"
+      },
+      {
+        "id": "profile-demo-student",
+        "createdAt": "2026-07-01T09:00:00.000Z",
+        "updatedAt": "2026-07-01T09:00:00.000Z",
+        "schemaVersion": "career-profile-v2",
+        "name": "同学",
+        "basics": {
+          "name": "同学",
+          "phone": "138****0000",
+          "email": "demo.student@example.com",
+          "location": "杭州",
+          "summary": "经济管理方向本科生，关注数据分析、AI应用和跨境业务流程。",
+          "links": []
+        },
+        "preference": {
+          "targetRoles": [
+            "数据分析实习",
+            "外贸/跨境运营实习"
+          ],
+          "targetCities": [
+            "杭州",
+            "上海"
+          ],
+          "industries": [
+            "互联网",
+            "跨境电商",
+            "咨询"
+          ]
+        },
+        "version": 1,
+        "experiences": [
+          {
+            "id": "exp-stat-modeling",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "type": "competition",
+            "organization": "统计建模竞赛项目",
+            "role": "数据分析成员",
+            "startDate": "2025-03",
+            "endDate": "2025-06",
+            "facts": [
+              {
+                "id": "fact-stat-stata",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "statement": "使用 Stata 清洗 31 个省级样本，并完成描述统计、相关分析与区域差异分析。",
+                "category": "experience",
+                "provenance": [
+                  {
+                    "sourceType": "demo",
+                    "sourceId": "demo-profile-source",
+                    "sourceText": "统计建模：使用Stata清洗31个省级样本，完成描述统计、相关分析与区域差异分析。",
+                    "confidence": 0.95,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-07-01T09:00:00.000Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-stat-default",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "targetRole": "数据分析实习",
+                "text": "奖项名称：数据分析成员\n颁发方：统计建模竞赛项目\n说明：使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。\n原始资料草稿：使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。\n原始标签：Stata；数据清洗；统计分析\n原始证据引用：evidence-stat-report",
+                "factIds": [
+                  "fact-stat-stata"
+                ]
+              }
+            ],
+            "tags": [
+              "Stata",
+              "数据清洗",
+              "统计分析"
+            ],
+            "evidenceIds": [
+              "evidence-stat-report"
+            ]
+          },
+          {
+            "id": "exp-ai-product",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "type": "project",
+            "organization": "AI 求职应用课程项目",
+            "role": "产品与验收协作",
+            "startDate": "2025-09",
+            "endDate": "2025-12",
+            "facts": [
+              {
+                "id": "fact-ai-product",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "statement": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                "category": "experience",
+                "provenance": [
+                  {
+                    "sourceType": "demo",
+                    "sourceId": "demo-profile-source",
+                    "sourceText": "AI应用项目：参与需求梳理、原型设计和功能验收。",
+                    "confidence": 0.95,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-07-01T09:00:00.000Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-ai-default",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "targetRole": "产品/运营实习",
+                "text": "项目名称：AI 求职应用课程项目\n角色：产品与验收协作\n开始日期：2025-09\n结束日期：2025-12\n说明：参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n原始资料草稿：参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。\n原始标签：需求梳理；原型设计；功能验收",
+                "factIds": [
+                  "fact-ai-product"
+                ]
+              }
+            ],
+            "tags": [
+              "需求梳理",
+              "原型设计",
+              "功能验收"
+            ],
+            "evidenceIds": []
+          },
+          {
+            "id": "exp-gov-internship",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "type": "internship",
+            "organization": "某政府部门",
+            "role": "综合事务实习生",
+            "startDate": "2025-07",
+            "endDate": "2025-08",
+            "facts": [
+              {
+                "id": "fact-gov-record",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "statement": "处理公文流转和热线记录，关注记录准确性与信息整理。",
+                "category": "experience",
+                "provenance": [
+                  {
+                    "sourceType": "demo",
+                    "sourceId": "demo-profile-source",
+                    "sourceText": "政府部门实习：处理公文流转和市长热线记录。",
+                    "confidence": 0.95,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-07-01T09:00:00.000Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-gov-default",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "targetRole": "综合运营实习",
+                "text": "组织：某政府部门\n职位/角色：综合事务实习生\n开始日期：2025-07\n结束日期：2025-08\n说明：协助处理公文流转与热线记录，保持信息记录准确、分类清晰。\n亮点：处理公文流转和热线记录，关注记录准确性与信息整理。\n原始资料草稿：协助处理公文流转与热线记录，保持信息记录准确、分类清晰。\n原始标签：信息整理；沟通记录",
+                "factIds": [
+                  "fact-gov-record"
+                ]
+              }
+            ],
+            "tags": [
+              "信息整理",
+              "沟通记录"
+            ],
+            "evidenceIds": []
+          },
+          {
+            "id": "exp-trade-learning",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "type": "other",
+            "organization": "外贸课程与语言学习",
+            "role": "学习者",
+            "startDate": "2024-09",
+            "endDate": "2026-06",
+            "facts": [
+              {
+                "id": "fact-cet4",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "statement": "CET-4 成绩 601，了解基础外贸业务流程。",
+                "category": "language",
+                "provenance": [
+                  {
+                    "sourceType": "demo",
+                    "sourceId": "demo-profile-source",
+                    "sourceText": "英语与外贸学习：CET-4 601，了解外贸业务流程。",
+                    "confidence": 0.95,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-07-01T09:00:00.000Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-trade-default",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "targetRole": "外贸/跨境运营实习",
+                "text": "标题：外贸课程与语言学习\n内容：CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。\n要点：CET-4 成绩 601，了解基础外贸业务流程。\n原始资料草稿：CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。\n原始标签：英语；外贸流程；信息整理",
+                "factIds": [
+                  "fact-cet4"
+                ]
+              }
+            ],
+            "tags": [
+              "英语",
+              "外贸流程",
+              "信息整理"
+            ],
+            "evidenceIds": []
+          }
+        ],
+        "skills": [
+          {
+            "id": "skill-stata",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "name": "Stata",
+            "level": "familiar",
+            "evidenceIds": [
+              "evidence-stat-report"
+            ],
+            "fact": {
+              "id": "fact-skill-stata",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "statement": "使用 Stata 完成数据清洗和统计分析。",
+              "category": "skill",
+              "provenance": [
+                {
+                  "sourceType": "demo",
+                  "sourceId": "demo-profile-source",
+                  "sourceText": "使用Stata清洗31个省级样本",
+                  "confidence": 0.95,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-07-01T09:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            },
+            "lastUsedAt": "2025-06"
+          },
+          {
+            "id": "skill-excel",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "name": "Excel",
+            "level": "familiar",
+            "evidenceIds": [],
+            "fact": {
+              "id": "fact-skill-excel",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "statement": "能使用 Excel 整理表格数据和基础分析结果。",
+              "category": "skill",
+              "provenance": [
+                {
+                  "sourceType": "demo",
+                  "sourceId": "demo-profile-source",
+                  "sourceText": "数据清洗、样本整理和分析交付物",
+                  "confidence": 0.95,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-07-01T09:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            },
+            "lastUsedAt": "2025-06"
+          }
+        ],
+        "certificates": [
+          {
+            "id": "cert-cet4",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "name": "CET-4",
+            "issuer": "全国大学英语四、六级考试委员会",
+            "issuedAt": "2024-12",
+            "evidenceIds": [],
+            "fact": {
+              "id": "fact-cert-cet4",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "statement": "CET-4 成绩 601。",
+              "category": "certificate",
+              "provenance": [
+                {
+                  "sourceType": "demo",
+                  "sourceId": "demo-profile-source",
+                  "sourceText": "CET-4 601",
+                  "confidence": 0.95,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-07-01T09:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            }
+          }
+        ],
+        "evidences": [
+          {
+            "id": "evidence-stat-report",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "type": "text",
+            "title": "统计建模项目说明",
+            "extractedText": "脱敏示例：使用 Stata 清洗 31 个省级样本并完成统计分析。",
+            "privacyLevel": "private",
+            "verifiedAt": "2026-07-01T09:00:00.000Z"
+          }
+        ],
+        "unclassifiedBlocks": [],
+        "structuredFacts": [
+          {
+            "data": {
+              "id": "exp-stat-modeling",
+              "customFields": [
+                {
+                  "id": "exp-stat-modeling:legacy-resume-drafts",
+                  "label": "原始资料草稿",
+                  "valueType": "text",
+                  "value": "使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。",
+                  "order": 0,
+                  "sensitive": false
+                },
+                {
+                  "id": "exp-stat-modeling:legacy-tags",
+                  "label": "原始标签",
+                  "valueType": "string_list",
+                  "value": [
+                    "Stata",
+                    "数据清洗",
+                    "统计分析"
+                  ],
+                  "order": 1,
+                  "sensitive": false
+                },
+                {
+                  "id": "exp-stat-modeling:legacy-evidence-ids",
+                  "label": "原始证据引用",
+                  "valueType": "string_list",
+                  "value": [
+                    "evidence-stat-report"
+                  ],
+                  "order": 2,
+                  "sensitive": false
+                }
+              ],
+              "sectionType": "awards",
+              "name": "数据分析成员",
+              "issuer": "统计建模竞赛项目",
+              "description": "使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。"
+            },
+            "factIds": [
+              "fact-stat-stata"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "使用 Stata 清洗 31 个省级样本，并完成描述统计、相关分析与区域差异分析。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "exp-ai-product",
+              "customFields": [
+                {
+                  "id": "exp-ai-product:legacy-resume-drafts",
+                  "label": "原始资料草稿",
+                  "valueType": "text",
+                  "value": "参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。",
+                  "order": 0,
+                  "sensitive": false
+                },
+                {
+                  "id": "exp-ai-product:legacy-tags",
+                  "label": "原始标签",
+                  "valueType": "string_list",
+                  "value": [
+                    "需求梳理",
+                    "原型设计",
+                    "功能验收"
+                  ],
+                  "order": 1,
+                  "sensitive": false
+                }
+              ],
+              "sectionType": "project",
+              "title": "AI 求职应用课程项目",
+              "role": "产品与验收协作",
+              "startDate": "2025-09",
+              "endDate": "2025-12",
+              "current": false,
+              "tools": [],
+              "description": "参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。",
+              "highlights": [
+                "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+              ],
+              "outcomes": []
+            },
+            "factIds": [
+              "fact-ai-product"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "exp-gov-internship",
+              "customFields": [
+                {
+                  "id": "exp-gov-internship:legacy-resume-drafts",
+                  "label": "原始资料草稿",
+                  "valueType": "text",
+                  "value": "协助处理公文流转与热线记录，保持信息记录准确、分类清晰。",
+                  "order": 0,
+                  "sensitive": false
+                },
+                {
+                  "id": "exp-gov-internship:legacy-tags",
+                  "label": "原始标签",
+                  "valueType": "string_list",
+                  "value": [
+                    "信息整理",
+                    "沟通记录"
+                  ],
+                  "order": 1,
+                  "sensitive": false
+                }
+              ],
+              "sectionType": "internship",
+              "organization": "某政府部门",
+              "role": "综合事务实习生",
+              "startDate": "2025-07",
+              "endDate": "2025-08",
+              "current": false,
+              "description": "协助处理公文流转与热线记录，保持信息记录准确、分类清晰。",
+              "highlights": [
+                "处理公文流转和热线记录，关注记录准确性与信息整理。"
+              ]
+            },
+            "factIds": [
+              "fact-gov-record"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "处理公文流转和热线记录，关注记录准确性与信息整理。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "exp-trade-learning",
+              "customFields": [
+                {
+                  "id": "exp-trade-learning:legacy-resume-drafts",
+                  "label": "原始资料草稿",
+                  "valueType": "text",
+                  "value": "CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。",
+                  "order": 0,
+                  "sensitive": false
+                },
+                {
+                  "id": "exp-trade-learning:legacy-tags",
+                  "label": "原始标签",
+                  "valueType": "string_list",
+                  "value": [
+                    "英语",
+                    "外贸流程",
+                    "信息整理"
+                  ],
+                  "order": 1,
+                  "sensitive": false
+                }
+              ],
+              "sectionType": "other",
+              "title": "外贸课程与语言学习",
+              "description": "CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。",
+              "highlights": [
+                "CET-4 成绩 601，了解基础外贸业务流程。"
+              ]
+            },
+            "factIds": [
+              "fact-cet4"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "CET-4 成绩 601，了解基础外贸业务流程。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "skill-stata",
+              "customFields": [],
+              "sectionType": "skills",
+              "name": "Stata",
+              "level": "familiar",
+              "description": "使用 Stata 完成数据清洗和统计分析。"
+            },
+            "factIds": [
+              "fact-skill-stata"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "skill-excel",
+              "customFields": [],
+              "sectionType": "skills",
+              "name": "Excel",
+              "level": "familiar",
+              "description": "能使用 Excel 整理表格数据和基础分析结果。"
+            },
+            "factIds": [
+              "fact-skill-excel"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "cert-cet4",
+              "customFields": [],
+              "sectionType": "certificates",
+              "name": "CET-4",
+              "issuer": "全国大学英语四、六级考试委员会",
+              "issuedAt": "2024-12"
+            },
+            "factIds": [
+              "fact-cert-cet4"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "mappingTrace": []
+          }
+        ],
+        "structuredBasics": {
+          "name": "同学",
+          "summary": "经济管理方向本科生，关注数据分析、AI应用和跨境业务流程。",
+          "phone": "138****0000",
+          "email": "demo.student@example.com",
+          "location": "杭州",
+          "portfolioLinks": [],
+          "otherLinks": [],
+          "customFields": []
+        },
+        "personId": "person-profile-demo-student",
+        "profileVersionNumber": 1,
+        "isCurrent": true,
+        "versionCreatedReason": "initial"
+      }
+    ],
+    "jobDescriptions": [
+      {
+        "id": "job-data-analyst-intern",
+        "createdAt": "2026-07-01T09:00:00.000Z",
+        "updatedAt": "2026-07-01T09:00:00.000Z",
+        "title": "数据分析实习生",
+        "company": "示例科技公司",
+        "industry": "互联网",
+        "location": "杭州",
+        "workType": "实习",
+        "rawText": "数据分析实习生：负责业务数据清洗、统计分析和周报支持；熟悉 Excel 或 Stata；具备清晰的数据表达能力，有统计建模经验优先。",
+        "source": "demo",
+        "parsedAt": "2026-07-01T09:00:00.000Z",
+        "requirements": [
+          {
+            "id": "req-data-cleaning",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "category": "responsibility",
+            "description": "负责业务数据清洗、统计分析和周报支持。",
+            "priority": "high",
+            "hardConstraint": false,
+            "sourceSpan": {
+              "start": 0,
+              "end": 18,
+              "text": "负责业务数据清洗、统计分析和周报支持"
+            },
+            "keywords": [
+              "数据清洗",
+              "统计分析",
+              "周报"
+            ],
+            "confidence": 0.92
+          },
+          {
+            "id": "req-data-tools",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "category": "core_skill",
+            "description": "熟悉 Excel 或 Stata。",
+            "priority": "high",
+            "hardConstraint": false,
+            "sourceSpan": {
+              "start": 0,
+              "end": 16,
+              "text": "熟悉 Excel 或 Stata"
+            },
+            "keywords": [
+              "Excel",
+              "Stata"
+            ],
+            "confidence": 0.95
+          }
+        ]
+      },
+      {
+        "id": "job-trade-operation-intern",
+        "createdAt": "2026-07-01T09:00:00.000Z",
+        "updatedAt": "2026-07-01T09:00:00.000Z",
+        "title": "外贸/跨境运营实习生",
+        "company": "示例跨境公司",
+        "industry": "跨境电商",
+        "location": "上海",
+        "workType": "实习",
+        "rawText": "外贸/跨境运营实习生：协助整理商品和订单信息，跟进跨境业务流程；要求英语读写能力、沟通协作和执行力；了解外贸流程优先。",
+        "source": "demo",
+        "parsedAt": "2026-07-01T09:00:00.000Z",
+        "requirements": [
+          {
+            "id": "req-trade-process",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "category": "responsibility",
+            "description": "协助整理商品和订单信息，跟进跨境业务流程。",
+            "priority": "high",
+            "hardConstraint": false,
+            "sourceSpan": {
+              "start": 0,
+              "end": 20,
+              "text": "协助整理商品和订单信息，跟进跨境业务流程"
+            },
+            "keywords": [
+              "信息整理",
+              "跨境业务流程"
+            ],
+            "confidence": 0.9
+          },
+          {
+            "id": "req-english-writing",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "category": "must_have",
+            "description": "具备英语读写能力、沟通协作和执行力。",
+            "priority": "high",
+            "hardConstraint": true,
+            "sourceSpan": {
+              "start": 0,
+              "end": 17,
+              "text": "要求英语读写能力、沟通协作和执行力"
+            },
+            "keywords": [
+              "英语",
+              "沟通",
+              "执行力"
+            ],
+            "confidence": 0.94
+          }
+        ]
+      }
+    ],
+    "resumeBranches": [],
+    "resumeRevisions": []
+  },
+  "after": {
+    "profiles": [
+      {
+        "id": "profile-202f5a98-2e70-40ae-8e77-3db439191441",
+        "createdAt": "2026-11-10T16:26:31.534Z",
+        "updatedAt": "2026-11-10T16:26:31.534Z",
+        "schemaVersion": "career-profile-v2",
+        "name": "运行时验收人物",
+        "basics": {
+          "name": "运行时验收人物",
+          "links": []
+        },
+        "preference": {
+          "targetRoles": [],
+          "targetCities": [],
+          "industries": []
+        },
+        "version": 1,
+        "experiences": [],
+        "skills": [],
+        "certificates": [],
+        "evidences": [],
+        "unclassifiedBlocks": [],
+        "structuredFacts": [],
+        "structuredBasics": {
+          "name": "运行时验收人物",
+          "portfolioLinks": [],
+          "otherLinks": [],
+          "customFields": []
+        },
+        "personId": "person-b035a4c6-8cba-4e10-adb9-6e47340018a1",
+        "profileVersionNumber": 1,
+        "isCurrent": true,
+        "versionCreatedReason": "initial"
+      },
+      {
+        "id": "profile-demo-student",
+        "createdAt": "2026-07-01T09:00:00.000Z",
+        "updatedAt": "2026-07-01T09:00:00.000Z",
+        "schemaVersion": "career-profile-v2",
+        "name": "同学",
+        "basics": {
+          "name": "同学",
+          "phone": "138****0000",
+          "email": "demo.student@example.com",
+          "location": "杭州",
+          "summary": "经济管理方向本科生，关注数据分析、AI应用和跨境业务流程。",
+          "links": []
+        },
+        "preference": {
+          "targetRoles": [
+            "数据分析实习",
+            "外贸/跨境运营实习"
+          ],
+          "targetCities": [
+            "杭州",
+            "上海"
+          ],
+          "industries": [
+            "互联网",
+            "跨境电商",
+            "咨询"
+          ]
+        },
+        "version": 1,
+        "experiences": [
+          {
+            "id": "exp-stat-modeling",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "type": "competition",
+            "organization": "统计建模竞赛项目",
+            "role": "数据分析成员",
+            "startDate": "2025-03",
+            "endDate": "2025-06",
+            "facts": [
+              {
+                "id": "fact-stat-stata",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "statement": "使用 Stata 清洗 31 个省级样本，并完成描述统计、相关分析与区域差异分析。",
+                "category": "experience",
+                "provenance": [
+                  {
+                    "sourceType": "demo",
+                    "sourceId": "demo-profile-source",
+                    "sourceText": "统计建模：使用Stata清洗31个省级样本，完成描述统计、相关分析与区域差异分析。",
+                    "confidence": 0.95,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-07-01T09:00:00.000Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-stat-default",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "targetRole": "数据分析实习",
+                "text": "奖项名称：数据分析成员\n颁发方：统计建模竞赛项目\n说明：使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。\n原始资料草稿：使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。\n原始标签：Stata；数据清洗；统计分析\n原始证据引用：evidence-stat-report",
+                "factIds": [
+                  "fact-stat-stata"
+                ]
+              }
+            ],
+            "tags": [
+              "Stata",
+              "数据清洗",
+              "统计分析"
+            ],
+            "evidenceIds": [
+              "evidence-stat-report"
+            ]
+          },
+          {
+            "id": "exp-ai-product",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "type": "project",
+            "organization": "AI 求职应用课程项目",
+            "role": "产品与验收协作",
+            "startDate": "2025-09",
+            "endDate": "2025-12",
+            "facts": [
+              {
+                "id": "fact-ai-product",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "statement": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                "category": "experience",
+                "provenance": [
+                  {
+                    "sourceType": "demo",
+                    "sourceId": "demo-profile-source",
+                    "sourceText": "AI应用项目：参与需求梳理、原型设计和功能验收。",
+                    "confidence": 0.95,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-07-01T09:00:00.000Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-ai-default",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "targetRole": "产品/运营实习",
+                "text": "项目名称：AI 求职应用课程项目\n角色：产品与验收协作\n开始日期：2025-09\n结束日期：2025-12\n说明：参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n原始资料草稿：参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。\n原始标签：需求梳理；原型设计；功能验收",
+                "factIds": [
+                  "fact-ai-product"
+                ]
+              }
+            ],
+            "tags": [
+              "需求梳理",
+              "原型设计",
+              "功能验收"
+            ],
+            "evidenceIds": []
+          },
+          {
+            "id": "exp-gov-internship",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "type": "internship",
+            "organization": "某政府部门",
+            "role": "综合事务实习生",
+            "startDate": "2025-07",
+            "endDate": "2025-08",
+            "facts": [
+              {
+                "id": "fact-gov-record",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "statement": "处理公文流转和热线记录，关注记录准确性与信息整理。",
+                "category": "experience",
+                "provenance": [
+                  {
+                    "sourceType": "demo",
+                    "sourceId": "demo-profile-source",
+                    "sourceText": "政府部门实习：处理公文流转和市长热线记录。",
+                    "confidence": 0.95,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-07-01T09:00:00.000Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-gov-default",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "targetRole": "综合运营实习",
+                "text": "组织：某政府部门\n职位/角色：综合事务实习生\n开始日期：2025-07\n结束日期：2025-08\n说明：协助处理公文流转与热线记录，保持信息记录准确、分类清晰。\n亮点：处理公文流转和热线记录，关注记录准确性与信息整理。\n原始资料草稿：协助处理公文流转与热线记录，保持信息记录准确、分类清晰。\n原始标签：信息整理；沟通记录",
+                "factIds": [
+                  "fact-gov-record"
+                ]
+              }
+            ],
+            "tags": [
+              "信息整理",
+              "沟通记录"
+            ],
+            "evidenceIds": []
+          },
+          {
+            "id": "exp-trade-learning",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "type": "other",
+            "organization": "外贸课程与语言学习",
+            "role": "学习者",
+            "startDate": "2024-09",
+            "endDate": "2026-06",
+            "facts": [
+              {
+                "id": "fact-cet4",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "statement": "CET-4 成绩 601，了解基础外贸业务流程。",
+                "category": "language",
+                "provenance": [
+                  {
+                    "sourceType": "demo",
+                    "sourceId": "demo-profile-source",
+                    "sourceText": "英语与外贸学习：CET-4 601，了解外贸业务流程。",
+                    "confidence": 0.95,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-07-01T09:00:00.000Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low"
+              }
+            ],
+            "resumeDrafts": [
+              {
+                "id": "draft-trade-default",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "targetRole": "外贸/跨境运营实习",
+                "text": "标题：外贸课程与语言学习\n内容：CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。\n要点：CET-4 成绩 601，了解基础外贸业务流程。\n原始资料草稿：CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。\n原始标签：英语；外贸流程；信息整理",
+                "factIds": [
+                  "fact-cet4"
+                ]
+              }
+            ],
+            "tags": [
+              "英语",
+              "外贸流程",
+              "信息整理"
+            ],
+            "evidenceIds": []
+          }
+        ],
+        "skills": [
+          {
+            "id": "skill-stata",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "name": "Stata",
+            "level": "familiar",
+            "evidenceIds": [
+              "evidence-stat-report"
+            ],
+            "fact": {
+              "id": "fact-skill-stata",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "statement": "使用 Stata 完成数据清洗和统计分析。",
+              "category": "skill",
+              "provenance": [
+                {
+                  "sourceType": "demo",
+                  "sourceId": "demo-profile-source",
+                  "sourceText": "使用Stata清洗31个省级样本",
+                  "confidence": 0.95,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-07-01T09:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            },
+            "lastUsedAt": "2025-06"
+          },
+          {
+            "id": "skill-excel",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "name": "Excel",
+            "level": "familiar",
+            "evidenceIds": [],
+            "fact": {
+              "id": "fact-skill-excel",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "statement": "能使用 Excel 整理表格数据和基础分析结果。",
+              "category": "skill",
+              "provenance": [
+                {
+                  "sourceType": "demo",
+                  "sourceId": "demo-profile-source",
+                  "sourceText": "数据清洗、样本整理和分析交付物",
+                  "confidence": 0.95,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-07-01T09:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            },
+            "lastUsedAt": "2025-06"
+          }
+        ],
+        "certificates": [
+          {
+            "id": "cert-cet4",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "name": "CET-4",
+            "issuer": "全国大学英语四、六级考试委员会",
+            "issuedAt": "2024-12",
+            "evidenceIds": [],
+            "fact": {
+              "id": "fact-cert-cet4",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "statement": "CET-4 成绩 601。",
+              "category": "certificate",
+              "provenance": [
+                {
+                  "sourceType": "demo",
+                  "sourceId": "demo-profile-source",
+                  "sourceText": "CET-4 601",
+                  "confidence": 0.95,
+                  "confirmedByUser": true,
+                  "riskLevel": "low",
+                  "createdAt": "2026-07-01T09:00:00.000Z"
+                }
+              ],
+              "confirmedByUser": true,
+              "riskLevel": "low"
+            }
+          }
+        ],
+        "evidences": [
+          {
+            "id": "evidence-stat-report",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "type": "text",
+            "title": "统计建模项目说明",
+            "extractedText": "脱敏示例：使用 Stata 清洗 31 个省级样本并完成统计分析。",
+            "privacyLevel": "private",
+            "verifiedAt": "2026-07-01T09:00:00.000Z"
+          }
+        ],
+        "unclassifiedBlocks": [],
+        "structuredFacts": [
+          {
+            "data": {
+              "id": "exp-stat-modeling",
+              "customFields": [
+                {
+                  "id": "exp-stat-modeling:legacy-resume-drafts",
+                  "label": "原始资料草稿",
+                  "valueType": "text",
+                  "value": "使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。",
+                  "order": 0,
+                  "sensitive": false
+                },
+                {
+                  "id": "exp-stat-modeling:legacy-tags",
+                  "label": "原始标签",
+                  "valueType": "string_list",
+                  "value": [
+                    "Stata",
+                    "数据清洗",
+                    "统计分析"
+                  ],
+                  "order": 1,
+                  "sensitive": false
+                },
+                {
+                  "id": "exp-stat-modeling:legacy-evidence-ids",
+                  "label": "原始证据引用",
+                  "valueType": "string_list",
+                  "value": [
+                    "evidence-stat-report"
+                  ],
+                  "order": 2,
+                  "sensitive": false
+                }
+              ],
+              "sectionType": "awards",
+              "name": "数据分析成员",
+              "issuer": "统计建模竞赛项目",
+              "description": "使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。"
+            },
+            "factIds": [
+              "fact-stat-stata"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "使用 Stata 清洗 31 个省级样本，并完成描述统计、相关分析与区域差异分析。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "exp-ai-product",
+              "customFields": [
+                {
+                  "id": "exp-ai-product:legacy-resume-drafts",
+                  "label": "原始资料草稿",
+                  "valueType": "text",
+                  "value": "参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。",
+                  "order": 0,
+                  "sensitive": false
+                },
+                {
+                  "id": "exp-ai-product:legacy-tags",
+                  "label": "原始标签",
+                  "valueType": "string_list",
+                  "value": [
+                    "需求梳理",
+                    "原型设计",
+                    "功能验收"
+                  ],
+                  "order": 1,
+                  "sensitive": false
+                }
+              ],
+              "sectionType": "project",
+              "title": "AI 求职应用课程项目",
+              "role": "产品与验收协作",
+              "startDate": "2025-09",
+              "endDate": "2025-12",
+              "current": false,
+              "tools": [],
+              "description": "参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。",
+              "highlights": [
+                "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+              ],
+              "outcomes": []
+            },
+            "factIds": [
+              "fact-ai-product"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "exp-gov-internship",
+              "customFields": [
+                {
+                  "id": "exp-gov-internship:legacy-resume-drafts",
+                  "label": "原始资料草稿",
+                  "valueType": "text",
+                  "value": "协助处理公文流转与热线记录，保持信息记录准确、分类清晰。",
+                  "order": 0,
+                  "sensitive": false
+                },
+                {
+                  "id": "exp-gov-internship:legacy-tags",
+                  "label": "原始标签",
+                  "valueType": "string_list",
+                  "value": [
+                    "信息整理",
+                    "沟通记录"
+                  ],
+                  "order": 1,
+                  "sensitive": false
+                }
+              ],
+              "sectionType": "internship",
+              "organization": "某政府部门",
+              "role": "综合事务实习生",
+              "startDate": "2025-07",
+              "endDate": "2025-08",
+              "current": false,
+              "description": "协助处理公文流转与热线记录，保持信息记录准确、分类清晰。",
+              "highlights": [
+                "处理公文流转和热线记录，关注记录准确性与信息整理。"
+              ]
+            },
+            "factIds": [
+              "fact-gov-record"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "处理公文流转和热线记录，关注记录准确性与信息整理。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "exp-trade-learning",
+              "customFields": [
+                {
+                  "id": "exp-trade-learning:legacy-resume-drafts",
+                  "label": "原始资料草稿",
+                  "valueType": "text",
+                  "value": "CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。",
+                  "order": 0,
+                  "sensitive": false
+                },
+                {
+                  "id": "exp-trade-learning:legacy-tags",
+                  "label": "原始标签",
+                  "valueType": "string_list",
+                  "value": [
+                    "英语",
+                    "外贸流程",
+                    "信息整理"
+                  ],
+                  "order": 1,
+                  "sensitive": false
+                }
+              ],
+              "sectionType": "other",
+              "title": "外贸课程与语言学习",
+              "description": "CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。",
+              "highlights": [
+                "CET-4 成绩 601，了解基础外贸业务流程。"
+              ]
+            },
+            "factIds": [
+              "fact-cet4"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "sourceExcerpt": "CET-4 成绩 601，了解基础外贸业务流程。",
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "skill-stata",
+              "customFields": [],
+              "sectionType": "skills",
+              "name": "Stata",
+              "level": "familiar",
+              "description": "使用 Stata 完成数据清洗和统计分析。"
+            },
+            "factIds": [
+              "fact-skill-stata"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "skill-excel",
+              "customFields": [],
+              "sectionType": "skills",
+              "name": "Excel",
+              "level": "familiar",
+              "description": "能使用 Excel 整理表格数据和基础分析结果。"
+            },
+            "factIds": [
+              "fact-skill-excel"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "mappingTrace": []
+          },
+          {
+            "data": {
+              "id": "cert-cet4",
+              "customFields": [],
+              "sectionType": "certificates",
+              "name": "CET-4",
+              "issuer": "全国大学英语四、六级考试委员会",
+              "issuedAt": "2024-12"
+            },
+            "factIds": [
+              "fact-cert-cet4"
+            ],
+            "sourceBlockIds": [],
+            "sourceRanges": [],
+            "mappingTrace": []
+          }
+        ],
+        "structuredBasics": {
+          "name": "同学",
+          "summary": "经济管理方向本科生，关注数据分析、AI应用和跨境业务流程。",
+          "phone": "138****0000",
+          "email": "demo.student@example.com",
+          "location": "杭州",
+          "portfolioLinks": [],
+          "otherLinks": [],
+          "customFields": []
+        },
+        "personId": "person-profile-demo-student",
+        "profileVersionNumber": 1,
+        "isCurrent": true,
+        "versionCreatedReason": "initial"
+      }
+    ],
+    "jobDescriptions": [
+      {
+        "id": "job-data-analyst-intern",
+        "createdAt": "2026-07-01T09:00:00.000Z",
+        "updatedAt": "2026-07-01T09:00:00.000Z",
+        "title": "数据分析实习生",
+        "company": "示例科技公司",
+        "industry": "互联网",
+        "location": "杭州",
+        "workType": "实习",
+        "rawText": "数据分析实习生：负责业务数据清洗、统计分析和周报支持；熟悉 Excel 或 Stata；具备清晰的数据表达能力，有统计建模经验优先。",
+        "source": "demo",
+        "parsedAt": "2026-07-01T09:00:00.000Z",
+        "requirements": [
+          {
+            "id": "req-data-cleaning",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "category": "responsibility",
+            "description": "负责业务数据清洗、统计分析和周报支持。",
+            "priority": "high",
+            "hardConstraint": false,
+            "sourceSpan": {
+              "start": 0,
+              "end": 18,
+              "text": "负责业务数据清洗、统计分析和周报支持"
+            },
+            "keywords": [
+              "数据清洗",
+              "统计分析",
+              "周报"
+            ],
+            "confidence": 0.92
+          },
+          {
+            "id": "req-data-tools",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "category": "core_skill",
+            "description": "熟悉 Excel 或 Stata。",
+            "priority": "high",
+            "hardConstraint": false,
+            "sourceSpan": {
+              "start": 0,
+              "end": 16,
+              "text": "熟悉 Excel 或 Stata"
+            },
+            "keywords": [
+              "Excel",
+              "Stata"
+            ],
+            "confidence": 0.95
+          }
+        ]
+      },
+      {
+        "id": "job-trade-operation-intern",
+        "createdAt": "2026-07-01T09:00:00.000Z",
+        "updatedAt": "2026-07-01T09:00:00.000Z",
+        "title": "外贸/跨境运营实习生",
+        "company": "示例跨境公司",
+        "industry": "跨境电商",
+        "location": "上海",
+        "workType": "实习",
+        "rawText": "外贸/跨境运营实习生：协助整理商品和订单信息，跟进跨境业务流程；要求英语读写能力、沟通协作和执行力；了解外贸流程优先。",
+        "source": "demo",
+        "parsedAt": "2026-07-01T09:00:00.000Z",
+        "requirements": [
+          {
+            "id": "req-trade-process",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "category": "responsibility",
+            "description": "协助整理商品和订单信息，跟进跨境业务流程。",
+            "priority": "high",
+            "hardConstraint": false,
+            "sourceSpan": {
+              "start": 0,
+              "end": 20,
+              "text": "协助整理商品和订单信息，跟进跨境业务流程"
+            },
+            "keywords": [
+              "信息整理",
+              "跨境业务流程"
+            ],
+            "confidence": 0.9
+          },
+          {
+            "id": "req-english-writing",
+            "createdAt": "2026-07-01T09:00:00.000Z",
+            "updatedAt": "2026-07-01T09:00:00.000Z",
+            "category": "must_have",
+            "description": "具备英语读写能力、沟通协作和执行力。",
+            "priority": "high",
+            "hardConstraint": true,
+            "sourceSpan": {
+              "start": 0,
+              "end": 17,
+              "text": "要求英语读写能力、沟通协作和执行力"
+            },
+            "keywords": [
+              "英语",
+              "沟通",
+              "执行力"
+            ],
+            "confidence": 0.94
+          }
+        ]
+      }
+    ],
+    "resumeBranches": [],
+    "resumeRevisions": []
+  }
+}

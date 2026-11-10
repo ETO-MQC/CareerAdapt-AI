@@ -1,0 +1,37 @@
+{
+  "date": "2026-11-11",
+  "status": "PASS_SCOPED",
+  "startingHead": "2db9e244581862c008cef0a3c9879b60af3249c1",
+  "branch": "competition/5.1.8",
+  "startingWorktreeClean": true,
+  "tests": {
+    "files": 8,
+    "passed": 96,
+    "failed": 0,
+    "exitCode": 0
+  },
+  "branchHostRecheck": {
+    "passed": 7,
+    "exitCode": 0
+  },
+  "typecheckExitCode": 0,
+  "changedFilesLintExitCode": 0,
+  "productionBuildExitCode": 0,
+  "browser": {
+    "scenarios": 1,
+    "status": "PASS",
+    "exitCode": 0,
+    "scriptedProviderRequests": 5,
+    "realUpstreamModelRequests": 0,
+    "recycledJobsCoveredBy": "deterministic Repository/Gateway tests"
+  },
+  "knownBaselineFailure": {
+    "file": "p511-r2-observability.test.ts",
+    "tests": 1,
+    "baselineReproduced": true,
+    "exitCode": 1
+  },
+  "committed": false,
+  "pushed": false,
+  "packaged": false
+}

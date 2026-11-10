@@ -446,10 +446,19 @@ export class CareerToolGateway {
       const contract = this.toContract(definition);
       attachContractIdentity(trace, contract);
       const taskState = context.authoritativeTaskState ?? this.asDependencies().getAuthoritativeTaskState?.();
+      if (["career.profile.get", "career.context.retrieve"].includes(name)
+        && input && typeof input === "object" && !Array.isArray(input)) {
+        const request = input as Record<string, unknown>;
+        if (request.profileId === undefined || request.profileId === "current" || request.profileId === "active") {
+          const profileId = context.careerSessionBinding?.profileId;
+          if (!profileId) return this.failure(name, operationId, "career_session_binding_required", "请先选择当前人物和资料版本。", false, undefined, "failed", finishFailureTrace(trace, "career_session_binding_required", "gateway_policy"));
+          input = { ...request, profileId };
+        }
+      }
       if (name === "career.context.retrieve" && input && typeof input === "object" && !Array.isArray(input)
         && (!taskState?.selectedEntities.profileId || taskState.selectedEntities.profileId === context.careerSessionBinding?.profileId)) {
         const request = input as Record<string, unknown>;
-        input = { ...request, profileId: request.profileId ?? context.careerSessionBinding?.profileId,
+        input = { ...request,
           ...(request.resumeId === undefined && taskState?.selectedEntities.resumeId ? { resumeId: taskState.selectedEntities.resumeId } : {}),
           ...(request.jobId === undefined && taskState?.selectedEntities.jobId ? { jobId: taskState.selectedEntities.jobId } : {}) };
       }

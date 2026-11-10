@@ -240,6 +240,10 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
           }
         } catch (error) {
           if (streamSignal.aborted) throw error;
+          if (safeErrorCode(error) === "hermes_run_not_found") {
+            yield { type: "turn_failed", code: "hermes_run_not_found", message: "远程运行实例已失效，请从保留的业务进度继续。", recoverable: true };
+            return;
+          }
           yield { type: "progress", data: { reconciliation: "status_unavailable" } };
         }
         pending ??= stream.next();

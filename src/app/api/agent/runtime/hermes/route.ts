@@ -272,6 +272,15 @@ async function proxyRunJson(root: string, payload: Record<string, unknown>, meth
       return NextResponse.json({ ok: true, data: safeRunStatus(status) });
     }
   }
+  const rawRecord = asRecord(raw);
+  const missingRun = response.status === 404 && (
+    rawRecord.code === "run_not_found" || asRecord(rawRecord.error).code === "run_not_found"
+    || [rawRecord.error, asRecord(rawRecord.error).message, rawRecord.detail]
+      .some(value => typeof value === "string" && value.includes(`Run not found: ${runId}`))
+  );
+  if (missingRun) return upstreamError(response.status, {
+    error: { code: "hermes_run_not_found", message: "远程运行实例已失效，请从保留的业务进度继续。" }
+  }, "hermes_run_not_found");
   if (!response.ok) return upstreamError(response.status, raw, `hermes_run_${kind}_failed`);
   return NextResponse.json({ ok: true, data: safeRunStatus(raw) });
 }

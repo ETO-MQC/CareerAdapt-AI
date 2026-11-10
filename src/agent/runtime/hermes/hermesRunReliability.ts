@@ -191,7 +191,8 @@ export function classifyHermesRunFailure(input: HermesRunFailureInput): HermesRu
     || /gateway[_ -]?auth|api[_ -]?server[_ -]?key|runtime[_ -]?(?:control|auth)/u.test(code);
   const transientHttp = status === 408 || status === 425 || status === 429 || (status !== undefined && status >= 500);
   const companionFailure = /companion|bridge[_ -]?(unavailable|http)|network|connect/u.test(code);
-  const postStartOperation = /^hermes_run_(events|status|approval|stop)_(failed|timeout)$/u.test(sourceCode);
+  const postStartOperation = sourceCode === "hermes_run_not_found"
+    || /^hermes_run_(events|status|approval|stop)_(failed|timeout)$/u.test(sourceCode);
   const postStartPhase = input.runPhase === "after_run_start";
   const modelNotFound = ["hermes_model_not_found", "provider_model_not_found"].includes(code) || /(?:model|deployment).*(?:not found|does not exist|unknown|missing)|(?:not found|does not exist).*(?:model|deployment)/u.test(code);
   const toolSchemaInvalid = /(?:tool|function|mcp).*(?:schema|contract).*(?:invalid|error)|(?:invalid|malformed).*(?:tool|function|mcp)/u.test(code);

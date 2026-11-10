@@ -24,6 +24,7 @@ import {
 } from "./hermesIncidentTrace";
 import type { RuntimeCausalChainEntry, SecondaryRecoveryFailure } from "./hermesIncidentTrace";
 import { getUserMessageForTurn } from "../currentTurnUserMessage";
+import { activeBranchMessages } from "../activeBranchContext";
 
 type TurnCounters = {
   toolCalls: number;
@@ -82,6 +83,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
   private readonly sessions = new Map<string, string>();
   private readonly activeRuns = new Map<string, HermesRunHandle>();
   private readonly controlledStops = new Map<string, RunStopReason>();
+  private readonly unavailableRuns = new Set<string>();
 
   constructor(private readonly dependencies: {
     transport: HermesBridgeTransport;
@@ -160,6 +162,20 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
   }
 
   async stopCurrentRun(runId: string, reason: RunStopReason): Promise<HermesRunStatus> {
+    try {
+      if (this.unavailableRuns.has(runId)) throw hermesError("hermes_run_not_found", "远程运行实例已失效。");
+      return await this.stopExistingRun(runId, reason);
+    } catch (error) {
+      if (errorCode(error) !== "hermes_run_not_found") throw error;
+      this.unavailableRuns.add(runId);
+      for (const [sessionId, handle] of this.activeRuns) {
+        if (handle.runId === runId) this.activeRuns.delete(sessionId);
+      }
+      return { run_id: runId, status: "failed", error: { code: "hermes_run_not_found", message: "远程运行实例已失效，请从保留的业务进度继续。" } };
+    }
+  }
+
+  private async stopExistingRun(runId: string, reason: RunStopReason): Promise<HermesRunStatus> {
     const transport = this.dependencies.transport;
     if (!transport.getRun || !transport.stopRun) throw hermesError("hermes_run_stop_unavailable", "当前 Hermes 运行时不支持停止 Run。");
     const activeHandle = [...this.activeRuns.values()].find((candidate) => candidate.runId === runId);
@@ -322,12 +338,13 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       });
     }
 
+    const branchSuffix = input.session?.activeBranchId ? `-branch-${input.session.activeBranchId}` : "";
+    const requestedSessionId = typeof input.metadata?.hermesSessionId === "string" && input.metadata.hermesSessionId.trim()
+      ? input.metadata.hermesSessionId : this.sessions.get(input.sessionId) ?? `hermes-${input.sessionId}`;
     const hermesSessionId = attachable
       ? persisted!.hermesSessionId
-      : typeof input.metadata?.hermesSessionId === "string" && input.metadata.hermesSessionId.trim()
-        ? input.metadata.hermesSessionId
-      : this.sessions.get(input.sessionId) ?? `hermes-${input.sessionId}`;
-    this.sessions.set(input.sessionId, hermesSessionId);
+      : branchSuffix && !requestedSessionId.endsWith(branchSuffix) ? `${requestedSessionId}${branchSuffix}` : requestedSessionId;
+    this.sessions.set(input.sessionId, requestedSessionId);
 
     let handle: HermesRunHandle = attachable
       ? persisted!
@@ -485,7 +502,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
                   error: {
                     code: failure.safeErrorCode,
                     message: failure.safeErrorMessage,
-                    recoverable: false
+                    recoverable: bridgeEvent.code === "hermes_run_not_found"
                   },
                   data: mergeEventData(mapped.data, {
                     runHandle: handle,
@@ -709,9 +726,13 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         retryable: sourceDiagnostics.retryable ?? false
       });
       if (!runStartedSuccessfully) throw createHermesRunFailure(failure);
+      if (failure.safeErrorCode === "hermes_run_not_found") {
+        this.unavailableRuns.add(handle.runId);
+        handle = touchRunHandle(handle, "failed");
+      }
       this.activeRuns.delete(input.sessionId);
       yield this.event(normalized, "turn_failed", {
-        error: { code: failure.safeErrorCode, message: failure.safeErrorMessage, recoverable: false },
+        error: { code: failure.safeErrorCode, message: failure.safeErrorMessage, recoverable: failure.safeErrorCode === "hermes_run_not_found" },
         data: {
           runHandle: handle.runId ? handle : undefined,
           runId: handle.runId || undefined,
@@ -1089,7 +1110,7 @@ function conversationHistory(input: AgentRuntimeTurnInput) {
   const currentUserMessageId = typeof input.metadata?.runtimeShellUserMessageId === "string"
     ? input.metadata.runtimeShellUserMessageId
     : undefined;
-  return (input.session?.messages ?? [])
+  return (input.session ? activeBranchMessages(input.session) : [])
     .filter((message) => (message.role === "user" || message.role === "assistant")
       && message.id !== currentUserMessageId
       && message.kind !== "assistant_thinking"
