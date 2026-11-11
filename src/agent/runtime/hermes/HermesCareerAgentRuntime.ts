@@ -321,7 +321,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     const health = attachable ? undefined : await transport.health(input.signal);
     const runtimeAvailable = Boolean(attachable) || Boolean(health?.runtimeHealth?.runtimeAvailable ?? health?.available);
     if (!attachable && !runtimeAvailable) {
-      throw createHermesRunFailure({
+      const failure = createHermesRunFailure({
         code: "hermes_unavailable_before_turn",
         message: health?.reason ?? "Hermes runtime is unavailable.",
         failureLayer: "companion",
@@ -336,6 +336,11 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         attemptTraceId,
         retryable: true
       });
+      yield this.event(normalized, "turn_failed", {
+        error: { code: failure.code, message: failure.message, recoverable: true },
+        data: { diagnostics: failure.diagnostics, incidentTraceId, attemptTraceId }
+      });
+      return;
     }
 
     const branchSuffix = input.session?.activeBranchId ? `-branch-${input.session.activeBranchId}` : "";

@@ -1211,12 +1211,15 @@ export class WorkspaceRepository {
             ? storedPerson.currentProfileId
             : currentCandidate.id,
           createdAt: storedPerson?.createdAt ?? group.map((profile) => profile.createdAt).sort()[0],
-          updatedAt: now,
+          updatedAt: storedPerson?.updatedAt ?? now,
           archivedAt: storedPerson?.archivedAt,
           trashedAt: storedPerson?.trashedAt
         });
+        if (storedPerson && storedPerson.currentProfileId !== person.currentProfileId) person.updatedAt = now;
         persons.set(personId, person);
-        await this.db.appMeta.put({ key: careerPersonMetaKey(personId), value: person, updatedAt: now });
+        if (JSON.stringify(storedPerson) !== JSON.stringify(person)) {
+          await this.db.appMeta.put({ key: careerPersonMetaKey(personId), value: person, updatedAt: person.updatedAt });
+        }
         for (const profile of group) {
           const normalized = CareerProfileSchema.parse({
             ...profile,
@@ -1230,11 +1233,10 @@ export class WorkspaceRepository {
           }
         }
       }
-      await this.db.appMeta.put({
-        key: CAREER_PERSON_INDEX_META_KEY,
-        value: [...persons.keys()],
-        updatedAt: now
-      });
+      const personIds = [...persons.keys()];
+      if (JSON.stringify(metaRows.find(row => row.key === CAREER_PERSON_INDEX_META_KEY)?.value) !== JSON.stringify(personIds)) {
+        await this.db.appMeta.put({ key: CAREER_PERSON_INDEX_META_KEY, value: personIds, updatedAt: now });
+      }
       return [...persons.values()];
     });
   }

@@ -1,0 +1,34 @@
+{
+  "status": "PARTIAL_NOT_QUALIFIED",
+  "baseline": "5a79b47ad889a7602d18d3c77d17cd7dbb420ae2",
+  "coreTests": {
+    "passed": 301,
+    "failed": 0,
+    "exitCode": 0
+  },
+  "additionalRuntimeTests": {
+    "passed": 30,
+    "failed": 0,
+    "exitCode": 0
+  },
+  "browser": {
+    "definitions": 2,
+    "harnessRuns": 4,
+    "executions": 6,
+    "completePassed": 0,
+    "retriesDisabled": true,
+    "stoppedPerProjectTimeoutRule": true
+  },
+  "scriptedProviderInferenceRequests": 0,
+  "realProviderRequests": 0,
+  "typecheckExitCode": 0,
+  "changedFilesLintExitCode": 0,
+  "buildExitCode": 0,
+  "diffCheckExitCode": 0,
+  "remainingBlockingP1": [
+    "P522-03: Stop/Edit/Retry preflight health failure and no successful reply"
+  ],
+  "notSubmitted": true,
+  "notPushed": true,
+  "notPackaged": true
+}

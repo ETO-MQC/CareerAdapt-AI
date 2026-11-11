@@ -88,4 +88,15 @@ describe("Agent activity presentation", () => {
     expect(screen.getByLabelText("状态")).toHaveTextContent("尚未保存");
     expect(screen.queryByRole("link")).toBeNull();
   });
+  it("renders the core Assistant Markdown structures as semantic HTML", () => {
+    const { container } = render(<AgentMarkdown>{"# 主标题\n## 次标题\n### 三级\n\n**重点**\n\n1. 第一步\n2. 第二步\n\n- 项目一\n- 项目二\n\n| 字段 | 状态 |\n| --- | --- |\n| 简历 | 已确认 |\n\n> 保留来源\n\n`revision`\n\n```json\n{\"ok\":true}\n```\n\n[查看来源](https://example.org/source)"}</AgentMarkdown>);
+    for (const level of [1, 2, 3]) expect(screen.getByRole("heading", { level })).toBeInTheDocument();
+    expect(container.querySelector("strong")).toHaveTextContent("重点");
+    expect(container.querySelectorAll("ol li")).toHaveLength(2);
+    expect(container.querySelectorAll("ul li")).toHaveLength(2);
+    expect(screen.getByRole("table")).toHaveTextContent("已确认");
+    expect(container.querySelector("blockquote")).toHaveTextContent("保留来源");
+    expect(container.querySelector("pre code")).toHaveTextContent('{"ok":true}');
+    expect(screen.getByRole("link", { name: "查看来源" })).toHaveAttribute("href", "https://example.org/source");
+  });
 });

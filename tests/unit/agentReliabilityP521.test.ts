@@ -26,6 +26,28 @@ function transport(overrides: Partial<HermesBridgeTransport> = {}): HermesBridge
     stopRun: async () => ({ run_id: "run", status: "cancelled" }), ...overrides };
 }
 
+it("closes the persisted Host turn when a new or edited request fails before Run creation", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ ok: false }, { status: 503 })));
+  const session = AgentRuntime.createConversationSession("preflight unavailable");
+  const startRun = vi.fn();
+  const agent = runtime(transport({ health: async () => ({ available: false, reason: "hermes_companion_unreachable" }), startRun }));
+  const events = [];
+  for await (const event of agent.runTurn({ sessionId: session.id, turnId: "preflight-turn", userMessage: "edited request", pageContext: { query: {} }, session })) events.push(event);
+  expect(startRun).not.toHaveBeenCalled();
+  expect(events).toContainEqual(expect.objectContaining({ type: "turn_failed", error: expect.objectContaining({ code: "hermes_unavailable_before_turn", recoverable: true }) }));
+  expect(events.some(event => event.type === "turn_completed")).toBe(false);
+  const hook = renderHook(() => useAgentHost(), { wrapper: ({ children }) => createElement(AgentRuntimeProvider, null, children) });
+  try {
+    const host = hook.result.current;
+    await host.state.adoptDurably(session);
+    const shell = await host.state.beginRuntimeShell({ session, userMessage: "edited request", runtimeId: "hermes" });
+    for (const event of events) await host.state.applyRuntimeEvent({ ...event, turnId: shell.turnId }, shell.assistantMessageId);
+    expect(host.state.getSnapshot().activeSession?.activeTurn?.status).toBe("failed");
+    const persisted = await host.store.get(session.id);
+    expect(persisted?.activeTurn?.status).toBe("failed");
+  } finally { hook.unmount(); }
+});
+
 it("captures real constructed Hermes histories and remote identities after editing, preserving the original branch", async () => {
   const base = AgentRuntime.createConversationSession("test");
   const now = new Date().toISOString();

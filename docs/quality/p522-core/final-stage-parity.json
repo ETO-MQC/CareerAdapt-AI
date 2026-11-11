@@ -1,0 +1,9 @@
+{
+  "sourceFiles": 497,
+  "mismatches": [],
+  "nextConfigIdentical": true,
+  "lockIdentical": true,
+  "buildExitCode": 0,
+  "buildCommand": "CAREERAD_NEXT_DIST_DIR=.next-p522-final node ../node_modules/next/dist/bin/next build",
+  "stageTsconfigOnlyGeneratedTypesChanged": true
+}
