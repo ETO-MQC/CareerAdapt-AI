@@ -145,7 +145,7 @@ export const CAREER_WORKFLOW_FACADE_DEFINITIONS: CareerWorkflowFacadeDefinition[
   { name: "career.workflow.profile_intake_turn", description: "Use when the user wants to create or complete their CareerProfile from scratch, or answer the next active Profile Intake question. Do not use for story coaching, Job/JD comparison, resume creation, or resume review. Reads the bound draft/profile and source ledger, writes only provisional intake state without confirming Profile facts, and may stop for one question or a review boundary.", inputSchema: ProfileIntakeTurnInputSchema, personProfileBinding: "required" },
   { name: "career.workflow.profile_intake_finalize", description: "Use when Profile Intake source turns are complete and the user asks to finalize or review the profile. Do not use for a single new answer or resume work. Reads the source turns and provisional draft, writes no confirmed Profile facts, and stops for user review and confirmation before any commit.", inputSchema: ProfileIntakeFinalizeInputSchema, personProfileBinding: "required" },
   { name: "career.workflow.resume_import", description: "Use when the user explicitly asks to import an attached resume into CareerAdapt. Do not use for standalone certificates, awards or other evidence (use material_intake), pasted career narration, or creating/tailoring a resume. Reads one staged attachment, writes import/provenance checkpoint state, never accepts file bytes or paths, and stops for review and explicit confirmation before Profile changes. A bound Profile is optional while parsing; target selection happens after the attachment is read when needed.", inputSchema: ResumeImportInputSchema, personProfileBinding: "optional" },
-  { name: "career.workflow.job_fit", description: "Use when the user asks whether they fit a selected Job or JD. Do not use to create or modify a Resume, or for general career advice. Reads the selected Job, confirmed Profile, and source Resume; writes a fit artifact only, with no Resume/Profile content write or confirmation, and may stop for one material factual clarification.", inputSchema: JobFitInputSchema, personProfileBinding: "required" },
+  { name: "career.workflow.job_fit", description: "Use when the user asks whether they fit a selected Job or JD. Do not use to create or modify a Resume, or for general career advice. Reads the selected Job, confirmed Profile, and source Resume; writes a fit artifact only, with no Resume/Profile content write or confirmation, and may stop for one material factual clarification.", inputSchema: JobFitInputSchema, inputJsonSchema: { type: "object", additionalProperties: false, properties: { profileId: { type: "string", minLength: 1 }, resumeId: { type: "string", minLength: 1 }, jobId: { type: "string", minLength: 1 } } }, personProfileBinding: "required" },
   { name: "career.workflow.tailor_resume", description: "Use when the user supplies or selects a target Job/JD and asks for a job-specific Resume to be created or tailored, including a pasted JD with no prior Job Fit. Do not use for a general/base Resume, Job Fit-only comparison, or review without a target. Reads confirmed Profile/source Resume and target context, writes only an isolated job-specific proposal/revision at the host confirmation boundary, and may stop for questions or confirmation.", inputSchema: TailorResumeInputSchema, inputJsonSchema: tailorResumeInputJsonSchema(), personProfileBinding: "required" },
   { name: "career.workflow.profile_to_resume", description: "Use when the user asks to create or reuse an isolated general Resume from a confirmed Profile. Do not use for a saved or external target Job, Job Fit, or review/update of an existing Resume. Reads confirmed Profile evidence and writes an isolated general Resume at the host confirmation boundary; it may stop for missing evidence or confirmation.", inputSchema: ProfileToResumeInputSchema, personProfileBinding: "required" },
   { name: "career.workflow.compose_resume", description: "Use when the user asks to create or update a general/base Resume from a confirmed Profile, including reviewing or improving an existing general Resume with sourceResumeId and generalResumeMode update_existing. For review-only requests set reviewOnly true: reads current source text, no Writer, checkpoint or formal write. Do not use for a target Job/JD, Job Fit, or file import. Reads confirmed Profile and the selected source Resume, writes an isolated proposal/revision only after explicit confirmation, and may stop for questions, review, or confirmation.", inputSchema: ComposeResumeInputSchema, inputJsonSchema: composeResumeInputJsonSchema(), personProfileBinding: "required" },
@@ -266,7 +266,7 @@ function composeResumeInputJsonSchema(): Record<string, unknown> {
       {
         type: "object",
         additionalProperties: false,
-        required: ["mode", "generalResumeMode"],
+        required: ["mode"],
         properties: { ...commonProperties, mode: { const: "general" }, generalResumeMode: { type: "string", enum: ["create_new", "update_existing"] } }
       },
       {
@@ -312,8 +312,31 @@ function normalizeCareerWorkflowScopedInput(
       if (typeof pending.rawText === "string") return { ...pending, ...inputRecord };
     }
   }
+  if (name === "career.workflow.job_fit" && inputRecord) {
+    const selected = context.authoritativeTaskState?.selectedEntities;
+    for (const key of ["profileId", "jobId", "resumeId"] as const) {
+      const bound = key === "profileId" ? context.careerSessionBinding?.profileId : selected?.[key];
+      if (!bound) continue;
+      if (inputRecord[key] !== undefined && inputRecord[key] !== bound) {
+        throw Object.assign(new Error("career_workflow_target_conflict"), { code: "career_workflow_target_conflict" });
+      }
+      inputRecord[key] = bound;
+    }
+  }
+  if (name === "career.workflow.compose_resume" && inputRecord) {
+    // Null is absence only for the optional Job in general mode. Explicit
+    // non-null targets still fail the strict general schema.
+    if (inputRecord.mode === "general" && inputRecord.jobId === null) delete inputRecord.jobId;
+    const selectedJobId = context.authoritativeTaskState?.selectedEntities.jobId;
+    if (inputRecord.mode === "job_specific" && selectedJobId) {
+      if (inputRecord.jobId !== undefined && inputRecord.jobId !== selectedJobId) {
+        throw Object.assign(new Error("career_workflow_target_conflict"), { code: "career_workflow_target_conflict" });
+      }
+      inputRecord.jobId = selectedJobId;
+    }
+  }
   const binding = context.careerSessionBinding;
-  if (!binding || !inputRecord) return rawInput;
+  if (!binding || !inputRecord) return input;
   if (name === "career.workflow.profile_intake_turn") {
     return {
       ...inputRecord,
@@ -326,6 +349,9 @@ function normalizeCareerWorkflowScopedInput(
     };
   }
   if (name === "career.workflow.compose_resume") {
+    if (inputRecord.profileId !== undefined && inputRecord.profileId !== binding.profileId) {
+      throw Object.assign(new Error("career_workflow_target_conflict"), { code: "career_workflow_target_conflict" });
+    }
     return {
       ...inputRecord,
       profileId: binding.profileId,

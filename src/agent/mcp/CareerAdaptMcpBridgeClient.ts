@@ -659,6 +659,7 @@ function duplicateInvalidCallResult(
     previousSchemaFingerprint: guard.schemaIssueFingerprint,
     previousArgumentShapeFingerprint: guard.argumentShapeFingerprint,
     duplicateProjection: true,
+    originalCause: previous.failureKind,
     ...(request.logicalTurnId ? { logicalTurnId: request.logicalTurnId } : {}),
     ...(request.taskId ? { taskId: request.taskId } : {}),
     completedAt: new Date().toISOString()

@@ -171,6 +171,7 @@ export const CareerToolFailureDiagnosticsSchema = z.object({
   repositoryStartedAt: z.string().datetime({ offset: true }).optional(),
   repositoryCompletedAt: z.string().datetime({ offset: true }).optional(),
   completedAt: z.string().datetime({ offset: true }).optional(),
+  originalCause: z.string().optional(),
   duplicateProjection: z.boolean().optional()
 }).strict();
 

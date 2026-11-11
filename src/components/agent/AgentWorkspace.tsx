@@ -49,7 +49,7 @@ import {
 import { agentAttachmentStore, type AgentAttachmentRef } from "@/services/agent/AgentAttachmentStore";
 import { allowedToolManifestForStep } from "@/agent/workflows/workflowRegistry";
 import { agentToolNames } from "@/agent/tools/registry";
-import { HermesCareerToolCatalog, hermesProductionToolNames } from "@/agent/runtime/hermes/HermesCareerToolCatalog";
+import { hermesProductionToolNames } from "@/agent/runtime/hermes/HermesCareerToolCatalog";
 import { isRoadshowReady } from "@/agent/runtime/runtimeHealth";
 import { createRunStopReason } from "@/agent/runtime/hermes/hermesIncidentTrace";
 import { getActiveTailoringQuestionProjection } from "@/agent/runtime/AgentHostStore";
@@ -967,7 +967,6 @@ export function AgentWorkspace() {
       lastAnswerTurnId: undefined
     };
     const careerContracts = host.careerToolGateway.listContracts();
-    const careerCatalog = new HermesCareerToolCatalog(careerContracts);
     const workspaceRepository = host.store.getWorkspaceRepository();
     const diagnosticProfile = session.activeProfileId
       ? await workspaceRepository.getProfile(session.activeProfileId)
@@ -1098,8 +1097,9 @@ export function AgentWorkspace() {
       careerGatewayContracts: careerContracts.map((contract) => contract.name).sort(),
       careerMcpExposedTools: (runtimeHealth?.careerMcpExposedTools ?? productionCareerContracts.map((contract) => contract.name)).sort(),
       hermesRegisteredToolsets: runtimeHealth?.hermesRegisteredToolsets ?? [],
-      hermesVisibleTools: runtimeHealth?.hermesVisibleTools ?? [],
-      missingRequiredCareerTools: runtimeHealth?.missingRequiredCareerTools ?? careerCatalog.coverage([]).requiredCareerFacadesMissing,
+      toolSurfaceSnapshotStatus: runtimeHealth ? "captured" : "unavailable",
+      hermesVisibleTools: runtimeHealth?.hermesVisibleTools,
+      missingRequiredCareerTools: runtimeHealth?.missingRequiredCareerTools,
       roadshowReady: runtimeHealth ? isRoadshowReady(runtimeHealth) : false,
       requestedTool: toolActivities.findLast((activity) => activity.toolName)?.toolName,
       requestedHermesToolName: toolActivities.findLast((activity) => activity.requestedHermesToolName)?.requestedHermesToolName,
@@ -1267,7 +1267,7 @@ export function AgentWorkspace() {
           ) : (
             <>
               <div className="agent-conversation-toolbar">
-                {snapshot.turnStatus === "failed" ? <span><WifiOff aria-hidden="true" />本轮回答失败，可重试</span> : null}
+                {snapshot.turnStatus === "failed" ? <span><WifiOff aria-hidden="true" />本轮回答未完成，当前资料已保留</span> : null}
                 {hasAutosavedIntake ? <span className="agent-autosave-receipt" aria-live="polite">已自动保存到本地</span> : null}
                 {session.taskState ? <button
                     type="button"

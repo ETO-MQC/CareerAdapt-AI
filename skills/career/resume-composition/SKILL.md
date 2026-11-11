@@ -155,3 +155,21 @@ retain it as an uncommitted proposal, not an assumed checkpoint claim.
 This is not a general fact-writing channel: education, employers, dates, results,
 numbers and ownership still follow the existing fact confirmation policy. Neither
 a Skill label nor user wording bypasses Guard, checkpoint approval or revision/CAS.
+
+## CANONICAL CALL EXAMPLES
+
+Create a general resume from the Host-bound Profile:
+
+```json
+{"mode":"general","generalResumeMode":"create_new"}
+```
+
+Omit `jobId` entirely for general mode. Never send null or invent IDs.
+The canonical job-specific composition shape (for an explicitly bound Job) is:
+
+```json
+{"mode":"job_specific","jobId":"job-example"}
+```
+
+Use the tailoring Skill for end-user job-specific tailoring. These are the
+only composition modes; do not send aliases such as `general_resume`.

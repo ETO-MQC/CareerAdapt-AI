@@ -34,6 +34,32 @@ afterEach(async () => {
 });
 
 describe("P4.5c.1.2 confirmed composition write boundary", () => {
+  it("H1 resumes a persisted compose confirmation into fit using the committed General Resume", async () => {
+    const fixture = await createFixture();
+    const jobResult = await fixture.gateway.execute("career.workflow.job_intake", {
+      persistence: "save", rawText: "岗位：软件工程师\n岗位职责：参与产品开发与测试。\n任职要求：本科及以上学历，熟悉 Python，具备项目开发与团队协作经验。"
+    }, { operationId: "h1-save-job", userMessageId: "h1-user", sourceUserMessageId: "h1-user", sourceUserMessage: "先保存该岗位", logicalTurnId: "h1-job-turn", careerSessionBinding: fixture.binding("session-idempotent"), confirmed: true, confirmationCount: 1 });
+    expect(jobResult.ok, JSON.stringify(jobResult.error)).toBe(true);
+    const jobId = (jobResult.data as { workflowCheckpoint: { jobId: string } }).workflowCheckpoint.jobId;
+    const original = fixture.sessions.get("session-idempotent")!;
+    original.taskState!.selectedEntities.jobId = jobId;
+    original.activeJobId = jobId;
+    original.taskState!.knownSlots.nextAction = { kind: "job_fit", jobId, profileId: fixture.profile.id };
+    const profileBefore = await fixture.repository.getProfile(fixture.profile.id);
+    const host = fixture.createHost("session-idempotent");
+    const restored = await host.adoptDurably(JSON.parse(JSON.stringify(original)));
+    const prepared = await host.prepareRuntimeUserEvent({ session: restored!, event: directGenerateEvent(), pageContext: fixture.pageContext(original.id) });
+    const completed = await host.executeConfirmedResumeComposition({ session: prepared.session,
+      command: prepared.event as ConfirmResumeCompositionCommand, pageContext: fixture.pageContext(original.id), turnId: prepared.turnId });
+    expect(completed?.taskState).toMatchObject({ workflowId: "analyze_job_fit", completionStatus: "completed", selectedEntities: { jobId } });
+    const branches = await fixture.repository.listResumeBranches(fixture.profile.id);
+    expect(branches).toHaveLength(1);
+    expect(completed?.taskState?.selectedEntities.resumeId).toBe(branches[0].id);
+    expect(completed?.taskState?.knownSlots.fitAnalysis).toBeTruthy();
+    expect(completed?.taskState?.knownSlots.nextAction).toBeUndefined();
+    expect(await fixture.repository.getProfile(fixture.profile.id)).toEqual(profileBefore);
+    expect(await fixture.repository.listJobDescriptions()).toHaveLength(1);
+  });
   it("consumes a restored confirmation and exposes a source-bound recovery action after writing fails", async () => {
     const profile = migrateCareerProfileToV2(demoCareerProfile);
     const fallback = transportFallbackComposition(profile);

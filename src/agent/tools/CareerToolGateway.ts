@@ -171,7 +171,7 @@ type CareerToolGatewayDependencies = {
   ) => Promise<CareerSessionBindingVerification>;
   /** Read the current Host projection at execution time; never use the
    * planner's stale stage metadata for authorization. */
-  getAuthoritativeTaskState?: () => AgentTaskState | undefined;
+  getAuthoritativeTaskState?: (context: CareerToolExecutionContext) => AgentTaskState | undefined;
   /** Resolve the persisted source UserMessage for one current logical turn. */
   getUserMessageForTurn?: (turnId: string) => Pick<AgentMessage, "id" | "turnId" | "content"> | undefined;
   transactionalWorkflowLeases?: TransactionalWorkflowLeaseManager;
@@ -376,7 +376,7 @@ export class CareerToolGateway {
         attachContractIdentity(trace, contract);
         const facadeContext = {
           ...context,
-          authoritativeTaskState: context.authoritativeTaskState ?? this.asDependencies().getAuthoritativeTaskState?.(),
+          authoritativeTaskState: context.authoritativeTaskState ?? this.asDependencies().getAuthoritativeTaskState?.(context),
           availableCareerToolNames: context.availableCareerToolNames ?? new Set(this.listContracts().map((candidate) => candidate.name))
         };
         trace.preparedInvocationInput = input;
@@ -445,7 +445,7 @@ export class CareerToolGateway {
       if (stageError) return this.failure(name, operationId, stageError.code, stageError.message, true, undefined, "failed", finishFailureTrace(trace, stageError.code, "gateway_policy"));
       const contract = this.toContract(definition);
       attachContractIdentity(trace, contract);
-      const taskState = context.authoritativeTaskState ?? this.asDependencies().getAuthoritativeTaskState?.();
+      const taskState = context.authoritativeTaskState ?? this.asDependencies().getAuthoritativeTaskState?.(context);
       if (["career.profile.get", "career.context.retrieve"].includes(name)
         && input && typeof input === "object" && !Array.isArray(input)) {
         const request = input as Record<string, unknown>;
@@ -600,7 +600,7 @@ export class CareerToolGateway {
     // stale Host projection; the facade owns checkpoint validation and can
     // return a recoverable result without creating a second route.
     if (name === "career.workflow.tailor_resume") return undefined;
-    const state = context.authoritativeTaskState ?? this.asDependencies().getAuthoritativeTaskState?.();
+    const state = context.authoritativeTaskState ?? this.asDependencies().getAuthoritativeTaskState?.(context);
     if (!state || !isTailoringWorkflowId(state.workflowId)) return undefined;
     const sourceToolName = name.startsWith("career.workflow.")
       ? name === "career.workflow.tailor_resume" ? "create_tailoring_session" : undefined

@@ -43,7 +43,14 @@ function createAgentHost() {
     assertAvailableTargets: (name, input, binding) => service.assertAvailableToolTargets(name, input, binding),
     filterAvailableResult: (name, data, binding) => service.filterAvailableToolResult(name, data, binding),
     verifySessionBinding: async (binding, input) => verifyBrowserCareerBinding(repository, binding, input),
-    getAuthoritativeTaskState: () => hostStateRef.current?.getSnapshot().activeSession?.taskState,
+    getAuthoritativeTaskState: (context) => {
+      const session = hostStateRef.current?.getSnapshot().activeSession;
+      const sessionId = context.agentSessionId ?? context.careerSessionBinding?.agentSessionId;
+      if (!sessionId || session?.id !== sessionId) return undefined;
+      if (context.careerSessionBinding && session.taskState?.selectedEntities.profileId
+        && context.careerSessionBinding.profileId !== session.taskState.selectedEntities.profileId) return undefined;
+      return session.taskState;
+    },
     getUserMessageForTurn: (turnId) => hostStateRef.current?.getUserMessageForTurn(turnId)
   });
   const executor = new CareerToolGatewayExecutor(registry, careerToolGateway);

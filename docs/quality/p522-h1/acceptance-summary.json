@@ -1,0 +1,30 @@
+{
+  "task": "P5.2.2-H1",
+  "status": "PARTIAL_NOT_PASS",
+  "baseline": "e9fe2def76d5c357a5e11776cd830d226f8386b9",
+  "unitIntegration": {
+    "files": 8,
+    "passed": 89,
+    "exitCode": 0
+  },
+  "typecheckExitCode": 0,
+  "changedFilesEslintExitCode": 0,
+  "productionBuildExitCode": 0,
+  "realProviderRequests": 0,
+  "runtimeBundleChanged": false,
+  "browser": {
+    "journeyDefinitions": 1,
+    "executions": 2,
+    "passed": 0,
+    "status": "STOPPED_AFTER_TWO_TIMEOUTS",
+    "evidence": [
+      "browser-1794367769173",
+      "browser-1794368068385"
+    ],
+    "finalFixtureCorrectionRetested": false
+  },
+  "committed": false,
+  "pushed": false,
+  "packaged": false,
+  "diffCheckExitCode": 0
+}

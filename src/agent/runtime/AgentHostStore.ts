@@ -1730,6 +1730,30 @@ export class AgentHostStore {
       mergeAuthoritativeResumeCompositionCheckpoint(result.data, validation.checkpoint)
     );
     current = clearResumeCompositionWriteFailure(current);
+    const continuation = objectValue(current.taskState?.knownSlots.nextAction);
+    if (continuation.kind === "job_fit" && current.taskState
+      && continuation.profileId === current.taskState.selectedEntities.profileId
+      && continuation.jobId === current.taskState.selectedEntities.jobId) {
+      const committed = objectValue(current.taskState.knownSlots.resumeCompositionResult);
+      if (stringValue(committed.resumeId) && stringValue(committed.revisionId)) {
+        const nextTask = new AgentTaskStateReducer().reduce(current.taskState, {
+          type: "new_root_task", goal: "analyze_job_fit", workflowId: "analyze_job_fit", stage: "select_assets"
+        });
+        nextTask.selectedEntities.resumeId = stringValue(committed.resumeId);
+        nextTask.selectedEntities.revisionId = stringValue(committed.revisionId);
+        nextTask.knownSlots.nextAction = continuation;
+        current = await this.dependencies.persistence.save(projectTaskStateIntoSession(current, nextTask));
+        const fit = await this.dependencies.executor.execute({
+          toolName: "career.workflow.job_fit",
+          toolInput: { profileId: continuation.profileId, jobId: continuation.jobId, resumeId: committed.resumeId },
+          operationId: `${operationId}-job-fit`, logicalTurnId: turnId,
+          careerSessionBinding: careerSessionBindingForSession(current), requireSessionBinding: true
+        });
+        current = applyRuntimeFacadeCheckpoint(current, "career.workflow.job_fit", fit.data);
+        if (fit.ok && current.taskState) delete current.taskState.knownSlots.nextAction;
+        current = attachConfirmedToolArtifact(current, "career.workflow.job_fit", `${operationId}-job-fit`, fit);
+      }
+    }
     current = attachConfirmedToolArtifact(
       current,
       "compose_resume",
@@ -1739,8 +1763,12 @@ export class AgentHostStore {
         data: runtimeArtifactResultData("career.workflow.compose_resume", result.data)
       }
     );
+    const continuationIncomplete = current.taskState?.workflowId === "analyze_job_fit" && current.taskState.completionStatus !== "completed";
     const completedAt = new Date().toISOString();
-    current = appendAgentMessage(current, "assistant", "已按你的确认生成隔离的简历版本，可以打开预览。", {
+    current = appendAgentMessage(current, "assistant", current.taskState?.workflowId === "analyze_job_fit" && current.taskState.completionStatus === "completed"
+      ? "通用简历已创建，岗位匹配已完成，可以打开匹配结果。"
+      : continuationIncomplete ? "通用简历已创建，岗位匹配尚未完成；当前简历和岗位已保留。"
+      : "已按你的确认生成隔离的简历版本，可以打开预览。", {
       kind: "text",
       type: "text",
       status: "complete",
@@ -1759,18 +1787,18 @@ export class AgentHostStore {
       }
     });
     current = {
-      ...settleUserExecutionState(current, turnId, "complete"),
+      ...settleUserExecutionState(current, turnId, continuationIncomplete ? "failed" : "complete"),
       activeTurn: current.activeTurn
-        ? { ...current.activeTurn, status: "completed", completedAt }
+        ? { ...current.activeTurn, status: continuationIncomplete ? "failed" : "completed", completedAt }
         : current.activeTurn,
       workflowState: current.taskState && current.workflowState
-        ? projectTaskStateToWorkflowState(current.taskState, { ...current.workflowState, status: "completed" })
+        ? projectTaskStateToWorkflowState(current.taskState, { ...current.workflowState, status: continuationIncomplete ? "failed" : "completed" })
         : current.workflowState
     };
     current = completeTurnCheckpoint(current, turnId, completedAt);
     const saved = await this.dependencies.persistence.save(current);
     this.patchSession(saved, {
-      turnStatus: "completed",
+      turnStatus: continuationIncomplete ? "failed" : "completed",
       activeTurnId: turnId,
       uiAction: resumePreviewUiAction(saved),
       currentObservation: objectValue(result.data)
@@ -2563,7 +2591,9 @@ export class AgentHostStore {
         id: `agent-tool-${logicalToolOperationId ?? operationId}`,
         turnId: event.turnId,
         content: effectiveFailure
-          ? "该步骤未完成，当前进度已保留，可重试。"
+          ? objectValue(projectedResult.error).retryable === true
+            ? "该步骤未完成，当前进度已保留，可重试。"
+            : "该步骤没有正确执行，当前岗位和资料已保留。"
           : event.type === "tool_call_completed" ? "该步骤已处理，正在核对业务结果。" : "正在处理当前任务…",
         toolName: event.toolName,
         operationId,
@@ -11966,14 +11996,16 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
     });
     session = projectTaskStateIntoSession(session, task);
   }
-  if (toolName === "career.workflow.job_intake" && !session.taskState) {
+  if (toolName === "career.workflow.job_intake" && (!session.taskState
+    || session.taskState.rootGoal === "clarify_external_target")) {
     const reducer = new AgentTaskStateReducer();
     const task = reducer.reduce(reducer.create(session, "ingest_job", { workflowId: "job_ingestion", step: "parse_job" }), {
       type: "new_root_task", goal: "ingest_job", workflowId: "job_ingestion", stage: "parse_job"
     });
     session = projectTaskStateIntoSession(session, task);
   }
-  if (toolName === "career.workflow.compose_resume" && !session.taskState
+  if (toolName === "career.workflow.compose_resume" && (!session.taskState
+    || ["completed", "cancelled", "failed"].includes(session.taskState.completionStatus))
     && objectValue(objectValue(value).workflowCheckpoint).kind === "resume_composition") {
     // A real proposal can be the first business operation in a conversation.
     // Its confirmation must restore the same task/checkpoint as a quick action.

@@ -217,3 +217,11 @@ answers; align supported ATS terms; remove low-value content. Never stuff a
 missing keyword. Each important addition exposes requirementId → evidence or
 question → exact user answer/source turn → claim state/maturity → resume diff.
 Confirm factual accuracy and scope separately from approval to apply the proposal.
+
+## CANONICAL TOOL EXAMPLE
+
+### career.workflow.tailor_resume
+
+```json
+{"targetText":"Synthetic software engineering role requiring confirmed programming experience.","jobPersistence":"session_only"}
+```

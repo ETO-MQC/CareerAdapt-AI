@@ -623,7 +623,7 @@ function isGeneralCareerQuestion(text: string) {
 }
 
 function isExplicitProfileToResumeIntent(text: string) {
-  return /(?:从|基于|使用|用).*(?:个人资料库|资料库).*(?:整理|生成|创建|组装|编写).*(?:通用)?简历|通用简历.*(?:生成|整理|创建|组装|编写)/iu.test(text);
+  return /(?:从|基于|使用|用).*(?:个人资料库|资料库|Profile|个人资料).*(?:整理|生成|创建|组装|编写).*(?:通用)?简历|(?:生成|整理|创建|组装|编写)(?:一份|一版|我的|新的|这份|当前|\s)*通用简历|通用简历.*(?:生成|整理|创建|组装|编写)/iu.test(text);
 }
 
 function looksLikeJobSpecificResumeRequest(text: string) {

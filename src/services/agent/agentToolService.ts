@@ -911,6 +911,9 @@ export class BrowserAgentToolService implements AgentToolServices {
         targetDirection: input.targetDirection, targetAudience: input.targetAudience, companyType: input.companyType, userPreferences, signal },
       { graph, blueprint, writingService: this.careerResumeWriter }
     );
+    if (input.mode === "general" && composition.items.length === 0) {
+      throw toolError("profile_resume_projection_empty", "已确认资料未能进入简历内容，未创建空简历，请重新执行当前步骤。");
+    }
     const checkpoint = await this.repository.saveResumeCompositionCheckpoint(createResumeCompositionCheckpoint({
       composition,
       ...(context.job ? { jobRevision: context.job.updatedAt } : {}),

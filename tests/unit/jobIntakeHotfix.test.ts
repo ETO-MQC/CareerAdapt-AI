@@ -324,3 +324,33 @@ it("explicit null company is accepted by the public tool and the Repository cont
   expect(result.ok, JSON.stringify(result.error)).toBe(true);
   expect((await f.repository.listJobDescriptions())[0].company).toBeNull();
 });
+
+it("H1 analyze-only A then revised B saves the latest checkpoint once after session restore", async () => {
+  const f = await fixture(); const persistence = new AgentSessionStore(f.repository);
+  const initial = await persistence.save(AgentRuntime.createConversationSession());
+  const host = new AgentHostStore({ repository: f.repository, persistence, executor: new CareerToolGatewayExecutor(f.registry, f.gateway) });
+  host.adopt(initial);
+  const run = async (text: string, input: Record<string, unknown>, operationId: string) => {
+    const current = host.getSnapshot().activeSession!;
+    const prepared = await host.prepareRuntimeTask({ session: current, userMessage: text });
+    const shell = await host.beginRuntimeShell({ session: prepared, userMessage: text, runtimeId: "hermes" });
+    const result = await f.gateway.execute("career.workflow.job_intake", input, { ...f.context, operationId,
+      authoritativeTaskState: shell.session.taskState, sourceUserMessage: text, userMessageId: shell.userMessageId,
+      careerSessionBinding: { ...f.context.careerSessionBinding, agentSessionId: initial.id } });
+    expect(result.ok, JSON.stringify(result.error)).toBe(true);
+    await host.applyRuntimeEvent({ type: "tool_call_completed", sessionId: initial.id, turnId: shell.turnId,
+      timestamp: new Date().toISOString(), toolName: "career.workflow.job_intake", operationId, data: { result } }, shell.assistantMessageId);
+    return host.applyRuntimeEvent({ type: "turn_completed", sessionId: initial.id, turnId: shell.turnId,
+      timestamp: new Date().toISOString(), message: "当前步骤已处理。" }, shell.assistantMessageId);
+  };
+  await run(`分析JD：${JD}`, { rawText: JD, persistence: "analyze_only" }, "h1-analyze-a");
+  expect(await f.repository.listJobDescriptions()).toHaveLength(0);
+  const revised = JD.replace("模型评测与部署", "模型评测与测试");
+  await run(`分析JD：${revised}`, { rawText: revised, persistence: "analyze_only" }, "h1-analyze-b");
+  host.adopt((await persistence.get(initial.id))!);
+  const saved = await run("先保存该岗位，再进行岗位匹配分析", { persistence: "save" }, "h1-save-b");
+  const id = saved!.taskState!.selectedEntities.jobId!;
+  expect((await f.repository.getJobDescription(id))!.rawText).toBe(revised);
+  await run("保存该岗位", { persistence: "save" }, "h1-repeat-save");
+  expect(await f.repository.listJobDescriptions()).toHaveLength(1);
+});

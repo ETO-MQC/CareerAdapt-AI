@@ -147,7 +147,12 @@ export class AgentTaskStateReducer {
         missingSlots: [],
         selectedEntities: {
           profileId: state.selectedEntities.profileId,
-          profileVersion: state.selectedEntities.profileVersion
+          profileVersion: state.selectedEntities.profileVersion,
+          ...(["compose_resume", "analyze_job_fit"].includes(workflowId) ? {
+            jobId: state.selectedEntities.jobId,
+            resumeId: state.selectedEntities.resumeId,
+            revisionId: state.selectedEntities.revisionId
+          } : {})
         },
         pendingDecision: undefined,
         dependencySnapshots: {},
@@ -181,6 +186,14 @@ export class AgentTaskStateReducer {
       return normalize(state);
     }
     if (event.type === "user_message") {
+      if (state.workflowId === "compose_resume"
+        && /(?:然后|再|随后).*(?:岗位匹配|匹配分析|匹配度)/u.test(event.message)
+        && state.selectedEntities.jobId && state.selectedEntities.profileId) {
+        state.knownSlots.nextAction = {
+          kind: "job_fit", jobId: state.selectedEntities.jobId,
+          profileId: state.selectedEntities.profileId
+        };
+      }
       delete state.knownSlots.compoundAnswerResolution;
       if (looksLikeJd(event.message)) {
         const targetText = event.message.trim();
@@ -1079,6 +1092,7 @@ export class AgentTaskStateReducer {
       delete state.knownSlots.pendingConfirmation;
     }
     if (event.type === "confirmation_rejected") {
+      delete state.knownSlots.nextAction;
       state.completionStatus = "waiting_for_user";
       delete state.knownSlots.pendingConfirmation;
       delete state.dependencySnapshots.pendingApplyConfirmation;

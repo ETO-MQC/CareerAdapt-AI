@@ -158,3 +158,20 @@ Summarize Strong matches, Positionable matches, Worth clarifying, Real gaps,
 and Low-value gaps. Real gaps require an explicit negative answer or blocker;
 unknown never means “用户不会”. Explain must-have/preferred coverage, relevant
 experience, transferability and important unknowns separately; no interview odds.
+
+## CANONICAL TOOL EXAMPLES
+
+### career.workflow.job_intake
+
+```json
+{"rawText":"Synthetic software engineering role requiring confirmed programming experience.","persistence":"analyze_only"}
+```
+
+### career.workflow.job_fit
+
+```json
+{}
+```
+
+For fit, Host binds the selected Profile, Resume and Job. If any is missing,
+ask for that entity; never invent an ID or select an unrelated target.
