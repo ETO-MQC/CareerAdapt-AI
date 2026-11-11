@@ -148,5 +148,195 @@
     "tests/unit/taskRecoveryH2.test.tsx": "b5c1ae1e353b17816a4692aba18c6c60a205e791758986bf5eea15e1da7b6dc6",
     "tests/unit/workflowContractSweepH2.test.ts": "74ff741f627f61ff69b5c39e322488621feefb75dec761fe187db50364b32091"
   },
-  "next": "User-selected requalification of corrected same Journey; no automatic P5.2.3/commit/push/package"
+  "next": "User-selected requalification of corrected same Journey; no automatic P5.2.3/commit/push/package",
+  "h2qFinalQualification": {
+  "date": "2026-11-12",
+  "status": {
+    "readyForFinalCoreQualification": false,
+    "H2": "PARTIAL",
+    "H1": "PARTIAL"
+  },
+  "git": {
+    "committed": false,
+    "initialStatusShort": "",
+    "remoteHead": "a9a5d62970f5b06d56ab6fd8bce18539e9ce4c43",
+    "pushed": false,
+    "packaged": false,
+    "branch": "competition/5.1.8",
+    "startingHead": "a9a5d62970f5b06d56ab6fd8bce18539e9ce4c43"
+  },
+  "productionFixes": [
+    "Serialize Host job_intake confirmation with existing runtime event queue and preserve authoritative confirmed receipt against late same-turn events",
+    "Start facade Compose transition from authoritative TaskState rather than legacy Session selection aliases"
+  ],
+  "checks": {
+    "build": "not run: no build boundary change",
+    "typecheckExitCode": 0,
+    "targetedTests": {
+      "failed": 0,
+      "files": 12,
+      "passed": 145,
+      "evidence": "docs/quality/p522-h2q-final-tests.json",
+      "skipped": 0,
+      "exitCode": 0
+    },
+    "diffCheckExitCode": 0,
+    "changedFilesLintExitCode": 0,
+    "additionalLateReceiptTests": {
+      "passed": 20,
+      "exitCode": 0,
+      "evidence": "docs/quality/p522-h2q-late-receipt-tests.json"
+    }
+  },
+  "journey": {
+    "confirmationId": "confirmation-mcp-career-7BS3h-sRXTa96Zc_",
+    "continuation": {
+      "kind": "job_fit",
+      "workflow": "analyze_job_fit",
+      "originSessionId": "agent-session-hS8LidYVrnCU",
+      "originTurnId": "runtime-turn-be5064db-a4db-4305-bdb8-9eac7dc3a650",
+      "requiredEntities": {
+        "profileId": "profile-a83ee6d7-ff32-43c4-8a02-afa2f13e6819",
+        "jobId": "job-2qXR96e-g_"
+      },
+      "jobId": "job-2qXR96e-g_",
+      "profileId": "profile-a83ee6d7-ff32-43c4-8a02-afa2f13e6819"
+    },
+    "notReached": [
+      "General Branch/Revision commit",
+      "automatic Fit",
+      "Fit dependencies/artifact binding",
+      "final completed refresh"
+    ],
+    "realProviderRequests": 0,
+    "fixtureCorrectedAfterStop": true,
+    "stopReason": "Same long test timed out on two consecutive executions (attempts 4 and 5); AGENTS section 5 prohibits further rerun",
+    "attempts": 5,
+    "sessionId": "agent-session-hS8LidYVrnCU",
+    "latestSyntheticInferenceRequests": 9,
+    "composition": {
+      "bulletCount": 4,
+      "items": 5,
+      "sourceAssetCount": 5
+    },
+    "classification": "A: test confirmation action",
+    "definition": "tests/e2e/workflow-continuation-h1.spec.ts",
+    "rerunAfterCorrection": false,
+    "passed": [
+      "JD analyze only, persisted graph and target, no Job write",
+      "refresh same Session/TaskState/activeBranch; observed restoring with send disabled",
+      "save previous JD with actual confirmation and exactly one new Job; authoritative persistenceVerified",
+      "terminal Job to Compose with retained Job and nextAction",
+      "published general compose input mode=general, Gateway reached and schema passed",
+      "nonempty Project and Internship proposal with highlights and source assets",
+      "refresh same proposal, pendingConfirmation and continuation"
+    ],
+    "activeBranch": "legacy-branch",
+    "jobRevision": "2026-11-11T16:18:38.326Z",
+    "jobId": "job-2qXR96e-g_",
+    "counts": {
+      "revisionsAfter": 0,
+      "jobsAfter": 3,
+      "revisionsBefore": 0,
+      "jobsBefore": 2,
+      "branchesAfter": 0,
+      "branchesBefore": 0
+    },
+    "latestExitCode": 1,
+    "failedAt": "Test clicked direct Generate while durable Host confirmation card remained pending",
+    "profileUnchanged": true,
+    "latestEvidence": "docs/quality/p522-h1/browser-1794413844257"
+  },
+  "attempts": [
+    {
+      "reason": "Job committed but Host receipt lost through metadata CAS",
+      "classification": "B",
+      "evidence": "browser-1794412769939"
+    },
+    {
+      "reason": "Compose transition lost TaskState Job and continuation",
+      "classification": "B",
+      "evidence": "browser-1794413087952"
+    },
+    {
+      "reason": "synthetic v2 Profile had empty canonical structuredFacts",
+      "classification": "A",
+      "evidence": "browser-1794413279656"
+    },
+    {
+      "reason": "Version rebase alone did not close confirmation/runtime race",
+      "classification": "B",
+      "evidence": "browser-1794413537630"
+    },
+    {
+      "reason": "Test did not click durable Compose Host confirmation",
+      "classification": "A",
+      "evidence": "browser-1794413844257"
+    }
+  ],
+  "limitations": [
+    "No H1/H2 PASS",
+    "Final corrected confirmation test not rerun",
+    "P522-03 not independently closed; no health preflight 503 encountered here",
+    "No full release gate or real Provider qualification",
+    "Historical evidence and failed intermediate regression repair3 retained"
+  ],
+  "next": "Only user-selected requalification of corrected same Journey; no P5.2.3/commit/push/package"
+},
+  "h2qAdditionalAuthorizedQualification": {
+  "date": "2026-11-12",
+  "authorization": "User explicitly authorized one additional execution after inspecting corrected confirmation script",
+  "branch": "competition/5.1.8",
+  "head": "a9a5d62970f5b06d56ab6fd8bce18539e9ce4c43",
+  "initialWorktree": "Prior H2Q uncommitted changes preserved",
+  "status": {
+    "readyForFinalCoreQualification": false,
+    "H2": "PARTIAL",
+    "H1": "PARTIAL"
+  },
+  "journey": {
+    "exitCode": 1,
+    "syntheticInferenceRequests": 6,
+    "pendingConfirmationPreservedInRepository": true,
+    "jobCountAfter": 2,
+    "failedAt": "Durable Job confirmation card disappeared before actual confirmation click when late Runtime failure converted its host message into error_status",
+    "totalH2qAttempts": 6,
+    "jobCountBefore": 2,
+    "composeConfirmationCorrectionReached": false,
+    "generalBranches": 0,
+    "attemptsThisTurn": 1,
+    "sessionId": "agent-session-_OO18bXMtsX6",
+    "realProviderRequests": 0,
+    "profileUnchanged": true,
+    "classification": "B: production P1",
+    "evidence": "docs/quality/p522-h1/browser-1794415928135",
+    "revisions": 0
+  },
+  "repair": {
+    "browserRerunAfterRepair": false,
+    "coversFinalSource": false,
+    "file": "src/agent/runtime/AgentHostStore.ts",
+    "decision": "While same-turn Career facade confirmation is pending, preserve actionable Host confirmation/business state and normal message presentation across model-side tool failure or terminal events; keep Runtime diagnostics",
+    "scope": "No Repository/Schema/threshold/runtime/provider/timeout changes"
+  },
+  "checks": {
+    "build": "not run: build boundary unchanged",
+    "lintExitCode": 0,
+    "diffCheckExitCode": 0,
+    "targetedTests": {
+      "files": 12,
+      "passed": 145,
+      "exitCode": 0,
+      "evidence": "docs/quality/p522-h2q-extra-final-tests.json",
+      "failed": 0,
+      "skipped": 0
+    },
+    "typecheckExitCode": 0
+  },
+  "processFailure": "First new test run exposed test restore fixture using adopt without awaiting persistence after pending-state normalization; changed fixture to await existing adoptDurably, then confirmed/rejected paths passed",
+  "next": "Final repaired source still requires same-Journey Browser qualification; this turn used only the one newly authorized run",
+  "committed": false,
+  "pushed": false,
+  "packaged": false
+}
 }

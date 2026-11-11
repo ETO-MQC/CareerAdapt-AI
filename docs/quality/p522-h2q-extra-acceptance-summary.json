@@ -1,0 +1,56 @@
+{
+  "date": "2026-11-12",
+  "authorization": "User explicitly authorized one additional execution after inspecting corrected confirmation script",
+  "branch": "competition/5.1.8",
+  "head": "a9a5d62970f5b06d56ab6fd8bce18539e9ce4c43",
+  "initialWorktree": "Prior H2Q uncommitted changes preserved",
+  "status": {
+    "readyForFinalCoreQualification": false,
+    "H2": "PARTIAL",
+    "H1": "PARTIAL"
+  },
+  "journey": {
+    "exitCode": 1,
+    "syntheticInferenceRequests": 6,
+    "pendingConfirmationPreservedInRepository": true,
+    "jobCountAfter": 2,
+    "failedAt": "Durable Job confirmation card disappeared before actual confirmation click when late Runtime failure converted its host message into error_status",
+    "totalH2qAttempts": 6,
+    "jobCountBefore": 2,
+    "composeConfirmationCorrectionReached": false,
+    "generalBranches": 0,
+    "attemptsThisTurn": 1,
+    "sessionId": "agent-session-_OO18bXMtsX6",
+    "realProviderRequests": 0,
+    "profileUnchanged": true,
+    "classification": "B: production P1",
+    "evidence": "docs/quality/p522-h1/browser-1794415928135",
+    "revisions": 0
+  },
+  "repair": {
+    "browserRerunAfterRepair": false,
+    "coversFinalSource": false,
+    "file": "src/agent/runtime/AgentHostStore.ts",
+    "decision": "While same-turn Career facade confirmation is pending, preserve actionable Host confirmation/business state and normal message presentation across model-side tool failure or terminal events; keep Runtime diagnostics",
+    "scope": "No Repository/Schema/threshold/runtime/provider/timeout changes"
+  },
+  "checks": {
+    "build": "not run: build boundary unchanged",
+    "lintExitCode": 0,
+    "diffCheckExitCode": 0,
+    "targetedTests": {
+      "files": 12,
+      "passed": 145,
+      "exitCode": 0,
+      "evidence": "docs/quality/p522-h2q-extra-final-tests.json",
+      "failed": 0,
+      "skipped": 0
+    },
+    "typecheckExitCode": 0
+  },
+  "processFailure": "First new test run exposed test restore fixture using adopt without awaiting persistence after pending-state normalization; changed fixture to await existing adoptDurably, then confirmed/rejected paths passed",
+  "next": "Final repaired source still requires same-Journey Browser qualification; this turn used only the one newly authorized run",
+  "committed": false,
+  "pushed": false,
+  "packaged": false
+}

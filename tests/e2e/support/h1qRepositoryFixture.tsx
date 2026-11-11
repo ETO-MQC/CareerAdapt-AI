@@ -5,6 +5,7 @@ import { useState } from "react";
 import { CareerProfileSchema, type FactStatement } from "@/domain/schemas";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 import { careerAdaptDb } from "@/services/storage/db";
+import { migrateCareerProfileToV2 } from "@/domain/migrations/resumeV2";
 
 export default function H1qRepositoryFixture() {
   const [result, setResult] = useState("waiting");
@@ -27,9 +28,11 @@ export default function H1qRepositoryFixture() {
     ].map(({ statements, ...experience }) => ({ ...experience, startDate: "2025-01", endDate: "2025-06",
       facts: statements.map((statement, index) => fact(`${experience.id}-${index}`, statement, "experience")),
       resumeDrafts: [], tags: [], evidenceIds: [], createdAt: now, updatedAt: now }));
-    const saved = await repository.saveProfile(CareerProfileSchema.parse({ ...profile, version: profile.version + 1,
+    // Build this synthetic input through the official legacy-to-v2 converter;
+    // createPerson's empty v2 canonical facts must not mask the seeded facts.
+    const saved = await repository.saveProfile(migrateCareerProfileToV2(CareerProfileSchema.parse({ ...profile, schemaVersion: undefined, version: profile.version + 1,
       experiences, skills: ["SQL", "Python"].map(name => ({ id: `h1q-${name}`, name, level: "familiar",
-        evidenceIds: [], fact: fact(`h1q-skill-${name}`, `使用 ${name} 处理数据。`, "skill"), createdAt: now, updatedAt: now })) }));
+        evidenceIds: [], fact: fact(`h1q-skill-${name}`, `使用 ${name} 处理数据。`, "skill"), createdAt: now, updatedAt: now })) })));
     await repository.setActiveCareerContext({ personId: saved.personId!, profileId: saved.id });
     setResult(saved.id);
   }

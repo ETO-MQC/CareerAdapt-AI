@@ -42,6 +42,16 @@ test("H1 bundled Hermes analyze/save/compose/confirm/fit/refresh", async ({ page
       if (!localStorage.getItem("careeradapt-ai-settings")) localStorage.setItem("careeradapt-ai-settings", JSON.stringify({ baseUrl, model: "careeradapt-test",
         provider: "openai-compatible", apiKeyConfigured: true }));
     }, { baseUrl: process.env.HERMES_INTEGRATION_PROVIDER_URL! });
+    await page.addInitScript(() => {
+      const observations: Array<{ state: string; sendEnabled: boolean }> = [];
+      Object.assign(window, { h2qRecoveryObservations: observations });
+      new MutationObserver(() => {
+        const state = document.querySelector('[data-testid="agent-recovery-state"]')?.getAttribute("data-state");
+        if (!state) return;
+        const send = document.querySelector<HTMLButtonElement>('button[aria-label="发送消息"]');
+        observations.push({ state, sendEnabled: Boolean(send && !send.disabled) });
+      }).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-state", "disabled"] });
+    });
     await page.goto("/h1q-fixture");
     await page.getByRole("button", { name: "Seed confirmed Profile", exact: true }).click();
     await expect(page.getByTestId("seed-result")).toHaveText(/^profile-/u);
@@ -53,6 +63,8 @@ test("H1 bundled Hermes analyze/save/compose/confirm/fit/refresh", async ({ page
     expect(profile.experiences.find(row => row.type === "internship")!.facts.length).toBeGreaterThanOrEqual(1);
     expect(profile.experiences.every(row => row.facts.every(fact => fact.confirmedByUser))).toBe(true);
     expect(profile.skills.map(skill => skill.name)).toEqual(["SQL", "Python"]);
+    expect(profile.structuredFacts?.some(entry => entry.data.sectionType === "project")).toBe(true);
+    expect(profile.structuredFacts?.some(entry => entry.data.sectionType === "internship")).toBe(true);
     expect(before.branches).toHaveLength(0);
     expect(before.revisions).toHaveLength(0);
     const baselineJobs = before.jobs.length;
@@ -98,10 +110,19 @@ test("H1 bundled Hermes analyze/save/compose/confirm/fit/refresh", async ({ page
     await expect(page.getByTestId("agent-recovery-state")).toHaveAttribute("data-state", "ready");
     await expect(page.getByTestId("agent-recovery-state")).toHaveAttribute("data-session-id", sessionId);
     expect((await current()).taskState).toEqual(analyzed.session?.taskState);
+    expect((await current()).activeBranchId).toBe(analyzed.session?.activeBranchId);
+    const recoveryObservations = await page.evaluate(() => (window as unknown as {
+      h2qRecoveryObservations: Array<{ state: string; sendEnabled: boolean }>
+    }).h2qRecoveryObservations);
+    expect(recoveryObservations.some(row => row.state === "restoring")).toBe(true);
+    expect(recoveryObservations.filter(row => row.state === "restoring").every(row => !row.sendEnabled)).toBe(true);
+    timeline.push({ step: "recovery-send-gate", recoveryObservations });
     await send("保存刚才这个岗位。");
     // A save request may require its persisted Host confirmation. Exercise the
     // real authorization boundary rather than waiting for an unapproved write.
     await expect(page.getByRole("region", { name: "确认保存岗位信息" })).toBeVisible({ timeout: 30_000 });
+    expect(await readStore(page, "jobDescriptions")).toHaveLength(baselineJobs);
+    await snapshot("job-awaiting-confirmation");
     await page.getByRole("region", { name: "确认保存岗位信息" }).getByRole("button", { name: "确认", exact: true }).click();
     await expect.poll(async () => (await readStore(page, "jobDescriptions")).length, { timeout: 60_000 }).toBe(baselineJobs + 1);
     await expect.poll(async () => (await current())?.taskState?.knownSlots.jobPersistenceVerified, { timeout: 30_000 }).toBe(true);
@@ -134,7 +155,15 @@ test("H1 bundled Hermes analyze/save/compose/confirm/fit/refresh", async ({ page
     await expect(page.getByTestId("agent-recovery-state")).toHaveAttribute("data-session-id", sessionId);
     expect((await current()).taskState?.knownSlots.nextAction).toEqual(proposed.session?.taskState?.knownSlots.nextAction);
     expect((await current()).taskState?.knownSlots.resumeCompositionCheckpoint).toEqual(checkpoint);
-    await page.getByRole("button", { name: "直接生成", exact: true }).last().click();
+    expect((await current()).pendingConfirmation).toEqual(proposed.session?.pendingConfirmation);
+    expect((await current()).activeBranchId).toBe(proposed.session?.activeBranchId);
+    await snapshot("composition-confirmation-restored");
+    if (proposed.session?.pendingConfirmation?.toolName === "career.workflow.compose_resume") {
+      await page.getByRole("region", { name: proposed.session.pendingConfirmation.title, exact: true })
+        .getByRole("button", { name: "确认", exact: true }).click();
+    } else {
+      await page.getByRole("button", { name: "直接生成", exact: true }).last().click();
+    }
     await expect.poll(async () => ({ workflowId: (await current())?.taskState?.workflowId,
       completionStatus: (await current())?.taskState?.completionStatus }), { timeout: 60_000 }).toEqual({ workflowId: "analyze_job_fit", completionStatus: "completed" });
     const completed = await snapshot("fit-completed");
@@ -155,9 +184,19 @@ test("H1 bundled Hermes analyze/save/compose/confirm/fit/refresh", async ({ page
     expect(fit.dependencies).toMatchObject({ profileId, jobId, resumeId: branch.id, resumeRevisionId: revisionId });
     expect(JSON.stringify(fit.analysis)).toMatch(/status/u);
     expect(JSON.stringify(fit.analysis)).toMatch(/evidence|unknown/iu);
+    const fitArtifact = completed.session?.artifactRefs.find(artifact => artifact.kind === "job_fit_overview");
+    expect(fitArtifact?.binding).toMatchObject({ sessionId, branchId: completed.session?.activeBranchId,
+      workflowId: "analyze_job_fit", jobId, resumeBranchId: branch.id, revisionId });
+    expect(completed.session?.pendingConfirmation).toBeUndefined();
     await page.reload();
     await expect(page.getByText("通用简历已创建，岗位匹配已完成，可以打开匹配结果。", { exact: true })).toBeVisible();
     const restored = await snapshot("refreshed");
+    await expect(page.getByTestId("agent-recovery-state")).toHaveAttribute("data-state", "ready");
+    await expect(page.getByTestId("agent-recovery-state")).toHaveAttribute("data-session-id", sessionId);
+    expect(restored.session?.activeBranchId).toBe(completed.session?.activeBranchId);
+    expect(restored.session?.taskState).toEqual(completed.session?.taskState);
+    expect(restored.session?.artifactRefs).toContainEqual(fitArtifact);
+    expect(restored.session?.pendingConfirmation).toBeUndefined();
     expect(restored.session?.taskState).toMatchObject({ workflowId: "analyze_job_fit", completionStatus: "completed",
       selectedEntities: { profileId, jobId, resumeId: branch.id, revisionId } });
     expect(restored.session?.taskState?.knownSlots.fitAnalysis).toEqual(fit);
@@ -168,6 +207,7 @@ test("H1 bundled Hermes analyze/save/compose/confirm/fit/refresh", async ({ page
     expect(restored.revisions).toEqual(completed.revisions);
     expect(JSON.stringify({ sessions: await sessions(), bridgeResults })).not.toMatch(/career_agent_duplicate_invalid_call|gateway_validation_failed|jobId invalid_type|mode invalid_value/u);
   } finally {
+    await snapshot("final-observed-state");
     const evidence = { sessionId, timeline, bridgeResults, requests: requests.map(({ name, input, agentSessionId, operationId }) => ({ name, input, agentSessionId, operationId })) };
     await info.attach("h1q-business-evidence", { body: JSON.stringify(evidence, null, 2), contentType: "application/json" });
     if (process.env.H1Q_EVIDENCE_DIR) writeFileSync(path.join(process.env.H1Q_EVIDENCE_DIR, "business-evidence.json"), JSON.stringify(evidence, null, 2));

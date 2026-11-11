@@ -150,7 +150,9 @@ describe("P4.5c.1.2 confirmed composition write boundary", () => {
     original.taskState.workflowId = "job_ingestion";
     original.taskState.completionStatus = "completed";
     original.taskState.selectedEntities = { profileId: f.profile.id, jobId: "bound-job" };
-    original.activeJobId = "bound-job";
+    // Formal Job selection lives in TaskState; the legacy session alias may
+    // remain empty after the real confirmed intake path.
+    original.activeJobId = undefined;
     const host = f.createHost(original.id);
     await host.adoptDurably(original);
     const shell = await host.beginRuntimeShell({ session: original, userMessage: "基于已确认的 Profile 创建一份通用简历，然后再做岗位匹配。", runtimeId: "hermes" });

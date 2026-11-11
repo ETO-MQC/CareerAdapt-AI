@@ -2563,6 +2563,36 @@ export class AgentHostStore {
       && current.hermesRun.runId !== incomingRunId) return current;
     next = applyRuntimeEventDiagnostics(next, event, runHandleResult.success ? runHandleResult.data.runId : undefined);
     if (runHandleResult.success && !knownPendingToolReceipt) next = { ...next, hermesRun: runHandleResult.data };
+    if (current.pendingConfirmation?.status === "pending"
+      && current.pendingConfirmation.turnId === event.turnId
+      && current.pendingToolCall?.turnId === event.turnId
+      && current.pendingToolCall.toolName.startsWith("career.workflow.")
+      && ["tool_call_failed", "turn_completed", "turn_failed"].includes(event.type)) {
+      // A model-side failure/terminal after the gateway approval boundary is
+      // not a rejection of the durable Host proposal. Keep its card actionable.
+      const pendingResult = objectValue(objectValue(event.data).result);
+      if (event.toolName?.startsWith("career.workflow.") && pendingResult.data !== undefined) {
+        next = applyRuntimeFacadeCheckpoint(next, event.toolName, pendingResult.data);
+      }
+      if (next.taskState) next = projectTaskStateIntoSession(next, {
+        ...next.taskState, completionStatus: "waiting_for_confirmation", updatedAt: new Date().toISOString()
+      });
+      next = replaceRuntimeShellMessage(next, assistantMessageId, "这项操作需要你的确认后才能继续。", event, false, false);
+      next = { ...next, activeTurn: next.activeTurn ? { ...next.activeTurn, status: "waiting_for_confirmation" } : undefined };
+      const saved = await this.dependencies.persistence.save(next);
+      this.patchSession(saved, { turnStatus: "waiting_for_confirmation", activeTurnId: event.turnId });
+      return saved;
+    }
+    if (current.taskState?.workflowId === "job_ingestion"
+      && current.taskState.knownSlots.jobPersistenceVerified === true
+      && current.activeTurn.status === "completed"
+      && current.messages.some(message => message.turnId === event.turnId && message.metadata?.workflowConfirmationCompleted === true)) {
+      // The reviewed Host transaction has already completed this turn. Keep
+      // Run diagnostics, but late model/tool narration cannot undo its receipt.
+      const saved = await this.dependencies.persistence.save(next);
+      this.patchSession(saved, { turnStatus: "completed", activeTurnId: event.turnId });
+      return saved;
+    }
     if (
       next.taskState?.knownSlots.canonicalWorkflowFailure
       && !["turn_completed", "turn_failed"].includes(event.type)
@@ -5942,8 +5972,12 @@ export class AgentHostStore {
     const executionKey = `${session.id}:${operationId}`;
     const running = this.confirmationExecutions.get(executionKey);
     if (running) return running;
-    const execution = this.resolveConfirmationOnce(confirmed, pageContext, session)
+    const serializeJobConfirmation = session.pendingToolCall?.toolName === "career.workflow.job_intake";
+    const execution = (serializeJobConfirmation
+      ? this.runtimeEventQueue.then(() => this.resolveConfirmationOnce(confirmed, pageContext, session))
+      : this.resolveConfirmationOnce(confirmed, pageContext, session))
       .finally(() => this.confirmationExecutions.delete(executionKey));
+    if (serializeJobConfirmation) this.runtimeEventQueue = execution.then(() => undefined, () => undefined);
     this.confirmationExecutions.set(executionKey, execution);
     return execution;
   }
@@ -12128,7 +12162,7 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
     // Its confirmation must restore the same task/checkpoint as a quick action.
     // Read-only resume_review results intentionally remain task-free.
     const reducer = new AgentTaskStateReducer();
-    let task = reducer.reduce(reducer.create(session, "compose_resume", { workflowId: "compose_resume", step: "review_composition" }), {
+    let task = reducer.reduce(session.taskState ?? reducer.create(session, "compose_resume", { workflowId: "compose_resume", step: "review_composition" }), {
       type: "new_root_task", goal: "compose_resume", workflowId: "compose_resume", stage: "review_composition"
     });
     const source = session.activeTurn && getUserMessageForTurn(session, session.activeTurn.id);

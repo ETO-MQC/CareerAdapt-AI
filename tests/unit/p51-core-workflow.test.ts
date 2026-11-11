@@ -186,13 +186,32 @@ describe("P5.1 Core production workflow boundaries", () => {
     expect(host.getSnapshot().turnStatus).toBe("waiting_for_confirmation");
     expect(projected?.activeTurn?.status).toBe("waiting_for_confirmation");
     expect(await f.repository.listJobDescriptions()).toHaveLength(0);
+    await host.applyRuntimeEvent({ type: "tool_call_failed", sessionId: initial.id, turnId: shell.turnId,
+      timestamp: new Date().toISOString(), toolName: "career.workflow.job_intake", operationId: "late-model-before-confirmation",
+      error: { code: "hermes_tool_failed", message: "model reported approval as failure", recoverable: true } }, shell.assistantMessageId);
+    expect(host.getSnapshot().activeSession?.pendingConfirmation?.id).toBe(projected?.pendingConfirmation?.id);
+    expect(host.getSnapshot().activeSession?.taskState?.completionStatus).toBe("waiting_for_confirmation");
+    expect(host.getSnapshot().activeSession?.messages.find(message => message.id === shell.assistantMessageId)?.kind).not.toBe("error_status");
     await host.applyRuntimeEvent({ type: "turn_completed", sessionId: initial.id, turnId: shell.turnId,
       timestamp: new Date().toISOString(), message: "岗位解析已完成，请核对后保存。" }, shell.assistantMessageId);
-    const reopened = new AgentHostStore({ kernel: {} as never, repository: f.repository, persistence: new AgentSessionStore(f.repository), executor: new CareerToolGatewayExecutor(f.registry, f.gateway) });
+    const confirmationExecutor = new CareerToolGatewayExecutor(f.registry, f.gateway);
+    const reopened = new AgentHostStore({ kernel: {} as never, repository: f.repository, persistence: new AgentSessionStore(f.repository), executor: confirmationExecutor });
     const durable = await persistence.get(projected!.id);
     expect(durable?.pendingConfirmation?.operationId).toBe(projected?.pendingConfirmation?.operationId);
-    reopened.adopt(durable!);
+    await reopened.adoptDurably(durable!);
+    let lateTerminal: Promise<unknown> | undefined;
+    if (confirmed) {
+      const execute = confirmationExecutor.execute.bind(confirmationExecutor);
+      vi.spyOn(confirmationExecutor, "execute").mockImplementationOnce(async input => {
+        const result = await execute(input);
+        // The model can finish narrating while the Host confirmation commits.
+        lateTerminal = reopened.applyRuntimeEvent({ type: "turn_completed", sessionId: initial.id, turnId: shell.turnId,
+          timestamp: new Date().toISOString(), message: "当前步骤已处理，请核对业务结果。" }, shell.assistantMessageId);
+        return result;
+      });
+    }
     const result = await reopened.resolveConfirmation(confirmed, { route: "/ai-workspace", query: {} }, durable!);
+    await lateTerminal;
     if (!confirmed) {
       expect(await f.repository.listJobDescriptions()).toHaveLength(0);
       expect(result?.pendingConfirmation).toBeUndefined();
@@ -201,6 +220,11 @@ describe("P5.1 Core production workflow boundaries", () => {
       return;
     }
     expect(result?.taskState, JSON.stringify(result?.messages.at(-1))).toMatchObject({ workflowId: "job_ingestion", stage: "completed", completionStatus: "completed" });
+    expect(result?.taskState?.knownSlots.jobPersistenceVerified).toBe(true);
+    await reopened.applyRuntimeEvent({ type: "tool_call_failed", sessionId: initial.id, turnId: shell.turnId,
+      timestamp: new Date().toISOString(), toolName: "career.workflow.job_intake", operationId: "late-model-tool",
+      error: { code: "hermes_tool_failed", message: "late model failure", recoverable: true } }, shell.assistantMessageId);
+    expect((await persistence.get(initial.id))?.taskState).toMatchObject({ completionStatus: "completed", knownSlots: { jobPersistenceVerified: true } });
     expect(await f.repository.listJobDescriptions()).toHaveLength(1);
     expect(result?.pendingConfirmation).toBeUndefined();
   });
