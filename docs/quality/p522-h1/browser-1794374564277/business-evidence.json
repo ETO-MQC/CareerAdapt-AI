@@ -1,0 +1,924 @@
+{
+  "sessionId": "",
+  "timeline": [
+    {
+      "step": "repository-seed",
+      "at": "2026-11-11T05:22:58.351Z",
+      "profiles": [
+        {
+          "id": "profile-8ac1b491-76f8-4361-ab39-e464b07764cd",
+          "createdAt": "2026-11-11T05:22:58.290Z",
+          "updatedAt": "2026-11-11T05:22:58.290Z",
+          "schemaVersion": "career-profile-v2",
+          "name": "H1Q合成人物",
+          "basics": {
+            "name": "H1Q合成人物",
+            "links": []
+          },
+          "preference": {
+            "targetRoles": [],
+            "targetCities": [],
+            "industries": []
+          },
+          "version": 2,
+          "experiences": [
+            {
+              "id": "h1q-education",
+              "createdAt": "2026-11-11T05:22:58.290Z",
+              "updatedAt": "2026-11-11T05:22:58.290Z",
+              "type": "education",
+              "organization": "合成大学",
+              "role": "计算机本科",
+              "degree": "本科",
+              "major": "计算机科学",
+              "startDate": "2025-01",
+              "endDate": "2025-06",
+              "facts": [
+                {
+                  "id": "h1q-education-0",
+                  "createdAt": "2026-11-11T05:22:58.290Z",
+                  "updatedAt": "2026-11-11T05:22:58.290Z",
+                  "statement": "在合成大学完成计算机科学本科课程。",
+                  "category": "experience",
+                  "provenance": [
+                    {
+                      "sourceType": "demo",
+                      "sourceId": "h1q-synthetic-source",
+                      "sourceText": "在合成大学完成计算机科学本科课程。",
+                      "confidence": 1,
+                      "confirmedByUser": true,
+                      "riskLevel": "low",
+                      "createdAt": "2026-11-11T05:22:58.290Z"
+                    }
+                  ],
+                  "confirmedByUser": true,
+                  "riskLevel": "low"
+                }
+              ],
+              "resumeDrafts": [],
+              "tags": [],
+              "evidenceIds": []
+            },
+            {
+              "id": "h1q-project",
+              "createdAt": "2026-11-11T05:22:58.290Z",
+              "updatedAt": "2026-11-11T05:22:58.290Z",
+              "type": "project",
+              "organization": "合成数据分析项目",
+              "role": "项目成员",
+              "startDate": "2025-01",
+              "endDate": "2025-06",
+              "facts": [
+                {
+                  "id": "h1q-project-0",
+                  "createdAt": "2026-11-11T05:22:58.290Z",
+                  "updatedAt": "2026-11-11T05:22:58.290Z",
+                  "statement": "使用 SQL 清洗数据并核对查询结果。",
+                  "category": "experience",
+                  "provenance": [
+                    {
+                      "sourceType": "demo",
+                      "sourceId": "h1q-synthetic-source",
+                      "sourceText": "使用 SQL 清洗数据并核对查询结果。",
+                      "confidence": 1,
+                      "confirmedByUser": true,
+                      "riskLevel": "low",
+                      "createdAt": "2026-11-11T05:22:58.290Z"
+                    }
+                  ],
+                  "confirmedByUser": true,
+                  "riskLevel": "low"
+                },
+                {
+                  "id": "h1q-project-1",
+                  "createdAt": "2026-11-11T05:22:58.290Z",
+                  "updatedAt": "2026-11-11T05:22:58.290Z",
+                  "statement": "使用 Python 整理数据并编写自动化测试。",
+                  "category": "experience",
+                  "provenance": [
+                    {
+                      "sourceType": "demo",
+                      "sourceId": "h1q-synthetic-source",
+                      "sourceText": "使用 Python 整理数据并编写自动化测试。",
+                      "confidence": 1,
+                      "confirmedByUser": true,
+                      "riskLevel": "low",
+                      "createdAt": "2026-11-11T05:22:58.290Z"
+                    }
+                  ],
+                  "confirmedByUser": true,
+                  "riskLevel": "low"
+                }
+              ],
+              "resumeDrafts": [],
+              "tags": [],
+              "evidenceIds": []
+            },
+            {
+              "id": "h1q-internship",
+              "createdAt": "2026-11-11T05:22:58.290Z",
+              "updatedAt": "2026-11-11T05:22:58.290Z",
+              "type": "internship",
+              "organization": "合成技术团队",
+              "role": "开发实习生",
+              "startDate": "2025-01",
+              "endDate": "2025-06",
+              "facts": [
+                {
+                  "id": "h1q-internship-0",
+                  "createdAt": "2026-11-11T05:22:58.290Z",
+                  "updatedAt": "2026-11-11T05:22:58.290Z",
+                  "statement": "参与产品测试与缺陷记录。",
+                  "category": "experience",
+                  "provenance": [
+                    {
+                      "sourceType": "demo",
+                      "sourceId": "h1q-synthetic-source",
+                      "sourceText": "参与产品测试与缺陷记录。",
+                      "confidence": 1,
+                      "confirmedByUser": true,
+                      "riskLevel": "low",
+                      "createdAt": "2026-11-11T05:22:58.290Z"
+                    }
+                  ],
+                  "confirmedByUser": true,
+                  "riskLevel": "low"
+                }
+              ],
+              "resumeDrafts": [],
+              "tags": [],
+              "evidenceIds": []
+            }
+          ],
+          "skills": [
+            {
+              "id": "h1q-SQL",
+              "createdAt": "2026-11-11T05:22:58.290Z",
+              "updatedAt": "2026-11-11T05:22:58.290Z",
+              "name": "SQL",
+              "level": "familiar",
+              "evidenceIds": [],
+              "fact": {
+                "id": "h1q-skill-SQL",
+                "createdAt": "2026-11-11T05:22:58.290Z",
+                "updatedAt": "2026-11-11T05:22:58.290Z",
+                "statement": "使用 SQL 处理数据。",
+                "category": "skill",
+                "provenance": [
+                  {
+                    "sourceType": "demo",
+                    "sourceId": "h1q-synthetic-source",
+                    "sourceText": "使用 SQL 处理数据。",
+                    "confidence": 1,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-11-11T05:22:58.290Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low"
+              }
+            },
+            {
+              "id": "h1q-Python",
+              "createdAt": "2026-11-11T05:22:58.290Z",
+              "updatedAt": "2026-11-11T05:22:58.290Z",
+              "name": "Python",
+              "level": "familiar",
+              "evidenceIds": [],
+              "fact": {
+                "id": "h1q-skill-Python",
+                "createdAt": "2026-11-11T05:22:58.290Z",
+                "updatedAt": "2026-11-11T05:22:58.290Z",
+                "statement": "使用 Python 处理数据。",
+                "category": "skill",
+                "provenance": [
+                  {
+                    "sourceType": "demo",
+                    "sourceId": "h1q-synthetic-source",
+                    "sourceText": "使用 Python 处理数据。",
+                    "confidence": 1,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-11-11T05:22:58.290Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low"
+              }
+            }
+          ],
+          "certificates": [],
+          "evidences": [],
+          "unclassifiedBlocks": [],
+          "structuredFacts": [],
+          "structuredBasics": {
+            "name": "H1Q合成人物",
+            "portfolioLinks": [],
+            "otherLinks": [],
+            "customFields": []
+          },
+          "personId": "person-95e9954d-3ac1-4e51-848a-339aa70e3ab7",
+          "profileVersionNumber": 1,
+          "isCurrent": true,
+          "versionCreatedReason": "initial"
+        },
+        {
+          "id": "profile-demo-student",
+          "createdAt": "2026-07-01T09:00:00.000Z",
+          "updatedAt": "2026-07-01T09:00:00.000Z",
+          "schemaVersion": "career-profile-v2",
+          "name": "同学",
+          "basics": {
+            "name": "同学",
+            "phone": "138****0000",
+            "email": "demo.student@example.com",
+            "location": "杭州",
+            "summary": "经济管理方向本科生，关注数据分析、AI应用和跨境业务流程。",
+            "links": []
+          },
+          "preference": {
+            "targetRoles": [
+              "数据分析实习",
+              "外贸/跨境运营实习"
+            ],
+            "targetCities": [
+              "杭州",
+              "上海"
+            ],
+            "industries": [
+              "互联网",
+              "跨境电商",
+              "咨询"
+            ]
+          },
+          "version": 1,
+          "experiences": [
+            {
+              "id": "exp-stat-modeling",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "type": "competition",
+              "organization": "统计建模竞赛项目",
+              "role": "数据分析成员",
+              "startDate": "2025-03",
+              "endDate": "2025-06",
+              "facts": [
+                {
+                  "id": "fact-stat-stata",
+                  "createdAt": "2026-07-01T09:00:00.000Z",
+                  "updatedAt": "2026-07-01T09:00:00.000Z",
+                  "statement": "使用 Stata 清洗 31 个省级样本，并完成描述统计、相关分析与区域差异分析。",
+                  "category": "experience",
+                  "provenance": [
+                    {
+                      "sourceType": "demo",
+                      "sourceId": "demo-profile-source",
+                      "sourceText": "统计建模：使用Stata清洗31个省级样本，完成描述统计、相关分析与区域差异分析。",
+                      "confidence": 0.95,
+                      "confirmedByUser": true,
+                      "riskLevel": "low",
+                      "createdAt": "2026-07-01T09:00:00.000Z"
+                    }
+                  ],
+                  "confirmedByUser": true,
+                  "riskLevel": "low"
+                }
+              ],
+              "resumeDrafts": [
+                {
+                  "id": "draft-stat-default",
+                  "createdAt": "2026-07-01T09:00:00.000Z",
+                  "updatedAt": "2026-07-01T09:00:00.000Z",
+                  "targetRole": "数据分析实习",
+                  "text": "奖项名称：数据分析成员\n颁发方：统计建模竞赛项目\n说明：使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。\n原始资料草稿：使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。\n原始标签：Stata；数据清洗；统计分析\n原始证据引用：evidence-stat-report",
+                  "factIds": [
+                    "fact-stat-stata"
+                  ]
+                }
+              ],
+              "tags": [
+                "Stata",
+                "数据清洗",
+                "统计分析"
+              ],
+              "evidenceIds": [
+                "evidence-stat-report"
+              ]
+            },
+            {
+              "id": "exp-ai-product",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "type": "project",
+              "organization": "AI 求职应用课程项目",
+              "role": "产品与验收协作",
+              "startDate": "2025-09",
+              "endDate": "2025-12",
+              "facts": [
+                {
+                  "id": "fact-ai-product",
+                  "createdAt": "2026-07-01T09:00:00.000Z",
+                  "updatedAt": "2026-07-01T09:00:00.000Z",
+                  "statement": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+                  "category": "experience",
+                  "provenance": [
+                    {
+                      "sourceType": "demo",
+                      "sourceId": "demo-profile-source",
+                      "sourceText": "AI应用项目：参与需求梳理、原型设计和功能验收。",
+                      "confidence": 0.95,
+                      "confirmedByUser": true,
+                      "riskLevel": "low",
+                      "createdAt": "2026-07-01T09:00:00.000Z"
+                    }
+                  ],
+                  "confirmedByUser": true,
+                  "riskLevel": "low"
+                }
+              ],
+              "resumeDrafts": [
+                {
+                  "id": "draft-ai-default",
+                  "createdAt": "2026-07-01T09:00:00.000Z",
+                  "updatedAt": "2026-07-01T09:00:00.000Z",
+                  "targetRole": "产品/运营实习",
+                  "text": "项目名称：AI 求职应用课程项目\n角色：产品与验收协作\n开始日期：2025-09\n结束日期：2025-12\n说明：参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。\n亮点：参与 AI 应用项目的需求梳理、原型设计和功能验收。\n原始资料草稿：参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。\n原始标签：需求梳理；原型设计；功能验收",
+                  "factIds": [
+                    "fact-ai-product"
+                  ]
+                }
+              ],
+              "tags": [
+                "需求梳理",
+                "原型设计",
+                "功能验收"
+              ],
+              "evidenceIds": []
+            },
+            {
+              "id": "exp-gov-internship",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "type": "internship",
+              "organization": "某政府部门",
+              "role": "综合事务实习生",
+              "startDate": "2025-07",
+              "endDate": "2025-08",
+              "facts": [
+                {
+                  "id": "fact-gov-record",
+                  "createdAt": "2026-07-01T09:00:00.000Z",
+                  "updatedAt": "2026-07-01T09:00:00.000Z",
+                  "statement": "处理公文流转和热线记录，关注记录准确性与信息整理。",
+                  "category": "experience",
+                  "provenance": [
+                    {
+                      "sourceType": "demo",
+                      "sourceId": "demo-profile-source",
+                      "sourceText": "政府部门实习：处理公文流转和市长热线记录。",
+                      "confidence": 0.95,
+                      "confirmedByUser": true,
+                      "riskLevel": "low",
+                      "createdAt": "2026-07-01T09:00:00.000Z"
+                    }
+                  ],
+                  "confirmedByUser": true,
+                  "riskLevel": "low"
+                }
+              ],
+              "resumeDrafts": [
+                {
+                  "id": "draft-gov-default",
+                  "createdAt": "2026-07-01T09:00:00.000Z",
+                  "updatedAt": "2026-07-01T09:00:00.000Z",
+                  "targetRole": "综合运营实习",
+                  "text": "组织：某政府部门\n职位/角色：综合事务实习生\n开始日期：2025-07\n结束日期：2025-08\n说明：协助处理公文流转与热线记录，保持信息记录准确、分类清晰。\n亮点：处理公文流转和热线记录，关注记录准确性与信息整理。\n原始资料草稿：协助处理公文流转与热线记录，保持信息记录准确、分类清晰。\n原始标签：信息整理；沟通记录",
+                  "factIds": [
+                    "fact-gov-record"
+                  ]
+                }
+              ],
+              "tags": [
+                "信息整理",
+                "沟通记录"
+              ],
+              "evidenceIds": []
+            },
+            {
+              "id": "exp-trade-learning",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "type": "other",
+              "organization": "外贸课程与语言学习",
+              "role": "学习者",
+              "startDate": "2024-09",
+              "endDate": "2026-06",
+              "facts": [
+                {
+                  "id": "fact-cet4",
+                  "createdAt": "2026-07-01T09:00:00.000Z",
+                  "updatedAt": "2026-07-01T09:00:00.000Z",
+                  "statement": "CET-4 成绩 601，了解基础外贸业务流程。",
+                  "category": "language",
+                  "provenance": [
+                    {
+                      "sourceType": "demo",
+                      "sourceId": "demo-profile-source",
+                      "sourceText": "英语与外贸学习：CET-4 601，了解外贸业务流程。",
+                      "confidence": 0.95,
+                      "confirmedByUser": true,
+                      "riskLevel": "low",
+                      "createdAt": "2026-07-01T09:00:00.000Z"
+                    }
+                  ],
+                  "confirmedByUser": true,
+                  "riskLevel": "low"
+                }
+              ],
+              "resumeDrafts": [
+                {
+                  "id": "draft-trade-default",
+                  "createdAt": "2026-07-01T09:00:00.000Z",
+                  "updatedAt": "2026-07-01T09:00:00.000Z",
+                  "targetRole": "外贸/跨境运营实习",
+                  "text": "标题：外贸课程与语言学习\n内容：CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。\n要点：CET-4 成绩 601，了解基础外贸业务流程。\n原始资料草稿：CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。\n原始标签：英语；外贸流程；信息整理",
+                  "factIds": [
+                    "fact-cet4"
+                  ]
+                }
+              ],
+              "tags": [
+                "英语",
+                "外贸流程",
+                "信息整理"
+              ],
+              "evidenceIds": []
+            }
+          ],
+          "skills": [
+            {
+              "id": "skill-stata",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "name": "Stata",
+              "level": "familiar",
+              "evidenceIds": [
+                "evidence-stat-report"
+              ],
+              "fact": {
+                "id": "fact-skill-stata",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "statement": "使用 Stata 完成数据清洗和统计分析。",
+                "category": "skill",
+                "provenance": [
+                  {
+                    "sourceType": "demo",
+                    "sourceId": "demo-profile-source",
+                    "sourceText": "使用Stata清洗31个省级样本",
+                    "confidence": 0.95,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-07-01T09:00:00.000Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low"
+              },
+              "lastUsedAt": "2025-06"
+            },
+            {
+              "id": "skill-excel",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "name": "Excel",
+              "level": "familiar",
+              "evidenceIds": [],
+              "fact": {
+                "id": "fact-skill-excel",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "statement": "能使用 Excel 整理表格数据和基础分析结果。",
+                "category": "skill",
+                "provenance": [
+                  {
+                    "sourceType": "demo",
+                    "sourceId": "demo-profile-source",
+                    "sourceText": "数据清洗、样本整理和分析交付物",
+                    "confidence": 0.95,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-07-01T09:00:00.000Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low"
+              },
+              "lastUsedAt": "2025-06"
+            }
+          ],
+          "certificates": [
+            {
+              "id": "cert-cet4",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "name": "CET-4",
+              "issuer": "全国大学英语四、六级考试委员会",
+              "issuedAt": "2024-12",
+              "evidenceIds": [],
+              "fact": {
+                "id": "fact-cert-cet4",
+                "createdAt": "2026-07-01T09:00:00.000Z",
+                "updatedAt": "2026-07-01T09:00:00.000Z",
+                "statement": "CET-4 成绩 601。",
+                "category": "certificate",
+                "provenance": [
+                  {
+                    "sourceType": "demo",
+                    "sourceId": "demo-profile-source",
+                    "sourceText": "CET-4 601",
+                    "confidence": 0.95,
+                    "confirmedByUser": true,
+                    "riskLevel": "low",
+                    "createdAt": "2026-07-01T09:00:00.000Z"
+                  }
+                ],
+                "confirmedByUser": true,
+                "riskLevel": "low"
+              }
+            }
+          ],
+          "evidences": [
+            {
+              "id": "evidence-stat-report",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "type": "text",
+              "title": "统计建模项目说明",
+              "extractedText": "脱敏示例：使用 Stata 清洗 31 个省级样本并完成统计分析。",
+              "privacyLevel": "private",
+              "verifiedAt": "2026-07-01T09:00:00.000Z"
+            }
+          ],
+          "unclassifiedBlocks": [],
+          "structuredFacts": [
+            {
+              "data": {
+                "id": "exp-stat-modeling",
+                "customFields": [
+                  {
+                    "id": "exp-stat-modeling:legacy-resume-drafts",
+                    "label": "原始资料草稿",
+                    "valueType": "text",
+                    "value": "使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。",
+                    "order": 0,
+                    "sensitive": false
+                  },
+                  {
+                    "id": "exp-stat-modeling:legacy-tags",
+                    "label": "原始标签",
+                    "valueType": "string_list",
+                    "value": [
+                      "Stata",
+                      "数据清洗",
+                      "统计分析"
+                    ],
+                    "order": 1,
+                    "sensitive": false
+                  },
+                  {
+                    "id": "exp-stat-modeling:legacy-evidence-ids",
+                    "label": "原始证据引用",
+                    "valueType": "string_list",
+                    "value": [
+                      "evidence-stat-report"
+                    ],
+                    "order": 2,
+                    "sensitive": false
+                  }
+                ],
+                "sectionType": "awards",
+                "name": "数据分析成员",
+                "issuer": "统计建模竞赛项目",
+                "description": "使用 Stata 清洗 31 个省级样本，完成描述统计、相关分析与区域差异分析，形成论文与汇报材料。"
+              },
+              "factIds": [
+                "fact-stat-stata"
+              ],
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "sourceExcerpt": "使用 Stata 清洗 31 个省级样本，并完成描述统计、相关分析与区域差异分析。",
+              "mappingTrace": []
+            },
+            {
+              "data": {
+                "id": "exp-ai-product",
+                "customFields": [
+                  {
+                    "id": "exp-ai-product:legacy-resume-drafts",
+                    "label": "原始资料草稿",
+                    "valueType": "text",
+                    "value": "参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。",
+                    "order": 0,
+                    "sensitive": false
+                  },
+                  {
+                    "id": "exp-ai-product:legacy-tags",
+                    "label": "原始标签",
+                    "valueType": "string_list",
+                    "value": [
+                      "需求梳理",
+                      "原型设计",
+                      "功能验收"
+                    ],
+                    "order": 1,
+                    "sensitive": false
+                  }
+                ],
+                "sectionType": "project",
+                "title": "AI 求职应用课程项目",
+                "role": "产品与验收协作",
+                "startDate": "2025-09",
+                "endDate": "2025-12",
+                "current": false,
+                "tools": [],
+                "description": "参与 AI 应用项目需求梳理、原型设计和功能验收，协助将用户流程转化为可检查的功能清单。",
+                "highlights": [
+                  "参与 AI 应用项目的需求梳理、原型设计和功能验收。"
+                ],
+                "outcomes": []
+              },
+              "factIds": [
+                "fact-ai-product"
+              ],
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "sourceExcerpt": "参与 AI 应用项目的需求梳理、原型设计和功能验收。",
+              "mappingTrace": []
+            },
+            {
+              "data": {
+                "id": "exp-gov-internship",
+                "customFields": [
+                  {
+                    "id": "exp-gov-internship:legacy-resume-drafts",
+                    "label": "原始资料草稿",
+                    "valueType": "text",
+                    "value": "协助处理公文流转与热线记录，保持信息记录准确、分类清晰。",
+                    "order": 0,
+                    "sensitive": false
+                  },
+                  {
+                    "id": "exp-gov-internship:legacy-tags",
+                    "label": "原始标签",
+                    "valueType": "string_list",
+                    "value": [
+                      "信息整理",
+                      "沟通记录"
+                    ],
+                    "order": 1,
+                    "sensitive": false
+                  }
+                ],
+                "sectionType": "internship",
+                "organization": "某政府部门",
+                "role": "综合事务实习生",
+                "startDate": "2025-07",
+                "endDate": "2025-08",
+                "current": false,
+                "description": "协助处理公文流转与热线记录，保持信息记录准确、分类清晰。",
+                "highlights": [
+                  "处理公文流转和热线记录，关注记录准确性与信息整理。"
+                ]
+              },
+              "factIds": [
+                "fact-gov-record"
+              ],
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "sourceExcerpt": "处理公文流转和热线记录，关注记录准确性与信息整理。",
+              "mappingTrace": []
+            },
+            {
+              "data": {
+                "id": "exp-trade-learning",
+                "customFields": [
+                  {
+                    "id": "exp-trade-learning:legacy-resume-drafts",
+                    "label": "原始资料草稿",
+                    "valueType": "text",
+                    "value": "CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。",
+                    "order": 0,
+                    "sensitive": false
+                  },
+                  {
+                    "id": "exp-trade-learning:legacy-tags",
+                    "label": "原始标签",
+                    "valueType": "string_list",
+                    "value": [
+                      "英语",
+                      "外贸流程",
+                      "信息整理"
+                    ],
+                    "order": 1,
+                    "sensitive": false
+                  }
+                ],
+                "sectionType": "other",
+                "title": "外贸课程与语言学习",
+                "description": "CET-4 601，了解基础外贸业务流程，具备英文资料阅读和流程信息整理基础。",
+                "highlights": [
+                  "CET-4 成绩 601，了解基础外贸业务流程。"
+                ]
+              },
+              "factIds": [
+                "fact-cet4"
+              ],
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "sourceExcerpt": "CET-4 成绩 601，了解基础外贸业务流程。",
+              "mappingTrace": []
+            },
+            {
+              "data": {
+                "id": "skill-stata",
+                "customFields": [],
+                "sectionType": "skills",
+                "name": "Stata",
+                "level": "familiar",
+                "description": "使用 Stata 完成数据清洗和统计分析。"
+              },
+              "factIds": [
+                "fact-skill-stata"
+              ],
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "mappingTrace": []
+            },
+            {
+              "data": {
+                "id": "skill-excel",
+                "customFields": [],
+                "sectionType": "skills",
+                "name": "Excel",
+                "level": "familiar",
+                "description": "能使用 Excel 整理表格数据和基础分析结果。"
+              },
+              "factIds": [
+                "fact-skill-excel"
+              ],
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "mappingTrace": []
+            },
+            {
+              "data": {
+                "id": "cert-cet4",
+                "customFields": [],
+                "sectionType": "certificates",
+                "name": "CET-4",
+                "issuer": "全国大学英语四、六级考试委员会",
+                "issuedAt": "2024-12"
+              },
+              "factIds": [
+                "fact-cert-cet4"
+              ],
+              "sourceBlockIds": [],
+              "sourceRanges": [],
+              "mappingTrace": []
+            }
+          ],
+          "structuredBasics": {
+            "name": "同学",
+            "summary": "经济管理方向本科生，关注数据分析、AI应用和跨境业务流程。",
+            "phone": "138****0000",
+            "email": "demo.student@example.com",
+            "location": "杭州",
+            "portfolioLinks": [],
+            "otherLinks": [],
+            "customFields": []
+          },
+          "personId": "person-profile-demo-student",
+          "profileVersionNumber": 1,
+          "isCurrent": true,
+          "versionCreatedReason": "initial"
+        }
+      ],
+      "jobs": [
+        {
+          "id": "job-data-analyst-intern",
+          "createdAt": "2026-07-01T09:00:00.000Z",
+          "updatedAt": "2026-07-01T09:00:00.000Z",
+          "title": "数据分析实习生",
+          "company": "示例科技公司",
+          "industry": "互联网",
+          "location": "杭州",
+          "workType": "实习",
+          "rawText": "数据分析实习生：负责业务数据清洗、统计分析和周报支持；熟悉 Excel 或 Stata；具备清晰的数据表达能力，有统计建模经验优先。",
+          "source": "demo",
+          "parsedAt": "2026-07-01T09:00:00.000Z",
+          "requirements": [
+            {
+              "id": "req-data-cleaning",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "category": "responsibility",
+              "description": "负责业务数据清洗、统计分析和周报支持。",
+              "priority": "high",
+              "hardConstraint": false,
+              "sourceSpan": {
+                "start": 0,
+                "end": 18,
+                "text": "负责业务数据清洗、统计分析和周报支持"
+              },
+              "keywords": [
+                "数据清洗",
+                "统计分析",
+                "周报"
+              ],
+              "confidence": 0.92
+            },
+            {
+              "id": "req-data-tools",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "category": "core_skill",
+              "description": "熟悉 Excel 或 Stata。",
+              "priority": "high",
+              "hardConstraint": false,
+              "sourceSpan": {
+                "start": 0,
+                "end": 16,
+                "text": "熟悉 Excel 或 Stata"
+              },
+              "keywords": [
+                "Excel",
+                "Stata"
+              ],
+              "confidence": 0.95
+            }
+          ]
+        },
+        {
+          "id": "job-trade-operation-intern",
+          "createdAt": "2026-07-01T09:00:00.000Z",
+          "updatedAt": "2026-07-01T09:00:00.000Z",
+          "title": "外贸/跨境运营实习生",
+          "company": "示例跨境公司",
+          "industry": "跨境电商",
+          "location": "上海",
+          "workType": "实习",
+          "rawText": "外贸/跨境运营实习生：协助整理商品和订单信息，跟进跨境业务流程；要求英语读写能力、沟通协作和执行力；了解外贸流程优先。",
+          "source": "demo",
+          "parsedAt": "2026-07-01T09:00:00.000Z",
+          "requirements": [
+            {
+              "id": "req-trade-process",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "category": "responsibility",
+              "description": "协助整理商品和订单信息，跟进跨境业务流程。",
+              "priority": "high",
+              "hardConstraint": false,
+              "sourceSpan": {
+                "start": 0,
+                "end": 20,
+                "text": "协助整理商品和订单信息，跟进跨境业务流程"
+              },
+              "keywords": [
+                "信息整理",
+                "跨境业务流程"
+              ],
+              "confidence": 0.9
+            },
+            {
+              "id": "req-english-writing",
+              "createdAt": "2026-07-01T09:00:00.000Z",
+              "updatedAt": "2026-07-01T09:00:00.000Z",
+              "category": "must_have",
+              "description": "具备英语读写能力、沟通协作和执行力。",
+              "priority": "high",
+              "hardConstraint": true,
+              "sourceSpan": {
+                "start": 0,
+                "end": 17,
+                "text": "要求英语读写能力、沟通协作和执行力"
+              },
+              "keywords": [
+                "英语",
+                "沟通",
+                "执行力"
+              ],
+              "confidence": 0.94
+            }
+          ]
+        }
+      ],
+      "branches": [],
+      "revisions": []
+    }
+  ],
+  "bridgeResults": [],
+  "requests": []
+}

@@ -19,8 +19,8 @@ const provider = await startFakeOpenAiProvider({ mode: "integration", routeSkill
  const tool = text.includes("通用简历") ? "compose_resume" : "job_intake";
  const name=names.find(n=>n?.replaceAll(".","_").endsWith(`workflow_${tool}`));
  if (!name) throw new Error(`missing_tool_${tool}`);
- const rawText="岗位：软件工程师\n岗位职责：参与产品开发和测试。\n任职要求：本科及以上学历，熟悉 Python，具备项目开发与团队协作经验。";
- const input=tool==="compose_resume" ? {mode:"general",generalResumeMode:"create_new"} : text.includes("先保存") ? {persistence:"save"} : {rawText,persistence:"analyze_only"};
+ const rawText="岗位：数据开发工程师\n岗位职责：维护数据查询，参与数据清洗与产品测试。\n任职要求：\n本科及以上学历。\n必须掌握 SQL。\n至少熟悉 Java 或 Go 中的一项。\nPython 优先。";
+ const input=tool==="compose_resume" ? {mode:"general"} : text.includes("保存刚才") ? {persistence:"save"} : {rawText,persistence:"analyze_only"};
  return {toolCall:{name,arguments:JSON.stringify(input)}};
 } });
 const environment = Object.fromEntries(["SystemRoot", "WINDIR", "TEMP", "TMP", "PATH", "Path", "LOCALAPPDATA", "APPDATA", "USERPROFILE", "ComSpec"].flatMap(k => process.env[k] ? [[k, process.env[k]]] : []));
@@ -30,12 +30,16 @@ const appUrl = `http://127.0.0.1:${port}`;
 // Reuse the existing isolated dependency installation, without altering the working app.
 const dependencyRoot = process.env.P522_DEPENDENCY_ROOT || path.join(root, ".tmp/rp011-app");
 if (!fs.existsSync(path.join(dependencyRoot, "node_modules/next/dist/bin/next"))) throw new Error("p522_isolated_dependencies_missing: set P522_DEPENDENCY_ROOT");
-const stage = path.join(dependencyRoot, "p522-h1-source");
+const stage = path.join(dependencyRoot, `p522-h1q-source-${Date.now()}`);
 fs.mkdirSync(stage, { recursive: true });
 for (const name of ["src", "public", "electron", "scripts", "skills"]) fs.cpSync(path.join(root, name), path.join(stage, name), { recursive: true });
 for (const name of ["package.json", "pnpm-lock.yaml", "next.config.ts", "tsconfig.json", "next-env.d.ts", "postcss.config.mjs", "tailwind.config.ts"]) {
  if (fs.existsSync(path.join(root, name))) fs.copyFileSync(path.join(root, name), path.join(stage, name));
 }
+// A client-only fixture in the disposable source tree gives Playwright access
+// to the real renderer Repository without shipping a test API in the product.
+fs.mkdirSync(path.join(stage, "src/app/h1q-fixture"), { recursive: true });
+fs.copyFileSync(path.join(root, "tests/e2e/support/h1qRepositoryFixture.tsx"), path.join(stage, "src/app/h1q-fixture/page.tsx"));
 const control = `synthetic-${randomUUID()}`;
 Object.assign(environment, { NODE_ENV: "development", CAREERADAPT_PROJECT_ROOT: stage, CAREERADAPT_BASE_URL: appUrl,
  CAREERADAPT_APP_PORT: String(port), HERMES_RUNTIME_URL: `http://127.0.0.1:${runtimePort}`,
@@ -43,7 +47,7 @@ Object.assign(environment, { NODE_ENV: "development", CAREERADAPT_PROJECT_ROOT: 
  HERMES_WEB_CONTROL_ENABLED: "true", HERMES_RUNTIME_API_KEY: control, API_SERVER_KEY: control,
  AI_PROVIDER: "openai-compatible", AI_BASE_URL: provider.baseUrl, AI_MODEL: "careeradapt-test", HERMES_CUSTOM_CAREERADAPT_API_KEY: provider.apiKey,
  HERMES_INTEGRATION_PROVIDER_URL: provider.baseUrl, HERMES_INTEGRATION_PROVIDER_KEY: provider.apiKey,
- PLAYWRIGHT_BASE_URL: appUrl, CAREERAD_NEXT_DIST_DIR: `.next-p522-${Date.now()}`, NEXT_TELEMETRY_DISABLED: "1" });
+ PLAYWRIGHT_BASE_URL: appUrl, H1Q_EVIDENCE_DIR: evidence, CAREERAD_NEXT_DIST_DIR: `.next-p522-${Date.now()}`, NEXT_TELEMETRY_DISABLED: "1" });
 fs.writeFileSync(path.join(home,"config.yaml"), "memory:\n  nudge_interval: 0\ncurator:\n  enabled: false\n");
 let child; const output=fs.openSync(path.join(evidence,"server.log"),"a");
 const result={status:"RUNNING",realProviderRequests:0};

@@ -1,0 +1,39 @@
+{
+  "changedFilesEslintExitCode": 0,
+  "build": "NOT_REQUIRED_NO_PRODUCTION_BOUNDARY_CHANGE",
+  "typecheckExitCode": 0,
+  "diffCheckExitCode": 0,
+  "unitIntegration": {
+    "exitCode": 0,
+    "files": 2,
+    "passed": 27
+  },
+  "task": "P5.2.2-H1Q",
+  "blocker": "Fixture sent after reload before original Session hydration; save invocation used a different Session and correctly failed validation",
+  "productionFilesChanged": 0,
+  "realProviderRequests": 0,
+  "baseline": "7071d6c96e0d9b022e40e6e0426cb3a5cf375433",
+  "productionBugConfirmed": false,
+  "committed": false,
+  "jobGeneralFitCompleted": false,
+  "packaged": false,
+  "status": "PARTIAL_NOT_PASS",
+  "h2Ready": false,
+  "browser": {
+    "stopReason": "TWO_CONSECUTIVE_WAIT_TIMEOUTS",
+    "exitCodes": [
+      1,
+      1
+    ],
+    "evidence": [
+      "browser-1794374564277",
+      "browser-1794374683348"
+    ],
+    "finalFixtureCorrectionRetested": false,
+    "definitions": 1,
+    "executions": 2,
+    "passed": 0
+  },
+  "pushed": false,
+  "productionBugAbsenceQualified": false
+}
