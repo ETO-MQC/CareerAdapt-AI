@@ -75,6 +75,8 @@ test("H1 bundled Hermes analyze/save/compose/confirm/fit/refresh", async ({ page
       await expect(page.getByRole("button", { name: "发送消息", exact: true })).toBeEnabled({ timeout: 30_000 });
       await page.getByRole("button", { name: "发送消息", exact: true }).click();
     };
+    await expect(page.getByTestId("agent-recovery-state")).toHaveAttribute("data-state", /^(ready|new_session_ready)$/u);
+    await expect(page.getByTestId("agent-recovery-state")).toHaveAttribute("data-session-id", sessionId);
     await expect(page.getByLabel("描述你的求职任务")).toBeEnabled();
     await snapshot("new-session-persisted");
     await send(`请先分析这个岗位。\n${JD}`);
@@ -93,7 +95,14 @@ test("H1 bundled Hermes analyze/save/compose/confirm/fit/refresh", async ({ page
     // A visible Composer alone does not prove asynchronous Session hydration.
     // Wait for the previous user message to be restored before interacting.
     await expect(page.getByText(`请先分析这个岗位。\n${JD}`, { exact: true })).toBeVisible();
+    await expect(page.getByTestId("agent-recovery-state")).toHaveAttribute("data-state", "ready");
+    await expect(page.getByTestId("agent-recovery-state")).toHaveAttribute("data-session-id", sessionId);
+    expect((await current()).taskState).toEqual(analyzed.session?.taskState);
     await send("保存刚才这个岗位。");
+    // A save request may require its persisted Host confirmation. Exercise the
+    // real authorization boundary rather than waiting for an unapproved write.
+    await expect(page.getByRole("region", { name: "确认保存岗位信息" })).toBeVisible({ timeout: 30_000 });
+    await page.getByRole("region", { name: "确认保存岗位信息" }).getByRole("button", { name: "确认", exact: true }).click();
     await expect.poll(async () => (await readStore(page, "jobDescriptions")).length, { timeout: 60_000 }).toBe(baselineJobs + 1);
     await expect.poll(async () => (await current())?.taskState?.knownSlots.jobPersistenceVerified, { timeout: 30_000 }).toBe(true);
     const saved = await snapshot("job-saved");
@@ -121,6 +130,10 @@ test("H1 bundled Hermes analyze/save/compose/confirm/fit/refresh", async ({ page
     expect(record(compose!.diagnostics).schemaIssues ?? []).toEqual([]);
     expect(requests.find(request => request.name === "career.workflow.compose_resume")?.input).toEqual({ mode: "general" });
     await page.reload();
+    await expect(page.getByTestId("agent-recovery-state")).toHaveAttribute("data-state", "ready");
+    await expect(page.getByTestId("agent-recovery-state")).toHaveAttribute("data-session-id", sessionId);
+    expect((await current()).taskState?.knownSlots.nextAction).toEqual(proposed.session?.taskState?.knownSlots.nextAction);
+    expect((await current()).taskState?.knownSlots.resumeCompositionCheckpoint).toEqual(checkpoint);
     await page.getByRole("button", { name: "直接生成", exact: true }).last().click();
     await expect.poll(async () => ({ workflowId: (await current())?.taskState?.workflowId,
       completionStatus: (await current())?.taskState?.completionStatus }), { timeout: 60_000 }).toEqual({ workflowId: "analyze_job_fit", completionStatus: "completed" });

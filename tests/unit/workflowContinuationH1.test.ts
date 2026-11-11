@@ -75,9 +75,9 @@ describe("H1 workflow circuit", () => {
   it("persists continuation through serialization and cancels it on rejection", () => {
     const { reducer, task } = state();
     let next = reducer.reduce(task, { type: "new_root_task", goal: "compose_resume", workflowId: "compose_resume", stage: "select_profile_scope" });
-    next = reducer.reduce(next, { type: "user_message", message: "基于已确认的 Profile 创建一份通用简历，然后再做岗位匹配" });
+    next = reducer.reduce(next, { type: "user_message", sessionId: "session-h2", turnId: "turn-h2", message: "基于已确认的 Profile 创建一份通用简历，然后再做岗位匹配" });
     const restored = JSON.parse(JSON.stringify(next));
-    expect(restored.knownSlots.nextAction).toEqual({ kind: "job_fit", jobId: "job-h1", profileId: "profile-h1" });
+    expect(restored.knownSlots.nextAction).toEqual({ kind: "job_fit", workflow: "analyze_job_fit", originSessionId: "session-h2", originTurnId: "turn-h2", jobId: "job-h1", profileId: "profile-h1", requiredEntities: { profileId: "profile-h1", jobId: "job-h1" } });
     expect(reducer.reduce(restored, { type: "confirmation_rejected", toolName: "compose_resume" }).knownSlots.nextAction).toBeUndefined();
   });
   it("preserves confirmed Profile content through the production graph and compiler", () => {

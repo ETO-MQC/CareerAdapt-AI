@@ -66,13 +66,24 @@ export function projectBusinessWorkflowProgress(session: AgentSession): Business
   const exportFailed = kind === "resume_export" || ["career.workflow.resume_export", "career.export.resume", "export_resume"].includes(failure?.toolName ?? "");
   const provenTask = task && new AgentGoalCompletionGuard().evaluate(task).canFinish;
   const completedTask = provenTask && task.completionStatus === "completed";
+  const predecessor = object(task?.knownSlots.committedPredecessor);
+  const committedPredecessor = predecessor.persistenceVerified === true && typeof predecessor.resumeId === "string" && typeof predecessor.revisionId === "string";
 
   if (run?.status === "stopping") return view("processing", "正在核对取消结果", "停止请求已发送，尚未确认最终状态。");
-  if (run?.status === "cancelled") return view(completedTask ? "partial" : "cancelled", "本次运行已取消", "已保存的内容和候选仍然保留，取消不会撤销已完成的保存。");
+  if (run?.status === "cancelled") return view(completedTask || committedPredecessor ? "partial" : "cancelled", "本次运行已取消", "已保存的内容和候选仍然保留，取消不会撤销已完成的保存。");
   if (turn?.status === "aborted" && !run) return view("blocked", "本次任务已中断", "远端最终状态尚未确认，请先核对运行状态和已有结果。");
+  if (session.pendingConfirmation?.status === "pending" || facade.status === "waiting_for_confirmation"
+    || task?.completionStatus === "waiting_for_confirmation") {
+    const tool = session.pendingConfirmation?.toolName ?? facade.toolName;
+    const label = tool === "career.workflow.compose_resume" ? "等待你确认：创建通用简历"
+      : tool === "career.workflow.job_intake" ? "等待你确认：保存岗位" : "等待你明确确认";
+    return view("awaiting_confirmation", label, "确认前不会正式保存；确认提交后仍需等待保存回执。");
+  }
   if (failure || run?.status === "failed" || turn?.status === "failed") {
-    return view(exportFailed || completedTask ? "partial" : "failed",
-      exportFailed ? "导出未完成" : "当前操作未完成",
+    return view(exportFailed || completedTask || committedPredecessor ? "partial" : "failed",
+      exportFailed ? "导出未完成" : committedPredecessor ? "简历已保存，岗位匹配尚未完成"
+        : task?.knownSlots.jobPersistenceVerified === true ? "岗位已保存，但本轮回答未完整结束"
+        : task?.workflowId === "analyze_job_fit" ? "岗位匹配没有完成" : "当前操作未完成",
       exportFailed
         ? "已确认的简历版本仍保留，可以单独重新导出。"
         : `${completedTask ? "已完成的业务结果仍保留。" : ""}${businessFailureRecovery(code, diagnostics.safeErrorCategory)}`);
@@ -86,10 +97,6 @@ export function projectBusinessWorkflowProgress(session: AgentSession): Business
   const compositionWriteFailure = object(task?.knownSlots.resumeCompositionWriteFailure);
   if (typeof compositionWriteFailure.code === "string") {
     return view("blocked", "正式保存未完成", businessFailureRecovery(compositionWriteFailure.code));
-  }
-  if (session.pendingConfirmation?.status === "pending" || facade.status === "waiting_for_confirmation"
-    || task?.completionStatus === "waiting_for_confirmation") {
-    return view("awaiting_confirmation", "等待你明确确认", "确认前不会正式保存；确认提交后仍需等待保存回执。");
   }
   if (facade.status === "review_ready" || kind === "profile_intake_final_review"
     || interaction?.state === "active" && interaction.kind === "review_decision") {

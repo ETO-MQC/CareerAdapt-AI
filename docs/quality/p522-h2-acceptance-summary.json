@@ -1,0 +1,152 @@
+{
+  "date": "2026-11-11",
+  "status": {
+    "H2": "PARTIAL",
+    "H1": "PARTIAL"
+  },
+  "git": {
+    "branch": "competition/5.1.8",
+    "startingHead": "80c3d1859176c8523410f752e26ebe58ed884b33",
+    "initialStatusShort": "",
+    "initialDiffStat": "",
+    "finalHead": "80c3d1859176c8523410f752e26ebe58ed884b33",
+    "recent15": [
+      "80c3d18 H1Q Final Qualification",
+      "7071d6c P5.2.2-H1 — Workflow Continuation & Compose/Fit Circuit Closure",
+      "e9fe2de P5.2.2",
+      "5a79b47 P5.2.1",
+      "2db9e24 修复开发Hermes启动问题",
+      "4bf3e40 fix(): 删除隔离漏洞修复",
+      "944c818 P5.1-Job-Intake-Hotfix-01 — Reliable Job Intake & Save Closure",
+      "7c1d852 P5.1-UX-01.3-B0/B1/B2 — Material Intake Core Business Workflow",
+      "ecd5567 P5.1-UX-01.3-A2 — Structured Resume Operations",
+      "3ee88a6 P5.1-UX-01.3-A0/A1 — Precise Editing Implementation",
+      "5f52faa P5.1-UX-01.3-AUDIT — Precise Second Editing & Image Material Workflow",
+      "7e6cd06 UX-01.2-R",
+      "090f3da 2026-11-06 UX-01.2",
+      "37c5542 2026-11-05 UX-01.1-R",
+      "d34f8a5 P5.1-UX-01.1"
+    ],
+    "committed": false,
+    "pushed": false,
+    "packaged": false
+  },
+  "baseline": {
+    "typecheckExitCode": 0,
+    "directTestsExitCode": 0,
+    "passed": 27
+  },
+  "checks": {
+    "targetedTests": {
+      "command": "pnpm exec vitest run (12 files listed in JSON testResults) --reporter=json --outputFile=docs/quality/p522-h2-delivery-tests.json",
+      "exitCode": 0,
+      "files": 12,
+      "passed": 145,
+      "failed": 0,
+      "skipped": 0,
+      "evidence": "docs/quality/p522-h2-delivery-tests.json"
+    },
+    "typecheck": {
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "evidence": "docs/quality/p522-h2-delivery-typecheck.log"
+    },
+    "lint": {
+      "command": "pnpm exec eslint src/agent/contracts/agentArtifact.ts src/agent/mcp/CareerAdaptMcpBridgeClient.ts src/agent/runtime/AgentHostStore.ts src/agent/runtime/AgentTaskStateReducer.ts src/agent/runtime/businessWorkflowProgress.ts src/agent/runtime/careerSessionCheckpoint.ts src/app/api/agent/runtime/hermes/route.ts src/components/agent/AgentWorkspace.tsx src/components/agent/runtime/AgentRuntimeProvider.tsx tests/e2e/workflow-continuation-h1.spec.ts tests/unit/businessWorkflowProgress.test.tsx tests/unit/p51-core-workflow.test.ts tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts tests/unit/workflowContinuationH1.test.ts tests/unit/taskRecoveryH2.test.tsx tests/unit/workflowContractSweepH2.test.ts --max-warnings=0",
+      "exitCode": 0,
+      "evidence": "docs/quality/p522-h2-delivery-lint.log"
+    },
+    "build": {
+      "command": "CAREERAD_NEXT_DIST_DIR=.tmp/p522-h2-build-delivery pnpm build",
+      "exitCode": 0,
+      "evidence": "docs/quality/p522-h2-delivery-build.log"
+    },
+    "diffCheck": {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  },
+  "goldenJourney": {
+    "command": "node scripts/verify-workflow-continuation-h1.mjs",
+    "attemptsThisTask": 1,
+    "exitCode": 1,
+    "evidence": "docs/quality/p522-h1/browser-1794382635445",
+    "passed": [
+      "confirmed Profile Repository fixture",
+      "zero General/Revision baseline",
+      "JD analyze_only and durable target",
+      "no Job write on analyze",
+      "refresh same Session/TaskState and ready before send",
+      "save request same original Session"
+    ],
+    "failedAt": "test did not click actual Host save confirmation; Job count wait timed out at 60s",
+    "notReached": [
+      "Job committed",
+      "compose",
+      "confirmation refresh",
+      "General commit",
+      "auto Fit",
+      "final refresh"
+    ],
+    "localSyntheticInferenceRequests": 5,
+    "realProviderRequests": 0,
+    "fixtureCorrectedAfterStop": true,
+    "rerun": false,
+    "coversFinalSource": false
+  },
+  "coverage": {
+    "T01": "taskRecoveryH2 blocks send and restores exact session/branch/task; Browser readiness passed",
+    "T02": "taskRecoveryH2 read failure/missing Session no fallback or creation",
+    "T03": "resumeCompositionConfirmedWrite real Hermes shell terminal Job -> compose + same-turn continuation",
+    "T04": "workflowContinuationH1 compatible entity retention",
+    "T05": "workflowContinuationH1 old checkpoint cleanup",
+    "T06": "p51-core-workflow and businessWorkflowProgress keep confirmation after Run terminal",
+    "T07": "p51-core-workflow reopens durable Session in new Host and confirms original Job; compose restoration tests",
+    "T08": "real Repository commit before Fit; source conflict stops continuation",
+    "T09": "p51-core-workflow reject after restore: zero writes; reducer clears continuation",
+    "T10": "resumeCompositionConfirmedWrite stop_after_commit/stop_during_fit preserve formal data",
+    "T11": "agentReliabilityP521 old-operation fence; Stop integration with Session CAS",
+    "T12": "retry_fit uses only job_fit after Host reopening",
+    "T13": "Job/Branch/Revision/Profile equality after retry",
+    "T14": "agentBranchIsolationP43e3 and agentReliabilityP521 runtime history excludes descendants",
+    "T15": "taskRecoveryH2 invalidates no-checkpoint provisional task and confirmation",
+    "T16": "confirmed compose -> edit/adopt -> unchanged Job/Branch/Revision/Profile",
+    "T17": "agentReliabilityP521 old Run late result rejected",
+    "T18": "businessWorkflowProgress model completion != business completion",
+    "T19": "businessWorkflowProgress committed result survives runtime failure",
+    "T20": "real Fit binding plus Workspace recovery filters wrong-session/wrong-revision Artifact",
+    "T21": "workflowContractSweepH2 11 inputs accepted by actual published and Facade schemas"
+  },
+  "limitations": [
+    "full final Browser Journey unqualified",
+    "strict deterministic current-step retry newly covers explicit Compose-to-Fit; other workflows retain safe-checkpoint paths",
+    "existing P522-03 intermittent Stop/Edit health503 not independently closed",
+    "no global P0 audit; no new wrong-entity or unconfirmed-write evidence in covered tests",
+    "no real Provider qualification"
+  ],
+  "config": {
+    "nextGeneratedConfigRestored": true,
+    "newTables": 0,
+    "newDependencies": 0,
+    "runtimeBundleChanged": false
+  },
+  "finalSourceSha256": {
+    "src/agent/contracts/agentArtifact.ts": "aefe92d336398d3664c0f444176153f01d32b3634667500d4400d8b64500c2ac",
+    "src/agent/mcp/CareerAdaptMcpBridgeClient.ts": "5b5e4c2280e11ebcf8c0e9ad850fbca94664ae0c7dee5055c81d97e5d42d47c7",
+    "src/agent/runtime/AgentHostStore.ts": "770bc6c07c2271794d025a37c37b9d265354f940e40bf3c7e33d0a8cb2ff15c9",
+    "src/agent/runtime/AgentTaskStateReducer.ts": "02e520abe114f6c9738177ab8b02afe47905d9dfcfd1dfc6818dbac0baa49b8a",
+    "src/agent/runtime/businessWorkflowProgress.ts": "592971e687025820882a950e077e0bd707a44529e1d6a7eb85a0ce4545948ecf",
+    "src/agent/runtime/careerSessionCheckpoint.ts": "e227abfadb07d98d0cceaac6cfb1fc354c4eb665193e5239a681af3886380891",
+    "src/app/api/agent/runtime/hermes/route.ts": "5d6469776ce2549f451d91b759352a5a685d1e80380645183b9fa59d0ac5068d",
+    "src/components/agent/AgentWorkspace.tsx": "4d387ee44f24d0b06e1c8ca5009133d9cca7882ccdfed016335bfd50b73824ed",
+    "src/components/agent/runtime/AgentRuntimeProvider.tsx": "a35b7a8e4c90b8c6af661d47e2d4d3b7990c08f91d1cbb8f46d8d02e9bc64f01",
+    "tests/e2e/workflow-continuation-h1.spec.ts": "1b3e14a29c165b35a823efc46692af1112f3be7257bbf7462a34917cf08bb79f",
+    "tests/unit/businessWorkflowProgress.test.tsx": "e1dfddb2224d9c358801ed8036ec3420fa8845b2c469cabe71cde87c79dfa6df",
+    "tests/unit/p51-core-workflow.test.ts": "84de4cdfb3fca7f691cbad5d48b6bbb188883896aeb9cb84abf2b1a692df056e",
+    "tests/unit/resumeCompositionConfirmedWriteP45c12.test.ts": "fe049b22213c796a23303010b010ee1cda2c2efd5145d1165185046ec2825ff4",
+    "tests/unit/workflowContinuationH1.test.ts": "c41f96e059084407d2f2dda5f16ad962987987d7ed4f93ef6a47b6312b0195c8",
+    "tests/unit/taskRecoveryH2.test.tsx": "b5c1ae1e353b17816a4692aba18c6c60a205e791758986bf5eea15e1da7b6dc6",
+    "tests/unit/workflowContractSweepH2.test.ts": "74ff741f627f61ff69b5c39e322488621feefb75dec761fe187db50364b32091"
+  },
+  "next": "User-selected requalification of corrected same Journey; no automatic P5.2.3/commit/push/package"
+}

@@ -94,6 +94,8 @@ export function AgentWorkspace() {
   const [session, setSession] = useState<AgentSession>(() =>
     snapshot.activeSession ?? AgentRuntime.createConversationSession()
   );
+  const [recoveryState, setRecoveryState] = useState<"initializing" | "restoring" | "ready" | "new_session_ready" | "failed">("restoring");
+  const recoveryReady = recoveryState === "ready" || recoveryState === "new_session_ready";
   const [sessions, setSessions] = useState<AgentSession[]>([]);
   const [resumes, setResumes] = useState<ResumeSummary[]>([]);
   const [profiles, setProfiles] = useState<CareerProfile[]>([]);
@@ -258,6 +260,7 @@ export function AgentWorkspace() {
   }), [session]);
 
   const stageComposerFiles = useCallback((files: File[]) => {
+    if (!recoveryReady) return;
     // Selecting or dropping a file is a user interaction in its own right.
     // Mark it before mutating the draft so the initial session hydration cannot
     // replace the session and strand the staged chips under another ID.
@@ -302,7 +305,7 @@ export function AgentWorkspace() {
         status: "staged" as const
       }))
     ]);
-  }, [host.state, host.store, pageContext, session, setSessionAttachments]);
+  }, [host.state, host.store, pageContext, recoveryReady, session, setSessionAttachments]);
 
   const removeComposerAttachment = useCallback((clientId: string) => {
     const attachmentId = composerAttachmentRefs.current.get(clientId);
@@ -319,6 +322,7 @@ export function AgentWorkspace() {
   );
 
   const submitComposer = useCallback(async (input: ComposerSubmit) => {
+    if (!recoveryReady) return;
     userInteractedRef.current = true;
     restoreRequestRef.current += 1;
     setLastUserMessage(input.text);
@@ -418,7 +422,7 @@ export function AgentWorkspace() {
         message: input.attachments.length ? "附件仍保留在编辑区，可以重试或移除。" : "消息仍保留在编辑区，可以重试。"
       });
     }
-  }, [host, pageContext, runtimeStatus.health, runtimeStatus.preferredRuntime, runtimeStatus.status, session, setSessionAttachments, setSessionDraft, setSessionDraftReference]);
+  }, [host, pageContext, recoveryReady, runtimeStatus.health, runtimeStatus.preferredRuntime, runtimeStatus.status, session, setSessionAttachments, setSessionDraft, setSessionDraftReference]);
 
   const handleBeforeContextSelect = useCallback(async (next: ActiveCareerContext) => {
     if (!taskHasUsedAssetsOrWrites) {
@@ -527,12 +531,21 @@ export function AgentWorkspace() {
       apply(selected);
       return;
     }
-    void host.store.get(selectedId).then(apply).catch(() => undefined);
+    setRecoveryState("restoring");
+    void host.store.get(selectedId).then((resolved) => {
+      if (requestId !== restoreRequestRef.current) return;
+      if (!resolved) throw new Error("agent_session_restore_missing");
+      apply(resolved);
+      setRecoveryState("ready");
+    }).catch(() => {
+      if (requestId === restoreRequestRef.current) setRecoveryState("failed");
+    });
   }, [host.state, host.store]);
 
   const createSessionWithCurrentContext = useCallback(async (title: string, options: { allowAfterInteraction?: boolean } = {}) => {
+    const requestId = restoreRequestRef.current;
     const context = await agentImportRepository.getActiveCareerContext();
-    if (!mountedRef.current || (!options.allowAfterInteraction && userInteractedRef.current)) return undefined;
+    if (requestId !== restoreRequestRef.current || !mountedRef.current || (!options.allowAfterInteraction && userInteractedRef.current)) return undefined;
     const created = AgentRuntime.createConversationSession(title, context);
     // Persist the initial shell without adopting it first. A Quick Action can
     // arrive while this IndexedDB write is in flight; adopting here would let
@@ -541,18 +554,20 @@ export function AgentWorkspace() {
     // the active user-owned session remains authoritative.
     const saved = await host.store.save(created);
     if (!saved) return undefined;
-    if (!mountedRef.current || (!options.allowAfterInteraction && userInteractedRef.current)) return undefined;
+    if (requestId !== restoreRequestRef.current || !mountedRef.current || (!options.allowAfterInteraction && userInteractedRef.current)) return undefined;
     host.state.adopt(saved);
     setSession(saved);
     window.localStorage.setItem(ACTIVE_SESSION_KEY, saved.id);
+    setRecoveryState("new_session_ready");
     return saved;
   }, [host.state, host.store]);
 
   useEffect(() => {
     let active = true;
+    const requestId = ++restoreRequestRef.current;
     const requested = window.localStorage.getItem(ACTIVE_SESSION_KEY);
     const requestedSession = requested && requested !== NEW_TASK_SESSION_VALUE
-      ? host.store.get(requested).catch(() => undefined)
+      ? host.store.get(requested)
       : Promise.resolve(undefined);
     void Promise.all([
       host.executor.execute({
@@ -565,7 +580,7 @@ export function AgentWorkspace() {
       agentImportRepository.getActiveCareerContext(),
       requestedSession
     ]).then(async ([resumeResult, storedSessions, storedProfiles, activeContext, requestedStoredSession]) => {
-      if (!active) return;
+      if (!active || requestId !== restoreRequestRef.current) return;
       setResumes(readArray(resumeResult.data, "resumes") as ResumeSummary[]);
       setSessions(storedSessions);
       setProfiles(storedProfiles);
@@ -589,7 +604,7 @@ export function AgentWorkspace() {
         );
         if (canLateBindUnboundSession) {
           const rebound = await host.state.rebindSessionCareerContext(current!.id, activeContext!, true);
-          if (!active) return;
+          if (!active || requestId !== restoreRequestRef.current) return;
           setSession(rebound);
           setSessions((items) => items.map((item) => item.id === rebound.id ? rebound : item));
           window.localStorage.setItem(ACTIVE_SESSION_KEY, rebound.id);
@@ -605,7 +620,7 @@ export function AgentWorkspace() {
         && !live.activeSession.artifactRefs.length
       ) {
         const rebound = await host.state.rebindSessionCareerContext(live.activeSession.id, activeContext, true);
-        if (!active) return;
+        if (!active || requestId !== restoreRequestRef.current) return;
         setSession(rebound);
         window.localStorage.setItem(ACTIVE_SESSION_KEY, rebound.id);
         return;
@@ -619,7 +634,8 @@ export function AgentWorkspace() {
         await createSessionWithCurrentContext("新的对话", { allowAfterInteraction: true });
         return;
       }
-      const restored = requestedStoredSession ?? storedSessions.find((item) => item.id === requested) ?? storedSessions[0];
+      if (requested && !requestedStoredSession) throw new Error("agent_session_restore_missing");
+      const restored = requestedStoredSession ?? storedSessions[0];
       if (restored) {
         if (
           activeContext
@@ -629,13 +645,19 @@ export function AgentWorkspace() {
           && restored.activeTurn?.status !== "running"
         ) {
           const rebound = await host.state.rebindSessionCareerContext(restored.id, activeContext, true);
-          if (!active) return;
+          if (!active || requestId !== restoreRequestRef.current) return;
           setSessions((current) => current.map((item) => item.id === rebound.id ? rebound : item));
           setSession(rebound);
         } else {
-          restoreSession(restored, { initial: true });
+          host.state.adopt(restored);
+          setSession(host.state.getSnapshot().activeSession ?? restored);
+          window.localStorage.setItem(ACTIVE_SESSION_KEY, restored.id);
         }
       } else await createSessionWithCurrentContext("新的对话");
+    }).then(() => {
+      if (active && requestId === restoreRequestRef.current) setRecoveryState((current) => current === "new_session_ready" ? current : "ready");
+    }).catch(() => {
+      if (active && requestId === restoreRequestRef.current) setRecoveryState("failed");
     });
     return () => { active = false; };
   }, [createSessionWithCurrentContext, host.executor, host.state, host.store, restoreSession]);
@@ -665,9 +687,10 @@ export function AgentWorkspace() {
       if (id) void restoreSession(id);
     };
     const newTask = () => {
+      setRecoveryState("restoring");
       userInteractedRef.current = true;
       restoreRequestRef.current += 1;
-      void createSessionWithCurrentContext("新的对话", { allowAfterInteraction: true });
+      void createSessionWithCurrentContext("新的对话", { allowAfterInteraction: true }).catch(() => setRecoveryState("failed"));
       setPendingResumeImportAttachmentId(undefined);
       setDrawerState("closed");
     };
@@ -686,6 +709,7 @@ export function AgentWorkspace() {
   }, [createSessionWithCurrentContext, host.store, restoreSession]);
 
   async function dispatchMessage(text: string) {
+    if (!recoveryReady) return;
     userInteractedRef.current = true;
     restoreRequestRef.current += 1;
     pendingImportQuickActionRef.current = false;
@@ -729,6 +753,7 @@ export function AgentWorkspace() {
   }
 
   function dispatchQuickAction(actionId: AgentQuickActionId) {
+    if (!recoveryReady) return;
     userInteractedRef.current = true;
     restoreRequestRef.current += 1;
     const intent = createQuickActionIntent(actionId);
@@ -835,7 +860,16 @@ export function AgentWorkspace() {
     : session.personId && session.profileVersionNumber
       ? `人物已固定 · V${session.profileVersionNumber}`
       : undefined;
-  const artifacts = snapshot.activeSessionId === session.id ? snapshot.artifacts : session.artifactRefs;
+  const artifacts = (snapshot.activeSessionId === session.id ? snapshot.artifacts : session.artifactRefs).filter(artifact => {
+    if (artifact.kind !== "job_fit_overview") return true;
+    const selected = session.taskState?.selectedEntities;
+    const binding = artifact.binding;
+    const dependencies = (session.taskState?.knownSlots.fitAnalysis as { dependencies?: { jobId?: string; resumeId?: string; resumeRevisionId?: string } } | undefined)?.dependencies;
+    return artifact.entityId === selected?.jobId && dependencies?.jobId === selected?.jobId
+      && dependencies?.resumeId === selected?.resumeId && dependencies?.resumeRevisionId === selected?.revisionId
+      && (!binding || binding.sessionId === session.id && binding.branchId === session.activeBranchId
+        && binding.jobId === selected?.jobId && binding.resumeBranchId === selected?.resumeId && binding.revisionId === selected?.revisionId);
+  });
   const showZeroState = session.messages.length === 0 && !running && !session.taskState?.knownSlots.preciseResumeEdit;
   const intakeSession = session.taskState?.knownSlots.intakeSession;
   const hasAutosavedIntake = Boolean(
@@ -1362,8 +1396,10 @@ export function AgentWorkspace() {
               />
             </>
           )}
+          <span hidden data-testid="agent-recovery-state" data-state={recoveryState} data-session-id={recoveryReady ? session.id : undefined} />
+          {!recoveryReady && <p role="status">{recoveryState === "failed" ? "当前任务恢复失败，请重新打开原任务或刷新重试。" : "正在恢复当前任务…"}</p>}
           <AgentComposer
-            disabled={paused}
+            disabled={paused || !recoveryReady}
             running={runPresentation.canStop}
             stopping={runPresentation.state === "stopping"}
             aiStatus={snapshot.pendingInputCount ? `${runPresentation.label} · 已排队 ${snapshot.pendingInputCount} 条` : runPresentation.label}

@@ -71,7 +71,7 @@ import {
   type TurnIntentDecision
 } from "./AgentTurnIntent";
 import { stableHashText } from "@/services/security/text";
-import { ensureConversationBranches, forkConversationBranch, withActiveBranchHead } from "./activeBranchContext";
+import { activeBranchMessages, ensureConversationBranches, forkConversationBranch, withActiveBranchHead } from "./activeBranchContext";
 import { createQuickActionIntent, type AgentQuickActionId, type QuickActionIntent } from "@/agent/contracts/agentQuickAction";
 import {
   resolveCompoundAnswer,
@@ -1344,6 +1344,10 @@ export class AgentHostStore {
           const session = await this.resolveDirectImportAttachment(current, current.taskState.attachment, input.pageContext, { appendUserMessage: false });
           return { session, event: input.event, userMessage: "", executionOwner: "deterministic_transition", deterministicTransitionApplied: true, deterministicTerminal: true };
         }
+        if (current.taskState?.workflowId === "analyze_job_fit" && current.taskState.knownSlots.nextAction) {
+          const session = await this.retryPendingJobFit(current);
+          return { session, event: input.event, userMessage: "", executionOwner: "deterministic_transition", deterministicTransitionApplied: true, deterministicTerminal: true };
+        }
         const prepared = await this.prepareRetryWorkflowStep(current);
         const retryMessage = prepared.session.messages.find((message) =>
           message.role === "user" && message.id === prepared.session.activeTurn?.userMessageId
@@ -1730,10 +1734,49 @@ export class AgentHostStore {
       mergeAuthoritativeResumeCompositionCheckpoint(result.data, validation.checkpoint)
     );
     current = clearResumeCompositionWriteFailure(current);
+    const committedComposition = objectValue(current.taskState?.knownSlots.resumeCompositionResult);
+    if (current.taskState?.knownSlots.nextAction && stringValue(committedComposition.resumeId) && stringValue(committedComposition.revisionId)) {
+      current.taskState.knownSlots.nextAction = { ...objectValue(current.taskState.knownSlots.nextAction), fitOperationId: `${operationId}-job-fit`, resumeId: committedComposition.resumeId, revisionId: committedComposition.revisionId };
+    }
+    const liveAfterCommit = this.snapshot.activeSession;
+    if (liveAfterCommit?.id === current.id && liveAfterCommit.activeBranchId !== current.activeBranchId) {
+      // The transaction receipt belongs to the original branch. Editing chat
+      // cannot roll it back, and a late completion cannot adopt the new branch.
+      return liveAfterCommit;
+    }
+    const stoppedAfterCommit = liveAfterCommit?.id === current.id && liveAfterCommit.activeTurn?.status === "aborted";
+    if (stoppedAfterCommit) {
+      const pending = current.taskState?.knownSlots.nextAction;
+      if (pending && current.taskState) {
+        const nextTask = new AgentTaskStateReducer().reduce(current.taskState, { type: "new_root_task", goal: "analyze_job_fit", workflowId: "analyze_job_fit", stage: "analyze_fit" });
+        nextTask.knownSlots.nextAction = pending;
+        nextTask.knownSlots.committedPredecessor = { workflow: "compose_resume", resumeId: committedComposition.resumeId, revisionId: committedComposition.revisionId, persistenceVerified: true };
+        nextTask.knownSlots.continuationFailure = { code: "user_stopped", retryable: true };
+        current = projectTaskStateIntoSession(current, nextTask);
+      }
+      const persistedStop = await this.dependencies.persistence.get(current.id);
+      if (!persistedStop || persistedStop.activeBranchId !== current.activeBranchId || persistedStop.activeTurn?.id !== liveAfterCommit.activeTurn?.id) return persistedStop;
+      current = { ...current, sessionRevision: persistedStop.sessionRevision, activeTurn: persistedStop.activeTurn, hermesRun: persistedStop.hermesRun, updatedAt: new Date().toISOString() };
+      current = appendAgentMessage(current, "assistant", "本次运行已停止，已保存的简历版本仍然保留；岗位匹配尚未开始。", { status: "complete", options: pending ? [{ id: "resume-job-fit", label: "继续岗位匹配", action: { type: "retry_current_step" } }] : undefined });
+      const saved = await this.dependencies.persistence.save(current);
+      this.patchSession(saved, { turnStatus: "paused" });
+      return saved;
+    }
     const continuation = objectValue(current.taskState?.knownSlots.nextAction);
-    if (continuation.kind === "job_fit" && current.taskState
+    const continuationCompatible = current.taskState
+      && (!continuation.originSessionId || continuation.originSessionId === current.id)
+      && (!continuation.originTurnId || activeBranchMessages(current).some(message => message.role === "user" && message.turnId === continuation.originTurnId))
       && continuation.profileId === current.taskState.selectedEntities.profileId
-      && continuation.jobId === current.taskState.selectedEntities.jobId) {
+      && continuation.jobId === current.taskState.selectedEntities.jobId;
+    if (continuation.kind === "job_fit" && !continuationCompatible && current.taskState) {
+      delete current.taskState.knownSlots.nextAction;
+      current.taskState.knownSlots.continuationFailure = { code: "continuation_entity_conflict", retryable: false };
+      current = appendAgentMessage(current, "assistant", "简历已保存；后续岗位匹配的来源或目标已变化，请重新选择目标后继续。", { status: "complete" });
+      const saved = await this.dependencies.persistence.save(current);
+      this.patchSession(saved, { turnStatus: "waiting_for_user" });
+      return saved;
+    }
+    if (continuation.kind === "job_fit" && continuationCompatible && current.taskState) {
       const committed = objectValue(current.taskState.knownSlots.resumeCompositionResult);
       if (stringValue(committed.resumeId) && stringValue(committed.revisionId)) {
         const nextTask = new AgentTaskStateReducer().reduce(current.taskState, {
@@ -1741,17 +1784,25 @@ export class AgentHostStore {
         });
         nextTask.selectedEntities.resumeId = stringValue(committed.resumeId);
         nextTask.selectedEntities.revisionId = stringValue(committed.revisionId);
-        nextTask.knownSlots.nextAction = continuation;
+        nextTask.knownSlots.committedPredecessor = { workflow: "compose_resume", resumeId: committedComposition.resumeId, revisionId: committedComposition.revisionId, persistenceVerified: true };
+        nextTask.knownSlots.nextAction = { ...continuation, fitOperationId: `${operationId}-job-fit`, resumeId: committed.resumeId, revisionId: committed.revisionId };
         current = await this.dependencies.persistence.save(projectTaskStateIntoSession(current, nextTask));
+        this.patchSession(current, { turnStatus: "running" });
         const fit = await this.dependencies.executor.execute({
           toolName: "career.workflow.job_fit",
           toolInput: { profileId: continuation.profileId, jobId: continuation.jobId, resumeId: committed.resumeId },
           operationId: `${operationId}-job-fit`, logicalTurnId: turnId,
           careerSessionBinding: careerSessionBindingForSession(current), requireSessionBinding: true
         });
+        const liveAfterFit = this.snapshot.activeSession;
+        if (liveAfterFit?.id === current.id && liveAfterFit.activeBranchId !== current.activeBranchId) return liveAfterFit;
         current = applyRuntimeFacadeCheckpoint(current, "career.workflow.job_fit", fit.data);
         if (fit.ok && current.taskState) delete current.taskState.knownSlots.nextAction;
-        current = attachConfirmedToolArtifact(current, "career.workflow.job_fit", `${operationId}-job-fit`, fit);
+        else if (current.taskState) {
+          current.taskState.completionStatus = "failed";
+          current.taskState.knownSlots.continuationFailure = fit.error;
+        }
+        current = attachConfirmedToolArtifact(current, "analyze_job_fit", `${operationId}-job-fit`, { ...fit, data: runtimeArtifactResultData("career.workflow.job_fit", fit.data) });
       }
     }
     current = attachConfirmedToolArtifact(
@@ -1763,6 +1814,16 @@ export class AgentHostStore {
         data: runtimeArtifactResultData("career.workflow.compose_resume", result.data)
       }
     );
+    const liveAtFinish = this.snapshot.activeSession;
+    if (liveAtFinish?.id === current.id && liveAtFinish.activeTurn?.status === "aborted") {
+      const persistedStop = await this.dependencies.persistence.get(current.id);
+      if (!persistedStop || persistedStop.activeBranchId !== current.activeBranchId || persistedStop.activeTurn?.id !== liveAtFinish.activeTurn.id) return persistedStop;
+      current = { ...current, sessionRevision: persistedStop.sessionRevision, activeTurn: persistedStop.activeTurn, hermesRun: persistedStop.hermesRun, updatedAt: new Date().toISOString() };
+      current = appendAgentMessage(current, "assistant", "本次运行已停止，已保存的简历版本和已完成的匹配结果仍然保留。", { status: "complete" });
+      const saved = await this.dependencies.persistence.save(current);
+      this.patchSession(saved, { turnStatus: "paused" });
+      return saved;
+    }
     const continuationIncomplete = current.taskState?.workflowId === "analyze_job_fit" && current.taskState.completionStatus !== "completed";
     const completedAt = new Date().toISOString();
     current = appendAgentMessage(current, "assistant", current.taskState?.workflowId === "analyze_job_fit" && current.taskState.completionStatus === "completed"
@@ -1773,6 +1834,9 @@ export class AgentHostStore {
       type: "text",
       status: "complete",
       turnId,
+      ...(continuationIncomplete && objectValue(current.taskState?.knownSlots.continuationFailure).retryable === true ? {
+        options: [{ id: "retry-job-fit", label: "重试岗位匹配", action: { type: "retry_current_step" as const } }]
+      } : {}),
       metadata: {
         confirmedWriteCompleted: true,
         confirmedWrite: {
@@ -3072,9 +3136,10 @@ export class AgentHostStore {
         }
       };
       this.patchSession(next);
-      void this.dependencies.persistence.save(next).then((saved) => {
+      return this.dependencies.persistence.save(next).then((saved) => {
         const current = this.snapshot.activeSession;
         if (current?.id === saved.id && current.activeTurn?.id === activeTurn.id) this.patchSession(saved);
+        return saved;
       });
     }
   }
@@ -4037,6 +4102,7 @@ export class AgentHostStore {
   }
 
   private async retryCurrentWorkflowStep(session: AgentSession, pageContext: AgentPageContext, operationId?: string) {
+    if (session.taskState?.workflowId === "analyze_job_fit" && session.taskState.knownSlots.nextAction) return this.retryPendingJobFit(session);
     if (session.taskState?.workflowId === "resume_import" && session.taskState.stage === "prepare_import" && session.taskState.attachment) {
       return this.resolveDirectImportAttachment(session, session.taskState.attachment, pageContext, { appendUserMessage: false });
     }
@@ -5882,27 +5948,6 @@ export class AgentHostStore {
     return execution;
   }
 
-  async resolveMcpWriteConfirmation(confirmed: boolean, expected: { sessionId: string; turnId: string; operationId: string }) {
-    const session = this.snapshot.activeSession;
-    if (!session || session.id !== expected.sessionId
-      || session.pendingConfirmation?.operationId !== expected.operationId
-      || session.pendingToolCall?.turnId !== expected.turnId) return undefined;
-    let current: AgentSession = {
-      ...markConfirmationResolution(session, confirmed ? "confirmed" : "rejected"),
-      pendingConfirmation: undefined, pendingToolCall: undefined,
-      activeTurn: session.activeTurn ? { ...session.activeTurn, status: "running", completedAt: undefined } : undefined,
-      hermesRun: session.hermesRun ? { ...session.hermesRun, status: "running" } : undefined
-    };
-    if (current.taskState) current = projectTaskStateIntoSession(current, {
-      ...current.taskState, completionStatus: "active", updatedAt: new Date().toISOString(),
-      knownSlots: { ...current.taskState.knownSlots, pendingConfirmation: undefined }
-    });
-    this.patchSession(current, { turnStatus: "running" });
-    const saved = await this.dependencies.persistence.save(current);
-    this.patchSession(saved, { turnStatus: "running" });
-    return saved;
-  }
-
   private async resolveConfirmationOnce(confirmed: boolean, pageContext: AgentPageContext, requestedSession: AgentSession) {
     const session = this.snapshot.activeSession?.id === requestedSession.id
       ? this.snapshot.activeSession
@@ -5948,6 +5993,13 @@ export class AgentHostStore {
           : current.taskState
       };
       if (current.taskState) current = projectTaskStateIntoSession(current, current.taskState);
+      if (call.toolName.startsWith("career.workflow.")) {
+        current = appendAgentMessage(current, "assistant", "已取消本次保存和后续操作，已有正式数据保持不变。", { status: "complete", turnId });
+        current = { ...current, activeTurn: current.activeTurn ? { ...current.activeTurn, status: "waiting_for_user" } : undefined };
+        const saved = await this.dependencies.persistence.save(current);
+        this.patchSession(saved, { turnStatus: "waiting_for_user" });
+        return saved;
+      }
       current = await this.dependencies.persistence.save(current);
       return this.resume(current, {
         reason: "confirmation_rejected",
@@ -7144,6 +7196,57 @@ export class AgentHostStore {
         : message),
       updatedAt: now
     };
+  }
+
+  /** Retry a persisted read-only continuation without replaying its committed write. */
+  private async retryPendingJobFit(session: AgentSession): Promise<AgentSession> {
+    const task = session.taskState!;
+    const continuation = objectValue(task.knownSlots.nextAction);
+    const failure = objectValue(task.knownSlots.continuationFailure);
+    if (failure.retryable === false) return session;
+    const selected = task.selectedEntities;
+    if (continuation.originTurnId && !activeBranchMessages(session).some(message => message.role === "user" && message.turnId === continuation.originTurnId)) throw new Error("continuation_source_conflict");
+    if (continuation.kind !== "job_fit" || continuation.originSessionId && continuation.originSessionId !== session.id
+      || continuation.profileId !== selected.profileId || continuation.jobId !== selected.jobId
+      || continuation.resumeId !== selected.resumeId || continuation.revisionId !== selected.revisionId) {
+      throw new Error("continuation_entity_conflict");
+    }
+    const branch = await this.getCareerRepository().getResumeBranch(selected.resumeId!);
+    if (!branch || branch.profileId !== selected.profileId || branch.currentRevisionId !== selected.revisionId) {
+      throw new Error("continuation_revision_conflict");
+    }
+    const operationId = stringValue(continuation.fitOperationId);
+    if (!operationId) throw new Error("continuation_operation_missing");
+    const turnId = `agent-fit-retry-${crypto.randomUUID()}`;
+    const startedAt = new Date().toISOString();
+    session = await this.dependencies.persistence.save({ ...session, activeTurn: {
+      id: turnId, sessionId: session.id, status: "running", startedAt,
+      executionOwner: "deterministic_transition", sourceUserMessageId: session.activeTurn?.sourceUserMessageId ?? session.activeTurn?.userMessageId
+    } });
+    this.patchSession(session, { turnStatus: "running" });
+    const fit = await this.dependencies.executor.execute({ toolName: "career.workflow.job_fit",
+      toolInput: { profileId: selected.profileId, jobId: selected.jobId, resumeId: selected.resumeId },
+      operationId, retryFailedOperation: true, logicalTurnId: turnId,
+      careerSessionBinding: careerSessionBindingForSession(session), requireSessionBinding: true });
+    if (this.snapshot.activeSession?.id === session.id && this.snapshot.activeSession.activeBranchId !== session.activeBranchId) return this.snapshot.activeSession;
+    let current = applyRuntimeFacadeCheckpoint(session, "career.workflow.job_fit", fit.data);
+    if (current.taskState) {
+      if (fit.ok) {
+        delete current.taskState.knownSlots.nextAction;
+        delete current.taskState.knownSlots.continuationFailure;
+      } else {
+        current.taskState.completionStatus = "failed";
+        current.taskState.knownSlots.continuationFailure = fit.error;
+      }
+    }
+    current = attachConfirmedToolArtifact(current, "analyze_job_fit", operationId, { ...fit, data: runtimeArtifactResultData("career.workflow.job_fit", fit.data) });
+    const latest = this.snapshot.activeSession;
+    const stopped = latest?.id === current.id && latest.activeTurn?.id === turnId && latest.activeTurn.status === "aborted";
+    current = { ...current, activeTurn: stopped ? latest.activeTurn : { ...current.activeTurn!, status: fit.ok ? "completed" : "failed", completedAt: new Date().toISOString() } };
+    current = appendAgentMessage(current, "assistant", stopped ? "本次运行已停止，已保存结果仍然保留。" : fit.ok ? "岗位匹配已完成，已保存的岗位和简历保持不变。" : "岗位匹配没有完成，已保存的岗位和简历仍然保留。", { turnId, status: fit.ok ? "complete" : "failed" });
+    const saved = await this.dependencies.persistence.save(current);
+    this.patchSession(saved, { turnStatus: stopped ? "paused" : fit.ok ? "completed" : "failed" });
+    return saved;
   }
 
   private async prepareRetryWorkflowStep(session: AgentSession) {
@@ -10760,9 +10863,13 @@ export function branchSessionFromEditedUserMessage(
             : checkpoint.taskStateBefore.knownSlots,
           updatedAt: now
         }
-      : session.taskState;
+      : undefined;
     return {
       ...branch,
+      taskState: nextTaskState,
+      workflowState: checkpoint?.workflowStateBefore,
+      pendingConfirmation: checkpoint?.pendingConfirmationBefore,
+      pendingToolCall: checkpoint?.pendingToolCallBefore,
       ...(checkpoint ? {
         taskState: nextTaskState,
         workflowState: checkpoint.workflowStateBefore,
@@ -10797,6 +10904,8 @@ export function branchSessionFromEditedUserMessage(
     : target.revisions;
   return {
     ...session,
+    taskState: checkpoint?.taskStateBefore,
+    workflowState: checkpoint?.workflowStateBefore,
     ...(checkpoint ? {
       taskState: checkpoint.taskStateBefore,
       workflowState: checkpoint.workflowStateBefore,
@@ -11660,6 +11769,12 @@ function attachConfirmedToolArtifact(
             && artifact.entityId.startsWith("pending-"))),
       {
         id: artifactId,
+        ...(descriptor.kind === "job_fit_overview" && session.taskState?.selectedEntities.jobId
+          && session.taskState.selectedEntities.resumeId && session.taskState.selectedEntities.revisionId ? {
+            binding: { sessionId: session.id, branchId: session.activeBranchId, workflowId: session.taskState.workflowId,
+              jobId: session.taskState.selectedEntities.jobId, resumeBranchId: session.taskState.selectedEntities.resumeId,
+              revisionId: session.taskState.selectedEntities.revisionId }
+          } : {}),
         kind: descriptor.kind,
         title: descriptor.title,
         entityType: descriptor.entityType,
@@ -12004,16 +12119,23 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
     });
     session = projectTaskStateIntoSession(session, task);
   }
+  const taskBeforeTurn = session.turnCheckpoints.findLast(checkpoint => checkpoint.turnId === session.activeTurn?.id)?.taskStateBefore;
   if (toolName === "career.workflow.compose_resume" && (!session.taskState
-    || ["completed", "cancelled", "failed"].includes(session.taskState.completionStatus))
+    || ["completed", "cancelled", "failed"].includes(session.taskState.completionStatus)
+    || taskBeforeTurn && ["completed", "cancelled", "failed"].includes(taskBeforeTurn.completionStatus))
     && objectValue(objectValue(value).workflowCheckpoint).kind === "resume_composition") {
     // A real proposal can be the first business operation in a conversation.
     // Its confirmation must restore the same task/checkpoint as a quick action.
     // Read-only resume_review results intentionally remain task-free.
     const reducer = new AgentTaskStateReducer();
-    const task = reducer.reduce(reducer.create(session, "compose_resume", { workflowId: "compose_resume", step: "review_composition" }), {
+    let task = reducer.reduce(reducer.create(session, "compose_resume", { workflowId: "compose_resume", step: "review_composition" }), {
       type: "new_root_task", goal: "compose_resume", workflowId: "compose_resume", stage: "review_composition"
     });
+    const source = session.activeTurn && getUserMessageForTurn(session, session.activeTurn.id);
+    if (source && activeBranchMessages(session).some(message => message.id === source.id)) {
+      task = reducer.reduce(task, { type: "user_message", message: source.content, sessionId: session.id,
+        turnId: session.activeTurn!.id, messageId: source.id, turnIntent: "continue_current_task" });
+    }
     session = projectTaskStateIntoSession(session, task);
   }
   if (toolName === "career.workflow.material_intake" && objectValue(objectValue(value).workflowCheckpoint).kind === "resume_import_review" && session.taskState?.workflowId !== "resume_import") {

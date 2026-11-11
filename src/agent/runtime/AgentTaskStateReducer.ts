@@ -190,7 +190,10 @@ export class AgentTaskStateReducer {
         && /(?:然后|再|随后).*(?:岗位匹配|匹配分析|匹配度)/u.test(event.message)
         && state.selectedEntities.jobId && state.selectedEntities.profileId) {
         state.knownSlots.nextAction = {
-          kind: "job_fit", jobId: state.selectedEntities.jobId,
+          kind: "job_fit", workflow: "analyze_job_fit",
+          originSessionId: event.sessionId, originTurnId: event.turnId,
+          requiredEntities: { profileId: state.selectedEntities.profileId, jobId: state.selectedEntities.jobId },
+          jobId: state.selectedEntities.jobId,
           profileId: state.selectedEntities.profileId
         };
       }

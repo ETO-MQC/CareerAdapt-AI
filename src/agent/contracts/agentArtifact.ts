@@ -19,6 +19,10 @@ export const AgentArtifactRefSchema = z.object({
   entityType: z.enum(["profile_intake_draft", "resume_import_draft", "resume_branch", "job", "tailoring_session", "export"]),
   entityId: z.string().min(1),
   route: z.string().startsWith("/").optional(),
+  binding: z.object({ sessionId: z.string().min(1), branchId: z.string().min(1),
+    workflowId: z.string().min(1), jobId: z.string().min(1),
+    resumeBranchId: z.string().min(1), revisionId: z.string().min(1)
+  }).strict().optional(),
   status: z.enum(["active", "collapsed", "resolved"]).default("active"),
   summary: z.string().max(600).optional(),
   createdAt: z.string().datetime({ offset: true }),

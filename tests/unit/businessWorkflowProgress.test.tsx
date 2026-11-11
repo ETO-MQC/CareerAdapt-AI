@@ -23,6 +23,11 @@ describe("business progress derives from execution evidence", () => {
     s.messages.push({ id: "claim", role: "assistant", content: "已经全部完成并保存", createdAt: now });
     expect(project(s).state).toBe("awaiting_input");
   });
+  it("H2 keeps a persisted confirmation actionable when the runtime fails", () => {
+    const s = session("failed"); s.taskState = task("waiting_for_confirmation");
+    s.activeTurn!.workflowCheckpoint = { facadeObservation: { kind: "resume_composition", toolName: "career.workflow.compose_resume", status: "waiting_for_confirmation" } };
+    expect(project(s)).toMatchObject({ state: "awaiting_confirmation", label: "等待你确认：创建通用简历", runtimeStatus: "failed" });
+  });
   it("does not complete a business task while its foreground Run is live", () => {
     const s = session("running"); s.taskState = task("completed");
     expect(project(s).state).toBe("processing");

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AgentRuntime } from "@/agent/runtime/agentRuntime";
-import { AgentHostStore } from "@/agent/runtime/AgentHostStore";
+import { AgentHostStore, branchSessionFromEditedUserMessage } from "@/agent/runtime/AgentHostStore";
 import { AgentTaskStateReducer } from "@/agent/runtime/AgentTaskStateReducer";
 import { projectTaskStateToWorkflowState } from "@/agent/runtime/projectTaskStateToWorkflowState";
 import type { ConfirmResumeCompositionCommand, RuntimeUserEvent } from "@/agent/runtime/RuntimeUserEvent";
@@ -34,7 +34,7 @@ afterEach(async () => {
 });
 
 describe("P4.5c.1.2 confirmed composition write boundary", () => {
-  it("H1 resumes a persisted compose confirmation into fit using the committed General Resume", async () => {
+  it.each(["success", "retry_fit", "retry_conflict", "nonretry_fit", "source_conflict", "stop_during_fit", "stop_after_commit"])("H2 persisted compose confirmation and %s preserve committed entities", async scenario => {
     const fixture = await createFixture();
     const jobResult = await fixture.gateway.execute("career.workflow.job_intake", {
       persistence: "save", rawText: "岗位：软件工程师\n岗位职责：参与产品开发与测试。\n任职要求：本科及以上学历，熟悉 Python，具备项目开发与团队协作经验。"
@@ -45,20 +45,123 @@ describe("P4.5c.1.2 confirmed composition write boundary", () => {
     original.taskState!.selectedEntities.jobId = jobId;
     original.activeJobId = jobId;
     original.taskState!.knownSlots.nextAction = { kind: "job_fit", jobId, profileId: fixture.profile.id };
+    if (scenario === "source_conflict") (original.taskState!.knownSlots.nextAction as Record<string, unknown>).originSessionId = "different-session";
     const profileBefore = await fixture.repository.getProfile(fixture.profile.id);
     const host = fixture.createHost("session-idempotent");
+    const execute = fixture.gateway.execute.bind(fixture.gateway);
+    let fitAttempts = 0;
+    const calls: string[] = [];
+    vi.spyOn(fixture.gateway, "execute").mockImplementation(async (name, input, context) => {
+      calls.push(name);
+      if (name === "career.workflow.job_fit" && (scenario.startsWith("retry") || scenario === "nonretry_fit") && fitAttempts++ === 0) {
+        return { ok: false, artifacts: [], receipt: { toolName: name, operationId: context!.operationId!, status: "failed", completedAt: new Date().toISOString() }, error: { code: "provider_timeout", category: "provider", message: "synthetic fit interruption", recoverable: scenario !== "nonretry_fit" } };
+      }
+      const result = await execute(name, input, context);
+      if (name === "career.workflow.compose_resume" && result.ok && scenario === "stop_after_commit"
+        || name === "career.workflow.job_fit" && scenario === "stop_during_fit") await host.interrupt(original.id);
+      return result;
+    });
     const restored = await host.adoptDurably(JSON.parse(JSON.stringify(original)));
     const prepared = await host.prepareRuntimeUserEvent({ session: restored!, event: directGenerateEvent(), pageContext: fixture.pageContext(original.id) });
-    const completed = await host.executeConfirmedResumeComposition({ session: prepared.session,
+    let completed = await host.executeConfirmedResumeComposition({ session: prepared.session,
       command: prepared.event as ConfirmResumeCompositionCommand, pageContext: fixture.pageContext(original.id), turnId: prepared.turnId });
+    if (scenario === "stop_after_commit") {
+      expect(calls).not.toContain("career.workflow.job_fit");
+      expect(await fixture.repository.listResumeBranches(fixture.profile.id)).toHaveLength(1);
+      expect(await fixture.repository.getProfile(fixture.profile.id)).toEqual(profileBefore);
+      expect(completed?.taskState?.knownSlots.nextAction).toBeTruthy();
+      const before = await fixture.repository.listResumeBranches(fixture.profile.id);
+      const resumed = await host.prepareRuntimeUserEvent({ session: completed!, event: { type: "option_selected", action: { type: "retry_current_step" } }, pageContext: fixture.pageContext(original.id) });
+      expect(resumed.session.taskState?.completionStatus).toBe("completed");
+      expect(await fixture.repository.listResumeBranches(fixture.profile.id)).toEqual(before);
+      expect(await fixture.repository.listResumeRevisions(before[0].id)).toHaveLength(1);
+      return;
+    }
+    if (scenario === "source_conflict" || scenario === "stop_during_fit") {
+      expect(await fixture.repository.listResumeBranches(fixture.profile.id)).toHaveLength(1);
+      expect(await fixture.repository.getProfile(fixture.profile.id)).toEqual(profileBefore);
+      if (scenario === "source_conflict") {
+        expect(calls).not.toContain("career.workflow.job_fit");
+        expect(completed?.taskState?.knownSlots.continuationFailure).toMatchObject({ code: "continuation_entity_conflict", retryable: false });
+      } else {
+        expect(completed?.activeTurn?.status).toBe("aborted");
+        expect(completed?.taskState?.knownSlots.fitAnalysis).toBeTruthy();
+      }
+      return;
+    }
+    if (scenario === "retry_conflict" || scenario === "nonretry_fit") {
+      const before = await fixture.repository.listResumeBranches(fixture.profile.id);
+      if (scenario === "retry_conflict") {
+        (completed!.taskState!.knownSlots.nextAction as Record<string, unknown>).jobId = "another-job";
+        await host.adoptDurably(completed!);
+        await expect(host.prepareRuntimeUserEvent({ session: completed!, event: { type: "option_selected", action: { type: "retry_current_step" } }, pageContext: fixture.pageContext(original.id) })).rejects.toThrow("continuation_entity_conflict");
+      } else {
+        expect(completed?.messages.at(-1)?.options?.some(option => option.action.type === "retry_current_step")).not.toBe(true);
+        await host.prepareRuntimeUserEvent({ session: completed!, event: { type: "option_selected", action: { type: "retry_current_step" } }, pageContext: fixture.pageContext(original.id) });
+      }
+      expect(calls.filter(name => name === "career.workflow.job_fit")).toHaveLength(1);
+      expect(await fixture.repository.listResumeBranches(fixture.profile.id)).toEqual(before);
+      expect(await fixture.repository.getProfile(fixture.profile.id)).toEqual(profileBefore);
+      return;
+    }
+    if (scenario === "retry_fit") {
+      expect(completed?.taskState?.completionStatus).toBe("failed");
+      const branchesBefore = await fixture.repository.listResumeBranches(fixture.profile.id);
+      const revisionsBefore = await fixture.repository.listResumeRevisions(branchesBefore[0].id);
+      const reloaded = fixture.createHost("session-idempotent");
+      await reloaded.adoptDurably(JSON.parse(JSON.stringify(completed)));
+      const retried = await reloaded.prepareRuntimeUserEvent({ session: reloaded.getSnapshot().activeSession!, event: { type: "option_selected", action: { type: "retry_current_step" } }, pageContext: fixture.pageContext(original.id) });
+      expect(retried.deterministicTerminal).toBe(true);
+      completed = retried.session;
+      expect(projectBusinessWorkflowProgress(completed).state).toBe("completed");
+      expect(await fixture.repository.listResumeBranches(fixture.profile.id)).toEqual(branchesBefore);
+      expect(await fixture.repository.listResumeRevisions(branchesBefore[0].id)).toEqual(revisionsBefore);
+      expect(calls.filter(name => name === "career.workflow.compose_resume")).toHaveLength(1);
+      expect(calls.filter(name => name === "career.workflow.job_fit")).toHaveLength(2);
+    }
     expect(completed?.taskState).toMatchObject({ workflowId: "analyze_job_fit", completionStatus: "completed", selectedEntities: { jobId } });
     const branches = await fixture.repository.listResumeBranches(fixture.profile.id);
     expect(branches).toHaveLength(1);
     expect(completed?.taskState?.selectedEntities.resumeId).toBe(branches[0].id);
     expect(completed?.taskState?.knownSlots.fitAnalysis).toBeTruthy();
+    expect(completed?.artifactRefs.find(artifact => artifact.kind === "job_fit_overview")?.binding).toMatchObject({ sessionId: original.id, jobId, resumeBranchId: branches[0].id, revisionId: branches[0].currentRevisionId });
     expect(completed?.taskState?.knownSlots.nextAction).toBeUndefined();
     expect(await fixture.repository.getProfile(fixture.profile.id)).toEqual(profileBefore);
     expect(await fixture.repository.listJobDescriptions()).toHaveLength(1);
+    if (scenario === "success") {
+      const revisionsBefore = await fixture.repository.listResumeRevisions(branches[0].id);
+      const jobsBefore = await fixture.repository.listJobDescriptions();
+      const user = completed!.messages.find(message => message.role === "user")!;
+      expect(user).toBeTruthy();
+      const edited = branchSessionFromEditedUserMessage(completed!, user.id, "改成一个新的任务")!;
+      const { userMessageId: _userMessageId, appendUserMessage: _appendUserMessage, updateExistingUserMessage: _updateExistingUserMessage, assistantMessageId: _assistantMessageId, ...editedSession } = edited;
+      void [_userMessageId, _appendUserMessage, _updateExistingUserMessage, _assistantMessageId];
+      await host.adoptDurably(editedSession);
+      expect(await fixture.repository.listResumeBranches(fixture.profile.id)).toEqual(branches);
+      expect(await fixture.repository.listResumeRevisions(branches[0].id)).toEqual(revisionsBefore);
+      expect(await fixture.repository.listJobDescriptions()).toEqual(jobsBefore);
+      expect(await fixture.repository.getProfile(fixture.profile.id)).toEqual(profileBefore);
+    }
+  });
+  it("H2 captures the same-turn continuation when Hermes selects compose after a completed Job task", async () => {
+    const f = await createFixture();
+    const original = f.sessions.get("session-idempotent")!;
+    original.taskState = new AgentTaskStateReducer().create(original, "ingest_job", { workflowId: "job_ingestion", step: "completed" });
+    original.taskState.workflowId = "job_ingestion";
+    original.taskState.completionStatus = "completed";
+    original.taskState.selectedEntities = { profileId: f.profile.id, jobId: "bound-job" };
+    original.activeJobId = "bound-job";
+    const host = f.createHost(original.id);
+    await host.adoptDurably(original);
+    const shell = await host.beginRuntimeShell({ session: original, userMessage: "基于已确认的 Profile 创建一份通用简历，然后再做岗位匹配。", runtimeId: "hermes" });
+    const result = await f.gateway.execute("career.workflow.compose_resume", { mode: "general", profileId: f.profile.id }, { operationId: "h2-compose-proposal", careerSessionBinding: f.binding(original.id), requireSessionBinding: true });
+    expect(result.ok).toBe(true);
+    await host.applyRuntimeEvent({ type: "tool_call_completed", sessionId: original.id, turnId: shell.turnId,
+      timestamp: new Date().toISOString(), toolName: "career.workflow.compose_resume", operationId: "h2-compose-proposal", data: { result } }, shell.assistantMessageId);
+    const restored = await new AgentSessionStore(f.repository).get(original.id);
+    expect(restored?.taskState?.workflowId).toBe("compose_resume");
+    expect(restored?.taskState?.knownSlots.nextAction).toMatchObject({ kind: "job_fit", originSessionId: original.id, originTurnId: shell.turnId, jobId: "bound-job", profileId: f.profile.id });
+    expect(await f.repository.listResumeBranches(f.profile.id)).toHaveLength(0);
   });
   it("consumes a restored confirmation and exposes a source-bound recovery action after writing fails", async () => {
     const profile = migrateCareerProfileToV2(demoCareerProfile);

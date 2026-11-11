@@ -96,7 +96,7 @@ describe("P5.1 Core production workflow boundaries", () => {
     expect(terminal?.messages.find(message => message.id === shell.assistantMessageId)?.content).toContain("Hermes 已收到岗位保存结果。");
     expect(await f.repository.listJobDescriptions()).toHaveLength(1);
   });
-  it.each(["accept", "reject", "stop", "expired"])("keeps the original MCP response pending until the scoped confirmation: %s", async (decision) => {
+  it("H2 returns the Job confirmation pause to MCP without holding a live Run", async () => {
     const f = await fixture();
     const client = new CareerAdaptMcpBridgeClient();
     const responses: CareerToolResult[] = [];
@@ -105,33 +105,22 @@ describe("P5.1 Core production workflow boundaries", () => {
       if (body.action === "result") responses.push(body.result);
       return Response.json({ ok: true, bridgeId: "core-bridge", token: "synthetic-token", requests: [] });
     }));
-    let notify: () => void = () => undefined;
-    const shown = new Promise<void>(resolve => { notify = resolve; });
+    const shown = vi.fn();
     const context = { sessionId: "core-session", turnId: "core-turn", assistantMessageId: "core-assistant", userMessageId: "core-user" };
     const request = { id: "original-mcp-call", operationId: "pending-job", name: "career.workflow.job_intake",
-      input: { rawText: JD, persistence: "save" }, careerSessionBinding: f.context.careerSessionBinding,
-      sourceUserMessageId: "core-user", ...(decision === "expired" ? { expiresAt: Date.now() - 1 } : {}) };
+      input: { rawText: JD, persistence: "save" }, careerSessionBinding: f.context.careerSessionBinding, sourceUserMessageId: "core-user" };
     try {
-      await client.start(f.gateway, undefined, () => { notify(); });
+      await client.start(f.gateway, undefined, shown);
       await client.setConfirmationContext(context);
-      const executing = (client as unknown as { execute(value: typeof request): Promise<void> }).execute(request);
-      await shown;
-      expect(responses).toHaveLength(0);
+      await (client as unknown as { execute(value: typeof request): Promise<void> }).execute(request);
+      expect(shown).toHaveBeenCalledWith(expect.objectContaining({ operationId: request.operationId, sessionId: context.sessionId, turnId: context.turnId }));
+      expect(responses).toHaveLength(1);
+      expect(responses[0].receipt.status).toBe("confirmation_required");
+      expect(responses[0].data).toMatchObject({ status: "waiting_for_confirmation" });
       expect(await f.repository.listJobDescriptions()).toHaveLength(0);
-      expect(client.resolvePendingWrite("other-session", context.turnId, request.operationId, true)).toBe(false);
-      if (decision === "stop") await client.stop();
-      else if (decision === "expired") client.resolvePendingWrite(context.sessionId, context.turnId, request.operationId, true);
-      else {
-        expect(client.resolvePendingWrite(context.sessionId, context.turnId, request.operationId, decision !== "reject")).toBe(true);
-        expect(client.resolvePendingWrite(context.sessionId, context.turnId, request.operationId, true)).toBe(false);
-      }
-      await executing;
-      expect(await f.repository.listJobDescriptions()).toHaveLength(decision === "accept" ? 1 : 0);
-      if (decision === "accept") expect(responses[0]).toMatchObject({ ok: true, data: { status: "completed" } });
-      else expect(responses[0]).toMatchObject({ ok: false, error: { code: decision === "expired" ? "mcp_bridge_timeout"
-        : decision === "stop" ? "mcp_bridge_tool_failed" : "user_confirmation_rejected" } });
     } finally { await client.stop(); }
   });
+
   it("strictly renders a confirmed Repository general branch", async () => {
     const f = await fixture();
     const source = await f.repository.ensureGeneralResumeFromProfile({ profileId: f.profile.id, operationId: "source", mode: "create_new" });
@@ -171,7 +160,7 @@ describe("P5.1 Core production workflow boundaries", () => {
       mode: "job_specific", jobId: job.id, sourceResumeId: source.branch.id, checkpointId: checkpoint.checkpointId })).rejects.toMatchObject({ code: "resume_composition_job_stale" });
     expect(await f.repository.listResumeBranches()).toHaveLength(1);
   });
-  it.each(["workflow", "conversation"])("projects one resumable Host confirmation from a %s session and saves without a second semantic Run", async (kind) => {
+  it.each([["workflow", true], ["conversation", true], ["workflow", false], ["conversation", false]] as const)("projects one resumable Host confirmation from a %s session, confirmed=%s without a second semantic Run", async (kind, confirmed) => {
     const f = await fixture();
     const persistence = new AgentSessionStore(f.repository);
     const initial = await persistence.save(kind === "conversation"
@@ -199,7 +188,18 @@ describe("P5.1 Core production workflow boundaries", () => {
     expect(await f.repository.listJobDescriptions()).toHaveLength(0);
     await host.applyRuntimeEvent({ type: "turn_completed", sessionId: initial.id, turnId: shell.turnId,
       timestamp: new Date().toISOString(), message: "岗位解析已完成，请核对后保存。" }, shell.assistantMessageId);
-    const result = await host.resolveConfirmation(true, { route: "/ai-workspace", query: {} }, projected);
+    const reopened = new AgentHostStore({ kernel: {} as never, repository: f.repository, persistence: new AgentSessionStore(f.repository), executor: new CareerToolGatewayExecutor(f.registry, f.gateway) });
+    const durable = await persistence.get(projected!.id);
+    expect(durable?.pendingConfirmation?.operationId).toBe(projected?.pendingConfirmation?.operationId);
+    reopened.adopt(durable!);
+    const result = await reopened.resolveConfirmation(confirmed, { route: "/ai-workspace", query: {} }, durable!);
+    if (!confirmed) {
+      expect(await f.repository.listJobDescriptions()).toHaveLength(0);
+      expect(result?.pendingConfirmation).toBeUndefined();
+      expect(result?.taskState?.knownSlots.nextAction).toBeUndefined();
+      expect(result?.activeTurn?.status).toBe("waiting_for_user");
+      return;
+    }
     expect(result?.taskState, JSON.stringify(result?.messages.at(-1))).toMatchObject({ workflowId: "job_ingestion", stage: "completed", completionStatus: "completed" });
     expect(await f.repository.listJobDescriptions()).toHaveLength(1);
     expect(result?.pendingConfirmation).toBeUndefined();
