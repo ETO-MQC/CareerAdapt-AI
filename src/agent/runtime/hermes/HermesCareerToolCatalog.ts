@@ -1,5 +1,6 @@
 import { CAREER_WORKFLOW_FACADE_DEFINITIONS } from "@/agent/workflows/CareerWorkflowFacade";
 import type { CareerToolContract } from "@/agent/tools/CareerToolGateway";
+import { CAREER_TOOL_DEFINITIONS } from "@/agent/tools/careerToolDefinitions";
 import { contractIdentityForInputSchema, tailorResumeInternalHermesInputJsonSchema } from "@/agent/tools/careerToolContract";
 
 /** The logical MCP server name written to the managed Hermes config. */
@@ -25,8 +26,12 @@ export function hermesRegisteredCareerToolName(
   return `mcp__${sanitizeHermesMcpNameComponent(serverName)}__${sanitizeHermesMcpNameComponent(stableName)}`;
 }
 
+const HERMES_INTERNAL_FACADES = new Set(
+  CAREER_WORKFLOW_FACADE_DEFINITIONS.filter((definition) => definition.internalOnly).map((definition) => definition.name)
+);
+
 export const HERMES_REQUIRED_CAREER_FACADES = CAREER_WORKFLOW_FACADE_DEFINITIONS
-  .filter((definition) => definition.name !== "career.workflow.profile_to_resume")
+  .filter((definition) => !definition.internalOnly)
   .map((definition) => definition.name)
   .sort();
 
@@ -38,13 +43,8 @@ export const HERMES_REQUIRED_CAREER_FACADES = CAREER_WORKFLOW_FACADE_DEFINITIONS
  */
 export const HERMES_PRODUCTION_TOOL_PROFILE = [
   ...HERMES_REQUIRED_CAREER_FACADES,
-  "career.context.retrieve",
-  "career.profile.get",
-  "career.resume.list",
-  "career.resume.get",
-  "career.job.list",
-  "career.job.get"
-] as const;
+  ...CAREER_TOOL_DEFINITIONS.filter((definition) => definition.hermesProduction).map((definition) => definition.name)
+];
 
 export function hermesProductionToolNames() {
   return new Set<string>(HERMES_PRODUCTION_TOOL_PROFILE);
@@ -80,7 +80,7 @@ export class HermesCareerToolCatalog {
       contracts.flatMap((contract) => typeof contract === "string" ? [] : [[contract.name, contract.sourceToolName] as const])
     );
     const uniqueNames = [...new Set(names)]
-      .filter((name) => name !== "career.workflow.profile_to_resume")
+      .filter((name) => !HERMES_INTERNAL_FACADES.has(name))
       .sort();
     const entries = uniqueNames.map((stableName) => ({
       stableName,
@@ -172,7 +172,7 @@ export function projectCareerContractsForHermes(
 ) {
   const catalog = new HermesCareerToolCatalog(contracts);
   return contracts
-    .filter((contract) => contract.name !== "career.workflow.profile_to_resume")
+    .filter((contract) => !HERMES_INTERNAL_FACADES.has(contract.name))
     .filter((contract) => !allowedStableNames || allowedStableNames.has(contract.name))
     .map((contract) => {
       const allowTargetOmission = options.allowTargetOmission

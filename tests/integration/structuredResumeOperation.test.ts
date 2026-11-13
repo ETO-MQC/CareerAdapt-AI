@@ -61,7 +61,7 @@ async function setup(kind: Kind = "fact_correction", job = false, field: Structu
     field: kind === "fact_correction" ? field : kind === "confirmed_skill_addition" ? "name" : "highlights", bulletIndex: kind === "bullet_removal" ? 2 : null, operation: kind });
   const output = kind === "fact_correction" ? { operation: kind, proposedValue: value } : kind === "bullet_reordering" ? { operation: kind, permutation: [1, 2, 0] } : { operation: kind };
   const proposal = await createStructuredProposal({ branch, profile, selection, modelOutput: output, turnId: "turn-a2", operationId: `operation-${kind}`, source });
-  session.taskState = AgentTaskStateSchema.parse({ rootGoal: "precise_resume_edit", activeGoal: "precise_resume_edit", workflowId: "precise_resume_edit", stage: "propose_precise_edit", knownSlots: { preciseResumeEdit: { selection } }, updatedAt: now });
+  session.taskState = AgentTaskStateSchema.parse({ rootGoal: "precise_resume_edit", activeGoal: "precise_resume_edit", workflowId: "precise_resume_edit", stage: "propose_precise_edit", selectedEntities: { profileId: profile.id, profileVersion: profile.version, resumeId: branch.id, resumeRevisionId: branch.currentRevisionId!, revisionId: branch.currentRevisionId! }, knownSlots: { preciseResumeEdit: { selection } }, updatedAt: now });
   if (kind === "fact_correction") await repo.preparePreciseFactConfirmation(proposal);
   session = projectPreciseProposal(session, proposal);
   session.pendingConfirmation!.status = "confirmed"; session.pendingConfirmation!.resolvedAt = now;
@@ -326,6 +326,8 @@ describe("A2 typed operations through real Dexie Repository", () => {
     let session = (await f.persistence.get(f.session.id))!;
     session.activeTurn = { id: p.turnId, sessionId: session.id, status: "running", startedAt: new Date().toISOString() };
     session.taskState!.knownSlots.preciseResumeEdit = { selection };
+    session.taskState!.selectedEntities.revisionId = first.revisionId;
+    session.taskState!.selectedEntities.resumeRevisionId = first.revisionId;
     session = projectPreciseProposal(session, p); session.pendingConfirmation!.status = "confirmed"; session.pendingConfirmation!.resolvedAt = new Date().toISOString();
     session.updatedAt = new Date().toISOString(); await f.persistence.save(session);
     const saved = await f.repo.applyPreciseResumeEdit(p);

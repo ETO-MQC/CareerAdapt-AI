@@ -228,7 +228,10 @@ export class CareerAdaptMcpBridgeClient {
 
   private syncTurnContext() {
     const queued = this.turnContextSyncChain.then(async () => {
-      if (this.stopped || !this.bridgeId || !this.token) return;
+      if (this.stopped || !this.bridgeId || !this.token) {
+        if (this.confirmationContext) throw new Error("mcp_bridge_turn_context_unavailable");
+        return;
+      }
       const response = await fetch(bridgeUrl(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },

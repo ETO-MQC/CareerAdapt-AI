@@ -1,0 +1,32 @@
+[
+  {
+    "bridgeId": "careeradapt-bridge-9ePq_dwaoDth",
+    "sessionId": "agent-session-nVmZmYudW8-A",
+    "turnId": "runtime-turn-e2867f79-9336-4a1e-8410-0a4370e66e61",
+    "name": "career.job.list"
+  },
+  {
+    "bridgeId": "careeradapt-bridge-9ePq_dwaoDth",
+    "sessionId": "agent-session-nVmZmYudW8-A",
+    "turnId": "runtime-turn-d02ef57f-30e9-4490-8521-a2ec6da6cbe5",
+    "name": "career.job.get"
+  },
+  {
+    "bridgeId": "careeradapt-bridge-9ePq_dwaoDth",
+    "sessionId": "agent-session-nVmZmYudW8-A",
+    "turnId": "runtime-turn-d02ef57f-30e9-4490-8521-a2ec6da6cbe5",
+    "name": "career.resume.list"
+  },
+  {
+    "bridgeId": "careeradapt-bridge-9ePq_dwaoDth",
+    "sessionId": "agent-session-nVmZmYudW8-A",
+    "turnId": "runtime-turn-d02ef57f-30e9-4490-8521-a2ec6da6cbe5",
+    "name": "career.resume.get"
+  },
+  {
+    "bridgeId": "careeradapt-bridge-9ePq_dwaoDth",
+    "sessionId": "agent-session-nVmZmYudW8-A",
+    "turnId": "runtime-turn-d02ef57f-30e9-4490-8521-a2ec6da6cbe5",
+    "name": "career.workflow.job_fit"
+  }
+]

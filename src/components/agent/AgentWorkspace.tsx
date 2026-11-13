@@ -13,6 +13,7 @@ import {
 import type { AgentArtifactAction, AgentOption, AgentUiAction, AgentWorkflowControl } from "@/agent/contracts/agentActions";
 import { createQuickActionIntent, type AgentQuickActionId } from "@/agent/contracts/agentQuickAction";
 import { AgentRuntime } from "@/agent/runtime/agentRuntime";
+import { deriveAgentTurnLifecycle } from "@/agent/runtime/agentTurnLifecycle";
 import type { TailorWorkflowViewState } from "@/agent/workflows/tailorExistingResumeWorkflow";
 import { useAgentHost } from "@/components/agent/runtime/AgentRuntimeProvider";
 import {
@@ -136,13 +137,13 @@ export function AgentWorkspace() {
   const quickActionDispatchRef = useRef<Promise<AgentSession | undefined> | undefined>(undefined);
   const pendingImportQuickActionRef = useRef(false);
   const [stoppingSessionId, setStoppingSessionId] = useState<string>();
-  const running = snapshot.turnStatus === "running";
+  const lifecycle = deriveAgentTurnLifecycle(session);
   const workflowCheckpoint = session.taskState?.workflowUserInputCheckpoint;
-  const checkpointTurnStatus = workflowCheckpoint
-    ? session.taskState?.completionStatus === "waiting_for_confirmation"
-      ? "waiting_for_confirmation" as const
-      : "waiting_for_user" as const
-    : snapshot.turnStatus;
+  const running = snapshot.turnStatus === "running" || lifecycle === "RUNNING";
+  const checkpointTurnStatus = running ? "running" as const
+    : lifecycle === "WAITING_FOR_CONFIRMATION" ? "waiting_for_confirmation" as const
+      : lifecycle === "WAITING_FOR_USER" ? "waiting_for_user" as const
+        : snapshot.turnStatus;
   const runPresentation = agentRunPresentation({ session, turnStatus: checkpointTurnStatus, runtimeStatus: runtimeStatus.status, stopping: stoppingSessionId === session.id });
   const liveHermesRun = ["queued", "running", "waiting_for_approval", "stopping"].includes(session.hermesRun?.status ?? "");
   const paused = snapshot.turnStatus === "paused";
@@ -244,20 +245,25 @@ export function AgentWorkspace() {
     setAttachmentsBySession((current) => ({ ...current, [session.id]: updater(current[session.id] ?? []) }));
   }, [session.id]);
 
-  const pageContext = useCallback((contextSession: AgentSession = session) => ({
-    pathname: window.location.pathname,
-    route: window.location.pathname,
-    title: "AI 工作台",
-    agentSessionId: contextSession.id,
-    personId: contextSession.personId,
-    activeProfileId: contextSession.activeProfileId,
-    profileId: contextSession.activeProfileId,
-    profileVersionNumber: contextSession.profileVersionNumber,
-    profileRevision: contextSession.profileRevision,
-    activeResumeId: contextSession.activeResumeId,
-    activeJobId: contextSession.activeJobId,
-    query: {}
-  }), [session]);
+  const pageContext = useCallback((contextSession: AgentSession = session) => {
+    const selected = contextSession.taskState?.selectedEntities;
+    const profileId = selected ? selected.profileId : contextSession.activeProfileId;
+    const profileMetadataMatches = !selected || profileId === contextSession.activeProfileId;
+    return {
+      pathname: window.location.pathname,
+      route: window.location.pathname,
+      title: "AI 工作台",
+      agentSessionId: contextSession.id,
+      personId: contextSession.personId,
+      activeProfileId: profileId,
+      profileId,
+      profileVersionNumber: profileMetadataMatches ? contextSession.profileVersionNumber : undefined,
+      profileRevision: profileMetadataMatches ? contextSession.profileRevision : undefined,
+      activeResumeId: selected ? selected.resumeId : contextSession.activeResumeId,
+      activeJobId: selected ? selected.jobId : contextSession.activeJobId,
+      query: {}
+    };
+  }, [session]);
 
   const stageComposerFiles = useCallback((files: File[]) => {
     if (!recoveryReady) return;
@@ -593,12 +599,12 @@ export function AgentWorkspace() {
           && current
           && (!requested || requested === current.id)
           && !current.personId
+          && !current.taskState
           && !current.activeProfileId
           && !current.activeResumeId
           && !current.activeJobId
           && !hasExplicitProfileTarget
           && !current.artifactRefs.length
-          && !current.taskState?.attachment
           && current.activeTurn?.status !== "running"
           && !current.messages.some((message) => message.role === "user")
         );
@@ -615,6 +621,7 @@ export function AgentWorkspace() {
         activeContext
         && live.activeSession
         && (!requested || requested === live.activeSession.id)
+        && !live.activeSession.taskState
         && !live.activeSession.activeProfileId
         && !live.activeSession.messages.length
         && !live.activeSession.artifactRefs.length
@@ -639,6 +646,7 @@ export function AgentWorkspace() {
       if (restored) {
         if (
           activeContext
+          && !restored.taskState
           && !restored.activeProfileId
           && !restored.messages.length
           && !restored.artifactRefs.length

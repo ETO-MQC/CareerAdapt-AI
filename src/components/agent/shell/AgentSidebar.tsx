@@ -1,5 +1,7 @@
 "use client";
 
+import { deriveAgentTurnLifecycle } from "@/agent/runtime/agentTurnLifecycle";
+
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -268,17 +270,12 @@ function readSidebarCollapsed() {
 }
 
 function sidebarSessionStatus(session: AgentSession) {
-  const checkpoint = session.taskState?.workflowUserInputCheckpoint;
-  if (checkpoint) {
-    return checkpoint.kind === "confirmation"
-      ? { kind: "waiting_for_confirmation", label: "等待核对" }
-      : { kind: "waiting_for_user", label: "等待输入" };
-  }
-  if (session.pendingConfirmation) return { kind: "waiting_for_confirmation", label: "等待核对" };
-  if (session.workflowState?.status === "paused") return { kind: "paused", label: "已暂停" };
-  if (session.activeTurn?.status === "running") return { kind: "running", label: "运行中" };
-  if (session.taskState?.completionStatus === "waiting_for_user") return { kind: "waiting_for_user", label: "等待输入" };
-  if (session.taskState?.completionStatus === "failed" || session.activeTurn?.status === "failed") return { kind: "failed", label: "失败" };
-  if (session.activeTurn?.status === "completed" || session.taskState?.completionStatus === "completed") return { kind: "completed", label: "已完成" };
+  const state = deriveAgentTurnLifecycle(session);
+  if (state === "WAITING_FOR_CONFIRMATION") return { kind: "waiting_for_confirmation", label: "等待核对" };
+  if (state === "WAITING_FOR_USER") return { kind: "waiting_for_user", label: "等待输入" };
+  if (state === "RUNNING") return { kind: "running", label: "运行中" };
+  if (state === "STOPPED") return { kind: "paused", label: "已暂停" };
+  if (state === "FAILED") return { kind: "failed", label: "失败" };
+  if (state === "COMPLETED") return { kind: "completed", label: "已完成" };
   return { kind: "waiting_for_user", label: "等待输入" };
 }

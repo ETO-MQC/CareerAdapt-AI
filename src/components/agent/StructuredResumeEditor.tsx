@@ -4,6 +4,7 @@ import type { AgentSession } from "@/agent/contracts/agentSession";
 import type { AgentHostStore } from "@/agent/runtime/AgentHostStore";
 import type { CareerProfile, ResumeBranch } from "@/domain/schemas";
 import { WorkspaceRepository } from "@/services/storage/repositories";
+import { resolveCareerAgentContext } from "@/agent/runtime/careerContextBindingResolver";
 import { StructuredProposalSchema, confirmedSkill, skillIdentity, type StructuredSelection } from "@/domain/resumeEditing/structuredResumeOperation";
 import { PreciseRevisionEvidence } from "./PreciseRevisionEvidence";
 
@@ -22,11 +23,15 @@ export function StructuredResumeEditor({ session, host }: { session: AgentSessio
   const branch = branches.find(b => b.id === branchId);
   useEffect(() => {
     let active = true;
-    Promise.all([repository.listResumeBranches(), session.activeProfileId ? repository.getProfile(session.activeProfileId) : Promise.resolve(undefined)])
-      .then(([values, p]) => { if (active) { setBranches(values.filter(b => b.profileId === session.activeProfileId && b.lifecycleStatus === "active" && !!b.currentRevisionId)); setProfile(p); } })
-      .catch(e => { if (active) setError(String(e)); });
+    const load = async () => {
+      const canonical = session.taskState ? await resolveCareerAgentContext(session, repository) : undefined;
+      const profileId = session.taskState ? canonical?.profileId : session.activeProfileId;
+      const [values, p] = profileId ? await Promise.all([repository.listAvailableResumeBranches(profileId), repository.getAvailableProfile(profileId)]) : [[], undefined];
+      if (active) { setBranches(values.filter(branch => !!branch.currentRevisionId)); setProfile(p); }
+    };
+    void load().catch(e => { if (active) setError(String(e)); });
     return () => { active = false; };
-  }, [session.id, session.activeProfileId, slot?.outcome?.revisionId]);
+  }, [session]);
   useEffect(() => {
     if (!proposalHash || session.pendingConfirmation?.status !== "confirmed") return;
     let active = true;

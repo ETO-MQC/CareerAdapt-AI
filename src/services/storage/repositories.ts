@@ -1042,9 +1042,8 @@ export class WorkspaceRepository {
 
   private async hydrateAgentSession(raw: AgentSession) {
     const migratedBase = migrateAgentSessionToCurrentSchema(raw as unknown as Record<string, unknown>);
-    const pinnedProfile = migratedBase.activeProfileId
-      ? await this.getProfile(migratedBase.activeProfileId)
-      : undefined;
+    const selectedProfileId = migratedBase.taskState ? migratedBase.taskState.selectedEntities.profileId : migratedBase.activeProfileId;
+    const pinnedProfile = selectedProfileId ? await this.getProfile(selectedProfileId) : undefined;
     const migrated = pinnedProfile && !migratedBase.personId
       ? migrateAgentSessionToCurrentSchema({
           ...migratedBase,
@@ -3285,7 +3284,7 @@ export class WorkspaceRepository {
       if (receipt) {
         const slot = session.taskState?.knownSlots.preciseResumeEdit as { proposal?: unknown; outcome?: { operationId?: string; proposalHash?: string } } | undefined;
         if (slot?.outcome) {
-          if (session.id !== proposal.selection.sessionId || session.activeProfileId !== proposal.selection.profileId
+          if (session.id !== proposal.selection.sessionId || session.taskState?.selectedEntities.profileId !== proposal.selection.profileId
             || JSON.stringify(slot.proposal) !== JSON.stringify(proposal)
             || slot.outcome.operationId !== proposal.operationId || slot.outcome.proposalHash !== proposal.proposalHash) throw new Error("resume_precise_owner_mismatch");
         } else assertPreciseOwnership(session, proposal, true);

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AgentRuntime } from "@/agent/runtime/agentRuntime";
+import { deriveAgentTurnLifecycle, derivePendingInteraction } from "@/agent/runtime/agentTurnLifecycle";
 import { AgentHostStore, attachTaskStateOptions, branchSessionFromEditedUserMessage } from "@/agent/runtime/AgentHostStore";
 import { AgentTaskStateReducer, normalizeAgentTaskState } from "@/agent/runtime/AgentTaskStateReducer";
 import { projectTaskStateIntoSession } from "@/agent/runtime/projectTaskStateToWorkflowState";
@@ -47,11 +48,11 @@ describe("H3 current candidate selection", () => {
     await vi.advanceTimersByTimeAsync(100);
     expect(host.getSnapshot().stalled).toBe(false);
   });
-  it("persists a choice checkpoint after a saved-job list in an application request", async () => {
+  it.each(["我想应聘岗位里面那个华为岗位", "我要投华为那个AI岗位"])("persists a choice checkpoint after a saved-job list: %s", async userMessage => {
     const host = new AgentHostStore({ executor: {} as never, persistence: { save: vi.fn(async (value: AgentSession) => value) } as never });
     const session = AgentRuntime.createConversationSession();
     host.adopt(session);
-    const shell = await host.beginRuntimeShell({ session, userMessage: "我想应聘岗位里面那个华为岗位", runtimeId: "hermes" });
+    const shell = await host.beginRuntimeShell({ session, userMessage, runtimeId: "hermes" });
     await host.applyRuntimeEvent({
       type: "tool_call_completed", sessionId: session.id, turnId: shell.turnId, timestamp: new Date().toISOString(),
       toolName: "career.job.list", operationId: "list-jobs", data: { result: { ok: true, data: { jobs: [
@@ -74,6 +75,21 @@ describe("H3 current candidate selection", () => {
     expect(selected.session.messages.at(-1)?.content).toContain("已选择岗位");
   });
 
+  it("does not let an obsolete activeJobId suppress a new TaskState selection", async () => {
+    const host = new AgentHostStore({ executor: {} as never, persistence: { save: vi.fn(async (value: AgentSession) => value) } as never });
+    const session = AgentRuntime.createConversationSession();
+    session.activeJobId = "old-alias";
+    const task = new AgentTaskStateReducer().create(session, "conversation", { workflowId: "conversation", step: "completed" });
+    session.taskState = normalizeAgentTaskState({ ...task, selectedEntities: {}, completionStatus: "completed" });
+    host.adopt(session);
+    const shell = await host.beginRuntimeShell({ session, userMessage: "我想应聘华为岗位", runtimeId: "hermes" });
+    await host.applyRuntimeEvent({ type: "tool_call_completed", sessionId: session.id, turnId: shell.turnId,
+      timestamp: new Date().toISOString(), toolName: "career.job.list", operationId: "list-jobs",
+      data: { result: { ok: true, data: { jobs: [{ id: "job-ai", title: "AI工程师", company: "华为" }, { id: "job-dev", title: "开发工程师", company: "华为" }] } } } }, shell.assistantMessageId);
+    expect(host.getSnapshot().activeSession?.taskState?.workflowUserInputCheckpoint?.kind, JSON.stringify(host.getSnapshot().activeSession?.taskState)).toBe("job_choice");
+    expect(host.getSnapshot().activeSession?.taskState?.selectedEntities.jobId).toBeUndefined();
+  });
+
   it.each(["1", "第一个", "AI大模型应用开发工程师", "华为那个AI大模型岗位"])("binds %s to the authoritative job", async text => {
     const { host, session } = fixture();
     const result = await host.prepareRuntimeUserEvent({ session, event: { type: "text_message", text }, pageContext });
@@ -93,6 +109,15 @@ describe("H3 current candidate selection", () => {
     const unmatched = await host.prepareRuntimeUserEvent({ session: ambiguous.session, event: { type: "text_message", text: "今天天气如何" }, pageContext });
     expect(unmatched.deterministicTransitionApplied).toBe(false);
     expect(unmatched.userMessage).toBe("今天天气如何");
+  });
+
+  it("asks for a specific entity when 好 could refer to multiple choices", async () => {
+    const { host, session } = fixture();
+    const result = await host.prepareRuntimeUserEvent({ session, event: { type: "text_message", text: "好" }, pageContext });
+    expect(result.deterministicTerminal).toBe(true);
+    expect(result.userMessage).toBe("");
+    expect(result.session.taskState?.selectedEntities.jobId).toBeUndefined();
+    expect(result.session.messages.at(-1)?.content).toContain("多个候选");
   });
 
   it("resolves 好 against the active confirmation checkpoint", async () => {
@@ -131,7 +156,8 @@ describe("H3 current candidate selection", () => {
     expect(editReply.taskState?.knownSlots.targetSnapshot).toEqual({ id: "snapshot-before-answer" });
     expect(editReply.activeJobId).toBe("job-ai");
     expect(editReply.activeBranchId).not.toBe(session.activeBranchId);
-    expect(editReply.artifactRefs[0]?.binding).toMatchObject({ sessionId: session.id, branchId: editReply.activeBranchId, jobId: "job-ai", revisionId: "revision" });
+    expect(editReply.artifactRefs[0]?.binding).toMatchObject({ sessionId: session.id, branchId: session.activeBranchId, jobId: "job-ai", revisionId: "revision" });
+    expect(editReply.artifactRefs[0]?.binding?.branchId).not.toBe(editReply.activeBranchId);
     const editChoice = branchSessionFromEditedUserMessage(session, "choose-job", "第二个")!;
     expect(editChoice.taskState?.selectedEntities.jobId).toBeUndefined();
     expect(editChoice.activeJobId).toBeUndefined();
@@ -145,11 +171,81 @@ describe("H3 current candidate selection", () => {
     host.adopt(session);
     const shell = await host.beginRuntimeShell({ session, userMessage: "帮我分析匹配度", runtimeId: "hermes" });
     await host.applyRuntimeEvent({ type: "tool_call_completed", sessionId: session.id, turnId: shell.turnId, timestamp: new Date().toISOString(),
-      toolName: "career.workflow.job_fit", operationId: "fit", data: { result: { ok: true, data: {
+      toolName: "career.workflow.job_fit", operationId: "operation-fit", data: { result: { ok: true, data: {
         status: "completed", workflowStage: "explain_job_fit", workflowCheckpoint: { kind: "job_fit", profileId: "profile", resumeId: "resume", jobId: "job-ai", result: { dependencies: { profileId: "profile", resumeId: "resume", resumeRevisionId: "revision", jobId: "job-ai" } } }
       } } } }, shell.assistantMessageId);
     expect(host.getSnapshot().activeSession?.taskState).toMatchObject({ workflowId: "analyze_job_fit", selectedEntities: { profileId: "profile", resumeId: "resume", revisionId: "revision", jobId: "job-ai" } });
     expect(host.getSnapshot().activeSession?.artifactRefs).toEqual(expect.arrayContaining([expect.objectContaining({ kind: "job_fit_overview", entityId: "job-ai", binding: expect.objectContaining({ sessionId: session.id, jobId: "job-ai", resumeBranchId: "resume", revisionId: "revision" }) })]));
+    await host.applyRuntimeEvent({ type: "turn_completed", sessionId: session.id, turnId: shell.turnId, timestamp: new Date().toISOString(), message: "匹配完成" }, shell.assistantMessageId);
+    const complete = host.getSnapshot().activeSession!;
+    expect(complete.taskState?.completionStatus).toBe("completed");
+    expect(complete.activeTurn?.status).toBe("completed");
+    expect(deriveAgentTurnLifecycle(complete)).toBe("COMPLETED");
+    expect(derivePendingInteraction(complete)).toMatchObject({ kind: "next_action", originatingTurnId: shell.turnId });
+    const options = complete.messages.find(message => message.metadata?.fitNextAction === true)?.options;
+    expect(options?.map(option => option.label)).toEqual(["生成岗位简历", "查看详细匹配", "暂时不用"]);
+    const stale = { ...complete, taskState: { ...complete.taskState!, selectedEntities: { ...complete.taskState!.selectedEntities, jobId: "job-dev" } } };
+    expect(derivePendingInteraction(stale)).toBeUndefined();
+    const staleHost = new AgentHostStore({ executor: {} as never, persistence: { save: vi.fn(async (value: AgentSession) => value) } as never });
+    staleHost.adopt(stale);
+    const rejected = await staleHost.prepareRuntimeUserEvent({ session: stale, event: { type: "option_selected", optionId: options![0].id, action: options![0].action }, pageContext });
+    expect(rejected.deterministicTransitionApplied).toBe(false);
+    const onlyTailor = { ...complete, messages: complete.messages.map(message => message.metadata?.fitNextAction === true
+      ? { ...message, options: message.options?.filter(option => option.id === "fit-next-tailor") } : message) };
+    host.adopt(onlyTailor);
+    const accepted = await host.prepareRuntimeUserEvent({ session: onlyTailor, event: { type: "text_message", text: "好" }, pageContext });
+    expect(accepted.deterministicTransitionApplied).toBe(true);
+    expect(accepted.userMessage).toContain("岗位简历");
+    expect(accepted.session.taskState?.selectedEntities.jobId).toBe("job-ai");
+    expect(accepted.session.messages.some(message => message.role === "user" && message.content === "好" && message.metadata?.workflowInteractionId)).toBe(true);
+    const secondHost = new AgentHostStore({ executor: {} as never, persistence: { save: vi.fn(async (value: AgentSession) => value) } as never });
+    secondHost.adopt(complete);
+    const ambiguous = await secondHost.prepareRuntimeUserEvent({ session: complete, event: { type: "text_message", text: "好" }, pageContext });
+    expect(ambiguous.deterministicTerminal).toBe(true);
+    expect(ambiguous.session.messages.at(-1)?.content).toBe("你想继续哪一步？");
+    expect(ambiguous.session.taskState?.completionStatus).toBe("completed");
+    const continuation = await secondHost.prepareRuntimeUserEvent({ session: ambiguous.session, event: { type: "text_message", text: "生成岗位简历" }, pageContext });
+    expect(continuation.deterministicTransitionApplied).toBe(true);
+    expect(continuation.userMessage).toBe("生成岗位简历");
+    const nextShell = await secondHost.beginRuntimeShell({ session: continuation.session, userMessage: continuation.userMessage, runtimeId: "hermes", startFitTailoring: true });
+    expect(nextShell.session.taskState).toMatchObject({ workflowId: "tailor_existing_resume", selectedEntities: { profileId: "profile", resumeId: "resume", jobId: "job-ai" } });
+    expect(nextShell.session.turnCheckpoints.find(item => item.userMessageId === nextShell.userMessageId)?.taskStateBefore).toMatchObject({ workflowId: "analyze_job_fit", completionStatus: "completed" });
+    await secondHost.interrupt(session.id);
+    const stopped = secondHost.getSnapshot().activeSession!;
+    expect(stopped.activeTurn?.status).toBe("aborted");
+    const fork = branchSessionFromEditedUserMessage(stopped, nextShell.userMessageId, "查看详细匹配")!;
+    expect(fork.taskState).toMatchObject({ workflowId: "analyze_job_fit", selectedEntities: { profileId: "profile", resumeId: "resume", jobId: "job-ai" } });
+    expect(fork.artifactRefs.some(artifact => artifact.binding?.branchId === session.activeBranchId && artifact.binding.jobId === "job-ai")).toBe(true);
+    expect(fork.artifactRefs.some(artifact => artifact.binding?.branchId === fork.activeBranchId)).toBe(false);
+    const { userMessageId: forkMessageId, assistantMessageId: _assistant, appendUserMessage: _append, updateExistingUserMessage: _update, ...forkSession } = fork;
+    void _assistant; void _append; void _update;
+    const branchHost = new AgentHostStore({ executor: {} as never, persistence: { save: vi.fn(async (value: AgentSession) => value) } as never });
+    branchHost.adopt(forkSession as AgentSession);
+    const branchShell = await branchHost.beginRuntimeShell({ session: forkSession as AgentSession, userMessage: "查看详细匹配", userMessageId: forkMessageId, runtimeId: "hermes" });
+    await branchHost.applyRuntimeEvent({ type: "text_delta", sessionId: session.id, turnId: nextShell.turnId, timestamp: new Date().toISOString(), delta: "OLD-RUN-LATE-EVENT" }, nextShell.assistantMessageId);
+    expect(branchHost.getSnapshot().activeSession?.activeBranchId).toBe(branchShell.session.activeBranchId);
+    expect(branchHost.getSnapshot().activeSession?.taskState?.selectedEntities.jobId).toBe("job-ai");
+    expect(branchHost.getSnapshot().activeSession?.messages.some(message => message.content.includes("OLD-RUN-LATE-EVENT"))).toBe(false);
+    await branchHost.applyRuntimeEvent({ type: "turn_completed", sessionId: session.id, turnId: branchShell.turnId, timestamp: new Date().toISOString(), message: "已保留岗位详情" }, branchShell.assistantMessageId);
+    const completedFork = branchHost.getSnapshot().activeSession!;
+    expect(completedFork.artifactRefs.some(artifact => artifact.binding?.branchId === completedFork.activeBranchId)).toBe(false);
+    expect(completedFork.artifactRefs.some(artifact => artifact.binding?.branchId === session.activeBranchId && artifact.binding.jobId === "job-ai")).toBe(true);
+  });
+
+  it("does not bind a fit result for a different selected Job", async () => {
+    const { host, session } = fixture();
+    session.taskState = { ...session.taskState!, workflowId: "analyze_job_fit", completionStatus: "active", selectedEntities: { profileId: "profile", resumeId: "resume", revisionId: "revision", jobId: "job-ai" } };
+    host.adopt(session);
+    const shell = await host.beginRuntimeShell({ session, userMessage: "帮我分析匹配度", runtimeId: "hermes" });
+    await host.applyRuntimeEvent({ type: "tool_call_completed", sessionId: session.id, turnId: shell.turnId, timestamp: new Date().toISOString(),
+      toolName: "career.workflow.job_fit", operationId: "fit-other", data: { result: { ok: true, data: {
+        status: "completed", workflowStage: "explain_job_fit", workflowCheckpoint: { kind: "job_fit", profileId: "profile", resumeId: "resume", jobId: "job-dev", result: { dependencies: { profileId: "profile", resumeId: "resume", resumeRevisionId: "revision", jobId: "job-dev" } } }
+      } } } }, shell.assistantMessageId);
+    expect(host.getSnapshot().activeSession?.taskState?.selectedEntities.jobId).toBe("job-ai");
+    expect(host.getSnapshot().activeSession?.artifactRefs.some(artifact => artifact.kind === "job_fit_overview")).toBe(false);
+    await host.applyRuntimeEvent({ type: "turn_completed", sessionId: session.id, turnId: shell.turnId,
+      timestamp: new Date().toISOString(), message: "匹配已完成" }, shell.assistantMessageId);
+    expect(host.getSnapshot().activeSession?.taskState?.completionStatus).not.toBe("completed");
   });
 
   it("does not replace an explicitly selected job merely because another detail was read", async () => {

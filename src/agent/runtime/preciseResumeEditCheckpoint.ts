@@ -4,13 +4,15 @@ import { canonicalJson, PreciseProposalSchema, preciseReference, type PrecisePro
 export function projectPreciseProposal(session: AgentSession, raw: unknown): AgentSession {
   const p = PreciseProposalSchema.parse(raw);
   const slot = session.taskState?.knownSlots.preciseResumeEdit as { selection?: unknown; proposal?: unknown } | undefined;
-  if (session.id !== p.selection.sessionId || session.activeProfileId !== p.selection.profileId
+  if (session.id !== p.selection.sessionId || session.taskState?.selectedEntities.profileId !== p.selection.profileId
+    || session.taskState.selectedEntities.resumeId !== p.selection.branchId
     || session.activeTurn?.id !== p.turnId || session.taskState?.workflowId !== "precise_resume_edit"
     || canonicalJson(slot?.selection) !== canonicalJson(p.selection)) throw new Error("resume_precise_owner_mismatch");
   if (slot?.proposal) {
     if (canonicalJson(slot.proposal) !== canonicalJson(p)) throw new Error("resume_precise_proposal_already_reviewed");
     return session; // Duplicate tool delivery cannot resurrect or reset a reviewed decision.
   }
+  if (session.taskState.selectedEntities.revisionId !== p.selection.baseRevisionId) throw new Error("resume_precise_owner_mismatch");
   const ref = preciseReference(p);
   return { ...session,
     taskState: AgentTaskStateSchema.parse({ ...session.taskState, stage: "review_precise_edit", completionType: "transactional",
@@ -32,7 +34,7 @@ export function projectPreciseReceipt(session: AgentSession, p: PreciseProposal,
   delete knownSlots.preciseResumeEditFailure;
   return { ...session, pendingConfirmation: undefined, pendingToolCall: undefined,
     taskState: { ...session.taskState!, stage: "resume_ready", completionStatus: "completed",
-      selectedEntities: { ...session.taskState!.selectedEntities, resumeId: receipt.branchId, revisionId: receipt.revisionId },
+      selectedEntities: { ...session.taskState!.selectedEntities, resumeId: receipt.branchId, resumeRevisionId: receipt.revisionId, revisionId: receipt.revisionId },
       knownSlots: { ...knownSlots, preciseResumeEdit: { selection: p.selection, proposal: p, outcome: receipt } } },
     activeTurn: session.activeTurn ? { ...session.activeTurn, status: "completed" } : undefined,
     updatedAt: new Date().toISOString() };

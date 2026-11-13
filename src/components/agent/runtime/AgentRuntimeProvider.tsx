@@ -291,6 +291,10 @@ function createAgentHost() {
             turnId: runtimeShellTurnId,
             operationId: typeof input.metadata?.turnOperationId === "string" ? input.metadata.turnOperationId : undefined,
             signal: input.signal,
+            startFitTailoring: runtimeUserEvent?.type === "option_selected"
+              && runtimeUserEvent.action.type === "answer"
+              && runtimeUserEvent.action.field === "job-fit-next-action"
+              && runtimeUserEvent.action.value === "tailor",
             ...(runtimeShellOptions
             ? {
               userMessageId: runtimeShellOptions.userMessageId,
@@ -390,7 +394,7 @@ function createAgentHost() {
             sourceUserMessageId: runtimeShell.userMessageId,
             incidentTraceId,
             ...(tailoringAnswer ? { tailoringAnswer } : {})
-          }).catch(() => undefined);
+          });
         }
         const binding = resolveCareerSessionBinding({
           sessionId: runtimeInput.sessionId,

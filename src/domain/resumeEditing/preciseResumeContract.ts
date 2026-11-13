@@ -42,7 +42,9 @@ export function precisePatchedBranch(branch: ResumeBranch, p: PreciseProposal, c
 export function assertPreciseOwnership(session: AgentSession, p: PreciseProposal, confirmed = false) {
   if (p.schemaVersion === "precise-edit-v1") return v1.assertPreciseOwnership(session, p, confirmed);
   const slot = session.taskState?.knownSlots.preciseResumeEdit as { selection?: unknown; proposal?: unknown } | undefined;
-  if (session.id !== p.selection.sessionId || session.activeProfileId !== p.selection.profileId
+  if (session.id !== p.selection.sessionId || session.taskState?.selectedEntities.profileId !== p.selection.profileId
+    || session.taskState.selectedEntities.resumeId !== p.selection.branchId
+    || session.taskState.selectedEntities.revisionId !== p.selection.baseRevisionId
     || session.taskState?.workflowId !== "precise_resume_edit" || v1.canonicalJson(slot?.selection) !== v1.canonicalJson(p.selection)
     || v1.canonicalJson(slot?.proposal) !== v1.canonicalJson(p)) throw new Error("resume_precise_owner_mismatch");
   const ref = v1.canonicalJson(preciseReference(p));

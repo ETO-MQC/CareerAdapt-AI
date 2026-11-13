@@ -12,7 +12,8 @@ import {
   disconnectCareerAdaptMcpBridge,
   pollCareerAdaptMcpBridge,
   registerCareerAdaptMcpBridge,
-  setCareerAdaptMcpBridgeBinding
+  setCareerAdaptMcpBridgeBinding,
+  setCareerAdaptMcpBridgeTurnContext
 } from "@/server/careerAdaptMcpBridgeRegistry";
 
 const AnyInput = z.object({}).passthrough();
@@ -136,7 +137,7 @@ describe("P4.4c CareerAdapt MCP gateway", () => {
     }
   });
 
-  it("requeues an in-flight MCP call when the browser bridge is replaced", async () => {
+  it("keeps an in-flight MCP call on its owner when another browser registers", async () => {
     const first = registerCareerAdaptMcpBridge(createGateway().listContracts());
     const pending = createCareerAdaptMcpBridgeGateway().execute("career.profile.list", {}, {
       operationId: "p44c-bridge-replace-01"
@@ -144,15 +145,14 @@ describe("P4.4c CareerAdapt MCP gateway", () => {
     const [firstRequest] = pollCareerAdaptMcpBridge(first.bridgeId, first.token);
     const second = registerCareerAdaptMcpBridge(createGateway().listContracts());
     try {
-      const [requeuedRequest] = pollCareerAdaptMcpBridge(second.bridgeId, second.token);
-      expect(requeuedRequest.id).toBe(firstRequest.id);
-      expect(completeCareerAdaptMcpBridgeCall(second.bridgeId, second.token, requeuedRequest.id, {
+      expect(pollCareerAdaptMcpBridge(second.bridgeId, second.token)).toEqual([]);
+      expect(completeCareerAdaptMcpBridgeCall(first.bridgeId, first.token, firstRequest.id, {
         ok: true,
         data: { profiles: [] },
         artifacts: [],
         receipt: {
-          operationId: requeuedRequest.operationId,
-          toolName: requeuedRequest.name,
+          operationId: firstRequest.operationId,
+          toolName: firstRequest.name,
           status: "completed",
           completedAt: new Date().toISOString()
         }
@@ -161,6 +161,115 @@ describe("P4.4c CareerAdapt MCP gateway", () => {
     } finally {
       disconnectCareerAdaptMcpBridge(second.bridgeId, second.token);
       disconnectCareerAdaptMcpBridge(first.bridgeId, first.token);
+    }
+  });
+
+  it("routes a new turn to its authenticated browser after another page registered", async () => {
+    const owner = registerCareerAdaptMcpBridge(createGateway().listContracts());
+    const otherPage = registerCareerAdaptMcpBridge(createGateway().listContracts());
+    try {
+      setCareerAdaptMcpBridgeTurnContext(owner.bridgeId, owner.token, {
+        sessionId: "session-owner",
+        logicalTurnId: "turn-owner"
+      });
+      // Clearing an unrelated page's context must not steal the turn.
+      setCareerAdaptMcpBridgeTurnContext(otherPage.bridgeId, otherPage.token, null);
+      const pending = createCareerAdaptMcpBridgeGateway().execute("career.profile.list", {}, {
+        operationId: "p44c-turn-owner-01"
+      });
+      const [request] = pollCareerAdaptMcpBridge(owner.bridgeId, owner.token);
+      expect(request).toMatchObject({ agentSessionId: "session-owner", logicalTurnId: "turn-owner" });
+      expect(pollCareerAdaptMcpBridge(otherPage.bridgeId, otherPage.token)).toEqual([]);
+      expect(completeCareerAdaptMcpBridgeCall(owner.bridgeId, owner.token, request.id, {
+        ok: true,
+        data: { profiles: [] },
+        artifacts: [],
+        receipt: {
+          operationId: request.operationId,
+          toolName: request.name,
+          status: "completed",
+          completedAt: new Date().toISOString()
+        }
+      })).toBe(true);
+      await expect(pending).resolves.toMatchObject({ ok: true, data: { profiles: [] } });
+    } finally {
+      setCareerAdaptMcpBridgeTurnContext(owner.bridgeId, owner.token, null);
+      disconnectCareerAdaptMcpBridge(otherPage.bridgeId, otherPage.token);
+      disconnectCareerAdaptMcpBridge(owner.bridgeId, owner.token);
+    }
+  });
+
+  it("pins detail and fit calls to the turn owner, then allows a new owner after termination", async () => {
+    const base = createGateway().listContracts()[0];
+    const contracts = ["career.job.get", "career.resume.get", "career.workflow.job_fit"].map(name => ({ ...base, name }));
+    const owner = registerCareerAdaptMcpBridge(contracts);
+    setCareerAdaptMcpBridgeTurnContext(owner.bridgeId, owner.token, { sessionId: "session-a", logicalTurnId: "turn-a" });
+    const other = registerCareerAdaptMcpBridge(contracts);
+    try {
+      expect(() => setCareerAdaptMcpBridgeTurnContext(other.bridgeId, other.token, { sessionId: "session-b", logicalTurnId: "turn-b" })).toThrow();
+      setCareerAdaptMcpBridgeTurnContext(other.bridgeId, other.token, null);
+      for (const name of contracts.map(contract => contract.name)) {
+        const pending = createCareerAdaptMcpBridgeGateway().execute(name, {}, { operationId: `operation-${name}` });
+        const [request] = pollCareerAdaptMcpBridge(owner.bridgeId, owner.token);
+        expect(request).toMatchObject({ name, agentSessionId: "session-a", logicalTurnId: "turn-a" });
+        expect(pollCareerAdaptMcpBridge(other.bridgeId, other.token)).toEqual([]);
+        expect(completeCareerAdaptMcpBridgeCall(owner.bridgeId, owner.token, request.id, {
+          ok: true, data: {}, artifacts: [], receipt: { operationId: request.operationId, toolName: name, status: "completed", completedAt: new Date().toISOString() }
+        })).toBe(true);
+        await expect(pending).resolves.toMatchObject({ ok: true });
+      }
+      setCareerAdaptMcpBridgeTurnContext(owner.bridgeId, owner.token, null);
+      setCareerAdaptMcpBridgeTurnContext(other.bridgeId, other.token, { sessionId: "session-b", logicalTurnId: "turn-b" });
+      const pending = createCareerAdaptMcpBridgeGateway().execute("career.job.get", {}, { operationId: "operation-b" });
+      const [request] = pollCareerAdaptMcpBridge(other.bridgeId, other.token);
+      expect(request).toMatchObject({ agentSessionId: "session-b", logicalTurnId: "turn-b" });
+      expect(completeCareerAdaptMcpBridgeCall(other.bridgeId, other.token, request.id, {
+        ok: true, data: {}, artifacts: [], receipt: { operationId: request.operationId, toolName: request.name, status: "completed", completedAt: new Date().toISOString() }
+      })).toBe(true);
+      await expect(pending).resolves.toMatchObject({ ok: true });
+    } finally {
+      setCareerAdaptMcpBridgeTurnContext(other.bridgeId, other.token, null);
+      setCareerAdaptMcpBridgeTurnContext(owner.bridgeId, owner.token, null);
+      disconnectCareerAdaptMcpBridge(other.bridgeId, other.token);
+      disconnectCareerAdaptMcpBridge(owner.bridgeId, owner.token);
+    }
+  });
+
+  it("fails closed instead of transferring calls when the owner disappears", async () => {
+    const owner = registerCareerAdaptMcpBridge(createGateway().listContracts());
+    setCareerAdaptMcpBridgeTurnContext(owner.bridgeId, owner.token, { sessionId: "session-a", logicalTurnId: "turn-a" });
+    const other = registerCareerAdaptMcpBridge(createGateway().listContracts());
+    try {
+      const pending = createCareerAdaptMcpBridgeGateway().execute("career.profile.list", {}, { operationId: "owner-lost" });
+      expect(pollCareerAdaptMcpBridge(owner.bridgeId, owner.token)).toHaveLength(1);
+      disconnectCareerAdaptMcpBridge(owner.bridgeId, owner.token);
+      await expect(pending).resolves.toMatchObject({ ok: false, error: { code: "mcp_bridge_unavailable", recoverable: true } });
+      expect(pollCareerAdaptMcpBridge(other.bridgeId, other.token)).toEqual([]);
+      expect(() => createCareerAdaptMcpBridgeGateway().execute("career.profile.list", {}, {})).toThrow();
+      expect(() => setCareerAdaptMcpBridgeTurnContext(other.bridgeId, other.token, { sessionId: "session-b", logicalTurnId: "turn-b" })).toThrow();
+    } finally {
+      setCareerAdaptMcpBridgeTurnContext(owner.bridgeId, owner.token, null);
+      disconnectCareerAdaptMcpBridge(other.bridgeId, other.token);
+    }
+  });
+
+  it("rejects turn ownership when a bridge is unavailable or the server refuses it", async () => {
+    const context = { sessionId: "session-a", turnId: "turn-a", assistantMessageId: "assistant-a" };
+    const stopped = new CareerAdaptMcpBridgeClient();
+    await expect(stopped.setConfirmationContext(context)).rejects.toThrow("mcp_bridge_turn_context_unavailable");
+    const client = new CareerAdaptMcpBridgeClient();
+    vi.stubGlobal("fetch", vi.fn(async (_input: unknown, init?: RequestInit) => {
+      const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : undefined;
+      if (body?.action === "register") return new Response(JSON.stringify({ ok: true, bridgeId: "bridge-refused", token: "token-refused" }), { status: 200 });
+      if (body?.action === "turn_context") return new Response(JSON.stringify({ ok: false }), { status: 503 });
+      return new Response(JSON.stringify({ ok: true, requests: [] }), { status: 200 });
+    }));
+    try {
+      await client.start(createGateway());
+      await expect(client.setConfirmationContext(context)).rejects.toThrow("mcp_bridge_turn_context_unavailable");
+    } finally {
+      await client.stop();
+      vi.unstubAllGlobals();
     }
   });
 

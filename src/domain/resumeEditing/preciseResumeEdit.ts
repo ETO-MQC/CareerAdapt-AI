@@ -119,7 +119,9 @@ export async function createPreciseProposal(input: { branch: ResumeBranch; profi
 /** One complete proposal in TaskState; every other durable location is a reference. */
 export function assertPreciseOwnership(session: import("@/agent/contracts/agentSession").AgentSession, p: PreciseProposal, confirmed = false) {
   const slot = session.taskState?.knownSlots.preciseResumeEdit as { selection?: unknown; proposal?: unknown } | undefined;
-  if (session.id !== p.selection.sessionId || session.activeProfileId !== p.selection.profileId
+  if (session.id !== p.selection.sessionId || session.taskState?.selectedEntities.profileId !== p.selection.profileId
+    || session.taskState.selectedEntities.resumeId !== p.selection.branchId
+    || session.taskState.selectedEntities.revisionId !== p.selection.baseRevisionId
     || session.taskState?.workflowId !== "precise_resume_edit" || canonicalJson(slot?.selection) !== canonicalJson(p.selection)
     || canonicalJson(slot?.proposal) !== canonicalJson(p)) throw new Error("resume_precise_owner_mismatch");
   const ref = canonicalJson(preciseReference(p));

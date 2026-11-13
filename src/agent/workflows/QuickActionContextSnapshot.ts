@@ -3,6 +3,7 @@ import { countProfileContent, profileCountSummary } from "@/domain/profile/profi
 import type { AgentSession } from "@/agent/contracts/agentSession";
 import { QuickActionContextSnapshotSchema, type QuickActionContextSnapshot } from "@/agent/contracts/quickActionContext";
 import { WorkspaceRepository } from "@/services/storage/repositories";
+import { resolveCareerAgentContext } from "@/agent/runtime/careerContextBindingResolver";
 
 const EMPTY_COUNTS = {
   basics: 0,
@@ -38,8 +39,9 @@ export async function buildQuickActionContextSnapshot(
     repository.listAvailableResumeBranches(),
     repository.listAvailableJobDescriptions()
   ]);
-  const targetPersonId = session?.personId ?? context?.personId;
-  const targetProfileId = session?.activeProfileId ?? context?.profileId;
+  const careerContext = session?.taskState ? await resolveCareerAgentContext(session, repository) : undefined;
+  const targetPersonId = session?.taskState ? careerContext?.personId : session?.personId ?? context?.personId;
+  const targetProfileId = session?.taskState ? careerContext?.profileId : session?.activeProfileId ?? context?.profileId;
   const activeProfile = targetProfileId && targetPersonId
     ? profiles.find((profile) => profile.id === targetProfileId && profile.personId === targetPersonId && !profile.archivedAt && !profile.trashedAt)
     : undefined;
@@ -87,7 +89,7 @@ export async function buildQuickActionContextSnapshot(
                     ? "completed" as const
                     : "idle" as const,
         pinnedPersonId: session.personId,
-        pinnedProfileId: session.activeProfileId
+        pinnedProfileId: targetProfileId
       }
     : undefined;
   return QuickActionContextSnapshotSchema.parse({

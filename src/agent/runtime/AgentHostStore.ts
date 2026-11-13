@@ -19,7 +19,7 @@ import type { AgentPageContext } from "@/agent/contracts/agentContext";
 import type { AgentStreamEvent } from "@/agent/runtime/agentSse";
 import type { AgentRuntimeEvent, AgentRuntimeAttachment, AgentRuntimeTurnInput } from "@/agent/runtime/agentRuntime";
 import { isHermesRuntimeFailureCode } from "@/agent/runtime/hermes/hermesRunReliability";
-import { isCareerDomainPreconditionCode } from "@/agent/runtime/careerContextBindingResolver";
+import { isCareerDomainPreconditionCode, resolveCareerAgentContext } from "@/agent/runtime/careerContextBindingResolver";
 import {
   abortSourceForReason,
   createIncidentTraceId,
@@ -92,6 +92,7 @@ import { ImportedResumeDraftSchema, type ImportedResumeDraft } from "@/domain/sc
 import { JobTargetSnapshotSchema } from "@/domain/schemas/jobTarget";
 import { jobTargetSnapshotHash } from "@/domain/jobTarget/jobTargetSnapshot";
 import { activeWorkflowInteractionFor, TARGET_REQUIRED_PROMPT } from "./workflowUserInputCheckpoint";
+import { activeFitNextActionMessage, deriveAgentTurnLifecycle } from "./agentTurnLifecycle";
 import { resolveTailoringEntityReference, type TailoringContextCandidate } from "./tailoringContextResolver";
 export { activeWorkflowInteractionFor } from "./workflowUserInputCheckpoint";
 import { createProfileIntakeInterviewPlan } from "@/domain/profileIntake/ProfileIntakeCompleteness";
@@ -607,17 +608,26 @@ export class AgentHostStore {
 
   async selectPreciseResumeEdit(target: PreciseTargetInput) {
     const session = this.snapshot.activeSession;
-    if (!session || !session.activeProfileId || this.executionCoordinator.isRunning(session.id)
+    if (!session || this.executionCoordinator.isRunning(session.id)
       || session.pendingConfirmation) throw new Error("resume_precise_selection_busy");
-    const branch = await this.getCareerRepository().getAvailableResumeBranch(target.branchId);
-    const selection = PreciseSelectionSchema.parse({ ...target, sessionId: session.id, profileId: session.activeProfileId,
+    const repository = this.getCareerRepository();
+    const context = session.taskState ? await resolveCareerAgentContext(session, repository) : undefined;
+    const profileId = session.taskState ? context?.profileId : session.activeProfileId;
+    const profile = profileId ? await repository.getAvailableProfile(profileId) : undefined;
+    const branch = await repository.getAvailableResumeBranch(target.branchId);
+    if (!profile || (session.personId && profile.personId !== session.personId)
+      || !branch || branch.profileId !== profile.id || branch.currentRevisionId !== target.baseRevisionId) throw new Error("resume_precise_revision_stale");
+    const selection = PreciseSelectionSchema.parse({ ...target, sessionId: session.id, profileId: profile.id,
       taskId: `precise-task-${crypto.randomUUID()}` });
-    if (!branch || branch.currentRevisionId !== target.baseRevisionId) throw new Error("resume_precise_revision_stale");
     preciseTarget(branch, selection);
     const reducer = new AgentTaskStateReducer();
     const task = reducer.create(session, "precise_resume_edit", { workflowId: "precise_resume_edit", step: "propose_precise_edit" });
-    const next = { ...session, taskState: { ...task, rootGoal: "precise_resume_edit", goal: "precise_resume_edit",
+    const next = { ...session, activeProfileId: profile.id, personId: profile.personId,
+      profileVersionNumber: profile.profileVersionNumber, profileRevision: profile.version,
+      taskState: { ...task, rootGoal: "precise_resume_edit", goal: "precise_resume_edit",
       activeGoal: "precise_resume_edit", workflowId: "precise_resume_edit", completionType: "transactional" as const,
+      selectedEntities: { ...task.selectedEntities, profileId: profile.id, profileVersion: profile.version,
+        resumeId: branch.id, resumeRevisionId: branch.currentRevisionId!, revisionId: branch.currentRevisionId! },
       knownSlots: { preciseResumeEdit: { selection } } }, updatedAt: new Date().toISOString() };
     const saved = await this.dependencies.persistence.save(next);
     if (this.snapshot.activeSession?.id === session.id) this.patchSession(saved);
@@ -1059,10 +1069,10 @@ export class AgentHostStore {
         };
         prepared = {
           ...projectTaskStateIntoSession(current, taskState),
-          personId: current.personId ?? snapshot.activePerson.id,
-          activeProfileId: current.activeProfileId ?? profile.id,
-          profileVersionNumber: current.profileVersionNumber ?? profile.profileVersionNumber,
-          profileRevision: current.profileRevision ?? profile.profileRevision
+          personId: snapshot.activePerson.id,
+          activeProfileId: profile.id,
+          profileVersionNumber: profile.profileVersionNumber,
+          profileRevision: profile.profileRevision
         };
       }
     }
@@ -1199,6 +1209,53 @@ export class AgentHostStore {
           };
         }
       }
+      const nextActionMessage = activeFitNextActionMessage(current);
+      const nextActionText = input.event.text.trim().replace(/[。！!]+$/u, "");
+      const explicitNextOption = nextActionMessage?.options?.find(option => !option.disabled && option.label === nextActionText);
+      if (explicitNextOption?.action.type === "answer") {
+        return this.prepareRuntimeUserEvent({ session: current, pageContext: input.pageContext,
+          event: { type: "option_selected", optionId: explicitNextOption.id, action: explicitNextOption.action } });
+      }
+      if (explicitNextOption?.action.type === "open_artifact") {
+        let answered = supersedeActiveOptionSets(current);
+        answered = appendAgentMessage(answered, "user", input.event.text.trim(), { status: "complete",
+          metadata: { workflowInteractionId: nextActionMessage!.optionSet!.optionSetId } });
+        const saved = await this.dependencies.persistence.save(answered);
+        this.patchSession(saved, { turnStatus: "completed", uiAction: explicitNextOption.action });
+        return { session: saved, event: input.event, userMessage: "", executionOwner: "deterministic_transition", deterministicTransitionApplied: true, deterministicTerminal: true };
+      }
+      if (nextActionMessage && /^(?:好|好的|可以|继续|行|开始)[。！!]?$/u.test(input.event.text.trim())) {
+        const available = nextActionMessage.options?.filter(option => !option.disabled) ?? [];
+        if (available.length === 1 && available[0].action.type === "answer") {
+          const answered = appendAgentMessage(current, "user", input.event.text.trim(), { status: "complete",
+            metadata: { workflowInteractionId: nextActionMessage.optionSet!.optionSetId } });
+          const saved = await this.dependencies.persistence.save(answered);
+          this.patchSession(saved);
+          return this.prepareRuntimeUserEvent({ session: saved, pageContext: input.pageContext,
+            event: { type: "option_selected", optionId: available[0].id, action: available[0].action } });
+        }
+        if (available.length === 1 && available[0].action.type === "open_artifact") {
+          let answered = supersedeActiveOptionSets(current);
+          answered = appendAgentMessage(answered, "user", input.event.text.trim(), { status: "complete",
+            metadata: { workflowInteractionId: nextActionMessage.optionSet!.optionSetId } });
+          const saved = await this.dependencies.persistence.save(answered);
+          this.patchSession(saved, { turnStatus: "completed", uiAction: available[0].action });
+          return { session: saved, event: input.event, userMessage: "", executionOwner: "deterministic_transition", deterministicTransitionApplied: true, deterministicTerminal: true };
+        }
+        if (!available.length) return { session: current, event: input.event, userMessage: input.event.text, deterministicTransitionApplied: false };
+        let waiting = supersedeActiveOptionSets(current);
+        waiting = appendAgentMessage(waiting, "user", input.event.text.trim(), { status: "complete",
+          metadata: { workflowInteractionId: nextActionMessage.optionSet!.optionSetId } });
+        const messageId = `agent-next-action-${crypto.randomUUID()}`;
+        waiting = appendAgentMessage(waiting, "assistant", "你想继续哪一步？", {
+          id: messageId, turnId: nextActionMessage.turnId, status: "complete", options: nextActionMessage.options,
+          optionSet: activeOptionSetForMessage(waiting, messageId, "fit-next-action"),
+          metadata: { fitNextAction: true, fitNextActionArtifactId: nextActionMessage.metadata?.fitNextActionArtifactId }
+        });
+        const saved = await this.dependencies.persistence.save(waiting);
+        this.patchSession(saved, { turnStatus: "completed" });
+        return { session: saved, event: input.event, userMessage: "", executionOwner: "deterministic_transition", deterministicTransitionApplied: true, deterministicTerminal: true };
+      }
       const checkpointPrepared = await this.prepareWorkflowCheckpointTextInput(
         current,
         input.event.text,
@@ -1286,6 +1343,29 @@ export class AgentHostStore {
     }
     if (input.event.type === "option_selected") {
       const action = input.event.action;
+      if (action.type === "answer" && action.field === "job-fit-next-action") {
+        const source = activeFitNextActionMessage(current);
+        const optionId = input.event.optionId;
+        const option = source?.options?.find(candidate => candidate.id === optionId
+          && candidate.action.type === "answer" && candidate.action.field === action.field && candidate.action.value === action.value);
+        if (!option || !current.taskState) return { session: current, event: input.event, userMessage: "", deterministicTransitionApplied: false };
+        let updated = supersedeActiveOptionSets(current);
+        if (action.value === "dismiss") {
+          updated = appendAgentMessage(updated, "user", "暂时不用", { status: "complete" });
+          updated = appendAgentMessage(updated, "assistant", "好的，已保留匹配结果。", { status: "complete" });
+          const saved = await this.dependencies.persistence.save(updated);
+          this.patchSession(saved, { turnStatus: "completed" });
+          return { session: saved, event: input.event, userMessage: "", executionOwner: "deterministic_transition", deterministicTransitionApplied: true, deterministicTerminal: true };
+        }
+        if (action.value === "tailor") {
+          // The shell captures the completed Fit checkpoint before switching
+          // workflows, so Edit/Fork restores the stable pre-action context.
+          const saved = await this.dependencies.persistence.save(updated);
+          this.patchSession(saved, { turnStatus: "completed" });
+          return { session: saved, event: input.event, userMessage: "生成岗位简历", executionOwner: "runtime_continuation", deterministicTransitionApplied: true };
+        }
+        return { session: current, event: input.event, userMessage: "", deterministicTransitionApplied: false };
+      }
       if (action.type === "select_entity") {
         const prepared = await this.applyTypedEntitySelection(current, action, { continueAfter: false });
         return {
@@ -1395,8 +1475,11 @@ export class AgentHostStore {
         ? (session.taskState.knownSlots[candidatesKey] as unknown[]).map(objectValue)
           .filter((candidate): candidate is Record<string, unknown> & { id: string } => typeof candidate.id === "string") as TailoringContextCandidate[]
         : [];
-      const resolution = resolveTailoringEntityReference(text, candidates);
-      if (resolution.status === "ambiguous") {
+      const shortAffirmation = /^(?:好|好的|可以|继续|行|开始)[。！!]?$/u.test(text);
+      const resolution = shortAffirmation && candidates.length === 1
+        ? { status: "resolved" as const, candidate: candidates[0] }
+        : resolveTailoringEntityReference(text, candidates);
+      if (resolution.status === "ambiguous" || (shortAffirmation && candidates.length > 1)) {
         let current = supersedeActiveOptionSets(session);
         current = appendAgentMessage(current, "user", text, { status: "complete" });
         const messageId = `agent-choice-${crypto.randomUUID()}`;
@@ -2300,6 +2383,7 @@ export class AgentHostStore {
     userMessageId?: string;
     assistantMessageId?: string;
     appendUserMessage?: boolean;
+    startFitTailoring?: boolean;
     runtimeDiagnostics?: Partial<Pick<NonNullable<AgentSession["activeTurn"]>, "preferredRuntime" | "attemptedRuntime" | "finalRuntime" | "executionOwner" | "fallbackUsed" | "fallbackReasonCode" | "hermesRunId" | "nextHermesRunId" | "firstEventAt" | "runtimeFailureAt" | "incidentTraceId" | "runtimeAttempts" | "primaryCausalChain" | "secondaryRecoveryFailures" | "transportReattachAttempted" | "semanticRetryAttempted" | "runtimeRestartAttempted" | "turnStartSnapshot" | "runtimeFailureSnapshot" | "previousRuntimeIncidents" | "runtimeFailureDiagnostics" | "cancellation" | "abortTraces" | "recoveryAttempted">>;
   }) {
     // Drain the previous turn's streaming checkpoint before creating a shell.
@@ -2353,6 +2437,14 @@ export class AgentHostStore {
     let current = appendUserMessage
       ? withTurnCheckpoint(input.session, turnId, userMessageId, now)
       : input.session;
+    if (input.startFitTailoring && current.taskState?.workflowId === "analyze_job_fit"
+      && current.taskState.completionStatus === "completed") {
+      const selected = structuredClone(current.taskState.selectedEntities);
+      const task = new AgentTaskStateReducer().reduce(current.taskState, {
+        type: "new_root_task", goal: "create_tailored_resume", workflowId: "tailor_existing_resume", stage: "choose_resume_source"
+      });
+      current = projectTaskStateIntoSession(current, { ...task, selectedEntities: selected });
+    }
     current = appendUserMessage
       ? appendAgentMessage(current, "user", input.userMessage.trim(), {
           id: userMessageId,
@@ -2757,22 +2849,23 @@ export class AgentHostStore {
             event.toolName ?? "",
             stringValue(contract.sourceToolName)
           );
-          if (sourceToolName === "list_jobs" && !next.activeJobId
-            && !next.taskState?.selectedEntities.jobId && !next.taskState?.selectedEntities.targetSnapshotId
-            && (!next.taskState || ["completed", "failed", "cancelled"].includes(next.taskState.completionStatus))) {
+          if (sourceToolName === "list_jobs" && !(next.taskState ? next.taskState.selectedEntities.jobId : next.activeJobId)
+            && !next.taskState?.selectedEntities.targetSnapshotId
+            && (!next.taskState || ["completed", "failed", "cancelled"].includes(next.taskState.completionStatus)
+              || next.taskState.rootGoal === "conversation")) {
             const userText = next.messages.findLast((message) => message.role === "user" && message.turnId === event.turnId)?.content ?? "";
             const jobs = objectValue(result.data).jobs;
-            if (/应聘|申请|匹配|投递|岗位简历/u.test(userText) && Array.isArray(jobs)) {
+            if (/应聘|申请|匹配|投递|岗位简历|(?:想|要|准备|打算)投/u.test(userText) && Array.isArray(jobs)) {
               const candidates = jobs.map(objectValue).flatMap((job, index) => {
                 const id = stringValue(job.id);
                 return id ? [{ id, title: stringValue(job.title), company: stringValue(job.company), updatedAt: stringValue(job.updatedAt), order: index + 1 }] : [];
               });
               if (candidates.length > 1) {
                 const reducer = new AgentTaskStateReducer();
-                const task = reducer.create(next, "conversation", { workflowId: "entity_selection", step: "choose_job" });
+                const task = reducer.create({ ...next, workflowState: undefined }, "conversation", { workflowId: "entity_selection", step: "choose_job" });
                 next = projectTaskStateIntoSession(next, normalizeAgentTaskState({
                   ...task,
-                  selectedEntities: { ...task.selectedEntities, ...next.taskState?.selectedEntities },
+                  selectedEntities: next.taskState ? structuredClone(next.taskState.selectedEntities) : task.selectedEntities,
                   knownSlots: { ...task.knownSlots, jobCandidates: candidates, jobCandidateSetRevision: stableHashText(JSON.stringify(candidates)) },
                   completionStatus: "waiting_for_user"
                 }));
@@ -3112,6 +3205,8 @@ export class AgentHostStore {
       if (!tailoringQuestionWaiting) next = replaceRuntimeShellMessage(next, assistantMessageId, text, event, false, terminalFailed);
       if ((terminalFailed || terminalWaiting || tailoringRecovery) && !domainFailureWaiting && !tailoringQuestionWaiting) next = withRetryCurrentStepOption(next, assistantMessageId);
       if (next.taskState) next = attachTaskStateOptions(next, next.taskState);
+      if (!terminalFailed && !terminalWaiting && next.taskState?.workflowId === "analyze_job_fit"
+        && next.taskState.completionStatus === "completed") next = attachFitNextActionOptions(next, assistantMessageId);
       next = {
         ...next,
         runtimeId: "hermes",
@@ -3716,7 +3811,7 @@ export class AgentHostStore {
       patch.title = snapshot.activeProfile ? refineAgentTaskTitle(actionId, snapshot) : defaultAgentTaskTitle(actionId);
       patch.titleOrigin = "deterministic";
     }
-    if (!session.activeProfileId && snapshot.activePerson && snapshot.activeProfile) {
+    if (snapshot.activePerson && snapshot.activeProfile) {
       if (!session.personId) patch.personId = snapshot.activePerson.id;
       patch.activeProfileId = snapshot.activeProfile.id;
       patch.profileVersionNumber = snapshot.activeProfile.profileVersionNumber;
@@ -4073,7 +4168,9 @@ export class AgentHostStore {
         this.patch({ uiAction: { type: "open_profile_browser" } });
         return session;
       }
-      const profileId = session.activeProfileId ?? session.taskState?.selectedEntities.profileId;
+      const profileId = session.taskState
+        ? (await resolveCareerAgentContext(session, this.getCareerRepository())).profileId
+        : session.activeProfileId;
       if (!profileId) return session;
       if (action.decision === "archive_profile") {
         await this.getCareerRepository().archiveProfileVersion(profileId);
@@ -6160,27 +6257,22 @@ export class AgentHostStore {
         });
       current = projectTaskStateIntoSession(current, taskState);
     }
-    const careerSessionBinding = current.personId && current.activeProfileId
-      && current.profileVersionNumber !== undefined && current.profileRevision !== undefined
-      ? {
-          agentSessionId: current.id,
-          personId: current.personId,
-          profileId: current.activeProfileId,
-          profileVersionNumber: current.profileVersionNumber,
-          profileRevision: current.profileRevision
-        }
-      : undefined;
+    const careerSessionBinding = careerSessionBindingForSession(current);
     if (call.toolName === "apply_tailoring_changes" && current.taskState) {
       const applyInput = objectRecordValue(confirmation.validatedInput ?? call.input);
       const applySession = objectRecordValue(applyInput.session);
       const applyBranch = objectRecordValue(applySession.branch);
       const applyJob = objectRecordValue(applySession.job);
-      const profileId = stringRecordValue(applyBranch.profileId)
-        ?? current.taskState.selectedEntities.profileId
-        ?? current.activeProfileId;
-      const profile = profileId && this.hasExplicitCareerRepository()
-        ? await this.getCareerRepository().getAvailableProfile(profileId)
-        : undefined;
+      const profileId = current.taskState.selectedEntities.profileId;
+      if (stringRecordValue(applyBranch.profileId) && applyBranch.profileId !== profileId) throw new Error("career_context_profile_mismatch");
+      const selectedResume = current.taskState.selectedEntities.resumeId;
+      if (stringRecordValue(applyBranch.id) && applyBranch.id !== selectedResume) throw new Error("career_context_resume_mismatch");
+      const repository = this.hasExplicitCareerRepository() ? this.getCareerRepository() : undefined;
+      const canonical = repository ? await resolveCareerAgentContext(current, repository) : undefined;
+      if (repository && (!canonical?.profileId || !canonical.resumeBranchId)) {
+        throw new Error("career_context_unavailable");
+      }
+      const profile = profileId && repository ? await repository.getAvailableProfile(profileId) : undefined;
       const expectedProfileRevision = profile?.version
         ?? current.profileRevision
         ?? numberValue(current.taskState.selectedEntities.profileVersion)
@@ -9118,13 +9210,9 @@ function completeTurn(session: AgentSession, status: "failed" | "aborted") {
 }
 
 function sessionTurnStatus(session: AgentSession): AgentHostSnapshot["turnStatus"] {
-  if (session.pendingConfirmation) return "waiting_for_confirmation";
-  if (session.workflowState?.status === "paused") return "paused";
-  if (session.activeTurn?.status === "running") return "running";
-  if (session.taskState?.completionStatus === "waiting_for_user") return "waiting_for_user";
-  if (session.taskState?.completionStatus === "failed") return "failed";
-  if (session.activeTurn?.status === "completed") return "completed";
-  return "idle";
+  const lifecycle = deriveAgentTurnLifecycle(session);
+  if (lifecycle === "STOPPED") return "paused";
+  return lifecycle.toLowerCase() as AgentHostSnapshot["turnStatus"];
 }
 
 function errorCode(value: unknown) {
@@ -9405,6 +9493,24 @@ function activeOptionSetForMessage(session: AgentSession, messageId: string, pre
     sourceMessageId: messageId,
     state: "active"
   };
+}
+
+function attachFitNextActionOptions(session: AgentSession, messageId: string): AgentSession {
+  const selected = session.taskState?.selectedEntities;
+  const artifact = session.artifactRefs.find(item => item.kind === "job_fit_overview" && item.binding?.sessionId === session.id
+    && item.binding.branchId === session.activeBranchId && item.binding.jobId === selected?.jobId
+    && item.binding.resumeBranchId === selected?.resumeId && item.binding.revisionId === selected?.revisionId);
+  if (!artifact) return session;
+  const options: AgentOption[] = [
+    { id: "fit-next-tailor", label: "生成岗位简历", action: { type: "answer", field: "job-fit-next-action", value: "tailor" } },
+    { id: "fit-next-detail", label: "查看详细匹配", action: { type: "open_artifact", artifactId: artifact.id } },
+    { id: "fit-next-dismiss", label: "暂时不用", action: { type: "answer", field: "job-fit-next-action", value: "dismiss" } }
+  ];
+  const cleared = supersedeActiveOptionSets(session);
+  return { ...cleared, messages: cleared.messages.map(message => message.id === messageId ? {
+    ...message, options, optionSet: activeOptionSetForMessage(cleared, messageId, "fit-next-action"),
+    metadata: { ...message.metadata, fitNextAction: true, fitNextActionArtifactId: artifact.id }
+  } : message) };
 }
 
 function supersedeActiveOptionSets(session: AgentSession) {
@@ -9938,6 +10044,7 @@ export function attachTaskStateOptions(session: AgentSession, state: AgentTaskSt
   ) {
     return projectActiveTailoringWorkflowInteractionToChat(session, state, activeInteraction);
   }
+  if (activeFitNextActionMessage(session)) return session;
   const recoverableCompositionProposal = state.workflowId === "compose_resume"
     && Boolean(state.knownSlots.resumeCompositionProposal)
     && !state.knownSlots.resumeCompositionResult;
@@ -10133,19 +10240,7 @@ export function attachTaskStateOptions(session: AgentSession, state: AgentTaskSt
 }
 
 function careerSessionBindingForSession(session: AgentSession): CareerSessionBinding | undefined {
-  if (
-    !session.personId
-    || !session.activeProfileId
-    || session.profileVersionNumber === undefined
-    || session.profileRevision === undefined
-  ) return undefined;
-  return {
-    agentSessionId: session.id,
-    personId: session.personId,
-    profileId: session.activeProfileId,
-    profileVersionNumber: session.profileVersionNumber,
-    profileRevision: session.profileRevision
-  };
+  return resolveCareerSessionBinding({ sessionId: session.id, session });
 }
 
 function buildResumeCompositionConfirmationCommand(
@@ -11034,14 +11129,7 @@ export function branchSessionFromEditedUserMessage(
       ...(checkpoint ? {
         taskState: nextTaskState,
         workflowState: checkpoint.workflowStateBefore,
-        artifactRefs: checkpoint.artifactRefsBefore.map(artifact => {
-          const binding = artifact.binding;
-          const selected = checkpoint.selectedEntitiesBefore;
-          return artifact.kind === "job_fit_overview" && binding?.sessionId === session.id
-            && binding.jobId === selected.jobId && binding.resumeBranchId === selected.resumeId
-            && binding.revisionId === selected.revisionId
-            ? { ...artifact, binding: { ...binding, branchId } } : artifact;
-        }),
+        artifactRefs: structuredClone(checkpoint.artifactRefsBefore),
         activeProfileId: checkpoint.selectedEntitiesBefore.profileId,
         activeResumeId: checkpoint.selectedEntitiesBefore.resumeId,
         activeJobId: checkpoint.selectedEntitiesBefore.jobId,
@@ -11905,6 +11993,14 @@ function attachConfirmedToolArtifact(
   );
   if (!result.ok || !descriptor) return session;
   const value = objectRecordValue(result.data);
+  if (descriptor.kind === "job_fit_overview") {
+    const selected = session.taskState?.selectedEntities;
+    const dependencies = objectRecordValue(value.dependencies);
+    if (!selected?.jobId || !selected.resumeId || !selected.revisionId
+      || dependencies.jobId !== selected.jobId || dependencies.resumeId !== selected.resumeId
+      || dependencies.resumeRevisionId !== selected.revisionId
+      || (selected.profileId && dependencies.profileId !== selected.profileId)) return session;
+  }
   const compositionResumeId = descriptor.entityType === "resume_branch"
     ? resumeArtifactEntityId(value, session)
     : undefined;
@@ -12335,6 +12431,12 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
   const status = stringRecordValue(facade.status);
   if (!status || !Object.prototype.hasOwnProperty.call(checkpoint, "kind")) return session;
   const task = session.taskState;
+  if (toolName === "career.workflow.job_fit" && checkpoint.kind === "job_fit") {
+    const selected = task.selectedEntities;
+    if ((selected.profileId && checkpoint.profileId !== selected.profileId)
+      || (selected.resumeId && checkpoint.resumeId !== selected.resumeId)
+      || (selected.jobId && checkpoint.jobId !== selected.jobId)) return session;
+  }
   const result = objectRecordValue(checkpoint.result);
   const fitDependencies = objectRecordValue(result.dependencies);
   const fitRevisionId = checkpoint.kind === "job_fit"
@@ -12605,7 +12707,10 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
   if (toolName === "career.workflow.job_intake") {
     const binding = objectRecordValue(checkpoint.careerSessionBinding);
     if (binding.agentSessionId === session.id && stringValue(binding.personId) && stringValue(binding.profileId)
+      && (!nextSession.taskState.selectedEntities.profileId || nextSession.taskState.selectedEntities.profileId === binding.profileId)
       && numberValue(binding.profileRevision) !== undefined && numberValue(binding.profileVersionNumber) !== undefined) {
+      nextSession.taskState.selectedEntities.profileId = stringValue(binding.profileId);
+      nextSession.taskState.selectedEntities.profileVersion = numberValue(binding.profileRevision);
       Object.assign(nextSession, {
         personId: binding.personId, activeProfileId: binding.profileId,
         profileRevision: binding.profileRevision, profileVersionNumber: binding.profileVersionNumber

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import type { AgentSession } from "@/agent/contracts/agentSession";
 import type { AgentHostStore } from "@/agent/runtime/AgentHostStore";
 import { WorkspaceRepository } from "@/services/storage/repositories";
+import { resolveCareerAgentContext } from "@/agent/runtime/careerContextBindingResolver";
 import type { ResumeBranch } from "@/domain/schemas";
 import { PreciseProposalSchema, type PreciseSelection } from "@/domain/resumeEditing/preciseResumeEdit";
 import { StructuredResumeEditor } from "./StructuredResumeEditor";
@@ -38,10 +39,15 @@ export function PreciseResumeEditor({ session, host, profileName }: { session: A
     : selectedItem?.data.sectionType === "work" || selectedItem?.data.sectionType === "internship" ? selectedItem.data.organization : "所选条目";
   useEffect(() => {
     let active = true;
-    repository.listResumeBranches().then(values => { if (active) setBranches(values.filter(b => b.profileId === session.activeProfileId && b.lifecycleStatus === "active" && !!b.currentRevisionId)); })
-      .catch(e => { if (active) setError(String(e)); });
+    const load = async () => {
+      const canonical = session.taskState ? await resolveCareerAgentContext(session, repository) : undefined;
+      const profileId = session.taskState ? canonical?.profileId : session.activeProfileId;
+      const values = profileId ? await repository.listAvailableResumeBranches(profileId) : [];
+      if (active) setBranches(values.filter(branch => !!branch.currentRevisionId));
+    };
+    void load().catch(e => { if (active) setError(String(e)); });
     return () => { active = false; };
-  }, [session.id, session.activeProfileId, slot?.outcome?.revisionId]);
+  }, [session]);
   useEffect(() => {
     if (session.pendingConfirmation?.toolName !== "career.workflow.precise_edit" || session.pendingConfirmation.status !== "confirmed") return;
     let active = true;

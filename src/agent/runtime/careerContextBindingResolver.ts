@@ -1,3 +1,6 @@
+import type { AgentSession } from "@/agent/contracts/agentSession";
+import type { WorkspaceRepository } from "@/services/storage/repositories";
+import { derivePendingInteraction } from "./agentTurnLifecycle";
 import type { CareerSessionBinding } from "./careerSessionBinding";
 
 export type CareerContextBindingState = "unbound" | "partially_bound" | "bound";
@@ -252,4 +255,43 @@ function stringValue(value: unknown) {
 
 function integerValue(value: unknown) {
   return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : undefined;
+}
+
+/** Resolve selected business identities against the Repository, without alias or recency fallback. */
+export async function resolveCareerAgentContext(
+  session: AgentSession,
+  repository: Pick<WorkspaceRepository, "getAvailableProfile" | "getAvailableJobDescription" | "getAvailableResumeBranch" | "getResumeRevision">
+) {
+  const task = session.taskState;
+  const selected = task?.selectedEntities;
+  const [profile, job, resume] = await Promise.all([
+    selected?.profileId ? repository.getAvailableProfile(selected.profileId) : undefined,
+    selected?.jobId ? repository.getAvailableJobDescription(selected.jobId) : undefined,
+    selected?.resumeId ? repository.getAvailableResumeBranch(selected.resumeId) : undefined
+  ]);
+  const validProfile = profile && (!session.personId || profile.personId === session.personId)
+    && (typeof selected?.profileVersion !== "number" || profile.version === selected.profileVersion)
+    ? profile : undefined;
+  const validJob = job && (selected?.jobRevision === undefined || job.updatedAt === selected.jobRevision) ? job : undefined;
+  const candidateResume = resume && validProfile && resume.profileId === validProfile.id ? resume : undefined;
+  const selectedRevision = selected?.resumeRevisionId ?? selected?.revisionId;
+  const aliasesAgree = !selected?.resumeRevisionId || !selected.revisionId || selected.resumeRevisionId === selected.revisionId;
+  const revision = selectedRevision && candidateResume && aliasesAgree ? await repository.getResumeRevision(selectedRevision) : undefined;
+  const validRevision = revision && revision.branchId === candidateResume?.id && candidateResume.currentRevisionId === revision.id
+    ? revision : undefined;
+  const validResume = candidateResume && (!selectedRevision || validRevision) ? candidateResume : undefined;
+  const interaction = derivePendingInteraction(session);
+  return {
+    sessionId: session.id,
+    branchId: session.activeBranchId,
+    turnId: session.activeTurn?.id,
+    workflowId: task?.workflowId,
+    stage: task?.stage,
+    personId: validProfile?.personId,
+    profileId: validProfile?.id,
+    jobId: validJob?.id,
+    resumeBranchId: validResume?.id,
+    revisionId: validRevision?.id,
+    pendingInteraction: interaction
+  };
 }

@@ -6,10 +6,19 @@ import { analyzeJobDescriptionV4 } from "@/domain/jobOptimization";
 import { CareerProfileSchema, type FactStatement } from "@/domain/schemas";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 import { careerAdaptDb } from "@/services/storage/db";
+import { resolveCareerAgentContext } from "@/agent/runtime/careerContextBindingResolver";
 import { migrateCareerProfileToV2 } from "@/domain/migrations/resumeV2";
 
 export default function H1qRepositoryFixture() {
   const [result, setResult] = useState("waiting");
+  const [sessionId, setSessionId] = useState("");
+  const [inspection, setInspection] = useState("");
+  async function inspect() {
+    const repository = new WorkspaceRepository(careerAdaptDb);
+    const session = await repository.getAgentSession(sessionId);
+    if (!session) throw new Error("fixture_session_missing");
+    setInspection(JSON.stringify(await resolveCareerAgentContext(session, repository)));
+  }
   async function seed() {
     const repository = new WorkspaceRepository(careerAdaptDb);
     const now = new Date().toISOString();
@@ -42,5 +51,5 @@ export default function H1qRepositoryFixture() {
     }
     setResult(saved.id);
   }
-  return <main><button onClick={() => { void seed().catch(error => setResult(`ERROR: ${String(error)}`)); }}>Seed confirmed Profile</button><output data-testid="seed-result">{result}</output></main>;
+  return <main><button onClick={() => { void seed().catch(error => setResult(`ERROR: ${String(error)}`)); }}>Seed confirmed Profile</button><output data-testid="seed-result">{result}</output><label>Session ID<input value={sessionId} onChange={event => setSessionId(event.target.value)} /></label><button onClick={() => { void inspect().catch(error => setInspection(`ERROR: ${String(error)}`)); }}>Inspect context</button><output data-testid="context-result">{inspection}</output></main>;
 }

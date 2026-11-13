@@ -1,3 +1,4 @@
+import { deriveAgentTurnLifecycle } from "@/agent/runtime/agentTurnLifecycle";
 import type { AgentSession } from "@/agent/contracts/agentSession";
 import type { AgentHostSnapshot } from "@/agent/runtime/AgentHostStore";
 import type { RuntimeStatusSnapshot } from "@/agent/runtime/runtimeStatus";
@@ -18,18 +19,25 @@ export function agentRunPresentation(input: {
   const { session, turnStatus } = input;
   const run = session.hermesRun;
   const currentRun = run && (!session.activeTurn || run.turnId === session.activeTurn.id) ? run : undefined;
+  const lifecycle = deriveAgentTurnLifecycle(session);
   let state: keyof typeof labels;
   if (input.stopping || currentRun?.status === "stopping") state = "stopping";
-  else if (currentRun?.status === "cancelled") state = "cancelled";
+  else if (lifecycle === "WAITING_FOR_CONFIRMATION") state = "waiting_for_confirmation";
+  else if (lifecycle === "RUNNING") state = currentRun?.status === "queued" ? "queued" : "running";
+  else if (lifecycle === "WAITING_FOR_USER") state = "waiting_for_user";
+  else if (lifecycle === "STOPPED") state = currentRun?.status === "cancelled" ? "cancelled" : "paused";
+  else if (lifecycle === "FAILED") state = "failed";
+  else if (lifecycle === "COMPLETED") state = "completed";
   else if (currentRun?.status === "queued") state = "queued";
-  else if (currentRun?.status === "running" || session.activeTurn?.status === "running") state = "running";
-  else if (session.pendingConfirmation || turnStatus === "waiting_for_confirmation") state = "waiting_for_confirmation";
-  else if (turnStatus === "paused") state = "paused";
-  else if (turnStatus === "waiting_for_user") state = "waiting_for_user";
+  else if (currentRun?.status === "running") state = "running";
   else if (currentRun?.status === "waiting_for_approval") state = "waiting_for_approval";
+  else if (currentRun?.status === "cancelled") state = "cancelled";
   else if (turnStatus === "running") state = "running";
+  else if (!session.taskState && turnStatus === "waiting_for_confirmation") state = "waiting_for_confirmation";
+  else if (!session.taskState && turnStatus === "waiting_for_user") state = "waiting_for_user";
+  else if (!session.taskState && turnStatus === "completed") state = "completed";
+  else if (turnStatus === "paused") state = "paused";
   else if (turnStatus === "failed" || currentRun?.status === "failed") state = "failed";
-  else if (turnStatus === "completed" || currentRun?.status === "completed") state = "completed";
   else state = input.runtimeStatus === "unavailable" ? "unavailable" : "idle";
   return { state, label: labels[state], canStop: ["queued", "running", "waiting_for_approval"].includes(state) };
 }

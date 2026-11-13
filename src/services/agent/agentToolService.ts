@@ -1,3 +1,4 @@
+import { resolveCareerAgentContext } from "@/agent/runtime/careerContextBindingResolver";
 import { createPreciseProposal } from "@/domain/resumeEditing/preciseResumeEdit";
 import { PreciseSelectionSchema, assertPreciseOwnership, preciseReference, canonicalJson } from "@/domain/resumeEditing/preciseResumeContract";
 import { createStructuredProposal, CorrectionSourceSchema } from "@/domain/resumeEditing/structuredResumeOperation";
@@ -129,7 +130,9 @@ export class BrowserAgentToolService implements AgentToolServices {
     const session = await this.repository.getAgentSession(input.sessionId);
     const slot = session?.taskState?.knownSlots.preciseResumeEdit as { selection?: unknown; proposal?: unknown } | undefined;
     const selection = PreciseSelectionSchema.parse(slot?.selection);
-    if (!session || session.id !== selection.sessionId || session.activeProfileId !== selection.profileId
+    if (!session || session.id !== selection.sessionId || session.taskState?.selectedEntities.profileId !== selection.profileId
+      || session.taskState.selectedEntities.resumeId !== selection.branchId
+      || session.taskState.selectedEntities.revisionId !== selection.baseRevisionId
       || session.taskState?.workflowId !== "precise_resume_edit" || slot?.proposal
       || session.activeTurn?.id !== input.turnId) throw new Error("resume_precise_selection_required");
     const branch = await this.repository.getAvailableResumeBranch(selection.branchId);
@@ -1204,21 +1207,33 @@ export class BrowserAgentToolService implements AgentToolServices {
   }
 
   async prepareAvailableRuntimeContext(session: AgentSession, persistScope = true) {
-    const access = await this.repository.prepareAgentAccessScope(session.id, session.activeProfileId, persistScope);
     const selected = session.taskState?.selectedEntities;
-    const jobId = selected?.jobId ?? session.activeJobId;
-    const resumeIds = [selected?.resumeId, selected?.sourceResumeId, selected?.resultResumeId, session.activeResumeId].filter((id): id is string => !!id);
-    const invalidJob = !!jobId && !await this.repository.getAvailableJobDescription(jobId);
+    const profileId = selected ? selected.profileId : session.activeProfileId;
+    const jobId = selected ? selected.jobId : session.activeJobId;
+    const resumeIds = selected
+      ? [selected.resumeId, selected.sourceResumeId, selected.resultResumeId].filter((id): id is string => !!id)
+      : [session.activeResumeId].filter((id): id is string => !!id);
+    const access = await this.repository.prepareAgentAccessScope(session.id, profileId, persistScope);
+    const canonical = selected ? await resolveCareerAgentContext(session, this.repository) : undefined;
+    const invalidProfile = Boolean(selected?.profileId && !canonical?.profileId);
+    const invalidJob = selected ? Boolean(jobId && !canonical?.jobId)
+      : Boolean(jobId && !await this.repository.getAvailableJobDescription(jobId));
     const resumeAvailability = await Promise.all(resumeIds.map(id => this.repository.getAvailableResumeBranch(id)));
-    const invalidResume = resumeAvailability.some(branch => !branch);
-    const profile = session.activeProfileId ? await this.repository.getAvailableProfile(session.activeProfileId) : undefined;
-    const profileChanged = !!profile && session.profileRevision !== undefined && session.profileRevision !== profile.version;
-    const resetContext = access.resetContext || (!access.initialized && access.hasRevocations && !!session.hermesRun) || invalidJob || invalidResume || profileChanged;
+    const invalidResume = resumeAvailability.some(branch => !branch || Boolean(profileId && branch.profileId !== profileId))
+      || Boolean(selected?.resumeId && !canonical?.resumeBranchId);
+    const profile = profileId && !invalidProfile ? await this.repository.getAvailableProfile(profileId) : undefined;
+    const profileChanged = !!profile && session.profileRevision !== undefined
+      && (!selected || session.activeProfileId === profileId) && session.profileRevision !== profile.version;
+    const resetContext = access.resetContext || (!access.initialized && access.hasRevocations && !!session.hermesRun)
+      || invalidProfile || invalidJob || invalidResume || profileChanged;
     const current = resetContext ? {
       ...session, taskState: undefined, workflowState: undefined, activeJobId: undefined, activeResumeId: undefined,
       pendingConfirmation: undefined, pendingToolCall: undefined, artifactRefs: [],
       conversationSummary: "", conversationSummaryBranchId: undefined,
-      ...(profile ? { profileRevision: profile.version, profileVersionNumber: profile.profileVersionNumber } : {})
+      ...(profile ? { activeProfileId: profile.id, profileRevision: profile.version, profileVersionNumber: profile.profileVersionNumber } : { activeProfileId: undefined })
+    } : selected ? {
+      ...session, activeProfileId: canonical?.profileId, activeJobId: canonical?.jobId, activeResumeId: canonical?.resumeBranchId,
+      ...(profile && canonical?.profileId ? { personId: profile.personId, profileRevision: profile.version, profileVersionNumber: profile.profileVersionNumber } : {})
     } : session;
     return { session: current, resetContext,
       suppressConversationHistory: resetContext || access.hasRevocations
@@ -1259,10 +1274,15 @@ export class BrowserAgentToolService implements AgentToolServices {
       const allowed = [];
       for (const row of data.sessions as Array<{ id: string }>) {
         const stored = await this.repository.getAgentSession(row.id);
-        if (!stored?.activeProfileId || (binding && stored.activeProfileId !== binding.profileId)) continue;
-        const profile = await this.repository.getAvailableProfile(stored.activeProfileId);
-        if (!profile || stored.profileRevision !== profile.version) continue;
-        const jobId = stored.taskState?.selectedEntities.jobId ?? stored.activeJobId;
+        if (!stored) continue;
+        const profileId = stored.taskState ? stored.taskState.selectedEntities.profileId : stored.activeProfileId;
+        if (!profileId || (binding && profileId !== binding.profileId)) continue;
+        const profile = await this.repository.getAvailableProfile(profileId);
+        if (!profile || (stored.personId && stored.personId !== profile.personId)) continue;
+        const taskVersion = stored.taskState?.selectedEntities.profileVersion;
+        if (typeof taskVersion === "number" && taskVersion !== profile.version) continue;
+        if (stored.activeProfileId === profileId && stored.profileRevision !== profile.version) continue;
+        const jobId = stored.taskState ? stored.taskState.selectedEntities.jobId : stored.activeJobId;
         if (jobId && !await this.repository.getAvailableJobDescription(jobId)) continue;
         allowed.push(row);
       }
@@ -1620,7 +1640,8 @@ export class BrowserAgentToolService implements AgentToolServices {
   private async getAvailableAgentSessionSnapshot(sessionId: string) {
     const stored = await this.repository.getAgentSession(sessionId);
     if (!stored) throw toolError("agent_session_not_found", "Agent session no longer exists.");
-    if (stored.activeProfileId && !await this.repository.getAvailableProfile(stored.activeProfileId)) throw toolError("entity_not_available", "该会话所属人物或资料版本已不可用。");
+    const selectedProfileId = stored.taskState ? stored.taskState.selectedEntities.profileId : stored.activeProfileId;
+    if (selectedProfileId && !await this.repository.getAvailableProfile(selectedProfileId)) throw toolError("entity_not_available", "该会话所属人物或资料版本已不可用。");
     const access = await this.prepareAvailableRuntimeContext(stored, false);
     return access.resetContext ? { ...access.session, messages: [] } : access.session;
   }
@@ -1722,11 +1743,13 @@ export class BrowserAgentToolService implements AgentToolServices {
     const context = await this.repository.getActiveCareerContext();
     const sessions = [];
     for (const candidate of await this.repository.listAgentSessions(100)) {
-      if (!context || candidate.activeProfileId !== context.profileId) continue;
-      const profile = await this.repository.getAvailableProfile(candidate.activeProfileId);
-      if (!profile || candidate.profileRevision !== profile.version) continue;
-      const jobId = candidate.taskState?.selectedEntities.jobId ?? candidate.activeJobId;
-      if (jobId && !await this.repository.getAvailableJobDescription(jobId)) continue;
+      const canonical = candidate.taskState ? await resolveCareerAgentContext(candidate, this.repository) : undefined;
+      const profileId = candidate.taskState ? canonical?.profileId : candidate.activeProfileId;
+      if (!context || !profileId || profileId !== context.profileId) continue;
+      const profile = await this.repository.getAvailableProfile(profileId);
+      if (!profile || (candidate.activeProfileId === profileId && candidate.profileRevision !== profile.version)) continue;
+      const jobId = candidate.taskState ? candidate.taskState.selectedEntities.jobId : candidate.activeJobId;
+      if (candidate.taskState ? Boolean(jobId && !canonical?.jobId) : Boolean(jobId && !await this.repository.getAvailableJobDescription(jobId))) continue;
       sessions.push(candidate);
     }
     return {

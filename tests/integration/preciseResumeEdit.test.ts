@@ -51,13 +51,13 @@ async function setup(section: "project" | "work" | "internship" = "project", fie
   await repo.saveResumeBranch(other.branch); await db.resumeRevisions.put(other.firstRevision);
   const item = branch.structuredContentItems!.find(i => i.data.sectionType === section)!;
   const persistence = new AgentSessionStore(repo);
-  let session = await persistence.save({ ...AgentRuntime.createConversationSession(), personId: "person-precise", activeProfileId: profile.id, profileVersionNumber: 1, profileRevision: profile.version,
+  let session = await persistence.save({ ...AgentRuntime.createConversationSession(), personId: profile.personId, activeProfileId: profile.id, profileVersionNumber: 1, profileRevision: profile.version,
     activeTurn: { id: "turn-precise", sessionId: "placeholder", status: "running", startedAt: now } });
   session.activeTurn!.sessionId = session.id;
   const selection = { sessionId: session.id, taskId: "task-precise", profileId: profile.id, branchId: branch.id,
     baseRevisionId: branch.currentRevisionId!, sectionType: section, itemId: item.id, field, bulletIndex: field === "highlights" ? 0 : null };
   const proposal = await createPreciseProposal({ branch, profile, selection, modelOutput: { proposedValue: after }, turnId: "turn-precise", operationId: "operation-precise" });
-  session.taskState = AgentTaskStateSchema.parse({ rootGoal: "precise_resume_edit", activeGoal: "precise_resume_edit", workflowId: "precise_resume_edit", stage: "propose_precise_edit", knownSlots: { preciseResumeEdit: { selection } }, updatedAt: now });
+  session.taskState = AgentTaskStateSchema.parse({ rootGoal: "precise_resume_edit", activeGoal: "precise_resume_edit", workflowId: "precise_resume_edit", stage: "propose_precise_edit", selectedEntities: { profileId: profile.id, profileVersion: profile.version, resumeId: branch.id, resumeRevisionId: branch.currentRevisionId!, revisionId: branch.currentRevisionId! }, knownSlots: { preciseResumeEdit: { selection } }, updatedAt: now });
   session = projectPreciseProposal(session, proposal);
   session.pendingConfirmation!.status = "confirmed";
   session = await persistence.save(session);
@@ -222,6 +222,17 @@ it.each(["reject", "cancel"] as const)("persists %s without resurrecting an acti
   expect(restored.pendingConfirmation).toBeUndefined(); expect(restored.taskState?.completionStatus).toBe("cancelled");
   await expect(f.repo.applyPreciseResumeEdit(f.proposal)).rejects.toThrow(); expect(await db.resumeRevisions.count()).toBe(count);
 });
+it("selects the TaskState Profile even when the compatibility alias is stale", async () => {
+  const f = await hostFixture();
+  let session = (await f.persistence.get(f.session.id))!;
+  session.pendingConfirmation = undefined; session.pendingToolCall = undefined; session.activeTurn = undefined;
+  session.activeProfileId = "stale-profile"; session.updatedAt = new Date().toISOString();
+  session = await f.persistence.save(session);
+  await f.host.adoptDurably(session);
+  const selected = await f.host.selectPreciseResumeEdit(f.proposal.selection);
+  expect(selected.activeProfileId).toBe(f.profile.id);
+  expect(selected.taskState?.selectedEntities).toMatchObject({ profileId: f.profile.id, resumeId: f.branch.id, revisionId: f.branch.currentRevisionId });
+});
 it("uses UI selection through real Facade/Gateway/Host then concurrent confirm", async () => {
   const f = await hostFixture();
   let session = (await f.persistence.get(f.session.id))!;
@@ -294,6 +305,8 @@ it.each(["missing", "index", "historical", "general-job", "job-mismatch", "evide
     let session = (await f.persistence.get(f.session.id))!;
     session.pendingConfirmation = undefined; session.pendingToolCall = undefined;
     session.taskState!.knownSlots.preciseResumeEdit = { selection: changed.selection };
+    session.taskState!.selectedEntities.revisionId = changed.selection.baseRevisionId;
+    session.taskState!.selectedEntities.resumeRevisionId = changed.selection.baseRevisionId;
     session = projectPreciseProposal(session, changed); session.pendingConfirmation!.status = "confirmed";
     await f.persistence.save(session);
     await expect(f.repo.applyPreciseResumeEdit(changed)).rejects.toThrow(/stale|purpose_mismatch|evidence_mismatch/);

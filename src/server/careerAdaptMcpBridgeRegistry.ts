@@ -58,6 +58,8 @@ type PendingCall = {
   resolve: (result: CareerToolResult) => void;
 };
 
+type ExecutionOwner = { bridgeId: string; token: string; sessionId: string; logicalTurnId: string };
+
 // A long Career tool can legitimately occupy the browser adapter while the
 // page is rendering its progress shell. Heartbeats are still sent every 5s,
 // but a short scheduling hiccup must not invalidate an otherwise recoverable
@@ -69,6 +71,7 @@ const registryGlobal = globalThis as typeof globalThis & {
     bridges: Map<string, BridgeRecord>;
     pendingCalls: Map<string, PendingCall>;
     orphanedPendingCalls: PendingCall[];
+    executionOwner?: ExecutionOwner;
   };
 };
 const sharedRegistry = registryGlobal.__careerAdaptMcpBridgeRegistry ??= {
@@ -95,14 +98,6 @@ export function registerCareerAdaptMcpBridge(
   initialBinding?: unknown,
   initialTurnContext?: unknown
 ) {
-  // A page navigation can briefly leave the previous browser adapter alive
-  // while the replacement registers. Do not invalidate that adapter here:
-  // its next poll would see a synthetic 404 and immediately register again,
-  // causing the old and new pages to replace one another indefinitely. The
-  // newest bridge becomes active; the previous bridge is kept until its
-  // owner explicitly stops or its heartbeat expires.
-  const current = activeBridge();
-  if (current) orphanPendingCalls(current.id);
   const bridge: BridgeRecord = {
     id: `careeradapt-bridge-${nanoid(12)}`,
     token: `careeradapt-token-${nanoid(24)}`,
@@ -110,13 +105,17 @@ export function registerCareerAdaptMcpBridge(
     careerSessionBinding: initialBinding === undefined || initialBinding === null
       ? undefined
       : CareerSessionBindingSchema.parse(initialBinding),
-    ...(initialTurnContext ? { turnContext: sanitizeTurnContext(initialTurnContext) } : {}),
     queue: [],
     inflight: new Map(),
     lastHeartbeatAt: Date.now()
   };
   bridges.set(bridge.id, bridge);
-  requeueOrphanedCalls(bridge);
+  try {
+    if (initialTurnContext) updateTurnContext(bridge, sanitizeTurnContext(initialTurnContext));
+  } catch (error) {
+    bridges.delete(bridge.id);
+    throw error;
+  }
   return {
     bridgeId: bridge.id,
     token: bridge.token,
@@ -128,7 +127,7 @@ export function disconnectCareerAdaptMcpBridge(bridgeId: string, token?: string)
   const bridge = bridges.get(bridgeId);
   if (!bridge || (token && bridge.token !== token)) return false;
   bridges.delete(bridgeId);
-  orphanPendingCalls(bridgeId);
+  failPendingCalls(bridgeId);
   return true;
 }
 
@@ -151,18 +150,24 @@ export function setCareerAdaptMcpBridgeBinding(
   turnContext?: unknown
 ) {
   const bridge = requireBridge(bridgeId, token);
+  if (turnContext === null) updateTurnContext(bridge, undefined);
+  else if (turnContext !== undefined) updateTurnContext(bridge, sanitizeTurnContext(turnContext));
   bridge.careerSessionBinding = value === undefined || value === null
     ? undefined
     : CareerSessionBindingSchema.parse(value);
-  if (turnContext === null) bridge.turnContext = undefined;
-  else if (turnContext !== undefined) bridge.turnContext = sanitizeTurnContext(turnContext);
   bridge.lastHeartbeatAt = Date.now();
   return statusCareerAdaptMcpBridge();
 }
 
 export function setCareerAdaptMcpBridgeTurnContext(bridgeId: string, token: string, value?: unknown) {
+  const owner = sharedRegistry.executionOwner;
+  if ((value === undefined || value === null) && !bridges.has(bridgeId)
+    && owner?.bridgeId === bridgeId && owner.token === token) {
+    sharedRegistry.executionOwner = undefined;
+    return statusCareerAdaptMcpBridge();
+  }
   const bridge = requireBridge(bridgeId, token);
-  bridge.turnContext = value === undefined || value === null ? undefined : sanitizeTurnContext(value);
+  updateTurnContext(bridge, value === undefined || value === null ? undefined : sanitizeTurnContext(value));
   bridge.lastHeartbeatAt = Date.now();
   return statusCareerAdaptMcpBridge();
 }
@@ -233,8 +238,7 @@ export function createCareerAdaptMcpBridgeGateway(surface: CareerAdaptMcpSurface
       return contractsForSurface(bridge.contracts, surface);
     },
     execute: (_name: string, _input: unknown, context: CareerToolExecutionContext = {}) => {
-      const bridge = activeBridge();
-      if (!bridge) throw new CareerAdaptMcpUnavailableError();
+      const bridge = routingBridge(context);
       if (!contractsForSurface(bridge.contracts, surface).some((contract) => contract.name === _name)) {
         return Promise.resolve(failedResult({
           id: `mcp-request-${nanoid(16)}`,
@@ -248,7 +252,7 @@ export function createCareerAdaptMcpBridgeGateway(surface: CareerAdaptMcpSurface
           expiresAt: Date.now()
         }, "career_tool_not_exposed", "当前 Hermes 生产工具面不暴露该 Career 原子工具。"));
       }
-      return enqueueCall(_name, _input, context);
+      return enqueueCall(bridge, _name, _input, context);
     }
   };
 }
@@ -259,9 +263,7 @@ function contractsForSurface(contracts: CareerToolContract[], surface: CareerAda
   return contracts.filter((contract) => allowed.has(contract.name));
 }
 
-function enqueueCall(name: string, input: unknown, context: CareerToolExecutionContext): Promise<CareerToolResult> {
-  const bridge = activeBridge();
-  if (!bridge) throw new CareerAdaptMcpUnavailableError();
+function enqueueCall(bridge: BridgeRecord, name: string, input: unknown, context: CareerToolExecutionContext): Promise<CareerToolResult> {
   const operationId = context.operationId ?? `mcp-bridge-${nanoid(16)}`;
   const logicalTurnId = context.logicalTurnId ?? bridge.turnContext?.logicalTurnId;
   const sourceUserMessageId = context.sourceUserMessageId ?? bridge.turnContext?.sourceUserMessageId;
@@ -321,30 +323,45 @@ function sanitizeTurnContext(value: unknown): CareerAdaptMcpBridgeTurnContext {
   };
 }
 
-function requeueOrphanedCalls(bridge: BridgeRecord) {
-  for (const pending of orphanedPendingCalls.splice(0)) {
-    if (pendingCalls.get(pending.request.id) !== pending) continue;
-    pending.bridgeId = bridge.id;
-    pending.request.createdAt = Date.now();
-    bridge.queue.push(pending.request);
+function updateTurnContext(bridge: BridgeRecord, context: CareerAdaptMcpBridgeTurnContext | undefined) {
+  const owner = sharedRegistry.executionOwner;
+  if (!context) {
+    bridge.turnContext = undefined;
+    if (owner?.bridgeId === bridge.id) sharedRegistry.executionOwner = undefined;
+    return;
   }
+  if (owner && (owner.bridgeId !== bridge.id || owner.sessionId !== context.sessionId || owner.logicalTurnId !== context.logicalTurnId)) {
+    throw new CareerAdaptMcpUnavailableError("另一个工作区轮次仍持有 CareerAdapt 桥接，请等待或停止该轮次。");
+  }
+  sharedRegistry.executionOwner = { bridgeId: bridge.id, token: bridge.token, sessionId: context.sessionId, logicalTurnId: context.logicalTurnId };
+  bridge.turnContext = context;
 }
 
 function activeBridge() {
   pruneExpiredBridges();
-  const bridge = [...bridges.values()].at(-1);
-  if (!bridge) return undefined;
-  return bridge;
+  const owner = sharedRegistry.executionOwner;
+  return owner ? bridges.get(owner.bridgeId) : bridges.values().next().value;
 }
 
-function orphanPendingCalls(bridgeId: string) {
+function routingBridge(context: CareerToolExecutionContext) {
+  pruneExpiredBridges();
+  const owner = sharedRegistry.executionOwner;
+  if (owner) {
+    const bridge = bridges.get(owner.bridgeId);
+    if (!bridge || (context.logicalTurnId && context.logicalTurnId !== owner.logicalTurnId)
+      || (context.agentSessionId && context.agentSessionId !== owner.sessionId)) throw new CareerAdaptMcpUnavailableError();
+    return bridge;
+  }
+  if (bridges.size !== 1 || context.logicalTurnId || context.agentSessionId) throw new CareerAdaptMcpUnavailableError();
+  return bridges.values().next().value!;
+}
+
+function failPendingCalls(bridgeId: string) {
   for (const [requestId, pending] of pendingCalls) {
     if (pending.bridgeId !== bridgeId) continue;
-    pending.bridgeId = "orphaned";
-    pending.request.createdAt = Date.now();
-    bridges.get(bridgeId)?.inflight.delete(requestId);
-    if (!orphanedPendingCalls.includes(pending)) orphanedPendingCalls.push(pending);
-    pendingCalls.set(requestId, pending);
+    if (pending.timer) clearTimeout(pending.timer);
+    pendingCalls.delete(requestId);
+    pending.resolve(failedResult(pending.request, "mcp_bridge_unavailable", "工作区连接已断开，请重新连接后重试。", "timeout"));
   }
 }
 
@@ -358,7 +375,7 @@ function pruneExpiredBridges() {
 function requireBridge(bridgeId: string, token: string) {
   const bridge = bridges.get(bridgeId);
   if (!bridge || bridge.token !== token || Date.now() - bridge.lastHeartbeatAt > BRIDGE_TTL_MS) {
-    if (bridge && Date.now() - bridge.lastHeartbeatAt > BRIDGE_TTL_MS) bridges.delete(bridgeId);
+    if (bridge && Date.now() - bridge.lastHeartbeatAt > BRIDGE_TTL_MS) disconnectCareerAdaptMcpBridge(bridgeId);
     throw new CareerAdaptMcpUnavailableError("CareerAdapt MCP 桥接会话已失效。");
   }
   return bridge;

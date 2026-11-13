@@ -165,6 +165,30 @@ it("revokes a deleted target from subsequent runtime checkpoints without deletin
   expect(after.session.artifactRefs).toEqual([]);
   expect(after.session.messages).toEqual(session.messages);
 });
+it("projects validated TaskState selections at the runtime boundary instead of stale active aliases", async () => {
+  const f = await fixture();
+  const session = { ...AgentRuntime.createConversationSession(), personId: f.profile.personId,
+    activeProfileId: "stale-profile", activeJobId: "stale-job", activeResumeId: "stale-resume",
+    taskState: AgentTaskStateSchema.parse({ rootGoal: "analyze_job_fit", workflowId: "analyze_job_fit", stage: "analyze_fit",
+      selectedEntities: { profileId: f.profile.id, profileVersion: f.profile.version, jobId: f.job.id },
+      knownSlots: {}, updatedAt: new Date().toISOString() }) };
+  const access = await f.service.prepareAvailableRuntimeContext(session);
+  expect(access.resetContext).toBe(false);
+  expect(access.session).toMatchObject({ activeProfileId: f.profile.id, activeJobId: f.job.id, activeResumeId: undefined });
+  expect(access.session.taskState?.selectedEntities).toMatchObject({ profileId: f.profile.id, jobId: f.job.id });
+});
+it("searches sessions by canonical TaskState instead of stale profile and job aliases", async () => {
+  const f = await fixture();
+  await f.repository.setActiveCareerContext({ personId: f.profile.personId!, profileId: f.profile.id });
+  const session = { ...AgentRuntime.createConversationSession("unique-canonical-session"), personId: f.profile.personId,
+    activeProfileId: "stale-profile", activeJobId: "stale-job", profileRevision: 99,
+    taskState: AgentTaskStateSchema.parse({ rootGoal: "analyze_job_fit", workflowId: "analyze_job_fit", stage: "analyze_fit",
+      selectedEntities: { profileId: f.profile.id, profileVersion: f.profile.version, jobId: f.job.id },
+      knownSlots: {}, updatedAt: new Date().toISOString() }) };
+  await f.repository.saveAgentSession(session);
+  const results = await f.service.searchAgentSessions({ query: "unique-canonical-session" });
+  expect(results.sessions.map(row => row.id)).toContain(session.id);
+});
 it("scope rotation isolates profile versions and deleted fields even when the Job is not selected", async () => {
   const f = await fixture();
   const session = { ...AgentRuntime.createConversationSession(), activeProfileId: f.profile.id, profileRevision: f.profile.version };

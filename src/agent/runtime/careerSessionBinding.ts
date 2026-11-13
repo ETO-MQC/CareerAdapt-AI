@@ -22,6 +22,7 @@ type SessionBindingSource = {
   id?: string;
   personId?: string;
   activeProfileId?: string;
+  taskState?: { selectedEntities: { profileId?: string; profileVersion?: string | number } };
   profileVersionNumber?: number;
   profileRevision?: number;
 };
@@ -48,12 +49,17 @@ export function resolveCareerSessionBinding(input: {
   const values = {
     agentSessionId: session?.id ?? input.pageContext?.agentSessionId,
     personId: session?.personId,
-    profileId: session?.activeProfileId,
+    profileId: session?.taskState ? session.taskState.selectedEntities.profileId : session?.activeProfileId,
     profileVersionNumber: session?.profileVersionNumber,
     profileRevision: session?.profileRevision
   };
 
   if (session) {
+    // Version metadata belongs to the legacy profile alias. It cannot be
+    // reused for a different task selection without a fresh Repository read.
+    if (session.taskState && session.activeProfileId !== values.profileId) return undefined;
+    const taskRevision = session.taskState?.selectedEntities.profileVersion;
+    if (typeof taskRevision === "number" && taskRevision !== values.profileRevision) return undefined;
     assertOptionalContextMatch(values, input.pageContext);
   } else {
     values.personId = input.pageContext?.personId;

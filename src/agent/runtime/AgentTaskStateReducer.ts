@@ -97,7 +97,8 @@ export class AgentTaskStateReducer {
       requiredSlots: [],
       knownSlots,
       missingSlots: [],
-      selectedEntities: {
+      selectedEntities: session.taskState ? structuredClone(session.taskState.selectedEntities) : {
+        // Only sessions predating TaskState migrate their compatibility aliases.
         profileId: session.activeProfileId,
         resumeId: session.activeResumeId,
         ...(tailoringWorkflow && session.activeResumeId ? { sourceResumeId: session.activeResumeId } : {}),
