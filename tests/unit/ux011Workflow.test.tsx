@@ -2,6 +2,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { AgentConversationTimeline } from "@/components/agent/AgentConversation";
 import { AgentJobTarget } from "@/components/agent/AgentJobTarget";
+import { AgentArtifactDrawer } from "@/components/agent/artifacts/AgentArtifactDrawer";
+import { AgentArtifactContent } from "@/components/agent/artifacts/AgentArtifactContent";
 import { ProfileIntakeReviewProjectionSchema } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
 import { AgentTaskStateSchema } from "@/agent/contracts/agentSession";
 import { classifyTurnIntent } from "@/agent/runtime/AgentTurnIntent";
@@ -48,6 +50,35 @@ it("binds an analyze-only JD snapshot to the Host target display and rejects a s
   expect(screen.getAllByText(/Python 或 R/)[0]).toBeInTheDocument();
   rerender(<AgentJobTarget task={{ ...task, selectedEntities: { targetSnapshotId: "another-target" } }} />);
   expect(screen.queryByRole("region", { name: "当前目标岗位" })).toBeNull();
+});
+
+it("shows a compact target in the conversation and the full target in the drawer", async () => {
+  const rawText = "公司：匿名公司\n岗位：数据分析师\n任职要求：必须掌握 Python 和 SQL，并能够完成数据分析工作。";
+  const analysis = analyzeJobDescriptionV4({ rawText });
+  const call = vi.fn(async () => ({ ok: true, data: { graph: analysis.graph, candidateTitle: "数据分析师", candidateCompany: "匿名公司" }, artifacts: [], receipt: { operationId: "parse", toolName: "career.job.parse", idempotencyKey: "parse", status: "completed" as const, completedAt: "2026-11-05T00:00:00.000Z" } }));
+  const result = await executeCareerWorkflowFacade("career.workflow.job_intake", { rawText, persistence: "analyze_only" }, {}, "ux-compact", call);
+  const target = result.data.workflowCheckpoint.targetSnapshot as { id: string };
+  const task = AgentTaskStateSchema.parse({ rootGoal: "ingest_job", workflowId: "job_ingestion", stage: "completed", selectedEntities: { targetSnapshotId: target.id }, knownSlots: { targetSnapshot: target }, updatedAt: "2026-11-05T00:00:00.000Z" });
+  const open = vi.fn();
+  const { unmount } = render(<AgentConversationTimeline messages={[]} tailoringTaskState={task} onOpenArtifacts={open} />);
+  expect(screen.queryByText("查看原始岗位描述")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "查看岗位分析" }));
+  expect(open).toHaveBeenCalledOnce();
+  unmount();
+  render(<AgentArtifactDrawer artifacts={[]} state="split" taskState={task} workflowState={{ step: "select_resume", busy: false, diffs: [], confirmedRequirementIds: [] }} onStateChange={vi.fn()} />);
+  expect(screen.getByRole("complementary", { name: "任务产物" })).toBeVisible();
+  expect(screen.getByText("查看原始岗位描述")).toBeInTheDocument();
+});
+
+it("shows the fit evidence matrix inside the artifact panel", () => {
+  render(<AgentArtifactContent state={{ step: "completed", busy: false, diffs: [], confirmedRequirementIds: [], fitAnalysis: {
+    analysis: { summary: "已分析岗位要求。", candidateEvidenceMatrix: { rows: [
+      { requirementId: "r1", normalizedRequirement: "熟悉 Python", evidenceStatus: "direct", rationale: "确认材料提供了证据。" }
+    ] } }, dependencies: { jobId: "job" }
+  } }} />);
+  expect(screen.getByText("已分析岗位要求。")).toBeVisible();
+  expect(screen.getByRole("list", { name: "岗位要求与证据" })).toHaveTextContent("熟悉 Python");
+  expect(screen.getByText("确认材料提供了证据。")).toBeVisible();
 });
 
 it("keeps identity metadata out of requirements without dropping unfamiliar sections", () => {

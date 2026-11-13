@@ -103,3 +103,10 @@ scripts/g7b5-ui-audit.mjs
 scripts/p36-universal-import-audit.mjs
 scripts/p36-parser-benchmark.ts
 新重构方案/
+
+# Playwright test artifacts
+/test-results/
+/playwright-report/
+/playwright/.cache/
+*.trace
+*.zip

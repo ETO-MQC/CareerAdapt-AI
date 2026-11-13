@@ -31,9 +31,9 @@ describe("COMP-01 run projection", () => {
   it.each(["queued", "waiting_for_approval", "stopping", "cancelled"] as const)("projects Hermes state %s", (state) => {
     expect(presentation("running", state).state).toBe(state);
   });
-  it.each(["running", "completed"] as const)("keeps a workflow waiting for input distinct from the Hermes %s invocation", status => {
-    expect(presentation("waiting_for_user", status)).toEqual({ state: "waiting_for_user", label: "等待你回答", canStop: false });
-    expect(presentation("running", "running")).toEqual({ state: "running", label: "正在处理", canStop: true });
+  it("enables a workflow answer only after the Hermes invocation ends", () => {
+    expect(presentation("waiting_for_user", "completed")).toEqual({ state: "waiting_for_user", label: "等待你回答", canStop: false });
+    expect(presentation("waiting_for_user", "running")).toEqual({ state: "running", label: "正在处理", canStop: true });
   });
   it("keeps stop pending ahead of locally fenced cancellation", () => {
     expect(presentation("paused", "cancelled", true)).toMatchObject({ state: "stopping", label: "正在停止", canStop: false });
@@ -199,10 +199,12 @@ describe("COMP-01 composer", () => {
     fireEvent.click(screen.getByRole("button", { name: "发送消息" }));
     expect(props.onSubmit).toHaveBeenCalledWith({ text: "继续", attachments: [] });
   });
-  it("allows queueing and Stop during a run, then disables Stop while awaiting the result", () => {
+  it("retains the draft and blocks submission during a run while allowing Stop", () => {
     const props = base(); const stop = vi.fn(); const { rerender } = render(<AgentComposer {...props} running draft="下一条" onStop={stop} />);
-    fireEvent.click(screen.getByRole("button", { name: "排队发送消息" }));
-    expect(props.onSubmit).toHaveBeenCalledWith({ text: "下一条", attachments: [] });
+    expect(screen.getByRole("textbox")).toHaveValue("下一条");
+    expect(screen.getByRole("button", { name: "发送消息" })).toBeDisabled();
+    fireEvent.submit(screen.getByRole("textbox").closest("form")!);
+    expect(props.onSubmit).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "停止运行" })); expect(stop).toHaveBeenCalledOnce();
     rerender(<AgentComposer {...props} stopping aiStatus="正在停止" />);
     expect(screen.getByRole("button", { name: "正在停止" })).toBeDisabled();

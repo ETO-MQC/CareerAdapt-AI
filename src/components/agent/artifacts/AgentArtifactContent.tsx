@@ -37,7 +37,9 @@ export function AgentArtifactContent({
   const compositionResumeId = state.resumeId
     ?? (typeof taskState?.selectedEntities?.resumeId === "string" ? taskState.selectedEntities.resumeId : undefined);
   const requirements = Array.isArray(graph.requirements) ? graph.requirements : [];
-  const analysis = asRecord(state.fitAnalysis);
+  const fitResult = asRecord(state.fitAnalysis);
+  const analysis = Object.keys(asRecord(fitResult.analysis)).length ? asRecord(fitResult.analysis) : fitResult;
+  const evidenceRows = arrayOfRecords(asRecord(analysis.candidateEvidenceMatrix).rows);
   const plan = asRecord(asRecord(state.tailoringSession).plan);
   const isTailoringWorkspace = artifact?.kind === "tailoring_workspace";
   const tailoringSession = asRecord(state.tailoringSession);
@@ -524,6 +526,13 @@ const tailoringDiagnostics = readTailoringDiagnostics(taskState?.knownSlots.tail
         <details className="agent-artifact" open>
           <summary>匹配概览</summary>
           <p>{fitSummary(analysis)}</p>
+          {evidenceRows.length ? <ul aria-label="岗位要求与证据">
+            {evidenceRows.map((row, index) => <li key={String(row.requirementId ?? index)}>
+              <strong>{String(row.normalizedRequirement ?? "岗位要求")}</strong>
+              <span> · {row.evidenceStatus === "direct" ? "有直接证据" : row.evidenceStatus === "partial" ? "部分覆盖" : "待核实"}</span>
+              {typeof row.rationale === "string" ? <p>{row.rationale}</p> : null}
+            </li>)}
+          </ul> : null}
           <Link href={state.jobId ? `/jobs?jobId=${encodeURIComponent(state.jobId)}` : "/jobs"}>打开原功能页</Link>
         </details>
       ) : null}
@@ -591,7 +600,7 @@ const tailoringDiagnostics = readTailoringDiagnostics(taskState?.knownSlots.tail
           ) : null}
           {reviewPendingInConversation ? (
             <p className="agent-tailoring-review-handoff" role="status">
-              先在对话区逐项核对；提交后这里会接管全部 {state.diffs.length} 项修改。
+              请先在上方逐项核对；提交后这里会展示全部 {state.diffs.length} 项修改。
             </p>
           ) : null}
           <div className={`agent-diff-list${tailoringReviewReadOnly ? " is-read-only" : ""}`}>
@@ -800,6 +809,7 @@ function formatArtifactDate(value: unknown) {
 }
 
 function fitSummary(analysis: Record<string, unknown>) {
+  if (typeof analysis.summary === "string" && analysis.summary.trim()) return analysis.summary;
   const summary = asRecord(analysis.summary);
   const score = analysis.fitScore ?? summary.fitScore ?? summary.score;
   return typeof score === "number"

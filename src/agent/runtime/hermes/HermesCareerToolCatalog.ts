@@ -41,7 +41,9 @@ export const HERMES_PRODUCTION_TOOL_PROFILE = [
   "career.context.retrieve",
   "career.profile.get",
   "career.resume.list",
-  "career.job.list"
+  "career.resume.get",
+  "career.job.list",
+  "career.job.get"
 ] as const;
 
 export function hermesProductionToolNames() {

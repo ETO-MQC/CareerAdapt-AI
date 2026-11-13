@@ -1314,7 +1314,7 @@ export function AgentWorkspace() {
               </div>
               {snapshot.stalled ? (
                 <div className="agent-stall-watchdog" role="status">
-                  <span>{liveHermesRun ? "正在回复…" : "这一步响应时间较长"}</span>
+                  <span>这一步响应时间较长</span>
                   <div>
                     <button type="button" onClick={() => host.state.continueWaiting()}>继续等待</button>
                     <button type="button" onClick={() => void stopCurrentHermesRun()}>停止任务</button>
@@ -1386,6 +1386,8 @@ export function AgentWorkspace() {
                 businessProgress={projectBusinessWorkflowProgress(session)}
                 activitySession={session}
                  onArtifactAction={dispatchArtifactAction}
+                 onOpenArtifacts={() => updateDrawerState(window.matchMedia("(max-width: 1100px)").matches ? "overlay" : "split")}
+                 hasJobFitArtifact={artifacts.some(artifact => artifact.kind === "job_fit_overview")}
                  onConfirmation={(confirmed) => void (async () => {
                    const next = await host.runUserEvent(
                      { type: "confirmation", confirmed },

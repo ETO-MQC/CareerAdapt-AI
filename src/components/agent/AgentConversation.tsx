@@ -30,7 +30,6 @@ import { createPortal } from "react-dom";
 import { AgentConfirmationCard } from "./AgentConfirmationCard";
 import { AgentMarkdown } from "./AgentMarkdown";
 import { ProfileIntakeCandidateCards } from "./ProfileIntakeCandidateCards";
-import { AgentTailoringInlineDiffs } from "./AgentTailoringInlineDiffs";
 import { AgentJobTarget } from "./AgentJobTarget";
 
 export function AgentConversation({
@@ -48,6 +47,8 @@ export function AgentConversation({
   onConfirmation,
   profileIntakeProjection,
   onArtifactAction,
+  onOpenArtifacts,
+  hasJobFitArtifact,
   tailoringTaskState,
   businessProgress,
   activitySession,
@@ -67,6 +68,8 @@ export function AgentConversation({
   onConfirmation?(confirmed: boolean): void;
   profileIntakeProjection?: ProfileIntakeReviewProjection;
   onArtifactAction?(action: AgentArtifactAction): Promise<unknown> | void;
+  onOpenArtifacts?(): void;
+  hasJobFitArtifact?: boolean;
   tailoringTaskState?: AgentTaskState;
   businessProgress?: BusinessWorkflowProgress;
   activitySession?: Pick<AgentSession, "activeTurn" | "turnCheckpoints" | "hermesRun">;
@@ -228,7 +231,8 @@ export function AgentConversation({
             />
           );
         })}
-        <AgentJobTarget task={tailoringTaskState} />
+        <AgentJobTarget task={tailoringTaskState} compact onOpen={onOpenArtifacts} />
+        {hasJobFitArtifact ? <div className="profile-intake-inline-review"><strong>岗位匹配分析已完成</strong><button type="button" onClick={onOpenArtifacts}>查看匹配分析</button></div> : null}
         {showProfileIntakeCards ? (
           <ProfileIntakeCandidateCards
             key={profileIntakeProjection?.importId}
@@ -236,8 +240,8 @@ export function AgentConversation({
             onAction={onArtifactAction}
           />
         ) : null}
-        {tailoringTaskState ? (
-          <AgentTailoringInlineDiffs taskState={tailoringTaskState} onArtifactAction={onArtifactAction} />
+        {tailoringTaskState?.stage === "preview_changes" ? (
+          <button type="button" onClick={onOpenArtifacts}>查看简历修改</button>
         ) : null}
         {children}
         {visibleMessages.length ? (

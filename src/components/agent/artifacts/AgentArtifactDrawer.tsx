@@ -7,6 +7,9 @@ import type { TailorWorkflowViewState } from "@/agent/workflows/tailorExistingRe
 import type { AgentTaskState } from "@/agent/contracts/agentSession";
 import type { AgentArtifactAction, AgentUiAction } from "@/agent/contracts/agentActions";
 import { AgentArtifactContent } from "./AgentArtifactContent";
+import { AgentJobTarget } from "../AgentJobTarget";
+import { AgentTailoringInlineDiffs } from "../AgentTailoringInlineDiffs";
+import { JobTargetSnapshotSchema } from "@/domain/schemas/jobTarget";
 
 export type AgentArtifactDrawerState = "closed" | "split" | "collapsed" | "overlay";
 
@@ -39,7 +42,10 @@ export function AgentArtifactDrawer({
   const [selectedArtifactId, setSelectedArtifactId] = useState(() => artifacts[0]?.id);
   const drawerRef = useRef<HTMLElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
-  const open = state !== "closed" && state !== "collapsed" && artifacts.length > 0;
+  const target = JobTargetSnapshotSchema.safeParse(taskState?.knownSlots.targetSnapshot);
+  const hasTarget = target.success && target.data.id === taskState?.selectedEntities.targetSnapshotId;
+  const hasDiffReview = taskState?.stage === "preview_changes";
+  const open = state !== "closed" && state !== "collapsed" && (artifacts.length > 0 || hasTarget || hasDiffReview);
   const selectedRecord = artifacts.find((artifact) => artifact.id === selectedArtifactId);
   const workspace = artifacts.find((artifact) => artifact.kind === "tailoring_workspace");
   const selectedArtifact = workspace && selectedRecord && ["job_fit_overview", "tailoring_diff"].includes(selectedRecord.kind)
@@ -83,7 +89,7 @@ export function AgentArtifactDrawer({
     };
   }, [onStateChange, open, state]);
 
-  if (state === "closed" || artifacts.length === 0) return null;
+  if (state === "closed" || (artifacts.length === 0 && !hasTarget && !hasDiffReview)) return null;
   if (state === "collapsed") {
     return (
       <aside className="agent-artifact-drawer is-collapsed" aria-label="已收起的任务产物">
@@ -164,8 +170,10 @@ export function AgentArtifactDrawer({
           ))}
         </div>
         <div className="agent-artifact-drawer-body">
+          <AgentJobTarget task={taskState} />
+          {taskState ? <AgentTailoringInlineDiffs taskState={taskState} onArtifactAction={onArtifactAction} /> : null}
           <AgentArtifactContent artifact={selectedArtifact} state={workflowState} taskState={taskState} onImportAction={onImportAction} onArtifactAction={onArtifactAction} onUiAction={onUiAction} />
-          {workflowState.jobGraph || workflowState.fitAnalysis || workflowState.tailoringSession || workflowState.appliedRevisionId || taskState?.knownSlots.importArtifact || taskState?.knownSlots.intakeArtifact ? null : (
+          {hasTarget || workflowState.jobGraph || workflowState.fitAnalysis || workflowState.tailoringSession || workflowState.appliedRevisionId || taskState?.knownSlots.importArtifact || taskState?.knownSlots.intakeArtifact ? null : (
             <div className="agent-artifact-partial">
               <strong>{selectedArtifact?.title}</strong>
               <p>{selectedArtifact?.summary ?? "产物已创建，正在等待下一步处理。"}</p>

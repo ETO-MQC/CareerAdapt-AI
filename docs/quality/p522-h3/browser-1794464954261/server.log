@@ -1,0 +1,213 @@
+▲ Next.js 16.2.9 (Turbopack)
+- Local:         http://localhost:3198
+- Network:       http://172.29.192.1:3198
+✓ Ready in 761ms
+
+  We detected TypeScript in your project and reconfigured your tsconfig.json file for you.
+  The following suggested values were added to your tsconfig.json. These values can be changed to fit your project's needs:
+
+  	- include was updated to add '.next-p522-1794464954668/types/**/*.ts'
+  	- include was updated to add '.next-p522-1794464954668/dev/types/**/*.ts'
+
+- Experiments (use with caution):
+  ⨯ turbopackFileSystemCacheForDev
+
+ GET /api/agent/mcp 200 in 11ms (next.js: 3ms, application-code: 9ms)
+○ Compiling /h3-fixture ...
+⚠ ./p522-h3-source-1794464954269/src/services/pdf
+Package pdfjs-dist can't be external
+The request pdfjs-dist/build/pdf.worker.mjs matches serverExternalPackages (or the default list).
+The package seems invalid. require() resolves to a EcmaScript module, which would result in an error in Node.js.
+
+
+⚠ ./p522-h3-source-1794464954269/src/services/resumeImport
+Package pdfjs-dist can't be external
+The request pdfjs-dist/build/pdf.worker.mjs matches serverExternalPackages (or the default list).
+The package seems invalid. require() resolves to a EcmaScript module, which would result in an error in Node.js.
+
+
+ GET /h3-fixture 200 in 4.6s (next.js: 4.2s, application-code: 355ms)
+ GET /api/agent/runtime/hermes/control 200 in 141ms (next.js: 131ms, application-code: 10ms)
+ GET /api/agent/runtime/hermes/control 200 in 148ms (next.js: 145ms, application-code: 3ms)
+ POST /api/agent/mcp?bridge=1 200 in 93ms (next.js: 2ms, application-code: 91ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-XX_C8IqYm3HX&token=[REDACTED] 200 in 156ms (next.js: 152ms, application-code: 4ms)
+ GET /api/agent/mcp 200 in 6ms (next.js: 2ms, application-code: 4ms)
+ GET /api/agent/runtime/hermes/health 503 in 598ms (next.js: 290ms, application-code: 308ms)
+⚠ ./p522-h3-source-1794464954269/src/services/pdf
+Package pdfjs-dist can't be external
+The request pdfjs-dist/build/pdf.worker.mjs matches serverExternalPackages (or the default list).
+The package seems invalid. require() resolves to a EcmaScript module, which would result in an error in Node.js.
+
+
+⚠ ./p522-h3-source-1794464954269/src/services/resumeImport
+Package pdfjs-dist can't be external
+The request pdfjs-dist/build/pdf.worker.mjs matches serverExternalPackages (or the default list).
+The package seems invalid. require() resolves to a EcmaScript module, which would result in an error in Node.js.
+
+
+ POST /api/agent/runtime/hermes/control 200 in 1032ms (next.js: 3ms, application-code: 1029ms)
+ GET /ai-workspace 200 in 867ms (next.js: 768ms, application-code: 99ms)
+ GET /api/agent/runtime/hermes/control 200 in 8ms (next.js: 4ms, application-code: 4ms)
+ GET /api/agent/runtime/hermes/control 200 in 10ms (next.js: 4ms, application-code: 6ms)
+ GET /api/agent/runtime/hermes/control 200 in 8ms (next.js: 3ms, application-code: 5ms)
+ GET /api/agent/runtime/hermes/control 200 in 5ms (next.js: 1906µs, application-code: 3ms)
+ POST /api/agent/mcp?bridge=1 200 in 52ms (next.js: 3ms, application-code: 50ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 11ms (next.js: 7ms, application-code: 4ms)
+ GET /api/agent/runtime/hermes/control 200 in 6ms (next.js: 3ms, application-code: 3ms)
+ GET /api/agent/mcp 200 in 6ms (next.js: 3ms, application-code: 3ms)
+ GET /api/agent/runtime/hermes/health 503 in 283ms (next.js: 3ms, application-code: 281ms)
+ GET /api/agent/runtime/hermes/control 200 in 7ms (next.js: 3ms, application-code: 4ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ GET /api/agent/mcp 200 in 5ms (next.js: 3ms, application-code: 3ms)
+ GET /api/agent/runtime/hermes/health 503 in 274ms (next.js: 1856µs, application-code: 272ms)
+ GET /api/agent/runtime/hermes/control 200 in 5ms (next.js: 1855µs, application-code: 3ms)
+ HEAD /api/agent/mcp 200 in 4ms (next.js: 1997µs, application-code: 2ms)
+ GET /api/agent/runtime/hermes/control 200 in 5ms (next.js: 1993µs, application-code: 3ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ GET /api/agent/mcp 200 in 4ms (next.js: 2ms, application-code: 2ms)
+ GET /api/agent/runtime/hermes/health 503 in 274ms (next.js: 3ms, application-code: 272ms)
+ POST /api/agent/mcp 200 in 8ms (next.js: 3ms, application-code: 4ms)
+ GET /api/agent/runtime/hermes/control 200 in 4ms (next.js: 1967µs, application-code: 2ms)
+ POST /api/agent/mcp 202 in 4ms (next.js: 1566µs, application-code: 2ms)
+ POST /api/agent/mcp 200 in 9ms (next.js: 1409µs, application-code: 8ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 5ms (next.js: 1912µs, application-code: 3ms)
+ GET /api/agent/runtime/hermes/control 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ GET /api/agent/runtime/hermes/control 200 in 5ms (next.js: 3ms, application-code: 2ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 11ms (next.js: 6ms, application-code: 5ms)
+ GET /api/agent/runtime/hermes/control 200 in 4ms (next.js: 1698µs, application-code: 2ms)
+ POST /api/agent/mcp?bridge=1 200 in 5ms (next.js: 1853µs, application-code: 3ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 6ms (next.js: 3ms, application-code: 3ms)
+ GET /api/agent/mcp 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ GET /api/agent/runtime/hermes/health 200 in 2.5s (next.js: 3ms, application-code: 2.5s)
+ GET /api/agent/runtime/hermes/control 200 in 6ms (next.js: 3ms, application-code: 3ms)
+ GET /api/agent/runtime/hermes/control 200 in 7ms (next.js: 2ms, application-code: 5ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 4ms (next.js: 1733µs, application-code: 2ms)
+ GET /api/agent/runtime/hermes/control 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 6ms (next.js: 3ms, application-code: 3ms)
+ GET /api/agent/runtime/hermes/control 200 in 6ms (next.js: 3ms, application-code: 3ms)
+ GET /api/agent/runtime/hermes/control 200 in 6ms (next.js: 2ms, application-code: 4ms)
+ GET /api/agent/mcp 200 in 4ms (next.js: 1440µs, application-code: 2ms)
+ GET /api/agent/runtime/hermes/health 200 in 14ms (next.js: 2ms, application-code: 12ms)
+ POST /api/agent/runtime/hermes/control 200 in 8.2s (next.js: 4ms, application-code: 8.2s)
+ GET /api/agent/mcp 200 in 4ms (next.js: 1742µs, application-code: 2ms)
+ GET /api/agent/runtime/hermes/health 200 in 16ms (next.js: 2ms, application-code: 14ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ GET /api/agent/runtime/hermes/control 200 in 6ms (next.js: 3ms, application-code: 3ms)
+⚠ ./p522-h3-source-1794464954269/src/services/pdf
+Package pdfjs-dist can't be external
+The request pdfjs-dist/build/pdf.worker.mjs matches serverExternalPackages (or the default list).
+The package seems invalid. require() resolves to a EcmaScript module, which would result in an error in Node.js.
+
+
+⚠ ./p522-h3-source-1794464954269/src/services/resumeImport
+Package pdfjs-dist can't be external
+The request pdfjs-dist/build/pdf.worker.mjs matches serverExternalPackages (or the default list).
+The package seems invalid. require() resolves to a EcmaScript module, which would result in an error in Node.js.
+
+
+ GET /ai-workspace 200 in 9ms (next.js: 3ms, application-code: 6ms)
+⚠ ./p522-h3-source-1794464954269/src/services/pdf
+Package pdfjs-dist can't be external
+The request pdfjs-dist/build/pdf.worker.mjs matches serverExternalPackages (or the default list).
+The package seems invalid. require() resolves to a EcmaScript module, which would result in an error in Node.js.
+
+
+⚠ ./p522-h3-source-1794464954269/src/services/resumeImport
+Package pdfjs-dist can't be external
+The request pdfjs-dist/build/pdf.worker.mjs matches serverExternalPackages (or the default list).
+The package seems invalid. require() resolves to a EcmaScript module, which would result in an error in Node.js.
+
+
+ GET /ai-workspace 200 in 15ms (next.js: 3ms, application-code: 13ms)
+ POST /api/agent/mcp?bridge=1 200 in 7ms (next.js: 3ms, application-code: 4ms)
+ POST /api/agent/mcp?bridge=1 200 in 5ms (next.js: 1719µs, application-code: 3ms)
+ GET /api/agent/mcp 200 in 4ms (next.js: 1662µs, application-code: 2ms)
+ GET /api/agent/runtime/hermes/health 200 in 15ms (next.js: 1742µs, application-code: 13ms)
+ POST /api/agent/runtime/hermes 200 in 132ms (next.js: 121ms, application-code: 11ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ POST /api/agent/mcp?bridge=1 200 in 7ms (next.js: 3ms, application-code: 3ms)
+ GET /api/agent/runtime/hermes/control 200 in 6ms (next.js: 2ms, application-code: 3ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ GET /api/agent/runtime/hermes/control 200 in 6ms (next.js: 3ms, application-code: 3ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ GET /api/agent/runtime/hermes/control 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ POST /api/agent/mcp?bridge=1 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 4ms (next.js: 1778µs, application-code: 2ms)
+ GET /api/agent/runtime/hermes/control 200 in 5ms (next.js: 2ms, application-code: 2ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 6ms (next.js: 3ms, application-code: 3ms)
+ GET /api/agent/runtime/hermes/control 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ POST /api/agent/runtime/hermes 200 in 9.2s (next.js: 1940µs, application-code: 9.2s)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ POST /api/agent/runtime/hermes 200 in 13ms (next.js: 3ms, application-code: 10ms)
+ POST /api/agent/mcp?bridge=1 200 in 6ms (next.js: 3ms, application-code: 3ms)
+ GET /api/agent/runtime/hermes/control 200 in 5ms (next.js: 2ms, application-code: 2ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 6ms (next.js: 2ms, application-code: 4ms)
+ POST /api/agent/mcp?bridge=1 200 in 8ms (next.js: 2ms, application-code: 6ms)
+ POST /api/agent/mcp 200 in 949ms (next.js: 1728µs, application-code: 948ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ POST /api/agent/runtime/hermes 200 in 2.0s (next.js: 2ms, application-code: 2.0s)
+ POST /api/agent/mcp?bridge=1 200 in 8ms (next.js: 3ms, application-code: 4ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 5ms (next.js: 1982µs, application-code: 3ms)
+ POST /api/agent/mcp?bridge=1 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ POST /api/agent/mcp?bridge=1 200 in 6ms (next.js: 2ms, application-code: 4ms)
+ GET /api/agent/mcp 200 in 4ms (next.js: 1953µs, application-code: 2ms)
+ GET /api/agent/runtime/hermes/health 200 in 267ms (next.js: 1673µs, application-code: 266ms)
+ GET /api/agent/runtime/hermes/control 200 in 5ms (next.js: 1783µs, application-code: 3ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 6ms (next.js: 1980µs, application-code: 4ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ POST /api/agent/runtime/hermes 400 in 1961ms (next.js: 1745µs, application-code: 1959ms)
+ POST /api/agent/mcp?bridge=1 200 in 7ms (next.js: 3ms, application-code: 4ms)
+ POST /api/agent/mcp?bridge=1 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ GET /api/agent/runtime/hermes/control 200 in 7ms (next.js: 3ms, application-code: 4ms)
+ POST /api/agent/mcp?bridge=1 200 in 8ms (next.js: 3ms, application-code: 5ms)
+ POST /api/agent/mcp?bridge=1 200 in 8ms (next.js: 3ms, application-code: 5ms)
+ GET /api/agent/mcp 200 in 4ms (next.js: 1421µs, application-code: 2ms)
+ GET /api/agent/runtime/hermes/health 200 in 17ms (next.js: 2ms, application-code: 15ms)
+ POST /api/agent/runtime/hermes 200 in 11ms (next.js: 3ms, application-code: 8ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 5ms (next.js: 1887µs, application-code: 3ms)
+ POST /api/agent/mcp?bridge=1 200 in 6ms (next.js: 2ms, application-code: 4ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 5ms (next.js: 1944µs, application-code: 3ms)
+ GET /api/agent/runtime/hermes/control 200 in 6ms (next.js: 3ms, application-code: 3ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 4ms (next.js: 1783µs, application-code: 2ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ GET /api/agent/runtime/hermes/control 200 in 4ms (next.js: 2ms, application-code: 2ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 6ms (next.js: 3ms, application-code: 3ms)
+ POST /api/agent/runtime/hermes 200 in 4.7s (next.js: 2ms, application-code: 4.7s)
+ POST /api/agent/mcp?bridge=1 200 in 6ms (next.js: 2ms, application-code: 4ms)
+ GET /api/agent/runtime/hermes/control 200 in 5ms (next.js: 2ms, application-code: 2ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 4ms (next.js: 1655µs, application-code: 2ms)
+ POST /api/agent/runtime/hermes 200 in 10ms (next.js: 3ms, application-code: 7ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ GET /api/agent/runtime/hermes/control 200 in 5ms (next.js: 3ms, application-code: 2ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 4ms (next.js: 1339µs, application-code: 3ms)
+ POST /api/agent/mcp?bridge=1 200 in 9ms (next.js: 3ms, application-code: 5ms)
+ POST /api/agent/mcp 200 in 479ms (next.js: 2ms, application-code: 477ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 4ms (next.js: 1596µs, application-code: 2ms)
+ POST /api/agent/runtime/hermes 200 in 12ms (next.js: 3ms, application-code: 9ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 8ms (next.js: 4ms, application-code: 4ms)
+ POST /api/agent/mcp?bridge=1 200 in 8ms (next.js: 3ms, application-code: 5ms)
+ POST /api/agent/mcp 200 in 881ms (next.js: 1864µs, application-code: 879ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 5ms (next.js: 3ms, application-code: 2ms)
+ GET /api/agent/runtime/hermes/control 200 in 4ms (next.js: 1589µs, application-code: 3ms)
+ POST /api/agent/mcp?bridge=1 200 in 12ms (next.js: 6ms, application-code: 6ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 6ms (next.js: 3ms, application-code: 3ms)
+ POST /api/agent/mcp?bridge=1 200 in 9ms (next.js: 3ms, application-code: 6ms)
+ POST /api/agent/mcp 200 in 762ms (next.js: 4ms, application-code: 758ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 7ms (next.js: 3ms, application-code: 4ms)
+ POST /api/agent/runtime/hermes 200 in 9ms (next.js: 3ms, application-code: 6ms)
+ POST /api/agent/runtime/hermes 200 in 7.0s (next.js: 1971µs, application-code: 7.0s)
+ POST /api/agent/mcp?bridge=1 200 in 6ms (next.js: 3ms, application-code: 3ms)
+ POST /api/agent/mcp?bridge=1 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ GET /api/agent/runtime/hermes/control 200 in 7ms (next.js: 3ms, application-code: 4ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 4ms (next.js: 1786µs, application-code: 3ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 6ms (next.js: 3ms, application-code: 3ms)
+ GET /api/agent/runtime/hermes/control 200 in 4ms (next.js: 1782µs, application-code: 3ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 5ms (next.js: 3ms, application-code: 3ms)
+ POST /api/agent/mcp?bridge=1 200 in 6ms (next.js: 3ms, application-code: 3ms)
+ GET /api/agent/mcp?bridge=1&bridgeId=careeradapt-bridge-KX2KWGxEYIpf&token=[REDACTED] 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ GET /api/agent/runtime/hermes/control 200 in 6ms (next.js: 3ms, application-code: 3ms)
+ POST /api/agent/runtime/hermes/control 200 in 2.3s (next.js: 1736µs, application-code: 2.3s)

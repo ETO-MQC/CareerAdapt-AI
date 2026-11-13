@@ -151,6 +151,8 @@ export class AgentTaskStateReducer {
           ...(["compose_resume", "analyze_job_fit"].includes(workflowId) ? {
             jobId: state.selectedEntities.jobId,
             resumeId: state.selectedEntities.resumeId,
+            resumeRevisionId: state.selectedEntities.resumeRevisionId,
+            resumeHash: state.selectedEntities.resumeHash,
             revisionId: state.selectedEntities.revisionId
           } : {})
         },

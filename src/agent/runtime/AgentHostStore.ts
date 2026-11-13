@@ -92,6 +92,7 @@ import { ImportedResumeDraftSchema, type ImportedResumeDraft } from "@/domain/sc
 import { JobTargetSnapshotSchema } from "@/domain/schemas/jobTarget";
 import { jobTargetSnapshotHash } from "@/domain/jobTarget/jobTargetSnapshot";
 import { activeWorkflowInteractionFor, TARGET_REQUIRED_PROMPT } from "./workflowUserInputCheckpoint";
+import { resolveTailoringEntityReference, type TailoringContextCandidate } from "./tailoringContextResolver";
 export { activeWorkflowInteractionFor } from "./workflowUserInputCheckpoint";
 import { createProfileIntakeInterviewPlan } from "@/domain/profileIntake/ProfileIntakeCompleteness";
 import { appendProfileIntakeQuestionAnswer } from "@/domain/profileIntake/ProfileIntakeQuestionAnswer";
@@ -514,14 +515,16 @@ export class AgentHostStore {
   finishTurnOperation(operationId: string, status?: SessionExecutionStatus) {
     const operation = this.executionCoordinator.getOperation(operationId);
     if (!operation) return;
+    const execution = this.executionCoordinator.get(operation.sessionId);
+    if (!execution?.operationId || execution.operationId === operationId) this.clearStallTimer(operation.sessionId);
     const current = this.snapshot.activeSession?.id === operation.sessionId ? this.snapshot.activeSession : undefined;
     const terminalStatus: SessionExecutionStatus = status
       ?? (current?.activeTurn?.status === "failed" || this.snapshot.turnStatus === "failed"
       ? "failed"
       : "completed");
     const finished = this.executionCoordinator.finish(operation.sessionId, terminalStatus, undefined, operationId);
-    if (this.snapshot.activeSessionId === operation.sessionId) {
-      this.patch({ controllerState: this.executionCoordinator.getState(operation.sessionId) });
+    if (this.snapshot.activeSessionId === operation.sessionId && (!execution?.operationId || execution.operationId === operationId)) {
+      this.patch({ controllerState: this.executionCoordinator.getState(operation.sessionId), stalled: false });
     }
     return finished;
   }
@@ -1277,7 +1280,8 @@ export class AgentHostStore {
         turnId: prepared.turnId,
         userMessage: "",
         executionOwner: "deterministic_transition",
-        deterministicTransitionApplied: prepared.applied
+        deterministicTransitionApplied: prepared.applied,
+        deterministicTerminal: prepared.applied && current.taskState?.workflowId === "entity_selection"
       };
     }
     if (input.event.type === "option_selected") {
@@ -1290,7 +1294,8 @@ export class AgentHostStore {
           turnId: prepared.turnId,
           userMessage: "",
           executionOwner: "deterministic_transition",
-          deterministicTransitionApplied: prepared.applied
+          deterministicTransitionApplied: prepared.applied,
+          deterministicTerminal: prepared.applied && current.taskState?.workflowId === "entity_selection"
         };
       }
       if (action.type === "task_decision") {
@@ -1385,15 +1390,33 @@ export class AgentHostStore {
       return projection ? this.applyTailoringTextAnswer(session, text, projection) : undefined;
     }
     if (checkpoint.kind === "resume_choice" || checkpoint.kind === "job_choice") {
-      const option = checkpointOptionForText(checkpoint, text);
+      const candidatesKey = checkpoint.kind === "resume_choice" ? "resumeCandidates" : "jobCandidates";
+      const candidates = Array.isArray(session.taskState?.knownSlots[candidatesKey])
+        ? (session.taskState.knownSlots[candidatesKey] as unknown[]).map(objectValue)
+          .filter((candidate): candidate is Record<string, unknown> & { id: string } => typeof candidate.id === "string") as TailoringContextCandidate[]
+        : [];
+      const resolution = resolveTailoringEntityReference(text, candidates);
+      if (resolution.status === "ambiguous") {
+        let current = supersedeActiveOptionSets(session);
+        current = appendAgentMessage(current, "user", text, { status: "complete" });
+        const messageId = `agent-choice-${crypto.randomUUID()}`;
+        const options = session.taskState ? entityOptions(session.taskState, checkpoint.kind === "job_choice" ? "job" : "resume") : undefined;
+        current = appendAgentMessage(current, "assistant", "有多个候选符合，请选择具体的一项。", {
+          id: messageId, status: "complete", options,
+          optionSet: activeOptionSetForMessage(current, messageId, "agent-options")
+        });
+        const saved = await this.dependencies.persistence.save(current);
+        this.patchSession(saved, { turnStatus: "waiting_for_user" });
+        return { session: saved, event: { type: "text_message", text }, userMessage: "", executionOwner: "deterministic_transition", deterministicTransitionApplied: true, deterministicTerminal: true };
+      }
       const candidateSetRevision = stringValue(
         session.taskState?.knownSlots[checkpoint.kind === "resume_choice" ? "resumeCandidateSetRevision" : "jobCandidateSetRevision"]
       );
-      if (!option || !candidateSetRevision) return undefined;
+      if (resolution.status !== "resolved" || !candidateSetRevision) return undefined;
       const action = {
         type: "select_entity" as const,
         entityType: checkpoint.kind === "resume_choice" ? "resume" as const : "job" as const,
-        entityId: option.value,
+        entityId: resolution.candidate.id,
         candidateSetRevision
       };
       const prepared = await this.applyTypedEntitySelection(session, action, {
@@ -1407,7 +1430,8 @@ export class AgentHostStore {
         turnId: prepared.turnId,
         userMessage: "",
         executionOwner: "deterministic_transition",
-        deterministicTransitionApplied: true
+        deterministicTransitionApplied: true,
+        deterministicTerminal: session.taskState?.workflowId === "entity_selection"
       };
     }
     if (checkpoint.kind === "target_persistence_choice") {
@@ -2271,6 +2295,7 @@ export class AgentHostStore {
     userMessage: string;
     runtimeId: string;
     turnId?: string;
+    operationId?: string;
     signal?: AbortSignal;
     userMessageId?: string;
     assistantMessageId?: string;
@@ -2436,6 +2461,9 @@ export class AgentHostStore {
         assistantMessageId
       };
     }
+    const operation = input.operationId ? this.executionCoordinator.getOperation(input.operationId) : undefined;
+    this.executionCoordinator.begin({ sessionId: saved.id, activeTurnId: turnId, startedAt: now, operationId: input.operationId, controller: operation?.controller });
+    this.markProgress(saved.id);
     this.patchSession(saved, {
       turnStatus: "running",
       activeTurnId: turnId,
@@ -2542,6 +2570,10 @@ export class AgentHostStore {
     if (current.hermesRun?.turnId === event.turnId && ["completed", "failed", "cancelled"].includes(current.hermesRun.status)
       && !knownPendingToolReceipt) return current;
     if (event.eventId && current.activeTurn.projectedHermesEventIds?.includes(event.eventId)) return current;
+    if (event.type === "text_delta" && event.delta
+      || ["tool_call_started", "tool_call_requested", "tool_call_completed", "tool_call_failed", "artifact_updated"].includes(event.type)) {
+      this.markProgress(event.sessionId);
+    }
     let next = current;
     if (event.eventId) {
       next = {
@@ -2725,7 +2757,36 @@ export class AgentHostStore {
             event.toolName ?? "",
             stringValue(contract.sourceToolName)
           );
-          if (next.taskState && !event.toolName?.startsWith("career.workflow.")) {
+          if (sourceToolName === "list_jobs" && !next.activeJobId
+            && !next.taskState?.selectedEntities.jobId && !next.taskState?.selectedEntities.targetSnapshotId
+            && (!next.taskState || ["completed", "failed", "cancelled"].includes(next.taskState.completionStatus))) {
+            const userText = next.messages.findLast((message) => message.role === "user" && message.turnId === event.turnId)?.content ?? "";
+            const jobs = objectValue(result.data).jobs;
+            if (/应聘|申请|匹配|投递|岗位简历/u.test(userText) && Array.isArray(jobs)) {
+              const candidates = jobs.map(objectValue).flatMap((job, index) => {
+                const id = stringValue(job.id);
+                return id ? [{ id, title: stringValue(job.title), company: stringValue(job.company), updatedAt: stringValue(job.updatedAt), order: index + 1 }] : [];
+              });
+              if (candidates.length > 1) {
+                const reducer = new AgentTaskStateReducer();
+                const task = reducer.create(next, "conversation", { workflowId: "entity_selection", step: "choose_job" });
+                next = projectTaskStateIntoSession(next, normalizeAgentTaskState({
+                  ...task,
+                  selectedEntities: { ...task.selectedEntities, ...next.taskState?.selectedEntities },
+                  knownSlots: { ...task.knownSlots, jobCandidates: candidates, jobCandidateSetRevision: stableHashText(JSON.stringify(candidates)) },
+                  completionStatus: "waiting_for_user"
+                }));
+              }
+            }
+          }
+          const detail = objectValue(result.data);
+          const readJobId = stringValue(objectValue(detail.job).id ?? detail.jobId);
+          const readResumeId = stringValue(objectValue(detail.resume).id ?? detail.resumeId);
+          const isOtherEntityRead = sourceToolName === "get_job" && Boolean(next.taskState?.selectedEntities.jobId && readJobId && next.taskState.selectedEntities.jobId !== readJobId)
+            || sourceToolName === "get_resume" && Boolean(next.taskState?.selectedEntities.resumeId && readResumeId && next.taskState.selectedEntities.resumeId !== readResumeId)
+            || sourceToolName === "get_job" && next.taskState?.workflowUserInputCheckpoint?.kind === "job_choice"
+            || sourceToolName === "get_resume" && next.taskState?.workflowUserInputCheckpoint?.kind === "resume_choice";
+          if (next.taskState && !event.toolName?.startsWith("career.workflow.") && !isOtherEntityRead) {
             const observedTask = new AgentTaskStateReducer().reduce(next.taskState, {
               type: "tool_observation",
               toolName: sourceToolName,
@@ -3087,6 +3148,7 @@ export class AgentHostStore {
         isolatedConversationalTurn
       );
       this.clearStreamingCheckpoint();
+      this.clearStallTimer(event.sessionId);
       const saved = await this.dependencies.persistence.save(next);
       this.patchSession(saved, {
          turnStatus: terminalFailed
@@ -3095,6 +3157,7 @@ export class AgentHostStore {
              ? "waiting_for_user"
              : terminalWaiting || saved.pendingConfirmation ? "waiting_for_confirmation" : "completed",
         activeTurnId: event.turnId,
+        stalled: false,
         currentObservation: event.error ?? { runtimeId: "hermes", message: event.message, grounded: !blocked },
          uiAction: event.type === "turn_completed" && !blocked && !terminalWaiting && !terminalFailed ? resumePreviewUiAction(saved) : undefined
       });
@@ -8120,7 +8183,7 @@ export class AgentHostStore {
       revisionId: action.entityType === "resume" ? stringValue(candidate.currentRevisionId) : undefined,
       version: typeof candidate.revision === "number" || typeof candidate.revision === "string" ? candidate.revision : stringValue(candidate.updatedAt)
     });
-    taskState = {
+    taskState = normalizeAgentTaskState({
       ...taskState,
       stage: action.entityType === "job" && taskState.selectedEntities.profileId && taskState.selectedEntities.resumeId
         ? "analyze_fit"
@@ -8129,7 +8192,7 @@ export class AgentHostStore {
           : action.entityType === "resume" ? "choose_job" : taskState.stage,
       completionStatus: "active",
       updatedAt: new Date().toISOString()
-    };
+    });
     const turnId = `agent-turn-${crypto.randomUUID()}`;
     const userMessageId = `agent-user-${crypto.randomUUID()}`;
     const label = action.entityType === "job"
@@ -8150,6 +8213,7 @@ export class AgentHostStore {
     current = projectTaskStateIntoSession(current, taskState);
     current = {
       ...current,
+      ...(action.entityType === "job" ? { activeJobId: action.entityId } : { activeResumeId: action.entityId }),
       activeTurn: {
         ...current.activeTurn,
         id: turnId,
@@ -8165,8 +8229,21 @@ export class AgentHostStore {
         startedAt: taskState.updatedAt
       }
     };
+    const standaloneSelection = session.taskState.workflowId === "entity_selection" && !options.continueAfter;
+    if (standaloneSelection) {
+      const completedAt = new Date().toISOString();
+      current = appendAgentMessage(current, "assistant", `已选择${action.entityType === "job" ? "岗位" : "简历"}：${label}。`, { turnId, status: "complete" });
+      current = {
+        ...current,
+        taskState: { ...taskState, completionStatus: "completed", updatedAt: completedAt },
+        activeTurn: { ...current.activeTurn!, status: "completed", completedAt },
+        messages: current.messages.map(message => message.id === userMessageId ? { ...message, metadata: { ...message.metadata, executionState: "complete" } } : message)
+      };
+      current = projectTaskStateIntoSession(current, current.taskState!);
+      current = completeTurnCheckpoint(current, turnId, completedAt);
+    }
     current = await this.dependencies.persistence.save(current);
-    this.patchSession(current);
+    this.patchSession(current, standaloneSelection ? { turnStatus: "completed", activeTurnId: turnId } : undefined);
     if (!options.continueAfter) return { session: current, turnId, applied: true };
     return { session: current, turnId, applied: true };
   }
@@ -9647,7 +9724,8 @@ function projectActiveTailoringWorkflowInteractionToChat(
   const decisionOptions = interaction.kind === "target_persistence_choice"
     && state.pendingDecision?.type === "job_target_persistence"
     ? taskDecisionOptions(state.pendingDecision)
-    : undefined;
+    : interaction.kind === "job_choice" ? entityOptions(state, "job")
+      : interaction.kind === "resume_choice" ? entityOptions(state, "resume") : undefined;
   const projected = target
     ? withActiveBranchHead({
         ...withPreviousResolved,
@@ -9659,12 +9737,12 @@ function projectActiveTailoringWorkflowInteractionToChat(
               kind: "text" as const,
               type: "text" as const,
               status: "complete" as const,
-              options: interaction.kind === "target_persistence_choice"
+              options: decisionOptions
                 ? decisionOptions
                 : interaction.kind === "confirmation"
                   ? undefined
                   : message.options,
-              optionSet: interaction.kind === "target_persistence_choice"
+              optionSet: decisionOptions
                 ? activeOptionSetForMessage(withPreviousResolved, message.id, "decision")
                 : interaction.kind === "confirmation"
                   ? undefined
@@ -10451,6 +10529,11 @@ function isIsolatedRuntimeTurn(session: AgentSession, turnId: string) {
     message.role === "user" && message.turnId === turnId && message.content.trim()
   );
   if (!user) return false;
+  if (/^(?:好|好的|继续|可以)[。！!\s]*$/u.test(user.content.trim())
+    && (session.taskState?.workflowUserInputCheckpoint
+      || session.taskState?.selectedEntities.jobId
+      || session.taskState?.selectedEntities.targetSnapshotId
+      || session.taskState?.knownSlots.targetSnapshot)) return false;
   const decision = classifyTurnIntent({ text: user.content, taskState: session.taskState });
   return decision.intent === "casual_side_turn" || decision.intent === "reference_followup";
 }
@@ -10867,6 +10950,49 @@ function withTurnCheckpoint(session: AgentSession, turnId: string, userMessageId
   };
 }
 
+function stableCheckpointBeforeEdit(session: AgentSession, messageId: string): AgentTurnCheckpoint | undefined {
+  const messages = activeBranchMessages(session);
+  const boundary = messages.findIndex(message => message.id === messageId);
+  if (boundary < 0) return undefined;
+  const earlier = messages.slice(0, boundary);
+  const prior = session.turnCheckpoints.findLast(checkpoint =>
+    Boolean(checkpoint.completedAt && checkpoint.taskStateAfter?.completionStatus === "completed")
+      && earlier.some(message => message.id === checkpoint.userMessageId && message.role === "user")
+      && earlier.some(message => message.turnId === checkpoint.turnId && message.role === "assistant" && message.status === "complete")
+  );
+  if (!prior?.taskStateAfter) return undefined;
+  const previous = prior.taskStateAfter;
+  const target = JobTargetSnapshotSchema.safeParse(previous.knownSlots.targetSnapshot ?? objectValue(previous.knownSlots.facadeCheckpoint).targetSnapshot);
+  const selected = structuredClone(previous.selectedEntities);
+  const compatibleTarget = target.success && (!target.data.sourceJobId || !selected.jobId || target.data.sourceJobId === selected.jobId);
+  if (compatibleTarget) {
+    selected.targetSnapshotId = target.data.id;
+    if (target.data.sourceJobId) selected.jobId = target.data.sourceJobId;
+  }
+  const stableSlots: Record<string, unknown> = {};
+  if (compatibleTarget) stableSlots.targetSnapshot = target.data;
+  for (const key of ["jobPersistenceVerified", "jobBusinessStatus", "resumeCompositionResult", "fitAnalysis"]) {
+    if (previous.knownSlots[key] !== undefined) stableSlots[key] = structuredClone(previous.knownSlots[key]);
+  }
+  const taskState = normalizeAgentTaskState({ ...previous, selectedEntities: selected, knownSlots: stableSlots,
+    pendingDecision: undefined, workflowUserInputCheckpoint: undefined });
+  const artifacts = (prior.artifactRefsAfter ?? []).filter(artifact =>
+    artifact.kind === "job_fit_overview" && artifact.binding?.sessionId === session.id
+      && artifact.binding.jobId === selected.jobId && artifact.binding.resumeBranchId === selected.resumeId
+      && artifact.binding.revisionId === selected.revisionId
+  );
+  return {
+    ...prior,
+    userMessageId: messageId,
+    taskStateBefore: taskState,
+    workflowStateBefore: projectTaskStateToWorkflowState(taskState, prior.workflowStateAfter),
+    selectedEntitiesBefore: selected,
+    artifactRefsBefore: artifacts,
+    pendingConfirmationBefore: undefined,
+    pendingToolCallBefore: undefined
+  };
+}
+
 export function branchSessionFromEditedUserMessage(
   session: AgentSession,
   messageId: string,
@@ -10881,7 +11007,8 @@ export function branchSessionFromEditedUserMessage(
   const assistantMessageId = session.messages
     .slice(targetIndex + 1)
     .find((message) => message.role === "assistant")?.id;
-  const checkpoint = session.turnCheckpoints.findLast((item) => item.userMessageId === messageId);
+  const checkpoint = session.turnCheckpoints.findLast((item) => item.userMessageId === messageId)
+    ?? stableCheckpointBeforeEdit(session, messageId);
   if (session.conversationBranches.length || session.taskState?.workflowId === "guided_profile_intake") {
     const branch = forkConversationBranch(session, {
       forkedFromMessageId: target.parentMessageId,
@@ -10907,7 +11034,14 @@ export function branchSessionFromEditedUserMessage(
       ...(checkpoint ? {
         taskState: nextTaskState,
         workflowState: checkpoint.workflowStateBefore,
-        artifactRefs: checkpoint.artifactRefsBefore,
+        artifactRefs: checkpoint.artifactRefsBefore.map(artifact => {
+          const binding = artifact.binding;
+          const selected = checkpoint.selectedEntitiesBefore;
+          return artifact.kind === "job_fit_overview" && binding?.sessionId === session.id
+            && binding.jobId === selected.jobId && binding.resumeBranchId === selected.resumeId
+            && binding.revisionId === selected.revisionId
+            ? { ...artifact, binding: { ...binding, branchId } } : artifact;
+        }),
         activeProfileId: checkpoint.selectedEntitiesBefore.profileId,
         activeResumeId: checkpoint.selectedEntitiesBefore.resumeId,
         activeJobId: checkpoint.selectedEntitiesBefore.jobId,
@@ -11656,6 +11790,12 @@ function reconcileTaskArtifacts(session: AgentSession, taskState: AgentTaskState
       ?? artifactRefs.find((artifact) => artifact.kind === "tailoring_workspace");
     const now = new Date().toISOString();
     const entityId = jobId ?? existing?.entityId ?? "pending-job-fit";
+    const dependencies = objectRecordValue(objectRecordValue(taskState.knownSlots.fitAnalysis).dependencies);
+    const revisionId = taskState.selectedEntities.revisionId;
+    const binding = jobId && resumeId && revisionId && dependencies.jobId === jobId
+      && dependencies.resumeId === resumeId && dependencies.resumeRevisionId === revisionId
+      ? { sessionId: session.id, branchId: session.activeBranchId, workflowId: taskState.workflowId, jobId, resumeBranchId: resumeId, revisionId }
+      : undefined;
     return {
       ...session,
       artifactRefs: [
@@ -11666,6 +11806,7 @@ function reconcileTaskArtifacts(session: AgentSession, taskState: AgentTaskState
           title: "岗位匹配分析",
           entityType: "job" as const,
           entityId,
+          ...(binding ? { binding } : {}),
           status: "active" as const,
           summary: existing?.summary,
           createdAt: existing?.createdAt ?? now,
@@ -12153,6 +12294,14 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
     });
     session = projectTaskStateIntoSession(session, task);
   }
+  if (toolName === "career.workflow.job_fit" && observationCheckpoint.kind === "job_fit"
+    && (!session.taskState || session.taskState.workflowId === "entity_selection")) {
+    const reducer = new AgentTaskStateReducer();
+    const task = reducer.reduce(session.taskState ?? reducer.create(session, "analyze_job_fit", { workflowId: "analyze_job_fit", step: "analyze_fit" }), {
+      type: "new_root_task", goal: "analyze_job_fit", workflowId: "analyze_job_fit", stage: "analyze_fit"
+    });
+    session = projectTaskStateIntoSession(session, task);
+  }
   const taskBeforeTurn = session.turnCheckpoints.findLast(checkpoint => checkpoint.turnId === session.activeTurn?.id)?.taskStateBefore;
   if (toolName === "career.workflow.compose_resume" && (!session.taskState
     || ["completed", "cancelled", "failed"].includes(session.taskState.completionStatus)
@@ -12187,6 +12336,13 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
   if (!status || !Object.prototype.hasOwnProperty.call(checkpoint, "kind")) return session;
   const task = session.taskState;
   const result = objectRecordValue(checkpoint.result);
+  const fitDependencies = objectRecordValue(result.dependencies);
+  const fitRevisionId = checkpoint.kind === "job_fit"
+    && fitDependencies.jobId === checkpoint.jobId
+    && fitDependencies.resumeId === checkpoint.resumeId
+    && fitDependencies.profileId === checkpoint.profileId
+    ? stringRecordValue(fitDependencies.resumeRevisionId)
+    : undefined;
   const importData = objectRecordValue(checkpoint.import);
   const understood = objectRecordValue(checkpoint.understood);
   const synthesis = objectRecordValue(checkpoint.synthesis);
@@ -12223,6 +12379,7 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
     ...task.selectedEntities,
     ...(stringRecordValue(checkpoint.profileId) ? { profileId: stringRecordValue(checkpoint.profileId) } : {}),
     ...(stringRecordValue(checkpoint.resumeId) ? { resumeId: stringRecordValue(checkpoint.resumeId) } : {}),
+    ...(fitRevisionId ? { resumeRevisionId: fitRevisionId, revisionId: fitRevisionId } : {}),
     ...(stringRecordValue(checkpoint.jobId) && !hasExternalTargetSnapshot ? { jobId: stringRecordValue(checkpoint.jobId) } : {}),
     ...(stringRecordValue(result.profileId) ? { profileId: stringRecordValue(result.profileId) } : {}),
     ...(stringRecordValue(result.resumeId) ? { resumeId: stringRecordValue(result.resumeId) } : {}),

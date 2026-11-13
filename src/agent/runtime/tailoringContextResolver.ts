@@ -53,7 +53,9 @@ export function resolveTailoringEntityReference<T extends TailoringContextCandid
   if (exact.length === 1) return { status: "resolved", candidate: exact[0], reason: "exact" };
   if (exact.length > 1) return { status: "ambiguous", candidates: exact };
 
-  const terms = queryTerms(text);
+  const terms = reference.includes("那个") || reference.includes("这个")
+    ? reference.split(/那个|这个/u).map(cleanReference).filter((term) => term.length >= 2)
+    : queryTerms(text);
   const matches = ordered.filter((candidate) => {
     const searchable = normalize(candidateTextValues(candidate).join(" "));
     return terms.length > 1
@@ -109,6 +111,10 @@ function normalize(value: string) {
 }
 
 function ordinalFrom(value: string) {
+  if (/^\d+$/u.test(value)) {
+    const number = Number(value);
+    return number > 0 ? number : undefined;
+  }
   const match = value.match(/(?:第)?(\d+|[一二三四五六七八九十百]+)(?:个|份|项|号)/u);
   if (!match) {
     if (/^(?:最后一个|最后一份|末个|末份)$/u.test(value)) return -1;

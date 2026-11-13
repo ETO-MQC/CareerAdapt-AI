@@ -125,7 +125,7 @@ export function AgentComposer(props: {
       }}
       onSubmit={async (event) => {
         event.preventDefault();
-        if (!canSubmit || props.disabled) return;
+        if (!canSubmit || props.disabled || props.running || props.stopping) return;
         try {
           await props.onSubmit({ text: message.trim(), attachments: props.attachments });
         } catch (error) {
@@ -198,8 +198,8 @@ export function AgentComposer(props: {
           {props.canFinish ? <button type="button" disabled={props.disabled} onClick={() => void props.onFinish?.()}><span>完成整理</span></button> : null}
         </div>
         <div className="agent-composer-submit">
-          <span>{props.aiStatus ?? (props.checkpoint ? "等待回答" : props.queuedCount ? `已排队 ${props.queuedCount} 条` : props.running ? "AI 正在处理，可继续发送排队" : "AI 就绪")}</span>
-          {props.stopping ? <button className="agent-stop-button" type="button" disabled aria-label="正在停止"><LoaderCircle aria-hidden="true" className="is-spinning" /></button> : props.running ? <><button className="agent-send-button" type="submit" disabled={props.disabled || !canSubmit} aria-label="排队发送消息"><Send aria-hidden="true" /></button><button className="agent-stop-button" type="button" aria-label="停止运行" onClick={props.onStop}><Square aria-hidden="true" /></button></> : <button className="agent-send-button" type="submit" disabled={props.disabled || !canSubmit} aria-label="发送消息"><Send aria-hidden="true" /></button>}
+          <span>{props.aiStatus ?? (props.checkpoint ? "等待回答" : props.queuedCount ? `已排队 ${props.queuedCount} 条` : props.running ? "AI 正在处理" : "AI 就绪")}</span>
+          {props.stopping ? <button className="agent-stop-button" type="button" disabled aria-label="正在停止"><LoaderCircle aria-hidden="true" className="is-spinning" /></button> : props.running ? <><button className="agent-send-button" type="submit" disabled aria-label="发送消息"><Send aria-hidden="true" /></button><button className="agent-stop-button" type="button" aria-label="停止运行" onClick={props.onStop}><Square aria-hidden="true" /></button></> : <button className="agent-send-button" type="submit" disabled={props.disabled || !canSubmit} aria-label="发送消息"><Send aria-hidden="true" /></button>}
         </div>
       </div>
       <span className="agent-drop-hint"><Paperclip aria-hidden="true" /> 松开即可添加文件</span>

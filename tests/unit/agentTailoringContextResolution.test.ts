@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { AgentTaskStateSchema } from "@/agent/contracts/agentSession";
 import { AgentTaskStateReducer } from "@/agent/runtime/AgentTaskStateReducer";
+import { resolveTailoringEntityReference } from "@/agent/runtime/tailoringContextResolver";
 
 const NOW = "2026-07-31T00:00:00.000Z";
 
@@ -59,6 +60,17 @@ function context() {
 }
 
 describe("tailoring context resolution phase", () => {
+  it("resolves numbers and contextual names only within the current candidate set", () => {
+    const candidates = [
+      { id: "job-ai", title: "AI大模型应用开发工程师", company: "华为", order: 1 },
+      { id: "job-dev", title: "开发工程师2", company: "华为", order: 2 }
+    ];
+    for (const text of ["1", "第一个", "AI大模型应用开发工程师", "华为那个AI大模型岗位"]) {
+      expect(resolveTailoringEntityReference(text, candidates)).toMatchObject({ status: "resolved", candidate: { id: "job-ai" } });
+    }
+    expect(resolveTailoringEntityReference("华为", candidates).status).toBe("ambiguous");
+    expect(resolveTailoringEntityReference("其他公司", candidates).status).toBe("unresolved");
+  });
   it("auto-binds one profile and one resume, then asks only for job", () => {
     const { current } = context();
     expect(current.selectedEntities).toMatchObject({ profileId: "profile-1", resumeId: "resume-general" });

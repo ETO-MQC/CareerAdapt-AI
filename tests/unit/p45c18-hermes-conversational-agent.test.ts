@@ -96,13 +96,15 @@ describe("P4.5c.1.8 Hermes conversational career agent", () => {
     const contracts = [
       contract("career.context.retrieve", "retrieve_career_context"),
       contract("career.workflow.compose_resume", "career.workflow.compose_resume"),
+      contract("career.job.get", "get_job"),
+      contract("career.resume.get", "get_resume"),
       contract("career.resume.compose", "compose_resume")
     ];
     const registration = registerCareerAdaptMcpBridge(contracts);
     try {
       const production = createCareerAdaptMcpBridgeGateway("hermes-production").listContracts().map((item) => item.name);
       const internal = createCareerAdaptMcpBridgeGateway("internal").listContracts().map((item) => item.name);
-      expect(production).toEqual(expect.arrayContaining(["career.context.retrieve", "career.workflow.compose_resume"]));
+      expect(production).toEqual(expect.arrayContaining(["career.context.retrieve", "career.workflow.compose_resume", "career.job.get", "career.resume.get"]));
       expect(production).not.toContain("career.resume.compose");
       expect(internal).toContain("career.resume.compose");
       expect(hermesProductionToolNames().has("career.context.retrieve")).toBe(true);

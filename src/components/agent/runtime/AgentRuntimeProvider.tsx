@@ -174,7 +174,9 @@ function createAgentHost() {
     // the authoritative receipt; the requested id is intentionally absent
     // from the registry.
     if (claim && !claim.accepted) {
-      if (!claim.existing && input.session && (input.userMessage.trim() || input.attachments?.length)) return state.enqueueHermesInput({ ...input, session: input.session });
+      if (!claim.existing && (input.userMessage.trim() || input.attachments?.length)) {
+        return Promise.reject(Object.assign(new Error("当前任务仍在运行，请等待或先停止。"), { code: "agent_turn_in_progress" }));
+      }
       return claim.operation.promise as Promise<AgentSession | undefined>;
     }
     const operation = state.getTurnOperation(operationId);
@@ -287,6 +289,7 @@ function createAgentHost() {
             userMessage: runtimeRequest.userMessage,
             runtimeId: "hermes",
             turnId: runtimeShellTurnId,
+            operationId: typeof input.metadata?.turnOperationId === "string" ? input.metadata.turnOperationId : undefined,
             signal: input.signal,
             ...(runtimeShellOptions
             ? {
@@ -445,6 +448,18 @@ function createAgentHost() {
           }
         }
       }
+    } catch (error) {
+      if (!runtimeShell || input.signal?.aborted) throw error;
+      // The shell is already durable. Settle it before returning to the
+      // composer so a dispatch failure cannot leave a false running turn.
+      await state.applyRuntimeEvent({
+        type: "turn_failed",
+        sessionId: runtimeInput.sessionId,
+        turnId: runtimeShell.turnId,
+        timestamp: new Date().toISOString(),
+        error: { code: "hermes_dispatch_failed", message: "当前步骤未能启动或完成。", recoverable: true }
+      }, runtimeShell.assistantMessageId);
+      throw error;
     } finally {
       if (runtime.id === "hermes") await mcpBridge.setConfirmationContext(undefined).catch(() => undefined);
       if (sessionBindingSet && !shouldKeepHermesSessionBinding(runtimeInput.sessionId)) {
@@ -467,6 +482,16 @@ function createAgentHost() {
     const session = input.session ?? state.getSnapshot().activeSession;
     if (!session) throw new Error("agent_session_required");
     const activeSession = state.getSnapshot().activeSession;
+    const authoritativeSession = activeSession?.id === session.id ? activeSession : session;
+    const controllerState = state.getTurnControllerState(session.id);
+    if (event.type === "text_message" && (
+      ["pending_start", "running", "interrupting"].includes(controllerState)
+      || authoritativeSession.activeTurn?.status === "running"
+      || ["queued", "running", "stopping"].includes(authoritativeSession.hermesRun?.status ?? "")
+        && (!authoritativeSession.activeTurn || authoritativeSession.hermesRun?.turnId === authoritativeSession.activeTurn.id)
+    )) {
+      throw Object.assign(new Error("当前任务仍在运行，请等待或先停止。"), { code: "agent_turn_in_progress" });
+    }
     const workflowAnswer = event.type === "option_selected"
       && event.action.type === "answer"
       && event.action.field.startsWith("tailoring-question:");
@@ -488,6 +513,9 @@ function createAgentHost() {
       turnId: input.turnId
     });
     if (!claim.accepted) {
+      if (!claim.existing && event.type === "text_message") {
+        throw Object.assign(new Error("当前任务仍在运行，请等待或先停止。"), { code: "agent_turn_in_progress" });
+      }
       if (event.type !== "edit_message") return claim.operation.promise as Promise<AgentSession | undefined>;
       await interruptRun(session.id, createRunStopReason({
         requestedBy: "user", reasonCode: "edited_message", sourceComponent: "AgentRuntimeProvider.runUserEvent",

@@ -69,6 +69,9 @@ function deferred(): Deferred {
     resolve = nextResolve;
     reject = nextReject;
   });
+  // A receipt can have no duplicate caller. Mark its rejection as observed;
+  // callers awaiting the original promise still receive the same failure.
+  void promise.catch(() => undefined);
   return { promise, resolve, reject };
 }
 
@@ -281,6 +284,7 @@ export class TurnController {
   finish(sessionId: string, status?: SessionExecutionStatus, generation?: number, operationId?: string) {
     const execution = this.executions.get(sessionId);
     if (execution && generation !== undefined && execution.generation !== generation) return execution;
+    if (execution && operationId && execution.operationId && execution.operationId !== operationId) return execution;
     if (execution && status) execution.status = status;
     if (execution) execution.stalled = false;
     if (execution) this.executions.delete(sessionId);
