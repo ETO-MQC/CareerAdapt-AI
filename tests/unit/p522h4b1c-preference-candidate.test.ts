@@ -25,6 +25,9 @@ describe("source-bound preference candidate", () => {
   it("asks for clarification when persistence is ambiguous", () => {
     expect(interpret("上海的岗位也可以看看", { additions: { targetCities: ["上海"] } }, "ambiguous").kind).toBe("clarification");
   });
+  it("does not create a durable city candidate for a temporary Shenzhen job", () => {
+    expect(interpret("帮我看看深圳这个岗位", { additions: { targetCities: ["深圳"] } })).toEqual({ kind: "none" });
+  });
   it("does not use a long-term phrase in another clause to turn a temporary search into memory", () => {
     const text = "以后优先郑州，今天看看上海的岗位";
     expect(interpret(text, { additions: { targetCities: ["上海"] } })).toEqual({ kind: "none" });
