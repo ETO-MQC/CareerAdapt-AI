@@ -269,6 +269,7 @@ export function createResumeTailorTaskInputs(input: {
   mode?: TailoringMode;
   intensity?: TailoringIntensity;
   profile?: CareerProfile;
+  sourceProfile?: CareerProfile;
   resolveEvidenceRefs: (item: BranchContentItem) => MatchEvidenceRef[];
 }): ResumeTailorTaskInputV2[] {
   const mode = resolveTailoringMode({ mode: input.mode, intensity: input.intensity });
@@ -281,7 +282,7 @@ export function createResumeTailorTaskInputs(input: {
     .flatMap((target) => {
       const relevantRequirements = routeTailoringRequirements({ job: input.job, sectionType: target.sectionType, renderedText: target.renderedText, itemId: target.item.id });
       if (!relevantRequirements.length) return [];
-      const evidenceBundle = input.profile ? buildTailoringEvidenceBundle({ profile: input.profile, branch: input.branch, target: { itemId: target.item.id }, requirements: relevantRequirements }) : undefined;
+      const evidenceBundle = input.profile ? buildTailoringEvidenceBundle({ profile: input.profile, sourceProfile: input.sourceProfile, branch: input.branch, target: { itemId: target.item.id }, requirements: relevantRequirements }) : undefined;
       const allowedFacts = evidenceBundle ? [...evidenceBundle.directEvidence, ...evidenceBundle.relatedResumeEvidence, ...evidenceBundle.relatedProfileEvidence].slice(0, 12) : [];
       const allowedEvidenceRefs = allowedFacts.length ? dedupeEvidenceRefs(allowedFacts.flatMap((fact) => fact.evidenceRefs)) : input.resolveEvidenceRefs(target.item);
       const structuredItem = input.branch.structuredContentItems?.find((item) => item.id === target.item.id)?.data ?? migrateBranchContentItem(target.item).data;
@@ -306,11 +307,12 @@ export function createResumeTailorTaskInputs(input: {
 
 export function buildTailoringEvidenceBundle(input: {
   profile: CareerProfile;
+  sourceProfile?: CareerProfile;
   branch: ResumeBranch;
   target: { itemId: string };
   requirements: TailoringRequirement[];
 }) {
-  const units = buildCandidateEvidenceUnits({ profile: input.profile, branch: input.branch });
+  const units = buildCandidateEvidenceUnits({ profile: input.profile, sourceProfile: input.sourceProfile, branch: input.branch });
   const terms = unique(input.requirements.flatMap((requirement) => [...requirement.keywords, ...tokenize(requirement.description)])).filter((term) => term.length > 1);
   const ranked = units.map((unit) => ({ unit, score: terms.reduce((score, term) => score + (normalize(unit.text).includes(normalize(term)) ? 1 : 0), 0) }))
     .filter(({ unit, score }) => unit.supportLevel === "verified" && (score > 0 || unit.itemId === input.target.itemId))

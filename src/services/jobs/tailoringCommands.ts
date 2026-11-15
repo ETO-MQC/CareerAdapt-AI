@@ -70,6 +70,7 @@ export const AnalyzeJobCommandOutputSchema = z.object({
 export const CreateTailoringSessionCommandInputSchema = z.object({
   operationId: OperationIdSchema,
   profile: CareerProfileSchema,
+  sourceProfile: CareerProfileSchema.optional(),
   branch: ResumeBranchSchema,
   job: JobDescriptionSchema,
   targetSnapshot: JobTargetSnapshotSchema.optional(),
@@ -165,6 +166,7 @@ export function createTailoringSessionCommand(input: z.input<typeof CreateTailor
   const parsed = CreateTailoringSessionCommandInputSchema.parse(input);
   const planned = createTailoringPlan({
     profile: parsed.profile,
+    sourceProfile: parsed.sourceProfile,
     branch: parsed.branch,
     job: parsed.job,
     intensity: parsed.intensity,

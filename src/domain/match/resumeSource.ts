@@ -1,9 +1,11 @@
 import type { CareerProfile, ResumeBranch } from "@/domain/schemas";
 import { migrateResumeBranchToV2 } from "@/domain/migrations/resumeV2";
+import { assessResumeProfileCompatibility } from "@/domain/branch/validation";
 
 /** Restrict formal facts to the visible items in this exact branch snapshot. */
-export function profileLimitedToResume(profile: CareerProfile, branch: ResumeBranch): CareerProfile {
-  const refs = branch.profileId === profile.id
+export function profileLimitedToResume(profile: CareerProfile, branch: ResumeBranch, sourceProfile?: CareerProfile): CareerProfile {
+  const compatibility = sourceProfile && assessResumeProfileCompatibility({ branch, sourceProfile, currentProfile: profile });
+  const refs = branch.profileId === profile.id || (compatibility && compatibility.status !== "different_person" && compatibility.status !== "invalid_reference")
     ? migrateResumeBranchToV2(branch).structuredContentItems.filter(item => item.visible).flatMap(item => item.factRefs) : [];
   const linkedFactIds = new Set(refs.flatMap(ref => ref.type === "evidence_file" && profile.evidences.some(evidence => evidence.id === ref.evidenceId) ? [ref.linkedFactId] : []));
   const factIds = new Set(refs.map(ref => ref.type === "evidence_file" ? ref.linkedFactId : ref.factId));

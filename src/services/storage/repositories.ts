@@ -112,6 +112,8 @@ import { synchronizeProfileStructuredFacts } from "@/domain/profile/profileWrite
 import { maturityForSkillProficiency } from "@/domain/profile/factMaturity";
 import { buildProfileSyncDiagnostics, profileSyncContentCounts, type ProfileSyncDiagnostics } from "@/domain/profile/profileSyncDiagnostics";
 import { applyProfileRecoveryItems, type ProfileRecoveryItem, type ProfileRecoverySourceType } from "@/domain/profile/profileContentRecovery";
+import { applyCareerPreferencePatch, CareerPreferencePatchSchema, type CareerPreferencePatch } from "@/domain/profile/careerPreferencePatch";
+import { assessResumeProfileCompatibility } from "@/domain/branch/validation";
 import {
   AiLogSchema,
   AiSuggestionSchema,
@@ -296,6 +298,7 @@ const LEGACY_DEMO_PROFILE_NAME = "陈同学";
 const PROFILE_RECONCILIATION_META_KEY_PREFIX = "profileReconciliation:v1:";
 const PROFILE_INTAKE_OPERATION_META_KEY_PREFIX = "profileIntakeOperation:v1:";
 const PROFILE_CONTENT_REPAIR_OPERATION_META_KEY_PREFIX = "profileContentRepair:v1:";
+const CAREER_PREFERENCE_OPERATION_META_KEY_PREFIX = "careerPreferenceOperation:v1:";
 const PROFILE_INTAKE_SOURCE_TURN_META_KEY_PREFIX = "profileIntakeSourceTurn:v1:";
 const AGENT_PROTOCOL_DIAGNOSTIC_META_KEY_PREFIX = "agentProtocolDiagnostic:v1:";
 const CAREER_LIFECYCLE_OPERATION_META_KEY_PREFIX = "careerLifecycleOperation:v1:";
@@ -1367,6 +1370,64 @@ export class WorkspaceRepository {
     });
     await this.setActiveCareerContext({ personId, profileId });
     return { person, profile: normalizedProfile };
+  }
+
+  /** Confirmed preferences change the same Profile identity and its CAS revision. */
+  async updateCareerPreferences(input: { profileId: string; expectedProfileRevision: number; operationId: string; patch: CareerPreferencePatch }) {
+    const patch = CareerPreferencePatchSchema.parse(input.patch);
+    const operationId = z.string().trim().min(1).max(160).parse(input.operationId);
+    const fingerprint = sha256Utf8(canonicalJson({ profileId: input.profileId, expectedProfileRevision: input.expectedProfileRevision, patch }));
+    const key = `${CAREER_PREFERENCE_OPERATION_META_KEY_PREFIX}${operationId}`;
+    await this.ensureCareerIdentityMigration();
+    return withProfileWriteLock(input.profileId, async () => {
+      const committed = await this.db.transaction("rw", this.db.profiles, this.db.appMeta, async () => {
+        const existing = await this.db.appMeta.get(key);
+        if (existing) {
+          const receipt = z.object({ fingerprint: z.string(), profileId: z.string(), previousRevision: z.number().int(),
+            currentRevision: z.number().int(), preference: CareerProfileSchema.shape.preference }).strict().parse(existing.value);
+          if (receipt.fingerprint !== fingerprint) throw new Error("preference_operation_conflict");
+          return { ...receipt, operationId, changed: true, idempotent: true };
+        }
+        const raw = await this.db.profiles.get(input.profileId);
+        if (!raw) throw new Error("career_profile_source_missing");
+        const source = migrateCareerProfileToV2(CareerProfileSchema.parse(raw));
+        const person = source.personId ? await this.getCareerPersonWithoutMigration(source.personId) : undefined;
+        const active = ActiveCareerContextSchema.safeParse((await this.db.appMeta.get(ACTIVE_CAREER_CONTEXT_META_KEY))?.value);
+        if (source.version !== input.expectedProfileRevision || !source.isCurrent || person?.currentProfileId !== source.id
+          || !active.success || active.data.profileId !== source.id || active.data.personId !== source.personId) {
+          throw new Error("stale_profile_revision");
+        }
+        if (source.archivedAt || source.trashedAt || person.archivedAt || person.trashedAt) throw new Error("profile_not_available");
+        const preference = applyCareerPreferencePatch(source.preference, patch);
+        if (JSON.stringify(preference) === JSON.stringify(source.preference)) {
+          return { fingerprint, profileId: source.id, previousRevision: source.version, currentRevision: source.version,
+            preference: source.preference, operationId, changed: false, idempotent: false };
+        }
+        const now = new Date().toISOString();
+        const next = CareerProfileSchema.parse({ ...source, preference, version: source.version + 1, updatedAt: now });
+        const saved = await this.putProfileInTransaction(next, source);
+        const nextContext = ActiveCareerContextSchema.parse({ ...active.data, profileRevision: saved.version });
+        await this.db.appMeta.put({ key: ACTIVE_CAREER_CONTEXT_META_KEY, value: nextContext, updatedAt: now });
+        const receipt = { fingerprint, profileId: saved.id, previousRevision: source.version,
+          currentRevision: saved.version, preference: saved.preference };
+        await this.db.appMeta.put({ key, value: receipt, updatedAt: now });
+        return { ...receipt, operationId, changed: true, idempotent: false };
+      });
+      return this.db.transaction("r", this.db.profiles, this.db.appMeta, async () => {
+        const raw = await this.db.profiles.get(committed.profileId);
+        const profile = raw ? CareerProfileSchema.parse(raw) : undefined;
+        const context = ActiveCareerContextSchema.safeParse((await this.db.appMeta.get(ACTIVE_CAREER_CONTEXT_META_KEY))?.value);
+        if (!profile || profile.version < committed.currentRevision
+          || (!committed.idempotent && (profile.version !== committed.currentRevision || !context.success
+            || context.data.profileId !== committed.profileId || context.data.profileRevision !== committed.currentRevision
+            || JSON.stringify(profile.preference) !== JSON.stringify(committed.preference)))) {
+          throw new Error("preference_committed_readback_failed");
+        }
+        return { profileId: committed.profileId, previousRevision: committed.previousRevision,
+          currentRevision: committed.currentRevision, preference: committed.preference, operationId,
+          changed: committed.changed, idempotent: committed.idempotent, persistenceVerified: true as const };
+      });
+    });
   }
 
   async createProfileVersion(input: { profileId: string; reason?: "manual_snapshot" | "resume_import" | "agent_created" | "conflict_fork" }) {
@@ -3083,6 +3144,19 @@ export class WorkspaceRepository {
       && (options.includeArchived || branch.lifecycleStatus === "active"));
   }
 
+  /** Person-scoped discovery; the branch and its source Profile are never rewritten. */
+  async listAvailableResumesForCareerProfile(profileId: string, options: { includeArchived?: boolean } = {}) {
+    const [currentProfile, profiles, branches] = await Promise.all([
+      this.getAvailableProfile(profileId), this.listAvailableProfiles(), this.listAvailableResumeBranches(undefined, options)
+    ]);
+    if (!currentProfile?.personId) return [];
+    const sources = new Map(profiles.filter(profile => profile.personId === currentProfile.personId).map(profile => [profile.id, profile]));
+    return branches.flatMap(branch => {
+      const sourceProfile = sources.get(branch.profileId);
+      return sourceProfile ? [{ branch, compatibility: assessResumeProfileCompatibility({ branch, sourceProfile, currentProfile }) }] : [];
+    });
+  }
+
   async getAvailableJobDescription(id: string, options: { includeArchived?: boolean } = {}) {
     const bin = await this.getRecycleBinState();
     if (bin.jobIds.includes(id)) return undefined;
@@ -3530,6 +3604,7 @@ export class WorkspaceRepository {
    */
   async deriveAndApplyTailoringDiffsAtomic(input: {
     sourceBranchId: string;
+    targetProfileId?: string;
     jobId: string;
     targetSnapshot?: import("@/domain/schemas").JobTargetSnapshot;
     expectedSourceRevision: number;
@@ -3543,6 +3618,7 @@ export class WorkspaceRepository {
   }) {
     const source = await this.getResumeBranch(input.sourceBranchId);
     if (source && source.branchPurpose === "job_specific") {
+      if (input.targetProfileId && input.targetProfileId !== source.profileId) throw new Error("resume_sync_required");
       return this.applyTailoringDiffs({
         branchId: source.id,
         jobId: input.jobId,
@@ -3603,15 +3679,26 @@ export class WorkspaceRepository {
         if (sourceBranch.revision !== input.expectedSourceRevision || sourceBranch.currentRevisionId !== input.expectedSourceRevisionId) {
           throw new RevisionConflictError();
         }
-        const [profileRecord, jobRecord, matchRecords] = await Promise.all([
+        const targetProfileId = input.targetProfileId ?? sourceBranch.profileId;
+        const [profileRecord, sourceProfileRecord, jobRecord, matchRecords] = await Promise.all([
+          this.db.profiles.get(targetProfileId),
           this.db.profiles.get(sourceBranch.profileId),
           input.targetSnapshot ? Promise.resolve(undefined) : this.db.jobDescriptions.get(input.jobId!),
           input.targetSnapshot
             ? Promise.resolve([])
-            : this.db.requirementMatches.where("[profileId+jobId]").equals([sourceBranch.profileId, input.jobId]).toArray()
+            : this.db.requirementMatches.where("[profileId+jobId]").equals([targetProfileId, input.jobId]).toArray()
         ]);
-        if (!profileRecord || (!jobRecord && !input.targetSnapshot)) throw new Error("derive_branch_source_missing");
+        if (!profileRecord || !sourceProfileRecord || (!jobRecord && !input.targetSnapshot)) throw new Error("derive_branch_source_missing");
         const profile = CareerProfileSchema.parse(profileRecord);
+        if (targetProfileId !== sourceBranch.profileId) {
+          const sourceProfile = CareerProfileSchema.parse(sourceProfileRecord);
+          const person = profile.personId ? await this.getCareerPersonWithoutMigration(profile.personId) : undefined;
+          const compatibility = assessResumeProfileCompatibility({ branch: sourceBranch, sourceProfile, currentProfile: profile });
+          if (compatibility.status === "different_person" || !person || person.currentProfileId !== profile.id
+            || person.archivedAt || person.trashedAt || profile.archivedAt || profile.trashedAt
+            || sourceProfile.archivedAt || sourceProfile.trashedAt) throw new Error("resume_profile_mismatch");
+          if (compatibility.status === "invalid_reference") throw new Error("branch_invalid_reference");
+        }
         const job = input.targetSnapshot
           ? jobTargetSnapshotToJobDescription(input.targetSnapshot)
           : JobDescriptionSchema.parse(jobRecord);
@@ -3636,16 +3723,18 @@ export class WorkspaceRepository {
           structuredContentItems: sourceStructuredContentItems
         });
         const sourceMatchSetHash = computeRequirementsHash({ job, matches });
-        const branchId = `branch-${sourceBranch.profileId}-${job.id}-${stableHashText(input.operationId).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 18)}`;
+        const branchId = `branch-${profile.id}-${job.id}-${stableHashText(input.operationId).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 18)}`;
         const branchWithoutSync = ResumeBranchSchema.parse({
           ...sourceBranch,
           id: branchId,
+          profileId: profile.id,
           branchPurpose: "job_specific",
           ...(input.targetSnapshot
             ? (input.targetSnapshot.sourceJobId ? { jobId: input.targetSnapshot.sourceJobId } : {})
             : { jobId: input.jobId }),
           name: input.name.trim(),
           sourceProfileVersion: profile.version,
+          ...(profile.id !== sourceBranch.profileId ? { sourceProfileSnapshotId: `profile-snapshot-${profile.id}-${profile.version}-${stableHashText(input.operationId)}` } : {}),
           ...(input.targetSnapshot
             ? (input.targetSnapshot.sourceJobRevision ? { sourceJobVersion: input.targetSnapshot.sourceJobRevision } : {})
             : { sourceJobVersion: job.updatedAt }),
@@ -4216,6 +4305,7 @@ export class WorkspaceRepository {
     sourceBranchId: string;
     jobId: string;
     sourceRevisionId?: string;
+    profileId?: string;
   }) {
     const branches = await this.db.resumeBranches.toArray();
     return branches
@@ -4224,6 +4314,7 @@ export class WorkspaceRepository {
         branch.branchPurpose === "job_specific"
         && branch.sourceBranchId === input.sourceBranchId
         && branch.jobId === input.jobId
+        && (!input.profileId || branch.profileId === input.profileId)
         && (!input.sourceRevisionId || branch.sourceRevisionId === input.sourceRevisionId)
         && branch.lifecycleStatus === "active"
       )
@@ -4232,6 +4323,8 @@ export class WorkspaceRepository {
 
   async deriveJobSpecificBranchFromBranch(input: {
     sourceBranchId: string;
+    targetProfileId?: string;
+    expectedProfileRevision?: number;
     jobId: string;
     expectedSourceRevision: number;
     expectedSourceRevisionId: string;
@@ -4265,10 +4358,38 @@ export class WorkspaceRepository {
           };
         }
 
+        const sourceBranch = await this.requireEditableResumeBranch(input.sourceBranchId);
+        if (sourceBranch.branchPurpose !== "general") {
+          throw new Error("derive_branch_requires_general_source");
+        }
+        if (sourceBranch.revision !== input.expectedSourceRevision || sourceBranch.currentRevisionId !== input.expectedSourceRevisionId) {
+          throw new RevisionConflictError();
+        }
+
+        const targetProfileId = input.targetProfileId ?? sourceBranch.profileId;
+        const [profile, sourceProfile, job, matches] = await Promise.all([
+          this.db.profiles.get(targetProfileId),
+          this.db.profiles.get(sourceBranch.profileId),
+          this.db.jobDescriptions.get(input.jobId),
+          this.db.requirementMatches.where("[profileId+jobId]").equals([targetProfileId, input.jobId]).toArray()
+        ]);
+        if (!profile || !sourceProfile || !job) {
+          throw new Error("derive_branch_source_missing");
+        }
+        const parsedProfile = CareerProfileSchema.parse(profile);
+        if (input.expectedProfileRevision !== undefined && parsedProfile.version !== input.expectedProfileRevision) throw new RevisionConflictError();
+        if (targetProfileId !== sourceBranch.profileId) {
+          const source = CareerProfileSchema.parse(sourceProfile);
+          const person = parsedProfile.personId ? await this.getCareerPersonWithoutMigration(parsedProfile.personId) : undefined;
+          const compatibility = assessResumeProfileCompatibility({ branch: sourceBranch, sourceProfile: source, currentProfile: parsedProfile });
+          if (compatibility.status === "different_person" || !person || person.currentProfileId !== parsedProfile.id
+            || person.archivedAt || person.trashedAt || parsedProfile.archivedAt || parsedProfile.trashedAt
+            || source.archivedAt || source.trashedAt) throw new Error("resume_profile_mismatch");
+          if (compatibility.status === "invalid_reference") throw new Error("branch_invalid_reference");
+        }
         const duplicate = (await this.findDerivedJobBranches({
-          sourceBranchId: input.sourceBranchId,
-          jobId: input.jobId,
-          sourceRevisionId: input.expectedSourceRevisionId
+          sourceBranchId: input.sourceBranchId, jobId: input.jobId,
+          sourceRevisionId: input.expectedSourceRevisionId, profileId: targetProfileId
         }))[0];
         if (duplicate && !input.allowDuplicate) {
           return {
@@ -4278,24 +4399,6 @@ export class WorkspaceRepository {
             idempotent: true
           };
         }
-
-        const sourceBranch = await this.requireEditableResumeBranch(input.sourceBranchId);
-        if (sourceBranch.branchPurpose !== "general") {
-          throw new Error("derive_branch_requires_general_source");
-        }
-        if (sourceBranch.revision !== input.expectedSourceRevision || sourceBranch.currentRevisionId !== input.expectedSourceRevisionId) {
-          throw new RevisionConflictError();
-        }
-
-        const [profile, job, matches] = await Promise.all([
-          this.db.profiles.get(sourceBranch.profileId),
-          this.db.jobDescriptions.get(input.jobId),
-          this.db.requirementMatches.where("[profileId+jobId]").equals([sourceBranch.profileId, input.jobId]).toArray()
-        ]);
-        if (!profile || !job) {
-          throw new Error("derive_branch_source_missing");
-        }
-        const parsedProfile = CareerProfileSchema.parse(profile);
         const parsedJob = JobDescriptionSchema.parse(job);
         const parsedMatches = matches
           .map((match) => RequirementMatchSchema.parse(match))
@@ -4311,14 +4414,16 @@ export class WorkspaceRepository {
 
         const now = new Date().toISOString();
         const sourceMatchSetHash = computeRequirementsHash({ job: parsedJob, matches: parsedMatches });
-        const branchId = `branch-${sourceBranch.profileId}-${parsedJob.id}-${stableHashText(input.operationId).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 18)}`;
+        const branchId = `branch-${parsedProfile.id}-${parsedJob.id}-${stableHashText(input.operationId).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 18)}`;
         const branchWithoutSync = ResumeBranchSchema.parse({
           ...sourceBranch,
           id: branchId,
+          profileId: parsedProfile.id,
           branchPurpose: "job_specific",
           jobId: parsedJob.id,
           name: input.name.trim(),
           sourceProfileVersion: parsedProfile.version,
+          ...(parsedProfile.id !== sourceBranch.profileId ? { sourceProfileSnapshotId: `profile-snapshot-${parsedProfile.id}-${parsedProfile.version}-${stableHashText(input.operationId)}` } : {}),
           sourceJobVersion: parsedJob.updatedAt,
           sourceAdaptationDraftId: undefined,
           sourceImportId: sourceBranch.sourceImportId,

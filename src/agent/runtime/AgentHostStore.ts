@@ -1,6 +1,10 @@
 "use client";
 import { PreciseSelectionSchema, preciseTarget, verifyPreciseProposal, assertPreciseOwnership, type PreciseSelection, type PreciseTargetInput } from "@/domain/resumeEditing/preciseResumeContract";
 import { projectPreciseProposal, projectPreciseReceipt } from "./preciseResumeEditCheckpoint";
+import { CareerPreferenceCandidateSchema } from "@/agent/workflows/careerPreferenceCandidate";
+import { sha256Utf8 } from "@/domain/jobAssets/sha256";
+import { preferenceReviewPrompt } from "@/agent/workflows/CareerWorkflowFacade";
+import { CareerPreferenceSchema } from "@/domain/schemas/profile";
 
 import type { AgentArtifactRef } from "@/agent/contracts/agentArtifact";
 import {
@@ -1185,6 +1189,20 @@ export class AgentHostStore {
       }
     }
     if (input.event.type === "text_message") {
+      if (current.taskState?.workflowId === "profile_preferences") {
+        const text = input.event.text.trim().replace(/[。！!]+$/u, "");
+        const stage = current.taskState.stage;
+        const decision = stage === "preference_review"
+          ? /^(?:保存|好|好的|可以|记住吧|确认)$/u.test(text) ? "save" : /^(?:修改|调整)$/u.test(text) ? "edit"
+            : /^(?:先不保存|先不用|不要保存|取消|拒绝)$/u.test(text) ? "reject" : undefined
+          : stage === "preference_clarify"
+            ? /^(?:以后也考虑|长期的|记下来吧|长期考虑)$/u.test(text) ? "long_term"
+              : /^(?:这次|临时|只是这次|先不用|取消)$/u.test(text) ? "reject" : undefined : undefined;
+        if (decision) {
+          const saved = await this.resolvePreferenceInteraction(current, decision, input.event.text.trim());
+          return { session: saved, event: input.event, userMessage: "", executionOwner: "deterministic_transition", deterministicTransitionApplied: true, deterministicTerminal: true };
+        }
+      }
       const confirmationMode = normalizeResumeCompositionConfirmationText(input.event.text);
       if (
         confirmationMode
@@ -1343,6 +1361,17 @@ export class AgentHostStore {
     }
     if (input.event.type === "option_selected") {
       const action = input.event.action;
+      if (action.type === "answer" && action.field === "preference-decision" && current.taskState?.workflowId === "profile_preferences") {
+        const optionId = input.event.optionId;
+        const preferenceDecision = typeof action.value === "string" ? action.value : "";
+        const active = activeBranchMessages(current).findLast(message => message.optionSet?.state === "active"
+          && message.options?.some(option => option.action.type === "answer" && option.action.field === action.field
+            && option.action.value === preferenceDecision && (!optionId || option.id === optionId)));
+        if (!active || !["save", "edit", "reject"].includes(preferenceDecision)) return { session: current, event: input.event, userMessage: "", deterministicTransitionApplied: false };
+        const label = preferenceDecision === "save" ? "保存" : preferenceDecision === "edit" ? "修改" : "先不保存";
+        const saved = await this.resolvePreferenceInteraction(current, preferenceDecision as "save" | "edit" | "reject", label);
+        return { session: saved, event: input.event, userMessage: "", executionOwner: "deterministic_transition", deterministicTransitionApplied: true, deterministicTerminal: true };
+      }
       if (action.type === "answer" && action.field === "job-fit-next-action") {
         const source = activeFitNextActionMessage(current);
         const optionId = input.event.optionId;
@@ -2318,6 +2347,67 @@ export class AgentHostStore {
 
   /** Runtime-owned bridge for events whose deterministic operation is itself
    * the action (approval, artifact review, regenerate, or workflow control). */
+  private async resolvePreferenceInteraction(session: AgentSession, decision: "save" | "edit" | "reject" | "long_term", label: string) {
+    const task = session.taskState;
+    const checkpoint = objectValue(task?.knownSlots.facadeCheckpoint);
+    const parsed = CareerPreferenceCandidateSchema.safeParse(checkpoint.candidate);
+    if (!task || task.workflowId !== "profile_preferences" || !parsed.success || !preferenceCandidateMatchesSession(parsed.data, session)) {
+      throw new Error("preference_candidate_stale");
+    }
+    const candidate = parsed.data;
+    const turnId = `preference-turn-${crypto.randomUUID()}`;
+    const messageId = `preference-user-${crypto.randomUUID()}`;
+    let current = appendAgentMessage(supersedeActiveOptionSets(session), "user", label, { id: messageId, turnId, status: "complete" });
+    const now = new Date().toISOString();
+    if (decision === "edit" || decision === "long_term") {
+      const nextCandidate = decision === "long_term" ? CareerPreferenceCandidateSchema.parse({ ...candidate,
+        previousSources: [...candidate.previousSources, { sourceUserMessageId: candidate.sourceUserMessageId, sourceTurnId: candidate.sourceTurnId,
+          sourceTextHash: candidate.sourceTextHash, sourceQuote: candidate.sourceQuote }],
+        sourceUserMessageId: messageId, sourceTurnId: turnId, sourceTextHash: sha256Utf8(label), sourceQuote: label }) : candidate;
+      const preference = CareerPreferenceSchema.parse(checkpoint.preference);
+      const prompt = decision === "edit" ? "请告诉我想如何修改当前候选；修改后还需要再次确认。" : preferenceReviewPrompt(nextCandidate, preference);
+      const stage = decision === "edit" ? "preference_edit" : "preference_review";
+      const status = decision === "edit" ? "waiting_for_user" as const : "waiting_for_confirmation" as const;
+      const nextTask = normalizeAgentTaskState({ ...task, stage, completionStatus: status, updatedAt: now,
+        knownSlots: { ...task.knownSlots, pendingConfirmation: decision === "edit" ? undefined : { toolName: "career.workflow.profile_preferences", operationId: `preference-${nextCandidate.sourceUserMessageId}` },
+          facadeCheckpoint: { ...checkpoint, state: decision === "edit" ? "edit" : "candidate", candidate: nextCandidate, prompt } } });
+      current = projectTaskStateIntoSession(current, nextTask);
+      current = appendAgentMessage(current, "assistant", prompt, { turnId, status: "complete" });
+      current = attachTaskStateOptions(current, nextTask);
+      current = { ...current, activeTurn: current.activeTurn ? { ...current.activeTurn, status, completedAt: now } : undefined };
+      const saved = await this.dependencies.persistence.save(current);
+      this.patchSession(saved, { turnStatus: status });
+      return saved;
+    }
+    current = await this.dependencies.persistence.save(current);
+    let receipt: Awaited<ReturnType<WorkspaceRepository["updateCareerPreferences"]>> | undefined;
+    if (decision === "save") {
+      try {
+        receipt = await this.getCareerRepository().updateCareerPreferences({ profileId: candidate.profileId,
+          expectedProfileRevision: candidate.expectedProfileRevision, patch: candidate.patch,
+          operationId: `preference-${sha256Utf8(`${session.id}:${candidate.sourceUserMessageId}:${candidate.sourceTextHash}`)}` });
+        await this.getCareerRepository().prepareAgentAccessScope(session.id, candidate.profileId);
+      } catch (error) {
+        if (!(error instanceof Error) || error.message !== "stale_profile_revision") throw error;
+        current = appendAgentMessage(current, "assistant", "职业资料已变化，请重新核对偏好后再保存。", { turnId, status: "complete" });
+      }
+    }
+    const nextSlots = { ...task.knownSlots };
+    delete nextSlots.facadeCheckpoint;
+    delete nextSlots.pendingConfirmation;
+    if (receipt) nextSlots.preferenceReceipt = receipt;
+    const nextTask = normalizeAgentTaskState({ ...task, stage: "completed", completionStatus: "completed", updatedAt: now,
+      selectedEntities: { ...task.selectedEntities, ...(receipt ? { profileVersion: receipt.currentRevision } : {}) }, knownSlots: nextSlots });
+    current = projectTaskStateIntoSession({ ...current, ...(receipt ? { profileRevision: receipt.currentRevision } : {}) }, nextTask);
+    if (decision === "reject" || receipt) current = appendAgentMessage(current, "assistant",
+      decision === "reject" ? "好的，这次不保存这些偏好。" : receipt?.changed ? "已更新你的长期求职偏好。" : "这些偏好已经存在，无需重复保存。",
+      { turnId, status: "complete", metadata: { preferenceFinalizedSourceIds: [...candidate.previousSources.map(source => source.sourceUserMessageId), candidate.sourceUserMessageId] } });
+    current = { ...current, activeTurn: current.activeTurn ? { ...current.activeTurn, status: "completed", completedAt: now } : undefined };
+    const saved = await this.dependencies.persistence.save(current);
+    this.patchSession(saved, { turnStatus: "completed", currentObservation: receipt });
+    return saved;
+  }
+
   dispatchRuntimeUserEvent(input: {
     session: AgentSession;
     event: RuntimeUserEvent;
@@ -3166,7 +3256,10 @@ export class AgentHostStore {
           ?? objectValue(event.data).toolFailureDiagnostics
           ?? next.taskState?.knownSlots.canonicalWorkflowFailure
       );
-      const proposedCandidate = unresolvedFailure && !canonicalWorkflowFailure && !tailoringRecovery && !tailoringQuestionWaiting
+      const preferencePrompt = next.taskState?.workflowId === "profile_preferences"
+        ? stringValue(objectValue(next.taskState.knownSlots.facadeCheckpoint).prompt) : undefined;
+      const noChangePrompt = stringValue(next.activeTurn?.workflowCheckpoint?.preferenceNoChangePrompt);
+      const proposedCandidate = noChangePrompt ?? preferencePrompt ?? (unresolvedFailure && !canonicalWorkflowFailure && !tailoringRecovery && !tailoringQuestionWaiting
         ? businessFailureRecovery(unresolvedFailure.code)
         : canonicalWorkflowFailure
         ? runtimeFailureRecoveryText(
@@ -3190,7 +3283,7 @@ export class AgentHostStore {
             next.taskState,
             objectValue(objectValue(event.data).diagnostics ?? objectValue(event.data).toolFailureDiagnostics)
           )
-        : event.message ?? next.messages.find((message) => message.id === assistantMessageId)?.content ?? "当前任务已完成。";
+        : event.message ?? next.messages.find((message) => message.id === assistantMessageId)?.content ?? "当前任务已完成。");
       const candidate = next.taskState?.workflowId === "job_ingestion"
         && next.taskState.knownSlots.jobPersistenceVerified !== true
         && /(?:已|成功|完成).{0,8}(?:保存|存入|入库)|(?:保存|存入|入库).{0,8}(?:成功|完成)/u.test(proposedCandidate)
@@ -3203,7 +3296,8 @@ export class AgentHostStore {
       const terminalWaiting = !terminalFailed && (canonicalWorkflowFailure || tailoringRecovery || tailoringQuestionRecovery || tailoringQuestionWaiting || completionWaiting);
       const text = blocked ? grounding.recoveryText : candidate;
       if (!tailoringQuestionWaiting) next = replaceRuntimeShellMessage(next, assistantMessageId, text, event, false, terminalFailed);
-      if ((terminalFailed || terminalWaiting || tailoringRecovery) && !domainFailureWaiting && !tailoringQuestionWaiting) next = withRetryCurrentStepOption(next, assistantMessageId);
+      if ((terminalFailed || terminalWaiting || tailoringRecovery) && !domainFailureWaiting && !tailoringQuestionWaiting
+        && next.taskState?.workflowId !== "profile_preferences") next = withRetryCurrentStepOption(next, assistantMessageId);
       if (next.taskState) next = attachTaskStateOptions(next, next.taskState);
       if (!terminalFailed && !terminalWaiting && next.taskState?.workflowId === "analyze_job_fit"
         && next.taskState.completionStatus === "completed") next = attachFitNextActionOptions(next, assistantMessageId);
@@ -6264,7 +6358,6 @@ export class AgentHostStore {
       const applyBranch = objectRecordValue(applySession.branch);
       const applyJob = objectRecordValue(applySession.job);
       const profileId = current.taskState.selectedEntities.profileId;
-      if (stringRecordValue(applyBranch.profileId) && applyBranch.profileId !== profileId) throw new Error("career_context_profile_mismatch");
       const selectedResume = current.taskState.selectedEntities.resumeId;
       if (stringRecordValue(applyBranch.id) && applyBranch.id !== selectedResume) throw new Error("career_context_resume_mismatch");
       const repository = this.hasExplicitCareerRepository() ? this.getCareerRepository() : undefined;
@@ -6272,6 +6365,8 @@ export class AgentHostStore {
       if (repository && (!canonical?.profileId || !canonical.resumeBranchId)) {
         throw new Error("career_context_unavailable");
       }
+      if (stringRecordValue(applyBranch.profileId) && applyBranch.profileId !== profileId
+        && (!canonical || canonical.resumeBranchId !== applyBranch.id)) throw new Error("career_context_profile_mismatch");
       const profile = profileId && repository ? await repository.getAvailableProfile(profileId) : undefined;
       const expectedProfileRevision = profile?.version
         ?? current.profileRevision
@@ -7400,8 +7495,8 @@ export class AgentHostStore {
       || continuation.resumeId !== selected.resumeId || continuation.revisionId !== selected.revisionId) {
       throw new Error("continuation_entity_conflict");
     }
-    const branch = await this.getCareerRepository().getResumeBranch(selected.resumeId!);
-    if (!branch || branch.profileId !== selected.profileId || branch.currentRevisionId !== selected.revisionId) {
+    const canonical = await resolveCareerAgentContext(session, this.getCareerRepository());
+    if (canonical.resumeBranchId !== selected.resumeId || canonical.revisionId !== selected.revisionId) {
       throw new Error("continuation_revision_conflict");
     }
     const operationId = stringValue(continuation.fitOperationId);
@@ -10062,7 +10157,14 @@ export function attachTaskStateOptions(session: AgentSession, state: AgentTaskSt
   let options: AgentOption[] | undefined;
   let optionSet: AgentOptionSet | undefined;
   let metadata: Record<string, unknown> | undefined;
-  if (
+  if (state.workflowId === "profile_preferences" && state.completionStatus === "waiting_for_confirmation") {
+    options = [
+      { id: "preference-save", label: "保存", action: { type: "answer", field: "preference-decision", value: "save" } },
+      { id: "preference-edit", label: "修改", action: { type: "answer", field: "preference-decision", value: "edit" } },
+      { id: "preference-reject", label: "先不保存", action: { type: "answer", field: "preference-decision", value: "reject" } }
+    ];
+    metadata = { preferenceReview: true };
+  } else if (
     state.workflowId === "compose_resume"
     && state.knownSlots.resumeCompositionProposal
     && !state.knownSlots.resumeCompositionResult
@@ -12350,10 +12452,45 @@ function runtimeArtifactResultData(stableName: string, value: unknown) {
  * stage (or a stale failed status) in IndexedDB even though the artifact was
  * produced.
  */
+function preferenceCandidateMatchesSession(candidate: import("@/agent/workflows/careerPreferenceCandidate").CareerPreferenceCandidate, session: AgentSession) {
+  if (candidate.personId !== session.personId || candidate.profileId !== session.activeProfileId
+    || candidate.expectedProfileRevision !== session.profileRevision) return false;
+  const messages = activeBranchMessages(session);
+  const sources = [...candidate.previousSources, candidate];
+  const values = [candidate.patch.additions, candidate.patch.removals]
+    .flatMap(group => group ? Object.values(group).flatMap(items => items ?? []) : []);
+  if (values.some(value => !sources.some(source => source.sourceQuote.includes(value)))) return false;
+  if (session.messages.some(message => Array.isArray(message.metadata?.preferenceFinalizedSourceIds)
+    && message.metadata.preferenceFinalizedSourceIds.some(id => sources.some(source => source.sourceUserMessageId === id)))) return false;
+  return sources.every(source => messages.some(message => message.role === "user"
+    && message.id === source.sourceUserMessageId && message.turnId === source.sourceTurnId
+    && sha256Utf8(message.content) === source.sourceTextHash && message.content.includes(source.sourceQuote)));
+}
+
 function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, value: unknown): AgentSession {
   // Record the real facade boundary even for a read-only operation that has
   // no durable task. Keep it on the existing turn checkpoint, not a new store.
   const observation = objectValue(value);
+  if (toolName === "career.workflow.profile_preferences") {
+    const checkpoint = objectValue(observation.workflowCheckpoint);
+    if (checkpoint.kind === "profile_preferences" && checkpoint.state === "no_change" && session.activeTurn) {
+      return { ...session, activeTurn: { ...session.activeTurn, workflowCheckpoint: { ...session.activeTurn.workflowCheckpoint,
+        preferenceNoChangePrompt: checkpoint.prompt } } };
+    }
+    const candidate = CareerPreferenceCandidateSchema.safeParse(checkpoint.candidate);
+    if (checkpoint.kind !== "profile_preferences" || !candidate.success || candidate.data.sourceTurnId !== session.activeTurn?.id
+      || !preferenceCandidateMatchesSession(candidate.data, session)) return session;
+    const reducer = new AgentTaskStateReducer();
+    const previous = session.taskState ?? reducer.create(session, "profile_preferences", { workflowId: "profile_preferences", step: "preference_review" });
+    const status = checkpoint.state === "candidate" ? "waiting_for_confirmation" as const : "waiting_for_user" as const;
+    const task = normalizeAgentTaskState({ ...previous, goal: "profile_preferences", rootGoal: "profile_preferences",
+      activeGoal: "profile_preferences", workflowId: "profile_preferences", stage: status === "waiting_for_confirmation" ? "preference_review" : "preference_clarify",
+      selectedEntities: { ...previous.selectedEntities, profileId: candidate.data.profileId, profileVersion: candidate.data.expectedProfileRevision },
+      knownSlots: { ...previous.knownSlots, facadeCheckpoint: checkpoint,
+        pendingConfirmation: status === "waiting_for_confirmation" ? { toolName, operationId: `preference-${candidate.data.sourceUserMessageId}` } : undefined },
+      completionStatus: status, completionType: "transactional", updatedAt: new Date().toISOString() });
+    return projectTaskStateIntoSession(session, task);
+  }
   if (toolName === "career.workflow.precise_edit" && observation.status === "waiting_for_confirmation") {
     return projectPreciseProposal(session, objectValue(observation.workflowCheckpoint).proposal);
   }

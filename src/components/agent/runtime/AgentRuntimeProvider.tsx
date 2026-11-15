@@ -243,7 +243,7 @@ function createAgentHost() {
       const currentSession = state.getSnapshot().activeSession?.id === input.session.id ? state.getSnapshot().activeSession! : input.session;
       const access = await service.prepareAvailableRuntimeContext(currentSession);
       const session = access.resetContext ? await state.adoptDurably(access.session) ?? access.session : access.session;
-      input = { ...input, session, metadata: { ...input.metadata,
+      input = { ...input, session, trustedCareerPreferences: access.trustedCareerPreferences, metadata: { ...input.metadata,
         hermesSessionId: access.hermesSessionId, suppressConversationHistory: access.suppressConversationHistory } };
     }
     const runtimeRequest = input;

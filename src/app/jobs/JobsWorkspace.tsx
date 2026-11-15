@@ -37,6 +37,7 @@ import {
   createRuleRequirementMatches
 } from "@/domain/match/matcher";
 import { profileLimitedToResume } from "@/domain/match/resumeSource";
+import { assessResumeProfileCompatibility } from "@/domain/branch/validation";
 import { buildCareerIntelligence, buildProfileCareerIntelligence, capabilityGapView } from "@/domain/jobOptimization/careerIntelligence";
 import { canonicalProfileLibraryItems } from "@/domain/profile/canonicalLibrary";
 import { WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState } from "@/components/workspace/WorkspaceStates";
@@ -149,9 +150,17 @@ export function JobsWorkspace() {
     window.history.replaceState(window.history.state, "", url);
   }, [selectedJobId]);
 
-  const baseResumeOptions = resumeBranches.filter(branch => branch.profileId === profile?.id && isMatchBaseResume(branch));
+  const baseResumeOptions = resumeBranches.filter(branch => {
+    if (!profile || workspace.status !== "ready" || !isMatchBaseResume(branch)) return false;
+    const source = workspace.profiles.find(candidate => candidate.id === branch.profileId);
+    if (!source) return false;
+    const status = assessResumeProfileCompatibility({ branch, sourceProfile: source, currentProfile: profile }).status;
+    return status !== "different_person" && status !== "invalid_reference";
+  });
   const selectedBaseResume = baseResumeOptions.find((branch) => branch.id === selectedBaseResumeId);
-  const matchingProfile = useMemo(() => profile && selectedBaseResume ? profileLimitedToResume(profile, selectedBaseResume) : undefined, [profile, selectedBaseResume]);
+  const resumeSourceProfile = workspace.status === "ready" && selectedBaseResume
+    ? workspace.profiles.find(candidate => candidate.id === selectedBaseResume.profileId) : undefined;
+  const matchingProfile = useMemo(() => profile && selectedBaseResume ? profileLimitedToResume(profile, selectedBaseResume, resumeSourceProfile) : undefined, [profile, selectedBaseResume, resumeSourceProfile]);
   const selectionKey = JSON.stringify([profile?.id, profile?.version, selectedJob?.id, selectedJob ? getJobVersion(selectedJob) : undefined, sourceMode, selectedBaseResume?.id, selectedBaseResume?.revision, selectedBaseResume?.currentRevisionId, MATCHER_VERSION]);
   const profileAnalysis = profileAnalysisState?.key === selectionKey ? profileAnalysisState.value : undefined;
   function setProfileAnalysis(value: ProfileLibrarySourceAnalysis | undefined) { updateProfileAnalysis(value ? { key: selectionKey, value } : undefined); }
@@ -164,8 +173,8 @@ export function JobsWorkspace() {
     window.history.replaceState(window.history.state, "", url);
   }, [sourceMode, selectedBaseResumeId]);
   const fitAnalysis = useMemo(() => !profile || !selectedJob ? undefined : sourceMode === "resume"
-    ? selectedBaseResume ? buildCareerIntelligence({ profile, job: selectedJob, branch: selectedBaseResume }) : undefined
-    : buildProfileCareerIntelligence({ profile, job: selectedJob }), [profile, selectedJob, selectedBaseResume, sourceMode]);
+    ? selectedBaseResume ? buildCareerIntelligence({ profile, job: selectedJob, branch: selectedBaseResume, sourceProfile: resumeSourceProfile }) : undefined
+    : buildProfileCareerIntelligence({ profile, job: selectedJob }), [profile, selectedJob, selectedBaseResume, resumeSourceProfile, sourceMode]);
   const fitMatches = useMemo(() => profile && selectedJob && fitAnalysis ? createRuleRequirementMatches({ profile, job: selectedJob, branch: sourceMode === "resume" ? selectedBaseResume : undefined, analysis: fitAnalysis }) : [], [profile, selectedJob, selectedBaseResume, fitAnalysis, sourceMode]);
   const output = draft?.analyzerOutput ?? (draft ? { requirements: draft.manualRequirements, riskNotes: draft.riskNotes } : undefined);
   const redactionPreview = useMemo(() => redactSensitiveTextForModel(rawText), [rawText]);
@@ -179,8 +188,9 @@ export function JobsWorkspace() {
   useEffect(() => {
     if (!profile) return;
     let active = true;
-    void repository.listResumeBranches(profile.id).then((branches) => {
+    void repository.listAvailableResumesForCareerProfile(profile.id).then((entries) => {
       if (!active) return;
+      const branches = entries.filter(entry => entry.compatibility.status !== "invalid_reference").map(entry => entry.branch);
       setResumeBranches(branches);
       setSelectedBaseResumeId((current) => branches.some((branch) => branch.id === current && isMatchBaseResume(branch)) ? current : "");
     });
@@ -430,7 +440,7 @@ export function JobsWorkspace() {
       const savedMatches = await repository.saveRuleRequirementMatches({ profile: matchingProfile, job: selectedJob, matches: deterministic });
       if (currentSelection.current !== requestSelection) return;
       setMatches(savedMatches);
-      const existing = (await repository.findDerivedJobBranches({ sourceBranchId: selectedBaseResume.id, jobId: selectedJob.id, sourceRevisionId: selectedBaseResume.currentRevisionId }))[0];
+      const existing = (await repository.findDerivedJobBranches({ sourceBranchId: selectedBaseResume.id, jobId: selectedJob.id, sourceRevisionId: selectedBaseResume.currentRevisionId, profileId: profile.id }))[0];
       if (currentSelection.current !== requestSelection) return;
       if (existing) {
         setResumeActionStatus("completed");
@@ -441,7 +451,7 @@ export function JobsWorkspace() {
       const result = await createJobResume({ repository, job: selectedJob,
         operationId: `job-resume-${selectedBaseResume.id}-${selectedJob.id}-${selectedBaseResume.currentRevisionId}-${nanoid(8)}`,
         name: uniqueBranchName(`${selectedJob.title} - ${selectedJob.company ?? "公司待补充"} - ${profile.basics.name}`, resumeBranches),
-        source: { type: "resume", branch: selectedBaseResume }
+        source: { type: "resume", branch: selectedBaseResume, targetProfileId: profile.id, expectedProfileRevision: profile.version }
       });
       if (currentSelection.current !== requestSelection) return;
       setResumeActionStatus("completed"); notify({ type: "success", title: "岗位简历已创建", message: "原通用简历没有被修改，正在打开 Resume Studio。" });
@@ -457,7 +467,7 @@ export function JobsWorkspace() {
       const result = await createJobResume({ repository, job: selectedJob,
         operationId: `job-resume-${selectedBaseResume.id}-${selectedJob.id}-${selectedBaseResume.currentRevisionId}-${nanoid(8)}`,
         name: uniqueBranchName(`${selectedJob.title} - ${selectedJob.company ?? "公司待补充"} - ${profile.basics.name} - 新优化`, resumeBranches),
-        source: { type: "resume", branch: selectedBaseResume },
+        source: { type: "resume", branch: selectedBaseResume, targetProfileId: profile.id, expectedProfileRevision: profile.version },
         allowDuplicate: true
       });
       setResumeActionStatus("completed"); notify({ type: "success", title: "新岗位简历已创建", message: "基于原始通用简历创建了新的岗位优化版本，正在打开 Resume Studio。" });

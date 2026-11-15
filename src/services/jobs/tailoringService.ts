@@ -104,6 +104,7 @@ export function analyzeJobFit(input: { profile: CareerProfile; branch: ResumeBra
 
 export function createTailoringPlan(input: {
   profile: CareerProfile;
+  sourceProfile?: CareerProfile;
   branch: ResumeBranch;
   job: JobDescription;
   intensity?: TailoringIntensity;
@@ -123,6 +124,7 @@ export function createTailoringPlan(input: {
     job: input.job,
     mode,
     profile: input.profile,
+    sourceProfile: input.sourceProfile,
     resolveEvidenceRefs: (item) => resolveBranchFactRefs(input.profile, item.factRefs)
   });
   const suggestions = createDeterministicTailoringSuggestions({
@@ -1283,7 +1285,7 @@ export async function applyTailoringPlan(input: {
 export async function createJobResume(input: {
   repository: WorkspaceRepository;
   source: { type: "profile"; profileId: string; selectedCanonicalItemIds: string[]; requirementMatchIds?: string[] } |
-    { type: "resume"; branch: ResumeBranch };
+    { type: "resume"; branch: ResumeBranch; targetProfileId?: string; expectedProfileRevision?: number };
   job: JobDescription;
   operationId: string;
   name: string;
@@ -1297,6 +1299,7 @@ export async function createJobResume(input: {
     : await input.repository.deriveJobSpecificBranchFromBranch({
         sourceBranchId: input.source.branch.id, jobId: input.job.id, expectedSourceRevision: input.source.branch.revision,
         expectedSourceRevisionId: input.source.branch.currentRevisionId ?? "", operationId: input.operationId, name: input.name,
+        targetProfileId: input.source.targetProfileId, expectedProfileRevision: input.source.expectedProfileRevision,
         allowDuplicate: input.allowDuplicate
       });
   return {

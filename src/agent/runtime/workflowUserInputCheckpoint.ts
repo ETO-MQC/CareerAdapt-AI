@@ -53,6 +53,16 @@ export function activeWorkflowInteractionFor(
 }
 
 function checkpointProjection(state: AgentTaskState): Omit<WorkflowUserInputCheckpoint, "createdAt" | "revision"> | undefined {
+  if (state.workflowId === "profile_preferences") {
+    const checkpoint = record(state.knownSlots.facadeCheckpoint);
+    const candidate = record(checkpoint.candidate);
+    if (checkpoint.kind === "profile_preferences" && typeof candidate.sourceUserMessageId === "string") {
+      const isReview = state.completionStatus === "waiting_for_confirmation";
+      const text = stringValue(checkpoint.prompt) ?? "请核对职业偏好。";
+      return base(state, `preferences:${candidate.sourceUserMessageId}:${state.stage}`, isReview ? "confirmation" : "clarification",
+        { text }, isReview ? { type: "confirmation", values: ["save", "edit", "reject"] } : { type: "text" });
+    }
+  }
   const pendingConfirmation = record(state.knownSlots.pendingConfirmation);
   if (state.completionStatus === "waiting_for_confirmation" || Object.keys(pendingConfirmation).length > 0) {
     const operationId = stringValue(pendingConfirmation.operationId) ?? `stage:${state.stage}`;

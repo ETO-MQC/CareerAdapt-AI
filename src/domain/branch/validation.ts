@@ -136,6 +136,38 @@ export function collectInvalidFactRefKeys(profile: CareerProfile, factRefs: Bran
   return invalid;
 }
 
+/** Compare against the source version without changing the stored branch or its provenance. */
+export function assessResumeProfileCompatibility(input: {
+  branch: ResumeBranch;
+  sourceProfile: CareerProfile;
+  currentProfile: CareerProfile;
+}) {
+  const { branch, sourceProfile, currentProfile } = input;
+  if (branch.profileId !== sourceProfile.id || !sourceProfile.personId || sourceProfile.personId !== currentProfile.personId) {
+    return { status: "different_person" as const, invalidFactRefs: [] as string[] };
+  }
+  const refs = [...branch.contentItems.flatMap(item => item.factRefs),
+    ...(branch.structuredContentItems ?? []).flatMap(item => item.factRefs)];
+  const invalid = new Set(collectInvalidFactRefKeys(currentProfile, refs));
+  if (sourceProfile.id !== currentProfile.id) {
+    // A mutable source Profile that has advanced past the branch's recorded
+    // revision cannot prove what its references meant when the branch was made.
+    if (sourceProfile.version !== branch.sourceProfileVersion) refs.forEach(ref => invalid.add(branchFactRefKey(ref)));
+    for (const ref of refs) {
+      try {
+        const source = resolveBranchFactRef(sourceProfile, ref);
+        const current = resolveBranchFactRef(currentProfile, ref);
+        if (source.factText !== current.factText || source.factQuote !== current.factQuote) invalid.add(branchFactRefKey(ref));
+      } catch {
+        invalid.add(branchFactRefKey(ref));
+      }
+    }
+  }
+  if (invalid.size) return { status: "invalid_reference" as const, invalidFactRefs: [...invalid] };
+  return { status: sourceProfile.id !== currentProfile.id || branch.sourceProfileVersion !== currentProfile.version
+    ? "profile_updated" as const : "compatible" as const, invalidFactRefs: [] as string[] };
+}
+
 export function computeBranchSyncStatus(input: {
   branch: ResumeBranch;
   profile: CareerProfile;

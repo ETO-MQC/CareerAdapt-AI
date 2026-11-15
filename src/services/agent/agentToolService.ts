@@ -1,4 +1,5 @@
 import { resolveCareerAgentContext } from "@/agent/runtime/careerContextBindingResolver";
+import { assessResumeProfileCompatibility } from "@/domain/branch/validation";
 import { createPreciseProposal } from "@/domain/resumeEditing/preciseResumeEdit";
 import { PreciseSelectionSchema, assertPreciseOwnership, preciseReference, canonicalJson } from "@/domain/resumeEditing/preciseResumeContract";
 import { createStructuredProposal, CorrectionSourceSchema } from "@/domain/resumeEditing/structuredResumeOperation";
@@ -1218,10 +1219,17 @@ export class BrowserAgentToolService implements AgentToolServices {
     const invalidProfile = Boolean(selected?.profileId && !canonical?.profileId);
     const invalidJob = selected ? Boolean(jobId && !canonical?.jobId)
       : Boolean(jobId && !await this.repository.getAvailableJobDescription(jobId));
-    const resumeAvailability = await Promise.all(resumeIds.map(id => this.repository.getAvailableResumeBranch(id)));
-    const invalidResume = resumeAvailability.some(branch => !branch || Boolean(profileId && branch.profileId !== profileId))
-      || Boolean(selected?.resumeId && !canonical?.resumeBranchId);
     const profile = profileId && !invalidProfile ? await this.repository.getAvailableProfile(profileId) : undefined;
+    const resumeAvailability = await Promise.all(resumeIds.map(id => this.repository.getAvailableResumeBranch(id)));
+    const resumeCompatibility = await Promise.all(resumeAvailability.map(async branch => {
+      if (!branch || !profile) return !branch;
+      const sourceProfile = branch.profileId === profile.id ? profile : await this.repository.getAvailableProfile(branch.profileId);
+      if (!sourceProfile) return true;
+      const status = assessResumeProfileCompatibility({ branch, sourceProfile, currentProfile: profile }).status;
+      return status === "different_person" || status === "invalid_reference";
+    }));
+    const invalidResume = resumeCompatibility.some(Boolean)
+      || Boolean(selected?.resumeId && !canonical?.resumeBranchId);
     const profileChanged = !!profile && session.profileRevision !== undefined
       && (!selected || session.activeProfileId === profileId) && session.profileRevision !== profile.version;
     const resetContext = access.resetContext || (!access.initialized && access.hasRevocations && !!session.hermesRun)
@@ -1235,7 +1243,13 @@ export class BrowserAgentToolService implements AgentToolServices {
       ...session, activeProfileId: canonical?.profileId, activeJobId: canonical?.jobId, activeResumeId: canonical?.resumeBranchId,
       ...(profile && canonical?.profileId ? { personId: profile.personId, profileRevision: profile.version, profileVersionNumber: profile.profileVersionNumber } : {})
     } : session;
-    return { session: current, resetContext,
+    const trustedCareerPreferences = profile && (!current.personId || profile.personId === current.personId)
+      && current.activeProfileId === profile.id && current.profileRevision === profile.version
+      ? { profileId: profile.id, profileRevision: profile.version,
+        targetRoles: profile.preference.targetRoles.slice(0, 20).map(value => value.slice(0, 120)),
+        targetCities: profile.preference.targetCities.slice(0, 20).map(value => value.slice(0, 120)),
+        industries: profile.preference.industries.slice(0, 20).map(value => value.slice(0, 120)) } : undefined;
+    return { session: current, resetContext, ...(trustedCareerPreferences ? { trustedCareerPreferences } : {}),
       suppressConversationHistory: resetContext || access.hasRevocations
         || !session.conversationBranches.some(branch => branch.id === session.activeBranchId && branch.parentBranchId),
       hermesSessionId: `hermes-${session.id}-access-${access.scope}` };
@@ -1249,8 +1263,11 @@ export class BrowserAgentToolService implements AgentToolServices {
     const profileIds = [input.profileId, input.targetProfileId, branch.profileId];
     for (const id of profileIds) if (typeof id === "string" && !await this.repository.getAvailableProfile(id)) throw toolError("entity_not_available", "该人物或资料版本已不可用，未读取其内容。");
     if (name !== "career.resume.restore") {
-      const resumeIds = [input.resumeId, input.sourceResumeId, input.branchId, branch.id];
-      for (const id of resumeIds) if (typeof id === "string" && !await this.repository.getAvailableResumeBranch(id)) throw toolError("entity_not_available", "该简历已移出当前列表或所属资料已不可用，未读取其内容。");
+      const resumeIds = [input.resumeId, input.sourceResumeId, input.branchId, branch.id].filter((id): id is string => typeof id === "string");
+      const allowed = binding && resumeIds.length ? new Set((await this.repository.listAvailableResumesForCareerProfile(binding.profileId)).map(row => row.branch.id)) : undefined;
+      for (const id of resumeIds) if (!await this.repository.getAvailableResumeBranch(id) || (allowed && !allowed.has(id))) {
+        throw toolError("entity_not_available", "该简历已移出当前列表或不属于当前人物，未读取其内容。");
+      }
     }
     for (const id of [input.jobId, session.jobId, branch.jobId]) if (typeof id === "string" && !await this.repository.getAvailableJobDescription(id)) throw toolError("entity_not_available", "该岗位已移出当前列表，未读取或更新其内容。");
   }
@@ -1267,8 +1284,18 @@ export class BrowserAgentToolService implements AgentToolServices {
       data.profiles = data.profiles.filter(row => ids.has((row as { id: string }).id));
     }
     if (Array.isArray(data.resumes)) {
-      const ids = new Set((await this.repository.listAvailableResumeBranches()).map(row => row.id));
-      data.resumes = data.resumes.filter(row => ids.has((row as { id: string }).id));
+      if (binding) {
+        const current = await this.repository.getAvailableProfile(binding.profileId);
+        const entries = await this.repository.listAvailableResumesForCareerProfile(binding.profileId);
+        const allowed = new Map(entries.map(row => [row.branch.id, row.compatibility]));
+        data.resumes = data.resumes.flatMap(row => {
+          const compatibility = allowed.get((row as { id: string }).id);
+          return compatibility && current?.personId ? [{ ...row as object, verifiedPersonId: current.personId, compatibility }] : [];
+        });
+      } else {
+        const ids = new Set((await this.repository.listAvailableResumeBranches()).map(row => row.id));
+        data.resumes = data.resumes.filter(row => ids.has((row as { id: string }).id));
+      }
     }
     if (Array.isArray(data.sessions)) {
       const allowed = [];
@@ -1299,6 +1326,14 @@ export class BrowserAgentToolService implements AgentToolServices {
     const job = data.job as { id?: string } | undefined;
     const profile = data.profile as { id?: string } | undefined;
     const resume = (data.resume ?? data.branch) as { id?: string } | undefined;
+    if (binding && (name === "career.resume.get" || name === "career.resume.get_revision")) {
+      const resumeId = resume?.id ?? (typeof data.resumeId === "string" ? data.resumeId : undefined);
+      const profile = await this.repository.getAvailableProfile(binding.profileId);
+      const match = (await this.repository.listAvailableResumesForCareerProfile(binding.profileId)).find(row => row.branch.id === resumeId);
+      if (!profile?.personId || !match) throw toolError("entity_not_available", "该简历不属于当前人物。");
+      if (resume) data.resume = { ...resume, verifiedPersonId: profile.personId, compatibility: match.compatibility };
+      else data.verifiedPersonId = profile.personId;
+    }
     await this.assertAvailableToolTargets(name === "career.resume.restore" ? "career.resume.get" : name, {
       jobId: data.jobId ?? job?.id,
       profileId: data.profileId ?? profile?.id,
@@ -1487,7 +1522,10 @@ export class BrowserAgentToolService implements AgentToolServices {
     if (input.jobId && !job) throw toolError("job_not_found", "Job no longer exists.");
     if (input.resumeId && !resume) throw toolError("resume_not_found", "Resume no longer exists.");
     if (resume && resume.profileId !== profile.id) {
-      throw toolError("career_context_resume_profile_mismatch", "Resume is not bound to the requested profile.");
+      const sourceProfile = await this.repository.getAvailableProfile(resume.profileId);
+      const compatibility = sourceProfile && assessResumeProfileCompatibility({ branch: resume, sourceProfile, currentProfile: profile });
+      if (!compatibility || compatibility.status === "different_person") throw toolError("career_context_resume_profile_mismatch", "Resume does not belong to the selected person.");
+      if (compatibility.status === "invalid_reference") throw toolError("branch_invalid_reference", "简历引用的资料已变化，请先核对或同步。");
     }
     const requirementMatches = job
       ? await this.repository.listRequirementMatches(profile.id, job.id)
@@ -2011,26 +2049,28 @@ export class BrowserAgentToolService implements AgentToolServices {
 
   async analyzeJobFit(rawInput: unknown, operationId: string, signal?: AbortSignal) {
     assertNotAborted(signal);
-    const { profile, branch, job, targetSnapshot } = await this.loadSelection(rawInput);
+    const { profile, branch, job, targetSnapshot, sourceProfile } = await this.loadSelection(rawInput, true);
     return {
       operationId,
-      analysis: analyzeJobFit({ profile, branch, job }, this.careerIntelligence.get({ profile, branch, job })),
+      analysis: analyzeJobFit({ profile, branch, job }, this.careerIntelligence.get({ profile, branch, job, sourceProfile })),
       dependencies: selectionDependencies(profile, branch, job, targetSnapshot)
     };
   }
 
   async createTailoringSession(rawInput: unknown, operationId: string, signal?: AbortSignal) {
     const input = rawInput as { intensity?: unknown; mode?: unknown };
-    const { profile, branch, job, targetSnapshot } = await this.loadSelection(rawInput);
+    const { profile, branch, job, targetSnapshot, sourceProfile } = await this.loadSelection(rawInput, true);
+    if (profile.id !== branch.profileId && branch.branchPurpose !== "general") throw toolError("resume_sync_required", "请先核对旧版本岗位简历，再继续修改。");
     const created = createTailoringSessionCommand({
       operationId,
       profile,
+      sourceProfile,
       branch,
       job,
       ...(targetSnapshot ? { targetSnapshot } : {}),
       intensity: input.intensity === undefined ? undefined : TailoringIntensitySchema.parse(input.intensity),
       mode: input.mode === undefined ? undefined : TailoringModeSchema.parse(input.mode)
-    }, signal, this.careerIntelligence.get({ profile, branch, job }));
+    }, signal, this.careerIntelligence.get({ profile, branch, job, sourceProfile }));
     return {
       ...created,
       appliedDiffs: [],
@@ -2107,7 +2147,7 @@ export class BrowserAgentToolService implements AgentToolServices {
     if (!session.branch.currentRevisionId) {
       throw toolError("source_revision_missing", "The selected resume does not have a source revision.");
     }
-    const profile = await this.repository.getAvailableProfile(session.branch.profileId);
+    const profile = await this.repository.getAvailableProfile(session.profile.id);
     if (!profile) throw toolError("profile_not_found", "资料库不存在或已被移除。");
     const acceptedDiffIds = reviewed.map((diff) => tailoringDiffId(diff));
     const checkpointId = resumeArtifactWriteCheckpointId(operationId);
@@ -2117,7 +2157,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       operationId,
       checkpointId,
       workflowId: "tailor_existing_resume",
-      profileId: session.branch.profileId,
+      profileId: session.profile.id,
       expectedProfileRevision: session.profile.version,
       sourceResumeId: session.branch.id,
         sourceResumeRevisionId: session.branch.currentRevisionId,
@@ -2141,6 +2181,7 @@ export class BrowserAgentToolService implements AgentToolServices {
     try {
       const result = await this.repository.deriveAndApplyTailoringDiffsAtomic({
         sourceBranchId: session.branch.id,
+        targetProfileId: session.profile.id,
         jobId: session.job.id,
         ...(session.targetSnapshot ? { targetSnapshot: session.targetSnapshot } : {}),
         expectedSourceRevision: session.branch.revision,
@@ -2160,8 +2201,8 @@ export class BrowserAgentToolService implements AgentToolServices {
       const [readbackBranch, readbackRevision, visibleBranches, readbackProfile] = await Promise.all([
         this.repository.getAvailableResumeBranch(result.branch.id),
         this.repository.getResumeRevision(result.revision.id),
-        this.repository.listAvailableResumeBranches(session.branch.profileId),
-        this.repository.getAvailableProfile(session.branch.profileId)
+        this.repository.listAvailableResumeBranches(session.profile.id),
+        this.repository.getAvailableProfile(session.profile.id)
       ]);
       if (!readbackBranch || !readbackRevision || !readbackProfile) {
         throw toolError(
@@ -2189,7 +2230,7 @@ export class BrowserAgentToolService implements AgentToolServices {
         : readbackBranch.jobId === session.job.id;
       const readbackVerified = Boolean(
         readbackProfile.version === profile.version
-        && readbackBranch.profileId === session.branch.profileId
+        && readbackBranch.profileId === session.profile.id
         && targetProvenanceMatch
         && readbackBranch.branchPurpose === "job_specific"
         && readbackBranch.lifecycleStatus === "active"
@@ -2219,7 +2260,7 @@ export class BrowserAgentToolService implements AgentToolServices {
         schemaVersion: 1,
         operationId,
         status: "completed",
-        profileId: session.branch.profileId,
+        profileId: session.profile.id,
         expectedProfileRevision: profile.version,
         jobId: session.job.id,
         ...(session.targetSnapshot ? {
@@ -2359,7 +2400,7 @@ export class BrowserAgentToolService implements AgentToolServices {
     };
   }
 
-  private async loadSelection(rawInput: unknown) {
+  private async loadSelection(rawInput: unknown, allowSamePersonRead = false) {
     const input = rawInput as {
       profileId: string;
       profileVersion?: string | number;
@@ -2379,7 +2420,15 @@ export class BrowserAgentToolService implements AgentToolServices {
     if (!profile) throw toolError("profile_not_found", "Profile no longer exists.");
     if (!branch) throw toolError("resume_not_found", "Resume no longer exists.");
     if (!job) throw toolError("job_not_found", "Job no longer exists.");
-    if (branch.profileId !== profile.id) throw toolError("resume_profile_mismatch", "Resume does not belong to the selected profile.");
+    let sourceProfile = profile;
+    if (branch.profileId !== profile.id) {
+      const source = await this.repository.getAvailableProfile(branch.profileId);
+      if (!source || !allowSamePersonRead) throw toolError("resume_profile_mismatch", "这份简历需要先完成资料版本兼容检查。");
+      sourceProfile = source;
+      const compatibility = assessResumeProfileCompatibility({ branch, sourceProfile, currentProfile: profile });
+      if (compatibility.status === "different_person") throw toolError("resume_profile_mismatch", "Resume does not belong to the selected person.");
+      if (compatibility.status === "invalid_reference") throw toolError("branch_invalid_reference", "简历引用的资料已变化，请先核对或同步。");
+    }
     if (input.profileVersion !== undefined && String(input.profileVersion) !== String(profile.version)) {
       throw toolError("tailoring_profile_stale", "资料库已更新，请基于最新版本重新生成定制计划。");
     }
@@ -2392,7 +2441,7 @@ export class BrowserAgentToolService implements AgentToolServices {
     if (targetSnapshot && input.jobId && targetSnapshot.sourceJobId && input.jobId !== targetSnapshot.sourceJobId) {
       throw toolError("tailoring_target_mismatch", "岗位目标来源已变化，请重新开始当前定制。 ");
     }
-    return { profile, branch, job, targetSnapshot };
+    return { profile, branch, job, targetSnapshot, sourceProfile };
   }
 
   private generateDiffs(operationId: string, session: TailoringSession, signal?: AbortSignal) {

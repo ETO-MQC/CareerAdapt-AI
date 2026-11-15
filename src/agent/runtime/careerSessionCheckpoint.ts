@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { AgentTaskState } from "@/agent/contracts/agentSession";
+import type { AgentRuntimeTurnInput } from "./agentRuntime";
 
 export const CareerSessionCheckpointSchema = z.object({
   taskSummary: z.string().max(1000).optional(),
@@ -7,18 +8,22 @@ export const CareerSessionCheckpointSchema = z.object({
   profileId: z.string().min(1).max(200).optional(),
   resumeId: z.string().min(1).max(200).optional(), resumeRevisionId: z.string().min(1).max(200).optional(),
   sourceResumeId: z.string().min(1).max(200).optional(), sourceResumeRevisionId: z.string().min(1).max(200).optional(),
-  jobId: z.string().min(1).max(200).optional(), jobRevision: z.union([z.string().min(1).max(200), z.number()]).optional()
+  jobId: z.string().min(1).max(200).optional(), jobRevision: z.union([z.string().min(1).max(200), z.number()]).optional(),
+  careerPreferences: z.object({ profileId: z.string().min(1), profileRevision: z.number().int().min(1),
+    targetRoles: z.array(z.string().max(120)).max(20), targetCities: z.array(z.string().max(120)).max(20),
+    industries: z.array(z.string().max(120)).max(20) }).strict().optional()
 }).strict();
 export type CareerSessionCheckpoint = z.infer<typeof CareerSessionCheckpointSchema>;
 
 /** Bounded Host projection. Never serialize knownSlots, source text or tool history. */
-export function careerSessionCheckpoint(task?: AgentTaskState): CareerSessionCheckpoint | undefined {
-  if (!task) return undefined;
+export function careerSessionCheckpoint(task?: AgentTaskState, preferences?: AgentRuntimeTurnInput["trustedCareerPreferences"]): CareerSessionCheckpoint | undefined {
+  if (!task && !preferences) return undefined;
+  if (!task) return CareerSessionCheckpointSchema.parse({ workflowId: "conversation", stage: "conversation", careerPreferences: preferences });
   const selected = task.selectedEntities;
   return CareerSessionCheckpointSchema.parse({ taskSummary: careerTaskSummary(task), workflowId: task.workflowId, stage: task.stage,
     profileId: selected.profileId, resumeId: selected.resumeId, resumeRevisionId: selected.resumeRevisionId,
     sourceResumeId: selected.sourceResumeId, sourceResumeRevisionId: selected.sourceResumeRevisionId,
-    jobId: selected.jobId, jobRevision: selected.jobRevision });
+    jobId: selected.jobId, jobRevision: selected.jobRevision, careerPreferences: preferences });
 }
 
 /** Business state for reasoning; entity identifiers stay in the tool binding. */

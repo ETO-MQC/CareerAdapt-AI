@@ -1,4 +1,5 @@
 import type { AgentSession } from "@/agent/contracts/agentSession";
+import { assessResumeProfileCompatibility } from "@/domain/branch/validation";
 import type { WorkspaceRepository } from "@/services/storage/repositories";
 import { derivePendingInteraction } from "./agentTurnLifecycle";
 import type { CareerSessionBinding } from "./careerSessionBinding";
@@ -45,6 +46,8 @@ export type CareerProfileResolution =
 export type CareerResumeCandidate = {
   id: string;
   profileId?: string;
+  verifiedPersonId?: string;
+  compatibility?: { status?: string };
   purpose?: string;
   branchPurpose?: string;
   lifecycleStatus?: string;
@@ -109,6 +112,7 @@ export class CareerContextBindingResolver {
 
   resolveResumeSource(input: {
     profileId: string;
+    personId?: string;
     requestedResumeId?: string;
     resumes: CareerResumeCandidate[];
     profileSufficient: boolean;
@@ -117,7 +121,9 @@ export class CareerContextBindingResolver {
       .filter((resume) => isHealthyGeneralResume(resume)
         && typeof resume.id === "string"
         && Boolean(resume.id.trim())
-        && resume.profileId === input.profileId)
+        && (resume.profileId === input.profileId || Boolean(input.personId && resume.verifiedPersonId === input.personId))
+        && resume.compatibility?.status !== "invalid_reference"
+        && resume.compatibility?.status !== "different_person")
       .slice(0, 12);
     if (input.requestedResumeId) {
       const requested = general.find((resume) => resume.id === input.requestedResumeId);
@@ -273,7 +279,13 @@ export async function resolveCareerAgentContext(
     && (typeof selected?.profileVersion !== "number" || profile.version === selected.profileVersion)
     ? profile : undefined;
   const validJob = job && (selected?.jobRevision === undefined || job.updatedAt === selected.jobRevision) ? job : undefined;
-  const candidateResume = resume && validProfile && resume.profileId === validProfile.id ? resume : undefined;
+  const sourceProfile = resume && validProfile
+    ? resume.profileId === validProfile.id ? validProfile : await repository.getAvailableProfile(resume.profileId)
+    : undefined;
+  const compatibility = resume && validProfile && sourceProfile
+    ? assessResumeProfileCompatibility({ branch: resume, sourceProfile, currentProfile: validProfile }) : undefined;
+  const candidateResume = compatibility && compatibility.status !== "different_person" && compatibility.status !== "invalid_reference"
+    ? resume : undefined;
   const selectedRevision = selected?.resumeRevisionId ?? selected?.revisionId;
   const aliasesAgree = !selected?.resumeRevisionId || !selected.revisionId || selected.resumeRevisionId === selected.revisionId;
   const revision = selectedRevision && candidateResume && aliasesAgree ? await repository.getResumeRevision(selectedRevision) : undefined;

@@ -17,7 +17,7 @@ function fixture() {
   const repository = {
     getAvailableProfile: vi.fn(async (id: string) => id === "profile-1" ? { id, personId: "person-1", version: 3 } : undefined),
     getAvailableJobDescription: vi.fn(async (id: string) => id === "job-1" ? { id, updatedAt: "2026-01-01T00:00:00.000Z" } : undefined),
-    getAvailableResumeBranch: vi.fn(async (id: string) => id === "resume-1" ? { id, profileId: "profile-1", currentRevisionId: "revision-1" } : undefined),
+    getAvailableResumeBranch: vi.fn(async (id: string) => id === "resume-1" ? { id, profileId: "profile-1", currentRevisionId: "revision-1", contentItems: [], sourceProfileVersion: 3 } : undefined),
     getResumeRevision: vi.fn(async (id: string) => id === "revision-1" ? { id, branchId: "resume-1" } : undefined)
   };
   return { session, repository, resolve: () => resolveCareerAgentContext(session, repository as unknown as WorkspaceRepository) };
@@ -74,7 +74,7 @@ describe("H4A repository validated career context", () => {
     const f = fixture();
     f.repository.getResumeRevision.mockResolvedValueOnce({ id: "revision-1", branchId: "other-resume" });
     expect((await f.resolve()).revisionId).toBeUndefined();
-    f.repository.getAvailableResumeBranch.mockResolvedValueOnce({ id: "resume-1", profileId: "profile-1", currentRevisionId: "newer" });
+    f.repository.getAvailableResumeBranch.mockResolvedValueOnce({ id: "resume-1", profileId: "profile-1", currentRevisionId: "newer", contentItems: [], sourceProfileVersion: 3 });
     expect((await f.resolve()).revisionId).toBeUndefined();
   });
 });

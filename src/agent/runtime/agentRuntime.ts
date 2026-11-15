@@ -53,6 +53,14 @@ export type AgentRuntimeTurnInput = {
   pageContext: AgentPageContext;
   session?: AgentSession;
   attachments?: AgentRuntimeAttachment[];
+  /** Renderer-owned, Repository-derived compact projection; never a write authority. */
+  trustedCareerPreferences?: {
+    profileId: string;
+    profileRevision: number;
+    targetRoles: string[];
+    targetCities: string[];
+    industries: string[];
+  };
   signal?: AbortSignal;
   metadata?: Record<string, unknown>;
 };

@@ -137,6 +137,7 @@ export type CareerToolExecutionContext = {
   sourceUserMessage?: string;
   /** Host-resolved turn for composition; never supplied by Hermes. */
   compositionSourceTurn?: CompositionSourceTurn;
+  preferenceSourceTurn?: { messageId: string; turnId: string; exactSourceText: string };
   /** Host-derived direct business intent, never a model argument. */
   jobIntakeIntent?: "save" | "complete_company";
   /** Browser/Host-owned answer for the current tailoring checkpoint. */
@@ -476,13 +477,13 @@ export class CareerToolGateway {
       completedAt: raw.completedAt
     };
     if (raw.ok) {
-      const resultMismatch = boundResultMismatch(name, raw.data, binding);
+      const currentData = this.asDependencies().filterAvailableResult
+        ? await this.asDependencies().filterAvailableResult!(name, raw.data, binding) : raw.data;
+      const resultMismatch = boundResultMismatch(name, currentData, binding, Boolean(this.asDependencies().filterAvailableResult));
       if (resultMismatch) {
         return this.failure(name, raw.operationId, resultMismatch.code, resultMismatch.message, false);
       }
-      const currentData = this.asDependencies().filterAvailableResult
-        ? await this.asDependencies().filterAvailableResult!(name, raw.data, binding) : raw.data;
-      const data = filterBoundResult(name, currentData, binding);
+      const data = filterBoundResult(name, currentData, binding, Boolean(this.asDependencies().filterAvailableResult));
       return {
         ok: true,
         data: data as T,
@@ -650,6 +651,7 @@ export class CareerToolGateway {
     const inputSchema = definition.inputJsonSchema
       ?? z.toJSONSchema(definition.inputSchema) as Record<string, unknown>;
     const identity = contractIdentityForInputSchema(inputSchema);
+    const readOnly = definition.name === "career.workflow.precise_edit" || definition.name === "career.workflow.profile_preferences";
     return {
       name: definition.name,
       description: `${definition.description} Stop when status is completed, waiting_for_user, waiting_for_confirmation, working, review_ready, recoverable_failure, partial, or failed; do not call another workflow facade in the same turn. The result status and receipt are authoritative; do not claim completion from prose alone.`,
@@ -657,8 +659,8 @@ export class CareerToolGateway {
       namespace: "career.workflow",
       inputSchema,
       outputSchema: careerToolEnvelopeJsonSchema(CareerWorkflowFacadeResultSchema),
-      readWrite: definition.name === "career.workflow.precise_edit" ? "read" : "write",
-      safetyClass: definition.name === "career.workflow.precise_edit" ? "READ" : "SAFE_WRITE",
+      readWrite: readOnly ? "read" : "write",
+      safetyClass: readOnly ? "READ" : "SAFE_WRITE",
       confirmationPolicy: "none",
       idempotencyKeyPolicy: "operation_id",
       personProfileBinding: definition.personProfileBinding,
@@ -1134,7 +1136,7 @@ function bindingInputMismatch(input: unknown, binding: CareerSessionBinding) {
   return undefined;
 }
 
-function filterBoundResult(name: string, raw: unknown, binding?: CareerSessionBinding) {
+function filterBoundResult(name: string, raw: unknown, binding?: CareerSessionBinding, ownershipVerified = false) {
   if (!binding || !raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
   const value = raw as Record<string, unknown>;
   if (name === "career.profile.list" && Array.isArray(value.profiles)) {
@@ -1152,14 +1154,15 @@ function filterBoundResult(name: string, raw: unknown, binding?: CareerSessionBi
       ...value,
       resumes: value.resumes.filter((resume) => {
         if (!resume || typeof resume !== "object" || Array.isArray(resume)) return false;
-        return (resume as Record<string, unknown>).profileId === binding.profileId;
+        const candidate = resume as Record<string, unknown>;
+        return candidate.profileId === binding.profileId || (ownershipVerified && candidate.verifiedPersonId === binding.personId);
       })
     };
   }
   return raw;
 }
 
-function boundResultMismatch(name: string, raw: unknown, binding?: CareerSessionBinding) {
+function boundResultMismatch(name: string, raw: unknown, binding?: CareerSessionBinding, ownershipVerified = false) {
   if (!binding || !raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
   const value = raw as Record<string, unknown>;
   if (name === "career.profile.active") {
@@ -1187,7 +1190,8 @@ function boundResultMismatch(name: string, raw: unknown, binding?: CareerSession
     const resume = value.resume && typeof value.resume === "object" && !Array.isArray(value.resume)
       ? value.resume as Record<string, unknown>
       : value;
-    if (typeof resume.profileId === "string" && resume.profileId !== binding.profileId) {
+    if (typeof resume.profileId === "string" && resume.profileId !== binding.profileId
+      && !(ownershipVerified && resume.verifiedPersonId === binding.personId)) {
       return {
         code: "career_session_binding_resume_mismatch",
         message: "读取结果不属于当前 Agent Session 固定的资料。"

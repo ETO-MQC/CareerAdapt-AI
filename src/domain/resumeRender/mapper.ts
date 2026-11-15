@@ -37,10 +37,11 @@ export function mapBranchToResumeRenderModel(input: {
   job?: JobDescription;
   presentationConfig?: ResumePresentationConfig;
   coveragePolicy?: "strict" | "warn";
+  historicalView?: boolean;
 }) {
   const { branch, profile } = input;
   const job = input.job ?? (branch.targetSnapshot ? jobTargetSnapshotToJobDescription(branch.targetSnapshot) : undefined);
-  assertRenderableBranch(branch);
+  assertRenderableBranch(branch, input.historicalView === true);
 
   if (branch.profileId !== profile.id) {
     throw new ResumeRenderMapperError("render_source_mismatch");
@@ -304,7 +305,7 @@ function canonicalRenderSection(dataSection: ResumeSectionTypeV2, sourceSectionI
   return dataSection === "basics" ? "other" : dataSection;
 }
 
-function assertRenderableBranch(branch: ResumeBranch) {
+function assertRenderableBranch(branch: ResumeBranch, historicalView: boolean) {
   if (branch.migrationStatus !== "verified") {
     throw new ResumeRenderMapperError("legacy_branch_cannot_render");
   }
@@ -314,7 +315,7 @@ function assertRenderableBranch(branch: ResumeBranch) {
   if (!branch.currentRevisionId) {
     throw new ResumeRenderMapperError("branch_current_revision_missing");
   }
-  if (branch.syncStatusCache.status === "invalid_reference") {
+  if (branch.syncStatusCache.status === "invalid_reference" && !historicalView) {
     throw new ResumeRenderMapperError("branch_invalid_reference");
   }
 }

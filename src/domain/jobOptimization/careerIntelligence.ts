@@ -10,7 +10,7 @@ import { stableHashText } from "@/services/security/text";
 export const CAREER_INTELLIGENCE_RULE_VERSION = "career-intelligence-2.1";
 
 /** Derived analysis only. No new fact store, model call, or persistence. */
-export function buildCareerIntelligence(input: { profile: CareerProfile; branch: ResumeBranch; job: JobDescription }) {
+export function buildCareerIntelligence(input: { profile: CareerProfile; branch: ResumeBranch; job: JobDescription; sourceProfile?: CareerProfile }) {
   const graph = buildCanonicalJobRequirementGraph(input.job);
   const evidenceUnits = buildCandidateEvidenceUnits(input);
   const matrix = evaluateRequirementEvidence({ ...input, graph, evidenceUnits, recalls: recallEvidenceCandidates({ graph, evidenceUnits }) });
@@ -58,7 +58,7 @@ export class CareerIntelligenceCache {
   private readonly entries = new Map<string, ReturnType<typeof buildCareerIntelligence>>();
   get(input: Parameters<typeof buildCareerIntelligence>[0]) {
     // Revisions are authoritative; fingerprints also protect imported/legacy snapshots with reused revisions.
-    const key = stableHashText(JSON.stringify([CAREER_INTELLIGENCE_RULE_VERSION, input.profile, input.branch, input.job]));
+    const key = stableHashText(JSON.stringify([CAREER_INTELLIGENCE_RULE_VERSION, input.profile, input.sourceProfile, input.branch, input.job]));
     const existing = this.entries.get(key);
     if (existing) return { ...structuredClone(existing), reused: true };
     const result = buildCareerIntelligence(input);

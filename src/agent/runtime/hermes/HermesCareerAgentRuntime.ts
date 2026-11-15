@@ -383,7 +383,10 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
             // sends no executable callback contract or second tool loop here.
             toolContracts: [],
             careerSessionBinding: binding,
-            careerCheckpoint: careerSessionCheckpoint(input.session?.taskState),
+            careerCheckpoint: careerSessionCheckpoint(input.session?.taskState,
+              binding && input.trustedCareerPreferences?.profileId === binding.profileId
+                && input.trustedCareerPreferences.profileRevision === binding.profileRevision
+                ? input.trustedCareerPreferences : undefined),
             incidentTraceId,
             logicalTurnId: turnId,
             attemptTraceId,

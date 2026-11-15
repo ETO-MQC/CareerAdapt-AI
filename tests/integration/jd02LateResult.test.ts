@@ -12,6 +12,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: hooks.push }) }));
 vi.mock("@/services/workspace/useWorkspace", () => ({ useWorkspace: () => hooks.workspace }));
 vi.mock("@/services/jobs/tailoringService", async original => ({ ...await original<object>(), createJobResume: hooks.create }));
 const f = jd02Fixture();
+f.profile.personId = "jd02-person";
 beforeEach(() => {
   window.history.replaceState({}, "", "/jobs?jobId=jd02-job-1&sourceMode=resume&resumeId=jd02-branch-1");
   hooks.workspace = { status: "ready", profiles: [f.profile], jobs: f.jobs, activeContext: { profileId: f.profile.id }, upsertJob: vi.fn() };
@@ -19,6 +20,9 @@ beforeEach(() => {
   vi.spyOn(WorkspaceRepository.prototype, "getMeta").mockResolvedValue(undefined);
   vi.spyOn(WorkspaceRepository.prototype, "getRecycleBinState").mockResolvedValue({ version: 1, jobIds: [], profileItems: [] });
   vi.spyOn(WorkspaceRepository.prototype, "listResumeBranches").mockResolvedValue(f.branches.map(row => migrateResumeBranchToV2(row.branch)));
+  vi.spyOn(WorkspaceRepository.prototype, "listAvailableResumesForCareerProfile").mockResolvedValue(f.branches.map(row => ({
+    branch: migrateResumeBranchToV2(row.branch), compatibility: { status: "compatible", invalidFactRefs: [] }
+  })));
   hooks.push.mockClear(); hooks.create.mockClear();
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
@@ -47,4 +51,21 @@ it("ignores a delayed analysis save after switching resumes and never generates 
   await act(async () => { finish(save.mock.calls[0][0].matches); });
   expect(hooks.create).not.toHaveBeenCalled(); expect(hooks.push).not.toHaveBeenCalled();
   expect(screen.getByLabelText("来源通用简历")).toHaveValue("jd02-branch-2");
+});
+it("offers a compatible older version from the same person without offering another person's resume", async () => {
+  const current = { ...f.profile, id: "current-profile", personId: "jd02-person" };
+  const foreign = { ...f.profile, id: "foreign-profile", personId: "other-person" };
+  const foreignBranch = { ...f.branches[1].branch, id: "foreign-branch", profileId: foreign.id };
+  hooks.workspace = { status: "ready", profiles: [current, f.profile, foreign], jobs: f.jobs,
+    activeContext: { profileId: current.id }, upsertJob: vi.fn() };
+  vi.mocked(WorkspaceRepository.prototype.listAvailableResumesForCareerProfile).mockResolvedValue([
+    { branch: migrateResumeBranchToV2(f.branches[0].branch), compatibility: { status: "profile_updated", invalidFactRefs: [] } },
+    { branch: migrateResumeBranchToV2(foreignBranch), compatibility: { status: "profile_updated", invalidFactRefs: [] } }
+  ]);
+  vi.spyOn(WorkspaceRepository.prototype, "listRequirementMatches").mockResolvedValue([]);
+  render(createElement(JobsWorkspace));
+  await waitFor(() => expect(screen.getByLabelText("来源通用简历")).toHaveValue("jd02-branch-1"));
+  const select = screen.getByLabelText("来源通用简历");
+  expect(select.querySelector('option[value="foreign-branch"]')).toBeNull();
+  expect(select.querySelector('option[value="jd02-branch-1"]')).not.toBeNull();
 });

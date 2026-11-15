@@ -5,7 +5,7 @@ import {
   type MatchEvidenceRef, type RequirementEvidenceEvaluationV2, type RequirementEvidenceMatrixV2,
   type RequirementEvidenceRecall, type ResumeBranch, type ResumeItemV2
 } from "@/domain/schemas";
-import { resolveBranchFactRefs } from "@/domain/branch/validation";
+import { assessResumeProfileCompatibility, resolveBranchFactRefs } from "@/domain/branch/validation";
 import { migrateResumeBranchToV2 } from "@/domain/migrations/resumeV2";
 import { factMaturityOf, strongestFactMaturity } from "@/domain/profile/factMaturity";
 import { stableHashText } from "@/services/security/text";
@@ -16,8 +16,12 @@ const ALIASES: Record<string, string[]> = {
   "质量评测": ["输出审核", "事实核对", "可信度分析", "evaluation"], "英语": ["english", "cet-4", "cet-6"]
 };
 
-export function buildCandidateEvidenceUnits(input: { profile: CareerProfile; branch: ResumeBranch }): CandidateEvidenceUnit[] {
-  if (input.branch.profileId !== input.profile.id) return [];
+export function buildCandidateEvidenceUnits(input: { profile: CareerProfile; branch: ResumeBranch; sourceProfile?: CareerProfile }): CandidateEvidenceUnit[] {
+  if (input.branch.profileId !== input.profile.id) {
+    if (!input.sourceProfile) return [];
+    const compatibility = assessResumeProfileCompatibility({ branch: input.branch, sourceProfile: input.sourceProfile, currentProfile: input.profile });
+    if (compatibility.status === "different_person" || compatibility.status === "invalid_reference") return [];
+  }
   const branch = migrateResumeBranchToV2(input.branch);
   const units: CandidateEvidenceUnit[] = [];
   const factsById = new Map([

@@ -1,6 +1,7 @@
 "use client";
 import { PreciseRevisionHistoryEvidence } from "@/components/agent/PreciseRevisionEvidence";
 import { reviewExistingGeneralResume, type GeneralResumeReview } from "@/domain/resumeComposition/reviewExistingGeneralResume";
+import { assessResumeProfileCompatibility } from "@/domain/branch/validation";
 import { PdfTextReadinessSchema, type PdfTextReadiness } from "@/services/export/pdfTextReadiness";
 import { MaterialIntakeDialog } from "@/components/resume/import/MaterialIntakeDialog";
 import { FieldAppearanceContext, FieldOwner } from "@/components/editor/FieldAppearanceContext";
@@ -480,7 +481,12 @@ export function ResumeWorkspace() {
   const activeDraftId = selectedDraftId || drafts[0]?.id || "";
   const activeBranchId = selectedBranchId === BRANCH_LIST_SENTINEL ? "" : selectedBranchId;
   const selectedDraft = drafts.find((draft) => draft.id === activeDraftId);
-  const selectedBranch = profile ? branches.find((branch) => branch.id === activeBranchId && branch.profileId === profile.id && branch.lifecycleStatus !== "trashed") : undefined;
+  const selectedBranch = profile && workspace.status === "ready" ? branches.find((branch) => branch.id === activeBranchId
+    && branch.lifecycleStatus !== "trashed" && workspace.profiles.some(source => source.id === branch.profileId && source.personId === profile.personId)) : undefined;
+  const selectedBranchProfile = workspace.status === "ready" && selectedBranch
+    ? workspace.profiles.find(source => source.id === selectedBranch.profileId && source.personId === profile?.personId) : undefined;
+  const selectedBranchCompatibility = selectedBranch && selectedBranchProfile && profile
+    ? assessResumeProfileCompatibility({ branch: selectedBranch, sourceProfile: selectedBranchProfile, currentProfile: profile }) : undefined;
   const selectedBranchJob = selectedBranch?.jobId ? jobs.find((job) => job.id === selectedBranch.jobId) : undefined;
   const selectedBranchTarget = selectedBranch?.targetSnapshot;
   const selectedSourceBranch = selectedBranch?.sourceBranchId ? branches.find((branch) => branch.id === selectedBranch.sourceBranchId) : undefined;
@@ -488,23 +494,24 @@ export function ResumeWorkspace() {
   const selectedTemplate = getResumeTemplate(effectiveTemplateId);
   const renderResult = useMemo(() => buildRenderModel({
     branch: selectedBranch,
-    profile,
+    profile: selectedBranchProfile,
     job: selectedBranchJob,
+    historicalView: Boolean(selectedBranch && profile && selectedBranch.profileId !== profile.id),
     presentationConfig
-  }), [selectedBranch, profile, selectedBranchJob, presentationConfig]);
+  }), [selectedBranch, selectedBranchProfile, selectedBranchJob, profile, presentationConfig]);
   const renderModel = renderResult.model;
   const resumeDocument = useMemo(() => {
-    if (!selectedBranch || !profile || (selectedBranch.branchPurpose !== "general" && !selectedBranchJob && !selectedBranchTarget)) {
+    if (!selectedBranch || !selectedBranchProfile || (selectedBranch.branchPurpose !== "general" && !selectedBranchJob && !selectedBranchTarget)) {
       return undefined;
     }
     return mapBranchToResumeDocument({
       branch: selectedBranch,
-      profile,
+      profile: selectedBranchProfile,
       job: selectedBranchJob,
       templateId: effectiveTemplateId,
       presentationConfig
     });
-  }, [selectedBranch, profile, selectedBranchJob, selectedBranchTarget, effectiveTemplateId, presentationConfig]);
+  }, [selectedBranch, selectedBranchProfile, selectedBranchJob, selectedBranchTarget, effectiveTemplateId, presentationConfig]);
   const resumeDocumentBlocksById = useMemo(() => {
     return new Map(resumeDocument?.blocks.map((block) => [block.contentItemId, block]) ?? []);
   }, [resumeDocument]);
@@ -587,7 +594,7 @@ export function ResumeWorkspace() {
     && selectedTemplate.capabilities.supportsSectionPageBreaks
     && selectedStudioSection.type !== firstVisibleSectionType
   );
-  const selectedBranchEditable = selectedBranch ? canEditBranch(selectedBranch) : false;
+  const selectedBranchEditable = selectedBranch ? canEditBranch(selectedBranch) && selectedBranch.profileId === profile?.id : false;
   const pagination = useResumePagination(pageRef, presentationConfig?.pagination, [
     renderModel?.branchId,
     renderModel?.branchRevision,
@@ -655,8 +662,10 @@ export function ResumeWorkspace() {
   const exportRecoveryAvailable = pdfExportState.status === "failed"
     && (exportCoverageFailure || Boolean(pdfExportState.canUseFallback));
   const sortedBranches = useMemo(() => {
-    return [...branches].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  }, [branches]);
+    if (workspace.status !== "ready" || !profile?.personId) return [];
+    const profileIds = new Set(workspace.profiles.filter(item => item.personId === profile.personId).map(item => item.id));
+    return branches.filter(branch => profileIds.has(branch.profileId)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  }, [branches, profile?.personId, workspace]);
   const activeBranches = useMemo(() => sortedBranches.filter((branch) => branch.lifecycleStatus === "active"), [sortedBranches]);
   const resumeProfileCounts = profile ? countProfileContent(profile, activeBranches.length) : undefined;
   const archivedBranches = useMemo(() => sortedBranches.filter((branch) => branch.lifecycleStatus === "archived"), [sortedBranches]);
@@ -689,8 +698,11 @@ export function ResumeWorkspace() {
     { key: "trash", label: "回收站", count: trashedBranches.length }
   ];
   const workbarWarnings = selectedBranch ? [
+    selectedBranch.profileId !== profile?.id ? selectedBranchCompatibility?.status === "invalid_reference"
+      ? "这份简历引用的资料已变化，当前显示历史版本，请先核对后再使用。"
+      : "这份简历基于较早的资料版本，当前可查看和导出。" : undefined,
     selectedBranch.migrationStatus === "legacy_unverified" ? "旧版本简历已保留为只读；如需继续编辑或导出，请在预览区创建可编辑副本。" : undefined,
-    !selectedBranchEditable && selectedBranch.migrationStatus !== "legacy_unverified"
+    !canEditBranch(selectedBranch) && selectedBranch.migrationStatus !== "legacy_unverified"
       ? `当前简历不可编辑：${branchNotEditableLabel(branchNotEditableReason(selectedBranch))}。`
       : undefined,
     selectedBranch.syncStatusCache.status !== "in_sync" ? syncStatusMessage(selectedBranch.syncStatusCache.status) : undefined
@@ -751,7 +763,7 @@ export function ResumeWorkspace() {
   const refreshLists = useCallback(async (profileId: string) => {
     const [nextDrafts, nextBranches] = await Promise.all([
       repository.listJobAdaptationDrafts(profileId),
-      repository.listAvailableResumeBranches(profileId, { includeArchived: true })
+      repository.listAvailableResumesForCareerProfile(profileId, { includeArchived: true }).then(entries => entries.map(entry => entry.branch))
     ]);
     setDrafts(nextDrafts);
     setBranches(nextBranches);
@@ -843,7 +855,7 @@ export function ResumeWorkspace() {
     async function loadLists() {
       const [nextDrafts, nextBranches, savedState] = await Promise.all([
         repository.listJobAdaptationDrafts(profile!.id),
-        repository.listAvailableResumeBranches(profile!.id, { includeArchived: true }),
+        repository.listAvailableResumesForCareerProfile(profile!.id, { includeArchived: true }).then(entries => entries.map(entry => entry.branch)),
         repository.getMeta(workbenchStateKey(profile!.id))
       ]);
       if (!active) {
@@ -3192,7 +3204,7 @@ export function ResumeWorkspace() {
       notify({ type: "warning", title: "提示", message: "至少确认一项简历内容后才能导出 PDF。" });
       return;
     }
-    if (!selectedBranchEditable || !selectedBranch.currentRevisionId) {
+    if (!canEditBranch(selectedBranch) || selectedBranchCompatibility?.status === "invalid_reference" || !selectedBranch.currentRevisionId) {
       notify({ type: "warning", title: "不可导出", message: "当前简历不可导出：旧数据、归档、引用失效或缺少当前版本。" });
       setPdfExportState({
         status: "failed",
@@ -4420,10 +4432,12 @@ export function ResumeWorkspace() {
               {visibleBranches.length > 0 ? (
                 <div className="branch-list resume-card-list">
                   {visibleBranches.map((branch) => {
-                    const branchEditable = canEditBranch(branch);
+                    const branchEditable = canEditBranch(branch) && branch.profileId === profile?.id;
+                    const branchOpenable = canEditBranch(branch) || (branch.profileId !== profile?.id && canManageBranch(branch));
                     const branchJob = branch.jobId ? localJobs.find((job) => job.id === branch.jobId) : undefined;
-                    const branchTargetRole = profile
-                      ? resolveResumeTargetRole({ branch, profile, job: branchJob }) ?? branch.targetSnapshot?.title?.trim()
+                    const branchProfile = workspace.status === "ready" ? workspace.profiles.find(item => item.id === branch.profileId) : undefined;
+                    const branchTargetRole = branchProfile
+                      ? resolveResumeTargetRole({ branch, profile: branchProfile, job: branchJob }) ?? branch.targetSnapshot?.title?.trim()
                       : branch.resumeBasics?.targetRole?.trim() ?? branch.targetSnapshot?.title?.trim();
                     const isRenaming = renamingBranchId === branch.id;
                     return (
@@ -4434,15 +4448,15 @@ export function ResumeWorkspace() {
                         <div
                           className="resume-card-main"
                           role={isRenaming ? undefined : "button"}
-                          tabIndex={!isRenaming && branchEditable ? 0 : undefined}
-                          aria-disabled={!isRenaming && !branchEditable ? "true" : undefined}
+                          tabIndex={!isRenaming && branchOpenable ? 0 : undefined}
+                          aria-disabled={!isRenaming && !branchOpenable ? "true" : undefined}
                           onClick={(event) => {
                             if ((event.target as Element).closest(".resume-card-rename-editor")) return;
-                            if (!isRenaming && branchEditable) openResumeBranch(branch.id);
+                            if (!isRenaming && branchOpenable) openResumeBranch(branch.id);
                           }}
                           onKeyDown={(event) => {
                             if ((event.target as Element).closest(".resume-card-rename-editor")) return;
-                            if (!isRenaming && branchEditable && (event.key === "Enter" || event.key === " ")) {
+                            if (!isRenaming && branchOpenable && (event.key === "Enter" || event.key === " ")) {
                               event.preventDefault();
                               openResumeBranch(branch.id);
                             }
@@ -4489,8 +4503,8 @@ export function ResumeWorkspace() {
                         <div className="resume-card-actions">
                           {branch.lifecycleStatus === "active" ? (
                             <>
-                              <button className="primary-button compact" type="button" disabled={!branchEditable} onClick={() => openResumeBranch(branch.id)}>打开</button>
-                              <button className="secondary-button compact" type="button" disabled={!branchEditable} onClick={() => {
+                              <button className="primary-button compact" type="button" disabled={!branchOpenable} onClick={() => openResumeBranch(branch.id)}>打开</button>
+                              <button className="secondary-button compact" type="button" disabled={!branchOpenable || !canEditBranch(branch)} onClick={() => {
                                 openResumeBranch(branch.id);
                                 setStudioMode("edit"); restoreSettings();
                                 setStyleInspectorTab("page");
@@ -5435,6 +5449,7 @@ function buildRenderModel(input: {
   profile?: Parameters<typeof mapBranchToResumeRenderModel>[0]["profile"];
   job?: Parameters<typeof mapBranchToResumeRenderModel>[0]["job"];
   presentationConfig?: ResumePresentationConfig;
+  historicalView?: boolean;
 }): { model?: ResumeRenderModel; error?: string; errorCode?: string; warning?: string } {
   if (!input.branch || !input.profile || (input.branch.branchPurpose !== "general" && !input.job && !input.branch.targetSnapshot)) {
     return {};
@@ -5446,6 +5461,7 @@ function buildRenderModel(input: {
       profile: input.profile,
       job: input.job,
       presentationConfig: input.presentationConfig,
+      historicalView: input.historicalView,
       coveragePolicy: "warn"
     });
     return {
