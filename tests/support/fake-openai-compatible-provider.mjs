@@ -145,6 +145,9 @@ function materialArtifact(value, depth = 0) {
 
 function chooseResponse({ mode, messages, tools }) {
   const lastToolResult = [...messages].reverse().find((message) => message && message.role === "tool");
+  if (mode === "integration" && tools.length === 0 && /extract every supported career asset|final provisional interview draft/u.test(messageText(messages.find((message) => message?.role === "system")?.content))) {
+    return chooseCareerAgentEvalResponse({ messages, tools, lastToolResult });
+  }
   if (mode === "integration" && latestUserText(messages).includes("P51-C02-OLD-TAILOR")) {
     const latestUserIndex = messages.findLastIndex(message => message?.role === "user");
     if (messages.slice(latestUserIndex + 1).some(message => message?.role === "tool")) return { content: "C02STALECHECKED" };
@@ -264,6 +267,10 @@ function chooseResponse({ mode, messages, tools }) {
   }
   if (mode === "integration") {
     const userText = latestUserText(messages);
+    if (/我最近在(?:某科技公司|示例科技)做了产品运营实习/u.test(userText)) {
+      const toolName = findToolName(tools, "career.workflow.profile_intake_turn");
+      if (toolName) return { toolCall: { name: toolName, arguments: JSON.stringify({ userTurn: userText }) } };
+    }
     if (userText.includes("CORE-JD")) {
       const toolName = findToolName(tools, "career.workflow.job_intake");
       if (toolName) return { toolCall: { name: toolName, arguments: JSON.stringify({
@@ -434,6 +441,14 @@ function chooseCareerAgentEvalResponse({ messages, tools, lastToolResult }) {
 
 function profileIntakeSemanticResponse(input) {
   const rawNarrative = typeof input?.rawNarrative === "string" ? input.rawNarrative : "";
+  if (rawNarrative.includes("我最近在示例科技做了产品运营实习")) {
+    return { candidates: [{ candidateKey: "fictional-internship", sectionType: "internship",
+      sourceBlockIds: (input.sourceBlocks ?? []).map((block) => block.id), sourceQuote: rawNarrative,
+      structuredItem: { sectionType: "internship", organization: "示例科技", role: "产品运营实习",
+        startDate: "2026-07", endDate: "2026-09", current: false,
+        description: "负责用户反馈整理、竞品分析和产品功能优化", highlights: [] },
+      professionalText: rawNarrative, uncertainFields: [] }], followUpQuestions: [] };
+  }
   if (!/校园项目|Excel|数据整理|数据展示/u.test(rawNarrative)) {
     return { candidates: [], followUpQuestions: ["请先说一段你实际参与过的学习、项目或工作经历。"] };
   }

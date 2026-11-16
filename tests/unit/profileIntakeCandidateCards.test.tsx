@@ -119,4 +119,15 @@ describe("ProfileIntakeCandidateCards", () => {
     });
     expect(action.fieldPatch).toBeUndefined();
   });
+
+  it("sends only changed fields as an explicit user correction", async () => {
+    const onAction = vi.fn();
+    render(<ProfileIntakeCandidateCards projection={projection("proposed")} onAction={onAction} />);
+    fireEvent.click(screen.getByRole("button", { name: "编辑后采用" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "专业" }), { target: { value: "软件工程" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存并采用" }));
+    await waitFor(() => expect(onAction).toHaveBeenCalledWith(expect.objectContaining({
+      userCorrection: true, editedLabel: undefined, fieldPatch: { major: "软件工程" }, decision: "accept"
+    })));
+  });
 });

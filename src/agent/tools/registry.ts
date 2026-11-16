@@ -185,6 +185,7 @@ const ProfileIntakeCommitInputSchema = z.object({
   expectedReconciliationRevision: z.number().int().min(0),
   targetProfileId: z.string().min(1),
   expectedProfileVersion: z.number().int().min(0),
+  frozen: z.unknown().optional(),
   acknowledgedActiveProfileId: z.string().min(1).optional()
 }).strict();
 

@@ -69,6 +69,56 @@ const AGENT_COMPOSER_DRAFTS_KEY = "careerad-agent-composer-drafts:v1";
 const AGENT_ARTIFACT_STATE_KEY = "careerad-agent-artifact-state:v1";
 const agentImportRepository = new WorkspaceRepository();
 
+function isProfileIntakeFinalizationMessage(session: AgentSession, text: string) {
+  if (session.taskState?.workflowId !== "guided_profile_intake") return false;
+  const message = text.trim();
+  if (/^(?:完成整理|先到这里|结束访谈)[。！!]?$/u.test(message)) return true;
+  return ["final_review", "reconcile_profile", "confirm_commit"].includes(session.taskState.stage)
+    && /^(?:确认|完成整理并保存|完成整理并保存(?:到)?(?:个人)?资料库?|导入资料库|保存为经历档案|写入资料库|确认导入资料库|确认保存到资料库)[。！!]?$/u.test(message);
+}
+
+function ProfileIntakeRecoveryControl({ outcome, onRecover, onOpenProfile, onReview }: {
+  outcome: unknown;
+  onRecover(action: AgentArtifactAction): Promise<unknown>;
+  onOpenProfile(): void;
+  onReview(action: AgentArtifactAction): Promise<unknown>;
+}) {
+  const [busy, setBusy] = useState(false);
+  if (!outcome || typeof outcome !== "object") return null;
+  const value = outcome as { status?: unknown; operationId?: unknown; reason?: unknown; request?: { frozen?: unknown } };
+  if (typeof value.operationId !== "string" || typeof value.status !== "string") return null;
+  const hasFrozen = Boolean(value.request?.frozen);
+  const message = value.status === "UNKNOWN" && !hasFrozen ? "这条历史记录缺少完整核验信息，无法自动判断是否已经保存。"
+    : value.status === "UNKNOWN" ? "保存结果尚未核实，原始操作已保留。请查询保存状态。"
+    : value.status === "COMMITTED_READBACK_UNVERIFIED" ? "资料可能已经保存成功，目前尚未完成独立核实。"
+    : value.status === "COMMITTED_VERIFIED" ? "资料已保存，并已读取核实。"
+    : value.status === "NOT_COMMITTED" && (value.reason === "revision_conflict" || value.reason === "profile_intake_stale_profile")
+      ? "资料库版本已变化，本次未保存；请核对最新资料和候选内容后重新确认。"
+    : value.status === "NOT_COMMITTED" ? "保存信息需要修改，本次未保存；请重新核对后确认。"
+    : value.status === "LEGACY_UNVERIFIABLE" ? "这条历史记录缺少完整核验信息，无法自动判断是否已经保存。" : undefined;
+  if (!message) return null;
+  const recover = async (mode: "query" | "replay") => {
+    if (busy) return;
+    setBusy(true);
+    try { await onRecover({ type: "profile_intake_recover", operationId: value.operationId as string, mode }); }
+    finally { setBusy(false); }
+  };
+  const recheck = async () => {
+    if (busy) return;
+    setBusy(true);
+    try { await onReview({ type: "profile_intake_recheck", operationId: value.operationId as string }); }
+    finally { setBusy(false); }
+  };
+  return <div role="status" className="agent-autosave-receipt">
+    <span>{message}</span>{" "}
+    {hasFrozen && (value.status === "UNKNOWN" || value.status === "COMMITTED_READBACK_UNVERIFIED")
+      && <button type="button" disabled={busy} onClick={() => void recover("query")}>重新查询保存状态</button>}{" "}
+    {(value.status === "LEGACY_UNVERIFIABLE" || value.status === "NOT_COMMITTED" || (value.status === "UNKNOWN" && !hasFrozen))
+      && <button type="button" onClick={onOpenProfile}>查看资料库</button>}
+    {value.status === "NOT_COMMITTED" && <button type="button" disabled={busy} onClick={() => void recheck()}>重新核对</button>}
+  </div>;
+}
+
 function isWorkflowControlAction(action: AgentUiAction | AgentWorkflowControl): action is AgentWorkflowControl {
   return ["start_workflow", "switch_workflow", "pause_workflow", "resume_workflow", "cancel_workflow", "go_back"].includes(action.type);
 }
@@ -377,7 +427,9 @@ export function AgentWorkspace() {
       // The registered source belongs to the pending Turn now. Keep the composer
       // free for the next queued Turn while Hermes streams the current one.
       setAttachmentsBySession((current) => ({ ...current, [submitSession.id]: (current[submitSession.id] ?? []).filter((attachment) => !input.attachments.some((sent) => sent.clientId === attachment.clientId)) }));
-      const result = tailoringQuestionAnswer || workflowCheckpointAnswer
+      const result = input.attachments.length === 0 && isProfileIntakeFinalizationMessage(submitSession, input.text)
+        ? await host.state.dispatch({ type: "message", text: input.text }, { session: submitSession, pageContext: pageContext(submitSession) })
+        : tailoringQuestionAnswer || workflowCheckpointAnswer
         ? await host.runUserEvent(
             { type: "text_message", text: input.text },
             { session: submitSession, pageContext: pageContext(submitSession) }
@@ -723,7 +775,9 @@ export function AgentWorkspace() {
     pendingImportQuickActionRef.current = false;
     setLastUserMessage(text);
     window.localStorage.setItem(ACTIVE_SESSION_KEY, session.id);
-    const result = await host.runUserEvent({
+    const result = isProfileIntakeFinalizationMessage(session, text)
+      ? await host.state.dispatch({ type: "message", text }, { session, pageContext: pageContext() })
+      : await host.runUserEvent({
       type: "text_message",
       text,
       references: draftReference ? [draftReference] : undefined
@@ -1305,7 +1359,7 @@ export function AgentWorkspace() {
           event.preventDefault(); stageComposerFiles(Array.from(event.dataTransfer.files));
         }}>
           {showZeroState ? (
-            <AgentZeroState onSelect={dispatchQuickAction} />
+            <AgentZeroState onSelect={dispatchQuickAction} disabled={!recoveryReady} />
           ) : (
             <>
               <div className="agent-conversation-toolbar">
@@ -1408,6 +1462,15 @@ export function AgentWorkspace() {
           )}
           <span hidden data-testid="agent-recovery-state" data-state={recoveryState} data-session-id={recoveryReady ? session.id : undefined} />
           {!recoveryReady && <p role="status">{recoveryState === "failed" ? "当前任务恢复失败，请重新打开原任务或刷新重试。" : "正在恢复当前任务…"}</p>}
+          {recoveryReady && <ProfileIntakeRecoveryControl outcome={session.taskState?.knownSlots.profileIntakeCommitOutcome
+            ?? (session.taskState?.knownSlots.profileIntakeReviewStale === true
+              ? { status: "NOT_COMMITTED", operationId: "profile-intake-preflight", reason: "revision_conflict" } : undefined)}
+            onRecover={dispatchArtifactAction} onOpenProfile={() => dispatchUi({ type: "open_profile_browser" })}
+            onReview={async (action) => {
+              const result = await dispatchArtifactAction(action);
+              if (result) updateDrawerState(window.matchMedia("(max-width: 1100px)").matches ? "overlay" : "split");
+              return result;
+            }} />}
           <AgentComposer
             disabled={paused || !recoveryReady}
             running={runPresentation.canStop}

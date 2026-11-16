@@ -1,10 +1,11 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { demoCareerProfile } from "@/data/demoProfile";
 import { BranchContentItemSchema, CareerProfileSchema } from "@/domain/schemas";
 import { adaptConversationMessageToIntakeDraft } from "@/domain/profileIntake/ConversationIntakeAdapter";
 import { CareerAdaptDb } from "@/services/storage/db";
-import { WorkspaceRepository } from "@/services/storage/repositories";
+import { profileIntakeRequestFingerprint, WorkspaceRepository } from "@/services/storage/repositories";
 import { BrowserAgentToolService } from "@/services/agent/agentToolService";
+import { recoverProfileIntakeCommit } from "@/agent/runtime/profileIntakeCommitRecovery";
 import {
   ProfileIntakeSemanticService,
   type ProfileIntakeSemanticResult
@@ -42,14 +43,78 @@ describe("P4.2a.3f profile commit and General Resume bootstrap", () => {
     });
     expect(plan.status).toBe("ready");
 
-    const committed = await repository.confirmProfileIntake({
+    const baseRequest = {
       importId: reviewed.importId,
       expectedDraftRevision: reviewed.revision,
       expectedReconciliationRevision: plan.revision,
       targetProfileId: profile.id,
       expectedProfileVersion: profile.version,
       operationId: "profile-intake-commit-no-resume"
-    });
+    };
+    const before = await repository.getProfile(profile.id);
+    const personBefore = before!.personId!;
+    const frozen = await repository.freezeProfileIntakeRequest({ ...baseRequest, personId: personBefore,
+      confirmation: { sessionId: "session-no-resume", turnId: "confirm-turn", messageId: "confirm-message", text: "确认保存" } });
+    const request = { ...baseRequest, frozen };
+    const conflict = { ...baseRequest, operationId: "profile-intake-cas", expectedProfileVersion: profile.version + 1 };
+    await expect(repository.confirmProfileIntake(conflict)).rejects.toThrow("revision_conflict");
+    expect(await repository.getProfileIntakeOperationReceipt({ ...conflict, personId: personBefore })).toBeUndefined();
+    expect(await repository.getProfile(profile.id)).toEqual(before);
+    const rolledBack = { ...request, operationId: "profile-intake-rollback" };
+    const bulkPut = vi.spyOn(db!.appMeta, "bulkPut").mockRejectedValueOnce(new Error("test_transaction_rollback"));
+    await expect(repository.confirmProfileIntake(rolledBack)).rejects.toThrow("test_transaction_rollback");
+    bulkPut.mockRestore();
+    expect(await repository.getProfile(profile.id)).toEqual(before);
+    expect(await repository.getProfileIntakeOperationReceipt({ ...rolledBack, personId: personBefore })).toBeUndefined();
+    const secondDb = new CareerAdaptDb(db!.name);
+    const secondRepository = new WorkspaceRepository(secondDb);
+    let committed: Awaited<ReturnType<WorkspaceRepository["confirmProfileIntake"]>>;
+    let duplicate: typeof committed;
+    try {
+      [committed, duplicate] = await Promise.all([
+        repository.confirmProfileIntake(request), secondRepository.confirmProfileIntake(request)
+      ]);
+    } finally {
+      secondDb.close();
+    }
+    expect([committed.idempotent, duplicate.idempotent].sort()).toEqual([false, true]);
+    const personId = (await repository.getProfile(profile.id))!.personId!;
+    const receipt = await repository.getProfileIntakeOperationReceipt({ ...request, personId });
+    expect(receipt).toMatchObject({ operationId: request.operationId, personId, profileId: profile.id,
+      expectedProfileVersion: profile.version, profileVersion: profile.version + 1 });
+    expect(receipt!.committedItems.length).toBeGreaterThanOrEqual(3);
+    expect(receipt!.committedItems.map((item) => item.content).join(" ")).toContain("简历制作平台");
+    expect((await recoverProfileIntakeCommit(repository, { ...request, personId })).status).toBe("COMMITTED_VERIFIED");
+    expect((await recoverProfileIntakeCommit(repository, { ...request, personId, operationId: "missing" })).status).toBe("UNKNOWN");
+    const receiptQuery = vi.spyOn(repository, "getProfileIntakeOperationReceipt").mockRejectedValueOnce(new Error("receipt_query_unavailable"));
+    expect((await recoverProfileIntakeCommit(repository, { ...request, personId })).status).toBe("UNKNOWN");
+    receiptQuery.mockRestore();
+    expect((await repository.getProfile(profile.id))?.version).toBe(profile.version + 1);
+    await db!.appMeta.put({ key: "profileIntakeOperation:v1:legacy-operation", value: {
+      profileId: profile.id, profileVersion: profile.version + 1, importId: request.importId,
+      committedFactCount: 1, committedItemCount: 1, idempotent: false
+    }, updatedAt: new Date().toISOString() });
+    expect((await recoverProfileIntakeCommit(repository, { ...request, personId, operationId: "legacy-operation" })).status).toBe("LEGACY_UNVERIFIABLE");
+    await expect(repository.confirmProfileIntake({ ...request, operationId: "legacy-operation" })).rejects.toThrow("profile_intake_operation_receipt_unverifiable");
+    expect((await recoverProfileIntakeCommit(repository, { ...request, personId: "other" })).status).toBe("UNKNOWN");
+    const getProfile = vi.spyOn(repository, "getProfile").mockRejectedValueOnce(new Error("readback_unavailable"));
+    expect((await recoverProfileIntakeCommit(repository, { ...request, personId })).status).toBe("COMMITTED_READBACK_UNVERIFIED");
+    getProfile.mockRestore();
+    expect(await repository.getProfileIntakeOperationReceipt({ ...request, personId, operationId: "missing" })).toBeUndefined();
+    await expect(repository.getProfileIntakeOperationReceipt({ ...request, personId: "other" })).rejects.toThrow("profile_intake_operation_mismatch");
+    await expect(repository.getProfileIntakeOperationReceipt({ ...request, personId, targetProfileId: "other" })).rejects.toThrow("profile_intake_frozen_request_mismatch");
+    await expect(repository.confirmProfileIntake({ ...request, frozen: { ...frozen,
+      confirmation: { ...frozen.confirmation, text: "修改后确认" } } })).rejects.toThrow("profile_intake_frozen_request_mismatch");
+    const { fingerprint: originalFingerprint, ...originalPayload } = frozen;
+    const changedPayload = { ...originalPayload, confirmation: { ...frozen.confirmation, text: "另一项确认" } };
+    const changedFrozen = { ...changedPayload, fingerprint: profileIntakeRequestFingerprint(changedPayload) };
+    expect(changedFrozen.fingerprint).not.toBe(originalFingerprint);
+    await expect(repository.confirmProfileIntake({ ...request, frozen: changedFrozen })).rejects.toThrow("profile_intake_operation_mismatch");
+    const changedDraft = { ...frozen.draft, sections: frozen.draft.sections.map((section, index) => index === 0
+      ? { ...section, items: section.items.map((item, itemIndex) => itemIndex === 0 ? { ...item, normalizedText: `${item.normalizedText}（修改）` } : item) }
+      : section) };
+    const changedCandidatePayload = { ...originalPayload, draft: changedDraft };
+    expect(profileIntakeRequestFingerprint(changedCandidatePayload)).not.toBe(originalFingerprint);
     expect(committed.profileVersion).toBe(2);
     expect(committed.committedItemCount).toBeGreaterThanOrEqual(3);
     expect(await repository.listResumeBranches(profile.id)).toHaveLength(0);

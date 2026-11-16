@@ -40,6 +40,9 @@ export const AgentUiActionSchema = z.discriminatedUnion("type", [
 ]);
 
 export const AgentArtifactActionSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("profile_intake_recheck"), operationId: z.string().min(1) }).strict(),
+  z.object({ type: z.literal("profile_intake_recover"), operationId: z.string().min(1),
+    mode: z.enum(["query", "replay"]) }).strict(),
   z.object({
     type: z.literal("profile_intake_candidate_decision"),
     candidateId: z.string().min(1),

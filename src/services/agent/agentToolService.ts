@@ -42,6 +42,7 @@ import { analyzeJobFit, tailoringAnswerRevisionHash } from "@/services/jobs/tail
 import { CareerIntelligenceCache } from "@/domain/jobOptimization/careerIntelligence";
 import { stableHashText } from "@/services/security/text";
 import {
+  FrozenProfileIntakeRequestSchema,
   readTailoringValue,
   resumeBranchContentHash,
   WorkspaceRepository
@@ -795,12 +796,16 @@ export class BrowserAgentToolService implements AgentToolServices {
       targetProfileId: string;
       expectedProfileVersion: number;
       acknowledgedActiveProfileId?: string;
+      frozen?: unknown;
     };
+    const frozen = FrozenProfileIntakeRequestSchema.safeParse(input.frozen);
+    if (!frozen.success) throw toolError("profile_intake_frozen_request_required", "请重新核对并明确确认资料后再保存。");
     await assertActiveProfileBinding(this.repository, input);
     const draft = await this.repository.getImportedResumeDraft(input.importId);
     assertConversationIntakeCommitEligible(draft);
     return this.repository.confirmProfileIntake({
       ...input,
+      frozen: frozen.data,
       operationId
     });
   }
@@ -2809,6 +2814,12 @@ function reconciliationToolResult(plan: ProfileReconciliationPlan) {
     profileId: plan.profileId,
     status: plan.status,
     summary: plan.summary,
+    items: plan.decisions.map((decision) => ({
+      incomingItemId: decision.incomingItemId,
+      label: plan.candidates.find((candidate) => candidate.incomingItemId === decision.incomingItemId)?.displayLabel,
+      state: decision.state,
+      fieldComparisons: decision.fieldComparisons
+    })),
     unresolved: plan.decisions
       .filter((decision) =>
         decision.requiresUserConfirmation

@@ -70,7 +70,7 @@ const childEnvironment = {
   AI_PROVIDER: isCareerAgentReal ? (process.env.AI_PROVIDER || "openai-compatible") : "openai-compatible",
   AI_BASE_URL: isCareerAgentReal ? realProviderBaseUrl : provider.baseUrl,
   AI_MODEL: isCareerAgentReal ? realProviderModel : "careeradapt-test",
-  AI_API_KEY: isCareerAgentReal ? realProviderApiKey : "",
+  AI_API_KEY: isCareerAgentReal ? realProviderApiKey : process.env.H4B2_SYNTHETIC_STRUCTURED_PROVIDER === "1" ? provider.apiKey : "",
   OPENAI_API_KEY: "",
   OPENROUTER_API_KEY: "",
   HERMES_WEB_CONTROL_ENABLED: "true",
@@ -166,7 +166,7 @@ function spawnPnpm(args, options) {
 
 async function waitForApp(child, url) {
   const startedAt = Date.now();
-  while (Date.now() - startedAt < 60_000) {
+  while (Date.now() - startedAt < 150_000) {
     if (child.exitCode !== null) throw new Error(`CareerAdapt dev server exited before readiness (code=${child.exitCode})`);
     try {
       const response = await fetch(`${url}/api/agent/mcp`, { signal: AbortSignal.timeout(1_500) });

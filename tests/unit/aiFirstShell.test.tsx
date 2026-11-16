@@ -56,6 +56,18 @@ describe("AI-first workspace foundations", () => {
     expect(onSelect).toHaveBeenCalledWith("tailor_resume_to_job");
   });
 
+  it("keeps shortcuts disabled until the session is ready", () => {
+    const onSelect = vi.fn();
+    const { rerender } = render(<AgentQuickStartCards onSelect={onSelect} disabled />);
+    const button = screen.getByRole("button", { name: /从零整理我的经历/ });
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(onSelect).not.toHaveBeenCalled();
+    rerender(<AgentQuickStartCards onSelect={onSelect} disabled={false} />);
+    fireEvent.click(button);
+    expect(onSelect).toHaveBeenCalledWith("build_profile_from_scratch");
+  });
+
   it("serializes explicit page context without reading the DOM", () => {
     expect(serializeAgentPageContext({
       route: "/resume",

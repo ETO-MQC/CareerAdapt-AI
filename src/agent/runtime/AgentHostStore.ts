@@ -5,6 +5,7 @@ import { CareerPreferenceCandidateSchema } from "@/agent/workflows/careerPrefere
 import { sha256Utf8 } from "@/domain/jobAssets/sha256";
 import { preferenceReviewPrompt } from "@/agent/workflows/CareerWorkflowFacade";
 import { CareerPreferenceSchema } from "@/domain/schemas/profile";
+import { recoverProfileIntakeCommit } from "./profileIntakeCommitRecovery";
 
 import type { AgentArtifactRef } from "@/agent/contracts/agentArtifact";
 import {
@@ -109,7 +110,7 @@ import {
 import { buildQuickActionContextSnapshot } from "@/agent/workflows/QuickActionContextSnapshot";
 import { QuickActionContextSnapshotSchema, type QuickActionContextSnapshot } from "@/agent/contracts/quickActionContext";
 import { defaultAgentTaskTitle, refineAgentTaskTitle } from "@/agent/services/AgentTaskTitleService";
-import { WorkspaceRepository } from "@/services/storage/repositories";
+import { FrozenProfileIntakeRequestSchema, WorkspaceRepository } from "@/services/storage/repositories";
 import {
   ResumeCompositionCheckpointSchema,
   type ResumeCompositionCheckpoint
@@ -3449,6 +3450,26 @@ export class AgentHostStore {
       const active = this.snapshot.activeSession?.id === session.id
         ? this.snapshot.activeSession
         : session;
+      if (input.action.type === "profile_intake_recheck") {
+        const action = input.action;
+        const key = `profile-intake-recheck:${active.id}:${action.operationId}`;
+        const running = this.artifactActionExecutions.get(key);
+        if (running) return running;
+        const execution = this.recheckProfileIntake(active, action.operationId)
+          .finally(() => this.artifactActionExecutions.delete(key));
+        this.artifactActionExecutions.set(key, execution);
+        return execution;
+      }
+      if (input.action.type === "profile_intake_recover") {
+        const action = input.action;
+        const key = `profile-intake-recover:${active.id}:${action.operationId}`;
+        const running = this.artifactActionExecutions.get(key);
+        if (running) return running;
+        const execution = this.recoverFrozenProfileIntake(active, action)
+          .finally(() => this.artifactActionExecutions.delete(key));
+        this.artifactActionExecutions.set(key, execution);
+        return execution;
+      }
       return this.resolveArtifactAction(active, input.action, context.pageContext);
     }
     if (input.type === "edit_message") {
@@ -3709,6 +3730,107 @@ export class AgentHostStore {
       pageContext: context.pageContext,
       references: input.references
     });
+  }
+
+  private async recheckProfileIntake(session: AgentSession, operationId: string) {
+    const latest = await this.dependencies.persistence.get(session.id);
+    const task = latest?.taskState;
+    const outcome = objectValue(task?.knownSlots.profileIntakeCommitOutcome);
+    const frozen = FrozenProfileIntakeRequestSchema.safeParse(objectValue(outcome.request).frozen);
+    if (!latest || !task) return latest ?? session;
+    const preflight = operationId === "profile-intake-preflight" && task.knownSlots.profileIntakeReviewStale === true
+      && !Object.keys(outcome).length;
+    const originalOperation = outcome.status === "NOT_COMMITTED" && outcome.operationId === operationId
+      && frozen.success && latest.personId === frozen.data.personId;
+    if (!preflight && !originalOperation) return latest;
+    const targetProfileId = preflight ? stringValue(task.knownSlots.targetProfileId) : frozen.success ? frozen.data.targetProfileId : undefined;
+    const importId = preflight ? stringValue(task.knownSlots.intakeImportId) : frozen.success ? frozen.data.draft.importId : undefined;
+    if (!targetProfileId || !importId || !latest.personId) throw new Error("无法确认待核对的资料与人物，尚未写入资料库。");
+    const repository = this.getCareerRepository();
+    const [profile, draft] = await Promise.all([
+      repository.getProfile(targetProfileId),
+      repository.getImportedResumeDraft(importId)
+    ]);
+    if (!profile || profile.personId !== latest.personId || !draft || draft.sourceKind !== "conversation") {
+      throw new Error("无法读取本次操作对应的最新资料或候选，原操作仍已保留。");
+    }
+    const result = await this.dependencies.executor.execute({
+      toolName: "reconcile_profile_intake",
+      toolInput: { importId: draft.importId, expectedDraftRevision: draft.revision,
+        targetProfileId: profile.id, expectedProfileVersion: profile.version,
+        acknowledgedActiveProfileId: stringValue(task.knownSlots.acknowledgedActiveProfileId) },
+      operationId: `profile-intake-recheck-${crypto.randomUUID()}`, confirmed: false
+    });
+    if (!result.ok) throw new Error(result.error?.message ?? "最新资料对账未完成，原操作仍已保留。");
+    const projection = buildConversationIntakeReviewProjectionFromDraft(draft);
+    const slots: Record<string, unknown> = { ...task.knownSlots, expectedProfileVersion: profile.version,
+      expectedIntakeDraftRevision: draft.revision, profileIntakeReviewProjection: projection,
+      intakeCandidates: projection.candidates, intakeArtifact: buildConversationIntakeArtifact(draft, projection.followUpQuestion),
+      profileIntakePhase: "reviewing", profileIntakeExplicitCommit: false, profileIntakeFinishRequested: false,
+      ...(originalOperation ? { profileIntakePreviousOperations: [...(Array.isArray(task.knownSlots.profileIntakePreviousOperations)
+        ? task.knownSlots.profileIntakePreviousOperations : []), outcome] } : {}) };
+    delete slots.profileIntakeCommitOutcome;
+    delete slots.profileIntakeReviewStale;
+    let nextTask = new AgentTaskStateReducer().reduce({ ...task, knownSlots: slots,
+      selectedEntities: { ...task.selectedEntities, profileVersion: profile.version } }, {
+      type: "tool_observation", toolName: result.toolName, observation: result.data, artifactIds: result.artifactIds
+    });
+    nextTask = { ...nextTask, completionStatus: "waiting_for_user", updatedAt: new Date().toISOString() };
+    let next = projectTaskStateIntoSession({ ...latest, profileRevision: profile.version, updatedAt: new Date().toISOString() }, nextTask);
+    next = appendAgentMessage(next, "assistant", "已按最新资料重新核对。请检查差异并再次明确确认；核对期间不会写入资料库。", { status: "complete" });
+    next = attachTaskStateOptions(next, nextTask);
+    try {
+      const saved = await this.dependencies.persistence.saveIfRevision(next, latest.sessionRevision);
+      if (this.snapshot.activeSessionId === saved.id) this.patchSession(saved, { turnStatus: "waiting_for_user" });
+      return saved;
+    } catch (error) {
+      if (!(error instanceof Error) || error.message !== "revision_conflict") throw error;
+      return await this.dependencies.persistence.get(session.id) ?? latest;
+    }
+  }
+
+  private async recoverFrozenProfileIntake(session: AgentSession, action: Extract<AgentArtifactAction, { type: "profile_intake_recover" }>) {
+    const repository = this.getCareerRepository();
+    const task = session.taskState;
+    const outcome = objectValue(task?.knownSlots.profileIntakeCommitOutcome);
+    const request = objectValue(outcome.request);
+    const parsed = FrozenProfileIntakeRequestSchema.safeParse(request.frozen);
+    if (!task || outcome.operationId !== action.operationId || !parsed.success) return session;
+    const frozen = parsed.data;
+    const original = session.messages.find((message) => message.id === frozen.confirmation.messageId && message.role === "user");
+    if (frozen.confirmation.sessionId !== session.id || !original || original.turnId !== frozen.confirmation.turnId
+      || original.content !== frozen.confirmation.text || session.personId !== frozen.personId
+      || outcome.targetProfileId !== frozen.targetProfileId || outcome.importId !== frozen.draft.importId) return session;
+    if (!["UNKNOWN", "COMMITTED_READBACK_UNVERIFIED"].includes(String(outcome.status))) return session;
+    const originalRequest = { operationId: action.operationId, personId: frozen.personId,
+      targetProfileId: frozen.targetProfileId, importId: frozen.draft.importId,
+      expectedDraftRevision: frozen.draft.revision, expectedReconciliationRevision: frozen.reconciliation.revision,
+      expectedProfileVersion: frozen.expectedProfileVersion, frozen };
+    const recovered = await recoverProfileIntakeCommit(repository, originalRequest);
+    const status: string = recovered.status;
+    const latest = await this.dependencies.persistence.get(session.id);
+    const latestTask = latest?.taskState;
+    const latestOutcome = objectValue(latestTask?.knownSlots.profileIntakeCommitOutcome);
+    if (!latest || !latestTask || latestOutcome.operationId !== action.operationId || latest.personId !== frozen.personId) return latest ?? session;
+    if (latestOutcome.status === "COMMITTED_VERIFIED" || latestOutcome.status === "NOT_COMMITTED"
+      || latestOutcome.status === "LEGACY_UNVERIFIABLE"
+      || (latestOutcome.status === "COMMITTED_READBACK_UNVERIFIED" && status !== "COMMITTED_VERIFIED")) return latest;
+    const nextTask = { ...latestTask, knownSlots: { ...latestTask.knownSlots, profileIntakeCommitOutcome: {
+      ...latestOutcome, status,
+      ...("receipt" in recovered ? { receipt: recovered.receipt } : {})
+    } }, ...(recovered.status === "COMMITTED_VERIFIED" ? { selectedEntities: { ...latestTask.selectedEntities,
+      profileVersion: recovered.receipt.profileVersion } } : {}), updatedAt: new Date().toISOString() };
+    const next = projectTaskStateIntoSession({ ...latest, updatedAt: new Date().toISOString(),
+      ...(recovered.status === "COMMITTED_VERIFIED" ? { profileRevision: recovered.receipt.profileVersion } : {}) }, nextTask);
+    let saved: AgentSession;
+    try {
+      saved = await this.dependencies.persistence.saveIfRevision(next, latest.sessionRevision);
+    } catch (error) {
+      if (!(error instanceof Error) || error.message !== "revision_conflict") throw error;
+      return await this.dependencies.persistence.get(session.id) ?? session;
+    }
+    if (this.snapshot.activeSessionId === saved.id) this.patchSession(saved);
+    return saved;
   }
 
   private async initializeQuickActionTask(
@@ -5195,9 +5317,9 @@ export class AgentHostStore {
       ?? initialDecision.projection?.draftRevision;
     let expectedReconciliationRevision: number | undefined;
     const persistence = this.dependencies.persistence;
-    // Keep the finalization identity stable across a recoverable UI/provider
-    // failure.  The draft and reconciliation revisions are the operation
-    // boundary; a new retry turn must not become a second Profile write.
+    // Synthesis is keyed to the draft. Each reconciliation gets a fresh
+    // identity because its Profile version can change after re-review;
+    // Profile writes use their separately persisted operation checkpoint.
     const operationPrefix = `profile-intake-finalize-${current.id}-${importId ?? "pending"}-${expectedDraftRevision ?? "pending"}`
       .replace(/[^\w-]/g, "-")
       .slice(0, 120);
@@ -5207,6 +5329,51 @@ export class AgentHostStore {
       current = replaceAgentThinking(current, input.thinkingMessageId, "当前整理状态还不完整，未执行保存；已有核对内容和原始回答仍然保留。请重新执行当前步骤。", input.turnId);
       current = withRetryCurrentStepOption(current, input.thinkingMessageId);
       return this.finishLocalProfileIntakeTurn(current, state, input, "failed");
+    }
+
+    const previousCommit = objectValue(state.knownSlots.profileIntakeCommitOutcome);
+    if (previousCommit.status === "NOT_COMMITTED") {
+      current = projectTaskStateIntoSession(current, state);
+      current = replaceAgentThinking(current, input.thinkingMessageId, "本次操作未保存，请先重新核对资料和候选内容，再发起新的确认。", input.turnId);
+      return this.finishLocalProfileIntakeTurn(current, state, input, "waiting_for_user");
+    }
+    if (previousCommit.status === "UNKNOWN" || previousCommit.status === "COMMITTED_READBACK_UNVERIFIED" || previousCommit.status === "COMMITTED_VERIFIED" || previousCommit.status === "LEGACY_UNVERIFIABLE") {
+      const savedRequest = objectValue(previousCommit.request);
+      const personId = stringValue(savedRequest.personId);
+      const operationId = stringValue(previousCommit.operationId);
+      const draftRevision = numberValue(savedRequest.expectedDraftRevision);
+      const planRevision = numberValue(savedRequest.expectedReconciliationRevision);
+      const profileRevision = numberValue(savedRequest.expectedProfileVersion);
+      const frozenRequest = FrozenProfileIntakeRequestSchema.safeParse(savedRequest.frozen);
+      let status = previousCommit.status;
+      if (status !== "COMMITTED_VERIFIED" && status !== "LEGACY_UNVERIFIABLE" && personId && operationId && draftRevision !== undefined
+        && planRevision !== undefined && profileRevision !== undefined && previousCommit.importId === importId
+        && previousCommit.targetProfileId === targetProfileId && (!current.personId || current.personId === personId)) {
+        const recovered = await recoverProfileIntakeCommit(this.getCareerRepository(), {
+          personId, operationId, importId, targetProfileId, expectedDraftRevision: draftRevision,
+          expectedReconciliationRevision: planRevision, expectedProfileVersion: profileRevision,
+          ...(frozenRequest.success ? { frozen: frozenRequest.data } : {})
+        });
+        if (status !== "COMMITTED_READBACK_UNVERIFIED" || recovered.status === "COMMITTED_VERIFIED") status = recovered.status;
+        state = { ...state, knownSlots: { ...state.knownSlots, profileIntakeCommitOutcome: {
+          ...previousCommit, status, ...("receipt" in recovered ? { receipt: recovered.receipt } : {})
+        } }, updatedAt: new Date().toISOString() };
+        if (recovered.status === "COMMITTED_VERIFIED") {
+          state = { ...state, selectedEntities: { ...state.selectedEntities, profileVersion: recovered.receipt.profileVersion },
+            knownSlots: { ...state.knownSlots, expectedProfileVersion: recovered.receipt.profileVersion } };
+          current = { ...current, profileRevision: recovered.receipt.profileVersion };
+        }
+      }
+      const message = status === "UNKNOWN"
+        ? "保存结果暂时无法确定，已保留本次操作信息，暂不重复提交。"
+        : status === "LEGACY_UNVERIFIABLE"
+          ? "这条历史保存记录缺少完整核验信息，暂时无法自动判断是否已保存。请查看当前资料库，避免重复录入。"
+        : status === "COMMITTED_READBACK_UNVERIFIED"
+          ? "资料已提交，但当前无法完成独立核实；暂不重复提交。"
+          : "本次资料已提交并通过读取核实，暂不重复提交。";
+      current = projectTaskStateIntoSession(current, state);
+      current = replaceAgentThinking(current, input.thinkingMessageId, message, input.turnId);
+      return this.finishLocalProfileIntakeTurn(current, state, input, "waiting_for_user");
     }
 
     const sourceTurns = (await persistence.listProfileIntakeSourceTurns?.(current.id) ?? [])
@@ -5259,6 +5426,9 @@ export class AgentHostStore {
     };
     const execute = async (toolName: string, toolInput: Record<string, unknown>, operationId: string, confirmed = false) => {
       let result = await executeRaw(toolName, toolInput, operationId, confirmed);
+      // A changed Profile requires a fresh user review; never silently
+      // reconcile a confirmation against a version the user did not review.
+      if (toolName === "commit_profile_intake" || toolName === "reconcile_profile_intake") return result;
       if (!result?.ok && isStaleProfileError(result?.error?.code) && targetProfileId) {
         const refreshed = await executeRaw("get_profile", { profileId: targetProfileId }, `${operationId}-refresh-profile`);
         const refreshedProfile = objectValue(objectValue(refreshed?.data).profile);
@@ -5375,7 +5545,7 @@ export class AgentHostStore {
     current = await persistence.save(current);
     this.patchSession(current, { turnStatus: "running", currentObservation: { type: "profile_intake_committing" } });
 
-    const reconcileOperationId = `${operationPrefix}-reconcile-${importId}-${expectedDraftRevision}`;
+    const reconcileOperationId = `profile-intake-reconcile-${crypto.randomUUID()}`;
     const reconciliation = await execute("reconcile_profile_intake", {
       importId,
       expectedDraftRevision,
@@ -5385,8 +5555,11 @@ export class AgentHostStore {
     }, reconcileOperationId);
     if (!reconciliation?.ok) {
       const stateAfterFailure = reducer.reduce(state, { type: "failed", errorCode: reconciliation?.error?.code ?? "profile_intake_reconcile_failed" });
+      if (isStaleProfileError(reconciliation?.error?.code)) stateAfterFailure.knownSlots.profileIntakeReviewStale = true;
       current = projectTaskStateIntoSession(current, stateAfterFailure);
-      current = replaceAgentThinking(current, input.thinkingMessageId, "保存前的资料对账暂时没有完成，核对内容和原始回答仍然保留。请重新执行当前步骤。", input.turnId);
+      current = replaceAgentThinking(current, input.thinkingMessageId, isStaleProfileError(reconciliation?.error?.code)
+        ? "资料库版本已变化，尚未执行保存。请重新核对最新资料后确认。"
+        : "保存前的资料对账暂时没有完成，核对内容和原始回答仍然保留。请重新执行当前步骤。", input.turnId);
       current = withRetryCurrentStepOption(current, input.thinkingMessageId);
       return this.finishLocalProfileIntakeTurn(current, stateAfterFailure, input, "failed");
     }
@@ -5423,20 +5596,78 @@ export class AgentHostStore {
       current = withRetryCurrentStepOption(current, input.thinkingMessageId);
       return this.finishLocalProfileIntakeTurn(current, stateAfterFailure, input, "failed");
     }
-    const commitOperationId = `${operationPrefix}-commit-${importId}-${expectedDraftRevision}-${expectedReconciliationRevision}`;
+    const commitProfile = await this.getCareerRepository().getProfile(targetProfileId);
+    if (!commitProfile?.personId || (current.personId && current.personId !== commitProfile.personId)) {
+      state = reducer.reduce(state, { type: "failed", errorCode: "profile_intake_target_missing" });
+      current = projectTaskStateIntoSession(current, state);
+      current = replaceAgentThinking(current, input.thinkingMessageId, "未能确认资料库所属人物，尚未执行保存。", input.turnId);
+      return this.finishLocalProfileIntakeTurn(current, state, input, "failed");
+    }
+    const confirmationMessage = current.messages.find((message) => message.id === input.userMessageId && message.role === "user");
+    if (!confirmationMessage?.content?.trim()) {
+      state = reducer.reduce(state, { type: "failed", errorCode: "profile_intake_confirmation_missing" });
+      current = projectTaskStateIntoSession(current, state);
+      current = replaceAgentThinking(current, input.thinkingMessageId, "未找到本次明确确认，尚未执行保存；请重新核对后确认。", input.turnId);
+      return this.finishLocalProfileIntakeTurn(current, state, input, "failed");
+    }
+    let frozen: ReturnType<typeof FrozenProfileIntakeRequestSchema.parse>;
+    try {
+      frozen = await this.getCareerRepository().freezeProfileIntakeRequest({ importId, targetProfileId,
+        expectedDraftRevision, expectedReconciliationRevision, expectedProfileVersion, personId: commitProfile.personId,
+        confirmation: { sessionId: current.id, turnId: input.turnId, messageId: input.userMessageId, text: confirmationMessage.content } });
+    } catch (error) {
+      const failureCode = error instanceof Error && error.message === "revision_conflict"
+        ? "revision_conflict" : "profile_intake_freeze_failed";
+      state = reducer.reduce(state, { type: "failed", errorCode: failureCode });
+      if (failureCode === "revision_conflict") state.knownSlots.profileIntakeReviewStale = true;
+      current = projectTaskStateIntoSession(current, state);
+      current = replaceAgentThinking(current, input.thinkingMessageId, failureCode === "revision_conflict"
+        ? "资料库或核对内容已变化，尚未执行保存；请重新核对后确认。"
+        : "暂时无法保存本次核对记录，尚未执行资料写入；请稍后重新核对。", input.turnId);
+      return this.finishLocalProfileIntakeTurn(current, state, input, "failed");
+    }
+    const commitOperationId = `profile-intake-${crypto.randomUUID()}`;
+    const commitRequest = { personId: commitProfile.personId, expectedDraftRevision,
+      expectedReconciliationRevision, expectedProfileVersion, frozen };
+    state = { ...state, knownSlots: { ...state.knownSlots, profileIntakeCommitOutcome: {
+      status: "UNKNOWN", operationId: commitOperationId, importId, targetProfileId, request: commitRequest, createdAt: new Date().toISOString()
+    } }, updatedAt: new Date().toISOString() };
+    current = projectTaskStateIntoSession({ ...current, updatedAt: new Date().toISOString() }, state);
+    current = await persistence.save(current);
+    const savedCommit = objectValue(current.taskState?.knownSlots.profileIntakeCommitOutcome);
+    const savedFrozen = FrozenProfileIntakeRequestSchema.safeParse(objectValue(savedCommit.request).frozen);
+    if (savedCommit.operationId !== commitOperationId || !savedFrozen.success || savedFrozen.data.fingerprint !== frozen.fingerprint) {
+      current = replaceAgentThinking(current, input.thinkingMessageId, "无法保存本次核对记录，尚未执行资料写入。请重新核对。", input.turnId);
+      return this.finishLocalProfileIntakeTurn(current, current.taskState ?? state, input, "failed");
+    }
     const commit = await execute("commit_profile_intake", {
       importId,
       expectedDraftRevision,
       expectedReconciliationRevision,
       targetProfileId,
       expectedProfileVersion,
+      frozen,
       acknowledgedActiveProfileId: stringValue(state.knownSlots.acknowledgedActiveProfileId)
     }, commitOperationId, true);
     if (!commit?.ok) {
+      const code = commit?.error?.code;
+      if (code === "revision_conflict" || code === "profile_intake_stale_profile" || code === "tool_input_invalid") {
+        const latest = code !== "tool_input_invalid"
+          ? await this.getCareerRepository().getProfile(targetProfileId).catch(() => undefined)
+          : undefined;
+        state = { ...state, knownSlots: { ...state.knownSlots, profileIntakeCommitOutcome: {
+          status: "NOT_COMMITTED", operationId: commitOperationId, importId, targetProfileId, request: commitRequest,
+          reason: code, ...(latest ? { latestProfileVersion: latest.version } : {})
+        } }, updatedAt: new Date().toISOString() };
+        const failed = reducer.reduce(state, { type: "failed", errorCode: code });
+        current = projectTaskStateIntoSession(current, failed);
+        current = replaceAgentThinking(current, input.thinkingMessageId,
+          code === "tool_input_invalid" ? "保存信息不完整，尚未执行保存；请检查后重新确认。" : "资料库版本已变化，本次未保存；请核对最新资料后重新确认。", input.turnId);
+        return this.finishLocalProfileIntakeTurn(current, failed, input, "failed");
+      }
       const stateAfterFailure = reducer.reduce(state, { type: "failed", errorCode: commit?.error?.code ?? "profile_intake_commit_failed" });
       current = projectTaskStateIntoSession(current, stateAfterFailure);
-      current = replaceAgentThinking(current, input.thinkingMessageId, "资料库写入没有成功，未显示完成结论；核对内容和原始回答仍然保留。请重新执行当前步骤。", input.turnId);
-      current = withRetryCurrentStepOption(current, input.thinkingMessageId);
+      current = replaceAgentThinking(current, input.thinkingMessageId, "保存结果暂时无法确定，核对内容和操作信息已保留；暂不重复提交。", input.turnId);
       return this.finishLocalProfileIntakeTurn(current, stateAfterFailure, input, "failed");
     }
     state = reducer.reduce(state, {
@@ -5460,22 +5691,35 @@ export class AgentHostStore {
     if (!committedProfileId || committedVersion === undefined) {
       const stateAfterFailure = reducer.reduce(state, { type: "failed", errorCode: "profile_commit_receipt_invalid" });
       current = projectTaskStateIntoSession(current, stateAfterFailure);
-      current = replaceAgentThinking(current, input.thinkingMessageId, "写入结果缺少可验证的资料库版本，因此我不会宣称保存完成。请重新执行当前步骤。", input.turnId);
-      current = withRetryCurrentStepOption(current, input.thinkingMessageId);
+      current = replaceAgentThinking(current, input.thinkingMessageId, "保存结果暂时无法确定，已保留本次操作信息，暂不重复提交。", input.turnId);
       return this.finishLocalProfileIntakeTurn(current, stateAfterFailure, input, "failed");
     }
+    const authoritative = await recoverProfileIntakeCommit(this.getCareerRepository(), {
+      ...commitRequest, operationId: commitOperationId, importId, targetProfileId
+    });
+    if (authoritative.status === "UNKNOWN" || authoritative.status === "LEGACY_UNVERIFIABLE") {
+      const stateAfterFailure = reducer.reduce(state, { type: "failed", errorCode: "profile_commit_receipt_unavailable" });
+      current = projectTaskStateIntoSession(current, stateAfterFailure);
+      current = replaceAgentThinking(current, input.thinkingMessageId, "保存结果暂时无法确定，已保留本次操作信息，暂不重复提交。", input.turnId);
+      return this.finishLocalProfileIntakeTurn(current, stateAfterFailure, input, "failed");
+    }
+    state = { ...state, knownSlots: { ...state.knownSlots, profileIntakeCommitOutcome: {
+      status: "COMMITTED_READBACK_UNVERIFIED", operationId: commitOperationId, importId, targetProfileId, request: commitRequest, receipt: authoritative.receipt
+    } }, updatedAt: new Date().toISOString() };
+    current = projectTaskStateIntoSession(current, state);
+    current = await persistence.save(current);
     const verifyOperationId = `${commitOperationId}-verify`;
     const verificationResult = await execute("get_profile", { profileId: committedProfileId }, verifyOperationId);
     const verificationValue = objectValue(verificationResult?.ok ? verificationResult.data : undefined);
     const verifiedProfile = objectValue(verificationValue.profile);
-    const verified = verificationResult?.ok === true
+    const verified = authoritative.status === "COMMITTED_VERIFIED" && verificationResult?.ok === true
+      && authoritative.receipt.profileId === committedProfileId && authoritative.receipt.profileVersion === committedVersion
       && verifiedProfile.id === committedProfileId
       && numberValue(verifiedProfile.version) === committedVersion;
     if (!verified) {
       const stateAfterFailure = reducer.reduce(state, { type: "failed", errorCode: "profile_commit_verification_failed" });
       current = projectTaskStateIntoSession(current, stateAfterFailure);
-      current = replaceAgentThinking(current, input.thinkingMessageId, "资料库写入后的读取核验没有完成，因此我不会显示已保存结论。写入结果已保留，请重新执行当前步骤核验。", input.turnId);
-      current = withRetryCurrentStepOption(current, input.thinkingMessageId);
+      current = replaceAgentThinking(current, input.thinkingMessageId, "资料已提交，但当前无法完成独立核实；暂不重复提交。", input.turnId);
       return this.finishLocalProfileIntakeTurn(current, stateAfterFailure, input, "failed");
     }
     state = reducer.reduce(state, {
@@ -5495,6 +5739,7 @@ export class AgentHostStore {
       ...state,
       knownSlots: {
         ...state.knownSlots,
+        profileIntakeCommitOutcome: { status: "COMMITTED_VERIFIED", operationId: commitOperationId, importId, targetProfileId, request: commitRequest },
         profilePersistenceReceipt: receipt,
         profileCommitResult: commitValue,
         profileCommitVerification: {
@@ -12209,6 +12454,7 @@ function artifactActionEntityId(action: AgentArtifactAction) {
 }
 
 function artifactActionOperationId(session: AgentSession, action: AgentArtifactAction, revision: number | undefined) {
+  if (action.type === "profile_intake_recover") return action.operationId;
   const tailoringSessionId = stringValue(objectValue(session.taskState?.knownSlots.tailoringSession).id) ?? "none";
   if (action.type === "tailoring_answer_edit") {
     const tailoringSession = objectValue(session.taskState?.knownSlots.tailoringSession);
@@ -12234,6 +12480,8 @@ function artifactActionOperationId(session: AgentSession, action: AgentArtifactA
     ? action.decision
     : action.type === "tailoring_diff_submit"
       ? "submit"
+    : action.type === "profile_intake_recheck"
+      ? "recheck"
     : action.type === "tailoring_regenerate"
       ? "regenerate"
       : action.type === "profile_intake_candidate_edit"
@@ -13093,7 +13341,7 @@ function artifactActionExecution(
       }
     };
   }
-  if (action.type === "profile_intake_extraction_recovery") return undefined;
+  if (action.type === "profile_intake_extraction_recovery" || action.type === "profile_intake_recover" || action.type === "profile_intake_recheck") return undefined;
   if (
     state.stage !== "resolve_conflicts"
     || typeof state.knownSlots.importId !== "string"

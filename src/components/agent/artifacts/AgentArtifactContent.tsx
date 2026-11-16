@@ -860,6 +860,10 @@ function ProfileIntakeFinalReview({
   const revision = projection?.draftRevision ?? (typeof taskState.knownSlots.expectedIntakeDraftRevision === "number" ? taskState.knownSlots.expectedIntakeDraftRevision : undefined);
   const canAct = Boolean(importId && revision !== undefined);
   const allReviewed = candidates.length > 0 && reviewed.length === candidates.length;
+  const reconciliation = asRecord(taskState.knownSlots.intakeReconciliation);
+  const summary = asRecord(reconciliation.summary);
+  const reconciliationItems = arrayOfRecords(reconciliation.items);
+  const unresolved = arrayOfRecords(reconciliation.unresolved);
 
   return (
     <section className="agent-final-review" aria-label="最终资料草稿审核">
@@ -873,6 +877,25 @@ function ProfileIntakeFinalReview({
       <p className="agent-final-review-heading">
         最终资料草稿 共 {candidates.length} 项，AI 已根据本次完整访谈进行整理。确认后才会写入‘{profileName}’资料库。
       </p>
+      {Object.keys(summary).length ? <section aria-label="最新资料对账">
+        <p>最新资料对账：新增 {numberValue(summary.newFacts)} 项，已存在 {numberValue(summary.existing)} 项，
+          可能重复 {numberValue(summary.likelyDuplicates)} 项，冲突 {numberValue(summary.conflicts)} 项，待确认 {numberValue(summary.requiresReview)} 项。</p>
+        <ul>{reconciliationItems.map((entry) => <li key={String(entry.incomingItemId)}>
+          {String(entry.label ?? "候选资料")}：{({ exact_duplicate: "已存在", evidence_extension: "补充来源", compatible_update: "可补充字段",
+            likely_duplicate: "可能重复", conflict: "存在冲突", new_fact: "新增", keep_separate: "单独保留" } as Record<string, string>)[String(entry.state)] ?? "待核对"}
+        </li>)}</ul>
+        {unresolved.map((entry) => <article key={String(entry.incomingItemId)}>
+          <strong>{String(entry.label ?? "待核对资料")}</strong>
+          {arrayOfRecords(entry.fieldComparisons).map((field) => <p key={String(field.field)}>
+            {String(field.field)}：资料库 {String(field.existingValue ?? "（空）")}；候选 {String(field.incomingValue ?? "（空）")}
+          </p>)}
+          <div className="agent-import-review-actions">
+            {([ ["keep_existing", "保留资料库"], ["use_imported", "采用候选"], ["keep_both_as_distinct", "保留两项"] ] as const).map(([resolution, label]) =>
+              <button key={resolution} type="button" onClick={() => onArtifactAction?.({ type: "profile_intake_reconciliation_decision",
+                incomingItemId: String(entry.incomingItemId), resolution })}>{label}</button>)}
+          </div>
+        </article>)}
+      </section> : null}
       <dl>
         {Object.entries(counts).map(([section, count]) => (
           <div key={section}><dt>{sectionTypeLabel(section)}</dt><dd>{count} 项</dd></div>
@@ -967,7 +990,7 @@ function ProfileIntakeFinalReview({
         ) : null}
         <button type="button" onClick={() => onImportAction?.("新增一项经历")}>新增一项</button>
         <button type="button" onClick={() => onImportAction?.("返回继续补充经历")}>返回继续补充</button>
-        {allReviewed ? (
+        {allReviewed && unresolved.length === 0 ? (
           <button className="is-primary" type="button" onClick={() => onImportAction?.("完成整理并保存到资料库")}>确认并写入个人资料库</button>
         ) : null}
       </div>

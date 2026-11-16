@@ -14,6 +14,10 @@ export class AgentSessionStore {
     return this.repository.saveAgentSession(session);
   }
 
+  saveIfRevision(session: AgentSession, expectedRevision: number) {
+    return this.repository.saveAgentSession(session, expectedRevision);
+  }
+
   get(sessionId: string) {
     return this.repository.getAgentSession(sessionId);
   }

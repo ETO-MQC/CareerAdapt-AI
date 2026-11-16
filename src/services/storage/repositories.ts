@@ -297,6 +297,73 @@ const CAREER_PERSON_INDEX_META_KEY = "careerPersons:v1";
 const LEGACY_DEMO_PROFILE_NAME = "陈同学";
 const PROFILE_RECONCILIATION_META_KEY_PREFIX = "profileReconciliation:v1:";
 const PROFILE_INTAKE_OPERATION_META_KEY_PREFIX = "profileIntakeOperation:v1:";
+export const FrozenProfileIntakeRequestSchema = z.object({
+  personId: z.string().min(1),
+  targetProfileId: z.string().min(1),
+  expectedProfileVersion: z.number().int().min(0),
+  draft: ImportedResumeDraftSchema,
+  reconciliation: ProfileReconciliationPlanSchema,
+  confirmation: z.object({ sessionId: z.string().min(1), turnId: z.string().min(1),
+    messageId: z.string().min(1), text: z.string().min(1) }).strict(),
+  fingerprint: z.string().regex(/^[a-f0-9]{64}$/)
+}).strict();
+
+export function profileIntakeRequestFingerprint(frozen: Omit<z.infer<typeof FrozenProfileIntakeRequestSchema>, "fingerprint">) {
+  return sha256Utf8(stableStringify(frozen));
+}
+
+const ProfileIntakeOperationReceiptSchema = z.object({
+  operationType: z.literal("profile_intake"),
+  operationId: z.string().min(1),
+  personId: z.string().min(1),
+  profileId: z.string().min(1),
+  profileVersion: z.number().int(),
+  importId: z.string().min(1),
+  expectedDraftRevision: z.number().int(),
+  expectedReconciliationRevision: z.number().int(),
+  expectedProfileVersion: z.number().int(),
+  requestFingerprint: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+  committedFactCount: z.number().int(),
+  committedItemCount: z.number().int(),
+  committedItems: z.array(z.object({ id: z.string(), content: z.string() }).strict()),
+  committedFacts: z.array(z.object({ id: z.string(), content: z.string() }).strict()),
+  idempotent: z.boolean()
+}).strict().refine((value) => value.profileVersion === value.expectedProfileVersion + 1);
+
+export type ProfileIntakeOperationRequest = {
+  importId: string;
+  expectedDraftRevision: number;
+  expectedReconciliationRevision: number;
+  targetProfileId: string;
+  expectedProfileVersion: number;
+  operationId: string;
+  frozen?: z.infer<typeof FrozenProfileIntakeRequestSchema>;
+};
+
+function assertProfileIntakeReceiptRequest(
+  receipt: z.infer<typeof ProfileIntakeOperationReceiptSchema>,
+  request: ProfileIntakeOperationRequest
+) {
+  if (receipt.operationId !== request.operationId || receipt.profileId !== request.targetProfileId
+    || receipt.importId !== request.importId || receipt.expectedDraftRevision !== request.expectedDraftRevision
+    || receipt.expectedReconciliationRevision !== request.expectedReconciliationRevision
+    || receipt.expectedProfileVersion !== request.expectedProfileVersion) {
+    throw new Error("profile_intake_operation_mismatch");
+  }
+  if (receipt.requestFingerprint !== request.frozen?.fingerprint) throw new Error("profile_intake_operation_mismatch");
+}
+
+function validateFrozenProfileIntakeRequest(request: ProfileIntakeOperationRequest) {
+  const frozen = FrozenProfileIntakeRequestSchema.parse(request.frozen);
+  const { fingerprint, ...payload } = frozen;
+  if (profileIntakeRequestFingerprint(payload) !== fingerprint || frozen.targetProfileId !== request.targetProfileId
+    || frozen.expectedProfileVersion !== request.expectedProfileVersion || frozen.draft.importId !== request.importId
+    || frozen.draft.revision !== request.expectedDraftRevision
+    || frozen.reconciliation.importId !== request.importId
+    || frozen.reconciliation.revision !== request.expectedReconciliationRevision) {
+    throw new Error("profile_intake_frozen_request_mismatch");
+  }
+}
 const PROFILE_CONTENT_REPAIR_OPERATION_META_KEY_PREFIX = "profileContentRepair:v1:";
 const CAREER_PREFERENCE_OPERATION_META_KEY_PREFIX = "careerPreferenceOperation:v1:";
 const PROFILE_INTAKE_SOURCE_TURN_META_KEY_PREFIX = "profileIntakeSourceTurn:v1:";
@@ -930,7 +997,7 @@ export class WorkspaceRepository {
     }
   }
 
-  async saveAgentSession(session: AgentSession) {
+  async saveAgentSession(session: AgentSession, expectedSessionRevision?: number) {
     const incoming = AgentSessionSchema.parse(serializeAgentSession(session));
     let persisted!: AgentSession;
     await this.db.transaction("rw", this.db.agentSessions, this.db.agentMessages, async () => {
@@ -938,6 +1005,9 @@ export class WorkspaceRepository {
       const stored = storedRaw
         ? migrateAgentSessionToCurrentSchema(storedRaw as unknown as Record<string, unknown>)
         : undefined;
+      if (expectedSessionRevision !== undefined && stored?.sessionRevision !== expectedSessionRevision) {
+        throw new RevisionConflictError();
+      }
       // Terminal ownership is absorbing for the same Run, including Stop.
       // Do not append late transcript/tool results from a competing consumer.
       if (stored?.hermesRun && incoming.hermesRun?.runId === stored.hermesRun.runId
@@ -2345,14 +2415,40 @@ export class WorkspaceRepository {
     });
   }
 
-  async confirmProfileIntake(input: {
-    importId: string;
-    expectedDraftRevision: number;
-    expectedReconciliationRevision: number;
-    targetProfileId: string;
-    expectedProfileVersion: number;
-    operationId: string;
-  }): Promise<{
+  async freezeProfileIntakeRequest(input: Omit<ProfileIntakeOperationRequest, "operationId" | "frozen"> & {
+    personId: string;
+    confirmation: z.infer<typeof FrozenProfileIntakeRequestSchema>["confirmation"];
+  }) {
+    return this.db.transaction("r", this.db.appMeta, this.db.profiles, async () => {
+      const [draft, plan, profile] = await Promise.all([
+        this.getImportedResumeDraft(input.importId), this.getProfileReconciliationPlan(input.importId),
+        this.db.profiles.get(input.targetProfileId)
+      ]);
+      if (!draft || !plan || !profile) throw new Error("profile_intake_freeze_missing");
+      const parsedProfile = CareerProfileSchema.parse(profile);
+      if (parsedProfile.personId !== input.personId || parsedProfile.version !== input.expectedProfileVersion
+        || draft.revision !== input.expectedDraftRevision || plan.revision !== input.expectedReconciliationRevision
+        || plan.profileId !== input.targetProfileId || plan.profileVersion !== input.expectedProfileVersion
+        || plan.draftRevision !== input.expectedDraftRevision) throw new RevisionConflictError();
+      const payload = { personId: input.personId, targetProfileId: input.targetProfileId,
+        expectedProfileVersion: input.expectedProfileVersion, draft, reconciliation: plan, confirmation: input.confirmation };
+      return FrozenProfileIntakeRequestSchema.parse({ ...payload, fingerprint: profileIntakeRequestFingerprint(payload) });
+    });
+  }
+
+  async getProfileIntakeOperationReceipt(input: ProfileIntakeOperationRequest & { personId: string }) {
+    if (input.frozen) validateFrozenProfileIntakeRequest(input);
+    const stored = await this.db.appMeta.get(`${PROFILE_INTAKE_OPERATION_META_KEY_PREFIX}${input.operationId}`);
+    if (!stored) return undefined;
+    const parsed = ProfileIntakeOperationReceiptSchema.safeParse(stored.value);
+    if (!parsed.success) throw new Error("profile_intake_operation_receipt_unverifiable");
+    if (!parsed.data.requestFingerprint) throw new Error("profile_intake_operation_receipt_unverifiable");
+    assertProfileIntakeReceiptRequest(parsed.data, input);
+    if (parsed.data.personId !== input.personId) throw new Error("profile_intake_operation_mismatch");
+    return parsed.data;
+  }
+
+  async confirmProfileIntake(input: ProfileIntakeOperationRequest): Promise<{
     profileId: string;
     profileVersion: number;
     importId: string;
@@ -2360,28 +2456,16 @@ export class WorkspaceRepository {
     committedItemCount: number;
     idempotent: boolean;
   }> {
+    if (input.frozen) validateFrozenProfileIntakeRequest(input);
     return withProfileWriteLock(input.targetProfileId, () => this.db.transaction("rw", this.db.appMeta, this.db.profiles, async () => {
       const operationKey = `${PROFILE_INTAKE_OPERATION_META_KEY_PREFIX}${input.operationId}`;
       const existingOperation = await this.db.appMeta.get(operationKey);
-      if (existingOperation?.value && typeof existingOperation.value === "object") {
-        const value = existingOperation.value as Record<string, unknown>;
-        if (
-          typeof value.profileId === "string"
-          && typeof value.profileVersion === "number"
-          && typeof value.importId === "string"
-          && typeof value.committedFactCount === "number"
-        ) {
-          return {
-            profileId: value.profileId,
-            profileVersion: value.profileVersion,
-            importId: value.importId,
-            committedFactCount: value.committedFactCount,
-            committedItemCount: typeof value.committedItemCount === "number"
-              ? value.committedItemCount
-              : 0,
-            idempotent: true
-          };
-        }
+      if (existingOperation) {
+        const parsed = ProfileIntakeOperationReceiptSchema.safeParse(existingOperation.value);
+        if (!parsed.success) throw new Error("profile_intake_operation_receipt_unverifiable");
+        if (!parsed.data.requestFingerprint) throw new Error("profile_intake_operation_receipt_unverifiable");
+        assertProfileIntakeReceiptRequest(parsed.data, input);
+        return { ...parsed.data, idempotent: true };
       }
       const [draft, storedProfile, storedPlan] = await Promise.all([
         this.getImportedResumeDraft(input.importId),
@@ -2407,6 +2491,11 @@ export class WorkspaceRepository {
         || plan.revision !== input.expectedReconciliationRevision
       ) {
         throw new RevisionConflictError();
+      }
+      if (input.frozen && (profile.personId !== input.frozen.personId
+        || stableStringify(draft) !== stableStringify(input.frozen.draft)
+        || stableStringify(plan) !== stableStringify(input.frozen.reconciliation))) {
+        throw new Error("profile_intake_frozen_request_mismatch");
       }
       if (plan.reviewUnits.some((unit) => !unit.resolved) || plan.status === "stale") {
         throw new Error("profile_reconciliation_unresolved");
@@ -2454,12 +2543,25 @@ export class WorkspaceRepository {
           .length,
         idempotent: false
       };
-      await this.ensurePersonForProfileInTransaction(committedProfile);
-      await this.putProfileInTransaction(committedProfile, profile);
+      const person = await this.ensurePersonForProfileInTransaction(committedProfile);
+      const persistedProfile = await this.putProfileInTransaction(committedProfile, profile);
+      const previousItems = new Map(canonicalProfileLibraryItems(profile).map((item) => [item.id, stableStringify(item)]));
+      const committedItems = canonicalProfileLibraryItems(persistedProfile)
+        .map((item) => ({ id: item.id, content: stableStringify(item) }))
+        .filter((item) => previousItems.get(item.id) !== item.content);
+      const previousFacts = new Map(profile.experiences.flatMap((experience) => experience.facts)
+        .map((fact) => [fact.id, stableStringify(fact)]));
+      const committedFacts = persistedProfile.experiences.flatMap((experience) => experience.facts)
+        .map((fact) => ({ id: fact.id, content: stableStringify(fact) }))
+        .filter((fact) => previousFacts.get(fact.id) !== fact.content);
+      const receipt = ProfileIntakeOperationReceiptSchema.parse({ ...result, operationType: "profile_intake",
+        operationId: input.operationId, personId: person.id, expectedDraftRevision: input.expectedDraftRevision,
+        expectedReconciliationRevision: input.expectedReconciliationRevision, expectedProfileVersion: input.expectedProfileVersion,
+        ...(input.frozen ? { requestFingerprint: input.frozen.fingerprint } : {}), committedItems, committedFacts });
       await this.db.appMeta.bulkPut([
         { key: profileReconciliationMetaKey(input.importId), value: committedPlan, updatedAt: now },
         { key: importedResumeDraftKey(input.importId), value: committedDraft, updatedAt: now },
-        { key: operationKey, value: result, updatedAt: now }
+        { key: operationKey, value: receipt, updatedAt: now }
       ]);
       return result;
     }));

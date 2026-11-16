@@ -182,14 +182,15 @@ async function readAppHealth(url) {
 
 async function waitForApp(child) {
   const startedAt = Date.now();
-  while (Date.now() - startedAt < 30_000) {
+  const timeoutMs = environment.HERMES_INTEGRATION_RUN_ID ? 120_000 : 30_000;
+  while (Date.now() - startedAt < timeoutMs) {
     if (child.exitCode !== null && child.exitCode !== undefined) {
       throw new Error(`Next.js exited before becoming ready (code=${child.exitCode})`);
     }
     if (await isAppReady(appUrl)) return;
     await new Promise((resolve) => setTimeout(resolve, 300));
   }
-  throw new Error(`CareerAdapt did not become ready on port ${appPort} within 30 seconds.`);
+  throw new Error(`CareerAdapt did not become ready on port ${appPort} within ${timeoutMs / 1000} seconds.`);
 }
 
 function spawnPnpm(args, options) {

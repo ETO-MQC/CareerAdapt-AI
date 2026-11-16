@@ -53,9 +53,11 @@ const items: ReadonlyArray<{
 ];
 
 export function AgentQuickStartCards({
-  onSelect
+  onSelect,
+  disabled = false
 }: {
   onSelect(id: AgentQuickActionId): void;
+  disabled?: boolean;
 }) {
   return (
     <div className="agent-quick-grid">
@@ -64,6 +66,7 @@ export function AgentQuickStartCards({
           key={item.id}
           className="agent-quick-card"
           type="button"
+          disabled={disabled}
           onClick={() => onSelect(item.id)}
         >
           <span className="agent-quick-icon"><Icon aria-hidden="true" /></span>

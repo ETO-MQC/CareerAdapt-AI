@@ -171,11 +171,12 @@ export function ProfileIntakeCandidateCard({
 
   const saveEdit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const editedLabel = labelField ? draft[labelField]?.trim() : undefined;
+    const labelValue = labelField ? draft[labelField]?.trim() : undefined;
+    const editedLabel = labelField && labelValue !== String(item[labelField] ?? "").trim() ? labelValue : undefined;
     const fieldPatch = Object.fromEntries(
-      Object.entries(draft).filter(([field, value]) => field !== labelField && value.trim())
+      Object.entries(draft).filter(([field, value]) => field !== labelField && value.trim() && value.trim() !== String(item[field] ?? "").trim())
     ) as ProfileIntakeStructuredPatch;
-    if ((!editedLabel && !Object.keys(fieldPatch).length) || saving) return;
+    if (saving) return;
     setSaving(true);
     setError(undefined);
     try {
@@ -186,6 +187,7 @@ export function ProfileIntakeCandidateCard({
         candidateId: candidate.id,
         editedLabel,
         fieldPatch: Object.keys(fieldPatch).length ? fieldPatch : undefined,
+        userCorrection: true,
         decision: "accept"
       });
       if (artifactActionFailed(result)) {
